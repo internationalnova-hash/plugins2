@@ -36,7 +36,7 @@ juce_add_plugin(NovaLevel
     PLUGIN_MANUFACTURER_CODE "INVA"
     PLUGIN_CODE "NLVL"
     FORMATS VST3
-    NEEDS_WEB_BROWSER TRUE
+    NEEDS_WEB_BROWSER FALSE
 )
 
 juce_generate_juce_header(NovaLevel)
@@ -54,8 +54,8 @@ set_target_properties(NovaLevel PROPERTIES
     JUCE_PLUGIN_FORMATS "VST3"
 )
 
-target_compile_definitions(NovaLevel PUBLIC JUCE_WEB_BROWSER=1)
-target_link_libraries(NovaLevel PRIVATE juce::juce_dsp juce::juce_gui_extra)
+target_compile_definitions(NovaLevel PUBLIC JUCE_WEB_BROWSER=0)
+target_link_libraries(NovaLevel PRIVATE juce::juce_dsp juce::juce_gui_basics)
 
 # JUCE VST3 client defaults JUCE_VST3_CAN_REPLACE_VST2 to 1, which pulls in
 # the legacy VST2 header vstfxstore.h. Force-disable it for VST3-only builds.
