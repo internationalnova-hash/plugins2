@@ -98,6 +98,19 @@ std::optional<juce::WebBrowserComponent::Resource> NovaLevelAudioProcessorEditor
         };
     };
 
+    const auto lowerUrl = url.toLowerCase();
+
+    // Fallback matching for platforms that hand back full or relative URLs with varying roots.
+    if (lowerUrl.contains ("index.html"))
+        return makeResource (nova_level_BinaryData::index_html,
+                             nova_level_BinaryData::index_htmlSize,
+                             "text/html");
+
+    if (lowerUrl.contains ("n_logo.png"))
+        return makeResource (nova_level_BinaryData::n_logo_png,
+                             nova_level_BinaryData::n_logo_pngSize,
+                             "image/png");
+
     auto resourcePath = url.fromFirstOccurrenceOf (juce::WebBrowserComponent::getResourceProviderRoot(), false, false);
     resourcePath = resourcePath.upToFirstOccurrenceOf ("?", false, false);
 
