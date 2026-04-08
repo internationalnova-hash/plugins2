@@ -1,0 +1,33 @@
+name: Build Nova Level macOS
+
+on:
+  push:
+    paths:
+      - 'Nova Level/**'
+      - '.github/workflows/build-nova-level-macos.yml'
+  pull_request:
+    paths:
+      - 'Nova Level/**'
+      - '.github/workflows/build-nova-level-macos.yml'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        run: brew install cmake
+
+      - name: Configure CMake
+        run: cmake -S "Nova Level" -B "Nova Level/build"
+
+      - name: Build
+        run: cmake --build "Nova Level/build" --config Release
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaLevel-macOS-build
+          path: Nova Level/build
