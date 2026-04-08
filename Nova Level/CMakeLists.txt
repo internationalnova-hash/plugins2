@@ -1,4 +1,14 @@
-# Nova Level CMake configuration
+cmake_minimum_required(VERSION 3.15)
+project(NovaLevel VERSION 1.0.0)
+
+# JUCE setup using FetchContent
+include(FetchContent)
+FetchContent_Declare(
+    juce
+    GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+    GIT_TAG        7.0.9 # You can change this to your preferred JUCE version
+)
+FetchContent_MakeAvailable(juce)
 
 juce_add_plugin(NovaLevel
     COMPANY_NAME "International Nova"

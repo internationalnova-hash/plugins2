@@ -1,0 +1,14 @@
+# Target labels
+ juce-populate
+# Source files and their labels
+/workspaces/plugins2/Nova Level/build/_deps/juce-subbuild/CMakeFiles/juce-populate
+/workspaces/plugins2/Nova Level/build/_deps/juce-subbuild/CMakeFiles/juce-populate.rule
+/workspaces/plugins2/Nova Level/build/_deps/juce-subbuild/CMakeFiles/juce-populate-complete.rule
+/workspaces/plugins2/Nova Level/build/_deps/juce-subbuild/juce-populate-prefix/src/juce-populate-stamp/juce-populate-build.rule
+/workspaces/plugins2/Nova Level/build/_deps/juce-subbuild/juce-populate-prefix/src/juce-populate-stamp/juce-populate-configure.rule
+/workspaces/plugins2/Nova Level/build/_deps/juce-subbuild/juce-populate-prefix/src/juce-populate-stamp/juce-populate-download.rule
+/workspaces/plugins2/Nova Level/build/_deps/juce-subbuild/juce-populate-prefix/src/juce-populate-stamp/juce-populate-install.rule
+/workspaces/plugins2/Nova Level/build/_deps/juce-subbuild/juce-populate-prefix/src/juce-populate-stamp/juce-populate-mkdir.rule
+/workspaces/plugins2/Nova Level/build/_deps/juce-subbuild/juce-populate-prefix/src/juce-populate-stamp/juce-populate-patch.rule
+/workspaces/plugins2/Nova Level/build/_deps/juce-subbuild/juce-populate-prefix/src/juce-populate-stamp/juce-populate-test.rule
+/workspaces/plugins2/Nova Level/build/_deps/juce-subbuild/juce-populate-prefix/src/juce-populate-stamp/juce-populate-update.rule
