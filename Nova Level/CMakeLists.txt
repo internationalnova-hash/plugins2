@@ -30,6 +30,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
+juce_add_binary_data(NovaLevel_WebUI
+    SOURCES
+        Source/ui/public/index.html
+        Source/ui/public/n_logo.png
+    NAMESPACE nova_level_BinaryData
+)
+
 
 
 
@@ -44,7 +51,8 @@ juce_add_plugin(NovaLevel
     PLUGIN_MANUFACTURER_CODE Inov
     PLUGIN_CODE NvLv
     FORMATS VST3
-    NEEDS_WEB_BROWSER FALSE
+    NEEDS_WEB_BROWSER TRUE
+    NEEDS_WEBVIEW2 TRUE
     VST3_CAN_REPLACE_VST2 FALSE
     VST3_CATEGORIES Fx Dynamics
 )
@@ -64,8 +72,8 @@ set_target_properties(NovaLevel PROPERTIES
     JUCE_PLUGIN_FORMATS "VST3"
 )
 
-target_compile_definitions(NovaLevel PUBLIC JUCE_WEB_BROWSER=0)
-target_link_libraries(NovaLevel PRIVATE juce::juce_dsp juce::juce_gui_basics)
+target_compile_definitions(NovaLevel PUBLIC JUCE_WEB_BROWSER=1)
+target_link_libraries(NovaLevel PRIVATE NovaLevel_WebUI juce::juce_dsp juce::juce_gui_basics juce::juce_gui_extra)
 
 # JUCE VST3 client defaults JUCE_VST3_CAN_REPLACE_VST2 to 1, which pulls in
 # the legacy VST2 header vstfxstore.h. Force-disable it for VST3-only builds.

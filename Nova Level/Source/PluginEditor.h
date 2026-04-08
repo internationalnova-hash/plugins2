@@ -1,8 +1,9 @@
 #pragma once
-#include <juce_gui_basics/juce_gui_basics.h>
+#include <juce_gui_extra/juce_gui_extra.h>
 #include "PluginProcessor.h"
 
-class NovaLevelAudioProcessorEditor : public juce::AudioProcessorEditor {
+class NovaLevelAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                     private juce::Timer {
 public:
     explicit NovaLevelAudioProcessorEditor(NovaLevelAudioProcessor&);
     ~NovaLevelAudioProcessorEditor() override;
@@ -10,17 +11,38 @@ public:
     void resized() override;
 
 private:
+    void timerCallback() override;
+
     NovaLevelAudioProcessor& processorRef;
 
-    juce::Label titleLabel;
-    juce::Label inputLabel;
-    juce::Label amountLabel;
-    juce::Label outputLabel;
+    juce::WebSliderRelay compressionRelay { "compression" };
+    juce::WebSliderRelay toneRelay { "tone" };
+    juce::WebSliderRelay outputRelay { "output" };
+    juce::WebSliderRelay modeRelay { "mode" };
+    juce::WebSliderRelay magicRelay { "magic" };
+    juce::WebSliderRelay meterRelay { "meter" };
 
-    juce::Slider inputSlider;
-    juce::Slider amountSlider;
-    juce::Slider outputSlider;
-    juce::ToggleButton bypassButton;
+    struct SinglePageBrowser : juce::WebBrowserComponent
+    {
+        using WebBrowserComponent::WebBrowserComponent;
+
+        bool pageAboutToLoad (const juce::String& newURL) override
+        {
+            return newURL.startsWith (getResourceProviderRoot()) || newURL == getResourceProviderRoot();
+        }
+    };
+
+    std::unique_ptr<SinglePageBrowser> webView;
+
+    std::unique_ptr<juce::WebSliderParameterAttachment> compressionAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> toneAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> outputAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> modeAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> magicAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> meterAttachment;
+
+    std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
+    static juce::WebBrowserComponent::Options createWebOptions (NovaLevelAudioProcessorEditor& editor);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NovaLevelAudioProcessorEditor)
 };

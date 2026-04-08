@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Level — v3 Triangle Preview</title>
+  <style>
+        .nova-header {
+          display: flex;
+          align-items: flex-start;
+          gap: 18px;
+          margin-bottom: 0;
+          position: relative;
+          min-height: 64px;
+          padding: 0;
+          z-index: 10;
+        }
+        .nova-logo-container {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          margin-left: -10px;
+          border-radius: 10px;
+          background: rgba(60, 56, 48, 0.10);
+          box-shadow: 0 2px 8px 0 rgba(60,56,48,0.07);
+          backdrop-filter: blur(1.5px);
+        }
+        .nova-logo {
+          width: 32px;
+          height: 32px;
+          object-fit: contain;
+          filter: grayscale(0.1) brightness(0.93) contrast(1.08);
+          opacity: 1;
+        }
+        .nova-title-nova {
+          font-size: 24px;
+          font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+          font-weight: 700;
+          letter-spacing: 0.13em;
+          color: #353535;
+          margin: 0 0 2px 0;
+          padding: 0;
+          opacity: 0.97;
+        }
+        .nova-title-master {
+          font-size: 30px;
+          font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+          font-weight: 950;
+          letter-spacing: 0.04em;
+          color: #282420;
+          margin: 0;
+          padding: 0;
+          line-height: 1.0;
+          opacity: 0.98;
+        }
+    :root {
+      --face: #eee5da;
+      --face-shade: #ddd4c7;
+      --panel: #d6ccb9;
+      --panel-soft: #f6f1e8;
+      --text-main: #453c34;
+      --text-soft: #6b655d;
+      --gold: #b08f54;
+      --gold-deep: #876739;
+      --gold-pale: #e8d8b2;
+      --meter-glow: #d8c28c;
+      --white: #fff9f1;
+      --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(180deg, #ddd0b8 0%, #cdbd9d 100%);
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text-main);
+    }
+    body { display: grid; place-items: center; }
+
+    .plugin {
+      position: relative;
+      width: min(980px, 100vw);
+      height: min(620px, 100vh);
+      border-radius: 34px;
+      overflow: hidden;
+      background: linear-gradient(180deg, #f4e9d9 0%, var(--face) 24%, var(--face-shade) 100%);
+      border: 1px solid rgba(174, 146, 90, 0.58);
+      box-shadow:
+        0 22px 48px rgba(90, 72, 46, 0.14),
+        inset 0 2px 0 rgba(255,255,255,0.78),
+        inset 0 -12px 20px rgba(156, 123, 67, 0.12),
+        inset 2px 0 0 rgba(255,255,255,0.20),
+        inset -2px 0 0 rgba(126, 96, 58, 0.06);
+    }
+
+    .plugin::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.16), transparent 16%, transparent 82%, rgba(120, 88, 52, 0.04));
+      pointer-events: none;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 34px 42px 18px;
+    }
+
+    .title {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-size: 54px;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      color: #2f261f;
+    }
+
+    .subtitle {
+      margin-top: 7px;
+      font-size: 15px;
+      letter-spacing: 0.20em;
+      color: var(--text-soft);
+    }
+
+    .tagline {
+      text-align: right;
+      margin-top: 2px;
+      font-family: "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Brush Script MT", cursive;
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      color: #9b8461;
+      text-shadow:
+        0 1px 0 rgba(255,255,255,0.42),
+        0 2px 3px rgba(126, 98, 62, 0.10);
+    }
+
+    .inner-panel {
+      position: absolute;
+      left: 26px;
+      right: 26px;
+      top: 118px;
+      bottom: 94px;
+      border-radius: 26px;
+      padding: 22px 24px 18px;
+      background: linear-gradient(180deg, rgba(244, 234, 217, 0.98) 0%, rgba(226, 211, 183, 0.96) 54%, rgba(212, 196, 168, 0.94) 100%);
+      border: 1px solid rgba(177, 145, 88, 0.44);
+      box-shadow:
+        inset 0 2px 0 rgba(255,255,255,0.48),
+        inset 0 -16px 24px rgba(128,94,52,0.08),
+        inset 1px 0 0 rgba(255,255,255,0.18),
+        inset -1px 0 0 rgba(134, 99, 57, 0.06),
+        0 10px 18px rgba(104, 77, 43, 0.05);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 0.84fr 1.16fr 1fr;
+      grid-template-rows: 1fr;
+      height: 100%;
+      column-gap: 14px;
+      align-items: center;
+    }
+
+    .tone-zone,
+    .hero-zone,
+    .output-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tone-zone {
+      grid-column: 1;
+      padding-left: 6px;
+    }
+
+    .hero-zone {
+      grid-column: 2;
+      padding-top: 0;
+    }
+
+    .output-zone {
+      grid-column: 3;
+      gap: 14px;
+      padding-right: 4px;
+    }
+
+    .output-top {
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+    }
+
+    .meter-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 2px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      color: #3f3328;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .section-sub {
+      margin-top: -2px;
+      margin-bottom: 12px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      text-align: center;
+      opacity: 0.82;
+    }
+
+    .knob-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-width: 132px;
+    }
+
+    .hero-zone .knob-wrap {
+      min-width: 202px;
+      gap: 6px;
+    }
+
+    .knob {
+      position: relative;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 30% 22%, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.38) 18%, transparent 34%),
+        radial-gradient(circle at 68% 74%, rgba(132, 98, 58, 0.10) 0%, transparent 34%),
+        repeating-conic-gradient(from 0deg, rgba(255,255,255,0.14) 0deg 11deg, rgba(173, 148, 112, 0.10) 11deg 22deg),
+        linear-gradient(145deg, #fff7ec 0%, #eadfcf 42%, #d3c09f 100%);
+      border: 1px solid rgba(186, 150, 98, 0.84);
+      box-shadow:
+        inset 0 2px 1px rgba(255,255,255,0.94),
+        inset 0 -14px 22px rgba(154, 118, 70, 0.16),
+        inset 2px 0 2px rgba(255,255,255,0.18),
+        inset -2px 0 2px rgba(128, 92, 50, 0.06),
+        0 12px 18px rgba(109, 83, 48, 0.10);
+      cursor: ns-resize;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .knob.hero {
+      width: 188px;
+      height: 188px;
+      border-width: 1px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.92),
+        inset 0 -14px 24px rgba(164, 124, 54, 0.18),
+        0 18px 28px rgba(158, 115, 48, 0.14);
+    }
+
+    .knob.hero .ring::before {
+      background: conic-gradient(from 218deg, rgba(236,223,192,0.76) 0deg 18deg, var(--gold-pale) 18deg 92deg, var(--gold) 92deg 134deg, transparent 134deg 360deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 14px), #000 calc(100% - 11px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 14px), #000 calc(100% - 11px));
+    }
+
+    .feedback-arc {
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      pointer-events: none;
+      opacity: 0.32;
+    }
+
+    .feedback-arc::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(
+        from 220deg,
+        transparent 0deg 18deg,
+        rgba(232, 216, 178, 0.92) 18deg,
+        rgba(176, 143, 84, 0.82) var(--gr-end, 74deg),
+        transparent calc(var(--gr-end, 74deg) + 2deg) 360deg
+      );
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 4px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 4px));
+      filter: drop-shadow(0 0 6px rgba(216, 194, 140, 0.24));
+    }
+
+    .knob.medium { width: 112px; height: 112px; }
+
+    .knob::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 14px;
+      width: 7px;
+      height: 30px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: linear-gradient(180deg, #fff2d8 0%, var(--gold) 48%, var(--gold-deep) 100%);
+      box-shadow: 0 0 0 1px rgba(255,249,239,0.52), 0 2px 6px rgba(132,81,44,0.16);
+    }
+
+    .ring {
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      transform: rotate(var(--turn, -42deg));
+    }
+
+    .ring::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(from 218deg, rgba(232,220,191,0.68) 0deg 22deg, var(--gold-pale) 22deg 80deg, var(--gold) 80deg 118deg, transparent 118deg 360deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #000 calc(100% - 9px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #000 calc(100% - 9px));
+    }
+
+    .readout {
+      min-width: 86px;
+      padding: 6px 10px;
+      margin-top: 2px;
+      border-radius: 999px;
+      border: 1px solid rgba(193, 158, 107, 0.40);
+      background: linear-gradient(180deg, rgba(255,255,252,0.98) 0%, rgba(241,231,216,0.96) 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.84),
+        inset 0 -2px 4px rgba(167, 132, 84, 0.08),
+        0 4px 10px rgba(110,84,48,0.05);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-align: center;
+    }
+
+    .mode-buttons, .preset-buttons, .meter-toggle {
+      display: flex;
+      gap: 8px;
+    }
+
+    .mode-buttons {
+      width: 286px;
+      justify-content: center;
+      margin-top: 2px;
+    }
+
+    button {
+      border: 1px solid rgba(187, 157, 104, 0.48);
+      background: linear-gradient(180deg, rgba(255,253,249,0.96) 0%, rgba(241,230,214,0.96) 100%);
+      color: #645849;
+      cursor: pointer;
+      border-radius: 999px;
+      transition: all var(--ease);
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button.active {
+      background: linear-gradient(180deg, var(--gold-pale) 0%, var(--gold) 100%);
+      color: var(--white);
+      border-color: var(--gold-deep);
+      box-shadow: 0 8px 14px rgba(158, 115, 48, 0.16);
+    }
+
+    .mode-buttons button, .meter-toggle button {
+      flex: 1;
+      padding: 10px 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+    }
+
+    .meter-toggle {
+      width: 88px;
+      margin-bottom: -1px;
+    }
+
+    .meter-toggle button {
+      padding: 8px 0;
+      font-size: 10px;
+    }
+
+    .meter-toggle button.active {
+      background: linear-gradient(180deg, #c9a15f 0%, #8e6937 100%);
+      color: #fffaf1;
+      border-color: #7d5c2d;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.34),
+        0 6px 10px rgba(128, 95, 44, 0.16);
+    }
+
+    .meter {
+      width: 34px;
+      height: 174px;
+      padding: 8px 6px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255,252,248,0.96) 0%, rgba(235,221,199,0.86) 100%);
+      border: 1px solid rgba(197,171,131,0.42);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.74),
+        inset 0 -3px 8px rgba(167, 132, 84, 0.08),
+        0 6px 14px rgba(136,96,34,0.05);
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 4px;
+    }
+
+    .meter-bar {
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(202,181,143,0.56) 0%, rgba(182,158,122,0.30) 100%);
+      transition: all 360ms cubic-bezier(0.18, 0.8, 0.2, 1);
+    }
+
+    .meter-bar.active {
+      background: linear-gradient(180deg, #efd8a3 0%, #b8924e 100%);
+      box-shadow: 0 0 12px rgba(215, 188, 124, 0.28);
+    }
+
+    .magic-button {
+      position: relative;
+      overflow: hidden;
+      min-width: 132px;
+      height: 36px;
+      padding: 0 18px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.68), 0 6px 12px rgba(110,84,48,0.05);
+    }
+
+    .magic-button::after {
+      content: "";
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      top: 2px;
+      height: 44%;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.50) 0%, rgba(255,255,255,0) 100%);
+      opacity: 0.42;
+      pointer-events: none;
+    }
+
+    .magic-button.active {
+      background: linear-gradient(180deg, #fff4cf 0%, #e2b866 42%, #b97f24 100%);
+      color: #fffdf8;
+      text-shadow: 0 1px 0 rgba(121, 78, 18, 0.24);
+      border-color: #996a24;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.92),
+        inset 0 -8px 12px rgba(133, 82, 20, 0.20),
+        0 0 0 1px rgba(255, 242, 214, 0.66),
+        0 0 26px rgba(229, 188, 94, 0.40),
+        0 12px 22px rgba(158, 115, 48, 0.22);
+    }
+
+    .magic-button.active::after {
+      opacity: 0.85;
+    }
+
+    .preset-buttons {
+      position: absolute;
+      left: 28px;
+      right: 28px;
+      bottom: 18px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .preset-buttons button {
+      flex: 1;
+      height: 44px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+    }
+  </style>
+</head>
+<body>
+  <div class="plugin">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; padding:18px 26px 0 26px; margin-bottom:2px;">
+      <div class="nova-header" style="margin-bottom:0; min-height:64px; padding:0;">
+        <div class="nova-logo-container">
+          <img src="n_logo.png" alt="N" class="nova-logo" />
+        </div>
+        <div class="nova-title-stack">
+          <span class="nova-title-nova">NOVA</span>
+          <br style="line-height:0; margin:0; padding:0;" />
+          <span class="nova-title-master">LEVEL</span>
+        </div>
+      </div>
+      <div class="tagline" style="font-size:22px; text-align:right; margin-top:6px;">by International Nova</div>
+    </div>
+
+    <div class="inner-panel">
+      <div class="layout">
+        <div class="tone-zone">
+          <div class="knob-wrap">
+            <div class="section-label">TONE SHAPING</div>
+            <div class="section-sub">COLOR / PRESENCE</div>
+            <div class="knob medium" data-param="tone" data-min="0" data-max="10">
+              <div class="ring"></div>
+            </div>
+            <div class="readout" data-readout="tone">+0.0</div>
+          </div>
+        </div>
+
+        <div class="hero-zone">
+          <div class="section-label">COMPRESSION</div>
+          <div class="knob-wrap">
+            <div class="knob hero" data-param="compression" data-min="0" data-max="10">
+              <div class="feedback-arc"></div>
+              <div class="ring"></div>
+            </div>
+            <div class="readout" data-readout="compression">4.0</div>
+          </div>
+          <div class="mode-buttons">
+            <button class="active" data-mode="SMOOTH">SMOOTH</button>
+            <button data-mode="PUNCH">PUNCH</button>
+            <button data-mode="LIMIT">LIMIT</button>
+          </div>
+        </div>
+
+        <div class="output-zone">
+          <div class="output-top">
+            <div class="knob-wrap">
+              <div class="section-label">OUTPUT</div>
+              <div class="knob medium" data-param="output" data-min="-12" data-max="12">
+                <div class="ring"></div>
+              </div>
+              <div class="readout" data-readout="output">+0.0 dB</div>
+            </div>
+
+            <div class="meter-stack">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div>
+                  <div class="meter-toggle">
+                    <button class="active" data-meter="GR">GR</button>
+                    <button data-meter="OUT">OUT</button>
+                  </div>
+                  <div class="meter" id="meter">
+                    <span class="meter-bar"></span>
+                    <span class="meter-bar"></span>
+                    <span class="meter-bar"></span>
+                    <span class="meter-bar"></span>
+                    <span class="meter-bar"></span>
+                    <span class="meter-bar"></span>
+                    <span class="meter-bar"></span>
+                    <span class="meter-bar"></span>
+                    <span class="meter-bar"></span>
+                    <span class="meter-bar"></span>
+                  </div>
+                </div>
+                <div id="meter-readout" style="min-width:60px; font-size:1.25em; font-weight:900; color:#b08f54; background:#fff9f1; border-radius:10px; padding:8px 12px; box-shadow:0 1px 4px #d8c28c44; letter-spacing:0.04em; text-align:right;">-0.0 dB</div>
+              </div>
+            </div>
+          </div>
+          <button id="magic-toggle" class="magic-button" type="button">MAGIC</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="preset-buttons">
+      <button data-preset="VOCAL">VOCAL</button>
+      <button data-preset="BASS">BASS</button>
+      <button data-preset="DRUMS">DRUMS</button>
+      <button data-preset="MASTER">MASTER</button>
+    </div>
+  </div>
+
+  <!-- Nova header moved to top -->
+<script>
+// Demo logic for meter readout (replace with real plugin data binding)
+const meterReadout = document.getElementById('meter-readout');
+const meterToggle = document.querySelectorAll('.meter-toggle button');
+let grActive = true;
+let grValue = -6.2; // Example gain reduction
+let outValue = -0.8; // Example output level
+
+function updateReadout() {
+  if (grActive) {
+    meterReadout.textContent = `${grValue.toFixed(1)} dB`;
+    meterReadout.style.color = '#b08f54';
+  } else {
+    meterReadout.textContent = `${outValue > 0 ? '+' : ''}${outValue.toFixed(1)} dB`;
+    meterReadout.style.color = '#876739';
+  }
+}
+meterToggle.forEach(btn => {
+  btn.addEventListener('click', e => {
+    meterToggle.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    grActive = btn.getAttribute('data-meter') === 'GR';
+    updateReadout();
+  });
+});
+updateReadout();
+</script>
+</body>
+</html>

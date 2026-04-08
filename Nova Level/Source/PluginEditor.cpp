@@ -1,71 +1,118 @@
 #include "PluginEditor.h"
+#include "BinaryData.h"
 
-NovaLevelAudioProcessorEditor::NovaLevelAudioProcessorEditor(NovaLevelAudioProcessor& p)
-    : juce::AudioProcessorEditor(&p), processorRef(p)
+#include <cstring>
+
+NovaLevelAudioProcessorEditor::NovaLevelAudioProcessorEditor (NovaLevelAudioProcessor& p)
+    : AudioProcessorEditor (&p), processorRef (p)
 {
-    juce::ignoreUnused (processorRef);
+    webView = std::make_unique<SinglePageBrowser> (createWebOptions (*this));
 
-    auto configureKnob = [] (juce::Slider& slider)
+    compressionAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("compression"), compressionRelay, nullptr);
+    toneAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("tone"), toneRelay, nullptr);
+    outputAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("output"), outputRelay, nullptr);
+    modeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("mode"), modeRelay, nullptr);
+    magicAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("magic"), magicRelay, nullptr);
+    meterAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("meter"), meterRelay, nullptr);
+
+    addAndMakeVisible (*webView);
+
+    const auto cacheBustedUrl = juce::WebBrowserComponent::getResourceProviderRoot()
+                              + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
+    webView->goToURL (cacheBustedUrl);
+
+    setResizable (false, false);
+    setSize (980, 620);
+    startTimerHz (30);
+}
+
+NovaLevelAudioProcessorEditor::~NovaLevelAudioProcessorEditor()
+{
+    stopTimer();
+}
+
+void NovaLevelAudioProcessorEditor::paint (juce::Graphics& g)
+{
+    g.fillAll (juce::Colour::fromRGB (236, 226, 213));
+}
+
+void NovaLevelAudioProcessorEditor::resized()
+{
+    if (webView != nullptr)
+        webView->setBounds (getLocalBounds());
+}
+
+void NovaLevelAudioProcessorEditor::timerCallback()
+{
+    if (webView == nullptr || ! webView->isVisible())
+        return;
+
+    const auto output = processorRef.outputPeakLevel.load();
+    const auto gainReduction = processorRef.gainReductionLevel.load();
+    const auto isHot = processorRef.outputIsHot.load();
+
+    const auto meterJs = "if (window.updateMeters) { window.updateMeters(" + juce::String (gainReduction, 3)
+        + ", " + juce::String (output, 3)
+        + ", " + juce::String (isHot ? "true" : "false") + "); }";
+
+    webView->evaluateJavascript (meterJs);
+}
+
+juce::WebBrowserComponent::Options NovaLevelAudioProcessorEditor::createWebOptions (NovaLevelAudioProcessorEditor& editor)
+{
+    auto options = juce::WebBrowserComponent::Options {};
+
+   #if JUCE_WINDOWS
+    options = options.withBackend (juce::WebBrowserComponent::Options::Backend::webview2)
+                     .withWinWebView2Options (
+                         juce::WebBrowserComponent::Options::WinWebView2 {}
+                             .withUserDataFolder (juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                 .getChildFile ("NovaLevel")));
+   #endif
+
+    options = options.withNativeIntegrationEnabled()
+                     .withResourceProvider ([&editor] (const juce::String& url)
+                     {
+                         return editor.getResource (url);
+                     })
+                     .withOptionsFrom (editor.compressionRelay)
+                     .withOptionsFrom (editor.toneRelay)
+                     .withOptionsFrom (editor.outputRelay)
+                     .withOptionsFrom (editor.modeRelay)
+                     .withOptionsFrom (editor.magicRelay)
+                     .withOptionsFrom (editor.meterRelay);
+
+    return options;
+}
+
+std::optional<juce::WebBrowserComponent::Resource> NovaLevelAudioProcessorEditor::getResource (const juce::String& url)
+{
+    auto makeResource = [] (const char* data, int size, const char* mime)
     {
-        slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-        slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 22);
-        slider.setRange (-24.0, 24.0, 0.1);
-        slider.setValue (0.0);
+        std::vector<std::byte> bytes (static_cast<size_t> (size));
+        std::memcpy (bytes.data(), data, static_cast<size_t> (size));
+
+        return juce::WebBrowserComponent::Resource {
+            std::move (bytes),
+            juce::String (mime)
+        };
     };
 
-    titleLabel.setText ("NOVA LEVEL", juce::dontSendNotification);
-    titleLabel.setJustificationType (juce::Justification::centred);
-    titleLabel.setFont (juce::Font (34.0f, juce::Font::bold));
-    addAndMakeVisible (titleLabel);
+    auto resourcePath = url.fromFirstOccurrenceOf (juce::WebBrowserComponent::getResourceProviderRoot(), false, false);
+    resourcePath = resourcePath.upToFirstOccurrenceOf ("?", false, false);
 
-    inputLabel.setText ("Input", juce::dontSendNotification);
-    inputLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (inputLabel);
+    if (resourcePath.isEmpty() || resourcePath == "/")
+        resourcePath = "/index.html";
 
-    amountLabel.setText ("Level", juce::dontSendNotification);
-    amountLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (amountLabel);
+    if (resourcePath == "/index.html")
+        return makeResource (nova_level_BinaryData::index_html,
+                             nova_level_BinaryData::index_htmlSize,
+                             "text/html");
 
-    outputLabel.setText ("Output", juce::dontSendNotification);
-    outputLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (outputLabel);
+    if (resourcePath == "/n_logo.png")
+        return makeResource (nova_level_BinaryData::n_logo_png,
+                             nova_level_BinaryData::n_logo_pngSize,
+                             "image/png");
 
-    configureKnob (inputSlider);
-    configureKnob (amountSlider);
-    configureKnob (outputSlider);
-
-    addAndMakeVisible (inputSlider);
-    addAndMakeVisible (amountSlider);
-    addAndMakeVisible (outputSlider);
-
-    bypassButton.setButtonText ("Bypass");
-    addAndMakeVisible (bypassButton);
-
-    setSize(980, 620);
-}
-
-NovaLevelAudioProcessorEditor::~NovaLevelAudioProcessorEditor() {
-}
-
-void NovaLevelAudioProcessorEditor::paint(juce::Graphics& g) {
-    g.fillAll(juce::Colour::fromRGB(236, 226, 213));
-
-    g.setColour (juce::Colour::fromRGB (23, 21, 18));
-    g.drawRoundedRectangle (40.0f, 40.0f, 900.0f, 540.0f, 18.0f, 2.0f);
-}
-
-void NovaLevelAudioProcessorEditor::resized() {
-    titleLabel.setBounds (270, 64, 440, 50);
-
-    const int knobSize = 180;
-    const int knobY = 190;
-    inputSlider.setBounds (150, knobY, knobSize, knobSize);
-    amountSlider.setBounds (400, knobY, knobSize, knobSize);
-    outputSlider.setBounds (650, knobY, knobSize, knobSize);
-
-    inputLabel.setBounds (150, 150, knobSize, 24);
-    amountLabel.setBounds (400, 150, knobSize, 24);
-    outputLabel.setBounds (650, 150, knobSize, 24);
-
-    bypassButton.setBounds (438, 430, 104, 28);
+    return std::nullopt;
 }
