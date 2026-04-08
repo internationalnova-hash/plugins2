@@ -104,6 +104,9 @@ std::optional<juce::WebBrowserComponent::Resource> NovaLevelAudioProcessorEditor
     if (resourcePath.isEmpty() || resourcePath == "/")
         resourcePath = "/index.html";
 
+    if (! resourcePath.startsWithChar ('/'))
+        resourcePath = "/" + resourcePath;
+
     if (resourcePath == "/index.html")
         return makeResource (nova_level_BinaryData::index_html,
                              nova_level_BinaryData::index_htmlSize,
