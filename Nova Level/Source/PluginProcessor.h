@@ -55,4 +55,5 @@ private:
     juce::dsp::Gain<float> outputTrim;
 
     juce::AudioBuffer<float> dryBuffer;
+    float grEnvelopeDb = 0.0f;
 };

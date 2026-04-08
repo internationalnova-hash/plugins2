@@ -591,30 +591,60 @@
 
   <!-- Nova header moved to top -->
 <script>
-// Demo logic for meter readout (replace with real plugin data binding)
 const meterReadout = document.getElementById('meter-readout');
 const meterToggle = document.querySelectorAll('.meter-toggle button');
+const meterBars = Array.from(document.querySelectorAll('.meter .meter-bar'));
+
 let grActive = true;
-let grValue = -6.2; // Example gain reduction
-let outValue = -0.8; // Example output level
+let grValue = 0.0; // positive dB reduced
+let outValueDb = -60.0;
+let hot = false;
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function setMeterFill(normalized) {
+  const barsOn = Math.round(clamp(normalized, 0, 1) * meterBars.length);
+  meterBars.forEach((bar, index) => {
+    const active = index < barsOn;
+    bar.classList.toggle('active', active);
+    bar.style.opacity = active ? '1' : '0.45';
+  });
+}
 
 function updateReadout() {
   if (grActive) {
-    meterReadout.textContent = `${grValue.toFixed(1)} dB`;
+    meterReadout.textContent = `-${grValue.toFixed(1)} dB`;
     meterReadout.style.color = '#b08f54';
+    setMeterFill(grValue / 18.0);
   } else {
-    meterReadout.textContent = `${outValue > 0 ? '+' : ''}${outValue.toFixed(1)} dB`;
-    meterReadout.style.color = '#876739';
+    meterReadout.textContent = `${outValueDb > 0 ? '+' : ''}${outValueDb.toFixed(1)} dB`;
+    meterReadout.style.color = hot ? '#a45f2f' : '#876739';
+    setMeterFill((outValueDb + 60.0) / 60.0);
   }
 }
+
+window.updateMeters = function(gainReductionDb, outputLinear, isHot) {
+  const safeGr = Number.isFinite(gainReductionDb) ? Math.max(0, gainReductionDb) : 0;
+  const safeOut = Number.isFinite(outputLinear) ? Math.max(1e-6, outputLinear) : 1e-6;
+
+  grValue = safeGr;
+  outValueDb = 20 * Math.log10(safeOut);
+  hot = !!isHot;
+
+  updateReadout();
+};
+
 meterToggle.forEach(btn => {
-  btn.addEventListener('click', e => {
+  btn.addEventListener('click', () => {
     meterToggle.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     grActive = btn.getAttribute('data-meter') === 'GR';
     updateReadout();
   });
 });
+
 updateReadout();
 </script>
 </body>

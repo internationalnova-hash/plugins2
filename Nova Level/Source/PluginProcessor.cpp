@@ -156,6 +156,75 @@ void NovaLevelAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     for (auto channel = totalNumInputChannels; channel < totalNumOutputChannels; ++channel)
         buffer.clear (channel, 0, buffer.getNumSamples());
+
+    const auto compression = juce::jlimit (0.0f, 10.0f, apvts.getRawParameterValue ("compression")->load());
+    const auto outputDb = juce::jlimit (-12.0f, 12.0f, apvts.getRawParameterValue ("output")->load());
+    const auto modeValue = apvts.getRawParameterValue ("mode")->load();
+    const bool magicEnabled = apvts.getRawParameterValue ("magic")->load() > 0.5f;
+
+    const int modeIndex = static_cast<int> (juce::jlimit (0.0f, 2.0f, modeValue));
+
+    float thresholdDb = -18.0f;
+    float ratioMax = 4.0f;
+    float attackMs = 20.0f;
+    float releaseMs = 140.0f;
+
+    if (modeIndex == 1) // PUNCH
+    {
+        thresholdDb = -16.0f;
+        ratioMax = 6.0f;
+        attackMs = 8.0f;
+        releaseMs = 90.0f;
+    }
+    else if (modeIndex == 2) // LIMIT
+    {
+        thresholdDb = -12.0f;
+        ratioMax = 10.0f;
+        attackMs = 2.0f;
+        releaseMs = 55.0f;
+    }
+
+    const float amount = compression / 10.0f;
+    const float ratio = 1.0f + (ratioMax - 1.0f) * amount;
+
+    const auto sampleRate = juce::jmax (1.0, getSampleRate());
+    const float attackCoeff = std::exp (-1.0f / (0.001f * attackMs * static_cast<float> (sampleRate)));
+    const float releaseCoeff = std::exp (-1.0f / (0.001f * releaseMs * static_cast<float> (sampleRate)));
+
+    float blockPeak = 0.0f;
+    float blockMaxGr = 0.0f;
+    const float outputGain = juce::Decibels::decibelsToGain (outputDb);
+
+    for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+    {
+        float detector = 0.0f;
+        for (int channel = 0; channel < totalNumInputChannels; ++channel)
+            detector = juce::jmax (detector, std::abs (buffer.getSample (channel, sample)));
+
+        const float inputDb = juce::Decibels::gainToDecibels (juce::jmax (detector, 1.0e-6f));
+        const float overDb = juce::jmax (0.0f, inputDb - thresholdDb);
+        const float targetGrDb = overDb * (1.0f - (1.0f / ratio));
+
+        const float coeff = targetGrDb > grEnvelopeDb ? attackCoeff : releaseCoeff;
+        grEnvelopeDb = coeff * grEnvelopeDb + (1.0f - coeff) * targetGrDb;
+        blockMaxGr = juce::jmax (blockMaxGr, grEnvelopeDb);
+
+        float sampleGain = juce::Decibels::decibelsToGain (-grEnvelopeDb) * outputGain;
+
+        for (int channel = 0; channel < totalNumInputChannels; ++channel)
+        {
+            float y = buffer.getSample (channel, sample) * sampleGain;
+            if (magicEnabled)
+                y = std::tanh (1.25f * y);
+
+            buffer.setSample (channel, sample, y);
+            blockPeak = juce::jmax (blockPeak, std::abs (y));
+        }
+    }
+
+    outputPeakLevel.store (blockPeak);
+    gainReductionLevel.store (blockMaxGr);
+    outputIsHot.store (blockPeak > 0.98f);
 }
 
 bool NovaLevelAudioProcessor::hasEditor() const
