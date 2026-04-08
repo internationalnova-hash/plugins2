@@ -1,3 +1,9 @@
+# Explicitly disable all plugin formats except VST3
+set(JUCE_VST2_FORMAT OFF)
+set(JUCE_AU_FORMAT OFF)
+set(JUCE_AAX_FORMAT OFF)
+set(JUCE_LV2_FORMAT OFF)
+set(JUCE_STANDALONE_FORMAT OFF)
 # Explicitly disable VST2 support to avoid missing header errors
 set(JUCE_VST2_FORMAT OFF)
 cmake_minimum_required(VERSION 3.15)
