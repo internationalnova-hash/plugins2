@@ -38,6 +38,7 @@ juce_add_plugin(NovaLevel
     FORMATS VST3
     NEEDS_WEB_BROWSER TRUE
     SOURCES
+        Source/CreatePluginFilter.cpp
         Source/PluginProcessor.cpp
         Source/PluginProcessor.h
         Source/PluginEditor.cpp

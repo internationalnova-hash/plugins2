@@ -196,7 +196,3 @@ void NovaLevelAudioProcessor::setStateInformation (const void* data, int sizeInB
         apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 }
 
-JUCE_API juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
-{
-    return new NovaLevelAudioProcessor();
-}
