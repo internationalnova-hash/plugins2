@@ -1,3 +1,28 @@
+# Ensure JUCE does not build VST2 client code (force disable)
+set(JUCE_BUILD_VST2 OFF CACHE BOOL "" FORCE)
+set(JUCE_VST2_FORMAT OFF CACHE BOOL "" FORCE)
+# Ensure JUCE does not search for VST2 SDK
+set(JUCE_VST2SDK_PATH "" CACHE PATH "" FORCE)
+
+cmake_minimum_required(VERSION 3.15)
+
+if(APPLE)
+    # Ensure consistent macOS binary compatibility regardless of CI defaults.
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "" FORCE)
+endif()
+
+project(NovaMaster VERSION 1.0.0)
+
+# JUCE setup using FetchContent
+include(FetchContent)
+FetchContent_Declare(
+    juce
+    GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+    GIT_TAG        8.0.8
+)
+FetchContent_MakeAvailable(juce)
+
 # Nova Master
 # Flagship final-mix finisher with hidden smart loudness control
 
