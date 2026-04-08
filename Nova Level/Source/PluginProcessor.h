@@ -1,6 +1,5 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
-#include <juce_dsp/juce_dsp.h>
 
 class NovaLevelAudioProcessor : public juce::AudioProcessor {
 public:
@@ -34,26 +33,4 @@ public:
 
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
-
-    juce::AudioProcessorValueTreeState apvts;
-
-    std::atomic<float> outputPeakLevel { 0.0f };
-    std::atomic<float> gainReductionLevel { 0.0f };
-    std::atomic<bool> outputIsHot { false };
-
-    // Preset logic
-    void applyPreset(const juce::String& presetName);
-
-private:
-    using Filter = juce::dsp::IIR::Filter<float>;
-    using StereoFilter = juce::dsp::ProcessorDuplicator<Filter, juce::dsp::IIR::Coefficients<float>>;
-
-    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
-
-    StereoFilter toneLowShelf;
-    StereoFilter toneHighShelf;
-    StereoFilter topPolishFilter;
-    juce::dsp::Gain<float> outputTrim;
-
-    juce::AudioBuffer<float> dryBuffer;
 };
