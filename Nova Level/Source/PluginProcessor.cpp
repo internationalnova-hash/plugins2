@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "PluginEditor.h"
 
 NovaLevelAudioProcessor::NovaLevelAudioProcessor()
     : AudioProcessor (BusesProperties()
@@ -94,12 +95,12 @@ void NovaLevelAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
 bool NovaLevelAudioProcessor::hasEditor() const
 {
-    return false;
+    return true;
 }
 
 juce::AudioProcessorEditor* NovaLevelAudioProcessor::createEditor()
 {
-    return nullptr;
+    return new NovaLevelAudioProcessorEditor (*this);
 }
 
 void NovaLevelAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
