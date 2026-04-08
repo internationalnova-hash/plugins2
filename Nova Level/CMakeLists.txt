@@ -31,12 +31,14 @@ FetchContent_MakeAvailable(juce)
 
 juce_add_plugin(NovaLevel
     COMPANY_NAME "International Nova"
+    COMPANY_WEBSITE "https://noizefield.com"
     PRODUCT_NAME "Nova Level"
     BUNDLE_ID "com.internationalnova.novalevel"
-    PLUGIN_MANUFACTURER_CODE "INOV"
-    PLUGIN_CODE "NvLv"
+    PLUGIN_MANUFACTURER_CODE Inov
+    PLUGIN_CODE NvLv
     FORMATS VST3
     NEEDS_WEB_BROWSER FALSE
+    VST3_CATEGORIES Fx Dynamics
 )
 
 juce_generate_juce_header(NovaLevel)
