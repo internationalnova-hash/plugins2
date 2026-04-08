@@ -28,8 +28,14 @@ jobs:
 
       - name: Build
         run: cmake --build "Nova Level/build" --config Release
+
+      - name: Package VST3 Bundle
+        run: |
+          cd "Nova Level/build/NovaLevel_artefacts/VST3"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Level.vst3" "NovaLevel-macOS-vst3.zip"
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: NovaLevel-macOS-build
-          path: Nova Level/build/NovaLevel_artefacts/VST3/Nova Level.vst3
+          path: Nova Level/build/NovaLevel_artefacts/VST3/NovaLevel-macOS-vst3.zip
