@@ -1,5 +1,5 @@
 // This function is required by JUCE for all plugin formats
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+extern "C" JUCE_API juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
 	return new NovaLevelAudioProcessor();
 }
