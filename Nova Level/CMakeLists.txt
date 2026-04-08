@@ -39,6 +39,8 @@ juce_add_plugin(NovaLevel
     NEEDS_WEB_BROWSER TRUE
 )
 
+juce_generate_juce_header(NovaLevel)
+
 target_sources(NovaLevel
     PRIVATE
         Source/CreatePluginFilter.cpp
@@ -46,11 +48,6 @@ target_sources(NovaLevel
         Source/PluginProcessor.h
         Source/PluginEditor.cpp
         Source/PluginEditor.h
-)
-
-target_include_directories(NovaLevel
-    PRIVATE
-        "${CMAKE_CURRENT_BINARY_DIR}/NovaLevel_artefacts/JuceLibraryCode"
 )
 
 set_target_properties(NovaLevel PROPERTIES
