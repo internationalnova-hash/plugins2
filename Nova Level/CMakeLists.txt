@@ -19,7 +19,7 @@ include(FetchContent)
 FetchContent_Declare(
     juce
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-    GIT_TAG        7.0.9 # Use the latest stable JUCE release for compatibility
+    GIT_TAG        8.0.8 # Match newer VST3 SDK metadata path used by known-good bundle
 )
 FetchContent_MakeAvailable(juce)
 
