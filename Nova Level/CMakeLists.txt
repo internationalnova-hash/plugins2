@@ -1,3 +1,5 @@
+# Explicitly disable VST2 support to avoid missing header errors
+set(JUCE_VST2_FORMAT OFF)
 cmake_minimum_required(VERSION 3.15)
 project(NovaLevel VERSION 1.0.0)
 
