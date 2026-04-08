@@ -12,6 +12,7 @@ FetchContent_MakeAvailable(juce)
 
 
 
+
 # Only enable VST3 and AU, disable all other plugin formats
 set(JUCE_BUILD_VST2 OFF CACHE BOOL "Disable VST2 format")
 set(JUCE_BUILD_AU ON CACHE BOOL "Enable AU format")
@@ -19,6 +20,12 @@ set(JUCE_BUILD_AUv3 OFF CACHE BOOL "Disable AUv3 format")
 set(JUCE_BUILD_LV2 OFF CACHE BOOL "Disable LV2 format")
 set(JUCE_BUILD_AAX OFF CACHE BOOL "Disable AAX format")
 set(JUCE_BUILD_STANDALONE OFF CACHE BOOL "Disable Standalone format")
+set(JUCE_BUILD_UNITY OFF CACHE BOOL "Disable Unity format")
+set(JUCE_BUILD_ARA OFF CACHE BOOL "Disable ARA format")
+
+set_target_properties(NovaLevel PROPERTIES
+    JUCE_PLUGIN_FORMATS "VST3;AU"
+)
 
 juce_add_plugin(NovaLevel
     COMPANY_NAME "International Nova"
