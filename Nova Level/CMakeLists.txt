@@ -12,6 +12,13 @@ set(JUCE_STANDALONE_FORMAT OFF)
 # Explicitly disable VST2 support to avoid missing header errors
 set(JUCE_VST2_FORMAT OFF)
 cmake_minimum_required(VERSION 3.15)
+
+if(APPLE)
+    # Ensure consistent macOS binary compatibility regardless of CI defaults.
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "" FORCE)
+endif()
+
 project(NovaLevel VERSION 1.0.0)
 
 # JUCE setup using FetchContent

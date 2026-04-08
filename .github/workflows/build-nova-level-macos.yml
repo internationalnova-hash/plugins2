@@ -24,7 +24,7 @@ jobs:
         run: rm -rf "Nova Level/build"
 
       - name: Configure CMake
-        run: cmake -S "Nova Level" -B "Nova Level/build"
+        run: cmake -S "Nova Level" -B "Nova Level/build" -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 
       - name: Build
         run: cmake --build "Nova Level/build" --config Release
@@ -32,4 +32,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: NovaLevel-macOS-build
-          path: Nova Level/build
+          path: Nova Level/build/NovaLevel_artefacts/VST3/Nova Level.vst3
