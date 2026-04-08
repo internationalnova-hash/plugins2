@@ -37,7 +37,10 @@ juce_add_plugin(NovaLevel
     PLUGIN_CODE "NLVL"
     FORMATS VST3
     NEEDS_WEB_BROWSER TRUE
-    SOURCES
+)
+
+target_sources(NovaLevel
+    PRIVATE
         Source/CreatePluginFilter.cpp
         Source/PluginProcessor.cpp
         Source/PluginProcessor.h
