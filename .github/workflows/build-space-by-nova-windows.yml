@@ -21,7 +21,7 @@ jobs:
         uses: lukka/get-cmake@v4.3.1
 
       - name: Clean build directory
-        run: if exist "Space By Nova\\build" rmdir /s /q "Space By Nova\\build"
+        run: if (Test-Path "Space By Nova/build") { Remove-Item -Recurse -Force "Space By Nova/build" }
 
       - name: Configure CMake
         run: cmake -S "Space By Nova" -B "Space By Nova/build"

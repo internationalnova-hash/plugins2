@@ -21,7 +21,7 @@ jobs:
         uses: lukka/get-cmake@v4.3.1
 
       - name: Clean build directory
-        run: if exist "Nova Level\\build" rmdir /s /q "Nova Level\\build"
+        run: if (Test-Path "Nova Level/build") { Remove-Item -Recurse -Force "Nova Level/build" }
 
       - name: Configure CMake
         run: cmake -S "Nova Level" -B "Nova Level/build"

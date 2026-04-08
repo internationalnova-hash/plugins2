@@ -21,7 +21,7 @@ jobs:
         uses: lukka/get-cmake@v4.3.1
 
       - name: Clean build directory
-        run: if exist "Nova Tone\\build" rmdir /s /q "Nova Tone\\build"
+        run: if (Test-Path "Nova Tone/build") { Remove-Item -Recurse -Force "Nova Tone/build" }
 
       - name: Configure CMake
         run: cmake -S "Nova Tone" -B "Nova Tone/build"

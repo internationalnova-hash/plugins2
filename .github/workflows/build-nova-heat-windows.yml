@@ -21,7 +21,7 @@ jobs:
         uses: lukka/get-cmake@v4.3.1
 
       - name: Clean build directory
-        run: if exist "Nova Heat\\build" rmdir /s /q "Nova Heat\\build"
+        run: if (Test-Path "Nova Heat/build") { Remove-Item -Recurse -Force "Nova Heat/build" }
 
       - name: Configure CMake
         run: cmake -S "Nova Heat" -B "Nova Heat/build"
