@@ -24,23 +24,6 @@ jobs:
       - name: Install CMake
         run: brew install cmake
 
-      - name: Validate signing secrets
-        env:
-          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
-          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-          APPLE_DEV_ID_APPLICATION: ${{ secrets.APPLE_DEV_ID_APPLICATION }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          set -e
-          test -n "$MACOS_CERTIFICATE_P12" || (echo "Missing secret: MACOS_CERTIFICATE_P12" && exit 1)
-          test -n "$MACOS_CERTIFICATE_PASSWORD" || (echo "Missing secret: MACOS_CERTIFICATE_PASSWORD" && exit 1)
-          test -n "$APPLE_DEV_ID_APPLICATION" || (echo "Missing secret: APPLE_DEV_ID_APPLICATION" && exit 1)
-          test -n "$APPLE_ID" || (echo "Missing secret: APPLE_ID" && exit 1)
-          test -n "$APPLE_APP_SPECIFIC_PASSWORD" || (echo "Missing secret: APPLE_APP_SPECIFIC_PASSWORD" && exit 1)
-          test -n "$APPLE_TEAM_ID" || (echo "Missing secret: APPLE_TEAM_ID" && exit 1)
-
 
       - name: Clean build directory
         run: rm -rf "Nova Level/build"
@@ -55,6 +38,7 @@ jobs:
         run: lipo -archs "$PLUGIN_BUNDLE/Contents/MacOS/Nova Level"
 
       - name: Import Developer ID certificate
+        if: ${{ secrets.MACOS_CERTIFICATE_P12 != '' && secrets.MACOS_CERTIFICATE_PASSWORD != '' && secrets.APPLE_DEV_ID_APPLICATION != '' }}
         env:
           MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -68,18 +52,27 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "build" build.keychain
 
       - name: Code sign plugin bundle
+        if: ${{ secrets.MACOS_CERTIFICATE_P12 != '' && secrets.MACOS_CERTIFICATE_PASSWORD != '' && secrets.APPLE_DEV_ID_APPLICATION != '' }}
         env:
           APPLE_DEV_ID_APPLICATION: ${{ secrets.APPLE_DEV_ID_APPLICATION }}
         run: |
           codesign --force --deep --options runtime --timestamp --sign "$APPLE_DEV_ID_APPLICATION" "$PLUGIN_BUNDLE"
           codesign --verify --deep --strict --verbose=2 "$PLUGIN_BUNDLE"
 
+      - name: Ad-hoc sign plugin bundle (fallback)
+        if: ${{ !(secrets.MACOS_CERTIFICATE_P12 != '' && secrets.MACOS_CERTIFICATE_PASSWORD != '' && secrets.APPLE_DEV_ID_APPLICATION != '') }}
+        run: |
+          codesign --force --deep --sign - "$PLUGIN_BUNDLE"
+          codesign --verify --deep --strict --verbose=2 "$PLUGIN_BUNDLE"
+
       - name: Prepare zip for notarization
+        if: ${{ secrets.MACOS_CERTIFICATE_P12 != '' && secrets.MACOS_CERTIFICATE_PASSWORD != '' && secrets.APPLE_DEV_ID_APPLICATION != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
         run: |
           rm -f "$ZIP_PATH"
           ditto -c -k --keepParent "$PLUGIN_BUNDLE" "$ZIP_PATH"
 
       - name: Notarize plugin zip
+        if: ${{ secrets.MACOS_CERTIFICATE_P12 != '' && secrets.MACOS_CERTIFICATE_PASSWORD != '' && secrets.APPLE_DEV_ID_APPLICATION != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
@@ -92,12 +85,21 @@ jobs:
             --wait
 
       - name: Staple notarization ticket
+        if: ${{ secrets.MACOS_CERTIFICATE_P12 != '' && secrets.MACOS_CERTIFICATE_PASSWORD != '' && secrets.APPLE_DEV_ID_APPLICATION != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
         run: |
           xcrun stapler staple "$PLUGIN_BUNDLE"
           xcrun stapler validate "$PLUGIN_BUNDLE"
 
       - name: Upload notarized artifact
+        if: ${{ secrets.MACOS_CERTIFICATE_P12 != '' && secrets.MACOS_CERTIFICATE_PASSWORD != '' && secrets.APPLE_DEV_ID_APPLICATION != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: NovaLevel-macOS-notarized
+          path: Nova Level/build/NovaLevel_artefacts/VST3/Nova Level.vst3
+
+      - name: Upload Artifacts
+        if: ${{ !(secrets.MACOS_CERTIFICATE_P12 != '' && secrets.MACOS_CERTIFICATE_PASSWORD != '' && secrets.APPLE_DEV_ID_APPLICATION != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaLevel-macOS-build
           path: Nova Level/build/NovaLevel_artefacts/VST3/Nova Level.vst3
