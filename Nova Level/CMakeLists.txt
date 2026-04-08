@@ -48,6 +48,11 @@ target_sources(NovaLevel
         Source/PluginEditor.h
 )
 
+target_include_directories(NovaLevel
+    PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/NovaLevel_artefacts/JuceLibraryCode"
+)
+
 set_target_properties(NovaLevel PROPERTIES
     JUCE_PLUGIN_FORMATS "VST3"
 )
