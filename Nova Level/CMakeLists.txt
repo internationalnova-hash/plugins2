@@ -32,9 +32,9 @@ FetchContent_MakeAvailable(juce)
 juce_add_plugin(NovaLevel
     COMPANY_NAME "International Nova"
     PRODUCT_NAME "Nova Level"
-    BUNDLE_ID "com.internationalnova.NovaLevel"
-    PLUGIN_MANUFACTURER_CODE "INVA"
-    PLUGIN_CODE "NLVL"
+    BUNDLE_ID "com.internationalnova.novalevel"
+    PLUGIN_MANUFACTURER_CODE "INOV"
+    PLUGIN_CODE "NvLv"
     FORMATS VST3
     NEEDS_WEB_BROWSER FALSE
 )
