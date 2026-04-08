@@ -107,12 +107,14 @@ std::optional<juce::WebBrowserComponent::Resource> NovaLevelAudioProcessorEditor
     if (! resourcePath.startsWithChar ('/'))
         resourcePath = "/" + resourcePath;
 
-    if (resourcePath == "/index.html")
+    const auto lowerPath = resourcePath.toLowerCase();
+
+    if (lowerPath == "/index.html" || lowerPath.endsWith ("/index.html"))
         return makeResource (nova_level_BinaryData::index_html,
                              nova_level_BinaryData::index_htmlSize,
                              "text/html");
 
-    if (resourcePath == "/n_logo.png")
+    if (lowerPath.endsWith ("/n_logo.png") || lowerPath == "/n_logo.png")
         return makeResource (nova_level_BinaryData::n_logo_png,
                              nova_level_BinaryData::n_logo_pngSize,
                              "image/png");

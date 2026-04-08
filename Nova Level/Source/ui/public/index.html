@@ -703,6 +703,12 @@
     });
   }
 
+  function setPresetVisual(presetName) {
+    presetButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.preset === presetName);
+    });
+  }
+
   function syncKnobVisual(param, value) {
     const knob = knobs.find((k) => k.dataset.param === param);
     const readout = document.querySelector(`[data-readout='${param}']`);
@@ -816,6 +822,7 @@
     btn.addEventListener('click', () => {
       const preset = presets[btn.dataset.preset];
       if (!preset) return;
+      setPresetVisual(btn.dataset.preset);
       setParam('compression', preset.compression, true);
       setParam('tone', preset.tone, true);
       setParam('output', preset.output, true);
@@ -875,6 +882,7 @@
   });
 
   initKnobInteraction();
+  setPresetVisual('VOCAL');
   updateMeterReadout();
 })();
 </script>
