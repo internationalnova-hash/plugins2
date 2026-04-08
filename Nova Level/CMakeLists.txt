@@ -23,13 +23,12 @@ set(JUCE_BUILD_STANDALONE OFF CACHE BOOL "Disable Standalone format")
 set(JUCE_BUILD_UNITY OFF CACHE BOOL "Disable Unity format")
 set(JUCE_BUILD_ARA OFF CACHE BOOL "Disable ARA format")
 
-set_target_properties(NovaLevel PROPERTIES
-    JUCE_PLUGIN_FORMATS "VST3;AU"
-)
+
 
 juce_add_plugin(NovaLevel
     COMPANY_NAME "International Nova"
     PRODUCT_NAME "Nova Level"
+    BUNDLE_ID "com.internationalnova.NovaLevel"
     PLUGIN_MANUFACTURER_CODE "INVA"
     PLUGIN_CODE "NLVL"
     FORMATS VST3 AU
@@ -39,6 +38,10 @@ juce_add_plugin(NovaLevel
         Source/PluginProcessor.h
         Source/PluginEditor.cpp
         Source/PluginEditor.h
+)
+
+set_target_properties(NovaLevel PROPERTIES
+    JUCE_PLUGIN_FORMATS "VST3;AU"
 )
 
 target_compile_definitions(NovaLevel PUBLIC JUCE_WEB_BROWSER=1)
