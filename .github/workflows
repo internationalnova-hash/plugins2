@@ -3,13 +3,13 @@ name: Build nova plugins (macOS)
 on:
   push:
     paths:
-      - 'pplguins/nova-level/**'
-      - 'pplguins/nova-master/**'
+      - 'plugins2/nova-level/**'
+      - 'plugins2/nova-master/**'
       - '.github/workflows/build-nova-plugins.yml'
   pull_request:
     paths:
-      - 'pplguins/nova-level/**'
-      - 'pplguins/nova-master/**'
+      - 'plugins2/nova-level/**'
+      - 'plugins2/nova-master/**'
       - '.github/workflows/build-nova-plugins.yml'
 
 jobs:
@@ -26,25 +26,25 @@ jobs:
           fi
 
       - name: Build with CMake (if available)
-        if: hashFiles('pplguins/nova-level/CMakeLists.txt') != ''
+        if: hashFiles('plugins2/nova-level/CMakeLists.txt') != ''
         run: |
-          mkdir -p pplguins/nova-level/build
-          cd pplguins/nova-level/build
+          mkdir -p plugins2/nova-level/build
+          cd plugins2/nova-level/build
           cmake .. -DCMAKE_BUILD_TYPE=Release
           cmake --build . --config Release
 
       - name: Build with Xcode (if available)
-        if: hashFiles('pplguins/nova-level/*.xcodeproj') != ''
+        if: hashFiles('plugins2/nova-level/*.xcodeproj') != ''
         run: |
-          PROJECT_PATH=$(find pplguins/nova-level -name '*.xcodeproj' | head -n 1)
+          PROJECT_PATH=$(find plugins2/nova-level -name '*.xcodeproj' | head -n 1)
           if [ -n "$PROJECT_PATH" ]; then
             xcodebuild -project "$PROJECT_PATH" -scheme nova-level build -configuration Release
           fi
 
       - name: Build with Makefile (if available)
-        if: hashFiles('pplguins/nova-level/Makefile') != ''
+        if: hashFiles('plugins2/nova-level/Makefile') != ''
         run: |
-          cd pplguins/nova-level
+          cd plugins2/nova-level
           make clean || true
           make
 
@@ -61,24 +61,24 @@ jobs:
           fi
 
       - name: Build with CMake (if available)
-        if: hashFiles('pplguins/nova-master/CMakeLists.txt') != ''
+        if: hashFiles('plugins2/nova-master/CMakeLists.txt') != ''
         run: |
-          mkdir -p pplguins/nova-master/build
-          cd pplguins/nova-master/build
+          mkdir -p plugins2/nova-master/build
+          cd plugins2/nova-master/build
           cmake .. -DCMAKE_BUILD_TYPE=Release
           cmake --build . --config Release
 
       - name: Build with Xcode (if available)
-        if: hashFiles('pplguins/nova-master/*.xcodeproj') != ''
+        if: hashFiles('plugins2/nova-master/*.xcodeproj') != ''
         run: |
-          PROJECT_PATH=$(find pplguins/nova-master -name '*.xcodeproj' | head -n 1)
+          PROJECT_PATH=$(find plugins2/nova-master -name '*.xcodeproj' | head -n 1)
           if [ -n "$PROJECT_PATH" ]; then
             xcodebuild -project "$PROJECT_PATH" -scheme nova-master build -configuration Release
           fi
 
       - name: Build with Makefile (if available)
-        if: hashFiles('pplguins/nova-master/Makefile') != ''
+        if: hashFiles('plugins2/nova-master/Makefile') != ''
         run: |
-          cd pplguins/nova-master
+          cd plugins2/nova-master
           make clean || true
-          make add build workflow in correct location
+          make
