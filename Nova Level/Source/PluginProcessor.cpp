@@ -177,7 +177,7 @@ bool NovaLevelAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* NovaLevelAudioProcessor::createEditor()
 {
-    return new NovaLevelAudioProcessorEditor (*this);
+    return new juce::GenericAudioProcessorEditor (*this);
 }
 
 void NovaLevelAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
