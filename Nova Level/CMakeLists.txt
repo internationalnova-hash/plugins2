@@ -11,9 +11,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(juce)
 
 
-# Only enable VST3, disable all other plugin formats
+
+# Only enable VST3 and AU, disable all other plugin formats
 set(JUCE_BUILD_VST2 OFF CACHE BOOL "Disable VST2 format")
-set(JUCE_BUILD_AU OFF CACHE BOOL "Disable AU format")
+set(JUCE_BUILD_AU ON CACHE BOOL "Enable AU format")
 set(JUCE_BUILD_AUv3 OFF CACHE BOOL "Disable AUv3 format")
 set(JUCE_BUILD_LV2 OFF CACHE BOOL "Disable LV2 format")
 set(JUCE_BUILD_AAX OFF CACHE BOOL "Disable AAX format")
@@ -24,7 +25,7 @@ juce_add_plugin(NovaLevel
     PRODUCT_NAME "Nova Level"
     PLUGIN_MANUFACTURER_CODE "INVA"
     PLUGIN_CODE "NLVL"
-    FORMATS VST3
+    FORMATS VST3 AU
     NEEDS_WEB_BROWSER TRUE
     SOURCES
         Source/PluginProcessor.cpp
