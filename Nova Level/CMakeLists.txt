@@ -13,7 +13,7 @@ FetchContent_MakeAvailable(juce)
 juce_add_plugin(NovaLevel
     COMPANY_NAME "International Nova"
     PRODUCT_NAME "Nova Level"
-    FORMATS VST3
+    FORMATS VST3 # Only build VST3 to avoid VST2/VST3 automation conflict
     NEEDS_WEB_BROWSER TRUE
     SOURCES
         Source/PluginProcessor.cpp
