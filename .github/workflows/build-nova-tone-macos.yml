@@ -1,0 +1,36 @@
+name: Build Nova Tone macOS
+
+on:
+  push:
+    paths:
+      - 'Nova Tone/**'
+      - '.github/workflows/build-nova-tone-macos.yml'
+  pull_request:
+    paths:
+      - 'Nova Tone/**'
+      - '.github/workflows/build-nova-tone-macos.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        run: brew install cmake
+
+      - name: Clean build directory
+        run: rm -rf "Nova Tone/build"
+
+      - name: Configure CMake
+        run: cmake -S "Nova Tone" -B "Nova Tone/build"
+
+      - name: Build
+        run: cmake --build "Nova Tone/build" --config Release
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaTone-macOS-build
+          path: Nova Tone/build

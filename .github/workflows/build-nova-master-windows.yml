@@ -1,0 +1,36 @@
+name: Build Nova Master Windows
+
+on:
+  push:
+    paths:
+      - 'Nova Master/**'
+      - '.github/workflows/build-nova-master-windows.yml'
+  pull_request:
+    paths:
+      - 'Nova Master/**'
+      - '.github/workflows/build-nova-master-windows.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@v3
+
+      - name: Clean build directory
+        run: if exist "Nova Master\\build" rmdir /s /q "Nova Master\\build"
+
+      - name: Configure CMake
+        run: cmake -S "Nova Master" -B "Nova Master/build"
+
+      - name: Build
+        run: cmake --build "Nova Master/build" --config Release
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaMaster-Windows-build
+          path: Nova Master/build

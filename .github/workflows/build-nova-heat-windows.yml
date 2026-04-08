@@ -1,0 +1,36 @@
+name: Build Nova Heat Windows
+
+on:
+  push:
+    paths:
+      - 'Nova Heat/**'
+      - '.github/workflows/build-nova-heat-windows.yml'
+  pull_request:
+    paths:
+      - 'Nova Heat/**'
+      - '.github/workflows/build-nova-heat-windows.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@v3
+
+      - name: Clean build directory
+        run: if exist "Nova Heat\\build" rmdir /s /q "Nova Heat\\build"
+
+      - name: Configure CMake
+        run: cmake -S "Nova Heat" -B "Nova Heat/build"
+
+      - name: Build
+        run: cmake --build "Nova Heat/build" --config Release
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaHeat-Windows-build
+          path: Nova Heat/build

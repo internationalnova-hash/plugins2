@@ -1,0 +1,36 @@
+name: Build Nova Heat macOS
+
+on:
+  push:
+    paths:
+      - 'Nova Heat/**'
+      - '.github/workflows/build-nova-heat-macos.yml'
+  pull_request:
+    paths:
+      - 'Nova Heat/**'
+      - '.github/workflows/build-nova-heat-macos.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        run: brew install cmake
+
+      - name: Clean build directory
+        run: rm -rf "Nova Heat/build"
+
+      - name: Configure CMake
+        run: cmake -S "Nova Heat" -B "Nova Heat/build"
+
+      - name: Build
+        run: cmake --build "Nova Heat/build" --config Release
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaHeat-macOS-build
+          path: Nova Heat/build

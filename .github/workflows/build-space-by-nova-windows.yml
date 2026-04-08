@@ -1,0 +1,36 @@
+name: Build Space By Nova Windows
+
+on:
+  push:
+    paths:
+      - 'Space By Nova/**'
+      - '.github/workflows/build-space-by-nova-windows.yml'
+  pull_request:
+    paths:
+      - 'Space By Nova/**'
+      - '.github/workflows/build-space-by-nova-windows.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@v3
+
+      - name: Clean build directory
+        run: if exist "Space By Nova\\build" rmdir /s /q "Space By Nova\\build"
+
+      - name: Configure CMake
+        run: cmake -S "Space By Nova" -B "Space By Nova/build"
+
+      - name: Build
+        run: cmake --build "Space By Nova/build" --config Release
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpaceByNova-Windows-build
+          path: Space By Nova/build

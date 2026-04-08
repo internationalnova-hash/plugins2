@@ -1,0 +1,36 @@
+name: Build Nova Master macOS
+
+on:
+  push:
+    paths:
+      - 'Nova Master/**'
+      - '.github/workflows/build-nova-master-macos.yml'
+  pull_request:
+    paths:
+      - 'Nova Master/**'
+      - '.github/workflows/build-nova-master-macos.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        run: brew install cmake
+
+      - name: Clean build directory
+        run: rm -rf "Nova Master/build"
+
+      - name: Configure CMake
+        run: cmake -S "Nova Master" -B "Nova Master/build"
+
+      - name: Build
+        run: cmake --build "Nova Master/build" --config Release
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaMaster-macOS-build
+          path: Nova Master/build
