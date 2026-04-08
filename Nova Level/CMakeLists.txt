@@ -22,7 +22,7 @@ juce_add_plugin(NovaLevel
     BUNDLE_ID "com.internationalnova.NovaLevel"
     PLUGIN_MANUFACTURER_CODE "INVA"
     PLUGIN_CODE "NLVL"
-    FORMATS VST3 AU
+    FORMATS VST3
     NEEDS_WEB_BROWSER TRUE
     SOURCES
         Source/PluginProcessor.cpp
@@ -32,7 +32,7 @@ juce_add_plugin(NovaLevel
 )
 
 set_target_properties(NovaLevel PROPERTIES
-    JUCE_PLUGIN_FORMATS "VST3;AU"
+    JUCE_PLUGIN_FORMATS "VST3"
 )
 
 target_compile_definitions(NovaLevel PUBLIC JUCE_WEB_BROWSER=1)
