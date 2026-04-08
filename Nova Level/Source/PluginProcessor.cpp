@@ -1,10 +1,15 @@
+#include "PluginProcessor.h"
+#include "PluginEditor.h"
+// ...existing code...
+#include "PluginProcessor.h"
+#include "PluginEditor.h"
+// ...existing code...
+
 // This function is required by JUCE for all plugin formats
 extern "C" JUCE_API juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-	return new NovaLevelAudioProcessor();
+    return new NovaLevelAudioProcessor();
 }
-#include "PluginProcessor.h"
-#include "PluginEditor.h"
 
 NovaLevelAudioProcessor::NovaLevelAudioProcessor()
 	: AudioProcessor (BusesProperties()
