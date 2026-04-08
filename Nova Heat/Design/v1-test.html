@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Heat — UI Preview</title>
+  <style>
+    :root {
+      --face: #eed9bb;
+      --face-rich: #e4cca8;
+      --panel: #d7ba90;
+      --text-main: #4a4036;
+      --text-soft: #6f6253;
+      --gold: #c68d1e;
+      --amber: #c27612;
+      --gold-pale: #e6bf67;
+      --heat-copper: #a85c3b;
+      --heat-copper-light: #c98561;
+      --heat-copper-deep: #8f472a;
+      --heat-copper-soft: #9d654d;
+      --white: #fffaf4;
+      --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(180deg, #d9c29f 0%, #c9ac7f 100%);
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text-main);
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+    }
+
+    .plugin {
+      position: relative;
+      width: 980px;
+      height: 620px;
+      border-radius: 34px;
+      background: linear-gradient(180deg, var(--face) 0%, var(--face-rich) 100%);
+      border: 1px solid rgba(194, 148, 77, 0.76);
+      box-shadow:
+        0 22px 46px rgba(92, 70, 40, 0.15),
+        inset 0 1px 0 rgba(255,255,255,0.72),
+        inset 0 -10px 18px rgba(177, 114, 32, 0.14);
+      overflow: hidden;
+    }
+
+    .plugin::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), transparent 14%);
+      pointer-events: none;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 34px 42px 18px;
+    }
+
+    .title {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-size: 56px;
+      line-height: 1;
+      letter-spacing: 0.01em;
+      color: #2f241c;
+    }
+
+    .title .heat-word {
+      background: linear-gradient(180deg, #be7754 0%, var(--heat-copper) 44%, #864126 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow:
+        0 1px 0 rgba(255,255,255,0.30),
+        0 2px 5px rgba(110, 63, 35, 0.12);
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      font-size: 16px;
+      letter-spacing: 0.20em;
+      color: var(--text-soft);
+    }
+
+    .descriptor {
+      margin-top: 2px;
+      font-family: "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Brush Script MT", cursive;
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      color: var(--heat-copper-soft);
+      text-align: right;
+      text-shadow:
+        0 1px 0 rgba(255,255,255,0.42),
+        0 2px 3px rgba(126, 98, 62, 0.10);
+    }
+
+    .inner-panel {
+      position: absolute;
+      left: 26px;
+      right: 26px;
+      top: 118px;
+      bottom: 94px;
+      border-radius: 26px;
+      background: linear-gradient(180deg, rgba(216, 186, 145, 0.98) 0%, rgba(198, 164, 118, 0.91) 100%);
+      border: 1px solid rgba(177, 131, 61, 0.56);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.42),
+        inset 0 -14px 22px rgba(128,94,52,0.11),
+        0 8px 16px rgba(104, 77, 43, 0.06);
+      padding: 22px 22px 18px;
+    }
+
+    .sections {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr 0.9fr;
+      gap: 16px;
+      height: 100%;
+    }
+
+    .section {
+      position: relative;
+      overflow: hidden;
+      border-radius: 20px;
+      padding: 16px 14px 14px;
+      background: linear-gradient(180deg, rgba(252, 243, 231, 0.74) 0%, rgba(231, 209, 177, 0.58) 100%);
+      border: 1px solid rgba(181, 132, 62, 0.46);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.44),
+        inset 0 -10px 14px rgba(138, 98, 52, 0.08),
+        0 6px 10px rgba(106, 78, 43, 0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .section-title {
+      align-self: stretch;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.26em;
+      color: #3e3127;
+      text-align: left;
+    }
+
+    .curve-buttons,
+    .preset-buttons {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .curve-buttons {
+      margin-bottom: 6px;
+    }
+
+    .curve-buttons button,
+    .preset-buttons button {
+      border: 1px solid rgba(191, 160, 116, 0.52);
+      background: linear-gradient(180deg, rgba(255, 252, 248, 0.94) 0%, rgba(244, 234, 219, 0.92) 100%);
+      color: #655847;
+      cursor: pointer;
+      transition: all var(--ease);
+    }
+
+    .curve-buttons button {
+      flex: 1;
+      padding: 10px 0;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      box-shadow: 0 4px 10px rgba(108, 80, 46, 0.06);
+    }
+
+    .curve-buttons button.active,
+    .preset-buttons button.active {
+      background: linear-gradient(180deg, #efc671 0%, #c97e27 100%);
+      color: #fffaf4;
+      border-color: #a8681d;
+      box-shadow: 0 8px 14px rgba(184, 117, 28, 0.22);
+    }
+
+    .dual-knobs {
+      display: flex;
+      justify-content: center;
+      align-items: end;
+      gap: 14px;
+      width: 100%;
+      flex: 1;
+    }
+
+    .knob-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-width: 92px;
+    }
+
+    .knob-label {
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--text-soft);
+      text-align: center;
+    }
+
+    .knob {
+      position: relative;
+      width: 98px;
+      height: 98px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 32% 24%, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.30) 20%, transparent 34%),
+        repeating-conic-gradient(from 0deg, rgba(255,255,255,0.14) 0deg 11deg, rgba(173, 140, 92, 0.10) 11deg 22deg),
+        linear-gradient(145deg, #fbf4ea 0%, #eadcc8 45%, #d6bb93 100%);
+      border: 1px solid rgba(186, 150, 98, 0.92);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.92),
+        inset 0 -12px 20px rgba(154, 118, 70, 0.14),
+        0 12px 18px rgba(109, 83, 48, 0.12);
+      cursor: ns-resize;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .knob.drive-focus {
+      width: 110px;
+      height: 110px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.92),
+        inset 0 -13px 22px rgba(160, 113, 54, 0.16),
+        0 14px 22px rgba(130, 92, 42, 0.14);
+    }
+
+    .knob.hero {
+      width: 122px;
+      height: 122px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.92),
+        inset 0 -14px 24px rgba(170, 104, 28, 0.18),
+        0 16px 24px rgba(168, 105, 28, 0.16);
+    }
+
+    .knob::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 14px;
+      width: 7px;
+      height: 26px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: linear-gradient(180deg, #fff1d8 0%, var(--heat-copper-light) 48%, var(--heat-copper-deep) 100%);
+      box-shadow: 0 0 0 1px rgba(255, 249, 239, 0.52), 0 2px 6px rgba(132, 81, 44, 0.20);
+    }
+
+    .arc {
+      position: absolute;
+      inset: 12px;
+      border-radius: 50%;
+      transform: rotate(var(--turn, -42deg));
+    }
+
+    .arc::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(from 218deg, rgba(230,216,188,0.82) 0deg 26deg, var(--gold-pale) 26deg 74deg, var(--gold) 74deg 112deg, transparent 112deg 360deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
+    }
+
+    .hero .arc::before {
+      background: conic-gradient(from 218deg, rgba(239,214,162,0.88) 0deg 24deg, #efc671 24deg 70deg, var(--amber) 70deg 118deg, transparent 118deg 360deg);
+    }
+
+    .readout {
+      min-width: 82px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(193, 158, 107, 0.46);
+      background: linear-gradient(180deg, rgba(255,252,247,0.96) 0%, rgba(239,228,212,0.96) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.78), 0 4px 10px rgba(110,84,48,0.06);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #2f241c;
+      text-align: center;
+    }
+
+    .mix-strip {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255, 251, 246, 0.56);
+      border: 1px solid rgba(197,171,131,0.34);
+    }
+
+    .mix-strip label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      color: var(--text-soft);
+      margin-bottom: 8px;
+    }
+
+    #mix-value {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255,250,243,0.96) 0%, rgba(240,226,205,0.98) 100%);
+      border: 1px solid rgba(193, 158, 107, 0.42);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.78), 0 4px 8px rgba(109, 83, 48, 0.08);
+      font-size: 14px;
+      color: #3a2c21;
+      letter-spacing: 0.06em;
+      min-width: 58px;
+      text-align: center;
+    }
+
+    .mix-strip input {
+      width: 100%;
+      accent-color: var(--amber);
+    }
+
+    .output-layout {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      width: 100%;
+      align-items: center;
+      flex: 1;
+    }
+
+    .meter {
+      width: 28px;
+      height: 186px;
+      border-radius: 15px;
+      padding: 8px 6px;
+      background: linear-gradient(180deg, rgba(255, 251, 246, 0.92) 0%, rgba(238, 224, 204, 0.82) 100%);
+      border: 1px solid rgba(197,171,131,0.48);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.7),
+        0 6px 14px rgba(136, 96, 34, 0.08),
+        0 0 18px rgba(216, 138, 43, 0.08);
+      display: flex;
+      flex-direction: column-reverse;
+      justify-content: space-between;
+      gap: 4px;
+    }
+
+    .meter-bar {
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(202,181,143,0.70) 0%, rgba(182,158,122,0.40) 100%);
+    }
+
+    .meter-bar.active {
+      background: linear-gradient(180deg, #f1c989 0%, #c9783f 100%);
+      box-shadow: 0 0 12px rgba(184, 106, 74, 0.28);
+    }
+
+    .footer {
+      position: absolute;
+      left: 28px;
+      right: 28px;
+      bottom: 18px;
+    }
+
+    .output-magic {
+      margin-top: 18px;
+      padding-bottom: 2px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: flex-end;
+      width: 100%;
+    }
+
+    .magic-button {
+      min-width: 132px;
+      height: 34px;
+      padding: 0 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(186, 136, 78, 0.56);
+      background: linear-gradient(180deg, rgba(255,251,246,0.98) 0%, rgba(242,228,212,0.96) 100%);
+      color: #6c5841;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      cursor: pointer;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.82),
+        0 6px 12px rgba(109,84,48,0.08),
+        0 0 10px rgba(184, 106, 74, 0.05);
+      transition: all var(--ease);
+    }
+
+    .magic-button.active {
+      background: linear-gradient(180deg, #efd59a 0%, #ca8845 100%);
+      color: #fffaf4;
+      border-color: #aa6f33;
+      box-shadow:
+        0 0 0 1px rgba(255, 244, 218, 0.56),
+        0 0 22px rgba(184, 106, 74, 0.22),
+        0 10px 18px rgba(165, 103, 47, 0.18);
+    }
+
+    .plugin.magic-on .meter-bar.active {
+      box-shadow: 0 0 16px rgba(184, 106, 74, 0.30);
+    }
+
+    .plugin.magic-on .descriptor {
+      color: #b26a4a;
+    }
+
+    .preset-buttons button {
+      flex: 1;
+      height: 44px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+    }
+  </style>
+</head>
+<body>
+  <div class="plugin">
+    <div class="header">
+      <div>
+        <h1 class="title">NOVA <span class="heat-word">HEAT</span></h1>
+        <div class="subtitle">HARMONIC SATURATION ENGINE</div>
+      </div>
+      <div class="descriptor">by International Nova</div>
+    </div>
+
+    <div class="inner-panel">
+      <div class="sections">
+        <section class="section">
+          <div class="section-title">INPUT DRIVE</div>
+          <div class="curve-buttons">
+            <button data-mode="SOFT">SOFT</button>
+            <button class="active" data-mode="MEDIUM">MEDIUM</button>
+            <button data-mode="HARD">HARD</button>
+          </div>
+          <div class="dual-knobs">
+            <div class="knob-wrap">
+              <div class="knob-label">DRIVE</div>
+              <div class="knob drive-focus" data-param="drive" data-min="0" data-max="10" data-value="4.2">
+                <div class="arc"></div>
+              </div>
+              <div class="readout">+10.1 dB</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">TONE SHAPING</div>
+          <div class="dual-knobs">
+            <div class="knob-wrap">
+              <div class="knob-label">TONE</div>
+              <div class="knob" data-param="tone" data-min="0" data-max="10" data-value="5.6">
+                <div class="arc"></div>
+              </div>
+              <div class="readout">+0.5</div>
+            </div>
+            <div class="knob-wrap">
+              <div class="knob-label">HEAT</div>
+              <div class="knob hero" data-param="heat" data-min="0" data-max="10" data-value="5.0">
+                <div class="arc"></div>
+              </div>
+              <div class="readout">5.0</div>
+            </div>
+          </div>
+          <div class="mix-strip">
+            <label><span>MIX</span><span id="mix-value">28%</span></label>
+            <input id="mix-slider" type="range" min="0" max="100" value="28" />
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">OUTPUT</div>
+          <div class="output-layout">
+            <div class="knob-wrap">
+              <div class="knob-label">MAKEUP GAIN</div>
+              <div class="knob" data-param="output" data-min="-12" data-max="12" data-value="-0.8">
+                <div class="arc"></div>
+              </div>
+              <div class="readout">-0.8 dB</div>
+            </div>
+            <div class="meter" aria-hidden="true">
+              <span class="meter-bar active"></span>
+              <span class="meter-bar active"></span>
+              <span class="meter-bar active"></span>
+              <span class="meter-bar active"></span>
+              <span class="meter-bar active"></span>
+              <span class="meter-bar active"></span>
+              <span class="meter-bar"></span>
+              <span class="meter-bar"></span>
+              <span class="meter-bar"></span>
+              <span class="meter-bar"></span>
+            </div>
+          </div>
+          <div class="output-magic">
+            <button id="magic-toggle" class="magic-button" type="button" aria-pressed="false">MAGIC</button>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="preset-buttons">
+        <button class="active" data-preset="VOCAL">VOCAL</button>
+        <button data-preset="DRUMS">DRUMS</button>
+        <button data-preset="BASS">BASS</button>
+        <button data-preset="MASTER">MASTER</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="nova-header">
+    <div class="nova-logo-container">
+      <img src="../../Nova Master/Design/n_logo.png" alt="N" class="nova-logo" />
+    </div>
+    <div class="nova-title-stack">
+      <span class="nova-title-nova">NOVA</span>
+      <br style="line-height:0; margin:0; padding:0;" />
+      <span class="nova-title-master">HEAT</span>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const presets = {
+        VOCAL: { mode: 'MEDIUM', drive: 4.2, heat: 5.0, tone: 5.6, mix: 28, output: -0.8 },
+        DRUMS: { mode: 'HARD', drive: 5.8, heat: 6.5, tone: 4.8, mix: 35, output: -1.5 },
+        BASS: { mode: 'MEDIUM', drive: 5.0, heat: 5.8, tone: 3.8, mix: 32, output: -1.2 },
+        MASTER: { mode: 'SOFT', drive: 2.8, heat: 3.2, tone: 5.0, mix: 18, output: 0.0 }
+      };
+
+      let magicMode = false;
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, Number(value) || 0));
+      }
+
+      function setMode(mode) {
+        document.querySelectorAll('.curve-buttons button').forEach((button) => {
+          button.classList.toggle('active', button.dataset.mode === mode);
+        });
+      }
+
+      function updateKnob(knob, value) {
+        const min = Number(knob.dataset.min);
+        const max = Number(knob.dataset.max);
+        const safeValue = clamp(value, min, max);
+        const normal = (safeValue - min) / (max - min || 1);
+        const rotation = -42 + (normal * 210);
+        const arc = knob.querySelector('.arc');
+        const readout = knob.parentElement.querySelector('.readout');
+        const label = knob.parentElement.querySelector('.knob-label').textContent;
+
+        knob.dataset.value = safeValue;
+        if (arc) arc.style.setProperty('--turn', rotation + 'deg');
+
+        if (readout) {
+          if (label.includes('DRIVE')) {
+            const driveDb = (safeValue / 10) * 24;
+            const sign = driveDb >= 0 ? '+' : '';
+            readout.textContent = sign + driveDb.toFixed(1) + ' dB';
+          } else if (label.includes('TONE')) {
+            const tiltDb = -4 + ((safeValue / 10) * 8);
+            const sign = tiltDb >= 0 ? '+' : '';
+            readout.textContent = sign + tiltDb.toFixed(1);
+          } else if (label.includes('GAIN')) {
+            const sign = safeValue >= 0 ? '+' : '';
+            readout.textContent = sign + safeValue.toFixed(1) + ' dB';
+          } else {
+            readout.textContent = safeValue.toFixed(1);
+          }
+        }
+      }
+
+      function setMagicState(isOn) {
+        magicMode = Boolean(isOn);
+        const magicButton = document.getElementById('magic-toggle');
+        const plugin = document.querySelector('.plugin');
+
+        magicButton.classList.toggle('active', magicMode);
+        magicButton.setAttribute('aria-pressed', String(magicMode));
+        plugin.classList.toggle('magic-on', magicMode);
+      }
+
+      function applyPreset(name) {
+        const preset = presets[name];
+        if (!preset) return;
+
+        setMode(preset.mode);
+        updateKnob(document.querySelector('.knob[data-param="drive"]'), preset.drive);
+        updateKnob(document.querySelector('.knob[data-param="tone"]'), preset.tone);
+        updateKnob(document.querySelector('.knob[data-param="heat"]'), preset.heat);
+        updateKnob(document.querySelector('.knob[data-param="output"]'), preset.output);
+
+        mixSlider.value = preset.mix;
+        mixValue.textContent = preset.mix + '%';
+
+        document.querySelectorAll('.preset-buttons button').forEach((button) => {
+          button.classList.toggle('active', button.dataset.preset === name);
+        });
+      }
+
+      let activeKnob = null;
+
+      document.querySelectorAll('.knob').forEach((knob) => {
+        updateKnob(knob, knob.dataset.value);
+
+        knob.addEventListener('pointerdown', (event) => {
+          event.preventDefault();
+          activeKnob = {
+            knob,
+            startY: event.clientY,
+            startValue: Number(knob.dataset.value)
+          };
+        });
+      });
+
+      document.addEventListener('pointermove', (event) => {
+        if (!activeKnob) return;
+        const { knob, startY, startValue } = activeKnob;
+        const min = Number(knob.dataset.min);
+        const max = Number(knob.dataset.max);
+        const delta = startY - event.clientY;
+        const next = startValue + delta * ((max - min) / 220);
+        updateKnob(knob, next);
+      });
+
+      document.addEventListener('pointerup', () => {
+        activeKnob = null;
+      });
+
+      document.querySelectorAll('.curve-buttons button').forEach((button) => {
+        button.addEventListener('click', () => setMode(button.dataset.mode));
+      });
+
+      document.querySelectorAll('.preset-buttons button').forEach((button) => {
+        button.addEventListener('click', () => applyPreset(button.dataset.preset));
+      });
+
+      document.getElementById('magic-toggle').addEventListener('click', () => {
+        setMagicState(!magicMode);
+      });
+
+      const mixSlider = document.getElementById('mix-slider');
+      const mixValue = document.getElementById('mix-value');
+      mixSlider.addEventListener('input', () => {
+        mixValue.textContent = mixSlider.value + '%';
+      });
+
+      applyPreset('VOCAL');
+      setMagicState(false);
+    }());
+  </script>
+</body>
+</html>

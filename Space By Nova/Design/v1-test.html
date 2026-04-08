@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Space By Nova — v1 Preview</title>
+  <style>
+    :root {
+      --outer-bg: #d8d1c6;
+      --panel-bg: #f3efe8;
+      --panel-line: #e1cfb0;
+      --text-main: #26180f;
+      --text-soft: #7d6650;
+      --gold: #c39231;
+      --gold-soft: #d8b56d;
+      --gold-pale: #edd18c;
+      --white: #fffdf8;
+      --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+      --base-width: 1200px;
+      --base-height: 700px;
+      --ui-scale: 0.80;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: auto;
+      background: var(--outer-bg);
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text-main);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+
+    .stage {
+      position: relative;
+      width: calc(var(--base-width) * var(--ui-scale));
+      height: calc(var(--base-height) * var(--ui-scale));
+      margin: 24px auto;
+      overflow: hidden;
+    }
+
+    .plugin {
+      position: absolute;
+      inset: 0;
+      width: var(--base-width);
+      height: var(--base-height);
+      background: linear-gradient(180deg, #f7f3ed 0%, #efeae2 100%);
+      border: 2px solid var(--panel-line);
+      border-radius: 40px;
+      overflow: hidden;
+      box-shadow:
+        0 18px 40px rgba(118, 96, 66, 0.14),
+        inset 0 1px 0 rgba(255,255,255,0.78),
+        inset 0 -8px 18px rgba(188, 168, 138, 0.12);
+      transform: scale(var(--ui-scale));
+      transform-origin: top left;
+    }
+
+    .plugin::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 10px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.18) 28%, rgba(177,150,112,0.18) 72%, rgba(116,90,52,0.14) 100%);
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      opacity: 0.9;
+    }
+
+    .plugin::after {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border-radius: 30px;
+      border-top: 1px solid rgba(255,255,255,0.58);
+      border-left: 1px solid rgba(255,255,255,0.32);
+      border-right: 1px solid rgba(204,186,154,0.22);
+      border-bottom: 1px solid rgba(170,146,108,0.16);
+      pointer-events: none;
+    }
+
+    .title {
+      position: absolute;
+      left: 56px;
+      top: 34px;
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Garamond, Georgia, serif;
+      font-size: 62px;
+      line-height: 1;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: var(--text-main);
+    }
+
+    .subtitle {
+      position: absolute;
+      left: 58px;
+      top: 108px;
+      font-size: 24px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      color: var(--text-soft);
+    }
+
+    .tagline {
+      position: absolute;
+      right: 60px;
+      top: 42px;
+      font-family: "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Brush Script MT", cursive;
+      font-size: 30px;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      color: #8f7654;
+      text-shadow:
+        0 1px 0 rgba(255,255,255,0.42),
+        0 2px 3px rgba(126, 98, 62, 0.12);
+    }
+
+    .knob-label {
+      position: absolute;
+      width: 140px;
+      text-align: center;
+      font-size: 17px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      color: var(--text-soft);
+    }
+
+    .value {
+      position: absolute;
+      width: 140px;
+      margin-left: -70px;
+      text-align: center;
+      font-size: 28px;
+      font-weight: 500;
+      color: var(--text-main);
+      cursor: text;
+      border-radius: 10px;
+      outline: none;
+      user-select: text;
+      transition: background var(--ease), box-shadow var(--ease);
+    }
+
+    .value[contenteditable="true"]:hover {
+      background: rgba(255, 255, 255, 0.34);
+    }
+
+    .value[contenteditable="true"]:focus {
+      background: rgba(255, 255, 255, 0.7);
+      box-shadow: 0 0 0 1px rgba(201, 150, 53, 0.22);
+    }
+
+    .value.width-value {
+      width: 180px;
+      margin-left: -90px;
+      font-size: 26px;
+    }
+
+    .knob-shell {
+      position: absolute;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 32% 24%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.62) 16%, rgba(255,255,255,0.14) 26%, transparent 34%),
+        linear-gradient(145deg, #f8f3eb 0%, #eadfcf 48%, #dbc8ae 100%);
+      border: 1px solid rgba(206, 176, 120, 0.95);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.92),
+        inset 0 -10px 18px rgba(170, 138, 88, 0.12),
+        0 8px 18px rgba(126, 100, 62, 0.10),
+        0 0 0 7px rgba(255, 248, 236, 0.42);
+      overflow: visible;
+      cursor: ns-resize;
+      user-select: none;
+      transition: transform var(--ease), box-shadow var(--ease), filter var(--ease);
+    }
+
+    .knob-shell:hover,
+    .knob-shell.dragging {
+      transform: translateY(-1px);
+      filter: brightness(1.01);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.94),
+        inset 0 -10px 18px rgba(170, 138, 88, 0.14),
+        0 12px 24px rgba(126, 100, 62, 0.13),
+        0 0 0 7px rgba(255, 248, 236, 0.52);
+    }
+
+    .knob-shell::before {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.74);
+      box-shadow:
+        inset 0 0 0 1px rgba(211, 185, 138, 0.28),
+        inset 0 -6px 10px rgba(162, 130, 81, 0.08);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .knob-shell::after {
+      content: none;
+    }
+
+    .knob-shell.large {
+      background:
+        radial-gradient(circle at 31% 23%, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.64) 16%, rgba(255,255,255,0.15) 27%, transparent 35%),
+        linear-gradient(145deg, #f9f4ed 0%, #eadfce 46%, #d8c3a8 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.94),
+        inset 0 -12px 22px rgba(170, 138, 88, 0.13),
+        0 12px 26px rgba(126, 100, 62, 0.11),
+        0 0 0 10px rgba(255, 248, 236, 0.38);
+    }
+
+    .indicator {
+      position: absolute;
+      inset: 0;
+      transform: rotate(var(--rotation, -14deg));
+      transition: transform var(--ease);
+      pointer-events: none;
+    }
+
+    .indicator::before {
+      content: "";
+      position: absolute;
+      inset: 11%;
+      border-radius: 50%;
+      background: conic-gradient(
+        from 218deg,
+        rgba(228, 215, 191, 0.80) 0deg 28deg,
+        #ecd79b 28deg 74deg,
+        #c88f2f 74deg 112deg,
+        transparent 112deg 360deg
+      );
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #000 calc(100% - 10px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #000 calc(100% - 10px));
+      filter: drop-shadow(0 1px 1px rgba(124, 88, 28, 0.16));
+      opacity: 0.96;
+    }
+
+    .indicator::after {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 21%;
+      top: 8%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #f6e3b5 0%, #dab056 55%, #c08a2a 100%);
+      box-shadow:
+        0 0 0 4px rgba(255, 249, 238, 0.92),
+        0 3px 8px rgba(152, 110, 34, 0.18);
+    }
+
+    .large .indicator::before {
+      inset: 10%;
+      background: conic-gradient(
+        from 218deg,
+        rgba(228, 215, 191, 0.82) 0deg 32deg,
+        #f0ddab 32deg 78deg,
+        #c88f2f 78deg 116deg,
+        transparent 116deg 360deg
+      );
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 15px), #000 calc(100% - 14px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 15px), #000 calc(100% - 14px));
+      filter: drop-shadow(0 2px 2px rgba(124, 88, 28, 0.14));
+    }
+
+    .large .indicator::after {
+      width: 24px;
+      height: 24px;
+      right: 6.5%;
+      top: 16%;
+      left: auto;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #f8e6bf 0%, #ddb45f 55%, #c38c2d 100%);
+      box-shadow:
+        0 0 0 5px rgba(255, 249, 238, 0.94),
+        0 3px 9px rgba(170, 130, 54, 0.22);
+    }
+
+    .mini-dot {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, var(--gold-soft) 0%, var(--gold) 100%);
+      box-shadow: 0 0 0 4px rgba(255, 249, 238, 0.85);
+    }
+
+    .meter-title {
+      position: absolute;
+      left: 572px;
+      top: 345px;
+      width: 120px;
+      margin-left: -60px;
+      text-align: center;
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      color: var(--text-soft);
+    }
+
+    .stereo-vu {
+      position: absolute;
+      left: 214px;
+      top: 482px;
+      width: 736px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .vu-wing {
+      width: 250px;
+      display: flex;
+      align-items: center;
+    }
+
+    .vu-track {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(230,223,214,0.9), rgba(216,208,197,0.9));
+      box-shadow:
+        inset 0 1px 1px rgba(255,255,255,0.7),
+        inset 0 -1px 2px rgba(155,134,104,0.14);
+      overflow: hidden;
+    }
+
+    .vu-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(246, 231, 181, 0.16) 0%, #f0d78e 20%, #c89a36 56%, #f2dc98 100%);
+      box-shadow: 0 0 12px rgba(196, 149, 57, 0.22);
+      opacity: 0.96;
+    }
+
+    .vu-fill.left {
+      width: 88%;
+      margin-left: auto;
+      transform-origin: right center;
+      animation: vuPulseLeft 2.2s ease-in-out infinite;
+    }
+
+    .vu-fill.right {
+      width: 88%;
+      transform-origin: left center;
+      animation: vuPulseRight 2.2s ease-in-out infinite;
+    }
+
+    @keyframes vuPulseLeft {
+      0%, 100% { transform: scaleX(0.62); }
+      50% { transform: scaleX(1); }
+    }
+
+    @keyframes vuPulseRight {
+      0%, 100% { transform: scaleX(0.58); }
+      50% { transform: scaleX(0.96); }
+    }
+
+    .mode-button {
+      position: absolute;
+      width: 190px;
+      height: 55px;
+      border-radius: 24px;
+      border: 2px solid rgba(224, 208, 182, 0.96);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.52) 14%, transparent 15%),
+        linear-gradient(180deg, #f8f5ef 0%, #f1ece3 56%, #e8e0d3 100%);
+      color: #6f5b44;
+      font-size: 21px;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      cursor: pointer;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.60);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.96),
+        inset 0 -3px 5px rgba(208, 190, 160, 0.22),
+        0 2px 0 rgba(216, 199, 171, 0.76),
+        0 6px 12px rgba(150, 121, 72, 0.08);
+      transition: background var(--ease), color var(--ease), box-shadow var(--ease), transform var(--ease), border-color var(--ease), filter var(--ease);
+    }
+
+    .mode-button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.02);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.78),
+        inset 0 -3px 6px rgba(120, 82, 29, 0.18),
+        0 2px 0 rgba(167, 125, 49, 0.5),
+        0 10px 16px rgba(161, 124, 58, 0.14);
+    }
+
+    .mode-button.active {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.12) 16%, transparent 17%),
+        linear-gradient(180deg, #f0d994 0%, #ddb760 34%, #c99635 66%, #ab7420 100%);
+      color: #fffdf8;
+      border-color: #b9842b;
+      text-shadow: 0 1px 2px rgba(110, 72, 18, 0.28);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.36),
+        inset 0 -4px 7px rgba(104, 67, 16, 0.24),
+        0 2px 0 rgba(151, 107, 31, 0.55),
+        0 10px 18px rgba(180, 136, 57, 0.18),
+        0 0 16px rgba(224, 186, 95, 0.16);
+    }
+
+    .divider {
+      position: absolute;
+      left: 56px;
+      right: 56px;
+      bottom: 54px;
+      height: 2px;
+      background: rgba(225, 207, 176, 0.8);
+    }
+
+    .footer-note {
+      position: absolute;
+      bottom: 12px;
+      font-size: 18px;
+      color: var(--text-soft);
+      letter-spacing: 0.01em;
+    }
+
+    .footer-left { left: 56px; }
+    .footer-right { right: 56px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="plugin" id="plugin-ui">
+    <h1 class="title">NOVA SPACE</h1>
+    <div class="subtitle">STUDIO GLOW FOR MODERN VOCALS</div>
+    <div class="tagline">by International Nova</div>
+
+    <div class="knob-label" style="left: 130px; top: 160px;">SPACE</div>
+    <div class="knob-label" style="left: 360px; top: 160px;">AIR</div>
+    <div class="knob-label" style="left: 590px; top: 160px;">DEPTH</div>
+    <div class="knob-label" style="left: 820px; top: 160px;">MIX</div>
+    <div class="meter-title">WIDTH</div>
+    <div class="stereo-vu" aria-hidden="true">
+      <div class="vu-wing">
+        <div class="vu-track"><div class="vu-fill left"></div></div>
+      </div>
+      <div class="vu-wing">
+        <div class="vu-track"><div class="vu-fill right"></div></div>
+      </div>
+    </div>
+
+    <div class="knob-shell" id="space-knob" style="left: 125px; top: 200px; width: 150px; height: 150px;">
+      <div class="indicator"></div>
+    </div>
+    <div class="knob-shell" id="air-knob" style="left: 355px; top: 200px; width: 150px; height: 150px;">
+      <div class="indicator"></div>
+    </div>
+    <div class="mini-dot" style="left: 640px; top: 302px;"></div>
+    <div class="knob-shell" id="depth-knob" style="left: 585px; top: 200px; width: 150px; height: 150px;">
+      <div class="indicator"></div>
+    </div>
+    <div class="mini-dot" style="left: 870px; top: 340px;"></div>
+    <div class="knob-shell" id="mix-knob" style="left: 815px; top: 200px; width: 150px; height: 150px;">
+      <div class="indicator"></div>
+    </div>
+
+    <div class="knob-shell large" id="width-knob" style="left: 494px; top: 404px; width: 184px; height: 184px;">
+      <div class="indicator"></div>
+    </div>
+
+    <div class="value editable-value" id="space-value" data-param="space" contenteditable="true" spellcheck="false" style="left: 200px; top: 372px;">45%</div>
+    <div class="value editable-value" id="air-value" data-param="air" contenteditable="true" spellcheck="false" style="left: 430px; top: 372px;">60%</div>
+    <div class="value editable-value" id="depth-value" data-param="depth" contenteditable="true" spellcheck="false" style="left: 660px; top: 372px;">25%</div>
+    <div class="value editable-value" id="mix-value" data-param="mix" contenteditable="true" spellcheck="false" style="left: 890px; top: 372px;">18%</div>
+    <div class="value width-value editable-value" id="width-value" data-param="width" contenteditable="true" spellcheck="false" style="left: 586px; top: 590px;">80%</div>
+
+    <button class="mode-button active" data-mode="Studio" style="left: 60px; top: 604px;">STUDIO</button>
+    <button class="mode-button" data-mode="Arena" style="left: 340px; top: 604px;">ARENA</button>
+    <button class="mode-button" data-mode="Dream" style="left: 620px; top: 604px;">DREAM</button>
+    <button class="mode-button" data-mode="Vintage" style="left: 900px; top: 604px;">VINTAGE</button>
+    </div>
+  </div>
+
+  <div class="nova-header">
+        <div class="nova-logo-container">
+          <img src="../Nova Master/Design/n_logo.png" alt="N" class="nova-logo" />
+        </div>
+        <div class="nova-title-stack">
+          <span class="nova-title-nova">NOVA</span>
+          <br style="line-height:0; margin:0; padding:0;" />
+          <span class="nova-title-master">SPACE</span>
+        </div>
+      </div>
+
+  <script type="module">
+    const presets = {
+      Studio: { space: 18, air: 32, depth: 26, mix: 16, width: 38 },
+      Arena:  { space: 66, air: 60, depth: 70, mix: 28, width: 86 },
+      Dream:  { space: 84, air: 64, depth: 82, mix: 34, width: 90 },
+      Vintage:{ space: 42, air: 20, depth: 52, mix: 24, width: 48 }
+    };
+
+    const currentValues = { ...presets.Studio };
+    let activeDrag = null;
+
+    function clamp(value, min = 0, max = 100) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function moveCaretToEnd(element) {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    function setKnobValue(id, value) {
+      const safeValue = clamp(Number(value) || 0, 0, 100);
+      const knob = document.getElementById(id + '-knob');
+      const indicator = knob.querySelector('.indicator');
+      const readout = document.getElementById(id + '-value');
+      const rotation = -120 + (safeValue / 100) * 240;
+
+      currentValues[id] = safeValue;
+      indicator.style.setProperty('--rotation', rotation + 'deg');
+
+      if (document.activeElement !== readout) {
+        readout.textContent = Math.round(safeValue) + '%';
+      }
+    }
+
+    function commitValueEdit(readout) {
+      const id = readout.dataset.param;
+      const raw = readout.textContent.replace(/[^0-9.]/g, '');
+
+      if (raw === '') {
+        readout.textContent = Math.round(currentValues[id]) + '%';
+        return;
+      }
+
+      const typedValue = clamp(parseFloat(raw), 0, 100);
+      setKnobValue(id, typedValue);
+      readout.textContent = Math.round(currentValues[id]) + '%';
+    }
+
+    function applyMode(name) {
+      const preset = presets[name];
+      ['space', 'air', 'depth', 'mix', 'width'].forEach((key) => setKnobValue(key, preset[key]));
+      document.querySelectorAll('[data-mode]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.mode === name);
+      });
+    }
+
+    function finishActiveDrag(pointerId = null) {
+      if (!activeDrag) return;
+      if (pointerId !== null && activeDrag.pointerId !== null && pointerId !== activeDrag.pointerId) return;
+
+      if (typeof activeDrag.knob.releasePointerCapture === 'function' && activeDrag.pointerId !== null) {
+        try { activeDrag.knob.releasePointerCapture(activeDrag.pointerId); } catch (error) { console.warn(error.message); }
+      }
+
+      activeDrag.knob.classList.remove('dragging');
+      activeDrag = null;
+    }
+
+    ['space', 'air', 'depth', 'mix', 'width'].forEach((param) => {
+      const knob = document.getElementById(param + '-knob');
+      const defaultPercent = presets.Studio[param];
+
+      knob.addEventListener('pointerdown', (event) => {
+        if (event.button !== undefined && event.button !== 0) return;
+
+        event.preventDefault();
+        knob.classList.add('dragging');
+        activeDrag = {
+          param,
+          knob,
+          pointerId: event.pointerId ?? null,
+          startY: event.clientY,
+          startValue: currentValues[param] ?? defaultPercent
+        };
+
+        if (typeof knob.setPointerCapture === 'function' && event.pointerId !== undefined) {
+          try { knob.setPointerCapture(event.pointerId); } catch (error) { console.warn(error.message); }
+        }
+      });
+
+      knob.addEventListener('dblclick', () => setKnobValue(param, defaultPercent));
+    });
+
+    document.addEventListener('pointermove', (event) => {
+      if (!activeDrag) return;
+      if (activeDrag.pointerId !== null && event.pointerId !== activeDrag.pointerId) return;
+
+      const deltaY = activeDrag.startY - event.clientY;
+      const nextValue = clamp(activeDrag.startValue + (deltaY * 0.45));
+      setKnobValue(activeDrag.param, nextValue);
+    });
+
+    document.addEventListener('pointerup', (event) => finishActiveDrag(event.pointerId ?? null));
+    document.addEventListener('pointercancel', (event) => finishActiveDrag(event.pointerId ?? null));
+
+    document.querySelectorAll('[data-mode]').forEach((button) => {
+      button.addEventListener('click', () => applyMode(button.dataset.mode));
+    });
+
+    document.querySelectorAll('.editable-value').forEach((readout) => {
+      readout.addEventListener('focus', () => {
+        readout.textContent = Math.round(currentValues[readout.dataset.param]);
+        moveCaretToEnd(readout);
+      });
+
+      readout.addEventListener('input', () => {
+        const cleaned = readout.textContent.replace(/[^0-9.]/g, '');
+        if (readout.textContent !== cleaned) {
+          readout.textContent = cleaned;
+          moveCaretToEnd(readout);
+        }
+      });
+
+      readout.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          readout.blur();
+        }
+
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          readout.textContent = Math.round(currentValues[readout.dataset.param]) + '%';
+          readout.blur();
+        }
+      });
+
+      readout.addEventListener('blur', () => commitValueEdit(readout));
+    });
+
+    applyMode('Studio');
+  </script>
+</body>
+</html>

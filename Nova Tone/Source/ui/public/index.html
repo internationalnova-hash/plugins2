@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Tone</title>
+  <style>
+    :root {
+      --face: #f2e8dc;
+      --face-rich: #ede0cf;
+      --panel: #e4d6c3;
+      --panel-line: rgba(201, 172, 122, 0.45);
+      --text-main: #4a4036;
+      --text-soft: #6f6253;
+      --gold: #c89a43;
+      --gold-soft: #d8b56d;
+      --gold-pale: #e5c986;
+      --white: #fffaf4;
+      --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(180deg, #d8cfc2 0%, #cec3b5 100%);
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text-main);
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+
+    .plugin {
+      position: relative;
+      width: min(980px, calc(100vw - 8px));
+      height: min(620px, calc(100vh - 8px));
+      border-radius: 34px;
+      background: linear-gradient(180deg, var(--face) 0%, var(--face-rich) 100%);
+      border: 1px solid rgba(205, 179, 137, 0.65);
+      box-shadow:
+        0 22px 46px rgba(92, 70, 40, 0.12),
+        inset 0 1px 0 rgba(255,255,255,0.7),
+        inset 0 -10px 18px rgba(167, 140, 99, 0.10);
+      overflow: hidden;
+      max-width: 100vw;
+      max-height: 100vh;
+    }
+
+    .plugin::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), transparent 14%);
+      pointer-events: none;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 34px 42px 18px;
+    }
+
+    .title {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-size: 54px;
+      line-height: 1;
+      letter-spacing: 0.01em;
+      color: #2f241c;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      font-size: 16px;
+      letter-spacing: 0.20em;
+      color: var(--text-soft);
+    }
+
+    .descriptor {
+      margin-top: 2px;
+      font-family: "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Brush Script MT", cursive;
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      color: #8f7654;
+      text-align: right;
+      text-shadow:
+        0 1px 0 rgba(255,255,255,0.42),
+        0 2px 3px rgba(126, 98, 62, 0.12);
+    }
+
+    .inner-panel {
+      position: absolute;
+      left: 26px;
+      right: 26px;
+      top: 118px;
+      bottom: 96px;
+      border-radius: 26px;
+      background: linear-gradient(180deg, rgba(221, 205, 181, 0.92) 0%, rgba(210, 193, 168, 0.84) 100%);
+      border: 1px solid rgba(188, 153, 103, 0.46);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.40),
+        inset 0 -14px 22px rgba(134,102,62,0.08),
+        0 8px 16px rgba(104, 77, 43, 0.05);
+      padding: 24px 24px 16px;
+    }
+
+    .sections {
+      display: grid;
+      grid-template-columns: 1.15fr 1.25fr 0.95fr 0.7fr;
+      gap: 14px;
+      height: 100%;
+    }
+
+    .section {
+      position: relative;
+      overflow: hidden;
+      border-radius: 20px;
+      padding: 16px 14px 14px;
+      background: linear-gradient(180deg, rgba(252, 246, 238, 0.58) 0%, rgba(238, 225, 206, 0.42) 100%);
+      border: 1px solid rgba(190, 154, 101, 0.38);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.42),
+        inset 0 -10px 14px rgba(138, 105, 64, 0.06),
+        0 6px 10px rgba(106, 78, 43, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.26em;
+      color: #3e3127;
+    }
+
+    .selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .option {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(191, 160, 116, 0.52);
+      background: linear-gradient(180deg, rgba(255, 252, 248, 0.94) 0%, rgba(244, 234, 219, 0.92) 100%);
+      color: #655847;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.72), 0 2px 4px rgba(104, 77, 43, 0.04);
+      cursor: pointer;
+      transition: all var(--ease);
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .option.active {
+      background: linear-gradient(180deg, #efd58f 0%, #bf812b 100%);
+      color: #fffaf4;
+      border-color: #a96d18;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.36),
+        inset 0 -2px 4px rgba(120, 74, 16, 0.20),
+        0 7px 14px rgba(177, 126, 33, 0.26),
+        0 0 0 1px rgba(255, 244, 220, 0.30);
+    }
+
+    .knob-row {
+      display: flex;
+      justify-content: space-around;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .knob-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-width: 92px;
+    }
+
+    .knob-label {
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--text-soft);
+      text-align: center;
+    }
+
+    .knob {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 32% 24%, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.30) 20%, transparent 34%),
+        repeating-conic-gradient(from 0deg, rgba(255,255,255,0.14) 0deg 11deg, rgba(173, 140, 92, 0.10) 11deg 22deg),
+        linear-gradient(145deg, #fbf4ea 0%, #eadcc8 45%, #d6bb93 100%);
+      border: 1px solid rgba(186, 150, 98, 0.92);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.92),
+        inset 0 -12px 20px rgba(154, 118, 70, 0.14),
+        0 12px 18px rgba(109, 83, 48, 0.12);
+      cursor: ns-resize;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none;
+    }
+
+    .knob::before {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.54);
+      box-shadow: inset 0 1px 1px rgba(255,255,255,0.35), inset 0 -8px 12px rgba(118, 88, 49, 0.10);
+    }
+
+    .knob::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 14px;
+      width: 7px;
+      height: 25px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: linear-gradient(180deg, #fff8e4 0%, #d6a74f 50%, #996115 100%);
+      box-shadow:
+        0 0 0 1px rgba(255, 249, 239, 0.52),
+        0 2px 6px rgba(122, 83, 27, 0.18);
+    }
+
+    .arc {
+      position: absolute;
+      inset: 12px;
+      border-radius: 50%;
+      transform: rotate(var(--turn, -42deg));
+    }
+
+    .arc::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(from 218deg, rgba(230,216,188,0.82) 0deg 26deg, var(--gold-pale) 26deg 74deg, var(--gold) 74deg 112deg, transparent 112deg 360deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
+    }
+
+    .arc::after {
+      content: "";
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      left: 18%;
+      top: 8%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #fff1c7 0%, #deb566 58%, #bd8428 100%);
+      box-shadow: 0 0 0 3px rgba(255,250,244,0.92), 0 2px 6px rgba(103, 74, 34, 0.18);
+    }
+
+    .readout {
+      min-width: 78px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(193, 158, 107, 0.46);
+      background: linear-gradient(180deg, rgba(255,252,247,0.96) 0%, rgba(239,228,212,0.96) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.78), 0 4px 10px rgba(110,84,48,0.06);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #2f241c;
+      text-align: center;
+      cursor: text;
+      user-select: text;
+      -webkit-user-select: text;
+      outline: none;
+    }
+
+    .readout:focus {
+      border-color: rgba(191, 133, 34, 0.85);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.86),
+        0 0 0 2px rgba(221, 180, 92, 0.28),
+        0 4px 10px rgba(110,84,48,0.08);
+    }
+
+    .output-card {
+      flex: 1;
+      display: grid;
+      place-items: center;
+    }
+
+    .output-stack {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .output-meter {
+      width: 100%;
+      padding: 12px 10px 10px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255, 250, 244, 0.82) 0%, rgba(241, 230, 214, 0.72) 100%);
+      border: 1px solid rgba(197,171,131,0.44);
+      text-align: center;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+    }
+
+    .mini-meter {
+      display: flex;
+      justify-content: center;
+      align-items: end;
+      gap: 5px;
+      height: 34px;
+      margin: 2px 0;
+    }
+
+    .meter-bar {
+      width: 8px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(202, 181, 143, 0.70) 0%, rgba(182, 158, 122, 0.40) 100%);
+      transition: all 120ms linear;
+    }
+
+    .meter-bar:nth-child(1) { height: 12px; }
+    .meter-bar:nth-child(2) { height: 16px; }
+    .meter-bar:nth-child(3) { height: 20px; }
+    .meter-bar:nth-child(4) { height: 24px; }
+    .meter-bar:nth-child(5) { height: 28px; }
+    .meter-bar:nth-child(6) { height: 32px; }
+    .meter-bar:nth-child(7) { height: 28px; }
+    .meter-bar:nth-child(8) { height: 22px; }
+
+    .meter-bar.active {
+      background: linear-gradient(180deg, #f2d996 0%, #c78b2d 100%);
+      box-shadow: 0 0 12px rgba(203, 151, 55, 0.28);
+    }
+
+    .meter-bar.hot {
+      background: linear-gradient(180deg, #ffb29e 0%, #ff4f2f 100%);
+      box-shadow: 0 0 14px rgba(255, 76, 48, 0.42);
+    }
+
+    .modes {
+      position: absolute;
+      left: 34px;
+      right: 34px;
+      bottom: 22px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .mode-button {
+      height: 46px;
+      border-radius: 999px;
+      border: 1px solid rgba(197,171,131,0.55);
+      background: rgba(255, 249, 242, 0.8);
+      color: var(--text-soft);
+      font-size: 14px;
+      letter-spacing: 0.18em;
+      cursor: pointer;
+      transition: all var(--ease);
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .mode-button.active {
+      background: linear-gradient(180deg, #ddbe72 0%, #c39238 100%);
+      color: #fffaf4;
+      box-shadow: 0 8px 16px rgba(174, 131, 54, 0.16);
+    }
+
+    .footer-note {
+      position: absolute;
+      left: 40px;
+      right: 40px;
+      bottom: 74px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(195,167,124,0.32);
+      font-size: 13px;
+      color: var(--text-soft);
+      letter-spacing: 0.03em;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <div class="plugin">
+    <div class="header">
+      <div>
+        <h1 class="title">NOVA TONE</h1>
+        <div class="subtitle">MUSICAL TONE EQUALIZER</div>
+      </div>
+      <div class="descriptor">by International Nova</div>
+    </div>
+
+    <div class="inner-panel">
+      <div class="sections">
+        <section class="section">
+          <div class="section-title">LOW END</div>
+          <div class="selector" id="low-freq-selector">
+            <button class="option" data-param="low_freq" data-value="20">20</button>
+            <button class="option" data-param="low_freq" data-value="30">30</button>
+            <button class="option active" data-param="low_freq" data-value="60">60</button>
+            <button class="option" data-param="low_freq" data-value="100">100</button>
+          </div>
+          <div class="knob-row">
+            <div class="knob-wrap">
+              <div class="knob-label">LOW BOOST</div>
+              <div class="knob" data-param="low_boost" data-min="0" data-max="10"><div class="arc"></div></div>
+              <div class="readout" id="lowBoost-value" data-param="low_boost" contenteditable="true" spellcheck="false" tabindex="0">0.0</div>
+            </div>
+            <div class="knob-wrap">
+              <div class="knob-label">LOW ATTEN</div>
+              <div class="knob" data-param="low_attenuation" data-min="0" data-max="10"><div class="arc"></div></div>
+              <div class="readout" id="lowAttenuation-value" data-param="low_attenuation" contenteditable="true" spellcheck="false" tabindex="0">0.0</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">HIGH BOOST</div>
+          <div class="selector" id="high-boost-freq-selector">
+            <button class="option" data-param="high_boost_freq" data-value="3k">3k</button>
+            <button class="option" data-param="high_boost_freq" data-value="4k">4k</button>
+            <button class="option" data-param="high_boost_freq" data-value="5k">5k</button>
+            <button class="option active" data-param="high_boost_freq" data-value="8k">8k</button>
+            <button class="option" data-param="high_boost_freq" data-value="10k">10k</button>
+            <button class="option" data-param="high_boost_freq" data-value="12k">12k</button>
+            <button class="option" data-param="high_boost_freq" data-value="16k">16k</button>
+          </div>
+          <div class="knob-row">
+            <div class="knob-wrap">
+              <div class="knob-label">HIGH BOOST</div>
+              <div class="knob" data-param="high_boost" data-min="0" data-max="10"><div class="arc"></div></div>
+              <div class="readout" id="highBoost-value" data-param="high_boost" contenteditable="true" spellcheck="false" tabindex="0">0.0</div>
+            </div>
+            <div class="knob-wrap">
+              <div class="knob-label">BANDWIDTH</div>
+              <div class="knob" data-param="bandwidth" data-min="1" data-max="10"><div class="arc"></div></div>
+              <div class="readout" id="bandwidth-value" data-param="bandwidth" contenteditable="true" spellcheck="false" tabindex="0">BW 5.0</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">HIGH ATTENUATION</div>
+          <div class="selector" id="high-attenuation-freq-selector">
+            <button class="option" data-param="high_attenuation_freq" data-value="5k">5k</button>
+            <button class="option active" data-param="high_attenuation_freq" data-value="10k">10k</button>
+            <button class="option" data-param="high_attenuation_freq" data-value="20k">20k</button>
+          </div>
+          <div class="knob-row" style="justify-content:center;">
+            <div class="knob-wrap">
+              <div class="knob-label">HIGH ATTEN</div>
+              <div class="knob" data-param="high_attenuation" data-min="0" data-max="10"><div class="arc"></div></div>
+              <div class="readout" id="highAttenuation-value" data-param="high_attenuation" contenteditable="true" spellcheck="false" tabindex="0">0.0</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">OUTPUT</div>
+          <div class="output-card">
+            <div class="output-stack">
+              <div class="knob-wrap">
+                <div class="knob-label">OUTPUT GAIN</div>
+                <div class="knob" data-param="output_gain" data-min="-10" data-max="10"><div class="arc"></div></div>
+                <div class="readout" id="outputGain-value" data-param="output_gain" contenteditable="true" spellcheck="false" tabindex="0">+0.0 dB</div>
+              </div>
+              <div class="output-meter" aria-label="Output meter">
+                <div class="mini-meter" id="output-meter" aria-hidden="true">
+                  <span class="meter-bar"></span>
+                  <span class="meter-bar"></span>
+                  <span class="meter-bar"></span>
+                  <span class="meter-bar"></span>
+                  <span class="meter-bar"></span>
+                  <span class="meter-bar"></span>
+                  <span class="meter-bar"></span>
+                  <span class="meter-bar"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      <span id="left-note">Neutral tone state ready for musical shaping.</span>
+      <span id="right-note">Inspired by classic analog EQ curves.</span>
+    </div>
+
+    <div class="modes">
+      <button class="mode-button" data-mode="Vocal">VOCAL</button>
+      <button class="mode-button" data-mode="Bass">BASS</button>
+      <button class="mode-button" data-mode="Air">AIR</button>
+      <button class="mode-button" data-mode="Master">MASTER</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const choiceOptions = {
+        low_freq: ["20", "30", "60", "100"],
+        high_boost_freq: ["3k", "4k", "5k", "8k", "10k", "12k", "16k"],
+        high_attenuation_freq: ["5k", "10k", "20k"],
+        mode_preset: ["Neutral", "Vocal", "Bass", "Air", "Master"]
+      };
+
+      const knobParamIds = ["low_boost", "low_attenuation", "high_boost", "bandwidth", "high_attenuation", "output_gain"];
+      const selectorParamIds = ["low_freq", "high_boost_freq", "high_attenuation_freq"];
+      const allParamIds = selectorParamIds.concat(knobParamIds, ["mode_preset"]);
+
+      const presets = {
+        Neutral: {
+          low_freq: "60",
+          low_boost: 0.0,
+          low_attenuation: 0.0,
+          high_boost_freq: "8k",
+          high_boost: 0.0,
+          bandwidth: 5.0,
+          high_attenuation_freq: "10k",
+          high_attenuation: 0.0,
+          output_gain: 0.0,
+          note: "Neutral tone state ready for musical shaping."
+        },
+        Vocal: {
+          low_freq: "100",
+          low_boost: 2.0,
+          low_attenuation: 1.5,
+          high_boost_freq: "10k",
+          high_boost: 5.5,
+          bandwidth: 4.0,
+          high_attenuation_freq: "5k",
+          high_attenuation: 2.0,
+          output_gain: 0.0,
+          note: "Clarity and presence without harshness."
+        },
+        Bass: {
+          low_freq: "60",
+          low_boost: 6.0,
+          low_attenuation: 4.5,
+          high_boost_freq: "3k",
+          high_boost: 1.5,
+          bandwidth: 3.0,
+          high_attenuation_freq: "5k",
+          high_attenuation: 0.0,
+          output_gain: 0.0,
+          note: "Classic Pultec low-end trick for weight and control."
+        },
+        Air: {
+          low_freq: "30",
+          low_boost: 0.0,
+          low_attenuation: 0.0,
+          high_boost_freq: "12k",
+          high_boost: 7.0,
+          bandwidth: 6.0,
+          high_attenuation_freq: "10k",
+          high_attenuation: 2.5,
+          output_gain: 0.0,
+          note: "Expensive top-end shine with smooth polish."
+        },
+        Master: {
+          low_freq: "30",
+          low_boost: 3.0,
+          low_attenuation: 2.0,
+          high_boost_freq: "10k",
+          high_boost: 4.0,
+          bandwidth: 5.0,
+          high_attenuation_freq: "20k",
+          high_attenuation: 1.5,
+          output_gain: 0.0,
+          note: "Subtle glue and broad tonal polish."
+        }
+      };
+
+      const knobIds = {
+        low_boost: "lowBoost-value",
+        low_attenuation: "lowAttenuation-value",
+        high_boost: "highBoost-value",
+        bandwidth: "bandwidth-value",
+        high_attenuation: "highAttenuation-value",
+        output_gain: "outputGain-value"
+      };
+
+      const currentValues = {
+        low_freq: "60",
+        low_boost: 0.0,
+        low_attenuation: 0.0,
+        high_boost_freq: "8k",
+        high_boost: 0.0,
+        bandwidth: 5.0,
+        high_attenuation_freq: "10k",
+        high_attenuation: 0.0,
+        output_gain: 0.0,
+        mode_preset: "Neutral"
+      };
+
+      const parameterStates = {};
+      let juceAvailable = false;
+      let isApplyingPreset = false;
+      let activeDrag = null;
+
+      function clamp(value, min, max) {
+        const lower = typeof min === "number" ? min : 0;
+        const upper = typeof max === "number" ? max : 1;
+        return Math.min(upper, Math.max(lower, Number(value) || 0));
+      }
+
+      function getNormalizedValue(paramId, value) {
+        if (choiceOptions[paramId]) {
+          const options = choiceOptions[paramId];
+          const index = Math.max(0, options.indexOf(String(value)));
+          return options.length <= 1 ? 0 : index / (options.length - 1);
+        }
+
+        switch (paramId) {
+          case "bandwidth":
+            return clamp((Number(value) - 1.0) / 9.0, 0, 1);
+          case "output_gain":
+            return clamp((Number(value) + 10.0) / 20.0, 0, 1);
+          default:
+            return clamp(Number(value) / 10.0, 0, 1);
+        }
+      }
+
+      function getActualValue(paramId, normalized) {
+        const clamped = clamp(normalized, 0, 1);
+
+        if (choiceOptions[paramId]) {
+          const options = choiceOptions[paramId];
+          const index = Math.round(clamped * (options.length - 1));
+          return options[index];
+        }
+
+        switch (paramId) {
+          case "bandwidth":
+            return 1.0 + (clamped * 9.0);
+          case "output_gain":
+            return -10.0 + (clamped * 20.0);
+          default:
+            return clamped * 10.0;
+        }
+      }
+
+      function formatValue(paramId, value) {
+        if (paramId === "bandwidth") return `BW ${Number(value).toFixed(1)}`;
+        if (paramId === "output_gain") {
+          const sign = Number(value) >= 0 ? "+" : "";
+          return `${sign}${Number(value).toFixed(1)} dB`;
+        }
+        return Number(value).toFixed(1);
+      }
+
+      function getParamRange(paramId) {
+        switch (paramId) {
+          case "bandwidth":
+            return { min: 1, max: 10 };
+          case "output_gain":
+            return { min: -10, max: 10 };
+          default:
+            return { min: 0, max: 10 };
+        }
+      }
+
+      function parseInputValue(paramId, rawValue) {
+        const cleaned = String(rawValue || "").replace(/[^0-9+\-.]/g, "");
+        const parsed = Number(cleaned);
+        const { min, max } = getParamRange(paramId);
+
+        if (!Number.isFinite(parsed)) {
+          return currentValues[paramId];
+        }
+
+        return clamp(parsed, min, max);
+      }
+
+      function moveCaretToEnd(element) {
+        if (!window.getSelection || !document.createRange || !element) return;
+
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+
+      function createListenerList() {
+        return {
+          listeners: [],
+          addListener(fn) {
+            this.listeners.push(fn);
+            return this.listeners.length - 1;
+          },
+          callListeners(payload) {
+            this.listeners.forEach((listener) => listener(payload));
+          }
+        };
+      }
+
+      function createSliderState(name) {
+        if (!juceAvailable || !window.__JUCE__ || !window.__JUCE__.backend) return null;
+
+        const backend = window.__JUCE__.backend;
+        const state = {
+          name,
+          identifier: `__juce__slider${name}`,
+          scaledValue: 0,
+          properties: {
+            start: 0,
+            end: 1,
+            skew: 1,
+            interval: 0,
+            numSteps: 100
+          },
+          valueChangedEvent: createListenerList(),
+          getNormalisedValue() {
+            const start = typeof this.properties.start === "number" ? this.properties.start : 0;
+            const end = typeof this.properties.end === "number" ? this.properties.end : 1;
+            const range = end - start;
+            if (range === 0) return 0;
+            return clamp((this.scaledValue - start) / range, 0, 1);
+          },
+          setNormalisedValue(newValue) {
+            const normalised = clamp(newValue, 0, 1);
+            const start = typeof this.properties.start === "number" ? this.properties.start : 0;
+            const end = typeof this.properties.end === "number" ? this.properties.end : 1;
+            const interval = typeof this.properties.interval === "number" ? this.properties.interval : 0;
+            let scaled = start + (normalised * (end - start));
+
+            if (interval > 0) {
+              scaled = Math.round(scaled / interval) * interval;
+            }
+
+            this.scaledValue = scaled;
+            backend.emitEvent(this.identifier, {
+              eventType: "valueChanged",
+              value: scaled
+            });
+          },
+          sliderDragStarted() {
+            backend.emitEvent(this.identifier, { eventType: "sliderDragStarted" });
+          },
+          sliderDragEnded() {
+            backend.emitEvent(this.identifier, { eventType: "sliderDragEnded" });
+          }
+        };
+
+        backend.addEventListener(state.identifier, (event) => {
+          if (!event) return;
+
+          if (event.eventType === "valueChanged") {
+            if (typeof event.value === "number") {
+              state.scaledValue = event.value;
+            }
+            state.valueChangedEvent.callListeners(event);
+          }
+
+          if (event.eventType === "propertiesChanged") {
+            const nextProperties = {};
+            Object.keys(event).forEach((key) => {
+              if (key !== "eventType") {
+                nextProperties[key] = event[key];
+              }
+            });
+            state.properties = nextProperties;
+          }
+        });
+
+        backend.emitEvent(state.identifier, { eventType: "requestInitialUpdate" });
+        return state;
+      }
+
+      function setKnobVisual(paramId, value) {
+        const numericValue = Number(value);
+        currentValues[paramId] = numericValue;
+
+        const knob = document.querySelector(`.knob[data-param="${paramId}"] .arc`);
+        if (knob) {
+          const rotation = -42 + (getNormalizedValue(paramId, numericValue) * 210);
+          knob.style.setProperty("--turn", `${rotation}deg`);
+        }
+
+        const readout = document.getElementById(knobIds[paramId]);
+        if (readout && document.activeElement !== readout) {
+          readout.textContent = formatValue(paramId, numericValue);
+        }
+      }
+
+      function setSelectorVisual(paramId, value) {
+        const safeValue = String(value);
+        currentValues[paramId] = safeValue;
+
+        document.querySelectorAll(`.option[data-param="${paramId}"]`).forEach((option) => {
+          option.classList.toggle("active", option.dataset.value === safeValue);
+        });
+      }
+
+      function setModeVisual(modeName) {
+        currentValues.mode_preset = modeName;
+        document.querySelectorAll(".mode-button").forEach((button) => {
+          button.classList.toggle("active", button.dataset.mode === modeName);
+        });
+      }
+
+      function pushParameter(paramId, value) {
+        const state = parameterStates[paramId];
+        if (!state) return;
+
+        try {
+          state.setNormalisedValue(getNormalizedValue(paramId, value));
+        } catch (error) {
+          console.warn(`Failed to push parameter ${paramId}:`, error && error.message ? error.message : error);
+        }
+      }
+
+      function applyPreset(modeName, pushToPlugin) {
+        const preset = presets[modeName];
+        const shouldPush = pushToPlugin !== false;
+
+        if (!preset || isApplyingPreset) return;
+
+        isApplyingPreset = true;
+
+        setSelectorVisual("low_freq", preset.low_freq);
+        setKnobVisual("low_boost", preset.low_boost);
+        setKnobVisual("low_attenuation", preset.low_attenuation);
+        setSelectorVisual("high_boost_freq", preset.high_boost_freq);
+        setKnobVisual("high_boost", preset.high_boost);
+        setKnobVisual("bandwidth", preset.bandwidth);
+        setSelectorVisual("high_attenuation_freq", preset.high_attenuation_freq);
+        setKnobVisual("high_attenuation", preset.high_attenuation);
+        setKnobVisual("output_gain", preset.output_gain);
+        setModeVisual(modeName);
+
+        const note = document.getElementById("left-note");
+        if (note) {
+          note.textContent = preset.note;
+        }
+
+        if (shouldPush) {
+          pushParameter("mode_preset", modeName);
+          pushParameter("low_freq", preset.low_freq);
+          pushParameter("low_boost", preset.low_boost);
+          pushParameter("low_attenuation", preset.low_attenuation);
+          pushParameter("high_boost_freq", preset.high_boost_freq);
+          pushParameter("high_boost", preset.high_boost);
+          pushParameter("bandwidth", preset.bandwidth);
+          pushParameter("high_attenuation_freq", preset.high_attenuation_freq);
+          pushParameter("high_attenuation", preset.high_attenuation);
+          pushParameter("output_gain", preset.output_gain);
+        }
+
+        isApplyingPreset = false;
+      }
+
+      function bindSelectorButtons() {
+        document.querySelectorAll(".option[data-param]").forEach((option) => {
+          const activate = (event) => {
+            if (event && event.preventDefault) event.preventDefault();
+            const { param, value } = option.dataset;
+            setSelectorVisual(param, value);
+            pushParameter(param, value);
+          };
+
+          option.addEventListener("click", activate);
+          option.addEventListener("touchend", activate);
+        });
+      }
+
+      function getClientY(event) {
+        if (!event) return 0;
+        if (event.touches && event.touches.length > 0) return event.touches[0].clientY;
+        if (event.changedTouches && event.changedTouches.length > 0) return event.changedTouches[0].clientY;
+        return typeof event.clientY === "number" ? event.clientY : 0;
+      }
+
+      function handleDragMove(event) {
+        if (!activeDrag) return;
+        if (activeDrag.pointerId !== null && event && typeof event.pointerId !== "undefined" && event.pointerId !== activeDrag.pointerId) {
+          return;
+        }
+
+        if (event && event.preventDefault) event.preventDefault();
+
+        const { paramId, min, max, startY, startValue } = activeDrag;
+        const delta = startY - getClientY(event);
+        const nextValue = clamp(startValue + (delta * (max - min) * 0.005), min, max);
+        setKnobVisual(paramId, nextValue);
+        pushParameter(paramId, nextValue);
+      }
+
+      function endActiveDrag(event) {
+        if (!activeDrag) return;
+        if (activeDrag.pointerId !== null && event && typeof event.pointerId !== "undefined" && event.pointerId !== activeDrag.pointerId) {
+          return;
+        }
+
+        const { paramId, knob, pointerId } = activeDrag;
+
+        if (parameterStates[paramId] && typeof parameterStates[paramId].sliderDragEnded === "function") {
+          try {
+            parameterStates[paramId].sliderDragEnded();
+          } catch (error) {
+            console.warn(error && error.message ? error.message : error);
+          }
+        }
+
+        if (typeof knob.releasePointerCapture === "function" && pointerId !== null) {
+          try {
+            knob.releasePointerCapture(pointerId);
+          } catch (error) {
+            console.warn(error && error.message ? error.message : error);
+          }
+        }
+
+        knob.classList.remove("dragging");
+        activeDrag = null;
+      }
+
+      function bindKnobs() {
+        document.querySelectorAll(".knob[data-param]").forEach((knob) => {
+          const paramId = knob.dataset.param;
+          const min = Number(knob.dataset.min);
+          const max = Number(knob.dataset.max);
+
+          const startDrag = (event) => {
+            if (event && typeof event.button === "number" && event.button !== 0) return;
+            if (event && event.preventDefault) event.preventDefault();
+            if (event && event.stopPropagation) event.stopPropagation();
+
+            knob.classList.add("dragging");
+            const currentValue = Number(currentValues[paramId]);
+
+            activeDrag = {
+              paramId,
+              knob,
+              min,
+              max,
+              pointerId: event && typeof event.pointerId !== "undefined" ? event.pointerId : null,
+              startY: getClientY(event),
+              startValue: Number.isFinite(currentValue) ? currentValue : min
+            };
+
+            if (typeof knob.setPointerCapture === "function" && event && typeof event.pointerId !== "undefined") {
+              try {
+                knob.setPointerCapture(event.pointerId);
+              } catch (error) {
+                console.warn(error && error.message ? error.message : error);
+              }
+            }
+
+            if (parameterStates[paramId] && typeof parameterStates[paramId].sliderDragStarted === "function") {
+              try {
+                parameterStates[paramId].sliderDragStarted();
+              } catch (error) {
+                console.warn(error && error.message ? error.message : error);
+              }
+            }
+          };
+
+          knob.addEventListener("pointerdown", startDrag);
+          knob.addEventListener("mousedown", startDrag);
+          knob.addEventListener("touchstart", startDrag, { passive: false });
+
+          knob.addEventListener("dblclick", () => {
+            const defaultValue = presets[currentValues.mode_preset] && Object.prototype.hasOwnProperty.call(presets[currentValues.mode_preset], paramId)
+              ? presets[currentValues.mode_preset][paramId]
+              : currentValues[paramId];
+
+            setKnobVisual(paramId, defaultValue);
+            pushParameter(paramId, defaultValue);
+          });
+        });
+
+        document.addEventListener("pointermove", handleDragMove, { passive: false });
+        document.addEventListener("mousemove", handleDragMove, { passive: false });
+        document.addEventListener("touchmove", handleDragMove, { passive: false });
+        document.addEventListener("pointerup", endActiveDrag);
+        document.addEventListener("mouseup", endActiveDrag);
+        document.addEventListener("touchend", endActiveDrag);
+        document.addEventListener("pointercancel", endActiveDrag);
+        document.addEventListener("touchcancel", endActiveDrag);
+        document.addEventListener("mouseleave", endActiveDrag);
+      }
+
+      function bindReadouts() {
+        document.querySelectorAll(".readout[data-param]").forEach((readout) => {
+          const { param } = readout.dataset;
+
+          readout.addEventListener("focus", () => {
+            readout.textContent = Number(currentValues[param]).toFixed(1);
+            moveCaretToEnd(readout);
+          });
+
+          readout.addEventListener("input", () => {
+            const cleaned = readout.textContent.replace(/[^0-9+\-.]/g, "");
+            if (readout.textContent !== cleaned) {
+              readout.textContent = cleaned;
+              moveCaretToEnd(readout);
+            }
+          });
+
+          readout.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              readout.blur();
+            }
+
+            if (event.key === "Escape") {
+              event.preventDefault();
+              readout.textContent = formatValue(param, currentValues[param]);
+              readout.blur();
+            }
+          });
+
+          readout.addEventListener("blur", () => {
+            const nextValue = parseInputValue(param, readout.textContent);
+            setKnobVisual(param, nextValue);
+            pushParameter(param, nextValue);
+          });
+        });
+      }
+
+      function bindModeButtons() {
+        document.querySelectorAll(".mode-button").forEach((button) => {
+          const activate = (event) => {
+            if (event && event.preventDefault) event.preventDefault();
+            applyPreset(button.dataset.mode, true);
+          };
+
+          button.addEventListener("click", activate);
+          button.addEventListener("touchend", activate);
+        });
+      }
+
+      function connectParameters() {
+        if (!juceAvailable) return;
+
+        allParamIds.forEach((id) => {
+          parameterStates[id] = createSliderState(id);
+        });
+
+        knobParamIds.forEach((id) => {
+          const state = parameterStates[id];
+          if (!state || !state.valueChangedEvent) return;
+
+          state.valueChangedEvent.addListener(() => {
+            if (isApplyingPreset) return;
+            setKnobVisual(id, getActualValue(id, state.getNormalisedValue()));
+          });
+        });
+
+        selectorParamIds.forEach((id) => {
+          const state = parameterStates[id];
+          if (!state || !state.valueChangedEvent) return;
+
+          state.valueChangedEvent.addListener(() => {
+            if (isApplyingPreset) return;
+            setSelectorVisual(id, getActualValue(id, state.getNormalisedValue()));
+          });
+        });
+
+        const modeState = parameterStates.mode_preset;
+        if (modeState && modeState.valueChangedEvent) {
+          modeState.valueChangedEvent.addListener(() => {
+            if (isApplyingPreset) return;
+            const modeName = getActualValue("mode_preset", modeState.getNormalisedValue());
+            applyPreset(modeName, false);
+          });
+        }
+
+        window.setTimeout(() => {
+          knobParamIds.forEach((id) => {
+            const state = parameterStates[id];
+            if (state) {
+              setKnobVisual(id, getActualValue(id, state.getNormalisedValue()));
+            }
+          });
+
+          selectorParamIds.forEach((id) => {
+            const state = parameterStates[id];
+            if (state) {
+              setSelectorVisual(id, getActualValue(id, state.getNormalisedValue()));
+            }
+          });
+
+          if (modeState) {
+            const modeName = getActualValue("mode_preset", modeState.getNormalisedValue());
+            if (modeName && presets[modeName]) {
+              applyPreset(modeName, false);
+              return;
+            }
+          }
+
+          applyPreset("Neutral", false);
+        }, 60);
+      }
+
+      window.updateOutputMeter = function (level, isHot) {
+        const bars = document.querySelectorAll("#output-meter .meter-bar");
+        const activeCount = Math.round(clamp(level, 0, 1) * bars.length);
+
+        bars.forEach((bar, index) => {
+          bar.classList.toggle("active", index < activeCount);
+          bar.classList.toggle("hot", Boolean(isHot) && index < activeCount);
+        });
+      };
+
+      function bootUi() {
+        juceAvailable = !!(window.__JUCE__ && window.__JUCE__.backend && typeof window.__JUCE__.backend.emitEvent === "function");
+
+        bindSelectorButtons();
+        bindKnobs();
+        bindReadouts();
+        bindModeButtons();
+
+        if (juceAvailable) {
+          try {
+            connectParameters();
+          } catch (error) {
+            juceAvailable = false;
+            console.warn("Parameter sync unavailable, keeping local UI active:", error && error.message ? error.message : error);
+            applyPreset("Neutral", false);
+          }
+        } else {
+          applyPreset("Neutral", false);
+        }
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", bootUi, { once: true });
+      } else {
+        bootUi();
+      }
+    }());
+  </script>
+</body>
+</html>

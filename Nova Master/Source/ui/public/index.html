@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Master — v1 Preview</title>
+  <style>
+        .nova-header {
+          display: flex;
+          align-items: flex-start;
+          gap: 18px;
+          margin-bottom: 0;
+          position: relative;
+          min-height: 64px;
+        }
+        .nova-logo-container {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          margin-left: -10px;
+          border-radius: 10px;
+          background: rgba(60, 56, 48, 0.10);
+          box-shadow: 0 2px 8px 0 rgba(60,56,48,0.07);
+          backdrop-filter: blur(1.5px);
+        }
+        .nova-logo {
+          width: 32px;
+          height: 32px;
+          object-fit: contain;
+          filter: grayscale(0.1) brightness(0.93) contrast(1.08);
+          opacity: 1;
+        }
+        .nova-title-nova {
+          font-size: 24px;
+          font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+          font-weight: 700;
+          letter-spacing: 0.13em;
+          color: #353535;
+          margin: 0 0 2px 0;
+          padding: 0;
+          opacity: 0.97;
+        }
+        .nova-title-master {
+          font-size: 30px;
+          font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+          font-weight: 950;
+          letter-spacing: 0.04em;
+          color: #282420;
+          margin: 0;
+          padding: 0;
+          line-height: 1.0;
+          opacity: 0.98;
+        }
+    :root {
+      --face: #efe8de;
+      --face-shade: #d9d0c5;
+      --panel: #e7e0d5;
+      --panel-soft: #faf8f4;
+      --panel-cool: #dbe2e8;
+      --text-main: #282420;
+      --text-soft: #66625d;
+      --silver: #c5cdd6;
+      --silver-deep: #6f7886;
+      --silver-pale: #f4f7fa;
+      --silver-line: rgba(111, 120, 134, 0.38);
+      --meter-blue: #c6e3f7;
+      --meter-ice: #f2fbff;
+      --finish-gold: #c89a4f;
+      --finish-gold-deep: #8f6728;
+      --finish-glow: #f5e3bd;
+      --white: #fffdfa;
+      --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0) 42%),
+        linear-gradient(180deg, #e7dfd4 0%, #d5cabd 58%, #c9bcac 100%);
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text-main);
+    }
+    body {
+      display: grid;
+      place-items: center;
+      padding: 10px;
+    }
+
+    .plugin {
+      position: relative;
+      width: min(980px, 100vw);
+      height: min(580px, 100vh);
+      border-radius: 26px;
+      overflow: hidden;
+      isolation: isolate;
+      background: linear-gradient(180deg, #f8f2ea 0%, var(--face) 24%, var(--face-shade) 100%);
+      border: 1px solid rgba(151, 140, 124, 0.46);
+      box-shadow:
+        0 34px 68px rgba(76, 59, 36, 0.16),
+        0 12px 22px rgba(101, 88, 69, 0.1),
+        inset 0 1px 0 rgba(255,255,255,0.84),
+        inset 0 -18px 28px rgba(119, 104, 80, 0.1),
+        inset 10px 0 18px rgba(255,255,255,0.06),
+        inset -10px 0 18px rgba(99, 83, 60, 0.04);
+    }
+
+    .plugin::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.14), transparent 16%, transparent 84%, rgba(105, 92, 74, 0.06));
+      pointer-events: none;
+    }
+
+    .plugin::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 22px);
+      opacity: 0.26;
+      mix-blend-mode: soft-light;
+      pointer-events: none;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 18px 26px 8px;
+      margin-bottom: 18px;
+    }
+
+    .title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .title-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .header-chip {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(156, 166, 177, 0.42);
+      background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(232,237,242,0.9) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.76);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #5f6975;
+    }
+
+    .header-chip.gold {
+      border-color: rgba(150, 110, 40, 0.76);
+      color: #76521b;
+      background: linear-gradient(180deg, rgba(255,249,236,0.98) 0%, rgba(243,226,190,0.94) 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.84),
+        0 1px 0 rgba(255,255,255,0.32);
+    }
+
+    .title {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-size: 46px;
+      line-height: 0.96;
+      letter-spacing: 0.07em;
+      color: #4f5966;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.62), 0 2px 6px rgba(79, 89, 102, 0.16);
+    }
+
+    .subtitle {
+      margin-top: 0;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+    }
+
+    .tagline-wrap {
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .tagline {
+      margin-top: 0;
+      font-family: "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Brush Script MT", cursive;
+      font-size: 24px;
+      color: #67717f;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.62);
+    }
+
+    .tagline-sub {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: #7f8993;
+    }
+
+    .inner-panel {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      top: 94px;
+      bottom: 72px;
+      border-radius: 20px;
+      padding: 16px 16px 14px;
+      background: linear-gradient(180deg, rgba(250,248,244,0.98) 0%, rgba(235,229,220,0.96) 52%, rgba(223,215,205,0.97) 100%);
+      border: 1px solid rgba(163, 172, 182, 0.28);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.86),
+        inset 0 -18px 28px rgba(112, 122, 131, 0.09),
+        inset 12px 0 16px rgba(255,255,255,0.08),
+        inset -12px 0 18px rgba(103, 112, 121, 0.05),
+        0 14px 24px rgba(95, 81, 62, 0.1);
+    }
+
+    .inner-panel::before {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.45);
+      pointer-events: none;
+    }
+
+    .inner-panel::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 24px;
+      box-shadow:
+        inset 0 2px 0 rgba(255,255,255,0.22),
+        inset 0 -2px 0 rgba(110, 98, 81, 0.08),
+        inset 2px 0 0 rgba(255,255,255,0.1),
+        inset -2px 0 0 rgba(110, 98, 81, 0.05);
+      pointer-events: none;
+    }
+
+    .layout {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr)) 0.92fr;
+      gap: 12px;
+      height: 100%;
+      align-items: stretch;
+    }
+
+    .knob-wrap,
+    .precision-rail {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .knob-wrap {
+      position: relative;
+      overflow: hidden;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px 8px 10px;
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.38) 0%, rgba(216,224,232,0.2) 100%);
+      border: 1px solid rgba(174, 182, 191, 0.3);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.76),
+        inset 0 -10px 16px rgba(114, 123, 132, 0.06),
+        inset 10px 0 14px rgba(255,255,255,0.06),
+        inset -10px 0 14px rgba(99, 108, 118, 0.04),
+        0 12px 16px rgba(92, 99, 108, 0.06);
+    }
+
+    .knob-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 22px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.06) 22%, transparent 48%, rgba(105, 116, 127, 0.05) 100%);
+      pointer-events: none;
+    }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.24em;
+      color: #2f3640;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 6px;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.45);
+    }
+
+    .section-sub {
+      margin-top: -2px;
+      margin-bottom: 10px;
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #7a7f84;
+      text-align: center;
+    }
+
+    .knob {
+      position: relative;
+      width: 116px;
+      height: 116px;
+      border-radius: 50%;
+      border: 1px solid rgba(111, 121, 133, 0.74);
+      background:
+        radial-gradient(circle at 32% 18%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.42) 18%, transparent 36%),
+        radial-gradient(circle at 68% 78%, rgba(84, 97, 111, 0.16) 0%, transparent 34%),
+        linear-gradient(145deg, #fbfdff 0%, #e5ebf1 40%, #a8b2bd 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.98),
+        inset 0 -14px 22px rgba(96, 108, 120, 0.24),
+        0 14px 22px rgba(76, 87, 98, 0.16);
+      cursor: ns-resize;
+      user-select: none;
+      touch-action: none;
+      transition: transform var(--ease), box-shadow var(--ease), filter var(--ease);
+    }
+
+    .knob.active {
+      transform: translateY(-1px) scale(1.012);
+      filter: saturate(1.02);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.98),
+        inset 0 -12px 20px rgba(102, 113, 125, 0.22),
+        0 0 0 1px rgba(214, 225, 235, 0.8),
+        0 0 18px rgba(198, 227, 247, 0.34),
+        0 14px 22px rgba(82, 92, 102, 0.16);
+    }
+
+    .knob::before {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.58);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.64),
+        inset 0 -8px 12px rgba(101, 110, 119, 0.12);
+    }
+
+    .knob::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 12px;
+      width: 4px;
+      height: 30px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: linear-gradient(180deg, #ffffff 0%, #e2e9ef 32%, var(--silver-deep) 100%);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.56), 0 2px 5px rgba(78, 88, 98, 0.16);
+    }
+
+    .ring {
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      transform: rotate(var(--turn, -42deg));
+    }
+
+    .ring::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(from 218deg, rgba(248,251,253,0.92) 0deg 14deg, var(--silver-pale) 14deg 72deg, var(--silver) 72deg 116deg, transparent 116deg 360deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 8px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 8px));
+    }
+
+    .readout {
+      min-width: 86px;
+      padding: 7px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(166, 176, 186, 0.44);
+      background: linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(236,241,246,0.94) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.86), 0 6px 12px rgba(91, 97, 105, 0.06);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-align: center;
+      color: #37414c;
+      transition: transform 140ms ease, box-shadow 140ms ease, color 140ms ease;
+    }
+
+    .readout.live {
+      transform: translateY(-1px);
+      color: #2c3c4b;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.88),
+        0 0 0 1px rgba(214, 225, 235, 0.7),
+        0 0 12px rgba(198, 227, 247, 0.26),
+        0 8px 14px rgba(91, 97, 105, 0.08);
+    }
+
+    .precision-rail {
+      position: relative;
+      overflow: visible;
+      gap: 8px;
+      padding: 14px 10px 12px;
+      min-height: 100%;
+      justify-content: flex-start;
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(252,253,255,0.99) 0%, rgba(224,233,242,0.97) 40%, rgba(209,219,229,0.97) 100%);
+      border: 1px solid rgba(145, 159, 173, 0.58);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.94),
+        inset 0 -16px 24px rgba(88, 100, 113, 0.14),
+        inset 0 0 12px rgba(77, 92, 107, 0.04),
+        inset 12px 0 16px rgba(255,255,255,0.08),
+        inset -12px 0 18px rgba(86, 100, 114, 0.06),
+        0 18px 28px rgba(77, 90, 103, 0.15);
+    }
+
+    .precision-rail::before {
+      content: "";
+      position: absolute;
+      top: 16px;
+      bottom: 16px;
+      left: 14px;
+      width: 1px;
+      background: linear-gradient(180deg, transparent 0%, rgba(122, 136, 149, 0.36) 20%, rgba(122, 136, 149, 0.14) 100%);
+      opacity: 0.88;
+    }
+
+    .rail-badge {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(168, 178, 188, 0.4);
+      background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(237,242,247,0.95) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.82);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #5f6975;
+    }
+
+    .mini-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      color: #5f6975;
+      text-transform: uppercase;
+    }
+
+    .meter-toggle {
+      display: flex;
+      gap: 4px;
+      width: 100px;
+      padding: 4px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(228,234,240,0.9) 100%);
+      border: 1px solid rgba(168, 178, 188, 0.34);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.82);
+    }
+
+    .meter-toggle button,
+    .mode-buttons button,
+    .finish-button {
+      border: 1px solid rgba(149, 159, 170, 0.48);
+      background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(235,240,245,0.94) 100%);
+      color: #59616b;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all var(--ease);
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .meter-toggle button {
+      flex: 1;
+      padding: 7px 0;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+    }
+
+    .meter-toggle button.active,
+    .mode-buttons button.active {
+      background: linear-gradient(180deg, #ffffff 0%, #e3ebf2 24%, #9aa8b7 62%, #74808d 100%);
+      color: #ffffff;
+      border-color: #6f7b88;
+      text-shadow: 0 1px 0 rgba(50, 60, 70, 0.22);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.68),
+        inset 0 0 0 1px rgba(235, 242, 248, 0.18),
+        0 0 10px rgba(198, 227, 247, 0.16),
+        0 6px 12px rgba(104, 114, 125, 0.2);
+    }
+
+    .meter {
+      width: 36px;
+      height: clamp(132px, 23vh, 150px);
+      padding: 7px 5px;
+      border-radius: 16px;
+      border: 1px solid rgba(162, 174, 185, 0.38);
+      background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(229,236,243,0.94) 100%);
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 5px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.88), 0 8px 14px rgba(90, 102, 112, 0.08);
+    }
+
+    .meter-bar {
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(176, 196, 211, 0.42) 0%, rgba(140, 160, 177, 0.18) 100%);
+      transition: all 320ms cubic-bezier(0.18, 0.8, 0.2, 1);
+    }
+
+    .meter-bar.active {
+      background: linear-gradient(180deg, #ffffff 0%, #f7fdff 18%, var(--meter-ice) 38%, var(--meter-blue) 100%);
+      box-shadow: 0 0 16px rgba(191, 223, 245, 0.62);
+    }
+
+    .rail-note {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #7b8792;
+    }
+
+    .rail-core {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .trim-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      width: 68px;
+      padding: 0;
+      flex-shrink: 0;
+    }
+
+    .trim-knob {
+      width: 64px;
+      height: 64px;
+    }
+
+    .trim-knob::after {
+      top: 8px;
+      height: 18px;
+      width: 3px;
+    }
+
+    .trim-knob .ring {
+      inset: 5px;
+    }
+
+    .trim-readout {
+      min-width: 68px;
+      padding: 5px 6px;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+    }
+
+    .mix-module {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0;
+      width: 112px;
+      align-self: center;
+      flex-shrink: 0;
+      margin-top: auto;
+      transform: translateY(16px);
+      padding: 0 0 4px;
+      min-height: 78px;
+    }
+
+    .mix-head {
+      position: absolute;
+      left: -14px;
+      right: -14px;
+      top: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 0;
+      transform: translateY(-4px);
+      pointer-events: none;
+    }
+
+    .mix-head .mini-label {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+    }
+
+    .mix-knob {
+      width: 58px;
+      height: 58px;
+      margin-top: 8px;
+    }
+
+    .mix-knob::after {
+      top: 8px;
+      height: 18px;
+      width: 3px;
+    }
+
+    .mix-knob .ring {
+      inset: 5px;
+    }
+
+    .mix-readout {
+      min-width: 0;
+      padding: 3px 7px;
+      margin-left: 28px;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+    }
+
+    .finish-button {
+      position: relative;
+      z-index: 3;
+      flex-shrink: 0;
+      overflow: hidden;
+      margin-top: 8px;
+      width: 100%;
+      min-width: 0;
+      min-height: 44px;
+      height: 44px;
+      padding: 0 20px;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.28em;
+      color: #725621;
+      border-color: rgba(166, 128, 57, 0.52);
+      background: linear-gradient(180deg, rgba(255,250,240,0.98) 0%, rgba(245,230,198,0.95) 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.88),
+        0 0 0 1px rgba(245, 228, 188, 0.38),
+        0 8px 14px rgba(123, 95, 44, 0.10);
+    }
+
+    .finish-button::before {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.42);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .finish-button::after {
+      content: "";
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      top: 2px;
+      height: 44%;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.52) 0%, rgba(255,255,255,0) 100%);
+      opacity: 0.46;
+      pointer-events: none;
+    }
+
+    .finish-button.active {
+      background: linear-gradient(180deg, #fff7e2 0%, #f8deaa 16%, #ecc16f 38%, #d7a34e 66%, var(--finish-gold-deep) 100%);
+      color: #fffef8;
+      text-shadow: 0 1px 1px rgba(91, 55, 14, 0.28);
+      border-color: #cf993c;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.96),
+        inset 0 -10px 14px rgba(139, 90, 27, 0.2),
+        0 0 0 1px rgba(255, 246, 220, 0.68),
+        0 0 20px rgba(247, 227, 176, 0.42),
+        0 0 34px rgba(222, 177, 90, 0.34),
+        0 14px 22px rgba(153, 114, 53, 0.26);
+    }
+
+    .microcopy {
+      position: absolute;
+      left: 56px;
+      right: 190px;
+      bottom: 54px;
+      text-align: center;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #7d858b;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.45);
+    }
+
+    .mode-buttons {
+      position: absolute;
+      left: 42px;
+      right: 180px;
+      bottom: 12px;
+      display: flex;
+      gap: 8px;
+      padding: 6px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(251,250,247,0.92) 0%, rgba(230,224,214,0.92) 100%);
+      border: 1px solid rgba(167, 174, 182, 0.3);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.74), 0 8px 14px rgba(90, 100, 110, 0.05);
+    }
+
+    .mode-buttons button {
+      flex: 1;
+      height: 34px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+    }
+  </style>
+</head>
+<body>
+  <div class="plugin">
+    <div class="header">
+      <div class="title-block">
+        <div class="title-meta">
+          <!-- <span class="header-chip">MASTER BUS FINISHER</span> -->
+        </div>
+        <div class="nova-header">
+          <div class="nova-logo-container">
+            <img src="n_logo.png" alt="N" class="nova-logo" />
+          </div>
+          <div class="nova-title-stack">
+            <span class="nova-title-nova">NOVA</span>
+            <br style="line-height:0; margin:0; padding:0;" />
+            <span class="nova-title-master">MASTER</span>
+          </div>
+        </div>
+        <div style="height: 6px;"></div>
+        <div class="subtitle"></div>
+      </div>
+      <div class="tagline-wrap">
+        <div class="tagline">by International Nova</div>
+      </div>
+    </div>
+
+    <div class="inner-panel">
+      <div class="layout">
+        <div class="knob-wrap">
+          <div class="section-label">TONE</div>
+          <div class="section-sub">BALANCE</div>
+          <div class="knob" data-param="tone" data-min="0" data-max="10"><div class="ring"></div></div>
+          <div class="readout" data-readout="tone">5.0</div>
+        </div>
+
+        <div class="knob-wrap">
+          <div class="section-label">GLUE</div>
+          <div class="section-sub">CONTROL</div>
+          <div class="knob" data-param="glue" data-min="0" data-max="10"><div class="ring"></div></div>
+          <div class="readout" data-readout="glue">3.5</div>
+        </div>
+
+        <div class="knob-wrap">
+          <div class="section-label">WEIGHT</div>
+          <div class="section-sub">LOW END</div>
+          <div class="knob" data-param="weight" data-min="0" data-max="10"><div class="ring"></div></div>
+          <div class="readout" data-readout="weight">4.0</div>
+        </div>
+
+        <div class="knob-wrap">
+          <div class="section-label">AIR</div>
+          <div class="section-sub">TOP END</div>
+          <div class="knob" data-param="air" data-min="0" data-max="10"><div class="ring"></div></div>
+          <div class="readout" data-readout="air">5.0</div>
+        </div>
+
+        <div class="knob-wrap">
+          <div class="section-label">WIDTH</div>
+          <div class="section-sub">STEREO</div>
+          <div class="knob" data-param="width" data-min="0" data-max="10"><div class="ring"></div></div>
+          <div class="readout" data-readout="width">4.5</div>
+        </div>
+
+        <div class="precision-rail">
+          <div class="rail-badge">OUTPUT STAGE</div>
+          <div class="meter-toggle">
+            <button data-meter="OUT" class="active">OUT</button>
+            <button data-meter="LU">LU</button>
+          </div>
+          <div class="rail-core">
+            <div class="meter" id="meter">
+              <span class="meter-bar"></span>
+              <span class="meter-bar"></span>
+              <span class="meter-bar"></span>
+              <span class="meter-bar"></span>
+              <span class="meter-bar"></span>
+              <span class="meter-bar"></span>
+              <span class="meter-bar"></span>
+              <span class="meter-bar"></span>
+              <span class="meter-bar"></span>
+              <span class="meter-bar"></span>
+            </div>
+            <div class="trim-stack">
+              <div class="mini-label">TRIM</div>
+              <div class="knob trim-knob" data-param="output_gain" data-min="-12" data-max="12"><div class="ring"></div></div>
+              <div class="readout trim-readout" data-readout="output_gain">+0.0 dB</div>
+            </div>
+          </div>
+          <div class="readout" id="output-readout">+0.0 dB</div>
+          <div class="rail-note">ceiling aware</div>
+          <button id="finish-toggle" class="finish-button" type="button">FINISH</button>
+          <div class="mix-module">
+            <div class="mix-head">
+              <div class="mini-label">MIX</div>
+              <div class="readout mix-readout" data-readout="mix">100%</div>
+            </div>
+            <div class="knob mix-knob" data-param="mix" data-min="0" data-max="100"><div class="ring"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="microcopy"></div>
+
+    <div class="mode-buttons">
+      <button class="active" data-mode="CLEAN">CLEAN</button>
+      <button data-mode="WARM">WARM</button>
+      <button data-mode="WIDE">WIDE</button>
+      <button data-mode="LOUD">LOUD</button>
+    </div>
+  </div>
+
+  <script>
+    const values = {
+      tone: 5.0,
+      glue: 3.5,
+      weight: 4.0,
+      air: 5.0,
+      width: 4.5,
+      mix: 100.0,
+      output_gain: 0.0,
+      output: 0.0,
+      finish: false,
+      meter: 'OUT',
+      mode: 'CLEAN'
+    };
+
+    const presets = {
+      CLEAN: { tone: 5.0, glue: 3.5, weight: 4.0, air: 5.0, width: 4.5, mix: 100.0, finish: false },
+      WARM:  { tone: 4.2, glue: 4.8, weight: 6.0, air: 4.0, width: 4.5, mix: 82.0, finish: true },
+      WIDE:  { tone: 5.5, glue: 3.8, weight: 4.0, air: 6.2, width: 6.8, mix: 88.0, finish: true },
+      LOUD:  { tone: 5.2, glue: 5.5, weight: 5.2, air: 5.8, width: 5.0, mix: 94.0, finish: true }
+    };
+
+    let meterDisplay = 0;
+
+    function clamp(v, min, max) { return Math.min(max, Math.max(min, Number(v) || 0)); }
+
+    function updateKnob(param, value) {
+      values[param] = value;
+      const knob = document.querySelector(`.knob[data-param="${param}"]`);
+      if (!knob) return;
+      const min = Number(knob.dataset.min);
+      const max = Number(knob.dataset.max);
+      const safe = clamp(value, min, max);
+      values[param] = safe;
+      const normal = (safe - min) / ((max - min) || 1);
+      const rotation = -42 + normal * 210;
+      knob.querySelector('.ring').style.setProperty('--turn', rotation + 'deg');
+      const readout = document.querySelector(`[data-readout="${param}"]`);
+      if (readout) {
+        readout.textContent = param === 'output_gain'
+          ? `${safe >= 0 ? '+' : ''}${safe.toFixed(1)} dB`
+          : param === 'mix'
+            ? `${safe.toFixed(0)}%`
+            : safe.toFixed(1);
+        readout.classList.add('live');
+        clearTimeout(readout._liveTimer);
+        readout._liveTimer = setTimeout(() => readout.classList.remove('live'), 160);
+      }
+    }
+
+    function setMode(mode) {
+      values.mode = mode;
+      document.querySelectorAll('[data-mode]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.mode === mode);
+      });
+    }
+
+    function setMeterView(mode) {
+      values.meter = mode;
+      document.querySelectorAll('[data-meter]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.meter === mode);
+      });
+    }
+
+    function setFinish(on) {
+      values.finish = !!on;
+      document.getElementById('finish-toggle').classList.toggle('active', values.finish);
+    }
+
+    function applyPreset(name) {
+      const preset = presets[name];
+      if (!preset) return;
+      setMode(name);
+      updateKnob('tone', preset.tone);
+      updateKnob('glue', preset.glue);
+      updateKnob('weight', preset.weight);
+      updateKnob('air', preset.air);
+      updateKnob('width', preset.width);
+      updateKnob('mix', preset.mix);
+      setFinish(!!preset.finish);
+    }
+
+    function targetMeterValue() {
+      const mixNorm = clamp((values.mix || 100.0) / 100.0, 0, 1);
+      const polish = (values.air + values.width) * 0.04;
+      const density = values.glue * 0.06 + values.weight * 0.03;
+      const finishBoost = values.finish ? (0.12 + (mixNorm * 0.04)) : 0.0;
+      const trimBoost = (values.output_gain || 0.0) * 0.02;
+      const mixLift = 0.02 + (mixNorm * 0.04);
+      const raw = values.meter === 'LU'
+        ? 0.30 + density + finishBoost + trimBoost + mixLift
+        : 0.24 + polish + density + finishBoost + trimBoost + mixLift;
+      return clamp(raw, 0, 1);
+    }
+
+    function renderMeter() {
+      const target = targetMeterValue();
+      meterDisplay += (target - meterDisplay) * 0.16;
+      const bars = Array.from(document.querySelectorAll('.meter-bar'));
+      const visible = Math.round(Math.pow(meterDisplay, 0.84) * bars.length);
+      bars.forEach((bar, i) => bar.classList.toggle('active', i < visible));
+      const modeTrim = values.mode === 'LOUD' ? 0.18 : values.mode === 'WIDE' ? 0.05 : values.mode === 'WARM' ? 0.10 : 0.0;
+      const mixNorm = clamp((values.mix || 100.0) / 100.0, 0, 1);
+      values.output = ((((values.glue - 3.5) * 0.12) + (values.finish ? 0.45 : 0.0) + modeTrim) * (0.35 + (mixNorm * 0.65))) + (values.output_gain || 0.0);
+      const suffix = values.meter === 'LU' ? ' LU' : ' dB';
+      document.getElementById('output-readout').textContent = `${values.output >= 0 ? '+' : ''}${values.output.toFixed(1)}${suffix}`;
+      requestAnimationFrame(renderMeter);
+    }
+
+    document.querySelectorAll('.knob').forEach((knob) => {
+      const param = knob.dataset.param;
+      const min = Number(knob.dataset.min);
+      const max = Number(knob.dataset.max);
+      let dragging = false;
+      let startY = 0;
+      let startValue = 0;
+
+      const move = (clientY) => {
+        const delta = startY - clientY;
+        const next = clamp(startValue + delta * ((max - min) / 180), min, max);
+        updateKnob(param, next);
+      };
+
+      knob.addEventListener('pointerdown', (event) => {
+        dragging = true;
+        startY = event.clientY;
+        startValue = values[param];
+        knob.classList.add('active');
+        knob.setPointerCapture(event.pointerId);
+      });
+
+      knob.addEventListener('pointermove', (event) => {
+        if (!dragging) return;
+        move(event.clientY);
+      });
+      knob.addEventListener('pointerup', () => {
+        dragging = false;
+        knob.classList.remove('active');
+      });
+      knob.addEventListener('pointercancel', () => {
+        dragging = false;
+        knob.classList.remove('active');
+      });
+    });
+
+    document.querySelectorAll('[data-mode]').forEach((button) => {
+      button.addEventListener('click', () => applyPreset(button.dataset.mode));
+    });
+
+    document.querySelectorAll('[data-meter]').forEach((button) => {
+      button.addEventListener('click', () => setMeterView(button.dataset.meter));
+    });
+
+    document.getElementById('finish-toggle').addEventListener('click', () => setFinish(!values.finish));
+
+    applyPreset('CLEAN');
+    setMeterView('OUT');
+    renderMeter();
+  </script>
+</body>
+</html>

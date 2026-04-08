@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Space By Nova User Manual</title>
+  <style>
+    :root { --bg:#f5ecdd; --panel:#fffdf9; --ink:#2c251f; --soft:#66594d; --accent:#c18c49; --line:#e5d6bf; }
+    *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#f7f0e5 0%,#efe3d2 100%);color:var(--ink);font:16px/1.65 "Avenir Next","Segoe UI",sans-serif}.wrap{max-width:980px;margin:0 auto;padding:32px 20px 48px}.hero,section{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 24px rgba(87,62,28,.06)}.hero{padding:28px;margin-bottom:18px}h1,h2{margin:0 0 10px;font-family:Georgia,serif}h1{font-size:2.35rem}.subtitle{color:var(--soft);letter-spacing:.12em;text-transform:uppercase;font-size:.85rem}.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.chip{padding:7px 12px;border-radius:999px;background:#f3e8d8;border:1px solid #e4d3bc;font-size:.9rem}section{padding:22px;margin-top:16px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #eadbc4;padding:10px 12px;vertical-align:top;text-align:left}th{background:#f6efe5}code{background:#f4ebdf;padding:2px 6px;border-radius:6px}blockquote{margin:12px 0 0;padding:10px 14px;border-left:4px solid var(--accent);background:#fbf7f1;color:#4b4035}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="subtitle">Current V1 Build</div>
+      <h1>Space By Nova User Manual</h1>
+      <p><strong>Studio Glow for Modern Vocals</strong></p>
+      <p><code>Space By Nova</code> is a vocal-friendly ambience designer built to create width, bloom, and depth quickly without a giant reverb control panel.</p>
+      <div class="chips"><div class="chip">Vocal Space</div><div class="chip">Width</div><div class="chip">Glow</div><div class="chip">Fast Mode Recall</div></div>
+    </div>
+
+    <section>
+      <h2>Visible Controls</h2>
+      <table>
+        <thead><tr><th>Control</th><th>What You Hear</th><th>What It Changes in the DSP</th></tr></thead>
+        <tbody>
+          <tr><td><code>SPACE</code></td><td>Makes the ambience feel bigger and deeper</td><td>Increases effective room size, bloom delay, motion depth, softness of the front edge, and tail development.</td></tr>
+          <tr><td><code>MIX</code></td><td>Blends dry vocal with processed space</td><td>Controls the final dry/wet balance.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Mode Buttons</h2>
+      <table>
+        <thead><tr><th>Mode</th><th>Feel</th><th>Backend Change</th></tr></thead>
+        <tbody>
+          <tr><td><code>STUDIO</code></td><td>Tight and controlled</td><td>Smaller room feel, shorter pre-delay, stronger ducking, less width and motion.</td></tr>
+          <tr><td><code>ARENA</code></td><td>Bigger and wider</td><td>Larger room, more pre-delay, more side width, more halo and movement.</td></tr>
+          <tr><td><code>DREAM</code></td><td>Soft and lush</td><td>Most diffuse space, longer bloom, fewer early reflections, more motion and tail lift.</td></tr>
+          <tr><td><code>VINTAGE</code></td><td>Darker and narrower</td><td>More damping, less width, darker top end, less halo and motion.</td></tr>
+        </tbody>
+      </table>
+      <blockquote>These are real DSP voicing modes, not just display labels.</blockquote>
+    </section>
+
+    <section>
+      <h2>What the Buttons Also Recall</h2>
+      <p>Because the plugin is intentionally minimal, the mode buttons also rebalance hidden internal parameters such as <code>Air</code>, <code>Depth</code>, <code>Width</code>, pre-delay, decay feel, damping, and early reflections.</p>
+    </section>
+  </div>
+</body>
+</html>

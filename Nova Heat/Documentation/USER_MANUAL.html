@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Heat User Manual</title>
+  <style>
+    :root { --bg:#181310; --panel:#241c17; --soft:#bbaea0; --ink:#f7f0e8; --accent:#d39a4a; --line:#58422f; }
+    *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#1b1511 0%,#2a2119 100%);color:var(--ink);font:16px/1.6 "Avenir Next","Segoe UI",sans-serif} .wrap{max-width:980px;margin:0 auto;padding:32px 20px 48px} .hero,section{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 28px rgba(0,0,0,.22)} .hero{padding:28px;margin-bottom:18px} h1,h2{margin:0 0 10px;font-family:Georgia,serif} h1{font-size:2.3rem} h2{font-size:1.35rem;border-bottom:1px solid #423124;padding-bottom:8px} .subtitle{color:var(--soft);letter-spacing:.12em;text-transform:uppercase;font-size:.85rem} .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.chip{padding:7px 12px;border-radius:999px;background:#2f251e;border:1px solid #5a4331;font-size:.9rem} section{padding:22px;margin-top:16px} table{width:100%;border-collapse:collapse;margin-top:12px} th,td{border:1px solid #4a3829;padding:10px 12px;vertical-align:top;text-align:left} th{background:#30251d} code{background:#342820;padding:2px 6px;border-radius:6px} blockquote{margin:12px 0 0;padding:10px 14px;border-left:4px solid var(--accent);background:#2d231b;color:#f1e2d3}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="subtitle">Current V1 Build</div>
+      <h1>Nova Heat User Manual</h1>
+      <p><strong>Harmonic Saturation &amp; Energy Processor</strong></p>
+      <p><code>Nova Heat</code> adds warmth, density, bite, glue, and excitement without collapsing into harsh distortion.</p>
+      <div class="chips"><div class="chip">Warmth</div><div class="chip">Density</div><div class="chip">Parallel Blend</div><div class="chip">Magic Polish</div></div>
+    </div>
+
+    <section>
+      <h2>Main Controls</h2>
+      <table>
+        <thead><tr><th>Control</th><th>What You Hear</th><th>What It Changes in the DSP</th></tr></thead>
+        <tbody>
+          <tr><td><code>DRIVE</code></td><td>More push and forwardness</td><td>Raises the input level feeding the nonlinear saturation stage.</td></tr>
+          <tr><td><code>TONE</code></td><td>Warmer on the left, brighter on the right</td><td>Applies a tilt-style tonal balance using shelves and focus filters.</td></tr>
+          <tr><td><code>HEAT</code></td><td>More harmonic density and intensity</td><td>Increases saturation curve amount, transient softening, and asymmetry.</td></tr>
+          <tr><td><code>MIX</code></td><td>Blends clean and processed signal</td><td>Controls the final dry/wet balance.</td></tr>
+          <tr><td><code>OUTPUT</code></td><td>Matches level after saturation</td><td>Applies output trim from <code>-12 dB</code> to <code>+12 dB</code>.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Mode Buttons</h2>
+      <table>
+        <thead><tr><th>Mode</th><th>Feel</th><th>Backend Change</th></tr></thead>
+        <tbody>
+          <tr><td><code>SOFT</code></td><td>Smooth and forgiving</td><td>Lower drive multiplier, gentler curve, lighter width and transient control.</td></tr>
+          <tr><td><code>MEDIUM</code></td><td>Balanced and versatile</td><td>Middle-ground harmonic density and polish behavior.</td></tr>
+          <tr><td><code>HARD</code></td><td>Bolder and more aggressive</td><td>Higher drive multiplier, stronger asymmetry, more transient shaping, more width.</td></tr>
+        </tbody>
+      </table>
+      <blockquote>These buttons are real DSP mode changes, not cosmetic toggles.</blockquote>
+    </section>
+
+    <section>
+      <h2>MAGIC Button</h2>
+      <p><code>MAGIC</code> is a finishing layer. When enabled it adds extra upper-mid focus, smoother top control, a little more dynamic sensitivity, richer saturation behavior, and a touch more stereo polish.</p>
+      <blockquote><code>MAGIC</code> changes the backend processing, but it does not automatically move the main knobs by itself.</blockquote>
+    </section>
+
+    <section>
+      <h2>Preset Buttons</h2>
+      <p>The preset buttons recall complete starting points for common sources: <code>VOCAL</code>, <code>DRUMS</code>, <code>BASS</code>, and <code>MASTER</code>. They change the actual controls and may also toggle <code>MAGIC</code>.</p>
+    </section>
+  </div>
+</body>
+</html>

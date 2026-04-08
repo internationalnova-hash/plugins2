@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Tone — Design Preview</title>
+  <style>
+    :root {
+      --face: #f2e8dc;
+      --face-rich: #ede0cf;
+      --panel: #e4d6c3;
+      --panel-line: rgba(201, 172, 122, 0.45);
+      --text-main: #4a4036;
+      --text-soft: #6f6253;
+      --gold: #c89a43;
+      --gold-soft: #d8b56d;
+      --gold-pale: #e5c986;
+      --white: #fffaf4;
+      --shadow: rgba(108, 82, 48, 0.10);
+      --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg, #d8cfc2 0%, #cec3b5 100%);
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text-main);
+      padding: 20px;
+    }
+
+    .plugin {
+      position: relative;
+      width: 980px;
+      height: 620px;
+      border-radius: 34px;
+      background: linear-gradient(180deg, var(--face) 0%, var(--face-rich) 100%);
+      border: 1px solid rgba(205, 179, 137, 0.65);
+      box-shadow:
+        0 22px 46px rgba(92, 70, 40, 0.12),
+        inset 0 1px 0 rgba(255,255,255,0.7),
+        inset 0 -10px 18px rgba(167, 140, 99, 0.10);
+      overflow: hidden;
+    }
+
+    .plugin::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), transparent 14%);
+      pointer-events: none;
+    }
+
+    .plugin::after {
+      content: "";
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      bottom: 0;
+      height: 28px;
+      background: linear-gradient(180deg, transparent 0%, rgba(110,84,48,0.08) 100%);
+      pointer-events: none;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 34px 42px 18px;
+    }
+
+    .title {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-size: 54px;
+      line-height: 1;
+      letter-spacing: 0.01em;
+      color: #2f241c;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      font-size: 16px;
+      letter-spacing: 0.20em;
+      color: var(--text-soft);
+    }
+
+    .descriptor {
+      margin-top: 10px;
+      font-size: 14px;
+      letter-spacing: 0.20em;
+      color: var(--text-soft);
+      text-align: right;
+    }
+
+    .inner-panel {
+      position: absolute;
+      left: 26px;
+      right: 26px;
+      top: 118px;
+      bottom: 96px;
+      border-radius: 26px;
+      background: linear-gradient(180deg, rgba(221, 205, 181, 0.92) 0%, rgba(210, 193, 168, 0.84) 100%);
+      border: 1px solid rgba(188, 153, 103, 0.46);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.40),
+        inset 0 -14px 22px rgba(134,102,62,0.08),
+        0 8px 16px rgba(104, 77, 43, 0.05);
+      padding: 24px 24px 16px;
+    }
+
+    .sections {
+      display: grid;
+      grid-template-columns: 1.15fr 1.25fr 0.95fr 0.7fr;
+      gap: 14px;
+      height: 100%;
+    }
+
+    .section {
+      position: relative;
+      overflow: hidden;
+      border-radius: 20px;
+      padding: 16px 14px 14px;
+      background: linear-gradient(180deg, rgba(252, 246, 238, 0.58) 0%, rgba(238, 225, 206, 0.42) 100%);
+      border: 1px solid rgba(190, 154, 101, 0.38);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.42),
+        inset 0 -10px 14px rgba(138, 105, 64, 0.06),
+        0 6px 10px rgba(106, 78, 43, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .section::before {
+      content: "";
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      top: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 20%, rgba(255,255,255,0.1) 100%);
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.26em;
+      color: #3e3127;
+    }
+
+    .selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .option {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(191, 160, 116, 0.52);
+      background: linear-gradient(180deg, rgba(255, 252, 248, 0.94) 0%, rgba(244, 234, 219, 0.92) 100%);
+      color: #655847;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.72), 0 2px 4px rgba(104, 77, 43, 0.04);
+    }
+
+    .option.active {
+      background: linear-gradient(180deg, #efd58f 0%, #bf812b 100%);
+      color: #fffaf4;
+      border-color: #a96d18;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.36),
+        inset 0 -2px 4px rgba(120, 74, 16, 0.20),
+        0 7px 14px rgba(177, 126, 33, 0.26),
+        0 0 0 1px rgba(255, 244, 220, 0.30);
+    }
+
+    .knob-row {
+      display: flex;
+      justify-content: space-around;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .knob-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-width: 92px;
+    }
+
+    .knob-label {
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--text-soft);
+      text-align: center;
+    }
+
+    .knob {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 32% 24%, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.30) 20%, transparent 34%),
+        repeating-conic-gradient(from 0deg, rgba(255,255,255,0.14) 0deg 11deg, rgba(173, 140, 92, 0.10) 11deg 22deg),
+        linear-gradient(145deg, #fbf4ea 0%, #eadcc8 45%, #d6bb93 100%);
+      border: 1px solid rgba(186, 150, 98, 0.92);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.92),
+        inset 0 -12px 20px rgba(154, 118, 70, 0.14),
+        0 12px 18px rgba(109, 83, 48, 0.12);
+    }
+
+    .knob::before {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.54);
+      box-shadow: inset 0 1px 1px rgba(255,255,255,0.35), inset 0 -8px 12px rgba(118, 88, 49, 0.10);
+    }
+
+    .knob::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 14px;
+      width: 7px;
+      height: 25px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: linear-gradient(180deg, #fff8e4 0%, #d6a74f 50%, #996115 100%);
+      box-shadow:
+        0 0 0 1px rgba(255, 249, 239, 0.52),
+        0 2px 6px rgba(122, 83, 27, 0.18);
+    }
+
+    .arc {
+      position: absolute;
+      inset: 12px;
+      border-radius: 50%;
+      transform: rotate(var(--turn, -30deg));
+    }
+
+    .arc::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(from 218deg, rgba(230,216,188,0.82) 0deg 26deg, var(--gold-pale) 26deg 74deg, var(--gold) 74deg 112deg, transparent 112deg 360deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
+    }
+
+    .arc::after {
+      content: "";
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      left: 18%;
+      top: 8%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #fff1c7 0%, #deb566 58%, #bd8428 100%);
+      box-shadow: 0 0 0 3px rgba(255,250,244,0.92), 0 2px 6px rgba(103, 74, 34, 0.18);
+    }
+
+    .readout {
+      min-width: 78px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(193, 158, 107, 0.46);
+      background: linear-gradient(180deg, rgba(255,252,247,0.96) 0%, rgba(239,228,212,0.96) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.78), 0 4px 10px rgba(110,84,48,0.06);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #2f241c;
+      text-align: center;
+    }
+
+    .output-card {
+      flex: 1;
+      display: grid;
+      place-items: center;
+    }
+
+    .output-stack {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .output-meter {
+      width: 100%;
+      padding: 12px 10px 10px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255, 250, 244, 0.82) 0%, rgba(241, 230, 214, 0.72) 100%);
+      border: 1px solid rgba(197,171,131,0.44);
+      text-align: center;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+    }
+
+    .output-meter .meta {
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      color: var(--text-soft);
+    }
+
+    .mini-meter {
+      display: flex;
+      justify-content: center;
+      align-items: end;
+      gap: 5px;
+      height: 34px;
+      margin: 8px 0;
+    }
+
+    .meter-bar {
+      width: 8px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(202, 181, 143, 0.70) 0%, rgba(182, 158, 122, 0.40) 100%);
+    }
+
+    .meter-bar:nth-child(1) { height: 12px; }
+    .meter-bar:nth-child(2) { height: 18px; }
+    .meter-bar:nth-child(3) { height: 24px; }
+    .meter-bar:nth-child(4) { height: 30px; }
+    .meter-bar:nth-child(5) { height: 22px; }
+
+    .meter-bar.active {
+      background: linear-gradient(180deg, #f2d996 0%, #c78b2d 100%);
+      box-shadow: 0 0 12px rgba(203, 151, 55, 0.28);
+      animation: meterPulse 2.4s ease-in-out infinite alternate;
+    }
+
+    @keyframes meterPulse {
+      from {
+        transform: translateY(0);
+        filter: brightness(1);
+      }
+      to {
+        transform: translateY(-1px);
+        filter: brightness(1.06);
+      }
+    }
+
+    .modes {
+      position: absolute;
+      left: 34px;
+      right: 34px;
+      bottom: 22px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .mode-button {
+      height: 46px;
+      border-radius: 999px;
+      border: 1px solid rgba(197,171,131,0.55);
+      background: rgba(255, 249, 242, 0.8);
+      color: var(--text-soft);
+      font-size: 14px;
+      letter-spacing: 0.18em;
+      cursor: pointer;
+      transition: all var(--ease);
+    }
+
+    .mode-button.active {
+      background: linear-gradient(180deg, #ddbe72 0%, #c39238 100%);
+      color: #fffaf4;
+      box-shadow: 0 8px 16px rgba(174, 131, 54, 0.16);
+    }
+
+    .footer-note {
+      position: absolute;
+      left: 40px;
+      right: 40px;
+      bottom: 74px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(195,167,124,0.32);
+      font-size: 13px;
+      color: var(--text-soft);
+      letter-spacing: 0.03em;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .nova-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 0;
+      position: relative;
+      min-height: 64px;
+    }
+    .nova-logo-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      margin-left: -10px;
+      border-radius: 10px;
+      background: rgba(60, 56, 48, 0.10);
+      box-shadow: 0 2px 8px 0 rgba(60,56,48,0.07);
+      backdrop-filter: blur(1.5px);
+    }
+    .nova-logo {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      filter: grayscale(0.1) brightness(0.93) contrast(1.08);
+      opacity: 1;
+    }
+    .nova-title-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      line-height: 1.0;
+      margin-top: 2px;
+    }
+    .nova-title-nova {
+      font-size: 24px;
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      color: #353535;
+      margin: 0 0 2px 0;
+      padding: 0;
+      opacity: 0.97;
+    }
+    .nova-title-master {
+      font-size: 30px;
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-weight: 950;
+      letter-spacing: 0.04em;
+      color: #282420;
+      margin: 0;
+      padding: 0;
+      line-height: 1.0;
+      opacity: 0.98;
+    }
+  </style>
+</head>
+<body>
+  <div class="plugin">
+    <div class="header">
+      <div>
+        <h1 class="title">NOVA TONE</h1>
+        <div class="subtitle">MUSICAL TONE EQUALIZER</div>
+      </div>
+      <div class="descriptor">ANALOG CURVES / PREMIUM TONE</div>
+    </div>
+
+    <div class="inner-panel">
+      <div class="sections">
+        <section class="section">
+          <div class="section-title">LOW END</div>
+          <div class="selector" id="low-freq-selector">
+            <div class="option">20</div>
+            <div class="option">30</div>
+            <div class="option active">60</div>
+            <div class="option">100</div>
+          </div>
+          <div class="knob-row">
+            <div class="knob-wrap">
+              <div class="knob-label">LOW BOOST</div>
+              <div class="knob" data-role="lowBoost"><div class="arc"></div></div>
+              <div class="readout" id="lowBoost-value">+0.0 dB</div>
+            </div>
+            <div class="knob-wrap">
+              <div class="knob-label">LOW ATTEN</div>
+              <div class="knob" data-role="lowAtten"><div class="arc"></div></div>
+              <div class="readout" id="lowAtten-value">+0.0 dB</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">HIGH BOOST</div>
+          <div class="selector" id="high-freq-selector">
+            <div class="option">3k</div>
+            <div class="option">4k</div>
+            <div class="option">5k</div>
+            <div class="option active">8k</div>
+            <div class="option">10k</div>
+            <div class="option">12k</div>
+            <div class="option">16k</div>
+          </div>
+          <div class="knob-row">
+            <div class="knob-wrap">
+              <div class="knob-label">HIGH BOOST</div>
+              <div class="knob" data-role="highBoost"><div class="arc"></div></div>
+              <div class="readout" id="highBoost-value">+0.0 dB</div>
+            </div>
+            <div class="knob-wrap">
+              <div class="knob-label">BANDWIDTH</div>
+              <div class="knob" data-role="bandwidth"><div class="arc"></div></div>
+              <div class="readout" id="bandwidth-value">BW 5.0</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">HIGH ATTENUATION</div>
+          <div class="selector" id="high-atten-freq-selector">
+            <div class="option">5k</div>
+            <div class="option active">10k</div>
+            <div class="option">20k</div>
+          </div>
+          <div class="knob-row" style="justify-content:center;">
+            <div class="knob-wrap">
+              <div class="knob-label">HIGH ATTEN</div>
+              <div class="knob" data-role="highAtten"><div class="arc"></div></div>
+              <div class="readout" id="highAtten-value">+0.0 dB</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">OUTPUT</div>
+          <div class="output-card">
+            <div class="output-stack">
+              <div class="knob-wrap">
+                <div class="knob-label">MAKEUP GAIN</div>
+                <div class="knob" data-role="output"><div class="arc"></div></div>
+                <div class="readout" id="output-value">+0.0 dB</div>
+              </div>
+              <div class="output-meter">
+                <div class="mini-meter" aria-hidden="true">
+                  <span class="meter-bar"></span>
+                  <span class="meter-bar"></span>
+                  <span class="meter-bar active"></span>
+                  <span class="meter-bar active"></span>
+                  <span class="meter-bar"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      <span id="left-note">Neutral tone state ready for musical shaping.</span>
+      <span id="right-note">Inspired by classic analog EQ curves.</span>
+    </div>
+
+    <div class="modes">
+      <button class="mode-button" data-mode="Vocal">VOCAL</button>
+      <button class="mode-button" data-mode="Bass">BASS</button>
+      <button class="mode-button" data-mode="Air">AIR</button>
+      <button class="mode-button" data-mode="Master">MASTER</button>
+    </div>
+  </div>
+
+  <script>
+    const presets = {
+      Neutral: { lowFreq: '60', lowBoost: 0.0, lowAtten: 0.0, highFreq: '8k', highBoost: 0.0, bandwidth: 5.0, highAttenFreq: '10k', highAtten: 0.0, output: 0.0, note: 'Neutral tone state ready for musical shaping.' },
+      Vocal: { lowFreq: '100', lowBoost: 2.0, lowAtten: 1.5, highFreq: '10k', highBoost: 5.5, bandwidth: 4.0, highAttenFreq: '5k', highAtten: 2.0, output: 0.0, note: 'Clarity and presence without harshness.' },
+      Bass: { lowFreq: '60', lowBoost: 6.0, lowAtten: 4.5, highFreq: '3k', highBoost: 1.5, bandwidth: 3.0, highAttenFreq: '5k', highAtten: 0.0, output: 0.0, note: 'Classic Pultec-style low-end trick for weight and control.' },
+      Air: { lowFreq: '30', lowBoost: 0.0, lowAtten: 0.0, highFreq: '12k', highBoost: 7.0, bandwidth: 6.0, highAttenFreq: '10k', highAtten: 2.5, output: 0.0, note: 'Expensive top-end shine with smooth polish.' },
+      Master: { lowFreq: '30', lowBoost: 3.0, lowAtten: 2.0, highFreq: '10k', highBoost: 4.0, bandwidth: 5.0, highAttenFreq: '20k', highAtten: 1.5, output: 0.0, note: 'Subtle bus glue and broad tonal polish.' }
+    };
+
+    function formatReadout(role, value) {
+      if (typeof value !== 'number') return value;
+      if (role === 'bandwidth') return `BW ${value.toFixed(1)}`;
+      const sign = value >= 0 ? '+' : '';
+      return `${sign}${value.toFixed(1)} dB`;
+    }
+
+    function setKnob(role, value, max = 10, min = 0) {
+      const knob = document.querySelector(`[data-role="${role}"] .arc`);
+      const readout = document.getElementById(`${role}-value`) || document.getElementById('output-value');
+      const normalized = max === min ? 0 : (value - min) / (max - min);
+      const rotation = -42 + (normalized * 210);
+      if (knob) knob.style.setProperty('--turn', `${rotation}deg`);
+      if (readout) readout.textContent = formatReadout(role, value);
+    }
+
+    function setSelector(selectorId, selected) {
+      document.querySelectorAll(`#${selectorId} .option`).forEach((option) => {
+        option.classList.toggle('active', option.textContent === selected);
+      });
+    }
+
+    function applyMode(modeName) {
+      const preset = presets[modeName];
+      if (!preset) return;
+
+      setSelector('low-freq-selector', preset.lowFreq);
+      setSelector('high-freq-selector', preset.highFreq);
+      setSelector('high-atten-freq-selector', preset.highAttenFreq);
+
+      setKnob('lowBoost', preset.lowBoost);
+      setKnob('lowAtten', preset.lowAtten);
+      setKnob('highBoost', preset.highBoost);
+      setKnob('bandwidth', preset.bandwidth);
+      setKnob('highAtten', preset.highAtten);
+      setKnob('output', preset.output, 10, -10);
+      document.getElementById('left-note').textContent = preset.note;
+
+      document.querySelectorAll('.mode-button').forEach((button) => {
+        button.classList.toggle('active', button.dataset.mode === modeName);
+      });
+    }
+
+    document.querySelectorAll('.mode-button').forEach((button) => {
+      button.addEventListener('click', () => applyMode(button.dataset.mode));
+    });
+
+    applyMode('Neutral');
+  </script>
+</body>
+</html>

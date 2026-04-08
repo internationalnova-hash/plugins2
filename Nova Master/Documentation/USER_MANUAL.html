@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Master User Manual</title>
+  <style>
+    :root { --bg:#f2ece3; --panel:#fffdfa; --ink:#312821; --soft:#6b5d4e; --accent:#af8c56; --line:#e0d0ba; }
+    *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#f4efe8 0%,#eadfce 100%);color:var(--ink);font:16px/1.65 "Avenir Next","Segoe UI",sans-serif}.wrap{max-width:980px;margin:0 auto;padding:32px 20px 48px}.hero,section{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 24px rgba(87,62,28,.06)}.hero{padding:28px;margin-bottom:18px}h1,h2{margin:0 0 10px;font-family:Georgia,serif}h1{font-size:2.35rem}.subtitle{color:var(--soft);letter-spacing:.12em;text-transform:uppercase;font-size:.85rem}.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.chip{padding:7px 12px;border-radius:999px;background:#f1e6d8;border:1px solid #e4d3bc;font-size:.9rem}section{padding:22px;margin-top:16px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #eadbc4;padding:10px 12px;vertical-align:top;text-align:left}th{background:#f6efe5}code{background:#f4ebdf;padding:2px 6px;border-radius:6px}blockquote{margin:12px 0 0;padding:10px 14px;border-left:4px solid var(--accent);background:#fbf7f1;color:#4b4035}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="subtitle">Current V1 Build</div>
+      <h1>Nova Master User Manual</h1>
+      <p><strong>Final Mix Processor</strong></p>
+      <p><code>Nova Master</code> is designed to help a mix feel more polished, connected, spacious, and release-ready without turning into a complicated mastering suite.</p>
+      <div class="chips"><div class="chip">Glue</div><div class="chip">Weight</div><div class="chip">Air</div><div class="chip">Finish</div></div>
+    </div>
+
+    <section>
+      <h2>Main Controls</h2>
+      <table>
+        <thead><tr><th>Control</th><th>What You Hear</th><th>What It Changes in the DSP</th></tr></thead>
+        <tbody>
+          <tr><td><code>TONE</code></td><td>Darker left, brighter right</td><td>Applies a broad mastering-style tonal tilt.</td></tr>
+          <tr><td><code>GLUE</code></td><td>More cohesion and density</td><td>Increases the mix-bus compression behavior and detector response.</td></tr>
+          <tr><td><code>WEIGHT</code></td><td>More low-end foundation</td><td>Adds controlled body and low-end contour.</td></tr>
+          <tr><td><code>AIR</code></td><td>More openness and polish</td><td>Adds smooth top-end lift with premium smoothing.</td></tr>
+          <tr><td><code>WIDTH</code></td><td>More stereo space</td><td>Enhances upper stereo width while keeping the lows stable.</td></tr>
+          <tr><td><code>OUTPUT</code></td><td>Matches loudness after processing</td><td>Applies final level trim from <code>-6 dB</code> to <code>+6 dB</code>.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Mode Buttons</h2>
+      <table>
+        <thead><tr><th>Mode</th><th>Feel</th><th>Backend Change</th></tr></thead>
+        <tbody>
+          <tr><td><code>CLEAN</code></td><td>Most transparent</td><td>Lightest glue and safest tone balance.</td></tr>
+          <tr><td><code>WARM</code></td><td>Richer and smoother</td><td>Adds more body and harmonic finish.</td></tr>
+          <tr><td><code>WIDE</code></td><td>More spacious</td><td>Pushes stereo polish and openness.</td></tr>
+          <tr><td><code>LOUD</code></td><td>Densest and most forward</td><td>Uses firmer glue and stronger hidden loudness control.</td></tr>
+        </tbody>
+      </table>
+      <blockquote>These mode buttons are fully mapped to the DSP and are not cosmetic only.</blockquote>
+    </section>
+
+    <section>
+      <h2>FINISH</h2>
+      <p><code>FINISH</code> adds the premium finalizer stage: extra smoothing, harmonic polish, stereo refinement, and a hidden smart limiter / soft ceiling for more competitive loudness.</p>
+      <blockquote>The goal is to make the mix feel more expensive and complete, not smashed.</blockquote>
+    </section>
+  </div>
+</body>
+</html>
