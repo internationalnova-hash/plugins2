@@ -1,8 +1,9 @@
 #pragma once
-#include <JuceHeader.h>
+#include <juce_gui_extra/juce_gui_extra.h>
 #include "PluginProcessor.h"
 
-class NovaLevelAudioProcessorEditor : public juce::AudioProcessorEditor {
+class NovaLevelAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                      private juce::Timer {
 public:
     explicit NovaLevelAudioProcessorEditor(NovaLevelAudioProcessor&);
     ~NovaLevelAudioProcessorEditor() override;
