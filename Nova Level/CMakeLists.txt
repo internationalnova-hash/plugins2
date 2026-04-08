@@ -1,3 +1,6 @@
+# Ensure JUCE does not build VST2 client code (force disable)
+set(JUCE_BUILD_VST2 OFF CACHE BOOL "" FORCE)
+set(JUCE_VST2_FORMAT OFF CACHE BOOL "" FORCE)
 # Explicitly disable all plugin formats except VST3
 set(JUCE_VST2_FORMAT OFF)
 set(JUCE_AU_FORMAT OFF)
