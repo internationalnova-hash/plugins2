@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install CMake
-          uses: lukka/get-cmake@v4.3.1
+        uses: lukka/get-cmake@v4.3.1
 
       - name: Clean build directory
         run: if exist "Nova Level\\build" rmdir /s /q "Nova Level\\build"
