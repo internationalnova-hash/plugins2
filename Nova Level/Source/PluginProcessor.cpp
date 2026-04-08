@@ -1,3 +1,8 @@
+// This function is required by JUCE for all plugin formats
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+	return new NovaLevelAudioProcessor();
+}
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
