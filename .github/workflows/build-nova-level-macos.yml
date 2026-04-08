@@ -1,4 +1,5 @@
 name: Build Nova Level macOS
+# Trigger note: keep this file touchable to retrigger macOS packaging runs when queue stalls.
 
 on:
   push:
