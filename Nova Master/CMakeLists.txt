@@ -30,6 +30,7 @@ message(STATUS "Nova Master: WebView backend: ${WEBVIEW_BACKEND}")
 juce_add_binary_data(NovaMaster_WebUI
     SOURCES
         Source/ui/public/index.html
+        Source/ui/public/n_logo.png
     NAMESPACE nova_master_BinaryData
 )
 

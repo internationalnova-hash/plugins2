@@ -854,163 +854,359 @@
   </div>
 
   <script>
-    const values = {
-      tone: 5.0,
-      glue: 3.5,
-      weight: 4.0,
-      air: 5.0,
-      width: 4.5,
-      mix: 100.0,
-      output_gain: 0.0,
-      output: 0.0,
-      finish: false,
-      meter: 'OUT',
-      mode: 'CLEAN'
-    };
+    (() => {
+      const modeButtons = Array.from(document.querySelectorAll('[data-mode]'));
+      const meterButtons = Array.from(document.querySelectorAll('[data-meter]'));
+      const knobs = Array.from(document.querySelectorAll('.knob[data-param]'));
+      const meterBars = Array.from(document.querySelectorAll('.meter-bar'));
+      const finishButton = document.getElementById('finish-toggle');
+      const meterReadout = document.getElementById('output-readout');
 
-    const presets = {
-      CLEAN: { tone: 5.0, glue: 3.5, weight: 4.0, air: 5.0, width: 4.5, mix: 100.0, finish: false },
-      WARM:  { tone: 4.2, glue: 4.8, weight: 6.0, air: 4.0, width: 4.5, mix: 82.0, finish: true },
-      WIDE:  { tone: 5.5, glue: 3.8, weight: 4.0, air: 6.2, width: 6.8, mix: 88.0, finish: true },
-      LOUD:  { tone: 5.2, glue: 5.5, weight: 5.2, air: 5.8, width: 5.0, mix: 94.0, finish: true }
-    };
+      const values = {
+        tone: 5.0,
+        glue: 3.5,
+        weight: 4.0,
+        air: 5.0,
+        width: 4.5,
+        mix: 100.0,
+        output_gain: 0.0,
+        finish_mode: 0.0,
+        mode_preset: 0.0,
+        meter_view: 0.0
+      };
 
-    let meterDisplay = 0;
+      const presets = {
+        CLEAN: { tone: 5.0, glue: 3.5, weight: 4.0, air: 5.0, width: 4.5, mix: 100.0, finish_mode: 0.0 },
+        WARM:  { tone: 4.2, glue: 4.8, weight: 6.0, air: 4.0, width: 4.5, mix: 82.0, finish_mode: 1.0 },
+        WIDE:  { tone: 5.5, glue: 3.8, weight: 4.0, air: 6.2, width: 6.8, mix: 88.0, finish_mode: 1.0 },
+        LOUD:  { tone: 5.2, glue: 5.5, weight: 5.2, air: 5.8, width: 5.0, mix: 94.0, finish_mode: 1.0 }
+      };
 
-    function clamp(v, min, max) { return Math.min(max, Math.max(min, Number(v) || 0)); }
+      const modeOrder = ['CLEAN', 'WARM', 'WIDE', 'LOUD'];
+      const meterOrder = ['OUT', 'LU'];
+      const sliderStates = {};
+      let activeDrag = null;
+      let lastOutDb = -60.0;
+      let lastLu = -18.0;
+      let lastHot = false;
+      let fallbackTick = 0;
 
-    function updateKnob(param, value) {
-      values[param] = value;
-      const knob = document.querySelector(`.knob[data-param="${param}"]`);
-      if (!knob) return;
-      const min = Number(knob.dataset.min);
-      const max = Number(knob.dataset.max);
-      const safe = clamp(value, min, max);
-      values[param] = safe;
-      const normal = (safe - min) / ((max - min) || 1);
-      const rotation = -42 + normal * 210;
-      knob.querySelector('.ring').style.setProperty('--turn', rotation + 'deg');
-      const readout = document.querySelector(`[data-readout="${param}"]`);
-      if (readout) {
+      function clamp(v, min, max) {
+        return Math.min(max, Math.max(min, Number(v) || 0));
+      }
+
+      function juceAvailable() {
+        return !!(window.__JUCE__ && window.__JUCE__.backend);
+      }
+
+      function createSliderState(name) {
+        if (!juceAvailable()) return null;
+
+        const backend = window.__JUCE__.backend;
+        const state = {
+          identifier: `__juce__slider${name}`,
+          scaledValue: 0,
+          properties: { start: 0, end: 1, interval: 0 },
+          listeners: [],
+          addListener(fn) { this.listeners.push(fn); },
+          notify() { this.listeners.forEach((fn) => fn()); },
+          getNormalisedValue() {
+            const range = this.properties.end - this.properties.start;
+            if (range === 0) return 0;
+            return clamp((this.scaledValue - this.properties.start) / range, 0, 1);
+          },
+          setNormalisedValue(normalised) {
+            const n = clamp(normalised, 0, 1);
+            const start = this.properties.start;
+            const end = this.properties.end;
+            let scaled = start + n * (end - start);
+
+            if (this.properties.interval > 0)
+              scaled = Math.round(scaled / this.properties.interval) * this.properties.interval;
+
+            this.scaledValue = scaled;
+            backend.emitEvent(this.identifier, { eventType: 'valueChanged', value: scaled });
+          },
+          gestureStart() { backend.emitEvent(this.identifier, { eventType: 'sliderDragStarted' }); },
+          gestureEnd() { backend.emitEvent(this.identifier, { eventType: 'sliderDragEnded' }); }
+        };
+
+        backend.addEventListener(state.identifier, (event) => {
+          if (!event) return;
+          if (event.eventType === 'valueChanged' && typeof event.value === 'number') {
+            state.scaledValue = event.value;
+            state.notify();
+          }
+          if (event.eventType === 'propertiesChanged') {
+            const props = { ...event };
+            delete props.eventType;
+            state.properties = { ...state.properties, ...props };
+          }
+        });
+
+        backend.emitEvent(state.identifier, { eventType: 'requestInitialUpdate' });
+        return state;
+      }
+
+      function setModeVisual(mode) {
+        modeButtons.forEach((button) => {
+          button.classList.toggle('active', button.dataset.mode === mode);
+        });
+      }
+
+      function setMeterVisual(mode) {
+        meterButtons.forEach((button) => {
+          button.classList.toggle('active', button.dataset.meter === mode);
+        });
+      }
+
+      function setFinishVisual(on) {
+        finishButton.classList.toggle('active', !!on);
+      }
+
+      function setMeterFill(normalized) {
+        const barsOn = Math.round(clamp(normalized, 0, 1) * meterBars.length);
+        meterBars.forEach((bar, index) => {
+          const active = index < barsOn;
+          bar.classList.toggle('active', active);
+          bar.style.opacity = active ? '1' : '0.45';
+        });
+      }
+
+      function setOutputReadout(outDb, lu, isHot) {
+        if ((values.meter_view || 0) > 0.5) {
+          meterReadout.textContent = `${lu >= 0 ? '+' : ''}${lu.toFixed(1)} LU`;
+          meterReadout.style.color = '#4e6174';
+          setMeterFill((lu + 18.0) / 24.0);
+        } else {
+          meterReadout.textContent = `${outDb >= 0 ? '+' : ''}${outDb.toFixed(1)} dB`;
+          meterReadout.style.color = isHot ? '#a45f2f' : '#37414c';
+          setMeterFill((outDb + 60.0) / 66.0);
+        }
+      }
+
+      function updateKnobVisual(param, value) {
+        const knob = document.querySelector(`.knob[data-param="${param}"]`);
+        if (!knob) return;
+
+        const min = Number(knob.dataset.min);
+        const max = Number(knob.dataset.max);
+        const safe = clamp(value, min, max);
+        values[param] = safe;
+
+        const normal = (safe - min) / Math.max(1e-6, (max - min));
+        const rotation = -42 + normal * 210;
+        knob.querySelector('.ring').style.setProperty('--turn', `${rotation}deg`);
+
+        const readout = document.querySelector(`[data-readout="${param}"]`);
+        if (!readout) return;
+
         readout.textContent = param === 'output_gain'
           ? `${safe >= 0 ? '+' : ''}${safe.toFixed(1)} dB`
           : param === 'mix'
             ? `${safe.toFixed(0)}%`
             : safe.toFixed(1);
+
         readout.classList.add('live');
         clearTimeout(readout._liveTimer);
         readout._liveTimer = setTimeout(() => readout.classList.remove('live'), 160);
       }
-    }
 
-    function setMode(mode) {
-      values.mode = mode;
-      document.querySelectorAll('[data-mode]').forEach((button) => {
-        button.classList.toggle('active', button.dataset.mode === mode);
+      function setParam(param, value, withGesture = false) {
+        updateKnobVisual(param, value);
+        const state = sliderStates[param];
+        if (!state) return;
+
+        const knob = document.querySelector(`.knob[data-param="${param}"]`);
+        if (!knob) return;
+        const min = Number(knob.dataset.min);
+        const max = Number(knob.dataset.max);
+        const safe = clamp(value, min, max);
+        const normalized = (safe - min) / Math.max(1e-6, (max - min));
+
+        if (withGesture) state.gestureStart();
+        state.setNormalisedValue(normalized);
+        if (withGesture) state.gestureEnd();
+      }
+
+      function setMode(modeName, emit = true) {
+        const index = Math.max(0, modeOrder.indexOf(modeName));
+        values.mode_preset = index;
+        setModeVisual(modeName);
+        if (emit && sliderStates.mode_preset)
+          sliderStates.mode_preset.setNormalisedValue(index / 3.0);
+      }
+
+      function setMeterView(modeName, emit = true) {
+        const index = Math.max(0, meterOrder.indexOf(modeName));
+        values.meter_view = index;
+        setMeterVisual(modeName);
+        if (emit && sliderStates.meter_view)
+          sliderStates.meter_view.setNormalisedValue(index);
+        setOutputReadout(lastOutDb, lastLu, lastHot);
+      }
+
+      function setFinish(on, emit = true) {
+        values.finish_mode = on ? 1.0 : 0.0;
+        setFinishVisual(on);
+        if (emit && sliderStates.finish_mode)
+          sliderStates.finish_mode.setNormalisedValue(on ? 1 : 0);
+      }
+
+      function applyPreset(name) {
+        const preset = presets[name];
+        if (!preset) return;
+        setMode(name, true);
+        setParam('tone', preset.tone, true);
+        setParam('glue', preset.glue, true);
+        setParam('weight', preset.weight, true);
+        setParam('air', preset.air, true);
+        setParam('width', preset.width, true);
+        setParam('mix', preset.mix, true);
+        setFinish(preset.finish_mode > 0.5, true);
+      }
+
+      function initKnobInteraction() {
+        knobs.forEach((knob) => {
+          const param = knob.dataset.param;
+
+          knob.addEventListener('pointerdown', (event) => {
+            if (event.button !== undefined && event.button !== 0) return;
+            event.preventDefault();
+
+            activeDrag = {
+              param,
+              pointerId: event.pointerId ?? null,
+              startY: event.clientY,
+              startValue: values[param] ?? Number(knob.dataset.min)
+            };
+
+            knob.classList.add('active');
+            if (event.pointerId !== undefined)
+              knob.setPointerCapture(event.pointerId);
+
+            sliderStates[param]?.gestureStart();
+          });
+
+          knob.addEventListener('dblclick', () => {
+            const min = Number(knob.dataset.min);
+            const max = Number(knob.dataset.max);
+            setParam(param, (min + max) * 0.5, true);
+          });
+        });
+
+        window.addEventListener('pointermove', (event) => {
+          if (!activeDrag) return;
+          if (activeDrag.pointerId !== null && event.pointerId !== activeDrag.pointerId) return;
+
+          const knob = document.querySelector(`.knob[data-param="${activeDrag.param}"]`);
+          if (!knob) return;
+          const min = Number(knob.dataset.min);
+          const max = Number(knob.dataset.max);
+          const delta = (activeDrag.startY - event.clientY) * ((max - min) / 180.0);
+          setParam(activeDrag.param, activeDrag.startValue + delta, false);
+        });
+
+        function endDrag(event) {
+          if (!activeDrag) return;
+          if (activeDrag.pointerId !== null && event.pointerId !== activeDrag.pointerId) return;
+          document.querySelector(`.knob[data-param="${activeDrag.param}"]`)?.classList.remove('active');
+          sliderStates[activeDrag.param]?.gestureEnd();
+          activeDrag = null;
+        }
+
+        window.addEventListener('pointerup', endDrag);
+        window.addEventListener('pointercancel', endDrag);
+      }
+
+      function startFallbackMeter() {
+        function tick() {
+          if (juceAvailable()) return;
+          fallbackTick += 0.018;
+          const wobble = 0.5 + (0.5 * Math.sin(fallbackTick * 4.0));
+          const density = clamp((values.glue + values.weight) / 20.0, 0, 1);
+          const spread = clamp((values.air + values.width) / 20.0, 0, 1);
+          const mixLift = clamp(values.mix / 100.0, 0, 1) * 0.22;
+          const finishLift = values.finish_mode > 0.5 ? 0.18 : 0.0;
+          const outDb = clamp(-18 + ((density + spread + mixLift + finishLift + (wobble * 0.12)) * 18.0) + values.output_gain, -60, 6);
+          const lu = clamp(-14 + ((density + finishLift + (wobble * 0.2)) * 12.0), -18, 6);
+          setOutputReadout(outDb, lu, outDb > -0.4);
+          requestAnimationFrame(tick);
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      modeButtons.forEach((button) => {
+        button.addEventListener('click', () => applyPreset(button.dataset.mode));
       });
-    }
 
-    function setMeterView(mode) {
-      values.meter = mode;
-      document.querySelectorAll('[data-meter]').forEach((button) => {
-        button.classList.toggle('active', button.dataset.meter === mode);
+      meterButtons.forEach((button) => {
+        button.addEventListener('click', () => setMeterView(button.dataset.meter, true));
       });
-    }
 
-    function setFinish(on) {
-      values.finish = !!on;
-      document.getElementById('finish-toggle').classList.toggle('active', values.finish);
-    }
+      finishButton.addEventListener('click', () => setFinish(values.finish_mode <= 0.5, true));
 
-    function applyPreset(name) {
-      const preset = presets[name];
-      if (!preset) return;
-      setMode(name);
-      updateKnob('tone', preset.tone);
-      updateKnob('glue', preset.glue);
-      updateKnob('weight', preset.weight);
-      updateKnob('air', preset.air);
-      updateKnob('width', preset.width);
-      updateKnob('mix', preset.mix);
-      setFinish(!!preset.finish);
-    }
+      sliderStates.tone = createSliderState('tone');
+      sliderStates.glue = createSliderState('glue');
+      sliderStates.weight = createSliderState('weight');
+      sliderStates.air = createSliderState('air');
+      sliderStates.width = createSliderState('width');
+      sliderStates.mix = createSliderState('mix');
+      sliderStates.output_gain = createSliderState('output_gain');
+      sliderStates.finish_mode = createSliderState('finish_mode');
+      sliderStates.mode_preset = createSliderState('mode_preset');
+      sliderStates.meter_view = createSliderState('meter_view');
 
-    function targetMeterValue() {
-      const mixNorm = clamp((values.mix || 100.0) / 100.0, 0, 1);
-      const polish = (values.air + values.width) * 0.04;
-      const density = values.glue * 0.06 + values.weight * 0.03;
-      const finishBoost = values.finish ? (0.12 + (mixNorm * 0.04)) : 0.0;
-      const trimBoost = (values.output_gain || 0.0) * 0.02;
-      const mixLift = 0.02 + (mixNorm * 0.04);
-      const raw = values.meter === 'LU'
-        ? 0.30 + density + finishBoost + trimBoost + mixLift
-        : 0.24 + polish + density + finishBoost + trimBoost + mixLift;
-      return clamp(raw, 0, 1);
-    }
+      ['tone', 'glue', 'weight', 'air', 'width', 'mix', 'output_gain'].forEach((param) => {
+        sliderStates[param]?.addListener(() => {
+          const knob = document.querySelector(`.knob[data-param="${param}"]`);
+          if (!knob) return;
+          const min = Number(knob.dataset.min);
+          const max = Number(knob.dataset.max);
+          const value = min + sliderStates[param].getNormalisedValue() * (max - min);
+          updateKnobVisual(param, value);
+        });
+      });
 
-    function renderMeter() {
-      const target = targetMeterValue();
-      meterDisplay += (target - meterDisplay) * 0.16;
-      const bars = Array.from(document.querySelectorAll('.meter-bar'));
-      const visible = Math.round(Math.pow(meterDisplay, 0.84) * bars.length);
-      bars.forEach((bar, i) => bar.classList.toggle('active', i < visible));
-      const modeTrim = values.mode === 'LOUD' ? 0.18 : values.mode === 'WIDE' ? 0.05 : values.mode === 'WARM' ? 0.10 : 0.0;
-      const mixNorm = clamp((values.mix || 100.0) / 100.0, 0, 1);
-      values.output = ((((values.glue - 3.5) * 0.12) + (values.finish ? 0.45 : 0.0) + modeTrim) * (0.35 + (mixNorm * 0.65))) + (values.output_gain || 0.0);
-      const suffix = values.meter === 'LU' ? ' LU' : ' dB';
-      document.getElementById('output-readout').textContent = `${values.output >= 0 ? '+' : ''}${values.output.toFixed(1)}${suffix}`;
-      requestAnimationFrame(renderMeter);
-    }
+      sliderStates.finish_mode?.addListener(() => {
+        setFinish(sliderStates.finish_mode.getNormalisedValue() > 0.5, false);
+      });
 
-    document.querySelectorAll('.knob').forEach((knob) => {
-      const param = knob.dataset.param;
-      const min = Number(knob.dataset.min);
-      const max = Number(knob.dataset.max);
-      let dragging = false;
-      let startY = 0;
-      let startValue = 0;
+      sliderStates.mode_preset?.addListener(() => {
+        const idx = Math.round(sliderStates.mode_preset.getNormalisedValue() * 3.0);
+        setMode(modeOrder[idx] || 'CLEAN', false);
+      });
 
-      const move = (clientY) => {
-        const delta = startY - clientY;
-        const next = clamp(startValue + delta * ((max - min) / 180), min, max);
-        updateKnob(param, next);
+      sliderStates.meter_view?.addListener(() => {
+        const idx = sliderStates.meter_view.getNormalisedValue() > 0.5 ? 1 : 0;
+        setMeterView(meterOrder[idx], false);
+      });
+
+      window.updateOutputMeter = (outputLinear, loudnessLike, isHot) => {
+        const safeOut = Number.isFinite(outputLinear) ? Math.max(1.0e-6, outputLinear) : 1.0e-6;
+        const safeLu = Number.isFinite(loudnessLike) ? clamp(loudnessLike, 0, 1) : 0;
+        lastOutDb = 20.0 * Math.log10(safeOut);
+        lastLu = -18.0 + (safeLu * 24.0);
+        lastHot = !!isHot;
+        setOutputReadout(lastOutDb, lastLu, lastHot);
       };
 
-      knob.addEventListener('pointerdown', (event) => {
-        dragging = true;
-        startY = event.clientY;
-        startValue = values[param];
-        knob.classList.add('active');
-        knob.setPointerCapture(event.pointerId);
+      ['tone', 'glue', 'weight', 'air', 'width', 'mix', 'output_gain'].forEach((param) => {
+        const knob = document.querySelector(`.knob[data-param="${param}"]`);
+        if (!knob) return;
+        const min = Number(knob.dataset.min);
+        const max = Number(knob.dataset.max);
+        updateKnobVisual(param, (min + max) * 0.5);
       });
 
-      knob.addEventListener('pointermove', (event) => {
-        if (!dragging) return;
-        move(event.clientY);
-      });
-      knob.addEventListener('pointerup', () => {
-        dragging = false;
-        knob.classList.remove('active');
-      });
-      knob.addEventListener('pointercancel', () => {
-        dragging = false;
-        knob.classList.remove('active');
-      });
-    });
-
-    document.querySelectorAll('[data-mode]').forEach((button) => {
-      button.addEventListener('click', () => applyPreset(button.dataset.mode));
-    });
-
-    document.querySelectorAll('[data-meter]').forEach((button) => {
-      button.addEventListener('click', () => setMeterView(button.dataset.meter));
-    });
-
-    document.getElementById('finish-toggle').addEventListener('click', () => setFinish(!values.finish));
-
-    applyPreset('CLEAN');
-    setMeterView('OUT');
-    renderMeter();
+      setMode('CLEAN', false);
+      setMeterView('OUT', false);
+      setFinish(false, false);
+      setOutputReadout(-60.0, -18.0, false);
+      initKnobInteraction();
+      startFallbackMeter();
+    })();
   </script>
 </body>
 </html>
