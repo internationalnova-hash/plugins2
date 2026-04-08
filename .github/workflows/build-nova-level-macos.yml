@@ -20,6 +20,10 @@ jobs:
       - name: Install CMake
         run: brew install cmake
 
+
+      - name: Clean build directory
+        run: rm -rf "Nova Level/build"
+
       - name: Configure CMake
         run: cmake -S "Nova Level" -B "Nova Level/build"
 
