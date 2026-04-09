@@ -19,6 +19,7 @@ private:
     juce::WebSliderRelay spaceRelay { "space" };
     juce::WebSliderRelay airRelay { "air" };
     juce::WebSliderRelay depthRelay { "depth" };
+    juce::WebSliderRelay preDelayRelay { "pre_delay_ms" };
     juce::WebSliderRelay mixRelay { "mix" };
     juce::WebSliderRelay widthRelay { "width" };
     juce::WebSliderRelay modeRelay { "nova_mode" };
@@ -38,6 +39,7 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> spaceAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> airAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> depthAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> preDelayAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> mixAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> widthAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> modeAttachment;

@@ -11,6 +11,7 @@ SpaceByNovaAudioProcessorEditor::SpaceByNovaAudioProcessorEditor (SpaceByNovaAud
     spaceAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("space"), spaceRelay, nullptr);
     airAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("air"), airRelay, nullptr);
     depthAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("depth"), depthRelay, nullptr);
+    preDelayAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("pre_delay_ms"), preDelayRelay, nullptr);
     mixAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("mix"), mixRelay, nullptr);
     widthAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("width"), widthRelay, nullptr);
     modeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("nova_mode"), modeRelay, nullptr);
@@ -58,6 +59,7 @@ juce::WebBrowserComponent::Options SpaceByNovaAudioProcessorEditor::createWebOpt
                      .withOptionsFrom (editor.spaceRelay)
                      .withOptionsFrom (editor.airRelay)
                      .withOptionsFrom (editor.depthRelay)
+                     .withOptionsFrom (editor.preDelayRelay)
                      .withOptionsFrom (editor.mixRelay)
                      .withOptionsFrom (editor.widthRelay)
                      .withOptionsFrom (editor.modeRelay);

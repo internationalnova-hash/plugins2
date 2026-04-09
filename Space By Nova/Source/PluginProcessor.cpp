@@ -94,7 +94,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpaceByNovaAudioProcessor::c
         juce::ParameterID { preDelayId, 1 },
         "Pre-Delay",
         juce::NormalisableRange<float> (0.0f, 120.0f, 0.1f),
-        28.0f,
+        22.0f,
         juce::String(),
         juce::AudioProcessorParameter::genericParameter,
         [] (float value, int) { return juce::String (value, 1) + " ms"; }));
@@ -268,7 +268,6 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     const float decayNorm = clamp01 ((decaySeconds - 0.5f) / 6.0f);
     const float airCurve = 1.0f - ((1.0f - airNorm) * (1.0f - airNorm));
     const float airSafety = airNorm * airNorm;
-    const float bloomDelayMs = juce::jmap (spaceNorm, 0.0f, 20.0f);
     const float attackSoftness = juce::jlimit (0.0f, 0.35f,
                                                0.04f + (0.16f * depthNorm) + (0.10f * spaceNorm));
 
@@ -279,10 +278,10 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                                   + (0.18f * dampingControl)
                                   + (0.08f * airSafety));
 
-    float preDelayMs = juce::jlimit (0.0f, 180.0f,
+    float preDelayMs = juce::jlimit (0.0f, 120.0f,
                                      preDelayMsBase
-                                     + juce::jmap (depthNorm, 8.0f, 56.0f)
-                                     + bloomDelayMs);
+                                     + juce::jmap (depthNorm, 0.0f, 8.0f)
+                                     + juce::jmap (spaceNorm, 0.0f, 5.0f));
 
     float earlyAmount = juce::jlimit (0.03f, 0.66f,
                                       (0.15f + (0.26f * earlyControl))
@@ -317,7 +316,7 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     {
         case 1: // Arena
             roomSize = clamp01 (roomSize + 0.09f);
-            preDelayMs += 12.0f;
+            preDelayMs += 4.0f;
             earlyAmount *= 0.80f;
             sideGain += 0.16f;
             decorrelationMs += 2.1f;
@@ -334,7 +333,7 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             break;
         case 2: // Dream
             roomSize = clamp01 (roomSize + 0.12f);
-            preDelayMs += 22.0f;
+            preDelayMs += 8.0f;
             earlyAmount *= 0.46f;
             damping = juce::jlimit (0.16f, 0.95f, damping + 0.10f);
             sideGain += 0.18f;
@@ -352,7 +351,7 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             break;
         case 3: // Vintage
             roomSize = clamp01 (roomSize - 0.01f);
-            preDelayMs = juce::jmax (8.0f, preDelayMs - 5.0f);
+            preDelayMs = juce::jmax (0.0f, preDelayMs - 3.0f);
             earlyAmount = juce::jlimit (0.10f, 0.60f, earlyAmount + 0.05f);
             damping = juce::jlimit (0.16f, 0.95f, damping + 0.18f);
             sideGain *= 0.72f;
@@ -370,7 +369,7 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             break;
         default: // Studio
             roomSize *= 0.74f;
-            preDelayMs = juce::jmax (12.0f, preDelayMs - 6.0f);
+            preDelayMs = juce::jmax (0.0f, preDelayMs - 2.0f);
             earlyAmount = juce::jlimit (0.12f, 0.58f, earlyAmount + 0.08f);
             wetTrim *= 0.90f;
             sideGain *= 0.74f;
@@ -386,6 +385,8 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             internalWidth *= 0.78f;
             break;
     }
+
+    preDelayMs = juce::jlimit (0.0f, 120.0f, preDelayMs);
 
     juce::Reverb::Parameters reverbParams;
     reverbParams.roomSize = roomSize;
