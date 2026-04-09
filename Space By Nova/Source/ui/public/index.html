@@ -245,6 +245,76 @@
       user-select: none;
     }
 
+    .controls-grid {
+      position: absolute;
+      top: 298px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      gap: 0;
+    }
+
+    .knob-col {
+      width: 190px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .knob-col .knob-label {
+      position: static;
+      width: auto;
+      text-align: center;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .controls-grid .knob-shell {
+      position: relative;
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      cursor: ns-resize;
+      touch-action: none;
+    }
+
+    .controls-grid .knob-shell.large {
+      width: 110px;
+      height: 110px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.94),
+        inset 0 -10px 18px rgba(170, 138, 88, 0.13),
+        0 10px 20px rgba(126, 100, 62, 0.11),
+        0 0 0 8px rgba(255, 248, 236, 0.40);
+    }
+
+    .controls-grid .value {
+      position: static;
+      width: auto;
+      margin-left: 0;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.2;
+      min-width: 58px;
+      text-align: center;
+      border-radius: 6px;
+      padding: 1px 5px;
+    }
+
+    .controls-grid .value.width-value {
+      width: auto;
+      margin-left: 0;
+      font-size: 13px;
+    }
+
     .knob-label {
       position: absolute;
       width: 140px;
@@ -584,36 +654,47 @@
       </div>
     </div>
 
-    <div class="knob-label" style="left: 130px; top: 296px;">SPACE</div>
-    <div class="knob-label" style="left: 360px; top: 296px;">AIR</div>
-    <div class="knob-label" style="left: 590px; top: 296px;">DEPTH</div>
-    <div class="knob-label" style="left: 820px; top: 296px;">MIX</div>
-    <div class="meter-title" style="top: 346px;">WIDTH</div>
+    <div class="controls-grid">
+      <div class="knob-col">
+        <div class="knob-label">SPACE</div>
+        <div class="knob-shell macro-knob" id="space-knob" data-param="space" data-default="18">
+          <div class="indicator"></div>
+        </div>
+        <div class="value editable-value" id="space-value" data-param="space" contenteditable="true" spellcheck="false">18%</div>
+      </div>
 
-    <div class="knob-shell macro-knob" id="space-knob" data-param="space" data-default="18" style="left: 125px; top: 332px; width: 150px; height: 150px;">
-      <div class="indicator"></div>
-    </div>
-    <div class="knob-shell macro-knob" id="air-knob" data-param="air" data-default="32" style="left: 355px; top: 332px; width: 150px; height: 150px;">
-      <div class="indicator"></div>
-    </div>
-    <div class="mini-dot" style="left: 640px; top: 434px;"></div>
-    <div class="knob-shell macro-knob" id="depth-knob" data-param="depth" data-default="26" style="left: 585px; top: 332px; width: 150px; height: 150px;">
-      <div class="indicator"></div>
-    </div>
-    <div class="mini-dot" style="left: 870px; top: 472px;"></div>
-    <div class="knob-shell macro-knob" id="mix-knob" data-param="mix" data-default="16" style="left: 815px; top: 332px; width: 150px; height: 150px;">
-      <div class="indicator"></div>
-    </div>
+      <div class="knob-col">
+        <div class="knob-label">AIR</div>
+        <div class="knob-shell macro-knob" id="air-knob" data-param="air" data-default="32">
+          <div class="indicator"></div>
+        </div>
+        <div class="value editable-value" id="air-value" data-param="air" contenteditable="true" spellcheck="false">32%</div>
+      </div>
 
-    <div class="knob-shell large macro-knob" id="width-knob" data-param="width" data-default="38" style="left: 494px; top: 408px; width: 184px; height: 184px;">
-      <div class="indicator"></div>
-    </div>
+      <div class="knob-col">
+        <div class="knob-label">DEPTH</div>
+        <div class="knob-shell macro-knob" id="depth-knob" data-param="depth" data-default="26">
+          <div class="indicator"></div>
+        </div>
+        <div class="value editable-value" id="depth-value" data-param="depth" contenteditable="true" spellcheck="false">26%</div>
+      </div>
 
-    <div class="value editable-value" id="space-value" data-param="space" contenteditable="true" spellcheck="false" style="left: 200px; top: 504px;">18%</div>
-    <div class="value editable-value" id="air-value" data-param="air" contenteditable="true" spellcheck="false" style="left: 430px; top: 504px;">32%</div>
-    <div class="value editable-value" id="depth-value" data-param="depth" contenteditable="true" spellcheck="false" style="left: 660px; top: 504px;">26%</div>
-    <div class="value editable-value" id="mix-value" data-param="mix" contenteditable="true" spellcheck="false" style="left: 890px; top: 504px;">16%</div>
-    <div class="value width-value editable-value" id="width-value" data-param="width" contenteditable="true" spellcheck="false" style="left: 586px; top: 592px;">38%</div>
+      <div class="knob-col">
+        <div class="knob-label">WIDTH</div>
+        <div class="knob-shell large macro-knob" id="width-knob" data-param="width" data-default="38">
+          <div class="indicator"></div>
+        </div>
+        <div class="value width-value editable-value" id="width-value" data-param="width" contenteditable="true" spellcheck="false">38%</div>
+      </div>
+
+      <div class="knob-col">
+        <div class="knob-label">MIX</div>
+        <div class="knob-shell macro-knob" id="mix-knob" data-param="mix" data-default="16">
+          <div class="indicator"></div>
+        </div>
+        <div class="value editable-value" id="mix-value" data-param="mix" contenteditable="true" spellcheck="false">16%</div>
+      </div>
+    </div>
 
     <button class="mode-button active" data-mode="Studio" data-mode-index="0" style="left: 60px; top: 628px;">STUDIO</button>
     <button class="mode-button" data-mode="Arena" data-mode-index="1" style="left: 340px; top: 628px;">ARENA</button>
