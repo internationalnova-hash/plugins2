@@ -8,18 +8,18 @@
   var KNOB_MAX_DEG   =  120;    // rotation at 100 %
 
   var PRESETS = {
-    'Universal Smooth': { smooth: 4.2, focus: 6.0, air_preserve: 7.2, body: 6.2, output: 50, magic: true },
-    'Vocal':            { smooth: 5.0, focus: 6.5, air_preserve: 7.0, body: 6.5, output: 50, magic: true },
-    'Drums':            { smooth: 3.5, focus: 6.2, air_preserve: 5.5, body: 4.0, output: 50, magic: false },
-    'Guitar':           { smooth: 4.0, focus: 5.8, air_preserve: 6.8, body: 7.0, output: 50, magic: true },
-    'Master':           { smooth: 2.8, focus: 5.0, air_preserve: 7.5, body: 7.2, output: 50, magic: true }
+    'Universal Smooth': { smooth: 42, focus: 60, air_preserve: 72, body: 62, output: 50, magic: true },
+    'Vocal':            { smooth: 50, focus: 65, air_preserve: 70, body: 65, output: 50, magic: true },
+    'Drums':            { smooth: 35, focus: 62, air_preserve: 55, body: 40, output: 50, magic: false },
+    'Guitar':           { smooth: 40, focus: 58, air_preserve: 68, body: 70, output: 50, magic: true },
+    'Master':           { smooth: 28, focus: 50, air_preserve: 75, body: 72, output: 50, magic: true }
   };
 
   var DISPLAY_PARAMS   = ['smooth', 'focus', 'air_preserve', 'body'];
   var ALL_PARAMS       = ['smooth', 'focus', 'air_preserve', 'body', 'output'];
 
   // ── State ──────────────────────────────────────────────────────────────────
-  var currentValues    = { smooth: 4.2, focus: 6.0, air_preserve: 7.2, body: 6.2, output: 50 };
+  var currentValues    = { smooth: 42, focus: 60, air_preserve: 72, body: 62, output: 50 };
   var magicOn          = true;
   var paramStates      = {};
   var juceAvailable    = false;

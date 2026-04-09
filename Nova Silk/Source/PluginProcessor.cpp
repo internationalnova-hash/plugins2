@@ -63,7 +63,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaSilkAudioProcessor::crea
         juce::ParameterID { smoothId, 1 },
         "Smooth",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f),
-        4.2f,
+        42.0f,
         juce::String(),
         juce::AudioProcessorParameter::genericParameter,
         [] (float value, int) { return juce::String (juce::roundToInt (value)) + " %"; }));
@@ -72,7 +72,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaSilkAudioProcessor::crea
         juce::ParameterID { focusId, 1 },
         "Focus",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f),
-        6.0f,
+        60.0f,
         juce::String(),
         juce::AudioProcessorParameter::genericParameter,
         [] (float value, int) { return juce::String (juce::roundToInt (value)) + " %"; }));
@@ -81,7 +81,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaSilkAudioProcessor::crea
         juce::ParameterID { airPreserveId, 1 },
         "Air Preserve",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f),
-        7.2f,
+        72.0f,
         juce::String(),
         juce::AudioProcessorParameter::genericParameter,
         [] (float value, int) { return juce::String (juce::roundToInt (value)) + " %"; }));
@@ -90,7 +90,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaSilkAudioProcessor::crea
         juce::ParameterID { bodyId, 1 },
         "Body",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f),
-        6.2f,
+        62.0f,
         juce::String(),
         juce::AudioProcessorParameter::genericParameter,
         [] (float value, int) { return juce::String (juce::roundToInt (value)) + " %"; }));
