@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Silk User Manual</title>
+  <style>
+    :root { --bg:#efe9f9; --panel:#fffdff; --ink:#28194a; --soft:#7e6aa6; --accent:#b8a4d8; --line:#e2d8f0; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:linear-gradient(180deg,#f3eefd 0%,#e9e1f6 100%); color:var(--ink); font:16px/1.65 "Avenir Next","Segoe UI",sans-serif; }
+    .wrap { max-width:980px; margin:0 auto; padding:32px 20px 48px; }
+    .hero, section { background:var(--panel); border:1px solid var(--line); border-radius:18px; box-shadow:0 10px 24px rgba(72,48,120,0.08); }
+    .hero { padding:28px; margin-bottom:18px; }
+    h1, h2 { margin:0 0 10px; font-family:Georgia,serif; }
+    h1 { font-size:2.35rem; }
+    .subtitle { color:var(--soft); letter-spacing:.12em; text-transform:uppercase; font-size:.85rem; }
+    .chips { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+    .chip { padding:7px 12px; border-radius:999px; background:#efe7fb; border:1px solid #dccff0; font-size:.9rem; }
+    section { padding:22px; margin-top:16px; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    th, td { border:1px solid #e7dcf4; padding:10px 12px; vertical-align:top; text-align:left; }
+    th { background:#f6f1fc; }
+    code { background:#f3edfb; padding:2px 6px; border-radius:6px; }
+    blockquote { margin:12px 0 0; padding:10px 14px; border-left:4px solid var(--accent); background:#faf7fe; color:#4b3e66; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="subtitle">Current V1 Build</div>
+      <h1>Nova Silk User Manual</h1>
+      <p><strong>Spectral Refinement Engine</strong></p>
+      <p>Nova Silk smooths harsh spectral energy while preserving clarity, body, and musical detail.</p>
+      <div class="chips"><div class="chip">Dynamic Smoothing</div><div class="chip">Magic Toggle</div><div class="chip">Five Presets</div><div class="chip">Live Analyzer</div></div>
+    </div>
+
+    <section>
+      <h2>Controls</h2>
+      <table>
+        <thead><tr><th>Control</th><th>What You Hear</th><th>What It Changes</th></tr></thead>
+        <tbody>
+          <tr><td><code>SMOOTH</code></td><td>Overall harshness reduction amount</td><td>Sets global smoothing intensity.</td></tr>
+          <tr><td><code>FOCUS</code></td><td>Where smoothing is emphasized</td><td>Shifts reduction concentration across the spectrum.</td></tr>
+          <tr><td><code>AIR PRESERVE</code></td><td>Brightness retention</td><td>Protects high-frequency openness while smoothing.</td></tr>
+          <tr><td><code>BODY</code></td><td>Low-mid fullness</td><td>Supports body presence during spectral reduction.</td></tr>
+          <tr><td><code>OUTPUT</code></td><td>Final loudness trim</td><td>Applies post-processing output gain.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Magic And Presets</h2>
+      <p><code>MAGIC</code> changes Silk's smoothing behavior profile. ON feels more polished and glued, OFF is drier and more neutral.</p>
+      <p>Preset buttons provide starting points: <code>UNIVERSAL SMOOTH</code>, <code>VOCAL</code>, <code>DRUMS</code>, <code>GUITAR</code>, <code>MASTER</code>.</p>
+      <blockquote>Best workflow: pick a preset first, then fine-tune controls and level-match with OUTPUT.</blockquote>
+    </section>
+
+    <section>
+      <h2>Spectral Analyzer</h2>
+      <p>The analyzer displays incoming energy, detected problem zones, and reduction behavior in real time.</p>
+      <p>It is visual guidance for tuning and does not directly produce audio by itself.</p>
+    </section>
+  </div>
+</body>
+</html>
