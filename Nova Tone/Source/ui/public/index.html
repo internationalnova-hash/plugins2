@@ -70,20 +70,57 @@
       padding: 34px 42px 18px;
     }
 
-    .title {
-      margin: 0;
-      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-      font-size: 54px;
-      line-height: 1;
-      letter-spacing: 0.01em;
-      color: #2f241c;
+    .nova-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 0;
+      position: relative;
+      min-height: 64px;
     }
 
-    .subtitle {
-      margin-top: 8px;
-      font-size: 16px;
-      letter-spacing: 0.20em;
-      color: var(--text-soft);
+    .nova-logo-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      margin-left: -10px;
+      border-radius: 10px;
+      background: rgba(60, 56, 48, 0.10);
+      box-shadow: 0 2px 8px 0 rgba(60,56,48,0.07);
+      backdrop-filter: blur(1.5px);
+    }
+
+    .nova-logo {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      filter: grayscale(0.1) brightness(0.93) contrast(1.08);
+      opacity: 1;
+    }
+
+    .nova-title-nova {
+      font-size: 24px;
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      color: #353535;
+      margin: 0 0 2px 0;
+      padding: 0;
+      opacity: 0.97;
+    }
+
+    .nova-title-tone {
+      font-size: 30px;
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-weight: 950;
+      letter-spacing: 0.04em;
+      color: #282420;
+      margin: 0;
+      padding: 0;
+      line-height: 1.0;
+      opacity: 0.98;
     }
 
     .descriptor {
@@ -411,9 +448,17 @@
 <body>
   <div class="plugin">
     <div class="header">
-      <div>
-        <h1 class="title">NOVA TONE</h1>
-        <div class="subtitle">MUSICAL TONE EQUALIZER</div>
+      <div class="title-block">
+        <div class="nova-header">
+          <div class="nova-logo-container">
+            <img src="n_logo.png" alt="N" class="nova-logo" />
+          </div>
+          <div class="nova-title-stack">
+            <span class="nova-title-nova">NOVA</span>
+            <br style="line-height:0; margin:0; padding:0;" />
+            <span class="nova-title-tone">TONE</span>
+          </div>
+        </div>
       </div>
       <div class="descriptor">by International Nova</div>
     </div>

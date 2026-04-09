@@ -1,3 +1,28 @@
+# Ensure JUCE does not build VST2 client code (force disable)
+set(JUCE_BUILD_VST2 OFF CACHE BOOL "" FORCE)
+set(JUCE_VST2_FORMAT OFF CACHE BOOL "" FORCE)
+# Ensure JUCE does not search for VST2 SDK
+set(JUCE_VST2SDK_PATH "" CACHE PATH "" FORCE)
+
+cmake_minimum_required(VERSION 3.15)
+
+if(APPLE)
+    # Ensure consistent macOS binary compatibility regardless of CI defaults.
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "" FORCE)
+endif()
+
+project(NovaTone VERSION 1.0.0)
+
+# JUCE setup using FetchContent
+include(FetchContent)
+FetchContent_Declare(
+    juce
+    GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+    GIT_TAG        8.0.8
+)
+FetchContent_MakeAvailable(juce)
+
 # Nova Tone
 # Premium analog-style EQ with a WebView interface
 
@@ -30,6 +55,7 @@ message(STATUS "Nova Tone: WebView backend: ${WEBVIEW_BACKEND}")
 juce_add_binary_data(NovaTone_WebUI
     SOURCES
         Source/ui/public/index.html
+        Source/ui/public/n_logo.png
         Source/ui/public/js/index.js
         Source/ui/public/js/juce/index.js
         Source/ui/public/js/juce/check_native_interop.js
