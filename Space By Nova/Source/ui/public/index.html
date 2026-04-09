@@ -175,6 +175,76 @@
         0 2px 3px rgba(126, 98, 62, 0.12);
     }
 
+    .spectrum-section {
+      position: absolute;
+      top: 136px;
+      left: 58px;
+      right: 58px;
+      height: 148px;
+    }
+
+    .spectrum-frame {
+      width: 100%;
+      height: 126px;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      background: linear-gradient(180deg, #0d1324 0%, #06090f 100%);
+      border: 1px solid rgba(200,165,80,0.16);
+      box-shadow:
+        inset 0 2px 10px rgba(0,0,0,0.45),
+        0 2px 12px rgba(90, 68, 34, 0.12);
+    }
+
+    .spectrum-frame canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .spectrum-legend {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 8px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(214, 191, 151, 0.58);
+      user-select: none;
+    }
+
+    .legend-swatch {
+      width: 16px;
+      height: 2px;
+      border-radius: 2px;
+    }
+
+    .freq-labels {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 8px 0;
+      pointer-events: none;
+    }
+
+    .freq-label {
+      font-size: 8px;
+      letter-spacing: 0.07em;
+      color: var(--text-soft);
+      opacity: 0.38;
+      text-transform: uppercase;
+      user-select: none;
+    }
+
     .knob-label {
       position: absolute;
       width: 140px;
@@ -494,46 +564,61 @@
     <div class="subtitle">STUDIO GLOW FOR MODERN VOCALS</div>
     <div class="tagline">by International Nova</div>
 
-    <div class="knob-label" style="left: 130px; top: 160px;">SPACE</div>
-    <div class="knob-label" style="left: 360px; top: 160px;">AIR</div>
-    <div class="knob-label" style="left: 590px; top: 160px;">DEPTH</div>
-    <div class="knob-label" style="left: 820px; top: 160px;">MIX</div>
-    <div class="meter-title">WIDTH</div>
-
-    <div class="stereo-vu" aria-hidden="true">
-      <div class="vu-wing"><div class="vu-track"><div class="vu-fill left"></div></div></div>
-      <div class="vu-wing"><div class="vu-track"><div class="vu-fill right"></div></div></div>
+    <div class="spectrum-section">
+      <div class="spectrum-frame">
+        <canvas id="space-canvas"></canvas>
+        <div class="spectrum-legend">
+          <div class="legend-item"><span class="legend-swatch" style="background: rgba(215,175,80,0.88);"></span>dry</div>
+          <div class="legend-item"><span class="legend-swatch" style="background: rgba(80,130,240,0.88); box-shadow: 0 0 5px rgba(80,130,240,0.45);"></span>reverb tail</div>
+          <div class="legend-item"><span class="legend-swatch" style="background: rgba(128,92,216,0.78); box-shadow: 0 0 5px rgba(128,92,216,0.40);"></span>wet bloom</div>
+        </div>
+      </div>
+      <div class="freq-labels">
+        <span class="freq-label">20 Hz</span>
+        <span class="freq-label">100 Hz</span>
+        <span class="freq-label">500 Hz</span>
+        <span class="freq-label">1 kHz</span>
+        <span class="freq-label">5 kHz</span>
+        <span class="freq-label">10 kHz</span>
+        <span class="freq-label">20 kHz</span>
+      </div>
     </div>
 
-    <div class="knob-shell macro-knob" id="space-knob" data-param="space" data-default="18" style="left: 125px; top: 200px; width: 150px; height: 150px;">
+    <div class="knob-label" style="left: 130px; top: 296px;">SPACE</div>
+    <div class="knob-label" style="left: 360px; top: 296px;">AIR</div>
+    <div class="knob-label" style="left: 590px; top: 296px;">DEPTH</div>
+    <div class="knob-label" style="left: 820px; top: 296px;">MIX</div>
+    <div class="meter-title" style="top: 346px;">WIDTH</div>
+
+    <div class="knob-shell macro-knob" id="space-knob" data-param="space" data-default="18" style="left: 125px; top: 332px; width: 150px; height: 150px;">
       <div class="indicator"></div>
     </div>
-    <div class="knob-shell macro-knob" id="air-knob" data-param="air" data-default="32" style="left: 355px; top: 200px; width: 150px; height: 150px;">
+    <div class="knob-shell macro-knob" id="air-knob" data-param="air" data-default="32" style="left: 355px; top: 332px; width: 150px; height: 150px;">
       <div class="indicator"></div>
     </div>
-    <div class="mini-dot" style="left: 640px; top: 302px;"></div>
-    <div class="knob-shell macro-knob" id="depth-knob" data-param="depth" data-default="26" style="left: 585px; top: 200px; width: 150px; height: 150px;">
+    <div class="mini-dot" style="left: 640px; top: 434px;"></div>
+    <div class="knob-shell macro-knob" id="depth-knob" data-param="depth" data-default="26" style="left: 585px; top: 332px; width: 150px; height: 150px;">
       <div class="indicator"></div>
     </div>
-    <div class="mini-dot" style="left: 870px; top: 340px;"></div>
-    <div class="knob-shell macro-knob" id="mix-knob" data-param="mix" data-default="16" style="left: 815px; top: 200px; width: 150px; height: 150px;">
+    <div class="mini-dot" style="left: 870px; top: 472px;"></div>
+    <div class="knob-shell macro-knob" id="mix-knob" data-param="mix" data-default="16" style="left: 815px; top: 332px; width: 150px; height: 150px;">
       <div class="indicator"></div>
     </div>
 
-    <div class="knob-shell large macro-knob" id="width-knob" data-param="width" data-default="38" style="left: 494px; top: 404px; width: 184px; height: 184px;">
+    <div class="knob-shell large macro-knob" id="width-knob" data-param="width" data-default="38" style="left: 494px; top: 408px; width: 184px; height: 184px;">
       <div class="indicator"></div>
     </div>
 
-    <div class="value editable-value" id="space-value" data-param="space" contenteditable="true" spellcheck="false" style="left: 200px; top: 372px;">18%</div>
-    <div class="value editable-value" id="air-value" data-param="air" contenteditable="true" spellcheck="false" style="left: 430px; top: 372px;">32%</div>
-    <div class="value editable-value" id="depth-value" data-param="depth" contenteditable="true" spellcheck="false" style="left: 660px; top: 372px;">26%</div>
-    <div class="value editable-value" id="mix-value" data-param="mix" contenteditable="true" spellcheck="false" style="left: 890px; top: 372px;">16%</div>
-    <div class="value width-value editable-value" id="width-value" data-param="width" contenteditable="true" spellcheck="false" style="left: 586px; top: 590px;">38%</div>
+    <div class="value editable-value" id="space-value" data-param="space" contenteditable="true" spellcheck="false" style="left: 200px; top: 504px;">18%</div>
+    <div class="value editable-value" id="air-value" data-param="air" contenteditable="true" spellcheck="false" style="left: 430px; top: 504px;">32%</div>
+    <div class="value editable-value" id="depth-value" data-param="depth" contenteditable="true" spellcheck="false" style="left: 660px; top: 504px;">26%</div>
+    <div class="value editable-value" id="mix-value" data-param="mix" contenteditable="true" spellcheck="false" style="left: 890px; top: 504px;">16%</div>
+    <div class="value width-value editable-value" id="width-value" data-param="width" contenteditable="true" spellcheck="false" style="left: 586px; top: 592px;">38%</div>
 
-    <button class="mode-button active" data-mode="Studio" data-mode-index="0" style="left: 60px; top: 604px;">STUDIO</button>
-    <button class="mode-button" data-mode="Arena" data-mode-index="1" style="left: 340px; top: 604px;">ARENA</button>
-    <button class="mode-button" data-mode="Dream" data-mode-index="2" style="left: 620px; top: 604px;">DREAM</button>
-    <button class="mode-button" data-mode="Vintage" data-mode-index="3" style="left: 900px; top: 604px;">VINTAGE</button>
+    <button class="mode-button active" data-mode="Studio" data-mode-index="0" style="left: 60px; top: 628px;">STUDIO</button>
+    <button class="mode-button" data-mode="Arena" data-mode-index="1" style="left: 340px; top: 628px;">ARENA</button>
+    <button class="mode-button" data-mode="Dream" data-mode-index="2" style="left: 620px; top: 628px;">DREAM</button>
+    <button class="mode-button" data-mode="Vintage" data-mode-index="3" style="left: 900px; top: 628px;">VINTAGE</button>
     </div>
   </div>
 
@@ -559,6 +644,14 @@
 
       var juceAvailable = false;
       var activeDrag = null;
+      var spectrumCanvas = null;
+      var spectrumCtx = null;
+      var spectrumAnimationId = null;
+      var spectrumTime = 0;
+      var SPECTRUM_BINS = 120;
+      var smoothedDry = new Float32Array(SPECTRUM_BINS);
+      var smoothedTail = new Float32Array(SPECTRUM_BINS);
+      var smoothedBloom = new Float32Array(SPECTRUM_BINS);
 
       function clamp(value, min, max) {
         var safeMin = typeof min === "number" ? min : 0;
@@ -951,12 +1044,222 @@
         });
       }
 
+      function resizeSpectrumCanvas() {
+        if (!spectrumCanvas) return;
+        var frame = spectrumCanvas.parentElement;
+        if (!frame) return;
+        spectrumCanvas.width = frame.clientWidth;
+        spectrumCanvas.height = frame.clientHeight;
+      }
+
+      function generateSpectrumFrame() {
+        var spacePct = currentValues.space / 100;
+        var airPct = currentValues.air / 100;
+        var depthPct = currentValues.depth / 100;
+        var widthPct = currentValues.width / 100;
+        var mixPct = currentValues.mix / 100;
+        var t0 = spectrumTime;
+
+        for (var i = 0; i < SPECTRUM_BINS; i += 1) {
+          var f = i / (SPECTRUM_BINS - 1);
+
+          var dryBase = Math.pow(1 - f * 0.60, 0.72);
+          var dryP1 = 0.42 * Math.exp(-Math.pow(f - (0.19 + 0.04 * Math.sin(t0 * 0.55)), 2) / 0.0034);
+          var dryP2 = 0.28 * Math.exp(-Math.pow(f - (0.44 + 0.03 * Math.sin(t0 * 0.36 + 1.1)), 2) / 0.0055);
+          var dryP3 = 0.18 * Math.exp(-Math.pow(f - (0.71 + 0.02 * Math.sin(t0 * 0.82 + 2.0)), 2) / 0.0078);
+          var rawDry = clamp((dryBase + dryP1 + dryP2 + dryP3) * (0.50 + 0.16 * Math.sin(t0 * 0.24 + f * 1.8)), 0, 1);
+
+          var tailBase = Math.pow(1 - f * 0.70, 1.20) * spacePct;
+          var tailSwell = 0.48 * spacePct * Math.exp(-Math.pow(f - 0.30, 2) / (0.05 + spacePct * 0.10));
+          var tailAir = 0.30 * airPct * Math.exp(-Math.pow(f - 0.72, 2) / (0.06 + airPct * 0.08));
+          var tailDepth = 0.26 * depthPct * Math.exp(-Math.pow(f - 0.10, 2) / (0.04 + depthPct * 0.07));
+          var tailDecay = 0.62 + 0.38 * (0.5 + 0.5 * Math.sin(t0 * 0.96 - f * 10.0));
+          var highShimmer = airPct * Math.pow(f, 3.2) * (0.36 + 0.64 * (0.5 + 0.5 * Math.sin(t0 * 4.3 + f * 26.0)));
+          var rawTail = (tailBase + tailSwell + tailAir + tailDepth)
+                      * (0.70 + 0.30 * Math.sin(t0 * 0.20 + f * 2.8 + spacePct * 1.8))
+                      * tailDecay;
+          rawTail = clamp(rawTail + 0.13 * highShimmer, 0, 1);
+
+          var bloomEnergy = mixPct * (0.56 * spacePct + 0.44 * depthPct)
+                          * (0.55 + 0.45 * Math.sin(t0 * 0.22 + f * 4.8));
+          var bloomShape = Math.sin(Math.PI * f) * bloomEnergy * (0.86 + widthPct * 0.24);
+          var rawBloom = clamp(bloomShape * (0.90 + 0.10 * Math.random()), 0, 1);
+
+          smoothedDry[i] = smoothedDry[i] + (rawDry - smoothedDry[i]) * 0.22;
+          smoothedTail[i] = smoothedTail[i] + (rawTail - smoothedTail[i]) * 0.09;
+          smoothedBloom[i] = smoothedBloom[i] + (rawBloom - smoothedBloom[i]) * 0.08;
+        }
+      }
+
+      function drawSpectrumFrame() {
+        if (!spectrumCtx || !spectrumCanvas) return;
+        var ctx = spectrumCtx;
+        var W = spectrumCanvas.width;
+        var H = spectrumCanvas.height;
+        var depthPct = currentValues.depth / 100;
+        var widthPct = currentValues.width / 100;
+        var airPct = currentValues.air / 100;
+        var mixPct = currentValues.mix / 100;
+        var spreadPx = 8 + widthPct * 36;
+
+        ctx.clearRect(0, 0, W, H);
+
+        var bg = ctx.createLinearGradient(0, 0, 0, H);
+        bg.addColorStop(0, "#0d1325");
+        bg.addColorStop(1, "#06090f");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+
+        var hazeAlpha = 0.05 + depthPct * 0.20;
+        var hazeRadius = H * (0.38 + depthPct * 0.68);
+        var hazeA = ctx.createRadialGradient(W * 0.33, H * 0.64, H * 0.05, W * 0.33, H * 0.64, hazeRadius);
+        hazeA.addColorStop(0, "rgba(64,108,215," + hazeAlpha.toFixed(3) + ")");
+        hazeA.addColorStop(1, "rgba(64,108,215,0)");
+        ctx.fillStyle = hazeA;
+        ctx.fillRect(0, 0, W, H);
+
+        var hazeB = ctx.createRadialGradient(W * 0.68, H * 0.58, H * 0.05, W * 0.68, H * 0.58, hazeRadius);
+        hazeB.addColorStop(0, "rgba(92,74,206," + (hazeAlpha * 0.72).toFixed(3) + ")");
+        hazeB.addColorStop(1, "rgba(92,74,206,0)");
+        ctx.fillStyle = hazeB;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.strokeStyle = "rgba(200,170,90,0.07)";
+        ctx.lineWidth = 1;
+        var gridFreqs = [0.07, 0.18, 0.34, 0.5, 0.66, 0.8, 0.93];
+        for (var gi = 0; gi < gridFreqs.length; gi += 1) {
+          var gx = Math.round(gridFreqs[gi] * W) + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(gx, 0);
+          ctx.lineTo(gx, H);
+          ctx.stroke();
+        }
+
+        var binW = W / SPECTRUM_BINS;
+
+        for (var i = 0; i < SPECTRUM_BINS; i += 1) {
+          var x = i * binW;
+          var bloomH = smoothedBloom[i] * H * 0.80;
+          var centerBias = Math.abs((i / (SPECTRUM_BINS - 1)) - 0.5) * 2;
+          var localSpread = spreadPx * (0.36 + centerBias * 0.64);
+          var bloomGrad = ctx.createLinearGradient(0, H - bloomH, 0, H);
+          bloomGrad.addColorStop(0, "rgba(98,72,204,0)");
+          bloomGrad.addColorStop(0.45, "rgba(95,72,196,0.12)");
+          bloomGrad.addColorStop(1, "rgba(76,52,178,0.24)");
+          ctx.fillStyle = bloomGrad;
+          ctx.fillRect(x - localSpread * 0.10, H - bloomH, binW + 1 + localSpread * 0.20, bloomH);
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(0, H);
+        for (var t = 0; t < SPECTRUM_BINS; t += 1) {
+          var tx = t * binW + binW * 0.5;
+          var ts = ((tx / W) - 0.5) * 2;
+          tx += ts * spreadPx;
+          var th = smoothedTail[t] * H * 0.84;
+          ctx.lineTo(tx, H - th);
+        }
+        ctx.lineTo(W, H);
+        ctx.closePath();
+        var tailGrad = ctx.createLinearGradient(0, 0, 0, H);
+        tailGrad.addColorStop(0, "rgba(62,102,224,0.38)");
+        tailGrad.addColorStop(0.5, "rgba(52,88,198,0.24)");
+        tailGrad.addColorStop(1, "rgba(42,72,178,0.08)");
+        ctx.fillStyle = tailGrad;
+        ctx.fill();
+
+        ctx.beginPath();
+        for (var l = 0; l < SPECTRUM_BINS; l += 1) {
+          var lx = l * binW + binW * 0.5;
+          var ls = ((lx / W) - 0.5) * 2;
+          lx += ls * spreadPx;
+          var lh = smoothedTail[l] * H * 0.84;
+          if (l === 0) ctx.moveTo(lx, H - lh);
+          else ctx.lineTo(lx, H - lh);
+        }
+        ctx.strokeStyle = "rgba(84,136,245,0.76)";
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = "rgba(76,128,238,0.55)";
+        ctx.shadowBlur = 6;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.beginPath();
+        for (var l2 = 0; l2 < SPECTRUM_BINS; l2 += 1) {
+          var lx2 = l2 * binW + binW * 0.5;
+          var ls2 = ((lx2 / W) - 0.5) * 2;
+          lx2 -= ls2 * spreadPx * 0.52;
+          var lh2 = smoothedTail[l2] * H * 0.76;
+          if (l2 === 0) ctx.moveTo(lx2, H - lh2);
+          else ctx.lineTo(lx2, H - lh2);
+        }
+        ctx.strokeStyle = "rgba(92,146,250,0.42)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.beginPath();
+        for (var d = 0; d < SPECTRUM_BINS; d += 1) {
+          var dx = d * binW + binW * 0.5;
+          var dh = smoothedDry[d] * H * 0.70;
+          if (d === 0) ctx.moveTo(dx, H - dh);
+          else ctx.lineTo(dx, H - dh);
+        }
+        ctx.strokeStyle = "rgba(218,176,82,0.88)";
+        ctx.lineWidth = 1.2;
+        ctx.shadowColor = "rgba(218,176,82,0.40)";
+        ctx.shadowBlur = 4;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.globalCompositeOperation = "screen";
+        var shimmer = ctx.createLinearGradient(0, 0, W, 0);
+        shimmer.addColorStop(0, "rgba(255,220,130,0)");
+        shimmer.addColorStop(0.55, "rgba(255,220,130,0)");
+        shimmer.addColorStop(0.75, "rgba(248,204,112," + (0.05 + airPct * 0.09).toFixed(3) + ")");
+        shimmer.addColorStop(1, "rgba(255,236,168," + (0.08 + mixPct * 0.1).toFixed(3) + ")");
+        ctx.fillStyle = shimmer;
+        ctx.fillRect(0, 0, W, H);
+
+        for (var p = 0; p < 7; p += 1) {
+          var px = W * (0.69 + (p / 7) * 0.28) + Math.sin(spectrumTime * 2 + p * 1.4) * 7;
+          var py = H * (0.2 + 0.6 * (0.5 + 0.5 * Math.sin(spectrumTime * 1.3 + p * 0.8)));
+          var pr = 7 + airPct * 10 + mixPct * 6;
+          var peak = ctx.createRadialGradient(px, py, 0, px, py, pr);
+          peak.addColorStop(0, "rgba(255,230,150," + (0.12 + airPct * 0.18).toFixed(3) + ")");
+          peak.addColorStop(1, "rgba(255,230,150,0)");
+          ctx.fillStyle = peak;
+          ctx.beginPath();
+          ctx.arc(px, py, pr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalCompositeOperation = "source-over";
+      }
+
+      function renderSpectrum() {
+        spectrumTime += 0.016;
+        generateSpectrumFrame();
+        drawSpectrumFrame();
+        spectrumAnimationId = window.requestAnimationFrame(renderSpectrum);
+      }
+
+      function initialiseSpectrum() {
+        spectrumCanvas = document.getElementById("space-canvas");
+        if (!spectrumCanvas) return;
+        spectrumCtx = spectrumCanvas.getContext("2d");
+        if (!spectrumCtx) return;
+        resizeSpectrumCanvas();
+        window.addEventListener("resize", resizeSpectrumCanvas);
+        if (spectrumAnimationId) window.cancelAnimationFrame(spectrumAnimationId);
+        renderSpectrum();
+      }
+
       function bootUi() {
         juceAvailable = !!(window.__JUCE__ && window.__JUCE__.backend && typeof window.__JUCE__.backend.emitEvent === "function");
 
         initialiseKnobs();
         initialiseReadouts();
         initialiseModeButtons();
+        initialiseSpectrum();
 
         if (juceAvailable) {
           try {
