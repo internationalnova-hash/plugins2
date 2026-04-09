@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Silk</title>
+  <style>
+    :root {
+      --bg-outer:    #e4dff0;
+      --panel-top:   #f8f6fd;
+      --panel-bot:   #f0ecf8;
+      --border:      #d5c9ea;
+      --text:        #28194a;
+      --text-soft:   #8a78b0;
+      --accent:      #b8a4d8;
+      --accent-hi:   #cbb8e8;
+      --accent-glow: rgba(184, 164, 216, 0.55);
+      --accent-fill: rgba(184, 164, 216, 0.14);
+      --canvas-top:  #1a1230;
+      --canvas-bg:   #0f0a1a;
+      --ease:        210ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: var(--bg-outer);
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+
+    body { display: flex; align-items: center; justify-content: center; }
+
+    /* ── Plugin shell ──────────────────────────────────────── */
+    .plugin {
+      position: relative;
+      width: 1080px; height: 680px;
+      background: linear-gradient(180deg, var(--panel-top) 0%, var(--panel-bot) 100%);
+      border: 1.5px solid var(--border);
+      border-radius: 30px;
+      overflow: hidden;
+      box-shadow:
+        0 24px 56px rgba(72, 48, 120, 0.14),
+        inset 0 1px 0 rgba(255,255,255,0.82),
+        inset 0 -6px 14px rgba(176, 156, 214, 0.07);
+    }
+
+    /* inner rim highlight */
+    .plugin::before {
+      content: "";
+      position: absolute; inset: 0;
+      border-radius: inherit;
+      padding: 8px;
+      background: linear-gradient(140deg,
+        rgba(255,255,255,0.66) 0%,
+        rgba(255,255,255,0.06) 40%,
+        rgba(176,152,214,0.10) 100%);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+              mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    /* ── Header (54 px) ───────────────────────────────────── */
+    .header {
+      position: absolute; top: 0; left: 0; right: 0; height: 54px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px;
+      border-bottom: 1px solid rgba(176, 156, 214, 0.16);
+    }
+
+    .header-left { display: flex; align-items: center; gap: 11px; }
+
+    .logo-n { width: 26px; height: 26px; object-fit: contain; opacity: 0.92; }
+
+    .plugin-title { display: flex; flex-direction: column; line-height: 1; }
+    .title-nova {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.20em;
+      color: var(--text-soft); text-transform: uppercase;
+    }
+    .title-silk {
+      font-size: 17px; font-weight: 800; letter-spacing: 0.09em;
+      color: var(--text); text-transform: uppercase;
+    }
+
+    .header-right { text-align: right; }
+    .header-company {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.15em;
+      color: var(--text-soft); text-transform: uppercase;
+    }
+    .header-subtitle {
+      font-size: 8px; letter-spacing: 0.07em;
+      color: var(--accent); opacity: 0.75; text-transform: uppercase;
+    }
+
+    /* ── Display area (54 → 428, height 374) ─────────────── */
+    .display-wrapper {
+      position: absolute;
+      top: 54px; left: 24px; right: 24px; height: 374px;
+    }
+
+    /* dark canvas frame */
+    .display-frame {
+      width: 100%; height: 350px;
+      background: linear-gradient(180deg, var(--canvas-top) 0%, var(--canvas-bg) 100%);
+      border: 1px solid rgba(184, 164, 216, 0.20);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      box-shadow:
+        inset 0 2px 10px rgba(0,0,0,0.40),
+        0 2px 14px rgba(80, 48, 136, 0.11);
+    }
+
+    .display-frame canvas {
+      display: block; width: 100%; height: 100%;
+    }
+
+    /* freq labels */
+    .freq-labels {
+      display: flex; justify-content: space-between;
+      padding: 5px 10px 0;
+    }
+    .freq-label {
+      font-size: 8.5px; letter-spacing: 0.07em;
+      color: var(--text-soft); opacity: 0.42; text-transform: uppercase;
+    }
+
+    /* ── Controls (428 → 680, height 252) ────────────────── */
+    .controls {
+      position: absolute;
+      bottom: 0; left: 24px; right: 24px; height: 252px;
+      display: flex; flex-direction: column;
+    }
+
+    /* ── Knob row ─────────────────────────────────────────── */
+    .knobs-row {
+      flex: 1;
+      display: flex; align-items: center; justify-content: space-around;
+      padding: 0 30px;
+    }
+
+    .knob-group {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      user-select: none;
+    }
+
+    .knob-label {
+      font-size: 8.5px; font-weight: 700; letter-spacing: 0.16em;
+      color: var(--text-soft); text-transform: uppercase;
+    }
+
+    /* SVG knob */
+    .macro-knob {
+      position: relative; width: 72px; height: 72px;
+      cursor: ns-resize; touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .macro-knob svg { width: 100%; height: 100%; overflow: visible; }
+
+    .knob-value {
+      font-size: 11px; font-weight: 600; color: var(--text);
+      text-align: center; min-width: 58px;
+      cursor: text; outline: none; border-radius: 4px;
+      padding: 1px 4px;
+      transition: background var(--ease), color var(--ease);
+    }
+    .knob-value:focus { background: rgba(184,164,216,0.14); color: var(--accent-hi); }
+
+    /* ── Footer row (60 px) ───────────────────────────────── */
+    .footer-row {
+      height: 60px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-top: 1px solid rgba(176, 156, 214, 0.16);
+      padding: 0 14px; gap: 10px;
+    }
+
+    .preset-bar { display: flex; gap: 7px; }
+
+    .preset-btn {
+      height: 30px; padding: 0 13px;
+      border: 1px solid var(--border); border-radius: 7px;
+      background: transparent; color: var(--text-soft);
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.10em;
+      text-transform: uppercase; cursor: pointer; font-family: inherit;
+      transition: background var(--ease), color var(--ease),
+                  border-color var(--ease), box-shadow var(--ease);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .preset-btn:hover { border-color: var(--accent); color: var(--text); }
+    .preset-btn.active {
+      background: var(--accent-fill); border-color: var(--accent);
+      color: var(--text);
+      box-shadow: 0 0 9px var(--accent-glow);
+    }
+
+    /* Magic toggle */
+    .magic-control {
+      display: flex; align-items: center; gap: 8px;
+      cursor: pointer; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .magic-label {
+      font-size: 9.5px; font-weight: 800; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--text-soft);
+      transition: color var(--ease);
+    }
+    .magic-pill {
+      width: 46px; height: 24px; border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: rgba(176, 152, 214, 0.07);
+      position: relative;
+      transition: background var(--ease), border-color var(--ease), box-shadow var(--ease);
+    }
+    .magic-pill::after {
+      content: "";
+      position: absolute; top: 3px; left: 3px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--text-soft);
+      transition: transform var(--ease), background var(--ease), box-shadow var(--ease);
+    }
+    .magic-control.on .magic-label  { color: var(--accent-hi); }
+    .magic-control.on .magic-pill {
+      background: rgba(184, 164, 216, 0.28);
+      border-color: var(--accent);
+      box-shadow: 0 0 11px var(--accent-glow);
+    }
+    .magic-control.on .magic-pill::after {
+      transform: translateX(22px);
+      background: var(--accent-hi);
+      box-shadow: 0 0 5px var(--accent-glow);
+    }
+  </style>
+</head>
+<body>
+  <div class="plugin">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <img src="n_logo.png" alt="N" class="logo-n" />
+        <div class="plugin-title">
+          <span class="title-nova">Nova</span>
+          <span class="title-silk">Silk</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="header-company">Instruments Nova</div>
+        <div class="header-subtitle">Spectral Refinement Engine</div>
+      </div>
+    </header>
+
+    <!-- Spectrum display -->
+    <div class="display-wrapper">
+      <div class="display-frame">
+        <canvas id="silk-canvas"></canvas>
+      </div>
+      <div class="freq-labels">
+        <span class="freq-label">20 Hz</span>
+        <span class="freq-label">100 Hz</span>
+        <span class="freq-label">500 Hz</span>
+        <span class="freq-label">1 kHz</span>
+        <span class="freq-label">5 kHz</span>
+        <span class="freq-label">10 kHz</span>
+        <span class="freq-label">20 kHz</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+
+      <div class="knobs-row">
+
+        <!-- Smooth -->
+        <div class="knob-group">
+          <span class="knob-label">Smooth</span>
+          <div class="macro-knob" id="smooth-knob" data-param="smooth" data-default="42" tabindex="-1">
+            <svg viewBox="0 0 72 72">
+              <defs>
+                <radialGradient id="kg" cx="40%" cy="36%" r="62%">
+                  <stop offset="0%"   stop-color="#f3eefb"/>
+                  <stop offset="100%" stop-color="#d8ccee"/>
+                </radialGradient>
+              </defs>
+              <!-- track 240° -->
+              <circle cx="36" cy="36" r="27"
+                fill="none" stroke="rgba(176,152,216,0.16)" stroke-width="4.5"
+                stroke-dasharray="113.1 9999" stroke-linecap="round"
+                transform="rotate(150 36 36)"/>
+              <!-- arc (filled by JS) -->
+              <circle cx="36" cy="36" r="27" id="smooth-arc"
+                fill="none" stroke="#b8a4d8" stroke-width="4.5"
+                stroke-dasharray="0 113.1" stroke-linecap="round"
+                transform="rotate(150 36 36)"
+                style="filter:drop-shadow(0 0 4px rgba(184,164,216,.6))"/>
+              <!-- body -->
+              <circle cx="36" cy="36" r="23" fill="url(#kg)"
+                stroke="rgba(180,152,220,0.22)" stroke-width="1"/>
+              <!-- indicator dot -->
+              <g id="smooth-ind" style="transform-origin:36px 36px; transform:rotate(-120deg)">
+                <rect x="35" y="15" width="2" height="7" rx="1" fill="#b8a4d8"/>
+              </g>
+            </svg>
+          </div>
+          <span class="knob-value editable-value" id="smooth-value"
+                data-param="smooth" contenteditable="true" spellcheck="false">4.2</span>
+        </div>
+
+        <!-- Focus -->
+        <div class="knob-group">
+          <span class="knob-label">Focus</span>
+          <div class="macro-knob" id="focus-knob" data-param="focus" data-default="60" tabindex="-1">
+            <svg viewBox="0 0 72 72">
+              <circle cx="36" cy="36" r="27"
+                fill="none" stroke="rgba(176,152,216,0.16)" stroke-width="4.5"
+                stroke-dasharray="113.1 9999" stroke-linecap="round"
+                transform="rotate(150 36 36)"/>
+              <circle cx="36" cy="36" r="27" id="focus-arc"
+                fill="none" stroke="#b8a4d8" stroke-width="4.5"
+                stroke-dasharray="0 113.1" stroke-linecap="round"
+                transform="rotate(150 36 36)"
+                style="filter:drop-shadow(0 0 4px rgba(184,164,216,.6))"/>
+              <circle cx="36" cy="36" r="23" fill="url(#kg)"
+                stroke="rgba(180,152,220,0.22)" stroke-width="1"/>
+              <g id="focus-ind" style="transform-origin:36px 36px; transform:rotate(-120deg)">
+                <rect x="35" y="15" width="2" height="7" rx="1" fill="#b8a4d8"/>
+              </g>
+            </svg>
+          </div>
+          <span class="knob-value editable-value" id="focus-value"
+                data-param="focus" contenteditable="true" spellcheck="false">6.0</span>
+        </div>
+
+        <!-- Air Preserve -->
+        <div class="knob-group">
+          <span class="knob-label">Air Preserve</span>
+          <div class="macro-knob" id="air_preserve-knob" data-param="air_preserve" data-default="72" tabindex="-1">
+            <svg viewBox="0 0 72 72">
+              <circle cx="36" cy="36" r="27"
+                fill="none" stroke="rgba(176,152,216,0.16)" stroke-width="4.5"
+                stroke-dasharray="113.1 9999" stroke-linecap="round"
+                transform="rotate(150 36 36)"/>
+              <circle cx="36" cy="36" r="27" id="air_preserve-arc"
+                fill="none" stroke="#b8a4d8" stroke-width="4.5"
+                stroke-dasharray="0 113.1" stroke-linecap="round"
+                transform="rotate(150 36 36)"
+                style="filter:drop-shadow(0 0 4px rgba(184,164,216,.6))"/>
+              <circle cx="36" cy="36" r="23" fill="url(#kg)"
+                stroke="rgba(180,152,220,0.22)" stroke-width="1"/>
+              <g id="air_preserve-ind" style="transform-origin:36px 36px; transform:rotate(-120deg)">
+                <rect x="35" y="15" width="2" height="7" rx="1" fill="#b8a4d8"/>
+              </g>
+            </svg>
+          </div>
+          <span class="knob-value editable-value" id="air_preserve-value"
+                data-param="air_preserve" contenteditable="true" spellcheck="false">7.2</span>
+        </div>
+
+        <!-- Body -->
+        <div class="knob-group">
+          <span class="knob-label">Body</span>
+          <div class="macro-knob" id="body-knob" data-param="body" data-default="62" tabindex="-1">
+            <svg viewBox="0 0 72 72">
+              <circle cx="36" cy="36" r="27"
+                fill="none" stroke="rgba(176,152,216,0.16)" stroke-width="4.5"
+                stroke-dasharray="113.1 9999" stroke-linecap="round"
+                transform="rotate(150 36 36)"/>
+              <circle cx="36" cy="36" r="27" id="body-arc"
+                fill="none" stroke="#b8a4d8" stroke-width="4.5"
+                stroke-dasharray="0 113.1" stroke-linecap="round"
+                transform="rotate(150 36 36)"
+                style="filter:drop-shadow(0 0 4px rgba(184,164,216,.6))"/>
+              <circle cx="36" cy="36" r="23" fill="url(#kg)"
+                stroke="rgba(180,152,220,0.22)" stroke-width="1"/>
+              <g id="body-ind" style="transform-origin:36px 36px; transform:rotate(-120deg)">
+                <rect x="35" y="15" width="2" height="7" rx="1" fill="#b8a4d8"/>
+              </g>
+            </svg>
+          </div>
+          <span class="knob-value editable-value" id="body-value"
+                data-param="body" contenteditable="true" spellcheck="false">6.2</span>
+        </div>
+
+        <!-- Output -->
+        <div class="knob-group">
+          <span class="knob-label">Output</span>
+          <div class="macro-knob" id="output-knob" data-param="output" data-default="50" tabindex="-1">
+            <svg viewBox="0 0 72 72">
+              <circle cx="36" cy="36" r="27"
+                fill="none" stroke="rgba(176,152,216,0.16)" stroke-width="4.5"
+                stroke-dasharray="113.1 9999" stroke-linecap="round"
+                transform="rotate(150 36 36)"/>
+              <circle cx="36" cy="36" r="27" id="output-arc"
+                fill="none" stroke="#b8a4d8" stroke-width="4.5"
+                stroke-dasharray="0 113.1" stroke-linecap="round"
+                transform="rotate(150 36 36)"
+                style="filter:drop-shadow(0 0 4px rgba(184,164,216,.6))"/>
+              <circle cx="36" cy="36" r="23" fill="url(#kg)"
+                stroke="rgba(180,152,220,0.22)" stroke-width="1"/>
+              <g id="output-ind" style="transform-origin:36px 36px; transform:rotate(-120deg)">
+                <rect x="35" y="15" width="2" height="7" rx="1" fill="#b8a4d8"/>
+              </g>
+            </svg>
+          </div>
+          <span class="knob-value editable-value output-db" id="output-value"
+                data-param="output" contenteditable="true" spellcheck="false">0.0 dB</span>
+        </div>
+
+      </div><!-- /knobs-row -->
+
+      <!-- Footer -->
+      <div class="footer-row">
+        <div class="preset-bar">
+          <button class="preset-btn active" data-preset="Universal Smooth">Universal Smooth</button>
+          <button class="preset-btn"        data-preset="Vocal">Vocal</button>
+          <button class="preset-btn"        data-preset="Drums">Drums</button>
+          <button class="preset-btn"        data-preset="Guitar">Guitar</button>
+          <button class="preset-btn"        data-preset="Master">Master</button>
+        </div>
+
+        <div class="magic-control on" id="magic-control">
+          <span class="magic-label">Magic</span>
+          <div class="magic-pill"></div>
+        </div>
+      </div>
+
+    </div><!-- /controls -->
+
+  </div><!-- /plugin -->
+
+  <script src="js/juce/check_native_interop.js"></script>
+  <script src="js/juce/index.js"></script>
+  <script src="js/index.js"></script>
+</body>
+</html>

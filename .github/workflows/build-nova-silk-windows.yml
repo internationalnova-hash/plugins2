@@ -1,0 +1,39 @@
+name: Build Nova Silk Windows
+
+on:
+  push:
+    paths:
+      - 'Nova Silk/**'
+      - '.github/workflows/build-nova-silk-windows.yml'
+  pull_request:
+    paths:
+      - 'Nova Silk/**'
+      - '.github/workflows/build-nova-silk-windows.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Clean build directory
+        shell: pwsh
+        run: if (Test-Path "Nova Silk/build") { Remove-Item -Recurse -Force "Nova Silk/build" }
+
+      - name: Configure CMake
+        shell: pwsh
+        run: cmake -S "Nova Silk" -B "Nova Silk/build"
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build "Nova Silk/build" --config Release
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaSilk-Windows-build
+          path: Nova Silk/build

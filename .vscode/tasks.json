@@ -1,0 +1,47 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build Nova Silk (Linux/headless)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        "set -e && echo 'Ensuring xvfb is installed...' && (command -v xvfb-run >/dev/null 2>&1 || (echo 'Installing xvfb and GTK/WebKit deps...' && sudo apt-get update >/dev/null && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev xvfb >/dev/null)) && cd 'Nova Silk' && echo 'Configuring...' && cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && echo 'Building...' && xvfb-run -a cmake --build build --config Release -j$(nproc) && echo 'Build completed successfully.'"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": ["$gcc"],
+      "runOptions": {
+        "runOn": "default"
+      }
+    },
+    {
+      "label": "Rebuild Nova Silk (clean, Linux/headless)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        "set -e && echo 'Ensuring xvfb is installed...' && (command -v xvfb-run >/dev/null 2>&1 || (echo 'Installing xvfb and GTK/WebKit deps...' && sudo apt-get update >/dev/null && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev xvfb >/dev/null)) && cd 'Nova Silk' && rm -rf build && echo 'Configuring...' && cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && echo 'Building...' && xvfb-run -a cmake --build build --config Release -j$(nproc) && echo 'Clean build completed successfully.'"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": ["$gcc"],
+      "runOptions": {
+        "runOn": "default"
+      }
+    }
+  ]
+}
