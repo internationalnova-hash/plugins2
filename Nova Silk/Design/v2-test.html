@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<!--
+  Nova Silk — UI Preview / Test File
+  ───────────────────────────────────
+  Standalone browser preview of the full Nova Silk interface.
+  JUCE relay is mocked — all knobs, presets, and Magic toggle are
+  fully interactive. The Silk Spectrum display runs a live demo
+  animation so you can evaluate the visual language.
+
+  Open directly in Chrome/Safari/Firefox — no server required.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Silk — UI Preview v2</title>
+  <style>
+    :root {
+      --bg-outer:    #e4dff0;
+      --panel-top:   #f8f6fd;
+      --panel-bot:   #f0ecf8;
+      --border:      #d5c9ea;
+      --text:        #28194a;
+      --text-soft:   #8a78b0;
+      --accent:      #b8a4d8;
+      --accent-hi:   #cbb8e8;
+      --accent-glow: rgba(184, 164, 216, 0.55);
+      --accent-fill: rgba(184, 164, 216, 0.14);
+      --canvas-top:  #1a1230;
+      --canvas-bg:   #0f0a1a;
+      --ease:        210ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: var(--bg-outer);
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+
+    body { display: flex; align-items: center; justify-content: center; }
+
+    /* ── Plugin shell ──────────────────────────────────────── */
+    .plugin {
+      position: relative;
+      width: 1080px; height: 680px;
+      background: linear-gradient(180deg, var(--panel-top) 0%, var(--panel-bot) 100%);
+      border: 1.5px solid var(--border);
+      border-radius: 30px;
+      overflow: hidden;
+      box-shadow:
+        0 24px 56px rgba(72, 48, 120, 0.14),
+        inset 0 1px 0 rgba(255,255,255,0.82),
+        inset 0 -6px 14px rgba(176, 156, 214, 0.07);
+    }
+
+    .plugin::before {
+      content: "";
+      position: absolute; inset: 0;
+      border-radius: inherit;
+      padding: 8px;
+      background: linear-gradient(140deg,
+        rgba(255,255,255,0.66) 0%,
+        rgba(255,255,255,0.06) 40%,
+        rgba(176,152,214,0.10) 100%);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+              mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    /* ── Header (54 px) ───────────────────────────────────── */
+    .header {
+      position: absolute; top: 0; left: 0; right: 0; height: 54px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px;
+      border-bottom: 1px solid rgba(176, 156, 214, 0.16);
+    }
+
+    .header-left { display: flex; align-items: center; gap: 11px; }
+
+    .logo-n { width: 26px; height: 26px; object-fit: contain; opacity: 0.92; }
+
+    .plugin-title { display: flex; flex-direction: column; line-height: 1; }
+    .title-nova {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.20em;
+      color: var(--text-soft); text-transform: uppercase;
+    }
+    .title-silk {
+      font-size: 17px; font-weight: 800; letter-spacing: 0.09em;
+      color: var(--text); text-transform: uppercase;
+    }
+
+    .header-right { text-align: right; }
+    .brand-script {
+      font-family: "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Brush Script MT", cursive;
+      font-size: 26px;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      color: var(--text-soft);
+      text-shadow:
+        0 1px 0 rgba(255,255,255,0.42),
+        0 2px 3px rgba(126, 98, 62, 0.12);
+    }
+
+    /* ── Display area ─────────────────────────────────────── */
+    .display-wrapper {
+      position: absolute;
+      top: 54px; left: 24px; right: 24px; height: 374px;
+    }
+
+    .display-frame {
+      width: 100%; height: 350px;
+      background: linear-gradient(180deg, var(--canvas-top) 0%, var(--canvas-bg) 100%);
+      border: 1px solid rgba(184, 164, 216, 0.20);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      box-shadow:
+        inset 0 2px 10px rgba(0,0,0,0.40),
+        0 2px 14px rgba(80, 48, 136, 0.11);
+    }
+
+    .display-frame canvas { display: block; width: 100%; height: 100%; }
+
+    .freq-labels {
+      display: flex; justify-content: space-between;
+      padding: 5px 10px 0;
+    }
+    .freq-label {
+      font-size: 8.5px; letter-spacing: 0.07em;
+      color: var(--text-soft); opacity: 0.42; text-transform: uppercase;
+    }
+
+    /* ── Controls ─────────────────────────────────────────── */
+    .controls {
+      position: absolute;
+      bottom: 0; left: 24px; right: 24px; height: 252px;
+      display: flex; flex-direction: column;
+    }
+
+    .knobs-row {
+      flex: 1;
+      display: flex; align-items: center; justify-content: space-around;
+      padding: 0 30px;
+    }
+
+    .knob-group {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      user-select: none;
+    }
+
+    .knob-label {
+      font-size: 8.5px; font-weight: 700; letter-spacing: 0.16em;
+      color: rgba(98, 78, 132, 0.95); text-transform: uppercase;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.42);
+    }
+
+    .macro-knob {
+      position: relative; width: 72px; height: 72px;
+      cursor: ns-resize; touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .macro-knob svg { width: 100%; height: 100%; overflow: visible; }
+
+    .macro-knob::after {
+      content: "";
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 1px solid rgba(205, 180, 240, 0.0);
+      box-shadow: 0 0 0 rgba(184,164,216,0.0);
+      opacity: 0;
+      transition: opacity var(--ease), box-shadow var(--ease), border-color var(--ease);
+      pointer-events: none;
+    }
+
+    .macro-knob:hover::after {
+      opacity: 0.55;
+      border-color: rgba(198, 168, 236, 0.38);
+      box-shadow: 0 0 14px rgba(184,164,216,0.22);
+    }
+
+    .macro-knob.dragging::after {
+      opacity: 1;
+      border-color: rgba(206, 182, 242, 0.62);
+      box-shadow: 0 0 16px rgba(184,164,216,0.45);
+      animation: knobHalo 820ms ease-in-out infinite;
+    }
+
+    .macro-knob.dragging svg {
+      filter: drop-shadow(0 0 6px rgba(196, 170, 236, 0.48));
+    }
+
+    @keyframes knobHalo {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 10px rgba(184,164,216,0.34);
+      }
+      50% {
+        transform: scale(1.02);
+        box-shadow: 0 0 18px rgba(184,164,216,0.54);
+      }
+    }
+
+    .knob-value {
+      font-size: 11px; font-weight: 600; color: var(--text);
+      text-align: center; min-width: 58px;
+      cursor: text; outline: none; border-radius: 4px;
+      padding: 1px 4px;
+      transition: background var(--ease), color var(--ease);
+    }
+    .knob-value:focus { background: rgba(184,164,216,0.14); color: var(--accent-hi); }
+
+    /* ── Footer row ───────────────────────────────────────── */
+    .footer-row {
+      height: 60px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-top: 1px solid rgba(176, 156, 214, 0.16);
+      padding: 0 14px; gap: 10px;
+    }
+
+    .preset-bar { display: flex; gap: 7px; }
+
+    .preset-btn {
+      height: 30px; padding: 0 13px;
+      border: 1px solid var(--border); border-radius: 7px;
+      background: transparent; color: var(--text-soft);
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.10em;
+      text-transform: uppercase; cursor: pointer; font-family: inherit;
+      transition: background var(--ease), color var(--ease),
+                  border-color var(--ease), box-shadow var(--ease);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .preset-btn:hover { border-color: var(--accent); color: var(--text); }
+    .preset-btn.active {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.06) 24%, transparent 25%),
+        linear-gradient(180deg, rgba(205,186,236,0.46) 0%, rgba(184,164,216,0.40) 55%, rgba(162,139,200,0.46) 100%);
+      border-color: rgba(188,166,226,0.92);
+      color: #3a295f;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.48),
+        0 0 10px rgba(184,164,216,0.44),
+        0 2px 6px rgba(106,72,152,0.16);
+    }
+
+    /* Magic toggle */
+    .magic-control {
+      display: flex; align-items: center; gap: 8px;
+      cursor: pointer; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .magic-label {
+      font-size: 9.5px; font-weight: 800; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--text-soft);
+      transition: color var(--ease);
+    }
+    .magic-pill {
+      width: 46px; height: 24px; border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: rgba(176, 152, 214, 0.07);
+      position: relative;
+      transition: background var(--ease), border-color var(--ease), box-shadow var(--ease);
+    }
+    .magic-pill::after {
+      content: "";
+      position: absolute; top: 3px; left: 3px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--text-soft);
+      transition: transform var(--ease), background var(--ease), box-shadow var(--ease);
+    }
+    .magic-control.on .magic-label  { color: var(--accent-hi); }
+    .magic-control.on .magic-pill {
+      background: rgba(184, 164, 216, 0.28);
+      border-color: var(--accent);
+      box-shadow: 0 0 11px var(--accent-glow);
+      animation: magicPulse 1.5s ease-in-out infinite;
+    }
+    .magic-control.on .magic-pill::after {
+      transform: translateX(22px);
+      background: var(--accent-hi);
+      box-shadow: 0 0 5px var(--accent-glow);
+    }
+
+    @keyframes magicPulse {
+      0%, 100% { box-shadow: 0 0 8px rgba(184,164,216,0.40); }
+      50% { box-shadow: 0 0 15px rgba(204,186,238,0.64); }
+    }
+
+    /* Preview badge */
+    .preview-badge {
+      position: absolute; top: 14px; right: 160px;
+      font-size: 8px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--accent);
+      background: var(--accent-fill); border: 1px solid var(--accent);
+      border-radius: 4px; padding: 2px 6px; opacity: 0.7;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="plugin">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <!-- N logo (inline SVG fallback since n_logo.png isn't relative here) -->
+        <svg class="logo-n" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="26" height="26" rx="6" fill="rgba(80,56,130,0.10)"/>
+          <path d="M7 19V7l8 8.5V7h4v12h-4l-8-8.5V19H7Z" fill="#8a78b0"/>
+        </svg>
+        <div class="plugin-title">
+          <span class="title-nova">Nova</span>
+          <span class="title-silk">Silk</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="brand-script">by International Nova</span>
+      </div>
+    </header>
+
+    <span class="preview-badge">Preview v2</span>
+
+    <!-- Spectrum display -->
+    <div class="display-wrapper">
+      <div class="display-frame">
+        <canvas id="silk-canvas"></canvas>
+      </div>
+      <div class="freq-labels">
+        <span class="freq-label">20 Hz</span>
+        <span class="freq-label">100 Hz</span>
+        <span class="freq-label">500 Hz</span>
+        <span class="freq-label">1 kHz</span>
+        <span class="freq-label">5 kHz</span>
+        <span class="freq-label">10 kHz</span>
+        <span class="freq-label">20 kHz</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="knobs-row">
+
+        <!-- Smooth -->
+        <div class="knob-group">
+          <span class="knob-label">Smooth</span>
+          <div class="macro-knob" id="smooth-knob" data-param="smooth" data-default="42" tabindex="-1">
+            <svg viewBox="0 0 72 72">
+              <defs>
+                <radialGradient id="kg" cx="40%" cy="36%" r="62%">
+                  <stop offset="0%"   stop-color="#f3eefb"/>
+                  <stop offset="100%" stop-color="#d8ccee"/>
+                </radialGradient>
+              </defs>
+              <circle cx="36" cy="36" r="27"
+                fill="none" stroke="rgba(176,152,216,0.16)" stroke-width="4.5"
+                stroke-dasharray="113.1 9999" stroke-linecap="round"
+                transform="rotate(150 36 36)"/>
+              <circle cx="36" cy="36" r="27" id="smooth-arc"
+                fill="none" stroke="#b8a4d8" stroke-width="4.5"
+                stroke-dasharray="0 113.1" stroke-linecap="round"
+                transform="rotate(150 36 36)"
+                style="filter:drop-shadow(0 0 4px rgba(184,164,216,.6))"/>
+              <circle cx="36" cy="36" r="23" fill="url(#kg)"
+                stroke="rgba(180,152,220,0.22)" stroke-width="1"/>
+              <g id="smooth-ind" style="transform-origin:36px 36px; transform:rotate(-120deg)">
+                <rect x="35" y="15" width="2" height="7" rx="1" fill="#b8a4d8"/>
+              </g>
+            </svg>
+          </div>
+          <span class="knob-value" id="smooth-value"
+                data-param="smooth" contenteditable="true" spellcheck="false">4.2</span>
+        </div>
+
+        <!-- Focus -->
+        <div class="knob-group">
+          <span class="knob-label">Focus</span>
+          <div class="macro-knob" id="focus-knob" data-param="focus" data-default="60" tabindex="-1">
+            <svg viewBox="0 0 72 72">
+              <circle cx="36" cy="36" r="27"
+                fill="none" stroke="rgba(176,152,216,0.16)" stroke-width="4.5"
+                stroke-dasharray="113.1 9999" stroke-linecap="round"
+                transform="rotate(150 36 36)"/>
+              <circle cx="36" cy="36" r="27" id="focus-arc"
+                fill="none" stroke="#b8a4d8" stroke-width="4.5"
+                stroke-dasharray="0 113.1" stroke-linecap="round"
+                transform="rotate(150 36 36)"
+                style="filter:drop-shadow(0 0 4px rgba(184,164,216,.6))"/>
+              <circle cx="36" cy="36" r="23" fill="url(#kg)"
+                stroke="rgba(180,152,220,0.22)" stroke-width="1"/>
+              <g id="focus-ind" style="transform-origin:36px 36px; transform:rotate(-120deg)">
+                <rect x="35" y="15" width="2" height="7" rx="1" fill="#b8a4d8"/>
+              </g>
+            </svg>
+          </div>
+          <span class="knob-value" id="focus-value"
+                data-param="focus" contenteditable="true" spellcheck="false">6.0</span>
+        </div>
+
+        <!-- Air Preserve -->
+        <div class="knob-group">
+          <span class="knob-label">Air Preserve</span>
+          <div class="macro-knob" id="air_preserve-knob" data-param="air_preserve" data-default="72" tabindex="-1">
+            <svg viewBox="0 0 72 72">
+              <circle cx="36" cy="36" r="27"
+                fill="none" stroke="rgba(176,152,216,0.16)" stroke-width="4.5"
+                stroke-dasharray="113.1 9999" stroke-linecap="round"
+                transform="rotate(150 36 36)"/>
+              <circle cx="36" cy="36" r="27" id="air_preserve-arc"
+                fill="none" stroke="#b8a4d8" stroke-width="4.5"
+                stroke-dasharray="0 113.1" stroke-linecap="round"
+                transform="rotate(150 36 36)"
+                style="filter:drop-shadow(0 0 4px rgba(184,164,216,.6))"/>
+              <circle cx="36" cy="36" r="23" fill="url(#kg)"
+                stroke="rgba(180,152,220,0.22)" stroke-width="1"/>
+              <g id="air_preserve-ind" style="transform-origin:36px 36px; transform:rotate(-120deg)">
+                <rect x="35" y="15" width="2" height="7" rx="1" fill="#b8a4d8"/>
+              </g>
+            </svg>
+          </div>
+          <span class="knob-value" id="air_preserve-value"
+                data-param="air_preserve" contenteditable="true" spellcheck="false">7.2</span>
+        </div>
+
+        <!-- Body -->
+        <div class="knob-group">
+          <span class="knob-label">Body</span>
+          <div class="macro-knob" id="body-knob" data-param="body" data-default="62" tabindex="-1">
+            <svg viewBox="0 0 72 72">
+              <circle cx="36" cy="36" r="27"
+                fill="none" stroke="rgba(176,152,216,0.16)" stroke-width="4.5"
+                stroke-dasharray="113.1 9999" stroke-linecap="round"
+                transform="rotate(150 36 36)"/>
+              <circle cx="36" cy="36" r="27" id="body-arc"
+                fill="none" stroke="#b8a4d8" stroke-width="4.5"
+                stroke-dasharray="0 113.1" stroke-linecap="round"
+                transform="rotate(150 36 36)"
+                style="filter:drop-shadow(0 0 4px rgba(184,164,216,.6))"/>
+              <circle cx="36" cy="36" r="23" fill="url(#kg)"
+                stroke="rgba(180,152,220,0.22)" stroke-width="1"/>
+              <g id="body-ind" style="transform-origin:36px 36px; transform:rotate(-120deg)">
+                <rect x="35" y="15" width="2" height="7" rx="1" fill="#b8a4d8"/>
+              </g>
+            </svg>
+          </div>
+          <span class="knob-value" id="body-value"
+                data-param="body" contenteditable="true" spellcheck="false">6.2</span>
+        </div>
+
+        <!-- Output -->
+        <div class="knob-group">
+          <span class="knob-label">Output</span>
+          <div class="macro-knob" id="output-knob" data-param="output" data-default="50" tabindex="-1">
+            <svg viewBox="0 0 72 72">
+              <circle cx="36" cy="36" r="27"
+                fill="none" stroke="rgba(176,152,216,0.16)" stroke-width="4.5"
+                stroke-dasharray="113.1 9999" stroke-linecap="round"
+                transform="rotate(150 36 36)"/>
+              <circle cx="36" cy="36" r="27" id="output-arc"
+                fill="none" stroke="#b8a4d8" stroke-width="4.5"
+                stroke-dasharray="0 113.1" stroke-linecap="round"
+                transform="rotate(150 36 36)"
+                style="filter:drop-shadow(0 0 4px rgba(184,164,216,.6))"/>
+              <circle cx="36" cy="36" r="23" fill="url(#kg)"
+                stroke="rgba(180,152,220,0.22)" stroke-width="1"/>
+              <g id="output-ind" style="transform-origin:36px 36px; transform:rotate(-120deg)">
+                <rect x="35" y="15" width="2" height="7" rx="1" fill="#b8a4d8"/>
+              </g>
+            </svg>
+          </div>
+          <span class="knob-value" id="output-value"
+                data-param="output" contenteditable="true" spellcheck="false">0.0 dB</span>
+        </div>
+
+      </div><!-- /knobs-row -->
+
+      <!-- Footer -->
+      <div class="footer-row">
+        <div class="preset-bar">
+          <button class="preset-btn active" data-preset="Universal Smooth">Universal Smooth</button>
+          <button class="preset-btn"        data-preset="Vocal">Vocal</button>
+          <button class="preset-btn"        data-preset="Drums">Drums</button>
+          <button class="preset-btn"        data-preset="Guitar">Guitar</button>
+          <button class="preset-btn"        data-preset="Master">Master</button>
+        </div>
+
+        <div class="magic-control on" id="magic-control">
+          <span class="magic-label">Magic</span>
+          <div class="magic-pill"></div>
+        </div>
+      </div>
+
+    </div><!-- /controls -->
+  </div><!-- /plugin -->
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ── Constants ──────────────────────────────────────────────────────────
+    var BINS = 96;
+    var KNOB_ARC_TOTAL = 113.1;
+    var KNOB_MIN_DEG   = -120;
+    var KNOB_MAX_DEG   =  120;
+
+    var PRESETS = {
+      'Universal Smooth': { smooth: 42, focus: 60, air_preserve: 72, body: 62, output: 50, magic: true  },
+      'Vocal':            { smooth: 50, focus: 65, air_preserve: 70, body: 65, output: 50, magic: true  },
+      'Drums':            { smooth: 35, focus: 62, air_preserve: 55, body: 40, output: 50, magic: false },
+      'Guitar':           { smooth: 40, focus: 58, air_preserve: 68, body: 70, output: 50, magic: true  },
+      'Master':           { smooth: 28, focus: 50, air_preserve: 75, body: 72, output: 50, magic: true  }
+    };
+
+    var ALL_PARAMS = ['smooth', 'focus', 'air_preserve', 'body', 'output'];
+
+    var currentValues = { smooth: 42, focus: 60, air_preserve: 72, body: 62, output: 50 };
+    var magicOn = true;
+    var activeDrag = null;
+
+    var smoothedInput     = new Float32Array(BINS);
+    var smoothedProblem   = new Float32Array(BINS);
+    var smoothedReduction = new Float32Array(BINS);
+
+    var canvas, ctx;
+    var demoT = 0; // demo time counter
+    var frameDeltaMs = 16.7;
+    var lastFrameMs = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function smoothstep(x) { return x <= 0 ? 0 : (x >= 1 ? 1 : (x * x * (3 - 2 * x))); }
+    function lagBlend(ms) {
+      var safeMs = Math.max(1, ms);
+      return 1 - Math.exp(-frameDeltaMs / safeMs);
+    }
+
+    function formatKnob(param, percent) {
+      if (param === 'output') {
+        var db = -12 + (percent / 100) * 24;
+        return (db >= 0 ? '+' : '') + db.toFixed(1) + ' dB';
+      }
+      return (percent / 10).toFixed(1);
+    }
+
+    // ── Knob visual ────────────────────────────────────────────────────────
+    function updateKnobVisual(param, percent) {
+      var arc = document.getElementById(param + '-arc');
+      var ind = document.getElementById(param + '-ind');
+      var val = document.getElementById(param + '-value');
+      var frac = clamp(percent, 0, 100) / 100;
+
+      if (arc) {
+        var filled = frac * KNOB_ARC_TOTAL;
+        arc.setAttribute('stroke-dasharray', filled + ' ' + (KNOB_ARC_TOTAL - filled + 1));
+      }
+      if (ind) {
+        var deg = KNOB_MIN_DEG + frac * (KNOB_MAX_DEG - KNOB_MIN_DEG);
+        ind.style.transform = 'rotate(' + deg + 'deg)';
+      }
+      if (val && document.activeElement !== val) {
+        val.textContent = formatKnob(param, percent);
+      }
+    }
+
+    function setParamPercent(param, percent) {
+      currentValues[param] = clamp(percent, 0, 100);
+      updateKnobVisual(param, currentValues[param]);
+    }
+
+    function setMagic(on) {
+      magicOn = on;
+      var ctrl = document.getElementById('magic-control');
+      if (ctrl) ctrl.classList.toggle('on', on);
+    }
+
+    // ── Presets ────────────────────────────────────────────────────────────
+    function applyPreset(name) {
+      var p = PRESETS[name];
+      if (!p) return;
+      document.querySelectorAll('.preset-btn').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.preset === name);
+      });
+      ALL_PARAMS.forEach(function (param) { setParamPercent(param, p[param]); });
+      setMagic(p.magic);
+    }
+
+    // ── Knob drag ──────────────────────────────────────────────────────────
+    function getClientY(ev) {
+      if (ev.touches && ev.touches.length)            return ev.touches[0].clientY;
+      if (ev.changedTouches && ev.changedTouches.length) return ev.changedTouches[0].clientY;
+      return ev.clientY || 0;
+    }
+
+    function startDrag(param, knob, ev) {
+      if (typeof ev.button === 'number' && ev.button !== 0) return;
+      ev.preventDefault();
+      activeDrag = { param: param, knob: knob, startY: getClientY(ev), startVal: currentValues[param] };
+      knob.classList.add('dragging');
+      if (knob.setPointerCapture && ev.pointerId != null) {
+        try { knob.setPointerCapture(ev.pointerId); } catch (_) {}
+      }
+    }
+
+    document.addEventListener('pointermove', function (ev) {
+      if (!activeDrag) return;
+      ev.preventDefault();
+      var delta = activeDrag.startY - getClientY(ev);
+      setParamPercent(activeDrag.param, clamp(activeDrag.startVal + delta * 0.45, 0, 100));
+    });
+    document.addEventListener('pointerup', function () {
+      if (activeDrag && activeDrag.knob) activeDrag.knob.classList.remove('dragging');
+      activeDrag = null;
+    });
+    document.addEventListener('pointercancel', function () {
+      if (activeDrag && activeDrag.knob) activeDrag.knob.classList.remove('dragging');
+      activeDrag = null;
+    });
+
+    // ── Editable values ────────────────────────────────────────────────────
+    function initReadouts() {
+      document.querySelectorAll('.knob-value').forEach(function (el) {
+        var param = el.dataset.param;
+
+        el.addEventListener('focus', function () {
+          el.textContent = param === 'output'
+            ? (-12 + (currentValues[param] / 100) * 24).toFixed(1)
+            : (currentValues[param] / 10).toFixed(1);
+        });
+
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter') { ev.preventDefault(); el.blur(); }
+          if (ev.key === 'Escape') { ev.preventDefault(); updateKnobVisual(param, currentValues[param]); el.blur(); }
+        });
+
+        el.addEventListener('blur', function () {
+          var raw = parseFloat(el.textContent);
+          var pct = isNaN(raw) ? currentValues[param]
+            : (param === 'output' ? clamp(((raw + 12) / 24) * 100, 0, 100)
+                                  : clamp(raw * 10, 0, 100));
+          setParamPercent(param, pct);
+        });
+      });
+    }
+
+    // ── Canvas ─────────────────────────────────────────────────────────────
+    function initCanvas() {
+      canvas = document.getElementById('silk-canvas');
+      if (!canvas) return;
+      ctx = canvas.getContext('2d');
+      var frame = canvas.parentElement;
+
+      function resize() {
+        canvas.width  = frame.clientWidth;
+        canvas.height = frame.clientHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+    }
+
+    // ── Demo data generator (simulates live spectral activity) ─────────────
+    // Generates a realistic music-like spectrum with rolling peaks and Silk glow
+    function generateDemoData() {
+      var t = demoT;
+      var motionRate = magicOn ? 0.014 : 0.019;
+      demoT += motionRate * (frameDeltaMs / 16.7);
+
+      var smoothPct = currentValues['smooth'] / 100;
+      var focusPct  = currentValues['focus']  / 100;
+      var airPct    = currentValues['air_preserve'] / 100;
+      var bodyPct   = currentValues['body']   / 100;
+
+      for (var i = 0; i < BINS; i++) {
+        var f = i / BINS; // 0..1 mapping to 20Hz..20kHz (log)
+
+        // Simulated input spectrum: pink-noise-like, rolling slow peaks
+        var base = (1 - f * 0.55);
+        var peak1  = 0.55 * Math.exp(-Math.pow((f - (0.22 + 0.06 * Math.sin(t * 0.7))), 2) / 0.004);
+        var peak2  = 0.40 * Math.exp(-Math.pow((f - (0.48 + 0.04 * Math.sin(t * 0.5 + 1.2))), 2) / 0.006);
+        var peak3  = 0.30 * Math.exp(-Math.pow((f - (0.68 + 0.03 * Math.sin(t * 0.9 + 2.1))), 2) / 0.008);
+        var noise  = 0.06 * (Math.random() - 0.5 + Math.sin(i * 1.7 + t * 3.1) * 0.5);
+        var rawIn  = clamp(base * 0.30 + peak1 + peak2 + peak3 + noise, 0, 1);
+
+        // Smooth transition (micro-lag + eased response)
+        var iAlpha = lagBlend(magicOn ? 32 : 24);
+        smoothedInput[i] = rawIn > smoothedInput[i]
+          ? lerp(smoothedInput[i], rawIn, lagBlend(18))
+          : lerp(smoothedInput[i], rawIn, iAlpha);
+
+        // Problem zones: driven by focus + peaks where resonance would be
+        var zoneActivity = Math.pow(smoothedInput[i], 1.3) * focusPct * (0.6 + 0.4 * Math.sin(t * 1.1 + i * 0.3));
+        // Reduce glow in air zone (high freq) if air_preserve is high
+        var airZone = f > 0.72 ? (1 - airPct * 0.8) : 1.0;
+        // Increase in body zone if body knob up
+        var bodyZone = (f > 0.12 && f < 0.38) ? (1 + bodyPct * 0.4) : 1.0;
+        var rawProblem = clamp(zoneActivity * airZone * bodyZone * (smoothPct * 0.7 + 0.3), 0, 1);
+
+        var pAlpha = lagBlend(magicOn ? 36 : 26);
+        smoothedProblem[i] = rawProblem > smoothedProblem[i]
+          ? lerp(smoothedProblem[i], rawProblem, lagBlend(20))
+          : lerp(smoothedProblem[i], rawProblem, pAlpha);
+
+        // Reduction: proportional to problem, shaped by smooth
+        var rawReduction = rawProblem * smoothPct * (magicOn ? 0.85 : 0.65);
+        rawReduction = smoothstep(rawReduction);
+        var rAlpha = lagBlend(magicOn ? 40 : 28);
+        smoothedReduction[i] = rawReduction > smoothedReduction[i]
+          ? lerp(smoothedReduction[i], rawReduction, lagBlend(22))
+          : lerp(smoothedReduction[i], rawReduction, rAlpha);
+      }
+    }
+
+    // ── Draw ───────────────────────────────────────────────────────────────
+    function drawSpectrum() {
+      if (!canvas || !ctx) return;
+      var W = canvas.width;
+      var H = canvas.height;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Grid
+      ctx.strokeStyle = 'rgba(184, 164, 216, 0.06)';
+      ctx.lineWidth = 1;
+      for (var g = 0.25; g < 1.0; g += 0.25) {
+        ctx.beginPath(); ctx.moveTo(0, H * g); ctx.lineTo(W, H * g); ctx.stroke();
+      }
+
+      var xStep = W / (BINS - 1);
+      var reductionPeak = 0;
+      for (var rp = 0; rp < BINS; rp++) {
+        if (smoothedReduction[rp] > reductionPeak) reductionPeak = smoothedReduction[rp];
+      }
+      var glowScale = clamp(reductionPeak / 0.72, 0, 1);
+
+      // Background depth shadow spectrum (very subtle)
+      ctx.beginPath();
+      for (var sd = 0; sd < BINS; sd++) {
+        var sx = sd * xStep;
+        var sy = H * (0.84 - smoothedInput[sd] * 0.24);
+        if (sd === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+      }
+      ctx.strokeStyle = 'rgba(72, 52, 116, 0.16)';
+      ctx.lineWidth = 2.2;
+      ctx.shadowColor = 'rgba(74, 52, 120, 0.18)';
+      ctx.shadowBlur = 6;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Layer 3: Reduction dip fill
+      var reductionPath = new Path2D();
+      reductionPath.moveTo(0, H);
+      for (var i = 0; i < BINS; i++) {
+        reductionPath.lineTo(i * xStep, H * (1 - smoothedReduction[i] * 0.72));
+      }
+      reductionPath.lineTo((BINS - 1) * xStep, H);
+      reductionPath.closePath();
+
+      var meltGrad = ctx.createLinearGradient(0, H * 0.18, 0, H);
+      meltGrad.addColorStop(0.0, 'rgba(220, 196, 250,' + (0.15 + glowScale * 0.24).toFixed(3) + ')');
+      meltGrad.addColorStop(0.34, 'rgba(186, 153, 233,' + (0.13 + glowScale * 0.17).toFixed(3) + ')');
+      meltGrad.addColorStop(1.0, 'rgba(90, 70, 145, 0.03)');
+      ctx.fillStyle = meltGrad;
+      ctx.fill(reductionPath);
+
+      // Soft edge / vertical blur for "melting" feel
+      ctx.save();
+      ctx.filter = 'blur(2px)';
+      ctx.globalAlpha = 0.54;
+      ctx.fillStyle = 'rgba(176, 142, 226, 0.20)';
+      ctx.fill(reductionPath);
+      ctx.restore();
+
+      // Reduction outline
+      ctx.beginPath();
+      for (var i2 = 0; i2 < BINS; i2++) {
+        var x2 = i2 * xStep;
+        var y2 = H * (1 - smoothedReduction[i2] * 0.72);
+        if (i2 === 0) { ctx.moveTo(x2, y2); continue; }
+        var px = (i2 - 1) * xStep;
+        var py = H * (1 - smoothedReduction[i2 - 1] * 0.72);
+        ctx.bezierCurveTo((px + x2) / 2, py, (px + x2) / 2, y2, x2, y2);
+      }
+      ctx.strokeStyle = 'rgba(176, 138, 232,' + (0.28 + glowScale * 0.34).toFixed(3) + ')';
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = 'rgba(182, 146, 236,' + (0.16 + glowScale * 0.34).toFixed(3) + ')';
+      ctx.shadowBlur = 3 + glowScale * 7;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Layer 2: Activity glow fill
+      ctx.beginPath();
+      ctx.moveTo(0, H * 0.70);
+      for (var i3 = 0; i3 < BINS; i3++) {
+        ctx.lineTo(i3 * xStep, H * 0.70 - smoothedProblem[i3] * H * 0.62);
+      }
+      for (var i4 = BINS - 1; i4 >= 0; i4--) {
+        ctx.lineTo(i4 * xStep, H * 0.70);
+      }
+      ctx.closePath();
+      var glowGrad = ctx.createLinearGradient(0, 0, 0, H);
+      glowGrad.addColorStop(0.0, 'rgba(210, 188, 248,' + (0.30 + glowScale * 0.34).toFixed(3) + ')');
+      glowGrad.addColorStop(0.4, 'rgba(186, 162, 230,' + (0.20 + glowScale * 0.20).toFixed(3) + ')');
+      glowGrad.addColorStop(1.0, 'rgba(140, 120, 200, 0.00)');
+      ctx.fillStyle = glowGrad;
+      ctx.fill();
+
+      // Glow rim line
+      ctx.beginPath();
+      for (var i5 = 0; i5 < BINS; i5++) {
+        var x5 = i5 * xStep;
+        var top5 = H * 0.70 - smoothedProblem[i5] * H * 0.62;
+        if (i5 === 0) { ctx.moveTo(x5, top5); continue; }
+        var px5 = (i5 - 1) * xStep;
+        var py5 = H * 0.70 - smoothedProblem[i5 - 1] * H * 0.62;
+        ctx.bezierCurveTo((px5 + x5) / 2, py5, (px5 + x5) / 2, top5, x5, top5);
+      }
+      ctx.strokeStyle = 'rgba(216, 196, 252,' + (0.44 + glowScale * 0.44).toFixed(3) + ')';
+      ctx.lineWidth = 2.0;
+      ctx.shadowColor = 'rgba(208, 184, 248,' + (0.36 + glowScale * 0.42).toFixed(3) + ')';
+      ctx.shadowBlur  = (magicOn ? 11 : 6) + glowScale * 7;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Layer 1: Input spectrum line
+      ctx.beginPath();
+      for (var i6 = 0; i6 < BINS; i6++) {
+        var x6 = i6 * xStep;
+        var y6 = H * (1 - smoothedInput[i6] * 0.88);
+        if (i6 === 0) ctx.moveTo(x6, y6); else ctx.lineTo(x6, y6);
+      }
+      ctx.strokeStyle = 'rgba(196, 190, 214, 0.50)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+
+    // ── Render loop ────────────────────────────────────────────────────────
+    function renderLoop(nowMs) {
+      var currentMs = typeof nowMs === 'number' ? nowMs : (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      frameDeltaMs = clamp(currentMs - lastFrameMs, 8, 40);
+      lastFrameMs = currentMs;
+      generateDemoData();
+      drawSpectrum();
+      requestAnimationFrame(renderLoop);
+    }
+
+    // ── Boot ───────────────────────────────────────────────────────────────
+    function boot() {
+      // Init knob visuals
+      ALL_PARAMS.forEach(function (p) { updateKnobVisual(p, currentValues[p]); });
+
+      // Knob drag listeners
+      document.querySelectorAll('.macro-knob').forEach(function (knob) {
+        var param = knob.dataset.param;
+        var def   = parseFloat(knob.dataset['default']) || 50;
+        knob.addEventListener('pointerdown', function (ev) { startDrag(param, knob, ev); });
+        // Double-click to reset
+        knob.addEventListener('dblclick', function () { setParamPercent(param, def); });
+        // Scroll
+        knob.addEventListener('wheel', function (ev) {
+          ev.preventDefault();
+          var step = ev.shiftKey ? 0.1 : 1;
+          setParamPercent(param, clamp(currentValues[param] - Math.sign(ev.deltaY) * step, 0, 100));
+        }, { passive: false });
+      });
+
+      // Preset buttons
+      document.querySelectorAll('.preset-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () { applyPreset(btn.dataset.preset); });
+      });
+
+      // Magic toggle
+      document.getElementById('magic-control').addEventListener('click', function () {
+        setMagic(!magicOn);
+      });
+
+      initReadouts();
+      initCanvas();
+      renderLoop();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', boot);
+    } else {
+      boot();
+    }
+  }());
+  </script>
+</body>
+</html>
