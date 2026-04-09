@@ -30,6 +30,7 @@ message(STATUS "Space By Nova: WebView backend: ${WEBVIEW_BACKEND}")
 juce_add_binary_data(SpaceByNova_WebUI
     SOURCES
         Source/ui/public/index.html
+        Source/ui/public/n_logo.png
         Source/ui/public/js/index.js
         Source/ui/public/js/juce/index.js
         Source/ui/public/js/juce/check_native_interop.js
@@ -43,7 +44,7 @@ juce_add_plugin(${PLUGIN_TARGET}
     PLUGIN_MANUFACTURER_CODE Inov
     PLUGIN_CODE NvSp
     FORMATS ${PLUGIN_FORMATS}
-    PRODUCT_NAME "Space By Nova"
+    PRODUCT_NAME "Nova Space"
     NEEDS_WEBVIEW2 ${NEEDS_WEBVIEW2}
     NEEDS_WEB_BROWSER ${NEEDS_WEB_BROWSER}
     VST3_CATEGORIES Fx Reverb

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Space By Nova — v1 Preview</title>
+  <title>Nova Space — v1 Preview</title>
   <style>
     :root {
       --outer-bg: #d8d1c6;
@@ -91,24 +91,65 @@
       pointer-events: none;
     }
 
-    .title {
+    .nova-header {
       position: absolute;
       left: 56px;
       top: 34px;
-      margin: 0;
-      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Garamond, Georgia, serif;
-      font-size: 62px;
-      line-height: 1;
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      min-height: 64px;
+    }
+
+    .nova-logo-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      margin-left: -10px;
+      border-radius: 10px;
+      background: rgba(60, 56, 48, 0.10);
+      box-shadow: 0 2px 8px 0 rgba(60,56,48,0.07);
+      backdrop-filter: blur(1.5px);
+    }
+
+    .nova-logo {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      filter: grayscale(0.1) brightness(0.93) contrast(1.08);
+      opacity: 1;
+    }
+
+    .nova-title-nova {
+      font-size: 24px;
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
       font-weight: 700;
-      letter-spacing: 0.01em;
-      color: var(--text-main);
+      letter-spacing: 0.13em;
+      color: #353535;
+      margin: 0 0 2px 0;
+      padding: 0;
+      opacity: 0.97;
+    }
+
+    .nova-title-space {
+      font-size: 30px;
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-weight: 950;
+      letter-spacing: 0.04em;
+      color: #282420;
+      margin: 0;
+      padding: 0;
+      line-height: 1.0;
+      opacity: 0.98;
     }
 
     .subtitle {
       position: absolute;
       left: 58px;
       top: 108px;
-      font-size: 24px;
+      font-size: 18px;
       font-weight: 500;
       letter-spacing: 0.18em;
       color: var(--text-soft);
@@ -446,7 +487,16 @@
 <body>
   <div class="stage">
     <div class="plugin" id="plugin-ui">
-    <h1 class="title">NOVA SPACE</h1>
+    <div class="nova-header">
+      <div class="nova-logo-container">
+        <img src="n_logo.png" alt="N" class="nova-logo" />
+      </div>
+      <div class="nova-title-stack">
+        <span class="nova-title-nova">NOVA</span>
+        <br style="line-height:0; margin:0; padding:0;" />
+        <span class="nova-title-space">SPACE</span>
+      </div>
+    </div>
     <div class="subtitle">STUDIO GLOW FOR MODERN VOCALS</div>
     <div class="tagline">by International Nova</div>
 
@@ -495,17 +545,6 @@
     <button class="mode-button" data-mode="Vintage" style="left: 900px; top: 604px;">VINTAGE</button>
     </div>
   </div>
-
-  <div class="nova-header">
-        <div class="nova-logo-container">
-          <img src="../Nova Master/Design/n_logo.png" alt="N" class="nova-logo" />
-        </div>
-        <div class="nova-title-stack">
-          <span class="nova-title-nova">NOVA</span>
-          <br style="line-height:0; margin:0; padding:0;" />
-          <span class="nova-title-master">SPACE</span>
-        </div>
-      </div>
 
   <script type="module">
     const presets = {
