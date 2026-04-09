@@ -126,6 +126,21 @@ std::optional<juce::WebBrowserComponent::Resource> NovaSilkAudioProcessorEditor:
                              nova_silk_BinaryData::n_logo_pngSize,
                              "image/png");
 
+    if (lowerUrl.contains ("js/index.js"))
+        return makeResource (nova_silk_BinaryData::index_js,
+                             nova_silk_BinaryData::index_jsSize,
+                             "text/javascript");
+
+    if (lowerUrl.contains ("js/juce/index.js"))
+        return makeResource (nova_silk_BinaryData::index_js2,
+                             nova_silk_BinaryData::index_js2Size,
+                             "text/javascript");
+
+    if (lowerUrl.contains ("js/juce/check_native_interop.js"))
+        return makeResource (nova_silk_BinaryData::check_native_interop_js,
+                             nova_silk_BinaryData::check_native_interop_jsSize,
+                             "text/javascript");
+
     auto resourcePath = url.fromFirstOccurrenceOf (juce::WebBrowserComponent::getResourceProviderRoot(), false, false);
     resourcePath = resourcePath.upToFirstOccurrenceOf ("?", false, false);
 
