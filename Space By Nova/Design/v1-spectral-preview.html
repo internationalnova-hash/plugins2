@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<!--
+  Space By Nova — Spectral Concept Preview
+  ─────────────────────────────────────────
+  Standalone browser mockup. Open directly in Chrome / Safari / Firefox.
+  No server required. Plugin processor is NOT affected.
+
+  What this shows:
+  ─ All existing knobs (Space, Air, Depth, Mix, Width) fully draggable.
+  ─ All 4 Nova Mode buttons with animated preset transitions.
+  ─ Space Spectrum canvas: a live reverb-tail visualizer that
+    responds to the current knob positions visually.
+    · Dry curve     — gold hairline (input energy shape)
+    · Reverb bloom  — slow-expanding blue-indigo glow
+    · Wet energy    — animated haze that grows with Space/Air/Depth
+  ─ This is purely an aesthetic readout. It visualises what the
+    parameters *represent*, not what the audio engine is doing.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Space By Nova — Spectral Concept Preview</title>
+  <style>
+    :root {
+      --outer-bg:   #d5cfc4;
+      --panel-top:  #f7f3ed;
+      --panel-bot:  #efeae2;
+      --border:     #e1cfb0;
+      --text:       #26180f;
+      --text-soft:  #7d6650;
+      --gold:       #c39231;
+      --gold-soft:  #d8b56d;
+      --gold-pale:  #edd18c;
+      --cream:      #fffdf8;
+
+      /* spectral canvas palette */
+      --canvas-deep:  #06090f;
+      --canvas-mid:   #0b1020;
+      --bloom-start:  rgba(56, 90, 180, 0.82);
+      --bloom-end:    rgba(30, 60, 130, 0.0);
+      --dry-line:     rgba(215, 175, 80, 0.90);
+      --wet-haze:     rgba(80, 120, 220, 0.22);
+
+      --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--outer-bg);
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 20px 40px;
+    }
+
+    /* ── concept badge ─────────────────────────────────── */
+    .concept-badge {
+      font-size: 9px; letter-spacing: 0.22em; font-weight: 700;
+      text-transform: uppercase; color: #9d7c45;
+      background: rgba(200,160,60,0.11); border: 1px solid rgba(200,160,60,0.28);
+      border-radius: 4px; padding: 3px 9px; margin-bottom: 14px;
+    }
+
+    /* ── plugin shell ───────────────────────────────────── */
+    .plugin {
+      position: relative;
+      width: 1100px; height: 720px;
+      background: linear-gradient(180deg, var(--panel-top) 0%, var(--panel-bot) 100%);
+      border: 2px solid var(--border);
+      border-radius: 36px;
+      overflow: hidden;
+      box-shadow:
+        0 22px 50px rgba(100, 80, 48, 0.16),
+        inset 0 1px 0 rgba(255,255,255,0.82),
+        inset 0 -8px 18px rgba(188,168,138,0.09);
+    }
+
+    .plugin::before {
+      content: "";
+      position: absolute; inset: 0;
+      border-radius: inherit; padding: 10px;
+      background: linear-gradient(135deg,
+        rgba(255,255,255,0.82) 0%,
+        rgba(255,255,255,0.18) 28%,
+        rgba(177,150,112,0.14) 72%,
+        rgba(116,90,52,0.10) 100%);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+              mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    /* ── header ─────────────────────────────────────────── */
+    .header {
+      position: absolute; top: 0; left: 0; right: 0; height: 62px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px;
+      border-bottom: 1px solid rgba(225,207,176,0.40);
+    }
+
+    .header-left { display: flex; align-items: flex-start; gap: 14px; }
+
+    .nova-logo-container {
+      display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; margin-top: 4px;
+      border-radius: 10px;
+      background: rgba(60,56,48,0.10);
+      box-shadow: 0 2px 8px 0 rgba(60,56,48,0.07);
+      flex-shrink: 0;
+    }
+
+    .nova-logo {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      filter: grayscale(0.1) brightness(0.93) contrast(1.08);
+      opacity: 1;
+    }
+
+    .nova-title-stack { display: flex; flex-direction: column; line-height: 1; }
+    .nova-title-nova {
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-size: 13px; font-weight: 700; letter-spacing: 0.13em;
+      color: #353535; margin: 0 0 1px 0; opacity: 0.97;
+    }
+    .nova-title-space {
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-size: 24px; font-weight: 900; letter-spacing: 0.04em;
+      color: #282420; line-height: 1.0; opacity: 0.98;
+    }
+
+    .header-right { text-align: right; }
+    .tagline {
+      font-family: "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Brush Script MT", cursive;
+      font-size: 28px; font-weight: 500; letter-spacing: 0.03em;
+      color: #8f7654;
+      text-shadow:
+        0 1px 0 rgba(255,255,255,0.42),
+        0 2px 3px rgba(126, 98, 62, 0.12);
+    }
+    .header-sub {
+      font-size: 8px; letter-spacing: 0.10em;
+      color: var(--gold); opacity: 0.68; text-transform: uppercase;
+      margin-top: 2px; text-align: right;
+    }
+
+    /* ── spectral display ───────────────────────────────── */
+    .spectrum-section {
+      position: absolute;
+      top: 62px; left: 22px; right: 22px; height: 260px;
+    }
+
+    .spectrum-frame {
+      width: 100%; height: 236px;
+      background: linear-gradient(180deg, var(--canvas-mid) 0%, var(--canvas-deep) 100%);
+      border: 1px solid rgba(200,165,80,0.14);
+      border-radius: 14px;
+      overflow: hidden;
+      position: relative;
+      box-shadow:
+        inset 0 2px 12px rgba(0,0,0,0.55),
+        0 3px 16px rgba(80,56,20,0.10);
+    }
+
+    .spectrum-frame canvas {
+      display: block; width: 100%; height: 100%;
+    }
+
+    .spectrum-legend {
+      position: absolute;
+      top: 10px; right: 14px;
+      display: flex; gap: 14px; align-items: center;
+    }
+
+    .legend-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 8px; letter-spacing: 0.10em;
+      text-transform: uppercase; color: rgba(200,180,140,0.55);
+    }
+
+    .legend-swatch {
+      width: 18px; height: 2px; border-radius: 1px;
+    }
+
+    .freq-labels {
+      display: flex; justify-content: space-between;
+      padding: 4px 8px 0;
+    }
+    .freq-label {
+      font-size: 8px; letter-spacing: 0.07em;
+      color: var(--text-soft); opacity: 0.38; text-transform: uppercase;
+    }
+
+    /* ── knob row ───────────────────────────────────────── */
+    .knobs-area {
+      position: absolute;
+      top: 330px; left: 0; right: 0;
+      display: flex; justify-content: center; gap: 0;
+    }
+
+    .knob-col {
+      display: flex; flex-direction: column; align-items: center;
+      width: 190px; gap: 6px; padding-top: 4px;
+    }
+
+    .knob-label {
+      font-size: 9.5px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--text-soft);
+    }
+
+    /* Hardware-style knob */
+    .knob-shell {
+      position: relative;
+      width: 90px; height: 90px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 32% 24%, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.60) 16%, rgba(255,255,255,0.10) 28%, transparent 36%),
+        linear-gradient(145deg, #f8f3eb 0%, #e8dcca 50%, #d8c4a6 100%);
+      border: 1px solid rgba(206,176,120,0.95);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.92),
+        inset 0 -8px 14px rgba(170,138,88,0.12),
+        0 6px 14px rgba(120,94,56,0.10),
+        0 0 0 6px rgba(255,248,236,0.42);
+      cursor: ns-resize;
+      user-select: none;
+      transition: transform var(--ease), box-shadow var(--ease), filter var(--ease);
+      flex-shrink: 0;
+    }
+
+    .knob-shell:hover, .knob-shell.dragging {
+      transform: translateY(-1px);
+      filter: brightness(1.02);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.94),
+        inset 0 -8px 14px rgba(170,138,88,0.14),
+        0 10px 20px rgba(120,94,56,0.13),
+        0 0 0 6px rgba(255,248,236,0.54);
+    }
+
+    .knob-shell::before {
+      content: "";
+      position: absolute; inset: 7px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.72);
+      box-shadow: inset 0 0 0 1px rgba(211,185,138,0.24);
+      pointer-events: none;
+    }
+
+    /* indicator ring + dot */
+    .indicator {
+      position: absolute; inset: 0;
+      transform: rotate(var(--rotation, -120deg));
+      transition: transform var(--ease);
+      pointer-events: none;
+    }
+
+    .indicator::before {
+      content: "";
+      position: absolute; inset: 10%;
+      border-radius: 50%;
+      background: conic-gradient(
+        from 218deg,
+        rgba(225,210,182,0.76) 0deg 26deg,
+        #e8d48a 26deg 70deg,
+        #c48c2c 70deg 108deg,
+        transparent 108deg 360deg
+      );
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px));
+              mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px));
+      filter: drop-shadow(0 1px 1px rgba(120,80,20,0.14));
+    }
+
+    .indicator::after {
+      content: "";
+      position: absolute;
+      width: 11px; height: 11px;
+      left: 18%; top: 7%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #f6e3b0 0%, #d4a040 55%, #b87c22 100%);
+      box-shadow:
+        0 0 0 3px rgba(255,249,235,0.92),
+        0 2px 6px rgba(148,106,28,0.18);
+    }
+
+    .knob-shell.hero {
+      width: 110px; height: 110px;
+    }
+
+    .hero .indicator::after {
+      width: 13px; height: 13px;
+      left: 17%; top: 6%;
+    }
+
+    .knob-value {
+      font-size: 13px; font-weight: 600;
+      color: var(--text); text-align: center;
+      min-width: 58px; cursor: text; outline: none;
+      border-radius: 6px; padding: 1px 5px;
+      transition: background var(--ease), color var(--ease);
+    }
+    .knob-value:focus {
+      background: rgba(255,255,255,0.58);
+      color: var(--gold);
+    }
+
+    /* ── mode buttons ───────────────────────────────────── */
+    .modes-area {
+      position: absolute;
+      bottom: 28px; left: 0; right: 0;
+      display: flex; justify-content: center; gap: 16px;
+    }
+
+    .mode-btn {
+      width: 178px; height: 52px;
+      border-radius: 20px;
+      border: 2px solid rgba(220,200,165,0.90);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.90) 0%, rgba(255,255,255,0.48) 14%, transparent 15%),
+        linear-gradient(180deg, #f8f5ef 0%, #f0ebe2 56%, #e8dfd2 100%);
+      color: #705a40;
+      font-size: 13px; font-weight: 600;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      font-family: inherit; cursor: pointer;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.94),
+        inset 0 -3px 5px rgba(208,186,152,0.20),
+        0 2px 0 rgba(210,190,158,0.72),
+        0 5px 12px rgba(130,100,60,0.08);
+      transition: all var(--ease);
+    }
+
+    .mode-btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.02);
+    }
+
+    .mode-btn.active {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.10) 16%, transparent 17%),
+        linear-gradient(180deg, #f0d98e 0%, #d8b048 34%, #c29030 66%, #a86e18 100%);
+      color: #fffdf6;
+      border-color: #b07c24;
+      text-shadow: 0 1px 2px rgba(100,64,14,0.26);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.34),
+        inset 0 -4px 7px rgba(100,60,12,0.22),
+        0 2px 0 rgba(145,100,26,0.52),
+        0 8px 18px rgba(175,130,48,0.18),
+        0 0 14px rgba(220,180,88,0.14);
+    }
+
+    /* ── divider ─────────────────────────────────────────── */
+    .divider {
+      position: absolute;
+      left: 32px; right: 32px; bottom: 94px;
+      height: 1px;
+      background: linear-gradient(90deg,
+        transparent 0%, rgba(225,207,176,0.70) 20%,
+        rgba(225,207,176,0.70) 80%, transparent 100%);
+    }
+
+    /* ── footer text ─────────────────────────────────────── */
+    .footer-tagline {
+      position: absolute;
+      bottom: 10px; left: 0; right: 0;
+      text-align: center;
+      font-family: "Snell Roundhand", "Apple Chancery", cursive, serif;
+      font-size: 16px; color: rgba(160,130,80,0.55);
+      letter-spacing: 0.03em;
+      pointer-events: none;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="concept-badge">Spectral Concept Preview — Design Only</div>
+
+  <div class="plugin" id="plugin">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="nova-logo-container">
+          <img src="n_logo.png" alt="N" class="nova-logo" />
+        </div>
+        <div class="nova-title-stack">
+          <span class="nova-title-nova">NOVA</span>
+          <span class="nova-title-space">SPACE</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="tagline">by International Nova</span>
+        <div class="header-sub">Luxury Vocal Reverb</div>
+      </div>
+    </header>
+
+    <!-- Spectral display -->
+    <div class="spectrum-section">
+      <div class="spectrum-frame">
+        <canvas id="space-canvas"></canvas>
+        <div class="spectrum-legend">
+          <div class="legend-item">
+            <div class="legend-swatch" style="background:rgba(215,175,80,0.85);"></div>
+            dry
+          </div>
+          <div class="legend-item">
+            <div class="legend-swatch" style="background:rgba(90,130,230,0.85);box-shadow:0 0 4px rgba(90,130,230,0.5);"></div>
+            reverb tail
+          </div>
+          <div class="legend-item">
+            <div class="legend-swatch" style="background:rgba(140,100,220,0.70);box-shadow:0 0 4px rgba(140,100,220,0.4);"></div>
+            wet bloom
+          </div>
+        </div>
+      </div>
+      <div class="freq-labels">
+        <span class="freq-label">20 Hz</span>
+        <span class="freq-label">100 Hz</span>
+        <span class="freq-label">500 Hz</span>
+        <span class="freq-label">1 kHz</span>
+        <span class="freq-label">5 kHz</span>
+        <span class="freq-label">10 kHz</span>
+        <span class="freq-label">20 kHz</span>
+      </div>
+    </div>
+
+    <!-- Knobs -->
+    <div class="knobs-area">
+
+      <div class="knob-col">
+        <span class="knob-label">Space</span>
+        <div class="knob-shell" id="space-knob"><div class="indicator"></div></div>
+        <span class="knob-value" id="space-val" data-param="space" contenteditable="true" spellcheck="false">5.0</span>
+      </div>
+
+      <div class="knob-col">
+        <span class="knob-label">Air</span>
+        <div class="knob-shell" id="air-knob"><div class="indicator"></div></div>
+        <span class="knob-value" id="air-val" data-param="air" contenteditable="true" spellcheck="false">5.0</span>
+      </div>
+
+      <div class="knob-col">
+        <span class="knob-label">Depth</span>
+        <div class="knob-shell" id="depth-knob"><div class="indicator"></div></div>
+        <span class="knob-value" id="depth-val" data-param="depth" contenteditable="true" spellcheck="false">4.5</span>
+      </div>
+
+      <div class="knob-col">
+        <span class="knob-label" style="font-size:9px;">Width</span>
+        <div class="knob-shell hero" id="width-knob"><div class="indicator"></div></div>
+        <span class="knob-value" id="width-val" data-param="width" contenteditable="true" spellcheck="false">7.0</span>
+      </div>
+
+      <div class="knob-col">
+        <span class="knob-label">Mix</span>
+        <div class="knob-shell" id="mix-knob"><div class="indicator"></div></div>
+        <span class="knob-value" id="mix-val" data-param="mix" contenteditable="true" spellcheck="false">24%</span>
+      </div>
+
+    </div>
+
+    <!-- Divider -->
+    <div class="divider" aria-hidden="true"></div>
+
+    <!-- Mode buttons -->
+    <div class="modes-area">
+      <button class="mode-btn active" data-mode="Studio">Studio</button>
+      <button class="mode-btn" data-mode="Arena">Arena</button>
+      <button class="mode-btn" data-mode="Dream">Dream</button>
+      <button class="mode-btn" data-mode="Vintage">Vintage</button>
+    </div>
+
+    <div class="footer-tagline">by International Nova</div>
+
+  </div><!-- /plugin -->
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ── Parameter state (0–100 internal) ──────────────────────────────────
+    var BINS = 128;
+
+    var params = {
+      space: 50, air: 50, depth: 45, width: 70, mix: 24
+    };
+
+    var PRESETS = {
+      Studio:  { space: 18, air: 32, depth: 26, width: 38, mix: 16 },
+      Arena:   { space: 66, air: 60, depth: 70, width: 86, mix: 28 },
+      Dream:   { space: 84, air: 64, depth: 82, width: 90, mix: 34 },
+      Vintage: { space: 42, air: 20, depth: 52, width: 48, mix: 24 }
+    };
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v == null ? 0 : v)); }
+    function lerp(a, b, t)   { return a + (b - a) * t; }
+
+    function formatParam(param, pct) {
+      if (param === 'mix') return Math.round(pct) + '%';
+      return (pct / 10).toFixed(1);
+    }
+
+    // ── Knob visual update ─────────────────────────────────────────────────
+    function updateKnob(param, pct) {
+      params[param] = clamp(pct, 0, 100);
+      var knob = document.getElementById(param + '-knob');
+      var val  = document.getElementById(param + '-val');
+      if (!knob) return;
+      var ind = knob.querySelector('.indicator');
+      var deg = -120 + (params[param] / 100) * 240;
+      ind.style.setProperty('--rotation', deg + 'deg');
+      if (val && document.activeElement !== val) {
+        val.textContent = formatParam(param, params[param]);
+      }
+    }
+
+    // ── Mode presets ───────────────────────────────────────────────────────
+    function applyMode(name) {
+      var p = PRESETS[name];
+      if (!p) return;
+      Object.keys(p).forEach(function (k) { updateKnob(k, p[k]); });
+      document.querySelectorAll('.mode-btn').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.mode === name);
+      });
+    }
+
+    document.querySelectorAll('.mode-btn').forEach(function (b) {
+      b.addEventListener('click', function () { applyMode(b.dataset.mode); });
+    });
+
+    // ── Knob drag ──────────────────────────────────────────────────────────
+    var drag = null;
+
+    ['space','air','depth','width','mix'].forEach(function (param) {
+      var knob = document.getElementById(param + '-knob');
+      if (!knob) return;
+
+      knob.addEventListener('pointerdown', function (ev) {
+        if (ev.button !== undefined && ev.button !== 0) return;
+        ev.preventDefault();
+        drag = { param: param, knob: knob, startY: ev.clientY, startVal: params[param] };
+        knob.classList.add('dragging');
+        if (knob.setPointerCapture && ev.pointerId != null) {
+          try { knob.setPointerCapture(ev.pointerId); } catch (_) {}
+        }
+      });
+
+      knob.addEventListener('dblclick', function () {
+        var def = { space:50, air:50, depth:45, width:70, mix:24 };
+        updateKnob(param, def[param]);
+      });
+    });
+
+    document.addEventListener('pointermove', function (ev) {
+      if (!drag) return;
+      ev.preventDefault();
+      var delta = drag.startY - ev.clientY;
+      updateKnob(drag.param, clamp(drag.startVal + delta * 0.44, 0, 100));
+    });
+
+    document.addEventListener('pointerup', function () {
+      if (drag) { drag.knob.classList.remove('dragging'); drag = null; }
+    });
+    document.addEventListener('pointercancel', function () {
+      if (drag) { drag.knob.classList.remove('dragging'); drag = null; }
+    });
+
+    // ── Editable value readouts ────────────────────────────────────────────
+    document.querySelectorAll('.knob-value').forEach(function (el) {
+      var param = el.dataset.param;
+
+      el.addEventListener('focus', function () {
+        el.textContent = param === 'mix'
+          ? Math.round(params[param]).toString()
+          : (params[param] / 10).toFixed(1);
+      });
+
+      el.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); el.blur(); }
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          el.textContent = formatParam(param, params[param]);
+          el.blur();
+        }
+      });
+
+      el.addEventListener('blur', function () {
+        var raw = parseFloat(el.textContent);
+        if (isNaN(raw)) { el.textContent = formatParam(param, params[param]); return; }
+        var pct = param === 'mix' ? clamp(raw, 0, 100) : clamp(raw * 10, 0, 100);
+        updateKnob(param, pct);
+        el.textContent = formatParam(param, params[param]);
+      });
+    });
+
+    // ── Spectral canvas ────────────────────────────────────────────────────
+    var canvas = document.getElementById('space-canvas');
+    var ctx    = canvas ? canvas.getContext('2d') : null;
+    var t      = 0;
+
+    var smoothedDry    = new Float32Array(BINS);
+    var smoothedTail   = new Float32Array(BINS);
+    var smoothedBloom  = new Float32Array(BINS);
+
+    function resizeCanvas() {
+      if (!canvas) return;
+      var frame = canvas.parentElement;
+      canvas.width  = frame.clientWidth;
+      canvas.height = frame.clientHeight;
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // ── Simulate a reverb-tail spectrum that responds to param values ──────
+    function generateFrame() {
+      var spacePct = params.space  / 100;
+      var airPct   = params.air    / 100;
+      var depthPct = params.depth  / 100;
+      var widthPct = params.width  / 100;
+      var mixPct   = params.mix    / 100;
+      var t0 = t;
+
+      for (var i = 0; i < BINS; i++) {
+        var f = i / (BINS - 1); // 0..1 (log-like distribution)
+
+        // ── Dry curve: pink-noise shaped with slow rolling peaks ──────────
+        var base  = Math.pow(1 - f * 0.62, 0.7);
+        var vp1   = 0.48 * Math.exp(-Math.pow(f - (0.18 + 0.05 * Math.sin(t0 * 0.6)), 2) / 0.003);
+        var vp2   = 0.35 * Math.exp(-Math.pow(f - (0.42 + 0.04 * Math.sin(t0 * 0.4 + 1.0)), 2) / 0.005);
+        var vp3   = 0.22 * Math.exp(-Math.pow(f - (0.70 + 0.03 * Math.sin(t0 * 0.8 + 2.3)), 2) / 0.007);
+        var rawDry = base + vp1 + vp2 + vp3;
+        rawDry = Math.min(1, rawDry * (0.55 + 0.20 * Math.sin(t0 * 0.28 + f * 2.0)));
+
+        // ── Reverb tail: spacious and animated decay behavior ─────────────
+        var tailBase = Math.pow(1 - f * 0.70, 1.2) * spacePct;
+        var tailSwell = 0.45 * spacePct * Math.exp(-Math.pow(f - 0.28, 2) / (0.04 + spacePct * 0.10));
+        var tailAir   = 0.30 * airPct   * Math.exp(-Math.pow(f - 0.68, 2) / (0.06 + airPct * 0.08));
+        var tailDepth = 0.25 * depthPct * Math.exp(-Math.pow(f - 0.10, 2) / (0.04 + depthPct * 0.06));
+        var tailDecayMotion = 0.62 + 0.38 * (0.5 + 0.5 * Math.sin(t0 * 0.95 - f * 11.0));
+        var highShimmer = airPct * Math.pow(f, 3.2) * (0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t0 * 4.4 + f * 28.0)));
+        var rawTail = (tailBase + tailSwell + tailAir + tailDepth)
+              * (0.72 + 0.28 * Math.sin(t0 * 0.18 + f * 3.1 + spacePct * 2.0))
+              * tailDecayMotion;
+        rawTail += 0.14 * highShimmer;
+        rawTail = Math.min(1, rawTail);
+
+        // ── Bloom haze: expands with depth/width and follows wet energy ───
+        var bloomEnergy = mixPct * (0.55 * spacePct + 0.45 * depthPct)
+            * (0.55 + 0.45 * Math.sin(t0 * 0.24 + f * 5.0));
+        var bloomShape  = Math.sin(Math.PI * f) * bloomEnergy;
+        bloomShape *= (0.86 + widthPct * 0.26);
+        var rawBloom    = Math.min(1, bloomShape * (0.9 + 0.10 * Math.random()));
+
+        // ── Smooth into display buffers (IIR) ─────────────────────────────
+        var smoothFast = 0.22;
+        var smoothSlow = 0.08;
+        smoothedDry[i]   = lerp(smoothedDry[i],   clamp(rawDry,  0, 1), smoothFast);
+        smoothedTail[i]  = lerp(smoothedTail[i],  clamp(rawTail, 0, 1), smoothSlow);
+        smoothedBloom[i] = lerp(smoothedBloom[i], clamp(rawBloom,0, 1), smoothSlow);
+      }
+    }
+
+    // ── Draw one frame ─────────────────────────────────────────────────────
+    function drawFrame() {
+      if (!ctx) return;
+      var W = canvas.width;
+      var H = canvas.height;
+      var depthPct = params.depth / 100;
+      var widthPct = params.width / 100;
+      var airPct = params.air / 100;
+      var mixPct = params.mix / 100;
+      var spreadPx = 10 + widthPct * 55;
+
+      // Background clear
+      ctx.clearRect(0, 0, W, H);
+
+      // Subtle ambient background gradient
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#0c1022');
+      bg.addColorStop(1, '#060810');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Depth haze: foggier and more diffused as depth rises
+      ctx.save();
+      var hazeA = 0.06 + depthPct * 0.22;
+      var hazeRadius = H * (0.34 + depthPct * 0.64);
+      var haze1 = ctx.createRadialGradient(W * 0.33, H * 0.66, H * 0.06, W * 0.33, H * 0.66, hazeRadius);
+      haze1.addColorStop(0, 'rgba(65, 105, 205,' + (hazeA * 0.9).toFixed(3) + ')');
+      haze1.addColorStop(1, 'rgba(65, 105, 205,0)');
+      ctx.fillStyle = haze1;
+      ctx.fillRect(0, 0, W, H);
+
+      var haze2 = ctx.createRadialGradient(W * 0.68, H * 0.62, H * 0.05, W * 0.68, H * 0.62, hazeRadius);
+      haze2.addColorStop(0, 'rgba(90, 75, 205,' + (hazeA * 0.72).toFixed(3) + ')');
+      haze2.addColorStop(1, 'rgba(90, 75, 205,0)');
+      ctx.fillStyle = haze2;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // Grid lines (frequency markers)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(200,170,90,0.07)';
+      ctx.lineWidth = 1;
+      var gridFreqs = [0.07, 0.18, 0.34, 0.50, 0.66, 0.80, 0.93];
+      gridFreqs.forEach(function (fx) {
+        var x = Math.round(fx * W) + 0.5;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      });
+      // Amplitude grid lines
+      [0.25, 0.5, 0.75].forEach(function (fy) {
+        var y = Math.round(fy * H) + 0.5;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      });
+      ctx.restore();
+
+      var binW = W / BINS;
+
+      // ── Layer 1: Wet bloom fill (widest, lowest opacity) ───────────────
+      ctx.save();
+      for (var i = 0; i < BINS; i++) {
+        var x = i * binW;
+        var bH = smoothedBloom[i] * H * 0.76;
+        var centerBias = Math.abs((i / (BINS - 1)) - 0.5) * 2;
+        var localSpread = spreadPx * (0.34 + centerBias * 0.66);
+        var grad = ctx.createLinearGradient(0, H - bH, 0, H);
+        grad.addColorStop(0, 'rgba(100,70,200,0.0)');
+        grad.addColorStop(0.4, 'rgba(90,70,190,0.12)');
+        grad.addColorStop(1,   'rgba(70,50,170,0.23)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x - localSpread * 0.12, H - bH, binW + 1 + localSpread * 0.24, bH);
+      }
+      ctx.restore();
+
+      // ── Layer 2: Reverb tail fill with stereo spread from width ────────
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (var i = 0; i < BINS; i++) {
+        var x  = i * binW + binW * 0.5;
+        var side = ((x / W) - 0.5) * 2;
+        x += side * spreadPx;
+        var tH = smoothedTail[i] * H * 0.82;
+        if (i === 0) ctx.lineTo(x, H - tH);
+        else ctx.lineTo(x, H - tH);
+      }
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      var tailGrad = ctx.createLinearGradient(0, 0, 0, H);
+      tailGrad.addColorStop(0,   'rgba(60,100,220,0.38)');
+      tailGrad.addColorStop(0.5, 'rgba(50,85,195,0.24)');
+      tailGrad.addColorStop(1,   'rgba(40,70,175,0.08)');
+      ctx.fillStyle = tailGrad;
+      ctx.fill();
+
+      // Tail top glow line
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (var i = 0; i < BINS; i++) {
+        var x  = i * binW + binW * 0.5;
+        var side = ((x / W) - 0.5) * 2;
+        x += side * spreadPx;
+        var tH = smoothedTail[i] * H * 0.82;
+        ctx.lineTo(x, H - tH);
+      }
+      ctx.strokeStyle = 'rgba(80,130,240,0.72)';
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = 'rgba(70,120,230,0.55)';
+      ctx.shadowBlur = 6;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Secondary opposite-phase tail for wider stereo cue
+      ctx.beginPath();
+      for (var i = 0; i < BINS; i++) {
+        var x2 = i * binW + binW * 0.5;
+        var side2 = ((x2 / W) - 0.5) * 2;
+        x2 -= side2 * spreadPx * 0.52;
+        var tH2 = smoothedTail[i] * H * 0.74;
+        if (i === 0) ctx.moveTo(x2, H - tH2);
+        else ctx.lineTo(x2, H - tH2);
+      }
+      ctx.strokeStyle = 'rgba(92,145,250,0.40)';
+      ctx.lineWidth = 1.0;
+      ctx.shadowColor = 'rgba(84,140,245,0.34)';
+      ctx.shadowBlur = 5;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // ── Layer 3: Dry signal hairline ───────────────────────────────────
+      ctx.save();
+      ctx.beginPath();
+      for (var i = 0; i < BINS; i++) {
+        var x  = i * binW + binW * 0.5;
+        var dH = smoothedDry[i] * H * 0.68;
+        if (i === 0) ctx.moveTo(x, H - dH);
+        else ctx.lineTo(x, H - dH);
+      }
+      ctx.strokeStyle = 'rgba(215,175,80,0.84)';
+      ctx.lineWidth = 1.2;
+      ctx.shadowColor = 'rgba(215,175,80,0.38)';
+      ctx.shadowBlur = 4;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // ── Layer 4: Gold ambient shimmer identity in the highs ───────────
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      var shimmerBand = ctx.createLinearGradient(0, 0, W, 0);
+      shimmerBand.addColorStop(0.00, 'rgba(255,220,130,0.00)');
+      shimmerBand.addColorStop(0.52, 'rgba(255,220,130,0.00)');
+      shimmerBand.addColorStop(0.72, 'rgba(247,202,110,' + (0.05 + airPct * 0.09).toFixed(3) + ')');
+      shimmerBand.addColorStop(1.00, 'rgba(255,235,165,' + (0.08 + mixPct * 0.10).toFixed(3) + ')');
+      ctx.fillStyle = shimmerBand;
+      ctx.fillRect(0, 0, W, H);
+
+      for (var p = 0; p < 8; p++) {
+        var ph = p / 8;
+        var px = W * (0.68 + ph * 0.30) + Math.sin(t * 2.1 + p * 1.7) * 8;
+        var py = H * (0.22 + 0.58 * (0.5 + 0.5 * Math.sin(t * 1.4 + p * 0.9)));
+        var r = 1.2 + (airPct * 1.8) + (mixPct * 1.1);
+        var peak = ctx.createRadialGradient(px, py, 0, px, py, r * 6.5);
+        peak.addColorStop(0, 'rgba(255,230,150,' + (0.14 + airPct * 0.20).toFixed(3) + ')');
+        peak.addColorStop(1, 'rgba(255,230,150,0)');
+        ctx.fillStyle = peak;
+        ctx.beginPath();
+        ctx.arc(px, py, r * 6.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // ── Vignette overlay ───────────────────────────────────────────────
+      ctx.save();
+      var vig = ctx.createRadialGradient(W * 0.5, H * 0.5, H * 0.2, W * 0.5, H * 0.5, H * 0.9);
+      vig.addColorStop(0, 'rgba(0,0,0,0)');
+      vig.addColorStop(1, 'rgba(0,0,0,0.28)');
+      ctx.fillStyle = vig;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    // ── Render loop ────────────────────────────────────────────────────────
+    function renderLoop() {
+      t += 0.016;
+      generateFrame();
+      drawFrame();
+      requestAnimationFrame(renderLoop);
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────
+    applyMode('Studio');
+    renderLoop();
+
+  }());
+  </script>
+
+</body>
+</html>
