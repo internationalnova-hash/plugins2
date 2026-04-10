@@ -172,17 +172,37 @@ void SpaceByNovaAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
     wetToneRight.prepare (spec);
     wetBodyLeft.prepare (spec);
     wetBodyRight.prepare (spec);
+    earlyToneLeft.prepare (spec);
+    earlyToneRight.prepare (spec);
+    earlyBodyLeft.prepare (spec);
+    earlyBodyRight.prepare (spec);
     wetToneLeft.reset();
     wetToneRight.reset();
     wetBodyLeft.reset();
     wetBodyRight.reset();
+    earlyToneLeft.reset();
+    earlyToneRight.reset();
+    earlyBodyLeft.reset();
+    earlyBodyRight.reset();
     wetToneLeft.setType (juce::dsp::StateVariableTPTFilterType::lowpass);
     wetToneRight.setType (juce::dsp::StateVariableTPTFilterType::lowpass);
     wetBodyLeft.setType (juce::dsp::StateVariableTPTFilterType::highpass);
     wetBodyRight.setType (juce::dsp::StateVariableTPTFilterType::highpass);
+    earlyToneLeft.setType (juce::dsp::StateVariableTPTFilterType::lowpass);
+    earlyToneRight.setType (juce::dsp::StateVariableTPTFilterType::lowpass);
+    earlyBodyLeft.setType (juce::dsp::StateVariableTPTFilterType::highpass);
+    earlyBodyRight.setType (juce::dsp::StateVariableTPTFilterType::highpass);
 
     dryBuffer.setSize (2, samplesPerBlock);
     wetBuffer.setSize (2, samplesPerBlock);
+    earlyBuffer.setSize (2, samplesPerBlock);
+
+    earlyTapBufferSize = juce::jmax (256, static_cast<int> (sampleRate * 0.60));
+    earlyTapBufferLeft.assign (static_cast<size_t> (earlyTapBufferSize), 0.0f);
+    earlyTapBufferRight.assign (static_cast<size_t> (earlyTapBufferSize), 0.0f);
+    earlyTapWriteIndex = 0;
+    earlyDiffuseStateLeft = 0.0f;
+    earlyDiffuseStateRight = 0.0f;
 
     for (auto* smoother : { &smoothedSpace, &smoothedAir, &smoothedDepth, &smoothedMix, &smoothedWidth })
         smoother->reset (sampleRate, 0.20);
@@ -239,8 +259,10 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     dryBuffer.setSize (juce::jmax (1, numChannels), numSamples, false, false, true);
     wetBuffer.setSize (juce::jmax (1, numChannels), numSamples, false, false, true);
+    earlyBuffer.setSize (juce::jmax (1, numChannels), numSamples, false, false, true);
     dryBuffer.makeCopyOf (buffer, true);
     wetBuffer.makeCopyOf (buffer, true);
+    earlyBuffer.clear();
 
     smoothedSpace.setTargetValue (apvts.getRawParameterValue (spaceId)->load());
     smoothedAir.setTargetValue (apvts.getRawParameterValue (airId)->load());
@@ -278,15 +300,19 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                                   + (0.18f * dampingControl)
                                   + (0.08f * airSafety));
 
-    float preDelayMs = juce::jlimit (0.0f, 120.0f,
-                                     preDelayMsBase
-                                     + juce::jmap (depthNorm, 0.0f, 8.0f)
-                                     + juce::jmap (spaceNorm, 0.0f, 5.0f));
+    float preDelayMs = juce::jlimit (0.0f, 120.0f, preDelayMsBase);
 
-    float earlyAmount = juce::jlimit (0.03f, 0.66f,
-                                      (0.15f + (0.26f * earlyControl))
-                                      - (0.18f * depthNorm)
-                                      - (0.07f * spaceNorm));
+    float earlyAmount = juce::jlimit (0.08f, 0.35f,
+                                      (0.24f + (0.08f * earlyControl))
+                                      - (0.16f * depthNorm)
+                                      + (0.04f * spaceNorm));
+    float earlySpreadMs = juce::jlimit (5.0f, 40.0f,
+                                        10.0f + (spaceNorm * 20.0f) + (depthNorm * 10.0f));
+    const float earlyDiffusion = juce::jlimit (0.35f, 0.90f,
+                                               0.52f + (spaceNorm * 0.24f) + (depthNorm * 0.12f));
+    const float earlyWidth = juce::jmap (widthNorm, 0.20f, 0.68f);
+    const float earlyTailFeed = juce::jlimit (0.05f, 0.22f,
+                                              0.10f + (spaceNorm * 0.07f) - (depthNorm * 0.03f));
 
     float wetTrim = juce::jlimit (0.65f, 1.08f,
                                   juce::jmap (mixNorm, 0.0f, 1.0f, 1.0f, 0.93f)
@@ -299,6 +325,10 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                                        4600.0f + (airCurve * 9000.0f) - (spaceNorm * 1600.0f));
     float lowCutHz = juce::jlimit (90.0f, 420.0f,
                                    120.0f + (spaceNorm * 120.0f) + (depthNorm * 55.0f));
+    const float earlyHighCutHz = juce::jlimit (6000.0f, 10000.0f,
+                                               6200.0f + (airNorm * 3600.0f));
+    const float earlyLowCutHz = juce::jlimit (150.0f, 220.0f,
+                                              150.0f + (1.0f - airNorm) * 70.0f);
     float brightnessGain = juce::jlimit (0.94f, 1.08f,
                                          0.97f + (0.08f * airCurve) - (0.03f * airSafety));
     float internalWidth = juce::jlimit (0.25f, 1.0f, 0.50f + (0.38f * widthNorm));
@@ -316,8 +346,8 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     {
         case 1: // Arena
             roomSize = clamp01 (roomSize + 0.09f);
-            preDelayMs += 4.0f;
             earlyAmount *= 0.80f;
+            earlySpreadMs += 4.0f;
             sideGain += 0.16f;
             decorrelationMs += 2.1f;
             wetTrim += 0.02f;
@@ -333,8 +363,8 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             break;
         case 2: // Dream
             roomSize = clamp01 (roomSize + 0.12f);
-            preDelayMs += 8.0f;
             earlyAmount *= 0.46f;
+            earlySpreadMs += 6.0f;
             damping = juce::jlimit (0.16f, 0.95f, damping + 0.10f);
             sideGain += 0.18f;
             decorrelationMs += 4.0f;
@@ -351,8 +381,8 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             break;
         case 3: // Vintage
             roomSize = clamp01 (roomSize - 0.01f);
-            preDelayMs = juce::jmax (0.0f, preDelayMs - 3.0f);
             earlyAmount = juce::jlimit (0.10f, 0.60f, earlyAmount + 0.05f);
+            earlySpreadMs = juce::jmax (5.0f, earlySpreadMs - 4.0f);
             damping = juce::jlimit (0.16f, 0.95f, damping + 0.18f);
             sideGain *= 0.72f;
             decorrelationMs *= 0.58f;
@@ -369,8 +399,8 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             break;
         default: // Studio
             roomSize *= 0.74f;
-            preDelayMs = juce::jmax (0.0f, preDelayMs - 2.0f);
             earlyAmount = juce::jlimit (0.12f, 0.58f, earlyAmount + 0.08f);
+            earlySpreadMs = juce::jmax (5.0f, earlySpreadMs - 2.5f);
             wetTrim *= 0.90f;
             sideGain *= 0.74f;
             decorrelationMs *= 0.58f;
@@ -387,6 +417,7 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     }
 
     preDelayMs = juce::jlimit (0.0f, 120.0f, preDelayMs);
+    earlySpreadMs = juce::jlimit (5.0f, 40.0f, earlySpreadMs);
 
     juce::Reverb::Parameters reverbParams;
     reverbParams.roomSize = roomSize;
@@ -401,6 +432,10 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     wetToneRight.setCutoffFrequency (toneCutoffHz);
     wetBodyLeft.setCutoffFrequency (lowCutHz);
     wetBodyRight.setCutoffFrequency (lowCutHz);
+    earlyToneLeft.setCutoffFrequency (earlyHighCutHz);
+    earlyToneRight.setCutoffFrequency (earlyHighCutHz);
+    earlyBodyLeft.setCutoffFrequency (earlyLowCutHz);
+    earlyBodyRight.setCutoffFrequency (earlyLowCutHz);
 
     const float preDelaySamples = juce::jlimit (0.0f,
                                                 0.4f * static_cast<float> (currentSampleRate),
@@ -414,6 +449,27 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     auto* wetL = wetBuffer.getWritePointer (0);
     auto* wetR = wetBuffer.getNumChannels() > 1 ? wetBuffer.getWritePointer (1) : nullptr;
+    auto* earlyL = earlyBuffer.getWritePointer (0);
+    auto* earlyR = earlyBuffer.getNumChannels() > 1 ? earlyBuffer.getWritePointer (1) : nullptr;
+
+    auto readEarlyTap = [this] (const std::vector<float>& source, float delaySamples) -> float
+    {
+        if (source.empty() || earlyTapBufferSize <= 1)
+            return 0.0f;
+
+        const float wrapped = std::fmod (delaySamples + static_cast<float> (earlyTapBufferSize),
+                                         static_cast<float> (earlyTapBufferSize));
+        const int offsetA = static_cast<int> (wrapped);
+        const int offsetB = (offsetA + 1) % earlyTapBufferSize;
+        const float frac = wrapped - static_cast<float> (offsetA);
+
+        const int readA = (earlyTapWriteIndex - offsetA + earlyTapBufferSize) % earlyTapBufferSize;
+        const int readB = (earlyTapWriteIndex - offsetB + earlyTapBufferSize) % earlyTapBufferSize;
+
+        const float a = source[static_cast<size_t> (readA)];
+        const float b = source[static_cast<size_t> (readB)];
+        return a + ((b - a) * frac);
+    };
 
     for (int sample = 0; sample < numSamples; ++sample)
     {
@@ -426,18 +482,63 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         preDelayLeft.pushSample (0, inputL);
         preDelayRight.pushSample (0, inputR);
 
+        earlyTapBufferLeft[static_cast<size_t> (earlyTapWriteIndex)] = delayedL;
+        earlyTapBufferRight[static_cast<size_t> (earlyTapWriteIndex)] = delayedR;
+
+        const float spreadSamples = static_cast<float> (currentSampleRate) * earlySpreadMs * 0.001f;
+        const float baseTapSamples = 0.001f * static_cast<float> (currentSampleRate) * juce::jmap (spaceNorm, 4.5f, 9.5f);
+        const float densitySkew = juce::jmap (spaceNorm, 0.85f, 0.55f);
+
+        float earlyClusterL = 0.0f;
+        float earlyClusterR = 0.0f;
+
+        for (int tap = 0; tap < 6; ++tap)
+        {
+            const float tapNorm = static_cast<float> (tap) / 5.0f;
+            const float tapPos = std::pow (tapNorm, densitySkew);
+            const float tapDelay = baseTapSamples + (tapPos * spreadSamples);
+            const float tapWeight = (0.22f + (0.58f * (1.0f - tapNorm))) * (1.0f - (tapNorm * 0.12f));
+
+            const float tapL = readEarlyTap (earlyTapBufferLeft, tapDelay);
+            const float tapR = readEarlyTap (earlyTapBufferRight, tapDelay);
+
+            earlyClusterL += tapL * tapWeight;
+            earlyClusterR += tapR * tapWeight;
+        }
+
+        const float diffuseMix = earlyDiffusion;
+        earlyDiffuseStateLeft += (earlyClusterL - earlyDiffuseStateLeft) * (0.32f + (0.28f * diffuseMix));
+        earlyDiffuseStateRight += (earlyClusterR - earlyDiffuseStateRight) * (0.32f + (0.28f * diffuseMix));
+
+        float erL = juce::jmap (diffuseMix, earlyClusterL, earlyDiffuseStateLeft);
+        float erR = juce::jmap (diffuseMix, earlyClusterR, earlyDiffuseStateRight);
+
+        erL = earlyBodyLeft.processSample (0, earlyToneLeft.processSample (0, erL));
+        erR = earlyBodyRight.processSample (0, earlyToneRight.processSample (0, erR));
+
+        const float erMid = 0.5f * (erL + erR);
+        const float erSide = 0.5f * (erL - erR) * (0.65f + earlyWidth);
+        erL = (erMid + erSide) * earlyAmount;
+        erR = (erMid - erSide) * earlyAmount;
+
+        earlyL[sample] = erL;
+        if (earlyR != nullptr)
+            earlyR[sample] = erR;
+
         const float bloomL = juce::jmap (attackSoftness,
                                          delayedL,
                                          (delayedL * 0.72f) + (inputL * 0.28f));
-        wetL[sample] = bloomL + (delayedL * earlyAmount * 0.28f);
+        wetL[sample] = bloomL + (erL * earlyTailFeed);
 
         if (wetR != nullptr)
         {
             const float bloomR = juce::jmap (attackSoftness,
                                              delayedR,
                                              (delayedR * 0.72f) + (inputR * 0.28f));
-            wetR[sample] = bloomR + (delayedR * earlyAmount * 0.28f);
+            wetR[sample] = bloomR + (erR * earlyTailFeed);
         }
+
+        earlyTapWriteIndex = (earlyTapWriteIndex + 1) % earlyTapBufferSize;
     }
 
     if (wetR != nullptr)
@@ -485,8 +586,15 @@ void SpaceByNovaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                                           wetToneRight.processSample (0, wetR[sample] * brightnessGain))
             : processedL;
 
+        const float earlyDynamic = 1.0f - (0.32f * vocalSense);
+        const float earlyDirectL = earlyL[sample] * earlyDynamic;
+        const float earlyDirectR = (earlyR != nullptr ? earlyR[sample] : earlyDirectL) * earlyDynamic;
+
         processedL = smoothWetSample (processedL * (gapBloom + (motionLfo * motionDepth)));
         processedR = smoothWetSample (processedR * (gapBloom - (motionLfo * motionDepth)));
+
+        processedL += earlyDirectL;
+        processedR += earlyDirectR;
 
         if (wetR != nullptr)
         {

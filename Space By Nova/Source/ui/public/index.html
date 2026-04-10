@@ -639,6 +639,7 @@
         <canvas id="space-canvas"></canvas>
         <div class="spectrum-legend">
           <div class="legend-item"><span class="legend-swatch" style="background: rgba(215,175,80,0.88);"></span>dry</div>
+          <div class="legend-item"><span class="legend-swatch" style="background: rgba(146,176,255,0.76); box-shadow: 0 0 5px rgba(146,176,255,0.36);"></span>early reflections</div>
           <div class="legend-item"><span class="legend-swatch" style="background: rgba(80,130,240,0.88); box-shadow: 0 0 5px rgba(80,130,240,0.45);"></span>reverb tail</div>
           <div class="legend-item"><span class="legend-swatch" style="background: rgba(128,92,216,0.78); box-shadow: 0 0 5px rgba(128,92,216,0.40);"></span>wet bloom</div>
         </div>
@@ -742,6 +743,7 @@
       var preDelayVisualMs = 22;
       var wetOnsetVisual = 1;
       var smoothedDry = new Float32Array(SPECTRUM_BINS);
+      var smoothedEarly = new Float32Array(SPECTRUM_BINS);
       var smoothedTail = new Float32Array(SPECTRUM_BINS);
       var smoothedBloom = new Float32Array(SPECTRUM_BINS);
 
@@ -1235,12 +1237,23 @@
                       * tailDecay;
           rawTail = clamp((rawTail + 0.13 * highShimmer) * wetOnsetGain, 0, 1);
 
+          var earlyWindow = clamp((f - 0.06) / 0.30, 0, 1) * (1 - clamp((f - 0.38) / 0.22, 0, 1));
+          var clusterA = Math.exp(-Math.pow(f - (0.10 + 0.04 * spacePct), 2) / (0.0018 + 0.006 * spacePct));
+          var clusterB = Math.exp(-Math.pow(f - (0.18 + 0.05 * spacePct), 2) / (0.003 + 0.008 * spacePct));
+          var clusterC = Math.exp(-Math.pow(f - (0.27 + 0.05 * spacePct), 2) / (0.005 + 0.010 * spacePct));
+          var densityBlend = (clusterA * 0.60) + (clusterB * 0.36) + (clusterC * 0.24);
+          var depthShape = 0.34 + (0.66 * (1 - depthPct));
+          var prePosition = clamp((f - (0.05 + prePct * 0.20)) / 0.24, 0, 1);
+          var preGate = prePosition * prePosition * (3 - (2 * prePosition));
+          var rawEarly = clamp(densityBlend * earlyWindow * depthShape * preGate * (0.18 + 0.42 * wetOnsetGain), 0, 1);
+
           var bloomEnergy = mixPct * (0.56 * spacePct + 0.44 * depthPct)
                           * (0.55 + 0.45 * Math.sin(t0 * 0.22 + f * 4.8));
           var bloomShape = Math.sin(Math.PI * f) * bloomEnergy * (0.86 + widthPct * 0.24);
           var rawBloom = clamp(bloomShape * (0.90 + 0.10 * Math.random()) * wetOnsetGain, 0, 1);
 
           smoothedDry[i] = smoothedDry[i] + (rawDry - smoothedDry[i]) * 0.22;
+          smoothedEarly[i] = smoothedEarly[i] + (rawEarly - smoothedEarly[i]) * 0.14;
           smoothedTail[i] = smoothedTail[i] + (rawTail - smoothedTail[i]) * 0.09;
           smoothedBloom[i] = smoothedBloom[i] + (rawBloom - smoothedBloom[i]) * 0.08;
         }
@@ -1319,6 +1332,40 @@
           ctx.fillStyle = bloomGrad;
           ctx.fillRect(x - localSpread * 0.10, H - bloomH, binW + 1 + localSpread * 0.20, bloomH);
         }
+
+        ctx.beginPath();
+        ctx.moveTo(0, H);
+        for (var e = 0; e < SPECTRUM_BINS; e += 1) {
+          var ex = e * binW + binW * 0.5;
+          var es = ((ex / W) - 0.5) * 2;
+          ex += es * spreadPx * 0.36;
+          var eh = smoothedEarly[e] * H * 0.42;
+          ctx.lineTo(ex, H - eh);
+        }
+        ctx.lineTo(W, H);
+        ctx.closePath();
+        var earlyGrad = ctx.createLinearGradient(0, 0, 0, H);
+        earlyGrad.addColorStop(0, "rgba(154,184,255,0.28)");
+        earlyGrad.addColorStop(0.5, "rgba(132,164,242,0.16)");
+        earlyGrad.addColorStop(1, "rgba(124,156,236,0.05)");
+        ctx.fillStyle = earlyGrad;
+        ctx.fill();
+
+        ctx.beginPath();
+        for (var e2 = 0; e2 < SPECTRUM_BINS; e2 += 1) {
+          var ex2 = e2 * binW + binW * 0.5;
+          var es2 = ((ex2 / W) - 0.5) * 2;
+          ex2 += es2 * spreadPx * 0.36;
+          var eh2 = smoothedEarly[e2] * H * 0.42;
+          if (e2 === 0) ctx.moveTo(ex2, H - eh2);
+          else ctx.lineTo(ex2, H - eh2);
+        }
+        ctx.strokeStyle = "rgba(156,188,255,0.62)";
+        ctx.lineWidth = 1.1;
+        ctx.shadowColor = "rgba(132,168,246,0.32)";
+        ctx.shadowBlur = 4;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
 
         ctx.beginPath();
         ctx.moveTo(0, H);
