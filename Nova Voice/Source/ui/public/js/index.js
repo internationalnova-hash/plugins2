@@ -260,9 +260,38 @@ function bindModeButtons() {
   });
 }
 
+// ── Demo mode (generates synthetic spectrum) ─────────────────────────────────
+let demoPhase = 0;
+function demoSpectrum() {
+  demoPhase += 0.05;
+  const input = new Array(BINS).fill(0).map((_, b) => {
+    const tNorm = b / BINS;
+    // Fundamental + harmonics with formant peaks
+    const fundamental = Math.pow(Math.sin(demoPhase * 0.5 + tNorm * 4) * 0.4 + 0.5, 2);
+    const harmonic1 = Math.pow(Math.sin(demoPhase * 0.7 + tNorm * 8) * 0.3 + 0.3, 2);
+    const harmonic2 = Math.pow(Math.sin(demoPhase * 1.1 + tNorm * 12) * 0.2 + 0.2, 2);
+    const formant = Math.exp(-Math.pow((tNorm - (0.3 + Math.sin(demoPhase * 0.3) * 0.1)) * 3, 2)) * 0.6;
+    return (fundamental + harmonic1 + harmonic2 + formant) * 255;
+  });
+  const problem = input.map((v, b) => {
+    const tNorm = b / BINS;
+    const harsh = Math.pow(Math.sin(demoPhase * 1.5 + tNorm * 16) * 0.5, 2) * (0.3 + 0.2 * Math.sin(demoPhase * 0.2));
+    return harsh * 200;
+  });
+  const reduction = input.map((v, b) => {
+    const tNorm = b / BINS;
+    return Math.max(0, (Math.sin(tNorm * 8 + demoPhase) * 0.5 + 0.5) * 80 - 40);
+  });
+  window.updateVoiceSpectrum?.(input, problem, reduction);
+}
+
 // ── JUCE parameter connection ─────────────────────────────────────────────────
 function connectParameters() {
-  if (!juceAvailable) return;
+  if (!juceAvailable) {
+    // Demo mode: generate synthetic spectrum data
+    setInterval(demoSpectrum, 30);
+    return;
+  }
 
   ALL_PARAMS.forEach(id => {
     try { parameterStates[id] = Juce.getSliderState(id); } catch (_) {}
