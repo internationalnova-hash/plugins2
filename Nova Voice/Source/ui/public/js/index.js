@@ -74,7 +74,12 @@ function denormalize(id, nv) {
 }
 
 // ── Knob visual ───────────────────────────────────────────────────────────────
-const TOTAL_ARC = 125.7; // 240° of a r=30 circle (2*PI*30 * 240/360)
+const TOTAL_ARC  = 159.2;  // 240° of r=38 circle  (2*PI*38 * 240/360)
+const KNOB_CIRC  = 238.76; // full circumference of r=38 circle
+
+// Cinematic visualizer state
+const particles = [];
+let   wavePhase  = 0;
 
 function updateKnob(id, value) {
   currentValues[id] = value;
@@ -88,7 +93,7 @@ function updateKnob(id, value) {
   const dot   = col.querySelector(".knob-indicator");
   const label = col.querySelector(".knob-value");
 
-  if (fill)  fill.setAttribute("stroke-dasharray", `${frac * TOTAL_ARC} 188.5`);
+  if (fill)  fill.setAttribute("stroke-dasharray", `${frac * TOTAL_ARC} ${KNOB_CIRC}`);
   if (dot)   dot.style.transform = `rotate(${-120 + frac * 240}deg)`;
   if (label) label.textContent = id === "blend" ? Math.round(value) + "%" : value.toFixed(1);
 }
@@ -379,86 +384,199 @@ window.updateOutputPeak = peak => {
 // ── Canvas / Visualizer ───────────────────────────────────────────────────────
 let canvas, ctx;
 
+// ── Wave drawing helpers ──────────────────────────────────────────────────────
+function buildWavePoints(data, hScale) {
+  const pts = [];
+  const W = canvas.width, H = canvas.height;
+  for (let b = 0; b < BINS; b++) {
+    pts.push({ x: (b / (BINS - 1)) * W, y: H - data[b] * H * hScale });
+  }
+  return pts;
+}
+
+function traceSmoothPath(pts) {
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 0; i < pts.length - 2; i++) {
+    const mx = (pts[i].x + pts[i + 1].x) / 2;
+    const my = (pts[i].y + pts[i + 1].y) / 2;
+    ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+  }
+  ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+}
+
+function drawFill(pts, grad, alpha) {
+  const H = canvas.height, W = canvas.width;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle   = grad;
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  traceSmoothPath(pts);
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawLine(pts, color, width, blur) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = width;
+  ctx.shadowBlur  = blur;
+  ctx.shadowColor = color;
+  ctx.beginPath();
+  traceSmoothPath(pts);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+// ── Cinematic drawFrame ────────────────────────────────────────────────────────
 function drawFrame() {
   requestAnimationFrame(drawFrame);
   if (!ctx) return;
+  const W = canvas.width, H = canvas.height;
+  if (!W || !H) return;
 
-  const W = canvas.width;
-  const H = canvas.height;
-  if (W === 0 || H === 0) return;
+  wavePhase += 0.016;
 
   const morphN   = currentValues.morph   / 10;
   const textureN = currentValues.texture / 10;
   const airN     = currentValues.air     / 10;
 
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = "#080810";
+  ctx.fillStyle = "#030210";
   ctx.fillRect(0, 0, W, H);
 
-  // Subtle horizontal grid
-  ctx.strokeStyle = "rgba(255,255,255,0.035)";
+  // Subtle grid
+  ctx.strokeStyle = "rgba(139,111,255,0.045)";
   ctx.lineWidth   = 1;
   for (let i = 1; i < 4; i++) {
-    const y = Math.round(H * (i / 4)) + 0.5;
+    const y = Math.round(H * i / 4) + 0.5;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
 
-  // ── Spectrum fill ─────────────────────────────────────────────────────────
-  const fillGrad = ctx.createLinearGradient(0, 0, W, 0);
-  fillGrad.addColorStop(0,    `rgba(122, 92, 255, ${0.38 + morphN * 0.32})`);
-  fillGrad.addColorStop(0.45, `rgba(60, 180, 255, ${0.32 + textureN * 0.22})`);
-  fillGrad.addColorStop(1,    `rgba(0, 212, 255,  ${0.35 + airN * 0.25})`);
+  const scale    = 0.82 + morphN * 0.13;
+  const mainPts  = buildWavePoints(smoothedInput, scale);
+  const totalEnergy = smoothedInput.reduce((a, v) => a + v, 0) / BINS;
 
-  ctx.fillStyle = fillGrad;
-  ctx.beginPath();
-  ctx.moveTo(0, H);
-  for (let b = 0; b < BINS; b++) {
-    const x = (b / (BINS - 1)) * W;
-    const y = H - smoothedInput[b] * H * (0.86 + morphN * 0.12);
-    b === 0 ? ctx.lineTo(x, y) : ctx.lineTo(x, y);
+  // ── Idle ambient wave when no audio ───────────────────────────────────────
+  if (totalEnergy < 0.015) {
+    const idlePts = [];
+    for (let b = 0; b < BINS; b++) {
+      const t = b / (BINS - 1);
+      idlePts.push({
+        x: t * W,
+        y: H * 0.74 + Math.sin(t * 5 + wavePhase) * H * 0.045
+                     + Math.sin(t * 11 + wavePhase * 1.4) * H * 0.018
+      });
+    }
+    const ig = ctx.createLinearGradient(0, 0, W, 0);
+    ig.addColorStop(0, "rgba(139,111,255,0.10)");
+    ig.addColorStop(1, "rgba(0,232,255,0.08)");
+    drawFill(idlePts, ig, 1.0);
+    drawLine(idlePts, "rgba(139,111,255,0.32)", 1.5, 10);
+    updateMeterEl("input-meter",  0);
+    updateMeterEl("output-meter", 0);
+    return;
   }
-  ctx.lineTo(W, H);
-  ctx.closePath();
-  ctx.fill();
 
-  // ── Glowing top edge ──────────────────────────────────────────────────────
-  const lineGrad = ctx.createLinearGradient(0, 0, W, 0);
-  lineGrad.addColorStop(0,   `rgba(140, 100, 255, ${0.6 + morphN * 0.28})`);
-  lineGrad.addColorStop(0.5, `rgba(80,  200, 255, ${0.6 + textureN * 0.22})`);
-  lineGrad.addColorStop(1,   `rgba(0,   220, 255, ${0.6 + airN * 0.22})`);
+  // ── Layer 1: shadow / depth (offset downward, behind main) ───────────────
+  const shadowPts = mainPts.map(p => ({ x: p.x, y: p.y + 14 }));
+  const sg = ctx.createLinearGradient(0, 0, W, 0);
+  sg.addColorStop(0, `rgba(95,65,195,${0.22 + morphN * 0.10})`);
+  sg.addColorStop(1, `rgba(0,125,195,${0.18 + airN * 0.08})`);
+  drawFill(shadowPts, sg, 0.9);
+  drawLine(shadowPts, `rgba(115,75,215,${0.11 + morphN * 0.07})`, 1, 0);
 
-  ctx.strokeStyle = lineGrad;
-  ctx.lineWidth   = 2;
-  ctx.shadowBlur  = 10 + morphN * 10;
-  ctx.shadowColor = "#7A5CFF";
-  ctx.beginPath();
-  for (let b = 0; b < BINS; b++) {
-    const x = (b / (BINS - 1)) * W;
-    const y = H - smoothedInput[b] * H * (0.86 + morphN * 0.12);
-    b === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-  ctx.shadowBlur = 0;
+  // ── Layer 2: main fill ────────────────────────────────────────────────────
+  const mg = ctx.createLinearGradient(0, 0, W, 0);
+  mg.addColorStop(0,    `rgba(139,111,255,${0.48 + morphN * 0.22})`);
+  mg.addColorStop(0.45, `rgba(75,165,255,${0.40 + textureN * 0.16})`);
+  mg.addColorStop(1,    `rgba(0,232,255,${0.44 + airN * 0.18})`);
+  drawFill(mainPts, mg, 1.0);
+
+  // ── Layer 3: vertical top-light glow ──────────────────────────────────────
+  const tg = ctx.createLinearGradient(0, 0, 0, H);
+  tg.addColorStop(0,   `rgba(185,160,255,${0.06 + morphN * 0.08})`);
+  tg.addColorStop(0.5, `rgba(100,80,220,${0.10 + textureN * 0.05})`);
+  tg.addColorStop(1,   "transparent");
+  drawFill(mainPts, tg, 0.6);
+
+  // ── Layer 4: bloom edge line (two passes) ─────────────────────────────────
+  // Soft wide glow pass
+  const lg1 = ctx.createLinearGradient(0, 0, W, 0);
+  lg1.addColorStop(0,   `rgba(185,155,255,${0.20 + morphN * 0.14})`);
+  lg1.addColorStop(0.5, `rgba(105,200,255,${0.20 + textureN * 0.11})`);
+  lg1.addColorStop(1,   `rgba(0,240,255,${0.20 + airN * 0.11})`);
+  drawLine(mainPts, lg1, 8, 0);
+
+  // Sharp bright center line
+  const lg2 = ctx.createLinearGradient(0, 0, W, 0);
+  lg2.addColorStop(0,   `rgba(205,175,255,${0.75 + morphN * 0.20})`);
+  lg2.addColorStop(0.5, `rgba(145,220,255,${0.82 + textureN * 0.12})`);
+  lg2.addColorStop(1,   `rgba(0,248,255,${0.82 + airN * 0.12})`);
+  drawLine(mainPts, lg2, 1.5, 14 + morphN * 10);
 
   // ── Reduction accent ──────────────────────────────────────────────────────
-  if (smoothedReduction.some(v => v > 0.02)) {
-    ctx.fillStyle = `rgba(255, 70, 120, ${0.12 + textureN * 0.10})`;
-    ctx.beginPath();
-    ctx.moveTo(0, H);
-    for (let b = 0; b < BINS; b++) {
-      const x = (b / (BINS - 1)) * W;
-      const y = H - smoothedReduction[b] * H * 0.55;
-      b === 0 ? ctx.lineTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.lineTo(W, H);
-    ctx.closePath();
-    ctx.fill();
+  if (smoothedReduction.some(v => v > 0.01)) {
+    const redPts = buildWavePoints(smoothedReduction, 0.42);
+    const rg = ctx.createLinearGradient(0, 0, W, 0);
+    rg.addColorStop(0, `rgba(255,80,130,${0.09 + textureN * 0.07})`);
+    rg.addColorStop(1, `rgba(255,60,100,${0.09 + textureN * 0.07})`);
+    drawFill(redPts, rg, 1.0);
+    drawLine(redPts, `rgba(255,110,145,${0.16 + textureN * 0.09})`, 1, 6);
   }
 
-  // Update VU meters
+  // ── Spark particles ────────────────────────────────────────────────────────
+  if (totalEnergy > 0.05 && Math.random() < Math.min(0.12, totalEnergy * 0.5)) {
+    const bi  = Math.floor(Math.random() * BINS);
+    const px  = (bi / (BINS - 1)) * W;
+    const py  = H - smoothedInput[bi] * H * scale;
+    particles.push({ x: px, y: py, vx: (Math.random() - 0.5) * 0.9, vy: -(0.5 + Math.random() * 1.2), life: 1.0, size: Math.random() * 1.6 + 0.4 });
+  }
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.life -= 0.022;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    const c = p.life > 0.5
+      ? `rgba(0,232,255,${(p.life * 0.65).toFixed(2)})`
+      : `rgba(185,145,255,${(p.life * 0.65).toFixed(2)})`;
+    ctx.shadowBlur = 6; ctx.shadowColor = "#00E8FF";
+    ctx.fillStyle  = c;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // VU meters
   updateMeterEl("input-meter",  inputPeakSmooth);
   updateMeterEl("output-meter", outputPeakSmooth);
   outputPeakSmooth *= 0.978;
+}
+
+// ── Starfield (drawn once onto bg-canvas) ─────────────────────────────────────
+function initStarfield() {
+  const bg = document.getElementById("bg-canvas");
+  if (!bg) return;
+  const bctx = bg.getContext("2d");
+  bg.width  = 1080;
+  bg.height = 680;
+  // Small dim stars
+  for (let i = 0; i < 220; i++) {
+    const x = Math.random() * 1080;
+    const y = Math.random() * 680;
+    const r = Math.random() * 1.3 + 0.2;
+    const a = (Math.random() * 0.55 + 0.05).toFixed(2);
+    bctx.beginPath(); bctx.arc(x, y, r, 0, Math.PI * 2);
+    bctx.fillStyle = `rgba(255,255,255,${a})`; bctx.fill();
+  }
+  // Larger glowing stars
+  for (let i = 0; i < 14; i++) {
+    const x = Math.random() * 1080;
+    const y = Math.random() * 680;
+    bctx.shadowBlur  = 8;
+    bctx.shadowColor = "rgba(205,190,255,0.9)";
+    bctx.beginPath(); bctx.arc(x, y, Math.random() * 1.2 + 1, 0, Math.PI * 2);
+    bctx.fillStyle = "rgba(235,225,255,0.92)"; bctx.fill();
+    bctx.shadowBlur = 0;
+  }
 }
 
 function initCanvas() {
@@ -487,6 +605,7 @@ document.addEventListener("DOMContentLoaded", () => {
   buildMeter("input-meter");
   buildMeter("output-meter");
   initCanvas();
+    initStarfield();
   bindBrowser();
   bindKnobs();
   bindModeButtons();
