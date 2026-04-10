@@ -1,50 +1,80 @@
-import * as Juce from "./juce/index.js";
+let Juce = null;
+
+async function tryLoadJuce() {
+  if (typeof window.__JUCE__ === "undefined") return false;
+  try {
+    Juce = await import("./juce/index.js");
+    return true;
+  } catch (e) {
+    console.warn("JUCE module failed to load:", e);
+    return false;
+  }
+}
 
 // ── Preset Bank ───────────────────────────────────────────────────────────────
 // morph/texture/form/air: 0–10 | blend: 0–100 | mode: 0=Clean 1=Digital 2=Hybrid 3=Extreme
 const PRESETS = [
-  // ── Lead ──────────────────────────────────────────────────────────────────
-  { name: "Clean Lift",       category: "Lead",         tags: ["Airy","Clean","Polished"],        morph: 3.0, texture: 2.0, form: 5.0, air: 7.0, blend: 35, mode: 0 },
-  { name: "Velvet Nights",    category: "Lead",         tags: ["Smooth","Warm","Dark"],           morph: 4.0, texture: 3.5, form: 5.5, air: 5.0, blend: 45, mode: 2 },
-  { name: "Midnight Glow",    category: "Lead",         tags: ["Glossy","Airy","Emotional"],      morph: 5.5, texture: 4.0, form: 5.5, air: 6.0, blend: 50, mode: 2 },
-  { name: "Topline Polish",   category: "Lead",         tags: ["Bright","Airy","Polished"],       morph: 3.5, texture: 2.5, form: 5.0, air: 8.0, blend: 30, mode: 0 },
-  { name: "Glass Pop",        category: "Lead",         tags: ["Glossy","Airy","Futuristic"],     morph: 4.0, texture: 2.0, form: 4.5, air: 8.5, blend: 35, mode: 1 },
-  { name: "Future Pop",       category: "Lead",         tags: ["Futuristic","Wide","Glossy"],     morph: 6.0, texture: 4.5, form: 5.0, air: 7.0, blend: 55, mode: 1 },
 
-  // ── Adlibs ────────────────────────────────────────────────────────────────
-  { name: "Space Adlib",      category: "Adlibs",       tags: ["Futuristic","Airy","Wide"],       morph: 7.0, texture: 5.0, form: 6.0, air: 6.5, blend: 65, mode: 1 },
-  { name: "Adlib Shine",      category: "Adlibs",       tags: ["Airy","Glossy","Bright"],         morph: 5.0, texture: 3.0, form: 5.0, air: 8.0, blend: 45, mode: 2 },
-  { name: "Astro Tone",       category: "Adlibs",       tags: ["Futuristic","Robotic","Wide"],    morph: 7.5, texture: 5.5, form: 6.5, air: 6.0, blend: 60, mode: 1 },
-  { name: "Ghost Double",     category: "Adlibs",       tags: ["Wide","Smooth","Ethereal"],       morph: 4.0, texture: 3.0, form: 5.0, air: 5.0, blend: 35, mode: 2 },
-  { name: "Neon Character",   category: "Adlibs",       tags: ["Futuristic","Synthetic","Aggressive"], morph: 6.5, texture: 5.0, form: 5.5, air: 7.0, blend: 55, mode: 1 },
+  // ── Vocal Enhancement ──────────────────────────────────────────────────────
+  { name: "Clean Lift",        category: "Vocal",       tags: ["Clean","Polished","Lead"],         morph: 2.5, texture: 1.5, form: 5.0, air: 5.5, blend: 35,  mode: 0 },
+  { name: "Velvet Tone",       category: "Vocal",       tags: ["Smooth","Warm","Body"],            morph: 3.5, texture: 2.0, form: 4.5, air: 4.0, blend: 45,  mode: 2 },
+  { name: "Air Pop",           category: "Vocal",       tags: ["Airy","Bright","Modern"],          morph: 2.8, texture: 2.5, form: 5.2, air: 7.0, blend: 40,  mode: 0 },
 
-  // ── Stacks ────────────────────────────────────────────────────────────────
-  { name: "Wide Stack",       category: "Stacks",       tags: ["Wide","Smooth","Warm"],           morph: 3.0, texture: 4.0, form: 5.0, air: 5.0, blend: 40, mode: 2 },
-  { name: "Soft Layer",       category: "Stacks",       tags: ["Smooth","Airy","Clean"],          morph: 2.5, texture: 2.0, form: 5.0, air: 5.5, blend: 30, mode: 0 },
-  { name: "Soft Double",      category: "Stacks",       tags: ["Smooth","Clean","Wide"],          morph: 3.0, texture: 2.5, form: 5.0, air: 4.5, blend: 35, mode: 0 },
-  { name: "Ghost Layer",      category: "Stacks",       tags: ["Ethereal","Airy","Wide"],         morph: 4.5, texture: 3.0, form: 5.5, air: 6.0, blend: 40, mode: 2 },
-  { name: "Dream Vocal",      category: "Stacks",       tags: ["Ethereal","Airy","Emotional"],    morph: 5.0, texture: 3.5, form: 5.0, air: 7.0, blend: 45, mode: 2 },
+  // ── Modern FX ──────────────────────────────────────────────────────────────
+  { name: "Future Pop",        category: "Modern FX",   tags: ["Glossy","Radio","Modern"],         morph: 5.5, texture: 4.0, form: 5.5, air: 6.5, blend: 55,  mode: 1 },
+  { name: "Hyper Clean",       category: "Modern FX",   tags: ["Processed","Smooth","Digital"],    morph: 4.5, texture: 3.0, form: 5.0, air: 6.0, blend: 60,  mode: 1 },
+  { name: "Glass Voice",       category: "Modern FX",   tags: ["Bright","Transparent","Airy"],     morph: 4.0, texture: 2.5, form: 5.8, air: 7.5, blend: 50,  mode: 2 },
 
-  // ── FX ────────────────────────────────────────────────────────────────────
-  { name: "Alien Lead",       category: "FX",           tags: ["Robotic","Aggressive","Futuristic"], morph: 8.5, texture: 7.0, form: 7.0, air: 5.0, blend: 75, mode: 3 },
-  { name: "Hyper Voice",      category: "FX",           tags: ["Aggressive","Synthetic","Futuristic"], morph: 8.0, texture: 8.0, form: 5.5, air: 7.0, blend: 80, mode: 3 },
-  { name: "Bubble Tone",      category: "FX",           tags: ["Synthetic","Futuristic","Wide"],  morph: 7.0, texture: 7.5, form: 4.5, air: 8.0, blend: 70, mode: 3 },
-  { name: "Digital Angel",    category: "FX",           tags: ["Futuristic","Glossy","Airy"],     morph: 7.5, texture: 5.0, form: 5.0, air: 8.5, blend: 65, mode: 1 },
-  { name: "Ethereal FX",      category: "FX",           tags: ["Ethereal","Airy","Emotional"],    morph: 6.5, texture: 5.0, form: 6.0, air: 8.0, blend: 60, mode: 2 },
+  // ── Creative ───────────────────────────────────────────────────────────────
+  { name: "Alien Lead",        category: "Creative",    tags: ["Transformed","Alien","Extreme"],   morph: 8.0, texture: 5.5, form: 7.0, air: 6.0, blend: 70,  mode: 3 },
+  { name: "Deep Form",         category: "Creative",    tags: ["Dark","Massive","Extreme"],        morph: 6.5, texture: 4.0, form: 3.0, air: 4.5, blend: 65,  mode: 3 },
+  { name: "Neon Character",    category: "Creative",    tags: ["Synthetic","Colorful","Digital"],  morph: 7.0, texture: 5.0, form: 6.5, air: 6.5, blend: 75,  mode: 1 },
 
-  // ── Experimental ──────────────────────────────────────────────────────────
-  { name: "Deep Form",        category: "Experimental", tags: ["Dark","Aggressive","Robotic"],    morph: 6.0, texture: 6.0, form: 2.0, air: 4.0, blend: 65, mode: 3 },
-  { name: "Dark Bounce",      category: "Experimental", tags: ["Dark","Aggressive","Synthetic"],  morph: 7.0, texture: 6.5, form: 3.0, air: 4.5, blend: 70, mode: 3 },
-  { name: "Alt Texture",      category: "Experimental", tags: ["Synthetic","Aggressive","Wide"],  morph: 5.5, texture: 8.0, form: 5.5, air: 5.0, blend: 60, mode: 1 },
-  { name: "Energy Mode",      category: "Experimental", tags: ["Aggressive","Wide","Synthetic"],  morph: 8.0, texture: 7.0, form: 5.0, air: 6.0, blend: 75, mode: 3 },
-  { name: "Velvet Robot",     category: "Experimental", tags: ["Robotic","Dark","Synthetic"],     morph: 6.5, texture: 7.5, form: 4.0, air: 5.5, blend: 65, mode: 1 },
+  // ── Adlibs ─────────────────────────────────────────────────────────────────
+  { name: "Adlib Shine",       category: "Adlibs",      tags: ["Bright","Adlib","Digital"],        morph: 5.0, texture: 3.5, form: 6.0, air: 7.5, blend: 65,  mode: 1 },
+  { name: "Wide Layer",        category: "Adlibs",      tags: ["Wide","Background","Hybrid"],      morph: 4.0, texture: 2.5, form: 5.5, air: 6.0, blend: 55,  mode: 2 },
+  { name: "Soft Double",       category: "Adlibs",      tags: ["Natural","Double","Clean"],        morph: 3.0, texture: 1.8, form: 5.2, air: 5.5, blend: 45,  mode: 0 },
 
-  // ── Signature ─────────────────────────────────────────────────────────────
-  { name: "International Nova", category: "Signature",  tags: ["Glossy","Airy","Wide"],          morph: 5.5, texture: 4.5, form: 5.5, air: 7.0, blend: 55, mode: 2 },
-  { name: "Nova Signature",   category: "Signature",    tags: ["Airy","Glossy","Emotional"],      morph: 5.0, texture: 4.0, form: 5.5, air: 7.5, blend: 50, mode: 2 },
-  { name: "Vocal Glow",       category: "Signature",    tags: ["Glossy","Airy","Smooth"],         morph: 4.5, texture: 3.5, form: 5.0, air: 8.0, blend: 45, mode: 2 },
-  { name: "Future Nova",      category: "Signature",    tags: ["Futuristic","Glossy","Wide"],     morph: 6.5, texture: 5.0, form: 5.0, air: 7.0, blend: 60, mode: 1 },
-  { name: "Silk Voice",       category: "Signature",    tags: ["Smooth","Airy","Clean"],          morph: 3.5, texture: 3.0, form: 5.0, air: 6.5, blend: 40, mode: 0 },
+  // ── Atmosphere ─────────────────────────────────────────────────────────────
+  { name: "Dream Vocal",       category: "Atmosphere",  tags: ["Airy","Floating","Dreamy"],        morph: 5.5, texture: 3.0, form: 6.5, air: 8.0, blend: 70,  mode: 2 },
+  { name: "Ghost Layer",       category: "Atmosphere",  tags: ["Soft","Distant","Ethereal"],       morph: 6.0, texture: 2.5, form: 7.0, air: 7.5, blend: 60,  mode: 2 },
+  { name: "Ethereal FX",       category: "Atmosphere",  tags: ["Cinematic","Extreme","Airy"],      morph: 7.5, texture: 4.5, form: 6.8, air: 8.5, blend: 75,  mode: 3 },
+
+  // ── R&B / Pop ──────────────────────────────────────────────────────────────
+  { name: "Midnight Glow",     category: "R&B / Pop",   tags: ["Silky","Emotional","Modern"],      morph: 4.8, texture: 2.8, form: 5.8, air: 7.5, blend: 55,  mode: 2 },
+  { name: "Velvet Nights",     category: "R&B / Pop",   tags: ["Warm","Intimate","Clean"],         morph: 3.8, texture: 2.0, form: 4.8, air: 5.5, blend: 50,  mode: 0 },
+  { name: "Neon Soul",         category: "R&B / Pop",   tags: ["Futuristic","R&B","Digital"],      morph: 6.2, texture: 4.0, form: 6.2, air: 6.8, blend: 65,  mode: 1 },
+
+  // ── Rap ────────────────────────────────────────────────────────────────────
+  { name: "Topline Polish",    category: "Rap",         tags: ["Clean","Rap","Modern"],            morph: 3.0, texture: 2.5, form: 5.2, air: 6.0, blend: 45,  mode: 0 },
+  { name: "Melodic Drip",      category: "Rap",         tags: ["Glossy","Melodic","Digital"],      morph: 5.5, texture: 3.5, form: 5.8, air: 7.0, blend: 60,  mode: 1 },
+  { name: "Auto Energy",       category: "Rap",         tags: ["Hyped","Modern","Hybrid"],         morph: 6.0, texture: 4.2, form: 5.5, air: 6.5, blend: 65,  mode: 2 },
+
+  // ── FX Rap ─────────────────────────────────────────────────────────────────
+  { name: "Astro Tone",        category: "FX Rap",      tags: ["Wide","Futuristic","Digital"],     morph: 7.2, texture: 5.0, form: 6.8, air: 6.5, blend: 70,  mode: 1 },
+  { name: "Space Adlib",       category: "FX Rap",      tags: ["Floating","Space","Extreme"],      morph: 8.0, texture: 4.5, form: 7.2, air: 7.5, blend: 75,  mode: 3 },
+  { name: "Dark Bounce",       category: "FX Rap",      tags: ["Dark","Heavy","Extreme"],          morph: 6.5, texture: 4.0, form: 3.8, air: 5.0, blend: 65,  mode: 3 },
+
+  // ── Alt Pop ────────────────────────────────────────────────────────────────
+  { name: "Soft Air",          category: "Alt Pop",     tags: ["Breathy","Airy","Hybrid"],         morph: 4.5, texture: 2.5, form: 6.5, air: 8.5, blend: 55,  mode: 2 },
+  { name: "Glass Pop",         category: "Alt Pop",     tags: ["Clean","Polished","Pop"],           morph: 3.5, texture: 2.0, form: 6.0, air: 7.5, blend: 50,  mode: 0 },
+  { name: "Alt Texture",       category: "Alt Pop",     tags: ["Gritty","Alt","Digital"],          morph: 5.8, texture: 4.5, form: 6.2, air: 6.0, blend: 60,  mode: 1 },
+
+  // ── Hyperpop ───────────────────────────────────────────────────────────────
+  { name: "Hyper Voice",       category: "Hyperpop",    tags: ["Aggressive","Bright","Extreme"],   morph: 9.0, texture: 6.5, form: 8.0, air: 8.5, blend: 80,  mode: 3 },
+  { name: "Bubble Tone",       category: "Hyperpop",    tags: ["Playful","Pitched","Digital"],     morph: 7.5, texture: 5.5, form: 8.5, air: 7.5, blend: 75,  mode: 1 },
+  { name: "Digital Angel",     category: "Hyperpop",    tags: ["Airy","Synthetic","Hybrid"],       morph: 6.8, texture: 4.0, form: 7.2, air: 9.0, blend: 70,  mode: 2 },
+
+  // ── Stacks ─────────────────────────────────────────────────────────────────
+  { name: "Wide Stack",        category: "Stacks",      tags: ["Background","Wide","Hybrid"],      morph: 4.2, texture: 2.5, form: 5.8, air: 6.5, blend: 60,  mode: 2 },
+  { name: "Soft Layer",        category: "Stacks",      tags: ["Subtle","Support","Clean"],        morph: 3.0, texture: 1.8, form: 5.5, air: 5.5, blend: 45,  mode: 0 },
+  { name: "Ghost Double",      category: "Stacks",      tags: ["Airy","Doubled","Hybrid"],         morph: 5.5, texture: 2.8, form: 6.8, air: 7.5, blend: 65,  mode: 2 },
+
+  // ── Signature ──────────────────────────────────────────────────────────────
+  { name: "International Nova",category: "Signature",   tags: ["Flagship","Signature","Digital"],  morph: 6.5, texture: 4.5, form: 5.8, air: 7.2, blend: 65,  mode: 1 },
+  { name: "Nova Signature",    category: "Signature",   tags: ["Flagship","Glossy","Digital"],     morph: 6.0, texture: 4.2, form: 5.8, air: 6.8, blend: 60,  mode: 1 },
+  { name: "Vocal Glow",        category: "Signature",   tags: ["Glossy","Airy","Hybrid"],         morph: 5.0, texture: 3.0, form: 5.5, air: 8.0, blend: 65,  mode: 2 },
+  { name: "Energy Mode",       category: "Signature",   tags: ["Aggressive","Modern","Extreme"],   morph: 8.5, texture: 6.0, form: 6.5, air: 7.0, blend: 80,  mode: 3 },
 ];
 
 const KNOB_PARAMS = ["morph", "texture", "form", "air", "blend"];
@@ -56,7 +86,7 @@ const parameterStates = {};
 let juceAvailable    = false;
 let activeDrag       = null;
 let isApplyingPreset = false;
-let currentCategory  = "Lead";
+let currentCategory  = "Signature";
 let currentPresetIdx = 0;
 
 // ── Normalization ─────────────────────────────────────────────────────────────
@@ -80,6 +110,9 @@ const KNOB_CIRC  = 238.76; // full circumference of r=38 circle
 // Cinematic visualizer state
 const particles = [];
 let   wavePhase  = 0;
+let   lastSpectrumTick = 0;
+let   transientPulse = 0;
+let   loudnessMemory = 0;
 
 function updateKnob(id, value) {
   currentValues[id] = value;
@@ -109,7 +142,12 @@ function updateMode(modeIdx) {
 // ── Push to JUCE ─────────────────────────────────────────────────────────────
 function pushParam(id, value) {
   const state = parameterStates[id];
-  if (state) state.setNormalisedValue(normalize(id, value));
+  if (!state) return;
+  try {
+    state.setNormalisedValue(normalize(id, value));
+  } catch (e) {
+    console.warn("pushParam failed", id, e);
+  }
 }
 
 // ── Preset browser helpers ────────────────────────────────────────────────────
@@ -334,30 +372,106 @@ function connectParameters() {
 }
 
 // ── VU Meters ─────────────────────────────────────────────────────────────────
-const METER_SEGS     = 20;
+const METER_SEGS = 26;
 let   inputPeakSmooth  = 0;
 let   outputPeakSmooth = 0;
+let   inputPeakHold = 0;
+let   outputPeakHold = 0;
 
 function buildMeter(id) {
   const el = document.getElementById(id);
   if (!el) return;
   el.innerHTML = "";
-  for (let i = 0; i < METER_SEGS; i++) {
-    const seg = document.createElement("div");
-    seg.className = "meter-seg";
-    el.appendChild(seg);
-  }
+  el.style.position = "relative";
+  const mc = document.createElement("canvas");
+  mc.id = id + "-canvas";
+  mc.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
+  el.appendChild(mc);
 }
 
 function updateMeterEl(id, level) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const segs  = el.querySelectorAll(".meter-seg");
-  const count = Math.round(Math.max(0, Math.min(1, level)) * METER_SEGS);
-  segs.forEach((seg, i) => {
-    seg.classList.toggle("active", i < count);
-    seg.classList.toggle("hot",    i < count && i >= METER_SEGS - 2);
+  const mc = document.getElementById(id + '-canvas');
+  if (!mc) return;
+  const clamped = Math.max(0, Math.min(1, level));
+  if (id === 'input-meter') {
+    inputPeakHold = Math.max(inputPeakHold * 0.972, clamped);
+  } else {
+    outputPeakHold = Math.max(outputPeakHold * 0.974, clamped);
+  }
+  const hold   = id === 'input-meter' ? inputPeakHold : outputPeakHold;
+  const parent = mc.parentElement;
+  const cw = parent ? (parent.clientWidth  || 54) : 54;
+  const ch = parent ? (parent.clientHeight || 200) : 200;
+  if (mc.width !== cw || mc.height !== ch) { mc.width = cw; mc.height = ch; }
+
+  const bctx   = mc.getContext('2d');
+  bctx.clearRect(0, 0, cw, ch);
+
+  const isInput = id === 'input-meter';
+  const barW  = 7;
+  const padT  = 10;
+  const padB  = 16;
+  const barH  = ch - padT - padB;
+  const barX  = isInput ? cw - barW - 3 : 3;
+  const fillH = barH * clamped;
+  const fillY = padT + barH - fillH;
+
+  // Track background
+  bctx.fillStyle = 'rgba(14, 8, 40, 0.82)';
+  bctx.fillRect(barX, padT, barW, barH);
+
+  // Filled gradient (bottom=deep purple, top=bright cyan)
+  if (fillH > 1) {
+    const grad = bctx.createLinearGradient(0, fillY + fillH, 0, fillY);
+    grad.addColorStop(0.00, 'rgba(55,  22, 145, 0.78)');
+    grad.addColorStop(0.28, 'rgba(110, 42, 215, 0.90)');
+    grad.addColorStop(0.58, 'rgba(168, 72, 255, 0.96)');
+    grad.addColorStop(0.82, 'rgba(100, 192, 255, 0.98)');
+    grad.addColorStop(1.00, 'rgba(0,   245, 255, 1.00)');
+    bctx.shadowBlur  = 16;
+    bctx.shadowColor = clamped > 0.72 ? 'rgba(60, 230, 255, 0.80)' : 'rgba(145, 72, 255, 0.65)';
+    bctx.fillStyle   = grad;
+    bctx.fillRect(barX, fillY, barW, fillH);
+    bctx.shadowBlur  = 0;
+    // Bright top-edge glow line
+    bctx.strokeStyle = clamped > 0.70 ? 'rgba(0, 255, 255, 0.90)' : 'rgba(190, 145, 255, 0.80)';
+    bctx.lineWidth   = 1.2;
+    bctx.shadowBlur  = 12;
+    bctx.shadowColor = bctx.strokeStyle;
+    bctx.beginPath(); bctx.moveTo(barX, fillY); bctx.lineTo(barX + barW, fillY); bctx.stroke();
+    bctx.shadowBlur  = 0;
+  }
+
+  // Peak hold tick
+  if (hold > 0.04) {
+    const holdY = padT + barH * (1 - hold);
+    bctx.fillStyle   = 'rgba(235, 220, 255, 0.95)';
+    bctx.shadowBlur  = 12;
+    bctx.shadowColor = 'rgba(210, 235, 255, 0.92)';
+    bctx.fillRect(barX - 1, holdY - 1, barW + 2, 2);
+    bctx.shadowBlur  = 0;
+  }
+
+  // dB scale labels
+  const dBMarks = [{ db: 0, lbl: '0' }, { db: -6, lbl: '-6' }, { db: -12, lbl: '-12' },
+                   { db: -18, lbl: '-18' }, { db: -24, lbl: '-24' }, { db: -36, lbl: '-36' }];
+  const dbFloor = 48;
+  bctx.font = "7px 'SF Pro Display',Arial,sans-serif";
+  dBMarks.forEach(({ db, lbl }) => {
+    const y = padT + barH * (-db / dbFloor);
+    if (y < padT || y > padT + barH) return;
+    bctx.fillStyle = 'rgba(130, 120, 195, 0.28)';
+    const tickX = isInput ? barX - 1 : barX + barW + 1;
+    bctx.fillRect(isInput ? tickX - 4 : tickX, y - 0.5, 4, 1);
+    bctx.fillStyle = 'rgba(158, 148, 220, 0.42)';
+    bctx.textAlign = isInput ? 'right' : 'left';
+    bctx.fillText(lbl, isInput ? barX - 7 : barX + barW + 7, y + 2.5);
   });
+  // 'dB' footer
+  bctx.fillStyle = 'rgba(130, 120, 195, 0.28)';
+  bctx.font      = "6px 'SF Pro Display',Arial,sans-serif";
+  bctx.textAlign = isInput ? 'right' : 'left';
+  bctx.fillText('dB', isInput ? barX - 2 : barX + barW + 2, ch - 3);
 }
 
 // ── Spectrum data (from C++ timer) ───────────────────────────────────────────
@@ -367,11 +481,12 @@ const smoothedProblem   = new Float32Array(BINS);
 const smoothedReduction = new Float32Array(BINS);
 
 window.updateVoiceSpectrum = (input, problem, reduction) => {
+  lastSpectrumTick = performance.now();
   let sum = 0;
   for (let i = 0; i < BINS; i++) {
-    smoothedInput[i]     = smoothedInput[i]     * 0.80 + (input[i]     || 0) * 0.20;
-    smoothedProblem[i]   = smoothedProblem[i]   * 0.80 + (problem[i]   || 0) * 0.20;
-    smoothedReduction[i] = smoothedReduction[i] * 0.80 + (reduction[i] || 0) * 0.20;
+    smoothedInput[i]     = smoothedInput[i]     * 0.86 + (input[i]     || 0) * 0.14;
+    smoothedProblem[i]   = smoothedProblem[i]   * 0.86 + (problem[i]   || 0) * 0.14;
+    smoothedReduction[i] = smoothedReduction[i] * 0.86 + (reduction[i] || 0) * 0.14;
     sum += smoothedInput[i];
   }
   inputPeakSmooth = inputPeakSmooth * 0.88 + (sum / BINS) * 2.4 * 0.12;
@@ -385,11 +500,19 @@ window.updateOutputPeak = peak => {
 let canvas, ctx;
 
 // ── Wave drawing helpers ──────────────────────────────────────────────────────
-function buildWavePoints(data, hScale) {
+function buildCenterWavePoints(data, baseY, amplitudePx, widthN, lowDrive, midDrive) {
   const pts = [];
-  const W = canvas.width, H = canvas.height;
+  const W = canvas.width;
+  const cx = W * 0.5;
   for (let b = 0; b < BINS; b++) {
-    pts.push({ x: (b / (BINS - 1)) * W, y: H - data[b] * H * hScale });
+    const t = b / (BINS - 1);
+    const x0 = t * W;
+    const x = cx + (x0 - cx) * (1 + widthN * 0.06);
+    const flow = Math.sin(t * 6.8  + wavePhase * (0.72 + lowDrive * 0.55)) * amplitudePx * (0.11  + midDrive * 0.08)
+               + Math.sin(t * 12.2 - wavePhase * 0.42)                      * amplitudePx * (0.028 + lowDrive * 0.024)
+               + Math.sin(t * 3.4  + wavePhase * 0.38)                      * amplitudePx * (0.045 + lowDrive * 0.035);
+    const y = baseY - data[b] * amplitudePx * (0.88 + midDrive * 0.36) + flow;
+    pts.push({ x, y, e: data[b] });
   }
   return pts;
 }
@@ -404,14 +527,34 @@ function traceSmoothPath(pts) {
   ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
 }
 
-function drawFill(pts, grad, alpha) {
-  const H = canvas.height, W = canvas.width;
+function traceSmoothPathFromCurrent(pts) {
+  for (let i = 0; i < pts.length - 2; i++) {
+    const mx = (pts[i].x + pts[i + 1].x) / 2;
+    const my = (pts[i].y + pts[i + 1].y) / 2;
+    ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+  }
+  ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+}
+
+function drawRibbon(centerPts, widthBase, grad, alpha) {
+  const upper = [];
+  const lower = [];
+  for (let i = 0; i < centerPts.length; i++) {
+    const p = centerPts[i];
+    const half = widthBase * (0.35 + p.e * 1.10);
+    upper.push({ x: p.x, y: p.y - half });
+    lower.push({ x: p.x, y: p.y + half });
+  }
+
   ctx.globalAlpha = alpha;
   ctx.fillStyle   = grad;
+  const lowerRev = lower.slice().reverse();
+
   ctx.beginPath();
-  ctx.moveTo(0, H);
-  traceSmoothPath(pts);
-  ctx.lineTo(W, H);
+  ctx.moveTo(upper[0].x, upper[0].y);
+  traceSmoothPathFromCurrent(upper);
+  ctx.lineTo(lowerRev[0].x, lowerRev[0].y);
+  traceSmoothPathFromCurrent(lowerRev);
   ctx.closePath();
   ctx.fill();
   ctx.globalAlpha = 1;
@@ -428,6 +571,17 @@ function drawLine(pts, color, width, blur) {
   ctx.shadowBlur = 0;
 }
 
+function offsetWavePoints(pts, shiftY, phaseOffset, amp) {
+  return pts.map((p, i) => {
+    const t = i / (pts.length - 1);
+    return {
+      x: p.x,
+      y: p.y + shiftY + Math.sin(t * 8 + wavePhase + phaseOffset) * amp,
+      e: p.e,
+    };
+  });
+}
+
 // ── Cinematic drawFrame ────────────────────────────────────────────────────────
 function drawFrame() {
   requestAnimationFrame(drawFrame);
@@ -435,7 +589,7 @@ function drawFrame() {
   const W = canvas.width, H = canvas.height;
   if (!W || !H) return;
 
-  wavePhase += 0.016;
+  wavePhase += 0.011;
 
   const morphN   = currentValues.morph   / 10;
   const textureN = currentValues.texture / 10;
@@ -453,100 +607,191 @@ function drawFrame() {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
 
-  const scale    = 0.82 + morphN * 0.13;
-  const mainPts  = buildWavePoints(smoothedInput, scale);
-  const totalEnergy = smoothedInput.reduce((a, v) => a + v, 0) / BINS;
+  const scale = 0.55 + morphN * 0.15;
+  const hostStalled = juceAvailable && (performance.now() - lastSpectrumTick > 900);
+  const displayInput = new Float32Array(BINS);
+  let totalEnergy = 0;
+  let stereoEnergy = 0;
+  let lowSum = 0, midSum = 0, highSum = 0;
+  const lowEnd = Math.floor(BINS * 0.23);
+  const midEnd = Math.floor(BINS * 0.67);
 
-  // ── Idle ambient wave when no audio ───────────────────────────────────────
-  if (totalEnergy < 0.015) {
-    const idlePts = [];
-    for (let b = 0; b < BINS; b++) {
-      const t = b / (BINS - 1);
-      idlePts.push({
-        x: t * W,
-        y: H * 0.74 + Math.sin(t * 5 + wavePhase) * H * 0.045
-                     + Math.sin(t * 11 + wavePhase * 1.4) * H * 0.018
-      });
-    }
-    const ig = ctx.createLinearGradient(0, 0, W, 0);
-    ig.addColorStop(0, "rgba(139,111,255,0.10)");
-    ig.addColorStop(1, "rgba(0,232,255,0.08)");
-    drawFill(idlePts, ig, 1.0);
-    drawLine(idlePts, "rgba(139,111,255,0.32)", 1.5, 10);
-    updateMeterEl("input-meter",  0);
-    updateMeterEl("output-meter", 0);
-    return;
+  for (let b = 0; b < BINS; b++) {
+    const t = b / (BINS - 1);
+    const idleFloor = 0.045
+      + Math.sin(t * 6.0 + wavePhase) * 0.020
+      + Math.sin(t * 13.0 + wavePhase * 1.35) * 0.010;
+    const fallback = Math.max(0.015, idleFloor);
+    const src = hostStalled ? fallback : Math.max(smoothedInput[b], fallback);
+    displayInput[b] = Math.max(0, Math.min(1, src));
+    totalEnergy += displayInput[b];
+    stereoEnergy += smoothedProblem[b] || 0;
+    if (b < lowEnd) lowSum += displayInput[b];
+    else if (b < midEnd) midSum += displayInput[b];
+    else highSum += displayInput[b];
   }
+  totalEnergy /= BINS;
+  stereoEnergy /= BINS;
+  const lowN  = lowSum / Math.max(1, lowEnd);
+  const midN  = midSum / Math.max(1, midEnd - lowEnd);
+  const highN = highSum / Math.max(1, BINS - midEnd);
 
-  // ── Layer 1: shadow / depth (offset downward, behind main) ───────────────
-  const shadowPts = mainPts.map(p => ({ x: p.x, y: p.y + 14 }));
+  // Transient pulse memory for musical glow surges without jitter.
+  const transient = Math.max(0, totalEnergy - loudnessMemory);
+  loudnessMemory = loudnessMemory * 0.86 + totalEnergy * 0.14;
+  transientPulse = Math.max(transientPulse * 0.88, transient * 7.5);
+  wavePhase += lowN * 0.006;
+
+  const glowBreath = 0.5 + 0.5 * Math.sin(wavePhase * 0.85);
+  const audioPulse = Math.max(0, Math.min(1, totalEnergy * 2.8));
+  const pulseMix = 0.15 + glowBreath * 0.20 + audioPulse * 0.24 + Math.min(0.32, transientPulse * 0.30);
+  const stereoWidthN = Math.max(0, Math.min(1, stereoEnergy * 2.0 + lowN * 0.34 + audioPulse * 0.22));
+  const centerY = H * 0.50;
+  const ampPx = H * scale;
+
+  // Deep alien nebula gas — two side-biased haze clouds behind the wave
+  const nebulaA = ctx.createRadialGradient(W * 0.28, centerY - H * 0.08, 20, W * 0.28, centerY - H * 0.08, H * 0.58);
+  nebulaA.addColorStop(0,    `rgba(170, 45, 255, ${0.10 + morphN  * 0.09})`);
+  nebulaA.addColorStop(0.50, `rgba(105, 28, 210, ${0.05 + pulseMix * 0.05})`);
+  nebulaA.addColorStop(1,    'rgba(0,0,0,0)');
+  ctx.fillStyle = nebulaA;
+  ctx.fillRect(0, 0, W, H);
+
+  const nebulaB = ctx.createRadialGradient(W * 0.74, centerY + H * 0.07, 15, W * 0.74, centerY + H * 0.07, H * 0.48);
+  nebulaB.addColorStop(0,    `rgba(28, 175, 255, ${0.09 + airN    * 0.08})`);
+  nebulaB.addColorStop(0.50, `rgba(18, 100, 220, ${0.04 + pulseMix * 0.04})`);
+  nebulaB.addColorStop(1,    'rgba(0,0,0,0)');
+  ctx.fillStyle = nebulaB;
+  ctx.fillRect(0, 0, W, H);
+
+  // Atmospheric band glow around the spectral ribbon.
+  const envGlow = ctx.createRadialGradient(W * 0.5, centerY, 15, W * 0.5, centerY, H * 0.65);
+  envGlow.addColorStop(0,    `rgba(150, 70, 255, ${0.11 + totalEnergy * 0.20})`);
+  envGlow.addColorStop(0.35, `rgba(120, 55, 240, ${0.07 + pulseMix   * 0.14})`);
+  envGlow.addColorStop(0.65, `rgba(80,  38, 195, ${0.04 + pulseMix   * 0.06})`);
+  envGlow.addColorStop(1,    'rgba(0,0,0,0)');
+  ctx.fillStyle = envGlow;
+  ctx.fillRect(0, 0, W, H);
+
+  const mainPts = buildCenterWavePoints(displayInput, centerY, ampPx, stereoWidthN, lowN, midN);
+  const layerMid = offsetWavePoints(mainPts, 7 + lowN * 4.5, 0.9, 1.8 + midN * 3.2);
+  const layerTop = offsetWavePoints(mainPts, -3.5 - highN * 1.3, -0.8, 1.4 + highN * 2.1);
+
+  // ── Layer 1: deep shadow ghost (wide, behind everything) ──────────────────
+  const shadowPts = mainPts.map(p => ({ x: p.x, y: p.y + 18, e: p.e }));
   const sg = ctx.createLinearGradient(0, 0, W, 0);
-  sg.addColorStop(0, `rgba(95,65,195,${0.22 + morphN * 0.10})`);
-  sg.addColorStop(1, `rgba(0,125,195,${0.18 + airN * 0.08})`);
-  drawFill(shadowPts, sg, 0.9);
-  drawLine(shadowPts, `rgba(115,75,215,${0.11 + morphN * 0.07})`, 1, 0);
+  sg.addColorStop(0,   `rgba(135, 48, 225, ${0.30 + morphN  * 0.12})`);
+  sg.addColorStop(0.5, `rgba(60,  80, 215, ${0.24 + textureN * 0.10})`);
+  sg.addColorStop(1,   `rgba(0,  145, 225, ${0.22 + airN    * 0.10})`);
+  drawRibbon(shadowPts, 22 + lowN * 16, sg, 0.75);
+  drawLine(shadowPts, `rgba(145, 65, 245, ${0.14 + morphN * 0.08})`, 1.4, 0);
 
-  // ── Layer 2: main fill ────────────────────────────────────────────────────
+  // ── Layer 2: dimensional middle ribbon ───────────────────────────────────
+  const md = ctx.createLinearGradient(0, 0, W, 0);
+  md.addColorStop(0,   `rgba(170,  68, 255, ${0.34 + morphN  * 0.13})`);
+  md.addColorStop(0.45,`rgba(65,  135, 245, ${0.28 + textureN * 0.12})`);
+  md.addColorStop(1,   `rgba(0,   210, 245, ${0.28 + airN    * 0.11})`);
+  drawRibbon(layerMid, 16 + lowN * 9, md, 0.67);
+
+  // ── Layer 3: main fill — vivid violet→cyan ────────────────────────────────
   const mg = ctx.createLinearGradient(0, 0, W, 0);
-  mg.addColorStop(0,    `rgba(139,111,255,${0.48 + morphN * 0.22})`);
-  mg.addColorStop(0.45, `rgba(75,165,255,${0.40 + textureN * 0.16})`);
-  mg.addColorStop(1,    `rgba(0,232,255,${0.44 + airN * 0.18})`);
-  drawFill(mainPts, mg, 1.0);
+  mg.addColorStop(0,    `rgba(200,  55, 255, ${0.64 + morphN  * 0.22})`);
+  mg.addColorStop(0.38, `rgba(135,  72, 255, ${0.56 + textureN * 0.16})`);
+  mg.addColorStop(0.72, `rgba(32,  188, 255, ${0.52 + airN    * 0.14})`);
+  mg.addColorStop(1,    `rgba(0,   248, 255, ${0.58 + airN    * 0.18})`);
+  drawRibbon(mainPts, 14 + lowN * 10, mg, 0.97);
 
-  // ── Layer 3: vertical top-light glow ──────────────────────────────────────
+  // ── Layer 4: upper translucent highlight ribbon ───────────────────────────
+  const up = ctx.createLinearGradient(0, 0, W, 0);
+  up.addColorStop(0,    `rgba(225, 158, 255, ${0.28 + pulseMix * 0.11})`);
+  up.addColorStop(0.45, `rgba(145, 215, 255, ${0.24 + pulseMix * 0.10})`);
+  up.addColorStop(1,    `rgba(55,  248, 255, ${0.22 + pulseMix * 0.11})`);
+  drawRibbon(layerTop, 8 + lowN * 5, up, 0.50);
+
+  // ── Layer 5: vertical top-light glow ──────────────────────────────────────
   const tg = ctx.createLinearGradient(0, 0, 0, H);
-  tg.addColorStop(0,   `rgba(185,160,255,${0.06 + morphN * 0.08})`);
-  tg.addColorStop(0.5, `rgba(100,80,220,${0.10 + textureN * 0.05})`);
-  tg.addColorStop(1,   "transparent");
-  drawFill(mainPts, tg, 0.6);
+  tg.addColorStop(0,   `rgba(200, 155, 255, ${0.08 + morphN  * 0.09})`);
+  tg.addColorStop(0.5, `rgba(105,  78, 225, ${0.12 + textureN * 0.06})`);
+  tg.addColorStop(1,   'transparent');
+  drawRibbon(mainPts, 14, tg, 0.55);
 
-  // ── Layer 4: bloom edge line (two passes) ─────────────────────────────────
-  // Soft wide glow pass
+  // ── Layer 6: outer bloom aura ─────────────────────────────────────────────
+  const aura = ctx.createLinearGradient(0, 0, W, 0);
+  aura.addColorStop(0,   `rgba(180, 95, 255, ${0.14 + pulseMix * 0.13})`);
+  aura.addColorStop(0.5, `rgba(105, 215, 255, ${0.14 + pulseMix * 0.13})`);
+  aura.addColorStop(1,   `rgba(30,  248, 255, ${0.14 + pulseMix * 0.13})`);
+  drawLine(mainPts, aura, 22 + pulseMix * 5, 28 + pulseMix * 18);
+
+  // ── Layer 7: wide soft bloom pass ─────────────────────────────────────────
   const lg1 = ctx.createLinearGradient(0, 0, W, 0);
-  lg1.addColorStop(0,   `rgba(185,155,255,${0.20 + morphN * 0.14})`);
-  lg1.addColorStop(0.5, `rgba(105,200,255,${0.20 + textureN * 0.11})`);
-  lg1.addColorStop(1,   `rgba(0,240,255,${0.20 + airN * 0.11})`);
-  drawLine(mainPts, lg1, 8, 0);
+  lg1.addColorStop(0,   `rgba(205, 115, 255, ${0.24 + morphN  * 0.13 + pulseMix * 0.18})`);
+  lg1.addColorStop(0.5, `rgba(125, 215, 255, ${0.22 + textureN * 0.12 + pulseMix * 0.18})`);
+  lg1.addColorStop(1,   `rgba(0,   252, 255, ${0.22 + airN    * 0.12 + pulseMix * 0.18})`);
+  drawLine(mainPts, lg1, 10 + pulseMix * 4, 6 + pulseMix * 16);
 
-  // Sharp bright center line
+  // ── Layer 8: sharp bright spine line ─────────────────────────────────────
   const lg2 = ctx.createLinearGradient(0, 0, W, 0);
-  lg2.addColorStop(0,   `rgba(205,175,255,${0.75 + morphN * 0.20})`);
-  lg2.addColorStop(0.5, `rgba(145,220,255,${0.82 + textureN * 0.12})`);
-  lg2.addColorStop(1,   `rgba(0,248,255,${0.82 + airN * 0.12})`);
-  drawLine(mainPts, lg2, 1.5, 14 + morphN * 10);
+  lg2.addColorStop(0,   `rgba(230, 178, 255, ${0.74 + morphN  * 0.18 + pulseMix * 0.22})`);
+  lg2.addColorStop(0.5, `rgba(165, 235, 255, ${0.78 + textureN * 0.13 + pulseMix * 0.24})`);
+  lg2.addColorStop(1,   `rgba(0,   255, 255, ${0.78 + airN    * 0.13 + pulseMix * 0.24})`);
+  drawLine(mainPts, lg2, 1.6 + pulseMix * 1.0, 18 + morphN * 10 + pulseMix * 16);
+
+  // ── Alien chroma fringe lines (high-freq shimmer) ─────────────────────────
+  const fringeTop = offsetWavePoints(mainPts, -3.0, 1.7, 1.0 + highN * 3.0);
+  const fringeBot = offsetWavePoints(mainPts,  3.2, -1.3, 0.9 + highN * 2.5);
+  drawLine(fringeTop, `rgba(75,  245, 255, ${0.24 + highN * 0.35})`, 1.1 + highN * 1.1, 9  + highN * 16);
+  drawLine(fringeBot, `rgba(210, 95,  255, ${0.20 + highN * 0.28})`, 1.0 + highN * 1.0, 8  + highN * 14);
 
   // ── Reduction accent ──────────────────────────────────────────────────────
   if (smoothedReduction.some(v => v > 0.01)) {
-    const redPts = buildWavePoints(smoothedReduction, 0.42);
+    const redPts = buildCenterWavePoints(smoothedReduction, centerY + 36, H * 0.08, stereoWidthN * 0.6);
     const rg = ctx.createLinearGradient(0, 0, W, 0);
     rg.addColorStop(0, `rgba(255,80,130,${0.09 + textureN * 0.07})`);
     rg.addColorStop(1, `rgba(255,60,100,${0.09 + textureN * 0.07})`);
-    drawFill(redPts, rg, 1.0);
+    drawRibbon(redPts, 5.5, rg, 0.44);
     drawLine(redPts, `rgba(255,110,145,${0.16 + textureN * 0.09})`, 1, 6);
   }
 
-  // ── Spark particles ────────────────────────────────────────────────────────
-  if (totalEnergy > 0.05 && Math.random() < Math.min(0.12, totalEnergy * 0.5)) {
-    const bi  = Math.floor(Math.random() * BINS);
-    const px  = (bi / (BINS - 1)) * W;
-    const py  = H - smoothedInput[bi] * H * scale;
-    particles.push({ x: px, y: py, vx: (Math.random() - 0.5) * 0.9, vy: -(0.5 + Math.random() * 1.2), life: 1.0, size: Math.random() * 1.6 + 0.4 });
+  // ── Alien spark particles — bidirectional, cyan + violet ─────────────────
+  const spawnProb = Math.min(0.60, totalEnergy * 0.90 + highN * 0.48 + transientPulse * 0.22);
+  if (totalEnergy > 0.03 && Math.random() < spawnProb) {
+    const count = (totalEnergy > 0.10 && Math.random() < 0.50) ? 3 : (Math.random() < 0.45 ? 2 : 1);
+    for (let s = 0; s < count; s++) {
+      const bi  = Math.floor(Math.random() * BINS);
+      const px  = (bi / (BINS - 1)) * W;
+      const py  = mainPts[bi]?.y ?? (H * 0.5 - displayInput[bi] * H * scale);
+      const dir = Math.random() > 0.50 ? -1 : 1;
+      const hue = Math.random() > 0.55 ? 0 : 1; // 0=cyan, 1=violet
+      particles.push({
+        x:    px + (Math.random() - 0.5) * 16,
+        y:    py + (Math.random() - 0.5) * 8,
+        vx:   (Math.random() - 0.5) * 1.4,
+        vy:   dir * (0.30 + Math.random() * (1.6 + highN * 1.4)),
+        life: 1.0,
+        size: Math.random() * (1.6 + highN * 1.5) + 0.28,
+        hue
+      });
+    }
   }
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
-    p.x += p.vx; p.y += p.vy; p.life -= 0.022;
+    p.x  += p.vx; p.y += p.vy; p.life -= 0.016;
     if (p.life <= 0) { particles.splice(i, 1); continue; }
-    const c = p.life > 0.5
-      ? `rgba(0,232,255,${(p.life * 0.65).toFixed(2)})`
-      : `rgba(185,145,255,${(p.life * 0.65).toFixed(2)})`;
-    ctx.shadowBlur = 6; ctx.shadowColor = "#00E8FF";
-    ctx.fillStyle  = c;
+    const a  = (p.life * 0.72).toFixed(2);
+    const c  = p.hue === 0 ? `rgba(0, 242, 255, ${a})` : `rgba(205, 120, 255, ${a})`;
+    const gl = p.hue === 0 ? '#00F2FF' : '#CD78FF';
+    ctx.shadowBlur  = 9 + p.life * 5;
+    ctx.shadowColor = gl;
+    ctx.fillStyle   = c;
     ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0;
+    ctx.shadowBlur  = 0;
   }
 
   // VU meters
-  updateMeterEl("input-meter",  inputPeakSmooth);
+  const meterIn = hostStalled
+    ? Math.min(0.55, 0.20 + totalEnergy * 1.1)
+    : inputPeakSmooth;
+  updateMeterEl("input-meter",  meterIn);
   updateMeterEl("output-meter", outputPeakSmooth);
   outputPeakSmooth *= 0.978;
 }
@@ -556,25 +801,70 @@ function initStarfield() {
   const bg = document.getElementById("bg-canvas");
   if (!bg) return;
   const bctx = bg.getContext("2d");
-  bg.width  = 1080;
-  bg.height = 680;
+  const wrap = bg.parentElement?.parentElement;
+  const r = wrap?.getBoundingClientRect();
+  const w = Math.max(1, Math.round(r?.width || 1080));
+  const h = Math.max(1, Math.round(r?.height || 680));
+
+  bg.width  = w;
+  bg.height = h;
+  bctx.clearRect(0, 0, w, h);
+
+  // Rich galaxy nebula — five overlapping haze clouds for deep space atmosphere
+  const cloudA = bctx.createRadialGradient(w * 0.22, h * 0.52, 10, w * 0.22, h * 0.52, Math.max(w, h) * 0.38);
+  cloudA.addColorStop(0,    'rgba(178, 60, 255, 0.30)');
+  cloudA.addColorStop(0.35, 'rgba(135, 45, 225, 0.16)');
+  cloudA.addColorStop(0.65, 'rgba(90,  25, 185, 0.07)');
+  cloudA.addColorStop(1,    'rgba(0,0,0,0)');
+  bctx.fillStyle = cloudA;
+  bctx.fillRect(0, 0, w, h);
+
+  const cloudB = bctx.createRadialGradient(w * 0.80, h * 0.32, 8, w * 0.80, h * 0.32, Math.max(w, h) * 0.32);
+  cloudB.addColorStop(0,    'rgba(55, 200, 255, 0.24)');
+  cloudB.addColorStop(0.40, 'rgba(28, 130, 225, 0.13)');
+  cloudB.addColorStop(0.70, 'rgba(10,  68, 185, 0.05)');
+  cloudB.addColorStop(1,    'rgba(0,0,0,0)');
+  bctx.fillStyle = cloudB;
+  bctx.fillRect(0, 0, w, h);
+
+  const cloudC = bctx.createRadialGradient(w * 0.52, h * 0.46, 5, w * 0.52, h * 0.46, Math.max(w, h) * 0.45);
+  cloudC.addColorStop(0,    'rgba(125, 55, 245, 0.20)');
+  cloudC.addColorStop(0.45, 'rgba(85,  32, 205, 0.10)');
+  cloudC.addColorStop(1,    'rgba(0,0,0,0)');
+  bctx.fillStyle = cloudC;
+  bctx.fillRect(0, 0, w, h);
+
+  const cloudD = bctx.createRadialGradient(w * 0.67, h * 0.26, 5, w * 0.67, h * 0.26, Math.max(w, h) * 0.27);
+  cloudD.addColorStop(0,    'rgba(38, 178, 255, 0.20)');
+  cloudD.addColorStop(0.50, 'rgba(20, 112, 215, 0.09)');
+  cloudD.addColorStop(1,    'rgba(0,0,0,0)');
+  bctx.fillStyle = cloudD;
+  bctx.fillRect(0, 0, w, h);
+
+  const cloudE = bctx.createRadialGradient(w * 0.12, h * 0.28, 5, w * 0.12, h * 0.28, Math.max(w, h) * 0.22);
+  cloudE.addColorStop(0,    'rgba(215, 95, 255, 0.18)');
+  cloudE.addColorStop(0.50, 'rgba(165, 68, 235, 0.08)');
+  cloudE.addColorStop(1,    'rgba(0,0,0,0)');
+  bctx.fillStyle = cloudE;
+  bctx.fillRect(0, 0, w, h);
+
   // Small dim stars
-  for (let i = 0; i < 220; i++) {
-    const x = Math.random() * 1080;
-    const y = Math.random() * 680;
-    const r = Math.random() * 1.3 + 0.2;
-    const a = (Math.random() * 0.55 + 0.05).toFixed(2);
+  for (let i = 0; i < 620; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const r = Math.random() * 1.45 + 0.14;
+    const a = (Math.random() * 0.52 + 0.03).toFixed(2);
     bctx.beginPath(); bctx.arc(x, y, r, 0, Math.PI * 2);
     bctx.fillStyle = `rgba(255,255,255,${a})`; bctx.fill();
   }
   // Larger glowing stars
-  for (let i = 0; i < 14; i++) {
-    const x = Math.random() * 1080;
-    const y = Math.random() * 680;
-    bctx.shadowBlur  = 8;
-    bctx.shadowColor = "rgba(205,190,255,0.9)";
-    bctx.beginPath(); bctx.arc(x, y, Math.random() * 1.2 + 1, 0, Math.PI * 2);
-    bctx.fillStyle = "rgba(235,225,255,0.92)"; bctx.fill();
+  for (let i = 0; i < 58; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    bctx.shadowBlur  = 12;
+    bctx.shadowColor = "rgba(185,205,255,0.85)";
+    bctx.beginPath(); bctx.arc(x, y, Math.random() * 1.35 + 0.95, 0, Math.PI * 2);
+    bctx.fillStyle = "rgba(232,240,255,0.90)"; bctx.fill();
     bctx.shadowBlur = 0;
   }
 }
@@ -595,17 +885,18 @@ function initCanvas() {
   };
   resize();
   new ResizeObserver(resize).observe(canvas.parentElement);
+  window.addEventListener("resize", initStarfield);
   drawFrame();
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", () => {
-  juceAvailable = typeof window.__JUCE__ !== "undefined";
+document.addEventListener("DOMContentLoaded", async () => {
+  juceAvailable = await tryLoadJuce();
 
   buildMeter("input-meter");
   buildMeter("output-meter");
   initCanvas();
-    initStarfield();
+  initStarfield();
   bindBrowser();
   bindKnobs();
   bindModeButtons();
@@ -618,11 +909,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Always apply default preset so knobs/UI initialize visually
   const sel = document.getElementById("category-select");
-  if (sel) sel.value = "Lead";
-  currentCategory = "Lead";
+  if (sel) sel.value = "Signature";
+  currentCategory = "Signature";
 
-  const leadList   = getFilteredPresets("Lead");
-  const defaultIdx = leadList.findIndex(p => p.name === "Midnight Glow");
+  const leadList   = getFilteredPresets("Signature");
+  const defaultIdx = leadList.findIndex(p => p.name === "International Nova");
   currentPresetIdx = defaultIdx >= 0 ? defaultIdx : 0;
 
   if (leadList.length > 0) {

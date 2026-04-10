@@ -7,12 +7,12 @@
 
 ## Introduction
 
-`Space By Nova` is a vocal-friendly ambience and space designer. It is built to create the feeling of width, glow, and depth quickly, without forcing the user to manage a huge reverb panel.
+`Space By Nova` is a vocal-first ambience designer focused on width, glow, and depth with a fast workflow.
 
-The front panel is intentionally simple:
-- one main **SPACE** macro
-- one **MIX** control
+The current front panel includes:
+- five macro controls: `SPACE`, `AIR`, `DEPTH`, `WIDTH`, `MIX`
 - four voicing buttons: `STUDIO`, `ARENA`, `DREAM`, `VINTAGE`
+- a live spectral analyzer display
 
 ---
 
@@ -20,8 +20,9 @@ The front panel is intentionally simple:
 
 1. Start with `STUDIO`
 2. Raise `SPACE` until the ambience opens up
-3. Adjust `MIX` to sit the effect behind the vocal
-4. Try `ARENA`, `DREAM`, or `VINTAGE` to completely change the feel
+3. Shape character with `AIR`, `DEPTH`, and `WIDTH`
+4. Set final blend using `MIX`
+5. Try other modes for instant voicing changes
 
 ---
 
@@ -29,8 +30,23 @@ The front panel is intentionally simple:
 
 | Control | What you hear | What it changes in the DSP |
 |---|---|---|
-| `SPACE` | Makes the ambience feel bigger, deeper, and more immersive | Increases the effective **room size**, bloom delay, softness of the front edge, motion depth, and tail development |
-| `MIX` | Blends dry vocal with processed space | Controls the final **dry/wet balance** |
+| `SPACE` | Larger and more immersive ambience | Increases effective room size, bloom timing, and tail development |
+| `AIR` | Brighter, more open top-end feel | Rebalances high-frequency damping and shimmer emphasis |
+| `DEPTH` | More front-to-back dimension | Increases depth contour and ambience layering behavior |
+| `WIDTH` | Wider stereo spread | Expands stereo decorrelation and side energy |
+| `MIX` | Dry vocal vs processed space blend | Controls final dry/wet balance |
+
+---
+
+## Spectral Analyzer
+
+The analyzer is a **real-time visual feedback display** designed to show how the space is moving and spreading over time.
+
+- It helps you see overall energy, tail behavior, and width bloom.
+- It is intended as visual guidance while you tune controls and mode.
+- It does **not** directly change audio by itself.
+
+Audio changes still come from `SPACE`, `AIR`, `DEPTH`, `WIDTH`, `MIX`, and the mode buttons.
 
 ---
 
@@ -40,45 +56,13 @@ The four mode buttons are real voicing modes with different DSP behavior.
 
 | Mode | Feel | What changes in the DSP |
 |---|---|---|
-| `STUDIO` | Tight, controlled, modern vocal room | Smaller room feel, shorter pre-delay, stronger ducking, less width and motion |
-| `ARENA` | Bigger, wider, more open | Larger room, more pre-delay, more side width, more halo and movement |
-| `DREAM` | Soft, lush, floating | Biggest and most diffuse space, longer bloom, fewer early reflections, more motion and tail lift |
-| `VINTAGE` | Darker, narrower, older-style ambience | More damping, less width, shorter decorrelation, darker top end, less halo and motion |
+| `STUDIO` | Tight, controlled, modern vocal room | Smaller room feel, shorter pre-delay, stronger ducking, less width/motion |
+| `ARENA` | Bigger, wider, open | Larger room, more pre-delay, more side width, more halo/movement |
+| `DREAM` | Soft, lush, floating | More diffuse space, longer bloom, fewer early reflections, higher tail lift |
+| `VINTAGE` | Darker, narrower, retro ambience | More damping, less width, darker top end, lower halo/motion |
 
 ### Important note
-These are **not just labels**. Clicking a mode changes the actual backend reverb and ambience behavior.
-
----
-
-## What the Mode Buttons Also Recall
-
-Because `Space By Nova` is intentionally minimal, the mode buttons also help manage several hidden internal tone-shaping parameters.
-
-When you press a mode button, it can recall or rebalance:
-- `Air`
-- `Depth`
-- `Width`
-- pre-delay behavior
-- decay feel
-- damping amount
-- early reflection balance
-
-So the button is doing more than changing a name — it is loading a complete spatial character.
-
----
-
-## What Happens Under the Hood
-
-`Space By Nova` uses a layered ambience structure built from:
-
-1. **Pre-delay** for vocal separation
-2. **Room size and decay shaping** for how large the space feels
-3. **Damping and tone filtering** for brightness control
-4. **Early reflections** for closeness vs diffusion
-5. **Stereo decorrelation and width shaping** for spread
-6. **Duck / glue / halo behavior** so the effect stays flattering around the source
-
-That is why the plugin can feel polished and “finished” even with a very small control set.
+These are **not just labels**. Clicking a mode changes backend ambience voicing and can rebalance macro behavior.
 
 ---
 
@@ -86,29 +70,30 @@ That is why the plugin can feel polished and “finished” even with a very sma
 
 ### For lead vocals
 - Start with `STUDIO`
-- Keep `MIX` low
-- Raise `SPACE` until the vocal opens up but stays forward
+- Keep `MIX` low to medium
+- Use `AIR` for clarity without over-brightening
 
 ### For cinematic or atmospheric vocals
 - Try `DREAM`
-- Use more `SPACE` and slightly more `MIX`
+- Raise `SPACE` and `DEPTH`
+- Increase `WIDTH` for a larger stereo image
 
-### For a bigger chorus or hook sound
+### For bigger hooks and choruses
 - Try `ARENA`
-- Great for width and scale without going full wash
+- Use moderate `SPACE` with slightly higher `WIDTH`
 
-### For a darker retro vibe
+### For darker tone or retro vibe
 - Use `VINTAGE`
-- Good when modern brightness feels too obvious
+- Pull `AIR` down and keep `MIX` conservative
 
 ---
 
 ## Summary
 
-`Space By Nova` keeps ambience simple:
-- `SPACE` = size, bloom, and depth macro
-- `MIX` = dry/wet blend
-- `STUDIO / ARENA / DREAM / VINTAGE` = real DSP space personalities
-
-It is designed to help users get to a flattering vocal space quickly instead of managing a large reverb workstation.
+`Space By Nova` is built for fast, musical ambience shaping:
+- `SPACE` controls size and bloom behavior
+- `AIR / DEPTH / WIDTH` shape tone and dimension
+- `MIX` sets blend
+- `STUDIO / ARENA / DREAM / VINTAGE` provide instant DSP voicing
+- the spectral analyzer provides live visual feedback
 

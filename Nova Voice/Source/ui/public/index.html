@@ -20,7 +20,10 @@
 
     html, body {
       width: 100%; height: 100%; overflow: hidden;
-      background: #01010A;
+      background:
+        radial-gradient(1200px 620px at 20% -10%, rgba(44, 24, 102, 0.40), transparent 58%),
+        radial-gradient(980px 520px at 85% 110%, rgba(0, 110, 180, 0.26), transparent 62%),
+        linear-gradient(180deg, #050819 0%, #02030c 58%, #010107 100%);
       font-family: "SF Pro Display","Helvetica Neue",Arial,sans-serif;
       color: var(--text);
       -webkit-font-smoothing: antialiased;
@@ -47,43 +50,129 @@
     }
 
     /* ── Cosmic layer ───────────────────────────────────────────── */
-    .cosmos { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
-    #bg-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .cosmos {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      animation: cosmosFloat 26s ease-in-out infinite alternate;
+    }
+    #bg-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.9;
+      mix-blend-mode: screen;
+    }
+    .cosmos::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.18;
+      background-image:
+        radial-gradient(1px 1px at 14% 22%, rgba(255,255,255,0.45), transparent 65%),
+        radial-gradient(1.2px 1.2px at 39% 71%, rgba(175,210,255,0.40), transparent 68%),
+        radial-gradient(1px 1px at 66% 36%, rgba(220,200,255,0.42), transparent 65%),
+        radial-gradient(1.1px 1.1px at 83% 58%, rgba(170,220,255,0.36), transparent 66%);
+      background-size: 220px 220px, 300px 300px, 260px 260px, 340px 340px;
+      background-repeat: repeat;
+      mix-blend-mode: screen;
+      animation: starDrift 44s linear infinite, starTwinkle 8s ease-in-out infinite alternate;
+    }
+
+    .galaxy-a,
+    .galaxy-b {
+      position: absolute;
+      border-radius: 999px;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: 0.30;
+      filter: blur(0.2px);
+    }
+    .galaxy-a {
+      width: 420px;
+      height: 180px;
+      left: -90px;
+      top: 330px;
+      background:
+        radial-gradient(ellipse at 50% 50%, rgba(210, 175, 255, 0.28) 0%, rgba(130, 88, 230, 0.14) 36%, rgba(0, 0, 0, 0) 72%),
+        conic-gradient(from 10deg, rgba(0, 235, 255, 0.24), rgba(120, 90, 255, 0.20), rgba(0, 185, 255, 0.16), rgba(0, 235, 255, 0.24));
+      transform: rotate(-18deg);
+      animation: galaxySpinA 62s linear infinite;
+    }
+    .galaxy-b {
+      width: 360px;
+      height: 150px;
+      right: -70px;
+      top: 120px;
+      background:
+        radial-gradient(ellipse at 50% 50%, rgba(175, 225, 255, 0.26) 0%, rgba(60, 132, 210, 0.13) 38%, rgba(0, 0, 0, 0) 74%),
+        conic-gradient(from 120deg, rgba(128, 96, 255, 0.20), rgba(0, 235, 255, 0.20), rgba(148, 104, 255, 0.16), rgba(128, 96, 255, 0.20));
+      transform: rotate(14deg);
+      animation: galaxySpinB 74s linear infinite reverse;
+    }
 
     .nebula-a {
       position: absolute; width: 560px; height: 560px;
       left: -140px; top: -120px; border-radius: 50%;
       background: radial-gradient(circle,
-        rgba(160,80,255,0.11) 0%, rgba(100,55,200,0.05) 45%, transparent 70%);
-      filter: blur(48px);
+        rgba(168,92,255,0.27) 0%, rgba(130,72,235,0.12) 45%, transparent 72%);
+      filter: blur(52px);
       animation: ndrift 13s ease-in-out infinite alternate;
     }
     .nebula-b {
       position: absolute; width: 640px; height: 420px;
       right: -160px; bottom: -70px; border-radius: 50%;
       background: radial-gradient(circle,
-        rgba(0,180,255,0.09) 0%, rgba(0,110,200,0.04) 45%, transparent 70%);
-      filter: blur(55px);
+        rgba(0,192,255,0.24) 0%, rgba(0,120,210,0.11) 45%, transparent 72%);
+      filter: blur(60px);
       animation: ndrift 17s ease-in-out infinite alternate-reverse;
     }
     .nebula-c {
       position: absolute; width: 680px; height: 260px;
       left: 50%; top: 35%; transform: translateX(-50%);
       background: radial-gradient(ellipse,
-        rgba(110,65,255,0.055) 0%, transparent 65%);
-      filter: blur(32px);
+        rgba(124,76,255,0.18) 0%, rgba(68,150,255,0.06) 42%, transparent 72%);
+      filter: blur(36px);
     }
     @keyframes ndrift {
       from { transform: scale(1) translate(0,0); }
       to   { transform: scale(1.12) translate(14px,-10px); }
     }
+    @keyframes starDrift {
+      from { background-position: 0 0, 0 0, 0 0, 0 0; }
+      to   { background-position: 90px -42px, -70px 36px, 54px -28px, -46px 26px; }
+    }
+    @keyframes starTwinkle {
+      from { opacity: 0.14; }
+      to   { opacity: 0.21; }
+    }
+    @keyframes cosmosFloat {
+      from { transform: translate3d(0, 0, 0); }
+      to   { transform: translate3d(0, -4px, 0); }
+    }
+    @keyframes galaxySpinA {
+      from { transform: rotate(-18deg) scale(1); }
+      to   { transform: rotate(342deg) scale(1.03); }
+    }
+    @keyframes galaxySpinB {
+      from { transform: rotate(14deg) scale(1); }
+      to   { transform: rotate(374deg) scale(1.02); }
+    }
 
     /* Grain overlay */
     .grain {
       position: absolute; inset: 0; z-index: 1;
-      pointer-events: none; mix-blend-mode: overlay; opacity: 0.030;
+      pointer-events: none; mix-blend-mode: overlay; opacity: 0.048;
       background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/></filter><rect width='256' height='256' filter='url(%23n)'/></svg>");
       background-size: 210px 210px;
+      animation: grainShift 22s linear infinite;
+    }
+    @keyframes grainShift {
+      from { background-position: 0 0; }
+      to   { background-position: 120px 80px; }
     }
 
     /* All layered content above cosmos */
@@ -163,16 +252,57 @@
       flex: 1; display: flex; align-items: stretch;
       padding: 14px 54px 10px; gap: 11px; min-height: 0;
     }
-    .meter-wrap { width: 22px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; }
-    .meter-label { font-size: 7px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); }
-    .meter-bars { flex: 1; width: 100%; display: flex; flex-direction: column-reverse; gap: 2px; }
-    .meter-seg {
-      height: 5px; border-radius: 2px;
-      background: rgba(255,255,255,0.05);
-      transition: background 35ms linear;
+    .meter-wrap { width: 54px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .meter-label {
+      font-size: 7px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(220, 228, 255, 0.34);
+      text-shadow: 0 0 8px rgba(130, 110, 255, 0.35);
     }
-    .meter-seg.active { background: linear-gradient(90deg, var(--violet), var(--cyan)); box-shadow: 0 0 4px rgba(0,232,255,0.28); }
-    .meter-seg.hot    { background: var(--red-hot); box-shadow: 0 0 6px rgba(255,64,96,0.5); }
+    .meter-bars {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(12, 6, 40, 0.90), rgba(4, 18, 55, 0.85));
+      border: 1px solid rgba(132, 112, 238, 0.20);
+      box-shadow:
+        inset 0 0 32px rgba(0, 0, 0, 0.60),
+        0 0 20px rgba(100, 78, 225, 0.22);
+      overflow: hidden;
+    }
+    .meter-bars::before { display: none; }
+    .meter-bars::after  { display: none; }
+    .meter-seg {
+      height: 3px;
+      width: var(--meter-w, 62%);
+      margin: 0 auto;
+      border-radius: 999px;
+      background: rgba(160,150,220,0.10);
+      opacity: 0.20;
+      transition: width 80ms ease, background 90ms ease, opacity 90ms ease, box-shadow 120ms ease, transform 110ms ease;
+    }
+    .meter-seg.active {
+      opacity: 0.98;
+      transform: translateZ(0);
+      background: linear-gradient(90deg, #8C6CFF 0%, #23BDF0 52%, #00E6FF 100%);
+      box-shadow: 0 0 8px rgba(0, 226, 255, 0.34), 0 0 14px rgba(130, 106, 255, 0.26);
+    }
+    .meter-seg.mid {
+      background: linear-gradient(90deg, #9D6BFF 0%, #2CC8FF 100%);
+      box-shadow: 0 0 10px rgba(0, 204, 255, 0.42);
+    }
+    .meter-seg.hot {
+      background: linear-gradient(90deg, #FF5B8A 0%, #FF3F65 100%);
+      box-shadow: 0 0 13px rgba(255, 74, 120, 0.62);
+    }
+    .meter-seg.peak {
+      opacity: 1;
+      width: 96%;
+      background: linear-gradient(90deg, #D8CAFF 0%, #9BEFFF 100%);
+      box-shadow: 0 0 16px rgba(181, 228, 255, 0.78);
+    }
     .canvas-wrap {
       flex: 1; position: relative; border-radius: 14px; overflow: hidden;
       background: rgba(3,2,13,0.94);
@@ -267,6 +397,8 @@
     <!-- Cosmic BG -->
     <div class="cosmos">
       <canvas id="bg-canvas"></canvas>
+      <div class="galaxy-a"></div>
+      <div class="galaxy-b"></div>
       <div class="nebula-a"></div>
       <div class="nebula-b"></div>
       <div class="nebula-c"></div>
@@ -287,12 +419,18 @@
     <div class="preset-browser">
       <select id="category-select" class="category-select">
         <option value="All">All</option>
-        <option value="Lead" selected>Lead</option>
+        <option value="Vocal">Vocal</option>
+        <option value="Modern FX">Modern FX</option>
+        <option value="Creative">Creative</option>
         <option value="Adlibs">Adlibs</option>
+        <option value="Atmosphere">Atmosphere</option>
+        <option value="R&B / Pop">R&amp;B / Pop</option>
+        <option value="Rap">Rap</option>
+        <option value="FX Rap">FX Rap</option>
+        <option value="Alt Pop">Alt Pop</option>
+        <option value="Hyperpop">Hyperpop</option>
         <option value="Stacks">Stacks</option>
-        <option value="FX">FX</option>
-        <option value="Experimental">Experimental</option>
-        <option value="Signature">Signature</option>
+        <option value="Signature" selected>Signature</option>
       </select>
       <div class="browser-divider"></div>
       <button id="prev-preset" class="nav-btn" aria-label="Previous">&#8249;</button>
