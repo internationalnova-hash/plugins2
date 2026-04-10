@@ -304,7 +304,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float focusHz = 1700.0f * std::pow (2.0f, focusShiftOct);
     const float focusWidthOct = juce::jlimit (0.9f, 2.8f, 2.2f - (0.8f * std::abs (formNorm)));
     const float detectorSens = 0.45f + morphNorm * 0.65f * mode.morph;
-    const float threshold = 0.014f;
+    const float threshold = juce::jmap (morphNorm, 0.0048f, 0.0026f);
 
     for (int s = 0; s < buffer.getNumSamples(); ++s)
     {
@@ -329,7 +329,9 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         const float freq = bandFrequencies[i];
         const float envelope = bandEnvelopes[i];
-        const float harshness = clampUnit ((envelope - threshold) * (20.0f * detectorSens));
+        const float aboveThreshold = juce::jmax (0.0f, envelope - threshold);
+        const float detectorDrive = (aboveThreshold / (threshold + 1.0e-5f)) * (1.2f + detectorSens * 2.2f);
+        const float harshness = clampUnit (std::tanh (detectorDrive));
 
         const float logDist = std::log2 (juce::jmax (1.0f, freq) / focusHz);
         const float focusWeight = juce::jlimit (0.26f, 1.0f,
@@ -366,8 +368,8 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     auto* rightChannel = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
 
     float blockPeak = 0.0f;
-    const float textureDrive = 1.0f + textureNorm * 3.2f * mode.texture;
-    const float textureMix = juce::jlimit (0.08f, 0.82f, 0.12f + textureNorm * 0.52f * mode.texture);
+    const float textureDrive = 1.0f + textureNorm * 4.8f * mode.texture;
+    const float textureMix = juce::jlimit (0.14f, 0.92f, 0.22f + textureNorm * 0.62f * mode.texture);
     const float airEnhance = juce::jlimit (0.00f, 0.22f, 0.03f + airNorm * 0.16f * mode.brightness);
     const float motionDepth = juce::jlimit (0.0f, 0.22f, 0.02f + morphNorm * 0.10f * mode.motion + textureNorm * 0.06f);
     const float phaseStep = juce::MathConstants<float>::twoPi * (0.22f + 0.35f * mode.motion) / static_cast<float> (currentSampleRate);
@@ -404,9 +406,12 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         wetL *= (1.0f + motionDepth * motion);
         wetR *= (1.0f - motionDepth * motion);
 
-        const float outL = dryLeft[s] * (1.0f - blendNorm) + wetL * blendNorm;
+        const float dryGain = std::cos (blendNorm * juce::MathConstants<float>::halfPi);
+        const float wetGain = std::sin (blendNorm * juce::MathConstants<float>::halfPi);
+
+        const float outL = dryLeft[s] * dryGain + wetL * wetGain;
         const float dryRs = dryRight != nullptr ? dryRight[s] : dryLeft[s];
-        const float outR = dryRs * (1.0f - blendNorm) + wetR * blendNorm;
+        const float outR = dryRs * dryGain + wetR * wetGain;
 
         leftChannel[s] = outL;
         if (rightChannel != nullptr)
