@@ -271,16 +271,17 @@ function demoSpectrum() {
     const harmonic1 = Math.pow(Math.sin(demoPhase * 0.7 + tNorm * 8) * 0.3 + 0.3, 2);
     const harmonic2 = Math.pow(Math.sin(demoPhase * 1.1 + tNorm * 12) * 0.2 + 0.2, 2);
     const formant = Math.exp(-Math.pow((tNorm - (0.3 + Math.sin(demoPhase * 0.3) * 0.1)) * 3, 2)) * 0.6;
-    return (fundamental + harmonic1 + harmonic2 + formant) * 255;
+    // Clamp to [0,1] matching the C++ analyzer output range
+    return Math.min(1, (fundamental + harmonic1 + harmonic2 + formant) * 0.55);
   });
   const problem = input.map((v, b) => {
     const tNorm = b / BINS;
     const harsh = Math.pow(Math.sin(demoPhase * 1.5 + tNorm * 16) * 0.5, 2) * (0.3 + 0.2 * Math.sin(demoPhase * 0.2));
-    return harsh * 200;
+    return Math.min(1, harsh * 0.85);
   });
   const reduction = input.map((v, b) => {
     const tNorm = b / BINS;
-    return Math.max(0, (Math.sin(tNorm * 8 + demoPhase) * 0.5 + 0.5) * 80 - 40);
+    return Math.max(0, Math.min(1, (Math.sin(tNorm * 8 + demoPhase) * 0.5 + 0.5) * 0.4));
   });
   window.updateVoiceSpectrum?.(input, problem, reduction);
 }
@@ -298,22 +299,32 @@ function connectParameters() {
   });
 
   KNOB_PARAMS.forEach(id => {
-    const state = parameterStates[id];
-    if (!state) return;
-    state.addValueChangedListener(() => {
-      if (isApplyingPreset) return;
-      updateKnob(id, denormalize(id, state.getNormalisedValue()));
-    });
-    updateKnob(id, denormalize(id, state.getNormalisedValue()));
+    try {
+      const state = parameterStates[id];
+      if (!state) return;
+      state.valueChangedEvent.addListener(() => {
+        if (isApplyingPreset) return;
+        updateKnob(id, denormalize(id, state.getNormalisedValue()));
+      });
+      // Also sync once when properties arrive (covers initial value race)
+      state.propertiesChangedEvent.addListener(() => {
+        updateKnob(id, denormalize(id, state.getNormalisedValue()));
+      });
+    } catch (e) {
+      console.warn("Failed to connect param", id, e);
+    }
   });
 
-  const modeState = parameterStates["voice_mode"];
-  if (modeState) {
-    modeState.addValueChangedListener(() => {
-      if (isApplyingPreset) return;
-      updateMode(denormalize("voice_mode", modeState.getNormalisedValue()));
-    });
-    updateMode(denormalize("voice_mode", modeState.getNormalisedValue()));
+  try {
+    const modeState = parameterStates["voice_mode"];
+    if (modeState) {
+      modeState.valueChangedEvent.addListener(() => {
+        if (isApplyingPreset) return;
+        updateMode(denormalize("voice_mode", modeState.getNormalisedValue()));
+      });
+    }
+  } catch (e) {
+    console.warn("Failed to connect voice_mode", e);
   }
 }
 
@@ -479,9 +490,14 @@ document.addEventListener("DOMContentLoaded", () => {
   bindBrowser();
   bindKnobs();
   bindModeButtons();
-  connectParameters();
 
-  // Default: Lead → Midnight Glow
+  try {
+    connectParameters();
+  } catch (e) {
+    console.warn("connectParameters error:", e);
+  }
+
+  // Always apply default preset so knobs/UI initialize visually
   const sel = document.getElementById("category-select");
   if (sel) sel.value = "Lead";
   currentCategory = "Lead";
@@ -491,6 +507,8 @@ document.addEventListener("DOMContentLoaded", () => {
   currentPresetIdx = defaultIdx >= 0 ? defaultIdx : 0;
 
   if (leadList.length > 0) {
+    // pushToPlugin=false so we don't overwrite host state on load;
+    // JUCE value listeners will update knob visuals once backend responds
     applyPreset(leadList[currentPresetIdx], false, false);
   }
 });
