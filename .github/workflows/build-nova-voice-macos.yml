@@ -1,0 +1,36 @@
+name: Build Nova Voice macOS
+
+on:
+  push:
+    paths:
+      - 'Nova Voice/**'
+      - '.github/workflows/build-nova-voice-macos.yml'
+  pull_request:
+    paths:
+      - 'Nova Voice/**'
+      - '.github/workflows/build-nova-voice-macos.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        run: brew install cmake
+
+      - name: Clean build directory
+        run: rm -rf "Nova Voice/build"
+
+      - name: Configure CMake
+        run: cmake -S "Nova Voice" -B "Nova Voice/build"
+
+      - name: Build
+        run: cmake --build "Nova Voice/build" --config Release
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaVoice-macOS-build
+          path: Nova Voice/build

@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Voice</title>
+  <style>
+    :root {
+      --bg-deep:    #0B0B12;
+      --bg-panel:   #11111A;
+      --bg-glass:   rgba(255,255,255,0.045);
+      --border:     rgba(122, 92, 255, 0.22);
+      --border-sub: rgba(255,255,255,0.07);
+      --violet:     #7A5CFF;
+      --violet-dim: rgba(122,92,255,0.35);
+      --cyan:       #00D4FF;
+      --cyan-dim:   rgba(0,212,255,0.35);
+      --text-main:  #EAE8FF;
+      --text-soft:  rgba(234,232,255,0.5);
+      --text-dim:   rgba(234,232,255,0.28);
+      --red-hot:    #FF4466;
+      --ease:       200ms cubic-bezier(0.22,1,0.36,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: var(--bg-deep);
+      font-family: "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text-main);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body { display: grid; place-items: center; }
+
+    /* ── Plugin shell ───────────────────────────────────────────── */
+    .plugin {
+      position: relative;
+      width: min(1080px, 100vw);
+      height: min(680px, 100vh);
+      background: linear-gradient(175deg, #13121F 0%, #0B0B12 60%, #0D0B18 100%);
+      border: 1px solid rgba(122,92,255,0.18);
+      border-radius: 20px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow:
+        0 30px 80px rgba(0,0,0,0.8),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    .plugin::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 70% 40% at 50% 0%, rgba(122,92,255,0.07) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 48px;
+      height: 68px;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border-sub);
+    }
+
+    .header-logo {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+    }
+
+    .header-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      opacity: 0.9;
+    }
+
+    .header-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .plugin-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, var(--violet) 0%, var(--cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .plugin-sub {
+      font-size: 9.5px;
+      letter-spacing: 2.5px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .header-right {
+      font-size: 10.5px;
+      letter-spacing: 1.5px;
+      color: var(--text-dim);
+      font-style: italic;
+      text-align: right;
+    }
+
+    /* ── Preset Browser ──────────────────────────────────────────── */
+    .preset-browser {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 48px;
+      height: 52px;
+      flex-shrink: 0;
+      background: rgba(10,8,20,0.6);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .category-select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: rgba(122,92,255,0.12);
+      border: 1px solid rgba(122,92,255,0.3);
+      border-radius: 8px;
+      color: var(--text-main);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 0 32px 0 14px;
+      height: 32px;
+      cursor: pointer;
+      outline: none;
+      min-width: 122px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237A5CFF' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      transition: border-color var(--ease), background-color var(--ease);
+    }
+    .category-select:hover {
+      border-color: rgba(122,92,255,0.6);
+      background-color: rgba(122,92,255,0.20);
+    }
+    .category-select option {
+      background: #1A1828;
+      color: var(--text-main);
+    }
+
+    .browser-divider {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--text-soft);
+      font-size: 18px;
+      cursor: pointer;
+      transition: border-color var(--ease), color var(--ease), background-color var(--ease);
+      flex-shrink: 0;
+      user-select: none;
+      line-height: 1;
+    }
+    .nav-btn:hover {
+      border-color: var(--violet);
+      color: var(--text-main);
+      background: rgba(122,92,255,0.14);
+    }
+    .nav-btn:active {
+      background: rgba(122,92,255,0.25);
+    }
+
+    .preset-display {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .preset-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 260px;
+    }
+
+    .preset-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: nowrap;
+    }
+
+    .tag {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--cyan);
+      background: rgba(0,212,255,0.10);
+      border: 1px solid rgba(0,212,255,0.22);
+      border-radius: 4px;
+      padding: 2px 7px;
+    }
+
+    /* ── Analyzer section ────────────────────────────────────────── */
+    .analyzer-section {
+      display: flex;
+      align-items: stretch;
+      padding: 16px 48px 0;
+      gap: 14px;
+      height: 188px;
+      flex-shrink: 0;
+    }
+
+    .meter-strip {
+      width: 28px;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 2px;
+      padding: 4px 0;
+      flex-shrink: 0;
+    }
+
+    .meter-label {
+      font-size: 8.5px;
+      letter-spacing: 1.5px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 6px;
+      flex-shrink: 0;
+    }
+
+    .meter-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 28px;
+      flex-shrink: 0;
+    }
+
+    .meter-bars {
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 2px;
+      flex: 1;
+      width: 100%;
+    }
+
+    .meter-seg {
+      height: 6px;
+      width: 100%;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.06);
+      transition: background 40ms linear;
+    }
+    .meter-seg.active {
+      background: linear-gradient(90deg, var(--violet), var(--cyan));
+    }
+    .meter-seg.hot {
+      background: var(--red-hot);
+    }
+
+    .canvas-wrap {
+      flex: 1;
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #080810;
+      border: 1px solid rgba(122,92,255,0.12);
+    }
+
+    #voice-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ── Knobs ───────────────────────────────────────────────────── */
+    .knobs-section {
+      display: flex;
+      align-items: center;
+      padding: 14px 48px 0;
+      height: 240px;
+      flex-shrink: 0;
+    }
+
+    .knobs-row {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      flex: 1;
+    }
+
+    .knob-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: ns-resize;
+      user-select: none;
+      -webkit-user-select: none;
+      padding: 12px 16px;
+      border-radius: 14px;
+      transition: background var(--ease);
+    }
+    .knob-col:hover { background: rgba(255,255,255,0.03); }
+    .knob-col.dragging { background: rgba(122,92,255,0.08); cursor: grabbing; }
+
+    .knob-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-soft);
+    }
+
+    .knob-svg-wrap {
+      position: relative;
+      width: 84px;
+      height: 84px;
+    }
+
+    .knob-svg {
+      width: 84px;
+      height: 84px;
+      overflow: visible;
+    }
+
+    .knob-value {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text-soft);
+      min-width: 44px;
+      text-align: center;
+      transition: color var(--ease);
+    }
+    .knob-col:hover .knob-value { color: var(--text-main); }
+
+    /* ── Mode buttons ─────────────────────────────────────────────── */
+    .mode-section {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 14px 48px 22px;
+      flex-shrink: 0;
+    }
+
+    .mode-btn {
+      height: 34px;
+      padding: 0 26px;
+      border-radius: 9px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      color: var(--text-soft);
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      outline: none;
+      transition: all var(--ease);
+    }
+    .mode-btn:hover {
+      border-color: rgba(122,92,255,0.45);
+      color: var(--text-main);
+      background: rgba(122,92,255,0.10);
+    }
+    .mode-btn.active {
+      border-color: var(--violet);
+      background: rgba(122,92,255,0.18);
+      color: var(--text-main);
+      box-shadow:
+        0 0 12px rgba(122,92,255,0.25),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .mode-btn[data-mode="0"].active { border-color: #88E8C4; box-shadow: 0 0 12px rgba(136,232,196,0.2); color: #CCFAED; background: rgba(136,232,196,0.10); }
+    .mode-btn[data-mode="1"].active { border-color: var(--cyan); box-shadow: 0 0 14px rgba(0,212,255,0.25); color: var(--cyan); background: rgba(0,212,255,0.10); }
+    .mode-btn[data-mode="2"].active { border-color: var(--violet); box-shadow: 0 0 14px rgba(122,92,255,0.25); color: #C0AAFF; background: rgba(122,92,255,0.15); }
+    .mode-btn[data-mode="3"].active { border-color: #FF6655; box-shadow: 0 0 14px rgba(255,102,85,0.25); color: #FFBBAA; background: rgba(255,102,85,0.12); }
+  </style>
+</head>
+<body>
+
+  <!-- Shared SVG defs for knob gradient -->
+  <svg width="0" height="0" style="position:absolute;overflow:hidden">
+    <defs>
+      <linearGradient id="knob-grad" x1="0" y1="1" x2="1" y2="0">
+        <stop offset="0%"   stop-color="#7A5CFF"/>
+        <stop offset="55%"  stop-color="#38AAFF"/>
+        <stop offset="100%" stop-color="#00D4FF"/>
+      </linearGradient>
+      <linearGradient id="knob-grad-blend" x1="0" y1="1" x2="1" y2="0">
+        <stop offset="0%"   stop-color="#5A3FCC"/>
+        <stop offset="100%" stop-color="#00D4FF"/>
+      </linearGradient>
+      <filter id="knob-glow">
+        <feGaussianBlur stdDeviation="2.5" result="blur"/>
+        <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+      </filter>
+    </defs>
+  </svg>
+
+  <div class="plugin">
+
+    <!-- ── Header ── -->
+    <header class="header">
+      <div class="header-logo">
+        <img src="n_logo.png" alt="N" />
+      </div>
+      <div class="header-center">
+        <div class="plugin-title">Nova Voice</div>
+        <div class="plugin-sub">Vocal Transformation</div>
+      </div>
+      <div class="header-right">by International Nova</div>
+    </header>
+
+    <!-- ── Preset Browser ── -->
+    <div class="preset-browser">
+      <select id="category-select" class="category-select">
+        <option value="All">All</option>
+        <option value="Lead" selected>Lead</option>
+        <option value="Adlibs">Adlibs</option>
+        <option value="Stacks">Stacks</option>
+        <option value="FX">FX</option>
+        <option value="Experimental">Experimental</option>
+        <option value="Signature">Signature</option>
+      </select>
+
+      <div class="browser-divider"></div>
+
+      <button id="prev-preset" class="nav-btn" aria-label="Previous preset">&#8249;</button>
+
+      <div class="preset-display">
+        <span id="preset-name" class="preset-name">Midnight Glow</span>
+        <div id="preset-tags" class="preset-tags">
+          <span class="tag">Glossy</span>
+          <span class="tag">Airy</span>
+          <span class="tag">Emotional</span>
+        </div>
+      </div>
+
+      <button id="next-preset" class="nav-btn" aria-label="Next preset">&#8250;</button>
+    </div>
+
+    <!-- ── Analyzer ── -->
+    <div class="analyzer-section">
+
+      <div class="meter-wrap">
+        <div class="meter-label">IN</div>
+        <div class="meter-bars" id="input-meter"></div>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="voice-canvas"></canvas>
+      </div>
+
+      <div class="meter-wrap">
+        <div class="meter-label">OUT</div>
+        <div class="meter-bars" id="output-meter"></div>
+      </div>
+
+    </div>
+
+    <!-- ── Knobs ── -->
+    <div class="knobs-section">
+      <div class="knobs-row">
+
+        <!-- MORPH -->
+        <div class="knob-col" data-param="morph" data-min="0" data-max="10">
+          <div class="knob-label">Morph</div>
+          <div class="knob-svg-wrap">
+            <svg class="knob-svg" viewBox="0 0 84 84">
+              <!-- Track arc -->
+              <circle class="knob-track" cx="42" cy="42" r="30"
+                fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"
+                stroke-dasharray="125.7 62.8"
+                transform="rotate(135 42 42)"
+                stroke-linecap="round"/>
+              <!-- Fill arc -->
+              <circle class="knob-fill" cx="42" cy="42" r="30"
+                fill="none" stroke="url(#knob-grad)" stroke-width="5"
+                stroke-dasharray="0 188.5"
+                transform="rotate(135 42 42)"
+                stroke-linecap="round"/>
+              <!-- Center glow body -->
+              <circle cx="42" cy="42" r="22"
+                fill="rgba(122,92,255,0.06)" stroke="rgba(122,92,255,0.18)" stroke-width="1"/>
+              <!-- Indicator dot -->
+              <g class="knob-indicator" style="transform-origin:42px 42px;transform:rotate(-120deg)">
+                <circle cx="42" cy="16" r="3.5" fill="white" opacity="0.85"/>
+              </g>
+            </svg>
+          </div>
+          <div class="knob-value">5.0</div>
+        </div>
+
+        <!-- TEXTURE -->
+        <div class="knob-col" data-param="texture" data-min="0" data-max="10">
+          <div class="knob-label">Texture</div>
+          <div class="knob-svg-wrap">
+            <svg class="knob-svg" viewBox="0 0 84 84">
+              <circle class="knob-track" cx="42" cy="42" r="30"
+                fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"
+                stroke-dasharray="125.7 62.8"
+                transform="rotate(135 42 42)"
+                stroke-linecap="round"/>
+              <circle class="knob-fill" cx="42" cy="42" r="30"
+                fill="none" stroke="url(#knob-grad)" stroke-width="5"
+                stroke-dasharray="0 188.5"
+                transform="rotate(135 42 42)"
+                stroke-linecap="round"/>
+              <circle cx="42" cy="42" r="22"
+                fill="rgba(122,92,255,0.06)" stroke="rgba(122,92,255,0.18)" stroke-width="1"/>
+              <g class="knob-indicator" style="transform-origin:42px 42px;transform:rotate(-120deg)">
+                <circle cx="42" cy="16" r="3.5" fill="white" opacity="0.85"/>
+              </g>
+            </svg>
+          </div>
+          <div class="knob-value">4.0</div>
+        </div>
+
+        <!-- FORM -->
+        <div class="knob-col" data-param="form" data-min="0" data-max="10">
+          <div class="knob-label">Form</div>
+          <div class="knob-svg-wrap">
+            <svg class="knob-svg" viewBox="0 0 84 84">
+              <circle class="knob-track" cx="42" cy="42" r="30"
+                fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"
+                stroke-dasharray="125.7 62.8"
+                transform="rotate(135 42 42)"
+                stroke-linecap="round"/>
+              <circle class="knob-fill" cx="42" cy="42" r="30"
+                fill="none" stroke="url(#knob-grad)" stroke-width="5"
+                stroke-dasharray="0 188.5"
+                transform="rotate(135 42 42)"
+                stroke-linecap="round"/>
+              <circle cx="42" cy="42" r="22"
+                fill="rgba(122,92,255,0.06)" stroke="rgba(122,92,255,0.18)" stroke-width="1"/>
+              <g class="knob-indicator" style="transform-origin:42px 42px;transform:rotate(-120deg)">
+                <circle cx="42" cy="16" r="3.5" fill="white" opacity="0.85"/>
+              </g>
+            </svg>
+          </div>
+          <div class="knob-value">5.5</div>
+        </div>
+
+        <!-- AIR -->
+        <div class="knob-col" data-param="air" data-min="0" data-max="10">
+          <div class="knob-label">Air</div>
+          <div class="knob-svg-wrap">
+            <svg class="knob-svg" viewBox="0 0 84 84">
+              <circle class="knob-track" cx="42" cy="42" r="30"
+                fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"
+                stroke-dasharray="125.7 62.8"
+                transform="rotate(135 42 42)"
+                stroke-linecap="round"/>
+              <circle class="knob-fill" cx="42" cy="42" r="30"
+                fill="none" stroke="url(#knob-grad)" stroke-width="5"
+                stroke-dasharray="0 188.5"
+                transform="rotate(135 42 42)"
+                stroke-linecap="round"/>
+              <circle cx="42" cy="42" r="22"
+                fill="rgba(122,92,255,0.06)" stroke="rgba(122,92,255,0.18)" stroke-width="1"/>
+              <g class="knob-indicator" style="transform-origin:42px 42px;transform:rotate(-120deg)">
+                <circle cx="42" cy="16" r="3.5" fill="white" opacity="0.85"/>
+              </g>
+            </svg>
+          </div>
+          <div class="knob-value">5.0</div>
+        </div>
+
+        <!-- BLEND -->
+        <div class="knob-col" data-param="blend" data-min="0" data-max="100">
+          <div class="knob-label">Blend</div>
+          <div class="knob-svg-wrap">
+            <svg class="knob-svg" viewBox="0 0 84 84">
+              <circle class="knob-track" cx="42" cy="42" r="30"
+                fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"
+                stroke-dasharray="125.7 62.8"
+                transform="rotate(135 42 42)"
+                stroke-linecap="round"/>
+              <circle class="knob-fill" cx="42" cy="42" r="30"
+                fill="none" stroke="url(#knob-grad-blend)" stroke-width="5"
+                stroke-dasharray="0 188.5"
+                transform="rotate(135 42 42)"
+                stroke-linecap="round"/>
+              <circle cx="42" cy="42" r="22"
+                fill="rgba(0,180,255,0.05)" stroke="rgba(0,212,255,0.16)" stroke-width="1"/>
+              <g class="knob-indicator" style="transform-origin:42px 42px;transform:rotate(-120deg)">
+                <circle cx="42" cy="16" r="3.5" fill="white" opacity="0.85"/>
+              </g>
+            </svg>
+          </div>
+          <div class="knob-value">55%</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Mode Buttons ── -->
+    <div class="mode-section">
+      <button class="mode-btn" data-mode="0">Clean</button>
+      <button class="mode-btn" data-mode="1">Digital</button>
+      <button class="mode-btn active" data-mode="2">Hybrid</button>
+      <button class="mode-btn" data-mode="3">Extreme</button>
+    </div>
+
+  </div><!-- .plugin -->
+
+  <script type="module" src="js/index.js"></script>
+</body>
+</html>
