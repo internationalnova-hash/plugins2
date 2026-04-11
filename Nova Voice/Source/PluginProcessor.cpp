@@ -340,10 +340,11 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float airNormRaw = air / 10.0f;
 
     // Perceptual curves: make early knob movement immediately audible.
-    const float morphNorm = std::pow (juce::jlimit (0.0f, 1.0f, morphNormRaw), 0.62f);
-    const float textureNorm = std::pow (juce::jlimit (0.0f, 1.0f, textureNormRaw), 0.60f);
-    const float formNorm = std::pow (juce::jlimit (0.0f, 1.0f, formNormRaw), 0.78f);
-    const float airNorm = std::pow (juce::jlimit (0.0f, 1.0f, airNormRaw), 0.62f);
+    // CRITICAL: Use steeper curves so that default/midpoint values produce MINIMAL effect (neutral baseline)
+    const float morphNorm = std::pow (juce::jlimit (0.0f, 1.0f, morphNormRaw - 0.50f) * 2.0f, 0.80f);  // Curves around midpoint
+    const float textureNorm = std::pow (juce::jlimit (0.0f, 1.0f, textureNormRaw - 0.40f) * 2.0f, 0.75f);  // Shifts to emphasize movement from defaults
+    const float formNorm = std::pow (juce::jlimit (0.0f, 1.0f, formNormRaw - 0.55f) * 2.0f, 0.85f);  // Neutral at form=5.5
+    const float airNorm = std::pow (juce::jlimit (0.0f, 1.0f, airNormRaw - 0.50f) * 2.0f, 0.80f);  // Neutral at air=5.0
     const float blendNorm = blend / 100.0f;
 
     struct ModeBias
@@ -462,9 +463,11 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float f1 = juce::jlimit (260.0f, 1800.0f, 520.0f * formantShift);
     const float f2 = juce::jlimit (900.0f, 3300.0f, 1420.0f * formantShift);
     const float f3 = juce::jlimit (1600.0f, 5200.0f, 2550.0f * formantShift);
-    const float formGain1 = juce::Decibels::decibelsToGain (juce::jmap (formNorm, 0.0f, 6.0f));
-    const float formGain2 = juce::Decibels::decibelsToGain (juce::jmap (formNorm, 0.0f, 7.0f));
-    const float formGain3 = juce::Decibels::decibelsToGain (juce::jmap (formNorm, 0.0f, 5.0f));
+    // Make formant gains neutral (1.0) when formNorm is below threshold for baseline neutrality
+    const float formGainMult = std::abs (formNorm) > 0.06f ? 1.0f : 0.0f;
+    const float formGain1 = juce::Decibels::decibelsToGain (juce::jmap (formNorm, 0.0f, 6.0f) * formGainMult);
+    const float formGain2 = juce::Decibels::decibelsToGain (juce::jmap (formNorm, 0.0f, 7.0f) * formGainMult);
+    const float formGain3 = juce::Decibels::decibelsToGain (juce::jmap (formNorm, 0.0f, 5.0f) * formGainMult);
 
     formantFiltersLeft[0].coefficients  = juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate, f1, 1.15f, formGain1);
     formantFiltersLeft[1].coefficients  = juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate, f2, 1.05f, formGain2);
@@ -499,50 +502,66 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         float wetL = inL;
         float wetR = inR;
 
-        if ((inL >= 0.0f) != (previousInputLeft >= 0.0f))
-            subOctavePolarityLeft = !subOctavePolarityLeft;
-        if ((inR >= 0.0f) != (previousInputRight >= 0.0f))
-            subOctavePolarityRight = !subOctavePolarityRight;
+        // ===== PITCH STAGE =====
+        // Skip pitch processing entirely if pitch is not meaningfully different from zero
+        if (std::abs (pitch) > 0.1f)
+        {
+            if ((inL >= 0.0f) != (previousInputLeft >= 0.0f))
+                subOctavePolarityLeft = !subOctavePolarityLeft;
+            if ((inR >= 0.0f) != (previousInputRight >= 0.0f))
+                subOctavePolarityRight = !subOctavePolarityRight;
 
-        const float pitchUpL = std::tanh ((2.0f * std::abs (inL) - 0.95f) * 1.7f);
-        const float pitchUpR = std::tanh ((2.0f * std::abs (inR) - 0.95f) * 1.7f);
-        const float pitchDownL = subOctavePolarityLeft ? std::abs (inL) : -std::abs (inL);
-        const float pitchDownR = subOctavePolarityRight ? std::abs (inR) : -std::abs (inR);
-        const float pitchMix = juce::jlimit (0.0f, 1.0f, pitchAmountNorm * (0.58f + 0.28f * mode.morph));
-        if (pitch > 0.001f)
-        {
-            wetL = juce::jmap (pitchMix, wetL, pitchUpL);
-            wetR = juce::jmap (pitchMix, wetR, pitchUpR);
+            const float pitchUpL = std::tanh ((2.0f * std::abs (inL) - 0.95f) * 1.7f);
+            const float pitchUpR = std::tanh ((2.0f * std::abs (inR) - 0.95f) * 1.7f);
+            const float pitchDownL = subOctavePolarityLeft ? std::abs (inL) : -std::abs (inL);
+            const float pitchDownR = subOctavePolarityRight ? std::abs (inR) : -std::abs (inR);
+            const float pitchMix = juce::jlimit (0.0f, 1.0f, pitchAmountNorm * (0.58f + 0.28f * mode.morph));
+            if (pitch > 0.001f)
+            {
+                wetL = juce::jmap (pitchMix, wetL, pitchUpL);
+                wetR = juce::jmap (pitchMix, wetR, pitchUpR);
+            }
+            else if (pitch < -0.001f)
+            {
+                wetL = juce::jmap (pitchMix, wetL, std::tanh (pitchDownL * 1.4f));
+                wetR = juce::jmap (pitchMix, wetR, std::tanh (pitchDownR * 1.4f));
+            }
+
+            const float pitchCharacterL = std::tanh (wetL * (1.0f + pitchAmountNorm * 1.4f));
+            const float pitchCharacterR = std::tanh (wetR * (1.0f + pitchAmountNorm * 1.4f));
+            wetL = juce::jmap (pitchAmountNorm, wetL, pitchCharacterL);
+            wetR = juce::jmap (pitchAmountNorm, wetR, pitchCharacterR);
+
+            if (mode.pitchEdge > 0.0f)
+            {
+                wetL = juce::jmap (mode.pitchEdge, wetL, std::tanh (wetL * (1.0f + mode.pitchEdge * 1.6f)));
+                wetR = juce::jmap (mode.pitchEdge, wetR, std::tanh (wetR * (1.0f + mode.pitchEdge * 1.6f)));
+            }
         }
-        else if (pitch < -0.001f)
+        else
         {
-            wetL = juce::jmap (pitchMix, wetL, std::tanh (pitchDownL * 1.4f));
-            wetR = juce::jmap (pitchMix, wetR, std::tanh (pitchDownR * 1.4f));
+            if ((inL >= 0.0f) != (previousInputLeft >= 0.0f))
+                subOctavePolarityLeft = !subOctavePolarityLeft;
+            if ((inR >= 0.0f) != (previousInputRight >= 0.0f))
+                subOctavePolarityRight = !subOctavePolarityRight;
         }
 
         previousInputLeft = inL;
         previousInputRight = inR;
 
-        const float pitchCharacterL = std::tanh (wetL * (1.0f + pitchAmountNorm * 1.4f));
-        const float pitchCharacterR = std::tanh (wetR * (1.0f + pitchAmountNorm * 1.4f));
-        wetL = juce::jmap (pitchAmountNorm, wetL, pitchCharacterL);
-        wetR = juce::jmap (pitchAmountNorm, wetR, pitchCharacterR);
-
-        if (mode.pitchEdge > 0.0f)
+        // ===== REDUCTION FILTER BANK =====
+        // Only apply if morph is meaningfully beyond neutral (threshold at 0.08 of normalized 0-1 after perceptual curve)
+        if (morphNorm > 0.08f)
         {
-            wetL = juce::jmap (mode.pitchEdge, wetL, std::tanh (wetL * (1.0f + mode.pitchEdge * 1.6f)));
-            wetR = juce::jmap (mode.pitchEdge, wetR, std::tanh (wetR * (1.0f + mode.pitchEdge * 1.6f)));
+            for (size_t i = 0; i < smoothingBandCount; ++i)
+            {
+                wetL = leftReductionFilters[i].processSample (wetL);
+                wetR = rightReductionFilters[i].processSample (wetR);
+            }
+            // Keep the reduction stage characterful, but avoid collapsing every preset into the same harsh tone.
+            wetL = juce::jmap (reductionAmount, inL, wetL);
+            wetR = juce::jmap (reductionAmount, inR, wetR);
         }
-
-        for (size_t i = 0; i < smoothingBandCount; ++i)
-        {
-            wetL = leftReductionFilters[i].processSample (wetL);
-            wetR = rightReductionFilters[i].processSample (wetR);
-        }
-
-        // Keep the reduction stage characterful, but avoid collapsing every preset into the same harsh tone.
-        wetL = juce::jmap (reductionAmount, inL, wetL);
-        wetR = juce::jmap (reductionAmount, inR, wetR);
 
         const float lowL = 0.93f * previousWetLeft + 0.07f * wetL;
         const float lowR = 0.93f * previousWetRight + 0.07f * wetR;
@@ -550,10 +569,15 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float highR = wetR - lowR;
         const float satL = std::tanh (highL * textureDrive);
         const float satR = std::tanh (highR * textureDrive);
-        wetL = lowL + juce::jmap (textureMix, highL, satL);
-        wetR = lowR + juce::jmap (textureMix, highR, satR);
+        // Only apply texture saturation if texture is meaningfully beyond neutral
+        if (textureNorm > 0.08f)
+        {
+            wetL = lowL + juce::jmap (textureMix, highL, satL);
+            wetR = lowR + juce::jmap (textureMix, highR, satR);
+        }
 
-        // 1) FORMANT / IDENTITY STAGE
+        // ===== FORMANT / IDENTITY STAGE =====
+        // Formant filters are updated with neutral gains when formNorm < 0.06f, so they don't affect the signal at baseline
         float formantL = formantFiltersLeft[0].processSample (wetL);
         formantL = formantFiltersLeft[1].processSample (formantL);
         formantL = formantFiltersLeft[2].processSample (formantL);
@@ -561,64 +585,76 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         formantR = formantFiltersRight[1].processSample (formantR);
         formantR = formantFiltersRight[2].processSample (formantR);
 
-        const float throatL = std::tanh ((formantL + formBias * (0.18f + 0.20f * formNorm)) * (1.0f + formNorm * 0.95f));
-        const float throatR = std::tanh ((formantR + formBias * (0.18f + 0.20f * formNorm)) * (1.0f + formNorm * 0.95f));
-        const float formantMix = juce::jlimit (0.0f, 1.0f, formNorm * 0.86f);
-        wetL = juce::jmap (formantMix, wetL, throatL);
-        wetR = juce::jmap (formantMix, wetR, throatR);
+        // Only apply formant morphing if form is meaningfully beyond neutral
+        if (std::abs (formNorm) > 0.06f)
+        {
+            const float throatL = std::tanh ((formantL + formBias * (0.18f + 0.20f * formNorm)) * (1.0f + formNorm * 0.95f));
+            const float throatR = std::tanh ((formantR + formBias * (0.18f + 0.20f * formNorm)) * (1.0f + formNorm * 0.95f));
+            const float formantMix = juce::jlimit (0.0f, 1.0f, std::abs (formNorm) * 0.86f);
+            wetL = juce::jmap (formantMix, wetL, throatL);
+            wetR = juce::jmap (formantMix, wetR, throatR);
+        }
 
-        // 2) MORPH STAGE
-        const float rectL = (2.0f * std::abs (wetL) - 1.0f);
-        const float rectR = (2.0f * std::abs (wetR) - 1.0f);
-        const float asymL = std::tanh ((wetL + rectL * formBias) * morphDrive);
-        const float asymR = std::tanh ((wetR + rectR * formBias) * morphDrive);
-        const float foldL = std::sin (wetL * (1.0f + 3.8f * morphCharacter));
-        const float foldR = std::sin (wetR * (1.0f + 3.8f * morphCharacter));
-        const float morphedL = juce::jmap (foldMix, asymL, foldL);
-        const float morphedR = juce::jmap (foldMix, asymR, foldR);
+        // ===== MORPH STAGE =====
+        // Only apply morphing effects if morph is meaningfully beyond neutral
+        if (morphNorm > 0.08f)
+        {
+            const float rectL = (2.0f * std::abs (wetL) - 1.0f);
+            const float rectR = (2.0f * std::abs (wetR) - 1.0f);
+            const float asymL = std::tanh ((wetL + rectL * formBias) * morphDrive);
+            const float asymR = std::tanh ((wetR + rectR * formBias) * morphDrive);
+            const float foldL = std::sin (wetL * (1.0f + 3.8f * morphCharacter));
+            const float foldR = std::sin (wetR * (1.0f + 3.8f * morphCharacter));
+            const float morphedL = juce::jmap (foldMix, asymL, foldL);
+            const float morphedR = juce::jmap (foldMix, asymR, foldR);
 
-        const float env = 0.5f * (std::abs (inL) + std::abs (inR));
-        const float dynamicMorph = juce::jlimit (0.0f, 1.0f, 0.08f + morphCharacter * (0.68f + env * 0.8f));
-        wetL = juce::jmap (dynamicMorph, wetL, morphedL);
-        wetR = juce::jmap (dynamicMorph, wetR, morphedR);
+            const float env = 0.5f * (std::abs (inL) + std::abs (inR));
+            const float dynamicMorph = juce::jlimit (0.0f, 1.0f, 0.08f + morphCharacter * (0.68f + env * 0.8f));
+            wetL = juce::jmap (dynamicMorph, wetL, morphedL);
+            wetR = juce::jmap (dynamicMorph, wetR, morphedR);
 
-        // Octave-up via full-wave shaping and sub-octave via divide-by-two style polarity toggling.
-        const float octaveUpL = std::tanh ((2.0f * std::abs (wetL) - 0.95f) * (0.85f + 1.55f * octaveLayer));
-        const float octaveUpR = std::tanh ((2.0f * std::abs (wetR) - 0.95f) * (0.85f + 1.55f * octaveLayer));
+            // Octave-up via full-wave shaping and sub-octave via divide-by-two style polarity toggling.
+            const float octaveUpL = std::tanh ((2.0f * std::abs (wetL) - 0.95f) * (0.85f + 1.55f * octaveLayer));
+            const float octaveUpR = std::tanh ((2.0f * std::abs (wetR) - 0.95f) * (0.85f + 1.55f * octaveLayer));
 
-        const float pitchedL = wetL;
-        const float pitchedR = wetR;
+            const float pitchedL = wetL;
+            const float pitchedR = wetR;
 
-        const float subRawL = subOctavePolarityLeft ? std::abs (pitchedL) : -std::abs (pitchedL);
-        const float subRawR = subOctavePolarityRight ? std::abs (pitchedR) : -std::abs (pitchedR);
-        const float subOctL = std::tanh (subRawL * (0.95f + 0.95f * octaveLayer));
-        const float subOctR = std::tanh (subRawR * (0.95f + 0.95f * octaveLayer));
+            const float subRawL = subOctavePolarityLeft ? std::abs (pitchedL) : -std::abs (pitchedL);
+            const float subRawR = subOctavePolarityRight ? std::abs (pitchedR) : -std::abs (pitchedR);
+            const float subOctL = std::tanh (subRawL * (0.95f + 0.95f * octaveLayer));
+            const float subOctR = std::tanh (subRawR * (0.95f + 0.95f * octaveLayer));
 
-        wetL += highVoiceMix * octaveUpL + lowVoiceMix * subOctL;
-        wetR += highVoiceMix * octaveUpR + lowVoiceMix * subOctR;
+            wetL += highVoiceMix * octaveUpL + lowVoiceMix * subOctL;
+            wetR += highVoiceMix * octaveUpR + lowVoiceMix * subOctR;
+        }
 
-        // 3) HARMONIC / TEXTURE STAGE
-        const float preTextureL = wetL;
-        const float preTextureR = wetR;
-        const float warmL = std::tanh (wetL * (1.0f + textureNorm * 2.2f * mode.warmWeight));
-        const float warmR = std::tanh (wetR * (1.0f + textureNorm * 2.2f * mode.warmWeight));
-        const float gritL = std::sin (wetL * (1.0f + textureNorm * 6.5f * mode.gritWeight));
-        const float gritR = std::sin (wetR * (1.0f + textureNorm * 6.5f * mode.gritWeight));
-        const float bits = juce::jmap (textureNorm, 6.0f, 30.0f);
-        const float digitalL = std::round (gritL * bits * mode.digitalWeight) / (bits * mode.digitalWeight + 1.0e-5f);
-        const float digitalR = std::round (gritR * bits * mode.digitalWeight) / (bits * mode.digitalWeight + 1.0e-5f);
-        const float harmonicMix = juce::jlimit (0.0f, 1.0f, 0.10f + textureNorm * (0.58f + 0.42f * mode.texture));
-        const float digitalMix = juce::jlimit (0.0f, 1.0f, juce::jmax (0.0f, textureNorm - 0.35f) * 1.5f);
-        float harmonicL = juce::jmap (harmonicMix, wetL, juce::jmap (0.5f, warmL, gritL));
-        float harmonicR = juce::jmap (harmonicMix, wetR, juce::jmap (0.5f, warmR, gritR));
-        harmonicL = juce::jmap (digitalMix, harmonicL, digitalL);
-        harmonicR = juce::jmap (digitalMix, harmonicR, digitalR);
+        // ===== HARMONIC / TEXTURE STAGE =====
+        // Only apply harmonic distortions if texture is meaningfully beyond neutral
+        if (textureNorm > 0.08f)
+        {
+            const float preTextureL = wetL;
+            const float preTextureR = wetR;
+            const float warmL = std::tanh (wetL * (1.0f + textureNorm * 2.2f * mode.warmWeight));
+            const float warmR = std::tanh (wetR * (1.0f + textureNorm * 2.2f * mode.warmWeight));
+            const float gritL = std::sin (wetL * (1.0f + textureNorm * 6.5f * mode.gritWeight));
+            const float gritR = std::sin (wetR * (1.0f + textureNorm * 6.5f * mode.gritWeight));
+            const float bits = juce::jmap (textureNorm, 6.0f, 30.0f);
+            const float digitalL = std::round (gritL * bits * mode.digitalWeight) / (bits * mode.digitalWeight + 1.0e-5f);
+            const float digitalR = std::round (gritR * bits * mode.digitalWeight) / (bits * mode.digitalWeight + 1.0e-5f);
+            const float harmonicMix = juce::jlimit (0.0f, 1.0f, 0.10f + textureNorm * (0.58f + 0.42f * mode.texture));
+            const float digitalMix = juce::jlimit (0.0f, 1.0f, juce::jmax (0.0f, textureNorm - 0.35f) * 1.5f);
+            float harmonicL = juce::jmap (harmonicMix, wetL, juce::jmap (0.5f, warmL, gritL));
+            float harmonicR = juce::jmap (harmonicMix, wetR, juce::jmap (0.5f, warmR, gritR));
+            harmonicL = juce::jmap (digitalMix, harmonicL, digitalL);
+            harmonicR = juce::jmap (digitalMix, harmonicR, digitalR);
 
-        // Prevent MORPH+TEXTURE+FORM stacks from collapsing into one generic distortion tone.
-        const float comboDensity = morphNorm * textureNorm * (0.55f + 0.45f * std::abs (formNorm));
-        const float antiCollapseMix = juce::jlimit (0.0f, 0.46f, comboDensity * 0.46f);
-        wetL = juce::jmap (antiCollapseMix, harmonicL, 0.62f * harmonicL + 0.38f * preTextureL);
-        wetR = juce::jmap (antiCollapseMix, harmonicR, 0.62f * harmonicR + 0.38f * preTextureR);
+            // Prevent MORPH+TEXTURE+FORM stacks from collapsing into one generic distortion tone.
+            const float comboDensity = morphNorm * textureNorm * (0.55f + 0.45f * std::abs (formNorm));
+            const float antiCollapseMix = juce::jlimit (0.0f, 0.46f, comboDensity * 0.46f);
+            wetL = juce::jmap (antiCollapseMix, harmonicL, 0.62f * harmonicL + 0.38f * preTextureL);
+            wetR = juce::jmap (antiCollapseMix, harmonicR, 0.62f * harmonicR + 0.38f * preTextureR);
+        }
 
         if (robotAmount > 0.0f)
         {
@@ -648,40 +684,62 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 robotCarrierPhase -= juce::MathConstants<float>::twoPi;
         }
 
+        // ===== AIR & MOTION ENHANCEMENT =====
+        // Only apply air/motion effects if air parameter is meaningfully beyond neutral
+        if (airNorm > 0.06f || motionDepth > 0.01f)
+        {
+            airSmoothLeft = airSmoothCoeff * airSmoothLeft + (1.0f - airSmoothCoeff) * wetL;
+            airSmoothRight = airSmoothCoeff * airSmoothRight + (1.0f - airSmoothCoeff) * wetR;
+            const float airBandL = wetL - airSmoothLeft;
+            const float airBandR = wetR - airSmoothRight;
+            const float airExciteL = std::tanh (airBandL * (1.3f + airNorm * 6.5f));
+            const float airExciteR = std::tanh (airBandR * (1.3f + airNorm * 6.5f));
+            if (airNorm > 0.06f)
+            {
+                wetL += airExciteMix * airExciteL;
+                wetR += airExciteMix * airExciteR;
+            }
+
+            const float polishedL = airSmoothLeft + airBandL * 0.62f;
+            const float polishedR = airSmoothRight + airBandR * 0.62f;
+            if (airNorm > 0.06f)
+            {
+                wetL = juce::jmap (airPolishMix, wetL, polishedL);
+                wetR = juce::jmap (airPolishMix, wetR, polishedR);
+            }
+
+            const float diffL = wetL - previousWetLeft;
+            const float diffR = wetR - previousWetRight;
+            previousWetLeft = wetL;
+            previousWetRight = wetR;
+
+            if (airNorm > 0.06f)
+            {
+                wetL += diffL * airEnhance;
+                wetR += diffR * airEnhance;
+            }
+
+            if (motionDepth > 0.01f)
+            {
+                const float motion = std::sin (modulationPhase);
+                modulationPhase += phaseStep;
+                if (modulationPhase > juce::MathConstants<float>::twoPi)
+                    modulationPhase -= juce::MathConstants<float>::twoPi;
+
+                wetL *= (1.0f + motionDepth * motion);
+                wetR *= (1.0f - motionDepth * motion);
+            }
+        }
+        else
+        {
+            previousWetLeft = wetL;
+            previousWetRight = wetL;
+        }
+
         // Loudness compensation so creative transformation is heard as character, not just level increase.
         const float wetComp = 1.0f / (1.0f + textureNorm * 0.65f + morphNorm * 0.38f + std::abs (pitch) * 0.02f);
         wetL *= wetComp;
         wetR *= wetComp;
-
-        airSmoothLeft = airSmoothCoeff * airSmoothLeft + (1.0f - airSmoothCoeff) * wetL;
-        airSmoothRight = airSmoothCoeff * airSmoothRight + (1.0f - airSmoothCoeff) * wetR;
-        const float airBandL = wetL - airSmoothLeft;
-        const float airBandR = wetR - airSmoothRight;
-        const float airExciteL = std::tanh (airBandL * (1.3f + airNorm * 6.5f));
-        const float airExciteR = std::tanh (airBandR * (1.3f + airNorm * 6.5f));
-        wetL += airExciteMix * airExciteL;
-        wetR += airExciteMix * airExciteR;
-
-        const float polishedL = airSmoothLeft + airBandL * 0.62f;
-        const float polishedR = airSmoothRight + airBandR * 0.62f;
-        wetL = juce::jmap (airPolishMix, wetL, polishedL);
-        wetR = juce::jmap (airPolishMix, wetR, polishedR);
-
-        const float diffL = wetL - previousWetLeft;
-        const float diffR = wetR - previousWetRight;
-        previousWetLeft = wetL;
-        previousWetRight = wetR;
-
-        wetL += diffL * airEnhance;
-        wetR += diffR * airEnhance;
-
-        const float motion = std::sin (modulationPhase);
-        modulationPhase += phaseStep;
-        if (modulationPhase > juce::MathConstants<float>::twoPi)
-            modulationPhase -= juce::MathConstants<float>::twoPi;
-
-        wetL *= (1.0f + motionDepth * motion);
-        wetR *= (1.0f - motionDepth * motion);
 
         // Soft output protection keeps aggressive combinations controlled.
         wetL = std::tanh (wetL * 1.12f) * 0.94f;
