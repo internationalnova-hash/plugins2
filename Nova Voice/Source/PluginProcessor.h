@@ -100,6 +100,8 @@ private:
     float pitchDownPhase { 0.0f };
     bool subOctavePolarityLeft { false };
     bool subOctavePolarityRight { false };
+    float robotCarrierPhase { 0.0f };
+    float robotEnvelope { 0.0f };
 
     std::array<IIRFilter, 4> formantFiltersLeft;
     std::array<IIRFilter, 4> formantFiltersRight;

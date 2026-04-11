@@ -95,7 +95,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaVoiceAudioProcessor::cre
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { modeId, 1 },
         "Voice Mode",
-        juce::StringArray { "Clean", "Digital", "Hybrid", "Extreme" },
+        juce::StringArray { "Clean", "Digital", "Hybrid", "Extreme", "Robot" },
         2));
 
     return layout;
@@ -187,6 +187,8 @@ void NovaVoiceAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     pitchDownPhase = 0.0f;
     subOctavePolarityLeft = false;
     subOctavePolarityRight = false;
+    robotCarrierPhase = 0.0f;
+    robotEnvelope = 0.0f;
 }
 
 void NovaVoiceAudioProcessor::releaseResources() {}
@@ -310,11 +312,21 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float airNorm = air / 10.0f;
     const float blendNorm = blend / 100.0f;
 
-    struct ModeBias { float morph; float texture; float formRange; float brightness; float motion; };
-    ModeBias mode = { 0.85f, 0.90f, 2.2f, 1.0f, 1.0f }; // Hybrid default
-    if (modeIndex == 0) mode = { 0.60f, 0.55f, 1.5f, 0.90f, 0.70f };      // Clean
-    else if (modeIndex == 1) mode = { 1.00f, 1.15f, 3.0f, 1.15f, 1.10f }; // Digital
-    else if (modeIndex == 3) mode = { 1.25f, 1.35f, 5.0f, 1.20f, 1.35f }; // Extreme
+    struct ModeBias
+    {
+        float morph;
+        float texture;
+        float formRange;
+        float brightness;
+        float motion;
+        float robot;
+    };
+
+    ModeBias mode = { 0.85f, 0.90f, 2.2f, 1.0f, 1.0f, 0.0f }; // Hybrid default
+    if (modeIndex == 0) mode = { 0.60f, 0.55f, 1.5f, 0.90f, 0.70f, 0.0f };      // Clean
+    else if (modeIndex == 1) mode = { 1.00f, 1.15f, 3.0f, 1.15f, 1.10f, 0.0f }; // Digital
+    else if (modeIndex == 3) mode = { 1.25f, 1.35f, 5.0f, 1.20f, 1.35f, 0.0f }; // Extreme
+    else if (modeIndex == 4) mode = { 1.45f, 1.20f, 5.4f, 0.95f, 1.45f, 1.0f }; // Robot
 
     const auto* dryLeft = dryBuffer.getReadPointer (0);
     const auto* dryRight = dryBuffer.getNumChannels() > 1 ? dryBuffer.getReadPointer (1) : nullptr;
@@ -417,6 +429,15 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     formantFiltersRight[1].coefficients = formantFiltersLeft[1].coefficients;
     formantFiltersRight[2].coefficients = formantFiltersLeft[2].coefficients;
 
+    const float robotAmount = mode.robot * juce::jlimit (0.0f, 1.0f, 0.35f + morphNorm * 0.65f);
+    const float robotCarrierHz = 95.0f + textureNorm * 210.0f + juce::jmax (0.0f, formNorm) * 130.0f;
+    const float robotPhaseStep = juce::MathConstants<float>::twoPi * robotCarrierHz / static_cast<float> (currentSampleRate);
+    const float robotQuantSteps = juce::jmap (textureNorm, 7.0f, 30.0f);
+    const float robotSample = juce::jmax (1.0f, static_cast<float> (currentSampleRate * (0.0012f - 0.0008f * textureNorm)));
+    int robotCounter = static_cast<int> (pitchDownPhase * robotSample);
+    float heldRobotL = 0.0f;
+    float heldRobotR = 0.0f;
+
     for (int s = 0; s < buffer.getNumSamples(); ++s)
     {
         const float inL = dryLeft[s];
@@ -475,6 +496,34 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         wetR = formantFiltersRight[1].processSample (wetR);
         wetR = formantFiltersRight[2].processSample (wetR);
 
+        if (robotAmount > 0.0f)
+        {
+            const float inMono = 0.5f * (inL + inR);
+            robotEnvelope = 0.994f * robotEnvelope + 0.006f * std::abs (inMono);
+
+            const float carrier = std::sin (robotCarrierPhase);
+            const float quantL = std::round (wetL * robotQuantSteps) / robotQuantSteps;
+            const float quantR = std::round (wetR * robotQuantSteps) / robotQuantSteps;
+
+            ++robotCounter;
+            if (robotCounter >= static_cast<int> (robotSample))
+            {
+                robotCounter = 0;
+                heldRobotL = quantL;
+                heldRobotR = quantR;
+            }
+
+            const float robotL = std::tanh ((heldRobotL * 0.65f + quantL * 0.35f) * (0.8f + robotEnvelope * 7.0f) * carrier);
+            const float robotR = std::tanh ((heldRobotR * 0.65f + quantR * 0.35f) * (0.8f + robotEnvelope * 7.0f) * carrier);
+
+            wetL = juce::jmap (robotAmount, wetL, robotL);
+            wetR = juce::jmap (robotAmount, wetR, robotR);
+
+            robotCarrierPhase += robotPhaseStep;
+            if (robotCarrierPhase > juce::MathConstants<float>::twoPi)
+                robotCarrierPhase -= juce::MathConstants<float>::twoPi;
+        }
+
         const float diffL = wetL - previousWetLeft;
         const float diffR = wetR - previousWetRight;
         previousWetLeft = wetL;
@@ -504,6 +553,8 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         blockPeak = juce::jmax (blockPeak, std::abs (outL), std::abs (outR));
     }
+
+    pitchDownPhase = static_cast<float> (robotCounter) / robotSample;
 
     outputPeakLevel.store (blockPeak);
     refreshAnalyzerData();
