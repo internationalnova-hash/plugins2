@@ -5,10 +5,44 @@
   var KNOB_PARAMS = ["pitch", "morph", "texture", "form", "air", "blend"];
   var ALL_PARAMS = ["pitch", "morph", "texture", "form", "air", "blend", "voice_mode"];
   var PRESETS = [
-    { name: "International Nova", category: "Signature", tags: ["Flagship", "Digital", "Lead"], pitch: 3.5, morph: 6.8, texture: 3.6, form: 6.4, air: 8.6, blend: 62, mode: 1 },
     { name: "Clean Lift", category: "Vocal", tags: ["Clean", "Polished", "Lead"], pitch: 0.0, morph: 1.7, texture: 0.9, form: 4.1, air: 5.2, blend: 32, mode: 0 },
+    { name: "Velvet Tone", category: "Vocal", tags: ["Smooth", "Warm", "Body"], pitch: 0.0, morph: 3.5, texture: 2.0, form: 4.5, air: 4.0, blend: 45, mode: 2 },
+    { name: "Air Pop", category: "Vocal", tags: ["Airy", "Bright", "Modern"], pitch: 0.0, morph: 2.8, texture: 2.5, form: 5.2, air: 7.0, blend: 40, mode: 0 },
+    { name: "Future Pop", category: "Modern FX", tags: ["Glossy", "Radio", "Modern"], pitch: 0.0, morph: 5.5, texture: 4.0, form: 5.5, air: 6.5, blend: 55, mode: 1 },
+    { name: "Hyper Clean", category: "Modern FX", tags: ["Processed", "Smooth", "Digital"], pitch: 0.0, morph: 4.5, texture: 3.0, form: 5.0, air: 6.0, blend: 60, mode: 1 },
+    { name: "Glass Voice", category: "Modern FX", tags: ["Bright", "Transparent", "Airy"], pitch: 0.0, morph: 4.0, texture: 2.5, form: 5.8, air: 7.5, blend: 50, mode: 2 },
+    { name: "Alien Lead", category: "Creative", tags: ["Transformed", "Alien", "Extreme"], pitch: 0.0, morph: 8.0, texture: 5.5, form: 7.0, air: 6.0, blend: 70, mode: 3 },
+    { name: "Deep Form", category: "Creative", tags: ["Dark", "Massive", "Extreme"], pitch: 0.0, morph: 6.5, texture: 4.0, form: 3.0, air: 4.5, blend: 65, mode: 3 },
+    { name: "Neon Character", category: "Creative", tags: ["Synthetic", "Colorful", "Digital"], pitch: 0.0, morph: 7.0, texture: 5.0, form: 6.5, air: 6.5, blend: 75, mode: 1 },
     { name: "Robot Commander", category: "Creative", tags: ["Robot", "Synthetic", "HardTune"], pitch: -4.0, morph: 9.6, texture: 8.8, form: 7.6, air: 3.0, blend: 92, mode: 4 },
-    { name: "Dream Vocal", category: "Atmosphere", tags: ["Airy", "Floating", "Dreamy"], pitch: 0.0, morph: 5.5, texture: 3.0, form: 6.5, air: 8.0, blend: 70, mode: 2 }
+    { name: "Adlib Shine", category: "Adlibs", tags: ["Bright", "Adlib", "Digital"], pitch: 0.0, morph: 5.0, texture: 3.5, form: 6.0, air: 7.5, blend: 65, mode: 1 },
+    { name: "Wide Layer", category: "Adlibs", tags: ["Wide", "Background", "Hybrid"], pitch: 0.0, morph: 4.0, texture: 2.5, form: 5.5, air: 6.0, blend: 55, mode: 2 },
+    { name: "Soft Double", category: "Adlibs", tags: ["Natural", "Double", "Clean"], pitch: 0.0, morph: 3.0, texture: 1.8, form: 5.2, air: 5.5, blend: 45, mode: 0 },
+    { name: "Dream Vocal", category: "Atmosphere", tags: ["Airy", "Floating", "Dreamy"], pitch: 0.0, morph: 5.5, texture: 3.0, form: 6.5, air: 8.0, blend: 70, mode: 2 },
+    { name: "Ghost Layer", category: "Atmosphere", tags: ["Soft", "Distant", "Ethereal"], pitch: 0.0, morph: 6.0, texture: 2.5, form: 7.0, air: 7.5, blend: 60, mode: 2 },
+    { name: "Ethereal FX", category: "Atmosphere", tags: ["Cinematic", "Extreme", "Airy"], pitch: 0.0, morph: 7.5, texture: 4.5, form: 6.8, air: 8.5, blend: 75, mode: 3 },
+    { name: "Midnight Glow", category: "R&B / Pop", tags: ["Silky", "Emotional", "Modern"], pitch: 0.0, morph: 4.8, texture: 2.8, form: 5.8, air: 7.5, blend: 55, mode: 2 },
+    { name: "Velvet Nights", category: "R&B / Pop", tags: ["Warm", "Intimate", "Clean"], pitch: 0.0, morph: 3.8, texture: 2.0, form: 4.8, air: 5.5, blend: 50, mode: 0 },
+    { name: "Neon Soul", category: "R&B / Pop", tags: ["Futuristic", "R&B", "Digital"], pitch: 0.0, morph: 6.2, texture: 4.0, form: 6.2, air: 6.8, blend: 65, mode: 1 },
+    { name: "Topline Polish", category: "Rap", tags: ["Clean", "Rap", "Modern"], pitch: 0.0, morph: 3.0, texture: 2.5, form: 5.2, air: 6.0, blend: 45, mode: 0 },
+    { name: "Melodic Drip", category: "Rap", tags: ["Glossy", "Melodic", "Digital"], pitch: 0.0, morph: 5.5, texture: 3.5, form: 5.8, air: 7.0, blend: 60, mode: 1 },
+    { name: "Auto Energy", category: "Rap", tags: ["Hyped", "Modern", "Hybrid"], pitch: 0.0, morph: 6.0, texture: 4.2, form: 5.5, air: 6.5, blend: 65, mode: 2 },
+    { name: "Astro Tone", category: "FX Rap", tags: ["Wide", "Futuristic", "Digital"], pitch: 0.0, morph: 7.2, texture: 5.0, form: 6.8, air: 6.5, blend: 70, mode: 1 },
+    { name: "Space Adlib", category: "FX Rap", tags: ["Floating", "Space", "Extreme"], pitch: 0.0, morph: 8.0, texture: 4.5, form: 7.2, air: 7.5, blend: 75, mode: 3 },
+    { name: "Dark Bounce", category: "FX Rap", tags: ["Dark", "Heavy", "Extreme"], pitch: 0.0, morph: 6.5, texture: 4.0, form: 3.8, air: 5.0, blend: 65, mode: 3 },
+    { name: "Soft Air", category: "Alt Pop", tags: ["Breathy", "Airy", "Hybrid"], pitch: 0.0, morph: 4.5, texture: 2.5, form: 6.5, air: 8.5, blend: 55, mode: 2 },
+    { name: "Glass Pop", category: "Alt Pop", tags: ["Clean", "Polished", "Pop"], pitch: 0.0, morph: 3.5, texture: 2.0, form: 6.0, air: 7.5, blend: 50, mode: 0 },
+    { name: "Alt Texture", category: "Alt Pop", tags: ["Gritty", "Alt", "Digital"], pitch: 0.0, morph: 5.8, texture: 4.5, form: 6.2, air: 6.0, blend: 60, mode: 1 },
+    { name: "Hyper Voice", category: "Hyperpop", tags: ["Aggressive", "Bright", "Extreme"], pitch: 0.0, morph: 9.0, texture: 6.5, form: 8.0, air: 8.5, blend: 80, mode: 3 },
+    { name: "Bubble Tone", category: "Hyperpop", tags: ["Playful", "Pitched", "Digital"], pitch: 0.0, morph: 7.5, texture: 5.5, form: 8.5, air: 7.5, blend: 75, mode: 1 },
+    { name: "Digital Angel", category: "Hyperpop", tags: ["Airy", "Synthetic", "Hybrid"], pitch: 0.0, morph: 6.8, texture: 4.0, form: 7.2, air: 9.0, blend: 70, mode: 2 },
+    { name: "Wide Stack", category: "Stacks", tags: ["Background", "Wide", "Hybrid"], pitch: 0.0, morph: 4.2, texture: 2.5, form: 5.8, air: 6.5, blend: 60, mode: 2 },
+    { name: "Soft Layer", category: "Stacks", tags: ["Subtle", "Support", "Clean"], pitch: 0.0, morph: 3.0, texture: 1.8, form: 5.5, air: 5.5, blend: 45, mode: 0 },
+    { name: "Ghost Double", category: "Stacks", tags: ["Airy", "Doubled", "Hybrid"], pitch: 0.0, morph: 5.5, texture: 2.8, form: 6.8, air: 7.5, blend: 65, mode: 2 },
+    { name: "International Nova", category: "Signature", tags: ["Flagship", "Signature", "Digital"], pitch: 3.5, morph: 6.8, texture: 3.6, form: 6.4, air: 8.6, blend: 62, mode: 1 },
+    { name: "Nova Signature", category: "Signature", tags: ["Flagship", "Glossy", "Digital"], pitch: 0.0, morph: 6.0, texture: 4.2, form: 5.8, air: 6.8, blend: 60, mode: 1 },
+    { name: "Vocal Glow", category: "Signature", tags: ["Glossy", "Airy", "Hybrid"], pitch: 0.0, morph: 5.0, texture: 3.0, form: 5.5, air: 8.0, blend: 65, mode: 2 },
+    { name: "Energy Mode", category: "Signature", tags: ["Aggressive", "Modern", "Extreme"], pitch: 0.0, morph: 8.5, texture: 6.0, form: 6.5, air: 7.0, blend: 80, mode: 3 }
   ];
   var currentValues = { pitch: 0.0, morph: 5.0, texture: 4.0, form: 5.5, air: 5.0, blend: 55.0, voice_mode: 2 };
   var parameterStates = {};
