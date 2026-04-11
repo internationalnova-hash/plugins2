@@ -1024,4 +1024,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // JUCE value listeners will update knob visuals once backend responds
     applyPreset(leadList[currentPresetIdx], false, false);
   }
+
+  window.__novaVoiceBooted = true;
 });
