@@ -966,6 +966,7 @@ function initCanvas() {
   canvas = document.getElementById("voice-canvas");
   if (!canvas) return;
   ctx = canvas.getContext("2d");
+  if (!ctx) return;
 
   const resize = () => {
     const wrap = canvas.parentElement;
@@ -977,7 +978,11 @@ function initCanvas() {
     }
   };
   resize();
-  new ResizeObserver(resize).observe(canvas.parentElement);
+  if (typeof ResizeObserver === "function" && canvas.parentElement) {
+    new ResizeObserver(resize).observe(canvas.parentElement);
+  } else {
+    window.addEventListener("resize", resize);
+  }
   window.addEventListener("resize", initStarfield);
   drawFrame();
 }
@@ -986,13 +991,18 @@ function initCanvas() {
 document.addEventListener("DOMContentLoaded", () => {
   juceAvailable = (typeof window.__JUCE__ !== "undefined") && !!Juce?.getSliderState;
 
-  buildMeter("input-meter");
-  buildMeter("output-meter");
-  initCanvas();
-  initStarfield();
   bindBrowser();
   bindKnobs();
   bindModeButtons();
+
+  try {
+    buildMeter("input-meter");
+    buildMeter("output-meter");
+    initCanvas();
+    initStarfield();
+  } catch (e) {
+    console.warn("visual init error:", e);
+  }
 
   try {
     connectParameters();
