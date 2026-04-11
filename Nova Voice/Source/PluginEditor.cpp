@@ -133,6 +133,11 @@ std::optional<juce::WebBrowserComponent::Resource> NovaVoiceAudioProcessorEditor
                              nova_voice_BinaryData::index_jsSize,
                              "text/javascript");
 
+    if (lowerUrl.contains ("js/fallback-boot.js"))
+        return makeResource (nova_voice_BinaryData::fallbackboot_js,
+                             nova_voice_BinaryData::fallbackboot_jsSize,
+                             "text/javascript");
+
     if (lowerUrl.contains ("js/juce/index.js"))
         return makeResource (nova_voice_BinaryData::index_js2,
                              nova_voice_BinaryData::index_js2Size,
@@ -167,6 +172,11 @@ std::optional<juce::WebBrowserComponent::Resource> NovaVoiceAudioProcessorEditor
     if (lowerPath == "/js/index.js" || lowerPath.endsWith ("/js/index.js"))
         return makeResource (nova_voice_BinaryData::index_js,
                              nova_voice_BinaryData::index_jsSize,
+                             "text/javascript");
+
+    if (lowerPath == "/js/fallback-boot.js" || lowerPath.endsWith ("/js/fallback-boot.js"))
+        return makeResource (nova_voice_BinaryData::fallbackboot_js,
+                             nova_voice_BinaryData::fallbackboot_jsSize,
                              "text/javascript");
 
     if (lowerPath == "/js/juce/index.js" || lowerPath.endsWith ("/js/juce/index.js"))
