@@ -100,6 +100,59 @@ let isApplyingPreset = false;
 let currentCategory  = "Signature";
 let currentPresetIdx = 0;
 
+function getParamRange(id) {
+  if (id === "pitch") return { min: -12, max: 12 };
+  if (id === "blend") return { min: 0, max: 100 };
+  if (id === "voice_mode") return { min: 0, max: 4 };
+  return { min: 0, max: 10 };
+}
+
+function createFallbackSliderState(id) {
+  if (typeof window.__JUCE__ === "undefined" || !window.__JUCE__.backend) return null;
+
+  const identifier = `__juce__slider${id}`;
+  const { min, max } = getParamRange(id);
+  let normalisedValue = normalize(id, currentValues[id] ?? min);
+
+  const valueChangedListeners = [];
+
+  window.__JUCE__.backend.addEventListener(identifier, (event) => {
+    if (!event || event.eventType !== "valueChanged") return;
+    const scaled = Number(event.value);
+    const nv = (scaled - min) / (max - min);
+    normalisedValue = Math.max(0, Math.min(1, Number.isFinite(nv) ? nv : normalisedValue));
+    valueChangedListeners.forEach((fn) => fn());
+  });
+
+  return {
+    setNormalisedValue(newValue) {
+      normalisedValue = Math.max(0, Math.min(1, newValue));
+      const scaled = min + normalisedValue * (max - min);
+      window.__JUCE__.backend.emitEvent(identifier, {
+        eventType: "valueChanged",
+        value: scaled,
+      });
+    },
+    getNormalisedValue() {
+      return normalisedValue;
+    },
+    sliderDragStarted() {
+      window.__JUCE__.backend.emitEvent(identifier, { eventType: "sliderDragStarted" });
+    },
+    sliderDragEnded() {
+      window.__JUCE__.backend.emitEvent(identifier, { eventType: "sliderDragEnded" });
+    },
+    valueChangedEvent: {
+      addListener(fn) {
+        valueChangedListeners.push(fn);
+      },
+    },
+    propertiesChangedEvent: {
+      addListener() {},
+    },
+  };
+}
+
 // ── Normalization ─────────────────────────────────────────────────────────────
 function normalize(id, value) {
   if (id === "pitch")      return (value + 12) / 24;
@@ -182,7 +235,7 @@ function updateBrowserUI(preset) {
 }
 
 // ── Apply preset with smooth animation ───────────────────────────────────────
-function applyPreset(preset, pushToPlugin = true, animate = true) {
+function applyPreset(preset, pushToPlugin = true, animate = false) {
   if (isApplyingPreset) return;
 
   updateBrowserUI(preset);
@@ -364,12 +417,19 @@ function connectParameters() {
   }
 
   if (!juceAvailable) {
-    console.error("JUCE host detected but bridge not loaded; skipping demo mode to avoid fake UI behavior.");
-    return;
+    console.warn("JUCE host detected but module bridge unavailable; using fallback parameter bridge.");
   }
 
   ALL_PARAMS.forEach(id => {
-    try { parameterStates[id] = Juce.getSliderState(id); } catch (_) {}
+    try {
+      if (juceAvailable && Juce?.getSliderState) {
+        parameterStates[id] = Juce.getSliderState(id);
+      }
+    } catch (_) {}
+
+    if (!parameterStates[id]) {
+      parameterStates[id] = createFallbackSliderState(id);
+    }
   });
 
   KNOB_PARAMS.forEach(id => {
