@@ -12,7 +12,7 @@ async function tryLoadJuce() {
 }
 
 // ── Preset Bank ───────────────────────────────────────────────────────────────
-// morph/texture/form/air: 0–10 | blend: 0–100 | mode: 0=Clean 1=Digital 2=Hybrid 3=Extreme
+// morph/texture/form/air: 0-10 | blend: 0-100 | mode: 0=Clean 1=Digital 2=Hybrid 3=Extreme 4=Robot
 const PRESETS = [
 
   // ── Vocal Enhancement ──────────────────────────────────────────────────────
@@ -29,6 +29,7 @@ const PRESETS = [
   { name: "Alien Lead",        category: "Creative",    tags: ["Transformed","Alien","Extreme"],   morph: 8.0, texture: 5.5, form: 7.0, air: 6.0, blend: 70,  mode: 3 },
   { name: "Deep Form",         category: "Creative",    tags: ["Dark","Massive","Extreme"],        morph: 6.5, texture: 4.0, form: 3.0, air: 4.5, blend: 65,  mode: 3 },
   { name: "Neon Character",    category: "Creative",    tags: ["Synthetic","Colorful","Digital"],  morph: 7.0, texture: 5.0, form: 6.5, air: 6.5, blend: 75,  mode: 1 },
+  { name: "Robot Commander",   category: "Creative",    tags: ["Robot","Synthetic","HardTune"],    morph: 9.2, texture: 7.8, form: 6.8, air: 3.8, blend: 88,  mode: 4 },
 
   // ── Adlibs ─────────────────────────────────────────────────────────────────
   { name: "Adlib Shine",       category: "Adlibs",      tags: ["Bright","Adlib","Digital"],        morph: 5.0, texture: 3.5, form: 6.0, air: 7.5, blend: 65,  mode: 1 },
@@ -92,14 +93,14 @@ let currentPresetIdx = 0;
 // ── Normalization ─────────────────────────────────────────────────────────────
 function normalize(id, value) {
   if (id === "blend")      return value / 100;
-  if (id === "voice_mode") return value / 3;
+  if (id === "voice_mode") return value / 4;
   return value / 10;
 }
 
 function denormalize(id, nv) {
   const c = Math.max(0, Math.min(1, nv));
   if (id === "blend")      return c * 100;
-  if (id === "voice_mode") return Math.round(c * 3);
+  if (id === "voice_mode") return Math.round(c * 4);
   return c * 10;
 }
 
@@ -484,9 +485,9 @@ window.updateVoiceSpectrum = (input, problem, reduction) => {
   lastSpectrumTick = performance.now();
   let sum = 0;
   for (let i = 0; i < BINS; i++) {
-    smoothedInput[i]     = smoothedInput[i]     * 0.86 + (input[i]     || 0) * 0.14;
-    smoothedProblem[i]   = smoothedProblem[i]   * 0.86 + (problem[i]   || 0) * 0.14;
-    smoothedReduction[i] = smoothedReduction[i] * 0.86 + (reduction[i] || 0) * 0.14;
+    smoothedInput[i]     = smoothedInput[i]     * 0.90 + (input[i]     || 0) * 0.10;
+    smoothedProblem[i]   = smoothedProblem[i]   * 0.90 + (problem[i]   || 0) * 0.10;
+    smoothedReduction[i] = smoothedReduction[i] * 0.90 + (reduction[i] || 0) * 0.10;
     sum += smoothedInput[i];
   }
   inputPeakSmooth = inputPeakSmooth * 0.88 + (sum / BINS) * 2.4 * 0.12;
@@ -589,7 +590,7 @@ function drawFrame() {
   const W = canvas.width, H = canvas.height;
   if (!W || !H) return;
 
-  wavePhase += 0.011;
+  wavePhase += 0.0085;
 
   const morphN   = currentValues.morph   / 10;
   const textureN = currentValues.texture / 10;
@@ -640,7 +641,7 @@ function drawFrame() {
   const transient = Math.max(0, totalEnergy - loudnessMemory);
   loudnessMemory = loudnessMemory * 0.86 + totalEnergy * 0.14;
   transientPulse = Math.max(transientPulse * 0.88, transient * 7.5);
-  wavePhase += lowN * 0.006;
+  wavePhase += lowN * 0.0045;
 
   const glowBreath = 0.5 + 0.5 * Math.sin(wavePhase * 0.85);
   const audioPulse = Math.max(0, Math.min(1, totalEnergy * 2.8));

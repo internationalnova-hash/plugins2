@@ -399,14 +399,15 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     auto* rightChannel = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
 
     float blockPeak = 0.0f;
-    const float textureDrive = 1.0f + textureNorm * 4.8f * mode.texture;
-    const float textureMix = juce::jlimit (0.14f, 0.92f, 0.22f + textureNorm * 0.62f * mode.texture);
+    const float reductionAmount = juce::jlimit (0.0f, 1.0f, 0.04f + morphNorm * 0.52f + textureNorm * 0.30f);
+    const float textureDrive = 1.0f + textureNorm * 2.35f * mode.texture + morphNorm * 1.2f;
+    const float textureMix = juce::jlimit (0.06f, 0.80f, 0.10f + textureNorm * 0.45f * mode.texture + morphNorm * 0.18f);
     const float airEnhance = juce::jlimit (0.00f, 0.22f, 0.03f + airNorm * 0.16f * mode.brightness);
     const float motionDepth = juce::jlimit (0.0f, 0.22f, 0.02f + morphNorm * 0.10f * mode.motion + textureNorm * 0.06f);
     const float phaseStep = juce::MathConstants<float>::twoPi * (0.22f + 0.35f * mode.motion) / static_cast<float> (currentSampleRate);
     const float morphCharacter = juce::jlimit (0.0f, 1.0f, morphNorm * (0.55f + 0.55f * mode.morph));
     const float formBias = juce::jlimit (-0.75f, 0.75f, formNorm * 0.70f);
-    const float morphDrive = 1.0f + 6.2f * morphCharacter;
+    const float morphDrive = 1.0f + 4.8f * morphCharacter;
     const float foldMix = juce::jlimit (0.20f, 0.86f, 0.32f + textureNorm * 0.34f + morphCharacter * 0.26f);
 
     // Dedicated voice-transform layer for obvious creative morphing.
@@ -451,6 +452,10 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             wetR = rightReductionFilters[i].processSample (wetR);
         }
 
+        // Keep the reduction stage characterful, but avoid collapsing every preset into the same harsh tone.
+        wetL = juce::jmap (reductionAmount, inL, wetL);
+        wetR = juce::jmap (reductionAmount, inR, wetR);
+
         const float satL = std::tanh (wetL * textureDrive);
         const float satR = std::tanh (wetR * textureDrive);
         wetL = juce::jmap (textureMix, wetL, satL);
@@ -469,8 +474,8 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         wetR = juce::jmap (morphCharacter, wetR, morphedR);
 
         // Octave-up via full-wave shaping and sub-octave via divide-by-two style polarity toggling.
-        const float octaveUpL = std::tanh ((2.0f * std::abs (inL) - 0.70f) * (1.4f + 2.0f * octaveLayer));
-        const float octaveUpR = std::tanh ((2.0f * std::abs (inR) - 0.70f) * (1.4f + 2.0f * octaveLayer));
+        const float octaveUpL = std::tanh ((2.0f * std::abs (inL) - 0.85f) * (1.2f + 1.8f * octaveLayer));
+        const float octaveUpR = std::tanh ((2.0f * std::abs (inR) - 0.85f) * (1.2f + 1.8f * octaveLayer));
 
         if ((inL >= 0.0f) != (previousInputLeft >= 0.0f))
             subOctavePolarityLeft = !subOctavePolarityLeft;
@@ -479,8 +484,8 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         const float subRawL = subOctavePolarityLeft ? std::abs (inL) : -std::abs (inL);
         const float subRawR = subOctavePolarityRight ? std::abs (inR) : -std::abs (inR);
-        const float subOctL = std::tanh (subRawL * (1.8f + 1.5f * octaveLayer));
-        const float subOctR = std::tanh (subRawR * (1.8f + 1.5f * octaveLayer));
+        const float subOctL = std::tanh (subRawL * (1.2f + 1.2f * octaveLayer));
+        const float subOctR = std::tanh (subRawR * (1.2f + 1.2f * octaveLayer));
 
         previousInputLeft = inL;
         previousInputRight = inR;
