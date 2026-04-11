@@ -53,6 +53,7 @@ juce_add_binary_data(NovaVoice_WebUI
         Source/ui/public/index.html
         Source/ui/public/n_logo.png
         Source/ui/public/js/index.js
+        Source/ui/public/js/fallback-boot.js
         Source/ui/public/js/juce/index.js
         Source/ui/public/js/juce/check_native_interop.js
     NAMESPACE nova_voice_BinaryData
