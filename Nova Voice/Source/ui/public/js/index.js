@@ -22,7 +22,7 @@ async function tryLoadJuce() {
 }
 
 // ── Preset Bank ───────────────────────────────────────────────────────────────
-// morph/texture/form/air: 0-10 | blend: 0-100 | mode: 0=Clean 1=Digital 2=Hybrid 3=Extreme 4=Robot
+// pitch: -12..+12 st | morph/texture/form/air: 0-10 | blend: 0-100 | mode: 0=Clean 1=Digital 2=Hybrid 3=Extreme 4=Robot
 const PRESETS = [
 
   // ── Vocal Enhancement ──────────────────────────────────────────────────────
@@ -82,17 +82,17 @@ const PRESETS = [
   { name: "Ghost Double",      category: "Stacks",      tags: ["Airy","Doubled","Hybrid"],         morph: 5.5, texture: 2.8, form: 6.8, air: 7.5, blend: 65,  mode: 2 },
 
   // ── Signature ──────────────────────────────────────────────────────────────
-  { name: "International Nova",category: "Signature",   tags: ["Flagship","Signature","Digital"],  morph: 6.5, texture: 4.5, form: 5.8, air: 7.2, blend: 65,  mode: 1 },
+  { name: "International Nova",category: "Signature",   tags: ["Flagship","Signature","Digital"],  pitch: 2.0, morph: 6.5, texture: 4.5, form: 5.8, air: 7.2, blend: 65,  mode: 1 },
   { name: "Nova Signature",    category: "Signature",   tags: ["Flagship","Glossy","Digital"],     morph: 6.0, texture: 4.2, form: 5.8, air: 6.8, blend: 60,  mode: 1 },
   { name: "Vocal Glow",        category: "Signature",   tags: ["Glossy","Airy","Hybrid"],         morph: 5.0, texture: 3.0, form: 5.5, air: 8.0, blend: 65,  mode: 2 },
   { name: "Energy Mode",       category: "Signature",   tags: ["Aggressive","Modern","Extreme"],   morph: 8.5, texture: 6.0, form: 6.5, air: 7.0, blend: 80,  mode: 3 },
 ];
 
-const KNOB_PARAMS = ["morph", "texture", "form", "air", "blend"];
+const KNOB_PARAMS = ["pitch", "morph", "texture", "form", "air", "blend"];
 const ALL_PARAMS  = [...KNOB_PARAMS, "voice_mode"];
 
 // ── State ─────────────────────────────────────────────────────────────────────
-const currentValues = { morph: 5.0, texture: 4.0, form: 5.5, air: 5.0, blend: 55, voice_mode: 2 };
+const currentValues = { pitch: 2.0, morph: 5.0, texture: 4.0, form: 5.5, air: 5.0, blend: 55, voice_mode: 2 };
 const parameterStates = {};
 let juceAvailable    = false;
 let activeDrag       = null;
@@ -102,6 +102,7 @@ let currentPresetIdx = 0;
 
 // ── Normalization ─────────────────────────────────────────────────────────────
 function normalize(id, value) {
+  if (id === "pitch")      return (value + 12) / 24;
   if (id === "blend")      return value / 100;
   if (id === "voice_mode") return value / 4;
   return value / 10;
@@ -109,6 +110,7 @@ function normalize(id, value) {
 
 function denormalize(id, nv) {
   const c = Math.max(0, Math.min(1, nv));
+  if (id === "pitch")      return -12 + c * 24;
   if (id === "blend")      return c * 100;
   if (id === "voice_mode") return Math.round(c * 4);
   return c * 10;
@@ -130,8 +132,9 @@ function updateKnob(id, value) {
   const col = document.querySelector(`.knob-col[data-param="${id}"]`);
   if (!col) return;
 
-  const max  = id === "blend" ? 100 : 10;
-  const frac = Math.max(0, Math.min(1, value / max));
+  const min = Number.parseFloat(col.dataset.min || (id === "pitch" ? "-12" : "0"));
+  const max = Number.parseFloat(col.dataset.max || (id === "blend" ? "100" : id === "pitch" ? "12" : "10"));
+  const frac = Math.max(0, Math.min(1, (value - min) / (max - min)));
 
   const fill  = col.querySelector(".knob-fill");
   const dot   = col.querySelector(".knob-indicator");
@@ -139,7 +142,12 @@ function updateKnob(id, value) {
 
   if (fill)  fill.setAttribute("stroke-dasharray", `${frac * TOTAL_ARC} ${KNOB_CIRC}`);
   if (dot)   dot.style.transform = `rotate(${-120 + frac * 240}deg)`;
-  if (label) label.textContent = id === "blend" ? Math.round(value) + "%" : value.toFixed(1);
+  if (label)
+  {
+    if (id === "blend") label.textContent = Math.round(value) + "%";
+    else if (id === "pitch") label.textContent = `${value >= 0 ? "+" : ""}${value.toFixed(1)} st`;
+    else label.textContent = value.toFixed(1);
+  }
 }
 
 // ── Mode visual ───────────────────────────────────────────────────────────────
@@ -179,7 +187,14 @@ function applyPreset(preset, pushToPlugin = true, animate = true) {
 
   updateBrowserUI(preset);
 
-  const targets = { morph: preset.morph, texture: preset.texture, form: preset.form, air: preset.air, blend: preset.blend };
+  const targets = {
+    pitch: preset.pitch ?? 0.0,
+    morph: preset.morph,
+    texture: preset.texture,
+    form: preset.form,
+    air: preset.air,
+    blend: preset.blend,
+  };
 
   if (!animate) {
     KNOB_PARAMS.forEach(id => { updateKnob(id, targets[id]); if (pushToPlugin) pushParam(id, targets[id]); });
@@ -272,7 +287,7 @@ function bindKnobs() {
     col.addEventListener("dblclick", () => {
       const list   = getFilteredPresets(currentCategory);
       const preset = list[currentPresetIdx];
-      const def    = preset ? preset[id] : (id === "blend" ? 55 : 5);
+      const def    = preset ? (preset[id] ?? (id === "pitch" ? 0 : undefined)) : (id === "blend" ? 55 : id === "pitch" ? 0 : 5);
       updateKnob(id, def);
       pushParam(id, def);
     });

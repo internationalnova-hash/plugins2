@@ -98,6 +98,11 @@ private:
     float modulationPhase { 0.0f };
     float pitchUpPhase { 0.0f };
     float pitchDownPhase { 0.0f };
+    int pitchWriteIndex { 0 };
+    float pitchReadPos { 0.0f };
+    int pitchDelaySize { 0 };
+    std::vector<float> pitchDelayLeft;
+    std::vector<float> pitchDelayRight;
     bool subOctavePolarityLeft { false };
     bool subOctavePolarityRight { false };
     float robotCarrierPhase { 0.0f };

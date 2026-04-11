@@ -8,6 +8,7 @@ NovaVoiceAudioProcessorEditor::NovaVoiceAudioProcessorEditor (NovaVoiceAudioProc
 {
     webView = std::make_unique<SinglePageBrowser> (createWebOptions (*this));
 
+    pitchAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("pitch"), pitchRelay, nullptr);
     morphAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("morph"), morphRelay, nullptr);
     textureAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("texture"), textureRelay, nullptr);
     formAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("form"), formRelay, nullptr);
@@ -91,6 +92,7 @@ juce::WebBrowserComponent::Options NovaVoiceAudioProcessorEditor::createWebOptio
                      {
                          return editor.getResource (url);
                      })
+                     .withOptionsFrom (editor.pitchRelay)
                      .withOptionsFrom (editor.morphRelay)
                      .withOptionsFrom (editor.textureRelay)
                      .withOptionsFrom (editor.formRelay)

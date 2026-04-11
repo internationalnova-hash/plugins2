@@ -6,6 +6,7 @@
 
 namespace
 {
+    constexpr auto pitchId = "pitch";
     constexpr auto morphId = "morph";
     constexpr auto textureId = "texture";
     constexpr auto formId = "form";
@@ -46,6 +47,21 @@ NovaVoiceAudioProcessor::~NovaVoiceAudioProcessor() = default;
 juce::AudioProcessorValueTreeState::ParameterLayout NovaVoiceAudioProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { pitchId, 1 },
+        "Pitch",
+        juce::NormalisableRange<float> (-12.0f, 12.0f, 0.01f),
+        2.0f,
+        juce::String(),
+        juce::AudioProcessorParameter::genericParameter,
+        [] (float value, int)
+        {
+            const int semitones = juce::roundToInt (value);
+            if (semitones > 0)
+                return "+" + juce::String (semitones) + " st";
+            return juce::String (semitones) + " st";
+        }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { morphId, 1 },
@@ -185,6 +201,11 @@ void NovaVoiceAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     modulationPhase = 0.0f;
     pitchUpPhase = 0.0f;
     pitchDownPhase = 0.0f;
+    pitchDelaySize = juce::jmax (16384, juce::nextPowerOfTwo (static_cast<int> (sampleRate * 0.35)));
+    pitchDelayLeft.assign (static_cast<size_t> (pitchDelaySize), 0.0f);
+    pitchDelayRight.assign (static_cast<size_t> (pitchDelaySize), 0.0f);
+    pitchWriteIndex = 0;
+    pitchReadPos = static_cast<float> (pitchDelaySize - juce::jmin (4096, pitchDelaySize / 4));
     subOctavePolarityLeft = false;
     subOctavePolarityRight = false;
     robotCarrierPhase = 0.0f;
@@ -299,6 +320,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     dryBuffer.makeCopyOf (buffer, true);
 
+    const float pitch = apvts.getRawParameterValue (pitchId)->load();
     const float morph = apvts.getRawParameterValue (morphId)->load();
     const float texture = apvts.getRawParameterValue (textureId)->load();
     const float form = apvts.getRawParameterValue (formId)->load();
@@ -314,6 +336,8 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     struct ModeBias
     {
+        float pitchSmooth;
+        float pitchEdge;
         float morph;
         float texture;
         float formRange;
@@ -322,11 +346,11 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         float robot;
     };
 
-    ModeBias mode = { 0.85f, 0.90f, 2.2f, 1.0f, 1.0f, 0.0f }; // Hybrid default
-    if (modeIndex == 0) mode = { 0.60f, 0.55f, 1.5f, 0.90f, 0.70f, 0.0f };      // Clean
-    else if (modeIndex == 1) mode = { 1.00f, 1.15f, 3.0f, 1.15f, 1.10f, 0.0f }; // Digital
-    else if (modeIndex == 3) mode = { 1.25f, 1.35f, 5.0f, 1.20f, 1.35f, 0.0f }; // Extreme
-    else if (modeIndex == 4) mode = { 1.45f, 1.20f, 5.4f, 0.95f, 1.45f, 1.0f }; // Robot
+    ModeBias mode = { 0.0025f, 0.00f, 0.85f, 0.90f, 2.2f, 1.0f, 1.0f, 0.0f }; // Hybrid default
+    if (modeIndex == 0) mode = { 0.0042f, 0.00f, 0.60f, 0.55f, 1.5f, 0.90f, 0.70f, 0.0f };      // Clean
+    else if (modeIndex == 1) mode = { 0.0022f, 0.05f, 1.00f, 1.15f, 3.0f, 1.15f, 1.10f, 0.0f }; // Digital
+    else if (modeIndex == 3) mode = { 0.0014f, 0.10f, 1.25f, 1.35f, 5.0f, 1.20f, 1.35f, 0.0f }; // Extreme
+    else if (modeIndex == 4) mode = { 0.0010f, 0.22f, 1.45f, 1.20f, 5.4f, 0.95f, 1.45f, 1.0f }; // Robot
 
     const auto* dryLeft = dryBuffer.getReadPointer (0);
     const auto* dryRight = dryBuffer.getNumChannels() > 1 ? dryBuffer.getReadPointer (1) : nullptr;
@@ -439,12 +463,45 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     float heldRobotL = 0.0f;
     float heldRobotR = 0.0f;
 
+    const float pitchRatio = std::pow (2.0f, pitch / 12.0f);
+    const int pitchDelayBase = juce::jmax (512, juce::jmin (4096, pitchDelaySize / 4));
+
     for (int s = 0; s < buffer.getNumSamples(); ++s)
     {
         const float inL = dryLeft[s];
         const float inR = dryRight != nullptr ? dryRight[s] : dryLeft[s];
-        float wetL = inL;
-        float wetR = inR;
+
+        pitchDelayLeft[static_cast<size_t> (pitchWriteIndex)] = inL;
+        pitchDelayRight[static_cast<size_t> (pitchWriteIndex)] = inR;
+
+        const int readIndexA = static_cast<int> (pitchReadPos) & (pitchDelaySize - 1);
+        const int readIndexB = (readIndexA + 1) & (pitchDelaySize - 1);
+        const float frac = pitchReadPos - static_cast<float> (static_cast<int> (pitchReadPos));
+        const float pitchedL = juce::jmap (frac,
+                                           pitchDelayLeft[static_cast<size_t> (readIndexA)],
+                                           pitchDelayLeft[static_cast<size_t> (readIndexB)]);
+        const float pitchedR = juce::jmap (frac,
+                                           pitchDelayRight[static_cast<size_t> (readIndexA)],
+                                           pitchDelayRight[static_cast<size_t> (readIndexB)]);
+
+        pitchWriteIndex = (pitchWriteIndex + 1) & (pitchDelaySize - 1);
+        pitchReadPos += pitchRatio;
+        while (pitchReadPos >= static_cast<float> (pitchDelaySize)) pitchReadPos -= static_cast<float> (pitchDelaySize);
+        while (pitchReadPos < 0.0f) pitchReadPos += static_cast<float> (pitchDelaySize);
+
+        const float targetRead = static_cast<float> ((pitchWriteIndex - pitchDelayBase + pitchDelaySize) & (pitchDelaySize - 1));
+        float readError = targetRead - pitchReadPos;
+        if (readError > static_cast<float> (pitchDelaySize) * 0.5f) readError -= static_cast<float> (pitchDelaySize);
+        if (readError < -static_cast<float> (pitchDelaySize) * 0.5f) readError += static_cast<float> (pitchDelaySize);
+        pitchReadPos += readError * mode.pitchSmooth;
+
+        float wetL = pitchedL;
+        float wetR = pitchedR;
+        if (mode.pitchEdge > 0.0f)
+        {
+            wetL = juce::jmap (mode.pitchEdge, wetL, std::tanh (wetL * (1.0f + mode.pitchEdge * 1.6f)));
+            wetR = juce::jmap (mode.pitchEdge, wetR, std::tanh (wetR * (1.0f + mode.pitchEdge * 1.6f)));
+        }
 
         for (size_t i = 0; i < smoothingBandCount; ++i)
         {
@@ -491,21 +548,21 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         wetR = juce::jmap (dynamicMorph, wetR, morphedR);
 
         // Octave-up via full-wave shaping and sub-octave via divide-by-two style polarity toggling.
-        const float octaveUpL = std::tanh ((2.0f * std::abs (inL) - 0.95f) * (0.85f + 1.55f * octaveLayer));
-        const float octaveUpR = std::tanh ((2.0f * std::abs (inR) - 0.95f) * (0.85f + 1.55f * octaveLayer));
+        const float octaveUpL = std::tanh ((2.0f * std::abs (pitchedL) - 0.95f) * (0.85f + 1.55f * octaveLayer));
+        const float octaveUpR = std::tanh ((2.0f * std::abs (pitchedR) - 0.95f) * (0.85f + 1.55f * octaveLayer));
 
-        if ((inL >= 0.0f) != (previousInputLeft >= 0.0f))
+        if ((pitchedL >= 0.0f) != (previousInputLeft >= 0.0f))
             subOctavePolarityLeft = !subOctavePolarityLeft;
-        if ((inR >= 0.0f) != (previousInputRight >= 0.0f))
+        if ((pitchedR >= 0.0f) != (previousInputRight >= 0.0f))
             subOctavePolarityRight = !subOctavePolarityRight;
 
-        const float subRawL = subOctavePolarityLeft ? std::abs (inL) : -std::abs (inL);
-        const float subRawR = subOctavePolarityRight ? std::abs (inR) : -std::abs (inR);
+        const float subRawL = subOctavePolarityLeft ? std::abs (pitchedL) : -std::abs (pitchedL);
+        const float subRawR = subOctavePolarityRight ? std::abs (pitchedR) : -std::abs (pitchedR);
         const float subOctL = std::tanh (subRawL * (0.95f + 0.95f * octaveLayer));
         const float subOctR = std::tanh (subRawR * (0.95f + 0.95f * octaveLayer));
 
-        previousInputLeft = inL;
-        previousInputRight = inR;
+        previousInputLeft = pitchedL;
+        previousInputRight = pitchedR;
 
         wetL += highVoiceMix * octaveUpL + lowVoiceMix * subOctL;
         wetR += highVoiceMix * octaveUpR + lowVoiceMix * subOctR;

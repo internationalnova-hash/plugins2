@@ -19,6 +19,7 @@ private:
 
     NovaVoiceAudioProcessor& processorRef;
 
+    juce::WebSliderRelay pitchRelay { "pitch" };
     juce::WebSliderRelay morphRelay { "morph" };
     juce::WebSliderRelay textureRelay { "texture" };
     juce::WebSliderRelay formRelay { "form" };
@@ -38,6 +39,7 @@ private:
 
     std::unique_ptr<SinglePageBrowser> webView;
 
+    std::unique_ptr<juce::WebSliderParameterAttachment> pitchAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> morphAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> textureAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> formAttachment;
