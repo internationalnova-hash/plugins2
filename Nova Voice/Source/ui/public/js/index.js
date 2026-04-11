@@ -2,13 +2,23 @@ let Juce = null;
 
 async function tryLoadJuce() {
   if (typeof window.__JUCE__ === "undefined") return false;
-  try {
-    Juce = await import("./juce/index.js");
-    return true;
-  } catch (e) {
-    console.warn("JUCE module failed to load:", e);
-    return false;
+
+  const candidates = [
+    "./juce/index.js",
+    `./juce/index.js?v=${Date.now()}`,
+  ];
+
+  for (const modulePath of candidates) {
+    try {
+      Juce = await import(modulePath);
+      return true;
+    } catch (e) {
+      console.warn("JUCE module load attempt failed:", modulePath, e);
+    }
   }
+
+  console.error("JUCE bridge unavailable: controls/presets cannot reach DSP until this loads.");
+  return false;
 }
 
 // ── Preset Bank ───────────────────────────────────────────────────────────────
@@ -332,9 +342,14 @@ function demoSpectrum() {
 
 // ── JUCE parameter connection ─────────────────────────────────────────────────
 function connectParameters() {
-  if (!juceAvailable) {
+  if (!juceAvailable && typeof window.__JUCE__ === "undefined") {
     // Demo mode: generate synthetic spectrum data
     setInterval(demoSpectrum, 30);
+    return;
+  }
+
+  if (!juceAvailable) {
+    console.error("JUCE host detected but bridge not loaded; skipping demo mode to avoid fake UI behavior.");
     return;
   }
 

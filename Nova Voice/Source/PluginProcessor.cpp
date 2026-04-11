@@ -399,9 +399,9 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     auto* rightChannel = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
 
     float blockPeak = 0.0f;
-    const float reductionAmount = juce::jlimit (0.0f, 0.30f, 0.01f + morphNorm * 0.14f + textureNorm * 0.08f);
-    const float textureDrive = 1.0f + textureNorm * 1.65f * mode.texture + morphNorm * 0.65f;
-    const float textureMix = juce::jlimit (0.02f, 0.68f, 0.02f + textureNorm * 0.56f * mode.texture);
+    const float reductionAmount = juce::jlimit (0.0f, 0.24f, 0.01f + morphNorm * 0.09f + textureNorm * 0.06f);
+    const float textureDrive = 1.0f + textureNorm * 1.45f * mode.texture + morphNorm * 0.40f;
+    const float textureMix = juce::jlimit (0.0f, 0.58f, 0.02f + textureNorm * 0.44f * mode.texture);
     const float airEnhance = juce::jlimit (0.00f, 0.22f, 0.03f + airNorm * 0.16f * mode.brightness);
     const float motionDepth = juce::jlimit (0.0f, 0.22f, 0.02f + morphNorm * 0.10f * mode.motion + textureNorm * 0.06f);
     const float phaseStep = juce::MathConstants<float>::twoPi * (0.22f + 0.35f * mode.motion) / static_cast<float> (currentSampleRate);
@@ -412,8 +412,8 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     // Dedicated voice-transform layer for obvious creative morphing.
     const float octaveLayer = juce::jlimit (0.0f, 1.0f, std::pow (morphCharacter, 1.2f) * (0.55f + 0.45f * mode.morph));
-    const float highVoiceMix = octaveLayer * 0.56f;
-    const float lowVoiceMix = octaveLayer * 0.44f;
+    const float highVoiceMix = octaveLayer * 0.42f;
+    const float lowVoiceMix = octaveLayer * 0.30f;
 
     const float formantShift = std::pow (2.0f, formNorm * (0.95f + 0.25f * mode.morph));
     const float f1 = juce::jlimit (220.0f, 2200.0f, 520.0f * formantShift);
@@ -461,7 +461,21 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         wetL = juce::jmap (textureMix, wetL, satL);
         wetR = juce::jmap (textureMix, wetR, satR);
 
-        // Stronger vocal morph stage: asymmetric shaping + fold blend for audible timbre transformation.
+        // 1) FORMANT / IDENTITY STAGE
+        float formantL = formantFiltersLeft[0].processSample (wetL);
+        formantL = formantFiltersLeft[1].processSample (formantL);
+        formantL = formantFiltersLeft[2].processSample (formantL);
+        float formantR = formantFiltersRight[0].processSample (wetR);
+        formantR = formantFiltersRight[1].processSample (formantR);
+        formantR = formantFiltersRight[2].processSample (formantR);
+
+        const float throatL = std::tanh ((formantL + formBias * (0.25f + 0.25f * std::abs (formNorm))) * (1.0f + std::abs (formNorm) * 1.35f));
+        const float throatR = std::tanh ((formantR + formBias * (0.25f + 0.25f * std::abs (formNorm))) * (1.0f + std::abs (formNorm) * 1.35f));
+        const float formantMix = juce::jlimit (0.0f, 1.0f, std::abs (formNorm) * 0.85f + morphCharacter * 0.18f);
+        wetL = juce::jmap (formantMix, wetL, throatL);
+        wetR = juce::jmap (formantMix, wetR, throatR);
+
+        // 2) MORPH STAGE
         const float rectL = (2.0f * std::abs (wetL) - 1.0f);
         const float rectR = (2.0f * std::abs (wetR) - 1.0f);
         const float asymL = std::tanh ((wetL + rectL * formBias) * morphDrive);
@@ -470,8 +484,11 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float foldR = std::sin (wetR * (1.0f + 3.8f * morphCharacter));
         const float morphedL = juce::jmap (foldMix, asymL, foldL);
         const float morphedR = juce::jmap (foldMix, asymR, foldR);
-        wetL = juce::jmap (morphCharacter, wetL, morphedL);
-        wetR = juce::jmap (morphCharacter, wetR, morphedR);
+
+        const float env = 0.5f * (std::abs (inL) + std::abs (inR));
+        const float dynamicMorph = juce::jlimit (0.0f, 1.0f, morphCharacter * (0.65f + env * 0.8f));
+        wetL = juce::jmap (dynamicMorph, wetL, morphedL);
+        wetR = juce::jmap (dynamicMorph, wetR, morphedR);
 
         // Octave-up via full-wave shaping and sub-octave via divide-by-two style polarity toggling.
         const float octaveUpL = std::tanh ((2.0f * std::abs (inL) - 0.95f) * (0.85f + 1.55f * octaveLayer));
@@ -493,16 +510,22 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         wetL += highVoiceMix * octaveUpL + lowVoiceMix * subOctL;
         wetR += highVoiceMix * octaveUpR + lowVoiceMix * subOctR;
 
-        // Formant emphasis after octave layering, but mixed to retain preset separation.
-        float formantL = formantFiltersLeft[0].processSample (wetL);
-        formantL = formantFiltersLeft[1].processSample (formantL);
-        formantL = formantFiltersLeft[2].processSample (formantL);
-        float formantR = formantFiltersRight[0].processSample (wetR);
-        formantR = formantFiltersRight[1].processSample (formantR);
-        formantR = formantFiltersRight[2].processSample (formantR);
-        const float formantMix = juce::jlimit (0.0f, 1.0f, 0.06f + std::abs (formNorm) * 0.74f + morphCharacter * 0.22f);
-        wetL = juce::jmap (formantMix, wetL, formantL);
-        wetR = juce::jmap (formantMix, wetR, formantR);
+        // 3) HARMONIC / TEXTURE STAGE
+        const float warmL = std::tanh (wetL * (1.0f + textureNorm * 2.2f));
+        const float warmR = std::tanh (wetR * (1.0f + textureNorm * 2.2f));
+        const float gritL = std::sin (wetL * (1.0f + textureNorm * 6.5f));
+        const float gritR = std::sin (wetR * (1.0f + textureNorm * 6.5f));
+        const float bits = juce::jmap (textureNorm, 6.0f, 30.0f);
+        const float digitalL = std::round (gritL * bits) / bits;
+        const float digitalR = std::round (gritR * bits) / bits;
+        const float harmonicMix = juce::jlimit (0.0f, 1.0f, textureNorm * (0.55f + 0.45f * mode.texture));
+        const float digitalMix = juce::jlimit (0.0f, 1.0f, juce::jmax (0.0f, textureNorm - 0.35f) * 1.5f);
+        float harmonicL = juce::jmap (harmonicMix, wetL, warmL);
+        float harmonicR = juce::jmap (harmonicMix, wetR, warmR);
+        harmonicL = juce::jmap (digitalMix, harmonicL, digitalL);
+        harmonicR = juce::jmap (digitalMix, harmonicR, digitalR);
+        wetL = harmonicL;
+        wetR = harmonicR;
 
         if (robotAmount > 0.0f)
         {
