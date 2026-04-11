@@ -464,7 +464,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float f2 = juce::jlimit (900.0f, 3300.0f, 1420.0f * formantShift);
     const float f3 = juce::jlimit (1600.0f, 5200.0f, 2550.0f * formantShift);
     // Make formant gains neutral (1.0) when formNorm is below threshold for baseline neutrality
-    const float formGainMult = std::abs (formNorm) > 0.06f ? 1.0f : 0.0f;
+    const float formGainMult = std::abs (formNorm) > 0.002f ? 1.0f : 0.0f;
     const float formGain1 = juce::Decibels::decibelsToGain (juce::jmap (formNorm, 0.0f, 6.0f) * formGainMult);
     const float formGain2 = juce::Decibels::decibelsToGain (juce::jmap (formNorm, 0.0f, 7.0f) * formGainMult);
     const float formGain3 = juce::Decibels::decibelsToGain (juce::jmap (formNorm, 0.0f, 5.0f) * formGainMult);
@@ -550,8 +550,8 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         previousInputRight = inR;
 
         // ===== REDUCTION FILTER BANK =====
-        // Only apply if morph is meaningfully beyond neutral (threshold at 0.08 of normalized 0-1 after perceptual curve)
-        if (morphNorm > 0.08f)
+        // Only apply if morph is meaningfully beyond neutral (very low threshold so effects activate immediately)
+        if (morphNorm > 0.002f)
         {
             for (size_t i = 0; i < smoothingBandCount; ++i)
             {
@@ -570,14 +570,14 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float satL = std::tanh (highL * textureDrive);
         const float satR = std::tanh (highR * textureDrive);
         // Only apply texture saturation if texture is meaningfully beyond neutral
-        if (textureNorm > 0.08f)
+        if (textureNorm > 0.002f)
         {
             wetL = lowL + juce::jmap (textureMix, highL, satL);
             wetR = lowR + juce::jmap (textureMix, highR, satR);
         }
 
         // ===== FORMANT / IDENTITY STAGE =====
-        // Formant filters are updated with neutral gains when formNorm < 0.06f, so they don't affect the signal at baseline
+        // Formant filters are updated with neutral gains when formNorm < 0.002f, so they don't affect the signal at baseline
         float formantL = formantFiltersLeft[0].processSample (wetL);
         formantL = formantFiltersLeft[1].processSample (formantL);
         formantL = formantFiltersLeft[2].processSample (formantL);
@@ -586,7 +586,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         formantR = formantFiltersRight[2].processSample (formantR);
 
         // Only apply formant morphing if form is meaningfully beyond neutral
-        if (std::abs (formNorm) > 0.06f)
+        if (std::abs (formNorm) > 0.002f)
         {
             const float throatL = std::tanh ((formantL + formBias * (0.18f + 0.20f * formNorm)) * (1.0f + formNorm * 0.95f));
             const float throatR = std::tanh ((formantR + formBias * (0.18f + 0.20f * formNorm)) * (1.0f + formNorm * 0.95f));
@@ -597,7 +597,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         // ===== MORPH STAGE =====
         // Only apply morphing effects if morph is meaningfully beyond neutral
-        if (morphNorm > 0.08f)
+        if (morphNorm > 0.002f)
         {
             const float rectL = (2.0f * std::abs (wetL) - 1.0f);
             const float rectR = (2.0f * std::abs (wetR) - 1.0f);
@@ -631,7 +631,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         // ===== HARMONIC / TEXTURE STAGE =====
         // Only apply harmonic distortions if texture is meaningfully beyond neutral
-        if (textureNorm > 0.08f)
+        if (textureNorm > 0.002f)
         {
             const float preTextureL = wetL;
             const float preTextureR = wetR;
@@ -686,7 +686,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         // ===== AIR & MOTION ENHANCEMENT =====
         // Only apply air/motion effects if air parameter is meaningfully beyond neutral
-        if (airNorm > 0.06f || motionDepth > 0.01f)
+        if (airNorm > 0.002f || motionDepth > 0.001f)
         {
             airSmoothLeft = airSmoothCoeff * airSmoothLeft + (1.0f - airSmoothCoeff) * wetL;
             airSmoothRight = airSmoothCoeff * airSmoothRight + (1.0f - airSmoothCoeff) * wetR;
