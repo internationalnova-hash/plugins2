@@ -88,10 +88,21 @@ private:
     std::array<IIRFilter, smoothingBandCount> rightReductionFilters;
 
     juce::AudioBuffer<float> dryBuffer;
+    juce::AudioBuffer<float> pitchUpBuffer;
+    juce::AudioBuffer<float> pitchDownBuffer;
     double currentSampleRate { 44100.0 };
     float previousWetLeft { 0.0f };
     float previousWetRight { 0.0f };
+    float previousInputLeft { 0.0f };
+    float previousInputRight { 0.0f };
     float modulationPhase { 0.0f };
+    float pitchUpPhase { 0.0f };
+    float pitchDownPhase { 0.0f };
+    bool subOctavePolarityLeft { false };
+    bool subOctavePolarityRight { false };
+
+    std::array<IIRFilter, 4> formantFiltersLeft;
+    std::array<IIRFilter, 4> formantFiltersRight;
 
     std::array<std::atomic<float>, spectrumBins> inputSpectrum {};
     std::array<std::atomic<float>, spectrumBins> problemSpectrum {};

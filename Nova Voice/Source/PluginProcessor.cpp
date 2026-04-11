@@ -134,6 +134,8 @@ void NovaVoiceAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 {
     currentSampleRate = sampleRate;
     dryBuffer.setSize (juce::jmax (2, getTotalNumOutputChannels()), samplesPerBlock);
+    pitchUpBuffer.setSize (juce::jmax (2, getTotalNumOutputChannels()), samplesPerBlock);
+    pitchDownBuffer.setSize (juce::jmax (2, getTotalNumOutputChannels()), samplesPerBlock);
 
     analyzerFifoIndex = 0;
     nextFFTBlockReady = false;
@@ -141,13 +143,15 @@ void NovaVoiceAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     std::fill (fftData.begin(), fftData.end(), 0.0f);
     std::fill (bandEnvelopes.begin(), bandEnvelopes.end(), 0.0f);
 
+    juce::dsp::ProcessSpec spec { sampleRate, static_cast<juce::uint32> (samplesPerBlock), 1 };
+
+    // Initialize analysis filters and formant filters
     for (size_t index = 0; index < smoothingBandCount; ++index)
     {
         const float sr = static_cast<float> (sampleRate);
         bandAttackCoeff[index]  = std::exp (-1.0f / (0.001f * bandAttackMs[index]  * sr));
         bandReleaseCoeff[index] = std::exp (-1.0f / (0.001f * bandReleaseMs[index] * sr));
 
-        juce::dsp::ProcessSpec spec { sampleRate, static_cast<juce::uint32> (samplesPerBlock), 1 };
         leftProbeFilters[index].coefficients  = juce::dsp::IIR::Coefficients<float>::makeBandPass (sampleRate, bandFrequencies[index], 0.7071f);
         rightProbeFilters[index].coefficients = juce::dsp::IIR::Coefficients<float>::makeBandPass (sampleRate, bandFrequencies[index], 0.7071f);
         leftProbeFilters[index].prepare (spec);
@@ -165,9 +169,24 @@ void NovaVoiceAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
         rightReductionFilters[index].reset();
     }
 
+    // Initialize formant filters for creative morphing
+    for (size_t i = 0; i < 4; ++i)
+    {
+        formantFiltersLeft[i].prepare (spec);
+        formantFiltersRight[i].prepare (spec);
+        formantFiltersLeft[i].reset();
+        formantFiltersRight[i].reset();
+    }
+
     previousWetLeft = 0.0f;
     previousWetRight = 0.0f;
+    previousInputLeft = 0.0f;
+    previousInputRight = 0.0f;
     modulationPhase = 0.0f;
+    pitchUpPhase = 0.0f;
+    pitchDownPhase = 0.0f;
+    subOctavePolarityLeft = false;
+    subOctavePolarityRight = false;
 }
 
 void NovaVoiceAudioProcessor::releaseResources() {}
@@ -373,11 +392,37 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float airEnhance = juce::jlimit (0.00f, 0.22f, 0.03f + airNorm * 0.16f * mode.brightness);
     const float motionDepth = juce::jlimit (0.0f, 0.22f, 0.02f + morphNorm * 0.10f * mode.motion + textureNorm * 0.06f);
     const float phaseStep = juce::MathConstants<float>::twoPi * (0.22f + 0.35f * mode.motion) / static_cast<float> (currentSampleRate);
+    const float morphCharacter = juce::jlimit (0.0f, 1.0f, morphNorm * (0.55f + 0.55f * mode.morph));
+    const float formBias = juce::jlimit (-0.75f, 0.75f, formNorm * 0.70f);
+    const float morphDrive = 1.0f + 6.2f * morphCharacter;
+    const float foldMix = juce::jlimit (0.20f, 0.86f, 0.32f + textureNorm * 0.34f + morphCharacter * 0.26f);
+
+    // Dedicated voice-transform layer for obvious creative morphing.
+    const float octaveLayer = juce::jlimit (0.0f, 1.0f, morphCharacter * (0.65f + 0.35f * mode.morph));
+    const float highVoiceMix = 0.10f + octaveLayer * 0.65f;
+    const float lowVoiceMix = 0.08f + octaveLayer * 0.58f;
+
+    const float formantShift = std::pow (2.0f, formNorm * (0.55f + 0.20f * mode.morph));
+    const float f1 = juce::jlimit (220.0f, 2200.0f, 520.0f * formantShift);
+    const float f2 = juce::jlimit (700.0f, 4200.0f, 1450.0f * formantShift);
+    const float f3 = juce::jlimit (1300.0f, 7000.0f, 2850.0f * formantShift);
+    const float formGain1 = juce::Decibels::decibelsToGain (juce::jmap (formNorm, -6.0f, 7.0f));
+    const float formGain2 = juce::Decibels::decibelsToGain (juce::jmap (formNorm, -4.0f, 8.0f));
+    const float formGain3 = juce::Decibels::decibelsToGain (juce::jmap (formNorm, -2.5f, 5.0f));
+
+    formantFiltersLeft[0].coefficients  = juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate, f1, 1.15f, formGain1);
+    formantFiltersLeft[1].coefficients  = juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate, f2, 1.05f, formGain2);
+    formantFiltersLeft[2].coefficients  = juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate, f3, 0.90f, formGain3);
+    formantFiltersRight[0].coefficients = formantFiltersLeft[0].coefficients;
+    formantFiltersRight[1].coefficients = formantFiltersLeft[1].coefficients;
+    formantFiltersRight[2].coefficients = formantFiltersLeft[2].coefficients;
 
     for (int s = 0; s < buffer.getNumSamples(); ++s)
     {
-        float wetL = dryLeft[s];
-        float wetR = dryRight != nullptr ? dryRight[s] : dryLeft[s];
+        const float inL = dryLeft[s];
+        const float inR = dryRight != nullptr ? dryRight[s] : dryLeft[s];
+        float wetL = inL;
+        float wetR = inR;
 
         for (size_t i = 0; i < smoothingBandCount; ++i)
         {
@@ -389,6 +434,46 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float satR = std::tanh (wetR * textureDrive);
         wetL = juce::jmap (textureMix, wetL, satL);
         wetR = juce::jmap (textureMix, wetR, satR);
+
+        // Stronger vocal morph stage: asymmetric shaping + fold blend for audible timbre transformation.
+        const float rectL = (2.0f * std::abs (wetL) - 1.0f);
+        const float rectR = (2.0f * std::abs (wetR) - 1.0f);
+        const float asymL = std::tanh ((wetL + rectL * formBias) * morphDrive);
+        const float asymR = std::tanh ((wetR + rectR * formBias) * morphDrive);
+        const float foldL = std::sin (wetL * (1.0f + 3.8f * morphCharacter));
+        const float foldR = std::sin (wetR * (1.0f + 3.8f * morphCharacter));
+        const float morphedL = juce::jmap (foldMix, asymL, foldL);
+        const float morphedR = juce::jmap (foldMix, asymR, foldR);
+        wetL = juce::jmap (morphCharacter, wetL, morphedL);
+        wetR = juce::jmap (morphCharacter, wetR, morphedR);
+
+        // Octave-up via full-wave shaping and sub-octave via divide-by-two style polarity toggling.
+        const float octaveUpL = std::tanh ((2.0f * std::abs (inL) - 0.70f) * (1.4f + 2.0f * octaveLayer));
+        const float octaveUpR = std::tanh ((2.0f * std::abs (inR) - 0.70f) * (1.4f + 2.0f * octaveLayer));
+
+        if ((inL >= 0.0f) != (previousInputLeft >= 0.0f))
+            subOctavePolarityLeft = !subOctavePolarityLeft;
+        if ((inR >= 0.0f) != (previousInputRight >= 0.0f))
+            subOctavePolarityRight = !subOctavePolarityRight;
+
+        const float subRawL = subOctavePolarityLeft ? std::abs (inL) : -std::abs (inL);
+        const float subRawR = subOctavePolarityRight ? std::abs (inR) : -std::abs (inR);
+        const float subOctL = std::tanh (subRawL * (1.8f + 1.5f * octaveLayer));
+        const float subOctR = std::tanh (subRawR * (1.8f + 1.5f * octaveLayer));
+
+        previousInputLeft = inL;
+        previousInputRight = inR;
+
+        wetL += highVoiceMix * octaveUpL + lowVoiceMix * subOctL;
+        wetR += highVoiceMix * octaveUpR + lowVoiceMix * subOctR;
+
+        // Formant emphasis after octave layering to make voice identity shifts obvious.
+        wetL = formantFiltersLeft[0].processSample (wetL);
+        wetL = formantFiltersLeft[1].processSample (wetL);
+        wetL = formantFiltersLeft[2].processSample (wetL);
+        wetR = formantFiltersRight[0].processSample (wetR);
+        wetR = formantFiltersRight[1].processSample (wetR);
+        wetR = formantFiltersRight[2].processSample (wetR);
 
         const float diffL = wetL - previousWetLeft;
         const float diffR = wetR - previousWetRight;
