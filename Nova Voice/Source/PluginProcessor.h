@@ -107,6 +107,12 @@ private:
     bool subOctavePolarityRight { false };
     float robotCarrierPhase { 0.0f };
     float robotEnvelope { 0.0f };
+    float inputDcStateLeft { 0.0f };
+    float inputDcStateRight { 0.0f };
+    float inputPrevLeft { 0.0f };
+    float inputPrevRight { 0.0f };
+    float airSmoothLeft { 0.0f };
+    float airSmoothRight { 0.0f };
 
     std::array<IIRFilter, 4> formantFiltersLeft;
     std::array<IIRFilter, 4> formantFiltersRight;

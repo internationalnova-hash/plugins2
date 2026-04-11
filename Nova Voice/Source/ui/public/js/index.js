@@ -1,32 +1,11 @@
-let Juce = null;
-
-async function tryLoadJuce() {
-  if (typeof window.__JUCE__ === "undefined") return false;
-
-  const candidates = [
-    "./juce/index.js",
-    `./juce/index.js?v=${Date.now()}`,
-  ];
-
-  for (const modulePath of candidates) {
-    try {
-      Juce = await import(modulePath);
-      return true;
-    } catch (e) {
-      console.warn("JUCE module load attempt failed:", modulePath, e);
-    }
-  }
-
-  console.error("JUCE bridge unavailable: controls/presets cannot reach DSP until this loads.");
-  return false;
-}
+import * as Juce from "./juce/index.js";
 
 // ── Preset Bank ───────────────────────────────────────────────────────────────
 // pitch: -12..+12 st | morph/texture/form/air: 0-10 | blend: 0-100 | mode: 0=Clean 1=Digital 2=Hybrid 3=Extreme 4=Robot
 const PRESETS = [
 
   // ── Vocal Enhancement ──────────────────────────────────────────────────────
-  { name: "Clean Lift",        category: "Vocal",       tags: ["Clean","Polished","Lead"],         morph: 2.5, texture: 1.5, form: 5.0, air: 5.5, blend: 35,  mode: 0 },
+  { name: "Clean Lift",        category: "Vocal",       tags: ["Clean","Polished","Lead"],         pitch: 0.0, morph: 1.7, texture: 0.9, form: 4.1, air: 5.2, blend: 32,  mode: 0 },
   { name: "Velvet Tone",       category: "Vocal",       tags: ["Smooth","Warm","Body"],            morph: 3.5, texture: 2.0, form: 4.5, air: 4.0, blend: 45,  mode: 2 },
   { name: "Air Pop",           category: "Vocal",       tags: ["Airy","Bright","Modern"],          morph: 2.8, texture: 2.5, form: 5.2, air: 7.0, blend: 40,  mode: 0 },
 
@@ -39,7 +18,7 @@ const PRESETS = [
   { name: "Alien Lead",        category: "Creative",    tags: ["Transformed","Alien","Extreme"],   morph: 8.0, texture: 5.5, form: 7.0, air: 6.0, blend: 70,  mode: 3 },
   { name: "Deep Form",         category: "Creative",    tags: ["Dark","Massive","Extreme"],        morph: 6.5, texture: 4.0, form: 3.0, air: 4.5, blend: 65,  mode: 3 },
   { name: "Neon Character",    category: "Creative",    tags: ["Synthetic","Colorful","Digital"],  morph: 7.0, texture: 5.0, form: 6.5, air: 6.5, blend: 75,  mode: 1 },
-  { name: "Robot Commander",   category: "Creative",    tags: ["Robot","Synthetic","HardTune"],    morph: 9.2, texture: 7.8, form: 6.8, air: 3.8, blend: 88,  mode: 4 },
+  { name: "Robot Commander",   category: "Creative",    tags: ["Robot","Synthetic","HardTune"],    pitch: -4.0, morph: 9.6, texture: 8.8, form: 7.6, air: 3.0, blend: 92,  mode: 4 },
 
   // ── Adlibs ─────────────────────────────────────────────────────────────────
   { name: "Adlib Shine",       category: "Adlibs",      tags: ["Bright","Adlib","Digital"],        morph: 5.0, texture: 3.5, form: 6.0, air: 7.5, blend: 65,  mode: 1 },
@@ -82,7 +61,7 @@ const PRESETS = [
   { name: "Ghost Double",      category: "Stacks",      tags: ["Airy","Doubled","Hybrid"],         morph: 5.5, texture: 2.8, form: 6.8, air: 7.5, blend: 65,  mode: 2 },
 
   // ── Signature ──────────────────────────────────────────────────────────────
-  { name: "International Nova",category: "Signature",   tags: ["Flagship","Signature","Digital"],  pitch: 2.0, morph: 6.5, texture: 4.5, form: 5.8, air: 7.2, blend: 65,  mode: 1 },
+  { name: "International Nova",category: "Signature",   tags: ["Flagship","Signature","Digital"],  pitch: 3.5, morph: 6.8, texture: 3.6, form: 6.4, air: 8.6, blend: 62,  mode: 1 },
   { name: "Nova Signature",    category: "Signature",   tags: ["Flagship","Glossy","Digital"],     morph: 6.0, texture: 4.2, form: 5.8, air: 6.8, blend: 60,  mode: 1 },
   { name: "Vocal Glow",        category: "Signature",   tags: ["Glossy","Airy","Hybrid"],         morph: 5.0, texture: 3.0, form: 5.5, air: 8.0, blend: 65,  mode: 2 },
   { name: "Energy Mode",       category: "Signature",   tags: ["Aggressive","Modern","Extreme"],   morph: 8.5, texture: 6.0, form: 6.5, air: 7.0, blend: 80,  mode: 3 },
@@ -436,14 +415,29 @@ function connectParameters() {
     try {
       const state = parameterStates[id];
       if (!state) return;
-      state.valueChangedEvent.addListener(() => {
+      const onValueChanged = () => {
         if (isApplyingPreset) return;
         updateKnob(id, denormalize(id, state.getNormalisedValue()));
-      });
+      };
+
+      if (typeof state.addValueChangedListener === "function") {
+        state.addValueChangedListener(onValueChanged);
+      } else if (state.valueChangedEvent?.addListener) {
+        state.valueChangedEvent.addListener(onValueChanged);
+      }
+
       // Also sync once when properties arrive (covers initial value race)
-      state.propertiesChangedEvent.addListener(() => {
-        updateKnob(id, denormalize(id, state.getNormalisedValue()));
-      });
+      if (typeof state.addPropertiesChangedListener === "function") {
+        state.addPropertiesChangedListener(() => {
+          updateKnob(id, denormalize(id, state.getNormalisedValue()));
+        });
+      } else if (state.propertiesChangedEvent?.addListener) {
+        state.propertiesChangedEvent.addListener(() => {
+          updateKnob(id, denormalize(id, state.getNormalisedValue()));
+        });
+      }
+
+      updateKnob(id, denormalize(id, state.getNormalisedValue()));
     } catch (e) {
       console.warn("Failed to connect param", id, e);
     }
@@ -452,10 +446,18 @@ function connectParameters() {
   try {
     const modeState = parameterStates["voice_mode"];
     if (modeState) {
-      modeState.valueChangedEvent.addListener(() => {
+      const onModeChanged = () => {
         if (isApplyingPreset) return;
         updateMode(denormalize("voice_mode", modeState.getNormalisedValue()));
-      });
+      };
+
+      if (typeof modeState.addValueChangedListener === "function") {
+        modeState.addValueChangedListener(onModeChanged);
+      } else if (modeState.valueChangedEvent?.addListener) {
+        modeState.valueChangedEvent.addListener(onModeChanged);
+      }
+
+      updateMode(denormalize("voice_mode", modeState.getNormalisedValue()));
     }
   } catch (e) {
     console.warn("Failed to connect voice_mode", e);
@@ -981,8 +983,8 @@ function initCanvas() {
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", async () => {
-  juceAvailable = await tryLoadJuce();
+document.addEventListener("DOMContentLoaded", () => {
+  juceAvailable = (typeof window.__JUCE__ !== "undefined") && !!Juce?.getSliderState;
 
   buildMeter("input-meter");
   buildMeter("output-meter");

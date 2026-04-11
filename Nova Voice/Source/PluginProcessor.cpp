@@ -210,6 +210,12 @@ void NovaVoiceAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     subOctavePolarityRight = false;
     robotCarrierPhase = 0.0f;
     robotEnvelope = 0.0f;
+    inputDcStateLeft = 0.0f;
+    inputDcStateRight = 0.0f;
+    inputPrevLeft = 0.0f;
+    inputPrevRight = 0.0f;
+    airSmoothLeft = 0.0f;
+    airSmoothRight = 0.0f;
 }
 
 void NovaVoiceAudioProcessor::releaseResources() {}
@@ -328,10 +334,16 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float blend = apvts.getRawParameterValue (blendId)->load();
     const int modeIndex = juce::roundToInt (apvts.getRawParameterValue (modeId)->load());
 
-    const float morphNorm = morph / 10.0f;
-    const float textureNorm = texture / 10.0f;
-    const float formNorm = (form - 5.0f) / 5.0f;
-    const float airNorm = air / 10.0f;
+    const float morphNormRaw = morph / 10.0f;
+    const float textureNormRaw = texture / 10.0f;
+    const float formNormRaw = (form - 5.0f) / 5.0f;
+    const float airNormRaw = air / 10.0f;
+
+    // Perceptual curves: make early knob movement immediately audible.
+    const float morphNorm = std::pow (juce::jlimit (0.0f, 1.0f, morphNormRaw), 0.62f);
+    const float textureNorm = std::pow (juce::jlimit (0.0f, 1.0f, textureNormRaw), 0.60f);
+    const float formNorm = std::copysign (std::pow (std::abs (juce::jlimit (-1.0f, 1.0f, formNormRaw)), 0.72f), formNormRaw);
+    const float airNorm = std::pow (juce::jlimit (0.0f, 1.0f, airNormRaw), 0.62f);
     const float blendNorm = blend / 100.0f;
 
     struct ModeBias
@@ -340,17 +352,20 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         float pitchEdge;
         float morph;
         float texture;
+        float warmWeight;
+        float gritWeight;
+        float digitalWeight;
         float formRange;
         float brightness;
         float motion;
         float robot;
     };
 
-    ModeBias mode = { 0.0025f, 0.00f, 0.85f, 0.90f, 2.2f, 1.0f, 1.0f, 0.0f }; // Hybrid default
-    if (modeIndex == 0) mode = { 0.0042f, 0.00f, 0.60f, 0.55f, 1.5f, 0.90f, 0.70f, 0.0f };      // Clean
-    else if (modeIndex == 1) mode = { 0.0022f, 0.05f, 1.00f, 1.15f, 3.0f, 1.15f, 1.10f, 0.0f }; // Digital
-    else if (modeIndex == 3) mode = { 0.0014f, 0.10f, 1.25f, 1.35f, 5.0f, 1.20f, 1.35f, 0.0f }; // Extreme
-    else if (modeIndex == 4) mode = { 0.0010f, 0.22f, 1.45f, 1.20f, 5.4f, 0.95f, 1.45f, 1.0f }; // Robot
+    ModeBias mode = { 0.0025f, 0.00f, 0.85f, 0.90f, 0.60f, 0.70f, 0.45f, 2.2f, 1.0f, 1.0f, 0.0f }; // Hybrid default
+    if (modeIndex == 0) mode = { 0.0042f, 0.00f, 0.60f, 0.55f, 0.95f, 0.35f, 0.12f, 1.5f, 0.90f, 0.70f, 0.0f };      // Clean
+    else if (modeIndex == 1) mode = { 0.0022f, 0.05f, 1.00f, 1.15f, 0.35f, 0.85f, 1.10f, 3.0f, 1.15f, 1.10f, 0.0f }; // Digital
+    else if (modeIndex == 3) mode = { 0.0014f, 0.10f, 1.25f, 1.35f, 0.25f, 1.20f, 1.40f, 5.0f, 1.20f, 1.35f, 0.0f }; // Extreme
+    else if (modeIndex == 4) mode = { 0.0010f, 0.22f, 1.45f, 1.20f, 0.18f, 0.90f, 1.55f, 5.4f, 0.95f, 1.45f, 1.0f }; // Robot
 
     const auto* dryLeft = dryBuffer.getReadPointer (0);
     const auto* dryRight = dryBuffer.getNumChannels() > 1 ? dryBuffer.getReadPointer (1) : nullptr;
@@ -399,7 +414,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             protection *= 0.78f;
 
         bandRawReductionDb[i] = -bandMaxReductionDb[i]
-                              * (0.24f + morphNorm * 0.95f * mode.morph)
+                      * (morphNorm * 1.05f * mode.morph)
                               * focusWeight
                               * harshness
                               * protection;
@@ -423,16 +438,20 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     auto* rightChannel = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
 
     float blockPeak = 0.0f;
-    const float reductionAmount = juce::jlimit (0.0f, 0.24f, 0.01f + morphNorm * 0.09f + textureNorm * 0.06f);
-    const float textureDrive = 1.0f + textureNorm * 1.45f * mode.texture + morphNorm * 0.40f;
-    const float textureMix = juce::jlimit (0.0f, 0.58f, 0.02f + textureNorm * 0.44f * mode.texture);
+    const float reductionAmount = juce::jlimit (0.0f, 0.26f, morphNorm * 0.15f + textureNorm * 0.03f);
+    const float textureDrive = 1.0f + textureNorm * 1.75f * mode.texture + morphNorm * 0.18f;
+    const float textureMix = juce::jlimit (0.0f, 0.66f, 0.08f + textureNorm * 0.52f * mode.texture);
     const float airEnhance = juce::jlimit (0.00f, 0.22f, 0.03f + airNorm * 0.16f * mode.brightness);
+    const float airExciteMix = juce::jlimit (0.0f, 0.46f, 0.02f + airNorm * 0.38f * mode.brightness);
+    const float airPolishMix = juce::jlimit (0.0f, 0.36f, 0.01f + airNorm * 0.30f * mode.brightness);
+    const float airSmoothCoeff = std::exp (-juce::MathConstants<float>::twoPi * 3600.0f / static_cast<float> (currentSampleRate));
     const float motionDepth = juce::jlimit (0.0f, 0.22f, 0.02f + morphNorm * 0.10f * mode.motion + textureNorm * 0.06f);
     const float phaseStep = juce::MathConstants<float>::twoPi * (0.22f + 0.35f * mode.motion) / static_cast<float> (currentSampleRate);
-    const float morphCharacter = juce::jlimit (0.0f, 1.0f, std::pow (morphNorm, 1.45f) * (0.40f + 0.60f * mode.morph));
+    const float morphCharacter = juce::jlimit (0.0f, 1.0f, std::pow (morphNorm, 0.70f) * (0.50f + 0.58f * mode.morph));
+    const float pitchAmountNorm = juce::jlimit (0.0f, 1.0f, std::pow (std::abs (pitch) / 12.0f, 0.75f));
     const float formBias = juce::jlimit (-0.75f, 0.75f, formNorm * 0.70f);
     const float morphDrive = 1.0f + 3.2f * morphCharacter;
-    const float foldMix = juce::jlimit (0.0f, 0.78f, 0.04f + morphCharacter * 0.72f);
+    const float foldMix = juce::jlimit (0.0f, 0.82f, 0.10f + morphCharacter * 0.72f);
 
     // Dedicated voice-transform layer for obvious creative morphing.
     const float octaveLayer = juce::jlimit (0.0f, 1.0f, std::pow (morphCharacter, 1.2f) * (0.55f + 0.45f * mode.morph));
@@ -468,8 +487,15 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     for (int s = 0; s < buffer.getNumSamples(); ++s)
     {
-        const float inL = dryLeft[s];
-        const float inR = dryRight != nullptr ? dryRight[s] : dryLeft[s];
+        const float rawInL = dryLeft[s];
+        const float rawInR = dryRight != nullptr ? dryRight[s] : rawInL;
+
+        const float inL = (rawInL - inputPrevLeft) + 0.995f * inputDcStateLeft;
+        const float inR = (rawInR - inputPrevRight) + 0.995f * inputDcStateRight;
+        inputPrevLeft = rawInL;
+        inputPrevRight = rawInR;
+        inputDcStateLeft = inL;
+        inputDcStateRight = inR;
 
         pitchDelayLeft[static_cast<size_t> (pitchWriteIndex)] = inL;
         pitchDelayRight[static_cast<size_t> (pitchWriteIndex)] = inR;
@@ -497,6 +523,12 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         float wetL = pitchedL;
         float wetR = pitchedR;
+
+        const float pitchCharacterL = std::tanh (pitchedL * (1.0f + pitchAmountNorm * 1.6f));
+        const float pitchCharacterR = std::tanh (pitchedR * (1.0f + pitchAmountNorm * 1.6f));
+        wetL = juce::jmap (pitchAmountNorm, wetL, pitchCharacterL);
+        wetR = juce::jmap (pitchAmountNorm, wetR, pitchCharacterR);
+
         if (mode.pitchEdge > 0.0f)
         {
             wetL = juce::jmap (mode.pitchEdge, wetL, std::tanh (wetL * (1.0f + mode.pitchEdge * 1.6f)));
@@ -528,7 +560,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         const float throatL = std::tanh ((formantL + formBias * (0.25f + 0.25f * std::abs (formNorm))) * (1.0f + std::abs (formNorm) * 1.35f));
         const float throatR = std::tanh ((formantR + formBias * (0.25f + 0.25f * std::abs (formNorm))) * (1.0f + std::abs (formNorm) * 1.35f));
-        const float formantMix = juce::jlimit (0.0f, 1.0f, std::abs (formNorm) * 0.85f + morphCharacter * 0.18f);
+        const float formantMix = juce::jlimit (0.0f, 1.0f, 0.12f + std::abs (formNorm) * 0.88f);
         wetL = juce::jmap (formantMix, wetL, throatL);
         wetR = juce::jmap (formantMix, wetR, throatR);
 
@@ -543,7 +575,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float morphedR = juce::jmap (foldMix, asymR, foldR);
 
         const float env = 0.5f * (std::abs (inL) + std::abs (inR));
-        const float dynamicMorph = juce::jlimit (0.0f, 1.0f, morphCharacter * (0.65f + env * 0.8f));
+        const float dynamicMorph = juce::jlimit (0.0f, 1.0f, 0.08f + morphCharacter * (0.68f + env * 0.8f));
         wetL = juce::jmap (dynamicMorph, wetL, morphedL);
         wetR = juce::jmap (dynamicMorph, wetR, morphedR);
 
@@ -568,21 +600,27 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         wetR += highVoiceMix * octaveUpR + lowVoiceMix * subOctR;
 
         // 3) HARMONIC / TEXTURE STAGE
-        const float warmL = std::tanh (wetL * (1.0f + textureNorm * 2.2f));
-        const float warmR = std::tanh (wetR * (1.0f + textureNorm * 2.2f));
-        const float gritL = std::sin (wetL * (1.0f + textureNorm * 6.5f));
-        const float gritR = std::sin (wetR * (1.0f + textureNorm * 6.5f));
+        const float preTextureL = wetL;
+        const float preTextureR = wetR;
+        const float warmL = std::tanh (wetL * (1.0f + textureNorm * 2.2f * mode.warmWeight));
+        const float warmR = std::tanh (wetR * (1.0f + textureNorm * 2.2f * mode.warmWeight));
+        const float gritL = std::sin (wetL * (1.0f + textureNorm * 6.5f * mode.gritWeight));
+        const float gritR = std::sin (wetR * (1.0f + textureNorm * 6.5f * mode.gritWeight));
         const float bits = juce::jmap (textureNorm, 6.0f, 30.0f);
-        const float digitalL = std::round (gritL * bits) / bits;
-        const float digitalR = std::round (gritR * bits) / bits;
-        const float harmonicMix = juce::jlimit (0.0f, 1.0f, textureNorm * (0.55f + 0.45f * mode.texture));
+        const float digitalL = std::round (gritL * bits * mode.digitalWeight) / (bits * mode.digitalWeight + 1.0e-5f);
+        const float digitalR = std::round (gritR * bits * mode.digitalWeight) / (bits * mode.digitalWeight + 1.0e-5f);
+        const float harmonicMix = juce::jlimit (0.0f, 1.0f, 0.10f + textureNorm * (0.58f + 0.42f * mode.texture));
         const float digitalMix = juce::jlimit (0.0f, 1.0f, juce::jmax (0.0f, textureNorm - 0.35f) * 1.5f);
-        float harmonicL = juce::jmap (harmonicMix, wetL, warmL);
-        float harmonicR = juce::jmap (harmonicMix, wetR, warmR);
+        float harmonicL = juce::jmap (harmonicMix, wetL, juce::jmap (0.5f, warmL, gritL));
+        float harmonicR = juce::jmap (harmonicMix, wetR, juce::jmap (0.5f, warmR, gritR));
         harmonicL = juce::jmap (digitalMix, harmonicL, digitalL);
         harmonicR = juce::jmap (digitalMix, harmonicR, digitalR);
-        wetL = harmonicL;
-        wetR = harmonicR;
+
+        // Prevent MORPH+TEXTURE+FORM stacks from collapsing into one generic distortion tone.
+        const float comboDensity = morphNorm * textureNorm * (0.55f + 0.45f * std::abs (formNorm));
+        const float antiCollapseMix = juce::jlimit (0.0f, 0.46f, comboDensity * 0.46f);
+        wetL = juce::jmap (antiCollapseMix, harmonicL, 0.62f * harmonicL + 0.38f * preTextureL);
+        wetR = juce::jmap (antiCollapseMix, harmonicR, 0.62f * harmonicR + 0.38f * preTextureR);
 
         if (robotAmount > 0.0f)
         {
@@ -612,6 +650,25 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 robotCarrierPhase -= juce::MathConstants<float>::twoPi;
         }
 
+        // Loudness compensation so creative transformation is heard as character, not just level increase.
+        const float wetComp = 1.0f / (1.0f + textureNorm * 0.65f + morphNorm * 0.38f + std::abs (pitch) * 0.02f);
+        wetL *= wetComp;
+        wetR *= wetComp;
+
+        airSmoothLeft = airSmoothCoeff * airSmoothLeft + (1.0f - airSmoothCoeff) * wetL;
+        airSmoothRight = airSmoothCoeff * airSmoothRight + (1.0f - airSmoothCoeff) * wetR;
+        const float airBandL = wetL - airSmoothLeft;
+        const float airBandR = wetR - airSmoothRight;
+        const float airExciteL = std::tanh (airBandL * (1.3f + airNorm * 6.5f));
+        const float airExciteR = std::tanh (airBandR * (1.3f + airNorm * 6.5f));
+        wetL += airExciteMix * airExciteL;
+        wetR += airExciteMix * airExciteR;
+
+        const float polishedL = airSmoothLeft + airBandL * 0.62f;
+        const float polishedR = airSmoothRight + airBandR * 0.62f;
+        wetL = juce::jmap (airPolishMix, wetL, polishedL);
+        wetR = juce::jmap (airPolishMix, wetR, polishedR);
+
         const float diffL = wetL - previousWetLeft;
         const float diffR = wetR - previousWetRight;
         previousWetLeft = wetL;
@@ -627,6 +684,10 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         wetL *= (1.0f + motionDepth * motion);
         wetR *= (1.0f - motionDepth * motion);
+
+        // Soft output protection keeps aggressive combinations controlled.
+        wetL = std::tanh (wetL * 1.12f) * 0.94f;
+        wetR = std::tanh (wetR * 1.12f) * 0.94f;
 
         const float dryGain = std::cos (blendNorm * juce::MathConstants<float>::halfPi);
         const float wetGain = std::sin (blendNorm * juce::MathConstants<float>::halfPi);
