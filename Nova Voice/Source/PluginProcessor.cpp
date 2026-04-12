@@ -487,16 +487,17 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float robotSample = juce::jmax (1.0f, static_cast<float> (currentSampleRate * (0.0012f - 0.0008f * textureNorm)));
     const float morphSigned = juce::jlimit (-1.0f, 1.0f, (morph - 5.0f) / 5.0f);
     const float morphAmt = std::abs (morphSigned);
-    const float textureAmt = juce::jlimit (0.0f, 1.0f, (texture - 4.0f) / 6.0f);
+    const float textureSigned = juce::jlimit (-1.0f, 1.0f, (texture - 4.0f) / 6.0f);
+    const float textureAmt = std::abs (textureSigned);
     const float formSigned = juce::jlimit (-1.0f, 1.0f, (form - 5.5f) / 4.5f);
     const float formAmt = std::abs (formSigned);
     const float airAmt = juce::jlimit (0.0f, 1.0f, (air - 5.0f) / 5.0f);
 
-    const bool controlsNeutral = (pitchAmountNorm < 0.005f)
-                              && (morphNorm < 0.01f)
-                              && (textureNorm < 0.01f)
-                              && (formNorm < 0.01f)
-                              && (airNorm < 0.01f);
+    const bool controlsNeutral = (std::abs (pitch) < 0.05f)
+                              && (std::abs (morph - 5.0f) < 0.18f)
+                              && (std::abs (texture - 4.0f) < 0.18f)
+                              && (std::abs (form - 5.5f) < 0.18f)
+                              && (std::abs (air - 5.0f) < 0.18f);
 
     int robotCounter = static_cast<int> (pitchDownPhase * robotSample);
     float heldRobotL = 0.0f;
@@ -576,11 +577,11 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         if (pitchWriteIndex >= pitchDelaySize)
             pitchWriteIndex = 0;
 
-        const int targetDelay = juce::jlimit (256, pitchDelaySize / 2, static_cast<int> (currentSampleRate * 0.018));
+        const int targetDelay = juce::jlimit (96, pitchDelaySize / 3, static_cast<int> (currentSampleRate * 0.008));
         float distance = static_cast<float> (pitchWriteIndex) - pitchReadPos;
         if (distance < 0.0f)
             distance += static_cast<float> (pitchDelaySize);
-        if (distance < 96.0f || distance > static_cast<float> (pitchDelaySize - 256))
+        if (std::abs (distance - static_cast<float> (targetDelay)) > 64.0f)
             pitchReadPos = static_cast<float> (pitchWriteIndex - targetDelay);
         while (pitchReadPos < 0.0f)
             pitchReadPos += static_cast<float> (pitchDelaySize);
@@ -596,41 +597,51 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             formantR = formantFiltersRight[1].processSample (formantR);
             formantR = formantFiltersRight[2].processSample (formantR);
 
-            const float formMix = juce::jlimit (0.0f, 1.0f, 0.15f + 0.65f * formAmt);
-            wetL = juce::jmap (formMix, wetL, formantL);
-            wetR = juce::jmap (formMix, wetR, formantR);
+            const float shiftedFormL = formSigned >= 0.0f ? std::tanh (formantL * (1.0f + 1.2f * formAmt))
+                                                          : 0.75f * formantL + 0.25f * wetL;
+            const float shiftedFormR = formSigned >= 0.0f ? std::tanh (formantR * (1.0f + 1.2f * formAmt))
+                                                          : 0.75f * formantR + 0.25f * wetR;
+            const float formMix = juce::jlimit (0.0f, 1.0f, 0.24f + 0.70f * formAmt);
+            wetL = juce::jmap (formMix, wetL, shiftedFormL);
+            wetR = juce::jmap (formMix, wetR, shiftedFormR);
         }
 
         if (morphAmt > 0.01f)
         {
-            const float morphMix = juce::jlimit (0.0f, 1.0f, 0.08f + 0.72f * morphAmt);
-            const float shapedL = morphSigned >= 0.0f ? std::sin (wetL * (1.0f + 3.0f * morphAmt))
-                                                      : std::tanh (wetL * (1.0f + 2.8f * morphAmt));
-            const float shapedR = morphSigned >= 0.0f ? std::sin (wetR * (1.0f + 3.0f * morphAmt))
-                                                      : std::tanh (wetR * (1.0f + 2.8f * morphAmt));
+            const float morphMix = juce::jlimit (0.0f, 1.0f, 0.18f + 0.78f * morphAmt);
+            const float shapedL = morphSigned >= 0.0f ? std::sin (wetL * (1.0f + 6.0f * morphAmt))
+                                                      : std::tanh ((wetL + 0.55f * std::sin (wetL * 10.0f)) * (1.0f + 3.8f * morphAmt));
+            const float shapedR = morphSigned >= 0.0f ? std::sin (wetR * (1.0f + 6.0f * morphAmt))
+                                                      : std::tanh ((wetR + 0.55f * std::sin (wetR * 10.0f)) * (1.0f + 3.8f * morphAmt));
             wetL = juce::jmap (morphMix, wetL, shapedL);
             wetR = juce::jmap (morphMix, wetR, shapedR);
         }
 
         if (textureAmt > 0.01f)
         {
-            const float warmL = std::tanh (wetL * (1.0f + 1.6f * textureAmt));
-            const float warmR = std::tanh (wetR * (1.0f + 1.6f * textureAmt));
-            const float gritL = std::sin (wetL * (1.0f + 3.8f * textureAmt));
-            const float gritR = std::sin (wetR * (1.0f + 3.8f * textureAmt));
-            const float steps = juce::jmap (textureAmt, 18.0f, 7.0f);
+            const float warmL = std::tanh (wetL * (1.0f + 1.8f * textureAmt));
+            const float warmR = std::tanh (wetR * (1.0f + 1.8f * textureAmt));
+            const float gritL = std::sin (wetL * (1.0f + 4.6f * textureAmt));
+            const float gritR = std::sin (wetR * (1.0f + 4.6f * textureAmt));
+            const float steps = juce::jmap (textureAmt, 20.0f, 6.0f);
             const float digitalL = std::round (gritL * steps) / steps;
             const float digitalR = std::round (gritR * steps) / steps;
+            const float softenedL = 0.82f * wetL + 0.18f * previousWetLeft;
+            const float softenedR = 0.82f * wetR + 0.18f * previousWetRight;
 
-            const float warmToGrit = juce::jlimit (0.0f, 1.0f, textureAmt * 1.15f);
-            const float gritToDigital = juce::jlimit (0.0f, 1.0f, juce::jmax (0.0f, textureAmt - 0.55f) * 2.2f);
+            float texL = textureSigned >= 0.0f ? juce::jmap (juce::jlimit (0.0f, 1.0f, textureAmt * 1.10f), warmL, gritL)
+                                                : softenedL;
+            float texR = textureSigned >= 0.0f ? juce::jmap (juce::jlimit (0.0f, 1.0f, textureAmt * 1.10f), warmR, gritR)
+                                                : softenedR;
 
-            float texL = juce::jmap (warmToGrit, warmL, gritL);
-            float texR = juce::jmap (warmToGrit, warmR, gritR);
-            texL = juce::jmap (gritToDigital, texL, digitalL);
-            texR = juce::jmap (gritToDigital, texR, digitalR);
+            if (textureSigned >= 0.0f)
+            {
+                const float gritToDigital = juce::jlimit (0.0f, 1.0f, juce::jmax (0.0f, textureAmt - 0.50f) * 2.0f);
+                texL = juce::jmap (gritToDigital, texL, digitalL);
+                texR = juce::jmap (gritToDigital, texR, digitalR);
+            }
 
-            const float texMix = juce::jlimit (0.0f, 1.0f, 0.08f + 0.70f * textureAmt);
+            const float texMix = juce::jlimit (0.0f, 1.0f, 0.16f + 0.74f * textureAmt);
             wetL = juce::jmap (texMix, wetL, texL);
             wetR = juce::jmap (texMix, wetR, texR);
         }

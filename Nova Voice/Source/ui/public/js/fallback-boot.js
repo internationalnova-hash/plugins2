@@ -188,6 +188,74 @@
     }
   }
 
+  function initStarfield() {
+    var bg = document.getElementById("bg-canvas");
+    if (!bg) return;
+
+    var bctx = bg.getContext("2d");
+    if (!bctx) return;
+
+    function drawStarfield() {
+      var wrap = bg.parentElement && bg.parentElement.parentElement ? bg.parentElement.parentElement : null;
+      var rect = wrap ? wrap.getBoundingClientRect() : null;
+      var width = Math.max(1, Math.round(rect ? rect.width : 1080));
+      var height = Math.max(1, Math.round(rect ? rect.height : 680));
+
+      bg.width = width;
+      bg.height = height;
+      bctx.clearRect(0, 0, width, height);
+
+      var cloudA = bctx.createRadialGradient(width * 0.22, height * 0.52, 10, width * 0.22, height * 0.52, Math.max(width, height) * 0.38);
+      cloudA.addColorStop(0, "rgba(178, 60, 255, 0.30)");
+      cloudA.addColorStop(0.35, "rgba(135, 45, 225, 0.16)");
+      cloudA.addColorStop(0.65, "rgba(90, 25, 185, 0.07)");
+      cloudA.addColorStop(1, "rgba(0,0,0,0)");
+      bctx.fillStyle = cloudA;
+      bctx.fillRect(0, 0, width, height);
+
+      var cloudB = bctx.createRadialGradient(width * 0.80, height * 0.32, 8, width * 0.80, height * 0.32, Math.max(width, height) * 0.32);
+      cloudB.addColorStop(0, "rgba(55, 200, 255, 0.24)");
+      cloudB.addColorStop(0.40, "rgba(28, 130, 225, 0.13)");
+      cloudB.addColorStop(0.70, "rgba(10, 68, 185, 0.05)");
+      cloudB.addColorStop(1, "rgba(0,0,0,0)");
+      bctx.fillStyle = cloudB;
+      bctx.fillRect(0, 0, width, height);
+
+      var cloudC = bctx.createRadialGradient(width * 0.52, height * 0.46, 5, width * 0.52, height * 0.46, Math.max(width, height) * 0.45);
+      cloudC.addColorStop(0, "rgba(125, 55, 245, 0.20)");
+      cloudC.addColorStop(0.45, "rgba(85, 32, 205, 0.10)");
+      cloudC.addColorStop(1, "rgba(0,0,0,0)");
+      bctx.fillStyle = cloudC;
+      bctx.fillRect(0, 0, width, height);
+
+      for (var i = 0; i < 620; i++) {
+        var x = Math.random() * width;
+        var y = Math.random() * height;
+        var radius = Math.random() * 1.45 + 0.14;
+        var alpha = (Math.random() * 0.52 + 0.03).toFixed(2);
+        bctx.beginPath();
+        bctx.arc(x, y, radius, 0, Math.PI * 2);
+        bctx.fillStyle = "rgba(255,255,255," + alpha + ")";
+        bctx.fill();
+      }
+
+      for (var j = 0; j < 58; j++) {
+        var sx = Math.random() * width;
+        var sy = Math.random() * height;
+        bctx.shadowBlur = 12;
+        bctx.shadowColor = "rgba(185,205,255,0.85)";
+        bctx.beginPath();
+        bctx.arc(sx, sy, Math.random() * 1.35 + 0.95, 0, Math.PI * 2);
+        bctx.fillStyle = "rgba(232,240,255,0.90)";
+        bctx.fill();
+        bctx.shadowBlur = 0;
+      }
+    }
+
+    drawStarfield();
+    window.addEventListener("resize", drawStarfield);
+  }
+
   function applyPreset(preset, pushToPlugin) {
     if (!preset) return;
     renderPresetDisplay(preset);
@@ -419,6 +487,7 @@
     bindKnobs();
     bindModeButtons();
     connectParameters();
+    initStarfield();
     initSimpleWave();
 
     console.warn("Nova Voice fallback UI bootstrap active.");
