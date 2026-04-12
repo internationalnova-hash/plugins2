@@ -487,19 +487,19 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float robotSample = juce::jmax (1.0f, static_cast<float> (currentSampleRate * (0.0012f - 0.0008f * textureNorm)));
     const float morphSigned = juce::jlimit (-1.0f, 1.0f, (morph - 5.0f) / 5.0f);
     const float morphAmtRaw = std::abs (morphSigned);
-    // Keep the center region truly neutral so tiny host jitter does not create hiss/distortion.
-    const float morphAmt = juce::jlimit (0.0f, 1.0f, juce::jmax (0.0f, morphAmtRaw - 0.08f) / 0.92f);
+    // Keep a small neutral window for host jitter while making movement audible sooner.
+    const float morphAmt = juce::jlimit (0.0f, 1.0f, juce::jmax (0.0f, morphAmtRaw - 0.03f) / 0.97f);
     const float textureSigned = juce::jlimit (-1.0f, 1.0f, (texture - 4.0f) / 6.0f);
     const float textureAmt = std::abs (textureSigned);
     const float formSigned = juce::jlimit (-1.0f, 1.0f, (form - 5.5f) / 4.5f);
     const float formAmt = std::abs (formSigned);
     const float airAmt = juce::jlimit (0.0f, 1.0f, (air - 5.0f) / 5.0f);
 
-    const bool controlsNeutral = (std::abs (pitch) < 0.05f)
-                              && (std::abs (morph - 5.0f) < 0.30f)
-                              && (std::abs (texture - 4.0f) < 0.18f)
-                              && (std::abs (form - 5.5f) < 0.18f)
-                              && (std::abs (air - 5.0f) < 0.18f);
+    const bool controlsNeutral = (std::abs (pitch) < 0.04f)
+                              && (std::abs (morph - 5.0f) < 0.12f)
+                              && (std::abs (texture - 4.0f) < 0.10f)
+                              && (std::abs (form - 5.5f) < 0.10f)
+                              && (std::abs (air - 5.0f) < 0.10f);
 
     int robotCounter = static_cast<int> (pitchDownPhase * robotSample);
     float heldRobotL = 0.0f;
@@ -568,9 +568,10 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const float shiftedL = s0L + frac * (s1L - s0L);
             const float shiftedR = s0R + frac * (s1R - s0R);
 
-            const float pitchMix = juce::jlimit (0.0f, 1.0f, 0.44f + 0.44f * pitchAmountNorm);
-            const float pitchToneL = 0.90f * shiftedL + 0.10f * inL;
-            const float pitchToneR = 0.90f * shiftedR + 0.10f * inR;
+            // Keep pitch stage fully linear and avoid extra dry reinjection to prevent drive-like coloration.
+            const float pitchMix = juce::jlimit (0.0f, 1.0f, 0.60f + 0.40f * pitchAmountNorm);
+            const float pitchToneL = shiftedL;
+            const float pitchToneR = shiftedR;
             wetL = juce::jmap (pitchMix, wetL, pitchToneL);
             wetR = juce::jmap (pitchMix, wetR, pitchToneR);
 
@@ -706,8 +707,9 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         const float dryGain = std::cos (blendNorm * juce::MathConstants<float>::halfPi);
         const float wetGain = std::sin (blendNorm * juce::MathConstants<float>::halfPi);
-        const float outL = rawInL * dryGain + wetL * wetGain;
-        const float outR = rawInR * dryGain + wetR * wetGain;
+        const float mixHeadroom = 1.0f / juce::jmax (1.0f, dryGain + wetGain);
+        const float outL = (rawInL * dryGain + wetL * wetGain) * mixHeadroom;
+        const float outR = (rawInR * dryGain + wetR * wetGain) * mixHeadroom;
 
         leftChannel[s] = outL;
         if (rightChannel != nullptr)

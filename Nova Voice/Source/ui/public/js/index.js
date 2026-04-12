@@ -71,7 +71,7 @@ const KNOB_PARAMS = ["pitch", "morph", "texture", "form", "air", "blend"];
 const ALL_PARAMS  = [...KNOB_PARAMS, "voice_mode"];
 
 // ── State ─────────────────────────────────────────────────────────────────────
-const currentValues = { pitch: 2.0, morph: 5.0, texture: 4.0, form: 5.5, air: 5.0, blend: 55, voice_mode: 2 };
+const currentValues = { pitch: 0.0, morph: 5.0, texture: 4.0, form: 5.5, air: 5.0, blend: 55, voice_mode: 2 };
 const parameterStates = {};
 let juceAvailable    = false;
 let activeDrag       = null;
