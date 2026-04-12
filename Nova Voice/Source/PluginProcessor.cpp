@@ -568,9 +568,9 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const float shiftedL = s0L + frac * (s1L - s0L);
             const float shiftedR = s0R + frac * (s1R - s0R);
 
-            const float pitchMix = juce::jlimit (0.0f, 1.0f, 0.10f + 0.40f * pitchAmountNorm);
-            const float pitchToneL = 0.64f * shiftedL + 0.36f * inL;
-            const float pitchToneR = 0.64f * shiftedR + 0.36f * inR;
+            const float pitchMix = juce::jlimit (0.0f, 1.0f, 0.44f + 0.44f * pitchAmountNorm);
+            const float pitchToneL = 0.90f * shiftedL + 0.10f * inL;
+            const float pitchToneR = 0.90f * shiftedR + 0.10f * inR;
             wetL = juce::jmap (pitchMix, wetL, pitchToneL);
             wetR = juce::jmap (pitchMix, wetR, pitchToneR);
 
