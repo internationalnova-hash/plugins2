@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Tune</title>
+  <style>
+    :root {
+      --bg:        #030310;
+      --violet:    #8B6FFF;
+      --cyan:      #00E8FF;
+      --text:      #F0EEFF;
+      --text-soft: rgba(240,238,255,0.52);
+      --text-dim:  rgba(240,238,255,0.24);
+      --red-hot:   #FF4060;
+      --ease:      200ms cubic-bezier(0.22,1,0.36,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background:
+        radial-gradient(1200px 620px at 20% -10%, rgba(44, 24, 102, 0.40), transparent 58%),
+        radial-gradient(980px 520px at 85% 110%, rgba(0, 110, 180, 0.26), transparent 62%),
+        linear-gradient(180deg, #050819 0%, #02030c 58%, #010107 100%);
+      font-family: "SF Pro Display","Helvetica Neue",Arial,sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+    body { display: grid; place-items: center; }
+
+    /* ── Plugin shell ───────────────────────────────────────────── */
+    .plugin {
+      position: relative;
+      width: min(1080px, 100vw);
+      height: min(680px, 100vh);
+      background: radial-gradient(ellipse 130% 100% at 50% -10%,
+        #130B30 0%, #0A0820 22%, #060615 52%, var(--bg) 100%);
+      border: 1px solid rgba(139,111,255,0.20);
+      border-radius: 22px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow:
+        0 0 80px rgba(139,111,255,0.07),
+        0 50px 120px rgba(0,0,0,0.95),
+        inset 0 1px 0 rgba(255,255,255,0.055),
+        inset 0 0 100px rgba(139,111,255,0.03);
+    }
+
+    /* ── Cosmic layer ───────────────────────────────────────────── */
+    .cosmos {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      animation: cosmosFloat 26s ease-in-out infinite alternate;
+    }
+    #bg-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.9;
+      mix-blend-mode: screen;
+    }
+    .cosmos::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.18;
+      background-image:
+        radial-gradient(1px 1px at 14% 22%, rgba(255,255,255,0.45), transparent 65%),
+        radial-gradient(1.2px 1.2px at 39% 71%, rgba(175,210,255,0.40), transparent 68%),
+        radial-gradient(1px 1px at 66% 36%, rgba(220,200,255,0.42), transparent 65%),
+        radial-gradient(1.1px 1.1px at 83% 58%, rgba(170,220,255,0.36), transparent 66%);
+      background-size: 220px 220px, 300px 300px, 260px 260px, 340px 340px;
+      background-repeat: repeat;
+      mix-blend-mode: screen;
+      animation: starDrift 44s linear infinite, starTwinkle 8s ease-in-out infinite alternate;
+    }
+
+    .galaxy-a,
+    .galaxy-b {
+      position: absolute;
+      border-radius: 999px;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: 0.30;
+      filter: blur(0.2px);
+    }
+    .galaxy-a {
+      width: 420px;
+      height: 180px;
+      left: -90px;
+      top: 330px;
+      background:
+        radial-gradient(ellipse at 50% 50%, rgba(210, 175, 255, 0.28) 0%, rgba(130, 88, 230, 0.14) 36%, rgba(0, 0, 0, 0) 72%),
+        conic-gradient(from 10deg, rgba(0, 235, 255, 0.24), rgba(120, 90, 255, 0.20), rgba(0, 185, 255, 0.16), rgba(0, 235, 255, 0.24));
+      transform: rotate(-18deg);
+      animation: galaxySpinA 62s linear infinite;
+    }
+    .galaxy-b {
+      width: 360px;
+      height: 150px;
+      right: -70px;
+      top: 120px;
+      background:
+        radial-gradient(ellipse at 50% 50%, rgba(175, 225, 255, 0.26) 0%, rgba(60, 132, 210, 0.13) 38%, rgba(0, 0, 0, 0) 74%),
+        conic-gradient(from 120deg, rgba(128, 96, 255, 0.20), rgba(0, 235, 255, 0.20), rgba(148, 104, 255, 0.16), rgba(128, 96, 255, 0.20));
+      transform: rotate(14deg);
+      animation: galaxySpinB 74s linear infinite reverse;
+    }
+
+    .nebula-a {
+      position: absolute; width: 560px; height: 560px;
+      left: -140px; top: -120px; border-radius: 50%;
+      background: radial-gradient(circle,
+        rgba(168,92,255,0.27) 0%, rgba(130,72,235,0.12) 45%, transparent 72%);
+      filter: blur(52px);
+      animation: ndrift 13s ease-in-out infinite alternate;
+    }
+    .nebula-b {
+      position: absolute; width: 640px; height: 420px;
+      right: -160px; bottom: -70px; border-radius: 50%;
+      background: radial-gradient(circle,
+        rgba(0,192,255,0.24) 0%, rgba(0,120,210,0.11) 45%, transparent 72%);
+      filter: blur(60px);
+      animation: ndrift 17s ease-in-out infinite alternate-reverse;
+    }
+    .nebula-c {
+      position: absolute; width: 680px; height: 260px;
+      left: 50%; top: 35%; transform: translateX(-50%);
+      background: radial-gradient(ellipse,
+        rgba(124,76,255,0.18) 0%, rgba(68,150,255,0.06) 42%, transparent 72%);
+      filter: blur(36px);
+    }
+    @keyframes ndrift {
+      from { transform: scale(1) translate(0,0); }
+      to   { transform: scale(1.12) translate(14px,-10px); }
+    }
+    @keyframes starDrift {
+      from { background-position: 0 0, 0 0, 0 0, 0 0; }
+      to   { background-position: 90px -42px, -70px 36px, 54px -28px, -46px 26px; }
+    }
+    @keyframes starTwinkle {
+      from { opacity: 0.14; }
+      to   { opacity: 0.21; }
+    }
+    @keyframes cosmosFloat {
+      from { transform: translate3d(0, 0, 0); }
+      to   { transform: translate3d(0, -4px, 0); }
+    }
+    @keyframes galaxySpinA {
+      from { transform: rotate(-18deg) scale(1); }
+      to   { transform: rotate(342deg) scale(1.03); }
+    }
+    @keyframes galaxySpinB {
+      from { transform: rotate(14deg) scale(1); }
+      to   { transform: rotate(374deg) scale(1.02); }
+    }
+
+    /* Grain overlay */
+    .grain {
+      position: absolute; inset: 0; z-index: 1;
+      pointer-events: none; mix-blend-mode: overlay; opacity: 0.048;
+      background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/></filter><rect width='256' height='256' filter='url(%23n)'/></svg>");
+      background-size: 210px 210px;
+      animation: grainShift 22s linear infinite;
+    }
+    @keyframes grainShift {
+      from { background-position: 0 0; }
+      to   { background-position: 120px 80px; }
+    }
+
+    /* All layered content above cosmos */
+    .plugin > :not(.cosmos):not(.grain) { position: relative; z-index: 2; }
+
+    /* ── Header ──────────────────────────────────────────────────── */
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 54px; height: 62px; flex-shrink: 0; position: relative;
+    }
+    .header::after {
+      content: ''; position: absolute;
+      bottom: 0; left: 54px; right: 54px; height: 1px;
+      background: linear-gradient(90deg,
+        transparent, rgba(139,111,255,0.32) 30%, rgba(0,232,255,0.22) 70%, transparent);
+    }
+    .header-logo { width: 32px; height: 32px; flex-shrink: 0; }
+    .header-logo img { width: 100%; height: 100%; object-fit: contain; opacity: 0.86; }
+    .header-center { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .plugin-title {
+      font-size: 15.5px; font-weight: 400; letter-spacing: 9px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #9B7FFF 0%, #C0A8FF 38%, var(--cyan) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 10px rgba(139,111,255,0.45));
+    }
+    .plugin-sub { font-size: 8.5px; letter-spacing: 3.5px; text-transform: uppercase; color: var(--text-dim); }
+    .header-right { font-size: 10px; letter-spacing: 1.5px; color: var(--text-dim); font-style: italic; }
+
+    /* ── Preset Browser ──────────────────────────────────────────── */
+    .preset-browser {
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 54px; height: 48px; flex-shrink: 0;
+      background: rgba(5,4,18,0.72);
+      border-bottom: 1px solid rgba(139,111,255,0.16);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    }
+    .category-select {
+      appearance: none; -webkit-appearance: none;
+      background: rgba(139,111,255,0.09);
+      border: 1px solid rgba(139,111,255,0.26); border-radius: 8px;
+      color: var(--text); font-size: 10px; font-weight: 600;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 0 28px 0 13px; height: 29px; cursor: pointer; outline: none; min-width: 114px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238B6FFF' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 9px center;
+      transition: border-color var(--ease), box-shadow var(--ease);
+    }
+    .category-select:hover { border-color: rgba(139,111,255,0.5); box-shadow: 0 0 10px rgba(139,111,255,0.14); }
+    .category-select option { background: #0C0A20; color: var(--text); }
+    .browser-divider { width: 1px; height: 20px; background: linear-gradient(to bottom, transparent, rgba(139,111,255,0.28), transparent); flex-shrink: 0; }
+    .nav-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 8px;
+      border: 1px solid rgba(139,111,255,0.20);
+      background: rgba(139,111,255,0.05); color: var(--text-soft);
+      font-size: 18px; line-height: 1; cursor: pointer; user-select: none;
+      transition: all var(--ease); flex-shrink: 0;
+    }
+    .nav-btn:hover { border-color: var(--violet); color: var(--text); background: rgba(139,111,255,0.15); box-shadow: 0 0 12px rgba(139,111,255,0.18); }
+    .preset-display { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+    .preset-name {
+      font-size: 13px; font-weight: 400; letter-spacing: 0.8px;
+      color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 280px; text-shadow: 0 0 14px rgba(139,111,255,0.3);
+    }
+    .preset-tags { display: flex; gap: 5px; }
+    .tag {
+      font-size: 8px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase;
+      color: var(--cyan); background: rgba(0,232,255,0.07);
+      border: 1px solid rgba(0,232,255,0.18); border-radius: 4px; padding: 2px 6px;
+    }
+
+    /* ── Analyzer ────────────────────────────────────────────────── */
+    .analyzer-section {
+      flex: 1; display: flex; align-items: stretch;
+      padding: 14px 54px 10px; gap: 11px; min-height: 0;
+    }
+    .meter-wrap { width: 54px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .meter-label {
+      font-size: 7px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(220, 228, 255, 0.34);
+      text-shadow: 0 0 8px rgba(130, 110, 255, 0.35);
+    }
+    .meter-bars {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(12, 6, 40, 0.90), rgba(4, 18, 55, 0.85));
+      border: 1px solid rgba(132, 112, 238, 0.20);
+      box-shadow:
+        inset 0 0 32px rgba(0, 0, 0, 0.60),
+        0 0 20px rgba(100, 78, 225, 0.22);
+      overflow: hidden;
+    }
+    .meter-bars::before { display: none; }
+    .meter-bars::after  { display: none; }
+    .meter-seg {
+      height: 3px;
+      width: var(--meter-w, 62%);
+      margin: 0 auto;
+      border-radius: 999px;
+      background: rgba(160,150,220,0.10);
+      opacity: 0.20;
+      transition: width 80ms ease, background 90ms ease, opacity 90ms ease, box-shadow 120ms ease, transform 110ms ease;
+    }
+    .meter-seg.active {
+      opacity: 0.98;
+      transform: translateZ(0);
+      background: linear-gradient(90deg, #8C6CFF 0%, #23BDF0 52%, #00E6FF 100%);
+      box-shadow: 0 0 8px rgba(0, 226, 255, 0.34), 0 0 14px rgba(130, 106, 255, 0.26);
+    }
+    .meter-seg.mid {
+      background: linear-gradient(90deg, #9D6BFF 0%, #2CC8FF 100%);
+      box-shadow: 0 0 10px rgba(0, 204, 255, 0.42);
+    }
+    .meter-seg.hot {
+      background: linear-gradient(90deg, #FF5B8A 0%, #FF3F65 100%);
+      box-shadow: 0 0 13px rgba(255, 74, 120, 0.62);
+    }
+    .meter-seg.peak {
+      opacity: 1;
+      width: 96%;
+      background: linear-gradient(90deg, #D8CAFF 0%, #9BEFFF 100%);
+      box-shadow: 0 0 16px rgba(181, 228, 255, 0.78);
+    }
+    .canvas-wrap {
+      flex: 1; position: relative; border-radius: 14px; overflow: hidden;
+      background: rgba(3,2,13,0.94);
+      border: 1px solid rgba(139,111,255,0.13);
+      box-shadow: inset 0 0 40px rgba(80,50,220,0.055), 0 0 24px rgba(0,0,0,0.7);
+    }
+    #voice-canvas { display: block; width: 100%; height: 100%; }
+
+    /* ── Knobs ───────────────────────────────────────────────────── */
+    .knobs-section {
+      flex-shrink: 0; height: 206px;
+      display: flex; align-items: center;
+      padding: 4px 54px 0;
+    }
+    .knobs-row { display: flex; justify-content: space-around; align-items: center; flex: 1; }
+    .knob-col {
+      display: flex; flex-direction: column; align-items: center; gap: 7px;
+      cursor: ns-resize; user-select: none; -webkit-user-select: none;
+      padding: 12px 18px 10px; border-radius: 18px;
+      transition: background var(--ease);
+    }
+    .knob-col:hover     { background: rgba(139,111,255,0.05); }
+    .knob-col.dragging  { background: rgba(139,111,255,0.10); cursor: grabbing; }
+    .knob-label {
+      font-size: 8.5px; font-weight: 600; letter-spacing: 2.8px; text-transform: uppercase;
+      color: var(--text-soft); transition: color var(--ease);
+    }
+    .knob-col:hover .knob-label { color: var(--text); }
+    .knob-svg-wrap { position: relative; width: 100px; height: 100px; }
+    .knob-svg { width: 100px; height: 100px; overflow: visible; }
+    .knob-value {
+      font-size: 11px; font-weight: 400; letter-spacing: 0.3px;
+      color: var(--text-soft); min-width: 44px; text-align: center;
+      transition: color var(--ease), text-shadow var(--ease);
+    }
+    .knob-col:hover .knob-value { color: var(--cyan); text-shadow: 0 0 10px rgba(0,232,255,0.4); }
+
+    /* ── Mode buttons ─────────────────────────────────────────────── */
+    .mode-section {
+      flex-shrink: 0; height: 64px;
+      display: flex; align-items: center; justify-content: center;
+      gap: 14px; padding: 0 54px;
+      border-top: 1px solid rgba(255,255,255,0.04);
+    }
+    .mode-btn {
+      height: 36px; padding: 0 32px; border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      color: var(--text-soft); font-size: 9.5px; font-weight: 700;
+      letter-spacing: 2.5px; text-transform: uppercase;
+      cursor: pointer; outline: none; transition: all var(--ease);
+    }
+    .mode-btn:hover { border-color: rgba(139,111,255,0.38); color: var(--text); background: rgba(139,111,255,0.07); }
+    .mode-btn[data-mode="0"].active { border-color:#88EFC0; background:rgba(136,239,192,0.09); color:#C8FAE5; box-shadow:0 0 18px rgba(136,239,192,0.22),inset 0 0 8px rgba(136,239,192,0.07); }
+    .mode-btn[data-mode="1"].active { border-color:var(--cyan); background:rgba(0,232,255,0.09); color:var(--cyan); box-shadow:0 0 22px rgba(0,232,255,0.28),inset 0 0 10px rgba(0,232,255,0.07); }
+    .mode-btn[data-mode="2"].active { border-color:var(--violet); background:rgba(139,111,255,0.12); color:#C5AAFF; box-shadow:0 0 22px rgba(139,111,255,0.28),inset 0 0 10px rgba(139,111,255,0.07); }
+    .mode-btn[data-mode="3"].active { border-color:#FF6050; background:rgba(255,96,80,0.11); color:#FFBBB0; box-shadow:0 0 22px rgba(255,96,80,0.26),inset 0 0 10px rgba(255,96,80,0.07); }
+    .mode-btn[data-mode="4"].active { border-color:#FFC34D; background:rgba(255,195,77,0.12); color:#FFE1A3; box-shadow:0 0 22px rgba(255,195,77,0.30),inset 0 0 10px rgba(255,195,77,0.08); }
+  </style>
+</head>
+<body>
+
+  <!-- Shared SVG defs (gradients + glow filters) -->
+  <svg width="0" height="0" style="position:absolute;overflow:hidden">
+    <defs>
+      <linearGradient id="knob-grad" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%"   stop-color="#8B6FFF"/>
+        <stop offset="50%"  stop-color="#44BBFF"/>
+        <stop offset="100%" stop-color="#00E8FF"/>
+      </linearGradient>
+      <linearGradient id="knob-grad-blend" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%"   stop-color="#6644CC"/>
+        <stop offset="100%" stop-color="#00E8FF"/>
+      </linearGradient>
+      <radialGradient id="knob-body" cx="36%" cy="30%" r="70%">
+        <stop offset="0%"   stop-color="rgba(182,162,255,0.28)"/>
+        <stop offset="44%"  stop-color="rgba(68,52,138,0.30)"/>
+        <stop offset="100%" stop-color="rgba(9,7,22,0.90)"/>
+      </radialGradient>
+      <filter id="arc-glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="3" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="dot-glow" x="-200%" y="-200%" width="500%" height="500%">
+        <feGaussianBlur stdDeviation="2.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+  </svg>
+
+  <div class="plugin">
+
+    <!-- Cosmic BG -->
+    <div class="cosmos">
+      <canvas id="bg-canvas"></canvas>
+      <div class="galaxy-a"></div>
+      <div class="galaxy-b"></div>
+      <div class="nebula-a"></div>
+      <div class="nebula-b"></div>
+      <div class="nebula-c"></div>
+    </div>
+    <div class="grain"></div>
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-logo"><img src="n_logo.png" alt="N"/></div>
+      <div class="header-center">
+        <div class="plugin-title">Nova Tune</div>
+        <div class="plugin-sub">Vocal Mutation</div>
+      </div>
+      <div class="header-right">by International Nova</div>
+    </header>
+
+    <!-- Preset Browser -->
+    <div class="preset-browser">
+      <select id="category-select" class="category-select">
+        <option value="All">All</option>
+        <option value="Lead">Lead</option>
+        <option value="Chrome">Chrome</option>
+        <option value="Warp">Warp</option>
+        <option value="Creature">Creature</option>
+        <option value="Choir">Choir</option>
+        <option value="Atmosphere">Atmosphere</option>
+        <option value="Android">Android</option>
+        <option value="Signature" selected>Signature</option>
+      </select>
+      <div class="browser-divider"></div>
+      <button id="prev-preset" class="nav-btn" aria-label="Previous">&#8249;</button>
+      <div class="preset-display">
+        <span id="preset-name" class="preset-name">Nova Prime</span>
+        <div id="preset-tags" class="preset-tags">
+          <span class="tag">Mutation</span><span class="tag">Lead</span><span class="tag">Signature</span>
+        </div>
+      </div>
+      <button id="next-preset" class="nav-btn" aria-label="Next">&#8250;</button>
+    </div>
+
+    <!-- Analyzer -->
+    <div class="analyzer-section">
+      <div class="meter-wrap">
+        <div class="meter-label">IN</div>
+        <div class="meter-bars" id="input-meter"></div>
+      </div>
+      <div class="canvas-wrap"><canvas id="voice-canvas"></canvas></div>
+      <div class="meter-wrap">
+        <div class="meter-label">OUT</div>
+        <div class="meter-bars" id="output-meter"></div>
+      </div>
+    </div>
+
+    <!-- Knobs -->
+    <div class="knobs-section">
+      <div class="knobs-row">
+
+        <!-- SHIFT -->
+        <div class="knob-col" data-param="pitch" data-min="-12" data-max="12">
+          <div class="knob-label">Shift</div>
+          <div class="knob-svg-wrap">
+            <svg class="knob-svg" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(139,111,255,0.09)" stroke-width="1.5"/>
+              <circle class="knob-track" cx="50" cy="50" r="38" fill="none"
+                stroke="rgba(255,255,255,0.07)" stroke-width="5"
+                stroke-dasharray="159.2 79.6" transform="rotate(135 50 50)" stroke-linecap="round"/>
+              <circle class="knob-fill" cx="50" cy="50" r="38" fill="none"
+                stroke="url(#knob-grad)" stroke-width="5"
+                stroke-dasharray="0 238.76" transform="rotate(135 50 50)" stroke-linecap="round"
+                filter="url(#arc-glow)"/>
+              <circle cx="50" cy="50" r="26" fill="url(#knob-body)" stroke="rgba(160,140,255,0.20)" stroke-width="1"/>
+              <ellipse cx="42" cy="40" rx="8" ry="5" fill="rgba(255,255,255,0.09)" transform="rotate(-30 42 40)"/>
+              <circle cx="50" cy="50" r="10" fill="rgba(100,78,210,0.10)"/>
+              <g class="knob-indicator" style="transform-origin:50px 50px;transform:rotate(-120deg)">
+                <circle cx="50" cy="16" r="4" fill="#00E8FF" filter="url(#dot-glow)"/>
+              </g>
+            </svg>
+          </div>
+          <div class="knob-value">+0.0 st</div>
+        </div>
+
+        <!-- MUTATE -->
+        <div class="knob-col" data-param="morph" data-min="0" data-max="10">
+          <div class="knob-label">Mutate</div>
+          <div class="knob-svg-wrap">
+            <svg class="knob-svg" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(139,111,255,0.09)" stroke-width="1.5"/>
+              <circle class="knob-track" cx="50" cy="50" r="38" fill="none"
+                stroke="rgba(255,255,255,0.07)" stroke-width="5"
+                stroke-dasharray="159.2 79.6" transform="rotate(135 50 50)" stroke-linecap="round"/>
+              <circle class="knob-fill" cx="50" cy="50" r="38" fill="none"
+                stroke="url(#knob-grad)" stroke-width="5"
+                stroke-dasharray="0 238.76" transform="rotate(135 50 50)" stroke-linecap="round"
+                filter="url(#arc-glow)"/>
+              <circle cx="50" cy="50" r="26" fill="url(#knob-body)" stroke="rgba(160,140,255,0.20)" stroke-width="1"/>
+              <ellipse cx="42" cy="40" rx="8" ry="5" fill="rgba(255,255,255,0.09)" transform="rotate(-30 42 40)"/>
+              <circle cx="50" cy="50" r="10" fill="rgba(100,78,210,0.10)"/>
+              <g class="knob-indicator" style="transform-origin:50px 50px;transform:rotate(-120deg)">
+                <circle cx="50" cy="16" r="4" fill="#00E8FF" filter="url(#dot-glow)"/>
+              </g>
+            </svg>
+          </div>
+          <div class="knob-value">4.8</div>
+        </div>
+
+        <!-- GLITCH -->
+        <div class="knob-col" data-param="texture" data-min="0" data-max="10">
+          <div class="knob-label">Glitch</div>
+          <div class="knob-svg-wrap">
+            <svg class="knob-svg" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(139,111,255,0.09)" stroke-width="1.5"/>
+              <circle class="knob-track" cx="50" cy="50" r="38" fill="none"
+                stroke="rgba(255,255,255,0.07)" stroke-width="5"
+                stroke-dasharray="159.2 79.6" transform="rotate(135 50 50)" stroke-linecap="round"/>
+              <circle class="knob-fill" cx="50" cy="50" r="38" fill="none"
+                stroke="url(#knob-grad)" stroke-width="5"
+                stroke-dasharray="0 238.76" transform="rotate(135 50 50)" stroke-linecap="round"
+                filter="url(#arc-glow)"/>
+              <circle cx="50" cy="50" r="26" fill="url(#knob-body)" stroke="rgba(160,140,255,0.20)" stroke-width="1"/>
+              <ellipse cx="42" cy="40" rx="8" ry="5" fill="rgba(255,255,255,0.09)" transform="rotate(-30 42 40)"/>
+              <circle cx="50" cy="50" r="10" fill="rgba(100,78,210,0.10)"/>
+              <g class="knob-indicator" style="transform-origin:50px 50px;transform:rotate(-120deg)">
+                <circle cx="50" cy="16" r="4" fill="#00E8FF" filter="url(#dot-glow)"/>
+              </g>
+            </svg>
+          </div>
+          <div class="knob-value">2.5</div>
+        </div>
+
+        <!-- GENDER -->
+        <div class="knob-col" data-param="form" data-min="0" data-max="10">
+          <div class="knob-label">Gender</div>
+          <div class="knob-svg-wrap">
+            <svg class="knob-svg" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(139,111,255,0.09)" stroke-width="1.5"/>
+              <circle class="knob-track" cx="50" cy="50" r="38" fill="none"
+                stroke="rgba(255,255,255,0.07)" stroke-width="5"
+                stroke-dasharray="159.2 79.6" transform="rotate(135 50 50)" stroke-linecap="round"/>
+              <circle class="knob-fill" cx="50" cy="50" r="38" fill="none"
+                stroke="url(#knob-grad)" stroke-width="5"
+                stroke-dasharray="0 238.76" transform="rotate(135 50 50)" stroke-linecap="round"
+                filter="url(#arc-glow)"/>
+              <circle cx="50" cy="50" r="26" fill="url(#knob-body)" stroke="rgba(160,140,255,0.20)" stroke-width="1"/>
+              <ellipse cx="42" cy="40" rx="8" ry="5" fill="rgba(255,255,255,0.09)" transform="rotate(-30 42 40)"/>
+              <circle cx="50" cy="50" r="10" fill="rgba(100,78,210,0.10)"/>
+              <g class="knob-indicator" style="transform-origin:50px 50px;transform:rotate(-120deg)">
+                <circle cx="50" cy="16" r="4" fill="#00E8FF" filter="url(#dot-glow)"/>
+              </g>
+            </svg>
+          </div>
+          <div class="knob-value">5.0</div>
+        </div>
+
+        <!-- SPACE -->
+        <div class="knob-col" data-param="air" data-min="0" data-max="10">
+          <div class="knob-label">Space</div>
+          <div class="knob-svg-wrap">
+            <svg class="knob-svg" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(139,111,255,0.09)" stroke-width="1.5"/>
+              <circle class="knob-track" cx="50" cy="50" r="38" fill="none"
+                stroke="rgba(255,255,255,0.07)" stroke-width="5"
+                stroke-dasharray="159.2 79.6" transform="rotate(135 50 50)" stroke-linecap="round"/>
+              <circle class="knob-fill" cx="50" cy="50" r="38" fill="none"
+                stroke="url(#knob-grad)" stroke-width="5"
+                stroke-dasharray="0 238.76" transform="rotate(135 50 50)" stroke-linecap="round"
+                filter="url(#arc-glow)"/>
+              <circle cx="50" cy="50" r="26" fill="url(#knob-body)" stroke="rgba(160,140,255,0.20)" stroke-width="1"/>
+              <ellipse cx="42" cy="40" rx="8" ry="5" fill="rgba(255,255,255,0.09)" transform="rotate(-30 42 40)"/>
+              <circle cx="50" cy="50" r="10" fill="rgba(100,78,210,0.10)"/>
+              <g class="knob-indicator" style="transform-origin:50px 50px;transform:rotate(-120deg)">
+                <circle cx="50" cy="16" r="4" fill="#00E8FF" filter="url(#dot-glow)"/>
+              </g>
+            </svg>
+          </div>
+          <div class="knob-value">4.2</div>
+        </div>
+
+        <!-- MIX -->
+        <div class="knob-col" data-param="blend" data-min="0" data-max="100">
+          <div class="knob-label">Mix</div>
+          <div class="knob-svg-wrap">
+            <svg class="knob-svg" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(0,232,255,0.09)" stroke-width="1.5"/>
+              <circle class="knob-track" cx="50" cy="50" r="38" fill="none"
+                stroke="rgba(255,255,255,0.07)" stroke-width="5"
+                stroke-dasharray="159.2 79.6" transform="rotate(135 50 50)" stroke-linecap="round"/>
+              <circle class="knob-fill" cx="50" cy="50" r="38" fill="none"
+                stroke="url(#knob-grad-blend)" stroke-width="5"
+                stroke-dasharray="0 238.76" transform="rotate(135 50 50)" stroke-linecap="round"
+                filter="url(#arc-glow)"/>
+              <circle cx="50" cy="50" r="26" fill="url(#knob-body)" stroke="rgba(0,200,255,0.16)" stroke-width="1"/>
+              <ellipse cx="42" cy="40" rx="8" ry="5" fill="rgba(255,255,255,0.09)" transform="rotate(-30 42 40)"/>
+              <circle cx="50" cy="50" r="10" fill="rgba(0,95,195,0.09)"/>
+              <g class="knob-indicator" style="transform-origin:50px 50px;transform:rotate(-120deg)">
+                <circle cx="50" cy="16" r="4" fill="#00E8FF" filter="url(#dot-glow)"/>
+              </g>
+            </svg>
+          </div>
+          <div class="knob-value">60%</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Mode Buttons -->
+    <div class="mode-section">
+      <button class="mode-btn" data-mode="0">Natural</button>
+      <button class="mode-btn" data-mode="1">Chrome</button>
+      <button class="mode-btn active" data-mode="2">Warp</button>
+      <button class="mode-btn" data-mode="3">Monster</button>
+      <button class="mode-btn" data-mode="4">Android</button>
+    </div>
+
+  </div><!-- .plugin -->
+
+  <script>
+    window.__novaTuneBooted = false;
+    window.addEventListener("load", function () {
+      setTimeout(function () {
+        if (window.__novaTuneBooted) return;
+        console.warn("Nova Tune module UI unavailable, loading fallback bootstrap.");
+        var s = document.createElement("script");
+        s.src = "js/fallback-boot.js";
+        s.defer = true;
+        document.head.appendChild(s);
+      }, 1200);
+    });
+  </script>
+  <script type="module" src="js/index.js"></script>
+  <script nomodule src="js/fallback-boot.js"></script>
+</body>
+</html>
