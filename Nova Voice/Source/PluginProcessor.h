@@ -100,6 +100,8 @@ private:
     float pitchDownPhase { 0.0f };
     int pitchWriteIndex { 0 };
     float pitchReadPos { 0.0f };
+    float pitchAASmoothLeft { 0.0f };
+    float pitchAASmoothRight { 0.0f };
     int pitchDelaySize { 0 };
     std::vector<float> pitchDelayLeft;
     std::vector<float> pitchDelayRight;

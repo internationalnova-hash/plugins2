@@ -208,6 +208,8 @@ void NovaVoiceAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     pitchDelayRight.assign (static_cast<size_t> (pitchDelaySize), 0.0f);
     pitchWriteIndex = 0;
     pitchReadPos = static_cast<float> (pitchDelaySize - juce::jmin (512, pitchDelaySize / 8));
+    pitchAASmoothLeft = 0.0f;
+    pitchAASmoothRight = 0.0f;
     subOctavePolarityLeft = false;
     subOctavePolarityRight = false;
     robotCarrierPhase = 0.0f;
@@ -530,6 +532,8 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             previousInputRight = rawInR;
             previousWetLeft = rawInL;
             previousWetRight = rawInR;
+            pitchAASmoothLeft = rawInL;
+            pitchAASmoothRight = rawInR;
 
             pitchDelayLeft[static_cast<size_t> (pitchWriteIndex)] = rawInL;
             pitchDelayRight[static_cast<size_t> (pitchWriteIndex)] = rawInR;
@@ -591,11 +595,11 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             if (pitch > 3.0f)
             {
                 const float antiAliasFactor = juce::jlimit (0.0f, 1.0f, (pitch - 3.0f) / 9.0f);
-                const float smooth = 0.6f + antiAliasFactor * 0.35f;
-                previousWetLeft = smooth * previousWetLeft + (1.0f - smooth) * shiftedL;
-                previousWetRight = smooth * previousWetRight + (1.0f - smooth) * shiftedR;
-                shiftedL = previousWetLeft;
-                shiftedR = previousWetRight;
+                const float smooth = 0.72f + antiAliasFactor * 0.23f;
+                pitchAASmoothLeft = smooth * pitchAASmoothLeft + (1.0f - smooth) * shiftedL;
+                pitchAASmoothRight = smooth * pitchAASmoothRight + (1.0f - smooth) * shiftedR;
+                shiftedL = pitchAASmoothLeft;
+                shiftedR = pitchAASmoothRight;
             }
 
             // Keep pitch stage fully clean: no extra dry injection inside the shifted path.
@@ -610,18 +614,18 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         if (pitchWriteIndex >= pitchDelaySize)
             pitchWriteIndex = 0;
 
-        const int targetDelay = juce::jlimit (48, pitchDelaySize / 4, static_cast<int> (currentSampleRate * 0.004));
+        const int targetDelay = juce::jlimit (96, pitchDelaySize / 4, static_cast<int> (currentSampleRate * 0.010));
         float distance = static_cast<float> (pitchWriteIndex) - pitchReadPos;
         if (distance < 0.0f)
             distance += static_cast<float> (pitchDelaySize);
 
         // Make delay correction responsive but smooth (no hard jumps that cause artifacts).
         const float delayError = distance - static_cast<float> (targetDelay);
-        const float correctionAmount = 0.15f;
-        pitchReadPos += delayError * correctionAmount;
+        const float correctionStep = juce::jlimit (-0.35f, 0.35f, delayError * 0.012f);
+        pitchReadPos += correctionStep;
 
         // Only hard-resync in emergencies (dangerously close to write head).
-        if (distance < 8.0f || distance > static_cast<float> (pitchDelaySize - 8))
+        if (distance < 24.0f || distance > static_cast<float> (pitchDelaySize - 24))
             pitchReadPos = static_cast<float> (pitchWriteIndex - targetDelay);
 
         while (pitchReadPos < 0.0f)
