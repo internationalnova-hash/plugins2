@@ -201,11 +201,13 @@ void NovaVoiceAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     modulationPhase = 0.0f;
     pitchUpPhase = 0.0f;
     pitchDownPhase = 0.0f;
-    pitchDelaySize = juce::jmax (16384, juce::nextPowerOfTwo (static_cast<int> (sampleRate * 0.35)));
+    // Use smaller pitch delay for responsiveness: ~80-120ms instead of 370ms
+    pitchDelaySize = juce::nextPowerOfTwo (static_cast<int> (sampleRate * 0.10));
+    if (pitchDelaySize < 4096) pitchDelaySize = 4096;
     pitchDelayLeft.assign (static_cast<size_t> (pitchDelaySize), 0.0f);
     pitchDelayRight.assign (static_cast<size_t> (pitchDelaySize), 0.0f);
     pitchWriteIndex = 0;
-    pitchReadPos = static_cast<float> (pitchDelaySize - juce::jmin (4096, pitchDelaySize / 4));
+    pitchReadPos = static_cast<float> (pitchDelaySize - juce::jmin (512, pitchDelaySize / 8));
     subOctavePolarityLeft = false;
     subOctavePolarityRight = false;
     robotCarrierPhase = 0.0f;
@@ -534,7 +536,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             ++pitchWriteIndex;
             if (pitchWriteIndex >= pitchDelaySize)
                 pitchWriteIndex = 0;
-            pitchReadPos = static_cast<float> (pitchWriteIndex - juce::jlimit (256, pitchDelaySize / 2, static_cast<int> (currentSampleRate * 0.018)));
+            pitchReadPos = static_cast<float> (pitchWriteIndex - juce::jlimit (48, pitchDelaySize / 4, static_cast<int> (currentSampleRate * 0.004)));
             while (pitchReadPos < 0.0f)
                 pitchReadPos += static_cast<float> (pitchDelaySize);
 
@@ -582,8 +584,19 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 return ((c3 * frac + c2) * frac + c1) * frac + c0;
             };
 
-            const float shiftedL = readHermite (pitchDelayLeft, pitchReadPos);
-            const float shiftedR = readHermite (pitchDelayRight, pitchReadPos);
+            float shiftedL = readHermite (pitchDelayLeft, pitchReadPos);
+            float shiftedR = readHermite (pitchDelayRight, pitchReadPos);
+
+            // Apply gentle anti-aliasing on pitch-up to reduce Hermite interpolation artifacts.
+            if (pitch > 3.0f)
+            {
+                const float antiAliasFactor = juce::jlimit (0.0f, 1.0f, (pitch - 3.0f) / 9.0f);
+                const float smooth = 0.6f + antiAliasFactor * 0.35f;
+                previousWetLeft = smooth * previousWetLeft + (1.0f - smooth) * shiftedL;
+                previousWetRight = smooth * previousWetRight + (1.0f - smooth) * shiftedR;
+                shiftedL = previousWetLeft;
+                shiftedR = previousWetRight;
+            }
 
             // Keep pitch stage fully clean: no extra dry injection inside the shifted path.
             constexpr float pitchMix = 1.0f;
@@ -597,17 +610,18 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         if (pitchWriteIndex >= pitchDelaySize)
             pitchWriteIndex = 0;
 
-        const int targetDelay = juce::jlimit (96, pitchDelaySize / 3, static_cast<int> (currentSampleRate * 0.008));
+        const int targetDelay = juce::jlimit (48, pitchDelaySize / 4, static_cast<int> (currentSampleRate * 0.004));
         float distance = static_cast<float> (pitchWriteIndex) - pitchReadPos;
         if (distance < 0.0f)
             distance += static_cast<float> (pitchDelaySize);
 
-        // Use gentle drift correction instead of hard seek jumps to avoid zipper/crackle artifacts.
+        // Make delay correction responsive but smooth (no hard jumps that cause artifacts).
         const float delayError = distance - static_cast<float> (targetDelay);
-        pitchReadPos += juce::jlimit (-0.04f, 0.04f, delayError * 0.00035f);
+        const float correctionAmount = 0.15f;
+        pitchReadPos += delayError * correctionAmount;
 
-        // Emergency resync only if the read head gets dangerously close to the write head.
-        if (distance < 12.0f || distance > static_cast<float> (pitchDelaySize - 12))
+        // Only hard-resync in emergencies (dangerously close to write head).
+        if (distance < 8.0f || distance > static_cast<float> (pitchDelaySize - 8))
             pitchReadPos = static_cast<float> (pitchWriteIndex - targetDelay);
 
         while (pitchReadPos < 0.0f)
