@@ -488,7 +488,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float morphSigned = juce::jlimit (-1.0f, 1.0f, (morph - 5.0f) / 5.0f);
     const float morphAmtRaw = std::abs (morphSigned);
     // Keep the center region truly neutral so tiny host jitter does not create hiss/distortion.
-    const float morphAmt = juce::jlimit (0.0f, 1.0f, juce::jmax (0.0f, morphAmtRaw - 0.06f) / 0.94f);
+    const float morphAmt = juce::jlimit (0.0f, 1.0f, juce::jmax (0.0f, morphAmtRaw - 0.03f) / 0.97f);
     const float textureSigned = juce::jlimit (-1.0f, 1.0f, (texture - 4.0f) / 6.0f);
     const float textureAmt = std::abs (textureSigned);
     const float formSigned = juce::jlimit (-1.0f, 1.0f, (form - 5.5f) / 4.5f);
@@ -599,42 +599,49 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             formantR = formantFiltersRight[1].processSample (formantR);
             formantR = formantFiltersRight[2].processSample (formantR);
 
-            const float shiftedFormL = formSigned >= 0.0f ? std::tanh (formantL * (1.0f + 1.2f * formAmt))
-                                                          : 0.75f * formantL + 0.25f * wetL;
-            const float shiftedFormR = formSigned >= 0.0f ? std::tanh (formantR * (1.0f + 1.2f * formAmt))
-                                                          : 0.75f * formantR + 0.25f * wetR;
-            const float formMix = juce::jlimit (0.0f, 1.0f, 0.24f + 0.70f * formAmt);
+            const float bodyKeepL = 0.58f * wetL + 0.42f * inL;
+            const float bodyKeepR = 0.58f * wetR + 0.42f * inR;
+            const float shiftedFormL = formSigned >= 0.0f
+                                        ? (0.60f * formantL + 0.40f * bodyKeepL)
+                                        : (0.82f * formantL + 0.18f * bodyKeepL);
+            const float shiftedFormR = formSigned >= 0.0f
+                                        ? (0.60f * formantR + 0.40f * bodyKeepR)
+                                        : (0.82f * formantR + 0.18f * bodyKeepR);
+            const float formMix = juce::jlimit (0.0f, 1.0f, 0.18f + 0.62f * formAmt);
             wetL = juce::jmap (formMix, wetL, shiftedFormL);
             wetR = juce::jmap (formMix, wetR, shiftedFormR);
         }
 
         if (morphAmt > 0.001f)
         {
-            const float morphMix = juce::jlimit (0.0f, 1.0f, 0.10f + 0.62f * morphAmt);
-            const float drive = 1.0f + 1.85f * morphAmt;
+            modulationPhase += juce::MathConstants<float>::twoPi * (0.35f + 2.10f * morphAmt) / static_cast<float> (currentSampleRate);
+            if (modulationPhase >= juce::MathConstants<float>::twoPi)
+                modulationPhase -= juce::MathConstants<float>::twoPi;
 
+            const float motion = std::sin (modulationPhase);
+            const float morphMix = juce::jlimit (0.0f, 1.0f, 0.18f + 0.74f * morphAmt);
             float shapedL = wetL;
             float shapedR = wetR;
 
             if (morphSigned >= 0.0f)
             {
-                const float satL = std::tanh (wetL * drive);
-                const float satR = std::tanh (wetR * drive);
-                const float edgeL = satL - std::tanh (satL * 0.74f);
-                const float edgeR = satR - std::tanh (satR * 0.74f);
-                shapedL = satL + edgeL * (0.12f + 0.30f * morphAmt);
-                shapedR = satR + edgeR * (0.12f + 0.30f * morphAmt);
+                const float drive = 1.0f + 1.35f * morphAmt;
+                const float foldL = std::sin (wetL * (1.0f + 5.2f * morphAmt));
+                const float foldR = std::sin (wetR * (1.0f + 5.2f * morphAmt));
+                shapedL = 0.70f * std::tanh (wetL * drive) + 0.30f * foldL + motion * (0.04f + 0.12f * morphAmt);
+                shapedR = 0.70f * std::tanh (wetR * drive) + 0.30f * foldR + motion * (0.04f + 0.12f * morphAmt);
             }
             else
             {
-                const float softDrive = juce::jmax (0.45f, 1.0f - 0.42f * morphAmt);
-                const float softL = std::tanh (wetL * softDrive);
-                const float softR = std::tanh (wetR * softDrive);
-                shapedL = 0.80f * softL + 0.20f * wetL;
-                shapedR = 0.80f * softR + 0.20f * wetR;
+                const float smoothL = 0.72f * wetL + 0.28f * previousWetLeft;
+                const float smoothR = 0.72f * wetR + 0.28f * previousWetRight;
+                const float hollowL = smoothL - 0.50f * std::tanh (smoothL * (1.0f + 2.2f * morphAmt));
+                const float hollowR = smoothR - 0.50f * std::tanh (smoothR * (1.0f + 2.2f * morphAmt));
+                shapedL = 1.18f * hollowL;
+                shapedR = 1.18f * hollowR;
             }
 
-            const float morphComp = 1.0f / (1.0f + 0.26f * morphAmt);
+            const float morphComp = 1.0f / (1.0f + 0.18f * morphAmt);
             shapedL *= morphComp;
             shapedR *= morphComp;
             wetL = juce::jmap (morphMix, wetL, shapedL);
