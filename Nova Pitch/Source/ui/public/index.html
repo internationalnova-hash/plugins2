@@ -6,18 +6,14 @@
   <title>Nova Pitch</title>
   <style>
     :root {
-      --bg: #0a0f1a;
-      --silver: #d4d9e0;
-      --silver-dark: #8a92a0;
-      --blue: #3d8eff;
-      --blue-dark: #1a3a5a;
-      --blue-bright: #00d4ff;
-      --text: #e8eef5;
-      --text-dim: rgba(232, 238, 245, 0.4);
-      --text-faint: rgba(232, 238, 245, 0.15);
-      --accent: #00ffa3;
-      --red: #ff3860;
-      --ease: 200ms cubic-bezier(0.22, 1, 0.36, 1);
+      --bg:        #030310;
+      --violet:    #8B6FFF;
+      --cyan:      #00E8FF;
+      --text:      #F0EEFF;
+      --text-soft: rgba(240,238,255,0.52);
+      --text-dim:  rgba(240,238,255,0.24);
+      --red-hot:   #FF4060;
+      --ease:      200ms cubic-bezier(0.22,1,0.36,1);
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -25,140 +21,216 @@
     html, body {
       width: 100%; height: 100%; overflow: hidden;
       background:
-        radial-gradient(800px 600px at 50% 20%, rgba(61, 142, 255, 0.12), transparent 55%),
-        radial-gradient(900px 700px at 80% 80%, rgba(26, 58, 90, 0.2), transparent 60%),
-        linear-gradient(180deg, #0f1420 0%, #0a0f1a 50%, #050810 100%);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+        radial-gradient(1200px 620px at 20% -10%, rgba(139, 111, 255, 0.20), transparent 58%),
+        radial-gradient(980px 520px at 85% 110%, rgba(0, 110, 180, 0.15), transparent 62%),
+        linear-gradient(180deg, #050819 0%, #02030c 58%, #010107 100%);
+      font-family: "SF Pro Display","Helvetica Neue",Arial,sans-serif;
       color: var(--text);
       -webkit-font-smoothing: antialiased;
     }
+    body { display: grid; place-items: center; }
 
-    body { display: grid; place-items: center; padding: 20px; }
-
-    /* ── Main Plugin Container ────────────────────────────────────── */
-    .plugin-shell {
+    /* ── Plugin shell ───────────────────────────────────────────── */
+    .plugin {
       position: relative;
-      width: 100%;
-      max-width: 1200px;
-      height: clamp(600px, 90vh, 900px);
-      background:
-        linear-gradient(135deg, rgba(212, 217, 224, 0.05) 0%, rgba(61, 142, 255, 0.08) 100%),
-        linear-gradient(180deg, #111820 0%, #0a0f1a 50%, #050810 100%);
-      border: 1px solid rgba(212, 217, 224, 0.15);
-      border-radius: 16px;
+      width: min(1080px, 100vw);
+      height: min(680px, 100vh);
+      background: radial-gradient(ellipse 130% 100% at 50% -10%,
+        #130B30 0%, #0A0820 22%, #060615 52%, var(--bg) 100%);
+      border: 1px solid rgba(139,111,255,0.20);
+      border-radius: 22px;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       box-shadow:
-        0 0 60px rgba(61, 142, 255, 0.08),
-        0 30px 100px rgba(0, 0, 0, 0.8),
-        inset 0 1px 1px rgba(255, 255, 255, 0.08);
+        0 0 80px rgba(139,111,255,0.07),
+        0 50px 120px rgba(0,0,0,0.95),
+        inset 0 1px 0 rgba(255,255,255,0.055),
+        inset 0 0 100px rgba(139,111,255,0.03);
     }
 
-    /* ── Header with Title ────────────────────────────────────────── */
+    /* ── Cosmic layer ───────────────────────────────────────────── */
+    .cosmos {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+    #bg-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.9;
+      mix-blend-mode: screen;
+    }
+    .cosmos::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.18;
+      background-image:
+        radial-gradient(1px 1px at 14% 22%, rgba(255,255,255,0.45), transparent 65%),
+        radial-gradient(1.2px 1.2px at 39% 71%, rgba(175,210,255,0.40), transparent 68%),
+        radial-gradient(1px 1px at 66% 36%, rgba(220,200,255,0.42), transparent 65%),
+        radial-gradient(1.1px 1.1px at 83% 58%, rgba(170,220,255,0.36), transparent 66%);
+      background-size: 220px 220px, 300px 300px, 260px 260px, 340px 340px;
+      background-repeat: repeat;
+      mix-blend-mode: screen;
+      animation: starDrift 44s linear infinite, starTwinkle 8s ease-in-out infinite alternate;
+    }
+
+    .galaxy-a,
+    .galaxy-b {
+      position: absolute;
+      border-radius: 999px;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: 0.30;
+      filter: blur(0.2px);
+    }
+    .galaxy-a {
+      width: 420px;
+      height: 180px;
+      left: -90px;
+      top: 330px;
+      background:
+        radial-gradient(ellipse at 50% 50%, rgba(210, 175, 255, 0.28) 0%, rgba(130, 88, 230, 0.14) 36%, rgba(0, 0, 0, 0) 72%),
+        conic-gradient(from 10deg, rgba(0, 235, 255, 0.24), rgba(120, 90, 255, 0.20), rgba(0, 185, 255, 0.16), rgba(0, 235, 255, 0.24));
+      transform: rotate(-18deg);
+      animation: galaxySpinA 62s linear infinite;
+    }
+    .galaxy-b {
+      width: 360px;
+      height: 150px;
+      right: -70px;
+      top: 120px;
+      background:
+        radial-gradient(ellipse at 50% 50%, rgba(175, 225, 255, 0.26) 0%, rgba(60, 132, 210, 0.13) 38%, rgba(0, 0, 0, 0) 74%),
+        conic-gradient(from 120deg, rgba(128, 96, 255, 0.20), rgba(0, 235, 255, 0.20), rgba(148, 104, 255, 0.16), rgba(128, 96, 255, 0.20));
+      transform: rotate(14deg);
+      animation: galaxySpinB 74s linear infinite reverse;
+    }
+
+    .nebula-a {
+      position: absolute; width: 560px; height: 560px;
+      left: -140px; top: -120px; border-radius: 50%;
+      background: radial-gradient(circle,
+        rgba(168,92,255,0.27) 0%, rgba(130,72,235,0.12) 45%, transparent 72%);
+      filter: blur(52px);
+      animation: ndrift 13s ease-in-out infinite alternate;
+    }
+    .nebula-b {
+      position: absolute; width: 640px; height: 420px;
+      right: -160px; bottom: -70px; border-radius: 50%;
+      background: radial-gradient(circle,
+        rgba(0,192,255,0.24) 0%, rgba(0,120,210,0.11) 45%, transparent 72%);
+      filter: blur(60px);
+      animation: ndrift 17s ease-in-out infinite alternate-reverse;
+    }
+    .nebula-c {
+      position: absolute; width: 680px; height: 260px;
+      left: 50%; top: 35%; transform: translateX(-50%);
+      background: radial-gradient(ellipse,
+        rgba(124,76,255,0.18) 0%, rgba(68,150,255,0.06) 42%, transparent 72%);
+      filter: blur(36px);
+    }
+    @keyframes ndrift {
+      from { transform: scale(1) translate(0,0); }
+      to   { transform: scale(1.12) translate(14px,-10px); }
+    }
+    @keyframes starDrift {
+      from { background-position: 0 0, 0 0, 0 0, 0 0; }
+      to   { background-position: 90px -42px, -70px 36px, 54px -28px, -46px 26px; }
+    }
+    @keyframes starTwinkle {
+      from { opacity: 0.14; }
+      to   { opacity: 0.21; }
+    }
+    @keyframes galaxySpinA {
+      from { transform: rotate(-18deg) scale(1); }
+      to   { transform: rotate(342deg) scale(1.03); }
+    }
+    @keyframes galaxySpinB {
+      from { transform: rotate(14deg) scale(1); }
+      to   { transform: rotate(374deg) scale(1.02); }
+    }
+
+    /* Grain overlay */
+    .grain {
+      position: absolute; inset: 0; z-index: 1;
+      pointer-events: none; mix-blend-mode: overlay; opacity: 0.048;
+      background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/></filter><rect width='256' height='256' filter='url(%23n)'/></svg>");
+      background-size: 210px 210px;
+      animation: grainShift 22s linear infinite;
+    }
+    @keyframes grainShift {
+      from { background-position: 0 0; }
+      to   { background-position: 120px 80px; }
+    }
+
+    /* All layered content above cosmos */
+    .plugin > :not(.cosmos):not(.grain) { position: relative; z-index: 2; }
+
+    /* ── Header ──────────────────────────────────────────────────── */
     .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 24px;
-      border-bottom: 1px solid rgba(212, 217, 224, 0.08);
-      background: linear-gradient(180deg, rgba(212, 217, 224, 0.02) 0%, transparent 100%);
-      gap: 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 54px; height: 62px; flex-shrink: 0; position: relative;
     }
-
-    .header-title {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    .header::after {
+      content: ''; position: absolute;
+      bottom: 0; left: 54px; right: 54px; height: 1px;
+      background: linear-gradient(90deg,
+        transparent, rgba(139,111,255,0.32) 30%, rgba(0,232,255,0.22) 70%, transparent);
     }
-
-    .nova-logo {
-      width: 24px;
-      height: 24px;
-      background: linear-gradient(135deg, var(--silver) 0%, var(--blue-bright) 100%);
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 12px;
-      color: var(--bg);
-    }
-
-    .title-text {
-      font-size: 18px;
-      font-weight: 600;
-      background: linear-gradient(135deg, var(--silver) 0%, var(--blue-bright) 50%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+    .header-logo { width: 32px; height: 32px; flex-shrink: 0; }
+    .header-logo img { width: 100%; height: 100%; object-fit: contain; opacity: 0.86; }
+    .header-center { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
+    .plugin-title {
+      font-size: 15.5px; font-weight: 400; letter-spacing: 9px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #9B7FFF 0%, #C0A8FF 38%, var(--cyan) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
-      letter-spacing: 0.5px;
+      filter: drop-shadow(0 0 10px rgba(139,111,255,0.45));
     }
+    .plugin-sub { font-size: 8.5px; letter-spacing: 3.5px; text-transform: uppercase; color: var(--text-dim); }
+    .header-right { font-size: 10px; letter-spacing: 1.5px; color: var(--text-dim); font-style: italic; }
 
-    .status-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      background: rgba(0, 212, 255, 0.1);
-      border: 1px solid rgba(0, 212, 255, 0.2);
-      border-radius: 12px;
-      font-size: 11px;
-      color: var(--blue-bright);
-    }
-
-    .status-dot {
-      width: 6px;
-      height: 6px;
-      background: var(--blue-bright);
-      border-radius: 50%;
-      animation: statusPulse 2s infinite;
-    }
-
-    @keyframes statusPulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    /* ── Main Content Grid ────────────────────────────────────────── */
-    .content {
+    /* ── Main Content ────────────────────────────────────────────── */
+    .main-content {
       flex: 1;
       display: grid;
-      grid-template-columns: 1fr 200px;
-      grid-template-rows: 1fr auto;
+      grid-template-columns: 1fr auto 1fr;
       gap: 0;
-      position: relative;
+      padding: 20px 40px;
+      min-height: 0;
     }
 
-    /* ── Spectral Display (Left/Top Main) ─────────────────────────── */
-    .spectral-view {
-      grid-column: 1;
-      grid-row: 1 / 3;
+    /* ── Spectral Display (Left) ────────────────────────────────── */
+    .spectral-box {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      padding: 16px;
-      border-right: 1px solid rgba(212, 217, 224, 0.08);
-      background: linear-gradient(180deg, rgba(61, 142, 255, 0.02) 0%, transparent 100%);
-      position: relative;
+      gap: 10px;
+      padding-right: 20px;
+      border-right: 1px solid rgba(139,111,255,0.12);
     }
 
     .spec-label {
-      font-size: 11px;
+      font-size: 8px;
+      letter-spacing: 1.5px;
       text-transform: uppercase;
-      letter-spacing: 1px;
       color: var(--text-dim);
-      font-weight: 600;
     }
 
-    .spec-container {
+    .spec-display {
       flex: 1;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(212, 217, 224, 0.1);
-      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(12, 6, 40, 0.90), rgba(4, 18, 55, 0.85));
+      border: 1px solid rgba(132, 112, 238, 0.20);
+      border-radius: 10px;
       overflow: hidden;
-      position: relative;
-      min-height: 200px;
+      box-shadow: 0 0 20px rgba(100, 78, 225, 0.15);
     }
 
     #spectralCanvas {
@@ -167,356 +239,204 @@
       display: block;
     }
 
-    /* ── Pitch Curve Display ──────────────────────────────────────── */
-    .pitch-curve {
-      width: 100%;
-      height: 100px;
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(0, 212, 255, 0.15);
-      border-radius: 6px;
-      position: relative;
-      overflow: hidden;
+    /* ── Knob Grid (Center) ────────────────────────────────────── */
+    .knob-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-content: center;
+      justify-items: center;
+      padding: 0 30px;
+      min-width: 240px;
     }
 
-    #pitchCurveCanvas {
+    .knob-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .knob-label {
+      font-size: 8px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .knob-value {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--cyan);
+      font-family: "Menlo", monospace;
+      letter-spacing: 1px;
+    }
+
+    .knob-container {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      cursor: pointer;
+    }
+
+    .knob-container canvas {
       width: 100%;
       height: 100%;
       display: block;
     }
 
-    /* ── Side Panel (Controls) ────────────────────────────────────── */
-    .control-panel {
-      grid-column: 2;
-      grid-row: 1;
+    /* ── Keyboard (Right) ────────────────────────────────────── */
+    .keyboard-box {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      padding: 16px 12px;
-      border-left: 1px solid rgba(212, 217, 224, 0.08);
-      background: linear-gradient(180deg, rgba(212, 217, 224, 0.02) 0%, rgba(0, 0, 0, 0.1) 100%);
-      overflow: auto;
-    }
-
-    .param-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .param-label {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--text-dim);
-      font-weight: 600;
-    }
-
-    .param-value {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--blue-bright);
-      font-family: "Monaco", monospace;
-    }
-
-    select {
-      background: linear-gradient(180deg, rgba(212, 217, 224, 0.08) 0%, rgba(212, 217, 224, 0.04) 100%);
-      border: 1px solid rgba(212, 217, 224, 0.15);
-      color: var(--text);
-      padding: 6px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      cursor: pointer;
-      outline: none;
-      transition: all var(--ease);
-    }
-
-    select:hover {
-      border-color: rgba(0, 212, 255, 0.4);
-    }
-
-    select:focus {
-      border-color: var(--blue-bright);
-      box-shadow: 0 0 12px rgba(0, 212, 255, 0.2);
-    }
-
-    input[type="range"] {
-      width: 100%;
-      height: 20px;
-      -webkit-appearance: none;
-      appearance: none;
-      background: linear-gradient(90deg, rgba(0, 212, 255, 0.08) 0%, rgba(0, 212, 255, 0.04) 100%);
-      border: 1px solid rgba(0, 212, 255, 0.15);
-      border-radius: 10px;
-      outline: none;
-      cursor: pointer;
-      padding: 0;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 14px;
-      height: 14px;
-      background: linear-gradient(135deg, var(--silver) 0%, var(--blue-bright) 100%);
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      cursor: pointer;
-      box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
-      transition: all 100ms ease;
-    }
-
-    input[type="range"]::-webkit-slider-thumb:hover {
-      transform: scale(1.15);
-      box-shadow: 0 0 20px rgba(0, 212, 255, 0.6);
-    }
-
-    input[type="range"]::-moz-range-thumb {
-      width: 14px;
-      height: 14px;
-      background: linear-gradient(135deg, var(--silver) 0%, var(--blue-bright) 100%);
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      cursor: pointer;
-      box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
-      transition: all 100ms ease;
-    }
-
-    /* ── Keyboard Visualization (Bottom) ──────────────────────────── */
-    .keyboard-zone {
-      grid-column: 1 / 3;
-      grid-row: 2;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 12px 16px;
-      border-top: 1px solid rgba(212, 217, 224, 0.08);
-      background: linear-gradient(180deg, rgba(212, 217, 224, 0.02) 0%, rgba(61, 142, 255, 0.03) 100%);
+      gap: 10px;
+      padding-left: 20px;
+      border-left: 1px solid rgba(139,111,255,0.12);
+      align-items: center;
     }
 
     .keyboard-label {
-      font-size: 10px;
+      font-size: 8px;
+      letter-spacing: 1.5px;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
       color: var(--text-dim);
-      font-weight: 600;
     }
 
-    .keyboard-container {
+    .keyboard-display {
+      flex: 1;
       display: flex;
-      gap: 4px;
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .key-row {
+      display: flex;
+      gap: 3px;
       justify-content: center;
     }
 
     .piano-key {
-      width: 30px;
+      width: 24px;
       height: 60px;
-      background: linear-gradient(180deg, rgba(212, 217, 224, 0.3) 0%, rgba(212, 217, 224, 0.15) 100%);
-      border: 1px solid rgba(212, 217, 224, 0.3);
-      border-radius: 4px 4px 8px 8px;
+      background: linear-gradient(180deg, rgba(139,111,255,0.15) 0%, rgba(139,111,255,0.08) 100%);
+      border: 1px solid rgba(139,111,255,0.25);
+      border-radius: 6px;
+      transition: all 80ms ease;
+      position: relative;
+      cursor: pointer;
       display: flex;
       align-items: flex-end;
       justify-content: center;
-      font-size: 9px;
+      font-size: 7px;
       color: var(--text-dim);
-      cursor: pointer;
-      transition: all 100ms ease;
-      position: relative;
-      overflow: hidden;
+      padding-bottom: 3px;
       user-select: none;
     }
 
-    .piano-key::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(0, 212, 255, 0.6) 0%, rgba(0, 212, 255, 0.3) 100%);
-      opacity: 0;
-      transition: opacity 100ms ease;
-      border-radius: 4px 4px 8px 8px;
-    }
-
-    .piano-key.active::before {
-      opacity: 1;
+    .piano-key:hover {
+      border-color: rgba(139,111,255,0.4);
+      background: linear-gradient(180deg, rgba(139,111,255,0.25) 0%, rgba(139,111,255,0.12) 100%);
     }
 
     .piano-key.active {
-      background: linear-gradient(180deg, rgba(0, 212, 255, 0.8) 0%, rgba(0, 212, 255, 0.4) 100%);
-      border-color: var(--blue-bright);
-      box-shadow: 0 0 20px rgba(0, 212, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      background: linear-gradient(180deg, #8B6FFF 0%, var(--cyan) 100%);
+      border-color: var(--cyan);
+      box-shadow: 0 0 16px rgba(0, 232, 255, 0.4), inset 0 1px 0 rgba(255,255,255,0.2);
       transform: translateY(-2px);
+      color: var(--text);
     }
 
-    .piano-key-label {
-      position: relative;
-      z-index: 1;
-      padding-bottom: 4px;
-    }
-
-    /* ── Realtime Meter ───────────────────────────────────────────── */
-    .meter-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4px;
-      margin-top: 4px;
-    }
-
-    .meter-box {
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(0, 212, 255, 0.2);
-      border-radius: 4px;
-      padding: 6px;
-      text-align: center;
-    }
-
-    .meter-label {
+    /* ── Bottom Info ───────────────────────────────────────────── */
+    .bottom-info {
+      display: flex;
+      justify-content: space-around;
+      padding: 12px 40px;
+      border-top: 1px solid rgba(139,111,255,0.12);
       font-size: 9px;
-      color: var(--text-dim);
+      letter-spacing: 1px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      flex-shrink: 0;
     }
 
-    .meter-value {
-      font-size: 13px;
-      font-weight: bold;
-      color: var(--blue-bright);
-      font-family: "Monaco", monospace;
-      margin-top: 2px;
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    /* ── Animations ───────────────────────────────────────────────── */
-    @keyframes shimmer {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 0.8; }
-    }
-
-    .shimmer {
-      animation: shimmer 2s ease-in-out infinite;
-    }
-
-    /* ── Responsive ───────────────────────────────────────────────── */
-    @media (max-width: 900px) {
-      .content {
-        grid-template-columns: 1fr;
-        grid-template-rows: 1fr auto auto;
-      }
-
-      .spectral-view {
-        grid-column: 1;
-        grid-row: 1;
-        border-right: none;
-        border-bottom: 1px solid rgba(212, 217, 224, 0.08);
-      }
-
-      .control-panel {
-        grid-column: 1;
-        grid-row: 2;
-        border-left: none;
-        border-top: 1px solid rgba(212, 217, 224, 0.08);
-        max-height: 150px;
-      }
-
-      .keyboard-zone {
-        grid-column: 1;
-        grid-row: 3;
-      }
+    .info-value {
+      color: var(--cyan);
+      font-weight: 600;
+      font-family: "Menlo", monospace;
     }
   </style>
 </head>
 <body>
-  <div class="plugin-shell">
+  <div class="plugin">
+    <div class="cosmos">
+      <div class="galaxy-a"></div>
+      <div class="galaxy-b"></div>
+      <div class="nebula-a"></div>
+      <div class="nebula-b"></div>
+      <div class="nebula-c"></div>
+      <div class="grain"></div>
+    </div>
+
     <!-- Header -->
     <div class="header">
-      <div class="header-title">
-        <div class="nova-logo">◆</div>
-        <div class="title-text">NOVA PITCH</div>
+      <img src="n_logo.png" class="header-logo" alt="Nova">
+      <div class="header-center">
+        <div class="plugin-title">NOVA PITCH</div>
+        <div class="plugin-sub">AUTOMATIC PITCH CORRECTION</div>
       </div>
-      <div class="status-badge">
-        <div class="status-dot"></div>
-        <span>Active</span>
+      <div></div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Spectral Display -->
+      <div class="spectral-box">
+        <div class="spec-label">INPUT SPECTRAL</div>
+        <div class="spec-display">
+          <canvas id="spectralCanvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Knobs -->
+      <div class="knob-grid" id="knobGrid">
+        <!-- Generated by JavaScript -->
+      </div>
+
+      <!-- Keyboard -->
+      <div class="keyboard-box">
+        <div class="keyboard-label">SCALE</div>
+        <div class="keyboard-display" id="keyboardDisplay">
+          <!-- Generated by JavaScript -->
+        </div>
       </div>
     </div>
 
-    <!-- Main Content Grid -->
-    <div class="content">
-      <!-- Spectral Display -->
-      <div class="spectral-view">
-        <div class="spec-label">Input Spectral</div>
-        <div class="spec-container">
-          <canvas id="spectralCanvas"></canvas>
-        </div>
-        <div class="spec-label">Pitch Curve</div>
-        <div class="pitch-curve">
-          <canvas id="pitchCurveCanvas"></canvas>
-        </div>
+    <!-- Bottom Info -->
+    <div class="bottom-info">
+      <div class="info-item">
+        <span>Detected:</span>
+        <span class="info-value" id="detectedInfo">-- Hz</span>
       </div>
-
-      <!-- Control Panel -->
-      <div class="control-panel">
-        <div class="param-group">
-          <div class="param-label">Key</div>
-          <select id="keySelect">
-            <option value="0">C</option>
-            <option value="1">C♯</option>
-            <option value="2">D</option>
-            <option value="3">D♯</option>
-            <option value="4">E</option>
-            <option value="5">F</option>
-            <option value="6">F♯</option>
-            <option value="7">G</option>
-            <option value="8">G♯</option>
-            <option value="9">A</option>
-            <option value="10">A♯</option>
-            <option value="11">B</option>
-          </select>
-        </div>
-
-        <div class="param-group">
-          <div class="param-label">Scale</div>
-          <select id="scaleSelect">
-            <option value="0">Chromatic</option>
-            <option value="1">Major</option>
-            <option value="2">Minor</option>
-            <option value="3">Pent.</option>
-            <option value="4">Blues</option>
-          </select>
-        </div>
-
-        <div class="param-group">
-          <div class="param-label">Correction</div>
-          <input type="range" id="amountSlider" min="0" max="100" value="85">
-          <div class="param-value"><span id="amountValue">85</span>%</div>
-        </div>
-
-        <div class="param-group">
-          <div class="param-label">Tolerance</div>
-          <input type="range" id="toleranceSlider" min="0" max="100" value="50">
-          <div class="param-value"><span id="toleranceValue">50</span>%</div>
-        </div>
-
-        <div class="param-group">
-          <div class="param-label">Confidence</div>
-          <input type="range" id="confidenceSlider" min="0" max="100" value="70">
-          <div class="param-value"><span id="confidenceValue">70</span>%</div>
-        </div>
-
-        <div class="meter-row">
-          <div class="meter-box">
-            <div class="meter-label">Detected</div>
-            <div class="meter-value" id="detectedMeter">--</div>
-          </div>
-          <div class="meter-box">
-            <div class="meter-label">Target</div>
-            <div class="meter-value" id="targetMeter">--</div>
-          </div>
-        </div>
+      <div class="info-item">
+        <span>Target:</span>
+        <span class="info-value" id="targetInfo">-- Hz</span>
       </div>
-
-      <!-- Keyboard Visualization -->
-      <div class="keyboard-zone">
-        <div class="keyboard-label">Chromatic Keyboard</div>
-        <div class="keyboard-container" id="keyboardContainer">
-          <!-- Piano keys generated by JavaScript -->
-        </div>
+      <div class="info-item">
+        <span>Scale:</span>
+        <select id="scaleSelect" style="background: transparent; border: none; color: var(--cyan); font-weight: 600; outline: none; cursor: pointer; font-family: 'Menlo', monospace; font-size: 9px;">
+          <option value="0">Chromatic</option>
+          <option value="1">Major</option>
+          <option value="2">Minor</option>
+          <option value="3">Pentatonic</option>
+          <option value="4">Blues</option>
+        </select>
       </div>
     </div>
   </div>
