@@ -556,24 +556,39 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         {
             const float ratio = std::pow (2.0f, pitch / 12.0f);
 
-            const int i0 = static_cast<int> (pitchReadPos);
-            const int i1 = (i0 + 1) % pitchDelaySize;
-            const float frac = pitchReadPos - static_cast<float> (i0);
+            const auto readHermite = [this] (const std::vector<float>& delay, float pos) -> float
+            {
+                const int base = static_cast<int> (pos);
+                const float frac = pos - static_cast<float> (base);
+                const auto wrapped = [this, &delay] (int idx) -> float
+                {
+                    while (idx < 0)
+                        idx += pitchDelaySize;
+                    while (idx >= pitchDelaySize)
+                        idx -= pitchDelaySize;
+                    return delay[static_cast<size_t> (idx)];
+                };
 
-            const float s0L = pitchDelayLeft[static_cast<size_t> (i0)];
-            const float s1L = pitchDelayLeft[static_cast<size_t> (i1)];
-            const float s0R = pitchDelayRight[static_cast<size_t> (i0)];
-            const float s1R = pitchDelayRight[static_cast<size_t> (i1)];
+                const float xm1 = wrapped (base - 1);
+                const float x0  = wrapped (base);
+                const float x1  = wrapped (base + 1);
+                const float x2  = wrapped (base + 2);
 
-            const float shiftedL = s0L + frac * (s1L - s0L);
-            const float shiftedR = s0R + frac * (s1R - s0R);
+                const float c0 = x0;
+                const float c1 = 0.5f * (x1 - xm1);
+                const float c2 = xm1 - 2.5f * x0 + 2.0f * x1 - 0.5f * x2;
+                const float c3 = 0.5f * (x2 - xm1) + 1.5f * (x0 - x1);
 
-            // Keep pitch stage fully linear and avoid extra dry reinjection to prevent drive-like coloration.
-            const float pitchMix = juce::jlimit (0.0f, 1.0f, 0.60f + 0.40f * pitchAmountNorm);
-            const float pitchToneL = shiftedL;
-            const float pitchToneR = shiftedR;
-            wetL = juce::jmap (pitchMix, wetL, pitchToneL);
-            wetR = juce::jmap (pitchMix, wetR, pitchToneR);
+                return ((c3 * frac + c2) * frac + c1) * frac + c0;
+            };
+
+            const float shiftedL = readHermite (pitchDelayLeft, pitchReadPos);
+            const float shiftedR = readHermite (pitchDelayRight, pitchReadPos);
+
+            // Keep pitch stage fully clean: no extra dry injection inside the shifted path.
+            constexpr float pitchMix = 1.0f;
+            wetL = juce::jmap (pitchMix, wetL, shiftedL);
+            wetR = juce::jmap (pitchMix, wetR, shiftedR);
 
             pitchReadPos += ratio;
         }
@@ -586,8 +601,15 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         float distance = static_cast<float> (pitchWriteIndex) - pitchReadPos;
         if (distance < 0.0f)
             distance += static_cast<float> (pitchDelaySize);
-        if (std::abs (distance - static_cast<float> (targetDelay)) > 64.0f)
+
+        // Use gentle drift correction instead of hard seek jumps to avoid zipper/crackle artifacts.
+        const float delayError = distance - static_cast<float> (targetDelay);
+        pitchReadPos += juce::jlimit (-0.04f, 0.04f, delayError * 0.00035f);
+
+        // Emergency resync only if the read head gets dangerously close to the write head.
+        if (distance < 12.0f || distance > static_cast<float> (pitchDelaySize - 12))
             pitchReadPos = static_cast<float> (pitchWriteIndex - targetDelay);
+
         while (pitchReadPos < 0.0f)
             pitchReadPos += static_cast<float> (pitchDelaySize);
         while (pitchReadPos >= static_cast<float> (pitchDelaySize))
