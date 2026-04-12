@@ -568,9 +568,9 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const float shiftedL = s0L + frac * (s1L - s0L);
             const float shiftedR = s0R + frac * (s1R - s0R);
 
-            const float pitchMix = juce::jlimit (0.0f, 1.0f, 0.20f + 0.58f * pitchAmountNorm);
-            const float pitchToneL = 0.84f * shiftedL + 0.16f * inL;
-            const float pitchToneR = 0.84f * shiftedR + 0.16f * inR;
+            const float pitchMix = juce::jlimit (0.0f, 1.0f, 0.10f + 0.40f * pitchAmountNorm);
+            const float pitchToneL = 0.64f * shiftedL + 0.36f * inL;
+            const float pitchToneR = 0.64f * shiftedR + 0.36f * inR;
             wetL = juce::jmap (pitchMix, wetL, pitchToneL);
             wetR = juce::jmap (pitchMix, wetR, pitchToneR);
 
@@ -699,7 +699,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         if (effectActiveSimple)
         {
-            const float wetComp = 1.0f / (1.0f + 0.16f * textureAmt + 0.10f * morphAmt + 0.01f * std::abs (pitch));
+            const float wetComp = 1.0f / (1.0f + 0.16f * textureAmt + 0.10f * morphAmt + 0.022f * std::abs (pitch));
             wetL *= wetComp;
             wetR *= wetComp;
         }
