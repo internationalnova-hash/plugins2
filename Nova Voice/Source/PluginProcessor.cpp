@@ -588,50 +588,64 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 return ((c3 * frac + c2) * frac + c1) * frac + c0;
             };
 
-            float shiftedL = readHermite (pitchDelayLeft, pitchReadPos);
-            float shiftedR = readHermite (pitchDelayRight, pitchReadPos);
+            const int windowSamples = juce::jlimit (384, pitchDelaySize / 6,
+                                                    static_cast<int> (currentSampleRate * 0.035));
 
-            // Apply gentle anti-aliasing on pitch-up to reduce Hermite interpolation artifacts.
-            if (pitch > 3.0f)
+            const auto wrap01 = [] (float value) noexcept
             {
-                const float antiAliasFactor = juce::jlimit (0.0f, 1.0f, (pitch - 3.0f) / 9.0f);
-                const float smooth = 0.72f + antiAliasFactor * 0.23f;
-                pitchAASmoothLeft = smooth * pitchAASmoothLeft + (1.0f - smooth) * shiftedL;
-                pitchAASmoothRight = smooth * pitchAASmoothRight + (1.0f - smooth) * shiftedR;
-                shiftedL = pitchAASmoothLeft;
-                shiftedR = pitchAASmoothRight;
-            }
+                while (value < 0.0f)
+                    value += 1.0f;
+                while (value >= 1.0f)
+                    value -= 1.0f;
+                return value;
+            };
 
-            // Keep pitch stage fully clean: no extra dry injection inside the shifted path.
-            constexpr float pitchMix = 1.0f;
-            wetL = juce::jmap (pitchMix, wetL, shiftedL);
-            wetR = juce::jmap (pitchMix, wetR, shiftedR);
+            const float phaseA = wrap01 (pitchReadPos);
+            const float phaseB = wrap01 (phaseA + 0.5f);
 
-            pitchReadPos += ratio;
+            const float baseDelay = static_cast<float> (windowSamples * 2);
+            const float minDelay = static_cast<float> (windowSamples + 24);
+            const float maxDelay = static_cast<float> (pitchDelaySize - (windowSamples + 24));
+
+            const float offsetA = juce::jlimit (minDelay, maxDelay, baseDelay + phaseA * static_cast<float> (windowSamples));
+            const float offsetB = juce::jlimit (minDelay, maxDelay, baseDelay + phaseB * static_cast<float> (windowSamples));
+
+            auto readPosA = static_cast<float> (pitchWriteIndex) - offsetA;
+            auto readPosB = static_cast<float> (pitchWriteIndex) - offsetB;
+
+            while (readPosA < 0.0f)
+                readPosA += static_cast<float> (pitchDelaySize);
+            while (readPosB < 0.0f)
+                readPosB += static_cast<float> (pitchDelaySize);
+
+            const float sampAL = readHermite (pitchDelayLeft, readPosA);
+            const float sampAR = readHermite (pitchDelayRight, readPosA);
+            const float sampBL = readHermite (pitchDelayLeft, readPosB);
+            const float sampBR = readHermite (pitchDelayRight, readPosB);
+
+            const float winA = 0.5f - 0.5f * std::cos (juce::MathConstants<float>::twoPi * phaseA);
+            const float winB = 0.5f - 0.5f * std::cos (juce::MathConstants<float>::twoPi * phaseB);
+            const float norm = 1.0f / juce::jmax (1.0e-5f, winA + winB);
+
+            const float shiftedL = (sampAL * winA + sampBL * winB) * norm;
+            const float shiftedR = (sampAR * winA + sampBR * winB) * norm;
+
+            // Keep pitch stage clean and deterministic.
+            wetL = shiftedL;
+            wetR = shiftedR;
+
+            const float pitchPhaseStep = (1.0f - ratio) / static_cast<float> (windowSamples);
+            pitchReadPos = wrap01 (phaseA + pitchPhaseStep);
+        }
+        else
+        {
+            // Re-lock phase when pitch control returns to neutral.
+            pitchReadPos = 0.0f;
         }
 
         ++pitchWriteIndex;
         if (pitchWriteIndex >= pitchDelaySize)
             pitchWriteIndex = 0;
-
-        const int targetDelay = juce::jlimit (96, pitchDelaySize / 4, static_cast<int> (currentSampleRate * 0.010));
-        float distance = static_cast<float> (pitchWriteIndex) - pitchReadPos;
-        if (distance < 0.0f)
-            distance += static_cast<float> (pitchDelaySize);
-
-        // Make delay correction responsive but smooth (no hard jumps that cause artifacts).
-        const float delayError = distance - static_cast<float> (targetDelay);
-        const float correctionStep = juce::jlimit (-0.35f, 0.35f, delayError * 0.012f);
-        pitchReadPos += correctionStep;
-
-        // Only hard-resync in emergencies (dangerously close to write head).
-        if (distance < 24.0f || distance > static_cast<float> (pitchDelaySize - 24))
-            pitchReadPos = static_cast<float> (pitchWriteIndex - targetDelay);
-
-        while (pitchReadPos < 0.0f)
-            pitchReadPos += static_cast<float> (pitchDelaySize);
-        while (pitchReadPos >= static_cast<float> (pitchDelaySize))
-            pitchReadPos -= static_cast<float> (pitchDelaySize);
 
         if (formAmt > 0.01f)
         {
