@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Pitch</title>
+  <style>
+    :root {
+      --bg: #0a0f1a;
+      --silver: #d4d9e0;
+      --silver-dark: #8a92a0;
+      --blue: #3d8eff;
+      --blue-dark: #1a3a5a;
+      --blue-bright: #00d4ff;
+      --text: #e8eef5;
+      --text-dim: rgba(232, 238, 245, 0.4);
+      --text-faint: rgba(232, 238, 245, 0.15);
+      --accent: #00ffa3;
+      --red: #ff3860;
+      --ease: 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background:
+        radial-gradient(800px 600px at 50% 20%, rgba(61, 142, 255, 0.12), transparent 55%),
+        radial-gradient(900px 700px at 80% 80%, rgba(26, 58, 90, 0.2), transparent 60%),
+        linear-gradient(180deg, #0f1420 0%, #0a0f1a 50%, #050810 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body { display: grid; place-items: center; padding: 20px; }
+
+    /* ── Main Plugin Container ────────────────────────────────────── */
+    .plugin-shell {
+      position: relative;
+      width: 100%;
+      max-width: 1200px;
+      height: clamp(600px, 90vh, 900px);
+      background:
+        linear-gradient(135deg, rgba(212, 217, 224, 0.05) 0%, rgba(61, 142, 255, 0.08) 100%),
+        linear-gradient(180deg, #111820 0%, #0a0f1a 50%, #050810 100%);
+      border: 1px solid rgba(212, 217, 224, 0.15);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow:
+        0 0 60px rgba(61, 142, 255, 0.08),
+        0 30px 100px rgba(0, 0, 0, 0.8),
+        inset 0 1px 1px rgba(255, 255, 255, 0.08);
+    }
+
+    /* ── Header with Title ────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid rgba(212, 217, 224, 0.08);
+      background: linear-gradient(180deg, rgba(212, 217, 224, 0.02) 0%, transparent 100%);
+      gap: 12px;
+    }
+
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nova-logo {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, var(--silver) 0%, var(--blue-bright) 100%);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 12px;
+      color: var(--bg);
+    }
+
+    .title-text {
+      font-size: 18px;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--silver) 0%, var(--blue-bright) 50%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 0.5px;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(0, 212, 255, 0.1);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      border-radius: 12px;
+      font-size: 11px;
+      color: var(--blue-bright);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--blue-bright);
+      border-radius: 50%;
+      animation: statusPulse 2s infinite;
+    }
+
+    @keyframes statusPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Main Content Grid ────────────────────────────────────────── */
+    .content {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 200px;
+      grid-template-rows: 1fr auto;
+      gap: 0;
+      position: relative;
+    }
+
+    /* ── Spectral Display (Left/Top Main) ─────────────────────────── */
+    .spectral-view {
+      grid-column: 1;
+      grid-row: 1 / 3;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      border-right: 1px solid rgba(212, 217, 224, 0.08);
+      background: linear-gradient(180deg, rgba(61, 142, 255, 0.02) 0%, transparent 100%);
+      position: relative;
+    }
+
+    .spec-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .spec-container {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(212, 217, 224, 0.1);
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+      min-height: 200px;
+    }
+
+    #spectralCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* ── Pitch Curve Display ──────────────────────────────────────── */
+    .pitch-curve {
+      width: 100%;
+      height: 100px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(0, 212, 255, 0.15);
+      border-radius: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #pitchCurveCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* ── Side Panel (Controls) ────────────────────────────────────── */
+    .control-panel {
+      grid-column: 2;
+      grid-row: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px 12px;
+      border-left: 1px solid rgba(212, 217, 224, 0.08);
+      background: linear-gradient(180deg, rgba(212, 217, 224, 0.02) 0%, rgba(0, 0, 0, 0.1) 100%);
+      overflow: auto;
+    }
+
+    .param-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .param-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .param-value {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--blue-bright);
+      font-family: "Monaco", monospace;
+    }
+
+    select {
+      background: linear-gradient(180deg, rgba(212, 217, 224, 0.08) 0%, rgba(212, 217, 224, 0.04) 100%);
+      border: 1px solid rgba(212, 217, 224, 0.15);
+      color: var(--text);
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      outline: none;
+      transition: all var(--ease);
+    }
+
+    select:hover {
+      border-color: rgba(0, 212, 255, 0.4);
+    }
+
+    select:focus {
+      border-color: var(--blue-bright);
+      box-shadow: 0 0 12px rgba(0, 212, 255, 0.2);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 20px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: linear-gradient(90deg, rgba(0, 212, 255, 0.08) 0%, rgba(0, 212, 255, 0.04) 100%);
+      border: 1px solid rgba(0, 212, 255, 0.15);
+      border-radius: 10px;
+      outline: none;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      background: linear-gradient(135deg, var(--silver) 0%, var(--blue-bright) 100%);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
+      transition: all 100ms ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      box-shadow: 0 0 20px rgba(0, 212, 255, 0.6);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      background: linear-gradient(135deg, var(--silver) 0%, var(--blue-bright) 100%);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
+      transition: all 100ms ease;
+    }
+
+    /* ── Keyboard Visualization (Bottom) ──────────────────────────── */
+    .keyboard-zone {
+      grid-column: 1 / 3;
+      grid-row: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px 16px;
+      border-top: 1px solid rgba(212, 217, 224, 0.08);
+      background: linear-gradient(180deg, rgba(212, 217, 224, 0.02) 0%, rgba(61, 142, 255, 0.03) 100%);
+    }
+
+    .keyboard-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .keyboard-container {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+    }
+
+    .piano-key {
+      width: 30px;
+      height: 60px;
+      background: linear-gradient(180deg, rgba(212, 217, 224, 0.3) 0%, rgba(212, 217, 224, 0.15) 100%);
+      border: 1px solid rgba(212, 217, 224, 0.3);
+      border-radius: 4px 4px 8px 8px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      font-size: 9px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 100ms ease;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .piano-key::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.6) 0%, rgba(0, 212, 255, 0.3) 100%);
+      opacity: 0;
+      transition: opacity 100ms ease;
+      border-radius: 4px 4px 8px 8px;
+    }
+
+    .piano-key.active::before {
+      opacity: 1;
+    }
+
+    .piano-key.active {
+      background: linear-gradient(180deg, rgba(0, 212, 255, 0.8) 0%, rgba(0, 212, 255, 0.4) 100%);
+      border-color: var(--blue-bright);
+      box-shadow: 0 0 20px rgba(0, 212, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .piano-key-label {
+      position: relative;
+      z-index: 1;
+      padding-bottom: 4px;
+    }
+
+    /* ── Realtime Meter ───────────────────────────────────────────── */
+    .meter-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .meter-box {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      border-radius: 4px;
+      padding: 6px;
+      text-align: center;
+    }
+
+    .meter-label {
+      font-size: 9px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .meter-value {
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--blue-bright);
+      font-family: "Monaco", monospace;
+      margin-top: 2px;
+    }
+
+    /* ── Animations ───────────────────────────────────────────────── */
+    @keyframes shimmer {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.8; }
+    }
+
+    .shimmer {
+      animation: shimmer 2s ease-in-out infinite;
+    }
+
+    /* ── Responsive ───────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .content {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto auto;
+      }
+
+      .spectral-view {
+        grid-column: 1;
+        grid-row: 1;
+        border-right: none;
+        border-bottom: 1px solid rgba(212, 217, 224, 0.08);
+      }
+
+      .control-panel {
+        grid-column: 1;
+        grid-row: 2;
+        border-left: none;
+        border-top: 1px solid rgba(212, 217, 224, 0.08);
+        max-height: 150px;
+      }
+
+      .keyboard-zone {
+        grid-column: 1;
+        grid-row: 3;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="plugin-shell">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-title">
+        <div class="nova-logo">◆</div>
+        <div class="title-text">NOVA PITCH</div>
+      </div>
+      <div class="status-badge">
+        <div class="status-dot"></div>
+        <span>Active</span>
+      </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="content">
+      <!-- Spectral Display -->
+      <div class="spectral-view">
+        <div class="spec-label">Input Spectral</div>
+        <div class="spec-container">
+          <canvas id="spectralCanvas"></canvas>
+        </div>
+        <div class="spec-label">Pitch Curve</div>
+        <div class="pitch-curve">
+          <canvas id="pitchCurveCanvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Control Panel -->
+      <div class="control-panel">
+        <div class="param-group">
+          <div class="param-label">Key</div>
+          <select id="keySelect">
+            <option value="0">C</option>
+            <option value="1">C♯</option>
+            <option value="2">D</option>
+            <option value="3">D♯</option>
+            <option value="4">E</option>
+            <option value="5">F</option>
+            <option value="6">F♯</option>
+            <option value="7">G</option>
+            <option value="8">G♯</option>
+            <option value="9">A</option>
+            <option value="10">A♯</option>
+            <option value="11">B</option>
+          </select>
+        </div>
+
+        <div class="param-group">
+          <div class="param-label">Scale</div>
+          <select id="scaleSelect">
+            <option value="0">Chromatic</option>
+            <option value="1">Major</option>
+            <option value="2">Minor</option>
+            <option value="3">Pent.</option>
+            <option value="4">Blues</option>
+          </select>
+        </div>
+
+        <div class="param-group">
+          <div class="param-label">Correction</div>
+          <input type="range" id="amountSlider" min="0" max="100" value="85">
+          <div class="param-value"><span id="amountValue">85</span>%</div>
+        </div>
+
+        <div class="param-group">
+          <div class="param-label">Tolerance</div>
+          <input type="range" id="toleranceSlider" min="0" max="100" value="50">
+          <div class="param-value"><span id="toleranceValue">50</span>%</div>
+        </div>
+
+        <div class="param-group">
+          <div class="param-label">Confidence</div>
+          <input type="range" id="confidenceSlider" min="0" max="100" value="70">
+          <div class="param-value"><span id="confidenceValue">70</span>%</div>
+        </div>
+
+        <div class="meter-row">
+          <div class="meter-box">
+            <div class="meter-label">Detected</div>
+            <div class="meter-value" id="detectedMeter">--</div>
+          </div>
+          <div class="meter-box">
+            <div class="meter-label">Target</div>
+            <div class="meter-value" id="targetMeter">--</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Keyboard Visualization -->
+      <div class="keyboard-zone">
+        <div class="keyboard-label">Chromatic Keyboard</div>
+        <div class="keyboard-container" id="keyboardContainer">
+          <!-- Piano keys generated by JavaScript -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/juce/check_native_interop.js"></script>
+  <script src="js/juce/index.js"></script>
+  <script src="js/fallback-boot.js"></script>
+  <script src="js/index.js"></script>
+</body>
+</html>
