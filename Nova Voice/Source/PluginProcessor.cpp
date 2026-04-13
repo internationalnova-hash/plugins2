@@ -588,8 +588,8 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 return ((c3 * frac + c2) * frac + c1) * frac + c0;
             };
 
-            const int windowSamples = juce::jlimit (384, pitchDelaySize / 6,
-                                                    static_cast<int> (currentSampleRate * 0.035));
+            const int windowSamples = juce::jlimit (192, pitchDelaySize / 8,
+                                                    static_cast<int> (currentSampleRate * 0.018));
 
             const auto wrap01 = [] (float value) noexcept
             {
@@ -603,7 +603,7 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const float phaseA = wrap01 (pitchReadPos);
             const float phaseB = wrap01 (phaseA + 0.5f);
 
-            const float baseDelay = static_cast<float> (windowSamples * 2);
+            const float baseDelay = static_cast<float> (windowSamples) * 1.25f;
             const float minDelay = static_cast<float> (windowSamples + 24);
             const float maxDelay = static_cast<float> (pitchDelaySize - (windowSamples + 24));
 
