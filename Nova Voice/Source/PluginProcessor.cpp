@@ -675,36 +675,65 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             if (modulationPhase >= juce::MathConstants<float>::twoPi)
                 modulationPhase -= juce::MathConstants<float>::twoPi;
 
-            const float motion = std::sin (modulationPhase);
-            const float morphMix = juce::jlimit (0.0f, 1.0f, 0.34f + 0.66f * morphAmt);
+            const float motionA = std::sin (modulationPhase);
+            const float motionB = std::sin (modulationPhase * 1.73f + 0.92f);
+            const float morphMix = juce::jlimit (0.0f, 1.0f, 0.28f + 0.72f * morphAmt);
             float shapedL = wetL;
             float shapedR = wetR;
 
-            const float lowL = 0.80f * previousWetLeft + 0.20f * wetL;
-            const float lowR = 0.80f * previousWetRight + 0.20f * wetR;
+            const float lowL = 0.74f * previousWetLeft + 0.26f * wetL;
+            const float lowR = 0.74f * previousWetRight + 0.26f * wetR;
             const float highL = wetL - lowL;
             const float highR = wetR - lowR;
 
             if (morphSigned >= 0.0f)
             {
-                const float edgeL = lowL + highL * (1.0f + 4.2f * morphAmt);
-                const float edgeR = lowR + highR * (1.0f + 4.2f * morphAmt);
-                const float animatedL = edgeL * (1.0f + motion * (0.04f + 0.18f * morphAmt));
-                const float animatedR = edgeR * (1.0f + motion * (0.04f + 0.18f * morphAmt));
-                shapedL = std::tanh (animatedL * (1.0f + 1.4f * morphAmt));
-                shapedR = std::tanh (animatedR * (1.0f + 1.4f * morphAmt));
+                // Positive morph: forward, modern, synthetic character without hard clipping.
+                const float edgeLiftL = lowL + highL * (1.0f + 1.85f * morphAmt);
+                const float edgeLiftR = lowR + highR * (1.0f + 1.85f * morphAmt);
+
+                const float phaseWarpDepth = 0.01f + 0.07f * morphAmt;
+                const float phaseWarpL = (motionA * 0.65f + motionB * 0.35f) * phaseWarpDepth;
+                const float phaseWarpR = (motionA * -0.55f + motionB * 0.45f) * phaseWarpDepth;
+
+                const float formantPushL = edgeLiftL + (0.22f + 0.40f * morphAmt) * (edgeLiftL - previousWetLeft);
+                const float formantPushR = edgeLiftR + (0.22f + 0.40f * morphAmt) * (edgeLiftR - previousWetRight);
+
+                const float animatedL = formantPushL + phaseWarpL;
+                const float animatedR = formantPushR + phaseWarpR;
+
+                // Soft cubic shaping preserves detail better than heavy tanh drive.
+                const float cubicAmt = 0.08f + 0.22f * morphAmt;
+                const float softL = animatedL - cubicAmt * animatedL * animatedL * animatedL;
+                const float softR = animatedR - cubicAmt * animatedR * animatedR * animatedR;
+
+                const float cleanKeep = juce::jmap (morphAmt, 0.72f, 0.46f);
+                shapedL = cleanKeep * edgeLiftL + (1.0f - cleanKeep) * softL;
+                shapedR = cleanKeep * edgeLiftR + (1.0f - cleanKeep) * softR;
             }
             else
             {
-                const float smoothL = 0.56f * wetL + 0.44f * previousWetLeft;
-                const float smoothR = 0.56f * wetR + 0.44f * previousWetRight;
-                const float roundedL = std::tanh ((0.88f * smoothL + 0.12f * lowL) * (1.0f + 0.75f * morphAmt));
-                const float roundedR = std::tanh ((0.88f * smoothR + 0.12f * lowR) * (1.0f + 0.75f * morphAmt));
-                shapedL = juce::jmap (juce::jlimit (0.0f, 1.0f, 0.54f + 0.42f * morphAmt), wetL, roundedL);
-                shapedR = juce::jmap (juce::jlimit (0.0f, 1.0f, 0.54f + 0.42f * morphAmt), wetR, roundedR);
+                // Negative morph: smoother/rounder but preserve vocal air and intelligibility.
+                const float smoothL = 0.72f * wetL + 0.28f * previousWetLeft;
+                const float smoothR = 0.72f * wetR + 0.28f * previousWetRight;
+
+                const float bodyL = lowL * (1.02f + 0.12f * morphAmt);
+                const float bodyR = lowR * (1.02f + 0.12f * morphAmt);
+
+                const float airKeep = juce::jmap (morphAmt, 0.72f, 0.54f);
+                const float airL = highL * airKeep;
+                const float airR = highR * airKeep;
+
+                const float movementL = (motionA * 0.5f + motionB * 0.5f) * (0.004f + 0.02f * morphAmt);
+                const float movementR = (motionA * -0.45f + motionB * 0.55f) * (0.004f + 0.02f * morphAmt);
+
+                const float roundedL = bodyL + 0.70f * smoothL + airL + movementL;
+                const float roundedR = bodyR + 0.70f * smoothR + airR + movementR;
+                shapedL = juce::jmap (juce::jlimit (0.0f, 1.0f, 0.44f + 0.46f * morphAmt), wetL, roundedL);
+                shapedR = juce::jmap (juce::jlimit (0.0f, 1.0f, 0.44f + 0.46f * morphAmt), wetR, roundedR);
             }
 
-            const float morphComp = 1.0f / (1.0f + 0.20f * morphAmt);
+            const float morphComp = 1.0f / (1.0f + 0.12f * morphAmt);
             shapedL *= morphComp;
             shapedR *= morphComp;
             wetL = juce::jmap (morphMix, wetL, shapedL);
