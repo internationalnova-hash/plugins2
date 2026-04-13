@@ -491,8 +491,8 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float robotSample = juce::jmax (1.0f, static_cast<float> (currentSampleRate * (0.0012f - 0.0008f * textureNorm)));
     const float morphSigned = juce::jlimit (-1.0f, 1.0f, (morph - 5.0f) / 5.0f);
     const float morphAmtRaw = std::abs (morphSigned);
-    // Keep a small neutral window for host jitter while making movement audible sooner.
-    const float morphAmt = juce::jlimit (0.0f, 1.0f, juce::jmax (0.0f, morphAmtRaw - 0.03f) / 0.97f);
+    // Keep only a tiny neutral window so Morph movement is obvious as soon as the knob leaves center.
+    const float morphAmt = juce::jlimit (0.0f, 1.0f, juce::jmax (0.0f, morphAmtRaw - 0.006f) / 0.994f);
     const float textureSigned = juce::jlimit (-1.0f, 1.0f, (texture - 4.0f) / 6.0f);
     const float textureAmt = std::abs (textureSigned);
     const float formSigned = juce::jlimit (-1.0f, 1.0f, (form - 5.5f) / 4.5f);
@@ -669,35 +669,42 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             wetR = juce::jmap (formMix, wetR, shiftedFormR);
         }
 
-        if (morphAmt > 0.001f)
+        if (morphAmt > 0.0005f)
         {
             modulationPhase += juce::MathConstants<float>::twoPi * (0.24f + 1.25f * morphAmt) / static_cast<float> (currentSampleRate);
             if (modulationPhase >= juce::MathConstants<float>::twoPi)
                 modulationPhase -= juce::MathConstants<float>::twoPi;
 
             const float motion = std::sin (modulationPhase);
-            const float morphMix = juce::jlimit (0.0f, 1.0f, 0.24f + 0.68f * morphAmt);
+            const float morphMix = juce::jlimit (0.0f, 1.0f, 0.34f + 0.66f * morphAmt);
             float shapedL = wetL;
             float shapedR = wetR;
 
+            const float lowL = 0.80f * previousWetLeft + 0.20f * wetL;
+            const float lowR = 0.80f * previousWetRight + 0.20f * wetR;
+            const float highL = wetL - lowL;
+            const float highR = wetR - lowR;
+
             if (morphSigned >= 0.0f)
             {
-                const float smoothL = 0.84f * wetL + 0.16f * previousWetLeft;
-                const float smoothR = 0.84f * wetR + 0.16f * previousWetRight;
-                const float presenceL = wetL - smoothL;
-                const float presenceR = wetR - smoothR;
-                shapedL = smoothL + presenceL * (1.0f + 1.90f * morphAmt) + motion * (0.02f + 0.08f * morphAmt);
-                shapedR = smoothR + presenceR * (1.0f + 1.90f * morphAmt) + motion * (0.02f + 0.08f * morphAmt);
+                const float edgeL = lowL + highL * (1.0f + 4.2f * morphAmt);
+                const float edgeR = lowR + highR * (1.0f + 4.2f * morphAmt);
+                const float animatedL = edgeL * (1.0f + motion * (0.04f + 0.18f * morphAmt));
+                const float animatedR = edgeR * (1.0f + motion * (0.04f + 0.18f * morphAmt));
+                shapedL = std::tanh (animatedL * (1.0f + 1.4f * morphAmt));
+                shapedR = std::tanh (animatedR * (1.0f + 1.4f * morphAmt));
             }
             else
             {
-                const float smoothL = 0.68f * wetL + 0.32f * previousWetLeft;
-                const float smoothR = 0.68f * wetR + 0.32f * previousWetRight;
-                shapedL = juce::jmap (juce::jlimit (0.0f, 1.0f, 0.45f + 0.45f * morphAmt), wetL, smoothL);
-                shapedR = juce::jmap (juce::jlimit (0.0f, 1.0f, 0.45f + 0.45f * morphAmt), wetR, smoothR);
+                const float smoothL = 0.56f * wetL + 0.44f * previousWetLeft;
+                const float smoothR = 0.56f * wetR + 0.44f * previousWetRight;
+                const float roundedL = std::tanh ((0.88f * smoothL + 0.12f * lowL) * (1.0f + 0.75f * morphAmt));
+                const float roundedR = std::tanh ((0.88f * smoothR + 0.12f * lowR) * (1.0f + 0.75f * morphAmt));
+                shapedL = juce::jmap (juce::jlimit (0.0f, 1.0f, 0.54f + 0.42f * morphAmt), wetL, roundedL);
+                shapedR = juce::jmap (juce::jlimit (0.0f, 1.0f, 0.54f + 0.42f * morphAmt), wetR, roundedR);
             }
 
-            const float morphComp = 1.0f / (1.0f + 0.10f * morphAmt);
+            const float morphComp = 1.0f / (1.0f + 0.20f * morphAmt);
             shapedL *= morphComp;
             shapedR *= morphComp;
             wetL = juce::jmap (morphMix, wetL, shapedL);
