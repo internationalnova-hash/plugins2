@@ -105,3 +105,9 @@ target_link_libraries(${PLUGIN_TARGET}
         juce::juce_gui_extra
         juce::juce_opengl
 )
+
+    # We do not ship VST2; avoid JUCE's VST2->VST3 parameter ID migration guard error.
+    target_compile_definitions(${PLUGIN_TARGET}
+        PRIVATE
+        JUCE_VST3_CAN_REPLACE_VST2=0
+    )
