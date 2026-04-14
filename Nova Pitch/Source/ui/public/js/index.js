@@ -69,7 +69,10 @@ function getParamRange(param) {
 
 function getParamBridge(param) {
   if (paramBridges[param]) return paramBridges[param];
-  if (!hasJuceBackend()) return null;
+  if (!hasJuceBackend()) {
+    console.warn(`[NovaSync] JUCE backend not available for param: ${param}`);
+    return null;
+  }
 
   const identifier = `__juce__slider${param}`;
   const range = getParamRange(param);
@@ -77,6 +80,7 @@ function getParamBridge(param) {
   const bridge = {
     setValue(actualValue) {
       const clamped = Math.max(range.min, Math.min(range.max, actualValue));
+      console.log(`[NovaSync] emitting ${identifier} = ${clamped}`);
       window.__JUCE__.backend.emitEvent(identifier, {
         eventType: 'valueChanged',
         value: clamped,
@@ -1139,11 +1143,23 @@ function setupPresetBrowser() {
 // ── End Preset System ──────────────────────────────────────
 
 function init() {
+  console.log('[NovaSync] Page initializing...');
+  console.log('[NovaSync] JUCE backend available?', hasJuceBackend());
   buildPianoKeys();
   setupTopBar();
   resizeCanvas();
   initBgCanvas();
   Object.keys(knobDefs).forEach(bindKnob);
+
+  console.log('[NovaSync] Syncing initial parameters:', {
+    amount: state.retune,
+    tolerance: state.flex,
+    confidenceThreshold: state.humanize,
+    vibrato: state.vibrato,
+    formant: state.formant,
+    key: state.key,
+    scale: state.scale,
+  });
 
   syncParam('amount', state.retune);
   syncParam('tolerance', state.flex);

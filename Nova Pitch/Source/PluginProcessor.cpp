@@ -202,6 +202,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         targetPitchRatio = 1.0f;
         activePitchRatio = 1.0f;
         correctedPitch.store (0.0f);
+        
+        // CRITICAL: Clear all DSP state to prevent artifacts when returning to baseline.
+        // This ensures the circular buffer and LFO state don't retain stale data.
+        initializePitchShift();
+        smoothedDetectedHz = 0.0f;
+        retuneLfoPhase = 0.0f;
+        retuneLfoJitter = 0.0f;
+        outputCompGain = 1.0f;
+        
         blockCount++;
         return;
     }
@@ -560,6 +569,12 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     auto& writeIdx = pitchWriteIndex[static_cast<size_t> (channel)];
 
     const float clampedRatio = juce::jlimit (0.5f, 2.0f, pitchRatio);
+
+    // If ratio is essentially 1.0, just pass through without circular buffer distortion
+    if (std::abs (clampedRatio - 1.0f) < 0.001f)
+    {
+        return;
+    }
 
     auto sampleAt = [&] (float pos)
     {
