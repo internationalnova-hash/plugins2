@@ -148,6 +148,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     outputCompGain = 1.0f;
     targetPitchRatio = 1.0f;
     activePitchRatio = 1.0f;
+    wetMixSmoothed = 0.0f;
 }
 
 void NovaPitchAudioProcessor::releaseResources()
@@ -185,6 +186,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     int numSamples = buffer.getNumSamples();
     auto* channelL = buffer.getWritePointer (0);
     auto* channelR = totalNumInputChannels > 1 ? buffer.getWritePointer (1) : nullptr;
+
+    std::vector<float> dryLeft (static_cast<size_t> (numSamples), 0.0f);
+    std::copy (channelL, channelL + numSamples, dryLeft.begin());
+    std::vector<float> dryRight;
+    if (channelR != nullptr)
+    {
+        dryRight.resize (static_cast<size_t> (numSamples), 0.0f);
+        std::copy (channelR, channelR + numSamples, dryRight.begin());
+    }
     const bool lowLatencyMode = apvts.getRawParameterValue ("lowLatency")->load() >= 0.5f;
     const float amountValue = apvts.getRawParameterValue ("amount")->load();
     const float toleranceValue = apvts.getRawParameterValue ("tolerance")->load();
@@ -225,6 +235,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         retuneLfoPhase = 0.0f;
         retuneLfoJitter = 0.0f;
         outputCompGain = 1.0f;
+        wetMixSmoothed = 0.0f;
         
         blockCount++;
         return;
@@ -280,18 +291,49 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
             targetPitchRatio = 1.0f;
             correctedPitch.store (0.0f);
+            pitchConfidence.store (0.0f);
         }
     }
 
-    const float ratioSmoothing = lowLatencyMode ? 0.38f : 0.22f;
-    activePitchRatio += (targetPitchRatio - activePitchRatio) * ratioSmoothing;
-    activePitchRatio = juce::jlimit (0.7f, 1.4f, activePitchRatio);
+    const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
+    const bool unstableTracking = trackingConfidence < 0.45f || inputRms < 0.008f;
+    if (unstableTracking)
+        targetPitchRatio = 1.0f;
 
-    if (std::abs (activePitchRatio - 1.0f) > 0.0005f)
+    const bool largeJump = std::abs (targetPitchRatio - 1.0f) > 0.18f;
+    if (largeJump && trackingConfidence < 0.70f)
+        targetPitchRatio = 1.0f;
+
+    const float ratioSmoothing = lowLatencyMode ? 0.18f : 0.12f;
+    activePitchRatio += (targetPitchRatio - activePitchRatio) * ratioSmoothing;
+    activePitchRatio = juce::jlimit (0.82f, 1.22f, activePitchRatio);
+
+    if (std::abs (activePitchRatio - 1.0f) > 0.006f)
     {
         processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0);
         if (channelR != nullptr)
             processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1);
+    }
+
+    const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
+    const float correctionDepth = juce::jlimit (0.0f, 1.0f, std::abs (activePitchRatio - 1.0f) / 0.25f);
+    const float confidenceGate = juce::jlimit (0.0f, 1.0f, (trackingConfidence - 0.35f) / 0.65f);
+    const float largeShift = juce::jlimit (0.0f, 1.0f, (std::abs (activePitchRatio - 1.0f) - 0.08f) / 0.12f);
+    const float largeShiftAtten = 1.0f - largeShift * 0.70f;
+    float wetMix = (0.10f + amountNorm * 0.35f) * confidenceGate;
+    wetMix *= (0.25f + 0.75f * correctionDepth);
+    wetMix *= largeShiftAtten;
+    wetMix = juce::jlimit (0.0f, 0.55f, wetMix);
+    wetMixSmoothed = 0.92f * wetMixSmoothed + 0.08f * wetMix;
+    wetMix = wetMixSmoothed;
+
+    for (int i = 0; i < numSamples; ++i)
+        channelL[i] = dryLeft[static_cast<size_t> (i)] * (1.0f - wetMix) + channelL[i] * wetMix;
+
+    if (channelR != nullptr)
+    {
+        for (int i = 0; i < numSamples; ++i)
+            channelR[i] = dryRight[static_cast<size_t> (i)] * (1.0f - wetMix) + channelR[i] * wetMix;
     }
 
     applyFormantShaper (channelL, numSamples, formantValue, 0);

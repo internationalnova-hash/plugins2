@@ -76,7 +76,6 @@ private:
 
     // YIN Pitch Detection Algorithm
     float detectPitchYIN (const float* samples, int numSamples);
-    float detectPitchZeroCrossingFallback() const;
     float getYINThreshold() const noexcept;
     
     // Pitch correction
@@ -113,8 +112,8 @@ private:
     std::atomic<float> pitchConfidence { 0.0f };
 
     double currentSampleRate { 44100.0 };
-    float minPitchHz { 50.0f };
-    float maxPitchHz { 400.0f };
+    float minPitchHz { 60.0f };
+    float maxPitchHz { 1000.0f };
     int blockCount { 0 };
     int analysisInterval { 2048 };
     float smoothedDetectedHz { 0.0f };
@@ -123,6 +122,7 @@ private:
     float outputCompGain { 1.0f };
     float targetPitchRatio { 1.0f };
     float activePitchRatio { 1.0f };
+    float wetMixSmoothed { 0.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };
