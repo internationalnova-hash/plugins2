@@ -76,6 +76,7 @@ private:
 
     // YIN Pitch Detection Algorithm
     float detectPitchYIN (const float* samples, int numSamples);
+    float detectPitchZeroCrossingFallback() const;
     float getYINThreshold() const noexcept;
     
     // Pitch correction
