@@ -21,26 +21,14 @@ jobs:
       - name: Resolve project paths
         run: |
           set -e
-          if [ -f "Nova Pitch/CMakeLists.txt" ]; then
-            SRC_DIR="Nova Pitch"
-          elif [ -f "./CMakeLists.txt" ]; then
-            SRC_DIR="."
-          elif [ -f "Source/CMakeLists.txt" ]; then
-            SRC_DIR="Source"
-          else
-            SRC_DIR="$(dirname "$(find . -maxdepth 4 -name CMakeLists.txt | head -n 1)")"
-          fi
+          SRC_DIR="Nova Pitch"
 
-          if [ -z "$SRC_DIR" ] || [ ! -f "$SRC_DIR/CMakeLists.txt" ]; then
-            echo "Could not locate CMakeLists.txt for Nova Pitch workflow."
+          if [ ! -f "$SRC_DIR/CMakeLists.txt" ]; then
+            echo "Nova Pitch workflow expected CMakeLists at '$SRC_DIR/CMakeLists.txt' but it was not found."
             exit 1
           fi
 
-          if [ "$SRC_DIR" = "." ]; then
-            BUILD_DIR="build"
-          else
-            BUILD_DIR="$SRC_DIR/build"
-          fi
+          BUILD_DIR="$SRC_DIR/build"
 
           echo "SRC_DIR=$SRC_DIR" >> "$GITHUB_ENV"
           echo "BUILD_DIR=$BUILD_DIR" >> "$GITHUB_ENV"
