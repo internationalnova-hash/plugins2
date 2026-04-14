@@ -81,7 +81,7 @@ private:
     // Pitch correction
     void correctPitch (float* channelData, int numSamples, float detectedHz, float targetHz);
     int quantizeToScale (float pitchHz);
-    float getTargetPitchHz (int scaleDegree) const;
+    float getTargetPitchHz (int midiNote) const;
 
     // Circular buffer resampling pitch shift
     void initializePitchShift();
@@ -120,6 +120,8 @@ private:
     float retuneLfoPhase { 0.0f };
     float retuneLfoJitter { 0.0f };
     float outputCompGain { 1.0f };
+    float targetPitchRatio { 1.0f };
+    float activePitchRatio { 1.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };

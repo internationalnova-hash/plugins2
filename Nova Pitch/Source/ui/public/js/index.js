@@ -317,6 +317,16 @@ function syncParam(param, value) {
   callNative('setParameter', { parameter: param, value });
 }
 
+function toPluginValue(param, value) {
+  if (param === 'key' || param === 'scale')
+    return Math.round(value);
+
+  if (param === 'lowLatency')
+    return value ? 1 : 0;
+
+  return value;
+}
+
 // ── NativeBridge DSP receive ───────────────────────────────
 // Called by JUCE WebView to push real-time DSP telemetry into the UI.
 window.receiveDSP = function(data) {
@@ -508,8 +518,7 @@ function bindKnob(id) {
     updateKnobReadout(id, next);
     if (id === 'retuneKnob') state.retuneDrive = 1;
 
-    const normalized = (next - def.min) / (def.max - def.min);
-    syncParam(def.param, normalized);
+    syncParam(def.param, toPluginValue(def.param, next));
   };
 
   const end = () => {
@@ -867,13 +876,13 @@ function setupTopBar() {
 
   els.keySelect.addEventListener('change', () => {
     state.key = Math.max(0, noteNames.indexOf(els.keySelect.value));
-    syncParam('key', state.key / 11);
+    syncParam('key', toPluginValue('key', state.key));
   });
 
   els.scaleButton.addEventListener('click', () => {
     state.scale = (state.scale + 1) % scales.length;
     els.scaleButton.textContent = scales[state.scale];
-    syncParam('scale', state.scale / (scales.length - 1));
+    syncParam('scale', toPluginValue('scale', state.scale));
   });
 
   if (els.lowLatencyToggle) {
@@ -949,11 +958,11 @@ function applyPreset(preset) {
   state.formant   = v.formant;
 
   // Sync native + refresh knob readouts
-  syncParam('amount',                state.retune   / 100);
-  syncParam('confidenceThreshold',   state.humanize / 100);
-  syncParam('tolerance',             state.flex     / 100);
-  syncParam('vibrato',               state.vibrato  / 100);
-  syncParam('formant',               state.formant  / 100);
+  syncParam('amount',                toPluginValue('amount', state.retune));
+  syncParam('confidenceThreshold',   toPluginValue('confidenceThreshold', state.humanize));
+  syncParam('tolerance',             toPluginValue('tolerance', state.flex));
+  syncParam('vibrato',               toPluginValue('vibrato', state.vibrato));
+  syncParam('formant',               toPluginValue('formant', state.formant));
 
   Object.keys(knobDefs).forEach((id) => {
     const canvas = document.getElementById(id);
@@ -1127,13 +1136,13 @@ function init() {
   initBgCanvas();
   Object.keys(knobDefs).forEach(bindKnob);
 
-  syncParam('amount', state.retune / 100);
-  syncParam('tolerance', state.flex / 100);
-  syncParam('confidenceThreshold', state.humanize / 100);
-  syncParam('vibrato', state.vibrato / 100);
-  syncParam('formant', state.formant / 100);
-  syncParam('key', state.key / 11);
-  syncParam('scale', state.scale / (scales.length - 1));
+  syncParam('amount', toPluginValue('amount', state.retune));
+  syncParam('tolerance', toPluginValue('tolerance', state.flex));
+  syncParam('confidenceThreshold', toPluginValue('confidenceThreshold', state.humanize));
+  syncParam('vibrato', toPluginValue('vibrato', state.vibrato));
+  syncParam('formant', toPluginValue('formant', state.formant));
+  syncParam('key', toPluginValue('key', state.key));
+  syncParam('scale', toPluginValue('scale', state.scale));
   setLowLatency(state.lowLatency, { animate: false });
   setupPresetBrowser();
 

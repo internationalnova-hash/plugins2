@@ -2,6 +2,7 @@
 #include "PluginEditor.h"
 
 #include <algorithm>
+#include <limits>
 
 constexpr std::array<int, 12> NovaPitchAudioProcessor::chromaticScale;
 constexpr std::array<int, 7> NovaPitchAudioProcessor::majorScale;
@@ -143,6 +144,8 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     retuneLfoPhase = 0.0f;
     retuneLfoJitter = 0.0f;
     outputCompGain = 1.0f;
+    targetPitchRatio = 1.0f;
+    activePitchRatio = 1.0f;
 }
 
 void NovaPitchAudioProcessor::releaseResources()
@@ -197,7 +200,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float inputRms = computeBufferRms (buffer);
 
     // Hybrid detection: low-latency mode tracks faster, default mode tracks smoother.
-    const int intervalDivider = lowLatencyMode ? 2 : 4;
+    const int intervalDivider = lowLatencyMode ? 1 : 2;
 
     // Perform pitch detection periodically
     if (blockCount % intervalDivider == 0)
@@ -208,33 +211,39 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         if (detectedHz > minPitchHz - 10.0f && detectedHz < maxPitchHz + 10.0f)
         {
-            int scaleDegree = quantizeToScale (detectedHz);
-            float targetHz = getTargetPitchHz (scaleDegree);
+            const int targetMidiNote = quantizeToScale (detectedHz);
+            const float targetHz = getTargetPitchHz (targetMidiNote);
 
             float pitchRatio = computeRetuneRatio (detectedHz, targetHz, inputRms, lowLatencyMode);
             applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
                           apvts.getRawParameterValue ("vibrato")->load());
+            targetPitchRatio = juce::jlimit (0.7f, 1.4f, pitchRatio);
 
             const float correctedHz = detectedHz * pitchRatio;
             correctedPitch.store (correctedHz);
-
-            if (std::abs (pitchRatio - 1.0f) > 0.0005f)
-            {
-                processCircularBufferPitchShift (channelL, numSamples, pitchRatio, 0);
-                if (channelR != nullptr)
-                    processCircularBufferPitchShift (channelR, numSamples, pitchRatio, 1);
-            }
-
-            const float formantValue = apvts.getRawParameterValue ("formant")->load();
-            applyFormantShaper (channelL, numSamples, formantValue, 0);
-            if (channelR != nullptr)
-                applyFormantShaper (channelR, numSamples, formantValue, 1);
         }
         else
         {
+            targetPitchRatio = 1.0f;
             correctedPitch.store (0.0f);
         }
     }
+
+    const float ratioSmoothing = lowLatencyMode ? 0.38f : 0.22f;
+    activePitchRatio += (targetPitchRatio - activePitchRatio) * ratioSmoothing;
+    activePitchRatio = juce::jlimit (0.7f, 1.4f, activePitchRatio);
+
+    if (std::abs (activePitchRatio - 1.0f) > 0.0005f)
+    {
+        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0);
+        if (channelR != nullptr)
+            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1);
+    }
+
+    const float formantValue = apvts.getRawParameterValue ("formant")->load();
+    applyFormantShaper (channelL, numSamples, formantValue, 0);
+    if (channelR != nullptr)
+        applyFormantShaper (channelR, numSamples, formantValue, 1);
 
     applyOutputManagement (buffer, inputRms);
 
@@ -459,84 +468,50 @@ float NovaPitchAudioProcessor::getYINThreshold() const noexcept
 
 int NovaPitchAudioProcessor::quantizeToScale (float pitchHz)
 {
-    // Convert to semitones relative to A0 (27.5 Hz)
-    float semitones = 12.0f * std::log2 (pitchHz / 27.5f);
-    int semitonesInt = static_cast<int>(std::round (semitones)) % 12;
-    if (semitonesInt < 0) semitonesInt += 12;
+    const float safeHz = juce::jmax (1.0f, pitchHz);
+    const float detectedMidi = 69.0f + 12.0f * std::log2 (safeHz / 440.0f);
+    const int centerMidi = static_cast<int> (std::round (detectedMidi));
+    const int key = static_cast<int> (apvts.getRawParameterValue ("key")->load());
+    const auto scale = static_cast<Scale> (apvts.getRawParameterValue ("scale")->load());
 
-    auto scaleParam = static_cast<Scale>(apvts.getRawParameterValue ("scale")->load());
-    int index = 0;
-
-    switch (scaleParam)
+    auto inScale = [&] (int semitoneFromKey)
     {
-        case Chromatic:
-            index = semitonesInt;
-            break;
-        case Major:
+        const int degree = ((semitoneFromKey % 12) + 12) % 12;
+
+        switch (scale)
         {
-            int degree = semitonesInt % 12;
-            for (size_t i = 0; i < majorScale.size(); ++i)
-                if (majorScale[i] == degree) index = i;
-            break;
+            case Chromatic:  return true;
+            case Major:      return std::find (majorScale.begin(), majorScale.end(), degree) != majorScale.end();
+            case Minor:      return std::find (minorScale.begin(), minorScale.end(), degree) != minorScale.end();
+            case Pentatonic: return std::find (pentatonicScale.begin(), pentatonicScale.end(), degree) != pentatonicScale.end();
+            case Blues:      return std::find (bluesScale.begin(), bluesScale.end(), degree) != bluesScale.end();
+            default:         return true;
         }
-        case Minor:
+    };
+
+    int bestMidi = centerMidi;
+    float bestDistance = std::numeric_limits<float>::max();
+
+    for (int midi = centerMidi - 24; midi <= centerMidi + 24; ++midi)
+    {
+        const int semitoneFromKey = midi - key;
+        if (! inScale (semitoneFromKey))
+            continue;
+
+        const float distance = std::abs (static_cast<float> (midi) - detectedMidi);
+        if (distance < bestDistance)
         {
-            int degree = semitonesInt % 12;
-            for (size_t i = 0; i < minorScale.size(); ++i)
-                if (minorScale[i] == degree) index = i;
-            break;
+            bestDistance = distance;
+            bestMidi = midi;
         }
-        case Pentatonic:
-        {
-            int degree = semitonesInt % 12;
-            for (size_t i = 0; i < pentatonicScale.size(); ++i)
-                if (pentatonicScale[i] == degree) index = i;
-            break;
-        }
-        case Blues:
-        {
-            int degree = semitonesInt % 12;
-            for (size_t i = 0; i < bluesScale.size(); ++i)
-                if (bluesScale[i] == degree) index = i;
-            break;
-        }
-        default:
-            break;
     }
 
-    return index;
+    return bestMidi;
 }
 
-float NovaPitchAudioProcessor::getTargetPitchHz (int scaleDegree) const
+float NovaPitchAudioProcessor::getTargetPitchHz (int midiNote) const
 {
-    auto scaleParam = static_cast<Scale>(apvts.getRawParameterValue ("scale")->load());
-    auto keyParam = static_cast<int>(apvts.getRawParameterValue ("key")->load());
-
-    int semitonesFromC = keyParam;
-
-    switch (scaleParam)
-    {
-        case Chromatic:
-            semitonesFromC += scaleDegree;
-            break;
-        case Major:
-            semitonesFromC += majorScale[scaleDegree % majorScale.size()];
-            break;
-        case Minor:
-            semitonesFromC += minorScale[scaleDegree % minorScale.size()];
-            break;
-        case Pentatonic:
-            semitonesFromC += pentatonicScale[scaleDegree % pentatonicScale.size()];
-            break;
-        case Blues:
-            semitonesFromC += bluesScale[scaleDegree % bluesScale.size()];
-            break;
-        default:
-            break;
-    }
-
-    // C4 = 261.63 Hz
-    return 261.63f * std::pow (2.0f, static_cast<float>(semitonesFromC) / 12.0f);
+    return 440.0f * std::pow (2.0f, (static_cast<float> (midiNote) - 69.0f) / 12.0f);
 }
 
 void NovaPitchAudioProcessor::initializePitchShift()
@@ -559,27 +534,37 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
 
     const float clampedRatio = juce::jlimit (0.5f, 2.0f, pitchRatio);
 
+    auto sampleAt = [&] (float pos)
+    {
+        const float wrapped = std::fmod (pos + static_cast<float> (yinBufferSize), static_cast<float> (yinBufferSize));
+        const int i0 = static_cast<int> (wrapped);
+        const int i1 = (i0 + 1) % yinBufferSize;
+        const float frac = wrapped - static_cast<float> (i0);
+        const float s0 = channelDelay[static_cast<size_t> (i0)];
+        const float s1 = channelDelay[static_cast<size_t> (i1)];
+        return s0 + frac * (s1 - s0);
+    };
+
     for (int i = 0; i < numSamples; ++i)
     {
-        // Write
         channelDelay[static_cast<size_t> (writeIdx)] = channelData[i];
-        int nextWriteIndex = (writeIdx + 1) % yinBufferSize;
 
-        // Read with linear interpolation
-        float readIndex = std::fmod (readPos, static_cast<float> (yinBufferSize));
-        int readIndexInt = static_cast<int>(readIndex);
-        float frac = readIndex - readIndexInt;
-        int nextReadIndex = (readIndexInt + 1) % yinBufferSize;
+        const float phase = std::fmod (readPos + static_cast<float> (yinBufferSize), static_cast<float> (yinBufferSize));
+        const float phaseNorm = phase / static_cast<float> (yinBufferSize);
 
-        float sample1 = channelDelay[static_cast<size_t> (readIndexInt)];
-        float sample2 = channelDelay[static_cast<size_t> (nextReadIndex)];
-        float shifted = sample1 + frac * (sample2 - sample1);
+        const float headA = phase;
+        const float headB = std::fmod (phase + static_cast<float> (yinBufferSize) * 0.5f,
+                                       static_cast<float> (yinBufferSize));
+
+        const float crossfade = 0.5f - 0.5f * std::cos (phaseNorm * juce::MathConstants<float>::twoPi);
+        const float shifted = sampleAt (headA) * (1.0f - crossfade) + sampleAt (headB) * crossfade;
 
         channelData[i] = shifted;
 
-        // Update positions
-        writeIdx = nextWriteIndex;
+        writeIdx = (writeIdx + 1) % yinBufferSize;
         readPos += clampedRatio;
+        if (readPos >= static_cast<float> (yinBufferSize))
+            readPos -= static_cast<float> (yinBufferSize);
     }
 }
 
