@@ -184,6 +184,27 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     auto* channelL = buffer.getWritePointer (0);
     auto* channelR = totalNumInputChannels > 1 ? buffer.getWritePointer (1) : nullptr;
     const bool lowLatencyMode = apvts.getRawParameterValue ("lowLatency")->load() >= 0.5f;
+    const float amountValue = apvts.getRawParameterValue ("amount")->load();
+    const float toleranceValue = apvts.getRawParameterValue ("tolerance")->load();
+    const float confidenceValue = apvts.getRawParameterValue ("confidenceThreshold")->load();
+    const float vibratoValue = apvts.getRawParameterValue ("vibrato")->load();
+    const float formantValue = apvts.getRawParameterValue ("formant")->load();
+
+    // True clean baseline mode for troubleshooting and dry testing.
+    const bool baselineBypass = amountValue <= 0.5f
+                             && toleranceValue <= 0.5f
+                             && confidenceValue <= 0.5f
+                             && vibratoValue <= 0.5f
+                             && formantValue <= 0.5f;
+
+    if (baselineBypass)
+    {
+        targetPitchRatio = 1.0f;
+        activePitchRatio = 1.0f;
+        correctedPitch.store (0.0f);
+        blockCount++;
+        return;
+    }
 
     // Mono-focused detection, stereo-safe processing.
     std::vector<float> analysisBuffer (static_cast<size_t> (numSamples), 0.0f);
@@ -216,7 +237,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
             float pitchRatio = computeRetuneRatio (detectedHz, targetHz, inputRms, lowLatencyMode);
             applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
-                          apvts.getRawParameterValue ("vibrato")->load());
+                          vibratoValue);
             targetPitchRatio = juce::jlimit (0.7f, 1.4f, pitchRatio);
 
             const float correctedHz = detectedHz * pitchRatio;
@@ -240,7 +261,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1);
     }
 
-    const float formantValue = apvts.getRawParameterValue ("formant")->load();
     applyFormantShaper (channelL, numSamples, formantValue, 0);
     if (channelR != nullptr)
         applyFormantShaper (channelR, numSamples, formantValue, 1);
@@ -280,10 +300,14 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
     float humanizeNorm = apvts.getRawParameterValue ("confidenceThreshold")->load() / 100.0f;
 
+    // Retune at 0% must behave as dry/no correction.
+    if (amountNorm <= 0.0001f)
+        return 1.0f;
+
     // Parameter ranges lock: Retune interpreted as 0..80 ms with UI convention:
     // left (0%) = slow, right (100%) = fast.
     const float retuneMs = (1.0f - amountNorm) * 80.0f;
-    float retuneStrength = 1.0f - juce::jlimit (0.0f, 1.0f, retuneMs / 80.0f);
+    float retuneStrength = juce::jlimit (0.0f, 1.0f, amountNorm);
 
     // Intelligent interaction rules.
     if (retuneMs <= 14.0f)
@@ -300,12 +324,12 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
 
     // Scale lock mode: soft lock default, hard lock when aggressive setup is detected.
     const bool hardLock = (retuneMs <= 10.0f && toleranceNorm <= 0.2f && humanizeNorm <= 0.2f);
-    float lockStrength = hardLock ? 1.0f : (0.38f + 0.62f * curveStrength);
-    lockStrength *= (1.0f - humanizeNorm * 0.42f);
+    float lockStrength = hardLock ? juce::jmax (curveStrength, 0.98f) : curveStrength;
+    lockStrength *= (1.0f - humanizeNorm * 0.70f);
 
     // Noise-aware correction reduction to avoid artifacts.
     const float signalWeight = juce::jlimit (0.0f, 1.0f, signalRms * 3.2f);
-    lockStrength *= (0.55f + 0.45f * signalWeight);
+    lockStrength *= (0.45f + 0.55f * signalWeight);
     lockStrength = juce::jlimit (0.0f, 1.0f, lockStrength);
 
     const float targetRatio = targetHz / juce::jmax (1.0f, detectedHz);
@@ -335,10 +359,12 @@ void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate,
 
 void NovaPitchAudioProcessor::applyFormantShaper (float* channelData, int numSamples, float formantParam, int channelIndex)
 {
-    // Effective formant behavior lock: 45..60 region, neutral at 50.
-    const float effective = juce::jlimit (45.0f, 60.0f, 45.0f + (formantParam / 100.0f) * 15.0f);
-    const float centered = (effective - 50.0f) / 10.0f; // -0.5 .. +1.0
-    const float a = juce::jlimit (-0.38f, 0.38f, centered * 0.42f);
+    const float centered = (formantParam - 50.0f) / 50.0f; // -1..1
+    if (std::abs (centered) < 0.01f)
+        return;
+
+    const float a = juce::jlimit (-0.22f, 0.22f, centered * 0.22f);
+    const float mix = juce::jlimit (0.0f, 0.35f, std::abs (centered) * 0.35f);
 
     auto& s1 = formantAllPassState[static_cast<size_t> (channelIndex)][0];
     auto& s2 = formantAllPassState[static_cast<size_t> (channelIndex)][1];
@@ -353,7 +379,7 @@ void NovaPitchAudioProcessor::applyFormantShaper (float* channelData, int numSam
         float y2 = -a * y1 + s2;
         s2 = y1 + a * y2;
 
-        channelData[i] = 0.65f * x + 0.35f * y2;
+        channelData[i] = x * (1.0f - mix) + y2 * mix;
     }
 }
 
@@ -362,8 +388,13 @@ void NovaPitchAudioProcessor::applyOutputManagement (juce::AudioBuffer<float>& b
     const float outRms = computeBufferRms (buffer);
     if (inputRms > 1.0e-6f && outRms > 1.0e-6f)
     {
-        const float targetGain = juce::jlimit (0.78f, 1.28f, inputRms / outRms);
+        // Clean path: attenuation-only management to avoid added drive/clipping.
+        const float targetGain = juce::jlimit (0.75f, 1.0f, inputRms / outRms);
         outputCompGain = 0.92f * outputCompGain + 0.08f * targetGain;
+    }
+    else
+    {
+        outputCompGain = 0.98f * outputCompGain + 0.02f;
     }
 
     const int channels = buffer.getNumChannels();
@@ -373,11 +404,7 @@ void NovaPitchAudioProcessor::applyOutputManagement (juce::AudioBuffer<float>& b
     {
         auto* data = buffer.getWritePointer (ch);
         for (int i = 0; i < samples; ++i)
-        {
-            float y = data[i] * outputCompGain;
-            // Soft clip to avoid overs while preserving dynamics.
-            data[i] = std::tanh (y * 1.12f) * 0.92f;
-        }
+            data[i] *= outputCompGain;
     }
 }
 

@@ -54,6 +54,46 @@ const els = {
   presetList:       document.getElementById('presetList'),
 };
 
+const paramBridges = {};
+
+function hasJuceBackend() {
+  return typeof window !== 'undefined' && !!(window.__JUCE__ && window.__JUCE__.backend);
+}
+
+function getParamRange(param) {
+  if (param === 'key') return { min: 0, max: 11 };
+  if (param === 'scale') return { min: 0, max: scales.length - 1 };
+  if (param === 'lowLatency') return { min: 0, max: 1 };
+  return { min: 0, max: 100 };
+}
+
+function getParamBridge(param) {
+  if (paramBridges[param]) return paramBridges[param];
+  if (!hasJuceBackend()) return null;
+
+  const identifier = `__juce__slider${param}`;
+  const range = getParamRange(param);
+
+  const bridge = {
+    setValue(actualValue) {
+      const clamped = Math.max(range.min, Math.min(range.max, actualValue));
+      window.__JUCE__.backend.emitEvent(identifier, {
+        eventType: 'valueChanged',
+        value: clamped,
+      });
+    },
+    sliderDragStarted() {
+      window.__JUCE__.backend.emitEvent(identifier, { eventType: 'sliderDragStarted' });
+    },
+    sliderDragEnded() {
+      window.__JUCE__.backend.emitEvent(identifier, { eventType: 'sliderDragEnded' });
+    },
+  };
+
+  paramBridges[param] = bridge;
+  return bridge;
+}
+
 // ── Cosmic background ────────────────────────────────────────────
 const bg = {
   stars: [],
@@ -282,49 +322,10 @@ function updateKnobReadout(id, value) {
   readout.textContent = formatKnobValue(id, value);
 }
 
-function callNative(name, payload) {
-  if (!window.NativeBridge) return null;
-  try {
-    if (typeof window.NativeBridge.callNativeFunction === 'function') {
-      return window.NativeBridge.callNativeFunction(name, payload);
-    }
-
-    // JUCE interop compatibility path (window.NativeBridge = window.JuceAPI)
-    if (name === 'setParameter' && typeof window.NativeBridge.setParameter === 'function') {
-      return window.NativeBridge.setParameter(payload.parameter, payload.value);
-    }
-    if (name === 'getParameter' && typeof window.NativeBridge.getParameter === 'function') {
-      return window.NativeBridge.getParameter(payload.parameter);
-    }
-    if (name === 'setLowLatencyMode') {
-      if (typeof window.NativeBridge.setParameter === 'function') {
-        return window.NativeBridge.setParameter('lowLatency', payload.enabled ? 1 : 0);
-      }
-      if (typeof window.NativeBridge.send === 'function') {
-        return window.NativeBridge.send('setLowLatencyMode', payload);
-      }
-    }
-    if (typeof window.NativeBridge.send === 'function') {
-      return window.NativeBridge.send(name, payload);
-    }
-    return null;
-  } catch (_) {
-    return null;
-  }
-}
-
 function syncParam(param, value) {
-  callNative('setParameter', { parameter: param, value });
-}
-
-function toPluginValue(param, value) {
-  if (param === 'key' || param === 'scale')
-    return Math.round(value);
-
-  if (param === 'lowLatency')
-    return value ? 1 : 0;
-
-  return value;
+  const bridge = getParamBridge(param);
+  if (!bridge) return;
+  bridge.setValue(value);
 }
 
 // ── NativeBridge DSP receive ───────────────────────────────
@@ -356,9 +357,7 @@ function setLowLatency(enabled, options = {}) {
   renderLowLatencyToggle();
 
   if (!shouldSync) return;
-
-  const handled = callNative('setLowLatencyMode', { enabled: next });
-  if (handled == null) syncParam('lowLatency', next ? 1 : 0);
+  syncParam('lowLatency', next ? 1 : 0);
 }
 
 function drawKnob(canvas, value, def) {
@@ -505,6 +504,9 @@ function bindKnob(id) {
     drag = { y, value: state[def.key] };
     state.knobActive = id;
     if (id === 'retuneKnob') state.retuneDrive = 1;
+
+    const bridge = getParamBridge(def.param);
+    if (bridge) bridge.sliderDragStarted();
   };
 
   const move = (e) => {
@@ -518,10 +520,17 @@ function bindKnob(id) {
     updateKnobReadout(id, next);
     if (id === 'retuneKnob') state.retuneDrive = 1;
 
-    syncParam(def.param, toPluginValue(def.param, next));
+    syncParam(def.param, next);
   };
 
   const end = () => {
+    if (state.knobActive != null) {
+      const activeDef = knobDefs[state.knobActive];
+      if (activeDef) {
+        const bridge = getParamBridge(activeDef.param);
+        if (bridge) bridge.sliderDragEnded();
+      }
+    }
     drag = null;
     state.knobActive = null;
   };
@@ -876,13 +885,13 @@ function setupTopBar() {
 
   els.keySelect.addEventListener('change', () => {
     state.key = Math.max(0, noteNames.indexOf(els.keySelect.value));
-    syncParam('key', toPluginValue('key', state.key));
+    syncParam('key', state.key);
   });
 
   els.scaleButton.addEventListener('click', () => {
     state.scale = (state.scale + 1) % scales.length;
     els.scaleButton.textContent = scales[state.scale];
-    syncParam('scale', toPluginValue('scale', state.scale));
+    syncParam('scale', state.scale);
   });
 
   if (els.lowLatencyToggle) {
@@ -958,11 +967,11 @@ function applyPreset(preset) {
   state.formant   = v.formant;
 
   // Sync native + refresh knob readouts
-  syncParam('amount',                toPluginValue('amount', state.retune));
-  syncParam('confidenceThreshold',   toPluginValue('confidenceThreshold', state.humanize));
-  syncParam('tolerance',             toPluginValue('tolerance', state.flex));
-  syncParam('vibrato',               toPluginValue('vibrato', state.vibrato));
-  syncParam('formant',               toPluginValue('formant', state.formant));
+  syncParam('amount',                state.retune);
+  syncParam('confidenceThreshold',   state.humanize);
+  syncParam('tolerance',             state.flex);
+  syncParam('vibrato',               state.vibrato);
+  syncParam('formant',               state.formant);
 
   Object.keys(knobDefs).forEach((id) => {
     const canvas = document.getElementById(id);
@@ -1136,13 +1145,13 @@ function init() {
   initBgCanvas();
   Object.keys(knobDefs).forEach(bindKnob);
 
-  syncParam('amount', toPluginValue('amount', state.retune));
-  syncParam('tolerance', toPluginValue('tolerance', state.flex));
-  syncParam('confidenceThreshold', toPluginValue('confidenceThreshold', state.humanize));
-  syncParam('vibrato', toPluginValue('vibrato', state.vibrato));
-  syncParam('formant', toPluginValue('formant', state.formant));
-  syncParam('key', toPluginValue('key', state.key));
-  syncParam('scale', toPluginValue('scale', state.scale));
+  syncParam('amount', state.retune);
+  syncParam('tolerance', state.flex);
+  syncParam('confidenceThreshold', state.humanize);
+  syncParam('vibrato', state.vibrato);
+  syncParam('formant', state.formant);
+  syncParam('key', state.key);
+  syncParam('scale', state.scale);
   setLowLatency(state.lowLatency, { animate: false });
   setupPresetBrowser();
 
