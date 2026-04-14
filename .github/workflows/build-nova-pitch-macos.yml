@@ -22,16 +22,33 @@ jobs:
         run: brew install cmake
 
       - name: Clean build directory
-        run: rm -rf "Nova Pitch/build"
+        run: |
+          if [ -f "Nova Pitch/CMakeLists.txt" ]; then
+            rm -rf "Nova Pitch/build"
+          else
+            rm -rf "build"
+          fi
 
       - name: Configure CMake
-        run: cmake -S "Nova Pitch" -B "Nova Pitch/build"
+        run: |
+          if [ -f "Nova Pitch/CMakeLists.txt" ]; then
+            cmake -S "Nova Pitch" -B "Nova Pitch/build"
+          else
+            cmake -S . -B build
+          fi
 
       - name: Build
-        run: cmake --build "Nova Pitch/build" --config Release
+        run: |
+          if [ -f "Nova Pitch/CMakeLists.txt" ]; then
+            cmake --build "Nova Pitch/build" --config Release
+          else
+            cmake --build build --config Release
+          fi
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: NovaPitch-macOS-build
-          path: "Nova Pitch/build"
+          path: |
+            Nova Pitch/build
+            build
