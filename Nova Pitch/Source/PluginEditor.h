@@ -1,15 +1,11 @@
 #pragma once
 
-#include <juce_audio_processors/juce_audio_processors.h>
-#include <juce_gui_basics/juce_gui_basics.h>
-#include <juce_core/juce_core.h>
+#include <juce_gui_extra/juce_gui_extra.h>
 
 #include "PluginProcessor.h"
 
-class NovaPitchAudioProcessorEditor  : public juce::AudioProcessorEditor,
-                                        public juce::Slider::Listener,
-                                        public juce::ComboBox::Listener,
-                                        public juce::Timer
+class NovaPitchAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                      private juce::Timer
 {
 public:
     explicit NovaPitchAudioProcessorEditor (NovaPitchAudioProcessor&);
@@ -17,27 +13,44 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
-    void sliderValueChanged (juce::Slider* slider) override;
-    void comboBoxChanged (juce::ComboBox* comboBoxThatHasChanged) override;
-    void timerCallback() override;
 
 private:
-    NovaPitchAudioProcessor& audioProcessor;
+    void timerCallback() override;
 
-    juce::ComboBox keyBox;
-    juce::ComboBox scaleBox;
-    juce::Slider toleranceSlider;
-    juce::Slider amountSlider;
-    juce::Slider confidenceSlider;
+    NovaPitchAudioProcessor& processorRef;
 
-    juce::Label keyLabel { "key", "Key:" };
-    juce::Label scaleLabel { "scale", "Scale:" };
-    juce::Label toleranceLabel { "tolerance", "Tolerance:" };
-    juce::Label amountLabel { "amount", "Amount:" };
-    juce::Label confidenceLabel { "confidence", "Confidence:" };
+    juce::WebSliderRelay keyRelay { "key" };
+    juce::WebSliderRelay scaleRelay { "scale" };
+    juce::WebSliderRelay toleranceRelay { "tolerance" };
+    juce::WebSliderRelay amountRelay { "amount" };
+    juce::WebSliderRelay confidenceRelay { "confidenceThreshold" };
+    juce::WebSliderRelay vibratoRelay { "vibrato" };
+    juce::WebSliderRelay formantRelay { "formant" };
+    juce::WebSliderRelay lowLatencyRelay { "lowLatency" };
 
-    juce::Label detectedPitchDisplay;
-    juce::Label correctedPitchDisplay;
+    struct SinglePageBrowser : juce::WebBrowserComponent
+    {
+        using WebBrowserComponent::WebBrowserComponent;
+
+        bool pageAboutToLoad (const juce::String& newURL) override
+        {
+            return newURL.startsWith (getResourceProviderRoot()) || newURL == getResourceProviderRoot();
+        }
+    };
+
+    std::unique_ptr<SinglePageBrowser> webView;
+
+    std::unique_ptr<juce::WebSliderParameterAttachment> keyAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> scaleAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> toleranceAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> amountAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> confidenceAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> vibratoAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> formantAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> lowLatencyAttachment;
+
+    std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
+    static juce::WebBrowserComponent::Options createWebOptions (NovaPitchAudioProcessorEditor& editor);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessorEditor)
 };

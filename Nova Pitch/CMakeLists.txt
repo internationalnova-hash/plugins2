@@ -104,10 +104,37 @@ target_link_libraries(${PLUGIN_TARGET}
         juce::juce_gui_basics
         juce::juce_gui_extra
         juce::juce_opengl
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags
 )
 
-    # We do not ship VST2; avoid JUCE's VST2->VST3 parameter ID migration guard error.
     target_compile_definitions(${PLUGIN_TARGET}
-        PRIVATE
+    PUBLIC
+        JUCE_WEB_BROWSER=1
         JUCE_VST3_CAN_REPLACE_VST2=0
     )
+
+if(WIN32)
+    target_compile_definitions(${PLUGIN_TARGET}
+        PUBLIC
+            JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
+            _USE_MATH_DEFINES=1
+    )
+endif()
+
+if(APPLE)
+    target_compile_definitions(${PLUGIN_TARGET}
+        PUBLIC
+            JUCE_USE_CURL=0
+    )
+endif()
+
+if(UNIX AND NOT APPLE)
+    target_compile_definitions(${PLUGIN_TARGET}
+        PUBLIC
+            JUCE_USE_CURL=0
+            JUCE_JACK=1
+    )
+endif()

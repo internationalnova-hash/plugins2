@@ -1,60 +1,31 @@
-#include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "BinaryData.h"
+
+#include <cstring>
 
 NovaPitchAudioProcessorEditor::NovaPitchAudioProcessorEditor (NovaPitchAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p)
+    : AudioProcessorEditor (&p), processorRef (p)
 {
-    setSize (600, 400);
+    webView = std::make_unique<SinglePageBrowser> (createWebOptions (*this));
 
-    // Key selector
-    keyBox.addItemList (juce::StringArray { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 1);
-    keyBox.setSelectedItemIndex (0);
-    keyBox.addListener (this);
-    addAndMakeVisible (keyBox);
-    keyLabel.attachToComponent (&keyBox, true);
-    addAndMakeVisible (keyLabel);
+    keyAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("key"), keyRelay, nullptr);
+    scaleAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("scale"), scaleRelay, nullptr);
+    toleranceAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("tolerance"), toleranceRelay, nullptr);
+    amountAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("amount"), amountRelay, nullptr);
+    confidenceAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("confidenceThreshold"), confidenceRelay, nullptr);
+    vibratoAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("vibrato"), vibratoRelay, nullptr);
+    formantAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("formant"), formantRelay, nullptr);
+    lowLatencyAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("lowLatency"), lowLatencyRelay, nullptr);
 
-    // Scale selector
-    scaleBox.addItemList (juce::StringArray { "Chromatic", "Major", "Minor", "Pentatonic", "Blues" }, 1);
-    scaleBox.setSelectedItemIndex (0);
-    scaleBox.addListener (this);
-    addAndMakeVisible (scaleBox);
-    scaleLabel.attachToComponent (&scaleBox, true);
-    addAndMakeVisible (scaleLabel);
+    addAndMakeVisible (*webView);
 
-    // Tolerance slider
-    toleranceSlider.setRange (0.0, 100.0, 1.0);
-    toleranceSlider.setValue (50.0);
-    toleranceSlider.addListener (this);
-    addAndMakeVisible (toleranceSlider);
-    toleranceLabel.attachToComponent (&toleranceSlider, true);
-    addAndMakeVisible (toleranceLabel);
+    const auto cacheBustedUrl = juce::WebBrowserComponent::getResourceProviderRoot()
+                              + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
+    webView->goToURL (cacheBustedUrl);
 
-    // Amount slider
-    amountSlider.setRange (0.0, 100.0, 1.0);
-    amountSlider.setValue (85.0);
-    amountSlider.addListener (this);
-    addAndMakeVisible (amountSlider);
-    amountLabel.attachToComponent (&amountSlider, true);
-    addAndMakeVisible (amountLabel);
-
-    // Confidence threshold slider
-    confidenceSlider.setRange (0.0, 100.0, 1.0);
-    confidenceSlider.setValue (70.0);
-    confidenceSlider.addListener (this);
-    addAndMakeVisible (confidenceSlider);
-    confidenceLabel.attachToComponent (&confidenceSlider, true);
-    addAndMakeVisible (confidenceLabel);
-
-    // Detected pitch display
-    detectedPitchDisplay.setText ("Detected: -- Hz", juce::dontSendNotification);
-    addAndMakeVisible (detectedPitchDisplay);
-
-    // Corrected pitch display
-    correctedPitchDisplay.setText ("Corrected: -- Hz", juce::dontSendNotification);
-    addAndMakeVisible (correctedPitchDisplay);
-
-    startTimer (50); // Update UI every 50ms
+    setResizable (false, false);
+    setSize (1060, 640);
+    startTimerHz (30);
 }
 
 NovaPitchAudioProcessorEditor::~NovaPitchAudioProcessorEditor()
@@ -64,75 +35,153 @@ NovaPitchAudioProcessorEditor::~NovaPitchAudioProcessorEditor()
 
 void NovaPitchAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
-    g.setColour (juce::Colours::white);
-    g.setFont (15.0f);
-    g.drawFittedText ("Nova Pitch - Automatic Pitch Correction", getLocalBounds(), juce::Justification::centredTop, 1);
+    g.fillAll (juce::Colour::fromRGB (8, 17, 29));
 }
 
 void NovaPitchAudioProcessorEditor::resized()
 {
-    auto bounds = getLocalBounds().reduced (20);
-    bounds.removeFromTop (30);
-
-    auto leftMargin = bounds.getX();
-
-    auto row = bounds.removeFromTop (30);
-    keyLabel.setBounds (leftMargin, row.getY(), 100, row.getHeight());
-    keyBox.setBounds (leftMargin + 100, row.getY(), 150, row.getHeight());
-
-    row = bounds.removeFromTop (30);
-    scaleLabel.setBounds (leftMargin, row.getY(), 100, row.getHeight());
-    scaleBox.setBounds (leftMargin + 100, row.getY(), 150, row.getHeight());
-
-    row = bounds.removeFromTop (30);
-    toleranceLabel.setBounds (leftMargin, row.getY(), 100, row.getHeight());
-    toleranceSlider.setBounds (leftMargin + 100, row.getY(), 200, row.getHeight());
-
-    row = bounds.removeFromTop (30);
-    amountLabel.setBounds (leftMargin, row.getY(), 100, row.getHeight());
-    amountSlider.setBounds (leftMargin + 100, row.getY(), 200, row.getHeight());
-
-    row = bounds.removeFromTop (30);
-    confidenceLabel.setBounds (leftMargin, row.getY(), 100, row.getHeight());
-    confidenceSlider.setBounds (leftMargin + 100, row.getY(), 200, row.getHeight());
-
-    row = bounds.removeFromTop (30);
-    detectedPitchDisplay.setBounds (row);
-
-    row = bounds.removeFromTop (30);
-    correctedPitchDisplay.setBounds (row);
-}
-
-void NovaPitchAudioProcessorEditor::sliderValueChanged (juce::Slider* slider)
-{
-    if (slider == &toleranceSlider)
-        audioProcessor.apvts.getParameter ("tolerance")->setValueNotifyingHost (toleranceSlider.getValue() / 100.0f);
-    else if (slider == &amountSlider)
-        audioProcessor.apvts.getParameter ("amount")->setValueNotifyingHost (amountSlider.getValue() / 100.0f);
-    else if (slider == &confidenceSlider)
-        audioProcessor.apvts.getParameter ("confidenceThreshold")->setValueNotifyingHost (confidenceSlider.getValue() / 100.0f);
-}
-
-void NovaPitchAudioProcessorEditor::comboBoxChanged (juce::ComboBox* comboBoxThatHasChanged)
-{
-    if (comboBoxThatHasChanged == &keyBox)
-    {
-        const float normalized = static_cast<float> (keyBox.getSelectedItemIndex()) / 11.0f;
-        audioProcessor.apvts.getParameter ("key")->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, normalized));
-    }
-    else if (comboBoxThatHasChanged == &scaleBox)
-    {
-        const float normalized = static_cast<float> (scaleBox.getSelectedItemIndex()) / 4.0f;
-        audioProcessor.apvts.getParameter ("scale")->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, normalized));
-    }
+    if (webView != nullptr)
+        webView->setBounds (getLocalBounds());
 }
 
 void NovaPitchAudioProcessorEditor::timerCallback()
 {
-    float detected = audioProcessor.getDetectedPitch();
-    float corrected = audioProcessor.getCorrectedPitch();
+    if (webView == nullptr || ! webView->isVisible())
+        return;
 
-    detectedPitchDisplay.setText (juce::String::formatted ("Detected: %.1f Hz", detected), juce::dontSendNotification);
-    correctedPitchDisplay.setText (juce::String::formatted ("Corrected: %.1f Hz", corrected), juce::dontSendNotification);
+    const auto detectedHz = processorRef.getDetectedPitch();
+    const auto correctedHz = processorRef.getCorrectedPitch();
+    const auto confidence = juce::jlimit (0.0f, 1.0f, processorRef.getConfidence());
+
+    const auto correctionAmount = detectedHz > 1.0f
+        ? juce::jlimit (0.0f, 1.0f, std::abs (correctedHz - detectedHz) / juce::jmax (detectedHz, 1.0f))
+        : 0.0f;
+
+    const auto isRetuneActive = correctionAmount > 0.005f;
+
+    const auto script = "if (window.receiveDSP) { window.receiveDSP({"
+                      "correctionAmount:" + juce::String (correctionAmount, 4)
+                      + ",trackingConfidence:" + juce::String (confidence, 4)
+                      + ",retuneActive:" + juce::String (isRetuneActive ? "true" : "false")
+                      + "}); }";
+
+    webView->evaluateJavascript (script);
+}
+
+juce::WebBrowserComponent::Options NovaPitchAudioProcessorEditor::createWebOptions (NovaPitchAudioProcessorEditor& editor)
+{
+    auto options = juce::WebBrowserComponent::Options {};
+
+   #if JUCE_WINDOWS
+    options = options.withBackend (juce::WebBrowserComponent::Options::Backend::webview2)
+                     .withWinWebView2Options (
+                         juce::WebBrowserComponent::Options::WinWebView2 {}
+                             .withUserDataFolder (juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                 .getChildFile ("NovaPitch")));
+   #endif
+
+    options = options.withNativeIntegrationEnabled()
+                     .withResourceProvider ([&editor] (const juce::String& url)
+                     {
+                         return editor.getResource (url);
+                     })
+                     .withOptionsFrom (editor.keyRelay)
+                     .withOptionsFrom (editor.scaleRelay)
+                     .withOptionsFrom (editor.toleranceRelay)
+                     .withOptionsFrom (editor.amountRelay)
+                     .withOptionsFrom (editor.confidenceRelay)
+                     .withOptionsFrom (editor.vibratoRelay)
+                     .withOptionsFrom (editor.formantRelay)
+                     .withOptionsFrom (editor.lowLatencyRelay);
+
+    return options;
+}
+
+std::optional<juce::WebBrowserComponent::Resource> NovaPitchAudioProcessorEditor::getResource (const juce::String& url)
+{
+    auto makeResource = [] (const char* data, int size, const char* mime)
+    {
+        std::vector<std::byte> bytes (static_cast<size_t> (size));
+        std::memcpy (bytes.data(), data, static_cast<size_t> (size));
+
+        return juce::WebBrowserComponent::Resource {
+            std::move (bytes),
+            juce::String (mime)
+        };
+    };
+
+    const auto lowerUrl = url.toLowerCase();
+
+    if (lowerUrl.contains ("index.html"))
+        return makeResource (nova_pitch_BinaryData::index_html,
+                             nova_pitch_BinaryData::index_htmlSize,
+                             "text/html");
+
+    if (lowerUrl.contains ("n_logo.png"))
+        return makeResource (nova_pitch_BinaryData::n_logo_png,
+                             nova_pitch_BinaryData::n_logo_pngSize,
+                             "image/png");
+
+    if (lowerUrl.contains ("js/index.js"))
+        return makeResource (nova_pitch_BinaryData::index_js,
+                             nova_pitch_BinaryData::index_jsSize,
+                             "text/javascript");
+
+    if (lowerUrl.contains ("js/fallback-boot.js"))
+        return makeResource (nova_pitch_BinaryData::fallbackboot_js,
+                             nova_pitch_BinaryData::fallbackboot_jsSize,
+                             "text/javascript");
+
+    if (lowerUrl.contains ("js/juce/index.js"))
+        return makeResource (nova_pitch_BinaryData::index_js2,
+                             nova_pitch_BinaryData::index_js2Size,
+                             "text/javascript");
+
+    if (lowerUrl.contains ("js/juce/check_native_interop.js"))
+        return makeResource (nova_pitch_BinaryData::check_native_interop_js,
+                             nova_pitch_BinaryData::check_native_interop_jsSize,
+                             "text/javascript");
+
+    auto resourcePath = url.fromFirstOccurrenceOf (juce::WebBrowserComponent::getResourceProviderRoot(), false, false);
+    resourcePath = resourcePath.upToFirstOccurrenceOf ("?", false, false);
+
+    if (resourcePath.isEmpty() || resourcePath == "/")
+        resourcePath = "/index.html";
+
+    if (! resourcePath.startsWithChar ('/'))
+        resourcePath = "/" + resourcePath;
+
+    const auto lowerPath = resourcePath.toLowerCase();
+
+    if (lowerPath == "/index.html" || lowerPath.endsWith ("/index.html"))
+        return makeResource (nova_pitch_BinaryData::index_html,
+                             nova_pitch_BinaryData::index_htmlSize,
+                             "text/html");
+
+    if (lowerPath == "/n_logo.png" || lowerPath.endsWith ("/n_logo.png"))
+        return makeResource (nova_pitch_BinaryData::n_logo_png,
+                             nova_pitch_BinaryData::n_logo_pngSize,
+                             "image/png");
+
+    if (lowerPath == "/js/index.js" || lowerPath.endsWith ("/js/index.js"))
+        return makeResource (nova_pitch_BinaryData::index_js,
+                             nova_pitch_BinaryData::index_jsSize,
+                             "text/javascript");
+
+    if (lowerPath == "/js/fallback-boot.js" || lowerPath.endsWith ("/js/fallback-boot.js"))
+        return makeResource (nova_pitch_BinaryData::fallbackboot_js,
+                             nova_pitch_BinaryData::fallbackboot_jsSize,
+                             "text/javascript");
+
+    if (lowerPath == "/js/juce/index.js" || lowerPath.endsWith ("/js/juce/index.js"))
+        return makeResource (nova_pitch_BinaryData::index_js2,
+                             nova_pitch_BinaryData::index_js2Size,
+                             "text/javascript");
+
+    if (lowerPath == "/js/juce/check_native_interop.js" || lowerPath.endsWith ("/js/juce/check_native_interop.js"))
+        return makeResource (nova_pitch_BinaryData::check_native_interop_js,
+                             nova_pitch_BinaryData::check_native_interop_jsSize,
+                             "text/javascript");
+
+    return std::nullopt;
 }
