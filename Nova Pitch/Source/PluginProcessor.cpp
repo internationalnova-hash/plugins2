@@ -137,8 +137,10 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     juce::ignoreUnused (samplesPerBlock);
     initializePitchShift();
     
-    minPitchHz = 50.0f;
-    maxPitchHz = 400.0f;
+        // Cover full vocal range: bass to soprano head voice (60 Hz – 1 kHz).
+        // Old cap of 400 Hz made tauMin=110 samples, making every note above G4 undetectable.
+        minPitchHz = 60.0f;
+        maxPitchHz = 1000.0f;
     analysisInterval = static_cast<int>(sampleRate / 20.0); // Analyze ~20 times per second
     smoothedDetectedHz = 0.0f;
     retuneLfoPhase = 0.0f;
@@ -360,7 +362,8 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
 
     // Noise-aware correction reduction to avoid artifacts.
     const float signalWeight = juce::jlimit (0.0f, 1.0f, signalRms * 3.2f);
-    lockStrength *= (0.45f + 0.55f * signalWeight);
+    // Scale by signal weight: strong signal = full correction, quiet signal = softer correction.
+    lockStrength *= (0.50f + 0.50f * signalWeight);
 
     // At near-max retune, correction must be audibly engaged even if other knobs are relaxed.
     if (amountNorm >= 0.99f)
@@ -470,103 +473,104 @@ float NovaPitchAudioProcessor::computeBufferRms (const juce::AudioBuffer<float>&
 
 float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamples)
 {
-    // Fill analysis buffer with incoming samples.
+    // Accumulate samples into analysis window.
     for (int i = 0; i < numSamples && yinWriteIndex < yinBufferSize; ++i)
-    {
-        yinBuffer[yinWriteIndex++] = samples[i];
-    }
+        yinBuffer[static_cast<size_t> (yinWriteIndex++)] = samples[i];
 
     if (yinWriteIndex < yinBufferSize)
         return detectedPitch.load();
 
     yinWriteIndex = 0;
 
-    const int tauMin = juce::jmax (2, static_cast<int> (currentSampleRate / maxPitchHz));
-    const int tauMaxByPitch = juce::jmax (tauMin + 1, static_cast<int> (currentSampleRate / minPitchHz));
-    const int tauMax = juce::jmin (tauMaxByPitch, yinBufferSize / 2);
+    const int halfBuf = yinBufferSize / 2;
+    const int tauMin  = juce::jmax (2, static_cast<int> (currentSampleRate / maxPitchHz));
+    const int tauMax  = juce::jmin (halfBuf - 1, static_cast<int> (currentSampleRate / minPitchHz));
 
-    int bestTau = -1;
-    float bestScore = -1.0f;
+    if (tauMin >= tauMax)
+        return detectedPitch.load();
 
-    // Normalized autocorrelation is more robust than the previous YIN threshold check,
-    // which could fail to ever find a candidate lag and leave pitch stuck at 0 Hz.
+    // Step 1: Difference function d(τ).
+    std::vector<float> d (static_cast<size_t> (tauMax + 1), 0.0f);
+    for (int tau = 1; tau <= tauMax; ++tau)
+    {
+        float sum = 0.0f;
+        for (int i = 0; i < halfBuf; ++i)
+        {
+            const float diff = yinBuffer[static_cast<size_t> (i)]
+                             - yinBuffer[static_cast<size_t> (i + tau)];
+            sum += diff * diff;
+        }
+        d[static_cast<size_t> (tau)] = sum;
+    }
+
+    // Step 2: Cumulative mean normalised difference d'(τ).
+    d[0] = 1.0f;
+    float runningSum = 0.0f;
+    for (int tau = 1; tau <= tauMax; ++tau)
+    {
+        runningSum += d[static_cast<size_t> (tau)];
+        d[static_cast<size_t> (tau)] = (runningSum > 0.0f)
+            ? d[static_cast<size_t> (tau)] * static_cast<float> (tau) / runningSum
+            : 1.0f;
+    }
+
+    // Step 3: Absolute threshold — first dip below threshold is the vocal period.
+    const float confidenceParam = juce::jlimit (0.0f, 1.0f,
+        apvts.getRawParameterValue ("confidenceThreshold")->load() / 100.0f);
+    const float threshold = 0.10f + confidenceParam * 0.20f; // 0.10 to 0.30
+
+    int foundTau = -1;
     for (int tau = tauMin; tau < tauMax; ++tau)
     {
-        float cross = 0.0f;
-        float energyA = 0.0f;
-        float energyB = 0.0f;
-
-        const int limit = yinBufferSize - tau;
-        for (int i = 0; i < limit; ++i)
+        if (d[static_cast<size_t> (tau)] < threshold)
         {
-            const float a = yinBuffer[static_cast<size_t> (i)];
-            const float b = yinBuffer[static_cast<size_t> (i + tau)];
-            cross += a * b;
-            energyA += a * a;
-            energyB += b * b;
-        }
-
-        const float denom = std::sqrt (energyA * energyB + 1.0e-12f);
-        if (denom <= 1.0e-9f)
-            continue;
-
-        const float score = cross / denom;
-        if (score > bestScore)
-        {
-            bestScore = score;
-            bestTau = tau;
+            // Walk to the local minimum within this dip.
+            while (tau + 1 < tauMax
+                   && d[static_cast<size_t> (tau + 1)] < d[static_cast<size_t> (tau)])
+                ++tau;
+            foundTau = tau;
+            break;
         }
     }
 
-    const float confidenceControl = juce::jlimit (0.0f, 1.0f,
-                                                  apvts.getRawParameterValue ("confidenceThreshold")->load() / 100.0f);
-    const float confidenceFloor = juce::jmap (confidenceControl, 0.0f, 1.0f, 0.12f, 0.28f);
-
-    if (bestTau <= 0 || bestScore < confidenceFloor)
+    if (foundTau < 0)
     {
-        const float fallbackHz = detectPitchZeroCrossingFallback();
-        if (fallbackHz >= minPitchHz - 10.0f && fallbackHz <= maxPitchHz + 10.0f)
+        // Fallback: global minimum over search range (less reliable, but better than no output).
+        foundTau = tauMin;
+        float bestVal = d[static_cast<size_t> (tauMin)];
+        for (int tau = tauMin + 1; tau < tauMax; ++tau)
         {
-            pitchConfidence.store (0.22f);
-            return fallbackHz;
+            if (d[static_cast<size_t> (tau)] < bestVal)
+            {
+                bestVal = d[static_cast<size_t> (tau)];
+                foundTau = tau;
+            }
         }
-
-        return detectedPitch.load();
+        if (bestVal > 0.45f)
+            return detectedPitch.load(); // Not confident enough.
     }
 
-    const float detectedHz = static_cast<float> (currentSampleRate) / static_cast<float> (bestTau);
-    const float confidenceNorm = juce::jlimit (0.0f, 1.0f,
-                                               (bestScore - confidenceFloor) / juce::jmax (0.05f, 1.0f - confidenceFloor));
-    pitchConfidence.store (confidenceNorm);
+    // Step 4: Parabolic interpolation for sub-sample period accuracy.
+    float betterTau = static_cast<float> (foundTau);
+    if (foundTau > tauMin && foundTau < tauMax - 1)
+    {
+        const float y0 = d[static_cast<size_t> (foundTau - 1)];
+        const float y1 = d[static_cast<size_t> (foundTau)];
+        const float y2 = d[static_cast<size_t> (foundTau + 1)];
+        const float parabDen = y0 - 2.0f * y1 + y2;
+        if (std::abs (parabDen) > 1.0e-8f)
+            betterTau += 0.5f * (y0 - y2) / parabDen;
+    }
 
-    pitchHistory[historyIndex].store (detectedHz);
+    if (betterTau <= 0.5f)
+        return detectedPitch.load();
+
+    const float detectedHz = static_cast<float> (currentSampleRate) / betterTau;
+    pitchConfidence.store (1.0f - juce::jlimit (0.0f, 1.0f, d[static_cast<size_t> (foundTau)]));
+    pitchHistory[static_cast<size_t> (historyIndex)].store (detectedHz);
     historyIndex = (historyIndex + 1) % pitchHistorySize;
 
     return detectedHz;
-}
-
-float NovaPitchAudioProcessor::detectPitchZeroCrossingFallback() const
-{
-    int crossings = 0;
-    const float hysteresis = 0.0035f;
-    float prev = yinBuffer.front();
-
-    for (size_t i = 1; i < yinBuffer.size(); ++i)
-    {
-        const float curr = yinBuffer[i];
-        if ((prev <= -hysteresis && curr > hysteresis) || (prev >= hysteresis && curr < -hysteresis))
-            ++crossings;
-        prev = curr;
-    }
-
-    if (crossings < 4)
-        return 0.0f;
-
-    const float windowSeconds = static_cast<float> (yinBuffer.size()) / static_cast<float> (currentSampleRate);
-    if (windowSeconds <= 1.0e-6f)
-        return 0.0f;
-
-    return static_cast<float> (crossings) * 0.5f / windowSeconds;
 }
 
 float NovaPitchAudioProcessor::getYINThreshold() const noexcept
@@ -629,8 +633,15 @@ void NovaPitchAudioProcessor::initializePitchShift()
         for (auto& s : channel)
             s = 0.0f;
 
-    pitchReadPos = { 0.0f, 0.0f };
-    pitchWriteIndex = { 0, 0 };
+    // Read starts at 0; write starts at the half-buffer mark.
+    // This creates an immediate yinBufferSize/2 sample separation so the
+    // cross-fading dual-head algorithm works from the very first block.
+    // Without this offset both heads start at 0 — the reader reads the
+    // just-written sample every cycle and the pitch shift has no effect.
+    pitchReadPos[0] = 0.0f;
+    pitchReadPos[1] = 0.0f;
+    pitchWriteIndex[0] = yinBufferSize / 2;
+    pitchWriteIndex[1] = yinBufferSize / 2;
     formantAllPassState = {};
 }
 
