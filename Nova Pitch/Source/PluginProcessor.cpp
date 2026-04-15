@@ -574,7 +574,7 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
 
     if (foundTau < 0)
     {
-        // Fallback: global minimum over search range (less reliable, but better than no output).
+        // Fallback: global minimum over search range. More permissive for real vocal pitch.
         foundTau = tauMin;
         float bestVal = d[static_cast<size_t> (tauMin)];
         for (int tau = tauMin + 1; tau < tauMax; ++tau)
@@ -585,8 +585,8 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
                 foundTau = tau;
             }
         }
-        if (bestVal > 0.45f)
-            return detectedPitch.load(); // Not confident enough.
+        if (bestVal > 0.60f)
+            return detectedPitch.load(); // Raised from 0.45 to allow weaker but real detections.
     }
 
     // Step 4: Parabolic interpolation for sub-sample period accuracy.
@@ -605,7 +605,13 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
         return detectedPitch.load();
 
     const float detectedHz = static_cast<float> (currentSampleRate) / betterTau;
-    pitchConfidence.store (1.0f - juce::jlimit (0.0f, 1.0f, d[static_cast<size_t> (foundTau)]));
+    
+    // Improved confidence: based on how pronounced the dip is and whether it's from threshold search (more confident)
+    // vs fallback search (less confident). Score reflects actual periodicity clarity.
+    const float baseConfidence = 1.0f - juce::jlimit (0.0f, 0.90f, d[static_cast<size_t> (foundTau)] * 1.35f);
+    const bool fromThresholdSearch = (d[static_cast<size_t> (foundTau)] < threshold);
+    const float searchBoost = fromThresholdSearch ? 0.10f : 0.0f; // Threshold hits are more reliable.
+    pitchConfidence.store (juce::jlimit (0.15f, 0.95f, baseConfidence + searchBoost));
     pitchHistory[static_cast<size_t> (historyIndex)].store (detectedHz);
     historyIndex = (historyIndex + 1) % pitchHistorySize;
 
