@@ -665,38 +665,8 @@ function drawGraph() {
     ctx.stroke();
   }
 
-  // Playhead beam — spec: core #8DF3FF 1.5–2.5px 55–80%, outer glow #59E8FF 14–26%, pulse ±8% at 2.4–3.2s
+  // Playhead position (used for crosshair intersection below; beam removed)
   const markerX = ((state.phase * 1.6) % 1) * w;
-  const playPulseRate = (2 * Math.PI) / (2.8 * 60 * 0.025 / 0.025); // ~2.8s cycle
-  const playPulse = 0.5 + 0.5 * Math.sin(state.phase * playPulseRate * 40);
-  // Glow intensifies slightly with signalLevel — feels more active when waveform moves
-  const playheadBoost = state.signalLevel * 0.08;
-  const coreBrightness = 0.55 + playPulse * 0.16 + playheadBoost;
-  const outerGlowAlpha = 0.14 + playPulse * 0.12 + playheadBoost * 0.5;
-
-  // Outer soft halo fill
-  const haloW = 22;
-  const haloGrad = ctx.createLinearGradient(markerX - haloW, 0, markerX + haloW, 0);
-  haloGrad.addColorStop(0, 'rgba(0,0,0,0)');
-  haloGrad.addColorStop(0.5, `rgba(89,232,255,${outerGlowAlpha})`);
-  haloGrad.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = haloGrad;
-  ctx.fillRect(markerX - haloW, 0, haloW * 2, h);
-
-  // Outer glow line
-  ctx.strokeStyle = `rgba(89, 232, 255, ${outerGlowAlpha})`;
-  ctx.lineWidth = 2.0;
-  ctx.shadowColor = '#59E8FF';
-  ctx.shadowBlur = 16 + playPulse * 8; // 16–24px, spec 14–26px
-  ctx.beginPath(); ctx.moveTo(markerX, 0); ctx.lineTo(markerX, h); ctx.stroke();
-
-  // Core bright line
-  ctx.strokeStyle = `rgba(141, 243, 255, ${coreBrightness})`;
-  ctx.lineWidth = 1.8;
-  ctx.shadowColor = '#8DF3FF';
-  ctx.shadowBlur = 4;
-  ctx.beginPath(); ctx.moveTo(markerX, 0); ctx.lineTo(markerX, h); ctx.stroke();
-  ctx.shadowBlur = 0;
 
   if (state.trail.length === 0) {
     for (let i = 0; i < 180; i++) state.trail.push(h * 0.58);
@@ -749,6 +719,7 @@ function drawGraph() {
   const playheadY = state.trail[playheadIndex] ?? state.smoothPitch;
   // Pitch line pulse: ±3–4% brightness tied to signal — restrained, never distracting
   const linePulse = 0.965 + (0.035 + state.signalLevel * 0.025) * (0.5 + 0.5 * Math.sin(state.phase * 2.3));
+  const playPulse = 0.5 + 0.5 * Math.sin(state.phase * 2.8);
 
   const crossGlow = ctx.createRadialGradient(markerX, playheadY, 0, markerX, playheadY, 20 + state.signalLevel * 8);
   crossGlow.addColorStop(0, `rgba(246, 253, 255, ${0.26 + playPulse * 0.16})`);
