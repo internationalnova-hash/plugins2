@@ -203,7 +203,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float vibratoValue = apvts.getRawParameterValue ("vibrato")->load();
     const float formantValue = apvts.getRawParameterValue ("formant")->load();
     const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
-    const float engagedAmount = juce::jlimit (0.0f, 1.0f, (amountNorm - 0.06f) / 0.94f);
 
     // Debug: Log parameter values every 100 blocks to diagnose engine engagement
     static int debugCounter = 0;
@@ -280,7 +279,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
             else if (candidateMidiNote != lockedTargetMidi)
             {
-                const float switchHysteresis = juce::jmap (engagedAmount, 0.70f, 0.45f);
+                // Hysteresis: require singer to be clearly past the midpoint before switching note.
+                // Fixed at 0.5 semitone since retune now controls speed not depth.
+                const float switchHysteresis = 0.50f;
                 const bool switchUp = candidateMidiNote > lockedTargetMidi
                                    && detectedMidi > static_cast<float> (lockedTargetMidi) + switchHysteresis;
                 const bool switchDown = candidateMidiNote < lockedTargetMidi
@@ -318,47 +319,37 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         }
     }
 
-    const bool nearDry = amountNorm < 0.06f;
+    // AutoTune/MetaTune architecture:
+    // - Retune knob = SPEED only (LP filter glide time toward target)
+    // - Correction is always 100% toward target note — no depth scaling
+    // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
+    const bool nearDry = amountNorm < 0.02f;
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     const bool trackingLost = trackingConfidence < 0.12f || inputRms < 0.004f;
-    if (trackingLost)
-        targetPitchRatio += (1.0f - targetPitchRatio) * 0.18f;
 
-    const float ratioSmoothing = (nearDry ? 0.02f : (0.06f + engagedAmount * (lowLatencyMode ? 0.42f : 0.30f)))
-                               * (trackingLost ? 0.6f : 1.0f);
-    const float desiredActiveRatio = activePitchRatio + (targetPitchRatio - activePitchRatio) * ratioSmoothing;
-    const float maxRatioStep = nearDry ? 0.008f : juce::jmap (engagedAmount, 0.012f, 0.024f);
-    activePitchRatio += juce::jlimit (-maxRatioStep, maxRatioStep, desiredActiveRatio - activePitchRatio);
-    activePitchRatio = juce::jlimit (0.78f, 1.28f, activePitchRatio);
-
-    const float shifterEngageThreshold = nearDry ? 0.030f : juce::jmap (engagedAmount, 0.012f, 0.0025f);
-    if (std::abs (activePitchRatio - 1.0f) > shifterEngageThreshold)
+    if (! nearDry)
     {
+        // Retune speed → LP coefficient. Low amount = slow glide; high amount = instant snap.
+        const float speedCoeff = lowLatencyMode
+            ? juce::jmap (amountNorm, 0.02f, 1.0f, 0.06f, 0.92f)
+            : juce::jmap (amountNorm, 0.02f, 1.0f, 0.03f, 0.78f);
+
+        if (! trackingLost)
+            activePitchRatio += (targetPitchRatio - activePitchRatio) * speedCoeff;
+        else
+            activePitchRatio += (1.0f - activePitchRatio) * 0.10f;
+
+        activePitchRatio = juce::jlimit (0.78f, 1.28f, activePitchRatio);
+
+        // Apply shift: corrected audio replaces input — no dry blend, no doubling.
+        // When ratio ≈ 1.0 (singer already on pitch), shifter bypasses internally → clean passthrough.
         processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0);
         if (channelR != nullptr)
             processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1);
     }
-
-    // Remove doubled voice: once retune is engaged, run corrected path only.
-    // Keep only a tiny transition band near zero to avoid clicks at the dry->engaged edge.
-    float wetTarget = 0.0f;
-    if (! nearDry)
+    else
     {
-        const float transition = juce::jlimit (0.0f, 1.0f, engagedAmount / 0.04f);
-        wetTarget = juce::jmap (transition, 0.0f, 1.0f);
-    }
-
-    const float wetSmooth = nearDry ? 0.30f : 0.18f;
-    wetMixSmoothed += (wetTarget - wetMixSmoothed) * wetSmooth;
-    const float wetMix = juce::jlimit (0.0f, 1.0f, wetMixSmoothed);
-
-    for (int i = 0; i < numSamples; ++i)
-        channelL[i] = dryLeft[static_cast<size_t> (i)] * (1.0f - wetMix) + channelL[i] * wetMix;
-
-    if (channelR != nullptr)
-    {
-        for (int i = 0; i < numSamples; ++i)
-            channelR[i] = dryRight[static_cast<size_t> (i)] * (1.0f - wetMix) + channelR[i] * wetMix;
+        activePitchRatio += (1.0f - activePitchRatio) * 0.20f;
     }
 
     applyFormantShaper (channelL, numSamples, formantValue, 0);
@@ -394,64 +385,25 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
     return smoothedDetectedHz;
 }
 
-float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targetHz, float signalRms, bool lowLatencyMode)
+float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targetHz, float /*signalRms*/, bool /*lowLatencyMode*/)
 {
     const float amountNorm = apvts.getRawParameterValue ("amount")->load() / 100.0f;
-    const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
-
-    // Retune at 0% must behave as dry/no correction.
-    if (amountNorm <= 0.0001f)
+    if (amountNorm < 0.02f)
         return 1.0f;
 
-    // Parameter ranges lock: Retune interpreted as 0..80 ms with UI convention:
-    // left (0%) = slow, right (100%) = fast.
-    const float retuneMs = (1.0f - amountNorm) * 80.0f;
-    const float engagedAmount = juce::jlimit (0.0f, 1.0f, (amountNorm - 0.06f) / 0.94f);
-    float retuneStrength = juce::jlimit (0.0f, 1.0f, std::pow (engagedAmount, 0.90f));
+    const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
 
-    // Keep tolerance influential, but do not let it collapse correction authority.
-    retuneStrength *= (1.0f - toleranceNorm * 0.35f);
-    if (lowLatencyMode)
-        retuneStrength = juce::jmin (1.0f, retuneStrength * 1.18f); // boost low latency mode more
+    // Full correction toward target — retune SPEED is handled by the LP filter in processBlock.
+    // This mirrors AutoTune/MetaTune: correction is always 100%, speed is the only variable.
+    const float fullRatio = targetHz / juce::jmax (1.0f, detectedHz);
 
-    // Internal retune curve type from behavior bands (soft/medium/hard).
-    float curveExponent = 1.0f; // medium
-    if (retuneMs >= 45.0f)      curveExponent = 1.4f; // soft
-    else if (retuneMs <= 15.0f) curveExponent = 0.72f; // hard
-    const float curveStrength = std::pow (juce::jlimit (0.0f, 1.0f, retuneStrength), curveExponent);
+    // Tolerance window: if singer is already within toleranceCents, leave them alone.
+    const float centsError = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio))));
+    const float toleranceCents = toleranceNorm * 50.0f; // 0..50 cents window
+    if (centsError < toleranceCents)
+        return 1.0f;
 
-    // Scale lock mode: soft lock default, hard lock when aggressive setup is detected.
-    const bool hardLock = (retuneMs <= 10.0f && toleranceNorm <= 0.2f);
-    float lockStrength = hardLock ? juce::jmax (curveStrength, 0.98f) : curveStrength;
-
-    // Noise-aware correction reduction to avoid artifacts - but maintain strong tuning.
-    const float signalWeight = juce::jlimit (0.0f, 1.0f, signalRms * 3.2f);
-    // Scale by signal weight but ensure minimum strength: strong signal = full, quiet = at least 60% correction.
-    lockStrength *= (0.74f + 0.26f * signalWeight);
-
-    // At near-max retune, correction must be audibly engaged even if other knobs are relaxed.
-    if (engagedAmount >= 0.99f)
-    {
-        const float centsError = std::abs (1200.0f * std::log2 (targetHz / juce::jmax (1.0f, detectedHz)));
-        const float errorNorm = juce::jlimit (0.0f, 1.0f, centsError / 40.0f);
-        const float forcedStrength = 0.80f + 0.20f * errorNorm;
-        lockStrength = juce::jmax (lockStrength, forcedStrength);
-    }
-
-    lockStrength = juce::jlimit (0.0f, 1.0f, lockStrength);
-
-    const float targetRatio = targetHz / juce::jmax (1.0f, detectedHz);
-    const float centsError = std::abs (1200.0f * std::log2 (targetRatio));
-    const float snapStrength = juce::jlimit (0.0f, 1.0f, centsError / (18.0f + toleranceNorm * 48.0f));
-    const float amountScaledFloor = (0.12f + 0.88f * snapStrength) * engagedAmount;
-    lockStrength = juce::jmax (lockStrength, amountScaledFloor);
-
-    // Hard-tune drive: at higher retune settings keep note lock strong and obvious.
-    const float hardTuneDrive = juce::jlimit (0.0f, 1.0f, (engagedAmount - 0.25f) / 0.75f);
-    const float hardTuneFloor = hardTuneDrive * (0.60f + 0.35f * (1.0f - toleranceNorm));
-    lockStrength = juce::jmax (lockStrength, hardTuneFloor);
-
-    return 1.0f + (targetRatio - 1.0f) * juce::jlimit (0.0f, 1.0f, lockStrength);
+    return juce::jlimit (0.5f, 2.0f, fullRatio);
 }
 
 void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate, int numSamples, float vibratoParam)
@@ -753,26 +705,32 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         return s0 + frac * (s1 - s0);
     };
 
+    // Safety bounds: keep read pointer within a valid latency window behind write.
+    // Without this the read pointer overtakes write (for ratio>1) causing buffer corruption.
+    const int halfBuf  = yinBufferSize / 2;
+    const int minGuard = 32;
+    const int maxGuard = yinBufferSize - 32;
+
     for (int i = 0; i < numSamples; ++i)
     {
         channelDelay[static_cast<size_t> (writeIdx)] = channelData[i];
+
+        // Prevent read from overtaking or falling too far behind write.
+        const int latency = (writeIdx - static_cast<int> (readPos) + yinBufferSize) % yinBufferSize;
+        if (latency < minGuard || latency > maxGuard)
+            readPos = static_cast<float> ((writeIdx - halfBuf + yinBufferSize) % yinBufferSize);
 
         const float phase = std::fmod (readPos + static_cast<float> (yinBufferSize), static_cast<float> (yinBufferSize));
         const float phaseNorm = phase / static_cast<float> (yinBufferSize);
 
         const float headA = phase;
-        const float headB = std::fmod (phase + static_cast<float> (yinBufferSize) * 0.5f,
+        const float headB = std::fmod (phase + static_cast<float> (halfBuf),
                                        static_cast<float> (yinBufferSize));
 
         const float crossfade = 0.5f - 0.5f * std::cos (phaseNorm * juce::MathConstants<float>::twoPi);
         const float fadeA = std::sqrt (juce::jlimit (0.0f, 1.0f, 1.0f - crossfade));
         const float fadeB = std::sqrt (juce::jlimit (0.0f, 1.0f, crossfade));
-        const float shifted = sampleAt (headA) * fadeA + sampleAt (headB) * fadeB;
-
-        const float smoother = juce::jlimit (0.18f, 0.34f, 0.20f + 0.22f * std::abs (clampedRatio - 1.0f));
-        auto& outputSmoother = pitchOutputSmoother[static_cast<size_t> (channel)];
-        outputSmoother += (shifted - outputSmoother) * smoother;
-        channelData[i] = outputSmoother;
+        channelData[i] = sampleAt (headA) * fadeA + sampleAt (headB) * fadeB;
 
         writeIdx = (writeIdx + 1) % yinBufferSize;
         readPos += clampedRatio;
