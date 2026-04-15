@@ -149,6 +149,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     targetPitchRatio = 1.0f;
     activePitchRatio = 1.0f;
     wetMixSmoothed = 0.0f;
+    lockedTargetMidi = -1;
 }
 
 void NovaPitchAudioProcessor::releaseResources()
@@ -201,6 +202,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float confidenceValue = apvts.getRawParameterValue ("confidenceThreshold")->load();
     const float vibratoValue = apvts.getRawParameterValue ("vibrato")->load();
     const float formantValue = apvts.getRawParameterValue ("formant")->load();
+    const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
+    const float engagedAmount = juce::jlimit (0.0f, 1.0f, (amountNorm - 0.06f) / 0.94f);
 
     // Debug: Log parameter values every 100 blocks to diagnose engine engagement
     static int debugCounter = 0;
@@ -236,6 +239,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         retuneLfoJitter = 0.0f;
         outputCompGain = 1.0f;
         wetMixSmoothed = 0.0f;
+        lockedTargetMidi = -1;
         
         blockCount++;
         return;
@@ -267,7 +271,25 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         if (detectedHz > minPitchHz - 10.0f && detectedHz < maxPitchHz + 10.0f)
         {
-            const int targetMidiNote = quantizeToScale (detectedHz);
+            const int candidateMidiNote = quantizeToScale (detectedHz);
+            const float detectedMidi = 69.0f + 12.0f * std::log2 (juce::jmax (1.0f, detectedHz) / 440.0f);
+
+            if (lockedTargetMidi < 0)
+            {
+                lockedTargetMidi = candidateMidiNote;
+            }
+            else if (candidateMidiNote != lockedTargetMidi)
+            {
+                const float switchHysteresis = juce::jmap (engagedAmount, 0.70f, 0.45f);
+                const bool switchUp = candidateMidiNote > lockedTargetMidi
+                                   && detectedMidi > static_cast<float> (lockedTargetMidi) + switchHysteresis;
+                const bool switchDown = candidateMidiNote < lockedTargetMidi
+                                     && detectedMidi < static_cast<float> (lockedTargetMidi) - switchHysteresis;
+                if (switchUp || switchDown)
+                    lockedTargetMidi = candidateMidiNote;
+            }
+
+            const int targetMidiNote = lockedTargetMidi;
             const float targetHz = getTargetPitchHz (targetMidiNote);
 
             float pitchRatio = computeRetuneRatio (detectedHz, targetHz, inputRms, lowLatencyMode);
@@ -292,20 +314,21 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             targetPitchRatio = 1.0f;
             correctedPitch.store (0.0f);
             pitchConfidence.store (0.0f);
+            lockedTargetMidi = -1;
         }
     }
 
-    const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
     const bool nearDry = amountNorm < 0.06f;
-    const float engagedAmount = juce::jlimit (0.0f, 1.0f, (amountNorm - 0.06f) / 0.94f);
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     const bool trackingLost = trackingConfidence < 0.12f || inputRms < 0.004f;
     if (trackingLost)
         targetPitchRatio += (1.0f - targetPitchRatio) * 0.18f;
 
-    const float ratioSmoothing = (nearDry ? 0.02f : (0.08f + engagedAmount * (lowLatencyMode ? 0.66f : 0.50f)))
+    const float ratioSmoothing = (nearDry ? 0.02f : (0.06f + engagedAmount * (lowLatencyMode ? 0.42f : 0.30f)))
                                * (trackingLost ? 0.6f : 1.0f);
-    activePitchRatio += (targetPitchRatio - activePitchRatio) * ratioSmoothing;
+    const float desiredActiveRatio = activePitchRatio + (targetPitchRatio - activePitchRatio) * ratioSmoothing;
+    const float maxRatioStep = nearDry ? 0.008f : juce::jmap (engagedAmount, 0.012f, 0.024f);
+    activePitchRatio += juce::jlimit (-maxRatioStep, maxRatioStep, desiredActiveRatio - activePitchRatio);
     activePitchRatio = juce::jlimit (0.78f, 1.28f, activePitchRatio);
 
     const float shifterEngageThreshold = nearDry ? 0.030f : juce::jmap (engagedAmount, 0.012f, 0.0025f);
@@ -375,7 +398,6 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
 {
     const float amountNorm = apvts.getRawParameterValue ("amount")->load() / 100.0f;
     const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
-    float humanizeNorm = apvts.getRawParameterValue ("confidenceThreshold")->load() / 100.0f;
 
     // Retune at 0% must behave as dry/no correction.
     if (amountNorm <= 0.0001f)
@@ -387,10 +409,8 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     const float engagedAmount = juce::jlimit (0.0f, 1.0f, (amountNorm - 0.06f) / 0.94f);
     float retuneStrength = juce::jlimit (0.0f, 1.0f, std::pow (engagedAmount, 0.90f));
 
-    // Intelligent interaction rules.
-    if (retuneMs <= 14.0f)
-        humanizeNorm *= 0.65f; // retained for UI compatibility, but no longer suppresses correction directly
-    retuneStrength *= (1.0f - toleranceNorm * 0.55f);
+    // Keep tolerance influential, but do not let it collapse correction authority.
+    retuneStrength *= (1.0f - toleranceNorm * 0.35f);
     if (lowLatencyMode)
         retuneStrength = juce::jmin (1.0f, retuneStrength * 1.18f); // boost low latency mode more
 
@@ -403,7 +423,6 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Scale lock mode: soft lock default, hard lock when aggressive setup is detected.
     const bool hardLock = (retuneMs <= 10.0f && toleranceNorm <= 0.2f);
     float lockStrength = hardLock ? juce::jmax (curveStrength, 0.98f) : curveStrength;
-    lockStrength *= juce::jlimit (0.80f, 1.0f, 1.0f - humanizeNorm * 0.12f);
 
     // Noise-aware correction reduction to avoid artifacts - but maintain strong tuning.
     const float signalWeight = juce::jlimit (0.0f, 1.0f, signalRms * 3.2f);
