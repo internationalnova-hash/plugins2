@@ -13,6 +13,7 @@ class NovaPitchAudioProcessor : public juce::AudioProcessor
 public:
     static constexpr int spectrumBins = 96;
     static constexpr int yinBufferSize = 2048;
+    static constexpr int pitchShiftBufferSize = 8192;
     static constexpr int pitchHistorySize = 256;
 
     NovaPitchAudioProcessor();
@@ -99,7 +100,7 @@ private:
     std::vector<float> yinBuffer;
     int yinWriteIndex { 0 };
     
-    std::array<std::array<float, yinBufferSize>, 2> pitchDelay {};
+    std::array<std::array<float, pitchShiftBufferSize>, 2> pitchDelay {};
     std::array<float, 2> pitchReadPos { 0.0f, 0.0f };
     std::array<float, 2> pitchCrossfadePhase { 0.0f, 0.0f };
     std::array<int, 2> pitchWriteIndex { 0, 0 };

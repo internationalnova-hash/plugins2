@@ -633,7 +633,7 @@ void NovaPitchAudioProcessor::initializePitchShift()
             s = 0.0f;
 
     // Read starts at 0; write starts at the half-buffer mark.
-    // This creates an immediate yinBufferSize/2 sample separation so the
+    // This creates an immediate pitchShiftBufferSize/2 sample separation so the
     // cross-fading dual-head algorithm works from the very first block.
     // Without this offset both heads start at 0 — the reader reads the
     // just-written sample every cycle and the pitch shift has no effect.
@@ -641,8 +641,8 @@ void NovaPitchAudioProcessor::initializePitchShift()
     pitchReadPos[1] = 0.0f;
     pitchCrossfadePhase[0] = 0.0f;
     pitchCrossfadePhase[1] = 0.5f;
-    pitchWriteIndex[0] = yinBufferSize / 2;
-    pitchWriteIndex[1] = yinBufferSize / 2;
+    pitchWriteIndex[0] = pitchShiftBufferSize / 2;
+    pitchWriteIndex[1] = pitchShiftBufferSize / 2;
     pitchOutputSmoother[0] = 0.0f;
     pitchOutputSmoother[1] = 0.0f;
     formantAllPassState = {};
@@ -667,11 +667,11 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
 
     auto sampleAt = [&] (float pos)
     {
-        const float wrapped = std::fmod (pos + static_cast<float> (yinBufferSize), static_cast<float> (yinBufferSize));
+        const float wrapped = std::fmod (pos + static_cast<float> (pitchShiftBufferSize), static_cast<float> (pitchShiftBufferSize));
         const int i0 = static_cast<int> (wrapped);
-        const int i1 = (i0 + 1) % yinBufferSize;
-        const int im1 = (i0 - 1 + yinBufferSize) % yinBufferSize;
-        const int i2 = (i0 + 2) % yinBufferSize;
+        const int i1 = (i0 + 1) % pitchShiftBufferSize;
+        const int im1 = (i0 - 1 + pitchShiftBufferSize) % pitchShiftBufferSize;
+        const int i2 = (i0 + 2) % pitchShiftBufferSize;
         const float frac = wrapped - static_cast<float> (i0);
         const float ym1 = channelDelay[static_cast<size_t> (im1)];
         const float y0 = channelDelay[static_cast<size_t> (i0)];
@@ -686,8 +686,8 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         return ((c3 * frac + c2) * frac + c1) * frac + c0;
     };
 
-    const int minDelaySamples = 128;
-    const int windowSamples = 1024;
+    const int minDelaySamples = 256;
+    const int windowSamples = 2048;
 
     auto wrap01 = [] (float v)
     {
@@ -726,7 +726,7 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
 
         crossfadePhase = wrap01 (crossfadePhase + phaseInc);
 
-        writeIdx = (writeIdx + 1) % yinBufferSize;
+        writeIdx = (writeIdx + 1) % pitchShiftBufferSize;
         readPos = static_cast<float> (writeIdx)
                 - (static_cast<float> (minDelaySamples)
                 +  wrap01 (crossfadePhase) * static_cast<float> (windowSamples));
