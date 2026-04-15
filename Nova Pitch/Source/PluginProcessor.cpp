@@ -296,17 +296,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     }
 
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
-    const bool unstableTracking = trackingConfidence < 0.45f || inputRms < 0.008f;
-    if (unstableTracking)
-        targetPitchRatio = 1.0f;
+    const bool trackingLost = trackingConfidence < 0.12f || inputRms < 0.004f;
+    if (trackingLost)
+        targetPitchRatio += (1.0f - targetPitchRatio) * 0.18f;
 
-    const bool largeJump = std::abs (targetPitchRatio - 1.0f) > 0.18f;
-    if (largeJump && trackingConfidence < 0.70f)
-        targetPitchRatio = 1.0f;
-
-    const float ratioSmoothing = lowLatencyMode ? 0.18f : 0.12f;
+    const float ratioSmoothing = juce::jmap (amountValue, 0.18f, lowLatencyMode ? 0.62f : 0.44f) * (trackingLost ? 0.6f : 1.0f);
     activePitchRatio += (targetPitchRatio - activePitchRatio) * ratioSmoothing;
-    activePitchRatio = juce::jlimit (0.82f, 1.22f, activePitchRatio);
+    activePitchRatio = juce::jlimit (0.78f, 1.28f, activePitchRatio);
 
     if (std::abs (activePitchRatio - 1.0f) > 0.006f)
     {
@@ -316,14 +312,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     }
 
     const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
-    const float correctionDepth = juce::jlimit (0.0f, 1.0f, std::abs (activePitchRatio - 1.0f) / 0.25f);
-    const float confidenceGate = juce::jlimit (0.0f, 1.0f, (trackingConfidence - 0.15f) / 0.85f);
-    
-    // Ensure tuning is ALWAYS audible when retune is activated (like AutoTune/MetaTune)
-    float wetMix = (0.30f + amountNorm * 0.65f); // Boost base level and range
-    wetMix *= juce::jmax (0.70f, confidenceGate); // Never reduce below 70% even if confidence is low
-    wetMix *= (0.50f + 0.50f * correctionDepth); // Boost correction depth blend base
-    wetMix = juce::jlimit (0.0f, 1.0f, wetMix); // Allow up to 100% wet when amount is high
+    const float correctionDepth = juce::jlimit (0.0f, 1.0f, std::abs (activePitchRatio - 1.0f) / 0.18f);
+    const float confidenceGate = juce::jlimit (0.0f, 1.0f, (trackingConfidence - 0.05f) / 0.95f);
+
+    // Keep the corrected path clearly present, but never fully expose the shifter on weak tracking.
+    float wetMix = juce::jmap (amountNorm, 0.38f, 0.92f);
+    wetMix *= juce::jmax (0.80f, confidenceGate);
+    wetMix *= juce::jmax (0.65f, 0.45f + 0.55f * correctionDepth);
+    wetMix = juce::jlimit (0.25f, 0.92f, wetMix);
     
     wetMixSmoothed = 0.92f * wetMixSmoothed + 0.08f * wetMix;
     wetMix = wetMixSmoothed;
@@ -388,7 +384,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Intelligent interaction rules.
     if (retuneMs <= 14.0f)
         humanizeNorm *= 0.65f; // fast retune auto-tightens humanize
-    retuneStrength *= (1.0f - toleranceNorm * 0.3f); // high flex/tolerance softens correction less aggressively
+    retuneStrength *= (1.0f - toleranceNorm * 0.18f); // keep retune authoritative even with tolerance up
     if (lowLatencyMode)
         retuneStrength = juce::jmin (1.0f, retuneStrength * 1.18f); // boost low latency mode more
 
@@ -420,7 +416,11 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     lockStrength = juce::jlimit (0.0f, 1.0f, lockStrength);
 
     const float targetRatio = targetHz / juce::jmax (1.0f, detectedHz);
-    return 1.0f + (targetRatio - 1.0f) * lockStrength;
+    const float centsError = std::abs (1200.0f * std::log2 (targetRatio));
+    const float snapStrength = juce::jlimit (0.0f, 1.0f, centsError / (18.0f + toleranceNorm * 48.0f));
+    lockStrength = juce::jmax (lockStrength, 0.42f + 0.58f * snapStrength * amountNorm);
+
+    return 1.0f + (targetRatio - 1.0f) * juce::jlimit (0.0f, 1.0f, lockStrength);
 }
 
 void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate, int numSamples, float vibratoParam)
@@ -691,6 +691,8 @@ void NovaPitchAudioProcessor::initializePitchShift()
     pitchReadPos[1] = 0.0f;
     pitchWriteIndex[0] = yinBufferSize / 2;
     pitchWriteIndex[1] = yinBufferSize / 2;
+    pitchOutputSmoother[0] = 0.0f;
+    pitchOutputSmoother[1] = 0.0f;
     formantAllPassState = {};
 }
 
@@ -732,9 +734,14 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
                                        static_cast<float> (yinBufferSize));
 
         const float crossfade = 0.5f - 0.5f * std::cos (phaseNorm * juce::MathConstants<float>::twoPi);
-        const float shifted = sampleAt (headA) * (1.0f - crossfade) + sampleAt (headB) * crossfade;
+        const float fadeA = std::sqrt (juce::jlimit (0.0f, 1.0f, 1.0f - crossfade));
+        const float fadeB = std::sqrt (juce::jlimit (0.0f, 1.0f, crossfade));
+        const float shifted = sampleAt (headA) * fadeA + sampleAt (headB) * fadeB;
 
-        channelData[i] = shifted;
+        const float smoother = juce::jlimit (0.18f, 0.34f, 0.20f + 0.22f * std::abs (clampedRatio - 1.0f));
+        auto& outputSmoother = pitchOutputSmoother[static_cast<size_t> (channel)];
+        outputSmoother += (shifted - outputSmoother) * smoother;
+        channelData[i] = outputSmoother;
 
         writeIdx = (writeIdx + 1) % yinBufferSize;
         readPos += clampedRatio;
