@@ -296,7 +296,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             float pitchRatio = computeRetuneRatio (detectedHz, targetHz, inputRms, lowLatencyMode);
             applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
                           vibratoValue);
-            targetPitchRatio = juce::jlimit (0.7f, 1.4f, pitchRatio);
+            // Keep correction in a musical range (about +/- 3 semitones) to prevent
+            // hard jumps from detector outliers that sound like static.
+            targetPitchRatio = juce::jlimit (0.84f, 1.19f, pitchRatio);
             const float correctedHz = detectedHz * pitchRatio;
             correctedPitch.store (correctedHz);
 
@@ -339,7 +341,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         else
             activePitchRatio += (1.0f - activePitchRatio) * 0.10f;
 
-        activePitchRatio = juce::jlimit (0.78f, 1.28f, activePitchRatio);
+        activePitchRatio = juce::jlimit (0.84f, 1.19f, activePitchRatio);
 
         // Apply shift: corrected audio replaces input — no dry blend, no doubling.
         // When ratio ≈ 1.0 (singer already on pitch), shifter bypasses internally → clean passthrough.
@@ -403,7 +405,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     if (centsError < toleranceCents)
         return 1.0f;
 
-    return juce::jlimit (0.5f, 2.0f, fullRatio);
+    return juce::jlimit (0.84f, 1.19f, fullRatio);
 }
 
 void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate, int numSamples, float vibratoParam)
@@ -672,6 +674,8 @@ void NovaPitchAudioProcessor::initializePitchShift()
     // just-written sample every cycle and the pitch shift has no effect.
     pitchReadPos[0] = 0.0f;
     pitchReadPos[1] = 0.0f;
+    pitchCrossfadePhase[0] = 0.0f;
+    pitchCrossfadePhase[1] = 0.5f;
     pitchWriteIndex[0] = yinBufferSize / 2;
     pitchWriteIndex[1] = yinBufferSize / 2;
     pitchOutputSmoother[0] = 0.0f;
@@ -684,12 +688,13 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     const int channel = juce::jlimit (0, 1, channelIndex);
     auto& channelDelay = pitchDelay[static_cast<size_t> (channel)];
     auto& readPos = pitchReadPos[static_cast<size_t> (channel)];
+    auto& crossfadePhase = pitchCrossfadePhase[static_cast<size_t> (channel)];
     auto& writeIdx = pitchWriteIndex[static_cast<size_t> (channel)];
 
-    const float clampedRatio = juce::jlimit (0.5f, 2.0f, pitchRatio);
+    const float clampedRatio = juce::jlimit (0.84f, 1.19f, pitchRatio);
 
     // If ratio is essentially 1.0, just pass through without circular buffer distortion
-    if (std::abs (clampedRatio - 1.0f) < 0.001f)
+    if (std::abs (clampedRatio - 1.0f) < 0.012f)
     {
         return;
     }
@@ -708,29 +713,55 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     // Safety bounds: keep read pointer within a valid latency window behind write.
     // Without this the read pointer overtakes write (for ratio>1) causing buffer corruption.
     const int halfBuf  = yinBufferSize / 2;
-    const int minGuard = 32;
-    const int maxGuard = yinBufferSize - 32;
+    const int minGuard = 128;
+    const int maxGuard = yinBufferSize - 128;
+
+    // Use a short, fixed equal-power crossfade cycle. Tying crossfade to full buffer
+    // phase creates audible low-rate modulation/static as the pitch ratio increases.
+    const float crossfadeCycleSamples = 320.0f;
+    const float crossfadePhaseInc = 1.0f / crossfadeCycleSamples;
 
     for (int i = 0; i < numSamples; ++i)
     {
         channelDelay[static_cast<size_t> (writeIdx)] = channelData[i];
 
         // Prevent read from overtaking or falling too far behind write.
+        // Use gentle correction instead of hard teleporting to avoid clicks/static.
         const int latency = (writeIdx - static_cast<int> (readPos) + yinBufferSize) % yinBufferSize;
         if (latency < minGuard || latency > maxGuard)
-            readPos = static_cast<float> ((writeIdx - halfBuf + yinBufferSize) % yinBufferSize);
+        {
+            const int desired = (writeIdx - halfBuf + yinBufferSize) % yinBufferSize;
+            float desiredF = static_cast<float> (desired);
+            float delta = desiredF - readPos;
 
-        const float phase = std::fmod (readPos + static_cast<float> (yinBufferSize), static_cast<float> (yinBufferSize));
-        const float phaseNorm = phase / static_cast<float> (yinBufferSize);
+            const float wrap = static_cast<float> (yinBufferSize);
+            if (delta > 0.5f * wrap)
+                delta -= wrap;
+            else if (delta < -0.5f * wrap)
+                delta += wrap;
 
-        const float headA = phase;
-        const float headB = std::fmod (phase + static_cast<float> (halfBuf),
+            readPos += delta * 0.10f;
+            while (readPos < 0.0f)
+                readPos += wrap;
+            while (readPos >= wrap)
+                readPos -= wrap;
+        }
+
+        const float wrappedReadPos = std::fmod (readPos + static_cast<float> (yinBufferSize), static_cast<float> (yinBufferSize));
+
+        const float headA = wrappedReadPos;
+        const float headB = std::fmod (wrappedReadPos + static_cast<float> (halfBuf),
                                        static_cast<float> (yinBufferSize));
 
-        const float crossfade = 0.5f - 0.5f * std::cos (phaseNorm * juce::MathConstants<float>::twoPi);
+        // Equal-power blend prevents level dips as heads alternate.
+        const float crossfade = 0.5f - 0.5f * std::cos (crossfadePhase * juce::MathConstants<float>::twoPi);
         const float fadeA = std::sqrt (juce::jlimit (0.0f, 1.0f, 1.0f - crossfade));
         const float fadeB = std::sqrt (juce::jlimit (0.0f, 1.0f, crossfade));
         channelData[i] = sampleAt (headA) * fadeA + sampleAt (headB) * fadeB;
+
+        crossfadePhase += crossfadePhaseInc;
+        if (crossfadePhase >= 1.0f)
+            crossfadePhase -= 1.0f;
 
         writeIdx = (writeIdx + 1) % yinBufferSize;
         readPos += clampedRatio;

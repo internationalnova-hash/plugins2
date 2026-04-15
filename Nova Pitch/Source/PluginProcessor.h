@@ -101,6 +101,7 @@ private:
     
     std::array<std::array<float, yinBufferSize>, 2> pitchDelay {};
     std::array<float, 2> pitchReadPos { 0.0f, 0.0f };
+    std::array<float, 2> pitchCrossfadePhase { 0.0f, 0.0f };
     std::array<int, 2> pitchWriteIndex { 0, 0 };
     std::array<float, 2> pitchOutputSmoother { 0.0f, 0.0f };
     std::array<std::array<float, 2>, 2> formantAllPassState {};
