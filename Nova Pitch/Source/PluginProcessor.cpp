@@ -296,16 +296,19 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     }
 
     const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
+    const bool nearDry = amountNorm < 0.06f;
+    const float engagedAmount = juce::jlimit (0.0f, 1.0f, (amountNorm - 0.06f) / 0.94f);
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     const bool trackingLost = trackingConfidence < 0.12f || inputRms < 0.004f;
     if (trackingLost)
         targetPitchRatio += (1.0f - targetPitchRatio) * 0.18f;
 
-    const float ratioSmoothing = (0.04f + amountNorm * (lowLatencyMode ? 0.58f : 0.40f)) * (trackingLost ? 0.6f : 1.0f);
+    const float ratioSmoothing = (nearDry ? 0.02f : (0.08f + engagedAmount * (lowLatencyMode ? 0.66f : 0.50f)))
+                               * (trackingLost ? 0.6f : 1.0f);
     activePitchRatio += (targetPitchRatio - activePitchRatio) * ratioSmoothing;
     activePitchRatio = juce::jlimit (0.78f, 1.28f, activePitchRatio);
 
-    const float shifterEngageThreshold = juce::jmap (amountNorm, 0.016f, 0.0035f);
+    const float shifterEngageThreshold = nearDry ? 0.030f : juce::jmap (engagedAmount, 0.012f, 0.0025f);
     if (std::abs (activePitchRatio - 1.0f) > shifterEngageThreshold)
     {
         processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0);
@@ -313,18 +316,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1);
     }
 
-    const float correctionDepth = juce::jlimit (0.0f, 1.0f, std::abs (activePitchRatio - 1.0f) / 0.18f);
-    const float confidenceGate = juce::jlimit (0.0f, 1.0f, (trackingConfidence - 0.05f) / 0.95f);
+    // Remove doubled voice: once retune is engaged, run corrected path only.
+    // Keep only a tiny transition band near zero to avoid clicks at the dry->engaged edge.
+    float wetTarget = 0.0f;
+    if (! nearDry)
+    {
+        const float transition = juce::jlimit (0.0f, 1.0f, engagedAmount / 0.04f);
+        wetTarget = juce::jmap (transition, 0.0f, 1.0f);
+    }
 
-    // Smoothly ramp wet path so near-dry retune settings do not create a doubled voice.
-    const float amountDrive = std::pow (amountNorm, 1.35f);
-    float wetMix = (0.05f + 0.90f * amountDrive);
-    wetMix *= juce::jmax (0.72f, confidenceGate);
-    wetMix *= juce::jmax (0.55f, 0.35f + 0.65f * correctionDepth);
-    wetMix = juce::jlimit (0.0f, 0.95f, wetMix);
-    
-    wetMixSmoothed = 0.92f * wetMixSmoothed + 0.08f * wetMix;
-    wetMix = wetMixSmoothed;
+    const float wetSmooth = nearDry ? 0.30f : 0.18f;
+    wetMixSmoothed += (wetTarget - wetMixSmoothed) * wetSmooth;
+    const float wetMix = juce::jlimit (0.0f, 1.0f, wetMixSmoothed);
 
     for (int i = 0; i < numSamples; ++i)
         channelL[i] = dryLeft[static_cast<size_t> (i)] * (1.0f - wetMix) + channelL[i] * wetMix;
@@ -381,12 +384,13 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Parameter ranges lock: Retune interpreted as 0..80 ms with UI convention:
     // left (0%) = slow, right (100%) = fast.
     const float retuneMs = (1.0f - amountNorm) * 80.0f;
-    float retuneStrength = juce::jlimit (0.0f, 1.0f, amountNorm);
+    const float engagedAmount = juce::jlimit (0.0f, 1.0f, (amountNorm - 0.06f) / 0.94f);
+    float retuneStrength = juce::jlimit (0.0f, 1.0f, std::pow (engagedAmount, 0.90f));
 
     // Intelligent interaction rules.
     if (retuneMs <= 14.0f)
-        humanizeNorm *= 0.65f; // fast retune auto-tightens humanize
-    retuneStrength *= (1.0f - toleranceNorm * 0.18f); // keep retune authoritative even with tolerance up
+        humanizeNorm *= 0.65f; // retained for UI compatibility, but no longer suppresses correction directly
+    retuneStrength *= (1.0f - toleranceNorm * 0.55f);
     if (lowLatencyMode)
         retuneStrength = juce::jmin (1.0f, retuneStrength * 1.18f); // boost low latency mode more
 
@@ -397,17 +401,17 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     const float curveStrength = std::pow (juce::jlimit (0.0f, 1.0f, retuneStrength), curveExponent);
 
     // Scale lock mode: soft lock default, hard lock when aggressive setup is detected.
-    const bool hardLock = (retuneMs <= 10.0f && toleranceNorm <= 0.2f && humanizeNorm <= 0.2f);
+    const bool hardLock = (retuneMs <= 10.0f && toleranceNorm <= 0.2f);
     float lockStrength = hardLock ? juce::jmax (curveStrength, 0.98f) : curveStrength;
-    lockStrength *= juce::jlimit (0.65f, 1.0f, 1.0f - humanizeNorm * 0.35f); // never reduce below 65% for humanize
+    lockStrength *= juce::jlimit (0.80f, 1.0f, 1.0f - humanizeNorm * 0.12f);
 
     // Noise-aware correction reduction to avoid artifacts - but maintain strong tuning.
     const float signalWeight = juce::jlimit (0.0f, 1.0f, signalRms * 3.2f);
     // Scale by signal weight but ensure minimum strength: strong signal = full, quiet = at least 60% correction.
-    lockStrength *= (0.60f + 0.40f * signalWeight);
+    lockStrength *= (0.74f + 0.26f * signalWeight);
 
     // At near-max retune, correction must be audibly engaged even if other knobs are relaxed.
-    if (amountNorm >= 0.99f)
+    if (engagedAmount >= 0.99f)
     {
         const float centsError = std::abs (1200.0f * std::log2 (targetHz / juce::jmax (1.0f, detectedHz)));
         const float errorNorm = juce::jlimit (0.0f, 1.0f, centsError / 40.0f);
@@ -420,8 +424,13 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     const float targetRatio = targetHz / juce::jmax (1.0f, detectedHz);
     const float centsError = std::abs (1200.0f * std::log2 (targetRatio));
     const float snapStrength = juce::jlimit (0.0f, 1.0f, centsError / (18.0f + toleranceNorm * 48.0f));
-    const float amountScaledFloor = (0.10f + 0.90f * snapStrength) * amountNorm;
+    const float amountScaledFloor = (0.12f + 0.88f * snapStrength) * engagedAmount;
     lockStrength = juce::jmax (lockStrength, amountScaledFloor);
+
+    // Hard-tune drive: at higher retune settings keep note lock strong and obvious.
+    const float hardTuneDrive = juce::jlimit (0.0f, 1.0f, (engagedAmount - 0.25f) / 0.75f);
+    const float hardTuneFloor = hardTuneDrive * (0.60f + 0.35f * (1.0f - toleranceNorm));
+    lockStrength = juce::jmax (lockStrength, hardTuneFloor);
 
     return 1.0f + (targetRatio - 1.0f) * juce::jlimit (0.0f, 1.0f, lockStrength);
 }
