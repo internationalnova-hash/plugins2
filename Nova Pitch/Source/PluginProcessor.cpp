@@ -318,9 +318,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
     const float correctionDepth = juce::jlimit (0.0f, 1.0f, std::abs (activePitchRatio - 1.0f) / 0.25f);
     const float confidenceGate = juce::jlimit (0.0f, 1.0f, (trackingConfidence - 0.15f) / 0.85f);
-    float wetMix = (0.20f + amountNorm * 0.48f) * confidenceGate;
-    wetMix *= (0.25f + 0.75f * correctionDepth);
-    wetMix = juce::jlimit (0.0f, 0.75f, wetMix);
+    
+    // Ensure tuning is ALWAYS audible when retune is activated (like AutoTune/MetaTune)
+    float wetMix = (0.30f + amountNorm * 0.65f); // Boost base level and range
+    wetMix *= juce::jmax (0.70f, confidenceGate); // Never reduce below 70% even if confidence is low
+    wetMix *= (0.50f + 0.50f * correctionDepth); // Boost correction depth blend base
+    wetMix = juce::jlimit (0.0f, 1.0f, wetMix); // Allow up to 100% wet when amount is high
+    
     wetMixSmoothed = 0.92f * wetMixSmoothed + 0.08f * wetMix;
     wetMix = wetMixSmoothed;
 
@@ -384,9 +388,9 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Intelligent interaction rules.
     if (retuneMs <= 14.0f)
         humanizeNorm *= 0.65f; // fast retune auto-tightens humanize
-    retuneStrength *= (1.0f - toleranceNorm * 0.5f); // high flex/tolerance softens correction
+    retuneStrength *= (1.0f - toleranceNorm * 0.3f); // high flex/tolerance softens correction less aggressively
     if (lowLatencyMode)
-        retuneStrength = juce::jmin (1.0f, retuneStrength * 1.08f);
+        retuneStrength = juce::jmin (1.0f, retuneStrength * 1.18f); // boost low latency mode more
 
     // Internal retune curve type from behavior bands (soft/medium/hard).
     float curveExponent = 1.0f; // medium
@@ -397,12 +401,12 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Scale lock mode: soft lock default, hard lock when aggressive setup is detected.
     const bool hardLock = (retuneMs <= 10.0f && toleranceNorm <= 0.2f && humanizeNorm <= 0.2f);
     float lockStrength = hardLock ? juce::jmax (curveStrength, 0.98f) : curveStrength;
-    lockStrength *= (1.0f - humanizeNorm * 0.70f);
+    lockStrength *= juce::jlimit (0.65f, 1.0f, 1.0f - humanizeNorm * 0.35f); // never reduce below 65% for humanize
 
-    // Noise-aware correction reduction to avoid artifacts.
+    // Noise-aware correction reduction to avoid artifacts - but maintain strong tuning.
     const float signalWeight = juce::jlimit (0.0f, 1.0f, signalRms * 3.2f);
-    // Scale by signal weight: strong signal = full correction, quiet signal = softer correction.
-    lockStrength *= (0.50f + 0.50f * signalWeight);
+    // Scale by signal weight but ensure minimum strength: strong signal = full, quiet = at least 60% correction.
+    lockStrength *= (0.60f + 0.40f * signalWeight);
 
     // At near-max retune, correction must be audibly engaged even if other knobs are relaxed.
     if (amountNorm >= 0.99f)
