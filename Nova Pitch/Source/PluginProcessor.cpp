@@ -250,9 +250,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
             else if (candidateMidiNote != lockedTargetMidi)
             {
-                // Hysteresis: require singer to be clearly past the midpoint before switching note.
-                // Fixed at 0.5 semitone since retune now controls speed not depth.
-                const float switchHysteresis = 0.50f;
+                // Dynamic hysteresis: hard-tune (fast retune) should switch notes quicker,
+                // while slower retune keeps more stability.
+                const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.50f, 0.12f);
                 const bool switchUp = candidateMidiNote > lockedTargetMidi
                                    && detectedMidi > static_cast<float> (lockedTargetMidi) + switchHysteresis;
                 const bool switchDown = candidateMidiNote < lockedTargetMidi
@@ -364,7 +364,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
 
     // Tolerance window: if singer is already within toleranceCents, leave them alone.
     const float centsError = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio))));
-    const float toleranceScale = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 1.0f, 0.15f);
+    const float toleranceScale = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 1.0f, 0.05f);
     const float toleranceCents = toleranceNorm * 45.0f * toleranceScale;
     if (centsError < toleranceCents)
         return 1.0f;
@@ -670,10 +670,20 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         const float wrapped = std::fmod (pos + static_cast<float> (yinBufferSize), static_cast<float> (yinBufferSize));
         const int i0 = static_cast<int> (wrapped);
         const int i1 = (i0 + 1) % yinBufferSize;
+        const int im1 = (i0 - 1 + yinBufferSize) % yinBufferSize;
+        const int i2 = (i0 + 2) % yinBufferSize;
         const float frac = wrapped - static_cast<float> (i0);
-        const float s0 = channelDelay[static_cast<size_t> (i0)];
-        const float s1 = channelDelay[static_cast<size_t> (i1)];
-        return s0 + frac * (s1 - s0);
+        const float ym1 = channelDelay[static_cast<size_t> (im1)];
+        const float y0 = channelDelay[static_cast<size_t> (i0)];
+        const float y1 = channelDelay[static_cast<size_t> (i1)];
+        const float y2 = channelDelay[static_cast<size_t> (i2)];
+
+        // Cubic Hermite interpolation lowers aliasy/grainy texture vs linear interpolation.
+        const float c0 = y0;
+        const float c1 = 0.5f * (y1 - ym1);
+        const float c2 = ym1 - 2.5f * y0 + 2.0f * y1 - 0.5f * y2;
+        const float c3 = 0.5f * (y2 - ym1) + 1.5f * (y0 - y1);
+        return ((c3 * frac + c2) * frac + c1) * frac + c0;
     };
 
     const int minDelaySamples = 128;
