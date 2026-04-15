@@ -203,6 +203,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float vibratoValue = apvts.getRawParameterValue ("vibrato")->load();
     const float formantValue = apvts.getRawParameterValue ("formant")->load();
     const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
+    const float retuneSpeedNorm = 1.0f - amountNorm; // 0 knob = fastest retune
+    juce::ignoreUnused (toleranceValue, confidenceValue);
 
     // Debug: Log parameter values every 100 blocks to diagnose engine engagement
     static int debugCounter = 0;
@@ -210,38 +212,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         DBG("Nova Pitch params: amount=" << amountValue << " tolerance=" << toleranceValue 
             << " confidence=" << confidenceValue << " vibrato=" << vibratoValue << " formant=" << formantValue);
-    }
-
-    // True clean baseline mode for troubleshooting and dry testing.
-    const bool baselineBypass = amountValue <= 0.5f
-                             && toleranceValue <= 0.5f
-                             && confidenceValue <= 0.5f
-                             && vibratoValue <= 0.5f
-                             && formantValue <= 0.5f;
-    
-    if (baselineBypass && debugCounter % 100 == 1)
-    {
-        DBG("Nova Pitch: Baseline bypass active - no processing");
-    }
-
-    if (baselineBypass)
-    {
-        targetPitchRatio = 1.0f;
-        activePitchRatio = 1.0f;
-        correctedPitch.store (0.0f);
-        
-        // CRITICAL: Clear all DSP state to prevent artifacts when returning to baseline.
-        // This ensures the circular buffer and LFO state don't retain stale data.
-        initializePitchShift();
-        smoothedDetectedHz = 0.0f;
-        retuneLfoPhase = 0.0f;
-        retuneLfoJitter = 0.0f;
-        outputCompGain = 1.0f;
-        wetMixSmoothed = 0.0f;
-        lockedTargetMidi = -1;
-        
-        blockCount++;
-        return;
     }
 
     // Mono-focused detection, stereo-safe processing.
@@ -258,14 +228,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     const float inputRms = computeBufferRms (buffer);
 
-    // Hybrid detection: low-latency mode tracks faster, default mode tracks smoother.
-    const int intervalDivider = lowLatencyMode ? 1 : 2;
+    // Track faster when Retune is set fast (left side / amount near 0).
+    const bool fastRetuneTracking = retuneSpeedNorm > 0.70f;
+    const int intervalDivider = (lowLatencyMode || fastRetuneTracking) ? 1 : 2;
 
     // Perform pitch detection periodically
     if (blockCount % intervalDivider == 0)
     {
         float detectedHz = detectPitchYIN (analysisBuffer.data(), numSamples);
-        detectedHz = smoothDetectedPitch (detectedHz, inputRms, lowLatencyMode);
+        detectedHz = smoothDetectedPitch (detectedHz, inputRms, lowLatencyMode || fastRetuneTracking);
         detectedPitch.store (detectedHz);
 
         if (detectedHz > minPitchHz - 10.0f && detectedHz < maxPitchHz + 10.0f)
@@ -296,9 +267,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             float pitchRatio = computeRetuneRatio (detectedHz, targetHz, inputRms, lowLatencyMode);
             applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
                           vibratoValue);
-            // Keep correction in a musical range (about +/- 3 semitones) to prevent
-            // hard jumps from detector outliers that sound like static.
-            targetPitchRatio = juce::jlimit (0.58f, 1.72f, pitchRatio);
+            // Keep correction bounded while allowing strong hard-tune behavior.
+            targetPitchRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
             const float correctedHz = detectedHz * pitchRatio;
             correctedPitch.store (correctedHz);
 
@@ -325,33 +295,27 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Retune knob = SPEED only (LP filter glide time toward target)
     // - Correction is always 100% toward target note — no depth scaling
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
-    const bool nearDry = amountNorm < 0.02f;
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
-    const bool trackingLost = trackingConfidence < 0.08f || inputRms < 0.003f;
+    const bool trackingLost = trackingConfidence < 0.03f || inputRms < 0.002f;
 
-    if (! nearDry)
+    // Retune stays active across the full knob range; knob controls speed only.
     {
-        // Retune speed → LP coefficient. Low amount = slow glide; high amount = instant snap.
         const float speedCoeff = lowLatencyMode
-            ? juce::jmap (amountNorm, 0.02f, 1.0f, 0.12f, 0.995f)
-            : juce::jmap (amountNorm, 0.02f, 1.0f, 0.08f, 0.975f);
+            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.035f, 0.998f)
+            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.020f, 0.992f);
 
         if (! trackingLost)
             activePitchRatio += (targetPitchRatio - activePitchRatio) * speedCoeff;
         else
-            activePitchRatio += (1.0f - activePitchRatio) * 0.10f;
+            activePitchRatio += (1.0f - activePitchRatio) * 0.03f;
 
-        activePitchRatio = juce::jlimit (0.58f, 1.72f, activePitchRatio);
+        activePitchRatio = juce::jlimit (0.50f, 2.00f, activePitchRatio);
 
         // Apply shift: corrected audio replaces input — no dry blend, no doubling.
         // When ratio ≈ 1.0 (singer already on pitch), shifter bypasses internally → clean passthrough.
         processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0);
         if (channelR != nullptr)
             processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1);
-    }
-    else
-    {
-        activePitchRatio += (1.0f - activePitchRatio) * 0.20f;
     }
 
     applyFormantShaper (channelL, numSamples, formantValue, 0);
@@ -390,8 +354,7 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
 float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targetHz, float /*signalRms*/, bool /*lowLatencyMode*/)
 {
     const float amountNorm = apvts.getRawParameterValue ("amount")->load() / 100.0f;
-    if (amountNorm < 0.02f)
-        return 1.0f;
+    const float retuneSpeedNorm = 1.0f - juce::jlimit (0.0f, 1.0f, amountNorm);
 
     const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
 
@@ -401,12 +364,12 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
 
     // Tolerance window: if singer is already within toleranceCents, leave them alone.
     const float centsError = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio))));
-    const float toleranceScale = juce::jmap (juce::jlimit (0.0f, 1.0f, amountNorm), 0.0f, 1.0f, 1.0f, 0.2f);
+    const float toleranceScale = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 1.0f, 0.15f);
     const float toleranceCents = toleranceNorm * 45.0f * toleranceScale;
     if (centsError < toleranceCents)
         return 1.0f;
 
-    return juce::jlimit (0.58f, 1.72f, fullRatio);
+    return juce::jlimit (0.50f, 2.00f, fullRatio);
 }
 
 void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate, int numSamples, float vibratoParam)
@@ -432,12 +395,13 @@ void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate,
 
 void NovaPitchAudioProcessor::applyFormantShaper (float* channelData, int numSamples, float formantParam, int channelIndex)
 {
-    const float centered = (formantParam - 50.0f) / 50.0f; // -1..1
-    if (std::abs (centered) < 0.01f)
+    // Formant knob semantics: 0 must be neutral (no coloration/artifacts).
+    const float amount = juce::jlimit (0.0f, 1.0f, formantParam / 100.0f);
+    if (amount < 0.01f)
         return;
 
-    const float a = juce::jlimit (-0.22f, 0.22f, centered * 0.22f);
-    const float mix = juce::jlimit (0.0f, 0.35f, std::abs (centered) * 0.35f);
+    const float a = juce::jlimit (-0.16f, 0.16f, amount * 0.16f);
+    const float mix = juce::jlimit (0.0f, 0.22f, amount * 0.22f);
 
     auto& s1 = formantAllPassState[static_cast<size_t> (channelIndex)][0];
     auto& s2 = formantAllPassState[static_cast<size_t> (channelIndex)][1];
@@ -546,7 +510,7 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
     // Step 3: Absolute threshold — first dip below threshold is the vocal period.
     const float confidenceParam = juce::jlimit (0.0f, 1.0f,
         apvts.getRawParameterValue ("confidenceThreshold")->load() / 100.0f);
-    const float threshold = 0.10f + confidenceParam * 0.20f; // 0.10 to 0.30
+    const float threshold = 0.22f + confidenceParam * 0.08f; // 0.22 to 0.30
 
     int foundTau = -1;
     for (int tau = tauMin; tau < tauMax; ++tau)
@@ -691,8 +655,9 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     auto& readPos = pitchReadPos[static_cast<size_t> (channel)];
     auto& crossfadePhase = pitchCrossfadePhase[static_cast<size_t> (channel)];
     auto& writeIdx = pitchWriteIndex[static_cast<size_t> (channel)];
+    auto& outputSmoother = pitchOutputSmoother[static_cast<size_t> (channel)];
 
-    const float clampedRatio = juce::jlimit (0.58f, 1.72f, pitchRatio);
+    const float clampedRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
 
     // If ratio is essentially 1.0, just pass through without circular buffer distortion
     if (std::abs (clampedRatio - 1.0f) < 0.003f)
@@ -743,7 +708,11 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         const float crossfade = 0.5f - 0.5f * std::cos (phaseA * juce::MathConstants<float>::twoPi);
         const float fadeA = std::sqrt (juce::jlimit (0.0f, 1.0f, 1.0f - crossfade));
         const float fadeB = std::sqrt (juce::jlimit (0.0f, 1.0f, crossfade));
-        channelData[i] = sampleAt (headA) * fadeA + sampleAt (headB) * fadeB;
+        const float shifted = sampleAt (headA) * fadeA + sampleAt (headB) * fadeB;
+
+        // Gentle de-zipper for residual crossover grain.
+        outputSmoother += (shifted - outputSmoother) * 0.35f;
+        channelData[i] = outputSmoother;
 
         crossfadePhase = wrap01 (crossfadePhase + phaseInc);
 
