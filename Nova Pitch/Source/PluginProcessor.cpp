@@ -317,13 +317,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
     const float correctionDepth = juce::jlimit (0.0f, 1.0f, std::abs (activePitchRatio - 1.0f) / 0.25f);
-    const float confidenceGate = juce::jlimit (0.0f, 1.0f, (trackingConfidence - 0.35f) / 0.65f);
-    const float largeShift = juce::jlimit (0.0f, 1.0f, (std::abs (activePitchRatio - 1.0f) - 0.08f) / 0.12f);
-    const float largeShiftAtten = 1.0f - largeShift * 0.70f;
-    float wetMix = (0.10f + amountNorm * 0.35f) * confidenceGate;
+    const float confidenceGate = juce::jlimit (0.0f, 1.0f, (trackingConfidence - 0.15f) / 0.85f);
+    float wetMix = (0.20f + amountNorm * 0.48f) * confidenceGate;
     wetMix *= (0.25f + 0.75f * correctionDepth);
-    wetMix *= largeShiftAtten;
-    wetMix = juce::jlimit (0.0f, 0.55f, wetMix);
+    wetMix = juce::jlimit (0.0f, 0.75f, wetMix);
     wetMixSmoothed = 0.92f * wetMixSmoothed + 0.08f * wetMix;
     wetMix = wetMixSmoothed;
 
