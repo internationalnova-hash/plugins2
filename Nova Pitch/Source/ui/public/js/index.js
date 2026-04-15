@@ -318,8 +318,8 @@ const knobDefs = {
 function formatKnobValue(id, value) {
   if (id === 'retuneKnob') {
     const rounded = Math.round(value);
-    if (rounded <= 10) return `${rounded} (Fast)`;
-    if (rounded >= 90) return `${rounded} (Slow)`;
+    if (rounded <= 10) return `${rounded} (Slow)`;
+    if (rounded >= 90) return `${rounded} (Fast)`;
     return `${rounded}`;
   }
   return `${Math.round(value)}%`;

@@ -98,12 +98,14 @@ private:
 
     // Member variables
     std::vector<float> yinBuffer;
+    std::vector<float> analysisScratch;
     int yinWriteIndex { 0 };
     
     std::array<std::array<float, pitchShiftBufferSize>, 2> pitchDelay {};
     std::array<float, 2> pitchReadPos { 0.0f, 0.0f };
     std::array<float, 2> pitchCrossfadePhase { 0.0f, 0.0f };
     std::array<int, 2> pitchWriteIndex { 0, 0 };
+    std::array<float, 2> pitchShiftRatioSmoothed { 1.0f, 1.0f };
     std::array<float, 2> pitchOutputSmoother { 0.0f, 0.0f };
     std::array<std::array<float, 2>, 2> formantAllPassState {};
 

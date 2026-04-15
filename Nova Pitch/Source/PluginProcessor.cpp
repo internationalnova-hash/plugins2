@@ -136,6 +136,8 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     currentSampleRate = sampleRate;
     juce::ignoreUnused (samplesPerBlock);
     initializePitchShift();
+    analysisScratch.clear();
+    analysisScratch.reserve (static_cast<size_t> (juce::jmax (samplesPerBlock, 512)));
     
         // Cover full vocal range: bass to soprano head voice (60 Hz – 1 kHz).
         // Old cap of 400 Hz made tauMin=110 samples, making every note above G4 undetectable.
@@ -187,15 +189,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     int numSamples = buffer.getNumSamples();
     auto* channelL = buffer.getWritePointer (0);
     auto* channelR = totalNumInputChannels > 1 ? buffer.getWritePointer (1) : nullptr;
-
-    std::vector<float> dryLeft (static_cast<size_t> (numSamples), 0.0f);
-    std::copy (channelL, channelL + numSamples, dryLeft.begin());
-    std::vector<float> dryRight;
-    if (channelR != nullptr)
-    {
-        dryRight.resize (static_cast<size_t> (numSamples), 0.0f);
-        std::copy (channelR, channelR + numSamples, dryRight.begin());
-    }
     const bool lowLatencyMode = apvts.getRawParameterValue ("lowLatency")->load() >= 0.5f;
     const float amountValue = apvts.getRawParameterValue ("amount")->load();
     const float toleranceValue = apvts.getRawParameterValue ("tolerance")->load();
@@ -203,7 +196,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float vibratoValue = apvts.getRawParameterValue ("vibrato")->load();
     const float formantValue = apvts.getRawParameterValue ("formant")->load();
     const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
-    const float retuneSpeedNorm = 1.0f - amountNorm; // 0 knob = fastest retune
+    const float retuneSpeedNorm = amountNorm; // 100 knob = fastest retune
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
     // Debug: Log parameter values every 100 blocks to diagnose engine engagement
@@ -215,27 +208,30 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     }
 
     // Mono-focused detection, stereo-safe processing.
-    std::vector<float> analysisBuffer (static_cast<size_t> (numSamples), 0.0f);
+    if (analysisScratch.size() < static_cast<size_t> (numSamples))
+        analysisScratch.resize (static_cast<size_t> (numSamples), 0.0f);
+
+    float* analysisData = analysisScratch.data();
     if (channelR != nullptr)
     {
         for (int i = 0; i < numSamples; ++i)
-            analysisBuffer[static_cast<size_t> (i)] = 0.5f * (channelL[i] + channelR[i]);
+            analysisData[i] = 0.5f * (channelL[i] + channelR[i]);
     }
     else
     {
-        std::copy (channelL, channelL + numSamples, analysisBuffer.begin());
+        std::copy (channelL, channelL + numSamples, analysisData);
     }
 
     const float inputRms = computeBufferRms (buffer);
 
-    // Track faster when Retune is set fast (left side / amount near 0).
+    // Track faster when Retune is set fast (right side / amount near 100).
     const bool fastRetuneTracking = retuneSpeedNorm > 0.70f;
     const int intervalDivider = (lowLatencyMode || fastRetuneTracking) ? 1 : 2;
 
     // Perform pitch detection periodically
     if (blockCount % intervalDivider == 0)
     {
-        float detectedHz = detectPitchYIN (analysisBuffer.data(), numSamples);
+        float detectedHz = detectPitchYIN (analysisData, numSamples);
         detectedHz = smoothDetectedPitch (detectedHz, inputRms, lowLatencyMode || fastRetuneTracking);
         detectedPitch.store (detectedHz);
 
@@ -354,7 +350,7 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
 float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targetHz, float /*signalRms*/, bool /*lowLatencyMode*/)
 {
     const float amountNorm = apvts.getRawParameterValue ("amount")->load() / 100.0f;
-    const float retuneSpeedNorm = 1.0f - juce::jlimit (0.0f, 1.0f, amountNorm);
+    const float retuneSpeedNorm = juce::jlimit (0.0f, 1.0f, amountNorm);
 
     const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
 
@@ -643,6 +639,8 @@ void NovaPitchAudioProcessor::initializePitchShift()
     pitchCrossfadePhase[1] = 0.5f;
     pitchWriteIndex[0] = pitchShiftBufferSize / 2;
     pitchWriteIndex[1] = pitchShiftBufferSize / 2;
+    pitchShiftRatioSmoothed[0] = 1.0f;
+    pitchShiftRatioSmoothed[1] = 1.0f;
     pitchOutputSmoother[0] = 0.0f;
     pitchOutputSmoother[1] = 0.0f;
     formantAllPassState = {};
@@ -655,23 +653,36 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     auto& readPos = pitchReadPos[static_cast<size_t> (channel)];
     auto& crossfadePhase = pitchCrossfadePhase[static_cast<size_t> (channel)];
     auto& writeIdx = pitchWriteIndex[static_cast<size_t> (channel)];
+    auto& ratioSmoothed = pitchShiftRatioSmoothed[static_cast<size_t> (channel)];
     auto& outputSmoother = pitchOutputSmoother[static_cast<size_t> (channel)];
 
+    const int bufferSize = pitchShiftBufferSize;
     const float clampedRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
+    ratioSmoothed += (clampedRatio - ratioSmoothed) * 0.06f;
+    const float effectiveRatio = juce::jlimit (0.50f, 2.00f, ratioSmoothed);
 
-    // If ratio is essentially 1.0, just pass through without circular buffer distortion
-    if (std::abs (clampedRatio - 1.0f) < 0.003f)
+    // Granular OLA core.
+    // A 2-grain Hann overlap reduces zipper/skip artifacts compared to simple delay modulation.
+    constexpr int hopSamples = 512;
+    constexpr int grainSamples = hopSamples * 2;
+    constexpr int baseDelaySamples = 3072;
+
+    auto wrapPos = [bufferSize] (float p)
     {
-        return;
-    }
+        while (p < 0.0f)
+            p += static_cast<float> (bufferSize);
+        while (p >= static_cast<float> (bufferSize))
+            p -= static_cast<float> (bufferSize);
+        return p;
+    };
 
     auto sampleAt = [&] (float pos)
     {
-        const float wrapped = std::fmod (pos + static_cast<float> (pitchShiftBufferSize), static_cast<float> (pitchShiftBufferSize));
+        const float wrapped = wrapPos (pos);
         const int i0 = static_cast<int> (wrapped);
-        const int i1 = (i0 + 1) % pitchShiftBufferSize;
-        const int im1 = (i0 - 1 + pitchShiftBufferSize) % pitchShiftBufferSize;
-        const int i2 = (i0 + 2) % pitchShiftBufferSize;
+        const int i1 = (i0 + 1) % bufferSize;
+        const int im1 = (i0 - 1 + bufferSize) % bufferSize;
+        const int i2 = (i0 + 2) % bufferSize;
         const float frac = wrapped - static_cast<float> (i0);
         const float ym1 = channelDelay[static_cast<size_t> (im1)];
         const float y0 = channelDelay[static_cast<size_t> (i0)];
@@ -686,51 +697,55 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         return ((c3 * frac + c2) * frac + c1) * frac + c0;
     };
 
-    const int minDelaySamples = 256;
-    const int windowSamples = 2048;
-
-    auto wrap01 = [] (float v)
+    auto hannAt = [] (float n)
     {
-        while (v >= 1.0f)
-            v -= 1.0f;
-        while (v < 0.0f)
-            v += 1.0f;
-        return v;
+        const float clamped = juce::jlimit (0.0f, static_cast<float> (grainSamples - 1), n);
+        return 0.5f - 0.5f * std::cos ((juce::MathConstants<float>::twoPi * clamped)
+                                       / static_cast<float> (grainSamples - 1));
     };
 
-    // Delay modulation slope. For r = write - delay, read increment is 1 - d(delay)/dt.
-    // Enforce read increment equal to desired pitch ratio.
-    const float phaseInc = (1.0f - clampedRatio) / static_cast<float> (windowSamples);
+    // Grain phase advances in output time. On each hop boundary we move source grain anchor.
+    float phaseSamples = crossfadePhase * static_cast<float> (hopSamples);
+    const float analysisHop = static_cast<float> (hopSamples) * effectiveRatio;
 
     for (int i = 0; i < numSamples; ++i)
     {
         channelDelay[static_cast<size_t> (writeIdx)] = channelData[i];
 
-        const float phaseA = wrap01 (crossfadePhase);
-        const float phaseB = wrap01 (phaseA + 0.5f);
+        // Keep grain anchor in a valid latency region behind writer.
+        const float desiredAnchor = static_cast<float> (writeIdx - baseDelaySamples);
+        const float latency = std::fmod (static_cast<float> (writeIdx) - readPos + static_cast<float> (bufferSize), static_cast<float> (bufferSize));
+        if (latency < 512.0f || latency > static_cast<float> (bufferSize - 512))
+            readPos = wrapPos (desiredAnchor);
 
-        const float delayA = static_cast<float> (minDelaySamples) + phaseA * static_cast<float> (windowSamples);
-        const float delayB = static_cast<float> (minDelaySamples) + phaseB * static_cast<float> (windowSamples);
+        const float nA = phaseSamples;
+        const float nB = phaseSamples + static_cast<float> (hopSamples);
+        const float wA = hannAt (nA);
+        const float wB = hannAt (nB);
+        const float wSum = juce::jmax (1.0e-5f, wA + wB);
 
-        const float headA = static_cast<float> (writeIdx) - delayA;
-        const float headB = static_cast<float> (writeIdx) - delayB;
+        const float srcA = readPos + nA * effectiveRatio;
+        const float srcB = (readPos - analysisHop) + nB * effectiveRatio;
 
-        const float crossfade = 0.5f - 0.5f * std::cos (phaseA * juce::MathConstants<float>::twoPi);
-        const float fadeA = std::sqrt (juce::jlimit (0.0f, 1.0f, 1.0f - crossfade));
-        const float fadeB = std::sqrt (juce::jlimit (0.0f, 1.0f, crossfade));
-        const float shifted = sampleAt (headA) * fadeA + sampleAt (headB) * fadeB;
+        const float shifted = (sampleAt (srcA) * wA + sampleAt (srcB) * wB) / wSum;
 
         // Gentle de-zipper for residual crossover grain.
         outputSmoother += (shifted - outputSmoother) * 0.35f;
-        channelData[i] = outputSmoother;
+        const float unityDelta = std::abs (effectiveRatio - 1.0f);
+        const float shiftWet = juce::jlimit (0.0f, 1.0f, (unityDelta - 0.002f) / 0.018f);
+        channelData[i] = channelData[i] * (1.0f - shiftWet) + outputSmoother * shiftWet;
 
-        crossfadePhase = wrap01 (crossfadePhase + phaseInc);
+        ++phaseSamples;
+        if (phaseSamples >= static_cast<float> (hopSamples))
+        {
+            phaseSamples -= static_cast<float> (hopSamples);
+            readPos = wrapPos (readPos + analysisHop);
+        }
 
-        writeIdx = (writeIdx + 1) % pitchShiftBufferSize;
-        readPos = static_cast<float> (writeIdx)
-                - (static_cast<float> (minDelaySamples)
-                +  wrap01 (crossfadePhase) * static_cast<float> (windowSamples));
+        writeIdx = (writeIdx + 1) % bufferSize;
     }
+
+    crossfadePhase = phaseSamples / static_cast<float> (hopSamples);
 }
 
 void NovaPitchAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
