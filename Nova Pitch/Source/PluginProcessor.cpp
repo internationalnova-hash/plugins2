@@ -327,21 +327,21 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
     const bool nearDry = amountNorm < 0.02f;
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
-    const bool trackingLost = trackingConfidence < 0.12f || inputRms < 0.004f;
+    const bool trackingLost = trackingConfidence < 0.08f || inputRms < 0.003f;
 
     if (! nearDry)
     {
         // Retune speed → LP coefficient. Low amount = slow glide; high amount = instant snap.
         const float speedCoeff = lowLatencyMode
-            ? juce::jmap (amountNorm, 0.02f, 1.0f, 0.06f, 0.92f)
-            : juce::jmap (amountNorm, 0.02f, 1.0f, 0.03f, 0.78f);
+            ? juce::jmap (amountNorm, 0.02f, 1.0f, 0.10f, 0.985f)
+            : juce::jmap (amountNorm, 0.02f, 1.0f, 0.06f, 0.94f);
 
         if (! trackingLost)
             activePitchRatio += (targetPitchRatio - activePitchRatio) * speedCoeff;
         else
             activePitchRatio += (1.0f - activePitchRatio) * 0.10f;
 
-        activePitchRatio = juce::jlimit (0.84f, 1.19f, activePitchRatio);
+        activePitchRatio = juce::jlimit (0.65f, 1.55f, activePitchRatio);
 
         // Apply shift: corrected audio replaces input — no dry blend, no doubling.
         // When ratio ≈ 1.0 (singer already on pitch), shifter bypasses internally → clean passthrough.
@@ -401,11 +401,12 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
 
     // Tolerance window: if singer is already within toleranceCents, leave them alone.
     const float centsError = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio))));
-    const float toleranceCents = toleranceNorm * 50.0f; // 0..50 cents window
+    const float toleranceScale = juce::jmap (juce::jlimit (0.0f, 1.0f, amountNorm), 0.0f, 1.0f, 1.0f, 0.2f);
+    const float toleranceCents = toleranceNorm * 45.0f * toleranceScale;
     if (centsError < toleranceCents)
         return 1.0f;
 
-    return juce::jlimit (0.84f, 1.19f, fullRatio);
+    return juce::jlimit (0.65f, 1.55f, fullRatio);
 }
 
 void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate, int numSamples, float vibratoParam)
@@ -691,10 +692,10 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     auto& crossfadePhase = pitchCrossfadePhase[static_cast<size_t> (channel)];
     auto& writeIdx = pitchWriteIndex[static_cast<size_t> (channel)];
 
-    const float clampedRatio = juce::jlimit (0.84f, 1.19f, pitchRatio);
+    const float clampedRatio = juce::jlimit (0.65f, 1.55f, pitchRatio);
 
     // If ratio is essentially 1.0, just pass through without circular buffer distortion
-    if (std::abs (clampedRatio - 1.0f) < 0.012f)
+    if (std::abs (clampedRatio - 1.0f) < 0.003f)
     {
         return;
     }
@@ -710,63 +711,46 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         return s0 + frac * (s1 - s0);
     };
 
-    // Safety bounds: keep read pointer within a valid latency window behind write.
-    // Without this the read pointer overtakes write (for ratio>1) causing buffer corruption.
-    const int halfBuf  = yinBufferSize / 2;
-    const int minGuard = 128;
-    const int maxGuard = yinBufferSize - 128;
+    const int minDelaySamples = 96;
+    const int windowSamples = 768;
 
-    // Use a short, fixed equal-power crossfade cycle. Tying crossfade to full buffer
-    // phase creates audible low-rate modulation/static as the pitch ratio increases.
-    const float crossfadeCycleSamples = 320.0f;
-    const float crossfadePhaseInc = 1.0f / crossfadeCycleSamples;
+    auto wrap01 = [] (float v)
+    {
+        while (v >= 1.0f)
+            v -= 1.0f;
+        while (v < 0.0f)
+            v += 1.0f;
+        return v;
+    };
+
+    // Delay modulation slope. For r = write - delay, read increment is 1 - d(delay)/dt.
+    // Enforce read increment equal to desired pitch ratio.
+    const float phaseInc = (1.0f - clampedRatio) / static_cast<float> (windowSamples);
 
     for (int i = 0; i < numSamples; ++i)
     {
         channelDelay[static_cast<size_t> (writeIdx)] = channelData[i];
 
-        // Prevent read from overtaking or falling too far behind write.
-        // Use gentle correction instead of hard teleporting to avoid clicks/static.
-        const int latency = (writeIdx - static_cast<int> (readPos) + yinBufferSize) % yinBufferSize;
-        if (latency < minGuard || latency > maxGuard)
-        {
-            const int desired = (writeIdx - halfBuf + yinBufferSize) % yinBufferSize;
-            float desiredF = static_cast<float> (desired);
-            float delta = desiredF - readPos;
+        const float phaseA = wrap01 (crossfadePhase);
+        const float phaseB = wrap01 (phaseA + 0.5f);
 
-            const float wrap = static_cast<float> (yinBufferSize);
-            if (delta > 0.5f * wrap)
-                delta -= wrap;
-            else if (delta < -0.5f * wrap)
-                delta += wrap;
+        const float delayA = static_cast<float> (minDelaySamples) + phaseA * static_cast<float> (windowSamples);
+        const float delayB = static_cast<float> (minDelaySamples) + phaseB * static_cast<float> (windowSamples);
 
-            readPos += delta * 0.10f;
-            while (readPos < 0.0f)
-                readPos += wrap;
-            while (readPos >= wrap)
-                readPos -= wrap;
-        }
+        const float headA = static_cast<float> (writeIdx) - delayA;
+        const float headB = static_cast<float> (writeIdx) - delayB;
 
-        const float wrappedReadPos = std::fmod (readPos + static_cast<float> (yinBufferSize), static_cast<float> (yinBufferSize));
-
-        const float headA = wrappedReadPos;
-        const float headB = std::fmod (wrappedReadPos + static_cast<float> (halfBuf),
-                                       static_cast<float> (yinBufferSize));
-
-        // Equal-power blend prevents level dips as heads alternate.
-        const float crossfade = 0.5f - 0.5f * std::cos (crossfadePhase * juce::MathConstants<float>::twoPi);
+        const float crossfade = 0.5f - 0.5f * std::cos (phaseA * juce::MathConstants<float>::twoPi);
         const float fadeA = std::sqrt (juce::jlimit (0.0f, 1.0f, 1.0f - crossfade));
         const float fadeB = std::sqrt (juce::jlimit (0.0f, 1.0f, crossfade));
         channelData[i] = sampleAt (headA) * fadeA + sampleAt (headB) * fadeB;
 
-        crossfadePhase += crossfadePhaseInc;
-        if (crossfadePhase >= 1.0f)
-            crossfadePhase -= 1.0f;
+        crossfadePhase = wrap01 (crossfadePhase + phaseInc);
 
         writeIdx = (writeIdx + 1) % yinBufferSize;
-        readPos += clampedRatio;
-        if (readPos >= static_cast<float> (yinBufferSize))
-            readPos -= static_cast<float> (yinBufferSize);
+        readPos = static_cast<float> (writeIdx)
+                - (static_cast<float> (minDelaySamples)
+                +  wrap01 (crossfadePhase) * static_cast<float> (windowSamples));
     }
 }
 
