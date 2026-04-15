@@ -1,11 +1,11 @@
 'use strict';
 
 const state = {
-  retune: 88,
-  humanize: 34,
-  flex: 52,
-  vibrato: 26,
-  formant: 50,
+  retune: 0,
+  humanize: 0,
+  flex: 0,
+  vibrato: 0,
+  formant: 0,
   key: 0,
   scale: 1,
   phase: 0,
@@ -316,7 +316,6 @@ const knobDefs = {
 };
 
 function formatKnobValue(id, value) {
-  if (id === 'retuneKnob') return `${Math.round(100 - value)}%`;
   return `${Math.round(value)}%`;
 }
 
@@ -330,6 +329,60 @@ function syncParam(param, value) {
   const bridge = getParamBridge(param);
   if (!bridge) return;
   bridge.setValue(value);
+}
+
+const paramStateBindings = {
+  amount: { key: 'retune', knobId: 'retuneKnob' },
+  tolerance: { key: 'flex', knobId: 'flexKnob' },
+  confidenceThreshold: { key: 'humanize', knobId: 'humanizeKnob' },
+  vibrato: { key: 'vibrato', knobId: 'vibratoKnob' },
+  formant: { key: 'formant', knobId: 'formantKnob' },
+};
+
+function applyHostParamValue(param, value) {
+  if (param === 'key') {
+    const next = Math.max(0, Math.min(11, Math.round(value)));
+    state.key = next;
+    if (els.keySelect) els.keySelect.value = noteNames[next];
+    return;
+  }
+
+  if (param === 'scale') {
+    const next = Math.max(0, Math.min(scales.length - 1, Math.round(value)));
+    state.scale = next;
+    if (els.scaleButton) els.scaleButton.textContent = scales[next];
+    return;
+  }
+
+  if (param === 'lowLatency') {
+    setLowLatency(value >= 0.5, { animate: false, sync: false });
+    return;
+  }
+
+  const binding = paramStateBindings[param];
+  if (!binding) return;
+
+  const next = Math.max(0, Math.min(100, value));
+  state[binding.key] = next;
+  updateKnobReadout(binding.knobId, next);
+}
+
+function requestInitialHostParameters() {
+  if (!hasJuceBackend()) return;
+
+  const params = ['amount', 'tolerance', 'confidenceThreshold', 'vibrato', 'formant', 'key', 'scale', 'lowLatency'];
+
+  params.forEach((param) => {
+    const identifier = `__juce__slider${param}`;
+
+    window.__JUCE__.backend.addEventListener(identifier, (event) => {
+      if (!event || event.eventType !== 'valueChanged' || typeof event.value !== 'number')
+        return;
+      applyHostParamValue(param, event.value);
+    });
+
+    window.__JUCE__.backend.emitEvent(identifier, { eventType: 'requestInitialUpdate' });
+  });
 }
 
 // ── NativeBridge DSP receive ───────────────────────────────
@@ -857,6 +910,7 @@ function drawGraph() {
 
 function setupTopBar() {
   els.keySelect.value = noteNames[state.key];
+  els.scaleButton.textContent = scales[state.scale];
 
   els.keySelect.addEventListener('change', () => {
     state.key = Math.max(0, noteNames.indexOf(els.keySelect.value));
@@ -932,10 +986,7 @@ function saveFavorites() {
 function applyPreset(preset) {
   state.preset.activeId = preset.id;
   const v = preset.values;
-  // Preset retune values are authored as ms (0..80).
-  // Internal knob space is 0..100 where higher = faster retune.
-  const retuneMs = Math.max(0, Math.min(80, v.retune));
-  state.retune    = 100 - (retuneMs / 80) * 100;
+  state.retune    = Math.max(0, Math.min(100, v.retune));
   state.humanize  = v.humanize;
   state.flex      = v.flex;
   state.vibrato   = v.vibrato;
@@ -1121,25 +1172,10 @@ function init() {
   resizeCanvas();
   initBgCanvas();
   Object.keys(knobDefs).forEach(bindKnob);
+  requestInitialHostParameters();
 
-  console.log('[NovaSync] Syncing initial parameters:', {
-    amount: state.retune,
-    tolerance: state.flex,
-    confidenceThreshold: state.humanize,
-    vibrato: state.vibrato,
-    formant: state.formant,
-    key: state.key,
-    scale: state.scale,
-  });
-
-  syncParam('amount', state.retune);
-  syncParam('tolerance', state.flex);
-  syncParam('confidenceThreshold', state.humanize);
-  syncParam('vibrato', state.vibrato);
-  syncParam('formant', state.formant);
-  syncParam('key', state.key);
-  syncParam('scale', state.scale);
-  setLowLatency(state.lowLatency, { animate: false });
+  console.log('[NovaSync] Waiting for host parameter snapshot');
+  setLowLatency(state.lowLatency, { animate: false, sync: false });
   setupPresetBrowser();
 
   animate();

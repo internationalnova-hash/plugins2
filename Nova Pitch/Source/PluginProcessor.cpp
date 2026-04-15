@@ -27,27 +27,27 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaPitchAudioProcessor::cre
     layout.add (std::make_unique<juce::AudioParameterFloat>(
         "tolerance", "Tolerance",
         juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f),
-        50.0f));
+        0.0f));
 
     layout.add (std::make_unique<juce::AudioParameterFloat>(
         "amount", "Amount",
         juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f),
-        85.0f));
+        0.0f));
 
     layout.add (std::make_unique<juce::AudioParameterFloat>(
         "confidenceThreshold", "Confidence",
         juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f),
-        70.0f));
+        0.0f));
 
     layout.add (std::make_unique<juce::AudioParameterFloat>(
         "vibrato", "Vibrato",
         juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f),
-        10.0f));
+        0.0f));
 
     layout.add (std::make_unique<juce::AudioParameterFloat>(
         "formant", "Formant",
         juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f),
-        50.0f));
+        0.0f));
 
     layout.add (std::make_unique<juce::AudioParameterBool>(
         "lowLatency", "Low Latency",
@@ -298,7 +298,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                           vibratoValue);
             // Keep correction in a musical range (about +/- 3 semitones) to prevent
             // hard jumps from detector outliers that sound like static.
-            targetPitchRatio = juce::jlimit (0.84f, 1.19f, pitchRatio);
+            targetPitchRatio = juce::jlimit (0.58f, 1.72f, pitchRatio);
             const float correctedHz = detectedHz * pitchRatio;
             correctedPitch.store (correctedHz);
 
@@ -333,15 +333,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         // Retune speed → LP coefficient. Low amount = slow glide; high amount = instant snap.
         const float speedCoeff = lowLatencyMode
-            ? juce::jmap (amountNorm, 0.02f, 1.0f, 0.10f, 0.985f)
-            : juce::jmap (amountNorm, 0.02f, 1.0f, 0.06f, 0.94f);
+            ? juce::jmap (amountNorm, 0.02f, 1.0f, 0.12f, 0.995f)
+            : juce::jmap (amountNorm, 0.02f, 1.0f, 0.08f, 0.975f);
 
         if (! trackingLost)
             activePitchRatio += (targetPitchRatio - activePitchRatio) * speedCoeff;
         else
             activePitchRatio += (1.0f - activePitchRatio) * 0.10f;
 
-        activePitchRatio = juce::jlimit (0.65f, 1.55f, activePitchRatio);
+        activePitchRatio = juce::jlimit (0.58f, 1.72f, activePitchRatio);
 
         // Apply shift: corrected audio replaces input — no dry blend, no doubling.
         // When ratio ≈ 1.0 (singer already on pitch), shifter bypasses internally → clean passthrough.
@@ -406,7 +406,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     if (centsError < toleranceCents)
         return 1.0f;
 
-    return juce::jlimit (0.65f, 1.55f, fullRatio);
+    return juce::jlimit (0.58f, 1.72f, fullRatio);
 }
 
 void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate, int numSamples, float vibratoParam)
@@ -692,7 +692,7 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     auto& crossfadePhase = pitchCrossfadePhase[static_cast<size_t> (channel)];
     auto& writeIdx = pitchWriteIndex[static_cast<size_t> (channel)];
 
-    const float clampedRatio = juce::jlimit (0.65f, 1.55f, pitchRatio);
+    const float clampedRatio = juce::jlimit (0.58f, 1.72f, pitchRatio);
 
     // If ratio is essentially 1.0, just pass through without circular buffer distortion
     if (std::abs (clampedRatio - 1.0f) < 0.003f)
@@ -711,8 +711,8 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         return s0 + frac * (s1 - s0);
     };
 
-    const int minDelaySamples = 96;
-    const int windowSamples = 768;
+    const int minDelaySamples = 128;
+    const int windowSamples = 1024;
 
     auto wrap01 = [] (float v)
     {

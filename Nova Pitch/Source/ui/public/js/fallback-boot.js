@@ -6,11 +6,11 @@ window.juceAPI = {
     parameters: {
         key: 0,
         scale: 0,
-        tolerance: 50,
-        amount: 85,
-        confidenceThreshold: 70,
-        vibrato: 10,
-        formant: 50,
+        tolerance: 0,
+        amount: 0,
+        confidenceThreshold: 0,
+        vibrato: 0,
+        formant: 0,
         lowLatency: 0,
         detectedPitch: 0,
         correctedPitch: 0
