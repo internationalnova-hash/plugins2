@@ -147,6 +147,8 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
         maxPitchHz = 1000.0f;
     analysisInterval = static_cast<int>(sampleRate / 20.0); // Analyze ~20 times per second
     smoothedDetectedHz = 0.0f;
+    lastValidDetectedHz = 0.0f;
+    blocksSinceValidPitch = 0;
     retuneLfoPhase = 0.0f;
     retuneLfoJitter = 0.0f;
     outputCompGain = 1.0f;
@@ -246,7 +248,34 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             detectedHz = smoothDetectedPitch (detectedHz, inputRms, lowLatencyMode || fastRetuneTracking);
         detectedPitch.store (detectedHz);
 
-        if (detectedHz > minPitchHz - 10.0f && detectedHz < maxPitchHz + 10.0f)
+        bool hasUsablePitch = detectedHz > minPitchHz - 10.0f && detectedHz < maxPitchHz + 10.0f;
+
+        if (hasUsablePitch)
+        {
+            lastValidDetectedHz = detectedHz;
+            blocksSinceValidPitch = 0;
+        }
+        else
+        {
+            ++blocksSinceValidPitch;
+
+            // Hard-tune should not collapse to dry passthrough on brief detector misses.
+            // Hold the most recent valid estimate for a short window while signal is present.
+            const bool canHoldLastPitch = hardTuneMode
+                && inputRms > 0.001f
+                && lastValidDetectedHz > minPitchHz - 10.0f
+                && lastValidDetectedHz < maxPitchHz + 10.0f
+                && blocksSinceValidPitch <= 12;
+
+            if (canHoldLastPitch)
+            {
+                detectedHz = lastValidDetectedHz;
+                hasUsablePitch = true;
+                pitchConfidence.store (juce::jmax (pitchConfidence.load(), 0.20f));
+            }
+        }
+
+        if (hasUsablePitch)
         {
             const int candidateMidiNote = quantizeToScale (detectedHz);
             const float detectedMidi = 69.0f + 12.0f * std::log2 (juce::jmax (1.0f, detectedHz) / 440.0f);
@@ -271,9 +300,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const int targetMidiNote = lockedTargetMidi;
             const float targetHz = getTargetPitchHz (targetMidiNote);
 
-            float pitchRatio = computeRetuneRatio (detectedHz, targetHz, inputRms, lowLatencyMode);
-            applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
-                          vibratoValue);
+            const float directRatio = juce::jlimit (0.50f, 2.00f,
+                targetHz / juce::jmax (1.0f, detectedHz));
+
+            float pitchRatio = hardTuneMode
+                ? directRatio
+                : computeRetuneRatio (detectedHz, targetHz, inputRms, lowLatencyMode);
+
+            if (! hardTuneMode)
+            {
+                applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
+                              vibratoValue);
+            }
             // Keep correction bounded while allowing strong hard-tune behavior.
             targetPitchRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
             const float correctedHz = detectedHz * pitchRatio;
@@ -303,7 +341,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Correction is always 100% toward target note — no depth scaling
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
-    const bool trackingLost = trackingConfidence < 0.005f || inputRms < 0.002f;
+    const bool hardTuneGlobal = retuneSpeedNorm > 0.85f;
+    const bool trackingLost = hardTuneGlobal
+        ? (inputRms < 0.001f)
+        : (trackingConfidence < 0.005f || inputRms < 0.002f);
 
     // Retune stays active across the full knob range; knob controls speed only.
     {
@@ -313,14 +354,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         if (! trackingLost)
         {
-            if (retuneSpeedNorm > 0.85f)
+            if (hardTuneGlobal)
                 activePitchRatio = targetPitchRatio;
             else
                 activePitchRatio += (targetPitchRatio - activePitchRatio) * speedCoeff;
         }
         else
         {
-            if (retuneSpeedNorm > 0.85f)
+            if (hardTuneGlobal)
                 activePitchRatio += (targetPitchRatio - activePitchRatio) * 0.35f;
             else
                 activePitchRatio += (1.0f - activePitchRatio) * 0.03f;
@@ -548,6 +589,8 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
         }
     }
 
+    bool usedAutoCorrFallback = false;
+
     if (foundTau < 0)
     {
         // Fallback: global minimum over search range. More permissive for real vocal pitch.
@@ -561,8 +604,48 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
                 foundTau = tau;
             }
         }
+
         if (bestVal > 0.60f)
-            return detectedPitch.load(); // Raised from 0.45 to allow weaker but real detections.
+        {
+            // Secondary fallback: normalized autocorrelation over the same search range.
+            // This catches sustained vocals where YIN's dip threshold can fail.
+            int bestAutoTau = tauMin;
+            float bestCorr = -1.0f;
+
+            for (int tau = tauMin; tau < tauMax; ++tau)
+            {
+                float xy = 0.0f;
+                float xx = 0.0f;
+                float yy = 0.0f;
+
+                for (int i = 0; i < halfBuf; ++i)
+                {
+                    const float x = yinBuffer[static_cast<size_t> (i)];
+                    const float y = yinBuffer[static_cast<size_t> (i + tau)];
+                    xy += x * y;
+                    xx += x * x;
+                    yy += y * y;
+                }
+
+                const float denom = std::sqrt (juce::jmax (1.0e-9f, xx * yy));
+                const float corr = xy / denom;
+                if (corr > bestCorr)
+                {
+                    bestCorr = corr;
+                    bestAutoTau = tau;
+                }
+            }
+
+            if (bestCorr > 0.30f)
+            {
+                foundTau = bestAutoTau;
+                usedAutoCorrFallback = true;
+            }
+            else
+            {
+                return detectedPitch.load();
+            }
+        }
     }
 
     // Step 4: Parabolic interpolation for sub-sample period accuracy.
@@ -584,10 +667,18 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
     
     // Improved confidence: based on how pronounced the dip is and whether it's from threshold search (more confident)
     // vs fallback search (less confident). Score reflects actual periodicity clarity.
-    const float baseConfidence = 1.0f - juce::jlimit (0.0f, 0.90f, d[static_cast<size_t> (foundTau)] * 1.35f);
-    const bool fromThresholdSearch = (d[static_cast<size_t> (foundTau)] < threshold);
-    const float searchBoost = fromThresholdSearch ? 0.10f : 0.0f; // Threshold hits are more reliable.
-    pitchConfidence.store (juce::jlimit (0.15f, 0.95f, baseConfidence + searchBoost));
+    if (usedAutoCorrFallback)
+    {
+        // Fallback detections are intentionally low-confidence but still usable.
+        pitchConfidence.store (0.22f);
+    }
+    else
+    {
+        const float baseConfidence = 1.0f - juce::jlimit (0.0f, 0.90f, d[static_cast<size_t> (foundTau)] * 1.35f);
+        const bool fromThresholdSearch = (d[static_cast<size_t> (foundTau)] < threshold);
+        const float searchBoost = fromThresholdSearch ? 0.10f : 0.0f; // Threshold hits are more reliable.
+        pitchConfidence.store (juce::jlimit (0.15f, 0.95f, baseConfidence + searchBoost));
+    }
     pitchHistory[static_cast<size_t> (historyIndex)].store (detectedHz);
     historyIndex = (historyIndex + 1) % pitchHistorySize;
 

@@ -125,6 +125,8 @@ private:
     int blockCount { 0 };
     int analysisInterval { 2048 };
     float smoothedDetectedHz { 0.0f };
+    float lastValidDetectedHz { 0.0f };
+    int blocksSinceValidPitch { 0 };
     float retuneLfoPhase { 0.0f };
     float retuneLfoJitter { 0.0f };
     float outputCompGain { 1.0f };
