@@ -89,7 +89,7 @@ private:
     // Circular buffer resampling pitch shift
     void initializePitchShift();
     void processCircularBufferPitchShift (float* channelData, int numSamples, float pitchRatio,
-                                          int channelIndex, bool lowLatencyMode);
+                                          int channelIndex, bool lowLatencyMode, float retuneSpeedNorm);
 
     // DSP systems
     float smoothDetectedPitch (float rawDetectedHz, float signalRms, bool lowLatencyMode);
