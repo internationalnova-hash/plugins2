@@ -385,12 +385,13 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     if (retuneSpeedNorm <= 0.85f && centsError < toleranceCents)
         return 1.0f;
 
-    // Speed-shaped correction: higher retune speed increases both correction depth
-    // and snap intensity so fast mode sounds clearly tuned.
-    const float signedCentsError = 1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio)));
-    const float depth = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.40f, 1.00f);
-    const float snapWarp = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.75f, 1.95f);
-    const float correctedCents = signedCentsError * depth * snapWarp;
+    // Correct ratio: shift by exactly (depth * centsError) in log space.
+    // depth=1.0 at max speed = full snap to target note.
+    // depth<1.0 at slower speeds = partial correction (natural glide feel).
+    // NO overshoot multiplier — any snapWarp > 1 causes oscillation past the target.
+    const float signedCentsError = 1200.0f * std::log2 (juce::jmax (0.001f, fullRatio));
+    const float depth = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.30f, 1.00f);
+    const float correctedCents = signedCentsError * depth;
     const float shapedRatio = std::pow (2.0f, correctedCents / 1200.0f);
     return juce::jlimit (0.50f, 2.00f, shapedRatio);
 }
@@ -769,7 +770,7 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         const float unityDelta = std::abs (effectiveRatio - 1.0f);
         const float baseWet = juce::jlimit (0.0f, 1.0f, (unityDelta - 0.0005f) / 0.0065f);
         const float shiftWet = hardTuneMode
-            ? juce::jmax (0.88f, baseWet)
+            ? 1.0f
             : juce::jmax (juce::jlimit (0.0f, 0.22f, retuneSpeedNorm * 0.12f), baseWet);
         channelData[i] = delayedDry * (1.0f - shiftWet) + outputSmoother * shiftWet;
 
