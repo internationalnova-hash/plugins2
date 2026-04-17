@@ -134,6 +134,7 @@ private:
     float activePitchRatio { 1.0f };
     float wetMixSmoothed { 0.0f };
     int lockedTargetMidi { -1 };
+    int lockedTargetAge { 0 };
     int currentLatencySamples { normalPitchDelaySamples };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
