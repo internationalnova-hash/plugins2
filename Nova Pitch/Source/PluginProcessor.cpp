@@ -198,7 +198,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float vibratoValue = apvts.getRawParameterValue ("vibrato")->load();
     const float formantValue = apvts.getRawParameterValue ("formant")->load();
     const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
-    const float retuneSpeedNorm = 1.0f - amountNorm; // 0 knob = fastest retune
+    const float retuneSpeedNorm = amountNorm; // 100 knob = fastest retune
     const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
@@ -241,7 +241,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (blockCount % intervalDivider == 0)
     {
         float detectedHz = detectPitchYIN (analysisData, numSamples);
-        detectedHz = smoothDetectedPitch (detectedHz, inputRms, lowLatencyMode || fastRetuneTracking);
+        const bool hardTuneMode = retuneSpeedNorm > 0.85f;
+        if (! hardTuneMode)
+            detectedHz = smoothDetectedPitch (detectedHz, inputRms, lowLatencyMode || fastRetuneTracking);
         detectedPitch.store (detectedHz);
 
         if (detectedHz > minPitchHz - 10.0f && detectedHz < maxPitchHz + 10.0f)
@@ -257,7 +259,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             {
                 // Dynamic hysteresis: hard-tune (fast retune) should switch notes quicker,
                 // while slower retune keeps more stability.
-                const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.50f, 0.05f);
+                const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.50f, 0.0f);
                 const bool switchUp = candidateMidiNote > lockedTargetMidi
                                    && detectedMidi > static_cast<float> (lockedTargetMidi) + switchHysteresis;
                 const bool switchDown = candidateMidiNote < lockedTargetMidi
@@ -310,7 +312,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.028f, 0.996f);
 
         if (! trackingLost)
-            activePitchRatio += (targetPitchRatio - activePitchRatio) * speedCoeff;
+        {
+            if (retuneSpeedNorm > 0.85f)
+                activePitchRatio = targetPitchRatio;
+            else
+                activePitchRatio += (targetPitchRatio - activePitchRatio) * speedCoeff;
+        }
         else
             activePitchRatio += (1.0f - activePitchRatio) * 0.03f;
 
@@ -318,9 +325,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         // Apply shift: corrected audio replaces input — no dry blend, no doubling.
         // When ratio ≈ 1.0 (singer already on pitch), shifter bypasses internally → clean passthrough.
-        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode);
+        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode, retuneSpeedNorm);
         if (channelR != nullptr)
-            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode);
+            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode, retuneSpeedNorm);
     }
 
     applyFormantShaper (channelL, numSamples, formantValue, 0);
@@ -359,7 +366,7 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
 float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targetHz, float /*signalRms*/, bool /*lowLatencyMode*/)
 {
     const float amountNorm = apvts.getRawParameterValue ("amount")->load() / 100.0f;
-    const float retuneSpeedNorm = juce::jlimit (0.0f, 1.0f, 1.0f - amountNorm);
+    const float retuneSpeedNorm = juce::jlimit (0.0f, 1.0f, amountNorm);
 
     const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
 
@@ -371,10 +378,14 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     const float centsError = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio))));
     const float toleranceScale = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 1.0f, 0.05f);
     const float toleranceCents = toleranceNorm * 45.0f * toleranceScale;
-    if (centsError < toleranceCents)
+    if (retuneSpeedNorm <= 0.85f && centsError < toleranceCents)
         return 1.0f;
 
-    return juce::jlimit (0.50f, 2.00f, fullRatio);
+    // Keep correction audible at any non-zero speed, then approach full hard-tune
+    // behavior as speed is increased toward the fastest setting.
+    const float depth = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.30f, 1.0f);
+    const float blendedRatio = 1.0f + (fullRatio - 1.0f) * depth;
+    return juce::jlimit (0.50f, 2.00f, blendedRatio);
 }
 
 void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate, int numSamples, float vibratoParam)
@@ -657,7 +668,7 @@ void NovaPitchAudioProcessor::initializePitchShift()
 }
 
 void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelData, int numSamples, float pitchRatio,
-                                                              int channelIndex, bool lowLatencyMode)
+                                                              int channelIndex, bool lowLatencyMode, float retuneSpeedNorm)
 {
     const int channel = juce::jlimit (0, 1, channelIndex);
     auto& channelDelay = pitchDelay[static_cast<size_t> (channel)];
@@ -670,7 +681,10 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     const int bufferSize = pitchShiftBufferSize;
     const float clampedRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
     const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
-    const float ratioSmoothing = juce::jlimit (0.10f, 0.32f, 0.12f + ratioDelta * 0.85f);
+    const bool hardTuneMode = retuneSpeedNorm > 0.85f;
+    const float ratioSmoothing = hardTuneMode
+        ? 0.90f
+        : juce::jlimit (0.10f, 0.32f, 0.12f + ratioDelta * 0.85f);
     ratioSmoothed += (clampedRatio - ratioSmoothed) * ratioSmoothing;
     const float effectiveRatio = juce::jlimit (0.50f, 2.00f, ratioSmoothed);
 
@@ -746,7 +760,10 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         // Gentle de-zipper for residual crossover grain.
         outputSmoother += (shifted - outputSmoother) * 0.55f;
         const float unityDelta = std::abs (effectiveRatio - 1.0f);
-        const float shiftWet = juce::jlimit (0.0f, 1.0f, (unityDelta - 0.0005f) / 0.0065f);
+        const float baseWet = juce::jlimit (0.0f, 1.0f, (unityDelta - 0.0005f) / 0.0065f);
+        const float shiftWet = hardTuneMode
+            ? juce::jmax (0.88f, baseWet)
+            : juce::jmax (juce::jlimit (0.0f, 0.22f, retuneSpeedNorm * 0.12f), baseWet);
         channelData[i] = delayedDry * (1.0f - shiftWet) + outputSmoother * shiftWet;
 
         ++phaseSamples;
