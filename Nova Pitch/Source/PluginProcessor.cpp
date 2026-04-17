@@ -368,30 +368,20 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         : (trackingConfidence < 0.005f || inputRms < 0.002f);
 
     // Retune stays active across the full knob range; knob controls speed only.
+    // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     {
         const float speedCoeff = lowLatencyMode
-            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.07f, 0.18f)
-            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.06f, 0.16f);
+            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.04f, 0.14f)
+            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.04f, 0.12f);
 
         if (! trackingLost)
         {
-            if (hardTuneGlobal)
-                activePitchRatio += (targetPitchRatio - activePitchRatio) * 0.34f;
-            else
-                activePitchRatio += (targetPitchRatio - activePitchRatio) * speedCoeff;
+            activePitchRatio += (targetPitchRatio - activePitchRatio) * speedCoeff;
         }
         else
         {
-            if (hardTuneGlobal)
-                activePitchRatio += (targetPitchRatio - activePitchRatio) * 0.16f;
-            else
-                activePitchRatio += (1.0f - activePitchRatio) * 0.03f;
+            activePitchRatio += (1.0f - activePitchRatio) * 0.02f;
         }
-
-        // Final safety: limit correction jump per block to prevent skip bursts.
-        const float maxStep = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.006f, 0.022f);
-        const float deltaToTarget = targetPitchRatio - activePitchRatio;
-        activePitchRatio += juce::jlimit (-maxStep, maxStep, deltaToTarget);
 
         activePitchRatio = juce::jlimit (0.84f, 1.19f, activePitchRatio);
 
