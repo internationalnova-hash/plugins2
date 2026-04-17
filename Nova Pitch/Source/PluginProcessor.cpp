@@ -875,7 +875,6 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
             readPos = wrapPos (readPos + recenter * 0.04f);
         }
 
-        const float delayedDry = sampleAt (desiredAnchor);
         const float shifted = sampleAt (readPos);
 
         // Output smoothing to avoid zipper noise when ratio changes.
