@@ -301,8 +301,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 {
                 // Dynamic hysteresis: hard-tune (fast retune) should switch notes quicker,
                 // while slower retune keeps more stability.
-                const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.70f, 0.18f);
-                const int minHoldBlocks = static_cast<int> (std::round (juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 10.0f, 3.0f)));
+                const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.70f, 0.28f);
+                const int minHoldBlocks = static_cast<int> (std::round (juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 12.0f, 5.0f)));
                 const bool switchUp = candidateMidiNote > lockedTargetMidi
                                    && detectedMidi > static_cast<float> (lockedTargetMidi) + switchHysteresis;
                 const bool switchDown = candidateMidiNote < lockedTargetMidi
@@ -362,10 +362,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Correction is always 100% toward target note — no depth scaling
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
-    const bool hardTuneGlobal = retuneSpeedNorm >= 1.01f;
-    const bool trackingLost = hardTuneGlobal
-        ? (inputRms < 0.001f)
-        : (trackingConfidence < 0.005f || inputRms < 0.002f);
+    const bool trackingLost = (trackingConfidence < 0.005f || inputRms < 0.002f);
 
     // Retune stays active across the full knob range; knob controls speed only.
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
@@ -374,13 +371,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.04f, 0.14f)
             : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.04f, 0.12f);
 
+        // Smooth target-ratio motion first, then apply retune-speed glide.
+        const float targetSmoothing = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.08f, 0.20f);
+        targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
+
         if (! trackingLost)
         {
-            activePitchRatio += (targetPitchRatio - activePitchRatio) * speedCoeff;
+            activePitchRatio += (targetRatioSmoothed - activePitchRatio) * speedCoeff;
         }
         else
         {
             activePitchRatio += (1.0f - activePitchRatio) * 0.02f;
+            targetRatioSmoothed += (1.0f - targetRatioSmoothed) * 0.04f;
         }
 
         activePitchRatio = juce::jlimit (0.84f, 1.19f, activePitchRatio);
@@ -432,25 +434,18 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
 
     const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
 
-    // Full correction toward target before speed shaping.
     const float fullRatio = targetHz / juce::jmax (1.0f, detectedHz);
 
-    // Tolerance window: if singer is already within toleranceCents, leave them alone.
+    // Tolerance window: if singer is already close enough, keep ratio at unity.
     const float centsError = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio))));
-    const float toleranceScale = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 1.0f, 0.05f);
+    const float toleranceScale = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 1.0f, 0.15f);
     const float toleranceCents = toleranceNorm * 45.0f * toleranceScale;
-    if (retuneSpeedNorm <= 0.85f && centsError < toleranceCents)
+    if (centsError < toleranceCents)
         return 1.0f;
 
-    // Correct ratio: shift by exactly (depth * centsError) in log space.
-    // depth=1.0 at max speed = full snap to target note.
-    // depth<1.0 at slower speeds = partial correction (natural glide feel).
-    // NO overshoot multiplier — any snapWarp > 1 causes oscillation past the target.
-    const float signedCentsError = 1200.0f * std::log2 (juce::jmax (0.001f, fullRatio));
-    const float depth = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.82f, 1.00f);
-    const float correctedCents = signedCentsError * depth;
-    const float shapedRatio = std::pow (2.0f, correctedCents / 1200.0f);
-    return juce::jlimit (0.50f, 2.00f, shapedRatio);
+    // MetaTune-style behavior: always compute full correction ratio,
+    // then let downstream glide speed determine how quickly we reach it.
+    return juce::jlimit (0.50f, 2.00f, fullRatio);
 }
 
 void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate, int numSamples, float vibratoParam)

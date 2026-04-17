@@ -132,6 +132,7 @@ private:
     float outputCompGain { 1.0f };
     float targetPitchRatio { 1.0f };
     float activePitchRatio { 1.0f };
+    float targetRatioSmoothed { 1.0f };
     float wetMixSmoothed { 0.0f };
     int lockedTargetMidi { -1 };
     int lockedTargetAge { 0 };
