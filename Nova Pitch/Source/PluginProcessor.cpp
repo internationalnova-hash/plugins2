@@ -303,7 +303,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Correction is always 100% toward target note — no depth scaling
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
-    const bool trackingLost = trackingConfidence < 0.03f || inputRms < 0.002f;
+    const bool trackingLost = trackingConfidence < 0.005f || inputRms < 0.002f;
 
     // Retune stays active across the full knob range; knob controls speed only.
     {
@@ -319,7 +319,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 activePitchRatio += (targetPitchRatio - activePitchRatio) * speedCoeff;
         }
         else
-            activePitchRatio += (1.0f - activePitchRatio) * 0.03f;
+        {
+            if (retuneSpeedNorm > 0.85f)
+                activePitchRatio += (targetPitchRatio - activePitchRatio) * 0.35f;
+            else
+                activePitchRatio += (1.0f - activePitchRatio) * 0.03f;
+        }
 
         activePitchRatio = juce::jlimit (0.50f, 2.00f, activePitchRatio);
 
@@ -370,8 +375,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
 
     const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
 
-    // Full correction toward target — retune SPEED is handled by the LP filter in processBlock.
-    // This mirrors AutoTune/MetaTune: correction is always 100%, speed is the only variable.
+    // Full correction toward target before speed shaping.
     const float fullRatio = targetHz / juce::jmax (1.0f, detectedHz);
 
     // Tolerance window: if singer is already within toleranceCents, leave them alone.
@@ -381,11 +385,14 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     if (retuneSpeedNorm <= 0.85f && centsError < toleranceCents)
         return 1.0f;
 
-    // Keep correction audible at any non-zero speed, then approach full hard-tune
-    // behavior as speed is increased toward the fastest setting.
-    const float depth = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.30f, 1.0f);
-    const float blendedRatio = 1.0f + (fullRatio - 1.0f) * depth;
-    return juce::jlimit (0.50f, 2.00f, blendedRatio);
+    // Speed-shaped correction: higher retune speed increases both correction depth
+    // and snap intensity so fast mode sounds clearly tuned.
+    const float signedCentsError = 1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio)));
+    const float depth = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.40f, 1.00f);
+    const float snapWarp = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.75f, 1.95f);
+    const float correctedCents = signedCentsError * depth * snapWarp;
+    const float shapedRatio = std::pow (2.0f, correctedCents / 1200.0f);
+    return juce::jlimit (0.50f, 2.00f, shapedRatio);
 }
 
 void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate, int numSamples, float vibratoParam)
