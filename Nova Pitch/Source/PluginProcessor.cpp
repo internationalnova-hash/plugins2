@@ -243,7 +243,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (blockCount % intervalDivider == 0)
     {
         float detectedHz = detectPitchYIN (analysisData, numSamples);
-        const bool hardTuneMode = retuneSpeedNorm > 0.85f;
+        const bool hardTuneMode = retuneSpeedNorm >= 0.79f;
         if (! hardTuneMode)
             detectedHz = smoothDetectedPitch (detectedHz, inputRms, lowLatencyMode || fastRetuneTracking);
         detectedPitch.store (detectedHz);
@@ -286,6 +286,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
             else if (candidateMidiNote != lockedTargetMidi)
             {
+                // Ignore implausibly large jumps in one analysis step in fast/hard mode.
+                // These are usually detector octave flips that sound like garble artifacts.
+                if (hardTuneMode && std::abs (candidateMidiNote - lockedTargetMidi) > 7)
+                {
+                    // Keep existing lock until detector stabilizes.
+                }
+                else
+                {
                 // Dynamic hysteresis: hard-tune (fast retune) should switch notes quicker,
                 // while slower retune keeps more stability.
                 const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.50f, 0.0f);
@@ -295,17 +303,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                                      && detectedMidi < static_cast<float> (lockedTargetMidi) - switchHysteresis;
                 if (switchUp || switchDown)
                     lockedTargetMidi = candidateMidiNote;
+                }
             }
 
             const int targetMidiNote = lockedTargetMidi;
             const float targetHz = getTargetPitchHz (targetMidiNote);
 
-            const float directRatio = juce::jlimit (0.50f, 2.00f,
-                targetHz / juce::jmax (1.0f, detectedHz));
-
-            float pitchRatio = hardTuneMode
-                ? directRatio
-                : computeRetuneRatio (detectedHz, targetHz, inputRms, lowLatencyMode);
+            float pitchRatio = computeRetuneRatio (detectedHz, targetHz, inputRms, lowLatencyMode);
 
             if (! hardTuneMode)
             {
@@ -341,7 +345,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Correction is always 100% toward target note — no depth scaling
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
-    const bool hardTuneGlobal = retuneSpeedNorm > 0.85f;
+    const bool hardTuneGlobal = retuneSpeedNorm >= 0.79f;
     const bool trackingLost = hardTuneGlobal
         ? (inputRms < 0.001f)
         : (trackingConfidence < 0.005f || inputRms < 0.002f);
@@ -355,14 +359,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         if (! trackingLost)
         {
             if (hardTuneGlobal)
-                activePitchRatio = targetPitchRatio;
+                activePitchRatio += (targetPitchRatio - activePitchRatio) * 0.46f;
             else
                 activePitchRatio += (targetPitchRatio - activePitchRatio) * speedCoeff;
         }
         else
         {
             if (hardTuneGlobal)
-                activePitchRatio += (targetPitchRatio - activePitchRatio) * 0.35f;
+                activePitchRatio += (targetPitchRatio - activePitchRatio) * 0.22f;
             else
                 activePitchRatio += (1.0f - activePitchRatio) * 0.03f;
         }
@@ -431,7 +435,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // depth<1.0 at slower speeds = partial correction (natural glide feel).
     // NO overshoot multiplier — any snapWarp > 1 causes oscillation past the target.
     const float signedCentsError = 1200.0f * std::log2 (juce::jmax (0.001f, fullRatio));
-    const float depth = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.30f, 1.00f);
+    const float depth = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.55f, 1.00f);
     const float correctedCents = signedCentsError * depth;
     const float shapedRatio = std::pow (2.0f, correctedCents / 1200.0f);
     return juce::jlimit (0.50f, 2.00f, shapedRatio);
@@ -780,16 +784,16 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     const int bufferSize = pitchShiftBufferSize;
     const float clampedRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
     const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
-    const bool hardTuneMode = retuneSpeedNorm > 0.85f;
+    const bool hardTuneMode = retuneSpeedNorm >= 0.79f;
     const float ratioSmoothing = hardTuneMode
-        ? 0.90f
-        : juce::jlimit (0.10f, 0.32f, 0.12f + ratioDelta * 0.85f);
+        ? 0.34f
+        : juce::jlimit (0.10f, 0.28f, 0.11f + ratioDelta * 0.60f);
     ratioSmoothed += (clampedRatio - ratioSmoothed) * ratioSmoothing;
     const float effectiveRatio = juce::jlimit (0.50f, 2.00f, ratioSmoothed);
 
     // Granular OLA core.
     // A 2-grain Hann overlap reduces zipper/skip artifacts compared to simple delay modulation.
-    constexpr int hopSamples = 512;
+    constexpr int hopSamples = 256;
     constexpr int grainSamples = hopSamples * 2;
     const int baseDelaySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
 
@@ -857,12 +861,17 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         const float shifted = (sampleAt (srcA) * wA + sampleAt (srcB) * wB) / wSum;
 
         // Gentle de-zipper for residual crossover grain.
-        outputSmoother += (shifted - outputSmoother) * 0.55f;
+        outputSmoother += (shifted - outputSmoother) * 0.34f;
         const float unityDelta = std::abs (effectiveRatio - 1.0f);
-        const float baseWet = juce::jlimit (0.0f, 1.0f, (unityDelta - 0.0005f) / 0.0065f);
-        const float shiftWet = hardTuneMode
-            ? 1.0f
-            : juce::jmax (juce::jlimit (0.0f, 0.22f, retuneSpeedNorm * 0.12f), baseWet);
+        const float correctionStrength = juce::jlimit (0.0f, 1.0f, (unityDelta - 0.0015f) / 0.080f);
+
+        // Keep correction audible through the mid range while avoiding full-granular takeover.
+        const float speedWetFloor = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.28f, 0.56f);
+        const float speedWetCeil = hardTuneMode ? 0.78f : 0.80f;
+        const float shiftWet = juce::jlimit (
+            0.22f,
+            speedWetCeil,
+            speedWetFloor + correctionStrength * (speedWetCeil - speedWetFloor));
         channelData[i] = delayedDry * (1.0f - shiftWet) + outputSmoother * shiftWet;
 
         ++phaseSamples;
