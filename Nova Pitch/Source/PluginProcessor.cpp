@@ -244,7 +244,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (blockCount % intervalDivider == 0)
     {
         float detectedHz = detectPitchYIN (analysisData, numSamples);
-        const bool hardTuneMode = retuneSpeedNorm >= 0.97f;
+        const bool hardTuneMode = retuneSpeedNorm >= 1.01f;
         // Always smooth detector output; disabling smoothing in hard mode caused
         // large frame-to-frame ratio jumps and audible skip bursts.
         detectedHz = smoothDetectedPitch (detectedHz, inputRms, lowLatencyMode || fastRetuneTracking);
@@ -362,7 +362,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Correction is always 100% toward target note — no depth scaling
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
-    const bool hardTuneGlobal = retuneSpeedNorm >= 0.97f;
+    const bool hardTuneGlobal = retuneSpeedNorm >= 1.01f;
     const bool trackingLost = hardTuneGlobal
         ? (inputRms < 0.001f)
         : (trackingConfidence < 0.005f || inputRms < 0.002f);
@@ -806,7 +806,7 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     const int bufferSize = pitchShiftBufferSize;
     const float clampedRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
     const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
-    const bool hardTuneMode = retuneSpeedNorm >= 0.92f;
+    const bool hardTuneMode = retuneSpeedNorm >= 1.01f;
     const float ratioSmoothing = hardTuneMode
         ? 0.24f
         : juce::jlimit (0.10f, 0.24f, 0.10f + ratioDelta * 0.45f);
@@ -867,12 +867,12 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
 
         const float desiredAnchor = wrapPos (static_cast<float> (writeIdx - baseDelaySamples));
         const float latency = std::fmod (static_cast<float> (writeIdx) - readPos + static_cast<float> (bufferSize), static_cast<float> (bufferSize));
-        constexpr float latencyGuard = 128.0f;
+        constexpr float latencyGuard = 64.0f;
         if (latency < latencyGuard || latency > static_cast<float> (bufferSize) - latencyGuard)
         {
-            // Hard safety snap when read head gets dangerously close/far from writer.
-            readPos = desiredAnchor;
-            outputSmoother = sampleAt (readPos);
+            // Gently re-center read head; hard snaps cause audible skips.
+            const float recenter = wrappedDiff (readPos, desiredAnchor);
+            readPos = wrapPos (readPos + recenter * 0.04f);
         }
 
         const float delayedDry = sampleAt (desiredAnchor);
@@ -885,7 +885,7 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         // Keep near-unity passages clean and non-smeared.
         if (unityDelta < 0.020f && retuneSpeedNorm < 0.90f)
         {
-            channelData[i] = delayedDry;
+            channelData[i] = inputSample;
             readPos = wrapPos (readPos + 1.0f);
             const float driftNearUnity = wrappedDiff (readPos, desiredAnchor);
             readPos = wrapPos (readPos + driftNearUnity * 0.0035f);
@@ -897,13 +897,15 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
 
         // Keep low-correction passages mostly dry (avoids reverb/phase smear),
         // and only raise wetness as real correction amount increases.
-        const float speedWetFloor = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.14f, 0.24f);
-        const float speedWetCeil = hardTuneMode ? 0.54f : 0.64f;
+        const float speedWetFloor = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.42f, 0.68f);
+        const float speedWetCeil = hardTuneMode ? 0.95f : 0.88f;
         const float shiftWet = juce::jlimit (
             0.22f,
             speedWetCeil,
             speedWetFloor + correctionStrength * (speedWetCeil - speedWetFloor));
-        channelData[i] = delayedDry * (1.0f - shiftWet) + outputSmoother * shiftWet;
+
+        // Mix against direct input (not delayed dry tap) to avoid comb/delay smear.
+        channelData[i] = inputSample * (1.0f - shiftWet) + outputSmoother * shiftWet;
 
         // Resampling step: ratio>1 reads faster (pitch up), ratio<1 reads slower (pitch down).
         readPos = wrapPos (readPos + effectiveRatio);
