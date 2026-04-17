@@ -243,7 +243,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (blockCount % intervalDivider == 0)
     {
         float detectedHz = detectPitchYIN (analysisData, numSamples);
-        const bool hardTuneMode = retuneSpeedNorm >= 0.92f;
+        const bool hardTuneMode = retuneSpeedNorm >= 0.97f;
         if (! hardTuneMode)
             detectedHz = smoothDetectedPitch (detectedHz, inputRms, lowLatencyMode || fastRetuneTracking);
         detectedPitch.store (detectedHz);
@@ -288,7 +288,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             {
                 // Ignore implausibly large jumps in one analysis step in fast/hard mode.
                 // These are usually detector octave flips that sound like garble artifacts.
-                if (hardTuneMode && std::abs (candidateMidiNote - lockedTargetMidi) > 7)
+                if (hardTuneMode && std::abs (candidateMidiNote - lockedTargetMidi) > 4)
                 {
                     // Keep existing lock until detector stabilizes.
                 }
@@ -296,7 +296,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 {
                 // Dynamic hysteresis: hard-tune (fast retune) should switch notes quicker,
                 // while slower retune keeps more stability.
-                const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.35f, 0.02f);
+                const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.70f, 0.18f);
                 const bool switchUp = candidateMidiNote > lockedTargetMidi
                                    && detectedMidi > static_cast<float> (lockedTargetMidi) + switchHysteresis;
                 const bool switchDown = candidateMidiNote < lockedTargetMidi
@@ -345,7 +345,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Correction is always 100% toward target note — no depth scaling
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
-    const bool hardTuneGlobal = retuneSpeedNorm >= 0.92f;
+    const bool hardTuneGlobal = retuneSpeedNorm >= 0.97f;
     const bool trackingLost = hardTuneGlobal
         ? (inputRms < 0.001f)
         : (trackingConfidence < 0.005f || inputRms < 0.002f);
@@ -353,8 +353,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Retune stays active across the full knob range; knob controls speed only.
     {
         const float speedCoeff = lowLatencyMode
-            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.06f, 0.52f)
-            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.04f, 0.46f);
+            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.04f, 0.22f)
+            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.03f, 0.18f);
 
         if (! trackingLost)
         {
@@ -806,6 +806,17 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         return p;
     };
 
+    auto wrappedDiff = [bufferSize] (float from, float to)
+    {
+        float d = to - from;
+        const float half = static_cast<float> (bufferSize) * 0.5f;
+        while (d > half)
+            d -= static_cast<float> (bufferSize);
+        while (d < -half)
+            d += static_cast<float> (bufferSize);
+        return d;
+    };
+
     auto sampleAt = [&] (float pos)
     {
         const float wrapped = wrapPos (pos);
@@ -845,8 +856,14 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         // Keep grain anchor in a valid latency region behind writer.
         const float desiredAnchor = static_cast<float> (writeIdx - baseDelaySamples);
         const float latency = std::fmod (static_cast<float> (writeIdx) - readPos + static_cast<float> (bufferSize), static_cast<float> (bufferSize));
-        if (latency < 512.0f || latency > static_cast<float> (bufferSize - 512))
-            readPos = wrapPos (desiredAnchor);
+        constexpr float latencyGuard = 128.0f;
+        if (latency < latencyGuard || latency > static_cast<float> (bufferSize) - latencyGuard)
+        {
+            // Smoothly nudge read head toward a safe anchor instead of teleporting,
+            // which can cause audible skip/glitch bursts.
+            const float diff = wrappedDiff (readPos, wrapPos (desiredAnchor));
+            readPos = wrapPos (readPos + diff * 0.08f);
+        }
 
         const float nA = phaseSamples;
         const float nB = phaseSamples + static_cast<float> (hopSamples);
