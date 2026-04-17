@@ -395,6 +395,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         if (! trackingLost)
         {
             activePitchRatio += (targetRatioSmoothed - activePitchRatio) * speedCoeff;
+
+            // Final micro-adjustment: in very fast mode, bias toward stronger snap
+            // so tuning is clearly audible even on short notes.
+            if (retuneSpeedNorm > 0.90f)
+                activePitchRatio += (targetRatioSmoothed - activePitchRatio) * 0.55f;
         }
         else
         {
@@ -880,16 +885,18 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         // Always output from the shifted path to keep latency continuous.
         // Switching between direct and delayed paths causes audible skips/delay jumps.
         const float shifted = sampleAt (readPos);
-        const float outputAlpha = (unityDelta < 0.005f) ? 0.18f : 0.30f;
+        const float baseAlpha = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.22f, 0.62f);
+        const float alphaBoost = juce::jlimit (0.0f, 0.20f, unityDelta * 4.0f);
+        const float outputAlpha = juce::jlimit (0.18f, 0.70f, baseAlpha + alphaBoost);
         outputSmoother += (shifted - outputSmoother) * outputAlpha;
 
         // Near unity, assist with direct signal to avoid chorused/muffled tone in slow mode.
         // Keep this continuous (smoothed) to avoid hard-switch click/skip artifacts.
         const float nearUnity = juce::jlimit (0.0f, 1.0f, (0.015f - unityDelta) / 0.015f);
         const float slowBias = juce::jlimit (0.0f, 1.0f, 1.0f - retuneSpeedNorm);
-        const float desiredDryBlend = nearUnity * slowBias * 0.85f;
-        dryBlendSmoothed += (desiredDryBlend - dryBlendSmoothed) * 0.08f;
-        const float dryBlend = juce::jlimit (0.0f, 0.90f, dryBlendSmoothed);
+        const float desiredDryBlend = nearUnity * slowBias * 0.70f;
+        dryBlendSmoothed += (desiredDryBlend - dryBlendSmoothed) * 0.12f;
+        const float dryBlend = juce::jlimit (0.0f, 0.75f, dryBlendSmoothed);
         channelData[i] = outputSmoother * (1.0f - dryBlend) + inputSample * dryBlend;
 
         // Near-unity uses 1x read speed; corrected passages use smoothed ratio.
