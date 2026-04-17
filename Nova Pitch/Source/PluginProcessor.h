@@ -15,8 +15,8 @@ public:
     static constexpr int yinBufferSize = 2048;
     static constexpr int pitchShiftBufferSize = 8192;
     static constexpr int pitchHistorySize = 256;
-    static constexpr int normalPitchDelaySamples = 3072;
-    static constexpr int lowLatencyPitchDelaySamples = 1536;
+    static constexpr int normalPitchDelaySamples = 640;
+    static constexpr int lowLatencyPitchDelaySamples = 320;
 
     NovaPitchAudioProcessor();
     ~NovaPitchAudioProcessor() override;
@@ -110,6 +110,7 @@ private:
     std::array<int, 2> pitchWriteIndex { 0, 0 };
     std::array<float, 2> pitchShiftRatioSmoothed { 1.0f, 1.0f };
     std::array<float, 2> pitchOutputSmoother { 0.0f, 0.0f };
+    std::array<float, 2> pitchDryBlendSmoothed { 0.0f, 0.0f };
     std::array<std::array<float, 2>, 2> formantAllPassState {};
 
     std::array<std::atomic<float>, pitchHistorySize> pitchHistory {};
