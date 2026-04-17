@@ -318,8 +318,8 @@ const knobDefs = {
 function formatKnobValue(id, value) {
   if (id === 'retuneKnob') {
     const rounded = Math.round(value);
-    if (rounded <= 10) return `${rounded} (Slow)`;
-    if (rounded >= 90) return `${rounded} (Fast)`;
+    if (rounded <= 10) return `${rounded} (Fast)`;
+    if (rounded >= 90) return `${rounded} (Slow)`;
     return `${rounded}`;
   }
   return `${Math.round(value)}%`;
@@ -328,7 +328,10 @@ function formatKnobValue(id, value) {
 function updateKnobReadout(id, value) {
   const readout = document.getElementById(`${id}Value`);
   if (!readout) return;
-  readout.textContent = formatKnobValue(id, value);
+  const shownValue = id === 'retuneKnob'
+    ? (100 - value)
+    : value;
+  readout.textContent = formatKnobValue(id, shownValue);
 }
 
 function syncParam(param, value) {
@@ -369,7 +372,9 @@ function applyHostParamValue(param, value) {
   if (!binding) return;
 
   const next = Math.max(0, Math.min(100, value));
-  state[binding.key] = next;
+  state[binding.key] = param === 'amount'
+    ? (100 - next)
+    : next;
   updateKnobReadout(binding.knobId, next);
 }
 
@@ -583,7 +588,10 @@ function bindKnob(id) {
     updateKnobReadout(id, next);
     if (id === 'retuneKnob') state.retuneDrive = 1;
 
-    syncParam(def.param, next);
+    const valueForHost = def.param === 'amount'
+      ? (100 - next)
+      : next;
+    syncParam(def.param, valueForHost);
   };
 
   const end = () => {
@@ -734,7 +742,9 @@ function drawGraph() {
   const natural = h * (0.56 + Math.sin(state.phase * 1.7) * 0.12 + Math.sin(state.phase * 0.43) * 0.08);
   const target = h * (0.52 - (state.key / 11) * 0.08);
 
-  // Retune Speed is the primary intensity control.
+  // Retune Speed host semantics: 0 is fastest, 100 is slowest.
+  // UI knob position is inverted (left shows 100, right shows 0), so
+  // state.retune rises toward the right and can directly drive intensity.
   const retuneBlend = state.retune / 100;
   const correctedCore = natural + (target - natural) * retuneBlend;
 
@@ -992,14 +1002,14 @@ function saveFavorites() {
 function applyPreset(preset) {
   state.preset.activeId = preset.id;
   const v = preset.values;
-  state.retune    = Math.max(0, Math.min(100, v.retune));
+  state.retune    = 100 - Math.max(0, Math.min(100, v.retune));
   state.humanize  = v.humanize;
   state.flex      = v.flex;
   state.vibrato   = v.vibrato;
   state.formant   = v.formant;
 
   // Sync native + refresh knob readouts
-  syncParam('amount',                state.retune);
+  syncParam('amount',                100 - state.retune);
   syncParam('confidenceThreshold',   state.humanize);
   syncParam('tolerance',             state.flex);
   syncParam('vibrato',               state.vibrato);

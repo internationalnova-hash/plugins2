@@ -198,7 +198,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float vibratoValue = apvts.getRawParameterValue ("vibrato")->load();
     const float formantValue = apvts.getRawParameterValue ("formant")->load();
     const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
-    const float retuneSpeedNorm = amountNorm; // 100 knob = fastest retune
+    const float retuneSpeedNorm = 1.0f - amountNorm; // 0 knob = fastest retune
     const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
@@ -233,7 +233,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     const float inputRms = computeBufferRms (buffer);
 
-    // Track faster when Retune is set fast (right side / amount near 100).
+    // Track faster when Retune is set fast (left side / amount near 0).
     const bool fastRetuneTracking = retuneSpeedNorm > 0.70f;
     const int intervalDivider = (lowLatencyMode || fastRetuneTracking) ? 1 : 2;
 
@@ -359,7 +359,7 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
 float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targetHz, float /*signalRms*/, bool /*lowLatencyMode*/)
 {
     const float amountNorm = apvts.getRawParameterValue ("amount")->load() / 100.0f;
-    const float retuneSpeedNorm = juce::jlimit (0.0f, 1.0f, amountNorm);
+    const float retuneSpeedNorm = juce::jlimit (0.0f, 1.0f, 1.0f - amountNorm);
 
     const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
 
