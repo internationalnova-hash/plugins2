@@ -245,8 +245,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         float detectedHz = detectPitchYIN (analysisData, numSamples);
         const bool hardTuneMode = retuneSpeedNorm >= 0.97f;
-        if (! hardTuneMode)
-            detectedHz = smoothDetectedPitch (detectedHz, inputRms, lowLatencyMode || fastRetuneTracking);
+        // Always smooth detector output; disabling smoothing in hard mode caused
+        // large frame-to-frame ratio jumps and audible skip bursts.
+        detectedHz = smoothDetectedPitch (detectedHz, inputRms, lowLatencyMode || fastRetuneTracking);
         detectedPitch.store (detectedHz);
 
         bool hasUsablePitch = detectedHz > minPitchHz - 10.0f && detectedHz < maxPitchHz + 10.0f;
@@ -301,12 +302,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // Dynamic hysteresis: hard-tune (fast retune) should switch notes quicker,
                 // while slower retune keeps more stability.
                 const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.70f, 0.18f);
-                const int minHoldBlocks = static_cast<int> (std::round (juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 4.0f, 1.0f)));
+                const int minHoldBlocks = static_cast<int> (std::round (juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 10.0f, 3.0f)));
                 const bool switchUp = candidateMidiNote > lockedTargetMidi
                                    && detectedMidi > static_cast<float> (lockedTargetMidi) + switchHysteresis;
                 const bool switchDown = candidateMidiNote < lockedTargetMidi
                                      && detectedMidi < static_cast<float> (lockedTargetMidi) - switchHysteresis;
-                if ((switchUp || switchDown) && lockedTargetAge >= minHoldBlocks)
+                const bool confidentSwitch = pitchConfidence.load() > 0.30f;
+                if ((switchUp || switchDown) && confidentSwitch && lockedTargetAge >= minHoldBlocks)
                 {
                     lockedTargetMidi = candidateMidiNote;
                     lockedTargetAge = 0;
@@ -329,7 +331,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                               vibratoValue);
             }
             // Keep correction bounded while allowing strong hard-tune behavior.
-            targetPitchRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
+            // Limit correction range to realistic vocal tuning deltas.
+            // Large ratio swings are a primary source of skip/glitch artifacts.
+            targetPitchRatio = juce::jlimit (0.84f, 1.19f, pitchRatio);
             const float correctedHz = detectedHz * pitchRatio;
             correctedPitch.store (correctedHz);
 
@@ -366,8 +370,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Retune stays active across the full knob range; knob controls speed only.
     {
         const float speedCoeff = lowLatencyMode
-            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.04f, 0.22f)
-            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.03f, 0.18f);
+            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.07f, 0.18f)
+            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.06f, 0.16f);
 
         if (! trackingLost)
         {
@@ -385,11 +389,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         }
 
         // Final safety: limit correction jump per block to prevent skip bursts.
-        const float maxStep = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.020f, 0.070f);
+        const float maxStep = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.006f, 0.022f);
         const float deltaToTarget = targetPitchRatio - activePitchRatio;
         activePitchRatio += juce::jlimit (-maxStep, maxStep, deltaToTarget);
 
-        activePitchRatio = juce::jlimit (0.50f, 2.00f, activePitchRatio);
+        activePitchRatio = juce::jlimit (0.84f, 1.19f, activePitchRatio);
 
         // Apply shift: corrected audio replaces input — no dry blend, no doubling.
         // When ratio ≈ 1.0 (singer already on pitch), shifter bypasses internally → clean passthrough.
@@ -809,10 +813,8 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     ratioSmoothed += (clampedRatio - ratioSmoothed) * ratioSmoothing;
     const float effectiveRatio = juce::jlimit (0.50f, 2.00f, ratioSmoothed);
 
-    // Granular OLA core.
-    // A 2-grain Hann overlap reduces zipper/skip artifacts compared to simple delay modulation.
-    constexpr int hopSamples = 256;
-    constexpr int grainSamples = hopSamples * 2;
+    // Stable time-domain resampling core.
+    // This is intentionally simpler than the prior granular OLA path to prioritize skip-free output.
     const int baseDelaySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
 
     auto wrapPos = [bufferSize] (float p)
@@ -856,61 +858,37 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         return ((c3 * frac + c2) * frac + c1) * frac + c0;
     };
 
-    auto hannAt = [] (float n)
-    {
-        const float clamped = juce::jlimit (0.0f, static_cast<float> (grainSamples - 1), n);
-        return 0.5f - 0.5f * std::cos ((juce::MathConstants<float>::twoPi * clamped)
-                                       / static_cast<float> (grainSamples - 1));
-    };
-
-    // Grain phase advances in output time. On each hop boundary we move source grain anchor.
-    float phaseSamples = crossfadePhase * static_cast<float> (hopSamples);
-    const float analysisHop = static_cast<float> (hopSamples) * effectiveRatio;
+    juce::ignoreUnused (crossfadePhase);
 
     for (int i = 0; i < numSamples; ++i)
     {
         const float inputSample = channelData[i];
         channelDelay[static_cast<size_t> (writeIdx)] = inputSample;
 
-        // Keep grain anchor in a valid latency region behind writer.
-        const float desiredAnchor = static_cast<float> (writeIdx - baseDelaySamples);
+        const float desiredAnchor = wrapPos (static_cast<float> (writeIdx - baseDelaySamples));
         const float latency = std::fmod (static_cast<float> (writeIdx) - readPos + static_cast<float> (bufferSize), static_cast<float> (bufferSize));
-        constexpr float latencyGuard = 48.0f;
+        constexpr float latencyGuard = 128.0f;
         if (latency < latencyGuard || latency > static_cast<float> (bufferSize) - latencyGuard)
         {
-            // Smoothly nudge read head toward a safe anchor instead of teleporting,
-            // which can cause audible skip/glitch bursts.
-            const float diff = wrappedDiff (readPos, wrapPos (desiredAnchor));
-            readPos = wrapPos (readPos + diff * 0.02f);
+            // Hard safety snap when read head gets dangerously close/far from writer.
+            readPos = desiredAnchor;
+            outputSmoother = sampleAt (readPos);
         }
 
-        const float nA = phaseSamples;
-        const float nB = phaseSamples + static_cast<float> (hopSamples);
-        const float wA = hannAt (nA);
-        const float wB = hannAt (nB);
-        const float wSum = juce::jmax (1.0e-5f, wA + wB);
-
-        const float srcA = readPos + nA * effectiveRatio;
-        const float srcB = (readPos - analysisHop) + nB * effectiveRatio;
-
         const float delayedDry = sampleAt (desiredAnchor);
-        const float shifted = (sampleAt (srcA) * wA + sampleAt (srcB) * wB) / wSum;
+        const float shifted = sampleAt (readPos);
 
-        // Gentle de-zipper for residual crossover grain.
-        outputSmoother += (shifted - outputSmoother) * 0.34f;
+        // Output smoothing to avoid zipper noise when ratio changes.
+        outputSmoother += (shifted - outputSmoother) * 0.42f;
         const float unityDelta = std::abs (effectiveRatio - 1.0f);
 
-        // Skip shifter output for near-unity low-speed cases to avoid unnecessary grain artifacts.
-        if (unityDelta < 0.010f && retuneSpeedNorm < 0.85f)
+        // Keep near-unity passages clean and non-smeared.
+        if (unityDelta < 0.020f && retuneSpeedNorm < 0.90f)
         {
-            channelData[i] = inputSample;
-            ++phaseSamples;
-            if (phaseSamples >= static_cast<float> (hopSamples))
-            {
-                phaseSamples -= static_cast<float> (hopSamples);
-                readPos = wrapPos (readPos + analysisHop);
-            }
-
+            channelData[i] = delayedDry;
+            readPos = wrapPos (readPos + 1.0f);
+            const float driftNearUnity = wrappedDiff (readPos, desiredAnchor);
+            readPos = wrapPos (readPos + driftNearUnity * 0.0035f);
             writeIdx = (writeIdx + 1) % bufferSize;
             continue;
         }
@@ -919,25 +897,25 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
 
         // Keep low-correction passages mostly dry (avoids reverb/phase smear),
         // and only raise wetness as real correction amount increases.
-        const float speedWetFloor = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.08f, 0.18f);
-        const float speedWetCeil = hardTuneMode ? 0.64f : 0.74f;
+        const float speedWetFloor = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.14f, 0.24f);
+        const float speedWetCeil = hardTuneMode ? 0.54f : 0.64f;
         const float shiftWet = juce::jlimit (
             0.22f,
             speedWetCeil,
             speedWetFloor + correctionStrength * (speedWetCeil - speedWetFloor));
         channelData[i] = delayedDry * (1.0f - shiftWet) + outputSmoother * shiftWet;
 
-        ++phaseSamples;
-        if (phaseSamples >= static_cast<float> (hopSamples))
-        {
-            phaseSamples -= static_cast<float> (hopSamples);
-            readPos = wrapPos (readPos + analysisHop);
-        }
+        // Resampling step: ratio>1 reads faster (pitch up), ratio<1 reads slower (pitch down).
+        readPos = wrapPos (readPos + effectiveRatio);
+
+        // Very gentle servo keeps latency centered without audible jumps.
+        const float drift = wrappedDiff (readPos, desiredAnchor);
+        readPos = wrapPos (readPos + drift * 0.0018f);
 
         writeIdx = (writeIdx + 1) % bufferSize;
     }
 
-    crossfadePhase = phaseSamples / static_cast<float> (hopSamples);
+    crossfadePhase = 0.0f;
 }
 
 void NovaPitchAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
