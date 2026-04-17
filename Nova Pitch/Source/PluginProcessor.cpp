@@ -807,9 +807,10 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     const float clampedRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
     const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
     const bool hardTuneMode = retuneSpeedNorm >= 1.01f;
+    // Aggressive ratio smoothing to prevent oscillations at fast retune speeds.
     const float ratioSmoothing = hardTuneMode
-        ? 0.24f
-        : juce::jlimit (0.10f, 0.24f, 0.10f + ratioDelta * 0.45f);
+        ? 0.36f
+        : juce::jlimit (0.16f, 0.36f, 0.16f + ratioDelta * 0.55f);
     ratioSmoothed += (clampedRatio - ratioSmoothed) * ratioSmoothing;
     const float effectiveRatio = juce::jlimit (0.50f, 2.00f, ratioSmoothed);
 
@@ -866,52 +867,38 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         channelDelay[static_cast<size_t> (writeIdx)] = inputSample;
 
         const float desiredAnchor = wrapPos (static_cast<float> (writeIdx - baseDelaySamples));
-        const float latency = std::fmod (static_cast<float> (writeIdx) - readPos + static_cast<float> (bufferSize), static_cast<float> (bufferSize));
-        constexpr float latencyGuard = 64.0f;
-        if (latency < latencyGuard || latency > static_cast<float> (bufferSize) - latencyGuard)
-        {
-            // Gently re-center read head; hard snaps cause audible skips.
-            const float recenter = wrappedDiff (readPos, desiredAnchor);
-            readPos = wrapPos (readPos + recenter * 0.04f);
-        }
-
-        const float shifted = sampleAt (readPos);
-
-        // Output smoothing to avoid zipper noise when ratio changes.
-        outputSmoother += (shifted - outputSmoother) * 0.42f;
         const float unityDelta = std::abs (effectiveRatio - 1.0f);
 
-        // Keep near-unity passages clean and non-smeared.
-        if (unityDelta < 0.020f && retuneSpeedNorm < 0.90f)
+        // PURE REPLACEMENT mode: shifted audio replaces input entirely.
+        // When ratio ≈ 1.0, bypass to clean passthrough. Otherwise output shifted audio.
+        if (unityDelta < 0.005f)
         {
-            channelData[i] = inputSample;
+            // Near unity: read at 1.0 ratio with gentle latency servo.
+            channelData[i] = sampleAt (readPos);
             readPos = wrapPos (readPos + 1.0f);
-            const float driftNearUnity = wrappedDiff (readPos, desiredAnchor);
-            readPos = wrapPos (readPos + driftNearUnity * 0.0035f);
-            writeIdx = (writeIdx + 1) % bufferSize;
-            continue;
+            const float drift = wrappedDiff (readPos, desiredAnchor);
+            readPos = wrapPos (readPos + drift * 0.0008f);
         }
+        else
+        {
+            // Active correction: read and output shifted audio with smooth latency recovery.
+            const float shifted = sampleAt (readPos);
+            outputSmoother += (shifted - outputSmoother) * 0.30f;
+            channelData[i] = outputSmoother;
 
-        const float correctionStrength = juce::jlimit (0.0f, 1.0f, (unityDelta - 0.0025f) / 0.060f);
+            // Resampling step: ratio>1 reads faster (pitch up), ratio<1 reads slower (pitch down).
+            readPos = wrapPos (readPos + effectiveRatio);
 
-        // Keep low-correction passages mostly dry (avoids reverb/phase smear),
-        // and only raise wetness as real correction amount increases.
-        const float speedWetFloor = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.42f, 0.68f);
-        const float speedWetCeil = hardTuneMode ? 0.95f : 0.88f;
-        const float shiftWet = juce::jlimit (
-            0.22f,
-            speedWetCeil,
-            speedWetFloor + correctionStrength * (speedWetCeil - speedWetFloor));
-
-        // Mix against direct input (not delayed dry tap) to avoid comb/delay smear.
-        channelData[i] = inputSample * (1.0f - shiftWet) + outputSmoother * shiftWet;
-
-        // Resampling step: ratio>1 reads faster (pitch up), ratio<1 reads slower (pitch down).
-        readPos = wrapPos (readPos + effectiveRatio);
-
-        // Very gentle servo keeps latency centered without audible jumps.
-        const float drift = wrappedDiff (readPos, desiredAnchor);
-        readPos = wrapPos (readPos + drift * 0.0018f);
+            // Single gentle servo pass: nudge read-head back toward desired latency.
+            // This replaces the dual-servo approach to avoid conflicting pulls.
+            const float latency = std::fmod (static_cast<float> (writeIdx) - readPos + static_cast<float> (bufferSize), static_cast<float> (bufferSize));
+            constexpr float latencyGuard = 48.0f;
+            if (latency < latencyGuard || latency > static_cast<float> (bufferSize) - latencyGuard)
+            {
+                const float recenter = wrappedDiff (readPos, desiredAnchor);
+                readPos = wrapPos (readPos + recenter * 0.008f);  // Slower recentering
+            }
+        }
 
         writeIdx = (writeIdx + 1) % bufferSize;
     }
