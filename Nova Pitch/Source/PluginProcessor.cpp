@@ -466,7 +466,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Correction is always 100% toward target note — no depth scaling
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
-    const bool trackingLost = (trackingConfidence < 0.005f || inputRms < 0.002f);
+    const bool signalTooLow = inputRms < 0.0002f;
+    // Avoid latching into permanent tracking loss from brief detector misses.
+    const bool trackingLost = signalTooLow || (trackingConfidence < 0.01f && blocksSinceValidPitch > 24);
     if (trackingLost)
         diagWindowTrackingLostBlocks++;
 
@@ -477,6 +479,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     // Retune stays active across the full knob range; knob controls speed only.
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
+    if (! trackingLost)
     {
         const float speedCoeff = lowLatencyMode
             ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.03f, 0.10f)
@@ -486,20 +489,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float targetSmoothing = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.08f, 0.20f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
-        if (! trackingLost)
-        {
-            // Single control law: LP toward target followed by hard slew-limit.
-            // This avoids the prior double-update that could still jump too far in one block.
-            const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
-            const float maxStep = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.0012f, 0.0030f);
-            const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
-            activePitchRatio += step;
-        }
-        else
-        {
-            activePitchRatio += (1.0f - activePitchRatio) * 0.02f;
-            targetRatioSmoothed += (1.0f - targetRatioSmoothed) * 0.04f;
-        }
+        // Single control law: LP toward target followed by hard slew-limit.
+        // This avoids the prior double-update that could still jump too far in one block.
+        const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
+        const float maxStep = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.0012f, 0.0030f);
+        const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
+        activePitchRatio += step;
 
         activePitchRatio = juce::jlimit (0.82f, 1.22f, activePitchRatio);
 
@@ -513,11 +508,22 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         diagWindowAppliedCentsAbsSum += static_cast<double> (appliedCents);
         diagWindowTargetCentsAbsSum += static_cast<double> (targetCents);
 
-        // Apply shift: corrected audio replaces input — no dry blend, no doubling.
-        // When ratio ≈ 1.0 (singer already on pitch), shifter bypasses internally → clean passthrough.
+        // Apply shift only when tracking is valid.
         processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode, retuneSpeedNorm);
         if (channelR != nullptr)
             processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode, retuneSpeedNorm);
+    }
+    else
+    {
+        // Hard safety path: when tracking is lost, bypass shifter entirely to avoid skip/delay artifacts.
+        activePitchRatio += (1.0f - activePitchRatio) * 0.06f;
+        targetRatioSmoothed += (1.0f - targetRatioSmoothed) * 0.08f;
+        activePitchRatio = 1.0f;
+        targetRatioSmoothed = 1.0f;
+
+        std::copy (dryScratchL.data(), dryScratchL.data() + numSamples, channelL);
+        if (channelR != nullptr)
+            std::copy (dryScratchR.data(), dryScratchR.data() + numSamples, channelR);
     }
 
     applyFormantShaper (channelL, numSamples, formantValue, 0);
@@ -782,6 +788,13 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
             std::copy (yinBuffer.begin() + halfBuf, yinBuffer.end(), yinBuffer.begin());
             yinWriteIndex = halfBuf;
             return hz;
+        }
+
+        // Last-resort fallback: keep smoothed estimate alive when signal has energy.
+        if (smoothedDetectedHz > minPitchHz - 10.0f && smoothedDetectedHz < maxPitchHz + 10.0f)
+        {
+            pitchConfidence.store (juce::jmax (pitchConfidence.load(), 0.08f));
+            return smoothedDetectedHz;
         }
 
         return detectedPitch.load();
