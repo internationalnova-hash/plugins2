@@ -103,6 +103,8 @@ private:
     // Member variables
     std::vector<float> yinBuffer;
     std::vector<float> analysisScratch;
+    std::vector<float> dryScratchL;
+    std::vector<float> dryScratchR;
     int yinWriteIndex { 0 };
     
     std::array<std::array<float, pitchShiftBufferSize>, 2> pitchDelay {};

@@ -288,6 +288,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     const float inputRms = computeBufferRms (buffer);
 
+    if (dryScratchL.size() < static_cast<size_t> (numSamples))
+        dryScratchL.resize (static_cast<size_t> (numSamples), 0.0f);
+    std::copy (channelL, channelL + numSamples, dryScratchL.data());
+    if (channelR != nullptr)
+    {
+        if (dryScratchR.size() < static_cast<size_t> (numSamples))
+            dryScratchR.resize (static_cast<size_t> (numSamples), 0.0f);
+        std::copy (channelR, channelR + numSamples, dryScratchR.data());
+    }
+
     // Track faster when Retune Speed is high (amount near 100).
     const bool fastRetuneTracking = retuneSpeedNorm > 0.70f;
     const int intervalDivider = (lowLatencyMode || fastRetuneTracking) ? 1 : 2;
@@ -460,6 +470,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (trackingLost)
         diagWindowTrackingLostBlocks++;
 
+    const float desiredWet = trackingLost ? 0.0f : 1.0f;
+    const float wetSlew = trackingLost ? 0.14f : 0.03f;
+    wetMixSmoothed += (desiredWet - wetMixSmoothed) * wetSlew;
+    const float wetMix = juce::jlimit (0.0f, 1.0f, wetMixSmoothed);
+
     // Retune stays active across the full knob range; knob controls speed only.
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     {
@@ -508,6 +523,21 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     applyFormantShaper (channelL, numSamples, formantValue, 0);
     if (channelR != nullptr)
         applyFormantShaper (channelR, numSamples, formantValue, 1);
+
+    if (wetMix < 0.999f)
+    {
+        const float dryMix = 1.0f - wetMix;
+        auto* dryL = dryScratchL.data();
+        for (int i = 0; i < numSamples; ++i)
+            channelL[i] = channelL[i] * wetMix + dryL[i] * dryMix;
+
+        if (channelR != nullptr)
+        {
+            auto* dryR = dryScratchR.data();
+            for (int i = 0; i < numSamples; ++i)
+                channelR[i] = channelR[i] * wetMix + dryR[i] * dryMix;
+        }
+    }
 
     applyOutputManagement (buffer, inputRms);
 
@@ -729,6 +759,34 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
     if (tauMin >= tauMax)
         return detectedPitch.load();
 
+    auto estimateByZeroCrossing = [&]() -> float
+    {
+        int crossings = 0;
+        float prev = yinBuffer[0];
+        for (int i = 1; i < halfBuf; ++i)
+        {
+            const float x = yinBuffer[static_cast<size_t> (i)];
+            if (prev <= 0.0f && x > 0.0f)
+                ++crossings;
+            prev = x;
+        }
+
+        const float hz = static_cast<float> (crossings) * static_cast<float> (currentSampleRate)
+                       / static_cast<float> (juce::jmax (1, halfBuf));
+        if (hz > minPitchHz - 10.0f && hz < maxPitchHz + 10.0f)
+        {
+            pitchConfidence.store (0.12f);
+            pitchHistory[static_cast<size_t> (historyIndex)].store (hz);
+            historyIndex = (historyIndex + 1) % pitchHistorySize;
+
+            std::copy (yinBuffer.begin() + halfBuf, yinBuffer.end(), yinBuffer.begin());
+            yinWriteIndex = halfBuf;
+            return hz;
+        }
+
+        return detectedPitch.load();
+    };
+
     // Step 1: Difference function d(τ).
     std::vector<float> d (static_cast<size_t> (tauMax + 1), 0.0f);
     for (int tau = 1; tau <= tauMax; ++tau)
@@ -827,7 +885,7 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
             }
             else
             {
-                return detectedPitch.load();
+                return estimateByZeroCrossing();
             }
         }
     }
@@ -845,7 +903,7 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
     }
 
     if (betterTau <= 0.5f)
-        return detectedPitch.load();
+        return estimateByZeroCrossing();
 
     const float detectedHz = static_cast<float> (currentSampleRate) / betterTau;
     
