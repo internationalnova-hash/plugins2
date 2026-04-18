@@ -157,6 +157,18 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     wetMixSmoothed = 0.0f;
     lockedTargetMidi = -1;
     lockedTargetAge = 0;
+    diagWindowSamples = 0;
+    diagWindowBlocks = 0;
+    diagWindowDetectEvalBlocks = 0;
+    diagWindowDetectValidBlocks = 0;
+    diagWindowRatioComputedBlocks = 0;
+    diagWindowUnityReturnBlocks = 0;
+    diagWindowLockSwitches = 0;
+    diagWindowTrackingLostBlocks = 0;
+    diagWindowLargeRatioStepBlocks = 0;
+    diagWindowAppliedCentsAbsSum = 0.0;
+    diagWindowTargetCentsAbsSum = 0.0;
+    diagPrevActivePitchRatio = 1.0f;
 }
 
 void NovaPitchAudioProcessor::releaseResources()
@@ -192,6 +204,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         buffer.clear (i, 0, buffer.getNumSamples());
 
     int numSamples = buffer.getNumSamples();
+    diagWindowBlocks++;
+    diagWindowSamples += static_cast<std::uint64_t> (juce::jmax (0, numSamples));
     auto* channelL = buffer.getWritePointer (0);
     auto* channelR = totalNumInputChannels > 1 ? buffer.getWritePointer (1) : nullptr;
     const bool lowLatencyMode = apvts.getRawParameterValue ("lowLatency")->load() >= 0.5f;
@@ -260,6 +274,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Perform pitch detection periodically
     if (blockCount % intervalDivider == 0)
     {
+        diagWindowDetectEvalBlocks++;
         float detectedHz = detectPitchYIN (analysisData, numSamples);
         const bool fastCorrectionMode = retuneSpeedNorm > 0.70f;
         // Always smooth detector output; disabling smoothing in hard mode caused
@@ -271,6 +286,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         if (hasUsablePitch)
         {
+            diagWindowDetectValidBlocks++;
             lastValidDetectedHz = detectedHz;
             blocksSinceValidPitch = 0;
         }
@@ -329,6 +345,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 {
                     lockedTargetMidi = candidateMidiNote;
                     lockedTargetAge = 0;
+                    diagWindowLockSwitches++;
                 }
                 }
             }
@@ -341,16 +358,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const float targetHz = getTargetPitchHz (targetMidiNote);
 
             float pitchRatio = computeRetuneRatio (detectedHz, targetHz, inputRms, lowLatencyMode);
+            diagWindowRatioComputedBlocks++;
+            if (std::abs (pitchRatio - 1.0f) < 0.001f)
+                diagWindowUnityReturnBlocks++;
 
             if (vibratoValue > 0.001f)
             {
                 applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
                               vibratoValue);
             }
-            // Keep correction bounded while allowing strong hard-tune behavior.
-            // Limit correction range to realistic vocal tuning deltas.
-            // Large ratio swings are a primary source of skip/glitch artifacts.
-            targetPitchRatio = juce::jlimit (0.70f, 1.43f, pitchRatio);
+            // Keep correction bounded to a stable range for the current time-domain shifter.
+            // Wider ranges were producing read-head stress and fastest-mode skip artifacts.
+            targetPitchRatio = juce::jlimit (0.82f, 1.22f, pitchRatio);
             const float correctedHz = detectedHz * pitchRatio;
             correctedPitch.store (correctedHz);
 
@@ -366,11 +385,21 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 DBG("Nova Pitch: detectedHz=" << detectedHz << " out of range=[" << (minPitchHz - 10.0f) << "-" << (maxPitchHz + 10.0f) << "]");
             }
 
-            targetPitchRatio = 1.0f;
-            correctedPitch.store (0.0f);
-            pitchConfidence.store (0.0f);
-            lockedTargetMidi = -1;
-            lockedTargetAge = 0;
+            // Do not hard-reset target on short detector dropouts; this causes ratio ping-pong
+            // and is perceived as skip/burst artifacts at fastest retune.
+            const int dropoutHoldBlocks = lowLatencyMode ? 18 : 30;
+            if (blocksSinceValidPitch <= dropoutHoldBlocks)
+            {
+                pitchConfidence.store (juce::jmax (0.06f, pitchConfidence.load() * 0.96f));
+            }
+            else
+            {
+                targetPitchRatio = 1.0f;
+                correctedPitch.store (0.0f);
+                pitchConfidence.store (0.0f);
+                lockedTargetMidi = -1;
+                lockedTargetAge = 0;
+            }
         }
     }
 
@@ -380,6 +409,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     const bool trackingLost = (trackingConfidence < 0.005f || inputRms < 0.002f);
+    if (trackingLost)
+        diagWindowTrackingLostBlocks++;
 
     // Retune stays active across the full knob range; knob controls speed only.
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
@@ -395,6 +426,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         if (! trackingLost)
         {
             activePitchRatio += (targetRatioSmoothed - activePitchRatio) * speedCoeff;
+
+            // Hard slew-limit per block to avoid discontinuous ratio steps into the shifter.
+            const float maxStep = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.004f, 0.010f);
+            const float deltaToTarget = targetRatioSmoothed - activePitchRatio;
+            activePitchRatio += juce::jlimit (-maxStep, maxStep, deltaToTarget);
         }
         else
         {
@@ -402,7 +438,17 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             targetRatioSmoothed += (1.0f - targetRatioSmoothed) * 0.04f;
         }
 
-        activePitchRatio = juce::jlimit (0.76f, 1.32f, activePitchRatio);
+        activePitchRatio = juce::jlimit (0.82f, 1.22f, activePitchRatio);
+
+        const float ratioStep = std::abs (activePitchRatio - diagPrevActivePitchRatio);
+        if (ratioStep > 0.008f)
+            diagWindowLargeRatioStepBlocks++;
+        diagPrevActivePitchRatio = activePitchRatio;
+
+        const float appliedCents = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, activePitchRatio)));
+        const float targetCents = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio)));
+        diagWindowAppliedCentsAbsSum += static_cast<double> (appliedCents);
+        diagWindowTargetCentsAbsSum += static_cast<double> (targetCents);
 
         // Apply shift: corrected audio replaces input — no dry blend, no doubling.
         // When ratio ≈ 1.0 (singer already on pitch), shifter bypasses internally → clean passthrough.
@@ -416,6 +462,60 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         applyFormantShaper (channelR, numSamples, formantValue, 1);
 
     applyOutputManagement (buffer, inputRms);
+
+    const std::uint64_t diagMinSamples = static_cast<std::uint64_t> (juce::jmax (1.0, currentSampleRate * 2.0));
+    if (diagWindowSamples >= diagMinSamples)
+    {
+        const double windowSeconds = static_cast<double> (diagWindowSamples) / juce::jmax (1.0, currentSampleRate);
+        const double detectValidRatio = (diagWindowDetectEvalBlocks > 0)
+            ? static_cast<double> (diagWindowDetectValidBlocks) / static_cast<double> (diagWindowDetectEvalBlocks)
+            : 0.0;
+        const double unityReturnRatio = (diagWindowRatioComputedBlocks > 0)
+            ? static_cast<double> (diagWindowUnityReturnBlocks) / static_cast<double> (diagWindowRatioComputedBlocks)
+            : 0.0;
+        const double lockSwitchRate = (windowSeconds > 1.0e-6)
+            ? static_cast<double> (diagWindowLockSwitches) / windowSeconds
+            : 0.0;
+        const double trackingLostRatio = (diagWindowBlocks > 0)
+            ? static_cast<double> (diagWindowTrackingLostBlocks) / static_cast<double> (diagWindowBlocks)
+            : 0.0;
+        const double largeStepRatio = (diagWindowBlocks > 0)
+            ? static_cast<double> (diagWindowLargeRatioStepBlocks) / static_cast<double> (diagWindowBlocks)
+            : 0.0;
+        const double avgAppliedCents = (diagWindowBlocks > 0)
+            ? diagWindowAppliedCentsAbsSum / static_cast<double> (diagWindowBlocks)
+            : 0.0;
+        const double avgTargetCents = (diagWindowBlocks > 0)
+            ? diagWindowTargetCentsAbsSum / static_cast<double> (diagWindowBlocks)
+            : 0.0;
+
+        juce::ignoreUnused (detectValidRatio, unityReturnRatio, lockSwitchRate,
+                            trackingLostRatio, largeStepRatio, avgAppliedCents, avgTargetCents);
+
+        DBG ("Nova Pitch DIAG"
+             << " secs=" << juce::String (windowSeconds, 2)
+             << " detectValidRatio=" << juce::String (detectValidRatio, 3)
+             << " unityReturnRatio=" << juce::String (unityReturnRatio, 3)
+             << " lockSwitchRateHz=" << juce::String (lockSwitchRate, 3)
+             << " trackingLostRatio=" << juce::String (trackingLostRatio, 3)
+             << " largeRatioStepRatio=" << juce::String (largeStepRatio, 3)
+             << " avgAppliedCents=" << juce::String (avgAppliedCents, 1)
+             << " avgTargetCents=" << juce::String (avgTargetCents, 1)
+             << " speedNorm=" << juce::String (retuneSpeedNorm, 3)
+             << " lowLatency=" << (lowLatencyMode ? "1" : "0"));
+
+        diagWindowSamples = 0;
+        diagWindowBlocks = 0;
+        diagWindowDetectEvalBlocks = 0;
+        diagWindowDetectValidBlocks = 0;
+        diagWindowRatioComputedBlocks = 0;
+        diagWindowUnityReturnBlocks = 0;
+        diagWindowLockSwitches = 0;
+        diagWindowTrackingLostBlocks = 0;
+        diagWindowLargeRatioStepBlocks = 0;
+        diagWindowAppliedCentsAbsSum = 0.0;
+        diagWindowTargetCentsAbsSum = 0.0;
+    }
 
     blockCount++;
 }
@@ -814,15 +914,15 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     auto& dryBlendSmoothed = pitchDryBlendSmoothed[static_cast<size_t> (channel)];
 
     const int bufferSize = pitchShiftBufferSize;
-    const float clampedRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
+    const float clampedRatio = juce::jlimit (0.82f, 1.22f, pitchRatio);
     const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
     const bool hardTuneMode = retuneSpeedNorm > 0.90f;
     // Keep ratio changes smooth enough to avoid time-domain read-head jumps.
     const float ratioSmoothing = hardTuneMode
-        ? 0.18f
+        ? 0.10f
         : juce::jlimit (0.08f, 0.20f, 0.08f + ratioDelta * 0.30f);
     ratioSmoothed += (clampedRatio - ratioSmoothed) * ratioSmoothing;
-    const float effectiveRatio = juce::jlimit (0.76f, 1.32f, ratioSmoothed);
+    const float effectiveRatio = juce::jlimit (0.82f, 1.22f, ratioSmoothed);
 
     // Stable time-domain resampling core.
     // This is intentionally simpler than the prior granular OLA path to prioritize skip-free output.
@@ -835,17 +935,6 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         while (p >= static_cast<float> (bufferSize))
             p -= static_cast<float> (bufferSize);
         return p;
-    };
-
-    auto wrappedDiff = [bufferSize] (float from, float to)
-    {
-        float d = to - from;
-        const float half = static_cast<float> (bufferSize) * 0.5f;
-        while (d > half)
-            d -= static_cast<float> (bufferSize);
-        while (d < -half)
-            d += static_cast<float> (bufferSize);
-        return d;
     };
 
     auto sampleAt = [&] (float pos)
@@ -869,25 +958,43 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         return ((c3 * frac + c2) * frac + c1) * frac + c0;
     };
 
-    juce::ignoreUnused (crossfadePhase);
+    // Two-head overlap-crossfade shifter.
+    // This removes discontinuous read-head anchor corrections that manifest as skip bursts.
+    const int windowSamples = juce::jlimit (96, juce::jmax (97, baseDelaySamples - 32),
+                                            static_cast<int> (std::round (baseDelaySamples * 0.65f)));
+    float phase = crossfadePhase;
 
     for (int i = 0; i < numSamples; ++i)
     {
         const float inputSample = channelData[i];
         channelDelay[static_cast<size_t> (writeIdx)] = inputSample;
 
-        const float desiredAnchor = wrapPos (static_cast<float> (writeIdx - baseDelaySamples));
         const float unityDelta = std::abs (effectiveRatio - 1.0f);
+        const float desiredAnchor = wrapPos (static_cast<float> (writeIdx - baseDelaySamples));
 
-        // Always output from the shifted path to keep latency continuous.
-        // Switching between direct and delayed paths causes audible skips/delay jumps.
-        const float shifted = sampleAt (readPos);
-        
-        // Keep output close to true shifted sample. Heavy smoothing masked correction audibility
-        // and created a delayed/muffled character interpreted as skipping.
-        const float baseAlpha = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.70f, 0.92f);
-        const float alphaBoost = juce::jlimit (0.0f, 0.05f, unityDelta * 0.80f);
-        const float outputAlpha = juce::jlimit (0.68f, 0.97f, baseAlpha + alphaBoost);
+        // Anchor moves at +1 sample per sample due to writeIdx increment.
+        // Add only the delta-speed component so net read speed becomes effectiveRatio.
+        phase += (effectiveRatio - 1.0f);
+        const float windowF = static_cast<float> (windowSamples);
+        while (phase >= windowF)
+            phase -= windowF;
+        while (phase < 0.0f)
+            phase += windowF;
+
+        const float t = phase / windowF;
+        const float readA = wrapPos (desiredAnchor + phase);
+        const float readB = wrapPos (readA - windowF);
+        const float sampleA = sampleAt (readA);
+        const float sampleB = sampleAt (readB);
+
+        const float gainA = std::sin ((1.0f - t) * juce::MathConstants<float>::halfPi);
+        const float gainB = std::sin (t * juce::MathConstants<float>::halfPi);
+        const float shifted = sampleA * gainA + sampleB * gainB;
+
+        // Light smoothing only to avoid zippering while preserving audibility.
+        const float baseAlpha = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.88f, 0.98f);
+        const float alphaBoost = juce::jlimit (0.0f, 0.02f, unityDelta * 0.30f);
+        const float outputAlpha = juce::jlimit (0.86f, 0.995f, baseAlpha + alphaBoost);
         outputSmoother += (shifted - outputSmoother) * outputAlpha;
 
         // Disable dry-assist mixing. Mixing dry and delayed pitch-shift paths can comb-filter,
@@ -896,20 +1003,13 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         const float dryBlend = 0.0f;
         channelData[i] = outputSmoother * (1.0f - dryBlend) + inputSample * dryBlend;
 
-        // Near-unity uses 1x read speed; corrected passages use smoothed ratio.
-        const float readStep = (unityDelta < 0.005f) ? 1.0f : juce::jlimit (0.78f, 1.28f, effectiveRatio);
-        readPos = wrapPos (readPos + readStep);
-
-        // Smooth-only anchor servo: no discontinuous jump correction.
-        const float drift = wrappedDiff (readPos, desiredAnchor);
-        const float boundedDrift = juce::jlimit (-28.0f, 28.0f, drift);
-        constexpr float servoCoeff = 0.00045f;
-        readPos = wrapPos (readPos + boundedDrift * servoCoeff);
+        // Keep legacy readPos coherent for state continuity/debug visibility.
+        readPos = readA;
 
         writeIdx = (writeIdx + 1) % bufferSize;
     }
 
-    crossfadePhase = 0.0f;
+    crossfadePhase = phase;
 }
 
 void NovaPitchAudioProcessor::getStateInformation (juce::MemoryBlock& destData)

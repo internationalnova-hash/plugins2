@@ -4,6 +4,7 @@
 #include <atomic>
 #include <vector>
 #include <cmath>
+#include <cstdint>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
@@ -138,6 +139,20 @@ private:
     int lockedTargetMidi { -1 };
     int lockedTargetAge { 0 };
     int currentLatencySamples { normalPitchDelaySamples };
+
+    // Rolling DSP diagnostics (used for root-cause telemetry in debug builds).
+    std::uint64_t diagWindowSamples { 0 };
+    int diagWindowBlocks { 0 };
+    int diagWindowDetectEvalBlocks { 0 };
+    int diagWindowDetectValidBlocks { 0 };
+    int diagWindowRatioComputedBlocks { 0 };
+    int diagWindowUnityReturnBlocks { 0 };
+    int diagWindowLockSwitches { 0 };
+    int diagWindowTrackingLostBlocks { 0 };
+    int diagWindowLargeRatioStepBlocks { 0 };
+    double diagWindowAppliedCentsAbsSum { 0.0 };
+    double diagWindowTargetCentsAbsSum { 0.0 };
+    float diagPrevActivePitchRatio { 1.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };
