@@ -385,21 +385,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     {
         const float speedCoeff = lowLatencyMode
-            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.08f, 0.30f)
-            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.06f, 0.24f);
+            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.05f, 0.18f)
+            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.04f, 0.15f);
 
         // Smooth target-ratio motion first, then apply retune-speed glide.
-        const float targetSmoothing = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.10f, 0.30f);
+        const float targetSmoothing = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.08f, 0.20f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
         if (! trackingLost)
         {
             activePitchRatio += (targetRatioSmoothed - activePitchRatio) * speedCoeff;
-
-            // Final micro-adjustment: in very fast mode, bias toward stronger snap
-            // so tuning is clearly audible even on short notes.
-            if (retuneSpeedNorm > 0.90f)
-                activePitchRatio += (targetRatioSmoothed - activePitchRatio) * 0.55f;
         }
         else
         {
@@ -407,7 +402,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             targetRatioSmoothed += (1.0f - targetRatioSmoothed) * 0.04f;
         }
 
-        activePitchRatio = juce::jlimit (0.70f, 1.43f, activePitchRatio);
+        activePitchRatio = juce::jlimit (0.76f, 1.32f, activePitchRatio);
 
         // Apply shift: corrected audio replaces input — no dry blend, no doubling.
         // When ratio ≈ 1.0 (singer already on pitch), shifter bypasses internally → clean passthrough.
@@ -523,15 +518,15 @@ void NovaPitchAudioProcessor::applyOutputManagement (juce::AudioBuffer<float>& b
     const float outRms = computeBufferRms (buffer);
     if (inputRms > 1.0e-6f && outRms > 1.0e-6f)
     {
-        // CRITICAL: Strongly preserve output level when plugin is active.
-        // Changed from 0.75 floor to 0.95 floor to prevent audible volume drop.
-        // Faster tracking (0.85/0.15) responds quickly to dynamic changes.
-        const float targetGain = juce::jlimit (0.95f, 1.08f, inputRms / outRms);
-        outputCompGain = 0.85f * outputCompGain + 0.15f * targetGain;
+        // Keep plugin-enabled level perceptually equal or slightly above bypass.
+        // A small fixed make-up factor avoids the recurring "enabled sounds quieter" report.
+        const float rmsRatio = inputRms / outRms;
+        const float targetGain = juce::jlimit (1.02f, 1.40f, juce::jmax (1.02f, rmsRatio * 1.02f));
+        outputCompGain = 0.65f * outputCompGain + 0.35f * targetGain;
     }
     else
     {
-        outputCompGain = 0.98f * outputCompGain + 0.02f;
+        outputCompGain += (1.0f - outputCompGain) * 0.05f;
     }
 
     const int channels = buffer.getNumChannels();
@@ -822,12 +817,12 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     const float clampedRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
     const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
     const bool hardTuneMode = retuneSpeedNorm > 0.90f;
-    // Aggressive ratio smoothing to prevent oscillations at fast retune speeds.
+    // Keep ratio changes smooth enough to avoid time-domain read-head jumps.
     const float ratioSmoothing = hardTuneMode
-        ? 0.32f
-        : juce::jlimit (0.12f, 0.28f, 0.12f + ratioDelta * 0.40f);
+        ? 0.18f
+        : juce::jlimit (0.08f, 0.20f, 0.08f + ratioDelta * 0.30f);
     ratioSmoothed += (clampedRatio - ratioSmoothed) * ratioSmoothing;
-    const float effectiveRatio = juce::jlimit (0.50f, 2.00f, ratioSmoothed);
+    const float effectiveRatio = juce::jlimit (0.76f, 1.32f, ratioSmoothed);
 
     // Stable time-domain resampling core.
     // This is intentionally simpler than the prior granular OLA path to prioritize skip-free output.
@@ -888,33 +883,28 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         // Switching between direct and delayed paths causes audible skips/delay jumps.
         const float shifted = sampleAt (readPos);
         
-        // CRITICAL: In fast mode, minimize smoothing so pitch correction is AUDIBLE.
-        // In slow mode, use moderate smoothing to prevent glitching.
-        // Fast mode: alpha ~0.05 (very permissive, pitch is clearly heard)
-        // Slow mode: alpha ~0.25 (smoother, prevents artifacts)
-        const float baseAlpha = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.05f, 0.25f);
-        const float alphaBoost = juce::jlimit (0.0f, 0.08f, unityDelta * 2.0f);
-        const float outputAlpha = juce::jlimit (0.04f, 0.35f, baseAlpha + alphaBoost);
+        // Keep output close to true shifted sample. Heavy smoothing masked correction audibility
+        // and created a delayed/muffled character interpreted as skipping.
+        const float baseAlpha = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.70f, 0.92f);
+        const float alphaBoost = juce::jlimit (0.0f, 0.05f, unityDelta * 0.80f);
+        const float outputAlpha = juce::jlimit (0.68f, 0.97f, baseAlpha + alphaBoost);
         outputSmoother += (shifted - outputSmoother) * outputAlpha;
 
-        // Near unity, assist with direct signal to avoid chorused/muffled tone in slow mode.
-        // Widened threshold (±0.025) so dry-blend engages during slow tuning glides.
-        // Blend clamped to 0.60 max (was 0.80) to preserve shifted signal energy and prevent volume drop.
-        const float nearUnity = juce::jlimit (0.0f, 1.0f, (0.025f - unityDelta) / 0.025f);
-        const float slowBias = juce::jlimit (0.0f, 1.0f, 1.0f - retuneSpeedNorm);
-        const float desiredDryBlend = nearUnity * slowBias * 0.60f;
-        dryBlendSmoothed += (desiredDryBlend - dryBlendSmoothed) * 0.20f;
-        const float dryBlend = juce::jlimit (0.0f, 0.60f, dryBlendSmoothed);
+        // Disable dry-assist mixing. Mixing dry and delayed pitch-shift paths can comb-filter,
+        // causing both perceived skipping and apparent level loss.
+        dryBlendSmoothed += (0.0f - dryBlendSmoothed) * 0.25f;
+        const float dryBlend = 0.0f;
         channelData[i] = outputSmoother * (1.0f - dryBlend) + inputSample * dryBlend;
 
         // Near-unity uses 1x read speed; corrected passages use smoothed ratio.
-        const float readStep = (unityDelta < 0.005f) ? 1.0f : effectiveRatio;
+        const float readStep = (unityDelta < 0.005f) ? 1.0f : juce::jlimit (0.78f, 1.28f, effectiveRatio);
         readPos = wrapPos (readPos + readStep);
 
-        // REDUCED: Micro-servo coefficient dropped from 0.0015f to 0.0004f.
-        // Lower coefficient = gentler drift correction = less micro-jitter in slow mode.
+        // Smooth-only anchor servo: no discontinuous jump correction.
         const float drift = wrappedDiff (readPos, desiredAnchor);
-        readPos = wrapPos (readPos + drift * 0.0004f);
+        const float boundedDrift = juce::jlimit (-28.0f, 28.0f, drift);
+        constexpr float servoCoeff = 0.00045f;
+        readPos = wrapPos (readPos + boundedDrift * servoCoeff);
 
         writeIdx = (writeIdx + 1) % bufferSize;
     }
