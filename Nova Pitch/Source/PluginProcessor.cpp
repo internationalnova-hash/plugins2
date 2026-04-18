@@ -175,6 +175,9 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     wetMixSmoothed = 0.0f;
     lockedTargetMidi = -1;
     lockedTargetAge = 0;
+    pendingTargetMidi = -1;
+    pendingTargetStreak = 0;
+    targetSwitchCooldownBlocks = 0;
     diagWindowSamples = 0;
     diagWindowBlocks = 0;
     diagWindowDetectEvalBlocks = 0;
@@ -333,14 +336,28 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const int candidateMidiNote = quantizeToScale (detectedHz);
             const float detectedMidi = 69.0f + 12.0f * std::log2 (juce::jmax (1.0f, detectedHz) / 440.0f);
 
+            if (targetSwitchCooldownBlocks > 0)
+                --targetSwitchCooldownBlocks;
+
             if (lockedTargetMidi < 0)
             {
                 lockedTargetMidi = candidateMidiNote;
                 lockedTargetAge = 0;
+                pendingTargetMidi = -1;
+                pendingTargetStreak = 0;
+                targetSwitchCooldownBlocks = 0;
             }
             else if (candidateMidiNote != lockedTargetMidi)
             {
                 ++lockedTargetAge;
+
+                if (candidateMidiNote == pendingTargetMidi)
+                    ++pendingTargetStreak;
+                else
+                {
+                    pendingTargetMidi = candidateMidiNote;
+                    pendingTargetStreak = 1;
+                }
 
                 // Ignore implausibly large jumps in one analysis step in fast/hard mode.
                 // These are usually detector octave flips that sound like garble artifacts.
@@ -359,10 +376,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const bool switchDown = candidateMidiNote < lockedTargetMidi
                                      && detectedMidi < static_cast<float> (lockedTargetMidi) - switchHysteresis;
                 const bool confidentSwitch = pitchConfidence.load() > 0.30f;
-                if ((switchUp || switchDown) && confidentSwitch && lockedTargetAge >= minHoldBlocks)
+                const int requiredStableHits = static_cast<int> (std::round (juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 2.0f, 5.0f)));
+                if ((switchUp || switchDown)
+                    && confidentSwitch
+                    && lockedTargetAge >= minHoldBlocks
+                    && pendingTargetStreak >= requiredStableHits
+                    && targetSwitchCooldownBlocks == 0)
                 {
                     lockedTargetMidi = candidateMidiNote;
                     lockedTargetAge = 0;
+                    pendingTargetMidi = -1;
+                    pendingTargetStreak = 0;
+                    targetSwitchCooldownBlocks = static_cast<int> (std::round (juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 4.0f, 10.0f)));
                     diagWindowLockSwitches++;
                 }
                 }
@@ -370,6 +395,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             else
             {
                 ++lockedTargetAge;
+                pendingTargetMidi = -1;
+                pendingTargetStreak = 0;
             }
 
             const int targetMidiNote = lockedTargetMidi;
@@ -417,6 +444,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 pitchConfidence.store (0.0f);
                 lockedTargetMidi = -1;
                 lockedTargetAge = 0;
+                pendingTargetMidi = -1;
+                pendingTargetStreak = 0;
+                targetSwitchCooldownBlocks = 0;
             }
         }
     }

@@ -138,6 +138,9 @@ private:
     float wetMixSmoothed { 0.0f };
     int lockedTargetMidi { -1 };
     int lockedTargetAge { 0 };
+    int pendingTargetMidi { -1 };
+    int pendingTargetStreak { 0 };
+    int targetSwitchCooldownBlocks { 0 };
     int currentLatencySamples { normalPitchDelaySamples };
 
     // Rolling DSP diagnostics (used for root-cause telemetry in debug builds).
