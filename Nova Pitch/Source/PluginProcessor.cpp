@@ -8,9 +8,17 @@ namespace
 {
 void appendDiagnosticLine (const juce::String& line)
 {
-    const auto logFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
+    const auto documentsLogFile = juce::File::getSpecialLocation (juce::File::userHomeDirectory)
+        .getChildFile ("Documents")
+        .getChildFile ("NovaPitch")
         .getChildFile ("nova_pitch_diag.log");
-    logFile.appendText (line + "\n");
+
+    documentsLogFile.getParentDirectory().createDirectory();
+    documentsLogFile.appendText (line + "\n");
+
+    const auto tempLogFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
+        .getChildFile ("nova_pitch_diag.log");
+    tempLogFile.appendText (line + "\n");
 }
 }
 
@@ -342,10 +350,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 }
                 else
                 {
-                // Dynamic hysteresis: hard-tune (fast retune) should switch notes quicker,
-                // while slower retune keeps more stability.
-                const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.70f, 0.28f);
-                const int minHoldBlocks = static_cast<int> (std::round (juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 12.0f, 5.0f)));
+                // Keep more hysteresis in fast mode to prevent note-flip thrash,
+                // which manifests as skip/warble bursts.
+                const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.78f, 0.46f);
+                const int minHoldBlocks = static_cast<int> (std::round (juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 14.0f, 9.0f)));
                 const bool switchUp = candidateMidiNote > lockedTargetMidi
                                    && detectedMidi > static_cast<float> (lockedTargetMidi) + switchHysteresis;
                 const bool switchDown = candidateMidiNote < lockedTargetMidi
@@ -426,8 +434,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     {
         const float speedCoeff = lowLatencyMode
-            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.05f, 0.18f)
-            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.04f, 0.15f);
+            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.03f, 0.10f)
+            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.025f, 0.085f);
 
         // Smooth target-ratio motion first, then apply retune-speed glide.
         const float targetSmoothing = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.08f, 0.20f);
@@ -435,12 +443,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         if (! trackingLost)
         {
-            activePitchRatio += (targetRatioSmoothed - activePitchRatio) * speedCoeff;
-
-            // Hard slew-limit per block to avoid discontinuous ratio steps into the shifter.
-            const float maxStep = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.004f, 0.010f);
-            const float deltaToTarget = targetRatioSmoothed - activePitchRatio;
-            activePitchRatio += juce::jlimit (-maxStep, maxStep, deltaToTarget);
+            // Single control law: LP toward target followed by hard slew-limit.
+            // This avoids the prior double-update that could still jump too far in one block.
+            const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
+            const float maxStep = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.0012f, 0.0030f);
+            const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
+            activePitchRatio += step;
         }
         else
         {
@@ -569,7 +577,10 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Tolerance window: if singer is already close enough, keep ratio at unity.
     const float centsError = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio))));
     const float toleranceScale = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 1.0f, 0.15f);
-    const float toleranceCents = toleranceNorm * 45.0f * toleranceScale;
+    float toleranceCents = toleranceNorm * 45.0f * toleranceScale;
+    // In fastest mode, disable the tolerance dead-zone so tuning remains clearly active.
+    if (retuneSpeedNorm > 0.90f)
+        toleranceCents = 0.0f;
     if (centsError < toleranceCents)
         return 1.0f;
 
