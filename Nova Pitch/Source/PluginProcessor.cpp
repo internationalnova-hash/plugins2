@@ -4,6 +4,16 @@
 #include <algorithm>
 #include <limits>
 
+namespace
+{
+void appendDiagnosticLine (const juce::String& line)
+{
+    const auto logFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
+        .getChildFile ("nova_pitch_diag.log");
+    logFile.appendText (line + "\n");
+}
+}
+
 constexpr std::array<int, 12> NovaPitchAudioProcessor::chromaticScale;
 constexpr std::array<int, 7> NovaPitchAudioProcessor::majorScale;
 constexpr std::array<int, 7> NovaPitchAudioProcessor::minorScale;
@@ -492,17 +502,20 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         juce::ignoreUnused (detectValidRatio, unityReturnRatio, lockSwitchRate,
                             trackingLostRatio, largeStepRatio, avgAppliedCents, avgTargetCents);
 
-        DBG ("Nova Pitch DIAG"
-             << " secs=" << juce::String (windowSeconds, 2)
-             << " detectValidRatio=" << juce::String (detectValidRatio, 3)
-             << " unityReturnRatio=" << juce::String (unityReturnRatio, 3)
-             << " lockSwitchRateHz=" << juce::String (lockSwitchRate, 3)
-             << " trackingLostRatio=" << juce::String (trackingLostRatio, 3)
-             << " largeRatioStepRatio=" << juce::String (largeStepRatio, 3)
-             << " avgAppliedCents=" << juce::String (avgAppliedCents, 1)
-             << " avgTargetCents=" << juce::String (avgTargetCents, 1)
-             << " speedNorm=" << juce::String (retuneSpeedNorm, 3)
-             << " lowLatency=" << (lowLatencyMode ? "1" : "0"));
+        const juce::String diagLine = juce::String ("Nova Pitch DIAG")
+            + " secs=" + juce::String (windowSeconds, 2)
+            + " detectValidRatio=" + juce::String (detectValidRatio, 3)
+            + " unityReturnRatio=" + juce::String (unityReturnRatio, 3)
+            + " lockSwitchRateHz=" + juce::String (lockSwitchRate, 3)
+            + " trackingLostRatio=" + juce::String (trackingLostRatio, 3)
+            + " largeRatioStepRatio=" + juce::String (largeStepRatio, 3)
+            + " avgAppliedCents=" + juce::String (avgAppliedCents, 1)
+            + " avgTargetCents=" + juce::String (avgTargetCents, 1)
+            + " speedNorm=" + juce::String (retuneSpeedNorm, 3)
+            + " lowLatency=" + juce::String (lowLatencyMode ? 1 : 0);
+
+        DBG (diagLine);
+        appendDiagnosticLine (juce::Time::getCurrentTime().toString (true, true) + " " + diagLine);
 
         diagWindowSamples = 0;
         diagWindowBlocks = 0;
