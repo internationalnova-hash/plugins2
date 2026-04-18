@@ -189,6 +189,8 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     diagWindowLargeRatioStepBlocks = 0;
     diagWindowAppliedCentsAbsSum = 0.0;
     diagWindowTargetCentsAbsSum = 0.0;
+    diagWindowInputRmsSum = 0.0;
+    diagWindowInputRmsCount = 0;
     diagPrevActivePitchRatio = 1.0f;
 }
 
@@ -467,8 +469,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     const bool signalTooLow = inputRms < 0.0002f;
-    // Avoid latching into permanent tracking loss from brief detector misses.
-    const bool trackingLost = signalTooLow || (trackingConfidence < 0.01f && blocksSinceValidPitch > 24);
+    // Go to dry bypass immediately when confidence is zero — no grace period.
+    // A 24-block grace window caused the shifter to run 24 blocks without a valid pitch
+    // then abruptly switch to dry, producing an audible skip/comb artifact every playback start.
+    const bool trackingLost = signalTooLow || trackingConfidence < 0.01f;
     if (trackingLost)
         diagWindowTrackingLostBlocks++;
 
@@ -530,6 +534,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (channelR != nullptr)
         applyFormantShaper (channelR, numSamples, formantValue, 1);
 
+    // Track input RMS every block for diagnostics.
+    diagWindowInputRmsSum += static_cast<double> (inputRms);
+    ++diagWindowInputRmsCount;
+
     if (wetMix < 0.999f)
     {
         const float dryMix = 1.0f - wetMix;
@@ -572,9 +580,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const double avgTargetCents = (diagWindowBlocks > 0)
             ? diagWindowTargetCentsAbsSum / static_cast<double> (diagWindowBlocks)
             : 0.0;
+        const double avgInputRms = (diagWindowInputRmsCount > 0)
+            ? diagWindowInputRmsSum / static_cast<double> (diagWindowInputRmsCount)
+            : 0.0;
 
         juce::ignoreUnused (detectValidRatio, unityReturnRatio, lockSwitchRate,
-                            trackingLostRatio, largeStepRatio, avgAppliedCents, avgTargetCents);
+                            trackingLostRatio, largeStepRatio, avgAppliedCents, avgTargetCents, avgInputRms);
 
         const juce::String diagLine = juce::String ("Nova Pitch DIAG")
             + " secs=" + juce::String (windowSeconds, 2)
@@ -585,6 +596,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             + " largeRatioStepRatio=" + juce::String (largeStepRatio, 3)
             + " avgAppliedCents=" + juce::String (avgAppliedCents, 1)
             + " avgTargetCents=" + juce::String (avgTargetCents, 1)
+            + " avgInputRms=" + juce::String (avgInputRms, 4)
             + " speedNorm=" + juce::String (retuneSpeedNorm, 3)
             + " lowLatency=" + juce::String (lowLatencyMode ? 1 : 0);
 
@@ -602,6 +614,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         diagWindowLargeRatioStepBlocks = 0;
         diagWindowAppliedCentsAbsSum = 0.0;
         diagWindowTargetCentsAbsSum = 0.0;
+        diagWindowInputRmsSum = 0.0;
+        diagWindowInputRmsCount = 0;
     }
 
     blockCount++;
@@ -767,18 +781,24 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
 
     auto estimateByZeroCrossing = [&]() -> float
     {
-        int crossings = 0;
+        // Count both upward AND downward crossings for a noise-tolerant estimate.
+        // Total crossings / 2 gives the number of full cycles in halfBuf samples.
+        int upCrossings = 0;
+        int downCrossings = 0;
         float prev = yinBuffer[0];
         for (int i = 1; i < halfBuf; ++i)
         {
             const float x = yinBuffer[static_cast<size_t> (i)];
-            if (prev <= 0.0f && x > 0.0f)
-                ++crossings;
+            if (prev <= 0.0f && x > 0.0f) ++upCrossings;
+            if (prev >= 0.0f && x < 0.0f) ++downCrossings;
             prev = x;
         }
-
-        const float hz = static_cast<float> (crossings) * static_cast<float> (currentSampleRate)
-                       / static_cast<float> (juce::jmax (1, halfBuf));
+        const int totalCrossings = upCrossings + downCrossings;
+        // totalCrossings/2 full cycles in halfBuf samples
+        const float hz = (totalCrossings > 0)
+            ? static_cast<float> (totalCrossings) * 0.5f * static_cast<float> (currentSampleRate)
+              / static_cast<float> (juce::jmax (1, halfBuf))
+            : 0.0f;
         if (hz > minPitchHz - 10.0f && hz < maxPitchHz + 10.0f)
         {
             pitchConfidence.store (0.12f);
@@ -891,7 +911,7 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
                 }
             }
 
-            if (bestCorr > 0.30f)
+            if (bestCorr > 0.10f)
             {
                 foundTau = bestAutoTau;
                 usedAutoCorrFallback = true;

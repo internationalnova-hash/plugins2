@@ -157,6 +157,8 @@ private:
     int diagWindowLargeRatioStepBlocks { 0 };
     double diagWindowAppliedCentsAbsSum { 0.0 };
     double diagWindowTargetCentsAbsSum { 0.0 };
+    double diagWindowInputRmsSum { 0.0 };
+    int    diagWindowInputRmsCount { 0 };
     float diagPrevActivePitchRatio { 1.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
