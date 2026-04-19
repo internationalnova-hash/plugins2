@@ -530,15 +530,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             std::copy (dryScratchR.data(), dryScratchR.data() + numSamples, channelR);
     }
 
-    applyFormantShaper (channelL, numSamples, formantValue, 0);
-    if (channelR != nullptr)
-        applyFormantShaper (channelR, numSamples, formantValue, 1);
+    if (! trackingLost)
+    {
+        applyFormantShaper (channelL, numSamples, formantValue, 0);
+        if (channelR != nullptr)
+            applyFormantShaper (channelR, numSamples, formantValue, 1);
+    }
 
     // Track input RMS every block for diagnostics.
     diagWindowInputRmsSum += static_cast<double> (inputRms);
     ++diagWindowInputRmsCount;
 
-    if (wetMix < 0.999f)
+    if (! trackingLost && wetMix < 0.999f)
     {
         const float dryMix = 1.0f - wetMix;
         auto* dryL = dryScratchL.data();
@@ -553,7 +556,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         }
     }
 
-    applyOutputManagement (buffer, inputRms);
+    if (! trackingLost)
+        applyOutputManagement (buffer, inputRms);
 
     const std::uint64_t diagMinSamples = static_cast<std::uint64_t> (juce::jmax (1.0, currentSampleRate * 2.0));
     if (diagWindowSamples >= diagMinSamples)
@@ -779,6 +783,63 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
     if (tauMin >= tauMax)
         return detectedPitch.load();
 
+    auto finalizeDetectedHz = [&] (float hz, float confidence) -> float
+    {
+        pitchConfidence.store (juce::jlimit (0.0f, 1.0f, confidence));
+        pitchHistory[static_cast<size_t> (historyIndex)].store (hz);
+        historyIndex = (historyIndex + 1) % pitchHistorySize;
+
+        std::copy (yinBuffer.begin() + halfBuf, yinBuffer.end(), yinBuffer.begin());
+        yinWriteIndex = halfBuf;
+        return hz;
+    };
+
+    auto estimateByAutoCorrelation = [&]() -> float
+    {
+        // Autocorrelation-first: more robust than strict YIN thresholding on real DAW vocals.
+        // Use DC-rejected normalized correlation and accept low-confidence voiced estimates.
+        double mean = 0.0;
+        for (int i = 0; i < halfBuf; ++i)
+            mean += static_cast<double> (yinBuffer[static_cast<size_t> (i)]);
+        mean /= static_cast<double> (juce::jmax (1, halfBuf));
+
+        int bestTau = tauMin;
+        float bestCorr = -1.0f;
+
+        for (int tau = tauMin; tau < tauMax; ++tau)
+        {
+            double xy = 0.0;
+            double xx = 0.0;
+            double yy = 0.0;
+
+            for (int i = 0; i < halfBuf; ++i)
+            {
+                const float x = yinBuffer[static_cast<size_t> (i)] - static_cast<float> (mean);
+                const float y = yinBuffer[static_cast<size_t> (i + tau)] - static_cast<float> (mean);
+                xy += static_cast<double> (x) * static_cast<double> (y);
+                xx += static_cast<double> (x) * static_cast<double> (x);
+                yy += static_cast<double> (y) * static_cast<double> (y);
+            }
+
+            const double denom = std::sqrt (juce::jmax (1.0e-12, xx * yy));
+            const float corr = static_cast<float> (xy / denom);
+            if (std::isfinite (corr) && corr > bestCorr)
+            {
+                bestCorr = corr;
+                bestTau = tau;
+            }
+        }
+
+        const float hz = static_cast<float> (currentSampleRate) / static_cast<float> (juce::jmax (1, bestTau));
+        if (hz > minPitchHz - 10.0f && hz < maxPitchHz + 10.0f && bestCorr > 0.02f)
+        {
+            const float conf = juce::jlimit (0.08f, 0.92f, (bestCorr - 0.02f) / 0.65f);
+            return finalizeDetectedHz (hz, conf);
+        }
+
+        return 0.0f;
+    };
+
     auto estimateByZeroCrossing = [&]() -> float
     {
         // Count both upward AND downward crossings for a noise-tolerant estimate.
@@ -801,13 +862,7 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
             : 0.0f;
         if (hz > minPitchHz - 10.0f && hz < maxPitchHz + 10.0f)
         {
-            pitchConfidence.store (0.12f);
-            pitchHistory[static_cast<size_t> (historyIndex)].store (hz);
-            historyIndex = (historyIndex + 1) % pitchHistorySize;
-
-            std::copy (yinBuffer.begin() + halfBuf, yinBuffer.end(), yinBuffer.begin());
-            yinWriteIndex = halfBuf;
-            return hz;
+            return finalizeDetectedHz (hz, 0.12f);
         }
 
         // Last-resort fallback: keep smoothed estimate alive when signal has energy.
@@ -819,6 +874,10 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
 
         return detectedPitch.load();
     };
+
+    const float autoCorrHz = estimateByAutoCorrelation();
+    if (autoCorrHz > 0.0f)
+        return autoCorrHz;
 
     // Step 1: Difference function d(τ).
     std::vector<float> d (static_cast<size_t> (tauMax + 1), 0.0f);
@@ -954,13 +1013,7 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
         const float searchBoost = fromThresholdSearch ? 0.10f : 0.0f; // Threshold hits are more reliable.
         pitchConfidence.store (juce::jlimit (0.15f, 0.95f, baseConfidence + searchBoost));
     }
-    pitchHistory[static_cast<size_t> (historyIndex)].store (detectedHz);
-    historyIndex = (historyIndex + 1) % pitchHistorySize;
-
-    std::copy (yinBuffer.begin() + halfBuf, yinBuffer.end(), yinBuffer.begin());
-    yinWriteIndex = halfBuf;
-
-    return detectedHz;
+    return finalizeDetectedHz (detectedHz, pitchConfidence.load());
 }
 
 float NovaPitchAudioProcessor::getYINThreshold() const noexcept
