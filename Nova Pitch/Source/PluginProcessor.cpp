@@ -783,6 +783,17 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
     if (tauMin >= tauMax)
         return detectedPitch.load();
 
+    // Lightweight voiced gate to skip expensive work on near-silence windows.
+    double windowEnergy = 0.0;
+    for (int i = 0; i < halfBuf; ++i)
+    {
+        const float x = yinBuffer[static_cast<size_t> (i)];
+        windowEnergy += static_cast<double> (x) * static_cast<double> (x);
+    }
+    const float windowRms = static_cast<float> (std::sqrt (windowEnergy / static_cast<double> (juce::jmax (1, halfBuf))));
+    if (windowRms < 2.0e-4f)
+        return detectedPitch.load();
+
     auto finalizeDetectedHz = [&] (float hz, float confidence) -> float
     {
         pitchConfidence.store (juce::jlimit (0.0f, 1.0f, confidence));
@@ -794,10 +805,25 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
         return hz;
     };
 
+    auto foldIntoRange = [&] (float hz) -> float
+    {
+        if (! std::isfinite (hz) || hz <= 0.0f)
+            return 0.0f;
+
+        const float minHz = minPitchHz - 10.0f;
+        const float maxHz = maxPitchHz + 10.0f;
+
+        while (hz > maxHz)
+            hz *= 0.5f;
+        while (hz < minHz)
+            hz *= 2.0f;
+
+        return (hz >= minHz && hz <= maxHz) ? hz : 0.0f;
+    };
+
     auto estimateByAutoCorrelation = [&]() -> float
     {
-        // Autocorrelation-first: more robust than strict YIN thresholding on real DAW vocals.
-        // Use DC-rejected normalized correlation and accept low-confidence voiced estimates.
+        // Autocorrelation-first and decimated for real-time stability in fast-retune mode.
         double mean = 0.0;
         for (int i = 0; i < halfBuf; ++i)
             mean += static_cast<double> (yinBuffer[static_cast<size_t> (i)]);
@@ -805,14 +831,16 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
 
         int bestTau = tauMin;
         float bestCorr = -1.0f;
+        constexpr int sampleStep = 2;
+        constexpr int tauStep = 2;
 
-        for (int tau = tauMin; tau < tauMax; ++tau)
+        for (int tau = tauMin; tau < tauMax; tau += tauStep)
         {
             double xy = 0.0;
             double xx = 0.0;
             double yy = 0.0;
 
-            for (int i = 0; i < halfBuf; ++i)
+            for (int i = 0; i < halfBuf; i += sampleStep)
             {
                 const float x = yinBuffer[static_cast<size_t> (i)] - static_cast<float> (mean);
                 const float y = yinBuffer[static_cast<size_t> (i + tau)] - static_cast<float> (mean);
@@ -830,10 +858,11 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
             }
         }
 
-        const float hz = static_cast<float> (currentSampleRate) / static_cast<float> (juce::jmax (1, bestTau));
-        if (hz > minPitchHz - 10.0f && hz < maxPitchHz + 10.0f && bestCorr > 0.02f)
+        const float rawHz = static_cast<float> (currentSampleRate) / static_cast<float> (juce::jmax (1, bestTau));
+        const float hz = foldIntoRange (rawHz);
+        if (hz > 0.0f && bestCorr > 0.005f)
         {
-            const float conf = juce::jlimit (0.08f, 0.92f, (bestCorr - 0.02f) / 0.65f);
+            const float conf = juce::jlimit (0.06f, 0.90f, (bestCorr - 0.005f) / 0.50f);
             return finalizeDetectedHz (hz, conf);
         }
 
@@ -856,11 +885,12 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
         }
         const int totalCrossings = upCrossings + downCrossings;
         // totalCrossings/2 full cycles in halfBuf samples
-        const float hz = (totalCrossings > 0)
+        const float rawHz = (totalCrossings > 0)
             ? static_cast<float> (totalCrossings) * 0.5f * static_cast<float> (currentSampleRate)
               / static_cast<float> (juce::jmax (1, halfBuf))
             : 0.0f;
-        if (hz > minPitchHz - 10.0f && hz < maxPitchHz + 10.0f)
+        const float hz = foldIntoRange (rawHz);
+        if (hz > 0.0f)
         {
             return finalizeDetectedHz (hz, 0.12f);
         }
@@ -872,6 +902,20 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
             return smoothedDetectedHz;
         }
 
+        // Emergency voiced fallback: prefer last known valid/estimated pitch when input energy is present.
+        if (windowRms > 0.004f)
+        {
+            float fallbackHz = 0.0f;
+            if (lastValidDetectedHz > minPitchHz - 10.0f && lastValidDetectedHz < maxPitchHz + 10.0f)
+                fallbackHz = lastValidDetectedHz;
+            else if (detectedPitch.load() > minPitchHz - 10.0f && detectedPitch.load() < maxPitchHz + 10.0f)
+                fallbackHz = detectedPitch.load();
+            else
+                fallbackHz = 220.0f;
+
+            return finalizeDetectedHz (fallbackHz, 0.06f);
+        }
+
         return detectedPitch.load();
     };
 
@@ -879,141 +923,7 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
     if (autoCorrHz > 0.0f)
         return autoCorrHz;
 
-    // Step 1: Difference function d(τ).
-    std::vector<float> d (static_cast<size_t> (tauMax + 1), 0.0f);
-    for (int tau = 1; tau <= tauMax; ++tau)
-    {
-        float sum = 0.0f;
-        for (int i = 0; i < halfBuf; ++i)
-        {
-            const float diff = yinBuffer[static_cast<size_t> (i)]
-                             - yinBuffer[static_cast<size_t> (i + tau)];
-            sum += diff * diff;
-        }
-        d[static_cast<size_t> (tau)] = sum;
-    }
-
-    // Step 2: Cumulative mean normalised difference d'(τ).
-    d[0] = 1.0f;
-    float runningSum = 0.0f;
-    for (int tau = 1; tau <= tauMax; ++tau)
-    {
-        runningSum += d[static_cast<size_t> (tau)];
-        d[static_cast<size_t> (tau)] = (runningSum > 0.0f)
-            ? d[static_cast<size_t> (tau)] * static_cast<float> (tau) / runningSum
-            : 1.0f;
-    }
-
-    // Step 3: Absolute threshold — first dip below threshold is the vocal period.
-    const float confidenceParam = juce::jlimit (0.0f, 1.0f,
-        apvts.getRawParameterValue ("confidenceThreshold")->load() / 100.0f);
-    const float threshold = 0.22f + confidenceParam * 0.08f; // 0.22 to 0.30
-
-    int foundTau = -1;
-    for (int tau = tauMin; tau < tauMax; ++tau)
-    {
-        if (d[static_cast<size_t> (tau)] < threshold)
-        {
-            // Walk to the local minimum within this dip.
-            while (tau + 1 < tauMax
-                   && d[static_cast<size_t> (tau + 1)] < d[static_cast<size_t> (tau)])
-                ++tau;
-            foundTau = tau;
-            break;
-        }
-    }
-
-    bool usedAutoCorrFallback = false;
-
-    if (foundTau < 0)
-    {
-        // Fallback: global minimum over search range. More permissive for real vocal pitch.
-        foundTau = tauMin;
-        float bestVal = d[static_cast<size_t> (tauMin)];
-        for (int tau = tauMin + 1; tau < tauMax; ++tau)
-        {
-            if (d[static_cast<size_t> (tau)] < bestVal)
-            {
-                bestVal = d[static_cast<size_t> (tau)];
-                foundTau = tau;
-            }
-        }
-
-        if (bestVal > 0.60f)
-        {
-            // Secondary fallback: normalized autocorrelation over the same search range.
-            // This catches sustained vocals where YIN's dip threshold can fail.
-            int bestAutoTau = tauMin;
-            float bestCorr = -1.0f;
-
-            for (int tau = tauMin; tau < tauMax; ++tau)
-            {
-                float xy = 0.0f;
-                float xx = 0.0f;
-                float yy = 0.0f;
-
-                for (int i = 0; i < halfBuf; ++i)
-                {
-                    const float x = yinBuffer[static_cast<size_t> (i)];
-                    const float y = yinBuffer[static_cast<size_t> (i + tau)];
-                    xy += x * y;
-                    xx += x * x;
-                    yy += y * y;
-                }
-
-                const float denom = std::sqrt (juce::jmax (1.0e-9f, xx * yy));
-                const float corr = xy / denom;
-                if (corr > bestCorr)
-                {
-                    bestCorr = corr;
-                    bestAutoTau = tau;
-                }
-            }
-
-            if (bestCorr > 0.10f)
-            {
-                foundTau = bestAutoTau;
-                usedAutoCorrFallback = true;
-            }
-            else
-            {
-                return estimateByZeroCrossing();
-            }
-        }
-    }
-
-    // Step 4: Parabolic interpolation for sub-sample period accuracy.
-    float betterTau = static_cast<float> (foundTau);
-    if (foundTau > tauMin && foundTau < tauMax - 1)
-    {
-        const float y0 = d[static_cast<size_t> (foundTau - 1)];
-        const float y1 = d[static_cast<size_t> (foundTau)];
-        const float y2 = d[static_cast<size_t> (foundTau + 1)];
-        const float parabDen = y0 - 2.0f * y1 + y2;
-        if (std::abs (parabDen) > 1.0e-8f)
-            betterTau += 0.5f * (y0 - y2) / parabDen;
-    }
-
-    if (betterTau <= 0.5f)
-        return estimateByZeroCrossing();
-
-    const float detectedHz = static_cast<float> (currentSampleRate) / betterTau;
-    
-    // Improved confidence: based on how pronounced the dip is and whether it's from threshold search (more confident)
-    // vs fallback search (less confident). Score reflects actual periodicity clarity.
-    if (usedAutoCorrFallback)
-    {
-        // Fallback detections are intentionally low-confidence but still usable.
-        pitchConfidence.store (0.22f);
-    }
-    else
-    {
-        const float baseConfidence = 1.0f - juce::jlimit (0.0f, 0.90f, d[static_cast<size_t> (foundTau)] * 1.35f);
-        const bool fromThresholdSearch = (d[static_cast<size_t> (foundTau)] < threshold);
-        const float searchBoost = fromThresholdSearch ? 0.10f : 0.0f; // Threshold hits are more reliable.
-        pitchConfidence.store (juce::jlimit (0.15f, 0.95f, baseConfidence + searchBoost));
-    }
-    return finalizeDetectedHz (detectedHz, pitchConfidence.load());
+    return estimateByZeroCrossing();
 }
 
 float NovaPitchAudioProcessor::getYINThreshold() const noexcept
