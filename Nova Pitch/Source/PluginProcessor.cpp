@@ -776,12 +776,22 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
     if (yinWriteIndex < yinBufferSize)
         return detectedPitch.load();
 
+    auto advanceAnalysisWindow = [&]()
+    {
+        const int halfBuf = yinBufferSize / 2;
+        std::copy (yinBuffer.begin() + halfBuf, yinBuffer.end(), yinBuffer.begin());
+        yinWriteIndex = halfBuf;
+    };
+
     const int halfBuf = yinBufferSize / 2;
     const int tauMin  = juce::jmax (2, static_cast<int> (currentSampleRate / maxPitchHz));
     const int tauMax  = juce::jmin (halfBuf - 1, static_cast<int> (currentSampleRate / minPitchHz));
 
     if (tauMin >= tauMax)
+    {
+        advanceAnalysisWindow();
         return detectedPitch.load();
+    }
 
     // Lightweight voiced gate to skip expensive work on near-silence windows.
     double windowEnergy = 0.0;
@@ -792,7 +802,10 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
     }
     const float windowRms = static_cast<float> (std::sqrt (windowEnergy / static_cast<double> (juce::jmax (1, halfBuf))));
     if (windowRms < 2.0e-4f)
+    {
+        advanceAnalysisWindow();
         return detectedPitch.load();
+    }
 
     auto finalizeDetectedHz = [&] (float hz, float confidence) -> float
     {
@@ -800,8 +813,7 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
         pitchHistory[static_cast<size_t> (historyIndex)].store (hz);
         historyIndex = (historyIndex + 1) % pitchHistorySize;
 
-        std::copy (yinBuffer.begin() + halfBuf, yinBuffer.end(), yinBuffer.begin());
-        yinWriteIndex = halfBuf;
+        advanceAnalysisWindow();
         return hz;
     };
 
@@ -916,6 +928,7 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
             return finalizeDetectedHz (fallbackHz, 0.06f);
         }
 
+        advanceAnalysisWindow();
         return detectedPitch.load();
     };
 
