@@ -379,16 +379,21 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 }
                 else
                 {
-                // Keep more hysteresis in fast mode to prevent note-flip thrash,
-                // which manifests as skip/warble bursts.
-                const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.78f, 0.46f);
-                const int minHoldBlocks = static_cast<int> (std::round (juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 14.0f, 9.0f)));
+                // Keep strong hysteresis in fast mode to prevent adjacent-note ping-pong.
+                const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.95f, 0.75f);
+                const float detectRateHz = static_cast<float> (currentSampleRate)
+                    / static_cast<float> (juce::jmax (1, numSamples * intervalDivider));
+                const float minHoldSeconds = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.22f, 0.16f);
+                const int minHoldBlocks = static_cast<int> (std::round (
+                    juce::jmax (3.0f, detectRateHz * minHoldSeconds)));
                 const bool switchUp = candidateMidiNote > lockedTargetMidi
                                    && detectedMidi > static_cast<float> (lockedTargetMidi) + switchHysteresis;
                 const bool switchDown = candidateMidiNote < lockedTargetMidi
                                      && detectedMidi < static_cast<float> (lockedTargetMidi) - switchHysteresis;
-                const bool confidentSwitch = pitchConfidence.load() > 0.30f;
-                const int requiredStableHits = static_cast<int> (std::round (juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 2.0f, 5.0f)));
+                const bool confidentSwitch = pitchConfidence.load() > 0.45f;
+                const float stableSeconds = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.10f, 0.14f);
+                const int requiredStableHits = static_cast<int> (std::round (
+                    juce::jmax (2.0f, detectRateHz * stableSeconds)));
                 if ((switchUp || switchDown)
                     && confidentSwitch
                     && lockedTargetAge >= minHoldBlocks
@@ -399,7 +404,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     lockedTargetAge = 0;
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
-                    targetSwitchCooldownBlocks = static_cast<int> (std::round (juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 4.0f, 10.0f)));
+                    const float cooldownSeconds = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.10f, 0.12f);
+                    targetSwitchCooldownBlocks = static_cast<int> (std::round (
+                        juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
                     diagWindowLockSwitches++;
                 }
                 }
