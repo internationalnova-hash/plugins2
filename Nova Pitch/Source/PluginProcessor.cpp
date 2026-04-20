@@ -314,11 +314,27 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (blockCount % intervalDivider == 0)
     {
         diagWindowDetectEvalBlocks++;
-        float detectedHz = detectPitchYIN (analysisData, numSamples);
+        float rawYinHz = detectPitchYIN (analysisData, numSamples);
         const bool fastCorrectionMode = true;
+
+        // Compute a lock-free candidate Hz for note-switch decisions.
+        // This is octave-folded toward the voice's OWN pitch history (smoothedDetectedHz),
+        // NOT toward the current lock. This breaks the circular feedback where a wrong-octave
+        // lock bent the detector toward itself, preventing lock switches.
+        float lockFreeHz = rawYinHz;
+        if (lockFreeHz > 0.0f && smoothedDetectedHz > 1.0f)
+        {
+            while (lockFreeHz < smoothedDetectedHz * 0.70710678f && lockFreeHz * 2.0f <= maxPitchHz + 10.0f)
+                lockFreeHz *= 2.0f;
+            while (lockFreeHz > smoothedDetectedHz * 1.41421356f && lockFreeHz * 0.5f >= minPitchHz - 10.0f)
+                lockFreeHz *= 0.5f;
+        }
+
         // Always smooth detector output; disabling smoothing in hard mode caused
         // large frame-to-frame ratio jumps and audible skip bursts.
-        detectedHz = smoothDetectedPitch (detectedHz, inputRms, lowLatencyMode || fastRetuneTracking);
+        // smoothDetectedPitch uses lockedTargetMidi as reference to anchor octave and
+        // suppress subharmonics — this is for audio quality only, not for lock decisions.
+        float detectedHz = smoothDetectedPitch (rawYinHz, inputRms, lowLatencyMode || fastRetuneTracking);
         detectedPitch.store (detectedHz);
 
         bool hasUsablePitch = detectedHz > minPitchHz - 10.0f && detectedHz < maxPitchHz + 10.0f;
@@ -351,8 +367,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         if (hasUsablePitch)
         {
-            const int candidateMidiNote = quantizeToScale (detectedHz);
-            const float detectedMidi = 69.0f + 12.0f * std::log2 (juce::jmax (1.0f, detectedHz) / 440.0f);
+            // Use lockFreeHz for candidateMidiNote so the lock-switch decision is never
+            // biased by the current lock. Fall back to detectedHz if lockFreeHz is invalid.
+            const float noteSourceHz = (lockFreeHz > minPitchHz - 10.0f && lockFreeHz < maxPitchHz + 10.0f)
+                ? lockFreeHz : detectedHz;
+            const int candidateMidiNote = quantizeToScale (noteSourceHz);
+            const float detectedMidi = 69.0f + 12.0f * std::log2 (juce::jmax (1.0f, noteSourceHz) / 440.0f);
 
             if (targetSwitchCooldownBlocks > 0)
                 --targetSwitchCooldownBlocks;
@@ -535,16 +555,17 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (! signalTooLow)
     {
         const float speedCoeff = lowLatencyMode
-            ? juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.06f, 0.20f)
-            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.05f, 0.18f);
+            ? juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.04f, 0.16f)
+            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.03f, 0.14f);
 
         // Smooth target-ratio motion first, then apply retune-speed glide.
-        const float targetSmoothing = juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.14f, 0.42f);
+        const float targetSmoothing = juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.10f, 0.32f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
         // Single continuous control law across the full speed range.
         const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
-        const float maxStep = juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.0035f, 0.0120f);
+        // Tighter maxStep to prevent per-block ratio jumps that cause wobble.
+        const float maxStep = juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.0025f, 0.0070f);
         const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
         activePitchRatio += step;
 
@@ -698,15 +719,17 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
 
     const bool hardTuneMode = retuneSpeedSmoothed > 0.90f;
 
-    // Use voice history only as the octave-fold reference — NOT lockedTargetMidi.
-    // Using the lock as reference causes circular feedback: a wrong-octave lock bends
-    // the detector toward itself, making candidateMidiNote always match the wrong lock.
-    float referenceHz = smoothedDetectedHz;
-    if (referenceHz < 1.0f)
-    {
-        if (lastValidDetectedHz > minPitchHz - 10.0f && lastValidDetectedHz < maxPitchHz + 10.0f)
-            referenceHz = lastValidDetectedHz;
-    }
+    // Use lockedTargetMidi as the octave-fold reference to anchor the smoother to the
+    // correct octave and suppress subharmonics. The circular-lock problem (wrong-octave
+    // lock reinforcing itself) is now broken at the processBlock level: candidateMidiNote
+    // is derived from a lock-free raw pitch estimate, NOT from smoothedDetectedHz.
+    float referenceHz = 0.0f;
+    if (lockedTargetMidi >= 0)
+        referenceHz = getTargetPitchHz (lockedTargetMidi);
+    else if (lastValidDetectedHz > minPitchHz - 10.0f && lastValidDetectedHz < maxPitchHz + 10.0f)
+        referenceHz = lastValidDetectedHz;
+    else
+        referenceHz = smoothedDetectedHz;
 
     if (referenceHz > 1.0f)
     {
@@ -744,6 +767,15 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
 
         rawDetectedHz = bestHz;
 
+        // In hard-tune mode, once a target lock exists, reject large drops from the
+        // reference (subharmonic glitches). This is safe now because the circular-lock
+        // problem is broken at the processBlock level via lockFreeHz for candidateMidiNote.
+        if (hardTuneMode && lockedTargetMidi >= 0 && signalRms > 0.01f)
+        {
+            const float lockCentsError = centsDistance (rawDetectedHz, referenceHz);
+            if (lockCentsError > 240.0f)
+                rawDetectedHz = referenceHz;
+        }
     }
 
     // Octave-error detection and correction.
