@@ -473,35 +473,48 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const int targetMidiNote = lockedTargetMidi;
             const float targetHz = getTargetPitchHz (targetMidiNote);
 
-            // Align detector octave to the selected target note before ratio computation.
-            float octaveAlignedDetectedHz = detectedHz;
-            if (targetHz > 1.0f)
+            // Only recompute targetPitchRatio when the lock changes. On stable lock, keep the
+            // previous ratio to eliminate noise-driven wobble from detector jitter (~30 Hz fluctuations).
+            // This is the key to preventing the wobble symptom: detector noise caused targetPitchRatio
+            // to jump every 2-3 blocks, causing audible pitch contour even though lock was stable.
+            if (targetMidiNote != previousLockedTargetMidi)
             {
-                while (octaveAlignedDetectedHz < targetHz * 0.70710678f)
-                    octaveAlignedDetectedHz *= 2.0f;
-                while (octaveAlignedDetectedHz > targetHz * 1.41421356f)
-                    octaveAlignedDetectedHz *= 0.5f;
+                // Align detector octave to the selected target note before ratio computation.
+                float octaveAlignedDetectedHz = detectedHz;
+                if (targetHz > 1.0f)
+                {
+                    while (octaveAlignedDetectedHz < targetHz * 0.70710678f)
+                        octaveAlignedDetectedHz *= 2.0f;
+                    while (octaveAlignedDetectedHz > targetHz * 1.41421356f)
+                        octaveAlignedDetectedHz *= 0.5f;
+                }
+
+                float pitchRatio = computeRetuneRatio (octaveAlignedDetectedHz, targetHz, inputRms, lowLatencyMode);
+                diagWindowRatioComputedBlocks++;
+                if (std::abs (pitchRatio - 1.0f) < 0.001f)
+                    diagWindowUnityReturnBlocks++;
+
+                if (vibratoValue > 0.001f)
+                {
+                    applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
+                                  vibratoValue);
+                }
+                const float minRatio = 0.72f;
+                const float maxRatio = 1.38f;
+                targetPitchRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
+                previousLockedTargetMidi = targetMidiNote;
+                
+                const float correctedHz = octaveAlignedDetectedHz * pitchRatio;
+                correctedPitch.store (correctedHz);
+
+                if (debugCounter % 100 == 2)
+                {
+                    DBG("Nova Pitch: detectedHz=" << detectedHz << " targetHz=" << targetHz << " pitchRatio=" << pitchRatio);
+                }
             }
-
-            float pitchRatio = computeRetuneRatio (octaveAlignedDetectedHz, targetHz, inputRms, lowLatencyMode);
-            diagWindowRatioComputedBlocks++;
-            if (std::abs (pitchRatio - 1.0f) < 0.001f)
-                diagWindowUnityReturnBlocks++;
-
-            if (vibratoValue > 0.001f)
+            else if (debugCounter % 100 == 2)
             {
-                applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
-                              vibratoValue);
-            }
-            const float minRatio = 0.72f;
-            const float maxRatio = 1.38f;
-            targetPitchRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
-            const float correctedHz = octaveAlignedDetectedHz * pitchRatio;
-            correctedPitch.store (correctedHz);
-
-            if (debugCounter % 100 == 2)
-            {
-                DBG("Nova Pitch: detectedHz=" << detectedHz << " targetHz=" << targetHz << " pitchRatio=" << pitchRatio);
+                DBG("Nova Pitch: lock unchanged at " << targetMidiNote << ", skipping ratio recompute");
             }
         }
         else
@@ -524,6 +537,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 correctedPitch.store (0.0f);
                 pitchConfidence.store (0.0f);
                 lockedTargetMidi = -1;
+                previousLockedTargetMidi = -1;
                 lockedTargetAge = 0;
                 pendingTargetMidi = -1;
                 pendingTargetStreak = 0;
