@@ -247,6 +247,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float speedSlew = lowLatencyMode ? 0.20f : 0.12f;
     retuneSpeedSmoothed += (retuneSpeedNorm - retuneSpeedSmoothed) * speedSlew;
     const float retuneControl = juce::jlimit (0.0f, 1.0f, retuneSpeedSmoothed);
+    const bool retuneKnobInMotion = std::abs (retuneSpeedNorm - retuneControl) > 0.02f;
     const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
@@ -415,6 +416,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 if ((switchUp || switchDown)
                     && confidentSwitch
                     && strongInputForSwitch
+                    && ! retuneKnobInMotion
                     && lockedTargetAge >= minHoldBlocks
                     && pendingTargetStreak >= requiredStableHits
                     && targetSwitchCooldownBlocks == 0)
@@ -471,9 +473,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
                               vibratoValue);
             }
-            const bool hardTuneMode = retuneControl > 0.90f;
-            const float minRatio = hardTuneMode ? 0.72f : 0.78f;
-            const float maxRatio = hardTuneMode ? 1.38f : 1.28f;
+            const float minRatio = 0.72f;
+            const float maxRatio = 1.38f;
             targetPitchRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
             const float correctedHz = octaveAlignedDetectedHz * pitchRatio;
             correctedPitch.store (correctedHz);
@@ -536,32 +537,22 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     if (! signalTooLow)
     {
-        const bool hardTuneMode = retuneControl > 0.90f;
         const float speedCoeff = lowLatencyMode
-            ? juce::jmap (retuneControl, 0.0f, 1.0f, 0.06f, 0.18f)
-            : juce::jmap (retuneControl, 0.0f, 1.0f, 0.05f, 0.15f);
+            ? juce::jmap (retuneControl, 0.0f, 1.0f, 0.06f, 0.20f)
+            : juce::jmap (retuneControl, 0.0f, 1.0f, 0.05f, 0.18f);
 
         // Smooth target-ratio motion first, then apply retune-speed glide.
-        const float targetSmoothing = hardTuneMode ? 0.42f : juce::jmap (retuneControl, 0.0f, 1.0f, 0.14f, 0.28f);
+        const float targetSmoothing = juce::jmap (retuneControl, 0.0f, 1.0f, 0.14f, 0.42f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
-        // Single control law: LP toward target followed by hard slew-limit.
-        // This avoids the prior double-update that could still jump too far in one block.
-        if (hardTuneMode)
-        {
-            // In fastest mode prioritize audibility: converge quickly to target ratio.
-            activePitchRatio += (targetRatioSmoothed - activePitchRatio) * 0.60f;
-        }
-        else
-        {
-            const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
-            const float maxStep = juce::jmap (retuneControl, 0.0f, 1.0f, 0.0035f, 0.0100f);
-            const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
-            activePitchRatio += step;
-        }
+        // Single continuous control law across the full speed range.
+        const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
+        const float maxStep = juce::jmap (retuneControl, 0.0f, 1.0f, 0.0035f, 0.0120f);
+        const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
+        activePitchRatio += step;
 
-        const float minRatio = hardTuneMode ? 0.72f : 0.78f;
-        const float maxRatio = hardTuneMode ? 1.38f : 1.28f;
+        const float minRatio = 0.72f;
+        const float maxRatio = 1.38f;
         activePitchRatio = juce::jlimit (minRatio, maxRatio, activePitchRatio);
 
         const float ratioStep = std::abs (activePitchRatio - diagPrevActivePitchRatio);
@@ -708,8 +699,7 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
         return smoothedDetectedHz;
     }
 
-    const float retuneSpeedNorm = juce::jlimit (0.0f, 1.0f, retuneSpeedSmoothed);
-    const bool hardTuneMode = retuneSpeedNorm > 0.90f;
+    const bool hardTuneMode = retuneSpeedSmoothed > 0.90f;
 
     float referenceHz = 0.0f;
     if (lockedTargetMidi >= 0)
@@ -812,19 +802,15 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
 
 float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targetHz, float /*signalRms*/, bool /*lowLatencyMode*/)
 {
-    const float retuneSpeedNorm = juce::jlimit (0.0f, 1.0f, retuneSpeedSmoothed);
-
     const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
 
     const float fullRatio = targetHz / juce::jmax (1.0f, detectedHz);
 
     // Tolerance window: if singer is already close enough, keep ratio at unity.
     const float centsError = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio))));
-    const float toleranceScale = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 1.0f, 0.30f);
-    float toleranceCents = toleranceNorm * 18.0f * toleranceScale;
-    // In fastest mode, disable the tolerance dead-zone so tuning remains clearly active.
-    if (retuneSpeedNorm > 0.90f)
-        toleranceCents = 0.0f;
+    // Keep tolerance independent of retune speed so turning speed knob doesn't
+    // change pitch target behavior, only convergence rate.
+    const float toleranceCents = toleranceNorm * 12.0f;
     if (centsError < toleranceCents)
         return 1.0f;
 
@@ -1290,15 +1276,12 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     auto& dryBlendSmoothed = pitchDryBlendSmoothed[static_cast<size_t> (channel)];
 
     const int bufferSize = pitchShiftBufferSize;
-    const bool hardTuneMode = retuneSpeedNorm > 0.90f;
-    const float minRatio = hardTuneMode ? 0.72f : 0.78f;
-    const float maxRatio = hardTuneMode ? 1.38f : 1.28f;
+    const float minRatio = 0.72f;
+    const float maxRatio = 1.38f;
     const float clampedRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
     const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
     // Keep ratio changes smooth enough to avoid time-domain read-head jumps.
-    const float ratioSmoothing = hardTuneMode
-        ? 0.10f
-        : juce::jlimit (0.08f, 0.20f, 0.08f + ratioDelta * 0.30f);
+    const float ratioSmoothing = juce::jlimit (0.08f, 0.20f, 0.08f + ratioDelta * 0.30f);
     ratioSmoothed += (clampedRatio - ratioSmoothed) * ratioSmoothing;
     const float effectiveRatio = juce::jlimit (minRatio, maxRatio, ratioSmoothed);
 
