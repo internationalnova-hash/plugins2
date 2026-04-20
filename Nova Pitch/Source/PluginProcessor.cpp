@@ -919,19 +919,34 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
         return (hz >= minHz && hz <= maxHz) ? hz : 0.0f;
     };
 
+    auto getReferencePitchHz = [&]() -> float
+    {
+        if (lockedTargetMidi >= 0)
+        {
+            const float lockHz = getTargetPitchHz (lockedTargetMidi);
+            if (lockHz > minPitchHz - 10.0f && lockHz < maxPitchHz + 10.0f)
+                return lockHz;
+        }
+
+        if (lastValidDetectedHz > minPitchHz - 10.0f && lastValidDetectedHz < maxPitchHz + 10.0f)
+            return lastValidDetectedHz;
+
+        if (smoothedDetectedHz > minPitchHz - 10.0f && smoothedDetectedHz < maxPitchHz + 10.0f)
+            return smoothedDetectedHz;
+
+        if (detectedPitch.load() > minPitchHz - 10.0f && detectedPitch.load() < maxPitchHz + 10.0f)
+            return detectedPitch.load();
+
+        return 0.0f;
+    };
+
     auto alignToReferenceOctave = [&] (float hz) -> float
     {
         hz = foldIntoRange (hz);
         if (hz <= 0.0f)
             return 0.0f;
 
-        float referenceHz = 0.0f;
-        if (lastValidDetectedHz > minPitchHz - 10.0f && lastValidDetectedHz < maxPitchHz + 10.0f)
-            referenceHz = lastValidDetectedHz;
-        else if (smoothedDetectedHz > minPitchHz - 10.0f && smoothedDetectedHz < maxPitchHz + 10.0f)
-            referenceHz = smoothedDetectedHz;
-        else if (detectedPitch.load() > minPitchHz - 10.0f && detectedPitch.load() < maxPitchHz + 10.0f)
-            referenceHz = detectedPitch.load();
+        const float referenceHz = getReferencePitchHz();
 
         if (referenceHz <= 0.0f)
             return hz;
@@ -979,10 +994,17 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
             mean += static_cast<double> (yinBuffer[static_cast<size_t> (i)]);
         mean /= static_cast<double> (juce::jmax (1, halfBuf));
 
+        const float referenceHz = getReferencePitchHz();
         int bestTau = tauMin;
+        float bestScore = -1.0e9f;
         float bestCorr = -1.0f;
         constexpr int sampleStep = 2;
         constexpr int tauStep = 2;
+
+        auto octaveDistance = [] (float a, float b)
+        {
+            return std::abs (std::log2 (juce::jmax (1.0f, a) / juce::jmax (1.0f, b)));
+        };
 
         for (int tau = tauMin; tau < tauMax; tau += tauStep)
         {
@@ -1001,8 +1023,16 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
 
             const double denom = std::sqrt (juce::jmax (1.0e-12, xx * yy));
             const float corr = static_cast<float> (xy / denom);
-            if (std::isfinite (corr) && corr > bestCorr)
+            float score = corr;
+            if (referenceHz > 0.0f)
             {
+                const float rawHz = static_cast<float> (currentSampleRate) / static_cast<float> (juce::jmax (1, tau));
+                score -= 0.22f * octaveDistance (rawHz, referenceHz);
+            }
+
+            if (std::isfinite (corr) && score > bestScore)
+            {
+                bestScore = score;
                 bestCorr = corr;
                 bestTau = tau;
             }
@@ -1042,6 +1072,17 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
         const float hz = alignToReferenceOctave (rawHz);
         if (hz > 0.0f)
         {
+            const float referenceHz = getReferencePitchHz();
+            if (referenceHz > 0.0f)
+            {
+                const float centsError = std::abs (1200.0f * std::log2 (
+                    juce::jmax (1.0f, hz) / juce::jmax (1.0f, referenceHz)));
+                // Zero-crossing is only allowed as a fallback when it agrees reasonably well
+                // with the current reference; otherwise keep the reference alive.
+                if (centsError > 350.0f)
+                    return finalizeDetectedHz (referenceHz, 0.08f);
+            }
+
             return finalizeDetectedHz (hz, 0.12f);
         }
 
