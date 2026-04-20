@@ -424,8 +424,36 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const int targetMidiNote = lockedTargetMidi;
             const float targetHz = getTargetPitchHz (targetMidiNote);
 
+            // Sanity check: if the locked target is implausibly far from the detected
+            // pitch (> 250 cents = 2.5 semitones after octave alignment), the lock is
+            // stale or wrong. Reset it so we re-acquire on the next detection cycle
+            // instead of grinding against the correction clamp.
+            {
+                float alignCheck = detectedHz;
+                if (targetHz > 1.0f)
+                {
+                    while (alignCheck < targetHz * 0.70710678f) alignCheck *= 2.0f;
+                    while (alignCheck > targetHz * 1.41421356f) alignCheck *= 0.5f;
+                }
+                const float checkRatio = (alignCheck > 0.0f) ? targetHz / alignCheck : 1.0f;
+                const float checkCents = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, checkRatio)));
+                if (checkCents > 250.0f)
+                {
+                    // Lock is too stale — force re-acquire next block.
+                    lockedTargetMidi = -1;
+                    lockedTargetAge  = 0;
+                    pendingTargetMidi   = -1;
+                    pendingTargetStreak = 0;
+                    targetSwitchCooldownBlocks = 0;
+                    pitchConfidence.store (0.0f);
+                    targetPitchRatio = 1.0f;
+                    correctedPitch.store (0.0f);
+                    goto skipCorrection;
+                }
+            }
+
+            {
             // Align detector octave to the selected target note before ratio computation.
-            // This prevents persistent octave-low detections from forcing near-max upward shifts.
             float octaveAlignedDetectedHz = detectedHz;
             if (targetHz > 1.0f)
             {
@@ -445,11 +473,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
                               vibratoValue);
             }
-            // Keep correction bounded to a stable range for the current time-domain shifter.
-            // Wider ranges were producing read-head stress and fastest-mode skip artifacts.
             targetPitchRatio = juce::jlimit (0.82f, 1.22f, pitchRatio);
             const float correctedHz = octaveAlignedDetectedHz * pitchRatio;
             correctedPitch.store (correctedHz);
+            }
+            skipCorrection:;
 
             if (debugCounter % 100 == 2)
             {
