@@ -840,6 +840,58 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
         return (hz >= minHz && hz <= maxHz) ? hz : 0.0f;
     };
 
+    auto alignToReferenceOctave = [&] (float hz) -> float
+    {
+        hz = foldIntoRange (hz);
+        if (hz <= 0.0f)
+            return 0.0f;
+
+        float referenceHz = 0.0f;
+        if (lastValidDetectedHz > minPitchHz - 10.0f && lastValidDetectedHz < maxPitchHz + 10.0f)
+            referenceHz = lastValidDetectedHz;
+        else if (smoothedDetectedHz > minPitchHz - 10.0f && smoothedDetectedHz < maxPitchHz + 10.0f)
+            referenceHz = smoothedDetectedHz;
+        else if (detectedPitch.load() > minPitchHz - 10.0f && detectedPitch.load() < maxPitchHz + 10.0f)
+            referenceHz = detectedPitch.load();
+
+        if (referenceHz <= 0.0f)
+            return hz;
+
+        auto octaveDistance = [] (float a, float b)
+        {
+            return std::abs (std::log2 (juce::jmax (1.0f, a) / juce::jmax (1.0f, b)));
+        };
+
+        float bestHz = hz;
+        float bestDist = octaveDistance (hz, referenceHz);
+
+        float up = hz;
+        while (up * 2.0f <= maxPitchHz + 10.0f)
+        {
+            up *= 2.0f;
+            const float d = octaveDistance (up, referenceHz);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                bestHz = up;
+            }
+        }
+
+        float down = hz;
+        while (down * 0.5f >= minPitchHz - 10.0f)
+        {
+            down *= 0.5f;
+            const float d = octaveDistance (down, referenceHz);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                bestHz = down;
+            }
+        }
+
+        return foldIntoRange (bestHz);
+    };
+
     auto estimateByAutoCorrelation = [&]() -> float
     {
         // Autocorrelation-first and decimated for real-time stability in fast-retune mode.
@@ -878,7 +930,7 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
         }
 
         const float rawHz = static_cast<float> (currentSampleRate) / static_cast<float> (juce::jmax (1, bestTau));
-        const float hz = foldIntoRange (rawHz);
+        const float hz = alignToReferenceOctave (rawHz);
         if (hz > 0.0f && bestCorr > 0.005f)
         {
             const float conf = juce::jlimit (0.06f, 0.90f, (bestCorr - 0.005f) / 0.50f);
@@ -908,7 +960,7 @@ float NovaPitchAudioProcessor::detectPitchYIN (const float* samples, int numSamp
             ? static_cast<float> (totalCrossings) * 0.5f * static_cast<float> (currentSampleRate)
               / static_cast<float> (juce::jmax (1, halfBuf))
             : 0.0f;
-        const float hz = foldIntoRange (rawHz);
+        const float hz = alignToReferenceOctave (rawHz);
         if (hz > 0.0f)
         {
             return finalizeDetectedHz (hz, 0.12f);
