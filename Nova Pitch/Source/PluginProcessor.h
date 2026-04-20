@@ -160,6 +160,9 @@ private:
     double diagWindowInputRmsSum { 0.0 };
     int    diagWindowInputRmsCount { 0 };
     float diagPrevActivePitchRatio { 1.0f };
+    double diagWindowDetectedHzSum { 0.0 };
+    int    diagWindowDetectedHzCount { 0 };
+    float  diagLastLockedTargetHz { 0.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };

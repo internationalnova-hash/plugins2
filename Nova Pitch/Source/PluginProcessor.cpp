@@ -192,6 +192,9 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     diagWindowInputRmsSum = 0.0;
     diagWindowInputRmsCount = 0;
     diagPrevActivePitchRatio = 1.0f;
+    diagWindowDetectedHzSum = 0.0;
+    diagWindowDetectedHzCount = 0;
+    diagLastLockedTargetHz = 0.0f;
 }
 
 void NovaPitchAudioProcessor::releaseResources()
@@ -555,9 +558,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             applyFormantShaper (channelR, numSamples, formantValue, 1);
     }
 
-    // Track input RMS every block for diagnostics.
+    // Track input RMS and detected pitch every block for diagnostics.
     diagWindowInputRmsSum += static_cast<double> (inputRms);
     ++diagWindowInputRmsCount;
+    const float diagDetHz = detectedPitch.load();
+    if (diagDetHz > 0.0f) { diagWindowDetectedHzSum += static_cast<double> (diagDetHz); ++diagWindowDetectedHzCount; }
+    if (lockedTargetMidi >= 0) diagLastLockedTargetHz = getTargetPitchHz (lockedTargetMidi);
 
     if (! trackingLost && wetMix < 0.999f)
     {
@@ -606,8 +612,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             ? diagWindowInputRmsSum / static_cast<double> (diagWindowInputRmsCount)
             : 0.0;
 
+        const double avgDetectedHz = (diagWindowDetectedHzCount > 0)
+            ? diagWindowDetectedHzSum / static_cast<double> (diagWindowDetectedHzCount)
+            : 0.0;
+        const float lockedTargetHz = diagLastLockedTargetHz;
+
         juce::ignoreUnused (detectValidRatio, unityReturnRatio, lockSwitchRate,
-                            trackingLostRatio, largeStepRatio, avgAppliedCents, avgTargetCents, avgInputRms);
+                            trackingLostRatio, largeStepRatio, avgAppliedCents, avgTargetCents, avgInputRms,
+                            avgDetectedHz, lockedTargetHz);
 
         const juce::String diagLine = juce::String ("Nova Pitch DIAG")
             + " secs=" + juce::String (windowSeconds, 2)
@@ -619,6 +631,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             + " avgAppliedCents=" + juce::String (avgAppliedCents, 1)
             + " avgTargetCents=" + juce::String (avgTargetCents, 1)
             + " avgInputRms=" + juce::String (avgInputRms, 4)
+            + " avgDetectedHz=" + juce::String (avgDetectedHz, 1)
+            + " lockedTargetHz=" + juce::String (lockedTargetHz, 1)
             + " speedNorm=" + juce::String (retuneSpeedNorm, 3)
             + " lowLatency=" + juce::String (lowLatencyMode ? 1 : 0);
 
@@ -638,6 +652,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         diagWindowTargetCentsAbsSum = 0.0;
         diagWindowInputRmsSum = 0.0;
         diagWindowInputRmsCount = 0;
+        diagWindowDetectedHzSum = 0.0;
+        diagWindowDetectedHzCount = 0;
     }
 
     blockCount++;
