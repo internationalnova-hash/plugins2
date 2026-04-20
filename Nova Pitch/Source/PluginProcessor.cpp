@@ -421,7 +421,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const int targetMidiNote = lockedTargetMidi;
             const float targetHz = getTargetPitchHz (targetMidiNote);
 
-            float pitchRatio = computeRetuneRatio (detectedHz, targetHz, inputRms, lowLatencyMode);
+            // Align detector octave to the selected target note before ratio computation.
+            // This prevents persistent octave-low detections from forcing near-max upward shifts.
+            float octaveAlignedDetectedHz = detectedHz;
+            if (targetHz > 1.0f)
+            {
+                while (octaveAlignedDetectedHz < targetHz * 0.70710678f)
+                    octaveAlignedDetectedHz *= 2.0f;
+                while (octaveAlignedDetectedHz > targetHz * 1.41421356f)
+                    octaveAlignedDetectedHz *= 0.5f;
+            }
+
+            float pitchRatio = computeRetuneRatio (octaveAlignedDetectedHz, targetHz, inputRms, lowLatencyMode);
             diagWindowRatioComputedBlocks++;
             if (std::abs (pitchRatio - 1.0f) < 0.001f)
                 diagWindowUnityReturnBlocks++;
@@ -434,7 +445,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             // Keep correction bounded to a stable range for the current time-domain shifter.
             // Wider ranges were producing read-head stress and fastest-mode skip artifacts.
             targetPitchRatio = juce::jlimit (0.82f, 1.22f, pitchRatio);
-            const float correctedHz = detectedHz * pitchRatio;
+            const float correctedHz = octaveAlignedDetectedHz * pitchRatio;
             correctedPitch.store (correctedHz);
 
             if (debugCounter % 100 == 2)
