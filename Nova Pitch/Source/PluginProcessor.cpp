@@ -424,35 +424,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const int targetMidiNote = lockedTargetMidi;
             const float targetHz = getTargetPitchHz (targetMidiNote);
 
-            // Sanity check: if the locked target is implausibly far from the detected
-            // pitch (> 250 cents = 2.5 semitones after octave alignment), the lock is
-            // stale or wrong. Reset it so we re-acquire on the next detection cycle
-            // instead of grinding against the correction clamp.
-            {
-                float alignCheck = detectedHz;
-                if (targetHz > 1.0f)
-                {
-                    while (alignCheck < targetHz * 0.70710678f) alignCheck *= 2.0f;
-                    while (alignCheck > targetHz * 1.41421356f) alignCheck *= 0.5f;
-                }
-                const float checkRatio = (alignCheck > 0.0f) ? targetHz / alignCheck : 1.0f;
-                const float checkCents = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, checkRatio)));
-                if (checkCents > 250.0f)
-                {
-                    // Lock is too stale — force re-acquire next block.
-                    lockedTargetMidi = -1;
-                    lockedTargetAge  = 0;
-                    pendingTargetMidi   = -1;
-                    pendingTargetStreak = 0;
-                    targetSwitchCooldownBlocks = 0;
-                    pitchConfidence.store (0.0f);
-                    targetPitchRatio = 1.0f;
-                    correctedPitch.store (0.0f);
-                    goto skipCorrection;
-                }
-            }
-
-            {
             // Align detector octave to the selected target note before ratio computation.
             float octaveAlignedDetectedHz = detectedHz;
             if (targetHz > 1.0f)
@@ -476,8 +447,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             targetPitchRatio = juce::jlimit (0.82f, 1.22f, pitchRatio);
             const float correctedHz = octaveAlignedDetectedHz * pitchRatio;
             correctedPitch.store (correctedHz);
-            }
-            skipCorrection:;
 
             if (debugCounter % 100 == 2)
             {
@@ -525,14 +494,17 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (trackingLost)
         diagWindowTrackingLostBlocks++;
 
-    const float desiredWet = trackingLost ? 0.0f : 1.0f;
-    const float wetSlew = trackingLost ? 0.14f : 0.03f;
+    // Only fully bypass when signal is genuinely absent. Brief confidence dropouts
+    // caused by inter-window detector jumps should hold the last correction to avoid
+    // the dry/wet phase switching that creates comb/downsampling artifacts.
+    const float desiredWet = signalTooLow ? 0.0f : 1.0f;
+    const float wetSlew = signalTooLow ? 0.008f : 0.03f;
     wetMixSmoothed += (desiredWet - wetMixSmoothed) * wetSlew;
     const float wetMix = juce::jlimit (0.0f, 1.0f, wetMixSmoothed);
 
     // Retune stays active across the full knob range; knob controls speed only.
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
-    if (! trackingLost)
+    if (! signalTooLow)
     {
         const float speedCoeff = lowLatencyMode
             ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.03f, 0.10f)
@@ -568,18 +540,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     }
     else
     {
-        // Hard safety path: when tracking is lost, bypass shifter entirely to avoid skip/delay artifacts.
+        // Signal is absent — glide ratio back toward unity, continue running shifter.
         activePitchRatio += (1.0f - activePitchRatio) * 0.06f;
         targetRatioSmoothed += (1.0f - targetRatioSmoothed) * 0.08f;
-        activePitchRatio = 1.0f;
-        targetRatioSmoothed = 1.0f;
-
-        std::copy (dryScratchL.data(), dryScratchL.data() + numSamples, channelL);
+        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode, retuneSpeedNorm);
         if (channelR != nullptr)
-            std::copy (dryScratchR.data(), dryScratchR.data() + numSamples, channelR);
+            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode, retuneSpeedNorm);
     }
 
-    if (! trackingLost)
+    if (! signalTooLow)
     {
         applyFormantShaper (channelL, numSamples, formantValue, 0);
         if (channelR != nullptr)
@@ -593,7 +562,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (diagDetHz > 0.0f) { diagWindowDetectedHzSum += static_cast<double> (diagDetHz); ++diagWindowDetectedHzCount; }
     if (lockedTargetMidi >= 0) diagLastLockedTargetHz = getTargetPitchHz (lockedTargetMidi);
 
-    if (! trackingLost && wetMix < 0.999f)
+    if (wetMix < 0.999f)
     {
         const float dryMix = 1.0f - wetMix;
         auto* dryL = dryScratchL.data();
