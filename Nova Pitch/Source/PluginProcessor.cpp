@@ -348,23 +348,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         if (hasUsablePitch)
         {
-            // Keep lock decisions in the current octave neighborhood to avoid
-            // octave-hopping target switches (perceived as up/down wobble).
-            float detectedForLockHz = detectedHz;
-            if (lockedTargetMidi >= 0)
-            {
-                const float lockHz = getTargetPitchHz (lockedTargetMidi);
-                if (lockHz > 1.0f)
-                {
-                    while (detectedForLockHz < lockHz * 0.70f)
-                        detectedForLockHz *= 2.0f;
-                    while (detectedForLockHz > lockHz * 1.42f)
-                        detectedForLockHz *= 0.5f;
-                }
-            }
-
-            const int candidateMidiNote = quantizeToScale (detectedForLockHz);
-            const float detectedMidi = 69.0f + 12.0f * std::log2 (juce::jmax (1.0f, detectedForLockHz) / 440.0f);
+            const int candidateMidiNote = quantizeToScale (detectedHz);
+            const float detectedMidi = 69.0f + 12.0f * std::log2 (juce::jmax (1.0f, detectedHz) / 440.0f);
 
             if (targetSwitchCooldownBlocks > 0)
                 --targetSwitchCooldownBlocks;
@@ -413,6 +398,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float stableSeconds = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.28f, 0.22f);
                 const int requiredStableHits = static_cast<int> (std::round (
                     juce::jmax (2.0f, detectRateHz * stableSeconds)));
+
+                // If current lock is clearly in the wrong octave for sustained input,
+                // force a relock to the detected-note octave instead of staying stuck.
+                const float lockHz = getTargetPitchHz (lockedTargetMidi);
+                const float lockCentsError = std::abs (1200.0f * std::log2 (
+                    juce::jmax (1.0f, detectedHz) / juce::jmax (1.0f, lockHz)));
+                const bool lockClearlyWrongOctave = lockCentsError > 650.0f
+                    && strongInputForSwitch
+                    && pendingTargetStreak >= juce::jmax (2, requiredStableHits / 2);
+
                 if ((switchUp || switchDown)
                     && confidentSwitch
                     && strongInputForSwitch
@@ -425,6 +420,17 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
                     const float cooldownSeconds = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.24f, 0.18f);
+                    targetSwitchCooldownBlocks = static_cast<int> (std::round (
+                        juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
+                    diagWindowLockSwitches++;
+                }
+                else if (lockClearlyWrongOctave && targetSwitchCooldownBlocks == 0)
+                {
+                    lockedTargetMidi = candidateMidiNote;
+                    lockedTargetAge = 0;
+                    pendingTargetMidi = -1;
+                    pendingTargetStreak = 0;
+                    const float cooldownSeconds = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.20f, 0.16f);
                     targetSwitchCooldownBlocks = static_cast<int> (std::round (
                         juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
                     diagWindowLockSwitches++;
