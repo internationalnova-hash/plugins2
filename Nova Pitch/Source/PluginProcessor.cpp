@@ -172,6 +172,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     outputCompGain = 1.0f;
     targetPitchRatio = 1.0f;
     activePitchRatio = 1.0f;
+    retuneSpeedSmoothed = 0.0f;
     wetMixSmoothed = 0.0f;
     lockedTargetMidi = -1;
     lockedTargetAge = 0;
@@ -243,6 +244,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
     // UI semantics: 0 = slow, 100 = fast.
     const float retuneSpeedNorm = amountNorm;
+    const float speedSlew = lowLatencyMode ? 0.20f : 0.12f;
+    retuneSpeedSmoothed += (retuneSpeedNorm - retuneSpeedSmoothed) * speedSlew;
+    const float retuneControl = juce::jlimit (0.0f, 1.0f, retuneSpeedSmoothed);
     const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
@@ -304,7 +308,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     }
 
     // Track faster when Retune Speed is high (amount near 100).
-    const bool fastRetuneTracking = retuneSpeedNorm > 0.70f;
+    const bool fastRetuneTracking = retuneControl > 0.70f;
     const int intervalDivider = (lowLatencyMode || fastRetuneTracking) ? 1 : 2;
 
     // Perform pitch detection periodically
@@ -467,7 +471,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
                               vibratoValue);
             }
-            const bool hardTuneMode = retuneSpeedNorm > 0.90f;
+            const bool hardTuneMode = retuneControl > 0.90f;
             const float minRatio = hardTuneMode ? 0.72f : 0.78f;
             const float maxRatio = hardTuneMode ? 1.38f : 1.28f;
             targetPitchRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
@@ -532,13 +536,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     if (! signalTooLow)
     {
-        const bool hardTuneMode = retuneSpeedNorm > 0.90f;
+        const bool hardTuneMode = retuneControl > 0.90f;
         const float speedCoeff = lowLatencyMode
-            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.07f, 0.22f)
-            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.06f, 0.18f);
+            ? juce::jmap (retuneControl, 0.0f, 1.0f, 0.06f, 0.18f)
+            : juce::jmap (retuneControl, 0.0f, 1.0f, 0.05f, 0.15f);
 
         // Smooth target-ratio motion first, then apply retune-speed glide.
-        const float targetSmoothing = hardTuneMode ? 0.50f : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.18f, 0.34f);
+        const float targetSmoothing = hardTuneMode ? 0.42f : juce::jmap (retuneControl, 0.0f, 1.0f, 0.14f, 0.28f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
         // Single control law: LP toward target followed by hard slew-limit.
@@ -551,7 +555,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         else
         {
             const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
-            const float maxStep = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.0045f, 0.0140f);
+            const float maxStep = juce::jmap (retuneControl, 0.0f, 1.0f, 0.0035f, 0.0100f);
             const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
             activePitchRatio += step;
         }
@@ -571,18 +575,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         diagWindowTargetCentsAbsSum += static_cast<double> (targetCents);
 
         // Apply shift only when tracking is valid.
-        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode, retuneSpeedNorm);
+        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode, retuneControl);
         if (channelR != nullptr)
-            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode, retuneSpeedNorm);
+            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode, retuneControl);
     }
     else
     {
         // Signal is absent — glide ratio back toward unity, continue running shifter.
         activePitchRatio += (1.0f - activePitchRatio) * 0.06f;
         targetRatioSmoothed += (1.0f - targetRatioSmoothed) * 0.08f;
-        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode, retuneSpeedNorm);
+        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode, retuneControl);
         if (channelR != nullptr)
-            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode, retuneSpeedNorm);
+            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode, retuneControl);
     }
 
     if (! signalTooLow)
@@ -667,7 +671,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             + " avgInputRms=" + juce::String (avgInputRms, 4)
             + " avgDetectedHz=" + juce::String (avgDetectedHz, 1)
             + " lockedTargetHz=" + juce::String (lockedTargetHz, 1)
-            + " speedNorm=" + juce::String (retuneSpeedNorm, 3)
+            + " speedNorm=" + juce::String (retuneControl, 3)
             + " lowLatency=" + juce::String (lowLatencyMode ? 1 : 0);
 
         DBG (diagLine);
@@ -854,13 +858,15 @@ void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate,
 
 void NovaPitchAudioProcessor::applyFormantShaper (float* channelData, int numSamples, float formantParam, int channelIndex)
 {
-    // Formant knob semantics: 0 must be neutral (no coloration/artifacts).
-    const float amount = juce::jlimit (0.0f, 1.0f, formantParam / 100.0f);
-    if (amount < 0.01f)
+    // Keep 50% as neutral so default UI state has no phase coloration.
+    const float centered = juce::jlimit (-1.0f, 1.0f, (formantParam - 50.0f) / 50.0f);
+    const float amount = std::abs (centered);
+    if (amount < 0.02f)
         return;
 
-    const float a = juce::jlimit (-0.16f, 0.16f, amount * 0.16f);
-    const float mix = juce::jlimit (0.0f, 0.22f, amount * 0.22f);
+    const float sign = centered >= 0.0f ? 1.0f : -1.0f;
+    const float a = juce::jlimit (-0.14f, 0.14f, sign * amount * 0.14f);
+    const float mix = juce::jlimit (0.0f, 0.16f, amount * 0.16f);
 
     auto& s1 = formantAllPassState[static_cast<size_t> (channelIndex)][0];
     auto& s2 = formantAllPassState[static_cast<size_t> (channelIndex)][1];
