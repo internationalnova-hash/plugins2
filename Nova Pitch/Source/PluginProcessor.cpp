@@ -307,16 +307,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         std::copy (channelR, channelR + numSamples, dryScratchR.data());
     }
 
-    // Track faster when Retune Speed is high (amount near 100).
-    const bool fastRetuneTracking = retuneControl > 0.70f;
-    const int intervalDivider = (lowLatencyMode || fastRetuneTracking) ? 1 : 2;
+    // Keep tracking cadence fixed so changing Retune Speed cannot retime detection/locking.
+    const bool fastRetuneTracking = true;
+    const int intervalDivider = 1;
 
     // Perform pitch detection periodically
     if (blockCount % intervalDivider == 0)
     {
         diagWindowDetectEvalBlocks++;
         float detectedHz = detectPitchYIN (analysisData, numSamples);
-        const bool fastCorrectionMode = retuneSpeedNorm > 0.70f;
+        const bool fastCorrectionMode = true;
         // Always smooth detector output; disabling smoothing in hard mode caused
         // large frame-to-frame ratio jumps and audible skip bursts.
         detectedHz = smoothDetectedPitch (detectedHz, inputRms, lowLatencyMode || fastRetuneTracking);
@@ -387,10 +387,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 else
                 {
                 // Keep strong hysteresis in fast mode to prevent adjacent-note ping-pong.
-                const float switchHysteresis = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 1.25f, 1.05f);
+                const float switchHysteresis = 1.10f;
                 const float detectRateHz = static_cast<float> (currentSampleRate)
                     / static_cast<float> (juce::jmax (1, numSamples * intervalDivider));
-                const float minHoldSeconds = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.60f, 0.45f);
+                const float minHoldSeconds = 0.52f;
                 const int minHoldBlocks = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * minHoldSeconds)));
                 const bool switchUp = candidateMidiNote > lockedTargetMidi
@@ -399,7 +399,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                                      && detectedMidi < static_cast<float> (lockedTargetMidi) - switchHysteresis;
                 const bool confidentSwitch = pitchConfidence.load() > 0.60f;
                 const bool strongInputForSwitch = inputRms > 0.004f;
-                const float stableSeconds = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.28f, 0.22f);
+                const float stableSeconds = 0.24f;
                 const int requiredStableHits = static_cast<int> (std::round (
                     juce::jmax (2.0f, detectRateHz * stableSeconds)));
 
@@ -423,7 +423,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     lockedTargetAge = 0;
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
-                    const float cooldownSeconds = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.24f, 0.18f);
+                    const float cooldownSeconds = 0.20f;
                     targetSwitchCooldownBlocks = static_cast<int> (std::round (
                         juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
                     diagWindowLockSwitches++;
@@ -434,7 +434,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     lockedTargetAge = 0;
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
-                    const float cooldownSeconds = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.20f, 0.16f);
+                    const float cooldownSeconds = 0.18f;
                     targetSwitchCooldownBlocks = static_cast<int> (std::round (
                         juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
                     diagWindowLockSwitches++;
@@ -708,8 +708,7 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
         return smoothedDetectedHz;
     }
 
-    const float retuneSpeedNorm = juce::jlimit (0.0f, 1.0f,
-        apvts.getRawParameterValue ("amount")->load() / 100.0f);
+    const float retuneSpeedNorm = juce::jlimit (0.0f, 1.0f, retuneSpeedSmoothed);
     const bool hardTuneMode = retuneSpeedNorm > 0.90f;
 
     float referenceHz = 0.0f;
@@ -813,8 +812,7 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
 
 float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targetHz, float /*signalRms*/, bool /*lowLatencyMode*/)
 {
-    const float amountNorm = apvts.getRawParameterValue ("amount")->load() / 100.0f;
-    const float retuneSpeedNorm = juce::jlimit (0.0f, 1.0f, amountNorm);
+    const float retuneSpeedNorm = juce::jlimit (0.0f, 1.0f, retuneSpeedSmoothed);
 
     const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
 
@@ -822,8 +820,8 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
 
     // Tolerance window: if singer is already close enough, keep ratio at unity.
     const float centsError = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio))));
-    const float toleranceScale = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 1.0f, 0.15f);
-    float toleranceCents = toleranceNorm * 45.0f * toleranceScale;
+    const float toleranceScale = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 1.0f, 0.30f);
+    float toleranceCents = toleranceNorm * 18.0f * toleranceScale;
     // In fastest mode, disable the tolerance dead-zone so tuning remains clearly active.
     if (retuneSpeedNorm > 0.90f)
         toleranceCents = 0.0f;
