@@ -667,14 +667,46 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
         return smoothedDetectedHz;
     }
 
-    const float energy = juce::jlimit (0.0f, 1.0f, signalRms * 4.0f);
-    const float delta = std::abs (rawDetectedHz - smoothedDetectedHz);
-    const float movement = juce::jlimit (0.0f, 1.0f, delta / 35.0f);
+    // Octave-error detection and correction.
+    // If rawDetectedHz is ~1.5-2.5x or ~0.4-0.67x the smoothed pitch, likely octave error.
+    const float ratio = rawDetectedHz / juce::jmax (1.0f, smoothedDetectedHz);
+    float correctedHz = rawDetectedHz;
 
-    // Auto behavior: track fast on unstable/live-like movement, smooth on steady playback-like content.
-    float alphaFast = lowLatencyMode ? 0.82f : 0.68f;
-    float alphaSlow = lowLatencyMode ? 0.36f : 0.18f;
-    float alpha = juce::jlimit (alphaSlow, alphaFast, alphaSlow + movement * 0.45f + energy * 0.15f);
+    if (ratio > 1.4f && ratio < 2.6f)
+    {
+        // Try correcting down one octave
+        correctedHz = rawDetectedHz * 0.5f;
+    }
+    else if (ratio > 0.38f && ratio < 0.72f)
+    {
+        // Try correcting up one octave
+        correctedHz = rawDetectedHz * 2.0f;
+    }
+
+    // If octave correction brings us much closer to smoothed, use it
+    const float deltaRaw = std::abs (rawDetectedHz - smoothedDetectedHz);
+    const float deltaCorrected = std::abs (correctedHz - smoothedDetectedHz);
+    if (deltaCorrected < deltaRaw * 0.6f)
+        rawDetectedHz = correctedHz;
+
+    // Reject extreme jumps (e.g., detector glitches or false onsets).
+    // On a steady note, 20 Hz max jump per block is reasonable; much more suggests error.
+    const float delta = std::abs (rawDetectedHz - smoothedDetectedHz);
+    if (delta > 50.0f)
+    {
+        // Extreme jump: blend much more slowly, almost ignoring the raw value.
+        smoothedDetectedHz += (rawDetectedHz - smoothedDetectedHz) * 0.02f;
+        return smoothedDetectedHz;
+    }
+
+    // Normal blending with octave-error suppression.
+    const float energy = juce::jlimit (0.0f, 1.0f, signalRms * 4.0f);
+    const float movement = juce::jlimit (0.0f, 1.0f, delta / 15.0f); // Tighter threshold (was 35)
+
+    // Even more conservative: always use slower blend to enforce octave continuity.
+    float alphaFast = lowLatencyMode ? 0.40f : 0.25f;  // Was 0.82 / 0.68
+    float alphaSlow = lowLatencyMode ? 0.08f : 0.05f;  // Was 0.36 / 0.18
+    float alpha = juce::jlimit (alphaSlow, alphaFast, alphaSlow + movement * 0.15f + energy * 0.08f);
 
     smoothedDetectedHz += (rawDetectedHz - smoothedDetectedHz) * alpha;
     return smoothedDetectedHz;
