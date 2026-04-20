@@ -173,9 +173,6 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     targetPitchRatio = 1.0f;
     activePitchRatio = 1.0f;
     retuneSpeedSmoothed = 0.0f;
-    retuneSpeedLatched = 0.0f;
-    previousRetuneSpeedNorm = 0.0f;
-    retuneMotionHoldBlocks = 0;
     wetMixSmoothed = 0.0f;
     lockedTargetMidi = -1;
     lockedTargetAge = 0;
@@ -247,25 +244,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
     // UI semantics: 0 = slow, 100 = fast.
     const float retuneSpeedNorm = amountNorm;
-    const float speedSlew = lowLatencyMode ? 0.20f : 0.12f;
-    retuneSpeedSmoothed += (retuneSpeedNorm - retuneSpeedSmoothed) * speedSlew;
-    const float retuneControl = juce::jlimit (0.0f, 1.0f, retuneSpeedSmoothed);
-    const bool knobValueChanged = std::abs (retuneSpeedNorm - previousRetuneSpeedNorm) > 0.01f;
-    previousRetuneSpeedNorm = retuneSpeedNorm;
-
-    const float detectRateApprox = static_cast<float> (currentSampleRate)
-        / static_cast<float> (juce::jmax (1, numSamples));
-    const int retuneSettleBlocks = static_cast<int> (std::round (juce::jmax (2.0f, detectRateApprox * 0.30f)));
-    if (knobValueChanged)
-        retuneMotionHoldBlocks = retuneSettleBlocks;
-    else if (retuneMotionHoldBlocks > 0)
-        --retuneMotionHoldBlocks;
-
-    if (retuneMotionHoldBlocks == 0)
-        retuneSpeedLatched = retuneControl;
-
-    const float retuneControlActive = juce::jlimit (0.0f, 1.0f, retuneSpeedLatched);
-    const bool retuneKnobInMotion = retuneMotionHoldBlocks > 0;
+    retuneSpeedSmoothed = retuneSpeedNorm;
+    const float retuneControlActive = retuneSpeedNorm;
     const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
@@ -397,9 +377,35 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     pendingTargetStreak = 1;
                 }
 
-                // Ignore implausibly large jumps in one analysis step in fast/hard mode.
-                // These are usually detector octave flips that sound like garble artifacts.
-                if (std::abs (candidateMidiNote - lockedTargetMidi) > 3)
+                const float detectRateHz = static_cast<float> (currentSampleRate)
+                    / static_cast<float> (juce::jmax (1, numSamples * intervalDivider));
+                const float stableSeconds = 0.24f;
+                const int requiredStableHits = static_cast<int> (std::round (
+                    juce::jmax (2.0f, detectRateHz * stableSeconds)));
+                const bool strongInputForSwitch = inputRms > 0.004f;
+
+                // Check for clearly wrong octave BEFORE the semitone-distance guard so
+                // octave corrections (12 semitones) are not silently blocked.
+                const float lockHz = getTargetPitchHz (lockedTargetMidi);
+                const float lockCentsError = std::abs (1200.0f * std::log2 (
+                    juce::jmax (1.0f, detectedHz) / juce::jmax (1.0f, lockHz)));
+                const bool lockClearlyWrongOctave = lockCentsError > 550.0f
+                    && strongInputForSwitch
+                    && pendingTargetStreak >= juce::jmax (2, requiredStableHits / 2);
+
+                if (lockClearlyWrongOctave && targetSwitchCooldownBlocks == 0)
+                {
+                    lockedTargetMidi = candidateMidiNote;
+                    lockedTargetAge = 0;
+                    pendingTargetMidi = -1;
+                    pendingTargetStreak = 0;
+                    const float cooldownSeconds = 0.18f;
+                    targetSwitchCooldownBlocks = static_cast<int> (std::round (
+                        juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
+                    diagWindowLockSwitches++;
+                }
+                // Ignore implausibly large non-octave jumps — usually detector glitches.
+                else if (std::abs (candidateMidiNote - lockedTargetMidi) > 3)
                 {
                     // Keep existing lock until detector stabilizes.
                 }
@@ -407,8 +413,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 {
                 // Keep strong hysteresis in fast mode to prevent adjacent-note ping-pong.
                 const float switchHysteresis = 1.10f;
-                const float detectRateHz = static_cast<float> (currentSampleRate)
-                    / static_cast<float> (juce::jmax (1, numSamples * intervalDivider));
                 const float minHoldSeconds = 0.52f;
                 const int minHoldBlocks = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * minHoldSeconds)));
@@ -417,24 +421,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const bool switchDown = candidateMidiNote < lockedTargetMidi
                                      && detectedMidi < static_cast<float> (lockedTargetMidi) - switchHysteresis;
                 const bool confidentSwitch = pitchConfidence.load() > 0.60f;
-                const bool strongInputForSwitch = inputRms > 0.004f;
-                const float stableSeconds = 0.24f;
-                const int requiredStableHits = static_cast<int> (std::round (
-                    juce::jmax (2.0f, detectRateHz * stableSeconds)));
-
-                // If current lock is clearly in the wrong octave for sustained input,
-                // force a relock to the detected-note octave instead of staying stuck.
-                const float lockHz = getTargetPitchHz (lockedTargetMidi);
-                const float lockCentsError = std::abs (1200.0f * std::log2 (
-                    juce::jmax (1.0f, detectedHz) / juce::jmax (1.0f, lockHz)));
-                const bool lockClearlyWrongOctave = lockCentsError > 650.0f
-                    && strongInputForSwitch
-                    && pendingTargetStreak >= juce::jmax (2, requiredStableHits / 2);
 
                 if ((switchUp || switchDown)
                     && confidentSwitch
                     && strongInputForSwitch
-                    && ! retuneKnobInMotion
                     && lockedTargetAge >= minHoldBlocks
                     && pendingTargetStreak >= requiredStableHits
                     && targetSwitchCooldownBlocks == 0)
@@ -444,17 +434,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
                     const float cooldownSeconds = 0.20f;
-                    targetSwitchCooldownBlocks = static_cast<int> (std::round (
-                        juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
-                    diagWindowLockSwitches++;
-                }
-                else if (lockClearlyWrongOctave && targetSwitchCooldownBlocks == 0)
-                {
-                    lockedTargetMidi = candidateMidiNote;
-                    lockedTargetAge = 0;
-                    pendingTargetMidi = -1;
-                    pendingTargetStreak = 0;
-                    const float cooldownSeconds = 0.18f;
                     targetSwitchCooldownBlocks = static_cast<int> (std::round (
                         juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
                     diagWindowLockSwitches++;
@@ -719,13 +698,15 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
 
     const bool hardTuneMode = retuneSpeedSmoothed > 0.90f;
 
-    float referenceHz = 0.0f;
-    if (lockedTargetMidi >= 0)
-        referenceHz = getTargetPitchHz (lockedTargetMidi);
-    else if (lastValidDetectedHz > minPitchHz - 10.0f && lastValidDetectedHz < maxPitchHz + 10.0f)
-        referenceHz = lastValidDetectedHz;
-    else
-        referenceHz = smoothedDetectedHz;
+    // Use voice history only as the octave-fold reference — NOT lockedTargetMidi.
+    // Using the lock as reference causes circular feedback: a wrong-octave lock bends
+    // the detector toward itself, making candidateMidiNote always match the wrong lock.
+    float referenceHz = smoothedDetectedHz;
+    if (referenceHz < 1.0f)
+    {
+        if (lastValidDetectedHz > minPitchHz - 10.0f && lastValidDetectedHz < maxPitchHz + 10.0f)
+            referenceHz = lastValidDetectedHz;
+    }
 
     if (referenceHz > 1.0f)
     {
@@ -763,14 +744,6 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
 
         rawDetectedHz = bestHz;
 
-        // In hard-tune mode, once a target lock exists, do not allow large detector dives
-        // to subharmonics to pull the smoothing state away from the current musical target.
-        if (hardTuneMode && lockedTargetMidi >= 0 && signalRms > 0.01f)
-        {
-            const float lockCentsError = centsDistance (rawDetectedHz, referenceHz);
-            if (lockCentsError > 240.0f)
-                rawDetectedHz = referenceHz;
-        }
     }
 
     // Octave-error detection and correction.
