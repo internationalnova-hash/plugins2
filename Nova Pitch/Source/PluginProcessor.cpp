@@ -409,7 +409,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float lockHz = getTargetPitchHz (lockedTargetMidi);
                 const float lockCentsError = std::abs (1200.0f * std::log2 (
                     juce::jmax (1.0f, detectedHz) / juce::jmax (1.0f, lockHz)));
-                const bool lockClearlyWrongOctave = lockCentsError > 550.0f
+                // Only force a relock when the error is clearly a full octave+ off.
+                // Lower threshold was firing on notes that were just far in range, causing
+                // frequent lock switches (lockSwitchRateHz=0.5-1.5) and audible wobble.
+                const bool lockClearlyWrongOctave = lockCentsError > 900.0f
                     && strongInputForSwitch
                     && pendingTargetStreak >= juce::jmax (2, requiredStableHits / 2);
 
@@ -562,6 +565,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float targetSmoothing = juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.10f, 0.32f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
+        // Clamp accumulated lag: never let targetRatioSmoothed be more than ~300 cents
+        // from activePitchRatio. Without this, turning the speed knob from slow to fast
+        // causes a rush-to-catch-up lurch that sounds like wobble/pitch jump.
+        {
+            const float maxLagRatio = std::pow (2.0f, 300.0f / 1200.0f); // ~300 cents
+            const float lagRatio = targetRatioSmoothed / juce::jmax (0.001f, activePitchRatio);
+            if (lagRatio > maxLagRatio)
+                targetRatioSmoothed = activePitchRatio * maxLagRatio;
+            else if (lagRatio < 1.0f / maxLagRatio)
+                targetRatioSmoothed = activePitchRatio / maxLagRatio;
+        }
+
         // Single continuous control law across the full speed range.
         const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
         // Tighter maxStep to prevent per-block ratio jumps that cause wobble.
@@ -713,7 +728,16 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
 
     if (smoothedDetectedHz <= 0.0f)
     {
-        smoothedDetectedHz = rawDetectedHz;
+        // Cold-start: fold the first raw reading toward the center of the vocal range
+        // so a YIN harmonic flip on the very first frame doesn't anchor everything an
+        // octave high. Pick the octave closest to a natural vocal center (~300 Hz).
+        const float vocalCenter = 300.0f;
+        float initHz = rawDetectedHz;
+        while (initHz > vocalCenter * 1.41421356f && initHz * 0.5f >= minPitchHz - 10.0f)
+            initHz *= 0.5f;
+        while (initHz < vocalCenter * 0.70710678f && initHz * 2.0f <= maxPitchHz + 10.0f)
+            initHz *= 2.0f;
+        smoothedDetectedHz = initHz;
         return smoothedDetectedHz;
     }
 
@@ -766,16 +790,6 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
         }
 
         rawDetectedHz = bestHz;
-
-        // In hard-tune mode, once a target lock exists, reject large drops from the
-        // reference (subharmonic glitches). This is safe now because the circular-lock
-        // problem is broken at the processBlock level via lockFreeHz for candidateMidiNote.
-        if (hardTuneMode && lockedTargetMidi >= 0 && signalRms > 0.01f)
-        {
-            const float lockCentsError = centsDistance (rawDetectedHz, referenceHz);
-            if (lockCentsError > 240.0f)
-                rawDetectedHz = referenceHz;
-        }
     }
 
     // Octave-error detection and correction.
