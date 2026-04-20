@@ -517,12 +517,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (trackingLost)
         diagWindowTrackingLostBlocks++;
 
-    // Only fully bypass when signal is genuinely absent. Brief confidence dropouts
-    // caused by inter-window detector jumps should hold the last correction to avoid
-    // the dry/wet phase switching that creates comb/downsampling artifacts.
-    const float desiredWet = signalTooLow ? 0.0f : 1.0f;
-    const float wetSlew = signalTooLow ? 0.008f : 0.03f;
-    wetMixSmoothed += (desiredWet - wetMixSmoothed) * wetSlew;
+    // Keep the processed path fully wet while signal is present to avoid
+    // dry/wet comb filtering (phasey sound). Only fade to dry in true silence.
+    if (signalTooLow)
+        wetMixSmoothed += (0.0f - wetMixSmoothed) * 0.008f;
+    else
+        wetMixSmoothed = 1.0f;
     const float wetMix = juce::jlimit (0.0f, 1.0f, wetMixSmoothed);
 
     // Retune stays active across the full knob range; knob controls speed only.
@@ -585,7 +585,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (diagDetHz > 0.0f) { diagWindowDetectedHzSum += static_cast<double> (diagDetHz); ++diagWindowDetectedHzCount; }
     if (lockedTargetMidi >= 0) diagLastLockedTargetHz = getTargetPitchHz (lockedTargetMidi);
 
-    if (wetMix < 0.999f)
+    if (signalTooLow && wetMix < 0.999f)
     {
         const float dryMix = 1.0f - wetMix;
         auto* dryL = dryScratchL.data();
