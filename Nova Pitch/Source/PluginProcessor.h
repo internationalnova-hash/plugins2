@@ -138,6 +138,9 @@ private:
     float activePitchRatio { 1.0f };
     float targetRatioSmoothed { 1.0f };
     float retuneSpeedSmoothed { 0.0f };
+    float retuneSpeedLatched { 0.0f };
+    float previousRetuneSpeedNorm { 0.0f };
+    int retuneMotionHoldBlocks { 0 };
     float wetMixSmoothed { 0.0f };
     int lockedTargetMidi { -1 };
     int lockedTargetAge { 0 };

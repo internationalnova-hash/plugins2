@@ -173,6 +173,9 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     targetPitchRatio = 1.0f;
     activePitchRatio = 1.0f;
     retuneSpeedSmoothed = 0.0f;
+    retuneSpeedLatched = 0.0f;
+    previousRetuneSpeedNorm = 0.0f;
+    retuneMotionHoldBlocks = 0;
     wetMixSmoothed = 0.0f;
     lockedTargetMidi = -1;
     lockedTargetAge = 0;
@@ -247,7 +250,22 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float speedSlew = lowLatencyMode ? 0.20f : 0.12f;
     retuneSpeedSmoothed += (retuneSpeedNorm - retuneSpeedSmoothed) * speedSlew;
     const float retuneControl = juce::jlimit (0.0f, 1.0f, retuneSpeedSmoothed);
-    const bool retuneKnobInMotion = std::abs (retuneSpeedNorm - retuneControl) > 0.02f;
+    const bool knobValueChanged = std::abs (retuneSpeedNorm - previousRetuneSpeedNorm) > 0.01f;
+    previousRetuneSpeedNorm = retuneSpeedNorm;
+
+    const float detectRateApprox = static_cast<float> (currentSampleRate)
+        / static_cast<float> (juce::jmax (1, numSamples));
+    const int retuneSettleBlocks = static_cast<int> (std::round (juce::jmax (2.0f, detectRateApprox * 0.30f)));
+    if (knobValueChanged)
+        retuneMotionHoldBlocks = retuneSettleBlocks;
+    else if (retuneMotionHoldBlocks > 0)
+        --retuneMotionHoldBlocks;
+
+    if (retuneMotionHoldBlocks == 0)
+        retuneSpeedLatched = retuneControl;
+
+    const float retuneControlActive = juce::jlimit (0.0f, 1.0f, retuneSpeedLatched);
+    const bool retuneKnobInMotion = retuneMotionHoldBlocks > 0;
     const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
@@ -538,16 +556,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (! signalTooLow)
     {
         const float speedCoeff = lowLatencyMode
-            ? juce::jmap (retuneControl, 0.0f, 1.0f, 0.06f, 0.20f)
-            : juce::jmap (retuneControl, 0.0f, 1.0f, 0.05f, 0.18f);
+            ? juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.06f, 0.20f)
+            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.05f, 0.18f);
 
         // Smooth target-ratio motion first, then apply retune-speed glide.
-        const float targetSmoothing = juce::jmap (retuneControl, 0.0f, 1.0f, 0.14f, 0.42f);
+        const float targetSmoothing = juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.14f, 0.42f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
         // Single continuous control law across the full speed range.
         const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
-        const float maxStep = juce::jmap (retuneControl, 0.0f, 1.0f, 0.0035f, 0.0120f);
+        const float maxStep = juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.0035f, 0.0120f);
         const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
         activePitchRatio += step;
 
@@ -566,18 +584,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         diagWindowTargetCentsAbsSum += static_cast<double> (targetCents);
 
         // Apply shift only when tracking is valid.
-        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode, retuneControl);
+        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode, retuneControlActive);
         if (channelR != nullptr)
-            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode, retuneControl);
+            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode, retuneControlActive);
     }
     else
     {
         // Signal is absent — glide ratio back toward unity, continue running shifter.
         activePitchRatio += (1.0f - activePitchRatio) * 0.06f;
         targetRatioSmoothed += (1.0f - targetRatioSmoothed) * 0.08f;
-        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode, retuneControl);
+        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode, retuneControlActive);
         if (channelR != nullptr)
-            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode, retuneControl);
+            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode, retuneControlActive);
     }
 
     if (! signalTooLow)
@@ -662,7 +680,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             + " avgInputRms=" + juce::String (avgInputRms, 4)
             + " avgDetectedHz=" + juce::String (avgDetectedHz, 1)
             + " lockedTargetHz=" + juce::String (lockedTargetHz, 1)
-            + " speedNorm=" + juce::String (retuneControl, 3)
+            + " speedNorm=" + juce::String (retuneControlActive, 3)
             + " lowLatency=" + juce::String (lowLatencyMode ? 1 : 0);
 
         DBG (diagLine);
