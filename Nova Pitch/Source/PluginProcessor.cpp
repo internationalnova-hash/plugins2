@@ -467,7 +467,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
                               vibratoValue);
             }
-            targetPitchRatio = juce::jlimit (0.82f, 1.22f, pitchRatio);
+            const bool hardTuneMode = retuneSpeedNorm > 0.90f;
+            const float minRatio = hardTuneMode ? 0.72f : 0.78f;
+            const float maxRatio = hardTuneMode ? 1.38f : 1.28f;
+            targetPitchRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
             const float correctedHz = octaveAlignedDetectedHz * pitchRatio;
             correctedPitch.store (correctedHz);
 
@@ -529,22 +532,33 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     if (! signalTooLow)
     {
+        const bool hardTuneMode = retuneSpeedNorm > 0.90f;
         const float speedCoeff = lowLatencyMode
-            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.03f, 0.10f)
-            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.025f, 0.085f);
+            ? juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.07f, 0.22f)
+            : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.06f, 0.18f);
 
         // Smooth target-ratio motion first, then apply retune-speed glide.
-        const float targetSmoothing = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.08f, 0.20f);
+        const float targetSmoothing = hardTuneMode ? 0.50f : juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.18f, 0.34f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
         // Single control law: LP toward target followed by hard slew-limit.
         // This avoids the prior double-update that could still jump too far in one block.
-        const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
-        const float maxStep = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.0012f, 0.0030f);
-        const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
-        activePitchRatio += step;
+        if (hardTuneMode)
+        {
+            // In fastest mode prioritize audibility: converge quickly to target ratio.
+            activePitchRatio += (targetRatioSmoothed - activePitchRatio) * 0.60f;
+        }
+        else
+        {
+            const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
+            const float maxStep = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.0045f, 0.0140f);
+            const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
+            activePitchRatio += step;
+        }
 
-        activePitchRatio = juce::jlimit (0.82f, 1.22f, activePitchRatio);
+        const float minRatio = hardTuneMode ? 0.72f : 0.78f;
+        const float maxRatio = hardTuneMode ? 1.38f : 1.28f;
+        activePitchRatio = juce::jlimit (minRatio, maxRatio, activePitchRatio);
 
         const float ratioStep = std::abs (activePitchRatio - diagPrevActivePitchRatio);
         if (ratioStep > 0.008f)
@@ -1272,15 +1286,17 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     auto& dryBlendSmoothed = pitchDryBlendSmoothed[static_cast<size_t> (channel)];
 
     const int bufferSize = pitchShiftBufferSize;
-    const float clampedRatio = juce::jlimit (0.82f, 1.22f, pitchRatio);
-    const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
     const bool hardTuneMode = retuneSpeedNorm > 0.90f;
+    const float minRatio = hardTuneMode ? 0.72f : 0.78f;
+    const float maxRatio = hardTuneMode ? 1.38f : 1.28f;
+    const float clampedRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
+    const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
     // Keep ratio changes smooth enough to avoid time-domain read-head jumps.
     const float ratioSmoothing = hardTuneMode
         ? 0.10f
         : juce::jlimit (0.08f, 0.20f, 0.08f + ratioDelta * 0.30f);
     ratioSmoothed += (clampedRatio - ratioSmoothed) * ratioSmoothing;
-    const float effectiveRatio = juce::jlimit (0.82f, 1.22f, ratioSmoothed);
+    const float effectiveRatio = juce::jlimit (minRatio, maxRatio, ratioSmoothed);
 
     // Stable time-domain resampling core.
     // This is intentionally simpler than the prior granular OLA path to prioritize skip-free output.
