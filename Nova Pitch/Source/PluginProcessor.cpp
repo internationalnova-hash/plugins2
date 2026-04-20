@@ -690,6 +690,64 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
         return smoothedDetectedHz;
     }
 
+    const float retuneSpeedNorm = juce::jlimit (0.0f, 1.0f,
+        apvts.getRawParameterValue ("amount")->load() / 100.0f);
+    const bool hardTuneMode = retuneSpeedNorm > 0.90f;
+
+    float referenceHz = 0.0f;
+    if (lockedTargetMidi >= 0)
+        referenceHz = getTargetPitchHz (lockedTargetMidi);
+    else if (lastValidDetectedHz > minPitchHz - 10.0f && lastValidDetectedHz < maxPitchHz + 10.0f)
+        referenceHz = lastValidDetectedHz;
+    else
+        referenceHz = smoothedDetectedHz;
+
+    if (referenceHz > 1.0f)
+    {
+        auto centsDistance = [] (float a, float b)
+        {
+            return std::abs (1200.0f * std::log2 (juce::jmax (1.0f, a) / juce::jmax (1.0f, b)));
+        };
+
+        float bestHz = rawDetectedHz;
+        float bestCents = centsDistance (rawDetectedHz, referenceHz);
+
+        float up = rawDetectedHz;
+        while (up * 2.0f <= maxPitchHz + 10.0f)
+        {
+            up *= 2.0f;
+            const float cents = centsDistance (up, referenceHz);
+            if (cents < bestCents)
+            {
+                bestCents = cents;
+                bestHz = up;
+            }
+        }
+
+        float down = rawDetectedHz;
+        while (down * 0.5f >= minPitchHz - 10.0f)
+        {
+            down *= 0.5f;
+            const float cents = centsDistance (down, referenceHz);
+            if (cents < bestCents)
+            {
+                bestCents = cents;
+                bestHz = down;
+            }
+        }
+
+        rawDetectedHz = bestHz;
+
+        // In hard-tune mode, once a target lock exists, do not allow large detector dives
+        // to subharmonics to pull the smoothing state away from the current musical target.
+        if (hardTuneMode && lockedTargetMidi >= 0 && signalRms > 0.01f)
+        {
+            const float lockCentsError = centsDistance (rawDetectedHz, referenceHz);
+            if (lockCentsError > 240.0f)
+                rawDetectedHz = referenceHz;
+        }
+    }
+
     // Octave-error detection and correction.
     // If rawDetectedHz is ~1.5-2.5x or ~0.4-0.67x the smoothed pitch, likely octave error.
     const float ratio = rawDetectedHz / juce::jmax (1.0f, smoothedDetectedHz);
