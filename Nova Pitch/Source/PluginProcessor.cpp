@@ -254,7 +254,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float retuneControlActive = juce::jlimit (0.0f, 1.0f, retuneSpeedSmoothed);
     const float k = retuneControlActive;
     const float kShaped = std::pow (k, 1.65f);
-    const float retuneMs = 180.0f * std::pow (2.0f / 180.0f, kShaped);
+    const float retuneMs = 180.0f * std::pow (1.0f / 180.0f, kShaped);
     auto smoothstep = [] (float e0, float e1, float x)
     {
         const float t = juce::jlimit (0.0f, 1.0f, (x - e0) / juce::jmax (1.0e-6f, e1 - e0));
@@ -264,11 +264,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     detectMs = juce::jmap (smoothstep (0.75f, 1.0f, k), detectMs, retuneMs * 0.8f);
     const float detectSeconds = juce::jlimit (0.030f, 0.260f, detectMs * 0.001f);
     const float dtSeconds = static_cast<float> (numSamples) / static_cast<float> (juce::jmax (1.0, currentSampleRate));
-    const float correctionTauSec = juce::jlimit (0.002f, 0.300f, retuneMs * 0.001f);
+    const float correctionTauSec = juce::jlimit (0.001f, 0.250f, retuneMs * 0.001f);
     const float correctionAlpha = 1.0f - std::exp (-dtSeconds / juce::jmax (1.0e-6f, correctionTauSec));
     const float hysteresisCents = 40.0f + (12.0f - 40.0f) * std::pow (k, 1.5f);
     const float switchHysteresis = hysteresisCents / 100.0f;
-    const float maxSemitonesPerSecond = 8.0f * std::pow (120.0f / 8.0f, std::pow (k, 1.4f));
+    const float maxSemitonesPerSecond = 10.0f * std::pow (260.0f / 10.0f, std::pow (k, 1.35f));
     const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
@@ -523,8 +523,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // real note drift to drive stronger/autotune-like correction.
                 // Very small alpha so individual bad detector frames can't spike targetPitchRatio.
                 const float stableRetargetAlpha = hardTuneMode
-                    ? (lowLatencyMode ? 0.10f : 0.08f)
-                    : (lowLatencyMode ? 0.07f : 0.05f);
+                    ? (lowLatencyMode ? 0.22f : 0.18f)
+                    : (lowLatencyMode ? 0.08f : 0.06f);
                 targetPitchRatio += (computedTargetRatio - targetPitchRatio) * stableRetargetAlpha;
             }
 
@@ -590,7 +590,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Go to dry bypass immediately when confidence is zero — no grace period.
     // A 24-block grace window caused the shifter to run 24 blocks without a valid pitch
     // then abruptly switch to dry, producing an audible skip/comb artifact every playback start.
-    const bool trackingLost = signalTooLow || trackingConfidence < 0.01f;
+    const bool lowConfidence = trackingConfidence < (retuneControlActive >= 0.85f ? 0.002f : 0.01f);
+    const bool trackingLost = signalTooLow || (lowConfidence && voicedHoldBlocks == 0);
     if (trackingLost)
         diagWindowTrackingLostBlocks++;
 
@@ -612,8 +613,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         // CRITICAL: Higher smoothing at fast speeds means snappier Auto-Tune effect.
         // At k=1.0 (hard-tune), we use aggressive smoothing for immediate pitch lock.
         const float targetSmoothing = hardTuneMode
-            ? 0.85f
-            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.18f, 0.65f);
+            ? 0.96f
+            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.22f, 0.72f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
         // Clamp accumulated lag: never let targetRatioSmoothed be more than ~300 cents
@@ -919,6 +920,8 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
 float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targetHz, float signalRms, int voicedHoldBlocks, bool /*lowLatencyMode*/)
 {
     const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
+    const float amountNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("amount")->load() / 100.0f);
+    const bool hardTuneMode = amountNorm >= 0.90f;
 
     const float fullRatio = targetHz / juce::jmax (1.0f, detectedHz);
 
@@ -926,7 +929,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     const float centsError = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio))));
     // Keep tolerance independent of retune speed so turning speed knob doesn't
     // change pitch target behavior, only convergence rate.
-    const float toleranceCents = toleranceNorm * 3.5f;
+    const float toleranceCents = hardTuneMode ? 0.0f : toleranceNorm * 3.5f;
     
     // Voiced-hold gate: only suppress correction if signal is truly gone AND hold window is closed.
     // During hold window, keep computing correction ratio to maintain effect continuity.
@@ -935,6 +938,16 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
         return 1.0f;
     if (centsError < toleranceCents)
         return 1.0f;
+
+    if (hardTuneMode && centsError > 1.0f)
+    {
+        // In hard mode, force a minimum correction amount so the effect stays clearly audible.
+        const float minAudibleCents = juce::jmap (amountNorm, 0.90f, 1.00f, 9.0f, 18.0f);
+        const float sign = (fullRatio >= 1.0f) ? 1.0f : -1.0f;
+        const float minAudibleRatio = std::pow (2.0f, (sign * minAudibleCents) / 1200.0f);
+        const float boostedRatio = (centsError < minAudibleCents) ? minAudibleRatio : fullRatio;
+        return juce::jlimit (0.50f, 2.00f, boostedRatio);
+    }
 
     // MetaTune-style behavior: always compute full correction ratio,
     // then let downstream glide speed determine how quickly we reach it.
@@ -1453,12 +1466,15 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         channelDelay[static_cast<size_t> (writeIdx)] = inputSample;
 
         const float unityDelta = std::abs (effectiveRatio - 1.0f);
+        const bool hardTuneMode = retuneSpeedNorm >= 0.90f;
         const float desiredAnchor = wrapPos (static_cast<float> (writeIdx - baseDelaySamples));
 
         // Near-unity passthrough: keep this very narrow so subtle correction remains audible.
         // Full dry only inside ~3 cents, and fade out by ~7 cents.
-        const float nearUnityBlend = juce::jlimit (0.0f, 1.0f,
-            juce::jmap (unityDelta, 0.0018f, 0.0042f, 1.0f, 0.0f)); // 1=dry, 0=shifted
+        float nearUnityBlend = juce::jlimit (0.0f, 1.0f,
+            juce::jmap (unityDelta, 0.0010f, 0.0024f, 1.0f, 0.0f)); // 1=dry, 0=shifted
+        if (hardTuneMode)
+            nearUnityBlend = 0.0f;
 
         phase += (effectiveRatio - 1.0f);
         const float windowF = static_cast<float> (windowSamples);
