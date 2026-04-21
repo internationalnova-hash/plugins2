@@ -811,8 +811,8 @@ function drawGraph() {
     recentMotion /= 9;
     const motionIntensity = Math.max(0.25, Math.min(1, recentMotion / Math.max(1, maxOffset * 0.22)));
 
-    // Emit 14–26 particles per frame, all anchored to trail points.
-    const spawnN = Math.round(14 + motionIntensity * 12);
+    // Emit 18–34 particles per frame, all anchored to trail points.
+    const spawnN = Math.round(18 + motionIntensity * 16);
     for (let s = 0; s < spawnN; s++) {
       // Pick a random trail index (weighted toward recent / right side for "live" feel).
       const idx = Math.max(1, Math.min(trailN - 2,
@@ -836,14 +836,14 @@ function drawGraph() {
       const norX = -tanY * ns;
       const norY =  tanX * ns;
 
-      // Particle trails along curve then disperses much wider from the waveform.
-      const along   = 5 + Math.random() * 11;     // px along tangent
-      const outward = 50 + Math.random() * 42;    // ~2x wider halo around waveform
-      const size    = 1 + Math.random() * 2;      // 1–3px (pixel dust)
-      // Life: 56–108 frames (~930ms–1.8s)
-      const lifeFrames  = 56 + Math.random() * 52;
-      // Opacity: 38–70% at birth
-      const baseOpacity = 0.38 + Math.random() * 0.32;
+      // Particle trails along curve then disperses very wide from the waveform.
+      const along   = 6 + Math.random() * 12;     // px along tangent
+      const outward = 88 + Math.random() * 74;    // +75% wider vs previous
+      const size    = 1 + Math.random() * 2.2;    // 1–3.2px (pixel dust)
+      // Life: 70–130 frames (~1.15s–2.15s)
+      const lifeFrames  = 70 + Math.random() * 60;
+      // Opacity: 42–76% at birth
+      const baseOpacity = 0.42 + Math.random() * 0.34;
       const brightness  = 0.92 + Math.random() * 0.14;
 
       state.waveParticles.push({
@@ -854,9 +854,9 @@ function drawGraph() {
       });
     }
 
-    // Hard cap to prevent runaway accumulation (max ~520 live particles).
-    if (state.waveParticles.length > 520) {
-      state.waveParticles = state.waveParticles.slice(-520);
+    // Hard cap to prevent runaway accumulation (max ~760 live particles).
+    if (state.waveParticles.length > 760) {
+      state.waveParticles = state.waveParticles.slice(-760);
     }
 
     // Draw and age every particle.
@@ -868,11 +868,11 @@ function drawGraph() {
       const progress = p.age / p.lifeFrames;
       // Phase 1 (0→0.25): travel along tangent; phase 2: drift outward.
       const alongEase   = Math.min(1, progress / 0.25);
-      const outwardEase = Math.max(0, (progress - 0.06) / 0.94);
+      const outwardEase = Math.max(0, (progress - 0.02) / 0.98);
       // Gentler fade so dust stays visible longer
       const fade = Math.pow(1 - progress, 0.85);
 
-      const disperseJitter = (1 - progress) * (1.8 + motionIntensity * 2.2);
+      const disperseJitter = (1 - progress) * (3.0 + motionIntensity * 3.0);
       const px = p.x + p.tanX * p.along * alongEase + p.norX * p.outward * outwardEase
         + (Math.random() - 0.5) * disperseJitter;
       const py = p.y + p.tanY * p.along * alongEase + p.norY * p.outward * outwardEase
