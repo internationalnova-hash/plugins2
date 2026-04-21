@@ -314,7 +314,7 @@ const pianoRows = [];
 
 const knobDefs = {
   flexKnob: { key: 'flex', min: 0, max: 100, colorA: '#6AEFFF', colorB: '#B2F8FF', param: 'tolerance' },
-  retuneKnob: { key: 'retune', min: 0, max: 100, colorA: '#6AEFFF', colorB: '#C8FBFF', param: 'amount', emphasis: 1.35 },
+  retuneKnob: { key: 'retune', min: 0, max: 100, colorA: '#A566FF', colorB: '#D4A7FF', param: 'amount', emphasis: 1.35 },
   humanizeKnob: { key: 'humanize', min: 0, max: 100, colorA: '#6AEFFF', colorB: '#B2F8FF', param: 'confidenceThreshold' },
   vibratoKnob: { key: 'vibrato', min: 0, max: 100, colorA: '#6AEFFF', colorB: '#B2F8FF', param: 'vibrato' },
   formantKnob: { key: 'formant', min: 0, max: 100, colorA: '#6AEFFF', colorB: '#B2F8FF', param: 'formant' },
@@ -509,7 +509,7 @@ function drawKnob(canvas, value, def) {
 
   const ring = ctx.createLinearGradient(0, 0, w, h);
   ring.addColorStop(0, def.colorA);
-  ring.addColorStop(0.55, '#E0FBFF');
+  ring.addColorStop(0.55, isRetune ? '#C88BFF' : '#E0FBFF');
   ring.addColorStop(1, def.colorB);
   ctx.strokeStyle = ring;
   ctx.lineWidth = Math.max(4.8, r * (0.14 * emphasis + glowBoost * 0.07));
@@ -525,9 +525,9 @@ function drawKnob(canvas, value, def) {
 
   // Retune additional outer halo — stronger than others
   if (isRetune) {
-    ctx.strokeStyle = `rgba(106, 239, 255, ${0.13 + glowBoost * 0.06})`;
+    ctx.strokeStyle = `rgba(182, 120, 255, ${0.14 + glowBoost * 0.06})`;
     ctx.lineWidth = 2.0;
-    ctx.shadowColor = '#6AEFFF';
+    ctx.shadowColor = '#A566FF';
     ctx.shadowBlur = 20 + glowBoost * 16;
     ctx.beginPath();
     ctx.arc(cx, cy, r - 5, start, end);
