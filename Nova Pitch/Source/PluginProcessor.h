@@ -144,6 +144,7 @@ private:
     float targetRatioSmoothed { 1.0f };
     float retuneSpeedSmoothed { 0.0f };
     float inputRmsSmoothed { 0.0f };
+    int voicedHoldBlocks { 0 };
     float wetMixSmoothed { 0.0f };
     int lockedTargetMidi { -1 };
     int previousLockedTargetMidi { -1 };

@@ -177,6 +177,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     activePitchRatio = 1.0f;
     retuneSpeedSmoothed = 0.0f;
     inputRmsSmoothed = 0.0f;
+    voicedHoldBlocks = 0;
     wetMixSmoothed = 0.0f;
     lockedTargetMidi = -1;
     lockedTargetAge = 0;
@@ -411,7 +412,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float stableSeconds = detectSeconds;
                 const int requiredStableHits = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * stableSeconds)));
-                const bool strongInputForSwitch = inputRms > 0.004f;
+                const bool strongInputForSwitch = inputRms > 0.012f;
 
                 // Check for clearly wrong octave BEFORE the semitone-distance guard so
                 // octave corrections (12 semitones) are not silently blocked.
@@ -574,7 +575,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     inputRmsSmoothed += (inputRms - inputRmsSmoothed) * 0.08f;
-    const bool signalTooLow = inputRmsSmoothed < 0.006f;
+    const float gateOnThreshold = 0.0030f;
+    const float gateOffThreshold = 0.0012f;
+    if (inputRmsSmoothed >= gateOnThreshold)
+    {
+        voicedHoldBlocks = 24;
+    }
+    else if (voicedHoldBlocks > 0)
+    {
+        --voicedHoldBlocks;
+    }
+
+    const bool signalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
     // Go to dry bypass immediately when confidence is zero — no grace period.
     // A 24-block grace window caused the shifter to run 24 blocks without a valid pitch
     // then abruptly switch to dry, producing an audible skip/comb artifact every playback start.
@@ -585,9 +597,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Keep the processed path fully wet while signal is present to avoid
     // dry/wet comb filtering (phasey sound). Only fade to dry in true silence.
     if (signalTooLow)
-        wetMixSmoothed += (0.0f - wetMixSmoothed) * 0.028f;
+        wetMixSmoothed += (0.0f - wetMixSmoothed) * 0.020f;
     else
-        wetMixSmoothed += (1.0f - wetMixSmoothed) * 0.18f;
+        wetMixSmoothed += (1.0f - wetMixSmoothed) * 0.30f;
     const float wetMix = juce::jlimit (0.0f, 1.0f, wetMixSmoothed);
 
     // Retune stays active across the full knob range; knob controls speed only.
@@ -913,7 +925,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Keep tolerance independent of retune speed so turning speed knob doesn't
     // change pitch target behavior, only convergence rate.
     const float toleranceCents = toleranceNorm * 3.5f;
-    if (signalRms < 0.004f)
+    if (signalRms < 0.0012f)
         return 1.0f;
     if (centsError < toleranceCents)
         return 1.0f;
