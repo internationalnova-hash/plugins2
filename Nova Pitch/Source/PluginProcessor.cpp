@@ -317,19 +317,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         float rawYinHz = detectPitchYIN (analysisData, numSamples);
         const bool fastCorrectionMode = true;
 
-        // Compute a lock-free candidate Hz for note-switch decisions.
-        // This is octave-folded toward the voice's OWN pitch history (smoothedDetectedHz),
-        // NOT toward the current lock. This breaks the circular feedback where a wrong-octave
-        // lock bent the detector toward itself, preventing lock switches.
-        float lockFreeHz = rawYinHz;
-        if (lockFreeHz > 0.0f && smoothedDetectedHz > 1.0f)
-        {
-            while (lockFreeHz < smoothedDetectedHz * 0.70710678f && lockFreeHz * 2.0f <= maxPitchHz + 10.0f)
-                lockFreeHz *= 2.0f;
-            while (lockFreeHz > smoothedDetectedHz * 1.41421356f && lockFreeHz * 0.5f >= minPitchHz - 10.0f)
-                lockFreeHz *= 0.5f;
-        }
-
         // Always smooth detector output; disabling smoothing in hard mode caused
         // large frame-to-frame ratio jumps and audible skip bursts.
         // smoothDetectedPitch uses lockedTargetMidi as reference to anchor octave and
@@ -367,10 +354,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         if (hasUsablePitch)
         {
-            // Use lockFreeHz for candidateMidiNote so the lock-switch decision is never
-            // biased by the current lock. Fall back to detectedHz if lockFreeHz is invalid.
-            const float noteSourceHz = (lockFreeHz > minPitchHz - 10.0f && lockFreeHz < maxPitchHz + 10.0f)
-                ? lockFreeHz : detectedHz;
+            // Use the smoothed detected estimate directly for candidate selection.
+            // This avoids octave-fold side effects from secondary lock-free transforms.
+            const float noteSourceHz = detectedHz;
             const int candidateMidiNote = quantizeToScale (noteSourceHz);
             const float detectedMidi = 69.0f + 12.0f * std::log2 (juce::jmax (1.0f, noteSourceHz) / 440.0f);
 
@@ -575,12 +561,17 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     if (! signalTooLow)
     {
-        const float speedCoeff = lowLatencyMode
-            ? juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.04f, 0.16f)
-            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.03f, 0.14f);
+        const bool hardTuneMode = retuneControlActive >= 0.85f;
+        const float speedCoeff = hardTuneMode
+            ? (lowLatencyMode ? 0.62f : 0.56f)
+            : (lowLatencyMode
+                ? juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.04f, 0.16f)
+                : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.03f, 0.14f));
 
         // Smooth target-ratio motion first, then apply retune-speed glide.
-        const float targetSmoothing = juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.10f, 0.32f);
+        const float targetSmoothing = hardTuneMode
+            ? 0.46f
+            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.10f, 0.32f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
         // Clamp accumulated lag: never let targetRatioSmoothed be more than ~300 cents
@@ -598,7 +589,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         // Single continuous control law across the full speed range.
         const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
         // Tighter maxStep to prevent per-block ratio jumps that cause wobble.
-        const float maxStep = juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.0025f, 0.0070f);
+        const float maxStep = hardTuneMode
+            ? 0.028f
+            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.0025f, 0.0070f);
         const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
         activePitchRatio += step;
 
