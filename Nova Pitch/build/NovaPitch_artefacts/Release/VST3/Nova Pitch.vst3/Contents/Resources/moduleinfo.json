@@ -1,0 +1,60 @@
+{
+  "Name": "Nova Pitch",
+  "Version": "1.0.0",
+  "Factory Info": {
+    "Vendor": "International Nova",
+    "URL": "https://noizefield.com",
+    "E-Mail": "",
+    "Flags": {
+      "Unicode": true,
+      "Classes Discardable": false,
+      "Component Non Discardable": false,
+    },
+  },
+  "Classes": [
+    {
+      "CID": "ABCDEF019182FAEB496E6F764E765074",
+      "Category": "Audio Module Class",
+      "Name": "Nova Pitch",
+      "Vendor": "International Nova",
+      "Version": "1.0.0",
+      "SDKVersion": "VST 3.7.12",
+      "Sub Categories": [
+        "Fx",
+        "Pitch",
+      ],
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+    {
+      "CID": "ABCDEF011234ABCD496E6F764E765074",
+      "Category": "Component Controller Class",
+      "Name": "Nova Pitch",
+      "Vendor": "International Nova",
+      "Version": "1.0.0",
+      "SDKVersion": "VST 3.7.12",
+      "Sub Categories": [
+        "Fx",
+        "Pitch",
+      ],
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+    {
+      "CID": "ABCDEF01C0DEF00D496E6F764E765074",
+      "Category": "Plugin Compatibility Class",
+      "Name": "Nova Pitch",
+      "Vendor": "International Nova",
+      "Version": "1.0.0",
+      "SDKVersion": "VST 3.7.12",
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+  ],
+}

@@ -503,7 +503,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     octaveAlignedDetectedHz *= 0.5f;
             }
 
-            float pitchRatio = computeRetuneRatio (octaveAlignedDetectedHz, targetHz, inputRms, lowLatencyMode);
+            float pitchRatio = computeRetuneRatio (octaveAlignedDetectedHz, targetHz, inputRms, voicedHoldBlocks, lowLatencyMode);
             diagWindowRatioComputedBlocks++;
             if (std::abs (pitchRatio - 1.0f) < 0.001f)
                 diagWindowUnityReturnBlocks++;
@@ -609,9 +609,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const bool hardTuneMode = retuneControlActive >= 0.90f;
 
         // Smooth target-ratio motion first, then apply retune-speed glide.
+        // CRITICAL: Higher smoothing at fast speeds means snappier Auto-Tune effect.
+        // At k=1.0 (hard-tune), we use aggressive smoothing for immediate pitch lock.
         const float targetSmoothing = hardTuneMode
-            ? 0.72f
-            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.18f, 0.52f);
+            ? 0.85f
+            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.18f, 0.65f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
         // Clamp accumulated lag: never let targetRatioSmoothed be more than ~300 cents
@@ -914,7 +916,7 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
     return smoothedDetectedHz;
 }
 
-float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targetHz, float signalRms, bool /*lowLatencyMode*/)
+float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targetHz, float signalRms, int voicedHoldBlocks, bool /*lowLatencyMode*/)
 {
     const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
 
@@ -925,7 +927,11 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Keep tolerance independent of retune speed so turning speed knob doesn't
     // change pitch target behavior, only convergence rate.
     const float toleranceCents = toleranceNorm * 3.5f;
-    if (signalRms < 0.0012f)
+    
+    // Voiced-hold gate: only suppress correction if signal is truly gone AND hold window is closed.
+    // During hold window, keep computing correction ratio to maintain effect continuity.
+    const bool inHoldWindow = voicedHoldBlocks > 0;
+    if (signalRms < 0.0012f && !inHoldWindow)
         return 1.0f;
     if (centsError < toleranceCents)
         return 1.0f;
