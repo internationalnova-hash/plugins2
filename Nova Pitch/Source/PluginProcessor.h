@@ -130,6 +130,11 @@ private:
     int analysisInterval { 2048 };
     float smoothedDetectedHz { 0.0f };
     float lastValidDetectedHz { 0.0f };
+    // Median filter buffer: last 7 autocorrelation readings before smoothing.
+    static constexpr int detMedianSize = 7;
+    std::array<float, 7> detMedianBuf {};
+    int   detMedianIdx { 0 };
+    bool  detMedianFull { false };
     int blocksSinceValidPitch { 0 };
     float retuneLfoPhase { 0.0f };
     float retuneLfoJitter { 0.0f };

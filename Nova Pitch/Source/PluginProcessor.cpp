@@ -167,6 +167,9 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     smoothedDetectedHz = 0.0f;
     lastValidDetectedHz = 0.0f;
     blocksSinceValidPitch = 0;
+    detMedianBuf.fill (0.0f);
+    detMedianIdx  = 0;
+    detMedianFull = false;
     retuneLfoPhase = 0.0f;
     retuneLfoJitter = 0.0f;
     outputCompGain = 1.0f;
@@ -497,9 +500,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             {
                 // Stable-lock retarget smoothing suppresses detector flutter while still allowing
                 // real note drift to drive stronger/autotune-like correction.
+                // Very small alpha so individual bad detector frames can't spike targetPitchRatio.
                 const float stableRetargetAlpha = hardTuneMode
-                    ? 0.05f
-                    : (lowLatencyMode ? 0.22f : 0.16f);
+                    ? 0.02f
+                    : (lowLatencyMode ? 0.06f : 0.04f);
                 targetPitchRatio += (computedTargetRatio - targetPitchRatio) * stableRetargetAlpha;
             }
 
@@ -597,10 +601,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         // Single continuous control law across the full speed range.
         const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
         // Tighter maxStep to prevent per-block ratio jumps that cause wobble.
+        // Per-block ratio step clamp.  0.003 ≈ 6 cents/block @ 86 blocks/s = ~516 cents/s
+        // which is fast enough for snappy autotune but prevents the detector driving 200-cent
+        // lurches that the user hears as wobble.
         const float baseMaxStep = hardTuneMode
-            ? 0.012f
-            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.0035f, 0.0100f);
-        const float confidenceStepScale = juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.60f, 1.00f);
+            ? 0.006f
+            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.0015f, 0.0040f);
+        const float confidenceStepScale = juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.50f, 1.00f);
         const float maxStep = baseMaxStep * confidenceStepScale;
         const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
         activePitchRatio += step;
@@ -852,14 +859,28 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
         return smoothedDetectedHz;
     }
 
-    // Normal blending with octave-error suppression.
-    const float energy = juce::jlimit (0.0f, 1.0f, signalRms * 4.0f);
-    const float movement = juce::jlimit (0.0f, 1.0f, delta / 15.0f); // Tighter threshold (was 35)
+    // ── Median filter: collect last detMedianSize readings and use the median ──
+    // This kills brief subharmonic hits (e.g. 155 Hz one frame while singing 310 Hz)
+    // before they contaminate the smoother and produce ratio wobble.
+    detMedianBuf[static_cast<size_t> (detMedianIdx)] = rawDetectedHz;
+    detMedianIdx = (detMedianIdx + 1) % detMedianSize;
+    if (detMedianIdx == 0) detMedianFull = true;
 
-    // Even more conservative: always use slower blend to enforce octave continuity.
-    float alphaFast = lowLatencyMode ? 0.40f : 0.25f;  // Was 0.82 / 0.68
-    float alphaSlow = lowLatencyMode ? 0.08f : 0.05f;  // Was 0.36 / 0.18
-    float alpha = juce::jlimit (alphaSlow, alphaFast, alphaSlow + movement * 0.15f + energy * 0.08f);
+    const int filledCount = detMedianFull ? detMedianSize : detMedianIdx;
+    if (filledCount >= 3)
+    {
+        // Sort a local copy and pick the middle value.
+        std::array<float, 7> sortBuf {};
+        for (int k = 0; k < filledCount; ++k)
+            sortBuf[static_cast<size_t> (k)] = detMedianBuf[static_cast<size_t> (k)];
+        std::sort (sortBuf.begin(), sortBuf.begin() + filledCount);
+        rawDetectedHz = sortBuf[static_cast<size_t> (filledCount / 2)];
+    }
+
+    // Normal blending — extremely conservative so the smoother cannot be dragged by
+    // one or two outlier frames.  At alpha=0.04 a 100 Hz step takes ~17 blocks to close.
+    juce::ignoreUnused (signalRms, lowLatencyMode);
+    const float alpha = 0.04f;
 
     smoothedDetectedHz += (rawDetectedHz - smoothedDetectedHz) * alpha;
     return smoothedDetectedHz;
@@ -1398,8 +1419,14 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         const float unityDelta = std::abs (effectiveRatio - 1.0f);
         const float desiredAnchor = wrapPos (static_cast<float> (writeIdx - baseDelaySamples));
 
-        // Anchor moves at +1 sample per sample due to writeIdx increment.
-        // Add only the delta-speed component so net read speed becomes effectiveRatio.
+        // Near-unity passthrough: when the ratio is within ~18 cents of 1.0, skip the
+        // circular-buffer resample entirely and output the dry sample.  This eliminates
+        // the continuous flanging/phasing caused by the delay-line running near-unity.
+        // 18 cents ≈ ratio delta of 0.0104.  Blend smoothly over 8–22 cents so there is
+        // no audible click when switching in or out.
+        const float nearUnityBlend = juce::jlimit (0.0f, 1.0f,
+            juce::jmap (unityDelta, 0.0104f, 0.0204f, 1.0f, 0.0f)); // 1=dry, 0=shifted
+
         phase += (effectiveRatio - 1.0f);
         const float windowF = static_cast<float> (windowSamples);
         while (phase >= windowF)
@@ -1407,22 +1434,18 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         while (phase < 0.0f)
             phase += windowF;
 
-        const float t = phase / windowF;
         const float readA = wrapPos (desiredAnchor + phase);
-        juce::ignoreUnused (t);
         const float shifted = sampleAt (readA);
 
-        // Light smoothing only to avoid zippering while preserving audibility.
+        // Light smoothing to avoid zippering.
         const float baseAlpha = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.88f, 0.98f);
         const float alphaBoost = juce::jlimit (0.0f, 0.02f, unityDelta * 0.30f);
         const float outputAlpha = juce::jlimit (0.86f, 0.995f, baseAlpha + alphaBoost);
         outputSmoother += (shifted - outputSmoother) * outputAlpha;
 
-        // Disable dry-assist mixing. Mixing dry and delayed pitch-shift paths can comb-filter,
-        // causing both perceived skipping and apparent level loss.
-        dryBlendSmoothed += (0.0f - dryBlendSmoothed) * 0.25f;
-        const float dryBlend = 0.0f;
-        channelData[i] = outputSmoother * (1.0f - dryBlend) + inputSample * dryBlend;
+        // Blend dry (near-unity) vs shifted.
+        dryBlendSmoothed += (nearUnityBlend - dryBlendSmoothed) * 0.08f;
+        channelData[i] = outputSmoother * (1.0f - dryBlendSmoothed) + inputSample * dryBlendSmoothed;
 
         // Keep legacy readPos coherent for state continuity/debug visibility.
         readPos = readA;
