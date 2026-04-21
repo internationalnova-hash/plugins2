@@ -326,9 +326,9 @@
     }
     .note-bar .acc { color: var(--magenta); }
     .bottom {
-      border-radius: 12px; border: 1px solid rgba(118, 147, 176, 0.2);
-      background: linear-gradient(180deg, rgba(31, 44, 58, 0.56), rgba(24, 36, 49, 0.52));
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
+      border-radius: 12px; border: 1px solid rgba(118, 147, 176, 0.26);
+      background: linear-gradient(180deg, rgba(36, 50, 66, 0.72) 0%, rgba(20, 30, 42, 0.82) 55%, rgba(14, 22, 33, 0.88) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -12px 24px rgba(0,0,0,0.36), 0 2px 8px rgba(0,0,0,0.28);
       padding: 8px 12px 10px;
       display: grid; grid-template-columns: 1fr 1.25fr 1fr 1fr 1fr; gap: 12px; align-items: center;
       backdrop-filter: blur(1.4px);
@@ -337,18 +337,18 @@
     }
     .knob { text-align: center; color: var(--text); font-size: 13px; letter-spacing: 0.8px; text-transform: uppercase; }
     .knob canvas {
-      width: 86px;
-      height: 86px;
+      width: 93px;
+      height: 93px;
       display: block;
       margin: 0 auto 6px;
       transition: transform 140ms ease, filter 140ms ease;
-      filter: saturate(1.03) brightness(1.02);
+      filter: saturate(1.05) brightness(1.04);
     }
     .knob:hover canvas {
       transform: translateY(-1px) scale(1.02);
-      filter: saturate(1.14) brightness(1.08);
+      filter: saturate(1.16) brightness(1.10);
     }
-    .knob.big canvas { width: 116px; height: 116px; }
+    .knob.big canvas { width: 130px; height: 130px; }
     .knob.primary {
       filter: saturate(1.07) brightness(1.04);
     }

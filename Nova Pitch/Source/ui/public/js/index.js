@@ -453,10 +453,10 @@ function drawKnob(canvas, value, def) {
   ctx.fill();
 
   const body = ctx.createRadialGradient(cx - 9, cy - 12, 4, cx, cy, r + 6);
-  body.addColorStop(0, 'rgba(240,247,255,0.48)');
-  body.addColorStop(0.3, 'rgba(140,158,176,0.56)');
-  body.addColorStop(0.62, 'rgba(56,70,86,0.72)');
-  body.addColorStop(1, 'rgba(14,20,28,0.96)');
+  body.addColorStop(0, 'rgba(245,251,255,0.56)');
+  body.addColorStop(0.28, 'rgba(148,165,182,0.58)');
+  body.addColorStop(0.60, 'rgba(44,56,70,0.80)');
+  body.addColorStop(1, 'rgba(8,13,20,0.98)');
   ctx.fillStyle = body;
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -496,8 +496,8 @@ function drawKnob(canvas, value, def) {
   ctx.fill();
 
   // Glass reflection streak.
-  ctx.strokeStyle = 'rgba(232, 245, 255, 0.28)';
-  ctx.lineWidth = Math.max(2.6, r * 0.06);
+  ctx.strokeStyle = 'rgba(238, 250, 255, 0.40)';
+  ctx.lineWidth = Math.max(2.8, r * 0.07);
   ctx.beginPath();
   ctx.arc(cx - r * 0.06, cy - r * 0.08, r * 0.72, -Math.PI * 0.86, -Math.PI * 0.58);
   ctx.stroke();
@@ -512,25 +512,25 @@ function drawKnob(canvas, value, def) {
   ctx.shadowColor = def.colorA;
   // Spec: standard 6-12px blur; retune 12-22px blur
   ctx.shadowBlur = isRetune
-    ? 10.5 + 4.2 * emphasis + 6.4 * glowBoost
-    : 7 + 2 * emphasis + 8 * glowBoost;
+    ? 14 + 5 * emphasis + 8 * glowBoost
+    : 6 + 1.5 * emphasis + 6 * glowBoost;
   ctx.beginPath();
   ctx.arc(cx, cy, r - 7, start, end);
   ctx.stroke();
 
-  // Retune additional outer halo — spec: 10-16% alpha, 18-34px spread
+  // Retune additional outer halo — stronger than others
   if (isRetune) {
-    ctx.strokeStyle = `rgba(106, 239, 255, ${0.08 + glowBoost * 0.045})`;
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = `rgba(106, 239, 255, ${0.13 + glowBoost * 0.06})`;
+    ctx.lineWidth = 2.0;
     ctx.shadowColor = '#6AEFFF';
-    ctx.shadowBlur = 14 + glowBoost * 12;
+    ctx.shadowBlur = 20 + glowBoost * 16;
     ctx.beginPath();
     ctx.arc(cx, cy, r - 5, start, end);
     ctx.stroke();
   }
 
   // Crisp LED edge accent to make the ring read brighter.
-  ctx.strokeStyle = 'rgba(230, 251, 255, 0.72)';
+  ctx.strokeStyle = isRetune ? 'rgba(230, 251, 255, 0.88)' : 'rgba(230, 251, 255, 0.62)';
   ctx.lineWidth = Math.max(1, r * 0.03);
   ctx.shadowBlur = 0;
   ctx.beginPath();
@@ -544,7 +544,11 @@ function drawKnob(canvas, value, def) {
   ctx.arc(px, py, 2.7, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = 'rgba(20,26,34,0.92)';
+  // Darker center pupil for stronger contrast
+  const pupil = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.28);
+  pupil.addColorStop(0, 'rgba(4,7,12,0.99)');
+  pupil.addColorStop(1, 'rgba(10,15,22,0.96)');
+  ctx.fillStyle = pupil;
   ctx.beginPath();
   ctx.arc(cx, cy, r * 0.28, 0, Math.PI * 2);
   ctx.fill();
@@ -699,8 +703,8 @@ function drawGraph() {
     for (let i = 0; i < 220; i++) state.trail.push(h * 0.58);
   }
 
-  const natural = h * (0.56 + Math.sin(state.phase * 1.7) * 0.12 + Math.sin(state.phase * 0.43) * 0.08);
-  const target  = h * (0.52 - (state.key / 11) * 0.08);
+  const natural = h * (0.56 + Math.sin(state.phase * 1.7) * 0.065 + Math.sin(state.phase * 0.43) * 0.04);
+  const target  = h * (0.52 - (state.key / 11) * 0.06);
   const retuneBlend = state.retune / 100;
   const correctedCore = natural + (target - natural) * retuneBlend;
 
@@ -731,8 +735,8 @@ function drawGraph() {
   // ── Particle system ───────────────────────────────────────
   if (!state.waveParticles) state.waveParticles = [];
 
-  // Spawn 1–3 particles per frame along the trail
-  const spawnN = 1 + (Math.random() < 0.5 ? 1 : 0) + (Math.random() < 0.2 ? 1 : 0);
+  // Spawn 1–2 particles per frame along the trail (reduced density ~30%)
+  const spawnN = (Math.random() < 0.72 ? 1 : 0) + (Math.random() < 0.28 ? 1 : 0);
   for (let s = 0; s < spawnN; s++) {
     const idx = Math.floor(Math.random() * state.trail.length);
     const t   = idx / (state.trail.length - 1); // 0=left/purple, 1=right/cyan
@@ -785,25 +789,25 @@ function drawGraph() {
   ctx.lineCap  = 'round';
   ctx.lineJoin = 'round';
   const glowGrad = ctx.createLinearGradient(0, 0, w, 0);
-  glowGrad.addColorStop(0.00, 'rgba(140, 70, 255, 0.10)');
-  glowGrad.addColorStop(0.35, 'rgba(100, 140, 255, 0.18)');
-  glowGrad.addColorStop(0.70, 'rgba(70, 190, 255, 0.22)');
-  glowGrad.addColorStop(1.00, 'rgba(95, 232, 255, 0.28)');
+  glowGrad.addColorStop(0.00, 'rgba(140, 70, 255, 0.07)');
+  glowGrad.addColorStop(0.35, 'rgba(100, 140, 255, 0.13)');
+  glowGrad.addColorStop(0.70, 'rgba(70, 190, 255, 0.16)');
+  glowGrad.addColorStop(1.00, 'rgba(95, 232, 255, 0.20)');
   ctx.strokeStyle = glowGrad;
-  ctx.lineWidth   = 14;
+  ctx.lineWidth   = 10;
   ctx.shadowColor = '#4DA6FF';
-  ctx.shadowBlur  = 22;
+  ctx.shadowBlur  = 14;
   buildPath(); ctx.stroke();
 
   // Mid glow — tighter
   const midGlowGrad = ctx.createLinearGradient(0, 0, w, 0);
-  midGlowGrad.addColorStop(0.00, 'rgba(155, 80, 255, 0.22)');
-  midGlowGrad.addColorStop(0.45, 'rgba(90, 160, 255, 0.30)');
-  midGlowGrad.addColorStop(1.00, 'rgba(95, 232, 255, 0.38)');
+  midGlowGrad.addColorStop(0.00, 'rgba(155, 80, 255, 0.16)');
+  midGlowGrad.addColorStop(0.45, 'rgba(90, 160, 255, 0.22)');
+  midGlowGrad.addColorStop(1.00, 'rgba(95, 232, 255, 0.28)');
   ctx.strokeStyle = midGlowGrad;
-  ctx.lineWidth   = 5;
+  ctx.lineWidth   = 4;
   ctx.shadowColor = '#7BB0FF';
-  ctx.shadowBlur  = 10;
+  ctx.shadowBlur  = 7;
   buildPath(); ctx.stroke();
 
   // Core line — thin, bright
