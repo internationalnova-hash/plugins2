@@ -65,7 +65,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaPitchAudioProcessor::cre
     layout.add (std::make_unique<juce::AudioParameterFloat>(
         "formant", "Formant",
         juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f),
-        0.0f));
+        50.0f));
 
     layout.add (std::make_unique<juce::AudioParameterBool>(
         "lowLatency", "Low Latency",
@@ -1383,8 +1383,8 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         return ((c3 * frac + c2) * frac + c1) * frac + c0;
     };
 
-    // Two-head overlap-crossfade shifter.
-    // This removes discontinuous read-head anchor corrections that manifest as skip bursts.
+    // Single-head resampling shifter.
+    // The previous dual-head overlap path could create combing/phase coloration near-unity ratios.
     const int windowSamples = juce::jlimit (96, juce::jmax (97, baseDelaySamples - 32),
                                             static_cast<int> (std::round (baseDelaySamples * 0.65f)));
     float phase = crossfadePhase;
@@ -1408,19 +1408,8 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
 
         const float t = phase / windowF;
         const float readA = wrapPos (desiredAnchor + phase);
-        const float readB = wrapPos (readA - windowF);
-        const float sampleA = sampleAt (readA);
-        const float sampleB = sampleAt (readB);
-
-        const float gainA = std::sin ((1.0f - t) * juce::MathConstants<float>::halfPi);
-        const float gainB = std::sin (t * juce::MathConstants<float>::halfPi);
-        const float shiftedDual = sampleA * gainA + sampleB * gainB;
-
-        // Near unity ratio, dual-head overlap can sound phasey/chorusy due to combing.
-        // Crossfade toward a single read head when correction amount is very small.
-        const float singleHead = sampleAt (desiredAnchor);
-        const float dualBlend = juce::jlimit (0.0f, 1.0f, (unityDelta - 0.006f) / 0.040f);
-        const float shifted = singleHead + (shiftedDual - singleHead) * dualBlend;
+        juce::ignoreUnused (t);
+        const float shifted = sampleAt (readA);
 
         // Light smoothing only to avoid zippering while preserving audibility.
         const float baseAlpha = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.88f, 0.98f);

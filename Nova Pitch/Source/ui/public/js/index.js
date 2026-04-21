@@ -839,11 +839,11 @@ function drawGraph() {
       // Particle trails along curve for 2–6px then drifts 8–16px outward.
       const along   = 3 + Math.random() * 7;      // px along tangent
       const outward = 14 + Math.random() * 17;    // px along normal (+18% drift)
-      const size    = 2 + Math.random() * 2;      // 2–4px
+      const size    = 1 + Math.random() * 2;      // 1–3px (pixel dust)
       // Life: 42–78 frames (~700ms–1.3s)
       const lifeFrames  = 42 + Math.random() * 36;
-      // Opacity: 36–58% at birth
-      const baseOpacity = 0.36 + Math.random() * 0.22;
+      // Opacity: 32–56% at birth
+      const baseOpacity = 0.32 + Math.random() * 0.24;
       const brightness  = 0.92 + Math.random() * 0.14;
 
       state.waveParticles.push({
@@ -881,9 +881,15 @@ function drawGraph() {
       const b = Math.round(255 * Math.min(1, p.brightness * 1.02));
       ctx.globalAlpha = p.baseOpacity * fade;
       ctx.fillStyle = `rgb(${r},${g},${b})`;
-      ctx.beginPath();
-      ctx.arc(px, py, p.size, 0, Math.PI * 2);
-      ctx.fill();
+
+      // Pixel-dust look: snap to raster and draw tiny square sprites, not soft circles.
+      const qx = Math.round(px);
+      const qy = Math.round(py);
+      const side = Math.max(1, Math.round(p.size));
+      ctx.fillRect(qx - (side >> 1), qy - (side >> 1), side, side);
+      if (side <= 2 && Math.random() < 0.32) {
+        ctx.fillRect(qx + 1, qy, 1, 1);
+      }
     }
     ctx.globalAlpha = 1;
     ctx.restore();
@@ -912,9 +918,10 @@ function drawGraph() {
       const sb = 255;
       ctx.globalAlpha = 0.72 * sfade;
       ctx.fillStyle = `rgb(${sr},${sg},${sb})`;
-      ctx.beginPath();
-      ctx.arc(sp.x, sp.y, 2, 0, Math.PI * 2);
-      ctx.fill();
+      const sx = Math.round(sp.x);
+      const sy = Math.round(sp.y);
+      ctx.fillRect(sx - 1, sy - 1, 3, 3);
+      ctx.fillRect(sx, sy, 1, 1);
     }
     ctx.globalAlpha = 1;
     ctx.restore();
