@@ -247,8 +247,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
     // UI semantics: 0 = slow, 100 = fast.
     const float retuneSpeedNorm = amountNorm;
-    retuneSpeedSmoothed = retuneSpeedNorm;
-    const float retuneControlActive = retuneSpeedNorm;
+    // Smooth the speed control so turning the knob does not inject coefficient jumps.
+    retuneSpeedSmoothed += (retuneSpeedNorm - retuneSpeedSmoothed) * 0.12f;
+    const float retuneControlActive = juce::jlimit (0.0f, 1.0f, retuneSpeedSmoothed);
     const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
@@ -389,7 +390,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
                 const float detectRateHz = static_cast<float> (currentSampleRate)
                     / static_cast<float> (juce::jmax (1, numSamples * intervalDivider));
-                const float stableSeconds = hardTuneMode ? 0.95f : 0.24f;
+                // Hard tune should switch to intended notes quickly (Auto-Tune-like snap),
+                // while normal mode keeps a bit more stability.
+                const float stableSeconds = hardTuneMode ? 0.14f : 0.20f;
                 const int requiredStableHits = static_cast<int> (std::round (
                     juce::jmax (2.0f, detectRateHz * stableSeconds)));
                 const bool strongInputForSwitch = inputRms > 0.004f;
@@ -418,7 +421,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     diagWindowLockSwitches++;
                 }
                 // Ignore implausibly large non-octave jumps — usually detector glitches.
-                else if (std::abs (candidateMidiNote - lockedTargetMidi) > 3)
+                else if (std::abs (candidateMidiNote - lockedTargetMidi) > (hardTuneMode ? 7 : 5))
                 {
                     // Keep existing lock until detector stabilizes.
                 }
@@ -430,15 +433,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 else
                 {
                 // Keep strong hysteresis in fast mode to prevent adjacent-note ping-pong.
-                const float switchHysteresis = hardTuneMode ? 3.20f : 1.10f;
-                const float minHoldSeconds = hardTuneMode ? 2.00f : 0.52f;
+                const float switchHysteresis = hardTuneMode ? 0.55f : 0.90f;
+                const float minHoldSeconds = hardTuneMode ? 0.12f : 0.22f;
                 const int minHoldBlocks = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * minHoldSeconds)));
                 const bool switchUp = candidateMidiNote > lockedTargetMidi
                                    && detectedMidi > static_cast<float> (lockedTargetMidi) + switchHysteresis;
                 const bool switchDown = candidateMidiNote < lockedTargetMidi
                                      && detectedMidi < static_cast<float> (lockedTargetMidi) - switchHysteresis;
-                const bool confidentSwitch = pitchConfidence.load() > (hardTuneMode ? 0.82f : 0.60f);
+                const bool confidentSwitch = pitchConfidence.load() > (hardTuneMode ? 0.70f : 0.58f);
 
                 if ((switchUp || switchDown)
                     && confidentSwitch
@@ -451,7 +454,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     lockedTargetAge = 0;
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
-                    const float cooldownSeconds = hardTuneMode ? 1.20f : 0.20f;
+                    const float cooldownSeconds = hardTuneMode ? 0.16f : 0.16f;
                     targetSwitchCooldownBlocks = static_cast<int> (std::round (
                         juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
                     diagWindowLockSwitches++;
@@ -502,8 +505,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // real note drift to drive stronger/autotune-like correction.
                 // Very small alpha so individual bad detector frames can't spike targetPitchRatio.
                 const float stableRetargetAlpha = hardTuneMode
-                    ? 0.02f
-                    : (lowLatencyMode ? 0.06f : 0.04f);
+                    ? (lowLatencyMode ? 0.10f : 0.08f)
+                    : (lowLatencyMode ? 0.07f : 0.05f);
                 targetPitchRatio += (computedTargetRatio - targetPitchRatio) * stableRetargetAlpha;
             }
 
@@ -575,10 +578,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         const bool hardTuneMode = retuneControlActive >= 0.85f;
         const float speedCoeff = hardTuneMode
-            ? (lowLatencyMode ? 0.58f : 0.52f)
+            ? (lowLatencyMode ? 0.64f : 0.58f)
             : (lowLatencyMode
-                ? juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.05f, 0.22f)
-                : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.04f, 0.20f));
+                ? juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.06f, 0.30f)
+                : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.05f, 0.28f));
 
         // Smooth target-ratio motion first, then apply retune-speed glide.
         const float targetSmoothing = hardTuneMode
@@ -605,8 +608,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         // which is fast enough for snappy autotune but prevents the detector driving 200-cent
         // lurches that the user hears as wobble.
         const float baseMaxStep = hardTuneMode
-            ? 0.006f
-            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.0015f, 0.0040f);
+            ? 0.009f
+            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.0020f, 0.0060f);
         const float confidenceStepScale = juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.50f, 1.00f);
         const float maxStep = baseMaxStep * confidenceStepScale;
         const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
@@ -1419,13 +1422,10 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         const float unityDelta = std::abs (effectiveRatio - 1.0f);
         const float desiredAnchor = wrapPos (static_cast<float> (writeIdx - baseDelaySamples));
 
-        // Near-unity passthrough: when the ratio is within ~18 cents of 1.0, skip the
-        // circular-buffer resample entirely and output the dry sample.  This eliminates
-        // the continuous flanging/phasing caused by the delay-line running near-unity.
-        // 18 cents ≈ ratio delta of 0.0104.  Blend smoothly over 8–22 cents so there is
-        // no audible click when switching in or out.
+        // Near-unity passthrough: keep this very narrow so subtle correction remains audible.
+        // Full dry only inside ~3 cents, and fade out by ~7 cents.
         const float nearUnityBlend = juce::jlimit (0.0f, 1.0f,
-            juce::jmap (unityDelta, 0.0104f, 0.0204f, 1.0f, 0.0f)); // 1=dry, 0=shifted
+            juce::jmap (unityDelta, 0.0018f, 0.0042f, 1.0f, 0.0f)); // 1=dry, 0=shifted
 
         phase += (effectiveRatio - 1.0f);
         const float windowF = static_cast<float> (windowSamples);
@@ -1444,7 +1444,7 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         outputSmoother += (shifted - outputSmoother) * outputAlpha;
 
         // Blend dry (near-unity) vs shifted.
-        dryBlendSmoothed += (nearUnityBlend - dryBlendSmoothed) * 0.08f;
+        dryBlendSmoothed += (nearUnityBlend - dryBlendSmoothed) * 0.035f;
         channelData[i] = outputSmoother * (1.0f - dryBlendSmoothed) + inputSample * dryBlendSmoothed;
 
         // Keep legacy readPos coherent for state continuity/debug visibility.
