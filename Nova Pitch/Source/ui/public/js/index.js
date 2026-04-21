@@ -668,95 +668,52 @@ function drawGraph() {
 
   ctx.clearRect(0, 0, w, h);
 
-  const bg = ctx.createLinearGradient(0, 0, 0, h);
-  bg.addColorStop(0, '#132737');
-  bg.addColorStop(1, '#0b1621');
-  ctx.fillStyle = bg;
+  // ── Background ────────────────────────────────────────────
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+  bgGrad.addColorStop(0, '#0e1a2c');
+  bgGrad.addColorStop(1, '#070c14');
+  ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, w, h);
 
-  const centerGlow = ctx.createRadialGradient(w * 0.52, h * 0.48, 10, w * 0.52, h * 0.48, h * 0.7);
-  centerGlow.addColorStop(0, 'rgba(88, 200, 255, 0.2)');
-  centerGlow.addColorStop(0.48, 'rgba(66, 120, 210, 0.1)');
-  centerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.fillStyle = centerGlow;
+  // Subtle deep-blue ambient wash
+  const ambGlow = ctx.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, w * 0.45);
+  ambGlow.addColorStop(0, 'rgba(40, 80, 160, 0.06)');
+  ambGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = ambGlow;
   ctx.fillRect(0, 0, w, h);
 
-  // Focus zone — narrow horizontal band under pitch line, 8–14% opacity
-  const focusY = state.smoothPitch != null ? state.smoothPitch : h * 0.55;
-  const focusZone = ctx.createRadialGradient(w * 0.5, focusY, 0, w * 0.5, focusY, w * 0.22);
-  focusZone.addColorStop(0,   `rgba(72, 196, 255, ${0.11 + state.signalLevel * 0.03})`);
-  focusZone.addColorStop(0.6, `rgba(60, 160, 240, ${0.06 + state.signalLevel * 0.02})`);
-  focusZone.addColorStop(1,   'rgba(0,0,0,0)');
-  ctx.fillStyle = focusZone;
-  ctx.fillRect(w * 0.1, focusY - h * 0.18, w * 0.8, h * 0.36);
-
-  const magentaMist = ctx.createRadialGradient(w * 0.38, h * 0.56, 10, w * 0.38, h * 0.56, h * 0.5);
-  magentaMist.addColorStop(0, 'rgba(223, 72, 218, 0.08)');
-  magentaMist.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.fillStyle = magentaMist;
-  ctx.fillRect(0, 0, w, h);
-
-  ctx.strokeStyle = 'rgba(160,195,222,0.13)';
+  // ── Grid ─────────────────────────────────────────────────
+  ctx.strokeStyle = 'rgba(150, 185, 215, 0.10)';
   ctx.lineWidth = 1;
   for (let i = 0; i < 12; i++) {
     const y = (h / 12) * i;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(w, y);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
   }
   for (let i = 0; i < 10; i++) {
     const x = (w / 9) * i;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, h);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
   }
 
-  // Very faint animated grain so the graph bed is not flat.
-  ctx.strokeStyle = 'rgba(210, 228, 245, 0.03)';
-  ctx.lineWidth = 1;
-  for (let y = 0; y < h; y += 3) {
-    const offset = Math.sin(y * 0.12 + state.phase * 4.2) * 1.2;
-    ctx.beginPath();
-    ctx.moveTo(offset, y + 0.5);
-    ctx.lineTo(w + offset, y + 0.5);
-    ctx.stroke();
-  }
-
-  // Playhead position (used for crosshair intersection below; beam removed)
-  const markerX = ((state.phase * 1.6) % 1) * w;
-
+  // ── Pitch logic (unchanged) ───────────────────────────────
   if (state.trail.length === 0) {
-    for (let i = 0; i < 180; i++) state.trail.push(h * 0.58);
+    for (let i = 0; i < 220; i++) state.trail.push(h * 0.58);
   }
 
   const natural = h * (0.56 + Math.sin(state.phase * 1.7) * 0.12 + Math.sin(state.phase * 0.43) * 0.08);
-  const target = h * (0.52 - (state.key / 11) * 0.08);
-
-  // Retune Speed: 0 is slowest, 100 is fastest.
+  const target  = h * (0.52 - (state.key / 11) * 0.08);
   const retuneBlend = state.retune / 100;
   const correctedCore = natural + (target - natural) * retuneBlend;
 
-  // ── DSP Intensity Engine ─────────────────────────────
   const correctionDist = Math.abs(natural - target);
-  // Override with live DSP data when available; fall back to derived value
   if (!state.dsp.retuneActive) {
     state.dsp.correctionAmount = Math.min(1, correctionDist / (h * 0.18));
   }
-  const dspIntensity = Math.min(1, state.dsp.correctionAmount * (0.3 + retuneBlend * 0.7));
-  // Snap flash: fast retune + high correction = brief bright pulse at playhead
   if (state.dsp.snapFlash > 0) state.dsp.snapFlash *= 0.88;
-  if (retuneBlend > 0.85 && state.dsp.correctionAmount > 0.35) {
-    state.dsp.snapFlash = Math.min(1, state.dsp.snapFlash + 0.06);
-  }
 
-  // Vibrato is applied after pitch correction.
   const vibDepth = (state.vibrato / 100) * (h * 0.04);
-  const vibRate = 1.2 + (state.vibrato / 100) * 4.0;
+  const vibRate  = 1.2 + (state.vibrato / 100) * 4.0;
   const correctedWithVibrato = correctedCore + Math.sin(state.phase * vibRate) * vibDepth;
 
-  // Smooth interpolation — low latency mode reduces smoothing for rawer, more responsive feel.
   if (state.smoothPitch == null) state.smoothPitch = correctedWithVibrato;
   const smoothBase   = state.lowLatency ? 0.44 : 0.20;
   const smoothAmount = Math.min(0.76, smoothBase + retuneBlend * 0.18);
@@ -766,148 +723,127 @@ function drawGraph() {
   const pseudoInput = 0.44 + Math.abs(Math.sin(state.phase * 0.9)) * 0.32;
   state.signalLevel = Math.max(0.2, Math.min(1, pseudoInput + drift * 0.35));
 
-  // Stability jitter — subtle noise on low tracking confidence (1.0 = stable in sim).
   const jitterAmt = (1 - state.dsp.trackingConfidence) * 2.4;
   const jitter    = jitterAmt > 0.2 ? (Math.random() - 0.5) * jitterAmt * 2 : 0;
-  // Vibrato glow boost for trail
-  const vibratoTrailBoost = (state.vibrato / 100) * 0.08;
   state.trail.push(state.smoothPitch + jitter);
   if (state.trail.length > 220) state.trail.shift();
 
-  const playheadIndex = Math.max(0, Math.min(state.trail.length - 1, Math.round(((state.phase * 1.6) % 1) * (state.trail.length - 1))));
-  const playheadY = state.trail[playheadIndex] ?? state.smoothPitch;
-  // Pitch line pulse: ±3–4% brightness tied to signal — restrained, never distracting
-  const linePulse = 0.965 + (0.035 + state.signalLevel * 0.025) * (0.5 + 0.5 * Math.sin(state.phase * 2.3));
-  const playPulse = 0.5 + 0.5 * Math.sin(state.phase * 2.8);
+  // ── Particle system ───────────────────────────────────────
+  if (!state.waveParticles) state.waveParticles = [];
 
-  const crossGlow = ctx.createRadialGradient(markerX, playheadY, 0, markerX, playheadY, 20 + state.signalLevel * 8);
-  crossGlow.addColorStop(0, `rgba(246, 253, 255, ${0.26 + playPulse * 0.16})`);
-  crossGlow.addColorStop(0.35, `rgba(89, 232, 255, ${0.16 + state.signalLevel * 0.1})`);
-  crossGlow.addColorStop(1, 'rgba(89, 232, 255, 0)');
-  ctx.fillStyle = crossGlow;
-  ctx.fillRect(markerX - 32, playheadY - 32, 64, 64);
-
-  // Correction beam — energy line showing pitch being pulled toward target.
-  if (correctionDist > 5 && state.dsp.correctionAmount > 0.04) {
-    const by1   = Math.min(state.smoothPitch, target);
-    const by2   = Math.max(state.smoothPitch, target);
-    const bGrad = ctx.createLinearGradient(markerX, by1, markerX, by2);
-    bGrad.addColorStop(0,    `rgba( 89,232,255, ${state.dsp.correctionAmount * 0.42})`);
-    bGrad.addColorStop(0.42, `rgba(175, 95,255, ${state.dsp.correctionAmount * 0.28})`);
-    bGrad.addColorStop(0.58, `rgba(175, 95,255, ${state.dsp.correctionAmount * 0.28})`);
-    bGrad.addColorStop(1,    `rgba(217, 92,255, ${state.dsp.correctionAmount * 0.42})`);
-    ctx.strokeStyle  = bGrad;
-    ctx.lineWidth    = 1.5 + state.dsp.correctionAmount * 1.5;
-    ctx.lineCap      = 'round';
-    ctx.shadowColor  = 'rgba(160,80,255,0.7)';
-    ctx.shadowBlur   = 3 + dspIntensity * 12;
-    ctx.beginPath();
-    ctx.moveTo(markerX, by1);
-    ctx.lineTo(markerX, by2);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+  // Spawn 1–3 particles per frame along the trail
+  const spawnN = 1 + (Math.random() < 0.5 ? 1 : 0) + (Math.random() < 0.2 ? 1 : 0);
+  for (let s = 0; s < spawnN; s++) {
+    const idx = Math.floor(Math.random() * state.trail.length);
+    const t   = idx / (state.trail.length - 1); // 0=left/purple, 1=right/cyan
+    state.waveParticles.push({
+      x:     (idx / (state.trail.length - 1)) * w,
+      y:     state.trail[idx] + (Math.random() - 0.5) * 22,
+      vx:    (Math.random() - 0.5) * 0.25,
+      vy:    (Math.random() - 0.5) * 0.35,
+      life:  1.0,
+      decay: 0.007 + Math.random() * 0.011,
+      size:  0.6 + Math.random() * 1.3,
+      t,
+    });
   }
 
-  // Correction line — spec: #D95CFF, 1.2–1.8px, 70–85% opacity, glow 4–10px
-  ctx.strokeStyle = 'rgba(217, 92, 255, 0.78)';
-  ctx.lineWidth = 1.5;
-  ctx.shadowColor = '#D95CFF';
-  ctx.shadowBlur = 7; // spec 4–10px
-  ctx.beginPath();
-  ctx.moveTo(0, target);
-  ctx.lineTo(w, target);
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  // Glow trail pass.
-  for (let i = 1; i < state.trail.length; i++) {
-    const t = i / (state.trail.length - 1);
-    const prevX = ((i - 1) / (state.trail.length - 1)) * w;
-    const prevY = state.trail[i - 1];
-    const x = t * w;
-    const y = state.trail[i];
-    ctx.strokeStyle = `rgba(63,233,247,${0.04 + t * (0.26 + vibratoTrailBoost)})`;
-    ctx.lineWidth = 1.8 + t * 2.2;
-    ctx.shadowColor = 'rgba(63,233,247,0.28)';
-    ctx.shadowBlur = 6 + t * 3;
+  // Draw and age particles
+  ctx.save();
+  state.waveParticles = state.waveParticles.filter(p => p.life > 0);
+  for (const p of state.waveParticles) {
+    p.x   += p.vx;
+    p.y   += p.vy;
+    p.life -= p.decay;
+    if (p.life <= 0) continue;
+    // Purple (t=0) → blue (t=0.5) → cyan (t=1)
+    const r = Math.round(155 - p.t * 60);  // 155→95
+    const g = Math.round(80  + p.t * 152); // 80→232
+    ctx.globalAlpha = p.life * 0.50;
+    ctx.fillStyle   = `rgb(${r},${g},255)`;
     ctx.beginPath();
-    ctx.moveTo(prevX, prevY);
-    ctx.lineTo(x, y);
-    ctx.stroke();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
   }
-  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
+  ctx.restore();
 
-  const path = () => {
+  // ── Pitch line — purple → blue → cyan gradient ────────────
+  const trailLen = state.trail.length;
+
+  const buildPath = () => {
     ctx.beginPath();
-    for (let i = 0; i < state.trail.length; i++) {
-      const x = (i / (state.trail.length - 1)) * w;
+    for (let i = 0; i < trailLen; i++) {
+      const x = (i / (trailLen - 1)) * w;
       const y = state.trail[i];
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
   };
 
-  // Formant color tint: above 50%, shift outer aura slightly toward violet.
-  const fTint = Math.max(0, (state.formant / 100 - 0.5) * 2); // 0 at ≤50%, 1 at 100%
-  const auraR = Math.round(89  + fTint * 66);  // 89 → 155
-  const auraG = Math.round(232 - fTint * 102); // 232 → 130
-
-  // Spec: outer glow with DSP intensity boost
+  // Outer glow — wide, soft, fades in from left
   ctx.globalCompositeOperation = 'lighter';
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.strokeStyle = `rgba(${auraR}, ${auraG}, 255, ${(0.21 + state.signalLevel * 0.13 + dspIntensity * 0.08) * linePulse})`;
-  ctx.lineWidth    = 10 + dspIntensity * 2;
-  ctx.shadowColor  = `rgb(${auraR}, ${auraG}, 255)`;
-  ctx.shadowBlur   = 14 + state.signalLevel * 7 + dspIntensity * 6;
-  path(); ctx.stroke();
+  ctx.lineCap  = 'round';
+  ctx.lineJoin = 'round';
+  const glowGrad = ctx.createLinearGradient(0, 0, w, 0);
+  glowGrad.addColorStop(0.00, 'rgba(140, 70, 255, 0.10)');
+  glowGrad.addColorStop(0.35, 'rgba(100, 140, 255, 0.18)');
+  glowGrad.addColorStop(0.70, 'rgba(70, 190, 255, 0.22)');
+  glowGrad.addColorStop(1.00, 'rgba(95, 232, 255, 0.28)');
+  ctx.strokeStyle = glowGrad;
+  ctx.lineWidth   = 14;
+  ctx.shadowColor = '#4DA6FF';
+  ctx.shadowBlur  = 22;
+  buildPath(); ctx.stroke();
 
-  // Core stroke — slightly brighter to give the Nova 'energy' feel
-  ctx.strokeStyle = `rgba(200, 250, 255, ${0.97 * linePulse})`;
-  ctx.lineWidth = 2.4;
-  ctx.shadowColor = '#59E8FF';
-  ctx.shadowBlur = 10;
-  path(); ctx.stroke();
+  // Mid glow — tighter
+  const midGlowGrad = ctx.createLinearGradient(0, 0, w, 0);
+  midGlowGrad.addColorStop(0.00, 'rgba(155, 80, 255, 0.22)');
+  midGlowGrad.addColorStop(0.45, 'rgba(90, 160, 255, 0.30)');
+  midGlowGrad.addColorStop(1.00, 'rgba(95, 232, 255, 0.38)');
+  ctx.strokeStyle = midGlowGrad;
+  ctx.lineWidth   = 5;
+  ctx.shadowColor = '#7BB0FF';
+  ctx.shadowBlur  = 10;
+  buildPath(); ctx.stroke();
 
-  // Inner near-white highlight — bumped to push toward flagship brightness
-  ctx.strokeStyle = `rgba(255, 255, 255, ${(0.34 + state.signalLevel * 0.13) * linePulse})`;
-  ctx.lineWidth = 1.0;
-  ctx.shadowBlur = 5;
-  path(); ctx.stroke();
+  // Core line — thin, bright
+  const coreGrad = ctx.createLinearGradient(0, 0, w, 0);
+  coreGrad.addColorStop(0.00, 'rgba(200, 160, 255, 0.80)');
+  coreGrad.addColorStop(0.40, 'rgba(160, 210, 255, 0.92)');
+  coreGrad.addColorStop(0.75, 'rgba(180, 240, 255, 0.97)');
+  coreGrad.addColorStop(1.00, 'rgba(220, 252, 255, 1.00)');
+  ctx.strokeStyle = coreGrad;
+  ctx.lineWidth   = 2.0;
+  ctx.shadowColor = '#9B5CFF';
+  ctx.shadowBlur  = 5;
+  buildPath(); ctx.stroke();
 
   ctx.shadowBlur = 0;
   ctx.globalCompositeOperation = 'source-over';
 
-  // Bright head highlight.
-  const headY = state.trail[state.trail.length - 1];
-  ctx.fillStyle = 'rgba(180, 248, 255, 0.9)';
-  ctx.shadowColor = 'rgba(120, 245, 255, 0.65)';
-  ctx.shadowBlur = 12;
+  // ── Head sparkle (right-edge, current position) ───────────
+  const headY    = state.trail[trailLen - 1];
+  const playPulse = 0.5 + 0.5 * Math.sin(state.phase * 2.8);
+  const headX    = w - 4;
+
+  ctx.globalCompositeOperation = 'lighter';
+  const haloGrad = ctx.createRadialGradient(headX, headY, 0, headX, headY, 28 + playPulse * 6);
+  haloGrad.addColorStop(0,   `rgba(220, 252, 255, ${0.55 + playPulse * 0.18})`);
+  haloGrad.addColorStop(0.3, `rgba(95,  232, 255, ${0.30 + playPulse * 0.10})`);
+  haloGrad.addColorStop(1,   'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = haloGrad;
+  ctx.fillRect(headX - 36, headY - 36, 72, 72);
+  ctx.globalCompositeOperation = 'source-over';
+
+  ctx.fillStyle   = 'rgba(230, 254, 255, 0.96)';
+  ctx.shadowColor = 'rgba(120, 245, 255, 0.90)';
+  ctx.shadowBlur  = 16;
   ctx.beginPath();
-  ctx.arc(w - 6, headY, 2.2, 0, Math.PI * 2);
+  ctx.arc(headX, headY, 2.4, 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  ctx.fillStyle   = `rgba(246, 253, 255, ${0.86 + playPulse * 0.1})`;
-  ctx.shadowColor = 'rgba(140, 244, 255, 0.78)';
-  ctx.shadowBlur  = 14;
-  ctx.beginPath();
-  ctx.arc(markerX, playheadY, 1.9 + state.signalLevel * 0.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // Snap flash — brief bright pulse on fast pitch snap (high retune + high correction).
-  if (state.dsp.snapFlash > 0.05) {
-    ctx.globalCompositeOperation = 'lighter';
-    const sf = state.dsp.snapFlash;
-    const sfGrad = ctx.createRadialGradient(markerX, state.smoothPitch, 0, markerX, state.smoothPitch, 44 * sf);
-    sfGrad.addColorStop(0, `rgba(200, 250, 255, ${sf * 0.26})`);
-    sfGrad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = sfGrad;
-    ctx.fillRect(markerX - 50, state.smoothPitch - 50, 100, 100);
-    ctx.globalCompositeOperation = 'source-over';
-  }
-
-  // Highlight detected pitch note for vertical keyboard reference.
+  // ── Note detection ────────────────────────────────────────
   const detectedMidi = 60 + Math.round((1 - natural / h) * 12) + state.key;
   const detectedNote = midiToNoteName(Math.max(24, Math.min(71, detectedMidi)));
   els.currentNote.textContent = detectedNote;
