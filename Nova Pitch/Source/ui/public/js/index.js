@@ -36,6 +36,10 @@ const state = {
   },
 };
 
+if (typeof window !== 'undefined') {
+  window.__novaPitchState = state;
+}
+
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const scales = ['Chromatic', 'Major', 'Minor', 'Pentatonic', 'Blues'];
 
@@ -181,8 +185,8 @@ function initBgCanvas() {
       });
     }
 
-    // Level 2 — standard stars: 10–18
-    const stdCount = 10 + Math.floor(Math.random() * 9);
+    // Level 2 — standard stars: 5–9 (reduced ~50% to not compete with waveform particles)
+    const stdCount = 5 + Math.floor(Math.random() * 5);
     for (let i = 0; i < stdCount; i++) {
       const pos = edgeWeightedPos(W, H);
       const col = pickStarColor();
@@ -199,8 +203,8 @@ function initBgCanvas() {
       });
     }
 
-    // Level 3 — micro-dust: 35–60
-    const microCount = 35 + Math.floor(Math.random() * 26);
+    // Level 3 — micro-dust: 18–28 (reduced ~50% to not compete with waveform particles)
+    const microCount = 18 + Math.floor(Math.random() * 11);
     for (let i = 0; i < microCount; i++) {
       const pos = edgeWeightedPos(W, H);
       const col = pickStarColor();
@@ -659,19 +663,63 @@ function setActivePianoNote(note) {
 }
 
 function resizeCanvas() {
-  const rect = els.canvas.getBoundingClientRect();
+  syncPitchCanvasSize();
+}
+
+function syncPitchCanvasSize() {
+  const c = els.canvas;
+  if (!c) return;
+
+  const rect = c.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  els.canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-  els.canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+  const targetW = Math.max(1, Math.floor(rect.width * dpr));
+  const targetH = Math.max(1, Math.floor(rect.height * dpr));
+
+  if (c.width !== targetW || c.height !== targetH) {
+    c.width = targetW;
+    c.height = targetH;
+  }
 }
 
 function drawGraph() {
   const c = els.canvas;
+  if (!c) return;
+
+  // In JUCE webviews, bounds can change after DOMContentLoaded without a window resize.
+  // Keep pixel backing size in sync so waveform/particles never render into a stale 1x1 canvas.
+  syncPitchCanvasSize();
+
   const ctx = c.getContext('2d');
   const w = c.width;
   const h = c.height;
-  const centerY = h * 0.58;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.filter = 'none';
+
+  const centerY = h * 0.36;
   const maxOffset = Math.min(18, Math.max(14, h * 0.09));
+
+  // Guard against any accidental state mutation that could break path rendering.
+  if (!Array.isArray(state.trail)) state.trail = [];
+  if (!Array.isArray(state.waveParticles)) state.waveParticles = [];
+  if (!Number.isFinite(state.phase)) state.phase = 0;
+  if (!Number.isFinite(state.key)) state.key = 0;
+  if (!Number.isFinite(state.retune)) state.retune = 0;
+  if (!Number.isFinite(state.vibrato)) state.vibrato = 0;
+  if (typeof state.dsp !== 'object' || state.dsp == null) {
+    state.dsp = { correctionAmount: 0, trackingConfidence: 1, retuneActive: false, snapFlash: 0 };
+  }
+  if (!Number.isFinite(state.dsp.trackingConfidence)) state.dsp.trackingConfidence = 1;
+  if (!Number.isFinite(state.dsp.correctionAmount)) state.dsp.correctionAmount = 0;
+  if (!Number.isFinite(state.dsp.snapFlash)) state.dsp.snapFlash = 0;
+
+  // Strip any non-finite values that can poison path/particle math.
+  state.trail = state.trail.filter((y) => Number.isFinite(y));
+  if (state.trail.length > 120) state.trail = state.trail.slice(-120);
+
+  if (w < 4 || h < 4) return;
 
   ctx.clearRect(0, 0, w, h);
 
@@ -702,7 +750,8 @@ function drawGraph() {
   }
 
   // ── Pitch logic (unchanged) ───────────────────────────────
-  if (state.trail.length === 0) {
+  if (state.trail.length < 24) {
+    state.trail.length = 0;
     for (let i = 0; i < 120; i++) {
       const t = i / 119;
       const seedWave = Math.sin(t * Math.PI * 2.0) * maxOffset * 0.34;
@@ -741,182 +790,198 @@ function drawGraph() {
   const jitterAmt = (1 - state.dsp.trackingConfidence) * 2.4;
   const jitter    = jitterAmt > 0.2 ? (Math.random() - 0.5) * jitterAmt * 2 : 0;
   const constrainedPitch = Math.max(centerY - maxOffset, Math.min(centerY + maxOffset, state.smoothPitch + jitter));
-  state.trail.push(constrainedPitch);
+  state.trail.push(Number.isFinite(constrainedPitch) ? constrainedPitch : centerY);
   if (state.trail.length > 120) state.trail.shift();
 
-  // ── Particle system ───────────────────────────────────────
-  const recentMotionWindow = 8;
-  let recentMotion = 0;
-  for (let i = state.trail.length - recentMotionWindow; i < state.trail.length; i++) {
-    if (i <= 0) continue;
-    recentMotion += Math.abs(state.trail[i] - state.trail[i - 1]);
-  }
-  recentMotion /= Math.max(1, recentMotionWindow - 1);
-  const motionIntensity = Math.max(0.18, Math.min(1, recentMotion / Math.max(1, maxOffset * 0.28)));
-
-  const emissionWeights = [];
-  let emissionWeightTotal = 0;
-  for (let i = 2; i < state.trail.length - 2; i++) {
-    const yPrev = state.trail[i - 1];
-    const y = state.trail[i];
-    const yNext = state.trail[i + 1];
-    const slope = Math.abs(yNext - yPrev);
-    const curvature = Math.abs(yPrev - (2 * y) + yNext);
-    const t = i / (state.trail.length - 1);
-    const regionBias = 1.18 - Math.pow(t, 0.82) * 0.52;
-    const activity = Math.min(1, slope / Math.max(1, maxOffset * 0.55));
-    const bend = Math.min(1, curvature / Math.max(1, maxOffset * 0.32));
-    const weight = Math.max(0, (0.16 + activity * 0.56 + bend * 0.28) * regionBias * (0.6 + motionIntensity * 0.55));
-    emissionWeights.push(weight);
-    emissionWeightTotal += weight;
+  if (state.trail.length < 2) {
+    state.trail = [centerY - maxOffset * 0.15, centerY + maxOffset * 0.15];
   }
 
-  if (state.waveParticles.length === 0 && state.trail.length > 16) {
-    for (let i = 10; i < state.trail.length - 10; i += 18) {
-      const t = i / (state.trail.length - 1);
-      const x = t * w;
-      const y = state.trail[i];
+  // ── Waveform-driven particle system ─────────────────────
+  // Particles spawn ON the pitch line, trail along the curve, then drift outward and fade.
+  try {
+    const trailN = state.trail.length;
+    const dx = w / Math.max(1, trailN - 1);
+
+    // Measure recent motion to scale emission rate.
+    let recentMotion = 0;
+    for (let i = Math.max(1, trailN - 10); i < trailN; i++) {
+      recentMotion += Math.abs(state.trail[i] - state.trail[i - 1]);
+    }
+    recentMotion /= 9;
+    const motionIntensity = Math.max(0.25, Math.min(1, recentMotion / Math.max(1, maxOffset * 0.22)));
+
+    // Emit 10–18 particles per frame, all anchored to trail points.
+    const spawnN = Math.round(10 + motionIntensity * 8);
+    for (let s = 0; s < spawnN; s++) {
+      // Pick a random trail index (weighted toward recent / right side for "live" feel).
+      const idx = Math.max(1, Math.min(trailN - 2,
+        Math.floor(Math.random() < 0.55
+          ? trailN - 1 - Math.random() * trailN * 0.35   // recent 35%
+          : Math.random() * (trailN - 2) + 1)));
+
+      const t = idx / (trailN - 1);
+      const spawnX = t * w;
+      const spawnY = state.trail[idx];
+
+      // Tangent from neighbouring trail points.
+      const txRaw = dx * 2;
+      const tyRaw = state.trail[idx + 1] - state.trail[idx - 1];
+      const tLen = Math.max(0.0001, Math.hypot(txRaw, tyRaw));
+      const tanX = txRaw / tLen;
+      const tanY = tyRaw / tLen;
+
+      // Normal (perpendicular) — random up or down.
+      const ns = Math.random() < 0.5 ? -1 : 1;
+      const norX = -tanY * ns;
+      const norY =  tanX * ns;
+
+      // Particle trails along curve for 2–6px then drifts 8–16px outward.
+      const along   = 3 + Math.random() * 7;      // px along tangent
+      const outward = 14 + Math.random() * 17;    // px along normal (+18% drift)
+      const size    = 2 + Math.random() * 2;      // 2–4px
+      // Life: 42–78 frames (~700ms–1.3s)
+      const lifeFrames  = 42 + Math.random() * 36;
+      // Opacity: 36–58% at birth
+      const baseOpacity = 0.36 + Math.random() * 0.22;
+      const brightness  = 0.92 + Math.random() * 0.14;
+
       state.waveParticles.push({
-        originX: x,
-        originY: y,
-        tangentX: 1,
-        tangentY: 0,
-        normalX: 0,
-        normalY: i % 36 === 0 ? -1 : 1,
-        along: 1.6 + Math.random() * 1.4,
-        outward: 3.5 + Math.random() * 2.5,
-        size: 1 + Math.random() * 0.7,
-        lifeFrames: 20 + Math.random() * 12,
-        age: Math.random() * 10,
-        baseOpacity: 0.08 + Math.random() * 0.05,
-        brightness: 0.95 + Math.random() * 0.08,
-        t,
+        x: spawnX, y: spawnY,
+        tanX, tanY, norX, norY,
+        along, outward, size, lifeFrames,
+        age: 0, baseOpacity, brightness, t,
       });
     }
-  }
 
-  const emissionBudget = Math.max(1, Math.round((w / 180) * (0.45 + motionIntensity * 0.95)));
-  const spawnN = Math.min(4, emissionBudget);
-  for (let s = 0; s < spawnN && emissionWeightTotal > 0; s++) {
-    let pick = Math.random() * emissionWeightTotal;
-    let localIndex = 0;
-    for (let i = 0; i < emissionWeights.length; i++) {
-      pick -= emissionWeights[i];
-      if (pick <= 0) {
-        localIndex = i;
-        break;
-      }
+    // Hard cap to prevent runaway accumulation (max ~300 live particles).
+    if (state.waveParticles.length > 300) {
+      state.waveParticles = state.waveParticles.slice(-300);
     }
 
-    const idx = localIndex + 2;
-    const t = idx / (state.trail.length - 1);
-    const x = t * w;
-    const y = state.trail[idx];
-    const yPrev = state.trail[idx - 1];
-    const yNext = state.trail[idx + 1];
-    const dx = w / Math.max(1, state.trail.length - 1);
-    const txRaw = dx * 2;
-    const tyRaw = yNext - yPrev;
-    const tangentLength = Math.max(0.0001, Math.hypot(txRaw, tyRaw));
-    const tangentX = txRaw / tangentLength;
-    const tangentY = tyRaw / tangentLength;
-    const normalSign = Math.random() < 0.5 ? -1 : 1;
-    const normalX = (-tangentY / Math.max(0.0001, Math.hypot(tangentX, tangentY))) * normalSign;
-    const normalY = (tangentX / Math.max(0.0001, Math.hypot(tangentX, tangentY))) * normalSign;
-    const size = 1 + Math.random();
-    const lifeFrames = 30 + Math.random() * 24;
-    const baseOpacity = 0.08 + Math.random() * 0.10;
-    const along = 1.2 + Math.random() * 2.2;
-    const outward = 4 + Math.random() * 6;
-    const brightness = 0.92 + Math.random() * 0.14;
-    const originOffset = (Math.random() - 0.5) * 0.9;
+    // Draw and age every particle.
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    state.waveParticles = state.waveParticles.filter((p) => p.age < p.lifeFrames);
+    for (const p of state.waveParticles) {
+      p.age += 1;
+      const progress = p.age / p.lifeFrames;
+      // Phase 1 (0→0.25): travel along tangent; phase 2: drift outward.
+      const alongEase   = Math.min(1, progress / 0.25);
+      const outwardEase = Math.max(0, (progress - 0.15) / 0.85);
+      // Gentler fade so dust stays visible longer
+      const fade = Math.pow(1 - progress, 0.85);
 
-    state.waveParticles.push({
-      originX: x + normalX * originOffset,
-      originY: y + normalY * originOffset,
-      tangentX,
-      tangentY,
-      normalX,
-      normalY,
-      along,
-      outward,
-      size,
-      lifeFrames,
-      age: 0,
-      baseOpacity,
-      brightness,
-      t,
-    });
+      const px = p.x + p.tanX * p.along * alongEase + p.norX * p.outward * outwardEase;
+      const py = p.y + p.tanY * p.along * alongEase + p.norY * p.outward * outwardEase;
+
+      // Purple (t=0) → blue (t=0.5) → cyan (t=1)
+      const r = Math.round((155 - p.t * 60) * p.brightness);
+      const g = Math.round((80  + p.t * 152) * p.brightness);
+      const b = Math.round(255 * Math.min(1, p.brightness * 1.02));
+      ctx.globalAlpha = p.baseOpacity * fade;
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.beginPath();
+      ctx.arc(px, py, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    // ── Micro sparkles: tiny bright bursts ON the line every 3–5s ───
+    if (!state._sparkles) state._sparkles = [];
+    // Spawn chance: ~1 every 4s @ 60fps
+    if (Math.random() < 1 / 240) {
+      const idx = Math.floor(Math.random() * (trailN - 2)) + 1;
+      state._sparkles.push({
+        x: (idx / (trailN - 1)) * w,
+        y: state.trail[idx],
+        age: 0,
+        life: Math.round(10 + Math.random() * 5), // <250ms
+        t: idx / (trailN - 1),
+      });
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    state._sparkles = state._sparkles.filter((sp) => sp.age < sp.life);
+    for (const sp of state._sparkles) {
+      sp.age++;
+      const sfade = Math.pow(1 - sp.age / sp.life, 1.4);
+      const sr = Math.round(200 + sp.t * 55);
+      const sg = Math.round(200 + sp.t * 55);
+      const sb = 255;
+      ctx.globalAlpha = 0.72 * sfade;
+      ctx.fillStyle = `rgb(${sr},${sg},${sb})`;
+      ctx.beginPath();
+      ctx.arc(sp.x, sp.y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+  } catch (err) {
+    state.waveParticles = [];
+    state._sparkles = [];
+    console.warn('[NovaPitch UI] Particle system error:', err);
   }
-
-  // Draw and age particles
-  ctx.save();
-  state.waveParticles = state.waveParticles.filter((p) => p.age < p.lifeFrames);
-  for (const p of state.waveParticles) {
-    p.age += 1;
-    const progress = Math.min(1, p.age / p.lifeFrames);
-    const ease = 1 - Math.pow(1 - progress, 3);
-    const fade = Math.pow(1 - progress, 1.75);
-    const px = p.originX + p.tangentX * p.along * ease + p.normalX * p.outward * ease;
-    const py = p.originY + p.tangentY * p.along * ease + p.normalY * p.outward * ease;
-
-    // Purple (t=0) → blue (t=0.5) → cyan (t=1), slightly brightness-varied per particle.
-    const r = Math.round((155 - p.t * 60) * p.brightness);
-    const g = Math.round((80 + p.t * 152) * p.brightness);
-    const b = Math.round(255 * Math.min(1, p.brightness * 1.02));
-    ctx.globalAlpha = p.baseOpacity * fade;
-    ctx.fillStyle = `rgb(${r},${g},${b})`;
-    ctx.beginPath();
-    ctx.arc(px, py, p.size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
 
   // ── Pitch line — purple → blue → cyan gradient ────────────
   const trailLen = state.trail.length;
+
+  if (trailLen < 2) {
+    const fallbackY = centerY + Math.sin(state.phase * 1.9) * (maxOffset * 0.28);
+    ctx.strokeStyle = 'rgba(176, 244, 255, 0.95)';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(0, fallbackY);
+    ctx.lineTo(w, fallbackY);
+    ctx.stroke();
+    return;
+  }
 
   const buildPath = () => {
     ctx.beginPath();
     for (let i = 0; i < trailLen; i++) {
       const x = (i / (trailLen - 1)) * w;
-      const y = state.trail[i];
+      const yRaw = state.trail[i];
+      const y = Number.isFinite(yRaw) ? yRaw : centerY;
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
   };
 
-  // Outer glow — wide, soft, fades in from left
+  // Outer glow — wide, soft, fades in from left with purple-to-cyan gradient
   ctx.globalCompositeOperation = 'lighter';
   ctx.lineCap  = 'round';
   ctx.lineJoin = 'round';
   const glowGrad = ctx.createLinearGradient(0, 0, w, 0);
-  glowGrad.addColorStop(0.00, 'rgba(140, 70, 255, 0.07)');
-  glowGrad.addColorStop(0.35, 'rgba(100, 140, 255, 0.13)');
-  glowGrad.addColorStop(0.70, 'rgba(70, 190, 255, 0.16)');
-  glowGrad.addColorStop(1.00, 'rgba(95, 232, 255, 0.20)');
+  glowGrad.addColorStop(0.00, 'rgba(160, 90, 255, 0.09)');   // subtle purple glow start
+  glowGrad.addColorStop(0.30, 'rgba(120, 130, 255, 0.12)');  // transition through purple-blue
+  glowGrad.addColorStop(0.60, 'rgba(80, 180, 255, 0.15)');   // blend to blue
+  glowGrad.addColorStop(1.00, 'rgba(120, 240, 255, 0.22)');  // cyan glow end
   ctx.strokeStyle = glowGrad;
   ctx.lineWidth   = 11;
-  ctx.shadowColor = '#4DA6FF';
+  ctx.shadowColor = '#6B7FFF';
   ctx.shadowBlur  = 14;
   buildPath(); ctx.stroke();
 
-  // Mid glow — tighter
+  // Mid glow — tighter, with subtle purple accent
   const midGlowGrad = ctx.createLinearGradient(0, 0, w, 0);
-  midGlowGrad.addColorStop(0.00, 'rgba(155, 80, 255, 0.16)');
-  midGlowGrad.addColorStop(0.45, 'rgba(90, 160, 255, 0.22)');
-  midGlowGrad.addColorStop(1.00, 'rgba(95, 232, 255, 0.28)');
+  midGlowGrad.addColorStop(0.00, 'rgba(180, 100, 255, 0.18)');  // soft purple on left
+  midGlowGrad.addColorStop(0.35, 'rgba(130, 170, 255, 0.23)');  // purple-blue blend
+  midGlowGrad.addColorStop(1.00, 'rgba(130, 242, 255, 0.30)');  // cyan on right
   ctx.strokeStyle = midGlowGrad;
   ctx.lineWidth   = 4.5;
-  ctx.shadowColor = '#7BB0FF';
+  ctx.shadowColor = '#8B9EFF';
   ctx.shadowBlur  = 7;
   buildPath(); ctx.stroke();
 
-  // Core line — thin, bright
+  // Core line — thin, bright, with restrained purple-to-cyan gradient
   const coreGrad = ctx.createLinearGradient(0, 0, w, 0);
-  coreGrad.addColorStop(0.00, 'rgba(200, 160, 255, 0.80)');
-  coreGrad.addColorStop(0.40, 'rgba(160, 210, 255, 0.92)');
-  coreGrad.addColorStop(0.75, 'rgba(180, 240, 255, 0.97)');
-  coreGrad.addColorStop(1.00, 'rgba(220, 252, 255, 1.00)');
+  coreGrad.addColorStop(0.00, 'rgba(215, 145, 255, 0.82)');  // soft purple start
+  coreGrad.addColorStop(0.28, 'rgba(200, 155, 255, 0.81)');  // purple tint extends to ~30%
+  coreGrad.addColorStop(0.50, 'rgba(150, 200, 255, 0.91)');  // blend to blue mid
+  coreGrad.addColorStop(0.75, 'rgba(180, 240, 255, 0.97)');  // light blue
+  coreGrad.addColorStop(1.00, 'rgba(220, 252, 255, 1.00)');  // cyan right
   ctx.strokeStyle = coreGrad;
   ctx.lineWidth   = 2.8;
   ctx.shadowColor = '#9B5CFF';
@@ -927,6 +992,14 @@ function drawGraph() {
   ctx.lineWidth = 1.15;
   ctx.shadowBlur = 0;
   buildPath(); ctx.stroke();
+
+  // Guaranteed visibility pass: keeps the pitch path readable even when glow layers are subtle.
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = 'rgba(176, 244, 255, 0.96)';
+  ctx.lineWidth = 2.45;
+  ctx.shadowBlur = 0;
+  buildPath();
+  ctx.stroke();
 
   ctx.shadowBlur = 0;
   ctx.globalCompositeOperation = 'source-over';
@@ -958,7 +1031,12 @@ function drawGraph() {
   const detectedNote = midiToNoteName(Math.max(24, Math.min(71, detectedMidi)));
   els.currentNote.textContent = detectedNote;
   setActivePianoNote(detectedNote);
+
+  drawSafetyWaveOverlay(ctx, w, h);
 }
+
+// Safety overlay removed — particle system now handles all waveform-driven effects.
+function drawSafetyWaveOverlay() {}
 
 function setupTopBar() {
   els.keySelect.value = noteNames[state.key];
