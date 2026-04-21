@@ -703,7 +703,12 @@ function drawGraph() {
 
   // ── Pitch logic (unchanged) ───────────────────────────────
   if (state.trail.length === 0) {
-    for (let i = 0; i < 220; i++) state.trail.push(centerY);
+    for (let i = 0; i < 160; i++) {
+      const t = i / 159;
+      const seedWave = Math.sin(t * Math.PI * 2.1) * maxOffset * 0.18;
+      const seedDrift = Math.sin(t * Math.PI * 5.2 + 0.6) * maxOffset * 0.05;
+      state.trail.push(centerY + seedWave + seedDrift);
+    }
   }
 
   const natural = centerY
@@ -737,7 +742,7 @@ function drawGraph() {
   const jitter    = jitterAmt > 0.2 ? (Math.random() - 0.5) * jitterAmt * 2 : 0;
   const constrainedPitch = Math.max(centerY - maxOffset, Math.min(centerY + maxOffset, state.smoothPitch + jitter));
   state.trail.push(constrainedPitch);
-  if (state.trail.length > 220) state.trail.shift();
+  if (state.trail.length > 160) state.trail.shift();
 
   // ── Particle system ───────────────────────────────────────
   const recentMotionWindow = 8;
@@ -889,9 +894,14 @@ function drawGraph() {
   coreGrad.addColorStop(0.75, 'rgba(180, 240, 255, 0.97)');
   coreGrad.addColorStop(1.00, 'rgba(220, 252, 255, 1.00)');
   ctx.strokeStyle = coreGrad;
-  ctx.lineWidth   = 2.0;
+  ctx.lineWidth   = 2.4;
   ctx.shadowColor = '#9B5CFF';
-  ctx.shadowBlur  = 5;
+  ctx.shadowBlur  = 6;
+  buildPath(); ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(245, 252, 255, 0.42)';
+  ctx.lineWidth = 0.9;
+  ctx.shadowBlur = 0;
   buildPath(); ctx.stroke();
 
   ctx.shadowBlur = 0;
