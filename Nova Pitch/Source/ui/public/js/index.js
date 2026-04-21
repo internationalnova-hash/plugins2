@@ -10,6 +10,7 @@ const state = {
   scale: 1,
   phase: 0,
   trail: [],
+  waveParticles: [],
   smoothPitch: null,
   knobHover: null,
   knobActive: null,
@@ -669,6 +670,8 @@ function drawGraph() {
   const ctx = c.getContext('2d');
   const w = c.width;
   const h = c.height;
+  const centerY = h * 0.58;
+  const maxOffset = Math.min(18, h * 0.08);
 
   ctx.clearRect(0, 0, w, h);
 
@@ -700,11 +703,14 @@ function drawGraph() {
 
   // ── Pitch logic (unchanged) ───────────────────────────────
   if (state.trail.length === 0) {
-    for (let i = 0; i < 220; i++) state.trail.push(h * 0.58);
+    for (let i = 0; i < 220; i++) state.trail.push(centerY);
   }
 
-  const natural = h * (0.56 + Math.sin(state.phase * 1.7) * 0.065 + Math.sin(state.phase * 0.43) * 0.04);
-  const target  = h * (0.52 - (state.key / 11) * 0.06);
+  const natural = centerY
+    + Math.sin(state.phase * 1.7) * maxOffset * 0.78
+    + Math.sin(state.phase * 0.43) * maxOffset * 0.42;
+  const targetOffset = ((state.key / 11) - 0.5) * maxOffset * 1.5;
+  const target  = centerY - targetOffset;
   const retuneBlend = state.retune / 100;
   const correctedCore = natural + (target - natural) * retuneBlend;
 
@@ -714,7 +720,7 @@ function drawGraph() {
   }
   if (state.dsp.snapFlash > 0) state.dsp.snapFlash *= 0.88;
 
-  const vibDepth = (state.vibrato / 100) * (h * 0.04);
+  const vibDepth = (state.vibrato / 100) * (maxOffset * 0.45);
   const vibRate  = 1.2 + (state.vibrato / 100) * 4.0;
   const correctedWithVibrato = correctedCore + Math.sin(state.phase * vibRate) * vibDepth;
 
@@ -729,44 +735,110 @@ function drawGraph() {
 
   const jitterAmt = (1 - state.dsp.trackingConfidence) * 2.4;
   const jitter    = jitterAmt > 0.2 ? (Math.random() - 0.5) * jitterAmt * 2 : 0;
-  state.trail.push(state.smoothPitch + jitter);
+  const constrainedPitch = Math.max(centerY - maxOffset, Math.min(centerY + maxOffset, state.smoothPitch + jitter));
+  state.trail.push(constrainedPitch);
   if (state.trail.length > 220) state.trail.shift();
 
   // ── Particle system ───────────────────────────────────────
-  if (!state.waveParticles) state.waveParticles = [];
+  const recentMotionWindow = 8;
+  let recentMotion = 0;
+  for (let i = state.trail.length - recentMotionWindow; i < state.trail.length; i++) {
+    if (i <= 0) continue;
+    recentMotion += Math.abs(state.trail[i] - state.trail[i - 1]);
+  }
+  recentMotion /= Math.max(1, recentMotionWindow - 1);
+  const motionIntensity = Math.max(0.18, Math.min(1, recentMotion / Math.max(1, maxOffset * 0.28)));
 
-  // Spawn 1–2 particles per frame along the trail (reduced density ~30%)
-  const spawnN = (Math.random() < 0.72 ? 1 : 0) + (Math.random() < 0.28 ? 1 : 0);
-  for (let s = 0; s < spawnN; s++) {
-    const idx = Math.floor(Math.random() * state.trail.length);
-    const t   = idx / (state.trail.length - 1); // 0=left/purple, 1=right/cyan
+  const emissionWeights = [];
+  let emissionWeightTotal = 0;
+  for (let i = 2; i < state.trail.length - 2; i++) {
+    const yPrev = state.trail[i - 1];
+    const y = state.trail[i];
+    const yNext = state.trail[i + 1];
+    const slope = Math.abs(yNext - yPrev);
+    const curvature = Math.abs(yPrev - (2 * y) + yNext);
+    const t = i / (state.trail.length - 1);
+    const regionBias = 1.18 - Math.pow(t, 0.82) * 0.52;
+    const activity = Math.min(1, slope / Math.max(1, maxOffset * 0.55));
+    const bend = Math.min(1, curvature / Math.max(1, maxOffset * 0.32));
+    const weight = Math.max(0, (0.16 + activity * 0.56 + bend * 0.28) * regionBias * (0.6 + motionIntensity * 0.55));
+    emissionWeights.push(weight);
+    emissionWeightTotal += weight;
+  }
+
+  const emissionBudget = Math.max(0, Math.round((w / 210) * (0.4 + motionIntensity * 0.9)));
+  const spawnN = Math.min(4, emissionBudget);
+  for (let s = 0; s < spawnN && emissionWeightTotal > 0; s++) {
+    let pick = Math.random() * emissionWeightTotal;
+    let localIndex = 0;
+    for (let i = 0; i < emissionWeights.length; i++) {
+      pick -= emissionWeights[i];
+      if (pick <= 0) {
+        localIndex = i;
+        break;
+      }
+    }
+
+    const idx = localIndex + 2;
+    const t = idx / (state.trail.length - 1);
+    const x = t * w;
+    const y = state.trail[idx];
+    const yPrev = state.trail[idx - 1];
+    const yNext = state.trail[idx + 1];
+    const dx = w / Math.max(1, state.trail.length - 1);
+    const txRaw = dx * 2;
+    const tyRaw = yNext - yPrev;
+    const tangentLength = Math.max(0.0001, Math.hypot(txRaw, tyRaw));
+    const tangentX = txRaw / tangentLength;
+    const tangentY = tyRaw / tangentLength;
+    const normalSign = Math.random() < 0.5 ? -1 : 1;
+    const normalX = (-tangentY / Math.max(0.0001, Math.hypot(tangentX, tangentY))) * normalSign;
+    const normalY = (tangentX / Math.max(0.0001, Math.hypot(tangentX, tangentY))) * normalSign;
+    const size = 1 + Math.random();
+    const lifeFrames = 30 + Math.random() * 24;
+    const baseOpacity = 0.08 + Math.random() * 0.10;
+    const along = 1.2 + Math.random() * 2.2;
+    const outward = 4 + Math.random() * 6;
+    const brightness = 0.92 + Math.random() * 0.14;
+    const originOffset = (Math.random() - 0.5) * 0.9;
+
     state.waveParticles.push({
-      x:     (idx / (state.trail.length - 1)) * w,
-      y:     state.trail[idx] + (Math.random() - 0.5) * 22,
-      vx:    (Math.random() - 0.5) * 0.25,
-      vy:    (Math.random() - 0.5) * 0.35,
-      life:  1.0,
-      decay: 0.007 + Math.random() * 0.011,
-      size:  0.6 + Math.random() * 1.3,
+      originX: x + normalX * originOffset,
+      originY: y + normalY * originOffset,
+      tangentX,
+      tangentY,
+      normalX,
+      normalY,
+      along,
+      outward,
+      size,
+      lifeFrames,
+      age: 0,
+      baseOpacity,
+      brightness,
       t,
     });
   }
 
   // Draw and age particles
   ctx.save();
-  state.waveParticles = state.waveParticles.filter(p => p.life > 0);
+  state.waveParticles = state.waveParticles.filter((p) => p.age < p.lifeFrames);
   for (const p of state.waveParticles) {
-    p.x   += p.vx;
-    p.y   += p.vy;
-    p.life -= p.decay;
-    if (p.life <= 0) continue;
-    // Purple (t=0) → blue (t=0.5) → cyan (t=1)
-    const r = Math.round(155 - p.t * 60);  // 155→95
-    const g = Math.round(80  + p.t * 152); // 80→232
-    ctx.globalAlpha = p.life * 0.50;
-    ctx.fillStyle   = `rgb(${r},${g},255)`;
+    p.age += 1;
+    const progress = Math.min(1, p.age / p.lifeFrames);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const fade = Math.pow(1 - progress, 1.75);
+    const px = p.originX + p.tangentX * p.along * ease + p.normalX * p.outward * ease;
+    const py = p.originY + p.tangentY * p.along * ease + p.normalY * p.outward * ease;
+
+    // Purple (t=0) → blue (t=0.5) → cyan (t=1), slightly brightness-varied per particle.
+    const r = Math.round((155 - p.t * 60) * p.brightness);
+    const g = Math.round((80 + p.t * 152) * p.brightness);
+    const b = Math.round(255 * Math.min(1, p.brightness * 1.02));
+    ctx.globalAlpha = p.baseOpacity * fade;
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.arc(px, py, p.size, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
