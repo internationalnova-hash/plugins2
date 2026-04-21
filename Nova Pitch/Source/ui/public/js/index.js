@@ -671,7 +671,7 @@ function drawGraph() {
   const w = c.width;
   const h = c.height;
   const centerY = h * 0.58;
-  const maxOffset = Math.min(18, h * 0.08);
+  const maxOffset = Math.min(18, Math.max(14, h * 0.09));
 
   ctx.clearRect(0, 0, w, h);
 
@@ -703,10 +703,10 @@ function drawGraph() {
 
   // ── Pitch logic (unchanged) ───────────────────────────────
   if (state.trail.length === 0) {
-    for (let i = 0; i < 160; i++) {
-      const t = i / 159;
-      const seedWave = Math.sin(t * Math.PI * 2.1) * maxOffset * 0.18;
-      const seedDrift = Math.sin(t * Math.PI * 5.2 + 0.6) * maxOffset * 0.05;
+    for (let i = 0; i < 120; i++) {
+      const t = i / 119;
+      const seedWave = Math.sin(t * Math.PI * 2.0) * maxOffset * 0.34;
+      const seedDrift = Math.sin(t * Math.PI * 5.0 + 0.6) * maxOffset * 0.09;
       state.trail.push(centerY + seedWave + seedDrift);
     }
   }
@@ -742,7 +742,7 @@ function drawGraph() {
   const jitter    = jitterAmt > 0.2 ? (Math.random() - 0.5) * jitterAmt * 2 : 0;
   const constrainedPitch = Math.max(centerY - maxOffset, Math.min(centerY + maxOffset, state.smoothPitch + jitter));
   state.trail.push(constrainedPitch);
-  if (state.trail.length > 160) state.trail.shift();
+  if (state.trail.length > 120) state.trail.shift();
 
   // ── Particle system ───────────────────────────────────────
   const recentMotionWindow = 8;
@@ -771,7 +771,31 @@ function drawGraph() {
     emissionWeightTotal += weight;
   }
 
-  const emissionBudget = Math.max(0, Math.round((w / 210) * (0.4 + motionIntensity * 0.9)));
+  if (state.waveParticles.length === 0 && state.trail.length > 16) {
+    for (let i = 10; i < state.trail.length - 10; i += 18) {
+      const t = i / (state.trail.length - 1);
+      const x = t * w;
+      const y = state.trail[i];
+      state.waveParticles.push({
+        originX: x,
+        originY: y,
+        tangentX: 1,
+        tangentY: 0,
+        normalX: 0,
+        normalY: i % 36 === 0 ? -1 : 1,
+        along: 1.6 + Math.random() * 1.4,
+        outward: 3.5 + Math.random() * 2.5,
+        size: 1 + Math.random() * 0.7,
+        lifeFrames: 20 + Math.random() * 12,
+        age: Math.random() * 10,
+        baseOpacity: 0.08 + Math.random() * 0.05,
+        brightness: 0.95 + Math.random() * 0.08,
+        t,
+      });
+    }
+  }
+
+  const emissionBudget = Math.max(1, Math.round((w / 180) * (0.45 + motionIntensity * 0.95)));
   const spawnN = Math.min(4, emissionBudget);
   for (let s = 0; s < spawnN && emissionWeightTotal > 0; s++) {
     let pick = Math.random() * emissionWeightTotal;
@@ -871,7 +895,7 @@ function drawGraph() {
   glowGrad.addColorStop(0.70, 'rgba(70, 190, 255, 0.16)');
   glowGrad.addColorStop(1.00, 'rgba(95, 232, 255, 0.20)');
   ctx.strokeStyle = glowGrad;
-  ctx.lineWidth   = 10;
+  ctx.lineWidth   = 11;
   ctx.shadowColor = '#4DA6FF';
   ctx.shadowBlur  = 14;
   buildPath(); ctx.stroke();
@@ -882,7 +906,7 @@ function drawGraph() {
   midGlowGrad.addColorStop(0.45, 'rgba(90, 160, 255, 0.22)');
   midGlowGrad.addColorStop(1.00, 'rgba(95, 232, 255, 0.28)');
   ctx.strokeStyle = midGlowGrad;
-  ctx.lineWidth   = 4;
+  ctx.lineWidth   = 4.5;
   ctx.shadowColor = '#7BB0FF';
   ctx.shadowBlur  = 7;
   buildPath(); ctx.stroke();
@@ -894,13 +918,13 @@ function drawGraph() {
   coreGrad.addColorStop(0.75, 'rgba(180, 240, 255, 0.97)');
   coreGrad.addColorStop(1.00, 'rgba(220, 252, 255, 1.00)');
   ctx.strokeStyle = coreGrad;
-  ctx.lineWidth   = 2.4;
+  ctx.lineWidth   = 2.8;
   ctx.shadowColor = '#9B5CFF';
-  ctx.shadowBlur  = 6;
+  ctx.shadowBlur  = 7;
   buildPath(); ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(245, 252, 255, 0.42)';
-  ctx.lineWidth = 0.9;
+  ctx.strokeStyle = 'rgba(245, 252, 255, 0.54)';
+  ctx.lineWidth = 1.15;
   ctx.shadowBlur = 0;
   buildPath(); ctx.stroke();
 
