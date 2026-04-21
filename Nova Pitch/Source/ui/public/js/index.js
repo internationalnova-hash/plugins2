@@ -878,10 +878,10 @@ function drawGraph() {
       const py = p.y + p.tanY * p.along * alongEase + p.norY * p.outward * outwardEase
         + (Math.random() - 0.5) * disperseJitter;
 
-      // Purple (t=0) → blue (t=0.5) → cyan (t=1)
-      const r = Math.round((155 - p.t * 60) * p.brightness);
-      const g = Math.round((80  + p.t * 152) * p.brightness);
-      const b = Math.round(255 * Math.min(1, p.brightness * 1.02));
+      // Vivid purple (t=0) → indigo (t=0.4) → bright cyan (t=1) — matches waveform gradient
+      const r = Math.round((190 - p.t * 110) * p.brightness);
+      const g = Math.round((60  + p.t * 185) * p.brightness);
+      const b = Math.round((255 - p.t * 10)  * Math.min(1, p.brightness * 1.02));
       ctx.globalAlpha = p.baseOpacity * fade;
       ctx.fillStyle = `rgb(${r},${g},${b})`;
 
@@ -959,53 +959,70 @@ function drawGraph() {
     }
   };
 
-  // Outer glow — wide, soft, fades in from left with purple-to-cyan gradient
+  // ── Waveform line render — deep purple tail → bright cyan head ──────────────
+  // The gradient runs left (history = purple/violet) → right (live = cyan-white)
+  // matching the reference design.
   ctx.globalCompositeOperation = 'lighter';
   ctx.lineCap  = 'round';
   ctx.lineJoin = 'round';
+
+  // Outer glow layer — wide bloom, strong purple on left
   const glowGrad = ctx.createLinearGradient(0, 0, w, 0);
-  glowGrad.addColorStop(0.00, 'rgba(160, 90, 255, 0.09)');   // subtle purple glow start
-  glowGrad.addColorStop(0.30, 'rgba(120, 130, 255, 0.12)');  // transition through purple-blue
-  glowGrad.addColorStop(0.60, 'rgba(80, 180, 255, 0.15)');   // blend to blue
-  glowGrad.addColorStop(1.00, 'rgba(120, 240, 255, 0.22)');  // cyan glow end
+  glowGrad.addColorStop(0.00, 'rgba(130, 60, 255, 0.28)');   // deep purple bloom left
+  glowGrad.addColorStop(0.35, 'rgba(110, 100, 255, 0.20)');  // purple-indigo mid
+  glowGrad.addColorStop(0.65, 'rgba(70, 170, 255, 0.18)');   // blue
+  glowGrad.addColorStop(1.00, 'rgba(100, 240, 255, 0.32)');  // cyan bloom right
   ctx.strokeStyle = glowGrad;
-  ctx.lineWidth   = 11;
-  ctx.shadowColor = '#6B7FFF';
-  ctx.shadowBlur  = 14;
+  ctx.lineWidth   = 13;
+  ctx.shadowColor = '#7040FF';
+  ctx.shadowBlur  = 18;
   buildPath(); ctx.stroke();
 
-  // Mid glow — tighter, with subtle purple accent
+  // Mid glow — tighter bloom matches reference purple shoulder
   const midGlowGrad = ctx.createLinearGradient(0, 0, w, 0);
-  midGlowGrad.addColorStop(0.00, 'rgba(180, 100, 255, 0.18)');  // soft purple on left
-  midGlowGrad.addColorStop(0.35, 'rgba(130, 170, 255, 0.23)');  // purple-blue blend
-  midGlowGrad.addColorStop(1.00, 'rgba(130, 242, 255, 0.30)');  // cyan on right
+  midGlowGrad.addColorStop(0.00, 'rgba(170, 80, 255, 0.38)');  // vivid purple
+  midGlowGrad.addColorStop(0.30, 'rgba(140, 120, 255, 0.32)'); // purple-blue
+  midGlowGrad.addColorStop(0.65, 'rgba(80, 190, 255, 0.28)');  // blue
+  midGlowGrad.addColorStop(1.00, 'rgba(120, 248, 255, 0.40)'); // bright cyan
   ctx.strokeStyle = midGlowGrad;
-  ctx.lineWidth   = 4.5;
-  ctx.shadowColor = '#8B9EFF';
-  ctx.shadowBlur  = 7;
+  ctx.lineWidth   = 5;
+  ctx.shadowColor = '#9050FF';
+  ctx.shadowBlur  = 10;
   buildPath(); ctx.stroke();
 
-  // Core line — thin, bright, with restrained purple-to-cyan gradient
+  // Core line — the actual drawn path, purple left → cyan-white right
   const coreGrad = ctx.createLinearGradient(0, 0, w, 0);
-  coreGrad.addColorStop(0.00, 'rgba(215, 145, 255, 0.82)');  // soft purple start
-  coreGrad.addColorStop(0.28, 'rgba(200, 155, 255, 0.81)');  // purple tint extends to ~30%
-  coreGrad.addColorStop(0.50, 'rgba(150, 200, 255, 0.91)');  // blend to blue mid
-  coreGrad.addColorStop(0.75, 'rgba(180, 240, 255, 0.97)');  // light blue
-  coreGrad.addColorStop(1.00, 'rgba(220, 252, 255, 1.00)');  // cyan right
+  coreGrad.addColorStop(0.00, 'rgba(190, 110, 255, 0.90)');  // deep violet-purple
+  coreGrad.addColorStop(0.20, 'rgba(175, 120, 255, 0.92)');  // purple extends through left third
+  coreGrad.addColorStop(0.42, 'rgba(130, 170, 255, 0.95)');  // purple-blue blend
+  coreGrad.addColorStop(0.65, 'rgba(100, 220, 255, 0.98)');  // sky blue
+  coreGrad.addColorStop(0.85, 'rgba(160, 248, 255, 1.00)');  // near-white cyan
+  coreGrad.addColorStop(1.00, 'rgba(220, 255, 255, 1.00)');  // bright white-cyan head
   ctx.strokeStyle = coreGrad;
-  ctx.lineWidth   = 2.8;
-  ctx.shadowColor = '#9B5CFF';
-  ctx.shadowBlur  = 7;
+  ctx.lineWidth   = 2.6;
+  ctx.shadowColor = '#AA60FF';
+  ctx.shadowBlur  = 8;
   buildPath(); ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(245, 252, 255, 0.54)';
-  ctx.lineWidth = 1.15;
+  // Hair-line specular on top of core — white-cyan only on the right half
+  const specGrad = ctx.createLinearGradient(0, 0, w, 0);
+  specGrad.addColorStop(0.00, 'rgba(190, 110, 255, 0.00)');  // invisible on left
+  specGrad.addColorStop(0.45, 'rgba(220, 248, 255, 0.00)');  // fades in
+  specGrad.addColorStop(0.70, 'rgba(235, 252, 255, 0.45)');  // white-cyan specular
+  specGrad.addColorStop(1.00, 'rgba(255, 255, 255, 0.62)');  // bright at head
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = specGrad;
+  ctx.lineWidth = 1.1;
   ctx.shadowBlur = 0;
   buildPath(); ctx.stroke();
 
-  // Guaranteed visibility pass: keeps the pitch path readable even when glow layers are subtle.
+  // Guaranteed visibility — gradient passthrough so purple left is preserved
   ctx.globalCompositeOperation = 'source-over';
-  ctx.strokeStyle = 'rgba(176, 244, 255, 0.96)';
+  const visGrad = ctx.createLinearGradient(0, 0, w, 0);
+  visGrad.addColorStop(0.00, 'rgba(185, 108, 255, 0.88)');  // purple left
+  visGrad.addColorStop(0.40, 'rgba(120, 160, 255, 0.90)');  // indigo mid
+  visGrad.addColorStop(1.00, 'rgba(176, 244, 255, 0.96)');  // cyan right
+  ctx.strokeStyle = visGrad;
   ctx.lineWidth = 2.45;
   ctx.shadowBlur = 0;
   buildPath();
