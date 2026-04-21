@@ -1283,6 +1283,13 @@ function closePresetPanel() {
 function setupPresetBrowser() {
   loadFavorites();
 
+  const syncCategoryControls = () => {
+    if (els.presetCategory) els.presetCategory.value = state.preset.category;
+    document.querySelectorAll('#presetRail .preset-rail__item').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.category === state.preset.category);
+    });
+  };
+
   els.presetToggle.addEventListener('click', () => {
     state.preset.open ? closePresetPanel() : openPresetPanel();
   });
@@ -1295,7 +1302,16 @@ function setupPresetBrowser() {
 
   els.presetCategory.addEventListener('change', () => {
     state.preset.category = els.presetCategory.value;
+    syncCategoryControls();
     renderPresets();
+  });
+
+  document.querySelectorAll('#presetRail .preset-rail__item').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.preset.category = btn.dataset.category;
+      syncCategoryControls();
+      renderPresets();
+    });
   });
 
   document.querySelectorAll('#presetTagBar .ptag').forEach(btn => {
@@ -1312,6 +1328,8 @@ function setupPresetBrowser() {
       renderPresets();
     });
   });
+
+  syncCategoryControls();
 }
 
 // ── End Preset System ──────────────────────────────────────

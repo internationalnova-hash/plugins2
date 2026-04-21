@@ -176,6 +176,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     targetPitchRatio = 1.0f;
     activePitchRatio = 1.0f;
     retuneSpeedSmoothed = 0.0f;
+    inputRmsSmoothed = 0.0f;
     wetMixSmoothed = 0.0f;
     lockedTargetMidi = -1;
     lockedTargetAge = 0;
@@ -260,13 +261,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     };
     float detectMs = retuneMs * 1.35f;
     detectMs = juce::jmap (smoothstep (0.75f, 1.0f, k), detectMs, retuneMs * 0.8f);
-    const float detectSeconds = juce::jlimit (0.012f, 0.260f, detectMs * 0.001f);
+    const float detectSeconds = juce::jlimit (0.030f, 0.260f, detectMs * 0.001f);
     const float dtSeconds = static_cast<float> (numSamples) / static_cast<float> (juce::jmax (1.0, currentSampleRate));
     const float correctionTauSec = juce::jlimit (0.002f, 0.300f, retuneMs * 0.001f);
     const float correctionAlpha = 1.0f - std::exp (-dtSeconds / juce::jmax (1.0e-6f, correctionTauSec));
     const float hysteresisCents = 40.0f + (12.0f - 40.0f) * std::pow (k, 1.5f);
     const float switchHysteresis = hysteresisCents / 100.0f;
-    const float maxSemitonesPerSecond = 8.0f * std::pow (200.0f / 8.0f, std::pow (k, 1.4f));
+    const float maxSemitonesPerSecond = 8.0f * std::pow (120.0f / 8.0f, std::pow (k, 1.4f));
     const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
@@ -409,7 +410,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     / static_cast<float> (juce::jmax (1, numSamples * intervalDivider));
                 const float stableSeconds = detectSeconds;
                 const int requiredStableHits = static_cast<int> (std::round (
-                    juce::jmax (2.0f, detectRateHz * stableSeconds)));
+                    juce::jmax (3.0f, detectRateHz * stableSeconds)));
                 const bool strongInputForSwitch = inputRms > 0.004f;
 
                 // Check for clearly wrong octave BEFORE the semitone-distance guard so
@@ -417,6 +418,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float lockHz = getTargetPitchHz (lockedTargetMidi);
                 const float lockCentsError = std::abs (1200.0f * std::log2 (
                     juce::jmax (1.0f, detectedHz) / juce::jmax (1.0f, lockHz)));
+                const float candidateHz = getTargetPitchHz (candidateMidiNote);
+                const float candidateCentsError = std::abs (1200.0f * std::log2 (
+                    juce::jmax (1.0f, detectedHz) / juce::jmax (1.0f, candidateHz)));
+                const bool lockAlreadyGood = lockCentsError < 35.0f;
+                const bool candidateClearlyBetter = candidateCentsError + 8.0f < lockCentsError;
                 // Only force a relock when the error is clearly a full octave+ off.
                 // Lower threshold was firing on notes that were just far in range, causing
                 // frequent lock switches (lockSwitchRateHz=0.5-1.5) and audible wobble.
@@ -442,19 +448,21 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 }
                 else
                 {
-                const float minHoldSeconds = juce::jlimit (0.012f, 0.160f, detectSeconds * 0.65f);
+                const float minHoldSeconds = juce::jlimit (0.040f, 0.220f, detectSeconds * 0.85f);
                 const int minHoldBlocks = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * minHoldSeconds)));
                 const bool switchUp = candidateMidiNote > lockedTargetMidi
                                    && detectedMidi > static_cast<float> (lockedTargetMidi) + switchHysteresis;
                 const bool switchDown = candidateMidiNote < lockedTargetMidi
                                      && detectedMidi < static_cast<float> (lockedTargetMidi) - switchHysteresis;
-                const float minConfidence = 0.66f - 0.16f * std::pow (k, 1.2f);
+                const float minConfidence = 0.74f - 0.08f * std::pow (k, 1.2f);
                 const bool confidentSwitch = pitchConfidence.load() > minConfidence;
 
                 if ((switchUp || switchDown)
                     && confidentSwitch
                     && strongInputForSwitch
+                    && ! lockAlreadyGood
+                    && candidateClearlyBetter
                     && lockedTargetAge >= minHoldBlocks
                     && pendingTargetStreak >= requiredStableHits
                     && targetSwitchCooldownBlocks == 0)
@@ -463,7 +471,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     lockedTargetAge = 0;
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
-                    const float cooldownSeconds = juce::jlimit (0.015f, 0.140f, detectSeconds * 0.55f);
+                    const float cooldownSeconds = juce::jlimit (0.050f, 0.220f, detectSeconds * 0.80f);
                     targetSwitchCooldownBlocks = static_cast<int> (std::round (
                         juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
                     diagWindowLockSwitches++;
@@ -565,7 +573,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Correction is always 100% toward target note — no depth scaling
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
-    const bool signalTooLow = inputRms < 0.008f;
+    inputRmsSmoothed += (inputRms - inputRmsSmoothed) * 0.08f;
+    const bool signalTooLow = inputRmsSmoothed < 0.006f;
     // Go to dry bypass immediately when confidence is zero — no grace period.
     // A 24-block grace window caused the shifter to run 24 blocks without a valid pitch
     // then abruptly switch to dry, producing an audible skip/comb artifact every playback start.
@@ -576,9 +585,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Keep the processed path fully wet while signal is present to avoid
     // dry/wet comb filtering (phasey sound). Only fade to dry in true silence.
     if (signalTooLow)
-        wetMixSmoothed += (0.0f - wetMixSmoothed) * 0.050f;
+        wetMixSmoothed += (0.0f - wetMixSmoothed) * 0.028f;
     else
-        wetMixSmoothed = 1.0f;
+        wetMixSmoothed += (1.0f - wetMixSmoothed) * 0.18f;
     const float wetMix = juce::jlimit (0.0f, 1.0f, wetMixSmoothed);
 
     // Retune stays active across the full knob range; knob controls speed only.
@@ -645,12 +654,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     }
     else
     {
-        // Signal is absent — glide ratio back toward unity, continue running shifter.
+        // Signal is absent — glide ratio to unity and bypass shifter to avoid idle artifacts.
         activePitchRatio += (1.0f - activePitchRatio) * 0.06f;
         targetRatioSmoothed += (1.0f - targetRatioSmoothed) * 0.08f;
-        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode, retuneControlActive);
+        auto* dryL = dryScratchL.data();
+        std::copy (dryL, dryL + numSamples, channelL);
         if (channelR != nullptr)
-            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode, retuneControlActive);
+        {
+            auto* dryR = dryScratchR.data();
+            std::copy (dryR, dryR + numSamples, channelR);
+        }
     }
 
     if (! signalTooLow)
@@ -900,7 +913,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Keep tolerance independent of retune speed so turning speed knob doesn't
     // change pitch target behavior, only convergence rate.
     const float toleranceCents = toleranceNorm * 3.5f;
-    if (signalRms < 0.008f)
+    if (signalRms < 0.004f)
         return 1.0f;
     if (centsError < toleranceCents)
         return 1.0f;
