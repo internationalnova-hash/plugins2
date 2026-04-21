@@ -1089,27 +1089,27 @@ function animate() {
 // 9 curated starting points — Signature / Core / Creative
 const PRESETS = [
   // ── Signature ──────────────────────────────────
-  { id: 'nova-sig',   section: 'Signature', name: 'Nova Signature', tags: ['smooth','bright'],
+  { id: 'nova-sig',   section: 'Signature', name: 'Nova Signature', description: 'Warm polished vocal tone', tags: ['smooth','bright'],
     values: { retune: 9, humanize: 60, flex: 55, vibrato: 12, formant: 52 } },
-  { id: 'midnight',   section: 'Signature', name: 'Midnight Glow',  tags: ['smooth','natural'],
+  { id: 'midnight',   section: 'Signature', name: 'Midnight Glow',  description: 'Dreamy melodic harmony', tags: ['smooth','bright'],
     values: { retune: 50, humanize: 70, flex: 65, vibrato: 18, formant: 55 } },
-  { id: 'atl-glide',  section: 'Signature', name: 'ATL Glide',      tags: ['smooth','bright'],
+  { id: 'atl-glide',  section: 'Signature', name: 'ATL Glide',      description: 'Hard tuned robotic trap', tags: ['robotic','aggressive'],
     values: { retune: 28, humanize: 40, flex: 45, vibrato: 10, formant: 50 } },
 
   // ── Core ───────────────────────────────────────
-  { id: 'natural',    section: 'Core',      name: 'Natural',        tags: ['natural'],
+  { id: 'natural',    section: 'Core',      name: 'Natural',        description: 'Subtle and transparent', tags: ['smooth','natural'],
     values: { retune: 65, humanize: 80, flex: 75, vibrato: 10, formant: 50 } },
-  { id: 'smooth',     section: 'Core',      name: 'Smooth',         tags: ['smooth','natural'],
+  { id: 'smooth',     section: 'Core',      name: 'Smooth',         description: 'Polished and modern', tags: ['smooth','bright'],
     values: { retune: 45, humanize: 65, flex: 60, vibrato: 15, formant: 50 } },
-  { id: 'tight',      section: 'Core',      name: 'Tight',          tags: ['aggressive'],
+  { id: 'tight',      section: 'Core',      name: 'Tight',          description: 'Controlled and focused', tags: ['aggressive'],
     values: { retune: 18, humanize: 25, flex: 30, vibrato:  5, formant: 50 } },
-  { id: 'hard-tune',  section: 'Core',      name: 'Hard Tune',      tags: ['aggressive','robotic'],
+  { id: 'hard-tune',  section: 'Core',      name: 'Hard Tune',      description: 'Hard tuned robotic trap', tags: ['robotic','aggressive'],
     values: { retune:   5, humanize: 0, flex: 10, vibrato:  0, formant: 52 } },
 
   // ── Creative ───────────────────────────────────
-  { id: 'robot',      section: 'Creative',  name: 'Robot',          tags: ['robotic','aggressive'],
+  { id: 'robot',      section: 'Creative',  name: 'Robot',          description: 'Synthetic robotic contour', tags: ['robotic','aggressive'],
     values: { retune:   2, humanize: 0, flex:  0, vibrato:  0, formant: 60 } },
-  { id: 'glide',      section: 'Creative',  name: 'Glide',          tags: ['smooth','natural'],
+  { id: 'glide',      section: 'Creative',  name: 'Glide',          description: 'Smooth melodic transitions', tags: ['smooth','natural'],
     values: { retune: 70, humanize: 75, flex: 80, vibrato: 25, formant: 50 } },
 ];
 
@@ -1153,16 +1153,11 @@ function getFilteredPresets() {
   const cat = state.preset.category;
   const tag = state.preset.activeTag;
   return PRESETS.filter(p => {
-    const secLower = p.section.toLowerCase().replace(/\s/g, '');
-    if (cat !== 'all') {
-      const catMap = { clean: 'core', hardtune: 'core', creative: 'creative', artist: 'signature' };
-      const mapped = catMap[cat] || cat;
-      if (cat === 'hardtune') {
-        if (!p.tags.includes('aggressive') && !p.tags.includes('robotic')) return false;
-      } else if (secLower !== mapped) return false;
-    }
+    const secLower = p.section.toLowerCase();
+    if (cat !== 'all' && secLower !== cat) return false;
     if (tag && !p.tags.includes(tag)) return false;
-    if (q && !p.name.toLowerCase().includes(q)) return false;
+    const searchable = `${p.name} ${p.description || ''}`.toLowerCase();
+    if (q && !searchable.includes(q)) return false;
     return true;
   });
 }
@@ -1181,67 +1176,66 @@ function renderPresets() {
     return;
   }
 
-  // Group by section maintaining order: Favorites bucket first, then Signature→Core→Creative
-  const favIds = new Set(state.preset.favorites);
-  const favPresets = filtered.filter(p => favIds.has(p.id));
+  // Group by section maintaining order: Signature→Core→Creative
   const sections = ['Signature', 'Core', 'Creative'];
 
   const buildItem = (preset) => {
     const item = document.createElement('div');
-    item.className = 'preset-item' + (preset.id === state.preset.activeId ? ' is-active' : '');
+    item.className = 'preset-item'
+      + (preset.id === state.preset.activeId ? ' is-active' : '')
+      + (preset.section === 'Signature' ? ' is-signature' : '');
     item.setAttribute('role', 'option');
     item.setAttribute('aria-selected', preset.id === state.preset.activeId ? 'true' : 'false');
 
-    const isFav = favIds.has(preset.id);
-    const favBtn = document.createElement('button');
-    favBtn.className = 'preset-item__fav' + (isFav ? ' is-fav' : '');
-    favBtn.type = 'button';
-    favBtn.textContent = '★';
-    favBtn.setAttribute('aria-label', (isFav ? 'Remove from' : 'Add to') + ' favourites');
-    favBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (favIds.has(preset.id)) {
-        state.preset.favorites = state.preset.favorites.filter(id => id !== preset.id);
-      } else {
-        state.preset.favorites.push(preset.id);
-      }
-      saveFavorites();
-      renderPresets();
-    });
+    const lead = document.createElement('div');
+    lead.className = 'preset-item__lead';
+    lead.textContent = preset.section === 'Signature' ? '★' : '✦';
+
+    const body = document.createElement('div');
+    body.className = 'preset-item__body';
 
     const name = document.createElement('div');
     name.className = 'preset-item__name';
     name.textContent = preset.name;
+
+    const desc = document.createElement('div');
+    desc.className = 'preset-item__desc';
+    desc.textContent = preset.description || 'Curated vocal profile';
+
+    body.appendChild(name);
+    body.appendChild(desc);
 
     const tagsWrap = document.createElement('div');
     tagsWrap.className = 'preset-item__tags';
     preset.tags.forEach(t => {
       const span = document.createElement('span');
       span.className = 'preset-item__tag';
+      span.dataset.tag = t;
       span.textContent = t;
       tagsWrap.appendChild(span);
     });
 
-    item.appendChild(favBtn);
-    item.appendChild(name);
+    const go = document.createElement('div');
+    go.className = 'preset-item__go';
+    go.textContent = '›';
+
+    item.appendChild(lead);
+    item.appendChild(body);
     item.appendChild(tagsWrap);
+    item.appendChild(go);
+
     item.addEventListener('click', () => {
       applyPreset(preset);
-      closePresetPanel();
+      item.classList.remove('is-pulsing');
+      void item.offsetWidth;
+      item.classList.add('is-pulsing');
+      setTimeout(() => item.classList.remove('is-pulsing'), 160);
     });
     return item;
   };
 
-  if (favPresets.length > 0) {
-    const label = document.createElement('div');
-    label.className = 'preset-section-label';
-    label.textContent = 'Favourites';
-    list.appendChild(label);
-    favPresets.forEach(p => list.appendChild(buildItem(p)));
-  }
-
   sections.forEach(sec => {
-    const group = filtered.filter(p => p.section === sec && (favPresets.length === 0 || !favIds.has(p.id)));
+    const group = filtered.filter(p => p.section === sec);
     if (group.length === 0) return;
     const label = document.createElement('div');
     label.className = 'preset-section-label';
