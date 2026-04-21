@@ -473,46 +473,52 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const int targetMidiNote = lockedTargetMidi;
             const float targetHz = getTargetPitchHz (targetMidiNote);
 
-            // Only recompute targetPitchRatio when the lock changes. On stable lock, keep the
-            // previous ratio to eliminate noise-driven wobble from detector jitter (~30 Hz fluctuations).
-            // This is the key to preventing the wobble symptom: detector noise caused targetPitchRatio
-            // to jump every 2-3 blocks, causing audible pitch contour even though lock was stable.
-            if (targetMidiNote != previousLockedTargetMidi)
+            // Recompute target ratio every detection block so correction tracks continuous intonation
+            // drift while the lock is held. Smooth updates on stable lock to avoid jitter-driven wobble.
+            const bool lockChanged = (targetMidiNote != previousLockedTargetMidi);
+
+            // Align detector octave to the selected target note before ratio computation.
+            float octaveAlignedDetectedHz = detectedHz;
+            if (targetHz > 1.0f)
             {
-                // Align detector octave to the selected target note before ratio computation.
-                float octaveAlignedDetectedHz = detectedHz;
-                if (targetHz > 1.0f)
-                {
-                    while (octaveAlignedDetectedHz < targetHz * 0.70710678f)
-                        octaveAlignedDetectedHz *= 2.0f;
-                    while (octaveAlignedDetectedHz > targetHz * 1.41421356f)
-                        octaveAlignedDetectedHz *= 0.5f;
-                }
-
-                float pitchRatio = computeRetuneRatio (octaveAlignedDetectedHz, targetHz, inputRms, lowLatencyMode);
-                diagWindowRatioComputedBlocks++;
-                if (std::abs (pitchRatio - 1.0f) < 0.001f)
-                    diagWindowUnityReturnBlocks++;
-
-                // Store the base ratio without vibrato. Vibrato is applied every block as a continuous
-                // effect on top of activePitchRatio, not baked into targetPitchRatio.
-                // This prevents vibrato from being discontinuous when the lock changes.
-                const float minRatio = 0.72f;
-                const float maxRatio = 1.38f;
-                targetPitchRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
-                previousLockedTargetMidi = targetMidiNote;
-                
-                const float correctedHz = octaveAlignedDetectedHz * pitchRatio;
-                correctedPitch.store (correctedHz);
-
-                if (debugCounter % 100 == 2)
-                {
-                    DBG("Nova Pitch: detectedHz=" << detectedHz << " targetHz=" << targetHz << " pitchRatio=" << pitchRatio);
-                }
+                while (octaveAlignedDetectedHz < targetHz * 0.70710678f)
+                    octaveAlignedDetectedHz *= 2.0f;
+                while (octaveAlignedDetectedHz > targetHz * 1.41421356f)
+                    octaveAlignedDetectedHz *= 0.5f;
             }
-            else if (debugCounter % 100 == 2)
+
+            float pitchRatio = computeRetuneRatio (octaveAlignedDetectedHz, targetHz, inputRms, lowLatencyMode);
+            diagWindowRatioComputedBlocks++;
+            if (std::abs (pitchRatio - 1.0f) < 0.001f)
+                diagWindowUnityReturnBlocks++;
+
+            const float minRatio = 0.72f;
+            const float maxRatio = 1.38f;
+            const float computedTargetRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
+
+            if (lockChanged)
             {
-                DBG("Nova Pitch: lock unchanged at " << targetMidiNote << ", skipping ratio recompute");
+                targetPitchRatio = computedTargetRatio;
+                previousLockedTargetMidi = targetMidiNote;
+            }
+            else
+            {
+                // Stable-lock retarget smoothing suppresses detector flutter while still allowing
+                // real note drift to drive stronger/autotune-like correction.
+                const float stableRetargetAlpha = lowLatencyMode ? 0.22f : 0.16f;
+                targetPitchRatio += (computedTargetRatio - targetPitchRatio) * stableRetargetAlpha;
+            }
+
+            const float correctedHz = octaveAlignedDetectedHz * targetPitchRatio;
+            correctedPitch.store (correctedHz);
+
+            if (debugCounter % 100 == 2)
+            {
+                DBG("Nova Pitch: detectedHz=" << detectedHz
+                    << " targetHz=" << targetHz
+                    << " pitchRatio=" << pitchRatio
+                    << " targetPitchRatio=" << targetPitchRatio
+                    << " lockChanged=" << (lockChanged ? 1 : 0));
             }
         }
         else
@@ -1408,7 +1414,13 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
 
         const float gainA = std::sin ((1.0f - t) * juce::MathConstants<float>::halfPi);
         const float gainB = std::sin (t * juce::MathConstants<float>::halfPi);
-        const float shifted = sampleA * gainA + sampleB * gainB;
+        const float shiftedDual = sampleA * gainA + sampleB * gainB;
+
+        // Near unity ratio, dual-head overlap can sound phasey/chorusy due to combing.
+        // Crossfade toward a single read head when correction amount is very small.
+        const float singleHead = sampleAt (desiredAnchor);
+        const float dualBlend = juce::jlimit (0.0f, 1.0f, (unityDelta - 0.006f) / 0.040f);
+        const float shifted = singleHead + (shiftedDual - singleHead) * dualBlend;
 
         // Light smoothing only to avoid zippering while preserving audibility.
         const float baseAlpha = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.88f, 0.98f);
