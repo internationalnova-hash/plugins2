@@ -552,31 +552,54 @@
       cursor: pointer;
       border-radius: 12px;
       border: 1px solid rgba(109, 145, 186, 0.24);
+      outline: 1px solid transparent;
+      outline-offset: -1px;
       background:
         radial-gradient(120% 120% at 20% 10%, rgba(105, 168, 255, 0.10), transparent 58%),
-        linear-gradient(180deg, rgba(24, 36, 53, 0.86), rgba(14, 24, 38, 0.92));
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 6px 16px rgba(0,0,0,0.24);
-      transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+        linear-gradient(180deg, rgba(29, 43, 62, 0.90), rgba(15, 25, 39, 0.94));
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.09),
+        0 8px 20px rgba(0,0,0,0.26),
+        0 1px 0 rgba(0,0,0,0.26);
+      transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease, background 120ms ease, outline-color 120ms ease, filter 120ms ease;
       position: relative;
+      overflow: hidden;
+    }
+    .preset-item::before {
+      content: "";
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      top: 0;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(220, 240, 255, 0.16), rgba(220, 240, 255, 0.03), rgba(220, 240, 255, 0.16));
+      pointer-events: none;
     }
     .preset-item:hover {
       transform: scale(1.01);
       border-color: rgba(116, 195, 255, 0.52);
       background:
-        radial-gradient(120% 120% at 20% 10%, rgba(105, 168, 255, 0.18), transparent 58%),
-        linear-gradient(180deg, rgba(28, 43, 64, 0.9), rgba(16, 28, 44, 0.94));
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.11), 0 0 18px rgba(90,170,255,0.18), 0 10px 24px rgba(0,0,0,0.32);
+        radial-gradient(120% 120% at 20% 10%, rgba(105, 168, 255, 0.20), transparent 58%),
+        linear-gradient(180deg, rgba(30, 46, 68, 0.92), rgba(18, 29, 45, 0.95));
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.12),
+        0 0 18px rgba(90,170,255,0.22),
+        0 11px 24px rgba(0,0,0,0.34);
     }
     .preset-item:hover .preset-item__name {
       color: rgba(200,248,255,0.96);
       text-shadow: 0 0 10px rgba(89,232,255,0.22);
     }
     .preset-item.is-active {
+      outline-color: rgba(134, 236, 255, 0.76);
       border-color: rgba(126, 222, 255, 0.68);
       background:
         radial-gradient(140% 120% at 18% 10%, rgba(128, 186, 255, 0.24), transparent 60%),
         linear-gradient(180deg, rgba(28, 47, 71, 0.94), rgba(17, 32, 49, 0.96));
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 20px rgba(98, 198, 255, 0.30), 0 10px 24px rgba(0,0,0,0.36);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.14),
+        0 0 22px rgba(98, 198, 255, 0.34),
+        0 10px 24px rgba(0,0,0,0.36);
     }
     .preset-item.is-active .preset-item__name {
       color: #59E8FF;
@@ -585,8 +608,15 @@
     .preset-item.is-signature {
       border-color: rgba(149, 144, 255, 0.38);
       background:
-        radial-gradient(120% 120% at 18% 10%, rgba(158, 108, 255, 0.18), transparent 60%),
-        linear-gradient(180deg, rgba(30, 38, 65, 0.90), rgba(18, 24, 44, 0.95));
+        radial-gradient(1px 1px at 12% 18%, rgba(214, 224, 255, 0.12), rgba(214, 224, 255, 0) 100%),
+        radial-gradient(1px 1px at 72% 44%, rgba(188, 202, 255, 0.10), rgba(188, 202, 255, 0) 100%),
+        radial-gradient(1px 1px at 34% 76%, rgba(190, 210, 255, 0.09), rgba(190, 210, 255, 0) 100%),
+        radial-gradient(130% 120% at 18% 10%, rgba(152, 116, 255, 0.18), transparent 60%),
+        linear-gradient(180deg, rgba(36, 45, 76, 0.90), rgba(20, 29, 52, 0.95));
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.10),
+        0 0 14px rgba(138, 130, 255, 0.18),
+        0 8px 20px rgba(0,0,0,0.30);
     }
     .preset-item.is-signature .preset-item__name {
       color: rgba(228, 238, 255, 0.96);
@@ -594,7 +624,10 @@
     }
     .preset-item.is-signature.is-active {
       border-color: rgba(166, 165, 255, 0.72);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 22px rgba(147, 137, 255, 0.36), 0 10px 24px rgba(0,0,0,0.36);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.14),
+        0 0 24px rgba(147, 137, 255, 0.34),
+        0 10px 24px rgba(0,0,0,0.36);
     }
     .preset-item.is-pulsing::after {
       content: "";
@@ -602,8 +635,8 @@
       inset: -1px;
       border-radius: 12px;
       border: 1px solid rgba(130, 235, 255, 0.72);
-      box-shadow: 0 0 24px rgba(89,232,255,0.48);
-      animation: presetPulse 150ms ease-out;
+      box-shadow: 0 0 20px rgba(89,232,255,0.42);
+      animation: presetPulse 130ms ease-out;
       pointer-events: none;
     }
     @keyframes presetPulse {
@@ -650,7 +683,8 @@
       border: 1px solid rgba(92, 196, 255, 0.24);
       border-radius: 999px;
       padding: 2px 10px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 8px rgba(104, 196, 255, 0.08);
+      transition: filter 120ms ease, box-shadow 120ms ease;
     }
     .preset-item__tag[data-tag="smooth"] {
       border-color: rgba(110, 190, 255, 0.34);
@@ -684,6 +718,11 @@
     .preset-item.is-active .preset-item__go {
       transform: translateX(2px);
       color: rgba(176, 242, 255, 0.98);
+    }
+    .preset-item:hover .preset-item__tag,
+    .preset-item.is-active .preset-item__tag {
+      filter: brightness(1.08);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), inset 0 0 10px rgba(114, 206, 255, 0.12);
     }
     .preset-empty {
       grid-column: 1 / -1;

@@ -571,22 +571,22 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         const bool hardTuneMode = retuneControlActive >= 0.85f;
         const float speedCoeff = hardTuneMode
-            ? (lowLatencyMode ? 0.46f : 0.40f)
+            ? (lowLatencyMode ? 0.58f : 0.52f)
             : (lowLatencyMode
-                ? juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.04f, 0.16f)
-                : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.03f, 0.14f));
+                ? juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.05f, 0.22f)
+                : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.04f, 0.20f));
 
         // Smooth target-ratio motion first, then apply retune-speed glide.
         const float targetSmoothing = hardTuneMode
-            ? 0.52f
-            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.10f, 0.32f);
+            ? 0.68f
+            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.12f, 0.40f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
         // Clamp accumulated lag: never let targetRatioSmoothed be more than ~300 cents
         // from activePitchRatio. Without this, turning the speed knob from slow to fast
         // causes a rush-to-catch-up lurch that sounds like wobble/pitch jump.
         {
-            const float maxLagRatio = std::pow (2.0f, 300.0f / 1200.0f); // ~300 cents
+            const float maxLagRatio = std::pow (2.0f, 180.0f / 1200.0f); // ~180 cents
             const float lagRatio = targetRatioSmoothed / juce::jmax (0.001f, activePitchRatio);
             if (lagRatio > maxLagRatio)
                 targetRatioSmoothed = activePitchRatio * maxLagRatio;
@@ -597,9 +597,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         // Single continuous control law across the full speed range.
         const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
         // Tighter maxStep to prevent per-block ratio jumps that cause wobble.
-        const float maxStep = hardTuneMode
-            ? 0.018f
-            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.0025f, 0.0070f);
+        const float baseMaxStep = hardTuneMode
+            ? 0.012f
+            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.0035f, 0.0100f);
+        const float confidenceStepScale = juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.60f, 1.00f);
+        const float maxStep = baseMaxStep * confidenceStepScale;
         const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
         activePitchRatio += step;
 
@@ -768,8 +770,6 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
         smoothedDetectedHz = initHz;
         return smoothedDetectedHz;
     }
-
-    const bool hardTuneMode = retuneSpeedSmoothed > 0.90f;
 
     // Use lockedTargetMidi as the octave-fold reference to anchor the smoother to the
     // correct octave and suppress subharmonics. The circular-lock problem (wrong-octave
@@ -1346,7 +1346,7 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     const float clampedRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
     const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
     // Keep ratio changes smooth enough to avoid time-domain read-head jumps.
-    const float ratioSmoothing = juce::jlimit (0.08f, 0.20f, 0.08f + ratioDelta * 0.30f);
+    const float ratioSmoothing = juce::jlimit (0.10f, 0.24f, 0.10f + ratioDelta * 0.26f);
     ratioSmoothed += (clampedRatio - ratioSmoothed) * ratioSmoothing;
     const float effectiveRatio = juce::jlimit (minRatio, maxRatio, ratioSmoothed);
 

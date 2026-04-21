@@ -838,7 +838,7 @@ function drawGraph() {
 
       // Particle trails along curve then disperses very wide from the waveform.
       const along   = 6 + Math.random() * 12;     // px along tangent
-      const outward = 88 + Math.random() * 74;    // +75% wider vs previous
+      const outward = 132 + Math.random() * 111;  // +50% wider vs previous ghost-trail spread
       const size    = 1 + Math.random() * 2.2;    // 1–3.2px (pixel dust)
       // Life: 70–130 frames (~1.15s–2.15s)
       const lifeFrames  = 70 + Math.random() * 60;
@@ -1072,7 +1072,7 @@ function setupTopBar() {
 }
 
 function animate() {
-  state.phase += 0.025;
+  state.phase += 0.020;
   state.retuneDrive *= 0.92;
   renderLowLatencyToggle();
   drawBgFrame();
@@ -1226,6 +1226,7 @@ function renderPresets() {
 
     item.addEventListener('click', () => {
       applyPreset(preset);
+      closePresetPanel();
       item.classList.remove('is-pulsing');
       void item.offsetWidth;
       item.classList.add('is-pulsing');
