@@ -836,14 +836,14 @@ function drawGraph() {
       const norX = -tanY * ns;
       const norY =  tanX * ns;
 
-      // Particle trails along curve then disperses wider from the waveform.
-      const along   = 4 + Math.random() * 9;      // px along tangent
-      const outward = 24 + Math.random() * 22;    // wider halo around waveform
+      // Particle trails along curve then disperses much wider from the waveform.
+      const along   = 5 + Math.random() * 11;     // px along tangent
+      const outward = 50 + Math.random() * 42;    // ~2x wider halo around waveform
       const size    = 1 + Math.random() * 2;      // 1–3px (pixel dust)
-      // Life: 48–92 frames (~800ms–1.5s)
-      const lifeFrames  = 48 + Math.random() * 44;
-      // Opacity: 36–66% at birth
-      const baseOpacity = 0.36 + Math.random() * 0.30;
+      // Life: 56–108 frames (~930ms–1.8s)
+      const lifeFrames  = 56 + Math.random() * 52;
+      // Opacity: 38–70% at birth
+      const baseOpacity = 0.38 + Math.random() * 0.32;
       const brightness  = 0.92 + Math.random() * 0.14;
 
       state.waveParticles.push({
@@ -854,9 +854,9 @@ function drawGraph() {
       });
     }
 
-    // Hard cap to prevent runaway accumulation (max ~420 live particles).
-    if (state.waveParticles.length > 420) {
-      state.waveParticles = state.waveParticles.slice(-420);
+    // Hard cap to prevent runaway accumulation (max ~520 live particles).
+    if (state.waveParticles.length > 520) {
+      state.waveParticles = state.waveParticles.slice(-520);
     }
 
     // Draw and age every particle.
@@ -868,11 +868,11 @@ function drawGraph() {
       const progress = p.age / p.lifeFrames;
       // Phase 1 (0→0.25): travel along tangent; phase 2: drift outward.
       const alongEase   = Math.min(1, progress / 0.25);
-      const outwardEase = Math.max(0, (progress - 0.10) / 0.90);
+      const outwardEase = Math.max(0, (progress - 0.06) / 0.94);
       // Gentler fade so dust stays visible longer
       const fade = Math.pow(1 - progress, 0.85);
 
-      const disperseJitter = (1 - progress) * (0.6 + motionIntensity * 1.2);
+      const disperseJitter = (1 - progress) * (1.8 + motionIntensity * 2.2);
       const px = p.x + p.tanX * p.along * alongEase + p.norX * p.outward * outwardEase
         + (Math.random() - 0.5) * disperseJitter;
       const py = p.y + p.tanY * p.along * alongEase + p.norY * p.outward * outwardEase

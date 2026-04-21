@@ -354,6 +354,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         if (hasUsablePitch)
         {
+            const bool hardTuneMode = retuneControlActive >= 0.85f;
             // Use the smoothed detected estimate directly for candidate selection.
             // This avoids octave-fold side effects from secondary lock-free transforms.
             const float noteSourceHz = detectedHz;
@@ -385,7 +386,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
                 const float detectRateHz = static_cast<float> (currentSampleRate)
                     / static_cast<float> (juce::jmax (1, numSamples * intervalDivider));
-                const float stableSeconds = 0.24f;
+                const float stableSeconds = hardTuneMode ? 0.55f : 0.24f;
                 const int requiredStableHits = static_cast<int> (std::round (
                     juce::jmax (2.0f, detectRateHz * stableSeconds)));
                 const bool strongInputForSwitch = inputRms > 0.004f;
@@ -418,18 +419,23 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 {
                     // Keep existing lock until detector stabilizes.
                 }
+                // In hard-tune mode, keep lock sticky unless error is clearly substantial.
+                else if (hardTuneMode && lockCentsError < 260.0f)
+                {
+                    // Hold current lock to avoid ping-pong on vibrato or noisy frames.
+                }
                 else
                 {
                 // Keep strong hysteresis in fast mode to prevent adjacent-note ping-pong.
-                const float switchHysteresis = 1.10f;
-                const float minHoldSeconds = 0.52f;
+                const float switchHysteresis = hardTuneMode ? 2.20f : 1.10f;
+                const float minHoldSeconds = hardTuneMode ? 1.10f : 0.52f;
                 const int minHoldBlocks = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * minHoldSeconds)));
                 const bool switchUp = candidateMidiNote > lockedTargetMidi
                                    && detectedMidi > static_cast<float> (lockedTargetMidi) + switchHysteresis;
                 const bool switchDown = candidateMidiNote < lockedTargetMidi
                                      && detectedMidi < static_cast<float> (lockedTargetMidi) - switchHysteresis;
-                const bool confidentSwitch = pitchConfidence.load() > 0.60f;
+                const bool confidentSwitch = pitchConfidence.load() > (hardTuneMode ? 0.72f : 0.60f);
 
                 if ((switchUp || switchDown)
                     && confidentSwitch
@@ -442,7 +448,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     lockedTargetAge = 0;
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
-                    const float cooldownSeconds = 0.20f;
+                    const float cooldownSeconds = hardTuneMode ? 0.55f : 0.20f;
                     targetSwitchCooldownBlocks = static_cast<int> (std::round (
                         juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
                     diagWindowLockSwitches++;
@@ -563,14 +569,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         const bool hardTuneMode = retuneControlActive >= 0.85f;
         const float speedCoeff = hardTuneMode
-            ? (lowLatencyMode ? 0.62f : 0.56f)
+            ? (lowLatencyMode ? 0.80f : 0.72f)
             : (lowLatencyMode
                 ? juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.04f, 0.16f)
                 : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.03f, 0.14f));
 
         // Smooth target-ratio motion first, then apply retune-speed glide.
         const float targetSmoothing = hardTuneMode
-            ? 0.46f
+            ? 0.70f
             : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.10f, 0.32f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
@@ -590,7 +596,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float desiredRatio = activePitchRatio + (targetRatioSmoothed - activePitchRatio) * speedCoeff;
         // Tighter maxStep to prevent per-block ratio jumps that cause wobble.
         const float maxStep = hardTuneMode
-            ? 0.028f
+            ? 0.060f
             : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.0025f, 0.0070f);
         const float step = juce::jlimit (-maxStep, maxStep, desiredRatio - activePitchRatio);
         activePitchRatio += step;
