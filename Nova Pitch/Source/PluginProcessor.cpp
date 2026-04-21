@@ -494,11 +494,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 if (std::abs (pitchRatio - 1.0f) < 0.001f)
                     diagWindowUnityReturnBlocks++;
 
-                if (vibratoValue > 0.001f)
-                {
-                    applyVibrato (pitchRatio, static_cast<float> (currentSampleRate), numSamples,
-                                  vibratoValue);
-                }
+                // Store the base ratio without vibrato. Vibrato is applied every block as a continuous
+                // effect on top of activePitchRatio, not baked into targetPitchRatio.
+                // This prevents vibrato from being discontinuous when the lock changes.
                 const float minRatio = 0.72f;
                 const float maxRatio = 1.38f;
                 targetPitchRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
@@ -612,10 +610,19 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         diagWindowAppliedCentsAbsSum += static_cast<double> (appliedCents);
         diagWindowTargetCentsAbsSum += static_cast<double> (targetCents);
 
+        // Apply vibrato as a continuous effect every block to create smooth sinusoidal modulation.
+        // This ensures vibrato is always present and continuous, not just when the lock changes.
+        // Vibrato modulates the final activePitchRatio before pitch shifting.
+        float appliedRatio = activePitchRatio;
+        if (vibratoValue > 0.001f)
+        {
+            applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
+        }
+
         // Apply shift only when tracking is valid.
-        processCircularBufferPitchShift (channelL, numSamples, activePitchRatio, 0, lowLatencyMode, retuneControlActive);
+        processCircularBufferPitchShift (channelL, numSamples, appliedRatio, 0, lowLatencyMode, retuneControlActive);
         if (channelR != nullptr)
-            processCircularBufferPitchShift (channelR, numSamples, activePitchRatio, 1, lowLatencyMode, retuneControlActive);
+            processCircularBufferPitchShift (channelR, numSamples, appliedRatio, 1, lowLatencyMode, retuneControlActive);
     }
     else
     {
