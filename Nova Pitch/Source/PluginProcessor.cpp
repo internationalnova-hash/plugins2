@@ -412,7 +412,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float stableSeconds = detectSeconds;
                 const int requiredStableHits = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * stableSeconds)));
-                const bool strongInputForSwitch = inputRms > (hardTuneMode ? 0.030f : 0.012f);
+                const bool strongInputForSwitch = inputRms > (hardTuneMode ? 0.040f : 0.012f);
 
                 // Check for clearly wrong octave BEFORE the semitone-distance guard so
                 // octave corrections (12 semitones) are not silently blocked.
@@ -451,7 +451,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 else
                 {
                 const float minHoldSeconds = hardTuneMode
-                    ? juce::jlimit (0.55f, 1.20f, detectSeconds * 5.0f)
+                    ? juce::jlimit (0.80f, 1.60f, detectSeconds * 6.0f)
                     : juce::jlimit (0.040f, 0.220f, detectSeconds * 0.85f);
                 const int minHoldBlocks = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * minHoldSeconds)));
@@ -462,13 +462,20 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float minConfidence = 0.74f - 0.08f * std::pow (k, 1.2f);
                 const bool confidentSwitch = pitchConfidence.load() > minConfidence;
 
+                const bool hardSwitchDistanceOk = ! hardTuneMode
+                    || std::abs (candidateMidiNote - lockedTargetMidi) >= 3;
+                const bool hardSwitchErrorOk = ! hardTuneMode
+                    || lockCentsError >= 120.0f;
+
                 if ((switchUp || switchDown)
                     && confidentSwitch
                     && strongInputForSwitch
                     && ! lockAlreadyGood
                     && candidateClearlyBetter
+                    && hardSwitchDistanceOk
+                    && hardSwitchErrorOk
                     && lockedTargetAge >= minHoldBlocks
-                    && pendingTargetStreak >= (hardTuneMode ? requiredStableHits + 8 : requiredStableHits)
+                    && pendingTargetStreak >= (hardTuneMode ? requiredStableHits + 14 : requiredStableHits)
                     && targetSwitchCooldownBlocks == 0)
                 {
                     lockedTargetMidi = candidateMidiNote;
@@ -476,7 +483,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
                     const float cooldownSeconds = hardTuneMode
-                        ? juce::jlimit (0.70f, 1.40f, detectSeconds * 3.2f)
+                        ? juce::jlimit (1.00f, 1.90f, detectSeconds * 4.0f)
                         : juce::jlimit (0.050f, 0.220f, detectSeconds * 0.80f);
                     targetSwitchCooldownBlocks = static_cast<int> (std::round (
                         juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
@@ -581,11 +588,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const bool hardTuneMode = retuneControlActive >= 0.90f;
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     inputRmsSmoothed += (inputRms - inputRmsSmoothed) * 0.08f;
-    const float gateOnThreshold = hardTuneMode ? 0.0014f : 0.0030f;
-    const float gateOffThreshold = hardTuneMode ? 0.00045f : 0.0012f;
+    const float gateOnThreshold = hardTuneMode ? 0.0010f : 0.0030f;
+    const float gateOffThreshold = hardTuneMode ? 0.00018f : 0.0012f;
     if (inputRmsSmoothed >= gateOnThreshold)
     {
-        voicedHoldBlocks = hardTuneMode ? 72 : 24;
+        voicedHoldBlocks = hardTuneMode ? 120 : 24;
     }
     else if (voicedHoldBlocks > 0)
     {
@@ -650,8 +657,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const float targetAbs = std::abs (targetCentsSigned);
             if (targetAbs > 1.0f)
             {
-                const float minAppliedCents = juce::jlimit (35.0f, 95.0f, juce::jmap (retuneControlActive, 0.90f, 1.0f, 35.0f, 95.0f));
-                const float desiredAbs = juce::jmin (targetAbs, minAppliedCents);
+                const float minAppliedCents = juce::jlimit (70.0f, 180.0f, juce::jmap (retuneControlActive, 0.90f, 1.0f, 70.0f, 180.0f));
+                const float desiredAbs = juce::jmax (targetAbs, minAppliedCents);
                 if (std::abs (activeCentsSigned) < desiredAbs)
                 {
                     const float sign = (targetCentsSigned >= 0.0f) ? 1.0f : -1.0f;
