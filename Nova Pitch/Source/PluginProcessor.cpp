@@ -423,11 +423,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float candidateCentsError = std::abs (1200.0f * std::log2 (
                     juce::jmax (1.0f, detectedHz) / juce::jmax (1.0f, candidateHz)));
                 const bool lockAlreadyGood = lockCentsError < 35.0f;
-                const bool candidateClearlyBetter = candidateCentsError + 8.0f < lockCentsError;
+                const float betterMarginCents = hardTuneMode ? 32.0f : 8.0f;
+                const bool candidateClearlyBetter = candidateCentsError + betterMarginCents < lockCentsError;
                 // Only force a relock when the error is clearly a full octave+ off.
                 // Lower threshold was firing on notes that were just far in range, causing
                 // frequent lock switches (lockSwitchRateHz=0.5-1.5) and audible wobble.
-                const bool lockClearlyWrongOctave = lockCentsError > (hardTuneMode ? 1050.0f : 900.0f)
+                const bool lockClearlyWrongOctave = lockCentsError > (hardTuneMode ? 1120.0f : 900.0f)
                     && strongInputForSwitch
                     && pendingTargetStreak >= juce::jmax (2, requiredStableHits / 2);
 
@@ -437,7 +438,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     lockedTargetAge = 0;
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
-                    const float cooldownSeconds = hardTuneMode ? 0.45f : 0.18f;
+                    const float cooldownSeconds = hardTuneMode ? 0.70f : 0.18f;
                     targetSwitchCooldownBlocks = static_cast<int> (std::round (
                         juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
                     diagWindowLockSwitches++;
@@ -449,7 +450,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 }
                 else
                 {
-                const float minHoldSeconds = juce::jlimit (0.040f, 0.220f, detectSeconds * 0.85f);
+                const float minHoldSeconds = hardTuneMode
+                    ? juce::jlimit (0.28f, 0.62f, detectSeconds * 3.6f)
+                    : juce::jlimit (0.040f, 0.220f, detectSeconds * 0.85f);
                 const int minHoldBlocks = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * minHoldSeconds)));
                 const bool switchUp = candidateMidiNote > lockedTargetMidi
@@ -465,14 +468,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     && ! lockAlreadyGood
                     && candidateClearlyBetter
                     && lockedTargetAge >= minHoldBlocks
-                    && pendingTargetStreak >= requiredStableHits
+                    && pendingTargetStreak >= (hardTuneMode ? requiredStableHits + 3 : requiredStableHits)
                     && targetSwitchCooldownBlocks == 0)
                 {
                     lockedTargetMidi = candidateMidiNote;
                     lockedTargetAge = 0;
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
-                    const float cooldownSeconds = juce::jlimit (0.050f, 0.220f, detectSeconds * 0.80f);
+                    const float cooldownSeconds = hardTuneMode
+                        ? juce::jlimit (0.30f, 0.70f, detectSeconds * 2.4f)
+                        : juce::jlimit (0.050f, 0.220f, detectSeconds * 0.80f);
                     targetSwitchCooldownBlocks = static_cast<int> (std::round (
                         juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
                     diagWindowLockSwitches++;
@@ -523,7 +528,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // real note drift to drive stronger/autotune-like correction.
                 // Very small alpha so individual bad detector frames can't spike targetPitchRatio.
                 const float stableRetargetAlpha = hardTuneMode
-                    ? (lowLatencyMode ? 0.22f : 0.18f)
+                    ? (lowLatencyMode ? 0.10f : 0.08f)
                     : (lowLatencyMode ? 0.08f : 0.06f);
                 targetPitchRatio += (computedTargetRatio - targetPitchRatio) * stableRetargetAlpha;
             }
@@ -910,7 +915,7 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
     // Normal blending — extremely conservative so the smoother cannot be dragged by
     // one or two outlier frames.  At alpha=0.04 a 100 Hz step takes ~17 blocks to close.
     juce::ignoreUnused (signalRms, lowLatencyMode);
-    const float alpha = 0.04f;
+    const float alpha = lowLatencyMode ? 0.022f : 0.04f;
 
     smoothedDetectedHz += (rawDetectedHz - smoothedDetectedHz) * alpha;
     return smoothedDetectedHz;
