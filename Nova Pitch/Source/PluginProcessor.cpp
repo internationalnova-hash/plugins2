@@ -412,7 +412,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float stableSeconds = detectSeconds;
                 const int requiredStableHits = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * stableSeconds)));
-                const bool strongInputForSwitch = inputRms > 0.012f;
+                const bool strongInputForSwitch = inputRms > (hardTuneMode ? 0.030f : 0.012f);
 
                 // Check for clearly wrong octave BEFORE the semitone-distance guard so
                 // octave corrections (12 semitones) are not silently blocked.
@@ -451,7 +451,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 else
                 {
                 const float minHoldSeconds = hardTuneMode
-                    ? juce::jlimit (0.28f, 0.62f, detectSeconds * 3.6f)
+                    ? juce::jlimit (0.55f, 1.20f, detectSeconds * 5.0f)
                     : juce::jlimit (0.040f, 0.220f, detectSeconds * 0.85f);
                 const int minHoldBlocks = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * minHoldSeconds)));
@@ -468,7 +468,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     && ! lockAlreadyGood
                     && candidateClearlyBetter
                     && lockedTargetAge >= minHoldBlocks
-                    && pendingTargetStreak >= (hardTuneMode ? requiredStableHits + 3 : requiredStableHits)
+                    && pendingTargetStreak >= (hardTuneMode ? requiredStableHits + 8 : requiredStableHits)
                     && targetSwitchCooldownBlocks == 0)
                 {
                     lockedTargetMidi = candidateMidiNote;
@@ -476,7 +476,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
                     const float cooldownSeconds = hardTuneMode
-                        ? juce::jlimit (0.30f, 0.70f, detectSeconds * 2.4f)
+                        ? juce::jlimit (0.70f, 1.40f, detectSeconds * 3.2f)
                         : juce::jlimit (0.050f, 0.220f, detectSeconds * 0.80f);
                     targetSwitchCooldownBlocks = static_cast<int> (std::round (
                         juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
@@ -643,6 +643,23 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float limitedDeltaSemitones = juce::jlimit (-maxStepSemitones, maxStepSemitones, deltaSemitones);
         activePitchRatio *= std::pow (2.0f, limitedDeltaSemitones / 12.0f);
 
+        if (hardTuneMode)
+        {
+            const float targetCentsSigned = 1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio));
+            const float activeCentsSigned = 1200.0f * std::log2 (juce::jmax (0.001f, activePitchRatio));
+            const float targetAbs = std::abs (targetCentsSigned);
+            if (targetAbs > 1.0f)
+            {
+                const float minAppliedCents = juce::jlimit (35.0f, 95.0f, juce::jmap (retuneControlActive, 0.90f, 1.0f, 35.0f, 95.0f));
+                const float desiredAbs = juce::jmin (targetAbs, minAppliedCents);
+                if (std::abs (activeCentsSigned) < desiredAbs)
+                {
+                    const float sign = (targetCentsSigned >= 0.0f) ? 1.0f : -1.0f;
+                    activePitchRatio = std::pow (2.0f, (sign * desiredAbs) / 1200.0f);
+                }
+            }
+        }
+
         const float minRatio = 0.72f;
         const float maxRatio = 1.38f;
         activePitchRatio = juce::jlimit (minRatio, maxRatio, activePitchRatio);
@@ -661,7 +678,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         // This ensures vibrato is always present and continuous, not just when the lock changes.
         // Vibrato modulates the final activePitchRatio before pitch shifting.
         float appliedRatio = activePitchRatio;
-        if (vibratoValue > 0.001f)
+        if (! hardTuneMode && vibratoValue > 0.001f)
         {
             applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
         }
