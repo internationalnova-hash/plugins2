@@ -573,13 +573,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Retune knob = SPEED only (LP filter glide time toward target)
     // - Correction is always 100% toward target note — no depth scaling
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
+    const bool hardTuneMode = retuneControlActive >= 0.90f;
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     inputRmsSmoothed += (inputRms - inputRmsSmoothed) * 0.08f;
-    const float gateOnThreshold = 0.0030f;
-    const float gateOffThreshold = 0.0012f;
+    const float gateOnThreshold = hardTuneMode ? 0.0014f : 0.0030f;
+    const float gateOffThreshold = hardTuneMode ? 0.00045f : 0.0012f;
     if (inputRmsSmoothed >= gateOnThreshold)
     {
-        voicedHoldBlocks = 24;
+        voicedHoldBlocks = hardTuneMode ? 72 : 24;
     }
     else if (voicedHoldBlocks > 0)
     {
@@ -590,8 +591,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Go to dry bypass immediately when confidence is zero — no grace period.
     // A 24-block grace window caused the shifter to run 24 blocks without a valid pitch
     // then abruptly switch to dry, producing an audible skip/comb artifact every playback start.
-    const bool lowConfidence = trackingConfidence < (retuneControlActive >= 0.85f ? 0.002f : 0.01f);
-    const bool trackingLost = signalTooLow || (lowConfidence && voicedHoldBlocks == 0);
+    const bool lowConfidence = trackingConfidence < (hardTuneMode ? 0.0002f : (retuneControlActive >= 0.85f ? 0.002f : 0.01f));
+    const bool trackingLost = signalTooLow || (! hardTuneMode && lowConfidence && voicedHoldBlocks == 0);
     if (trackingLost)
         diagWindowTrackingLostBlocks++;
 
@@ -607,8 +608,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     if (! signalTooLow)
     {
-        const bool hardTuneMode = retuneControlActive >= 0.90f;
-
         // Smooth target-ratio motion first, then apply retune-speed glide.
         // CRITICAL: Higher smoothing at fast speeds means snappier Auto-Tune effect.
         // At k=1.0 (hard-tune), we use aggressive smoothing for immediate pitch lock.
@@ -934,15 +933,15 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Voiced-hold gate: only suppress correction if signal is truly gone AND hold window is closed.
     // During hold window, keep computing correction ratio to maintain effect continuity.
     const bool inHoldWindow = voicedHoldBlocks > 0;
-    if (signalRms < 0.0012f && !inHoldWindow)
+    if (signalRms < (hardTuneMode ? 0.00035f : 0.0012f) && !inHoldWindow)
         return 1.0f;
     if (centsError < toleranceCents)
         return 1.0f;
 
-    if (hardTuneMode && centsError > 1.0f)
+    if (hardTuneMode && centsError > 0.35f)
     {
         // In hard mode, force a minimum correction amount so the effect stays clearly audible.
-        const float minAudibleCents = juce::jmap (amountNorm, 0.90f, 1.00f, 9.0f, 18.0f);
+        const float minAudibleCents = juce::jmap (amountNorm, 0.90f, 1.00f, 38.0f, 85.0f);
         const float sign = (fullRatio >= 1.0f) ? 1.0f : -1.0f;
         const float minAudibleRatio = std::pow (2.0f, (sign * minAudibleCents) / 1200.0f);
         const float boostedRatio = (centsError < minAudibleCents) ? minAudibleRatio : fullRatio;
