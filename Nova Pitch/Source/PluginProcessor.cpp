@@ -650,23 +650,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float limitedDeltaSemitones = juce::jlimit (-maxStepSemitones, maxStepSemitones, deltaSemitones);
         activePitchRatio *= std::pow (2.0f, limitedDeltaSemitones / 12.0f);
 
-        if (hardTuneMode)
-        {
-            const float targetCentsSigned = 1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio));
-            const float activeCentsSigned = 1200.0f * std::log2 (juce::jmax (0.001f, activePitchRatio));
-            const float targetAbs = std::abs (targetCentsSigned);
-            if (targetAbs > 1.0f)
-            {
-                const float minAppliedCents = juce::jlimit (70.0f, 180.0f, juce::jmap (retuneControlActive, 0.90f, 1.0f, 70.0f, 180.0f));
-                const float desiredAbs = juce::jmax (targetAbs, minAppliedCents);
-                if (std::abs (activeCentsSigned) < desiredAbs)
-                {
-                    const float sign = (targetCentsSigned >= 0.0f) ? 1.0f : -1.0f;
-                    activePitchRatio = std::pow (2.0f, (sign * desiredAbs) / 1200.0f);
-                }
-            }
-        }
-
         const float minRatio = 0.72f;
         const float maxRatio = 1.38f;
         activePitchRatio = juce::jlimit (minRatio, maxRatio, activePitchRatio);
@@ -1482,11 +1465,10 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         return ((c3 * frac + c2) * frac + c1) * frac + c0;
     };
 
-    // Single-head resampling shifter.
-    // The previous dual-head overlap path could create combing/phase coloration near-unity ratios.
-    const int windowSamples = juce::jlimit (96, juce::jmax (97, baseDelaySamples - 32),
-                                            static_cast<int> (std::round (baseDelaySamples * 0.65f)));
-    float phase = crossfadePhase;
+    // Single-head continuous resampling shifter.
+    // Keep one stable read head and gently re-anchor it toward the desired delay target.
+    // The previous wrapped phase window reintroduced periodic jumps, heard as wobble/artifacts.
+    float readHead = wrapPos (readPos);
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -1504,15 +1486,22 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         if (hardTuneMode)
             nearUnityBlend = 0.0f;
 
-        phase += (effectiveRatio - 1.0f);
-        const float windowF = static_cast<float> (windowSamples);
-        while (phase >= windowF)
-            phase -= windowF;
-        while (phase < 0.0f)
-            phase += windowF;
+        auto shortestWrappedDelta = [bufferSize] (float from, float to)
+        {
+            float delta = to - from;
+            const float sizeF = static_cast<float> (bufferSize);
+            while (delta > sizeF * 0.5f)
+                delta -= sizeF;
+            while (delta < -sizeF * 0.5f)
+                delta += sizeF;
+            return delta;
+        };
 
-        const float readA = wrapPos (desiredAnchor + phase);
-        const float shifted = sampleAt (readA);
+        const float anchorError = shortestWrappedDelta (readHead, desiredAnchor);
+        const float anchorPull = hardTuneMode ? 0.10f : 0.035f;
+        readHead = wrapPos (readHead + anchorError * anchorPull);
+
+        const float shifted = sampleAt (readHead);
 
         // Light smoothing to avoid zippering.
         const float baseAlpha = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.88f, 0.98f);
@@ -1524,13 +1513,13 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         dryBlendSmoothed += (nearUnityBlend - dryBlendSmoothed) * 0.035f;
         channelData[i] = outputSmoother * (1.0f - dryBlendSmoothed) + inputSample * dryBlendSmoothed;
 
-        // Keep legacy readPos coherent for state continuity/debug visibility.
-        readPos = readA;
+        readHead = wrapPos (readHead + effectiveRatio);
+        readPos = readHead;
 
         writeIdx = (writeIdx + 1) % bufferSize;
     }
 
-    crossfadePhase = phase;
+    crossfadePhase = 0.0f;
 }
 
 void NovaPitchAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
