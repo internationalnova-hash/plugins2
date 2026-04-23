@@ -1425,10 +1425,19 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     const float minRatio = 0.72f;
     const float maxRatio = 1.38f;
     const float clampedRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
+    const bool hardTuneMode = retuneSpeedNorm >= 0.90f;
     const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
-    // Keep ratio changes smooth enough to avoid time-domain read-head jumps.
-    const float ratioSmoothing = juce::jlimit (0.10f, 0.24f, 0.10f + ratioDelta * 0.26f);
-    ratioSmoothed += (clampedRatio - ratioSmoothed) * ratioSmoothing;
+    if (hardTuneMode)
+    {
+        // Hard mode should be audibly immediate; extra lag here made correction feel subtle.
+        ratioSmoothed = clampedRatio;
+    }
+    else
+    {
+        // Keep ratio changes smooth enough to avoid time-domain read-head jumps.
+        const float ratioSmoothing = juce::jlimit (0.10f, 0.24f, 0.10f + ratioDelta * 0.26f);
+        ratioSmoothed += (clampedRatio - ratioSmoothed) * ratioSmoothing;
+    }
     const float effectiveRatio = juce::jlimit (minRatio, maxRatio, ratioSmoothed);
 
     // Stable time-domain resampling core.
@@ -1476,7 +1485,6 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         channelDelay[static_cast<size_t> (writeIdx)] = inputSample;
 
         const float unityDelta = std::abs (effectiveRatio - 1.0f);
-        const bool hardTuneMode = retuneSpeedNorm >= 0.90f;
         const float desiredAnchor = wrapPos (static_cast<float> (writeIdx - baseDelaySamples));
 
         // Near-unity passthrough: keep this very narrow so subtle correction remains audible.
