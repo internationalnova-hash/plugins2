@@ -405,11 +405,26 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
             if (lockedTargetMidi < 0)
             {
-                lockedTargetMidi = candidateMidiNote;
-                lockedTargetAge = 0;
-                pendingTargetMidi = -1;
-                pendingTargetStreak = 0;
-                targetSwitchCooldownBlocks = 0;
+                // Require a short streak before initialising the lock so vocal attack
+                // transients don't capture the wrong note and then get stuck there
+                // (the hardSwitchErrorOk/Distance guards later prevent recovering from
+                // a bad initial lock once it is set).
+                const int initStreakNeeded = hardTuneModeFrame ? 4 : 2;
+                if (candidateMidiNote == pendingTargetMidi)
+                    ++pendingTargetStreak;
+                else
+                {
+                    pendingTargetMidi  = candidateMidiNote;
+                    pendingTargetStreak = 1;
+                }
+                if (pendingTargetStreak >= initStreakNeeded)
+                {
+                    lockedTargetMidi = candidateMidiNote;
+                    lockedTargetAge  = 0;
+                    pendingTargetMidi = -1;
+                    pendingTargetStreak = 0;
+                    targetSwitchCooldownBlocks = 0;
+                }
             }
             else if (! usingHeldPitch && candidateMidiNote != lockedTargetMidi)
             {
@@ -478,10 +493,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float minConfidence = 0.74f - 0.08f * std::pow (k, 1.2f);
                 const bool confidentSwitch = pitchConfidence.load() > minConfidence;
 
-                const bool hardSwitchDistanceOk = ! hardTuneMode
-                    || std::abs (candidateMidiNote - lockedTargetMidi) >= 3;
+                // Distance guard removed for hard-tune: a 1-semitone mis-lock (e.g.
+                // attack captured C4 while singer sustains B3) must be correctable.
+                // The streak, strongInput and candidateClearlyBetter guards are
+                // sufficient to prevent vibrato-induced thrashing.
+                const bool hardSwitchDistanceOk = true;
+                // Lower error threshold so a 100-cent mis-lock (one semitone) can
+                // still be corrected without needing a full 120-cent error.
                 const bool hardSwitchErrorOk = ! hardTuneMode
-                    || lockCentsError >= 120.0f;
+                    || lockCentsError >= 60.0f;
 
                 if ((switchUp || switchDown)
                     && confidentSwitch
