@@ -156,6 +156,12 @@ Minimum workflow behavior:
 - Build Release
 - Upload artifacts
 
+If plugin CMake uses `NEEDS_WEBVIEW2 TRUE` on Windows:
+
+- CI must install/download the `Microsoft.Web.WebView2` package before CMake configure
+- CI must pass `JUCE_WEBVIEW2_PACKAGE_LOCATION` to CMake configure
+- Do not rely on the runner having this package preinstalled
+
 Do not assume GitHub Actions success means the plugin is ready for users. It only proves build success unless extra validation is added.
 
 ## 7. macOS Release Checklist

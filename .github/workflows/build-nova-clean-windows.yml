@@ -24,16 +24,35 @@ jobs:
         shell: pwsh
         run: if (Test-Path "Nova Clean/build") { Remove-Item -Recurse -Force "Nova Clean/build" }
 
+      - name: Install WebView2 SDK package
+        shell: pwsh
+        run: |
+          $version = "1.0.1901.177"
+          $pkgRoot = Join-Path $env:RUNNER_TEMP "webview2"
+          New-Item -ItemType Directory -Path $pkgRoot -Force | Out-Null
+          $nupkg = Join-Path $pkgRoot "Microsoft.Web.WebView2.$version.nupkg"
+          $extractDir = Join-Path $pkgRoot "Microsoft.Web.WebView2.$version"
+          Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/$version" -OutFile $nupkg
+          Expand-Archive -Path $nupkg -DestinationPath $extractDir -Force
+          "JUCE_WEBVIEW2_PACKAGE_LOCATION=$extractDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Configure CMake
         shell: pwsh
-        run: cmake -S "Nova Clean" -B "Nova Clean/build"
+        run: cmake -S "Nova Clean" -B "Nova Clean/build" -DJUCE_WEBVIEW2_PACKAGE_LOCATION="$env:JUCE_WEBVIEW2_PACKAGE_LOCATION"
 
       - name: Build
         shell: pwsh
         run: cmake --build "Nova Clean/build" --config Release
 
+      - name: Package VST3 Bundle
+        shell: pwsh
+        run: |
+          $src = "Nova Clean/build/NovaCleanV2_artefacts/Release/VST3/NOVA CLEAN V2.vst3"
+          if (-not (Test-Path $src)) { throw "Expected VST3 bundle not found at: $src" }
+          Compress-Archive -Path $src -DestinationPath "Nova Clean/build/NovaClean-Windows-vst3.zip" -Force
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: NovaClean-Windows-build
-          path: Nova Clean/build
+          path: Nova Clean/build/NovaClean-Windows-vst3.zip

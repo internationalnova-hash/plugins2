@@ -1,0 +1,11 @@
+# Build output directories
+**/build/
+
+# CMake build metadata
+**/CMakeFiles/
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/Makefile
+
+# JUCE generated helper binaries
+**/juce_*_helper
