@@ -347,7 +347,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         float detectedHz = smoothDetectedPitch (rawYinHz, inputRms, lowLatencyMode || fastRetuneTracking);
         detectedPitch.store (detectedHz);
 
+        const bool hardTuneModeDetect = retuneControlActive >= 0.90f;
         bool hasUsablePitch = detectedHz > minPitchHz - 10.0f && detectedHz < maxPitchHz + 10.0f;
+
+        // Prevent stale/false detector output from being treated as valid pitch in near-silence.
+        // This was keeping blocksSinceValidPitch at zero and causing wobble/skip at phrase tails.
+        const float detectRmsFloor = hardTuneModeDetect ? 0.00028f : 0.0009f;
+        if (inputRms < detectRmsFloor)
+            hasUsablePitch = false;
 
         if (hasUsablePitch)
         {
@@ -953,16 +960,6 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
         return 1.0f;
     if (centsError < toleranceCents)
         return 1.0f;
-
-    if (hardTuneMode && centsError > 0.35f)
-    {
-        // In hard mode, force a minimum correction amount so the effect stays clearly audible.
-        const float minAudibleCents = juce::jmap (amountNorm, 0.90f, 1.00f, 38.0f, 85.0f);
-        const float sign = (fullRatio >= 1.0f) ? 1.0f : -1.0f;
-        const float minAudibleRatio = std::pow (2.0f, (sign * minAudibleCents) / 1200.0f);
-        const float boostedRatio = (centsError < minAudibleCents) ? minAudibleRatio : fullRatio;
-        return juce::jlimit (0.50f, 2.00f, boostedRatio);
-    }
 
     // MetaTune-style behavior: always compute full correction ratio,
     // then let downstream glide speed determine how quickly we reach it.
