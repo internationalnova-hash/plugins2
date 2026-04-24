@@ -130,6 +130,31 @@ function setClean(value) {
   syncUi();
 }
 
+function setPreserve(value) {
+  const clamped = Math.max(0, Math.min(100, value));
+  if (Math.abs(clamped - state.preserve) < 0.001) return;
+  state.preserve = clamped;
+  emitParam('preserve', clamped);
+  syncUi();
+}
+
+function setMix(value) {
+  const clamped = Math.max(0, Math.min(100, value));
+  if (Math.abs(clamped - state.mix) < 0.001) return;
+  state.mix = clamped;
+  if (els.mixSlider) els.mixSlider.value = `${Math.round(clamped)}`;
+  emitParam('mix', clamped);
+  syncUi();
+}
+
+function setOutputGainDb(value) {
+  const clamped = Math.max(-12, Math.min(12, value));
+  if (Math.abs(clamped - state.outputGain) < 0.001) return;
+  state.outputGain = clamped;
+  emitParam('outputGain', clamped);
+  syncUi();
+}
+
 function installPressFeedback(element) {
   if (!element) return;
   element.addEventListener('pointerdown', () => element.classList.add('is-pressed'));
@@ -202,9 +227,7 @@ function setupInteractions() {
   }
 
   els.mixSlider.addEventListener('input', (e) => {
-    state.mix = Number(e.target.value);
-    emitParam('mix', state.mix);
-    syncUi();
+    setMix(Number(e.target.value));
   });
 
   installPressFeedback(els.cleanKnob);
@@ -236,6 +259,39 @@ function setupInteractions() {
 
   els.cleanKnob.addEventListener('pointerup', stopCleanDrag);
   els.cleanKnob.addEventListener('pointercancel', stopCleanDrag);
+
+  // Preserve / Mix / Output knob drags
+  let mediumDrag = null;
+
+  const beginMediumDrag = (e, startValue, scale, applyFn) => {
+    mediumDrag = {
+      pointerId: e.pointerId,
+      startY: e.clientY,
+      startValue,
+      scale,
+      applyFn,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const moveMediumDrag = (e) => {
+    if (!mediumDrag || e.pointerId !== mediumDrag.pointerId) return;
+    const delta = (mediumDrag.startY - e.clientY) * mediumDrag.scale;
+    mediumDrag.applyFn(mediumDrag.startValue + delta);
+  };
+
+  const endMediumDrag = (e) => {
+    if (!mediumDrag || e.pointerId !== mediumDrag.pointerId) return;
+    mediumDrag = null;
+  };
+
+  els.preserveKnob.addEventListener('pointerdown', (e) => beginMediumDrag(e, state.preserve, 0.35, setPreserve));
+  els.mixKnob.addEventListener('pointerdown', (e) => beginMediumDrag(e, state.mix, 0.35, setMix));
+  els.outputKnob.addEventListener('pointerdown', (e) => beginMediumDrag(e, state.outputGain, 0.09, setOutputGainDb));
+
+  window.addEventListener('pointermove', moveMediumDrag);
+  window.addEventListener('pointerup', endMediumDrag);
+  window.addEventListener('pointercancel', endMediumDrag);
 
   let draggingFocus = false;
   let offsetX = 0;
@@ -957,12 +1013,12 @@ function drawKnobs() {
     drawKnob(mctx, mc.width/2, mc.height/2, mc.width/2 - 1, state.mix, false, false);
   }
 
-  // ── OUTPUT GAIN (maps -24..+12 dB → 0..100%) ─────────────────────────────
+  // ── OUTPUT GAIN (maps -12..+12 dB → 0..100%) ─────────────────────────────
   const oc = els.outputCanvas;
   if (oc) {
     const octx = oc.getContext('2d');
     octx.clearRect(0, 0, oc.width, oc.height);
-    const normGain = Math.round(((state.outputGain + 24) / 36) * 100);
+    const normGain = Math.round(((state.outputGain + 12) / 24) * 100);
     drawKnob(octx, oc.width/2, oc.height/2, oc.width/2 - 1, normGain, false, false);
 
     // Slight extra glow so output knob matches overall lighting system.

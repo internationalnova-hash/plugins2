@@ -29,20 +29,27 @@ set(LV2_URI "")
 if(WIN32)
     set(PLUGIN_FORMATS VST3 Standalone)
     set(NEEDS_WEBVIEW2 TRUE)
+    set(WEBVIEW_BACKEND "WebView2")
 elseif(APPLE)
     set(PLUGIN_FORMATS VST3 AU Standalone)
     set(AU_MAIN_TYPE kAudioUnitType_Effect)
+    set(WEBVIEW_BACKEND "WKWebView")
 elseif(UNIX)
     set(PLUGIN_FORMATS VST3 LV2 Standalone)
     set(NEEDS_WEB_BROWSER TRUE)
     set(LV2_URI "https://github.com/internationalnova-hash/plugins2/NovaCleanV2")
+    set(WEBVIEW_BACKEND "WebKitGTK")
 else()
     message(FATAL_ERROR "Unsupported platform")
 endif()
 
+message(STATUS "Nova Clean: Building for ${PLUGIN_FORMATS}")
+message(STATUS "Nova Clean: WebView backend: ${WEBVIEW_BACKEND}")
+
 juce_add_binary_data(NovaCleanV2_WebUI
     SOURCES
         Source/ui/public/index.html
+        Source/ui/public/n_logo.png
         Source/ui/public/js/index.js
         Source/ui/public/js/fallback-boot.js
         Source/ui/public/js/juce/index.js

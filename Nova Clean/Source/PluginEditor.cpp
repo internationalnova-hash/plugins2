@@ -118,7 +118,11 @@ std::optional<juce::WebBrowserComponent::Resource> NovaCleanV2AudioProcessorEdit
     {
         std::vector<std::byte> bytes (static_cast<size_t> (size));
         std::memcpy (bytes.data(), data, static_cast<size_t> (size));
-        return juce::WebBrowserComponent::Resource { std::move (bytes), juce::String (mime) };
+
+        return juce::WebBrowserComponent::Resource {
+            std::move (bytes),
+            juce::String (mime)
+        };
     };
 
     const auto lowerUrl = url.toLowerCase();
@@ -127,6 +131,11 @@ std::optional<juce::WebBrowserComponent::Resource> NovaCleanV2AudioProcessorEdit
         return makeResource (nova_clean_v2_BinaryData::index_html,
                              nova_clean_v2_BinaryData::index_htmlSize,
                              "text/html");
+
+    if (lowerUrl.contains ("n_logo.png"))
+        return makeResource (nova_clean_v2_BinaryData::n_logo_png,
+                             nova_clean_v2_BinaryData::n_logo_pngSize,
+                             "image/png");
 
     if (lowerUrl.contains ("js/index.js"))
         return makeResource (nova_clean_v2_BinaryData::index_js,
@@ -144,6 +153,47 @@ std::optional<juce::WebBrowserComponent::Resource> NovaCleanV2AudioProcessorEdit
                              "text/javascript");
 
     if (lowerUrl.contains ("js/juce/check_native_interop.js"))
+        return makeResource (nova_clean_v2_BinaryData::check_native_interop_js,
+                             nova_clean_v2_BinaryData::check_native_interop_jsSize,
+                             "text/javascript");
+
+    auto resourcePath = url.fromFirstOccurrenceOf (juce::WebBrowserComponent::getResourceProviderRoot(), false, false);
+    resourcePath = resourcePath.upToFirstOccurrenceOf ("?", false, false);
+
+    if (resourcePath.isEmpty() || resourcePath == "/")
+        resourcePath = "/index.html";
+
+    if (! resourcePath.startsWithChar ('/'))
+        resourcePath = "/" + resourcePath;
+
+    const auto lowerPath = resourcePath.toLowerCase();
+
+    if (lowerPath == "/index.html" || lowerPath.endsWith ("/index.html"))
+        return makeResource (nova_clean_v2_BinaryData::index_html,
+                             nova_clean_v2_BinaryData::index_htmlSize,
+                             "text/html");
+
+    if (lowerPath == "/n_logo.png" || lowerPath.endsWith ("/n_logo.png"))
+        return makeResource (nova_clean_v2_BinaryData::n_logo_png,
+                             nova_clean_v2_BinaryData::n_logo_pngSize,
+                             "image/png");
+
+    if (lowerPath == "/js/index.js" || lowerPath.endsWith ("/js/index.js"))
+        return makeResource (nova_clean_v2_BinaryData::index_js,
+                             nova_clean_v2_BinaryData::index_jsSize,
+                             "text/javascript");
+
+    if (lowerPath == "/js/fallback-boot.js" || lowerPath.endsWith ("/js/fallback-boot.js"))
+        return makeResource (nova_clean_v2_BinaryData::fallbackboot_js,
+                             nova_clean_v2_BinaryData::fallbackboot_jsSize,
+                             "text/javascript");
+
+    if (lowerPath == "/js/juce/index.js" || lowerPath.endsWith ("/js/juce/index.js"))
+        return makeResource (nova_clean_v2_BinaryData::index_js2,
+                             nova_clean_v2_BinaryData::index_js2Size,
+                             "text/javascript");
+
+    if (lowerPath == "/js/juce/check_native_interop.js" || lowerPath.endsWith ("/js/juce/check_native_interop.js"))
         return makeResource (nova_clean_v2_BinaryData::check_native_interop_js,
                              nova_clean_v2_BinaryData::check_native_interop_jsSize,
                              "text/javascript");
