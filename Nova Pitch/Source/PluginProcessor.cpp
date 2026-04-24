@@ -783,7 +783,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float ratioNext = activePitchRatio + (desiredRatio - activePitchRatio) * correctionAlpha;
 
         // Velocity limit in semitones/sec gives musical slow settings and snapping fast settings.
-        const float confidenceRateScale = juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.55f, 1.00f);
+        const float confidenceRateScale = hardTuneMode
+            ? juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.20f, 1.00f)
+            : juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.55f, 1.00f);
         const float maxStepSemitones = maxSemitonesPerSecond * confidenceRateScale * dtSeconds;
         const float deltaSemitones = 12.0f * std::log2 (juce::jmax (0.001f, ratioNext) / juce::jmax (0.001f, activePitchRatio));
         const float limitedDeltaSemitones = juce::jlimit (-maxStepSemitones, maxStepSemitones, deltaSemitones);
@@ -834,6 +836,17 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         correctionEngageAgeBlocks = 0;
     }
     correctionEngagedPrev = correctionEngagedNow;
+
+    if (hardTuneMode)
+    {
+        // Hard mode must ignore low-energy/low-confidence frames, otherwise the shifter
+        // chases noisy detector output and sounds staticy/grainy.
+        const float energyDrive = juce::jlimit (0.0f, 1.0f,
+            (inputRmsSmoothed - 0.0025f) / juce::jmax (1.0e-6f, 0.010f - 0.0025f));
+        const float confidenceDrive = juce::jlimit (0.0f, 1.0f,
+            (trackingConfidence - 0.10f) / juce::jmax (1.0e-6f, 0.45f - 0.10f));
+        correctionDrive *= energyDrive * confidenceDrive;
+    }
 
     float appliedRatio = 1.0f + (activePitchRatio - 1.0f) * correctionDrive;
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
@@ -1639,7 +1652,7 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     float xfadePhase = crossfadePhase;
     float xfadeFromHead = wrapPos (crossfadeFromPos);
     float xfadeToHead = wrapPos (crossfadeToPos);
-    const bool confidenceStable = trackingConfidence >= (hardTuneMode ? 0.55f : 0.45f);
+    const bool confidenceStable = trackingConfidence >= (hardTuneMode ? 0.85f : 0.60f);
     const float crossfadeSamples = static_cast<float> (lowLatencyMode ? 64 : 96);
     const float crossfadePhaseInc = 1.0f / juce::jmax (32.0f, crossfadeSamples);
 
@@ -1686,11 +1699,12 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         // extreme moves, and read-head anchor error is genuinely large.
         const float anchorErrorAbs = std::abs (anchorError);
         const float ratioStability = std::abs (clampedRatio - ratioSmoothed);
-        const bool canStartCrossfade = confidenceStable
+        const bool canStartCrossfade = (! hardTuneMode)
+            && confidenceStable
             && xfadePhase <= 0.0f
-            && unityDelta < 0.035f
-            && ratioStability < 0.08f
-            && anchorErrorAbs > (lowLatencyMode ? 52.0f : 68.0f);
+            && unityDelta < 0.020f
+            && ratioStability < 0.035f
+            && anchorErrorAbs > (lowLatencyMode ? 96.0f : 128.0f);
 
         if (canStartCrossfade)
         {
