@@ -686,33 +686,22 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         diagWindowAppliedCentsAbsSum += static_cast<double> (appliedCents);
         diagWindowTargetCentsAbsSum += static_cast<double> (targetCents);
 
-        // Apply vibrato as a continuous effect every block to create smooth sinusoidal modulation.
-        // This ensures vibrato is always present and continuous, not just when the lock changes.
-        // Vibrato modulates the final activePitchRatio before pitch shifting.
-        float appliedRatio = activePitchRatio;
-        if (! hardTuneMode && vibratoValue > 0.001f)
-        {
-            applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
-        }
-
-        // Apply shift only when tracking is valid.
-        processCircularBufferPitchShift (channelL, numSamples, appliedRatio, 0, lowLatencyMode, retuneControlActive);
-        if (channelR != nullptr)
-            processCircularBufferPitchShift (channelR, numSamples, appliedRatio, 1, lowLatencyMode, retuneControlActive);
     }
     else
     {
-        // Signal is absent — glide ratio to unity and bypass shifter to avoid idle artifacts.
+        // Signal is absent — glide ratio to unity.
         activePitchRatio += (1.0f - activePitchRatio) * 0.06f;
         targetRatioSmoothed += (1.0f - targetRatioSmoothed) * 0.08f;
-        auto* dryL = dryScratchL.data();
-        std::copy (dryL, dryL + numSamples, channelL);
-        if (channelR != nullptr)
-        {
-            auto* dryR = dryScratchR.data();
-            std::copy (dryR, dryR + numSamples, channelR);
-        }
     }
+
+    // Always process through the shifter path; wetMix handles smooth fade to dry in silence.
+    float appliedRatio = activePitchRatio;
+    if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
+        applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
+
+    processCircularBufferPitchShift (channelL, numSamples, appliedRatio, 0, lowLatencyMode, retuneControlActive);
+    if (channelR != nullptr)
+        processCircularBufferPitchShift (channelR, numSamples, appliedRatio, 1, lowLatencyMode, retuneControlActive);
 
     if (! signalTooLow)
     {
