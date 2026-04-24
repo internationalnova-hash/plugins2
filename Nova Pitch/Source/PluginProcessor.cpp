@@ -358,7 +358,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         // Prevent stale/false detector output from being treated as valid pitch in near-silence.
         // This was keeping blocksSinceValidPitch at zero and causing wobble/skip at phrase tails.
-        const float detectRmsFloor = hardTuneModeDetect ? 0.00012f : 0.0009f;
+        const float detectRmsFloor = hardTuneModeDetect ? 0.0025f : 0.0009f;
         if (inputRms < detectRmsFloor)
             hasUsablePitch = false;
 
@@ -374,9 +374,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
             // Hard-tune should not collapse to dry passthrough on brief detector misses.
             // Hold the most recent valid estimate for a short window while signal is present.
-            const int maxHoldMissBlocks = hardTuneModeDetect ? 96 : 12;
+            const int maxHoldMissBlocks = hardTuneModeDetect ? 20 : 12;
             const bool canHoldLastPitch = fastCorrectionMode
-                && inputRms > 0.00035f
+                && inputRms > (hardTuneModeDetect ? 0.0035f : 0.00035f)
                 && lastValidDetectedHz > minPitchHz - 10.0f
                 && lastValidDetectedHz < maxPitchHz + 10.0f
                 && blocksSinceValidPitch <= maxHoldMissBlocks;
@@ -603,7 +603,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             // Do not hard-reset target on short detector dropouts; this causes ratio ping-pong
             // and is perceived as skip/burst artifacts at fastest retune.
             const int dropoutHoldBlocks = hardTuneModeFrame
-                ? (lowLatencyMode ? 96 : 140)
+                ? (lowLatencyMode ? 36 : 52)
                 : (lowLatencyMode ? 18 : 30);
             if (blocksSinceValidPitch <= dropoutHoldBlocks)
             {
@@ -631,8 +631,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const bool hardTuneMode = retuneControlActive >= 0.90f;
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     inputRmsSmoothed += (inputRms - inputRmsSmoothed) * 0.08f;
-    const float gateOnThreshold = hardTuneMode ? 0.0010f : 0.0030f;
-    const float gateOffThreshold = hardTuneMode ? 0.00008f : 0.0012f;
+    const float gateOnThreshold = hardTuneMode ? 0.0030f : 0.0030f;
+    const float gateOffThreshold = hardTuneMode ? 0.0018f : 0.0012f;
     if (inputRmsSmoothed >= gateOnThreshold)
     {
         voicedHoldBlocks = hardTuneMode ? 220 : 24;
@@ -644,7 +644,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     const bool hardSignalTooLow = inputRmsSmoothed < gateOffThreshold
         && voicedHoldBlocks == 0
-        && blocksSinceValidPitch > (lowLatencyMode ? 96 : 140);
+        && blocksSinceValidPitch > (lowLatencyMode ? 24 : 36);
     const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
     const bool signalTooLow = hardTuneMode ? hardSignalTooLow : normalSignalTooLow;
     // Go to dry bypass immediately when confidence is zero — no grace period.
@@ -984,7 +984,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Voiced-hold gate: only suppress correction if signal is truly gone AND hold window is closed.
     // During hold window, keep computing correction ratio to maintain effect continuity.
     const bool inHoldWindow = voicedHoldBlocks > 0;
-    if (signalRms < (hardTuneMode ? 0.00035f : 0.0012f) && !inHoldWindow)
+    if (signalRms < (hardTuneMode ? 0.0020f : 0.0012f) && !inHoldWindow)
         return 1.0f;
     if (centsError < toleranceCents)
         return 1.0f;
@@ -1458,8 +1458,10 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
     if (hardTuneMode)
     {
-        // Hard mode should be audibly immediate; extra lag here made correction feel subtle.
-        ratioSmoothed = clampedRatio;
+        // Keep hard mode extremely fast, but continuous.
+        // Instant jumps in read-head ratio can sound like record-stop/skip artifacts.
+        const float hardRatioSmoothing = juce::jlimit (0.30f, 0.58f, 0.30f + ratioDelta * 0.95f);
+        ratioSmoothed += (clampedRatio - ratioSmoothed) * hardRatioSmoothing;
     }
     else
     {
