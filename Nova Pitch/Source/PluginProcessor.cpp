@@ -352,7 +352,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         // Prevent stale/false detector output from being treated as valid pitch in near-silence.
         // This was keeping blocksSinceValidPitch at zero and causing wobble/skip at phrase tails.
-        const float detectRmsFloor = hardTuneModeDetect ? 0.00028f : 0.0009f;
+        const float detectRmsFloor = hardTuneModeDetect ? 0.00012f : 0.0009f;
         if (inputRms < detectRmsFloor)
             hasUsablePitch = false;
 
@@ -368,11 +368,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
             // Hard-tune should not collapse to dry passthrough on brief detector misses.
             // Hold the most recent valid estimate for a short window while signal is present.
+            const int maxHoldMissBlocks = hardTuneModeDetect ? 96 : 12;
             const bool canHoldLastPitch = fastCorrectionMode
                 && inputRms > 0.00035f
                 && lastValidDetectedHz > minPitchHz - 10.0f
                 && lastValidDetectedHz < maxPitchHz + 10.0f
-                && blocksSinceValidPitch <= 12;
+                && blocksSinceValidPitch <= maxHoldMissBlocks;
 
             if (canHoldLastPitch)
             {
@@ -568,7 +569,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
             // Do not hard-reset target on short detector dropouts; this causes ratio ping-pong
             // and is perceived as skip/burst artifacts at fastest retune.
-            const int dropoutHoldBlocks = lowLatencyMode ? 18 : 30;
+            const int dropoutHoldBlocks = hardTuneMode
+                ? (lowLatencyMode ? 96 : 140)
+                : (lowLatencyMode ? 18 : 30);
             if (blocksSinceValidPitch <= dropoutHoldBlocks)
             {
                 pitchConfidence.store (juce::jmax (0.06f, pitchConfidence.load() * 0.96f));
@@ -608,7 +611,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     const bool hardSignalTooLow = inputRmsSmoothed < gateOffThreshold
         && voicedHoldBlocks == 0
-        && blocksSinceValidPitch > 18;
+        && blocksSinceValidPitch > (lowLatencyMode ? 96 : 140);
     const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
     const bool signalTooLow = hardTuneMode ? hardSignalTooLow : normalSignalTooLow;
     // Go to dry bypass immediately when confidence is zero — no grace period.
