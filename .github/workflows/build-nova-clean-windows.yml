@@ -1,0 +1,39 @@
+name: Build Nova Clean Windows
+
+on:
+  push:
+    paths:
+      - 'Nova Clean/**'
+      - '.github/workflows/build-nova-clean-windows.yml'
+  pull_request:
+    paths:
+      - 'Nova Clean/**'
+      - '.github/workflows/build-nova-clean-windows.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Clean build directory
+        shell: pwsh
+        run: if (Test-Path "Nova Clean/build") { Remove-Item -Recurse -Force "Nova Clean/build" }
+
+      - name: Configure CMake
+        shell: pwsh
+        run: cmake -S "Nova Clean" -B "Nova Clean/build"
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build "Nova Clean/build" --config Release
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaClean-Windows-build
+          path: Nova Clean/build
