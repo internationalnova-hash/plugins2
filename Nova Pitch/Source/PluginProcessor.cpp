@@ -383,9 +383,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
         }
 
+        const bool hardTuneModeFrame = retuneControlActive >= 0.90f;
+
         if (hasUsablePitch)
         {
-            const bool hardTuneMode = retuneControlActive >= 0.90f;
+            const bool hardTuneMode = hardTuneModeFrame;
             // Use the smoothed detected estimate directly for candidate selection.
             // This avoids octave-fold side effects from secondary lock-free transforms.
             const float noteSourceHz = detectedHz;
@@ -569,7 +571,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
             // Do not hard-reset target on short detector dropouts; this causes ratio ping-pong
             // and is perceived as skip/burst artifacts at fastest retune.
-            const int dropoutHoldBlocks = hardTuneMode
+            const int dropoutHoldBlocks = hardTuneModeFrame
                 ? (lowLatencyMode ? 96 : 140)
                 : (lowLatencyMode ? 18 : 30);
             if (blocksSinceValidPitch <= dropoutHoldBlocks)
