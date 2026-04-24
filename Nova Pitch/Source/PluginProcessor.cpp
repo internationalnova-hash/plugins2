@@ -362,7 +362,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             // Hard-tune should not collapse to dry passthrough on brief detector misses.
             // Hold the most recent valid estimate for a short window while signal is present.
             const bool canHoldLastPitch = fastCorrectionMode
-                && inputRms > 0.001f
+                && inputRms > 0.00035f
                 && lastValidDetectedHz > minPitchHz - 10.0f
                 && lastValidDetectedHz < maxPitchHz + 10.0f
                 && blocksSinceValidPitch <= 12;
@@ -589,17 +589,21 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     inputRmsSmoothed += (inputRms - inputRmsSmoothed) * 0.08f;
     const float gateOnThreshold = hardTuneMode ? 0.0010f : 0.0030f;
-    const float gateOffThreshold = hardTuneMode ? 0.00018f : 0.0012f;
+    const float gateOffThreshold = hardTuneMode ? 0.00008f : 0.0012f;
     if (inputRmsSmoothed >= gateOnThreshold)
     {
-        voicedHoldBlocks = hardTuneMode ? 120 : 24;
+        voicedHoldBlocks = hardTuneMode ? 220 : 24;
     }
     else if (voicedHoldBlocks > 0)
     {
         --voicedHoldBlocks;
     }
 
-    const bool signalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
+    const bool hardSignalTooLow = inputRmsSmoothed < gateOffThreshold
+        && voicedHoldBlocks == 0
+        && blocksSinceValidPitch > 18;
+    const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
+    const bool signalTooLow = hardTuneMode ? hardSignalTooLow : normalSignalTooLow;
     // Go to dry bypass immediately when confidence is zero — no grace period.
     // A 24-block grace window caused the shifter to run 24 blocks without a valid pitch
     // then abruptly switch to dry, producing an audible skip/comb artifact every playback start.
