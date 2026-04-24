@@ -349,6 +349,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         const bool hardTuneModeDetect = retuneControlActive >= 0.90f;
         bool hasUsablePitch = detectedHz > minPitchHz - 10.0f && detectedHz < maxPitchHz + 10.0f;
+        bool usingHeldPitch = false;
 
         // Prevent stale/false detector output from being treated as valid pitch in near-silence.
         // This was keeping blocksSinceValidPitch at zero and causing wobble/skip at phrase tails.
@@ -379,7 +380,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             {
                 detectedHz = lastValidDetectedHz;
                 hasUsablePitch = true;
-                pitchConfidence.store (juce::jmax (pitchConfidence.load(), 0.20f));
+                usingHeldPitch = true;
+                // Held-pitch continuity should count as valid for dropout accounting,
+                // otherwise blocksSinceValidPitch keeps growing and still triggers skips.
+                blocksSinceValidPitch = 0;
+                diagWindowDetectValidBlocks++;
+                pitchConfidence.store (juce::jmax (pitchConfidence.load(), 0.35f));
             }
         }
 
@@ -405,7 +411,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 pendingTargetStreak = 0;
                 targetSwitchCooldownBlocks = 0;
             }
-            else if (candidateMidiNote != lockedTargetMidi)
+            else if (! usingHeldPitch && candidateMidiNote != lockedTargetMidi)
             {
                 ++lockedTargetAge;
 
