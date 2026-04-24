@@ -151,6 +151,7 @@ private:
     int vocalStateAgeBlocks { 0 };
     bool correctionEngagedPrev { false };
     int correctionEngageAgeBlocks { 0 };
+    float correctionDriveSmoothed { 0.0f };
     float retuneLfoPhase { 0.0f };
     float retuneLfoJitter { 0.0f };
     float outputCompGain { 1.0f };

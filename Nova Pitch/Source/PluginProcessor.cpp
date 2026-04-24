@@ -171,6 +171,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     vocalStateAgeBlocks = 0;
     correctionEngagedPrev = false;
     correctionEngageAgeBlocks = 0;
+    correctionDriveSmoothed = 0.0f;
     detMedianBuf.fill (0.0f);
     detMedianIdx  = 0;
     detMedianFull = false;
@@ -276,7 +277,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Hard mode should still be very fast, but uncapped 260 st/s can produce audible
     // read-head bursts/skip artifacts when detector frames jump at phrase edges.
     const float maxSemitonesPerSecond = (k >= 0.90f)
-        ? juce::jmin (85.0f, maxSemitonesPerSecondBase)
+        ? juce::jmin (45.0f, maxSemitonesPerSecondBase)
         : maxSemitonesPerSecondBase;
     const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
@@ -846,6 +847,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float confidenceDrive = juce::jlimit (0.0f, 1.0f,
             (trackingConfidence - 0.10f) / juce::jmax (1.0e-6f, 0.45f - 0.10f));
         correctionDrive *= energyDrive * confidenceDrive;
+    }
+
+    {
+        // Smooth correction depth transitions so weak-word dropouts do not sound like
+        // record-stop pumping between corrected/unity states.
+        const float riseAlpha = hardTuneMode ? 0.16f : 0.12f;
+        const float fallAlpha = hardTuneMode ? 0.045f : 0.08f;
+        const float alpha = (correctionDrive > correctionDriveSmoothed) ? riseAlpha : fallAlpha;
+        correctionDriveSmoothed += (correctionDrive - correctionDriveSmoothed) * alpha;
+        correctionDrive = juce::jlimit (0.0f, 1.0f, correctionDriveSmoothed);
     }
 
     float appliedRatio = 1.0f + (activePitchRatio - 1.0f) * correctionDrive;
