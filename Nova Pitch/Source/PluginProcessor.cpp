@@ -1506,7 +1506,9 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         };
 
         const float anchorError = shortestWrappedDelta (readHead, desiredAnchor);
-        const float anchorPull = hardTuneMode ? 0.10f : 0.035f;
+        // Keep drift correction tiny so it prevents long-term runaway without collapsing
+        // the audible pitch-shift ratio toward dry.
+        const float anchorPull = hardTuneMode ? 0.0016f : 0.0010f;
         readHead = wrapPos (readHead + anchorError * anchorPull);
 
         const float shifted = sampleAt (readHead);
