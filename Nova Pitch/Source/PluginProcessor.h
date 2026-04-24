@@ -59,6 +59,14 @@ public:
     const std::array<std::atomic<float>, pitchHistorySize>& getPitchHistory() const noexcept { return pitchHistory; }
 
 private:
+    enum class VocalState : int
+    {
+        Silence = 0,
+        Onset,
+        Voiced,
+        Release
+    };
+
     enum Scale : int
     {
         Chromatic = 0,
@@ -136,6 +144,10 @@ private:
     int   detMedianIdx { 0 };
     bool  detMedianFull { false };
     int blocksSinceValidPitch { 0 };
+    VocalState vocalState { VocalState::Silence };
+    int vocalStateAgeBlocks { 0 };
+    bool correctionEngagedPrev { false };
+    int correctionEngageAgeBlocks { 0 };
     float retuneLfoPhase { 0.0f };
     float retuneLfoJitter { 0.0f };
     float outputCompGain { 1.0f };

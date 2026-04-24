@@ -167,6 +167,10 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     smoothedDetectedHz = 0.0f;
     lastValidDetectedHz = 0.0f;
     blocksSinceValidPitch = 0;
+    vocalState = VocalState::Silence;
+    vocalStateAgeBlocks = 0;
+    correctionEngagedPrev = false;
+    correctionEngageAgeBlocks = 0;
     detMedianBuf.fill (0.0f);
     detMedianIdx  = 0;
     detMedianFull = false;
@@ -402,7 +406,36 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             // Use the smoothed detected estimate directly for candidate selection.
             // This avoids octave-fold side effects from secondary lock-free transforms.
             const float noteSourceHz = detectedHz;
-            const int candidateMidiNote = quantizeToScale (noteSourceHz);
+            auto centsErrorToMidi = [this, noteSourceHz] (int midi)
+            {
+                const float hz = getTargetPitchHz (midi);
+                return std::abs (1200.0f * std::log2 (juce::jmax (1.0f, noteSourceHz) / juce::jmax (1.0f, hz)));
+            };
+
+            const int baseQuantizedMidi = quantizeToScale (noteSourceHz);
+            int candidateMidiNote = baseQuantizedMidi;
+            {
+                float bestCost = std::numeric_limits<float>::max();
+                const int centerMidi = (lockedTargetMidi >= 0 ? lockedTargetMidi : baseQuantizedMidi);
+                for (int d = -7; d <= 7; ++d)
+                {
+                    const int probeMidi = quantizeToScale (getTargetPitchHz (centerMidi + d));
+                    const float distanceCost = centsErrorToMidi (probeMidi);
+                    const float jumpPenalty = 1.8f * std::abs (static_cast<float> (probeMidi - centerMidi));
+                    const float hysteresisPenalty = (lockedTargetMidi >= 0 && probeMidi != lockedTargetMidi)
+                        ? (hardTuneMode ? 20.0f : 8.0f)
+                        : 0.0f;
+                    const float pendingPenalty = (pendingTargetMidi >= 0 && probeMidi != pendingTargetMidi)
+                        ? juce::jlimit (0.0f, 18.0f, 18.0f - static_cast<float> (pendingTargetStreak))
+                        : 0.0f;
+                    const float cost = distanceCost + jumpPenalty + hysteresisPenalty + pendingPenalty;
+                    if (cost < bestCost)
+                    {
+                        bestCost = cost;
+                        candidateMidiNote = probeMidi;
+                    }
+                }
+            }
             const float detectedMidi = 69.0f + 12.0f * std::log2 (juce::jmax (1.0f, noteSourceHz) / 440.0f);
 
             if (targetSwitchCooldownBlocks > 0)
@@ -449,6 +482,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const int requiredStableHits = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * stableSeconds)));
                 const bool strongInputForSwitch = inputRms > (hardTuneMode ? 0.040f : 0.012f);
+                const bool allowTargetSwitch = (vocalState == VocalState::Voiced);
 
                 // Check for clearly wrong octave BEFORE the semitone-distance guard so
                 // octave corrections (12 semitones) are not silently blocked.
@@ -466,6 +500,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // frequent lock switches (lockSwitchRateHz=0.5-1.5) and audible wobble.
                 const bool lockClearlyWrongOctave = lockCentsError > (hardTuneMode ? 1120.0f : 900.0f)
                     && strongInputForSwitch
+                    && allowTargetSwitch
                     && pendingTargetStreak >= juce::jmax (2, requiredStableHits / 2);
 
                 if (lockClearlyWrongOctave && targetSwitchCooldownBlocks == 0)
@@ -511,6 +546,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 if ((switchUp || switchDown)
                     && confidentSwitch
                     && strongInputForSwitch
+                    && allowTargetSwitch
                     && ! lockAlreadyGood
                     && candidateClearlyBetter
                     && hardSwitchDistanceOk
@@ -642,11 +678,68 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         --voicedHoldBlocks;
     }
 
+    // Explicit vocal-state machine (silence/onset/voiced/release) to keep
+    // correction and note-lock behavior stable at phrase boundaries.
+    const float stateOnThreshold  = hardTuneMode ? 0.0032f : 0.0030f;
+    const float stateOffThreshold = hardTuneMode ? 0.0016f : 0.0012f;
+    const bool stateEnergyHigh = inputRmsSmoothed >= stateOnThreshold;
+    const bool stateEnergyLow  = inputRmsSmoothed <= stateOffThreshold;
+    const bool statePitchFresh = blocksSinceValidPitch == 0;
+
+    auto setVocalState = [this] (VocalState s)
+    {
+        if (vocalState != s)
+        {
+            vocalState = s;
+            vocalStateAgeBlocks = 0;
+        }
+        else
+        {
+            ++vocalStateAgeBlocks;
+        }
+    };
+
+    switch (vocalState)
+    {
+        case VocalState::Silence:
+            if (stateEnergyHigh)
+                setVocalState (VocalState::Onset);
+            else
+                setVocalState (VocalState::Silence);
+            break;
+
+        case VocalState::Onset:
+            if (stateEnergyLow && blocksSinceValidPitch > (hardTuneMode ? 3 : 2))
+                setVocalState (VocalState::Silence);
+            else if (statePitchFresh && vocalStateAgeBlocks >= (hardTuneMode ? 3 : 2))
+                setVocalState (VocalState::Voiced);
+            else
+                setVocalState (VocalState::Onset);
+            break;
+
+        case VocalState::Voiced:
+            if (stateEnergyLow || blocksSinceValidPitch > (hardTuneMode ? 3 : 2))
+                setVocalState (VocalState::Release);
+            else
+                setVocalState (VocalState::Voiced);
+            break;
+
+        case VocalState::Release:
+            if (statePitchFresh && stateEnergyHigh)
+                setVocalState (VocalState::Onset);
+            else if (stateEnergyLow && vocalStateAgeBlocks >= (hardTuneMode ? 8 : 4))
+                setVocalState (VocalState::Silence);
+            else
+                setVocalState (VocalState::Release);
+            break;
+    }
+
     const bool hardSignalTooLow = inputRmsSmoothed < gateOffThreshold
         && voicedHoldBlocks == 0
         && blocksSinceValidPitch > (lowLatencyMode ? 24 : 36);
     const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
-    const bool signalTooLow = hardTuneMode ? hardSignalTooLow : normalSignalTooLow;
+    const bool signalTooLow = (hardTuneMode ? hardSignalTooLow : normalSignalTooLow)
+        || (vocalState == VocalState::Silence);
     // Go to dry bypass immediately when confidence is zero — no grace period.
     // A 24-block grace window caused the shifter to run 24 blocks without a valid pitch
     // then abruptly switch to dry, producing an audible skip/comb artifact every playback start.
@@ -692,7 +785,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         // Velocity limit in semitones/sec gives musical slow settings and snapping fast settings.
         const float confidenceRateScale = juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.55f, 1.00f);
-        const float maxStepSemitones = maxSemitonesPerSecond * confidenceRateScale * dtSeconds;
+        float stateRateScale = 1.0f;
+        if (vocalState == VocalState::Onset)
+            stateRateScale = hardTuneMode ? 0.72f : 0.80f;
+        else if (vocalState == VocalState::Release)
+            stateRateScale = hardTuneMode ? 0.52f : 0.62f;
+        const float maxStepSemitones = maxSemitonesPerSecond * confidenceRateScale * stateRateScale * dtSeconds;
         const float deltaSemitones = 12.0f * std::log2 (juce::jmax (0.001f, ratioNext) / juce::jmax (0.001f, activePitchRatio));
         const float limitedDeltaSemitones = juce::jlimit (-maxStepSemitones, maxStepSemitones, deltaSemitones);
         activePitchRatio *= std::pow (2.0f, limitedDeltaSemitones / 12.0f);
@@ -720,7 +818,40 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     }
 
     // Always process through the shifter path; wetMix handles smooth fade to dry in silence.
-    float appliedRatio = activePitchRatio;
+    // Onset protection ramp: first voiced frames ramp correction depth to prevent
+    // transient attack frames from sounding like skip/record-stop artifacts.
+    float correctionDrive = 1.0f;
+    if (vocalState == VocalState::Onset)
+    {
+        const float onsetRampBlocks = hardTuneMode ? 10.0f : 6.0f;
+        correctionDrive = juce::jlimit (0.0f, 1.0f,
+            static_cast<float> (vocalStateAgeBlocks) / juce::jmax (1.0f, onsetRampBlocks));
+    }
+    else if (vocalState == VocalState::Release)
+    {
+        correctionDrive = hardTuneMode ? 0.55f : 0.75f;
+    }
+
+    const bool correctionEngagedNow = (! signalTooLow) && (retuneControlActive > 0.05f);
+    if (correctionEngagedNow)
+    {
+        if (! correctionEngagedPrev)
+            correctionEngageAgeBlocks = 0;
+        else
+            ++correctionEngageAgeBlocks;
+
+        const float engageRampBlocks = hardTuneMode ? 10.0f : 6.0f;
+        const float engageRamp = juce::jlimit (0.0f, 1.0f,
+            static_cast<float> (correctionEngageAgeBlocks) / juce::jmax (1.0f, engageRampBlocks));
+        correctionDrive *= engageRamp;
+    }
+    else
+    {
+        correctionEngageAgeBlocks = 0;
+    }
+    correctionEngagedPrev = correctionEngagedNow;
+
+    float appliedRatio = 1.0f + (activePitchRatio - 1.0f) * correctionDrive;
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
         applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
 
@@ -793,10 +924,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             ? diagWindowDetectedHzSum / static_cast<double> (diagWindowDetectedHzCount)
             : 0.0;
         const float lockedTargetHz = diagLastLockedTargetHz;
+        const int vocalStateCode = static_cast<int> (vocalState);
 
         juce::ignoreUnused (detectValidRatio, unityReturnRatio, lockSwitchRate,
                             trackingLostRatio, largeStepRatio, avgAppliedCents, avgTargetCents, avgInputRms,
-                            avgDetectedHz, lockedTargetHz);
+                            avgDetectedHz, lockedTargetHz, vocalStateCode);
 
         const juce::String diagLine = juce::String ("Nova Pitch DIAG")
             + " secs=" + juce::String (windowSeconds, 2)
@@ -810,6 +942,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             + " avgInputRms=" + juce::String (avgInputRms, 4)
             + " avgDetectedHz=" + juce::String (avgDetectedHz, 1)
             + " lockedTargetHz=" + juce::String (lockedTargetHz, 1)
+            + " vocalState=" + juce::String (vocalStateCode)
             + " speedNorm=" + juce::String (retuneControlActive, 3)
             + " lowLatency=" + juce::String (lowLatencyMode ? 1 : 0);
 
@@ -1505,10 +1638,14 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         return ((c3 * frac + c2) * frac + c1) * frac + c0;
     };
 
-    // Single-head continuous resampling shifter.
-    // Keep one stable read head and gently re-anchor it toward the desired delay target.
-    // The previous wrapped phase window reintroduced periodic jumps, heard as wobble/artifacts.
+    // Dual-window continuous resampling shifter.
+    // Blend two offset read heads with a smooth periodic window to avoid
+    // transition discontinuities that sound like skip/record-stop artifacts.
     float readHead = wrapPos (readPos);
+    float phase = juce::jlimit (0.0f, 1.0f, crossfadePhase);
+    const float grainSamples = static_cast<float> (lowLatencyMode ? 96 : 144);
+    const float halfGrain = grainSamples * 0.5f;
+    const float phaseInc = 1.0f / juce::jmax (48.0f, grainSamples);
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -1549,7 +1686,11 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
             anchorPull = hardTuneMode ? 0.0016f : 0.0010f;
         readHead = wrapPos (readHead + anchorError * anchorPull);
 
-        const float shifted = sampleAt (readHead);
+        const float headA = readHead;
+        const float headB = wrapPos (readHead + halfGrain);
+        const float winA = 1.0f - phase;
+        const float winB = phase;
+        const float shifted = sampleAt (headA) * winA + sampleAt (headB) * winB;
 
         // Light smoothing to avoid zippering.
         const float baseAlpha = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.88f, 0.98f);
@@ -1564,10 +1705,14 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         readHead = wrapPos (readHead + effectiveRatio);
         readPos = readHead;
 
+        phase += phaseInc;
+        if (phase >= 1.0f)
+            phase -= 1.0f;
+
         writeIdx = (writeIdx + 1) % bufferSize;
     }
 
-    crossfadePhase = 0.0f;
+    crossfadePhase = phase;
 }
 
 void NovaPitchAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
