@@ -65,7 +65,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaPitchAudioProcessor::cre
     layout.add (std::make_unique<juce::AudioParameterFloat>(
         "formant", "Formant",
         juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f),
-        50.0f));
+        0.0f));
 
     layout.add (std::make_unique<juce::AudioParameterBool>(
         "lowLatency", "Low Latency",
@@ -268,7 +268,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float correctionAlpha = 1.0f - std::exp (-dtSeconds / juce::jmax (1.0e-6f, correctionTauSec));
     const float hysteresisCents = 40.0f + (12.0f - 40.0f) * std::pow (k, 1.5f);
     const float switchHysteresis = hysteresisCents / 100.0f;
-    const float maxSemitonesPerSecond = 10.0f * std::pow (260.0f / 10.0f, std::pow (k, 1.35f));
+    const float maxSemitonesPerSecondBase = 10.0f * std::pow (260.0f / 10.0f, std::pow (k, 1.35f));
+    // Hard mode should still be very fast, but uncapped 260 st/s can produce audible
+    // read-head bursts/skip artifacts when detector frames jump at phrase edges.
+    const float maxSemitonesPerSecond = (k >= 0.90f)
+        ? juce::jmin (85.0f, maxSemitonesPerSecondBase)
+        : maxSemitonesPerSecondBase;
     const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
@@ -1516,7 +1521,12 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         float nearUnityBlend = juce::jlimit (0.0f, 1.0f,
             juce::jmap (unityDelta, 0.0010f, 0.0024f, 1.0f, 0.0f)); // 1=dry, 0=shifted
         if (hardTuneMode)
+        {
             nearUnityBlend = 0.0f;
+            // Keep hard mode fully wet per-sample; stale dry blend state can reappear
+            // for tens of milliseconds and is perceived as skip/comb artifacts.
+            dryBlendSmoothed = 0.0f;
+        }
 
         auto shortestWrappedDelta = [bufferSize] (float from, float to)
         {
