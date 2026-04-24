@@ -362,7 +362,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         // Prevent stale/false detector output from being treated as valid pitch in near-silence.
         // This was keeping blocksSinceValidPitch at zero and causing wobble/skip at phrase tails.
-        const float detectRmsFloor = hardTuneModeDetect ? 0.0025f : 0.0009f;
+        const float detectRmsFloor = hardTuneModeDetect ? 0.0012f : 0.0009f;
         if (inputRms < detectRmsFloor)
             hasUsablePitch = false;
 
@@ -380,7 +380,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             // Hold the most recent valid estimate for a short window while signal is present.
             const int maxHoldMissBlocks = hardTuneModeDetect ? 20 : 12;
             const bool canHoldLastPitch = fastCorrectionMode
-                && inputRms > (hardTuneModeDetect ? 0.0035f : 0.00035f)
+                && inputRms > (hardTuneModeDetect ? 0.0016f : 0.00035f)
                 && lastValidDetectedHz > minPitchHz - 10.0f
                 && lastValidDetectedHz < maxPitchHz + 10.0f
                 && blocksSinceValidPitch <= maxHoldMissBlocks;
@@ -667,8 +667,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const bool hardTuneMode = retuneControlActive >= 0.90f;
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     inputRmsSmoothed += (inputRms - inputRmsSmoothed) * 0.08f;
-    const float gateOnThreshold = hardTuneMode ? 0.0030f : 0.0030f;
-    const float gateOffThreshold = hardTuneMode ? 0.0018f : 0.0012f;
+    const float gateOnThreshold = hardTuneMode ? 0.0026f : 0.0030f;
+    const float gateOffThreshold = hardTuneMode ? 0.0011f : 0.0012f;
     if (inputRmsSmoothed >= gateOnThreshold)
     {
         voicedHoldBlocks = hardTuneMode ? 220 : 24;
@@ -839,9 +839,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
         applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
 
-    processCircularBufferPitchShift (channelL, numSamples, appliedRatio, 0, lowLatencyMode, retuneControlActive);
+    processCircularBufferPitchShift (channelL, numSamples, appliedRatio, 0, lowLatencyMode, retuneControlActive,
+                                     trackingConfidence);
     if (channelR != nullptr)
-        processCircularBufferPitchShift (channelR, numSamples, appliedRatio, 1, lowLatencyMode, retuneControlActive);
+        processCircularBufferPitchShift (channelR, numSamples, appliedRatio, 1, lowLatencyMode, retuneControlActive,
+                                         trackingConfidence);
 
     if (! signalTooLow)
     {
@@ -1101,7 +1103,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Voiced-hold gate: only suppress correction if signal is truly gone AND hold window is closed.
     // During hold window, keep computing correction ratio to maintain effect continuity.
     const bool inHoldWindow = voicedHoldBlocks > 0;
-    if (signalRms < (hardTuneMode ? 0.0020f : 0.0012f) && !inHoldWindow)
+    if (signalRms < (hardTuneMode ? 0.0012f : 0.0012f) && !inHoldWindow)
         return 1.0f;
     if (centsError < toleranceCents)
         return 1.0f;
@@ -1544,6 +1546,10 @@ void NovaPitchAudioProcessor::initializePitchShift()
     pitchReadPos[1] = 0.0f;
     pitchCrossfadePhase[0] = 0.0f;
     pitchCrossfadePhase[1] = 0.0f;
+    pitchCrossfadeFromPos[0] = 0.0f;
+    pitchCrossfadeFromPos[1] = 0.0f;
+    pitchCrossfadeToPos[0] = 0.0f;
+    pitchCrossfadeToPos[1] = 0.0f;
     pitchWriteIndex[0] = normalPitchDelaySamples;
     pitchWriteIndex[1] = normalPitchDelaySamples;
     pitchShiftRatioSmoothed[0] = 1.0f;
@@ -1556,12 +1562,15 @@ void NovaPitchAudioProcessor::initializePitchShift()
 }
 
 void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelData, int numSamples, float pitchRatio,
-                                                              int channelIndex, bool lowLatencyMode, float retuneSpeedNorm)
+                                                              int channelIndex, bool lowLatencyMode, float retuneSpeedNorm,
+                                                              float trackingConfidence)
 {
     const int channel = juce::jlimit (0, 1, channelIndex);
     auto& channelDelay = pitchDelay[static_cast<size_t> (channel)];
     auto& readPos = pitchReadPos[static_cast<size_t> (channel)];
     auto& crossfadePhase = pitchCrossfadePhase[static_cast<size_t> (channel)];
+    auto& crossfadeFromPos = pitchCrossfadeFromPos[static_cast<size_t> (channel)];
+    auto& crossfadeToPos = pitchCrossfadeToPos[static_cast<size_t> (channel)];
     auto& writeIdx = pitchWriteIndex[static_cast<size_t> (channel)];
     auto& ratioSmoothed = pitchShiftRatioSmoothed[static_cast<size_t> (channel)];
     auto& outputSmoother = pitchOutputSmoother[static_cast<size_t> (channel)];
@@ -1622,9 +1631,17 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         return ((c3 * frac + c2) * frac + c1) * frac + c0;
     };
 
-    // Single-head continuous resampling shifter.
-    // Keep one stable read head and avoid dual-head blend combing.
+    // Hybrid shifter core:
+    // - default single-head continuous resampling (clean baseline)
+    // - guarded dual-window crossfade ONLY for explicit resync events
+    //   (phase-coherent, equal-power, confidence-gated)
     float readHead = wrapPos (readPos);
+    float xfadePhase = crossfadePhase;
+    float xfadeFromHead = wrapPos (crossfadeFromPos);
+    float xfadeToHead = wrapPos (crossfadeToPos);
+    const bool confidenceStable = trackingConfidence >= (hardTuneMode ? 0.55f : 0.45f);
+    const float crossfadeSamples = static_cast<float> (lowLatencyMode ? 64 : 96);
+    const float crossfadePhaseInc = 1.0f / juce::jmax (32.0f, crossfadeSamples);
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -1665,7 +1682,51 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
             anchorPull = hardTuneMode ? 0.0016f : 0.0010f;
         readHead = wrapPos (readHead + anchorError * anchorPull);
 
-        const float shifted = sampleAt (readHead);
+        // Guarded resync: only trigger when confidence is stable, ratio is not making
+        // extreme moves, and read-head anchor error is genuinely large.
+        const float anchorErrorAbs = std::abs (anchorError);
+        const float ratioStability = std::abs (clampedRatio - ratioSmoothed);
+        const bool canStartCrossfade = confidenceStable
+            && xfadePhase <= 0.0f
+            && unityDelta < 0.035f
+            && ratioStability < 0.08f
+            && anchorErrorAbs > (lowLatencyMode ? 52.0f : 68.0f);
+
+        if (canStartCrossfade)
+        {
+            xfadePhase = 1.0e-6f;
+            xfadeFromHead = readHead;
+            xfadeToHead = wrapPos (desiredAnchor);
+        }
+
+        // Fallback to single-head immediately if confidence becomes unstable.
+        if (! confidenceStable)
+            xfadePhase = 0.0f;
+
+        float shifted = 0.0f;
+        if (xfadePhase > 0.0f)
+        {
+            const float t = juce::jlimit (0.0f, 1.0f, xfadePhase);
+            const float winA = std::cos (0.5f * juce::MathConstants<float>::pi * t);
+            const float winB = std::sin (0.5f * juce::MathConstants<float>::pi * t);
+            const float norm = juce::jmax (1.0e-6f, std::sqrt (winA * winA + winB * winB));
+
+            shifted = (sampleAt (xfadeFromHead) * winA + sampleAt (xfadeToHead) * winB) / norm;
+
+            xfadeFromHead = wrapPos (xfadeFromHead + effectiveRatio);
+            xfadeToHead = wrapPos (xfadeToHead + effectiveRatio);
+
+            xfadePhase += crossfadePhaseInc;
+            if (xfadePhase >= 1.0f)
+            {
+                readHead = xfadeToHead;
+                xfadePhase = 0.0f;
+            }
+        }
+        else
+        {
+            shifted = sampleAt (readHead);
+        }
 
         // Light smoothing to avoid zippering.
         const float baseAlpha = juce::jmap (retuneSpeedNorm, 0.0f, 1.0f, 0.88f, 0.98f);
@@ -1683,7 +1744,9 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         writeIdx = (writeIdx + 1) % bufferSize;
     }
 
-    crossfadePhase = 0.0f;
+    crossfadePhase = xfadePhase;
+    crossfadeFromPos = xfadeFromHead;
+    crossfadeToPos = xfadeToHead;
 }
 
 void NovaPitchAudioProcessor::getStateInformation (juce::MemoryBlock& destData)

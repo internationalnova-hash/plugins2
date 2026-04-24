@@ -98,7 +98,8 @@ private:
     // Circular buffer resampling pitch shift
     void initializePitchShift();
     void processCircularBufferPitchShift (float* channelData, int numSamples, float pitchRatio,
-                                          int channelIndex, bool lowLatencyMode, float retuneSpeedNorm);
+                                          int channelIndex, bool lowLatencyMode, float retuneSpeedNorm,
+                                          float trackingConfidence);
 
     // DSP systems
     float smoothDetectedPitch (float rawDetectedHz, float signalRms, bool lowLatencyMode, bool hardTuneMode = false);
@@ -118,6 +119,8 @@ private:
     std::array<std::array<float, pitchShiftBufferSize>, 2> pitchDelay {};
     std::array<float, 2> pitchReadPos { 0.0f, 0.0f };
     std::array<float, 2> pitchCrossfadePhase { 0.0f, 0.0f };
+    std::array<float, 2> pitchCrossfadeFromPos { 0.0f, 0.0f };
+    std::array<float, 2> pitchCrossfadeToPos { 0.0f, 0.0f };
     std::array<int, 2> pitchWriteIndex { 0, 0 };
     std::array<float, 2> pitchShiftRatioSmoothed { 1.0f, 1.0f };
     std::array<float, 2> pitchOutputSmoother { 0.0f, 0.0f };
