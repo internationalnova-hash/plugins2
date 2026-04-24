@@ -93,7 +93,7 @@ private:
                                           int channelIndex, bool lowLatencyMode, float retuneSpeedNorm);
 
     // DSP systems
-    float smoothDetectedPitch (float rawDetectedHz, float signalRms, bool lowLatencyMode);
+    float smoothDetectedPitch (float rawDetectedHz, float signalRms, bool lowLatencyMode, bool hardTuneMode = false);
     float computeRetuneRatio (float detectedHz, float targetHz, float signalRms, int voicedHoldBlockCount, bool lowLatencyMode);
     void applyVibrato (float& pitchRatio, float sampleRate, int numSamples, float vibratoParam);
     void applyFormantShaper (float* channelData, int numSamples, float formantParam, int channelIndex);

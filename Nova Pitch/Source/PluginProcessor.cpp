@@ -344,10 +344,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         // large frame-to-frame ratio jumps and audible skip bursts.
         // smoothDetectedPitch uses lockedTargetMidi as reference to anchor octave and
         // suppress subharmonics — this is for audio quality only, not for lock decisions.
-        float detectedHz = smoothDetectedPitch (rawYinHz, inputRms, lowLatencyMode || fastRetuneTracking);
+        const bool hardTuneModeDetect = retuneControlActive >= 0.90f;
+        float detectedHz = smoothDetectedPitch (rawYinHz, inputRms, lowLatencyMode || fastRetuneTracking, hardTuneModeDetect);
         detectedPitch.store (detectedHz);
 
-        const bool hardTuneModeDetect = retuneControlActive >= 0.90f;
         bool hasUsablePitch = detectedHz > minPitchHz - 10.0f && detectedHz < maxPitchHz + 10.0f;
         bool usingHeldPitch = false;
 
@@ -571,7 +571,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // real note drift to drive stronger/autotune-like correction.
                 // Very small alpha so individual bad detector frames can't spike targetPitchRatio.
                 const float stableRetargetAlpha = hardTuneMode
-                    ? (lowLatencyMode ? 0.10f : 0.08f)
+                    ? 1.0f
                     : (lowLatencyMode ? 0.08f : 0.06f);
                 targetPitchRatio += (computedTargetRatio - targetPitchRatio) * stableRetargetAlpha;
             }
@@ -831,7 +831,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     blockCount++;
 }
 
-float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float signalRms, bool lowLatencyMode)
+float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float signalRms, bool lowLatencyMode, bool hardTuneMode)
 {
     if (rawDetectedHz <= 0.0f)
         return smoothedDetectedHz;
@@ -953,7 +953,10 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
     // Normal blending — extremely conservative so the smoother cannot be dragged by
     // one or two outlier frames.  At alpha=0.04 a 100 Hz step takes ~17 blocks to close.
     juce::ignoreUnused (signalRms, lowLatencyMode);
-    const float alpha = lowLatencyMode ? 0.022f : 0.04f;
+        // Hard-tune mode needs fast convergence (snap autotune effect).
+        // alpha=0.45 → pitch smoother settles in ~8-10 blocks (~100ms) instead of 40+ blocks.
+        // The median filter above still kills single-block subharmonic glitches.
+        const float alpha = hardTuneMode ? 0.45f : (lowLatencyMode ? 0.022f : 0.04f);
 
     smoothedDetectedHz += (rawDetectedHz - smoothedDetectedHz) * alpha;
     return smoothedDetectedHz;
