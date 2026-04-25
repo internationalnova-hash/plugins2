@@ -786,7 +786,23 @@ function syncUi() {
   els.mixValue.textContent = `${Math.round(state.mix)}%`;
   els.outputValue.textContent = `${state.outputGain.toFixed(1)} dB`;
 
+  if (els.mixSlider) {
+    els.mixSlider.value = `${Math.round(state.mix)}`;
+    updateRangeFill(els.mixSlider, {
+      fill: 'linear-gradient(90deg, rgba(255, 177, 255, 0.98) 0%, rgba(181, 94, 255, 0.98) 58%, rgba(96, 210, 255, 0.95) 100%)',
+      empty: 'rgba(69, 79, 108, 0.28)',
+      glow: 'rgba(168, 85, 255, 0.28)',
+    });
+  }
+
   if (els.shapeSlider) els.shapeSlider.value = `${Math.round(state.shape)}`;
+  if (els.shapeSlider) {
+    updateRangeFill(els.shapeSlider, {
+      fill: 'linear-gradient(90deg, rgba(255, 255, 255, 0.98) 0%, rgba(196, 232, 255, 0.98) 42%, rgba(95, 198, 255, 0.98) 100%)',
+      empty: 'rgba(69, 79, 108, 0.24)',
+      glow: 'rgba(95, 198, 255, 0.24)',
+    });
+  }
 
   els.btnLowLatency.classList.toggle('active', state.lowLatency);
   els.btnLowLatency.classList.toggle('cyan', state.lowLatency);
@@ -833,6 +849,22 @@ function syncUi() {
   els.inputBar.style.width = `${Math.max(2, inL * 100)}%`;
   const db = 20 * Math.log10(Math.max(1e-4, inL));
   els.inputDb.textContent = `${db.toFixed(1)} dB`;
+}
+
+function updateRangeFill(slider, options) {
+  if (!slider) return;
+
+  const min = Number(slider.min || 0);
+  const max = Number(slider.max || 100);
+  const value = Number(slider.value || min);
+  const ratio = max > min ? (value - min) / (max - min) : 0;
+  const percent = Math.max(0, Math.min(100, ratio * 100));
+  const fill = options.fill;
+  const empty = options.empty || 'rgba(69, 79, 108, 0.24)';
+  const glow = options.glow || 'rgba(120, 140, 210, 0.18)';
+
+  slider.style.background = `linear-gradient(90deg, ${fill} 0%, ${fill} ${percent}%, ${empty} ${percent}%, ${empty} 100%)`;
+  slider.style.boxShadow = `inset 0 1px 2px rgba(0, 0, 0, 0.45), 0 0 12px ${glow}`;
 }
 
 function pulseCleanKnob() {
