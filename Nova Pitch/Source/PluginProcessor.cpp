@@ -1726,8 +1726,8 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         // IMPORTANT: pulling toward a fixed anchor while ratio != 1.0 can mathematically
         // cancel sustained pitch shift. Only anchor near unity to prevent long-term drift.
         float anchorPull = 0.0f;
-        if (unityDelta < 0.0032f)
-            anchorPull = hardTuneMode ? 0.0016f : 0.0010f;
+        if (! hardTuneMode && unityDelta < 0.0032f)
+            anchorPull = 0.0010f;
         readHead = wrapPos (readHead + anchorError * anchorPull);
 
         // Guarded resync: only trigger when confidence is stable, ratio is not making
