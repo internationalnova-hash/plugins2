@@ -162,6 +162,19 @@ function installPressFeedback(element) {
   element.addEventListener('pointerleave', () => element.classList.remove('is-pressed'));
 }
 
+function beginDragGuard(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+  document.body.classList.add('is-dragging-knob');
+  if (window.getSelection) {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) selection.removeAllRanges();
+  }
+}
+
+function endDragGuard() {
+  document.body.classList.remove('is-dragging-knob');
+}
+
 function setupInteractions() {
   els.modeButtons.forEach((b, i) => b.addEventListener('click', () => setMode(i)));
 
@@ -236,11 +249,14 @@ function setupInteractions() {
   installPressFeedback(els.outputKnob);
 
   let cleanDragging = false;
+  let cleanPointerId = null;
   let cleanStartY = 0;
   let cleanStartValue = 0;
 
   els.cleanKnob.addEventListener('pointerdown', (e) => {
+    beginDragGuard(e);
     cleanDragging = true;
+    cleanPointerId = e.pointerId;
     cleanStartY = e.clientY;
     cleanStartValue = state.clean;
     pulseCleanKnob();
@@ -248,13 +264,20 @@ function setupInteractions() {
   });
 
   els.cleanKnob.addEventListener('pointermove', (e) => {
-    if (!cleanDragging) return;
+    if (!cleanDragging || e.pointerId !== cleanPointerId) return;
+    e.preventDefault();
     const delta = (cleanStartY - e.clientY) * 0.35;
     setClean(cleanStartValue + delta);
   });
 
-  const stopCleanDrag = () => {
+  const stopCleanDrag = (e) => {
+    if (cleanPointerId !== null && e && e.pointerId !== cleanPointerId) return;
     cleanDragging = false;
+    if (cleanPointerId !== null && els.cleanKnob.hasPointerCapture(cleanPointerId)) {
+      els.cleanKnob.releasePointerCapture(cleanPointerId);
+    }
+    cleanPointerId = null;
+    endDragGuard();
   };
 
   els.cleanKnob.addEventListener('pointerup', stopCleanDrag);
@@ -264,8 +287,10 @@ function setupInteractions() {
   let mediumDrag = null;
 
   const beginMediumDrag = (e, startValue, scale, applyFn) => {
+    beginDragGuard(e);
     mediumDrag = {
       pointerId: e.pointerId,
+      target: e.currentTarget,
       startY: e.clientY,
       startValue,
       scale,
@@ -276,13 +301,19 @@ function setupInteractions() {
 
   const moveMediumDrag = (e) => {
     if (!mediumDrag || e.pointerId !== mediumDrag.pointerId) return;
+    e.preventDefault();
     const delta = (mediumDrag.startY - e.clientY) * mediumDrag.scale;
     mediumDrag.applyFn(mediumDrag.startValue + delta);
   };
 
   const endMediumDrag = (e) => {
     if (!mediumDrag || e.pointerId !== mediumDrag.pointerId) return;
+    if (mediumDrag.target && typeof mediumDrag.target.hasPointerCapture === 'function'
+        && mediumDrag.target.hasPointerCapture(e.pointerId)) {
+      mediumDrag.target.releasePointerCapture(e.pointerId);
+    }
     mediumDrag = null;
+    endDragGuard();
   };
 
   els.preserveKnob.addEventListener('pointerdown', (e) => beginMediumDrag(e, state.preserve, 0.35, setPreserve));
@@ -1068,12 +1099,15 @@ function resizeApp() {
   const pad = 12;
   const vw = Math.max(1, window.innerWidth - pad * 2);
   const vh = Math.max(1, window.innerHeight - pad * 2);
-  const s = Math.min(vw / 1536, vh / 1024, 1);
-  const offsetX = Math.floor((window.innerWidth - 1536 * s) * 0.5);
-  const offsetY = Math.floor((window.innerHeight - 1024 * s) * 0.5);
+  const baseWidth = 1536;
+  const baseHeight = 1024;
+  const s = Math.min(vw / baseWidth, vh / baseHeight, 1);
+  const offsetX = Math.floor((window.innerWidth - baseWidth * s) * 0.5);
+  const offsetY = Math.floor((window.innerHeight - baseHeight * s) * 0.5);
   els.app.style.left = `${offsetX}px`;
   els.app.style.top = `${offsetY}px`;
-  els.app.style.transform = `scale(${s})`;
+  els.app.style.transform = 'none';
+  els.app.style.zoom = `${s}`;
 }
 
 window.receiveDSP = (dsp) => {
