@@ -1228,6 +1228,92 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
   ctx.restore();
 }
 
+function drawTopKnob(ctx, cx, cy, r, value, variant = 'standard') {
+  const v = Math.max(0, Math.min(100, value));
+  const DEG = Math.PI / 180;
+  const startA = 210 * DEG;
+  const sweep = 300 * DEG;
+  const valA = startA + (v / 100) * sweep;
+
+  const outerR = r * 0.93;
+  const rimR = r * 0.86;
+  const bodyR = r * 0.74;
+
+  ctx.save();
+  ctx.strokeStyle = variant === 'clean' ? 'rgba(168,85,255,0.42)' : 'rgba(130,145,205,0.28)';
+  ctx.lineWidth = variant === 'clean' ? 6 : 4;
+  ctx.shadowBlur = variant === 'clean' ? 24 : 12;
+  ctx.shadowColor = variant === 'clean' ? 'rgba(168,85,255,0.60)' : 'rgba(116,130,210,0.36)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(58,68,108,0.72)';
+  ctx.lineWidth = variant === 'clean' ? 2.8 : 2.2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, rimR, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  const bodyGrad = ctx.createRadialGradient(
+    cx - bodyR * 0.32,
+    cy - bodyR * 0.34,
+    0,
+    cx,
+    cy,
+    bodyR
+  );
+  if (variant === 'output') {
+    bodyGrad.addColorStop(0.00, '#304569');
+    bodyGrad.addColorStop(0.45, '#18243f');
+    bodyGrad.addColorStop(1.00, '#090d1a');
+  } else {
+    bodyGrad.addColorStop(0.00, '#3a496c');
+    bodyGrad.addColorStop(0.42, '#1a243f');
+    bodyGrad.addColorStop(1.00, '#090d1a');
+  }
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, bodyR, 0, Math.PI * 2);
+  ctx.fill();
+
+  const gloss = ctx.createRadialGradient(
+    cx - bodyR * 0.34,
+    cy - bodyR * 0.36,
+    0,
+    cx - bodyR * 0.08,
+    cy - bodyR * 0.14,
+    bodyR * 0.72
+  );
+  gloss.addColorStop(0.0, 'rgba(255,255,255,0.20)');
+  gloss.addColorStop(0.55, 'rgba(255,255,255,0.06)');
+  gloss.addColorStop(1.0, 'rgba(255,255,255,0.0)');
+  ctx.fillStyle = gloss;
+  ctx.beginPath();
+  ctx.arc(cx, cy, bodyR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(250,252,255,0.95)';
+  ctx.lineWidth = variant === 'clean' ? 2.6 : 2.0;
+  ctx.lineCap = 'round';
+  ctx.shadowBlur = 6;
+  ctx.shadowColor = 'rgba(230,240,255,0.55)';
+  const notchStartX = cx + Math.cos(valA) * bodyR * 0.34;
+  const notchStartY = cy + Math.sin(valA) * bodyR * 0.34;
+  const notchEndX = cx + Math.cos(valA) * bodyR * 0.90;
+  const notchEndY = cy + Math.sin(valA) * bodyR * 0.90;
+  ctx.beginPath();
+  ctx.moveTo(notchStartX, notchStartY);
+  ctx.lineTo(notchEndX, notchEndY);
+  ctx.stroke();
+  ctx.restore();
+}
+
 // Draw all knobs in the control panels
 function drawKnobs() {
   // ── CLEAN (large, dominant) ─────────────────────────────────────────────
@@ -1238,39 +1324,7 @@ function drawKnobs() {
     const w = prepared.width;
     const h = prepared.height;
     cctx.clearRect(0, 0, w, h);
-    const adjusting = state.cleanAdjustT > 0;
-    drawKnob(cctx, w / 2, h / 2, w / 2 - 1, state.clean, true, adjusting);
-
-    // Orbit dots and subtle shimmer for CLEAN hero treatment
-    const orbR = w / 2 - 4;
-    for (let d = 0; d < 6; d++) {
-      const ang = state.t * 2.2 + (d / 6) * Math.PI * 2;
-      const px = w / 2 + Math.cos(ang) * orbR;
-      const py = h / 2 + Math.sin(ang) * orbR;
-      const base = 0.10 + 0.12 * (Math.sin(state.t * 3.5 + d) * 0.5 + 0.5);
-      const alpha = adjusting ? (base + 0.30 * state.cleanAdjustT) : base;
-      cctx.fillStyle = `rgba(168,85,255,${alpha})`;
-      cctx.shadowBlur = adjusting ? 7 : 4;
-      cctx.shadowColor = 'rgba(168,85,255,0.9)';
-      cctx.beginPath();
-      cctx.arc(px, py, adjusting ? 2.2 : 1.6, 0, Math.PI * 2);
-      cctx.fill();
-      cctx.shadowBlur = 0;
-    }
-
-    const sh = state.t * 1.1;
-  const x1 = w / 2 + Math.cos(sh) * 85;
-  const y1 = h / 2 + Math.sin(sh) * 85;
-  const x2 = w / 2 + Math.cos(sh + Math.PI) * 85;
-  const y2 = h / 2 + Math.sin(sh + Math.PI) * 85;
-    const shimmer = cctx.createLinearGradient(x1, y1, x2, y2);
-    shimmer.addColorStop(0, 'rgba(255,255,255,0.0)');
-    shimmer.addColorStop(0.5, adjusting ? 'rgba(210,230,255,0.12)' : 'rgba(210,230,255,0.06)');
-    shimmer.addColorStop(1, 'rgba(255,255,255,0.0)');
-    cctx.fillStyle = shimmer;
-    cctx.beginPath();
-    cctx.arc(w / 2, h / 2, w / 2 - 8, 0, Math.PI * 2);
-    cctx.fill();
+    drawTopKnob(cctx, w / 2, h / 2, w / 2 - 1, state.clean, 'clean');
   }
 
   // ── PRESERVE ──────────────────────────────────────────────────────────────
@@ -1281,7 +1335,7 @@ function drawKnobs() {
     const w = prepared.width;
     const h = prepared.height;
     pctx.clearRect(0, 0, w, h);
-    drawKnob(pctx, w / 2, h / 2, w / 2 - 1, state.preserve, false, false);
+    drawTopKnob(pctx, w / 2, h / 2, w / 2 - 1, state.preserve, 'standard');
   }
 
   // ── MIX ───────────────────────────────────────────────────────────────────
@@ -1292,7 +1346,7 @@ function drawKnobs() {
     const w = prepared.width;
     const h = prepared.height;
     mctx.clearRect(0, 0, w, h);
-    drawKnob(mctx, w / 2, h / 2, w / 2 - 1, state.mix, false, false);
+    drawTopKnob(mctx, w / 2, h / 2, w / 2 - 1, state.mix, 'standard');
   }
 
   // ── OUTPUT GAIN (maps -12..+12 dB → 0..100%) ─────────────────────────────
@@ -1304,33 +1358,7 @@ function drawKnobs() {
     const h = prepared.height;
     octx.clearRect(0, 0, w, h);
     const normGain = Math.round(((state.outputGain + 12) / 24) * 100);
-    drawKnob(octx, w / 2, h / 2, w / 2 - 1, normGain, false, false);
-
-    // Slight extra glow so output knob matches overall lighting system.
-    octx.save();
-    octx.strokeStyle = 'rgba(168,85,255,0.28)';
-    octx.lineWidth = 2.4;
-    octx.shadowBlur = 10;
-    octx.shadowColor = 'rgba(168,85,255,0.50)';
-    octx.beginPath();
-    octx.arc(w / 2, h / 2, w / 2 - 3, 0, Math.PI * 2);
-    octx.stroke();
-    octx.restore();
-
-    // Override center text to show dB
-    octx.save();
-    octx.textAlign = 'center';
-    octx.textBaseline = 'middle';
-    octx.fillStyle = 'rgba(245,248,255,0.96)';
-    octx.font = '700 11px "Arial Narrow", sans-serif';
-    octx.shadowBlur = 4;
-    octx.shadowColor = 'rgba(168,85,255,0.3)';
-    octx.fillText(`${state.outputGain.toFixed(1)}`, w / 2, h / 2 - 3);
-    octx.font = '600 9px "Arial Narrow", sans-serif';
-    octx.fillStyle = 'rgba(160,170,200,0.7)';
-    octx.shadowBlur = 0;
-    octx.fillText('dB', w / 2, h / 2 + 9);
-    octx.restore();
+    drawTopKnob(octx, w / 2, h / 2, w / 2 - 1, normGain, 'output');
   }
 
   const drawAdvancedKnob = (canvas, value) => {
