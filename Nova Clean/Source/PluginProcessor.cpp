@@ -18,17 +18,31 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaCleanV2AudioProcessor::c
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
+    layout.add (std::make_unique<juce::AudioParameterChoice> ("presetIndex", "Selected Preset",
+        juce::StringArray {
+            "Vocal Clean (Default)",
+            "Mouth Clicks",
+            "Heavy Vocal Clicks",
+            "Soft Preserve",
+            "Rap Transient Safe",
+            "Crackle Repair",
+            "Digital Glitch Fix",
+            "Background Artifact Assist",
+            "Aggressive Clean",
+            "Emergency Repair"
+        }, 0));
+
     layout.add (std::make_unique<juce::AudioParameterChoice> ("mode", "Mode",
         juce::StringArray { "Vocal", "Digital", "Crackle" }, 0));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> ("clean", "Clean",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 39.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 11.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("preserve", "Preserve",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 65.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 100.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("mix", "Mix",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 100.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("outputGain", "Output Gain",
-        juce::NormalisableRange<float> (-12.0f, 12.0f, 0.01f), 0.0f));
+        juce::NormalisableRange<float> (-12.0f, 12.0f, 0.01f), -1.92f));
 
     layout.add (std::make_unique<juce::AudioParameterBool> ("bypass", "Bypass", false));
     layout.add (std::make_unique<juce::AudioParameterBool> ("lowLatency", "Low Latency", false));
@@ -36,21 +50,21 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaCleanV2AudioProcessor::c
     layout.add (std::make_unique<juce::AudioParameterBool> ("advanced", "Advanced", true));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> ("sensitivity", "Sensitivity",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 67.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 100.0f));
     layout.add (std::make_unique<juce::AudioParameterChoice> ("clickSize", "Click Size",
         juce::StringArray { "Micro", "Short", "Medium" }, 1));
     layout.add (std::make_unique<juce::AudioParameterChoice> ("freqFocus", "Frequency Focus",
         juce::StringArray { "High", "Mid", "Full" }, 2));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> ("strength", "Strength",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 60.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 83.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("shape", "Shape",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 65.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 80.0f));
     layout.add (std::make_unique<juce::AudioParameterChoice> ("interpolation", "Interpolation",
         juce::StringArray { "Basic", "Smart" }, 1));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> ("vocalProtect", "Vocal Protect",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 70.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 100.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("transientGuard", "Transient Guard",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 60.0f));
 

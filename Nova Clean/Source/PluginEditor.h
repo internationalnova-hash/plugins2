@@ -19,6 +19,7 @@ private:
 
     NovaCleanV2AudioProcessor& processorRef;
 
+    juce::WebSliderRelay presetIndexRelay { "presetIndex" };
     juce::WebSliderRelay modeRelay { "mode" };
     juce::WebSliderRelay cleanRelay { "clean" };
     juce::WebSliderRelay preserveRelay { "preserve" };
@@ -50,6 +51,7 @@ private:
 
     std::unique_ptr<SinglePageBrowser> webView;
 
+    std::unique_ptr<juce::WebSliderParameterAttachment> presetIndexAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> modeAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> cleanAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> preserveAttachment;

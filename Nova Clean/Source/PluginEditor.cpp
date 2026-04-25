@@ -8,6 +8,7 @@ NovaCleanV2AudioProcessorEditor::NovaCleanV2AudioProcessorEditor (NovaCleanV2Aud
 {
     webView = std::make_unique<SinglePageBrowser> (createWebOptions (*this));
 
+    presetIndexAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("presetIndex"), presetIndexRelay, nullptr);
     modeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("mode"), modeRelay, nullptr);
     cleanAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("clean"), cleanRelay, nullptr);
     preserveAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("preserve"), preserveRelay, nullptr);
@@ -89,6 +90,7 @@ juce::WebBrowserComponent::Options NovaCleanV2AudioProcessorEditor::createWebOpt
                      {
                          return editor.getResource (url);
                      })
+                     .withOptionsFrom (editor.presetIndexRelay)
                      .withOptionsFrom (editor.modeRelay)
                      .withOptionsFrom (editor.cleanRelay)
                      .withOptionsFrom (editor.preserveRelay)

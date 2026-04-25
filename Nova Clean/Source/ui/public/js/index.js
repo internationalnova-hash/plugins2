@@ -337,6 +337,7 @@ const PRESET_META = {
 };
 
 const PRESET_BROWSER_CATEGORIES = ['All', 'Vocal', 'Repair', 'Transparent', 'Aggressive', 'Emergency'];
+const PRESET_STORAGE_KEY = 'nova-clean-v2-preset-browser';
 
 let activePresetIndex = 0;
 let presetAnimationFrame = null;
@@ -345,6 +346,56 @@ let presetCategory = 'All';
 let presetBrowserCloseTimer = null;
 let recentPresetIndices = [0];
 const favoritePresetNames = new Set();
+
+function loadPresetBrowserStorage() {
+  try {
+    const raw = window.localStorage ? window.localStorage.getItem(PRESET_STORAGE_KEY) : null;
+    if (!raw) return;
+
+    const parsed = JSON.parse(raw);
+    const recent = Array.isArray(parsed.recentPresetIndices) ? parsed.recentPresetIndices : [];
+    const favorites = Array.isArray(parsed.favoritePresetNames) ? parsed.favoritePresetNames : [];
+
+    recentPresetIndices = recent
+      .map((value) => Number(value))
+      .filter((value, index, array) => Number.isInteger(value)
+        && value >= 0
+        && value < PRESET_TEMPLATES.length
+        && array.indexOf(value) === index)
+      .slice(0, 3);
+
+    if (recentPresetIndices.length === 0) recentPresetIndices = [0];
+
+    favoritePresetNames.clear();
+    favorites.forEach((name) => {
+      if (PRESET_TEMPLATES.some((preset) => preset.name === name)) favoritePresetNames.add(name);
+    });
+  } catch (error) {
+    console.warn('Failed to load preset browser storage', error);
+    recentPresetIndices = [0];
+    favoritePresetNames.clear();
+  }
+}
+
+function persistPresetBrowserStorage() {
+  try {
+    if (!window.localStorage) return;
+    window.localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify({
+      recentPresetIndices,
+      favoritePresetNames: Array.from(favoritePresetNames),
+    }));
+  } catch (error) {
+    console.warn('Failed to persist preset browser storage', error);
+  }
+}
+
+function updateActivePresetIndex(index, options = {}) {
+  const { updateLabel = true, renderBrowser = true } = options;
+  const count = PRESET_TEMPLATES.length;
+  activePresetIndex = ((index % count) + count) % count;
+  if (updateLabel) updatePresetLabel();
+  if (renderBrowser && presetBrowserOpen) renderPresetBrowser();
+}
 
 function getPresetMeta(preset) {
   return PRESET_META[preset.name] || {
@@ -369,6 +420,7 @@ function rememberRecentPreset(index) {
   recentPresetIndices = recentPresetIndices.filter((v) => v !== index);
   recentPresetIndices.unshift(index);
   recentPresetIndices = recentPresetIndices.slice(0, 3);
+  persistPresetBrowserStorage();
 }
 
 function updatePresetCategoryButtons() {
@@ -439,6 +491,7 @@ function renderPresetList() {
       event.stopPropagation();
       if (favoritePresetNames.has(preset.name)) favoritePresetNames.delete(preset.name);
       else favoritePresetNames.add(preset.name);
+      persistPresetBrowserStorage();
       renderPresetList();
     });
 
@@ -585,18 +638,18 @@ function animatePresetTransition(preset, shouldEmit = true) {
 function applyPresetByIndex(index, options = {}) {
   const { animated = true, shouldEmit = true, trackRecent = shouldEmit } = options;
   const count = PRESET_TEMPLATES.length;
-  activePresetIndex = ((index % count) + count) % count;
+  updateActivePresetIndex(((index % count) + count) % count, { updateLabel: true, renderBrowser: false });
   const preset = PRESET_TEMPLATES[activePresetIndex];
 
   if (trackRecent) rememberRecentPreset(activePresetIndex);
 
-  updatePresetLabel();
   setMode(preset.mode, shouldEmit);
   setClickSize(preset.clickSize, shouldEmit);
   setFreqFocus(preset.freqFocus, shouldEmit);
   setInterpolation(preset.interpolation, shouldEmit);
   setLowLatency(preset.lowLatency, shouldEmit);
   setHQMode(preset.hqMode, shouldEmit);
+  if (shouldEmit) emitParam('presetIndex', activePresetIndex);
 
   if (animated) {
     animatePresetTransition(preset, shouldEmit);
@@ -634,6 +687,10 @@ function bindParamFromBackend(name, applyFn) {
 function initBackendSync() {
   if (!hasBackend()) return;
 
+  bindParamFromBackend('presetIndex', (v) => {
+    const index = Math.max(0, Math.min(PRESET_TEMPLATES.length - 1, Math.round(v)));
+    updateActivePresetIndex(index, { updateLabel: true, renderBrowser: true });
+  });
   bindParamFromBackend('mode', (v) => setMode(Math.round(v), false));
   bindParamFromBackend('clean', (v) => setClean(v, false));
   bindParamFromBackend('preserve', (v) => setPreserve(v, false));
@@ -2029,6 +2086,7 @@ window.receiveDSP = (dsp) => {
 };
 
 window.addEventListener('resize', resizeApp);
+loadPresetBrowserStorage();
 resizeApp();
 applyPresetByIndex(0, { animated: false, shouldEmit: false });
 syncUi();
