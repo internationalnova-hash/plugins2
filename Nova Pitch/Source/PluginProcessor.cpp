@@ -613,7 +613,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // real note drift to drive stronger/autotune-like correction.
                 // Very small alpha so individual bad detector frames can't spike targetPitchRatio.
                 const float stableRetargetAlpha = hardTuneMode
-                    ? 1.0f
+                    ? 0.42f
                     : (lowLatencyMode ? 0.08f : 0.06f);
                 targetPitchRatio += (computedTargetRatio - targetPitchRatio) * stableRetargetAlpha;
             }
@@ -764,7 +764,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         // CRITICAL: Higher smoothing at fast speeds means snappier Auto-Tune effect.
         // At k=1.0 (hard-tune), we use aggressive smoothing for immediate pitch lock.
         const float targetSmoothing = hardTuneMode
-            ? 0.96f
+            ? 0.82f
             : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.22f, 0.72f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
@@ -1141,7 +1141,21 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     if (hardTuneMode)
         emphasis += 0.16f * correctionMagnitude;
 
-    const float emphasizedCents = juce::jlimit (-380.0f, 380.0f, signedCents * emphasis);
+    float emphasizedCents = juce::jlimit (-380.0f, 380.0f, signedCents * emphasis);
+
+    if (hardTuneMode)
+    {
+        // Suppress micro-flutter around the locked note while keeping strong pull
+        // when the singer is meaningfully off target.
+        const float jitterZoneCents = 8.0f;
+        const float absCents = std::abs (emphasizedCents);
+        if (absCents < jitterZoneCents)
+        {
+            const float t = absCents / jitterZoneCents;
+            emphasizedCents *= t * t;
+        }
+    }
+
     const float ratioOut = std::pow (2.0f, emphasizedCents / 1200.0f);
 
     return juce::jlimit (0.50f, 2.00f, ratioOut);
