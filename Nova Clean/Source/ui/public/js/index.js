@@ -1022,8 +1022,11 @@ function drawDisplay() {
 //  Layer 4: Inner body (radial gradient) + glass reflection + notch indicator
 //  Center:  value text
 //
-function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
+function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label, options = {}) {
   const v = Math.max(0, Math.min(100, value));
+  const compactStyle = !!options.compactStyle;
+  const largeStyle = isLarge && !compactStyle;
+  const largeText = isLarge && (options.keepLargeText !== false);
   const rHalo  = r * 0.97;
   const rTick  = r * 0.87;
   const rDot   = r * 0.93;
@@ -1036,18 +1039,18 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
   const valA   = startA + (v / 100) * sweep;
 
   // LAYER 1: outer halo
-  const haloAlpha = adjusting ? 0.66 : (isLarge ? 0.46 : 0.34);
+  const haloAlpha = adjusting ? 0.66 : (largeStyle ? 0.46 : 0.34);
   ctx.save();
   ctx.strokeStyle = adjusting
     ? `rgba(168,85,255,${haloAlpha * 0.40})`
     : `rgba(168,85,255,${haloAlpha * 0.30})`;
-  ctx.lineWidth = isLarge ? 6.4 : 3.6;
-  ctx.shadowBlur = isLarge ? (adjusting ? 44 : 30) : (adjusting ? 22 : 14);
+  ctx.lineWidth = largeStyle ? 6.4 : 3.6;
+  ctx.shadowBlur = largeStyle ? (adjusting ? 44 : 30) : (adjusting ? 22 : 14);
   ctx.shadowColor = `rgba(168,85,255,${haloAlpha})`;
   ctx.beginPath();
   ctx.arc(cx, cy, rHalo, 0, Math.PI * 2);
   ctx.stroke();
-  if (isLarge) {
+  if (largeStyle) {
     ctx.strokeStyle = `rgba(0,200,255,${haloAlpha * 0.18})`;
     ctx.lineWidth = 2;
     ctx.shadowBlur = 12;
@@ -1059,7 +1062,7 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
   ctx.restore();
 
   // micro dotted ring
-  const DOTS = isLarge ? 56 : 36;
+  const DOTS = largeStyle ? 56 : 36;
   ctx.save();
   for (let i = 0; i < DOTS; i++) {
     const a = (i / DOTS) * Math.PI * 2;
@@ -1071,7 +1074,7 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
     ctx.shadowBlur = active ? 5 : 0;
     ctx.shadowColor = 'rgba(168,85,255,0.65)';
     ctx.beginPath();
-    ctx.arc(px, py, isLarge ? 1.32 : 1.06, 0, Math.PI * 2);
+    ctx.arc(px, py, largeStyle ? 1.32 : 1.06, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
@@ -1082,14 +1085,14 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
   for (let i = 0; i <= TICKS; i++) {
     const ang = startA + (i / TICKS) * sweep;
     const isMajor = i % 3 === 0;
-    const tickLen = isMajor ? (isLarge ? 7 : 4.5) : (isLarge ? 4 : 2.8);
+    const tickLen = isMajor ? (largeStyle ? 7 : 4.5) : (largeStyle ? 4 : 2.8);
     const outer = rTick;
     const inner = rTick - tickLen;
     const active = i <= (v / 100) * TICKS;
     ctx.strokeStyle = active
       ? `rgba(186,120,255,${isMajor ? 0.88 : 0.55})`
       : `rgba(85,95,140,${isMajor ? 0.44 : 0.24})`;
-    ctx.lineWidth = isLarge ? (isMajor ? 2.0 : 1.2) : (isMajor ? 1.4 : 0.9);
+    ctx.lineWidth = largeStyle ? (isMajor ? 2.0 : 1.2) : (isMajor ? 1.4 : 0.9);
     ctx.lineCap = 'round';
     ctx.shadowBlur = active && isMajor ? 5 : 0;
     ctx.shadowColor = 'rgba(168,85,255,0.65)';
@@ -1103,7 +1106,7 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
   // arc track + value
   ctx.save();
   ctx.strokeStyle = 'rgba(20,24,44,0.98)';
-  ctx.lineWidth = isLarge ? 9.5 : 5.9;
+  ctx.lineWidth = largeStyle ? 9.5 : 5.9;
   ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.arc(cx, cy, rArc, startA, startA + sweep);
@@ -1119,8 +1122,8 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
     arcGrad.addColorStop(0.58, '#80a0ff');
     arcGrad.addColorStop(1, '#30e6ff');
     ctx.strokeStyle = arcGrad;
-    ctx.lineWidth = isLarge ? 9.5 : 5.9;
-    ctx.shadowBlur = isLarge ? (adjusting ? 22 : 14) : 9;
+    ctx.lineWidth = largeStyle ? 9.5 : 5.9;
+    ctx.shadowBlur = largeStyle ? (adjusting ? 22 : 14) : 9;
     ctx.shadowColor = 'rgba(148,92,255,0.80)';
     ctx.beginPath();
     ctx.arc(cx, cy, rArc, startA, valA);
@@ -1131,11 +1134,11 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
   // body
   ctx.save();
   ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-  ctx.lineWidth = isLarge ? 7 : 4;
-  ctx.shadowBlur = isLarge ? 14 : 8;
+  ctx.lineWidth = largeStyle ? 7 : 4;
+  ctx.shadowBlur = largeStyle ? 14 : 8;
   ctx.shadowColor = 'rgba(0,0,0,0.8)';
   ctx.beginPath();
-  ctx.arc(cx, cy, rBody + (isLarge ? 3 : 2), 0, Math.PI * 2);
+  ctx.arc(cx, cy, rBody + (largeStyle ? 3 : 2), 0, Math.PI * 2);
   ctx.stroke();
   ctx.shadowBlur = 0;
 
@@ -1165,7 +1168,7 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
   ctx.fill();
 
   ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-  ctx.lineWidth = isLarge ? 2.0 : 1.3;
+  ctx.lineWidth = largeStyle ? 2.0 : 1.3;
   ctx.beginPath();
   ctx.arc(cx - rBody * 0.05, cy - rBody * 0.08, rBody * 0.72, Math.PI * 1.15, Math.PI * 1.72);
   ctx.stroke();
@@ -1174,9 +1177,9 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
   // notch
   ctx.save();
   ctx.strokeStyle = 'rgba(250,252,255,0.98)';
-  ctx.lineWidth = isLarge ? 2.1 : 1.5;
+  ctx.lineWidth = largeStyle ? 2.1 : 1.5;
   ctx.lineCap = 'round';
-  ctx.shadowBlur = isLarge ? 7 : 4;
+  ctx.shadowBlur = largeStyle ? 7 : 4;
   ctx.shadowColor = 'rgba(255,255,255,0.82)';
   const notchStartX = cx + Math.cos(valA) * rBody * 0.46;
   const notchStartY = cy + Math.sin(valA) * rBody * 0.46;
@@ -1189,7 +1192,7 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
 
   // Crisp core line for precision feel
   ctx.strokeStyle = 'rgba(255,255,255,0.92)';
-  ctx.lineWidth = isLarge ? 0.95 : 0.7;
+  ctx.lineWidth = largeStyle ? 0.95 : 0.7;
   ctx.shadowBlur = 0;
   ctx.beginPath();
   ctx.moveTo(notchStartX, notchStartY);
@@ -1198,10 +1201,10 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
 
   // Bright tip dot
   ctx.fillStyle = 'rgba(255,255,255,0.98)';
-  ctx.shadowBlur = isLarge ? 8 : 5;
+  ctx.shadowBlur = largeStyle ? 8 : 5;
   ctx.shadowColor = 'rgba(210,230,255,0.88)';
   ctx.beginPath();
-  ctx.arc(notchEndX, notchEndY, isLarge ? 1.7 : 1.2, 0, Math.PI * 2);
+  ctx.arc(notchEndX, notchEndY, largeStyle ? 1.7 : 1.2, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
@@ -1212,7 +1215,7 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label) {
   ctx.fillStyle = 'rgba(252,254,255,1.0)';
   ctx.shadowBlur = 9;
   ctx.shadowColor = 'rgba(168,85,255,0.35)';
-  if (isLarge) {
+  if (largeText) {
     ctx.font = '800 26px "Arial Narrow", sans-serif';
     ctx.fillText(`${Math.round(v)}%`, cx, cy);
     if (label) {
@@ -1239,7 +1242,10 @@ function drawKnobs() {
     const h = prepared.height;
     cctx.clearRect(0, 0, w, h);
     const adjusting = state.cleanAdjustT > 0;
-    drawKnob(cctx, w / 2, h / 2, w / 2 - 1, state.clean, true, adjusting);
+    drawKnob(cctx, w / 2, h / 2, w / 2 - 1, state.clean, true, adjusting, undefined, {
+      compactStyle: true,
+      keepLargeText: true,
+    });
 
     // Orbit dots and subtle shimmer for CLEAN hero treatment
     const orbR = w / 2 - 4;
