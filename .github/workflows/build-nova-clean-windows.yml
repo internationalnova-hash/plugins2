@@ -69,7 +69,7 @@ jobs:
       - name: Package VST3 Bundle
         shell: pwsh
         run: |
-          $src = "Nova Clean/build/NovaCleanV2_artefacts/Release/VST3/NOVA CLEAN V2.vst3"
+          $src = "Nova Clean/build/NovaCleanV2_artefacts/Release/VST3/Nova Clean.vst3"
           if (-not (Test-Path $src)) { throw "Expected VST3 bundle not found at: $src" }
           Compress-Archive -Path $src -DestinationPath "Nova Clean/build/NovaClean-Windows-vst3.zip" -Force
 

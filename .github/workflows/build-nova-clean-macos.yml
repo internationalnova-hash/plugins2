@@ -32,17 +32,23 @@ jobs:
       - name: Package VST3 Bundle
         run: |
           cd "Nova Clean/build/NovaCleanV2_artefacts/VST3"
-          ditto -c -k --sequesterRsrc --keepParent "NOVA CLEAN V2.vst3" "NovaClean-macOS-vst3.zip"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Clean.vst3" "NovaClean-macOS-vst3.zip"
 
       - name: Package AU Bundle
         run: |
           cd "Nova Clean/build/NovaCleanV2_artefacts/AU"
-          ditto -c -k --sequesterRsrc --keepParent "NOVA CLEAN V2.component" "NovaClean-macOS-au.zip"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Clean.component" "NovaClean-macOS-au.zip"
 
-      - name: Upload Artifacts
+      - name: Upload Deliverables Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NovaClean-macOS-build
+          name: NovaClean-macOS-deliverables
           path: |
             Nova Clean/build/NovaCleanV2_artefacts/VST3/NovaClean-macOS-vst3.zip
             Nova Clean/build/NovaCleanV2_artefacts/AU/NovaClean-macOS-au.zip
+
+      - name: Upload Full Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaClean-macOS-build
+          path: Nova Clean/build
