@@ -139,8 +139,11 @@ function prepareCanvas2D(canvas) {
   if (!canvas) return null;
 
   const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const cssW = canvas.clientWidth || parseInt(canvas.getAttribute('width') || '0', 10) || 0;
-  const cssH = canvas.clientHeight || parseInt(canvas.getAttribute('height') || '0', 10) || 0;
+  const rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { width: 0, height: 0 };
+  const attrW = parseInt(canvas.getAttribute('width') || '0', 10) || 0;
+  const attrH = parseInt(canvas.getAttribute('height') || '0', 10) || 0;
+  const cssW = canvas.clientWidth || Math.round(rect.width) || attrW || 0;
+  const cssH = canvas.clientHeight || Math.round(rect.height) || attrH || 0;
   const pixelW = Math.max(1, Math.round(cssW * dpr));
   const pixelH = Math.max(1, Math.round(cssH * dpr));
 
