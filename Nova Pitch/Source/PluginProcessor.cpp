@@ -657,6 +657,19 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 pendingTargetMidi = -1;
                 pendingTargetStreak = 0;
                 targetSwitchCooldownBlocks = 0;
+
+                // Flush stale detector/history state after long dropouts so phrase
+                // restarts don't need repeated loops to settle.
+                smoothedDetectedHz = 0.0f;
+                lastValidDetectedHz = 0.0f;
+                detMedianBuf.fill (0.0f);
+                detMedianIdx = 0;
+                detMedianFull = false;
+
+                // Also reset correction integrators to avoid old-ratio tail memory.
+                activePitchRatio = 1.0f;
+                targetRatioSmoothed = 1.0f;
+                correctionDriveSmoothed = 0.0f;
             }
         }
     }
@@ -827,7 +840,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         else
             ++correctionEngageAgeBlocks;
 
-        const float engageRampBlocks = hardTuneMode ? 7.0f : 4.0f;
+        const float engageRampBlocks = hardTuneMode ? 4.0f : 4.0f;
         const float engageRamp = juce::jlimit (0.0f, 1.0f,
             static_cast<float> (correctionEngageAgeBlocks) / juce::jmax (1.0f, engageRampBlocks));
         correctionDrive *= engageRamp;
@@ -842,10 +855,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         // Hard mode must ignore low-energy/low-confidence frames, otherwise the shifter
         // chases noisy detector output and sounds staticy/grainy.
-        const float energyDrive = juce::jlimit (0.40f, 1.0f,
-            juce::jmap (inputRmsSmoothed, 0.0025f, 0.010f, 0.40f, 1.0f));
-        const float confidenceDrive = juce::jlimit (0.55f, 1.0f,
-            juce::jmap (trackingConfidence, 0.10f, 0.45f, 0.55f, 1.0f));
+        const float energyDrive = juce::jlimit (0.78f, 1.0f,
+            juce::jmap (inputRmsSmoothed, 0.0025f, 0.010f, 0.78f, 1.0f));
+        const float confidenceDrive = juce::jlimit (0.85f, 1.0f,
+            juce::jmap (trackingConfidence, 0.10f, 0.45f, 0.85f, 1.0f));
         correctionDrive *= energyDrive * confidenceDrive;
     }
 
@@ -1135,11 +1148,11 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Always compute a correction ratio, but only add extra emphasis once the singer
     // is meaningfully off target. Over-boosting tiny errors made the shifter chatter.
     const float signedCents = 1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio)));
-    const float correctionMagnitude = juce::jlimit (0.0f, 1.0f, std::abs (signedCents) / 165.0f);
+    const float correctionMagnitude = juce::jlimit (0.0f, 1.0f, std::abs (signedCents) / 150.0f);
     float emphasis = 1.0f + juce::jmap (amountNorm, 0.0f, 1.0f, 0.14f, 0.62f) * correctionMagnitude;
 
     if (hardTuneMode)
-        emphasis += 0.22f * correctionMagnitude;
+        emphasis += 0.35f * correctionMagnitude;
 
     float emphasizedCents = juce::jlimit (-380.0f, 380.0f, signedCents * emphasis);
 
@@ -1147,16 +1160,16 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     {
         // Suppress micro-flutter around the locked note while keeping strong pull
         // when the singer is meaningfully off target.
-        const float jitterZoneCents = 6.0f;
+        const float jitterZoneCents = 2.0f;
         const float absCents = std::abs (emphasizedCents);
         if (absCents < jitterZoneCents)
         {
             const float t = absCents / jitterZoneCents;
-            emphasizedCents *= t * t;
+            emphasizedCents *= (0.25f + 0.75f * t * t);
         }
 
-        if (absCents > 18.0f)
-            emphasizedCents *= 1.10f;
+        if (absCents > 10.0f)
+            emphasizedCents *= 1.18f;
     }
 
     const float ratioOut = std::pow (2.0f, emphasizedCents / 1200.0f);
