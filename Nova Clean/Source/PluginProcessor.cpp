@@ -256,6 +256,7 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             if (state.holdSamples > 0)
             {
                 float interpTarget;
+                const float interpBase = 0.5f * (state.prevOut + next);
 
                 if (interpolation == Smart && hqMode)
                 {
@@ -270,13 +271,18 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                         + (2.0f*state.prevIn2 - 5.0f*state.prevOut + 4.0f*next - post) * t2
                         + (-state.prevIn2 + 3.0f*state.prevOut - 3.0f*next + post)     * t3
                     );
+
+                    // Shape controls the Smart+HQ character:
+                    // low shape -> more transparent (closer to source), high shape -> smoother repair.
+                    const float transparentTarget = 0.75f * in + 0.25f * interpBase;
+                    const float shapeBlend = juce::jlimit (0.0f, 1.0f, shapeNorm);
+                    interpTarget = juce::jmap (shapeBlend, transparentTarget, interpTarget);
                 }
                 else
                 {
                     const float smartBlend = (interpolation == Smart
                         ? juce::jlimit (0.0f, 1.0f, 0.35f + 0.5f * shapeNorm)
                         : 0.2f);
-                    const float interpBase = 0.5f * (state.prevOut + next);
                     interpTarget = juce::jmap (smartBlend, interpBase, 0.35f * in + 0.65f * interpBase);
                 }
 
