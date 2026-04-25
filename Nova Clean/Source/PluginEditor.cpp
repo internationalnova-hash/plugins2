@@ -34,7 +34,7 @@ NovaCleanV2AudioProcessorEditor::NovaCleanV2AudioProcessorEditor (NovaCleanV2Aud
     webView->goToURL (cacheBustedUrl);
 
     setResizable (false, false);
-    setSize (1536, 1024);
+    setSize (1080, 680);
 
     startTimerHz (30);
 }
