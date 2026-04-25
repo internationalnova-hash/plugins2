@@ -1132,24 +1132,17 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     if (centsError < toleranceCents)
         return 1.0f;
 
-    // MetaTune-style behavior: always compute correction ratio, then let downstream
-    // glide speed determine how quickly we reach it.
-    // We intentionally emphasize correction distance at all speeds so even slower
-    // settings remain clearly audible.
-    float ratioOut = fullRatio;
-
+    // Always compute a correction ratio, but only add extra emphasis once the singer
+    // is meaningfully off target. Over-boosting tiny errors made the shifter chatter.
     const float signedCents = 1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio)));
-    const float baseEmphasis = juce::jmap (amountNorm, 0.0f, 1.0f, 1.45f, 2.40f);
-    float emphasizedCents = signedCents * baseEmphasis;
+    const float correctionMagnitude = juce::jlimit (0.0f, 1.0f, std::abs (signedCents) / 180.0f);
+    float emphasis = 1.0f + juce::jmap (amountNorm, 0.0f, 1.0f, 0.14f, 0.62f) * correctionMagnitude;
 
     if (hardTuneMode)
-    {
-        // Extra push at max speed so hard mode sounds decisively synthetic.
-        emphasizedCents *= 1.18f;
-    }
+        emphasis += 0.16f * correctionMagnitude;
 
-    emphasizedCents = juce::jlimit (-520.0f, 520.0f, emphasizedCents);
-    ratioOut = std::pow (2.0f, emphasizedCents / 1200.0f);
+    const float emphasizedCents = juce::jlimit (-380.0f, 380.0f, signedCents * emphasis);
+    const float ratioOut = std::pow (2.0f, emphasizedCents / 1200.0f);
 
     return juce::jlimit (0.50f, 2.00f, ratioOut);
 }
