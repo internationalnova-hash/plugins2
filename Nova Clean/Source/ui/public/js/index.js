@@ -38,6 +38,17 @@ const els = {
   app: document.getElementById('app'),
   canvas: document.getElementById('displayCanvas'),
   focusZone: document.getElementById('focusZone'),
+  presetBar: document.getElementById('presetBar'),
+  presetName: document.getElementById('presetName'),
+  presetButtons: Array.from(document.querySelectorAll('#presetBar .presetBtn')),
+  presetPrevBtn: document.getElementById('presetPrevBtn'),
+  presetNextBtn: document.getElementById('presetNextBtn'),
+  presetSaveBtn: document.getElementById('presetSaveBtn'),
+  presetMenuBtn: document.getElementById('presetMenuBtn'),
+  presetBrowser: document.getElementById('presetBrowser'),
+  presetCategoryButtons: Array.from(document.querySelectorAll('.presetCategoryBtn')),
+  presetRecentList: document.getElementById('presetRecentList'),
+  presetList: document.getElementById('presetList'),
   cleanKnob: document.getElementById('cleanKnobWrap'),
   preserveKnob: document.getElementById('preserveKnob'),
   mixKnob: document.getElementById('mixKnob'),
@@ -86,6 +97,520 @@ const els = {
     document.getElementById('perfLowLatencyOn'),
   ],
 };
+
+const OUTPUT_GAIN_PERCENT_TO_DB = (percent) => ((percent / 100) * 24) - 12;
+
+const PRESET_TEMPLATES = [
+  {
+    name: 'Vocal Clean (Default)',
+    mode: 0,
+    clean: 11,
+    preserve: 100,
+    mix: 100,
+    outputGain: OUTPUT_GAIN_PERCENT_TO_DB(42),
+    sensitivity: 100,
+    clickSize: 1,
+    freqFocus: 2,
+    strength: 83,
+    shape: 80,
+    interpolation: 1,
+    vocalProtect: 100,
+    transientGuard: 60,
+    hqMode: true,
+    lowLatency: false,
+  },
+  {
+    name: 'Mouth Clicks',
+    mode: 0,
+    clean: 18,
+    preserve: 100,
+    mix: 100,
+    outputGain: OUTPUT_GAIN_PERCENT_TO_DB(42),
+    sensitivity: 90,
+    clickSize: 0,
+    freqFocus: 0,
+    strength: 65,
+    shape: 85,
+    interpolation: 1,
+    vocalProtect: 100,
+    transientGuard: 75,
+    hqMode: true,
+    lowLatency: false,
+  },
+  {
+    name: 'Heavy Vocal Clicks',
+    mode: 0,
+    clean: 35,
+    preserve: 100,
+    mix: 100,
+    outputGain: OUTPUT_GAIN_PERCENT_TO_DB(40),
+    sensitivity: 95,
+    clickSize: 1,
+    freqFocus: 2,
+    strength: 85,
+    shape: 75,
+    interpolation: 1,
+    vocalProtect: 85,
+    transientGuard: 55,
+    hqMode: true,
+    lowLatency: false,
+  },
+  {
+    name: 'Soft Preserve',
+    mode: 0,
+    clean: 8,
+    preserve: 100,
+    mix: 100,
+    outputGain: OUTPUT_GAIN_PERCENT_TO_DB(45),
+    sensitivity: 70,
+    clickSize: 1,
+    freqFocus: 1,
+    strength: 40,
+    shape: 35,
+    interpolation: 1,
+    vocalProtect: 100,
+    transientGuard: 85,
+    hqMode: true,
+    lowLatency: false,
+  },
+  {
+    name: 'Rap Transient Safe',
+    mode: 0,
+    clean: 14,
+    preserve: 100,
+    mix: 100,
+    outputGain: OUTPUT_GAIN_PERCENT_TO_DB(42),
+    sensitivity: 85,
+    clickSize: 1,
+    freqFocus: 1,
+    strength: 58,
+    shape: 45,
+    interpolation: 1,
+    vocalProtect: 100,
+    transientGuard: 95,
+    hqMode: true,
+    lowLatency: false,
+  },
+  {
+    name: 'Crackle Repair',
+    mode: 2,
+    clean: 45,
+    preserve: 100,
+    mix: 100,
+    outputGain: OUTPUT_GAIN_PERCENT_TO_DB(38),
+    sensitivity: 85,
+    clickSize: 2,
+    freqFocus: 2,
+    strength: 80,
+    shape: 85,
+    interpolation: 1,
+    vocalProtect: 70,
+    transientGuard: 55,
+    hqMode: true,
+    lowLatency: false,
+  },
+  {
+    name: 'Digital Glitch Fix',
+    mode: 1,
+    clean: 38,
+    preserve: 100,
+    mix: 100,
+    outputGain: OUTPUT_GAIN_PERCENT_TO_DB(38),
+    sensitivity: 75,
+    clickSize: 1,
+    freqFocus: 2,
+    strength: 78,
+    shape: 40,
+    interpolation: 1,
+    vocalProtect: 75,
+    transientGuard: 60,
+    hqMode: true,
+    lowLatency: false,
+  },
+  {
+    name: 'Background Artifact Assist',
+    mode: 1,
+    clean: 28,
+    preserve: 100,
+    mix: 100,
+    outputGain: OUTPUT_GAIN_PERCENT_TO_DB(40),
+    sensitivity: 70,
+    clickSize: 2,
+    freqFocus: 1,
+    strength: 62,
+    shape: 70,
+    interpolation: 0,
+    vocalProtect: 80,
+    transientGuard: 70,
+    hqMode: true,
+    lowLatency: false,
+  },
+  {
+    name: 'Aggressive Clean',
+    mode: 0,
+    clean: 60,
+    preserve: 100,
+    mix: 100,
+    outputGain: OUTPUT_GAIN_PERCENT_TO_DB(35),
+    sensitivity: 100,
+    clickSize: 1,
+    freqFocus: 2,
+    strength: 92,
+    shape: 90,
+    interpolation: 1,
+    vocalProtect: 60,
+    transientGuard: 45,
+    hqMode: true,
+    lowLatency: false,
+  },
+  {
+    name: 'Emergency Repair',
+    mode: 1,
+    clean: 80,
+    preserve: 100,
+    mix: 100,
+    outputGain: OUTPUT_GAIN_PERCENT_TO_DB(32),
+    sensitivity: 100,
+    clickSize: 2,
+    freqFocus: 2,
+    strength: 100,
+    shape: 95,
+    interpolation: 1,
+    vocalProtect: 35,
+    transientGuard: 30,
+    hqMode: true,
+    lowLatency: false,
+  },
+];
+
+const PRESET_META = {
+  'Vocal Clean (Default)': {
+    description: 'Clean, natural vocal repair',
+    icon: 'V',
+    categories: ['Vocal', 'Transparent'],
+  },
+  'Mouth Clicks': {
+    description: 'Removes saliva and lip noise',
+    icon: 'M',
+    categories: ['Vocal', 'Repair'],
+  },
+  'Heavy Vocal Clicks': {
+    description: 'Aggressive click removal',
+    icon: 'H',
+    categories: ['Vocal', 'Aggressive', 'Repair'],
+  },
+  'Soft Preserve': {
+    description: 'Ultra transparent cleanup',
+    icon: 'S',
+    categories: ['Vocal', 'Transparent'],
+  },
+  'Rap Transient Safe': {
+    description: 'Protects vocal punch and consonants',
+    icon: 'R',
+    categories: ['Vocal', 'Transparent'],
+  },
+  'Crackle Repair': {
+    description: 'For static-like crackle and repeated artifacts',
+    icon: 'C',
+    categories: ['Repair'],
+  },
+  'Digital Glitch Fix': {
+    description: 'For digital pops, edits, and hard artifacts',
+    icon: 'D',
+    categories: ['Repair', 'Aggressive'],
+  },
+  'Background Artifact Assist': {
+    description: 'Low and mid artifact cleanup support',
+    icon: 'B',
+    categories: ['Repair', 'Transparent'],
+  },
+  'Aggressive Clean': {
+    description: 'Maximum repair strength',
+    icon: 'A',
+    categories: ['Vocal', 'Aggressive'],
+  },
+  'Emergency Repair': {
+    description: 'Extreme restoration mode',
+    icon: 'E',
+    categories: ['Emergency', 'Aggressive', 'Repair'],
+  },
+};
+
+const PRESET_BROWSER_CATEGORIES = ['All', 'Vocal', 'Repair', 'Transparent', 'Aggressive', 'Emergency'];
+
+let activePresetIndex = 0;
+let presetAnimationFrame = null;
+let presetBrowserOpen = false;
+let presetCategory = 'All';
+let presetBrowserCloseTimer = null;
+let recentPresetIndices = [0];
+const favoritePresetNames = new Set();
+
+function getPresetMeta(preset) {
+  return PRESET_META[preset.name] || {
+    description: 'Custom preset',
+    icon: 'P',
+    categories: ['All'],
+  };
+}
+
+function getPresetIndicesForCategory(category) {
+  if (category === 'All') return PRESET_TEMPLATES.map((_, i) => i);
+
+  const filtered = [];
+  PRESET_TEMPLATES.forEach((preset, index) => {
+    const meta = getPresetMeta(preset);
+    if (meta.categories.includes(category)) filtered.push(index);
+  });
+  return filtered;
+}
+
+function rememberRecentPreset(index) {
+  recentPresetIndices = recentPresetIndices.filter((v) => v !== index);
+  recentPresetIndices.unshift(index);
+  recentPresetIndices = recentPresetIndices.slice(0, 3);
+}
+
+function updatePresetCategoryButtons() {
+  els.presetCategoryButtons.forEach((btn) => {
+    const isActive = btn.getAttribute('data-category') === presetCategory;
+    btn.classList.toggle('active', isActive);
+  });
+}
+
+function renderPresetRecent() {
+  if (!els.presetRecentList) return;
+  els.presetRecentList.innerHTML = '';
+
+  recentPresetIndices.forEach((index) => {
+    const preset = PRESET_TEMPLATES[index];
+    if (!preset) return;
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'presetRecentChip';
+    chip.textContent = preset.name;
+    chip.addEventListener('click', () => {
+      applyPresetByIndex(index, { animated: true, shouldEmit: true, trackRecent: true });
+      closePresetBrowser();
+    });
+    els.presetRecentList.appendChild(chip);
+  });
+}
+
+function renderPresetList() {
+  if (!els.presetList) return;
+  els.presetList.innerHTML = '';
+
+  const presetIndices = getPresetIndicesForCategory(presetCategory);
+
+  presetIndices.forEach((index) => {
+    const preset = PRESET_TEMPLATES[index];
+    const meta = getPresetMeta(preset);
+
+    const item = document.createElement('div');
+    item.className = 'presetItem';
+    if (index === activePresetIndex) item.classList.add('selected');
+    item.setAttribute('role', 'button');
+    item.setAttribute('tabindex', '0');
+
+    const icon = document.createElement('div');
+    icon.className = 'presetItemIcon';
+    icon.textContent = meta.icon;
+
+    const body = document.createElement('div');
+    const name = document.createElement('div');
+    name.className = 'presetItemName';
+    name.textContent = preset.name;
+    const desc = document.createElement('div');
+    desc.className = 'presetItemDesc';
+    desc.textContent = meta.description;
+    body.appendChild(name);
+    body.appendChild(desc);
+
+    const fav = document.createElement('button');
+    fav.type = 'button';
+    fav.className = 'presetFavBtn';
+    fav.textContent = '★';
+    fav.title = 'Favorite preset';
+    const isFavorite = favoritePresetNames.has(preset.name);
+    fav.classList.toggle('active', isFavorite);
+
+    fav.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (favoritePresetNames.has(preset.name)) favoritePresetNames.delete(preset.name);
+      else favoritePresetNames.add(preset.name);
+      renderPresetList();
+    });
+
+    const choosePreset = () => {
+      applyPresetByIndex(index, { animated: true, shouldEmit: true, trackRecent: true });
+      closePresetBrowser();
+    };
+
+    item.addEventListener('click', choosePreset);
+    item.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        choosePreset();
+      }
+    });
+
+    item.appendChild(icon);
+    item.appendChild(body);
+    item.appendChild(fav);
+    els.presetList.appendChild(item);
+  });
+}
+
+function renderPresetBrowser() {
+  updatePresetCategoryButtons();
+  renderPresetRecent();
+  renderPresetList();
+}
+
+function setPresetCategory(category) {
+  if (!PRESET_BROWSER_CATEGORIES.includes(category)) return;
+  presetCategory = category;
+  renderPresetBrowser();
+}
+
+function openPresetBrowser() {
+  if (!els.presetBrowser || presetBrowserOpen) return;
+  if (presetBrowserCloseTimer) {
+    clearTimeout(presetBrowserCloseTimer);
+    presetBrowserCloseTimer = null;
+  }
+  presetBrowserOpen = true;
+  renderPresetBrowser();
+  els.presetBrowser.classList.remove('is-closing');
+  els.presetBrowser.classList.add('is-open');
+  els.presetBrowser.setAttribute('aria-hidden', 'false');
+}
+
+function closePresetBrowser() {
+  if (!els.presetBrowser || !presetBrowserOpen) return;
+  presetBrowserOpen = false;
+  els.presetBrowser.classList.remove('is-open');
+  els.presetBrowser.classList.add('is-closing');
+  els.presetBrowser.setAttribute('aria-hidden', 'true');
+
+  if (presetBrowserCloseTimer) clearTimeout(presetBrowserCloseTimer);
+  presetBrowserCloseTimer = setTimeout(() => {
+    if (!els.presetBrowser) return;
+    els.presetBrowser.classList.remove('is-closing');
+    presetBrowserCloseTimer = null;
+  }, 95);
+}
+
+function togglePresetBrowser() {
+  if (presetBrowserOpen) closePresetBrowser();
+  else openPresetBrowser();
+}
+
+function updatePresetLabel() {
+  if (!els.presetName) return;
+  els.presetName.textContent = PRESET_TEMPLATES[activePresetIndex].name;
+}
+
+function applyPresetSnapshot(snapshot, shouldEmit = true, pulseClean = true) {
+  setMode(snapshot.mode, shouldEmit);
+  setClean(snapshot.clean, shouldEmit, pulseClean);
+  setPreserve(snapshot.preserve, shouldEmit);
+  setMix(snapshot.mix, shouldEmit);
+  setOutputGainDb(snapshot.outputGain, shouldEmit);
+  setSensitivity(snapshot.sensitivity, shouldEmit);
+  setClickSize(snapshot.clickSize, shouldEmit);
+  setFreqFocus(snapshot.freqFocus, shouldEmit);
+  setStrength(snapshot.strength, shouldEmit);
+  setShape(snapshot.shape, shouldEmit);
+  setInterpolation(snapshot.interpolation, shouldEmit);
+  setVocalProtect(snapshot.vocalProtect, shouldEmit);
+  setTransientGuard(snapshot.transientGuard, shouldEmit);
+  setLowLatency(snapshot.lowLatency, shouldEmit);
+  setHQMode(snapshot.hqMode, shouldEmit);
+}
+
+function stopPresetAnimation() {
+  if (presetAnimationFrame === null) return;
+  cancelAnimationFrame(presetAnimationFrame);
+  presetAnimationFrame = null;
+}
+
+function animatePresetTransition(preset, shouldEmit = true) {
+  stopPresetAnimation();
+
+  const start = {
+    clean: state.clean,
+    preserve: state.preserve,
+    mix: state.mix,
+    outputGain: state.outputGain,
+    sensitivity: state.sensitivity,
+    strength: state.strength,
+    shape: state.shape,
+    vocalProtect: state.vocalProtect,
+    transientGuard: state.transientGuard,
+  };
+
+  const durationMs = 300;
+  const startTs = performance.now();
+  pulseCleanKnob();
+
+  const tickFrame = (now) => {
+    const elapsed = now - startTs;
+    const t = Math.max(0, Math.min(1, elapsed / durationMs));
+    const eased = 1 - Math.pow(1 - t, 3);
+
+    setClean(start.clean + (preset.clean - start.clean) * eased, shouldEmit, false);
+    setPreserve(start.preserve + (preset.preserve - start.preserve) * eased, shouldEmit);
+    setMix(start.mix + (preset.mix - start.mix) * eased, shouldEmit);
+    setOutputGainDb(start.outputGain + (preset.outputGain - start.outputGain) * eased, shouldEmit);
+    setSensitivity(start.sensitivity + (preset.sensitivity - start.sensitivity) * eased, shouldEmit);
+    setStrength(start.strength + (preset.strength - start.strength) * eased, shouldEmit);
+    setShape(start.shape + (preset.shape - start.shape) * eased, shouldEmit);
+    setVocalProtect(start.vocalProtect + (preset.vocalProtect - start.vocalProtect) * eased, shouldEmit);
+    setTransientGuard(start.transientGuard + (preset.transientGuard - start.transientGuard) * eased, shouldEmit);
+
+    if (t < 1) {
+      presetAnimationFrame = requestAnimationFrame(tickFrame);
+      return;
+    }
+
+    presetAnimationFrame = null;
+    applyPresetSnapshot(preset, shouldEmit, false);
+  };
+
+  presetAnimationFrame = requestAnimationFrame(tickFrame);
+}
+
+function applyPresetByIndex(index, options = {}) {
+  const { animated = true, shouldEmit = true, trackRecent = shouldEmit } = options;
+  const count = PRESET_TEMPLATES.length;
+  activePresetIndex = ((index % count) + count) % count;
+  const preset = PRESET_TEMPLATES[activePresetIndex];
+
+  if (trackRecent) rememberRecentPreset(activePresetIndex);
+
+  updatePresetLabel();
+  setMode(preset.mode, shouldEmit);
+  setClickSize(preset.clickSize, shouldEmit);
+  setFreqFocus(preset.freqFocus, shouldEmit);
+  setInterpolation(preset.interpolation, shouldEmit);
+  setLowLatency(preset.lowLatency, shouldEmit);
+  setHQMode(preset.hqMode, shouldEmit);
+
+  if (animated) {
+    animatePresetTransition(preset, shouldEmit);
+  } else {
+    stopPresetAnimation();
+    applyPresetSnapshot(preset, shouldEmit, false);
+  }
+
+  if (presetBrowserOpen) renderPresetBrowser();
+}
+
+function cyclePreset(step) {
+  applyPresetByIndex(activePresetIndex + step, { animated: true, shouldEmit: true });
+}
 
 function hasBackend() {
   return !!(window.__JUCE__ && window.__JUCE__.backend);
@@ -261,12 +786,12 @@ function pulseCleanKnob() {
   }, 620);
 }
 
-function setClean(value, shouldEmit = true) {
+function setClean(value, shouldEmit = true, shouldPulse = true) {
   const clamped = Math.max(0, Math.min(100, value));
   if (Math.abs(clamped - state.clean) < 0.001) return;
   state.clean = clamped;
   if (shouldEmit) emitParam('clean', clamped);
-  pulseCleanKnob();
+  if (shouldPulse) pulseCleanKnob();
   syncUi();
 }
 
@@ -380,6 +905,45 @@ function endDragGuard() {
 }
 
 function setupInteractions() {
+  const presetPrevBtn = els.presetPrevBtn || els.presetButtons[0];
+  const presetNextBtn = els.presetNextBtn || els.presetButtons[1];
+  if (presetPrevBtn) presetPrevBtn.addEventListener('click', () => cyclePreset(-1));
+  if (presetNextBtn) presetNextBtn.addEventListener('click', () => cyclePreset(1));
+
+  if (els.presetName) {
+    els.presetName.addEventListener('click', () => togglePresetBrowser());
+    els.presetName.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        togglePresetBrowser();
+      }
+    });
+  }
+
+  if (els.presetMenuBtn) {
+    els.presetMenuBtn.addEventListener('click', () => togglePresetBrowser());
+  }
+
+  els.presetCategoryButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const category = btn.getAttribute('data-category') || 'All';
+      setPresetCategory(category);
+    });
+  });
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!presetBrowserOpen || !els.presetBrowser) return;
+    const target = event.target;
+    if (els.presetBrowser.contains(target)) return;
+    if (els.presetName && (target === els.presetName || els.presetName.contains(target))) return;
+    if (els.presetMenuBtn && (target === els.presetMenuBtn || els.presetMenuBtn.contains(target))) return;
+    closePresetBrowser();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closePresetBrowser();
+  });
+
   els.modeButtons.forEach((b, i) => b.addEventListener('click', () => setMode(i)));
 
   els.btnLowLatency.addEventListener('click', () => {
@@ -1466,7 +2030,7 @@ window.receiveDSP = (dsp) => {
 
 window.addEventListener('resize', resizeApp);
 resizeApp();
-setMode(0);
+applyPresetByIndex(0, { animated: false, shouldEmit: false });
 syncUi();
 setupInteractions();
 initBackendSync();
