@@ -789,7 +789,7 @@ function syncUi() {
   if (els.mixSlider) {
     els.mixSlider.value = `${Math.round(state.mix)}`;
     updateRangeFill(els.mixSlider, {
-      fill: 'linear-gradient(90deg, rgba(255, 177, 255, 0.98) 0%, rgba(181, 94, 255, 0.98) 58%, rgba(96, 210, 255, 0.95) 100%)',
+      fill: 'linear-gradient(90deg, rgba(247, 198, 255, 0.98) 0%, rgba(190, 93, 255, 0.98) 52%, rgba(132, 74, 255, 0.98) 100%)',
       empty: 'rgba(69, 79, 108, 0.28)',
       glow: 'rgba(168, 85, 255, 0.28)',
     });
@@ -798,7 +798,7 @@ function syncUi() {
   if (els.shapeSlider) els.shapeSlider.value = `${Math.round(state.shape)}`;
   if (els.shapeSlider) {
     updateRangeFill(els.shapeSlider, {
-      fill: 'linear-gradient(90deg, rgba(255, 255, 255, 0.98) 0%, rgba(196, 232, 255, 0.98) 42%, rgba(95, 198, 255, 0.98) 100%)',
+      fill: 'linear-gradient(90deg, rgba(214, 242, 255, 0.98) 0%, rgba(119, 210, 255, 0.98) 50%, rgba(61, 166, 255, 0.98) 100%)',
       empty: 'rgba(69, 79, 108, 0.24)',
       glow: 'rgba(95, 198, 255, 0.24)',
     });
@@ -863,7 +863,9 @@ function updateRangeFill(slider, options) {
   const empty = options.empty || 'rgba(69, 79, 108, 0.24)';
   const glow = options.glow || 'rgba(120, 140, 210, 0.18)';
 
-  slider.style.background = `linear-gradient(90deg, ${fill} 0%, ${fill} ${percent}%, ${empty} ${percent}%, ${empty} 100%)`;
+  slider.style.setProperty('--fill-percent', `${percent}%`);
+  slider.style.setProperty('--fill-color', fill);
+  slider.style.setProperty('--empty-color', empty);
   slider.style.boxShadow = `inset 0 1px 2px rgba(0, 0, 0, 0.45), 0 0 12px ${glow}`;
 }
 
