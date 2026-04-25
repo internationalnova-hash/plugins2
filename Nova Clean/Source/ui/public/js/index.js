@@ -1356,8 +1356,9 @@ function tick() {
 }
 
 function resizeApp() {
-  const vw = Math.max(1, window.innerWidth);
-  const vh = Math.max(1, window.innerHeight);
+  const pad = 12;
+  const vw = Math.max(1, window.innerWidth - pad * 2);
+  const vh = Math.max(1, window.innerHeight - pad * 2);
   const baseWidth = 1536;
   const baseHeight = 1024;
   const s = Math.min(vw / baseWidth, vh / baseHeight, 1);
