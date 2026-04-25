@@ -1236,6 +1236,70 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label, options = {}
   ctx.restore();
 }
 
+function drawTopRowArcOverlay(ctx, cx, cy, r, value0to100, largeKnob) {
+  const v = Math.max(0, Math.min(100, value0to100));
+  const DEG = Math.PI / 180;
+  const startA = 210 * DEG;
+  const sweep = 300 * DEG;
+  const endA = startA + (v / 100) * sweep;
+
+  const rTick = r * 0.88;
+  const rArc = r * 0.74;
+  const scale = largeKnob ? 1.7 : 1.0;
+
+  // Track arc
+  ctx.save();
+  ctx.strokeStyle = 'rgba(34,42,70,0.96)';
+  ctx.lineWidth = (5.4 * scale);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(cx, cy, rArc, startA, startA + sweep);
+  ctx.stroke();
+
+  // Active arc
+  if (v > 0.1) {
+    const x0 = cx + Math.cos(startA) * rArc;
+    const y0 = cy + Math.sin(startA) * rArc;
+    const x1 = cx + Math.cos(endA) * rArc;
+    const y1 = cy + Math.sin(endA) * rArc;
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, '#c07aff');
+    g.addColorStop(0.55, '#86a5ff');
+    g.addColorStop(1, '#32e7ff');
+    ctx.strokeStyle = g;
+    ctx.lineWidth = (5.4 * scale);
+    ctx.shadowBlur = 8 * scale;
+    ctx.shadowColor = 'rgba(146,94,255,0.7)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, rArc, startA, endA);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+
+  // Tick marks
+  const TICKS = 12;
+  ctx.save();
+  for (let i = 0; i <= TICKS; i++) {
+    const a = startA + (i / TICKS) * sweep;
+    const major = i % 3 === 0;
+    const tickLen = (major ? 4.8 : 3.0) * scale;
+    const outer = rTick;
+    const inner = rTick - tickLen;
+    const active = i <= (v / 100) * TICKS;
+    ctx.strokeStyle = active
+      ? `rgba(188,124,255,${major ? 0.95 : 0.70})`
+      : `rgba(100,112,158,${major ? 0.56 : 0.33})`;
+    ctx.lineWidth = (major ? 1.4 : 0.95) * scale;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
+    ctx.lineTo(cx + Math.cos(a) * outer, cy + Math.sin(a) * outer);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 // Draw all knobs in the control panels
 function drawKnobs() {
   // ── CLEAN (large, dominant) ─────────────────────────────────────────────
@@ -1251,6 +1315,7 @@ function drawKnobs() {
       forceBottomStyle: true,
       keepLargeText: true,
     });
+    drawTopRowArcOverlay(cctx, w / 2, h / 2, w / 2 - 1, state.clean, true);
 
     // Orbit dots and subtle shimmer for CLEAN hero treatment
     const orbR = w / 2 - 4;
@@ -1295,6 +1360,7 @@ function drawKnobs() {
     drawKnob(pctx, w / 2, h / 2, w / 2 - 1, state.preserve, false, false, undefined, {
       forceBottomStyle: true,
     });
+    drawTopRowArcOverlay(pctx, w / 2, h / 2, w / 2 - 1, state.preserve, false);
   }
 
   // ── MIX ───────────────────────────────────────────────────────────────────
@@ -1308,6 +1374,7 @@ function drawKnobs() {
     drawKnob(mctx, w / 2, h / 2, w / 2 - 1, state.mix, false, false, undefined, {
       forceBottomStyle: true,
     });
+    drawTopRowArcOverlay(mctx, w / 2, h / 2, w / 2 - 1, state.mix, false);
   }
 
   // ── OUTPUT GAIN (maps -12..+12 dB → 0..100%) ─────────────────────────────
@@ -1322,6 +1389,7 @@ function drawKnobs() {
     drawKnob(octx, w / 2, h / 2, w / 2 - 1, normGain, false, false, undefined, {
       forceBottomStyle: true,
     });
+    drawTopRowArcOverlay(octx, w / 2, h / 2, w / 2 - 1, normGain, false);
 
     // Slight extra glow so output knob matches overall lighting system.
     octx.save();
