@@ -1024,8 +1024,9 @@ function drawDisplay() {
 //
 function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label, options = {}) {
   const v = Math.max(0, Math.min(100, value));
-  const compactStyle = !!options.compactStyle;
-  const largeStyle = isLarge && !compactStyle;
+  const forceBottomStyle = !!options.forceBottomStyle;
+  const styleScale = forceBottomStyle ? Math.max(1.0, r / 39) : 1.0;
+  const largeStyle = isLarge && !forceBottomStyle;
   const largeText = isLarge && (options.keepLargeText !== false);
   const rHalo  = r * 0.97;
   const rTick  = r * 0.87;
@@ -1074,7 +1075,8 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label, options = {}
     ctx.shadowBlur = active ? 5 : 0;
     ctx.shadowColor = 'rgba(168,85,255,0.65)';
     ctx.beginPath();
-    ctx.arc(px, py, largeStyle ? 1.32 : 1.06, 0, Math.PI * 2);
+    const dotRadius = (largeStyle ? 1.32 : 1.06) * (forceBottomStyle ? styleScale : 1.0);
+    ctx.arc(px, py, dotRadius, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
@@ -1085,14 +1087,16 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label, options = {}
   for (let i = 0; i <= TICKS; i++) {
     const ang = startA + (i / TICKS) * sweep;
     const isMajor = i % 3 === 0;
-    const tickLen = isMajor ? (largeStyle ? 7 : 4.5) : (largeStyle ? 4 : 2.8);
+    const tickLenBase = isMajor ? (largeStyle ? 7 : 4.5) : (largeStyle ? 4 : 2.8);
+    const tickLen = tickLenBase * (forceBottomStyle ? styleScale : 1.0);
     const outer = rTick;
     const inner = rTick - tickLen;
     const active = i <= (v / 100) * TICKS;
     ctx.strokeStyle = active
       ? `rgba(186,120,255,${isMajor ? 0.88 : 0.55})`
       : `rgba(85,95,140,${isMajor ? 0.44 : 0.24})`;
-    ctx.lineWidth = largeStyle ? (isMajor ? 2.0 : 1.2) : (isMajor ? 1.4 : 0.9);
+    const tickWidthBase = largeStyle ? (isMajor ? 2.0 : 1.2) : (isMajor ? 1.4 : 0.9);
+    ctx.lineWidth = tickWidthBase * (forceBottomStyle ? styleScale : 1.0);
     ctx.lineCap = 'round';
     ctx.shadowBlur = active && isMajor ? 5 : 0;
     ctx.shadowColor = 'rgba(168,85,255,0.65)';
@@ -1106,7 +1110,7 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label, options = {}
   // arc track + value
   ctx.save();
   ctx.strokeStyle = 'rgba(20,24,44,0.98)';
-  ctx.lineWidth = largeStyle ? 9.5 : 5.9;
+  ctx.lineWidth = (largeStyle ? 9.5 : 5.9) * (forceBottomStyle ? styleScale : 1.0);
   ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.arc(cx, cy, rArc, startA, startA + sweep);
@@ -1122,8 +1126,9 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label, options = {}
     arcGrad.addColorStop(0.58, '#80a0ff');
     arcGrad.addColorStop(1, '#30e6ff');
     ctx.strokeStyle = arcGrad;
-    ctx.lineWidth = largeStyle ? 9.5 : 5.9;
-    ctx.shadowBlur = largeStyle ? (adjusting ? 22 : 14) : 9;
+    ctx.lineWidth = (largeStyle ? 9.5 : 5.9) * (forceBottomStyle ? styleScale : 1.0);
+    const arcShadow = largeStyle ? (adjusting ? 22 : 14) : 9;
+    ctx.shadowBlur = arcShadow * (forceBottomStyle ? Math.min(styleScale, 1.6) : 1.0);
     ctx.shadowColor = 'rgba(148,92,255,0.80)';
     ctx.beginPath();
     ctx.arc(cx, cy, rArc, startA, valA);
@@ -1134,8 +1139,8 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label, options = {}
   // body
   ctx.save();
   ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-  ctx.lineWidth = largeStyle ? 7 : 4;
-  ctx.shadowBlur = largeStyle ? 14 : 8;
+  ctx.lineWidth = (largeStyle ? 7 : 4) * (forceBottomStyle ? styleScale : 1.0);
+  ctx.shadowBlur = (largeStyle ? 14 : 8) * (forceBottomStyle ? Math.min(styleScale, 1.5) : 1.0);
   ctx.shadowColor = 'rgba(0,0,0,0.8)';
   ctx.beginPath();
   ctx.arc(cx, cy, rBody + (largeStyle ? 3 : 2), 0, Math.PI * 2);
@@ -1168,7 +1173,7 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label, options = {}
   ctx.fill();
 
   ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-  ctx.lineWidth = largeStyle ? 2.0 : 1.3;
+  ctx.lineWidth = (largeStyle ? 2.0 : 1.3) * (forceBottomStyle ? styleScale : 1.0);
   ctx.beginPath();
   ctx.arc(cx - rBody * 0.05, cy - rBody * 0.08, rBody * 0.72, Math.PI * 1.15, Math.PI * 1.72);
   ctx.stroke();
@@ -1177,9 +1182,9 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label, options = {}
   // notch
   ctx.save();
   ctx.strokeStyle = 'rgba(250,252,255,0.98)';
-  ctx.lineWidth = largeStyle ? 2.1 : 1.5;
+  ctx.lineWidth = (largeStyle ? 2.1 : 1.5) * (forceBottomStyle ? styleScale : 1.0);
   ctx.lineCap = 'round';
-  ctx.shadowBlur = largeStyle ? 7 : 4;
+  ctx.shadowBlur = (largeStyle ? 7 : 4) * (forceBottomStyle ? Math.min(styleScale, 1.5) : 1.0);
   ctx.shadowColor = 'rgba(255,255,255,0.82)';
   const notchStartX = cx + Math.cos(valA) * rBody * 0.46;
   const notchStartY = cy + Math.sin(valA) * rBody * 0.46;
@@ -1192,7 +1197,7 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label, options = {}
 
   // Crisp core line for precision feel
   ctx.strokeStyle = 'rgba(255,255,255,0.92)';
-  ctx.lineWidth = largeStyle ? 0.95 : 0.7;
+  ctx.lineWidth = (largeStyle ? 0.95 : 0.7) * (forceBottomStyle ? styleScale : 1.0);
   ctx.shadowBlur = 0;
   ctx.beginPath();
   ctx.moveTo(notchStartX, notchStartY);
@@ -1201,10 +1206,10 @@ function drawKnob(ctx, cx, cy, r, value, isLarge, adjusting, label, options = {}
 
   // Bright tip dot
   ctx.fillStyle = 'rgba(255,255,255,0.98)';
-  ctx.shadowBlur = largeStyle ? 8 : 5;
+  ctx.shadowBlur = (largeStyle ? 8 : 5) * (forceBottomStyle ? Math.min(styleScale, 1.5) : 1.0);
   ctx.shadowColor = 'rgba(210,230,255,0.88)';
   ctx.beginPath();
-  ctx.arc(notchEndX, notchEndY, largeStyle ? 1.7 : 1.2, 0, Math.PI * 2);
+  ctx.arc(notchEndX, notchEndY, (largeStyle ? 1.7 : 1.2) * (forceBottomStyle ? styleScale : 1.0), 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
@@ -1243,7 +1248,7 @@ function drawKnobs() {
     cctx.clearRect(0, 0, w, h);
     const adjusting = state.cleanAdjustT > 0;
     drawKnob(cctx, w / 2, h / 2, w / 2 - 1, state.clean, true, adjusting, undefined, {
-      compactStyle: true,
+      forceBottomStyle: true,
       keepLargeText: true,
     });
 
@@ -1287,7 +1292,9 @@ function drawKnobs() {
     const w = prepared.width;
     const h = prepared.height;
     pctx.clearRect(0, 0, w, h);
-    drawKnob(pctx, w / 2, h / 2, w / 2 - 1, state.preserve, false, false);
+    drawKnob(pctx, w / 2, h / 2, w / 2 - 1, state.preserve, false, false, undefined, {
+      forceBottomStyle: true,
+    });
   }
 
   // ── MIX ───────────────────────────────────────────────────────────────────
@@ -1298,7 +1305,9 @@ function drawKnobs() {
     const w = prepared.width;
     const h = prepared.height;
     mctx.clearRect(0, 0, w, h);
-    drawKnob(mctx, w / 2, h / 2, w / 2 - 1, state.mix, false, false);
+    drawKnob(mctx, w / 2, h / 2, w / 2 - 1, state.mix, false, false, undefined, {
+      forceBottomStyle: true,
+    });
   }
 
   // ── OUTPUT GAIN (maps -12..+12 dB → 0..100%) ─────────────────────────────
@@ -1310,7 +1319,9 @@ function drawKnobs() {
     const h = prepared.height;
     octx.clearRect(0, 0, w, h);
     const normGain = Math.round(((state.outputGain + 12) / 24) * 100);
-    drawKnob(octx, w / 2, h / 2, w / 2 - 1, normGain, false, false);
+    drawKnob(octx, w / 2, h / 2, w / 2 - 1, normGain, false, false, undefined, {
+      forceBottomStyle: true,
+    });
 
     // Slight extra glow so output knob matches overall lighting system.
     octx.save();
