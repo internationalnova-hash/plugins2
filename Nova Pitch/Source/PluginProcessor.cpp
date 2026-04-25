@@ -1132,9 +1132,26 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     if (centsError < toleranceCents)
         return 1.0f;
 
-    // MetaTune-style behavior: always compute full correction ratio,
-    // then let downstream glide speed determine how quickly we reach it.
-    return juce::jlimit (0.50f, 2.00f, fullRatio);
+    // MetaTune-style behavior: always compute correction ratio, then let downstream
+    // glide speed determine how quickly we reach it.
+    // We intentionally emphasize correction distance at all speeds so even slower
+    // settings remain clearly audible.
+    float ratioOut = fullRatio;
+
+    const float signedCents = 1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio)));
+    const float baseEmphasis = juce::jmap (amountNorm, 0.0f, 1.0f, 1.45f, 2.40f);
+    float emphasizedCents = signedCents * baseEmphasis;
+
+    if (hardTuneMode)
+    {
+        // Extra push at max speed so hard mode sounds decisively synthetic.
+        emphasizedCents *= 1.18f;
+    }
+
+    emphasizedCents = juce::jlimit (-520.0f, 520.0f, emphasizedCents);
+    ratioOut = std::pow (2.0f, emphasizedCents / 1200.0f);
+
+    return juce::jlimit (0.50f, 2.00f, ratioOut);
 }
 
 void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate, int numSamples, float vibratoParam)
@@ -1675,10 +1692,10 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         const float unityDelta = std::abs (effectiveRatio - 1.0f);
         const float desiredAnchor = wrapPos (static_cast<float> (writeIdx - baseDelaySamples));
 
-        // Near-unity passthrough: keep this very narrow so subtle correction remains audible.
-        // Full dry only inside ~3 cents, and fade out by ~7 cents.
+        // Near-unity passthrough: keep this extremely narrow so correction remains
+        // clearly audible even at slower settings.
         float nearUnityBlend = juce::jlimit (0.0f, 1.0f,
-            juce::jmap (unityDelta, 0.0010f, 0.0024f, 1.0f, 0.0f)); // 1=dry, 0=shifted
+            juce::jmap (unityDelta, 0.00035f, 0.00110f, 1.0f, 0.0f)); // 1=dry, 0=shifted
         if (hardTuneMode)
         {
             nearUnityBlend = 0.0f;
