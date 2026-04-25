@@ -69,7 +69,9 @@ const els = {
   inputBar: document.getElementById('inputBar'),
   inputDb: document.getElementById('inputDb'),
   mixSlider: document.getElementById('mixSlider'),
+  mixSliderFill: document.getElementById('mixSliderFill'),
   shapeSlider: document.getElementById('shapeSlider'),
+  shapeSliderFill: document.getElementById('shapeSliderFill'),
   sensitivityKnob: document.getElementById('sensitivityKnob'),
   strengthKnob: document.getElementById('strengthKnob'),
   vocalProtectKnob: document.getElementById('vocalProtectKnob'),
@@ -789,18 +791,16 @@ function syncUi() {
   if (els.mixSlider) {
     els.mixSlider.value = `${Math.round(state.mix)}`;
     updateRangeFill(els.mixSlider, {
+      fillElement: els.mixSliderFill,
       fill: 'linear-gradient(90deg, rgba(247, 198, 255, 0.98) 0%, rgba(190, 93, 255, 0.98) 52%, rgba(132, 74, 255, 0.98) 100%)',
-      empty: 'rgba(69, 79, 108, 0.28)',
-      glow: 'rgba(168, 85, 255, 0.28)',
     });
   }
 
   if (els.shapeSlider) els.shapeSlider.value = `${Math.round(state.shape)}`;
   if (els.shapeSlider) {
     updateRangeFill(els.shapeSlider, {
+      fillElement: els.shapeSliderFill,
       fill: 'linear-gradient(90deg, rgba(214, 242, 255, 0.98) 0%, rgba(119, 210, 255, 0.98) 50%, rgba(61, 166, 255, 0.98) 100%)',
-      empty: 'rgba(69, 79, 108, 0.24)',
-      glow: 'rgba(95, 198, 255, 0.24)',
     });
   }
 
@@ -859,14 +859,11 @@ function updateRangeFill(slider, options) {
   const value = Number(slider.value || min);
   const ratio = max > min ? (value - min) / (max - min) : 0;
   const percent = Math.max(0, Math.min(100, ratio * 100));
-  const fill = options.fill;
-  const empty = options.empty || 'rgba(69, 79, 108, 0.24)';
-  const glow = options.glow || 'rgba(120, 140, 210, 0.18)';
+  const fillElement = options.fillElement;
+  if (!fillElement) return;
 
-  slider.style.setProperty('--fill-percent', `${percent}%`);
-  slider.style.setProperty('--fill-color', fill);
-  slider.style.setProperty('--empty-color', empty);
-  slider.style.boxShadow = `inset 0 1px 2px rgba(0, 0, 0, 0.45), 0 0 12px ${glow}`;
+  fillElement.style.width = `${percent}%`;
+  fillElement.style.background = options.fill;
 }
 
 function pulseCleanKnob() {
