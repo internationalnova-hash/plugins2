@@ -764,7 +764,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         // CRITICAL: Higher smoothing at fast speeds means snappier Auto-Tune effect.
         // At k=1.0 (hard-tune), we use aggressive smoothing for immediate pitch lock.
         const float targetSmoothing = hardTuneMode
-            ? 0.82f
+            ? 0.86f
             : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.22f, 0.72f);
         targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
@@ -827,7 +827,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         else
             ++correctionEngageAgeBlocks;
 
-        const float engageRampBlocks = hardTuneMode ? 5.0f : 4.0f;
+        const float engageRampBlocks = hardTuneMode ? 7.0f : 4.0f;
         const float engageRamp = juce::jlimit (0.0f, 1.0f,
             static_cast<float> (correctionEngageAgeBlocks) / juce::jmax (1.0f, engageRampBlocks));
         correctionDrive *= engageRamp;
@@ -842,10 +842,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         // Hard mode must ignore low-energy/low-confidence frames, otherwise the shifter
         // chases noisy detector output and sounds staticy/grainy.
-        const float energyDrive = juce::jlimit (0.0f, 1.0f,
-            (inputRmsSmoothed - 0.0025f) / juce::jmax (1.0e-6f, 0.010f - 0.0025f));
-        const float confidenceDrive = juce::jlimit (0.0f, 1.0f,
-            (trackingConfidence - 0.10f) / juce::jmax (1.0e-6f, 0.45f - 0.10f));
+        const float energyDrive = juce::jlimit (0.40f, 1.0f,
+            juce::jmap (inputRmsSmoothed, 0.0025f, 0.010f, 0.40f, 1.0f));
+        const float confidenceDrive = juce::jlimit (0.55f, 1.0f,
+            juce::jmap (trackingConfidence, 0.10f, 0.45f, 0.55f, 1.0f));
         correctionDrive *= energyDrive * confidenceDrive;
     }
 
@@ -1135,11 +1135,11 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Always compute a correction ratio, but only add extra emphasis once the singer
     // is meaningfully off target. Over-boosting tiny errors made the shifter chatter.
     const float signedCents = 1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio)));
-    const float correctionMagnitude = juce::jlimit (0.0f, 1.0f, std::abs (signedCents) / 180.0f);
+    const float correctionMagnitude = juce::jlimit (0.0f, 1.0f, std::abs (signedCents) / 165.0f);
     float emphasis = 1.0f + juce::jmap (amountNorm, 0.0f, 1.0f, 0.14f, 0.62f) * correctionMagnitude;
 
     if (hardTuneMode)
-        emphasis += 0.16f * correctionMagnitude;
+        emphasis += 0.22f * correctionMagnitude;
 
     float emphasizedCents = juce::jlimit (-380.0f, 380.0f, signedCents * emphasis);
 
@@ -1147,13 +1147,16 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     {
         // Suppress micro-flutter around the locked note while keeping strong pull
         // when the singer is meaningfully off target.
-        const float jitterZoneCents = 8.0f;
+        const float jitterZoneCents = 6.0f;
         const float absCents = std::abs (emphasizedCents);
         if (absCents < jitterZoneCents)
         {
             const float t = absCents / jitterZoneCents;
             emphasizedCents *= t * t;
         }
+
+        if (absCents > 18.0f)
+            emphasizedCents *= 1.10f;
     }
 
     const float ratioOut = std::pow (2.0f, emphasizedCents / 1200.0f);
@@ -1634,7 +1637,7 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     {
         // Keep hard mode extremely fast, but continuous.
         // Instant jumps in read-head ratio can sound like record-stop/skip artifacts.
-        const float hardRatioSmoothing = juce::jlimit (0.30f, 0.58f, 0.30f + ratioDelta * 0.95f);
+        const float hardRatioSmoothing = juce::jlimit (0.18f, 0.36f, 0.18f + ratioDelta * 0.55f);
         ratioSmoothed += (clampedRatio - ratioSmoothed) * hardRatioSmoothing;
     }
     else
