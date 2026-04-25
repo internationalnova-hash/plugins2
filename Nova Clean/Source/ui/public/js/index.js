@@ -6,6 +6,15 @@ const state = {
   preserve: 65,
   mix: 100,
   outputGain: 0,
+  sensitivity: 67,
+  clickSize: 1,
+  freqFocus: 2,
+  strength: 60,
+  shape: 65,
+  interpolation: 1,
+  vocalProtect: 70,
+  transientGuard: 60,
+  hqMode: true,
   lowLatency: false,
   listenRemoved: false,
   preview: false,
@@ -49,6 +58,33 @@ const els = {
   inputBar: document.getElementById('inputBar'),
   inputDb: document.getElementById('inputDb'),
   mixSlider: document.getElementById('mixSlider'),
+  shapeSlider: document.getElementById('shapeSlider'),
+  sensitivityKnob: document.getElementById('sensitivityKnob'),
+  strengthKnob: document.getElementById('strengthKnob'),
+  vocalProtectKnob: document.getElementById('vocalProtectKnob'),
+  transientGuardKnob: document.getElementById('transientGuardKnob'),
+  clickSizeButtons: [
+    document.getElementById('clickSizeMicro'),
+    document.getElementById('clickSizeShort'),
+    document.getElementById('clickSizeMedium'),
+  ],
+  freqFocusButtons: [
+    document.getElementById('freqFocusHigh'),
+    document.getElementById('freqFocusMid'),
+    document.getElementById('freqFocusFull'),
+  ],
+  interpolationButtons: [
+    document.getElementById('interpolationBasic'),
+    document.getElementById('interpolationSmart'),
+  ],
+  hqModeButtons: [
+    document.getElementById('hqModeOff'),
+    document.getElementById('hqModeOn'),
+  ],
+  perfLowLatencyButtons: [
+    document.getElementById('perfLowLatencyOff'),
+    document.getElementById('perfLowLatencyOn'),
+  ],
 };
 
 function hasBackend() {
@@ -60,10 +96,103 @@ function emitParam(name, value) {
   window.__JUCE__.backend.emitEvent(`__juce__slider${name}`, { eventType: 'valueChanged', value });
 }
 
-function setMode(index) {
+function bindParamFromBackend(name, applyFn) {
+  if (!hasBackend()) return;
+  const eventId = `__juce__slider${name}`;
+  window.__JUCE__.backend.addEventListener(eventId, (ev) => {
+    if (!ev || ev.eventType !== 'valueChanged' || typeof ev.value !== 'number') return;
+    applyFn(ev.value);
+  });
+  window.__JUCE__.backend.emitEvent(eventId, { eventType: 'requestInitialUpdate' });
+}
+
+function initBackendSync() {
+  if (!hasBackend()) return;
+
+  bindParamFromBackend('mode', (v) => setMode(Math.round(v), false));
+  bindParamFromBackend('clean', (v) => setClean(v, false));
+  bindParamFromBackend('preserve', (v) => setPreserve(v, false));
+  bindParamFromBackend('mix', (v) => setMix(v, false));
+  bindParamFromBackend('outputGain', (v) => setOutputGainDb(v, false));
+  bindParamFromBackend('lowLatency', (v) => setLowLatency(v > 0.5, false));
+  bindParamFromBackend('listenRemoved', (v) => {
+    state.listenRemoved = v > 0.5;
+    syncUi();
+  });
+  bindParamFromBackend('advanced', (v) => {
+    state.advanced = v > 0.5;
+    syncUi();
+  });
+
+  bindParamFromBackend('sensitivity', (v) => setSensitivity(v, false));
+  bindParamFromBackend('clickSize', (v) => setClickSize(Math.round(v), false));
+  bindParamFromBackend('freqFocus', (v) => setFreqFocus(Math.round(v), false));
+  bindParamFromBackend('strength', (v) => setStrength(v, false));
+  bindParamFromBackend('shape', (v) => setShape(v, false));
+  bindParamFromBackend('interpolation', (v) => setInterpolation(Math.round(v), false));
+  bindParamFromBackend('vocalProtect', (v) => setVocalProtect(v, false));
+  bindParamFromBackend('transientGuard', (v) => setTransientGuard(v, false));
+  bindParamFromBackend('hqMode', (v) => setHQMode(v > 0.5, false));
+}
+
+function prepareCanvas2D(canvas) {
+  if (!canvas) return null;
+
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const cssW = canvas.clientWidth || parseInt(canvas.getAttribute('width') || '0', 10) || 0;
+  const cssH = canvas.clientHeight || parseInt(canvas.getAttribute('height') || '0', 10) || 0;
+  const pixelW = Math.max(1, Math.round(cssW * dpr));
+  const pixelH = Math.max(1, Math.round(cssH * dpr));
+
+  if (canvas.width !== pixelW || canvas.height !== pixelH) {
+    canvas.width = pixelW;
+    canvas.height = pixelH;
+  }
+
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  return { ctx, width: cssW, height: cssH };
+}
+
+function setToggleGroupActive(buttons, activeIndex) {
+  if (!buttons || !buttons.length) return;
+  buttons.forEach((b, i) => {
+    if (!b) return;
+    b.classList.toggle('active', i === activeIndex);
+  });
+}
+
+function setMode(index, shouldEmit = true) {
   state.mode = index;
   els.modeButtons.forEach((b, i) => b.classList.toggle('active', i === index));
-  emitParam('mode', index);
+  if (shouldEmit) emitParam('mode', index);
+}
+
+function setLowLatency(enabled, shouldEmit = true) {
+  const on = !!enabled;
+  state.lowLatency = on;
+
+  if (on && state.hqMode) {
+    state.hqMode = false;
+    if (shouldEmit) emitParam('hqMode', 0);
+  }
+
+  if (shouldEmit) emitParam('lowLatency', on ? 1 : 0);
+  syncUi();
+}
+
+function setHQMode(enabled, shouldEmit = true) {
+  const on = !!enabled;
+
+  if (on && state.lowLatency) {
+    state.lowLatency = false;
+    if (shouldEmit) emitParam('lowLatency', 0);
+  }
+
+  state.hqMode = on;
+  if (shouldEmit) emitParam('hqMode', on ? 1 : 0);
+  syncUi();
 }
 
 function syncUi() {
@@ -71,6 +200,8 @@ function syncUi() {
   els.preserveValue.textContent = `${Math.round(state.preserve)}%`;
   els.mixValue.textContent = `${Math.round(state.mix)}%`;
   els.outputValue.textContent = `${state.outputGain.toFixed(1)} dB`;
+
+  if (els.shapeSlider) els.shapeSlider.value = `${Math.round(state.shape)}`;
 
   els.btnLowLatency.classList.toggle('active', state.lowLatency);
   els.btnLowLatency.classList.toggle('cyan', state.lowLatency);
@@ -80,6 +211,12 @@ function syncUi() {
   els.btnAdvanced.classList.toggle('purple', state.advanced);
 
   els.advancedPanel.classList.toggle('collapsed', !state.advanced);
+
+  setToggleGroupActive(els.clickSizeButtons, state.clickSize);
+  setToggleGroupActive(els.freqFocusButtons, state.freqFocus);
+  setToggleGroupActive(els.interpolationButtons, state.interpolation);
+  setToggleGroupActive(els.hqModeButtons, state.hqMode ? 1 : 0);
+  setToggleGroupActive(els.perfLowLatencyButtons, state.lowLatency ? 1 : 0);
 
   const outL = Math.max(0, Math.min(1, state.dsp.outputL));
   const outR = Math.max(0, Math.min(1, state.dsp.outputR));
@@ -121,37 +258,101 @@ function pulseCleanKnob() {
   }, 620);
 }
 
-function setClean(value) {
+function setClean(value, shouldEmit = true) {
   const clamped = Math.max(0, Math.min(100, value));
   if (Math.abs(clamped - state.clean) < 0.001) return;
   state.clean = clamped;
-  emitParam('clean', clamped);
+  if (shouldEmit) emitParam('clean', clamped);
   pulseCleanKnob();
   syncUi();
 }
 
-function setPreserve(value) {
+function setPreserve(value, shouldEmit = true) {
   const clamped = Math.max(0, Math.min(100, value));
   if (Math.abs(clamped - state.preserve) < 0.001) return;
   state.preserve = clamped;
-  emitParam('preserve', clamped);
+  if (shouldEmit) emitParam('preserve', clamped);
   syncUi();
 }
 
-function setMix(value) {
+function setMix(value, shouldEmit = true) {
   const clamped = Math.max(0, Math.min(100, value));
   if (Math.abs(clamped - state.mix) < 0.001) return;
   state.mix = clamped;
   if (els.mixSlider) els.mixSlider.value = `${Math.round(clamped)}`;
-  emitParam('mix', clamped);
+  if (shouldEmit) emitParam('mix', clamped);
   syncUi();
 }
 
-function setOutputGainDb(value) {
+function setOutputGainDb(value, shouldEmit = true) {
   const clamped = Math.max(-12, Math.min(12, value));
   if (Math.abs(clamped - state.outputGain) < 0.001) return;
   state.outputGain = clamped;
-  emitParam('outputGain', clamped);
+  if (shouldEmit) emitParam('outputGain', clamped);
+  syncUi();
+}
+
+function setSensitivity(value, shouldEmit = true) {
+  const clamped = Math.max(0, Math.min(100, value));
+  if (Math.abs(clamped - state.sensitivity) < 0.001) return;
+  state.sensitivity = clamped;
+  if (shouldEmit) emitParam('sensitivity', clamped);
+  syncUi();
+}
+
+function setStrength(value, shouldEmit = true) {
+  const clamped = Math.max(0, Math.min(100, value));
+  if (Math.abs(clamped - state.strength) < 0.001) return;
+  state.strength = clamped;
+  if (shouldEmit) emitParam('strength', clamped);
+  syncUi();
+}
+
+function setShape(value, shouldEmit = true) {
+  const clamped = Math.max(0, Math.min(100, value));
+  if (Math.abs(clamped - state.shape) < 0.001) return;
+  state.shape = clamped;
+  if (shouldEmit) emitParam('shape', clamped);
+  syncUi();
+}
+
+function setVocalProtect(value, shouldEmit = true) {
+  const clamped = Math.max(0, Math.min(100, value));
+  if (Math.abs(clamped - state.vocalProtect) < 0.001) return;
+  state.vocalProtect = clamped;
+  if (shouldEmit) emitParam('vocalProtect', clamped);
+  syncUi();
+}
+
+function setTransientGuard(value, shouldEmit = true) {
+  const clamped = Math.max(0, Math.min(100, value));
+  if (Math.abs(clamped - state.transientGuard) < 0.001) return;
+  state.transientGuard = clamped;
+  if (shouldEmit) emitParam('transientGuard', clamped);
+  syncUi();
+}
+
+function setClickSize(index, shouldEmit = true) {
+  const clamped = Math.max(0, Math.min(2, index | 0));
+  if (clamped === state.clickSize) return;
+  state.clickSize = clamped;
+  if (shouldEmit) emitParam('clickSize', clamped);
+  syncUi();
+}
+
+function setFreqFocus(index, shouldEmit = true) {
+  const clamped = Math.max(0, Math.min(2, index | 0));
+  if (clamped === state.freqFocus) return;
+  state.freqFocus = clamped;
+  if (shouldEmit) emitParam('freqFocus', clamped);
+  syncUi();
+}
+
+function setInterpolation(index, shouldEmit = true) {
+  const clamped = Math.max(0, Math.min(1, index | 0));
+  if (clamped === state.interpolation) return;
+  state.interpolation = clamped;
+  if (shouldEmit) emitParam('interpolation', clamped);
   syncUi();
 }
 
@@ -179,10 +380,7 @@ function setupInteractions() {
   els.modeButtons.forEach((b, i) => b.addEventListener('click', () => setMode(i)));
 
   els.btnLowLatency.addEventListener('click', () => {
-    state.lowLatency = !state.lowLatency;
-    if (state.lowLatency) emitParam('hqMode', 0);
-    emitParam('lowLatency', state.lowLatency ? 1 : 0);
-    syncUi();
+    setLowLatency(!state.lowLatency, true);
   });
 
   els.btnListenRemoved.addEventListener('click', () => {
@@ -243,10 +441,40 @@ function setupInteractions() {
     setMix(Number(e.target.value));
   });
 
+  if (els.shapeSlider) {
+    els.shapeSlider.addEventListener('input', (e) => {
+      setShape(Number(e.target.value));
+    });
+  }
+
+  els.clickSizeButtons.forEach((btn, i) => {
+    if (!btn) return;
+    btn.addEventListener('click', () => setClickSize(i));
+  });
+
+  els.freqFocusButtons.forEach((btn, i) => {
+    if (!btn) return;
+    btn.addEventListener('click', () => setFreqFocus(i));
+  });
+
+  els.interpolationButtons.forEach((btn, i) => {
+    if (!btn) return;
+    btn.addEventListener('click', () => setInterpolation(i));
+  });
+
+  if (els.hqModeButtons[0]) els.hqModeButtons[0].addEventListener('click', () => setHQMode(false, true));
+  if (els.hqModeButtons[1]) els.hqModeButtons[1].addEventListener('click', () => setHQMode(true, true));
+  if (els.perfLowLatencyButtons[0]) els.perfLowLatencyButtons[0].addEventListener('click', () => setLowLatency(false, true));
+  if (els.perfLowLatencyButtons[1]) els.perfLowLatencyButtons[1].addEventListener('click', () => setLowLatency(true, true));
+
   installPressFeedback(els.cleanKnob);
   installPressFeedback(els.preserveKnob);
   installPressFeedback(els.mixKnob);
   installPressFeedback(els.outputKnob);
+  installPressFeedback(els.sensitivityKnob);
+  installPressFeedback(els.strengthKnob);
+  installPressFeedback(els.vocalProtectKnob);
+  installPressFeedback(els.transientGuardKnob);
 
   let cleanDragging = false;
   let cleanPointerId = null;
@@ -319,6 +547,18 @@ function setupInteractions() {
   els.preserveKnob.addEventListener('pointerdown', (e) => beginMediumDrag(e, state.preserve, 0.35, setPreserve));
   els.mixKnob.addEventListener('pointerdown', (e) => beginMediumDrag(e, state.mix, 0.35, setMix));
   els.outputKnob.addEventListener('pointerdown', (e) => beginMediumDrag(e, state.outputGain, 0.09, setOutputGainDb));
+  if (els.sensitivityKnob) {
+    els.sensitivityKnob.addEventListener('pointerdown', (e) => beginMediumDrag(e, state.sensitivity, 0.35, setSensitivity));
+  }
+  if (els.strengthKnob) {
+    els.strengthKnob.addEventListener('pointerdown', (e) => beginMediumDrag(e, state.strength, 0.35, setStrength));
+  }
+  if (els.vocalProtectKnob) {
+    els.vocalProtectKnob.addEventListener('pointerdown', (e) => beginMediumDrag(e, state.vocalProtect, 0.35, setVocalProtect));
+  }
+  if (els.transientGuardKnob) {
+    els.transientGuardKnob.addEventListener('pointerdown', (e) => beginMediumDrag(e, state.transientGuard, 0.35, setTransientGuard));
+  }
 
   window.addEventListener('pointermove', moveMediumDrag);
   window.addEventListener('pointerup', endMediumDrag);
@@ -394,9 +634,11 @@ function updateParticles() {
 
 function drawDisplay() {
   const c = els.canvas;
-  const ctx = c.getContext('2d');
-  const W = c.width;
-  const H = c.height;
+  const prepared = prepareCanvas2D(c);
+  if (!prepared) return;
+  const ctx = prepared.ctx;
+  const W = prepared.width;
+  const H = prepared.height;
 
   state.t += 0.022;
   state.markerPulseT += 0.028;
@@ -991,17 +1233,20 @@ function drawKnobs() {
   // ── CLEAN (large, dominant) ─────────────────────────────────────────────
   const cc = els.cleanCanvas;
   if (cc) {
-    const cctx = cc.getContext('2d');
-    cctx.clearRect(0, 0, cc.width, cc.height);
+    const prepared = prepareCanvas2D(cc);
+    const cctx = prepared.ctx;
+    const w = prepared.width;
+    const h = prepared.height;
+    cctx.clearRect(0, 0, w, h);
     const adjusting = state.cleanAdjustT > 0;
-    drawKnob(cctx, cc.width/2, cc.height/2, cc.width/2 - 1, state.clean, true, adjusting);
+    drawKnob(cctx, w / 2, h / 2, w / 2 - 1, state.clean, true, adjusting);
 
     // Orbit dots and subtle shimmer for CLEAN hero treatment
-    const orbR = cc.width/2 - 4;
+    const orbR = w / 2 - 4;
     for (let d = 0; d < 6; d++) {
       const ang = state.t * 2.2 + (d / 6) * Math.PI * 2;
-      const px = cc.width/2 + Math.cos(ang) * orbR;
-      const py = cc.height/2 + Math.sin(ang) * orbR;
+      const px = w / 2 + Math.cos(ang) * orbR;
+      const py = h / 2 + Math.sin(ang) * orbR;
       const base = 0.10 + 0.12 * (Math.sin(state.t * 3.5 + d) * 0.5 + 0.5);
       const alpha = adjusting ? (base + 0.30 * state.cleanAdjustT) : base;
       cctx.fillStyle = `rgba(168,85,255,${alpha})`;
@@ -1014,43 +1259,52 @@ function drawKnobs() {
     }
 
     const sh = state.t * 1.1;
-    const x1 = cc.width/2 + Math.cos(sh) * 85;
-    const y1 = cc.height/2 + Math.sin(sh) * 85;
-    const x2 = cc.width/2 + Math.cos(sh + Math.PI) * 85;
-    const y2 = cc.height/2 + Math.sin(sh + Math.PI) * 85;
+  const x1 = w / 2 + Math.cos(sh) * 85;
+  const y1 = h / 2 + Math.sin(sh) * 85;
+  const x2 = w / 2 + Math.cos(sh + Math.PI) * 85;
+  const y2 = h / 2 + Math.sin(sh + Math.PI) * 85;
     const shimmer = cctx.createLinearGradient(x1, y1, x2, y2);
     shimmer.addColorStop(0, 'rgba(255,255,255,0.0)');
     shimmer.addColorStop(0.5, adjusting ? 'rgba(210,230,255,0.12)' : 'rgba(210,230,255,0.06)');
     shimmer.addColorStop(1, 'rgba(255,255,255,0.0)');
     cctx.fillStyle = shimmer;
     cctx.beginPath();
-    cctx.arc(cc.width/2, cc.height/2, cc.width/2 - 8, 0, Math.PI * 2);
+    cctx.arc(w / 2, h / 2, w / 2 - 8, 0, Math.PI * 2);
     cctx.fill();
   }
 
   // ── PRESERVE ──────────────────────────────────────────────────────────────
   const pc = els.preserveCanvas;
   if (pc) {
-    const pctx = pc.getContext('2d');
-    pctx.clearRect(0, 0, pc.width, pc.height);
-    drawKnob(pctx, pc.width/2, pc.height/2, pc.width/2 - 1, state.preserve, false, false);
+    const prepared = prepareCanvas2D(pc);
+    const pctx = prepared.ctx;
+    const w = prepared.width;
+    const h = prepared.height;
+    pctx.clearRect(0, 0, w, h);
+    drawKnob(pctx, w / 2, h / 2, w / 2 - 1, state.preserve, false, false);
   }
 
   // ── MIX ───────────────────────────────────────────────────────────────────
   const mc = els.mixCanvas;
   if (mc) {
-    const mctx = mc.getContext('2d');
-    mctx.clearRect(0, 0, mc.width, mc.height);
-    drawKnob(mctx, mc.width/2, mc.height/2, mc.width/2 - 1, state.mix, false, false);
+    const prepared = prepareCanvas2D(mc);
+    const mctx = prepared.ctx;
+    const w = prepared.width;
+    const h = prepared.height;
+    mctx.clearRect(0, 0, w, h);
+    drawKnob(mctx, w / 2, h / 2, w / 2 - 1, state.mix, false, false);
   }
 
   // ── OUTPUT GAIN (maps -12..+12 dB → 0..100%) ─────────────────────────────
   const oc = els.outputCanvas;
   if (oc) {
-    const octx = oc.getContext('2d');
-    octx.clearRect(0, 0, oc.width, oc.height);
+    const prepared = prepareCanvas2D(oc);
+    const octx = prepared.ctx;
+    const w = prepared.width;
+    const h = prepared.height;
+    octx.clearRect(0, 0, w, h);
     const normGain = Math.round(((state.outputGain + 12) / 24) * 100);
-    drawKnob(octx, oc.width/2, oc.height/2, oc.width/2 - 1, normGain, false, false);
+    drawKnob(octx, w / 2, h / 2, w / 2 - 1, normGain, false, false);
 
     // Slight extra glow so output knob matches overall lighting system.
     octx.save();
@@ -1059,7 +1313,7 @@ function drawKnobs() {
     octx.shadowBlur = 10;
     octx.shadowColor = 'rgba(168,85,255,0.50)';
     octx.beginPath();
-    octx.arc(oc.width/2, oc.height/2, oc.width/2 - 3, 0, Math.PI * 2);
+    octx.arc(w / 2, h / 2, w / 2 - 3, 0, Math.PI * 2);
     octx.stroke();
     octx.restore();
 
@@ -1071,22 +1325,28 @@ function drawKnobs() {
     octx.font = '700 11px "Arial Narrow", sans-serif';
     octx.shadowBlur = 4;
     octx.shadowColor = 'rgba(168,85,255,0.3)';
-    octx.fillText(`${state.outputGain.toFixed(1)}`, oc.width/2, oc.height/2 - 3);
+    octx.fillText(`${state.outputGain.toFixed(1)}`, w / 2, h / 2 - 3);
     octx.font = '600 9px "Arial Narrow", sans-serif';
     octx.fillStyle = 'rgba(160,170,200,0.7)';
     octx.shadowBlur = 0;
-    octx.fillText('dB', oc.width/2, oc.height/2 + 9);
+    octx.fillText('dB', w / 2, h / 2 + 9);
     octx.restore();
   }
 
-  // ── ADVANCED PANEL hKnobs (drawn at 50% demo value) ──────────────────────
-  if (els.hKnobCanvases) {
-    els.hKnobCanvases.forEach(c => {
-      const ctx = c.getContext('2d');
-      ctx.clearRect(0, 0, c.width, c.height);
-      drawKnob(ctx, c.width/2, c.height/2, c.width/2 - 1, 50, false, false);
-    });
-  }
+  const drawAdvancedKnob = (canvas, value) => {
+    if (!canvas) return;
+    const prepared = prepareCanvas2D(canvas);
+    const kctx = prepared.ctx;
+    const w = prepared.width;
+    const h = prepared.height;
+    kctx.clearRect(0, 0, w, h);
+    drawKnob(kctx, w / 2, h / 2, w / 2 - 1, value, false, false);
+  };
+
+  drawAdvancedKnob(els.sensitivityCanvas, state.sensitivity);
+  drawAdvancedKnob(els.strengthCanvas, state.strength);
+  drawAdvancedKnob(els.vocalProtectCanvas, state.vocalProtect);
+  drawAdvancedKnob(els.transientGuardCanvas, state.transientGuard);
 }
 
 function tick() {
@@ -1106,8 +1366,9 @@ function resizeApp() {
   const offsetY = Math.floor((window.innerHeight - baseHeight * s) * 0.5);
   els.app.style.left = `${offsetX}px`;
   els.app.style.top = `${offsetY}px`;
-  els.app.style.transform = 'none';
-  els.app.style.zoom = `${s}`;
+  els.app.style.transformOrigin = 'top left';
+  els.app.style.transform = `translateZ(0) scale(${s})`;
+  els.app.style.zoom = '1';
 }
 
 window.receiveDSP = (dsp) => {
@@ -1120,6 +1381,7 @@ resizeApp();
 setMode(0);
 syncUi();
 setupInteractions();
+initBackendSync();
 
 // ── Canvas knob refs ─────────────────────────────────────────────────────────
 els.cleanCanvas   = document.getElementById('cleanKnobCanvas');
@@ -1127,17 +1389,21 @@ els.preserveCanvas = document.getElementById('preserveKnobCanvas');
 els.mixCanvas     = document.getElementById('mixKnobCanvas');
 els.outputCanvas  = document.getElementById('outputKnobCanvas');
 
-// Inject canvases into .hKnob elements (advanced panel mini knobs)
-els.hKnobCanvases = [];
-document.querySelectorAll('.hKnob').forEach(knob => {
-  knob.style.position = 'relative';
-  knob.style.overflow = 'hidden';
+function attachAdvancedKnobCanvas(holder) {
+  if (!holder) return null;
+  holder.style.position = 'relative';
+  holder.style.overflow = 'hidden';
   const c = document.createElement('canvas');
-  c.width  = 72;
-  c.height = 72;
   c.className = 'knobCanvas';
-  knob.appendChild(c);
-  els.hKnobCanvases.push(c);
-});
+  c.style.width = '72px';
+  c.style.height = '72px';
+  holder.appendChild(c);
+  return c;
+}
+
+els.sensitivityCanvas = attachAdvancedKnobCanvas(els.sensitivityKnob);
+els.strengthCanvas = attachAdvancedKnobCanvas(els.strengthKnob);
+els.vocalProtectCanvas = attachAdvancedKnobCanvas(els.vocalProtectKnob);
+els.transientGuardCanvas = attachAdvancedKnobCanvas(els.transientGuardKnob);
 
 tick();

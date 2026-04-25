@@ -28,6 +28,9 @@
       background: radial-gradient(circle at 50% 35%, #0d1030 0%, #06070d 45%, #030409 100%);
       color: var(--text);
       font-family: "Arial Narrow", "Segoe UI", sans-serif;
+      text-rendering: geometricPrecision;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
       overflow: hidden;
     }
 
@@ -179,7 +182,7 @@
       border-right: 1px solid rgba(42,46,58,0.6);
     }
     .presetBtn:hover { filter: brightness(1.12); }
-    #presetName { text-align: center; font-size: 34px; transform: scaleY(0.5); font-weight: 700; letter-spacing: 0.4px; }
+    #presetName { text-align: center; font-size: 17px; line-height: 1; font-weight: 700; letter-spacing: 0.4px; }
 
     #topButtons {
       position: absolute;
@@ -417,10 +420,8 @@
         rgba(14,16,28,0.97) 45%,
         rgba(9,11,20,0.97) 100%);
       color: rgba(220,225,255,0.82);
-      font-size: 30px;
+      font-size: 17px;
       font-weight: 700;
-      transform: scaleY(0.55);
-      transform-origin: center center;
       letter-spacing: 1px;
       cursor: pointer;
       transition: filter 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
@@ -444,11 +445,9 @@
         0 0 10px rgba(130,100,200,0.18),
         0 2px 6px rgba(0,0,0,0.35);
     }
-    .modeBtn:active { transform: scaleY(0.55) scale(0.97); }
+    .modeBtn:active { transform: scale(0.97); }
     .modeIcon {
       flex-shrink: 0;
-      transform: scaleY(1.818);
-      transform-origin: center center;
       display: block;
       opacity: 0.70;
     }
@@ -549,8 +548,7 @@
       right: 0;
       top: 30px;
       text-align: center;
-      font-size: 36px;
-      transform: scaleY(0.5);
+      font-size: 16px;
       font-weight: 700;
       color: #f6f7ff;
       text-shadow: 0 0 8px rgba(168,85,255,0.25);
@@ -564,7 +562,7 @@
       pointer-events: none;
     }
 
-    #preservePanel .smallTitle { text-align: center; margin-top: 4px; margin-bottom: 6px; font-size: 26px; transform: scaleY(0.5); font-weight: 700; letter-spacing: 1.1px; color: #eef1ff; }
+    #preservePanel .smallTitle { text-align: center; margin-top: 4px; margin-bottom: 6px; font-size: 13px; line-height: 1.1; font-weight: 700; letter-spacing: 1.1px; color: #eef1ff; }
 
     #outputMeters {
       width: 140px;
@@ -1194,37 +1192,37 @@
         <div class="advCol">
           <div class="advTitle">DETECTION</div>
           <div style="display:flex; gap:14px; align-items:center; margin-bottom:10px;">
-            <div class="hKnob knob"></div>
+            <div id="sensitivityKnob" class="hKnob knob"></div>
             <div class="advLabel">SENSITIVITY</div>
           </div>
           <div class="advLabel">CLICK SIZE</div>
-          <div class="toggleRow" style="margin-bottom:8px;"><button class="toggle">MICRO</button><button class="toggle active">SHORT</button><button class="toggle">MEDIUM</button></div>
+          <div class="toggleRow" style="margin-bottom:8px;"><button id="clickSizeMicro" class="toggle">MICRO</button><button id="clickSizeShort" class="toggle active">SHORT</button><button id="clickSizeMedium" class="toggle">MEDIUM</button></div>
           <div class="advLabel">FREQUENCY FOCUS</div>
-          <div class="toggleRow"><button class="toggle">HIGH</button><button class="toggle">MID</button><button class="toggle active">FULL</button></div>
+          <div class="toggleRow"><button id="freqFocusHigh" class="toggle">HIGH</button><button id="freqFocusMid" class="toggle">MID</button><button id="freqFocusFull" class="toggle active">FULL</button></div>
         </div>
 
         <div class="advCol">
           <div class="advTitle">REPAIR</div>
           <div style="display:flex; gap:14px; align-items:center; margin-bottom:10px;">
-            <div class="hKnob knob"></div>
+            <div id="strengthKnob" class="hKnob knob"></div>
             <div class="advLabel">STRENGTH</div>
           </div>
           <div class="advLabel">SHAPE</div>
           <input id="shapeSlider" type="range" min="0" max="100" value="65" style="width:100%; margin-bottom:3px;" />
           <div style="display:flex; justify-content:space-between; font-size:10px; color:#c0c8e8; margin-bottom:8px;"><span>SMOOTH</span><span>TRANSPARENT</span></div>
           <div class="advLabel">INTERPOLATION</div>
-          <div class="toggleRow"><button class="toggle">BASIC</button><button class="toggle active">SMART</button></div>
+          <div class="toggleRow"><button id="interpolationBasic" class="toggle">BASIC</button><button id="interpolationSmart" class="toggle active">SMART</button></div>
         </div>
 
         <div class="advCol">
           <div class="advTitle">VOCAL PROTECTION</div>
           <div style="display:flex; justify-content:space-around; margin-top:8px; gap:24px;">
             <div style="text-align:center;">
-              <div class="hKnob knob" style="margin:0 auto 8px;"></div>
+              <div id="vocalProtectKnob" class="hKnob knob" style="margin:0 auto 8px;"></div>
               <div class="advLabel" style="margin:0;">VOCAL PROTECT</div>
             </div>
             <div style="text-align:center;">
-              <div class="hKnob knob" style="margin:0 auto 8px;"></div>
+              <div id="transientGuardKnob" class="hKnob knob" style="margin:0 auto 8px;"></div>
               <div class="advLabel" style="margin:0;">TRANSIENT GUARD</div>
             </div>
           </div>
@@ -1233,9 +1231,9 @@
         <div class="advCol">
           <div class="advTitle">PERFORMANCE</div>
           <div class="advLabel" style="margin-top:2px;">HQ MODE</div>
-          <div class="toggleRow" style="margin-bottom:12px;"><button class="toggle">OFF</button><button class="toggle active">ON</button></div>
+          <div class="toggleRow" style="margin-bottom:12px;"><button id="hqModeOff" class="toggle">OFF</button><button id="hqModeOn" class="toggle active">ON</button></div>
           <div class="advLabel">LOW LATENCY</div>
-          <div class="toggleRow"><button class="toggle active">OFF</button><button class="toggle">ON</button></div>
+          <div class="toggleRow"><button id="perfLowLatencyOff" class="toggle active">OFF</button><button id="perfLowLatencyOn" class="toggle">ON</button></div>
         </div>
       </div>
 
