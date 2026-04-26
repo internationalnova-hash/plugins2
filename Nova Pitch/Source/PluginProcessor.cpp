@@ -800,21 +800,17 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
     const bool signalTooLow = (hardTuneMode ? hardSignalTooLow : normalSignalTooLow);
 
-    // In hard mode, do not treat confidence dips alone as tracking loss.
-    // Confidence can swing aggressively on real vocals and causes wet/pitch pumping.
+    // In hard mode, only declare loss when pitch is stale AND energy is effectively gone.
+    // Confidence swings alone are too jittery and were forcing trackingLostRatio to 1.0.
     const bool lowConfidence = trackingConfidence < (retuneControlActive >= 0.85f ? 0.002f : 0.01f);
-    const bool hardWeakCandidate = hardTuneMode
-        && ((inputRmsSmoothed < 0.0022f && voicedHoldBlocks == 0)
-            || (blocksSinceValidPitch > (lowLatencyMode ? 8 : 10)));
+    const bool hardPitchStale = blocksSinceValidPitch > (lowLatencyMode ? 10 : 14);
+    const bool hardNoEnergy = inputRmsSmoothed < 0.0022f && voicedHoldBlocks == 0;
+    const bool hardTrackingLost = hardPitchStale && hardNoEnergy;
+    if (! hardTuneMode)
+        hardWeakFrameRun = 0;
 
-    if (hardWeakCandidate)
-        ++hardWeakFrameRun;
-    else
-        hardWeakFrameRun = juce::jmax (0, hardWeakFrameRun - 2);
-
-    const bool hardWeakFrame = hardTuneMode && hardWeakFrameRun >= 5;
     const bool trackingLost = hardTuneMode
-        ? (signalTooLow || hardWeakFrame)
+        ? (signalTooLow || hardTrackingLost)
         : (signalTooLow || (lowConfidence && voicedHoldBlocks == 0));
     if (trackingLost)
         diagWindowTrackingLostBlocks++;
@@ -831,8 +827,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Retune stays active across the full knob range; knob controls speed only.
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     const bool hardStableUpdateFrame = (! hardTuneMode)
-        || ((inputRmsSmoothed > 0.0038f)
-            && (blocksSinceValidPitch <= (lowLatencyMode ? 4 : 5))
+        || ((inputRmsSmoothed > 0.0035f)
+            && (blocksSinceValidPitch <= (lowLatencyMode ? 10 : 12))
             && (vocalState != VocalState::Silence));
 
     if (! signalTooLow)
@@ -931,12 +927,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         // smoothly (not abruptly) when confidence/energy become unreliable.
         const float energyDrive = juce::jlimit (0.15f, 1.0f,
             juce::jmap (inputRmsSmoothed, 0.0020f, 0.010f, 0.15f, 1.0f));
-        const float freshnessDrive = juce::jlimit (0.35f, 1.0f,
-            juce::jmap (static_cast<float> (blocksSinceValidPitch), 0.0f, 10.0f, 1.0f, 0.35f));
+        const float freshnessDrive = juce::jlimit (0.75f, 1.0f,
+            juce::jmap (static_cast<float> (blocksSinceValidPitch), 0.0f, 20.0f, 1.0f, 0.75f));
         correctionDrive *= energyDrive * freshnessDrive;
 
         if (! hardStableUpdateFrame)
-            correctionDrive *= 0.35f;
+            correctionDrive *= 0.75f;
     }
 
     {
