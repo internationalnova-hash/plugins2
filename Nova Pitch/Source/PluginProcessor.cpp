@@ -439,6 +439,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
             const float detectedMidi = 69.0f + 12.0f * std::log2 (juce::jmax (1.0f, noteSourceHz) / 440.0f);
 
+            // In hard mode, never let weak/uncertain frames request a new target note.
+            // This removes lock ping-pong that manifests as wobble/skipping.
+            if (hardTuneModeFrame && lockedTargetMidi >= 0)
+            {
+                const bool weakFrameForSwitch = (inputRms < 0.028f) || (pitchConfidence.load() < 0.78f);
+                if (weakFrameForSwitch)
+                    candidateMidiNote = lockedTargetMidi;
+            }
+
             if (targetSwitchCooldownBlocks > 0)
                 --targetSwitchCooldownBlocks;
 
@@ -494,15 +503,17 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float candidateCentsError = std::abs (1200.0f * std::log2 (
                     juce::jmax (1.0f, detectedHz) / juce::jmax (1.0f, candidateHz)));
                 const bool lockAlreadyGood = lockCentsError < 35.0f;
-                const float betterMarginCents = hardTuneMode ? 55.0f : 8.0f;
+                const float betterMarginCents = hardTuneMode ? 95.0f : 8.0f;
                 const bool candidateClearlyBetter = candidateCentsError + betterMarginCents < lockCentsError;
+                const bool hardSmallIntervalSwitch = std::abs (candidateMidiNote - lockedTargetMidi) <= 2;
                 // Only force a relock when the error is clearly a full octave+ off.
                 // Lower threshold was firing on notes that were just far in range, causing
                 // frequent lock switches (lockSwitchRateHz=0.5-1.5) and audible wobble.
                 const bool lockClearlyWrongOctave = lockCentsError > (hardTuneMode ? 1120.0f : 900.0f)
                     && strongInputForSwitch
                     && allowTargetSwitch
-                    && pendingTargetStreak >= juce::jmax (2, requiredStableHits / 2);
+                    && pendingTargetStreak >= (hardTuneMode ? requiredStableHits + 8
+                                                            : juce::jmax (2, requiredStableHits / 2));
 
                 if (lockClearlyWrongOctave && targetSwitchCooldownBlocks == 0)
                 {
@@ -510,7 +521,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     lockedTargetAge = 0;
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
-                    const float cooldownSeconds = hardTuneMode ? 1.60f : 0.18f;
+                    const float cooldownSeconds = hardTuneMode ? 2.40f : 0.18f;
                     targetSwitchCooldownBlocks = static_cast<int> (std::round (
                         juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
                     diagWindowLockSwitches++;
@@ -542,7 +553,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // Lower error threshold so a 100-cent mis-lock (one semitone) can
                 // still be corrected without needing a full 120-cent error.
                 const bool hardSwitchErrorOk = ! hardTuneMode
-                    || lockCentsError >= 140.0f;
+                    || lockCentsError >= 220.0f;
 
                 if ((switchUp || switchDown)
                     && confidentSwitch
@@ -550,10 +561,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     && allowTargetSwitch
                     && ! lockAlreadyGood
                     && candidateClearlyBetter
+                    && (! hardTuneMode || hardSmallIntervalSwitch)
                     && hardSwitchDistanceOk
                     && hardSwitchErrorOk
                     && lockedTargetAge >= minHoldBlocks
-                    && pendingTargetStreak >= (hardTuneMode ? requiredStableHits + 24 : requiredStableHits)
+                    && pendingTargetStreak >= (hardTuneMode ? requiredStableHits + 40 : requiredStableHits)
                     && targetSwitchCooldownBlocks == 0)
                 {
                     lockedTargetMidi = candidateMidiNote;
@@ -561,7 +573,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     pendingTargetMidi = -1;
                     pendingTargetStreak = 0;
                     const float cooldownSeconds = hardTuneMode
-                        ? juce::jlimit (1.80f, 2.80f, detectSeconds * 5.0f)
+                        ? juce::jlimit (2.80f, 3.80f, detectSeconds * 6.0f)
                         : juce::jlimit (0.050f, 0.220f, detectSeconds * 0.80f);
                     targetSwitchCooldownBlocks = static_cast<int> (std::round (
                         juce::jmax (2.0f, detectRateHz * cooldownSeconds)));
