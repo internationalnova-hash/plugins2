@@ -458,6 +458,20 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // (the hardSwitchErrorOk/Distance guards later prevent recovering from
                 // a bad initial lock once it is set).
                 const int initStreakNeeded = hardTuneModeFrame ? 4 : 2;
+
+                if (hardTuneModeFrame)
+                {
+                    const bool strongInitFrame = inputRms > 0.020f;
+                    const bool confidentInitFrame = pitchConfidence.load() > 0.65f;
+                    const bool voicedInitState = (vocalState == VocalState::Onset || vocalState == VocalState::Voiced);
+
+                    if (! (strongInitFrame && confidentInitFrame && voicedInitState))
+                    {
+                        pendingTargetMidi = -1;
+                        pendingTargetStreak = 0;
+                    }
+                }
+
                 if (candidateMidiNote == pendingTargetMidi)
                     ++pendingTargetStreak;
                 else
@@ -588,58 +602,69 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 pendingTargetStreak = 0;
             }
 
-            const int targetMidiNote = lockedTargetMidi;
-            const float targetHz = getTargetPitchHz (targetMidiNote);
-
-            // Recompute target ratio every detection block so correction tracks continuous intonation
-            // drift while the lock is held. Smooth updates on stable lock to avoid jitter-driven wobble.
-            const bool lockChanged = (targetMidiNote != previousLockedTargetMidi);
-
-            // Align detector octave to the selected target note before ratio computation.
-            float octaveAlignedDetectedHz = detectedHz;
-            if (targetHz > 1.0f)
+            if (lockedTargetMidi < 0)
             {
-                while (octaveAlignedDetectedHz < targetHz * 0.70710678f)
-                    octaveAlignedDetectedHz *= 2.0f;
-                while (octaveAlignedDetectedHz > targetHz * 1.41421356f)
-                    octaveAlignedDetectedHz *= 0.5f;
-            }
-
-            float pitchRatio = computeRetuneRatio (octaveAlignedDetectedHz, targetHz, inputRms, voicedHoldBlocks, lowLatencyMode);
-            diagWindowRatioComputedBlocks++;
-            if (std::abs (pitchRatio - 1.0f) < 0.001f)
-                diagWindowUnityReturnBlocks++;
-
-            const float minRatio = 0.72f;
-            const float maxRatio = 1.38f;
-            const float computedTargetRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
-
-            if (lockChanged)
-            {
-                targetPitchRatio = computedTargetRatio;
-                previousLockedTargetMidi = targetMidiNote;
+                // No stable lock yet: keep correction neutral.
+                // Computing a target ratio from an invalid note index causes startup
+                // lurches that are heard as wobble/skipping.
+                targetPitchRatio += (1.0f - targetPitchRatio) * 0.25f;
+                correctedPitch.store (0.0f);
             }
             else
             {
-                // Stable-lock retarget smoothing suppresses detector flutter while still allowing
-                // real note drift to drive stronger/autotune-like correction.
-                // Very small alpha so individual bad detector frames can't spike targetPitchRatio.
-                const float stableRetargetAlpha = hardTuneMode
-                    ? 0.42f
-                    : (lowLatencyMode ? 0.08f : 0.06f);
-                targetPitchRatio += (computedTargetRatio - targetPitchRatio) * stableRetargetAlpha;
-            }
+                const int targetMidiNote = lockedTargetMidi;
+                const float targetHz = getTargetPitchHz (targetMidiNote);
 
-            const float correctedHz = octaveAlignedDetectedHz * targetPitchRatio;
-            correctedPitch.store (correctedHz);
+                // Recompute target ratio every detection block so correction tracks continuous intonation
+                // drift while the lock is held. Smooth updates on stable lock to avoid jitter-driven wobble.
+                const bool lockChanged = (targetMidiNote != previousLockedTargetMidi);
 
-            if (debugCounter % 100 == 2)
-            {
-                DBG("Nova Pitch: detectedHz=" << detectedHz
-                    << " targetHz=" << targetHz
-                    << " pitchRatio=" << pitchRatio
-                    << " targetPitchRatio=" << targetPitchRatio
-                    << " lockChanged=" << (lockChanged ? 1 : 0));
+                // Align detector octave to the selected target note before ratio computation.
+                float octaveAlignedDetectedHz = detectedHz;
+                if (targetHz > 1.0f)
+                {
+                    while (octaveAlignedDetectedHz < targetHz * 0.70710678f)
+                        octaveAlignedDetectedHz *= 2.0f;
+                    while (octaveAlignedDetectedHz > targetHz * 1.41421356f)
+                        octaveAlignedDetectedHz *= 0.5f;
+                }
+
+                float pitchRatio = computeRetuneRatio (octaveAlignedDetectedHz, targetHz, inputRms, voicedHoldBlocks, lowLatencyMode);
+                diagWindowRatioComputedBlocks++;
+                if (std::abs (pitchRatio - 1.0f) < 0.001f)
+                    diagWindowUnityReturnBlocks++;
+
+                const float minRatio = 0.72f;
+                const float maxRatio = 1.38f;
+                const float computedTargetRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
+
+                if (lockChanged)
+                {
+                    targetPitchRatio = computedTargetRatio;
+                    previousLockedTargetMidi = targetMidiNote;
+                }
+                else
+                {
+                    // Stable-lock retarget smoothing suppresses detector flutter while still allowing
+                    // real note drift to drive stronger/autotune-like correction.
+                    // Very small alpha so individual bad detector frames can't spike targetPitchRatio.
+                    const float stableRetargetAlpha = hardTuneMode
+                        ? 0.42f
+                        : (lowLatencyMode ? 0.08f : 0.06f);
+                    targetPitchRatio += (computedTargetRatio - targetPitchRatio) * stableRetargetAlpha;
+                }
+
+                const float correctedHz = octaveAlignedDetectedHz * targetPitchRatio;
+                correctedPitch.store (correctedHz);
+
+                if (debugCounter % 100 == 2)
+                {
+                    DBG("Nova Pitch: detectedHz=" << detectedHz
+                        << " targetHz=" << targetHz
+                        << " pitchRatio=" << pitchRatio
+                        << " targetPitchRatio=" << targetPitchRatio
+                        << " lockChanged=" << (lockChanged ? 1 : 0));
+                }
             }
         }
         else
