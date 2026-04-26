@@ -932,27 +932,32 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         // Hard mode should keep strong correction on stable voiced frames, but back off
         // smoothly (not abruptly) when confidence/energy become unreliable.
-        const float energyDrive = juce::jlimit (0.15f, 1.0f,
-            juce::jmap (inputRmsSmoothed, 0.0020f, 0.010f, 0.15f, 1.0f));
-        const float freshnessDrive = juce::jlimit (0.75f, 1.0f,
-            juce::jmap (static_cast<float> (blocksSinceValidPitch), 0.0f, 20.0f, 1.0f, 0.75f));
+        const float energyDrive = juce::jlimit (0.70f, 1.0f,
+            juce::jmap (inputRmsSmoothed, 0.0020f, 0.010f, 0.70f, 1.0f));
+        const float freshnessDrive = juce::jlimit (0.88f, 1.0f,
+            juce::jmap (static_cast<float> (blocksSinceValidPitch), 0.0f, 20.0f, 1.0f, 0.88f));
         correctionDrive *= energyDrive * freshnessDrive;
 
         if (vocalState != VocalState::Voiced)
-            correctionDrive *= 0.65f;
+            correctionDrive *= 0.92f;
 
         if (! hardStableUpdateFrame)
-            correctionDrive *= 0.75f;
+            correctionDrive *= 0.92f;
     }
 
     {
         // Smooth correction depth transitions so weak-word dropouts do not sound like
         // record-stop pumping between corrected/unity states.
-        const float riseAlpha = hardTuneMode ? 0.10f : 0.12f;
+        const float riseAlpha = hardTuneMode ? 0.18f : 0.12f;
         const float fallAlpha = hardTuneMode ? 0.045f : 0.08f;
         const float alpha = (correctionDrive > correctionDriveSmoothed) ? riseAlpha : fallAlpha;
         correctionDriveSmoothed += (correctionDrive - correctionDriveSmoothed) * alpha;
         correctionDrive = juce::jlimit (0.0f, 1.0f, correctionDriveSmoothed);
+
+        // In hard tune with a valid lock and usable signal, keep correction depth high
+        // so the retune remains clearly audible instead of collapsing toward unity.
+        if (hardTuneMode && lockedTargetMidi >= 0 && ! signalTooLow)
+            correctionDrive = juce::jmax (0.86f, correctionDrive);
     }
 
     float appliedRatio = 1.0f + (activePitchRatio - 1.0f) * correctionDrive;
