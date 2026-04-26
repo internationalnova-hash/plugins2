@@ -277,7 +277,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Hard mode should still be very fast, but uncapped 260 st/s can produce audible
     // read-head bursts/skip artifacts when detector frames jump at phrase edges.
     const float maxSemitonesPerSecond = (k >= 0.90f)
-        ? juce::jmin (45.0f, maxSemitonesPerSecondBase)
+        ? juce::jmin (18.0f, maxSemitonesPerSecondBase)
         : maxSemitonesPerSecondBase;
     const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
@@ -793,15 +793,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Go to dry bypass immediately when confidence is zero — no grace period.
     // A 24-block grace window caused the shifter to run 24 blocks without a valid pitch
     // then abruptly switch to dry, producing an audible skip/comb artifact every playback start.
-    const bool lowConfidence = trackingConfidence < (hardTuneMode ? 0.0002f : (retuneControlActive >= 0.85f ? 0.002f : 0.01f));
-    const bool trackingLost = signalTooLow || (! hardTuneMode && lowConfidence && voicedHoldBlocks == 0);
+    const bool lowConfidence = trackingConfidence < (hardTuneMode ? 0.35f : (retuneControlActive >= 0.85f ? 0.002f : 0.01f));
+    const bool trackingLost = signalTooLow || (lowConfidence && voicedHoldBlocks == 0);
     if (trackingLost)
         diagWindowTrackingLostBlocks++;
 
     // Keep the processed path fully wet while signal is present to avoid
     // dry/wet comb filtering (phasey sound). Only fade to dry in true silence.
-    if (signalTooLow)
-        wetMixSmoothed += (0.0f - wetMixSmoothed) * 0.020f;
+    if (trackingLost)
+        wetMixSmoothed += (0.0f - wetMixSmoothed) * 0.060f;
     else
         wetMixSmoothed += (1.0f - wetMixSmoothed) * 0.30f;
     const float wetMix = juce::jlimit (0.0f, 1.0f, wetMixSmoothed);
@@ -857,6 +857,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         {
             // Freeze ratio chase on weak hard-mode frames to avoid detector-noise wobble.
             targetRatioSmoothed += (activePitchRatio - targetRatioSmoothed) * 0.24f;
+            activePitchRatio += (1.0f - activePitchRatio) * 0.03f;
         }
 
         const float ratioStep = std::abs (activePitchRatio - diagPrevActivePitchRatio);
@@ -882,7 +883,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // transient attack frames from sounding like skip/record-stop artifacts.
     float correctionDrive = 1.0f;
 
-    const bool correctionEngagedNow = (! signalTooLow) && (retuneControlActive > 0.05f);
+    const bool correctionEngagedNow = (! trackingLost) && (retuneControlActive > 0.05f);
     if (correctionEngagedNow)
     {
         if (! correctionEngagedPrev)
@@ -915,7 +916,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         // Smooth correction depth transitions so weak-word dropouts do not sound like
         // record-stop pumping between corrected/unity states.
-        const float riseAlpha = hardTuneMode ? 0.16f : 0.12f;
+        const float riseAlpha = hardTuneMode ? 0.10f : 0.12f;
         const float fallAlpha = hardTuneMode ? 0.045f : 0.08f;
         const float alpha = (correctionDrive > correctionDriveSmoothed) ? riseAlpha : fallAlpha;
         correctionDriveSmoothed += (correctionDrive - correctionDriveSmoothed) * alpha;
@@ -1700,7 +1701,7 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     {
         // Keep hard mode extremely fast, but continuous.
         // Instant jumps in read-head ratio can sound like record-stop/skip artifacts.
-        const float hardRatioSmoothing = juce::jlimit (0.18f, 0.36f, 0.18f + ratioDelta * 0.55f);
+        const float hardRatioSmoothing = juce::jlimit (0.08f, 0.20f, 0.08f + ratioDelta * 0.30f);
         ratioSmoothed += (clampedRatio - ratioSmoothed) * hardRatioSmoothing;
     }
     else
@@ -1771,10 +1772,22 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
             juce::jmap (unityDelta, 0.00035f, 0.00110f, 1.0f, 0.0f)); // 1=dry, 0=shifted
         if (hardTuneMode)
         {
-            nearUnityBlend = 0.0f;
-            // Keep hard mode fully wet per-sample; stale dry blend state can reappear
-            // for tens of milliseconds and is perceived as skip/comb artifacts.
-            dryBlendSmoothed = 0.0f;
+            const bool weakHardFrame = trackingConfidence < 0.55f;
+            if (weakHardFrame)
+            {
+                // Weak hard-mode frames should not stay fully wet; this causes
+                // audible skip/grain artifacts on phrase edges.
+                nearUnityBlend = juce::jmax (nearUnityBlend, 0.70f);
+            }
+            else if (unityDelta < 0.0012f)
+            {
+                // Near-unity in hard mode: allow a little dry to avoid zippery shimmer.
+                nearUnityBlend = juce::jmax (nearUnityBlend, 0.22f);
+            }
+            else
+            {
+                nearUnityBlend = 0.0f;
+            }
         }
 
         auto shortestWrappedDelta = [bufferSize] (float from, float to)
