@@ -183,7 +183,6 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     retuneSpeedSmoothed = 0.0f;
     inputRmsSmoothed = 0.0f;
     voicedHoldBlocks = 0;
-    hardWeakFrameRun = 0;
     wetMixSmoothed = 0.0f;
     lockedTargetMidi = -1;
     lockedTargetAge = 0;
@@ -806,8 +805,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const bool hardPitchStale = blocksSinceValidPitch > (lowLatencyMode ? 10 : 14);
     const bool hardNoEnergy = inputRmsSmoothed < 0.0022f && voicedHoldBlocks == 0;
     const bool hardTrackingLost = hardPitchStale && hardNoEnergy;
-    if (! hardTuneMode)
-        hardWeakFrameRun = 0;
 
     const bool trackingLost = hardTuneMode
         ? (signalTooLow || hardTrackingLost)
@@ -902,7 +899,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // transient attack frames from sounding like skip/record-stop artifacts.
     float correctionDrive = 1.0f;
 
-    const bool correctionEngagedNow = (! trackingLost) && (retuneControlActive > 0.05f);
+    const bool correctionEngagedNow = (! signalTooLow) && (retuneControlActive > 0.05f);
     if (correctionEngagedNow)
     {
         if (! correctionEngagedPrev)
@@ -984,7 +981,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         }
     }
 
-    if (! trackingLost)
+    if (! signalTooLow)
         applyOutputManagement (buffer, inputRms);
 
     const std::uint64_t diagMinSamples = static_cast<std::uint64_t> (juce::jmax (1.0, currentSampleRate * 2.0));
