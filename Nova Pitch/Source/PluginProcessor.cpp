@@ -725,6 +725,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     activePitchRatio = 1.0f;
                     targetRatioSmoothed = 1.0f;
                     correctionDriveSmoothed = 0.0f;
+
+                    // Clear circular-shifter read/write state on true long silence.
+                    // This prevents stale read-head/crossfade state from carrying across
+                    // loop restarts and surfacing as pause/skip artifacts.
+                    initializePitchShift();
                 }
             }
         }
@@ -737,11 +742,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const bool hardTuneMode = retuneControlActive >= 0.90f;
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     inputRmsSmoothed += (inputRms - inputRmsSmoothed) * 0.08f;
-    const float gateOnThreshold = hardTuneMode ? 0.0026f : 0.0030f;
-    const float gateOffThreshold = hardTuneMode ? 0.0011f : 0.0012f;
+    const float gateOnThreshold = hardTuneMode ? 0.0024f : 0.0030f;
+    const float gateOffThreshold = hardTuneMode ? 0.0009f : 0.0012f;
     if (inputRmsSmoothed >= gateOnThreshold)
     {
-        voicedHoldBlocks = hardTuneMode ? 64 : 24;
+        voicedHoldBlocks = hardTuneMode ? 120 : 24;
     }
     else if (voicedHoldBlocks > 0)
     {
@@ -750,8 +755,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     // Explicit vocal-state machine (silence/onset/voiced/release) to keep
     // correction and note-lock behavior stable at phrase boundaries.
-    const float stateOnThreshold  = hardTuneMode ? 0.0032f : 0.0030f;
-    const float stateOffThreshold = hardTuneMode ? 0.0016f : 0.0012f;
+    const float stateOnThreshold  = hardTuneMode ? 0.0028f : 0.0030f;
+    const float stateOffThreshold = hardTuneMode ? 0.00095f : 0.0012f;
     const bool stateEnergyHigh = inputRmsSmoothed >= stateOnThreshold;
     const bool stateEnergyLow  = inputRmsSmoothed <= stateOffThreshold;
     const bool statePitchFresh = blocksSinceValidPitch == 0;
@@ -779,7 +784,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             break;
 
         case VocalState::Onset:
-            if (stateEnergyLow && blocksSinceValidPitch > (hardTuneMode ? 3 : 2))
+            if (stateEnergyLow && voicedHoldBlocks == 0 && blocksSinceValidPitch > (hardTuneMode ? 8 : 2))
                 setVocalState (VocalState::Silence);
             else if (statePitchFresh && vocalStateAgeBlocks >= (hardTuneMode ? 3 : 2))
                 setVocalState (VocalState::Voiced);
@@ -788,7 +793,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             break;
 
         case VocalState::Voiced:
-            if (stateEnergyLow || blocksSinceValidPitch > (hardTuneMode ? 3 : 2))
+            if ((stateEnergyLow && voicedHoldBlocks == 0) || blocksSinceValidPitch > (hardTuneMode ? 8 : 2))
                 setVocalState (VocalState::Release);
             else
                 setVocalState (VocalState::Voiced);
@@ -797,7 +802,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         case VocalState::Release:
             if (statePitchFresh && stateEnergyHigh)
                 setVocalState (VocalState::Onset);
-            else if (stateEnergyLow && vocalStateAgeBlocks >= (hardTuneMode ? 8 : 4))
+            else if (stateEnergyLow && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= (hardTuneMode ? 20 : 4))
                 setVocalState (VocalState::Silence);
             else
                 setVocalState (VocalState::Release);
@@ -806,7 +811,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     const bool hardSignalTooLow = inputRmsSmoothed < gateOffThreshold
         && voicedHoldBlocks == 0
-        && blocksSinceValidPitch > (lowLatencyMode ? 24 : 36);
+        && blocksSinceValidPitch > (lowLatencyMode ? 36 : 64);
     const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
     const bool signalTooLow = (hardTuneMode ? hardSignalTooLow : normalSignalTooLow);
 
@@ -814,7 +819,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Confidence swings alone are too jittery and were forcing trackingLostRatio to 1.0.
     const bool lowConfidence = trackingConfidence < (retuneControlActive >= 0.85f ? 0.002f : 0.01f);
     const bool hardPitchStale = blocksSinceValidPitch > (lowLatencyMode ? 10 : 14);
-    const bool hardNoEnergy = inputRmsSmoothed < 0.0022f && voicedHoldBlocks == 0;
+    const bool hardNoEnergy = inputRmsSmoothed < 0.0012f && voicedHoldBlocks == 0;
     const bool hardTrackingLost = hardPitchStale && hardNoEnergy;
 
     const bool trackingLost = hardTuneMode
@@ -835,7 +840,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Retune stays active across the full knob range; knob controls speed only.
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     const bool hardStableUpdateFrame = (! hardTuneMode)
-        || ((inputRmsSmoothed > 0.0035f)
+        || (((inputRmsSmoothed > 0.0020f) || (voicedHoldBlocks > 0))
             && (blocksSinceValidPitch <= (lowLatencyMode ? 10 : 12))
             && (vocalState != VocalState::Silence));
 
