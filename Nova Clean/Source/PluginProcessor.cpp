@@ -221,14 +221,16 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             const float slowEnergy = std::sqrt (state.slowEnergyEnv + 1.0e-9f);
             const float hfRatio    = curvature / (std::sqrt (state.hfEnv + 1.0e-9f) + 1.0e-6f);
             const float clickiness = curvature / (slope + 1.0e-6f);
+            const float transientRatio = slope / (slowEnergy + 1.0e-6f);
 
             // Amplitude pop: sudden energy burst vs long-term level
             const float popRatio  = energy / (slowEnergy + 1.0e-6f);
-            const bool  amplitudePop = (popRatio > 4.2f) && (slope > energy * 0.55f);
+            const bool  amplitudePop = (popRatio > 3.2f) && (slope > energy * 0.42f);
 
             // Digital impulse: isolated sample — both neighbours are quiet
             const float neighborMax = juce::jmax (std::abs (state.prevIn1), std::abs (next));
-            const bool  digitalImpulse = (std::abs (in) > neighborMax * 3.5f) && (std::abs (in) > 0.003f);
+            const bool  digitalImpulse = (std::abs (in) > neighborMax * 2.6f) && (std::abs (in) > 0.0018f);
+            const bool  narrowSpike = (clickiness > 0.85f) && (transientRatio > 3.2f) && (std::abs (in) > 0.0018f);
 
             float score = 0.0f;
             score += 0.40f * juce::jlimit (0.0f, 4.0f, hfRatio)                        * focusHigh;
@@ -241,17 +243,30 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             else if (mode == Crackle)
                 score += 0.20f * juce::jlimit (0.0f, 3.0f, hfRatio);
 
-            const bool likelyConsonant  = (slope > 0.035f && clickiness < 0.22f);
+            if (narrowSpike)
+                score += 0.26f;
+
+            const bool likelyConsonant  = (slope > 0.020f && clickiness < 0.30f);
             const bool protectTransient = likelyConsonant && transientGuardNorm > 0.55f;
-            const bool protectVocal     = (clickiness < 0.30f && vocalProtectNorm > 0.65f && energy > 0.010f);
+            const bool protectVocal = (clickiness < 0.46f
+                                    && hfRatio < 1.55f
+                                    && vocalProtectNorm > 0.55f
+                                    && energy > 0.006f);
 
             // Hard impulses always bypass vocal/transient protection
-            const bool hardImpulse    = digitalImpulse || amplitudePop || (score > threshold * 1.85f);
+            const bool hardImpulse    = digitalImpulse || amplitudePop || narrowSpike || (score > threshold * 1.55f);
             const bool protectedEvent = !hardImpulse && (protectTransient || protectVocal);
-            const bool detected       = (score > threshold || digitalImpulse || amplitudePop) && !protectedEvent;
+            const bool detected = (score > threshold * 1.02f || digitalImpulse || amplitudePop || narrowSpike) && !protectedEvent;
 
             if (detected)
-                state.holdSamples = winLen;
+            {
+                const int hold = hardImpulse
+                    ? winLen
+                    : juce::jmax (1, static_cast<int> (std::round (static_cast<float> (winLen) * 0.55f)));
+                state.holdSamples = juce::jmax (state.holdSamples, hold);
+                if (hardImpulse)
+                    state.impulseHoldSamples = juce::jmax (state.impulseHoldSamples, hold);
+            }
 
             float repaired = in;
             if (state.holdSamples > 0)
@@ -287,27 +302,35 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                     interpTarget = juce::jmap (smartBlend, interpBase, 0.35f * in + 0.65f * interpBase);
                 }
 
-                repaired = in + (interpTarget - in) * repairDepth;
+                const float depthScale = (state.impulseHoldSamples > 0) ? 1.0f : 0.62f;
+                repaired = in + (interpTarget - in) * (repairDepth * depthScale);
 
                 // Mild low-level broadband cleanup to help with background hiss/room noise.
                 // This only engages below the local energy bed and scales with Clean.
+                if (state.impulseHoldSamples > 0)
                 {
                     const float noiseRef = slowEnergy * juce::jmap (cleanNorm, 0.0f, 1.0f, 0.55f, 1.10f);
                     const float residual = std::abs (repaired);
                     if (residual < noiseRef)
                     {
                         const float t = juce::jlimit (0.0f, 1.0f, residual / juce::jmax (1.0e-6f, noiseRef));
-                        const float suppress = juce::jmap (cleanNorm, 0.0f, 1.0f, 0.0f, 0.45f);
+                        const float suppress = juce::jmap (cleanNorm, 0.0f, 1.0f, 0.0f, 0.30f);
                         const float keep = juce::jmap (t, 1.0f - suppress, 1.0f);
                         repaired *= keep;
                     }
                 }
 
-                removed[i] = in - repaired;
+                float removedSample = in - repaired;
+                if (state.impulseHoldSamples <= 0)
+                    removedSample *= 0.35f;
+
+                removed[i] = removedSample;
                 if (detected)
                     ++removedEvents;
 
                 --state.holdSamples;
+                if (state.impulseHoldSamples > 0)
+                    --state.impulseHoldSamples;
             }
             else
             {
@@ -340,6 +363,7 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         auto* x = buffer.getWritePointer (ch);
         auto* dry = dryBuffer.getReadPointer (ch);
         auto* removed = removedBuffer.getReadPointer (ch);
+        auto& state = channelStates[static_cast<size_t> (ch)];
 
         for (int i = 0; i < numSamples; ++i)
         {
@@ -352,9 +376,16 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             const float bypassNow = bypassSmoothed.getNextValue();
             const float listenNow = listenRemovedSmoothed.getNextValue();
 
+            // Listen Removed should emphasize click/pop residue, not vocal body.
+            // Use a light HP emphasis on the removed signal for monitoring clarity.
+            const float hpRemoved = (removedSample - state.listenRemovedHpPrevIn)
+                + 0.992f * state.listenRemovedHpPrevOut;
+            state.listenRemovedHpPrevIn = removedSample;
+            state.listenRemovedHpPrevOut = hpRemoved;
+
             const float blended = drySample * (1.0f - mixNow) + wetSample * mixNow;
             const float normalOut = blended * gainNow;
-            const float removedOut = removedSample * (2.8f * gainNow);
+            const float removedOut = hpRemoved * (2.2f * gainNow);
             const float modeOut = normalOut * (1.0f - listenNow) + removedOut * listenNow;
             const float finalOut = drySample * bypassNow + modeOut * (1.0f - bypassNow);
 

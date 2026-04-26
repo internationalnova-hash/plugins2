@@ -67,6 +67,9 @@ private:
         float hfEnv = 1.0e-6f;
         float slowEnergyEnv = 1.0e-6f; // long-term for pop detection
         int   holdSamples = 0;          // persists across buffer boundaries
+        int   impulseHoldSamples = 0;   // tracks hard impulse repair windows
+        float listenRemovedHpPrevIn = 0.0f;
+        float listenRemovedHpPrevOut = 0.0f;
     };
 
     std::array<ChannelState, 2> channelStates;
