@@ -719,7 +719,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // Only reset correction integrators when energy is truly gone.
                 // If signal is still present, preserve activePitchRatio so re-lock can resume
                 // correction immediately without the wobble from rebuilding from 1.0 every cycle.
-                const bool energyStillPresent = (inputRmsSmoothed > 0.0022f) || (voicedHoldBlocks > 0);
+                const bool energyStillPresent = (inputRmsSmoothed > 0.0008f) || (voicedHoldBlocks > 0);
                 if (! energyStillPresent)
                 {
                     activePitchRatio = 1.0f;
@@ -835,13 +835,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         wetMixSmoothed += (1.0f - wetMixSmoothed) * 0.24f;
     else
         wetMixSmoothed += (0.0f - wetMixSmoothed) * 0.060f;
-    const float wetMix = juce::jlimit (0.0f, 1.0f, wetMixSmoothed);
+    const float wetMix = hardTuneMode
+        ? 1.0f
+        : juce::jlimit (0.0f, 1.0f, wetMixSmoothed);
 
     // Retune stays active across the full knob range; knob controls speed only.
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     const bool hardStableUpdateFrame = (! hardTuneMode)
         || (((inputRmsSmoothed > 0.0020f) || (voicedHoldBlocks > 0))
-            && (blocksSinceValidPitch <= (lowLatencyMode ? 10 : 12))
+            && (blocksSinceValidPitch <= (lowLatencyMode ? 18 : 24))
             && (vocalState != VocalState::Silence));
 
     if (! signalTooLow)
@@ -1250,11 +1252,11 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Always compute a correction ratio, but only add extra emphasis once the singer
     // is meaningfully off target. Over-boosting tiny errors made the shifter chatter.
     const float signedCents = 1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio)));
-    const float correctionMagnitude = juce::jlimit (0.0f, 1.0f, std::abs (signedCents) / 120.0f);
+    const float correctionMagnitude = juce::jlimit (0.0f, 1.0f, std::abs (signedCents) / 95.0f);
     float emphasis = 1.0f + juce::jmap (amountDrive, 0.0f, 1.0f, 0.14f, 0.62f) * correctionMagnitude;
 
     if (hardTuneMode)
-        emphasis += 0.35f * correctionMagnitude;
+        emphasis += 0.62f * correctionMagnitude;
 
     float emphasizedCents = juce::jlimit (-380.0f, 380.0f, signedCents * emphasis);
 
@@ -1277,10 +1279,10 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
         // extra pull so the effect is clearly perceptible (MetaTune-style snap)
         // instead of sounding nearly transparent.
         absCents = std::abs (emphasizedCents);
-        if (absCents > 2.0f && absCents < 60.0f)
+        if (absCents > 2.0f && absCents < 90.0f)
         {
-            const float t = juce::jlimit (0.0f, 1.0f, (absCents - 2.0f) / 58.0f);
-            const float extraPullCents = juce::jmap (t, 22.0f, 8.0f);
+            const float t = juce::jlimit (0.0f, 1.0f, (absCents - 2.0f) / 88.0f);
+            const float extraPullCents = juce::jmap (t, 70.0f, 16.0f);
             emphasizedCents = std::copysign (absCents + extraPullCents, emphasizedCents);
         }
 
@@ -1821,7 +1823,9 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     float xfadeFromHead = wrapPos (crossfadeFromPos);
     float xfadeToHead = wrapPos (crossfadeToPos);
     const bool confidenceStable = trackingConfidence >= (hardTuneMode ? 0.85f : 0.60f);
-    const float crossfadeSamples = static_cast<float> (lowLatencyMode ? 80 : 128);
+    const float crossfadeSamples = static_cast<float> (lowLatencyMode
+        ? (hardTuneMode ? 128 : 80)
+        : (hardTuneMode ? 192 : 128));
     const float crossfadePhaseInc = 1.0f / juce::jmax (32.0f, crossfadeSamples);
 
     for (int i = 0; i < numSamples; ++i)
@@ -1893,7 +1897,7 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
             xfadePhase = 1.0e-6f;
             xfadeFromHead = readHead;
             // Place new head one buffer-half away from the danger zone
-            const float jumpDistance = static_cast<float> (bufferSize) * 0.5f;
+            const float jumpDistance = static_cast<float> (bufferSize) * (hardTuneMode ? 0.38f : 0.5f);
             const float newHead = headTooClose
                 ? wrapPos (readHead - jumpDistance)  // jump back half buffer
                 : desiredAnchor;
