@@ -685,8 +685,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
             // Do not hard-reset target on short detector dropouts; this causes ratio ping-pong
             // and is perceived as skip/burst artifacts at fastest retune.
+            // Hard mode uses a much longer hold (120 blocks ≈ 0.35s) to survive breath/vibrato
+            // detector gaps that were previously triggering a full correction collapse every ~4s.
             const int dropoutHoldBlocks = hardTuneModeFrame
-                ? (lowLatencyMode ? 36 : 52)
+                ? (lowLatencyMode ? 72 : 120)
                 : (lowLatencyMode ? 18 : 30);
             if (blocksSinceValidPitch <= dropoutHoldBlocks)
             {
@@ -713,10 +715,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 detMedianIdx = 0;
                 detMedianFull = false;
 
-                // Also reset correction integrators to avoid old-ratio tail memory.
-                activePitchRatio = 1.0f;
-                targetRatioSmoothed = 1.0f;
-                correctionDriveSmoothed = 0.0f;
+                // Only reset correction integrators when energy is truly gone.
+                // If signal is still present, preserve activePitchRatio so re-lock can resume
+                // correction immediately without the wobble from rebuilding from 1.0 every cycle.
+                const bool energyStillPresent = (inputRmsSmoothed > 0.0022f) || (voicedHoldBlocks > 0);
+                if (! energyStillPresent)
+                {
+                    activePitchRatio = 1.0f;
+                    targetRatioSmoothed = 1.0f;
+                    correctionDriveSmoothed = 0.0f;
+                }
             }
         }
     }
