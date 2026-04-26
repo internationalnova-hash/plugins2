@@ -1790,29 +1790,13 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         const float unityDelta = std::abs (effectiveRatio - 1.0f);
         const float desiredAnchor = wrapPos (static_cast<float> (writeIdx - baseDelaySamples));
 
-        // Near-unity passthrough: keep this extremely narrow so correction remains
-        // clearly audible even at slower settings.
+        // Near-unity passthrough: keep extremely narrow. Outer correctionDrive handles
+        // weak frames — do NOT blend in dry signal based on confidence inside the shifter,
+        // as confidence oscillations produce audible comb/skip artifacts at audio rates.
         float nearUnityBlend = juce::jlimit (0.0f, 1.0f,
-            juce::jmap (unityDelta, 0.00035f, 0.00110f, 1.0f, 0.0f)); // 1=dry, 0=shifted
+            juce::jmap (unityDelta, 0.00035f, 0.00110f, 1.0f, 0.0f));
         if (hardTuneMode)
-        {
-            const bool weakHardFrame = trackingConfidence < 0.55f;
-            if (weakHardFrame)
-            {
-                // Weak hard-mode frames should not stay fully wet; this causes
-                // audible skip/grain artifacts on phrase edges.
-                nearUnityBlend = juce::jmax (nearUnityBlend, 0.70f);
-            }
-            else if (unityDelta < 0.0012f)
-            {
-                // Near-unity in hard mode: allow a little dry to avoid zippery shimmer.
-                nearUnityBlend = juce::jmax (nearUnityBlend, 0.22f);
-            }
-            else
-            {
-                nearUnityBlend = 0.0f;
-            }
-        }
+            nearUnityBlend = 0.0f; // hard mode: always fully wet; outer drive handles gating
 
         auto shortestWrappedDelta = [bufferSize] (float from, float to)
         {
@@ -1833,25 +1817,49 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
             anchorPull = 0.0010f;
         readHead = wrapPos (readHead + anchorError * anchorPull);
 
-        // Guarded resync: only trigger when confidence is stable, ratio is not making
-        // extreme moves, and read-head anchor error is genuinely large.
+        // ── Proactive read-head guard crossfade ──────────────────────────────────
+        // The read head runs at effectiveRatio per sample. When ratio>1 it gains on
+        // the write head; when ratio<1 it falls behind. Either way, once the read head
+        // is within a safety margin of the write head, un-written buffer sections will
+        // be read, producing a hard discontinuity heard as a skip/click. Crossfade to
+        // a new read head one full "pitch period" away before this happens.
+        // This guard fires in ALL modes including hard-tune.
+        const float safetyMargin = static_cast<float> (lowLatencyMode ? 192 : 256);
+        const float toWrite = static_cast<float> (writeIdx);
+        // Distance from readHead forward to writeIdx (in the direction readHead travels)
+        float distToWrite = shortestWrappedDelta (readHead, toWrite);
+        // For ratio>1, readHead gains on writeIdx, so distToWrite shrinks each sample.
+        // For ratio<1, readHead falls behind; wrap distance to writeIdx grows but we
+        // could overshoot the safe zone from the other side when distToWrite wraps.
+        const bool headTooClose = (xfadePhase <= 0.0f)
+            && (std::abs (distToWrite) < safetyMargin);
+
+        // Traditional anchor-error resync for non-hard near-unity (legacy path, still useful)
         const float anchorErrorAbs = std::abs (anchorError);
         const float ratioStability = std::abs (clampedRatio - ratioSmoothed);
-        const bool canStartCrossfade = (! hardTuneMode)
+        const bool canStartAnchorXfade = (! hardTuneMode)
             && confidenceStable
             && xfadePhase <= 0.0f
             && unityDelta < 0.020f
             && ratioStability < 0.035f
             && anchorErrorAbs > (lowLatencyMode ? 96.0f : 128.0f);
 
+        const bool canStartCrossfade = headTooClose || canStartAnchorXfade;
+
         if (canStartCrossfade)
         {
             xfadePhase = 1.0e-6f;
             xfadeFromHead = readHead;
-            xfadeToHead = wrapPos (desiredAnchor);
+            // Place new head one buffer-half away from the danger zone
+            const float jumpDistance = static_cast<float> (bufferSize) * 0.5f;
+            const float newHead = headTooClose
+                ? wrapPos (readHead - jumpDistance)  // jump back half buffer
+                : desiredAnchor;
+            xfadeToHead = wrapPos (newHead);
         }
 
         // Fallback to single-head immediately if confidence becomes unstable.
+        // Note: do NOT blend dry audio on confidence loss — that causes audible skip/comb.
         if (! confidenceStable)
             xfadePhase = 0.0f;
 
@@ -1886,8 +1894,9 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         const float outputAlpha = juce::jlimit (0.86f, 0.995f, baseAlpha + alphaBoost);
         outputSmoother += (shifted - outputSmoother) * outputAlpha;
 
-        // Blend dry (near-unity) vs shifted.
-        dryBlendSmoothed += (nearUnityBlend - dryBlendSmoothed) * 0.035f;
+        // Blend dry (near-unity passthrough) vs shifted.
+        // Use slow smoother so blend transitions do not produce audible zipper artifacts.
+        dryBlendSmoothed += (nearUnityBlend - dryBlendSmoothed) * 0.012f;
         channelData[i] = outputSmoother * (1.0f - dryBlendSmoothed) + inputSample * dryBlendSmoothed;
 
         readHead = wrapPos (readHead + effectiveRatio);
