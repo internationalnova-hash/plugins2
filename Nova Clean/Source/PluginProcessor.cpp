@@ -36,9 +36,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaCleanV2AudioProcessor::c
         juce::StringArray { "Vocal", "Digital", "Crackle" }, 0));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> ("clean", "Clean",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 42.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 62.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("preserve", "Preserve",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 86.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 72.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("mix", "Mix",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 100.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("outputGain", "Output Gain",
@@ -57,14 +57,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaCleanV2AudioProcessor::c
         juce::StringArray { "High", "Mid", "Full" }, 2));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> ("strength", "Strength",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 88.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 95.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("shape", "Shape",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 80.0f));
     layout.add (std::make_unique<juce::AudioParameterChoice> ("interpolation", "Interpolation",
         juce::StringArray { "Basic", "Smart" }, 1));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> ("vocalProtect", "Vocal Protect",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 84.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 72.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("transientGuard", "Transient Guard",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 60.0f));
 
@@ -164,12 +164,12 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     const bool lowLatency = apvts.getRawParameterValue ("lowLatency")->load() > 0.5f;
     const bool hqMode = apvts.getRawParameterValue ("hqMode")->load() > 0.5f && !lowLatency;
 
-    const float effectiveSensitivity = juce::jlimit (0.0f, 1.0f, sensitivityNorm * 0.55f + cleanNorm * 0.65f);
-    const float effectiveRepair = juce::jlimit (0.0f, 1.0f, strengthNorm * 0.65f + cleanNorm * 0.45f);
+    const float effectiveSensitivity = juce::jlimit (0.0f, 1.0f, sensitivityNorm * 0.45f + cleanNorm * 0.95f);
+    const float effectiveRepair = juce::jlimit (0.0f, 1.0f, strengthNorm * 0.55f + cleanNorm * 0.95f);
 
-    const float baseThreshold = 0.11f;
+    const float baseThreshold = 0.07f;
     const float shapedSensitivity = std::pow (effectiveSensitivity, 1.15f);
-    float threshold = juce::jlimit (0.01f, 0.85f, baseThreshold + (1.0f - shapedSensitivity) * 0.34f);
+    float threshold = juce::jlimit (0.01f, 0.85f, baseThreshold + (1.0f - shapedSensitivity) * 0.26f);
 
     if (mode == Digital)
         threshold *= 0.85f;
@@ -181,9 +181,9 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     else if (clickSize == Medium)
         threshold *= 1.12f;
 
-    const float protectScale = 1.0f - 0.35f * preserveNorm;
-    const float cleanBoost = juce::jmap (cleanNorm, 0.0f, 1.0f, 0.65f, 1.0f);
-    const float repairDepth = juce::jlimit (0.0f, 1.0f, effectiveRepair * protectScale * cleanBoost);
+    const float protectScale = 1.0f - 0.22f * preserveNorm;
+    const float cleanBoost = juce::jmap (cleanNorm, 0.0f, 1.0f, 0.85f, 1.25f);
+    const float repairDepth = juce::jlimit (0.20f, 1.0f, effectiveRepair * protectScale * cleanBoost);
 
     const float focusHigh = (freqFocus == High ? 1.35f : (freqFocus == Mid ? 0.82f : 1.0f));
     const float focusMid  = (freqFocus == Mid ? 1.3f : 1.0f);
@@ -199,7 +199,7 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         auto& state = channelStates[static_cast<size_t> (ch)];
         // holdSamples lives in state — persists across buffer boundaries
 
-        const int winLen = (clickSize == Micro ? 1 : (clickSize == Short ? 2 : 4));
+        const int winLen = (clickSize == Micro ? 3 : (clickSize == Short ? 8 : 16));
 
         for (int i = 0; i < numSamples; ++i)
         {
@@ -241,9 +241,9 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             else if (mode == Crackle)
                 score += 0.20f * juce::jlimit (0.0f, 3.0f, hfRatio);
 
-            const bool likelyConsonant  = (slope > 0.015f && clickiness < 0.35f);
-            const bool protectTransient = likelyConsonant && transientGuardNorm > 0.35f;
-            const bool protectVocal     = (clickiness < 0.55f && vocalProtectNorm > 0.45f);
+            const bool likelyConsonant  = (slope > 0.035f && clickiness < 0.22f);
+            const bool protectTransient = likelyConsonant && transientGuardNorm > 0.55f;
+            const bool protectVocal     = (clickiness < 0.30f && vocalProtectNorm > 0.65f && energy > 0.010f);
 
             // Hard impulses always bypass vocal/transient protection
             const bool hardImpulse    = digitalImpulse || amplitudePop || (score > threshold * 1.85f);
@@ -288,6 +288,20 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                 }
 
                 repaired = in + (interpTarget - in) * repairDepth;
+
+                // Mild low-level broadband cleanup to help with background hiss/room noise.
+                // This only engages below the local energy bed and scales with Clean.
+                {
+                    const float noiseRef = slowEnergy * juce::jmap (cleanNorm, 0.0f, 1.0f, 0.55f, 1.10f);
+                    const float residual = std::abs (repaired);
+                    if (residual < noiseRef)
+                    {
+                        const float t = juce::jlimit (0.0f, 1.0f, residual / juce::jmax (1.0e-6f, noiseRef));
+                        const float suppress = juce::jmap (cleanNorm, 0.0f, 1.0f, 0.0f, 0.45f);
+                        const float keep = juce::jmap (t, 1.0f - suppress, 1.0f);
+                        repaired *= keep;
+                    }
+                }
 
                 removed[i] = in - repaired;
                 if (detected)
