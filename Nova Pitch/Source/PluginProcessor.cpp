@@ -274,10 +274,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float hysteresisCents = 40.0f + (12.0f - 40.0f) * std::pow (k, 1.5f);
     const float switchHysteresis = hysteresisCents / 100.0f;
     const float maxSemitonesPerSecondBase = 10.0f * std::pow (260.0f / 10.0f, std::pow (k, 1.35f));
-    // Hard mode should still be very fast, but uncapped 260 st/s can produce audible
-    // read-head bursts/skip artifacts when detector frames jump at phrase edges.
+    // Hard mode should snap much harder than musical mode.
+    // Keep a cap for safety, but high enough to produce obvious robotic lock.
     const float maxSemitonesPerSecond = (k >= 0.90f)
-        ? juce::jmin (18.0f, maxSemitonesPerSecondBase)
+        ? juce::jmin (72.0f, maxSemitonesPerSecondBase)
         : maxSemitonesPerSecondBase;
     const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
@@ -847,7 +847,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             // CRITICAL: Higher smoothing at fast speeds means snappier Auto-Tune effect.
             // At k=1.0 (hard-tune), we use aggressive smoothing for immediate pitch lock.
             const float targetSmoothing = hardTuneMode
-                ? 0.86f
+                ? 0.96f
                 : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.22f, 0.72f);
             targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
@@ -868,7 +868,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
             // Velocity limit in semitones/sec gives musical slow settings and snapping fast settings.
             const float confidenceRateScale = hardTuneMode
-                ? juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.20f, 1.00f)
+                ? juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.80f, 1.00f)
                 : juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.55f, 1.00f);
             const float maxStepSemitones = maxSemitonesPerSecond * confidenceRateScale * dtSeconds;
             const float deltaSemitones = 12.0f * std::log2 (juce::jmax (0.001f, ratioNext) / juce::jmax (0.001f, activePitchRatio));
