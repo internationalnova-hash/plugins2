@@ -103,7 +103,8 @@ private:
 
     // DSP systems
     float smoothDetectedPitch (float rawDetectedHz, float signalRms, bool lowLatencyMode, bool hardTuneMode = false);
-    float computeRetuneRatio (float detectedHz, float targetHz, float signalRms, int voicedHoldBlockCount, bool lowLatencyMode);
+    float computeRetuneRatio (float detectedHz, float targetHz, float signalRms,
+                              int voicedHoldBlockCount, bool lowLatencyMode, bool hardTuneMode);
     void applyVibrato (float& pitchRatio, float sampleRate, int numSamples, float vibratoParam);
     void applyFormantShaper (float* channelData, int numSamples, float formantParam, int channelIndex);
     void applyOutputManagement (juce::AudioBuffer<float>& buffer, float inputRms);

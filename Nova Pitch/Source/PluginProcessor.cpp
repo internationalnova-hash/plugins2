@@ -638,7 +638,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                         octaveAlignedDetectedHz *= 0.5f;
                 }
 
-                float pitchRatio = computeRetuneRatio (octaveAlignedDetectedHz, targetHz, inputRms, voicedHoldBlocks, lowLatencyMode);
+                float pitchRatio = computeRetuneRatio (octaveAlignedDetectedHz, targetHz, inputRms,
+                                                       voicedHoldBlocks, lowLatencyMode, hardTuneModeFrame);
                 diagWindowRatioComputedBlocks++;
                 if (std::abs (pitchRatio - 1.0f) < 0.001f)
                     diagWindowUnityReturnBlocks++;
@@ -917,7 +918,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         else
             ++correctionEngageAgeBlocks;
 
-        const float engageRampBlocks = hardTuneMode ? 4.0f : 4.0f;
+        const float engageRampBlocks = hardTuneMode ? 1.0f : 4.0f;
         const float engageRamp = juce::jlimit (0.0f, 1.0f,
             static_cast<float> (correctionEngageAgeBlocks) / juce::jmax (1.0f, engageRampBlocks));
         correctionDrive *= engageRamp;
@@ -954,10 +955,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         correctionDriveSmoothed += (correctionDrive - correctionDriveSmoothed) * alpha;
         correctionDrive = juce::jlimit (0.0f, 1.0f, correctionDriveSmoothed);
 
-        // In hard tune with a valid lock and usable signal, keep correction depth high
-        // so the retune remains clearly audible instead of collapsing toward unity.
+        // In hard tune with a valid lock and usable signal, run full correction depth.
+        // This keeps hard-tune audibly engaged instead of feeling bypassed.
         if (hardTuneMode && lockedTargetMidi >= 0 && ! signalTooLow)
-            correctionDrive = juce::jmax (0.86f, correctionDrive);
+            correctionDrive = 1.0f;
     }
 
     float appliedRatio = 1.0f + (activePitchRatio - 1.0f) * correctionDrive;
@@ -1211,11 +1212,14 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
     return smoothedDetectedHz;
 }
 
-float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targetHz, float signalRms, int voicedHoldBlocks, bool /*lowLatencyMode*/)
+float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targetHz, float signalRms,
+                                                   int voicedHoldBlocks, bool /*lowLatencyMode*/, bool hardTuneMode)
 {
     const float toleranceNorm = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
+    // Retune speed controls hard mode behavior; amount is treated as a legacy depth trim
+    // only outside hard mode to preserve old sessions.
     const float amountNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("amount")->load() / 100.0f);
-    const bool hardTuneMode = amountNorm >= 0.90f;
+    const float amountDrive = hardTuneMode ? 1.0f : amountNorm;
 
     const float fullRatio = targetHz / juce::jmax (1.0f, detectedHz);
 
@@ -1237,7 +1241,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // is meaningfully off target. Over-boosting tiny errors made the shifter chatter.
     const float signedCents = 1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio)));
     const float correctionMagnitude = juce::jlimit (0.0f, 1.0f, std::abs (signedCents) / 150.0f);
-    float emphasis = 1.0f + juce::jmap (amountNorm, 0.0f, 1.0f, 0.14f, 0.62f) * correctionMagnitude;
+    float emphasis = 1.0f + juce::jmap (amountDrive, 0.0f, 1.0f, 0.14f, 0.62f) * correctionMagnitude;
 
     if (hardTuneMode)
         emphasis += 0.35f * correctionMagnitude;
@@ -1256,8 +1260,8 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
             emphasizedCents *= (0.25f + 0.75f * t * t);
         }
 
-        if (absCents > 10.0f)
-            emphasizedCents *= 1.18f;
+        if (absCents > 8.0f)
+            emphasizedCents *= 1.28f;
     }
 
     const float ratioOut = std::pow (2.0f, emphasizedCents / 1200.0f);
@@ -1792,7 +1796,7 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     float xfadeFromHead = wrapPos (crossfadeFromPos);
     float xfadeToHead = wrapPos (crossfadeToPos);
     const bool confidenceStable = trackingConfidence >= (hardTuneMode ? 0.85f : 0.60f);
-    const float crossfadeSamples = static_cast<float> (lowLatencyMode ? 64 : 96);
+    const float crossfadeSamples = static_cast<float> (lowLatencyMode ? 80 : 128);
     const float crossfadePhaseInc = 1.0f / juce::jmax (32.0f, crossfadeSamples);
 
     for (int i = 0; i < numSamples; ++i)
@@ -1837,7 +1841,7 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
         // be read, producing a hard discontinuity heard as a skip/click. Crossfade to
         // a new read head one full "pitch period" away before this happens.
         // This guard fires in ALL modes including hard-tune.
-        const float safetyMargin = static_cast<float> (lowLatencyMode ? 192 : 256);
+        const float safetyMargin = static_cast<float> (lowLatencyMode ? 224 : 320);
         const float toWrite = static_cast<float> (writeIdx);
         // Distance from readHead forward to writeIdx (in the direction readHead travels)
         float distToWrite = shortestWrappedDelta (readHead, toWrite);
