@@ -183,6 +183,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     retuneSpeedSmoothed = 0.0f;
     inputRmsSmoothed = 0.0f;
     voicedHoldBlocks = 0;
+    hardWeakFrameRun = 0;
     wetMixSmoothed = 0.0f;
     lockedTargetMidi = -1;
     lockedTargetAge = 0;
@@ -798,28 +799,37 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         && blocksSinceValidPitch > (lowLatencyMode ? 24 : 36);
     const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
     const bool signalTooLow = (hardTuneMode ? hardSignalTooLow : normalSignalTooLow);
-    // Go to dry bypass immediately when confidence is zero — no grace period.
-    // A 24-block grace window caused the shifter to run 24 blocks without a valid pitch
-    // then abruptly switch to dry, producing an audible skip/comb artifact every playback start.
-    const bool lowConfidence = trackingConfidence < (hardTuneMode ? 0.35f : (retuneControlActive >= 0.85f ? 0.002f : 0.01f));
-    const bool hardWeakFrame = hardTuneMode && (inputRmsSmoothed < 0.004f || trackingConfidence < 0.45f);
+
+    // In hard mode, use a short weak-frame run-length gate so single shaky frames
+    // don't immediately collapse correction and cause skip/pump artifacts.
+    const bool lowConfidence = trackingConfidence < (hardTuneMode ? 0.28f : (retuneControlActive >= 0.85f ? 0.002f : 0.01f));
+    const bool hardWeakCandidate = hardTuneMode
+        && ((inputRmsSmoothed < 0.0032f) || (trackingConfidence < 0.34f));
+
+    if (hardWeakCandidate)
+        ++hardWeakFrameRun;
+    else
+        hardWeakFrameRun = juce::jmax (0, hardWeakFrameRun - 2);
+
+    const bool hardWeakFrame = hardTuneMode && hardWeakFrameRun >= 3;
     const bool trackingLost = signalTooLow || hardWeakFrame || (lowConfidence && voicedHoldBlocks == 0);
     if (trackingLost)
         diagWindowTrackingLostBlocks++;
 
-    // Keep the processed path fully wet while signal is present to avoid
-    // dry/wet comb filtering (phasey sound). Only fade to dry in true silence.
-    if (trackingLost)
-        wetMixSmoothed += (0.0f - wetMixSmoothed) * 0.060f;
+    // Keep processed path wet whenever there is usable signal energy.
+    // Dropping to dry on transient confidence dips causes combing/skip artifacts.
+    const bool allowWet = ! signalTooLow;
+    if (allowWet)
+        wetMixSmoothed += (1.0f - wetMixSmoothed) * 0.24f;
     else
-        wetMixSmoothed += (1.0f - wetMixSmoothed) * 0.30f;
+        wetMixSmoothed += (0.0f - wetMixSmoothed) * 0.060f;
     const float wetMix = juce::jlimit (0.0f, 1.0f, wetMixSmoothed);
 
     // Retune stays active across the full knob range; knob controls speed only.
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     const bool hardStableUpdateFrame = (! hardTuneMode)
-        || ((inputRmsSmoothed > 0.010f)
-            && (trackingConfidence > 0.50f)
+        || ((inputRmsSmoothed > 0.0075f)
+            && (trackingConfidence > 0.42f)
             && (vocalState != VocalState::Silence));
 
     if (! signalTooLow)
@@ -864,9 +874,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         }
         else if (hardTuneMode)
         {
-            // Freeze ratio chase on weak hard-mode frames to avoid detector-noise wobble.
-            targetRatioSmoothed += (activePitchRatio - targetRatioSmoothed) * 0.24f;
-            activePitchRatio += (1.0f - activePitchRatio) * 0.03f;
+            // Freeze toward the current applied ratio during brief weak windows.
+            // Pulling hard-mode ratio back toward unity here creates audible pumping.
+            targetRatioSmoothed += (activePitchRatio - targetRatioSmoothed) * 0.16f;
+            activePitchRatio += (targetRatioSmoothed - activePitchRatio) * 0.03f;
         }
 
         const float ratioStep = std::abs (activePitchRatio - diagPrevActivePitchRatio);
@@ -913,16 +924,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     if (hardTuneMode)
     {
-        // Hard mode must ignore low-energy/low-confidence frames, otherwise the shifter
-        // chases noisy detector output and sounds staticy/grainy.
-        const float energyDrive = juce::jlimit (0.35f, 1.0f,
-            juce::jmap (inputRmsSmoothed, 0.0025f, 0.010f, 0.35f, 1.0f));
-        const float confidenceDrive = juce::jlimit (0.40f, 1.0f,
-            juce::jmap (trackingConfidence, 0.10f, 0.45f, 0.40f, 1.0f));
+        // Hard mode should keep strong correction on stable voiced frames, but back off
+        // smoothly (not abruptly) when confidence/energy become unreliable.
+        const float energyDrive = juce::jlimit (0.15f, 1.0f,
+            juce::jmap (inputRmsSmoothed, 0.0020f, 0.010f, 0.15f, 1.0f));
+        const float confidenceDrive = juce::jlimit (0.12f, 1.0f,
+            juce::jmap (trackingConfidence, 0.08f, 0.55f, 0.12f, 1.0f));
         correctionDrive *= energyDrive * confidenceDrive;
 
         if (! hardStableUpdateFrame)
-            correctionDrive *= 0.20f;
+            correctionDrive *= 0.10f;
     }
 
     {

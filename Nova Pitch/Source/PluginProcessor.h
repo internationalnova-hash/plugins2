@@ -161,6 +161,7 @@ private:
     float retuneSpeedSmoothed { 0.0f };
     float inputRmsSmoothed { 0.0f };
     int voicedHoldBlocks { 0 };
+    int hardWeakFrameRun { 0 };
     float wetMixSmoothed { 0.0f };
     int lockedTargetMidi { -1 };
     int previousLockedTargetMidi { -1 };
