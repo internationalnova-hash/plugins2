@@ -808,43 +808,56 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     // Retune stays active across the full knob range; knob controls speed only.
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
+    const bool hardStableUpdateFrame = (! hardTuneMode)
+        || ((inputRmsSmoothed > 0.010f)
+            && (trackingConfidence > 0.50f)
+            && (vocalState != VocalState::Silence));
+
     if (! signalTooLow)
     {
-        // Smooth target-ratio motion first, then apply retune-speed glide.
-        // CRITICAL: Higher smoothing at fast speeds means snappier Auto-Tune effect.
-        // At k=1.0 (hard-tune), we use aggressive smoothing for immediate pitch lock.
-        const float targetSmoothing = hardTuneMode
-            ? 0.86f
-            : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.22f, 0.72f);
-        targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
-
-        // Clamp accumulated lag: never let targetRatioSmoothed be more than ~300 cents
-        // from activePitchRatio. Without this, turning the speed knob from slow to fast
-        // causes a rush-to-catch-up lurch that sounds like wobble/pitch jump.
+        if (hardStableUpdateFrame)
         {
-            const float maxLagRatio = std::pow (2.0f, 180.0f / 1200.0f); // ~180 cents
-            const float lagRatio = targetRatioSmoothed / juce::jmax (0.001f, activePitchRatio);
-            if (lagRatio > maxLagRatio)
-                targetRatioSmoothed = activePitchRatio * maxLagRatio;
-            else if (lagRatio < 1.0f / maxLagRatio)
-                targetRatioSmoothed = activePitchRatio / maxLagRatio;
+            // Smooth target-ratio motion first, then apply retune-speed glide.
+            // CRITICAL: Higher smoothing at fast speeds means snappier Auto-Tune effect.
+            // At k=1.0 (hard-tune), we use aggressive smoothing for immediate pitch lock.
+            const float targetSmoothing = hardTuneMode
+                ? 0.86f
+                : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.22f, 0.72f);
+            targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
+
+            // Clamp accumulated lag: never let targetRatioSmoothed be more than ~300 cents
+            // from activePitchRatio. Without this, turning the speed knob from slow to fast
+            // causes a rush-to-catch-up lurch that sounds like wobble/pitch jump.
+            {
+                const float maxLagRatio = std::pow (2.0f, 180.0f / 1200.0f); // ~180 cents
+                const float lagRatio = targetRatioSmoothed / juce::jmax (0.001f, activePitchRatio);
+                if (lagRatio > maxLagRatio)
+                    targetRatioSmoothed = activePitchRatio * maxLagRatio;
+                else if (lagRatio < 1.0f / maxLagRatio)
+                    targetRatioSmoothed = activePitchRatio / maxLagRatio;
+            }
+
+            const float desiredRatio = targetRatioSmoothed;
+            const float ratioNext = activePitchRatio + (desiredRatio - activePitchRatio) * correctionAlpha;
+
+            // Velocity limit in semitones/sec gives musical slow settings and snapping fast settings.
+            const float confidenceRateScale = hardTuneMode
+                ? juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.20f, 1.00f)
+                : juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.55f, 1.00f);
+            const float maxStepSemitones = maxSemitonesPerSecond * confidenceRateScale * dtSeconds;
+            const float deltaSemitones = 12.0f * std::log2 (juce::jmax (0.001f, ratioNext) / juce::jmax (0.001f, activePitchRatio));
+            const float limitedDeltaSemitones = juce::jlimit (-maxStepSemitones, maxStepSemitones, deltaSemitones);
+            activePitchRatio *= std::pow (2.0f, limitedDeltaSemitones / 12.0f);
+
+            const float minRatio = 0.72f;
+            const float maxRatio = 1.38f;
+            activePitchRatio = juce::jlimit (minRatio, maxRatio, activePitchRatio);
         }
-
-        const float desiredRatio = targetRatioSmoothed;
-        const float ratioNext = activePitchRatio + (desiredRatio - activePitchRatio) * correctionAlpha;
-
-        // Velocity limit in semitones/sec gives musical slow settings and snapping fast settings.
-        const float confidenceRateScale = hardTuneMode
-            ? juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.20f, 1.00f)
-            : juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.55f, 1.00f);
-        const float maxStepSemitones = maxSemitonesPerSecond * confidenceRateScale * dtSeconds;
-        const float deltaSemitones = 12.0f * std::log2 (juce::jmax (0.001f, ratioNext) / juce::jmax (0.001f, activePitchRatio));
-        const float limitedDeltaSemitones = juce::jlimit (-maxStepSemitones, maxStepSemitones, deltaSemitones);
-        activePitchRatio *= std::pow (2.0f, limitedDeltaSemitones / 12.0f);
-
-        const float minRatio = 0.72f;
-        const float maxRatio = 1.38f;
-        activePitchRatio = juce::jlimit (minRatio, maxRatio, activePitchRatio);
+        else if (hardTuneMode)
+        {
+            // Freeze ratio chase on weak hard-mode frames to avoid detector-noise wobble.
+            targetRatioSmoothed += (activePitchRatio - targetRatioSmoothed) * 0.24f;
+        }
 
         const float ratioStep = std::abs (activePitchRatio - diagPrevActivePitchRatio);
         if (ratioStep > 0.008f)
