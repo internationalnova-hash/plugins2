@@ -659,7 +659,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     // real note drift to drive stronger/autotune-like correction.
                     // Very small alpha so individual bad detector frames can't spike targetPitchRatio.
                     const float stableRetargetAlpha = hardTuneMode
-                        ? 1.0f
+                        ? 0.72f
                         : (lowLatencyMode ? 0.08f : 0.06f);
                     targetPitchRatio += (computedTargetRatio - targetPitchRatio) * stableRetargetAlpha;
                 }
@@ -865,7 +865,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
             const float desiredRatio = targetRatioSmoothed;
             const float ratioNext = hardTuneMode
-                ? desiredRatio
+                ? (activePitchRatio + (desiredRatio - activePitchRatio) * 0.72f)
                 : (activePitchRatio + (desiredRatio - activePitchRatio) * correctionAlpha);
 
             // Velocity limit in semitones/sec gives musical slow settings and snapping fast settings.
@@ -1263,7 +1263,11 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
         }
 
         if (absCents > 8.0f)
-            emphasizedCents *= 1.28f;
+            emphasizedCents *= 1.12f;
+
+        // Final hard-mode guard: clamp AFTER all boosts to prevent 300-400 cent
+        // overshoots that read as wobble/warble instead of controlled retune.
+        emphasizedCents = juce::jlimit (-260.0f, 260.0f, emphasizedCents);
     }
 
     const float ratioOut = std::pow (2.0f, emphasizedCents / 1200.0f);
