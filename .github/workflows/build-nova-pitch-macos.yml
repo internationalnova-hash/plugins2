@@ -1,4 +1,5 @@
 name: Build Nova Pitch macOS
+run-name: Nova Pitch macOS | ${{ github.event_name }} | ${{ github.sha }}
 
 on:
   push:
