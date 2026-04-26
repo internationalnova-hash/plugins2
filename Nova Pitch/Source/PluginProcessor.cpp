@@ -659,7 +659,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     // real note drift to drive stronger/autotune-like correction.
                     // Very small alpha so individual bad detector frames can't spike targetPitchRatio.
                     const float stableRetargetAlpha = hardTuneMode
-                        ? 0.42f
+                        ? 1.0f
                         : (lowLatencyMode ? 0.08f : 0.06f);
                     targetPitchRatio += (computedTargetRatio - targetPitchRatio) * stableRetargetAlpha;
                 }
@@ -864,7 +864,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
 
             const float desiredRatio = targetRatioSmoothed;
-            const float ratioNext = activePitchRatio + (desiredRatio - activePitchRatio) * correctionAlpha;
+            const float ratioNext = hardTuneMode
+                ? desiredRatio
+                : (activePitchRatio + (desiredRatio - activePitchRatio) * correctionAlpha);
 
             // Velocity limit in semitones/sec gives musical slow settings and snapping fast settings.
             const float confidenceRateScale = hardTuneMode
@@ -1740,9 +1742,9 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
     if (hardTuneMode)
     {
-        // Keep hard mode extremely fast, but continuous.
-        // Instant jumps in read-head ratio can sound like record-stop/skip artifacts.
-        const float hardRatioSmoothing = juce::jlimit (0.08f, 0.20f, 0.08f + ratioDelta * 0.30f);
+        // Hard mode should sound decisively robotic.
+        // Keep continuity, but remove slow glide that masks the effect.
+        const float hardRatioSmoothing = juce::jlimit (0.45f, 0.85f, 0.45f + ratioDelta * 0.60f);
         ratioSmoothed += (clampedRatio - ratioSmoothed) * hardRatioSmoothing;
     }
     else
@@ -1875,10 +1877,8 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
             xfadeToHead = wrapPos (newHead);
         }
 
-        // Fallback to single-head immediately if confidence becomes unstable.
-        // Note: do NOT blend dry audio on confidence loss — that causes audible skip/comb.
-        if (! confidenceStable)
-            xfadePhase = 0.0f;
+        // Keep any active crossfade running to completion.
+        // Aborting mid-fade on confidence dips reintroduces discontinuities.
 
         float shifted = 0.0f;
         if (xfadePhase > 0.0f)
