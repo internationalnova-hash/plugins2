@@ -36,9 +36,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaCleanV2AudioProcessor::c
         juce::StringArray { "Vocal", "Digital", "Crackle" }, 0));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> ("clean", "Clean",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 11.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 42.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("preserve", "Preserve",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 100.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 86.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("mix", "Mix",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 100.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("outputGain", "Output Gain",
@@ -57,14 +57,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaCleanV2AudioProcessor::c
         juce::StringArray { "High", "Mid", "Full" }, 2));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> ("strength", "Strength",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 83.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 88.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("shape", "Shape",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 80.0f));
     layout.add (std::make_unique<juce::AudioParameterChoice> ("interpolation", "Interpolation",
         juce::StringArray { "Basic", "Smart" }, 1));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> ("vocalProtect", "Vocal Protect",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 100.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 84.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("transientGuard", "Transient Guard",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 60.0f));
 
@@ -167,9 +167,9 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     const float effectiveSensitivity = juce::jlimit (0.0f, 1.0f, sensitivityNorm * 0.55f + cleanNorm * 0.65f);
     const float effectiveRepair = juce::jlimit (0.0f, 1.0f, strengthNorm * 0.65f + cleanNorm * 0.45f);
 
-    const float baseThreshold = 0.18f;
+    const float baseThreshold = 0.11f;
     const float shapedSensitivity = std::pow (effectiveSensitivity, 1.15f);
-    float threshold = juce::jlimit (0.01f, 0.85f, baseThreshold + (1.0f - shapedSensitivity) * 0.42f);
+    float threshold = juce::jlimit (0.01f, 0.85f, baseThreshold + (1.0f - shapedSensitivity) * 0.34f);
 
     if (mode == Digital)
         threshold *= 0.85f;
@@ -181,8 +181,9 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     else if (clickSize == Medium)
         threshold *= 1.12f;
 
-    const float protectScale = 1.0f - 0.55f * preserveNorm;
-    const float repairDepth = juce::jlimit (0.0f, 1.0f, effectiveRepair * protectScale);
+    const float protectScale = 1.0f - 0.35f * preserveNorm;
+    const float cleanBoost = juce::jmap (cleanNorm, 0.0f, 1.0f, 0.65f, 1.0f);
+    const float repairDepth = juce::jlimit (0.0f, 1.0f, effectiveRepair * protectScale * cleanBoost);
 
     const float focusHigh = (freqFocus == High ? 1.35f : (freqFocus == Mid ? 0.82f : 1.0f));
     const float focusMid  = (freqFocus == Mid ? 1.3f : 1.0f);
