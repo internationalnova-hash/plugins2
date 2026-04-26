@@ -793,7 +793,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             break;
 
         case VocalState::Voiced:
-            if ((stateEnergyLow && voicedHoldBlocks == 0) || blocksSinceValidPitch > (hardTuneMode ? 8 : 2))
+            if ((stateEnergyLow && voicedHoldBlocks == 0) || blocksSinceValidPitch > (hardTuneMode ? 16 : 2))
                 setVocalState (VocalState::Release);
             else
                 setVocalState (VocalState::Voiced);
@@ -818,7 +818,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // In hard mode, only declare loss when pitch is stale AND energy is effectively gone.
     // Confidence swings alone are too jittery and were forcing trackingLostRatio to 1.0.
     const bool lowConfidence = trackingConfidence < (retuneControlActive >= 0.85f ? 0.002f : 0.01f);
-    const bool hardPitchStale = blocksSinceValidPitch > (lowLatencyMode ? 10 : 14);
+    const bool hardPitchStale = blocksSinceValidPitch > (lowLatencyMode ? 16 : 22);
     const bool hardNoEnergy = inputRmsSmoothed < 0.0012f && voicedHoldBlocks == 0;
     const bool hardTrackingLost = hardPitchStale && hardNoEnergy;
 
@@ -1250,7 +1250,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Always compute a correction ratio, but only add extra emphasis once the singer
     // is meaningfully off target. Over-boosting tiny errors made the shifter chatter.
     const float signedCents = 1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio)));
-    const float correctionMagnitude = juce::jlimit (0.0f, 1.0f, std::abs (signedCents) / 150.0f);
+    const float correctionMagnitude = juce::jlimit (0.0f, 1.0f, std::abs (signedCents) / 120.0f);
     float emphasis = 1.0f + juce::jmap (amountDrive, 0.0f, 1.0f, 0.14f, 0.62f) * correctionMagnitude;
 
     if (hardTuneMode)
@@ -1263,7 +1263,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
         // Suppress micro-flutter around the locked note while keeping strong pull
         // when the singer is meaningfully off target.
         const float jitterZoneCents = 2.0f;
-        const float absCents = std::abs (emphasizedCents);
+        float absCents = std::abs (emphasizedCents);
         if (absCents < jitterZoneCents)
         {
             const float t = absCents / jitterZoneCents;
@@ -1272,6 +1272,17 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
 
         if (absCents > 8.0f)
             emphasizedCents *= 1.12f;
+
+        // Hard-tune audibility: when error is small-to-medium, add a controlled
+        // extra pull so the effect is clearly perceptible (MetaTune-style snap)
+        // instead of sounding nearly transparent.
+        absCents = std::abs (emphasizedCents);
+        if (absCents > 2.0f && absCents < 60.0f)
+        {
+            const float t = juce::jlimit (0.0f, 1.0f, (absCents - 2.0f) / 58.0f);
+            const float extraPullCents = juce::jmap (t, 22.0f, 8.0f);
+            emphasizedCents = std::copysign (absCents + extraPullCents, emphasizedCents);
+        }
 
         // Final hard-mode guard: clamp AFTER all boosts to prevent 300-400 cent
         // overshoots that read as wobble/warble instead of controlled retune.
