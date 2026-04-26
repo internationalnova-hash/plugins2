@@ -956,7 +956,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         // Smooth correction depth transitions so weak-word dropouts do not sound like
         // record-stop pumping between corrected/unity states.
-        const float riseAlpha = hardTuneMode ? 0.18f : 0.12f;
+        // Hard-tune: Use aggressive ramp to reach full correction immediately on lock.
+        // This ensures the tuning effect is audible during normal vocal phrases instead
+        // of ramping for several seconds and missing short words/runs.
+        const float riseAlpha = hardTuneMode ? 0.94f : 0.12f;
         const float fallAlpha = hardTuneMode ? 0.045f : 0.08f;
         const float alpha = (correctionDrive > correctionDriveSmoothed) ? riseAlpha : fallAlpha;
         correctionDriveSmoothed += (correctionDrive - correctionDriveSmoothed) * alpha;
