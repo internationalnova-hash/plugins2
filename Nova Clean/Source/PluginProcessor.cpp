@@ -197,6 +197,8 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     const float freqScale = (freqFocus == High ? 0.9f : (freqFocus == Mid ? 1.0f : 1.12f));
 
+    const int processingDelaySamples = juce::jmax (lookAheadSamples, 6);
+
     int removedEvents = 0;
 
     for (int ch = 0; ch < channels; ++ch)
@@ -220,7 +222,7 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             float repairedOut = 0.0f;
             float removedOut = 0.0f;
 
-            const int requiredFuture = juce::jmax (lookAheadSamples, 6);
+            const int requiredFuture = processingDelaySamples;
             if (static_cast<int> (state.rawLookAhead.size()) > requiredFuture)
             {
                 const float curr = state.rawLookAhead[0];
@@ -237,12 +239,15 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                 const float localRef = juce::jmax (std::abs (state.prevHp1), std::abs (hp1), std::abs (hp2), 1.0e-6f);
                 const float curvatureJump = std::abs (slopePrev - slopePrev2);
                 const float slopeFlip = std::abs (slopePrev - slopeNext);
+                const float neighborMean = 0.25f * (std::abs (state.prevHp1) + std::abs (hp1) + std::abs (hp2) + std::abs (hp3));
                 const bool strongSpike = std::abs (hp0) > (localRef * juce::jmap (cleanNorm, 0.0f, 1.0f, 3.6f, 2.7f));
                 const bool suddenDiscontinuity = curvatureJump > (localRef * 1.85f) && slopeFlip > (localRef * 1.45f);
                 const bool multiSampleEdge = std::abs (hp0 - hp3) > (localRef * 2.2f * freqScale)
                     || std::abs (hp0 - hp4) > (localRef * 2.2f * freqScale);
+                const bool isolatedImpulse = std::abs (hp0) > (juce::jmax (neighborMean, 1.0e-6f) * 2.2f);
 
                 const bool detected = (strongSpike || (suddenDiscontinuity && multiSampleEdge))
+                    && isolatedImpulse
                     && (std::abs (hp0) > threshold * 0.016f);
 
                 if (detected && ! state.repairActive)
@@ -317,7 +322,7 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         }
     }
 
-    listenRemovedAlignSamples = lookAheadSamples;
+    listenRemovedAlignSamples = processingDelaySamples;
 
     const float mixNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("mix")->load() / 100.0f);
     const float gainDb = apvts.getRawParameterValue ("outputGain")->load();
@@ -337,6 +342,7 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     {
         auto* x = buffer.getWritePointer (ch);
         auto* dry = dryBuffer.getReadPointer (ch);
+        auto* removedAlg = removedBuffer.getReadPointer (ch);
         auto& dryDelay = listenRemovedDryDelay[static_cast<size_t> (ch)];
         int& dryDelayWrite = listenRemovedDryWriteIndex[static_cast<size_t> (ch)];
 
@@ -360,8 +366,9 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
             const float blended = alignedDrySample * (1.0f - mixNow) + wetSample * mixNow;
             const float normalOut = blended * gainNow;
-            const float removedNullSample = alignedDrySample - wetSample;
-            const float removedOut = removedNullSample * gainNow;
+            const float removedAlgSample = removedAlg[i];
+            const float removedMonitorSample = juce::jlimit (-1.0f, 1.0f, removedAlgSample * 3.0f);
+            const float removedOut = removedMonitorSample * gainNow;
             const float modeOut = normalOut * (1.0f - listenNow) + removedOut * listenNow;
             const float finalOut = drySample * bypassNow + modeOut * (1.0f - bypassNow);
 
@@ -378,7 +385,7 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                 outPeakR = juce::jmax (outPeakR, std::abs (finalOut));
             }
 
-            removedEnergy += removedNullSample * removedNullSample;
+            removedEnergy += removedAlgSample * removedAlgSample;
         }
     }
 
