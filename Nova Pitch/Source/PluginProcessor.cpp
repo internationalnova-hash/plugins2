@@ -350,7 +350,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     for (int i = 0; i < numSamples; ++i)
         analysisData[i] = 0.5f * (incomingScratchL[static_cast<size_t> (i)] + incomingScratchR[static_cast<size_t> (i)]);
 
-    // Reduce detector boost to +3 dB to avoid crunchy clipping.
+    // Detector reads from captured raw input (both channels), with a small +3 dB assist.
     constexpr float detectorGain = 1.4125376f;
     for (int i = 0; i < numSamples; ++i)
         analysisData[i] *= detectorGain;
@@ -383,8 +383,20 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         }
     }
     
-    // CRITICAL: Calculate RMS from the BOOSTED analysis buffer, not raw input.
-    // This ensures vocal state decisions are based on the signal the detector actually sees.
+    // Use captured raw input RMS for gating/state decisions.
+    float rawInputRms = 0.0f;
+    {
+        double rmsSum = 0.0;
+        for (int i = 0; i < numSamples; ++i)
+        {
+            const float mono = 0.5f * (incomingScratchL[static_cast<size_t> (i)]
+                                     + incomingScratchR[static_cast<size_t> (i)]);
+            rmsSum += static_cast<double> (mono * mono);
+        }
+        rawInputRms = static_cast<float> (std::sqrt (rmsSum / static_cast<double> (juce::jmax (1, numSamples))));
+    }
+
+    // Also compute boosted RMS for detector telemetry/debug.
     float boostedInputRms = 0.0f;
     {
         double rmsSum = 0.0;
@@ -392,13 +404,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             rmsSum += static_cast<double> (analysisData[i] * analysisData[i]);
         boostedInputRms = static_cast<float> (std::sqrt (rmsSum / static_cast<double> (juce::jmax (1, numSamples))));
     }
-    const float inputRms = boostedInputRms;
+    const float inputRms = rawInputRms;
 
-    // NUCLEAR FIX: Force VocalState to Voiced if any signal is present (boosted RMS > 0.0001).
-    // This ensures tuning engine engages even if algorithm is hesitant about confidence.
-    if (inputRms > 0.0001f && vocalState == VocalState::Silence)
+    // Force snap behavior on weak confidence: keep state in Onset while signal is present.
+    if (inputRms > 0.0001f)
     {
-        vocalState = VocalState::Voiced;
+        vocalState = VocalState::Onset;
         vocalStateAgeBlocks = 0;
     }
     
@@ -725,8 +736,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 if (std::abs (pitchRatio - 1.0f) < 0.001f)
                     diagWindowUnityReturnBlocks++;
 
-                const float minRatio = 0.72f;
-                const float maxRatio = 1.38f;
+                const float minRatio = 0.25f;
+                const float maxRatio = 4.00f;
                 float computedTargetRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
 
                 if (lockChanged)
@@ -931,7 +942,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             {
                 // Hard robotic mode: staircase jumps with no pitch-ratio glide.
                 targetRatioSmoothed = targetPitchRatio;
-                activePitchRatio = juce::jlimit (0.72f, 1.38f, targetPitchRatio);
+                activePitchRatio = juce::jlimit (0.25f, 4.00f, targetPitchRatio);
             }
             else
             {
@@ -960,7 +971,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float deltaSemitones = 12.0f * std::log2 (juce::jmax (0.001f, ratioNext) / juce::jmax (0.001f, activePitchRatio));
                 const float limitedDeltaSemitones = juce::jlimit (-maxStepSemitones, maxStepSemitones, deltaSemitones);
                 activePitchRatio *= std::pow (2.0f, limitedDeltaSemitones / 12.0f);
-                activePitchRatio = juce::jlimit (0.72f, 1.38f, activePitchRatio);
+                activePitchRatio = juce::jlimit (0.25f, 4.00f, activePitchRatio);
             }
         }
         else if (hardTuneMode)
@@ -1130,6 +1141,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             + " lockedTargetHz=" + juce::String (lockedTargetHz, 1)
             + " rbScaleCur=" + juce::String (rubberBandCurrentPitchScale, 4)
             + " rbScaleTarget=" + juce::String (rubberBandTargetPitchScale, 4)
+            + " rbScaleTarget6=" + juce::String (rubberBandTargetPitchScale, 6)
             + " rbLatency=" + juce::String (rubberBandReportedLatencySamples)
             + " vocalState=" + juce::String (vocalStateCode)
             + " speedNorm=" + juce::String (retuneControlActive, 3)
@@ -1358,7 +1370,7 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
 
     const float ratioOut = std::pow (2.0f, emphasizedCents / 1200.0f);
 
-    return juce::jlimit (0.50f, 2.00f, ratioOut);
+    return juce::jlimit (0.25f, 4.00f, ratioOut);
 }
 
 void NovaPitchAudioProcessor::applyVibrato (float& pitchRatio, float sampleRate, int numSamples, float vibratoParam)
@@ -1980,8 +1992,12 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     else
         std::copy (channelL, channelL + numSamples, inR.begin());
 
-    const float clampedRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
+    const float clampedRatio = juce::jlimit (0.25f, 4.00f, pitchRatio);
     rubberBandTargetPitchScale = clampedRatio;
+
+    // Apply current block target immediately at block start.
+    rubberBand->setTimeRatio (1.0);
+    rubberBand->setPitchScale (rubberBandTargetPitchScale);
 
     // Hard mode: no scale glide/interpolation, jump directly to nearest semitone ratio.
     if (retuneSpeedNorm >= 0.95f || retuneMs <= 0.001f)
@@ -2021,7 +2037,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         }
 
         rubberBand->setTimeRatio (1.0);
-        rubberBand->setPitchScale (rubberBandCurrentPitchScale);
+        rubberBand->setPitchScale (rubberBandTargetPitchScale);
 
         const float* inPtrs[2] = { inL.data() + processed, inR.data() + processed };
         rubberBand->process (inPtrs, static_cast<size_t> (chunk), false);
@@ -2123,8 +2139,8 @@ void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelDat
     auto& dryBlendSmoothed = pitchDryBlendSmoothed[static_cast<size_t> (channel)];
 
     const int bufferSize = pitchShiftBufferSize;
-    const float minRatio = 0.72f;
-    const float maxRatio = 1.38f;
+    const float minRatio = 0.25f;
+    const float maxRatio = 4.00f;
     const float clampedRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
     const bool hardTuneMode = retuneSpeedNorm >= 0.90f;
     const float ratioDelta = std::abs (clampedRatio - ratioSmoothed);
