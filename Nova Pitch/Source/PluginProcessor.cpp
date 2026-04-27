@@ -157,7 +157,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     juce::ignoreUnused (samplesPerBlock);
     initializePitchShift();
     initializeRubberBand (juce::jmax (samplesPerBlock, 64), false);
-    currentLatencySamples = normalPitchDelaySamples;
+    currentLatencySamples = juce::jmax (0, rubberBandReportedLatencySamples);
     setLatencySamples (currentLatencySamples);
     analysisScratch.clear();
     analysisScratch.reserve (static_cast<size_t> (juce::jmax (samplesPerBlock, 512)));
@@ -287,11 +287,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (rubberBand == nullptr || rubberBandLowLatencyMode != lowLatencyMode)
         initializeRubberBand (juce::jmax (numSamples, rubberBandMaxBlockSize), lowLatencyMode);
 
-    if (rubberBandReportedLatencySamples != currentLatencySamples)
-    {
-        currentLatencySamples = rubberBandReportedLatencySamples;
-        setLatencySamples (currentLatencySamples);
-    }
+    // Host latency is updated when stretcher settings are (re)initialized.
+    // Do not chase per-block internal latency jitter here.
 
     // Debug: Log parameter values every 100 blocks to diagnose engine engagement
     static int debugCounter = 0;
@@ -453,7 +450,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // transients don't capture the wrong note and then get stuck there
                 // (the hardSwitchErrorOk/Distance guards later prevent recovering from
                 // a bad initial lock once it is set).
-                const int initStreakNeeded = hardTuneModeFrame ? 4 : 2;
+                const int initStreakNeeded = hardTuneModeFrame ? 1 : 2;
 
                 if (hardTuneModeFrame)
                 {
@@ -643,7 +640,17 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
                 const float minRatio = 0.72f;
                 const float maxRatio = 1.38f;
-                const float computedTargetRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
+                float computedTargetRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
+
+                // Fastest retune should lock aggressively to the semitone center.
+                if (hardTuneModeFrame)
+                {
+                    float targetCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
+                    const float absCents = std::abs (targetCents);
+                    if (absCents > 1.5f && absCents < 75.0f)
+                        targetCents = std::copysign (75.0f, targetCents);
+                    computedTargetRatio = juce::jlimit (minRatio, maxRatio, std::pow (2.0f, targetCents / 1200.0f));
+                }
 
                 if (lockChanged)
                 {
@@ -656,7 +663,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     // real note drift to drive stronger/autotune-like correction.
                     // Very small alpha so individual bad detector frames can't spike targetPitchRatio.
                     const float stableRetargetAlpha = hardTuneMode
-                        ? 0.72f
+                        ? 0.96f
                         : (lowLatencyMode ? 0.08f : 0.06f);
                     targetPitchRatio += (computedTargetRatio - targetPitchRatio) * stableRetargetAlpha;
                 }
@@ -1816,6 +1823,12 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     const int startPadSamples = juce::jmax (0, static_cast<int> (rubberBand->getPreferredStartPad()));
     const int startDelaySamples = juce::jmax (0, static_cast<int> (rubberBand->getStartDelay()));
     rubberBandReportedLatencySamples = startPadSamples + startDelaySamples;
+
+    if (rubberBandReportedLatencySamples != currentLatencySamples)
+    {
+        currentLatencySamples = rubberBandReportedLatencySamples;
+        setLatencySamples (currentLatencySamples);
+    }
 }
 
 void NovaPitchAudioProcessor::resetRubberBandState()
@@ -1859,6 +1872,10 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
                                              trackingConfidence);
         return;
     }
+
+    // Force per-block synchronization: do not carry leftover output across blocks.
+    rubberBandOutputQueue[0].clear();
+    rubberBandOutputQueue[1].clear();
 
     auto& inL = rubberBandInputScratch[0];
     auto& inR = rubberBandInputScratch[1];
@@ -1945,11 +1962,6 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         }
     }
 
-    // Keep host latency compensation in sync with current stretcher state.
-    const int liveStartPad = juce::jmax (0, static_cast<int> (rubberBand->getPreferredStartPad()));
-    const int liveStartDelay = juce::jmax (0, static_cast<int> (rubberBand->getStartDelay()));
-    rubberBandReportedLatencySamples = liveStartPad + liveStartDelay;
-
     // Enforce wet-only path: if Rubber Band hasn't produced enough samples yet,
     // output silence instead of leaking dry input (which causes doubling/combing).
     while (static_cast<int> (rubberBandOutputQueue[0].size()) < numSamples)
@@ -1959,6 +1971,11 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         while (static_cast<int> (rubberBandOutputQueue[1].size()) < numSamples)
             rubberBandOutputQueue[1].push_back (0.0f);
     }
+
+    // Explicit per-block clear before copy of retrieved wet signal.
+    std::fill (channelL, channelL + numSamples, 0.0f);
+    if (channelR != nullptr)
+        std::fill (channelR, channelR + numSamples, 0.0f);
 
     for (int i = 0; i < numSamples; ++i)
     {
