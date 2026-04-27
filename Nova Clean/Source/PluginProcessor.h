@@ -61,7 +61,7 @@ private:
 
     struct ChannelState
     {
-        // Sidechain HPF (3 kHz) state for click detection.
+        // Sidechain HPF (5 kHz) state for click detection.
         float hpPrevX = 0.0f;
         float hpPrevY = 0.0f;
 

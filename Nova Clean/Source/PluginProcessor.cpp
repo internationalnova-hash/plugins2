@@ -92,7 +92,7 @@ void NovaCleanV2AudioProcessor::prepareToPlay (double sampleRate, int samplesPer
     setLatencySamples (lookAheadSamples);
 
     const float dt = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate));
-    const float rc = 1.0f / (2.0f * juce::MathConstants<float>::pi * 3000.0f);
+    const float rc = 1.0f / (2.0f * juce::MathConstants<float>::pi * 5000.0f);
     detectHpAlpha = rc / (rc + dt);
 
     dryBuffer.setSize (2, samplesPerBlock);
@@ -167,6 +167,7 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     const auto mode = static_cast<Mode> (static_cast<int> (apvts.getRawParameterValue ("mode")->load()));
     const auto clickSize = static_cast<ClickSize> (static_cast<int> (apvts.getRawParameterValue ("clickSize")->load()));
     const auto freqFocus = static_cast<FrequencyFocus> (static_cast<int> (apvts.getRawParameterValue ("freqFocus")->load()));
+    const auto interpolation = static_cast<InterpolationMode> (static_cast<int> (apvts.getRawParameterValue ("interpolation")->load()));
 
     const float cleanNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("clean")->load() / 100.0f);
     const float preserveNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("preserve")->load() / 100.0f);
@@ -208,7 +209,7 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         {
             const float in = x[i];
 
-            // Detection sidechain: 3 kHz high-pass.
+            // Detection sidechain: 5 kHz high-pass to avoid low/mid vocal harmonics.
             const float hp = detectHpAlpha * (state.hpPrevY + in - state.hpPrevX);
             state.hpPrevX = in;
             state.hpPrevY = hp;
@@ -236,13 +237,13 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                 const float localRef = juce::jmax (std::abs (state.prevHp1), std::abs (hp1), std::abs (hp2), 1.0e-6f);
                 const float curvatureJump = std::abs (slopePrev - slopePrev2);
                 const float slopeFlip = std::abs (slopePrev - slopeNext);
-                const bool strongSpike = std::abs (hp0) > (localRef * juce::jmap (cleanNorm, 0.0f, 1.0f, 2.6f, 1.9f));
-                const bool suddenDiscontinuity = curvatureJump > (localRef * 1.35f) && slopeFlip > (localRef * 1.10f);
-                const bool multiSampleEdge = std::abs (hp0 - hp3) > (localRef * 1.55f * freqScale)
-                    || std::abs (hp0 - hp4) > (localRef * 1.55f * freqScale);
+                const bool strongSpike = std::abs (hp0) > (localRef * juce::jmap (cleanNorm, 0.0f, 1.0f, 3.6f, 2.7f));
+                const bool suddenDiscontinuity = curvatureJump > (localRef * 1.85f) && slopeFlip > (localRef * 1.45f);
+                const bool multiSampleEdge = std::abs (hp0 - hp3) > (localRef * 2.2f * freqScale)
+                    || std::abs (hp0 - hp4) > (localRef * 2.2f * freqScale);
 
                 const bool detected = (strongSpike || (suddenDiscontinuity && multiSampleEdge))
-                    && (std::abs (hp0) > threshold * 0.0045f);
+                    && (std::abs (hp0) > threshold * 0.016f);
 
                 if (detected && ! state.repairActive)
                 {
@@ -270,16 +271,18 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                     const float t2 = t * t;
                     const float t3 = t2 * t;
 
-                    float spline = 0.5f * (
-                          (2.0f * state.repairP1)
-                        + (-state.repairP0 + state.repairP2) * t
-                        + (2.0f * state.repairP0 - 5.0f * state.repairP1 + 4.0f * state.repairP2 - state.repairP3) * t2
-                        + (-state.repairP0 + 3.0f * state.repairP1 - 3.0f * state.repairP2 + state.repairP3) * t3);
+                                        const float linear = state.repairP1 + (state.repairP2 - state.repairP1) * t;
+                                        const float cubic = 0.5f * (
+                                                    (2.0f * state.repairP1)
+                                                + (-state.repairP0 + state.repairP2) * t
+                                                + (2.0f * state.repairP0 - 5.0f * state.repairP1 + 4.0f * state.repairP2 - state.repairP3) * t2
+                                                + (-state.repairP0 + 3.0f * state.repairP1 - 3.0f * state.repairP2 + state.repairP3) * t3);
 
-                    // Shape: 0 = more transparent, 1 = smoother replacement.
-                    const float shapeBlend = juce::jlimit (0.0f, 1.0f, shapeNorm);
-                    const float transparent = 0.65f * curr + 0.35f * spline;
-                    const float interpTarget = juce::jmap (shapeBlend, transparent, spline);
+                                        // Basic = linear interpolation, Smart = cubic spline interpolation.
+                                        const float spline = (interpolation == Basic ? linear : cubic);
+                                        const float shapeBlend = juce::jlimit (0.0f, 1.0f, shapeNorm);
+                                        const float transparent = 0.70f * curr + 0.30f * spline;
+                                        const float interpTarget = juce::jmap (shapeBlend, transparent, spline);
 
                     repairedOut = curr + (interpTarget - curr) * repairDepth;
                     removedOut = curr - repairedOut;
@@ -307,8 +310,8 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             }
             else
             {
-                // Startup/pipeline fill for lookahead latency.
-                x[i] = 0.0f;
+                // Startup/pipeline fill: pass through until lookahead queue is primed.
+                x[i] = in;
                 removed[i] = 0.0f;
             }
         }
