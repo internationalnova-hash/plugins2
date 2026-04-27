@@ -126,8 +126,6 @@ private:
     // Member variables
     std::vector<float> yinBuffer;
     std::vector<float> analysisScratch;
-    std::vector<float> dryScratchL;
-    std::vector<float> dryScratchR;
     int yinWriteIndex { 0 };
     
     std::array<std::array<float, pitchShiftBufferSize>, 2> pitchDelay {};
@@ -187,7 +185,6 @@ private:
     float retuneSpeedSmoothed { 0.0f };
     float inputRmsSmoothed { 0.0f };
     int voicedHoldBlocks { 0 };
-    float wetMixSmoothed { 0.0f };
     int lockedTargetMidi { -1 };
     int previousLockedTargetMidi { -1 };
     int lockedTargetAge { 0 };

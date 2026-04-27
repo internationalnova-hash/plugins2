@@ -186,7 +186,6 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     retuneSpeedSmoothed = 0.0f;
     inputRmsSmoothed = 0.0f;
     voicedHoldBlocks = 0;
-    wetMixSmoothed = 0.0f;
     lockedTargetMidi = -1;
     lockedTargetAge = 0;
     pendingTargetMidi = -1;
@@ -318,16 +317,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     }
 
     const float inputRms = computeBufferRms (buffer);
-
-    if (dryScratchL.size() < static_cast<size_t> (numSamples))
-        dryScratchL.resize (static_cast<size_t> (numSamples), 0.0f);
-    std::copy (channelL, channelL + numSamples, dryScratchL.data());
-    if (channelR != nullptr)
-    {
-        if (dryScratchR.size() < static_cast<size_t> (numSamples))
-            dryScratchR.resize (static_cast<size_t> (numSamples), 0.0f);
-        std::copy (channelR, channelR + numSamples, dryScratchR.data());
-    }
 
     // Keep tracking cadence fixed so changing Retune Speed cannot retime detection/locking.
     const bool fastRetuneTracking = true;
@@ -836,16 +825,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (trackingLost)
         diagWindowTrackingLostBlocks++;
 
-    // Keep processed path wet whenever there is usable signal energy.
-    // Dropping to dry on transient confidence dips causes combing/skip artifacts.
-    const bool allowWet = ! signalTooLow;
-    if (allowWet)
-        wetMixSmoothed += (1.0f - wetMixSmoothed) * 0.24f;
-    else
-        wetMixSmoothed += (0.0f - wetMixSmoothed) * 0.060f;
-    const float wetMix = hardTuneMode
-        ? 1.0f
-        : juce::jlimit (0.0f, 1.0f, wetMixSmoothed);
+    // Wet-only policy: never blend back dry path here. Any under-run handling
+    // is done in processRubberBandPitchShift with zero-fill + latency reporting.
 
     // Retune stays active across the full knob range; knob controls speed only.
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
@@ -922,7 +903,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         targetRatioSmoothed += (1.0f - targetRatioSmoothed) * 0.08f;
     }
 
-    // Always process through the shifter path; wetMix handles smooth fade to dry in silence.
+    // Always process through the shifter path.
     // Onset protection ramp: first voiced frames ramp correction depth to prevent
     // transient attack frames from sounding like skip/record-stop artifacts.
     float correctionDrive = 1.0f;
@@ -1002,21 +983,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (diagDetHz > 0.0f) { diagWindowDetectedHzSum += static_cast<double> (diagDetHz); ++diagWindowDetectedHzCount; }
     if (lockedTargetMidi >= 0) diagLastLockedTargetHz = getTargetPitchHz (lockedTargetMidi);
 
-    if (signalTooLow && wetMix < 0.999f)
-    {
-        const float dryMix = 1.0f - wetMix;
-        auto* dryL = dryScratchL.data();
-        for (int i = 0; i < numSamples; ++i)
-            channelL[i] = channelL[i] * wetMix + dryL[i] * dryMix;
-
-        if (channelR != nullptr)
-        {
-            auto* dryR = dryScratchR.data();
-            for (int i = 0; i < numSamples; ++i)
-                channelR[i] = channelR[i] * wetMix + dryR[i] * dryMix;
-        }
-    }
-
     if (! signalTooLow)
         applyOutputManagement (buffer, inputRms);
 
@@ -1071,6 +1037,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             + " avgInputRms=" + juce::String (avgInputRms, 4)
             + " avgDetectedHz=" + juce::String (avgDetectedHz, 1)
             + " lockedTargetHz=" + juce::String (lockedTargetHz, 1)
+            + " rbScaleCur=" + juce::String (rubberBandCurrentPitchScale, 4)
+            + " rbScaleTarget=" + juce::String (rubberBandTargetPitchScale, 4)
+            + " rbLatency=" + juce::String (rubberBandReportedLatencySamples)
             + " vocalState=" + juce::String (vocalStateCode)
             + " speedNorm=" + juce::String (retuneControlActive, 3)
             + " lowLatency=" + juce::String (lowLatencyMode ? 1 : 0);
@@ -1842,8 +1811,11 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
         rubberBand->process (inPtrs, startPad, false);
     }
 
-    // Report host latency using Rubber Band's realtime start delay.
-    rubberBandReportedLatencySamples = juce::jmax (0, static_cast<int> (rubberBand->getStartDelay()));
+    // Report host latency from Rubber Band startup buffering.
+    // Include both preferred pad and reported start delay to align wet-only output.
+    const int startPadSamples = juce::jmax (0, static_cast<int> (rubberBand->getPreferredStartPad()));
+    const int startDelaySamples = juce::jmax (0, static_cast<int> (rubberBand->getStartDelay()));
+    rubberBandReportedLatencySamples = startPadSamples + startDelaySamples;
 }
 
 void NovaPitchAudioProcessor::resetRubberBandState()
@@ -1973,29 +1945,30 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         }
     }
 
+    // Keep host latency compensation in sync with current stretcher state.
+    const int liveStartPad = juce::jmax (0, static_cast<int> (rubberBand->getPreferredStartPad()));
+    const int liveStartDelay = juce::jmax (0, static_cast<int> (rubberBand->getStartDelay()));
+    rubberBandReportedLatencySamples = liveStartPad + liveStartDelay;
+
+    // Enforce wet-only path: if Rubber Band hasn't produced enough samples yet,
+    // output silence instead of leaking dry input (which causes doubling/combing).
+    while (static_cast<int> (rubberBandOutputQueue[0].size()) < numSamples)
+        rubberBandOutputQueue[0].push_back (0.0f);
+    if (channels > 1)
+    {
+        while (static_cast<int> (rubberBandOutputQueue[1].size()) < numSamples)
+            rubberBandOutputQueue[1].push_back (0.0f);
+    }
+
     for (int i = 0; i < numSamples; ++i)
     {
-        if (! rubberBandOutputQueue[0].empty())
-        {
-            channelL[i] = rubberBandOutputQueue[0].front();
-            rubberBandOutputQueue[0].pop_front();
-        }
-        else
-        {
-            channelL[i] = inL[static_cast<size_t> (i)];
-        }
+        channelL[i] = rubberBandOutputQueue[0].front();
+        rubberBandOutputQueue[0].pop_front();
 
         if (channelR != nullptr)
         {
-            if (! rubberBandOutputQueue[1].empty())
-            {
-                channelR[i] = rubberBandOutputQueue[1].front();
-                rubberBandOutputQueue[1].pop_front();
-            }
-            else
-            {
-                channelR[i] = inR[static_cast<size_t> (i)];
-            }
+            channelR[i] = rubberBandOutputQueue[1].front();
+            rubberBandOutputQueue[1].pop_front();
         }
     }
 }
