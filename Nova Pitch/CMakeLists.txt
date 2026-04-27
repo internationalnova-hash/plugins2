@@ -24,8 +24,26 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(RUBBERBAND REQUIRED IMPORTED_TARGET rubberband)
+# Rubber Band: static link on Apple (universal binary, no dylib bundling);
+# dynamic via pkg-config on Linux/Windows.
+if(APPLE)
+    find_library(RUBBERBAND_STATIC_LIB
+        NAMES librubberband.a
+        HINTS /opt/homebrew/lib /usr/local/lib
+        REQUIRED
+    )
+    find_path(RUBBERBAND_INCLUDE_DIR
+        NAMES rubberband/RubberBandStretcher.h
+        HINTS /opt/homebrew/include /usr/local/include
+        REQUIRED
+    )
+    message(STATUS "Nova Pitch: Rubber Band static lib: ${RUBBERBAND_STATIC_LIB}")
+    set(RUBBERBAND_LINK_TARGETS ${RUBBERBAND_STATIC_LIB} "-framework Accelerate")
+else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(RUBBERBAND REQUIRED IMPORTED_TARGET rubberband)
+    set(RUBBERBAND_LINK_TARGETS PkgConfig::RUBBERBAND)
+endif()
 
 set(PLUGIN_TARGET NovaPitch)
 set(NEEDS_WEBVIEW2 FALSE)
@@ -92,10 +110,14 @@ target_sources(${PLUGIN_TARGET}
         Source/PluginEditor.h
 )
 
+if(APPLE)
+    target_include_directories(${PLUGIN_TARGET} PRIVATE ${RUBBERBAND_INCLUDE_DIR})
+endif()
+
 target_link_libraries(${PLUGIN_TARGET}
     PRIVATE
         NovaPitch_WebUI
-        PkgConfig::RUBBERBAND
+        ${RUBBERBAND_LINK_TARGETS}
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats

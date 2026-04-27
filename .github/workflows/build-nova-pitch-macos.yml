@@ -15,104 +15,63 @@ on:
 
 jobs:
   build:
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install Build Dependencies
         run: |
-          brew install cmake pkg-config rubberband
+          brew install cmake pkg-config meson ninja
+
+      - name: Build Rubber Band as universal static lib
+        run: |
+          set -euo pipefail
+          # Clone rubber band source
+          git clone --depth 1 --branch 4.0.0 https://github.com/breakfastquay/rubberband.git /tmp/rubberband-src
+
+          build_arch() {
+            local arch="$1"
+            local prefix="/tmp/rubberband-$arch"
+            mkdir -p "$prefix"
+            cd /tmp/rubberband-src
+            # Wipe any previous meson build for this arch
+            rm -rf "build-$arch"
+            CFLAGS="-arch $arch" CXXFLAGS="-arch $arch" LDFLAGS="-arch $arch" \
+              meson setup "build-$arch" \
+                --prefix "$prefix" \
+                --buildtype release \
+                --default-library static \
+                -Dfft=vdsp \
+                -Dresampler=builtin
+            ninja -C "build-$arch" install
+          }
+
+          build_arch arm64
+          build_arch x86_64
+
+          # Merge into universal fat static lib
+          mkdir -p /tmp/rubberband-universal/lib
+          lipo -create \
+            /tmp/rubberband-arm64/lib/librubberband.a \
+            /tmp/rubberband-x86_64/lib/librubberband.a \
+            -output /tmp/rubberband-universal/lib/librubberband.a
+          cp -r /tmp/rubberband-arm64/include /tmp/rubberband-universal/include
+          echo "Universal Rubber Band built:"
+          lipo -info /tmp/rubberband-universal/lib/librubberband.a
 
       - name: Clean build directory
         run: rm -rf "Nova Pitch/build"
 
       - name: Configure CMake
-        run: cmake -S "Nova Pitch" -B "Nova Pitch/build" -DCMAKE_OSX_ARCHITECTURES=x86_64
+        run: |
+          cmake -S "Nova Pitch" -B "Nova Pitch/build" \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DRUBBERBAND_STATIC_LIB=/tmp/rubberband-universal/lib/librubberband.a \
+            -DRUBBERBAND_INCLUDE_DIR=/tmp/rubberband-universal/include
 
       - name: Build
         run: cmake --build "Nova Pitch/build" --config Release
-
-      - name: Bundle Runtime dylibs (macOS)
-        run: |
-          set -euo pipefail
-
-          collect_deps() {
-            local target="$1"
-            otool -L "$target" | tail -n +2 | awk '{print $1}' | grep -E '^(/opt/homebrew|/usr/local)/' || true
-          }
-
-          copy_dep() {
-            local dep="$1"
-            local frameworks="$2"
-            local base
-            base="$(basename "$dep")"
-            if [[ ! -f "$frameworks/$base" ]]; then
-              cp -f "$dep" "$frameworks/$base"
-              chmod +w "$frameworks/$base" || true
-            fi
-          }
-
-          bundle_target() {
-            local binary="$1"
-            local contents_dir="$2"
-            local frameworks
-            frameworks="$contents_dir/Frameworks"
-
-            if [[ ! -f "$binary" ]]; then
-              return 0
-            fi
-
-            mkdir -p "$frameworks"
-
-            # Copy direct deps first.
-            while IFS= read -r dep; do
-              [[ -z "$dep" ]] && continue
-              copy_dep "$dep" "$frameworks"
-            done < <(collect_deps "$binary")
-
-            # Copy transitive deps from copied dylibs.
-            for _ in 1 2 3 4; do
-              for dylib in "$frameworks"/*.dylib; do
-                [[ -f "$dylib" ]] || continue
-                while IFS= read -r dep; do
-                  [[ -z "$dep" ]] && continue
-                  copy_dep "$dep" "$frameworks"
-                done < <(collect_deps "$dylib")
-              done
-            done
-
-            # Rewrite main binary refs to local Frameworks.
-            while IFS= read -r dep; do
-              [[ -z "$dep" ]] && continue
-              local base
-              base="$(basename "$dep")"
-              install_name_tool -change "$dep" "@loader_path/../Frameworks/$base" "$binary" || true
-            done < <(collect_deps "$binary")
-
-            # Rewrite dylib install IDs and internal deps.
-            for dylib in "$frameworks"/*.dylib; do
-              [[ -f "$dylib" ]] || continue
-              local base
-              base="$(basename "$dylib")"
-              install_name_tool -id "@loader_path/$base" "$dylib" || true
-              while IFS= read -r dep; do
-                [[ -z "$dep" ]] && continue
-                local dep_base
-                dep_base="$(basename "$dep")"
-                install_name_tool -change "$dep" "@loader_path/$dep_base" "$dylib" || true
-              done < <(collect_deps "$dylib")
-            done
-
-            # Re-sign bundle after install_name edits.
-            codesign --force --deep --sign - "$contents_dir" || true
-          }
-
-          BROOT="Nova Pitch/build/NovaPitch_artefacts"
-
-          bundle_target "$BROOT/VST3/Nova Pitch.vst3/Contents/MacOS/Nova Pitch" "$BROOT/VST3/Nova Pitch.vst3/Contents"
-          bundle_target "$BROOT/AU/Nova Pitch.component/Contents/MacOS/Nova Pitch" "$BROOT/AU/Nova Pitch.component/Contents"
-          bundle_target "$BROOT/Standalone/Nova Pitch.app/Contents/MacOS/Nova Pitch" "$BROOT/Standalone/Nova Pitch.app/Contents"
 
       - name: Package VST3 Bundle
         run: |
