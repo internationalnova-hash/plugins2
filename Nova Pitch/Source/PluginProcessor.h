@@ -126,6 +126,7 @@ private:
     // Member variables
     std::vector<float> yinBuffer;
     std::vector<float> analysisScratch;
+    juce::AudioBuffer<float> detectorInputBuffer;
     std::vector<float> incomingScratchL;
     std::vector<float> incomingScratchR;
     std::vector<float> shifterFeedScratchL;

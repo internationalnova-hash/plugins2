@@ -242,14 +242,24 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     auto totalNumOutputChannels = getTotalNumOutputChannels();
     const int numSamples = buffer.getNumSamples();
 
-    // Capture incoming audio before any output-path clearing.
+    // Hardened capture path: copy/add from host input before any output clearing.
+    detectorInputBuffer.setSize (2, numSamples, false, false, true);
+    detectorInputBuffer.clear();
+    if (totalNumInputChannels > 0)
+        detectorInputBuffer.copyFrom (0, 0, buffer, 0, 0, numSamples);
+    if (totalNumInputChannels > 1)
+        detectorInputBuffer.copyFrom (1, 0, buffer, 1, 0, numSamples);
+    else
+        detectorInputBuffer.copyFrom (1, 0, detectorInputBuffer, 0, 0, numSamples);
+
+    // Preserve existing scratch routing from the hardened capture buffer.
     if (incomingScratchL.size() < static_cast<size_t> (numSamples))
         incomingScratchL.resize (static_cast<size_t> (numSamples), 0.0f);
     if (incomingScratchR.size() < static_cast<size_t> (numSamples))
         incomingScratchR.resize (static_cast<size_t> (numSamples), 0.0f);
 
-    const float* inReadL = (totalNumInputChannels > 0 ? buffer.getReadPointer (0) : nullptr);
-    const float* inReadR = (totalNumInputChannels > 1 ? buffer.getReadPointer (1) : nullptr);
+    const float* inReadL = detectorInputBuffer.getReadPointer (0);
+    const float* inReadR = detectorInputBuffer.getReadPointer (1);
 
     if (inReadL != nullptr)
         std::copy (inReadL, inReadL + numSamples, incomingScratchL.begin());
@@ -346,9 +356,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (analysisScratch.size() < static_cast<size_t> (numSamples))
         analysisScratch.resize (static_cast<size_t> (numSamples), 0.0f);
 
+    // Direct channel routing: detector listens explicitly to left channel.
     float* analysisData = analysisScratch.data();
     for (int i = 0; i < numSamples; ++i)
-        analysisData[i] = 0.5f * (incomingScratchL[static_cast<size_t> (i)] + incomingScratchR[static_cast<size_t> (i)]);
+        analysisData[i] = incomingScratchL[static_cast<size_t> (i)];
 
     // Detector reads from captured raw input (both channels), with a small +3 dB assist.
     constexpr float detectorGain = 1.4125376f;
@@ -406,12 +417,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     }
     const float inputRms = rawInputRms;
 
-    // Force snap behavior on weak confidence: keep state in Onset while signal is present.
-    if (inputRms > 0.0001f)
-    {
-        vocalState = VocalState::Onset;
-        vocalStateAgeBlocks = 0;
-    }
+    // Test build override: bypass RMS gate and keep detector/vocal state always engaged.
+    vocalState = VocalState::Onset;
+    vocalStateAgeBlocks = 0;
     
     // Keep tracking cadence fixed so changing Retune Speed cannot retime detection/locking.
     const bool fastRetuneTracking = true;
@@ -437,7 +445,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         // Prevent stale/false detector output from being treated as valid pitch in near-silence.
         // This was keeping blocksSinceValidPitch at zero and causing wobble/skip at phrase tails.
-        const float detectRmsFloor = hardTuneModeDetect ? 0.0012f : 0.0005f;
+        const float detectRmsFloor = 0.0f;
         if (inputRms < detectRmsFloor)
             hasUsablePitch = false;
 
@@ -455,7 +463,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             // Hold the most recent valid estimate for a short window while signal is present.
             const int maxHoldMissBlocks = hardTuneModeDetect ? 10 : 12;
             const bool canHoldLastPitch = fastCorrectionMode
-                && inputRms > (hardTuneModeDetect ? 0.0045f : 0.00035f)
                 && lastValidDetectedHz > minPitchHz - 10.0f
                 && lastValidDetectedHz < maxPitchHz + 10.0f
                 && blocksSinceValidPitch <= maxHoldMissBlocks;
@@ -904,11 +911,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             break;
     }
 
+            // Test build override: bypass state machine energy drops; keep state forced to 1 (Onset).
+            vocalState = VocalState::Onset;
+            vocalStateAgeBlocks = 0;
+
     const bool hardSignalTooLow = inputRmsSmoothed < gateOffThreshold
         && voicedHoldBlocks == 0
         && blocksSinceValidPitch > (lowLatencyMode ? 36 : 64);
     const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
-    const bool signalTooLow = (hardTuneMode ? hardSignalTooLow : normalSignalTooLow);
+    const bool signalTooLow = false;
 
     // NUCLEAR FIX: Bypass the confidence check - detector is 'letting go' of notes too early.
     // In hard mode, force tracking to snap to nearest semitone regardless of confidence.
@@ -1886,7 +1897,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
         | RubberBandStretcher::OptionPitchHighConsistency
         | RubberBandStretcher::OptionFormantPreserved
         | RubberBandStretcher::OptionPhaseIndependent
-        | (lowLatencyMode ? RubberBandStretcher::OptionEngineFaster : 0)
+        | RubberBandStretcher::OptionEngineFiner
         | (lowLatencyMode ? RubberBandStretcher::OptionWindowShort
                           : RubberBandStretcher::OptionWindowStandard);
 
