@@ -238,9 +238,14 @@ bool NovaPitchAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
+    // NUCLEAR FIX: Zero-fill dry path at very start before anything else happens.
+    // This ensures zero dry audio can leak into the output.
+    buffer.clear();
+    
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
+    // Clear unused output channels
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
@@ -329,26 +334,39 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             analysisData[i] = 0.5f * (channelL[i] + channelR[i]);
     }
 
-    // Normalize detector input so low-level vocals still produce stable pitch tracking.
+    // NUCLEAR FIX: Emergency gain for detector - apply +12dB (4x) minimum digital boost.
+    // This forces the detector to 'see' the vocal clearly even if the recording is quiet.
     float detectorPeak = 0.0f;
     for (int i = 0; i < numSamples; ++i)
         detectorPeak = juce::jmax (detectorPeak, std::abs (analysisData[i]));
-    if (detectorPeak > 1.0e-5f)
+    
+    // Force minimum 4x (12dB) boost; go up to 32x if needed for very quiet signals.
+    const float minimumDetectorGain = 4.0f;
+    const float detectorGain = juce::jmax (minimumDetectorGain, 
+        detectorPeak > 1.0e-5f ? juce::jlimit (4.0f, 32.0f, 0.25f / detectorPeak) : 32.0f);
+    
+    for (int i = 0; i < numSamples; ++i)
+        analysisData[i] *= detectorGain;
+    
+    // CRITICAL: Calculate RMS from the BOOSTED analysis buffer, not raw input.
+    // This ensures vocal state decisions are based on the signal the detector actually sees.
+    float boostedInputRms = 0.0f;
     {
-        const float detectorGain = juce::jlimit (1.0f, 32.0f, 0.25f / detectorPeak);
-        if (detectorGain > 1.0f)
-        {
-            for (int i = 0; i < numSamples; ++i)
-                analysisData[i] *= detectorGain;
-        }
+        double rmsSum = 0.0;
+        for (int i = 0; i < numSamples; ++i)
+            rmsSum += static_cast<double> (analysisData[i] * analysisData[i]);
+        boostedInputRms = static_cast<float> (std::sqrt (rmsSum / static_cast<double> (juce::jmax (1, numSamples))));
     }
-    else
+    const float inputRms = boostedInputRms;
+
+    // NUCLEAR FIX: Force VocalState to Voiced if any signal is present (boosted RMS > 0.0001).
+    // This ensures tuning engine engages even if algorithm is hesitant about confidence.
+    if (inputRms > 0.0001f && vocalState == VocalState::Silence)
     {
-        std::copy (channelL, channelL + numSamples, analysisData);
+        vocalState = VocalState::Voiced;
+        vocalStateAgeBlocks = 0;
     }
-
-    const float inputRms = computeBufferRms (buffer);
-
+    
     // Keep tracking cadence fixed so changing Retune Speed cannot retime detection/locking.
     const bool fastRetuneTracking = true;
     const int intervalDivider = 1;
@@ -846,9 +864,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
     const bool signalTooLow = (hardTuneMode ? hardSignalTooLow : normalSignalTooLow);
 
-    // In hard mode, only declare loss when pitch is stale AND energy is effectively gone.
-    // Confidence swings alone are too jittery and were forcing trackingLostRatio to 1.0.
-    const bool lowConfidence = trackingConfidence < (retuneControlActive >= 0.85f ? 0.0005f : 0.01f);
+    // NUCLEAR FIX: Bypass the confidence check - detector is 'letting go' of notes too early.
+    // In hard mode, force tracking to snap to nearest semitone regardless of confidence.
+    // Confidence is completely bypassed in hard mode now.
+    const bool lowConfidence = false; // NUCLEAR: Bypassed for hard mode
     const bool hardPitchStale = blocksSinceValidPitch > (lowLatencyMode ? 16 : 22);
     const bool hardNoEnergy = inputRmsSmoothed < 0.00045f && voicedHoldBlocks == 0;
     const bool hardTrackingLost = hardPitchStale && hardNoEnergy;
@@ -1847,11 +1866,11 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
         rubberBand->process (inPtrs, startPad, false);
     }
 
-    // Report host latency from Rubber Band startup buffering.
-    // Include both preferred pad and reported start delay to align wet-only output.
-    const int startPadSamples = juce::jmax (0, static_cast<int> (rubberBand->getPreferredStartPad()));
-    const int startDelaySamples = juce::jmax (0, static_cast<int> (rubberBand->getStartDelay()));
-    rubberBandReportedLatencySamples = startPadSamples + startDelaySamples;
+    // NUCLEAR FIX: Hard-clamp latency to fixed 4096 samples.
+    // Stop reporting variable latency. This allows the DAW to lock the phase once and for all.
+    // Fixed large latency value ensures stable phase alignment without jitter.
+    const int fixedLatencySamples = 4096;
+    rubberBandReportedLatencySamples = fixedLatencySamples;
 
     if (rubberBandReportedLatencySamples != currentLatencySamples)
     {

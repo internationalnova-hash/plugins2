@@ -206,6 +206,9 @@ NovaPitch_artefacts/Release/VST3/Nova\ Pitch.vst3/Contents/x86_64-linux/Nova\ Pi
 NovaPitch_artefacts/Release/VST3/Nova\ Pitch.vst3/Contents/x86_64-linux/Nova\ Pitch.so: CMakeFiles/NovaPitch_VST3.dir/build.make
 NovaPitch_artefacts/Release/VST3/Nova\ Pitch.vst3/Contents/x86_64-linux/Nova\ Pitch.so: NovaPitch_artefacts/Release/libNova\ Pitch_SharedCode.a
 NovaPitch_artefacts/Release/VST3/Nova\ Pitch.vst3/Contents/x86_64-linux/Nova\ Pitch.so: libNovaPitch_WebUI.a
+NovaPitch_artefacts/Release/VST3/Nova\ Pitch.vst3/Contents/x86_64-linux/Nova\ Pitch.so: /usr/lib/x86_64-linux-gnu/librubberband.so
+NovaPitch_artefacts/Release/VST3/Nova\ Pitch.vst3/Contents/x86_64-linux/Nova\ Pitch.so: /usr/lib/x86_64-linux-gnu/libfftw3.so
+NovaPitch_artefacts/Release/VST3/Nova\ Pitch.vst3/Contents/x86_64-linux/Nova\ Pitch.so: /usr/lib/x86_64-linux-gnu/libsamplerate.so
 NovaPitch_artefacts/Release/VST3/Nova\ Pitch.vst3/Contents/x86_64-linux/Nova\ Pitch.so: /usr/lib/x86_64-linux-gnu/libasound.so
 NovaPitch_artefacts/Release/VST3/Nova\ Pitch.vst3/Contents/x86_64-linux/Nova\ Pitch.so: /usr/lib/x86_64-linux-gnu/libfontconfig.so
 NovaPitch_artefacts/Release/VST3/Nova\ Pitch.vst3/Contents/x86_64-linux/Nova\ Pitch.so: /usr/lib/x86_64-linux-gnu/libfreetype.so

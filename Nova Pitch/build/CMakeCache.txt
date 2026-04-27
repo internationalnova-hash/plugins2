@@ -366,6 +366,15 @@ pkgcfg_lib_JUCE_BROWSER_LINUX_DEPS_z:FILEPATH=/usr/lib/x86_64-linux-gnu/libz.so
 pkgcfg_lib_JUCE_CURL_LINUX_DEPS_curl:FILEPATH=/usr/lib/x86_64-linux-gnu/libcurl.so
 
 //Path to a library.
+pkgcfg_lib_RUBBERBAND_fftw3:FILEPATH=/usr/lib/x86_64-linux-gnu/libfftw3.so
+
+//Path to a library.
+pkgcfg_lib_RUBBERBAND_rubberband:FILEPATH=/usr/lib/x86_64-linux-gnu/librubberband.so
+
+//Path to a library.
+pkgcfg_lib_RUBBERBAND_samplerate:FILEPATH=/usr/lib/x86_64-linux-gnu/libsamplerate.so
+
+//Path to a library.
 pkgcfg_lib_juce_audio_devices_LINUX_DEPS_asound:FILEPATH=/usr/lib/x86_64-linux-gnu/libasound.so
 
 //Path to a library.
@@ -675,16 +684,53 @@ JUCE_TARGET_ARCHITECTURE:INTERNAL=x86_64
 PKG_CONFIG_ARGN-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: PKG_CONFIG_EXECUTABLE
 PKG_CONFIG_EXECUTABLE-ADVANCED:INTERNAL=1
+RUBBERBAND_CFLAGS:INTERNAL=-I/usr/include
+RUBBERBAND_CFLAGS_I:INTERNAL=
+RUBBERBAND_CFLAGS_OTHER:INTERNAL=
+RUBBERBAND_FOUND:INTERNAL=1
+RUBBERBAND_INCLUDEDIR:INTERNAL=/usr/include
+RUBBERBAND_INCLUDE_DIRS:INTERNAL=/usr/include
+RUBBERBAND_LDFLAGS:INTERNAL=-L/usr/lib/x86_64-linux-gnu;-lrubberband;-lfftw3;-lsamplerate
+RUBBERBAND_LDFLAGS_OTHER:INTERNAL=
+RUBBERBAND_LIBDIR:INTERNAL=/usr/lib/x86_64-linux-gnu
+RUBBERBAND_LIBRARIES:INTERNAL=rubberband;fftw3;samplerate
+RUBBERBAND_LIBRARY_DIRS:INTERNAL=/usr/lib/x86_64-linux-gnu
+RUBBERBAND_LIBS:INTERNAL=
+RUBBERBAND_LIBS_L:INTERNAL=
+RUBBERBAND_LIBS_OTHER:INTERNAL=
+RUBBERBAND_LIBS_PATHS:INTERNAL=
+RUBBERBAND_MODULE_NAME:INTERNAL=rubberband
+RUBBERBAND_PREFIX:INTERNAL=/usr
+RUBBERBAND_STATIC_CFLAGS:INTERNAL=-I/usr/include
+RUBBERBAND_STATIC_CFLAGS_I:INTERNAL=
+RUBBERBAND_STATIC_CFLAGS_OTHER:INTERNAL=
+RUBBERBAND_STATIC_INCLUDE_DIRS:INTERNAL=/usr/include
+RUBBERBAND_STATIC_LDFLAGS:INTERNAL=-L/usr/lib/x86_64-linux-gnu;-lrubberband;-lfftw3;-lm;-lsamplerate;-lm
+RUBBERBAND_STATIC_LDFLAGS_OTHER:INTERNAL=
+RUBBERBAND_STATIC_LIBDIR:INTERNAL=
+RUBBERBAND_STATIC_LIBRARIES:INTERNAL=rubberband;fftw3;m;samplerate;m
+RUBBERBAND_STATIC_LIBRARY_DIRS:INTERNAL=/usr/lib/x86_64-linux-gnu
+RUBBERBAND_STATIC_LIBS:INTERNAL=
+RUBBERBAND_STATIC_LIBS_L:INTERNAL=
+RUBBERBAND_STATIC_LIBS_OTHER:INTERNAL=
+RUBBERBAND_STATIC_LIBS_PATHS:INTERNAL=
+RUBBERBAND_VERSION:INTERNAL=3.3.0
+RUBBERBAND_rubberband_INCLUDEDIR:INTERNAL=
+RUBBERBAND_rubberband_LIBDIR:INTERNAL=
+RUBBERBAND_rubberband_PREFIX:INTERNAL=
+RUBBERBAND_rubberband_VERSION:INTERNAL=
 //linker supports push/pop state
 _CMAKE_LINKER_PUSHPOP_STATE_SUPPORTED:INTERNAL=TRUE
 __pkg_config_arguments_JUCE_BROWSER_LINUX_DEPS:INTERNAL=webkit2gtk-4.1;gtk+-x11-3.0
 __pkg_config_arguments_JUCE_CURL_LINUX_DEPS:INTERNAL=libcurl
+__pkg_config_arguments_RUBBERBAND:INTERNAL=REQUIRED;IMPORTED_TARGET;rubberband
 __pkg_config_arguments_juce_audio_devices_LINUX_DEPS:INTERNAL=alsa
 __pkg_config_arguments_juce_graphics_LINUX_DEPS:INTERNAL=freetype2;fontconfig
 __pkg_config_arguments_juce_opengl_LINUX_DEPS:INTERNAL=gl
 __pkg_config_arguments_package_to_be_found:INTERNAL=webkit2gtk-4.1;QUIET
 __pkg_config_checked_JUCE_BROWSER_LINUX_DEPS:INTERNAL=1
 __pkg_config_checked_JUCE_CURL_LINUX_DEPS:INTERNAL=1
+__pkg_config_checked_RUBBERBAND:INTERNAL=1
 __pkg_config_checked_juce_audio_devices_LINUX_DEPS:INTERNAL=1
 __pkg_config_checked_juce_graphics_LINUX_DEPS:INTERNAL=1
 __pkg_config_checked_juce_opengl_LINUX_DEPS:INTERNAL=1
@@ -873,6 +919,12 @@ pkgcfg_lib_JUCE_BROWSER_LINUX_DEPS_webkit2gtk-4.1-ADVANCED:INTERNAL=1
 pkgcfg_lib_JUCE_BROWSER_LINUX_DEPS_z-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: pkgcfg_lib_JUCE_CURL_LINUX_DEPS_curl
 pkgcfg_lib_JUCE_CURL_LINUX_DEPS_curl-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: pkgcfg_lib_RUBBERBAND_fftw3
+pkgcfg_lib_RUBBERBAND_fftw3-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: pkgcfg_lib_RUBBERBAND_rubberband
+pkgcfg_lib_RUBBERBAND_rubberband-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: pkgcfg_lib_RUBBERBAND_samplerate
+pkgcfg_lib_RUBBERBAND_samplerate-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: pkgcfg_lib_juce_audio_devices_LINUX_DEPS_asound
 pkgcfg_lib_juce_audio_devices_LINUX_DEPS_asound-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: pkgcfg_lib_juce_graphics_LINUX_DEPS_fontconfig

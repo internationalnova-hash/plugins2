@@ -206,6 +206,9 @@ NovaPitch_artefacts/Release/Standalone/Nova\ Pitch: CMakeFiles/NovaPitch_Standal
 NovaPitch_artefacts/Release/Standalone/Nova\ Pitch: CMakeFiles/NovaPitch_Standalone.dir/build.make
 NovaPitch_artefacts/Release/Standalone/Nova\ Pitch: NovaPitch_artefacts/Release/libNova\ Pitch_SharedCode.a
 NovaPitch_artefacts/Release/Standalone/Nova\ Pitch: libNovaPitch_WebUI.a
+NovaPitch_artefacts/Release/Standalone/Nova\ Pitch: /usr/lib/x86_64-linux-gnu/librubberband.so
+NovaPitch_artefacts/Release/Standalone/Nova\ Pitch: /usr/lib/x86_64-linux-gnu/libfftw3.so
+NovaPitch_artefacts/Release/Standalone/Nova\ Pitch: /usr/lib/x86_64-linux-gnu/libsamplerate.so
 NovaPitch_artefacts/Release/Standalone/Nova\ Pitch: /usr/lib/x86_64-linux-gnu/libasound.so
 NovaPitch_artefacts/Release/Standalone/Nova\ Pitch: /usr/lib/x86_64-linux-gnu/libfontconfig.so
 NovaPitch_artefacts/Release/Standalone/Nova\ Pitch: /usr/lib/x86_64-linux-gnu/libfreetype.so
