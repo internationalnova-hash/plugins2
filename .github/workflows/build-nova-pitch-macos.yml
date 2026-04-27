@@ -18,8 +18,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install CMake
-        run: brew install cmake
+      - name: Install Build Dependencies
+        run: |
+          brew install cmake pkg-config rubberband
 
       - name: Clean build directory
         run: rm -rf "Nova Pitch/build"
