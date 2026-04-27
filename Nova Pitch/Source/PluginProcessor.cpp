@@ -1814,8 +1814,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
         | RubberBandStretcher::OptionPitchHighConsistency
         | RubberBandStretcher::OptionFormantPreserved
         | (lowLatencyMode ? RubberBandStretcher::OptionWindowShort
-                          : RubberBandStretcher::OptionWindowStandard)
-        | RubberBandStretcher::OptionEngineFiner;
+                          : RubberBandStretcher::OptionWindowStandard);
 
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
     rubberBand->setMaxProcessSize (juce::jmax (64, maxBlockSize));
