@@ -373,7 +373,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         // Prevent stale/false detector output from being treated as valid pitch in near-silence.
         // This was keeping blocksSinceValidPitch at zero and causing wobble/skip at phrase tails.
-        const float detectRmsFloor = hardTuneModeDetect ? 0.0022f : 0.0009f;
+        const float detectRmsFloor = hardTuneModeDetect ? 0.0012f : 0.0005f;
         if (inputRms < detectRmsFloor)
             hasUsablePitch = false;
 
@@ -676,29 +676,22 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float maxRatio = 1.38f;
                 float computedTargetRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
 
-                // Fastest retune should lock aggressively to the semitone center.
-                if (hardTuneModeFrame)
-                {
-                    float targetCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
-                    const float absCents = std::abs (targetCents);
-                    if (absCents > 1.5f && absCents < 75.0f)
-                        targetCents = std::copysign (75.0f, targetCents);
-                    computedTargetRatio = juce::jlimit (minRatio, maxRatio, std::pow (2.0f, targetCents / 1200.0f));
-                }
-
                 if (lockChanged)
                 {
                     targetPitchRatio = computedTargetRatio;
                     previousLockedTargetMidi = targetMidiNote;
+                }
+                else if (hardTuneModeFrame)
+                {
+                    // Hard snap: no target-ratio glide in fastest retune mode.
+                    targetPitchRatio = computedTargetRatio;
                 }
                 else
                 {
                     // Stable-lock retarget smoothing suppresses detector flutter while still allowing
                     // real note drift to drive stronger/autotune-like correction.
                     // Very small alpha so individual bad detector frames can't spike targetPitchRatio.
-                    const float stableRetargetAlpha = hardTuneMode
-                        ? 0.96f
-                        : (lowLatencyMode ? 0.08f : 0.06f);
+                    const float stableRetargetAlpha = lowLatencyMode ? 0.08f : 0.06f;
                     targetPitchRatio += (computedTargetRatio - targetPitchRatio) * stableRetargetAlpha;
                 }
 
@@ -780,8 +773,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const bool hardTuneMode = retuneControlActive >= 0.90f;
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     inputRmsSmoothed += (inputRms - inputRmsSmoothed) * 0.08f;
-    const float gateOnThreshold = hardTuneMode ? 0.0024f : 0.0030f;
-    const float gateOffThreshold = hardTuneMode ? 0.0009f : 0.0012f;
+    const float gateOnThreshold = hardTuneMode ? 0.0012f : 0.0030f;
+    const float gateOffThreshold = hardTuneMode ? 0.00035f : 0.0012f;
     if (inputRmsSmoothed >= gateOnThreshold)
     {
         voicedHoldBlocks = hardTuneMode ? 120 : 24;
@@ -793,8 +786,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     // Explicit vocal-state machine (silence/onset/voiced/release) to keep
     // correction and note-lock behavior stable at phrase boundaries.
-    const float stateOnThreshold  = hardTuneMode ? 0.0028f : 0.0030f;
-    const float stateOffThreshold = hardTuneMode ? 0.00095f : 0.0012f;
+    const float stateOnThreshold  = hardTuneMode ? 0.0014f : 0.0030f;
+    const float stateOffThreshold = hardTuneMode ? 0.0004f : 0.0012f;
     const bool stateEnergyHigh = inputRmsSmoothed >= stateOnThreshold;
     const bool stateEnergyLow  = inputRmsSmoothed <= stateOffThreshold;
     const bool statePitchFresh = blocksSinceValidPitch == 0;
@@ -855,9 +848,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     // In hard mode, only declare loss when pitch is stale AND energy is effectively gone.
     // Confidence swings alone are too jittery and were forcing trackingLostRatio to 1.0.
-    const bool lowConfidence = trackingConfidence < (retuneControlActive >= 0.85f ? 0.002f : 0.01f);
+    const bool lowConfidence = trackingConfidence < (retuneControlActive >= 0.85f ? 0.0005f : 0.01f);
     const bool hardPitchStale = blocksSinceValidPitch > (lowLatencyMode ? 16 : 22);
-    const bool hardNoEnergy = inputRmsSmoothed < 0.0012f && voicedHoldBlocks == 0;
+    const bool hardNoEnergy = inputRmsSmoothed < 0.00045f && voicedHoldBlocks == 0;
     const bool hardTrackingLost = hardPitchStale && hardNoEnergy;
 
     const bool trackingLost = hardTuneMode
@@ -880,43 +873,41 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         if (hardStableUpdateFrame)
         {
-            // Smooth target-ratio motion first, then apply retune-speed glide.
-            // CRITICAL: Higher smoothing at fast speeds means snappier Auto-Tune effect.
-            // At k=1.0 (hard-tune), we use aggressive smoothing for immediate pitch lock.
-            const float targetSmoothing = hardTuneMode
-                ? 0.96f
-                : juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.22f, 0.72f);
-            targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
-
-            // Clamp accumulated lag: never let targetRatioSmoothed be more than ~300 cents
-            // from activePitchRatio. Without this, turning the speed knob from slow to fast
-            // causes a rush-to-catch-up lurch that sounds like wobble/pitch jump.
+            if (hardTuneMode)
             {
-                const float maxLagRatio = std::pow (2.0f, 180.0f / 1200.0f); // ~180 cents
-                const float lagRatio = targetRatioSmoothed / juce::jmax (0.001f, activePitchRatio);
-                if (lagRatio > maxLagRatio)
-                    targetRatioSmoothed = activePitchRatio * maxLagRatio;
-                else if (lagRatio < 1.0f / maxLagRatio)
-                    targetRatioSmoothed = activePitchRatio / maxLagRatio;
+                // Hard robotic mode: staircase jumps with no pitch-ratio glide.
+                targetRatioSmoothed = targetPitchRatio;
+                activePitchRatio = juce::jlimit (0.72f, 1.38f, targetPitchRatio);
             }
+            else
+            {
+                // Smooth target-ratio motion first, then apply retune-speed glide.
+                const float targetSmoothing = juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.22f, 0.72f);
+                targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
-            const float desiredRatio = targetRatioSmoothed;
-            const float ratioNext = hardTuneMode
-                ? (activePitchRatio + (desiredRatio - activePitchRatio) * 0.72f)
-                : (activePitchRatio + (desiredRatio - activePitchRatio) * correctionAlpha);
+                // Clamp accumulated lag: never let targetRatioSmoothed be more than ~300 cents
+                // from activePitchRatio. Without this, turning the speed knob from slow to fast
+                // causes a rush-to-catch-up lurch that sounds like wobble/pitch jump.
+                {
+                    const float maxLagRatio = std::pow (2.0f, 180.0f / 1200.0f); // ~180 cents
+                    const float lagRatio = targetRatioSmoothed / juce::jmax (0.001f, activePitchRatio);
+                    if (lagRatio > maxLagRatio)
+                        targetRatioSmoothed = activePitchRatio * maxLagRatio;
+                    else if (lagRatio < 1.0f / maxLagRatio)
+                        targetRatioSmoothed = activePitchRatio / maxLagRatio;
+                }
 
-            // Velocity limit in semitones/sec gives musical slow settings and snapping fast settings.
-            const float confidenceRateScale = hardTuneMode
-                ? juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.80f, 1.00f)
-                : juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.55f, 1.00f);
-            const float maxStepSemitones = maxSemitonesPerSecond * confidenceRateScale * dtSeconds;
-            const float deltaSemitones = 12.0f * std::log2 (juce::jmax (0.001f, ratioNext) / juce::jmax (0.001f, activePitchRatio));
-            const float limitedDeltaSemitones = juce::jlimit (-maxStepSemitones, maxStepSemitones, deltaSemitones);
-            activePitchRatio *= std::pow (2.0f, limitedDeltaSemitones / 12.0f);
+                const float desiredRatio = targetRatioSmoothed;
+                const float ratioNext = activePitchRatio + (desiredRatio - activePitchRatio) * correctionAlpha;
 
-            const float minRatio = 0.72f;
-            const float maxRatio = 1.38f;
-            activePitchRatio = juce::jlimit (minRatio, maxRatio, activePitchRatio);
+                // Velocity limit in semitones/sec gives musical slow settings and snapping fast settings.
+                const float confidenceRateScale = juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.55f, 1.00f);
+                const float maxStepSemitones = maxSemitonesPerSecond * confidenceRateScale * dtSeconds;
+                const float deltaSemitones = 12.0f * std::log2 (juce::jmax (0.001f, ratioNext) / juce::jmax (0.001f, activePitchRatio));
+                const float limitedDeltaSemitones = juce::jlimit (-maxStepSemitones, maxStepSemitones, deltaSemitones);
+                activePitchRatio *= std::pow (2.0f, limitedDeltaSemitones / 12.0f);
+                activePitchRatio = juce::jlimit (0.72f, 1.38f, activePitchRatio);
+            }
         }
         else if (hardTuneMode)
         {
@@ -1823,6 +1814,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     const int options = RubberBandStretcher::OptionProcessRealTime
         | RubberBandStretcher::OptionPitchHighConsistency
         | RubberBandStretcher::OptionFormantPreserved
+        | RubberBandStretcher::OptionPhaseIndependent
         | (lowLatencyMode ? RubberBandStretcher::OptionEngineFaster : 0)
         | (lowLatencyMode ? RubberBandStretcher::OptionWindowShort
                           : RubberBandStretcher::OptionWindowStandard);
@@ -1930,8 +1922,8 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     const float clampedRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
     rubberBandTargetPitchScale = clampedRatio;
 
-    // Retune-speed mapping: linearly glide Rubber Band pitch scale toward target.
-    if (retuneMs <= 0.001f)
+    // Hard mode: no scale glide/interpolation, jump directly to nearest semitone ratio.
+    if (retuneSpeedNorm >= 0.95f || retuneMs <= 0.001f)
     {
         rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
         rubberBandPitchScaleStepPerSample = 0.0f;
