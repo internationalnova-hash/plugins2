@@ -15,15 +15,7 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-14
-            arch: arm64
-          - runner: macos-13
-            arch: x86_64
+    runs-on: macos-14
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,7 +28,7 @@ jobs:
         run: rm -rf "Nova Pitch/build"
 
       - name: Configure CMake
-        run: cmake -S "Nova Pitch" -B "Nova Pitch/build" -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}
+        run: cmake -S "Nova Pitch" -B "Nova Pitch/build"
 
       - name: Build
         run: cmake --build "Nova Pitch/build" --config Release
@@ -122,8 +114,26 @@ jobs:
           bundle_target "$BROOT/AU/Nova Pitch.component/Contents/MacOS/Nova Pitch" "$BROOT/AU/Nova Pitch.component/Contents"
           bundle_target "$BROOT/Standalone/Nova Pitch.app/Contents/MacOS/Nova Pitch" "$BROOT/Standalone/Nova Pitch.app/Contents"
 
-      - name: Upload Artifacts
+      - name: Package VST3 Bundle
+        run: |
+          cd "Nova Pitch/build/NovaPitch_artefacts/Release/VST3"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Pitch.vst3" "NovaPitch-macOS-vst3.zip"
+
+      - name: Package AU Bundle
+        run: |
+          cd "Nova Pitch/build/NovaPitch_artefacts/Release/AU"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Pitch.component" "NovaPitch-macOS-au.zip"
+
+      - name: Upload Deliverables Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NovaPitch-macOS-${{ matrix.arch }}-build
+          name: NovaPitch-macOS-deliverables
+          path: |
+            Nova Pitch/build/NovaPitch_artefacts/Release/VST3/NovaPitch-macOS-vst3.zip
+            Nova Pitch/build/NovaPitch_artefacts/Release/AU/NovaPitch-macOS-au.zip
+
+      - name: Upload Full Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaPitch-macOS-build
           path: Nova Pitch/build
