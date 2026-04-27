@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           # Clone rubber band source
-          git clone --depth 1 --branch 4.0.0 https://github.com/breakfastquay/rubberband.git /tmp/rubberband-src
+          git clone --depth 1 --branch v4.0.0 https://github.com/breakfastquay/rubberband.git /tmp/rubberband-src
 
           build_arch() {
             local arch="$1"
