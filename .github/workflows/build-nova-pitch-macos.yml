@@ -26,7 +26,7 @@ jobs:
         run: rm -rf "Nova Pitch/build"
 
       - name: Configure CMake
-        run: cmake -S "Nova Pitch" -B "Nova Pitch/build"
+        run: cmake -S "Nova Pitch" -B "Nova Pitch/build" -DCMAKE_OSX_ARCHITECTURES=arm64
 
       - name: Build
         run: cmake --build "Nova Pitch/build" --config Release

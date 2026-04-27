@@ -7,8 +7,10 @@ set(JUCE_VST2SDK_PATH "" CACHE PATH "" FORCE)
 cmake_minimum_required(VERSION 3.15)
 
 if(APPLE)
-    # Ensure consistent macOS binary compatibility regardless of CI defaults.
-    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
+    # Default to universal, but allow CI/local builds to override (e.g. arm64-only).
+    if(NOT DEFINED CMAKE_OSX_ARCHITECTURES OR CMAKE_OSX_ARCHITECTURES STREQUAL "")
+        set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
+    endif()
     set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "" FORCE)
 endif()
 
