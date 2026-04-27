@@ -238,18 +238,37 @@ bool NovaPitchAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
+    auto totalNumInputChannels  = getTotalNumInputChannels();
+    auto totalNumOutputChannels = getTotalNumOutputChannels();
+    const int numSamples = buffer.getNumSamples();
+
+    // Capture incoming audio before any output-path clearing.
+    if (incomingScratchL.size() < static_cast<size_t> (numSamples))
+        incomingScratchL.resize (static_cast<size_t> (numSamples), 0.0f);
+    if (incomingScratchR.size() < static_cast<size_t> (numSamples))
+        incomingScratchR.resize (static_cast<size_t> (numSamples), 0.0f);
+
+    const float* inReadL = (totalNumInputChannels > 0 ? buffer.getReadPointer (0) : nullptr);
+    const float* inReadR = (totalNumInputChannels > 1 ? buffer.getReadPointer (1) : nullptr);
+
+    if (inReadL != nullptr)
+        std::copy (inReadL, inReadL + numSamples, incomingScratchL.begin());
+    else
+        std::fill (incomingScratchL.begin(), incomingScratchL.begin() + numSamples, 0.0f);
+
+    if (inReadR != nullptr)
+        std::copy (inReadR, inReadR + numSamples, incomingScratchR.begin());
+    else
+        std::copy (incomingScratchL.begin(), incomingScratchL.begin() + numSamples, incomingScratchR.begin());
+
     // NUCLEAR FIX: Zero-fill dry path at very start before anything else happens.
     // This ensures zero dry audio can leak into the output.
     buffer.clear();
-    
-    auto totalNumInputChannels  = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
 
     // Clear unused output channels
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    int numSamples = buffer.getNumSamples();
     // Host sample-rate can change between prepare calls in some DAWs.
     // Reinitialize Rubber Band immediately on a real SR change.
     const double hostSampleRate = juce::jmax (1.0, getSampleRate());
@@ -328,11 +347,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         analysisScratch.resize (static_cast<size_t> (numSamples), 0.0f);
 
     float* analysisData = analysisScratch.data();
-    if (channelR != nullptr)
-    {
-        for (int i = 0; i < numSamples; ++i)
-            analysisData[i] = 0.5f * (channelL[i] + channelR[i]);
-    }
+    for (int i = 0; i < numSamples; ++i)
+        analysisData[i] = 0.5f * (incomingScratchL[static_cast<size_t> (i)] + incomingScratchR[static_cast<size_t> (i)]);
 
     // NUCLEAR FIX: Emergency gain for detector - apply +12dB (4x) minimum digital boost.
     // This forces the detector to 'see' the vocal clearly even if the recording is quiet.
@@ -347,6 +363,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     
     for (int i = 0; i < numSamples; ++i)
         analysisData[i] *= detectorGain;
+
+    // Feed the shifter from the same detector-visible signal during this emergency build.
+    if (shifterFeedScratchL.size() < static_cast<size_t> (numSamples))
+        shifterFeedScratchL.resize (static_cast<size_t> (numSamples), 0.0f);
+    if (shifterFeedScratchR.size() < static_cast<size_t> (numSamples))
+        shifterFeedScratchR.resize (static_cast<size_t> (numSamples), 0.0f);
+    for (int i = 0; i < numSamples; ++i)
+    {
+        const float v = juce::jlimit (-1.0f, 1.0f, analysisData[i]);
+        shifterFeedScratchL[static_cast<size_t> (i)] = v;
+        shifterFeedScratchR[static_cast<size_t> (i)] = v;
+    }
     
     // CRITICAL: Calculate RMS from the BOOSTED analysis buffer, not raw input.
     // This ensures vocal state decisions are based on the signal the detector actually sees.
@@ -1016,6 +1044,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     float appliedRatio = 1.0f + (activePitchRatio - 1.0f) * correctionDrive;
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
         applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
+
+    // Force the shifter to process every block, independent of current vocal-state decisions.
+    std::copy (shifterFeedScratchL.begin(), shifterFeedScratchL.begin() + numSamples, channelL);
+    if (channelR != nullptr)
+        std::copy (shifterFeedScratchR.begin(), shifterFeedScratchR.begin() + numSamples, channelR);
 
     processRubberBandPitchShift (channelL, channelR, numSamples, appliedRatio, lowLatencyMode,
                                  retuneMs, retuneControlActive, trackingConfidence);
@@ -2008,6 +2041,28 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
             if (channels > 1)
                 rubberBandOutputQueue[1].push_back (outR[static_cast<size_t> (i)]);
         }
+    }
+
+    // Emergency passthrough: if the stretcher output queue is starved, do not emit silence.
+    // Route captured input through so we can verify the live signal path.
+    const int minReadySamples = 512;
+    const bool leftStarved = static_cast<int> (rubberBandOutputQueue[0].size()) < minReadySamples;
+    const bool rightStarved = (channels > 1) && (static_cast<int> (rubberBandOutputQueue[1].size()) < minReadySamples);
+    if (leftStarved || rightStarved)
+    {
+        if (incomingScratchL.size() >= static_cast<size_t> (numSamples))
+            std::copy (incomingScratchL.begin(), incomingScratchL.begin() + numSamples, channelL);
+        else
+            std::fill (channelL, channelL + numSamples, 0.0f);
+
+        if (channelR != nullptr)
+        {
+            if (incomingScratchR.size() >= static_cast<size_t> (numSamples))
+                std::copy (incomingScratchR.begin(), incomingScratchR.begin() + numSamples, channelR);
+            else
+                std::copy (channelL, channelL + numSamples, channelR);
+        }
+        return;
     }
 
     // Enforce wet-only path: if Rubber Band hasn't produced enough samples yet,
