@@ -251,6 +251,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (std::abs (hostSampleRate - currentSampleRate) > 0.5)
     {
         currentSampleRate = hostSampleRate;
+        if (rubberBand != nullptr)
+            rubberBand->reset();
+        resetRubberBandState();
         initializeRubberBand (juce::jmax (numSamples, rubberBandMaxBlockSize),
                               apvts.getRawParameterValue ("lowLatency")->load() >= 0.5f);
     }
@@ -295,8 +298,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         : maxSemitonesPerSecondBase;
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
-    if (rubberBand == nullptr || rubberBandLowLatencyMode != lowLatencyMode)
+    const bool sampleRateMismatch = rubberBand != nullptr && std::abs (hostSampleRate - rubberBandInitSampleRate) > 0.5;
+    if (rubberBand == nullptr || rubberBandLowLatencyMode != lowLatencyMode || sampleRateMismatch)
+    {
+        if (rubberBand != nullptr)
+            rubberBand->reset();
+        resetRubberBandState();
         initializeRubberBand (juce::jmax (numSamples, rubberBandMaxBlockSize), lowLatencyMode);
+    }
 
     // Host latency is updated when stretcher settings are (re)initialized.
     // Do not chase per-block internal latency jitter here.
@@ -318,6 +327,20 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         for (int i = 0; i < numSamples; ++i)
             analysisData[i] = 0.5f * (channelL[i] + channelR[i]);
+    }
+
+    // Normalize detector input so low-level vocals still produce stable pitch tracking.
+    float detectorPeak = 0.0f;
+    for (int i = 0; i < numSamples; ++i)
+        detectorPeak = juce::jmax (detectorPeak, std::abs (analysisData[i]));
+    if (detectorPeak > 1.0e-5f)
+    {
+        const float detectorGain = juce::jlimit (1.0f, 32.0f, 0.25f / detectorPeak);
+        if (detectorGain > 1.0f)
+        {
+            for (int i = 0; i < numSamples; ++i)
+                analysisData[i] *= detectorGain;
+        }
     }
     else
     {
@@ -1805,9 +1828,11 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
                           : RubberBandStretcher::OptionWindowStandard);
 
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
-    rubberBand->setMaxProcessSize (juce::jmax (4096, maxBlockSize));
+    rubberBandInitSampleRate = currentSampleRate;
+    rubberBand->setTimeRatio (1.0);
+    rubberBand->setMaxProcessSize (juce::jmax (8192, maxBlockSize));
 
-    rubberBandMaxBlockSize = juce::jmax (4096, maxBlockSize);
+    rubberBandMaxBlockSize = juce::jmax (8192, maxBlockSize);
     rubberBandLowLatencyMode = lowLatencyMode;
     rubberBandPitchScaleSamplesRemaining = 0;
     rubberBandPitchScaleStepPerSample = 0.0f;
@@ -1846,6 +1871,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
 void NovaPitchAudioProcessor::resetRubberBandState()
 {
     rubberBand.reset();
+    rubberBandInitSampleRate = 0.0;
     rubberBandPitchScaleSamplesRemaining = 0;
     rubberBandPitchScaleStepPerSample = 0.0f;
     rubberBandCurrentPitchScale = 1.0f;
@@ -1871,6 +1897,9 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         || rubberBandMaxBlockSize < numSamples
         || rubberBandLowLatencyMode != lowLatencyMode)
     {
+        if (rubberBand != nullptr)
+            rubberBand->reset();
+        resetRubberBandState();
         initializeRubberBand (juce::jmax (numSamples, rubberBandMaxBlockSize), lowLatencyMode);
     }
 
@@ -1948,7 +1977,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
 
     while (rubberBand->available() > 0)
     {
-        const int toRead = juce::jmin (rubberBand->available(), juce::jmax (numSamples, 4096));
+        const int toRead = juce::jmin (rubberBand->available(), juce::jmax (numSamples, 8192));
 
         auto& outL = rubberBandRetrieveScratch[0];
         auto& outR = rubberBandRetrieveScratch[1];

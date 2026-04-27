@@ -145,6 +145,7 @@ private:
     std::array<std::deque<float>, 2> rubberBandOutputQueue;
     int rubberBandMaxBlockSize { 0 };
     bool rubberBandLowLatencyMode { false };
+    double rubberBandInitSampleRate { 0.0 };
     int rubberBandReportedLatencySamples { 0 };
     float rubberBandTargetPitchScale { 1.0f };
     float rubberBandCurrentPitchScale { 1.0f };
