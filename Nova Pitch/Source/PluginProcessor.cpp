@@ -312,8 +312,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float dtSeconds = static_cast<float> (numSamples) / static_cast<float> (juce::jmax (1.0, currentSampleRate));
     const float correctionTauSec = juce::jlimit (0.001f, 0.250f, retuneMs * 0.001f);
     const float correctionAlpha = 1.0f - std::exp (-dtSeconds / juce::jmax (1.0e-6f, correctionTauSec));
-    const float hysteresisCents = 40.0f + (12.0f - 40.0f) * std::pow (k, 1.5f);
-    const float switchHysteresis = hysteresisCents / 100.0f;
+    // Force immediate semitone snaps for this test build.
+    const float switchHysteresis = 0.0f;
     const float maxSemitonesPerSecondBase = 10.0f * std::pow (260.0f / 10.0f, std::pow (k, 1.35f));
     // Hard mode should snap much harder than musical mode.
     // Keep a cap for safety, but high enough to produce obvious robotic lock.
@@ -350,30 +350,37 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     for (int i = 0; i < numSamples; ++i)
         analysisData[i] = 0.5f * (incomingScratchL[static_cast<size_t> (i)] + incomingScratchR[static_cast<size_t> (i)]);
 
-    // NUCLEAR FIX: Emergency gain for detector - apply +12dB (4x) minimum digital boost.
-    // This forces the detector to 'see' the vocal clearly even if the recording is quiet.
-    float detectorPeak = 0.0f;
-    for (int i = 0; i < numSamples; ++i)
-        detectorPeak = juce::jmax (detectorPeak, std::abs (analysisData[i]));
-    
-    // Force minimum 4x (12dB) boost; go up to 32x if needed for very quiet signals.
-    const float minimumDetectorGain = 4.0f;
-    const float detectorGain = juce::jmax (minimumDetectorGain, 
-        detectorPeak > 1.0e-5f ? juce::jlimit (4.0f, 32.0f, 0.25f / detectorPeak) : 32.0f);
-    
+    // Reduce detector boost to +3 dB to avoid crunchy clipping.
+    constexpr float detectorGain = 1.4125376f;
     for (int i = 0; i < numSamples; ++i)
         analysisData[i] *= detectorGain;
 
-    // Feed the shifter from the same detector-visible signal during this emergency build.
+    // Feed the shifter from clean incoming audio normalized to -1 dBFS (no boost).
     if (shifterFeedScratchL.size() < static_cast<size_t> (numSamples))
         shifterFeedScratchL.resize (static_cast<size_t> (numSamples), 0.0f);
     if (shifterFeedScratchR.size() < static_cast<size_t> (numSamples))
         shifterFeedScratchR.resize (static_cast<size_t> (numSamples), 0.0f);
+
+    float shifterFeedPeak = 0.0f;
     for (int i = 0; i < numSamples; ++i)
     {
-        const float v = juce::jlimit (-1.0f, 1.0f, analysisData[i]);
+        const float v = 0.5f * (incomingScratchL[static_cast<size_t> (i)] + incomingScratchR[static_cast<size_t> (i)]);
         shifterFeedScratchL[static_cast<size_t> (i)] = v;
         shifterFeedScratchR[static_cast<size_t> (i)] = v;
+        shifterFeedPeak = juce::jmax (shifterFeedPeak, std::abs (v));
+    }
+
+    constexpr float shifterFeedTargetPeak = 0.8912509f; // -1.0 dBFS
+    const float shifterFeedGain = (shifterFeedPeak > shifterFeedTargetPeak && shifterFeedPeak > 1.0e-6f)
+        ? (shifterFeedTargetPeak / shifterFeedPeak)
+        : 1.0f;
+    if (shifterFeedGain < 1.0f)
+    {
+        for (int i = 0; i < numSamples; ++i)
+        {
+            shifterFeedScratchL[static_cast<size_t> (i)] *= shifterFeedGain;
+            shifterFeedScratchR[static_cast<size_t> (i)] *= shifterFeedGain;
+        }
     }
     
     // CRITICAL: Calculate RMS from the BOOSTED analysis buffer, not raw input.
@@ -1873,6 +1880,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
 
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
     rubberBandInitSampleRate = currentSampleRate;
+    rubberBandPassthroughPriming = true;
     rubberBand->setTimeRatio (1.0);
     rubberBand->setMaxProcessSize (juce::jmax (8192, maxBlockSize));
 
@@ -1920,6 +1928,7 @@ void NovaPitchAudioProcessor::resetRubberBandState()
     rubberBandPitchScaleStepPerSample = 0.0f;
     rubberBandCurrentPitchScale = 1.0f;
     rubberBandTargetPitchScale = 1.0f;
+    rubberBandPassthroughPriming = true;
     rubberBandReportedLatencySamples = 0;
     for (int ch = 0; ch < 2; ++ch)
         rubberBandOutputQueue[static_cast<size_t> (ch)].clear();
@@ -2048,7 +2057,12 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     const int minReadySamples = 512;
     const bool leftStarved = static_cast<int> (rubberBandOutputQueue[0].size()) < minReadySamples;
     const bool rightStarved = (channels > 1) && (static_cast<int> (rubberBandOutputQueue[1].size()) < minReadySamples);
-    if (leftStarved || rightStarved)
+    const bool queueStarved = leftStarved || rightStarved;
+    if (! queueStarved)
+        rubberBandPassthroughPriming = false;
+
+    // Use passthrough only while priming at startup; once wet queue is ready, keep 100% wet path.
+    if (queueStarved && rubberBandPassthroughPriming)
     {
         if (incomingScratchL.size() >= static_cast<size_t> (numSamples))
             std::copy (incomingScratchL.begin(), incomingScratchL.begin() + numSamples, channelL);
