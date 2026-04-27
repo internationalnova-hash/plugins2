@@ -15,7 +15,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,7 +28,7 @@ jobs:
         run: rm -rf "Nova Pitch/build"
 
       - name: Configure CMake
-        run: cmake -S "Nova Pitch" -B "Nova Pitch/build" -DCMAKE_OSX_ARCHITECTURES=x86_64
+        run: cmake -S "Nova Pitch" -B "Nova Pitch/build" -DCMAKE_OSX_ARCHITECTURES=arm64
 
       - name: Build
         run: cmake --build "Nova Pitch/build" --config Release
