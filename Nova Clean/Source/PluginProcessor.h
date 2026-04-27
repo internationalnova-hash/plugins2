@@ -61,13 +61,16 @@ private:
 
     struct ChannelState
     {
-        // Sidechain HPF (5 kHz) state for click detection.
+        // Sidechain HPF (8 kHz) state for click detection.
         float hpPrevX = 0.0f;
         float hpPrevY = 0.0f;
+        float hpAbsEnv = 0.0f;
+        float slewEnv = 0.0f;
 
         // Lookahead queues (raw + filtered) used to detect before playback.
         std::deque<float> rawLookAhead;
         std::deque<float> hpLookAhead;
+        std::deque<float> rawHistory;
 
         // Previous delayed raw samples for boundary-safe spline anchors.
         float prevRaw1 = 0.0f;
@@ -90,10 +93,6 @@ private:
     std::array<ChannelState, 2> channelStates;
     juce::AudioBuffer<float> dryBuffer;
     juce::AudioBuffer<float> removedBuffer;
-    std::array<std::vector<float>, 2> listenRemovedDryDelay;
-    std::array<int, 2> listenRemovedDryWriteIndex { 0, 0 };
-    int listenRemovedDelayBufferSize { 0 };
-    int listenRemovedAlignSamples { 0 };
     int lookAheadSamples { 0 };
     float detectHpAlpha { 0.0f };
 
