@@ -22,41 +22,32 @@ jobs:
 
       - name: Install Build Dependencies
         run: |
-          brew install cmake pkg-config meson ninja
+          brew install cmake
 
       - name: Build Rubber Band as universal static lib
         run: |
           set -euo pipefail
-          # Clone rubber band source
           git clone --depth 1 --branch v4.0.0 https://github.com/breakfastquay/rubberband.git /tmp/rubberband-src
 
-          build_arch() {
-            local arch="$1"
-            local prefix="/tmp/rubberband-$arch"
-            mkdir -p "$prefix"
-            cd /tmp/rubberband-src
-            # Wipe any previous meson build for this arch
-            rm -rf "build-$arch"
-            CFLAGS="-arch $arch" CXXFLAGS="-arch $arch" LDFLAGS="-arch $arch" \
-              meson setup "build-$arch" \
-                --prefix "$prefix" \
-                --buildtype release \
-                --default-library static \
-                -Dfft=vdsp \
-                -Dresampler=builtin
-            ninja -C "build-$arch" install
-          }
+          # Compile the single-file build with both architectures in one clang pass.
+          # Avoids meson cross-compilation issues entirely.
+          clang++ -arch arm64 -arch x86_64 \
+            -std=c++17 -O2 \
+            -mmacosx-version-min=11.0 \
+            -DHAVE_VDSP=1 \
+            -DUSE_BQRESAMPLER=1 \
+            -DNDEBUG \
+            -I/tmp/rubberband-src \
+            -c /tmp/rubberband-src/single/RubberBandSingle.cpp \
+            -o /tmp/rubberband.o
 
-          build_arch arm64
-          build_arch x86_64
+          ar rcs /tmp/librubberband.a /tmp/rubberband.o
 
-          # Merge into universal fat static lib
           mkdir -p /tmp/rubberband-universal/lib
-          lipo -create \
-            /tmp/rubberband-arm64/lib/librubberband.a \
-            /tmp/rubberband-x86_64/lib/librubberband.a \
-            -output /tmp/rubberband-universal/lib/librubberband.a
-          cp -r /tmp/rubberband-arm64/include /tmp/rubberband-universal/include
+          cp /tmp/librubberband.a /tmp/rubberband-universal/lib/librubberband.a
+          mkdir -p /tmp/rubberband-universal/include
+          cp -r /tmp/rubberband-src/rubberband /tmp/rubberband-universal/include/rubberband
+
           echo "Universal Rubber Band built:"
           lipo -info /tmp/rubberband-universal/lib/librubberband.a
 
