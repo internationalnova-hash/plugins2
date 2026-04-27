@@ -108,7 +108,7 @@ jobs:
             codesign --force --deep --sign - "$contents_dir" || true
           }
 
-          BROOT="Nova Pitch/build/NovaPitch_artefacts/Release"
+          BROOT="Nova Pitch/build/NovaPitch_artefacts"
 
           bundle_target "$BROOT/VST3/Nova Pitch.vst3/Contents/MacOS/Nova Pitch" "$BROOT/VST3/Nova Pitch.vst3/Contents"
           bundle_target "$BROOT/AU/Nova Pitch.component/Contents/MacOS/Nova Pitch" "$BROOT/AU/Nova Pitch.component/Contents"
@@ -116,12 +116,12 @@ jobs:
 
       - name: Package VST3 Bundle
         run: |
-          cd "Nova Pitch/build/NovaPitch_artefacts/Release/VST3"
+          cd "Nova Pitch/build/NovaPitch_artefacts/VST3"
           ditto -c -k --sequesterRsrc --keepParent "Nova Pitch.vst3" "NovaPitch-macOS-vst3.zip"
 
       - name: Package AU Bundle
         run: |
-          cd "Nova Pitch/build/NovaPitch_artefacts/Release/AU"
+          cd "Nova Pitch/build/NovaPitch_artefacts/AU"
           ditto -c -k --sequesterRsrc --keepParent "Nova Pitch.component" "NovaPitch-macOS-au.zip"
 
       - name: Upload Deliverables Artifact
@@ -129,8 +129,8 @@ jobs:
         with:
           name: NovaPitch-macOS-deliverables
           path: |
-            Nova Pitch/build/NovaPitch_artefacts/Release/VST3/NovaPitch-macOS-vst3.zip
-            Nova Pitch/build/NovaPitch_artefacts/Release/AU/NovaPitch-macOS-au.zip
+            Nova Pitch/build/NovaPitch_artefacts/VST3/NovaPitch-macOS-vst3.zip
+            Nova Pitch/build/NovaPitch_artefacts/AU/NovaPitch-macOS-au.zip
 
       - name: Upload Full Build Artifact
         uses: actions/upload-artifact@v4
