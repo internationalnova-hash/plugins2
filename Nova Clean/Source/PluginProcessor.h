@@ -2,6 +2,7 @@
 
 #include <array>
 #include <atomic>
+#include <deque>
 #include <vector>
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -60,21 +61,41 @@ private:
 
     struct ChannelState
     {
-        float prevIn1 = 0.0f;
-        float prevIn2 = 0.0f;
-        float prevOut = 0.0f;
-        float energyEnv = 1.0e-6f;
-        float hfEnv = 1.0e-6f;
-        float slowEnergyEnv = 1.0e-6f; // long-term for pop detection
-        int   holdSamples = 0;          // persists across buffer boundaries
-        int   impulseHoldSamples = 0;   // tracks hard impulse repair windows
-        float listenRemovedHpPrevIn = 0.0f;
-        float listenRemovedHpPrevOut = 0.0f;
+        // Sidechain HPF (3 kHz) state for click detection.
+        float hpPrevX = 0.0f;
+        float hpPrevY = 0.0f;
+
+        // Lookahead queues (raw + filtered) used to detect before playback.
+        std::deque<float> rawLookAhead;
+        std::deque<float> hpLookAhead;
+
+        // Previous delayed raw samples for boundary-safe spline anchors.
+        float prevRaw1 = 0.0f;
+        float prevRaw2 = 0.0f;
+
+        // Previous delayed HP sidechain samples for discontinuity metrics.
+        float prevHp1 = 0.0f;
+        float prevHp2 = 0.0f;
+
+        // Active repair segment state.
+        bool  repairActive = false;
+        int   repairTotal = 0;
+        int   repairIndex = 0;
+        float repairP0 = 0.0f;
+        float repairP1 = 0.0f;
+        float repairP2 = 0.0f;
+        float repairP3 = 0.0f;
     };
 
     std::array<ChannelState, 2> channelStates;
     juce::AudioBuffer<float> dryBuffer;
     juce::AudioBuffer<float> removedBuffer;
+    std::array<std::vector<float>, 2> listenRemovedDryDelay;
+    std::array<int, 2> listenRemovedDryWriteIndex { 0, 0 };
+    int listenRemovedDelayBufferSize { 0 };
+    int listenRemovedAlignSamples { 0 };
+    int lookAheadSamples { 0 };
+    float detectHpAlpha { 0.0f };
 
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mixSmoothed;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputGainSmoothed;

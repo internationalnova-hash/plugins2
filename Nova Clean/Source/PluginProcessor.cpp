@@ -88,12 +88,28 @@ void NovaCleanV2AudioProcessor::changeProgramName (int, const juce::String&) {}
 void NovaCleanV2AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
+    lookAheadSamples = juce::jmax (1, static_cast<int> (std::round (0.005 * currentSampleRate))); // 5 ms
+    setLatencySamples (lookAheadSamples);
+
+    const float dt = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate));
+    const float rc = 1.0f / (2.0f * juce::MathConstants<float>::pi * 3000.0f);
+    detectHpAlpha = rc / (rc + dt);
 
     dryBuffer.setSize (2, samplesPerBlock);
     removedBuffer.setSize (2, samplesPerBlock);
 
     for (auto& s : channelStates)
         s = ChannelState{};
+
+    // Listen Removed uses dry-vs-processed nulling. Keep a small delay line so
+    // we can compensate any algorithmic sample offset while staying RT-safe.
+    listenRemovedDelayBufferSize = juce::jmax (2048, samplesPerBlock * 4);
+    listenRemovedAlignSamples = 0;
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        listenRemovedDryDelay[static_cast<size_t> (ch)].assign (static_cast<size_t> (listenRemovedDelayBufferSize), 0.0f);
+        listenRemovedDryWriteIndex[static_cast<size_t> (ch)] = 0;
+    }
 
     mixSmoothed.reset (sampleRate, 0.08);
     outputGainSmoothed.reset (sampleRate, 0.06);
@@ -151,19 +167,12 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     const auto mode = static_cast<Mode> (static_cast<int> (apvts.getRawParameterValue ("mode")->load()));
     const auto clickSize = static_cast<ClickSize> (static_cast<int> (apvts.getRawParameterValue ("clickSize")->load()));
     const auto freqFocus = static_cast<FrequencyFocus> (static_cast<int> (apvts.getRawParameterValue ("freqFocus")->load()));
-    const auto interpolation = static_cast<InterpolationMode> (static_cast<int> (apvts.getRawParameterValue ("interpolation")->load()));
 
     const float cleanNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("clean")->load() / 100.0f);
     const float preserveNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("preserve")->load() / 100.0f);
     const float sensitivityNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("sensitivity")->load() / 100.0f);
     const float strengthNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("strength")->load() / 100.0f);
     const float shapeNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("shape")->load() / 100.0f);
-    const float vocalProtectNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("vocalProtect")->load() / 100.0f);
-    const float transientGuardNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("transientGuard")->load() / 100.0f);
-
-    const bool lowLatency = apvts.getRawParameterValue ("lowLatency")->load() > 0.5f;
-    const bool hqMode = apvts.getRawParameterValue ("hqMode")->load() > 0.5f && !lowLatency;
-
     const float effectiveSensitivity = juce::jlimit (0.0f, 1.0f, sensitivityNorm * 0.45f + cleanNorm * 0.95f);
     const float effectiveRepair = juce::jlimit (0.0f, 1.0f, strengthNorm * 0.55f + cleanNorm * 0.95f);
 
@@ -185,164 +194,127 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     const float cleanBoost = juce::jmap (cleanNorm, 0.0f, 1.0f, 0.85f, 1.25f);
     const float repairDepth = juce::jlimit (0.20f, 1.0f, effectiveRepair * protectScale * cleanBoost);
 
-    const float focusHigh = (freqFocus == High ? 1.35f : (freqFocus == Mid ? 0.82f : 1.0f));
-    const float focusMid  = (freqFocus == Mid ? 1.3f : 1.0f);
+    const float freqScale = (freqFocus == High ? 0.9f : (freqFocus == Mid ? 1.0f : 1.12f));
 
     int removedEvents = 0;
 
     for (int ch = 0; ch < channels; ++ch)
     {
         auto* x = buffer.getWritePointer (ch);
-        auto* dry = dryBuffer.getReadPointer (ch);
         auto* removed = removedBuffer.getWritePointer (ch);
 
         auto& state = channelStates[static_cast<size_t> (ch)];
-        // holdSamples lives in state — persists across buffer boundaries
-
-        const int winLen = (clickSize == Micro ? 3 : (clickSize == Short ? 8 : 16));
-
         for (int i = 0; i < numSamples; ++i)
         {
-            const float in   = x[i];
-            const float next = (i + 1 < numSamples) ? dry[i + 1] : state.prevIn1;
-            const float post = (i + 2 < numSamples) ? dry[i + 2] : next;
+            const float in = x[i];
 
-            const float d1 = in - state.prevIn1;
-            const float d2 = state.prevIn1 - state.prevIn2;
-            const float curvature = std::abs (d1 - d2);
-            const float slope     = std::abs (d1);
+            // Detection sidechain: 3 kHz high-pass.
+            const float hp = detectHpAlpha * (state.hpPrevY + in - state.hpPrevX);
+            state.hpPrevX = in;
+            state.hpPrevY = hp;
 
-            // Fast and slow energy envelopes
-            state.energyEnv     = 0.995f  * state.energyEnv     + 0.005f  * (in * in);
-            state.hfEnv         = 0.985f  * state.hfEnv         + 0.015f  * curvature;
-            state.slowEnergyEnv = 0.9997f * state.slowEnergyEnv + 0.0003f * (in * in);
+            state.rawLookAhead.push_back (in);
+            state.hpLookAhead.push_back (hp);
 
-            const float energy     = std::sqrt (state.energyEnv     + 1.0e-9f);
-            const float slowEnergy = std::sqrt (state.slowEnergyEnv + 1.0e-9f);
-            const float hfRatio    = curvature / (std::sqrt (state.hfEnv + 1.0e-9f) + 1.0e-6f);
-            const float clickiness = curvature / (slope + 1.0e-6f);
-            const float transientRatio = slope / (slowEnergy + 1.0e-6f);
+            float repairedOut = 0.0f;
+            float removedOut = 0.0f;
 
-            // Amplitude pop: sudden energy burst vs long-term level
-            const float popRatio  = energy / (slowEnergy + 1.0e-6f);
-            const bool  amplitudePop = (popRatio > 3.2f) && (slope > energy * 0.42f);
-
-            // Digital impulse: isolated sample — both neighbours are quiet
-            const float neighborMax = juce::jmax (std::abs (state.prevIn1), std::abs (next));
-            const bool  digitalImpulse = (std::abs (in) > neighborMax * 2.6f) && (std::abs (in) > 0.0018f);
-            const bool  narrowSpike = (clickiness > 0.85f) && (transientRatio > 3.2f) && (std::abs (in) > 0.0018f);
-
-            float score = 0.0f;
-            score += 0.40f * juce::jlimit (0.0f, 4.0f, hfRatio)                        * focusHigh;
-            score += 0.30f * juce::jlimit (0.0f, 4.0f, clickiness)                     * focusMid;
-            score += 0.18f * juce::jlimit (0.0f, 4.0f, slope / (energy + 1.0e-5f));
-            score += 0.12f * juce::jlimit (0.0f, 3.0f, popRatio - 1.0f);  // pop contribution
-
-            if (mode == Digital)
-                score += 0.25f * juce::jlimit (0.0f, 3.0f, slope / (std::abs (next) + 1.0e-5f));
-            else if (mode == Crackle)
-                score += 0.20f * juce::jlimit (0.0f, 3.0f, hfRatio);
-
-            if (narrowSpike)
-                score += 0.26f;
-
-            const bool likelyConsonant  = (slope > 0.020f && clickiness < 0.30f);
-            const bool protectTransient = likelyConsonant && transientGuardNorm > 0.55f;
-            const bool protectVocal = (clickiness < 0.46f
-                                    && hfRatio < 1.55f
-                                    && vocalProtectNorm > 0.55f
-                                    && energy > 0.006f);
-
-            // Hard impulses always bypass vocal/transient protection
-            const bool hardImpulse    = digitalImpulse || amplitudePop || narrowSpike || (score > threshold * 1.55f);
-            const bool protectedEvent = !hardImpulse && (protectTransient || protectVocal);
-            const bool detected = (score > threshold * 1.02f || digitalImpulse || amplitudePop || narrowSpike) && !protectedEvent;
-
-            if (detected)
+            const int requiredFuture = juce::jmax (lookAheadSamples, 6);
+            if (static_cast<int> (state.rawLookAhead.size()) > requiredFuture)
             {
-                const int hold = hardImpulse
-                    ? winLen
-                    : juce::jmax (1, static_cast<int> (std::round (static_cast<float> (winLen) * 0.55f)));
-                state.holdSamples = juce::jmax (state.holdSamples, hold);
-                if (hardImpulse)
-                    state.impulseHoldSamples = juce::jmax (state.impulseHoldSamples, hold);
-            }
+                const float curr = state.rawLookAhead[0];
+                const float hp0 = state.hpLookAhead[0];
+                const float hp1 = state.hpLookAhead[1];
+                const float hp2 = state.hpLookAhead[2];
+                const float hp3 = state.hpLookAhead[3];
+                const float hp4 = state.hpLookAhead[4];
 
-            float repaired = in;
-            if (state.holdSamples > 0)
-            {
-                float interpTarget;
-                const float interpBase = 0.5f * (state.prevOut + next);
+                const float slopePrev = hp0 - state.prevHp1;
+                const float slopePrev2 = state.prevHp1 - state.prevHp2;
+                const float slopeNext = hp1 - hp0;
 
-                if (interpolation == Smart && hqMode)
+                const float localRef = juce::jmax (std::abs (state.prevHp1), std::abs (hp1), std::abs (hp2), 1.0e-6f);
+                const float curvatureJump = std::abs (slopePrev - slopePrev2);
+                const float slopeFlip = std::abs (slopePrev - slopeNext);
+                const bool strongSpike = std::abs (hp0) > (localRef * juce::jmap (cleanNorm, 0.0f, 1.0f, 2.6f, 1.9f));
+                const bool suddenDiscontinuity = curvatureJump > (localRef * 1.35f) && slopeFlip > (localRef * 1.10f);
+                const bool multiSampleEdge = std::abs (hp0 - hp3) > (localRef * 1.55f * freqScale)
+                    || std::abs (hp0 - hp4) > (localRef * 1.55f * freqScale);
+
+                const bool detected = (strongSpike || (suddenDiscontinuity && multiSampleEdge))
+                    && (std::abs (hp0) > threshold * 0.0045f);
+
+                if (detected && ! state.repairActive)
                 {
-                    // Catmull-Rom cubic: P0=prevIn2, P1=prevOut, P2=next, P3=post
-                    // t=0 → prevOut (before click), t=1 → next (after click)
-                    const float t  = 1.0f - static_cast<float> (state.holdSamples) / static_cast<float> (winLen);
+                    const float severity = juce::jlimit (0.0f, 1.0f, (std::abs (hp0) / juce::jmax (1.0e-6f, localRef) - 1.4f) / 2.8f);
+                    const int repairLen = juce::jlimit (2, 5,
+                        2 + static_cast<int> (std::round (severity * 3.0f * juce::jmap (cleanNorm, 0.0f, 1.0f, 0.8f, 1.2f))));
+
+                    const int rightA = juce::jmin (static_cast<int> (state.rawLookAhead.size()) - 1, repairLen + 1);
+                    const int rightB = juce::jmin (static_cast<int> (state.rawLookAhead.size()) - 1, repairLen + 2);
+
+                    state.repairActive = true;
+                    state.repairTotal = repairLen;
+                    state.repairIndex = 0;
+                    state.repairP0 = state.prevRaw2;
+                    state.repairP1 = state.prevRaw1;
+                    state.repairP2 = state.rawLookAhead[static_cast<size_t> (rightA)];
+                    state.repairP3 = state.rawLookAhead[static_cast<size_t> (rightB)];
+                    ++removedEvents;
+                }
+
+                if (state.repairActive)
+                {
+                    const float t = static_cast<float> (state.repairIndex + 1)
+                        / static_cast<float> (juce::jmax (1, state.repairTotal + 1));
                     const float t2 = t * t;
                     const float t3 = t2 * t;
-                    interpTarget = 0.5f * (
-                          (2.0f * state.prevOut)
-                        + (-state.prevIn2 + next)       * t
-                        + (2.0f*state.prevIn2 - 5.0f*state.prevOut + 4.0f*next - post) * t2
-                        + (-state.prevIn2 + 3.0f*state.prevOut - 3.0f*next + post)     * t3
-                    );
 
-                    // Shape controls the Smart+HQ character:
-                    // low shape -> more transparent (closer to source), high shape -> smoother repair.
-                    const float transparentTarget = 0.75f * in + 0.25f * interpBase;
+                    float spline = 0.5f * (
+                          (2.0f * state.repairP1)
+                        + (-state.repairP0 + state.repairP2) * t
+                        + (2.0f * state.repairP0 - 5.0f * state.repairP1 + 4.0f * state.repairP2 - state.repairP3) * t2
+                        + (-state.repairP0 + 3.0f * state.repairP1 - 3.0f * state.repairP2 + state.repairP3) * t3);
+
+                    // Shape: 0 = more transparent, 1 = smoother replacement.
                     const float shapeBlend = juce::jlimit (0.0f, 1.0f, shapeNorm);
-                    interpTarget = juce::jmap (shapeBlend, transparentTarget, interpTarget);
+                    const float transparent = 0.65f * curr + 0.35f * spline;
+                    const float interpTarget = juce::jmap (shapeBlend, transparent, spline);
+
+                    repairedOut = curr + (interpTarget - curr) * repairDepth;
+                    removedOut = curr - repairedOut;
+
+                    ++state.repairIndex;
+                    if (state.repairIndex >= state.repairTotal)
+                        state.repairActive = false;
                 }
                 else
                 {
-                    const float smartBlend = (interpolation == Smart
-                        ? juce::jlimit (0.0f, 1.0f, 0.35f + 0.5f * shapeNorm)
-                        : 0.2f);
-                    interpTarget = juce::jmap (smartBlend, interpBase, 0.35f * in + 0.65f * interpBase);
+                    repairedOut = curr;
+                    removedOut = 0.0f;
                 }
 
-                const float depthScale = (state.impulseHoldSamples > 0) ? 1.0f : 0.62f;
-                repaired = in + (interpTarget - in) * (repairDepth * depthScale);
+                x[i] = repairedOut;
+                removed[i] = removedOut;
 
-                // Mild low-level broadband cleanup to help with background hiss/room noise.
-                // This only engages below the local energy bed and scales with Clean.
-                if (state.impulseHoldSamples > 0)
-                {
-                    const float noiseRef = slowEnergy * juce::jmap (cleanNorm, 0.0f, 1.0f, 0.55f, 1.10f);
-                    const float residual = std::abs (repaired);
-                    if (residual < noiseRef)
-                    {
-                        const float t = juce::jlimit (0.0f, 1.0f, residual / juce::jmax (1.0e-6f, noiseRef));
-                        const float suppress = juce::jmap (cleanNorm, 0.0f, 1.0f, 0.0f, 0.30f);
-                        const float keep = juce::jmap (t, 1.0f - suppress, 1.0f);
-                        repaired *= keep;
-                    }
-                }
+                state.prevRaw2 = state.prevRaw1;
+                state.prevRaw1 = curr;
+                state.prevHp2 = state.prevHp1;
+                state.prevHp1 = hp0;
 
-                float removedSample = in - repaired;
-                if (state.impulseHoldSamples <= 0)
-                    removedSample *= 0.35f;
-
-                removed[i] = removedSample;
-                if (detected)
-                    ++removedEvents;
-
-                --state.holdSamples;
-                if (state.impulseHoldSamples > 0)
-                    --state.impulseHoldSamples;
+                state.rawLookAhead.pop_front();
+                state.hpLookAhead.pop_front();
             }
             else
             {
+                // Startup/pipeline fill for lookahead latency.
+                x[i] = 0.0f;
                 removed[i] = 0.0f;
             }
-
-            x[i] = repaired;
-            state.prevIn2 = state.prevIn1;
-            state.prevIn1 = in;
-            state.prevOut = repaired;
         }
     }
+
+    listenRemovedAlignSamples = lookAheadSamples;
 
     const float mixNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("mix")->load() / 100.0f);
     const float gainDb = apvts.getRawParameterValue ("outputGain")->load();
@@ -362,30 +334,31 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     {
         auto* x = buffer.getWritePointer (ch);
         auto* dry = dryBuffer.getReadPointer (ch);
-        auto* removed = removedBuffer.getReadPointer (ch);
-        auto& state = channelStates[static_cast<size_t> (ch)];
+        auto& dryDelay = listenRemovedDryDelay[static_cast<size_t> (ch)];
+        int& dryDelayWrite = listenRemovedDryWriteIndex[static_cast<size_t> (ch)];
 
         for (int i = 0; i < numSamples; ++i)
         {
             const float drySample = dry[i];
             const float wetSample = x[i];
-            const float removedSample = removed[i];
+
+            // Sample-accurate dry alignment for true nulling in Listen Removed mode.
+            dryDelay[static_cast<size_t> (dryDelayWrite)] = drySample;
+            int dryRead = dryDelayWrite - listenRemovedAlignSamples;
+            if (dryRead < 0)
+                dryRead += listenRemovedDelayBufferSize;
+            const float alignedDrySample = dryDelay[static_cast<size_t> (dryRead)];
+            dryDelayWrite = (dryDelayWrite + 1) % listenRemovedDelayBufferSize;
 
             const float mixNow = mixSmoothed.getNextValue();
             const float gainNow = outputGainSmoothed.getNextValue();
             const float bypassNow = bypassSmoothed.getNextValue();
             const float listenNow = listenRemovedSmoothed.getNextValue();
 
-            // Listen Removed should emphasize click/pop residue, not vocal body.
-            // Use a light HP emphasis on the removed signal for monitoring clarity.
-            const float hpRemoved = (removedSample - state.listenRemovedHpPrevIn)
-                + 0.992f * state.listenRemovedHpPrevOut;
-            state.listenRemovedHpPrevIn = removedSample;
-            state.listenRemovedHpPrevOut = hpRemoved;
-
-            const float blended = drySample * (1.0f - mixNow) + wetSample * mixNow;
+            const float blended = alignedDrySample * (1.0f - mixNow) + wetSample * mixNow;
             const float normalOut = blended * gainNow;
-            const float removedOut = hpRemoved * (2.2f * gainNow);
+            const float removedNullSample = alignedDrySample - wetSample;
+            const float removedOut = removedNullSample * gainNow;
             const float modeOut = normalOut * (1.0f - listenNow) + removedOut * listenNow;
             const float finalOut = drySample * bypassNow + modeOut * (1.0f - bypassNow);
 
@@ -402,7 +375,7 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                 outPeakR = juce::jmax (outPeakR, std::abs (finalOut));
             }
 
-            removedEnergy += removedSample * removedSample;
+            removedEnergy += removedNullSample * removedNullSample;
         }
     }
 
