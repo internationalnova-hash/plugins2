@@ -3,11 +3,18 @@
 #include <array>
 #include <atomic>
 #include <vector>
+#include <deque>
 #include <cmath>
 #include <cstdint>
+#include <memory>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+
+namespace RubberBand
+{
+class RubberBandStretcher;
+}
 
 class NovaPitchAudioProcessor : public juce::AudioProcessor
 {
@@ -100,6 +107,12 @@ private:
     void processCircularBufferPitchShift (float* channelData, int numSamples, float pitchRatio,
                                           int channelIndex, bool lowLatencyMode, float retuneSpeedNorm,
                                           float trackingConfidence);
+    void initializeRubberBand (int maxBlockSize, bool lowLatencyMode);
+    void resetRubberBandState();
+    void processRubberBandPitchShift (float* channelL, float* channelR, int numSamples,
+                                      float pitchRatio, bool lowLatencyMode,
+                                      float retuneMs, float retuneSpeedNorm,
+                                      float trackingConfidence);
 
     // DSP systems
     float smoothDetectedPitch (float rawDetectedHz, float signalRms, bool lowLatencyMode, bool hardTuneMode = false);
@@ -127,6 +140,18 @@ private:
     std::array<float, 2> pitchOutputSmoother { 0.0f, 0.0f };
     std::array<float, 2> pitchDryBlendSmoothed { 0.0f, 0.0f };
     std::array<std::array<float, 2>, 2> formantAllPassState {};
+
+    std::unique_ptr<RubberBand::RubberBandStretcher> rubberBand;
+    std::array<std::vector<float>, 2> rubberBandInputScratch;
+    std::array<std::vector<float>, 2> rubberBandRetrieveScratch;
+    std::array<std::deque<float>, 2> rubberBandOutputQueue;
+    int rubberBandMaxBlockSize { 0 };
+    bool rubberBandLowLatencyMode { false };
+    int rubberBandReportedLatencySamples { 0 };
+    float rubberBandTargetPitchScale { 1.0f };
+    float rubberBandCurrentPitchScale { 1.0f };
+    float rubberBandPitchScaleStepPerSample { 0.0f };
+    int rubberBandPitchScaleSamplesRemaining { 0 };
 
     std::array<std::atomic<float>, pitchHistorySize> pitchHistory {};
     int historyIndex { 0 };

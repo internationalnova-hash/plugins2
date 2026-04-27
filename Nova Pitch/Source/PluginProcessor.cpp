@@ -1,6 +1,8 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <rubberband/RubberBandStretcher.h>
+
 #include <algorithm>
 #include <limits>
 
@@ -154,6 +156,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     currentSampleRate = sampleRate;
     juce::ignoreUnused (samplesPerBlock);
     initializePitchShift();
+    initializeRubberBand (juce::jmax (samplesPerBlock, 64), false);
     currentLatencySamples = normalPitchDelaySamples;
     setLatencySamples (currentLatencySamples);
     analysisScratch.clear();
@@ -210,6 +213,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 
 void NovaPitchAudioProcessor::releaseResources()
 {
+    resetRubberBandState();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -279,29 +283,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float maxSemitonesPerSecond = (k >= 0.90f)
         ? juce::jmin (72.0f, maxSemitonesPerSecondBase)
         : maxSemitonesPerSecondBase;
-    const int desiredLatencySamples = lowLatencyMode ? lowLatencyPitchDelaySamples : normalPitchDelaySamples;
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
-    if (desiredLatencySamples != currentLatencySamples)
+    if (rubberBand == nullptr || rubberBandLowLatencyMode != lowLatencyMode)
+        initializeRubberBand (juce::jmax (numSamples, rubberBandMaxBlockSize), lowLatencyMode);
+
+    if (rubberBandReportedLatencySamples != currentLatencySamples)
     {
-        currentLatencySamples = desiredLatencySamples;
+        currentLatencySamples = rubberBandReportedLatencySamples;
         setLatencySamples (currentLatencySamples);
-
-        // Re-anchor read heads when latency mode changes so we don't spend
-        // seconds drifting from an invalid delay target (audible skip/delay artifacts).
-        for (int ch = 0; ch < 2; ++ch)
-        {
-            const int write = pitchWriteIndex[static_cast<size_t> (ch)];
-            float newRead = static_cast<float> (write - currentLatencySamples);
-            while (newRead < 0.0f)
-                newRead += static_cast<float> (pitchShiftBufferSize);
-            while (newRead >= static_cast<float> (pitchShiftBufferSize))
-                newRead -= static_cast<float> (pitchShiftBufferSize);
-
-            pitchReadPos[static_cast<size_t> (ch)] = newRead;
-            pitchOutputSmoother[static_cast<size_t> (ch)] = 0.0f;
-            pitchDryBlendSmoothed[static_cast<size_t> (ch)] = 0.0f;
-        }
     }
 
     // Debug: Log parameter values every 100 blocks to diagnose engine engagement
@@ -446,6 +436,23 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const bool weakFrameForSwitch = (inputRms < 0.028f) || (pitchConfidence.load() < 0.78f);
                 if (weakFrameForSwitch)
                     candidateMidiNote = lockedTargetMidi;
+            }
+
+            // Sticky target-note hysteresis: require at least 60% travel from current
+            // locked note toward the candidate note before allowing a switch.
+            if (lockedTargetMidi >= 0)
+            {
+                if (candidateMidiNote != lockedTargetMidi)
+                {
+                    const float intervalSemitones = static_cast<float> (candidateMidiNote - lockedTargetMidi);
+                    if (std::abs (intervalSemitones) > 1.0e-6f)
+                    {
+                        const float progressTowardCandidate
+                            = (detectedMidi - static_cast<float> (lockedTargetMidi)) / intervalSemitones;
+                        if (progressTowardCandidate < 0.60f)
+                            candidateMidiNote = lockedTargetMidi;
+                    }
+                }
             }
 
             if (targetSwitchCooldownBlocks > 0)
@@ -638,8 +645,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                         octaveAlignedDetectedHz *= 0.5f;
                 }
 
-                float pitchRatio = computeRetuneRatio (octaveAlignedDetectedHz, targetHz, inputRms,
-                                                       voicedHoldBlocks, lowLatencyMode, hardTuneModeFrame);
+                // Rubber Band mapping: ratio is derived directly from live detected Hz to
+                // nearest allowed scale target Hz.
+                float pitchRatio = targetHz / juce::jmax (1.0f, octaveAlignedDetectedHz);
                 diagWindowRatioComputedBlocks++;
                 if (std::abs (pitchRatio - 1.0f) < 0.001f)
                     diagWindowUnityReturnBlocks++;
@@ -977,11 +985,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
         applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
 
-    processCircularBufferPitchShift (channelL, numSamples, appliedRatio, 0, lowLatencyMode, retuneControlActive,
-                                     trackingConfidence);
-    if (channelR != nullptr)
-        processCircularBufferPitchShift (channelR, numSamples, appliedRatio, 1, lowLatencyMode, retuneControlActive,
-                                         trackingConfidence);
+    processRubberBandPitchShift (channelL, channelR, numSamples, appliedRatio, lowLatencyMode,
+                                 retuneMs, retuneControlActive, trackingConfidence);
 
     if (! signalTooLow)
     {
@@ -1676,15 +1681,73 @@ int NovaPitchAudioProcessor::quantizeToScale (float pitchHz)
     const int key = static_cast<int> (apvts.getRawParameterValue ("key")->load());
     const auto scale = static_cast<Scale> (apvts.getRawParameterValue ("scale")->load());
 
+    // Precomputed allowed MIDI note lists for every key in major/minor modes.
+    // Key index: 0..11 (C..B). Mode index: 0=Major, 1=Minor.
+    static const auto allowedMidiByKeyMode = []
+    {
+        std::array<std::array<std::vector<int>, 2>, 12> out {};
+
+        for (int keyIdx = 0; keyIdx < 12; ++keyIdx)
+        {
+            for (int midi = 12; midi <= 119; ++midi)
+            {
+                const int semitoneFromKey = ((midi - keyIdx) % 12 + 12) % 12;
+
+                const bool inMajor = std::find (majorScale.begin(), majorScale.end(), semitoneFromKey) != majorScale.end();
+                const bool inMinor = std::find (minorScale.begin(), minorScale.end(), semitoneFromKey) != minorScale.end();
+
+                if (inMajor)
+                    out[static_cast<size_t> (keyIdx)][0].push_back (midi);
+                if (inMinor)
+                    out[static_cast<size_t> (keyIdx)][1].push_back (midi);
+            }
+        }
+
+        return out;
+    }();
+
+    auto nearestFromAllowed = [&] (const std::vector<int>& allowed) -> int
+    {
+        int bestMidi = centerMidi;
+        float bestDistance = std::numeric_limits<float>::max();
+
+        for (int midi : allowed)
+        {
+            // Restrict search around current detection for stability and speed.
+            if (midi < centerMidi - 36 || midi > centerMidi + 36)
+                continue;
+
+            const float distance = std::abs (static_cast<float> (midi) - detectedMidi);
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                bestMidi = midi;
+            }
+        }
+
+        return bestMidi;
+    };
+
+    switch (scale)
+    {
+        case Major:
+            return nearestFromAllowed (allowedMidiByKeyMode[static_cast<size_t> (key % 12)][0]);
+        case Minor:
+            return nearestFromAllowed (allowedMidiByKeyMode[static_cast<size_t> (key % 12)][1]);
+        case Chromatic:
+            return centerMidi;
+        case Pentatonic:
+        case Blues:
+        default:
+            break;
+    }
+
     auto inScale = [&] (int semitoneFromKey)
     {
         const int degree = ((semitoneFromKey % 12) + 12) % 12;
 
         switch (scale)
         {
-            case Chromatic:  return true;
-            case Major:      return std::find (majorScale.begin(), majorScale.end(), degree) != majorScale.end();
-            case Minor:      return std::find (minorScale.begin(), minorScale.end(), degree) != minorScale.end();
             case Pentatonic: return std::find (pentatonicScale.begin(), pentatonicScale.end(), degree) != pentatonicScale.end();
             case Blues:      return std::find (bluesScale.begin(), bluesScale.end(), degree) != bluesScale.end();
             default:         return true;
@@ -1693,13 +1756,11 @@ int NovaPitchAudioProcessor::quantizeToScale (float pitchHz)
 
     int bestMidi = centerMidi;
     float bestDistance = std::numeric_limits<float>::max();
-
     for (int midi = centerMidi - 24; midi <= centerMidi + 24; ++midi)
     {
         const int semitoneFromKey = midi - key;
         if (! inScale (semitoneFromKey))
             continue;
-
         const float distance = std::abs (static_cast<float> (midi) - detectedMidi);
         if (distance < bestDistance)
         {
@@ -1742,6 +1803,202 @@ void NovaPitchAudioProcessor::initializePitchShift()
     pitchDryBlendSmoothed[0] = 0.0f;
     pitchDryBlendSmoothed[1] = 0.0f;
     formantAllPassState = {};
+}
+
+void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLatencyMode)
+{
+    using RubberBand::RubberBandStretcher;
+
+    const int channels = juce::jmin (2, juce::jmax (1, getTotalNumInputChannels()));
+    const int options = RubberBandStretcher::OptionProcessRealTime
+        | RubberBandStretcher::OptionPitchHighConsistency
+        | RubberBandStretcher::OptionFormantPreserved
+        | (lowLatencyMode ? RubberBandStretcher::OptionWindowShort
+                          : RubberBandStretcher::OptionWindowStandard)
+        | RubberBandStretcher::OptionEngineFiner;
+
+    rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
+    rubberBand->setMaxProcessSize (juce::jmax (64, maxBlockSize));
+
+    rubberBandMaxBlockSize = juce::jmax (64, maxBlockSize);
+    rubberBandLowLatencyMode = lowLatencyMode;
+    rubberBandPitchScaleSamplesRemaining = 0;
+    rubberBandPitchScaleStepPerSample = 0.0f;
+    rubberBandCurrentPitchScale = 1.0f;
+    rubberBandTargetPitchScale = 1.0f;
+
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        rubberBandInputScratch[static_cast<size_t> (ch)].assign (static_cast<size_t> (rubberBandMaxBlockSize), 0.0f);
+        rubberBandRetrieveScratch[static_cast<size_t> (ch)].assign (static_cast<size_t> (rubberBandMaxBlockSize), 0.0f);
+        rubberBandOutputQueue[static_cast<size_t> (ch)].clear();
+    }
+
+    // Prime the stretcher to reduce startup transients in realtime mode.
+    const int startPad = juce::jmax (0, static_cast<int> (rubberBand->getPreferredStartPad()));
+    if (startPad > 0)
+    {
+        std::vector<float> z (static_cast<size_t> (startPad), 0.0f);
+        const float* inPtrs[2] = { z.data(), z.data() };
+        rubberBand->process (inPtrs, startPad, false);
+    }
+
+    // Report host latency using Rubber Band's realtime start delay.
+    rubberBandReportedLatencySamples = juce::jmax (0, static_cast<int> (rubberBand->getStartDelay()));
+}
+
+void NovaPitchAudioProcessor::resetRubberBandState()
+{
+    rubberBand.reset();
+    rubberBandPitchScaleSamplesRemaining = 0;
+    rubberBandPitchScaleStepPerSample = 0.0f;
+    rubberBandCurrentPitchScale = 1.0f;
+    rubberBandTargetPitchScale = 1.0f;
+    rubberBandReportedLatencySamples = 0;
+    for (int ch = 0; ch < 2; ++ch)
+        rubberBandOutputQueue[static_cast<size_t> (ch)].clear();
+}
+
+void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, float* channelR, int numSamples,
+                                                           float pitchRatio, bool lowLatencyMode,
+                                                           float retuneMs, float retuneSpeedNorm,
+                                                           float trackingConfidence)
+{
+    juce::ignoreUnused (retuneSpeedNorm, trackingConfidence);
+
+    if (numSamples <= 0 || channelL == nullptr)
+        return;
+
+    const int channels = (channelR != nullptr) ? 2 : 1;
+
+    if (rubberBand == nullptr
+        || rubberBandMaxBlockSize < numSamples
+        || rubberBandLowLatencyMode != lowLatencyMode)
+    {
+        initializeRubberBand (juce::jmax (numSamples, rubberBandMaxBlockSize), lowLatencyMode);
+    }
+
+    if (rubberBand == nullptr)
+    {
+        // Safety fallback if the external shifter is unavailable.
+        processCircularBufferPitchShift (channelL, numSamples, pitchRatio, 0, lowLatencyMode, retuneSpeedNorm,
+                                         trackingConfidence);
+        if (channelR != nullptr)
+            processCircularBufferPitchShift (channelR, numSamples, pitchRatio, 1, lowLatencyMode, retuneSpeedNorm,
+                                             trackingConfidence);
+        return;
+    }
+
+    auto& inL = rubberBandInputScratch[0];
+    auto& inR = rubberBandInputScratch[1];
+    if (static_cast<int> (inL.size()) < numSamples)
+        inL.resize (static_cast<size_t> (numSamples), 0.0f);
+    if (static_cast<int> (inR.size()) < numSamples)
+        inR.resize (static_cast<size_t> (numSamples), 0.0f);
+
+    std::copy (channelL, channelL + numSamples, inL.begin());
+    if (channelR != nullptr)
+        std::copy (channelR, channelR + numSamples, inR.begin());
+    else
+        std::copy (channelL, channelL + numSamples, inR.begin());
+
+    const float clampedRatio = juce::jlimit (0.50f, 2.00f, pitchRatio);
+    rubberBandTargetPitchScale = clampedRatio;
+
+    // Retune-speed mapping: linearly glide Rubber Band pitch scale toward target.
+    if (retuneMs <= 0.001f)
+    {
+        rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
+        rubberBandPitchScaleStepPerSample = 0.0f;
+        rubberBandPitchScaleSamplesRemaining = 0;
+    }
+    else
+    {
+        const int glideSamples = juce::jmax (1, static_cast<int> (std::round (retuneMs * 0.001f * static_cast<float> (currentSampleRate))));
+        if (std::abs (rubberBandTargetPitchScale - rubberBandCurrentPitchScale) > 1.0e-6f
+            && rubberBandPitchScaleSamplesRemaining <= 0)
+        {
+            rubberBandPitchScaleSamplesRemaining = glideSamples;
+            rubberBandPitchScaleStepPerSample = (rubberBandTargetPitchScale - rubberBandCurrentPitchScale)
+                / static_cast<float> (rubberBandPitchScaleSamplesRemaining);
+        }
+    }
+
+    int processed = 0;
+    while (processed < numSamples)
+    {
+        const int chunk = juce::jmin (64, numSamples - processed);
+
+        if (rubberBandPitchScaleSamplesRemaining > 0)
+        {
+            const int glideStepSamples = juce::jmin (chunk, rubberBandPitchScaleSamplesRemaining);
+            rubberBandCurrentPitchScale += rubberBandPitchScaleStepPerSample * static_cast<float> (glideStepSamples);
+            rubberBandPitchScaleSamplesRemaining -= glideStepSamples;
+            if (rubberBandPitchScaleSamplesRemaining <= 0)
+                rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
+        }
+        else
+        {
+            rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
+        }
+
+        rubberBand->setTimeRatio (1.0);
+        rubberBand->setPitchScale (rubberBandCurrentPitchScale);
+
+        const float* inPtrs[2] = { inL.data() + processed, inR.data() + processed };
+        rubberBand->process (inPtrs, static_cast<size_t> (chunk), false);
+        processed += chunk;
+    }
+
+    while (rubberBand->available() > 0)
+    {
+        const int toRead = juce::jmin (rubberBand->available(), juce::jmax (numSamples, 64));
+
+        auto& outL = rubberBandRetrieveScratch[0];
+        auto& outR = rubberBandRetrieveScratch[1];
+        if (static_cast<int> (outL.size()) < toRead)
+            outL.resize (static_cast<size_t> (toRead), 0.0f);
+        if (static_cast<int> (outR.size()) < toRead)
+            outR.resize (static_cast<size_t> (toRead), 0.0f);
+
+        float* outPtrs[2] = { outL.data(), outR.data() };
+        const int got = static_cast<int> (rubberBand->retrieve (outPtrs, static_cast<size_t> (toRead)));
+        if (got <= 0)
+            break;
+
+        for (int i = 0; i < got; ++i)
+        {
+            rubberBandOutputQueue[0].push_back (outL[static_cast<size_t> (i)]);
+            if (channels > 1)
+                rubberBandOutputQueue[1].push_back (outR[static_cast<size_t> (i)]);
+        }
+    }
+
+    for (int i = 0; i < numSamples; ++i)
+    {
+        if (! rubberBandOutputQueue[0].empty())
+        {
+            channelL[i] = rubberBandOutputQueue[0].front();
+            rubberBandOutputQueue[0].pop_front();
+        }
+        else
+        {
+            channelL[i] = inL[static_cast<size_t> (i)];
+        }
+
+        if (channelR != nullptr)
+        {
+            if (! rubberBandOutputQueue[1].empty())
+            {
+                channelR[i] = rubberBandOutputQueue[1].front();
+                rubberBandOutputQueue[1].pop_front();
+            }
+            else
+            {
+                channelR[i] = inR[static_cast<size_t> (i)];
+            }
+        }
+    }
 }
 
 void NovaPitchAudioProcessor::processCircularBufferPitchShift (float* channelData, int numSamples, float pitchRatio,

@@ -22,6 +22,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(RUBBERBAND REQUIRED IMPORTED_TARGET rubberband)
+
 set(PLUGIN_TARGET NovaPitch)
 set(NEEDS_WEBVIEW2 FALSE)
 set(NEEDS_WEB_BROWSER FALSE)
@@ -90,6 +93,7 @@ target_sources(${PLUGIN_TARGET}
 target_link_libraries(${PLUGIN_TARGET}
     PRIVATE
         NovaPitch_WebUI
+        PkgConfig::RUBBERBAND
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats
