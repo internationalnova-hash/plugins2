@@ -184,8 +184,10 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     outputCompGain = 1.0f;
     targetPitchRatio = 1.0f;
     activePitchRatio = 1.0f;
+    targetRatioSmoothed = 1.0f;
     retuneSpeedSmoothed = 0.0f;
     inputRmsSmoothed = 0.0f;
+    playbackWasActive = false;
     voicedHoldBlocks = 0;
     lockedTargetMidi = -1;
     lockedTargetAge = 0;
@@ -752,10 +754,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 {
                     float targetCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
                     const float absTargetCents = std::abs (targetCents);
-                    if (absTargetCents < 20.0f)
+                    if (absTargetCents < 40.0f)
                     {
                         const float sign = (targetCents >= 0.0f ? 1.0f : -1.0f);
-                        targetCents = 20.0f * sign;
+                        targetCents = 40.0f * sign;
                         computedTargetRatio = juce::jlimit (minRatio, maxRatio,
                             std::pow (2.0f, targetCents / 1200.0f));
                     }
@@ -1103,10 +1105,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             applyFormantShaper (channelR, numSamples, formantValue, 1);
     }
 
-    // Total isolation: force mono tuned output to both channels with overwrite semantics.
-    if (channelR != nullptr)
-        buffer.copyFrom (1, 0, buffer, 0, 0, numSamples);
-
     // Track input RMS and detected pitch every block for diagnostics.
     diagWindowInputRmsSum += static_cast<double> (inputRms);
     ++diagWindowInputRmsCount;
@@ -1116,6 +1114,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     if (! signalTooLow)
         applyOutputManagement (buffer, inputRms);
+
+    // Final output clean-up: overwrite right with tuned left at the very end.
+    if (channelR != nullptr)
+        buffer.copyFrom (1, 0, buffer, 0, 0, numSamples);
 
     const std::uint64_t diagMinSamples = static_cast<std::uint64_t> (juce::jmax (1.0, currentSampleRate * 2.0));
     if (diagWindowSamples >= diagMinSamples)
@@ -1916,10 +1918,9 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     const int options = RubberBandStretcher::OptionProcessRealTime
         | RubberBandStretcher::OptionPitchHighConsistency
         | RubberBandStretcher::OptionFormantPreserved
-        | RubberBandStretcher::OptionPhaseIndependent
+        | RubberBandStretcher::OptionPhaseLaminar
         | RubberBandStretcher::OptionEngineFiner
-        | (lowLatencyMode ? RubberBandStretcher::OptionWindowShort
-                          : RubberBandStretcher::OptionWindowStandard);
+        | RubberBandStretcher::OptionWindowStandard;
 
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
     rubberBandInitSampleRate = currentSampleRate;
@@ -1998,6 +1999,16 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         resetRubberBandState();
         initializeRubberBand (juce::jmax (numSamples, rubberBandMaxBlockSize), lowLatencyMode);
     }
+
+    const bool playbackActiveNow = inputRmsSmoothed > 1.0e-4f || detectedPitch.load() > 0.0f;
+    if (playbackActiveNow && ! playbackWasActive)
+    {
+        if (rubberBand != nullptr)
+            rubberBand->reset();
+        for (int ch = 0; ch < 2; ++ch)
+            rubberBandOutputQueue[static_cast<size_t> (ch)].clear();
+    }
+    playbackWasActive = playbackActiveNow;
 
     if (rubberBand == nullptr)
     {

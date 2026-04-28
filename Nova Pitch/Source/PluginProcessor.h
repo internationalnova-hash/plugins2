@@ -157,6 +157,7 @@ private:
     float rubberBandPitchScaleStepPerSample { 0.0f };
     int rubberBandPitchScaleSamplesRemaining { 0 };
     bool rubberBandPassthroughPriming { true };
+    bool playbackWasActive { false };
 
     std::array<std::atomic<float>, pitchHistorySize> pitchHistory {};
     int historyIndex { 0 };
