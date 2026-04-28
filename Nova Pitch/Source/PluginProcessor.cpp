@@ -452,6 +452,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const bool fastRetuneTracking = true;
     const int intervalDivider = 1;
 
+    bool noteStabilizerLockActive = false;
+    float noteStabilizerLockedRatio = 1.0f;
+
     // Perform pitch detection periodically
     if (blockCount % intervalDivider == 0)
     {
@@ -772,8 +775,21 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
                 const float minRatio = 0.25f;
                 const float maxRatio = 4.00f;
+                const bool maxRetuneForStabilizer = retuneControlActive >= 0.99f;
+                const float semitoneOffsetCents = 1200.0f * std::log2 (
+                    juce::jmax (1.0f, octaveAlignedDetectedHz) / juce::jmax (1.0f, targetHz));
+                const bool nearSemitoneCenter = std::abs (semitoneOffsetCents) <= 30.0f;
+                const bool engageNoteStabilizer = maxRetuneForStabilizer && nearSemitoneCenter;
+
+                if (engageNoteStabilizer)
+                {
+                    noteStabilizerLockActive = true;
+                    noteStabilizerLockedRatio = juce::jlimit (minRatio, maxRatio,
+                        targetHz / juce::jmax (1.0f, octaveAlignedDetectedHz));
+                }
+
                 float computedTargetRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
-                if (hardTuneModeFrame)
+                if (hardTuneModeFrame && ! engageNoteStabilizer)
                 {
                     float targetCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
                     const float absTargetCents = std::abs (targetCents);
@@ -1121,6 +1137,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     float appliedRatio = hardMaxMode
         ? targetPitchRatio
         : (1.0f + (activePitchRatio - 1.0f) * correctionDrive);
+
+    if (hardMaxMode && noteStabilizerLockActive)
+        appliedRatio = noteStabilizerLockedRatio;
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
         applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
 
