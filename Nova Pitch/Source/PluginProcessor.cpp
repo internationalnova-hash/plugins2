@@ -313,8 +313,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float amountNorm = juce::jlimit (0.0f, 1.0f, amountValue / 100.0f);
     // UI semantics: 0 = slow, 100 = fast.
     const float retuneSpeedNorm = amountNorm;
-    // Smooth the speed control so turning the knob does not inject coefficient jumps.
-    retuneSpeedSmoothed += (retuneSpeedNorm - retuneSpeedSmoothed) * 0.12f;
+    // At max speed, bypass knob smoothing so hard-lock engages immediately.
+    if (retuneSpeedNorm >= 0.99f)
+        retuneSpeedSmoothed = 1.0f;
+    else
+        retuneSpeedSmoothed += (retuneSpeedNorm - retuneSpeedSmoothed) * 0.12f;
     const float retuneControlActive = juce::jlimit (0.0f, 1.0f, retuneSpeedSmoothed);
     const float k = retuneControlActive;
     const float kShaped = std::pow (k, 1.65f);
@@ -1123,9 +1126,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (hardTuneMode)
         correctionDrive = 1.0f;
 
-    float appliedRatio = hardMaxMode
-        ? targetPitchRatio
-        : (1.0f + (activePitchRatio - 1.0f) * correctionDrive);
+    // Force full correction depth: send the exact target ratio to Rubber Band.
+    float appliedRatio = targetPitchRatio;
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
         applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
 
@@ -1153,12 +1155,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     if (! signalTooLow)
         applyOutputManagement (buffer, inputRms);
-
-    // Final output clean-up: overwrite right with tuned left at the very end.
-    // Unconditional — even if channelR is null JUCE will ignore the copy safely;
-    // doing it regardless kills any width / stereo-chorus dry leak.
-    if (buffer.getNumChannels() >= 2)
-        buffer.copyFrom (1, 0, buffer, 0, 0, numSamples);
 
     const std::uint64_t diagMinSamples = static_cast<std::uint64_t> (juce::jmax (1.0, currentSampleRate * 2.0));
     if (diagWindowSamples >= diagMinSamples)
@@ -1241,11 +1237,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         diagWindowDetectedHzCount = 0;
     }
 
+    blockCount++;
+
     // Absolute end-of-block channel lock to eliminate any remaining stereo smear.
+    // This must remain the final statement in processBlock.
     if (buffer.getNumChannels() >= 2)
         buffer.copyFrom (1, 0, buffer, 0, 0, numSamples);
-
-    blockCount++;
 }
 
 float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float signalRms, bool lowLatencyMode, bool hardTuneMode)
