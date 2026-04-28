@@ -157,9 +157,9 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     // on first call, which causes the 'deep voice' pitch-drop bug at startup.
     currentSampleRate = juce::jmax (1.0, sampleRate);
     juce::ignoreUnused (samplesPerBlock);
-    // Destroy any existing RubberBand instance so the new one is built with the
-    // correct sample rate from the very first block.
-    rubberBand.reset();
+    // Destroy full RubberBand state so the new instance is rebuilt from the
+    // DAW-provided sampleRate argument on every playback prepare.
+    resetRubberBandState();
     initializePitchShift();
     initializeRubberBand (juce::jmax (samplesPerBlock, 64), false);
     currentLatencySamples = 4096;
@@ -578,12 +578,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     }
                 }
 
-                if (upCandidate != downCandidate)
-                {
-                    constexpr float upwardBiasSemis = 0.20f;
-                    if (upDistSemis <= downDistSemis + upwardBiasSemis)
-                        candidateMidiNote = upCandidate;
-                }
+                if (upCandidate != downCandidate && std::isfinite (upDistSemis))
+                    candidateMidiNote = upCandidate;
             }
 
             // In hard mode, never let weak/uncertain frames request a new target note.
@@ -2157,6 +2153,12 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         rubberBandClickSafeGainHoldSamplesRemaining = holdSamples;
         rubberBandPreJumpLevel = rubberBandLevelSmoothed;
         rubberBandPrevTargetPitchScale = rubberBandTargetPitchScale;
+
+        // Strict 0.1ms glide for robotic clack without long slide.
+        const int glideSamples = juce::jmax (1, static_cast<int> (std::round (0.0001f * static_cast<float> (currentSampleRate))));
+        rubberBandPitchScaleSamplesRemaining = glideSamples;
+        rubberBandPitchScaleStepPerSample = (rubberBandTargetPitchScale - rubberBandCurrentPitchScale)
+            / static_cast<float> (glideSamples);
     }
 
     // Apply current block pitch state immediately at block start.
@@ -2164,11 +2166,11 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     rubberBand->setFormantScale (1.0);
     rubberBand->setPitchScale (rubberBandCurrentPitchScale);
 
-    // Phase lockdown: disable all pitch-scale smoothing.
-    // Jump to target in one sample and keep it hard-locked.
-    rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
-    rubberBandPitchScaleSamplesRemaining = 0;
-    rubberBandPitchScaleStepPerSample = 0.0f;
+    if (rubberBandPitchScaleSamplesRemaining <= 0)
+    {
+        rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
+        rubberBandPitchScaleStepPerSample = 0.0f;
+    }
 
     int processed = 0;
     while (processed < numSamples)
@@ -2176,7 +2178,21 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         const int chunk = juce::jmin (lowLatencyMode ? 128 : 256, numSamples - processed);
         const int chunkStart = processed;
 
-        rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
+        if (rubberBandPitchScaleSamplesRemaining > 0)
+        {
+            const int glideThisChunk = juce::jmin (chunk, rubberBandPitchScaleSamplesRemaining);
+            rubberBandCurrentPitchScale += rubberBandPitchScaleStepPerSample * static_cast<float> (glideThisChunk);
+            rubberBandPitchScaleSamplesRemaining -= glideThisChunk;
+            if (rubberBandPitchScaleSamplesRemaining <= 0)
+            {
+                rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
+                rubberBandPitchScaleStepPerSample = 0.0f;
+            }
+        }
+        else
+        {
+            rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
+        }
 
         rubberBand->setTimeRatio (1.0);
         rubberBand->setFormantScale (1.0);
