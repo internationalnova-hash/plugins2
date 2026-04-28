@@ -452,9 +452,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const bool fastRetuneTracking = true;
     const int intervalDivider = 1;
 
-    bool noteStabilizerLockActive = false;
-    float noteStabilizerLockedRatio = 1.0f;
-
     // Perform pitch detection periodically
     if (blockCount % intervalDivider == 0)
     {
@@ -775,28 +772,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
                 const float minRatio = 0.25f;
                 const float maxRatio = 4.00f;
-                const bool maxRetuneForStabilizer = retuneControlActive >= 0.99f;
-                const float semitoneOffsetCents = 1200.0f * std::log2 (
-                    juce::jmax (1.0f, octaveAlignedDetectedHz) / juce::jmax (1.0f, targetHz));
-                const bool nearSemitoneCenter = std::abs (semitoneOffsetCents) <= 30.0f;
-                const bool engageNoteStabilizer = maxRetuneForStabilizer && nearSemitoneCenter;
-
-                if (engageNoteStabilizer)
-                {
-                    noteStabilizerLockActive = true;
-                    noteStabilizerLockedRatio = juce::jlimit (minRatio, maxRatio,
-                        targetHz / juce::jmax (1.0f, octaveAlignedDetectedHz));
-                }
-
                 float computedTargetRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
-                if (hardTuneModeFrame && ! engageNoteStabilizer)
+                if (hardTuneModeFrame)
                 {
                     float targetCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
                     const float absTargetCents = std::abs (targetCents);
-                    if (absTargetCents < 40.0f)
+                    const float minSnapCents = (retuneControlActive >= 0.99f) ? 50.0f : 35.0f;
+                    if (absTargetCents > 0.25f && absTargetCents < minSnapCents)
                     {
                         const float sign = (targetCents >= 0.0f ? 1.0f : -1.0f);
-                        targetCents = 40.0f * sign;
+                        targetCents = minSnapCents * sign;
                         computedTargetRatio = juce::jlimit (minRatio, maxRatio,
                             std::pow (2.0f, targetCents / 1200.0f));
                     }
@@ -1116,6 +1101,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         correctionDriveSmoothed = 1.0f;
     }
 
+    if (! hardTuneMode)
     {
         // Smooth correction depth transitions so weak-word dropouts do not sound like
         // record-stop pumping between corrected/unity states.
@@ -1128,18 +1114,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         correctionDriveSmoothed += (correctionDrive - correctionDriveSmoothed) * alpha;
         correctionDrive = juce::jlimit (0.0f, 1.0f, correctionDriveSmoothed);
 
-        // In hard tune with a valid lock and usable signal, run full correction depth.
-        // This keeps hard-tune audibly engaged instead of feeling bypassed.
-        if (hardTuneMode && lockedTargetMidi >= 0 && ! signalTooLow)
-            correctionDrive = 1.0f;
     }
+
+    if (hardTuneMode)
+        correctionDrive = 1.0f;
 
     float appliedRatio = hardMaxMode
         ? targetPitchRatio
         : (1.0f + (activePitchRatio - 1.0f) * correctionDrive);
-
-    if (hardMaxMode && noteStabilizerLockActive)
-        appliedRatio = noteStabilizerLockedRatio;
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
         applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
 
@@ -1972,7 +1954,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     const int options = RubberBandStretcher::OptionProcessRealTime
         | RubberBandStretcher::OptionPitchHighConsistency
         | RubberBandStretcher::OptionFormantPreserved
-        | RubberBandStretcher::OptionPhaseLaminar
+        | RubberBandStretcher::OptionPhaseIndependent
         | RubberBandStretcher::OptionEngineFiner
         | RubberBandStretcher::OptionWindowStandard;
 
@@ -2116,9 +2098,9 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     // Hard mode: no scale glide/interpolation, jump directly to nearest semitone ratio.
     if (retuneSpeedNorm >= 0.95f || retuneMs <= 0.0f)
     {
-        rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
-        rubberBandPitchScaleStepPerSample = 0.0f;
-        rubberBandPitchScaleSamplesRemaining = 0;
+        // Extreme snap: transition diagnostics in exactly one sample.
+        rubberBandPitchScaleSamplesRemaining = 1;
+        rubberBandPitchScaleStepPerSample = (rubberBandTargetPitchScale - rubberBandCurrentPitchScale);
     }
     else
     {
