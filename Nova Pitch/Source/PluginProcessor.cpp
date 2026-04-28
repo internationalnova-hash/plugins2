@@ -554,6 +554,38 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
             const float detectedMidi = 69.0f + 12.0f * std::log2 (juce::jmax (1.0f, noteSourceHz) / 440.0f);
 
+            if (hardTuneModeFrame)
+            {
+                // Prefer upward snaps when detected pitch sits between two scale notes.
+                int upCandidate = candidateMidiNote;
+                int downCandidate = candidateMidiNote;
+                float upDistSemis = std::numeric_limits<float>::max();
+                float downDistSemis = std::numeric_limits<float>::max();
+                const int detectMidiFloor = static_cast<int> (std::floor (detectedMidi));
+                for (int d = -12; d <= 12; ++d)
+                {
+                    const int probeMidi = quantizeToScale (getTargetPitchHz (detectMidiFloor + d));
+                    const float deltaSemis = static_cast<float> (probeMidi) - detectedMidi;
+                    if (deltaSemis >= 0.0f && deltaSemis < upDistSemis)
+                    {
+                        upDistSemis = deltaSemis;
+                        upCandidate = probeMidi;
+                    }
+                    if (deltaSemis <= 0.0f && -deltaSemis < downDistSemis)
+                    {
+                        downDistSemis = -deltaSemis;
+                        downCandidate = probeMidi;
+                    }
+                }
+
+                if (upCandidate != downCandidate)
+                {
+                    constexpr float upwardBiasSemis = 0.20f;
+                    if (upDistSemis <= downDistSemis + upwardBiasSemis)
+                        candidateMidiNote = upCandidate;
+                }
+            }
+
             // In hard mode, never let weak/uncertain frames request a new target note.
             // This removes lock ping-pong that manifests as wobble/skipping.
             if (hardTuneModeFrame && lockedTargetMidi >= 0)
@@ -782,6 +814,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float minRatio = 0.25f;
                 const float maxRatio = 4.00f;
                 float computedTargetRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
+                bool hardSnapTriggered = false;
                 if (hardTuneModeFrame)
                 {
                     float targetCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
@@ -795,6 +828,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                         targetCents = 100.0f * sign;
                         computedTargetRatio = juce::jlimit (minRatio, maxRatio,
                             std::pow (2.0f, targetCents / 1200.0f));
+                        hardSnapTriggered = true;
                     }
                     else if (absTargetCents > 0.25f && absTargetCents < 25.0f)
                     {
@@ -812,12 +846,19 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 }
                 else if (hardTuneModeFrame)
                 {
-                    // Keep note switches instant, but lightly stabilize detector jitter
-                    // while locked on the same note.
-                    const float lockStabilizerMs = 20.0f;
-                    const float lockStabilizerAlpha = 1.0f - std::exp (
-                        -dtSeconds / juce::jmax (1.0e-6f, lockStabilizerMs * 0.001f));
-                    targetPitchRatio += (computedTargetRatio - targetPitchRatio) * lockStabilizerAlpha;
+                    // Keep snaps fully instant (no smoothing) when hard snap is engaged.
+                    if (hardSnapTriggered)
+                    {
+                        targetPitchRatio = computedTargetRatio;
+                    }
+                    else
+                    {
+                        // On non-snap frames, lightly stabilize detector jitter while locked.
+                        const float lockStabilizerMs = 20.0f;
+                        const float lockStabilizerAlpha = 1.0f - std::exp (
+                            -dtSeconds / juce::jmax (1.0e-6f, lockStabilizerMs * 0.001f));
+                        targetPitchRatio += (computedTargetRatio - targetPitchRatio) * lockStabilizerAlpha;
+                    }
                 }
                 else
                 {
@@ -2209,8 +2250,8 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     if (channelR != nullptr)
         std::fill (channelR, channelR + numSamples, 0.0f);
 
-    // +6 dB boost on wet-only RubberBand output so tuned signal dominates.
-    constexpr float kWetBoostLinear = 2.0f;
+    // +2 dB boost on wet-only RubberBand output for cleaner forward presence.
+    constexpr float kWetBoostLinear = 1.2589254f;
 
     for (int i = 0; i < numSamples; ++i)
     {
