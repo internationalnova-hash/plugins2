@@ -2100,7 +2100,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     // At absolute max speed (knob fully right): 1-sample instant jump — the user asked
     // for the digital 'click' between notes.  In the 0.90-0.99 hard zone: 5 ms de-click
     // ramp to suppress engine crunch while still sounding robotic.
-    const bool absoluteMaxSpeed = (retuneControlActive >= 0.99f || retuneMs <= 0.0f);
+    const bool absoluteMaxSpeed = (retuneSpeedNorm >= 0.99f || retuneMs <= 0.0f);
     if (absoluteMaxSpeed)
     {
         // True 1-sample jump: no glide state at all.
