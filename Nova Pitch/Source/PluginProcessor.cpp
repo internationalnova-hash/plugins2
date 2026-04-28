@@ -153,9 +153,13 @@ void NovaPitchAudioProcessor::changeProgramName (int, const juce::String&)
 
 void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    const double hostSampleRate = juce::jmax (1.0, getSampleRate());
-    currentSampleRate = (hostSampleRate > 1.0 ? hostSampleRate : sampleRate);
+    // Use the sampleRate passed to prepareToPlay — getSampleRate() may not be valid yet
+    // on first call, which causes the 'deep voice' pitch-drop bug at startup.
+    currentSampleRate = juce::jmax (1.0, sampleRate);
     juce::ignoreUnused (samplesPerBlock);
+    // Destroy any existing RubberBand instance so the new one is built with the
+    // correct sample rate from the very first block.
+    rubberBand.reset();
     initializePitchShift();
     initializeRubberBand (juce::jmax (samplesPerBlock, 64), false);
     currentLatencySamples = 4096;
@@ -2206,14 +2210,18 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     if (channelR != nullptr)
         std::fill (channelR, channelR + numSamples, 0.0f);
 
+    // +3 dB boost (factor of sqrt(2) ≈ 1.4142) on the wet-only RubberBand output.
+    // This ensures the tuned signal is louder than any residual dry bleed.
+    constexpr float kWetBoostLinear = 1.4142135f;
+
     for (int i = 0; i < numSamples; ++i)
     {
-        channelL[i] = rubberBandOutputQueue[0].front();
+        channelL[i] = rubberBandOutputQueue[0].front() * kWetBoostLinear;
         rubberBandOutputQueue[0].pop_front();
 
         if (channelR != nullptr)
         {
-            channelR[i] = rubberBandOutputQueue[1].front();
+            channelR[i] = rubberBandOutputQueue[1].front() * kWetBoostLinear;
             rubberBandOutputQueue[1].pop_front();
         }
     }
