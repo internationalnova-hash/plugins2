@@ -315,7 +315,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float k = retuneControlActive;
     const float kShaped = std::pow (k, 1.65f);
     const float retuneMs = (retuneControlActive >= 0.90f)
-        ? 0.1f
+        ? 0.0f
         : 180.0f * std::pow (1.0f / 180.0f, kShaped);
     auto smoothstep = [] (float e0, float e1, float x)
     {
@@ -1091,6 +1091,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             correctionDrive *= 0.92f;
     }
 
+    const bool hardMaxMode = retuneControlActive >= 0.99f;
+    if (hardMaxMode)
+    {
+        // Total lock at max speed: no ratio smoothing and no correction-depth taper.
+        targetRatioSmoothed = targetPitchRatio;
+        activePitchRatio = targetPitchRatio;
+        correctionDriveSmoothed = 1.0f;
+    }
+
     {
         // Smooth correction depth transitions so weak-word dropouts do not sound like
         // record-stop pumping between corrected/unity states.
@@ -1109,7 +1118,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             correctionDrive = 1.0f;
     }
 
-    float appliedRatio = 1.0f + (activePitchRatio - 1.0f) * correctionDrive;
+    float appliedRatio = hardMaxMode
+        ? targetPitchRatio
+        : (1.0f + (activePitchRatio - 1.0f) * correctionDrive);
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
         applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
 
@@ -2084,7 +2095,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     rubberBand->setPitchScale (rubberBandTargetPitchScale);
 
     // Hard mode: no scale glide/interpolation, jump directly to nearest semitone ratio.
-    if (retuneSpeedNorm >= 0.95f || retuneMs <= 0.001f)
+    if (retuneSpeedNorm >= 0.95f || retuneMs <= 0.0f)
     {
         rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
         rubberBandPitchScaleStepPerSample = 0.0f;
