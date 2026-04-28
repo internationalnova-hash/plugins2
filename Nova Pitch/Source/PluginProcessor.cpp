@@ -1241,6 +1241,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         diagWindowDetectedHzCount = 0;
     }
 
+    // Absolute end-of-block channel lock to eliminate any remaining stereo smear.
+    if (buffer.getNumChannels() >= 2)
+        buffer.copyFrom (1, 0, buffer, 0, 0, numSamples);
+
     blockCount++;
 }
 
@@ -2101,64 +2105,18 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     rubberBand->setFormantScale (1.0);
     rubberBand->setPitchScale (rubberBandCurrentPitchScale);
 
-    // At absolute max speed (knob fully right): 1-sample instant jump — the user asked
-    // for the digital 'click' between notes.  In the 0.90-0.99 hard zone: 5 ms de-click
-    // ramp to suppress engine crunch while still sounding robotic.
-    const bool absoluteMaxSpeed = (retuneSpeedNorm >= 0.99f || retuneMs <= 0.0f);
-    if (absoluteMaxSpeed)
-    {
-        // True 1-sample jump: no glide state at all.
-        rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
-        rubberBandPitchScaleSamplesRemaining = 0;
-        rubberBandPitchScaleStepPerSample = 0.0f;
-    }
-    else if (retuneSpeedNorm >= 0.95f)
-    {
-        constexpr float deClickMs = 5.0f;
-        const int deClickSamples = juce::jmax (1, static_cast<int> (std::round (
-            deClickMs * 0.001f * static_cast<float> (currentSampleRate))));
-        if (std::abs (rubberBandTargetPitchScale - rubberBandCurrentPitchScale) > 1.0e-6f)
-        {
-            rubberBandPitchScaleSamplesRemaining = deClickSamples;
-            rubberBandPitchScaleStepPerSample = (rubberBandTargetPitchScale - rubberBandCurrentPitchScale)
-                / static_cast<float> (rubberBandPitchScaleSamplesRemaining);
-        }
-        else
-        {
-            rubberBandPitchScaleSamplesRemaining = 0;
-            rubberBandPitchScaleStepPerSample = 0.0f;
-            rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
-        }
-    }
-    else
-    {
-        const int glideSamples = juce::jmax (1, static_cast<int> (std::round (retuneMs * 0.001f * static_cast<float> (currentSampleRate))));
-        if (std::abs (rubberBandTargetPitchScale - rubberBandCurrentPitchScale) > 1.0e-6f
-            && rubberBandPitchScaleSamplesRemaining <= 0)
-        {
-            rubberBandPitchScaleSamplesRemaining = glideSamples;
-            rubberBandPitchScaleStepPerSample = (rubberBandTargetPitchScale - rubberBandCurrentPitchScale)
-                / static_cast<float> (rubberBandPitchScaleSamplesRemaining);
-        }
-    }
+    // Phase lockdown: disable all pitch-scale smoothing.
+    // Jump to target in one sample and keep it hard-locked.
+    rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
+    rubberBandPitchScaleSamplesRemaining = 0;
+    rubberBandPitchScaleStepPerSample = 0.0f;
 
     int processed = 0;
     while (processed < numSamples)
     {
         const int chunk = juce::jmin (lowLatencyMode ? 128 : 256, numSamples - processed);
 
-        if (rubberBandPitchScaleSamplesRemaining > 0)
-        {
-            const int glideStepSamples = juce::jmin (chunk, rubberBandPitchScaleSamplesRemaining);
-            rubberBandCurrentPitchScale += rubberBandPitchScaleStepPerSample * static_cast<float> (glideStepSamples);
-            rubberBandPitchScaleSamplesRemaining -= glideStepSamples;
-            if (rubberBandPitchScaleSamplesRemaining <= 0)
-                rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
-        }
-        else
-        {
-            rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
-        }
+        rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
 
         rubberBand->setTimeRatio (1.0);
         rubberBand->setFormantScale (1.0);
