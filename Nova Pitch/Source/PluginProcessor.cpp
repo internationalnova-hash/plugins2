@@ -784,11 +784,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 {
                     float targetCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
                     const float absTargetCents = std::abs (targetCents);
-                    const float minSnapCents = (retuneControlActive >= 0.99f) ? 50.0f : 35.0f;
-                    if (absTargetCents > 0.25f && absTargetCents < minSnapCents)
+                    // Hard digital snap: if pitch error is at least 40 cents,
+                    // force an immediate jump to the next semitone (no micro-glide).
+                    if (absTargetCents >= 40.0f)
                     {
                         const float sign = (targetCents >= 0.0f ? 1.0f : -1.0f);
-                        targetCents = minSnapCents * sign;
+                        targetCents = 100.0f * sign;
                         computedTargetRatio = juce::jlimit (minRatio, maxRatio,
                             std::pow (2.0f, targetCents / 1200.0f));
                     }
@@ -1961,8 +1962,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     const int options = RubberBandStretcher::OptionProcessRealTime
         | RubberBandStretcher::OptionPitchHighConsistency
         | RubberBandStretcher::OptionFormantPreserved
-        | RubberBandStretcher::OptionPhaseIndependent
-        | RubberBandStretcher::OptionEngineFiner
+        | RubberBandStretcher::OptionEngineFaster
         | RubberBandStretcher::OptionWindowShort;
 
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
@@ -1983,10 +1983,6 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
         rubberBandInputScratch[static_cast<size_t> (ch)].assign (static_cast<size_t> (rubberBandMaxBlockSize), 0.0f);
         rubberBandRetrieveScratch[static_cast<size_t> (ch)].assign (static_cast<size_t> (rubberBandMaxBlockSize), 0.0f);
         rubberBandOutputQueue[static_cast<size_t> (ch)].clear();
-        rubberBandOutputQueue[static_cast<size_t> (ch)].insert (
-            rubberBandOutputQueue[static_cast<size_t> (ch)].end(),
-            static_cast<size_t> (fixedLatencySamples),
-            0.0f);
     }
 
     // Prime the stretcher to reduce startup transients in realtime mode.
@@ -2058,15 +2054,8 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     {
         if (rubberBand != nullptr)
             rubberBand->reset();
-        const int fixedLatencySamples = juce::jmax (4096, rubberBandReportedLatencySamples);
         for (int ch = 0; ch < 2; ++ch)
-        {
             rubberBandOutputQueue[static_cast<size_t> (ch)].clear();
-            rubberBandOutputQueue[static_cast<size_t> (ch)].insert (
-                rubberBandOutputQueue[static_cast<size_t> (ch)].end(),
-                static_cast<size_t> (fixedLatencySamples),
-                0.0f);
-        }
     }
     playbackWasActive = playbackActiveNow;
 
@@ -2112,6 +2101,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     while (processed < numSamples)
     {
         const int chunk = juce::jmin (lowLatencyMode ? 128 : 256, numSamples - processed);
+        const int chunkStart = processed;
 
         rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
 
@@ -2122,6 +2112,48 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         const float* inPtrs[2] = { inL.data() + processed, inR.data() + processed };
         rubberBand->process (inPtrs, static_cast<size_t> (chunk), false);
         processed += chunk;
+
+        // Tight loop: pull immediately after each process() so the output does not
+        // sit in Rubber Band's internal FIFO waiting for a later block.
+        while (rubberBand->available() > 0)
+        {
+            const int toRead = juce::jmin (rubberBand->available(), chunk);
+
+            auto& outL = rubberBandRetrieveScratch[0];
+            auto& outR = rubberBandRetrieveScratch[1];
+            if (static_cast<int> (outL.size()) < toRead)
+                outL.resize (static_cast<size_t> (toRead), 0.0f);
+            if (static_cast<int> (outR.size()) < toRead)
+                outR.resize (static_cast<size_t> (toRead), 0.0f);
+
+            float* outPtrs[2] = { outL.data(), outR.data() };
+            const int got = static_cast<int> (rubberBand->retrieve (outPtrs, static_cast<size_t> (toRead)));
+            if (got <= 0)
+                break;
+
+            for (int i = 0; i < got; ++i)
+            {
+                rubberBandOutputQueue[0].push_back (outL[static_cast<size_t> (i)]);
+                if (channels > 1)
+                    rubberBandOutputQueue[1].push_back (outR[static_cast<size_t> (i)]);
+            }
+        }
+
+        // If Rubber Band still under-runs, force immediate output from current block
+        // instead of waiting for future internal FIFO fill.
+        while (static_cast<int> (rubberBandOutputQueue[0].size()) < processed)
+        {
+            const int idx = chunkStart + static_cast<int> (rubberBandOutputQueue[0].size()) - chunkStart;
+            rubberBandOutputQueue[0].push_back (inL[static_cast<size_t> (juce::jlimit (0, numSamples - 1, idx))]);
+        }
+        if (channels > 1)
+        {
+            while (static_cast<int> (rubberBandOutputQueue[1].size()) < processed)
+            {
+                const int idx = chunkStart + static_cast<int> (rubberBandOutputQueue[1].size()) - chunkStart;
+                rubberBandOutputQueue[1].push_back (inR[static_cast<size_t> (juce::jlimit (0, numSamples - 1, idx))]);
+            }
+        }
     }
 
     while (rubberBand->available() > 0)
@@ -2148,16 +2180,13 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         }
     }
 
-    // Emergency passthrough: if the stretcher output queue is starved, do not emit silence.
-    // Route captured input through so we can verify the live signal path.
-    // Enforce wet-only path: if Rubber Band hasn't produced enough samples yet,
-    // output silence instead of leaking dry input (which causes doubling/combing).
+    // If still short at block end, force output from current buffer immediately.
     while (static_cast<int> (rubberBandOutputQueue[0].size()) < numSamples)
-        rubberBandOutputQueue[0].push_back (0.0f);
+        rubberBandOutputQueue[0].push_back (inL[static_cast<size_t> (rubberBandOutputQueue[0].size())]);
     if (channels > 1)
     {
         while (static_cast<int> (rubberBandOutputQueue[1].size()) < numSamples)
-            rubberBandOutputQueue[1].push_back (0.0f);
+            rubberBandOutputQueue[1].push_back (inR[static_cast<size_t> (rubberBandOutputQueue[1].size())]);
     }
 
     // Explicit per-block clear before copy of retrieved wet signal.
