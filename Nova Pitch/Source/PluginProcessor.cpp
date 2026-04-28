@@ -1955,7 +1955,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
         | RubberBandStretcher::OptionPitchHighConsistency
         | RubberBandStretcher::OptionFormantPreserved
         | RubberBandStretcher::OptionPhaseIndependent
-        | RubberBandStretcher::OptionEngineFaster
+        | RubberBandStretcher::OptionEngineFiner
         | RubberBandStretcher::OptionWindowShort;
 
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
@@ -2090,18 +2090,30 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     const float clampedRatio = juce::jlimit (0.25f, 4.00f, pitchRatio);
     rubberBandTargetPitchScale = clampedRatio;
 
-    // Apply current block target immediately at block start.
+    // Apply current block pitch state immediately at block start.
     rubberBand->setTimeRatio (1.0);
     rubberBand->setFormantScale (1.0);
-    rubberBand->setPitchScale (rubberBandTargetPitchScale);
+    rubberBand->setPitchScale (rubberBandCurrentPitchScale);
 
-    // Hard mode: no scale glide/interpolation, jump directly to nearest semitone ratio.
+    // Hard mode: use a very short de-click ramp on note jumps to suppress crunch
+    // while preserving a robotic snap.
     if (retuneSpeedNorm >= 0.95f || retuneMs <= 0.0f)
     {
-        // Pro-tune hard jump: zero-sample transition and no internal glide state.
-        rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
-        rubberBandPitchScaleSamplesRemaining = 0;
-        rubberBandPitchScaleStepPerSample = 0.0f;
+        constexpr float deClickMs = 5.0f;
+        const int deClickSamples = juce::jmax (1, static_cast<int> (std::round (
+            deClickMs * 0.001f * static_cast<float> (currentSampleRate))));
+        if (std::abs (rubberBandTargetPitchScale - rubberBandCurrentPitchScale) > 1.0e-6f)
+        {
+            rubberBandPitchScaleSamplesRemaining = deClickSamples;
+            rubberBandPitchScaleStepPerSample = (rubberBandTargetPitchScale - rubberBandCurrentPitchScale)
+                / static_cast<float> (rubberBandPitchScaleSamplesRemaining);
+        }
+        else
+        {
+            rubberBandPitchScaleSamplesRemaining = 0;
+            rubberBandPitchScaleStepPerSample = 0.0f;
+            rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
+        }
     }
     else
     {
@@ -2135,7 +2147,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
 
         rubberBand->setTimeRatio (1.0);
         rubberBand->setFormantScale (1.0);
-        rubberBand->setPitchScale (rubberBandTargetPitchScale);
+        rubberBand->setPitchScale (rubberBandCurrentPitchScale);
 
         const float* inPtrs[2] = { inL.data() + processed, inR.data() + processed };
         rubberBand->process (inPtrs, static_cast<size_t> (chunk), false);
