@@ -1936,6 +1936,7 @@ void NovaPitchAudioProcessor::initializePitchShift()
 void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLatencyMode)
 {
     using RubberBand::RubberBandStretcher;
+    const int fixedLatencySamples = 4096;
 
     const int channels = juce::jmin (2, juce::jmax (1, getTotalNumInputChannels()));
     const int options = RubberBandStretcher::OptionProcessRealTime
@@ -1963,6 +1964,10 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
         rubberBandInputScratch[static_cast<size_t> (ch)].assign (static_cast<size_t> (rubberBandMaxBlockSize), 0.0f);
         rubberBandRetrieveScratch[static_cast<size_t> (ch)].assign (static_cast<size_t> (rubberBandMaxBlockSize), 0.0f);
         rubberBandOutputQueue[static_cast<size_t> (ch)].clear();
+        rubberBandOutputQueue[static_cast<size_t> (ch)].insert (
+            rubberBandOutputQueue[static_cast<size_t> (ch)].end(),
+            static_cast<size_t> (fixedLatencySamples),
+            0.0f);
     }
 
     // Prime the stretcher to reduce startup transients in realtime mode.
@@ -1977,7 +1982,6 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     // NUCLEAR FIX: Hard-clamp latency to fixed 4096 samples.
     // Stop reporting variable latency. This allows the DAW to lock the phase once and for all.
     // Fixed large latency value ensures stable phase alignment without jitter.
-    const int fixedLatencySamples = 4096;
     rubberBandReportedLatencySamples = fixedLatencySamples;
 
     if (rubberBandReportedLatencySamples != currentLatencySamples)
@@ -1997,8 +2001,15 @@ void NovaPitchAudioProcessor::resetRubberBandState()
     rubberBandTargetPitchScale = 1.0f;
     rubberBandPassthroughPriming = true;
     rubberBandReportedLatencySamples = 0;
+    const int fixedLatencySamples = juce::jmax (4096, currentLatencySamples);
     for (int ch = 0; ch < 2; ++ch)
+    {
         rubberBandOutputQueue[static_cast<size_t> (ch)].clear();
+        rubberBandOutputQueue[static_cast<size_t> (ch)].insert (
+            rubberBandOutputQueue[static_cast<size_t> (ch)].end(),
+            static_cast<size_t> (fixedLatencySamples),
+            0.0f);
+    }
 }
 
 void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, float* channelR, int numSamples,
@@ -2028,8 +2039,15 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     {
         if (rubberBand != nullptr)
             rubberBand->reset();
+        const int fixedLatencySamples = juce::jmax (4096, rubberBandReportedLatencySamples);
         for (int ch = 0; ch < 2; ++ch)
+        {
             rubberBandOutputQueue[static_cast<size_t> (ch)].clear();
+            rubberBandOutputQueue[static_cast<size_t> (ch)].insert (
+                rubberBandOutputQueue[static_cast<size_t> (ch)].end(),
+                static_cast<size_t> (fixedLatencySamples),
+                0.0f);
+        }
     }
     playbackWasActive = playbackActiveNow;
 
