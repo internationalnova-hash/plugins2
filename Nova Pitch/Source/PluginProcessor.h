@@ -186,6 +186,8 @@ private:
     float correctionDriveSmoothed { 0.0f };
     float retuneLfoPhase { 0.0f };
     float retuneLfoJitter { 0.0f };
+    float detectorHpPrevX { 0.0f };
+    float detectorHpPrevY { 0.0f };
     float outputCompGain { 1.0f };
     float targetPitchRatio { 1.0f };
     float activePitchRatio { 1.0f };

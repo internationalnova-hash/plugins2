@@ -158,7 +158,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     juce::ignoreUnused (samplesPerBlock);
     initializePitchShift();
     initializeRubberBand (juce::jmax (samplesPerBlock, 64), false);
-    currentLatencySamples = juce::jmax (0, rubberBandReportedLatencySamples);
+    currentLatencySamples = 4096;
     setLatencySamples (currentLatencySamples);
     analysisScratch.clear();
     analysisScratch.reserve (static_cast<size_t> (juce::jmax (samplesPerBlock, 512)));
@@ -181,6 +181,8 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     detMedianFull = false;
     retuneLfoPhase = 0.0f;
     retuneLfoJitter = 0.0f;
+    detectorHpPrevX = 0.0f;
+    detectorHpPrevY = 0.0f;
     outputCompGain = 1.0f;
     targetPitchRatio = 1.0f;
     activePitchRatio = 1.0f;
@@ -364,6 +366,27 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     float* analysisData = analysisScratch.data();
     for (int i = 0; i < numSamples; ++i)
         analysisData[i] = incomingScratchL[static_cast<size_t> (i)];
+
+    // Detector sidechain cleanup: 200 Hz high-pass removes low-end rumble before pitch tracking.
+    {
+        constexpr float hpCutoffHz = 200.0f;
+        const float fs = static_cast<float> (juce::jmax (1.0, currentSampleRate));
+        const float dt = 1.0f / fs;
+        const float rc = 1.0f / (2.0f * juce::MathConstants<float>::pi * hpCutoffHz);
+        const float alpha = rc / (rc + dt);
+        float prevX = detectorHpPrevX;
+        float prevY = detectorHpPrevY;
+        for (int i = 0; i < numSamples; ++i)
+        {
+            const float x = analysisData[i];
+            const float y = alpha * (prevY + x - prevX);
+            analysisData[i] = y;
+            prevX = x;
+            prevY = y;
+        }
+        detectorHpPrevX = prevX;
+        detectorHpPrevY = prevY;
+    }
 
     // Detector reads from captured raw input (both channels), with a small +3 dB assist.
     constexpr float detectorGain = 1.4125376f;
@@ -2039,6 +2062,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
 
     // Apply current block target immediately at block start.
     rubberBand->setTimeRatio (1.0);
+    rubberBand->setFormantScale (1.0);
     rubberBand->setPitchScale (rubberBandTargetPitchScale);
 
     // Hard mode: no scale glide/interpolation, jump directly to nearest semitone ratio.
@@ -2079,6 +2103,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         }
 
         rubberBand->setTimeRatio (1.0);
+        rubberBand->setFormantScale (1.0);
         rubberBand->setPitchScale (rubberBandTargetPitchScale);
 
         const float* inPtrs[2] = { inL.data() + processed, inR.data() + processed };
