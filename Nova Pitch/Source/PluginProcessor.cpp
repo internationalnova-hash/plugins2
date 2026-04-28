@@ -814,7 +814,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 {
                     // Keep note switches instant, but lightly stabilize detector jitter
                     // while locked on the same note.
-                    const float lockStabilizerMs = 10.0f;
+                    const float lockStabilizerMs = 20.0f;
                     const float lockStabilizerAlpha = 1.0f - std::exp (
                         -dtSeconds / juce::jmax (1.0e-6f, lockStabilizerMs * 0.001f));
                     targetPitchRatio += (computedTargetRatio - targetPitchRatio) * lockStabilizerAlpha;
@@ -1972,7 +1972,8 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     using RubberBand::RubberBandStretcher;
     const int fixedLatencySamples = 4096;
 
-    const int channels = juce::jmin (2, juce::jmax (1, getTotalNumInputChannels()));
+    // Lockdown mode: process Rubber Band as mono only, then clone L->R at output.
+    const int channels = 1;
     const int options = RubberBandStretcher::OptionProcessRealTime
         | RubberBandStretcher::OptionPitchHighConsistency
         | RubberBandStretcher::OptionFormantPreserved
@@ -2052,7 +2053,8 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     if (numSamples <= 0 || channelL == nullptr)
         return;
 
-    const int channels = (channelR != nullptr) ? 2 : 1;
+    // Force mono stream through Rubber Band to eliminate stereo phase-smear.
+    const int channels = 1;
 
     if (rubberBand == nullptr
         || rubberBandMaxBlockSize < numSamples
@@ -2093,10 +2095,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         inR.resize (static_cast<size_t> (numSamples), 0.0f);
 
     std::copy (channelL, channelL + numSamples, inL.begin());
-    if (channelR != nullptr)
-        std::copy (channelR, channelR + numSamples, inR.begin());
-    else
-        std::copy (channelL, channelL + numSamples, inR.begin());
+    std::copy (channelL, channelL + numSamples, inR.begin());
 
     const float clampedRatio = juce::jlimit (0.25f, 4.00f, pitchRatio);
     rubberBandTargetPitchScale = clampedRatio;
@@ -2124,7 +2123,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         rubberBand->setFormantScale (1.0);
         rubberBand->setPitchScale (rubberBandCurrentPitchScale);
 
-        const float* inPtrs[2] = { inL.data() + processed, inR.data() + processed };
+        const float* inPtrs[2] = { inL.data() + processed, inL.data() + processed };
         rubberBand->process (inPtrs, static_cast<size_t> (chunk), false);
         processed += chunk;
 
@@ -2149,8 +2148,6 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
             for (int i = 0; i < got; ++i)
             {
                 rubberBandOutputQueue[0].push_back (outL[static_cast<size_t> (i)]);
-                if (channels > 1)
-                    rubberBandOutputQueue[1].push_back (outR[static_cast<size_t> (i)]);
             }
         }
 
@@ -2160,14 +2157,6 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         {
             const int idx = chunkStart + static_cast<int> (rubberBandOutputQueue[0].size()) - chunkStart;
             rubberBandOutputQueue[0].push_back (inL[static_cast<size_t> (juce::jlimit (0, numSamples - 1, idx))]);
-        }
-        if (channels > 1)
-        {
-            while (static_cast<int> (rubberBandOutputQueue[1].size()) < processed)
-            {
-                const int idx = chunkStart + static_cast<int> (rubberBandOutputQueue[1].size()) - chunkStart;
-                rubberBandOutputQueue[1].push_back (inL[static_cast<size_t> (juce::jlimit (0, numSamples - 1, idx))]);
-            }
         }
     }
 
@@ -2190,28 +2179,20 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         for (int i = 0; i < got; ++i)
         {
             rubberBandOutputQueue[0].push_back (outL[static_cast<size_t> (i)]);
-            if (channels > 1)
-                rubberBandOutputQueue[1].push_back (outR[static_cast<size_t> (i)]);
         }
     }
 
     // If still short at block end, force output from current buffer immediately.
     while (static_cast<int> (rubberBandOutputQueue[0].size()) < numSamples)
         rubberBandOutputQueue[0].push_back (inL[static_cast<size_t> (rubberBandOutputQueue[0].size())]);
-    if (channels > 1)
-    {
-        while (static_cast<int> (rubberBandOutputQueue[1].size()) < numSamples)
-            rubberBandOutputQueue[1].push_back (inL[static_cast<size_t> (rubberBandOutputQueue[1].size())]);
-    }
 
     // Explicit per-block clear before copy of retrieved wet signal.
     std::fill (channelL, channelL + numSamples, 0.0f);
     if (channelR != nullptr)
         std::fill (channelR, channelR + numSamples, 0.0f);
 
-    // +3 dB boost (factor of sqrt(2) ≈ 1.4142) on the wet-only RubberBand output.
-    // This ensures the tuned signal is louder than any residual dry bleed.
-    constexpr float kWetBoostLinear = 1.4142135f;
+    // +6 dB boost on wet-only RubberBand output so tuned signal dominates.
+    constexpr float kWetBoostLinear = 2.0f;
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -2220,8 +2201,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
 
         if (channelR != nullptr)
         {
-            channelR[i] = rubberBandOutputQueue[1].front() * kWetBoostLinear;
-            rubberBandOutputQueue[1].pop_front();
+            channelR[i] = channelL[i];
         }
     }
 }
