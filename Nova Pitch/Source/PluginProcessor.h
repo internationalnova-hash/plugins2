@@ -156,6 +156,10 @@ private:
     float rubberBandCurrentPitchScale { 1.0f };
     float rubberBandPitchScaleStepPerSample { 0.0f };
     int rubberBandPitchScaleSamplesRemaining { 0 };
+    float rubberBandPrevTargetPitchScale { 1.0f };
+    int rubberBandClickSafeGainHoldSamplesRemaining { 0 };
+    float rubberBandPreJumpLevel { 0.0f };
+    float rubberBandLevelSmoothed { 0.0f };
     bool rubberBandPassthroughPriming { true };
     bool playbackWasActive { false };
 

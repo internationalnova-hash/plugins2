@@ -1993,6 +1993,10 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     rubberBandPitchScaleStepPerSample = 0.0f;
     rubberBandCurrentPitchScale = 1.0f;
     rubberBandTargetPitchScale = 1.0f;
+    rubberBandPrevTargetPitchScale = 1.0f;
+    rubberBandClickSafeGainHoldSamplesRemaining = 0;
+    rubberBandPreJumpLevel = 0.0f;
+    rubberBandLevelSmoothed = 0.0f;
 
     for (int ch = 0; ch < 2; ++ch)
     {
@@ -2030,6 +2034,10 @@ void NovaPitchAudioProcessor::resetRubberBandState()
     rubberBandPitchScaleStepPerSample = 0.0f;
     rubberBandCurrentPitchScale = 1.0f;
     rubberBandTargetPitchScale = 1.0f;
+    rubberBandPrevTargetPitchScale = 1.0f;
+    rubberBandClickSafeGainHoldSamplesRemaining = 0;
+    rubberBandPreJumpLevel = 0.0f;
+    rubberBandLevelSmoothed = 0.0f;
     rubberBandPassthroughPriming = true;
     rubberBandReportedLatencySamples = 0;
     const int fixedLatencySamples = juce::jmax (4096, currentLatencySamples);
@@ -2099,6 +2107,16 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
 
     const float clampedRatio = juce::jlimit (0.25f, 4.00f, pitchRatio);
     rubberBandTargetPitchScale = clampedRatio;
+
+    const bool snapScaleChanged = std::abs (rubberBandTargetPitchScale - rubberBandPrevTargetPitchScale) > 1.0e-6f;
+    if (snapScaleChanged)
+    {
+        // Tiny click-safe hold to avoid perceived level dips exactly at hard jumps.
+        const int holdSamples = juce::jmax (1, static_cast<int> (std::round (0.002f * static_cast<float> (currentSampleRate))));
+        rubberBandClickSafeGainHoldSamplesRemaining = holdSamples;
+        rubberBandPreJumpLevel = rubberBandLevelSmoothed;
+        rubberBandPrevTargetPitchScale = rubberBandTargetPitchScale;
+    }
 
     // Apply current block pitch state immediately at block start.
     rubberBand->setTimeRatio (1.0);
@@ -2196,8 +2214,25 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
 
     for (int i = 0; i < numSamples; ++i)
     {
-        channelL[i] = rubberBandOutputQueue[0].front() * kWetBoostLinear;
+        float wetSample = rubberBandOutputQueue[0].front() * kWetBoostLinear;
         rubberBandOutputQueue[0].pop_front();
+
+        const float absSample = std::abs (wetSample);
+        const float levelAlpha = 0.20f;
+        rubberBandLevelSmoothed += (absSample - rubberBandLevelSmoothed) * levelAlpha;
+
+        if (rubberBandClickSafeGainHoldSamplesRemaining > 0)
+        {
+            const float minLevel = rubberBandPreJumpLevel * 0.85f;
+            if (minLevel > 1.0e-4f && absSample > 1.0e-6f && absSample < minLevel)
+            {
+                const float holdGain = juce::jlimit (1.0f, 2.0f, minLevel / absSample);
+                wetSample *= holdGain;
+            }
+            --rubberBandClickSafeGainHoldSamplesRemaining;
+        }
+
+        channelL[i] = wetSample;
 
         if (channelR != nullptr)
         {
