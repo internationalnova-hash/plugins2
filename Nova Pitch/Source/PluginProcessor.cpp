@@ -1955,8 +1955,8 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
         | RubberBandStretcher::OptionPitchHighConsistency
         | RubberBandStretcher::OptionFormantPreserved
         | RubberBandStretcher::OptionPhaseIndependent
-        | RubberBandStretcher::OptionEngineFiner
-        | RubberBandStretcher::OptionWindowStandard;
+        | RubberBandStretcher::OptionEngineFaster
+        | RubberBandStretcher::OptionWindowShort;
 
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
     rubberBandInitSampleRate = currentSampleRate;
@@ -2098,9 +2098,10 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     // Hard mode: no scale glide/interpolation, jump directly to nearest semitone ratio.
     if (retuneSpeedNorm >= 0.95f || retuneMs <= 0.0f)
     {
-        // Extreme snap: transition diagnostics in exactly one sample.
-        rubberBandPitchScaleSamplesRemaining = 1;
-        rubberBandPitchScaleStepPerSample = (rubberBandTargetPitchScale - rubberBandCurrentPitchScale);
+        // Pro-tune hard jump: zero-sample transition and no internal glide state.
+        rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
+        rubberBandPitchScaleSamplesRemaining = 0;
+        rubberBandPitchScaleStepPerSample = 0.0f;
     }
     else
     {
