@@ -246,6 +246,8 @@ bool NovaPitchAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
+    // NUCLEAR DRY-KILL TEST: clear host buffer immediately on block entry.
+    buffer.clear();
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
     const int numSamples = buffer.getNumSamples();
@@ -278,10 +280,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         std::copy (inReadR, inReadR + numSamples, incomingScratchR.begin());
     else
         std::copy (incomingScratchL.begin(), incomingScratchL.begin() + numSamples, incomingScratchR.begin());
-
-    // NUCLEAR FIX: Zero-fill dry path at very start before anything else happens.
-    // This ensures zero dry audio can leak into the output.
-    buffer.clear();
 
     // Clear unused output channels
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
@@ -817,7 +815,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     const float absTargetCents = std::abs (targetCents);
                     // Aggressive MetaTune snap:
                     // - >=15 cents: force full semitone jump
-                    // - <25 cents (but non-trivial): force at least 25-cent pull
+                    // - <75 cents (but non-trivial): force at least 75-cent pull
                     if (absTargetCents >= 15.0f)
                     {
                         const float sign = (targetCents >= 0.0f ? 1.0f : -1.0f);
@@ -826,10 +824,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                             std::pow (2.0f, targetCents / 1200.0f));
                         hardSnapTriggered = true;
                     }
-                    else if (absTargetCents > 0.25f && absTargetCents < 25.0f)
+                    else if (absTargetCents > 0.25f && absTargetCents < 75.0f)
                     {
                         const float sign = (targetCents >= 0.0f ? 1.0f : -1.0f);
-                        targetCents = 25.0f * sign;
+                        targetCents = 75.0f * sign;
                         computedTargetRatio = juce::jlimit (minRatio, maxRatio,
                             std::pow (2.0f, targetCents / 1200.0f));
                     }
@@ -2014,7 +2012,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     const int options = RubberBandStretcher::OptionProcessRealTime
         | RubberBandStretcher::OptionPitchHighConsistency
         | RubberBandStretcher::OptionFormantPreserved
-        | RubberBandStretcher::OptionPhaseIndependent
+        | RubberBandStretcher::OptionPhaseLaminar
         | RubberBandStretcher::OptionEngineFiner
         | RubberBandStretcher::OptionWindowShort;
 
@@ -2230,8 +2228,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         // instead of waiting for future internal FIFO fill.
         while (static_cast<int> (rubberBandOutputQueue[0].size()) < processed)
         {
-            const int idx = chunkStart + static_cast<int> (rubberBandOutputQueue[0].size()) - chunkStart;
-            rubberBandOutputQueue[0].push_back (inL[static_cast<size_t> (juce::jlimit (0, numSamples - 1, idx))]);
+            rubberBandOutputQueue[0].push_back (0.0f);
         }
     }
 
@@ -2259,7 +2256,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
 
     // If still short at block end, force output from current buffer immediately.
     while (static_cast<int> (rubberBandOutputQueue[0].size()) < numSamples)
-        rubberBandOutputQueue[0].push_back (inL[static_cast<size_t> (rubberBandOutputQueue[0].size())]);
+        rubberBandOutputQueue[0].push_back (0.0f);
 
     // Explicit per-block clear before copy of retrieved wet signal.
     std::fill (channelL, channelL + numSamples, 0.0f);
