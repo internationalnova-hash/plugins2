@@ -246,13 +246,11 @@ bool NovaPitchAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
-    // NUCLEAR DRY-KILL TEST: clear host buffer immediately on block entry.
-    buffer.clear();
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
     const int numSamples = buffer.getNumSamples();
 
-    // Hardened capture path: copy/add from host input before any output clearing.
+    // Capture incoming audio into scratch BEFORE clearing the host buffer.
     detectorInputBuffer.setSize (2, numSamples, false, false, true);
     detectorInputBuffer.clear();
     if (totalNumInputChannels > 0)
@@ -261,6 +259,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         detectorInputBuffer.copyFrom (1, 0, buffer, 1, 0, numSamples);
     else
         detectorInputBuffer.copyFrom (1, 0, detectorInputBuffer, 0, 0, numSamples);
+
+    // Now safe to kill the host buffer (dry-signal elimination).
+    buffer.clear();
 
     // Preserve existing scratch routing from the hardened capture buffer.
     if (incomingScratchL.size() < static_cast<size_t> (numSamples))
@@ -2019,6 +2020,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
     rubberBandInitSampleRate = currentSampleRate;
     rubberBandPassthroughPriming = true;
+    rubberBandWarmupSamplesRemaining = 500;
     rubberBand->setTimeRatio (1.0);
     rubberBand->setMaxProcessSize (juce::jmax (8192, maxBlockSize));
 
@@ -2074,6 +2076,7 @@ void NovaPitchAudioProcessor::resetRubberBandState()
     rubberBandPreJumpLevel = 0.0f;
     rubberBandLevelSmoothed = 0.0f;
     rubberBandPassthroughPriming = true;
+    rubberBandWarmupSamplesRemaining = 500;
     rubberBandReportedLatencySamples = 0;
     const int fixedLatencySamples = juce::jmax (4096, currentLatencySamples);
     for (int ch = 0; ch < 2; ++ch)
@@ -2266,10 +2269,24 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     // +2 dB boost on wet-only RubberBand output for cleaner forward presence.
     constexpr float kWetBoostLinear = 1.2589254f;
 
+    // Emergency passthrough during RB warmup: let the first 500 samples through
+    // so the DAW/user hears audio while the RB engine fills its internal FIFO.
+    const bool inWarmup = rubberBandWarmupSamplesRemaining > 0;
+
     for (int i = 0; i < numSamples; ++i)
     {
         float wetSample = rubberBandOutputQueue[0].front() * kWetBoostLinear;
         rubberBandOutputQueue[0].pop_front();
+
+        if (inWarmup)
+        {
+            // Blend toward full wet as warmup expires.
+            const float inputSample = shifterFeedScratchL[static_cast<size_t> (i)];
+            const float warmupBlend = juce::jlimit (0.0f, 1.0f,
+                static_cast<float> (rubberBandWarmupSamplesRemaining) / 500.0f);
+            wetSample = wetSample * (1.0f - warmupBlend) + inputSample * warmupBlend;
+            --rubberBandWarmupSamplesRemaining;
+        }
 
         const float absSample = std::abs (wetSample);
         const float levelAlpha = 0.20f;
