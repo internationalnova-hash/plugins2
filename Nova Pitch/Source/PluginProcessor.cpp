@@ -753,7 +753,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
             else
             {
-                const int targetMidiNote = lockedTargetMidi;
+                // Defensive scale mapping: ensure the active lock remains mapped to
+                // the currently selected scale before deriving pitch ratio.
+                const int targetMidiNote = quantizeToScale (getTargetPitchHz (lockedTargetMidi));
                 const float targetHz = getTargetPitchHz (targetMidiNote);
 
                 // Recompute target ratio every detection block so correction tracks continuous intonation
@@ -784,12 +786,20 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 {
                     float targetCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
                     const float absTargetCents = std::abs (targetCents);
-                    // Hard digital snap: if pitch error is at least 40 cents,
-                    // force an immediate jump to the next semitone (no micro-glide).
-                    if (absTargetCents >= 40.0f)
+                    // Aggressive MetaTune snap:
+                    // - >=15 cents: force full semitone jump
+                    // - <25 cents (but non-trivial): force at least 25-cent pull
+                    if (absTargetCents >= 15.0f)
                     {
                         const float sign = (targetCents >= 0.0f ? 1.0f : -1.0f);
                         targetCents = 100.0f * sign;
+                        computedTargetRatio = juce::jlimit (minRatio, maxRatio,
+                            std::pow (2.0f, targetCents / 1200.0f));
+                    }
+                    else if (absTargetCents > 0.25f && absTargetCents < 25.0f)
+                    {
+                        const float sign = (targetCents >= 0.0f ? 1.0f : -1.0f);
+                        targetCents = 25.0f * sign;
                         computedTargetRatio = juce::jlimit (minRatio, maxRatio,
                             std::pow (2.0f, targetCents / 1200.0f));
                     }
