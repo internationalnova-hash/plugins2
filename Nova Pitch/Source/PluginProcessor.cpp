@@ -1151,7 +1151,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         applyOutputManagement (buffer, inputRms);
 
     // Final output clean-up: overwrite right with tuned left at the very end.
-    if (channelR != nullptr)
+    // Unconditional — even if channelR is null JUCE will ignore the copy safely;
+    // doing it regardless kills any width / stereo-chorus dry leak.
+    if (buffer.getNumChannels() >= 2)
         buffer.copyFrom (1, 0, buffer, 0, 0, numSamples);
 
     const std::uint64_t diagMinSamples = static_cast<std::uint64_t> (juce::jmax (1.0, currentSampleRate * 2.0));
@@ -2095,9 +2097,18 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     rubberBand->setFormantScale (1.0);
     rubberBand->setPitchScale (rubberBandCurrentPitchScale);
 
-    // Hard mode: use a very short de-click ramp on note jumps to suppress crunch
-    // while preserving a robotic snap.
-    if (retuneSpeedNorm >= 0.95f || retuneMs <= 0.0f)
+    // At absolute max speed (knob fully right): 1-sample instant jump — the user asked
+    // for the digital 'click' between notes.  In the 0.90-0.99 hard zone: 5 ms de-click
+    // ramp to suppress engine crunch while still sounding robotic.
+    const bool absoluteMaxSpeed = (retuneControlActive >= 0.99f || retuneMs <= 0.0f);
+    if (absoluteMaxSpeed)
+    {
+        // True 1-sample jump: no glide state at all.
+        rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
+        rubberBandPitchScaleSamplesRemaining = 0;
+        rubberBandPitchScaleStepPerSample = 0.0f;
+    }
+    else if (retuneSpeedNorm >= 0.95f)
     {
         constexpr float deClickMs = 5.0f;
         const int deClickSamples = juce::jmax (1, static_cast<int> (std::round (
