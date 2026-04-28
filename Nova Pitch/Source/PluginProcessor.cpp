@@ -310,7 +310,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float retuneControlActive = juce::jlimit (0.0f, 1.0f, retuneSpeedSmoothed);
     const float k = retuneControlActive;
     const float kShaped = std::pow (k, 1.65f);
-    const float retuneMs = 180.0f * std::pow (1.0f / 180.0f, kShaped);
+    const float retuneMs = (retuneControlActive >= 0.90f)
+        ? 0.1f
+        : 180.0f * std::pow (1.0f / 180.0f, kShaped);
     auto smoothstep = [] (float e0, float e1, float x)
     {
         const float t = juce::jlimit (0.0f, 1.0f, (x - e0) / juce::jmax (1.0e-6f, e1 - e0));
@@ -740,12 +742,24 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // nearest allowed scale target Hz.
                 float pitchRatio = targetHz / juce::jmax (1.0f, octaveAlignedDetectedHz);
                 diagWindowRatioComputedBlocks++;
-                if (std::abs (pitchRatio - 1.0f) < 0.001f)
+                if (! hardTuneModeFrame && std::abs (pitchRatio - 1.0f) < 0.001f)
                     diagWindowUnityReturnBlocks++;
 
                 const float minRatio = 0.25f;
                 const float maxRatio = 4.00f;
                 float computedTargetRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
+                if (hardTuneModeFrame)
+                {
+                    float targetCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
+                    const float absTargetCents = std::abs (targetCents);
+                    if (absTargetCents < 20.0f)
+                    {
+                        const float sign = (targetCents >= 0.0f ? 1.0f : -1.0f);
+                        targetCents = 20.0f * sign;
+                        computedTargetRatio = juce::jlimit (minRatio, maxRatio,
+                            std::pow (2.0f, targetCents / 1200.0f));
+                    }
+                }
 
                 if (lockChanged)
                 {
@@ -1089,6 +1103,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             applyFormantShaper (channelR, numSamples, formantValue, 1);
     }
 
+    // Total isolation: force mono tuned output to both channels with overwrite semantics.
+    if (channelR != nullptr)
+        buffer.copyFrom (1, 0, buffer, 0, 0, numSamples);
+
     // Track input RMS and detected pitch every block for diagnostics.
     diagWindowInputRmsSum += static_cast<double> (inputRms);
     ++diagWindowInputRmsCount;
@@ -1106,9 +1124,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const double detectValidRatio = (diagWindowDetectEvalBlocks > 0)
             ? static_cast<double> (diagWindowDetectValidBlocks) / static_cast<double> (diagWindowDetectEvalBlocks)
             : 0.0;
-        const double unityReturnRatio = (diagWindowRatioComputedBlocks > 0)
+        const double unityReturnRatio = (retuneControlActive >= 0.90f)
+            ? 0.0
+            : ((diagWindowRatioComputedBlocks > 0)
             ? static_cast<double> (diagWindowUnityReturnBlocks) / static_cast<double> (diagWindowRatioComputedBlocks)
-            : 0.0;
+            : 0.0);
         const double lockSwitchRate = (windowSeconds > 1.0e-6)
             ? static_cast<double> (diagWindowLockSwitches) / windowSeconds
             : 0.0;
@@ -2081,31 +2101,6 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
 
     // Emergency passthrough: if the stretcher output queue is starved, do not emit silence.
     // Route captured input through so we can verify the live signal path.
-    const int minReadySamples = 512;
-    const bool leftStarved = static_cast<int> (rubberBandOutputQueue[0].size()) < minReadySamples;
-    const bool rightStarved = (channels > 1) && (static_cast<int> (rubberBandOutputQueue[1].size()) < minReadySamples);
-    const bool queueStarved = leftStarved || rightStarved;
-    if (! queueStarved)
-        rubberBandPassthroughPriming = false;
-
-    // Use passthrough only while priming at startup; once wet queue is ready, keep 100% wet path.
-    if (queueStarved && rubberBandPassthroughPriming)
-    {
-        if (incomingScratchL.size() >= static_cast<size_t> (numSamples))
-            std::copy (incomingScratchL.begin(), incomingScratchL.begin() + numSamples, channelL);
-        else
-            std::fill (channelL, channelL + numSamples, 0.0f);
-
-        if (channelR != nullptr)
-        {
-            if (incomingScratchR.size() >= static_cast<size_t> (numSamples))
-                std::copy (incomingScratchR.begin(), incomingScratchR.begin() + numSamples, channelR);
-            else
-                std::copy (channelL, channelL + numSamples, channelR);
-        }
-        return;
-    }
-
     // Enforce wet-only path: if Rubber Band hasn't produced enough samples yet,
     // output silence instead of leaking dry input (which causes doubling/combing).
     while (static_cast<int> (rubberBandOutputQueue[0].size()) < numSamples)
