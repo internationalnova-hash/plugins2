@@ -163,7 +163,6 @@ private:
     bool rubberBandPassthroughPriming { true };
     int rubberBandWarmupSamplesRemaining { 500 };
     bool playbackWasActive { false };
-    int rubberBandWarmupSamplesRemaining { 500 };
 
     std::array<std::atomic<float>, pitchHistorySize> pitchHistory {};
     int historyIndex { 0 };
