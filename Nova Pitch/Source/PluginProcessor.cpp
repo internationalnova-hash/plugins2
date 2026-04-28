@@ -802,8 +802,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 }
                 else if (hardTuneModeFrame)
                 {
-                    // Hard snap: no target-ratio glide in fastest retune mode.
-                    targetPitchRatio = computedTargetRatio;
+                    // Keep note switches instant, but lightly stabilize detector jitter
+                    // while locked on the same note.
+                    const float lockStabilizerMs = 10.0f;
+                    const float lockStabilizerAlpha = 1.0f - std::exp (
+                        -dtSeconds / juce::jmax (1.0e-6f, lockStabilizerMs * 0.001f));
+                    targetPitchRatio += (computedTargetRatio - targetPitchRatio) * lockStabilizerAlpha;
                 }
                 else
                 {
@@ -1962,7 +1966,8 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     const int options = RubberBandStretcher::OptionProcessRealTime
         | RubberBandStretcher::OptionPitchHighConsistency
         | RubberBandStretcher::OptionFormantPreserved
-        | RubberBandStretcher::OptionEngineFaster
+        | RubberBandStretcher::OptionPhaseIndependent
+        | RubberBandStretcher::OptionEngineFiner
         | RubberBandStretcher::OptionWindowShort;
 
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
@@ -2151,7 +2156,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
             while (static_cast<int> (rubberBandOutputQueue[1].size()) < processed)
             {
                 const int idx = chunkStart + static_cast<int> (rubberBandOutputQueue[1].size()) - chunkStart;
-                rubberBandOutputQueue[1].push_back (inR[static_cast<size_t> (juce::jlimit (0, numSamples - 1, idx))]);
+                rubberBandOutputQueue[1].push_back (inL[static_cast<size_t> (juce::jlimit (0, numSamples - 1, idx))]);
             }
         }
     }
@@ -2186,7 +2191,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     if (channels > 1)
     {
         while (static_cast<int> (rubberBandOutputQueue[1].size()) < numSamples)
-            rubberBandOutputQueue[1].push_back (inR[static_cast<size_t> (rubberBandOutputQueue[1].size())]);
+            rubberBandOutputQueue[1].push_back (inL[static_cast<size_t> (rubberBandOutputQueue[1].size())]);
     }
 
     // Explicit per-block clear before copy of retrieved wet signal.
