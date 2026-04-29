@@ -1178,7 +1178,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     processRubberBandPitchShift (channelL, channelR, numSamples, appliedRatio, lowLatencyMode,
                                  retuneMs, retuneControlActive, trackingConfidence);
 
-    if (! signalTooLow)
+    if (! signalTooLow && ! hardTuneMode)
     {
         applyFormantShaper (channelL, numSamples, formantValue, 0);
         if (channelR != nullptr)
@@ -1192,7 +1192,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (diagDetHz > 0.0f) { diagWindowDetectedHzSum += static_cast<double> (diagDetHz); ++diagWindowDetectedHzCount; }
     if (lockedTargetMidi >= 0) diagLastLockedTargetHz = getTargetPitchHz (lockedTargetMidi);
 
-    if (! signalTooLow)
+    if (! signalTooLow && ! hardTuneMode)
         applyOutputManagement (buffer, inputRms);
 
     const std::uint64_t diagMinSamples = static_cast<std::uint64_t> (juce::jmax (1.0, currentSampleRate * 2.0));
