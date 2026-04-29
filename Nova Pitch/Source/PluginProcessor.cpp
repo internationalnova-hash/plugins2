@@ -810,23 +810,21 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float minRatio = 0.25f;
                 const float maxRatio = 4.00f;
                 float computedTargetRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
-                bool hardSnapTriggered = false;
                 if (hardTuneModeFrame)
                 {
                     float targetCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
                     const float absTargetCents = std::abs (targetCents);
                     // Aggressive MetaTune snap:
                     // - >=15 cents: force full semitone jump
-                    // - <75 cents (but non-trivial): force at least 75-cent pull
+                    // - any non-zero sub-semitone error: force at least 75-cent pull
                     if (absTargetCents >= 15.0f)
                     {
                         const float sign = (targetCents >= 0.0f ? 1.0f : -1.0f);
                         targetCents = 100.0f * sign;
                         computedTargetRatio = juce::jlimit (minRatio, maxRatio,
                             std::pow (2.0f, targetCents / 1200.0f));
-                        hardSnapTriggered = true;
                     }
-                    else if (absTargetCents > 0.25f && absTargetCents < 75.0f)
+                    else if (absTargetCents > 0.01f && absTargetCents < 75.0f)
                     {
                         const float sign = (targetCents >= 0.0f ? 1.0f : -1.0f);
                         targetCents = 75.0f * sign;
@@ -842,19 +840,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 }
                 else if (hardTuneModeFrame)
                 {
-                    // Keep snaps fully instant (no smoothing) when hard snap is engaged.
-                    if (hardSnapTriggered)
-                    {
-                        targetPitchRatio = computedTargetRatio;
-                    }
-                    else
-                    {
-                        // On non-snap frames, lightly stabilize detector jitter while locked.
-                        const float lockStabilizerMs = 20.0f;
-                        const float lockStabilizerAlpha = 1.0f - std::exp (
-                            -dtSeconds / juce::jmax (1.0e-6f, lockStabilizerMs * 0.001f));
-                        targetPitchRatio += (computedTargetRatio - targetPitchRatio) * lockStabilizerAlpha;
-                    }
+                    targetPitchRatio = computedTargetRatio;
                 }
                 else
                 {
@@ -898,7 +884,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
             else
             {
-                targetPitchRatio = 1.0f;
+                if (! hardTuneModeFrame)
+                    targetPitchRatio = 1.0f;
                 correctedPitch.store (0.0f);
                 pitchConfidence.store (0.0f);
                 lockedTargetMidi = -1;
@@ -1466,15 +1453,10 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
 
     if (hardTuneMode)
     {
-        // Suppress micro-flutter around the locked note while keeping strong pull
-        // when the singer is meaningfully off target.
-        const float jitterZoneCents = 2.0f;
         float absCents = std::abs (emphasizedCents);
-        if (absCents < jitterZoneCents)
-        {
-            const float t = absCents / jitterZoneCents;
-            emphasizedCents *= (0.25f + 0.75f * t * t);
-        }
+
+        if (absCents > 0.01f && absCents < 75.0f)
+            emphasizedCents = std::copysign (75.0f, emphasizedCents);
 
         if (absCents > 8.0f)
             emphasizedCents *= 1.12f;
@@ -2165,11 +2147,9 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         rubberBandPreJumpLevel = rubberBandLevelSmoothed;
         rubberBandPrevTargetPitchScale = rubberBandTargetPitchScale;
 
-        // Strict 0.1ms glide for robotic clack without long slide.
-        const int glideSamples = juce::jmax (1, static_cast<int> (std::round (0.0001f * static_cast<float> (currentSampleRate))));
-        rubberBandPitchScaleSamplesRemaining = glideSamples;
-        rubberBandPitchScaleStepPerSample = (rubberBandTargetPitchScale - rubberBandCurrentPitchScale)
-            / static_cast<float> (glideSamples);
+        // Hard lock: update pitch scale in a single sample with no audible slide.
+        rubberBandPitchScaleSamplesRemaining = 1;
+        rubberBandPitchScaleStepPerSample = (rubberBandTargetPitchScale - rubberBandCurrentPitchScale);
     }
 
     // Apply current block pitch state immediately at block start.
