@@ -368,10 +368,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (analysisScratch.size() < static_cast<size_t> (numSamples))
         analysisScratch.resize (static_cast<size_t> (numSamples), 0.0f);
 
-    // Direct channel routing: detector listens explicitly to left channel.
+    // Sum input to mono before detection so tracking never diverges between L/R.
     float* analysisData = analysisScratch.data();
     for (int i = 0; i < numSamples; ++i)
-        analysisData[i] = incomingScratchL[static_cast<size_t> (i)];
+        analysisData[i] = 0.5f * (incomingScratchL[static_cast<size_t> (i)]
+                                + incomingScratchR[static_cast<size_t> (i)]);
 
     // Detector sidechain cleanup: 200 Hz high-pass removes low-end rumble before pitch tracking.
     {
@@ -2117,8 +2118,17 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     {
         if (rubberBand != nullptr)
             rubberBand->reset();
+
+        rubberBandWarmupSamplesRemaining = 500;
+        const int fixedLatencySamples = juce::jmax (4096, currentLatencySamples);
         for (int ch = 0; ch < 2; ++ch)
+        {
             rubberBandOutputQueue[static_cast<size_t> (ch)].clear();
+            rubberBandOutputQueue[static_cast<size_t> (ch)].insert (
+                rubberBandOutputQueue[static_cast<size_t> (ch)].end(),
+                static_cast<size_t> (fixedLatencySamples),
+                0.0f);
+        }
     }
     playbackWasActive = playbackActiveNow;
 
