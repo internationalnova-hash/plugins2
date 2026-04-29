@@ -2269,24 +2269,18 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     // +2 dB boost on wet-only RubberBand output for cleaner forward presence.
     constexpr float kWetBoostLinear = 1.2589254f;
 
-    // Emergency passthrough during RB warmup: let the first 500 samples through
-    // so the DAW/user hears audio while the RB engine fills its internal FIFO.
-    const bool inWarmup = rubberBandWarmupSamplesRemaining > 0;
+    // Output is pure wet signal from RB engine. No dry blending.
+    // The output queue is pre-filled with latency padding on init,
+    // ensuring no underruns or silence at startup.
 
     for (int i = 0; i < numSamples; ++i)
     {
         float wetSample = rubberBandOutputQueue[0].front() * kWetBoostLinear;
         rubberBandOutputQueue[0].pop_front();
-
-        if (inWarmup)
-        {
-            // Blend toward full wet as warmup expires.
-            const float inputSample = shifterFeedScratchL[static_cast<size_t> (i)];
-            const float warmupBlend = juce::jlimit (0.0f, 1.0f,
-                static_cast<float> (rubberBandWarmupSamplesRemaining) / 500.0f);
-            wetSample = wetSample * (1.0f - warmupBlend) + inputSample * warmupBlend;
+        
+        // Decrement warmup counter if still warming up (but don't blend).
+        if (rubberBandWarmupSamplesRemaining > 0)
             --rubberBandWarmupSamplesRemaining;
-        }
 
         const float absSample = std::abs (wetSample);
         const float levelAlpha = 0.20f;
