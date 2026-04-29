@@ -1997,7 +1997,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
         | RubberBandStretcher::OptionPitchHighConsistency
         | RubberBandStretcher::OptionFormantPreserved
         | RubberBandStretcher::OptionPhaseLaminar
-        | RubberBandStretcher::OptionEngineFiner
+        | RubberBandStretcher::OptionEngineFaster
         | RubberBandStretcher::OptionWindowShort;
 
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
@@ -2147,9 +2147,10 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         rubberBandPreJumpLevel = rubberBandLevelSmoothed;
         rubberBandPrevTargetPitchScale = rubberBandTargetPitchScale;
 
-        // Hard lock: update pitch scale in a single sample with no audible slide.
-        rubberBandPitchScaleSamplesRemaining = 1;
-        rubberBandPitchScaleStepPerSample = (rubberBandTargetPitchScale - rubberBandCurrentPitchScale);
+        // Digital teleport: no glide state, just jump straight to the new target.
+        rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
+        rubberBandPitchScaleSamplesRemaining = 0;
+        rubberBandPitchScaleStepPerSample = 0.0f;
     }
 
     // Apply current block pitch state immediately at block start.
