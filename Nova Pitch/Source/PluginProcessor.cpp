@@ -1995,7 +1995,6 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     const int channels = 1;
     const int options = RubberBandStretcher::OptionProcessRealTime
         | RubberBandStretcher::OptionPitchHighConsistency
-        | RubberBandStretcher::OptionFormantPreserved
         | RubberBandStretcher::OptionPhaseLaminar
         | RubberBandStretcher::OptionEngineFaster
         | RubberBandStretcher::OptionWindowShort;
@@ -2278,15 +2277,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         rubberBandLevelSmoothed += (absSample - rubberBandLevelSmoothed) * levelAlpha;
 
         if (rubberBandClickSafeGainHoldSamplesRemaining > 0)
-        {
-            const float minLevel = rubberBandPreJumpLevel * 0.85f;
-            if (minLevel > 1.0e-4f && absSample > 1.0e-6f && absSample < minLevel)
-            {
-                const float holdGain = juce::jlimit (1.0f, 2.0f, minLevel / absSample);
-                wetSample *= holdGain;
-            }
             --rubberBandClickSafeGainHoldSamplesRemaining;
-        }
 
         channelL[i] = wetSample;
 
