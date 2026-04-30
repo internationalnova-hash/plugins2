@@ -475,6 +475,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         juce::jmax (1.0f, static_cast<float> (currentSampleRate) * 0.500f)));
     const int wetReentryFadeTotalSamples = static_cast<int> (std::round (
         juce::jmax (1.0f, static_cast<float> (currentSampleRate) * 0.005f)));
+    const int onsetReacquireBlocks = static_cast<int> (std::round (
+        juce::jmax (1.0f, detectRateHz * 0.040f)));
 
     // Perform pitch detection periodically
     if (blockCount % intervalDivider == 0)
@@ -537,6 +539,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
 
             if (! hasUsablePitch
+                && inputRms >= detectRmsFloor
                 && pitchMemorySamplesRemaining > 0
                 && pitchMemoryHz > minPitchHz - 10.0f
                 && pitchMemoryHz < maxPitchHz + 10.0f)
@@ -1065,11 +1068,30 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             break;
     }
 
+    const float strictSilenceFloor = hardTuneMode ? 0.0010f : 0.0012f;
+    if (inputRms < strictSilenceFloor)
+    {
+        pitchMemorySamplesRemaining = 0;
+        if (vocalState == VocalState::Silence
+            || (vocalState == VocalState::Release && vocalStateAgeBlocks >= (hardTuneMode ? 2 : 1)))
+        {
+            lockedTargetMidi = -1;
+            previousLockedTargetMidi = -1;
+            pendingTargetMidi = -1;
+            pendingTargetStreak = 0;
+            targetSwitchCooldownBlocks = 0;
+            targetPitchRatio = 1.0f;
+            targetRatioSmoothed = 1.0f;
+            activePitchRatio = 1.0f;
+        }
+    }
+
     const bool hardSignalTooLow = inputRmsSmoothed < gateOffThreshold
         && voicedHoldBlocks == 0
         && blocksSinceValidPitch > (lowLatencyMode ? 36 : 64);
     const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
-    const bool signalTooLow = hardTuneMode ? hardSignalTooLow : normalSignalTooLow;
+    const bool forceSilenceKill = inputRms < strictSilenceFloor;
+    const bool signalTooLow = forceSilenceKill || (hardTuneMode ? hardSignalTooLow : normalSignalTooLow);
 
     // NUCLEAR FIX: Bypass the confidence check - detector is 'letting go' of notes too early.
     // In hard mode, force tracking to snap to nearest semitone regardless of confidence.
@@ -1236,8 +1258,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     if (hardTuneMode)
         correctionDrive = 1.0f;
 
+    const bool hardOnsetReacquire = hardTuneMode
+        && vocalState == VocalState::Onset
+        && vocalStateAgeBlocks < onsetReacquireBlocks;
+
     // Force full correction depth: send the exact target ratio to Rubber Band.
-    float appliedRatio = signalTooLow ? 1.0f : targetPitchRatio;
+    float appliedRatio = (signalTooLow || hardOnsetReacquire) ? 1.0f : targetPitchRatio;
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
         applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
 
