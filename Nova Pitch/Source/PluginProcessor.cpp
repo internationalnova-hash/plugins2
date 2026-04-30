@@ -519,7 +519,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
             // Hard-tune should not collapse to dry passthrough on brief detector misses.
             // Hold the most recent valid estimate for a short window while signal is present.
-            const int maxHoldMissBlocks = hardTuneModeDetect ? 10 : 12;
+            const int maxHoldMissBlocks = hardTuneModeDetect ? 18 : 12;
             const bool canHoldLastPitch = fastCorrectionMode
                 && lastValidDetectedHz > minPitchHz - 10.0f
                 && lastValidDetectedHz < maxPitchHz + 10.0f
@@ -1014,7 +1014,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         if (vocalState != s)
         {
             const bool wordStartTransition = (s == VocalState::Onset)
-                && (vocalState == VocalState::Silence || vocalState == VocalState::Release);
+                && (vocalState == VocalState::Silence);
             if (vocalState != VocalState::Voiced && s == VocalState::Voiced)
                 ++diagWindowVoicedStarts;
             if (vocalState == VocalState::Voiced && s != VocalState::Voiced)
@@ -1043,7 +1043,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             break;
 
         case VocalState::Onset:
-            if (stateEnergyLow && voicedHoldBlocks == 0 && blocksSinceValidPitch > (hardTuneMode ? 8 : 2))
+            if (stateEnergyLow && voicedHoldBlocks == 0 && blocksSinceValidPitch > (hardTuneMode ? 20 : 2))
                 setVocalState (VocalState::Silence);
             else if (statePitchFresh && vocalStateAgeBlocks >= (hardTuneMode ? 3 : 2))
                 setVocalState (VocalState::Voiced);
@@ -1052,7 +1052,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             break;
 
         case VocalState::Voiced:
-            if ((stateEnergyLow && voicedHoldBlocks == 0) || blocksSinceValidPitch > (hardTuneMode ? 16 : 2))
+            if ((stateEnergyLow && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= (hardTuneMode ? 6 : 0))
+                || blocksSinceValidPitch > (hardTuneMode ? 32 : 2))
                 setVocalState (VocalState::Release);
             else
                 setVocalState (VocalState::Voiced);
@@ -1260,6 +1261,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     const bool hardOnsetReacquire = hardTuneMode
         && vocalState == VocalState::Onset
+        && centerPriorityBlocksRemaining > 0
         && vocalStateAgeBlocks < onsetReacquireBlocks;
 
     // Force full correction depth: send the exact target ratio to Rubber Band.
