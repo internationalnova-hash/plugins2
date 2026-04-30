@@ -218,6 +218,14 @@ private:
     int diagWindowLockSwitches { 0 };
     int diagWindowTrackingLostBlocks { 0 };
     int diagWindowLargeRatioStepBlocks { 0 };
+    int diagWindowVoicedStarts { 0 };
+    int diagWindowVoicedEnds { 0 };
+    int diagWindowCorrectionBucketUnity { 0 };
+    int diagWindowCorrectionBucket75 { 0 };
+    int diagWindowCorrectionBucket100 { 0 };
+    int diagWindowQueueUnderrunBlocks { 0 };
+    double diagWindowQueueDepthSum { 0.0 };
+    int    diagWindowQueueDepthCount { 0 };
     double diagWindowAppliedCentsAbsSum { 0.0 };
     double diagWindowTargetCentsAbsSum { 0.0 };
     double diagWindowInputRmsSum { 0.0 };

@@ -209,6 +209,14 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     diagWindowLockSwitches = 0;
     diagWindowTrackingLostBlocks = 0;
     diagWindowLargeRatioStepBlocks = 0;
+    diagWindowVoicedStarts = 0;
+    diagWindowVoicedEnds = 0;
+    diagWindowCorrectionBucketUnity = 0;
+    diagWindowCorrectionBucket75 = 0;
+    diagWindowCorrectionBucket100 = 0;
+    diagWindowQueueUnderrunBlocks = 0;
+    diagWindowQueueDepthSum = 0.0;
+    diagWindowQueueDepthCount = 0;
     diagWindowAppliedCentsAbsSum = 0.0;
     diagWindowTargetCentsAbsSum = 0.0;
     diagWindowInputRmsSum = 0.0;
@@ -975,6 +983,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     {
         if (vocalState != s)
         {
+            if (vocalState != VocalState::Voiced && s == VocalState::Voiced)
+                ++diagWindowVoicedStarts;
+            if (vocalState == VocalState::Voiced && s != VocalState::Voiced)
+                ++diagWindowVoicedEnds;
             vocalState = s;
             vocalStateAgeBlocks = 0;
         }
@@ -1110,6 +1122,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float targetCents = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio)));
         diagWindowAppliedCentsAbsSum += static_cast<double> (appliedCents);
         diagWindowTargetCentsAbsSum += static_cast<double> (targetCents);
+
+        if (targetCents <= 8.0f)
+            ++diagWindowCorrectionBucketUnity;
+        else if (std::abs (targetCents - 75.0f) <= 12.0f)
+            ++diagWindowCorrectionBucket75;
+        else if (std::abs (targetCents - 100.0f) <= 12.0f)
+            ++diagWindowCorrectionBucket100;
 
     }
     else
@@ -1251,6 +1270,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const double avgDetectedHz = (diagWindowDetectedHzCount > 0)
             ? diagWindowDetectedHzSum / static_cast<double> (diagWindowDetectedHzCount)
             : 0.0;
+        const double avgQueueDepth = (diagWindowQueueDepthCount > 0)
+            ? diagWindowQueueDepthSum / static_cast<double> (diagWindowQueueDepthCount)
+            : 0.0;
+        const double corrUnityRatio = (diagWindowBlocks > 0)
+            ? static_cast<double> (diagWindowCorrectionBucketUnity) / static_cast<double> (diagWindowBlocks)
+            : 0.0;
+        const double corr75Ratio = (diagWindowBlocks > 0)
+            ? static_cast<double> (diagWindowCorrectionBucket75) / static_cast<double> (diagWindowBlocks)
+            : 0.0;
+        const double corr100Ratio = (diagWindowBlocks > 0)
+            ? static_cast<double> (diagWindowCorrectionBucket100) / static_cast<double> (diagWindowBlocks)
+            : 0.0;
         const float lockedTargetHz = diagLastLockedTargetHz;
         const int vocalStateCode = static_cast<int> (vocalState);
 
@@ -1274,6 +1305,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             + " rbScaleTarget=" + juce::String (rubberBandTargetPitchScale, 4)
             + " rbScaleTarget6=" + juce::String (rubberBandTargetPitchScale, 6)
             + " rbLatency=" + juce::String (rubberBandReportedLatencySamples)
+            + " voicedStarts=" + juce::String (diagWindowVoicedStarts)
+            + " voicedEnds=" + juce::String (diagWindowVoicedEnds)
+            + " rbQDepth=" + juce::String (avgQueueDepth, 1)
+            + " rbQUnderrun=" + juce::String (diagWindowQueueUnderrunBlocks)
+            + " corrU=" + juce::String (corrUnityRatio, 3)
+            + " corr75=" + juce::String (corr75Ratio, 3)
+            + " corr100=" + juce::String (corr100Ratio, 3)
             + " vocalState=" + juce::String (vocalStateCode)
             + " speedNorm=" + juce::String (retuneControlActive, 3)
             + " lowLatency=" + juce::String (lowLatencyMode ? 1 : 0);
@@ -1290,6 +1328,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         diagWindowLockSwitches = 0;
         diagWindowTrackingLostBlocks = 0;
         diagWindowLargeRatioStepBlocks = 0;
+        diagWindowVoicedStarts = 0;
+        diagWindowVoicedEnds = 0;
+        diagWindowCorrectionBucketUnity = 0;
+        diagWindowCorrectionBucket75 = 0;
+        diagWindowCorrectionBucket100 = 0;
+        diagWindowQueueUnderrunBlocks = 0;
+        diagWindowQueueDepthSum = 0.0;
+        diagWindowQueueDepthCount = 0;
         diagWindowAppliedCentsAbsSum = 0.0;
         diagWindowTargetCentsAbsSum = 0.0;
         diagWindowInputRmsSum = 0.0;
@@ -2190,6 +2236,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     }
 
     int processed = 0;
+    bool blockHadQueueUnderrun = false;
     while (processed < numSamples)
     {
         const int chunk = juce::jmin (lowLatencyMode ? 128 : 256, numSamples - processed);
@@ -2245,6 +2292,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         while (static_cast<int> (rubberBandOutputQueue[0].size()) < processed)
         {
             rubberBandOutputQueue[0].push_back (0.0f);
+            blockHadQueueUnderrun = true;
         }
     }
 
@@ -2269,7 +2317,15 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
 
     // If still short at block end, force output from current buffer immediately.
     while (static_cast<int> (rubberBandOutputQueue[0].size()) < numSamples)
+    {
         rubberBandOutputQueue[0].push_back (0.0f);
+        blockHadQueueUnderrun = true;
+    }
+
+    if (blockHadQueueUnderrun)
+        ++diagWindowQueueUnderrunBlocks;
+    diagWindowQueueDepthSum += static_cast<double> (rubberBandOutputQueue[0].size());
+    ++diagWindowQueueDepthCount;
 
     // Explicit per-block clear before copy of retrieved wet signal.
     std::fill (channelL, channelL + numSamples, 0.0f);
