@@ -317,10 +317,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         retuneSpeedSmoothed = 1.0f;
     else
         retuneSpeedSmoothed += (retuneSpeedNorm - retuneSpeedSmoothed) * 0.12f;
+    const bool hardMaxSpeedKnob = retuneSpeedNorm >= 0.99f;
     const float retuneControlActive = juce::jlimit (0.0f, 1.0f, retuneSpeedSmoothed);
     const float k = retuneControlActive;
     const float kShaped = std::pow (k, 1.65f);
-    const float retuneMs = (retuneControlActive >= 0.90f)
+    const float retuneMs = (hardMaxSpeedKnob || retuneControlActive >= 0.90f)
         ? 0.0f
         : 180.0f * std::pow (1.0f / 180.0f, kShaped);
     auto smoothstep = [] (float e0, float e1, float x)
@@ -828,7 +829,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     const float absTargetCents = std::abs (targetCents);
                     const float previousTargetCents = 1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio));
                     const bool hasPreviousSnapDirection = std::abs (previousTargetCents) > 40.0f;
-                    const float trueCenterDeadbandCents = 8.0f;
+                    const float trueCenterDeadbandCents = 0.0f;
                     const bool withinCenterHysteresis = absTargetCents < 35.0f;
                     const float snapSign = (hasPreviousSnapDirection && withinCenterHysteresis)
                         ? (previousTargetCents >= 0.0f ? 1.0f : -1.0f)
@@ -2018,7 +2019,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
         | RubberBandStretcher::OptionPitchHighSpeed
         | RubberBandStretcher::OptionPhaseLaminar
         | RubberBandStretcher::OptionEngineFaster
-        | RubberBandStretcher::OptionWindowShort;
+        | RubberBandStretcher::OptionWindowStandard;
 
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
     rubberBandInitSampleRate = currentSampleRate;
@@ -2285,8 +2286,8 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     if (channelR != nullptr)
         std::fill (channelR, channelR + numSamples, 0.0f);
 
-    // +2 dB boost on wet-only RubberBand output for cleaner forward presence.
-    constexpr float kWetBoostLinear = 1.2589254f;
+    // +3 dB boost on wet-only RubberBand output for stronger forward presence.
+    constexpr float kWetBoostLinear = 1.4125376f;
 
     // Output is pure wet signal from RB engine. No dry blending.
     // The output queue is pre-filled with latency padding on init,
