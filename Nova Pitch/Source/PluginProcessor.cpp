@@ -499,7 +499,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         // Prevent stale/false detector output from being treated as valid pitch in near-silence.
         // This was keeping blocksSinceValidPitch at zero and causing wobble/skip at phrase tails.
-        const float detectRmsFloor = 0.0f;
+        const float detectRmsFloor = hardTuneModeDetect ? 0.0009f : 0.0012f;
         if (inputRms < detectRmsFloor)
             hasUsablePitch = false;
 
@@ -521,6 +521,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const bool canHoldLastPitch = fastCorrectionMode
                 && lastValidDetectedHz > minPitchHz - 10.0f
                 && lastValidDetectedHz < maxPitchHz + 10.0f
+                && inputRms >= detectRmsFloor
                 && blocksSinceValidPitch <= maxHoldMissBlocks;
 
             if (canHoldLastPitch)
@@ -876,21 +877,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                         ? (previousTargetCents >= 0.0f ? 1.0f : -1.0f)
                         : (targetCents >= 0.0f ? 1.0f : -1.0f);
                     // Aggressive MetaTune snap:
-                    // - >=15 cents: force full semitone jump
-                    // - any non-zero sub-semitone error: force at least 75-cent pull
+                    // - any non-zero error: force full semitone jump
                     if (absTargetCents <= trueCenterDeadbandCents)
                     {
                         computedTargetRatio = 1.0f;
                     }
-                    else if (absTargetCents >= 15.0f)
+                    else
                     {
                         targetCents = 100.0f * snapSign;
-                        computedTargetRatio = juce::jlimit (minRatio, maxRatio,
-                            std::pow (2.0f, targetCents / 1200.0f));
-                    }
-                    else if (absTargetCents < 75.0f)
-                    {
-                        targetCents = 75.0f * snapSign;
                         computedTargetRatio = juce::jlimit (minRatio, maxRatio,
                             std::pow (2.0f, targetCents / 1200.0f));
                     }
@@ -1075,7 +1069,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         && voicedHoldBlocks == 0
         && blocksSinceValidPitch > (lowLatencyMode ? 36 : 64);
     const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
-    const bool signalTooLow = false;
+    const bool signalTooLow = hardTuneMode ? hardSignalTooLow : normalSignalTooLow;
 
     // NUCLEAR FIX: Bypass the confidence check - detector is 'letting go' of notes too early.
     // In hard mode, force tracking to snap to nearest semitone regardless of confidence.
@@ -1243,7 +1237,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         correctionDrive = 1.0f;
 
     // Force full correction depth: send the exact target ratio to Rubber Band.
-    float appliedRatio = targetPitchRatio;
+    float appliedRatio = signalTooLow ? 1.0f : targetPitchRatio;
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
         applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
 
@@ -1574,8 +1568,8 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     {
         float absCents = std::abs (emphasizedCents);
 
-        if (absCents > 0.01f && absCents < 75.0f)
-            emphasizedCents = std::copysign (75.0f, emphasizedCents);
+        if (absCents > 0.01f && absCents < 100.0f)
+            emphasizedCents = std::copysign (100.0f, emphasizedCents);
 
         if (absCents > 8.0f)
             emphasizedCents *= 1.12f;
@@ -2116,7 +2110,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
         | RubberBandStretcher::OptionPitchHighSpeed
         | RubberBandStretcher::OptionPhaseLaminar
         | RubberBandStretcher::OptionEngineFaster
-        | RubberBandStretcher::OptionWindowStandard;
+        | RubberBandStretcher::OptionWindowShort;
 
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
     rubberBandInitSampleRate = currentSampleRate;
