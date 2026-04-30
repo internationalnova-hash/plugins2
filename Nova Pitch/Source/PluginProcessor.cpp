@@ -828,6 +828,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     const float absTargetCents = std::abs (targetCents);
                     const float previousTargetCents = 1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio));
                     const bool hasPreviousSnapDirection = std::abs (previousTargetCents) > 40.0f;
+                    const float trueCenterDeadbandCents = 8.0f;
                     const bool withinCenterHysteresis = absTargetCents < 35.0f;
                     const float snapSign = (hasPreviousSnapDirection && withinCenterHysteresis)
                         ? (previousTargetCents >= 0.0f ? 1.0f : -1.0f)
@@ -835,13 +836,17 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     // Aggressive MetaTune snap:
                     // - >=15 cents: force full semitone jump
                     // - any non-zero sub-semitone error: force at least 75-cent pull
-                    if (absTargetCents >= 15.0f)
+                    if (absTargetCents <= trueCenterDeadbandCents)
+                    {
+                        computedTargetRatio = 1.0f;
+                    }
+                    else if (absTargetCents >= 15.0f)
                     {
                         targetCents = 100.0f * snapSign;
                         computedTargetRatio = juce::jlimit (minRatio, maxRatio,
                             std::pow (2.0f, targetCents / 1200.0f));
                     }
-                    else if (absTargetCents > 0.01f && absTargetCents < 75.0f)
+                    else if (absTargetCents < 75.0f)
                     {
                         targetCents = 75.0f * snapSign;
                         computedTargetRatio = juce::jlimit (minRatio, maxRatio,
