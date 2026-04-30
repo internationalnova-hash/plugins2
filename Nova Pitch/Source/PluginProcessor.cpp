@@ -652,16 +652,28 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             {
                 ++lockedTargetAge;
 
-                if (candidateMidiNote == pendingTargetMidi)
+                const float detectRateHz = static_cast<float> (currentSampleRate)
+                    / static_cast<float> (juce::jmax (1, numSamples * intervalDivider));
+                const int noteCaptureHoldBlocks = static_cast<int> (std::round (
+                    juce::jmax (1.0f, detectRateHz * 0.015f)));
+
+                const bool inPostCaptureHold = lockedTargetAge < noteCaptureHoldBlocks;
+
+                if (inPostCaptureHold)
+                {
+                    pendingTargetMidi = -1;
+                    pendingTargetStreak = 0;
+                }
+                else if (candidateMidiNote == pendingTargetMidi)
+                {
                     ++pendingTargetStreak;
+                }
                 else
                 {
                     pendingTargetMidi = candidateMidiNote;
                     pendingTargetStreak = 1;
                 }
 
-                const float detectRateHz = static_cast<float> (currentSampleRate)
-                    / static_cast<float> (juce::jmax (1, numSamples * intervalDivider));
                 const float stableSeconds = detectSeconds;
                 const int requiredStableHits = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * stableSeconds)));
@@ -1995,7 +2007,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     const int channels = 1;
     const int options = RubberBandStretcher::OptionProcessRealTime
         | RubberBandStretcher::OptionPitchHighSpeed
-        | RubberBandStretcher::OptionPhaseLaminar
+        | RubberBandStretcher::OptionPhaseIndependent
         | RubberBandStretcher::OptionEngineFaster
         | RubberBandStretcher::OptionWindowShort;
 
