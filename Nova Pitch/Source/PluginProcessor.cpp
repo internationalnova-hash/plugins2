@@ -1994,7 +1994,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     // Lockdown mode: process Rubber Band as mono only, then clone L->R at output.
     const int channels = 1;
     const int options = RubberBandStretcher::OptionProcessRealTime
-        | RubberBandStretcher::OptionPitchHighConsistency
+        | RubberBandStretcher::OptionPitchHighSpeed
         | RubberBandStretcher::OptionPhaseLaminar
         | RubberBandStretcher::OptionEngineFaster
         | RubberBandStretcher::OptionWindowShort;
@@ -2146,10 +2146,18 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         rubberBandPreJumpLevel = rubberBandLevelSmoothed;
         rubberBandPrevTargetPitchScale = rubberBandTargetPitchScale;
 
-        // Digital teleport: no glide state, just jump straight to the new target.
-        rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
-        rubberBandPitchScaleSamplesRemaining = 0;
-        rubberBandPitchScaleStepPerSample = 0.0f;
+        // At max speed, force exactly one-sample transition to target.
+        if (retuneSpeedNorm >= 0.99f)
+        {
+            rubberBandPitchScaleSamplesRemaining = 1;
+            rubberBandPitchScaleStepPerSample = (rubberBandTargetPitchScale - rubberBandCurrentPitchScale);
+        }
+        else
+        {
+            rubberBandCurrentPitchScale = rubberBandTargetPitchScale;
+            rubberBandPitchScaleSamplesRemaining = 0;
+            rubberBandPitchScaleStepPerSample = 0.0f;
+        }
     }
 
     // Apply current block pitch state immediately at block start.
