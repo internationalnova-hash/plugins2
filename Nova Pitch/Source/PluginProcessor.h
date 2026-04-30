@@ -160,6 +160,7 @@ private:
     int rubberBandClickSafeGainHoldSamplesRemaining { 0 };
     float rubberBandPreJumpLevel { 0.0f };
     float rubberBandLevelSmoothed { 0.0f };
+    float rubberBandLastOutputSample { 0.0f };
     bool rubberBandPassthroughPriming { true };
     int rubberBandWarmupSamplesRemaining { 500 };
     bool playbackWasActive { false };

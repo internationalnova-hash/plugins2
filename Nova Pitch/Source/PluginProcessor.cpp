@@ -2155,6 +2155,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     rubberBandClickSafeGainHoldSamplesRemaining = 0;
     rubberBandPreJumpLevel = 0.0f;
     rubberBandLevelSmoothed = 0.0f;
+    rubberBandLastOutputSample = 0.0f;
 
     for (int ch = 0; ch < 2; ++ch)
     {
@@ -2196,6 +2197,7 @@ void NovaPitchAudioProcessor::resetRubberBandState()
     rubberBandClickSafeGainHoldSamplesRemaining = 0;
     rubberBandPreJumpLevel = 0.0f;
     rubberBandLevelSmoothed = 0.0f;
+    rubberBandLastOutputSample = 0.0f;
     rubberBandPassthroughPriming = true;
     rubberBandWarmupSamplesRemaining = 500;
     rubberBandReportedLatencySamples = 0;
@@ -2311,7 +2313,6 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     while (processed < numSamples)
     {
         const int chunk = juce::jmin (lowLatencyMode ? 128 : 256, numSamples - processed);
-        const int chunkStart = processed;
 
         if (rubberBandPitchScaleSamplesRemaining > 0)
         {
@@ -2357,14 +2358,6 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
                 rubberBandOutputQueue[0].push_back (outL[static_cast<size_t> (i)]);
             }
         }
-
-        // If Rubber Band still under-runs, force immediate output from current block
-        // instead of waiting for future internal FIFO fill.
-        while (static_cast<int> (rubberBandOutputQueue[0].size()) < processed)
-        {
-            rubberBandOutputQueue[0].push_back (0.0f);
-            blockHadQueueUnderrun = true;
-        }
     }
 
     while (rubberBand->available() > 0)
@@ -2386,10 +2379,48 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         }
     }
 
-    // If still short at block end, force output from current buffer immediately.
+    // Proactively keep queue depth above a safety floor in voiced/hard use-cases.
+    const bool voicedLike = (vocalState == VocalState::Voiced) || (vocalState == VocalState::Onset);
+    const int desiredQueueDepth = (playbackActiveNow && voicedLike)
+        ? juce::jmax (numSamples * 2, lowLatencyMode ? 384 : 768)
+        : numSamples;
+    int topUpPasses = 0;
+    const int maxTopUpPasses = 6;
+    while (static_cast<int> (rubberBandOutputQueue[0].size()) < desiredQueueDepth && topUpPasses < maxTopUpPasses)
+    {
+        const int topUpChunk = juce::jmin (lowLatencyMode ? 128 : 256, desiredQueueDepth - static_cast<int> (rubberBandOutputQueue[0].size()));
+        if (topUpChunk <= 0)
+            break;
+
+        std::fill (inL.begin(), inL.begin() + topUpChunk, 0.0f);
+        const float* padPtrs[1] = { inL.data() };
+        rubberBand->process (padPtrs, static_cast<size_t> (topUpChunk), false);
+
+        while (rubberBand->available() > 0)
+        {
+            const int toRead = juce::jmin (rubberBand->available(), juce::jmax (topUpChunk, 256));
+            auto& outL = rubberBandRetrieveScratch[0];
+            if (static_cast<int> (outL.size()) < toRead)
+                outL.resize (static_cast<size_t> (toRead), 0.0f);
+
+            float* outPtrs[1] = { outL.data() };
+            const int got = static_cast<int> (rubberBand->retrieve (outPtrs, static_cast<size_t> (toRead)));
+            if (got <= 0)
+                break;
+
+            for (int i = 0; i < got; ++i)
+                rubberBandOutputQueue[0].push_back (outL[static_cast<size_t> (i)]);
+        }
+
+        ++topUpPasses;
+    }
+
+    // If still short at block end, inject continuity filler instead of hard zeros.
+    float continuitySample = rubberBandLastOutputSample;
     while (static_cast<int> (rubberBandOutputQueue[0].size()) < numSamples)
     {
-        rubberBandOutputQueue[0].push_back (0.0f);
+        continuitySample *= 0.9975f;
+        rubberBandOutputQueue[0].push_back (continuitySample);
         blockHadQueueUnderrun = true;
     }
 
@@ -2412,8 +2443,11 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
 
     for (int i = 0; i < numSamples; ++i)
     {
-        float wetSample = rubberBandOutputQueue[0].front() * kWetBoostLinear;
-        rubberBandOutputQueue[0].pop_front();
+        const float rawSample = rubberBandOutputQueue[0].empty() ? rubberBandLastOutputSample : rubberBandOutputQueue[0].front();
+        if (! rubberBandOutputQueue[0].empty())
+            rubberBandOutputQueue[0].pop_front();
+        rubberBandLastOutputSample = rawSample;
+        float wetSample = rawSample * kWetBoostLinear;
         
         // Decrement warmup counter if still warming up (but don't blend).
         if (rubberBandWarmupSamplesRemaining > 0)
