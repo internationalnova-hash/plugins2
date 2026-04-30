@@ -2007,7 +2007,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
     const int channels = 1;
     const int options = RubberBandStretcher::OptionProcessRealTime
         | RubberBandStretcher::OptionPitchHighSpeed
-        | RubberBandStretcher::OptionPhaseIndependent
+        | RubberBandStretcher::OptionPhaseLaminar
         | RubberBandStretcher::OptionEngineFaster
         | RubberBandStretcher::OptionWindowShort;
 
