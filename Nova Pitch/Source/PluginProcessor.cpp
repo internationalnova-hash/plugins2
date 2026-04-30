@@ -2147,14 +2147,10 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     }
 
     auto& inL = rubberBandInputScratch[0];
-    auto& inR = rubberBandInputScratch[1];
     if (static_cast<int> (inL.size()) < numSamples)
         inL.resize (static_cast<size_t> (numSamples), 0.0f);
-    if (static_cast<int> (inR.size()) < numSamples)
-        inR.resize (static_cast<size_t> (numSamples), 0.0f);
 
     std::copy (channelL, channelL + numSamples, inL.begin());
-    std::copy (channelL, channelL + numSamples, inR.begin());
 
     const float clampedRatio = juce::jlimit (0.25f, 4.00f, pitchRatio);
     rubberBandTargetPitchScale = clampedRatio;
@@ -2219,7 +2215,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         rubberBand->setFormantScale (1.0);
         rubberBand->setPitchScale (rubberBandCurrentPitchScale);
 
-        const float* inPtrs[2] = { inL.data() + processed, inL.data() + processed };
+        const float* inPtrs[1] = { inL.data() + processed };
         rubberBand->process (inPtrs, static_cast<size_t> (chunk), false);
         processed += chunk;
 
@@ -2230,13 +2226,10 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
             const int toRead = juce::jmin (rubberBand->available(), chunk);
 
             auto& outL = rubberBandRetrieveScratch[0];
-            auto& outR = rubberBandRetrieveScratch[1];
             if (static_cast<int> (outL.size()) < toRead)
                 outL.resize (static_cast<size_t> (toRead), 0.0f);
-            if (static_cast<int> (outR.size()) < toRead)
-                outR.resize (static_cast<size_t> (toRead), 0.0f);
 
-            float* outPtrs[2] = { outL.data(), outR.data() };
+            float* outPtrs[1] = { outL.data() };
             const int got = static_cast<int> (rubberBand->retrieve (outPtrs, static_cast<size_t> (toRead)));
             if (got <= 0)
                 break;
@@ -2260,13 +2253,10 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         const int toRead = juce::jmin (rubberBand->available(), juce::jmax (numSamples, 8192));
 
         auto& outL = rubberBandRetrieveScratch[0];
-        auto& outR = rubberBandRetrieveScratch[1];
         if (static_cast<int> (outL.size()) < toRead)
             outL.resize (static_cast<size_t> (toRead), 0.0f);
-        if (static_cast<int> (outR.size()) < toRead)
-            outR.resize (static_cast<size_t> (toRead), 0.0f);
 
-        float* outPtrs[2] = { outL.data(), outR.data() };
+        float* outPtrs[1] = { outL.data() };
         const int got = static_cast<int> (rubberBand->retrieve (outPtrs, static_cast<size_t> (toRead)));
         if (got <= 0)
             break;
