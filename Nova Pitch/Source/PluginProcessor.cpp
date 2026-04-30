@@ -200,6 +200,10 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     pendingTargetMidi = -1;
     pendingTargetStreak = 0;
     targetSwitchCooldownBlocks = 0;
+    pitchMemoryHz = 0.0f;
+    pitchMemorySamplesRemaining = 0;
+    wetReentryFadeSamplesRemaining = 0;
+    centerPriorityBlocksRemaining = 0;
     diagWindowSamples = 0;
     diagWindowBlocks = 0;
     diagWindowDetectEvalBlocks = 0;
@@ -460,17 +464,24 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     }
     const float inputRms = rawInputRms;
 
-    // Test build override: bypass RMS gate and keep detector/vocal state always engaged.
-    vocalState = VocalState::Onset;
-    vocalStateAgeBlocks = 0;
-    
     // Keep tracking cadence fixed so changing Retune Speed cannot retime detection/locking.
     const bool fastRetuneTracking = true;
     const int intervalDivider = 1;
+    const float detectRateHz = static_cast<float> (currentSampleRate)
+        / static_cast<float> (juce::jmax (1, numSamples * intervalDivider));
+    const int centerPriorityWindowBlocks = static_cast<int> (std::round (
+        juce::jmax (1.0f, detectRateHz * 0.050f)));
+    const int pitchMemoryHoldSamples = static_cast<int> (std::round (
+        juce::jmax (1.0f, static_cast<float> (currentSampleRate) * 0.500f)));
+    const int wetReentryFadeTotalSamples = static_cast<int> (std::round (
+        juce::jmax (1.0f, static_cast<float> (currentSampleRate) * 0.005f)));
 
     // Perform pitch detection periodically
     if (blockCount % intervalDivider == 0)
     {
+        if (centerPriorityBlocksRemaining > 0)
+            --centerPriorityBlocksRemaining;
+
         diagWindowDetectEvalBlocks++;
         float rawYinHz = detectPitchYIN (analysisData, numSamples);
         const bool fastCorrectionMode = true;
@@ -497,6 +508,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             diagWindowDetectValidBlocks++;
             lastValidDetectedHz = detectedHz;
             blocksSinceValidPitch = 0;
+            pitchMemoryHz = detectedHz;
+            pitchMemorySamplesRemaining = pitchMemoryHoldSamples;
         }
         else
         {
@@ -520,6 +533,20 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 blocksSinceValidPitch = 0;
                 diagWindowDetectValidBlocks++;
                 pitchConfidence.store (juce::jmax (pitchConfidence.load(), 0.35f));
+            }
+
+            if (! hasUsablePitch
+                && pitchMemorySamplesRemaining > 0
+                && pitchMemoryHz > minPitchHz - 10.0f
+                && pitchMemoryHz < maxPitchHz + 10.0f)
+            {
+                detectedHz = pitchMemoryHz;
+                hasUsablePitch = true;
+                usingHeldPitch = true;
+                blocksSinceValidPitch = 0;
+                diagWindowDetectValidBlocks++;
+                pitchConfidence.store (juce::jmax (pitchConfidence.load(), 0.35f));
+                pitchMemorySamplesRemaining = juce::jmax (0, pitchMemorySamplesRemaining - numSamples);
             }
         }
 
@@ -600,6 +627,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     candidateMidiNote = lockedTargetMidi;
             }
 
+            if (hardTuneModeFrame
+                && centerPriorityBlocksRemaining > 0
+                && lockedTargetMidi >= 0
+                && candidateMidiNote != lockedTargetMidi)
+            {
+                candidateMidiNote = lockedTargetMidi;
+            }
+
             // Sticky target-note hysteresis: require at least 60% travel from current
             // locked note toward the candidate note before allowing a switch.
             if (lockedTargetMidi >= 0)
@@ -661,8 +696,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             {
                 ++lockedTargetAge;
 
-                const float detectRateHz = static_cast<float> (currentSampleRate)
-                    / static_cast<float> (juce::jmax (1, numSamples * intervalDivider));
                 const int noteCaptureHoldBlocks = static_cast<int> (std::round (
                     juce::jmax (1.0f, detectRateHz * 0.015f)));
 
@@ -979,14 +1012,21 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const bool stateEnergyLow  = inputRmsSmoothed <= stateOffThreshold;
     const bool statePitchFresh = blocksSinceValidPitch == 0;
 
-    auto setVocalState = [this] (VocalState s)
+    auto setVocalState = [this, centerPriorityWindowBlocks, wetReentryFadeTotalSamples] (VocalState s)
     {
         if (vocalState != s)
         {
+            const bool wordStartTransition = (s == VocalState::Onset)
+                && (vocalState == VocalState::Silence || vocalState == VocalState::Release);
             if (vocalState != VocalState::Voiced && s == VocalState::Voiced)
                 ++diagWindowVoicedStarts;
             if (vocalState == VocalState::Voiced && s != VocalState::Voiced)
                 ++diagWindowVoicedEnds;
+            if (wordStartTransition)
+            {
+                centerPriorityBlocksRemaining = centerPriorityWindowBlocks;
+                wetReentryFadeSamplesRemaining = wetReentryFadeTotalSamples;
+            }
             vocalState = s;
             vocalStateAgeBlocks = 0;
         }
@@ -1030,10 +1070,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 setVocalState (VocalState::Release);
             break;
     }
-
-            // Test build override: bypass state machine energy drops; keep state forced to 1 (Onset).
-            vocalState = VocalState::Onset;
-            vocalStateAgeBlocks = 0;
 
     const bool hardSignalTooLow = inputRmsSmoothed < gateOffThreshold
         && voicedHoldBlocks == 0
@@ -1218,6 +1254,21 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     processRubberBandPitchShift (channelL, channelR, numSamples, appliedRatio, lowLatencyMode,
                                  retuneMs, retuneControlActive, trackingConfidence);
+
+    if (wetReentryFadeSamplesRemaining > 0)
+    {
+        const int totalFadeSamples = juce::jmax (1, wetReentryFadeTotalSamples);
+        const int fadeStartSample = juce::jmax (0, totalFadeSamples - wetReentryFadeSamplesRemaining);
+        for (int i = 0; i < numSamples; ++i)
+        {
+            const float wetFadeGain = juce::jlimit (0.0f, 1.0f,
+                static_cast<float> (fadeStartSample + i + 1) / static_cast<float> (totalFadeSamples));
+            channelL[i] *= wetFadeGain;
+            if (channelR != nullptr)
+                channelR[i] *= wetFadeGain;
+        }
+        wetReentryFadeSamplesRemaining = juce::jmax (0, wetReentryFadeSamplesRemaining - numSamples);
+    }
 
     if (! signalTooLow && ! hardTuneMode)
     {

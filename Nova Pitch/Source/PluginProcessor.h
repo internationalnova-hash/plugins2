@@ -206,6 +206,10 @@ private:
     int pendingTargetMidi { -1 };
     int pendingTargetStreak { 0 };
     int targetSwitchCooldownBlocks { 0 };
+    float pitchMemoryHz { 0.0f };
+    int pitchMemorySamplesRemaining { 0 };
+    int wetReentryFadeSamplesRemaining { 0 };
+    int centerPriorityBlocksRemaining { 0 };
     int currentLatencySamples { normalPitchDelaySamples };
 
     // Rolling DSP diagnostics (used for root-cause telemetry in debug builds).
