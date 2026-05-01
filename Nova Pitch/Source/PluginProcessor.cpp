@@ -161,7 +161,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     // DAW-provided sampleRate argument on every playback prepare.
     resetRubberBandState();
     initializePitchShift();
-    initializeRubberBand (juce::jmax (samplesPerBlock, 64), false);
+    initializeRubberBand (juce::jmax (samplesPerBlock, 64), false, false);
     currentLatencySamples = 4096;
     setLatencySamples (currentLatencySamples);
     analysisScratch.clear();
@@ -309,7 +309,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             rubberBand->reset();
         resetRubberBandState();
         initializeRubberBand (juce::jmax (numSamples, rubberBandMaxBlockSize),
-                              apvts.getRawParameterValue ("lowLatency")->load() >= 0.5f);
+                      apvts.getRawParameterValue ("lowLatency")->load() >= 0.5f,
+                      false);
     }
 
     diagWindowBlocks++;
@@ -359,12 +360,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
     const bool sampleRateMismatch = rubberBand != nullptr && std::abs (hostSampleRate - rubberBandInitSampleRate) > 0.5;
-    if (rubberBand == nullptr || rubberBandLowLatencyMode != lowLatencyMode || sampleRateMismatch)
+    const bool hardTuneEngineMode = retuneControlActive >= 0.98f;
+    if (rubberBand == nullptr
+        || rubberBandLowLatencyMode != lowLatencyMode
+        || rubberBandHardTuneMode != hardTuneEngineMode
+        || sampleRateMismatch)
     {
         if (rubberBand != nullptr)
             rubberBand->reset();
         resetRubberBandState();
-        initializeRubberBand (juce::jmax (numSamples, rubberBandMaxBlockSize), lowLatencyMode);
+        initializeRubberBand (juce::jmax (numSamples, rubberBandMaxBlockSize), lowLatencyMode, hardTuneEngineMode);
     }
 
     // Host latency is updated when stretcher settings are (re)initialized.
@@ -2178,7 +2183,7 @@ void NovaPitchAudioProcessor::initializePitchShift()
     formantAllPassState = {};
 }
 
-void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLatencyMode)
+void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLatencyMode, bool hardTuneMode)
 {
     using RubberBand::RubberBandStretcher;
 
@@ -2190,10 +2195,14 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
             ? (RubberBandStretcher::OptionPitchHighConsistency
                 | RubberBandStretcher::OptionEngineFaster
                 | RubberBandStretcher::OptionWindowShort)
-            : (RubberBandStretcher::OptionPitchHighConsistency
-                | RubberBandStretcher::OptionEngineFiner
-                | RubberBandStretcher::OptionWindowStandard
-                | RubberBandStretcher::OptionFormantPreserved));
+            : (hardTuneMode
+                ? (RubberBandStretcher::OptionPitchHighSpeed
+                    | RubberBandStretcher::OptionEngineFaster
+                    | RubberBandStretcher::OptionWindowShort)
+                : (RubberBandStretcher::OptionPitchHighConsistency
+                    | RubberBandStretcher::OptionEngineFiner
+                    | RubberBandStretcher::OptionWindowStandard
+                    | RubberBandStretcher::OptionFormantPreserved)));
 
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
     rubberBandInitSampleRate = currentSampleRate;
@@ -2204,6 +2213,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
 
     rubberBandMaxBlockSize = juce::jmax (8192, maxBlockSize);
     rubberBandLowLatencyMode = lowLatencyMode;
+    rubberBandHardTuneMode = hardTuneMode;
     rubberBandPitchScaleSamplesRemaining = 0;
     rubberBandPitchScaleStepPerSample = 0.0f;
     rubberBandCurrentPitchScale = 1.0f;
@@ -2247,6 +2257,8 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
 void NovaPitchAudioProcessor::resetRubberBandState()
 {
     rubberBand.reset();
+    rubberBandLowLatencyMode = false;
+    rubberBandHardTuneMode = false;
     rubberBandInitSampleRate = 0.0;
     rubberBandPitchScaleSamplesRemaining = 0;
     rubberBandPitchScaleStepPerSample = 0.0f;
@@ -2284,14 +2296,17 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     // Force mono stream through Rubber Band to eliminate stereo phase-smear.
     const int channels = 1;
 
+    const bool hardTuneEngineMode = retuneSpeedNorm >= 0.98f;
+
     if (rubberBand == nullptr
         || rubberBandMaxBlockSize < numSamples
-        || rubberBandLowLatencyMode != lowLatencyMode)
+        || rubberBandLowLatencyMode != lowLatencyMode
+        || rubberBandHardTuneMode != hardTuneEngineMode)
     {
         if (rubberBand != nullptr)
             rubberBand->reset();
         resetRubberBandState();
-        initializeRubberBand (juce::jmax (numSamples, rubberBandMaxBlockSize), lowLatencyMode);
+        initializeRubberBand (juce::jmax (numSamples, rubberBandMaxBlockSize), lowLatencyMode, hardTuneEngineMode);
     }
 
     const bool playbackActiveNow = inputRmsSmoothed > 1.0e-4f || detectedPitch.load() > 0.0f;

@@ -107,7 +107,7 @@ private:
     void processCircularBufferPitchShift (float* channelData, int numSamples, float pitchRatio,
                                           int channelIndex, bool lowLatencyMode, float retuneSpeedNorm,
                                           float trackingConfidence);
-    void initializeRubberBand (int maxBlockSize, bool lowLatencyMode);
+    void initializeRubberBand (int maxBlockSize, bool lowLatencyMode, bool hardTuneMode);
     void resetRubberBandState();
     void processRubberBandPitchShift (float* channelL, float* channelR, int numSamples,
                                       float pitchRatio, bool lowLatencyMode,
@@ -150,6 +150,7 @@ private:
     std::array<std::deque<float>, 2> rubberBandOutputQueue;
     int rubberBandMaxBlockSize { 0 };
     bool rubberBandLowLatencyMode { false };
+    bool rubberBandHardTuneMode { false };
     double rubberBandInitSampleRate { 0.0 };
     int rubberBandReportedLatencySamples { 0 };
     float rubberBandTargetPitchScale { 1.0f };
