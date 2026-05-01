@@ -2183,15 +2183,19 @@ void NovaPitchAudioProcessor::initializePitchShift()
 void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLatencyMode)
 {
     using RubberBand::RubberBandStretcher;
-    const int fixedLatencySamples = 4096;
 
     // Lockdown mode: process Rubber Band as mono only, then clone L->R at output.
     const int channels = 1;
     const int options = RubberBandStretcher::OptionProcessRealTime
-        | RubberBandStretcher::OptionPitchHighSpeed
         | RubberBandStretcher::OptionPhaseLaminar
-        | RubberBandStretcher::OptionEngineFaster
-        | RubberBandStretcher::OptionWindowShort;
+        | (lowLatencyMode
+            ? (RubberBandStretcher::OptionPitchHighConsistency
+                | RubberBandStretcher::OptionEngineFaster
+                | RubberBandStretcher::OptionWindowShort)
+            : (RubberBandStretcher::OptionPitchHighConsistency
+                | RubberBandStretcher::OptionEngineFiner
+                | RubberBandStretcher::OptionWindowStandard
+                | RubberBandStretcher::OptionFormantPreserved));
 
     rubberBand = std::make_unique<RubberBandStretcher> (currentSampleRate, channels, options, 1.0, 1.0);
     rubberBandInitSampleRate = currentSampleRate;
@@ -2228,10 +2232,12 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
         rubberBand->process (inPtrs, startPad, false);
     }
 
-    // NUCLEAR FIX: Hard-clamp latency to fixed 4096 samples.
-    // Stop reporting variable latency. This allows the DAW to lock the phase once and for all.
-    // Fixed large latency value ensures stable phase alignment without jitter.
-    rubberBandReportedLatencySamples = fixedLatencySamples;
+    // Report realistic stretcher latency (bounded) instead of a hard 4096-sample clamp.
+    // This reduces monitor-phase feel and keeps host latency compensation meaningful.
+    const int rbLatency = juce::jmax (0, static_cast<int> (std::round (rubberBand->getLatency())));
+    const int minReportedLatency = lowLatencyMode ? 128 : 256;
+    const int maxReportedLatency = lowLatencyMode ? 1536 : 3072;
+    rubberBandReportedLatencySamples = juce::jlimit (minReportedLatency, maxReportedLatency, rbLatency);
 
     if (rubberBandReportedLatencySamples != currentLatencySamples)
     {
@@ -2256,13 +2262,13 @@ void NovaPitchAudioProcessor::resetRubberBandState()
     rubberBandPassthroughPriming = true;
     rubberBandWarmupSamplesRemaining = 500;
     rubberBandReportedLatencySamples = 0;
-    const int fixedLatencySamples = juce::jmax (4096, currentLatencySamples);
+    const int queuePrimeSamples = juce::jmax (0, currentLatencySamples);
     for (int ch = 0; ch < 2; ++ch)
     {
         rubberBandOutputQueue[static_cast<size_t> (ch)].clear();
         rubberBandOutputQueue[static_cast<size_t> (ch)].insert (
             rubberBandOutputQueue[static_cast<size_t> (ch)].end(),
-            static_cast<size_t> (fixedLatencySamples),
+            static_cast<size_t> (queuePrimeSamples),
             0.0f);
     }
 }
@@ -2297,13 +2303,13 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
             rubberBand->reset();
 
         rubberBandWarmupSamplesRemaining = 500;
-        const int fixedLatencySamples = juce::jmax (4096, currentLatencySamples);
+        const int queuePrimeSamples = juce::jmax (0, currentLatencySamples);
         for (int ch = 0; ch < 2; ++ch)
         {
             rubberBandOutputQueue[static_cast<size_t> (ch)].clear();
             rubberBandOutputQueue[static_cast<size_t> (ch)].insert (
                 rubberBandOutputQueue[static_cast<size_t> (ch)].end(),
-                static_cast<size_t> (fixedLatencySamples),
+                static_cast<size_t> (queuePrimeSamples),
                 0.0f);
         }
     }
@@ -2489,8 +2495,8 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     if (channelR != nullptr)
         std::fill (channelR, channelR + numSamples, 0.0f);
 
-    // +3 dB boost on wet-only RubberBand output for stronger forward presence.
-    constexpr float kWetBoostLinear = 1.1885022f; // +1.5 dB
+    // Keep wet level unity to avoid avoidable grit/clipping on hard correction.
+    constexpr float kWetBoostLinear = 1.0f;
 
     // Output is pure wet signal from RB engine. No dry blending.
     // The output queue is pre-filled with latency padding on init,
