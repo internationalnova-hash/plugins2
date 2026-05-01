@@ -879,7 +879,30 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 }
                 else if (hardTuneModeFrame)
                 {
-                    targetPitchRatio = computedTargetRatio;
+                    const bool hardStableRatioFrame = (inputRms > 0.010f)
+                        && (pitchConfidence.load() > 0.72f)
+                        && (! usingHeldPitch);
+
+                    if (hardStableRatioFrame)
+                    {
+                        // In hard mode, keep correction decisive but prevent frame-level
+                        // detector flutter from instantly yanking ratio each block.
+                        const float previousCents = 1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio));
+                        const float computedCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
+                        const float maxStepCents = lowLatencyMode ? 34.0f : 26.0f;
+                        const float limitedCents = previousCents + juce::jlimit (-maxStepCents, maxStepCents,
+                                                                                computedCents - previousCents);
+                        const float limitedRatio = juce::jlimit (minRatio, maxRatio,
+                            std::pow (2.0f, limitedCents / 1200.0f));
+
+                        const float hardRetargetAlpha = lowLatencyMode ? 0.55f : 0.45f;
+                        targetPitchRatio += (limitedRatio - targetPitchRatio) * hardRetargetAlpha;
+                    }
+                    else if (std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
+                    {
+                        // Hold last stable hard correction through weak/noisy frames.
+                        targetPitchRatio = hardHeldPitchRatio;
+                    }
                 }
                 else
                 {
