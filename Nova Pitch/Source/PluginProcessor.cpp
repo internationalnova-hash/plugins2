@@ -882,21 +882,29 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     const bool hardStableRatioFrame = (inputRms > 0.010f)
                         && (pitchConfidence.load() > 0.72f)
                         && (! usingHeldPitch);
+                    const bool hardUltraSnap = retuneControlActive >= 0.98f;
 
                     if (hardStableRatioFrame)
                     {
-                        // In hard mode, keep correction decisive but prevent frame-level
-                        // detector flutter from instantly yanking ratio each block.
-                        const float previousCents = 1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio));
-                        const float computedCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
-                        const float maxStepCents = lowLatencyMode ? 34.0f : 26.0f;
-                        const float limitedCents = previousCents + juce::jlimit (-maxStepCents, maxStepCents,
-                                                                                computedCents - previousCents);
-                        const float limitedRatio = juce::jlimit (minRatio, maxRatio,
-                            std::pow (2.0f, limitedCents / 1200.0f));
+                        if (hardUltraSnap)
+                        {
+                            // Max speed: immediate hard lock for stronger robotic effect.
+                            targetPitchRatio = computedTargetRatio;
+                        }
+                        else
+                        {
+                            // Keep anti-wobble limiting below max speed, but less damped.
+                            const float previousCents = 1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio));
+                            const float computedCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
+                            const float maxStepCents = lowLatencyMode ? 56.0f : 44.0f;
+                            const float limitedCents = previousCents + juce::jlimit (-maxStepCents, maxStepCents,
+                                                                                    computedCents - previousCents);
+                            const float limitedRatio = juce::jlimit (minRatio, maxRatio,
+                                std::pow (2.0f, limitedCents / 1200.0f));
 
-                        const float hardRetargetAlpha = lowLatencyMode ? 0.55f : 0.45f;
-                        targetPitchRatio += (limitedRatio - targetPitchRatio) * hardRetargetAlpha;
+                            const float hardRetargetAlpha = lowLatencyMode ? 0.80f : 0.72f;
+                            targetPitchRatio += (limitedRatio - targetPitchRatio) * hardRetargetAlpha;
+                        }
                     }
                     else if (std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
                     {
@@ -1614,10 +1622,10 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
     // Normal blending — extremely conservative so the smoother cannot be dragged by
     // one or two outlier frames.  At alpha=0.04 a 100 Hz step takes ~17 blocks to close.
     juce::ignoreUnused (signalRms, lowLatencyMode);
-        // Hard-tune mode needs fast convergence (snap autotune effect).
-        // alpha=0.45 → pitch smoother settles in ~8-10 blocks (~100ms) instead of 40+ blocks.
-        // The median filter above still kills single-block subharmonic glitches.
-        const float alpha = hardTuneMode ? 0.45f : (lowLatencyMode ? 0.022f : 0.04f);
+        // Hard-tune mode needs very fast convergence so vibrato/drift are flattened
+        // rather than partially preserved. Median filtering above still suppresses
+        // one-block detector glitches.
+        const float alpha = hardTuneMode ? 0.70f : (lowLatencyMode ? 0.022f : 0.04f);
 
     smoothedDetectedHz += (rawDetectedHz - smoothedDetectedHz) * alpha;
     return smoothedDetectedHz;
