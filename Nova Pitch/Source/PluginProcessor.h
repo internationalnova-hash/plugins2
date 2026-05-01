@@ -202,6 +202,7 @@ private:
     float retuneSpeedSmoothed { 0.0f };
     float inputRmsSmoothed { 0.0f };
     int voicedHoldBlocks { 0 };
+    int hardTrueSilenceBlocks { 0 };
     int lockedTargetMidi { -1 };
     int previousLockedTargetMidi { -1 };
     int lockedTargetAge { 0 };

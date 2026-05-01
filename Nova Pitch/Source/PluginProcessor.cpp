@@ -998,6 +998,20 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const bool hardTuneMode = retuneControlActive >= 0.85f;
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     inputRmsSmoothed += (inputRms - inputRmsSmoothed) * 0.08f;
+    const float hardRawSilenceFloor = 0.00045f;
+    const int hardSilenceDwellRequired = lowLatencyMode ? 10 : 14;
+    if (hardTuneMode)
+    {
+        if (inputRms < hardRawSilenceFloor)
+            ++hardTrueSilenceBlocks;
+        else
+            hardTrueSilenceBlocks = 0;
+    }
+    else
+    {
+        hardTrueSilenceBlocks = 0;
+    }
+    const bool hardTrueSilence = hardTuneMode && (hardTrueSilenceBlocks >= hardSilenceDwellRequired);
     const float gateOnThreshold = hardTuneMode ? 0.0012f : 0.0030f;
     const float gateOffThreshold = hardTuneMode ? 0.00035f : 0.0012f;
     if (inputRmsSmoothed >= gateOnThreshold)
@@ -1063,7 +1077,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         case VocalState::Voiced:
             if ((hardTuneMode
-                    ? ((inputRms < strictSilenceFloor) && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= 18
+                    ? (hardTrueSilence && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= 18
                         && blocksSinceValidPitch > (lowLatencyMode ? 40 : 56))
                     : ((stateEnergyLow && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= 12)
                         || blocksSinceValidPitch > 48)))
@@ -1076,7 +1090,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             if (statePitchFresh && stateEnergyHigh)
                 setVocalState (VocalState::Onset);
             else if ((hardTuneMode
-                        ? (inputRms < strictSilenceFloor && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= 36)
+                        ? (hardTrueSilence && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= 36)
                         : (stateEnergyLow && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= 4)))
                 setVocalState (VocalState::Silence);
             else
@@ -1093,11 +1107,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         setVocalState (VocalState::Voiced);
     const bool hardContinuityLock = hardTuneMode
         && vocalState == VocalState::Voiced
-        && inputRmsSmoothed > strictSilenceFloor
+        && ! hardTrueSilence
         && blocksSinceValidPitch <= (lowLatencyMode ? 40 : 56);
     if (hardContinuityLock && std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
         targetPitchRatio = hardHeldPitchRatio;
-    if (inputRms < strictSilenceFloor)
+    if (hardTuneMode ? hardTrueSilence : (inputRms < strictSilenceFloor))
     {
         pitchMemorySamplesRemaining = 0;
         if (vocalState == VocalState::Silence
@@ -1119,7 +1133,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         && voicedHoldBlocks == 0
         && blocksSinceValidPitch > (lowLatencyMode ? 36 : 64);
     const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
-    const bool forceSilenceKill = inputRms < strictSilenceFloor;
+    const bool forceSilenceKill = hardTuneMode ? hardTrueSilence : (inputRms < strictSilenceFloor);
     const bool signalTooLow = hardTuneMode
         ? forceSilenceKill
         : (forceSilenceKill || normalSignalTooLow);
@@ -1251,18 +1265,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     if (hardTuneMode)
     {
-        // Hard mode should keep strong correction on stable voiced frames, but back off
-        // smoothly (not abruptly) when confidence/energy become unreliable.
+        // Keep hard-mode correction depth independent from detector validity jitter.
         const float energyDrive = juce::jlimit (0.70f, 1.0f,
             juce::jmap (inputRmsSmoothed, 0.0020f, 0.010f, 0.70f, 1.0f));
-        const float freshnessDrive = juce::jlimit (0.88f, 1.0f,
-            juce::jmap (static_cast<float> (blocksSinceValidPitch), 0.0f, 20.0f, 1.0f, 0.88f));
-        correctionDrive *= energyDrive * freshnessDrive;
+        correctionDrive *= energyDrive;
 
         if (vocalState != VocalState::Voiced)
-            correctionDrive *= 0.92f;
-
-        if (! hardStableUpdateFrame)
             correctionDrive *= 0.92f;
     }
 
@@ -1304,8 +1312,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     float appliedRatio = (signalTooLow || hardOnsetReacquire) ? 1.0f : targetPitchRatio;
     if (hardContinuityLock && std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
         appliedRatio = hardHeldPitchRatio;
-    if (hardTuneMode && vocalState == VocalState::Voiced && lockedTargetMidi >= 0 && std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
-        appliedRatio = hardHeldPitchRatio;
+    if (hardTuneMode && ! forceSilenceKill && (vocalState == VocalState::Voiced || vocalState == VocalState::Release))
+    {
+        if (lockedTargetMidi >= 0 && std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
+            appliedRatio = hardHeldPitchRatio;
+        else
+            appliedRatio = targetPitchRatio;
+    }
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
         applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
 
@@ -2424,13 +2437,13 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     // Proactively keep queue depth above a safety floor in voiced/hard use-cases.
     const bool voicedLike = (vocalState == VocalState::Voiced) || (vocalState == VocalState::Onset);
     const int desiredQueueDepth = (playbackActiveNow && voicedLike)
-        ? juce::jmax (numSamples * 2, lowLatencyMode ? 384 : 768)
+        ? juce::jmax (numSamples + (lowLatencyMode ? 96 : 192), lowLatencyMode ? 256 : 512)
         : numSamples;
     int topUpPasses = 0;
-    const int maxTopUpPasses = 6;
+    const int maxTopUpPasses = 2;
     while (static_cast<int> (rubberBandOutputQueue[0].size()) < desiredQueueDepth && topUpPasses < maxTopUpPasses)
     {
-        const int topUpChunk = juce::jmin (lowLatencyMode ? 128 : 256, desiredQueueDepth - static_cast<int> (rubberBandOutputQueue[0].size()));
+        const int topUpChunk = juce::jmin (lowLatencyMode ? 64 : 128, desiredQueueDepth - static_cast<int> (rubberBandOutputQueue[0].size()));
         if (topUpChunk <= 0)
             break;
 
@@ -2440,7 +2453,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
 
         while (rubberBand->available() > 0)
         {
-            const int toRead = juce::jmin (rubberBand->available(), juce::jmax (topUpChunk, 256));
+            const int toRead = juce::jmin (rubberBand->available(), juce::jmax (topUpChunk, 128));
             auto& outL = rubberBandRetrieveScratch[0];
             if (static_cast<int> (outL.size()) < toRead)
                 outL.resize (static_cast<size_t> (toRead), 0.0f);
