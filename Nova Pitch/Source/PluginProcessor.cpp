@@ -1052,8 +1052,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             break;
 
         case VocalState::Voiced:
-            if ((stateEnergyLow && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= (hardTuneMode ? 6 : 0))
-                || blocksSinceValidPitch > (hardTuneMode ? 32 : 2))
+            if ((stateEnergyLow && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= (hardTuneMode ? 12 : 0))
+                || blocksSinceValidPitch > (hardTuneMode ? 48 : 2))
                 setVocalState (VocalState::Release);
             else
                 setVocalState (VocalState::Voiced);
@@ -1062,7 +1062,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         case VocalState::Release:
             if (statePitchFresh && stateEnergyHigh)
                 setVocalState (VocalState::Onset);
-            else if (stateEnergyLow && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= (hardTuneMode ? 20 : 4))
+            else if (stateEnergyLow && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= (hardTuneMode ? 30 : 4))
                 setVocalState (VocalState::Silence);
             else
                 setVocalState (VocalState::Release);
@@ -1076,6 +1076,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         && blocksSinceValidPitch <= (lowLatencyMode ? 20 : 26);
     if (hardVoicedClamp && vocalState != VocalState::Voiced)
         setVocalState (VocalState::Voiced);
+    const bool hardContinuityLock = hardTuneMode
+        && vocalState == VocalState::Voiced
+        && inputRmsSmoothed > 0.008f
+        && blocksSinceValidPitch <= (lowLatencyMode ? 28 : 36);
 
     const float strictSilenceFloor = hardTuneMode ? 0.0010f : 0.0012f;
     if (inputRms < strictSilenceFloor)
@@ -1100,7 +1104,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         && blocksSinceValidPitch > (lowLatencyMode ? 36 : 64);
     const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
     const bool forceSilenceKill = inputRms < strictSilenceFloor;
-    const bool signalTooLow = forceSilenceKill || (hardTuneMode ? hardSignalTooLow : normalSignalTooLow);
+    const bool signalTooLow = forceSilenceKill || (! hardContinuityLock && (hardTuneMode ? hardSignalTooLow : normalSignalTooLow));
 
     // NUCLEAR FIX: Bypass the confidence check - detector is 'letting go' of notes too early.
     // In hard mode, force tracking to snap to nearest semitone regardless of confidence.
@@ -1122,6 +1126,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Retune stays active across the full knob range; knob controls speed only.
     // Single smooth LP filter toward target — no per-block clamping (eliminates double-limiting oscillations).
     const bool hardStableUpdateFrame = (! hardTuneMode)
+        || hardContinuityLock
         || (((inputRmsSmoothed > 0.0020f) || (voicedHoldBlocks > 0))
             && (blocksSinceValidPitch <= (lowLatencyMode ? 18 : 24))
             && (vocalState != VocalState::Silence));
@@ -1204,7 +1209,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // transient attack frames from sounding like skip/record-stop artifacts.
     float correctionDrive = 1.0f;
 
-    const bool correctionEngagedNow = (! signalTooLow) && (retuneControlActive > 0.05f);
+    const bool hardCorrectionGate = (inputRmsSmoothed >= 0.0016f)
+        || (hardContinuityLock && inputRmsSmoothed >= 0.0008f);
+    const bool correctionEngagedNow = hardTuneMode
+        ? (! forceSilenceKill && hardCorrectionGate)
+        : ((! signalTooLow) && (retuneControlActive > 0.05f));
     if (correctionEngagedNow)
     {
         if (! correctionEngagedPrev)
@@ -1271,6 +1280,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         && vocalState == VocalState::Onset
         && centerPriorityBlocksRemaining > 0
         && vocalStateAgeBlocks < onsetReacquireBlocks
+        && ! hardContinuityLock
         && inputRmsSmoothed < 0.010f;
 
     // Force full correction depth: send the exact target ratio to Rubber Band.
@@ -2459,6 +2469,9 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
             rubberBandOutputQueue[0].pop_front();
         rubberBandLastOutputSample = rawSample;
         float wetSample = rawSample * kWetBoostLinear;
+        // Light soft clip to shave hard-jump edges that read as crunchy artifacts.
+        constexpr float kSoftClipDrive = 1.10f;
+        wetSample = std::tanh (wetSample * kSoftClipDrive) / kSoftClipDrive;
         
         // Decrement warmup counter if still warming up (but don't blend).
         if (rubberBandWarmupSamplesRemaining > 0)
