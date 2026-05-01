@@ -1176,14 +1176,17 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             else
             {
                 // Smooth target-ratio motion first, then apply retune-speed glide.
-                const float targetSmoothing = juce::jmap (retuneControlActive, 0.0f, 1.0f, 0.22f, 0.72f);
+                // At max speed snap targetRatioSmoothed directly to targetPitchRatio so
+                // activePitchRatio reaches the target in one block (MetaTune-style snapping).
+                const float targetSmoothing = (hardMaxSpeedKnob || retuneControlActive >= 0.90f)
+                    ? 1.0f
+                    : juce::jmap (retuneControlActive, 0.0f, 0.90f, 0.22f, 0.72f);
                 targetRatioSmoothed += (targetPitchRatio - targetRatioSmoothed) * targetSmoothing;
 
-                // Clamp accumulated lag: never let targetRatioSmoothed be more than ~300 cents
-                // from activePitchRatio. Without this, turning the speed knob from slow to fast
-                // causes a rush-to-catch-up lurch that sounds like wobble/pitch jump.
+                // Clamp accumulated lag: tighter 100-cent window limits the rush-to-catch-up
+                // pitch lurch heard when turning the speed knob from slow back to fast.
                 {
-                    const float maxLagRatio = std::pow (2.0f, 180.0f / 1200.0f); // ~180 cents
+                    const float maxLagRatio = std::pow (2.0f, 100.0f / 1200.0f); // ~100 cents
                     const float lagRatio = targetRatioSmoothed / juce::jmax (0.001f, activePitchRatio);
                     if (lagRatio > maxLagRatio)
                         targetRatioSmoothed = activePitchRatio * maxLagRatio;
@@ -1191,16 +1194,26 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                         targetRatioSmoothed = activePitchRatio / maxLagRatio;
                 }
 
-                const float desiredRatio = targetRatioSmoothed;
-                const float ratioNext = activePitchRatio + (desiredRatio - activePitchRatio) * correctionAlpha;
+                // At max speed also snap activePitchRatio directly so the velocity limiter
+                // cannot delay the final jump to target.
+                if (hardMaxSpeedKnob || retuneControlActive >= 0.90f)
+                {
+                    activePitchRatio = juce::jlimit (0.25f, 4.00f, targetRatioSmoothed);
+                    // Skip the velocity-limited path below.
+                }
+                else
+                {
+                    const float desiredRatio = targetRatioSmoothed;
+                    const float ratioNext = activePitchRatio + (desiredRatio - activePitchRatio) * correctionAlpha;
 
-                // Velocity limit in semitones/sec gives musical slow settings and snapping fast settings.
-                const float confidenceRateScale = juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.55f, 1.00f);
-                const float maxStepSemitones = maxSemitonesPerSecond * confidenceRateScale * dtSeconds;
-                const float deltaSemitones = 12.0f * std::log2 (juce::jmax (0.001f, ratioNext) / juce::jmax (0.001f, activePitchRatio));
-                const float limitedDeltaSemitones = juce::jlimit (-maxStepSemitones, maxStepSemitones, deltaSemitones);
-                activePitchRatio *= std::pow (2.0f, limitedDeltaSemitones / 12.0f);
-                activePitchRatio = juce::jlimit (0.25f, 4.00f, activePitchRatio);
+                    // Velocity limit in semitones/sec gives musical slow settings and snapping fast settings.
+                    const float confidenceRateScale = juce::jmap (trackingConfidence, 0.0f, 1.0f, 0.55f, 1.00f);
+                    const float maxStepSemitones = maxSemitonesPerSecond * confidenceRateScale * dtSeconds;
+                    const float deltaSemitones = 12.0f * std::log2 (juce::jmax (0.001f, ratioNext) / juce::jmax (0.001f, activePitchRatio));
+                    const float limitedDeltaSemitones = juce::jlimit (-maxStepSemitones, maxStepSemitones, deltaSemitones);
+                    activePitchRatio *= std::pow (2.0f, limitedDeltaSemitones / 12.0f);
+                    activePitchRatio = juce::jlimit (0.25f, 4.00f, activePitchRatio);
+                }
             }
         }
         else if (hardTuneMode)
