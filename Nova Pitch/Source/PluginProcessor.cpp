@@ -189,6 +189,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     detectorHpPrevY = 0.0f;
     outputCompGain = 1.0f;
     hardHeldPitchRatio = 1.0f;
+    hardSnapDirection = 0;
     targetPitchRatio = 1.0f;
     activePitchRatio = 1.0f;
     targetRatioSmoothed = 1.0f;
@@ -880,6 +881,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 if (lockChanged)
                 {
                     targetPitchRatio = computedTargetRatio;
+                    hardSnapDirection = 0;
                     previousLockedTargetMidi = targetMidiNote;
                 }
                 else if (hardTuneModeFrame)
@@ -893,8 +895,33 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     {
                         if (hardUltraSnap)
                         {
-                            // Max speed: immediate hard lock for stronger robotic effect.
-                            targetPitchRatio = computedTargetRatio;
+                            // Max speed: enforce a strong, stable hard-lock character.
+                            const float computedCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
+                            const float absComputedCents = std::abs (computedCents);
+                            const int rawSign = (computedCents >= 0.0f) ? 1 : -1;
+
+                            const float centerReleaseCents = 6.0f;
+                            const float signHoldCents = 55.0f;
+                            const float minSnapCents = 90.0f;
+
+                            int snapSign = rawSign;
+                            if (hardSnapDirection != 0 && absComputedCents < signHoldCents)
+                                snapSign = hardSnapDirection;
+
+                            if (absComputedCents <= centerReleaseCents)
+                            {
+                                targetPitchRatio = 1.0f;
+                                hardSnapDirection = 0;
+                            }
+                            else
+                            {
+                                const float snappedMagnitude = juce::jmax (absComputedCents, minSnapCents);
+                                const float snappedCents = juce::jlimit (-300.0f, 300.0f,
+                                    snappedMagnitude * (snapSign >= 0 ? 1.0f : -1.0f));
+                                targetPitchRatio = juce::jlimit (minRatio, maxRatio,
+                                    std::pow (2.0f, snappedCents / 1200.0f));
+                                hardSnapDirection = (snapSign >= 0) ? 1 : -1;
+                            }
                         }
                         else
                         {
@@ -976,6 +1003,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 targetSwitchCooldownBlocks = 0;
                 diagLastLockedTargetHz = 0.0f;
                 hardHeldPitchRatio = 1.0f;
+                hardSnapDirection = 0;
 
                 // Flush stale detector/history state after long dropouts so phrase
                 // restarts don't need repeated loops to settle.
@@ -1137,6 +1165,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             pendingTargetStreak = 0;
             targetSwitchCooldownBlocks = 0;
             hardHeldPitchRatio = 1.0f;
+            hardSnapDirection = 0;
             targetPitchRatio = 1.0f;
             targetRatioSmoothed = 1.0f;
             activePitchRatio = 1.0f;
@@ -2196,9 +2225,9 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
                 | RubberBandStretcher::OptionEngineFaster
                 | RubberBandStretcher::OptionWindowShort)
             : (hardTuneMode
-                ? (RubberBandStretcher::OptionPitchHighSpeed
-                    | RubberBandStretcher::OptionEngineFaster
-                    | RubberBandStretcher::OptionWindowShort)
+                ? (RubberBandStretcher::OptionPitchHighConsistency
+                    | RubberBandStretcher::OptionEngineFiner
+                    | RubberBandStretcher::OptionWindowStandard)
                 : (RubberBandStretcher::OptionPitchHighConsistency
                     | RubberBandStretcher::OptionEngineFiner
                     | RubberBandStretcher::OptionWindowStandard

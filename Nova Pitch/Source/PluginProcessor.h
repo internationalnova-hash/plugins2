@@ -197,6 +197,7 @@ private:
     float detectorHpPrevY { 0.0f };
     float outputCompGain { 1.0f };
     float hardHeldPitchRatio { 1.0f };
+    int hardSnapDirection { 0 };
     float targetPitchRatio { 1.0f };
     float activePitchRatio { 1.0f };
     float targetRatioSmoothed { 1.0f };
