@@ -1625,12 +1625,18 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // Keep tolerance independent of retune speed so turning speed knob doesn't
     // change pitch target behavior, only convergence rate.
     const float toleranceCents = hardTuneMode ? 0.0f : toleranceNorm * 3.5f;
-    
+
     // Voiced-hold gate: only suppress correction if signal is truly gone AND hold window is closed.
     // During hold window, keep computing correction ratio to maintain effect continuity.
     const bool inHoldWindow = voicedHoldBlocks > 0;
-    if (signalRms < (hardTuneMode ? 0.0012f : 0.0012f) && !inHoldWindow)
+    if (signalRms < 0.0012f && ! inHoldWindow)
         return 1.0f;
+
+    // In hard mode, pin to exact target-note ratio. Avoid forced +/-100-cent overcorrection,
+    // which creates alternating 1.059/0.944 pitch flips and audible wobble.
+    if (hardTuneMode)
+        return juce::jlimit (0.25f, 4.00f, fullRatio);
+
     if (centsError < toleranceCents)
         return 1.0f;
 
@@ -1638,39 +1644,9 @@ float NovaPitchAudioProcessor::computeRetuneRatio (float detectedHz, float targe
     // is meaningfully off target. Over-boosting tiny errors made the shifter chatter.
     const float signedCents = 1200.0f * std::log2 (juce::jmax (0.001f, std::abs (fullRatio)));
     const float correctionMagnitude = juce::jlimit (0.0f, 1.0f, std::abs (signedCents) / 95.0f);
-    float emphasis = 1.0f + juce::jmap (amountDrive, 0.0f, 1.0f, 0.14f, 0.62f) * correctionMagnitude;
+    const float emphasis = 1.0f + juce::jmap (amountDrive, 0.0f, 1.0f, 0.14f, 0.62f) * correctionMagnitude;
 
-    if (hardTuneMode)
-        emphasis += 0.62f * correctionMagnitude;
-
-    float emphasizedCents = juce::jlimit (-380.0f, 380.0f, signedCents * emphasis);
-
-    if (hardTuneMode)
-    {
-        float absCents = std::abs (emphasizedCents);
-
-        if (absCents > 0.01f && absCents < 100.0f)
-            emphasizedCents = std::copysign (100.0f, emphasizedCents);
-
-        if (absCents > 8.0f)
-            emphasizedCents *= 1.12f;
-
-        // Hard-tune audibility: when error is small-to-medium, add a controlled
-        // extra pull so the effect is clearly perceptible (MetaTune-style snap)
-        // instead of sounding nearly transparent.
-        absCents = std::abs (emphasizedCents);
-        if (absCents > 2.0f && absCents < 90.0f)
-        {
-            const float t = juce::jlimit (0.0f, 1.0f, (absCents - 2.0f) / 88.0f);
-            const float extraPullCents = juce::jmap (t, 70.0f, 16.0f);
-            emphasizedCents = std::copysign (absCents + extraPullCents, emphasizedCents);
-        }
-
-        // Final hard-mode guard: clamp AFTER all boosts to prevent 300-400 cent
-        // overshoots that read as wobble/warble instead of controlled retune.
-        emphasizedCents = juce::jlimit (-260.0f, 260.0f, emphasizedCents);
-    }
-
+    const float emphasizedCents = juce::jlimit (-380.0f, 380.0f, signedCents * emphasis);
     const float ratioOut = std::pow (2.0f, emphasizedCents / 1200.0f);
 
     return juce::jlimit (0.25f, 4.00f, ratioOut);
