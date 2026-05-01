@@ -188,6 +188,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     detectorHpPrevX = 0.0f;
     detectorHpPrevY = 0.0f;
     outputCompGain = 1.0f;
+    hardHeldPitchRatio = 1.0f;
     targetPitchRatio = 1.0f;
     activePitchRatio = 1.0f;
     targetRatioSmoothed = 1.0f;
@@ -914,6 +915,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float correctedHz = octaveAlignedDetectedHz * targetPitchRatio;
                 correctedPitch.store (correctedHz);
 
+                if (hardTuneModeFrame && vocalState == VocalState::Voiced && std::abs (targetPitchRatio - 1.0f) > 0.02f)
+                    hardHeldPitchRatio = targetPitchRatio;
+
                 if (debugCounter % 100 == 2)
                 {
                     DBG("Nova Pitch: detectedHz=" << detectedHz
@@ -941,6 +945,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             if (blocksSinceValidPitch <= dropoutHoldBlocks)
             {
                 pitchConfidence.store (juce::jmax (0.06f, pitchConfidence.load() * 0.96f));
+                if (hardTuneModeFrame && vocalState == VocalState::Voiced && std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
+                    targetPitchRatio = hardHeldPitchRatio;
             }
             else
             {
@@ -955,6 +961,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 pendingTargetStreak = 0;
                 targetSwitchCooldownBlocks = 0;
                 diagLastLockedTargetHz = 0.0f;
+                hardHeldPitchRatio = 1.0f;
 
                 // Flush stale detector/history state after long dropouts so phrase
                 // restarts don't need repeated loops to settle.
@@ -973,6 +980,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     activePitchRatio = 1.0f;
                     targetRatioSmoothed = 1.0f;
                     correctionDriveSmoothed = 0.0f;
+                    hardHeldPitchRatio = 1.0f;
 
                     // Clear circular-shifter read/write state on true long silence.
                     // This prevents stale read-head/crossfade state from carrying across
@@ -1080,6 +1088,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         && vocalState == VocalState::Voiced
         && inputRmsSmoothed > 0.008f
         && blocksSinceValidPitch <= (lowLatencyMode ? 28 : 36);
+    if (hardContinuityLock && std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
+        targetPitchRatio = hardHeldPitchRatio;
 
     const float strictSilenceFloor = hardTuneMode ? 0.0010f : 0.0012f;
     if (inputRms < strictSilenceFloor)
@@ -1093,6 +1103,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             pendingTargetMidi = -1;
             pendingTargetStreak = 0;
             targetSwitchCooldownBlocks = 0;
+            hardHeldPitchRatio = 1.0f;
             targetPitchRatio = 1.0f;
             targetRatioSmoothed = 1.0f;
             activePitchRatio = 1.0f;
@@ -1285,6 +1296,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     // Force full correction depth: send the exact target ratio to Rubber Band.
     float appliedRatio = (signalTooLow || hardOnsetReacquire) ? 1.0f : targetPitchRatio;
+    if (hardContinuityLock && std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
+        appliedRatio = hardHeldPitchRatio;
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
         applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
 
