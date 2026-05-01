@@ -492,7 +492,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         // large frame-to-frame ratio jumps and audible skip bursts.
         // smoothDetectedPitch uses lockedTargetMidi as reference to anchor octave and
         // suppress subharmonics — this is for audio quality only, not for lock decisions.
-        const bool hardTuneModeDetect = retuneControlActive >= 0.90f;
+        const bool hardTuneModeDetect = retuneControlActive >= 0.85f;
         float detectedHz = smoothDetectedPitch (rawYinHz, inputRms, lowLatencyMode || fastRetuneTracking, hardTuneModeDetect);
         detectedPitch.store (detectedHz);
 
@@ -554,7 +554,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
         }
 
-        const bool hardTuneModeFrame = retuneControlActive >= 0.90f;
+        const bool hardTuneModeFrame = retuneControlActive >= 0.85f;
 
         if (hasUsablePitch)
         {
@@ -987,7 +987,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // - Retune knob = SPEED only (LP filter glide time toward target)
     // - Correction is always 100% toward target note — no depth scaling
     // - Shifted audio replaces input entirely — no wet/dry blend (blend causes doubling)
-    const bool hardTuneMode = retuneControlActive >= 0.90f;
+    const bool hardTuneMode = retuneControlActive >= 0.85f;
     const float trackingConfidence = juce::jlimit (0.0f, 1.0f, pitchConfidence.load());
     inputRmsSmoothed += (inputRms - inputRmsSmoothed) * 0.08f;
     const float gateOnThreshold = hardTuneMode ? 0.0012f : 0.0030f;
@@ -1068,6 +1068,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 setVocalState (VocalState::Release);
             break;
     }
+
+    // In hard mode, clamp to Voiced on clearly active signal to avoid
+    // Onset/Release flutter that sounds like correction pulsing.
+    const bool hardVoicedClamp = hardTuneMode
+        && inputRmsSmoothed > 0.010f
+        && blocksSinceValidPitch <= (lowLatencyMode ? 20 : 26);
+    if (hardVoicedClamp && vocalState != VocalState::Voiced)
+        setVocalState (VocalState::Voiced);
 
     const float strictSilenceFloor = hardTuneMode ? 0.0010f : 0.0012f;
     if (inputRms < strictSilenceFloor)
@@ -1262,7 +1270,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const bool hardOnsetReacquire = hardTuneMode
         && vocalState == VocalState::Onset
         && centerPriorityBlocksRemaining > 0
-        && vocalStateAgeBlocks < onsetReacquireBlocks;
+        && vocalStateAgeBlocks < onsetReacquireBlocks
+        && inputRmsSmoothed < 0.010f;
 
     // Force full correction depth: send the exact target ratio to Rubber Band.
     float appliedRatio = (signalTooLow || hardOnsetReacquire) ? 1.0f : targetPitchRatio;
@@ -2437,7 +2446,7 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
         std::fill (channelR, channelR + numSamples, 0.0f);
 
     // +3 dB boost on wet-only RubberBand output for stronger forward presence.
-    constexpr float kWetBoostLinear = 1.4125376f;
+    constexpr float kWetBoostLinear = 1.1885022f; // +1.5 dB
 
     // Output is pure wet signal from RB engine. No dry blending.
     // The output queue is pre-filled with latency padding on init,
