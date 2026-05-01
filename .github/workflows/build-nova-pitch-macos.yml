@@ -1,6 +1,7 @@
 name: Build Nova Pitch macOS
 # CI retrigger note: harmless metadata touch to force a fresh path-filtered run.
 # CI retrigger note 2: no functional changes. [retrigger 2026-04-27d]
+# CI retrigger note 3: no functional changes. [retrigger 2026-05-01]
 run-name: Nova Pitch macOS | ${{ github.event_name }} | ${{ github.sha }}
 
 on:
