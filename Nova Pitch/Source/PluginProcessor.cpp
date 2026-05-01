@@ -869,30 +869,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float minRatio = 0.25f;
                 const float maxRatio = 4.00f;
                 float computedTargetRatio = juce::jlimit (minRatio, maxRatio, pitchRatio);
-                if (hardTuneModeFrame)
-                {
-                    float targetCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
-                    const float absTargetCents = std::abs (targetCents);
-                    const float previousTargetCents = 1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio));
-                    const bool hasPreviousSnapDirection = std::abs (previousTargetCents) > 40.0f;
-                    const float trueCenterDeadbandCents = 0.0f;
-                    const bool withinCenterHysteresis = absTargetCents < 35.0f;
-                    const float snapSign = (hasPreviousSnapDirection && withinCenterHysteresis)
-                        ? (previousTargetCents >= 0.0f ? 1.0f : -1.0f)
-                        : (targetCents >= 0.0f ? 1.0f : -1.0f);
-                    // Aggressive MetaTune snap:
-                    // - any non-zero error: force full semitone jump
-                    if (absTargetCents <= trueCenterDeadbandCents)
-                    {
-                        computedTargetRatio = 1.0f;
-                    }
-                    else
-                    {
-                        targetCents = 100.0f * snapSign;
-                        computedTargetRatio = juce::jlimit (minRatio, maxRatio,
-                            std::pow (2.0f, targetCents / 1200.0f));
-                    }
-                }
+                // Hard mode uses exact detected->target ratio. Forcing a fixed +/-100-cent
+                // ratio here causes audible one-semitone ping-pong around note center.
 
                 if (lockChanged)
                 {
