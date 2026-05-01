@@ -915,7 +915,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float correctedHz = octaveAlignedDetectedHz * targetPitchRatio;
                 correctedPitch.store (correctedHz);
 
-                if (hardTuneModeFrame && vocalState == VocalState::Voiced && std::abs (targetPitchRatio - 1.0f) > 0.02f)
+                if (hardTuneModeFrame && std::abs (targetPitchRatio - 1.0f) > 0.02f)
                     hardHeldPitchRatio = targetPitchRatio;
 
                 if (debugCounter % 100 == 2)
@@ -1041,6 +1041,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         }
     };
 
+    const float strictSilenceFloor = hardTuneMode ? 0.0010f : 0.0012f;
+
     switch (vocalState)
     {
         case VocalState::Silence:
@@ -1060,8 +1062,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             break;
 
         case VocalState::Voiced:
-            if ((stateEnergyLow && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= (hardTuneMode ? 12 : 0))
-                || blocksSinceValidPitch > (hardTuneMode ? 48 : 2))
+            if ((hardTuneMode
+                    ? ((inputRms < strictSilenceFloor) && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= 18
+                        && blocksSinceValidPitch > (lowLatencyMode ? 40 : 56))
+                    : ((stateEnergyLow && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= 12)
+                        || blocksSinceValidPitch > 48)))
                 setVocalState (VocalState::Release);
             else
                 setVocalState (VocalState::Voiced);
@@ -1070,7 +1075,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         case VocalState::Release:
             if (statePitchFresh && stateEnergyHigh)
                 setVocalState (VocalState::Onset);
-            else if (stateEnergyLow && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= (hardTuneMode ? 30 : 4))
+            else if ((hardTuneMode
+                        ? (inputRms < strictSilenceFloor && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= 36)
+                        : (stateEnergyLow && voicedHoldBlocks == 0 && vocalStateAgeBlocks >= 4)))
                 setVocalState (VocalState::Silence);
             else
                 setVocalState (VocalState::Release);
@@ -1080,18 +1087,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // In hard mode, clamp to Voiced on clearly active signal to avoid
     // Onset/Release flutter that sounds like correction pulsing.
     const bool hardVoicedClamp = hardTuneMode
-        && inputRmsSmoothed > 0.010f
+        && inputRmsSmoothed > 0.0030f
         && blocksSinceValidPitch <= (lowLatencyMode ? 20 : 26);
     if (hardVoicedClamp && vocalState != VocalState::Voiced)
         setVocalState (VocalState::Voiced);
     const bool hardContinuityLock = hardTuneMode
         && vocalState == VocalState::Voiced
-        && inputRmsSmoothed > 0.008f
-        && blocksSinceValidPitch <= (lowLatencyMode ? 28 : 36);
+        && inputRmsSmoothed > strictSilenceFloor
+        && blocksSinceValidPitch <= (lowLatencyMode ? 40 : 56);
     if (hardContinuityLock && std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
         targetPitchRatio = hardHeldPitchRatio;
-
-    const float strictSilenceFloor = hardTuneMode ? 0.0010f : 0.0012f;
     if (inputRms < strictSilenceFloor)
     {
         pitchMemorySamplesRemaining = 0;
@@ -1115,7 +1120,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         && blocksSinceValidPitch > (lowLatencyMode ? 36 : 64);
     const bool normalSignalTooLow = inputRmsSmoothed < gateOffThreshold && voicedHoldBlocks == 0;
     const bool forceSilenceKill = inputRms < strictSilenceFloor;
-    const bool signalTooLow = forceSilenceKill || (! hardContinuityLock && (hardTuneMode ? hardSignalTooLow : normalSignalTooLow));
+    const bool signalTooLow = hardTuneMode
+        ? forceSilenceKill
+        : (forceSilenceKill || normalSignalTooLow);
 
     // NUCLEAR FIX: Bypass the confidence check - detector is 'letting go' of notes too early.
     // In hard mode, force tracking to snap to nearest semitone regardless of confidence.
@@ -1220,8 +1227,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // transient attack frames from sounding like skip/record-stop artifacts.
     float correctionDrive = 1.0f;
 
-    const bool hardCorrectionGate = (inputRmsSmoothed >= 0.0016f)
-        || (hardContinuityLock && inputRmsSmoothed >= 0.0008f);
+    const bool hardCorrectionGate = ! forceSilenceKill;
     const bool correctionEngagedNow = hardTuneMode
         ? (! forceSilenceKill && hardCorrectionGate)
         : ((! signalTooLow) && (retuneControlActive > 0.05f));
@@ -1297,6 +1303,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Force full correction depth: send the exact target ratio to Rubber Band.
     float appliedRatio = (signalTooLow || hardOnsetReacquire) ? 1.0f : targetPitchRatio;
     if (hardContinuityLock && std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
+        appliedRatio = hardHeldPitchRatio;
+    if (hardTuneMode && vocalState == VocalState::Voiced && lockedTargetMidi >= 0 && std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
         appliedRatio = hardHeldPitchRatio;
     if (! signalTooLow && ! hardTuneMode && vibratoValue > 0.001f)
         applyVibrato (appliedRatio, static_cast<float> (currentSampleRate), numSamples, vibratoValue);
@@ -2482,9 +2490,6 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
             rubberBandOutputQueue[0].pop_front();
         rubberBandLastOutputSample = rawSample;
         float wetSample = rawSample * kWetBoostLinear;
-        // Light soft clip to shave hard-jump edges that read as crunchy artifacts.
-        constexpr float kSoftClipDrive = 1.10f;
-        wetSample = std::tanh (wetSample * kSoftClipDrive) / kSoftClipDrive;
         
         // Decrement warmup counter if still warming up (but don't blend).
         if (rubberBandWarmupSamplesRemaining > 0)
