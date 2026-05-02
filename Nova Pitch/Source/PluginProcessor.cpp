@@ -893,11 +893,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
                     if (hardUltraSnap)
                     {
-                        // Max speed must feel immediate: always apply exact lock ratio on voiced frames.
+                        // Max speed should sound aggressively robotic even near pitch center.
                         const float previousCents = 1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio));
                         const float computedCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
                         const float absComputedCents = std::abs (computedCents);
-                        const float centerReleaseCents = 4.0f;
+                        const float centerReleaseCents = 0.20f;
+                        const float minSnapCents = 95.0f;
+                        const float signStabilizeCents = 36.0f;
                         const float jumpFromPreviousCents = std::abs (computedCents - previousCents);
                         const float confidenceNow = pitchConfidence.load();
                         const bool likelyDetectorGlitch = (jumpFromPreviousCents > 120.0f)
@@ -915,7 +917,19 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                         }
                         else
                         {
-                            targetPitchRatio = computedTargetRatio;
+                            float snapSign = (computedCents >= 0.0f) ? 1.0f : -1.0f;
+                            const float previousSign = (previousCents >= 0.0f) ? 1.0f : -1.0f;
+                            if ((absComputedCents < signStabilizeCents)
+                                && (std::abs (previousCents) > 3.0f)
+                                && ((snapSign * previousSign) < 0.0f))
+                            {
+                                // Avoid fast left/right sign chatter around center.
+                                snapSign = previousSign;
+                            }
+
+                            const float snappedCents = snapSign * juce::jmax (absComputedCents, minSnapCents);
+                            targetPitchRatio = juce::jlimit (minRatio, maxRatio,
+                                std::pow (2.0f, snappedCents / 1200.0f));
                         }
                         hardSnapDirection = 0;
                     }
@@ -1654,7 +1668,7 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
         // Hard-tune mode needs very fast convergence so vibrato/drift are flattened
         // rather than partially preserved. Median filtering above still suppresses
         // one-block detector glitches.
-        const float alpha = hardTuneMode ? 0.85f : (lowLatencyMode ? 0.022f : 0.04f);
+        const float alpha = hardTuneMode ? 0.96f : (lowLatencyMode ? 0.022f : 0.04f);
 
     smoothedDetectedHz += (rawDetectedHz - smoothedDetectedHz) * alpha;
     return smoothedDetectedHz;
