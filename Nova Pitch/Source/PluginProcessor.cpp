@@ -361,11 +361,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     juce::ignoreUnused (toleranceValue, confidenceValue);
 
     const bool sampleRateMismatch = rubberBand != nullptr && std::abs (hostSampleRate - rubberBandInitSampleRate) > 0.5;
+    const bool playbackLikelyActive = inputRmsSmoothed > 1.0e-4f || detectedPitch.load() > 0.0f;
     const bool hardTuneEngineMode = retuneControlActive >= 0.98f;
+    const bool engineModeMismatch = rubberBand != nullptr && rubberBandHardTuneMode != hardTuneEngineMode;
     if (rubberBand == nullptr
         || rubberBandLowLatencyMode != lowLatencyMode
-        || rubberBandHardTuneMode != hardTuneEngineMode
-        || sampleRateMismatch)
+        || sampleRateMismatch
+        || (engineModeMismatch && ! playbackLikelyActive))
     {
         if (rubberBand != nullptr)
             rubberBand->reset();
@@ -2335,11 +2337,12 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     const int channels = 1;
 
     const bool hardTuneEngineMode = retuneSpeedNorm >= 0.98f;
+    const bool engineModeMismatch = rubberBand != nullptr && rubberBandHardTuneMode != hardTuneEngineMode;
 
     if (rubberBand == nullptr
         || rubberBandMaxBlockSize < numSamples
         || rubberBandLowLatencyMode != lowLatencyMode
-        || rubberBandHardTuneMode != hardTuneEngineMode)
+        || (engineModeMismatch && ! playbackWasActive && !(inputRmsSmoothed > 1.0e-4f || detectedPitch.load() > 0.0f)))
     {
         if (rubberBand != nullptr)
             rubberBand->reset();
