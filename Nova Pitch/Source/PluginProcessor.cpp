@@ -562,6 +562,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         }
 
         const bool hardTuneModeFrame = retuneControlActive >= 0.85f;
+        const float hardHeldRatioThreshold = (hardTuneModeFrame && retuneControlActive >= 0.98f) ? 0.0025f : 0.02f;
 
         if (hasUsablePitch)
         {
@@ -898,13 +899,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                         const float computedCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
                         const float absComputedCents = std::abs (computedCents);
                         const float centerReleaseCents = 0.20f;
-                        const float minSnapCents = 95.0f;
-                        const float signStabilizeCents = 36.0f;
+                        const float signStabilizeCents = 8.0f;
                         const float jumpFromPreviousCents = std::abs (computedCents - previousCents);
                         const float confidenceNow = pitchConfidence.load();
                         const bool likelyDetectorGlitch = (jumpFromPreviousCents > 120.0f)
                             && (confidenceNow < 0.84f)
-                            && (std::abs (hardHeldPitchRatio - 1.0f) > 0.02f);
+                            && (std::abs (hardHeldPitchRatio - 1.0f) > hardHeldRatioThreshold);
 
                         if (likelyDetectorGlitch)
                         {
@@ -947,7 +947,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                         const float hardRetargetAlpha = lowLatencyMode ? 0.80f : 0.72f;
                         targetPitchRatio += (limitedRatio - targetPitchRatio) * hardRetargetAlpha;
                     }
-                    else if (std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
+                    else if (std::abs (hardHeldPitchRatio - 1.0f) > hardHeldRatioThreshold)
                     {
                         // Hold last stable hard correction through weak/noisy frames.
                         targetPitchRatio = hardHeldPitchRatio;
@@ -965,7 +965,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float correctedHz = octaveAlignedDetectedHz * targetPitchRatio;
                 correctedPitch.store (correctedHz);
 
-                if (hardTuneModeFrame && std::abs (targetPitchRatio - 1.0f) > 0.02f)
+                if (hardTuneModeFrame && std::abs (targetPitchRatio - 1.0f) > hardHeldRatioThreshold)
                     hardHeldPitchRatio = targetPitchRatio;
 
                 if (debugCounter % 100 == 2)
@@ -995,7 +995,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             if (blocksSinceValidPitch <= dropoutHoldBlocks)
             {
                 pitchConfidence.store (juce::jmax (0.06f, pitchConfidence.load() * 0.96f));
-                if (hardTuneModeFrame && vocalState == VocalState::Voiced && std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
+                if (hardTuneModeFrame && vocalState == VocalState::Voiced && std::abs (hardHeldPitchRatio - 1.0f) > hardHeldRatioThreshold)
                     targetPitchRatio = hardHeldPitchRatio;
             }
             else
