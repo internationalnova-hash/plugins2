@@ -891,28 +891,47 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                         && (! usingHeldPitch);
                     const bool hardUltraSnap = retuneControlActive >= 0.98f;
 
-                    if (hardStableRatioFrame)
+                    if (hardUltraSnap)
                     {
-                        if (hardUltraSnap)
+                        // Max speed must feel immediate: always apply exact lock ratio on voiced frames.
+                        const float previousCents = 1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio));
+                        const float computedCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
+                        const float absComputedCents = std::abs (computedCents);
+                        const float centerReleaseCents = 4.0f;
+                        const float jumpFromPreviousCents = std::abs (computedCents - previousCents);
+                        const float confidenceNow = pitchConfidence.load();
+                        const bool likelyDetectorGlitch = (jumpFromPreviousCents > 120.0f)
+                            && (confidenceNow < 0.84f)
+                            && (std::abs (hardHeldPitchRatio - 1.0f) > 0.02f);
+
+                        if (likelyDetectorGlitch)
                         {
-                            // Max speed: snap directly to the exact computed ratio — no floor, no sign-hold.
-                            targetPitchRatio = computedTargetRatio;
-                            hardSnapDirection = 0;
+                            // Prevent one-frame detector mistakes from producing audible hard-mode pitch dives.
+                            targetPitchRatio = hardHeldPitchRatio;
+                        }
+                        else if (absComputedCents <= centerReleaseCents)
+                        {
+                            targetPitchRatio = 1.0f;
                         }
                         else
                         {
-                            // Keep anti-wobble limiting below max speed, but less damped.
-                            const float previousCents = 1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio));
-                            const float computedCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
-                            const float maxStepCents = lowLatencyMode ? 56.0f : 44.0f;
-                            const float limitedCents = previousCents + juce::jlimit (-maxStepCents, maxStepCents,
-                                                                                    computedCents - previousCents);
-                            const float limitedRatio = juce::jlimit (minRatio, maxRatio,
-                                std::pow (2.0f, limitedCents / 1200.0f));
-
-                            const float hardRetargetAlpha = lowLatencyMode ? 0.80f : 0.72f;
-                            targetPitchRatio += (limitedRatio - targetPitchRatio) * hardRetargetAlpha;
+                            targetPitchRatio = computedTargetRatio;
                         }
+                        hardSnapDirection = 0;
+                    }
+                    else if (hardStableRatioFrame)
+                    {
+                        // Keep anti-wobble limiting below max speed, but less damped.
+                        const float previousCents = 1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio));
+                        const float computedCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
+                        const float maxStepCents = lowLatencyMode ? 56.0f : 44.0f;
+                        const float limitedCents = previousCents + juce::jlimit (-maxStepCents, maxStepCents,
+                                                                                computedCents - previousCents);
+                        const float limitedRatio = juce::jlimit (minRatio, maxRatio,
+                            std::pow (2.0f, limitedCents / 1200.0f));
+
+                        const float hardRetargetAlpha = lowLatencyMode ? 0.80f : 0.72f;
+                        targetPitchRatio += (limitedRatio - targetPitchRatio) * hardRetargetAlpha;
                     }
                     else if (std::abs (hardHeldPitchRatio - 1.0f) > 0.02f)
                     {
@@ -1635,7 +1654,7 @@ float NovaPitchAudioProcessor::smoothDetectedPitch (float rawDetectedHz, float s
         // Hard-tune mode needs very fast convergence so vibrato/drift are flattened
         // rather than partially preserved. Median filtering above still suppresses
         // one-block detector glitches.
-        const float alpha = hardTuneMode ? 0.70f : (lowLatencyMode ? 0.022f : 0.04f);
+        const float alpha = hardTuneMode ? 0.85f : (lowLatencyMode ? 0.022f : 0.04f);
 
     smoothedDetectedHz += (rawDetectedHz - smoothedDetectedHz) * alpha;
     return smoothedDetectedHz;
