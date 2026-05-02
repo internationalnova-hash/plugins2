@@ -2234,9 +2234,12 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
                 | RubberBandStretcher::OptionEngineFaster
                 | RubberBandStretcher::OptionWindowShort)
             : (hardTuneMode
-                ? (RubberBandStretcher::OptionPitchHighConsistency
-                    | RubberBandStretcher::OptionEngineFiner
-                    | RubberBandStretcher::OptionWindowStandard)
+                ? (RubberBandStretcher::OptionPitchHighSpeed
+                    | RubberBandStretcher::OptionEngineFaster
+                    | RubberBandStretcher::OptionWindowShort
+                    | RubberBandStretcher::OptionTransientsCrisp
+                    | RubberBandStretcher::OptionPhaseIndependent
+                    | RubberBandStretcher::OptionFormantShifted)
                 : (RubberBandStretcher::OptionPitchHighConsistency
                     | RubberBandStretcher::OptionEngineFiner
                     | RubberBandStretcher::OptionWindowStandard
