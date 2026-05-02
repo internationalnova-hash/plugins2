@@ -927,7 +927,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                                 snapSign = previousSign;
                             }
 
-                            const float snappedCents = snapSign * juce::jmax (absComputedCents, minSnapCents);
+                            const float snappedCents = snapSign * absComputedCents;
                             targetPitchRatio = juce::jlimit (minRatio, maxRatio,
                                 std::pow (2.0f, snappedCents / 1200.0f));
                         }
@@ -2236,10 +2236,7 @@ void NovaPitchAudioProcessor::initializeRubberBand (int maxBlockSize, bool lowLa
             : (hardTuneMode
                 ? (RubberBandStretcher::OptionPitchHighSpeed
                     | RubberBandStretcher::OptionEngineFaster
-                    | RubberBandStretcher::OptionWindowShort
-                    | RubberBandStretcher::OptionTransientsCrisp
-                    | RubberBandStretcher::OptionPhaseIndependent
-                    | RubberBandStretcher::OptionFormantShifted)
+                    | RubberBandStretcher::OptionTransientsCrisp)
                 : (RubberBandStretcher::OptionPitchHighConsistency
                     | RubberBandStretcher::OptionEngineFiner
                     | RubberBandStretcher::OptionWindowStandard
