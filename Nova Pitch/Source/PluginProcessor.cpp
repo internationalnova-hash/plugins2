@@ -569,6 +569,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         if (hasUsablePitch)
         {
             const bool hardTuneMode = hardTuneModeFrame;
+            const bool speedIndependentTargetLock = retuneControlActive >= 0.05f;
             // Use the smoothed detected estimate directly for candidate selection.
             // This avoids octave-fold side effects from secondary lock-free transforms.
             const float noteSourceHz = detectedHz;
@@ -634,14 +635,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
             // In hard mode, never let weak/uncertain frames request a new target note.
             // This removes lock ping-pong that manifests as wobble/skipping.
-            if (hardTuneModeFrame && lockedTargetMidi >= 0)
+            if (speedIndependentTargetLock && lockedTargetMidi >= 0)
             {
-                const bool weakFrameForSwitch = (inputRms < 0.028f) || (pitchConfidence.load() < 0.78f);
+                const bool weakFrameForSwitch = (inputRms < 0.020f) || (pitchConfidence.load() < 0.72f);
                 if (weakFrameForSwitch)
                     candidateMidiNote = lockedTargetMidi;
             }
 
-            if (hardTuneModeFrame
+            if (speedIndependentTargetLock
                 && centerPriorityBlocksRemaining > 0
                 && lockedTargetMidi >= 0
                 && candidateMidiNote != lockedTargetMidi)
@@ -677,10 +678,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // a bad initial lock once it is set).
                 const int initStreakNeeded = hardTuneModeFrame ? 1 : 2;
 
-                if (hardTuneModeFrame)
+                if (speedIndependentTargetLock)
                 {
-                    const bool strongInitFrame = inputRms > 0.020f;
-                    const bool confidentInitFrame = pitchConfidence.load() > 0.65f;
+                    const bool strongInitFrame = inputRms > (hardTuneModeFrame ? 0.020f : 0.012f);
+                    const bool confidentInitFrame = pitchConfidence.load() > (hardTuneModeFrame ? 0.65f : 0.58f);
                     const bool voicedInitState = (vocalState == VocalState::Onset || vocalState == VocalState::Voiced);
 
                     if (! (strongInitFrame && confidentInitFrame && voicedInitState))
@@ -733,7 +734,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float stableSeconds = detectSeconds;
                 const int requiredStableHits = static_cast<int> (std::round (
                     juce::jmax (3.0f, detectRateHz * stableSeconds)));
-                const bool strongInputForSwitch = inputRms > (hardTuneMode ? 0.070f : 0.012f);
+                const bool strongInputForSwitch = inputRms > (hardTuneMode ? 0.070f : 0.030f);
                 const bool allowTargetSwitch = (vocalState == VocalState::Voiced);
 
                 // Check for clearly wrong octave BEFORE the semitone-distance guard so
@@ -745,7 +746,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 const float candidateCentsError = std::abs (1200.0f * std::log2 (
                     juce::jmax (1.0f, detectedHz) / juce::jmax (1.0f, candidateHz)));
                 const bool lockAlreadyGood = lockCentsError < 35.0f;
-                const float betterMarginCents = hardTuneMode ? 130.0f : 8.0f;
+                const float betterMarginCents = hardTuneMode ? 130.0f : 90.0f;
                 const bool candidateClearlyBetter = candidateCentsError + betterMarginCents < lockCentsError;
                 const bool hardSmallIntervalSwitch = std::abs (candidateMidiNote - lockedTargetMidi) <= 2;
                 const bool hardLargeErrorRelock = hardTuneMode
