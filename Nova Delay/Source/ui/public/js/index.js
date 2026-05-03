@@ -31,6 +31,25 @@ const values = {
 
 let isUpdating = false;
 
+function setupViewportFit() {
+  const plugin = document.querySelector(".plugin");
+  if (!plugin) return;
+
+  const designWidth = 1280;
+  const designHeight = 940;
+  const padding = 20;
+
+  const updateScale = () => {
+    const availW = Math.max(320, window.innerWidth - padding);
+    const availH = Math.max(320, window.innerHeight - padding);
+    const scale = Math.min(1, availW / designWidth, availH / designHeight);
+    plugin.style.setProperty("--ui-scale", scale.toFixed(4));
+  };
+
+  updateScale();
+  window.addEventListener("resize", updateScale);
+}
+
 function populateSelect(id, options) {
   const select = document.getElementById(id);
   if (!select) return;
@@ -332,6 +351,11 @@ function setupVisualizer() {
   const canvas = document.getElementById("echoViz");
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    canvas.style.background = "linear-gradient(180deg, rgba(35, 20, 10, 0.96), rgba(10, 6, 3, 0.98))";
+    canvas.style.border = "1px solid rgba(255, 170, 68, 0.45)";
+    return;
+  }
 
   const resize = () => {
     canvas.width = canvas.clientWidth;
@@ -408,13 +432,13 @@ function setupVisualizer() {
       }
     }
 
-    ctx.strokeStyle = "rgba(255, 170, 60, 0.3)";
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255, 190, 92, 0.92)";
+    ctx.lineWidth = 2.6;
     ctx.beginPath();
     for (let x = 0; x < w; x += 4) {
       const progress = x / w;
       const env = Math.exp (-progress * (2 + fbNorm * 4));
-      const y = centerY + Math.sin(x * 0.02 + t * 2.5) * env * 8;
+      const y = centerY + Math.sin(x * 0.02 + t * 2.5) * env * 11;
       if (x === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
@@ -427,16 +451,28 @@ function setupVisualizer() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  setupViewportFit();
+
   populateSelect("presetSelect", choices.preset);
   populateSelect("delayModelSelect", choices.delay_model);
 
   createMeterBars("inputMeter");
   createMeterBars("outputMeter");
 
-  setupKnobDragging();
-  setupButtons();
-  connectParameters();
+  // Keep the visualizer alive even if any parameter bridge step fails.
   setupVisualizer();
+
+  const safeRun = (fn, label) => {
+    try {
+      fn();
+    } catch (error) {
+      console.warn(`UI init step failed: ${label}`, error);
+    }
+  };
+
+  safeRun(setupKnobDragging, "setupKnobDragging");
+  safeRun(setupButtons, "setupButtons");
+  safeRun(connectParameters, "connectParameters");
 
   setMeterLevel("inputMeter", 0.22);
   setMeterLevel("outputMeter", 0.31);
