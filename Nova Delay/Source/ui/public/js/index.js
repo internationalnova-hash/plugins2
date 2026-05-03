@@ -439,23 +439,26 @@ function setupVisualizer() {
     let x = startX;
     let spacing = w * 0.13;
     const tilt = (Math.sin(t * 0.5) * 0.5 + 0.5) * 2 - 1;
+    const shimmer = 0.92 + 0.08 * Math.sin(t * 1.7);
 
     ctx.globalCompositeOperation = "screen";
 
     for (let i = 0; i < repeats; i++) {
       const perspective = Math.pow(0.84, i);
-      const decay = Math.pow(0.75, i) * (0.84 + mixNorm * 0.34);
+      const decay = Math.pow(0.70, i) * (0.88 + mixNorm * 0.34);
       const wobble = Math.sin(t * (2.0 + wowNorm * 3.2) + i * 0.75) * (1.5 + wowNorm * 8.0);
       const driftY = (i * (1.35 + toneNorm * 0.8)) * tilt;
+      const farDrift = i > 4 ? Math.sin(t * 1.2 + i) * (0.8 + i * 0.14) : 0;
       const pulseX = x + wobble;
-      const pulseY = horizonY - driftY;
-      const pulseHeight = h * (0.72 * decay + 0.10);
-      const coreWidth = 8 + i * 0.6;
+      const pulseY = horizonY - driftY + farDrift;
+      const pulseHeight = h * (0.78 * decay + 0.08);
+      const coreWidth = i < 2 ? (7.5 - i * 0.8) : 6 + i * 0.55;
       const blurWidth = coreWidth * (2.8 + i * 0.14);
 
-      const glowTier = i < 2 ? 1.0 : i < 6 ? 0.65 : 0.35;
-      const alphaCore = Math.max(0.06, 0.98 * decay * glowTier);
-      const alphaBloom = Math.max(0.02, 0.62 * decay * glowTier);
+      const glowTier = i < 2 ? 1.35 : i < 5 ? 0.72 : 0.22;
+      const flicker = 0.88 + 0.12 * Math.sin(t * (5.4 + i * 0.45) + i * 0.7);
+      const alphaCore = Math.max(0.02, 1.15 * decay * glowTier * shimmer * flicker);
+      const alphaBloom = Math.max(0.01, 0.78 * decay * glowTier * shimmer);
       const warmShift = Math.min(1, i / 12);
       const red = 255;
       const green = Math.round(194 - warmShift * 68 - (1 - toneNorm) * 8);
@@ -465,7 +468,8 @@ function setupVisualizer() {
       ctx.shadowBlur = 30 + i * 5.2;
       const pulseGrad = ctx.createLinearGradient(pulseX, pulseY - pulseHeight, pulseX, pulseY + pulseHeight * 0.45);
       pulseGrad.addColorStop(0, `rgba(${red}, ${Math.max(94, green)}, ${Math.max(26, blue)}, 0)`);
-      pulseGrad.addColorStop(0.16, `rgba(${red}, ${Math.max(102, green + 10)}, ${Math.max(32, blue + 8)}, ${alphaCore})`);
+      pulseGrad.addColorStop(0.14, `rgba(${red}, ${Math.max(120, green + 24)}, ${Math.max(68, blue + 32)}, ${alphaCore * (i < 1 ? 1.1 : 1)})`);
+      pulseGrad.addColorStop(0.18, `rgba(255, 246, 232, ${i < 2 ? alphaCore * 0.60 : alphaCore * 0.12})`);
       pulseGrad.addColorStop(0.52, `rgba(${red}, ${Math.max(88, green - 6)}, ${Math.max(24, blue - 4)}, ${alphaCore * 0.8})`);
       pulseGrad.addColorStop(1, `rgba(${red}, ${Math.max(74, green - 18)}, ${Math.max(20, blue - 8)}, 0)`);
       ctx.fillStyle = pulseGrad;
@@ -488,9 +492,10 @@ function setupVisualizer() {
 
       ctx.shadowBlur = 0;
 
-      const reflectionHeight = pulseHeight * (0.21 + perspective * 0.11);
+      const reflectionBoost = i < 3 ? 1.35 : 0.92;
+      const reflectionHeight = pulseHeight * (0.21 + perspective * 0.11) * reflectionBoost;
       const reflection = ctx.createLinearGradient(pulseX, pulseY + 2, pulseX, pulseY + reflectionHeight + 24);
-      reflection.addColorStop(0, `rgba(${red}, ${Math.max(88, green)}, ${Math.max(24, blue)}, ${alphaCore * 0.34})`);
+      reflection.addColorStop(0, `rgba(${red}, ${Math.max(98, green + 8)}, ${Math.max(34, blue + 10)}, ${alphaCore * (i < 3 ? 0.48 : 0.28)})`);
       reflection.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = reflection;
       ctx.beginPath();
@@ -498,7 +503,7 @@ function setupVisualizer() {
       ctx.fill();
 
       x += spacing;
-      spacing *= 0.83;
+      spacing *= 0.80;
       if (x > w * 0.95) break;
     }
 
