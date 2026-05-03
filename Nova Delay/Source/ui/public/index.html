@@ -6,17 +6,17 @@
   <title>Nova Delay</title>
   <style>
     :root {
-      --bg0: #090603;
-      --bg1: #110b06;
-      --bg2: #1a120c;
-      --line: rgba(191, 123, 39, 0.42);
-      --line-soft: rgba(171, 108, 38, 0.28);
-      --text: #f0e6d7;
-      --text-soft: #c3ad90;
-      --amber: #f0a739;
-      --amber-hot: #ffbf53;
-      --gold: #c78a33;
-      --panel: rgba(15, 11, 7, 0.86);
+      --bg0: #040201;
+      --bg1: #0b0704;
+      --bg2: #130d08;
+      --line: rgba(255, 165, 70, 0.36);
+      --line-soft: rgba(189, 116, 39, 0.22);
+      --text: #f5ead9;
+      --text-soft: #cab08f;
+      --amber: #f2a33d;
+      --amber-hot: #ffd07a;
+      --gold: #ce8b35;
+      --panel: rgba(12, 8, 5, 0.82);
       --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
     }
 
@@ -28,8 +28,9 @@
       height: 100%;
       overflow: hidden;
       background:
-        radial-gradient(120% 100% at 50% 50%, rgba(83, 49, 18, 0.2) 0%, transparent 64%),
-        linear-gradient(180deg, #090603 0%, #060402 100%);
+        radial-gradient(120% 110% at 50% 45%, rgba(126, 73, 23, 0.25) 0%, rgba(12, 8, 5, 0.42) 46%, transparent 72%),
+        radial-gradient(90% 80% at 50% 60%, rgba(255, 160, 66, 0.07) 0%, transparent 60%),
+        linear-gradient(180deg, #040201 0%, #050302 100%);
       font-family: "Arial Narrow", "Avenir Next Condensed", "Helvetica Neue", sans-serif;
       color: var(--text);
       letter-spacing: 0.04em;
@@ -56,17 +57,30 @@
       width: 1280px;
       min-height: 840px;
       border-radius: 26px;
-      border: 1px solid rgba(207, 143, 60, 0.34);
+      border: 1px solid rgba(230, 153, 62, 0.30);
       overflow: visible;
       transform: scale(var(--ui-scale, 1));
       transform-origin: top center;
       background:
-        radial-gradient(circle at 50% 38%, rgba(101, 62, 24, 0.20), transparent 60%),
-        linear-gradient(180deg, var(--bg2) 0%, #090603 55%, #080502 100%);
+        radial-gradient(circle at 50% 36%, rgba(255, 174, 77, 0.12), rgba(56, 34, 16, 0.09) 38%, transparent 60%),
+        linear-gradient(180deg, #130d08 0%, #0a0604 58%, #060302 100%);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.05),
-        inset 0 -20px 40px rgba(0,0,0,0.5),
-        0 26px 52px rgba(0,0,0,0.68);
+        inset 0 1px 0 rgba(255,255,255,0.08),
+        inset 0 -30px 54px rgba(0,0,0,0.58),
+        inset 0 0 120px rgba(255, 172, 74, 0.04),
+        0 36px 72px rgba(0,0,0,0.74);
+    }
+
+    .plugin::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 26px;
+      pointer-events: none;
+      background:
+        radial-gradient(85% 55% at 50% 40%, rgba(255, 182, 88, 0.10), transparent 70%),
+        linear-gradient(180deg, rgba(255,255,255,0.045), transparent 26%),
+        radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0,0,0,0.42) 100%);
     }
 
     .plugin::after {
@@ -75,11 +89,11 @@
       inset: 0;
       pointer-events: none;
       background-image:
-        radial-gradient(rgba(255, 200, 120, 0.045) 0.5px, transparent 0.8px),
-        radial-gradient(rgba(255, 190, 110, 0.025) 0.5px, transparent 0.8px);
-      background-size: 3px 3px, 2px 2px;
-      opacity: 0.28;
-      mix-blend-mode: screen;
+        radial-gradient(rgba(255, 211, 145, 0.030) 0.6px, transparent 0.9px),
+        radial-gradient(rgba(255, 197, 118, 0.02) 0.6px, transparent 0.9px);
+      background-size: 2px 2px, 3px 3px;
+      opacity: 0.34;
+      mix-blend-mode: soft-light;
     }
 
     .top {
@@ -89,9 +103,12 @@
       grid-template-columns: 1fr 1.3fr 1fr;
       align-items: center;
       padding: 14px 24px;
-      background: linear-gradient(180deg, rgba(0,0,0,0.24), rgba(0,0,0,0.06));
+      background:
+        linear-gradient(180deg, rgba(255, 182, 95, 0.08), rgba(0,0,0,0.08)),
+        linear-gradient(180deg, rgba(0,0,0,0.42), rgba(0,0,0,0.16));
       position: relative;
       z-index: 2;
+      box-shadow: inset 0 -10px 18px rgba(0,0,0,0.26);
     }
 
     .brand-left {
@@ -141,7 +158,7 @@
 
     .brand-title .delay {
       color: var(--amber);
-      text-shadow: 0 0 20px rgba(255, 170, 68, 0.26);
+      text-shadow: 0 0 20px rgba(255, 170, 68, 0.35), 0 0 44px rgba(255, 153, 51, 0.16);
     }
 
     .brand-sub {
@@ -172,8 +189,9 @@
       width: 100%;
       height: 54px;
       border-radius: 14px;
-      border: 1px solid rgba(219, 142, 49, 0.54);
-      background: linear-gradient(180deg, rgba(18, 12, 8, 0.98), rgba(8, 5, 3, 0.98));
+      border: 1px solid rgba(235, 152, 54, 0.44);
+      background:
+        linear-gradient(180deg, rgba(33, 22, 14, 0.96), rgba(10, 6, 4, 0.96));
       color: #f2dec0;
       font-size: 34px;
       padding: 0 16px;
@@ -190,16 +208,22 @@
 
     .visual-panel {
       margin: 14px 20px 0;
-      border: 1px solid var(--line-soft);
+      border: 1px solid rgba(233, 150, 55, 0.36);
       border-radius: 18px;
       padding: 14px;
-      background: linear-gradient(180deg, rgba(6,4,3,0.95), rgba(7,5,3,0.95));
+      background:
+        radial-gradient(60% 90% at 50% 52%, rgba(255, 156, 52, 0.16), rgba(78, 45, 18, 0.08) 35%, rgba(10, 7, 5, 0.86) 75%),
+        linear-gradient(180deg, rgba(20, 12, 8, 0.94), rgba(7, 4, 3, 0.95));
       position: relative;
       z-index: 2;
       height: 252px;
       display: grid;
       grid-template-columns: 86px 1fr 86px;
-      gap: 12px;
+      gap: 14px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.08),
+        inset 0 -26px 36px rgba(0,0,0,0.40),
+        0 16px 26px rgba(0,0,0,0.36);
     }
 
     .meter-wrap {
@@ -252,9 +276,13 @@
       height: 100%;
       border-radius: 12px;
       background:
-        radial-gradient(60% 70% at 42% 48%, rgba(140, 78, 24, 0.18), transparent 70%),
-        linear-gradient(180deg, rgba(6,4,3,0.96), rgba(5,3,2,0.96));
-      border: 1px solid rgba(169, 107, 36, 0.22);
+        radial-gradient(70% 90% at 50% 48%, rgba(255, 167, 58, 0.15), rgba(145, 78, 28, 0.10) 34%, transparent 64%),
+        linear-gradient(180deg, rgba(16,10,7,0.96), rgba(6,4,3,0.97));
+      border: 1px solid rgba(201, 125, 46, 0.30);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.10),
+        inset 0 -14px 22px rgba(0,0,0,0.42),
+        0 0 36px rgba(255, 163, 58, 0.12);
     }
 
     .sync-readout {
@@ -266,11 +294,16 @@
       align-items: baseline;
       gap: 16px;
       font-size: 46px;
-      color: var(--amber-hot);
+      color: #ffd38f;
       letter-spacing: 0.06em;
       text-transform: uppercase;
-      text-shadow: 0 0 16px rgba(255, 174, 73, 0.20);
+      text-shadow: 0 0 14px rgba(255, 174, 73, 0.40), 0 0 28px rgba(255, 145, 47, 0.24);
       pointer-events: none;
+      background: linear-gradient(180deg, rgba(11, 7, 4, 0.74), rgba(8, 5, 3, 0.36));
+      padding: 3px 16px 6px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 168, 61, 0.26);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 10px 16px rgba(0,0,0,0.30);
     }
 
     .controls-main {
@@ -284,13 +317,15 @@
     }
 
     .knob-bank {
-      border: 1px solid var(--line-soft);
+      border: 1px solid rgba(228, 147, 55, 0.28);
       border-radius: 18px;
-      background: var(--panel);
+      background:
+        linear-gradient(180deg, rgba(26, 17, 11, 0.90), rgba(11, 7, 5, 0.92));
       padding: 14px;
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 10px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -18px 24px rgba(0,0,0,0.34), 0 14px 22px rgba(0,0,0,0.26);
     }
 
     .knob-wrap {
@@ -313,19 +348,32 @@
       width: 128px;
       height: 128px;
       border-radius: 50%;
-      border: 1px solid rgba(216, 140, 46, 0.52);
+      border: 1px solid rgba(232, 151, 58, 0.48);
       background:
-        radial-gradient(circle at 30% 24%, rgba(255,255,255,0.12), transparent 35%),
-        repeating-conic-gradient(from 0deg, rgba(255,255,255,0.03) 0deg 12deg, rgba(0,0,0,0.03) 12deg 24deg),
-        linear-gradient(155deg, #2b2219 0%, #17110c 48%, #0c0805 100%);
+        radial-gradient(circle at 34% 22%, rgba(255,255,255,0.22), transparent 38%),
+        repeating-conic-gradient(from 0deg, rgba(255,255,255,0.05) 0deg 8deg, rgba(0,0,0,0.08) 8deg 16deg),
+        radial-gradient(circle at 50% 58%, #2f261d 0%, #1a130e 52%, #0d0906 100%);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.12),
-        inset 0 -14px 20px rgba(0,0,0,0.42),
-        0 10px 20px rgba(0,0,0,0.44),
-        0 0 18px rgba(255, 161, 53, 0.1);
+        inset 0 2px 1px rgba(255,255,255,0.14),
+        inset 0 -22px 26px rgba(0,0,0,0.54),
+        inset 0 0 30px rgba(255, 178, 81, 0.07),
+        0 12px 20px rgba(0,0,0,0.50),
+        0 0 24px rgba(255, 161, 53, 0.16);
       cursor: ns-resize;
       user-select: none;
       touch-action: none;
+    }
+
+    .knob::before {
+      content: "";
+      position: absolute;
+      inset: -12px;
+      border-radius: 50%;
+      background: repeating-conic-gradient(from -140deg, rgba(255, 191, 113, 0.36) 0deg 1.8deg, transparent 1.8deg 8deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+      opacity: 0.55;
+      pointer-events: none;
     }
 
     .knob::after {
@@ -338,7 +386,7 @@
       transform: translateX(-50%);
       border-radius: 99px;
       background: linear-gradient(180deg, #fff0cd 0%, #efab44 100%);
-      box-shadow: 0 0 8px rgba(255, 172, 65, 0.3);
+      box-shadow: 0 0 8px rgba(255, 172, 65, 0.5), 0 0 20px rgba(255, 153, 44, 0.30);
       transform-origin: 50% 51px;
       rotate: var(--turn, -140deg);
     }
@@ -347,10 +395,10 @@
       position: absolute;
       inset: -8px;
       border-radius: 50%;
-      background: conic-gradient(from -140deg, rgba(239, 160, 49, 0.96) var(--fill, 0%), rgba(60, 38, 18, 0.2) var(--fill, 0%));
+      background: conic-gradient(from -140deg, rgba(255, 192, 112, 0.98) var(--fill, 0%), rgba(255, 142, 38, 0.55) calc(var(--fill, 0%) + 6%), rgba(60, 38, 18, 0.18) calc(var(--fill, 0%) + 7%));
       -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
       mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
-      filter: drop-shadow(0 0 10px rgba(255, 167, 53, 0.32));
+      filter: drop-shadow(0 0 9px rgba(255, 176, 79, 0.6)) drop-shadow(0 0 22px rgba(255, 152, 48, 0.34));
       pointer-events: none;
     }
 
@@ -379,8 +427,9 @@
     .toggle, .mode-btn {
       height: 46px;
       border-radius: 12px;
-      border: 1px solid rgba(204, 135, 52, 0.56);
-      background: linear-gradient(180deg, rgba(20, 13, 8, 0.98), rgba(9, 6, 4, 0.98));
+      border: 1px solid rgba(219, 143, 54, 0.52);
+      background:
+        linear-gradient(180deg, rgba(33, 21, 13, 0.98), rgba(12, 8, 5, 0.98));
       color: #e6cfb1;
       font-size: 29px;
       letter-spacing: 0.1em;
@@ -388,68 +437,81 @@
       padding: 0 14px;
       transition: all var(--ease);
       cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 6px 10px rgba(0,0,0,0.28);
     }
 
     .toggle.active, .mode-btn.active {
       color: #ffe8c5;
       border-color: rgba(255, 170, 62, 0.95);
       background: linear-gradient(180deg, rgba(86, 49, 17, 0.95), rgba(36, 21, 9, 0.98));
-      box-shadow: 0 0 16px rgba(255, 162, 58, 0.28), inset 0 1px 0 rgba(255,255,255,0.18);
+      box-shadow: 0 0 16px rgba(255, 162, 58, 0.38), 0 0 28px rgba(255, 129, 38, 0.22), inset 0 1px 0 rgba(255,255,255,0.20), inset 0 -4px 10px rgba(0,0,0,0.28);
     }
 
     .right-panel {
-      border: 1px solid var(--line-soft);
+      border: 1px solid rgba(228, 147, 55, 0.30);
       border-radius: 18px;
-      background: var(--panel);
-      padding: 12px;
+      background:
+        linear-gradient(180deg, rgba(28, 17, 11, 0.90), rgba(10, 7, 5, 0.92));
+      padding: 14px;
       display: grid;
       grid-template-rows: auto 1fr;
-      gap: 12px;
+      gap: 14px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -16px 24px rgba(0,0,0,0.36), 0 14px 22px rgba(0,0,0,0.28);
     }
 
     .button-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
+      gap: 12px;
     }
 
     .fx-btn {
       border-radius: 12px;
-      border: 1px solid rgba(186, 119, 41, 0.58);
-      background: linear-gradient(180deg, rgba(16, 10, 6, 0.96), rgba(8, 5, 3, 0.96));
+      border: 1px solid rgba(202, 128, 44, 0.56);
+      background:
+        linear-gradient(180deg, rgba(38, 24, 15, 0.98), rgba(11, 7, 4, 0.98));
       color: #e8d2b3;
       font-size: 31px;
       letter-spacing: 0.07em;
       text-transform: uppercase;
-      min-height: 68px;
+      min-height: 72px;
+      padding: 0 14px;
       cursor: pointer;
       transition: all var(--ease);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 14px rgba(0,0,0,0.34);
     }
 
     .fx-btn.active {
       background: linear-gradient(180deg, rgba(103, 57, 19, 0.98), rgba(49, 29, 11, 0.98));
       border-color: rgba(255, 169, 60, 0.9);
-      box-shadow: 0 0 14px rgba(255, 164, 57, 0.30), inset 0 1px 0 rgba(255,255,255,0.14);
+      box-shadow: 0 0 16px rgba(255, 164, 57, 0.42), 0 0 28px rgba(255, 132, 42, 0.24), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -6px 12px rgba(0,0,0,0.30);
       color: #ffe9c7;
     }
 
+    .fx-btn:active, .toggle:active, .mode-btn:active {
+      transform: translateY(1px);
+      box-shadow: inset 0 3px 8px rgba(0,0,0,0.42);
+    }
+
     .sat-wrap {
-      border: 1px solid rgba(181, 114, 39, 0.48);
+      border: 1px solid rgba(205, 132, 48, 0.48);
       border-radius: 14px;
       padding: 10px;
       display: grid;
       justify-items: center;
       gap: 6px;
-      background: linear-gradient(180deg, rgba(15, 9, 6, 0.96), rgba(8, 5, 3, 0.96));
+      background: linear-gradient(180deg, rgba(20, 12, 8, 0.96), rgba(9, 6, 4, 0.96));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -12px 16px rgba(0,0,0,0.32);
     }
 
     .sat-wrap .knob-title { font-size: 34px; }
 
     .lower {
       margin: 12px 20px 14px;
-      border: 1px solid var(--line-soft);
+      border: 1px solid rgba(228, 147, 55, 0.30);
       border-radius: 18px;
-      background: var(--panel);
+      background:
+        linear-gradient(180deg, rgba(24, 15, 10, 0.90), rgba(10, 7, 5, 0.92));
       padding: 12px;
       display: grid;
       grid-template-columns: 1.05fr 1.4fr 0.7fr 0.7fr 0.7fr;
@@ -457,6 +519,7 @@
       align-items: center;
       z-index: 2;
       position: relative;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -18px 24px rgba(0,0,0,0.34), 0 14px 22px rgba(0,0,0,0.28);
     }
 
     .block-title {
@@ -630,6 +693,7 @@
   </div>
   </div>
 
-  <script type="module" src="js/index.js?v=3"></script>
+  <script type="module" src="js/index.js?v=4"></script>
+  
 </body>
 </html>

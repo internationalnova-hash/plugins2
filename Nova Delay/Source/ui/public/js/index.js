@@ -373,20 +373,27 @@ function setupVisualizer() {
   let t = 0;
 
   const draw = () => {
-    t += 0.011;
+    t += 0.014;
 
     const w = canvas.width;
     const h = canvas.height;
 
     ctx.clearRect(0, 0, w, h);
 
-    const centerY = h * 0.56;
+    const horizonY = h * 0.62;
 
-    const bg = ctx.createRadialGradient(w * 0.38, h * 0.54, 8, w * 0.38, h * 0.54, w * 0.64);
-    bg.addColorStop(0, "rgba(255, 154, 52, 0.15)");
-    bg.addColorStop(0.6, "rgba(180, 98, 29, 0.08)");
+    const bg = ctx.createRadialGradient(w * 0.52, h * 0.52, 12, w * 0.52, h * 0.52, w * 0.72);
+    bg.addColorStop(0, "rgba(255, 175, 72, 0.22)");
+    bg.addColorStop(0.45, "rgba(149, 83, 28, 0.12)");
     bg.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    const haze = ctx.createLinearGradient(0, 0, 0, h);
+    haze.addColorStop(0, "rgba(0,0,0,0.10)");
+    haze.addColorStop(0.55, "rgba(0,0,0,0.0)");
+    haze.addColorStop(1, "rgba(0,0,0,0.36)");
+    ctx.fillStyle = haze;
     ctx.fillRect(0, 0, w, h);
 
     const fbNorm = Math.max(0, Math.min(1, Number(values.feedback) / 100));
@@ -394,60 +401,83 @@ function setupVisualizer() {
     const wowNorm = Math.max(0, Math.min(1, Number(values.wow_flutter) / 100));
     const toneNorm = Math.max(0, Math.min(1, Number(values.tone) / 100));
 
-    const repeats = Math.round(8 + fbNorm * 8);
-    const baseSpacing = w * 0.085;
+    const repeats = Math.round(8 + fbNorm * 9);
     const startX = w * 0.13;
+    let x = startX;
+    let spacing = w * 0.13;
+
+    ctx.globalCompositeOperation = "screen";
 
     for (let i = 0; i < repeats; i++) {
-      const decay = Math.pow(0.72, i) * (0.6 + mixNorm * 0.5);
-      const jitter = Math.sin((i * 0.9) + (t * (0.8 + wowNorm * 2.0))) * (2 + wowNorm * 6);
-      const spacingJitter = Math.sin((i * 1.7) + t * 1.4) * (5 + wowNorm * 10);
-      const x = startX + i * baseSpacing + spacingJitter;
-      const spikeHeight = (h * 0.4) * decay * (0.88 + 0.16 * Math.sin(t * 2 + i));
-      const spread = 2 + i * 0.35 + wowNorm * 4;
+      const perspective = Math.pow(0.84, i);
+      const decay = Math.pow(0.76, i) * (0.84 + mixNorm * 0.32);
+      const wobble = Math.sin(t * (2.0 + wowNorm * 3.2) + i * 0.75) * (1.5 + wowNorm * 8.0);
+      const pulseX = x + wobble;
+      const pulseHeight = h * (0.72 * decay + 0.12);
+      const coreWidth = 8 + i * 0.6;
+      const blurWidth = coreWidth * (2.8 + i * 0.14);
 
-      const colorA = 255;
-      const colorB = 170 - Math.round(i * 5);
-      const colorC = 68 - Math.round(i * 2);
-      const alpha = Math.max(0.08, 0.9 * decay);
+      const alphaCore = Math.max(0.18, 0.95 * decay);
+      const alphaBloom = Math.max(0.08, 0.54 * decay);
+      const warmShift = Math.min(1, i / 12);
+      const red = 255;
+      const green = Math.round(194 - warmShift * 68 - (1 - toneNorm) * 8);
+      const blue = Math.round(112 - warmShift * 60);
 
-      ctx.strokeStyle = `rgba(${colorA},${Math.max(70, colorB)},${Math.max(18, colorC)},${alpha})`;
-      ctx.lineWidth = 1.6 + decay * 2.6;
-      ctx.shadowColor = `rgba(255, 168, 60, ${0.45 * decay})`;
-      ctx.shadowBlur = 12 + i * 1.1;
+      ctx.shadowColor = `rgba(${red}, ${Math.max(86, green)}, ${Math.max(28, blue)}, ${0.64 * decay})`;
+      ctx.shadowBlur = 28 + i * 4.5;
+      const pulseGrad = ctx.createLinearGradient(pulseX, horizonY - pulseHeight, pulseX, horizonY + pulseHeight * 0.45);
+      pulseGrad.addColorStop(0, `rgba(${red}, ${Math.max(94, green)}, ${Math.max(26, blue)}, 0)`);
+      pulseGrad.addColorStop(0.16, `rgba(${red}, ${Math.max(102, green + 10)}, ${Math.max(32, blue + 8)}, ${alphaCore})`);
+      pulseGrad.addColorStop(0.52, `rgba(${red}, ${Math.max(88, green - 6)}, ${Math.max(24, blue - 4)}, ${alphaCore * 0.8})`);
+      pulseGrad.addColorStop(1, `rgba(${red}, ${Math.max(74, green - 18)}, ${Math.max(20, blue - 8)}, 0)`);
+      ctx.fillStyle = pulseGrad;
+      ctx.fillRect(pulseX - coreWidth * 0.5, horizonY - pulseHeight, coreWidth, pulseHeight * 1.45);
 
-      ctx.beginPath();
-      ctx.moveTo(x, centerY - spikeHeight);
-      ctx.lineTo(x + jitter * 0.12, centerY + spikeHeight * (0.55 + 0.20 * (1 - toneNorm)));
-      ctx.stroke();
+      const aura = ctx.createRadialGradient(pulseX, horizonY - pulseHeight * 0.42, 2, pulseX, horizonY - pulseHeight * 0.35, pulseHeight * 0.9);
+      aura.addColorStop(0, `rgba(255, ${Math.max(100, green + 8)}, ${Math.max(34, blue + 8)}, ${alphaBloom})`);
+      aura.addColorStop(0.7, `rgba(255, ${Math.max(88, green - 4)}, ${Math.max(24, blue - 6)}, ${alphaBloom * 0.25})`);
+      aura.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = aura;
+      ctx.fillRect(pulseX - blurWidth, horizonY - pulseHeight * 1.22, blurWidth * 2, pulseHeight * 1.8);
 
       ctx.shadowBlur = 0;
-      ctx.strokeStyle = `rgba(255, 150, 50, ${0.26 * decay})`;
-      ctx.lineWidth = spread;
+
+      const reflectionHeight = pulseHeight * (0.22 + perspective * 0.12);
+      const reflection = ctx.createLinearGradient(pulseX, horizonY + 2, pulseX, horizonY + reflectionHeight + 22);
+      reflection.addColorStop(0, `rgba(${red}, ${Math.max(88, green)}, ${Math.max(24, blue)}, ${alphaCore * 0.34})`);
+      reflection.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = reflection;
       ctx.beginPath();
-      ctx.moveTo(x - 4, centerY + spikeHeight * 0.34);
-      ctx.lineTo(x + 5, centerY + spikeHeight * 0.36);
-      ctx.stroke();
+      ctx.ellipse(pulseX, horizonY + reflectionHeight * 0.45, blurWidth * 0.95, reflectionHeight, 0, 0, Math.PI * 2);
+      ctx.fill();
 
-      for (let p = 0; p < 2; p++) {
-        const px = x + (Math.random() - 0.5) * 22;
-        const py = centerY - spikeHeight * (0.1 + Math.random() * 0.9);
-        ctx.fillStyle = `rgba(255, 183, 81, ${Math.max(0.03, decay * 0.45)})`;
-        ctx.fillRect(px, py, 1.2, 1.2);
-      }
+      x += spacing;
+      spacing *= 0.86;
+      if (x > w * 0.95) break;
     }
 
-    ctx.strokeStyle = "rgba(255, 190, 92, 0.92)";
-    ctx.lineWidth = 2.6;
+    ctx.globalCompositeOperation = "source-over";
+
+    const floorGlow = ctx.createLinearGradient(0, horizonY - 4, 0, h);
+    floorGlow.addColorStop(0, "rgba(255, 170, 72, 0.14)");
+    floorGlow.addColorStop(0.35, "rgba(130, 75, 26, 0.12)");
+    floorGlow.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = floorGlow;
+    ctx.fillRect(0, horizonY - 2, w, h - horizonY + 2);
+
+    ctx.strokeStyle = "rgba(255, 190, 98, 0.34)";
+    ctx.lineWidth = 1.4;
     ctx.beginPath();
-    for (let x = 0; x < w; x += 4) {
-      const progress = x / w;
-      const env = Math.exp (-progress * (2 + fbNorm * 4));
-      const y = centerY + Math.sin(x * 0.02 + t * 2.5) * env * 11;
-      if (x === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
+    ctx.moveTo(w * 0.08, horizonY + 0.5);
+    ctx.lineTo(w * 0.92, horizonY + 0.5);
     ctx.stroke();
+
+    const vignette = ctx.createRadialGradient(w * 0.5, h * 0.5, h * 0.24, w * 0.5, h * 0.5, h * 0.82);
+    vignette.addColorStop(0, "rgba(0,0,0,0)");
+    vignette.addColorStop(1, "rgba(0,0,0,0.38)");
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, w, h);
 
     requestAnimationFrame(draw);
   };
