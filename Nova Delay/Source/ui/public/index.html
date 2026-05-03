@@ -487,6 +487,21 @@
       transition: all var(--ease);
       cursor: pointer;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 6px 10px rgba(0,0,0,0.28);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      line-height: 1;
+    }
+
+    .toggle svg {
+      width: 17px;
+      height: 17px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.9;
+      opacity: 0.95;
+      filter: drop-shadow(0 0 5px rgba(255, 170, 62, 0.22));
     }
 
     .toggle.active, .mode-btn.active {
@@ -705,7 +720,10 @@
           </div>
           <div class="knob-value" id="delayTimeValue">1/4</div>
           <div class="small-buttons">
-            <button class="toggle active" data-param="sync_enabled" data-value="1">SYNC</button>
+            <button class="toggle active" data-param="sync_enabled" data-value="1">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6v4.9l3.3 2.1"/></svg>
+              <span>SYNC</span>
+            </button>
             <button class="toggle" data-param="sync_enabled" data-value="0">FREE</button>
           </div>
         </div>
