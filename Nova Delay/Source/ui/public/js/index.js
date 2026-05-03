@@ -35,11 +35,15 @@ function setupViewportFit() {
   const plugin = document.querySelector(".plugin");
   if (!plugin) return;
 
-  const designWidth = 1280;
-  const designHeight = 840;
   const padding = 20;
 
   const updateScale = () => {
+    // Reset scale before measurement so dimensions are based on natural layout size.
+    plugin.style.setProperty("--ui-scale", "1");
+
+    const designWidth = Math.max(1, plugin.offsetWidth || 1280);
+    const designHeight = Math.max(1, plugin.offsetHeight || 840);
+
     const availW = Math.max(320, window.innerWidth - padding);
     const availH = Math.max(320, window.innerHeight - padding);
     const scale = Math.min(1, availW / designWidth, availH / designHeight);
@@ -47,6 +51,7 @@ function setupViewportFit() {
   };
 
   updateScale();
+  window.addEventListener("load", updateScale);
   window.addEventListener("resize", updateScale);
 }
 
