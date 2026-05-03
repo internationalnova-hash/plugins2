@@ -446,6 +446,33 @@
       gap: 6px;
     }
 
+    .key-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 88px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .key-note-select {
+      height: 32px;
+      border-radius: 9px;
+      border: 1px solid rgba(139,117,205,0.50);
+      color: var(--text);
+      background: linear-gradient(180deg, rgba(36,30,63,0.96), rgba(24,20,44,0.96));
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0 8px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .key-note-select:disabled {
+      opacity: 0.56;
+      cursor: default;
+    }
+
     .chip {
       height: 32px; border-radius: 999px;
       border: 1px solid rgba(139,117,205,0.40);
@@ -766,10 +793,26 @@
 
         <div class="right-card">
           <h4>Key</h4>
-          <div class="switch-row" id="key-switch">
-            <button class="chip active" data-key="0">Auto</button>
-            <button class="chip" data-key="1">Major</button>
-            <button class="chip" data-key="2">Minor</button>
+          <div class="key-row">
+            <div class="switch-row" id="key-switch">
+              <button class="chip active" data-key="0">Auto</button>
+              <button class="chip" data-key="1">Major</button>
+              <button class="chip" data-key="2">Minor</button>
+            </div>
+            <select id="key-note-select" class="key-note-select" aria-label="Key Note">
+              <option value="0">C</option>
+              <option value="1">C#</option>
+              <option value="2">D</option>
+              <option value="3">D#</option>
+              <option value="4">E</option>
+              <option value="5">F</option>
+              <option value="6">F#</option>
+              <option value="7">G</option>
+              <option value="8">G#</option>
+              <option value="9">A</option>
+              <option value="10">A#</option>
+              <option value="11">B</option>
+            </select>
           </div>
         </div>
 
@@ -820,6 +863,7 @@
         style: 0,
         tone: 1,
         keyMode: 0,
+        keyNote: 0,
         lowLatency: false,
         qualityMode: 0
       };
@@ -920,6 +964,7 @@
           case "style": return clamp(value, 0, 7) / 7;
           case "tone": return clamp(value, 0, 2) / 2;
           case "key_mode": return clamp(value, 0, 3) / 3;
+          case "key_note": return clamp(value, 0, 11) / 11;
           case "quality_mode": return clamp(value, 0, 1);
           default: return clamp(value, 0, 1);
         }
@@ -935,7 +980,8 @@
           case "low_latency": return n >= 0.5;
           case "style": return Math.round(n * 7);
           case "tone": return Math.round(n * 2);
-          case "key_mode": return Math.min(2, Math.round(n * 3));
+          case "key_mode": return Math.round(n * 3);
+          case "key_note": return Math.round(n * 11);
           case "quality_mode": return n >= 0.5 ? 1 : 0;
           default: return n;
         }
@@ -956,6 +1002,12 @@
         document.querySelectorAll("#key-switch .chip").forEach((b) => {
           b.classList.toggle("active", Number(b.dataset.key) === states.keyMode);
         });
+
+        const keyNoteSelect = document.getElementById("key-note-select");
+        if (keyNoteSelect) {
+          keyNoteSelect.value = String(states.keyNote);
+          keyNoteSelect.disabled = states.keyMode === 0;
+        }
 
         document.getElementById("latency-toggle").classList.toggle("active", !!states.lowLatency);
         document.getElementById("latency-toggle").setAttribute("aria-pressed", String(!!states.lowLatency));
@@ -1044,6 +1096,7 @@
           style: "style",
           tone: "tone",
           keyMode: "key_mode",
+          keyNote: "key_note",
           lowLatency: "low_latency",
           qualityMode: "quality_mode"
         }[param];
@@ -1117,6 +1170,10 @@
           button.addEventListener("click", () => setState("keyMode", Number(button.dataset.key), true));
         });
 
+        document.getElementById("key-note-select").addEventListener("change", function () {
+          setState("keyNote", Number(this.value), true);
+        });
+
         document.getElementById("latency-toggle").addEventListener("click", () => {
           setState("lowLatency", !states.lowLatency, true);
         });
@@ -1147,7 +1204,7 @@
       }
 
       function hookRelays () {
-        ["voices", "width", "humanize", "mix", "style", "tone", "key_mode", "low_latency", "quality_mode"].forEach((name) => {
+        ["voices", "width", "humanize", "mix", "style", "tone", "key_mode", "key_note", "low_latency", "quality_mode"].forEach((name) => {
           relays[name] = createRelay(name);
         });
 
@@ -1159,6 +1216,7 @@
           style: "style",
           tone: "tone",
           key_mode: "keyMode",
+          key_note: "keyNote",
           low_latency: "lowLatency",
           quality_mode: "qualityMode"
         };
