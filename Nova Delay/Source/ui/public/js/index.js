@@ -128,46 +128,6 @@ function createSliderState(name) {
   return state;
 }
 
-function setupViewportFit() {
-  const plugin = document.querySelector(".plugin");
-  if (!plugin) return;
-
-  const updateScale = () => {
-    // Scale only the plugin content inside the fixed 1080x680 viewport.
-    plugin.style.setProperty("--ui-scale", "1");
-
-    const pluginRect = plugin.getBoundingClientRect();
-    let maxRight = pluginRect.width;
-    let maxBottom = pluginRect.height;
-
-    // Include overflow descendants when computing fit so lower controls never clip.
-    const allNodes = plugin.querySelectorAll("*");
-    allNodes.forEach((node) => {
-      const rect = node.getBoundingClientRect();
-      if (!rect || (rect.width === 0 && rect.height === 0)) return;
-
-      const right = rect.right - pluginRect.left;
-      const bottom = rect.bottom - pluginRect.top;
-      if (Number.isFinite(right)) maxRight = Math.max(maxRight, right);
-      if (Number.isFinite(bottom)) maxBottom = Math.max(maxBottom, bottom);
-    });
-
-    const designWidth = Math.max(1280, Math.ceil(maxRight));
-    const designHeight = Math.max(840, Math.ceil(maxBottom));
-
-    const availW = 1080;
-    const availH = 680;
-
-    const scale = Math.min(1, availW / designWidth, availH / designHeight) * 0.995;
-    plugin.style.setProperty("--ui-scale", scale.toFixed(4));
-  };
-
-  updateScale();
-  window.addEventListener("load", updateScale);
-  window.addEventListener("resize", updateScale);
-  window.setTimeout(updateScale, 120);
-}
-
 function populateSelect(id, options) {
   const select = document.getElementById(id);
   if (!select) return;
@@ -671,8 +631,6 @@ function setupVisualizer() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  setupViewportFit();
-
   populateSelect("presetSelect", choices.preset);
   populateSelect("delayModelSelect", choices.delay_model);
 

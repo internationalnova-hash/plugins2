@@ -58,11 +58,11 @@
     .plugin {
       position: relative;
       width: 1280px;
-      min-height: 840px;
+      height: 840px;
       border-radius: 26px;
       border: 1px solid rgba(230, 153, 62, 0.30);
       overflow: visible;
-      transform: scale(var(--ui-scale, 0.8095));
+      transform: scale(0.785);
       transform-origin: top left;
       background:
         radial-gradient(circle at 50% 34%, rgba(255, 171, 71, 0.15), rgba(64, 37, 17, 0.12) 34%, transparent 62%),
@@ -767,9 +767,6 @@
       gap: 6px;
     }
 
-    @media (max-width: 1200px) {
-      .plugin { transform-origin: center; }
-    }
   </style>
 </head>
 <body>
