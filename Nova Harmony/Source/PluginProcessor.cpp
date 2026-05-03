@@ -212,12 +212,12 @@ namespace
         const float m = juce::jlimit (0.0f, 100.0f, mixPercent);
 
         if (m <= 30.0f)
-            return remapShaped (m, 0.0f, 30.0f, 0.0f, 0.22f, 1.0f);
+            return remapShaped (m, 0.0f, 30.0f, 0.0f, 0.20f, 1.0f);
 
         if (m <= 70.0f)
-            return remapShaped (m, 30.0f, 70.0f, 0.22f, 0.78f, 4.2f);
+            return remapShaped (m, 30.0f, 70.0f, 0.20f, 0.80f, 4.2f);
 
-        return remapShaped (m, 70.0f, 100.0f, 0.78f, 0.94f, 0.45f);
+        return remapShaped (m, 70.0f, 100.0f, 0.80f, 0.92f, 0.42f);
     }
 
     struct StyleProfile
@@ -726,9 +726,9 @@ void NovaHarmonyAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     toneHighShelf.process (harmonyContext);
     mudCut.process (harmonyContext);
 
-    // Higher wet mix applies slight auto trim to keep dry/wet balance musical.
-    const float mixAutoTrimDb = -(1.8f * std::pow (mixNorm, 1.12f))
-                              - (mixNorm > 0.7f ? (mixNorm - 0.7f) * 4.0f : 0.0f);
+    // Higher wet mix applies gentle safety trim (~1-2 dB at high Mix) to avoid harsh stacking.
+    const float mixAutoTrimDb = -(1.2f * std::pow (mixNorm, 1.35f))
+                              - (mixNorm > 0.7f ? (mixNorm - 0.7f) * 1.8f : 0.0f);
     const float harmonyLimiter = juce::Decibels::decibelsToGain (mixAutoTrimDb);
 
     float peak = 0.0f;
