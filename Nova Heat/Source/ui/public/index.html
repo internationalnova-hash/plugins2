@@ -218,12 +218,13 @@
       pointer-events: none;
     }
 
+    /* TWEAK 5: brighter section titles */
     .section-title {
       align-self: stretch;
       font-size: 13px;
       font-weight: 700;
       letter-spacing: 0.26em;
-      color: #c4a882;
+      color: #e0c898;
       text-align: left;
     }
 
@@ -291,10 +292,11 @@
       min-width: 92px;
     }
 
+    /* TWEAK 5: brighter knob labels */
     .knob-label {
       font-size: 11px;
       letter-spacing: 0.18em;
-      color: #c4a882;
+      color: #ddc89a;
       text-align: center;
     }
 
@@ -359,9 +361,18 @@
         0 0 28px rgba(220,110,20,0.22);
     }
 
+    /* TWEAK 2+3: Drive knob is the hero — stronger glow, thicker feel */
     .knob.drive-focus {
       width: 110px;
       height: 110px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,210,100,0.28),
+        inset 0 -12px 22px rgba(0,0,0,0.5),
+        0 0 0 3px rgba(0,0,0,0.6),
+        0 12px 28px rgba(0,0,0,0.55),
+        0 0 36px rgba(220,100,20,0.32),
+        0 0 64px rgba(200,70,10,0.14);
+      filter: brightness(1.12);
     }
 
     .knob.hero {
@@ -536,6 +547,12 @@
     .meter-bar.hot {
       background: linear-gradient(180deg, #ff7050 0%, #c03010 100%);
       box-shadow: 0 0 12px rgba(220,60,20,0.6);
+    }
+    /* TWEAK 4: peak hold dot */
+    .meter-bar.peak-hold {
+      background: linear-gradient(180deg, #ffcc70 0%, #e08030 100%);
+      box-shadow: 0 0 10px rgba(255,180,50,0.7);
+      opacity: 0.85;
     }
 
     .footer {
@@ -1145,14 +1162,25 @@
         }, 60);
       }
 
+      /* TWEAK 4: meter with peak hold + decay trail */
+      let _meterPeak = 0;
+      let _meterDecayTimer = null;
       window.updateOutputMeter = function (level, isHot) {
         const safeLevel = clamp(Number(level) || 0, 0, 1);
+        if (safeLevel > _meterPeak) _meterPeak = safeLevel;
+        // decay peak toward current over time
+        if (_meterDecayTimer) clearTimeout(_meterDecayTimer);
+        _meterDecayTimer = setTimeout(() => {
+          _meterPeak = Math.max(0, _meterPeak - 0.06);
+        }, 80);
         const bars = Array.from(document.querySelectorAll("#output-meter .meter-bar"));
         const activeCount = Math.round(safeLevel * bars.length);
-
+        const peakIdx = Math.round(_meterPeak * bars.length) - 1;
         bars.forEach((bar, index) => {
           const shouldBeActive = index < activeCount;
-          bar.classList.toggle("active", shouldBeActive);
+          const isPeak = index === peakIdx && peakIdx > 0 && peakIdx >= activeCount;
+          bar.classList.toggle("active", shouldBeActive || isPeak);
+          bar.classList.toggle("peak-hold", isPeak && !shouldBeActive);
           bar.classList.toggle("hot", shouldBeActive && !!isHot && index >= bars.length - 2);
         });
       };
@@ -1192,29 +1220,46 @@
   </script>
 
   <script>
-    /* Heat energy glow - reacts to Drive + Heat knobs */
+    /* TWEAK 1: Heat energy glow — pulsing shimmer + grain at high values */
     (function () {
       var heatGlow = document.getElementById('heatGlow');
+      var driveKnobEl = document.querySelector('.knob.drive-focus');
+      var t = 0;
       function getKnobNorm(paramName) {
         var arc = document.querySelector('.knob[data-param="' + paramName + '"] .arc');
         if (!arc) return 0;
         var turn = arc.style.getPropertyValue('--turn') || '-42deg';
         var deg = parseFloat(turn) || -42;
-        // --turn ranges from -42deg (min) to +168deg (max) = 210deg span
         return Math.max(0, Math.min(1, (deg + 42) / 210));
       }
       function tick() {
+        t += 0.012;
         var drive = getKnobNorm('drive');
         var heat = getKnobNorm('heat');
         var intensity = drive * 0.45 + heat * 0.55;
+        /* slow pulse — amplitude grows with intensity */
+        var pulse = Math.sin(t * 0.9) * 0.5 + 0.5;  /* 0-1 */
+        var shimmer = Math.sin(t * 2.3) * 0.5 + 0.5; /* faster shimmer */
+        var pulseAmt = intensity * 0.18 * pulse;
+        var shimmerAmt = intensity * 0.09 * shimmer;
         if (heatGlow) {
-          var opacity = 0.12 + intensity * 0.72;
-          var r = Math.round(200 + intensity * 55);
-          var g = Math.round(55 - intensity * 35);
-          var spread = Math.round(45 + intensity * 30);
-          heatGlow.style.opacity = opacity.toFixed(3);
+          var opacity = 0.08 + intensity * 0.68 + pulseAmt;
+          var r = Math.round(190 + intensity * 65);
+          var g = Math.round(50 - intensity * 36);
+          var cx = 55 + shimmerAmt * 14; /* slight x drift */
+          var cy = 52 + Math.sin(t * 0.6) * intensity * 8;
+          var spread = Math.round(40 + intensity * 35 + pulseAmt * 12);
+          heatGlow.style.opacity = Math.min(1, opacity).toFixed(3);
           heatGlow.style.background =
-            'radial-gradient(ellipse at 62% 58%, rgba(' + r + ',' + g + ',4,0.24) 0%, rgba(' + Math.round(r * 0.75) + ',' + Math.round(g * 0.5) + ',0,0.09) ' + spread + '%, transparent 72%)';
+            'radial-gradient(ellipse at ' + cx.toFixed(1) + '% ' + cy.toFixed(1) + '%, rgba(' + r + ',' + g + ',4,0.28) 0%, rgba(' + Math.round(r * 0.7) + ',' + Math.round(g * 0.4) + ',0,0.10) ' + spread + '%, transparent 74%)';
+        }
+        /* TWEAK 1: shimmer inside Heat knob at high values */
+        var heatKnob = document.querySelector('.knob.hero');
+        if (heatKnob && intensity > 0.35) {
+          var sh = (intensity - 0.35) / 0.65;
+          var glowRad = Math.round(8 + sh * 28 + shimmerAmt * 12);
+          heatKnob.style.boxShadow =
+            'inset 0 1px 0 rgba(255,200,100,0.18), inset 0 -12px 20px rgba(0,0,0,0.5), 0 0 0 3px rgba(0,0,0,0.6), 0 12px 24px rgba(0,0,0,0.5), 0 0 ' + glowRad + 'px rgba(230,' + Math.round(80 + sh * 40) + ',10,0.55)';
         }
         requestAnimationFrame(tick);
       }
