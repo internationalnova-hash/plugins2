@@ -36,7 +36,7 @@ function setupViewportFit() {
   if (!plugin) return;
 
   const designWidth = 1280;
-  const designHeight = 940;
+  const designHeight = 840;
   const padding = 20;
 
   const updateScale = () => {
