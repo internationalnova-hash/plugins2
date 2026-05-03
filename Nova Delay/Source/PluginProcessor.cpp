@@ -313,8 +313,16 @@ void NovaDelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     wowPhase = 0.0f;
     flutterPhase = 0.0f;
     duckEnvelope = 0.0f;
+    inputPeakHoldL = 0.0f;
+    inputPeakHoldR = 0.0f;
+    outputPeakHoldL = 0.0f;
+    outputPeakHoldR = 0.0f;
     inputPeakHold = 0.0f;
     outputPeakHold = 0.0f;
+    inputPeakLevelL.store (0.0f);
+    inputPeakLevelR.store (0.0f);
+    outputPeakLevelL.store (0.0f);
+    outputPeakLevelR.store (0.0f);
     inputPeakLevel.store (0.0f);
     outputPeakLevel.store (0.0f);
     outputIsHot.store (false);
@@ -485,8 +493,10 @@ void NovaDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float attackCoeff = std::exp (-1.0f / (0.0075f * static_cast<float> (currentSampleRate)));
     const float releaseCoeff = std::exp (-1.0f / (0.24f * static_cast<float> (currentSampleRate)));
 
-    float blockInputPeak = 0.0f;
-    float blockOutputPeak = 0.0f;
+    float blockInputPeakL = 0.0f;
+    float blockInputPeakR = 0.0f;
+    float blockOutputPeakL = 0.0f;
+    float blockOutputPeakR = 0.0f;
 
     auto* left = buffer.getWritePointer (0);
     auto* right = totalNumInputChannels > 1 ? buffer.getWritePointer (1) : nullptr;
@@ -497,7 +507,8 @@ void NovaDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float inR = right != nullptr ? right[sample] : inL;
         const float inMono = 0.5f * (inL + inR);
 
-        blockInputPeak = juce::jmax (blockInputPeak, std::abs (inMono));
+        blockInputPeakL = juce::jmax (blockInputPeakL, std::abs (inL));
+        blockInputPeakR = juce::jmax (blockInputPeakR, std::abs (inR));
 
         const float delayMs = delayTimeMsSmoothed.getNextValue();
         const float feedbackNormRaw = feedbackSmoothed.getNextValue();
@@ -603,7 +614,8 @@ void NovaDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         if (right != nullptr)
             right[sample] = outR;
 
-        blockOutputPeak = juce::jmax (blockOutputPeak, juce::jmax (std::abs (outL), std::abs (outR)));
+        blockOutputPeakL = juce::jmax (blockOutputPeakL, std::abs (outL));
+        blockOutputPeakR = juce::jmax (blockOutputPeakR, std::abs (outR));
 
         const float freezeFeedbackBoost = juce::jmap (freezeMix, 0.0f, 1.0f, 0.0f, 0.62f);
         const float feedbackNorm = juce::jlimit (0.0f, 0.985f, feedbackNormRaw + freezeFeedbackBoost);
@@ -655,12 +667,27 @@ void NovaDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             writePosition = 0;
     }
 
-    inputPeakHold = blockInputPeak > inputPeakHold ? blockInputPeak : inputPeakHold * 0.92f;
-    outputPeakHold = blockOutputPeak > outputPeakHold ? blockOutputPeak : outputPeakHold * 0.92f;
+    inputPeakHoldL = blockInputPeakL > inputPeakHoldL ? blockInputPeakL : inputPeakHoldL * 0.92f;
+    inputPeakHoldR = blockInputPeakR > inputPeakHoldR ? blockInputPeakR : inputPeakHoldR * 0.92f;
+    outputPeakHoldL = blockOutputPeakL > outputPeakHoldL ? blockOutputPeakL : outputPeakHoldL * 0.92f;
+    outputPeakHoldR = blockOutputPeakR > outputPeakHoldR ? blockOutputPeakR : outputPeakHoldR * 0.92f;
 
-    inputPeakLevel.store (juce::jlimit (0.0f, 1.0f, inputPeakHold));
-    outputPeakLevel.store (juce::jlimit (0.0f, 1.0f, outputPeakHold));
-    outputIsHot.store (blockOutputPeak >= 0.985f);
+    const auto inL = juce::jlimit (0.0f, 1.0f, inputPeakHoldL);
+    const auto inR = juce::jlimit (0.0f, 1.0f, inputPeakHoldR);
+    const auto outL = juce::jlimit (0.0f, 1.0f, outputPeakHoldL);
+    const auto outR = juce::jlimit (0.0f, 1.0f, outputPeakHoldR);
+
+    inputPeakLevelL.store (inL);
+    inputPeakLevelR.store (inR);
+    outputPeakLevelL.store (outL);
+    outputPeakLevelR.store (outR);
+
+    // Keep aggregate mono peaks for any existing UI fallback.
+    inputPeakHold = juce::jmax (inL, inR);
+    outputPeakHold = juce::jmax (outL, outR);
+    inputPeakLevel.store (inputPeakHold);
+    outputPeakLevel.store (outputPeakHold);
+    outputIsHot.store (juce::jmax (blockOutputPeakL, blockOutputPeakR) >= 0.985f);
 }
 
 bool NovaDelayAudioProcessor::hasEditor() const

@@ -42,6 +42,10 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    std::atomic<float> inputPeakLevelL { 0.0f };
+    std::atomic<float> inputPeakLevelR { 0.0f };
+    std::atomic<float> outputPeakLevelL { 0.0f };
+    std::atomic<float> outputPeakLevelR { 0.0f };
     std::atomic<float> inputPeakLevel { 0.0f };
     std::atomic<float> outputPeakLevel { 0.0f };
     std::atomic<bool> outputIsHot { false };
@@ -92,6 +96,10 @@ private:
     float wowPhase { 0.0f };
     float flutterPhase { 0.0f };
     float duckEnvelope { 0.0f };
+    float inputPeakHoldL { 0.0f };
+    float inputPeakHoldR { 0.0f };
+    float outputPeakHoldL { 0.0f };
+    float outputPeakHoldR { 0.0f };
     float inputPeakHold { 0.0f };
     float outputPeakHold { 0.0f };
     juce::Random randomGenerator;

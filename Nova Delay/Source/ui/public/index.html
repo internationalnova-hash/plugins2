@@ -236,6 +236,27 @@
       gap: 8px;
     }
 
+    .stereo-meter-group {
+      display: grid;
+      grid-template-columns: repeat(2, auto);
+      gap: 8px;
+      align-items: end;
+    }
+
+    .meter-column {
+      display: grid;
+      justify-items: center;
+      gap: 4px;
+    }
+
+    .meter-ch {
+      font-size: 14px;
+      letter-spacing: 0.18em;
+      color: #d9bf9e;
+      text-transform: uppercase;
+      opacity: 0.92;
+    }
+
     .meter-label {
       font-size: 30px;
       letter-spacing: 0.14em;
@@ -244,11 +265,11 @@
     }
 
     .meter {
-      width: 40px;
+      width: 18px;
       height: 200px;
       border: 1px solid rgba(171, 108, 38, 0.44);
       border-radius: 10px;
-      padding: 5px;
+      padding: 4px 3px;
       display: flex;
       flex-direction: column-reverse;
       gap: 2px;
@@ -257,7 +278,7 @@
     }
 
     .meter .bar {
-      height: 8px;
+      height: 7px;
       border-radius: 2px;
       background: linear-gradient(180deg, rgba(129, 91, 38, 0.7), rgba(82, 56, 23, 0.7));
       transition: background 90ms linear, box-shadow 90ms linear;
@@ -312,12 +333,13 @@
 
     .controls-main {
       margin: 14px 20px 0;
-      height: 218px;
+      min-height: 346px;
       display: grid;
       grid-template-columns: 1fr 270px;
       gap: 14px;
       z-index: 2;
       position: relative;
+      align-items: stretch;
     }
 
     .knob-bank {
@@ -481,8 +503,9 @@
         linear-gradient(180deg, rgba(28, 17, 11, 0.90), rgba(10, 7, 5, 0.92));
       padding: 14px;
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: auto auto;
       gap: 14px;
+      align-content: start;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -16px 24px rgba(0,0,0,0.36), 0 14px 22px rgba(0,0,0,0.28);
     }
 
@@ -498,14 +521,34 @@
       background:
         linear-gradient(180deg, rgba(38, 24, 15, 0.98), rgba(11, 7, 4, 0.98));
       color: #e8d2b3;
-      font-size: 31px;
+      font-size: 19px;
       letter-spacing: 0.07em;
       text-transform: uppercase;
-      min-height: 72px;
+      min-height: 82px;
       padding: 0 14px;
       cursor: pointer;
       transition: all var(--ease);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 14px rgba(0,0,0,0.34);
+      display: grid;
+      justify-items: center;
+      align-content: center;
+      gap: 6px;
+      line-height: 1;
+    }
+
+    .fx-btn svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      opacity: 0.92;
+      filter: drop-shadow(0 0 6px rgba(255, 166, 60, 0.18));
+    }
+
+    .fx-btn .fx-text {
+      font-size: 18px;
+      letter-spacing: 0.09em;
     }
 
     .fx-btn.active {
@@ -529,6 +572,16 @@
       gap: 6px;
       background: linear-gradient(180deg, rgba(20, 12, 8, 0.96), rgba(9, 6, 4, 0.96));
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -12px 16px rgba(0,0,0,0.32);
+    }
+
+    .sat-wrap .knob {
+      width: 108px;
+      height: 108px;
+    }
+
+    .sat-wrap .knob-value {
+      font-size: 30px;
+      min-height: 34px;
     }
 
     .sat-wrap .knob-title { font-size: 34px; }
@@ -609,14 +662,32 @@
     <div class="visual-panel">
       <div class="meter-wrap">
         <div class="meter-label">INPUT</div>
-        <div class="meter" id="inputMeter"></div>
+        <div class="stereo-meter-group">
+          <div class="meter-column">
+            <div class="meter-ch">L</div>
+            <div class="meter" id="inputMeterL"></div>
+          </div>
+          <div class="meter-column">
+            <div class="meter-ch">R</div>
+            <div class="meter" id="inputMeterR"></div>
+          </div>
+        </div>
       </div>
 
       <canvas id="echoViz"></canvas>
 
       <div class="meter-wrap">
         <div class="meter-label">OUTPUT</div>
-        <div class="meter" id="outputMeter"></div>
+        <div class="stereo-meter-group">
+          <div class="meter-column">
+            <div class="meter-ch">L</div>
+            <div class="meter" id="outputMeterL"></div>
+          </div>
+          <div class="meter-column">
+            <div class="meter-ch">R</div>
+            <div class="meter" id="outputMeterR"></div>
+          </div>
+        </div>
       </div>
 
       <div class="sync-readout">
@@ -670,10 +741,22 @@
 
       <div class="right-panel">
         <div class="button-grid">
-          <button class="fx-btn" data-param="ping_pong">PING PONG</button>
-          <button class="fx-btn active" data-param="stereo">STEREO</button>
-          <button class="fx-btn" data-param="lofi">LO-FI</button>
-          <button class="fx-btn" data-param="freeze">FREEZE</button>
+          <button class="fx-btn" data-param="ping_pong">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h6c2.2 0 4 1.8 4 4v6"/><path d="M9 4l-4 4 4 4"/><path d="M19 16h-6c-2.2 0-4-1.8-4-4V6"/><path d="M15 20l4-4-4-4"/></svg>
+            <span class="fx-text">PING PONG</span>
+          </button>
+          <button class="fx-btn active" data-param="stereo">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7v10"/><path d="M10 5v14"/><path d="M14 5v14"/><path d="M18 7v10"/></svg>
+            <span class="fx-text">STEREO</span>
+          </button>
+          <button class="fx-btn" data-param="lofi">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16l4-4 3 3 4-4 5 5"/><path d="M4 8h2"/><path d="M9 8h2"/><path d="M14 8h2"/><path d="M19 8h1"/></svg>
+            <span class="fx-text">LO-FI</span>
+          </button>
+          <button class="fx-btn" data-param="freeze">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18"/><path d="M7.5 6l9 12"/><path d="M16.5 6l-9 12"/></svg>
+            <span class="fx-text">FREEZE</span>
+          </button>
         </div>
         <div class="sat-wrap">
           <div class="knob-title">SATURATION</div>
@@ -720,7 +803,7 @@
   </div>
   </div>
 
-  <script type="module" src="js/index.js?v=5"></script>
+  <script type="module" src="js/index.js?v=7"></script>
   
 </body>
 </html>

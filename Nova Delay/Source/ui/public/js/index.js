@@ -347,9 +347,23 @@ function setMeterLevel(id, level, hot = false) {
   });
 }
 
-window.updateMeters = (inputLevel, outputLevel, hot) => {
-  setMeterLevel("inputMeter", inputLevel, false);
-  setMeterLevel("outputMeter", outputLevel, !!hot);
+window.updateMeters = (inL, inR, outL, outR, hot) => {
+  // Backward compatibility for old mono signature: (inputLevel, outputLevel, hot)
+  if (typeof outL !== "number" || typeof outR !== "number") {
+    const monoIn = Number(inL) || 0;
+    const monoOut = Number(inR) || 0;
+    const monoHot = Boolean(outL);
+    setMeterLevel("inputMeterL", monoIn, false);
+    setMeterLevel("inputMeterR", monoIn, false);
+    setMeterLevel("outputMeterL", monoOut, monoHot);
+    setMeterLevel("outputMeterR", monoOut, monoHot);
+    return;
+  }
+
+  setMeterLevel("inputMeterL", Number(inL) || 0, false);
+  setMeterLevel("inputMeterR", Number(inR) || 0, false);
+  setMeterLevel("outputMeterL", Number(outL) || 0, !!hot);
+  setMeterLevel("outputMeterR", Number(outR) || 0, !!hot);
 };
 
 function setupVisualizer() {
@@ -503,8 +517,10 @@ document.addEventListener("DOMContentLoaded", () => {
   populateSelect("presetSelect", choices.preset);
   populateSelect("delayModelSelect", choices.delay_model);
 
-  createMeterBars("inputMeter");
-  createMeterBars("outputMeter");
+  createMeterBars("inputMeterL");
+  createMeterBars("inputMeterR");
+  createMeterBars("outputMeterL");
+  createMeterBars("outputMeterR");
 
   // Keep the visualizer alive even if any parameter bridge step fails.
   setupVisualizer();
@@ -521,6 +537,8 @@ document.addEventListener("DOMContentLoaded", () => {
   safeRun(setupButtons, "setupButtons");
   safeRun(connectParameters, "connectParameters");
 
-  setMeterLevel("inputMeter", 0.22);
-  setMeterLevel("outputMeter", 0.31);
+  setMeterLevel("inputMeterL", 0.22);
+  setMeterLevel("inputMeterR", 0.18);
+  setMeterLevel("outputMeterL", 0.31);
+  setMeterLevel("outputMeterR", 0.27);
 });

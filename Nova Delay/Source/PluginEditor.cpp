@@ -59,12 +59,16 @@ void NovaDelayAudioProcessorEditor::timerCallback()
     if (webView == nullptr || ! webView->isVisible())
         return;
 
-    const auto inLevel = processorRef.inputPeakLevel.load();
-    const auto outLevel = processorRef.outputPeakLevel.load();
+    const auto inLevelL = processorRef.inputPeakLevelL.load();
+    const auto inLevelR = processorRef.inputPeakLevelR.load();
+    const auto outLevelL = processorRef.outputPeakLevelL.load();
+    const auto outLevelR = processorRef.outputPeakLevelR.load();
     const auto isHot = processorRef.outputIsHot.load();
 
-    const auto meterJs = "if (window.updateMeters) { window.updateMeters(" + juce::String (inLevel, 3)
-                       + ", " + juce::String (outLevel, 3)
+    const auto meterJs = "if (window.updateMeters) { window.updateMeters(" + juce::String (inLevelL, 3)
+                       + ", " + juce::String (inLevelR, 3)
+                       + ", " + juce::String (outLevelL, 3)
+                       + ", " + juce::String (outLevelR, 3)
                        + ", " + juce::String (isHot ? "true" : "false")
                        + "); }";
 
