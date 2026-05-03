@@ -141,6 +141,13 @@ function refreshUi() {
     btn.classList.toggle("active", wanted === isSync);
   });
 
+  const syncNoteRow = document.getElementById("syncNoteRow");
+  if (syncNoteRow) syncNoteRow.classList.toggle("disabled", values.sync_enabled !== 1);
+
+  document.querySelectorAll(".sync-note-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.syncValue === values.delay_time_sync);
+  });
+
   ["ping_pong", "stereo", "lofi", "freeze"].forEach((param) => {
     const btn = document.querySelector(`.fx-btn[data-param='${param}']`);
     if (btn) btn.classList.toggle("active", values[param] > 0);
@@ -260,6 +267,18 @@ function setupButtons() {
       const v = Number(btn.dataset.value);
       values.sync_enabled = v;
       setParam("sync_enabled", v);
+      refreshUi();
+    });
+  });
+
+  document.querySelectorAll(".sync-note-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const value = btn.dataset.syncValue;
+      if (!value) return;
+      values.sync_enabled = 1;
+      setParam("sync_enabled", 1);
+      values.delay_time_sync = value;
+      setParam("delay_time_sync", value);
       refreshUi();
     });
   });
