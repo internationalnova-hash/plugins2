@@ -476,11 +476,19 @@
     }
 
     .small-buttons {
-      display: flex;
-      gap: 8px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      width: 100%;
       margin-top: 2px;
-      flex-wrap: wrap;
-      justify-content: center;
+      align-items: center;
+    }
+
+    .small-buttons .toggle {
+      width: 100%;
+      min-width: 0;
+      padding: 0 8px;
+      font-size: 14px;
     }
 
     .sync-note-row {
