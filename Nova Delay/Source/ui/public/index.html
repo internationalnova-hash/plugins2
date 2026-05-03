@@ -339,7 +339,7 @@
       min-height: 346px;
       display: grid;
       grid-template-columns: 1fr 270px;
-      gap: 14px;
+      gap: 16px;
       z-index: 2;
       position: relative;
       align-items: stretch;
@@ -350,10 +350,10 @@
       border-radius: 18px;
       background:
         linear-gradient(180deg, rgba(26, 17, 11, 0.90), rgba(11, 7, 5, 0.92));
-      padding: 14px;
+      padding: 16px;
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 10px;
+      gap: 14px;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 0 rgba(0,0,0,0.42), inset 0 -20px 28px rgba(0,0,0,0.37), 0 14px 22px rgba(0,0,0,0.30);
     }
 
@@ -361,15 +361,17 @@
       display: grid;
       justify-items: center;
       align-content: start;
-      gap: 8px;
+      gap: 10px;
     }
 
     .knob-title {
-      font-size: 34px;
-      letter-spacing: 0.12em;
+      font-size: 22px;
+      letter-spacing: 0.11em;
       color: #e8d7c0;
       text-transform: uppercase;
       text-align: center;
+      line-height: 1.05;
+      min-height: 44px;
     }
 
     .knob {
@@ -455,25 +457,30 @@
     }
 
     .knob-value {
-      font-size: 42px;
+      font-size: 30px;
       color: var(--amber-hot);
       letter-spacing: 0.04em;
       text-shadow: 0 0 12px rgba(255, 170, 66, 0.2);
-      min-height: 48px;
+      min-height: 36px;
+      line-height: 1;
     }
 
     .knob-note {
-      font-size: 28px;
+      font-size: 14px;
       letter-spacing: 0.08em;
       color: #d4b896;
       text-transform: uppercase;
       text-align: center;
-      min-height: 34px;
+      min-height: 18px;
+      line-height: 1.15;
     }
 
     .small-buttons {
       display: flex;
       gap: 8px;
+      margin-top: 2px;
+      flex-wrap: wrap;
+      justify-content: center;
     }
 
     .sync-note-row {
@@ -481,7 +488,7 @@
       gap: 6px;
       flex-wrap: wrap;
       justify-content: center;
-      margin-top: 4px;
+      margin-top: 8px;
       transition: opacity var(--ease), filter var(--ease);
     }
 
@@ -532,6 +539,20 @@
       justify-content: center;
       gap: 8px;
       line-height: 1;
+    }
+
+    .toggle {
+      height: 42px;
+      font-size: 16px;
+      letter-spacing: 0.08em;
+      padding: 0 12px;
+    }
+
+    .mode-btn {
+      height: 44px;
+      font-size: 20px;
+      letter-spacing: 0.09em;
+      padding: 0 12px;
     }
 
     .toggle svg {
@@ -635,11 +656,15 @@
     }
 
     .sat-wrap .knob-value {
-      font-size: 30px;
+      font-size: 24px;
       min-height: 34px;
     }
 
-    .sat-wrap .knob-title { font-size: 34px; }
+    .sat-wrap .knob-title {
+      font-size: 22px;
+      min-height: auto;
+      letter-spacing: 0.10em;
+    }
 
     .lower {
       margin: 12px 20px 14px;
@@ -650,7 +675,7 @@
       padding: 12px;
       display: grid;
       grid-template-columns: 1.05fr 1.4fr 0.7fr 0.7fr 0.7fr;
-      gap: 12px;
+      gap: 14px;
       align-items: center;
       z-index: 2;
       position: relative;
@@ -658,11 +683,12 @@
     }
 
     .block-title {
-      font-size: 28px;
+      font-size: 18px;
       letter-spacing: 0.16em;
       text-transform: uppercase;
       color: #dcc7aa;
       margin-bottom: 8px;
+      line-height: 1.05;
     }
 
     .mode-sync-marker {
@@ -703,8 +729,8 @@
     }
 
     .model-wrap select {
-      height: 58px;
-      font-size: 32px;
+      height: 50px;
+      font-size: 24px;
     }
 
     .mini-knob {
@@ -713,7 +739,7 @@
     }
 
     .mini-knob .knob-value {
-      font-size: 30px;
+      font-size: 21px;
       min-height: 32px;
     }
 
@@ -904,7 +930,7 @@
   </div>
   </div>
 
-  <script type="module" src="js/index.js?v=9"></script>
+  <script type="module" src="js/index.js?v=10"></script>
   
 </body>
 </html>
