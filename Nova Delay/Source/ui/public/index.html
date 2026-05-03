@@ -492,10 +492,9 @@
     }
 
     .sync-note-row {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
       gap: 6px;
-      flex-wrap: wrap;
-      justify-content: center;
       margin-top: 8px;
       transition: opacity var(--ease), filter var(--ease);
     }
@@ -507,7 +506,7 @@
     }
 
     .sync-note-btn {
-      min-width: 62px;
+      min-width: 0;
       height: 34px;
       border-radius: 10px;
       border: 1px solid rgba(214, 137, 52, 0.42);
