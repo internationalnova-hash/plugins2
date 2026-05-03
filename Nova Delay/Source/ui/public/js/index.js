@@ -1,5 +1,3 @@
-import * as Juce from "./juce/index.js";
-
 const choices = {
   preset: ["Vintage Echo", "Modern Tape", "BBD Lo-Fi", "Dub Space"],
   delay_time_sync: ["1/32", "1/16", "1/8", "1/8D", "1/8T", "1/4", "1/4D", "1/4T", "1/2", "1/1"],
@@ -30,6 +28,105 @@ const values = {
 };
 
 let isUpdating = false;
+
+function ensureJuceInterop() {
+  if (window.__JUCE__ && window.__JUCE__.backend) return;
+
+  const noop = () => {};
+  window.__JUCE__ = {
+    backend: {
+      addEventListener: noop,
+      removeEventListener: noop,
+      emitEvent: noop,
+    },
+    initialisationData: {
+      __juce__functions: [],
+      __juce__sliders: [],
+      __juce__toggles: [],
+      __juce__comboBoxes: [],
+    },
+  };
+}
+
+function createListenerList() {
+  return {
+    listeners: [],
+    addListener(fn) {
+      this.listeners.push(fn);
+      return this.listeners.length - 1;
+    },
+    callListeners(payload) {
+      this.listeners.forEach((listener) => listener(payload));
+    },
+  };
+}
+
+function createSliderState(name) {
+  ensureJuceInterop();
+  const backend = window.__JUCE__.backend;
+
+  const state = {
+    name,
+    identifier: `__juce__slider${name}`,
+    scaledValue: 0,
+    properties: {
+      start: 0,
+      end: 1,
+      skew: 1,
+      interval: 0,
+      numSteps: 100,
+    },
+    valueChangedEvent: createListenerList(),
+    addValueChangedListener(fn) {
+      return this.valueChangedEvent.addListener(fn);
+    },
+    getNormalisedValue() {
+      const start = typeof this.properties.start === "number" ? this.properties.start : 0;
+      const end = typeof this.properties.end === "number" ? this.properties.end : 1;
+      const range = end - start;
+      if (range === 0) return 0;
+      return Math.max(0, Math.min(1, (this.scaledValue - start) / range));
+    },
+    setNormalisedValue(newValue) {
+      const normalised = Math.max(0, Math.min(1, Number(newValue) || 0));
+      const start = typeof this.properties.start === "number" ? this.properties.start : 0;
+      const end = typeof this.properties.end === "number" ? this.properties.end : 1;
+      const interval = typeof this.properties.interval === "number" ? this.properties.interval : 0;
+
+      let scaled = start + normalised * (end - start);
+      if (interval > 0) scaled = Math.round(scaled / interval) * interval;
+
+      this.scaledValue = scaled;
+      backend.emitEvent(this.identifier, { eventType: "valueChanged", value: scaled });
+    },
+    sliderDragStarted() {
+      backend.emitEvent(this.identifier, { eventType: "sliderDragStarted" });
+    },
+    sliderDragEnded() {
+      backend.emitEvent(this.identifier, { eventType: "sliderDragEnded" });
+    },
+  };
+
+  backend.addEventListener(state.identifier, (event) => {
+    if (!event) return;
+
+    if (event.eventType === "valueChanged") {
+      if (typeof event.value === "number") state.scaledValue = event.value;
+      state.valueChangedEvent.callListeners(event);
+    }
+
+    if (event.eventType === "propertiesChanged") {
+      const nextProps = {};
+      Object.keys(event).forEach((key) => {
+        if (key !== "eventType") nextProps[key] = event[key];
+      });
+      state.properties = nextProps;
+    }
+  });
+
+  backend.emitEvent(state.identifier, { eventType: "requestInitialUpdate" });
+  return state;
+}
 
 function setupViewportFit() {
   const plugin = document.querySelector(".plugin");
@@ -339,7 +436,7 @@ function connectParameters() {
 
   ids.forEach((id) => {
     try {
-      paramStates[id] = Juce.getSliderState(id);
+      paramStates[id] = createSliderState(id);
       paramStates[id].addValueChangedListener(() => {
         if (isUpdating) return;
         isUpdating = true;
