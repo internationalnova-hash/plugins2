@@ -380,7 +380,7 @@ function setupVisualizer() {
 
     ctx.clearRect(0, 0, w, h);
 
-    const horizonY = h * 0.62;
+    const horizonY = h * 0.63;
 
     const bg = ctx.createRadialGradient(w * 0.52, h * 0.52, 12, w * 0.52, h * 0.52, w * 0.72);
     bg.addColorStop(0, "rgba(255, 175, 72, 0.22)");
@@ -401,59 +401,71 @@ function setupVisualizer() {
     const wowNorm = Math.max(0, Math.min(1, Number(values.wow_flutter) / 100));
     const toneNorm = Math.max(0, Math.min(1, Number(values.tone) / 100));
 
-    const repeats = Math.round(8 + fbNorm * 9);
+    const repeats = Math.round(9 + fbNorm * 10);
     const startX = w * 0.13;
     let x = startX;
     let spacing = w * 0.13;
+    const tilt = (Math.sin(t * 0.5) * 0.5 + 0.5) * 2 - 1;
 
     ctx.globalCompositeOperation = "screen";
 
     for (let i = 0; i < repeats; i++) {
       const perspective = Math.pow(0.84, i);
-      const decay = Math.pow(0.76, i) * (0.84 + mixNorm * 0.32);
+      const decay = Math.pow(0.75, i) * (0.84 + mixNorm * 0.34);
       const wobble = Math.sin(t * (2.0 + wowNorm * 3.2) + i * 0.75) * (1.5 + wowNorm * 8.0);
+      const driftY = (i * (1.35 + toneNorm * 0.8)) * tilt;
       const pulseX = x + wobble;
-      const pulseHeight = h * (0.72 * decay + 0.12);
+      const pulseY = horizonY - driftY;
+      const pulseHeight = h * (0.72 * decay + 0.10);
       const coreWidth = 8 + i * 0.6;
       const blurWidth = coreWidth * (2.8 + i * 0.14);
 
-      const alphaCore = Math.max(0.18, 0.95 * decay);
-      const alphaBloom = Math.max(0.08, 0.54 * decay);
+      const glowTier = i < 2 ? 1.0 : i < 6 ? 0.65 : 0.35;
+      const alphaCore = Math.max(0.06, 0.98 * decay * glowTier);
+      const alphaBloom = Math.max(0.02, 0.62 * decay * glowTier);
       const warmShift = Math.min(1, i / 12);
       const red = 255;
       const green = Math.round(194 - warmShift * 68 - (1 - toneNorm) * 8);
       const blue = Math.round(112 - warmShift * 60);
 
-      ctx.shadowColor = `rgba(${red}, ${Math.max(86, green)}, ${Math.max(28, blue)}, ${0.64 * decay})`;
-      ctx.shadowBlur = 28 + i * 4.5;
-      const pulseGrad = ctx.createLinearGradient(pulseX, horizonY - pulseHeight, pulseX, horizonY + pulseHeight * 0.45);
+      ctx.shadowColor = `rgba(${red}, ${Math.max(86, green)}, ${Math.max(28, blue)}, ${0.7 * decay * glowTier})`;
+      ctx.shadowBlur = 30 + i * 5.2;
+      const pulseGrad = ctx.createLinearGradient(pulseX, pulseY - pulseHeight, pulseX, pulseY + pulseHeight * 0.45);
       pulseGrad.addColorStop(0, `rgba(${red}, ${Math.max(94, green)}, ${Math.max(26, blue)}, 0)`);
       pulseGrad.addColorStop(0.16, `rgba(${red}, ${Math.max(102, green + 10)}, ${Math.max(32, blue + 8)}, ${alphaCore})`);
       pulseGrad.addColorStop(0.52, `rgba(${red}, ${Math.max(88, green - 6)}, ${Math.max(24, blue - 4)}, ${alphaCore * 0.8})`);
       pulseGrad.addColorStop(1, `rgba(${red}, ${Math.max(74, green - 18)}, ${Math.max(20, blue - 8)}, 0)`);
       ctx.fillStyle = pulseGrad;
-      ctx.fillRect(pulseX - coreWidth * 0.5, horizonY - pulseHeight, coreWidth, pulseHeight * 1.45);
+      ctx.fillRect(pulseX - coreWidth * 0.5, pulseY - pulseHeight, coreWidth, pulseHeight * 1.45);
 
-      const aura = ctx.createRadialGradient(pulseX, horizonY - pulseHeight * 0.42, 2, pulseX, horizonY - pulseHeight * 0.35, pulseHeight * 0.9);
+      const aura = ctx.createRadialGradient(pulseX, pulseY - pulseHeight * 0.42, 2, pulseX, pulseY - pulseHeight * 0.35, pulseHeight * 0.9);
       aura.addColorStop(0, `rgba(255, ${Math.max(100, green + 8)}, ${Math.max(34, blue + 8)}, ${alphaBloom})`);
       aura.addColorStop(0.7, `rgba(255, ${Math.max(88, green - 4)}, ${Math.max(24, blue - 6)}, ${alphaBloom * 0.25})`);
       aura.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = aura;
-      ctx.fillRect(pulseX - blurWidth, horizonY - pulseHeight * 1.22, blurWidth * 2, pulseHeight * 1.8);
+      ctx.fillRect(pulseX - blurWidth, pulseY - pulseHeight * 1.22, blurWidth * 2, pulseHeight * 1.8);
+
+      if (i >= 4) {
+        const fog = ctx.createRadialGradient(pulseX, pulseY - pulseHeight * 0.18, 0, pulseX, pulseY - pulseHeight * 0.2, pulseHeight * 1.2);
+        fog.addColorStop(0, `rgba(255, ${Math.max(92, green - 8)}, ${Math.max(22, blue - 8)}, ${0.10 * decay})`);
+        fog.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = fog;
+        ctx.fillRect(pulseX - blurWidth * 1.3, pulseY - pulseHeight * 1.5, blurWidth * 2.6, pulseHeight * 2.3);
+      }
 
       ctx.shadowBlur = 0;
 
-      const reflectionHeight = pulseHeight * (0.22 + perspective * 0.12);
-      const reflection = ctx.createLinearGradient(pulseX, horizonY + 2, pulseX, horizonY + reflectionHeight + 22);
+      const reflectionHeight = pulseHeight * (0.21 + perspective * 0.11);
+      const reflection = ctx.createLinearGradient(pulseX, pulseY + 2, pulseX, pulseY + reflectionHeight + 24);
       reflection.addColorStop(0, `rgba(${red}, ${Math.max(88, green)}, ${Math.max(24, blue)}, ${alphaCore * 0.34})`);
       reflection.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = reflection;
       ctx.beginPath();
-      ctx.ellipse(pulseX, horizonY + reflectionHeight * 0.45, blurWidth * 0.95, reflectionHeight, 0, 0, Math.PI * 2);
+      ctx.ellipse(pulseX, pulseY + reflectionHeight * 0.5, blurWidth * 0.95, reflectionHeight, 0, 0, Math.PI * 2);
       ctx.fill();
 
       x += spacing;
-      spacing *= 0.86;
+      spacing *= 0.83;
       if (x > w * 0.95) break;
     }
 
