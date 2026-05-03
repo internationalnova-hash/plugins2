@@ -6,16 +6,18 @@
   <title>Nova Tone</title>
   <style>
     :root {
-      --face: #f2e8dc;
-      --face-rich: #ede0cf;
-      --panel: #e4d6c3;
-      --panel-line: rgba(201, 172, 122, 0.45);
-      --text-main: #4a4036;
-      --text-soft: #6f6253;
-      --gold: #c89a43;
-      --gold-soft: #d8b56d;
-      --gold-pale: #e5c986;
-      --white: #fffaf4;
+      --bg-0: #040506;
+      --bg-1: #090b0d;
+      --bg-2: #121417;
+      --panel: #0d0f12;
+      --panel-soft: #14181d;
+      --panel-line: rgba(188, 132, 66, 0.2);
+      --text-main: #eadfc8;
+      --text-soft: #baa780;
+      --amber: #cf8640;
+      --amber-soft: #c89252;
+      --amber-pale: #ddb070;
+      --meter-off: #2c2520;
       --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
     }
 
@@ -26,8 +28,10 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: linear-gradient(180deg, #d8cfc2 0%, #cec3b5 100%);
-      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      background:
+        radial-gradient(150% 110% at 50% -12%, rgba(201, 134, 67, 0.08) 0%, rgba(201, 134, 67, 0) 42%),
+        linear-gradient(180deg, #060708 0%, #020203 100%);
+      font-family: "Optima", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
       color: var(--text-main);
     }
 
@@ -44,12 +48,14 @@
       width: min(980px, calc(100vw - 8px));
       height: min(620px, calc(100vh - 8px));
       border-radius: 34px;
-      background: linear-gradient(180deg, var(--face) 0%, var(--face-rich) 100%);
-      border: 1px solid rgba(205, 179, 137, 0.65);
+      background:
+        linear-gradient(180deg, rgba(8, 10, 12, 0.98) 0%, rgba(4, 5, 6, 0.99) 100%),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.014) 0px, rgba(255, 255, 255, 0.014) 1px, transparent 1px, transparent 3px);
+      border: 1px solid rgba(173, 124, 63, 0.22);
       box-shadow:
-        0 22px 46px rgba(92, 70, 40, 0.12),
-        inset 0 1px 0 rgba(255,255,255,0.7),
-        inset 0 -10px 18px rgba(167, 140, 99, 0.10);
+        0 24px 52px rgba(0, 0, 0, 0.66),
+        inset 0 1px 0 rgba(236, 194, 138, 0.08),
+        inset 0 -20px 40px rgba(0, 0, 0, 0.42);
       overflow: hidden;
       max-width: 100vw;
       max-height: 100vh;
@@ -59,7 +65,20 @@
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,0.18), transparent 14%);
+      background:
+        radial-gradient(140% 85% at 50% 36%, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.48) 100%),
+        radial-gradient(130% 115% at 50% -30%, rgba(194, 130, 63, 0.06) 0%, rgba(194, 130, 63, 0) 46%);
+      mix-blend-mode: screen;
+      pointer-events: none;
+    }
+
+    .plugin::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(236, 196, 143, 0.03) 0.6px, transparent 0.6px);
+      background-size: 3px 3px;
+      opacity: 0.14;
       pointer-events: none;
     }
 
@@ -87,8 +106,9 @@
       height: 36px;
       margin-left: -10px;
       border-radius: 10px;
-      background: rgba(60, 56, 48, 0.10);
-      box-shadow: 0 2px 8px 0 rgba(60,56,48,0.07);
+      background: linear-gradient(160deg, rgba(39, 41, 44, 0.88) 0%, rgba(15, 16, 18, 0.95) 100%);
+      border: 1px solid rgba(182, 132, 71, 0.24);
+      box-shadow: 0 4px 11px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(236, 189, 126, 0.14);
       backdrop-filter: blur(1.5px);
     }
 
@@ -96,7 +116,7 @@
       width: 32px;
       height: 32px;
       object-fit: contain;
-      filter: grayscale(0.1) brightness(0.93) contrast(1.08);
+      filter: grayscale(0.06) brightness(0.9) contrast(1.16) saturate(0.86);
       opacity: 1;
     }
 
@@ -105,10 +125,11 @@
       font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
       font-weight: 700;
       letter-spacing: 0.13em;
-      color: #353535;
+      color: #e8d8b6;
       margin: 0 0 2px 0;
       padding: 0;
       opacity: 0.97;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
     }
 
     .nova-title-tone {
@@ -116,11 +137,12 @@
       font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
       font-weight: 950;
       letter-spacing: 0.04em;
-      color: #282420;
+      color: var(--amber-soft);
       margin: 0;
       padding: 0;
       line-height: 1.0;
       opacity: 0.98;
+      text-shadow: 0 0 8px rgba(200, 136, 67, 0.16);
     }
 
     .descriptor {
@@ -129,11 +151,9 @@
       font-size: 28px;
       font-weight: 500;
       letter-spacing: 0.03em;
-      color: #8f7654;
+      color: #bd8853;
       text-align: right;
-      text-shadow:
-        0 1px 0 rgba(255,255,255,0.42),
-        0 2px 3px rgba(126, 98, 62, 0.12);
+      text-shadow: 0 0 8px rgba(188, 132, 67, 0.15);
     }
 
     .inner-panel {
@@ -142,44 +162,64 @@
       right: 26px;
       top: 118px;
       bottom: 96px;
+      display: grid;
+      grid-template-rows: minmax(256px, 1fr) minmax(88px, 0.34fr);
+      gap: 10px;
       border-radius: 26px;
-      background: linear-gradient(180deg, rgba(221, 205, 181, 0.92) 0%, rgba(210, 193, 168, 0.84) 100%);
-      border: 1px solid rgba(188, 153, 103, 0.46);
+      background: linear-gradient(180deg, rgba(11, 13, 16, 0.94) 0%, rgba(8, 10, 12, 0.96) 100%);
+      border: 1px solid rgba(166, 118, 62, 0.14);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.40),
-        inset 0 -14px 22px rgba(134,102,62,0.08),
-        0 8px 16px rgba(104, 77, 43, 0.05);
-      padding: 24px 24px 16px;
+        inset 0 1px 0 rgba(236, 191, 134, 0.06),
+        inset 0 -18px 28px rgba(0, 0, 0, 0.42),
+        0 6px 14px rgba(0, 0, 0, 0.28);
+      padding: 16px 20px 10px;
     }
 
     .sections {
       display: grid;
-      grid-template-columns: 1.15fr 1.25fr 0.95fr 0.7fr;
+      grid-template-columns: 1.08fr 1.18fr 0.9fr 0.84fr;
       gap: 14px;
-      height: 100%;
+      min-height: 0;
     }
 
     .section {
       position: relative;
       overflow: hidden;
       border-radius: 20px;
-      padding: 16px 14px 14px;
-      background: linear-gradient(180deg, rgba(252, 246, 238, 0.58) 0%, rgba(238, 225, 206, 0.42) 100%);
-      border: 1px solid rgba(190, 154, 101, 0.38);
+      padding: 14px 12px 12px;
+      background:
+        linear-gradient(180deg, rgba(13, 15, 18, 0.95) 0%, rgba(10, 12, 14, 0.95) 100%),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.01) 0px, rgba(255, 255, 255, 0.01) 1px, transparent 1px, transparent 3px);
+      border: 1px solid rgba(165, 117, 61, 0.11);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.42),
-        inset 0 -10px 14px rgba(138, 105, 64, 0.06),
-        0 6px 10px rgba(106, 78, 43, 0.04);
+        inset 0 1px 0 rgba(236, 191, 135, 0.05),
+        inset 0 -10px 14px rgba(0, 0, 0, 0.34),
+        0 2px 6px rgba(0, 0, 0, 0.2);
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .section-output {
+      min-width: 168px;
+    }
+
+    .section::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      box-shadow: inset 0 0 0 1px rgba(228, 177, 114, 0.02);
+      pointer-events: none;
     }
 
     .section-title {
       font-size: 13px;
       font-weight: 700;
       letter-spacing: 0.26em;
-      color: #3e3127;
+      color: #f4e8d1;
+      text-shadow: 0 0 5px rgba(196, 133, 63, 0.06);
     }
 
     .selector {
@@ -191,13 +231,13 @@
     .option {
       padding: 6px 10px;
       border-radius: 999px;
-      border: 1px solid rgba(191, 160, 116, 0.52);
-      background: linear-gradient(180deg, rgba(255, 252, 248, 0.94) 0%, rgba(244, 234, 219, 0.92) 100%);
-      color: #655847;
+      border: 1px solid rgba(176, 125, 66, 0.26);
+      background: linear-gradient(180deg, rgba(24, 27, 31, 0.98) 0%, rgba(8, 10, 12, 0.98) 100%);
+      color: #dfd1b4;
       font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.08em;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.72), 0 2px 4px rgba(104, 77, 43, 0.04);
+      box-shadow: inset 0 1px 0 rgba(236, 191, 135, 0.06), 0 2px 6px rgba(0, 0, 0, 0.4);
       cursor: pointer;
       transition: all var(--ease);
       user-select: none;
@@ -207,36 +247,37 @@
     }
 
     .option.active {
-      background: linear-gradient(180deg, #efd58f 0%, #bf812b 100%);
-      color: #fffaf4;
-      border-color: #a96d18;
+      background: linear-gradient(180deg, rgba(52, 38, 17, 0.96) 0%, rgba(23, 18, 10, 0.96) 100%);
+      color: #f2dec0;
+      border-color: rgba(210, 143, 69, 0.9);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.36),
-        inset 0 -2px 4px rgba(120, 74, 16, 0.20),
-        0 7px 14px rgba(177, 126, 33, 0.26),
-        0 0 0 1px rgba(255, 244, 220, 0.30);
+        inset 0 1px 0 rgba(236, 191, 134, 0.18),
+        inset 0 -6px 10px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(201, 136, 64, 0.36),
+        0 0 5px rgba(196, 133, 63, 0.1);
     }
 
     .knob-row {
       display: flex;
       justify-content: space-around;
       gap: 10px;
-      margin-top: 4px;
+      margin-top: 2px;
     }
 
     .knob-wrap {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       min-width: 92px;
     }
 
     .knob-label {
       font-size: 11px;
       letter-spacing: 0.18em;
-      color: var(--text-soft);
+      color: #cbb28a;
       text-align: center;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.46);
     }
 
     .knob {
@@ -245,14 +286,13 @@
       height: 96px;
       border-radius: 50%;
       background:
-        radial-gradient(circle at 32% 24%, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.30) 20%, transparent 34%),
-        repeating-conic-gradient(from 0deg, rgba(255,255,255,0.14) 0deg 11deg, rgba(173, 140, 92, 0.10) 11deg 22deg),
-        linear-gradient(145deg, #fbf4ea 0%, #eadcc8 45%, #d6bb93 100%);
-      border: 1px solid rgba(186, 150, 98, 0.92);
+        radial-gradient(circle at 50% 48%, rgba(28, 30, 33, 1) 0%, rgba(12, 14, 16, 1) 58%, rgba(5, 7, 9, 1) 100%),
+        repeating-conic-gradient(from 0deg, rgba(235, 188, 126, 0.026) 0deg 15deg, rgba(0, 0, 0, 0) 15deg 30deg);
+      border: 1px solid rgba(142, 103, 54, 0.5);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.92),
-        inset 0 -12px 20px rgba(154, 118, 70, 0.14),
-        0 12px 18px rgba(109, 83, 48, 0.12);
+        inset 0 1px 0 rgba(236, 190, 134, 0.14),
+        inset 0 -18px 24px rgba(0, 0, 0, 0.54),
+        0 8px 14px rgba(0, 0, 0, 0.42);
       cursor: ns-resize;
       user-select: none;
       -webkit-user-select: none;
@@ -263,30 +303,31 @@
     .knob::before {
       content: "";
       position: absolute;
-      inset: 8px;
+      inset: -6px;
       border-radius: 50%;
-      border: 1px solid rgba(255,255,255,0.54);
-      box-shadow: inset 0 1px 1px rgba(255,255,255,0.35), inset 0 -8px 12px rgba(118, 88, 49, 0.10);
+      background: repeating-conic-gradient(from -120deg, rgba(229, 181, 118, 0.55) 0deg 1.5deg, rgba(0, 0, 0, 0) 1.5deg 19deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+      opacity: 0.42;
+      pointer-events: none;
     }
 
     .knob::after {
       content: "";
       position: absolute;
-      left: 50%;
-      top: 14px;
-      width: 7px;
-      height: 25px;
-      transform: translateX(-50%);
+      left: 15%;
+      right: 15%;
+      top: 8%;
+      height: 28%;
       border-radius: 999px;
-      background: linear-gradient(180deg, #fff8e4 0%, #d6a74f 50%, #996115 100%);
-      box-shadow:
-        0 0 0 1px rgba(255, 249, 239, 0.52),
-        0 2px 6px rgba(122, 83, 27, 0.18);
+      background: linear-gradient(180deg, rgba(236, 192, 138, 0.18) 0%, rgba(236, 192, 138, 0) 100%);
+      filter: blur(0.3px);
+      pointer-events: none;
     }
 
     .arc {
       position: absolute;
-      inset: 12px;
+      inset: -3px;
       border-radius: 50%;
       transform: rotate(var(--turn, -42deg));
     }
@@ -296,34 +337,40 @@
       position: absolute;
       inset: 0;
       border-radius: 50%;
-      background: conic-gradient(from 218deg, rgba(230,216,188,0.82) 0deg 26deg, var(--gold-pale) 26deg 74deg, var(--gold) 74deg 112deg, transparent 112deg 360deg);
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
+      background: conic-gradient(from 218deg, rgba(160, 109, 56, 0.2) 0deg 18deg, rgba(205, 137, 62, 0.78) 18deg 102deg, transparent 102deg 360deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+      box-shadow: 0 0 5px rgba(196, 131, 62, 0.12);
     }
 
     .arc::after {
       content: "";
       position: absolute;
-      width: 14px;
-      height: 14px;
-      left: 18%;
-      top: 8%;
-      border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, #fff1c7 0%, #deb566 58%, #bd8428 100%);
-      box-shadow: 0 0 0 3px rgba(255,250,244,0.92), 0 2px 6px rgba(103, 74, 34, 0.18);
+      left: 50%;
+      top: 11px;
+      width: 4px;
+      height: 26px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: linear-gradient(180deg, #efd8b0 0%, #d09244 42%, #a96d2a 100%);
+      box-shadow: 0 0 0 1px rgba(236, 190, 133, 0.18), 0 2px 5px rgba(194, 130, 62, 0.18);
+    }
+
+    .knob.dragging .arc::before {
+      box-shadow: 0 0 8px rgba(198, 134, 64, 0.22);
     }
 
     .readout {
       min-width: 78px;
       padding: 6px 10px;
       border-radius: 999px;
-      border: 1px solid rgba(193, 158, 107, 0.46);
-      background: linear-gradient(180deg, rgba(255,252,247,0.96) 0%, rgba(239,228,212,0.96) 100%);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.78), 0 4px 10px rgba(110,84,48,0.06);
+      border: 1px solid rgba(170, 120, 63, 0.26);
+      background: linear-gradient(180deg, rgba(16, 19, 22, 0.98) 0%, rgba(5, 7, 9, 0.98) 100%);
+      box-shadow: inset 0 1px 0 rgba(236, 191, 135, 0.08), 0 3px 8px rgba(0, 0, 0, 0.34);
       font-size: 13px;
       font-weight: 700;
       letter-spacing: 0.08em;
-      color: #2f241c;
+      color: #f0dfbe;
       text-align: center;
       cursor: text;
       user-select: text;
@@ -332,11 +379,11 @@
     }
 
     .readout:focus {
-      border-color: rgba(191, 133, 34, 0.85);
+      border-color: rgba(206, 140, 66, 0.72);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.86),
-        0 0 0 2px rgba(221, 180, 92, 0.28),
-        0 4px 10px rgba(110,84,48,0.08);
+        inset 0 1px 0 rgba(236, 191, 135, 0.12),
+        0 0 0 2px rgba(196, 132, 63, 0.14),
+        0 0 6px rgba(196, 132, 63, 0.14);
     }
 
     .output-card {
@@ -349,53 +396,213 @@
       width: 100%;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 12px;
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: 8px;
     }
 
-    .output-meter {
+    .output-main {
       width: 100%;
-      padding: 12px 10px 10px;
-      border-radius: 18px;
-      background: linear-gradient(180deg, rgba(255, 250, 244, 0.82) 0%, rgba(241, 230, 214, 0.72) 100%);
-      border: 1px solid rgba(197,171,131,0.44);
-      text-align: center;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+      display: grid;
+      grid-template-columns: minmax(74px, 1fr) 52px;
+      align-items: end;
+      gap: 8px;
     }
 
-    .mini-meter {
+    .output-knob-wrap {
+      min-width: 0;
+      width: 100%;
+    }
+
+    .output-knob-wrap .knob {
+      width: 76px;
+      height: 76px;
+    }
+
+    .output-knob-wrap .readout {
+      min-width: 0;
+      width: 100%;
+      max-width: 86px;
+      padding: 5px 6px;
+      font-size: 10px;
+    }
+
+    .stereo-meter-wrap {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      align-items: end;
+      gap: 3px;
+      height: 126px;
+      padding: 5px 4px;
+      border-radius: 14px;
+      border: 1px solid rgba(167, 119, 62, 0.2);
+      background: linear-gradient(180deg, rgba(16, 18, 22, 0.97) 0%, rgba(8, 10, 12, 0.97) 100%);
+      box-shadow: inset 0 1px 0 rgba(236, 191, 134, 0.06);
+    }
+
+    .meter-scale {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: flex-end;
+      height: 100%;
+      padding: 2px 0;
+      color: rgba(236, 203, 146, 0.86);
+      font-size: 8px;
+      line-height: 1;
+      letter-spacing: 0.04em;
+      text-shadow: 0 0 5px rgba(190, 126, 60, 0.12);
+    }
+
+    .stereo-meter {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 3px;
+      height: 100%;
+      padding: 0 1px;
+    }
+
+    .meter-column {
+      position: relative;
+      width: 9px;
+      height: 100%;
+      border-radius: 8px;
+      border: 1px solid rgba(165, 116, 59, 0.18);
+      background:
+        linear-gradient(180deg, rgba(36, 30, 24, 0.92) 0%, rgba(15, 13, 11, 0.98) 100%),
+        repeating-linear-gradient(180deg, rgba(255, 225, 171, 0.08) 0px, rgba(255, 225, 171, 0.08) 1px, transparent 1px, transparent 14px);
+      overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(236, 190, 133, 0.06);
+    }
+
+    .meter-fill {
+      position: absolute;
+      left: 1px;
+      right: 1px;
+      bottom: 1px;
+      height: 0%;
+      border-radius: 6px;
+      background: linear-gradient(180deg, #efd3a4 0%, #d19045 42%, #ba7930 100%);
+      box-shadow: 0 0 6px rgba(193, 129, 61, 0.18);
+      transition: height 80ms linear;
+      transform-origin: bottom;
+    }
+
+    .meter-fill.hot {
+      background: linear-gradient(180deg, #f2dfbe 0%, #dc9a4c 44%, #c07e34 100%);
+      box-shadow: 0 0 9px rgba(205, 142, 69, 0.24);
+    }
+
+    .output-leds {
       display: flex;
       justify-content: center;
-      align-items: end;
       gap: 5px;
-      height: 34px;
-      margin: 2px 0;
+      padding: 6px 6px;
+      border-radius: 12px;
+      border: 1px solid rgba(164, 115, 58, 0.18);
+      background: linear-gradient(180deg, rgba(14, 16, 19, 0.96) 0%, rgba(7, 9, 11, 0.96) 100%);
     }
 
-    .meter-bar {
+    .output-leds span {
       width: 8px;
+      height: 16px;
       border-radius: 999px;
-      background: linear-gradient(180deg, rgba(202, 181, 143, 0.70) 0%, rgba(182, 158, 122, 0.40) 100%);
-      transition: all 120ms linear;
+      background: linear-gradient(180deg, rgba(94, 74, 47, 0.68) 0%, rgba(37, 29, 19, 0.88) 100%);
+      border: 1px solid rgba(149, 104, 50, 0.14);
+      box-shadow: inset 0 1px 0 rgba(236, 190, 133, 0.05);
     }
 
-    .meter-bar:nth-child(1) { height: 12px; }
-    .meter-bar:nth-child(2) { height: 16px; }
-    .meter-bar:nth-child(3) { height: 20px; }
-    .meter-bar:nth-child(4) { height: 24px; }
-    .meter-bar:nth-child(5) { height: 28px; }
-    .meter-bar:nth-child(6) { height: 32px; }
-    .meter-bar:nth-child(7) { height: 28px; }
-    .meter-bar:nth-child(8) { height: 22px; }
-
-    .meter-bar.active {
-      background: linear-gradient(180deg, #f2d996 0%, #c78b2d 100%);
-      box-shadow: 0 0 12px rgba(203, 151, 55, 0.28);
+    .eq-panel {
+      width: 100%;
+      min-height: 0;
+      max-height: 94px;
+      border-radius: 18px;
+      border: 1px solid rgba(167, 119, 61, 0.2);
+      background:
+        linear-gradient(180deg, rgba(12, 15, 18, 0.98) 0%, rgba(6, 8, 10, 0.99) 100%),
+        repeating-linear-gradient(90deg, rgba(255, 225, 170, 0.04) 0px, rgba(255, 225, 170, 0.04) 1px, transparent 1px, transparent 36px);
+      box-shadow: inset 0 1px 0 rgba(236, 190, 133, 0.05), inset 0 -16px 22px rgba(0, 0, 0, 0.42);
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 46px 1fr;
+      grid-template-rows: 1fr 20px;
+      grid-template-areas:
+        "db graph"
+        "freq freq";
+      padding: 6px 9px 5px 8px;
     }
 
-    .meter-bar.hot {
-      background: linear-gradient(180deg, #ffb29e 0%, #ff4f2f 100%);
-      box-shadow: 0 0 14px rgba(255, 76, 48, 0.42);
+    .eq-db-axis {
+      grid-area: db;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 4px 6px 6px 0;
+      color: rgba(232, 196, 137, 0.85);
+      font-size: 9px;
+      letter-spacing: 0.04em;
+      text-shadow: 0 0 4px rgba(188, 124, 60, 0.08);
+    }
+
+    .eq-graph-wrap {
+      grid-area: graph;
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(10, 12, 15, 0.9) 0%, rgba(6, 8, 10, 0.9) 100%);
+    }
+
+    .eq-panel svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .eq-freq-axis {
+      grid-area: freq;
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      align-items: end;
+      gap: 2px;
+      padding: 4px 2px 0;
+      color: rgba(225, 185, 122, 0.84);
+      font-size: 9px;
+      letter-spacing: 0.03em;
+    }
+
+    .eq-freq-axis span {
+      text-align: center;
+    }
+
+    .eq-grid {
+      stroke: rgba(197, 136, 66, 0.043);
+      stroke-width: 0.7;
+      fill: none;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .eq-curve-glow {
+      fill: none;
+      stroke: rgba(202, 138, 65, 0.1);
+      stroke-width: 1.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .eq-curve {
+      fill: none;
+      stroke: rgba(217, 154, 77, 0.72);
+      stroke-width: 0.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .eq-point {
+      fill: rgba(219, 154, 77, 0.58);
+      stroke: rgba(232, 186, 124, 0.2);
+      stroke-width: 0.55;
     }
 
     .modes {
@@ -411,9 +618,9 @@
     .mode-button {
       height: 46px;
       border-radius: 999px;
-      border: 1px solid rgba(197,171,131,0.55);
-      background: rgba(255, 249, 242, 0.8);
-      color: var(--text-soft);
+      border: 1px solid rgba(173, 124, 64, 0.28);
+      background: linear-gradient(180deg, rgba(16, 18, 22, 0.98) 0%, rgba(6, 8, 10, 0.98) 100%);
+      color: #ceb48a;
       font-size: 14px;
       letter-spacing: 0.18em;
       cursor: pointer;
@@ -425,9 +632,10 @@
     }
 
     .mode-button.active {
-      background: linear-gradient(180deg, #ddbe72 0%, #c39238 100%);
-      color: #fffaf4;
-      box-shadow: 0 8px 16px rgba(174, 131, 54, 0.16);
+      background: linear-gradient(180deg, rgba(54, 40, 20, 0.98) 0%, rgba(22, 16, 9, 0.98) 100%);
+      color: #ffebc8;
+      border-color: rgba(208, 143, 68, 0.88);
+      box-shadow: 0 4px 9px rgba(190, 126, 60, 0.16), inset 0 1px 0 rgba(236, 191, 133, 0.18);
     }
 
     .footer-note {
@@ -436,12 +644,13 @@
       right: 40px;
       bottom: 74px;
       padding-top: 10px;
-      border-top: 1px solid rgba(195,167,124,0.32);
+      border-top: 1px solid rgba(196, 145, 68, 0.24);
       font-size: 13px;
-      color: var(--text-soft);
+      color: #bfab83;
       letter-spacing: 0.03em;
       display: flex;
       justify-content: space-between;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.42);
     }
   </style>
 </head>
@@ -465,7 +674,7 @@
 
     <div class="inner-panel">
       <div class="sections">
-        <section class="section">
+        <section class="section section-output">
           <div class="section-title">LOW END</div>
           <div class="selector" id="low-freq-selector">
             <button class="option" data-param="low_freq" data-value="20">20</button>
@@ -532,26 +741,66 @@
           <div class="section-title">OUTPUT</div>
           <div class="output-card">
             <div class="output-stack">
-              <div class="knob-wrap">
-                <div class="knob-label">OUTPUT GAIN</div>
-                <div class="knob" data-param="output_gain" data-min="-10" data-max="10"><div class="arc"></div></div>
-                <div class="readout" id="outputGain-value" data-param="output_gain" contenteditable="true" spellcheck="false" tabindex="0">+0.0 dB</div>
-              </div>
-              <div class="output-meter" aria-label="Output meter">
-                <div class="mini-meter" id="output-meter" aria-hidden="true">
-                  <span class="meter-bar"></span>
-                  <span class="meter-bar"></span>
-                  <span class="meter-bar"></span>
-                  <span class="meter-bar"></span>
-                  <span class="meter-bar"></span>
-                  <span class="meter-bar"></span>
-                  <span class="meter-bar"></span>
-                  <span class="meter-bar"></span>
+              <div class="output-main">
+                <div class="knob-wrap output-knob-wrap">
+                  <div class="knob-label">OUTPUT GAIN</div>
+                  <div class="knob" data-param="output_gain" data-min="-10" data-max="10"><div class="arc"></div></div>
+                  <div class="readout" id="outputGain-value" data-param="output_gain" contenteditable="true" spellcheck="false" tabindex="0">+0.0 dB</div>
                 </div>
+                <div class="stereo-meter-wrap" aria-label="Output meter">
+                  <div class="meter-scale" aria-hidden="true">
+                    <span>+12</span>
+                    <span>+6</span>
+                    <span>0</span>
+                    <span>-6</span>
+                    <span>-12</span>
+                    <span>-24</span>
+                    <span>-36</span>
+                    <span>-48</span>
+                  </div>
+                  <div class="stereo-meter" id="output-meter" aria-hidden="true">
+                    <span class="meter-column"><span class="meter-fill" data-meter="L"></span></span>
+                    <span class="meter-column"><span class="meter-fill" data-meter="R"></span></span>
+                  </div>
+                </div>
+              </div>
+              <div class="output-leds" aria-hidden="true">
+                <span></span><span></span><span></span><span></span><span></span><span></span>
               </div>
             </div>
           </div>
         </section>
+      </div>
+
+      <div class="eq-panel" aria-label="EQ response">
+        <div class="eq-db-axis" aria-hidden="true">
+          <span>+12</span>
+          <span>+6</span>
+          <span>0</span>
+          <span>-6</span>
+          <span>-12</span>
+        </div>
+        <div class="eq-graph-wrap">
+          <svg id="eq-graph" viewBox="0 0 860 150" preserveAspectRatio="none" role="img" aria-hidden="true">
+            <path class="eq-grid" d="M0 15 L860 15 M0 45 L860 45 M0 75 L860 75 M0 105 L860 105 M0 135 L860 135 M47 0 L47 150 M117 0 L117 150 M187 0 L187 150 M258 0 L258 150 M328 0 L328 150 M398 0 L398 150 M468 0 L468 150 M539 0 L539 150 M609 0 L609 150 M679 0 L679 150 M749 0 L749 150 M819 0 L819 150"></path>
+            <path id="eq-curve-glow" class="eq-curve-glow" d="M0 75 L860 75"></path>
+            <path id="eq-curve-path" class="eq-curve" d="M0 75 L860 75"></path>
+            <circle id="eq-low-point" class="eq-point" cx="190" cy="75" r="5"></circle>
+            <circle id="eq-high-point" class="eq-point" cx="640" cy="75" r="5"></circle>
+          </svg>
+        </div>
+        <div class="eq-freq-axis" aria-hidden="true">
+          <span>20</span>
+          <span>50</span>
+          <span>100</span>
+          <span>200</span>
+          <span>500</span>
+          <span>1k</span>
+          <span>2k</span>
+          <span>5k</span>
+          <span>10k</span>
+          <span>20k</span>
+        </div>
       </div>
     </div>
 
@@ -670,6 +919,10 @@
       let juceAvailable = false;
       let isApplyingPreset = false;
       let activeDrag = null;
+      let meterTargetLevel = 0;
+      let meterDisplayedLevel = 0;
+      let meterHotState = false;
+      let meterAnimating = false;
 
       function clamp(value, min, max) {
         const lower = typeof min === "number" ? min : 0;
@@ -743,6 +996,78 @@
         }
 
         return clamp(parsed, min, max);
+      }
+
+      function choiceToFrequency(choice) {
+        const value = String(choice || "").trim().toLowerCase();
+        if (value.endsWith("k")) return Number(value.slice(0, -1)) * 1000;
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 1000;
+      }
+
+      function frequencyToCurveX(freq, width) {
+        const minF = 20;
+        const maxF = 20000;
+        const ratio = Math.log(Math.max(minF, Math.min(maxF, freq)) / minF) / Math.log(maxF / minF);
+        return ratio * width;
+      }
+
+      function updateEqDisplay() {
+        const path = document.getElementById("eq-curve-path");
+        const glow = document.getElementById("eq-curve-glow");
+        const lowPoint = document.getElementById("eq-low-point");
+        const highPoint = document.getElementById("eq-high-point");
+        const graph = document.getElementById("eq-graph");
+        if (!path || !glow || !lowPoint || !highPoint || !graph) return;
+
+        const viewBox = graph.viewBox && graph.viewBox.baseVal;
+        const width = viewBox && viewBox.width ? viewBox.width : 860;
+        const height = viewBox && viewBox.height ? viewBox.height : 150;
+        const midY = height * 0.5;
+        const lowFreq = choiceToFrequency(currentValues.low_freq);
+        const highBoostFreq = choiceToFrequency(currentValues.high_boost_freq);
+        const highAttenFreq = choiceToFrequency(currentValues.high_attenuation_freq);
+
+        const lowBoost = Number(currentValues.low_boost) || 0;
+        const lowAtten = Number(currentValues.low_attenuation) || 0;
+        const highBoost = Number(currentValues.high_boost) || 0;
+        const highAtten = Number(currentValues.high_attenuation) || 0;
+        const bandwidth = Number(currentValues.bandwidth) || 5;
+
+        const points = [];
+        const totalPoints = 180;
+        for (let i = 0; i <= totalPoints; i++) {
+          const t = i / totalPoints;
+          const freq = 20 * Math.pow(1000, t);
+          const logF = Math.log(freq);
+          const lowLog = Math.log(lowFreq);
+          const highLog = Math.log(highBoostFreq);
+          const highAttLog = Math.log(highAttenFreq);
+
+          const lowBoostTerm = lowBoost * Math.exp(-Math.pow((logF - lowLog) / 0.65, 2));
+          const lowAttenTerm = lowAtten * 0.68 * Math.exp(-Math.pow((logF - Math.log(lowFreq * 1.7)) / 0.58, 2));
+          const highWidth = 0.20 + ((10 - bandwidth) * 0.024);
+          const highBoostTerm = highBoost * Math.exp(-Math.pow((logF - highLog) / highWidth, 2));
+          const highAttenTerm = highAtten * Math.exp(-Math.pow((logF - highAttLog) / 0.26, 2));
+
+          const db = lowBoostTerm - lowAttenTerm + highBoostTerm - highAttenTerm;
+          const y = clamp(midY - (db * 5.1), 8, height - 8);
+          points.push({ x: t * width, y });
+        }
+
+        const d = points.map((p, idx) => `${idx === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
+        path.setAttribute("d", d);
+        glow.setAttribute("d", d);
+
+        const lowX = frequencyToCurveX(lowFreq, width);
+        const highX = frequencyToCurveX(highBoostFreq, width);
+        const lowY = points[Math.round((lowX / width) * (points.length - 1))].y;
+        const highY = points[Math.round((highX / width) * (points.length - 1))].y;
+
+        lowPoint.setAttribute("cx", lowX.toFixed(2));
+        lowPoint.setAttribute("cy", lowY.toFixed(2));
+        highPoint.setAttribute("cx", highX.toFixed(2));
+        highPoint.setAttribute("cy", highY.toFixed(2));
       }
 
       function moveCaretToEnd(element) {
@@ -856,6 +1181,8 @@
         if (readout && document.activeElement !== readout) {
           readout.textContent = formatValue(paramId, numericValue);
         }
+
+        updateEqDisplay();
       }
 
       function setSelectorVisual(paramId, value) {
@@ -865,6 +1192,8 @@
         document.querySelectorAll(`.option[data-param="${paramId}"]`).forEach((option) => {
           option.classList.toggle("active", option.dataset.value === safeValue);
         });
+
+        updateEqDisplay();
       }
 
       function setModeVisual(modeName) {
@@ -1168,14 +1497,44 @@
         }, 60);
       }
 
-      window.updateOutputMeter = function (level, isHot) {
-        const bars = document.querySelectorAll("#output-meter .meter-bar");
-        const activeCount = Math.round(clamp(level, 0, 1) * bars.length);
+      function drawMeterBars(level, isHot) {
+        const leftFill = document.querySelector('.meter-fill[data-meter="L"]');
+        const rightFill = document.querySelector('.meter-fill[data-meter="R"]');
+        if (!leftFill || !rightFill) return;
 
-        bars.forEach((bar, index) => {
-          bar.classList.toggle("active", index < activeCount);
-          bar.classList.toggle("hot", Boolean(isHot) && index < activeCount);
-        });
+        const clamped = clamp(level, 0, 1);
+        const leftLevel = clamped;
+        const rightLevel = clamp((clamped * 0.94) + 0.03, 0, 1);
+
+        leftFill.style.height = `${(leftLevel * 100).toFixed(1)}%`;
+        rightFill.style.height = `${(rightLevel * 100).toFixed(1)}%`;
+        leftFill.classList.toggle("hot", isHot && leftLevel > 0.8);
+        rightFill.classList.toggle("hot", isHot && rightLevel > 0.8);
+      }
+
+      function meterAnimationStep() {
+        const delta = meterTargetLevel - meterDisplayedLevel;
+        if (Math.abs(delta) < 0.0015) {
+          meterDisplayedLevel = meterTargetLevel;
+          drawMeterBars(meterDisplayedLevel, meterHotState);
+          meterAnimating = false;
+          return;
+        }
+
+        const smoothing = delta > 0 ? 0.34 : 0.12;
+        meterDisplayedLevel += delta * smoothing;
+        drawMeterBars(meterDisplayedLevel, meterHotState);
+        window.requestAnimationFrame(meterAnimationStep);
+      }
+
+      window.updateOutputMeter = function (level, isHot) {
+        meterTargetLevel = clamp(level, 0, 1);
+        meterHotState = Boolean(isHot);
+
+        if (!meterAnimating) {
+          meterAnimating = true;
+          window.requestAnimationFrame(meterAnimationStep);
+        }
       };
 
       function bootUi() {
@@ -1197,6 +1556,9 @@
         } else {
           applyPreset("Neutral", false);
         }
+
+        updateEqDisplay();
+        drawMeterBars(0, false);
       }
 
       if (document.readyState === "loading") {
