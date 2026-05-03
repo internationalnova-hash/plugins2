@@ -573,8 +573,13 @@
     }
 
     @keyframes magicPulse {
-      0%, 100% { box-shadow: 0 0 16px rgba(220,80,20,0.28), inset 0 1px 0 rgba(255,160,60,0.08), 0 6px 12px rgba(0,0,0,0.45); }
-      50% { box-shadow: 0 0 32px rgba(220,80,20,0.48), 0 0 52px rgba(180,50,10,0.18), inset 0 1px 0 rgba(255,160,60,0.08), 0 6px 12px rgba(0,0,0,0.45); }
+      0%, 100% { box-shadow: inset 0 1px 0 rgba(255,160,60,0.08), 0 6px 12px rgba(0,0,0,0.45), 0 0 8px rgba(200,80,20,0.10); }
+      50%       { box-shadow: inset 0 1px 0 rgba(255,160,60,0.08), 0 6px 12px rgba(0,0,0,0.45), 0 0 18px rgba(210,85,15,0.22), 0 0 32px rgba(170,45,5,0.08); }
+    }
+
+    @keyframes magicPulseActive {
+      0%, 100% { box-shadow: 0 0 0 1px rgba(255,180,60,0.4), 0 0 28px rgba(220,80,20,0.45), 0 0 52px rgba(180,50,10,0.18), inset 0 1px 0 rgba(255,180,80,0.2), 0 10px 18px rgba(0,0,0,0.5); }
+      50%       { box-shadow: 0 0 0 1px rgba(255,200,80,0.55), 0 0 44px rgba(230,90,20,0.62), 0 0 72px rgba(190,55,10,0.28), inset 0 1px 0 rgba(255,200,100,0.28), 0 10px 18px rgba(0,0,0,0.5); }
     }
 
     .magic-button {
@@ -597,7 +602,7 @@
       -webkit-user-select: none;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
-      animation: magicPulse 3s ease-in-out infinite;
+      animation: magicPulse 4s ease-in-out infinite;
     }
 
     .magic-button.active {
@@ -610,7 +615,7 @@
         0 0 64px rgba(180,50,10,0.25),
         inset 0 1px 0 rgba(255,180,80,0.2),
         0 10px 18px rgba(0,0,0,0.5);
-      animation: magicPulse 1.4s ease-in-out infinite;
+      animation: magicPulseActive 1.6s ease-in-out infinite;
     }
 
     .plugin.magic-on .meter-bar.active {
@@ -1253,13 +1258,15 @@
           heatGlow.style.background =
             'radial-gradient(ellipse at ' + cx.toFixed(1) + '% ' + cy.toFixed(1) + '%, rgba(' + r + ',' + g + ',4,0.28) 0%, rgba(' + Math.round(r * 0.7) + ',' + Math.round(g * 0.4) + ',0,0.10) ' + spread + '%, transparent 74%)';
         }
-        /* TWEAK 1: shimmer inside Heat knob at high values */
+        /* shimmer inside Heat knob — starts faint at any value, grows with intensity */
         var heatKnob = document.querySelector('.knob.hero');
-        if (heatKnob && intensity > 0.35) {
-          var sh = (intensity - 0.35) / 0.65;
-          var glowRad = Math.round(8 + sh * 28 + shimmerAmt * 12);
+        if (heatKnob) {
+          var sh = Math.max(0, intensity - 0.15) / 0.85;
+          var glowRad  = Math.round(4 + sh * 26 + shimmerAmt * 10);
+          var glowG    = Math.round(60 + sh * 50);
+          var glowOp   = (0.08 + sh * 0.50 + shimmerAmt * sh * 0.18).toFixed(3);
           heatKnob.style.boxShadow =
-            'inset 0 1px 0 rgba(255,200,100,0.18), inset 0 -12px 20px rgba(0,0,0,0.5), 0 0 0 3px rgba(0,0,0,0.6), 0 12px 24px rgba(0,0,0,0.5), 0 0 ' + glowRad + 'px rgba(230,' + Math.round(80 + sh * 40) + ',10,0.55)';
+            'inset 0 1px 0 rgba(255,200,100,0.18), inset 0 -12px 20px rgba(0,0,0,0.5), 0 0 0 3px rgba(0,0,0,0.6), 0 12px 24px rgba(0,0,0,0.5), 0 0 ' + glowRad + 'px rgba(230,' + glowG + ',10,' + glowOp + ')';
         }
         requestAnimationFrame(tick);
       }
