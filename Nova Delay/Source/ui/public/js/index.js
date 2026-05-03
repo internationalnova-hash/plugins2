@@ -50,7 +50,15 @@ function setupViewportFit() {
     const availH = Math.max(320, window.innerHeight - padding);
     const safeW = Math.max(1, availW - 4);
     const safeH = Math.max(1, availH - 8);
-    const scale = Math.min(1, safeW / designWidth, safeH / designHeight);
+
+    // Hard-cap scale to the suite-standard editor target (1080x680).
+    // This prevents hosts that report oversized webview bounds from
+    // rendering the legacy 1280x840 visual footprint.
+    const suiteTargetW = 1080;
+    const suiteTargetH = 680;
+    const suiteCapScale = Math.min(1, suiteTargetW / designWidth, suiteTargetH / designHeight);
+
+    const scale = Math.min(1, suiteCapScale, safeW / designWidth, safeH / designHeight);
     plugin.style.setProperty("--ui-scale", scale.toFixed(4));
   };
 
