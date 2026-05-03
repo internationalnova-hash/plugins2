@@ -41,12 +41,16 @@ function setupViewportFit() {
     // Reset scale before measurement so dimensions are based on natural layout size.
     plugin.style.setProperty("--ui-scale", "1");
 
-    const designWidth = Math.max(1, plugin.offsetWidth || 1280);
-    const designHeight = Math.max(1, plugin.offsetHeight || 840);
+    // Use scroll dimensions as well, because some sections intentionally overflow
+    // the plugin box (e.g. lower controls) and must be included in fit math.
+    const designWidth = Math.max(1, plugin.offsetWidth || 1280, plugin.scrollWidth || 0);
+    const designHeight = Math.max(1, plugin.offsetHeight || 840, plugin.scrollHeight || 0);
 
     const availW = Math.max(320, window.innerWidth - padding);
     const availH = Math.max(320, window.innerHeight - padding);
-    const scale = Math.min(1, availW / designWidth, availH / designHeight);
+    const safeW = Math.max(1, availW - 4);
+    const safeH = Math.max(1, availH - 8);
+    const scale = Math.min(1, safeW / designWidth, safeH / designHeight);
     plugin.style.setProperty("--ui-scale", scale.toFixed(4));
   };
 
