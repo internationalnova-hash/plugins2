@@ -696,6 +696,19 @@
       color: #dcc7aa;
       margin-bottom: 8px;
       line-height: 1.05;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .block-title svg {
+      width: 16px;
+      height: 16px;
+      stroke: #d99552;
+      fill: none;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
     }
 
     .mode-sync-marker {
@@ -912,7 +925,7 @@
       </div>
 
       <div class="model-wrap">
-        <div class="block-title">DELAY MODEL</div>
+        <div class="block-title"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4"/><circle cx="16" cy="12" r="4"/><path d="M8 8v8"/><path d="M16 8v8"/><path d="M8 12h8"/></svg>DELAY MODEL</div>
         <select id="delayModelSelect"></select>
       </div>
 
