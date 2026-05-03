@@ -320,12 +320,32 @@ function setupKnobDragging() {
     const min = Number(knob.dataset.min || 0);
     const max = Number(knob.dataset.max || 100);
 
+    knob.addEventListener("pointerdown", (e) => start(e, knob, param, min, max));
     knob.addEventListener("mousedown", (e) => start(e, knob, param, min, max));
     knob.addEventListener("touchstart", (e) => start(e, knob, param, min, max), { passive: false });
   });
 
   const delayKnob = document.getElementById("delayTimeKnob");
+  const delayStart = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    delayKnob.classList.add("active");
+    const param = values.sync_enabled ? "delay_time_sync" : "delay_time_free_ms";
+    const min = values.sync_enabled ? 0 : 20;
+    const max = values.sync_enabled ? 9 : 2000;
+    const startValue = values.sync_enabled ? choices.delay_time_sync.indexOf(values.delay_time_sync) : values.delay_time_free_ms;
+    active = {
+      knob: delayKnob,
+      param,
+      min,
+      max,
+      startY: event.touches?.[0]?.clientY ?? event.clientY,
+      startValue
+    };
+    paramStates[param]?.sliderDragStarted?.();
+  };
   if (delayKnob) {
+    delayKnob.addEventListener("pointerdown", delayStart);
     delayKnob.addEventListener("mousedown", (event) => {
       if (event.button !== undefined && event.button !== 0) return;
       event.preventDefault();
@@ -364,8 +384,10 @@ function setupKnobDragging() {
     }, { passive: false });
   }
 
+  window.addEventListener("pointermove", move, { passive: false });
   window.addEventListener("mousemove", move, { passive: false });
   window.addEventListener("touchmove", move, { passive: false });
+  window.addEventListener("pointerup", end);
   window.addEventListener("mouseup", end);
   window.addEventListener("touchend", end);
 }
@@ -645,7 +667,7 @@ function setupVisualizer() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  setupViewportFit();
+  // No viewport scaling needed — CSS zoom handles the fixed 1280→1080 fit.
 
   populateSelect("presetSelect", choices.preset);
   populateSelect("delayModelSelect", choices.delay_model);
