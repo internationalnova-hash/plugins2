@@ -129,39 +129,28 @@ function createSliderState(name) {
 }
 
 function setupViewportFit() {
+  const stage = document.querySelector(".stage");
   const plugin = document.querySelector(".plugin");
-  if (!plugin) return;
-
-  const padding = 20;
+  if (!stage || !plugin) return;
 
   const updateScale = () => {
-    // Reset scale before measurement so dimensions are based on natural layout size.
-    plugin.style.setProperty("--ui-scale", "1");
+    // Measure unscaled content first, then fit to actual host viewport.
+    stage.style.setProperty("--stage-scale", "1");
 
-    // Use scroll dimensions as well, because some sections intentionally overflow
-    // the plugin box (e.g. lower controls) and must be included in fit math.
-    const designWidth = Math.max(1, plugin.offsetWidth || 1280, plugin.scrollWidth || 0);
-    const designHeight = Math.max(1, plugin.offsetHeight || 840, plugin.scrollHeight || 0);
+    const designWidth = Math.max(1, plugin.scrollWidth || 0, plugin.offsetWidth || 0, 1280);
+    const designHeight = Math.max(1, plugin.scrollHeight || 0, plugin.offsetHeight || 0, 840);
 
-    const availW = Math.max(320, window.innerWidth - padding);
-    const availH = Math.max(320, window.innerHeight - padding);
-    const safeW = Math.max(1, availW - 4);
-    const safeH = Math.max(1, availH - 8);
+    const availW = Math.max(1, window.innerWidth || 1080);
+    const availH = Math.max(1, window.innerHeight || 680);
 
-    // Hard-cap scale to the suite-standard editor target (1080x680).
-    // This prevents hosts that report oversized webview bounds from
-    // rendering the legacy 1280x840 visual footprint.
-    const suiteTargetW = 1080;
-    const suiteTargetH = 680;
-    const suiteCapScale = Math.min(1, suiteTargetW / designWidth, suiteTargetH / designHeight);
-
-    const scale = Math.min(1, suiteCapScale, safeW / designWidth, safeH / designHeight);
-    plugin.style.setProperty("--ui-scale", scale.toFixed(4));
+    const scale = Math.min(1, availW / designWidth, availH / designHeight);
+    stage.style.setProperty("--stage-scale", scale.toFixed(4));
   };
 
   updateScale();
   window.addEventListener("load", updateScale);
   window.addEventListener("resize", updateScale);
+  window.setTimeout(updateScale, 120);
 }
 
 function populateSelect(id, options) {
@@ -667,7 +656,7 @@ function setupVisualizer() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  // No viewport scaling needed — CSS zoom handles the fixed 1280→1080 fit.
+  setupViewportFit();
 
   populateSelect("presetSelect", choices.preset);
   populateSelect("delayModelSelect", choices.delay_model);
