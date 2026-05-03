@@ -501,7 +501,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         // large frame-to-frame ratio jumps and audible skip bursts.
         // smoothDetectedPitch uses lockedTargetMidi as reference to anchor octave and
         // suppress subharmonics — this is for audio quality only, not for lock decisions.
-        const bool hardTuneModeDetect = retuneControlActive >= 0.85f;
+        const bool stablePitchLockMode = retuneControlActive >= 0.05f;
+        const bool hardTuneModeDetect = stablePitchLockMode;
         float detectedHz = smoothDetectedPitch (rawYinHz, inputRms, lowLatencyMode || fastRetuneTracking, hardTuneModeDetect);
         detectedPitch.store (detectedHz);
 
@@ -564,12 +565,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         }
 
         const bool hardTuneModeFrame = retuneControlActive >= 0.85f;
+        const bool stablePitchLockModeFrame = retuneControlActive >= 0.05f;
         const float hardHeldRatioThreshold = (hardTuneModeFrame && retuneControlActive >= 0.98f) ? 0.0025f : 0.02f;
 
         if (hasUsablePitch)
         {
-            const bool hardTuneMode = hardTuneModeFrame;
-            const bool speedIndependentTargetLock = retuneControlActive >= 0.05f;
+            const bool hardTuneMode = stablePitchLockModeFrame;
+            const bool speedIndependentTargetLock = stablePitchLockModeFrame;
             // Use the smoothed detected estimate directly for candidate selection.
             // This avoids octave-fold side effects from secondary lock-free transforms.
             const float noteSourceHz = detectedHz;
@@ -605,7 +607,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
             const float detectedMidi = 69.0f + 12.0f * std::log2 (juce::jmax (1.0f, noteSourceHz) / 440.0f);
 
-            if (hardTuneModeFrame)
+            if (stablePitchLockModeFrame)
             {
                 // Prefer upward snaps when detected pitch sits between two scale notes.
                 int upCandidate = candidateMidiNote;
@@ -676,12 +678,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 // transients don't capture the wrong note and then get stuck there
                 // (the hardSwitchErrorOk/Distance guards later prevent recovering from
                 // a bad initial lock once it is set).
-                const int initStreakNeeded = hardTuneModeFrame ? 1 : 2;
+                const int initStreakNeeded = stablePitchLockModeFrame ? 1 : 2;
 
                 if (speedIndependentTargetLock)
                 {
-                    const bool strongInitFrame = inputRms > (hardTuneModeFrame ? 0.020f : 0.012f);
-                    const bool confidentInitFrame = pitchConfidence.load() > (hardTuneModeFrame ? 0.65f : 0.58f);
+                    const bool strongInitFrame = inputRms > (stablePitchLockModeFrame ? 0.020f : 0.012f);
+                    const bool confidentInitFrame = pitchConfidence.load() > (stablePitchLockModeFrame ? 0.65f : 0.58f);
                     const bool voicedInitState = (vocalState == VocalState::Onset || vocalState == VocalState::Voiced);
 
                     if (! (strongInitFrame && confidentInitFrame && voicedInitState))
