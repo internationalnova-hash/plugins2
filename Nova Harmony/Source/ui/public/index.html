@@ -549,18 +549,33 @@
       transition: all var(--ease);
     }
 
-    #process-btn {
-      height: 48px;
+    .action.active {
       color: #fbf8ff;
-      background: linear-gradient(160deg, rgba(145,80,255,0.96), rgba(90,55,195,0.96), rgba(62,46,148,0.96));
       border-color: rgba(190,148,255,0.80);
       box-shadow:
-        0 0 24px rgba(140,82,255,0.60),
-        0 0 52px rgba(124,72,240,0.28),
-        inset 0 1px 0 rgba(255,255,255,0.18);
+        0 0 22px rgba(140,82,255,0.55),
+        0 0 46px rgba(124,72,240,0.24),
+        inset 0 1px 0 rgba(255,255,255,0.16);
+    }
+
+    #preview-btn {
+      height: 48px;
+    }
+
+    #preview-btn.active {
+      background: linear-gradient(160deg, rgba(86,121,255,0.92), rgba(64,98,219,0.92), rgba(50,77,176,0.92));
+    }
+
+    #process-btn {
+      height: 48px;
       font-size: 12px;
       letter-spacing: 0.18em;
       transition: all var(--ease);
+      animation: none;
+    }
+
+    #process-btn.active {
+      background: linear-gradient(160deg, rgba(145,80,255,0.96), rgba(90,55,195,0.96), rgba(62,46,148,0.96));
       animation: processPulse 3.8s ease-in-out infinite;
     }
 
