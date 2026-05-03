@@ -43,12 +43,16 @@
     .stage {
       width: 100vw;
       height: 100vh;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
+      display: grid;
+      place-items: start center;
       overflow: hidden;
-      transform: scale(var(--stage-scale, 1));
-      transform-origin: top center;
+    }
+
+    .plugin-viewport {
+      width: 1080px;
+      height: 680px;
+      overflow: hidden;
+      position: relative;
     }
 
     .plugin {
@@ -58,6 +62,8 @@
       border-radius: 26px;
       border: 1px solid rgba(230, 153, 62, 0.30);
       overflow: visible;
+      transform: scale(var(--ui-scale, 0.8095));
+      transform-origin: top left;
       background:
         radial-gradient(circle at 50% 34%, rgba(255, 171, 71, 0.15), rgba(64, 37, 17, 0.12) 34%, transparent 62%),
         radial-gradient(95% 60% at 50% 46%, rgba(255, 146, 50, 0.07), transparent 65%),
@@ -768,6 +774,7 @@
 </head>
 <body>
   <div class="stage">
+  <div class="plugin-viewport">
   <div class="plugin">
     <div class="top">
       <div class="brand-left">
@@ -937,8 +944,9 @@
     </div>
   </div>
   </div>
+  </div>
 
-  <script src="js/index.js?v=19"></script>
+  <script src="js/index.js?v=20"></script>
   
 </body>
 </html>

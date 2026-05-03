@@ -129,22 +129,37 @@ function createSliderState(name) {
 }
 
 function setupViewportFit() {
-  const stage = document.querySelector(".stage");
   const plugin = document.querySelector(".plugin");
-  if (!stage || !plugin) return;
+  if (!plugin) return;
 
   const updateScale = () => {
-    // Measure unscaled content first, then fit to actual host viewport.
-    stage.style.setProperty("--stage-scale", "1");
+    // Scale only the plugin content inside the fixed 1080x680 viewport.
+    plugin.style.setProperty("--ui-scale", "1");
 
-    const designWidth = Math.max(1, plugin.scrollWidth || 0, plugin.offsetWidth || 0, 1280);
-    const designHeight = Math.max(1, plugin.scrollHeight || 0, plugin.offsetHeight || 0, 840);
+    const pluginRect = plugin.getBoundingClientRect();
+    let maxRight = pluginRect.width;
+    let maxBottom = pluginRect.height;
 
-    const availW = Math.max(1, window.innerWidth || 1080);
-    const availH = Math.max(1, window.innerHeight || 680);
+    // Include overflow descendants when computing fit so lower controls never clip.
+    const allNodes = plugin.querySelectorAll("*");
+    allNodes.forEach((node) => {
+      const rect = node.getBoundingClientRect();
+      if (!rect || (rect.width === 0 && rect.height === 0)) return;
 
-    const scale = Math.min(1, availW / designWidth, availH / designHeight);
-    stage.style.setProperty("--stage-scale", scale.toFixed(4));
+      const right = rect.right - pluginRect.left;
+      const bottom = rect.bottom - pluginRect.top;
+      if (Number.isFinite(right)) maxRight = Math.max(maxRight, right);
+      if (Number.isFinite(bottom)) maxBottom = Math.max(maxBottom, bottom);
+    });
+
+    const designWidth = Math.max(1280, Math.ceil(maxRight));
+    const designHeight = Math.max(840, Math.ceil(maxBottom));
+
+    const availW = 1080;
+    const availH = 680;
+
+    const scale = Math.min(1, availW / designWidth, availH / designHeight) * 0.995;
+    plugin.style.setProperty("--ui-scale", scale.toFixed(4));
   };
 
   updateScale();
