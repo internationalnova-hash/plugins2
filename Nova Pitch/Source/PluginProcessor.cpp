@@ -903,7 +903,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                         const float previousCents = 1200.0f * std::log2 (juce::jmax (0.001f, targetPitchRatio));
                         const float computedCents = 1200.0f * std::log2 (juce::jmax (0.001f, computedTargetRatio));
                         const float absComputedCents = std::abs (computedCents);
-                        const float centerReleaseCents = 0.20f;
+                        const float centerReleaseCents = 6.0f;
                         const float signStabilizeCents = 8.0f;
                         const float jumpFromPreviousCents = std::abs (computedCents - previousCents);
                         const float confidenceNow = pitchConfidence.load();
@@ -2390,9 +2390,12 @@ void NovaPitchAudioProcessor::processRubberBandPitchShift (float* channelL, floa
     std::copy (channelL, channelL + numSamples, inL.begin());
 
     const float clampedRatio = juce::jlimit (0.25f, 4.00f, pitchRatio);
-    rubberBandTargetPitchScale = clampedRatio;
+    const float targetCentsAbs = std::abs (1200.0f * std::log2 (juce::jmax (0.001f, clampedRatio)));
+    // Avoid constant near-unity scale chatter: tiny corrections are mostly detector jitter
+    // and are heard as static/grain in realtime stretching.
+    rubberBandTargetPitchScale = (targetCentsAbs <= 4.0f) ? 1.0f : clampedRatio;
 
-    const bool snapScaleChanged = std::abs (rubberBandTargetPitchScale - rubberBandPrevTargetPitchScale) > 1.0e-6f;
+    const bool snapScaleChanged = std::abs (rubberBandTargetPitchScale - rubberBandPrevTargetPitchScale) > 8.0e-4f;
     if (snapScaleChanged)
     {
         // Tiny click-safe hold to avoid perceived level dips exactly at hard jumps.
