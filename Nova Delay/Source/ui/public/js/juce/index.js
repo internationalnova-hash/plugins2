@@ -34,6 +34,30 @@
 
 import "./check_native_interop.js";
 
+function ensureJuceInterop() {
+  if (window.__JUCE__ && window.__JUCE__.backend && window.__JUCE__.initialisationData)
+    return;
+
+  const noop = () => {};
+  const backend = {
+    addEventListener: noop,
+    removeEventListener: noop,
+    emitEvent: noop,
+  };
+
+  window.__JUCE__ = {
+    backend,
+    initialisationData: {
+      __juce__functions: [],
+      __juce__sliders: [],
+      __juce__toggles: [],
+      __juce__comboBoxes: [],
+    },
+  };
+}
+
+ensureJuceInterop();
+
 class PromiseHandler {
   constructor() {
     this.lastPromiseId = 0;
