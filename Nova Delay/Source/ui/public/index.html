@@ -78,6 +78,7 @@
       grid-template-rows: var(--top-row) var(--visual-row) minmax(0, 1fr) var(--bottom-row);
       gap: var(--row-gap);
       padding: var(--shell-pad);
+      isolation: isolate;
       background:
         radial-gradient(circle at 50% 34%, rgba(255, 171, 71, 0.15), rgba(64, 37, 17, 0.12) 34%, transparent 62%),
         radial-gradient(95% 60% at 50% 46%, rgba(255, 146, 50, 0.07), transparent 65%),
@@ -94,6 +95,7 @@
       content: "";
       position: absolute;
       inset: 0;
+      z-index: 0;
       border-radius: 26px;
       pointer-events: none;
       background:
@@ -106,6 +108,7 @@
       content: "";
       position: absolute;
       inset: 0;
+      z-index: 0;
       pointer-events: none;
       background-image:
         radial-gradient(rgba(255, 211, 145, 0.030) 0.55px, transparent 0.85px),
@@ -116,13 +119,10 @@
       mix-blend-mode: soft-light;
     }
 
-    .top,
-    .visual-panel,
-    .controls-main,
-    .lower {
+    .ui-scale-root > * {
       min-height: 0;
       position: relative;
-      z-index: 1;
+      z-index: 2;
     }
 
     .top {

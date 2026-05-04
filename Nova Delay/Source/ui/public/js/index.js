@@ -248,8 +248,8 @@ function setupKnobDragging() {
 
   const getClientY = (event) => {
     if (!event) return 0;
-    if (event.touches?.length) return event.touches[0].clientY;
-    if (event.changedTouches?.length) return event.changedTouches[0].clientY;
+    if (event.touches && event.touches.length) return event.touches[0].clientY;
+    if (event.changedTouches && event.changedTouches.length) return event.changedTouches[0].clientY;
     return typeof event.clientY === "number" ? event.clientY : 0;
   };
 
@@ -269,10 +269,12 @@ function setupKnobDragging() {
     };
 
     if (typeof knob.setPointerCapture === "function" && typeof event.pointerId !== "undefined") {
-      try { knob.setPointerCapture(event.pointerId); } catch {}
+      try { knob.setPointerCapture(event.pointerId); } catch (e) {}
     }
 
-    paramStates[param]?.sliderDragStarted?.();
+    if (paramStates[param] && typeof paramStates[param].sliderDragStarted === "function") {
+      paramStates[param].sliderDragStarted();
+    }
   };
 
   const move = (event) => {
@@ -288,10 +290,12 @@ function setupKnobDragging() {
 
   const end = () => {
     if (!active) return;
-    paramStates[active.param]?.sliderDragEnded?.();
+    if (paramStates[active.param] && typeof paramStates[active.param].sliderDragEnded === "function") {
+      paramStates[active.param].sliderDragEnded();
+    }
 
     if (typeof active.knob.releasePointerCapture === "function" && typeof active.pointerId !== "undefined") {
-      try { active.knob.releasePointerCapture(active.pointerId); } catch {}
+      try { active.knob.releasePointerCapture(active.pointerId); } catch (e) {}
     }
 
     active.knob.classList.remove("active");
@@ -338,10 +342,12 @@ function setupKnobDragging() {
     };
 
     if (typeof delayKnob.setPointerCapture === "function" && typeof event.pointerId !== "undefined") {
-      try { delayKnob.setPointerCapture(event.pointerId); } catch {}
+      try { delayKnob.setPointerCapture(event.pointerId); } catch (e) {}
     }
 
-    paramStates[param]?.sliderDragStarted?.();
+    if (paramStates[param] && typeof paramStates[param].sliderDragStarted === "function") {
+      paramStates[param].sliderDragStarted();
+    }
   };
   if (delayKnob) {
     bindDragStart(delayKnob, delayStart);
@@ -399,18 +405,22 @@ function setupButtons() {
   });
 
   const presetSelect = document.getElementById("presetSelect");
-  presetSelect?.addEventListener("change", () => {
-    values.preset = presetSelect.value;
-    setParam("preset", values.preset);
-    refreshUi();
-  });
+  if (presetSelect) {
+    presetSelect.addEventListener("change", () => {
+      values.preset = presetSelect.value;
+      setParam("preset", values.preset);
+      refreshUi();
+    });
+  }
 
   const delayModelSelect = document.getElementById("delayModelSelect");
-  delayModelSelect?.addEventListener("change", () => {
-    values.delay_model = delayModelSelect.value;
-    setParam("delay_model", values.delay_model);
-    refreshUi();
-  });
+  if (delayModelSelect) {
+    delayModelSelect.addEventListener("change", () => {
+      values.delay_model = delayModelSelect.value;
+      setParam("delay_model", values.delay_model);
+      refreshUi();
+    });
+  }
 }
 
 function connectParameters() {
