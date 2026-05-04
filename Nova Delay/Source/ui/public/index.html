@@ -771,6 +771,12 @@
       text-align: center;
     }
 
+    /* Host safety: disable full-surface pseudo overlays that can break hit-testing in some DAW webviews. */
+    .ui-scale-root::before,
+    .ui-scale-root::after {
+      content: none !important;
+    }
+
   </style>
 </head>
 <body>
@@ -947,21 +953,7 @@
     </div>
   </div>
 
-  <script>
-    (function () {
-      var version = String(Date.now());
-
-      try {
-        var search = window.location.search || "";
-        var match = search.match(/[?&]v=([^&]+)/);
-        if (match && match[1]) version = match[1];
-      } catch (e) {}
-
-      var script = document.createElement("script");
-      script.src = "js/index.js?v=" + encodeURIComponent(version);
-      document.body.appendChild(script);
-    })();
-  </script>
+  <script src="js/index.js?v=20260504a"></script>
   
 </body>
 </html>

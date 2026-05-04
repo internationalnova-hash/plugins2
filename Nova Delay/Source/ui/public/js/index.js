@@ -307,7 +307,6 @@ function setupKnobDragging() {
 
     if (typeof window.PointerEvent !== "undefined") {
       element.addEventListener("pointerdown", handler);
-      return;
     }
 
     element.addEventListener("mousedown", handler);
