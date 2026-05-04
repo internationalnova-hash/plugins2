@@ -6,10 +6,11 @@
   <title>Nova Delay</title>
   <style>
     :root {
-      --ui-scale: 0.55;
-      --safe-pad-x: 6px;
-      --safe-pad-top: 4px;
-      --safe-pad-bottom: 8px;
+      --ui-scale: 0.74;
+      --safe-pad-x: 1px;
+      --safe-pad-top: 0px;
+      --safe-pad-bottom: 1px;
+      --fit-lift: 10px;
       --bg0: #040201;
       --bg1: #0b0704;
       --bg2: #130d08;
@@ -64,16 +65,16 @@
       inset: var(--safe-pad-top) var(--safe-pad-x) var(--safe-pad-bottom);
       overflow: hidden;
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       justify-content: center;
     }
 
     .ui-scale-root {
       position: relative;
       width: 1280px;
-      height: 940px;
+      height: 840px;
       transform-origin: center center;
-      transform: scale(var(--ui-scale));
+      transform: translateY(calc(-1 * var(--fit-lift))) scale(var(--ui-scale));
       background:
         radial-gradient(circle at 50% 34%, rgba(255, 171, 71, 0.15), rgba(64, 37, 17, 0.12) 34%, transparent 62%),
         radial-gradient(95% 60% at 50% 46%, rgba(255, 146, 50, 0.07), transparent 65%),
