@@ -6,7 +6,7 @@
 namespace
 {
 constexpr int kEditorWidth = 980;
-constexpr int kEditorHeight = 620;
+constexpr int kEditorHeight = 632;
 }
 
 NovaDelayAudioProcessorEditor::NovaDelayAudioProcessorEditor (NovaDelayAudioProcessor& p)
