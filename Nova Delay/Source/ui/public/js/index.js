@@ -665,7 +665,7 @@ function setupVisualizer() {
   draw();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+function initUi() {
   populateSelect("presetSelect", choices.preset);
   populateSelect("delayModelSelect", choices.delay_model);
 
@@ -693,4 +693,10 @@ document.addEventListener("DOMContentLoaded", () => {
   setMeterLevel("inputMeterR", 0.18);
   setMeterLevel("outputMeterL", 0.31);
   setMeterLevel("outputMeterR", 0.27);
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initUi);
+} else {
+  initUi();
+}
