@@ -133,18 +133,6 @@ std::optional<juce::WebBrowserComponent::Resource> NovaDelayAudioProcessorEditor
         };
     };
 
-    const auto lowerUrl = url.toLowerCase();
-
-    if (lowerUrl.contains ("index.html"))
-        return makeResource (nova_delay_BinaryData::index_html,
-                             nova_delay_BinaryData::index_htmlSize,
-                             "text/html");
-
-    if (lowerUrl.contains ("n_logo.png"))
-        return makeResource (nova_delay_BinaryData::n_logo_png,
-                             nova_delay_BinaryData::n_logo_pngSize,
-                             "image/png");
-
     auto resourcePath = url.fromFirstOccurrenceOf (juce::WebBrowserComponent::getResourceProviderRoot(), false, false);
     resourcePath = resourcePath.upToFirstOccurrenceOf ("?", false, false);
 
@@ -155,16 +143,6 @@ std::optional<juce::WebBrowserComponent::Resource> NovaDelayAudioProcessorEditor
         resourcePath = "/" + resourcePath;
 
     const auto lowerPath = resourcePath.toLowerCase();
-
-    if (lowerPath == "/index.html" || lowerPath.endsWith ("/index.html"))
-        return makeResource (nova_delay_BinaryData::index_html,
-                             nova_delay_BinaryData::index_htmlSize,
-                             "text/html");
-
-    if (lowerPath == "/n_logo.png" || lowerPath.endsWith ("/n_logo.png"))
-        return makeResource (nova_delay_BinaryData::n_logo_png,
-                             nova_delay_BinaryData::n_logo_pngSize,
-                             "image/png");
 
     if (lowerPath == "/js/index.js" || lowerPath.endsWith ("/js/index.js"))
         return makeResource (nova_delay_BinaryData::index_js,
@@ -180,6 +158,16 @@ std::optional<juce::WebBrowserComponent::Resource> NovaDelayAudioProcessorEditor
         return makeResource (nova_delay_BinaryData::check_native_interop_js,
                              nova_delay_BinaryData::check_native_interop_jsSize,
                              "text/javascript");
+
+    if (lowerPath == "/index.html" || lowerPath.endsWith ("/index.html"))
+        return makeResource (nova_delay_BinaryData::index_html,
+                             nova_delay_BinaryData::index_htmlSize,
+                             "text/html");
+
+    if (lowerPath == "/n_logo.png" || lowerPath.endsWith ("/n_logo.png"))
+        return makeResource (nova_delay_BinaryData::n_logo_png,
+                             nova_delay_BinaryData::n_logo_pngSize,
+                             "image/png");
 
     return std::nullopt;
 }
