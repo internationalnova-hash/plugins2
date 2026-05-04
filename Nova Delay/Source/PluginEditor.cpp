@@ -3,6 +3,12 @@
 
 #include <cstring>
 
+namespace
+{
+constexpr int kEditorWidth = 980;
+constexpr int kEditorHeight = 620;
+}
+
 NovaDelayAudioProcessorEditor::NovaDelayAudioProcessorEditor (NovaDelayAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
@@ -34,7 +40,7 @@ NovaDelayAudioProcessorEditor::NovaDelayAudioProcessorEditor (NovaDelayAudioProc
     webView->goToURL (cacheBustedUrl);
 
     setResizable (false, false);
-    setSize (1280, 840);
+    setSize (kEditorWidth, kEditorHeight);
     startTimerHz (30);
 }
 
