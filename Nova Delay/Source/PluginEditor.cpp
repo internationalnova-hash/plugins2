@@ -133,6 +133,18 @@ std::optional<juce::WebBrowserComponent::Resource> NovaDelayAudioProcessorEditor
         };
     };
 
+    const auto lowerUrl = url.toLowerCase();
+
+    if (lowerUrl.contains ("n_logo.png"))
+        return makeResource (nova_delay_BinaryData::n_logo_png,
+                             nova_delay_BinaryData::n_logo_pngSize,
+                             "image/png");
+
+    if (lowerUrl.contains ("index.html"))
+        return makeResource (nova_delay_BinaryData::index_html,
+                             nova_delay_BinaryData::index_htmlSize,
+                             "text/html");
+
     auto resourcePath = url.fromFirstOccurrenceOf (juce::WebBrowserComponent::getResourceProviderRoot(), false, false);
     resourcePath = resourcePath.upToFirstOccurrenceOf ("?", false, false);
 

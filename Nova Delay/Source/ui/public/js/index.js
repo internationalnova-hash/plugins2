@@ -5,6 +5,85 @@ const choices = {
   delay_model: ["Vintage Tape", "Warm Bucket", "Modern Analog", "Echo Chamber"]
 };
 
+const presetSnapshots = {
+  "Vintage Echo": {
+    delay_time_sync: "1/4",
+    delay_time_free_ms: 500,
+    sync_enabled: 1,
+    feedback: 35,
+    mix: 40,
+    tone: 55,
+    wow_flutter: 25,
+    saturation: 30,
+    mode: "Tape",
+    ping_pong: 0,
+    stereo: 1,
+    lofi: 0,
+    freeze: 0,
+    hp_filter_hz: 120,
+    lp_filter_hz: 6000,
+    ducking: 20,
+    delay_model: "Vintage Tape"
+  },
+  "Modern Tape": {
+    delay_time_sync: "1/8",
+    delay_time_free_ms: 340,
+    sync_enabled: 1,
+    feedback: 42,
+    mix: 34,
+    tone: 62,
+    wow_flutter: 18,
+    saturation: 36,
+    mode: "Tape",
+    ping_pong: 0,
+    stereo: 1,
+    lofi: 0,
+    freeze: 0,
+    hp_filter_hz: 140,
+    lp_filter_hz: 7200,
+    ducking: 18,
+    delay_model: "Modern Analog"
+  },
+  "BBD Lo-Fi": {
+    delay_time_sync: "1/8",
+    delay_time_free_ms: 280,
+    sync_enabled: 1,
+    feedback: 48,
+    mix: 38,
+    tone: 40,
+    wow_flutter: 52,
+    saturation: 44,
+    mode: "BBD",
+    ping_pong: 0,
+    stereo: 1,
+    lofi: 1,
+    freeze: 0,
+    hp_filter_hz: 220,
+    lp_filter_hz: 4200,
+    ducking: 24,
+    delay_model: "Warm Bucket"
+  },
+  "Dub Space": {
+    delay_time_sync: "1/2",
+    delay_time_free_ms: 760,
+    sync_enabled: 1,
+    feedback: 62,
+    mix: 46,
+    tone: 48,
+    wow_flutter: 30,
+    saturation: 34,
+    mode: "Analog",
+    ping_pong: 1,
+    stereo: 1,
+    lofi: 0,
+    freeze: 0,
+    hp_filter_hz: 180,
+    lp_filter_hz: 5600,
+    ducking: 28,
+    delay_model: "Echo Chamber"
+  }
+};
+
 const paramStates = {};
 const values = {
   preset: "Vintage Echo",
@@ -243,6 +322,30 @@ function refreshUi() {
   }
 }
 
+function applyPresetSelection(presetName, pushToBackend) {
+  const snapshot = presetSnapshots[presetName];
+  values.preset = presetName;
+
+  if (!snapshot) {
+    refreshUi();
+    return;
+  }
+
+  if (pushToBackend) {
+    setParam("preset", presetName);
+  }
+
+  Object.keys(snapshot).forEach((param) => {
+    const next = snapshot[param];
+    values[param] = next;
+    if (pushToBackend) {
+      setParam(param, next);
+    }
+  });
+
+  refreshUi();
+}
+
 function setupKnobDragging() {
   let active = null;
 
@@ -406,9 +509,7 @@ function setupButtons() {
   const presetSelect = document.getElementById("presetSelect");
   if (presetSelect) {
     presetSelect.addEventListener("change", () => {
-      values.preset = presetSelect.value;
-      setParam("preset", values.preset);
-      refreshUi();
+      applyPresetSelection(presetSelect.value, true);
     });
   }
 
@@ -435,8 +536,13 @@ function connectParameters() {
       paramStates[id].addValueChangedListener(() => {
         if (isUpdating) return;
         isUpdating = true;
-        values[id] = fromNorm(id, paramStates[id].getNormalisedValue());
-        refreshUi();
+        const nextValue = fromNorm(id, paramStates[id].getNormalisedValue());
+        if (id === "preset") {
+          applyPresetSelection(String(nextValue), false);
+        } else {
+          values[id] = nextValue;
+          refreshUi();
+        }
         isUpdating = false;
       });
       values[id] = fromNorm(id, paramStates[id].getNormalisedValue());
