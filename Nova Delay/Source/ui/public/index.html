@@ -947,7 +947,21 @@
     </div>
   </div>
 
-  <script src="js/index.js"></script>
+  <script>
+    (function () {
+      var version = String(Date.now());
+
+      try {
+        var search = window.location.search || "";
+        var match = search.match(/[?&]v=([^&]+)/);
+        if (match && match[1]) version = match[1];
+      } catch (e) {}
+
+      var script = document.createElement("script");
+      script.src = "js/index.js?v=" + encodeURIComponent(version);
+      document.body.appendChild(script);
+    })();
+  </script>
   
 </body>
 </html>
