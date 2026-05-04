@@ -144,21 +144,6 @@ std::optional<juce::WebBrowserComponent::Resource> NovaDelayAudioProcessorEditor
 
     const auto lowerPath = resourcePath.toLowerCase();
 
-    if (lowerPath == "/js/index.js" || lowerPath.endsWith ("/js/index.js"))
-        return makeResource (nova_delay_BinaryData::index_js,
-                             nova_delay_BinaryData::index_jsSize,
-                             "text/javascript");
-
-    if (lowerPath == "/js/juce/index.js" || lowerPath.endsWith ("/js/juce/index.js"))
-        return makeResource (nova_delay_BinaryData::index_js2,
-                             nova_delay_BinaryData::index_js2Size,
-                             "text/javascript");
-
-    if (lowerPath == "/js/juce/check_native_interop.js" || lowerPath.endsWith ("/js/juce/check_native_interop.js"))
-        return makeResource (nova_delay_BinaryData::check_native_interop_js,
-                             nova_delay_BinaryData::check_native_interop_jsSize,
-                             "text/javascript");
-
     if (lowerPath == "/index.html" || lowerPath.endsWith ("/index.html"))
         return makeResource (nova_delay_BinaryData::index_html,
                              nova_delay_BinaryData::index_htmlSize,
