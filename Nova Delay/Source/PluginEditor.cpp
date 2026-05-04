@@ -34,7 +34,7 @@ NovaDelayAudioProcessorEditor::NovaDelayAudioProcessorEditor (NovaDelayAudioProc
     webView->goToURL (cacheBustedUrl);
 
     setResizable (false, false);
-    setSize (1280, 840);
+    setSize (1080, 680);
     startTimerHz (30);
 }
 
