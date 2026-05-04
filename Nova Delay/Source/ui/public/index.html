@@ -66,6 +66,11 @@
       inset: 0;
       width: 100%;
       height: 100%;
+      display: grid;
+      grid-template-rows: 82px 164px 220px 110px;
+      gap: 6px;
+      padding: 6px 12px;
+      box-sizing: border-box;
       background:
         radial-gradient(circle at 50% 34%, rgba(255, 171, 71, 0.15), rgba(64, 37, 17, 0.12) 34%, transparent 62%),
         radial-gradient(95% 60% at 50% 46%, rgba(255, 146, 50, 0.07), transparent 65%),
@@ -113,6 +118,7 @@
 
     .top {
       height: 84px;
+      box-sizing: border-box;
       border-bottom: 1px solid var(--line-soft);
       display: grid;
       grid-template-columns: 1fr 1.3fr 1fr;
@@ -222,7 +228,8 @@
     }
 
     .visual-panel {
-      margin: 10px 12px 0;
+      margin: 0;
+      box-sizing: border-box;
       border: 1px solid rgba(233, 150, 55, 0.36);
       border-radius: 14px;
       padding: 10px;
@@ -233,7 +240,7 @@
       z-index: 2;
       height: 176px;
       display: grid;
-      grid-template-columns: 64px 1fr 64px;
+      grid-template-columns: 76px 1fr 76px;
       gap: 10px;
       box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.08),
@@ -273,8 +280,9 @@
     }
 
     .meter-label {
-      font-size: 23px;
-      letter-spacing: 0.14em;
+      font-size: 20px;
+      letter-spacing: 0.10em;
+      white-space: nowrap;
       color: #ddc9af;
       text-transform: uppercase;
     }
@@ -349,14 +357,17 @@
     }
 
     .controls-main {
-      margin: 10px 12px 0;
-      min-height: 230px;
+      margin: 0;
+      min-height: 220px;
+      height: 220px;
+      box-sizing: border-box;
       display: grid;
       grid-template-columns: 1fr 196px;
-      gap: 10px;
+      gap: 8px;
       z-index: 2;
       position: relative;
       align-items: stretch;
+      overflow: hidden;
     }
 
     .knob-bank {
@@ -364,10 +375,10 @@
       border-radius: 14px;
       background:
         linear-gradient(180deg, rgba(26, 17, 11, 0.90), rgba(11, 7, 5, 0.92));
-      padding: 10px;
+      padding: 8px;
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 8px;
+      gap: 6px;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 0 rgba(0,0,0,0.42), inset 0 -20px 28px rgba(0,0,0,0.37), 0 14px 22px rgba(0,0,0,0.30);
     }
 
@@ -375,23 +386,23 @@
       display: grid;
       justify-items: center;
       align-content: start;
-      gap: 6px;
+      gap: 4px;
     }
 
     .knob-title {
-      font-size: 16px;
+      font-size: 15px;
       letter-spacing: 0.11em;
       color: #e8d7c0;
       text-transform: uppercase;
       text-align: center;
       line-height: 1.05;
-      min-height: 28px;
+      min-height: 24px;
     }
 
     .knob {
       position: relative;
-      width: 88px;
-      height: 88px;
+      width: 82px;
+      height: 82px;
       border-radius: 50%;
       border: 1px solid rgba(232, 151, 58, 0.48);
       background:
@@ -448,14 +459,14 @@
       content: "";
       position: absolute;
       left: 50%;
-      top: 9px;
+      top: 8px;
       width: 4px;
-      height: 20px;
+      height: 18px;
       transform: translateX(-50%);
       border-radius: 99px;
       background: linear-gradient(180deg, #fff0cd 0%, #efab44 100%);
       box-shadow: 0 0 8px rgba(255, 172, 65, 0.52), 0 0 20px rgba(255, 153, 44, 0.30), 0 -2px 5px rgba(255, 233, 183, 0.30);
-      transform-origin: 50% 36px;
+      transform-origin: 50% 34px;
       rotate: var(--turn, -140deg);
     }
 
@@ -471,30 +482,30 @@
     }
 
     .knob-value {
-      font-size: 22px;
+      font-size: 20px;
       color: var(--amber-hot);
       letter-spacing: 0.04em;
       text-shadow: 0 0 12px rgba(255, 170, 66, 0.2);
-      min-height: 24px;
+      min-height: 20px;
       line-height: 1;
     }
 
     .knob-note {
-      font-size: 10px;
+      font-size: 9px;
       letter-spacing: 0.08em;
       color: #d4b896;
       text-transform: uppercase;
       text-align: center;
-      min-height: 12px;
+      min-height: 10px;
       line-height: 1.15;
     }
 
     .small-buttons {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 4px;
+      gap: 3px;
       width: 100%;
-      margin-top: 1px;
+      margin-top: 0;
       align-items: center;
     }
 
@@ -502,14 +513,14 @@
       width: 100%;
       min-width: 0;
       padding: 0 6px;
-      font-size: 11px;
+      font-size: 10px;
     }
 
     .sync-note-row {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 4px;
-      margin-top: 5px;
+      margin-top: 3px;
       transition: opacity var(--ease), filter var(--ease);
     }
 
@@ -521,12 +532,12 @@
 
     .sync-note-btn {
       min-width: 0;
-      height: 22px;
+      height: 20px;
       border-radius: 7px;
       border: 1px solid rgba(214, 137, 52, 0.42);
       background: linear-gradient(180deg, rgba(28, 18, 11, 0.95), rgba(10, 7, 4, 0.96));
       color: #dcbf9c;
-      font-size: 11px;
+      font-size: 10px;
       letter-spacing: 0.06em;
       text-transform: uppercase;
       cursor: pointer;
@@ -598,10 +609,10 @@
       border-radius: 14px;
       background:
         linear-gradient(180deg, rgba(28, 17, 11, 0.90), rgba(10, 7, 5, 0.92));
-      padding: 10px;
+      padding: 8px;
       display: grid;
       grid-template-rows: auto auto;
-      gap: 8px;
+      gap: 6px;
       align-content: start;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 0 rgba(0,0,0,0.44), inset 0 -18px 26px rgba(0,0,0,0.38), 0 14px 22px rgba(0,0,0,0.32);
     }
@@ -609,7 +620,7 @@
     .button-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
+      gap: 6px;
     }
 
     .fx-btn {
@@ -621,7 +632,7 @@
       font-size: 14px;
       letter-spacing: 0.07em;
       text-transform: uppercase;
-      min-height: 56px;
+      min-height: 52px;
       padding: 0 8px;
       cursor: pointer;
       transition: all var(--ease);
@@ -663,7 +674,7 @@
     .sat-wrap {
       border: 1px solid rgba(205, 132, 48, 0.48);
       border-radius: 11px;
-      padding: 8px;
+      padding: 6px;
       display: grid;
       justify-items: center;
       gap: 4px;
@@ -672,13 +683,13 @@
     }
 
     .sat-wrap .knob {
-      width: 74px;
-      height: 74px;
+      width: 68px;
+      height: 68px;
     }
 
     .sat-wrap .knob-value {
-      font-size: 18px;
-      min-height: 20px;
+      font-size: 16px;
+      min-height: 18px;
     }
 
     .sat-wrap .knob-title {
@@ -688,15 +699,17 @@
     }
 
     .lower {
-      margin: 8px 12px 10px;
+      margin: 0;
+      min-height: 0;
+      box-sizing: border-box;
       border: 1px solid rgba(228, 147, 55, 0.30);
       border-radius: 14px;
       background:
         linear-gradient(180deg, rgba(24, 15, 10, 0.90), rgba(10, 7, 5, 0.92));
-      padding: 8px;
+      padding: 5px;
       display: grid;
       grid-template-columns: 1.05fr 1.4fr 0.7fr 0.7fr 0.7fr;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
       z-index: 2;
       position: relative;
@@ -704,7 +717,7 @@
     }
 
     .block-title {
-      font-size: 13px;
+      font-size: 12px;
       letter-spacing: 0.16em;
       text-transform: uppercase;
       color: #dcc7aa;
@@ -763,19 +776,19 @@
     }
 
     .mini-knob {
-      width: 62px;
-      height: 62px;
+      width: 58px;
+      height: 58px;
     }
 
-    .mini-knob .knob-value {
-      font-size: 14px;
-      min-height: 16px;
+    .mini-knob-block .knob-value {
+      font-size: 13px;
+      min-height: 14px;
     }
 
     .mini-knob-block {
       display: grid;
       justify-items: center;
-      gap: 6px;
+      gap: 4px;
     }
 
   </style>
@@ -795,7 +808,7 @@
       </div>
       <div class="preset-box">
         <label>PRESETS</label>
-        <div class="select-wrap"><select id="presetSelect"></select></div>
+        <div class="select-wrap"><select id="presetSelect"><option>Vintage Echo</option></select></div>
       </div>
     </div>
 
@@ -929,7 +942,7 @@
 
       <div class="model-wrap">
         <div class="block-title"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4"/><circle cx="16" cy="12" r="4"/><path d="M8 8v8"/><path d="M16 8v8"/><path d="M8 12h8"/></svg>DELAY MODEL</div>
-        <select id="delayModelSelect"></select>
+        <select id="delayModelSelect"><option>Vintage Tape</option></select>
       </div>
 
       <div class="mini-knob-block">
@@ -954,7 +967,7 @@
     </div>
   </div>
 
-  <script src="js/index.js?v=20"></script>
+  <script src="js/index.js"></script>
   
 </body>
 </html>

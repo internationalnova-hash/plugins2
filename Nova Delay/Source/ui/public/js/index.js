@@ -490,18 +490,43 @@ function setupVisualizer() {
     return;
   }
 
+  const ensureCanvasSize = () => {
+    const w = Math.floor(canvas.clientWidth || 0);
+    const h = Math.floor(canvas.clientHeight || 0);
+    if (w < 8 || h < 8) return false;
+
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    return true;
+  };
+
   const resize = () => {
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
+    ensureCanvasSize();
   };
 
   resize();
   window.addEventListener("resize", resize);
 
+  if (typeof ResizeObserver !== "undefined") {
+    const ro = new ResizeObserver(() => {
+      resize();
+    });
+    ro.observe(canvas);
+    if (canvas.parentElement) ro.observe(canvas.parentElement);
+  }
+
   let t = 0;
 
   const draw = () => {
     t += 0.014;
+
+    // Some hosts report zero canvas size on first paint; keep retrying until valid.
+    if (!ensureCanvasSize()) {
+      requestAnimationFrame(draw);
+      return;
+    }
 
     const w = canvas.width;
     const h = canvas.height;
