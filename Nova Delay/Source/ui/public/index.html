@@ -6,7 +6,10 @@
   <title>Nova Delay</title>
   <style>
     :root {
-      --ui-scale: 0.62;
+      --ui-scale: 0.58;
+      --safe-pad-x: 16px;
+      --safe-pad-top: 12px;
+      --safe-pad-bottom: 24px;
       --bg0: #040201;
       --bg1: #0b0704;
       --bg2: #130d08;
@@ -56,14 +59,21 @@
       background: #070403;
     }
 
-    .ui-scale-root {
+    .fit-frame {
       position: absolute;
-      left: 50%;
-      top: 50%;
+      inset: var(--safe-pad-top) var(--safe-pad-x) var(--safe-pad-bottom);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ui-scale-root {
+      position: relative;
       width: 1280px;
-      height: 840px;
+      height: 900px;
       transform-origin: center center;
-      transform: translateX(-50%) translateY(-50%) scale(var(--ui-scale));
+      transform: scale(var(--ui-scale));
       background:
         radial-gradient(circle at 50% 34%, rgba(255, 171, 71, 0.15), rgba(64, 37, 17, 0.12) 34%, transparent 62%),
         radial-gradient(95% 60% at 50% 46%, rgba(255, 146, 50, 0.07), transparent 65%),
@@ -308,6 +318,7 @@
     }
 
     #echoViz {
+      display: block;
       width: 100%;
       height: 100%;
       border-radius: 12px;
@@ -779,6 +790,7 @@
 </head>
 <body>
   <div class="plugin">
+    <div class="fit-frame">
     <div class="ui-scale-root">
     <div class="top">
       <div class="brand-left">
@@ -945,6 +957,7 @@
         <div class="knob mini-knob" data-param="ducking" data-min="0" data-max="100"><div class="ring"></div></div>
         <div class="knob-value" id="duckingValue">20%</div>
       </div>
+    </div>
     </div>
     </div>
   </div>
