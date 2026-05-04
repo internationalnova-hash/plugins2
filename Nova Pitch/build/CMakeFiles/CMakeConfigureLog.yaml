@@ -632,3 +632,75 @@ events:
         
       exitCode: 0
 ...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "build/_deps/juce-src/extras/Build/CMake/JUCECheckAtomic.cmake:73 (try_compile)"
+      - "build/_deps/juce-src/extras/Build/CMake/JUCECheckAtomic.cmake:128 (_juce_create_atomic_target)"
+      - "build/_deps/juce-src/extras/Build/CMake/JUCEModuleSupport.cmake:57 (include)"
+      - "build/_deps/juce-src/CMakeLists.txt:50 (include)"
+    directories:
+      source: "/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_dir_OVceVJqWHHXgq8S9/CMakeFiles/CMakeTmp"
+      binary: "/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_dir_OVceVJqWHHXgq8S9/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "compile_result"
+      cached: true
+      stdout: |
+        Change Dir: '/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_dir_OVceVJqWHHXgq8S9/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_4ed51/fast
+        gmake[1]: Entering directory '/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_dir_OVceVJqWHHXgq8S9/CMakeFiles/CMakeTmp'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_4ed51.dir/build.make CMakeFiles/cmTC_4ed51.dir/build
+        gmake[2]: Entering directory '/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_dir_OVceVJqWHHXgq8S9/CMakeFiles/CMakeTmp'
+        Building CXX object CMakeFiles/cmTC_4ed51.dir/check_atomic_9dxn27R3diDkRAww.cpp.o
+        /usr/bin/c++   -std=c++17 -o CMakeFiles/cmTC_4ed51.dir/check_atomic_9dxn27R3diDkRAww.cpp.o -c "/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_9dxn27R3diDkRAww.cpp"
+        Linking CXX executable cmTC_4ed51
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_4ed51.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_4ed51.dir/check_atomic_9dxn27R3diDkRAww.cpp.o -o cmTC_4ed51 
+        gmake[2]: Leaving directory '/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_dir_OVceVJqWHHXgq8S9/CMakeFiles/CMakeTmp'
+        gmake[1]: Leaving directory '/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_dir_OVceVJqWHHXgq8S9/CMakeFiles/CMakeTmp'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "build/_deps/juce-src/extras/Build/CMake/JUCECheckAtomic.cmake:73 (try_compile)"
+      - "build/_deps/juce-src/extras/Build/CMake/JUCECheckAtomic.cmake:128 (_juce_create_atomic_target)"
+      - "build/_deps/juce-src/extras/Build/CMake/JUCEModuleSupport.cmake:57 (include)"
+      - "build/_deps/juce-src/CMakeLists.txt:50 (include)"
+    directories:
+      source: "/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_dir_Dk3xAOI7wNqgnd4d/CMakeFiles/CMakeTmp"
+      binary: "/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_dir_Dk3xAOI7wNqgnd4d/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "compile_result"
+      cached: true
+      stdout: |
+        Change Dir: '/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_dir_Dk3xAOI7wNqgnd4d/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_91519/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_91519.dir/build.make CMakeFiles/cmTC_91519.dir/build
+        gmake[1]: Entering directory '/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_dir_Dk3xAOI7wNqgnd4d/CMakeFiles/CMakeTmp'
+        Building CXX object CMakeFiles/cmTC_91519.dir/check_atomic_BSEUsUgBsQXt8j90.cpp.o
+        /usr/bin/c++   -std=c++17 -o CMakeFiles/cmTC_91519.dir/check_atomic_BSEUsUgBsQXt8j90.cpp.o -c "/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_BSEUsUgBsQXt8j90.cpp"
+        Linking CXX executable cmTC_91519
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_91519.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_91519.dir/check_atomic_BSEUsUgBsQXt8j90.cpp.o -o cmTC_91519 
+        gmake[1]: Leaving directory '/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/check_atomic_dir_Dk3xAOI7wNqgnd4d/CMakeFiles/CMakeTmp'
+        
+      exitCode: 0
+...
