@@ -246,27 +246,41 @@ function refreshUi() {
 function setupKnobDragging() {
   let active = null;
 
+  const getClientY = (event) => {
+    if (!event) return 0;
+    if (event.touches?.length) return event.touches[0].clientY;
+    if (event.changedTouches?.length) return event.changedTouches[0].clientY;
+    return typeof event.clientY === "number" ? event.clientY : 0;
+  };
+
   const start = (event, knob, param, min, max) => {
     if (event.button !== undefined && event.button !== 0) return;
     event.preventDefault();
+    if (event.stopPropagation) event.stopPropagation();
     knob.classList.add("active");
     active = {
       knob,
       param,
       min,
       max,
-      startY: event.touches?.[0]?.clientY ?? event.clientY,
+      pointerId: event.pointerId,
+      startY: getClientY(event),
       startValue: Number(values[param])
     };
+
+    if (typeof knob.setPointerCapture === "function" && typeof event.pointerId !== "undefined") {
+      try { knob.setPointerCapture(event.pointerId); } catch {}
+    }
+
     paramStates[param]?.sliderDragStarted?.();
   };
 
   const move = (event) => {
     if (!active) return;
     event.preventDefault();
-    const y = event.touches?.[0]?.clientY ?? event.clientY;
+    const y = getClientY(event);
     const delta = active.startY - y;
-    const next = Math.max(active.min, Math.min(active.max, active.startValue + delta * (active.max - active.min) * 0.0045));
+    const next = Math.max(active.min, Math.min(active.max, active.startValue + delta * (active.max - active.min) * 0.005));
     values[active.param] = next;
     setParam(active.param, next);
     refreshUi();
@@ -275,8 +289,25 @@ function setupKnobDragging() {
   const end = () => {
     if (!active) return;
     paramStates[active.param]?.sliderDragEnded?.();
+
+    if (typeof active.knob.releasePointerCapture === "function" && typeof active.pointerId !== "undefined") {
+      try { active.knob.releasePointerCapture(active.pointerId); } catch {}
+    }
+
     active.knob.classList.remove("active");
     active = null;
+  };
+
+  const bindDragStart = (element, handler) => {
+    if (!element) return;
+
+    if (typeof window.PointerEvent !== "undefined") {
+      element.addEventListener("pointerdown", handler);
+      return;
+    }
+
+    element.addEventListener("mousedown", handler);
+    element.addEventListener("touchstart", handler, { passive: false });
   };
 
   document.querySelectorAll(".knob[data-param]").forEach((knob) => {
@@ -284,9 +315,7 @@ function setupKnobDragging() {
     const min = Number(knob.dataset.min || 0);
     const max = Number(knob.dataset.max || 100);
 
-    knob.addEventListener("pointerdown", (e) => start(e, knob, param, min, max));
-    knob.addEventListener("mousedown", (e) => start(e, knob, param, min, max));
-    knob.addEventListener("touchstart", (e) => start(e, knob, param, min, max), { passive: false });
+    bindDragStart(knob, (e) => start(e, knob, param, min, max));
   });
 
   const delayKnob = document.getElementById("delayTimeKnob");
@@ -303,49 +332,19 @@ function setupKnobDragging() {
       param,
       min,
       max,
-      startY: event.touches?.[0]?.clientY ?? event.clientY,
+      pointerId: event.pointerId,
+      startY: getClientY(event),
       startValue
     };
+
+    if (typeof delayKnob.setPointerCapture === "function" && typeof event.pointerId !== "undefined") {
+      try { delayKnob.setPointerCapture(event.pointerId); } catch {}
+    }
+
     paramStates[param]?.sliderDragStarted?.();
   };
   if (delayKnob) {
-    delayKnob.addEventListener("pointerdown", delayStart);
-    delayKnob.addEventListener("mousedown", (event) => {
-      if (event.button !== undefined && event.button !== 0) return;
-      event.preventDefault();
-      delayKnob.classList.add("active");
-      const param = values.sync_enabled ? "delay_time_sync" : "delay_time_free_ms";
-      const min = values.sync_enabled ? 0 : 20;
-      const max = values.sync_enabled ? 9 : 2000;
-      const startValue = values.sync_enabled ? choices.delay_time_sync.indexOf(values.delay_time_sync) : values.delay_time_free_ms;
-      active = {
-        knob: delayKnob,
-        param,
-        min,
-        max,
-        startY: event.clientY,
-        startValue
-      };
-      paramStates[param]?.sliderDragStarted?.();
-    });
-
-    delayKnob.addEventListener("touchstart", (event) => {
-      event.preventDefault();
-      delayKnob.classList.add("active");
-      const param = values.sync_enabled ? "delay_time_sync" : "delay_time_free_ms";
-      const min = values.sync_enabled ? 0 : 20;
-      const max = values.sync_enabled ? 9 : 2000;
-      const startValue = values.sync_enabled ? choices.delay_time_sync.indexOf(values.delay_time_sync) : values.delay_time_free_ms;
-      active = {
-        knob: delayKnob,
-        param,
-        min,
-        max,
-        startY: event.touches?.[0]?.clientY ?? 0,
-        startValue
-      };
-      paramStates[param]?.sliderDragStarted?.();
-    }, { passive: false });
+    bindDragStart(delayKnob, delayStart);
   }
 
   window.addEventListener("pointermove", move, { passive: false });
@@ -354,6 +353,7 @@ function setupKnobDragging() {
   window.addEventListener("pointerup", end);
   window.addEventListener("mouseup", end);
   window.addEventListener("touchend", end);
+  window.addEventListener("touchcancel", end);
 }
 
 function setupButtons() {
