@@ -3,504 +3,394 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nova Level — v3 Triangle Preview</title>
+  <title>Nova Level</title>
   <style>
-        .nova-header {
-          display: flex;
-          align-items: flex-start;
-          gap: 18px;
-          margin-bottom: 0;
-          position: relative;
-          min-height: 64px;
-          padding: 0;
-          z-index: 10;
-        }
-        .nova-logo-container {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 36px;
-          height: 36px;
-          margin-left: -10px;
-          border-radius: 10px;
-          background: rgba(60, 56, 48, 0.10);
-          box-shadow: 0 2px 8px 0 rgba(60,56,48,0.07);
-          backdrop-filter: blur(1.5px);
-        }
-        .nova-logo {
-          width: 32px;
-          height: 32px;
-          object-fit: contain;
-          filter: grayscale(0.1) brightness(0.93) contrast(1.08);
-          opacity: 1;
-        }
-        .nova-title-nova {
-          font-size: 24px;
-          font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-          font-weight: 700;
-          letter-spacing: 0.13em;
-          color: #353535;
-          margin: 0 0 2px 0;
-          padding: 0;
-          opacity: 0.97;
-        }
-        .nova-title-master {
-          font-size: 30px;
-          font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-          font-weight: 950;
-          letter-spacing: 0.04em;
-          color: #282420;
-          margin: 0;
-          padding: 0;
-          line-height: 1.0;
-          opacity: 0.98;
-        }
     :root {
-      --face: #eee5da;
-      --face-shade: #ddd4c7;
-      --panel: #d6ccb9;
-      --panel-soft: #f6f1e8;
-      --text-main: #453c34;
-      --text-soft: #6b655d;
-      --gold: #b08f54;
-      --gold-deep: #876739;
-      --gold-pale: #e8d8b2;
-      --meter-glow: #d8c28c;
-      --white: #fff9f1;
+      --bg-dark: #060b12;
+      --bg-mid: #0f1a2a;
+      --panel-top: #102238;
+      --panel-bottom: #0a1220;
+      --accent: #ff9a3c;
+      --accent-deep: #ff6a00;
+      --accent-soft: #ffb766;
+      --accent-glow: rgba(255,154,60,0.42);
+      --accent-glow-strong: rgba(255,106,0,0.62);
+      --text-main: #eaeaea;
+      --text-soft: #8a8f98;
+      --text-dim: #c4b9ab;
       --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
     }
-
     * { box-sizing: border-box; }
     html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
+      margin: 0; width: 100%; height: 100%;
       overflow: hidden;
-      background: linear-gradient(180deg, #ddd0b8 0%, #cdbd9d 100%);
+      background:
+        radial-gradient(120% 80% at 50% -10%, #101f34 0%, #070c14 56%, #04070d 100%),
+        linear-gradient(180deg, #070c13 0%, #03060a 100%);
       font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
       color: var(--text-main);
     }
     body { display: grid; place-items: center; }
 
-    .plugin {
-      position: relative;
-      width: min(980px, 100vw);
-      height: min(620px, 100vh);
-      border-radius: 34px;
-      overflow: hidden;
-      background: linear-gradient(180deg, #f4e9d9 0%, var(--face) 24%, var(--face-shade) 100%);
-      border: 1px solid rgba(174, 146, 90, 0.58);
-      box-shadow:
-        0 22px 48px rgba(90, 72, 46, 0.14),
-        inset 0 2px 0 rgba(255,255,255,0.78),
-        inset 0 -12px 20px rgba(156, 123, 67, 0.12),
-        inset 2px 0 0 rgba(255,255,255,0.20),
-        inset -2px 0 0 rgba(126, 96, 58, 0.06);
+    .nova-header {
+      display: flex; align-items: flex-start; gap: 14px;
+      margin-bottom: 0; position: relative; min-height: 52px; padding: 0; z-index: 10;
+    }
+    .nova-logo-container {
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; margin-left: -6px; border-radius: 8px;
+      background: rgba(255,154,60,0.10);
+      box-shadow: 0 0 12px rgba(255,154,60,0.18);
+    }
+    .nova-logo {
+      width: 28px; height: 28px; object-fit: contain;
+      filter: brightness(1.1) saturate(1.1); opacity: 0.92;
+    }
+    .nova-title-nova {
+      font-size: 20px;
+      font-family: "Iowan Old Style","Palatino Linotype",Georgia,serif;
+      font-weight: 700; letter-spacing: 0.13em;
+      color: var(--text-soft); margin: 0 0 1px 0; padding: 0;
+    }
+    .nova-title-master {
+      font-size: 26px;
+      font-family: "Iowan Old Style","Palatino Linotype",Georgia,serif;
+      font-weight: 950; letter-spacing: 0.04em;
+      color: var(--text-main); margin: 0; padding: 0; line-height: 1.0;
     }
 
+    .plugin {
+      position: relative;
+      width: min(980px, 100vw); height: min(620px, 100vh);
+      border-radius: 30px; overflow: hidden;
+      background:
+        repeating-linear-gradient(90deg, rgba(22,43,68,0.10) 0px, rgba(22,43,68,0.10) 1px, transparent 1px, transparent 13px),
+        linear-gradient(180deg, #0a1423 0%, #08111d 44%, #060d17 100%);
+      border: 1px solid rgba(129, 160, 196, 0.24);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.03),
+        0 28px 56px rgba(0,0,0,0.72),
+        inset 0 1px 0 rgba(183, 212, 255, 0.14),
+        inset 0 -1px 0 rgba(0,0,0,0.52);
+    }
     .plugin::before {
+      content: ""; position: absolute; inset: 0; border-radius: inherit;
+      background:
+        radial-gradient(ellipse 90% 48% at 50% 2%, rgba(39, 93, 150, 0.22) 0%, transparent 64%),
+        radial-gradient(ellipse 100% 66% at 50% 100%, rgba(0,0,0,0.36) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .plugin::after {
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,0.16), transparent 16%, transparent 82%, rgba(120, 88, 52, 0.04));
+      border-radius: inherit;
+      box-shadow: inset 0 0 120px rgba(0,0,0,0.54);
       pointer-events: none;
     }
 
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      padding: 34px 42px 18px;
-    }
-
-    .title {
-      margin: 0;
-      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-      font-size: 54px;
-      line-height: 1;
-      letter-spacing: 0.02em;
-      color: #2f261f;
-    }
-
-    .subtitle {
-      margin-top: 7px;
-      font-size: 15px;
-      letter-spacing: 0.20em;
-      color: var(--text-soft);
-    }
-
     .tagline {
-      text-align: right;
-      margin-top: 2px;
+      text-align: right; margin-top: 4px;
       font-family: "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Brush Script MT", cursive;
-      font-size: 28px;
-      font-weight: 500;
-      letter-spacing: 0.03em;
-      color: #9b8461;
-      text-shadow:
-        0 1px 0 rgba(255,255,255,0.42),
-        0 2px 3px rgba(126, 98, 62, 0.10);
+      font-size: 22px; font-weight: 500; letter-spacing: 0.03em;
+      color: var(--accent-soft);
+      text-shadow: 0 0 14px rgba(255,154,60,0.20);
+      opacity: 0.95;
     }
 
     .inner-panel {
-      position: absolute;
-      left: 26px;
-      right: 26px;
-      top: 118px;
-      bottom: 94px;
-      border-radius: 26px;
-      padding: 22px 24px 18px;
-      background: linear-gradient(180deg, rgba(244, 234, 217, 0.98) 0%, rgba(226, 211, 183, 0.96) 54%, rgba(212, 196, 168, 0.94) 100%);
-      border: 1px solid rgba(177, 145, 88, 0.44);
+      position: absolute; left: 18px; right: 18px; top: 104px; bottom: 82px;
+      border-radius: 26px; padding: 18px 18px 14px;
+      background:
+        repeating-linear-gradient(90deg, rgba(25,58,92,0.10) 0px, rgba(25,58,92,0.10) 1px, transparent 1px, transparent 14px),
+        linear-gradient(180deg, rgba(17,36,58,0.96) 0%, rgba(11,22,37,0.95) 58%, rgba(8,16,27,0.97) 100%);
+      border: 1px solid rgba(148, 178, 210, 0.35);
       box-shadow:
-        inset 0 2px 0 rgba(255,255,255,0.48),
-        inset 0 -16px 24px rgba(128,94,52,0.08),
-        inset 1px 0 0 rgba(255,255,255,0.18),
-        inset -1px 0 0 rgba(134, 99, 57, 0.06),
-        0 10px 18px rgba(104, 77, 43, 0.05);
+        inset 0 1px 0 rgba(201,223,252,0.18),
+        inset 0 -1px 0 rgba(0,0,0,0.44),
+        inset 0 0 120px rgba(12, 26, 45, 0.46),
+        0 8px 24px rgba(0,0,0,0.36);
     }
 
     .layout {
       display: grid;
       grid-template-columns: 0.84fr 1.16fr 1fr;
       grid-template-rows: 1fr;
-      height: 100%;
-      column-gap: 14px;
-      align-items: center;
+      height: 100%; column-gap: 14px; align-items: center;
     }
-
-    .tone-zone,
-    .hero-zone,
-    .output-zone {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+    .tone-zone, .hero-zone, .output-zone {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
     }
-
-    .tone-zone {
-      grid-column: 1;
-      padding-left: 6px;
-    }
-
-    .hero-zone {
-      grid-column: 2;
-      padding-top: 0;
-    }
-
-    .output-zone {
-      grid-column: 3;
-      gap: 14px;
-      padding-right: 4px;
-    }
-
-    .output-top {
-      display: flex;
-      align-items: flex-end;
-      gap: 16px;
-    }
-
-    .meter-stack {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      margin-bottom: 2px;
+    .tone-zone   { grid-column: 1; padding-left: 6px; }
+    .hero-zone   { grid-column: 2; padding-top: 0; }
+    .output-zone { grid-column: 3; gap: 12px; padding-right: 4px; position: relative; }
+    .output-top  { display: flex; align-items: flex-end; gap: 14px; }
+    .meter-stack { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 2px; }
+    .output-zone::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 10px;
+      bottom: 10px;
+      width: 1px;
+      background: linear-gradient(180deg, transparent 0%, rgba(124,152,184,0.52) 6%, rgba(70,95,126,0.38) 92%, transparent 100%);
+      opacity: 0.7;
     }
 
     .section-label {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      color: #3f3328;
-      text-align: center;
-      margin-bottom: 10px;
-    }
-
-    .section-sub {
-      margin-top: -2px;
-      margin-bottom: 12px;
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      color: var(--text-soft);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.22em;
+      color: var(--text-main); text-align: center; margin-bottom: 8px;
       text-transform: uppercase;
-      text-align: center;
-      opacity: 0.82;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.38);
+    }
+    .section-sub {
+      margin-top: -2px; margin-bottom: 10px;
+      font-size: 9px; font-weight: 700; letter-spacing: 0.14em;
+      color: var(--accent); text-transform: uppercase; text-align: center;
     }
 
     .knob-wrap {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      min-width: 132px;
+      display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 120px;
     }
-
-    .hero-zone .knob-wrap {
-      min-width: 202px;
-      gap: 6px;
-    }
+    .hero-zone .knob-wrap { min-width: 200px; gap: 6px; }
 
     .knob {
-      position: relative;
-      border-radius: 50%;
+      position: relative; border-radius: 50%;
       background:
-        radial-gradient(circle at 30% 22%, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.38) 18%, transparent 34%),
-        radial-gradient(circle at 68% 74%, rgba(132, 98, 58, 0.10) 0%, transparent 34%),
-        repeating-conic-gradient(from 0deg, rgba(255,255,255,0.14) 0deg 11deg, rgba(173, 148, 112, 0.10) 11deg 22deg),
-        linear-gradient(145deg, #fff7ec 0%, #eadfcf 42%, #d3c09f 100%);
-      border: 1px solid rgba(186, 150, 98, 0.84);
+        radial-gradient(circle at 50% 50%, rgba(118,148,184,0.26) 0%, transparent 22%),
+        radial-gradient(circle at 32% 22%, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.04) 28%, transparent 52%),
+        radial-gradient(circle at 72% 78%, rgba(0,0,0,0.46) 0%, transparent 42%),
+        repeating-conic-gradient(from 0deg, rgba(196,220,248,0.06) 0deg 5deg, rgba(9,16,28,0.30) 5deg 12deg),
+        linear-gradient(145deg, #2f425a 0%, #152438 42%, #08111e 100%);
+      border: 1px solid rgba(170,199,232,0.42);
       box-shadow:
-        inset 0 2px 1px rgba(255,255,255,0.94),
-        inset 0 -14px 22px rgba(154, 118, 70, 0.16),
-        inset 2px 0 2px rgba(255,255,255,0.18),
-        inset -2px 0 2px rgba(128, 92, 50, 0.06),
-        0 12px 18px rgba(109, 83, 48, 0.10);
-      cursor: ns-resize;
-      user-select: none;
-      touch-action: none;
+        inset 0 1px 2px rgba(224,239,255,0.42),
+        inset 0 -16px 20px rgba(0,0,0,0.52),
+        0 0 0 2px rgba(8,14,24,0.90),
+        0 0 0 3px rgba(132,160,194,0.25),
+        0 12px 26px rgba(0,0,0,0.56),
+        0 0 22px rgba(255,154,60,0.12);
+      cursor: ns-resize; user-select: none; touch-action: none;
     }
-
+    .knob.medium { width: 108px; height: 108px; }
     .knob.hero {
-      width: 188px;
-      height: 188px;
-      border-width: 1px;
+      width: 184px; height: 184px;
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.92),
-        inset 0 -14px 24px rgba(164, 124, 54, 0.18),
-        0 18px 28px rgba(158, 115, 48, 0.14);
+        inset 0 1px 2px rgba(230,242,255,0.48),
+        inset 0 -20px 24px rgba(0,0,0,0.54),
+        0 0 0 2px rgba(6,12,20,0.92),
+        0 0 0 3px rgba(150,177,209,0.32),
+        0 16px 36px rgba(0,0,0,0.64),
+        0 0 52px rgba(255,154,60,0.24);
+    }
+    .knob::after {
+      content: ""; position: absolute;
+      left: 50%; top: 10px; width: 6px; height: 30px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: linear-gradient(180deg, #ffd1a0 0%, var(--accent) 45%, var(--accent-deep) 100%);
+      box-shadow: 0 0 10px rgba(255,154,60,0.72), 0 0 2px rgba(255,255,255,0.72);
+    }
+    .knob::before {
+      content: "";
+      position: absolute; inset: -9px; border-radius: 50%;
+      background: repeating-conic-gradient(
+        from -120deg,
+        rgba(255,154,60,0.90) 0deg 1.2deg,
+        transparent 1.2deg 9deg
+      );
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 2px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 2px));
+      pointer-events: none;
+      opacity: 0.92;
     }
 
+    .ring {
+      position: absolute; inset: 6px; border-radius: 50%;
+      transform: rotate(var(--turn, -42deg));
+    }
+    .ring::before {
+      content: ""; position: absolute; inset: 0; border-radius: 50%;
+      background: conic-gradient(
+        from 218deg,
+        rgba(255,154,60,0.18) 0deg 16deg,
+        #ffb255 16deg 84deg,
+        var(--accent) 84deg 118deg,
+        transparent 120deg 360deg
+      );
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #000 calc(100% - 8px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #000 calc(100% - 8px));
+      filter: drop-shadow(0 0 6px rgba(255,154,60,0.74));
+    }
     .knob.hero .ring::before {
-      background: conic-gradient(from 218deg, rgba(236,223,192,0.76) 0deg 18deg, var(--gold-pale) 18deg 92deg, var(--gold) 92deg 134deg, transparent 134deg 360deg);
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 14px), #000 calc(100% - 11px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 14px), #000 calc(100% - 11px));
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 14px), #000 calc(100% - 10px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 14px), #000 calc(100% - 10px));
+      filter: drop-shadow(0 0 6px rgba(255,154,60,0.70));
     }
 
     .feedback-arc {
-      position: absolute;
-      inset: -8px;
-      border-radius: 50%;
-      pointer-events: none;
-      opacity: 0.32;
+      position: absolute; inset: -8px; border-radius: 50%; pointer-events: none; opacity: 0.70;
     }
-
     .feedback-arc::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
+      content: ""; position: absolute; inset: 0; border-radius: 50%;
       background: conic-gradient(
         from 220deg,
         transparent 0deg 18deg,
-        rgba(232, 216, 178, 0.92) 18deg,
-        rgba(176, 143, 84, 0.82) var(--gr-end, 74deg),
+        rgba(255,154,60,0.60) 18deg,
+        var(--accent) var(--gr-end, 74deg),
         transparent calc(var(--gr-end, 74deg) + 2deg) 360deg
       );
       -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 4px));
       mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 4px));
-      filter: drop-shadow(0 0 6px rgba(216, 194, 140, 0.24));
-    }
-
-    .knob.medium { width: 112px; height: 112px; }
-
-    .knob::after {
-      content: "";
-      position: absolute;
-      left: 50%;
-      top: 14px;
-      width: 7px;
-      height: 30px;
-      transform: translateX(-50%);
-      border-radius: 999px;
-      background: linear-gradient(180deg, #fff2d8 0%, var(--gold) 48%, var(--gold-deep) 100%);
-      box-shadow: 0 0 0 1px rgba(255,249,239,0.52), 0 2px 6px rgba(132,81,44,0.16);
-    }
-
-    .ring {
-      position: absolute;
-      inset: 8px;
-      border-radius: 50%;
-      transform: rotate(var(--turn, -42deg));
-    }
-
-    .ring::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      background: conic-gradient(from 218deg, rgba(232,220,191,0.68) 0deg 22deg, var(--gold-pale) 22deg 80deg, var(--gold) 80deg 118deg, transparent 118deg 360deg);
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #000 calc(100% - 9px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #000 calc(100% - 9px));
+      filter: drop-shadow(0 0 8px rgba(255,154,60,0.50));
     }
 
     .readout {
-      min-width: 86px;
-      padding: 6px 10px;
-      margin-top: 2px;
+      min-width: 82px; padding: 5px 10px; margin-top: 2px;
       border-radius: 999px;
-      border: 1px solid rgba(193, 158, 107, 0.40);
-      background: linear-gradient(180deg, rgba(255,255,252,0.98) 0%, rgba(241,231,216,0.96) 100%);
+      border: 1px solid rgba(120,148,184,0.40);
+      background: linear-gradient(180deg, rgba(11,18,29,0.98) 0%, rgba(6,10,17,0.98) 100%);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.84),
-        inset 0 -2px 4px rgba(167, 132, 84, 0.08),
-        0 4px 10px rgba(110,84,48,0.05);
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-align: center;
+        inset 0 1px 0 rgba(200,220,246,0.16),
+        inset 0 -1px 0 rgba(0,0,0,0.54),
+        0 0 0 1px rgba(0,0,0,0.54),
+        0 4px 10px rgba(0,0,0,0.40);
+      font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
+      text-align: center; color: var(--accent);
+      text-shadow: 0 0 10px rgba(255,154,60,0.14);
     }
 
-    .mode-buttons, .preset-buttons, .meter-toggle {
-      display: flex;
-      gap: 8px;
-    }
-
-    .mode-buttons {
-      width: 286px;
-      justify-content: center;
-      margin-top: 2px;
-    }
-
+    .mode-buttons, .preset-buttons, .meter-toggle { display: flex; gap: 8px; }
+    .mode-buttons { width: 280px; justify-content: center; margin-top: 8px; }
     button {
-      border: 1px solid rgba(187, 157, 104, 0.48);
-      background: linear-gradient(180deg, rgba(255,253,249,0.96) 0%, rgba(241,230,214,0.96) 100%);
-      color: #645849;
-      cursor: pointer;
-      border-radius: 999px;
+      border: 1px solid rgba(122,151,186,0.36);
+      background: linear-gradient(180deg, rgba(17,27,42,0.98) 0%, rgba(8,14,24,0.98) 100%);
+      color: var(--text-dim);
+      cursor: pointer; border-radius: 999px;
       transition: all var(--ease);
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-tap-highlight-color: transparent;
+      user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+      box-shadow: inset 0 1px 0 rgba(202,224,248,0.16), 0 3px 10px rgba(0,0,0,0.32);
     }
-
     button.active {
-      background: linear-gradient(180deg, var(--gold-pale) 0%, var(--gold) 100%);
-      color: var(--white);
-      border-color: var(--gold-deep);
-      box-shadow: 0 8px 14px rgba(158, 115, 48, 0.16);
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
+      color: #fff;
+      border-color: var(--accent-deep);
+      box-shadow: 0 0 16px var(--accent-glow), 0 4px 12px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,220,180,0.36);
     }
-
     .mode-buttons button, .meter-toggle button {
-      flex: 1;
-      padding: 10px 0;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
+      flex: 1; padding: 9px 0; font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
     }
 
     .meter-toggle {
-      width: 88px;
-      margin-bottom: -1px;
+      width: 110px;
+      margin-bottom: 6px;
+      gap: 0;
+      border-radius: 14px;
+      padding: 2px;
+      border: 1px solid rgba(114,144,181,0.44);
+      background: linear-gradient(180deg, rgba(13,21,33,0.98) 0%, rgba(7,12,20,0.98) 100%);
+      box-shadow: inset 0 1px 0 rgba(197,219,245,0.16), 0 6px 14px rgba(0,0,0,0.40);
     }
-
-    .meter-toggle button {
-      padding: 8px 0;
-      font-size: 10px;
-    }
-
+    .meter-toggle button { padding: 7px 0; font-size: 10px; }
+    .meter-toggle button:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .meter-toggle button:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; }
     .meter-toggle button.active {
-      background: linear-gradient(180deg, #c9a15f 0%, #8e6937 100%);
-      color: #fffaf1;
-      border-color: #7d5c2d;
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.34),
-        0 6px 10px rgba(128, 95, 44, 0.16);
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
+      color: #fff; border-color: var(--accent-deep);
+      box-shadow: 0 0 10px var(--accent-glow), inset 0 1px 0 rgba(255,220,184,0.36);
     }
 
     .meter {
-      width: 34px;
-      height: 174px;
-      padding: 8px 6px;
-      border-radius: 16px;
-      background: linear-gradient(180deg, rgba(255,252,248,0.96) 0%, rgba(235,221,199,0.86) 100%);
-      border: 1px solid rgba(197,171,131,0.42);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.74),
-        inset 0 -3px 8px rgba(167, 132, 84, 0.08),
-        0 6px 14px rgba(136,96,34,0.05);
+      width: 42px; height: 174px; padding: 8px 8px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(8,14,23,0.98) 0%, rgba(3,8,15,0.98) 100%);
+      border: 1px solid rgba(112,141,178,0.34);
+      box-shadow: inset 0 2px 12px rgba(0,0,0,0.58), 0 8px 18px rgba(0,0,0,0.42);
+      display: flex; flex-direction: column-reverse; gap: 3px;
+      position: relative;
+    }
+    .meter::before {
+      content: "0\A-4\A-8\A-12\A-16\A-20\A-24\A-30\A-36\A-42\A-48";
+      position: absolute;
+      left: -34px;
+      top: 4px;
+      bottom: 4px;
+      width: 28px;
       display: flex;
-      flex-direction: column-reverse;
-      gap: 4px;
+      flex-direction: column;
+      justify-content: space-between;
+      white-space: pre;
+      text-align: right;
+      font-size: 6px;
+      color: #d2d7df;
+      line-height: 1;
     }
-
     .meter-bar {
-      height: 10px;
-      border-radius: 999px;
-      background: linear-gradient(180deg, rgba(202,181,143,0.56) 0%, rgba(182,158,122,0.30) 100%);
-      transition: all 360ms cubic-bezier(0.18, 0.8, 0.2, 1);
+      height: 10px; border-radius: 2px;
+      background: linear-gradient(180deg, rgba(15,22,34,0.94) 0%, rgba(8,12,19,0.98) 100%);
+      border: 1px solid rgba(51,71,93,0.65);
+      transition: all 320ms cubic-bezier(0.18, 0.8, 0.2, 1);
     }
-
     .meter-bar.active {
-      background: linear-gradient(180deg, #efd8a3 0%, #b8924e 100%);
-      box-shadow: 0 0 12px rgba(215, 188, 124, 0.28);
+      background: linear-gradient(180deg, #ffba62 0%, #ff8f1d 58%, #ff6a00 100%);
+      border-color: rgba(255,167,82,0.75);
+      box-shadow: 0 0 10px rgba(255,154,60,0.56);
     }
 
     .magic-button {
-      position: relative;
-      overflow: hidden;
-      min-width: 132px;
-      height: 36px;
-      padding: 0 18px;
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.22em;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.68), 0 6px 12px rgba(110,84,48,0.05);
+      position: relative; overflow: hidden;
+      min-width: 132px; height: 36px; padding: 0 18px;
+      font-size: 12px; font-weight: 800; letter-spacing: 0.20em;
+      border: 1px solid rgba(255,154,60,0.62);
+      background: linear-gradient(180deg, rgba(31,18,10,0.98) 0%, rgba(13,10,10,0.98) 100%);
+      color: var(--accent);
+      box-shadow: 0 0 18px rgba(255,154,60,0.24), inset 0 1px 0 rgba(255,214,170,0.12);
     }
-
     .magic-button::after {
-      content: "";
-      position: absolute;
-      left: 10px;
-      right: 10px;
-      top: 2px;
-      height: 44%;
+      content: ""; position: absolute;
+      left: 10px; right: 10px; top: 2px; height: 40%;
       border-radius: 999px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.50) 0%, rgba(255,255,255,0) 100%);
-      opacity: 0.42;
+      background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 100%);
       pointer-events: none;
     }
-
     .magic-button.active {
-      background: linear-gradient(180deg, #fff4cf 0%, #e2b866 42%, #b97f24 100%);
-      color: #fffdf8;
-      text-shadow: 0 1px 0 rgba(121, 78, 18, 0.24);
-      border-color: #996a24;
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
+      color: #fff; border-color: var(--accent-deep);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.92),
-        inset 0 -8px 12px rgba(133, 82, 20, 0.20),
-        0 0 0 1px rgba(255, 242, 214, 0.66),
-        0 0 26px rgba(229, 188, 94, 0.40),
-        0 12px 22px rgba(158, 115, 48, 0.22);
+        0 0 0 1px rgba(255,154,60,0.40),
+        0 0 22px var(--accent-glow-strong),
+        0 8px 20px rgba(0,0,0,0.40),
+        inset 0 1px 0 rgba(255,255,255,0.20);
     }
-
-    .magic-button.active::after {
-      opacity: 0.85;
-    }
+    .magic-button.active::after { opacity: 0.60; }
 
     .preset-buttons {
-      position: absolute;
-      left: 28px;
-      right: 28px;
-      bottom: 18px;
-      display: flex;
-      gap: 10px;
+      position: absolute; left: 20px; right: 20px; bottom: 14px;
+      display: flex; gap: 10px;
+      padding: 18px 14px;
+      border-radius: 30px;
+      border: 1px solid rgba(102,132,169,0.30);
+      background: linear-gradient(180deg, rgba(8,17,29,0.84) 0%, rgba(5,11,19,0.84) 100%);
+      box-shadow: inset 0 1px 0 rgba(184,208,238,0.12), 0 8px 20px rgba(0,0,0,0.34);
     }
-
     .preset-buttons button {
-      flex: 1;
-      height: 44px;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.16em;
+      flex: 1; height: 44px; font-size: 13px; font-weight: 700; letter-spacing: 0.16em;
+      border: 1px solid rgba(112,141,176,0.44);
+      background: linear-gradient(180deg, rgba(15,24,38,0.96) 0%, rgba(8,14,22,0.98) 100%);
+      color: var(--text-dim);
+    }
+    .preset-buttons button.active {
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
+      color: #fff; border-color: var(--accent-deep);
+      box-shadow: 0 0 16px var(--accent-glow), 0 4px 14px rgba(0,0,0,0.36);
     }
   </style>
 </head>
 <body>
   <div class="plugin">
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; padding:18px 26px 0 26px; margin-bottom:2px;">
-      <div class="nova-header" style="margin-bottom:0; min-height:64px; padding:0;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; padding:16px 22px 0 22px; margin-bottom:2px;">
+      <div class="nova-header" style="margin-bottom:0; min-height:52px; padding:0;">
         <div class="nova-logo-container">
           <img src="n_logo.png" alt="N" class="nova-logo" />
         </div>
@@ -510,7 +400,7 @@
           <span class="nova-title-master">LEVEL</span>
         </div>
       </div>
-      <div class="tagline" style="font-size:22px; text-align:right; margin-top:6px;">by International Nova</div>
+      <div class="tagline" style="text-align:right; margin-top:2px;">by International Nova</div>
     </div>
 
     <div class="inner-panel">
@@ -553,7 +443,7 @@
             </div>
 
             <div class="meter-stack">
-              <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="display:flex; align-items:center; gap:10px;">
                 <div>
                   <div class="meter-toggle">
                     <button class="active" data-meter="GR">GR</button>
@@ -572,7 +462,7 @@
                     <span class="meter-bar"></span>
                   </div>
                 </div>
-                <div id="meter-readout" style="min-width:60px; font-size:1.25em; font-weight:900; color:#b08f54; background:#fff9f1; border-radius:10px; padding:8px 12px; box-shadow:0 1px 4px #d8c28c44; letter-spacing:0.04em; text-align:right;">-0.0 dB</div>
+                <div id="meter-readout" style="min-width:90px; font-size:0.95em; font-weight:900; color:#FF9A3C; background:linear-gradient(180deg, rgba(12,20,31,0.98) 0%, rgba(7,12,20,0.98) 100%); border-radius:16px; padding:12px 12px; box-shadow:inset 0 1px 0 rgba(180,207,240,0.18), 0 0 16px rgba(255,154,60,0.10); border:1px solid rgba(120,146,181,0.42); letter-spacing:0.04em; text-align:center;">-0.0 dB</div>
               </div>
             </div>
           </div>
@@ -589,7 +479,6 @@
     </div>
   </div>
 
-  <!-- Nova header moved to top -->
 <script>
 (() => {
   const meterReadout = document.getElementById('meter-readout');
@@ -628,7 +517,7 @@
 
     const backend = window.__JUCE__.backend;
     const state = {
-      identifier: `__juce__slider${name}`,
+      identifier: '__juce__slider' + name,
       scaledValue: 0,
       properties: { start: 0, end: 1, interval: 0 },
       listeners: [],
@@ -644,10 +533,8 @@
         const start = this.properties.start;
         const end = this.properties.end;
         let scaled = start + n * (end - start);
-
         if (this.properties.interval > 0)
           scaled = Math.round(scaled / this.properties.interval) * this.properties.interval;
-
         this.scaledValue = scaled;
         backend.emitEvent(this.identifier, { eventType: 'valueChanged', value: scaled });
       },
@@ -687,12 +574,12 @@
 
   function updateMeterReadout() {
     if (grActive) {
-      meterReadout.textContent = `-${grValue.toFixed(1)} dB`;
-      meterReadout.style.color = '#b08f54';
+      meterReadout.textContent = '-' + grValue.toFixed(1) + ' dB';
+      meterReadout.style.color = '#FF9A3C';
       setMeterFill(grValue / 18.0);
     } else {
-      meterReadout.textContent = `${outValueDb > 0 ? '+' : ''}${outValueDb.toFixed(1)} dB`;
-      meterReadout.style.color = hot ? '#a45f2f' : '#876739';
+      meterReadout.textContent = (outValueDb > 0 ? '+' : '') + outValueDb.toFixed(1) + ' dB';
+      meterReadout.style.color = hot ? '#FF6A00' : '#FF9A3C';
       setMeterFill((outValueDb + 60.0) / 60.0);
     }
   }
@@ -711,7 +598,7 @@
 
   function syncKnobVisual(param, value) {
     const knob = knobs.find((k) => k.dataset.param === param);
-    const readout = document.querySelector(`[data-readout='${param}']`);
+    const readout = document.querySelector('[data-readout="' + param + '"]');
     if (!knob || !readout) return;
 
     const min = parseFloat(knob.dataset.min || '0');
@@ -722,15 +609,15 @@
     const t = (clamped - min) / Math.max(1e-6, max - min);
     const turn = (-120 + t * 240).toFixed(1);
     const ring = knob.querySelector('.ring');
-    if (ring) ring.style.setProperty('--turn', `${turn}deg`);
+    if (ring) ring.style.setProperty('--turn', turn + 'deg');
 
     if (param === 'output')
-      readout.textContent = `${clamped >= 0 ? '+' : ''}${clamped.toFixed(1)} dB`;
+      readout.textContent = (clamped >= 0 ? '+' : '') + clamped.toFixed(1) + ' dB';
     else
       readout.textContent = clamped.toFixed(1);
   }
 
-  function setParam(param, value, withGesture = false) {
+  function setParam(param, value, withGesture) {
     const state = sliderStates[param];
     if (!state) {
       syncKnobVisual(param, value);
