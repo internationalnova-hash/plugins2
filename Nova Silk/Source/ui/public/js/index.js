@@ -666,97 +666,83 @@
     var w = canvas.width;
     var h = canvas.height;
 
-    // Define frequency bands: [start, end, label, color]
-    var bands = [
-      { start: 0.00, end: 0.18, label: 'Low', color: '#8e57e7' },
-      { start: 0.18, end: 0.35, label: 'Low-Mid', color: '#a575ff' },
-      { start: 0.35, end: 0.50, label: 'Mid', color: '#b97bf3' },
-      { start: 0.50, end: 0.65, label: 'Mid-High', color: '#d2a3ff' },
-      { start: 0.65, end: 0.82, label: 'High', color: '#f0cc86' },
-      { start: 0.82, end: 1.00, label: 'Presence', color: '#ffdca8' }
-    ];
+    // Draw suppression waveform at bottom in gradient purple
+    var waveformHeight = Math.floor(h * 0.15);
+    var waveformTop = h - waveformHeight;
 
     ctx.save();
 
-    // Draw frequency zone dividers and band backgrounds
-    for (var b = 0; b < bands.length; b++) {
-      var band = bands[b];
-      var xStart = band.start * w;
-      var xEnd = band.end * w;
+    // Create gradient purple background
+    var suppGradient = ctx.createLinearGradient(0, waveformTop, 0, h);
+    suppGradient.addColorStop(0, 'rgba(80, 40, 140, 0.08)');
+    suppGradient.addColorStop(0.5, 'rgba(120, 60, 200, 0.12)');
+    suppGradient.addColorStop(1, 'rgba(60, 30, 100, 0.06)');
+    ctx.fillStyle = suppGradient;
+    ctx.fillRect(0, waveformTop, w, waveformHeight);
 
-      // Calculate average suppression in this band
-      var startBin = Math.floor(band.start * (BINS - 1));
-      var endBin = Math.ceil(band.end * (BINS - 1));
-      var avgSuppression = 0;
-      for (var i = startBin; i < endBin; i++) {
-        avgSuppression += smoothReduction[i];
-      }
-      avgSuppression /= (endBin - startBin);
+    // Draw suppression waveform as filled area
+    ctx.beginPath();
+    ctx.moveTo(0, waveformTop);
 
-      // Semi-transparent band background (brighter where more suppression)
-      var bandAlpha = 0.08 + avgSuppression * 0.12;
-      ctx.fillStyle = 'rgba(' + parseInt(band.color.slice(1, 3), 16) + ', ' +
-                                parseInt(band.color.slice(3, 5), 16) + ', ' +
-                                parseInt(band.color.slice(5, 7), 16) + ', ' + bandAlpha + ')';
-      ctx.fillRect(xStart, 0, xEnd - xStart, h);
+    for (var i = 0; i < BINS; i++) {
+      var x = (i / (BINS - 1)) * w;
+      var suppression = smoothReduction[i] || 0;
+      var y = waveformTop + (1 - suppression) * waveformHeight;
 
-      // Divider line between bands
-      if (b < bands.length - 1) {
-        ctx.strokeStyle = 'rgba(179, 150, 236, 0.16)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(xEnd, 0);
-        ctx.lineTo(xEnd, h);
-        ctx.stroke();
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        var prevX = ((i - 1) / (BINS - 1)) * w;
+        var prevSuppression = smoothReduction[i - 1] || 0;
+        var prevY = waveformTop + (1 - prevSuppression) * waveformHeight;
+        var cpX = (prevX + x) * 0.5;
+        ctx.bezierCurveTo(cpX, prevY, cpX, y, x, y);
       }
     }
 
-    // Draw band labels and suppression bars at top
-    var labelY = 14;
-    var barStartY = 30;
-    var barHeight = 12;
+    // Close path at bottom right
+    ctx.lineTo(w, waveformTop + waveformHeight);
+    ctx.lineTo(0, waveformTop + waveformHeight);
+    ctx.closePath();
 
-    ctx.font = 'bold 11px "Avenir Next", sans-serif';
-    ctx.textAlign = 'center';
+    // Fill with gradient purple
+    var fillGradient = ctx.createLinearGradient(0, waveformTop, 0, h);
+    fillGradient.addColorStop(0, 'rgba(180, 120, 255, 0.32)');
+    fillGradient.addColorStop(0.5, 'rgba(160, 100, 240, 0.48)');
+    fillGradient.addColorStop(1, 'rgba(140, 80, 220, 0.24)');
+    ctx.fillStyle = fillGradient;
+    ctx.fill();
 
-    for (var b = 0; b < bands.length; b++) {
-      var band = bands[b];
-      var xCenter = (band.start + band.end) * 0.5 * w;
+    // Draw waveform stroke in bright purple
+    ctx.beginPath();
+    for (var j = 0; j < BINS; j++) {
+      var xj = (j / (BINS - 1)) * w;
+      var suppj = smoothReduction[j] || 0;
+      var yj = waveformTop + (1 - suppj) * waveformHeight;
 
-      // Calculate average suppression in this band
-      var startBin = Math.floor(band.start * (BINS - 1));
-      var endBin = Math.ceil(band.end * (BINS - 1));
-      var avgSuppression = 0;
-      for (var i = startBin; i < endBin; i++) {
-        avgSuppression += smoothReduction[i];
+      if (j === 0) {
+        ctx.moveTo(xj, yj);
+      } else {
+        var pxj = ((j - 1) / (BINS - 1)) * w;
+        var psuppj = smoothReduction[j - 1] || 0;
+        var pyj = waveformTop + (1 - psuppj) * waveformHeight;
+        var cpxj = (pxj + xj) * 0.5;
+        ctx.bezierCurveTo(cpxj, pyj, cpxj, yj, xj, yj);
       }
-      avgSuppression /= (endBin - startBin);
-
-      // Band label
-      ctx.fillStyle = band.color;
-      ctx.globalAlpha = 0.8;
-      ctx.fillText(band.label, xCenter, labelY);
-
-      // Suppression bar background
-      ctx.globalAlpha = 0.2;
-      ctx.fillStyle = 'rgba(200, 200, 200, 1)';
-      var barWidth = (band.end - band.start) * w - 4;
-      ctx.fillRect(xCenter - barWidth * 0.5, barStartY, barWidth, barHeight);
-
-      // Suppression bar foreground (scales with suppression amount)
-      ctx.globalAlpha = 0.6 + avgSuppression * 0.4;
-      ctx.fillStyle = band.color;
-      var barFillWidth = barWidth * avgSuppression;
-      ctx.fillRect(xCenter - barWidth * 0.5, barStartY, barFillWidth, barHeight);
-
-      // Border
-      ctx.globalAlpha = 0.4;
-      ctx.strokeStyle = band.color;
-      ctx.lineWidth = 1;
-      ctx.strokeRect(xCenter - barWidth * 0.5, barStartY, barWidth, barHeight);
     }
 
-    ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(200, 140, 255, 0.68)';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(180, 120, 255, 0.42)';
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+
+    // Draw subtle label
+    ctx.font = '11px "Avenir Next", sans-serif';
+    ctx.fillStyle = 'rgba(200, 140, 255, 0.52)';
+    ctx.textAlign = 'left';
+    ctx.fillText('SUPPRESSION', 10, waveformTop - 4);
+
     ctx.restore();
   }
 
