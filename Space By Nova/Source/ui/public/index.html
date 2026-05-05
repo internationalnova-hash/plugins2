@@ -459,7 +459,8 @@
         inset 0 4px 10px rgba(0, 0, 0, 0.60),
         inset 0 0 12px rgba(0, 0, 0, 0.60),
         inset 0 -14px 20px rgba(0, 0, 0, 0.56),
-        0 6px 20px rgba(0, 0, 0, 0.50),
+        0 8px 18px rgba(0, 0, 0, 0.60),
+        0 0 0 1px rgba(0, 0, 0, 0.60),
         0 0 0 1.25px rgba(255, 170, 70, 0.35),
         0 0 6px rgba(255, 140, 60, 0.22);
       overflow: visible;
@@ -479,7 +480,8 @@
         inset 0 1px 0 rgba(226,242,255,0.22),
         inset 0 4px 11px rgba(0, 0, 0, 0.62),
         inset 0 -12px 18px rgba(0, 0, 0, 0.54),
-        0 8px 24px rgba(0, 0, 0, 0.52),
+        0 8px 20px rgba(0, 0, 0, 0.62),
+        0 0 0 1px rgba(0, 0, 0, 0.62),
         0 0 0 1.25px rgba(255, 168, 70, 0.42),
         0 0 10px rgba(255, 140, 60, 0.30);
     }
@@ -524,7 +526,8 @@
         inset 0 1px 0 rgba(226,242,255,0.18),
         inset 0 4px 12px rgba(0, 0, 0, 0.62),
         inset 0 -12px 20px rgba(0, 0, 0, 0.56),
-        0 8px 24px rgba(0, 0, 0, 0.56),
+        0 8px 18px rgba(0, 0, 0, 0.62),
+        0 0 0 1px rgba(0, 0, 0, 0.60),
         0 0 0 1.25px rgba(255,170,70,0.35),
         0 0 8px rgba(255,140,60,0.24);
     }
@@ -542,7 +545,7 @@
       inset: 14%;
       border-radius: 50%;
       background: radial-gradient(circle at 50% 36%, rgba(255, 179, 71, 0.34) 0%, rgba(255, 138, 42, 0.18) 28%, rgba(255, 138, 42, 0.0) 64%);
-      filter: blur(5.5px);
+      filter: blur(5px);
       opacity: 0.98;
     }
 
@@ -554,9 +557,9 @@
       background: conic-gradient(
         from 220deg,
         rgba(255, 106, 0, 0.00) 0deg 8deg,
-        rgba(255, 106, 0, 0.86) 8deg 16deg,
+        rgba(255, 106, 0, 0.92) 8deg 16deg,
         #ff6a00 16deg 60deg,
-        #ffab48 60deg 100deg,
+        #ffb347 60deg 100deg,
         rgba(255, 154, 60, 0.22) 100deg 112deg,
         transparent 114deg 360deg
       );
@@ -586,9 +589,9 @@
       background: conic-gradient(
         from 220deg,
         rgba(255, 106, 0, 0.00) 0deg 10deg,
-        rgba(255, 106, 0, 0.90) 10deg 20deg,
+        rgba(255, 106, 0, 0.96) 10deg 20deg,
         #ff6a00 20deg 66deg,
-        #ffad4d 66deg 104deg,
+        #ffb347 66deg 104deg,
         rgba(255, 154, 60, 0.24) 104deg 114deg,
         transparent 118deg 360deg
       );
@@ -739,7 +742,7 @@
       height: 50px;
       align-self: center;
       border-radius: 18px;
-      border: 1px solid rgba(93, 119, 160, 0.42);
+      border: 1px solid rgba(104, 134, 178, 0.54);
       background:
         linear-gradient(180deg, rgba(184,206,236,0.06) 0%, rgba(184,206,236,0.015) 14%, transparent 15%),
         linear-gradient(180deg, #0d1a2d 0%, #060f1c 100%);
@@ -755,7 +758,7 @@
         inset 0 -3px 6px rgba(0, 0, 0, 0.32),
         0 6px 12px rgba(0, 0, 0, 0.12);
       filter: brightness(0.88);
-      transition: background var(--ease), color var(--ease), box-shadow var(--ease), transform var(--ease), filter var(--ease);
+      transition: background 140ms ease, color 140ms ease, box-shadow 140ms ease, transform 140ms ease, filter 140ms ease;
       user-select: none;
       -webkit-user-select: none;
       touch-action: manipulation;
@@ -1027,8 +1030,8 @@
           var spec = layerRef.spec;
           var depthOpacityMin = li === 0 ? 0.15 : (li === 1 ? 0.30 : 0.60);
           var depthOpacityMax = li === 0 ? 0.25 : (li === 1 ? 0.50 : 0.80);
-          var depthBlurMin = li === 0 ? 12 : (li === 1 ? 6 : 2);
-          var depthBlurMax = li === 0 ? 16 : (li === 1 ? 10 : 4);
+          var depthBlurMin = li === 0 ? 12 : (li === 1 ? 7 : 2);
+          var depthBlurMax = li === 0 ? 18 : (li === 1 ? 12 : 6);
           var speedMul = (li === 0 ? 0.90 : (li === 1 ? 1.16 : 1.48)) * (0.84 + wetGate * 0.40) * (0.92 + depthPct * 0.16);
           var flowX = (0.00012 + airPct * 0.00022 + widthPct * 0.00020) * (0.78 + li * 0.30) * wetGate;
           var flowY = (0.00003 + spacePct * 0.00005 + depthPct * 0.00005) * (0.72 + li * 0.22) * wetGate;
@@ -1093,16 +1096,20 @@
             var fadePulse = 0.78 + (0.22 * (0.5 + 0.5 * Math.sin((spectrumTime * p.fadeRate) + p.fadePhase)));
             alpha *= fadePulse;
 
+            var brightWeight = clamp((alpha - depthOpacityMin) / Math.max(0.0001, depthOpacityMax - depthOpacityMin), 0, 1);
+            var brightFade = 1 - (brightWeight * (0.12 + 0.20 * (0.5 + 0.5 * Math.sin((spectrumTime * 2.4) + p.phase))));
+            alpha *= brightFade;
+
             var scalePulse = 1 + (0.04 * Math.sin((spectrumTime * p.scaleRate) + (p.phase * 0.9)));
-            var core = p.size * (0.85 + p.warmth * 0.35) * scalePulse;
+            var core = p.size * (0.68 + p.warmth * 0.26) * scalePulse;
             var blurT = clamp((p.size - spec.sizeMin) / Math.max(0.0001, spec.sizeMax - spec.sizeMin), 0, 1);
-            var layerBlur = depthBlurMin + (depthBlurMax - depthBlurMin) * blurT;
+            var layerBlur = depthBlurMin + (depthBlurMax - depthBlurMin) * blurT + brightWeight * 2.2;
             var halo = core + layerBlur;
 
-            var whiteCoreA = Math.min(0.8, alpha * (0.56 + (1 - p.warmth) * 0.20));
-            var whiteMidA = Math.min(0.8, alpha * 0.10);
-            var whiteSolidA = Math.min(0.8, alpha * (0.70 + (1 - p.warmth) * 0.14));
-            var whitePinA = Math.min(0.8, alpha * (0.84 + p.warmth * 0.12));
+            var whiteCoreA = Math.min(0.75, alpha * (0.50 + (1 - p.warmth) * 0.18));
+            var whiteMidA = Math.min(0.75, alpha * 0.09);
+            var whiteSolidA = Math.min(0.75, alpha * (0.62 + (1 - p.warmth) * 0.12));
+            var whitePinA = Math.min(0.75, alpha * (0.72 + p.warmth * 0.10));
 
             var orb = ctx.createRadialGradient(x, y, 0, x, y, halo);
             orb.addColorStop(0, "rgba(255,255,255," + whiteCoreA.toFixed(4) + ")");
@@ -1123,7 +1130,7 @@
             // Extra crisp star core to keep particles visible at smaller canvas scales.
             ctx.fillStyle = "rgba(255,255,255," + whitePinA.toFixed(4) + ")";
             ctx.beginPath();
-            ctx.arc(x, y, Math.max(0.8, core * 0.20), 0, Math.PI * 2);
+            ctx.arc(x, y, Math.max(0.6, core * 0.18), 0, Math.PI * 2);
             ctx.fill();
           }
         }
@@ -1137,15 +1144,15 @@
           var ax = clamp(axNorm, 0.56, 0.988) * W;
           var ay = chartTop + clamp(ayNorm, 0.08, 0.94) * chartHeight;
           var aPulse = 0.72 + 0.28 * (0.5 + 0.5 * Math.sin((spectrumTime * 1.08) + ai * 1.7));
-          var ar = 2.1 + (ai % 3) * 0.34;
+          var ar = 1.35 + (ai % 3) * 0.22;
 
-          var anchorOrb = ctx.createRadialGradient(ax, ay, 0, ax, ay, ar * 5.0);
-          anchorOrb.addColorStop(0, "rgba(255,245,220," + Math.min(0.8, (0.36 + mixPct * 0.24) * aPulse).toFixed(4) + ")");
-          anchorOrb.addColorStop(0.24, "rgba(120,170,255," + Math.min(0.8, (0.22 + airPct * 0.18) * aPulse).toFixed(4) + ")");
+          var anchorOrb = ctx.createRadialGradient(ax, ay, 0, ax, ay, ar * 6.0);
+          anchorOrb.addColorStop(0, "rgba(255,245,220," + Math.min(0.75, (0.28 + mixPct * 0.18) * aPulse).toFixed(4) + ")");
+          anchorOrb.addColorStop(0.24, "rgba(120,170,255," + Math.min(0.75, (0.18 + airPct * 0.14) * aPulse).toFixed(4) + ")");
           anchorOrb.addColorStop(1, "rgba(120,170,255,0)");
           ctx.fillStyle = anchorOrb;
           ctx.beginPath();
-          ctx.arc(ax, ay, ar * 5.0, 0, Math.PI * 2);
+          ctx.arc(ax, ay, ar * 6.0, 0, Math.PI * 2);
           ctx.fill();
         }
 
@@ -1162,7 +1169,7 @@
           var pr = 1.1 + (si % 3) * 0.28 + depthPct * 0.26;
 
           var star = ctx.createRadialGradient(px, py, 0, px, py, pr * 5.8);
-          star.addColorStop(0, "rgba(255,255,255," + Math.min(0.8, pa * 0.70).toFixed(4) + ")");
+          star.addColorStop(0, "rgba(255,255,255," + Math.min(0.75, pa * 0.60).toFixed(4) + ")");
           star.addColorStop(0.25, "rgba(120,170,255," + (pa * 0.34).toFixed(4) + ")");
           star.addColorStop(1, "rgba(171,216,255,0)");
           ctx.fillStyle = star;
@@ -1170,7 +1177,7 @@
           ctx.arc(px, py, pr * 5.8, 0, Math.PI * 2);
           ctx.fill();
 
-          ctx.fillStyle = "rgba(255,255,255," + Math.min(0.8, pa * 0.80).toFixed(4) + ")";
+          ctx.fillStyle = "rgba(255,255,255," + Math.min(0.75, pa * 0.68).toFixed(4) + ")";
           ctx.beginPath();
           ctx.arc(px, py, pr * 0.75, 0, Math.PI * 2);
           ctx.fill();
@@ -1795,9 +1802,11 @@
         ctx.shadowBlur = 0;
 
         ctx.beginPath();
+        var dryPeakNorm = 0;
         for (var d = 0; d < SPECTRUM_BINS; d += 1) {
           var dx = d * binW + binW * 0.5;
           var dh = smoothedDry[d] * chartHeight * 0.64;
+          if (smoothedDry[d] > dryPeakNorm) dryPeakNorm = smoothedDry[d];
           var driftY = Math.sin((spectrumTime * 0.92) + (d * 0.085)) * 1.1;
           if (d === 0) ctx.moveTo(dx, chartBottom - dh - driftY);
           else ctx.lineTo(dx, chartBottom - dh - driftY);
@@ -1821,16 +1830,18 @@
 
         var dryGrad = ctx.createLinearGradient(0, 0, W, 0);
         dryGrad.addColorStop(0, "#ff9a3c");
+        dryGrad.addColorStop(0.52, "#ffb347");
         dryGrad.addColorStop(1, "#ff6a00");
         ctx.strokeStyle = dryGrad;
-        ctx.lineWidth = 2.25;
+        ctx.lineWidth = 2.75;
         var dryGlowPulse = 0.92 + (0.08 * (0.5 + 0.5 * Math.sin(spectrumTime * 1.7)));
-        ctx.shadowColor = "rgba(255,140,60,0.65)";
-        ctx.shadowBlur = 14 * dryGlowPulse;
+        var peakBoost = 0.92 + (0.16 * dryPeakNorm);
+        ctx.shadowColor = "rgba(255,140,60,0.60)";
+        ctx.shadowBlur = 10 * dryGlowPulse * peakBoost;
         ctx.stroke();
 
         ctx.shadowColor = "rgba(255,120,40,0.25)";
-        ctx.shadowBlur = 22 * dryGlowPulse;
+        ctx.shadowBlur = 24 * dryGlowPulse * peakBoost;
         ctx.stroke();
         ctx.shadowBlur = 0;
 
