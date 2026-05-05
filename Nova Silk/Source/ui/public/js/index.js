@@ -666,6 +666,27 @@
       ctx.shadowOffsetY = -1;
     }
 
+    // Draw focus indicator on waveform (follows focus knob across spectrum)
+    var focusNorm = currentValues.focus / 100;  // 0 to 1
+    var focusX = focusNorm * w;
+    var focusY = h - (maxWaveformHeight * 0.5);  // Middle height of waveform area
+
+    // Radial glow bloom at focus position
+    var focusBloom = ctx.createRadialGradient(focusX, focusY, 6, focusX, focusY, 32);
+    focusBloom.addColorStop(0, 'rgba(255, 200, 120, 0.48)');
+    focusBloom.addColorStop(0.4, 'rgba(255, 160, 80, 0.32)');
+    focusBloom.addColorStop(1, 'rgba(255, 120, 60, 0)');
+    ctx.fillStyle = focusBloom;
+    ctx.beginPath();
+    ctx.arc(focusX, focusY, 32, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bright core dot
+    ctx.fillStyle = 'rgba(255, 220, 140, 0.76)';
+    ctx.beginPath();
+    ctx.arc(focusX, focusY, 5, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
   }
 
