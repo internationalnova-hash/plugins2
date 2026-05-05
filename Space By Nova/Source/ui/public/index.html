@@ -933,8 +933,8 @@
       var particleClusters = [
         { x: 0.70, y: 0.72, weight: 0.22 },
         { x: 0.76, y: 0.63, weight: 0.28 },
-        { x: 0.82, y: 0.53, weight: 0.30 },
-        { x: 0.88, y: 0.43, weight: 0.20 }
+        { x: 0.82, y: 0.56, weight: 0.30 },
+        { x: 0.88, y: 0.47, weight: 0.20 }
       ];
 
       function randomRange(min, max) {
@@ -961,7 +961,7 @@
         var cluster = particleClusters[clusterIndex];
 
         p.homeX = clamp(cluster.x + randomRange(-spec.spreadX, spec.spreadX), 0.58, 0.988);
-        p.homeY = clamp(cluster.y + randomRange(-spec.spreadY, spec.spreadY), 0.10, 0.94);
+        p.homeY = clamp(cluster.y + randomRange(-spec.spreadY, spec.spreadY), 0.14, 0.90);
         p.xNorm = p.homeX + randomRange(-spec.spawnJitterX, spec.spawnJitterX);
         p.yNorm = p.homeY + randomRange(-spec.spawnJitterY, spec.spawnJitterY);
         p.size = randomRange(spec.sizeMin, spec.sizeMax);
@@ -997,9 +997,9 @@
 
       function initialiseParticles() {
         var layerSpecs = [
-          { count: 20, sizeMin: 1.6, sizeMax: 3.0, alphaMin: 0.15, alphaMax: 0.25, speedMin: 0.000009, speedMax: 0.000018, driftMin: 0.00006, driftMax: 0.00014, spreadX: 0.066, spreadY: 0.198, spawnJitterX: 0.013, spawnJitterY: 0.040 },
-          { count: 24, sizeMin: 1.3, sizeMax: 2.6, alphaMin: 0.30, alphaMax: 0.50, speedMin: 0.000014, speedMax: 0.000028, driftMin: 0.00010, driftMax: 0.00022, spreadX: 0.054, spreadY: 0.160, spawnJitterX: 0.010, spawnJitterY: 0.032 },
-          { count: 16, sizeMin: 1.0, sizeMax: 2.2, alphaMin: 0.60, alphaMax: 0.80, speedMin: 0.000020, speedMax: 0.000040, driftMin: 0.00014, driftMax: 0.00030, spreadX: 0.036, spreadY: 0.112, spawnJitterX: 0.007, spawnJitterY: 0.024 }
+          { count: 20, sizeMin: 1.6, sizeMax: 3.0, alphaMin: 0.15, alphaMax: 0.25, speedMin: 0.000009, speedMax: 0.000018, driftMin: 0.00006, driftMax: 0.00014, spreadX: 0.066, spreadY: 0.178, spawnJitterX: 0.013, spawnJitterY: 0.036 },
+          { count: 24, sizeMin: 1.3, sizeMax: 2.6, alphaMin: 0.30, alphaMax: 0.50, speedMin: 0.000014, speedMax: 0.000028, driftMin: 0.00010, driftMax: 0.00022, spreadX: 0.054, spreadY: 0.144, spawnJitterX: 0.010, spawnJitterY: 0.029 },
+          { count: 16, sizeMin: 1.0, sizeMax: 2.2, alphaMin: 0.60, alphaMax: 0.80, speedMin: 0.000020, speedMax: 0.000040, driftMin: 0.00014, driftMax: 0.00030, spreadX: 0.036, spreadY: 0.101, spawnJitterX: 0.007, spawnJitterY: 0.022 }
         ];
 
         particleLayers = [];
@@ -1061,6 +1061,12 @@
               0.08,
               0.94
             );
+
+            var xToBin = Math.round(clamp(xNorm, 0, 1) * (SPECTRUM_BINS - 1));
+            var curveNorm = 1 - (smoothedDry[xToBin] * 0.64);
+            var curveBias = 0.012 + (mixPct * 0.010);
+            yNorm += (curveNorm - yNorm) * curveBias;
+            yNorm = clamp(yNorm, 0.10, 0.92);
 
             var x = xNorm * W;
             var y = chartTop + (yNorm * chartHeight);
@@ -1134,6 +1140,24 @@
             ctx.arc(x, y, Math.max(0.6, core * 0.18), 0, Math.PI * 2);
             ctx.fill();
           }
+        }
+
+        // A few brighter particles on the curve for subtle energy interaction.
+        var curveAnchors = 3;
+        for (var ci2 = 0; ci2 < curveAnchors; ci2 += 1) {
+          var cBin = Math.round((0.66 + ci2 * 0.11) * (SPECTRUM_BINS - 1));
+          var cx2 = ((cBin / (SPECTRUM_BINS - 1)) * W);
+          var cy2 = chartBottom - (smoothedDry[cBin] * chartHeight * 0.64);
+          var cp2 = 0.70 + 0.30 * (0.5 + 0.5 * Math.sin((spectrumTime * 1.9) + ci2 * 1.4));
+          var r2 = 1.0 + ci2 * 0.2;
+          var g2 = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, r2 * 5.0);
+          g2.addColorStop(0, "rgba(255,230,188," + Math.min(0.75, (0.38 + mixPct * 0.16) * cp2).toFixed(4) + ")");
+          g2.addColorStop(0.28, "rgba(120,170,255," + Math.min(0.75, (0.22 + airPct * 0.12) * cp2).toFixed(4) + ")");
+          g2.addColorStop(1, "rgba(120,170,255,0)");
+          ctx.fillStyle = g2;
+          ctx.beginPath();
+          ctx.arc(cx2, cy2, r2 * 5.0, 0, Math.PI * 2);
+          ctx.fill();
         }
 
         // Anchor particles define a cohesive reverb-field arc shape.
