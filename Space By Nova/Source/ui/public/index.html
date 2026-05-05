@@ -435,6 +435,9 @@
       position: absolute;
       border-radius: 50%;
       background:
+        radial-gradient(circle at 25% 25%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.10) 14%, rgba(255,255,255,0.0) 44%),
+        linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 28%, rgba(255,255,255,0.0) 40%, rgba(0,0,0,0.0) 100%),
+        linear-gradient(180deg, rgba(0,0,0,0.0) 54%, rgba(0,0,0,0.10) 100%),
         radial-gradient(circle at 50% 44%, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 36%, rgba(0,0,0,0.60) 100%),
         radial-gradient(circle at 50% 45%, #2a3d56 0%, #1a283b 42%, #0c1523 76%, #050b14 100%);
       border: 1px solid rgba(128, 164, 210, 0.24);
@@ -493,6 +496,9 @@
 
     .knob-shell.large {
       background:
+        radial-gradient(circle at 25% 25%, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.11) 14%, rgba(255,255,255,0.0) 44%),
+        linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.035) 28%, rgba(255,255,255,0.0) 40%, rgba(0,0,0,0.0) 100%),
+        linear-gradient(180deg, rgba(0,0,0,0.0) 54%, rgba(0,0,0,0.10) 100%),
         radial-gradient(circle at 50% 44%, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 38%, rgba(0,0,0,0.62) 100%),
         radial-gradient(circle at 50% 42%, #2c415b 0%, #1a293f 42%, #0c1625 78%, #050b14 100%);
       box-shadow:
@@ -734,17 +740,18 @@
 
     .mode-button.active {
       background:
-        linear-gradient(180deg, rgba(255,232,208,0.32) 0%, rgba(255,232,208,0.10) 16%, transparent 18%),
-        linear-gradient(180deg, #ffb347 0%, #ff8a2a 42%, #de6612 100%);
+        linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.08) 18%, transparent 22%),
+        linear-gradient(180deg, #ff9a3c 0%, #ff6a00 100%);
       color: #fff9f1;
       border-color: rgba(255, 179, 71, 0.62);
       text-shadow: 0 1px 2px rgba(101, 46, 6, 0.36);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.22),
+        inset 0 2px 6px rgba(255,255,255,0.25),
         inset 0 -4px 7px rgba(115, 48, 8, 0.24),
         0 0 0 1px rgba(255, 167, 62, 0.14),
-        0 0 20px rgba(255, 120, 40, 0.60),
+        0 0 25px rgba(255, 120, 40, 0.70),
         0 10px 18px rgba(0, 0, 0, 0.18);
+      transform: scale(1.02);
     }
 
     #depth-knob + .value {
@@ -946,9 +953,9 @@
 
       function initialiseParticles() {
         var layerSpecs = [
-          { count: 14, sizeMin: 2.5, sizeMax: 4.0, alphaMin: 0.16, alphaMax: 0.26, speedMin: 0.00002, speedMax: 0.00004, driftMin: 0.00016, driftMax: 0.00036, spreadX: 0.040, spreadY: 0.105, spawnJitterX: 0.008, spawnJitterY: 0.024 },
-          { count: 20, sizeMin: 1.7, sizeMax: 2.9, alphaMin: 0.11, alphaMax: 0.20, speedMin: 0.000016, speedMax: 0.000032, driftMin: 0.00011, driftMax: 0.00028, spreadX: 0.060, spreadY: 0.145, spawnJitterX: 0.012, spawnJitterY: 0.032 },
-          { count: 28, sizeMin: 1.0, sizeMax: 1.9, alphaMin: 0.07, alphaMax: 0.14, speedMin: 0.000010, speedMax: 0.000024, driftMin: 0.00008, driftMax: 0.00020, spreadX: 0.086, spreadY: 0.205, spawnJitterX: 0.018, spawnJitterY: 0.042 }
+          { count: 20, sizeMin: 1.6, sizeMax: 3.0, alphaMin: 0.15, alphaMax: 0.25, speedMin: 0.000009, speedMax: 0.000018, driftMin: 0.00006, driftMax: 0.00014, spreadX: 0.082, spreadY: 0.198, spawnJitterX: 0.016, spawnJitterY: 0.040 },
+          { count: 24, sizeMin: 1.3, sizeMax: 2.6, alphaMin: 0.30, alphaMax: 0.50, speedMin: 0.000014, speedMax: 0.000028, driftMin: 0.00010, driftMax: 0.00022, spreadX: 0.066, spreadY: 0.160, spawnJitterX: 0.012, spawnJitterY: 0.032 },
+          { count: 16, sizeMin: 1.0, sizeMax: 2.2, alphaMin: 0.60, alphaMax: 0.80, speedMin: 0.000020, speedMax: 0.000040, driftMin: 0.00014, driftMax: 0.00030, spreadX: 0.044, spreadY: 0.112, spawnJitterX: 0.008, spawnJitterY: 0.024 }
         ];
 
         particleLayers = [];
@@ -975,11 +982,16 @@
           var layerRef = particleLayers[li];
           var particles = layerRef.particles;
           var spec = layerRef.spec;
+          var depthOpacityMin = li === 0 ? 0.15 : (li === 1 ? 0.30 : 0.60);
+          var depthOpacityMax = li === 0 ? 0.25 : (li === 1 ? 0.50 : 0.80);
+          var depthBlurMin = li === 0 ? 12 : (li === 1 ? 6 : 2);
+          var depthBlurMax = li === 0 ? 18 : (li === 1 ? 10 : 4);
+          var speedMul = li === 0 ? 0.84 : (li === 1 ? 1.0 : 1.18);
 
           for (var i = 0; i < particles.length; i += 1) {
             var p = particles[i];
 
-            p.yNorm -= p.speed;
+            p.yNorm -= p.speed * speedMul;
             if (p.yNorm < 0.10) {
               respawnParticle(p, spec);
             }
@@ -1017,9 +1029,11 @@
 
             var twinklePeak = 0.72 + (0.28 * (0.5 + 0.5 * Math.sin((spectrumTime * (0.55 + p.twinkle)) + (p.phase * 1.8))));
             var alpha = p.alpha * breathe * twinklePeak * energy * zone;
-            alpha = Math.max(alpha, 0.10);
+            alpha = clamp(alpha, depthOpacityMin, depthOpacityMax);
             var core = p.size * (0.85 + p.warmth * 0.35);
-            var halo = core * (4.8 + (1 - p.warmth) * 2.6);
+            var blurT = clamp((p.size - spec.sizeMin) / Math.max(0.0001, spec.sizeMax - spec.sizeMin), 0, 1);
+            var layerBlur = depthBlurMin + (depthBlurMax - depthBlurMin) * blurT;
+            var halo = core + layerBlur;
 
             var orb = ctx.createRadialGradient(x, y, 0, x, y, halo);
             orb.addColorStop(0, "rgba(255,255,255," + (alpha * (0.56 + (1 - p.warmth) * 0.20)).toFixed(4) + ")");
@@ -1046,7 +1060,7 @@
         }
 
         // Accent sparkle layer ensures visible stars in the upper-right wet region.
-        var accentCount = 14;
+        var accentCount = 10;
         var accentEnergy = 0.24 + (mixPct * 0.12) + (airPct * 0.12);
         for (var si = 0; si < accentCount; si += 1) {
           var sn = si / accentCount;
@@ -1054,7 +1068,7 @@
           var pyNorm = 0.22 + (0.56 * (0.5 + 0.5 * Math.sin((spectrumTime * 0.82) + (si * 1.13))));
           var py = chartTop + pyNorm * chartHeight;
           var pulse = 0.66 + (0.34 * (0.5 + 0.5 * Math.sin((spectrumTime * 1.25) + (si * 2.1))));
-          var pa = accentEnergy * pulse;
+          var pa = accentEnergy * pulse * 0.8;
           var pr = 1.2 + (si % 3) * 0.30;
 
           var star = ctx.createRadialGradient(px, py, 0, px, py, pr * 5.8);
@@ -1702,8 +1716,12 @@
         dryGrad.addColorStop(1, "#ff6a00");
         ctx.strokeStyle = dryGrad;
         ctx.lineWidth = 2.25;
-        ctx.shadowColor = "rgba(255,140,60,0.50)";
-        ctx.shadowBlur = 10;
+        ctx.shadowColor = "rgba(255,140,60,0.65)";
+        ctx.shadowBlur = 14;
+        ctx.stroke();
+
+        ctx.shadowColor = "rgba(255,120,40,0.25)";
+        ctx.shadowBlur = 22;
         ctx.stroke();
         ctx.shadowBlur = 0;
 
