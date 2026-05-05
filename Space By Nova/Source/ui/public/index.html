@@ -1111,12 +1111,12 @@
             var core = p.size * (0.68 + p.warmth * 0.26) * scalePulse;
             var blurT = clamp((p.size - spec.sizeMin) / Math.max(0.0001, spec.sizeMax - spec.sizeMin), 0, 1);
             var layerBlur = depthBlurMin + (depthBlurMax - depthBlurMin) * blurT + brightWeight * 2.2;
-            var halo = core + layerBlur;
+            var halo = (core + layerBlur) * 1.07;
 
-            var whiteCoreA = Math.min(0.75, alpha * (0.50 + (1 - p.warmth) * 0.18));
+            var whiteCoreA = Math.min(0.75, alpha * (0.46 + (1 - p.warmth) * 0.17));
             var whiteMidA = Math.min(0.75, alpha * 0.09);
-            var whiteSolidA = Math.min(0.75, alpha * (0.62 + (1 - p.warmth) * 0.12));
-            var whitePinA = Math.min(0.75, alpha * (0.72 + p.warmth * 0.10));
+            var whiteSolidA = Math.min(0.75, alpha * (0.58 + (1 - p.warmth) * 0.11));
+            var whitePinA = Math.min(0.75, alpha * (0.66 + p.warmth * 0.09));
 
             var orb = ctx.createRadialGradient(x, y, 0, x, y, halo);
             orb.addColorStop(0, "rgba(255,255,255," + whiteCoreA.toFixed(4) + ")");
@@ -1137,7 +1137,7 @@
             // Extra crisp star core to keep particles visible at smaller canvas scales.
             ctx.fillStyle = "rgba(255,255,255," + whitePinA.toFixed(4) + ")";
             ctx.beginPath();
-            ctx.arc(x, y, Math.max(0.6, core * 0.18), 0, Math.PI * 2);
+            ctx.arc(x, y, Math.max(0.55, core * 0.16), 0, Math.PI * 2);
             ctx.fill();
           }
         }
