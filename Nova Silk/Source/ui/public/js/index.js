@@ -20,7 +20,6 @@
   var paramStates = {};
   var juceAvailable = false;
   var magicOn = true;
-  var analysisOverlayOn = false;  // Disabled by default; users toggle with ANALYZE button or Alt+A
   var activeDrag = null;
   var activePreset = 'Universal Smooth';
 
@@ -403,34 +402,7 @@
     });
   }
 
-  function setAnalysis(enabled, gesture) {
-    analysisOverlayOn = enabled;
-    var ctrl = document.getElementById('analyze-control');
-    if (ctrl) {
-      if (enabled) {
-        ctrl.classList.add('active');
-      } else {
-        ctrl.classList.remove('active');
-      }
-    }
-  }
 
-  function initAnalyzeToggle() {
-    var ctrl = document.getElementById('analyze-control');
-    if (!ctrl) return;
-
-    ctrl.addEventListener('click', function () {
-      setAnalysis(!analysisOverlayOn, true);
-    });
-
-    // Keyboard shortcut: Alt+A to toggle
-    document.addEventListener('keydown', function (ev) {
-      if ((ev.altKey || ev.metaKey) && (ev.key === 'a' || ev.key === 'A')) {
-        ev.preventDefault();
-        setAnalysis(!analysisOverlayOn, true);
-      }
-    });
-  }
 
   function initCanvas() {
     canvas = document.getElementById('silk-canvas');
@@ -660,88 +632,39 @@
     }
   }
 
-  function drawAnalysisOverlay() {
-    if (!canvas || !ctx || !analysisOverlayOn) return;
+  function drawSuppressionOverlay() {
+    if (!canvas || !ctx) return;
 
     var w = canvas.width;
     var h = canvas.height;
-
-    // Draw suppression waveform at bottom in gradient purple
-    var waveformHeight = Math.floor(h * 0.15);
-    var waveformTop = h - waveformHeight;
+    var maxSuppressionHeight = h * 0.40;  // Max height from bottom
 
     ctx.save();
 
-    // Create gradient purple background
-    var suppGradient = ctx.createLinearGradient(0, waveformTop, 0, h);
-    suppGradient.addColorStop(0, 'rgba(80, 40, 140, 0.08)');
-    suppGradient.addColorStop(0.5, 'rgba(120, 60, 200, 0.12)');
-    suppGradient.addColorStop(1, 'rgba(60, 30, 100, 0.06)');
-    ctx.fillStyle = suppGradient;
-    ctx.fillRect(0, waveformTop, w, waveformHeight);
-
-    // Draw suppression waveform as filled area
-    ctx.beginPath();
-    ctx.moveTo(0, waveformTop);
+    // Draw vertical suppression bars from bottom
+    var barWidth = w / BINS;
 
     for (var i = 0; i < BINS; i++) {
       var x = (i / (BINS - 1)) * w;
-      var suppression = smoothReduction[i] || 0;
-      var y = waveformTop + (1 - suppression) * waveformHeight;
+      var suppression = smoothReduction[i] || 0;  // 0 to 1
+      var barHeight = suppression * maxSuppressionHeight;
+      var barY = h - barHeight;
 
-      if (i === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        var prevX = ((i - 1) / (BINS - 1)) * w;
-        var prevSuppression = smoothReduction[i - 1] || 0;
-        var prevY = waveformTop + (1 - prevSuppression) * waveformHeight;
-        var cpX = (prevX + x) * 0.5;
-        ctx.bezierCurveTo(cpX, prevY, cpX, y, x, y);
-      }
+      // Create gradient for each bar
+      var barGradient = ctx.createLinearGradient(x, barY, x, h);
+      barGradient.addColorStop(0, 'rgba(180, 120, 255, 0.52)');
+      barGradient.addColorStop(0.5, 'rgba(160, 100, 240, 0.68)');
+      barGradient.addColorStop(1, 'rgba(140, 80, 220, 0.42)');
+
+      ctx.fillStyle = barGradient;
+      ctx.fillRect(x, barY, barWidth, barHeight);
+
+      // Subtle glow
+      ctx.shadowColor = 'rgba(200, 140, 255, 0.28)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
     }
-
-    // Close path at bottom right
-    ctx.lineTo(w, waveformTop + waveformHeight);
-    ctx.lineTo(0, waveformTop + waveformHeight);
-    ctx.closePath();
-
-    // Fill with gradient purple
-    var fillGradient = ctx.createLinearGradient(0, waveformTop, 0, h);
-    fillGradient.addColorStop(0, 'rgba(180, 120, 255, 0.32)');
-    fillGradient.addColorStop(0.5, 'rgba(160, 100, 240, 0.48)');
-    fillGradient.addColorStop(1, 'rgba(140, 80, 220, 0.24)');
-    ctx.fillStyle = fillGradient;
-    ctx.fill();
-
-    // Draw waveform stroke in bright purple
-    ctx.beginPath();
-    for (var j = 0; j < BINS; j++) {
-      var xj = (j / (BINS - 1)) * w;
-      var suppj = smoothReduction[j] || 0;
-      var yj = waveformTop + (1 - suppj) * waveformHeight;
-
-      if (j === 0) {
-        ctx.moveTo(xj, yj);
-      } else {
-        var pxj = ((j - 1) / (BINS - 1)) * w;
-        var psuppj = smoothReduction[j - 1] || 0;
-        var pyj = waveformTop + (1 - psuppj) * waveformHeight;
-        var cpxj = (pxj + xj) * 0.5;
-        ctx.bezierCurveTo(cpxj, pyj, cpxj, yj, xj, yj);
-      }
-    }
-
-    ctx.strokeStyle = 'rgba(200, 140, 255, 0.68)';
-    ctx.lineWidth = 2;
-    ctx.shadowColor = 'rgba(180, 120, 255, 0.42)';
-    ctx.shadowBlur = 8;
-    ctx.stroke();
-
-    // Draw subtle label
-    ctx.font = '11px "Avenir Next", sans-serif';
-    ctx.fillStyle = 'rgba(200, 140, 255, 0.52)';
-    ctx.textAlign = 'left';
-    ctx.fillText('SUPPRESSION', 10, waveformTop - 4);
 
     ctx.restore();
   }
@@ -859,8 +782,8 @@
     var energyLevel = Math.min(1, highFreqSum / (BINS * 0.38));
     updateParticles(energyLevel);
 
-    // Draw analysis overlay if enabled
-    drawAnalysisOverlay();
+    // Draw suppression overlay (always visible)
+    drawSuppressionOverlay();
 
     // Render particles (high-frequency sparkles)
     drawParticles(w, h);
@@ -902,7 +825,6 @@
     initReadouts();
     initPresetButtons();
     initMagicToggle();
-    initAnalyzeToggle();
     startRenderLoop();
 
     applyPreset(activePreset, false);
