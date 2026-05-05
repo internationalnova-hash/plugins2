@@ -1,0 +1,165 @@
+NOVA HARMONY - SOUND TEXTURE VALIDATION CHECKLIST
+Version: 1.0
+Date: 2026-05-03
+
+PURPOSE
+Use this checklist to validate whether Nova Harmony feels musical, smooth, and production-ready.
+
+--------------------------------------------------------------------
+1) TEST SETUP (DO THIS FIRST)
+--------------------------------------------------------------------
+[ ] Use one dry MONO vocal phrase (8-16 bars).
+[ ] Include both sustained vowels and fast consonants.
+[ ] Level-match before A/B decisions.
+[ ] Test in stereo first, then run mono-collapse check.
+
+Suggested source types:
+- Lead vocal
+- Background stack phrase
+- Spoken phrase for articulation checks
+
+--------------------------------------------------------------------
+2) CORE CURVE BEHAVIOR TESTS
+--------------------------------------------------------------------
+2.1 Voices Curve (sweep 1 -> 32)
+Expected result:
+- 1-4: Very sensitive and obvious for tight doubles.
+- 5-12: Moderate, musical growth into stack territory.
+- 13-24: Slower growth to avoid clutter/mud.
+- 25-32: Very slow increase, mostly texture/air.
+
+PASS if:
+[ ] Low range feels responsive.
+[ ] Mid range grows naturally.
+[ ] High range does not explode in density.
+[ ] Intelligibility remains usable at high counts.
+
+2.2 Width Curve (sweep 0% -> 200%)
+Expected result:
+- 0-40%: Subtle stereo movement.
+- 40-80%: Main usable width zone.
+- 80-120%: Wide sweet spot.
+- 120-200%: Compressed growth, controlled phase behavior.
+
+PASS if:
+[ ] Most useful action is in the middle.
+[ ] Above 120% remains usable.
+[ ] Mono fold-down remains acceptable.
+
+2.3 Humanize Curve (sweep 0% -> 100%)
+Expected result:
+- 0-20%: Tight and locked.
+- 20-50%: Primary natural zone.
+- 50-80%: More expressive movement.
+- 80-100%: Clear FX/extreme behavior.
+
+PASS if:
+[ ] No abrupt jumps.
+[ ] 20-50% sounds most natural.
+[ ] 80-100% clearly sounds intentional and special.
+
+2.4 Mix Curve (sweep 0% -> 100%)
+Expected result:
+- 0-30%: Subtle blend.
+- 30-70%: Main production sweet spot.
+- 70-100%: Compressed growth to avoid overpowering dry signal.
+
+PASS if:
+[ ] Main working zone is 30-70%.
+[ ] Wet-heavy settings stay controlled.
+[ ] Loudness remains more stable than linear behavior.
+
+--------------------------------------------------------------------
+3) INTERACTION BEHAVIOR TESTS (SECRET SAUCE)
+--------------------------------------------------------------------
+3.1 Voices -> Width/Humanize
+Action:
+- Increase Voices while leaving Width and Humanize knobs unchanged.
+Expected:
+- Slight extra spread appears.
+- Slight extra natural variation appears.
+
+PASS if:
+[ ] Interaction is audible but subtle.
+[ ] It helps musicality rather than sounding random.
+
+3.2 Mix -> Harmony Gain
+Action:
+- Increase Mix into high range (70-100%).
+Expected:
+- Harmony gets wetter, but overall level remains controlled.
+
+PASS if:
+[ ] No harsh loudness jump.
+[ ] Blend remains balanced in context.
+
+--------------------------------------------------------------------
+4) PRESET TEXTURE SIGNATURE TESTS
+--------------------------------------------------------------------
+A) Pop Lead Stack
+Expected texture:
+- Clean, controlled, radio-ready doubles.
+
+PASS if:
+[ ] Clear lead remains forward.
+[ ] Harmony supports without mud.
+
+B) R&B Backgrounds
+Expected texture:
+- Smooth, lush, breathing backgrounds.
+
+PASS if:
+[ ] Midrange feels rich and emotional.
+[ ] Movement feels musical, not artificial.
+
+C) Trap Wide Stack
+Expected texture:
+- Modern, wide, slightly synthetic but controlled.
+
+PASS if:
+[ ] Width is obvious.
+[ ] Timing/pitch still feels tight enough.
+
+D) Gospel Lift
+Expected texture:
+- Big, emotional, human choir-like stack.
+
+PASS if:
+[ ] Depth and lift increase naturally.
+[ ] Humanization feels alive, not chaotic.
+
+E) Ambient Cloud
+Expected texture:
+- Pad-like, cinematic, textural cloud.
+
+PASS if:
+[ ] Wide and immersive.
+[ ] Drift/texture is intentional and musical.
+
+--------------------------------------------------------------------
+5) RED FLAGS (FAIL INDICATORS)
+--------------------------------------------------------------------
+[ ] Sudden jumps in Humanize response.
+[ ] Width > 120% causes unusable mono collapse.
+[ ] Voices > 12 instantly turns muddy/cluttered.
+[ ] Mix > 70% overwhelms dry vocal.
+[ ] Presets sound too similar and lack character separation.
+
+--------------------------------------------------------------------
+6) QUICK SCORING (1-5)
+--------------------------------------------------------------------
+Rate each category:
+- Curve Smoothness:          ____ / 5
+- Texture Musicality:        ____ / 5
+- Width Stability (Mono):    ____ / 5
+- Preset Character Contrast: ____ / 5
+- Loudness Balance:          ____ / 5
+
+Overall readiness:
+[ ] READY TO SHIP
+[ ] NEEDS TUNING
+
+Notes:
+_______________________________________________________________
+_______________________________________________________________
+_______________________________________________________________

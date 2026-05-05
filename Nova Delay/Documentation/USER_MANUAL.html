@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Tone User Manual</title>
+  <style>
+    :root { --bg:#f6f0e7; --panel:#fffdf9; --ink:#2f261f; --soft:#6b5b4b; --accent:#b1884e; --line:#dcc8ab; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:linear-gradient(180deg,#f7f2ea 0%,#efe3d1 100%); color:var(--ink); font:16px/1.6 "Avenir Next","Segoe UI",sans-serif; }
+    .wrap { max-width:960px; margin:0 auto; padding:32px 20px 48px; }
+    .hero, section { background:var(--panel); border:1px solid var(--line); border-radius:18px; box-shadow:0 10px 24px rgba(87,62,28,.06); }
+    .hero { padding:28px; margin-bottom:18px; }
+    h1,h2,h3 { margin:0 0 10px; font-family:Georgia,serif; }
+    h1 { font-size:2.3rem; }
+    h2 { font-size:1.35rem; padding-bottom:8px; border-bottom:1px solid #eadbc5; }
+    .subtitle { color:var(--soft); letter-spacing:.12em; text-transform:uppercase; font-size:.85rem; }
+    .chips { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+    .chip { padding:7px 12px; border-radius:999px; background:#f1e6d7; border:1px solid #e5d4bb; font-size:.9rem; }
+    section { padding:22px; margin-top:16px; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    th,td { border:1px solid #e8dac4; padding:10px 12px; vertical-align:top; text-align:left; }
+    th { background:#f4ecdf; }
+    ul,ol { padding-left:20px; }
+    code { background:#f4ecdf; padding:2px 6px; border-radius:6px; }
+    blockquote { margin:12px 0 0; padding:10px 14px; border-left:4px solid var(--accent); background:#fbf6ef; color:#4b4035; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="subtitle">Current V1 Build</div>
+      <h1>Nova Tone User Manual</h1>
+      <p><strong>Musical Tone Shaping Equalizer</strong></p>
+      <p><code>Nova Tone</code> is built for broad, confident EQ moves: more weight, more clarity, more air, and better balance without feeling surgical or harsh.</p>
+      <div class="chips">
+        <div class="chip">Low-End Weight</div>
+        <div class="chip">Presence & Air</div>
+        <div class="chip">Pultec-Style Workflow</div>
+        <div class="chip">Fast Musical Presets</div>
+      </div>
+    </div>
+
+    <section>
+      <h2>Quick Start</h2>
+      <ol>
+        <li>Start in <code>NEUTRAL</code>.</li>
+        <li>Choose a target low frequency with <code>LOW FREQ</code>.</li>
+        <li>Add weight with <code>LOW BOOST</code> or tighten lows with <code>LOW ATTENUATION</code>.</li>
+        <li>Pick a top-end frequency and add clarity using <code>HIGH BOOST</code>.</li>
+        <li>Use <code>BANDWIDTH</code> to make the boost broader or more focused.</li>
+        <li>Smooth harshness using <code>HIGH ATTENUATION</code>.</li>
+        <li>Level-match with <code>OUTPUT GAIN</code>.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Control Reference</h2>
+      <table>
+        <thead>
+          <tr><th>Control</th><th>What You Hear</th><th>What It Changes in the DSP</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>LOW FREQ</code></td><td>Chooses which low region gets shaped</td><td>Selects the low-shelf turnover frequency: <code>20</code>, <code>30</code>, <code>60</code>, or <code>100 Hz</code>.</td></tr>
+          <tr><td><code>LOW BOOST</code></td><td>Adds body, warmth, and weight</td><td>Raises a broad low-shelf boost at the selected low frequency.</td></tr>
+          <tr><td><code>LOW ATTENUATION</code></td><td>Tightens bloom and mud</td><td>Applies a broad low-shelf cut slightly above the selected low frequency.</td></tr>
+          <tr><td><code>HIGH BOOST FREQ</code></td><td>Chooses where presence or air lives</td><td>Selects the center frequency for the high boost from <code>3k</code> to <code>16k</code>.</td></tr>
+          <tr><td><code>HIGH BOOST</code></td><td>Adds sheen, bite, or presence</td><td>Applies a peak-filter boost at the chosen high frequency.</td></tr>
+          <tr><td><code>BANDWIDTH</code></td><td>Changes how focused the top boost feels</td><td>Adjusts the filter Q. Higher settings make the boost more focused.</td></tr>
+          <tr><td><code>HIGH ATTENUATION FREQ</code></td><td>Chooses where top softening begins</td><td>Selects the high-shelf cut frequency: <code>5k</code>, <code>10k</code>, or <code>20k</code>.</td></tr>
+          <tr><td><code>HIGH ATTENUATION</code></td><td>Smooths harshness and glare</td><td>Applies a high-shelf cut above the selected attenuation frequency.</td></tr>
+          <tr><td><code>OUTPUT GAIN</code></td><td>Matches loudness after shaping</td><td>Applies final trim from <code>-10 dB</code> to <code>+10 dB</code>.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Preset Buttons</h2>
+      <p>The preset buttons are recall buttons, not hidden DSP modes:</p>
+      <ul>
+        <li><code>NEUTRAL</code> — flat starting point</li>
+        <li><code>VOCAL</code> — clarity and presence</li>
+        <li><code>BASS</code> — classic low-end weight + control</li>
+        <li><code>AIR</code> — smooth top-end shine</li>
+        <li><code>MASTER</code> — broad mix polish</li>
+      </ul>
+      <blockquote>These presets move the actual EQ settings. They do not add secret processing behind the scenes.</blockquote>
+    </section>
+
+    <section>
+      <h2>Under the Hood</h2>
+      <p><code>Nova Tone</code> combines a low-shelf boost stage, low attenuation stage, high boost stage, and high attenuation stage. After the EQ network, it adds a light analog-style saturation pass so larger tone moves stay rich and smooth instead of brittle.</p>
+    </section>
+  </div>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Nova Tone User Manual — PDF Ready</title>
+  <style>
+    @page { size: Letter; margin: 0.65in; }
+    body { font: 11pt/1.45 Georgia, serif; color: #111; margin: 0; background: #fff; }
+    .manual { max-width: 7.2in; margin: 0 auto; }
+    h1,h2,h3 { font-family: "Helvetica Neue", Arial, sans-serif; }
+    h1 { font-size: 22pt; margin: 0 0 4pt; }
+    h2 { font-size: 14pt; margin: 18pt 0 8pt; border-bottom: 1px solid #999; padding-bottom: 4pt; }
+    p, li { margin: 0 0 8pt; }
+    .sub { color: #444; text-transform: uppercase; letter-spacing: .08em; font: 8.5pt/1.4 Arial, sans-serif; }
+    table { width: 100%; border-collapse: collapse; margin: 10pt 0; font-size: 10pt; }
+    th, td { border: 1px solid #bbb; padding: 7pt; vertical-align: top; text-align: left; }
+    th { background: #f0f0f0; }
+    .avoid-break { break-inside: avoid; page-break-inside: avoid; }
+    blockquote { margin: 10pt 0; padding: 8pt 10pt; border-left: 3pt solid #777; background: #f7f7f7; }
+    code { font-family: "Courier New", monospace; font-size: 9.5pt; }
+  </style>
+</head>
+<body>
+  <div class="manual">
+    <div class="sub">Current V1 Build</div>
+    <h1>Nova Tone User Manual</h1>
+    <p><strong>Musical Tone Shaping Equalizer</strong></p>
+    <p><code>Nova Tone</code> is a broad, musical EQ designed for weight, clarity, air, and polish rather than surgical correction.</p>
+
+    <h2>Quick Start</h2>
+    <ol>
+      <li>Start in <code>NEUTRAL</code>.</li>
+      <li>Choose the target low region with <code>LOW FREQ</code>.</li>
+      <li>Shape weight using <code>LOW BOOST</code> and <code>LOW ATTENUATION</code>.</li>
+      <li>Use the high section for presence, clarity, and air.</li>
+      <li>Match loudness with <code>OUTPUT GAIN</code>.</li>
+    </ol>
+
+    <h2>Controls</h2>
+    <table class="avoid-break">
+      <thead><tr><th>Control</th><th>DSP Function</th></tr></thead>
+      <tbody>
+        <tr><td><code>LOW FREQ</code></td><td>Selects the low-shelf turnover frequency.</td></tr>
+        <tr><td><code>LOW BOOST</code></td><td>Adds broad low-shelf boost for weight and warmth.</td></tr>
+        <tr><td><code>LOW ATTENUATION</code></td><td>Applies broad low-shelf cut for tighter low end.</td></tr>
+        <tr><td><code>HIGH BOOST FREQ</code></td><td>Selects the center frequency for top-end boost.</td></tr>
+        <tr><td><code>HIGH BOOST</code></td><td>Adds presence or air using a peak filter.</td></tr>
+        <tr><td><code>BANDWIDTH</code></td><td>Adjusts Q of the high boost stage.</td></tr>
+        <tr><td><code>HIGH ATTENUATION FREQ</code></td><td>Selects where top-end softening begins.</td></tr>
+        <tr><td><code>HIGH ATTENUATION</code></td><td>Applies high-shelf attenuation to smooth harshness.</td></tr>
+        <tr><td><code>OUTPUT GAIN</code></td><td>Applies final level trim.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Preset Buttons</h2>
+    <p><code>NEUTRAL</code>, <code>VOCAL</code>, <code>BASS</code>, <code>AIR</code>, and <code>MASTER</code> are recall buttons that set the actual EQ values to musical starting points.</p>
+
+    <blockquote>They do not add hidden extra processing beyond the visible settings.</blockquote>
+  </div>
+</body>
+</html>
