@@ -639,31 +639,113 @@
     var h = canvas.height;
     var maxWaveformHeight = h * 0.40;  // Max height from bottom
 
+    // ── All 5 knobs drive the visualization ──────────────────────────────
+    var focusAmt   = currentValues.focus        / 100;  // Where suppression targets (L↔R sweep)
+    var bodyAmt    = currentValues.body         / 100;  // Width of suppression band (narrow↔wide)
+    var smoothAmt  = currentValues.smooth       / 100;  // Character: jittery→silky
+    var airAmt     = currentValues.air_preserve / 100;  // High-freq preservation (right bars tall/short)
+    var outputAmt  = currentValues.output       / 100;  // Overall bar scale + brightness
+
+    var focusWidth = 0.06 + bodyAmt * 0.28;  // Body → how wide the dip zone is
+
+    // Output: 0%→very dim/low, 50%→normal, 100%→bright/tall
+    var outputGain = 0.18 + outputAmt * 1.64;
+
     ctx.save();
 
-    // Draw waveform bars driven by input signal as it passes through
     var barWidth = w / BINS;
 
     for (var i = 0; i < BINS; i++) {
       var x = (i / (BINS - 1)) * w;
-      var inputLevel = smoothInput[i] || 0;  // 0 to 1, responsive to vocal/audio
-      var barHeight = inputLevel * maxWaveformHeight;
+      var t = i / (BINS - 1);
+      var inputLevel = smoothInput[i] || 0;
+      var detectedReduction = smoothReduction[i] || 0;
+
+      // BODY: Gaussian band — controls spread/bandwidth of the suppression zone.
+      // Narrow body = tight notch; wide body = broad valley.
+      var dist = Math.abs(t - focusAmt);
+      var focusWeight = Math.exp(-(dist * dist) / (2 * focusWidth * focusWidth));
+
+      // AIR PRESERVE: shield high-freq bins from suppression
+      var airShield = Math.max(0, (t - 0.52) / 0.48) * airAmt * 0.92;
+
+      // SMOOTH + BODY work in tandem:
+      //   Smooth = depth  (how far bars are pushed down)
+      //   Body   = spread (how many bars are affected, via focusWeight)
+      //
+      // Suppression is ZERO outside the Body band — bars outside stay tall,
+      // making the shape of the dip clearly read the Body setting.
+      // The detector data adds extra dip when the plugin is actually processing.
+      var smoothDepth     = smoothAmt * 0.82;                                    // 0→no dip, 1→full dip
+      var detectorBoost   = detectedReduction * smoothAmt * (0.4 + 0.6 * bodyAmt); // real signal enhances it
+
+      // focusWeight confines everything to the Body band — outside the band, focusWeight≈0 → no suppression
+      var suppressionStrength = clamp(
+        (smoothDepth + detectorBoost) * focusWeight * (1 - airShield),
+        0,
+        0.96
+      );
+
+      var postLevel = Math.max(0, inputLevel * (1 - suppressionStrength));
+
+      // OUTPUT: scale bar height + opacity
+      var barHeight = postLevel * maxWaveformHeight * outputGain;
       var barY = h - barHeight;
 
-      // Create gradient for each bar
-      var barGradient = ctx.createLinearGradient(x, barY, x, h);
-      barGradient.addColorStop(0, 'rgba(180, 120, 255, 0.32)');
-      barGradient.addColorStop(0.5, 'rgba(160, 100, 240, 0.28)');
-      barGradient.addColorStop(1, 'rgba(140, 80, 220, 0.18)');
+      // Bar color: focused zone → more golden tint; air zone → more cyan/bright tint; default → purple
+      var inFocusZone     = focusWeight > 0.35;
+      var inAirZone       = t > 0.58 && airAmt > 0.2;
+      var outputBrightness = 0.55 + outputAmt * 0.55;  // Output → bar alpha
 
+      var barGradient = ctx.createLinearGradient(x, barY, x, h);
+      if (inFocusZone && !inAirZone) {
+        // Focus zone: golden-purple gradient
+        barGradient.addColorStop(0, 'rgba(244, 186, 100, ' + (0.45 * outputBrightness).toFixed(2) + ')');
+        barGradient.addColorStop(0.5, 'rgba(200, 130, 255, ' + (0.32 * outputBrightness).toFixed(2) + ')');
+        barGradient.addColorStop(1, 'rgba(140, 80, 220, ' + (0.18 * outputBrightness).toFixed(2) + ')');
+      } else if (inAirZone) {
+        // Air zone: bright cyan-white, preserved presence
+        barGradient.addColorStop(0, 'rgba(190, 240, 255, ' + (0.50 * outputBrightness).toFixed(2) + ')');
+        barGradient.addColorStop(0.5, 'rgba(150, 190, 255, ' + (0.32 * outputBrightness).toFixed(2) + ')');
+        barGradient.addColorStop(1, 'rgba(120, 140, 220, ' + (0.16 * outputBrightness).toFixed(2) + ')');
+      } else {
+        // Default: purple
+        barGradient.addColorStop(0, 'rgba(180, 120, 255, ' + (0.34 * outputBrightness).toFixed(2) + ')');
+        barGradient.addColorStop(0.5, 'rgba(160, 100, 240, ' + (0.26 * outputBrightness).toFixed(2) + ')');
+        barGradient.addColorStop(1, 'rgba(140, 80, 220, ' + (0.16 * outputBrightness).toFixed(2) + ')');
+      }
+
+      ctx.shadowColor = inAirZone ? 'rgba(180, 220, 255, 0.2)' : 'rgba(200, 140, 255, 0.16)';
+      ctx.shadowBlur = 3;
       ctx.fillStyle = barGradient;
       ctx.fillRect(x, barY, barWidth, barHeight);
+    }
 
-      // Subtle glow on the top edge of each bar
-      ctx.shadowColor = 'rgba(200, 140, 255, 0.16)';
-      ctx.shadowBlur = 3;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = -1;
+    ctx.shadowBlur = 0;
+
+    // ── Focus + Body zone highlight ──────────────────────────────────────
+    // Width = Body (spread); Intensity = Smooth (depth).
+    // This makes the highlighted band directly mirror where/how much suppression is happening.
+    var focusX = focusAmt * w;
+    var regionWidthPx = focusWidth * w;
+    var zoneOpacity = 0.06 + smoothAmt * 0.22 + bodyAmt * 0.10;  // brighter as smooth/body increase
+    var region = ctx.createRadialGradient(focusX, h - maxWaveformHeight * 0.65, 2, focusX, h - maxWaveformHeight * 0.65, regionWidthPx * 1.15);
+    region.addColorStop(0, 'rgba(255, 196, 110, ' + zoneOpacity.toFixed(2) + ')');
+    region.addColorStop(0.5, 'rgba(244, 160, 80, ' + (zoneOpacity * 0.38).toFixed(2) + ')');
+    region.addColorStop(1, 'rgba(244, 186, 120, 0)');
+    ctx.fillStyle = region;
+    ctx.fillRect(focusX - regionWidthPx, h - maxWaveformHeight, regionWidthPx * 2, maxWaveformHeight);
+
+    // ── Air preserve zone top-edge shimmer ── (visible when air is high)
+    if (airAmt > 0.1) {
+      var airOpacity = airAmt * 0.28;
+      var airX = w * 0.55;
+      var airGrd = ctx.createLinearGradient(airX, 0, w, 0);
+      airGrd.addColorStop(0, 'rgba(160, 220, 255, 0)');
+      airGrd.addColorStop(0.3, 'rgba(180, 230, 255, ' + (airOpacity * 0.35).toFixed(2) + ')');
+      airGrd.addColorStop(1, 'rgba(200, 240, 255, ' + airOpacity.toFixed(2) + ')');
+      ctx.fillStyle = airGrd;
+      ctx.fillRect(airX, h - maxWaveformHeight, w - airX, maxWaveformHeight);
     }
 
     ctx.restore();
@@ -787,8 +869,19 @@
 
     // Render particles (high-frequency sparkles)
     drawParticles(w, h);
-    var hotspotX = w * (0.63 + 0.10 * Math.sin(hotspotPhase * 0.82) + 0.018 * Math.sin(hotspotPhase * 2.7));
-    var hotspotY = h * (0.53 + 0.02 * Math.cos(hotspotPhase * 0.75));
+    var focusCenter = clamp(0.08 + 0.84 * focusAmt, 0.06, 0.94);
+    var focusBin = Math.round(focusCenter * (BINS - 1));
+    var focusWindow = 6 + Math.round(bodyAmt * 12);
+    var sumAtFocus = 0;
+    var countAtFocus = 0;
+    for (var fb = Math.max(0, focusBin - focusWindow); fb <= Math.min(BINS - 1, focusBin + focusWindow); fb++) {
+      sumAtFocus += smoothReduction[fb] || 0;
+      countAtFocus++;
+    }
+    var focusReduction = countAtFocus > 0 ? sumAtFocus / countAtFocus : 0;
+
+    var hotspotX = w * (focusCenter + 0.006 * Math.sin(hotspotPhase * 2.9));
+    var hotspotY = h * (0.56 - focusReduction * 0.22 + 0.03 * (0.5 - bodyAmt) + 0.01 * Math.cos(hotspotPhase * 1.6));
     var hotspotPulse = 0.215 + 0.065 * (0.5 + 0.5 * Math.sin(hotspotPhase * 1.8)) + 0.011 * Math.sin(hotspotPhase * 6.1);
     var bloom = ctx.createRadialGradient(hotspotX, hotspotY, 12, hotspotX, hotspotY, h * 0.54);
     bloom.addColorStop(0, 'rgba(255, 204, 130, ' + hotspotPulse.toFixed(3) + ')');
