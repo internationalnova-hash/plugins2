@@ -1012,17 +1012,19 @@
 
             var verticalMask = 0.80 + 0.20 * (1 - clamp(Math.abs(yNorm - 0.56) / 0.56, 0, 1));
             var zone = freqIn * freqOut * (0.22 + (0.78 * freqPeak)) * clusterMask * verticalMask;
+            zone = Math.max(zone, 0.16 * freqIn * freqOut);
 
             var twinklePeak = 0.72 + (0.28 * (0.5 + 0.5 * Math.sin((spectrumTime * (0.55 + p.twinkle)) + (p.phase * 1.8))));
             var alpha = p.alpha * breathe * twinklePeak * energy * zone;
+            alpha = Math.max(alpha, 0.0048);
             var core = p.size * (1.55 + p.warmth * 0.46);
             var halo = core * (3.8 + (1 - p.warmth) * 2.1);
 
             var orb = ctx.createRadialGradient(x, y, 0, x, y, halo);
-            orb.addColorStop(0, "rgba(244,250,255," + (alpha * (0.64 + (1 - p.warmth) * 0.16)).toFixed(3) + ")");
-            orb.addColorStop(0.10, "rgba(169,212,255," + (alpha * (0.34 + (1 - p.warmth) * 0.22)).toFixed(3) + ")");
-            orb.addColorStop(0.26, "rgba(255,193,112," + (alpha * (0.12 + p.warmth * 0.26)).toFixed(3) + ")");
-            orb.addColorStop(0.62, "rgba(100,154,255," + (alpha * (0.07 + (1 - p.warmth) * 0.08)).toFixed(3) + ")");
+            orb.addColorStop(0, "rgba(244,250,255," + (alpha * (0.64 + (1 - p.warmth) * 0.16)).toFixed(4) + ")");
+            orb.addColorStop(0.10, "rgba(169,212,255," + (alpha * (0.34 + (1 - p.warmth) * 0.22)).toFixed(4) + ")");
+            orb.addColorStop(0.26, "rgba(255,193,112," + (alpha * (0.12 + p.warmth * 0.26)).toFixed(4) + ")");
+            orb.addColorStop(0.62, "rgba(100,154,255," + (alpha * (0.07 + (1 - p.warmth) * 0.08)).toFixed(4) + ")");
             orb.addColorStop(1, "rgba(255,176,112,0)");
 
             ctx.fillStyle = orb;
@@ -1030,7 +1032,7 @@
             ctx.arc(x, y, halo, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.fillStyle = "rgba(247,250,255," + (alpha * (0.56 + (1 - p.warmth) * 0.22)).toFixed(3) + ")";
+            ctx.fillStyle = "rgba(247,250,255," + (alpha * (0.56 + (1 - p.warmth) * 0.22)).toFixed(4) + ")";
             ctx.beginPath();
             ctx.arc(x, y, core, 0, Math.PI * 2);
             ctx.fill();
