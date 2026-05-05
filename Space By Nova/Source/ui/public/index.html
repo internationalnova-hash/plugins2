@@ -435,19 +435,16 @@
       position: absolute;
       border-radius: 50%;
       background:
-        radial-gradient(circle at 34% 22%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.06) 16%, transparent 40%),
-        radial-gradient(circle at 68% 76%, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.12) 26%, transparent 48%),
-        radial-gradient(circle at 50% 48%, rgba(255, 163, 70, 0.16) 0%, rgba(255, 138, 42, 0.08) 24%, rgba(255, 138, 42, 0.0) 52%),
-        repeating-conic-gradient(from -8deg, rgba(190, 214, 244, 0.018) 0deg 4deg, rgba(12, 18, 30, 0.0) 4deg 11deg),
-        radial-gradient(circle at 50% 42%, #25364d 0%, #162334 42%, #0a111d 78%, #060b14 100%);
-      border: 1px solid rgba(132, 168, 209, 0.32);
+        radial-gradient(circle at 50% 44%, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 36%, rgba(0,0,0,0.60) 100%),
+        radial-gradient(circle at 50% 45%, #2a3d56 0%, #1a283b 42%, #0c1523 76%, #050b14 100%);
+      border: 1px solid rgba(128, 164, 210, 0.24);
       box-shadow:
-        inset 0 1px 0 rgba(232, 244, 255, 0.20),
-        inset 0 0 18px rgba(255, 154, 60, 0.08),
-        inset 0 -14px 20px rgba(0, 0, 0, 0.54),
-        0 12px 20px rgba(0, 0, 0, 0.20),
-        0 0 0 1px rgba(122, 154, 202, 0.10),
-        0 0 0 4px rgba(6, 11, 19, 0.72);
+        inset 0 1px 0 rgba(228, 242, 255, 0.16),
+        inset 0 4px 10px rgba(0, 0, 0, 0.60),
+        inset 0 -14px 20px rgba(0, 0, 0, 0.56),
+        0 6px 20px rgba(0, 0, 0, 0.50),
+        0 0 0 1.25px rgba(255, 170, 70, 0.35),
+        0 0 6px rgba(255, 140, 60, 0.22);
       overflow: visible;
       cursor: ns-resize;
       user-select: none;
@@ -461,50 +458,50 @@
       transform: translateY(-1px);
       filter: brightness(1.03);
       box-shadow:
-        inset 0 1px 0 rgba(224,240,255,0.28),
-        inset 0 -10px 18px rgba(0, 0, 0, 0.54),
-        0 14px 24px rgba(0, 0, 0, 0.28),
-        0 0 0 4px rgba(9, 15, 26, 0.72);
+        inset 0 1px 0 rgba(226,242,255,0.22),
+        inset 0 4px 11px rgba(0, 0, 0, 0.62),
+        inset 0 -12px 18px rgba(0, 0, 0, 0.54),
+        0 8px 24px rgba(0, 0, 0, 0.52),
+        0 0 0 1.25px rgba(255, 168, 70, 0.42),
+        0 0 10px rgba(255, 140, 60, 0.30);
     }
 
     .knob-shell::before {
       content: "";
       position: absolute;
-      inset: 8px;
+      inset: 10px;
       border-radius: 50%;
-      border: 1px solid rgba(220,236,255,0.18);
+      border: 1px solid rgba(255,170,70,0.30);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.08),
-        inset 0 0 0 1px rgba(120, 153, 192, 0.14),
-        inset 0 -8px 12px rgba(0, 0, 0, 0.22);
-      opacity: 0.9;
+        0 0 6px rgba(255,140,60,0.24),
+        inset 0 1px 0 rgba(255,244,224,0.10),
+        inset 0 -8px 14px rgba(0, 0, 0, 0.36);
+      opacity: 0.92;
       pointer-events: none;
     }
 
     .knob-shell::after {
       content: "";
       position: absolute;
-      inset: -8px;
+      inset: 11px;
       border-radius: 50%;
-      background: repeating-conic-gradient(from -118deg, rgba(184, 202, 228, 0.11) 0deg 1.2deg, transparent 1.2deg 12deg);
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
-      opacity: 0.07;
+      background: repeating-conic-gradient(from -118deg, rgba(188, 214, 248, 0.11) 0deg 2.2deg, rgba(10,16,28,0) 2.2deg 11deg);
+      filter: blur(0.6px);
+      opacity: 0.10;
       pointer-events: none;
     }
 
     .knob-shell.large {
       background:
-        radial-gradient(circle at 31% 23%, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.08) 16%, transparent 42%),
-        radial-gradient(circle at 50% 50%, rgba(255, 160, 62, 0.18) 0%, rgba(255, 138, 42, 0.07) 28%, rgba(255, 138, 42, 0.0) 52%),
-        repeating-conic-gradient(from -6deg, rgba(196,215,242,0.02) 0deg 4deg, rgba(10,16,28,0.0) 4deg 11deg),
-        radial-gradient(circle at 50% 42%, #293b53 0%, #18263a 42%, #0b1421 78%, #060b14 100%);
+        radial-gradient(circle at 50% 44%, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 38%, rgba(0,0,0,0.62) 100%),
+        radial-gradient(circle at 50% 42%, #2c415b 0%, #1a293f 42%, #0c1625 78%, #050b14 100%);
       box-shadow:
-        inset 0 1px 0 rgba(225,240,255,0.22),
-        inset 0 -12px 22px rgba(0, 0, 0, 0.52),
-        0 12px 22px rgba(0, 0, 0, 0.20),
-        0 0 0 1px rgba(122,154,202,0.10),
-        0 0 0 5px rgba(9, 15, 26, 0.68);
+        inset 0 1px 0 rgba(226,242,255,0.18),
+        inset 0 4px 12px rgba(0, 0, 0, 0.62),
+        inset 0 -12px 20px rgba(0, 0, 0, 0.56),
+        0 8px 24px rgba(0, 0, 0, 0.56),
+        0 0 0 1.25px rgba(255,170,70,0.35),
+        0 0 8px rgba(255,140,60,0.24);
     }
 
     .indicator {
@@ -519,8 +516,8 @@
       position: absolute;
       inset: 14%;
       border-radius: 50%;
-      background: radial-gradient(circle at 50% 36%, rgba(255, 179, 71, 0.28) 0%, rgba(255, 138, 42, 0.14) 26%, rgba(255, 138, 42, 0.0) 62%);
-      filter: blur(6px);
+      background: radial-gradient(circle at 50% 36%, rgba(255, 179, 71, 0.34) 0%, rgba(255, 138, 42, 0.18) 28%, rgba(255, 138, 42, 0.0) 64%);
+      filter: blur(7px);
       opacity: 0.98;
     }
 
@@ -531,31 +528,31 @@
       border-radius: 50%;
       background: conic-gradient(
         from 220deg,
-        rgba(255, 138, 42, 0.00) 0deg 8deg,
-        rgba(255, 138, 42, 0.68) 8deg 16deg,
-        #ff8a2a 16deg 60deg,
-        #ffb347 60deg 98deg,
-        rgba(255, 179, 71, 0.14) 98deg 108deg,
+        rgba(255, 106, 0, 0.00) 0deg 8deg,
+        rgba(255, 106, 0, 0.80) 8deg 16deg,
+        #ff6a00 16deg 60deg,
+        #ff9a3c 60deg 100deg,
+        rgba(255, 154, 60, 0.22) 100deg 112deg,
         transparent 114deg 360deg
       );
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 16px), #000 calc(100% - 9px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 16px), #000 calc(100% - 9px));
-      filter: drop-shadow(0 0 5px rgba(255, 138, 42, 0.26));
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 17px), #000 calc(100% - 10px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 17px), #000 calc(100% - 10px));
+      filter: drop-shadow(0 0 10px rgba(255, 140, 60, 0.60));
       opacity: 0.98;
     }
 
     .indicator::after {
       content: "";
       position: absolute;
-      width: 13px;
-      height: 22px;
+      width: 10px;
+      height: 24px;
       left: 50%;
       top: 16%;
       transform: translateX(-50%);
-      clip-path: polygon(28% 100%, 72% 100%, 82% 24%, 50% 0%, 18% 24%);
+      border-radius: 999px;
       background: linear-gradient(180deg, rgba(255,242,218,0.98) 0%, rgba(255,222,170,0.96) 32%, rgba(255,181,97,0.92) 76%, rgba(255,138,42,0.82) 100%);
       box-shadow:
-        0 0 11px rgba(255, 187, 104, 0.38),
+        0 0 8px rgba(255, 187, 104, 0.30),
         0 0 2px rgba(255, 244, 225, 0.84);
     }
 
@@ -563,29 +560,29 @@
       inset: 10%;
       background: conic-gradient(
         from 220deg,
-        rgba(255, 138, 42, 0.00) 0deg 10deg,
-        rgba(255, 138, 42, 0.68) 10deg 20deg,
-        #ff8a2a 20deg 66deg,
-        #ffb347 66deg 102deg,
-        rgba(255, 179, 71, 0.14) 102deg 112deg,
+        rgba(255, 106, 0, 0.00) 0deg 10deg,
+        rgba(255, 106, 0, 0.82) 10deg 20deg,
+        #ff6a00 20deg 66deg,
+        #ff9a3c 66deg 104deg,
+        rgba(255, 154, 60, 0.24) 104deg 114deg,
         transparent 118deg 360deg
       );
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 18px), #000 calc(100% - 10px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 18px), #000 calc(100% - 10px));
-      filter: drop-shadow(0 0 5px rgba(255, 151, 58, 0.24));
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 19px), #000 calc(100% - 11px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 19px), #000 calc(100% - 11px));
+      filter: drop-shadow(0 0 10px rgba(255, 140, 60, 0.56));
     }
 
     .large .indicator::after {
-      width: 14px;
+      width: 11px;
       height: 32px;
       top: 12%;
       left: 50%;
       right: auto;
       transform: translateX(-50%);
-      clip-path: polygon(34% 100%, 66% 100%, 84% 24%, 50% 0%, 16% 24%);
+      border-radius: 999px;
       background: linear-gradient(180deg, rgba(255,246,230,0.98) 0%, rgba(255,229,190,0.96) 34%, rgba(255,188,109,0.92) 76%, rgba(255,141,44,0.84) 100%);
       box-shadow:
-        0 0 12px rgba(255, 188, 109, 0.34),
+        0 0 9px rgba(255, 188, 109, 0.30),
         0 0 2px rgba(255, 244, 225, 0.84);
     }
 
@@ -712,18 +709,18 @@
       border-radius: 18px;
       border: 1px solid rgba(93, 119, 160, 0.42);
       background:
-        linear-gradient(180deg, rgba(214,232,255,0.08) 0%, rgba(214,232,255,0.02) 14%, transparent 15%),
-        linear-gradient(180deg, #102035 0%, #091321 100%);
-      color: #b8beca;
+        linear-gradient(180deg, rgba(184,206,236,0.06) 0%, rgba(184,206,236,0.015) 14%, transparent 15%),
+        linear-gradient(180deg, #0d1a2d 0%, #060f1c 100%);
+      color: #a9b1bf;
       font-size: 18px;
       font-weight: 600;
       letter-spacing: 0.11em;
       cursor: pointer;
       text-shadow: none;
       box-shadow:
-        inset 0 1px 0 rgba(203,223,249,0.12),
-        inset 0 -3px 5px rgba(0, 0, 0, 0.24),
-        0 8px 16px rgba(0, 0, 0, 0.14);
+        inset 0 1px 0 rgba(192,214,244,0.09),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.32),
+        0 6px 12px rgba(0, 0, 0, 0.12);
       transition: background var(--ease), color var(--ease), box-shadow var(--ease), transform var(--ease), filter var(--ease);
       user-select: none;
       -webkit-user-select: none;
@@ -746,7 +743,7 @@
         inset 0 1px 0 rgba(255,255,255,0.22),
         inset 0 -4px 7px rgba(115, 48, 8, 0.24),
         0 0 0 1px rgba(255, 167, 62, 0.14),
-        0 0 14px rgba(255, 138, 42, 0.22),
+        0 0 20px rgba(255, 120, 40, 0.60),
         0 10px 18px rgba(0, 0, 0, 0.18);
     }
 
@@ -949,9 +946,9 @@
 
       function initialiseParticles() {
         var layerSpecs = [
-          { count: 14, sizeMin: 1.9, sizeMax: 2.9, alphaMin: 0.060, alphaMax: 0.120, speedMin: 0.00005, speedMax: 0.00011, driftMin: 0.00028, driftMax: 0.00072, spreadX: 0.040, spreadY: 0.105, spawnJitterX: 0.008, spawnJitterY: 0.024 },
-          { count: 30, sizeMin: 1.15, sizeMax: 1.95, alphaMin: 0.044, alphaMax: 0.086, speedMin: 0.00004, speedMax: 0.00009, driftMin: 0.00020, driftMax: 0.00056, spreadX: 0.060, spreadY: 0.145, spawnJitterX: 0.012, spawnJitterY: 0.032 },
-          { count: 56, sizeMin: 0.70, sizeMax: 1.28, alphaMin: 0.026, alphaMax: 0.056, speedMin: 0.00002, speedMax: 0.00006, driftMin: 0.00014, driftMax: 0.00038, spreadX: 0.086, spreadY: 0.205, spawnJitterX: 0.018, spawnJitterY: 0.042 }
+          { count: 14, sizeMin: 2.5, sizeMax: 4.0, alphaMin: 0.16, alphaMax: 0.26, speedMin: 0.00002, speedMax: 0.00004, driftMin: 0.00016, driftMax: 0.00036, spreadX: 0.040, spreadY: 0.105, spawnJitterX: 0.008, spawnJitterY: 0.024 },
+          { count: 20, sizeMin: 1.7, sizeMax: 2.9, alphaMin: 0.11, alphaMax: 0.20, speedMin: 0.000016, speedMax: 0.000032, driftMin: 0.00011, driftMax: 0.00028, spreadX: 0.060, spreadY: 0.145, spawnJitterX: 0.012, spawnJitterY: 0.032 },
+          { count: 28, sizeMin: 1.0, sizeMax: 1.9, alphaMin: 0.07, alphaMax: 0.14, speedMin: 0.000010, speedMax: 0.000024, driftMin: 0.00008, driftMax: 0.00020, spreadX: 0.086, spreadY: 0.205, spawnJitterX: 0.018, spawnJitterY: 0.042 }
         ];
 
         particleLayers = [];
@@ -969,7 +966,7 @@
         if (!particleLayers || particleLayers.length === 0) return;
 
         var chartHeight = chartBottom - chartTop;
-        var energy = 1.10 + (mixPct * 0.22) + (spacePct * 0.14) + (airPct * 0.12);
+        var energy = 1.12 + (mixPct * 0.20) + (spacePct * 0.14) + (airPct * 0.12);
 
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
@@ -989,6 +986,7 @@
 
             p.xNorm += (p.homeX - p.xNorm) * 0.0038;
             p.yNorm += (p.homeY - p.yNorm) * 0.0008;
+            p.xNorm += p.speed * 0.8;
 
             var driftA = Math.sin((spectrumTime * 0.050) + p.phase) * p.drift;
             var driftB = Math.sin((spectrumTime * 0.021) + (p.phase * 1.34)) * p.drift * 0.38;
@@ -1019,15 +1017,14 @@
 
             var twinklePeak = 0.72 + (0.28 * (0.5 + 0.5 * Math.sin((spectrumTime * (0.55 + p.twinkle)) + (p.phase * 1.8))));
             var alpha = p.alpha * breathe * twinklePeak * energy * zone;
-            alpha = Math.max(alpha, 0.08);
-            var core = p.size * (2.30 + p.warmth * 0.64);
-            var halo = core * (5.2 + (1 - p.warmth) * 2.7);
+            alpha = Math.max(alpha, 0.10);
+            var core = p.size * (0.85 + p.warmth * 0.35);
+            var halo = core * (4.8 + (1 - p.warmth) * 2.6);
 
             var orb = ctx.createRadialGradient(x, y, 0, x, y, halo);
-            orb.addColorStop(0, "rgba(244,250,255," + (alpha * (0.64 + (1 - p.warmth) * 0.16)).toFixed(4) + ")");
-            orb.addColorStop(0.10, "rgba(169,212,255," + (alpha * (0.34 + (1 - p.warmth) * 0.22)).toFixed(4) + ")");
-            orb.addColorStop(0.26, "rgba(255,193,112," + (alpha * (0.12 + p.warmth * 0.26)).toFixed(4) + ")");
-            orb.addColorStop(0.62, "rgba(100,154,255," + (alpha * (0.07 + (1 - p.warmth) * 0.08)).toFixed(4) + ")");
+            orb.addColorStop(0, "rgba(255,255,255," + (alpha * (0.56 + (1 - p.warmth) * 0.20)).toFixed(4) + ")");
+            orb.addColorStop(0.16, "rgba(120,170,255," + (alpha * (0.24 + (1 - p.warmth) * 0.18)).toFixed(4) + ")");
+            orb.addColorStop(0.56, "rgba(255,255,255," + (alpha * 0.10).toFixed(4) + ")");
             orb.addColorStop(1, "rgba(255,176,112,0)");
 
             ctx.fillStyle = orb;
@@ -1035,13 +1032,13 @@
             ctx.arc(x, y, halo, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.fillStyle = "rgba(247,250,255," + (alpha * (0.56 + (1 - p.warmth) * 0.22)).toFixed(4) + ")";
+            ctx.fillStyle = "rgba(255,255,255," + (alpha * (0.70 + (1 - p.warmth) * 0.14)).toFixed(4) + ")";
             ctx.beginPath();
             ctx.arc(x, y, core, 0, Math.PI * 2);
             ctx.fill();
 
             // Extra crisp star core to keep particles visible at smaller canvas scales.
-            ctx.fillStyle = "rgba(255,248,226," + (alpha * (0.78 + p.warmth * 0.14)).toFixed(4) + ")";
+            ctx.fillStyle = "rgba(255,255,255," + (alpha * (0.84 + p.warmth * 0.12)).toFixed(4) + ")";
             ctx.beginPath();
             ctx.arc(x, y, Math.max(0.8, core * 0.20), 0, Math.PI * 2);
             ctx.fill();
@@ -1049,8 +1046,8 @@
         }
 
         // Accent sparkle layer ensures visible stars in the upper-right wet region.
-        var accentCount = 30;
-        var accentEnergy = 0.40 + (mixPct * 0.20) + (airPct * 0.22);
+        var accentCount = 14;
+        var accentEnergy = 0.24 + (mixPct * 0.12) + (airPct * 0.12);
         for (var si = 0; si < accentCount; si += 1) {
           var sn = si / accentCount;
           var px = W * (0.66 + sn * 0.30) + Math.sin((spectrumTime * 0.55) + (si * 1.7)) * (5 + si * 0.1);
@@ -1058,18 +1055,18 @@
           var py = chartTop + pyNorm * chartHeight;
           var pulse = 0.66 + (0.34 * (0.5 + 0.5 * Math.sin((spectrumTime * 1.25) + (si * 2.1))));
           var pa = accentEnergy * pulse;
-          var pr = 1.7 + (si % 3) * 0.45;
+          var pr = 1.2 + (si % 3) * 0.30;
 
           var star = ctx.createRadialGradient(px, py, 0, px, py, pr * 5.8);
-          star.addColorStop(0, "rgba(255,238,188," + (pa * 0.92).toFixed(4) + ")");
-          star.addColorStop(0.25, "rgba(171,216,255," + (pa * 0.42).toFixed(4) + ")");
+          star.addColorStop(0, "rgba(255,255,255," + (pa * 0.70).toFixed(4) + ")");
+          star.addColorStop(0.25, "rgba(120,170,255," + (pa * 0.34).toFixed(4) + ")");
           star.addColorStop(1, "rgba(171,216,255,0)");
           ctx.fillStyle = star;
           ctx.beginPath();
           ctx.arc(px, py, pr * 5.8, 0, Math.PI * 2);
           ctx.fill();
 
-          ctx.fillStyle = "rgba(255,248,220," + (pa * 1.00).toFixed(4) + ")";
+          ctx.fillStyle = "rgba(255,255,255," + (pa * 0.80).toFixed(4) + ")";
           ctx.beginPath();
           ctx.arc(px, py, pr * 0.75, 0, Math.PI * 2);
           ctx.fill();
@@ -1616,7 +1613,7 @@
         ctx.fillStyle = hazeB;
         ctx.fillRect(0, 0, W, H);
 
-        ctx.strokeStyle = "rgba(160,188,222,0.075)";
+        ctx.strokeStyle = "rgba(160,188,222,0.068)";
         ctx.lineWidth = 1;
         var gridFreqs = [0.07, 0.18, 0.34, 0.5, 0.66, 0.8, 0.93];
         for (var gi = 0; gi < gridFreqs.length; gi += 1) {
@@ -1638,10 +1635,10 @@
           if (e2 === 0) ctx.moveTo(ex2, chartBottom - eh2);
           else ctx.lineTo(ex2, chartBottom - eh2);
         }
-        ctx.strokeStyle = "rgba(133,178,241,0.76)";
+        ctx.strokeStyle = "rgba(133,178,241,0.70)";
         ctx.lineWidth = 1.0;
-        ctx.shadowColor = "rgba(118,162,234,0.20)";
-        ctx.shadowBlur = 4;
+        ctx.shadowColor = "rgba(118,162,234,0.12)";
+        ctx.shadowBlur = 2;
         ctx.stroke();
         ctx.shadowBlur = 0;
 
@@ -1700,16 +1697,25 @@
           if (d === 0) ctx.moveTo(dx, chartBottom - dh);
           else ctx.lineTo(dx, chartBottom - dh);
         }
-        ctx.strokeStyle = "rgba(255,168,77,0.98)";
-        ctx.lineWidth = 2.4;
-        ctx.shadowColor = "rgba(255,138,42,0.20)";
-        ctx.shadowBlur = 4;
+        var dryGrad = ctx.createLinearGradient(0, 0, W, 0);
+        dryGrad.addColorStop(0, "#ff9a3c");
+        dryGrad.addColorStop(1, "#ff6a00");
+        ctx.strokeStyle = dryGrad;
+        ctx.lineWidth = 2.25;
+        ctx.shadowColor = "rgba(255,140,60,0.50)";
+        ctx.shadowBlur = 10;
         ctx.stroke();
         ctx.shadowBlur = 0;
 
         ctx.globalCompositeOperation = "screen";
         drawParticles(ctx, W, chartTop, chartBottom, mixPct, spacePct, airPct);
         ctx.globalCompositeOperation = "source-over";
+
+        var vignette = ctx.createRadialGradient(W * 0.5, chartTop + chartHeight * 0.5, chartHeight * 0.2, W * 0.5, chartTop + chartHeight * 0.5, chartHeight * 0.92);
+        vignette.addColorStop(0, "rgba(0,0,0,0)");
+        vignette.addColorStop(1, "rgba(0,0,0,0.24)");
+        ctx.fillStyle = vignette;
+        ctx.fillRect(0, chartTop, W, chartHeight);
       }
 
       function renderSpectrum() {
