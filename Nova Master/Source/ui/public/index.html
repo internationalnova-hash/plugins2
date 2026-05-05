@@ -40,8 +40,8 @@
     }
 
     .plugin {
-      width: 1536px;
-      height: 1024px;
+      width: min(1536px, calc(100vw - 28px));
+      height: min(940px, calc(100vh - 28px));
       border-radius: 26px;
       border: 1px solid rgba(255, 187, 52, 0.35);
       background:
@@ -54,12 +54,10 @@
         inset 0 -30px 70px rgba(0,0,0,0.45);
       padding: 18px 18px 16px;
       display: grid;
-      grid-template-rows: 88px 255px 1fr 84px;
+      grid-template-rows: 132px 255px 1fr 84px;
       gap: 12px;
       position: relative;
       overflow: hidden;
-      transform: scale(var(--ui-scale, 1));
-      transform-origin: center center;
     }
 
     .row {
@@ -1390,22 +1388,10 @@
 
       function boot() {
         buildKnobs();
-
-        function fitToViewport() {
-          const scale = Math.min(
-            (window.innerWidth - 28) / 1536,
-            (window.innerHeight - 28) / 1024,
-            1
-          );
-          root.style.setProperty('--ui-scale', String(Math.max(0.35, scale)));
-        }
-
-        fitToViewport();
         resizeCanvas(scopeCanvas, scopeCtx);
         resizeCanvas(stereoCanvas, stereoCtx);
         resizeCanvas(drCanvas, drCtx);
         window.addEventListener('resize', () => {
-          fitToViewport();
           resizeCanvas(scopeCanvas, scopeCtx);
           resizeCanvas(stereoCanvas, stereoCtx);
           resizeCanvas(drCanvas, drCtx);
