@@ -383,11 +383,12 @@
       padding: 7px 12px 6px;
       background: linear-gradient(180deg, rgba(16, 24, 37, 0.90) 0%, rgba(9, 14, 24, 0.98) 100%);
       border: 1px solid rgba(88, 112, 148, 0.44);
-      color: var(--gold-soft);
+      color: #ffc980;
       box-shadow:
         inset 0 1px 0 rgba(192, 214, 246, 0.08),
         inset 0 0 10px rgba(90, 122, 171, 0.10),
         0 8px 16px rgba(0, 0, 0, 0.18);
+      text-shadow: 0 0 6px rgba(255, 140, 60, 0.30);
     }
 
     .controls-grid .value.width-value {
@@ -930,10 +931,10 @@
       var smoothedBloom = new Float32Array(SPECTRUM_BINS);
       var particleLayers = [];
       var particleClusters = [
-        { x: 0.66, y: 0.72, weight: 0.22 },
-        { x: 0.74, y: 0.63, weight: 0.28 },
+        { x: 0.70, y: 0.72, weight: 0.22 },
+        { x: 0.76, y: 0.63, weight: 0.28 },
         { x: 0.82, y: 0.53, weight: 0.30 },
-        { x: 0.90, y: 0.43, weight: 0.20 }
+        { x: 0.88, y: 0.43, weight: 0.20 }
       ];
 
       function randomRange(min, max) {
@@ -996,9 +997,9 @@
 
       function initialiseParticles() {
         var layerSpecs = [
-          { count: 20, sizeMin: 1.6, sizeMax: 3.0, alphaMin: 0.15, alphaMax: 0.25, speedMin: 0.000009, speedMax: 0.000018, driftMin: 0.00006, driftMax: 0.00014, spreadX: 0.082, spreadY: 0.198, spawnJitterX: 0.016, spawnJitterY: 0.040 },
-          { count: 24, sizeMin: 1.3, sizeMax: 2.6, alphaMin: 0.30, alphaMax: 0.50, speedMin: 0.000014, speedMax: 0.000028, driftMin: 0.00010, driftMax: 0.00022, spreadX: 0.066, spreadY: 0.160, spawnJitterX: 0.012, spawnJitterY: 0.032 },
-          { count: 16, sizeMin: 1.0, sizeMax: 2.2, alphaMin: 0.60, alphaMax: 0.80, speedMin: 0.000020, speedMax: 0.000040, driftMin: 0.00014, driftMax: 0.00030, spreadX: 0.044, spreadY: 0.112, spawnJitterX: 0.008, spawnJitterY: 0.024 }
+          { count: 20, sizeMin: 1.6, sizeMax: 3.0, alphaMin: 0.15, alphaMax: 0.25, speedMin: 0.000009, speedMax: 0.000018, driftMin: 0.00006, driftMax: 0.00014, spreadX: 0.066, spreadY: 0.198, spawnJitterX: 0.013, spawnJitterY: 0.040 },
+          { count: 24, sizeMin: 1.3, sizeMax: 2.6, alphaMin: 0.30, alphaMax: 0.50, speedMin: 0.000014, speedMax: 0.000028, driftMin: 0.00010, driftMax: 0.00022, spreadX: 0.054, spreadY: 0.160, spawnJitterX: 0.010, spawnJitterY: 0.032 },
+          { count: 16, sizeMin: 1.0, sizeMax: 2.2, alphaMin: 0.60, alphaMax: 0.80, speedMin: 0.000020, speedMax: 0.000040, driftMin: 0.00014, driftMax: 0.00030, spreadX: 0.036, spreadY: 0.112, spawnJitterX: 0.007, spawnJitterY: 0.024 }
         ];
 
         particleLayers = [];
@@ -1054,7 +1055,7 @@
             var driftA = Math.sin((spectrumTime * (0.082 + airPct * 0.028)) + p.phase) * p.drift * (1.38 + airPct * 0.54);
             var driftB = Math.sin((spectrumTime * (0.040 + widthPct * 0.020)) + (p.phase * 1.34)) * p.drift * (0.82 + widthPct * 0.32);
             var driftC = Math.cos((spectrumTime * 0.066) + (p.phase * 0.73)) * p.drift * 0.56;
-            var xNorm = clamp(p.xNorm + driftA + driftB + driftC, 0.54, 0.988);
+            var xNorm = clamp(p.xNorm + driftA + driftB + driftC, 0.60, 0.965);
             var yNorm = clamp(
               p.yNorm + Math.sin((spectrumTime * 0.041) + p.phase) * (0.0014 + depthPct * 0.0010) + Math.cos((spectrumTime * 0.023) + (p.phase * 0.6)) * (0.0008 + spacePct * 0.0007),
               0.08,
@@ -1139,7 +1140,7 @@
         var anchorCount = 12;
         for (var ai = 0; ai < anchorCount; ai += 1) {
           var at = ai / (anchorCount - 1);
-          var axNorm = 0.66 + at * 0.27 + Math.sin((spectrumTime * 0.42) + ai * 0.6) * 0.006;
+          var axNorm = 0.70 + at * 0.21 + Math.sin((spectrumTime * 0.42) + ai * 0.6) * 0.006;
           var ayNorm = 0.74 - at * 0.31 + Math.cos((spectrumTime * 0.36) + ai * 0.8) * 0.010;
           var ax = clamp(axNorm, 0.56, 0.988) * W;
           var ay = chartTop + clamp(ayNorm, 0.08, 0.94) * chartHeight;
@@ -1156,12 +1157,32 @@
           ctx.fill();
         }
 
+        // Core particles tighten the perceived reverb-energy pocket.
+        var coreCount = 8;
+        for (var cp = 0; cp < coreCount; cp += 1) {
+          var cxNorm = 0.80 + Math.sin((spectrumTime * 0.50) + cp * 1.1) * 0.020;
+          var cyNorm = 0.56 + Math.cos((spectrumTime * 0.44) + cp * 1.5) * 0.040;
+          var cx = clamp(cxNorm, 0.64, 0.94) * W;
+          var cy = chartTop + clamp(cyNorm, 0.16, 0.90) * chartHeight;
+          var cpPulse = 0.76 + 0.24 * (0.5 + 0.5 * Math.sin((spectrumTime * 1.6) + cp * 0.9));
+          var cr = 1.0 + (cp % 3) * 0.22;
+
+          var coreOrb = ctx.createRadialGradient(cx, cy, 0, cx, cy, cr * 7.2);
+          coreOrb.addColorStop(0, "rgba(255,245,220," + Math.min(0.75, (0.34 + mixPct * 0.18) * cpPulse).toFixed(4) + ")");
+          coreOrb.addColorStop(0.28, "rgba(120,170,255," + Math.min(0.75, (0.20 + airPct * 0.14) * cpPulse).toFixed(4) + ")");
+          coreOrb.addColorStop(1, "rgba(120,170,255,0)");
+          ctx.fillStyle = coreOrb;
+          ctx.beginPath();
+          ctx.arc(cx, cy, cr * 7.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
         // Accent sparkle layer ensures visible stars in the upper-right wet region.
         var accentCount = Math.round(8 + (airPct * 4) + (mixPct * 3));
         var accentEnergy = 0.24 + (mixPct * 0.12) + (airPct * 0.12);
         for (var si = 0; si < accentCount; si += 1) {
           var sn = si / accentCount;
-          var px = W * (0.64 + sn * (0.24 + widthPct * 0.10)) + Math.sin((spectrumTime * (0.76 + airPct * 0.26)) + (si * 1.7)) * (6 + si * 0.14 + widthPct * 2.0);
+          var px = W * (0.68 + sn * (0.20 + widthPct * 0.08)) + Math.sin((spectrumTime * (0.76 + airPct * 0.26)) + (si * 1.7)) * (5 + si * 0.12 + widthPct * 1.4);
           var pyNorm = 0.22 + (0.56 * (0.5 + 0.5 * Math.sin((spectrumTime * 0.82) + (si * 1.13))));
           var py = chartTop + pyNorm * chartHeight;
           var pulse = 0.66 + (0.34 * (0.5 + 0.5 * Math.sin((spectrumTime * 1.25) + (si * 2.1))));
@@ -1829,19 +1850,19 @@
         ctx.restore();
 
         var dryGrad = ctx.createLinearGradient(0, 0, W, 0);
-        dryGrad.addColorStop(0, "#ff9a3c");
+        dryGrad.addColorStop(0, "#ffab4f");
         dryGrad.addColorStop(0.52, "#ffb347");
-        dryGrad.addColorStop(1, "#ff6a00");
+        dryGrad.addColorStop(1, "#ff7a12");
         ctx.strokeStyle = dryGrad;
-        ctx.lineWidth = 2.75;
+        ctx.lineWidth = 3.0;
         var dryGlowPulse = 0.92 + (0.08 * (0.5 + 0.5 * Math.sin(spectrumTime * 1.7)));
         var peakBoost = 0.92 + (0.16 * dryPeakNorm);
-        ctx.shadowColor = "rgba(255,140,60,0.60)";
-        ctx.shadowBlur = 10 * dryGlowPulse * peakBoost;
+        ctx.shadowColor = "rgba(255,140,60,0.65)";
+        ctx.shadowBlur = 16 * dryGlowPulse * peakBoost;
         ctx.stroke();
 
         ctx.shadowColor = "rgba(255,120,40,0.25)";
-        ctx.shadowBlur = 24 * dryGlowPulse * peakBoost;
+        ctx.shadowBlur = 28 * dryGlowPulse * peakBoost;
         ctx.stroke();
         ctx.shadowBlur = 0;
 
