@@ -949,9 +949,9 @@
 
       function initialiseParticles() {
         var layerSpecs = [
-          { count: 7,  sizeMin: 1.55, sizeMax: 2.3, alphaMin: 0.028, alphaMax: 0.058, speedMin: 0.00005, speedMax: 0.00011, driftMin: 0.00028, driftMax: 0.00072, spreadX: 0.032, spreadY: 0.092, spawnJitterX: 0.006, spawnJitterY: 0.020 },
-          { count: 16, sizeMin: 0.95, sizeMax: 1.55, alphaMin: 0.020, alphaMax: 0.042, speedMin: 0.00004, speedMax: 0.00009, driftMin: 0.00020, driftMax: 0.00056, spreadX: 0.050, spreadY: 0.130, spawnJitterX: 0.010, spawnJitterY: 0.028 },
-          { count: 30, sizeMin: 0.55, sizeMax: 1.05, alphaMin: 0.010, alphaMax: 0.026, speedMin: 0.00002, speedMax: 0.00006, driftMin: 0.00014, driftMax: 0.00038, spreadX: 0.072, spreadY: 0.185, spawnJitterX: 0.013, spawnJitterY: 0.036 }
+          { count: 10, sizeMin: 1.7, sizeMax: 2.6, alphaMin: 0.042, alphaMax: 0.086, speedMin: 0.00005, speedMax: 0.00011, driftMin: 0.00028, driftMax: 0.00072, spreadX: 0.036, spreadY: 0.100, spawnJitterX: 0.007, spawnJitterY: 0.022 },
+          { count: 22, sizeMin: 1.05, sizeMax: 1.75, alphaMin: 0.030, alphaMax: 0.064, speedMin: 0.00004, speedMax: 0.00009, driftMin: 0.00020, driftMax: 0.00056, spreadX: 0.056, spreadY: 0.140, spawnJitterX: 0.011, spawnJitterY: 0.030 },
+          { count: 40, sizeMin: 0.62, sizeMax: 1.16, alphaMin: 0.018, alphaMax: 0.042, speedMin: 0.00002, speedMax: 0.00006, driftMin: 0.00014, driftMax: 0.00038, spreadX: 0.082, spreadY: 0.200, spawnJitterX: 0.016, spawnJitterY: 0.040 }
         ];
 
         particleLayers = [];
@@ -996,9 +996,9 @@
             var y = chartTop + (yNorm * chartHeight);
             var breathe = 0.86 + (0.14 * (0.5 + 0.5 * Math.sin((spectrumTime * (0.095 + (p.twinkle * 0.02))) + p.phase)));
 
-            var freqIn = smoothstep(0.58, 0.67, xNorm);
+            var freqIn = smoothstep(0.54, 0.66, xNorm);
             var freqOut = 1 - smoothstep(0.975, 0.988, xNorm);
-            var freqPeak = 1 - clamp(Math.abs(xNorm - 0.81) / 0.22, 0, 1);
+            var freqPeak = 1 - clamp(Math.abs(xNorm - 0.82) / 0.25, 0, 1);
 
             var clusterMask = 0;
             for (var ci = 0; ci < particleClusters.length; ci += 1) {
@@ -1012,13 +1012,13 @@
 
             var verticalMask = 0.80 + 0.20 * (1 - clamp(Math.abs(yNorm - 0.56) / 0.56, 0, 1));
             var zone = freqIn * freqOut * (0.22 + (0.78 * freqPeak)) * clusterMask * verticalMask;
-            zone = Math.max(zone, 0.16 * freqIn * freqOut);
+            zone = Math.max(zone, 0.30 * freqIn * freqOut);
 
             var twinklePeak = 0.72 + (0.28 * (0.5 + 0.5 * Math.sin((spectrumTime * (0.55 + p.twinkle)) + (p.phase * 1.8))));
             var alpha = p.alpha * breathe * twinklePeak * energy * zone;
-            alpha = Math.max(alpha, 0.0048);
-            var core = p.size * (1.55 + p.warmth * 0.46);
-            var halo = core * (3.8 + (1 - p.warmth) * 2.1);
+            alpha = Math.max(alpha, 0.014);
+            var core = p.size * (1.95 + p.warmth * 0.56);
+            var halo = core * (4.6 + (1 - p.warmth) * 2.4);
 
             var orb = ctx.createRadialGradient(x, y, 0, x, y, halo);
             orb.addColorStop(0, "rgba(244,250,255," + (alpha * (0.64 + (1 - p.warmth) * 0.16)).toFixed(4) + ")");
@@ -1035,6 +1035,12 @@
             ctx.fillStyle = "rgba(247,250,255," + (alpha * (0.56 + (1 - p.warmth) * 0.22)).toFixed(4) + ")";
             ctx.beginPath();
             ctx.arc(x, y, core, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Extra crisp star core to keep particles visible at smaller canvas scales.
+            ctx.fillStyle = "rgba(255,248,226," + (alpha * (0.78 + p.warmth * 0.14)).toFixed(4) + ")";
+            ctx.beginPath();
+            ctx.arc(x, y, Math.max(0.8, core * 0.20), 0, Math.PI * 2);
             ctx.fill();
           }
         }
