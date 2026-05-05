@@ -1143,15 +1143,16 @@
         const glue = norm('glue');
         const weight = norm('weight');
         const air = norm('air');
-        const width = norm('width');
         const mix = norm('mix');
 
-        const tilt = (tone - 0.5) * 0.18;
-        const tighten = 1 - glue * 0.58;
+        const tilt = (tone - 0.5) * 0.13;
+        const tighten = 1 - glue * 0.45;
+        const baseline = h * 0.62;
+        const floorY = h * 0.92;
 
-        for (let gy = 0; gy <= 5; gy++) {
+        for (let gy = 0; gy <= 4; gy++) {
           const y = (h / 5) * gy;
-          scopeCtx.strokeStyle = `rgba(255, 190, 70, ${0.04 + magicOn * 0.04})`;
+          scopeCtx.strokeStyle = `rgba(255, 190, 70, ${0.035 + magicOn * 0.02})`;
           scopeCtx.lineWidth = 1;
           scopeCtx.beginPath();
           scopeCtx.moveTo(0, y);
@@ -1168,111 +1169,73 @@
         scopeCtx.lineTo(w * 0.66, h);
         scopeCtx.stroke();
 
-        const baseline = h * 0.58;
         for (let i = 0; i < lineBins.length; i++) {
           const t = i / (lineBins.length - 1);
-          const lowMass = Math.max(0, 0.45 - t) * weight * 0.8;
-          const highSpark = Math.max(0, t - 0.55) * air * 0.92;
-          const micro = Math.abs(Math.sin((phase * 3.4) + (t * 52))) * 0.18;
-          const trans = Math.abs(Math.sin((phase * 9.2) + (t * 124))) * 0.16 * (0.68 + air * 0.88);
-          const transientSpike = Math.max(0, Math.sin((phase * 14.6) + (t * 190)) * (1 - glue * 0.75)) * 0.1;
-          const texture = (micro + trans + transientSpike) * (0.2 + (1 - glue) * 0.88);
-          const amp = (0.19 + lowMass + highSpark + texture) * (0.5 + mix * 0.62);
-          lineBins[i] = amp;
-          peaks[i] = baseline - (amp * h * (0.56 * tighten + 0.22));
+          const lowMass = Math.max(0, 0.45 - t) * (0.52 + weight * 0.7);
+          const midMass = Math.max(0, 1 - Math.abs(t - 0.5) * 2.1) * (0.2 + (1 - glue) * 0.42);
+          const highSpark = Math.max(0, t - 0.54) * (0.3 + air * 0.86);
+          const ripple = 0.05 + Math.abs(Math.sin((phase * 2.3) + (t * 27))) * (0.08 + air * 0.08);
+          const fine = Math.abs(Math.sin((phase * 8.4) + (t * 138))) * (0.05 + (1 - glue) * 0.08);
+          const ampNorm = clamp((0.16 + lowMass + midMass + highSpark + ripple + fine) * (0.5 + mix * 0.46), 0.08, 1.12);
+
+          const target = ampNorm * h * 0.56 * tighten;
+          peaks[i] = peaks[i] * 0.76 + target * 0.24;
+          lineBins[i] = ampNorm;
         }
 
-        // BACKGROUND LAYERS (more glow energy)
-        scopeCtx.globalAlpha = 0.16;
-        scopeCtx.strokeStyle = 'rgba(180, 76, 255, 0.4)';
-        scopeCtx.lineWidth = 3.2;
+        // Soft bed underneath analyzer bars.
+        scopeCtx.globalAlpha = 0.3;
         scopeCtx.beginPath();
-        for (let i = 0; i < lineBins.length; i += 3) {
+        for (let i = 0; i < lineBins.length; i++) {
           const t = i / (lineBins.length - 1);
           const x = t * w;
-          const amp = lineBins[i];
-          const offGlue = Math.sin((phase * 0.7) + (t * 9.8)) * h * 0.018 * glue;
-          const y = peaks[i] + offGlue;
-          const yTilt = y + ((t - 0.5) * tilt * h * 0.8);
-          if (i === 0) scopeCtx.moveTo(x, yTilt);
-          else scopeCtx.quadraticCurveTo(x - (w / lineBins.length), peaks[i - Math.min(3, i)] + ((i - 3) / (lineBins.length - 1) - 0.5) * tilt * h * 0.8, x, yTilt);
-        }
-        scopeCtx.stroke();
-
-        // WEIGHT LAYER (thick, warm)
-        scopeCtx.globalAlpha = 0.22;
-        scopeCtx.strokeStyle = 'rgba(255, 195, 95, 0.3)';
-        scopeCtx.lineWidth = 2.4;
-        scopeCtx.beginPath();
-        for (let i = 0; i < lineBins.length; i += 2) {
-          const t = i / (lineBins.length - 1);
-          const x = t * w;
-          const amp = lineBins[i] * weight * 0.42;
-          const y = baseline - amp * h * 0.76;
+          const y = baseline - peaks[i] + ((t - 0.5) * tilt * h * 0.55);
           if (i === 0) scopeCtx.moveTo(x, y);
           else {
-            const prevX = ((i - 2) / (lineBins.length - 1)) * w;
-            const prevY = baseline - (lineBins[i - 2] * weight * 0.42) * h * 0.76;
-            scopeCtx.quadraticCurveTo(prevX + (x - prevX) * 0.5, prevY + (y - prevY) * 0.5, x, y);
+            const px = ((i - 1) / (lineBins.length - 1)) * w;
+            const py = baseline - peaks[i - 1] + ((((i - 1) / (lineBins.length - 1)) - 0.5) * tilt * h * 0.55);
+            scopeCtx.quadraticCurveTo(px + (x - px) * 0.5, py + (y - py) * 0.5, x, y);
           }
         }
-        scopeCtx.stroke();
+        scopeCtx.lineTo(w, floorY);
+        scopeCtx.lineTo(0, floorY);
+        scopeCtx.closePath();
+
+        const bedGrad = scopeCtx.createLinearGradient(0, baseline - h * 0.42, 0, floorY);
+        bedGrad.addColorStop(0, 'rgba(255, 205, 120, 0.12)');
+        bedGrad.addColorStop(0.5, 'rgba(178, 96, 255, 0.12)');
+        bedGrad.addColorStop(1, 'rgba(10, 6, 18, 0.0)');
+        scopeCtx.fillStyle = bedGrad;
+        scopeCtx.fill();
 
         scopeCtx.globalAlpha = 1;
 
-        // VERTICAL BARS (reduced, blended into curve)
-        for (let i = 0; i < lineBins.length; i += 2) {
+        // Vertical analyzer bars matching the reference style.
+        for (let i = 0; i < lineBins.length; i++) {
           const t = i / (lineBins.length - 1);
           const x = t * w;
-          const amp = lineBins[i];
-          const y = peaks[i];
-          
-          // BAND-TINTED COLOR
+          const topY = baseline - peaks[i] + ((t - 0.5) * tilt * h * 0.52);
+
           scopeCtx.strokeStyle = t < 0.33 
-            ? `rgba(${Math.round(200 + t * 60)}, ${Math.round(80 + t * 100)}, ${Math.round(255 - t * 50)}, ${0.32 + amp * 0.5})`
+            ? `rgba(${Math.round(188 + t * 82)}, ${Math.round(74 + t * 105)}, ${Math.round(255 - t * 42)}, ${0.32 + lineBins[i] * 0.38})`
             : t < 0.66
-            ? `rgba(${Math.round(220 + t * 20)}, ${Math.round(160 + t * 40)}, ${Math.round(255 - t * 20)}, ${0.32 + amp * 0.5})`
-            : `rgba(${Math.round(255)}, ${Math.round(215 + (t - 0.66) * 40)}, ${Math.round(110 + (t - 0.66) * 80)}, ${0.32 + amp * 0.5})`;
-          
-          scopeCtx.lineWidth = 1.1 + air * 0.3;  // THINNER bars (more blended)
+            ? `rgba(${Math.round(232 + t * 20)}, ${Math.round(170 + t * 30)}, ${Math.round(255 - t * 26)}, ${0.34 + lineBins[i] * 0.36})`
+            : `rgba(255, ${Math.round(212 + (t - 0.66) * 52)}, ${Math.round(102 + (t - 0.66) * 96)}, ${0.34 + lineBins[i] * 0.42})`;
+
+          scopeCtx.lineWidth = 1.08 + air * 0.15;
           scopeCtx.beginPath();
-          scopeCtx.moveTo(x, baseline + h * 0.14);
-          scopeCtx.lineTo(x, baseline - amp * h * (0.6 + air * 0.12));
+          scopeCtx.moveTo(x, floorY);
+          scopeCtx.lineTo(x, topY);
           scopeCtx.stroke();
-
-          // MORE SPARKLES on highs
-          if (air > 0.12 && t > 0.48) {
-            const sparkleChance = 0.28 + air * 0.48;
-            if (Math.random() < sparkleChance) {
-              const sparkX = x + (Math.random() - 0.5) * 6;
-              const sparkY = y - (12 + Math.random() * 24);
-              scopeCtx.fillStyle = `rgba(255, 240, 160, ${0.36 + air * 0.62})`;
-              scopeCtx.beginPath();
-              scopeCtx.arc(sparkX, sparkY, 1 + Math.random() * 0.8, 0, Math.PI * 2);
-              scopeCtx.fill();
-            }
-          }
-
-          // WEIGHT visualization (enhanced)
-          if (weight > 0.12 && t < 0.34) {
-            scopeCtx.strokeStyle = `rgba(255, 220, 120, ${0.22 + weight * 0.36})`;
-            scopeCtx.lineWidth = 3 + weight * 1.6;
-            scopeCtx.beginPath();
-            scopeCtx.moveTo(x - (weight * 1.1), baseline + h * 0.02);
-            scopeCtx.lineTo(x - (weight * 1.1), baseline - (amp * weight * 0.2) * h);
-            scopeCtx.lineTo(x + (weight * 1.1), baseline - (amp * weight * 0.16) * h);
-            scopeCtx.stroke();
-          }
         }
 
-        // MAIN WAVEFORM (smooth curves + GLOW)
-        scopeCtx.lineWidth = 4.2;
+        // Main smooth white/purple-to-gold trace.
+        scopeCtx.lineWidth = 3.4;
         scopeCtx.beginPath();
         for (let i = 0; i < lineBins.length; i++) {
           const t = i / (lineBins.length - 1);
           const x = t * w;
-          const glueSmooth = Math.sin((phase * 1.0) + (t * 12.4)) * h * 0.016 * glue;
-          const y = peaks[i] + glueSmooth;
+          const y = baseline - (peaks[i] * 0.87) + (Math.sin((phase * 0.85) + (t * 10.5)) * h * 0.01 * (1 - glue));
           const yTilt = y + ((t - 0.5) * tilt * h);
           
           if (i === 0) {
@@ -1280,11 +1243,9 @@
           } else {
             const prevT = (i - 1) / (lineBins.length - 1);
             const prevX = prevT * w;
-            const prevGlueSmooth = Math.sin((phase * 1.0) + (prevT * 12.4)) * h * 0.016 * glue;
-            const prevY = peaks[i - 1] + prevGlueSmooth;
+            const prevY = baseline - (peaks[i - 1] * 0.87) + (Math.sin((phase * 0.85) + (prevT * 10.5)) * h * 0.01 * (1 - glue));
             const prevYTilt = prevY + ((prevT - 0.5) * tilt * h);
-            
-            // QUADRATIC CURVE for smooth interpolation
+
             scopeCtx.quadraticCurveTo(
               prevX + (x - prevX) * 0.5,
               prevYTilt + (yTilt - prevYTilt) * 0.5,
@@ -1293,24 +1254,23 @@
             );
           }
         }
-        
-        // GRADIENT + GLOW
+
         const grad = scopeCtx.createLinearGradient(0, 0, w, 0);
-        grad.addColorStop(0, magicOn ? 'rgba(220, 130, 255, 0.99)' : 'rgba(190, 86, 255, 0.98)');
-        grad.addColorStop(0.44, magicOn ? 'rgba(245, 220, 255, 0.99)' : 'rgba(230, 200, 255, 0.98)');
-        grad.addColorStop(1, magicOn ? 'rgba(255, 240, 110, 0.99)' : 'rgba(255, 205, 68, 0.98)');
+        grad.addColorStop(0, magicOn ? 'rgba(205, 112, 255, 0.98)' : 'rgba(180, 84, 255, 0.98)');
+        grad.addColorStop(0.46, 'rgba(244, 229, 255, 0.96)');
+        grad.addColorStop(1, magicOn ? 'rgba(255, 229, 102, 0.99)' : 'rgba(255, 199, 78, 0.98)');
         scopeCtx.strokeStyle = grad;
-        scopeCtx.shadowColor = magicOn ? 'rgba(255, 230, 120, 0.7)' : 'rgba(200, 116, 255, 0.5)';
-        scopeCtx.shadowBlur = magicOn ? 28 : 18;
+        scopeCtx.shadowColor = magicOn ? 'rgba(255, 220, 120, 0.62)' : 'rgba(210, 140, 255, 0.44)';
+        scopeCtx.shadowBlur = magicOn ? 22 : 14;
         scopeCtx.stroke();
-        
-        // EXTRA GLOW LAYER (trailing blur effect)
-        scopeCtx.lineWidth = 3.6;
-        scopeCtx.strokeStyle = grad;
-        scopeCtx.shadowColor = magicOn ? 'rgba(255, 240, 130, 0.4)' : 'rgba(210, 140, 255, 0.3)';
-        scopeCtx.shadowBlur = magicOn ? 16 : 10;
+
+        // Bright edge trace to mimic the white crest in the mockup.
+        scopeCtx.lineWidth = 1.5;
+        scopeCtx.strokeStyle = 'rgba(255, 246, 224, 0.9)';
+        scopeCtx.shadowColor = 'rgba(255, 244, 216, 0.3)';
+        scopeCtx.shadowBlur = 6;
         scopeCtx.stroke();
-        
+
         scopeCtx.shadowBlur = 0;
       }
 
@@ -1320,8 +1280,8 @@
         drCtx.clearRect(0, 0, w, h);
 
         const cx = w * 0.5;
-        const cy = h * 0.92;
-        const r = Math.min(w * 0.33, h * 0.64);
+        const cy = h * 0.96;
+        const r = Math.min(w * 0.34, h * 0.56);
 
         const glue = norm('glue');
         const finishLift = finishOn ? 0.6 : 0;
@@ -1329,67 +1289,101 @@
         const smoothDr = peaks[118] !== undefined ? peaks[118] * 0.1 + dr * 0.9 : dr;
         peaks[118] = smoothDr;
 
-        // BACKGROUND SEMI-ARC
-        drCtx.lineWidth = 14;
-        drCtx.strokeStyle = 'rgba(255, 186, 48, 0.12)';
+        const startAngle = Math.PI * 1.16;
+        const endArcAngle = Math.PI * 1.84;
+        const arcSpan = endArcAngle - startAngle;
+
+        // Outer guide arc.
+        drCtx.lineWidth = 2;
+        drCtx.strokeStyle = 'rgba(255, 186, 48, 0.45)';
         drCtx.lineCap = 'round';
         drCtx.beginPath();
-        drCtx.arc(cx, cy, r, Math.PI * 1.25, Math.PI * 1.75);
+        drCtx.arc(cx, cy, r + 7, startAngle, endArcAngle);
         drCtx.stroke();
 
-        // MAIN GRADIENT ARC
+        // Main dark ring track.
+        drCtx.lineWidth = 8;
+        drCtx.strokeStyle = 'rgba(255, 186, 48, 0.18)';
+        drCtx.beginPath();
+        drCtx.arc(cx, cy, r, startAngle, endArcAngle);
+        drCtx.stroke();
+
         const ratio = (smoothDr - 4) / 16;
-        const arcSpan = Math.PI * 0.5;
-        const startAngle = Math.PI * 1.25;
-        const endAngle = startAngle + ratio * arcSpan * (1 - glue * 0.28);
-        
+        const endAngle = startAngle + ratio * arcSpan * (1 - glue * 0.16);
+
         const grad = drCtx.createLinearGradient(
-          cx + Math.cos(startAngle) * r, 
+          cx + Math.cos(startAngle) * r,
           cy + Math.sin(startAngle) * r,
-          cx + Math.cos(endAngle) * r, 
+          cx + Math.cos(endAngle) * r,
           cy + Math.sin(endAngle) * r
         );
         grad.addColorStop(0, 'rgba(180, 80, 255, 0.98)');
-        grad.addColorStop(0.5, 'rgba(220, 150, 255, 0.98)');
+        grad.addColorStop(0.45, 'rgba(223, 146, 255, 0.98)');
         grad.addColorStop(1, 'rgba(255, 200, 100, 0.98)');
-        
+
         drCtx.strokeStyle = grad;
-        drCtx.lineWidth = 14;
-        drCtx.shadowColor = 'rgba(180, 100, 255, 0.4)';
-        drCtx.shadowBlur = 12;
+        drCtx.lineWidth = 8;
+        drCtx.shadowColor = 'rgba(204, 130, 255, 0.36)';
+        drCtx.shadowBlur = 8;
         drCtx.beginPath();
         drCtx.arc(cx, cy, r, startAngle, endAngle);
         drCtx.stroke();
         drCtx.shadowBlur = 0;
 
+        // Inner shadow ring.
+        drCtx.lineWidth = 3;
+        drCtx.strokeStyle = 'rgba(0, 0, 0, 0.34)';
+        drCtx.beginPath();
+        drCtx.arc(cx, cy, r - 8, startAngle, endArcAngle);
+        drCtx.stroke();
+
+        // Tick marks.
+        for (let i = 0; i <= 16; i += 2) {
+          const a = startAngle + (i / 16) * arcSpan;
+          const major = i % 4 === 0;
+          const r1 = r - (major ? 14 : 10);
+          const r2 = r - 4;
+          drCtx.strokeStyle = major ? 'rgba(255, 205, 110, 0.45)' : 'rgba(255, 195, 98, 0.24)';
+          drCtx.lineWidth = major ? 1.6 : 1;
+          drCtx.beginPath();
+          drCtx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+          drCtx.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2);
+          drCtx.stroke();
+        }
+
         // SCALE LABELS
         for (let i = 4; i <= 20; i += 4) {
           const scaleRatio = (i - 4) / 16;
           const scaleAngle = startAngle + scaleRatio * arcSpan;
-          const labelR = r + 16;
+          const labelR = r + 14;
           const lx = cx + Math.cos(scaleAngle) * labelR;
           const ly = cy + Math.sin(scaleAngle) * labelR;
-          drCtx.fillStyle = 'rgba(255, 210, 120, 0.4)';
+          drCtx.fillStyle = 'rgba(255, 210, 120, 0.9)';
           drCtx.font = 'bold 11px "Avenir Next"';
           drCtx.textAlign = 'center';
           drCtx.textBaseline = 'middle';
           drCtx.fillText(String(i), lx, ly);
         }
-        
+
         // NEEDLE
-        const needleX = cx + Math.cos(endAngle) * r;
-        const needleY = cy + Math.sin(endAngle) * r;
-        
-        drCtx.strokeStyle = '#ffd764';
-        drCtx.lineWidth = 5;
+        const needleX = cx + Math.cos(endAngle) * (r - 2);
+        const needleY = cy + Math.sin(endAngle) * (r - 2);
+
+        drCtx.strokeStyle = '#ffd06d';
+        drCtx.lineWidth = 4.8;
         drCtx.lineCap = 'round';
-        drCtx.shadowColor = 'rgba(255, 215, 120, 0.5)';
-        drCtx.shadowBlur = 8;
+        drCtx.shadowColor = 'rgba(255, 210, 120, 0.56)';
+        drCtx.shadowBlur = 7;
         drCtx.beginPath();
         drCtx.moveTo(cx, cy);
         drCtx.lineTo(needleX, needleY);
         drCtx.stroke();
         drCtx.shadowBlur = 0;
+
+        drCtx.fillStyle = 'rgba(255, 212, 122, 0.9)';
+        drCtx.beginPath();
+        drCtx.arc(cx, cy, 3.2, 0, Math.PI * 2);
+        drCtx.fill();
 
         // VALUE TEXT
         drValue.innerHTML = `${dr.toFixed(1)}<small>LU</small>`;
@@ -1411,39 +1405,38 @@
         stereoCtx.clearRect(0, 0, w, h);
 
         const cx = w * 0.5;
-        const cy = h * 0.92;
-        const r = Math.min(w * 0.33, h * 0.64);
+        const cy = h * 0.96;
+        const r = Math.min(w * 0.34, h * 0.56);
 
         const width = norm('width');
         const corr = clamp(0.88 - width * 0.62 - (magicOn ? 0.05 : 0), -1, 1);
 
         // L AND R LABELS
-        stereoCtx.fillStyle = 'rgba(255, 210, 120, 0.5)';
+        stereoCtx.fillStyle = 'rgba(255, 210, 120, 0.9)';
         stereoCtx.font = 'bold 13px "Avenir Next", sans-serif';
         stereoCtx.textAlign = 'center';
-        stereoCtx.fillText('L', cx - r - 18, cy + 6);
-        stereoCtx.fillText('R', cx + r + 18, cy + 6);
+        stereoCtx.fillText('L', cx - r - 12, cy + 2);
+        stereoCtx.fillText('R', cx + r + 12, cy + 2);
 
-        // SCALE LABELS (left side)
-        for (let i = 0; i <= 18; i += 3) {
-          const scaleY = cy - (i / 18) * r * 0.85;
-          stereoCtx.fillStyle = 'rgba(255, 210, 120, 0.35)';
-          stereoCtx.font = '10px "Avenir Next"';
-          stereoCtx.textAlign = 'right';
-          stereoCtx.textBaseline = 'middle';
-          stereoCtx.fillText(String(i), cx - r - 28, scaleY);
-        }
+        const startAngle = Math.PI * 1.16;
+        const endAngle = Math.PI * 1.84;
 
         // BACKGROUND SEMI-ARC
         stereoCtx.lineWidth = 2;
-        stereoCtx.strokeStyle = 'rgba(255, 190, 60, 0.25)';
+        stereoCtx.strokeStyle = 'rgba(255, 190, 60, 0.45)';
         stereoCtx.lineCap = 'round';
         stereoCtx.beginPath();
-        stereoCtx.arc(cx, cy, r, Math.PI * 1.25, Math.PI * 1.75);
+        stereoCtx.arc(cx, cy, r + 7, startAngle, endAngle);
+        stereoCtx.stroke();
+
+        stereoCtx.lineWidth = 2;
+        stereoCtx.strokeStyle = 'rgba(255, 190, 60, 0.22)';
+        stereoCtx.beginPath();
+        stereoCtx.arc(cx, cy, r, startAngle, endAngle);
         stereoCtx.stroke();
 
         // CENTER LINE
-        stereoCtx.strokeStyle = 'rgba(255, 210, 120, 0.15)';
+        stereoCtx.strokeStyle = 'rgba(255, 210, 120, 0.24)';
         stereoCtx.lineWidth = 1;
         stereoCtx.beginPath();
         stereoCtx.moveTo(cx, cy);
@@ -1469,13 +1462,13 @@
           }
 
           const ang = Math.PI + (p.t * Math.PI);
-          const baseRadius = r * p.r * (0.15 + width * 0.85);
-          const jitter = (Math.sin((phase * 3.2) + p.t * 40) * 0.12) * r;
-          const x = cx + Math.cos(ang) * baseRadius + (p.side * width * 26) + jitter + (p.vx * 70);
+          const baseRadius = r * p.r * (0.13 + width * 0.75);
+          const jitter = (Math.sin((phase * 3.2) + p.t * 40) * 0.1) * r;
+          const x = cx + Math.cos(ang) * baseRadius + (p.side * width * 20) + jitter + (p.vx * 60);
           const y = cy + Math.sin(ang) * baseRadius + (p.vy * 70);
 
-          const opacity = p.life < 0.3 ? 0.06 + p.life * 0.36 : 0.36 - (p.life - 0.3) * 0.64;
-          const size = 1.2 + p.life * 1.3 + (p.color === 'gold' ? 0.7 : 0.3);
+          const opacity = p.life < 0.34 ? 0.08 + p.life * 0.4 : 0.38 - (p.life - 0.34) * 0.52;
+          const size = 0.9 + p.life * 1.05 + (p.color === 'gold' ? 0.55 : 0.22);
 
           stereoCtx.fillStyle = p.color === 'gold'
             ? `rgba(255, 225, 120, ${opacity + 0.18})`
@@ -1486,18 +1479,18 @@
         }
 
         // BRIGHT CENTER STARBURST
-        stereoCtx.shadowColor = 'rgba(255, 220, 100, 0.7)';
-        stereoCtx.shadowBlur = 18;
-        stereoCtx.fillStyle = 'rgba(255, 240, 160, 0.9)';
+        stereoCtx.shadowColor = 'rgba(255, 220, 100, 0.68)';
+        stereoCtx.shadowBlur = 16;
+        stereoCtx.fillStyle = 'rgba(255, 240, 160, 0.88)';
         stereoCtx.beginPath();
-        stereoCtx.arc(cx, cy, 12, 0, Math.PI * 2);
+        stereoCtx.arc(cx, cy, 10, 0, Math.PI * 2);
         stereoCtx.fill();
         stereoCtx.shadowBlur = 0;
 
         // INNER CORE
         stereoCtx.fillStyle = 'rgba(255, 250, 200, 0.95)';
         stereoCtx.beginPath();
-        stereoCtx.arc(cx, cy, 6, 0, Math.PI * 2);
+        stereoCtx.arc(cx, cy, 5, 0, Math.PI * 2);
         stereoCtx.fill();
 
         corrValue.innerHTML = `${Math.abs(corr).toFixed(2)}<small>CORRELATION</small>`;
