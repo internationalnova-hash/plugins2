@@ -652,15 +652,15 @@
 
       // Create gradient for each bar
       var barGradient = ctx.createLinearGradient(x, barY, x, h);
-      barGradient.addColorStop(0, 'rgba(180, 120, 255, 0.52)');
-      barGradient.addColorStop(0.5, 'rgba(160, 100, 240, 0.68)');
-      barGradient.addColorStop(1, 'rgba(140, 80, 220, 0.42)');
+      barGradient.addColorStop(0, 'rgba(180, 120, 255, 0.28)');
+      barGradient.addColorStop(0.5, 'rgba(160, 100, 240, 0.36)');
+      barGradient.addColorStop(1, 'rgba(140, 80, 220, 0.22)');
 
       ctx.fillStyle = barGradient;
       ctx.fillRect(x, barY, barWidth, barHeight);
 
       // Subtle glow
-      ctx.shadowColor = 'rgba(200, 140, 255, 0.28)';
+      ctx.shadowColor = 'rgba(200, 140, 255, 0.14)';
       ctx.shadowBlur = 4;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
