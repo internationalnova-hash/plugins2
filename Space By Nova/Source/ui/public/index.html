@@ -949,9 +949,9 @@
 
       function initialiseParticles() {
         var layerSpecs = [
-          { count: 10, sizeMin: 1.7, sizeMax: 2.6, alphaMin: 0.042, alphaMax: 0.086, speedMin: 0.00005, speedMax: 0.00011, driftMin: 0.00028, driftMax: 0.00072, spreadX: 0.036, spreadY: 0.100, spawnJitterX: 0.007, spawnJitterY: 0.022 },
-          { count: 22, sizeMin: 1.05, sizeMax: 1.75, alphaMin: 0.030, alphaMax: 0.064, speedMin: 0.00004, speedMax: 0.00009, driftMin: 0.00020, driftMax: 0.00056, spreadX: 0.056, spreadY: 0.140, spawnJitterX: 0.011, spawnJitterY: 0.030 },
-          { count: 40, sizeMin: 0.62, sizeMax: 1.16, alphaMin: 0.018, alphaMax: 0.042, speedMin: 0.00002, speedMax: 0.00006, driftMin: 0.00014, driftMax: 0.00038, spreadX: 0.082, spreadY: 0.200, spawnJitterX: 0.016, spawnJitterY: 0.040 }
+          { count: 14, sizeMin: 1.9, sizeMax: 2.9, alphaMin: 0.060, alphaMax: 0.120, speedMin: 0.00005, speedMax: 0.00011, driftMin: 0.00028, driftMax: 0.00072, spreadX: 0.040, spreadY: 0.105, spawnJitterX: 0.008, spawnJitterY: 0.024 },
+          { count: 30, sizeMin: 1.15, sizeMax: 1.95, alphaMin: 0.044, alphaMax: 0.086, speedMin: 0.00004, speedMax: 0.00009, driftMin: 0.00020, driftMax: 0.00056, spreadX: 0.060, spreadY: 0.145, spawnJitterX: 0.012, spawnJitterY: 0.032 },
+          { count: 56, sizeMin: 0.70, sizeMax: 1.28, alphaMin: 0.026, alphaMax: 0.056, speedMin: 0.00002, speedMax: 0.00006, driftMin: 0.00014, driftMax: 0.00038, spreadX: 0.086, spreadY: 0.205, spawnJitterX: 0.018, spawnJitterY: 0.042 }
         ];
 
         particleLayers = [];
@@ -969,7 +969,10 @@
         if (!particleLayers || particleLayers.length === 0) return;
 
         var chartHeight = chartBottom - chartTop;
-        var energy = 0.56 + (mixPct * 0.12) + (spacePct * 0.07) + (airPct * 0.05);
+        var energy = 1.10 + (mixPct * 0.22) + (spacePct * 0.14) + (airPct * 0.12);
+
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
 
         for (var li = 0; li < particleLayers.length; li += 1) {
           var layerRef = particleLayers[li];
@@ -1012,13 +1015,13 @@
 
             var verticalMask = 0.80 + 0.20 * (1 - clamp(Math.abs(yNorm - 0.56) / 0.56, 0, 1));
             var zone = freqIn * freqOut * (0.22 + (0.78 * freqPeak)) * clusterMask * verticalMask;
-            zone = Math.max(zone, 0.30 * freqIn * freqOut);
+            zone = Math.max(zone, 0.62 * freqIn * freqOut);
 
             var twinklePeak = 0.72 + (0.28 * (0.5 + 0.5 * Math.sin((spectrumTime * (0.55 + p.twinkle)) + (p.phase * 1.8))));
             var alpha = p.alpha * breathe * twinklePeak * energy * zone;
-            alpha = Math.max(alpha, 0.014);
-            var core = p.size * (1.95 + p.warmth * 0.56);
-            var halo = core * (4.6 + (1 - p.warmth) * 2.4);
+            alpha = Math.max(alpha, 0.08);
+            var core = p.size * (2.30 + p.warmth * 0.64);
+            var halo = core * (5.2 + (1 - p.warmth) * 2.7);
 
             var orb = ctx.createRadialGradient(x, y, 0, x, y, halo);
             orb.addColorStop(0, "rgba(244,250,255," + (alpha * (0.64 + (1 - p.warmth) * 0.16)).toFixed(4) + ")");
@@ -1044,6 +1047,35 @@
             ctx.fill();
           }
         }
+
+        // Accent sparkle layer ensures visible stars in the upper-right wet region.
+        var accentCount = 30;
+        var accentEnergy = 0.40 + (mixPct * 0.20) + (airPct * 0.22);
+        for (var si = 0; si < accentCount; si += 1) {
+          var sn = si / accentCount;
+          var px = W * (0.66 + sn * 0.30) + Math.sin((spectrumTime * 0.55) + (si * 1.7)) * (5 + si * 0.1);
+          var pyNorm = 0.22 + (0.56 * (0.5 + 0.5 * Math.sin((spectrumTime * 0.82) + (si * 1.13))));
+          var py = chartTop + pyNorm * chartHeight;
+          var pulse = 0.66 + (0.34 * (0.5 + 0.5 * Math.sin((spectrumTime * 1.25) + (si * 2.1))));
+          var pa = accentEnergy * pulse;
+          var pr = 1.7 + (si % 3) * 0.45;
+
+          var star = ctx.createRadialGradient(px, py, 0, px, py, pr * 5.8);
+          star.addColorStop(0, "rgba(255,238,188," + (pa * 0.92).toFixed(4) + ")");
+          star.addColorStop(0.25, "rgba(171,216,255," + (pa * 0.42).toFixed(4) + ")");
+          star.addColorStop(1, "rgba(171,216,255,0)");
+          ctx.fillStyle = star;
+          ctx.beginPath();
+          ctx.arc(px, py, pr * 5.8, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "rgba(255,248,220," + (pa * 1.00).toFixed(4) + ")";
+          ctx.beginPath();
+          ctx.arc(px, py, pr * 0.75, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
       }
 
       function clamp(value, min, max) {
