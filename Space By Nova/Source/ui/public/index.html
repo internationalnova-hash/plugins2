@@ -6,15 +6,16 @@
   <title>Nova Space</title>
   <style>
     :root {
-      --outer-bg: #d8d1c6;
-      --panel-bg: #f3efe8;
-      --panel-line: #e1cfb0;
-      --text-main: #26180f;
-      --text-soft: #7d6650;
-      --gold: #c39231;
-      --gold-soft: #d8b56d;
-      --gold-pale: #edd18c;
-      --white: #fffdf8;
+      --outer-bg: #040913;
+      --panel-bg: #08111d;
+      --panel-line: rgba(102, 133, 178, 0.28);
+      --panel-line-soft: rgba(156, 186, 228, 0.10);
+      --text-main: #f4f2ee;
+      --text-soft: #aeb5c4;
+      --gold: #ff8a2a;
+      --gold-soft: #ffb347;
+      --gold-deep: #de6612;
+      --white: #f7f7f4;
       --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
       --base-width: 1200px;
       --base-height: 700px;
@@ -28,7 +29,9 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: var(--outer-bg);
+      background:
+        radial-gradient(110% 92% at 50% 8%, #173c79 0%, #0c1d38 27%, #08111e 58%, #02060d 100%),
+        linear-gradient(180deg, #09111e 0%, #03070f 100%);
       font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
       color: var(--text-main);
       -webkit-font-smoothing: antialiased;
@@ -54,14 +57,22 @@
       inset: 0;
       width: var(--base-width);
       height: var(--base-height);
-      background: linear-gradient(180deg, #f7f3ed 0%, #efeae2 100%);
-      border: 2px solid var(--panel-line);
-      border-radius: 40px;
+      background:
+        radial-gradient(58% 62% at 50% 8%, rgba(39, 83, 157, 0.56) 0%, rgba(22, 47, 88, 0.22) 34%, rgba(10, 18, 31, 0) 78%),
+        radial-gradient(34% 42% at 22% 74%, rgba(23, 51, 96, 0.14) 0%, rgba(23, 51, 96, 0) 100%),
+        radial-gradient(34% 42% at 82% 72%, rgba(23, 51, 96, 0.12) 0%, rgba(23, 51, 96, 0) 100%),
+        repeating-linear-gradient(90deg, rgba(61, 93, 142, 0.02) 0px, rgba(61, 93, 142, 0.02) 1px, transparent 1px, transparent 14px),
+        linear-gradient(180deg, #091220 0%, #07101a 56%, #040911 100%);
+      border: 1px solid var(--panel-line);
+      border-radius: 34px;
       overflow: hidden;
       box-shadow:
-        0 18px 40px rgba(118, 96, 66, 0.14),
-        inset 0 1px 0 rgba(255,255,255,0.78),
-        inset 0 -8px 18px rgba(188, 168, 138, 0.12);
+        0 24px 56px rgba(0, 0, 0, 0.52),
+        0 0 0 1px rgba(103, 135, 183, 0.08),
+        inset 0 1px 0 rgba(196, 218, 245, 0.12),
+        inset 0 -16px 28px rgba(0, 0, 0, 0.36),
+        inset 0 0 46px rgba(6, 14, 24, 0.42),
+        inset 0 0 120px rgba(0, 0, 0, 0.18);
       transform: scale(var(--ui-scale));
       transform-origin: top left;
     }
@@ -72,7 +83,7 @@
       inset: 0;
       border-radius: inherit;
       padding: 10px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.18) 28%, rgba(177,150,112,0.18) 72%, rgba(116,90,52,0.14) 100%);
+      background: linear-gradient(135deg, rgba(212, 231, 255, 0.24) 0%, rgba(212, 231, 255, 0.05) 24%, rgba(79, 125, 183, 0.10) 72%, rgba(11, 20, 34, 0.10) 100%);
       -webkit-mask:
         linear-gradient(#000 0 0) content-box,
         linear-gradient(#000 0 0);
@@ -82,50 +93,72 @@
       -webkit-mask-composite: xor;
       mask-composite: exclude;
       pointer-events: none;
-      opacity: 0.9;
+      opacity: 0.82;
     }
 
     .plugin::after {
       content: "";
       position: absolute;
-      inset: 14px;
-      border-radius: 30px;
-      border-top: 1px solid rgba(255,255,255,0.58);
-      border-left: 1px solid rgba(255,255,255,0.32);
-      border-right: 1px solid rgba(204,186,154,0.22);
-      border-bottom: 1px solid rgba(170,146,108,0.16);
+      inset: 10px;
+      border-radius: 26px;
+      border-top: 1px solid rgba(205, 226, 252, 0.10);
+      border-left: 1px solid rgba(205, 226, 252, 0.07);
+      border-right: 1px solid rgba(79, 112, 150, 0.12);
+      border-bottom: 1px solid rgba(45, 70, 98, 0.16);
+      pointer-events: none;
+    }
+
+    .plugin::selection {
+      background: rgba(255, 179, 71, 0.18);
+    }
+
+    .plugin > .grain {
+      position: absolute;
+      inset: 0;
       pointer-events: none;
     }
 
     .nova-header {
       position: absolute;
-      left: 56px;
-      top: 34px;
+      left: 54px;
+      top: 28px;
       display: flex;
       align-items: flex-start;
       gap: 18px;
-      min-height: 64px;
+      min-height: 72px;
+      z-index: 2;
     }
 
     .nova-logo-container {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 36px;
-      height: 36px;
-      margin-left: -10px;
-      border-radius: 10px;
-      background: rgba(60, 56, 48, 0.10);
-      box-shadow: 0 2px 8px 0 rgba(60,56,48,0.07);
-      backdrop-filter: blur(1.5px);
+      width: 52px;
+      height: 52px;
+      margin-left: -8px;
+      margin-top: 2px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(31, 42, 60, 0.88) 0%, rgba(8, 14, 26, 0.98) 100%);
+      border: 1px solid rgba(116, 142, 182, 0.36);
+      box-shadow:
+        inset 0 1px 0 rgba(208, 225, 250, 0.18),
+        inset 0 -8px 16px rgba(0, 0, 0, 0.38),
+        0 10px 20px rgba(0, 0, 0, 0.24);
     }
 
     .nova-logo {
-      width: 32px;
-      height: 32px;
+      width: 44px;
+      height: 44px;
       object-fit: contain;
-      filter: grayscale(0.1) brightness(0.93) contrast(1.08);
-      opacity: 1;
+      filter: grayscale(0.0) brightness(1.08) contrast(1.04);
+      opacity: 0.94;
+    }
+
+    .nova-title-stack {
+      display: flex;
+      flex-direction: column;
+      line-height: 0.92;
+      padding-top: 1px;
     }
 
     .nova-title-nova {
@@ -133,18 +166,18 @@
       font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
       font-weight: 700;
       letter-spacing: 0.13em;
-      color: #353535;
+      color: #d7deea;
       margin: 0 0 2px 0;
       padding: 0;
-      opacity: 0.97;
+      opacity: 0.98;
     }
 
     .nova-title-space {
-      font-size: 30px;
+      font-size: 46px;
       font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
       font-weight: 950;
       letter-spacing: 0.04em;
-      color: #282420;
+      color: #f7f8fb;
       margin: 0;
       padding: 0;
       line-height: 1.0;
@@ -152,48 +185,57 @@
     }
 
     .subtitle {
-      position: absolute;
-      left: 58px;
-      top: 108px;
-      font-size: 18px;
-      font-weight: 500;
-      letter-spacing: 0.18em;
-      color: var(--text-soft);
+      display: none;
     }
 
     .tagline {
       position: absolute;
       right: 60px;
-      top: 42px;
+      top: 32px;
       font-family: "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Brush Script MT", cursive;
-      font-size: 30px;
+      font-size: 28px;
       font-weight: 500;
       letter-spacing: 0.03em;
-      color: #8f7654;
+      color: #ffb76c;
       text-shadow:
-        0 1px 0 rgba(255,255,255,0.42),
-        0 2px 3px rgba(126, 98, 62, 0.12);
+        0 0 10px rgba(255, 149, 50, 0.18),
+        0 1px 2px rgba(0,0,0,0.30);
+      z-index: 2;
     }
 
     .spectrum-section {
       position: absolute;
-      top: 114px;
-      left: 58px;
-      right: 58px;
-      height: 286px;
+      top: 100px;
+      left: 34px;
+      right: 34px;
+      height: 348px;
+      z-index: 1;
     }
 
     .spectrum-frame {
       width: 100%;
-      height: 258px;
-      border-radius: 12px;
+      height: 320px;
+      border-radius: 18px;
       overflow: hidden;
       position: relative;
-      background: linear-gradient(180deg, #0d1324 0%, #06090f 100%);
-      border: 1px solid rgba(200,165,80,0.16);
+      background:
+        radial-gradient(52% 78% at 50% 0%, rgba(33, 70, 130, 0.26) 0%, rgba(18, 34, 59, 0.10) 36%, rgba(5, 10, 18, 0) 100%),
+        linear-gradient(180deg, #091322 0%, #040a13 100%);
+      border: 1px solid rgba(112, 144, 192, 0.28);
       box-shadow:
-        inset 0 2px 10px rgba(0,0,0,0.45),
-        0 2px 12px rgba(90, 68, 34, 0.12);
+        0 0 18px rgba(58, 108, 190, 0.10),
+        inset 0 1px 0 rgba(191, 215, 249, 0.06),
+        inset 0 -10px 24px rgba(0,0,0,0.56),
+        0 12px 24px rgba(0, 0, 0, 0.16);
+    }
+
+    .spectrum-frame::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      box-shadow: inset 0 0 0 1px rgba(186, 208, 240, 0.04);
+      pointer-events: none;
     }
 
     .spectrum-frame canvas {
@@ -204,115 +246,148 @@
 
     .spectrum-legend {
       position: absolute;
-      top: 8px;
-      right: 12px;
+      top: 16px;
+      right: 18px;
       display: flex;
-      gap: 12px;
+      gap: 22px;
       align-items: center;
       pointer-events: none;
+      z-index: 2;
     }
 
     .legend-item {
       display: flex;
       align-items: center;
-      gap: 5px;
-      font-size: 8px;
-      letter-spacing: 0.08em;
+      gap: 8px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
-      color: rgba(214, 191, 151, 0.58);
+      color: rgba(222, 227, 238, 0.82);
       user-select: none;
     }
 
     .legend-swatch {
-      width: 16px;
-      height: 2px;
+      width: 26px;
+      height: 3px;
       border-radius: 2px;
     }
 
     .freq-labels {
       display: flex;
       justify-content: space-between;
-      padding: 4px 8px 0;
+      padding: 12px 12px 0;
       pointer-events: none;
     }
 
     .freq-label {
-      font-size: 8px;
-      letter-spacing: 0.07em;
-      color: var(--text-soft);
-      opacity: 0.38;
-      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      color: #b4b8c3;
+      opacity: 0.92;
       user-select: none;
     }
 
     .controls-grid {
       position: absolute;
-      top: 424px;
-      left: 0;
-      right: 0;
+      top: 412px;
+      left: 66px;
+      right: 66px;
       display: flex;
-      justify-content: center;
-      gap: 0;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+      z-index: 2;
     }
 
     .knob-col {
-      width: 174px;
+      position: relative;
+      width: 156px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
       user-select: none;
       -webkit-user-select: none;
+    }
+
+    .knob-col:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: -12px;
+      top: 24px;
+      width: 1px;
+      height: 132px;
+      background: linear-gradient(180deg, rgba(255, 166, 69, 0) 0%, rgba(255, 158, 56, 0.32) 44%, rgba(255, 158, 56, 0) 100%);
+      opacity: 0.28;
     }
 
     .knob-col .knob-label {
       position: static;
       width: auto;
       text-align: center;
-      font-size: 9.5px;
+      font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.18em;
-      color: var(--text-soft);
+      letter-spacing: 0.13em;
+      color: #f0ece7;
       text-transform: uppercase;
-      margin-bottom: 2px;
+      margin-bottom: 0;
     }
 
     .controls-grid .knob-shell {
       position: relative;
-      width: 99px;
-      height: 99px;
+      width: 106px;
+      height: 106px;
       border-radius: 50%;
       cursor: ns-resize;
       touch-action: none;
     }
 
     .controls-grid .knob-shell.large {
-      width: 121px;
-      height: 121px;
+      width: 106px;
+      height: 106px;
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.94),
-        inset 0 -10px 18px rgba(170, 138, 88, 0.13),
-        0 10px 20px rgba(126, 100, 62, 0.11),
-        0 0 0 8px rgba(255, 248, 236, 0.40);
+        inset 0 1px 0 rgba(220,236,255,0.32),
+        inset 0 -10px 18px rgba(0, 0, 0, 0.44),
+        0 10px 20px rgba(0, 0, 0, 0.28),
+        0 0 0 8px rgba(10, 17, 29, 0.56);
+    }
+
+    #depth-knob {
+      width: 122px;
+      height: 122px;
+      box-shadow:
+        inset 0 1px 0 rgba(232,244,255,0.34),
+        inset 0 -12px 20px rgba(0, 0, 0, 0.48),
+        0 12px 26px rgba(0, 0, 0, 0.36),
+        0 0 0 10px rgba(9, 16, 28, 0.58);
+      margin-top: -2px;
     }
 
     .controls-grid .value {
       position: static;
-      width: auto;
+      width: 108px;
       margin-left: 0;
-      font-size: 13px;
+      margin-top: 8px;
+      font-size: 18px;
       font-weight: 600;
       line-height: 1.2;
-      min-width: 58px;
+      min-width: 108px;
       text-align: center;
-      border-radius: 6px;
-      padding: 1px 5px;
+      border-radius: 13px;
+      padding: 7px 12px 6px;
+      background: linear-gradient(180deg, rgba(16, 24, 37, 0.90) 0%, rgba(9, 14, 24, 0.98) 100%);
+      border: 1px solid rgba(88, 112, 148, 0.44);
+      color: var(--gold-soft);
+      box-shadow:
+        inset 0 1px 0 rgba(192, 214, 246, 0.08),
+        inset 0 0 10px rgba(90, 122, 171, 0.10),
+        0 8px 16px rgba(0, 0, 0, 0.18);
     }
 
     .controls-grid .value.width-value {
-      width: auto;
+      width: 108px;
       margin-left: 0;
-      font-size: 13px;
+      font-size: 18px;
     }
 
     .knob-label {
@@ -360,14 +435,19 @@
       position: absolute;
       border-radius: 50%;
       background:
-        radial-gradient(circle at 32% 24%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.62) 16%, rgba(255,255,255,0.14) 26%, transparent 34%),
-        linear-gradient(145deg, #f8f3eb 0%, #eadfcf 48%, #dbc8ae 100%);
-      border: 1px solid rgba(206, 176, 120, 0.95);
+        radial-gradient(circle at 34% 22%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.06) 16%, transparent 40%),
+        radial-gradient(circle at 68% 76%, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.12) 26%, transparent 48%),
+        radial-gradient(circle at 50% 48%, rgba(255, 163, 70, 0.16) 0%, rgba(255, 138, 42, 0.08) 24%, rgba(255, 138, 42, 0.0) 52%),
+        repeating-conic-gradient(from -8deg, rgba(190, 214, 244, 0.018) 0deg 4deg, rgba(12, 18, 30, 0.0) 4deg 11deg),
+        radial-gradient(circle at 50% 42%, #25364d 0%, #162334 42%, #0a111d 78%, #060b14 100%);
+      border: 1px solid rgba(132, 168, 209, 0.32);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.92),
-        inset 0 -10px 18px rgba(170, 138, 88, 0.12),
-        0 8px 18px rgba(126, 100, 62, 0.10),
-        0 0 0 7px rgba(255, 248, 236, 0.42);
+        inset 0 1px 0 rgba(232, 244, 255, 0.20),
+        inset 0 0 18px rgba(255, 154, 60, 0.08),
+        inset 0 -14px 20px rgba(0, 0, 0, 0.54),
+        0 12px 20px rgba(0, 0, 0, 0.20),
+        0 0 0 1px rgba(122, 154, 202, 0.10),
+        0 0 0 4px rgba(6, 11, 19, 0.72);
       overflow: visible;
       cursor: ns-resize;
       user-select: none;
@@ -379,12 +459,12 @@
     .knob-shell:hover,
     .knob-shell.dragging {
       transform: translateY(-1px);
-      filter: brightness(1.01);
+      filter: brightness(1.03);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.94),
-        inset 0 -10px 18px rgba(170, 138, 88, 0.14),
-        0 12px 24px rgba(126, 100, 62, 0.13),
-        0 0 0 7px rgba(255, 248, 236, 0.52);
+        inset 0 1px 0 rgba(224,240,255,0.28),
+        inset 0 -10px 18px rgba(0, 0, 0, 0.54),
+        0 14px 24px rgba(0, 0, 0, 0.28),
+        0 0 0 4px rgba(9, 15, 26, 0.72);
     }
 
     .knob-shell::before {
@@ -392,27 +472,39 @@
       position: absolute;
       inset: 8px;
       border-radius: 50%;
-      border: 1px solid rgba(255,255,255,0.74);
+      border: 1px solid rgba(220,236,255,0.18);
       box-shadow:
-        inset 0 0 0 1px rgba(211, 185, 138, 0.28),
-        inset 0 -6px 10px rgba(162, 130, 81, 0.08);
+        inset 0 1px 0 rgba(255,255,255,0.08),
+        inset 0 0 0 1px rgba(120, 153, 192, 0.14),
+        inset 0 -8px 12px rgba(0, 0, 0, 0.22);
       opacity: 0.9;
       pointer-events: none;
     }
 
     .knob-shell::after {
-      content: none;
+      content: "";
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      background: repeating-conic-gradient(from -118deg, rgba(184, 202, 228, 0.11) 0deg 1.2deg, transparent 1.2deg 12deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+      opacity: 0.07;
+      pointer-events: none;
     }
 
     .knob-shell.large {
       background:
-        radial-gradient(circle at 31% 23%, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.64) 16%, rgba(255,255,255,0.15) 27%, transparent 35%),
-        linear-gradient(145deg, #f9f4ed 0%, #eadfce 46%, #d8c3a8 100%);
+        radial-gradient(circle at 31% 23%, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.08) 16%, transparent 42%),
+        radial-gradient(circle at 50% 50%, rgba(255, 160, 62, 0.18) 0%, rgba(255, 138, 42, 0.07) 28%, rgba(255, 138, 42, 0.0) 52%),
+        repeating-conic-gradient(from -6deg, rgba(196,215,242,0.02) 0deg 4deg, rgba(10,16,28,0.0) 4deg 11deg),
+        radial-gradient(circle at 50% 42%, #293b53 0%, #18263a 42%, #0b1421 78%, #060b14 100%);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.94),
-        inset 0 -12px 22px rgba(170, 138, 88, 0.13),
-        0 12px 26px rgba(126, 100, 62, 0.11),
-        0 0 0 10px rgba(255, 248, 236, 0.38);
+        inset 0 1px 0 rgba(225,240,255,0.22),
+        inset 0 -12px 22px rgba(0, 0, 0, 0.52),
+        0 12px 22px rgba(0, 0, 0, 0.20),
+        0 0 0 1px rgba(122,154,202,0.10),
+        0 0 0 5px rgba(9, 15, 26, 0.68);
     }
 
     .indicator {
@@ -423,63 +515,78 @@
       pointer-events: none;
     }
 
+    .indicator .bloom {
+      position: absolute;
+      inset: 14%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 36%, rgba(255, 179, 71, 0.28) 0%, rgba(255, 138, 42, 0.14) 26%, rgba(255, 138, 42, 0.0) 62%);
+      filter: blur(6px);
+      opacity: 0.98;
+    }
+
     .indicator::before {
       content: "";
       position: absolute;
-      inset: 11%;
+      inset: 10%;
       border-radius: 50%;
       background: conic-gradient(
-        from 218deg,
-        rgba(228, 215, 191, 0.80) 0deg 28deg,
-        #ecd79b 28deg 74deg,
-        #c88f2f 74deg 112deg,
-        transparent 112deg 360deg
+        from 220deg,
+        rgba(255, 138, 42, 0.00) 0deg 8deg,
+        rgba(255, 138, 42, 0.68) 8deg 16deg,
+        #ff8a2a 16deg 60deg,
+        #ffb347 60deg 98deg,
+        rgba(255, 179, 71, 0.14) 98deg 108deg,
+        transparent 114deg 360deg
       );
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #000 calc(100% - 10px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #000 calc(100% - 10px));
-      filter: drop-shadow(0 1px 1px rgba(124, 88, 28, 0.16));
-      opacity: 0.96;
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 16px), #000 calc(100% - 9px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 16px), #000 calc(100% - 9px));
+      filter: drop-shadow(0 0 5px rgba(255, 138, 42, 0.26));
+      opacity: 0.98;
     }
 
     .indicator::after {
       content: "";
       position: absolute;
-      width: 18px;
-      height: 18px;
-      left: 21%;
-      top: 8%;
-      border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, #f6e3b5 0%, #dab056 55%, #c08a2a 100%);
+      width: 13px;
+      height: 22px;
+      left: 50%;
+      top: 16%;
+      transform: translateX(-50%);
+      clip-path: polygon(28% 100%, 72% 100%, 82% 24%, 50% 0%, 18% 24%);
+      background: linear-gradient(180deg, rgba(255,242,218,0.98) 0%, rgba(255,222,170,0.96) 32%, rgba(255,181,97,0.92) 76%, rgba(255,138,42,0.82) 100%);
       box-shadow:
-        0 0 0 4px rgba(255, 249, 238, 0.92),
-        0 3px 8px rgba(152, 110, 34, 0.18);
+        0 0 11px rgba(255, 187, 104, 0.38),
+        0 0 2px rgba(255, 244, 225, 0.84);
     }
 
     .large .indicator::before {
       inset: 10%;
       background: conic-gradient(
-        from 218deg,
-        rgba(228, 215, 191, 0.82) 0deg 32deg,
-        #f0ddab 32deg 78deg,
-        #c88f2f 78deg 116deg,
-        transparent 116deg 360deg
+        from 220deg,
+        rgba(255, 138, 42, 0.00) 0deg 10deg,
+        rgba(255, 138, 42, 0.68) 10deg 20deg,
+        #ff8a2a 20deg 66deg,
+        #ffb347 66deg 102deg,
+        rgba(255, 179, 71, 0.14) 102deg 112deg,
+        transparent 118deg 360deg
       );
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 15px), #000 calc(100% - 14px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 15px), #000 calc(100% - 14px));
-      filter: drop-shadow(0 2px 2px rgba(124, 88, 28, 0.14));
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 18px), #000 calc(100% - 10px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 18px), #000 calc(100% - 10px));
+      filter: drop-shadow(0 0 5px rgba(255, 151, 58, 0.24));
     }
 
     .large .indicator::after {
-      width: 24px;
-      height: 24px;
-      right: 6.5%;
-      top: 16%;
-      left: auto;
-      border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, #f8e6bf 0%, #ddb45f 55%, #c38c2d 100%);
+      width: 14px;
+      height: 32px;
+      top: 12%;
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
+      clip-path: polygon(34% 100%, 66% 100%, 84% 24%, 50% 0%, 16% 24%);
+      background: linear-gradient(180deg, rgba(255,246,230,0.98) 0%, rgba(255,229,190,0.96) 34%, rgba(255,188,109,0.92) 76%, rgba(255,141,44,0.84) 100%);
       box-shadow:
-        0 0 0 5px rgba(255, 249, 238, 0.94),
-        0 3px 9px rgba(170, 130, 54, 0.22);
+        0 0 12px rgba(255, 188, 109, 0.34),
+        0 0 2px rgba(255, 244, 225, 0.84);
     }
 
     .mini-dot {
@@ -566,26 +673,57 @@
       50% { transform: scaleX(0.96); }
     }
 
-    .mode-button {
+    .mode-rail {
       position: absolute;
-      width: 220px;
-      height: 64px;
-      border-radius: 28px;
-      border: 2px solid rgba(224, 208, 182, 0.96);
+      left: 36px;
+      right: 36px;
+      bottom: 26px;
+      height: 78px;
+      padding: 12px 24px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 30px;
+      border-radius: 24px;
+      border: 1px solid rgba(80, 108, 149, 0.30);
       background:
-        linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.52) 14%, transparent 15%),
-        linear-gradient(180deg, #f8f5ef 0%, #f1ece3 56%, #e8e0d3 100%);
-      color: #6f5b44;
-      font-size: 23px;
-      font-weight: 500;
-      letter-spacing: 0.16em;
-      cursor: pointer;
-      text-shadow: 0 1px 0 rgba(255,255,255,0.60);
+        linear-gradient(180deg, rgba(17, 27, 43, 0.76) 0%, rgba(6, 11, 20, 0.92) 100%);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.96),
-        inset 0 -3px 5px rgba(208, 190, 160, 0.22),
-        0 2px 0 rgba(216, 199, 171, 0.76),
-        0 6px 12px rgba(150, 121, 72, 0.08);
+        inset 0 1px 0 rgba(191, 215, 249, 0.06),
+        0 10px 24px rgba(0, 0, 0, 0.14);
+      z-index: 1;
+    }
+
+    .mode-rail::before {
+      content: "";
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      top: -1px;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(136, 169, 219, 0.10) 20%, rgba(136, 169, 219, 0.16) 50%, rgba(136, 169, 219, 0.10) 80%, rgba(255,255,255,0) 100%);
+      pointer-events: none;
+    }
+
+    .mode-button {
+      position: static;
+      width: 100%;
+      height: 50px;
+      align-self: center;
+      border-radius: 18px;
+      border: 1px solid rgba(93, 119, 160, 0.42);
+      background:
+        linear-gradient(180deg, rgba(214,232,255,0.08) 0%, rgba(214,232,255,0.02) 14%, transparent 15%),
+        linear-gradient(180deg, #102035 0%, #091321 100%);
+      color: #b8beca;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.11em;
+      cursor: pointer;
+      text-shadow: none;
+      box-shadow:
+        inset 0 1px 0 rgba(203,223,249,0.12),
+        inset 0 -3px 5px rgba(0, 0, 0, 0.24),
+        0 8px 16px rgba(0, 0, 0, 0.14);
       transition: background var(--ease), color var(--ease), box-shadow var(--ease), transform var(--ease), filter var(--ease);
       user-select: none;
       -webkit-user-select: none;
@@ -595,26 +733,27 @@
     .mode-button:hover {
       transform: translateY(-1px);
       filter: brightness(1.02);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.78),
-        inset 0 -3px 6px rgba(120, 82, 29, 0.18),
-        0 2px 0 rgba(167, 125, 49, 0.5),
-        0 10px 16px rgba(161, 124, 58, 0.14);
     }
 
     .mode-button.active {
       background:
-        linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.12) 16%, transparent 17%),
-        linear-gradient(180deg, #f0d994 0%, #ddb760 34%, #c99635 66%, #ab7420 100%);
-      color: #fffdf8;
-      border-color: #b9842b;
-      text-shadow: 0 1px 2px rgba(110, 72, 18, 0.28);
+        linear-gradient(180deg, rgba(255,232,208,0.32) 0%, rgba(255,232,208,0.10) 16%, transparent 18%),
+        linear-gradient(180deg, #ffb347 0%, #ff8a2a 42%, #de6612 100%);
+      color: #fff9f1;
+      border-color: rgba(255, 179, 71, 0.62);
+      text-shadow: 0 1px 2px rgba(101, 46, 6, 0.36);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.36),
-        inset 0 -4px 7px rgba(104, 67, 16, 0.24),
-        0 2px 0 rgba(151, 107, 31, 0.55),
-        0 10px 18px rgba(180, 136, 57, 0.18),
-        0 0 16px rgba(224, 186, 95, 0.16);
+        inset 0 1px 0 rgba(255,255,255,0.22),
+        inset 0 -4px 7px rgba(115, 48, 8, 0.24),
+        0 0 0 1px rgba(255, 167, 62, 0.14),
+        0 0 14px rgba(255, 138, 42, 0.22),
+        0 10px 18px rgba(0, 0, 0, 0.18);
+    }
+
+    #depth-knob + .value {
+      width: 118px;
+      min-width: 118px;
+      font-size: 20px;
     }
   </style>
 </head>
@@ -638,10 +777,10 @@
       <div class="spectrum-frame">
         <canvas id="space-canvas"></canvas>
         <div class="spectrum-legend">
-          <div class="legend-item"><span class="legend-swatch" style="background: rgba(215,175,80,0.88);"></span>dry</div>
-          <div class="legend-item"><span class="legend-swatch" style="background: rgba(146,176,255,0.76); box-shadow: 0 0 5px rgba(146,176,255,0.36);"></span>early reflections</div>
-          <div class="legend-item"><span class="legend-swatch" style="background: rgba(80,130,240,0.88); box-shadow: 0 0 5px rgba(80,130,240,0.45);"></span>reverb tail</div>
-          <div class="legend-item"><span class="legend-swatch" style="background: rgba(128,92,216,0.78); box-shadow: 0 0 5px rgba(128,92,216,0.40);"></span>wet bloom</div>
+          <div class="legend-item"><span class="legend-swatch" style="background: rgba(255,176,84,0.92); box-shadow: 0 0 6px rgba(255,176,84,0.24);"></span>dry</div>
+          <div class="legend-item"><span class="legend-swatch" style="background: rgba(132,176,246,0.86); box-shadow: 0 0 6px rgba(132,176,246,0.24);"></span>early reflections</div>
+          <div class="legend-item"><span class="legend-swatch" style="background: rgba(68,157,255,0.92); box-shadow: 0 0 7px rgba(68,157,255,0.28);"></span>reverb tail</div>
+          <div class="legend-item"><span class="legend-swatch" style="background: rgba(118,88,216,0.92); box-shadow: 0 0 6px rgba(118,88,216,0.24);"></span>wet bloom</div>
         </div>
       </div>
       <div class="freq-labels">
@@ -659,7 +798,7 @@
       <div class="knob-col">
         <div class="knob-label">SPACE</div>
         <div class="knob-shell macro-knob" id="space-knob" data-param="space" data-default="18">
-          <div class="indicator"></div>
+          <div class="indicator"><div class="bloom"></div></div>
         </div>
         <div class="value editable-value" id="space-value" data-param="space" contenteditable="true" spellcheck="false">18%</div>
       </div>
@@ -667,7 +806,7 @@
       <div class="knob-col">
         <div class="knob-label">AIR</div>
         <div class="knob-shell macro-knob" id="air-knob" data-param="air" data-default="32">
-          <div class="indicator"></div>
+          <div class="indicator"><div class="bloom"></div></div>
         </div>
         <div class="value editable-value" id="air-value" data-param="air" contenteditable="true" spellcheck="false">32%</div>
       </div>
@@ -675,7 +814,7 @@
       <div class="knob-col">
         <div class="knob-label">DEPTH</div>
         <div class="knob-shell macro-knob" id="depth-knob" data-param="depth" data-default="26">
-          <div class="indicator"></div>
+          <div class="indicator"><div class="bloom"></div></div>
         </div>
         <div class="value editable-value" id="depth-value" data-param="depth" contenteditable="true" spellcheck="false">26%</div>
       </div>
@@ -683,7 +822,7 @@
       <div class="knob-col">
         <div class="knob-label">PRE</div>
         <div class="knob-shell macro-knob" id="pre_delay_ms-knob" data-param="pre_delay_ms" data-default="37.4">
-          <div class="indicator"></div>
+          <div class="indicator"><div class="bloom"></div></div>
         </div>
         <div class="value editable-value" id="pre_delay_ms-value" data-param="pre_delay_ms" contenteditable="true" spellcheck="false">22 ms</div>
       </div>
@@ -691,7 +830,7 @@
       <div class="knob-col">
         <div class="knob-label">WIDTH</div>
         <div class="knob-shell large macro-knob" id="width-knob" data-param="width" data-default="38">
-          <div class="indicator"></div>
+          <div class="indicator"><div class="bloom"></div></div>
         </div>
         <div class="value width-value editable-value" id="width-value" data-param="width" contenteditable="true" spellcheck="false">38%</div>
       </div>
@@ -699,16 +838,18 @@
       <div class="knob-col">
         <div class="knob-label">MIX</div>
         <div class="knob-shell macro-knob" id="mix-knob" data-param="mix" data-default="16">
-          <div class="indicator"></div>
+          <div class="indicator"><div class="bloom"></div></div>
         </div>
         <div class="value editable-value" id="mix-value" data-param="mix" contenteditable="true" spellcheck="false">16%</div>
       </div>
     </div>
 
-    <button class="mode-button active" data-mode="Studio" data-mode-index="0" style="left: 40px; top: 588px;">STUDIO</button>
-    <button class="mode-button" data-mode="Arena" data-mode-index="1" style="left: 320px; top: 588px;">ARENA</button>
-    <button class="mode-button" data-mode="Dream" data-mode-index="2" style="left: 600px; top: 588px;">DREAM</button>
-    <button class="mode-button" data-mode="Vintage" data-mode-index="3" style="left: 880px; top: 588px;">VINTAGE</button>
+    <div class="mode-rail">
+      <button class="mode-button active" data-mode="Studio" data-mode-index="0">STUDIO</button>
+      <button class="mode-button" data-mode="Arena" data-mode-index="1">ARENA</button>
+      <button class="mode-button" data-mode="Dream" data-mode-index="2">DREAM</button>
+      <button class="mode-button" data-mode="Vintage" data-mode-index="3">VINTAGE</button>
+    </div>
     </div>
   </div>
 
@@ -746,6 +887,156 @@
       var smoothedEarly = new Float32Array(SPECTRUM_BINS);
       var smoothedTail = new Float32Array(SPECTRUM_BINS);
       var smoothedBloom = new Float32Array(SPECTRUM_BINS);
+      var particleLayers = [];
+      var particleClusters = [
+        { x: 0.72, y: 0.62, weight: 0.36 },
+        { x: 0.79, y: 0.46, weight: 0.34 },
+        { x: 0.87, y: 0.58, weight: 0.20 },
+        { x: 0.93, y: 0.72, weight: 0.10 }
+      ];
+
+      function randomRange(min, max) {
+        return min + (Math.random() * (max - min));
+      }
+
+      function pickClusterIndex() {
+        var r = Math.random();
+        var sum = 0;
+        for (var i = 0; i < particleClusters.length; i += 1) {
+          sum += particleClusters[i].weight;
+          if (r <= sum) return i;
+        }
+        return particleClusters.length - 1;
+      }
+
+      function smoothstep(edge0, edge1, x) {
+        var t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+        return t * t * (3 - (2 * t));
+      }
+
+      function respawnParticle(p, spec) {
+        var clusterIndex = pickClusterIndex();
+        var cluster = particleClusters[clusterIndex];
+
+        p.homeX = clamp(cluster.x + randomRange(-spec.spreadX, spec.spreadX), 0.58, 0.988);
+        p.homeY = clamp(cluster.y + randomRange(-spec.spreadY, spec.spreadY), 0.10, 0.94);
+        p.xNorm = p.homeX + randomRange(-spec.spawnJitterX, spec.spawnJitterX);
+        p.yNorm = p.homeY + randomRange(-spec.spawnJitterY, spec.spawnJitterY);
+        p.size = randomRange(spec.sizeMin, spec.sizeMax);
+        p.alpha = randomRange(spec.alphaMin, spec.alphaMax);
+        p.phase = randomRange(0, Math.PI * 2);
+        p.warmth = Math.random() < 0.34 ? randomRange(0.70, 0.98) : randomRange(0.06, 0.34);
+        p.twinkle = randomRange(0.7, 1.4);
+      }
+
+      function createParticle(spec) {
+        var particle = {
+          xNorm: 0.8,
+          yNorm: 0.5,
+          homeX: 0.8,
+          homeY: 0.5,
+          size: randomRange(spec.sizeMin, spec.sizeMax),
+          alpha: randomRange(spec.alphaMin, spec.alphaMax),
+          speed: randomRange(spec.speedMin, spec.speedMax),
+          drift: randomRange(spec.driftMin, spec.driftMax),
+          phase: randomRange(0, Math.PI * 2),
+          warmth: randomRange(0.06, 0.95),
+          twinkle: randomRange(0.7, 1.4)
+        };
+        respawnParticle(particle, spec);
+        return particle;
+      }
+
+      function initialiseParticles() {
+        var layerSpecs = [
+          { count: 7,  sizeMin: 1.55, sizeMax: 2.3, alphaMin: 0.028, alphaMax: 0.058, speedMin: 0.00005, speedMax: 0.00011, driftMin: 0.00028, driftMax: 0.00072, spreadX: 0.032, spreadY: 0.092, spawnJitterX: 0.006, spawnJitterY: 0.020 },
+          { count: 16, sizeMin: 0.95, sizeMax: 1.55, alphaMin: 0.020, alphaMax: 0.042, speedMin: 0.00004, speedMax: 0.00009, driftMin: 0.00020, driftMax: 0.00056, spreadX: 0.050, spreadY: 0.130, spawnJitterX: 0.010, spawnJitterY: 0.028 },
+          { count: 30, sizeMin: 0.55, sizeMax: 1.05, alphaMin: 0.010, alphaMax: 0.026, speedMin: 0.00002, speedMax: 0.00006, driftMin: 0.00014, driftMax: 0.00038, spreadX: 0.072, spreadY: 0.185, spawnJitterX: 0.013, spawnJitterY: 0.036 }
+        ];
+
+        particleLayers = [];
+        for (var li = 0; li < layerSpecs.length; li += 1) {
+          var spec = layerSpecs[li];
+          var layer = [];
+          for (var i = 0; i < spec.count; i += 1) {
+            layer.push(createParticle(spec));
+          }
+          particleLayers.push({ spec: spec, particles: layer });
+        }
+      }
+
+      function drawParticles(ctx, W, chartTop, chartBottom, mixPct, spacePct, airPct) {
+        if (!particleLayers || particleLayers.length === 0) return;
+
+        var chartHeight = chartBottom - chartTop;
+        var energy = 0.56 + (mixPct * 0.12) + (spacePct * 0.07) + (airPct * 0.05);
+
+        for (var li = 0; li < particleLayers.length; li += 1) {
+          var layerRef = particleLayers[li];
+          var particles = layerRef.particles;
+          var spec = layerRef.spec;
+
+          for (var i = 0; i < particles.length; i += 1) {
+            var p = particles[i];
+
+            p.yNorm -= p.speed;
+            if (p.yNorm < 0.10) {
+              respawnParticle(p, spec);
+            }
+
+            p.xNorm += (p.homeX - p.xNorm) * 0.0038;
+            p.yNorm += (p.homeY - p.yNorm) * 0.0008;
+
+            var driftA = Math.sin((spectrumTime * 0.050) + p.phase) * p.drift;
+            var driftB = Math.sin((spectrumTime * 0.021) + (p.phase * 1.34)) * p.drift * 0.38;
+            var xNorm = clamp(p.xNorm + driftA + driftB, 0.58, 0.988);
+            var yNorm = clamp(p.yNorm + Math.sin((spectrumTime * 0.015) + p.phase) * 0.0009, 0.10, 0.94);
+
+            var x = xNorm * W;
+            var y = chartTop + (yNorm * chartHeight);
+            var breathe = 0.86 + (0.14 * (0.5 + 0.5 * Math.sin((spectrumTime * (0.095 + (p.twinkle * 0.02))) + p.phase)));
+
+            var freqIn = smoothstep(0.58, 0.67, xNorm);
+            var freqOut = 1 - smoothstep(0.975, 0.988, xNorm);
+            var freqPeak = 1 - clamp(Math.abs(xNorm - 0.81) / 0.22, 0, 1);
+
+            var clusterMask = 0;
+            for (var ci = 0; ci < particleClusters.length; ci += 1) {
+              var c = particleClusters[ci];
+              var dx = (xNorm - c.x) / 0.075;
+              var dy = (yNorm - c.y) / 0.17;
+              var g = Math.exp(-((dx * dx) + (dy * dy)));
+              clusterMask += g * c.weight;
+            }
+            clusterMask = clamp(clusterMask * 1.56, 0, 1);
+
+            var verticalMask = 0.80 + 0.20 * (1 - clamp(Math.abs(yNorm - 0.56) / 0.56, 0, 1));
+            var zone = freqIn * freqOut * (0.22 + (0.78 * freqPeak)) * clusterMask * verticalMask;
+
+            var twinklePeak = 0.72 + (0.28 * (0.5 + 0.5 * Math.sin((spectrumTime * (0.55 + p.twinkle)) + (p.phase * 1.8))));
+            var alpha = p.alpha * breathe * twinklePeak * energy * zone;
+            var core = p.size * (1.55 + p.warmth * 0.46);
+            var halo = core * (3.8 + (1 - p.warmth) * 2.1);
+
+            var orb = ctx.createRadialGradient(x, y, 0, x, y, halo);
+            orb.addColorStop(0, "rgba(244,250,255," + (alpha * (0.64 + (1 - p.warmth) * 0.16)).toFixed(3) + ")");
+            orb.addColorStop(0.10, "rgba(169,212,255," + (alpha * (0.34 + (1 - p.warmth) * 0.22)).toFixed(3) + ")");
+            orb.addColorStop(0.26, "rgba(255,193,112," + (alpha * (0.12 + p.warmth * 0.26)).toFixed(3) + ")");
+            orb.addColorStop(0.62, "rgba(100,154,255," + (alpha * (0.07 + (1 - p.warmth) * 0.08)).toFixed(3) + ")");
+            orb.addColorStop(1, "rgba(255,176,112,0)");
+
+            ctx.fillStyle = orb;
+            ctx.beginPath();
+            ctx.arc(x, y, halo, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "rgba(247,250,255," + (alpha * (0.56 + (1 - p.warmth) * 0.22)).toFixed(3) + ")";
+            ctx.beginPath();
+            ctx.arc(x, y, core, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
 
       function clamp(value, min, max) {
         var safeMin = typeof min === "number" ? min : 0;
@@ -1208,53 +1499,41 @@
         var preMs = percentToPreDelayMs(currentValues.pre_delay_ms);
         preDelayVisualMs = preMs;
 
-        var pulsePeriod = 1.10;
+        var pulsePeriod = 1.30;
         var pulsePos = spectrumTime % pulsePeriod;
-        var onsetStart = 0.03 + (prePct * 0.24);
-        var onsetRise = 0.10 + (prePct * 0.10);
+        var onsetStart = 0.08 + (prePct * 0.28);
+        var onsetRise = 0.14 + (prePct * 0.08);
         var onsetT = clamp((pulsePos - onsetStart) / onsetRise, 0, 1);
         wetOnsetVisual = onsetT * onsetT * (3 - (2 * onsetT));
-        var wetOnsetGain = 0.34 + (0.66 * wetOnsetVisual);
+        var wetOnsetGain = 0.42 + (0.58 * wetOnsetVisual);
         var t0 = spectrumTime;
 
         for (var i = 0; i < SPECTRUM_BINS; i += 1) {
           var f = i / (SPECTRUM_BINS - 1);
 
-          var dryBase = Math.pow(1 - f * 0.60, 0.72);
-          var dryP1 = 0.42 * Math.exp(-Math.pow(f - (0.19 + 0.04 * Math.sin(t0 * 0.55)), 2) / 0.0034);
-          var dryP2 = 0.28 * Math.exp(-Math.pow(f - (0.44 + 0.03 * Math.sin(t0 * 0.36 + 1.1)), 2) / 0.0055);
-          var dryP3 = 0.18 * Math.exp(-Math.pow(f - (0.71 + 0.02 * Math.sin(t0 * 0.82 + 2.0)), 2) / 0.0078);
-          var rawDry = clamp((dryBase + dryP1 + dryP2 + dryP3) * (0.50 + 0.16 * Math.sin(t0 * 0.24 + f * 1.8)), 0, 1);
+          var drySlope = 0.48 * Math.pow(1 - f, 0.56);
+          var dryPeakLow = 0.22 * Math.exp(-Math.pow(f - 0.20, 2) / 0.0046);
+          var dryPeakMid = 0.14 * Math.exp(-Math.pow(f - 0.43, 2) / 0.0104);
+          var dryMotion = 0.016 * Math.sin(t0 * 0.8 + f * 12.0);
+          var rawDry = clamp(drySlope + dryPeakLow + dryPeakMid + dryMotion, 0, 1);
 
-          var tailBase = Math.pow(1 - f * 0.70, 1.20) * spacePct;
-          var tailSwell = 0.48 * spacePct * Math.exp(-Math.pow(f - 0.30, 2) / (0.05 + spacePct * 0.10));
-          var tailAir = 0.30 * airPct * Math.exp(-Math.pow(f - 0.72, 2) / (0.06 + airPct * 0.08));
-          var tailDepth = 0.26 * depthPct * Math.exp(-Math.pow(f - 0.10, 2) / (0.04 + depthPct * 0.07));
-          var tailDecay = 0.62 + 0.38 * (0.5 + 0.5 * Math.sin(t0 * 0.96 - f * 10.0));
-          var highShimmer = airPct * Math.pow(f, 3.2) * (0.36 + 0.64 * (0.5 + 0.5 * Math.sin(t0 * 4.3 + f * 26.0)));
-          var rawTail = (tailBase + tailSwell + tailAir + tailDepth)
-                      * (0.70 + 0.30 * Math.sin(t0 * 0.20 + f * 2.8 + spacePct * 1.8))
-                      * tailDecay;
-          rawTail = clamp((rawTail + 0.13 * highShimmer) * wetOnsetGain, 0, 1);
-
-          var earlyWindow = clamp((f - 0.06) / 0.30, 0, 1) * (1 - clamp((f - 0.38) / 0.22, 0, 1));
-          var clusterA = Math.exp(-Math.pow(f - (0.10 + 0.04 * spacePct), 2) / (0.0018 + 0.006 * spacePct));
-          var clusterB = Math.exp(-Math.pow(f - (0.18 + 0.05 * spacePct), 2) / (0.003 + 0.008 * spacePct));
-          var clusterC = Math.exp(-Math.pow(f - (0.27 + 0.05 * spacePct), 2) / (0.005 + 0.010 * spacePct));
-          var densityBlend = (clusterA * 0.60) + (clusterB * 0.36) + (clusterC * 0.24);
-          var depthShape = 0.34 + (0.66 * (1 - depthPct));
-          var prePosition = clamp((f - (0.05 + prePct * 0.20)) / 0.24, 0, 1);
+          var earlyBody = (0.082 + 0.064 * spacePct) * Math.exp(-Math.pow(f - (0.22 + 0.05 * spacePct), 2) / (0.028 + depthPct * 0.02));
+          var earlyShelf = 0.034 * Math.pow(1 - Math.abs(f - 0.26) / 0.34, 2);
+          var prePosition = clamp((f - (0.05 + prePct * 0.16)) / 0.20, 0, 1);
           var preGate = prePosition * prePosition * (3 - (2 * prePosition));
-          var rawEarly = clamp(densityBlend * earlyWindow * depthShape * preGate * (0.18 + 0.42 * wetOnsetGain), 0, 1);
+          var rawEarly = clamp((earlyBody + earlyShelf) * preGate * (0.74 - 0.22 * depthPct), 0, 1);
 
-          var bloomEnergy = mixPct * (0.56 * spacePct + 0.44 * depthPct)
-                          * (0.55 + 0.45 * Math.sin(t0 * 0.22 + f * 4.8));
-          var bloomShape = Math.sin(Math.PI * f) * bloomEnergy * (0.86 + widthPct * 0.24);
-          var rawBloom = clamp(bloomShape * (0.90 + 0.10 * Math.random()) * wetOnsetGain, 0, 1);
+          var tailShelf = (0.050 + 0.050 * spacePct) * Math.exp(-Math.pow(f - 0.18, 2) / 0.034);
+          var tailAir = (0.014 + 0.030 * airPct) * Math.exp(-Math.pow(f - 0.78, 2) / 0.018);
+          var tailBed = 0.022 * Math.pow(1 - f, 1.1);
+          var rawTail = clamp((tailShelf + tailAir + tailBed) * (0.90 + 0.08 * Math.sin(t0 * 0.9 + f * 8.0)) * wetOnsetGain, 0, 1);
 
-          smoothedDry[i] = smoothedDry[i] + (rawDry - smoothedDry[i]) * 0.22;
-          smoothedEarly[i] = smoothedEarly[i] + (rawEarly - smoothedEarly[i]) * 0.14;
-          smoothedTail[i] = smoothedTail[i] + (rawTail - smoothedTail[i]) * 0.09;
+          var bloomShape = Math.exp(-Math.pow(f - (0.30 + widthPct * 0.08), 2) / (0.028 + widthPct * 0.02));
+          var rawBloom = clamp(bloomShape * (0.020 + mixPct * 0.030 + depthPct * 0.018) * wetOnsetGain, 0, 1);
+
+          smoothedDry[i] = smoothedDry[i] + (rawDry - smoothedDry[i]) * 0.16;
+          smoothedEarly[i] = smoothedEarly[i] + (rawEarly - smoothedEarly[i]) * 0.12;
+          smoothedTail[i] = smoothedTail[i] + (rawTail - smoothedTail[i]) * 0.10;
           smoothedBloom[i] = smoothedBloom[i] + (rawBloom - smoothedBloom[i]) * 0.08;
         }
       }
@@ -1264,124 +1543,83 @@
         var ctx = spectrumCtx;
         var W = spectrumCanvas.width;
         var H = spectrumCanvas.height;
+        var chartTop = 12;
+        var chartBottom = H - 22;
+        var chartHeight = chartBottom - chartTop;
         var depthPct = currentValues.depth / 100;
+        var spacePct = currentValues.space / 100;
         var widthPct = currentValues.width / 100;
         var airPct = currentValues.air / 100;
         var mixPct = currentValues.mix / 100;
         var prePct = currentValues.pre_delay_ms / 100;
-        var spreadPx = 8 + widthPct * 36;
+        var spreadPx = 4 + widthPct * 10;
 
         ctx.clearRect(0, 0, W, H);
 
         var bg = ctx.createLinearGradient(0, 0, 0, H);
-        bg.addColorStop(0, "#0d1325");
-        bg.addColorStop(1, "#06090f");
+        bg.addColorStop(0, "#07101d");
+        bg.addColorStop(1, "#030913");
         ctx.fillStyle = bg;
         ctx.fillRect(0, 0, W, H);
 
-        var hazeAlpha = 0.05 + depthPct * 0.20;
-        var hazeRadius = H * (0.38 + depthPct * 0.68);
-        var hazeA = ctx.createRadialGradient(W * 0.33, H * 0.64, H * 0.05, W * 0.33, H * 0.64, hazeRadius);
-        hazeA.addColorStop(0, "rgba(64,108,215," + hazeAlpha.toFixed(3) + ")");
-        hazeA.addColorStop(1, "rgba(64,108,215,0)");
+        var hazeAlpha = 0.03 + depthPct * 0.12;
+        var hazeRadius = H * (0.44 + depthPct * 0.46);
+        var hazeA = ctx.createRadialGradient(W * 0.50, H * 0.12, H * 0.04, W * 0.50, H * 0.12, hazeRadius);
+        hazeA.addColorStop(0, "rgba(76,132,224," + (hazeAlpha * 0.9).toFixed(3) + ")");
+        hazeA.addColorStop(1, "rgba(76,132,224,0)");
         ctx.fillStyle = hazeA;
         ctx.fillRect(0, 0, W, H);
 
-        var hazeB = ctx.createRadialGradient(W * 0.68, H * 0.58, H * 0.05, W * 0.68, H * 0.58, hazeRadius);
-        hazeB.addColorStop(0, "rgba(92,74,206," + (hazeAlpha * 0.72).toFixed(3) + ")");
-        hazeB.addColorStop(1, "rgba(92,74,206,0)");
+        var hazeB = ctx.createRadialGradient(W * 0.70, H * 0.70, H * 0.02, W * 0.70, H * 0.70, H * 0.34);
+        hazeB.addColorStop(0, "rgba(41,85,176," + (0.02 + airPct * 0.05).toFixed(3) + ")");
+        hazeB.addColorStop(1, "rgba(41,85,176,0)");
         ctx.fillStyle = hazeB;
         ctx.fillRect(0, 0, W, H);
 
-        var onsetGuideX = W * (0.08 + (prePct * 0.26));
-        ctx.strokeStyle = "rgba(114,164,247," + (0.14 + ((1 - wetOnsetVisual) * 0.28)).toFixed(3) + ")";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(onsetGuideX, 0);
-        ctx.lineTo(onsetGuideX, H);
-        ctx.stroke();
-
-        var guideGlow = ctx.createRadialGradient(onsetGuideX, H * 0.18, 0, onsetGuideX, H * 0.18, H * 0.26);
-        guideGlow.addColorStop(0, "rgba(120,170,255," + (0.10 + ((1 - wetOnsetVisual) * 0.22)).toFixed(3) + ")");
-        guideGlow.addColorStop(1, "rgba(120,170,255,0)");
-        ctx.fillStyle = guideGlow;
-        ctx.fillRect(0, 0, W, H);
-
-        ctx.strokeStyle = "rgba(200,170,90,0.07)";
+        ctx.strokeStyle = "rgba(160,188,222,0.075)";
         ctx.lineWidth = 1;
         var gridFreqs = [0.07, 0.18, 0.34, 0.5, 0.66, 0.8, 0.93];
         for (var gi = 0; gi < gridFreqs.length; gi += 1) {
           var gx = Math.round(gridFreqs[gi] * W) + 0.5;
           ctx.beginPath();
-          ctx.moveTo(gx, 0);
-          ctx.lineTo(gx, H);
+          ctx.moveTo(gx, chartTop);
+          ctx.lineTo(gx, chartBottom);
           ctx.stroke();
         }
 
         var binW = W / SPECTRUM_BINS;
 
-        for (var i = 0; i < SPECTRUM_BINS; i += 1) {
-          var x = i * binW;
-          var bloomH = smoothedBloom[i] * H * 0.80;
-          var centerBias = Math.abs((i / (SPECTRUM_BINS - 1)) - 0.5) * 2;
-          var localSpread = spreadPx * (0.36 + centerBias * 0.64);
-          var bloomGrad = ctx.createLinearGradient(0, H - bloomH, 0, H);
-          bloomGrad.addColorStop(0, "rgba(98,72,204,0)");
-          bloomGrad.addColorStop(0.45, "rgba(95,72,196,0.12)");
-          bloomGrad.addColorStop(1, "rgba(76,52,178,0.24)");
-          ctx.fillStyle = bloomGrad;
-          ctx.fillRect(x - localSpread * 0.10, H - bloomH, binW + 1 + localSpread * 0.20, bloomH);
-        }
-
-        ctx.beginPath();
-        ctx.moveTo(0, H);
-        for (var e = 0; e < SPECTRUM_BINS; e += 1) {
-          var ex = e * binW + binW * 0.5;
-          var es = ((ex / W) - 0.5) * 2;
-          ex += es * spreadPx * 0.36;
-          var eh = smoothedEarly[e] * H * 0.42;
-          ctx.lineTo(ex, H - eh);
-        }
-        ctx.lineTo(W, H);
-        ctx.closePath();
-        var earlyGrad = ctx.createLinearGradient(0, 0, 0, H);
-        earlyGrad.addColorStop(0, "rgba(154,184,255,0.28)");
-        earlyGrad.addColorStop(0.5, "rgba(132,164,242,0.16)");
-        earlyGrad.addColorStop(1, "rgba(124,156,236,0.05)");
-        ctx.fillStyle = earlyGrad;
-        ctx.fill();
-
         ctx.beginPath();
         for (var e2 = 0; e2 < SPECTRUM_BINS; e2 += 1) {
           var ex2 = e2 * binW + binW * 0.5;
           var es2 = ((ex2 / W) - 0.5) * 2;
-          ex2 += es2 * spreadPx * 0.36;
-          var eh2 = smoothedEarly[e2] * H * 0.42;
-          if (e2 === 0) ctx.moveTo(ex2, H - eh2);
-          else ctx.lineTo(ex2, H - eh2);
+          ex2 += es2 * spreadPx * 0.18;
+          var eh2 = smoothedEarly[e2] * chartHeight * 0.44;
+          if (e2 === 0) ctx.moveTo(ex2, chartBottom - eh2);
+          else ctx.lineTo(ex2, chartBottom - eh2);
         }
-        ctx.strokeStyle = "rgba(156,188,255,0.62)";
-        ctx.lineWidth = 1.1;
-        ctx.shadowColor = "rgba(132,168,246,0.32)";
+        ctx.strokeStyle = "rgba(133,178,241,0.76)";
+        ctx.lineWidth = 1.0;
+        ctx.shadowColor = "rgba(118,162,234,0.20)";
         ctx.shadowBlur = 4;
         ctx.stroke();
         ctx.shadowBlur = 0;
 
         ctx.beginPath();
-        ctx.moveTo(0, H);
+        ctx.moveTo(0, chartBottom);
         for (var t = 0; t < SPECTRUM_BINS; t += 1) {
           var tx = t * binW + binW * 0.5;
           var ts = ((tx / W) - 0.5) * 2;
           tx += ts * spreadPx;
-          var th = smoothedTail[t] * H * 0.84;
-          ctx.lineTo(tx, H - th);
+          var th = smoothedTail[t] * chartHeight * 0.26;
+          ctx.lineTo(tx, chartBottom - th);
         }
-        ctx.lineTo(W, H);
+        ctx.lineTo(W, chartBottom);
         ctx.closePath();
         var tailGrad = ctx.createLinearGradient(0, 0, 0, H);
-        tailGrad.addColorStop(0, "rgba(62,102,224,0.38)");
-        tailGrad.addColorStop(0.5, "rgba(52,88,198,0.24)");
-        tailGrad.addColorStop(1, "rgba(42,72,178,0.08)");
+        tailGrad.addColorStop(0, "rgba(54,140,255,0.10)");
+        tailGrad.addColorStop(0.5, "rgba(54,140,255,0.04)");
+        tailGrad.addColorStop(1, "rgba(54,140,255,0)");
         ctx.fillStyle = tailGrad;
         ctx.fill();
 
@@ -1390,65 +1628,47 @@
           var lx = l * binW + binW * 0.5;
           var ls = ((lx / W) - 0.5) * 2;
           lx += ls * spreadPx;
-          var lh = smoothedTail[l] * H * 0.84;
-          if (l === 0) ctx.moveTo(lx, H - lh);
-          else ctx.lineTo(lx, H - lh);
+          var lh = smoothedTail[l] * chartHeight * 0.26;
+          if (l === 0) ctx.moveTo(lx, chartBottom - lh);
+          else ctx.lineTo(lx, chartBottom - lh);
         }
-        ctx.strokeStyle = "rgba(84,136,245,0.76)";
-        ctx.lineWidth = 1.5;
-        ctx.shadowColor = "rgba(76,128,238,0.55)";
-        ctx.shadowBlur = 6;
+        ctx.strokeStyle = "rgba(58,156,255,0.82)";
+        ctx.lineWidth = 1.25;
+        ctx.shadowColor = "rgba(58,156,255,0.18)";
+        ctx.shadowBlur = 4;
         ctx.stroke();
         ctx.shadowBlur = 0;
 
         ctx.beginPath();
-        for (var l2 = 0; l2 < SPECTRUM_BINS; l2 += 1) {
-          var lx2 = l2 * binW + binW * 0.5;
-          var ls2 = ((lx2 / W) - 0.5) * 2;
-          lx2 -= ls2 * spreadPx * 0.52;
-          var lh2 = smoothedTail[l2] * H * 0.76;
-          if (l2 === 0) ctx.moveTo(lx2, H - lh2);
-          else ctx.lineTo(lx2, H - lh2);
+        for (var b = 0; b < SPECTRUM_BINS; b += 1) {
+          var bx = b * binW + binW * 0.5;
+          var bh = smoothedBloom[b] * chartHeight * 0.26;
+          if (b === 0) ctx.moveTo(bx, chartBottom - bh);
+          else ctx.lineTo(bx, chartBottom - bh);
         }
-        ctx.strokeStyle = "rgba(92,146,250,0.42)";
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(122, 86, 216, 0.58)";
+        ctx.lineWidth = 0.9;
+        ctx.shadowColor = "rgba(122, 86, 216, 0.12)";
+        ctx.shadowBlur = 3;
         ctx.stroke();
+        ctx.shadowBlur = 0;
 
         ctx.beginPath();
         for (var d = 0; d < SPECTRUM_BINS; d += 1) {
           var dx = d * binW + binW * 0.5;
-          var dh = smoothedDry[d] * H * 0.70;
-          if (d === 0) ctx.moveTo(dx, H - dh);
-          else ctx.lineTo(dx, H - dh);
+          var dh = smoothedDry[d] * chartHeight * 0.64;
+          if (d === 0) ctx.moveTo(dx, chartBottom - dh);
+          else ctx.lineTo(dx, chartBottom - dh);
         }
-        ctx.strokeStyle = "rgba(218,176,82,0.88)";
-        ctx.lineWidth = 1.2;
-        ctx.shadowColor = "rgba(218,176,82,0.40)";
+        ctx.strokeStyle = "rgba(255,168,77,0.98)";
+        ctx.lineWidth = 2.4;
+        ctx.shadowColor = "rgba(255,138,42,0.20)";
         ctx.shadowBlur = 4;
         ctx.stroke();
         ctx.shadowBlur = 0;
 
         ctx.globalCompositeOperation = "screen";
-        var shimmer = ctx.createLinearGradient(0, 0, W, 0);
-        shimmer.addColorStop(0, "rgba(255,220,130,0)");
-        shimmer.addColorStop(0.55, "rgba(255,220,130,0)");
-        shimmer.addColorStop(0.75, "rgba(248,204,112," + (0.05 + airPct * 0.09).toFixed(3) + ")");
-        shimmer.addColorStop(1, "rgba(255,236,168," + (0.08 + mixPct * 0.1).toFixed(3) + ")");
-        ctx.fillStyle = shimmer;
-        ctx.fillRect(0, 0, W, H);
-
-        for (var p = 0; p < 7; p += 1) {
-          var px = W * (0.69 + (p / 7) * 0.28) + Math.sin(spectrumTime * 2 + p * 1.4) * 7;
-          var py = H * (0.2 + 0.6 * (0.5 + 0.5 * Math.sin(spectrumTime * 1.3 + p * 0.8)));
-          var pr = 7 + airPct * 10 + mixPct * 6;
-          var peak = ctx.createRadialGradient(px, py, 0, px, py, pr);
-          peak.addColorStop(0, "rgba(255,230,150," + (0.12 + airPct * 0.18).toFixed(3) + ")");
-          peak.addColorStop(1, "rgba(255,230,150,0)");
-          ctx.fillStyle = peak;
-          ctx.beginPath();
-          ctx.arc(px, py, pr, 0, Math.PI * 2);
-          ctx.fill();
-        }
+        drawParticles(ctx, W, chartTop, chartBottom, mixPct, spacePct, airPct);
         ctx.globalCompositeOperation = "source-over";
       }
 
@@ -1465,6 +1685,7 @@
         spectrumCtx = spectrumCanvas.getContext("2d");
         if (!spectrumCtx) return;
         resizeSpectrumCanvas();
+        initialiseParticles();
         window.addEventListener("resize", resizeSpectrumCanvas);
         if (spectrumAnimationId) window.cancelAnimationFrame(spectrumAnimationId);
         renderSpectrum();
