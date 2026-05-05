@@ -20,7 +20,7 @@
   var paramStates = {};
   var juceAvailable = false;
   var magicOn = true;
-  var analysisOverlayOn = false;
+  var analysisOverlayOn = false;  // Disabled by default; users toggle with ANALYZE button or Alt+A
   var activeDrag = null;
   var activePreset = 'Universal Smooth';
 
