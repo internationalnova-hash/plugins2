@@ -39,9 +39,17 @@
       padding: 14px;
     }
 
+    .plugin-shell {
+      --ui-scale: 1;
+      width: calc(1536px * var(--ui-scale));
+      height: calc(940px * var(--ui-scale));
+      position: relative;
+      overflow: hidden;
+    }
+
     .plugin {
-      width: min(1536px, calc(100vw - 28px));
-      height: min(940px, calc(100vh - 28px));
+      width: 1536px;
+      height: 940px;
       border-radius: 26px;
       border: 1px solid rgba(255, 187, 52, 0.35);
       background:
@@ -56,8 +64,12 @@
       display: grid;
       grid-template-rows: 132px 255px 1fr 84px;
       gap: 12px;
-      position: relative;
+      position: absolute;
+      left: 0;
+      top: 0;
       overflow: hidden;
+      transform: scale(var(--ui-scale));
+      transform-origin: top left;
     }
 
     .row {
@@ -713,6 +725,7 @@
   </style>
 </head>
 <body>
+  <div class="plugin-shell" id="plugin-shell">
   <div class="plugin" id="plugin-root">
     <section class="topbar">
       <div class="brand">
@@ -838,9 +851,11 @@
       <button type="button" class="magic" id="magic-toggle">MAGIC <span class="stars">&#10022;&#10022;</span></button>
     </section>
   </div>
+  </div>
 
   <script>
     (() => {
+      const shell = document.getElementById('plugin-shell');
       const root = document.getElementById('plugin-root');
       const scopeCanvas = document.getElementById('master-scope');
       const scopeCtx = scopeCanvas.getContext('2d');
@@ -1388,10 +1403,22 @@
 
       function boot() {
         buildKnobs();
+
+        function fitToViewport() {
+          const scale = Math.min(
+            (window.innerWidth - 28) / 1536,
+            (window.innerHeight - 28) / 940,
+            1
+          );
+          shell.style.setProperty('--ui-scale', String(Math.max(0.42, scale)));
+        }
+
+        fitToViewport();
         resizeCanvas(scopeCanvas, scopeCtx);
         resizeCanvas(stereoCanvas, stereoCtx);
         resizeCanvas(drCanvas, drCtx);
         window.addEventListener('resize', () => {
+          fitToViewport();
           resizeCanvas(scopeCanvas, scopeCtx);
           resizeCanvas(stereoCanvas, stereoCtx);
           resizeCanvas(drCanvas, drCtx);
