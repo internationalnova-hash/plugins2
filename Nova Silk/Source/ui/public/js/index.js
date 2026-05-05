@@ -7,7 +7,7 @@
   var KNOB_MAX_DEG = 120;
 
   var PRESETS = {
-    'Universal Smooth': { smooth: 42, focus: 60, air_preserve: 72, body: 62, output: 50, mix: 100 },
+    'Universal Smooth': { smooth: 42, focus: 60, air_preserve: 100, body: 62, output: 50, mix: 100 },
     'Vocal':            { smooth: 50, focus: 65, air_preserve: 70, body: 65, output: 50, mix: 100 },
     'Drums':            { smooth: 35, focus: 62, air_preserve: 55, body: 40, output: 50, mix: 80  },
     'Guitar':           { smooth: 40, focus: 58, air_preserve: 68, body: 70, output: 50, mix: 90  },
@@ -16,7 +16,7 @@
 
   var ALL_PARAMS = ['smooth', 'focus', 'air_preserve', 'body', 'output', 'mix'];
 
-  var currentValues = { smooth: 42, focus: 60, air_preserve: 72, body: 62, output: 50, mix: 100 };
+  var currentValues = { smooth: 42, focus: 60, air_preserve: 100, body: 62, output: 50, mix: 100 };
   var paramStates = {};
   var juceAvailable = false;
   var activeDrag = null;
