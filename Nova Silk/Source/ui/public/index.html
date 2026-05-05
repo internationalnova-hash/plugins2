@@ -271,7 +271,7 @@
       font-size: clamp(22px, 1.35vw, 28px);
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      opacity: 0.68;
+      opacity: 0.78;
     }
 
     .legend-line {
@@ -399,7 +399,7 @@
 
     .preset-bar {
       display: flex;
-      gap: 14px;
+      gap: 13px;
       flex-wrap: nowrap;
       align-items: center;
     }
@@ -521,7 +521,7 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.2),
         0 0 22px rgba(180, 128, 255, 0.55),
         0 0 26px rgba(245, 200, 126, 0.36);
-      animation: magicPulse 2.8s ease-in-out infinite, magicShimmer 4.2s ease-in-out infinite;
+      animation: magicPulse 4.8s ease-in-out infinite, magicShimmer 5.4s ease-in-out infinite;
       background-size: 180% 100%;
       background-image:
         linear-gradient(120deg, rgba(11, 18, 44, 0.95) 0%, rgba(90, 48, 170, 0.28) 45%, rgba(245, 200, 126, 0.28) 58%, rgba(4, 10, 27, 0.95) 100%);
@@ -531,6 +531,7 @@
       box-shadow:
         0 0 24px rgba(174, 125, 255, 0.12),
         0 0 36px rgba(245, 200, 126, 0.08);
+      animation: magicAura 6.5s ease-in-out infinite;
     }
 
     .magic-wrap:hover .magic-switch {
@@ -541,6 +542,10 @@
         0 0 24px rgba(245, 200, 126, 0.24);
     }
 
+    .magic-wrap:hover .magic-label {
+      color: #f3ce91;
+    }
+
     @keyframes magicPulse {
       0%, 100% { filter: brightness(1); }
       50% { filter: brightness(1.02); }
@@ -549,6 +554,11 @@
     @keyframes magicShimmer {
       0%, 100% { background-position: 0% 0%; }
       50% { background-position: 100% 0%; }
+    }
+
+    @keyframes magicAura {
+      0%, 100% { box-shadow: 0 0 24px rgba(174, 125, 255, 0.10), 0 0 36px rgba(245, 200, 126, 0.07); }
+      50% { box-shadow: 0 0 28px rgba(174, 125, 255, 0.14), 0 0 42px rgba(245, 200, 126, 0.11); }
     }
 
     @media (max-width: 1280px) {
@@ -664,10 +674,10 @@
             <circle cx="76" cy="76" r="54" fill="none" stroke="rgba(176,146,230,0.2)" stroke-width="8" stroke-dasharray="226 9999" stroke-linecap="round" transform="rotate(150 76 76)" />
             <circle cx="76" cy="76" r="54" id="smooth-arc" fill="none" stroke="url(#arc-smooth)" stroke-width="8" stroke-dasharray="12 214" stroke-linecap="round" transform="rotate(150 76 76)" style="filter: drop-shadow(0 0 10px rgba(177,126,255,0.78)) drop-shadow(0 0 13px rgba(242,200,125,0.44)); opacity: 0.98;" />
             <circle cx="76" cy="76" r="43" fill="url(#body-smooth)" stroke="rgba(232,214,255,0.2)" stroke-width="1.4" />
-            <ellipse cx="63" cy="53" rx="26" ry="16" fill="rgba(255,255,255,0.28)" />
+            <ellipse cx="63" cy="53" rx="26" ry="16" fill="rgba(255,255,255,0.25)" />
             <circle cx="76" cy="76" r="47" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="0.8" />
             <g id="smooth-ind" style="transform-origin: 76px 76px; transform: rotate(-120deg);">
-              <rect x="74" y="21" width="4" height="18" rx="2" fill="#ffe2ae" />
+              <rect x="73.5" y="21" width="5" height="18" rx="2" fill="#f3d5a3" />
             </g>
           </svg>
         </div>
@@ -693,10 +703,10 @@
             <circle cx="76" cy="76" r="54" fill="none" stroke="rgba(176,146,230,0.2)" stroke-width="8" stroke-dasharray="226 9999" stroke-linecap="round" transform="rotate(150 76 76)" />
             <circle cx="76" cy="76" r="54" id="focus-arc" fill="none" stroke="url(#arc-focus)" stroke-width="8" stroke-dasharray="0 226" stroke-linecap="round" transform="rotate(150 76 76)" style="filter: drop-shadow(0 0 8px rgba(177,126,255,0.6)) drop-shadow(0 0 10px rgba(242,200,125,0.35));" />
             <circle cx="76" cy="76" r="43" fill="url(#body-focus)" stroke="rgba(232,214,255,0.2)" stroke-width="1.4" />
-            <ellipse cx="63" cy="53" rx="26" ry="16" fill="rgba(255,255,255,0.28)" />
+            <ellipse cx="63" cy="53" rx="26" ry="16" fill="rgba(255,255,255,0.25)" />
             <circle cx="76" cy="76" r="47" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="0.8" />
             <g id="focus-ind" style="transform-origin: 76px 76px; transform: rotate(-120deg);">
-              <rect x="74" y="21" width="4" height="18" rx="2" fill="#f0ce91" />
+              <rect x="73.5" y="21" width="5" height="18" rx="2" fill="#f3d5a3" />
             </g>
           </svg>
         </div>
@@ -722,10 +732,10 @@
             <circle cx="76" cy="76" r="54" fill="none" stroke="rgba(176,146,230,0.2)" stroke-width="8" stroke-dasharray="226 9999" stroke-linecap="round" transform="rotate(150 76 76)" />
             <circle cx="76" cy="76" r="54" id="air_preserve-arc" fill="none" stroke="url(#arc-air)" stroke-width="8" stroke-dasharray="0 226" stroke-linecap="round" transform="rotate(150 76 76)" style="filter: drop-shadow(0 0 8px rgba(177,126,255,0.6)) drop-shadow(0 0 10px rgba(242,200,125,0.35));" />
             <circle cx="76" cy="76" r="43" fill="url(#body-air)" stroke="rgba(232,214,255,0.2)" stroke-width="1.4" />
-            <ellipse cx="63" cy="53" rx="26" ry="16" fill="rgba(255,255,255,0.28)" />
+            <ellipse cx="63" cy="53" rx="26" ry="16" fill="rgba(255,255,255,0.25)" />
             <circle cx="76" cy="76" r="47" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="0.8" />
             <g id="air_preserve-ind" style="transform-origin: 76px 76px; transform: rotate(-120deg);">
-              <rect x="74" y="21" width="4" height="18" rx="2" fill="#f0ce91" />
+              <rect x="73.5" y="21" width="5" height="18" rx="2" fill="#f3d5a3" />
             </g>
           </svg>
         </div>
@@ -751,10 +761,10 @@
             <circle cx="76" cy="76" r="54" fill="none" stroke="rgba(176,146,230,0.2)" stroke-width="8" stroke-dasharray="226 9999" stroke-linecap="round" transform="rotate(150 76 76)" />
             <circle cx="76" cy="76" r="54" id="body-arc" fill="none" stroke="url(#arc-body)" stroke-width="8" stroke-dasharray="0 226" stroke-linecap="round" transform="rotate(150 76 76)" style="filter: drop-shadow(0 0 8px rgba(177,126,255,0.6)) drop-shadow(0 0 10px rgba(242,200,125,0.35));" />
             <circle cx="76" cy="76" r="43" fill="url(#body-body)" stroke="rgba(232,214,255,0.2)" stroke-width="1.4" />
-            <ellipse cx="63" cy="53" rx="26" ry="16" fill="rgba(255,255,255,0.28)" />
+            <ellipse cx="63" cy="53" rx="26" ry="16" fill="rgba(255,255,255,0.25)" />
             <circle cx="76" cy="76" r="47" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="0.8" />
             <g id="body-ind" style="transform-origin: 76px 76px; transform: rotate(-120deg);">
-              <rect x="74" y="21" width="4" height="18" rx="2" fill="#f0ce91" />
+              <rect x="73.5" y="21" width="5" height="18" rx="2" fill="#f3d5a3" />
             </g>
           </svg>
         </div>
@@ -780,10 +790,10 @@
             <circle cx="76" cy="76" r="54" fill="none" stroke="rgba(176,146,230,0.2)" stroke-width="8" stroke-dasharray="226 9999" stroke-linecap="round" transform="rotate(150 76 76)" />
             <circle cx="76" cy="76" r="54" id="output-arc" fill="none" stroke="url(#arc-output)" stroke-width="8" stroke-dasharray="0 226" stroke-linecap="round" transform="rotate(150 76 76)" style="filter: drop-shadow(0 0 8px rgba(177,126,255,0.6)) drop-shadow(0 0 10px rgba(242,200,125,0.35));" />
             <circle cx="76" cy="76" r="43" fill="url(#body-output)" stroke="rgba(232,214,255,0.2)" stroke-width="1.4" />
-            <ellipse cx="63" cy="53" rx="26" ry="16" fill="rgba(255,255,255,0.28)" />
+            <ellipse cx="63" cy="53" rx="26" ry="16" fill="rgba(255,255,255,0.25)" />
             <circle cx="76" cy="76" r="47" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="0.8" />
             <g id="output-ind" style="transform-origin: 76px 76px; transform: rotate(-120deg);">
-              <rect x="74" y="21" width="4" height="18" rx="2" fill="#f0ce91" />
+              <rect x="73.5" y="21" width="5" height="18" rx="2" fill="#f3d5a3" />
             </g>
           </svg>
         </div>

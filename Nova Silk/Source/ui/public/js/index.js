@@ -510,25 +510,41 @@
 
   function makeParticle() {
     var clusters = [
-      { x: 0.64, y: 0.31 },
-      { x: 0.76, y: 0.25 },
-      { x: 0.88, y: 0.34 }
+      { x: 0.68, y: 0.31 },
+      { x: 0.77, y: 0.25 },
+      { x: 0.85, y: 0.33 }
     ];
-    var isStray = Math.random() < 0.26;
+    var isStray = Math.random() < 0.22;
     var c = clusters[Math.floor(Math.random() * clusters.length)];
     var depth = Math.random();
+    var tierRoll = Math.random();
+    var tier = tierRoll < 0.70 ? 'small' : (tierRoll < 0.95 ? 'medium' : 'large');
 
-    var baseX = isStray ? (0.56 + Math.random() * 0.42) : (c.x + (Math.random() - 0.5) * 0.11);
-    var baseY = isStray ? (0.08 + Math.random() * 0.54) : (c.y + (Math.random() - 0.5) * 0.13);
+    var baseX = isStray ? (0.64 + Math.random() * 0.28) : (c.x + (Math.random() - 0.5) * 0.095);
+    var baseY = isStray ? (0.10 + Math.random() * 0.48) : (c.y + (Math.random() - 0.5) * 0.12);
+
+    var size;
+    var blur;
+    if (tier === 'small') {
+      size = 0.26 + Math.random() * 0.85;
+      blur = depth > 0.72 ? (1.1 + Math.random() * 1.9) : (3.8 + Math.random() * 5.3);
+    } else if (tier === 'medium') {
+      size = 0.9 + Math.random() * 1.35;
+      blur = depth > 0.72 ? (1.4 + Math.random() * 2.2) : (4.8 + Math.random() * 6.0);
+    } else {
+      size = 1.9 + Math.random() * 1.6;
+      blur = depth > 0.72 ? (2.0 + Math.random() * 2.8) : (5.2 + Math.random() * 6.8);
+    }
 
     return {
-      x: clamp(baseX, 0.52, 0.98),
+      x: clamp(baseX, 0.62, 0.93),
       y: clamp(baseY, 0.06, 0.70),
-      vx: -0.00018 + Math.random() * 0.00046,
+      vx: 0.00006 + Math.random() * 0.00024,
       vy: -0.00030 + Math.random() * 0.00072,
       life: Math.random(),
-      size: depth > 0.72 ? (0.8 + Math.random() * 2.0) : (0.25 + Math.random() * 1.45),
-      blur: depth > 0.72 ? (1.2 + Math.random() * 2.4) : (4.5 + Math.random() * 6.5),
+      size: size,
+      blur: blur,
+      tier: tier,
       depth: depth,
       warm: Math.random() > 0.42
     };
@@ -551,12 +567,13 @@
         p = particles[i];
       }
 
-      p.x += p.vx;
+      p.x += p.vx + 0.00003 * Math.sin(phase * 0.9 + i * 0.17);
       p.y += p.vy;
 
-      if (p.x < 0.58 || p.y < 0.02) {
+      if (p.x > 0.94 || p.x < 0.60 || p.y < 0.02) {
         
         particles[i] = makeParticle();
+        particles[i].x = 0.63 + Math.random() * 0.06;
         p = particles[i];
       }
 
@@ -565,13 +582,17 @@
       var flicker = 0.35 + 0.65 * Math.sin((phase * 0.6 + i) * 0.35) * 0.5 + 0.5;
       var depthGain = 0.55 + p.depth * 0.55;
       var alpha = (0.13 + 0.30 * (1 - p.life)) * flicker * depthGain;
+      var tierFillGain = p.tier === 'small' ? 0.82 : (p.tier === 'medium' ? 0.94 : 1.08);
+      var tierGlowGain = p.tier === 'small' ? 0.78 : (p.tier === 'medium' ? 0.96 : 1.14);
 
       ctx.beginPath();
       ctx.arc(px, py, p.size, 0, Math.PI * 2);
       ctx.fillStyle = p.warm
-        ? 'rgba(247, 201, 126, ' + (alpha * 0.9).toFixed(3) + ')'
-        : 'rgba(200, 150, 255, ' + (alpha * 0.78).toFixed(3) + ')';
-      ctx.shadowColor = p.warm ? 'rgba(248, 204, 132, ' + (0.24 + p.depth * 0.26).toFixed(3) + ')' : 'rgba(188, 133, 255, ' + (0.22 + p.depth * 0.24).toFixed(3) + ')';
+        ? 'rgba(247, 201, 126, ' + (alpha * 0.82 * tierFillGain).toFixed(3) + ')'
+        : 'rgba(200, 150, 255, ' + (alpha * 0.70 * tierFillGain).toFixed(3) + ')';
+      ctx.shadowColor = p.warm
+        ? 'rgba(248, 204, 132, ' + ((0.24 + p.depth * 0.26) * tierGlowGain).toFixed(3) + ')'
+        : 'rgba(188, 133, 255, ' + ((0.22 + p.depth * 0.24) * tierGlowGain).toFixed(3) + ')';
       ctx.shadowBlur = p.blur;
       ctx.fill();
     }
@@ -651,11 +672,15 @@
       var highSpark = Math.max(0, t - 0.64) * (0.16 + airAmt * 0.16);
 
       var yBase = (crest + sweep + dip + lift + micro + highNoise - dspShape * 0.18 - highSpark) * h;
+      var driftA = 0.24 * Math.sin(hotspotPhase * 0.58);
+      var driftB = 0.31 * Math.sin(hotspotPhase * 0.58 + 0.9);
+      var driftC = 0.38 * Math.sin(hotspotPhase * 0.58 + 1.8);
+      var driftD = 0.46 * Math.sin(hotspotPhase * 0.58 + 2.7);
 
-      waveA[i] = yBase;
-      waveB[i] = yBase + h * (0.105 + 0.04 * Math.sin(phase * 2 + t * 7.5) + micro * 1.1);
-      waveC[i] = yBase + h * (0.18 + 0.05 * Math.sin(phase * 1.35 + t * 6.8) + micro * 1.8);
-      waveD[i] = yBase + h * (0.25 + 0.05 * Math.cos(phase * 1.8 + t * 9.2) + micro * 2.2);
+      waveA[i] = yBase + driftA;
+      waveB[i] = yBase + h * (0.105 + 0.04 * Math.sin(phase * 2 + t * 7.5) + micro * 1.1) + driftB;
+      waveC[i] = yBase + h * (0.18 + 0.05 * Math.sin(phase * 1.35 + t * 6.8) + micro * 1.8) + driftC;
+      waveD[i] = yBase + h * (0.25 + 0.05 * Math.cos(phase * 1.8 + t * 9.2) + micro * 2.2) + driftD;
     }
 
     drawBand(
@@ -722,7 +747,7 @@
     drawParticles(w, h);
     var hotspotX = w * (0.63 + 0.10 * Math.sin(hotspotPhase * 0.82) + 0.018 * Math.sin(hotspotPhase * 2.7));
     var hotspotY = h * (0.53 + 0.02 * Math.cos(hotspotPhase * 0.75));
-    var hotspotPulse = 0.23 + 0.07 * (0.5 + 0.5 * Math.sin(hotspotPhase * 1.8)) + 0.012 * Math.sin(hotspotPhase * 6.1);
+    var hotspotPulse = 0.215 + 0.065 * (0.5 + 0.5 * Math.sin(hotspotPhase * 1.8)) + 0.011 * Math.sin(hotspotPhase * 6.1);
     var bloom = ctx.createRadialGradient(hotspotX, hotspotY, 12, hotspotX, hotspotY, h * 0.54);
     bloom.addColorStop(0, 'rgba(255, 204, 130, ' + hotspotPulse.toFixed(3) + ')');
     bloom.addColorStop(0.6, 'rgba(214, 149, 255, ' + (hotspotPulse * 0.45).toFixed(3) + ')');
