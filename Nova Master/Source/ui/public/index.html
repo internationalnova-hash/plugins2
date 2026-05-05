@@ -40,8 +40,8 @@
     }
 
     .plugin {
-      width: min(1536px, calc(100vw - 28px));
-      height: min(1024px, calc(100vh - 28px));
+      width: 1536px;
+      height: 1024px;
       border-radius: 26px;
       border: 1px solid rgba(255, 187, 52, 0.35);
       background:
@@ -58,6 +58,8 @@
       gap: 12px;
       position: relative;
       overflow: hidden;
+      transform: scale(var(--ui-scale, 1));
+      transform-origin: center center;
     }
 
     .row {
@@ -1388,10 +1390,22 @@
 
       function boot() {
         buildKnobs();
+
+        function fitToViewport() {
+          const scale = Math.min(
+            (window.innerWidth - 28) / 1536,
+            (window.innerHeight - 28) / 1024,
+            1
+          );
+          root.style.setProperty('--ui-scale', String(Math.max(0.35, scale)));
+        }
+
+        fitToViewport();
         resizeCanvas(scopeCanvas, scopeCtx);
         resizeCanvas(stereoCanvas, stereoCtx);
         resizeCanvas(drCanvas, drCtx);
         window.addEventListener('resize', () => {
+          fitToViewport();
           resizeCanvas(scopeCanvas, scopeCtx);
           resizeCanvas(stereoCanvas, stereoCtx);
           resizeCanvas(drCanvas, drCtx);
