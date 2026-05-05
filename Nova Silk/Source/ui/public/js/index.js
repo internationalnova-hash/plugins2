@@ -641,30 +641,62 @@
 
     ctx.save();
 
-    // Draw vertical suppression bars from bottom
-    var barWidth = w / BINS;
+    // Create smooth waveform path for suppression
+    ctx.beginPath();
+    ctx.moveTo(0, h);
 
     for (var i = 0; i < BINS; i++) {
       var x = (i / (BINS - 1)) * w;
       var suppression = smoothReduction[i] || 0;  // 0 to 1
-      var barHeight = suppression * maxSuppressionHeight;
-      var barY = h - barHeight;
+      var y = h - (suppression * maxSuppressionHeight);
 
-      // Create gradient for each bar
-      var barGradient = ctx.createLinearGradient(x, barY, x, h);
-      barGradient.addColorStop(0, 'rgba(180, 120, 255, 0.28)');
-      barGradient.addColorStop(0.5, 'rgba(160, 100, 240, 0.36)');
-      barGradient.addColorStop(1, 'rgba(140, 80, 220, 0.22)');
-
-      ctx.fillStyle = barGradient;
-      ctx.fillRect(x, barY, barWidth, barHeight);
-
-      // Subtle glow
-      ctx.shadowColor = 'rgba(200, 140, 255, 0.14)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        var prevX = ((i - 1) / (BINS - 1)) * w;
+        var prevSuppression = smoothReduction[i - 1] || 0;
+        var prevY = h - (prevSuppression * maxSuppressionHeight);
+        var cpX = (prevX + x) * 0.5;
+        ctx.bezierCurveTo(cpX, prevY, cpX, y, x, y);
+      }
     }
+
+    // Close path at bottom right
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+
+    // Fill with gradient purple
+    var fillGradient = ctx.createLinearGradient(0, h - maxSuppressionHeight, 0, h);
+    fillGradient.addColorStop(0, 'rgba(180, 120, 255, 0.32)');
+    fillGradient.addColorStop(0.5, 'rgba(160, 100, 240, 0.28)');
+    fillGradient.addColorStop(1, 'rgba(140, 80, 220, 0.12)');
+    ctx.fillStyle = fillGradient;
+    ctx.fill();
+
+    // Draw smooth waveform stroke
+    ctx.beginPath();
+    for (var j = 0; j < BINS; j++) {
+      var xj = (j / (BINS - 1)) * w;
+      var suppj = smoothReduction[j] || 0;
+      var yj = h - (suppj * maxSuppressionHeight);
+
+      if (j === 0) {
+        ctx.moveTo(xj, yj);
+      } else {
+        var pxj = ((j - 1) / (BINS - 1)) * w;
+        var psuppj = smoothReduction[j - 1] || 0;
+        var pyj = h - (psuppj * maxSuppressionHeight);
+        var cpxj = (pxj + xj) * 0.5;
+        ctx.bezierCurveTo(cpxj, pyj, cpxj, yj, xj, yj);
+      }
+    }
+
+    ctx.strokeStyle = 'rgba(200, 140, 255, 0.48)';
+    ctx.lineWidth = 2.2;
+    ctx.shadowColor = 'rgba(180, 120, 255, 0.24)';
+    ctx.shadowBlur = 6;
+    ctx.stroke();
 
     ctx.restore();
   }
