@@ -3,383 +3,328 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nova Master — v1 Preview</title>
+  <title>Nova Master</title>
   <style>
-        .nova-header {
-          display: flex;
-          align-items: flex-start;
-          gap: 18px;
-          margin-bottom: 0;
-          position: relative;
-          min-height: 64px;
-        }
-        .nova-logo-container {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 36px;
-          height: 36px;
-          margin-left: -10px;
-          border-radius: 10px;
-          background: linear-gradient(180deg, rgba(191,166,124,0.16) 0%, rgba(191,166,124,0.06) 100%);
-          box-shadow: 0 2px 8px 0 rgba(0,0,0,0.28);
-          backdrop-filter: blur(1.5px);
-        }
-        .nova-logo {
-          width: 32px;
-          height: 32px;
-          object-fit: contain;
-          filter: grayscale(0.24) brightness(0.82) contrast(1.04);
-          opacity: 1;
-        }
-        .nova-title-nova {
-          font-size: 24px;
-          font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-          font-weight: 700;
-          letter-spacing: 0.13em;
-          color: #d2c4ac;
-          margin: 0 0 2px 0;
-          padding: 0;
-          opacity: 0.97;
-        }
-        .nova-title-master {
-          font-size: 30px;
-          font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-          font-weight: 950;
-          letter-spacing: 0.04em;
-          color: #f1e7d6;
-          margin: 0;
-          padding: 0;
-          line-height: 1.0;
-          opacity: 0.98;
-        }
     :root {
-      --face: #11100f;
-      --face-shade: #0a0908;
-      --panel: #151311;
-      --panel-soft: #1d1a17;
-      --panel-cool: #181613;
-      --text-main: #d7ccb9;
-      --text-soft: #a89b86;
-      --silver: #c4a067;
-      --silver-deep: #6c5538;
-      --silver-pale: #e4cea5;
-      --silver-line: rgba(188, 154, 98, 0.28);
-      --meter-blue: #c9a15f;
-      --meter-ice: #e3c891;
-      --finish-gold: #c7a267;
-      --finish-gold-deep: #8b6d43;
-      --finish-glow: #e5c892;
-      --white: #fffdfa;
+      --bg0: #040404;
+      --bg1: #090807;
+      --bg2: #0d0b09;
+      --gold: #ffbf2e;
+      --gold-soft: #ffd775;
+      --purple: #b64cff;
+      --purple-soft: #d28dff;
+      --panel-edge: rgba(255, 183, 44, 0.45);
+      --text: #f3d28b;
+      --text-soft: #c8a86d;
       --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     * { box-sizing: border-box; }
+
     html, body {
+      margin: 0;
       width: 100%;
       height: 100%;
-      margin: 0;
-      overflow: hidden;
       background:
-        radial-gradient(circle at 50% -16%, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 40%),
-        linear-gradient(180deg, #151311 0%, #0f0d0b 56%, #090806 100%);
-      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
-      color: var(--text-main);
+        radial-gradient(1200px 420px at 50% -40%, rgba(255, 190, 70, 0.08), transparent 60%),
+        linear-gradient(180deg, #060606 0%, #050504 100%);
+      color: var(--text);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      overflow: hidden;
     }
+
     body {
       display: grid;
       place-items: center;
-      padding: 10px;
+      padding: 14px;
     }
 
     .plugin {
-      position: relative;
-      width: min(980px, 100vw);
-      height: min(580px, 100vh);
+      width: min(1536px, calc(100vw - 28px));
+      height: min(1024px, calc(100vh - 28px));
       border-radius: 26px;
-      overflow: hidden;
-      isolation: isolate;
-      background: linear-gradient(180deg, #1a1714 0%, var(--face) 24%, var(--face-shade) 100%);
-      border: 1px solid rgba(192, 154, 95, 0.18);
+      border: 1px solid rgba(255, 187, 52, 0.35);
+      background:
+        radial-gradient(900px 300px at 50% -10%, rgba(255, 184, 53, 0.08), transparent 70%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 11px),
+        linear-gradient(180deg, #080706 0%, #050504 62%, #040403 100%);
       box-shadow:
-        0 34px 68px rgba(0, 0, 0, 0.52),
-        0 12px 22px rgba(0, 0, 0, 0.40),
-        inset 0 1px 0 rgba(255,255,255,0.05),
-        inset 0 -18px 28px rgba(0, 0, 0, 0.34),
-        inset 10px 0 18px rgba(255,255,255,0.02),
-        inset -10px 0 18px rgba(0,0,0,0.20);
-    }
-
-    .plugin::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,0.035), transparent 18%, transparent 82%, rgba(0,0,0,0.28));
-      pointer-events: none;
-    }
-
-    .plugin::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: repeating-linear-gradient(90deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 20px);
-      opacity: 0.2;
-      mix-blend-mode: soft-light;
-      pointer-events: none;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 14px;
-      padding: 18px 26px 8px;
-      margin-bottom: 18px;
-    }
-
-    .title-block {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .title-meta {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .header-chip {
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(191, 157, 103, 0.26);
-      background: linear-gradient(180deg, rgba(36,42,51,0.92) 0%, rgba(27,32,40,0.9) 100%);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: #b8a78a;
-    }
-
-    .header-chip.gold {
-      border-color: rgba(150, 110, 40, 0.76);
-      color: #76521b;
-      background: linear-gradient(180deg, rgba(255,249,236,0.98) 0%, rgba(243,226,190,0.94) 100%);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.84),
-        0 1px 0 rgba(255,255,255,0.32);
-    }
-
-    .title {
-      margin: 0;
-      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-      font-size: 46px;
-      line-height: 0.96;
-      letter-spacing: 0.07em;
-      color: #efe7d9;
-      text-shadow: 0 1px 0 rgba(255,255,255,0.08), 0 2px 6px rgba(0,0,0,0.24);
-    }
-
-    .subtitle {
-      margin-top: 0;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: var(--text-soft);
-    }
-
-    .tagline-wrap {
-      text-align: right;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 4px;
-    }
-
-    .tagline {
-      margin-top: 0;
-      font-family: "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Brush Script MT", cursive;
-      font-size: 24px;
-      color: #c6ae86;
-      text-shadow: 0 1px 0 rgba(255,255,255,0.08);
-    }
-
-    .tagline-sub {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.24em;
-      text-transform: uppercase;
-      color: #96876f;
-    }
-
-    .inner-panel {
-      position: absolute;
-      left: 16px;
-      right: 16px;
-      top: 94px;
-      bottom: 72px;
-      border-radius: 20px;
-      padding: 16px 16px 14px;
-      background: linear-gradient(180deg, rgba(22,19,16,0.98) 0%, rgba(18,16,13,0.96) 52%, rgba(14,12,10,0.97) 100%);
-      border: 1px solid rgba(188, 153, 95, 0.18);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.03),
-        inset 0 -18px 28px rgba(0,0,0,0.32),
-        inset 12px 0 16px rgba(255,255,255,0.02),
-        inset -12px 0 18px rgba(0,0,0,0.18),
-        0 14px 24px rgba(0,0,0,0.38);
-    }
-
-    .inner-panel::before {
-      content: "";
-      position: absolute;
-      inset: 14px;
-      border-radius: 20px;
-      border: 1px solid rgba(255,255,255,0.06);
-      pointer-events: none;
-    }
-
-    .inner-panel::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: 24px;
-      box-shadow:
-        inset 0 2px 0 rgba(255,255,255,0.04),
-        inset 0 -2px 0 rgba(0,0,0,0.20),
-        inset 2px 0 0 rgba(255,255,255,0.02),
-        inset -2px 0 0 rgba(0,0,0,0.10);
-      pointer-events: none;
-    }
-
-    .layout {
-      position: relative;
+        0 28px 56px rgba(0,0,0,0.58),
+        inset 0 1px 0 rgba(255,255,255,0.06),
+        inset 0 -30px 70px rgba(0,0,0,0.45);
+      padding: 18px 18px 16px;
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr)) 0.92fr;
+      grid-template-rows: 88px 255px 1fr 84px;
       gap: 12px;
-      height: 100%;
-      align-items: stretch;
+      position: relative;
+      overflow: hidden;
     }
 
-    .knob-wrap,
-    .precision-rail {
+    .row {
+      border: 1px solid rgba(255, 186, 48, 0.34);
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(10,9,8,0.94), rgba(7,6,6,0.95));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+      position: relative;
+    }
+
+    .topbar {
+      border: 0;
+      display: grid;
+      grid-template-columns: 420px 1fr 420px;
+      align-items: center;
+      gap: 12px;
+      padding: 0 6px;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-box {
+      width: 82px;
+      height: 82px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 186, 48, 0.44);
+      background: radial-gradient(circle at 35% 30%, rgba(255, 220, 120, 0.4), rgba(80, 50, 20, 0.8));
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 24px rgba(255, 178, 40, 0.2), inset 0 1px 0 rgba(255,255,255,0.2);
+      overflow: hidden;
+    }
+
+    .logo-box img {
+      width: 66px;
+      height: 66px;
+      object-fit: contain;
+      filter: brightness(1.15) saturate(1.1);
+    }
+
+    .title-wrap { line-height: 1; }
+    .title-top {
+      display: block;
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: #ffcb61;
+      margin-bottom: 6px;
+    }
+    .title-main {
+      display: block;
+      font-size: 66px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #f6f6f6;
+      margin-bottom: 6px;
+    }
+    .title-sub {
+      display: block;
+      font-size: 33px;
+      font-weight: 700;
+      letter-spacing: 0.11em;
+      color: #ffcb61;
+    }
+
+    .header-controls {
+      margin: 0 auto;
+      width: 100%;
+      max-width: 700px;
+      height: 62px;
+      border: 1px solid rgba(255, 183, 44, 0.45);
+      border-radius: 30px;
+      display: grid;
+      grid-template-columns: 1.4fr repeat(4, 1fr);
+      overflow: hidden;
+      background: rgba(7,7,7,0.9);
+    }
+
+    .header-controls button {
+      border: 0;
+      border-right: 1px solid rgba(255, 183, 44, 0.28);
+      background: transparent;
+      color: #ffcc62;
+      font-size: 34px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background var(--ease), color var(--ease);
+    }
+
+    .header-controls button:last-child { border-right: 0; }
+    .header-controls button:hover { background: rgba(255, 190, 75, 0.08); color: #ffe3ab; }
+    .header-controls .preset-label {
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-align: left;
+      padding-left: 24px;
+    }
+
+    .byline-wrap {
+      text-align: right;
+      font-family: "Snell Roundhand", "Brush Script MT", cursive;
+      font-size: 62px;
+      color: #ffc94e;
+      padding-right: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 18px;
+    }
+
+    .gear-btn {
+      width: 62px;
+      height: 62px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 186, 48, 0.45);
+      background: rgba(7,7,7,0.9);
+      color: #ffc94e;
+      font-size: 30px;
+      cursor: pointer;
+    }
+
+    .scope {
+      padding: 10px 16px 10px;
+      display: grid;
+      grid-template-rows: 32px 1fr 34px;
+      gap: 0;
+    }
+
+    .scope-legend {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      align-items: center;
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .scope-legend span { justify-self: center; }
+    .scope-legend .low { color: var(--purple-soft); }
+    .scope-legend .mid { color: #d9a6ff; }
+    .scope-legend .high { color: #ffd766; }
+
+    .scope-canvas-wrap {
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      border-top: 1px solid rgba(255, 183, 44, 0.20);
+      border-bottom: 1px solid rgba(255, 183, 44, 0.20);
+    }
+
+    #master-scope {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .freq-labels {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      align-items: center;
+      font-size: 33px;
+      color: #ffd26d;
+      letter-spacing: 0.02em;
+    }
+
+    .mid-row {
+      display: grid;
+      grid-template-columns: 1fr 276px;
+      gap: 12px;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .macro-panel {
+      padding: 10px 10px 12px;
+      display: grid;
+      grid-template-rows: 1fr 236px;
+      gap: 12px;
+    }
+
+    .knob-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0;
+      border: 1px solid rgba(255,186,48,0.32);
+      border-radius: 24px;
+      overflow: hidden;
+    }
+
+    .knob-cell {
+      border-right: 1px solid rgba(255, 186, 48, 0.18);
+      padding: 12px 8px 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: space-between;
+      background:
+        radial-gradient(200px 110px at 50% 100%, rgba(255, 182, 44, 0.08), transparent 60%),
+        linear-gradient(180deg, rgba(8,8,8,0.94), rgba(6,6,6,0.94));
     }
 
-    .knob-wrap {
-      position: relative;
-      overflow: hidden;
-      justify-content: center;
-      gap: 6px;
-      padding: 12px 8px 10px;
-      border-radius: 22px;
-      background: linear-gradient(180deg, rgba(30,27,24,0.76) 0%, rgba(18,16,14,0.78) 100%);
-      border: 1px solid rgba(190, 154, 95, 0.22);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.04),
-        inset 0 -10px 16px rgba(0,0,0,0.30),
-        inset 0 0 0 1px rgba(0,0,0,0.24),
-        inset 10px 0 14px rgba(255,255,255,0.01),
-        inset -10px 0 14px rgba(0,0,0,0.16),
-        0 12px 16px rgba(0,0,0,0.36);
-    }
+    .knob-cell:last-child { border-right: 0; }
 
-    .knob-wrap::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: 22px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.012) 22%, transparent 48%, rgba(0, 0, 0, 0.12) 100%);
-      pointer-events: none;
-    }
-
-    .section-label {
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.24em;
-      color: #e7d8bf;
-      text-transform: uppercase;
+    .k-title {
       text-align: center;
-      margin-bottom: 6px;
-      text-shadow: 0 1px 0 rgba(0,0,0,0.45);
+      color: #ffd162;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 39px;
+      font-weight: 700;
+      line-height: 1.05;
+      margin-top: 2px;
     }
 
-    .section-sub {
-      margin-top: -2px;
-      margin-bottom: 10px;
-      font-size: 9px;
-      letter-spacing: 0.16em;
-      font-weight: 800;
-      text-transform: uppercase;
-      color: #c1ad90;
-      text-align: center;
+    .k-sub {
+      display: block;
+      font-size: 35px;
+      margin-top: 6px;
+      color: #ffd162;
     }
 
     .knob {
-      position: relative;
-      width: 116px;
-      height: 116px;
+      width: 154px;
+      height: 154px;
       border-radius: 50%;
-      border: 1px solid rgba(33, 27, 21, 0.88);
-      background:
-        radial-gradient(circle at 32% 18%, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.09) 24%, transparent 44%),
-        radial-gradient(circle at 68% 78%, rgba(0,0,0,0.42) 0%, transparent 34%),
-        linear-gradient(145deg, #3a342f 0%, #25211d 40%, #14110e 100%);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.18),
-        inset 0 -14px 22px rgba(0, 0, 0, 0.42),
-        0 0 0 1px rgba(202, 166, 106, 0.18),
-        0 14px 22px rgba(0,0,0,0.40);
+      position: relative;
+      touch-action: none;
       cursor: ns-resize;
       user-select: none;
-      touch-action: none;
-      transition: transform var(--ease), box-shadow var(--ease), filter var(--ease);
+      border: 1px solid rgba(255,186,48,0.38);
+      background:
+        radial-gradient(circle at 35% 26%, rgba(255,255,255,0.26), rgba(255,255,255,0.05) 26%, transparent 40%),
+        radial-gradient(circle at 60% 70%, rgba(0,0,0,0.55), rgba(0,0,0,0.1) 36%, transparent 60%),
+        linear-gradient(150deg, #2a2724, #131210 60%, #0a0a0a 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.28),
+        inset 0 -12px 20px rgba(0,0,0,0.45),
+        0 0 0 2px rgba(60, 45, 20, 0.7),
+        0 0 28px rgba(255, 178, 38, 0.16);
+      transition: transform var(--ease), box-shadow var(--ease);
     }
 
-    .knob.active {
-      transform: translateY(-1px) scale(1.012);
-      filter: saturate(1.03);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.20),
-        inset 0 -12px 20px rgba(0,0,0,0.32),
-        0 0 0 1px rgba(206, 179, 135, 0.34),
-        0 0 6px rgba(206, 179, 135, 0.10),
-        0 14px 22px rgba(0,0,0,0.32);
-    }
+    .knob.active { transform: translateY(-1px) scale(1.02); }
 
     .knob::before {
       content: "";
       position: absolute;
       inset: 12px;
       border-radius: 50%;
-      border: 1px solid rgba(255,255,255,0.14);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.16),
-        inset 0 -8px 12px rgba(0,0,0,0.24);
-    }
-
-    .knob::after {
-      content: "";
-      position: absolute;
-      left: 50%;
-      top: 12px;
-      width: 3px;
-      height: 30px;
-      transform: translateX(-50%);
-      border-radius: 999px;
-      background: linear-gradient(180deg, #e9d7b8 0%, #c8a06a 32%, var(--silver-deep) 100%);
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 2px 5px rgba(0, 0, 0, 0.30);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
     }
 
     .ring {
       position: absolute;
-      inset: 8px;
+      inset: 4px;
       border-radius: 50%;
-      transform: rotate(var(--turn, -42deg));
+      transform: rotate(var(--turn, -120deg));
     }
 
     .ring::before {
@@ -387,855 +332,1086 @@
       position: absolute;
       inset: 0;
       border-radius: 50%;
-      background: conic-gradient(from 218deg, rgba(228,202,150,0.86) 0deg 12deg, rgba(193,157,97,0.90) 12deg 58deg, rgba(120,96,62,0.84) 58deg 108deg, transparent 108deg 360deg);
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 8px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 8px));
+      background: conic-gradient(from 120deg,
+        rgba(64, 44, 15, 0.7) 0deg,
+        rgba(255, 186, 48, 0.98) 190deg,
+        rgba(179, 79, 255, 0.98) 260deg,
+        rgba(64, 44, 15, 0.72) 310deg,
+        rgba(64, 44, 15, 0.72) 360deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 14px), #000 calc(100% - 11px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 14px), #000 calc(100% - 11px));
+      filter: drop-shadow(0 0 6px rgba(255,184,50,0.25));
     }
 
-    .ring::after {
-      content: "";
+    .pointer {
       position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      background: repeating-conic-gradient(from 220deg, rgba(210,177,122,0.46) 0deg 1deg, transparent 1deg 8deg);
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 13px), #000 calc(100% - 12px), #000 calc(100% - 11px), transparent calc(100% - 10px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 13px), #000 calc(100% - 12px), #000 calc(100% - 11px), transparent calc(100% - 10px));
-      opacity: 0.48;
-      pointer-events: none;
+      width: 5px;
+      height: 42px;
+      left: 50%;
+      top: 13px;
+      transform: translateX(-50%);
+      border-radius: 4px;
+      background: linear-gradient(180deg, #ffd26c, #d0912c 70%, #705015);
+      box-shadow: 0 0 6px rgba(255, 181, 44, 0.36);
     }
 
     .readout {
-      min-width: 86px;
-      padding: 7px 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(193, 156, 96, 0.24);
-      background: linear-gradient(180deg, rgba(25,30,37,0.95) 0%, rgba(16,21,28,0.95) 100%);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 6px 12px rgba(0,0,0,0.24);
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
+      min-width: 120px;
       text-align: center;
-      color: #daccb4;
-      transition: transform 140ms ease, box-shadow 140ms ease, color 140ms ease;
-    }
-
-    .readout.live {
-      transform: translateY(-1px);
-      color: #f0ddbc;
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.05),
-        0 0 0 1px rgba(198, 173, 132, 0.32),
-        0 0 6px rgba(198, 173, 132, 0.08),
-        0 8px 14px rgba(0,0,0,0.26);
-    }
-
-    .precision-rail {
-      position: relative;
-      overflow: visible;
-      gap: 8px;
-      padding: 14px 10px 12px;
-      min-height: 100%;
-      justify-content: flex-start;
-      border-radius: 22px;
-      background: linear-gradient(180deg, rgba(20,17,14,0.99) 0%, rgba(14,12,10,0.98) 40%, rgba(10,9,8,0.98) 100%);
-      border: 1px solid rgba(190, 154, 95, 0.24);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.03),
-        inset 0 -16px 24px rgba(0,0,0,0.24),
-        inset 0 0 0 1px rgba(0,0,0,0.28),
-        inset 0 0 12px rgba(255, 222, 169, 0.016),
-        inset 12px 0 16px rgba(255,255,255,0.01),
-        inset -12px 0 18px rgba(0,0,0,0.10),
-        0 18px 28px rgba(0,0,0,0.28);
-    }
-
-    .precision-rail::before {
-      content: "";
-      position: absolute;
-      top: 16px;
-      bottom: 16px;
-      left: 14px;
-      width: 1px;
-      background: linear-gradient(180deg, transparent 0%, rgba(196, 170, 126, 0.36) 20%, rgba(196, 170, 126, 0.14) 100%);
-      opacity: 0.88;
-    }
-
-    .rail-badge {
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(192, 154, 95, 0.26);
-      background: linear-gradient(180deg, rgba(30,36,44,0.95) 0%, rgba(20,25,33,0.95) 100%);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #cdb690;
-    }
-
-    .mini-label {
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.22em;
-      color: #ccb89a;
-      text-transform: uppercase;
-    }
-
-    .meter-toggle {
-      display: flex;
-      gap: 4px;
-      width: 100px;
-      padding: 4px;
-      border-radius: 999px;
-      background: linear-gradient(180deg, rgba(37,33,29,0.92) 0%, rgba(28,24,21,0.9) 100%);
-      border: 1px solid rgba(192, 154, 95, 0.24);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-    }
-
-    .meter-toggle button,
-    .mode-buttons button,
-    .finish-button {
-      border: 1px solid rgba(193, 156, 96, 0.24);
-      background: linear-gradient(180deg, rgba(34,30,27,0.96) 0%, rgba(24,20,17,0.94) 100%);
-      color: #cdb999;
-      border-radius: 999px;
-      cursor: pointer;
-      transition: all var(--ease);
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .meter-toggle button {
-      flex: 1;
-      padding: 7px 0;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-    }
-
-    .meter-toggle button.active,
-    .mode-buttons button.active {
-      background: linear-gradient(180deg, rgba(118,95,64,0.94) 0%, rgba(100,80,53,0.94) 40%, rgba(80,64,43,0.92) 100%);
-      color: #f3e7d2;
-      border-color: rgba(204, 177, 134, 0.36);
-      text-shadow: 0 1px 0 rgba(0,0,0,0.30);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.08),
-        inset 0 0 0 1px rgba(235, 216, 184, 0.08),
-        0 0 4px rgba(198, 173, 132, 0.06),
-        0 6px 12px rgba(0,0,0,0.22);
-    }
-
-    .meter {
-      width: 36px;
-      height: clamp(132px, 23vh, 150px);
-      padding: 7px 5px;
+      border: 1px solid rgba(255,186,48,0.36);
       border-radius: 16px;
-      border: 1px solid rgba(188, 154, 95, 0.24);
-      background: linear-gradient(180deg, rgba(14,12,10,0.95) 0%, rgba(10,9,8,0.95) 100%);
+      padding: 6px 12px;
+      color: #ffd877;
+      font-size: 42px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      background: rgba(5,5,5,0.92);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr 0.95fr 0.95fr;
+      gap: 10px;
+    }
+
+    .module {
+      border: 1px solid rgba(255,186,48,0.34);
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(8,8,8,0.94), rgba(6,6,6,0.96));
+      padding: 14px 14px 12px;
+      position: relative;
+    }
+
+    .m-title {
+      font-size: 38px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #ffd26c;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .loudness {
+      display: grid;
+      grid-template-columns: 1fr 170px 48px;
+      gap: 8px;
+      height: calc(100% - 52px);
+      align-items: end;
+    }
+
+    .loud-lines {
+      font-size: 35px;
+      color: #f5d899;
+      line-height: 1.6;
+    }
+
+    .dual-bars {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 18px;
+      align-items: end;
+      height: 100%;
+      padding: 0 12px;
+    }
+
+    .col {
+      position: relative;
+      border-left: 1px solid rgba(255,186,48,0.12);
+      border-right: 1px solid rgba(255,186,48,0.12);
+      padding: 6px 8px 0;
       display: flex;
       flex-direction: column-reverse;
-      gap: 5px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 14px rgba(0,0,0,0.24);
+      gap: 2px;
     }
 
-    .meter-bar {
-      height: 10px;
-      border-radius: 999px;
-      background: linear-gradient(180deg, rgba(88, 72, 46, 0.34) 0%, rgba(58, 47, 31, 0.16) 100%);
-      transition: all 320ms cubic-bezier(0.18, 0.8, 0.2, 1);
+    .seg {
+      height: 8px;
+      border-radius: 2px;
+      background: rgba(255,186,48,0.10);
+      transition: background 120ms linear, box-shadow 120ms linear;
     }
 
-    .meter-bar.active {
-      background: linear-gradient(180deg, #e7d2aa 0%, #d4b079 18%, var(--meter-ice) 38%, var(--meter-blue) 100%);
-      box-shadow: 0 0 6px rgba(195, 169, 127, 0.20);
+    .seg.on.l { background: linear-gradient(180deg, #ffca56, #af63ff); }
+    .seg.on.r { background: linear-gradient(180deg, #ffd063, #9038f0); }
+    .seg.on { box-shadow: 0 0 6px rgba(255, 185, 44, 0.2); }
+
+    .scale {
+      font-size: 32px;
+      color: #e2be72;
+      line-height: 1.5;
+      text-align: right;
+      padding-top: 2px;
     }
 
-    .rail-note {
-      font-size: 9px;
+    .arc-wrap {
+      height: calc(100% - 52px);
+      display: grid;
+      grid-template-rows: 1fr auto;
+      align-items: center;
+      justify-items: center;
+    }
+
+    #dr-arc {
+      width: 100%;
+      height: 122px;
+    }
+
+    .arc-value {
+      text-align: center;
+      color: #ffd56f;
+      font-size: 52px;
       font-weight: 700;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #c5b091;
+      line-height: 1;
+    }
+    .arc-value small {
+      display: block;
+      font-size: 34px;
+      margin-top: 4px;
+      color: #f2ca7c;
     }
 
-    .rail-core {
+    #stereo-scope {
+      width: 100%;
+      height: calc(100% - 52px);
+      display: block;
+    }
+
+    .corr-readout {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 12px;
+      text-align: center;
+      font-size: 52px;
+      color: #ffd56f;
+      font-weight: 700;
+    }
+
+    .corr-readout small {
+      display: block;
+      font-size: 31px;
+      color: #e8c36f;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .output-stage {
+      border: 1px solid rgba(255,186,48,0.34);
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(8,8,8,0.95), rgba(6,6,6,0.96));
+      padding: 14px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto auto auto;
+      gap: 10px;
+    }
+
+    .o-title {
+      font-size: 36px;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #ffd26a;
+      font-weight: 700;
+    }
+
+    .toggle {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px;
+      border: 1px solid rgba(255,186,48,0.34);
+      border-radius: 999px;
+      padding: 4px;
+      background: rgba(10,10,10,0.88);
+    }
+
+    .toggle button,
+    .mode button,
+    .finish,
+    .magic {
+      border: 1px solid rgba(255,186,48,0.34);
+      border-radius: 999px;
+      background: rgba(8,8,8,0.92);
+      color: #efc56a;
+      font-size: 35px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all var(--ease);
+    }
+
+    .toggle button.active,
+    .mode button.active {
+      background: linear-gradient(180deg, rgba(255, 195, 67, 0.35), rgba(164, 105, 20, 0.45));
+      color: #ffe7b3;
+      box-shadow: 0 0 14px rgba(255, 186, 48, 0.24);
+    }
+
+    .trim-wrap {
+      display: grid;
+      grid-template-rows: auto auto auto;
+      justify-items: center;
+      align-content: start;
+      gap: 6px;
+    }
+
+    .small-knob {
+      width: 92px;
+      height: 92px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,186,48,0.42);
+      position: relative;
+      touch-action: none;
+      cursor: ns-resize;
+      background: linear-gradient(160deg, #27231f, #0a0a0a 72%);
+    }
+
+    .small-knob .ring { inset: 2px; }
+    .small-knob .pointer { height: 24px; top: 9px; }
+
+    .v-meter {
+      width: 18px;
+      height: 170px;
+      border: 1px solid rgba(255,186,48,0.2);
+      border-radius: 10px;
+      background: rgba(0,0,0,0.5);
       display: flex;
-      align-items: flex-end;
+      flex-direction: column-reverse;
+      gap: 2px;
+      padding: 4px 3px;
+    }
+
+    .v-meter .seg { height: 6px; }
+
+    .ceiling {
+      text-align: center;
+      font-size: 34px;
+      line-height: 1.3;
+      color: #edc87b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .ceiling .box {
+      margin-top: 6px;
+      border: 1px solid rgba(255,186,48,0.34);
+      border-radius: 12px;
+      padding: 4px 8px;
+      font-size: 40px;
+      color: #f6da9a;
+      background: rgba(4,4,4,0.82);
+      text-transform: none;
+      letter-spacing: 0.02em;
+    }
+
+    .finish {
+      font-size: 48px;
+      height: 64px;
+      background: rgba(8,8,8,0.92);
+    }
+
+    .finish.active {
+      background: linear-gradient(180deg, rgba(255, 195, 67, 0.45), rgba(165, 98, 16, 0.55));
+      color: #fff1cd;
+      box-shadow: 0 0 20px rgba(255, 186, 48, 0.34);
+    }
+
+    .bottom {
+      display: grid;
+      grid-template-columns: 1fr 182px 400px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .mode {
+      border: 1px solid rgba(255,186,48,0.34);
+      border-radius: 24px;
+      padding: 8px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      background: rgba(8,8,8,0.95);
+    }
+
+    .mode button {
+      height: 66px;
+      font-size: 36px;
+    }
+
+    .mix-strip {
+      border: 1px solid rgba(255,186,48,0.34);
+      border-radius: 24px;
+      height: 82px;
+      padding: 8px 12px;
+      background: rgba(8,8,8,0.94);
+      display: grid;
+      grid-template-columns: auto auto auto;
+      align-items: center;
       justify-content: center;
       gap: 10px;
-      width: 100%;
     }
 
-    .trim-stack {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-      width: 68px;
-      padding: 0;
-      flex-shrink: 0;
-    }
-
-    .trim-knob {
-      width: 64px;
-      height: 64px;
-    }
-
-    .trim-knob::after {
-      top: 8px;
-      height: 18px;
-      width: 3px;
-    }
-
-    .trim-knob .ring {
-      inset: 5px;
-    }
-
-    .trim-readout {
-      min-width: 68px;
-      padding: 5px 6px;
-      font-size: 10px;
-      letter-spacing: 0.04em;
-    }
-
-    .mix-module {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 0;
-      width: 112px;
-      align-self: center;
-      flex-shrink: 0;
-      margin-top: auto;
-      transform: translateY(16px);
-      padding: 0 0 4px;
-      min-height: 78px;
-    }
-
-    .mix-head {
-      position: absolute;
-      left: -14px;
-      right: -14px;
-      top: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 0;
-      transform: translateY(-4px);
-      pointer-events: none;
-    }
-
-    .mix-head .mini-label {
-      font-size: 10px;
-      letter-spacing: 0.18em;
-    }
-
-    .mix-knob {
-      width: 58px;
-      height: 58px;
-      margin-top: 8px;
-    }
-
-    .mix-knob::after {
-      top: 8px;
-      height: 18px;
-      width: 3px;
-    }
-
-    .mix-knob .ring {
-      inset: 5px;
-    }
-
-    .mix-readout {
-      min-width: 0;
-      padding: 3px 7px;
-      margin-left: 28px;
-      font-size: 10px;
-      letter-spacing: 0.05em;
-    }
-
-    .finish-button {
-      position: relative;
-      z-index: 3;
-      flex-shrink: 0;
-      overflow: hidden;
-      margin-top: 8px;
-      width: 100%;
-      min-width: 0;
-      min-height: 44px;
-      height: 44px;
-      padding: 0 20px;
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 0.28em;
-      color: #ead8b8;
-      border-color: rgba(201, 164, 103, 0.48);
-      background: linear-gradient(180deg, rgba(38,33,28,0.98) 0%, rgba(24,20,16,0.96) 100%);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.10),
-        0 0 0 1px rgba(245, 228, 188, 0.16),
-        0 0 10px rgba(214, 176, 113, 0.10),
-        0 8px 14px rgba(0,0,0,0.28);
-    }
-
-    .finish-button::before {
-      content: "";
-      position: absolute;
-      inset: 1px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.10);
-      opacity: 0.55;
-      pointer-events: none;
-    }
-
-    .finish-button::after {
-      content: "";
-      position: absolute;
-      left: 10px;
-      right: 10px;
-      top: 2px;
-      height: 44%;
-      border-radius: 999px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 100%);
-      opacity: 0.30;
-      pointer-events: none;
-    }
-
-    .finish-button.active {
-      background: linear-gradient(180deg, #d4b88a 0%, #c3a271 34%, #ae8b5b 66%, #856947 100%);
-      color: #fbf4e8;
-      text-shadow: 0 1px 1px rgba(28, 22, 14, 0.34);
-      border-color: rgba(222, 196, 154, 0.56);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.28),
-        inset 0 -10px 14px rgba(63, 51, 34, 0.26),
-        0 0 0 1px rgba(255, 246, 220, 0.22),
-        0 0 8px rgba(222, 190, 141, 0.16),
-        0 14px 22px rgba(0,0,0,0.30);
-    }
-
-    .microcopy {
-      position: absolute;
-      left: 56px;
-      right: 190px;
-      bottom: 54px;
-      text-align: center;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.18em;
+    .mix-label {
+      font-size: 40px;
+      color: #f1c96f;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #af9b7a;
-      text-shadow: 0 1px 0 rgba(0,0,0,0.40);
+      font-weight: 700;
     }
 
-    .mode-buttons {
-      position: absolute;
-      left: 42px;
-      right: 180px;
-      bottom: 12px;
-      display: flex;
-      gap: 8px;
-      padding: 6px;
+    .mix-read {
+      font-size: 36px;
+      border: 1px solid rgba(255,186,48,0.34);
       border-radius: 999px;
-      background: linear-gradient(180deg, rgba(20,18,16,0.94) 0%, rgba(14,12,10,0.94) 100%);
-      border: 1px solid rgba(188, 154, 95, 0.22);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 14px rgba(0,0,0,0.28);
+      padding: 4px 12px;
+      min-width: 88px;
+      text-align: center;
+      color: #f8de9f;
+      background: rgba(5,5,5,0.9);
     }
 
-    .mode-buttons button {
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.06),
-        inset 0 -5px 10px rgba(0,0,0,0.24),
-        0 3px 8px rgba(0,0,0,0.22);
+    .magic {
+      height: 82px;
+      font-size: 52px;
+      letter-spacing: 0.22em;
+      border-radius: 24px;
+      position: relative;
+      overflow: hidden;
+      background: rgba(8,8,8,0.95);
     }
 
-    .mode-buttons button.active {
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.14),
-        inset 0 -6px 12px rgba(62,46,28,0.28),
-        0 0 0 1px rgba(214, 186, 142, 0.22),
-        0 4px 10px rgba(0,0,0,0.26);
+    .magic .stars {
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      letter-spacing: 0.4em;
+      color: #ffd56f;
+      font-size: 56px;
+      opacity: 0.95;
     }
 
-    .mode-buttons button {
-      flex: 1;
-      height: 34px;
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.2em;
+    .magic.active {
+      background: linear-gradient(180deg, rgba(255, 197, 76, 0.4), rgba(136, 85, 12, 0.55));
+      color: #fff0cc;
+      box-shadow: 0 0 22px rgba(255, 186, 48, 0.34);
+    }
+
+    .magic.active .stars {
+      animation: twinkle 1.8s ease-in-out infinite;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.7; transform: translateY(-50%) scale(0.96); }
+      50% { opacity: 1; transform: translateY(-50%) scale(1.08); }
+    }
+
+    .magic-bright {
+      filter: brightness(1.08) saturate(1.08);
     }
   </style>
 </head>
 <body>
-  <div class="plugin">
-    <div class="header">
-      <div class="title-block">
-        <div class="title-meta">
-          <!-- <span class="header-chip">MASTER BUS FINISHER</span> -->
+  <div class="plugin" id="plugin-root">
+    <section class="topbar">
+      <div class="brand">
+        <div class="logo-box"><img src="n_logo.png" alt="N" /></div>
+        <div class="title-wrap">
+          <span class="title-top">NOVA</span>
+          <span class="title-main">MASTER</span>
+          <span class="title-sub">INTELLIGENT MASTERING ENGINE</span>
         </div>
-        <div class="nova-header">
-          <div class="nova-logo-container">
-            <img src="n_logo.png" alt="N" class="nova-logo" />
-          </div>
-          <div class="nova-title-stack">
-            <span class="nova-title-nova">NOVA</span>
-            <br style="line-height:0; margin:0; padding:0;" />
-            <span class="nova-title-master">MASTER</span>
-          </div>
-        </div>
-        <div style="height: 6px;"></div>
-        <div class="subtitle"></div>
       </div>
-      <div class="tagline-wrap">
-        <div class="tagline">by International Nova</div>
+
+      <div class="header-controls">
+        <button class="preset-label" type="button">Presets</button>
+        <button type="button">&#x2039;</button>
+        <button type="button">&#x203A;</button>
+        <button type="button">&#x2212;</button>
+        <button type="button">&#x00d7;</button>
       </div>
-    </div>
 
-    <div class="inner-panel">
-      <div class="layout">
-        <div class="knob-wrap">
-          <div class="section-label">TONE</div>
-          <div class="section-sub">BALANCE</div>
-          <div class="knob" data-param="tone" data-min="0" data-max="10"><div class="ring"></div></div>
-          <div class="readout" data-readout="tone">5.0</div>
-        </div>
+      <div class="byline-wrap">
+        <span>by International Nova</span>
+        <button class="gear-btn" type="button">&#9881;</button>
+      </div>
+    </section>
 
-        <div class="knob-wrap">
-          <div class="section-label">GLUE</div>
-          <div class="section-sub">CONTROL</div>
-          <div class="knob" data-param="glue" data-min="0" data-max="10"><div class="ring"></div></div>
-          <div class="readout" data-readout="glue">3.5</div>
-        </div>
+    <section class="row scope">
+      <div class="scope-legend">
+        <span class="low">LOW</span>
+        <span class="mid">MID</span>
+        <span class="high">HIGH</span>
+      </div>
+      <div class="scope-canvas-wrap">
+        <canvas id="master-scope"></canvas>
+      </div>
+      <div class="freq-labels">
+        <span>20 Hz</span><span>50 Hz</span><span>100 Hz</span><span>200 Hz</span><span>500 Hz</span>
+        <span>1 kHz</span><span>2 kHz</span><span>5 kHz</span><span>10 kHz</span><span>20 kHz</span>
+      </div>
+    </section>
 
-        <div class="knob-wrap">
-          <div class="section-label">WEIGHT</div>
-          <div class="section-sub">LOW END</div>
-          <div class="knob" data-param="weight" data-min="0" data-max="10"><div class="ring"></div></div>
-          <div class="readout" data-readout="weight">4.0</div>
-        </div>
+    <section class="mid-row">
+      <div class="macro-panel row">
+        <div class="knob-grid" id="knob-grid"></div>
 
-        <div class="knob-wrap">
-          <div class="section-label">AIR</div>
-          <div class="section-sub">TOP END</div>
-          <div class="knob" data-param="air" data-min="0" data-max="10"><div class="ring"></div></div>
-          <div class="readout" data-readout="air">5.0</div>
-        </div>
-
-        <div class="knob-wrap">
-          <div class="section-label">WIDTH</div>
-          <div class="section-sub">STEREO</div>
-          <div class="knob" data-param="width" data-min="0" data-max="10"><div class="ring"></div></div>
-          <div class="readout" data-readout="width">4.5</div>
-        </div>
-
-        <div class="precision-rail">
-          <div class="rail-badge">OUTPUT STAGE</div>
-          <div class="meter-toggle">
-            <button data-meter="OUT" class="active">OUT</button>
-            <button data-meter="LU">LU</button>
-          </div>
-          <div class="rail-core">
-            <div class="meter" id="meter">
-              <span class="meter-bar"></span>
-              <span class="meter-bar"></span>
-              <span class="meter-bar"></span>
-              <span class="meter-bar"></span>
-              <span class="meter-bar"></span>
-              <span class="meter-bar"></span>
-              <span class="meter-bar"></span>
-              <span class="meter-bar"></span>
-              <span class="meter-bar"></span>
-              <span class="meter-bar"></span>
-            </div>
-            <div class="trim-stack">
-              <div class="mini-label">TRIM</div>
-              <div class="knob trim-knob" data-param="output_gain" data-min="-12" data-max="12"><div class="ring"></div></div>
-              <div class="readout trim-readout" data-readout="output_gain">+0.0 dB</div>
+        <div class="analysis-grid">
+          <div class="module">
+            <div class="m-title">Loudness</div>
+            <div class="loudness">
+              <div class="loud-lines">
+                SHORT TERM<br><span id="st-lufs">-7.4 LUFS</span><br><br>
+                INTEGRATED<br><span id="int-lufs">-7.5 LUFS</span><br><br>
+                TRUE PEAK<br><span id="tp-read">-0.3 dBTP</span>
+              </div>
+              <div class="dual-bars" id="loudness-bars"></div>
+              <div class="scale">0<br>-3<br>-6<br>-9<br>-12<br>-15<br>-18</div>
             </div>
           </div>
-          <div class="readout" id="output-readout">+0.0 dB</div>
-          <div class="rail-note">ceiling aware</div>
-          <button id="finish-toggle" class="finish-button" type="button">FINISH</button>
-          <div class="mix-module">
-            <div class="mix-head">
-              <div class="mini-label">MIX</div>
-              <div class="readout mix-readout" data-readout="mix">100%</div>
+
+          <div class="module">
+            <div class="m-title">Dynamic Range</div>
+            <div class="arc-wrap">
+              <canvas id="dr-arc"></canvas>
+              <div class="arc-value" id="dr-value">9.8<small>LU</small></div>
             </div>
-            <div class="knob mix-knob" data-param="mix" data-min="0" data-max="100"><div class="ring"></div></div>
+          </div>
+
+          <div class="module">
+            <div class="m-title">Stereo Image</div>
+            <canvas id="stereo-scope"></canvas>
+            <div class="corr-readout" id="corr-value">0.65<small>Correlation</small></div>
+          </div>
+
+          <div class="module">
+            <div class="m-title">Output Meter</div>
+            <div class="loudness" style="grid-template-columns: 1fr 150px 48px;">
+              <div class="loud-lines">&nbsp;</div>
+              <div class="dual-bars" id="output-bars"></div>
+              <div class="scale">0<br>-3<br>-6<br>-9<br>-12<br>-15<br>-18</div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="microcopy"></div>
+      <aside class="output-stage">
+        <div class="o-title">Output Stage</div>
+        <div class="toggle" id="meter-toggle">
+          <button type="button" data-meter="OUT" class="active">OUT</button>
+          <button type="button" data-meter="LU">LU</button>
+        </div>
 
-    <div class="mode-buttons">
-      <button class="active" data-mode="CLEAN">CLEAN</button>
-      <button data-mode="WARM">WARM</button>
-      <button data-mode="WIDE">WIDE</button>
-      <button data-mode="LOUD">LOUD</button>
-    </div>
+        <div class="trim-wrap">
+          <div class="v-meter" id="vertical-meter"></div>
+          <div class="k-title" style="font-size:34px; margin:0;">TRIM</div>
+          <div class="small-knob" data-param="output_gain" data-min="-12" data-max="12">
+            <div class="ring"></div><div class="pointer"></div>
+          </div>
+          <div class="readout" data-readout="output_gain" style="font-size:36px; min-width:130px;">-0.0 dB</div>
+        </div>
+
+        <div class="ceiling">CEILING AWARE<div class="box">-1.0 dBTP</div></div>
+
+        <button type="button" class="finish" id="finish-toggle">FINISH</button>
+      </aside>
+    </section>
+
+    <section class="bottom">
+      <div class="mode" id="mode-buttons">
+        <button class="active" data-mode="MASTER BUS">MASTER BUS</button>
+        <button data-mode="MUSIC">MUSIC</button>
+        <button data-mode="STREAMING">STREAMING</button>
+        <button data-mode="BROADCAST">BROADCAST</button>
+        <button data-mode="REFERENCE">REFERENCE</button>
+      </div>
+
+      <div class="mix-strip">
+        <div class="mix-label">MIX</div>
+        <div class="small-knob" data-param="mix" data-min="0" data-max="100" style="width:70px;height:70px;">
+          <div class="ring"></div><div class="pointer" style="height:20px;"></div>
+        </div>
+        <div class="mix-read" data-readout="mix">100%</div>
+      </div>
+
+      <button type="button" class="magic" id="magic-toggle">MAGIC <span class="stars">&#10022;&#10022;</span></button>
+    </section>
   </div>
 
   <script>
     (() => {
-      const modeButtons = Array.from(document.querySelectorAll('[data-mode]'));
-      const meterButtons = Array.from(document.querySelectorAll('[data-meter]'));
-      const knobs = Array.from(document.querySelectorAll('.knob[data-param]'));
-      const meterBars = Array.from(document.querySelectorAll('.meter-bar'));
-      const finishButton = document.getElementById('finish-toggle');
-      const meterReadout = document.getElementById('output-readout');
+      const root = document.getElementById('plugin-root');
+      const scopeCanvas = document.getElementById('master-scope');
+      const scopeCtx = scopeCanvas.getContext('2d');
+      const stereoCanvas = document.getElementById('stereo-scope');
+      const stereoCtx = stereoCanvas.getContext('2d');
+      const drCanvas = document.getElementById('dr-arc');
+      const drCtx = drCanvas.getContext('2d');
 
-      const values = {
-        tone: 5.0,
-        glue: 3.5,
-        weight: 4.0,
-        air: 5.0,
-        width: 4.5,
-        mix: 100.0,
-        output_gain: 0.0,
-        finish_mode: 0.0,
-        mode_preset: 0.0,
-        meter_view: 0.0
+      const knobGrid = document.getElementById('knob-grid');
+      const finishToggle = document.getElementById('finish-toggle');
+      const magicToggle = document.getElementById('magic-toggle');
+      const meterToggle = document.getElementById('meter-toggle');
+
+      const stLufs = document.getElementById('st-lufs');
+      const intLufs = document.getElementById('int-lufs');
+      const tpRead = document.getElementById('tp-read');
+      const drValue = document.getElementById('dr-value');
+      const corrValue = document.getElementById('corr-value');
+
+      const params = {
+        tone: { min: 0, max: 10, value: 5.0, title: 'TONE', sub: 'BALANCE' },
+        glue: { min: 0, max: 10, value: 3.5, title: 'GLUE', sub: 'CONTROL' },
+        weight: { min: 0, max: 10, value: 4.0, title: 'WEIGHT', sub: 'LOW END' },
+        air: { min: 0, max: 10, value: 5.0, title: 'AIR', sub: 'TOP END' },
+        width: { min: 0, max: 10, value: 4.5, title: 'WIDTH', sub: 'STEREO' },
+        mix: { min: 0, max: 100, value: 100 },
+        output_gain: { min: -12, max: 12, value: 0 }
       };
 
-      const presets = {
-        CLEAN: { tone: 5.0, glue: 3.5, weight: 4.0, air: 5.0, width: 4.5, mix: 100.0, finish_mode: 0.0 },
-        WARM:  { tone: 4.2, glue: 4.8, weight: 6.0, air: 4.0, width: 4.5, mix: 82.0, finish_mode: 1.0 },
-        WIDE:  { tone: 5.5, glue: 3.8, weight: 4.0, air: 6.2, width: 6.8, mix: 88.0, finish_mode: 1.0 },
-        LOUD:  { tone: 5.2, glue: 5.5, weight: 5.2, air: 5.8, width: 5.0, mix: 94.0, finish_mode: 1.0 }
-      };
+      let meterView = 'OUT';
+      let finishOn = false;
+      let magicOn = false;
+      let phase = 0;
+      let drag = null;
 
-      const modeOrder = ['CLEAN', 'WARM', 'WIDE', 'LOUD'];
-      const meterOrder = ['OUT', 'LU'];
+      let outDb = -18;
+      let luValue = -8.2;
+      let hot = false;
+      const analyzer = new Float32Array(240);
+      const peaks = new Float32Array(240);
+
       const sliderStates = {};
-      let activeDrag = null;
-      let lastOutDb = -60.0;
-      let lastLu = -18.0;
-      let lastHot = false;
-      let fallbackTick = 0;
 
-      function clamp(v, min, max) {
-        return Math.min(max, Math.max(min, Number(v) || 0));
+      const presetMap = {
+        'MASTER BUS': { tone: 5.0, glue: 3.5, weight: 4.0, air: 5.0, width: 4.5, mix: 100, finish_mode: 0, mode_preset: 0 },
+        MUSIC: { tone: 4.7, glue: 4.4, weight: 5.1, air: 5.7, width: 5.0, mix: 90, finish_mode: 1, mode_preset: 1 / 3 },
+        STREAMING: { tone: 5.2, glue: 5.2, weight: 4.8, air: 5.6, width: 4.6, mix: 92, finish_mode: 1, mode_preset: 2 / 3 },
+        BROADCAST: { tone: 4.8, glue: 6.0, weight: 4.4, air: 5.0, width: 3.8, mix: 88, finish_mode: 1, mode_preset: 1 },
+        REFERENCE: { tone: 5.0, glue: 3.2, weight: 3.8, air: 5.4, width: 4.2, mix: 100, finish_mode: 0, mode_preset: 0 }
+      };
+
+      function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+      function norm(p) { return clamp((params[p].value - params[p].min) / (params[p].max - params[p].min), 0, 1); }
+
+      function formatValue(param) {
+        if (param === 'output_gain') {
+          const v = params[param].value;
+          return `${v >= 0 ? '+' : ''}${v.toFixed(1)} dB`;
+        }
+        if (param === 'mix') return `${Math.round(params[param].value)}%`;
+        return params[param].value.toFixed(1);
       }
 
       function juceAvailable() {
-        return !!(window.__JUCE__ && window.__JUCE__.backend);
+        return !!(window.__JUCE__ && window.__JUCE__.backend && typeof window.__JUCE__.backend.emitEvent === 'function');
       }
 
-      function createSliderState(name) {
+      function createSliderState(parameterId) {
         if (!juceAvailable()) return null;
+        const listeners = [];
 
-        const backend = window.__JUCE__.backend;
-        const state = {
-          identifier: `__juce__slider${name}`,
-          scaledValue: 0,
-          properties: { start: 0, end: 1, interval: 0 },
-          listeners: [],
-          addListener(fn) { this.listeners.push(fn); },
-          notify() { this.listeners.forEach((fn) => fn()); },
+        function emit(name, payload) {
+          window.__JUCE__.backend.emitEvent(name, { eventId: parameterId, ...payload });
+        }
+
+        return {
           getNormalisedValue() {
-            const range = this.properties.end - this.properties.start;
-            if (range === 0) return 0;
-            return clamp((this.scaledValue - this.properties.start) / range, 0, 1);
+            return Number(window.__JUCE__.getSliderState(parameterId).getNormalisedValue());
           },
-          setNormalisedValue(normalised) {
-            const n = clamp(normalised, 0, 1);
-            const start = this.properties.start;
-            const end = this.properties.end;
-            let scaled = start + n * (end - start);
-
-            if (this.properties.interval > 0)
-              scaled = Math.round(scaled / this.properties.interval) * this.properties.interval;
-
-            this.scaledValue = scaled;
-            backend.emitEvent(this.identifier, { eventType: 'valueChanged', value: scaled });
+          setNormalisedValue(v) {
+            const value = clamp(v, 0, 1);
+            window.__JUCE__.getSliderState(parameterId).setNormalisedValue(value);
           },
-          gestureStart() { backend.emitEvent(this.identifier, { eventType: 'sliderDragStarted' }); },
-          gestureEnd() { backend.emitEvent(this.identifier, { eventType: 'sliderDragEnded' }); }
+          gestureStart() { emit('__juce__sliderDragStart', {}); },
+          gestureEnd() { emit('__juce__sliderDragEnd', {}); },
+          addListener(fn) {
+            listeners.push(fn);
+            window.__JUCE__.getSliderState(parameterId).valueChangedEvent.add(() => {
+              const value = this.getNormalisedValue();
+              listeners.forEach((listener) => listener(value));
+            });
+          }
         };
-
-        backend.addEventListener(state.identifier, (event) => {
-          if (!event) return;
-          if (event.eventType === 'valueChanged' && typeof event.value === 'number') {
-            state.scaledValue = event.value;
-            state.notify();
-          }
-          if (event.eventType === 'propertiesChanged') {
-            const props = { ...event };
-            delete props.eventType;
-            state.properties = { ...state.properties, ...props };
-          }
-        });
-
-        backend.emitEvent(state.identifier, { eventType: 'requestInitialUpdate' });
-        return state;
       }
 
-      function setModeVisual(mode) {
-        modeButtons.forEach((button) => {
-          button.classList.toggle('active', button.dataset.mode === mode);
-        });
+      function setRing(el, normal) {
+        const deg = -120 + normal * 240;
+        const ring = el.querySelector('.ring');
+        if (ring) ring.style.setProperty('--turn', `${deg}deg`);
       }
 
-      function setMeterVisual(mode) {
-        meterButtons.forEach((button) => {
-          button.classList.toggle('active', button.dataset.meter === mode);
-        });
-      }
-
-      function setFinishVisual(on) {
-        finishButton.classList.toggle('active', !!on);
-      }
-
-      function setMeterFill(normalized) {
-        const barsOn = Math.round(clamp(normalized, 0, 1) * meterBars.length);
-        meterBars.forEach((bar, index) => {
-          const active = index < barsOn;
-          bar.classList.toggle('active', active);
-          bar.style.opacity = active ? '1' : '0.45';
-        });
-      }
-
-      function setOutputReadout(outDb, lu, isHot) {
-        if ((values.meter_view || 0) > 0.5) {
-          meterReadout.textContent = `${lu >= 0 ? '+' : ''}${lu.toFixed(1)} LU`;
-          meterReadout.style.color = '#4e6174';
-          setMeterFill((lu + 18.0) / 24.0);
-        } else {
-          meterReadout.textContent = `${outDb >= 0 ? '+' : ''}${outDb.toFixed(1)} dB`;
-          meterReadout.style.color = isHot ? '#a45f2f' : '#37414c';
-          setMeterFill((outDb + 60.0) / 66.0);
-        }
-      }
-
-      function updateKnobVisual(param, value) {
-        const knob = document.querySelector(`.knob[data-param="${param}"]`);
-        if (!knob) return;
-
-        const min = Number(knob.dataset.min);
-        const max = Number(knob.dataset.max);
-        const safe = clamp(value, min, max);
-        values[param] = safe;
-
-        const normal = (safe - min) / Math.max(1e-6, (max - min));
-        const rotation = -42 + normal * 210;
-        knob.querySelector('.ring').style.setProperty('--turn', `${rotation}deg`);
-
+      function updateParamVisual(param) {
+        const knob = document.querySelector(`.small-knob[data-param="${param}"], .knob[data-param="${param}"]`);
+        if (knob) setRing(knob, norm(param));
         const readout = document.querySelector(`[data-readout="${param}"]`);
-        if (!readout) return;
-
-        readout.textContent = param === 'output_gain'
-          ? `${safe >= 0 ? '+' : ''}${safe.toFixed(1)} dB`
-          : param === 'mix'
-            ? `${safe.toFixed(0)}%`
-            : safe.toFixed(1);
-
-        readout.classList.add('live');
-        clearTimeout(readout._liveTimer);
-        readout._liveTimer = setTimeout(() => readout.classList.remove('live'), 160);
+        if (readout) readout.textContent = formatValue(param);
       }
 
-      function setParam(param, value, withGesture = false) {
-        updateKnobVisual(param, value);
+      function setParam(param, value, emit, gesture) {
+        const p = params[param];
+        if (!p) return;
+        p.value = clamp(value, p.min, p.max);
+        updateParamVisual(param);
+
         const state = sliderStates[param];
-        if (!state) return;
-
-        const knob = document.querySelector(`.knob[data-param="${param}"]`);
-        if (!knob) return;
-        const min = Number(knob.dataset.min);
-        const max = Number(knob.dataset.max);
-        const safe = clamp(value, min, max);
-        const normalized = (safe - min) / Math.max(1e-6, (max - min));
-
-        if (withGesture) state.gestureStart();
-        state.setNormalisedValue(normalized);
-        if (withGesture) state.gestureEnd();
+        if (emit && state) {
+          if (gesture) state.gestureStart();
+          state.setNormalisedValue((p.value - p.min) / (p.max - p.min));
+          if (gesture) state.gestureEnd();
+        }
       }
 
-      function setMode(modeName, emit = true) {
-        const index = Math.max(0, modeOrder.indexOf(modeName));
-        values.mode_preset = index;
-        setModeVisual(modeName);
-        if (emit && sliderStates.mode_preset)
-          sliderStates.mode_preset.setNormalisedValue(index / 3.0);
+      function createBars(containerId, clsPrefix) {
+        const container = document.getElementById(containerId);
+        const cols = ['l', 'r'];
+        const refs = [];
+        cols.forEach((side) => {
+          const col = document.createElement('div');
+          col.className = 'col';
+          const arr = [];
+          for (let i = 0; i < 18; i++) {
+            const seg = document.createElement('span');
+            seg.className = 'seg';
+            col.appendChild(seg);
+            arr.push(seg);
+          }
+          container.appendChild(col);
+          refs.push({ side, arr });
+        });
+        return refs;
       }
 
-      function setMeterView(modeName, emit = true) {
-        const index = Math.max(0, meterOrder.indexOf(modeName));
-        values.meter_view = index;
-        setMeterVisual(modeName);
-        if (emit && sliderStates.meter_view)
-          sliderStates.meter_view.setNormalisedValue(index);
-        setOutputReadout(lastOutDb, lastLu, lastHot);
+      const loudnessBars = createBars('loudness-bars');
+      const outputBars = createBars('output-bars');
+      const verticalMeter = (() => {
+        const wrap = document.getElementById('vertical-meter');
+        const arr = [];
+        for (let i = 0; i < 20; i++) {
+          const s = document.createElement('span');
+          s.className = 'seg';
+          wrap.appendChild(s);
+          arr.push(s);
+        }
+        return arr;
+      })();
+
+      function setBars(refs, levelL, levelR) {
+        refs.forEach((ref) => {
+          const level = ref.side === 'l' ? levelL : levelR;
+          const on = Math.round(clamp(level, 0, 1) * ref.arr.length);
+          ref.arr.forEach((seg, idx) => {
+            const lit = idx < on;
+            seg.className = lit ? `seg on ${ref.side}` : 'seg';
+          });
+        });
       }
 
-      function setFinish(on, emit = true) {
-        values.finish_mode = on ? 1.0 : 0.0;
-        setFinishVisual(on);
-        if (emit && sliderStates.finish_mode)
-          sliderStates.finish_mode.setNormalisedValue(on ? 1 : 0);
+      function setVertical(level) {
+        const on = Math.round(clamp(level, 0, 1) * verticalMeter.length);
+        verticalMeter.forEach((seg, idx) => {
+          seg.className = idx < on ? 'seg on l' : 'seg';
+        });
       }
 
-      function applyPreset(name) {
-        const preset = presets[name];
-        if (!preset) return;
-        setMode(name, true);
-        setParam('tone', preset.tone, true);
-        setParam('glue', preset.glue, true);
-        setParam('weight', preset.weight, true);
-        setParam('air', preset.air, true);
-        setParam('width', preset.width, true);
-        setParam('mix', preset.mix, true);
-        setFinish(preset.finish_mode > 0.5, true);
+      function resizeCanvas(canvas, ctx) {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.max(1, Math.round(rect.width * dpr));
+        canvas.height = Math.max(1, Math.round(rect.height * dpr));
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
 
-      function initKnobInteraction() {
-        knobs.forEach((knob) => {
+      function drawScope() {
+        const w = scopeCanvas.clientWidth;
+        const h = scopeCanvas.clientHeight;
+        scopeCtx.clearRect(0, 0, w, h);
+
+        const tone = norm('tone');
+        const glue = norm('glue');
+        const weight = norm('weight');
+        const air = norm('air');
+        const width = norm('width');
+        const mix = norm('mix');
+
+        const tilt = (tone - 0.5) * 0.22;
+        const tighten = 1 - glue * 0.65;
+
+        for (let gy = 0; gy <= 6; gy++) {
+          const y = (h / 6) * gy;
+          scopeCtx.strokeStyle = 'rgba(255, 190, 70, 0.08)';
+          scopeCtx.lineWidth = 1;
+          scopeCtx.beginPath();
+          scopeCtx.moveTo(0, y);
+          scopeCtx.lineTo(w, y);
+          scopeCtx.stroke();
+        }
+
+        scopeCtx.strokeStyle = 'rgba(255, 220, 120, 0.3)';
+        scopeCtx.beginPath();
+        scopeCtx.moveTo(w * 0.33, 0);
+        scopeCtx.lineTo(w * 0.33, h);
+        scopeCtx.moveTo(w * 0.66, 0);
+        scopeCtx.lineTo(w * 0.66, h);
+        scopeCtx.stroke();
+
+        const baseline = h * 0.56;
+        for (let i = 0; i < analyzer.length; i++) {
+          const t = i / (analyzer.length - 1);
+          const lowBoost = Math.max(0, 0.45 - t) * weight * 0.65;
+          const highSpark = Math.max(0, t - 0.6) * air * 0.8;
+          const structured = Math.abs(Math.sin((phase * 2.9) + (t * 42))) * 0.15;
+          const transient = Math.abs(Math.sin((phase * 8.5) + (t * 120))) * 0.12 * (0.4 + air * 0.8);
+          const glueSmooth = (structured + transient) * (0.22 + (1 - glue) * 0.78);
+          const amp = (0.16 + glueSmooth + lowBoost + highSpark) * (0.45 + mix * 0.55);
+          analyzer[i] = amp;
+          peaks[i] = baseline - (amp * h * (0.64 * tighten + 0.2));
+        }
+
+        for (let i = 0; i < analyzer.length; i += 2) {
+          const t = i / (analyzer.length - 1);
+          const x = t * w;
+          const amp = analyzer[i];
+          const y = peaks[i];
+
+          const cL = `rgba(${Math.round(180 + t * 70)}, ${Math.round(70 + t * 120)}, ${Math.round(255 - t * 110)}, ${0.32 + amp * 0.55})`;
+          scopeCtx.strokeStyle = cL;
+          const spike = amp * h * (0.62 + air * 0.08);
+          scopeCtx.beginPath();
+          scopeCtx.moveTo(x, baseline + h * 0.16);
+          scopeCtx.lineTo(x, baseline - spike);
+          scopeCtx.stroke();
+
+          if (air > 0.22 && t > 0.6 && Math.random() < 0.24 + air * 0.24) {
+            scopeCtx.fillStyle = 'rgba(255, 197, 72, 0.42)';
+            scopeCtx.fillRect(x, y - (6 + Math.random() * 18), 2, 2);
+          }
+        }
+
+        scopeCtx.lineWidth = 4;
+        scopeCtx.beginPath();
+        for (let i = 0; i < analyzer.length; i++) {
+          const t = i / (analyzer.length - 1);
+          const x = t * w;
+          const y = peaks[i] + (Math.sin((phase * 1.4) + (t * 14)) * h * 0.018);
+          const yTilt = y + ((t - 0.5) * tilt * h);
+          if (i === 0) scopeCtx.moveTo(x, yTilt);
+          else scopeCtx.lineTo(x, yTilt);
+        }
+        const g = scopeCtx.createLinearGradient(0, 0, w, 0);
+        g.addColorStop(0, 'rgba(183, 76, 255, 0.95)');
+        g.addColorStop(0.46, 'rgba(227, 200, 255, 0.95)');
+        g.addColorStop(1, 'rgba(255, 195, 56, 0.95)');
+        scopeCtx.strokeStyle = g;
+        scopeCtx.shadowBlur = magicOn ? 18 : 10;
+        scopeCtx.shadowColor = magicOn ? 'rgba(255, 192, 64, 0.45)' : 'rgba(185, 108, 255, 0.35)';
+        scopeCtx.stroke();
+        scopeCtx.shadowBlur = 0;
+
+        if (magicOn) {
+          scopeCtx.fillStyle = 'rgba(255, 204, 88, 0.08)';
+          scopeCtx.fillRect(0, 0, w, h);
+        }
+      }
+
+      function drawArc() {
+        const w = drCanvas.clientWidth;
+        const h = drCanvas.clientHeight;
+        drCtx.clearRect(0, 0, w, h);
+        const cx = w * 0.5;
+        const cy = h * 0.95;
+        const r = Math.min(w * 0.4, h * 0.9);
+        const glue = norm('glue');
+        const finishLift = finishOn ? 0.6 : 0;
+        const dr = clamp(12.5 - (glue * 5.2) - finishLift, 4, 20);
+
+        drCtx.lineWidth = 10;
+        drCtx.strokeStyle = 'rgba(255, 186, 48, 0.18)';
+        drCtx.beginPath();
+        drCtx.arc(cx, cy, r, Math.PI * 1.1, Math.PI * 1.9);
+        drCtx.stroke();
+
+        const ratio = (dr - 4) / 16;
+        const end = Math.PI * (1.1 + ratio * 0.8);
+        const grad = drCtx.createLinearGradient(cx - r, cy, cx + r, cy);
+        grad.addColorStop(0, '#b74cff');
+        grad.addColorStop(1, '#ffbe36');
+        drCtx.strokeStyle = grad;
+        drCtx.beginPath();
+        drCtx.arc(cx, cy, r, Math.PI * 1.1, end);
+        drCtx.stroke();
+
+        drCtx.strokeStyle = '#f8c762';
+        drCtx.lineWidth = 6;
+        drCtx.beginPath();
+        drCtx.moveTo(cx, cy);
+        drCtx.lineTo(cx + Math.cos(end) * (r - 8), cy + Math.sin(end) * (r - 8));
+        drCtx.stroke();
+
+        drValue.innerHTML = `${dr.toFixed(1)}<small>LU</small>`;
+      }
+
+      const stereoPoints = Array.from({ length: 280 }, () => ({
+        t: Math.random(),
+        r: Math.random(),
+        life: Math.random(),
+        side: Math.random() > 0.5 ? 1 : -1
+      }));
+
+      function drawStereo() {
+        const w = stereoCanvas.clientWidth;
+        const h = stereoCanvas.clientHeight;
+        stereoCtx.clearRect(0, 0, w, h);
+        const cx = w * 0.5;
+        const cy = h * 0.92;
+        const baseR = Math.min(w * 0.43, h * 0.8);
+
+        stereoCtx.strokeStyle = 'rgba(255, 190, 60, 0.45)';
+        stereoCtx.lineWidth = 2;
+        stereoCtx.beginPath();
+        stereoCtx.arc(cx, cy, baseR, Math.PI, Math.PI * 2);
+        stereoCtx.stroke();
+        stereoCtx.beginPath();
+        stereoCtx.moveTo(cx, cy);
+        stereoCtx.lineTo(cx, cy - baseR);
+        stereoCtx.strokeStyle = 'rgba(255, 208, 109, 0.34)';
+        stereoCtx.stroke();
+
+        const width = norm('width');
+        const mix = norm('mix');
+        const spread = 0.25 + width * 0.75;
+        const corr = clamp(0.9 - width * 0.65 - (magicOn ? 0.05 : 0), -1, 1);
+
+        for (const p of stereoPoints) {
+          p.life += 0.005 + (magicOn ? 0.004 : 0);
+          if (p.life >= 1) {
+            p.life = 0;
+            p.t = Math.random();
+            p.r = Math.random();
+            p.side = Math.random() > 0.5 ? 1 : -1;
+          }
+
+          const ang = Math.PI + (p.t * Math.PI);
+          const radius = baseR * p.r * (0.24 + spread * 0.86);
+          const jitter = (Math.sin((phase * 4) + p.t * 23) * 0.06) * baseR;
+          const x = cx + Math.cos(ang) * radius + (p.side * width * 22) + jitter;
+          const y = cy + Math.sin(ang) * radius;
+
+          stereoCtx.fillStyle = p.side > 0
+            ? `rgba(255, 191, 52, ${0.10 + p.life * 0.55})`
+            : `rgba(186, 88, 255, ${0.10 + p.life * 0.55})`;
+          stereoCtx.fillRect(x, y, 2, 2);
+        }
+
+        corrValue.innerHTML = `${corr.toFixed(2)}<small>Correlation</small>`;
+      }
+
+      function updateMeters() {
+        const glue = norm('glue');
+        const weight = norm('weight');
+        const air = norm('air');
+        const mix = norm('mix');
+        const finish = finishOn ? 1 : 0;
+        const wobble = 0.5 + 0.5 * Math.sin(phase * 2.6);
+
+        const loudBase = clamp(0.36 + glue * 0.3 + finish * 0.16 + wobble * 0.08, 0, 1);
+        const loudL = clamp(loudBase + weight * 0.08, 0, 1);
+        const loudR = clamp(loudBase + air * 0.08, 0, 1);
+        setBars(loudnessBars, loudL, loudR);
+
+        const outputNorm = meterView === 'LU'
+          ? clamp((luValue + 18) / 24, 0, 1)
+          : clamp((outDb + 18) / 24, 0, 1);
+
+        const outL = clamp(outputNorm * (0.9 + width * 0.1), 0, 1);
+        const outR = clamp(outputNorm * (0.9 + (1 - width) * 0.1), 0, 1);
+        setBars(outputBars, outL, outR);
+
+        setVertical(clamp(outputNorm + (hot ? 0.1 : 0), 0, 1));
+
+        const st = -10 + loudL * 8;
+        const integrated = st - (0.4 + glue * 0.6);
+        const tp = clamp(-1.3 + outputNorm * 1.8 - finish * 0.3, -1.2, 1.2);
+
+        stLufs.textContent = `${st.toFixed(1)} LUFS`;
+        intLufs.textContent = `${integrated.toFixed(1)} LUFS`;
+        tpRead.textContent = `${tp.toFixed(1)} dBTP`;
+      }
+
+      function draw() {
+        phase += 0.014;
+        drawScope();
+        drawArc();
+        drawStereo();
+        updateMeters();
+        requestAnimationFrame(draw);
+      }
+
+      function buildKnobs() {
+        ['tone', 'glue', 'weight', 'air', 'width'].forEach((id) => {
+          const cell = document.createElement('div');
+          cell.className = 'knob-cell';
+          cell.innerHTML = `
+            <div class="k-title">${params[id].title}<span class="k-sub">${params[id].sub}</span></div>
+            <div class="knob" data-param="${id}" data-min="${params[id].min}" data-max="${params[id].max}">
+              <div class="ring"></div>
+              <div class="pointer"></div>
+            </div>
+            <div class="readout" data-readout="${id}">${params[id].value.toFixed(1)}</div>
+          `;
+          knobGrid.appendChild(cell);
+        });
+      }
+
+      function initDrag() {
+        root.addEventListener('pointerdown', (ev) => {
+          const knob = ev.target.closest('[data-param]');
+          if (!knob) return;
+          ev.preventDefault();
           const param = knob.dataset.param;
+          const p = params[param];
+          if (!p) return;
 
-          knob.addEventListener('pointerdown', (event) => {
-            if (event.button !== undefined && event.button !== 0) return;
-            event.preventDefault();
+          drag = {
+            param,
+            pointerId: ev.pointerId,
+            startY: ev.clientY,
+            startValue: p.value,
+            node: knob
+          };
 
-            activeDrag = {
-              param,
-              pointerId: event.pointerId ?? null,
-              startY: event.clientY,
-              startValue: values[param] ?? Number(knob.dataset.min)
-            };
-
-            knob.classList.add('active');
-            if (event.pointerId !== undefined)
-              knob.setPointerCapture(event.pointerId);
-
-            sliderStates[param]?.gestureStart();
-          });
-
-          knob.addEventListener('dblclick', () => {
-            const min = Number(knob.dataset.min);
-            const max = Number(knob.dataset.max);
-            setParam(param, (min + max) * 0.5, true);
-          });
+          knob.classList.add('active');
+          if (knob.setPointerCapture) knob.setPointerCapture(ev.pointerId);
+          sliderStates[param] && sliderStates[param].gestureStart();
         });
 
-        window.addEventListener('pointermove', (event) => {
-          if (!activeDrag) return;
-          if (activeDrag.pointerId !== null && event.pointerId !== activeDrag.pointerId) return;
-
-          const knob = document.querySelector(`.knob[data-param="${activeDrag.param}"]`);
-          if (!knob) return;
-          const min = Number(knob.dataset.min);
-          const max = Number(knob.dataset.max);
-          const delta = (activeDrag.startY - event.clientY) * ((max - min) / 180.0);
-          setParam(activeDrag.param, activeDrag.startValue + delta, false);
+        window.addEventListener('pointermove', (ev) => {
+          if (!drag || drag.pointerId !== ev.pointerId) return;
+          const p = params[drag.param];
+          const delta = (drag.startY - ev.clientY) * ((p.max - p.min) / 180);
+          setParam(drag.param, drag.startValue + delta, true, false);
         });
 
-        function endDrag(event) {
-          if (!activeDrag) return;
-          if (activeDrag.pointerId !== null && event.pointerId !== activeDrag.pointerId) return;
-          document.querySelector(`.knob[data-param="${activeDrag.param}"]`)?.classList.remove('active');
-          sliderStates[activeDrag.param]?.gestureEnd();
-          activeDrag = null;
+        function stopDrag(ev) {
+          if (!drag || drag.pointerId !== ev.pointerId) return;
+          drag.node.classList.remove('active');
+          sliderStates[drag.param] && sliderStates[drag.param].gestureEnd();
+          drag = null;
         }
 
-        window.addEventListener('pointerup', endDrag);
-        window.addEventListener('pointercancel', endDrag);
+        window.addEventListener('pointerup', stopDrag);
+        window.addEventListener('pointercancel', stopDrag);
       }
 
-      function startFallbackMeter() {
-        function tick() {
-          if (juceAvailable()) return;
-          fallbackTick += 0.018;
-          const wobble = 0.5 + (0.5 * Math.sin(fallbackTick * 4.0));
-          const density = clamp((values.glue + values.weight) / 20.0, 0, 1);
-          const spread = clamp((values.air + values.width) / 20.0, 0, 1);
-          const mixLift = clamp(values.mix / 100.0, 0, 1) * 0.22;
-          const finishLift = values.finish_mode > 0.5 ? 0.18 : 0.0;
-          const outDb = clamp(-18 + ((density + spread + mixLift + finishLift + (wobble * 0.12)) * 18.0) + values.output_gain, -60, 6);
-          const lu = clamp(-14 + ((density + finishLift + (wobble * 0.2)) * 12.0), -18, 6);
-          setOutputReadout(outDb, lu, outDb > -0.4);
-          requestAnimationFrame(tick);
-        }
-
-        requestAnimationFrame(tick);
+      function setFinish(on, emit) {
+        finishOn = !!on;
+        finishToggle.classList.toggle('active', finishOn);
+        if (emit && sliderStates.finish_mode) sliderStates.finish_mode.setNormalisedValue(finishOn ? 1 : 0);
       }
 
-      modeButtons.forEach((button) => {
-        button.addEventListener('click', () => applyPreset(button.dataset.mode));
-      });
+      function setMeterView(name, emit) {
+        meterView = name === 'LU' ? 'LU' : 'OUT';
+        meterToggle.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.meter === meterView));
+        if (emit && sliderStates.meter_view) sliderStates.meter_view.setNormalisedValue(meterView === 'LU' ? 1 : 0);
+      }
 
-      meterButtons.forEach((button) => {
-        button.addEventListener('click', () => setMeterView(button.dataset.meter, true));
-      });
+      function setMode(name, emit) {
+        document.querySelectorAll('#mode-buttons button').forEach((b) => b.classList.toggle('active', b.dataset.mode === name));
+        const preset = presetMap[name] || presetMap['MASTER BUS'];
+        setParam('tone', preset.tone, emit, true);
+        setParam('glue', preset.glue, emit, true);
+        setParam('weight', preset.weight, emit, true);
+        setParam('air', preset.air, emit, true);
+        setParam('width', preset.width, emit, true);
+        setParam('mix', preset.mix, emit, true);
+        setFinish(preset.finish_mode > 0.5, emit);
+        if (emit && sliderStates.mode_preset) sliderStates.mode_preset.setNormalisedValue(preset.mode_preset);
+      }
 
-      finishButton.addEventListener('click', () => setFinish(values.finish_mode <= 0.5, true));
-
-      sliderStates.tone = createSliderState('tone');
-      sliderStates.glue = createSliderState('glue');
-      sliderStates.weight = createSliderState('weight');
-      sliderStates.air = createSliderState('air');
-      sliderStates.width = createSliderState('width');
-      sliderStates.mix = createSliderState('mix');
-      sliderStates.output_gain = createSliderState('output_gain');
-      sliderStates.finish_mode = createSliderState('finish_mode');
-      sliderStates.mode_preset = createSliderState('mode_preset');
-      sliderStates.meter_view = createSliderState('meter_view');
-
-      ['tone', 'glue', 'weight', 'air', 'width', 'mix', 'output_gain'].forEach((param) => {
-        sliderStates[param]?.addListener(() => {
-          const knob = document.querySelector(`.knob[data-param="${param}"]`);
-          if (!knob) return;
-          const min = Number(knob.dataset.min);
-          const max = Number(knob.dataset.max);
-          const value = min + sliderStates[param].getNormalisedValue() * (max - min);
-          updateKnobVisual(param, value);
+      function bindUI() {
+        meterToggle.querySelectorAll('button').forEach((b) => {
+          b.addEventListener('click', () => setMeterView(b.dataset.meter, true));
         });
-      });
 
-      sliderStates.finish_mode?.addListener(() => {
-        setFinish(sliderStates.finish_mode.getNormalisedValue() > 0.5, false);
-      });
+        finishToggle.addEventListener('click', () => setFinish(!finishOn, true));
 
-      sliderStates.mode_preset?.addListener(() => {
-        const idx = Math.round(sliderStates.mode_preset.getNormalisedValue() * 3.0);
-        setMode(modeOrder[idx] || 'CLEAN', false);
-      });
+        magicToggle.addEventListener('click', () => {
+          magicOn = !magicOn;
+          magicToggle.classList.toggle('active', magicOn);
+          root.classList.toggle('magic-bright', magicOn);
+        });
 
-      sliderStates.meter_view?.addListener(() => {
-        const idx = sliderStates.meter_view.getNormalisedValue() > 0.5 ? 1 : 0;
-        setMeterView(meterOrder[idx], false);
-      });
+        document.querySelectorAll('#mode-buttons button').forEach((b) => {
+          b.addEventListener('click', () => setMode(b.dataset.mode, true));
+        });
+      }
+
+      function initBridge() {
+        sliderStates.tone = createSliderState('tone');
+        sliderStates.glue = createSliderState('glue');
+        sliderStates.weight = createSliderState('weight');
+        sliderStates.air = createSliderState('air');
+        sliderStates.width = createSliderState('width');
+        sliderStates.mix = createSliderState('mix');
+        sliderStates.output_gain = createSliderState('output_gain');
+        sliderStates.finish_mode = createSliderState('finish_mode');
+        sliderStates.mode_preset = createSliderState('mode_preset');
+        sliderStates.meter_view = createSliderState('meter_view');
+
+        ['tone', 'glue', 'weight', 'air', 'width', 'mix', 'output_gain'].forEach((param) => {
+          const state = sliderStates[param];
+          if (!state) return;
+          state.addListener((normalized) => {
+            const p = params[param];
+            const value = p.min + normalized * (p.max - p.min);
+            setParam(param, value, false, false);
+          });
+        });
+
+        sliderStates.finish_mode && sliderStates.finish_mode.addListener((v) => setFinish(v > 0.5, false));
+        sliderStates.mode_preset && sliderStates.mode_preset.addListener((v) => {
+          const idx = Math.round(clamp(v, 0, 1) * 3);
+          const modeName = ['MASTER BUS', 'MUSIC', 'STREAMING', 'BROADCAST'][idx] || 'MASTER BUS';
+          setMode(modeName, false);
+        });
+        sliderStates.meter_view && sliderStates.meter_view.addListener((v) => setMeterView(v > 0.5 ? 'LU' : 'OUT', false));
+      }
 
       window.updateOutputMeter = (outputLinear, loudnessLike, isHot) => {
         const safeOut = Number.isFinite(outputLinear) ? Math.max(1.0e-6, outputLinear) : 1.0e-6;
         const safeLu = Number.isFinite(loudnessLike) ? clamp(loudnessLike, 0, 1) : 0;
-        lastOutDb = 20.0 * Math.log10(safeOut);
-        lastLu = -18.0 + (safeLu * 24.0);
-        lastHot = !!isHot;
-        setOutputReadout(lastOutDb, lastLu, lastHot);
+        outDb = 20 * Math.log10(safeOut);
+        luValue = -18 + safeLu * 24;
+        hot = !!isHot;
       };
 
-      ['tone', 'glue', 'weight', 'air', 'width', 'mix', 'output_gain'].forEach((param) => {
-        const knob = document.querySelector(`.knob[data-param="${param}"]`);
-        if (!knob) return;
-        const min = Number(knob.dataset.min);
-        const max = Number(knob.dataset.max);
-        updateKnobVisual(param, (min + max) * 0.5);
-      });
+      function boot() {
+        buildKnobs();
+        resizeCanvas(scopeCanvas, scopeCtx);
+        resizeCanvas(stereoCanvas, stereoCtx);
+        resizeCanvas(drCanvas, drCtx);
+        window.addEventListener('resize', () => {
+          resizeCanvas(scopeCanvas, scopeCtx);
+          resizeCanvas(stereoCanvas, stereoCtx);
+          resizeCanvas(drCanvas, drCtx);
+        });
 
-      setMode('CLEAN', false);
-      setMeterView('OUT', false);
-      setFinish(false, false);
-      setOutputReadout(-60.0, -18.0, false);
-      initKnobInteraction();
-      startFallbackMeter();
+        ['tone', 'glue', 'weight', 'air', 'width', 'mix', 'output_gain'].forEach(updateParamVisual);
+
+        initDrag();
+        bindUI();
+        initBridge();
+
+        setMode('MASTER BUS', false);
+        setMeterView('OUT', false);
+        setFinish(false, false);
+
+        draw();
+      }
+
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+      else boot();
     })();
   </script>
 </body>
