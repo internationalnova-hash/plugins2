@@ -637,66 +637,34 @@
 
     var w = canvas.width;
     var h = canvas.height;
-    var maxSuppressionHeight = h * 0.40;  // Max height from bottom
+    var maxWaveformHeight = h * 0.40;  // Max height from bottom
 
     ctx.save();
 
-    // Create smooth waveform path for suppression
-    ctx.beginPath();
-    ctx.moveTo(0, h);
+    // Draw waveform bars driven by input signal as it passes through
+    var barWidth = w / BINS;
 
     for (var i = 0; i < BINS; i++) {
       var x = (i / (BINS - 1)) * w;
-      var suppression = smoothReduction[i] || 0;  // 0 to 1
-      var y = h - (suppression * maxSuppressionHeight);
+      var inputLevel = smoothInput[i] || 0;  // 0 to 1, responsive to vocal/audio
+      var barHeight = inputLevel * maxWaveformHeight;
+      var barY = h - barHeight;
 
-      if (i === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        var prevX = ((i - 1) / (BINS - 1)) * w;
-        var prevSuppression = smoothReduction[i - 1] || 0;
-        var prevY = h - (prevSuppression * maxSuppressionHeight);
-        var cpX = (prevX + x) * 0.5;
-        ctx.bezierCurveTo(cpX, prevY, cpX, y, x, y);
-      }
+      // Create gradient for each bar
+      var barGradient = ctx.createLinearGradient(x, barY, x, h);
+      barGradient.addColorStop(0, 'rgba(180, 120, 255, 0.32)');
+      barGradient.addColorStop(0.5, 'rgba(160, 100, 240, 0.28)');
+      barGradient.addColorStop(1, 'rgba(140, 80, 220, 0.18)');
+
+      ctx.fillStyle = barGradient;
+      ctx.fillRect(x, barY, barWidth, barHeight);
+
+      // Subtle glow on the top edge of each bar
+      ctx.shadowColor = 'rgba(200, 140, 255, 0.16)';
+      ctx.shadowBlur = 3;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = -1;
     }
-
-    // Close path at bottom right
-    ctx.lineTo(w, h);
-    ctx.lineTo(0, h);
-    ctx.closePath();
-
-    // Fill with gradient purple
-    var fillGradient = ctx.createLinearGradient(0, h - maxSuppressionHeight, 0, h);
-    fillGradient.addColorStop(0, 'rgba(180, 120, 255, 0.32)');
-    fillGradient.addColorStop(0.5, 'rgba(160, 100, 240, 0.28)');
-    fillGradient.addColorStop(1, 'rgba(140, 80, 220, 0.12)');
-    ctx.fillStyle = fillGradient;
-    ctx.fill();
-
-    // Draw smooth waveform stroke
-    ctx.beginPath();
-    for (var j = 0; j < BINS; j++) {
-      var xj = (j / (BINS - 1)) * w;
-      var suppj = smoothReduction[j] || 0;
-      var yj = h - (suppj * maxSuppressionHeight);
-
-      if (j === 0) {
-        ctx.moveTo(xj, yj);
-      } else {
-        var pxj = ((j - 1) / (BINS - 1)) * w;
-        var psuppj = smoothReduction[j - 1] || 0;
-        var pyj = h - (psuppj * maxSuppressionHeight);
-        var cpxj = (pxj + xj) * 0.5;
-        ctx.bezierCurveTo(cpxj, pyj, cpxj, yj, xj, yj);
-      }
-    }
-
-    ctx.strokeStyle = 'rgba(200, 140, 255, 0.48)';
-    ctx.lineWidth = 2.2;
-    ctx.shadowColor = 'rgba(180, 120, 255, 0.24)';
-    ctx.shadowBlur = 6;
-    ctx.stroke();
 
     ctx.restore();
   }
