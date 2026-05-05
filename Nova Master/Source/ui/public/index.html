@@ -1405,21 +1405,27 @@
         stereoCtx.clearRect(0, 0, w, h);
 
         const cx = w * 0.5;
-        const cy = h * 0.96;
-        const r = Math.min(w * 0.34, h * 0.56);
+        const cy = h * 1.05;
+        const r = Math.min(w * 0.39, h * 0.78);
 
         const width = norm('width');
         const corr = clamp(0.88 - width * 0.62 - (magicOn ? 0.05 : 0), -1, 1);
 
+        const startAngle = Math.PI * 1.16;
+        const endAngle = Math.PI * 1.84;
+
         // L AND R LABELS
+        const leftX = cx + Math.cos(startAngle) * (r + 12);
+        const leftY = cy + Math.sin(startAngle) * (r + 12) + 12;
+        const rightX = cx + Math.cos(endAngle) * (r + 12);
+        const rightY = cy + Math.sin(endAngle) * (r + 12) + 12;
+
         stereoCtx.fillStyle = 'rgba(255, 210, 120, 0.9)';
         stereoCtx.font = 'bold 13px "Avenir Next", sans-serif';
         stereoCtx.textAlign = 'center';
-        stereoCtx.fillText('L', cx - r - 12, cy + 2);
-        stereoCtx.fillText('R', cx + r + 12, cy + 2);
-
-        const startAngle = Math.PI * 1.16;
-        const endAngle = Math.PI * 1.84;
+        stereoCtx.textBaseline = 'middle';
+        stereoCtx.fillText('L', leftX, leftY);
+        stereoCtx.fillText('R', rightX, rightY);
 
         // BACKGROUND SEMI-ARC
         stereoCtx.lineWidth = 2;
