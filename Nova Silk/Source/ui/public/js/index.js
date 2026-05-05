@@ -7,19 +7,18 @@
   var KNOB_MAX_DEG = 120;
 
   var PRESETS = {
-    'Universal Smooth': { smooth: 42, focus: 60, air_preserve: 72, body: 62, output: 50, magic: true },
-    'Vocal':            { smooth: 50, focus: 65, air_preserve: 70, body: 65, output: 50, magic: true },
-    'Drums':            { smooth: 35, focus: 62, air_preserve: 55, body: 40, output: 50, magic: false },
-    'Guitar':           { smooth: 40, focus: 58, air_preserve: 68, body: 70, output: 50, magic: true },
-    'Master':           { smooth: 28, focus: 50, air_preserve: 75, body: 72, output: 50, magic: true }
+    'Universal Smooth': { smooth: 42, focus: 60, air_preserve: 72, body: 62, output: 50, mix: 100 },
+    'Vocal':            { smooth: 50, focus: 65, air_preserve: 70, body: 65, output: 50, mix: 100 },
+    'Drums':            { smooth: 35, focus: 62, air_preserve: 55, body: 40, output: 50, mix: 80  },
+    'Guitar':           { smooth: 40, focus: 58, air_preserve: 68, body: 70, output: 50, mix: 90  },
+    'Master':           { smooth: 28, focus: 50, air_preserve: 75, body: 72, output: 50, mix: 70  }
   };
 
-  var ALL_PARAMS = ['smooth', 'focus', 'air_preserve', 'body', 'output'];
+  var ALL_PARAMS = ['smooth', 'focus', 'air_preserve', 'body', 'output', 'mix'];
 
-  var currentValues = { smooth: 42, focus: 60, air_preserve: 72, body: 62, output: 50 };
+  var currentValues = { smooth: 42, focus: 60, air_preserve: 72, body: 62, output: 50, mix: 100 };
   var paramStates = {};
   var juceAvailable = false;
-  var magicOn = true;
   var activeDrag = null;
   var activePreset = 'Universal Smooth';
 
@@ -121,6 +120,9 @@
       var db = -12 + (percent / 100) * 24;
       return (db >= 0 ? '+' : '') + db.toFixed(1) + ' dB';
     }
+    if (param === 'mix') {
+      return Math.round(percent) + '%';
+    }
     return (percent / 10).toFixed(1);
   }
 
@@ -166,7 +168,12 @@
     var safe = clamp(percent, 0, 100);
     var settings = opts || {};
     currentValues[param] = safe;
-    updateKnobVisual(param, safe);
+
+    if (param === 'mix') {
+      updateMixSlider(safe);
+    } else {
+      updateKnobVisual(param, safe);
+    }
 
     if (!settings.push) return;
 
@@ -178,21 +185,6 @@
       state.setNormalisedValue(safe / 100);
       if (settings.gesture) state.sliderDragEnded();
     } catch (_) {}
-  }
-
-  function setMagic(on, push) {
-    magicOn = !!on;
-    var ctrl = document.getElementById('magic-control');
-    if (ctrl) ctrl.classList.toggle('on', magicOn);
-
-    if (push) {
-      var state = paramStates.magic;
-      if (state) {
-        try {
-          state.setNormalisedValue(magicOn ? 1 : 0);
-        } catch (_) {}
-      }
-    }
   }
 
   function applyPreset(name, push) {
@@ -208,9 +200,8 @@
 
     var shouldPush = push !== false;
     Array.prototype.forEach.call(ALL_PARAMS, function (p) {
-      setParamPercent(p, preset[p], { push: shouldPush, gesture: false });
+      if (preset[p] !== undefined) setParamPercent(p, preset[p], { push: shouldPush, gesture: false });
     });
-    setMagic(preset.magic, shouldPush);
   }
 
   function initParamStates() {
@@ -226,22 +217,12 @@
       });
     });
 
-    paramStates.magic = createSliderState('magic');
-    if (paramStates.magic) {
-      paramStates.magic.valueChangedEvent.add(function () {
-        setMagic(paramStates.magic.getNormalisedValue() > 0.5, false);
-      });
-    }
-
     window.setTimeout(function () {
       Array.prototype.forEach.call(ALL_PARAMS, function (p) {
         if (paramStates[p]) {
           setParamPercent(p, paramStates[p].getNormalisedValue() * 100, { push: false });
         }
       });
-      if (paramStates.magic) {
-        setMagic(paramStates.magic.getNormalisedValue() > 0.5, false);
-      }
     }, 100);
   }
 
@@ -393,13 +374,59 @@
     });
   }
 
-  function initMagicToggle() {
-    var ctrl = document.getElementById('magic-control');
-    if (!ctrl) return;
+  function updateMixSlider(percent) {
+    var fill  = document.getElementById('mix-fill');
+    var thumb = document.getElementById('mix-thumb');
+    var label = document.getElementById('mix-value');
+    var frac  = clamp(percent, 0, 100) / 100;
+    if (fill)  fill.style.width = (frac * 100) + '%';
+    if (thumb) thumb.style.left = (frac * 100) + '%';
+    if (label) label.textContent = Math.round(percent) + '%';
+  }
 
-    ctrl.addEventListener('click', function () {
-      setMagic(!magicOn, true);
+  function initMixSlider() {
+    var track = document.getElementById('mix-slider');
+    if (!track) return;
+
+    function pctFromEvent(ev) {
+      var rect = track.getBoundingClientRect();
+      var clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      return clamp(((clientX - rect.left) / rect.width) * 100, 0, 100);
+    }
+
+    var dragging = false;
+
+    function onMove(ev) {
+      if (!dragging) return;
+      ev.preventDefault();
+      var pct = pctFromEvent(ev);
+      setParamPercent('mix', pct, { push: true, gesture: true });
+    }
+
+    track.addEventListener('mousedown', function (ev) {
+      dragging = true;
+      setParamPercent('mix', pctFromEvent(ev), { push: true, gesture: true });
     });
+    track.addEventListener('touchstart', function (ev) {
+      dragging = true;
+      setParamPercent('mix', pctFromEvent(ev), { push: true, gesture: true });
+    }, { passive: true });
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup',  function () { dragging = false; });
+    document.addEventListener('touchend', function () { dragging = false; });
+
+    track.addEventListener('keydown', function (ev) {
+      var delta = ev.shiftKey ? 10 : 1;
+      if (ev.key === 'ArrowRight' || ev.key === 'ArrowUp') {
+        setParamPercent('mix', clamp(currentValues.mix + delta, 0, 100), { push: true });
+      } else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowDown') {
+        setParamPercent('mix', clamp(currentValues.mix - delta, 0, 100), { push: true });
+      }
+    });
+
+    updateMixSlider(currentValues.mix);
   }
 
 
@@ -434,11 +461,11 @@
 
       smoothProblem[i] = rawProblem[i] > smoothProblem[i]
         ? lerp(smoothProblem[i], rawProblem[i], 0.19)
-        : lerp(smoothProblem[i], rawProblem[i], magicOn ? 0.042 : 0.055);
+        : lerp(smoothProblem[i], rawProblem[i], 0.042);
 
       smoothReduction[i] = rawReduction[i] > smoothReduction[i]
         ? lerp(smoothReduction[i], rawReduction[i], 0.14)
-        : lerp(smoothReduction[i], rawReduction[i], magicOn ? 0.03 : 0.05);
+        : lerp(smoothReduction[i], rawReduction[i], 0.03);
     }
   }
 
@@ -563,7 +590,7 @@
     ctx.save();
     for (var i = 0; i < particles.length; i++) {
       var p = particles[i];
-      p.life += 0.004 + (magicOn ? 0.002 : 0);
+      p.life += 0.006;
       if (p.life > 1) {
         particles[i] = makeParticle();
         p = particles[i];
@@ -917,7 +944,7 @@
     initKnobs();
     initReadouts();
     initPresetButtons();
-    initMagicToggle();
+    initMixSlider();
     startRenderLoop();
 
     applyPreset(activePreset, false);

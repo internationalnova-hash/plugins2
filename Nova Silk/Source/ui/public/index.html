@@ -442,126 +442,84 @@
         0 0 26px rgba(246, 201, 126, 0.25);
     }
 
-    .magic-wrap {
+    .mix-slider-wrap {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 18px;
+      gap: 5px;
       margin-right: 4px;
-      user-select: none;
-      cursor: pointer;
-      border-radius: 999px;
-      padding: 4px 8px;
-      transition: box-shadow var(--ease), transform var(--ease);
+      min-width: 180px;
     }
 
-    .magic-label {
+    .mix-slider-label {
       color: #b995ee;
       text-transform: uppercase;
       letter-spacing: 0.36em;
-      font-size: clamp(22px, 1.4vw, 30px);
+      font-size: clamp(11px, 0.75vw, 15px);
       font-weight: 620;
-      transition: color var(--ease), text-shadow var(--ease);
     }
 
-    .magic-switch {
-      width: 128px;
-      height: 58px;
-      border-radius: 999px;
-      border: 1px solid rgba(170, 136, 222, 0.55);
-      background: linear-gradient(180deg, rgba(11, 18, 44, 0.95), rgba(4, 10, 27, 0.95));
+    .mix-slider-track {
       position: relative;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.16),
-        0 8px 18px rgba(0, 0, 0, 0.32);
-      transition: all var(--ease);
-      overflow: hidden;
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(170, 136, 222, 0.35);
+      cursor: pointer;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
+      outline: none;
+      transition: border-color var(--ease);
     }
 
-    .magic-switch::before,
-    .magic-switch::after {
-      content: "";
+    .mix-slider-track:focus {
+      border-color: rgba(197, 166, 248, 0.65);
+    }
+
+    .mix-slider-fill {
       position: absolute;
-      top: 7px;
-      width: 44px;
-      height: 44px;
+      left: 0;
+      top: 0;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #ac74ff, #f4ca84);
+      box-shadow: 0 0 10px rgba(177,126,255,0.45), 0 0 14px rgba(242,200,125,0.28);
+      pointer-events: none;
+      transition: width 0.04s linear;
+      width: 100%;
+    }
+
+    .mix-slider-thumb {
+      position: absolute;
+      top: 50%;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
-      transition: all var(--ease);
-    }
-
-    .magic-switch::before {
-      left: 8px;
-      background:
-        radial-gradient(circle at 34% 34%, rgba(255, 255, 255, 0.95), rgba(187, 133, 255, 0.88));
+      background: radial-gradient(circle at 34% 34%, rgba(255,255,255,0.92), rgba(187,133,255,0.88));
+      border: 1px solid rgba(232,214,255,0.55);
       box-shadow:
-        0 0 12px rgba(177, 124, 255, 0.58),
-        inset 0 -6px 10px rgba(71, 22, 140, 0.45);
-      clip-path: polygon(50% 0%, 61% 36%, 100% 50%, 61% 64%, 50% 100%, 39% 64%, 0% 50%, 39% 36%);
+        0 0 10px rgba(177,124,255,0.55),
+        0 2px 6px rgba(0,0,0,0.42);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      transition: left 0.04s linear, box-shadow var(--ease);
+      left: 100%;
     }
 
-    .magic-switch::after {
-      right: 8px;
-      background:
-        radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95), rgba(246, 197, 120, 0.92));
+    .mix-slider-track:hover .mix-slider-thumb,
+    .mix-slider-track:focus .mix-slider-thumb {
       box-shadow:
-        0 0 14px rgba(244, 197, 121, 0.64),
-        inset 0 -6px 10px rgba(130, 78, 18, 0.42);
-      clip-path: polygon(50% 0%, 61% 36%, 100% 50%, 61% 64%, 50% 100%, 39% 64%, 0% 50%, 39% 36%);
+        0 0 14px rgba(177,124,255,0.75),
+        0 0 18px rgba(242,200,125,0.45),
+        0 2px 8px rgba(0,0,0,0.42);
     }
 
-    .magic-wrap.on .magic-label {
-      color: #f3ce91;
-      text-shadow:
-        0 0 12px rgba(241, 200, 130, 0.4),
-        0 0 18px rgba(176, 124, 255, 0.32);
+    .mix-slider-value {
+      color: var(--text-muted);
+      font-size: clamp(11px, 0.72vw, 14px);
+      font-weight: 500;
+      letter-spacing: 0.04em;
     }
-
-    .magic-wrap.on .magic-switch {
-      border-color: rgba(230, 193, 255, 0.7);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.2),
-        0 0 22px rgba(180, 128, 255, 0.55),
-        0 0 26px rgba(245, 200, 126, 0.36);
-      animation: magicPulse 4.8s ease-in-out infinite, magicShimmer 5.4s ease-in-out infinite;
-      background-size: 180% 100%;
-      background-image:
-        linear-gradient(120deg, rgba(11, 18, 44, 0.95) 0%, rgba(90, 48, 170, 0.28) 45%, rgba(245, 200, 126, 0.28) 58%, rgba(4, 10, 27, 0.95) 100%);
-    }
-
-    .magic-wrap.on {
-      box-shadow:
-        0 0 24px rgba(174, 125, 255, 0.12),
-        0 0 36px rgba(245, 200, 126, 0.08);
-      animation: magicAura 6.5s ease-in-out infinite;
-    }
-
-    .magic-wrap:hover .magic-switch {
-      transform: scale(1.03);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.22),
-        0 0 18px rgba(180, 128, 255, 0.38),
-        0 0 24px rgba(245, 200, 126, 0.24);
-    }
-
-    .magic-wrap:hover .magic-label {
-      color: #f3ce91;
-    }
-
-    @keyframes magicPulse {
-      0%, 100% { filter: brightness(1); }
-      50% { filter: brightness(1.02); }
-    }
-
-    @keyframes magicShimmer {
-      0%, 100% { background-position: 0% 0%; }
-      50% { background-position: 100% 0%; }
-    }
-
-    @keyframes magicAura {
-      0%, 100% { box-shadow: 0 0 24px rgba(174, 125, 255, 0.10), 0 0 36px rgba(245, 200, 126, 0.07); }
-      50% { box-shadow: 0 0 28px rgba(174, 125, 255, 0.14), 0 0 42px rgba(245, 200, 126, 0.11); }
-    }
-
-
 
     @media (max-width: 1280px) {
       .plugin {
@@ -812,13 +770,17 @@
         <button class="preset-btn" data-preset="Master">MASTER</button>
       </div>
 
-      <div class="magic-wrap on" id="magic-control">
-        <span class="magic-label">MAGIC</span>
-        <div class="magic-switch"></div>
+      <div class="mix-slider-wrap">
+        <span class="mix-slider-label">MIX</span>
+        <div class="mix-slider-track" id="mix-slider" data-param="mix" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+          <div class="mix-slider-fill" id="mix-fill"></div>
+          <div class="mix-slider-thumb" id="mix-thumb"></div>
+        </div>
+        <span class="mix-slider-value" id="mix-value">100%</span>
       </div>
     </footer>
   </div>
 
-  <script src="js/index.js?v=20260505-1"></script>
+  <script src="js/index.js?v=20260505-2"></script>
 </body>
 </html>
