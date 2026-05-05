@@ -561,6 +561,45 @@
       50% { box-shadow: 0 0 28px rgba(174, 125, 255, 0.14), 0 0 42px rgba(245, 200, 126, 0.11); }
     }
 
+    .analyze-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(170, 142, 224, 0.32);
+      background: linear-gradient(180deg, rgba(8, 15, 36, 0.84), rgba(5, 10, 24, 0.92));
+      cursor: pointer;
+      user-select: none;
+      transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .analyze-wrap:hover {
+      border-color: rgba(170, 142, 224, 0.52);
+      box-shadow: 0 0 12px rgba(170, 142, 224, 0.18);
+      background: linear-gradient(180deg, rgba(12, 20, 44, 0.88), rgba(8, 14, 32, 0.94));
+    }
+
+    .analyze-wrap.active {
+      border-color: rgba(255, 200, 120, 0.64);
+      background: linear-gradient(180deg, rgba(20, 18, 44, 0.92), rgba(12, 10, 28, 0.94));
+      box-shadow: 0 0 18px rgba(255, 200, 120, 0.24);
+    }
+
+    .analyze-label {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #9c81d4;
+      font-weight: 560;
+      transition: color 200ms ease-out;
+    }
+
+    .analyze-wrap.active .analyze-label {
+      color: #f2c880;
+      text-shadow: 0 0 8px rgba(242, 200, 128, 0.28);
+    }
+
     @media (max-width: 1280px) {
       .plugin {
         min-width: 940px;
@@ -813,6 +852,10 @@
       <div class="magic-wrap on" id="magic-control">
         <span class="magic-label">MAGIC</span>
         <div class="magic-switch"></div>
+      </div>
+
+      <div class="analyze-wrap" id="analyze-control">
+        <span class="analyze-label">ANALYZE</span>
       </div>
     </footer>
   </div>

@@ -20,6 +20,7 @@
   var paramStates = {};
   var juceAvailable = false;
   var magicOn = true;
+  var analysisOverlayOn = false;
   var activeDrag = null;
   var activePreset = 'Universal Smooth';
 
@@ -402,6 +403,35 @@
     });
   }
 
+  function setAnalysis(enabled, gesture) {
+    analysisOverlayOn = enabled;
+    var ctrl = document.getElementById('analyze-control');
+    if (ctrl) {
+      if (enabled) {
+        ctrl.classList.add('active');
+      } else {
+        ctrl.classList.remove('active');
+      }
+    }
+  }
+
+  function initAnalyzeToggle() {
+    var ctrl = document.getElementById('analyze-control');
+    if (!ctrl) return;
+
+    ctrl.addEventListener('click', function () {
+      setAnalysis(!analysisOverlayOn, true);
+    });
+
+    // Keyboard shortcut: Alt+A to toggle
+    document.addEventListener('keydown', function (ev) {
+      if ((ev.altKey || ev.metaKey) && (ev.key === 'a' || ev.key === 'A')) {
+        ev.preventDefault();
+        setAnalysis(!analysisOverlayOn, true);
+      }
+    });
+  }
+
   function initCanvas() {
     canvas = document.getElementById('silk-canvas');
     if (!canvas) return;
@@ -630,6 +660,106 @@
     }
   }
 
+  function drawAnalysisOverlay() {
+    if (!canvas || !ctx || !analysisOverlayOn) return;
+
+    var w = canvas.width;
+    var h = canvas.height;
+
+    // Define frequency bands: [start, end, label, color]
+    var bands = [
+      { start: 0.00, end: 0.18, label: 'Low', color: '#8e57e7' },
+      { start: 0.18, end: 0.35, label: 'Low-Mid', color: '#a575ff' },
+      { start: 0.35, end: 0.50, label: 'Mid', color: '#b97bf3' },
+      { start: 0.50, end: 0.65, label: 'Mid-High', color: '#d2a3ff' },
+      { start: 0.65, end: 0.82, label: 'High', color: '#f0cc86' },
+      { start: 0.82, end: 1.00, label: 'Presence', color: '#ffdca8' }
+    ];
+
+    ctx.save();
+
+    // Draw frequency zone dividers and band backgrounds
+    for (var b = 0; b < bands.length; b++) {
+      var band = bands[b];
+      var xStart = band.start * w;
+      var xEnd = band.end * w;
+
+      // Calculate average suppression in this band
+      var startBin = Math.floor(band.start * (BINS - 1));
+      var endBin = Math.ceil(band.end * (BINS - 1));
+      var avgSuppression = 0;
+      for (var i = startBin; i < endBin; i++) {
+        avgSuppression += smoothReduction[i];
+      }
+      avgSuppression /= (endBin - startBin);
+
+      // Semi-transparent band background (brighter where more suppression)
+      var bandAlpha = 0.08 + avgSuppression * 0.12;
+      ctx.fillStyle = 'rgba(' + parseInt(band.color.slice(1, 3), 16) + ', ' +
+                                parseInt(band.color.slice(3, 5), 16) + ', ' +
+                                parseInt(band.color.slice(5, 7), 16) + ', ' + bandAlpha + ')';
+      ctx.fillRect(xStart, 0, xEnd - xStart, h);
+
+      // Divider line between bands
+      if (b < bands.length - 1) {
+        ctx.strokeStyle = 'rgba(179, 150, 236, 0.16)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(xEnd, 0);
+        ctx.lineTo(xEnd, h);
+        ctx.stroke();
+      }
+    }
+
+    // Draw band labels and suppression bars at top
+    var labelY = 14;
+    var barStartY = 30;
+    var barHeight = 12;
+
+    ctx.font = 'bold 11px "Avenir Next", sans-serif';
+    ctx.textAlign = 'center';
+
+    for (var b = 0; b < bands.length; b++) {
+      var band = bands[b];
+      var xCenter = (band.start + band.end) * 0.5 * w;
+
+      // Calculate average suppression in this band
+      var startBin = Math.floor(band.start * (BINS - 1));
+      var endBin = Math.ceil(band.end * (BINS - 1));
+      var avgSuppression = 0;
+      for (var i = startBin; i < endBin; i++) {
+        avgSuppression += smoothReduction[i];
+      }
+      avgSuppression /= (endBin - startBin);
+
+      // Band label
+      ctx.fillStyle = band.color;
+      ctx.globalAlpha = 0.8;
+      ctx.fillText(band.label, xCenter, labelY);
+
+      // Suppression bar background
+      ctx.globalAlpha = 0.2;
+      ctx.fillStyle = 'rgba(200, 200, 200, 1)';
+      var barWidth = (band.end - band.start) * w - 4;
+      ctx.fillRect(xCenter - barWidth * 0.5, barStartY, barWidth, barHeight);
+
+      // Suppression bar foreground (scales with suppression amount)
+      ctx.globalAlpha = 0.6 + avgSuppression * 0.4;
+      ctx.fillStyle = band.color;
+      var barFillWidth = barWidth * avgSuppression;
+      ctx.fillRect(xCenter - barWidth * 0.5, barStartY, barFillWidth, barHeight);
+
+      // Border
+      ctx.globalAlpha = 0.4;
+      ctx.strokeStyle = band.color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(xCenter - barWidth * 0.5, barStartY, barWidth, barHeight);
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
   function drawSilkField() {
     if (!canvas || !ctx) return;
 
@@ -743,6 +873,9 @@
     var energyLevel = Math.min(1, highFreqSum / (BINS * 0.38));
     updateParticles(energyLevel);
 
+    // Draw analysis overlay if enabled
+    drawAnalysisOverlay();
+
     // Render particles (high-frequency sparkles)
     drawParticles(w, h);
     var hotspotX = w * (0.63 + 0.10 * Math.sin(hotspotPhase * 0.82) + 0.018 * Math.sin(hotspotPhase * 2.7));
@@ -783,6 +916,7 @@
     initReadouts();
     initPresetButtons();
     initMagicToggle();
+    initAnalyzeToggle();
     startRenderLoop();
 
     applyPreset(activePreset, false);
