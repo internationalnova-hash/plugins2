@@ -991,6 +991,7 @@
 
       const lineBins = new Float32Array(170);
       const peaks = new Float32Array(170);
+      const smoothLine = new Float32Array(170);
       const particleField = Array.from({ length: 280 }, () => ({
         x: Math.random() * 170,
         y: Math.random() * 100,
@@ -1145,14 +1146,14 @@
         const air = norm('air');
         const mix = norm('mix');
 
-        const tilt = (tone - 0.5) * 0.13;
-        const tighten = 1 - glue * 0.45;
-        const baseline = h * 0.62;
+        const tilt = (tone - 0.5) * 0.12;
+        const tighten = 1 - glue * 0.42;
+        const baseline = h * 0.63;
         const floorY = h * 0.92;
 
         for (let gy = 0; gy <= 4; gy++) {
           const y = (h / 5) * gy;
-          scopeCtx.strokeStyle = `rgba(255, 190, 70, ${0.035 + magicOn * 0.02})`;
+          scopeCtx.strokeStyle = `rgba(255, 190, 70, ${0.1 + magicOn * 0.03})`;
           scopeCtx.lineWidth = 1;
           scopeCtx.beginPath();
           scopeCtx.moveTo(0, y);
@@ -1160,7 +1161,7 @@
           scopeCtx.stroke();
         }
 
-        scopeCtx.strokeStyle = `rgba(255, 210, 120, ${0.12 + magicOn * 0.08})`;
+        scopeCtx.strokeStyle = `rgba(255, 210, 120, ${0.11 + magicOn * 0.03})`;
         scopeCtx.lineWidth = 1;
         scopeCtx.beginPath();
         scopeCtx.moveTo(w * 0.33, 0);
@@ -1169,31 +1170,47 @@
         scopeCtx.lineTo(w * 0.66, h);
         scopeCtx.stroke();
 
+        // Subtle center bloom with purple-to-gold atmosphere.
+        const bloom = scopeCtx.createRadialGradient(
+          w * 0.5,
+          h * 0.57,
+          h * 0.02,
+          w * 0.5,
+          h * 0.57,
+          w * 0.44
+        );
+        bloom.addColorStop(0, 'rgba(198, 128, 255, 0.08)');
+        bloom.addColorStop(0.55, 'rgba(224, 170, 204, 0.05)');
+        bloom.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
+        scopeCtx.fillStyle = bloom;
+        scopeCtx.fillRect(0, 0, w, h);
+
         for (let i = 0; i < lineBins.length; i++) {
           const t = i / (lineBins.length - 1);
-          const lowMass = Math.max(0, 0.45 - t) * (0.52 + weight * 0.7);
-          const midMass = Math.max(0, 1 - Math.abs(t - 0.5) * 2.1) * (0.2 + (1 - glue) * 0.42);
-          const highSpark = Math.max(0, t - 0.54) * (0.3 + air * 0.86);
-          const ripple = 0.05 + Math.abs(Math.sin((phase * 2.3) + (t * 27))) * (0.08 + air * 0.08);
-          const fine = Math.abs(Math.sin((phase * 8.4) + (t * 138))) * (0.05 + (1 - glue) * 0.08);
-          const ampNorm = clamp((0.16 + lowMass + midMass + highSpark + ripple + fine) * (0.5 + mix * 0.46), 0.08, 1.12);
+          const lowMass = Math.max(0, 0.46 - t) * (0.48 + weight * 0.72);
+          const midMass = Math.max(0, 1 - Math.abs(t - 0.5) * 2.1) * (0.2 + (1 - glue) * 0.35);
+          const highSpark = Math.max(0, t - 0.54) * (0.2 + air * 0.76);
+          const ripple = Math.sin((phase * 2.1) + (t * 22)) * 0.035;
+          const fine = Math.sin((phase * 6.4) + (t * 92)) * (0.02 + (1 - glue) * 0.02);
+          const ampNorm = clamp((0.2 + lowMass + midMass + highSpark + ripple + fine) * (0.48 + mix * 0.42), 0.08, 1.05);
 
-          const target = ampNorm * h * 0.56 * tighten;
-          peaks[i] = peaks[i] * 0.76 + target * 0.24;
+          const target = ampNorm * h * 0.5 * tighten;
+          peaks[i] = peaks[i] * 0.86 + target * 0.14;
+          smoothLine[i] = smoothLine[i] * 0.88 + peaks[i] * 0.12;
           lineBins[i] = ampNorm;
         }
 
-        // Soft bed underneath analyzer bars.
-        scopeCtx.globalAlpha = 0.3;
+        // Very soft filled bed under waveform for richness.
+        scopeCtx.globalAlpha = 0.18;
         scopeCtx.beginPath();
         for (let i = 0; i < lineBins.length; i++) {
           const t = i / (lineBins.length - 1);
           const x = t * w;
-          const y = baseline - peaks[i] + ((t - 0.5) * tilt * h * 0.55);
+          const y = baseline - smoothLine[i] + ((t - 0.5) * tilt * h * 0.5);
           if (i === 0) scopeCtx.moveTo(x, y);
           else {
             const px = ((i - 1) / (lineBins.length - 1)) * w;
-            const py = baseline - peaks[i - 1] + ((((i - 1) / (lineBins.length - 1)) - 0.5) * tilt * h * 0.55);
+            const py = baseline - smoothLine[i - 1] + ((((i - 1) / (lineBins.length - 1)) - 0.5) * tilt * h * 0.5);
             scopeCtx.quadraticCurveTo(px + (x - px) * 0.5, py + (y - py) * 0.5, x, y);
           }
         }
@@ -1201,41 +1218,64 @@
         scopeCtx.lineTo(0, floorY);
         scopeCtx.closePath();
 
-        const bedGrad = scopeCtx.createLinearGradient(0, baseline - h * 0.42, 0, floorY);
-        bedGrad.addColorStop(0, 'rgba(255, 205, 120, 0.12)');
-        bedGrad.addColorStop(0.5, 'rgba(178, 96, 255, 0.12)');
+        const bedGrad = scopeCtx.createLinearGradient(0, baseline - h * 0.4, 0, floorY);
+        bedGrad.addColorStop(0, 'rgba(124, 58, 237, 0.16)');
+        bedGrad.addColorStop(0.5, 'rgba(192, 132, 252, 0.12)');
+        bedGrad.addColorStop(0.82, 'rgba(245, 158, 11, 0.1)');
         bedGrad.addColorStop(1, 'rgba(10, 6, 18, 0.0)');
         scopeCtx.fillStyle = bedGrad;
         scopeCtx.fill();
 
         scopeCtx.globalAlpha = 1;
 
-        // Vertical analyzer bars matching the reference style.
+        // Bars are a background texture only.
         for (let i = 0; i < lineBins.length; i++) {
           const t = i / (lineBins.length - 1);
           const x = t * w;
-          const topY = baseline - peaks[i] + ((t - 0.5) * tilt * h * 0.52);
+          const topY = baseline - smoothLine[i] + ((t - 0.5) * tilt * h * 0.5);
+          const alpha = 0.08 + lineBins[i] * 0.14;
 
           scopeCtx.strokeStyle = t < 0.33 
-            ? `rgba(${Math.round(188 + t * 82)}, ${Math.round(74 + t * 105)}, ${Math.round(255 - t * 42)}, ${0.32 + lineBins[i] * 0.38})`
+            ? `rgba(124, 58, 237, ${alpha})`
             : t < 0.66
-            ? `rgba(${Math.round(232 + t * 20)}, ${Math.round(170 + t * 30)}, ${Math.round(255 - t * 26)}, ${0.34 + lineBins[i] * 0.36})`
-            : `rgba(255, ${Math.round(212 + (t - 0.66) * 52)}, ${Math.round(102 + (t - 0.66) * 96)}, ${0.34 + lineBins[i] * 0.42})`;
+            ? `rgba(192, 132, 252, ${alpha})`
+            : `rgba(245, 158, 11, ${alpha})`;
 
-          scopeCtx.lineWidth = 1.08 + air * 0.15;
+          scopeCtx.lineWidth = 1;
           scopeCtx.beginPath();
           scopeCtx.moveTo(x, floorY);
           scopeCtx.lineTo(x, topY);
           scopeCtx.stroke();
         }
 
-        // Main smooth white/purple-to-gold trace.
-        scopeCtx.lineWidth = 3.4;
+        // High-band sparkle above ~8 kHz only.
+        for (let i = 0; i < lineBins.length; i++) {
+          const t = i / (lineBins.length - 1);
+          const freq = 20 * Math.pow(1000, t);
+          if (freq < 8000) continue;
+          if (Math.random() > 0.09 + air * 0.12) continue;
+
+          const x = t * w + (Math.random() - 0.5) * 5;
+          const y = baseline - smoothLine[i] - (4 + Math.random() * 14);
+          const glow = 2 + Math.random() * 2.6;
+          scopeCtx.fillStyle = `rgba(255, 226, 160, ${0.14 + Math.random() * 0.12})`;
+          scopeCtx.beginPath();
+          scopeCtx.arc(x, y, glow, 0, Math.PI * 2);
+          scopeCtx.fill();
+
+          scopeCtx.fillStyle = `rgba(255, 244, 215, ${0.26 + Math.random() * 0.18})`;
+          scopeCtx.beginPath();
+          scopeCtx.arc(x, y, 0.8 + Math.random() * 0.8, 0, Math.PI * 2);
+          scopeCtx.fill();
+        }
+
+        // Main premium waveform line (primary focus).
+        scopeCtx.lineWidth = 2.6;
         scopeCtx.beginPath();
         for (let i = 0; i < lineBins.length; i++) {
           const t = i / (lineBins.length - 1);
           const x = t * w;
-          const y = baseline - (peaks[i] * 0.87) + (Math.sin((phase * 0.85) + (t * 10.5)) * h * 0.01 * (1 - glue));
+          const y = baseline - (smoothLine[i] * 0.87) + (Math.sin((phase * 0.72) + (t * 9.5)) * h * 0.007 * (1 - glue));
           const yTilt = y + ((t - 0.5) * tilt * h);
           
           if (i === 0) {
@@ -1243,7 +1283,7 @@
           } else {
             const prevT = (i - 1) / (lineBins.length - 1);
             const prevX = prevT * w;
-            const prevY = baseline - (peaks[i - 1] * 0.87) + (Math.sin((phase * 0.85) + (prevT * 10.5)) * h * 0.01 * (1 - glue));
+            const prevY = baseline - (smoothLine[i - 1] * 0.87) + (Math.sin((phase * 0.72) + (prevT * 9.5)) * h * 0.007 * (1 - glue));
             const prevYTilt = prevY + ((prevT - 0.5) * tilt * h);
 
             scopeCtx.quadraticCurveTo(
@@ -1256,19 +1296,29 @@
         }
 
         const grad = scopeCtx.createLinearGradient(0, 0, w, 0);
-        grad.addColorStop(0, magicOn ? 'rgba(205, 112, 255, 0.98)' : 'rgba(180, 84, 255, 0.98)');
-        grad.addColorStop(0.46, 'rgba(244, 229, 255, 0.96)');
-        grad.addColorStop(1, magicOn ? 'rgba(255, 229, 102, 0.99)' : 'rgba(255, 199, 78, 0.98)');
+        grad.addColorStop(0, 'rgba(124, 58, 237, 0.98)');
+        grad.addColorStop(0.5, 'rgba(192, 132, 252, 0.96)');
+        grad.addColorStop(1, 'rgba(245, 158, 11, 0.98)');
         scopeCtx.strokeStyle = grad;
-        scopeCtx.shadowColor = magicOn ? 'rgba(255, 220, 120, 0.62)' : 'rgba(210, 140, 255, 0.44)';
-        scopeCtx.shadowBlur = magicOn ? 22 : 14;
+        scopeCtx.shadowColor = magicOn ? 'rgba(210, 152, 255, 0.6)' : 'rgba(192, 132, 252, 0.5)';
+        scopeCtx.shadowBlur = magicOn ? 10 : 8;
         scopeCtx.stroke();
 
-        // Bright edge trace to mimic the white crest in the mockup.
-        scopeCtx.lineWidth = 1.5;
-        scopeCtx.strokeStyle = 'rgba(255, 246, 224, 0.9)';
-        scopeCtx.shadowColor = 'rgba(255, 244, 216, 0.3)';
-        scopeCtx.shadowBlur = 6;
+        // Secondary depth line with slight vertical offset.
+        scopeCtx.lineWidth = 2.2;
+        scopeCtx.strokeStyle = 'rgba(232, 212, 255, 0.26)';
+        scopeCtx.shadowColor = 'rgba(124, 58, 237, 0.18)';
+        scopeCtx.shadowBlur = 4;
+        scopeCtx.save();
+        scopeCtx.translate(0, 1.5);
+        scopeCtx.stroke();
+        scopeCtx.restore();
+
+        // Light crest line for cinematic sheen.
+        scopeCtx.lineWidth = 1.1;
+        scopeCtx.strokeStyle = 'rgba(255, 245, 225, 0.5)';
+        scopeCtx.shadowColor = 'rgba(255, 245, 225, 0.2)';
+        scopeCtx.shadowBlur = 4;
         scopeCtx.stroke();
 
         scopeCtx.shadowBlur = 0;
