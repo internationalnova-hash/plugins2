@@ -1,6 +1,7 @@
 name: Build Nova Silk macOS
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'Nova Silk/**'
