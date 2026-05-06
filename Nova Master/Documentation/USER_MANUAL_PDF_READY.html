@@ -24,26 +24,47 @@
     <div class="sub">Current V1 Build</div>
     <h1>Nova Master User Manual</h1>
     <p><strong>Final Mix Processor</strong></p>
-    <p><code>Nova Master</code> is a premium mix finisher built for polish, glue, balance, and release-ready depth.</p>
+    <p><code>Nova Master</code> is a premium finishing/mastering plugin built for fast polish, reliable tone shaping, and release-ready output confidence.</p>
 
-    <h2>Main Controls</h2>
+    <h2>Current UI</h2>
+    <p>Top bar preset browser, five shaping knobs, mode row, MIX and OUTPUT GAIN utility controls, FINISH stage, and integrated analysis/metering panels.</p>
+
+    <h2>Parameter Ranges</h2>
     <table>
-      <thead><tr><th>Control</th><th>DSP Function</th></tr></thead>
+      <thead><tr><th>Parameter</th><th>Range</th><th>Function</th></tr></thead>
       <tbody>
-        <tr><td><code>TONE</code></td><td>Applies a broad tonal tilt across the mix.</td></tr>
-        <tr><td><code>GLUE</code></td><td>Increases bus-compression style cohesion and density.</td></tr>
-        <tr><td><code>WEIGHT</code></td><td>Adds low-end foundation and controlled body.</td></tr>
-        <tr><td><code>AIR</code></td><td>Adds smooth top-end openness and polish.</td></tr>
-        <tr><td><code>WIDTH</code></td><td>Enhances upper stereo spread while keeping lows anchored.</td></tr>
-        <tr><td><code>OUTPUT</code></td><td>Applies final level trim.</td></tr>
+        <tr><td><code>TONE</code></td><td><code>0.0</code> to <code>10.0</code></td><td>Broad dark/bright tonal contour.</td></tr>
+        <tr><td><code>GLUE</code></td><td><code>0.0</code> to <code>10.0</code></td><td>Cohesion and density behavior.</td></tr>
+        <tr><td><code>WEIGHT</code></td><td><code>0.0</code> to <code>10.0</code></td><td>Low-end body/foundation.</td></tr>
+        <tr><td><code>AIR</code></td><td><code>0.0</code> to <code>10.0</code></td><td>Top-end openness and polish.</td></tr>
+        <tr><td><code>WIDTH</code></td><td><code>0.0</code> to <code>10.0</code></td><td>Stereo spread and side behavior.</td></tr>
+        <tr><td><code>MIX</code></td><td><code>0%</code> to <code>100%</code></td><td>Wet/dry finishing blend.</td></tr>
+        <tr><td><code>OUTPUT GAIN</code></td><td><code>-12 dB</code> to <code>+12 dB</code></td><td>Final output trim.</td></tr>
       </tbody>
     </table>
 
     <h2>Modes</h2>
-    <p><code>CLEAN</code>, <code>WARM</code>, <code>WIDE</code>, and <code>LOUD</code> are real DSP voicings that change tone, density, width, and finishing behavior.</p>
+    <p><code>MASTER BUS</code>, <code>MUSIC</code>, <code>STREAMING</code>, <code>BROADCAST</code>, and <code>REFERENCE</code> are active voicing modes.</p>
+
+    <h2>Preset Browser</h2>
+    <p>Compact top-right browser with search and categories: <code>CORE</code>, <code>GENRE</code>, <code>FIXES</code>, and <code>NOVA</code>. Presets apply full parameter+mode mappings instantly.</p>
 
     <h2>FINISH</h2>
-    <p><code>FINISH</code> enables the premium finalizer stage with added smoothing, harmonic polish, stereo refinement, and hidden smart loudness control.</p>
+    <p><code>FINISH</code> enables the premium finalizer stage with enhanced polish behavior, including click-time pulse, brief UI focus dim, and short stereo tighten-release motion.</p>
+
+    <h2>Meter Views</h2>
+    <p><code>OUT</code> shows output-level behavior. <code>LU</code> shows loudness-style behavior for finishing decisions.</p>
+
+    <h2>Output Status States</h2>
+    <table>
+      <thead><tr><th>State</th><th>Meaning</th><th>Typical Trigger</th></tr></thead>
+      <tbody>
+        <tr><td><code>Headroom Safe</code></td><td>Normal safe operating state.</td><td>Default state when no stronger condition is active.</td></tr>
+        <tr><td><code>Streaming Safe</code></td><td>Streaming-friendly peak margin.</td><td>True peak at or below <code>-1.0 dBTP</code>.</td></tr>
+        <tr><td><code>Optimized</code></td><td>Loudness and peak behavior are jointly in target region.</td><td>Integrated loudness in range while true peak remains safe.</td></tr>
+        <tr><td><code>Watch Ceiling</code></td><td>Ceiling-risk warning.</td><td>True peak rises above about <code>-0.2 dBTP</code>.</td></tr>
+      </tbody>
+    </table>
 
     <blockquote>The goal is a more complete, expensive-sounding mix — not an overhyped one.</blockquote>
   </div>

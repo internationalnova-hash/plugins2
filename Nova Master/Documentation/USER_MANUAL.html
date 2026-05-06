@@ -15,21 +15,33 @@
       <div class="subtitle">Current V1 Build</div>
       <h1>Nova Master User Manual</h1>
       <p><strong>Final Mix Processor</strong></p>
-      <p><code>Nova Master</code> is designed to help a mix feel more polished, connected, spacious, and release-ready without turning into a complicated mastering suite.</p>
-      <div class="chips"><div class="chip">Glue</div><div class="chip">Weight</div><div class="chip">Air</div><div class="chip">Finish</div></div>
+      <p><code>Nova Master</code> is a compact finishing/mastering plugin built for fast high-confidence decisions, not menu-heavy workflow.</p>
+      <div class="chips"><div class="chip">Tone</div><div class="chip">Glue</div><div class="chip">Weight</div><div class="chip">Air</div><div class="chip">Width</div><div class="chip">Finish</div></div>
     </div>
 
     <section>
-      <h2>Main Controls</h2>
+      <h2>Current UI Overview</h2>
+      <ul>
+        <li>Top bar: <code>Presets</code> dropdown + preset previous/next buttons</li>
+        <li>Main shaping: <code>TONE</code>, <code>GLUE</code>, <code>WEIGHT</code>, <code>AIR</code>, <code>WIDTH</code></li>
+        <li>Utility: <code>MIX</code>, <code>OUTPUT GAIN</code>, <code>FINISH</code></li>
+        <li>Meters/analysis: waveform, loudness, dynamic range, stereo image, output meter</li>
+        <li>Mode row: <code>MASTER BUS</code>, <code>MUSIC</code>, <code>STREAMING</code>, <code>BROADCAST</code>, <code>REFERENCE</code></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Parameter Ranges</h2>
       <table>
-        <thead><tr><th>Control</th><th>What You Hear</th><th>What It Changes in the DSP</th></tr></thead>
+        <thead><tr><th>Parameter</th><th>Range</th><th>Purpose</th></tr></thead>
         <tbody>
-          <tr><td><code>TONE</code></td><td>Darker left, brighter right</td><td>Applies a broad mastering-style tonal tilt.</td></tr>
-          <tr><td><code>GLUE</code></td><td>More cohesion and density</td><td>Increases the mix-bus compression behavior and detector response.</td></tr>
-          <tr><td><code>WEIGHT</code></td><td>More low-end foundation</td><td>Adds controlled body and low-end contour.</td></tr>
-          <tr><td><code>AIR</code></td><td>More openness and polish</td><td>Adds smooth top-end lift with premium smoothing.</td></tr>
-          <tr><td><code>WIDTH</code></td><td>More stereo space</td><td>Enhances upper stereo width while keeping the lows stable.</td></tr>
-          <tr><td><code>OUTPUT</code></td><td>Matches loudness after processing</td><td>Applies final level trim from <code>-6 dB</code> to <code>+6 dB</code>.</td></tr>
+          <tr><td><code>TONE</code></td><td><code>0.0</code> to <code>10.0</code></td><td>Dark-to-bright tonal contour.</td></tr>
+          <tr><td><code>GLUE</code></td><td><code>0.0</code> to <code>10.0</code></td><td>Cohesion and density behavior.</td></tr>
+          <tr><td><code>WEIGHT</code></td><td><code>0.0</code> to <code>10.0</code></td><td>Low-end mass and foundation.</td></tr>
+          <tr><td><code>AIR</code></td><td><code>0.0</code> to <code>10.0</code></td><td>High-end openness/polish.</td></tr>
+          <tr><td><code>WIDTH</code></td><td><code>0.0</code> to <code>10.0</code></td><td>Stereo spread and side behavior.</td></tr>
+          <tr><td><code>MIX</code></td><td><code>0%</code> to <code>100%</code></td><td>Wet/dry finishing blend.</td></tr>
+          <tr><td><code>OUTPUT GAIN</code></td><td><code>-12 dB</code> to <code>+12 dB</code></td><td>Final output trim.</td></tr>
         </tbody>
       </table>
     </section>
@@ -37,21 +49,61 @@
     <section>
       <h2>Mode Buttons</h2>
       <table>
-        <thead><tr><th>Mode</th><th>Feel</th><th>Backend Change</th></tr></thead>
+        <thead><tr><th>Mode</th><th>Typical Use</th></tr></thead>
         <tbody>
-          <tr><td><code>CLEAN</code></td><td>Most transparent</td><td>Lightest glue and safest tone balance.</td></tr>
-          <tr><td><code>WARM</code></td><td>Richer and smoother</td><td>Adds more body and harmonic finish.</td></tr>
-          <tr><td><code>WIDE</code></td><td>More spacious</td><td>Pushes stereo polish and openness.</td></tr>
-          <tr><td><code>LOUD</code></td><td>Densest and most forward</td><td>Uses firmer glue and stronger hidden loudness control.</td></tr>
+          <tr><td><code>MASTER BUS</code></td><td>Balanced default finishing behavior.</td></tr>
+          <tr><td><code>MUSIC</code></td><td>General musical polish and enhancement.</td></tr>
+          <tr><td><code>STREAMING</code></td><td>Streaming-forward loudness/clarity shaping.</td></tr>
+          <tr><td><code>BROADCAST</code></td><td>Tighter, more controlled dynamic profile.</td></tr>
+          <tr><td><code>REFERENCE</code></td><td>More restrained/transparent finalization.</td></tr>
         </tbody>
       </table>
-      <blockquote>These mode buttons are fully mapped to the DSP and are not cosmetic only.</blockquote>
+    </section>
+
+    <section>
+      <h2>Preset Browser</h2>
+      <p>The top-right <code>Presets</code> control opens a compact browser with search and categories:</p>
+      <ul>
+        <li><code>CORE</code></li>
+        <li><code>GENRE</code></li>
+        <li><code>FIXES</code></li>
+        <li><code>NOVA</code></li>
+      </ul>
+      <p>Active row uses gold highlight, hover rows use subtle purple/gold glow, and previous/next buttons cycle presets quickly.</p>
     </section>
 
     <section>
       <h2>FINISH</h2>
-      <p><code>FINISH</code> adds the premium finalizer stage: extra smoothing, harmonic polish, stereo refinement, and a hidden smart limiter / soft ceiling for more competitive loudness.</p>
-      <blockquote>The goal is to make the mix feel more expensive and complete, not smashed.</blockquote>
+      <p><code>FINISH</code> engages the premium finalizer stage with stronger polish behavior.</p>
+      <ul>
+        <li>quick glow ramp on click</li>
+        <li>brief UI dim for focus</li>
+        <li>one-shot meter pulse</li>
+        <li>brief stereo tighten-then-release motion</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Meter Views</h2>
+      <ul>
+        <li><code>OUT</code>: output level behavior</li>
+        <li><code>LU</code>: loudness-style behavior view</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Output Status States</h2>
+      <p>The status line above <code>FINISH</code> updates in real time as a quick output confidence guide.</p>
+      <table>
+        <thead><tr><th>State</th><th>Meaning</th><th>Typical Trigger</th></tr></thead>
+        <tbody>
+          <tr><td><code>Headroom Safe</code></td><td>Normal safe operating state.</td><td>Default when no stronger condition is flagged.</td></tr>
+          <tr><td><code>Streaming Safe</code></td><td>True peak is in a streaming-safe zone.</td><td>True peak at or below <code>-1.0 dBTP</code>.</td></tr>
+          <tr><td><code>Optimized</code></td><td>Loudness and peak behavior align with practical targets.</td><td>Integrated loudness in range while true peak remains streaming-safe.</td></tr>
+          <tr><td><code>Watch Ceiling</code></td><td>Ceiling risk warning.</td><td>True peak rises above about <code>-0.2 dBTP</code>.</td></tr>
+        </tbody>
+      </table>
+      <blockquote>These are guidance states for workflow speed; always confirm final decisions with listening and full metering checks.</blockquote>
     </section>
   </div>
 </body>

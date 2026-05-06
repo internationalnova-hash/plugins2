@@ -25,7 +25,7 @@ NovaMasterAudioProcessorEditor::NovaMasterAudioProcessorEditor (NovaMasterAudioP
     webView->goToURL (cacheBustedUrl);
 
     setResizable (false, false);
-    setSize (980, 580);
+    setSize (1080, 680);
     startTimerHz (30);
 }
 

@@ -7,103 +7,136 @@
 
 ## Introduction
 
-`Nova Master` is the finishing stage in the Nova suite. It is designed to make a mix feel more polished, connected, spacious, and release-ready without turning into a complicated mastering workstation.
-
-The core idea is simple:
-
-> **refinement over hype**
+`Nova Master` is a finishing/mastering plugin focused on speed, polish, and reliable decision-making.  
+Its interface is compact by design: quick tonal shaping, controlled loudness behavior, and finish-ready output feedback.
 
 ---
 
-## Quick Start
+## Current UI Overview
 
-1. Start in `CLEAN`
-2. Raise `GLUE` until the mix feels more connected
-3. Add `WEIGHT` for foundation and `AIR` for polish
-4. Use `WIDTH` carefully for more space
-5. Turn on `FINISH` when you want the record-ready final pass
-6. Level-match with `OUTPUT`
+- Top bar: `Presets` dropdown + preset previous/next buttons
+- Main shaping controls: `TONE`, `GLUE`, `WEIGHT`, `AIR`, `WIDTH`
+- Utility controls: `MIX`, `OUTPUT GAIN`, `FINISH`
+- Analysis/Metering: waveform, loudness, dynamic range, stereo image, output meter
+- Mode row: `MASTER BUS`, `MUSIC`, `STREAMING`, `BROADCAST`, `REFERENCE`
 
 ---
 
-## Main Controls
+## Parameter Ranges
 
-| Control | What you hear | What it changes in the DSP |
+| Parameter | Range | Notes |
 |---|---|---|
-| `TONE` | Darker on the left, brighter on the right | Applies a broad mastering-style tilt EQ across the mix |
-| `GLUE` | More cohesion, density, and control | Increases mix-bus compression behavior, detector sensitivity, and finishing density |
-| `WEIGHT` | More low-end body and foundation | Adds controlled low-end contour while also helping keep mud in check |
-| `AIR` | More openness and sheen | Applies smooth top-end lift with slight high smoothing to stay classy |
-| `WIDTH` | More stereo spread and space | Enhances mostly the upper stereo field while keeping the low end anchored |
-| `OUTPUT` | Matches loudness after processing | Applies final trim from `-6 dB` to `+6 dB` |
+| `TONE` | `0.0` to `10.0` | Broad dark-to-bright tilt behavior |
+| `GLUE` | `0.0` to `10.0` | Cohesion/density control |
+| `WEIGHT` | `0.0` to `10.0` | Low-end body/foundation |
+| `AIR` | `0.0` to `10.0` | High-end openness/polish |
+| `WIDTH` | `0.0` to `10.0` | Stereo spread and side-energy behavior |
+| `MIX` | `0` to `100%` | Wet/dry blend of finishing behavior |
+| `OUTPUT GAIN` | `-12 dB` to `+12 dB` | Final output trim |
+
+---
+
+## Main Controls (What You Hear)
+
+| Control | What you hear | Behavioral impact |
+|---|---|---|
+| `TONE` | Darker left, brighter right | Rebalances overall tonal contour |
+| `GLUE` | More cohesion and compactness | Tightens dynamic behavior and mix-bus feel |
+| `WEIGHT` | More low-end mass | Increases perceived body/foundation |
+| `AIR` | More top-end openness | Adds high-end clarity/sheen behavior |
+| `WIDTH` | More stereo spread | Expands side field and decorrelation risk zone at high values |
+| `MIX` | More/less processed feel | Globally blends finishing behavior against dry feel |
+| `OUTPUT GAIN` | Level match | Trims final output stage |
 
 ---
 
 ## Mode Buttons
 
-`CLEAN`, `WARM`, `WIDE`, and `LOUD` are real DSP voicing modes.
+`MASTER BUS`, `MUSIC`, `STREAMING`, `BROADCAST`, and `REFERENCE` are active voicing modes.
 
-| Mode | Feel | Backend change |
-|---|---|---|
-| `CLEAN` | Most transparent and safe | Lightest glue, most neutral tone, minimal extra density |
-| `WARM` | Richer and smoother | Adds more body, slightly darker tone bias, and more harmonic finish |
-| `WIDE` | More open and spacious | Pushes stereo polish and air while protecting center stability |
-| `LOUD` | Densest and most forward | Adds firmer glue and stronger hidden loudness control |
+| Mode | Typical use |
+|---|---|
+| `MASTER BUS` | Balanced default finishing on a stereo bus |
+| `MUSIC` | Polished musical enhancement |
+| `STREAMING` | Streaming-forward loudness/clarity behavior |
+| `BROADCAST` | Tighter, controlled, stable dynamics |
+| `REFERENCE` | More restrained/transparent finishing |
 
-> These are not cosmetic buttons. They change the actual finishing behavior in the backend.
+---
+
+## Preset Browser
+
+The top-right `Presets` control opens a compact preset browser with search and categories:
+
+- `CORE`
+- `GENRE`
+- `FIXES`
+- `NOVA`
+
+Behavior:
+
+- Click preset row to apply all mapped parameters + mode
+- Active row is gold highlighted
+- Hover row uses subtle purple/gold glow
+- Previous/next arrows cycle presets quickly
 
 ---
 
 ## FINISH Button
 
-`FINISH` is the premium enhancement stage.
+`FINISH` engages the final enhancement stage with stronger polish behavior.
 
-When enabled it adds:
-- extra smoothing
-- subtle harmonic polish
-- slight stereo refinement
-- level-managed final density
-- a hidden smart limiter / soft ceiling for more competitive loudness
+Current interaction behavior includes:
 
-The intent is:
-
-> **the mix sounds more expensive, not just louder**
+- quick glow ramp on click
+- subtle temporary UI dim
+- one-shot meter pulse
+- brief stereo tighten-then-release effect
 
 ---
 
-## Meter Section
+## Meter Views
 
-- `OUT` shows the output level behavior
-- `LU` gives a loudness-style view
+- `OUT`: output level behavior view
+- `LU`: loudness-style view
 
-This section helps you judge whether the mix is getting more finished without relying only on loudness bias.
+Use both while matching level and evaluating final impact.
 
 ---
 
-## Practical Tips
+## Output Status States
 
-### Mix bus
-- Keep moves subtle
-- Start in `CLEAN` or `WARM`
-- Use `FINISH` as the last step
+The status line above `FINISH` updates in real time:
 
-### Pop / modern production
-- Try `LOUD`
-- Add a little `AIR`
-- Keep `WIDTH` restrained so the center stays strong
+- `Headroom Safe`  
+  Default safe state
+- `Streaming Safe`  
+  True peak at or below `-1.0 dBTP`
+- `Optimized`  
+  Integrated loudness in target window while true peak remains safe
+- `Watch Ceiling`  
+  Ceiling-risk warning when true peak rises above roughly `-0.2 dBTP`
 
-### Warmer records
-- Start in `WARM`
-- Use `WEIGHT` before overusing `GLUE`
+These are guidance states for workflow speed, not a replacement for final listening and metering checks.
+
+---
+
+## Practical Workflow
+
+1. Choose a preset closest to your target finish.
+2. Fine-tune `TONE`, `GLUE`, `WEIGHT`, `AIR`, `WIDTH`.
+3. Use `MIX` to dial processing depth.
+4. Level-match with `OUTPUT GAIN`.
+5. Engage `FINISH` for final pass.
+6. Confirm `OUT`/`LU` readings and output status.
 
 ---
 
 ## Summary
 
-`Nova Master` is built to give you:
-- `TONE` = overall balance
-- `GLUE` = cohesion and density
-- `WEIGHT` = foundation
-- `AIR` = polish
-- `WIDTH` = space
-- `FINISH` = premium finalizer with hidden loudness control
+`Nova Master` is built for fast, premium finishing:
+
+- musical macro controls
+- tight preset workflow
+- state-aware metering feedback
+- compact UI built for real mastering decisions
