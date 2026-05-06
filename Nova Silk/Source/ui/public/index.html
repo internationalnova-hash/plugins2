@@ -172,34 +172,59 @@
       align-self: start;
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      padding: 6px 10px;
       border: 1px solid rgba(173, 142, 226, 0.34);
       border-radius: 17px;
-      overflow: hidden;
       background: linear-gradient(180deg, rgba(8, 15, 36, 0.94), rgba(5, 10, 24, 0.97));
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
     }
 
     .top-center .presets-label {
-      padding: 10px 20px;
-      font-size: clamp(14px, 1vw, 20px);
-      letter-spacing: 0.05em;
-      color: var(--text-main);
-      min-width: 134px;
+      padding: 7px 12px;
+      font-size: clamp(11px, 0.78vw, 14px);
+      letter-spacing: 0.16em;
+      color: #d8c6f2;
+      min-width: 86px;
       text-align: center;
+      text-transform: uppercase;
+      border: 1px solid rgba(186, 157, 235, 0.38);
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(17, 25, 52, 0.82), rgba(10, 15, 34, 0.86));
+    }
+
+    .preset-active-name {
+      font-size: clamp(16px, 1.15vw, 22px);
+      letter-spacing: 0.04em;
+      color: #f6deb6;
+      min-width: 160px;
+      text-align: center;
+      text-transform: uppercase;
+      font-weight: 560;
     }
 
     .top-btn {
-      width: 52px;
-      height: 42px;
+      width: 44px;
+      height: 40px;
       border: none;
-      border-left: 1px solid rgba(170, 142, 224, 0.25);
+      border: 1px solid rgba(170, 142, 224, 0.24);
+      border-radius: 12px;
       background: transparent;
       color: #9c81d4;
-      font-size: 34px;
+      font-size: 30px;
       line-height: 1;
-      padding-bottom: 7px;
-      cursor: default;
+      padding-bottom: 5px;
+      cursor: pointer;
       opacity: 0.86;
+      transition: border-color var(--ease), color var(--ease), background var(--ease);
+    }
+
+    .top-btn:hover {
+      border-color: rgba(220, 188, 255, 0.5);
+      color: #e9cbff;
+      background: rgba(152, 112, 217, 0.15);
     }
 
     .top-right {
@@ -399,12 +424,50 @@
 
     .preset-bar {
       display: flex;
-      gap: 13px;
+      gap: 12px;
       flex-wrap: nowrap;
       align-items: center;
+      min-width: 0;
     }
 
-    .preset-btn {
+    .preset-select {
+      border: 1px solid rgba(152, 125, 206, 0.45);
+      border-radius: 13px;
+      background:
+        linear-gradient(180deg, rgba(7, 14, 34, 0.95), rgba(4, 9, 24, 0.95));
+      color: #e9d3ff;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: clamp(12px, 0.88vw, 18px);
+      font-weight: 520;
+      padding: 9px 12px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: border-color var(--ease), box-shadow var(--ease), color var(--ease);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 6px 14px rgba(0, 0, 0, 0.25);
+      white-space: nowrap;
+    }
+
+    .preset-select:hover,
+    .preset-select:focus {
+      border-color: rgba(197, 166, 248, 0.68);
+      color: #ffe2b6;
+      outline: none;
+    }
+
+    .preset-select-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .top-center .preset-select {
+      min-width: 150px;
+    }
+
+    .preset-bar .preset-btn {
       border: 1px solid rgba(152, 125, 206, 0.45);
       border-radius: 19px;
       background:
@@ -412,9 +475,9 @@
       color: #b88af6;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      font-size: clamp(14px, 0.95vw, 22px);
+      font-size: clamp(12px, 0.84vw, 18px);
       font-weight: 600;
-      padding: 12px 24px;
+      padding: 10px 16px;
       cursor: pointer;
       font-family: inherit;
       transition: all var(--ease);
@@ -424,12 +487,12 @@
       white-space: nowrap;
     }
 
-    .preset-btn:hover {
+    .preset-bar .preset-btn:hover {
       border-color: rgba(197, 166, 248, 0.68);
       color: #e4c0ff;
     }
 
-    .preset-btn.active {
+    .preset-bar .preset-btn.active {
       border-color: rgba(228, 196, 255, 0.76);
       color: #ffe3b4;
       background:
@@ -440,6 +503,16 @@
         0 0 0 1px rgba(243, 212, 255, 0.3),
         0 0 18px rgba(183, 125, 255, 0.45),
         0 0 26px rgba(246, 201, 126, 0.25);
+    }
+
+    .preset-active-use {
+      color: #bea7df;
+      font-size: clamp(12px, 0.78vw, 15px);
+      letter-spacing: 0.04em;
+      max-width: 520px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .mix-slider-wrap {
@@ -538,13 +611,21 @@
       }
 
       .top-center .presets-label {
-        min-width: 110px;
+        min-width: 74px;
       }
 
       .top-btn {
-        width: 44px;
-        height: 38px;
+        width: 38px;
+        height: 34px;
         font-size: 28px;
+      }
+
+      .preset-active-name {
+        min-width: 138px;
+      }
+
+      .top-center .preset-select {
+        min-width: 128px;
       }
 
       .legend-item {
@@ -579,12 +660,13 @@
         </div>
       </div>
 
-      <div class="top-center" aria-hidden="true">
-        <div class="presets-label">Presets</div>
-        <button class="top-btn">&#x2039;</button>
-        <button class="top-btn">&#x203A;</button>
-        <button class="top-btn">&#x2212;</button>
-        <button class="top-btn">&#x00D7;</button>
+      <div class="top-center">
+        <button class="top-btn" id="preset-prev" type="button" aria-label="Previous preset">&#x2039;</button>
+        <div class="preset-select-row">
+          <select class="preset-select" id="preset-category" aria-label="Preset category"></select>
+          <select class="preset-select" id="preset-name" aria-label="Preset name"></select>
+        </div>
+        <button class="top-btn" id="preset-next" type="button" aria-label="Next preset">&#x203A;</button>
       </div>
 
       <div class="top-right">
@@ -763,11 +845,12 @@
 
     <footer class="footer">
       <div class="preset-bar">
-        <button class="preset-btn active" data-preset="Universal Smooth">UNIVERSAL SMOOTH</button>
-        <button class="preset-btn" data-preset="Vocal">VOCAL</button>
-        <button class="preset-btn" data-preset="Drums">DRUMS</button>
-        <button class="preset-btn" data-preset="Guitar">GUITAR</button>
-        <button class="preset-btn" data-preset="Master">MASTER</button>
+        <button class="preset-btn active" data-preset-target="Silk Shine">UNIVERSAL SMOOTH</button>
+        <button class="preset-btn" data-preset-target="Vocal Silk">VOCAL</button>
+        <button class="preset-btn" data-preset-target="Tape Gloss">DRUMS</button>
+        <button class="preset-btn" data-preset-target="Analog Polish">GUITAR</button>
+        <button class="preset-btn" data-preset-target="Final Touch">MASTER</button>
+        <div class="preset-active-use" id="preset-use-text">Glossy modern polish with preserved openness</div>
       </div>
 
       <div class="mix-slider-wrap">
@@ -781,6 +864,6 @@
     </footer>
   </div>
 
-  <script src="js/index.js?v=20260505-2"></script>
+  <script src="js/index.js?v=20260506-1"></script>
 </body>
 </html>

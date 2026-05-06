@@ -6,13 +6,28 @@
   var KNOB_MIN_DEG = -120;
   var KNOB_MAX_DEG = 120;
 
-  var PRESETS = {
-    'Universal Smooth': { smooth: 42, focus: 60, air_preserve: 100, body: 62, output: 50, mix: 100 },
-    'Vocal':            { smooth: 50, focus: 65, air_preserve: 70, body: 65, output: 50, mix: 100 },
-    'Drums':            { smooth: 35, focus: 62, air_preserve: 55, body: 40, output: 50, mix: 80  },
-    'Guitar':           { smooth: 40, focus: 58, air_preserve: 68, body: 70, output: 50, mix: 90  },
-    'Master':           { smooth: 28, focus: 50, air_preserve: 75, body: 72, output: 50, mix: 70  }
-  };
+  var PRESET_PARAMS = ['smooth', 'focus', 'air_preserve', 'body'];
+
+  var PRESET_CATALOG = [
+    { category: 'CORE', name: 'Silk Shine', use: 'Glossy modern polish with preserved openness', values: { smooth: 48, focus: 64, air_preserve: 82, body: 58 } },
+    { category: 'CORE', name: 'Velvet Smooth', use: 'Soft luxurious smoothing', values: { smooth: 72, focus: 48, air_preserve: 58, body: 66 } },
+    { category: 'CORE', name: 'Analog Polish', use: 'Warm analog-style smoothness', values: { smooth: 56, focus: 58, air_preserve: 68, body: 74 } },
+    { category: 'CORE', name: 'Warm Finish', use: 'Warm dense finish with reduced edge', values: { smooth: 64, focus: 44, air_preserve: 52, body: 82 } },
+    { category: 'VOCAL', name: 'Vocal Silk', use: 'Modern vocal polish with clarity', values: { smooth: 58, focus: 72, air_preserve: 84, body: 54 } },
+    { category: 'VOCAL', name: 'Female Air', use: 'Open airy vocal smoothing', values: { smooth: 46, focus: 74, air_preserve: 92, body: 48 } },
+    { category: 'VOCAL', name: 'Smooth Presence', use: 'Forward but controlled vocal tone', values: { smooth: 62, focus: 78, air_preserve: 72, body: 58 } },
+    { category: 'VOCAL', name: 'Intimate Vocal', use: 'Warm intimate vocal smoothing', values: { smooth: 68, focus: 58, air_preserve: 60, body: 72 } },
+    { category: 'MIX', name: 'Mix Glue Shine', use: 'Smooth polished mix bus', values: { smooth: 60, focus: 56, air_preserve: 70, body: 66 } },
+    { category: 'MIX', name: 'Stereo Silk', use: 'Open polished stereo enhancement', values: { smooth: 52, focus: 68, air_preserve: 80, body: 56 } },
+    { category: 'MIX', name: 'Tape Gloss', use: 'Warm tape-like body and softness', values: { smooth: 58, focus: 50, air_preserve: 54, body: 86 } },
+    { category: 'MIX', name: 'Final Touch', use: 'Subtle final polish', values: { smooth: 46, focus: 60, air_preserve: 74, body: 62 } },
+    { category: 'NOVA', name: 'Nova Glow', use: 'Signature glossy enhancement', values: { smooth: 54, focus: 66, air_preserve: 88, body: 60 } },
+    { category: 'NOVA', name: 'Midnight Silk', use: 'Dark vibey smoothness', values: { smooth: 70, focus: 52, air_preserve: 50, body: 78 } },
+    { category: 'NOVA', name: 'Satin Air', use: 'Luxurious airy polish', values: { smooth: 50, focus: 70, air_preserve: 94, body: 52 } },
+    { category: 'NOVA', name: 'Velvet Radio', use: 'Smooth radio-ready finish', values: { smooth: 62, focus: 64, air_preserve: 76, body: 68 } }
+  ];
+
+  var PRESET_CATEGORIES = ['CORE', 'VOCAL', 'MIX', 'NOVA'];
 
   var ALL_PARAMS = ['smooth', 'focus', 'air_preserve', 'body', 'output', 'mix'];
 
@@ -20,7 +35,9 @@
   var paramStates = {};
   var juceAvailable = false;
   var activeDrag = null;
-  var activePreset = 'Universal Smooth';
+  var activePreset = 'Silk Shine';
+  var activePresetCategory = 'CORE';
+  var presetTransitionHandle = 0;
 
   var rawInput = new Float32Array(BINS);
   var rawProblem = new Float32Array(BINS);
@@ -187,21 +204,129 @@
     } catch (_) {}
   }
 
-  function applyPreset(name, push) {
-    var preset = PRESETS[name];
+  function findPresetByName(name) {
+    for (var i = 0; i < PRESET_CATALOG.length; i++) {
+      if (PRESET_CATALOG[i].name === name) return PRESET_CATALOG[i];
+    }
+    return null;
+  }
+
+  function getPresetIndexByName(name) {
+    for (var i = 0; i < PRESET_CATALOG.length; i++) {
+      if (PRESET_CATALOG[i].name === name) return i;
+    }
+    return -1;
+  }
+
+  function getPresetsForCategory(category) {
+    var list = [];
+    for (var i = 0; i < PRESET_CATALOG.length; i++) {
+      if (PRESET_CATALOG[i].category === category) list.push(PRESET_CATALOG[i]);
+    }
+    return list;
+  }
+
+  function syncPresetUI() {
+    var preset = findPresetByName(activePreset);
     if (!preset) return;
 
-    activePreset = name;
+    var categoryBadge = document.getElementById('preset-category-badge');
+    var activeName = document.getElementById('preset-active-name');
+    var useText = document.getElementById('preset-use-text');
+    var categorySelect = document.getElementById('preset-category');
+    var nameSelect = document.getElementById('preset-name');
+    var quickButtons = document.querySelectorAll('.preset-btn[data-preset-target]');
 
-    var buttons = document.querySelectorAll('.preset-btn');
-    Array.prototype.forEach.call(buttons, function (btn) {
-      btn.classList.toggle('active', getAttr(btn, 'preset') === name);
+    if (categoryBadge) categoryBadge.textContent = preset.category;
+    if (activeName) activeName.textContent = preset.name;
+    if (useText) useText.textContent = preset.use;
+    if (categorySelect) categorySelect.value = preset.category;
+
+    if (nameSelect) {
+      var needed = getPresetsForCategory(preset.category);
+      if (nameSelect.options.length !== needed.length) {
+        nameSelect.innerHTML = '';
+        for (var i = 0; i < needed.length; i++) {
+          var option = document.createElement('option');
+          option.value = needed[i].name;
+          option.textContent = needed[i].name;
+          nameSelect.appendChild(option);
+        }
+      }
+      nameSelect.value = preset.name;
+    }
+
+    Array.prototype.forEach.call(quickButtons, function (btn) {
+      btn.classList.toggle('active', getAttr(btn, 'preset-target') === preset.name);
     });
+  }
+
+  function stopPresetTransition() {
+    if (presetTransitionHandle) {
+      window.cancelAnimationFrame(presetTransitionHandle);
+      presetTransitionHandle = 0;
+    }
+  }
+
+  function applyPreset(name, push) {
+    var preset = findPresetByName(name);
+    if (!preset) return;
+
+    stopPresetTransition();
+    activePreset = preset.name;
+    activePresetCategory = preset.category;
+    syncPresetUI();
 
     var shouldPush = push !== false;
-    Array.prototype.forEach.call(ALL_PARAMS, function (p) {
-      if (preset[p] !== undefined) setParamPercent(p, preset[p], { push: shouldPush, gesture: false });
-    });
+    for (var i = 0; i < PRESET_PARAMS.length; i++) {
+      var p = PRESET_PARAMS[i];
+      setParamPercent(p, preset.values[p], { push: shouldPush, gesture: false });
+    }
+  }
+
+  function animatePresetTo(name, push) {
+    var preset = findPresetByName(name);
+    if (!preset) return;
+
+    stopPresetTransition();
+
+    var from = {};
+    for (var i = 0; i < PRESET_PARAMS.length; i++) {
+      var p = PRESET_PARAMS[i];
+      from[p] = currentValues[p];
+    }
+
+    activePreset = preset.name;
+    activePresetCategory = preset.category;
+    syncPresetUI();
+
+    var started = 0;
+    var durationMs = 320;
+    function step(ts) {
+      if (!started) started = ts;
+      var t = clamp((ts - started) / durationMs, 0, 1);
+      var eased = t < 0.5 ? 2 * t * t : (1 - Math.pow(-2 * t + 2, 2) / 2);
+
+      for (var j = 0; j < PRESET_PARAMS.length; j++) {
+        var param = PRESET_PARAMS[j];
+        var next = lerp(from[param], preset.values[param], eased);
+        setParamPercent(param, next, { push: false, gesture: false });
+      }
+
+      if (t < 1) {
+        presetTransitionHandle = window.requestAnimationFrame(step);
+        return;
+      }
+
+      presetTransitionHandle = 0;
+      var shouldPush = push !== false;
+      for (var k = 0; k < PRESET_PARAMS.length; k++) {
+        var finalParam = PRESET_PARAMS[k];
+        setParamPercent(finalParam, preset.values[finalParam], { push: shouldPush, gesture: false });
+      }
+    }
+
+    presetTransitionHandle = window.requestAnimationFrame(step);
   }
 
   function initParamStates() {
@@ -365,13 +490,62 @@
     });
   }
 
-  function initPresetButtons() {
-    var buttons = document.querySelectorAll('.preset-btn');
-    Array.prototype.forEach.call(buttons, function (btn) {
+  function initPresetControls() {
+    var categorySelect = document.getElementById('preset-category');
+    var nameSelect = document.getElementById('preset-name');
+    var prev = document.getElementById('preset-prev');
+    var next = document.getElementById('preset-next');
+
+    if (!categorySelect || !nameSelect) return;
+
+    categorySelect.innerHTML = '';
+    for (var i = 0; i < PRESET_CATEGORIES.length; i++) {
+      var categoryOption = document.createElement('option');
+      categoryOption.value = PRESET_CATEGORIES[i];
+      categoryOption.textContent = PRESET_CATEGORIES[i];
+      categorySelect.appendChild(categoryOption);
+    }
+
+    function refillPresetNames(category) {
+      var list = getPresetsForCategory(category);
+      nameSelect.innerHTML = '';
+      for (var idx = 0; idx < list.length; idx++) {
+        var option = document.createElement('option');
+        option.value = list[idx].name;
+        option.textContent = list[idx].name;
+        nameSelect.appendChild(option);
+      }
+    }
+
+    categorySelect.addEventListener('change', function () {
+      refillPresetNames(categorySelect.value);
+      if (nameSelect.value) animatePresetTo(nameSelect.value, true);
+    });
+
+    nameSelect.addEventListener('change', function () {
+      animatePresetTo(nameSelect.value, true);
+    });
+
+    function cyclePreset(step) {
+      var currentIndex = getPresetIndexByName(activePreset);
+      if (currentIndex < 0) currentIndex = 0;
+      var nextIndex = (currentIndex + step + PRESET_CATALOG.length) % PRESET_CATALOG.length;
+      animatePresetTo(PRESET_CATALOG[nextIndex].name, true);
+    }
+
+    if (prev) prev.addEventListener('click', function () { cyclePreset(-1); });
+    if (next) next.addEventListener('click', function () { cyclePreset(1); });
+
+    var quickButtons = document.querySelectorAll('.preset-btn[data-preset-target]');
+    Array.prototype.forEach.call(quickButtons, function (btn) {
       btn.addEventListener('click', function () {
-        applyPreset(getAttr(btn, 'preset'), true);
+        var presetTarget = getAttr(btn, 'preset-target');
+        if (presetTarget) animatePresetTo(presetTarget, true);
       });
     });
+
+    refillPresetNames(activePresetCategory);
+    syncPresetUI();
   }
 
   function updateMixSlider(percent) {
@@ -807,12 +981,15 @@
     var airAmt = currentValues.air_preserve / 100;
     var bodyAmt = currentValues.body / 100;
 
+    var motionDamp = 1 - smoothAmt * 0.28;
+    var bodyDensity = 1 + bodyAmt * 0.22;
+
     for (var i = 0; i < BINS; i++) {
       var t = i / (BINS - 1);
-      var sweep = Math.sin(t * 8.8 + phase * 4.2) * (0.055 + smoothAmt * 0.05);
-      var dip = Math.sin(t * 12.5 - phase * 2.3) * (0.028 + focusAmt * 0.03);
-      var lift = Math.sin(t * 5.7 + phase * 1.7) * (0.038 + bodyAmt * 0.03);
-      var micro = (Math.sin(t * 57.0 + phase * 11.0) + Math.sin(t * 91.0 - phase * 7.0)) * 0.0018;
+      var sweep = Math.sin(t * 8.8 + phase * 4.2) * (0.048 + smoothAmt * 0.03) * motionDamp;
+      var dip = Math.sin(t * 12.5 - phase * 2.3) * (0.025 + focusAmt * 0.03) * motionDamp;
+      var lift = Math.sin(t * 5.7 + phase * 1.7) * (0.038 + bodyAmt * 0.03) * motionDamp;
+      var micro = (Math.sin(t * 57.0 + phase * 11.0) + Math.sin(t * 91.0 - phase * 7.0)) * 0.0018 * motionDamp;
       var highNoise = Math.max(0, t - 0.72) * (0.0025 * Math.sin(t * 133.0 + phase * 17.0));
 
       var dspShape = smoothProblem[i] * 0.3 + smoothInput[i] * 0.2 - smoothReduction[i] * 0.15;
@@ -826,9 +1003,9 @@
       var driftD = 0.46 * Math.sin(hotspotPhase * 0.58 + 2.7);
 
       waveA[i] = yBase + driftA;
-      waveB[i] = yBase + h * (0.105 + 0.04 * Math.sin(phase * 2 + t * 7.5) + micro * 1.1) + driftB;
-      waveC[i] = yBase + h * (0.18 + 0.05 * Math.sin(phase * 1.35 + t * 6.8) + micro * 1.8) + driftC;
-      waveD[i] = yBase + h * (0.25 + 0.05 * Math.cos(phase * 1.8 + t * 9.2) + micro * 2.2) + driftD;
+      waveB[i] = yBase + h * (0.103 + 0.04 * Math.sin(phase * 2 + t * 7.5) + micro * 1.1 * bodyDensity) + driftB;
+      waveC[i] = yBase + h * (0.176 + 0.05 * Math.sin(phase * 1.35 + t * 6.8) + micro * 1.8 * bodyDensity) + driftC;
+      waveD[i] = yBase + h * (0.245 + 0.05 * Math.cos(phase * 1.8 + t * 9.2) + micro * 2.2 * bodyDensity) + driftD;
     }
 
     drawBand(
@@ -888,7 +1065,8 @@
     for (var hf = Math.floor(BINS * 0.62); hf < BINS; hf++) {
       highFreqSum += smoothProblem[hf] || 0;
     }
-    var energyLevel = Math.min(1, highFreqSum / (BINS * 0.38));
+    var highBandEnergy = Math.min(1, highFreqSum / (BINS * 0.38));
+    var energyLevel = clamp(highBandEnergy * 0.72 + airAmt * 0.33 + bodyAmt * 0.1 - smoothAmt * 0.14, 0, 1);
     updateParticles(energyLevel);
 
     // Draw suppression overlay (always visible)
@@ -943,7 +1121,7 @@
     initParticles();
     initKnobs();
     initReadouts();
-    initPresetButtons();
+    initPresetControls();
     initMixSlider();
     startRenderLoop();
 
