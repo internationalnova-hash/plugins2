@@ -1575,25 +1575,59 @@
 
       function createSliderState(parameterId) {
         if (!juceAvailable()) return null;
+        const backend = window.__JUCE__.backend;
+        const eventId = `__juce__slider${parameterId}`;
         const listeners = [];
 
-        function emit(name, payload) {
-          window.__JUCE__.backend.emitEvent(name, { eventId: parameterId, ...payload });
-        }
-
-        return {
-          getNormalisedValue() { return Number(window.__JUCE__.getSliderState(parameterId).getNormalisedValue()); },
-          setNormalisedValue(v) { window.__JUCE__.getSliderState(parameterId).setNormalisedValue(clamp(v, 0, 1)); },
-          gestureStart() { emit('__juce__sliderDragStart', {}); },
-          gestureEnd() { emit('__juce__sliderDragEnd', {}); },
+        const state = {
+          scaledValue: 0,
+          props: { start: 0, end: 1, interval: 0 },
+          getNormalisedValue() {
+            const range = state.props.end - state.props.start;
+            if (Math.abs(range) < 1.0e-9) return 0;
+            return clamp((state.scaledValue - state.props.start) / range, 0, 1);
+          },
+          setNormalisedValue(v) {
+            const n = clamp(v, 0, 1);
+            const start = state.props.start;
+            const end = state.props.end;
+            const interval = state.props.interval;
+            let scaled = start + n * (end - start);
+            if (interval > 0)
+              scaled = Math.round(scaled / interval) * interval;
+            state.scaledValue = scaled;
+            backend.emitEvent(eventId, { eventType: 'valueChanged', value: scaled });
+          },
+          gestureStart() {
+            backend.emitEvent(eventId, { eventType: 'sliderDragStarted' });
+          },
+          gestureEnd() {
+            backend.emitEvent(eventId, { eventType: 'sliderDragEnded' });
+          },
           addListener(fn) {
             listeners.push(fn);
-            window.__JUCE__.getSliderState(parameterId).valueChangedEvent.add(() => {
-              const v = this.getNormalisedValue();
-              listeners.forEach((cb) => cb(v));
-            });
           }
         };
+
+        backend.addEventListener(eventId, (ev) => {
+          if (!ev) return;
+
+          if (ev.eventType === 'valueChanged' && typeof ev.value === 'number') {
+            state.scaledValue = ev.value;
+            const n = state.getNormalisedValue();
+            listeners.forEach((cb) => cb(n));
+            return;
+          }
+
+          if (ev.eventType === 'propertiesChanged') {
+            Object.keys(ev).forEach((k) => {
+              if (k !== 'eventType') state.props[k] = ev[k];
+            });
+          }
+        });
+
+        backend.emitEvent(eventId, { eventType: 'requestInitialUpdate' });
+        return state;
       }
 
       function setRing(node, normal) {
