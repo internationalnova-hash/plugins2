@@ -1,0 +1,5 @@
+{
+  "plugin": "Nova Clip",
+  "status": "prototype-ready",
+  "notes": "Initial JUCE/Web UI soft clipper implementation with drive/shape/tone/punch/ceiling/mix, modes, toggles, meters, and reactive clip-curve display."
+}

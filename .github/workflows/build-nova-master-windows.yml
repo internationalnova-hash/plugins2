@@ -20,11 +20,24 @@ jobs:
       - name: Install CMake
         uses: lukka/get-cmake@v4.3.1
 
+      - name: Install WebView2 SDK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $nuget = "$env:USERPROFILE\nuget.exe"
+          $packageRoot = "$env:USERPROFILE\.nuget\packages"
+
+          Invoke-WebRequest "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $nuget
+          & $nuget install Microsoft.Web.WebView2 -Version 1.0.1901.177 -OutputDirectory $packageRoot -Source "https://api.nuget.org/v3/index.json" -NonInteractive
+
+          # JUCE expects to discover this package under the NuGet package root.
+          "JUCE_WEBVIEW2_PACKAGE_LOCATION=$packageRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Clean build directory
         run: if (Test-Path "Nova Master/build") { Remove-Item -Recurse -Force "Nova Master/build" }
 
       - name: Configure CMake
-        run: cmake -S "Nova Master" -B "Nova Master/build"
+        run: cmake -S "Nova Master" -B "Nova Master/build" -DJUCE_WEBVIEW2_PACKAGE_LOCATION="$env:JUCE_WEBVIEW2_PACKAGE_LOCATION"
 
       - name: Build
         run: cmake --build "Nova Master/build" --config Release

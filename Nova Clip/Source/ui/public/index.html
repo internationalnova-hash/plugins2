@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Clip</title>
+  <style>
+    :root {
+      --bg-1: #040915;
+      --bg-2: #060d1d;
+      --bg-3: #02050f;
+      --panel: rgba(6, 11, 24, 0.93);
+      --panel-edge: rgba(212, 143, 33, 0.36);
+      --text-main: #e9edf6;
+      --text-soft: #aeb7cb;
+      --gold: #ffbd4a;
+      --gold-hot: #ff8a16;
+      --gold-glow: rgba(255, 170, 56, 0.38);
+      --orange-glow: rgba(255, 108, 20, 0.35);
+      --violet-undertone: rgba(123, 86, 174, 0.2);
+      --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(1120px 520px at 24% 12%, rgba(58, 39, 100, 0.18), transparent 54%),
+        radial-gradient(960px 500px at 78% 68%, rgba(255, 133, 30, 0.12), transparent 55%),
+        linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 50%, var(--bg-3) 100%);
+      color: var(--text-main);
+      font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0;
+    }
+
+    .viewport {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .plugin {
+      width: 1280px;
+      height: 760px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform-origin: center center;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 168, 49, 0.26);
+      background:
+        radial-gradient(1300px 740px at 50% 18%, rgba(18, 31, 72, 0.26), transparent 62%),
+        radial-gradient(760px 340px at 52% 76%, rgba(255, 142, 34, 0.16), transparent 60%),
+        linear-gradient(180deg, #030913 0%, #03080f 100%);
+      box-shadow:
+        0 28px 72px rgba(0, 0, 0, 0.58),
+        inset 0 1px 0 rgba(255, 235, 210, 0.14),
+        inset 0 0 0 1px rgba(255, 170, 70, 0.1),
+        inset 0 -28px 54px rgba(0, 0, 0, 0.42);
+      display: grid;
+      grid-template-rows: 78px minmax(0, 1fr) 68px;
+      padding: 0 10px 8px;
+      overflow: hidden;
+    }
+
+    .plugin::after {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 189, 84, 0.12);
+      pointer-events: none;
+    }
+
+    .top {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 170, 63, 0.3);
+      padding: 8px 8px 8px;
+      gap: 14px;
+      z-index: 2;
+    }
+
+    .brand-left {
+      line-height: 0.92;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .title-main {
+      font-size: clamp(26px, 2.3vw, 40px);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 600;
+      background: linear-gradient(92deg, #f4ac3f 0%, #f2be6a 26%, #d8dbe7 74%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 20px rgba(255, 172, 69, 0.18);
+    }
+
+    .title-sub {
+      font-size: clamp(10px, 0.7vw, 13px);
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: #d0d8ed;
+      opacity: 0.86;
+    }
+
+    .preset-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 181, 72, 0.24);
+      background: linear-gradient(180deg, rgba(6, 10, 20, 0.95), rgba(2, 5, 12, 0.95));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .nav-btn, .icon-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 188, 84, 0.25);
+      background: linear-gradient(180deg, rgba(11, 16, 31, 0.95), rgba(5, 9, 20, 0.95));
+      color: #d8deeb;
+      font-size: 20px;
+      cursor: pointer;
+      transition: border-color var(--ease), color var(--ease), box-shadow var(--ease), transform var(--ease);
+    }
+
+    .nav-btn:hover, .icon-btn:hover {
+      color: #ffd089;
+      border-color: rgba(255, 183, 77, 0.62);
+      box-shadow: 0 0 18px rgba(255, 171, 58, 0.22);
+      transform: translateY(-1px);
+    }
+
+    .preset-name {
+      min-width: 220px;
+      text-align: center;
+      color: #ffc86d;
+      font-size: clamp(16px, 1.2vw, 20px);
+      letter-spacing: 0.03em;
+      text-transform: none;
+      padding: 0 10px;
+    }
+
+    .brand-right {
+      justify-self: end;
+      text-align: right;
+      line-height: 0.95;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 9px;
+    }
+
+    .nova-audio {
+      font-size: clamp(24px, 1.8vw, 34px);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #e3e8f3;
+      opacity: 0.84;
+    }
+
+    .nova-sub {
+      font-size: clamp(9px, 0.65vw, 12px);
+      letter-spacing: 0.43em;
+      text-transform: uppercase;
+      color: #cfd6ea;
+      opacity: 0.74;
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 112px 154px 1fr 154px 112px;
+      gap: 10px;
+      padding-top: 8px;
+      padding-bottom: 6px;
+      align-items: stretch;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .meter-panel {
+      border-radius: 14px;
+      border: 1px solid rgba(255, 171, 53, 0.2);
+      background: linear-gradient(180deg, rgba(7, 12, 24, 0.94), rgba(3, 7, 15, 0.96));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        inset 0 -20px 28px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 10px 14px;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .meter-title {
+      font-size: 20px;
+      letter-spacing: 0.12em;
+      color: #ffc66d;
+      text-transform: uppercase;
+    }
+
+    .meter-value {
+      font-size: 16px;
+      color: #ffd699;
+      letter-spacing: 0.02em;
+    }
+
+    .meter-dual {
+      margin-top: 6px;
+      flex: 1;
+      width: 92px;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .meter-lane {
+      position: relative;
+      height: 100%;
+      border-radius: 7px;
+      border: 1px solid rgba(255, 160, 41, 0.26);
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.82), rgba(12, 9, 2, 0.66));
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255, 220, 170, 0.05);
+    }
+
+    .meter-grid {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to top,
+        rgba(255, 255, 255, 0.08) 0px,
+        rgba(255, 255, 255, 0.08) 2px,
+        rgba(255, 255, 255, 0.0) 2px,
+        rgba(255, 255, 255, 0.0) 12px
+      );
+      opacity: 0.26;
+      pointer-events: none;
+    }
+
+    .meter-fill {
+      position: absolute;
+      bottom: 0;
+      left: 3px;
+      right: 3px;
+      height: 0%;
+      border-radius: 5px 5px 3px 3px;
+      background: linear-gradient(180deg, #ffea9f 0%, #ffb12b 42%, #ff8415 100%);
+      box-shadow: 0 0 14px rgba(255, 160, 38, 0.5);
+      transition: height 90ms linear;
+    }
+
+    .meter-lr {
+      margin-top: 4px;
+      width: 92px;
+      display: flex;
+      justify-content: space-between;
+      color: #b8c3da;
+      font-size: 14px;
+      letter-spacing: 0.14em;
+    }
+
+    .knob-col {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .knob-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .knob-label {
+      font-size: 20px;
+      letter-spacing: 0.08em;
+      color: #f2f5fb;
+      text-transform: uppercase;
+    }
+
+    .knob-shell {
+      --knobGlowAlpha: 0.18;
+      --knobGlowSize: 18px;
+      --glareX: 50%;
+      --glareY: 32%;
+      --glareAlpha: 0.12;
+      width: 102px;
+      height: 102px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 176, 63, 0.36);
+      position: relative;
+      background:
+        radial-gradient(circle at var(--glareX) var(--glareY), rgba(255, 218, 162, calc(var(--glareAlpha) + 0.08)), transparent 24%),
+        radial-gradient(circle at 32% 26%, rgba(255, 178, 76, 0.24), transparent 34%),
+        radial-gradient(circle at 66% 66%, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.96));
+      box-shadow:
+        inset 0 2px 3px rgba(255, 235, 200, 0.28),
+        inset 0 -8px 18px rgba(0, 0, 0, 0.8),
+        0 0 var(--knobGlowSize) rgba(255, 164, 46, var(--knobGlowAlpha));
+      cursor: ns-resize;
+      user-select: none;
+      transition: box-shadow var(--ease), border-color var(--ease), transform var(--ease), background-position var(--ease);
+      will-change: transform, box-shadow;
+    }
+
+    .knob-shell::before {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 181, 70, 0.42);
+      box-shadow: inset 0 1px 0 rgba(255, 244, 225, 0.34);
+    }
+
+    .knob-shell::after {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border-radius: 50%;
+      background: radial-gradient(circle at var(--glareX) var(--glareY), rgba(255, 255, 255, calc(var(--glareAlpha) * 0.9)), rgba(255, 255, 255, 0) 34%);
+      mix-blend-mode: screen;
+      pointer-events: none;
+      transition: opacity var(--ease), background-position var(--ease);
+    }
+
+    .knob-shell.is-active {
+      border-color: rgba(255, 198, 96, 0.72);
+      transform: translateY(-1px) scale(1.012);
+    }
+
+    .knob-ind {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 4px;
+      height: 36px;
+      margin-left: -2px;
+      margin-top: -36px;
+      border-radius: 2px;
+      background: linear-gradient(180deg, #fff2cd 0%, #ffb93f 100%);
+      transform-origin: 50% 36px;
+      transform: rotate(-120deg);
+      box-shadow: 0 0 10px rgba(255, 183, 79, 0.36);
+      transition: transform 90ms linear, box-shadow var(--ease);
+    }
+
+    .knob-ring {
+      position: absolute;
+      inset: -4px;
+      pointer-events: none;
+      transform: rotate(-120deg);
+    }
+
+    .ring-track,
+    .ring-fill {
+      fill: none;
+      stroke-width: 6;
+      stroke-linecap: round;
+      cx: 89;
+      cy: 89;
+      r: 70;
+    }
+
+    .ring-track {
+      stroke: rgba(255, 200, 125, 0.17);
+      stroke-dasharray: 220 300;
+    }
+
+    .ring-fill {
+      stroke: #ffb945;
+      stroke-dasharray: 126 400;
+      filter: drop-shadow(0 0 8px rgba(255, 177, 69, 0.44));
+      transition: stroke-dasharray 110ms linear, filter var(--ease);
+    }
+
+    .knob-value {
+      min-width: 82px;
+      text-align: center;
+      padding: 6px 10px;
+      border-radius: 11px;
+      border: 1px solid rgba(255, 167, 48, 0.34);
+      background: linear-gradient(180deg, rgba(7, 11, 24, 0.94), rgba(2, 6, 15, 0.96));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      color: #ffc76a;
+      font-size: 16px;
+      letter-spacing: 0.04em;
+      transition: box-shadow var(--ease), color var(--ease), transform 90ms linear;
+    }
+
+    .tone-legend,
+    .mix-legend {
+      width: 118px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      color: #c2cbde;
+      opacity: 0.88;
+      text-transform: uppercase;
+      margin-top: -4px;
+    }
+
+    .center-stack {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) 62px;
+      gap: 12px;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .curve-card {
+      border-radius: 18px;
+      border: 1px solid rgba(255, 174, 58, 0.4);
+      background:
+        radial-gradient(620px 280px at 54% 42%, rgba(255, 125, 21, 0.14), transparent 60%),
+        radial-gradient(460px 260px at 48% 20%, var(--violet-undertone), transparent 62%),
+        linear-gradient(180deg, rgba(6, 11, 24, 0.95), rgba(2, 5, 13, 0.98));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 244, 224, 0.11),
+        inset 0 -20px 40px rgba(0, 0, 0, 0.56),
+        0 16px 26px rgba(0, 0, 0, 0.44);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) 168px;
+      padding: 10px 12px 10px;
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .curve-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 8px;
+    }
+
+    .curve-title {
+      color: #ffd07d;
+      font-size: clamp(16px, 1.8vw, 24px);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .clip-meter {
+      color: #f5b349;
+      font-size: clamp(12px, 1.4vw, 16px);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .curve-legend {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #b8c3d8;
+      font-size: clamp(11px, 1vw, 14px);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .legend-line {
+      width: 38px;
+      height: 2px;
+      border-radius: 2px;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 7px;
+    }
+
+    .legend-input { background: rgba(236, 243, 255, 0.72); }
+    .legend-output { background: #ffbe52; box-shadow: 0 0 8px rgba(255, 184, 63, 0.6); }
+
+    #curve-canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(4, 9, 20, 0.76), rgba(1, 3, 8, 0.92));
+      border: 1px solid rgba(255, 175, 67, 0.18);
+    }
+
+    .wave-panel {
+      margin-top: 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 175, 67, 0.22);
+      background: linear-gradient(180deg, rgba(2, 7, 17, 0.94), rgba(1, 4, 11, 0.98));
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    #wave-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .wave-label {
+      position: absolute;
+      top: 8px;
+      z-index: 2;
+      color: #c7cfde;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      opacity: 0.86;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .wave-label-input {
+      left: 12px;
+    }
+
+    .wave-label-output {
+      right: 16px;
+      padding-right: 2px;
+      color: #ffc364;
+    }
+
+    .wave-divider {
+      position: absolute;
+      top: 6px;
+      bottom: 6px;
+      left: 50%;
+      width: 1px;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, rgba(166, 183, 214, 0.05), rgba(166, 183, 214, 0.28), rgba(166, 183, 214, 0.05));
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .wave-play {
+      position: absolute;
+      top: -3px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(178, 188, 204, 0.7);
+      font-size: 10px;
+      line-height: 1;
+      letter-spacing: 0;
+      background: rgba(4, 10, 20, 0.8);
+      padding: 2px 5px;
+      border-radius: 7px;
+      border: 1px solid rgba(165, 180, 210, 0.14);
+    }
+
+    .mode-bar {
+      border-radius: 14px;
+      border: 1px solid rgba(255, 173, 58, 0.28);
+      background: linear-gradient(180deg, rgba(7, 12, 24, 0.92), rgba(2, 6, 14, 0.95));
+      padding: 10px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .mode-btn {
+      border-radius: 10px;
+      border: 1px solid rgba(255, 173, 58, 0.26);
+      background: linear-gradient(180deg, rgba(13, 18, 34, 0.95), rgba(5, 8, 18, 0.97));
+      color: #b4bed3;
+      font-size: 20px;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all var(--ease);
+      padding: 6px 0;
+    }
+
+    .mode-btn.active {
+      color: #ffd07c;
+      border-color: rgba(255, 189, 84, 0.66);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 238, 210, 0.26),
+        0 0 20px rgba(255, 167, 55, 0.3);
+      background:
+        radial-gradient(180px 80px at 50% 84%, rgba(255, 164, 48, 0.38), transparent 80%),
+        linear-gradient(180deg, rgba(20, 17, 8, 0.9), rgba(10, 9, 7, 0.96));
+    }
+
+    .bottom {
+      border-top: 1px solid rgba(255, 177, 62, 0.22);
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 4px 0;
+    }
+
+    .utility-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .utility-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #c4ccdf;
+      font-size: clamp(10px, 1vw, 14px);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .toggle-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 179, 67, 0.36);
+      background: rgba(0, 0, 0, 0.58);
+      box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.4);
+      transition: all var(--ease);
+      cursor: pointer;
+    }
+
+    .toggle-dot.on {
+      background: linear-gradient(180deg, #ffd37f, #ff9f24);
+      box-shadow: 0 0 12px rgba(255, 171, 54, 0.52);
+    }
+
+    .os-select {
+      min-width: 82px;
+      padding: 5px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 176, 60, 0.35);
+      background: linear-gradient(180deg, rgba(10, 14, 28, 0.95), rgba(4, 8, 18, 0.95));
+      color: #ffc76d;
+      font-size: clamp(10px, 1vw, 14px);
+      text-transform: uppercase;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .nova-star {
+      justify-self: center;
+      width: 46px;
+      height: 46px;
+      opacity: 0.88;
+      filter: drop-shadow(0 0 10px rgba(255, 185, 73, 0.4));
+    }
+
+    @media (max-width: 980px) {
+      .plugin {
+        padding: 0 6px 6px;
+      }
+
+      .main {
+        grid-template-columns: 64px 126px 1fr 126px 64px;
+        gap: 6px;
+      }
+
+      .knob-shell {
+        width: 84px;
+        height: 84px;
+      }
+
+      .knob-label,
+      .mode-btn,
+      .meter-title,
+      .clip-meter,
+      .curve-title {
+        letter-spacing: 0.04em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="viewport" id="viewport-root">
+  <div class="plugin" id="plugin-root">
+    <header class="top">
+      <div class="brand-left">
+        <div class="title-main">NOVA CLIP</div>
+        <div class="title-sub">SOFT CLIPPER</div>
+      </div>
+
+      <div class="preset-bar">
+        <button class="nav-btn" type="button" id="preset-prev" aria-label="Previous preset">&#x2039;</button>
+        <div class="preset-name" id="preset-name">Default Preset</div>
+        <button class="nav-btn" type="button" id="preset-next" aria-label="Next preset">&#x203A;</button>
+        <button class="icon-btn" type="button" id="preset-save" title="Save">&#x1F4BE;</button>
+        <button class="icon-btn" type="button" id="preset-undo" title="Undo">&#x21B6;</button>
+        <button class="icon-btn" type="button" id="preset-settings" title="Settings">&#9881;</button>
+      </div>
+
+      <div class="brand-right">
+        <div class="nova-audio">NOVA</div>
+        <div class="nova-sub">AUDIO</div>
+      </div>
+    </header>
+
+    <section class="main">
+      <aside class="meter-panel">
+        <div class="meter-title">INPUT</div>
+        <div class="meter-value" id="input-db">0.0 dB</div>
+        <div class="meter-dual">
+          <div class="meter-lane">
+            <div class="meter-grid"></div>
+            <div class="meter-fill" id="in-l"></div>
+          </div>
+          <div class="meter-lane">
+            <div class="meter-grid"></div>
+            <div class="meter-fill" id="in-r"></div>
+          </div>
+        </div>
+        <div class="meter-lr"><span>L</span><span>R</span></div>
+      </aside>
+
+      <div class="knob-col">
+        <div class="knob-card">
+          <div class="knob-label">DRIVE</div>
+          <div class="knob-shell" data-param="drive">
+            <svg class="knob-ring" viewBox="0 0 178 178" aria-hidden="true">
+              <circle class="ring-track" cx="89" cy="89" r="80"></circle>
+              <circle class="ring-fill" id="drive-ring" cx="89" cy="89" r="80"></circle>
+            </svg>
+            <div class="knob-ind" id="drive-ind"></div>
+          </div>
+          <div class="knob-value" id="drive-value">6.0 dB</div>
+        </div>
+
+        <div class="knob-card">
+          <div class="knob-label">TONE</div>
+          <div class="knob-shell" data-param="tone">
+            <svg class="knob-ring" viewBox="0 0 178 178" aria-hidden="true">
+              <circle class="ring-track" cx="89" cy="89" r="80"></circle>
+              <circle class="ring-fill" id="tone-ring" cx="89" cy="89" r="80"></circle>
+            </svg>
+            <div class="knob-ind" id="tone-ind"></div>
+          </div>
+          <div class="knob-value" id="tone-value">50%</div>
+          <div class="tone-legend"><span>DARK</span><span>BRIGHT</span></div>
+        </div>
+
+        <div class="knob-card">
+          <div class="knob-label">PUNCH</div>
+          <div class="knob-shell" data-param="punch">
+            <svg class="knob-ring" viewBox="0 0 178 178" aria-hidden="true">
+              <circle class="ring-track" cx="89" cy="89" r="80"></circle>
+              <circle class="ring-fill" id="punch-ring" cx="89" cy="89" r="80"></circle>
+            </svg>
+            <div class="knob-ind" id="punch-ind"></div>
+          </div>
+          <div class="knob-value" id="punch-value">65%</div>
+        </div>
+      </div>
+
+      <div class="center-stack">
+        <div class="curve-card">
+          <div class="curve-head">
+            <div class="curve-title">CLIP CURVE</div>
+            <div class="curve-legend">
+              <span><i class="legend-line legend-input"></i>INPUT</span>
+              <span><i class="legend-line legend-output"></i>OUTPUT</span>
+            </div>
+            <div class="clip-meter" id="clip-reduction">CLIP REDUCTION 0.0 dB</div>
+          </div>
+          <canvas id="curve-canvas"></canvas>
+          <div class="wave-panel">
+            <span class="wave-label wave-label-input">INPUT</span>
+            <span class="wave-label wave-label-output">OUTPUT</span>
+            <span class="wave-divider"><i class="wave-play">&#9654;</i></span>
+            <canvas id="wave-canvas"></canvas>
+          </div>
+        </div>
+
+        <div class="mode-bar">
+          <button class="mode-btn active" data-mode="0" type="button">SMOOTH</button>
+          <button class="mode-btn" data-mode="1" type="button">PUNCH</button>
+          <button class="mode-btn" data-mode="2" type="button">LOUD</button>
+          <button class="mode-btn" data-mode="3" type="button">HARD</button>
+        </div>
+      </div>
+
+      <div class="knob-col">
+        <div class="knob-card">
+          <div class="knob-label">CLIP SHAPE</div>
+          <div class="knob-shell" data-param="clip_shape">
+            <svg class="knob-ring" viewBox="0 0 178 178" aria-hidden="true">
+              <circle class="ring-track" cx="89" cy="89" r="80"></circle>
+              <circle class="ring-fill" id="clip_shape-ring" cx="89" cy="89" r="80"></circle>
+            </svg>
+            <div class="knob-ind" id="clip_shape-ind"></div>
+          </div>
+          <div class="knob-value" id="clip_shape-value">52%</div>
+        </div>
+
+        <div class="knob-card">
+          <div class="knob-label">CEILING</div>
+          <div class="knob-shell" data-param="ceiling">
+            <svg class="knob-ring" viewBox="0 0 178 178" aria-hidden="true">
+              <circle class="ring-track" cx="89" cy="89" r="80"></circle>
+              <circle class="ring-fill" id="ceiling-ring" cx="89" cy="89" r="80"></circle>
+            </svg>
+            <div class="knob-ind" id="ceiling-ind"></div>
+          </div>
+          <div class="knob-value" id="ceiling-value">-0.3 dB</div>
+        </div>
+
+        <div class="knob-card">
+          <div class="knob-label">MIX</div>
+          <div class="knob-shell" data-param="mix">
+            <svg class="knob-ring" viewBox="0 0 178 178" aria-hidden="true">
+              <circle class="ring-track" cx="89" cy="89" r="80"></circle>
+              <circle class="ring-fill" id="mix-ring" cx="89" cy="89" r="80"></circle>
+            </svg>
+            <div class="knob-ind" id="mix-ind"></div>
+          </div>
+          <div class="knob-value" id="mix-value">100%</div>
+          <div class="mix-legend"><span>DRY</span><span>WET</span></div>
+        </div>
+      </div>
+
+      <aside class="meter-panel">
+        <div class="meter-title">OUTPUT</div>
+        <div class="meter-value" id="output-db">-0.3 dB</div>
+        <div class="meter-dual">
+          <div class="meter-lane">
+            <div class="meter-grid"></div>
+            <div class="meter-fill" id="out-l"></div>
+          </div>
+          <div class="meter-lane">
+            <div class="meter-grid"></div>
+            <div class="meter-fill" id="out-r"></div>
+          </div>
+        </div>
+        <div class="meter-lr"><span>L</span><span>R</span></div>
+      </aside>
+    </section>
+
+    <footer class="bottom">
+      <div class="utility-group">
+        <label class="utility-item">OVERSAMPLING
+          <select class="os-select" id="oversampling-select">
+            <option value="0">1x</option>
+            <option value="1">2x</option>
+            <option value="2" selected>4x</option>
+          </select>
+        </label>
+        <label class="utility-item"><span class="toggle-dot" id="low_latency-dot"></span>LOW LATENCY</label>
+      </div>
+
+      <svg class="nova-star" viewBox="0 0 64 64" aria-hidden="true">
+        <path d="M32 3l7 18 18 11-18 11-7 18-7-18L7 32l18-11z" fill="none" stroke="#ffbf51" stroke-width="2.2"/>
+        <path d="M32 15l3.6 9.1L45 28l-9.4 4-3.6 9.1-3.6-9.1L19 28l9.4-3.9z" fill="#ffae2d" opacity="0.45"/>
+      </svg>
+
+      <div class="utility-group" style="justify-self:end; justify-content:flex-end;">
+        <label class="utility-item"><span class="toggle-dot on" id="safe_mode-dot"></span>SAFE MODE</label>
+        <label class="utility-item"><span class="toggle-dot on" id="link_lr-dot"></span>LINK L/R</label>
+      </div>
+    </footer>
+  </div>
+  </div>
+
+  <script src="js/juce/check_native_interop.js"></script>
+  <script src="js/juce/index.js"></script>
+  <script src="js/index.js"></script>
+</body>
+</html>
