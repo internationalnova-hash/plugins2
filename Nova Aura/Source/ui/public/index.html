@@ -514,7 +514,7 @@
     .knob-scale {
       position: relative;
       width: 186px;
-      aspect-ratio: 1;
+      height: 186px;
       display: grid;
       place-items: center;
     }
@@ -576,7 +576,7 @@
       background:
         conic-gradient(from -126deg,
           transparent 0 242deg,
-          color-mix(in srgb, var(--accent) 62%, #fff 20%) 248deg,
+          var(--accent) 248deg,
           var(--accent2) var(--end-angle),
           transparent calc(var(--end-angle) + 8deg));
       -webkit-mask: radial-gradient(circle, transparent 64%, #000 66%, #000 74%, transparent 75%);
@@ -1059,6 +1059,8 @@
     </footer>
   </div>
   </div>
+  <script src="js/juce/check_native_interop.js"></script>
+  <script src="js/juce/index.js"></script>
   <script src="js/index.js"></script>
   <script>
     (function scaleStage() {
