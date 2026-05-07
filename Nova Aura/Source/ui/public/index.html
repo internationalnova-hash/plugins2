@@ -488,6 +488,8 @@
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
+      position: relative;
+      z-index: 2;
       padding-top: 14px;
       min-width: 0;
       gap: 4px;
@@ -593,29 +595,18 @@
       left: 50%;
       top: 50%;
       width: 3px;
-      height: 37%;
+      height: 68px;
       margin-left: -1.5px;
-      margin-top: -37%;
+      margin-top: -68px;
       border-radius: 3px;
       transform-origin: 50% 100%;
       transform: rotate(var(--angle));
       background: linear-gradient(180deg, #f9f3eb, #c8ebff 52%, #8fbbe0 100%);
       box-shadow: 0 0 7px rgba(153, 226, 255, 0.33);
-      z-index: 4;
+      z-index: 8;
       pointer-events: none;
       will-change: transform;
       transition: transform 90ms linear;
-    }
-
-    #high-ind {
-      width: 4px;
-      margin-left: -2px;
-      background: linear-gradient(180deg, #ffffff, #edf8ff 44%, #86d7ff 100%);
-      box-shadow: 0 0 12px rgba(158, 228, 255, 0.72), 0 0 4px rgba(255, 255, 255, 0.5);
-      z-index: 6;
-      filter: drop-shadow(0 0 4px rgba(122, 214, 255, 0.5));
-      backface-visibility: hidden;
-      transform: translateZ(0);
     }
 
     .knob-ticks {
@@ -668,6 +659,7 @@
       min-height: 0;
       gap: 10px;
       position: relative;
+      z-index: 1;
       isolation: isolate;
     }
 
@@ -1010,8 +1002,8 @@
         <div class="knob-scale">
           <div class="aura-knob" id="mid-knob" data-param="mid_aura">
             <div class="knob-ticks"></div>
-            <div class="knob-ind" id="mid-ind"></div>
           </div>
+          <div class="knob-ind" id="mid-ind"></div>
         </div>
         <div class="knob-minmax"><span>0%</span><span>100%</span></div>
         <div class="knob-value" id="mid-value">42%</div>
@@ -1040,8 +1032,8 @@
         <div class="knob-scale">
           <div class="aura-knob r" id="high-knob" data-param="high_aura">
             <div class="knob-ticks"></div>
-            <div class="knob-ind" id="high-ind"></div>
           </div>
+          <div class="knob-ind" id="high-ind"></div>
         </div>
         <div class="knob-minmax"><span>0%</span><span>100%</span></div>
         <div class="knob-value" id="high-value">56%</div>
