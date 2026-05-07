@@ -602,7 +602,20 @@
       background: linear-gradient(180deg, #f9f3eb, #c8ebff 52%, #8fbbe0 100%);
       box-shadow: 0 0 7px rgba(153, 226, 255, 0.33);
       z-index: 4;
+      pointer-events: none;
+      will-change: transform;
       transition: transform 90ms linear;
+    }
+
+    #high-ind {
+      width: 4px;
+      margin-left: -2px;
+      background: linear-gradient(180deg, #ffffff, #edf8ff 44%, #86d7ff 100%);
+      box-shadow: 0 0 12px rgba(158, 228, 255, 0.72), 0 0 4px rgba(255, 255, 255, 0.5);
+      z-index: 6;
+      filter: drop-shadow(0 0 4px rgba(122, 214, 255, 0.5));
+      backface-visibility: hidden;
+      transform: translateZ(0);
     }
 
     .knob-ticks {
