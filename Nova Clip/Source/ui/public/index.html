@@ -214,8 +214,7 @@
       display: grid;
       grid-template-columns: 124px 154px minmax(0, 1fr) 154px 124px;
       gap: 10px;
-      padding-top: 8px;
-      padding-bottom: 6px;
+      padding: 8px 8px 6px;
       align-items: stretch;
       min-height: 0;
       overflow: hidden;
@@ -247,6 +246,12 @@
       line-height: 1.2;
       color: #ffc66d;
       text-transform: uppercase;
+    }
+
+    .meter-title.output-title {
+      font-size: 13px;
+      letter-spacing: 0;
+      padding-right: 6px;
     }
 
     .meter-value {
@@ -872,7 +877,7 @@
       </div>
 
       <aside class="meter-panel">
-        <div class="meter-title">OUTPUT</div>
+        <div class="meter-title output-title">OUTPUT</div>
         <div class="meter-value" id="output-db">-0.3 dB</div>
         <div class="meter-dual">
           <div class="meter-lane">
