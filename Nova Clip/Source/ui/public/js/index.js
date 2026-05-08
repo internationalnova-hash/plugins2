@@ -1085,13 +1085,19 @@
     var viewport = document.getElementById('viewport-root');
     if (!plugin || !viewport) return;
 
-    var vw = Math.max(1, viewport.clientWidth - 8);
-    var vh = Math.max(1, viewport.clientHeight - 8);
+    // DAW webviews can report edge dimensions that are a few pixels optimistic.
+    // Reserve a small safe inset so right-edge labels never get clipped in-host.
+    var safeInsetX = 28;
+    var safeInsetY = 16;
+    var vw = Math.max(1, viewport.clientWidth - safeInsetX);
+    var vh = Math.max(1, viewport.clientHeight - safeInsetY);
     var scale = Math.min(vw / BASE_WIDTH, vh / BASE_HEIGHT);
 
     // Never upscale; keep native sharpness when host is larger than base size.
     scale = Math.min(scale, 1);
-    plugin.style.transform = 'translate(-50%, -50%) scale(' + scale.toFixed(4) + ')';
+    // Guard against fractional host rounding that can crop the rightmost glyphs.
+    scale = Math.max(0.1, scale * 0.995);
+    plugin.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
   }
 
   function initCanvas() {
