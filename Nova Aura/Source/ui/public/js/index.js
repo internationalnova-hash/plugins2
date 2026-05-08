@@ -48,6 +48,10 @@
   var phase = 0;
   var frame = 0;
   var isInitialised = false;
+  var auraEnergySmooth = 0;
+  var auraTransient = 0;
+  var auraBursts = [];
+  var cosmicReferenceEl = null;
 
   function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
   function lerp(a, b, t) { return a + (b - a) * t; }
@@ -409,407 +413,472 @@
   }
   function drawField() {
     if (!ctx || !canvas) return;
-    var w = canvas.width;
-    var h = canvas.height;
+    var w = canvas.clientWidth || Math.round(canvas.width / (dpr || 1));
+    var h = canvas.clientHeight || Math.round(canvas.height / (dpr || 1));
+    if (w < 2 || h < 2) return;
 
-    // Read knob positions: mapped to DSP character, not raw audio
-    var mid = (telemetry.midAura || values.mid_aura) / 100;  // 0-1: purple energy, lower warmth
-    var high = (telemetry.highAura || values.high_aura) / 100; // 0-1: cyan brilliance, upper shimmer
+    var mid = (telemetry.midAura || values.mid_aura) / 100;
+    var high = (telemetry.highAura || values.high_aura) / 100;
     var aura = clamp(telemetry.aura || 0, 0, 1);
     var harsh = clamp(telemetry.harsh || 0, 0, 1);
-    var safe = (telemetry.safe || values.safe) > 0.5;
     var wide = (telemetry.wide || values.wide) > 0.5;
+    var inEnergy = clamp((Math.abs(telemetry.inL || 0) + Math.abs(telemetry.inR || 0)) * 0.62, 0, 1);
+    var outEnergy = clamp((Math.abs(telemetry.outL || 0) + Math.abs(telemetry.outR || 0)) * 0.62, 0, 1);
+    var audioEnergy = clamp(inEnergy * 0.42 + outEnergy * 0.32 + aura * 0.2 + high * 0.06, 0, 1);
 
-    // Base: maintain deep black foundation for elegance
-    ctx.fillStyle = 'rgba(2,5,12,0.42)';
+    var prevSmooth = auraEnergySmooth;
+    auraEnergySmooth = lerp(auraEnergySmooth, audioEnergy, 0.12);
+    auraTransient = Math.max(0, audioEnergy - prevSmooth);
+
+    if (cosmicReferenceEl) {
+      cosmicReferenceEl.style.opacity = '0';
+      cosmicReferenceEl.style.visibility = 'hidden';
+      cosmicReferenceEl.style.pointerEvents = 'none';
+    }
+
+    var midX = w * 0.5;
+    var midY = h * 0.53;
+    var leftX = w * 0.08;
+    var rightX = w * 0.92;
+    var rightPlasmaEndX = rightX - Math.max(14, w * 0.035);
+    var pulse = 0.5 + 0.5 * Math.sin(phase * 0.72);
+    var energyFlicker = 0.985 + 0.015 * Math.sin(phase * 3.15 + auraEnergySmooth * 2.2);
+    var asymDrift = Math.sin(phase * 0.47 + 0.9) * 0.008 + Math.sin(phase * 1.03 + 2.1) * 0.005;
+    var imbalancePulse = 0.5 + 0.5 * Math.sin(phase * 0.41 + Math.sin(phase * 0.12) * 1.9);
+    var nodeR = Math.min(w, h) * (0.042 + auraEnergySmooth * 0.018 + high * 0.014);
+    var haloR = nodeR * (3.3 + auraEnergySmooth * 0.8 + high * 0.4);
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = 'rgb(3,5,13)';
     ctx.fillRect(0, 0, w, h);
 
-    // ========================================
-    // CORE RADIAL GRADIENT: MID/HIGH mapping
-    // ========================================
-    // MID AURA: controls purple thickness & central body
-    // HIGH AURA: controls cyan brilliance & upper lift
-    var spreadX = wide ? 0.74 : 0.62;
-    var coreY = h * (0.75 - high * 0.17);  // HIGH lifts center slightly
-    var core = ctx.createRadialGradient(w * 0.5, coreY, 10, w * 0.5, h * 0.82, w * spreadX);
-    
-    // Purple: MID controls thickness (low mid = thin, high mid = rich)
-    var purpleAlpha = 0.10 + mid * 0.24;
-    core.addColorStop(0, 'rgba(190,140,246,' + purpleAlpha.toFixed(3) + ')');
-    
-    // Cyan: HIGH controls brilliance (low high = dim, high high = brilliant)
-    var cyanAlpha = 0.07 + high * 0.20;
-    core.addColorStop(0.42, 'rgba(142,198,248,' + cyanAlpha.toFixed(3) + ')');
-    
-    // Gold warmth: MID controls warmth glow (low mid = subtle, high mid = warm)
-    var goldAlpha = 0.02 + mid * 0.06;
-    core.addColorStop(0.7, 'rgba(236,195,126,' + goldAlpha.toFixed(3) + ')');
-    
-    core.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = core;
+    var bg = ctx.createRadialGradient(midX, midY, 0, midX, midY, w * 0.55);
+    bg.addColorStop(0, 'rgba(86,146,255,' + (0.11 + high * 0.09).toFixed(3) + ')');
+    bg.addColorStop(0.34, 'rgba(168,106,248,' + (0.07 + mid * 0.08).toFixed(3) + ')');
+    bg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
 
-    // ========================================
-    // FOG LAYERS: Atmospheric energy density
-    // ========================================
-    // MID AURA: controls lower-mid fog density & purple warmth
-    // HIGH AURA: controls upper fog sparkle & motion intensity
+    // Environmental lighting: soft reactor spill onto surrounding UI surfaces.
+    var envPulse = 0.985 + 0.02 * Math.sin(phase * 1.25 + auraEnergySmooth * 3.6);
+    var envSpread = ctx.createRadialGradient(midX, midY + h * 0.03, nodeR * 0.7, midX, midY + h * 0.03, w * 0.9);
+    envSpread.addColorStop(0, 'rgba(142,214,255,' + ((0.028 + auraEnergySmooth * 0.024) * envPulse).toFixed(3) + ')');
+    envSpread.addColorStop(0.46, 'rgba(154,118,246,' + ((0.018 + mid * 0.02) * envPulse).toFixed(3) + ')');
+    envSpread.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = envSpread;
+    ctx.fillRect(0, 0, w, h);
+
+    // Bezel-edge leakage and soft panel reflection response.
+    var topLeak = ctx.createLinearGradient(0, h * 0.12, 0, h * 0.34);
+    topLeak.addColorStop(0, 'rgba(166,212,255,0)');
+    topLeak.addColorStop(1, 'rgba(166,212,255,' + ((0.012 + high * 0.009) * envPulse).toFixed(3) + ')');
+    ctx.fillStyle = topLeak;
+    ctx.fillRect(0, 0, w, h * 0.34);
+
+    var lowerLeak = ctx.createLinearGradient(0, h * 0.62, 0, h);
+    lowerLeak.addColorStop(0, 'rgba(178,132,248,0)');
+    lowerLeak.addColorStop(1, 'rgba(178,132,248,' + ((0.016 + auraEnergySmooth * 0.014) * envPulse).toFixed(3) + ')');
+    ctx.fillStyle = lowerLeak;
+    ctx.fillRect(0, h * 0.62, w, h * 0.38);
+
+    // Premium reflective streaks: very faint, panel-conformal highlights.
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
-    
-    var fogCount = 4 + Math.round(mid * 2); // Low MID: 4 layers, high MID: 6 layers (richer)
-    for (var f = 0; f < fogCount; f++) {
-      var fn = f / (fogCount - 1 || 1);
-      
-      // MID: positions fog in lower/mid region
-      var vertPos = 0.58 + fn * 0.3 + mid * 0.12;
-      
-      // HIGH: adds upper shimmer motion
-      var fx = w * (0.18 + fn * 0.64 + Math.sin(phase * (0.24 + fn * 0.2) + fn * 4.3) * 0.05);
-      var fy = h * (vertPos - Math.sin(phase * (0.4 + fn * 0.22) + fn * 5) * (0.08 + high * 0.1));
-      var fr = w * (0.15 + high * 0.12 + 0.065 * Math.sin(phase * 0.44 + f * 1.2));
-      
-      var fog = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
-      
-      // MID controls purple fog (warmth/body)
-      var purpleFog = 0.065 + mid * 0.09;
-      fog.addColorStop(0, 'rgba(190,142,248,' + purpleFog.toFixed(3) + ')');
-      
-      // HIGH controls cyan fog (shimmer/detail)
-      var cyanFog = 0.05 + high * 0.09;
-      fog.addColorStop(0.44, 'rgba(122,186,242,' + cyanFog.toFixed(3) + ')');
-      
-      fog.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = fog;
-      ctx.fillRect(0, 0, w, h);
+    for (var rs = 0; rs < 3; rs++) {
+      var ry = h * (0.36 + rs * 0.1 + 0.01 * Math.sin(phase * 0.9 + rs));
+      var rLen = w * (0.22 + rs * 0.06);
+      var rx = midX - rLen * 0.5 + Math.sin(phase * 0.55 + rs * 1.2) * w * 0.01;
+      var refl = ctx.createLinearGradient(rx, ry, rx + rLen, ry);
+      var reflAlpha = (0.007 + rs * 0.003 + auraEnergySmooth * 0.006) * envPulse;
+      refl.addColorStop(0, 'rgba(206,236,255,0)');
+      refl.addColorStop(0.5, 'rgba(206,236,255,' + reflAlpha.toFixed(3) + ')');
+      refl.addColorStop(1, 'rgba(206,236,255,0)');
+      ctx.fillStyle = refl;
+      ctx.fillRect(rx, ry - 0.8, rLen, 1.6 + rs * 0.5);
     }
     ctx.restore();
 
-    // ========================================
-    // WAVEFORM RIBBONS: DSP energy body
-    // ========================================
-    // MID AURA: controls lower ribbon presence, body thickness, warmth
-    // HIGH AURA: controls upper ribbon sharpness, energy sparkle, shimmer
-    
-    function drawRibbon(baseY, amp, freq, thickness, speed, a, b, alpha) {
-      var grad = ctx.createLinearGradient(0, baseY, w, baseY);
-      grad.addColorStop(0, 'rgba(' + a + ',' + (alpha * 0.7).toFixed(3) + ')');
-      grad.addColorStop(0.5, 'rgba(' + b + ',' + alpha.toFixed(3) + ')');
-      grad.addColorStop(1, 'rgba(' + a + ',' + (alpha * 0.7).toFixed(3) + ')');
-      ctx.strokeStyle = grad;
-      ctx.lineWidth = thickness;
+    // Volumetric depth planes for slight holographic spatial feeling.
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    for (var dp = 0; dp < 2; dp++) {
+      var planeY = midY + h * (dp === 0 ? -0.03 : 0.05);
+      var planeW = w * (0.44 + dp * 0.14);
+      var planeH = h * (0.12 + dp * 0.03);
+      var planeShift = Math.sin(phase * (0.42 + dp * 0.15) + dp * 1.3) * w * 0.012;
+      var plane = ctx.createRadialGradient(midX + planeShift, planeY, 0, midX + planeShift, planeY, planeW * 0.5);
+      plane.addColorStop(0, 'rgba(148,212,255,' + ((0.014 + auraEnergySmooth * 0.01 - dp * 0.003) * envPulse).toFixed(3) + ')');
+      plane.addColorStop(0.68, 'rgba(168,124,244,' + ((0.01 + mid * 0.008 - dp * 0.002) * envPulse).toFixed(3) + ')');
+      plane.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = plane;
       ctx.beginPath();
-      for (var x = 0; x <= w; x++) {
-        var n = x / w;
-        var y = baseY + Math.sin((n * freq + phase * speed) * Math.PI * 2) * amp;
-        y += Math.sin((n * (freq * 2.4) + phase * (speed * 1.7)) * Math.PI * 2) * amp * 0.34;
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+      ctx.ellipse(midX + planeShift, planeY, planeW * 0.5, planeH * 0.5, dp === 0 ? -0.08 : 0.06, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Extremely faint horizontal atmosphere band for cinematic scale.
+    var hazeBand = ctx.createLinearGradient(midX - w * 0.38, midY, midX + w * 0.38, midY);
+    hazeBand.addColorStop(0, 'rgba(128,188,255,0)');
+    hazeBand.addColorStop(0.5, 'rgba(156,210,255,' + (0.016 + high * 0.012).toFixed(3) + ')');
+    hazeBand.addColorStop(1, 'rgba(128,188,255,0)');
+    ctx.fillStyle = hazeBand;
+    ctx.fillRect(midX - w * 0.38, midY - h * 0.055, w * 0.76, h * 0.11);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+
+    var leftLen = (midX - nodeR * 1.18) - leftX;
+    var leftBands = 4;
+    for (var lb = 0; lb < leftBands; lb++) {
+      var lbShift = (lb - (leftBands - 1) * 0.5) * h * 0.04;
+      if (lb === 2) lbShift += h * (0.007 * asymDrift);
+      var lbAmp = h * (0.015 + auraEnergySmooth * 0.026 + lb * 0.004);
+      var lbFreq = 0.037 + lb * 0.008;
+      var lbSpeed = 2.6 + lb * 0.6 + (lb === 1 ? 0.035 : 0) + (lb === 3 ? -0.02 : 0);
+      var wavePulse = 0.5 + 0.5 * Math.sin(phase * (1.25 + lb * 0.1) + lb * 1.1);
+
+      var lGrad = ctx.createLinearGradient(leftX, midY + lbShift, midX - nodeR * 1.1, midY + lbShift);
+      var lAlpha = (0.18 + auraEnergySmooth * 0.18 + lb * 0.03) * energyFlicker;
+      lGrad.addColorStop(0, 'rgba(152,98,246,' + (lAlpha * 0.72).toFixed(3) + ')');
+      lGrad.addColorStop(0.34, 'rgba(126,186,255,' + (lAlpha * (0.72 + wavePulse * 0.2)).toFixed(3) + ')');
+      lGrad.addColorStop(0.66, 'rgba(92,200,255,' + (lAlpha * (0.9 + wavePulse * 0.12)).toFixed(3) + ')');
+      lGrad.addColorStop(1, 'rgba(232,246,255,' + (lAlpha * 0.72).toFixed(3) + ')');
+      ctx.strokeStyle = lGrad;
+      ctx.lineWidth = 1.6 + (leftBands - lb) * 0.6;
+      ctx.beginPath();
+      for (var lx = 0; lx <= leftLen; lx += 2) {
+        var fade = Math.min(1, lx / 56) * Math.min(1, (leftLen - lx) / 44);
+        var ly = midY + lbShift + Math.sin(lx * lbFreq + phase * lbSpeed) * lbAmp * fade;
+        ly += Math.sin(lx * (lbFreq * 2.2) - phase * (lbSpeed * 0.55)) * lbAmp * 0.26 * fade;
+        if (lx === 0) ctx.moveTo(leftX, ly);
+        else ctx.lineTo(leftX + lx, ly);
       }
       ctx.stroke();
     }
 
+    var threadCount = 12 + Math.round(auraEnergySmooth * 16 + high * 9);
+    var spread = h * (0.34 + (wide ? 0.11 : 0) + mid * 0.09);
+
+    function bezierPoint(t, p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y) {
+      var u = 1 - t;
+      var tt = t * t;
+      var uu = u * u;
+      var uuu = uu * u;
+      var ttt = tt * t;
+      return {
+        x: uuu * p0x + 3 * uu * t * p1x + 3 * u * tt * p2x + ttt * p3x,
+        y: uuu * p0y + 3 * uu * t * p1y + 3 * u * tt * p2y + ttt * p3y
+      };
+    }
+
     ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    
-    // Upper ribbon: HIGH controls sharpness/brilliance
-    var upperPresence = 0.28 + high * 0.36;  // Low HIGH: subtle, high HIGH: prominent
-    drawRibbon(
-      h * (0.5 - high * 0.12),
-      h * (0.038 + high * 0.052),
-      3.2 + mid * 2.1,
-      1.8 + high * 1.2,
-      0.2,
-      '164,103,239',
-      '103,209,255',
-      upperPresence
-    );
-    
-    // Mid ribbon: MID controls body/warmth
-    var midPresence = 0.28 + mid * 0.32;  // Low MID: thin, high MID: rich
-    drawRibbon(
-      h * (0.61 - mid * 0.1),
-      h * (0.038 + mid * 0.052),
-      2.9 + high * 1.5,
-      1.5 + mid * 1.4,
-      0.16,
-      '202,94,220',
-      '103,190,250',
-      midPresence
-    );
-    
-    // Lower ribbon: MID controls presence (warmth floor)
-    var lowerPresence = 0.15 + mid * 0.28;  // Low MID: sparse, high MID: warm
-    drawRibbon(
-      h * (0.71 - mid * 0.06),
-      h * (0.028 + mid * 0.042),
-      2.3 + mid * 1.15,
-      1.2 + high * 0.6,
-      0.12,
-      '150,102,224',
-      '91,169,234',
-      lowerPresence
-    );
-    
+    ctx.beginPath();
+    ctx.rect(0, 0, rightPlasmaEndX - 2, h);
+    ctx.clip();
+
+    for (var i = 0; i < threadCount; i++) {
+      var s = i / Math.max(1, threadCount - 1);
+      var edge = Math.abs(s - 0.5) * 2;
+      var yTarget = midY + (s - 0.5) * spread;
+      yTarget += Math.sin(phase * (0.92 + i * 0.025) + i * 0.62) * (2 + harsh * 7 + high * 6);
+      yTarget += Math.sin(phase * (0.39 + i * 0.011) + i * 0.87) * (0.45 + high * 0.55) * (0.6 + 0.4 * imbalancePulse);
+
+      var cpXoff = 62 + (wide ? 52 : 30) + high * 24;
+      var cp1x = midX + cpXoff;
+      var cp1y = midY + Math.sin(phase * 1.16 + i * 0.56) * (4 + mid * 11);
+      var cp2x = midX + cpXoff * 2.1 + (wide ? 74 : 44);
+      var cp2y = yTarget - Math.sin(phase * 0.82 + i * 0.44) * (3 + high * 10);
+
+      var alpha = (0.2 + auraEnergySmooth * 0.42) * (0.7 + (1 - edge) * 0.34) * energyFlicker;
+
+      var pGlow = ctx.createLinearGradient(midX, midY, rightPlasmaEndX, yTarget);
+      pGlow.addColorStop(0, 'rgba(174,112,252,' + (alpha * 0.64).toFixed(3) + ')');
+      pGlow.addColorStop(0.52, 'rgba(92,204,255,' + (alpha * 0.8).toFixed(3) + ')');
+      pGlow.addColorStop(0.9, 'rgba(255,182,92,' + (alpha * 0.18).toFixed(3) + ')');
+      pGlow.addColorStop(1, 'rgba(255,182,92,0)');
+
+      var pCore = ctx.createLinearGradient(midX, midY, rightPlasmaEndX, yTarget);
+      pCore.addColorStop(0, 'rgba(194,126,255,' + alpha.toFixed(3) + ')');
+      pCore.addColorStop(0.55, 'rgba(112,220,255,' + (alpha * 0.9).toFixed(3) + ')');
+      pCore.addColorStop(0.88, 'rgba(246,206,132,' + (alpha * 0.12).toFixed(3) + ')');
+      pCore.addColorStop(1, 'rgba(246,206,132,0)');
+
+      var segments = 22;
+      for (var layer = 0; layer < 2; layer++) {
+        ctx.beginPath();
+        ctx.lineCap = 'butt';
+        for (var tt = 0; tt <= segments; tt++) {
+          var t = (tt / segments) * 0.985;
+          var bp = bezierPoint(t, midX, midY, cp1x, cp1y, cp2x, cp2y, rightPlasmaEndX, yTarget);
+          var env = Math.sin(t * Math.PI);
+          var twist = Math.sin(phase * (1.2 + i * 0.015) + t * 17 + i * 0.91);
+          var flutter = Math.sin(phase * (2.1 + layer * 0.45) + t * 31 + i * 0.57);
+          var microTurb = Math.sin(phase * (0.73 + i * 0.007) + t * 23 + i * 1.7) * (0.12 + high * 0.2);
+          var turb = (twist * 0.9 + flutter * 0.5 + microTurb) * env * (3.2 + high * 7 + auraEnergySmooth * 5) * (0.96 + 0.04 * energyFlicker);
+          var drift = Math.cos(phase * 0.76 + i * 0.3 + t * 8) * env * (1.1 + harsh * 2.2);
+          var px = bp.x + drift;
+          var py = bp.y + turb * (layer === 0 ? 0.75 : 0.32);
+          if (tt === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+
+        if (layer === 0) {
+          ctx.strokeStyle = pGlow;
+          ctx.lineWidth = 2.7 + (1 - edge) * 2.6;
+          ctx.globalAlpha = 0.2 + alpha * 0.09;
+        } else {
+          ctx.strokeStyle = pCore;
+          ctx.lineWidth = 1.0 + (1 - edge) * 0.9 + Math.sin(phase * 1.8 + i * 0.3) * 0.08;
+          ctx.globalAlpha = 0.82 + (0.16 * Math.sin(phase * 2.4 + i * 0.6));
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      if ((i % 4) === 0) {
+        var branchT = 0.58 + (i % 3) * 0.1;
+        var bp = bezierPoint(branchT, midX, midY, cp1x, cp1y, cp2x, cp2y, rightPlasmaEndX, yTarget);
+        var bLen = 18 + high * 22;
+        var bAng = (s - 0.5) * 1.25 + Math.sin(phase * 0.7 + i) * 0.22;
+        ctx.beginPath();
+        ctx.moveTo(bp.x, bp.y);
+        ctx.lineTo(bp.x + Math.cos(bAng) * bLen, bp.y + Math.sin(bAng) * bLen);
+        ctx.strokeStyle = 'rgba(184,236,255,' + (0.12 + alpha * 0.35).toFixed(3) + ')';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
+    }
     ctx.restore();
 
-    // ========================================
-    // PARTICLE SYSTEM: Energy activity distribution
-    // ========================================
-    // MID AURA: controls lower-half particle density, warmth palette activation
-    // HIGH AURA: controls upper-half brightness, cyan/white sparkle, overall activity
-    
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    
-    // Particle count scales with energy: low = sparse, high = rich
-    var midParticles = Math.round(110 + mid * 75);    // 110-185 particles based on MID
-    var highParticles = Math.round(60 + high * 55);   // 60-115 particles based on HIGH
-    var totalParticles = midParticles + highParticles;
-    
-    for (var i = 0; i < totalParticles; i++) {
-      var seed = i * 0.723;
-      var isMidDriven = i < midParticles;
-      
-      if (isMidDriven) {
-        // MID-driven particles: lower region, warmth focus
-        var drift = (phase * (0.012 + (i % 7) * 0.002)) % 1;
-        var x = w * ((seed + drift * 0.34) % 1);
-        var y = h * (0.48 + ((seed * 1.6 + drift * 0.48) % 1) * 0.32);  // Lower half
-        var r = 0.35 + (i % 5) * 0.2;
-        var opacity = (0.13 + mid * 0.17) * (0.6 + 0.4 * Math.sin(seed * 3.2 + phase * 0.06));
-        
-        // Palette: emphasize warm colors (purple, gold)
-        var palette = i % 3;
-        if (palette === 0) ctx.fillStyle = 'rgba(192,142,248,' + opacity.toFixed(3) + ')';  // Purple
-        else if (palette === 1) ctx.fillStyle = 'rgba(235,196,126,' + opacity.toFixed(3) + ')';  // Gold
-        else ctx.fillStyle = 'rgba(154,186,240,' + (opacity * 0.7).toFixed(3) + ')';  // Soft blue
-      } else {
-        // HIGH-driven particles: upper region, brightness/shimmer focus
-        var highIdx = i - midParticles;
-        var drift2 = (phase * (0.018 + (highIdx % 5) * 0.004)) % 1;
-        var x = w * ((seed * 1.3 + drift2 * 0.54) % 1);
-        var y = h * (0.16 + ((seed * 2.1 + drift2 * 0.68) % 1) * 0.3);  // Upper half
-        var r = 0.36 + (highIdx % 4) * 0.26;
-        var opacity = (0.10 + high * 0.22) * (0.5 + 0.5 * Math.sin(seed * 2.8 + phase * 0.08));
-        
-        // Palette: emphasize bright colors (cyan, white, pale)
-        var brightPalette = highIdx % 3;
-        if (brightPalette === 0) ctx.fillStyle = 'rgba(154,206,249,' + opacity.toFixed(3) + ')';  // Cyan
-        else if (brightPalette === 1) ctx.fillStyle = 'rgba(230,240,252,' + opacity.toFixed(3) + ')';  // White
-        else ctx.fillStyle = 'rgba(204,229,255,' + opacity.toFixed(3) + ')';  // Ice
-      }
-      
+    var seamHalf = h * (0.017 + auraEnergySmooth * 0.022 + mid * 0.01);
+    var seam = ctx.createLinearGradient(midX - w * 0.26, midY, midX + w * 0.26, midY);
+    seam.addColorStop(0, 'rgba(255,160,72,0)');
+    seam.addColorStop(0.22, 'rgba(106,210,255,' + (0.15 + high * 0.1).toFixed(3) + ')');
+    var seamShimmer = 0.988 + 0.022 * Math.sin(phase * 6.4 + auraTransient * 18 + high * 2.4);
+    seam.addColorStop(0.5, 'rgba(255,249,236,' + ((0.56 + auraEnergySmooth * 0.26) * seamShimmer).toFixed(3) + ')');
+    seam.addColorStop(0.78, 'rgba(176,122,255,' + (0.2 + mid * 0.09).toFixed(3) + ')');
+    seam.addColorStop(1, 'rgba(255,160,72,0)');
+    ctx.fillStyle = seam;
+    ctx.fillRect(midX - w * 0.26, midY - seamHalf, w * 0.52, seamHalf * 2);
+
+    // Hero filament: one crisp, luminous spine for premium contrast.
+    var filamentLeft = midX - w * 0.2;
+    var filamentRight = rightPlasmaEndX - w * 0.02;
+    var filamentY = midY + Math.sin(phase * 0.9) * h * 0.004;
+    var filamentGlow = ctx.createLinearGradient(filamentLeft, filamentY, filamentRight, filamentY);
+    filamentGlow.addColorStop(0, 'rgba(172,118,252,0)');
+    filamentGlow.addColorStop(0.5, 'rgba(184,236,255,' + (0.12 + auraEnergySmooth * 0.12).toFixed(3) + ')');
+    filamentGlow.addColorStop(1, 'rgba(132,206,255,0)');
+    ctx.strokeStyle = filamentGlow;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    for (var fx = 0; fx <= 44; fx++) {
+      var ft = fx / 44;
+      var px = filamentLeft + (filamentRight - filamentLeft) * ft;
+      var py = filamentY
+        + Math.sin(ft * Math.PI * 2.4 + phase * 1.05) * h * 0.003
+        + Math.sin(ft * Math.PI * 8.2 - phase * 0.6) * h * 0.0009;
+      if (fx === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    var filamentCore = ctx.createLinearGradient(filamentLeft, filamentY, filamentRight, filamentY);
+    filamentCore.addColorStop(0, 'rgba(206,234,255,0)');
+    filamentCore.addColorStop(0.5, 'rgba(242,252,255,' + (0.55 + auraEnergySmooth * 0.18).toFixed(3) + ')');
+    filamentCore.addColorStop(1, 'rgba(206,234,255,0)');
+    ctx.strokeStyle = filamentCore;
+    ctx.lineWidth = 0.85;
+    ctx.beginPath();
+    for (var fx2 = 0; fx2 <= 44; fx2++) {
+      var ft2 = fx2 / 44;
+      var px2 = filamentLeft + (filamentRight - filamentLeft) * ft2;
+      var py2 = filamentY
+        + Math.sin(ft2 * Math.PI * 2.4 + phase * 1.05) * h * 0.0025
+        + Math.sin(ft2 * Math.PI * 8.2 - phase * 0.6) * h * 0.0007;
+      if (fx2 === 0) ctx.moveTo(px2, py2);
+      else ctx.lineTo(px2, py2);
+    }
+    ctx.stroke();
+
+    var impactPulse = 0.5 + 0.5 * Math.sin(phase * 2.9);
+    var shockR = nodeR * (2.6 + impactPulse * 0.32 + auraEnergySmooth * 0.28);
+    ctx.beginPath();
+    ctx.arc(midX, midY, shockR, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(196,236,255,' + (0.038 + auraEnergySmooth * 0.035).toFixed(3) + ')';
+    ctx.lineWidth = 0.9;
+    ctx.stroke();
+
+    // Soft distortion shell for subtle collision impact.
+    var distort = ctx.createRadialGradient(midX, midY, nodeR * 0.95, midX, midY, nodeR * 2.4);
+    distort.addColorStop(0, 'rgba(216,246,255,0)');
+    distort.addColorStop(0.56, 'rgba(162,232,255,' + (0.03 + auraEnergySmooth * 0.025).toFixed(3) + ')');
+    distort.addColorStop(1, 'rgba(216,246,255,0)');
+    ctx.fillStyle = distort;
+    ctx.beginPath();
+    ctx.arc(midX, midY, nodeR * 2.45, 0, Math.PI * 2);
+    ctx.fill();
+
+    var halo = ctx.createRadialGradient(midX, midY, nodeR * 0.2, midX, midY, haloR);
+    halo.addColorStop(0, 'rgba(228,246,255,0.22)');
+    halo.addColorStop(0.28, 'rgba(110,222,255,' + (0.19 + high * 0.1).toFixed(3) + ')');
+    halo.addColorStop(0.58, 'rgba(170,118,255,' + (0.13 + mid * 0.08).toFixed(3) + ')');
+    halo.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(midX, midY, haloR, 0, Math.PI * 2);
+    ctx.fill();
+
+    var centerFogA = ctx.createRadialGradient(midX, midY + h * 0.01, nodeR * 0.7, midX, midY + h * 0.03, haloR * 1.05);
+    centerFogA.addColorStop(0, 'rgba(130,202,255,' + (0.055 + auraEnergySmooth * 0.03).toFixed(3) + ')');
+    centerFogA.addColorStop(0.58, 'rgba(154,116,246,' + (0.04 + mid * 0.03).toFixed(3) + ')');
+    centerFogA.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = centerFogA;
+    ctx.beginPath();
+    ctx.arc(midX, midY + h * 0.02, haloR * 1.02, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Center-focused contrast shaping: slightly darken outer center to keep bite.
+    var centerContrast = ctx.createRadialGradient(midX, midY, nodeR * 1.15, midX, midY, haloR * 1.32);
+    centerContrast.addColorStop(0, 'rgba(0,0,0,0)');
+    centerContrast.addColorStop(0.62, 'rgba(2,4,12,0.08)');
+    centerContrast.addColorStop(1, 'rgba(2,4,12,0.16)');
+    ctx.fillStyle = centerContrast;
+    ctx.beginPath();
+    ctx.arc(midX, midY, haloR * 1.34, 0, Math.PI * 2);
+    ctx.fill();
+
+    for (var rr = 0; rr < 2; rr++) {
+      var ringR = nodeR * (1.8 + rr * 1.1) + pulse * nodeR * (0.2 + rr * 0.12);
       ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    
-    ctx.restore();
-
-    // ========================================
-    // SHIMMER TRAILS: Energy sparkle & brilliance
-    // ========================================
-    // HIGH AURA: controls shimmer intensity, trail visibility, brilliance
-    
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    
-    var shimmerCount = 16 + Math.round(high * 28);  // 16-44 trails based on HIGH
-    for (var s = 0; s < shimmerCount; s++) {
-      var sn = s / (shimmerCount - 1 || 1);
-      var sx = w * (0.08 + sn * 0.84 + Math.sin(s * 11.2 + phase * (0.24 + sn * 0.2)) * 0.02 * (wide ? 1.5 : 1));
-      var sy = h * (0.16 + Math.abs(Math.sin(s * 7.2 + phase * 0.34)) * 0.5);
-      var sh = h * (0.07 + (0.12 + high * 0.22) * Math.abs(Math.sin(s * 3.9 + phase * 0.46)));
-      var sw = 0.5 + high * 0.64;
-      var sa = (0.026 + high * 0.076 * Math.abs(Math.sin(s * 5.1 + phase * 0.22))) * (safe ? 0.86 : 1);
-      
-      var streak = ctx.createLinearGradient(sx, sy, sx, sy + sh);
-      streak.addColorStop(0, 'rgba(255,255,255,0)');
-      streak.addColorStop(0.5, 'rgba(204,229,255,' + sa.toFixed(3) + ')');
-      streak.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = streak;
-      ctx.fillRect(sx, sy, sw, sh);
-    }
-    
-    ctx.restore();
-
-    // ========================================
-    // BLOOM GLOW: Softness & warmth character
-    // ========================================
-    // MID AURA: controls bloom softness, warmth intensity
-    // HIGH AURA: controls bloom position & distribution
-    
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    
-    var bloom = ctx.createRadialGradient(w * 0.5, h * (0.55 - high * 0.11), 0, w * 0.5, h * 0.58, w * (0.44 + high * 0.065));
-    
-    // Warmth glow: MID controls intensity (low MID = subtle, high MID = warm)
-    bloom.addColorStop(0, 'rgba(248,230,208,' + (0.024 + mid * 0.034).toFixed(3) + ')');
-    
-    // Purple warmth: MID controls saturation
-    bloom.addColorStop(0.34, 'rgba(181,120,244,' + (0.105 + mid * 0.115).toFixed(3) + ')');
-    
-    // Cyan lift: HIGH controls brilliance
-    bloom.addColorStop(0.66, 'rgba(110,174,232,' + (0.094 + high * 0.11).toFixed(3) + ')');
-    
-    bloom.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = bloom;
-    ctx.fillRect(0, 0, w, h);
-
-    var rightBloom = ctx.createRadialGradient(w * 0.62, h * (0.49 - high * 0.06), 0, w * 0.62, h * 0.54, w * (0.28 + high * 0.05));
-    rightBloom.addColorStop(0, 'rgba(214,236,255,' + (0.022 + high * 0.034).toFixed(3) + ')');
-    rightBloom.addColorStop(0.42, 'rgba(128,190,244,' + (0.038 + high * 0.05).toFixed(3) + ')');
-    rightBloom.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = rightBloom;
-    ctx.fillRect(0, 0, w, h);
-    
-    ctx.restore();
-
-    // ========================================
-    // MICRO-DETAIL: Spectral character richness
-    // ========================================
-    // These layers communicate DSP subtlety without visual chaos.
-    // They should remain imperceptible at low settings, delicate at high settings.
-    
-    // Spectral pockets: HIGH controls cyan sparkle richness
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    
-    var pocketCount = Math.round(3 + high * 5);  // 3-8 pockets based on HIGH
-    for (var p = 0; p < pocketCount; p++) {
-      var pn = p / Math.max(1, pocketCount - 1);
-      var px = w * (0.16 + pn * 0.68 + Math.sin(phase * 0.33 + p * 1.7) * 0.03);
-      var py = h * (0.34 + Math.sin(phase * (0.27 + high * 0.08) + p * 2.3) * 0.16);
-      var pr = w * (0.08 + pn * 0.04 + high * 0.02);
-      
-      var pocket = ctx.createRadialGradient(px, py, 0, px, py, pr);
-      
-      // HIGH controls: bias toward cyan/brilliant colors
-      if (high > 0.5) {
-        // High HIGH: cyan sparkle dominates
-        pocket.addColorStop(0, 'rgba(118,198,255,' + (0.048 + high * 0.072).toFixed(3) + ')');
-      } else if (high > 0.2) {
-        // Mid HIGH: mixed palette
-        if (p % 2 === 0) pocket.addColorStop(0, 'rgba(118,198,255,' + (0.036 + high * 0.05).toFixed(3) + ')');
-        else pocket.addColorStop(0, 'rgba(184,126,244,' + (0.036 + high * 0.038).toFixed(3) + ')');
-      } else {
-        // Low HIGH: subtle purple warmth
-        pocket.addColorStop(0, 'rgba(184,126,244,' + (0.024 + high * 0.026).toFixed(3) + ')');
-      }
-      
-      pocket.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = pocket;
-      ctx.fillRect(0, 0, w, h);
-    }
-    
-    ctx.restore();
-
-    // Micro threads: MID controls presence & motion energy
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    
-    var threadCount = Math.round(3 + mid * 8);  // 3-11 threads based on MID
-    for (var mt = 0; mt < threadCount; mt++) {
-      var mtn = mt / Math.max(1, threadCount - 1);
-      var yBase = h * (0.4 + mtn * 0.34);
-      
-      var mGrad = ctx.createLinearGradient(0, yBase, w, yBase);
-      
-      // MID controls: bias toward purple warmth
-      var purpleStr = 0.02 + mid * 0.05;
-      var cyanStr = 0.025 + mid * 0.035;
-      
-      mGrad.addColorStop(0, 'rgba(159,109,236,' + purpleStr.toFixed(3) + ')');
-      mGrad.addColorStop(0.5, 'rgba(118,201,255,' + cyanStr.toFixed(3) + ')');
-      mGrad.addColorStop(1, 'rgba(159,109,236,' + purpleStr.toFixed(3) + ')');
-      
-      ctx.strokeStyle = mGrad;
-      ctx.lineWidth = 0.55 + mid * 0.15;
-      ctx.beginPath();
-      
-      for (var mx = 0; mx <= w; mx += 2) {
-        var mn = mx / w;
-        // MID controls motion amplitude subtly
-        var motionAmp = 0.002 + mtn * 0.002 + mid * 0.001;
-        var my = yBase + Math.sin((mn * (4.6 + mtn * 2.2) + phase * (0.06 + mtn * 0.035 + mid * 0.02)) * Math.PI * 2) * h * motionAmp;
-        if (mx === 0) ctx.moveTo(mx, my);
-        else ctx.lineTo(mx, my);
-      }
+      ctx.arc(midX, midY, ringR, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(194,234,255,' + (0.08 + (1 - rr) * 0.1 + auraEnergySmooth * 0.06).toFixed(3) + ')';
+      ctx.lineWidth = 1.1 + rr * 0.7;
       ctx.stroke();
     }
-    
-    ctx.restore();
 
-    // Star-like micro particles: MID/HIGH both contribute to atmospheric richness
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    
-    var starCount = Math.round(80 + mid * 60 + high * 50);  // 80-190 stars based on both knobs
-    for (var sp = 0; sp < starCount; sp++) {
-      var ss = sp * 0.618;
-      var sd = (phase * (0.004 + (sp % 5) * 0.0008)) % 1;
-      var sx = w * ((ss + sd * 0.14) % 1);
-      var sy = h * (0.12 + ((ss * 1.37 + sd * 0.24) % 1) * 0.76);
-      var sr = 0.28 + (sp % 3) * 0.22;
-      
-      // Palette biased by MID/HIGH
-      var starPalette = sp % 6;
-      var opacity;
-      
-      if (mid > high) {
-        // MID-dominant: warmer, purple-biased stars
-        opacity = (0.09 + mid * 0.13) * (0.6 + 0.4 * Math.sin(ss * 2.1));
-        if (starPalette < 3) ctx.fillStyle = 'rgba(192,150,244,' + opacity.toFixed(3) + ')';  // Purple
-        else ctx.fillStyle = 'rgba(180,200,255,' + (opacity * 0.8).toFixed(3) + ')';  // Soft blue
-      } else {
-        // HIGH-dominant: brighter, cyan-biased stars
-        opacity = (0.08 + high * 0.14) * (0.5 + 0.5 * Math.sin(ss * 1.8));
-        if (starPalette < 3) ctx.fillStyle = 'rgba(198,228,255,' + opacity.toFixed(3) + ')';  // Cyan
-        else ctx.fillStyle = 'rgba(220,235,255,' + (opacity * 0.9).toFixed(3) + ')';  // Pale
-      }
-      
+    var coreFlicker = 0.5 + 0.5 * Math.sin(phase * 4.1 + auraEnergySmooth * 3.2);
+    var coreWarpX = w * (0.0014 * asymDrift + 0.0009 * Math.sin(phase * 1.9));
+    var coreWarpY = h * (0.0012 * Math.sin(phase * 1.3 + 0.7) + 0.0008 * asymDrift);
+    var centerBreath = 0.996 + 0.012 * Math.sin(phase * 1.45 + auraEnergySmooth * 4.8);
+    var reactiveShimmer = 0.988 + 0.022 * Math.sin(phase * (6.1 + 0.22 * asymDrift) + auraTransient * 18 + high * 2.4 + imbalancePulse * 0.5);
+    var coreGlow = ctx.createRadialGradient(midX + coreWarpX, midY + coreWarpY, 0, midX + coreWarpX, midY + coreWarpY, nodeR * (1.16 * centerBreath));
+    coreGlow.addColorStop(0, 'rgba(255,255,255,' + ((0.82 + auraEnergySmooth * 0.16 + coreFlicker * 0.04) * reactiveShimmer).toFixed(3) + ')');
+    coreGlow.addColorStop(0.22, 'rgba(150,240,255,' + (0.6 + high * 0.14).toFixed(3) + ')');
+    coreGlow.addColorStop(0.56, 'rgba(174,124,255,' + (0.24 + mid * 0.08).toFixed(3) + ')');
+    coreGlow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = coreGlow;
+    ctx.beginPath();
+    ctx.arc(midX + coreWarpX, midY + coreWarpY, nodeR * (1.16 * centerBreath), 0, Math.PI * 2);
+    ctx.fill();
+
+    var hotCore = ctx.createRadialGradient(midX + coreWarpX, midY + coreWarpY, 0, midX + coreWarpX, midY + coreWarpY, nodeR * (0.62 * centerBreath));
+    hotCore.addColorStop(0, 'rgba(255,255,255,' + ((0.98 + coreFlicker * 0.02) * reactiveShimmer).toFixed(3) + ')');
+    hotCore.addColorStop(0.34, 'rgba(236,252,255,0.98)');
+    hotCore.addColorStop(0.72, 'rgba(122,226,255,0.2)');
+    hotCore.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = hotCore;
+    ctx.beginPath();
+    ctx.arc(midX + coreWarpX, midY + coreWarpY, nodeR * ((0.58 + pulse * 0.08) * centerBreath), 0, Math.PI * 2);
+    ctx.fill();
+
+    var nucleus = ctx.createRadialGradient(midX + coreWarpX, midY + coreWarpY, 0, midX + coreWarpX, midY + coreWarpY, nodeR * 0.28);
+    nucleus.addColorStop(0, 'rgba(255,255,255,' + ((0.96 + coreFlicker * 0.03) * reactiveShimmer).toFixed(3) + ')');
+    nucleus.addColorStop(0.62, 'rgba(220,248,255,0.88)');
+    nucleus.addColorStop(1, 'rgba(184,236,255,0)');
+    ctx.fillStyle = nucleus;
+    ctx.beginPath();
+    ctx.arc(midX + coreWarpX, midY + coreWarpY, nodeR * 0.29, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Sharper nucleus edge anchor.
+    ctx.beginPath();
+    ctx.arc(midX, midY, nodeR * 0.315, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(214,244,255,' + (0.2 + auraEnergySmooth * 0.1).toFixed(3) + ')';
+    ctx.lineWidth = 0.85;
+    ctx.stroke();
+
+    // Micro high-frequency details: sparse precision sparks/branches.
+    for (var ms = 0; ms < 8; ms++) {
+      var sa = phase * 0.72 + ms * 0.79;
+      var sr = nodeR * (0.48 + (ms % 3) * 0.15);
+      var sx = midX + Math.cos(sa) * sr;
+      var sy = midY + Math.sin(sa * 1.18) * sr * 0.72;
+      var sl = 3.6 + (ms % 2) * 2.3;
+      var sd = sa + Math.sin(phase * 1.9 + ms) * 0.32;
       ctx.beginPath();
-      ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + Math.cos(sd) * sl, sy + Math.sin(sd) * sl);
+      ctx.strokeStyle = 'rgba(220,244,255,' + (0.07 + auraEnergySmooth * 0.06).toFixed(3) + ')';
+      ctx.lineWidth = 0.7;
+      ctx.stroke();
+    }
+
+    // Optional ultra-faint HUD glass arc.
+    ctx.beginPath();
+    ctx.ellipse(midX, midY - h * 0.006, nodeR * 2.55, nodeR * 1.18, -0.06, Math.PI * 0.1, Math.PI * 0.9);
+    ctx.strokeStyle = 'rgba(198,226,255,' + (0.035 + high * 0.02).toFixed(3) + ')';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+
+    // Near-invisible drifting dust around center for depth.
+    for (var d = 0; d < 18; d++) {
+      var dn = d / 18;
+      var da = phase * (0.06 + (d % 4) * 0.012) + d * 0.77;
+      var dr = nodeR * (1.1 + dn * 2.4 + 0.22 * Math.sin(phase * 0.5 + d));
+      var dx = midX + Math.cos(da) * dr;
+      var dy = midY + Math.sin(da * 1.17) * dr * 0.62;
+      var dAlpha = (0.01 + 0.012 * (1 - dn)) * (0.8 + 0.2 * Math.sin(phase * 1.3 + d));
+      ctx.fillStyle = 'rgba(206,234,255,' + dAlpha.toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(dx, dy, 0.45 + (d % 3) * 0.28, 0, Math.PI * 2);
       ctx.fill();
     }
-    
+
     ctx.restore();
 
-    // ========================================
-    // ATMOSPHERIC HAZE: Slow-drifting warm fog
-    // ========================================
-    // Large, ultra-soft, very low opacity blobs that drift slowly
+    if (auraTransient > 0.045 && audioEnergy > 0.2 && auraBursts.length < 18) {
+      var burstStrength = clamp((auraTransient - 0.045) * 7.2, 0, 1);
+      var emitCount = 1 + Math.round(burstStrength * 2);
+      for (var e = 0; e < emitCount; e++) {
+        var ang = ((e / Math.max(1, emitCount)) * Math.PI * 2) + phase * 0.2;
+        auraBursts.push({
+          x: midX + Math.cos(ang) * nodeR * 0.16,
+          y: midY + Math.sin(ang) * nodeR * 0.16,
+          vx: Math.cos(ang) * (0.45 + burstStrength * 1.2),
+          vy: Math.sin(ang) * (0.45 + burstStrength * 1.2),
+          life: 0.72,
+          size: 0.6 + burstStrength * 0.9
+        });
+      }
+    }
+
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
-    var hazeCount = 6;
-    for (var hz = 0; hz < hazeCount; hz++) {
-      var hzPhaseOffset = hz * 1.57;
-      var hzX = w * (0.18 + hz * 0.165 + Math.sin(phase * 0.04 + hzPhaseOffset) * 0.06);
-      var hzY = h * (0.42 + Math.sin(phase * 0.028 + hzPhaseOffset * 1.3) * 0.12);
-      var hzR = w * (0.25 + hz * 0.042 + Math.sin(phase * 0.035 + hz) * 0.035);
-      var hazeGrad = ctx.createRadialGradient(hzX, hzY, 0, hzX, hzY, hzR);
-      var hzPurple = (0.032 + mid * 0.044) * (0.7 + 0.3 * Math.sin(phase * 0.06 + hz * 0.8));
-      var hzCyan = (0.024 + high * 0.04) * (0.7 + 0.3 * Math.sin(phase * 0.05 + hz * 1.1));
-      if (hz % 2 === 0) {
-        hazeGrad.addColorStop(0, 'rgba(170,118,240,' + hzPurple.toFixed(3) + ')');
-      } else {
-        hazeGrad.addColorStop(0, 'rgba(106,180,245,' + hzCyan.toFixed(3) + ')');
+    for (var b = auraBursts.length - 1; b >= 0; b--) {
+      var particle = auraBursts[b];
+      particle.life -= 0.05;
+      particle.x += particle.vx;
+      particle.y += particle.vy;
+      particle.vx *= 0.985;
+      particle.vy *= 0.985;
+      if (particle.life <= 0) {
+        auraBursts.splice(b, 1);
+        continue;
       }
-      hazeGrad.addColorStop(0.48, 'rgba(122,158,236,' + (0.012 + high * 0.02 + mid * 0.012).toFixed(3) + ')');
-      hazeGrad.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = hazeGrad;
-      ctx.fillRect(0, 0, w, h);
+      var pA = particle.life * (0.13 + auraEnergySmooth * 0.16);
+      ctx.fillStyle = 'rgba(220,244,255,' + pA.toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, particle.size * (0.6 + particle.life), 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
 
-    // Preserve deep black floor: ensures energy reads as emerging light, not fog
-    var blackFloor = ctx.createLinearGradient(0, h * 0.1, 0, h);
-    blackFloor.addColorStop(0, 'rgba(0,0,0,0)');
-    blackFloor.addColorStop(0.58, 'rgba(1,3,9,0.16)');
-    blackFloor.addColorStop(1, 'rgba(1,2,8,0.36)');
-    ctx.fillStyle = blackFloor;
+    var vignette = ctx.createRadialGradient(w * 0.5, h * 0.5, w * 0.22, w * 0.5, h * 0.5, w * 0.82);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(1,2,8,0.78)');
+    ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, w, h);
 
     var outEl = document.getElementById('out-meter');
@@ -872,6 +941,7 @@
 
     canvas = document.getElementById('aura-canvas');
     ctx = canvas ? canvas.getContext('2d') : null;
+    cosmicReferenceEl = document.getElementById('cosmic-reference');
 
     Object.keys(PARAMS).forEach(function (p) { setParam(p, values[p], false); });
 
