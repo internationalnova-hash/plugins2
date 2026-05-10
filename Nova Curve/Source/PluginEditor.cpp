@@ -14,8 +14,8 @@ NovaCurveAudioProcessorEditor::NovaCurveAudioProcessorEditor (NovaCurveAudioProc
     webView->goToURL (cacheBustedUrl);
 
     setResizable (false, false);
-    setSize (1536, 1024);
-    startTimerHz (30);
+    setSize (1080, 680);
+    startTimerHz (20);
 }
 
 NovaCurveAudioProcessorEditor::~NovaCurveAudioProcessorEditor()

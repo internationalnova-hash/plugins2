@@ -90,6 +90,8 @@ let draggingBand = -1;
 let hoveredBand = -1;
 let hoverGraphX = 0;
 let hoverGraphY = 0;
+let cachedCanvasRect = null;
+let knobDragging = false;
 
 let lastFrameMs = performance.now();
 let interactionEnergy = 0;
@@ -785,6 +787,8 @@ function buildKnob(el, options) {
     indicator.style.filter = "drop-shadow(0 0 2px rgba(190, 210, 255, 0.28))";
   });
 
+  let knobRafPending = false;
+
   window.addEventListener("mousemove", (e) => {
     if (!drag) return;
     const delta = drag.lastY - e.clientY;
@@ -792,20 +796,32 @@ function buildKnob(el, options) {
     const fine = (e.shiftKey || e.metaKey) ? 0.2 : 1;
     const normStepPerPx = 0.00245 * fine;
     drag.norm = clamp(drag.norm + delta * normStepPerPx, 0, 1);
-    ctrl.set(normToValue(drag.norm), true);
+    // Update model immediately so the graph curve reflects the change this frame
+    const newValue = normToValue(drag.norm);
+    options.set(clamp(newValue, options.min, options.max), true);
     lastDragValue = options.get();
     interactionEnergy = Math.min(1, interactionEnergy + 0.05);
-    
-    // Update readouts every other frame to reduce lag perception
-    readoutUpdateFrame++;
-    if (readoutUpdateFrame % 2 === 0) {
-      updateSelectedBandReadouts(options.readoutKey || "all");
+    knobDragging = true;
+
+    // Throttle expensive SVG + CSS visual update to once per animation frame
+    if (!knobRafPending) {
+      knobRafPending = true;
+      requestAnimationFrame(() => {
+        knobRafPending = false;
+        if (!drag) return;
+        ctrl.set(options.get(), false); // false = skip model write, visual only
+        readoutUpdateFrame++;
+        if (readoutUpdateFrame % 2 === 0) {
+          updateSelectedBandReadouts(options.readoutKey || "all");
+        }
+      });
     }
   });
 
   window.addEventListener("mouseup", () => {
     if (drag) {
       drag = null;
+      knobDragging = false;
       readoutUpdateFrame = 0;
       el.style.opacity = "1";
       ctrl.arc.style.filter = "drop-shadow(0 0 1px rgba(120, 100, 220, 0.24))";
@@ -1228,6 +1244,8 @@ function bindEvents() {
   });
 
   canvas.addEventListener("mousedown", onGraphDown);
+  // Invalidate cached canvas rect on window resize so coordinates remain accurate.
+  window.addEventListener("resize", () => { cachedCanvasRect = null; });
   // When clicking on callout, disable solo persistence so it can hide normally
   callout.addEventListener("click", () => {
     calloutSoloPersistent = false;
@@ -1338,7 +1356,8 @@ function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
 
 function onGraphDown(e) {
   e.preventDefault();
-  const rect = canvas.getBoundingClientRect();
+  cachedCanvasRect = canvas.getBoundingClientRect();
+  const rect = cachedCanvasRect;
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
 
@@ -1362,7 +1381,7 @@ function onGraphDown(e) {
 }
 
 function onGraphMove(e) {
-  const rect = canvas.getBoundingClientRect();
+  const rect = cachedCanvasRect || (cachedCanvasRect = canvas.getBoundingClientRect());
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
   hoverGraphX = x;
@@ -2018,6 +2037,12 @@ function drawGraph() {
 }
 
 window.updateCurveAnalyzer = function (pre, post, reduction, peak, activity) {
+  // Skip heavy array parsing while user is actively dragging to keep interaction instant.
+  if (draggingBand >= 0 || knobDragging) {
+    outputPeak = Number(peak) || 0;
+    dynActivity = Number(activity) || 0;
+    return;
+  }
   if (Array.isArray(pre)) preSpectrum = Float32Array.from(pre.slice(0, BINS));
   if (Array.isArray(post)) postSpectrum = Float32Array.from(post.slice(0, BINS));
   if (Array.isArray(reduction)) reductionSpectrum = Float32Array.from(reduction.slice(0, BINS));
