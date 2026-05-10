@@ -6,6 +6,7 @@ const FREQ_MAX = 20000;
 const FILTER_TYPES = ["Bell", "Low Shelf", "High Shelf", "High Pass", "Low Pass", "Notch", "Band Pass", "Tilt"];
 const BAND_MODES = ["Static", "Dynamic", "Resonance"];
 const CHANNEL_MODES = ["Stereo", "Mid", "Side", "Left", "Right"];
+const USER_PRESETS_STORAGE_KEY = "novaCurve.userPresets.v1";
 
 const PRESETS = [
   { name: "Default*", ops: [] },
@@ -102,6 +103,7 @@ let calloutHovering = false;
 let calloutHideTimer = 0;
 let calloutSoloPersistent = false;
 let displayBands = [];
+let userPresets = [];
 
 let nativeGetState = async () => "";
 let nativeSetState = async () => true;
@@ -124,6 +126,7 @@ const bandPanel = document.getElementById("bandPanel");
 
 const phaseModeSelect = document.getElementById("phaseMode");
 const presetSelect = document.getElementById("presetSelect");
+const savePresetBtn = document.getElementById("savePresetBtn");
 const bandButtons = document.getElementById("bandButtons");
 
 const bypassBtn = document.getElementById("bypassBtn");
@@ -233,6 +236,98 @@ function drawEqResponsePath(ctx, bands, width, height, pointCount = 260) {
 function fmtHz(hz) { return hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${Math.round(hz)} Hz`; }
 function fmtDb(db) { return `${db >= 0 ? "+" : ""}${db.toFixed(1)} dB`; }
 function fmtMs(ms) { return ms < 100 ? `${ms.toFixed(1)} ms` : `${Math.round(ms)} ms`; }
+
+function getAllPresets() {
+  return PRESETS.concat(userPresets);
+}
+
+function rebuildPresetSelectOptions() {
+  if (!presetSelect) return;
+  const currentValue = presetSelect.value;
+  presetSelect.innerHTML = "";
+  getAllPresets().forEach((preset) => {
+    const option = document.createElement("option");
+    option.value = preset.name;
+    option.textContent = preset.name;
+    presetSelect.appendChild(option);
+  });
+
+  if (!presetSelect.options.length) return;
+  const hasCurrent = Array.from(presetSelect.options).some((o) => o.value === currentValue);
+  presetSelect.value = hasCurrent ? currentValue : presetSelect.options[0].value;
+}
+
+function loadUserPresets() {
+  try {
+    if (typeof localStorage === "undefined") return;
+    const raw = localStorage.getItem(USER_PRESETS_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    userPresets = parsed
+      .filter((p) => p && typeof p.name === "string" && Array.isArray(p.ops))
+      .map((p) => ({ name: p.name.trim(), ops: p.ops }))
+      .filter((p) => p.name.length > 0);
+  } catch (_) {
+    userPresets = [];
+  }
+}
+
+function persistUserPresets() {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(USER_PRESETS_STORAGE_KEY, JSON.stringify(userPresets));
+  } catch (_) {}
+}
+
+function captureCurrentPresetOps() {
+  return state.bands
+    .map((b, i) => ({ b, i }))
+    .filter(({ b }) => b.enabled > 0.5)
+    .map(({ b, i }) => ({
+      i,
+      t: Math.round(b.type || 0),
+      m: Math.round(b.mode || 0),
+      c: Math.round(b.channel || 0),
+      f: Number((b.frequency || 1000).toFixed(2)),
+      g: Number((b.gainDb || 0).toFixed(2)),
+      q: Number((b.q || 1.2).toFixed(3))
+    }));
+}
+
+function saveCurrentPreset() {
+  const defaultName = `My Preset ${userPresets.length + 1}`;
+  const entered = window.prompt("Save preset as:", defaultName);
+  if (entered === null) return;
+
+  const name = entered.trim();
+  if (!name) return;
+
+  const ops = captureCurrentPresetOps();
+  if (!ops.length) {
+    window.alert("Enable at least one band before saving a preset.");
+    return;
+  }
+
+  const existingBuiltIn = PRESETS.findIndex((p) => p.name.toLowerCase() === name.toLowerCase());
+  if (existingBuiltIn >= 0) {
+    window.alert("That name is used by a factory preset. Please choose a different name.");
+    return;
+  }
+
+  const existingUser = userPresets.findIndex((p) => p.name.toLowerCase() === name.toLowerCase());
+  if (existingUser >= 0) {
+    const ok = window.confirm(`Overwrite preset \"${name}\"?`);
+    if (!ok) return;
+    userPresets[existingUser] = { name, ops };
+  } else {
+    userPresets.push({ name, ops });
+  }
+
+  persistUserPresets();
+  rebuildPresetSelectOptions();
+  presetSelect.value = name;
+}
 
 function selectedBand() { return state.bands[state.selectedBand] || state.bands[0]; }
 
@@ -886,6 +981,8 @@ function createKnobs() {
 }
 
 function populateUi() {
+  loadUserPresets();
+
   for (let i = 0; i < MAX_BANDS; i++) {
     const option = document.createElement("option");
     option.value = String(i);
@@ -914,12 +1011,7 @@ function populateUi() {
     bandChannelSelect.appendChild(option);
   });
 
-  PRESETS.forEach((preset) => {
-    const option = document.createElement("option");
-    option.value = preset.name;
-    option.textContent = preset.name;
-    presetSelect.appendChild(option);
-  });
+  rebuildPresetSelectOptions();
 
   for (let i = 0; i < 8; i++) {
     const button = document.createElement("button");
@@ -1103,7 +1195,7 @@ function bindEvents() {
   };
 
   presetSelect.onchange = () => {
-    const preset = PRESETS.find((p) => p.name === presetSelect.value);
+    const preset = getAllPresets().find((p) => p.name === presetSelect.value);
     if (!preset) return;
     snapshotForUndo();
     preset.ops.forEach((op) => {
@@ -1112,6 +1204,7 @@ function bindEvents() {
       b.enabled = 1;
       if (op.t !== undefined) b.type = op.t;
       if (op.m !== undefined) b.mode = op.m;
+      if (op.c !== undefined) b.channel = op.c;
       if (op.f !== undefined) b.frequency = op.f;
       if (op.g !== undefined) b.gainDb = op.g;
       if (op.q !== undefined) b.q = op.q;
@@ -1119,6 +1212,12 @@ function bindEvents() {
     syncControlsFromState();
     queuePushState();
   };
+
+  if (savePresetBtn) {
+    savePresetBtn.onclick = () => {
+      saveCurrentPreset();
+    };
+  }
 
   document.querySelectorAll("#qualitySwitch button").forEach((btn) => {
     btn.onclick = () => { state.qualityMode = Number(btn.dataset.q) || 1; syncControlsFromState(); queuePushState(); };
@@ -1471,6 +1570,21 @@ function drawGraph() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
 
+  // Deep-space atmospheric layering behind all graph content.
+  const rearFog = ctx.createRadialGradient(w * 0.5, h * 1.18, 0, w * 0.5, h * 1.18, h * 1.25);
+  rearFog.addColorStop(0, "rgba(0, 0, 0, 0.38)");
+  rearFog.addColorStop(0.56, "rgba(10, 18, 40, 0.18)");
+  rearFog.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = rearFog;
+  ctx.fillRect(0, 0, w, h);
+
+  const centerLift = ctx.createRadialGradient(w * 0.5, h * 0.52, 0, w * 0.5, h * 0.52, h * 0.68);
+  centerLift.addColorStop(0, "rgba(188, 208, 255, 0.08)");
+  centerLift.addColorStop(0.42, "rgba(154, 172, 244, 0.05)");
+  centerLift.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = centerLift;
+  ctx.fillRect(0, 0, w, h);
+
   ctx.strokeStyle = "rgba(98, 124, 194, 0.11)";
   ctx.lineWidth = 0.9;
 
@@ -1661,6 +1775,17 @@ function drawGraph() {
       ctx.restore();
     }
 
+    // Ultra-soft rear bloom haze to push the curve into perceived depth.
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineWidth = 18.0;
+    drawEqResponsePath(ctx, activeBands, w, h);
+    ctx.strokeStyle = "rgba(104, 118, 204, 0.09)";
+    ctx.shadowColor = "rgba(120, 110, 214, 0.22)";
+    ctx.shadowBlur = 62;
+    ctx.stroke();
+    ctx.restore();
+
     ctx.save();
     ctx.beginPath();
     ctx.lineWidth = 12.2;
@@ -1709,20 +1834,20 @@ function drawGraph() {
     // Focused luminous core line for cinematic center energy
     ctx.beginPath();
     drawEqResponsePath(ctx, activeBands, w, h);
-    ctx.strokeStyle = "rgba(252, 253, 255, 1)";
-    ctx.lineWidth = 2.02;
-    ctx.shadowColor = "rgba(224, 206, 255, 0.84)";
-    ctx.shadowBlur = 16;
+    ctx.strokeStyle = "rgba(252, 253, 255, 0.98)";
+    ctx.lineWidth = 2.15;
+    ctx.shadowColor = "rgba(230, 214, 255, 0.9)";
+    ctx.shadowBlur = 18;
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Micro HDR filament pass: brighter center heat without adding wide bloom.
+    // Inner plasma filament for a hot energy center.
     ctx.beginPath();
     drawEqResponsePath(ctx, activeBands, w, h);
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
-    ctx.lineWidth = 1.18;
-    ctx.shadowColor = "rgba(255, 245, 255, 0.34)";
-    ctx.shadowBlur = 5;
+    ctx.strokeStyle = "rgba(255, 255, 255, 1)";
+    ctx.lineWidth = 1.08;
+    ctx.shadowColor = "rgba(255, 248, 255, 0.42)";
+    ctx.shadowBlur = 7;
     ctx.stroke();
     ctx.shadowBlur = 0;
   }
@@ -1742,30 +1867,31 @@ function drawGraph() {
     const notch = b.type === 5;
 
     const focusBoost = activeDrag ? 1.48 : hovered ? 1.18 : selected ? 1.12 : 1;
-    const halo = (selected ? (28 * pulse * breathe + reactiveDyn * 14) : dynamic ? (15.5 + reactiveDyn * 20) : 11) * focusBoost;
+    const halo = (selected ? (24 * pulse * breathe + reactiveDyn * 11) : dynamic ? (14 + reactiveDyn * 16) : 9.5) * focusBoost;
     
     // Outer diffuse glow (largest)
-    const g1 = ctx.createRadialGradient(x, y, 0, x, y, halo * 1.6);
-    g1.addColorStop(0, selected ? "rgba(185, 145, 255, 0.18)" : dynamic ? "rgba(110, 135, 255, 0.14)" : "rgba(200, 215, 255, 0.08)");
+    const g1 = ctx.createRadialGradient(x, y, 0, x, y, halo * 1.34);
+    g1.addColorStop(0, selected ? "rgba(180, 142, 255, 0.11)" : dynamic ? "rgba(104, 130, 255, 0.095)" : "rgba(190, 210, 255, 0.05)");
     g1.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g1;
     ctx.beginPath();
-    ctx.arc(x, y, halo * 1.6, 0, Math.PI * 2);
+    ctx.arc(x, y, halo * 1.34, 0, Math.PI * 2);
     ctx.fill();
 
     // Primary glow halo
-    const g2 = ctx.createRadialGradient(x, y, 0, x, y, halo);
-    g2.addColorStop(0, selected ? "rgba(196, 150, 255, 1)" : dynamic ? "rgba(108, 132, 255, 0.84)" : "rgba(236, 242, 255, 0.58)");
+    const g2 = ctx.createRadialGradient(x, y, 0, x, y, halo * 0.78);
+    g2.addColorStop(0, selected ? "rgba(214, 174, 255, 1)" : dynamic ? "rgba(128, 152, 255, 0.95)" : "rgba(244, 248, 255, 0.72)");
+    g2.addColorStop(0.38, selected ? "rgba(176, 132, 255, 0.44)" : dynamic ? "rgba(116, 142, 255, 0.34)" : "rgba(222, 234, 255, 0.26)");
     g2.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g2;
     ctx.beginPath();
-    ctx.arc(x, y, halo, 0, Math.PI * 2);
+    ctx.arc(x, y, halo * 0.78, 0, Math.PI * 2);
     ctx.fill();
 
     // Node core
     const nodeCore = ctx.createRadialGradient(x - 2.2, y - 3, 0, x, y, 13.5);
-    nodeCore.addColorStop(0, selected ? "rgba(255, 255, 255, 0.22)" : "rgba(235, 244, 255, 0.15)");
-    nodeCore.addColorStop(0.18, selected ? "rgba(72, 42, 126, 0.9)" : "rgba(26, 34, 88, 0.86)");
+    nodeCore.addColorStop(0, selected ? "rgba(255, 255, 255, 0.32)" : "rgba(244, 250, 255, 0.2)");
+    nodeCore.addColorStop(0.14, selected ? "rgba(88, 50, 142, 0.94)" : "rgba(32, 40, 102, 0.9)");
     nodeCore.addColorStop(0.72, "rgba(8, 10, 24, 0.96)");
     nodeCore.addColorStop(1, "rgba(2, 4, 12, 1)");
     ctx.fillStyle = nodeCore;
@@ -1852,7 +1978,19 @@ function drawGraph() {
     ctx.fillText(String(i + 1), x, y + 0.5);
   });
 
-  orb.style.boxShadow = `inset 0 -10px ${52 + reactiveDyn * 36}px rgba(0,0,0,0.62), inset 0 0 ${52 + reactiveDyn * 58}px rgba(182,128,255,0.66), inset 0 0 ${124 + reactiveDyn * 44}px rgba(66,88,218,0.46), inset 0 0 ${178 + reactiveDyn * 34}px rgba(2,8,28,0.9), 0 0 ${9 + reactivePeak * 18}px rgba(118,124,255,0.12), 0 0 ${26 + reactivePeak * 28}px rgba(84,98,244,0.08)`;
+  const orbEnergy = clamp(0.22 + reactiveDyn * 1.05 + reactivePeak * 0.82, 0, 1);
+  const orbDrift = Math.sin(now * 0.0017) * 11 + Math.cos(now * 0.0012) * 4;
+  const orbShimmer = Math.sin(now * 0.00135) * 24 + Math.cos(now * 0.0019) * 9;
+  const orbRot = Math.sin(now * 0.00042) * 7;
+  const orbCoreX = Math.sin(now * 0.0021) * (1.2 + orbEnergy * 1.7);
+  const orbCoreY = Math.cos(now * 0.0027) * (1.0 + orbEnergy * 1.5);
+  orb.style.setProperty("--orb-energy", `${orbEnergy.toFixed(3)}`);
+  orb.style.setProperty("--orb-drift", `${orbDrift.toFixed(3)}deg`);
+  orb.style.setProperty("--orb-shimmer", `${orbShimmer.toFixed(3)}deg`);
+  orb.style.setProperty("--orb-rot", `${orbRot.toFixed(3)}deg`);
+  orb.style.setProperty("--orb-core-x", `${orbCoreX.toFixed(3)}px`);
+  orb.style.setProperty("--orb-core-y", `${orbCoreY.toFixed(3)}px`);
+  orb.style.boxShadow = `inset 0 -10px ${52 + reactiveDyn * 40}px rgba(0,0,0,0.62), inset 0 0 ${52 + reactiveDyn * 64}px rgba(182,128,255,0.68), inset 0 0 ${124 + reactiveDyn * 52}px rgba(66,88,218,0.48), inset 0 0 ${178 + reactiveDyn * 42}px rgba(2,8,28,0.92), 0 0 ${10 + reactivePeak * 22}px rgba(118,124,255,0.16), 0 0 ${28 + reactivePeak * 34}px rgba(84,98,244,0.11)`;
 
   if (dynMeterFill) {
     const meterValue = clamp((meterSourceExternal ? dynActivity : outputPeak) * 100, 6, 100);
