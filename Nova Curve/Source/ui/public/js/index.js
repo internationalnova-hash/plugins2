@@ -1,0 +1,1919 @@
+const MAX_BANDS = 24;
+const BINS = 96;
+const FREQ_MIN = 20;
+const FREQ_MAX = 20000;
+
+const FILTER_TYPES = ["Bell", "Low Shelf", "High Shelf", "High Pass", "Low Pass", "Notch", "Band Pass", "Tilt"];
+const BAND_MODES = ["Static", "Dynamic", "Resonance"];
+const CHANNEL_MODES = ["Stereo", "Mid", "Side", "Left", "Right"];
+
+const PRESETS = [
+  { name: "Default*", ops: [] },
+  { name: "Vocal Cleanup", ops: [{ i: 2, g: -3.2, f: 310 }, { i: 3, g: -2.4, f: 2800, m: 1 }, { i: 5, g: 3.8, f: 13000, t: 2 }] },
+  { name: "Rap Vocal Surgical", ops: [{ i: 0, t: 3, f: 90 }, { i: 2, g: -5.8, f: 380, q: 2.2 }, { i: 3, g: -3.0, f: 4300, m: 2 }] },
+  { name: "Pop Vocal Polish", ops: [{ i: 1, g: 2.0, f: 140 }, { i: 3, g: 2.8, f: 2500 }, { i: 5, g: 4.5, f: 12000, t: 2 }] },
+  { name: "Mix Bus Sweetener", ops: [{ i: 1, g: 1.4, f: 120 }, { i: 3, g: 1.8, f: 1800 }, { i: 5, g: 2.0, f: 14000, t: 2 }] },
+  { name: "Mastering Clean", ops: [{ i: 0, t: 3, f: 24 }, { i: 2, g: -1.7, f: 280, q: 1.4 }, { i: 5, g: 1.8, f: 14000, t: 2 }] },
+  { name: "Beat Cleanup", ops: [{ i: 0, t: 3, f: 28 }, { i: 2, g: -4.0, f: 260, q: 2.4 }, { i: 4, g: -2.2, f: 5600, m: 1 }] },
+  { name: "Harshness Control", ops: [{ i: 3, g: -3.0, f: 3200, q: 2.0, m: 2 }, { i: 4, g: -2.0, f: 6900, q: 2.3, m: 1 }] },
+  { name: "Low-End Tighten", ops: [{ i: 0, t: 3, f: 33 }, { i: 1, g: -2.8, f: 130, q: 1.6, m: 1 }] },
+  { name: "Air & Shine", ops: [{ i: 5, t: 2, g: 6.2, f: 14500 }, { i: 4, g: -1.3, f: 5200, m: 1 }] },
+  { name: "Podcast / Voice", ops: [{ i: 0, t: 3, f: 75 }, { i: 2, g: -3.4, f: 250 }, { i: 3, g: 2.6, f: 2600 }, { i: 5, g: 2.8, f: 11000, t: 2 }] }
+];
+
+const defaultBand = (i) => ({
+  enabled: i < 6 ? 1 : 0,
+  type: i === 0 ? 3 : i === 5 ? 2 : 0,
+  mode: i === 3 || i === 4 ? 1 : 0,
+  channel: 0,
+  frequency: 20 * Math.pow(1000, i / (MAX_BANDS - 1)),
+  gainDb: 0,
+  q: 1.2,
+  slope: 24,
+  dynRangeDb: -6,
+  thresholdMode: 1,
+  thresholdDb: -22,
+  attackMs: 10,
+  releaseMs: 120,
+  ratio: 2.2,
+  solo: 0
+});
+
+const state = {
+  selectedBand: 3,
+  phaseMode: 1,
+  qualityMode: 1,
+  analyzerMode: 0,
+  harmonicLink: 0,
+  signalMotion: 0,
+  outputGainDb: 0,
+  bypassed: 0,
+  resonanceAmount: 42,
+  bands: Array.from({ length: MAX_BANDS }, (_, i) => defaultBand(i))
+};
+
+state.bands[0].frequency = 34;
+state.bands[1].frequency = 110; state.bands[1].gainDb = 3.2;
+state.bands[2].frequency = 360; state.bands[2].gainDb = -10.8; state.bands[2].type = 5;
+state.bands[3].frequency = 2730; state.bands[3].gainDb = 4.8;
+state.bands[4].frequency = 5000;
+state.bands[5].frequency = 13000; state.bands[5].type = 2; state.bands[5].gainDb = 5.6;
+
+let undoStack = [];
+let redoStack = [];
+let snapshotA = JSON.stringify(state);
+
+let preSpectrum = new Float32Array(BINS);
+let postSpectrum = new Float32Array(BINS);
+let reductionSpectrum = new Float32Array(BINS);
+let preSmoothed = new Float32Array(BINS);
+let postSmoothed = new Float32Array(BINS);
+let reductionSmoothed = new Float32Array(BINS);
+let analyzerTrailA = new Float32Array(BINS);
+let analyzerTrailB = new Float32Array(BINS);
+let analyzerTrailC = new Float32Array(BINS);
+let outputPeak = 0;
+let dynActivity = 0;
+let harmonicLinkVisual = 0;
+let signalMotionVisual = 0;
+let lastAnalyzerUpdateMs = 0;
+let noisePhase = 0;
+let dragPreviewActive = false;
+let dragPreviewFreq = 0;
+let dragPreviewGain = 0;
+let bandDynamicGainDb = new Array(MAX_BANDS).fill(0); // For compression visualization
+
+let pushTimer = 0;
+let rafHandle = 0;
+let draggingBand = -1;
+let hoveredBand = -1;
+let hoverGraphX = 0;
+let hoverGraphY = 0;
+
+let lastFrameMs = performance.now();
+let interactionEnergy = 0;
+let calloutVisible = false;
+let calloutTargetX = 0;
+let calloutTargetY = 0;
+let calloutX = 0;
+let calloutY = 0;
+let calloutBandIndex = -1;
+let calloutHovering = false;
+let calloutHideTimer = 0;
+let calloutSoloPersistent = false;
+let displayBands = [];
+
+let nativeGetState = async () => "";
+let nativeSetState = async () => true;
+
+const graphWrap = document.getElementById("graphWrap");
+const canvas = document.getElementById("graphCanvas");
+const ctx = canvas.getContext("2d");
+const callout = document.getElementById("callout");
+const orb = document.getElementById("resonanceOrb");
+
+const bandIndexSelect = document.getElementById("bandIndex");
+const bandModeSelect = document.getElementById("bandMode");
+const bandTypeSelect = document.getElementById("bandType");
+const bandChannelSelect = document.getElementById("bandChannel");
+const bandPrevBtn = document.getElementById("bandPrevBtn");
+const bandNextBtn = document.getElementById("bandNextBtn");
+const bandDisplay = document.getElementById("bandDisplay");
+const bandPowerBtn = document.getElementById("bandPowerBtn");
+const bandPanel = document.getElementById("bandPanel");
+
+const phaseModeSelect = document.getElementById("phaseMode");
+const presetSelect = document.getElementById("presetSelect");
+const bandButtons = document.getElementById("bandButtons");
+
+const bypassBtn = document.getElementById("bypassBtn");
+const soloBtn = document.getElementById("soloBtn");
+const undoBtn = document.getElementById("undoBtn");
+const redoBtn = document.getElementById("redoBtn");
+const abBtn = document.getElementById("abBtn");
+const meterSourceBtn = document.getElementById("meterSourceBtn");
+const dynMeterFill = document.getElementById("dynMeterFill");
+const scBtn = document.getElementById("scBtn");
+const intBtn = document.getElementById("intBtn");
+const linkBtn = document.getElementById("linkBtn");
+const scArrowBtn = document.getElementById("scArrowBtn");
+const scMiniWave = document.getElementById("scMiniWave");
+
+const knobControllers = {};
+let sidechainExternal = false;
+let meterSourceExternal = true;
+let knobVisualSeed = 0;
+
+function applySignalMotionState() {
+  const enabled = state.signalMotion > 0.5;
+  if (scMiniWave) {
+    scMiniWave.dataset.motion = enabled ? "1" : "0";
+  }
+  if (scArrowBtn) {
+    scArrowBtn.title = enabled ? "Signal Motion: On" : "Signal Motion: Off";
+    scArrowBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+    scArrowBtn.classList.toggle("active", enabled);
+  }
+}
+
+function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+function freqToNorm(hz) {
+  return clamp(Math.log(hz / FREQ_MIN) / Math.log(FREQ_MAX / FREQ_MIN), 0, 1);
+}
+
+function normToFreq(norm) {
+  return FREQ_MIN * Math.pow(FREQ_MAX / FREQ_MIN, clamp(norm, 0, 1));
+}
+
+function hzToX(hz, width) { return freqToNorm(hz) * width; }
+function xToHz(x, width) { return normToFreq(x / Math.max(1, width)); }
+
+function gainToY(gain, height) { return ((24 - clamp(gain, -24, 24)) / 48) * height; }
+function yToGain(y, height) { return clamp(24 - (y / Math.max(1, height)) * 48, -30, 30); }
+
+function bandResponseDbAtFreq(freq, b) {
+  const center = Math.max(FREQ_MIN, b.frequency || 1000);
+  const q = Math.max(0.1, b.q || 1.2);
+  const gain = b.gainDb || 0;
+  const oct = Math.log2(Math.max(FREQ_MIN, freq) / center);
+  const widthOct = 0.92 / q;
+  const gaussian = Math.exp(-0.5 * Math.pow(oct / Math.max(0.03, widthOct), 2));
+
+  switch (Math.round(b.type || 0)) {
+    case 1: { // Low Shelf
+      const slope = 1 / (1 + Math.exp(oct * (3.2 * q)));
+      return gain * slope;
+    }
+    case 2: { // High Shelf
+      const slope = 1 / (1 + Math.exp(-oct * (3.2 * q)));
+      return gain * slope;
+    }
+    case 3: { // High Pass
+      const attn = 1 / (1 + Math.exp(-oct * (4.4 * q)));
+      return -24 * (1 - attn);
+    }
+    case 4: { // Low Pass
+      const attn = 1 / (1 + Math.exp(oct * (4.4 * q)));
+      return -24 * (1 - attn);
+    }
+    case 5: { // Notch
+      const notchDepth = -Math.max(6, Math.abs(gain) || 12);
+      return notchDepth * gaussian;
+    }
+    case 6: { // Band Pass
+      return Math.max(4, Math.abs(gain) || 6) * gaussian;
+    }
+    case 7: { // Tilt
+      const tilt = clamp(oct / 2.5, -1, 1);
+      return gain * tilt;
+    }
+    case 0:
+    default:
+      return gain * gaussian;
+  }
+}
+
+function drawEqResponsePath(ctx, bands, width, height, pointCount = 260) {
+  if (!bands.length) return;
+  ctx.beginPath();
+  for (let i = 0; i < pointCount; i++) {
+    const x = (i / (pointCount - 1)) * width;
+    const freq = xToHz(x, width);
+    let responseDb = 0;
+    for (let j = 0; j < bands.length; j++) {
+      responseDb += bandResponseDbAtFreq(freq, bands[j]);
+    }
+    const y = gainToY(clamp(responseDb, -24, 24), height);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+}
+
+function fmtHz(hz) { return hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${Math.round(hz)} Hz`; }
+function fmtDb(db) { return `${db >= 0 ? "+" : ""}${db.toFixed(1)} dB`; }
+function fmtMs(ms) { return ms < 100 ? `${ms.toFixed(1)} ms` : `${Math.round(ms)} ms`; }
+
+function selectedBand() { return state.bands[state.selectedBand] || state.bands[0]; }
+
+function createDisplayBandFromState(b) {
+  return {
+    frequency: b.frequency,
+    gainDb: b.gainDb,
+    q: b.q,
+    dynRangeDb: b.dynRangeDb,
+    enabled: b.enabled,
+    mode: b.mode,
+    type: b.type,
+    channel: b.channel
+  };
+}
+
+function ensureDisplayBands() {
+  if (displayBands.length === state.bands.length) return;
+  displayBands = state.bands.map((b) => createDisplayBandFromState(b));
+}
+
+function smoothTo(current, target, speed, dtMs) {
+  const a = 1 - Math.exp(-(Math.max(0.001, speed) * dtMs) / 1000);
+  return current + (target - current) * a;
+}
+
+function cancelCalloutHide() {
+  if (!calloutHideTimer) return;
+  clearTimeout(calloutHideTimer);
+  calloutHideTimer = 0;
+}
+
+function scheduleCalloutHide(delayMs = 400) {
+  cancelCalloutHide();
+  calloutHideTimer = setTimeout(() => {
+    if (draggingBand < 0 && !calloutHovering && hoveredBand < 0) {
+      calloutVisible = false;
+      calloutBandIndex = -1;
+    }
+    calloutHideTimer = 0;
+  }, delayMs);
+}
+
+function updateSelectedBandReadouts(readoutKey = "all") {
+  const b = selectedBand();
+  if (readoutKey === "all" || readoutKey === "freq") document.getElementById("freqRead").textContent = fmtHz(b.frequency);
+  if (readoutKey === "all" || readoutKey === "gain") document.getElementById("gainRead").textContent = fmtDb(b.gainDb);
+  if (readoutKey === "all" || readoutKey === "q") document.getElementById("qRead").textContent = b.q.toFixed(2);
+  if (readoutKey === "all" || readoutKey === "range") document.getElementById("rangeRead").textContent = fmtDb(b.dynRangeDb);
+  if (readoutKey === "all" || readoutKey === "threshold") document.getElementById("thresholdRead").textContent = fmtDb(b.thresholdDb);
+  if (readoutKey === "all" || readoutKey === "attack") document.getElementById("attackRead").textContent = fmtMs(b.attackMs);
+  if (readoutKey === "all" || readoutKey === "release") document.getElementById("releaseRead").textContent = fmtMs(b.releaseMs);
+  if (readoutKey === "all" || readoutKey === "ratio") document.getElementById("ratioRead").textContent = `${b.ratio.toFixed(1)}:1`;
+  if (readoutKey === "all" || readoutKey === "resonance") document.getElementById("resRead").textContent = `${Math.round(state.resonanceAmount)}%`;
+  if (readoutKey === "all" || readoutKey === "output") document.getElementById("outputRead").textContent = fmtDb(state.outputGainDb);
+
+  const shouldRefreshDyn = readoutKey === "all" || readoutKey === "range" || readoutKey === "threshold" || readoutKey === "attack" || readoutKey === "release" || readoutKey === "ratio";
+  if (!shouldRefreshDyn) return;
+  const dynActive = Math.round(b.mode) === 1;
+  const dynGrid = document.querySelector(".dyn-grid");
+  if (dynGrid) {
+    dynGrid.style.opacity = dynActive ? "1" : "0.52";
+  }
+  const dynIndicator = document.getElementById("dynActiveIndicator");
+  if (dynIndicator) {
+    dynIndicator.classList.toggle("active", dynActive);
+  }
+  ["knobRange", "knobThreshold", "knobAttack", "knobRelease", "knobRatio"].forEach((id) => {
+    const k = document.getElementById(id);
+    if (!k) return;
+    k.style.pointerEvents = dynActive ? "auto" : "none";
+    k.style.filter = dynActive ? "none" : "saturate(0.65)";
+  });
+}
+
+function snapshotForUndo() {
+  undoStack.push(JSON.stringify(state));
+  if (undoStack.length > 120) undoStack.shift();
+  redoStack = [];
+}
+
+function queuePushState() {
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(async () => {
+    try { await nativeSetState(JSON.stringify(state)); } catch (_) {}
+  }, 45);
+}
+
+async function setupNativeBridge() {
+  if (typeof window.__JUCE__ === "undefined")
+    return;
+
+  try {
+    const juce = await import("./juce/index.js");
+    nativeGetState = juce.getNativeFunction("getInitialState");
+    nativeSetState = juce.getNativeFunction("setUiState");
+  } catch (error) {
+    console.warn("Native bridge unavailable, staying in preview mode", error);
+  }
+}
+
+function buildKnob(el, options) {
+  const visualId = ++knobVisualSeed;
+  const gradientId = `arcGradient-${visualId}`;
+  const glowId = `arcGlow-${visualId}`;
+  const bloomId = `arcBloom-${visualId}`;
+  const coreGradientId = `arcCoreGradient-${visualId}`;
+  const headGradientId = `arcHeadGradient-${visualId}`;
+  const r = 46;
+  const fullArcLength = 2 * Math.PI * r;
+  const trackSweep = 0.78;
+  const trackLength = fullArcLength * trackSweep;
+
+  const ring = document.createElement("div");
+  ring.className = "knob-ring";
+  const ambientRing = document.createElement("div");
+  ambientRing.className = "knob-ambient-ring";
+  const outerRing = document.createElement("div");
+  outerRing.className = "knob-outer-ring";
+  const indicator = document.createElement("div");
+  indicator.className = "knob-indicator";
+  const imperfection = ((visualId % 9) - 4) * 0.55;
+  const sweepBias = 0.88 + (((visualId * 37) % 17) / 100);
+  el.style.setProperty("--knob-imperfection", `${imperfection}deg`);
+  el.style.setProperty("--knob-sweep", `${sweepBias}`);
+  
+  // Create arc container with SVG
+  const arcContainer = document.createElement("div");
+  arcContainer.className = "knob-arc-container";
+  const arcDiv = document.createElement("div");
+  arcDiv.className = "knob-arc";
+  
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.setAttribute("style", "pointer-events: none;");
+  
+  // Outer subtle arc (background reference track)
+  const bgArc = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  bgArc.setAttribute("cx", "50");
+  bgArc.setAttribute("cy", "50");
+  bgArc.setAttribute("r", `${r}`);
+  bgArc.setAttribute("fill", "none");
+  bgArc.setAttribute("stroke", "rgba(98, 118, 222, 0.16)");
+  bgArc.setAttribute("stroke-width", "1.2");
+  bgArc.setAttribute("stroke-dasharray", `${trackLength} ${fullArcLength}`);
+  bgArc.setAttribute("stroke-dashoffset", "0");
+  bgArc.setAttribute("stroke-linecap", "round");
+  bgArc.setAttribute("transform", "rotate(-135 50 50)");
+  svg.appendChild(bgArc);
+
+  const bgArcSoft = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  bgArcSoft.setAttribute("cx", "50");
+  bgArcSoft.setAttribute("cy", "50");
+  bgArcSoft.setAttribute("r", `${r}`);
+  bgArcSoft.setAttribute("fill", "none");
+  bgArcSoft.setAttribute("stroke", "rgba(132, 112, 246, 0.07)");
+  bgArcSoft.setAttribute("stroke-width", "3.6");
+  bgArcSoft.setAttribute("stroke-dasharray", `${trackLength} ${fullArcLength}`);
+  bgArcSoft.setAttribute("stroke-dashoffset", "0");
+  bgArcSoft.setAttribute("stroke-linecap", "round");
+  bgArcSoft.setAttribute("transform", "rotate(-135 50 50)");
+  svg.appendChild(bgArcSoft);
+
+  // Outer bloom arc — soft wide halo behind the main arc
+  const outerBloomArc = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  outerBloomArc.setAttribute("cx", "50");
+  outerBloomArc.setAttribute("cy", "50");
+  outerBloomArc.setAttribute("r", `${r}`);
+  outerBloomArc.setAttribute("fill", "none");
+  outerBloomArc.setAttribute("stroke", `url(#${gradientId})`);
+  outerBloomArc.setAttribute("stroke-width", "5.2");
+  outerBloomArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+  outerBloomArc.setAttribute("stroke-dashoffset", "0");
+  outerBloomArc.setAttribute("stroke-linecap", "round");
+  outerBloomArc.setAttribute("transform", "rotate(-135 50 50)");
+  outerBloomArc.setAttribute("filter", `url(#${bloomId})`);
+  outerBloomArc.setAttribute("opacity", "0");
+  svg.appendChild(outerBloomArc);
+
+  // Dense body arc to make the band read as illuminated material, not a thin outline
+  const bandMassArc = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  bandMassArc.setAttribute("cx", "50");
+  bandMassArc.setAttribute("cy", "50");
+  bandMassArc.setAttribute("r", `${r}`);
+  bandMassArc.setAttribute("fill", "none");
+  bandMassArc.setAttribute("stroke", `url(#${gradientId})`);
+  bandMassArc.setAttribute("stroke-width", "4.4");
+  bandMassArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+  bandMassArc.setAttribute("stroke-dashoffset", "0");
+  bandMassArc.setAttribute("stroke-linecap", "round");
+  bandMassArc.setAttribute("transform", "rotate(-135 50 50)");
+  bandMassArc.setAttribute("opacity", "0");
+  svg.appendChild(bandMassArc);
+
+  // Feather arc extends slightly beyond the body to smooth end rolloff
+  const taperFeatherArc = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  taperFeatherArc.setAttribute("cx", "50");
+  taperFeatherArc.setAttribute("cy", "50");
+  taperFeatherArc.setAttribute("r", `${r}`);
+  taperFeatherArc.setAttribute("fill", "none");
+  taperFeatherArc.setAttribute("stroke", `url(#${gradientId})`);
+  taperFeatherArc.setAttribute("stroke-width", "4.6");
+  taperFeatherArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+  taperFeatherArc.setAttribute("stroke-dashoffset", "0");
+  taperFeatherArc.setAttribute("stroke-linecap", "round");
+  taperFeatherArc.setAttribute("transform", "rotate(-135 50 50)");
+  taperFeatherArc.setAttribute("filter", `url(#${bloomId})`);
+  taperFeatherArc.setAttribute("opacity", "0");
+  svg.appendChild(taperFeatherArc);
+
+  // Main parameter arc (illuminated body)
+  const paramArc = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  paramArc.setAttribute("cx", "50");
+  paramArc.setAttribute("cy", "50");
+  paramArc.setAttribute("r", `${r}`);
+  paramArc.setAttribute("fill", "none");
+  paramArc.setAttribute("stroke", `url(#${gradientId})`);
+  paramArc.setAttribute("stroke-width", "2.9");
+  paramArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+  paramArc.setAttribute("stroke-dashoffset", "0");
+  paramArc.setAttribute("stroke-linecap", "round");
+  paramArc.setAttribute("transform", "rotate(-135 50 50)");
+  paramArc.setAttribute("filter", `url(#${glowId})`);
+  svg.appendChild(paramArc);
+
+  // Inner core arc — crisp bright spine running on top of the main arc
+  const innerCoreArc = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  innerCoreArc.setAttribute("cx", "50");
+  innerCoreArc.setAttribute("cy", "50");
+  innerCoreArc.setAttribute("r", `${r}`);
+  innerCoreArc.setAttribute("fill", "none");
+  innerCoreArc.setAttribute("stroke", `url(#${coreGradientId})`);
+  innerCoreArc.setAttribute("stroke-width", "0.72");
+  innerCoreArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+  innerCoreArc.setAttribute("stroke-dashoffset", "0");
+  innerCoreArc.setAttribute("stroke-linecap", "round");
+  innerCoreArc.setAttribute("transform", "rotate(-135 50 50)");
+  innerCoreArc.setAttribute("opacity", "0");
+  svg.appendChild(innerCoreArc);
+
+  // Active head highlight for readable end-position definition
+  const headArc = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  headArc.setAttribute("cx", "50");
+  headArc.setAttribute("cy", "50");
+  headArc.setAttribute("r", `${r}`);
+  headArc.setAttribute("fill", "none");
+  headArc.setAttribute("stroke", `url(#${headGradientId})`);
+  headArc.setAttribute("stroke-width", "1.55");
+  headArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+  headArc.setAttribute("stroke-dashoffset", "0");
+  headArc.setAttribute("stroke-linecap", "round");
+  headArc.setAttribute("transform", "rotate(-135 50 50)");
+  headArc.setAttribute("opacity", "0");
+  headArc.setAttribute("filter", `url(#${glowId})`);
+  svg.appendChild(headArc);
+  
+  // Define gradients and filters
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  
+  // Gradient for arc - active point brighter, soft trailing body
+  const grad = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+  grad.setAttribute("id", gradientId);
+  grad.setAttribute("x1", "0%");
+  grad.setAttribute("y1", "0%");
+  grad.setAttribute("x2", "100%");
+  grad.setAttribute("y2", "100%");
+  const stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  stop1.setAttribute("offset", "0%");
+  stop1.setAttribute("stop-color", "rgba(92, 132, 255, 0.92)");
+  const stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  stop2.setAttribute("offset", "46%");
+  stop2.setAttribute("stop-color", "rgba(144, 94, 255, 1)");
+  const stopMid = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  stopMid.setAttribute("offset", "78%");
+  stopMid.setAttribute("stop-color", "rgba(184, 106, 255, 0.98)");
+  const stop3 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  stop3.setAttribute("offset", "100%");
+  stop3.setAttribute("stop-color", "rgba(226, 200, 255, 0.94)");
+  grad.appendChild(stop1);
+  grad.appendChild(stop2);
+  grad.appendChild(stopMid);
+  grad.appendChild(stop3);
+  defs.appendChild(grad);
+
+  // Inner core gradient — near-white bright spine
+  const coreGrad = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+  coreGrad.setAttribute("id", coreGradientId);
+  coreGrad.setAttribute("x1", "0%");
+  coreGrad.setAttribute("y1", "0%");
+  coreGrad.setAttribute("x2", "100%");
+  coreGrad.setAttribute("y2", "100%");
+  const coreStop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  coreStop1.setAttribute("offset", "0%");
+  coreStop1.setAttribute("stop-color", "rgba(164, 186, 255, 0.04)");
+  const coreStop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  coreStop2.setAttribute("offset", "62%");
+  coreStop2.setAttribute("stop-color", "rgba(222, 196, 255, 0.78)");
+  const coreStop3 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  coreStop3.setAttribute("offset", "100%");
+  coreStop3.setAttribute("stop-color", "rgba(242, 228, 255, 0.93)");
+  coreGrad.appendChild(coreStop1);
+  coreGrad.appendChild(coreStop2);
+  coreGrad.appendChild(coreStop3);
+  defs.appendChild(coreGrad);
+
+  const headGrad = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+  headGrad.setAttribute("id", headGradientId);
+  headGrad.setAttribute("x1", "0%");
+  headGrad.setAttribute("y1", "0%");
+  headGrad.setAttribute("x2", "100%");
+  headGrad.setAttribute("y2", "100%");
+  const headStop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  headStop1.setAttribute("offset", "0%");
+  headStop1.setAttribute("stop-color", "rgba(160, 116, 255, 0.08)");
+  const headStop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  headStop2.setAttribute("offset", "100%");
+  headStop2.setAttribute("stop-color", "rgba(236, 220, 255, 0.88)");
+  headGrad.appendChild(headStop1);
+  headGrad.appendChild(headStop2);
+  defs.appendChild(headGrad);
+  
+  // Tight focused glow filter for main arc
+  const filter = document.createElementNS("http://www.w3.org/2000/svg", "filter");
+  filter.setAttribute("id", glowId);
+  filter.setAttribute("x", "-50%");
+  filter.setAttribute("y", "-50%");
+  filter.setAttribute("width", "200%");
+  filter.setAttribute("height", "200%");
+  const feGaussianBlur = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
+  feGaussianBlur.setAttribute("stdDeviation", "0.79");
+  feGaussianBlur.setAttribute("result", "coloredBlur");
+  filter.appendChild(feGaussianBlur);
+  const feGaussianBlur2 = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
+  feGaussianBlur2.setAttribute("in", "SourceGraphic");
+  feGaussianBlur2.setAttribute("stdDeviation", "0.12");
+  feGaussianBlur2.setAttribute("result", "softBlur");
+  filter.appendChild(feGaussianBlur2);
+  const feMerge = document.createElementNS("http://www.w3.org/2000/svg", "feMerge");
+  const feMergeNode1 = document.createElementNS("http://www.w3.org/2000/svg", "feMergeNode");
+  feMergeNode1.setAttribute("in", "coloredBlur");
+  const feMergeNode2 = document.createElementNS("http://www.w3.org/2000/svg", "feMergeNode");
+  feMergeNode2.setAttribute("in", "softBlur");
+  const feMergeNode3 = document.createElementNS("http://www.w3.org/2000/svg", "feMergeNode");
+  feMergeNode3.setAttribute("in", "SourceGraphic");
+  feMerge.appendChild(feMergeNode1);
+  feMerge.appendChild(feMergeNode2);
+  feMerge.appendChild(feMergeNode3);
+  filter.appendChild(feMerge);
+  defs.appendChild(filter);
+
+  // Soft wide bloom filter for outer bloom arc
+  const bloomFilter = document.createElementNS("http://www.w3.org/2000/svg", "filter");
+  bloomFilter.setAttribute("id", bloomId);
+  bloomFilter.setAttribute("x", "-80%");
+  bloomFilter.setAttribute("y", "-80%");
+  bloomFilter.setAttribute("width", "260%");
+  bloomFilter.setAttribute("height", "260%");
+  const bloomBlur = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
+  bloomBlur.setAttribute("stdDeviation", "2.86");
+  bloomBlur.setAttribute("result", "bloom");
+  bloomFilter.appendChild(bloomBlur);
+  const bloomMerge = document.createElementNS("http://www.w3.org/2000/svg", "feMerge");
+  const bloomNode1 = document.createElementNS("http://www.w3.org/2000/svg", "feMergeNode");
+  bloomNode1.setAttribute("in", "bloom");
+  bloomMerge.appendChild(bloomNode1);
+  bloomFilter.appendChild(bloomMerge);
+  defs.appendChild(bloomFilter);
+  
+  svg.insertBefore(defs, svg.firstChild);
+  arcDiv.appendChild(svg);
+  arcContainer.appendChild(arcDiv);
+  
+  el.appendChild(arcContainer);
+  el.appendChild(outerRing);
+  el.appendChild(ambientRing);
+  el.appendChild(ring);
+  el.appendChild(indicator);
+
+  const ctrl = {
+    value: options.get(),
+    arc: paramArc,
+    massArc: bandMassArc,
+    taperArc: taperFeatherArc,
+    headArc: headArc,
+    coreArc: innerCoreArc,
+    bloomArc: outerBloomArc,
+    bgArc: bgArc,
+    set(v, push) {
+      const clamped = clamp(v, options.min, options.max);
+      if (push !== false) {
+        options.set(clamped, true);
+      }
+      this.value = options.get();
+      const norm = clamp(options.toNorm ? options.toNorm(this.value) : (this.value - options.min) / (options.max - options.min), 0, 1);
+      const deg = -135 + norm * 270;
+      indicator.style.transform = `translateX(-50%) rotate(${deg}deg)`;
+      
+      // Update illuminated value arc over a fixed 270-degree track
+      const progressLength = Math.max(0, norm * trackLength);
+      this.arc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
+      this.bloomArc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
+      this.massArc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
+      this.coreArc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
+      const taperCurve = Math.pow(norm, 0.88);
+      const featherLength = Math.min(trackLength, Math.max(0, progressLength + 8.0));
+      this.taperArc.setAttribute("stroke-dasharray", `${featherLength} ${fullArcLength}`);
+      this.taperArc.setAttribute("stroke-dashoffset", `${-4.3}`);
+      const interactionBoost = 0.72 + interactionEnergy * 0.62;
+      this.bloomArc.setAttribute("opacity", progressLength > 0.8 ? `${(0.22 + 0.31 * Math.pow(norm, 1.18)) * interactionBoost}` : "0");
+      this.massArc.setAttribute("opacity", progressLength > 0.8 ? `${Math.min(1, (0.86 + 0.24 * Math.pow(norm, 0.92)) * interactionBoost)}` : "0");
+      this.coreArc.setAttribute("opacity", progressLength > 0.8 ? `${0.34 + 0.2 * taperCurve}` : "0");
+      this.taperArc.setAttribute("opacity", progressLength > 0.8 ? `${0.28 + 0.2 * Math.pow(norm, 1.0)}` : "0");
+
+      // Active point head segment with subtle taper-like behavior
+      const headLength = Math.min(8.9, Math.max(1.9, progressLength * 0.14));
+      const headStart = Math.max(0, progressLength - headLength);
+      this.headArc.setAttribute("stroke-dasharray", `${headLength} ${fullArcLength}`);
+      this.headArc.setAttribute("stroke-dashoffset", `${-headStart}`);
+      this.headArc.setAttribute("opacity", progressLength > 1.1 ? `${0.42 + 0.2 * norm}` : "0");
+
+      // Arc intensity + reflection coupling
+      const glowIntensity = (0.8 + 0.3 * taperCurve) * (0.98 + interactionEnergy * 0.28);
+      this.arc.style.opacity = glowIntensity;
+      el.style.setProperty("--arc-reflect", `${0.04 + 0.24 * Math.pow(norm, 0.92)}`);
+      el.style.setProperty("--arc-angle", `${deg}deg`);
+    }
+  };
+
+  let drag = null;
+  let lastDragValue = options.get();
+  let readoutUpdateFrame = 0;
+
+  const valueToNorm = (v) => {
+    if (options.toNorm) return clamp(options.toNorm(v), 0, 1);
+    return clamp((v - options.min) / (options.max - options.min), 0, 1);
+  };
+
+  const normToValue = (n) => {
+    const norm = clamp(n, 0, 1);
+    if (options.fromNorm) return options.fromNorm(norm);
+    return options.min + norm * (options.max - options.min);
+  };
+
+  el.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    drag = { lastY: e.clientY, norm: valueToNorm(options.get()) };
+    lastDragValue = options.get();
+    el.style.opacity = "0.92";
+    // Focused arc glow on drag - restrained bloom
+    ctrl.arc.style.filter = "drop-shadow(0 0 5px rgba(130, 110, 245, 0.52)) drop-shadow(0 0 1px rgba(220, 232, 255, 0.18))";
+    ctrl.massArc.style.filter = "drop-shadow(0 0 3px rgba(150, 110, 245, 0.24))";
+    ctrl.headArc.style.filter = "drop-shadow(0 0 6px rgba(170, 150, 255, 0.58))";
+    ambientRing.style.filter = "drop-shadow(0 0 3px rgba(100, 125, 245, 0.18))";
+    ring.style.filter = "drop-shadow(0 0 2px rgba(110, 100, 220, 0.22))";
+    indicator.style.filter = "drop-shadow(0 0 2px rgba(190, 210, 255, 0.28))";
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!drag) return;
+    const delta = drag.lastY - e.clientY;
+    drag.lastY = e.clientY;
+    const fine = (e.shiftKey || e.metaKey) ? 0.2 : 1;
+    const normStepPerPx = 0.00245 * fine;
+    drag.norm = clamp(drag.norm + delta * normStepPerPx, 0, 1);
+    ctrl.set(normToValue(drag.norm), true);
+    lastDragValue = options.get();
+    interactionEnergy = Math.min(1, interactionEnergy + 0.05);
+    
+    // Update readouts every other frame to reduce lag perception
+    readoutUpdateFrame++;
+    if (readoutUpdateFrame % 2 === 0) {
+      updateSelectedBandReadouts(options.readoutKey || "all");
+    }
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (drag) {
+      drag = null;
+      readoutUpdateFrame = 0;
+      el.style.opacity = "1";
+      ctrl.arc.style.filter = "drop-shadow(0 0 1px rgba(120, 100, 220, 0.24))";
+      ctrl.massArc.style.filter = "none";
+      ctrl.headArc.style.filter = "drop-shadow(0 0 2px rgba(160, 140, 240, 0.28))";
+      ambientRing.style.filter = "drop-shadow(0 0 1px rgba(100, 125, 245, 0.12))";
+      ring.style.filter = "drop-shadow(0 0 1px rgba(100, 90, 200, 0.1))";
+      indicator.style.filter = "drop-shadow(0 0 0.5px rgba(190, 210, 255, 0.16))";
+      updateSelectedBandReadouts(options.readoutKey || "all");
+    }
+  });
+
+  el.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const fine = (e.shiftKey || e.metaKey) ? 0.24 : 1;
+    const dir = e.deltaY > 0 ? -1 : 1;
+    const currentNorm = valueToNorm(options.get());
+    const stepNorm = 0.007 * fine;
+    ctrl.set(normToValue(currentNorm + dir * stepNorm), true);
+    lastDragValue = options.get();
+    updateSelectedBandReadouts(options.readoutKey || "all");
+    interactionEnergy = Math.min(1, interactionEnergy + 0.035);
+  }, { passive: false });
+
+  el.addEventListener("dblclick", () => {
+    if (typeof options.defaultValue !== "number") return;
+    ctrl.set(options.defaultValue, true);
+    lastDragValue = options.get();
+    updateSelectedBandReadouts(options.readoutKey || "all");
+    interactionEnergy = Math.min(1, interactionEnergy + 0.12);
+  });
+
+  el.addEventListener("mouseenter", () => {
+    if (!drag) {
+      el.style.transition = "all 240ms cubic-bezier(0.22, 1, 0.36, 1)";
+      ctrl.arc.style.filter = "drop-shadow(0 0 3px rgba(130, 105, 235, 0.38))";
+      ctrl.massArc.style.filter = "drop-shadow(0 0 2px rgba(150, 110, 245, 0.2))";
+      ctrl.headArc.style.filter = "drop-shadow(0 0 4px rgba(160, 140, 245, 0.42))";
+      ambientRing.style.filter = "drop-shadow(0 0 2px rgba(100, 122, 240, 0.14))";
+      ring.style.filter = "drop-shadow(0 0 1px rgba(110, 100, 220, 0.16))";
+      indicator.style.filter = "drop-shadow(0 0 1px rgba(190, 210, 255, 0.2))";
+    }
+  });
+
+  el.addEventListener("mouseleave", () => {
+    if (!drag) {
+      el.style.transition = "all 380ms ease-out";
+      ctrl.arc.style.filter = "drop-shadow(0 0 1px rgba(120, 100, 220, 0.24))";
+      ctrl.massArc.style.filter = "none";
+      ctrl.headArc.style.filter = "drop-shadow(0 0 2px rgba(160, 140, 240, 0.28))";
+      ambientRing.style.filter = "drop-shadow(0 0 1px rgba(100, 125, 245, 0.12))";
+      ring.style.filter = "drop-shadow(0 0 1px rgba(100, 90, 200, 0.1))";
+      indicator.style.filter = "drop-shadow(0 0 0.5px rgba(190, 210, 255, 0.16))";
+    }
+  });
+
+  ctrl.set(options.get(), false);
+  return ctrl;
+}
+
+function createKnobs() {
+  knobControllers.freq = buildKnob(document.getElementById("knobFreq"), {
+    min: FREQ_MIN,
+    max: FREQ_MAX,
+    get: () => selectedBand().frequency,
+    set: (v, push) => { selectedBand().frequency = clamp(v, FREQ_MIN, FREQ_MAX); selectedBand().enabled = 1; if (push) queuePushState(); },
+    sensitivity: 85,
+    wheelStep: 0.015,
+    toNorm: (v) => freqToNorm(v),
+    fromNorm: (n) => normToFreq(n),
+    defaultValue: 1000,
+    readoutKey: "freq"
+  });
+
+  knobControllers.gain = buildKnob(document.getElementById("knobGain"), {
+    min: -30,
+    max: 30,
+    get: () => selectedBand().gainDb,
+    set: (v, push) => { selectedBand().gainDb = clamp(v, -30, 30); selectedBand().enabled = 1; if (push) queuePushState(); },
+    sensitivity: 0.18,
+    wheelStep: 0.2,
+    defaultValue: 0,
+    readoutKey: "gain"
+  });
+
+  knobControllers.q = buildKnob(document.getElementById("knobQ"), {
+    min: 0.1,
+    max: 10,
+    get: () => selectedBand().q,
+    set: (v, push) => { selectedBand().q = clamp(v, 0.1, 10); selectedBand().enabled = 1; if (push) queuePushState(); },
+    sensitivity: 0.035,
+    wheelStep: 0.08,
+    defaultValue: 1.2,
+    readoutKey: "q"
+  });
+
+  knobControllers.range = buildKnob(document.getElementById("knobRange"), {
+    min: -30,
+    max: 30,
+    get: () => selectedBand().dynRangeDb,
+    set: (v, push) => { selectedBand().dynRangeDb = clamp(v, -30, 30); selectedBand().mode = 1; if (push) queuePushState(); },
+    sensitivity: 0.16,
+    wheelStep: 0.2,
+    defaultValue: -6,
+    readoutKey: "range"
+  });
+
+  knobControllers.threshold = buildKnob(document.getElementById("knobThreshold"), {
+    min: -60,
+    max: 0,
+    get: () => selectedBand().thresholdDb,
+    set: (v, push) => { selectedBand().thresholdDb = clamp(v, -60, 0); selectedBand().mode = 1; if (push) queuePushState(); },
+    sensitivity: 0.2,
+    wheelStep: 0.2,
+    defaultValue: -22,
+    readoutKey: "threshold"
+  });
+
+  knobControllers.attack = buildKnob(document.getElementById("knobAttack"), {
+    min: 0.1,
+    max: 200,
+    get: () => selectedBand().attackMs,
+    set: (v, push) => { selectedBand().attackMs = clamp(v, 0.1, 200); selectedBand().mode = 1; if (push) queuePushState(); },
+    sensitivity: 0.6,
+    wheelStep: 1,
+    defaultValue: 10,
+    readoutKey: "attack"
+  });
+
+  knobControllers.release = buildKnob(document.getElementById("knobRelease"), {
+    min: 10,
+    max: 1000,
+    get: () => selectedBand().releaseMs,
+    set: (v, push) => { selectedBand().releaseMs = clamp(v, 10, 1000); selectedBand().mode = 1; if (push) queuePushState(); },
+    sensitivity: 2.9,
+    wheelStep: 8,
+    defaultValue: 120,
+    readoutKey: "release"
+  });
+
+  knobControllers.ratio = buildKnob(document.getElementById("knobRatio"), {
+    min: 1,
+    max: 10,
+    get: () => selectedBand().ratio,
+    set: (v, push) => { selectedBand().ratio = clamp(v, 1, 10); selectedBand().mode = 1; if (push) queuePushState(); },
+    sensitivity: 0.03,
+    wheelStep: 0.1,
+    defaultValue: 2.2,
+    readoutKey: "ratio"
+  });
+
+  knobControllers.resonance = buildKnob(document.getElementById("knobResonance"), {
+    min: 0,
+    max: 100,
+    get: () => state.resonanceAmount,
+    set: (v, push) => { state.resonanceAmount = clamp(v, 0, 100); if (push) queuePushState(); },
+    sensitivity: 0.35,
+    wheelStep: 1,
+    defaultValue: 42,
+    readoutKey: "resonance"
+  });
+
+  knobControllers.output = buildKnob(document.getElementById("knobOutput"), {
+    min: -24,
+    max: 24,
+    get: () => state.outputGainDb,
+    set: (v, push) => { state.outputGainDb = clamp(v, -24, 24); if (push) queuePushState(); },
+    sensitivity: 0.08,
+    wheelStep: 0.1,
+    defaultValue: 0,
+    readoutKey: "output"
+  });
+}
+
+function populateUi() {
+  for (let i = 0; i < MAX_BANDS; i++) {
+    const option = document.createElement("option");
+    option.value = String(i);
+    option.textContent = `Band ${i + 1}`;
+    bandIndexSelect.appendChild(option);
+  }
+
+  BAND_MODES.forEach((mode, index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = mode;
+    bandModeSelect.appendChild(option);
+  });
+
+  FILTER_TYPES.forEach((type, index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = type;
+    bandTypeSelect.appendChild(option);
+  });
+
+  CHANNEL_MODES.forEach((ch, index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = ch;
+    bandChannelSelect.appendChild(option);
+  });
+
+  PRESETS.forEach((preset) => {
+    const option = document.createElement("option");
+    option.value = preset.name;
+    option.textContent = preset.name;
+    presetSelect.appendChild(option);
+  });
+
+  for (let i = 0; i < 8; i++) {
+    const button = document.createElement("button");
+    button.className = "band-chip";
+    button.textContent = i < 7 ? String(i + 1) : "+";
+    button.onclick = () => {
+      if (i === 7) {
+        const idx = state.bands.findIndex((b) => b.enabled < 0.5);
+        if (idx < 0) return;
+        snapshotForUndo();
+        state.selectedBand = idx;
+        state.bands[idx].enabled = 1;
+      } else {
+        state.selectedBand = i;
+      }
+      syncControlsFromState();
+      queuePushState();
+    };
+    bandButtons.appendChild(button);
+  }
+}
+
+function syncControlsFromState(refreshKnobs = true) {
+  const b = selectedBand();
+  ensureDisplayBands();
+
+  bandIndexSelect.value = String(state.selectedBand);
+  if (bandDisplay) bandDisplay.textContent = `${state.selectedBand + 1}`;
+  bandModeSelect.value = String(Math.round(b.mode));
+  bandTypeSelect.value = String(Math.round(b.type));
+  bandChannelSelect.value = String(Math.round(b.channel));
+  phaseModeSelect.value = String(Math.round(state.phaseMode));
+
+  updateSelectedBandReadouts();
+
+  state.bands.forEach((src, i) => {
+    if (!displayBands[i]) {
+      displayBands[i] = createDisplayBandFromState(src);
+      return;
+    }
+    displayBands[i].enabled = src.enabled;
+    displayBands[i].mode = src.mode;
+    displayBands[i].type = src.type;
+    displayBands[i].channel = src.channel;
+  });
+
+  if (refreshKnobs) {
+    Object.values(knobControllers).forEach((k) => k.set(k.value, false));
+  }
+
+  bypassBtn.style.opacity = state.bypassed > 0.5 ? "1" : "0.74";
+  bypassBtn.classList.toggle("active", state.bypassed > 0.5);
+  soloBtn.style.opacity = b.solo > 0.5 ? "1" : "0.74";
+  soloBtn.classList.toggle("active", b.solo > 0.5);
+  soloBtn.setAttribute("aria-pressed", b.solo > 0.5 ? "true" : "false");
+  if (linkBtn) {
+    const linkEnabled = state.harmonicLink > 0.5;
+    linkBtn.classList.toggle("active", linkEnabled);
+    linkBtn.setAttribute("aria-pressed", linkEnabled ? "true" : "false");
+    linkBtn.title = linkEnabled ? "Harmonic Link: On" : "Harmonic Link: Off";
+  }
+  applySignalMotionState();
+  const bandEnabled = b.enabled > 0.5;
+  if (bandPanel) {
+    bandPanel.classList.toggle("active", bandEnabled);
+  }
+  if (bandPowerBtn) {
+    bandPowerBtn.classList.toggle("active", bandEnabled);
+    bandPowerBtn.setAttribute("aria-pressed", bandEnabled ? "true" : "false");
+    bandPowerBtn.title = bandEnabled ? "Disable selected band" : "Enable selected band";
+  }
+
+  Array.from(bandButtons.children).forEach((btn, i) => {
+    if (i < 7)
+      btn.classList.toggle("active", i === state.selectedBand);
+  });
+
+  document.querySelectorAll("#qualitySwitch button").forEach((btn) => {
+    btn.classList.toggle("active", Number(btn.dataset.q) === Math.round(state.qualityMode));
+  });
+
+  document.querySelectorAll("#anSwitch button").forEach((btn) => {
+    btn.classList.toggle("active", Number(btn.dataset.an) === Math.round(state.analyzerMode));
+  });
+}
+
+function bindEvents() {
+  bandIndexSelect.onchange = () => {
+    state.selectedBand = clamp(Number(bandIndexSelect.value) || 0, 0, MAX_BANDS - 1);
+    syncControlsFromState();
+    queuePushState();
+  };
+
+  if (bandPrevBtn) {
+    bandPrevBtn.onclick = () => {
+      state.selectedBand = clamp(state.selectedBand - 1, 0, MAX_BANDS - 1);
+      syncControlsFromState();
+      queuePushState();
+    };
+  }
+
+  if (bandNextBtn) {
+    bandNextBtn.onclick = () => {
+      state.selectedBand = clamp(state.selectedBand + 1, 0, MAX_BANDS - 1);
+      syncControlsFromState();
+      queuePushState();
+    };
+  }
+
+  bandModeSelect.onchange = () => { selectedBand().mode = Number(bandModeSelect.value) || 0; selectedBand().enabled = 1; syncControlsFromState(); queuePushState(); };
+  bandTypeSelect.onchange = () => { selectedBand().type = Number(bandTypeSelect.value) || 0; selectedBand().enabled = 1; syncControlsFromState(); queuePushState(); };
+  bandChannelSelect.onchange = () => { selectedBand().channel = Number(bandChannelSelect.value) || 0; queuePushState(); };
+
+  if (bandPowerBtn) {
+    bandPowerBtn.onclick = () => {
+      const b = selectedBand();
+      b.enabled = b.enabled > 0.5 ? 0 : 1;
+      syncControlsFromState();
+      queuePushState();
+    };
+  }
+
+  phaseModeSelect.onchange = () => { state.phaseMode = Number(phaseModeSelect.value) || 1; queuePushState(); };
+
+  bypassBtn.onclick = () => { state.bypassed = state.bypassed > 0.5 ? 0 : 1; syncControlsFromState(); queuePushState(); };
+  soloBtn.onclick = () => { selectedBand().solo = selectedBand().solo > 0.5 ? 0 : 1; syncControlsFromState(); queuePushState(); };
+
+  meterSourceBtn.onclick = () => {
+    meterSourceExternal = ! meterSourceExternal;
+    meterSourceBtn.textContent = meterSourceExternal ? "Ext" : "Int";
+  };
+
+  scBtn.onclick = () => {
+    sidechainExternal = true;
+    scBtn.classList.add("active");
+    intBtn.classList.remove("active");
+  };
+
+  intBtn.onclick = () => {
+    sidechainExternal = false;
+    intBtn.classList.add("active");
+    scBtn.classList.remove("active");
+  };
+
+  if (scArrowBtn) {
+    scArrowBtn.onclick = () => {
+      state.signalMotion = state.signalMotion > 0.5 ? 0 : 1;
+      applySignalMotionState();
+      queuePushState();
+    };
+  }
+
+  linkBtn.onclick = () => {
+    state.harmonicLink = state.harmonicLink > 0.5 ? 0 : 1;
+    syncControlsFromState(false);
+    queuePushState();
+  };
+
+  undoBtn.onclick = () => {
+    if (!undoStack.length) return;
+    redoStack.push(JSON.stringify(state));
+    Object.assign(state, JSON.parse(undoStack.pop()));
+    syncControlsFromState();
+    queuePushState();
+  };
+
+  redoBtn.onclick = () => {
+    if (!redoStack.length) return;
+    undoStack.push(JSON.stringify(state));
+    Object.assign(state, JSON.parse(redoStack.pop()));
+    syncControlsFromState();
+    queuePushState();
+  };
+
+  abBtn.onclick = () => {
+    const now = JSON.stringify(state);
+    Object.assign(state, JSON.parse(snapshotA));
+    snapshotA = now;
+    syncControlsFromState();
+    queuePushState();
+  };
+
+  presetSelect.onchange = () => {
+    const preset = PRESETS.find((p) => p.name === presetSelect.value);
+    if (!preset) return;
+    snapshotForUndo();
+    preset.ops.forEach((op) => {
+      const b = state.bands[op.i];
+      if (!b) return;
+      b.enabled = 1;
+      if (op.t !== undefined) b.type = op.t;
+      if (op.m !== undefined) b.mode = op.m;
+      if (op.f !== undefined) b.frequency = op.f;
+      if (op.g !== undefined) b.gainDb = op.g;
+      if (op.q !== undefined) b.q = op.q;
+    });
+    syncControlsFromState();
+    queuePushState();
+  };
+
+  document.querySelectorAll("#qualitySwitch button").forEach((btn) => {
+    btn.onclick = () => { state.qualityMode = Number(btn.dataset.q) || 1; syncControlsFromState(); queuePushState(); };
+  });
+
+  document.querySelectorAll("#anSwitch button").forEach((btn) => {
+    btn.onclick = () => { state.analyzerMode = Number(btn.dataset.an) || 0; syncControlsFromState(); queuePushState(); };
+  });
+
+  canvas.addEventListener("mousedown", onGraphDown);
+  // When clicking on callout, disable solo persistence so it can hide normally
+  callout.addEventListener("click", () => {
+    calloutSoloPersistent = false;
+  });
+
+  window.addEventListener("mousemove", onGraphMove);
+  window.addEventListener("mouseup", onGraphUp);
+  graphWrap.addEventListener("mouseleave", () => {
+    if (draggingBand < 0 && !calloutHovering) {
+      hoveredBand = -1;
+      if (!calloutSoloPersistent) {
+        scheduleCalloutHide(450);
+      }
+    }
+  });
+
+  canvas.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const b = selectedBand();
+    const fine = (e.shiftKey || e.metaKey) ? 0.33 : 1;
+    b.q = clamp(b.q + (e.deltaY > 0 ? -0.07 : 0.07) * fine, 0.1, 10);
+    interactionEnergy = Math.min(1, interactionEnergy + 0.035);
+    syncControlsFromState();
+    queuePushState();
+  }, { passive: false });
+
+  const coSoloBtn = document.getElementById("coSoloBtn");
+  if (coSoloBtn) {
+    coSoloBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (calloutBandIndex < 0 || calloutBandIndex >= state.bands.length) return;
+      const b = state.bands[calloutBandIndex];
+      b.solo = b.solo > 0.5 ? 0 : 1;
+      state.selectedBand = calloutBandIndex;
+      syncControlsFromState(false);
+      queuePushState();
+      calloutVisible = true;
+      calloutSoloPersistent = (b.solo > 0.5);
+      cancelCalloutHide();
+    };
+  }
+
+  callout.addEventListener("mouseenter", () => {
+    calloutHovering = true;
+    calloutVisible = true;
+    cancelCalloutHide();
+  });
+
+  callout.addEventListener("mouseleave", () => {
+    calloutHovering = false;
+    if (!calloutSoloPersistent) {
+      scheduleCalloutHide(500);
+    }
+  });
+
+  // Dismiss persistent solo callout when clicking elsewhere
+  document.addEventListener("mousedown", (e) => {
+    if (calloutSoloPersistent && !callout.contains(e.target) && !canvas.contains(e.target)) {
+      calloutSoloPersistent = false;
+      scheduleCalloutHide(150);
+    }
+  });
+
+}
+
+function findNearestBandIndex(x, y, width, height, radius = 20) {
+  let nearest = -1;
+  let best = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < state.bands.length; i++) {
+    const b = state.bands[i];
+    if (b.enabled < 0.5) continue;
+    const nx = hzToX(b.frequency, width);
+    const ny = gainToY(b.gainDb, height);
+    const d = Math.hypot(nx - x, ny - y);
+    if (d < best) {
+      best = d;
+      nearest = i;
+    }
+  }
+  return best <= radius ? nearest : -1;
+}
+
+function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
+  const idx = state.bands.findIndex((b) => b.enabled < 0.5);
+  if (idx < 0) return false;
+
+  snapshotForUndo();
+  state.selectedBand = idx;
+  const b = state.bands[idx];
+  b.enabled = 1;
+  b.type = 0;
+  b.mode = 0;
+  b.channel = 0;
+  b.frequency = clamp(xToHz(x, rect.width), FREQ_MIN, FREQ_MAX);
+  b.gainDb = clamp(yToGain(y, rect.height), -30, 30);
+  b.q = 1.2;
+  hoveredBand = idx;
+  calloutVisible = true;
+  calloutTargetX = x;
+  calloutTargetY = y;
+  interactionEnergy = Math.min(1, interactionEnergy + 0.22);
+  if (beginDrag) draggingBand = idx;
+  syncControlsFromState();
+  queuePushState();
+  return true;
+}
+
+function onGraphDown(e) {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  const nearest = findNearestBandIndex(x, y, rect.width, rect.height, 18);
+
+  if (nearest >= 0) {
+    snapshotForUndo();
+    draggingBand = nearest;
+    hoveredBand = nearest;
+    state.selectedBand = nearest;
+    calloutVisible = true;
+    calloutTargetX = x;
+    calloutTargetY = y;
+    interactionEnergy = Math.min(1, interactionEnergy + 0.18);
+    syncControlsFromState();
+    return;
+  }
+
+  // Single-click on empty graph creates a new band and allows immediate drag.
+  createBandAtGraphPosition(x, y, rect, true);
+}
+
+function onGraphMove(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  hoverGraphX = x;
+  hoverGraphY = y;
+
+  if (draggingBand < 0) {
+    if (calloutHovering && calloutBandIndex >= 0) {
+      hoveredBand = calloutBandIndex;
+      calloutVisible = true;
+      cancelCalloutHide();
+    } else {
+      const newHovered = findNearestBandIndex(x, y, rect.width, rect.height, 22);
+      if (newHovered >= 0) {
+        hoveredBand = newHovered;
+        calloutBandIndex = newHovered;
+        calloutVisible = true;
+        cancelCalloutHide();
+      } else {
+        hoveredBand = -1;
+        if (!calloutSoloPersistent && !calloutHovering) {
+          scheduleCalloutHide(420);
+        }
+      }
+    }
+  }
+
+  if (draggingBand >= 0) {
+    dragPreviewActive = true;
+    const b = state.bands[draggingBand];
+    const fine = (e.shiftKey || e.metaKey) ? 0.24 : 1;
+    const targetFreq = clamp(xToHz(x, rect.width), FREQ_MIN, FREQ_MAX);
+    const targetGain = clamp(yToGain(y, rect.height), -30, 30);
+    // Make normal drag feel immediate; keep slight damping only for fine-control drag.
+    const dragResponse = fine < 1 ? 0.42 : 1.0;
+    const newFreq = clamp(b.frequency + (targetFreq - b.frequency) * dragResponse, FREQ_MIN, FREQ_MAX);
+    const newGain = clamp(b.gainDb + (targetGain - b.gainDb) * dragResponse, -30, 30);
+    dragPreviewFreq = newFreq;
+    dragPreviewGain = newGain;
+    
+    b.frequency = newFreq;
+    b.gainDb = newGain;
+    b.enabled = 1;
+    calloutVisible = true;
+    calloutTargetX = x;
+    calloutTargetY = y;
+    interactionEnergy = Math.min(1, interactionEnergy + 0.06);
+
+    // Keep drag path lightweight: update only fast readouts while moving.
+    const freqRead = document.getElementById("freqRead");
+    const gainRead = document.getElementById("gainRead");
+    if (freqRead) freqRead.textContent = fmtHz(newFreq);
+    if (gainRead) gainRead.textContent = fmtDb(newGain);
+  }
+
+  const activeIdx = draggingBand >= 0 ? draggingBand : (hoveredBand >= 0 ? hoveredBand : state.selectedBand);
+  const b = state.bands[activeIdx] || selectedBand();
+  calloutBandIndex = activeIdx;
+  const anchorX = draggingBand >= 0 ? x : (calloutBandIndex >= 0 ? hzToX(b.frequency, rect.width) : x);
+  const anchorY = draggingBand >= 0 ? y : (calloutBandIndex >= 0 ? gainToY(b.gainDb, rect.height) : y);
+  calloutTargetX = anchorX;
+  calloutTargetY = anchorY;
+  if (calloutVisible) callout.classList.add("visible");
+  else callout.classList.remove("visible");
+  const coFreq = document.getElementById("coFreq");
+  const coGain = document.getElementById("coGain");
+  if (coFreq) coFreq.textContent = fmtHz(b.frequency);
+  if (coGain) coGain.textContent = fmtDb(b.gainDb);
+
+  // Avoid expensive, unchanged DOM churn while dragging.
+  if (draggingBand < 0) {
+    const coType = document.getElementById("coType");
+    const coQ = document.getElementById("coQ");
+    if (coType) coType.textContent = FILTER_TYPES[Math.round(b.type)] || "Bell";
+    if (coQ) coQ.textContent = b.q.toFixed(2);
+
+    const coSoloBtn = document.getElementById("coSoloBtn");
+    if (coSoloBtn) {
+      const soloActive = b.solo > 0.5;
+      coSoloBtn.innerHTML = `<span class="icon">🎧</span><span>${soloActive ? "Unsolo Band" : "Band Solo"}</span>`;
+      coSoloBtn.classList.toggle("active", soloActive);
+    }
+  }
+}
+
+function onGraphUp() {
+  const releasedBand = draggingBand;
+  draggingBand = -1;
+
+  // Commit once after drag ends to avoid per-frame sync lag.
+  if (releasedBand >= 0) {
+    state.selectedBand = releasedBand;
+    syncControlsFromState(false);
+    queuePushState();
+  }
+
+  if (hoveredBand < 0) calloutVisible = false;
+}
+
+function drawFallbackSpectrum(now) {
+  if (now - lastAnalyzerUpdateMs < 380)
+    return;
+
+  noisePhase += 0.025;
+  const localDyn = 0.14 + 0.11 * Math.sin(now * 0.0018);
+
+  for (let i = 0; i < BINS; i++) {
+    const t = i / (BINS - 1);
+    let base = 0.18 + 0.28 * (1 - t) + 0.07 * Math.sin(noisePhase + t * 16.0) + 0.04 * Math.sin(noisePhase * 2.2 + t * 63.0);
+    base = clamp(base, 0.03, 0.95);
+
+    let eqShape = 0;
+    for (let b = 0; b < state.bands.length; b++) {
+      const band = state.bands[b];
+      if (band.enabled < 0.5) continue;
+      const fNorm = freqToNorm(band.frequency);
+      const width = 0.03 + (1.0 / Math.max(0.2, band.q)) * 0.06;
+      const dist = (t - fNorm) / width;
+      const weight = Math.exp(-dist * dist * 0.5);
+      eqShape += (band.gainDb / 30.0) * weight;
+    }
+
+    const pre = clamp(base + eqShape * 0.02, 0.02, 0.95);
+    const post = clamp(base + eqShape * 0.16, 0.02, 0.96);
+
+    preSpectrum[i] = preSpectrum[i] * 0.79 + pre * 0.21;
+    postSpectrum[i] = postSpectrum[i] * 0.77 + post * 0.23;
+    reductionSpectrum[i] = reductionSpectrum[i] * 0.84 + localDyn * (0.2 + 0.55 * (1 - t)) * 0.16;
+  }
+
+  dynActivity = localDyn;
+  outputPeak = 0.18 + 0.2 * (0.5 + 0.5 * Math.sin(now * 0.003));
+
+  // Simulate dynamic gain reduction for visualization
+  for (let band = 0; band < state.bands.length; band++) {
+    const b = state.bands[band];
+    if (b.enabled < 0.5 || b.mode < 0.5) {
+      bandDynamicGainDb[band] = 0;
+      continue;
+    }
+
+    // Simulate detection based on local dynamics
+    const detectionSim = localDyn * 0.8 + Math.sin(now * 0.0015 + band) * 0.2;
+    const threshold = -22; // dB equivalent
+    const detectionDb = 20 * Math.log10(Math.max(0.001, detectionSim));
+    const gainReduction = b.dynRangeDb < 0 ?
+      Math.min(Math.abs(b.dynRangeDb), Math.max(0, detectionDb - threshold) * 0.4) : 0;
+    
+    bandDynamicGainDb[band] = -gainReduction * (0.6 + 0.4 * Math.sin(now * 0.003));
+  }
+}
+
+function drawGraph() {
+  const now = performance.now();
+  const dt = Math.min(64, Math.max(0, now - lastFrameMs || 16));
+  lastFrameMs = now;
+  interactionEnergy = Math.max(0, interactionEnergy * Math.exp(-dt / 220));
+  const signalMotionTarget = state.signalMotion > 0.5 ? 1 : 0;
+  signalMotionVisual = signalMotionVisual * 0.9 + signalMotionTarget * 0.1;
+  const signalMotionAmt = signalMotionVisual;
+  const reactiveDyn = dynActivity * (0.18 + 0.82 * signalMotionAmt);
+  const reactivePeak = outputPeak * (0.2 + 0.8 * signalMotionAmt);
+
+  ensureDisplayBands();
+  for (let i = 0; i < state.bands.length; i++) {
+    const src = state.bands[i];
+    const dst = displayBands[i];
+    if (!dst) continue;
+    dst.frequency = src.frequency;
+    dst.gainDb = src.gainDb;
+    dst.q = src.q;
+    dst.dynRangeDb = src.dynRangeDb;
+    dst.enabled = src.enabled;
+    dst.mode = src.mode;
+    dst.type = src.type;
+    dst.channel = src.channel;
+  }
+
+  drawFallbackSpectrum(now);
+
+  const rect = graphWrap.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const targetW = Math.floor(rect.width * dpr);
+  const targetH = Math.floor(rect.height * dpr);
+
+  if (canvas.width !== targetW || canvas.height !== targetH) {
+    canvas.width = targetW;
+    canvas.height = targetH;
+  }
+
+  const w = rect.width;
+  const h = rect.height;
+
+  if (calloutVisible) {
+    const targetX = clamp(calloutTargetX, 0, w);
+    const targetY = clamp(calloutTargetY, 0, h);
+    calloutX = smoothTo(calloutX, targetX, 26, dt);
+    calloutY = smoothTo(calloutY, targetY, 26, dt);
+    callout.style.left = `${calloutX}px`;
+    callout.style.top = `${calloutY}px`;
+    callout.classList.add("visible");
+  } else {
+    callout.classList.remove("visible");
+  }
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  ctx.strokeStyle = "rgba(98, 124, 194, 0.11)";
+  ctx.lineWidth = 0.9;
+
+  [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].forEach((hz) => {
+    const x = hzToX(hz, w);
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+  });
+
+  for (let g = -24; g <= 24; g += 6) {
+    const y = gainToY(g, h);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+
+  for (let i = 0; i < BINS; i++) {
+    preSmoothed[i] = preSmoothed[i] * 0.88 + preSpectrum[i] * 0.12;
+    postSmoothed[i] = postSmoothed[i] * 0.86 + postSpectrum[i] * 0.14;
+    reductionSmoothed[i] = reductionSmoothed[i] * 0.9 + reductionSpectrum[i] * 0.1;
+    analyzerTrailA[i] = analyzerTrailA[i] * 0.93 + showSafe(preSmoothed[i], postSmoothed[i], state.analyzerMode) * 0.07;
+    analyzerTrailB[i] = analyzerTrailB[i] * 0.96 + analyzerTrailA[i] * 0.04;
+    analyzerTrailC[i] = analyzerTrailC[i] * 0.98 + analyzerTrailB[i] * 0.02;
+  }
+
+  const show = state.analyzerMode > 0.5 ? postSmoothed : preSmoothed;
+
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - show[i]) * h;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(w, h);
+  ctx.closePath();
+
+  const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
+  fillGrad.addColorStop(0, "rgba(184, 202, 255, 0.08)");
+  fillGrad.addColorStop(0.45, "rgba(122, 126, 222, 0.036)");
+  fillGrad.addColorStop(1, "rgba(50, 70, 132, 0.014)");
+  ctx.fillStyle = fillGrad;
+  ctx.fill();
+
+  // Soft volumetric haze between analyzer trails
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - analyzerTrailC[i]) * h;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(w, h);
+  ctx.closePath();
+  const hazeC = ctx.createLinearGradient(0, 0, 0, h);
+  hazeC.addColorStop(0, "rgba(108, 126, 220, 0.04)");
+  hazeC.addColorStop(1, "rgba(108, 126, 220, 0)");
+  ctx.fillStyle = hazeC;
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - analyzerTrailB[i]) * h;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(w, h);
+  ctx.closePath();
+  const hazeB = ctx.createLinearGradient(0, 0, 0, h);
+  hazeB.addColorStop(0, "rgba(150, 140, 242, 0.032)");
+  hazeB.addColorStop(1, "rgba(150, 140, 242, 0)");
+  ctx.fillStyle = hazeB;
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - analyzerTrailC[i]) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(108, 126, 220, 0.014)";
+  ctx.lineWidth = 5.4;
+  ctx.shadowColor = "rgba(98, 112, 208, 0.045)";
+  ctx.shadowBlur = 36;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - analyzerTrailB[i]) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(132, 156, 242, 0.032)";
+  ctx.lineWidth = 3.9;
+  ctx.shadowColor = "rgba(124, 146, 233, 0.058)";
+  ctx.shadowBlur = 30;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - analyzerTrailA[i]) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(170, 168, 255, 0.04)";
+  ctx.lineWidth = 0.9;
+  ctx.shadowColor = "rgba(156, 130, 255, 0.045)";
+  ctx.shadowBlur = 22;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = 0.34;
+  ctx.beginPath();
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - show[i]) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(182, 204, 255, 0.16)";
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = "rgba(134, 154, 255, 0.12)";
+  ctx.shadowBlur = 12;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.beginPath();
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - preSmoothed[i]) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(188, 208, 255, 0.05)";
+  ctx.lineWidth = 1.1;
+  ctx.stroke();
+
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - reductionSmoothed[i] * 0.9) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(166, 118, 255, 0.14)";
+  ctx.lineWidth = 1.0;
+  ctx.stroke();
+  ctx.restore();
+
+  const active = displayBands
+    .map((b, i) => ({ b, i }))
+    .filter((entry) => entry.b.enabled > 0.5)
+    .sort((a, b) => a.b.frequency - b.b.frequency);
+  const activeBands = active.map((entry) => entry.b);
+
+  if (active.length > 0) {
+    const bandThree = displayBands[2];
+    if (bandThree && bandThree.enabled > 0.5) {
+      const cx = hzToX(bandThree.frequency, w);
+      const cy = gainToY(bandThree.gainDb, h);
+      const valleyGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 118);
+      valleyGlow.addColorStop(0, "rgba(172, 128, 255, 0.17)");
+      valleyGlow.addColorStop(0.48, "rgba(118, 110, 240, 0.08)");
+      valleyGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.save();
+      ctx.fillStyle = valleyGlow;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 118, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineWidth = 12.2;
+    drawEqResponsePath(ctx, activeBands, w, h);
+    ctx.strokeStyle = "rgba(132, 106, 250, 0.19)";
+    ctx.shadowColor = "rgba(128, 94, 242, 0.48)";
+    ctx.shadowBlur = 46;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineWidth = 8.8;
+    drawEqResponsePath(ctx, activeBands, w, h);
+    ctx.strokeStyle = "rgba(170, 136, 255, 0.24)";
+    ctx.shadowColor = "rgba(148, 118, 248, 0.46)";
+    ctx.shadowBlur = 31;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineWidth = 5.8;
+    drawEqResponsePath(ctx, activeBands, w, h);
+    ctx.strokeStyle = "rgba(212, 176, 255, 0.18)";
+    ctx.shadowColor = "rgba(182, 142, 255, 0.34)";
+    ctx.shadowBlur = 20;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.beginPath();
+    ctx.lineWidth = 3.25;
+    drawEqResponsePath(ctx, activeBands, w, h);
+
+    const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
+    lineGrad.addColorStop(0, "#eef4ff");
+    lineGrad.addColorStop(0.3, "#c86dff");
+    lineGrad.addColorStop(0.66, "#9f8aff");
+    lineGrad.addColorStop(1, "#88c8ff");
+    ctx.strokeStyle = lineGrad;
+    ctx.shadowColor = "rgba(188, 98, 255, 0.92)";
+    ctx.shadowBlur = 24;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Focused luminous core line for cinematic center energy
+    ctx.beginPath();
+    drawEqResponsePath(ctx, activeBands, w, h);
+    ctx.strokeStyle = "rgba(252, 253, 255, 1)";
+    ctx.lineWidth = 2.02;
+    ctx.shadowColor = "rgba(224, 206, 255, 0.84)";
+    ctx.shadowBlur = 16;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Micro HDR filament pass: brighter center heat without adding wide bloom.
+    ctx.beginPath();
+    drawEqResponsePath(ctx, activeBands, w, h);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.lineWidth = 1.18;
+    ctx.shadowColor = "rgba(255, 245, 255, 0.34)";
+    ctx.shadowBlur = 5;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  const pulse = 1 + Math.sin(now * 0.003) * 0.08;
+  const breathe = 1 + Math.sin(now * 0.0021) * 0.04;
+
+  displayBands.forEach((b, i) => {
+    if (b.enabled < 0.5) return;
+    const x = hzToX(b.frequency, w);
+    const y = gainToY(b.gainDb, h);
+
+    const selected = i === state.selectedBand;
+    const hovered = i === hoveredBand;
+    const activeDrag = i === draggingBand;
+    const dynamic = b.mode > 0.5;
+    const notch = b.type === 5;
+
+    const focusBoost = activeDrag ? 1.48 : hovered ? 1.18 : selected ? 1.12 : 1;
+    const halo = (selected ? (28 * pulse * breathe + reactiveDyn * 14) : dynamic ? (15.5 + reactiveDyn * 20) : 11) * focusBoost;
+    
+    // Outer diffuse glow (largest)
+    const g1 = ctx.createRadialGradient(x, y, 0, x, y, halo * 1.6);
+    g1.addColorStop(0, selected ? "rgba(185, 145, 255, 0.18)" : dynamic ? "rgba(110, 135, 255, 0.14)" : "rgba(200, 215, 255, 0.08)");
+    g1.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g1;
+    ctx.beginPath();
+    ctx.arc(x, y, halo * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Primary glow halo
+    const g2 = ctx.createRadialGradient(x, y, 0, x, y, halo);
+    g2.addColorStop(0, selected ? "rgba(196, 150, 255, 1)" : dynamic ? "rgba(108, 132, 255, 0.84)" : "rgba(236, 242, 255, 0.58)");
+    g2.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g2;
+    ctx.beginPath();
+    ctx.arc(x, y, halo, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Node core
+    const nodeCore = ctx.createRadialGradient(x - 2.2, y - 3, 0, x, y, 13.5);
+    nodeCore.addColorStop(0, selected ? "rgba(255, 255, 255, 0.22)" : "rgba(235, 244, 255, 0.15)");
+    nodeCore.addColorStop(0.18, selected ? "rgba(72, 42, 126, 0.9)" : "rgba(26, 34, 88, 0.86)");
+    nodeCore.addColorStop(0.72, "rgba(8, 10, 24, 0.96)");
+    nodeCore.addColorStop(1, "rgba(2, 4, 12, 1)");
+    ctx.fillStyle = nodeCore;
+    ctx.beginPath();
+    ctx.arc(x, y, 13.9, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(4, 6, 16, 0.94)";
+    ctx.lineWidth = 3.2;
+    ctx.stroke();
+    ctx.strokeStyle = notch ? "#89b4ff" : selected ? "#c099ff" : dynamic ? "#7fa8ff" : "#d6e4ff";
+    ctx.lineWidth = activeDrag ? 2.95 : selected ? 2.6 : hovered ? 2.35 : 2;
+    ctx.beginPath();
+    ctx.arc(x, y, 13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(x, y, 11.4, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(220, 234, 255, 0.16)";
+    ctx.lineWidth = 0.9;
+    ctx.stroke();
+
+    const coreDot = ctx.createRadialGradient(x - 1.2, y - 1.6, 0, x, y, 3.4);
+    coreDot.addColorStop(0, selected ? "rgba(255, 255, 255, 0.95)" : "rgba(244, 250, 255, 0.72)");
+    coreDot.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = coreDot;
+    ctx.beginPath();
+    ctx.arc(x - 0.2, y - 0.3, 3.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (selected) {
+      // Inner breathing glass reflection
+      const glassHalo = 3.8 + Math.sin(now * 0.0056) * 0.7;
+      const gGlass = ctx.createRadialGradient(x - 4, y - 4, 0, x - 4, y - 4, glassHalo);
+      gGlass.addColorStop(0, "rgba(255, 255, 255, 0.26)");
+      gGlass.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = gGlass;
+      ctx.beginPath();
+      ctx.arc(x - 4, y - 4, glassHalo, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Breathing inner ring
+      ctx.beginPath();
+      ctx.arc(x, y, 6.6 + reactiveDyn * 5.8 + Math.sin(now * 0.0042) * (0.55 + 1.15 * signalMotionAmt), 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(214, 178, 255, 0.34)";
+      ctx.fill();
+
+      // Reactive ambient ring
+      ctx.beginPath();
+      ctx.arc(x, y, 15.4 + Math.sin(now * 0.003) * 1.3, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(180, 145, 255, 0.26)";
+      ctx.lineWidth = 1.3;
+      ctx.stroke();
+    }
+
+    // Dynamic activity indicator with animated compression halo
+    if (dynamic && reactiveDyn > 0.08) {
+      const compressionBreath = 0.8 + 0.2 * Math.sin(now * 0.004);
+      const dynRing = 18 + reactiveDyn * 10;
+      const gDyn = ctx.createRadialGradient(x, y, 13, x, y, dynRing);
+      gDyn.addColorStop(0, `rgba(200, 130, 255, ${0.18 * reactiveDyn * compressionBreath})`);
+      gDyn.addColorStop(0.6, `rgba(150, 110, 255, ${0.08 * reactiveDyn})`);
+      gDyn.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = gDyn;
+      ctx.beginPath();
+      ctx.arc(x, y, dynRing, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Animated compression reduction ring (visible feedback)
+      if (bandDynamicGainDb && bandDynamicGainDb[i] < -0.3) {
+        const reductionRing = 8 + Math.abs(bandDynamicGainDb[i]) * 3.5;
+        ctx.beginPath();
+        ctx.arc(x, y, reductionRing, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 120, 140, ${0.3 * Math.abs(bandDynamicGainDb[i]) / 30})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+
+    // Node label
+    ctx.fillStyle = "#edf3ff";
+    ctx.font = "600 14px Avenir Next";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(i + 1), x, y + 0.5);
+  });
+
+  orb.style.boxShadow = `inset 0 -10px ${52 + reactiveDyn * 36}px rgba(0,0,0,0.62), inset 0 0 ${52 + reactiveDyn * 58}px rgba(182,128,255,0.66), inset 0 0 ${124 + reactiveDyn * 44}px rgba(66,88,218,0.46), inset 0 0 ${178 + reactiveDyn * 34}px rgba(2,8,28,0.9), 0 0 ${9 + reactivePeak * 18}px rgba(118,124,255,0.12), 0 0 ${26 + reactivePeak * 28}px rgba(84,98,244,0.08)`;
+
+  if (dynMeterFill) {
+    const meterValue = clamp((meterSourceExternal ? dynActivity : outputPeak) * 100, 6, 100);
+    dynMeterFill.style.height = `${meterValue}%`;
+  }
+
+  if (scMiniWave) {
+    const baseEnergy = clamp(0.08 + reactiveDyn * 0.75 + reactivePeak * 0.5, 0, 1);
+    const waveEnergy = signalMotionAmt > 0.5 ? baseEnergy : 0.08;
+    const waveSpeed = 0.65 + signalMotionAmt * 0.7;
+    const waveShift = Math.sin(now * 0.0036 * waveSpeed) * (3 + waveEnergy * 5);
+    scMiniWave.style.setProperty("--wave-energy", `${waveEnergy.toFixed(3)}`);
+    scMiniWave.style.setProperty("--wave-shift", `${waveShift.toFixed(3)}`);
+  }
+
+  if (linkBtn) {
+    const target = state.harmonicLink > 0.5 ? 1 : 0;
+    harmonicLinkVisual = harmonicLinkVisual * 0.88 + target * 0.12;
+    const pulse = 0.5 + 0.5 * Math.sin(now * 0.0042);
+    const energy = harmonicLinkVisual * (0.16 + 0.42 * clamp(dynActivity * 0.8 + outputPeak * 0.6, 0, 1) + 0.2 * pulse);
+    linkBtn.style.setProperty("--link-energy", `${energy.toFixed(3)}`);
+  }
+
+  rafHandle = requestAnimationFrame(drawGraph);
+}
+
+window.updateCurveAnalyzer = function (pre, post, reduction, peak, activity) {
+  if (Array.isArray(pre)) preSpectrum = Float32Array.from(pre.slice(0, BINS));
+  if (Array.isArray(post)) postSpectrum = Float32Array.from(post.slice(0, BINS));
+  if (Array.isArray(reduction)) reductionSpectrum = Float32Array.from(reduction.slice(0, BINS));
+  outputPeak = Number(peak) || 0;
+  dynActivity = Number(activity) || 0;
+  lastAnalyzerUpdateMs = performance.now();
+};
+
+function showSafe(pre, post, mode) {
+  return mode > 0.5 ? post : pre;
+}
+
+async function loadInitialState() {
+  try {
+    const response = await nativeGetState();
+    if (typeof response !== "string" || response.length < 3)
+      return;
+
+    const parsed = JSON.parse(response);
+    if (parsed && Array.isArray(parsed.bands))
+      Object.assign(state, parsed);
+  } catch (_) {}
+}
+
+async function start() {
+  await setupNativeBridge();
+  populateUi();
+  createKnobs();
+  bindEvents();
+  applySignalMotionState();
+  await loadInitialState();
+  syncControlsFromState();
+  queuePushState();
+  if (!rafHandle) rafHandle = requestAnimationFrame(drawGraph);
+}
+
+start();
