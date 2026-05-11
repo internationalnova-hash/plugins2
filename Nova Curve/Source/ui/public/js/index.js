@@ -2,6 +2,8 @@ const MAX_BANDS = 24;
 const BINS = 96;
 const FREQ_MIN = 20;
 const FREQ_MAX = 20000;
+const UI_BASE_WIDTH = 1120;
+const UI_BASE_HEIGHT = 758;
 
 const FILTER_TYPES = ["Bell", "Low Shelf", "High Shelf", "High Pass", "Low Pass", "Notch", "Band Pass", "Tilt"];
 const BAND_MODES = ["Static", "Dynamic", "Resonance"];
@@ -162,6 +164,14 @@ function applySignalMotionState() {
 }
 
 function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+function applyUiScale() {
+  const margin = 12;
+  const sx = (window.innerWidth - margin * 2) / UI_BASE_WIDTH;
+  const sy = (window.innerHeight - margin * 2) / UI_BASE_HEIGHT;
+  const scale = Math.max(0.62, Math.min(1, sx, sy));
+  document.documentElement.style.setProperty("--ui-scale", scale.toFixed(4));
+}
 
 function freqToNorm(hz) {
   return clamp(Math.log(hz / FREQ_MIN) / Math.log(FREQ_MAX / FREQ_MIN), 0, 1);
@@ -810,7 +820,7 @@ function buildKnob(el, options) {
     }
   });
 
-  el.addEventListener("pointerup", (e) => {
+  function finishKnobDrag(pushState = true) {
     if (!drag) return;
     drag = null;
     knobDragging = false;
@@ -823,9 +833,12 @@ function buildKnob(el, options) {
     ring.style.filter = "drop-shadow(0 0 1px rgba(100, 90, 200, 0.1))";
     indicator.style.filter = "drop-shadow(0 0 0.5px rgba(190, 210, 255, 0.16))";
     updateSelectedBandReadouts(options.readoutKey || "all");
-    // Push state once when drag ends — not during drag.
-    queuePushState();
-  });
+    if (pushState) queuePushState();
+  }
+
+  el.addEventListener("pointerup", () => finishKnobDrag(true));
+  el.addEventListener("pointercancel", () => finishKnobDrag(true));
+  el.addEventListener("lostpointercapture", () => finishKnobDrag(false));
 
   el.addEventListener("wheel", (e) => {
     e.preventDefault();
@@ -1236,16 +1249,21 @@ function bindEvents() {
     btn.onclick = () => { state.analyzerMode = Number(btn.dataset.an) || 0; syncControlsFromState(); queuePushState(); };
   });
 
-  canvas.addEventListener("mousedown", onGraphDown);
+  canvas.addEventListener("pointerdown", onGraphDown);
+  canvas.addEventListener("pointermove", onGraphMove);
+  canvas.addEventListener("pointerup", onGraphUp);
+  canvas.addEventListener("pointercancel", onGraphUp);
+  canvas.addEventListener("lostpointercapture", onGraphUp);
   // Invalidate cached canvas rect on window resize so coordinates remain accurate.
-  window.addEventListener("resize", () => { cachedCanvasRect = null; });
+  window.addEventListener("resize", () => {
+    cachedCanvasRect = null;
+    applyUiScale();
+  });
   // When clicking on callout, disable solo persistence so it can hide normally
   callout.addEventListener("click", () => {
     calloutSoloPersistent = false;
   });
 
-  window.addEventListener("mousemove", onGraphMove);
-  window.addEventListener("mouseup", onGraphUp);
   graphWrap.addEventListener("mouseleave", () => {
     if (draggingBand < 0 && !calloutHovering) {
       hoveredBand = -1;
@@ -1355,6 +1373,8 @@ function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
 
 function onGraphDown(e) {
   e.preventDefault();
+  if (e.button !== 0) return;
+  canvas.setPointerCapture(e.pointerId);
   cachedCanvasRect = canvas.getBoundingClientRect();
   const rect = cachedCanvasRect;
   const x = e.clientX - rect.left;
@@ -1545,6 +1565,7 @@ function drawGraph() {
   const signalMotionAmt = signalMotionVisual;
   const reactiveDyn = dynActivity * (0.18 + 0.82 * signalMotionAmt);
   const reactivePeak = outputPeak * (0.2 + 0.8 * signalMotionAmt);
+  const fastInteraction = draggingBand >= 0 || knobDragging;
 
   ensureDisplayBands();
   for (let i = 0; i < state.bands.length; i++) {
@@ -1591,20 +1612,22 @@ function drawGraph() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
 
-  // Deep-space atmospheric layering behind all graph content.
-  const rearFog = ctx.createRadialGradient(w * 0.5, h * 1.18, 0, w * 0.5, h * 1.18, h * 1.25);
-  rearFog.addColorStop(0, "rgba(0, 0, 0, 0.38)");
-  rearFog.addColorStop(0.56, "rgba(10, 18, 40, 0.18)");
-  rearFog.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = rearFog;
-  ctx.fillRect(0, 0, w, h);
+  if (!fastInteraction) {
+    // Deep-space atmospheric layering behind all graph content.
+    const rearFog = ctx.createRadialGradient(w * 0.5, h * 1.18, 0, w * 0.5, h * 1.18, h * 1.25);
+    rearFog.addColorStop(0, "rgba(0, 0, 0, 0.38)");
+    rearFog.addColorStop(0.56, "rgba(10, 18, 40, 0.18)");
+    rearFog.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = rearFog;
+    ctx.fillRect(0, 0, w, h);
 
-  const centerLift = ctx.createRadialGradient(w * 0.5, h * 0.52, 0, w * 0.5, h * 0.52, h * 0.68);
-  centerLift.addColorStop(0, "rgba(188, 208, 255, 0.08)");
-  centerLift.addColorStop(0.42, "rgba(154, 172, 244, 0.05)");
-  centerLift.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = centerLift;
-  ctx.fillRect(0, 0, w, h);
+    const centerLift = ctx.createRadialGradient(w * 0.5, h * 0.52, 0, w * 0.5, h * 0.52, h * 0.68);
+    centerLift.addColorStop(0, "rgba(188, 208, 255, 0.08)");
+    centerLift.addColorStop(0.42, "rgba(154, 172, 244, 0.05)");
+    centerLift.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = centerLift;
+    ctx.fillRect(0, 0, w, h);
+  }
 
   ctx.strokeStyle = "rgba(98, 124, 194, 0.11)";
   ctx.lineWidth = 0.9;
@@ -1653,70 +1676,72 @@ function drawGraph() {
   ctx.fillStyle = fillGrad;
   ctx.fill();
 
-  // Soft volumetric haze between analyzer trails
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(0, h);
-  for (let i = 0; i < BINS; i++) {
-    const x = (i / (BINS - 1)) * w;
-    const y = (1 - analyzerTrailC[i]) * h;
-    ctx.lineTo(x, y);
-  }
-  ctx.lineTo(w, h);
-  ctx.closePath();
-  const hazeC = ctx.createLinearGradient(0, 0, 0, h);
-  hazeC.addColorStop(0, "rgba(108, 126, 220, 0.04)");
-  hazeC.addColorStop(1, "rgba(108, 126, 220, 0)");
-  ctx.fillStyle = hazeC;
-  ctx.fill();
-  ctx.restore();
+  if (!fastInteraction) {
+    // Soft volumetric haze between analyzer trails
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    for (let i = 0; i < BINS; i++) {
+      const x = (i / (BINS - 1)) * w;
+      const y = (1 - analyzerTrailC[i]) * h;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    const hazeC = ctx.createLinearGradient(0, 0, 0, h);
+    hazeC.addColorStop(0, "rgba(108, 126, 220, 0.04)");
+    hazeC.addColorStop(1, "rgba(108, 126, 220, 0)");
+    ctx.fillStyle = hazeC;
+    ctx.fill();
+    ctx.restore();
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(0, h);
-  for (let i = 0; i < BINS; i++) {
-    const x = (i / (BINS - 1)) * w;
-    const y = (1 - analyzerTrailB[i]) * h;
-    ctx.lineTo(x, y);
-  }
-  ctx.lineTo(w, h);
-  ctx.closePath();
-  const hazeB = ctx.createLinearGradient(0, 0, 0, h);
-  hazeB.addColorStop(0, "rgba(150, 140, 242, 0.032)");
-  hazeB.addColorStop(1, "rgba(150, 140, 242, 0)");
-  ctx.fillStyle = hazeB;
-  ctx.fill();
-  ctx.restore();
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    for (let i = 0; i < BINS; i++) {
+      const x = (i / (BINS - 1)) * w;
+      const y = (1 - analyzerTrailB[i]) * h;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    const hazeB = ctx.createLinearGradient(0, 0, 0, h);
+    hazeB.addColorStop(0, "rgba(150, 140, 242, 0.032)");
+    hazeB.addColorStop(1, "rgba(150, 140, 242, 0)");
+    ctx.fillStyle = hazeB;
+    ctx.fill();
+    ctx.restore();
 
-  ctx.save();
-  ctx.beginPath();
-  for (let i = 0; i < BINS; i++) {
-    const x = (i / (BINS - 1)) * w;
-    const y = (1 - analyzerTrailC[i]) * h;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.strokeStyle = "rgba(108, 126, 220, 0.014)";
-  ctx.lineWidth = 5.4;
-  ctx.shadowColor = "rgba(98, 112, 208, 0.045)";
-  ctx.shadowBlur = 36;
-  ctx.stroke();
-  ctx.restore();
+    ctx.save();
+    ctx.beginPath();
+    for (let i = 0; i < BINS; i++) {
+      const x = (i / (BINS - 1)) * w;
+      const y = (1 - analyzerTrailC[i]) * h;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "rgba(108, 126, 220, 0.014)";
+    ctx.lineWidth = 5.4;
+    ctx.shadowColor = "rgba(98, 112, 208, 0.045)";
+    ctx.shadowBlur = 36;
+    ctx.stroke();
+    ctx.restore();
 
-  ctx.save();
-  ctx.beginPath();
-  for (let i = 0; i < BINS; i++) {
-    const x = (i / (BINS - 1)) * w;
-    const y = (1 - analyzerTrailB[i]) * h;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+    ctx.save();
+    ctx.beginPath();
+    for (let i = 0; i < BINS; i++) {
+      const x = (i / (BINS - 1)) * w;
+      const y = (1 - analyzerTrailB[i]) * h;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "rgba(132, 156, 242, 0.032)";
+    ctx.lineWidth = 3.9;
+    ctx.shadowColor = "rgba(124, 146, 233, 0.058)";
+    ctx.shadowBlur = 30;
+    ctx.stroke();
+    ctx.restore();
   }
-  ctx.strokeStyle = "rgba(132, 156, 242, 0.032)";
-  ctx.lineWidth = 3.9;
-  ctx.shadowColor = "rgba(124, 146, 233, 0.058)";
-  ctx.shadowBlur = 30;
-  ctx.stroke();
-  ctx.restore();
 
   ctx.save();
   ctx.beginPath();
@@ -1780,6 +1805,18 @@ function drawGraph() {
   const activeBands = active.map((entry) => entry.b);
 
   if (active.length > 0) {
+    if (fastInteraction) {
+      ctx.beginPath();
+      ctx.lineWidth = 2.8;
+      drawEqResponsePath(ctx, activeBands, w, h);
+      const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
+      lineGrad.addColorStop(0, "#eef4ff");
+      lineGrad.addColorStop(0.3, "#c86dff");
+      lineGrad.addColorStop(0.66, "#9f8aff");
+      lineGrad.addColorStop(1, "#88c8ff");
+      ctx.strokeStyle = lineGrad;
+      ctx.stroke();
+    } else {
     const bandThree = displayBands[2];
     if (bandThree && bandThree.enabled > 0.5) {
       const cx = hzToX(bandThree.frequency, w);
@@ -1871,6 +1908,7 @@ function drawGraph() {
     ctx.shadowBlur = 7;
     ctx.stroke();
     ctx.shadowBlur = 0;
+    }
   }
 
   const pulse = 1 + Math.sin(now * 0.003) * 0.08;
@@ -2070,6 +2108,7 @@ async function loadInitialState() {
 }
 
 async function start() {
+  applyUiScale();
   await setupNativeBridge();
   populateUi();
   createKnobs();
