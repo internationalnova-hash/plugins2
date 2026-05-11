@@ -149,6 +149,7 @@ const canvas = document.getElementById("graphCanvas");
 const ctx = canvas.getContext("2d");
 const callout = document.getElementById("callout");
 const orb = document.getElementById("resonanceOrb");
+const pluginRoot = document.querySelector(".plugin");
 const coEdit = document.getElementById("coEdit");
 const coModeSelect = document.getElementById("coModeSelect");
 const coTypeSelect = document.getElementById("coTypeSelect");
@@ -1094,7 +1095,7 @@ function buildKnob(el, options) {
   headGrad.appendChild(headStop2);
   defs.appendChild(headGrad);
   
-  // Tight focused glow filter for main arc
+  // Tight focused glow filter for main arc with boosted overlap intensity
   const filter = document.createElementNS("http://www.w3.org/2000/svg", "filter");
   filter.setAttribute("id", glowId);
   filter.setAttribute("x", "-50%");
@@ -1102,7 +1103,7 @@ function buildKnob(el, options) {
   filter.setAttribute("width", "200%");
   filter.setAttribute("height", "200%");
   const feGaussianBlur = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
-  feGaussianBlur.setAttribute("stdDeviation", "0.79");
+  feGaussianBlur.setAttribute("stdDeviation", "1.08");
   feGaussianBlur.setAttribute("result", "coloredBlur");
   filter.appendChild(feGaussianBlur);
   const feGaussianBlur2 = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
@@ -2118,10 +2119,12 @@ function onGraphMove(e) {
   calloutTargetY = anchorY;
   if (calloutVisible) callout.classList.add("visible");
   else callout.classList.remove("visible");
-  const coFreq = document.getElementById("coFreq");
-  const coGain = document.getElementById("coGain");
-  if (coFreq) coFreq.textContent = fmtHz(b.frequency);
-  if (coGain) coGain.textContent = fmtDb(b.gainDb);
+  if (draggingBand < 0) {
+    const coFreq = document.getElementById("coFreq");
+    const coGain = document.getElementById("coGain");
+    if (coFreq) coFreq.textContent = fmtHz(b.frequency);
+    if (coGain) coGain.textContent = fmtDb(b.gainDb);
+  }
 
   // Avoid expensive, unchanged DOM churn while dragging.
   if (draggingBand < 0) {
@@ -2355,20 +2358,36 @@ function drawGraph() {
   ctx.strokeStyle = "rgba(98, 124, 194, 0.11)";
   ctx.lineWidth = 0.9;
 
-  [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].forEach((hz) => {
-    const x = hzToX(hz, w);
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, h);
-    ctx.stroke();
-  });
-
-  for (let g = -24; g <= 24; g += 6) {
-    const y = gainToY(g, h);
+  if (knobDragging) {
+    // Keep knob-driven interaction ultra-responsive: draw only anchor guides.
+    [20, 1000, 20000].forEach((hz) => {
+      const x = hzToX(hz, w);
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    });
+    const y = gainToY(0, h);
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(w, y);
     ctx.stroke();
+  } else {
+    [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].forEach((hz) => {
+      const x = hzToX(hz, w);
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    });
+
+    for (let g = -24; g <= 24; g += 6) {
+      const y = gainToY(g, h);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
   }
 
   if (fastInteraction) {
@@ -2383,7 +2402,7 @@ function drawGraph() {
       ctx.shadowColor = "transparent";
       ctx.beginPath();
       ctx.lineWidth = 2.6;
-      drawEqResponsePath(ctx, activeBands, w, h);
+      drawEqResponsePath(ctx, activeBands, w, h, knobDragging ? 150 : 220);
       const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
       lineGrad.addColorStop(0, "#eef4ff");
       lineGrad.addColorStop(0.3, "#c86dff");
@@ -2410,11 +2429,13 @@ function drawGraph() {
       ctx.lineWidth = activeDrag ? 2.5 : selected ? 2.2 : 1.9;
       ctx.stroke();
 
-      ctx.fillStyle = "#edf3ff";
-      ctx.font = "600 13px Avenir Next";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(String(i + 1), x, y + 0.5);
+      if (!knobDragging) {
+        ctx.fillStyle = "#edf3ff";
+        ctx.font = "600 13px Avenir Next";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(i + 1), x, y + 0.5);
+      }
     });
 
     rafHandle = requestAnimationFrame(drawGraph);
@@ -2624,9 +2645,16 @@ function drawGraph() {
     lineGrad.addColorStop(0.62, "#a888ff");
     lineGrad.addColorStop(1, "#88c8ff");
     ctx.strokeStyle = lineGrad;
-    const reactiveBloom2 = 12 + reactiveDyn * 8;
+    const reactiveBloom2 = 15 + reactiveDyn * 10;
     ctx.shadowColor = `rgba(255, 150, 255, ${0.8 + reactiveDyn * 0.2})`;
     ctx.shadowBlur = reactiveBloom2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.lineWidth = 5.6;
+    drawEqResponsePath(ctx, activeBands, w, h);
+    ctx.strokeStyle = "rgba(208, 172, 255, 0.14)";
+    ctx.shadowColor = "rgba(182, 152, 255, 0.22)";
+    ctx.shadowBlur = 24 + reactiveDyn * 8;
     ctx.stroke();
     ctx.shadowBlur = 0;
     }
@@ -2663,17 +2691,19 @@ function drawGraph() {
       return;
     }
 
-    const focusBoost = activeDrag ? 1.48 : hovered ? 1.18 : selected ? 1.12 : 1;
+    const focusBoost = activeDrag ? 1.46 : hovered ? 1.2 : selected ? 1.16 : 1.04;
     const gainIntensity = Math.abs(b.gainDb) / 30;
     const qIntensity = Math.min(1, (b.q || 1) / 6);
-    const energyBoost = 0.8 + 0.22 * (gainIntensity + qIntensity * 0.5);
+    const contourEnergy = 0.76 + gainIntensity * 0.44 + qIntensity * 0.22 + (dynamic ? 0.08 : 0);
+    const selectedHaloBoost = selected ? 1.16 : 1;
+    const energyBoost = contourEnergy * selectedHaloBoost;
     const reactiveSync = 1 + Math.sin(now * 0.004 + x * 0.02) * 0.06 * (reactiveDyn + 0.3);
     const halo = (selected ? (24 * pulse * breathe + reactiveDyn * 11) : dynamic ? (14 + reactiveDyn * 16) : 9.5) * focusBoost * energyBoost * reactiveSync;
     
     // Outer diffuse glow (largest)
     const g1 = ctx.createRadialGradient(x, y, 0, x, y, halo * 1.34);
-    const outerIntensity = 0.06 + 0.09 * gainIntensity;
-    g1.addColorStop(0, selected ? `rgba(180, 142, 255, ${0.15 + 0.1 * gainIntensity})` : dynamic ? `rgba(104, 130, 255, ${0.12 + 0.08 * gainIntensity})` : `rgba(190, 210, 255, ${outerIntensity})`);
+    const outerIntensity = 0.11 + 0.1 * gainIntensity + qIntensity * 0.05;
+    g1.addColorStop(0, selected ? `rgba(194, 148, 255, ${0.24 + 0.12 * gainIntensity})` : dynamic ? `rgba(116, 140, 255, ${0.16 + 0.1 * gainIntensity})` : `rgba(194, 214, 255, ${outerIntensity})`);
     g1.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g1;
     ctx.beginPath();
@@ -2682,9 +2712,9 @@ function drawGraph() {
 
     // Primary glow halo
     const g2 = ctx.createRadialGradient(x, y, 0, x, y, halo * 0.78);
-    const haloIntensity = 0.12 + 0.18 * gainIntensity;
-    g2.addColorStop(0, selected ? `rgba(220, 180, 255, ${1})` : dynamic ? `rgba(140, 160, 255, ${0.95 + 0.05 * gainIntensity})` : `rgba(244, 248, 255, ${0.72 + haloIntensity})`);
-    g2.addColorStop(0.38, selected ? "rgba(176, 132, 255, 0.48)" : dynamic ? "rgba(120, 150, 255, 0.4)" : `rgba(222, 234, 255, ${0.3 + haloIntensity * 0.5})`);
+    const haloIntensity = 0.15 + 0.22 * gainIntensity + qIntensity * 0.08;
+    g2.addColorStop(0, selected ? `rgba(228, 186, 255, 1)` : dynamic ? `rgba(146, 166, 255, ${0.96 + 0.04 * gainIntensity})` : `rgba(246, 249, 255, ${0.78 + haloIntensity})`);
+    g2.addColorStop(0.38, selected ? "rgba(188, 138, 255, 0.56)" : dynamic ? "rgba(128, 156, 255, 0.46)" : `rgba(226, 236, 255, ${0.34 + haloIntensity * 0.5})`);
     g2.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g2;
     ctx.beginPath();
@@ -2781,19 +2811,34 @@ function drawGraph() {
     ctx.fillText(String(i + 1), x, y + 0.5);
   });
 
-  const orbEnergy = clamp(0.22 + reactiveDyn * 1.05 + reactivePeak * 0.82, 0, 1);
+  const orbEnergy = clamp(0.24 + reactiveDyn * 1.05 + reactivePeak * 0.82 + (state.resonanceAmount / 100) * 0.18, 0, 1);
   const orbDrift = Math.sin(now * 0.0017) * 11 + Math.cos(now * 0.0012) * 4;
   const orbShimmer = Math.sin(now * 0.00135) * 24 + Math.cos(now * 0.0019) * 9;
   const orbRot = Math.sin(now * 0.00042) * 7;
   const orbCoreX = Math.sin(now * 0.0021) * (1.2 + orbEnergy * 1.7);
   const orbCoreY = Math.cos(now * 0.0027) * (1.0 + orbEnergy * 1.5);
+  const orbParallaxX = Math.sin(now * 0.0011) * (1.3 + orbEnergy * 1.9);
+  const orbParallaxY = Math.cos(now * 0.00145) * (1.1 + orbEnergy * 1.5);
   orb.style.setProperty("--orb-energy", `${orbEnergy.toFixed(3)}`);
   orb.style.setProperty("--orb-drift", `${orbDrift.toFixed(3)}deg`);
   orb.style.setProperty("--orb-shimmer", `${orbShimmer.toFixed(3)}deg`);
   orb.style.setProperty("--orb-rot", `${orbRot.toFixed(3)}deg`);
   orb.style.setProperty("--orb-core-x", `${orbCoreX.toFixed(3)}px`);
   orb.style.setProperty("--orb-core-y", `${orbCoreY.toFixed(3)}px`);
+  orb.style.setProperty("--orb-parallax-x", `${orbParallaxX.toFixed(3)}px`);
+  orb.style.setProperty("--orb-parallax-y", `${orbParallaxY.toFixed(3)}px`);
   orb.style.boxShadow = `inset 0 -10px ${52 + reactiveDyn * 40}px rgba(0,0,0,0.62), inset 0 0 ${52 + reactiveDyn * 64}px rgba(182,128,255,0.68), inset 0 0 ${124 + reactiveDyn * 52}px rgba(66,88,218,0.48), inset 0 0 ${178 + reactiveDyn * 42}px rgba(2,8,28,0.92), 0 0 ${10 + reactivePeak * 22}px rgba(118,124,255,0.16), 0 0 ${28 + reactivePeak * 34}px rgba(84,98,244,0.11)`;
+
+  if (pluginRoot) {
+    const envGraphGlow = clamp(0.06 + reactivePeak * 0.24 + reactiveDyn * 0.18, 0, 0.34);
+    const envOrbGlow = clamp(0.05 + orbEnergy * 0.2, 0, 0.3);
+    const ambientBreathe = 0.5 + Math.sin(now * 0.00085) * 0.5;
+    const ambientDrift = Math.sin(now * 0.00037) * 1.6;
+    pluginRoot.style.setProperty("--env-graph-glow", `${envGraphGlow.toFixed(3)}`);
+    pluginRoot.style.setProperty("--env-orb-glow", `${envOrbGlow.toFixed(3)}`);
+    pluginRoot.style.setProperty("--ambient-breathe", `${ambientBreathe.toFixed(3)}`);
+    pluginRoot.style.setProperty("--ambient-drift", `${ambientDrift.toFixed(3)}`);
+  }
 
   if (dynMeterFill) {
     const meterValue = clamp((meterSourceExternal ? dynActivity : outputPeak) * 100, 6, 100);
