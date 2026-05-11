@@ -246,7 +246,6 @@ function setInteractionActive(active) {
     clearTimeout(interactionDeactivateTimer);
     if (interactionActiveState) return;
     interactionActiveState = true;
-    if (pluginRoot) pluginRoot.classList.add("interaction-fast");
     try {
       nativeSetInteractionActive(true);
     } catch (_) {}
@@ -258,7 +257,6 @@ function setInteractionActive(active) {
     if (draggingBand >= 0 || knobDragging) return;
     if (!interactionActiveState) return;
     interactionActiveState = false;
-    if (pluginRoot) pluginRoot.classList.remove("interaction-fast");
     try {
       nativeSetInteractionActive(false);
     } catch (_) {}
@@ -605,7 +603,6 @@ function renderPresetList() {
     const item = document.createElement("div");
     const isActive = presetSelect && presetSelect.value === preset.name;
     item.className = `preset-list-item${isActive ? " active" : ""}`;
-    item.style.animation = `presetItemIn 240ms cubic-bezier(0.2, 0.9, 0.2, 1) ${Math.min(index * 16, 176)}ms both`;
     item.innerHTML = `
       <div class="name">${preset.name}</div>
       <button class="preset-star${preset.favorite ? " active" : ""}" type="button" title="Favorite">*</button>
@@ -674,8 +671,11 @@ function openPresetBrowser() {
   presetOverlay.setAttribute("aria-hidden", "false");
   presetBrowserPanel.classList.add("visible");
   if (savePresetModal) savePresetModal.classList.remove("visible");
-  renderPresetBrowser();
-  if (presetSearchInput) presetSearchInput.focus();
+  // Let overlay/panel paint first, then do heavier list rendering.
+  requestAnimationFrame(() => {
+    renderPresetBrowser();
+    if (presetSearchInput) presetSearchInput.focus();
+  });
 }
 
 function closePresetBrowser() {
@@ -1248,13 +1248,7 @@ function buildKnob(el, options) {
     lastDragValue = options.get();
     knobDragging = true;
     setInteractionActive(true);
-    el.style.opacity = "0.92";
-    ctrl.arc.style.filter = "drop-shadow(0 0 5px rgba(130, 110, 245, 0.52)) drop-shadow(0 0 1px rgba(220, 232, 255, 0.18))";
-    ctrl.massArc.style.filter = "drop-shadow(0 0 3px rgba(150, 110, 245, 0.24))";
-    ctrl.headArc.style.filter = "drop-shadow(0 0 6px rgba(170, 150, 255, 0.58))";
-    ambientRing.style.filter = "drop-shadow(0 0 3px rgba(100, 125, 245, 0.18))";
-    ring.style.filter = "drop-shadow(0 0 2px rgba(110, 100, 220, 0.22))";
-    indicator.style.filter = "drop-shadow(0 0 2px rgba(190, 210, 255, 0.28))";
+    el.style.opacity = "0.96";
   });
 
   el.addEventListener("pointermove", (e) => {
@@ -1279,12 +1273,6 @@ function buildKnob(el, options) {
     setInteractionActive(false);
     readoutUpdateFrame = 0;
     el.style.opacity = "1";
-    ctrl.arc.style.filter = "drop-shadow(0 0 1px rgba(120, 100, 220, 0.24))";
-    ctrl.massArc.style.filter = "none";
-    ctrl.headArc.style.filter = "drop-shadow(0 0 2px rgba(160, 140, 240, 0.28))";
-    ambientRing.style.filter = "drop-shadow(0 0 1px rgba(100, 125, 245, 0.12))";
-    ring.style.filter = "drop-shadow(0 0 1px rgba(100, 90, 200, 0.1))";
-    indicator.style.filter = "drop-shadow(0 0 0.5px rgba(190, 210, 255, 0.16))";
     ctrl.set(options.get(), false);
     updateSelectedBandReadouts(options.readoutKey || "all");
     if (pushState) queuePushState();
@@ -2014,6 +2002,11 @@ function onGraphDown(e) {
     draggingBand = nearest;
     hoveredBand = nearest;
     state.selectedBand = nearest;
+    const b = state.bands[nearest];
+    // Snap immediately on pickup so drag never feels like it has to catch up.
+    b.frequency = clamp(xToHz(x, rect.width), FREQ_MIN, FREQ_MAX);
+    b.gainDb = clamp(yToGain(y, rect.height), -30, 30);
+    b.enabled = 1;
     calloutVisible = false;
     calloutBandIndex = -1;
     cancelCalloutHide();
