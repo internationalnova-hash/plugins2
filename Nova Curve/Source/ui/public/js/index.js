@@ -246,6 +246,7 @@ function setInteractionActive(active) {
     clearTimeout(interactionDeactivateTimer);
     if (interactionActiveState) return;
     interactionActiveState = true;
+    if (pluginRoot) pluginRoot.classList.add("interaction-fast");
     try {
       nativeSetInteractionActive(true);
     } catch (_) {}
@@ -257,6 +258,7 @@ function setInteractionActive(active) {
     if (draggingBand >= 0 || knobDragging) return;
     if (!interactionActiveState) return;
     interactionActiveState = false;
+    if (pluginRoot) pluginRoot.classList.remove("interaction-fast");
     try {
       nativeSetInteractionActive(false);
     } catch (_) {}
@@ -2283,20 +2285,25 @@ function drawGraph() {
 
   drawFallbackSpectrum(now);
 
-  const rect = graphWrap.getBoundingClientRect();
+  const viewW = canvas.clientWidth || graphWrap.clientWidth || 1;
+  const viewH = canvas.clientHeight || graphWrap.clientHeight || 1;
   const dpr = window.devicePixelRatio || 1;
-  const targetW = Math.floor(rect.width * dpr);
-  const targetH = Math.floor(rect.height * dpr);
+  const targetW = Math.floor(viewW * dpr);
+  const targetH = Math.floor(viewH * dpr);
 
   if (canvas.width !== targetW || canvas.height !== targetH) {
     canvas.width = targetW;
     canvas.height = targetH;
   }
 
-  const w = rect.width;
-  const h = rect.height;
+  const w = viewW;
+  const h = viewH;
 
   if (calloutVisible) {
+    if (draggingBand >= 0) {
+      // Avoid expensive callout layout/measurement while dragging nodes.
+      callout.classList.remove("visible");
+    } else {
     const targetX = clamp(calloutTargetX, 0, w);
     const targetY = clamp(calloutTargetY, 0, h);
     calloutX = smoothTo(calloutX, targetX, 26, dt);
@@ -2322,6 +2329,7 @@ function drawGraph() {
     callout.style.left = `${left}px`;
     callout.style.top = `${top}px`;
     callout.classList.add("visible");
+    }
   } else {
     callout.classList.remove("visible");
   }
@@ -2401,14 +2409,9 @@ function drawGraph() {
       ctx.shadowBlur = 0;
       ctx.shadowColor = "transparent";
       ctx.beginPath();
-      ctx.lineWidth = 2.6;
-      drawEqResponsePath(ctx, activeBands, w, h, knobDragging ? 150 : 220);
-      const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
-      lineGrad.addColorStop(0, "#eef4ff");
-      lineGrad.addColorStop(0.3, "#c86dff");
-      lineGrad.addColorStop(0.66, "#9f8aff");
-      lineGrad.addColorStop(1, "#88c8ff");
-      ctx.strokeStyle = lineGrad;
+      ctx.lineWidth = 2.15;
+      drawEqResponsePath(ctx, activeBands, w, h, knobDragging ? 84 : 120);
+      ctx.strokeStyle = "#cfdcff";
       ctx.stroke();
     }
 
@@ -2429,7 +2432,7 @@ function drawGraph() {
       ctx.lineWidth = activeDrag ? 2.5 : selected ? 2.2 : 1.9;
       ctx.stroke();
 
-      if (!knobDragging) {
+      if (!knobDragging && draggingBand < 0) {
         ctx.fillStyle = "#edf3ff";
         ctx.font = "600 13px Avenir Next";
         ctx.textAlign = "center";

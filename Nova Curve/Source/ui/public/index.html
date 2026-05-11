@@ -1648,6 +1648,29 @@
       transform: translateY(-2px) scale(1.02);
     }
 
+    .plugin.interaction-fast .knob {
+      box-shadow:
+        inset 0 6px 10px rgba(110, 132, 206, 0.06),
+        inset 0 6px 10px rgba(0, 0, 0, 0.34),
+        0 6px 14px rgba(0, 0, 0, 0.38);
+    }
+
+    .plugin.interaction-fast .knob::after {
+      filter: none;
+      opacity: 0.74;
+    }
+
+    .plugin.interaction-fast .knob-arc svg {
+      filter: none;
+    }
+
+    .plugin.interaction-fast .knob-indicator {
+      filter: none;
+      box-shadow:
+        0 0 0.55px rgba(255, 252, 255, 0.92),
+        0 1.2px 2.8px rgba(0, 0, 0, 0.32);
+    }
+
     .read {
       font-size: 17px;
       color: #f9fcff;
