@@ -2,8 +2,8 @@ const MAX_BANDS = 24;
 const BINS = 96;
 const FREQ_MIN = 20;
 const FREQ_MAX = 20000;
-const UI_BASE_WIDTH = 1120;
-const UI_BASE_HEIGHT = 758;
+const UI_BASE_WIDTH = 1360;
+const UI_BASE_HEIGHT = 860;
 
 const FILTER_TYPES = ["Bell", "Low Shelf", "High Shelf", "High Pass", "Low Pass", "Notch", "Band Pass", "Tilt"];
 const BAND_MODES = ["Static", "Dynamic", "Resonance"];
@@ -783,6 +783,24 @@ function buildKnob(el, options) {
     return options.min + norm * (options.max - options.min);
   };
 
+  const setDragVisual = (value) => {
+    const norm = clamp(options.toNorm ? options.toNorm(value) : (value - options.min) / (options.max - options.min), 0, 1);
+    const deg = -135 + norm * 270;
+    indicator.style.transform = `translateX(-50%) rotate(${deg}deg)`;
+    const progressLength = Math.max(0, norm * trackLength);
+    ctrl.arc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
+    // Keep expensive blur/filter layers static while dragging for smoother interaction.
+    ctrl.bloomArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.massArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.coreArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.taperArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.headArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.headArc.setAttribute("opacity", "0");
+    ctrl.arc.style.opacity = 0.96;
+    el.style.setProperty("--arc-reflect", `${0.06 + 0.2 * Math.pow(norm, 0.92)}`);
+    el.style.setProperty("--arc-angle", `${deg}deg`);
+  };
+
   // Use pointer capture so drag tracking is scoped to this element only.
   // This eliminates the need for global window.mousemove listeners which fire
   // for every knob simultaneously and cause severe jank with multiple knobs.
@@ -811,7 +829,7 @@ function buildKnob(el, options) {
     // Update model only — no queuePushState during drag to avoid IPC backpressure.
     const newValue = normToValue(drag.norm);
     options.set(clamp(newValue, options.min, options.max), false);
-    ctrl.set(options.get(), false);
+    setDragVisual(options.get());
     lastDragValue = options.get();
     interactionEnergy = Math.min(1, interactionEnergy + 0.05);
     readoutUpdateFrame++;
@@ -1924,6 +1942,23 @@ function drawGraph() {
     const activeDrag = i === draggingBand;
     const dynamic = b.mode > 0.5;
     const notch = b.type === 5;
+
+    if (fastInteraction) {
+      ctx.beginPath();
+      ctx.arc(x, y, 11.5, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(6, 10, 24, 0.94)";
+      ctx.fill();
+      ctx.strokeStyle = notch ? "#89b4ff" : selected ? "#c099ff" : dynamic ? "#7fa8ff" : "#d6e4ff";
+      ctx.lineWidth = activeDrag ? 2.5 : selected ? 2.2 : 1.9;
+      ctx.stroke();
+
+      ctx.fillStyle = "#edf3ff";
+      ctx.font = "600 13px Avenir Next";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(i + 1), x, y + 0.5);
+      return;
+    }
 
     const focusBoost = activeDrag ? 1.48 : hovered ? 1.18 : selected ? 1.12 : 1;
     const halo = (selected ? (24 * pulse * breathe + reactiveDyn * 11) : dynamic ? (14 + reactiveDyn * 16) : 9.5) * focusBoost;
