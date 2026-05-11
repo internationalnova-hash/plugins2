@@ -2302,7 +2302,17 @@ function drawGraph() {
     const cw = Math.max(180, callout.offsetWidth || 0);
     const ch = Math.max(110, callout.offsetHeight || 0);
     const edgePad = 8;
-    const left = clamp(calloutX - cw * 0.5, edgePad, Math.max(edgePad, w - cw - edgePad));
+    const sideGap = 18;
+    const minLeft = edgePad;
+    const maxLeft = Math.max(edgePad, w - cw - edgePad);
+    let left;
+    if (calloutX < cw * 0.5 + sideGap + edgePad) {
+      left = clamp(calloutX + sideGap, minLeft, maxLeft);
+    } else if (calloutX > w - (cw * 0.5 + sideGap + edgePad)) {
+      left = clamp(calloutX - cw - sideGap, minLeft, maxLeft);
+    } else {
+      left = clamp(calloutX - cw * 0.5, minLeft, maxLeft);
+    }
     const preferAboveTop = calloutY - ch - 14;
     const top = preferAboveTop < edgePad ? clamp(calloutY + 14, edgePad, Math.max(edgePad, h - ch - edgePad)) : clamp(preferAboveTop, edgePad, Math.max(edgePad, h - ch - edgePad));
 
