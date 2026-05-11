@@ -94,6 +94,11 @@ let hoverGraphX = 0;
 let hoverGraphY = 0;
 let cachedCanvasRect = null;
 let knobDragging = false;
+let graphDragRafPending = false;
+let pendingGraphDragX = 0;
+let pendingGraphDragY = 0;
+let pendingGraphDragFine = 1;
+let graphDragReadoutTick = 0;
 
 let lastFrameMs = performance.now();
 let interactionEnergy = 0;
@@ -1526,31 +1531,43 @@ function onGraphMove(e) {
   }
 
   if (draggingBand >= 0) {
-    dragPreviewActive = true;
-    const b = state.bands[draggingBand];
-    const fine = (e.shiftKey || e.metaKey) ? 0.24 : 1;
-    const targetFreq = clamp(xToHz(x, rect.width), FREQ_MIN, FREQ_MAX);
-    const targetGain = clamp(yToGain(y, rect.height), -30, 30);
-    // Make normal drag feel immediate; keep slight damping only for fine-control drag.
-    const dragResponse = fine < 1 ? 0.42 : 1.0;
-    const newFreq = clamp(b.frequency + (targetFreq - b.frequency) * dragResponse, FREQ_MIN, FREQ_MAX);
-    const newGain = clamp(b.gainDb + (targetGain - b.gainDb) * dragResponse, -30, 30);
-    dragPreviewFreq = newFreq;
-    dragPreviewGain = newGain;
-    
-    b.frequency = newFreq;
-    b.gainDb = newGain;
-    b.enabled = 1;
-    calloutVisible = true;
-    calloutTargetX = x;
-    calloutTargetY = y;
-    interactionEnergy = Math.min(1, interactionEnergy + 0.06);
+    pendingGraphDragX = x;
+    pendingGraphDragY = y;
+    pendingGraphDragFine = (e.shiftKey || e.metaKey) ? 0.24 : 1;
+    if (!graphDragRafPending) {
+      graphDragRafPending = true;
+      requestAnimationFrame(() => {
+        graphDragRafPending = false;
+        if (draggingBand < 0) return;
+        const b = state.bands[draggingBand];
+        dragPreviewActive = true;
+        const targetFreq = clamp(xToHz(pendingGraphDragX, rect.width), FREQ_MIN, FREQ_MAX);
+        const targetGain = clamp(yToGain(pendingGraphDragY, rect.height), -30, 30);
+        // Make normal drag feel immediate; keep slight damping only for fine-control drag.
+        const dragResponse = pendingGraphDragFine < 1 ? 0.42 : 1.0;
+        const newFreq = clamp(b.frequency + (targetFreq - b.frequency) * dragResponse, FREQ_MIN, FREQ_MAX);
+        const newGain = clamp(b.gainDb + (targetGain - b.gainDb) * dragResponse, -30, 30);
+        dragPreviewFreq = newFreq;
+        dragPreviewGain = newGain;
 
-    // Keep drag path lightweight: update only fast readouts while moving.
-    const freqRead = document.getElementById("freqRead");
-    const gainRead = document.getElementById("gainRead");
-    if (freqRead) freqRead.textContent = fmtHz(newFreq);
-    if (gainRead) gainRead.textContent = fmtDb(newGain);
+        b.frequency = newFreq;
+        b.gainDb = newGain;
+        b.enabled = 1;
+        calloutVisible = true;
+        calloutTargetX = pendingGraphDragX;
+        calloutTargetY = pendingGraphDragY;
+        interactionEnergy = Math.min(1, interactionEnergy + 0.06);
+
+        // Keep drag path lightweight: update readouts at a reduced cadence.
+        graphDragReadoutTick++;
+        if ((graphDragReadoutTick % 2) === 0) {
+          const freqRead = document.getElementById("freqRead");
+          const gainRead = document.getElementById("gainRead");
+          if (freqRead) freqRead.textContent = fmtHz(newFreq);
+          if (gainRead) gainRead.textContent = fmtDb(newGain);
+        }
+      });
+    }
   }
 
   const activeIdx = draggingBand >= 0 ? draggingBand : (hoveredBand >= 0 ? hoveredBand : state.selectedBand);
@@ -1628,6 +1645,8 @@ function onGraphContextMenu(e) {
 function onGraphUp() {
   const releasedBand = draggingBand;
   draggingBand = -1;
+  graphDragRafPending = false;
+  graphDragReadoutTick = 0;
   setInteractionActive(false);
 
   // Commit once after drag ends to avoid per-frame sync lag.
@@ -1740,8 +1759,16 @@ function drawGraph() {
     const targetY = clamp(calloutTargetY, 0, h);
     calloutX = smoothTo(calloutX, targetX, 26, dt);
     calloutY = smoothTo(calloutY, targetY, 26, dt);
-    callout.style.left = `${calloutX}px`;
-    callout.style.top = `${calloutY}px`;
+
+    const cw = Math.max(180, callout.offsetWidth || 0);
+    const ch = Math.max(110, callout.offsetHeight || 0);
+    const edgePad = 8;
+    const left = clamp(calloutX - cw * 0.5, edgePad, Math.max(edgePad, w - cw - edgePad));
+    const preferAboveTop = calloutY - ch - 14;
+    const top = preferAboveTop < edgePad ? clamp(calloutY + 14, edgePad, Math.max(edgePad, h - ch - edgePad)) : clamp(preferAboveTop, edgePad, Math.max(edgePad, h - ch - edgePad));
+
+    callout.style.left = `${left}px`;
+    callout.style.top = `${top}px`;
     callout.classList.add("visible");
   } else {
     callout.classList.remove("visible");
