@@ -9,6 +9,19 @@ const FILTER_TYPES = ["Bell", "Low Shelf", "High Shelf", "High Pass", "Low Pass"
 const BAND_MODES = ["Static", "Dynamic", "Resonance"];
 const CHANNEL_MODES = ["Stereo", "Mid", "Side", "Left", "Right"];
 const USER_PRESETS_STORAGE_KEY = "novaCurve.userPresets.v1";
+const PRESET_CATEGORIES = ["All Presets", "Vocal", "Mastering", "Mix Bus", "Drums", "Guitar", "Bass", "Keys", "Podcast", "Custom"];
+const PRESET_CATEGORY_ICONS = {
+  "All Presets": "AP",
+  "Vocal": "VC",
+  "Mastering": "MS",
+  "Mix Bus": "MB",
+  "Drums": "DR",
+  "Guitar": "GT",
+  "Bass": "BS",
+  "Keys": "KY",
+  "Podcast": "PC",
+  "Custom": "CU"
+};
 
 const PRESETS = [
   { name: "Default*", ops: [] },
@@ -114,6 +127,16 @@ let calloutSoloPersistent = false;
 let calloutContextMode = false;
 let displayBands = [];
 let userPresets = [];
+let presetBrowserOpen = false;
+let savePresetOpen = false;
+let presetActiveCategory = "All Presets";
+let presetSearchText = "";
+let presetTypeFilterValue = "all";
+let favoritesOnly = false;
+let activePreviewPresetName = "";
+let savePresetCategory = "Custom";
+let savePresetVisibility = "User";
+let savePresetFavorite = false;
 
 let nativeGetState = async () => "";
 let nativeSetState = async () => true;
@@ -127,6 +150,37 @@ const orb = document.getElementById("resonanceOrb");
 const coEdit = document.getElementById("coEdit");
 const coModeSelect = document.getElementById("coModeSelect");
 const coTypeSelect = document.getElementById("coTypeSelect");
+const presetOverlay = document.getElementById("presetSystemOverlay");
+const presetBrowserPanel = document.getElementById("presetBrowserPanel");
+const presetBrowserBtn = document.getElementById("presetBrowserBtn");
+const presetBrowserCurrent = document.getElementById("presetBrowserCurrent");
+const presetBrowserClose = document.getElementById("presetBrowserClose");
+const presetBrowserCloseBottom = document.getElementById("presetBrowserCloseBottom");
+const presetSearchInput = document.getElementById("presetSearchInput");
+const presetTypeFilter = document.getElementById("presetTypeFilter");
+const presetFavoriteFilter = document.getElementById("presetFavoriteFilter");
+const presetCategoryColumn = document.getElementById("presetCategoryColumn");
+const presetList = document.getElementById("presetList");
+const presetPreviewCanvas = document.getElementById("presetPreviewCanvas");
+const presetPreviewName = document.getElementById("presetPreviewName");
+const presetPreviewCategory = document.getElementById("presetPreviewCategory");
+const presetPreviewMode = document.getElementById("presetPreviewMode");
+const presetPreviewBands = document.getElementById("presetPreviewBands");
+const presetPreviewRating = document.getElementById("presetPreviewRating");
+const presetNewFolderBtn = document.getElementById("presetNewFolderBtn");
+const presetImportBtn = document.getElementById("presetImportBtn");
+const savePresetModal = document.getElementById("savePresetModal");
+const savePresetClose = document.getElementById("savePresetClose");
+const savePresetNameInput = document.getElementById("savePresetNameInput");
+const savePresetNameCount = document.getElementById("savePresetNameCount");
+const savePresetTypeSelect = document.getElementById("savePresetTypeSelect");
+const saveCategoryGrid = document.getElementById("saveCategoryGrid");
+const savePresetDescription = document.getElementById("savePresetDescription");
+const savePresetDescCount = document.getElementById("savePresetDescCount");
+const saveVisibility = document.getElementById("saveVisibility");
+const saveFavoriteToggle = document.getElementById("saveFavoriteToggle");
+const savePresetCancel = document.getElementById("savePresetCancel");
+const savePresetConfirm = document.getElementById("savePresetConfirm");
 
 const bandIndexSelect = document.getElementById("bandIndex");
 const bandModeSelect = document.getElementById("bandMode");
@@ -265,8 +319,79 @@ function fmtHz(hz) { return hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${Ma
 function fmtDb(db) { return `${db >= 0 ? "+" : ""}${db.toFixed(1)} dB`; }
 function fmtMs(ms) { return ms < 100 ? `${ms.toFixed(1)} ms` : `${Math.round(ms)} ms`; }
 
+function inferPresetCategory(name) {
+  const n = String(name || "").toLowerCase();
+  if (n.includes("vocal") || n.includes("voice") || n.includes("rap") || n.includes("podcast")) {
+    return n.includes("podcast") ? "Podcast" : "Vocal";
+  }
+  if (n.includes("master") || n.includes("mastering") || n.includes("clean")) return "Mastering";
+  if (n.includes("mix bus") || n.includes("mix") || n.includes("sweetener")) return "Mix Bus";
+  if (n.includes("drum") || n.includes("beat")) return "Drums";
+  if (n.includes("guitar")) return "Guitar";
+  if (n.includes("bass") || n.includes("low-end")) return "Bass";
+  if (n.includes("keys") || n.includes("piano") || n.includes("synth")) return "Keys";
+  return "Custom";
+}
+
+function getPresetModeLabel(ops = []) {
+  let hasDynamic = false;
+  let hasResonance = false;
+  for (let i = 0; i < ops.length; i++) {
+    const mode = Number(ops[i].m || 0);
+    if (mode === 1) hasDynamic = true;
+    if (mode === 2) hasResonance = true;
+  }
+  if (hasResonance) return "Resonance";
+  if (hasDynamic) return "Dynamic";
+  return "Static";
+}
+
+function getPresetEntries() {
+  const factory = PRESETS.map((preset) => ({
+    ...preset,
+    category: inferPresetCategory(preset.name),
+    type: inferPresetCategory(preset.name),
+    favorite: false,
+    visibility: "Global",
+    description: "",
+    isUser: false
+  }));
+
+  const users = userPresets.map((preset) => ({
+    ...preset,
+    category: PRESET_CATEGORIES.includes(preset.category) ? preset.category : inferPresetCategory(preset.name),
+    type: PRESET_CATEGORIES.includes(preset.type) ? preset.type : (PRESET_CATEGORIES.includes(preset.category) ? preset.category : inferPresetCategory(preset.name)),
+    favorite: preset.favorite === true,
+    visibility: preset.visibility === "Global" ? "Global" : "User",
+    description: typeof preset.description === "string" ? preset.description : "",
+    isUser: true
+  }));
+
+  return factory.concat(users);
+}
+
+function getFilteredPresetEntries() {
+  const presets = getPresetEntries();
+  return presets.filter((preset) => {
+    if (presetActiveCategory !== "All Presets" && preset.category !== presetActiveCategory) return false;
+    if (presetTypeFilterValue !== "all" && preset.type !== presetTypeFilterValue) return false;
+    if (favoritesOnly && !preset.favorite) return false;
+    if (presetSearchText.length > 0) {
+      const hay = `${preset.name} ${preset.category} ${preset.type} ${preset.description}`.toLowerCase();
+      if (!hay.includes(presetSearchText)) return false;
+    }
+    return true;
+  });
+}
+
+function updatePresetBrowserCurrentLabel(name) {
+  if (presetBrowserCurrent) {
+    presetBrowserCurrent.textContent = name || "Default*";
+  }
+}
+
 function getAllPresets() {
-  return PRESETS.concat(userPresets);
+  return getPresetEntries();
 }
 
 function rebuildPresetSelectOptions() {
@@ -283,6 +408,7 @@ function rebuildPresetSelectOptions() {
   if (!presetSelect.options.length) return;
   const hasCurrent = Array.from(presetSelect.options).some((o) => o.value === currentValue);
   presetSelect.value = hasCurrent ? currentValue : presetSelect.options[0].value;
+  updatePresetBrowserCurrentLabel(presetSelect.value);
 }
 
 function loadUserPresets() {
@@ -294,7 +420,15 @@ function loadUserPresets() {
     if (!Array.isArray(parsed)) return;
     userPresets = parsed
       .filter((p) => p && typeof p.name === "string" && Array.isArray(p.ops))
-      .map((p) => ({ name: p.name.trim(), ops: p.ops }))
+      .map((p) => ({
+        name: p.name.trim(),
+        ops: p.ops,
+        category: PRESET_CATEGORIES.includes(p.category) ? p.category : inferPresetCategory(p.name),
+        type: PRESET_CATEGORIES.includes(p.type) ? p.type : (PRESET_CATEGORIES.includes(p.category) ? p.category : inferPresetCategory(p.name)),
+        description: typeof p.description === "string" ? p.description.trim() : "",
+        visibility: p.visibility === "Global" ? "Global" : "User",
+        favorite: p.favorite === true
+      }))
       .filter((p) => p.name.length > 0);
   } catch (_) {
     userPresets = [];
@@ -323,12 +457,256 @@ function captureCurrentPresetOps() {
     }));
 }
 
-function saveCurrentPreset() {
-  const defaultName = `My Preset ${userPresets.length + 1}`;
-  const entered = window.prompt("Save preset as:", defaultName);
-  if (entered === null) return;
+function drawPresetPreview(preset) {
+  if (!presetPreviewCanvas || !preset) return;
+  const pctx = presetPreviewCanvas.getContext("2d");
+  if (!pctx) return;
+  const w = presetPreviewCanvas.width;
+  const h = presetPreviewCanvas.height;
+  pctx.clearRect(0, 0, w, h);
+  pctx.fillStyle = "rgba(8, 14, 28, 0.92)";
+  pctx.fillRect(0, 0, w, h);
 
-  const name = entered.trim();
+  pctx.strokeStyle = "rgba(96, 118, 196, 0.2)";
+  pctx.lineWidth = 1;
+  for (let i = 0; i < 6; i++) {
+    const y = (i / 5) * h;
+    pctx.beginPath();
+    pctx.moveTo(0, y);
+    pctx.lineTo(w, y);
+    pctx.stroke();
+  }
+
+  const grad = pctx.createLinearGradient(0, 0, w, 0);
+  grad.addColorStop(0, "#e8efff");
+  grad.addColorStop(0.4, "#bf73ff");
+  grad.addColorStop(1, "#86c4ff");
+
+  pctx.beginPath();
+  const ops = Array.isArray(preset.ops) ? preset.ops : [];
+  const points = 64;
+  for (let i = 0; i < points; i++) {
+    const x = (i / (points - 1)) * w;
+    const freq = xToHz(x, w);
+    let response = 0;
+    for (let j = 0; j < ops.length; j++) {
+      const op = ops[j];
+      response += bandResponseDbAtFreq(freq, {
+        frequency: op.f || 1000,
+        q: op.q || 1.2,
+        gainDb: op.g || 0,
+        type: op.t || 0
+      });
+    }
+    const y = gainToY(clamp(response, -24, 24), h);
+    if (i === 0) pctx.moveTo(x, y);
+    else pctx.lineTo(x, y);
+  }
+  pctx.lineWidth = 2.4;
+  pctx.strokeStyle = grad;
+  pctx.stroke();
+
+  pctx.shadowColor = "rgba(170, 122, 255, 0.26)";
+  pctx.shadowBlur = 12;
+  pctx.stroke();
+  pctx.shadowBlur = 0;
+}
+
+function setPresetPreview(preset) {
+  if (!preset) return;
+  if (presetPreviewName) presetPreviewName.textContent = preset.name;
+  if (presetPreviewCategory) presetPreviewCategory.textContent = `${preset.category} / ${preset.type}`;
+  if (presetPreviewMode) presetPreviewMode.textContent = getPresetModeLabel(preset.ops || []);
+  if (presetPreviewBands) presetPreviewBands.textContent = `${(preset.ops || []).length} Bands`;
+  if (presetPreviewRating) {
+    const stars = preset.favorite ? "1 Star" : "No Stars";
+    presetPreviewRating.textContent = stars;
+  }
+  activePreviewPresetName = preset.name;
+  drawPresetPreview(preset);
+}
+
+function renderPresetCategoryColumn() {
+  if (!presetCategoryColumn) return;
+  presetCategoryColumn.innerHTML = "";
+  PRESET_CATEGORIES.forEach((category) => {
+    const btn = document.createElement("button");
+    btn.className = `preset-cat-btn${category === presetActiveCategory ? " active" : ""}`;
+    btn.innerHTML = `<span>${PRESET_CATEGORY_ICONS[category] || ".."}</span><span>${category}</span>`;
+    btn.onclick = () => {
+      presetActiveCategory = category;
+      renderPresetCategoryColumn();
+      renderPresetList();
+    };
+    presetCategoryColumn.appendChild(btn);
+  });
+}
+
+function togglePresetFavoriteByName(name) {
+  const idx = userPresets.findIndex((p) => p.name === name);
+  if (idx < 0) return;
+  userPresets[idx].favorite = !userPresets[idx].favorite;
+  persistUserPresets();
+  rebuildPresetSelectOptions();
+  renderPresetList();
+}
+
+function applyPresetByName(name) {
+  const preset = getAllPresets().find((p) => p.name === name);
+  if (!preset) return;
+  snapshotForUndo();
+  (preset.ops || []).forEach((op) => {
+    const b = state.bands[op.i];
+    if (!b) return;
+    b.enabled = 1;
+    if (op.t !== undefined) b.type = op.t;
+    if (op.m !== undefined) b.mode = op.m;
+    if (op.c !== undefined) b.channel = op.c;
+    if (op.f !== undefined) b.frequency = op.f;
+    if (op.g !== undefined) b.gainDb = op.g;
+    if (op.q !== undefined) b.q = op.q;
+  });
+  presetSelect.value = preset.name;
+  updatePresetBrowserCurrentLabel(preset.name);
+  syncControlsFromState();
+  queuePushState();
+  setPresetPreview(preset);
+}
+
+function renderPresetList() {
+  if (!presetList) return;
+  const filtered = getFilteredPresetEntries();
+  presetList.innerHTML = "";
+
+  filtered.forEach((preset, index) => {
+    const item = document.createElement("div");
+    const isActive = presetSelect && presetSelect.value === preset.name;
+    item.className = `preset-list-item${isActive ? " active" : ""}`;
+    item.style.animation = `presetItemIn 240ms cubic-bezier(0.2, 0.9, 0.2, 1) ${Math.min(index * 16, 176)}ms both`;
+    item.innerHTML = `
+      <div class="name">${preset.name}</div>
+      <button class="preset-star${preset.favorite ? " active" : ""}" type="button" title="Favorite">*</button>
+      <div class="meta">${preset.category} / ${preset.type}</div>
+    `;
+
+    item.onclick = (e) => {
+      const star = e.target.closest(".preset-star");
+      if (star) {
+        e.stopPropagation();
+        togglePresetFavoriteByName(preset.name);
+        return;
+      }
+      applyPresetByName(preset.name);
+      renderPresetList();
+    };
+
+    item.onmouseenter = () => setPresetPreview(preset);
+    presetList.appendChild(item);
+  });
+
+  if (!filtered.length) {
+    const empty = document.createElement("div");
+    empty.className = "preset-list-item";
+    empty.innerHTML = `<div class="name">No Presets Found</div><div class="meta">Adjust filters or search</div>`;
+    presetList.appendChild(empty);
+    return;
+  }
+
+  const active = filtered.find((p) => p.name === presetSelect.value) || filtered[0];
+  setPresetPreview(active);
+}
+
+function renderPresetBrowser() {
+  renderPresetCategoryColumn();
+  renderPresetList();
+}
+
+function updateSaveCounters() {
+  if (savePresetNameCount && savePresetNameInput) savePresetNameCount.textContent = `${savePresetNameInput.value.length}/48`;
+  if (savePresetDescCount && savePresetDescription) savePresetDescCount.textContent = `${savePresetDescription.value.length}/180`;
+}
+
+function renderSaveCategoryGrid() {
+  if (!saveCategoryGrid) return;
+  saveCategoryGrid.innerHTML = "";
+  PRESET_CATEGORIES.filter((c) => c !== "All Presets").forEach((category) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `save-category-btn${savePresetCategory === category ? " active" : ""}`;
+    btn.innerHTML = `<span>${PRESET_CATEGORY_ICONS[category] || ".."}</span><span>${category}</span>`;
+    btn.onclick = () => {
+      savePresetCategory = category;
+      if (savePresetTypeSelect) savePresetTypeSelect.value = category;
+      renderSaveCategoryGrid();
+    };
+    saveCategoryGrid.appendChild(btn);
+  });
+}
+
+function openPresetBrowser() {
+  if (!presetOverlay || !presetBrowserPanel) return;
+  presetBrowserOpen = true;
+  savePresetOpen = false;
+  presetOverlay.classList.add("visible");
+  presetOverlay.setAttribute("aria-hidden", "false");
+  presetBrowserPanel.classList.add("visible");
+  if (savePresetModal) savePresetModal.classList.remove("visible");
+  renderPresetBrowser();
+  if (presetSearchInput) presetSearchInput.focus();
+}
+
+function closePresetBrowser() {
+  presetBrowserOpen = false;
+  if (!savePresetOpen && presetOverlay) {
+    presetOverlay.classList.remove("visible");
+    presetOverlay.setAttribute("aria-hidden", "true");
+  }
+  if (presetBrowserPanel) presetBrowserPanel.classList.remove("visible");
+}
+
+function openSavePresetModal() {
+  if (!presetOverlay || !savePresetModal) return;
+  savePresetOpen = true;
+  presetBrowserOpen = false;
+  presetOverlay.classList.add("visible");
+  presetOverlay.setAttribute("aria-hidden", "false");
+  if (presetBrowserPanel) presetBrowserPanel.classList.remove("visible");
+  savePresetModal.classList.add("visible");
+
+  savePresetCategory = "Custom";
+  savePresetVisibility = "User";
+  savePresetFavorite = false;
+  if (savePresetNameInput) savePresetNameInput.value = `My Preset ${userPresets.length + 1}`;
+  if (savePresetDescription) savePresetDescription.value = "";
+  if (savePresetTypeSelect) savePresetTypeSelect.value = savePresetCategory;
+  if (saveVisibility) {
+    saveVisibility.querySelectorAll("button").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.visibility === savePresetVisibility);
+    });
+  }
+  if (saveFavoriteToggle) {
+    saveFavoriteToggle.dataset.active = "0";
+    saveFavoriteToggle.setAttribute("aria-pressed", "false");
+  }
+  renderSaveCategoryGrid();
+  updateSaveCounters();
+  if (savePresetNameInput) {
+    savePresetNameInput.focus();
+    savePresetNameInput.select();
+  }
+}
+
+function closeSavePresetModal() {
+  savePresetOpen = false;
+  if (!presetBrowserOpen && presetOverlay) {
+    presetOverlay.classList.remove("visible");
+    presetOverlay.setAttribute("aria-hidden", "true");
+  }
+  if (savePresetModal) savePresetModal.classList.remove("visible");
+}
+
+function saveCurrentPreset(enteredName, metadata = {}) {
+  const name = String(enteredName ?? "").trim();
   if (!name) return;
 
   const ops = captureCurrentPresetOps();
@@ -344,17 +722,30 @@ function saveCurrentPreset() {
   }
 
   const existingUser = userPresets.findIndex((p) => p.name.toLowerCase() === name.toLowerCase());
+  const nextPreset = {
+    name,
+    ops,
+    category: PRESET_CATEGORIES.includes(metadata.category) ? metadata.category : inferPresetCategory(name),
+    type: PRESET_CATEGORIES.includes(metadata.type) ? metadata.type : (PRESET_CATEGORIES.includes(metadata.category) ? metadata.category : inferPresetCategory(name)),
+    description: typeof metadata.description === "string" ? metadata.description.trim() : "",
+    visibility: metadata.visibility === "Global" ? "Global" : "User",
+    favorite: metadata.favorite === true
+  };
+
   if (existingUser >= 0) {
     const ok = window.confirm(`Overwrite preset \"${name}\"?`);
     if (!ok) return;
-    userPresets[existingUser] = { name, ops };
+    userPresets[existingUser] = nextPreset;
   } else {
-    userPresets.push({ name, ops });
+    userPresets.push(nextPreset);
   }
 
   persistUserPresets();
   rebuildPresetSelectOptions();
   presetSelect.value = name;
+  updatePresetBrowserCurrentLabel(name);
+  renderPresetBrowser();
+  closeSavePresetModal();
 }
 
 function selectedBand() { return state.bands[state.selectedBand] || state.bands[0]; }
@@ -1079,6 +1470,11 @@ function populateUi() {
   });
 
   rebuildPresetSelectOptions();
+  updatePresetBrowserCurrentLabel(presetSelect ? presetSelect.value : "Default*");
+  renderPresetCategoryColumn();
+  renderPresetList();
+  renderSaveCategoryGrid();
+  updateSaveCounters();
 
   if (coModeSelect && !coModeSelect.options.length) {
     BAND_MODES.forEach((mode, index) => {
@@ -1280,29 +1676,148 @@ function bindEvents() {
   };
 
   presetSelect.onchange = () => {
-    const preset = getAllPresets().find((p) => p.name === presetSelect.value);
-    if (!preset) return;
-    snapshotForUndo();
-    preset.ops.forEach((op) => {
-      const b = state.bands[op.i];
-      if (!b) return;
-      b.enabled = 1;
-      if (op.t !== undefined) b.type = op.t;
-      if (op.m !== undefined) b.mode = op.m;
-      if (op.c !== undefined) b.channel = op.c;
-      if (op.f !== undefined) b.frequency = op.f;
-      if (op.g !== undefined) b.gainDb = op.g;
-      if (op.q !== undefined) b.q = op.q;
-    });
-    syncControlsFromState();
-    queuePushState();
+    applyPresetByName(presetSelect.value);
+    renderPresetList();
   };
 
-  if (savePresetBtn) {
-    savePresetBtn.onclick = () => {
-      saveCurrentPreset();
+  if (presetBrowserBtn) {
+    presetBrowserBtn.onclick = () => {
+      if (presetBrowserOpen) closePresetBrowser();
+      else openPresetBrowser();
     };
   }
+
+  if (presetBrowserClose) {
+    presetBrowserClose.onclick = () => closePresetBrowser();
+  }
+
+  if (presetBrowserCloseBottom) {
+    presetBrowserCloseBottom.onclick = () => closePresetBrowser();
+  }
+
+  if (presetSearchInput) {
+    presetSearchInput.oninput = () => {
+      presetSearchText = presetSearchInput.value.trim().toLowerCase();
+      renderPresetList();
+    };
+  }
+
+  if (presetTypeFilter) {
+    presetTypeFilter.onchange = () => {
+      presetTypeFilterValue = presetTypeFilter.value;
+      renderPresetList();
+    };
+  }
+
+  if (presetFavoriteFilter) {
+    presetFavoriteFilter.onclick = () => {
+      favoritesOnly = !favoritesOnly;
+      presetFavoriteFilter.dataset.active = favoritesOnly ? "1" : "0";
+      presetFavoriteFilter.setAttribute("aria-pressed", favoritesOnly ? "true" : "false");
+      renderPresetList();
+    };
+  }
+
+  if (presetNewFolderBtn) {
+    presetNewFolderBtn.onclick = () => {
+      window.alert("Folder creation will be enabled in an upcoming update.");
+    };
+  }
+
+  if (presetImportBtn) {
+    presetImportBtn.onclick = () => {
+      window.alert("Preset import will be enabled in an upcoming update.");
+    };
+  }
+
+  if (savePresetBtn) {
+    savePresetBtn.onclick = () => openSavePresetModal();
+  }
+
+  if (savePresetClose) {
+    savePresetClose.onclick = () => closeSavePresetModal();
+  }
+
+  if (savePresetCancel) {
+    savePresetCancel.onclick = () => closeSavePresetModal();
+  }
+
+  if (savePresetNameInput) {
+    savePresetNameInput.addEventListener("input", updateSaveCounters);
+    savePresetNameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        savePresetConfirm?.click();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        closeSavePresetModal();
+      }
+    });
+  }
+
+  if (savePresetDescription) {
+    savePresetDescription.addEventListener("input", updateSaveCounters);
+  }
+
+  if (savePresetTypeSelect) {
+    savePresetTypeSelect.onchange = () => {
+      if (PRESET_CATEGORIES.includes(savePresetTypeSelect.value)) {
+        savePresetCategory = savePresetTypeSelect.value;
+        renderSaveCategoryGrid();
+      }
+    };
+  }
+
+  if (saveVisibility) {
+    saveVisibility.querySelectorAll("button").forEach((btn) => {
+      btn.onclick = () => {
+        savePresetVisibility = btn.dataset.visibility === "Global" ? "Global" : "User";
+        saveVisibility.querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === btn));
+      };
+    });
+  }
+
+  if (saveFavoriteToggle) {
+    saveFavoriteToggle.onclick = () => {
+      savePresetFavorite = !savePresetFavorite;
+      saveFavoriteToggle.dataset.active = savePresetFavorite ? "1" : "0";
+      saveFavoriteToggle.setAttribute("aria-pressed", savePresetFavorite ? "true" : "false");
+    };
+  }
+
+  if (savePresetConfirm) {
+    savePresetConfirm.onclick = () => {
+      saveCurrentPreset(
+        savePresetNameInput ? savePresetNameInput.value : "",
+        {
+          category: savePresetCategory,
+          type: savePresetTypeSelect ? savePresetTypeSelect.value : savePresetCategory,
+          description: savePresetDescription ? savePresetDescription.value : "",
+          visibility: savePresetVisibility,
+          favorite: savePresetFavorite
+        }
+      );
+    };
+  }
+
+  document.addEventListener("pointerdown", (e) => {
+    if (!presetOverlay || !presetOverlay.classList.contains("visible")) return;
+    if (presetBrowserPanel && presetBrowserPanel.classList.contains("visible") && presetBrowserPanel.contains(e.target)) return;
+    if (savePresetModal && savePresetModal.classList.contains("visible") && savePresetModal.contains(e.target)) return;
+    if (e.target === presetBrowserBtn || (presetBrowserBtn && presetBrowserBtn.contains(e.target))) return;
+    if (e.target === savePresetBtn || (savePresetBtn && savePresetBtn.contains(e.target))) return;
+    closePresetBrowser();
+    closeSavePresetModal();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (savePresetOpen) {
+      closeSavePresetModal();
+      return;
+    }
+    if (presetBrowserOpen) closePresetBrowser();
+  });
 
   document.querySelectorAll("#qualitySwitch button").forEach((btn) => {
     btn.onclick = () => { state.qualityMode = Number(btn.dataset.q) || 1; syncControlsFromState(); queuePushState(); };
@@ -2048,47 +2563,6 @@ function drawGraph() {
       ctx.restore();
     }
 
-    // Ultra-soft rear bloom haze to push the curve into perceived depth.
-    ctx.save();
-    ctx.beginPath();
-    ctx.lineWidth = 18.0;
-    drawEqResponsePath(ctx, activeBands, w, h);
-    ctx.strokeStyle = "rgba(104, 118, 204, 0.09)";
-    ctx.shadowColor = "rgba(120, 110, 214, 0.22)";
-    ctx.shadowBlur = 62;
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.lineWidth = 12.2;
-    drawEqResponsePath(ctx, activeBands, w, h);
-    ctx.strokeStyle = "rgba(132, 106, 250, 0.19)";
-    ctx.shadowColor = "rgba(128, 94, 242, 0.48)";
-    ctx.shadowBlur = 46;
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.lineWidth = 8.8;
-    drawEqResponsePath(ctx, activeBands, w, h);
-    ctx.strokeStyle = "rgba(170, 136, 255, 0.24)";
-    ctx.shadowColor = "rgba(148, 118, 248, 0.46)";
-    ctx.shadowBlur = 31;
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.lineWidth = 5.8;
-    drawEqResponsePath(ctx, activeBands, w, h);
-    ctx.strokeStyle = "rgba(212, 176, 255, 0.18)";
-    ctx.shadowColor = "rgba(182, 142, 255, 0.34)";
-    ctx.shadowBlur = 20;
-    ctx.stroke();
-    ctx.restore();
-
     ctx.beginPath();
     ctx.lineWidth = 3.25;
     drawEqResponsePath(ctx, activeBands, w, h);
@@ -2098,20 +2572,7 @@ function drawGraph() {
     lineGrad.addColorStop(0.3, "#c86dff");
     lineGrad.addColorStop(0.66, "#9f8aff");
     lineGrad.addColorStop(1, "#88c8ff");
-    ctx.strokeStyle = lineGrad;
-    ctx.shadowColor = "rgba(188, 98, 255, 0.92)";
     ctx.shadowBlur = 24;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    // Focused luminous core line for cinematic center energy
-    ctx.beginPath();
-    drawEqResponsePath(ctx, activeBands, w, h);
-    ctx.strokeStyle = "rgba(252, 253, 255, 0.98)";
-    ctx.lineWidth = 2.15;
-    ctx.shadowColor = "rgba(230, 214, 255, 0.9)";
-    ctx.shadowBlur = 18;
-    ctx.stroke();
     ctx.shadowBlur = 0;
 
     // Inner plasma filament for a hot energy center.

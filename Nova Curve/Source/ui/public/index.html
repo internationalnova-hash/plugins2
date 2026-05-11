@@ -154,6 +154,7 @@
       gap: 12px;
       color: var(--txt-soft);
       font-size: 17px;
+      position: relative;
     }
 
     .mini {
@@ -177,6 +178,560 @@
       font-size: 22px;
       font-weight: 500;
       line-height: 1;
+    }
+
+    .preset-browser-trigger {
+      min-width: 228px;
+      justify-content: space-between;
+      padding: 0 14px;
+      border-color: rgba(138, 164, 248, 0.32);
+      background:
+        radial-gradient(120% 220% at 10% 0%, rgba(178, 196, 255, 0.17), transparent 54%),
+        radial-gradient(100% 180% at 100% 100%, rgba(132, 95, 255, 0.18), transparent 64%),
+        linear-gradient(180deg, rgba(15, 22, 45, 0.9), rgba(10, 16, 34, 0.94));
+      box-shadow:
+        inset 0 1px 0 rgba(246, 249, 255, 0.16),
+        inset 0 -20px 44px rgba(6, 9, 22, 0.48),
+        0 7px 24px rgba(0, 0, 0, 0.26);
+      transition: transform 340ms cubic-bezier(0.18, 0.86, 0.24, 1), box-shadow 360ms cubic-bezier(0.18, 0.86, 0.24, 1), border-color 280ms ease;
+    }
+
+    .preset-browser-trigger:hover {
+      border-color: rgba(168, 130, 255, 0.58);
+      box-shadow:
+        inset 0 1px 0 rgba(246, 249, 255, 0.2),
+        inset 0 -24px 50px rgba(10, 12, 28, 0.54),
+        0 11px 28px rgba(0, 0, 0, 0.34),
+        0 0 12px rgba(152, 110, 255, 0.14);
+    }
+
+    .preset-browser-trigger .label {
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 11px;
+      color: rgba(204, 216, 243, 0.74);
+    }
+
+    .preset-browser-trigger .value {
+      font-size: 14px;
+      font-weight: 600;
+      color: rgba(242, 247, 255, 0.94);
+      max-width: 136px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: right;
+    }
+
+    .preset-shadow-select {
+      position: absolute;
+      width: 0;
+      height: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .preset-overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(900px 440px at 50% 20%, rgba(76, 93, 170, 0.12), rgba(0, 0, 0, 0.44));
+      backdrop-filter: blur(8px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 420ms cubic-bezier(0.16, 0.82, 0.24, 1);
+      z-index: 60;
+    }
+
+    .preset-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .preset-atmo {
+      position: absolute;
+      width: 74%;
+      height: 62%;
+      border-radius: 30px;
+      background:
+        radial-gradient(56% 62% at 50% 44%, rgba(168, 118, 255, 0.16), transparent 78%),
+        radial-gradient(72% 66% at 46% 54%, rgba(106, 136, 236, 0.14), transparent 80%);
+      filter: blur(38px);
+      opacity: 0.66;
+      transform: scale(0.97);
+      transition: transform 520ms cubic-bezier(0.16, 0.82, 0.24, 1), opacity 520ms cubic-bezier(0.16, 0.82, 0.24, 1);
+      pointer-events: none;
+    }
+
+    .preset-overlay.visible .preset-atmo {
+      transform: scale(1);
+      opacity: 0.72;
+    }
+
+    .preset-browser-panel,
+    .save-preset-modal {
+      width: 960px;
+      border-radius: 20px;
+      border: 1px solid rgba(152, 118, 255, 0.44);
+      background:
+        radial-gradient(100% 160% at 50% 0%, rgba(170, 132, 255, 0.16), transparent 52%),
+        radial-gradient(120% 220% at 0% 100%, rgba(86, 116, 212, 0.16), transparent 62%),
+        linear-gradient(180deg, rgba(8, 13, 30, 0.94), rgba(5, 10, 24, 0.96));
+      box-shadow:
+        0 28px 66px rgba(0, 0, 0, 0.56),
+        inset 0 1px 0 rgba(245, 247, 255, 0.14),
+        inset 0 -60px 120px rgba(0, 0, 0, 0.44),
+        0 0 18px rgba(146, 94, 255, 0.11);
+      padding: 18px;
+      display: none;
+      gap: 12px;
+      animation: presetPanelIn 460ms cubic-bezier(0.16, 0.88, 0.2, 1);
+    }
+
+    .preset-browser-panel.visible,
+    .save-preset-modal.visible {
+      display: grid;
+    }
+
+    .save-preset-modal {
+      width: 640px;
+      max-height: 86%;
+      overflow: auto;
+      padding: 16px;
+      z-index: 2;
+    }
+
+    @keyframes presetPanelIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.982);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .preset-browser-top,
+    .save-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .preset-browser-top .title,
+    .save-top .title {
+      font-size: 13px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(226, 234, 255, 0.92);
+      text-shadow: 0 0 10px rgba(158, 124, 255, 0.22);
+    }
+
+    .close-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      border: 1px solid rgba(146, 168, 250, 0.34);
+      background: linear-gradient(180deg, rgba(15, 21, 45, 0.94), rgba(9, 14, 31, 0.96));
+      color: rgba(226, 236, 255, 0.84);
+      font-size: 14px;
+      cursor: pointer;
+      transition: box-shadow 240ms ease, border-color 240ms ease;
+    }
+
+    .close-btn:hover {
+      border-color: rgba(170, 130, 255, 0.62);
+      box-shadow: 0 0 11px rgba(155, 104, 255, 0.16);
+    }
+
+    .top-separator {
+      height: 1px;
+      background: linear-gradient(90deg, rgba(118, 142, 224, 0), rgba(169, 129, 255, 0.72), rgba(118, 142, 224, 0));
+      box-shadow: 0 0 12px rgba(152, 110, 255, 0.16);
+    }
+
+    .preset-search-row {
+      display: grid;
+      grid-template-columns: 1fr 180px 40px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .search-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(136, 160, 246, 0.34);
+      background: linear-gradient(180deg, rgba(13, 20, 42, 0.9), rgba(9, 14, 31, 0.94));
+      padding: 0 10px;
+      height: 38px;
+      transition: border-color 240ms ease, box-shadow 240ms ease;
+    }
+
+    .search-wrap:focus-within {
+      border-color: rgba(164, 122, 255, 0.72);
+      box-shadow: 0 0 12px rgba(151, 102, 255, 0.14);
+    }
+
+    .search-icon {
+      color: rgba(210, 190, 255, 0.84);
+      text-shadow: 0 0 8px rgba(168, 124, 255, 0.3);
+      font-size: 13px;
+    }
+
+    .search-wrap input,
+    .save-field input,
+    .save-field textarea,
+    .preset-filter-select {
+      width: 100%;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: rgba(242, 247, 255, 0.94);
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    .preset-filter-select {
+      border-radius: 11px;
+      border: 1px solid rgba(136, 160, 246, 0.34);
+      background: linear-gradient(180deg, rgba(13, 20, 42, 0.9), rgba(9, 14, 31, 0.94));
+      height: 38px;
+      padding: 0 10px;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .favorite-filter {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      border: 1px solid rgba(136, 160, 246, 0.34);
+      background: linear-gradient(180deg, rgba(13, 20, 42, 0.9), rgba(9, 14, 31, 0.94));
+      color: rgba(226, 232, 246, 0.84);
+      cursor: pointer;
+      transition: border-color 240ms ease, box-shadow 240ms ease, color 220ms ease;
+    }
+
+    .favorite-filter[data-active="1"] {
+      color: rgba(255, 243, 178, 0.95);
+      border-color: rgba(170, 130, 255, 0.78);
+      box-shadow: 0 0 10px rgba(164, 112, 255, 0.16);
+      background: linear-gradient(180deg, rgba(85, 66, 148, 0.64), rgba(28, 36, 78, 0.9));
+    }
+
+    .preset-browser-body {
+      min-height: 338px;
+      display: grid;
+      grid-template-columns: 214px 1fr;
+      gap: 14px;
+    }
+
+    .preset-category-column,
+    .preset-list-column {
+      border-radius: 14px;
+      border: 1px solid rgba(132, 156, 246, 0.26);
+      background:
+        radial-gradient(100% 120% at 100% 0%, rgba(160, 120, 255, 0.12), transparent 60%),
+        linear-gradient(180deg, rgba(12, 18, 38, 0.86), rgba(8, 12, 28, 0.92));
+      box-shadow: inset 0 1px 0 rgba(246, 249, 255, 0.08);
+    }
+
+    .preset-category-column {
+      padding: 8px;
+      display: grid;
+      gap: 6px;
+      align-content: start;
+    }
+
+    .preset-cat-btn {
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: rgba(7, 12, 25, 0.34);
+      color: rgba(209, 220, 248, 0.78);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      cursor: pointer;
+      transition: all 240ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .preset-cat-btn:hover {
+      border-color: rgba(147, 169, 248, 0.34);
+      color: rgba(235, 242, 255, 0.92);
+      background: rgba(14, 22, 45, 0.58);
+    }
+
+    .preset-cat-btn.active {
+      border-color: rgba(170, 128, 255, 0.68);
+      color: rgba(245, 248, 255, 0.98);
+      background:
+        radial-gradient(120% 120% at 0% 0%, rgba(182, 140, 255, 0.24), transparent 54%),
+        linear-gradient(180deg, rgba(56, 52, 116, 0.66), rgba(18, 27, 58, 0.76));
+      box-shadow: 0 0 12px rgba(156, 108, 255, 0.16);
+    }
+
+    .preset-list-column {
+      padding: 8px;
+      display: grid;
+      grid-template-rows: 1fr;
+    }
+
+    .preset-list {
+      overflow: auto;
+      display: grid;
+      gap: 6px;
+      padding-right: 4px;
+    }
+
+    .preset-list-item {
+      border-radius: 10px;
+      border: 1px solid rgba(124, 148, 232, 0.24);
+      background:
+        linear-gradient(90deg, rgba(19, 28, 54, 0), rgba(166, 126, 255, 0), rgba(19, 28, 54, 0)),
+        linear-gradient(180deg, rgba(10, 16, 35, 0.9), rgba(8, 12, 27, 0.95));
+      padding: 8px 10px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 10px;
+      cursor: pointer;
+      transition: border-color 220ms ease, box-shadow 220ms ease, background-position 190ms cubic-bezier(0.2, 0.82, 0.24, 1), transform 220ms ease;
+      background-size: 220% 100%, 100% 100%;
+      background-position: 120% 0, 0 0;
+    }
+
+    .preset-list-item:hover {
+      border-color: rgba(159, 132, 255, 0.54);
+      box-shadow: 0 0 10px rgba(142, 102, 255, 0.11);
+      background-position: -12% 0, 0 0;
+      transform: translateY(-1px);
+    }
+
+    .preset-list-item.active {
+      border-color: rgba(176, 136, 255, 0.76);
+      box-shadow: 0 0 14px rgba(158, 108, 255, 0.18), inset 0 1px 0 rgba(249, 253, 255, 0.12);
+      background:
+        radial-gradient(100% 220% at 0% 0%, rgba(175, 132, 255, 0.3), transparent 56%),
+        linear-gradient(180deg, rgba(26, 29, 64, 0.96), rgba(11, 16, 36, 0.98));
+    }
+
+    @keyframes presetItemIn {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .preset-list-item .name {
+      font-size: 13px;
+      color: rgba(243, 248, 255, 0.96);
+      font-weight: 600;
+    }
+
+    .preset-list-item .meta {
+      font-size: 11px;
+      color: rgba(190, 202, 233, 0.72);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .preset-star {
+      align-self: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 7px;
+      border: 1px solid rgba(132, 156, 240, 0.3);
+      background: rgba(8, 12, 25, 0.46);
+      color: rgba(198, 208, 235, 0.7);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .preset-star.active {
+      color: rgba(255, 241, 184, 0.98);
+      border-color: rgba(177, 136, 255, 0.74);
+      box-shadow: 0 0 8px rgba(162, 116, 255, 0.14);
+    }
+
+    .preset-preview-panel {
+      border-radius: 14px;
+      border: 1px solid rgba(132, 156, 246, 0.26);
+      background:
+        radial-gradient(120% 200% at 0% 0%, rgba(169, 124, 255, 0.14), transparent 62%),
+        linear-gradient(180deg, rgba(11, 18, 39, 0.9), rgba(8, 12, 26, 0.94));
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    #presetPreviewCanvas {
+      width: 100%;
+      height: 74px;
+      border-radius: 10px;
+      border: 1px solid rgba(120, 148, 232, 0.22);
+      background: linear-gradient(180deg, rgba(5, 10, 22, 0.9), rgba(4, 8, 20, 0.94));
+    }
+
+    .preview-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 14px;
+    }
+
+    .preview-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: rgba(244, 249, 255, 0.96);
+    }
+
+    .preview-category {
+      margin-top: 3px;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(192, 206, 236, 0.74);
+    }
+
+    .preview-badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .badge {
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(132, 156, 244, 0.3);
+      background: rgba(11, 17, 37, 0.72);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(208, 220, 248, 0.8);
+    }
+
+    .preset-browser-actions,
+    .save-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .preset-browser-actions button,
+    .save-actions button,
+    .visibility-toggle button,
+    .save-category-btn {
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(132, 156, 244, 0.34);
+      background: linear-gradient(180deg, rgba(14, 22, 46, 0.94), rgba(8, 13, 31, 0.96));
+      color: rgba(232, 241, 255, 0.92);
+      padding: 0 12px;
+      cursor: pointer;
+      transition: border-color 240ms ease, box-shadow 240ms ease, background 240ms ease;
+    }
+
+    .preset-browser-actions button:hover,
+    .save-actions button:hover,
+    .visibility-toggle button:hover,
+    .save-category-btn:hover {
+      border-color: rgba(170, 130, 255, 0.62);
+      box-shadow: 0 0 10px rgba(156, 108, 255, 0.14);
+    }
+
+    .save-actions .primary {
+      border-color: rgba(184, 136, 255, 0.84);
+      background:
+        radial-gradient(120% 150% at 0% 0%, rgba(199, 152, 255, 0.34), transparent 56%),
+        linear-gradient(180deg, rgba(96, 76, 168, 0.9), rgba(46, 54, 118, 0.94));
+      box-shadow: 0 0 16px rgba(162, 112, 255, 0.2);
+    }
+
+    .save-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .save-field label {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(198, 210, 241, 0.76);
+    }
+
+    .save-field input,
+    .save-field textarea {
+      border-radius: 11px;
+      border: 1px solid rgba(136, 160, 246, 0.34);
+      background: linear-gradient(180deg, rgba(13, 20, 42, 0.9), rgba(9, 14, 31, 0.94));
+      padding: 10px;
+      transition: border-color 240ms ease, box-shadow 240ms ease;
+    }
+
+    .save-field input:focus,
+    .save-field textarea:focus {
+      border-color: rgba(167, 125, 255, 0.72);
+      box-shadow: 0 0 11px rgba(152, 108, 255, 0.14);
+    }
+
+    .save-field textarea {
+      min-height: 78px;
+      resize: vertical;
+    }
+
+    .count {
+      justify-self: end;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: rgba(176, 192, 228, 0.62);
+    }
+
+    .save-category-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .save-category-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      letter-spacing: 0.03em;
+    }
+
+    .save-category-btn.active,
+    .visibility-toggle button.active {
+      border-color: rgba(182, 136, 255, 0.8);
+      background:
+        radial-gradient(140% 160% at 0% 0%, rgba(196, 148, 255, 0.28), transparent 58%),
+        linear-gradient(180deg, rgba(62, 58, 128, 0.84), rgba(24, 32, 70, 0.88));
+      box-shadow: 0 0 12px rgba(159, 112, 255, 0.16);
+    }
+
+    .save-row {
+      display: grid;
+      grid-template-columns: 1fr 160px;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .visibility-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
     }
 
     select.mini,
@@ -1593,6 +2148,36 @@
       .plugin {
         border-radius: 14px;
       }
+
+      .preset-browser-panel {
+        width: min(92vw, 860px);
+      }
+
+      .save-preset-modal {
+        width: min(90vw, 620px);
+      }
+    }
+
+    @media (max-width: 980px) {
+      .preset-browser-panel {
+        width: min(94vw, 760px);
+      }
+
+      .preset-browser-body {
+        grid-template-columns: 1fr;
+      }
+
+      .preset-category-column {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .save-row {
+        grid-template-columns: 1fr;
+      }
+
+      .save-category-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
   </style>
 </head>
@@ -1608,7 +2193,11 @@
 
       <div class="top-main">
         <button id="undoBtn" class="mini">↶</button>
-        <select id="presetSelect" class="mini"></select>
+        <button id="presetBrowserBtn" class="mini preset-browser-trigger" title="Open preset browser" aria-label="Open preset browser">
+          <span class="label">Preset</span>
+          <span id="presetBrowserCurrent" class="value">Default*</span>
+        </button>
+        <select id="presetSelect" class="preset-shadow-select" aria-hidden="true" tabindex="-1"></select>
         <button id="savePresetBtn" class="mini icon" title="Save current settings as a preset" aria-label="Save preset">+</button>
         <button id="abBtn" class="mini">A / B</button>
         <button id="copyBtn" class="mini">A > B</button>
@@ -1629,6 +2218,126 @@
         <div class="byline">by International Nova</div>
         <button id="redoBtn" class="mini">↷</button>
         <button id="menuBtn" class="mini">☰</button>
+      </div>
+    </div>
+
+    <div id="presetSystemOverlay" class="preset-overlay" aria-hidden="true">
+      <div class="preset-atmo" aria-hidden="true"></div>
+
+      <div id="presetBrowserPanel" class="preset-browser-panel" role="dialog" aria-modal="true" aria-label="Preset Browser">
+        <div class="preset-browser-top">
+          <div class="title">PRESET BROWSER</div>
+          <button id="presetBrowserClose" class="close-btn" aria-label="Close preset browser">x</button>
+        </div>
+        <div class="top-separator"></div>
+
+        <div class="preset-search-row">
+          <div class="search-wrap">
+            <span class="search-icon">o</span>
+            <input id="presetSearchInput" type="text" placeholder="Search presets" autocomplete="off" />
+          </div>
+          <select id="presetTypeFilter" class="preset-filter-select">
+            <option value="all">All Types</option>
+            <option value="Vocal">Vocal</option>
+            <option value="Mastering">Mastering</option>
+            <option value="Mix Bus">Mix Bus</option>
+            <option value="Drums">Drums</option>
+            <option value="Guitar">Guitar</option>
+            <option value="Bass">Bass</option>
+            <option value="Keys">Keys</option>
+            <option value="Podcast">Podcast</option>
+            <option value="Custom">Custom</option>
+          </select>
+          <button id="presetFavoriteFilter" class="favorite-filter" data-active="0" aria-pressed="false" title="Favorites only">*</button>
+        </div>
+
+        <div class="preset-browser-body">
+          <div id="presetCategoryColumn" class="preset-category-column"></div>
+
+          <div class="preset-list-column">
+            <div id="presetList" class="preset-list"></div>
+          </div>
+        </div>
+
+        <div class="preset-preview-panel">
+          <canvas id="presetPreviewCanvas" width="460" height="80"></canvas>
+          <div class="preview-meta">
+            <div>
+              <div id="presetPreviewName" class="preview-name">Default*</div>
+              <div id="presetPreviewCategory" class="preview-category">All Presets</div>
+            </div>
+            <div class="preview-badges">
+              <span id="presetPreviewMode" class="badge">Static</span>
+              <span id="presetPreviewBands" class="badge">0 Bands</span>
+              <span id="presetPreviewRating" class="badge">No Stars</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="preset-browser-actions">
+          <button id="presetNewFolderBtn" type="button">New Folder</button>
+          <button id="presetImportBtn" type="button">Import</button>
+          <button id="presetBrowserCloseBottom" type="button">Close</button>
+        </div>
+      </div>
+
+      <div id="savePresetModal" class="save-preset-modal" role="dialog" aria-modal="true" aria-label="Save Preset">
+        <div class="save-top">
+          <div class="title">SAVE PRESET</div>
+          <button id="savePresetClose" class="close-btn" aria-label="Close save preset">x</button>
+        </div>
+        <div class="top-separator"></div>
+
+        <div class="save-field">
+          <label for="savePresetNameInput">Preset Name</label>
+          <input id="savePresetNameInput" type="text" maxlength="48" autocomplete="off" />
+          <div id="savePresetNameCount" class="count">0/48</div>
+        </div>
+
+        <div class="save-field">
+          <label for="savePresetTypeSelect">Preset Type</label>
+          <select id="savePresetTypeSelect" class="preset-filter-select">
+            <option value="Vocal">Vocal</option>
+            <option value="Mastering">Mastering</option>
+            <option value="Mix Bus">Mix Bus</option>
+            <option value="Drums">Drums</option>
+            <option value="Guitar">Guitar</option>
+            <option value="Bass">Bass</option>
+            <option value="Keys">Keys</option>
+            <option value="Podcast">Podcast</option>
+            <option value="Custom">Custom</option>
+          </select>
+        </div>
+
+        <div class="save-field">
+          <label>Category</label>
+          <div id="saveCategoryGrid" class="save-category-grid"></div>
+        </div>
+
+        <div class="save-field">
+          <label for="savePresetDescription">Description</label>
+          <textarea id="savePresetDescription" maxlength="180" placeholder="Describe the intent and tone shaping."></textarea>
+          <div id="savePresetDescCount" class="count">0/180</div>
+        </div>
+
+        <div class="save-row">
+          <div class="save-field compact">
+            <label>Visibility</label>
+            <div id="saveVisibility" class="visibility-toggle">
+              <button type="button" data-visibility="User" class="active">User</button>
+              <button type="button" data-visibility="Global">Global</button>
+            </div>
+          </div>
+          <div class="save-field compact">
+            <label>Favorite</label>
+            <button id="saveFavoriteToggle" type="button" class="favorite-filter" data-active="0" aria-pressed="false">*</button>
+          </div>
+        </div>
+
+        <div class="save-actions">
+          <button id="savePresetCancel" type="button">Cancel</button>
+          <button id="savePresetConfirm" type="button" class="primary">Save Preset</button>
+        </div>
       </div>
     </div>
 
