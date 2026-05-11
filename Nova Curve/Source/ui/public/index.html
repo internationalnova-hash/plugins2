@@ -426,6 +426,38 @@
         0 0 12px rgba(var(--nova-purple-rgb), 0.5);
     }
 
+    .node-edit {
+      margin-top: 10px;
+      display: none;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .node-edit.visible {
+      display: grid;
+    }
+
+    .node-edit .edit-row {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      align-items: center;
+      gap: 8px;
+      color: var(--txt-soft);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+    }
+
+    .node-edit select {
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid rgba(128, 154, 244, 0.4);
+      background: rgba(12, 18, 40, 0.94);
+      color: rgba(242, 248, 255, 0.96);
+      font-size: 12px;
+      padding: 0 8px;
+      outline: none;
+    }
+
     .bottom {
       position: relative;
       isolation: isolate;
@@ -1637,6 +1669,10 @@
         <div class="node-row"><span>Freq</span><span id="coFreq">2.73 kHz</span></div>
         <div class="node-row"><span>Gain</span><span id="coGain">+4.8 dB</span></div>
         <div class="node-row"><span>Q</span><span id="coQ">1.28</span></div>
+        <div id="coEdit" class="node-edit">
+          <div class="edit-row"><span>Mode</span><select id="coModeSelect"></select></div>
+          <div class="edit-row"><span>Type</span><select id="coTypeSelect"></select></div>
+        </div>
         <button id="coSoloBtn" class="solo-mini"><span class="icon">🎧</span><span>Band Solo</span></button>
       </div>
     </div>

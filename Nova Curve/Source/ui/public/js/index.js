@@ -106,6 +106,7 @@ let calloutBandIndex = -1;
 let calloutHovering = false;
 let calloutHideTimer = 0;
 let calloutSoloPersistent = false;
+let calloutContextMode = false;
 let displayBands = [];
 let userPresets = [];
 
@@ -118,6 +119,9 @@ const canvas = document.getElementById("graphCanvas");
 const ctx = canvas.getContext("2d");
 const callout = document.getElementById("callout");
 const orb = document.getElementById("resonanceOrb");
+const coEdit = document.getElementById("coEdit");
+const coModeSelect = document.getElementById("coModeSelect");
+const coTypeSelect = document.getElementById("coTypeSelect");
 
 const bandIndexSelect = document.getElementById("bandIndex");
 const bandModeSelect = document.getElementById("bandMode");
@@ -380,6 +384,7 @@ function cancelCalloutHide() {
 }
 
 function scheduleCalloutHide(delayMs = 400) {
+  if (calloutContextMode) return;
   cancelCalloutHide();
   calloutHideTimer = setTimeout(() => {
     if (draggingBand < 0 && !calloutHovering && hoveredBand < 0) {
@@ -1070,6 +1075,24 @@ function populateUi() {
 
   rebuildPresetSelectOptions();
 
+  if (coModeSelect && !coModeSelect.options.length) {
+    BAND_MODES.forEach((mode, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = mode;
+      coModeSelect.appendChild(option);
+    });
+  }
+
+  if (coTypeSelect && !coTypeSelect.options.length) {
+    FILTER_TYPES.forEach((type, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = type;
+      coTypeSelect.appendChild(option);
+    });
+  }
+
   for (let i = 0; i < 8; i++) {
     const button = document.createElement("button");
     button.className = "band-chip";
@@ -1289,6 +1312,7 @@ function bindEvents() {
   canvas.addEventListener("pointerup", onGraphUp);
   canvas.addEventListener("pointercancel", onGraphUp);
   canvas.addEventListener("lostpointercapture", onGraphUp);
+  canvas.addEventListener("contextmenu", onGraphContextMenu);
   // Invalidate cached canvas rect on window resize so coordinates remain accurate.
   window.addEventListener("resize", () => {
     cachedCanvasRect = null;
@@ -1335,6 +1359,28 @@ function bindEvents() {
     };
   }
 
+  if (coModeSelect) {
+    coModeSelect.onchange = () => {
+      if (calloutBandIndex < 0 || calloutBandIndex >= state.bands.length) return;
+      const b = state.bands[calloutBandIndex];
+      b.mode = Number(coModeSelect.value) || 0;
+      b.enabled = 1;
+      syncControlsFromState(false);
+      queuePushState();
+    };
+  }
+
+  if (coTypeSelect) {
+    coTypeSelect.onchange = () => {
+      if (calloutBandIndex < 0 || calloutBandIndex >= state.bands.length) return;
+      const b = state.bands[calloutBandIndex];
+      b.type = Number(coTypeSelect.value) || 0;
+      b.enabled = 1;
+      syncControlsFromState(false);
+      queuePushState();
+    };
+  }
+
   callout.addEventListener("mouseenter", () => {
     calloutHovering = true;
     calloutVisible = true;
@@ -1343,6 +1389,7 @@ function bindEvents() {
 
   callout.addEventListener("mouseleave", () => {
     calloutHovering = false;
+    if (calloutContextMode) return;
     if (!calloutSoloPersistent) {
       scheduleCalloutHide(500);
     }
@@ -1350,8 +1397,10 @@ function bindEvents() {
 
   // Dismiss persistent solo callout when clicking elsewhere
   document.addEventListener("mousedown", (e) => {
-    if (calloutSoloPersistent && !callout.contains(e.target) && !canvas.contains(e.target)) {
+    if ((calloutSoloPersistent || calloutContextMode) && !callout.contains(e.target) && !canvas.contains(e.target)) {
       calloutSoloPersistent = false;
+      calloutContextMode = false;
+      if (coEdit) coEdit.classList.remove("visible");
       scheduleCalloutHide(150);
     }
   });
@@ -1409,6 +1458,8 @@ function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
 function onGraphDown(e) {
   e.preventDefault();
   if (e.button !== 0) return;
+  calloutContextMode = false;
+  if (coEdit) coEdit.classList.remove("visible");
   canvas.setPointerCapture(e.pointerId);
   setInteractionActive(true);
   cachedCanvasRect = canvas.getBoundingClientRect();
@@ -1445,7 +1496,15 @@ function onGraphMove(e) {
   hoverGraphX = x;
   hoverGraphY = y;
 
-  if (draggingBand < 0) {
+  if (calloutContextMode && draggingBand < 0) {
+    const idx = calloutBandIndex >= 0 ? calloutBandIndex : state.selectedBand;
+    const bCtx = state.bands[idx] || selectedBand();
+    hoveredBand = idx;
+    calloutVisible = true;
+    calloutTargetX = hzToX(bCtx.frequency, rect.width);
+    calloutTargetY = gainToY(bCtx.gainDb, rect.height);
+    if (coEdit) coEdit.classList.add("visible");
+  } else if (draggingBand < 0) {
     if (calloutHovering && calloutBandIndex >= 0) {
       hoveredBand = calloutBandIndex;
       calloutVisible = true;
@@ -1521,6 +1580,48 @@ function onGraphMove(e) {
       coSoloBtn.innerHTML = `<span class="icon">🎧</span><span>${soloActive ? "Unsolo Band" : "Band Solo"}</span>`;
       coSoloBtn.classList.toggle("active", soloActive);
     }
+  }
+}
+
+function onGraphContextMenu(e) {
+  e.preventDefault();
+  const rect = cachedCanvasRect || (cachedCanvasRect = canvas.getBoundingClientRect());
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const nearest = findNearestBandIndex(x, y, rect.width, rect.height, 22);
+  if (nearest < 0) return;
+
+  state.selectedBand = nearest;
+  hoveredBand = nearest;
+  calloutBandIndex = nearest;
+  calloutVisible = true;
+  calloutContextMode = true;
+  calloutSoloPersistent = true;
+  calloutTargetX = hzToX(state.bands[nearest].frequency, rect.width);
+  calloutTargetY = gainToY(state.bands[nearest].gainDb, rect.height);
+  cancelCalloutHide();
+
+  if (bandDisplay) bandDisplay.textContent = `${nearest + 1}`;
+  bandIndexSelect.value = String(nearest);
+
+  const b = state.bands[nearest];
+  const coType = document.getElementById("coType");
+  const coQ = document.getElementById("coQ");
+  const coFreq = document.getElementById("coFreq");
+  const coGain = document.getElementById("coGain");
+  if (coType) coType.textContent = FILTER_TYPES[Math.round(b.type)] || "Bell";
+  if (coQ) coQ.textContent = b.q.toFixed(2);
+  if (coFreq) coFreq.textContent = fmtHz(b.frequency);
+  if (coGain) coGain.textContent = fmtDb(b.gainDb);
+  if (coEdit) coEdit.classList.add("visible");
+  if (coModeSelect) coModeSelect.value = String(Math.round(b.mode || 0));
+  if (coTypeSelect) coTypeSelect.value = String(Math.round(b.type || 0));
+
+  const coSoloBtn = document.getElementById("coSoloBtn");
+  if (coSoloBtn) {
+    const soloActive = b.solo > 0.5;
+    coSoloBtn.innerHTML = `<span class="icon">🎧</span><span>${soloActive ? "Unsolo Band" : "Band Solo"}</span>`;
+    coSoloBtn.classList.toggle("active", soloActive);
   }
 }
 

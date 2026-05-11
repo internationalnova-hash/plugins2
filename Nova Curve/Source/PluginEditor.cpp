@@ -15,7 +15,7 @@ NovaCurveAudioProcessorEditor::NovaCurveAudioProcessorEditor (NovaCurveAudioProc
 
     setResizable (false, false);
     setSize (1080, 680);
-    startTimerHz (12);
+    startTimerHz (8);
 }
 
 NovaCurveAudioProcessorEditor::~NovaCurveAudioProcessorEditor()
