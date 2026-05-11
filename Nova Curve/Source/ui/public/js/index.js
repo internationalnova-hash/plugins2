@@ -111,6 +111,7 @@ let userPresets = [];
 
 let nativeGetState = async () => "";
 let nativeSetState = async () => true;
+let nativeSetInteractionActive = async () => true;
 
 const graphWrap = document.getElementById("graphWrap");
 const canvas = document.getElementById("graphCanvas");
@@ -169,8 +170,14 @@ function applyUiScale() {
   const margin = 12;
   const sx = (window.innerWidth - margin * 2) / UI_BASE_WIDTH;
   const sy = (window.innerHeight - margin * 2) / UI_BASE_HEIGHT;
-  const scale = Math.max(0.62, Math.min(1, sx, sy));
+  const scale = Math.max(0.42, Math.min(1, sx, sy));
   document.documentElement.style.setProperty("--ui-scale", scale.toFixed(4));
+}
+
+function setInteractionActive(active) {
+  try {
+    nativeSetInteractionActive(active === true);
+  } catch (_) {}
 }
 
 function freqToNorm(hz) {
@@ -436,6 +443,7 @@ async function setupNativeBridge() {
     const juce = await import("./juce/index.js");
     nativeGetState = juce.getNativeFunction("getInitialState");
     nativeSetState = juce.getNativeFunction("setUiState");
+    nativeSetInteractionActive = juce.getNativeFunction("setInteractionActive");
   } catch (error) {
     console.warn("Native bridge unavailable, staying in preview mode", error);
   }
@@ -811,6 +819,7 @@ function buildKnob(el, options) {
     drag = { lastY: e.clientY, norm: valueToNorm(options.get()) };
     lastDragValue = options.get();
     knobDragging = true;
+    setInteractionActive(true);
     el.style.opacity = "0.92";
     ctrl.arc.style.filter = "drop-shadow(0 0 5px rgba(130, 110, 245, 0.52)) drop-shadow(0 0 1px rgba(220, 232, 255, 0.18))";
     ctrl.massArc.style.filter = "drop-shadow(0 0 3px rgba(150, 110, 245, 0.24))";
@@ -842,6 +851,7 @@ function buildKnob(el, options) {
     if (!drag) return;
     drag = null;
     knobDragging = false;
+    setInteractionActive(false);
     readoutUpdateFrame = 0;
     el.style.opacity = "1";
     ctrl.arc.style.filter = "drop-shadow(0 0 1px rgba(120, 100, 220, 0.24))";
@@ -1393,6 +1403,7 @@ function onGraphDown(e) {
   e.preventDefault();
   if (e.button !== 0) return;
   canvas.setPointerCapture(e.pointerId);
+  setInteractionActive(true);
   cachedCanvasRect = canvas.getBoundingClientRect();
   const rect = cachedCanvasRect;
   const x = e.clientX - rect.left;
@@ -1509,6 +1520,7 @@ function onGraphMove(e) {
 function onGraphUp() {
   const releasedBand = draggingBand;
   draggingBand = -1;
+  setInteractionActive(false);
 
   // Commit once after drag ends to avoid per-frame sync lag.
   if (releasedBand >= 0) {

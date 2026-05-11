@@ -15,7 +15,7 @@ NovaCurveAudioProcessorEditor::NovaCurveAudioProcessorEditor (NovaCurveAudioProc
 
     setResizable (false, false);
     setSize (1080, 680);
-    startTimerHz (20);
+    startTimerHz (12);
 }
 
 NovaCurveAudioProcessorEditor::~NovaCurveAudioProcessorEditor()
@@ -37,6 +37,9 @@ void NovaCurveAudioProcessorEditor::resized()
 void NovaCurveAudioProcessorEditor::timerCallback()
 {
     if (webView == nullptr || ! webView->isVisible())
+        return;
+
+    if (uiInteractionActive.load (std::memory_order_relaxed))
         return;
 
     auto serialiseSpectrum = [] (const std::array<std::atomic<float>, NovaCurveAudioProcessor::spectrumBins>& spectrum)
@@ -87,6 +90,15 @@ juce::WebBrowserComponent::Options NovaCurveAudioProcessorEditor::createWebOptio
                      {
                          if (! args.isEmpty())
                              editor.processorRef.applyUiStateFromJson (args[0].toString());
+
+                         complete (true);
+                     })
+                     .withNativeFunction ("setInteractionActive", [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion complete)
+                     {
+                         if (! args.isEmpty())
+                             editor.uiInteractionActive.store (static_cast<bool> (args[0]), std::memory_order_relaxed);
+                         else
+                             editor.uiInteractionActive.store (false, std::memory_order_relaxed);
 
                          complete (true);
                      })

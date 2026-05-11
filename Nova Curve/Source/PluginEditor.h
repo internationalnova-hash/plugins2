@@ -18,6 +18,7 @@ private:
     void timerCallback() override;
 
     NovaCurveAudioProcessor& processorRef;
+    std::atomic<bool> uiInteractionActive { false };
 
     struct SinglePageBrowser : juce::WebBrowserComponent
     {
