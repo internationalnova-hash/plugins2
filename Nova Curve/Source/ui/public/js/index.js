@@ -773,12 +773,17 @@ function buildKnob(el, options) {
     return options.min + norm * (options.max - options.min);
   };
 
-  el.addEventListener("mousedown", (e) => {
+  // Use pointer capture so drag tracking is scoped to this element only.
+  // This eliminates the need for global window.mousemove listeners which fire
+  // for every knob simultaneously and cause severe jank with multiple knobs.
+  el.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
     e.preventDefault();
+    el.setPointerCapture(e.pointerId);
     drag = { lastY: e.clientY, norm: valueToNorm(options.get()) };
     lastDragValue = options.get();
+    knobDragging = true;
     el.style.opacity = "0.92";
-    // Focused arc glow on drag - restrained bloom
     ctrl.arc.style.filter = "drop-shadow(0 0 5px rgba(130, 110, 245, 0.52)) drop-shadow(0 0 1px rgba(220, 232, 255, 0.18))";
     ctrl.massArc.style.filter = "drop-shadow(0 0 3px rgba(150, 110, 245, 0.24))";
     ctrl.headArc.style.filter = "drop-shadow(0 0 6px rgba(170, 150, 255, 0.58))";
@@ -787,51 +792,39 @@ function buildKnob(el, options) {
     indicator.style.filter = "drop-shadow(0 0 2px rgba(190, 210, 255, 0.28))";
   });
 
-  let knobRafPending = false;
-
-  window.addEventListener("mousemove", (e) => {
-    if (!drag) return;
+  el.addEventListener("pointermove", (e) => {
+    if (!drag || !el.hasPointerCapture(e.pointerId)) return;
     const delta = drag.lastY - e.clientY;
     drag.lastY = e.clientY;
     const fine = (e.shiftKey || e.metaKey) ? 0.2 : 1;
-    const normStepPerPx = 0.00245 * fine;
-    drag.norm = clamp(drag.norm + delta * normStepPerPx, 0, 1);
-    // Update model immediately so the graph curve reflects the change this frame
+    drag.norm = clamp(drag.norm + delta * 0.00245 * fine, 0, 1);
+    // Update model only — no queuePushState during drag to avoid IPC backpressure.
     const newValue = normToValue(drag.norm);
-    options.set(clamp(newValue, options.min, options.max), true);
+    options.set(clamp(newValue, options.min, options.max), false);
+    ctrl.set(options.get(), false);
     lastDragValue = options.get();
     interactionEnergy = Math.min(1, interactionEnergy + 0.05);
-    knobDragging = true;
-
-    // Throttle expensive SVG + CSS visual update to once per animation frame
-    if (!knobRafPending) {
-      knobRafPending = true;
-      requestAnimationFrame(() => {
-        knobRafPending = false;
-        if (!drag) return;
-        ctrl.set(options.get(), false); // false = skip model write, visual only
-        readoutUpdateFrame++;
-        if (readoutUpdateFrame % 2 === 0) {
-          updateSelectedBandReadouts(options.readoutKey || "all");
-        }
-      });
+    readoutUpdateFrame++;
+    if (readoutUpdateFrame % 2 === 0) {
+      updateSelectedBandReadouts(options.readoutKey || "all");
     }
   });
 
-  window.addEventListener("mouseup", () => {
-    if (drag) {
-      drag = null;
-      knobDragging = false;
-      readoutUpdateFrame = 0;
-      el.style.opacity = "1";
-      ctrl.arc.style.filter = "drop-shadow(0 0 1px rgba(120, 100, 220, 0.24))";
-      ctrl.massArc.style.filter = "none";
-      ctrl.headArc.style.filter = "drop-shadow(0 0 2px rgba(160, 140, 240, 0.28))";
-      ambientRing.style.filter = "drop-shadow(0 0 1px rgba(100, 125, 245, 0.12))";
-      ring.style.filter = "drop-shadow(0 0 1px rgba(100, 90, 200, 0.1))";
-      indicator.style.filter = "drop-shadow(0 0 0.5px rgba(190, 210, 255, 0.16))";
-      updateSelectedBandReadouts(options.readoutKey || "all");
-    }
+  el.addEventListener("pointerup", (e) => {
+    if (!drag) return;
+    drag = null;
+    knobDragging = false;
+    readoutUpdateFrame = 0;
+    el.style.opacity = "1";
+    ctrl.arc.style.filter = "drop-shadow(0 0 1px rgba(120, 100, 220, 0.24))";
+    ctrl.massArc.style.filter = "none";
+    ctrl.headArc.style.filter = "drop-shadow(0 0 2px rgba(160, 140, 240, 0.28))";
+    ambientRing.style.filter = "drop-shadow(0 0 1px rgba(100, 125, 245, 0.12))";
+    ring.style.filter = "drop-shadow(0 0 1px rgba(100, 90, 200, 0.1))";
+    indicator.style.filter = "drop-shadow(0 0 0.5px rgba(190, 210, 255, 0.16))";
+    updateSelectedBandReadouts(options.readoutKey || "all");
+    // Push state once when drag ends — not during drag.
+    queuePushState();
   });
 
   el.addEventListener("wheel", (e) => {
@@ -1349,8 +1342,14 @@ function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
   calloutTargetY = y;
   interactionEnergy = Math.min(1, interactionEnergy + 0.22);
   if (beginDrag) draggingBand = idx;
-  syncControlsFromState();
-  queuePushState();
+  if (!beginDrag) {
+    syncControlsFromState();
+    queuePushState();
+  } else {
+    // Dragging immediately — defer full sync and state push to onGraphUp.
+    if (bandDisplay) bandDisplay.textContent = `${idx + 1}`;
+    bandIndexSelect.value = String(idx);
+  }
   return true;
 }
 
@@ -1372,7 +1371,10 @@ function onGraphDown(e) {
     calloutTargetX = x;
     calloutTargetY = y;
     interactionEnergy = Math.min(1, interactionEnergy + 0.18);
-    syncControlsFromState();
+    // Skip full syncControlsFromState during drag — too expensive to fire per frame.
+    // Only update the band selector readout so the UI label stays correct.
+    if (bandDisplay) bandDisplay.textContent = `${nearest + 1}`;
+    bandIndexSelect.value = String(nearest);
     return;
   }
 
