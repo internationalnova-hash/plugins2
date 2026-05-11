@@ -2292,6 +2292,8 @@ function drawGraph() {
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
 
   if (!fastInteraction) {
     // Deep-space atmospheric layering behind all graph content.
@@ -2337,6 +2339,8 @@ function drawGraph() {
     const activeBands = active.map((entry) => entry.b);
 
     if (active.length > 0) {
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = "transparent";
       ctx.beginPath();
       ctx.lineWidth = 2.6;
       drawEqResponsePath(ctx, activeBands, w, h);
