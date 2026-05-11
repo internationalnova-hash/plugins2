@@ -2256,6 +2256,7 @@ function drawGraph() {
   const reactiveDyn = dynActivity * (0.18 + 0.82 * signalMotionAmt);
   const reactivePeak = outputPeak * (0.2 + 0.8 * signalMotionAmt);
   const fastInteraction = draggingBand >= 0 || knobDragging;
+  const presetOverlayActive = presetBrowserOpen || savePresetOpen;
 
   ensureDisplayBands();
   for (let i = 0; i < state.bands.length; i++) {
@@ -2272,11 +2273,13 @@ function drawGraph() {
     dst.channel = src.channel;
   }
 
-  drawFallbackSpectrum(now);
+  if (!fastInteraction && !presetOverlayActive) {
+    drawFallbackSpectrum(now);
+  }
 
   const viewW = canvas.clientWidth || graphWrap.clientWidth || 1;
   const viewH = canvas.clientHeight || graphWrap.clientHeight || 1;
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = (fastInteraction || presetOverlayActive) ? 1 : (window.devicePixelRatio || 1);
   const targetW = Math.floor(viewW * dpr);
   const targetH = Math.floor(viewH * dpr);
 
@@ -2321,6 +2324,13 @@ function drawGraph() {
     }
   } else {
     callout.classList.remove("visible");
+  }
+
+  if (presetOverlayActive && !fastInteraction) {
+    // Preset overlay is covering the graph; skip expensive redraw work in DAW.
+    callout.classList.remove("visible");
+    rafHandle = requestAnimationFrame(drawGraph);
+    return;
   }
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2401,7 +2411,7 @@ function drawGraph() {
       ctx.beginPath();
       ctx.lineWidth = 2.15;
       // Keep EQ line visible while interacting, but with fewer points for speed.
-      drawEqResponsePath(ctx, activeBands, w, h, ultraFastInteraction ? 72 : 120);
+      drawEqResponsePath(ctx, activeBands, w, h, ultraFastInteraction ? 56 : 120);
       ctx.strokeStyle = "#cfdcff";
       ctx.stroke();
     }
