@@ -779,6 +779,8 @@ function buildKnob(el, options) {
   let drag = null;
   let lastDragValue = options.get();
   let readoutUpdateFrame = 0;
+  let knobVisualRafPending = false;
+  let pendingKnobVisualValue = options.get();
 
   const valueToNorm = (v) => {
     if (options.toNorm) return clamp(options.toNorm(v), 0, 1);
@@ -838,13 +840,17 @@ function buildKnob(el, options) {
     // Update model only — no queuePushState during drag to avoid IPC backpressure.
     const newValue = normToValue(drag.norm);
     options.set(clamp(newValue, options.min, options.max), false);
-    setDragVisual(options.get());
+    pendingKnobVisualValue = options.get();
+    if (!knobVisualRafPending) {
+      knobVisualRafPending = true;
+      requestAnimationFrame(() => {
+        knobVisualRafPending = false;
+        if (!drag) return;
+        setDragVisual(pendingKnobVisualValue);
+      });
+    }
     lastDragValue = options.get();
     interactionEnergy = Math.min(1, interactionEnergy + 0.05);
-    readoutUpdateFrame++;
-    if (readoutUpdateFrame % 2 === 0) {
-      updateSelectedBandReadouts(options.readoutKey || "all");
-    }
   });
 
   function finishKnobDrag(pushState = true) {
@@ -860,6 +866,7 @@ function buildKnob(el, options) {
     ambientRing.style.filter = "drop-shadow(0 0 1px rgba(100, 125, 245, 0.12))";
     ring.style.filter = "drop-shadow(0 0 1px rgba(100, 90, 200, 0.1))";
     indicator.style.filter = "drop-shadow(0 0 0.5px rgba(190, 210, 255, 0.16))";
+    ctrl.set(options.get(), false);
     updateSelectedBandReadouts(options.readoutKey || "all");
     if (pushState) queuePushState();
   }
@@ -1676,6 +1683,54 @@ function drawGraph() {
     ctx.moveTo(0, y);
     ctx.lineTo(w, y);
     ctx.stroke();
+  }
+
+  if (fastInteraction) {
+    const active = displayBands
+      .map((b, i) => ({ b, i }))
+      .filter((entry) => entry.b.enabled > 0.5)
+      .sort((a, b) => a.b.frequency - b.b.frequency);
+    const activeBands = active.map((entry) => entry.b);
+
+    if (active.length > 0) {
+      ctx.beginPath();
+      ctx.lineWidth = 2.6;
+      drawEqResponsePath(ctx, activeBands, w, h);
+      const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
+      lineGrad.addColorStop(0, "#eef4ff");
+      lineGrad.addColorStop(0.3, "#c86dff");
+      lineGrad.addColorStop(0.66, "#9f8aff");
+      lineGrad.addColorStop(1, "#88c8ff");
+      ctx.strokeStyle = lineGrad;
+      ctx.stroke();
+    }
+
+    displayBands.forEach((b, i) => {
+      if (b.enabled < 0.5) return;
+      const x = hzToX(b.frequency, w);
+      const y = gainToY(b.gainDb, h);
+      const selected = i === state.selectedBand;
+      const activeDrag = i === draggingBand;
+      const dynamic = b.mode > 0.5;
+      const notch = b.type === 5;
+
+      ctx.beginPath();
+      ctx.arc(x, y, 11.5, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(6, 10, 24, 0.94)";
+      ctx.fill();
+      ctx.strokeStyle = notch ? "#89b4ff" : selected ? "#c099ff" : dynamic ? "#7fa8ff" : "#d6e4ff";
+      ctx.lineWidth = activeDrag ? 2.5 : selected ? 2.2 : 1.9;
+      ctx.stroke();
+
+      ctx.fillStyle = "#edf3ff";
+      ctx.font = "600 13px Avenir Next";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(i + 1), x, y + 0.5);
+    });
+
+    rafHandle = requestAnimationFrame(drawGraph);
+    return;
   }
 
   for (let i = 0; i < BINS; i++) {
