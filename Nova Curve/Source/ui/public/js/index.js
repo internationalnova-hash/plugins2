@@ -571,6 +571,7 @@ function applyPresetByName(name) {
   syncControlsFromState();
   queuePushState();
   setPresetPreview(preset);
+  if (presetBrowserOpen) closePresetBrowser();
 }
 
 function renderPresetList() {
@@ -2572,18 +2573,8 @@ function drawGraph() {
     lineGrad.addColorStop(0.3, "#c86dff");
     lineGrad.addColorStop(0.66, "#9f8aff");
     lineGrad.addColorStop(1, "#88c8ff");
-    ctx.shadowBlur = 24;
-    ctx.shadowBlur = 0;
-
-    // Inner plasma filament for a hot energy center.
-    ctx.beginPath();
-    drawEqResponsePath(ctx, activeBands, w, h);
-    ctx.strokeStyle = "rgba(255, 255, 255, 1)";
-    ctx.lineWidth = 1.08;
-    ctx.shadowColor = "rgba(255, 248, 255, 0.42)";
-    ctx.shadowBlur = 7;
+    ctx.strokeStyle = lineGrad;
     ctx.stroke();
-    ctx.shadowBlur = 0;
     }
   }
 
