@@ -321,6 +321,28 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const auto resonanceNorm = juce::jlimit (0.0f, 1.0f, resonanceAmount.load() / 100.0f);
     const auto harmonicLinkEnabled = harmonicLink.load() > 0.5f;
 
+    // Detector pre-pass setup (per-block): avoid expensive coefficient/exp recompute per sample.
+    std::array<bool, maxBands> detectorBandEnabled {};
+    std::array<float, maxBands> detectorAttackCoeff {};
+    std::array<float, maxBands> detectorReleaseCoeff {};
+
+    for (int band = 0; band < maxBands; ++band)
+    {
+        const auto enabled = bands[static_cast<size_t> (band)].enabled.load() > 0.5f;
+        detectorBandEnabled[static_cast<size_t> (band)] = enabled;
+        if (! enabled)
+            continue;
+
+        const auto freq = clampValue (bands[static_cast<size_t> (band)].frequency.load(), 20.0f, 20000.0f);
+        const auto q = clampValue (bands[static_cast<size_t> (band)].q.load(), 0.10f, 10.0f);
+        detectorFilters[0][static_cast<size_t> (band)].coefficients = juce::dsp::IIR::Coefficients<float>::makeBandPass (currentSampleRate, freq, q);
+
+        const auto attackMs = clampValue (bands[static_cast<size_t> (band)].attackMs.load(), 0.1f, 200.0f);
+        const auto releaseMs = clampValue (bands[static_cast<size_t> (band)].releaseMs.load(), 10.0f, 1000.0f);
+        detectorAttackCoeff[static_cast<size_t> (band)] = std::exp (-1.0f / (0.001f * attackMs * static_cast<float> (currentSampleRate)));
+        detectorReleaseCoeff[static_cast<size_t> (band)] = std::exp (-1.0f / (0.001f * releaseMs * static_cast<float> (currentSampleRate)));
+    }
+
     // Detector pass for dynamic EQ.
     for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
     {
@@ -330,18 +352,12 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
         for (int band = 0; band < maxBands; ++band)
         {
-            if (bands[static_cast<size_t> (band)].enabled.load() < 0.5f)
+            if (! detectorBandEnabled[static_cast<size_t> (band)])
                 continue;
 
-            const auto freq = clampValue (bands[static_cast<size_t> (band)].frequency.load(), 20.0f, 20000.0f);
-            const auto q = clampValue (bands[static_cast<size_t> (band)].q.load(), 0.10f, 10.0f);
-            detectorFilters[0][static_cast<size_t> (band)].coefficients = juce::dsp::IIR::Coefficients<float>::makeBandPass (currentSampleRate, freq, q);
-
             const auto detection = std::abs (detectorFilters[0][static_cast<size_t> (band)].processSample (mono));
-            const auto attackMs = clampValue (bands[static_cast<size_t> (band)].attackMs.load(), 0.1f, 200.0f);
-            const auto releaseMs = clampValue (bands[static_cast<size_t> (band)].releaseMs.load(), 10.0f, 1000.0f);
-            const auto attackCoeff = std::exp (-1.0f / (0.001f * attackMs * static_cast<float> (currentSampleRate)));
-            const auto releaseCoeff = std::exp (-1.0f / (0.001f * releaseMs * static_cast<float> (currentSampleRate)));
+            const auto attackCoeff = detectorAttackCoeff[static_cast<size_t> (band)];
+            const auto releaseCoeff = detectorReleaseCoeff[static_cast<size_t> (band)];
 
             if (detection > detectorEnvelopes[static_cast<size_t> (band)])
                 detectorEnvelopes[static_cast<size_t> (band)] = attackCoeff * detectorEnvelopes[static_cast<size_t> (band)]
