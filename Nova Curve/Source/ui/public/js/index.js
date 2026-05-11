@@ -1262,7 +1262,7 @@ function buildKnob(el, options) {
     const delta = drag.lastY - e.clientY;
     drag.lastY = e.clientY;
     const fine = (e.shiftKey || e.metaKey) ? 0.2 : 1;
-    drag.norm = clamp(drag.norm + delta * 0.00245 * fine, 0, 1);
+    drag.norm = clamp(drag.norm + delta * 0.00315 * fine, 0, 1);
     // Update model only — no queuePushState during drag to avoid IPC backpressure.
     const newValue = normToValue(drag.norm);
     options.set(clamp(newValue, options.min, options.max), false);
@@ -2069,38 +2069,31 @@ function onGraphMove(e) {
     pendingGraphDragX = x;
     pendingGraphDragY = y;
     pendingGraphDragFine = (e.shiftKey || e.metaKey) ? 0.24 : 1;
-    if (!graphDragRafPending) {
-      graphDragRafPending = true;
-      requestAnimationFrame(() => {
-        graphDragRafPending = false;
-        if (draggingBand < 0) return;
-        const b = state.bands[draggingBand];
-        dragPreviewActive = true;
-        const targetFreq = clamp(xToHz(pendingGraphDragX, rect.width), FREQ_MIN, FREQ_MAX);
-        const targetGain = clamp(yToGain(pendingGraphDragY, rect.height), -30, 30);
-        // Make normal drag feel immediate; keep slight damping only for fine-control drag.
-        const dragResponse = pendingGraphDragFine < 1 ? 0.42 : 1.0;
-        const newFreq = clamp(b.frequency + (targetFreq - b.frequency) * dragResponse, FREQ_MIN, FREQ_MAX);
-        const newGain = clamp(b.gainDb + (targetGain - b.gainDb) * dragResponse, -30, 30);
-        dragPreviewFreq = newFreq;
-        dragPreviewGain = newGain;
+    const b = state.bands[draggingBand];
+    dragPreviewActive = true;
+    const targetFreq = clamp(xToHz(pendingGraphDragX, rect.width), FREQ_MIN, FREQ_MAX);
+    const targetGain = clamp(yToGain(pendingGraphDragY, rect.height), -30, 30);
+    // Keep slight damping only for fine-control drag, but update immediately per pointer event.
+    const dragResponse = pendingGraphDragFine < 1 ? 0.42 : 1.0;
+    const newFreq = clamp(b.frequency + (targetFreq - b.frequency) * dragResponse, FREQ_MIN, FREQ_MAX);
+    const newGain = clamp(b.gainDb + (targetGain - b.gainDb) * dragResponse, -30, 30);
+    dragPreviewFreq = newFreq;
+    dragPreviewGain = newGain;
 
-        b.frequency = newFreq;
-        b.gainDb = newGain;
-        b.enabled = 1;
-        calloutVisible = false;
-        calloutBandIndex = -1;
-        interactionEnergy = Math.min(1, interactionEnergy + 0.06);
+    b.frequency = newFreq;
+    b.gainDb = newGain;
+    b.enabled = 1;
+    calloutVisible = false;
+    calloutBandIndex = -1;
+    interactionEnergy = Math.min(1, interactionEnergy + 0.06);
 
-        // Keep drag path lightweight: update readouts at a reduced cadence.
-        graphDragReadoutTick++;
-        if ((graphDragReadoutTick % 2) === 0) {
-          const freqRead = document.getElementById("freqRead");
-          const gainRead = document.getElementById("gainRead");
-          if (freqRead) freqRead.textContent = fmtHz(newFreq);
-          if (gainRead) gainRead.textContent = fmtDb(newGain);
-        }
-      });
+    // Keep drag path lightweight: update readouts at a reduced cadence.
+    graphDragReadoutTick++;
+    if ((graphDragReadoutTick % 2) === 0) {
+      const freqRead = document.getElementById("freqRead");
+      const gainRead = document.getElementById("gainRead");
+      if (freqRead) freqRead.textContent = fmtHz(newFreq);
+      if (gainRead) gainRead.textContent = fmtDb(newGain);
     }
   }
 
