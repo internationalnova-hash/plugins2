@@ -1986,9 +1986,11 @@ function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
   b.gainDb = clamp(yToGain(y, rect.height), -30, 30);
   b.q = 1.2;
   hoveredBand = idx;
-  calloutVisible = true;
-  calloutTargetX = x;
-  calloutTargetY = y;
+  calloutVisible = !beginDrag;
+  if (!beginDrag) {
+    calloutTargetX = x;
+    calloutTargetY = y;
+  }
   interactionEnergy = Math.min(1, interactionEnergy + 0.22);
   if (beginDrag) draggingBand = idx;
   if (!beginDrag) {
@@ -2021,9 +2023,9 @@ function onGraphDown(e) {
     draggingBand = nearest;
     hoveredBand = nearest;
     state.selectedBand = nearest;
-    calloutVisible = true;
-    calloutTargetX = x;
-    calloutTargetY = y;
+    calloutVisible = false;
+    calloutBandIndex = -1;
+    cancelCalloutHide();
     interactionEnergy = Math.min(1, interactionEnergy + 0.18);
     // Skip full syncControlsFromState during drag — too expensive to fire per frame.
     // Only update the band selector readout so the UI label stays correct.
@@ -2095,9 +2097,8 @@ function onGraphMove(e) {
         b.frequency = newFreq;
         b.gainDb = newGain;
         b.enabled = 1;
-        calloutVisible = true;
-        calloutTargetX = pendingGraphDragX;
-        calloutTargetY = pendingGraphDragY;
+        calloutVisible = false;
+        calloutBandIndex = -1;
         interactionEnergy = Math.min(1, interactionEnergy + 0.06);
 
         // Keep drag path lightweight: update readouts at a reduced cadence.
@@ -2114,13 +2115,16 @@ function onGraphMove(e) {
 
   const activeIdx = draggingBand >= 0 ? draggingBand : (hoveredBand >= 0 ? hoveredBand : state.selectedBand);
   const b = state.bands[activeIdx] || selectedBand();
-  calloutBandIndex = activeIdx;
-  const anchorX = draggingBand >= 0 ? x : (calloutBandIndex >= 0 ? hzToX(b.frequency, rect.width) : x);
-  const anchorY = draggingBand >= 0 ? y : (calloutBandIndex >= 0 ? gainToY(b.gainDb, rect.height) : y);
-  calloutTargetX = anchorX;
-  calloutTargetY = anchorY;
-  if (calloutVisible) callout.classList.add("visible");
-  else callout.classList.remove("visible");
+  if (draggingBand >= 0) {
+    calloutVisible = false;
+    calloutBandIndex = -1;
+  } else {
+    calloutBandIndex = activeIdx;
+    const anchorX = calloutBandIndex >= 0 ? hzToX(b.frequency, rect.width) : x;
+    const anchorY = calloutBandIndex >= 0 ? gainToY(b.gainDb, rect.height) : y;
+    calloutTargetX = anchorX;
+    calloutTargetY = anchorY;
+  }
   if (draggingBand < 0) {
     const coFreq = document.getElementById("coFreq");
     const coGain = document.getElementById("coGain");
@@ -2197,6 +2201,14 @@ function onGraphUp() {
   if (releasedBand >= 0) {
     state.selectedBand = releasedBand;
     syncControlsFromState(false);
+    const rect = cachedCanvasRect || canvas.getBoundingClientRect();
+    const released = state.bands[releasedBand];
+    if (released) {
+      calloutBandIndex = releasedBand;
+      calloutTargetX = hzToX(released.frequency, rect.width);
+      calloutTargetY = gainToY(released.gainDb, rect.height);
+      calloutVisible = true;
+    }
     queuePushState();
   }
 
@@ -2399,20 +2411,24 @@ function drawGraph() {
   }
 
   if (fastInteraction) {
-    const active = displayBands
-      .map((b, i) => ({ b, i }))
-      .filter((entry) => entry.b.enabled > 0.5)
-      .sort((a, b) => a.b.frequency - b.b.frequency);
-    const activeBands = active.map((entry) => entry.b);
+    const ultraFastInteraction = draggingBand >= 0 || knobDragging;
 
-    if (active.length > 0) {
-      ctx.shadowBlur = 0;
-      ctx.shadowColor = "transparent";
-      ctx.beginPath();
-      ctx.lineWidth = 2.15;
-      drawEqResponsePath(ctx, activeBands, w, h, knobDragging ? 84 : 120);
-      ctx.strokeStyle = "#cfdcff";
-      ctx.stroke();
+    if (!ultraFastInteraction) {
+      const active = displayBands
+        .map((b, i) => ({ b, i }))
+        .filter((entry) => entry.b.enabled > 0.5)
+        .sort((a, b) => a.b.frequency - b.b.frequency);
+      const activeBands = active.map((entry) => entry.b);
+
+      if (active.length > 0) {
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = "transparent";
+        ctx.beginPath();
+        ctx.lineWidth = 2.15;
+        drawEqResponsePath(ctx, activeBands, w, h, 120);
+        ctx.strokeStyle = "#cfdcff";
+        ctx.stroke();
+      }
     }
 
     displayBands.forEach((b, i) => {
@@ -2432,7 +2448,7 @@ function drawGraph() {
       ctx.lineWidth = activeDrag ? 2.5 : selected ? 2.2 : 1.9;
       ctx.stroke();
 
-      if (!knobDragging && draggingBand < 0) {
+      if (!ultraFastInteraction) {
         ctx.fillStyle = "#edf3ff";
         ctx.font = "600 13px Avenir Next";
         ctx.textAlign = "center";
