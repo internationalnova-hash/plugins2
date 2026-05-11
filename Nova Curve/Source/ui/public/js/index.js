@@ -112,6 +112,8 @@ let pendingGraphDragX = 0;
 let pendingGraphDragY = 0;
 let pendingGraphDragFine = 1;
 let graphDragReadoutTick = 0;
+let interactionActiveState = false;
+let interactionDeactivateTimer = 0;
 
 let lastFrameMs = performance.now();
 let interactionEnergy = 0;
@@ -238,9 +240,26 @@ function applyUiScale() {
 }
 
 function setInteractionActive(active) {
-  try {
-    nativeSetInteractionActive(active === true);
-  } catch (_) {}
+  const shouldBeActive = active === true;
+  if (shouldBeActive) {
+    clearTimeout(interactionDeactivateTimer);
+    if (interactionActiveState) return;
+    interactionActiveState = true;
+    try {
+      nativeSetInteractionActive(true);
+    } catch (_) {}
+    return;
+  }
+
+  clearTimeout(interactionDeactivateTimer);
+  interactionDeactivateTimer = setTimeout(() => {
+    if (draggingBand >= 0 || knobDragging) return;
+    if (!interactionActiveState) return;
+    interactionActiveState = false;
+    try {
+      nativeSetInteractionActive(false);
+    } catch (_) {}
+  }, 120);
 }
 
 function freqToNorm(hz) {
@@ -833,8 +852,12 @@ function snapshotForUndo() {
 function queuePushState() {
   clearTimeout(pushTimer);
   pushTimer = setTimeout(async () => {
+    if (draggingBand >= 0 || knobDragging || interactionActiveState) {
+      queuePushState();
+      return;
+    }
     try { await nativeSetState(JSON.stringify(state)); } catch (_) {}
-  }, 45);
+  }, 65);
 }
 
 async function setupNativeBridge() {
