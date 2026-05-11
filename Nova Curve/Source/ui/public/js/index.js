@@ -1207,8 +1207,6 @@ function buildKnob(el, options) {
   let drag = null;
   let lastDragValue = options.get();
   let readoutUpdateFrame = 0;
-  let knobVisualRafPending = false;
-  let pendingKnobVisualValue = options.get();
 
   const valueToNorm = (v) => {
     if (options.toNorm) return clamp(options.toNorm(v), 0, 1);
@@ -1268,15 +1266,8 @@ function buildKnob(el, options) {
     // Update model only — no queuePushState during drag to avoid IPC backpressure.
     const newValue = normToValue(drag.norm);
     options.set(clamp(newValue, options.min, options.max), false);
-    pendingKnobVisualValue = options.get();
-    if (!knobVisualRafPending) {
-      knobVisualRafPending = true;
-      requestAnimationFrame(() => {
-        knobVisualRafPending = false;
-        if (!drag) return;
-        setDragVisual(pendingKnobVisualValue);
-      });
-    }
+    // Apply drag visuals immediately to avoid one-frame lag feeling on knob moves.
+    setDragVisual(options.get());
     lastDragValue = options.get();
     interactionEnergy = Math.min(1, interactionEnergy + 0.05);
   });
@@ -2412,23 +2403,21 @@ function drawGraph() {
 
   if (fastInteraction) {
     const ultraFastInteraction = draggingBand >= 0 || knobDragging;
+    const active = displayBands
+      .map((b, i) => ({ b, i }))
+      .filter((entry) => entry.b.enabled > 0.5)
+      .sort((a, b) => a.b.frequency - b.b.frequency);
+    const activeBands = active.map((entry) => entry.b);
 
-    if (!ultraFastInteraction) {
-      const active = displayBands
-        .map((b, i) => ({ b, i }))
-        .filter((entry) => entry.b.enabled > 0.5)
-        .sort((a, b) => a.b.frequency - b.b.frequency);
-      const activeBands = active.map((entry) => entry.b);
-
-      if (active.length > 0) {
-        ctx.shadowBlur = 0;
-        ctx.shadowColor = "transparent";
-        ctx.beginPath();
-        ctx.lineWidth = 2.15;
-        drawEqResponsePath(ctx, activeBands, w, h, 120);
-        ctx.strokeStyle = "#cfdcff";
-        ctx.stroke();
-      }
+    if (active.length > 0) {
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = "transparent";
+      ctx.beginPath();
+      ctx.lineWidth = 2.15;
+      // Keep EQ line visible while interacting, but with fewer points for speed.
+      drawEqResponsePath(ctx, activeBands, w, h, ultraFastInteraction ? 72 : 120);
+      ctx.strokeStyle = "#cfdcff";
+      ctx.stroke();
     }
 
     displayBands.forEach((b, i) => {
