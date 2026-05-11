@@ -2307,9 +2307,9 @@ function drawGraph() {
     const maxLeft = Math.max(edgePad, w - cw - edgePad);
     let left;
     if (calloutX < cw * 0.5 + sideGap + edgePad) {
-      left = clamp(calloutX + sideGap, minLeft, maxLeft);
+      left = clamp(calloutX + sideGap + 40, minLeft, maxLeft);
     } else if (calloutX > w - (cw * 0.5 + sideGap + edgePad)) {
-      left = clamp(calloutX - cw - sideGap, minLeft, maxLeft);
+      left = clamp(calloutX - cw - sideGap - 40, minLeft, maxLeft);
     } else {
       left = clamp(calloutX - cw * 0.5, minLeft, maxLeft);
     }
@@ -2331,17 +2331,24 @@ function drawGraph() {
   if (!fastInteraction) {
     // Deep-space atmospheric layering behind all graph content.
     const rearFog = ctx.createRadialGradient(w * 0.5, h * 1.18, 0, w * 0.5, h * 1.18, h * 1.25);
-    rearFog.addColorStop(0, "rgba(0, 0, 0, 0.38)");
-    rearFog.addColorStop(0.56, "rgba(10, 18, 40, 0.18)");
+    rearFog.addColorStop(0, "rgba(0, 0, 0, 0.52)");
+    rearFog.addColorStop(0.56, "rgba(10, 18, 40, 0.32)");
     rearFog.addColorStop(1, "rgba(0, 0, 0, 0)");
     ctx.fillStyle = rearFog;
     ctx.fillRect(0, 0, w, h);
 
-    const centerLift = ctx.createRadialGradient(w * 0.5, h * 0.52, 0, w * 0.5, h * 0.52, h * 0.68);
-    centerLift.addColorStop(0, "rgba(188, 208, 255, 0.08)");
-    centerLift.addColorStop(0.42, "rgba(154, 172, 244, 0.05)");
+    const centerLift = ctx.createRadialGradient(w * 0.5, h * 0.52, 0, w * 0.5, h * 0.52, h * 0.75);
+    centerLift.addColorStop(0, "rgba(188, 208, 255, 0.14)");
+    centerLift.addColorStop(0.42, "rgba(154, 172, 244, 0.08)");
     centerLift.addColorStop(1, "rgba(0, 0, 0, 0)");
     ctx.fillStyle = centerLift;
+    ctx.fillRect(0, 0, w, h);
+
+    const cornerDarkness = ctx.createRadialGradient(w * 0.5, h * 0.5, Math.min(w, h) * 0.35, w * 0.5, h * 0.5, Math.min(w, h) * 0.8);
+    cornerDarkness.addColorStop(0, "rgba(0, 0, 0, 0)");
+    cornerDarkness.addColorStop(0.7, "rgba(0, 0, 0, 0)");
+    cornerDarkness.addColorStop(1, "rgba(0, 0, 0, 0.18)");
+    ctx.fillStyle = cornerDarkness;
     ctx.fillRect(0, 0, w, h);
   }
 
@@ -2578,12 +2585,16 @@ function drawGraph() {
       ctx.lineWidth = 2.8;
       drawEqResponsePath(ctx, activeBands, w, h);
       const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
-      lineGrad.addColorStop(0, "#eef4ff");
-      lineGrad.addColorStop(0.3, "#c86dff");
-      lineGrad.addColorStop(0.66, "#9f8aff");
+      lineGrad.addColorStop(0, "#ffffff");
+      lineGrad.addColorStop(0.2, "#f0f4ff");
+      lineGrad.addColorStop(0.4, "#d86dff");
+      lineGrad.addColorStop(0.65, "#a080ff");
       lineGrad.addColorStop(1, "#88c8ff");
       ctx.strokeStyle = lineGrad;
+      ctx.shadowColor = "rgba(255, 200, 255, 0.6)";
+      ctx.shadowBlur = 8;
       ctx.stroke();
+      ctx.shadowBlur = 0;
     } else {
     const bandThree = displayBands[2];
     if (bandThree && bandThree.enabled > 0.5) {
@@ -2606,12 +2617,16 @@ function drawGraph() {
     drawEqResponsePath(ctx, activeBands, w, h);
 
     const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
-    lineGrad.addColorStop(0, "#eef4ff");
-    lineGrad.addColorStop(0.3, "#c86dff");
-    lineGrad.addColorStop(0.66, "#9f8aff");
+    lineGrad.addColorStop(0, "#ffffff");
+    lineGrad.addColorStop(0.15, "#faf6ff");
+    lineGrad.addColorStop(0.35, "#e86dff");
+    lineGrad.addColorStop(0.62, "#a888ff");
     lineGrad.addColorStop(1, "#88c8ff");
     ctx.strokeStyle = lineGrad;
+    ctx.shadowColor = "rgba(255, 150, 255, 0.8)";
+    ctx.shadowBlur = 12;
     ctx.stroke();
+    ctx.shadowBlur = 0;
     }
   }
 
@@ -2647,11 +2662,15 @@ function drawGraph() {
     }
 
     const focusBoost = activeDrag ? 1.48 : hovered ? 1.18 : selected ? 1.12 : 1;
-    const halo = (selected ? (24 * pulse * breathe + reactiveDyn * 11) : dynamic ? (14 + reactiveDyn * 16) : 9.5) * focusBoost;
+    const gainIntensity = Math.abs(b.gainDb) / 30;
+    const qIntensity = Math.min(1, (b.q || 1) / 6);
+    const energyBoost = 0.8 + 0.22 * (gainIntensity + qIntensity * 0.5);
+    const halo = (selected ? (24 * pulse * breathe + reactiveDyn * 11) : dynamic ? (14 + reactiveDyn * 16) : 9.5) * focusBoost * energyBoost;
     
     // Outer diffuse glow (largest)
     const g1 = ctx.createRadialGradient(x, y, 0, x, y, halo * 1.34);
-    g1.addColorStop(0, selected ? "rgba(180, 142, 255, 0.11)" : dynamic ? "rgba(104, 130, 255, 0.095)" : "rgba(190, 210, 255, 0.05)");
+    const outerIntensity = 0.06 + 0.09 * gainIntensity;
+    g1.addColorStop(0, selected ? `rgba(180, 142, 255, ${0.15 + 0.1 * gainIntensity})` : dynamic ? `rgba(104, 130, 255, ${0.12 + 0.08 * gainIntensity})` : `rgba(190, 210, 255, ${outerIntensity})`);
     g1.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g1;
     ctx.beginPath();
@@ -2660,8 +2679,9 @@ function drawGraph() {
 
     // Primary glow halo
     const g2 = ctx.createRadialGradient(x, y, 0, x, y, halo * 0.78);
-    g2.addColorStop(0, selected ? "rgba(214, 174, 255, 1)" : dynamic ? "rgba(128, 152, 255, 0.95)" : "rgba(244, 248, 255, 0.72)");
-    g2.addColorStop(0.38, selected ? "rgba(176, 132, 255, 0.44)" : dynamic ? "rgba(116, 142, 255, 0.34)" : "rgba(222, 234, 255, 0.26)");
+    const haloIntensity = 0.12 + 0.18 * gainIntensity;
+    g2.addColorStop(0, selected ? `rgba(220, 180, 255, ${1})` : dynamic ? `rgba(140, 160, 255, ${0.95 + 0.05 * gainIntensity})` : `rgba(244, 248, 255, ${0.72 + haloIntensity})`);
+    g2.addColorStop(0.38, selected ? "rgba(176, 132, 255, 0.48)" : dynamic ? "rgba(120, 150, 255, 0.4)" : `rgba(222, 234, 255, ${0.3 + haloIntensity * 0.5})`);
     g2.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g2;
     ctx.beginPath();
