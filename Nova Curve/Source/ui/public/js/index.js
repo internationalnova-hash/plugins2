@@ -2,8 +2,8 @@ const MAX_BANDS = 24;
 const BINS = 96;
 const FREQ_MIN = 20;
 const FREQ_MAX = 20000;
-const UI_BASE_WIDTH = 1360;
-const UI_BASE_HEIGHT = 860;
+const UI_BASE_WIDTH = 1700;
+const UI_BASE_HEIGHT = 1000;
 
 const FILTER_TYPES = ["Bell", "Low Shelf", "High Shelf", "High Pass", "Low Pass", "Notch", "Band Pass", "Tilt"];
 const BAND_MODES = ["Static", "Dynamic", "Resonance"];
@@ -1773,60 +1773,62 @@ function drawGraph() {
     ctx.restore();
   }
 
-  ctx.save();
-  ctx.beginPath();
-  for (let i = 0; i < BINS; i++) {
-    const x = (i / (BINS - 1)) * w;
-    const y = (1 - analyzerTrailA[i]) * h;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.strokeStyle = "rgba(170, 168, 255, 0.04)";
-  ctx.lineWidth = 0.9;
-  ctx.shadowColor = "rgba(156, 130, 255, 0.045)";
-  ctx.shadowBlur = 22;
-  ctx.stroke();
-  ctx.restore();
+  if (!fastInteraction) {
+    ctx.save();
+    ctx.beginPath();
+    for (let i = 0; i < BINS; i++) {
+      const x = (i / (BINS - 1)) * w;
+      const y = (1 - analyzerTrailA[i]) * h;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "rgba(170, 168, 255, 0.04)";
+    ctx.lineWidth = 0.9;
+    ctx.shadowColor = "rgba(156, 130, 255, 0.045)";
+    ctx.shadowBlur = 22;
+    ctx.stroke();
+    ctx.restore();
 
-  ctx.save();
-  ctx.globalAlpha = 0.34;
-  ctx.beginPath();
-  for (let i = 0; i < BINS; i++) {
-    const x = (i / (BINS - 1)) * w;
-    const y = (1 - show[i]) * h;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.strokeStyle = "rgba(182, 204, 255, 0.16)";
-  ctx.lineWidth = 1.5;
-  ctx.shadowColor = "rgba(134, 154, 255, 0.12)";
-  ctx.shadowBlur = 12;
-  ctx.stroke();
-  ctx.restore();
+    ctx.save();
+    ctx.globalAlpha = 0.34;
+    ctx.beginPath();
+    for (let i = 0; i < BINS; i++) {
+      const x = (i / (BINS - 1)) * w;
+      const y = (1 - show[i]) * h;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "rgba(182, 204, 255, 0.16)";
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = "rgba(134, 154, 255, 0.12)";
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+    ctx.restore();
 
-  ctx.beginPath();
-  for (let i = 0; i < BINS; i++) {
-    const x = (i / (BINS - 1)) * w;
-    const y = (1 - preSmoothed[i]) * h;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.strokeStyle = "rgba(188, 208, 255, 0.05)";
-  ctx.lineWidth = 1.1;
-  ctx.stroke();
+    ctx.beginPath();
+    for (let i = 0; i < BINS; i++) {
+      const x = (i / (BINS - 1)) * w;
+      const y = (1 - preSmoothed[i]) * h;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "rgba(188, 208, 255, 0.05)";
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
 
-  ctx.save();
-  ctx.beginPath();
-  for (let i = 0; i < BINS; i++) {
-    const x = (i / (BINS - 1)) * w;
-    const y = (1 - reductionSmoothed[i] * 0.9) * h;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+    ctx.save();
+    ctx.beginPath();
+    for (let i = 0; i < BINS; i++) {
+      const x = (i / (BINS - 1)) * w;
+      const y = (1 - reductionSmoothed[i] * 0.9) * h;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "rgba(166, 118, 255, 0.14)";
+    ctx.lineWidth = 1.0;
+    ctx.stroke();
+    ctx.restore();
   }
-  ctx.strokeStyle = "rgba(166, 118, 255, 0.14)";
-  ctx.lineWidth = 1.0;
-  ctx.stroke();
-  ctx.restore();
 
   const active = displayBands
     .map((b, i) => ({ b, i }))
