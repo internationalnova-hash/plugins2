@@ -2591,8 +2591,9 @@ function drawGraph() {
       lineGrad.addColorStop(0.65, "#a080ff");
       lineGrad.addColorStop(1, "#88c8ff");
       ctx.strokeStyle = lineGrad;
-      ctx.shadowColor = "rgba(255, 200, 255, 0.6)";
-      ctx.shadowBlur = 8;
+      const reactiveBloom = 8 + reactiveDyn * 6;
+      ctx.shadowColor = `rgba(255, 200, 255, ${0.6 + reactiveDyn * 0.3})`;
+      ctx.shadowBlur = reactiveBloom;
       ctx.stroke();
       ctx.shadowBlur = 0;
     } else {
@@ -2623,8 +2624,9 @@ function drawGraph() {
     lineGrad.addColorStop(0.62, "#a888ff");
     lineGrad.addColorStop(1, "#88c8ff");
     ctx.strokeStyle = lineGrad;
-    ctx.shadowColor = "rgba(255, 150, 255, 0.8)";
-    ctx.shadowBlur = 12;
+    const reactiveBloom2 = 12 + reactiveDyn * 8;
+    ctx.shadowColor = `rgba(255, 150, 255, ${0.8 + reactiveDyn * 0.2})`;
+    ctx.shadowBlur = reactiveBloom2;
     ctx.stroke();
     ctx.shadowBlur = 0;
     }
@@ -2665,7 +2667,8 @@ function drawGraph() {
     const gainIntensity = Math.abs(b.gainDb) / 30;
     const qIntensity = Math.min(1, (b.q || 1) / 6);
     const energyBoost = 0.8 + 0.22 * (gainIntensity + qIntensity * 0.5);
-    const halo = (selected ? (24 * pulse * breathe + reactiveDyn * 11) : dynamic ? (14 + reactiveDyn * 16) : 9.5) * focusBoost * energyBoost;
+    const reactiveSync = 1 + Math.sin(now * 0.004 + x * 0.02) * 0.06 * (reactiveDyn + 0.3);
+    const halo = (selected ? (24 * pulse * breathe + reactiveDyn * 11) : dynamic ? (14 + reactiveDyn * 16) : 9.5) * focusBoost * energyBoost * reactiveSync;
     
     // Outer diffuse glow (largest)
     const g1 = ctx.createRadialGradient(x, y, 0, x, y, halo * 1.34);
