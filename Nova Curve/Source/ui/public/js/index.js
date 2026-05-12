@@ -38,8 +38,9 @@ const PRESETS = [
 ];
 
 // Ultra-flat diagnostic mode: set to true to strip all visual effects during interaction
-// This helps isolate whether lag is visual (fixable) or systemic (architectural).
-const ULTRA_FLAT_MODE = true;
+// This was used to isolate lag root cause (confirmed: analyzer thread contention, not visuals).
+// Disabled now that root cause is fixed.
+const ULTRA_FLAT_MODE = false;
 
 const defaultBand = (i) => ({
   enabled: i < 6 ? 1 : 0,
