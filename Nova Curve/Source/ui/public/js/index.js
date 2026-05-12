@@ -1229,15 +1229,12 @@ function buildKnob(el, options) {
     const progressLength = Math.max(0, norm * trackLength);
     ctrl.arc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
     // Keep expensive blur/filter layers static while dragging for smoother interaction.
-    ctrl.bloomArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.massArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.coreArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.taperArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.headArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.headArc.setAttribute("opacity", "0");
+    // Only write these static attributes once at drag start.
     ctrl.arc.style.opacity = 1;
-    el.style.setProperty("--arc-reflect", `${0.09 + 0.24 * Math.pow(norm, 0.92)}`);
-    el.style.setProperty("--arc-angle", `${deg}deg`);
+    if (!knobDragging) {
+      el.style.setProperty("--arc-reflect", `${0.09 + 0.24 * Math.pow(norm, 0.92)}`);
+      el.style.setProperty("--arc-angle", `${deg}deg`);
+    }
   };
 
   const updateKnobDragFromPointer = (e) => {
@@ -1295,6 +1292,13 @@ function buildKnob(el, options) {
 
     knobDragging = true;
     interactionUltraFast = true;
+    // Freeze expensive decorative arc layers once for the duration of drag.
+    ctrl.bloomArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.massArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.coreArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.taperArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.headArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.headArc.setAttribute("opacity", "0");
     try {
       if (typeof e.pointerId !== "undefined") el.setPointerCapture(e.pointerId);
     } catch (_) {}
@@ -2073,12 +2077,10 @@ function onGraphMove(e) {
       const newHovered = findNearestBandIndex(x, y, rect.width, rect.height, 22);
       if (newHovered >= 0) {
         hoveredBand = newHovered;
-        calloutBandIndex = newHovered;
-        calloutVisible = true;
-        cancelCalloutHide();
+        // Hovering should not open callout; callout appears only after click/drag/context.
       } else {
         hoveredBand = -1;
-        if (!calloutSoloPersistent && !calloutHovering) {
+        if (calloutVisible && !calloutSoloPersistent && !calloutHovering) {
           scheduleCalloutHide(420);
         }
       }
@@ -2108,33 +2110,36 @@ function onGraphMove(e) {
     return;
   }
 
-  const activeIdx = draggingBand >= 0 ? draggingBand : (hoveredBand >= 0 ? hoveredBand : state.selectedBand);
-  const b = state.bands[activeIdx] || selectedBand();
-  calloutBandIndex = activeIdx;
-  const anchorX = draggingBand >= 0 ? x : (calloutBandIndex >= 0 ? hzToX(b.frequency, rect.width) : x);
-  const anchorY = draggingBand >= 0 ? y : (calloutBandIndex >= 0 ? gainToY(b.gainDb, rect.height) : y);
-  calloutTargetX = anchorX;
-  calloutTargetY = anchorY;
-  if (calloutVisible) callout.classList.add("visible");
-  else callout.classList.remove("visible");
-  const coFreq = document.getElementById("coFreq");
-  const coGain = document.getElementById("coGain");
-  if (coFreq) coFreq.textContent = fmtHz(b.frequency);
-  if (coGain) coGain.textContent = fmtDb(b.gainDb);
+  if (calloutVisible) {
+    const activeIdx = draggingBand >= 0 ? draggingBand : (calloutBandIndex >= 0 ? calloutBandIndex : state.selectedBand);
+    const b = state.bands[activeIdx] || selectedBand();
+    calloutBandIndex = activeIdx;
+    const anchorX = draggingBand >= 0 ? x : (calloutBandIndex >= 0 ? hzToX(b.frequency, rect.width) : x);
+    const anchorY = draggingBand >= 0 ? y : (calloutBandIndex >= 0 ? gainToY(b.gainDb, rect.height) : y);
+    calloutTargetX = anchorX;
+    calloutTargetY = anchorY;
+    callout.classList.add("visible");
+    const coFreq = document.getElementById("coFreq");
+    const coGain = document.getElementById("coGain");
+    if (coFreq) coFreq.textContent = fmtHz(b.frequency);
+    if (coGain) coGain.textContent = fmtDb(b.gainDb);
 
-  // Avoid expensive, unchanged DOM churn while dragging.
-  if (draggingBand < 0) {
-    const coType = document.getElementById("coType");
-    const coQ = document.getElementById("coQ");
-    if (coType) coType.textContent = FILTER_TYPES[Math.round(b.type)] || "Bell";
-    if (coQ) coQ.textContent = b.q.toFixed(2);
+    // Avoid expensive, unchanged DOM churn while dragging.
+    if (draggingBand < 0) {
+      const coType = document.getElementById("coType");
+      const coQ = document.getElementById("coQ");
+      if (coType) coType.textContent = FILTER_TYPES[Math.round(b.type)] || "Bell";
+      if (coQ) coQ.textContent = b.q.toFixed(2);
 
-    const coSoloBtn = document.getElementById("coSoloBtn");
-    if (coSoloBtn) {
-      const soloActive = b.solo > 0.5;
-      coSoloBtn.innerHTML = `<span class="icon">🎧</span><span>${soloActive ? "Unsolo Band" : "Band Solo"}</span>`;
-      coSoloBtn.classList.toggle("active", soloActive);
+      const coSoloBtn = document.getElementById("coSoloBtn");
+      if (coSoloBtn) {
+        const soloActive = b.solo > 0.5;
+        coSoloBtn.innerHTML = `<span class="icon">🎧</span><span>${soloActive ? "Unsolo Band" : "Band Solo"}</span>`;
+        coSoloBtn.classList.toggle("active", soloActive);
+      }
     }
+  } else {
+    callout.classList.remove("visible");
   }
 }
 
