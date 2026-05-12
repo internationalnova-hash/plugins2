@@ -1178,12 +1178,12 @@ function buildKnob(el, options) {
   // Soft wide bloom filter for outer bloom arc
   const bloomFilter = document.createElementNS("http://www.w3.org/2000/svg", "filter");
   bloomFilter.setAttribute("id", bloomId);
-  bloomFilter.setAttribute("x", "-80%");
-  bloomFilter.setAttribute("y", "-80%");
-  bloomFilter.setAttribute("width", "260%");
-  bloomFilter.setAttribute("height", "260%");
+  bloomFilter.setAttribute("x", "-60%");
+  bloomFilter.setAttribute("y", "-60%");
+  bloomFilter.setAttribute("width", "220%");
+  bloomFilter.setAttribute("height", "220%");
   const bloomBlur = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
-  bloomBlur.setAttribute("stdDeviation", "2.35");
+  bloomBlur.setAttribute("stdDeviation", "1.55");
   bloomBlur.setAttribute("result", "bloom");
   bloomFilter.appendChild(bloomBlur);
   const bloomMerge = document.createElementNS("http://www.w3.org/2000/svg", "feMerge");
@@ -2513,7 +2513,7 @@ function drawGraph() {
     ctx.strokeStyle = "rgba(108, 126, 220, 0.006)";
     ctx.lineWidth = 5.4;
     ctx.shadowColor = "rgba(98, 112, 208, 0.045)";
-    ctx.shadowBlur = 18;
+    ctx.shadowBlur = 12;
     ctx.stroke();
     ctx.restore();
 
@@ -2528,7 +2528,7 @@ function drawGraph() {
     ctx.strokeStyle = "rgba(132, 156, 242, 0.014)";
     ctx.lineWidth = 3.9;
     ctx.shadowColor = "rgba(124, 146, 233, 0.058)";
-    ctx.shadowBlur = 14;
+    ctx.shadowBlur = 10;
     ctx.stroke();
     ctx.restore();
   }
@@ -2545,7 +2545,7 @@ function drawGraph() {
     ctx.strokeStyle = "rgba(170, 168, 255, 0.018)";
     ctx.lineWidth = 0.9;
     ctx.shadowColor = "rgba(156, 130, 255, 0.045)";
-    ctx.shadowBlur = 11;
+    ctx.shadowBlur = 7;
     ctx.stroke();
     ctx.restore();
 
@@ -2561,7 +2561,7 @@ function drawGraph() {
     ctx.strokeStyle = "rgba(182, 204, 255, 0.16)";
     ctx.lineWidth = 1.5;
     ctx.shadowColor = "rgba(134, 154, 255, 0.12)";
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 8;
     ctx.stroke();
     ctx.restore();
 
@@ -2608,7 +2608,7 @@ function drawGraph() {
       lineGrad.addColorStop(0.65, "#9f72ff");
       lineGrad.addColorStop(1, "#88c8ff");
       ctx.strokeStyle = lineGrad;
-      const reactiveBloom = 6 + reactiveDyn * 4;
+      const reactiveBloom = 4 + reactiveDyn * 3;
       ctx.shadowColor = `rgba(255, 186, 255, ${0.84 + reactiveDyn * 0.24})`;
       ctx.shadowBlur = reactiveBloom;
       ctx.stroke();
@@ -2618,14 +2618,14 @@ function drawGraph() {
     if (bandThree && bandThree.enabled > 0.5) {
       const cx = hzToX(bandThree.frequency, w);
       const cy = gainToY(bandThree.gainDb, h);
-      const valleyGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 118);
+      const valleyGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 82);
       valleyGlow.addColorStop(0, "rgba(172, 128, 255, 0.17)");
       valleyGlow.addColorStop(0.48, "rgba(118, 110, 240, 0.08)");
       valleyGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
       ctx.save();
       ctx.fillStyle = valleyGlow;
       ctx.beginPath();
-      ctx.arc(cx, cy, 118, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 82, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
@@ -2641,7 +2641,7 @@ function drawGraph() {
     lineGrad.addColorStop(0.62, "#a56fff");
     lineGrad.addColorStop(1, "#88c8ff");
     ctx.strokeStyle = lineGrad;
-    const reactiveBloom2 = 11 + reactiveDyn * 7;
+    const reactiveBloom2 = 8 + reactiveDyn * 5;
     ctx.shadowColor = `rgba(255, 138, 255, ${1 + reactiveDyn * 0.16})`;
     ctx.shadowBlur = reactiveBloom2;
     ctx.stroke();
@@ -2650,7 +2650,7 @@ function drawGraph() {
     drawEqResponsePath(ctx, activeBands, w, h);
     ctx.strokeStyle = "rgba(214, 160, 255, 0.2)";
     ctx.shadowColor = "rgba(190, 146, 255, 0.28)";
-    ctx.shadowBlur = 18 + reactiveDyn * 6;
+    ctx.shadowBlur = 13 + reactiveDyn * 4;
     ctx.stroke();
     ctx.shadowBlur = 0;
     }
@@ -2694,27 +2694,27 @@ function drawGraph() {
     const selectedHaloBoost = selected ? 1.16 : 1;
     const energyBoost = contourEnergy * selectedHaloBoost;
     const reactiveSync = 1 + Math.sin(now * 0.004 + x * 0.02) * 0.06 * (reactiveDyn + 0.3);
-    const halo = (selected ? (24 * pulse * breathe + reactiveDyn * 11) : dynamic ? (14 + reactiveDyn * 16) : 9.5) * focusBoost * energyBoost * reactiveSync;
+    const halo = (selected ? (18 * pulse * breathe + reactiveDyn * 8) : dynamic ? (11 + reactiveDyn * 12) : 7.5) * focusBoost * energyBoost * reactiveSync;
     
     // Outer diffuse glow (largest)
-    const g1 = ctx.createRadialGradient(x, y, 0, x, y, halo * 1.34);
+    const g1 = ctx.createRadialGradient(x, y, 0, x, y, halo * 1.06);
     const outerIntensity = 0.11 + 0.1 * gainIntensity + qIntensity * 0.05;
     g1.addColorStop(0, selected ? `rgba(200, 132, 255, ${0.3 + 0.14 * gainIntensity})` : dynamic ? `rgba(116, 140, 255, ${0.16 + 0.1 * gainIntensity})` : `rgba(194, 214, 255, ${outerIntensity})`);
     g1.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g1;
     ctx.beginPath();
-    ctx.arc(x, y, halo * 1.34, 0, Math.PI * 2);
+    ctx.arc(x, y, halo * 1.06, 0, Math.PI * 2);
     ctx.fill();
 
     // Primary glow halo
-    const g2 = ctx.createRadialGradient(x, y, 0, x, y, halo * 0.78);
+    const g2 = ctx.createRadialGradient(x, y, 0, x, y, halo * 0.62);
     const haloIntensity = 0.15 + 0.22 * gainIntensity + qIntensity * 0.08;
     g2.addColorStop(0, selected ? `rgba(236, 176, 255, 1)` : dynamic ? `rgba(146, 166, 255, ${0.96 + 0.04 * gainIntensity})` : `rgba(246, 249, 255, ${0.78 + haloIntensity})`);
-    g2.addColorStop(0.38, selected ? "rgba(196, 120, 255, 0.66)" : dynamic ? "rgba(128, 156, 255, 0.46)" : `rgba(226, 236, 255, ${0.34 + haloIntensity * 0.5})`);
+    g2.addColorStop(0.32, selected ? "rgba(196, 120, 255, 0.66)" : dynamic ? "rgba(128, 156, 255, 0.46)" : `rgba(226, 236, 255, ${0.34 + haloIntensity * 0.5})`);
     g2.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g2;
     ctx.beginPath();
-    ctx.arc(x, y, halo * 0.78, 0, Math.PI * 2);
+    ctx.arc(x, y, halo * 0.62, 0, Math.PI * 2);
     ctx.fill();
 
     // Node core
@@ -2778,7 +2778,7 @@ function drawGraph() {
     // Dynamic activity indicator with animated compression halo
     if (dynamic && reactiveDyn > 0.08) {
       const compressionBreath = 0.8 + 0.2 * Math.sin(now * 0.004);
-      const dynRing = 18 + reactiveDyn * 10;
+      const dynRing = 14 + reactiveDyn * 7;
       const gDyn = ctx.createRadialGradient(x, y, 13, x, y, dynRing);
       gDyn.addColorStop(0, `rgba(200, 130, 255, ${0.18 * reactiveDyn * compressionBreath})`);
       gDyn.addColorStop(0.6, `rgba(150, 110, 255, ${0.08 * reactiveDyn})`);
@@ -2823,7 +2823,7 @@ function drawGraph() {
   orb.style.setProperty("--orb-core-y", `${orbCoreY.toFixed(3)}px`);
   orb.style.setProperty("--orb-parallax-x", `${orbParallaxX.toFixed(3)}px`);
   orb.style.setProperty("--orb-parallax-y", `${orbParallaxY.toFixed(3)}px`);
-  orb.style.boxShadow = `inset 0 -10px ${46 + reactiveDyn * 32}px rgba(0,0,0,0.66), inset 0 0 ${44 + reactiveDyn * 42}px rgba(198,118,255,0.82), inset 0 0 ${98 + reactiveDyn * 38}px rgba(72,96,228,0.58), inset 0 0 ${156 + reactiveDyn * 30}px rgba(2,8,28,0.94), 0 0 ${8 + reactivePeak * 14}px rgba(128,124,255,0.28), 0 0 ${20 + reactivePeak * 22}px rgba(92,98,250,0.2)`;
+  orb.style.boxShadow = `inset 0 -10px ${46 + reactiveDyn * 32}px rgba(0,0,0,0.66), inset 0 0 ${44 + reactiveDyn * 42}px rgba(198,118,255,0.82), inset 0 0 ${98 + reactiveDyn * 38}px rgba(72,96,228,0.58), inset 0 0 ${156 + reactiveDyn * 30}px rgba(2,8,28,0.94), 0 0 ${5 + reactivePeak * 10}px rgba(128,124,255,0.28), 0 0 ${14 + reactivePeak * 16}px rgba(92,98,250,0.2)`;
 
   if (pluginRoot) {
     const envGraphGlow = clamp(0.028 + reactivePeak * 0.11 + reactiveDyn * 0.08, 0, 0.17);
