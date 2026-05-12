@@ -1210,6 +1210,7 @@ function buildKnob(el, options) {
   };
 
   let drag = null;
+  let knobDragRafPending = false;
   let lastDragValue = options.get();
   let readoutUpdateFrame = 0;
 
@@ -1241,7 +1242,7 @@ function buildKnob(el, options) {
     if (e.button !== 0) return;
     e.preventDefault();
     el.setPointerCapture(e.pointerId);
-    drag = { lastY: e.clientY, norm: valueToNorm(options.get()) };
+    drag = { lastY: e.clientY, prevY: e.clientY, norm: valueToNorm(options.get()), fine: 1 };
     lastDragValue = options.get();
     knobDragging = true;
     setInteractionActive(true);
@@ -1259,17 +1260,24 @@ function buildKnob(el, options) {
     if (!drag || !el.hasPointerCapture(e.pointerId)) return;
     const coalesced = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
     const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
-    const delta = drag.lastY - latest.clientY;
     drag.lastY = latest.clientY;
-    const fine = (latest.shiftKey || latest.metaKey) ? 0.2 : 1;
-    drag.norm = clamp(drag.norm + delta * 0.00315 * fine, 0, 1);
-    // Update model only — no queuePushState during drag to avoid IPC backpressure.
-    const newValue = normToValue(drag.norm);
-    options.set(clamp(newValue, options.min, options.max), false);
-    // Apply drag visuals immediately to avoid one-frame lag feeling on knob moves.
-    setDragVisual(options.get());
-    lastDragValue = options.get();
-    interactionEnergy = Math.min(1, interactionEnergy + 0.05);
+    drag.fine = (latest.shiftKey || latest.metaKey) ? 0.2 : 1;
+    if (knobDragRafPending) return;
+    knobDragRafPending = true;
+    requestAnimationFrame(() => {
+      knobDragRafPending = false;
+      if (!drag) return;
+      const delta = drag.lastY - (drag.prevY ?? drag.lastY);
+      drag.prevY = drag.lastY;
+      drag.norm = clamp(drag.norm + (delta * 0.00315 * drag.fine), 0, 1);
+      // Update model only — no queuePushState during drag to avoid IPC backpressure.
+      const newValue = normToValue(drag.norm);
+      options.set(clamp(newValue, options.min, options.max), false);
+      // Apply drag visuals immediately once per frame to avoid pointer backlog.
+      setDragVisual(options.get());
+      lastDragValue = options.get();
+      interactionEnergy = Math.min(1, interactionEnergy + 0.05);
+    });
   });
 
   function finishKnobDrag(pushState = true) {
@@ -2070,32 +2078,40 @@ function onGraphMove(e) {
     pendingGraphDragX = x;
     pendingGraphDragY = y;
     pendingGraphDragFine = (latest.shiftKey || latest.metaKey) ? 0.24 : 1;
-    const b = state.bands[draggingBand];
     dragPreviewActive = true;
-    const targetFreq = clamp(xToHz(pendingGraphDragX, rect.width), FREQ_MIN, FREQ_MAX);
-    const targetGain = clamp(yToGain(pendingGraphDragY, rect.height), -30, 30);
-    // Keep slight damping only for fine-control drag, but update immediately per pointer event.
-    const dragResponse = pendingGraphDragFine < 1 ? 0.42 : 1.0;
-    const newFreq = clamp(b.frequency + (targetFreq - b.frequency) * dragResponse, FREQ_MIN, FREQ_MAX);
-    const newGain = clamp(b.gainDb + (targetGain - b.gainDb) * dragResponse, -30, 30);
-    dragPreviewFreq = newFreq;
-    dragPreviewGain = newGain;
-
-    b.frequency = newFreq;
-    b.gainDb = newGain;
-    b.enabled = 1;
     calloutVisible = false;
     calloutBandIndex = -1;
-    interactionEnergy = Math.min(1, interactionEnergy + 0.06);
+    if (graphDragRafPending) return;
+    graphDragRafPending = true;
+    requestAnimationFrame(() => {
+      graphDragRafPending = false;
+      if (draggingBand < 0) return;
+      const b = state.bands[draggingBand];
+      if (!b) return;
+      const targetFreq = clamp(xToHz(pendingGraphDragX, rect.width), FREQ_MIN, FREQ_MAX);
+      const targetGain = clamp(yToGain(pendingGraphDragY, rect.height), -30, 30);
+      // Keep slight damping only for fine-control drag, but apply once per frame.
+      const dragResponse = pendingGraphDragFine < 1 ? 0.42 : 1.0;
+      const newFreq = clamp(b.frequency + (targetFreq - b.frequency) * dragResponse, FREQ_MIN, FREQ_MAX);
+      const newGain = clamp(b.gainDb + (targetGain - b.gainDb) * dragResponse, -30, 30);
+      dragPreviewFreq = newFreq;
+      dragPreviewGain = newGain;
 
-    // Keep drag path lightweight: update readouts at a reduced cadence.
-    graphDragReadoutTick++;
-    if ((graphDragReadoutTick % 2) === 0) {
-      const freqRead = document.getElementById("freqRead");
-      const gainRead = document.getElementById("gainRead");
-      if (freqRead) freqRead.textContent = fmtHz(newFreq);
-      if (gainRead) gainRead.textContent = fmtDb(newGain);
-    }
+      b.frequency = newFreq;
+      b.gainDb = newGain;
+      b.enabled = 1;
+      interactionEnergy = Math.min(1, interactionEnergy + 0.06);
+
+      // Keep drag path lightweight: update readouts at a reduced cadence.
+      graphDragReadoutTick++;
+      if ((graphDragReadoutTick % 2) === 0) {
+        const freqRead = document.getElementById("freqRead");
+        const gainRead = document.getElementById("gainRead");
+        if (freqRead) freqRead.textContent = fmtHz(newFreq);
+        if (gainRead) gainRead.textContent = fmtDb(newGain);
+      }
+    });
+    return;
   }
 
   const activeIdx = draggingBand >= 0 ? draggingBand : (hoveredBand >= 0 ? hoveredBand : state.selectedBand);
@@ -2444,44 +2460,11 @@ function drawGraph() {
   }
 
   if (fastInteraction) {
-    const ultraFastInteraction = draggingBand >= 0 || knobDragging;
     const active = displayBands
       .map((b, i) => ({ b, i }))
       .filter((entry) => entry.b.enabled > 0.5)
       .sort((a, b) => a.b.frequency - b.b.frequency);
     const activeBands = active.map((entry) => entry.b);
-
-    // ULTRA-FLAT MODE: Strip all visual complexity during drag/knob interaction
-    if (ultraFastInteraction) {
-      // Single-color EQ line, no gradients
-      if (active.length > 0) {
-        ctx.beginPath();
-        ctx.lineWidth = 1.8;
-        drawEqResponsePath(ctx, activeBands, w, h, 40); // Minimal points
-        ctx.strokeStyle = "#8899ff";
-        ctx.stroke();
-      }
-
-      // Flat node rendering: solid circles, no halos/glows/gradients
-      displayBands.forEach((b, i) => {
-        if (b.enabled < 0.5) return;
-        const x = hzToX(b.frequency, w);
-        const y = gainToY(b.gainDb, h);
-        const activeDrag = i === draggingBand;
-
-        // Just a simple circle fill + stroke, no radial gradients
-        ctx.beginPath();
-        ctx.arc(x, y, 10, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(15, 25, 60, 0.98)";
-        ctx.fill();
-        ctx.strokeStyle = activeDrag ? "#ff9933" : "#7788ff";
-        ctx.lineWidth = activeDrag ? 2.2 : 1.6;
-        ctx.stroke();
-      });
-
-      rafHandle = requestAnimationFrame(drawGraph);
-      return;
-    }
 
     // Normal fast interaction (not ultra-flat):
     if (active.length > 0) {
