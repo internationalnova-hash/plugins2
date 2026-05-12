@@ -39,6 +39,7 @@ void NovaCurveAudioProcessorEditor::timerCallback()
     if (webView == nullptr || ! webView->isVisible())
         return;
 
+    // Skip analyzer push entirely during interaction to eliminate event loop blocking
     if (uiInteractionActive.load (std::memory_order_relaxed))
         return;
 

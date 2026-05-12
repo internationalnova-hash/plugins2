@@ -1243,8 +1243,7 @@ function buildKnob(el, options) {
     drag = { lastY: e.clientY, norm: valueToNorm(options.get()) };
     lastDragValue = options.get();
     knobDragging = true;
-    // Skip setInteractionActive to test if IPC latency is contributing to knob lag
-    // setInteractionActive(true);
+    setInteractionActive(true);
     // Disable expensive arc layers once on pickup instead of every pointermove.
     ctrl.bloomArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
     ctrl.massArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
@@ -1274,8 +1273,7 @@ function buildKnob(el, options) {
     if (!drag) return;
     drag = null;
     knobDragging = false;
-    // Skip setInteractionActive to test if IPC latency is contributing to knob lag
-    // setInteractionActive(false);
+    setInteractionActive(false);
     readoutUpdateFrame = 0;
     el.style.opacity = "1";
     ctrl.set(options.get(), false);
@@ -1994,8 +1992,7 @@ function onGraphDown(e) {
   calloutContextMode = false;
   if (coEdit) coEdit.classList.remove("visible");
   canvas.setPointerCapture(e.pointerId);
-  // Skip setInteractionActive to test if IPC latency is contributing to lag
-  // setInteractionActive(true);
+  setInteractionActive(true);
   cachedCanvasRect = canvas.getBoundingClientRect();
   const rect = cachedCanvasRect;
   const x = e.clientX - rect.left;
@@ -2178,8 +2175,7 @@ function onGraphUp() {
   draggingBand = -1;
   graphDragRafPending = false;
   graphDragReadoutTick = 0;
-  // Skip setInteractionActive to test if IPC latency is contributing to lag
-  // setInteractionActive(false);
+  setInteractionActive(false);
 
   // Commit once after drag ends to avoid per-frame sync lag.
   if (releasedBand >= 0) {
