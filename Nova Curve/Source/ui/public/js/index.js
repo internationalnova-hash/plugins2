@@ -2334,29 +2334,27 @@ function drawGraph() {
   ctx.shadowBlur = 0;
   ctx.shadowColor = "transparent";
 
-  if (!fastInteraction) {
-    // Deep-space atmospheric layering behind all graph content.
-    const rearFog = ctx.createRadialGradient(w * 0.5, h * 1.18, 0, w * 0.5, h * 1.18, h * 1.25);
-    rearFog.addColorStop(0, "rgba(0, 0, 0, 0.18)");
-    rearFog.addColorStop(0.56, "rgba(10, 18, 40, 0.10)");
-    rearFog.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = rearFog;
-    ctx.fillRect(0, 0, w, h);
+  // Always draw atmospheric layers for consistent visual state
+  const rearFog = ctx.createRadialGradient(w * 0.5, h * 1.18, 0, w * 0.5, h * 1.18, h * 1.25);
+  rearFog.addColorStop(0, "rgba(0, 0, 0, 0.18)");
+  rearFog.addColorStop(0.56, "rgba(10, 18, 40, 0.10)");
+  rearFog.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = rearFog;
+  ctx.fillRect(0, 0, w, h);
 
-    const centerLift = ctx.createRadialGradient(w * 0.5, h * 0.52, 0, w * 0.5, h * 0.52, h * 0.75);
-    centerLift.addColorStop(0, "rgba(188, 208, 255, 0.085)");
-    centerLift.addColorStop(0.42, "rgba(154, 172, 244, 0.048)");
-    centerLift.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = centerLift;
-    ctx.fillRect(0, 0, w, h);
+  const centerLift = ctx.createRadialGradient(w * 0.5, h * 0.52, 0, w * 0.5, h * 0.52, h * 0.75);
+  centerLift.addColorStop(0, "rgba(188, 208, 255, 0.085)");
+  centerLift.addColorStop(0.42, "rgba(154, 172, 244, 0.048)");
+  centerLift.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = centerLift;
+  ctx.fillRect(0, 0, w, h);
 
-    const cornerDarkness = ctx.createRadialGradient(w * 0.5, h * 0.5, Math.min(w, h) * 0.35, w * 0.5, h * 0.5, Math.min(w, h) * 0.8);
-    cornerDarkness.addColorStop(0, "rgba(0, 0, 0, 0)");
-    cornerDarkness.addColorStop(0.7, "rgba(0, 0, 0, 0)");
-    cornerDarkness.addColorStop(1, "rgba(0, 0, 0, 0.13)");
-    ctx.fillStyle = cornerDarkness;
-    ctx.fillRect(0, 0, w, h);
-  }
+  const cornerDarkness = ctx.createRadialGradient(w * 0.5, h * 0.5, Math.min(w, h) * 0.35, w * 0.5, h * 0.5, Math.min(w, h) * 0.8);
+  cornerDarkness.addColorStop(0, "rgba(0, 0, 0, 0)");
+  cornerDarkness.addColorStop(0.7, "rgba(0, 0, 0, 0)");
+  cornerDarkness.addColorStop(1, "rgba(0, 0, 0, 0.13)");
+  ctx.fillStyle = cornerDarkness;
+  ctx.fillRect(0, 0, w, h);
 
   ctx.strokeStyle = "rgba(108, 132, 206, 0.15)";
   ctx.lineWidth = 0.9;
@@ -2473,129 +2471,126 @@ function drawGraph() {
   ctx.fillStyle = fillGrad;
   ctx.fill();
 
-  if (!fastInteraction) {
-    // Soft volumetric haze between analyzer trails
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(0, h);
-    for (let i = 0; i < BINS; i++) {
-      const x = (i / (BINS - 1)) * w;
-      const y = (1 - analyzerTrailC[i]) * h;
-      ctx.lineTo(x, y);
-    }
-    ctx.lineTo(w, h);
-    ctx.closePath();
-    const hazeC = ctx.createLinearGradient(0, 0, 0, h);
-    hazeC.addColorStop(0, "rgba(108, 126, 220, 0.017)");
-    hazeC.addColorStop(1, "rgba(108, 126, 220, 0)");
-    ctx.fillStyle = hazeC;
-    ctx.fill();
-    ctx.restore();
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(0, h);
-    for (let i = 0; i < BINS; i++) {
-      const x = (i / (BINS - 1)) * w;
-      const y = (1 - analyzerTrailB[i]) * h;
-      ctx.lineTo(x, y);
-    }
-    ctx.lineTo(w, h);
-    ctx.closePath();
-    const hazeB = ctx.createLinearGradient(0, 0, 0, h);
-    hazeB.addColorStop(0, "rgba(150, 140, 242, 0.013)");
-    hazeB.addColorStop(1, "rgba(150, 140, 242, 0)");
-    ctx.fillStyle = hazeB;
-    ctx.fill();
-    ctx.restore();
-
-    ctx.save();
-    ctx.beginPath();
-    for (let i = 0; i < BINS; i++) {
-      const x = (i / (BINS - 1)) * w;
-      const y = (1 - analyzerTrailC[i]) * h;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.strokeStyle = "rgba(108, 126, 220, 0.006)";
-    ctx.lineWidth = 5.4;
-    ctx.shadowColor = "rgba(98, 112, 208, 0.045)";
-    ctx.shadowBlur = 12;
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.save();
-    ctx.beginPath();
-    for (let i = 0; i < BINS; i++) {
-      const x = (i / (BINS - 1)) * w;
-      const y = (1 - analyzerTrailB[i]) * h;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.strokeStyle = "rgba(132, 156, 242, 0.014)";
-    ctx.lineWidth = 3.9;
-    ctx.shadowColor = "rgba(124, 146, 233, 0.058)";
-    ctx.shadowBlur = 10;
-    ctx.stroke();
-    ctx.restore();
+  // Always render analyzer haze for consistent visual state
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - analyzerTrailC[i]) * h;
+    ctx.lineTo(x, y);
   }
+  ctx.lineTo(w, h);
+  ctx.closePath();
+  const hazeC = ctx.createLinearGradient(0, 0, 0, h);
+  hazeC.addColorStop(0, "rgba(108, 126, 220, 0.017)");
+  hazeC.addColorStop(1, "rgba(108, 126, 220, 0)");
+  ctx.fillStyle = hazeC;
+  ctx.fill();
+  ctx.restore();
 
-  if (!fastInteraction) {
-    ctx.save();
-    ctx.beginPath();
-    for (let i = 0; i < BINS; i++) {
-      const x = (i / (BINS - 1)) * w;
-      const y = (1 - analyzerTrailA[i]) * h;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.strokeStyle = "rgba(170, 168, 255, 0.018)";
-    ctx.lineWidth = 0.9;
-    ctx.shadowColor = "rgba(156, 130, 255, 0.045)";
-    ctx.shadowBlur = 7;
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.save();
-    ctx.globalAlpha = 0.34;
-    ctx.beginPath();
-    for (let i = 0; i < BINS; i++) {
-      const x = (i / (BINS - 1)) * w;
-      const y = (1 - show[i]) * h;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.strokeStyle = "rgba(182, 204, 255, 0.16)";
-    ctx.lineWidth = 1.5;
-    ctx.shadowColor = "rgba(134, 154, 255, 0.12)";
-    ctx.shadowBlur = 8;
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.beginPath();
-    for (let i = 0; i < BINS; i++) {
-      const x = (i / (BINS - 1)) * w;
-      const y = (1 - preSmoothed[i]) * h;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.strokeStyle = "rgba(188, 208, 255, 0.05)";
-    ctx.lineWidth = 1.1;
-    ctx.stroke();
-
-    ctx.save();
-    ctx.beginPath();
-    for (let i = 0; i < BINS; i++) {
-      const x = (i / (BINS - 1)) * w;
-      const y = (1 - reductionSmoothed[i] * 0.9) * h;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.strokeStyle = "rgba(166, 118, 255, 0.14)";
-    ctx.lineWidth = 1.0;
-    ctx.stroke();
-    ctx.restore();
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - analyzerTrailB[i]) * h;
+    ctx.lineTo(x, y);
   }
+  ctx.lineTo(w, h);
+  ctx.closePath();
+  const hazeB = ctx.createLinearGradient(0, 0, 0, h);
+  hazeB.addColorStop(0, "rgba(150, 140, 242, 0.013)");
+  hazeB.addColorStop(1, "rgba(150, 140, 242, 0)");
+  ctx.fillStyle = hazeB;
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - analyzerTrailC[i]) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(108, 126, 220, 0.006)";
+  ctx.lineWidth = 5.4;
+  ctx.shadowColor = "rgba(98, 112, 208, 0.045)";
+  ctx.shadowBlur = 12;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - analyzerTrailB[i]) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(132, 156, 242, 0.014)";
+  ctx.lineWidth = 3.9;
+  ctx.shadowColor = "rgba(124, 146, 233, 0.058)";
+  ctx.shadowBlur = 10;
+  ctx.stroke();
+  ctx.restore();
+
+  // Always render all analyzer traces for consistent visual state
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - analyzerTrailA[i]) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(170, 168, 255, 0.018)";
+  ctx.lineWidth = 0.9;
+  ctx.shadowColor = "rgba(156, 130, 255, 0.045)";
+  ctx.shadowBlur = 7;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = 0.34;
+  ctx.beginPath();
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - show[i]) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(182, 204, 255, 0.16)";
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = "rgba(134, 154, 255, 0.12)";
+  ctx.shadowBlur = 8;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.beginPath();
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - preSmoothed[i]) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(188, 208, 255, 0.05)";
+  ctx.lineWidth = 1.1;
+  ctx.stroke();
+
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < BINS; i++) {
+    const x = (i / (BINS - 1)) * w;
+    const y = (1 - reductionSmoothed[i] * 0.9) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(166, 118, 255, 0.14)";
+  ctx.lineWidth = 1.0;
+  ctx.stroke();
+  ctx.restore();
 
   const active = displayBands
     .map((b, i) => ({ b, i }))
