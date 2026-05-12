@@ -120,6 +120,8 @@ let graphDragUndoPending = false;
 let graphDragReadoutTick = 0;
 let interactionActiveState = false;
 let interactionDeactivateTimer = 0;
+let activeKnobDrag = null;
+let knobGlobalDragBound = false;
 
 let lastFrameMs = performance.now();
 let interactionEnergy = 0;
@@ -252,9 +254,13 @@ function setInteractionActive(active) {
     clearTimeout(interactionDeactivateTimer);
     if (interactionActiveState) return;
     interactionActiveState = true;
-    try {
-      nativeSetInteractionActive(true);
-    } catch (_) {}
+    // Keep pointerdown hot path light: bridge activation is deferred one tick.
+    setTimeout(() => {
+      if (!interactionActiveState) return;
+      try {
+        nativeSetInteractionActive(true);
+      } catch (_) {}
+    }, 0);
     return;
   }
 
@@ -883,7 +889,49 @@ async function setupNativeBridge() {
   }
 }
 
+function ensureGlobalKnobDragHandlers() {
+  if (knobGlobalDragBound) return;
+  knobGlobalDragBound = true;
+
+  const updateActiveKnobDrag = (e) => {
+    if (!activeKnobDrag) return;
+    if (activeKnobDrag.pointerId !== null && typeof e.pointerId !== "undefined" && e.pointerId !== activeKnobDrag.pointerId) return;
+    if (e.cancelable) e.preventDefault();
+
+    const coalesced = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
+    const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
+    const delta = activeKnobDrag.lastY - latest.clientY;
+    activeKnobDrag.lastY = latest.clientY;
+    const fine = (latest.shiftKey || latest.metaKey) ? 0.2 : 1;
+    activeKnobDrag.norm = clamp(activeKnobDrag.norm + delta * 0.0031 * fine, 0, 1);
+
+    const newValue = activeKnobDrag.normToValue(activeKnobDrag.norm);
+    activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
+    activeKnobDrag.setDragVisual(activeKnobDrag.options.get());
+    interactionEnergy = Math.min(1, interactionEnergy + 0.05);
+  };
+
+  const finishActiveKnobDrag = (e, pushState = true) => {
+    if (!activeKnobDrag) return;
+    if (activeKnobDrag.pointerId !== null && e && typeof e.pointerId !== "undefined" && e.pointerId !== activeKnobDrag.pointerId) return;
+
+    const drag = activeKnobDrag;
+    activeKnobDrag = null;
+    knobDragging = false;
+    setInteractionActive(false);
+    drag.ctrl.set(drag.options.get(), false);
+    updateSelectedBandReadouts(drag.options.readoutKey || "all");
+    if (pushState) queuePushState();
+  };
+
+  document.addEventListener("pointermove", updateActiveKnobDrag, { passive: false });
+  document.addEventListener("pointerup", (e) => finishActiveKnobDrag(e, true));
+  document.addEventListener("pointercancel", (e) => finishActiveKnobDrag(e, true));
+  document.addEventListener("mouseleave", (e) => finishActiveKnobDrag(e, false));
+}
+
 function buildKnob(el, options) {
+  ensureGlobalKnobDragHandlers();
   const visualId = ++knobVisualSeed;
   const gradientId = `arcGradient-${visualId}`;
   const glowId = `arcGlow-${visualId}`;
@@ -1050,16 +1098,16 @@ function buildKnob(el, options) {
   grad.setAttribute("y2", "100%");
   const stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
   stop1.setAttribute("offset", "0%");
-  stop1.setAttribute("stop-color", "rgba(92, 132, 255, 0.92)");
+  stop1.setAttribute("stop-color", "rgba(94, 136, 255, 0.94)");
   const stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
   stop2.setAttribute("offset", "46%");
-  stop2.setAttribute("stop-color", "rgba(144, 94, 255, 1)");
+  stop2.setAttribute("stop-color", "rgba(162, 78, 255, 1)");
   const stopMid = document.createElementNS("http://www.w3.org/2000/svg", "stop");
   stopMid.setAttribute("offset", "78%");
-  stopMid.setAttribute("stop-color", "rgba(184, 106, 255, 0.98)");
+  stopMid.setAttribute("stop-color", "rgba(208, 94, 255, 0.98)");
   const stop3 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
   stop3.setAttribute("offset", "100%");
-  stop3.setAttribute("stop-color", "rgba(226, 200, 255, 0.94)");
+  stop3.setAttribute("stop-color", "rgba(238, 214, 255, 0.96)");
   grad.appendChild(stop1);
   grad.appendChild(stop2);
   grad.appendChild(stopMid);
@@ -1075,13 +1123,13 @@ function buildKnob(el, options) {
   coreGrad.setAttribute("y2", "100%");
   const coreStop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
   coreStop1.setAttribute("offset", "0%");
-  coreStop1.setAttribute("stop-color", "rgba(164, 186, 255, 0.04)");
+  coreStop1.setAttribute("stop-color", "rgba(170, 192, 255, 0.06)");
   const coreStop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
   coreStop2.setAttribute("offset", "62%");
-  coreStop2.setAttribute("stop-color", "rgba(222, 196, 255, 0.78)");
+  coreStop2.setAttribute("stop-color", "rgba(230, 198, 255, 0.86)");
   const coreStop3 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
   coreStop3.setAttribute("offset", "100%");
-  coreStop3.setAttribute("stop-color", "rgba(242, 228, 255, 0.93)");
+  coreStop3.setAttribute("stop-color", "rgba(246, 232, 255, 0.97)");
   coreGrad.appendChild(coreStop1);
   coreGrad.appendChild(coreStop2);
   coreGrad.appendChild(coreStop3);
@@ -1095,10 +1143,10 @@ function buildKnob(el, options) {
   headGrad.setAttribute("y2", "100%");
   const headStop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
   headStop1.setAttribute("offset", "0%");
-  headStop1.setAttribute("stop-color", "rgba(160, 116, 255, 0.08)");
+  headStop1.setAttribute("stop-color", "rgba(168, 104, 255, 0.12)");
   const headStop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
   headStop2.setAttribute("offset", "100%");
-  headStop2.setAttribute("stop-color", "rgba(236, 220, 255, 0.88)");
+  headStop2.setAttribute("stop-color", "rgba(242, 224, 255, 0.94)");
   headGrad.appendChild(headStop1);
   headGrad.appendChild(headStop2);
   defs.appendChild(headGrad);
@@ -1111,12 +1159,12 @@ function buildKnob(el, options) {
   filter.setAttribute("width", "200%");
   filter.setAttribute("height", "200%");
   const feGaussianBlur = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
-  feGaussianBlur.setAttribute("stdDeviation", "1.08");
+  feGaussianBlur.setAttribute("stdDeviation", "0.96");
   feGaussianBlur.setAttribute("result", "coloredBlur");
   filter.appendChild(feGaussianBlur);
   const feGaussianBlur2 = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
   feGaussianBlur2.setAttribute("in", "SourceGraphic");
-  feGaussianBlur2.setAttribute("stdDeviation", "0.12");
+  feGaussianBlur2.setAttribute("stdDeviation", "0.08");
   feGaussianBlur2.setAttribute("result", "softBlur");
   filter.appendChild(feGaussianBlur2);
   const feMerge = document.createElementNS("http://www.w3.org/2000/svg", "feMerge");
@@ -1140,7 +1188,7 @@ function buildKnob(el, options) {
   bloomFilter.setAttribute("width", "260%");
   bloomFilter.setAttribute("height", "260%");
   const bloomBlur = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
-  bloomBlur.setAttribute("stdDeviation", "2.86");
+  bloomBlur.setAttribute("stdDeviation", "2.35");
   bloomBlur.setAttribute("result", "bloom");
   bloomFilter.appendChild(bloomBlur);
   const bloomMerge = document.createElementNS("http://www.w3.org/2000/svg", "feMerge");
@@ -1200,19 +1248,16 @@ function buildKnob(el, options) {
       const headStart = Math.max(0, progressLength - headLength);
       this.headArc.setAttribute("stroke-dasharray", `${headLength} ${fullArcLength}`);
       this.headArc.setAttribute("stroke-dashoffset", `${-headStart}`);
-      this.headArc.setAttribute("opacity", progressLength > 1.1 ? `${0.42 + 0.2 * norm}` : "0");
+      this.headArc.setAttribute("opacity", progressLength > 1.1 ? `${0.5 + 0.24 * norm}` : "0");
 
       // Arc intensity + reflection coupling
-      const glowIntensity = (0.8 + 0.3 * taperCurve) * (0.98 + interactionEnergy * 0.28);
+      const glowIntensity = (0.9 + 0.36 * taperCurve) * (0.98 + interactionEnergy * 0.32);
       this.arc.style.opacity = glowIntensity;
-      el.style.setProperty("--arc-reflect", `${0.04 + 0.24 * Math.pow(norm, 0.92)}`);
+      el.style.setProperty("--arc-reflect", `${0.05 + 0.28 * Math.pow(norm, 0.92)}`);
       el.style.setProperty("--arc-angle", `${deg}deg`);
     }
   };
 
-  let drag = null;
-  let lastDragValue = options.get();
-  let readoutUpdateFrame = 0;
 
   const valueToNorm = (v) => {
     if (options.toNorm) return clamp(options.toNorm(v), 0, 1);
@@ -1238,54 +1283,31 @@ function buildKnob(el, options) {
     ctrl.taperArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
     ctrl.headArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
     ctrl.headArc.setAttribute("opacity", "0");
-    ctrl.arc.style.opacity = 0.96;
-    el.style.setProperty("--arc-reflect", `${0.06 + 0.2 * Math.pow(norm, 0.92)}`);
+    ctrl.arc.style.opacity = 1;
+    el.style.setProperty("--arc-reflect", `${0.09 + 0.24 * Math.pow(norm, 0.92)}`);
     el.style.setProperty("--arc-angle", `${deg}deg`);
   };
 
-  // Use pointer capture so drag tracking is scoped to this element only.
-  // This eliminates the need for global window.mousemove listeners which fire
-  // for every knob simultaneously and cause severe jank with multiple knobs.
+  // Pointerdown only seeds the active drag; movement is handled globally.
   el.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
-    el.setPointerCapture(e.pointerId);
-    drag = { lastY: e.clientY, norm: valueToNorm(options.get()) };
-    lastDragValue = options.get();
+
+    activeKnobDrag = {
+      pointerId: typeof e.pointerId !== "undefined" ? e.pointerId : null,
+      lastY: e.clientY,
+      norm: valueToNorm(options.get()),
+      options,
+      ctrl,
+      setDragVisual,
+      normToValue
+    };
+
     knobDragging = true;
     setInteractionActive(true);
   });
 
-  el.addEventListener("pointermove", (e) => {
-    if (!drag || !el.hasPointerCapture(e.pointerId)) return;
-    const coalesced = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
-    const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
-    const delta = drag.lastY - latest.clientY;
-    drag.lastY = latest.clientY;
-    const fine = (latest.shiftKey || latest.metaKey) ? 0.2 : 1;
-    drag.norm = clamp(drag.norm + delta * 0.0031 * fine, 0, 1);
-    // Update model only — no queuePushState during drag to avoid IPC backpressure.
-    const newValue = normToValue(drag.norm);
-    options.set(clamp(newValue, options.min, options.max), false);
-    setDragVisual(options.get());
-    lastDragValue = options.get();
-    interactionEnergy = Math.min(1, interactionEnergy + 0.05);
-  });
-
-  function finishKnobDrag(pushState = true) {
-    if (!drag) return;
-    drag = null;
-    knobDragging = false;
-    setInteractionActive(false);
-    readoutUpdateFrame = 0;
-    ctrl.set(options.get(), false);
-    updateSelectedBandReadouts(options.readoutKey || "all");
-    if (pushState) queuePushState();
-  }
-
-  el.addEventListener("pointerup", () => finishKnobDrag(true));
-  el.addEventListener("pointercancel", () => finishKnobDrag(true));
-  el.addEventListener("lostpointercapture", () => finishKnobDrag(false));
+  // Drag updates/finish are handled by the single global pointer loop.
 
   el.addEventListener("wheel", (e) => {
     e.preventDefault();
@@ -1308,26 +1330,28 @@ function buildKnob(el, options) {
   });
 
   el.addEventListener("mouseenter", () => {
-    if (!drag) {
+    const isDraggingThisKnob = !!activeKnobDrag && activeKnobDrag.ctrl === ctrl;
+    if (!isDraggingThisKnob) {
       el.style.transition = "all 240ms cubic-bezier(0.22, 1, 0.36, 1)";
-      ctrl.arc.style.filter = "drop-shadow(0 0 3px rgba(130, 105, 235, 0.38))";
-      ctrl.massArc.style.filter = "drop-shadow(0 0 2px rgba(150, 110, 245, 0.2))";
-      ctrl.headArc.style.filter = "drop-shadow(0 0 4px rgba(160, 140, 245, 0.42))";
-      ambientRing.style.filter = "drop-shadow(0 0 2px rgba(100, 122, 240, 0.14))";
-      ring.style.filter = "drop-shadow(0 0 1px rgba(110, 100, 220, 0.16))";
-      indicator.style.filter = "drop-shadow(0 0 1px rgba(190, 210, 255, 0.2))";
+      ctrl.arc.style.filter = "drop-shadow(0 0 4px rgba(148, 104, 245, 0.48))";
+      ctrl.massArc.style.filter = "drop-shadow(0 0 3px rgba(164, 108, 255, 0.28))";
+      ctrl.headArc.style.filter = "drop-shadow(0 0 5px rgba(176, 142, 255, 0.52))";
+      ambientRing.style.filter = "drop-shadow(0 0 2px rgba(110, 126, 248, 0.2))";
+      ring.style.filter = "drop-shadow(0 0 1.2px rgba(124, 106, 238, 0.22))";
+      indicator.style.filter = "drop-shadow(0 0 1.2px rgba(210, 220, 255, 0.26))";
     }
   });
 
   el.addEventListener("mouseleave", () => {
-    if (!drag) {
+    const isDraggingThisKnob = !!activeKnobDrag && activeKnobDrag.ctrl === ctrl;
+    if (!isDraggingThisKnob) {
       el.style.transition = "all 380ms ease-out";
-      ctrl.arc.style.filter = "drop-shadow(0 0 1px rgba(120, 100, 220, 0.24))";
+      ctrl.arc.style.filter = "drop-shadow(0 0 1.2px rgba(126, 100, 226, 0.28))";
       ctrl.massArc.style.filter = "none";
-      ctrl.headArc.style.filter = "drop-shadow(0 0 2px rgba(160, 140, 240, 0.28))";
-      ambientRing.style.filter = "drop-shadow(0 0 1px rgba(100, 125, 245, 0.12))";
-      ring.style.filter = "drop-shadow(0 0 1px rgba(100, 90, 200, 0.1))";
-      indicator.style.filter = "drop-shadow(0 0 0.5px rgba(190, 210, 255, 0.16))";
+      ctrl.headArc.style.filter = "drop-shadow(0 0 2.2px rgba(168, 144, 244, 0.34))";
+      ambientRing.style.filter = "drop-shadow(0 0 1px rgba(106, 128, 248, 0.14))";
+      ring.style.filter = "drop-shadow(0 0 1px rgba(106, 96, 208, 0.12))";
+      indicator.style.filter = "drop-shadow(0 0 0.6px rgba(196, 212, 255, 0.18))";
     }
   });
 
@@ -2327,15 +2351,15 @@ function drawGraph() {
   if (!fastInteraction) {
     // Deep-space atmospheric layering behind all graph content.
     const rearFog = ctx.createRadialGradient(w * 0.5, h * 1.18, 0, w * 0.5, h * 1.18, h * 1.25);
-    rearFog.addColorStop(0, "rgba(0, 0, 0, 0.52)");
-    rearFog.addColorStop(0.56, "rgba(10, 18, 40, 0.32)");
+    rearFog.addColorStop(0, "rgba(0, 0, 0, 0.43)");
+    rearFog.addColorStop(0.56, "rgba(10, 18, 40, 0.26)");
     rearFog.addColorStop(1, "rgba(0, 0, 0, 0)");
     ctx.fillStyle = rearFog;
     ctx.fillRect(0, 0, w, h);
 
     const centerLift = ctx.createRadialGradient(w * 0.5, h * 0.52, 0, w * 0.5, h * 0.52, h * 0.75);
-    centerLift.addColorStop(0, "rgba(188, 208, 255, 0.14)");
-    centerLift.addColorStop(0.42, "rgba(154, 172, 244, 0.08)");
+    centerLift.addColorStop(0, "rgba(188, 208, 255, 0.115)");
+    centerLift.addColorStop(0.42, "rgba(154, 172, 244, 0.066)");
     centerLift.addColorStop(1, "rgba(0, 0, 0, 0)");
     ctx.fillStyle = centerLift;
     ctx.fillRect(0, 0, w, h);
@@ -2457,8 +2481,8 @@ function drawGraph() {
   ctx.closePath();
 
   const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
-  fillGrad.addColorStop(0, "rgba(184, 202, 255, 0.08)");
-  fillGrad.addColorStop(0.45, "rgba(122, 126, 222, 0.036)");
+  fillGrad.addColorStop(0, "rgba(184, 202, 255, 0.066)");
+  fillGrad.addColorStop(0.45, "rgba(122, 126, 222, 0.03)");
   fillGrad.addColorStop(1, "rgba(50, 70, 132, 0.014)");
   ctx.fillStyle = fillGrad;
   ctx.fill();
@@ -2476,7 +2500,7 @@ function drawGraph() {
     ctx.lineTo(w, h);
     ctx.closePath();
     const hazeC = ctx.createLinearGradient(0, 0, 0, h);
-    hazeC.addColorStop(0, "rgba(108, 126, 220, 0.04)");
+    hazeC.addColorStop(0, "rgba(108, 126, 220, 0.033)");
     hazeC.addColorStop(1, "rgba(108, 126, 220, 0)");
     ctx.fillStyle = hazeC;
     ctx.fill();
@@ -2493,7 +2517,7 @@ function drawGraph() {
     ctx.lineTo(w, h);
     ctx.closePath();
     const hazeB = ctx.createLinearGradient(0, 0, 0, h);
-    hazeB.addColorStop(0, "rgba(150, 140, 242, 0.032)");
+    hazeB.addColorStop(0, "rgba(150, 140, 242, 0.026)");
     hazeB.addColorStop(1, "rgba(150, 140, 242, 0)");
     ctx.fillStyle = hazeB;
     ctx.fill();
@@ -2507,10 +2531,10 @@ function drawGraph() {
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = "rgba(108, 126, 220, 0.014)";
+    ctx.strokeStyle = "rgba(108, 126, 220, 0.011)";
     ctx.lineWidth = 5.4;
     ctx.shadowColor = "rgba(98, 112, 208, 0.045)";
-    ctx.shadowBlur = 36;
+    ctx.shadowBlur = 30;
     ctx.stroke();
     ctx.restore();
 
@@ -2522,10 +2546,10 @@ function drawGraph() {
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = "rgba(132, 156, 242, 0.032)";
+    ctx.strokeStyle = "rgba(132, 156, 242, 0.026)";
     ctx.lineWidth = 3.9;
     ctx.shadowColor = "rgba(124, 146, 233, 0.058)";
-    ctx.shadowBlur = 30;
+    ctx.shadowBlur = 25;
     ctx.stroke();
     ctx.restore();
   }
@@ -2539,10 +2563,10 @@ function drawGraph() {
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = "rgba(170, 168, 255, 0.04)";
+    ctx.strokeStyle = "rgba(170, 168, 255, 0.033)";
     ctx.lineWidth = 0.9;
     ctx.shadowColor = "rgba(156, 130, 255, 0.045)";
-    ctx.shadowBlur = 22;
+    ctx.shadowBlur = 18;
     ctx.stroke();
     ctx.restore();
 
@@ -2601,12 +2625,12 @@ function drawGraph() {
       const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
       lineGrad.addColorStop(0, "#ffffff");
       lineGrad.addColorStop(0.2, "#f0f4ff");
-      lineGrad.addColorStop(0.4, "#d86dff");
-      lineGrad.addColorStop(0.65, "#a080ff");
+      lineGrad.addColorStop(0.4, "#e858ff");
+      lineGrad.addColorStop(0.65, "#9f72ff");
       lineGrad.addColorStop(1, "#88c8ff");
       ctx.strokeStyle = lineGrad;
       const reactiveBloom = 8 + reactiveDyn * 6;
-      ctx.shadowColor = `rgba(255, 200, 255, ${0.6 + reactiveDyn * 0.3})`;
+      ctx.shadowColor = `rgba(255, 186, 255, ${0.72 + reactiveDyn * 0.28})`;
       ctx.shadowBlur = reactiveBloom;
       ctx.stroke();
       ctx.shadowBlur = 0;
@@ -2634,19 +2658,19 @@ function drawGraph() {
     const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
     lineGrad.addColorStop(0, "#ffffff");
     lineGrad.addColorStop(0.15, "#faf6ff");
-    lineGrad.addColorStop(0.35, "#e86dff");
-    lineGrad.addColorStop(0.62, "#a888ff");
+    lineGrad.addColorStop(0.35, "#f056ff");
+    lineGrad.addColorStop(0.62, "#a56fff");
     lineGrad.addColorStop(1, "#88c8ff");
     ctx.strokeStyle = lineGrad;
     const reactiveBloom2 = 15 + reactiveDyn * 10;
-    ctx.shadowColor = `rgba(255, 150, 255, ${0.8 + reactiveDyn * 0.2})`;
+    ctx.shadowColor = `rgba(255, 138, 255, ${0.92 + reactiveDyn * 0.2})`;
     ctx.shadowBlur = reactiveBloom2;
     ctx.stroke();
     ctx.beginPath();
     ctx.lineWidth = 5.6;
     drawEqResponsePath(ctx, activeBands, w, h);
-    ctx.strokeStyle = "rgba(208, 172, 255, 0.14)";
-    ctx.shadowColor = "rgba(182, 152, 255, 0.22)";
+    ctx.strokeStyle = "rgba(214, 160, 255, 0.2)";
+    ctx.shadowColor = "rgba(190, 146, 255, 0.28)";
     ctx.shadowBlur = 24 + reactiveDyn * 8;
     ctx.stroke();
     ctx.shadowBlur = 0;
@@ -2696,7 +2720,7 @@ function drawGraph() {
     // Outer diffuse glow (largest)
     const g1 = ctx.createRadialGradient(x, y, 0, x, y, halo * 1.34);
     const outerIntensity = 0.11 + 0.1 * gainIntensity + qIntensity * 0.05;
-    g1.addColorStop(0, selected ? `rgba(194, 148, 255, ${0.24 + 0.12 * gainIntensity})` : dynamic ? `rgba(116, 140, 255, ${0.16 + 0.1 * gainIntensity})` : `rgba(194, 214, 255, ${outerIntensity})`);
+    g1.addColorStop(0, selected ? `rgba(200, 132, 255, ${0.3 + 0.14 * gainIntensity})` : dynamic ? `rgba(116, 140, 255, ${0.16 + 0.1 * gainIntensity})` : `rgba(194, 214, 255, ${outerIntensity})`);
     g1.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g1;
     ctx.beginPath();
@@ -2706,8 +2730,8 @@ function drawGraph() {
     // Primary glow halo
     const g2 = ctx.createRadialGradient(x, y, 0, x, y, halo * 0.78);
     const haloIntensity = 0.15 + 0.22 * gainIntensity + qIntensity * 0.08;
-    g2.addColorStop(0, selected ? `rgba(228, 186, 255, 1)` : dynamic ? `rgba(146, 166, 255, ${0.96 + 0.04 * gainIntensity})` : `rgba(246, 249, 255, ${0.78 + haloIntensity})`);
-    g2.addColorStop(0.38, selected ? "rgba(188, 138, 255, 0.56)" : dynamic ? "rgba(128, 156, 255, 0.46)" : `rgba(226, 236, 255, ${0.34 + haloIntensity * 0.5})`);
+    g2.addColorStop(0, selected ? `rgba(236, 176, 255, 1)` : dynamic ? `rgba(146, 166, 255, ${0.96 + 0.04 * gainIntensity})` : `rgba(246, 249, 255, ${0.78 + haloIntensity})`);
+    g2.addColorStop(0.38, selected ? "rgba(196, 120, 255, 0.66)" : dynamic ? "rgba(128, 156, 255, 0.46)" : `rgba(226, 236, 255, ${0.34 + haloIntensity * 0.5})`);
     g2.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g2;
     ctx.beginPath();
@@ -2716,8 +2740,8 @@ function drawGraph() {
 
     // Node core
     const nodeCore = ctx.createRadialGradient(x - 2.2, y - 3, 0, x, y, 13.5);
-    nodeCore.addColorStop(0, selected ? "rgba(255, 255, 255, 0.32)" : "rgba(244, 250, 255, 0.2)");
-    nodeCore.addColorStop(0.14, selected ? "rgba(88, 50, 142, 0.94)" : "rgba(32, 40, 102, 0.9)");
+    nodeCore.addColorStop(0, selected ? "rgba(255, 255, 255, 0.4)" : "rgba(244, 250, 255, 0.2)");
+    nodeCore.addColorStop(0.14, selected ? "rgba(104, 42, 164, 0.96)" : "rgba(32, 40, 102, 0.9)");
     nodeCore.addColorStop(0.72, "rgba(8, 10, 24, 0.96)");
     nodeCore.addColorStop(1, "rgba(2, 4, 12, 1)");
     ctx.fillStyle = nodeCore;
@@ -2740,7 +2764,7 @@ function drawGraph() {
     ctx.stroke();
 
     const coreDot = ctx.createRadialGradient(x - 1.2, y - 1.6, 0, x, y, 3.4);
-    coreDot.addColorStop(0, selected ? "rgba(255, 255, 255, 0.95)" : "rgba(244, 250, 255, 0.72)");
+    coreDot.addColorStop(0, selected ? "rgba(255, 255, 255, 1)" : "rgba(244, 250, 255, 0.72)");
     coreDot.addColorStop(1, "rgba(255, 255, 255, 0)");
     ctx.fillStyle = coreDot;
     ctx.beginPath();
@@ -2761,13 +2785,13 @@ function drawGraph() {
       // Breathing inner ring
       ctx.beginPath();
       ctx.arc(x, y, 6.6 + reactiveDyn * 5.8 + Math.sin(now * 0.0042) * (0.55 + 1.15 * signalMotionAmt), 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(214, 178, 255, 0.34)";
+      ctx.fillStyle = "rgba(220, 168, 255, 0.42)";
       ctx.fill();
 
       // Reactive ambient ring
       ctx.beginPath();
       ctx.arc(x, y, 15.4 + Math.sin(now * 0.003) * 1.3, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(180, 145, 255, 0.26)";
+      ctx.strokeStyle = "rgba(188, 134, 255, 0.34)";
       ctx.lineWidth = 1.3;
       ctx.stroke();
     }
@@ -2804,7 +2828,7 @@ function drawGraph() {
     ctx.fillText(String(i + 1), x, y + 0.5);
   });
 
-  const orbEnergy = clamp(0.24 + reactiveDyn * 1.05 + reactivePeak * 0.82 + (state.resonanceAmount / 100) * 0.18, 0, 1);
+  const orbEnergy = clamp(0.28 + reactiveDyn * 1.05 + reactivePeak * 0.82 + (state.resonanceAmount / 100) * 0.22, 0, 1);
   const orbDrift = Math.sin(now * 0.0017) * 11 + Math.cos(now * 0.0012) * 4;
   const orbShimmer = Math.sin(now * 0.00135) * 24 + Math.cos(now * 0.0019) * 9;
   const orbRot = Math.sin(now * 0.00042) * 7;
@@ -2820,11 +2844,11 @@ function drawGraph() {
   orb.style.setProperty("--orb-core-y", `${orbCoreY.toFixed(3)}px`);
   orb.style.setProperty("--orb-parallax-x", `${orbParallaxX.toFixed(3)}px`);
   orb.style.setProperty("--orb-parallax-y", `${orbParallaxY.toFixed(3)}px`);
-  orb.style.boxShadow = `inset 0 -10px ${52 + reactiveDyn * 40}px rgba(0,0,0,0.62), inset 0 0 ${52 + reactiveDyn * 64}px rgba(182,128,255,0.68), inset 0 0 ${124 + reactiveDyn * 52}px rgba(66,88,218,0.48), inset 0 0 ${178 + reactiveDyn * 42}px rgba(2,8,28,0.92), 0 0 ${10 + reactivePeak * 22}px rgba(118,124,255,0.16), 0 0 ${28 + reactivePeak * 34}px rgba(84,98,244,0.11)`;
+  orb.style.boxShadow = `inset 0 -10px ${52 + reactiveDyn * 40}px rgba(0,0,0,0.62), inset 0 0 ${52 + reactiveDyn * 64}px rgba(194,118,255,0.76), inset 0 0 ${124 + reactiveDyn * 52}px rgba(72,96,228,0.54), inset 0 0 ${178 + reactiveDyn * 42}px rgba(2,8,28,0.92), 0 0 ${10 + reactivePeak * 22}px rgba(128,124,255,0.22), 0 0 ${28 + reactivePeak * 34}px rgba(92,98,250,0.15)`;
 
   if (pluginRoot) {
-    const envGraphGlow = clamp(0.06 + reactivePeak * 0.24 + reactiveDyn * 0.18, 0, 0.34);
-    const envOrbGlow = clamp(0.05 + orbEnergy * 0.2, 0, 0.3);
+    const envGraphGlow = clamp(0.05 + reactivePeak * 0.2 + reactiveDyn * 0.15, 0, 0.28);
+    const envOrbGlow = clamp(0.04 + orbEnergy * 0.16, 0, 0.25);
     const ambientBreathe = 0.5 + Math.sin(now * 0.00085) * 0.5;
     const ambientDrift = Math.sin(now * 0.00037) * 1.6;
     pluginRoot.style.setProperty("--env-graph-glow", `${envGraphGlow.toFixed(3)}`);
