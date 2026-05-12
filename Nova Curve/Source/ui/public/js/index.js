@@ -121,6 +121,7 @@ let interactionActiveState = false;
 let interactionDeactivateTimer = 0;
 
 let lastFrameMs = performance.now();
+let lastRenderMs = 0;
 let interactionEnergy = 0;
 let calloutVisible = false;
 let calloutTargetX = 0;
@@ -2262,6 +2263,15 @@ function drawGraph() {
   const fastInteraction = draggingBand >= 0 || knobDragging;
   const presetOverlayActive = presetBrowserOpen || savePresetOpen;
 
+  // Keep heavy ambient rendering from starving input handling.
+  // During interaction: 60 FPS cap; idle: 30 FPS cap.
+  const minFrameIntervalMs = fastInteraction ? (1000 / 60) : (1000 / 30);
+  if ((now - lastRenderMs) < minFrameIntervalMs) {
+    rafHandle = requestAnimationFrame(drawGraph);
+    return;
+  }
+  lastRenderMs = now;
+
   ensureDisplayBands();
   for (let i = 0; i < state.bands.length; i++) {
     const src = state.bands[i];
@@ -2283,7 +2293,7 @@ function drawGraph() {
 
   const viewW = canvas.clientWidth || graphWrap.clientWidth || 1;
   const viewH = canvas.clientHeight || graphWrap.clientHeight || 1;
-  const dpr = (fastInteraction || presetOverlayActive) ? 1 : (window.devicePixelRatio || 1);
+  const dpr = fastInteraction ? 0.72 : (presetOverlayActive ? 1 : (window.devicePixelRatio || 1));
   const targetW = Math.floor(viewW * dpr);
   const targetH = Math.floor(viewH * dpr);
 
