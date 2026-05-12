@@ -2660,30 +2660,15 @@ function drawGraph() {
     const dynamic = b.mode > 0.5;
     const notch = b.type === 5;
 
-    if (fastInteraction) {
-      ctx.beginPath();
-      ctx.arc(x, y, 11.5, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(6, 10, 24, 0.94)";
-      ctx.fill();
-      ctx.strokeStyle = notch ? "#89b4ff" : selected ? "#c099ff" : dynamic ? "#7fa8ff" : "#d6e4ff";
-      ctx.lineWidth = activeDrag ? 2.5 : selected ? 2.2 : 1.9;
-      ctx.stroke();
-
-      ctx.fillStyle = "#edf3ff";
-      ctx.font = "600 13px Avenir Next";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(String(i + 1), x, y + 0.5);
-      return;
-    }
-
-    const focusBoost = activeDrag ? 1.46 : hovered ? 1.2 : selected ? 1.16 : 1.04;
+    // Always render full detailed node for consistent visual state across all interaction modes
+    const focusBoost = hovered ? 1.2 : selected ? 1.16 : 1.04;
     const gainIntensity = Math.abs(b.gainDb) / 30;
     const qIntensity = Math.min(1, (b.q || 1) / 6);
     const contourEnergy = 0.76 + gainIntensity * 0.44 + qIntensity * 0.22 + (dynamic ? 0.08 : 0);
     const selectedHaloBoost = selected ? 1.16 : 1;
     const energyBoost = contourEnergy * selectedHaloBoost;
-    const reactiveSync = 1 + Math.sin(now * 0.004 + x * 0.02) * 0.06 * (reactiveDyn + 0.3);
+    // During knob drag, skip expensive time-based reactive calculations but keep base halo size
+    const reactiveSync = knobDragging ? 1 : (1 + Math.sin(now * 0.004 + x * 0.02) * 0.06 * (reactiveDyn + 0.3));
     const halo = (selected ? (18 * pulse * breathe + reactiveDyn * 8) : dynamic ? (11 + reactiveDyn * 12) : 7.5) * focusBoost * energyBoost * reactiveSync;
     
     // Outer diffuse glow (largest)
@@ -2743,49 +2728,55 @@ function drawGraph() {
     if (selected) {
       // Inner breathing glass reflection
       const glassHalo = 3.8 + Math.sin(now * 0.0056) * 0.7;
-      const gGlass = ctx.createRadialGradient(x - 4, y - 4, 0, x - 4, y - 4, glassHalo);
-      gGlass.addColorStop(0, "rgba(255, 255, 255, 0.26)");
-      gGlass.addColorStop(1, "rgba(255, 255, 255, 0)");
-      ctx.fillStyle = gGlass;
-      ctx.beginPath();
-      ctx.arc(x - 4, y - 4, glassHalo, 0, Math.PI * 2);
-      ctx.fill();
+      if (!knobDragging) {
+        // Skip expensive animations during knob drag for performance
+        const gGlass = ctx.createRadialGradient(x - 4, y - 4, 0, x - 4, y - 4, glassHalo);
+        gGlass.addColorStop(0, "rgba(255, 255, 255, 0.26)");
+        gGlass.addColorStop(1, "rgba(255, 255, 255, 0)");
+        ctx.fillStyle = gGlass;
+        ctx.beginPath();
+        ctx.arc(x - 4, y - 4, glassHalo, 0, Math.PI * 2);
+        ctx.fill();
 
-      // Breathing inner ring
-      ctx.beginPath();
-      ctx.arc(x, y, 6.6 + reactiveDyn * 5.8 + Math.sin(now * 0.0042) * (0.55 + 1.15 * signalMotionAmt), 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(220, 168, 255, 0.42)";
-      ctx.fill();
+        // Breathing inner ring
+        ctx.beginPath();
+        ctx.arc(x, y, 6.6 + reactiveDyn * 5.8 + Math.sin(now * 0.0042) * (0.55 + 1.15 * signalMotionAmt), 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(220, 168, 255, 0.42)";
+        ctx.fill();
 
-      // Reactive ambient ring
-      ctx.beginPath();
-      ctx.arc(x, y, 15.4 + Math.sin(now * 0.003) * 1.3, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(188, 134, 255, 0.34)";
-      ctx.lineWidth = 1.3;
-      ctx.stroke();
+        // Reactive ambient ring
+        ctx.beginPath();
+        ctx.arc(x, y, 15.4 + Math.sin(now * 0.003) * 1.3, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(188, 134, 255, 0.34)";
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+      }
     }
 
     // Dynamic activity indicator with animated compression halo
     if (dynamic && reactiveDyn > 0.08) {
-      const compressionBreath = 0.8 + 0.2 * Math.sin(now * 0.004);
-      const dynRing = 14 + reactiveDyn * 7;
-      const gDyn = ctx.createRadialGradient(x, y, 13, x, y, dynRing);
-      gDyn.addColorStop(0, `rgba(200, 130, 255, ${0.18 * reactiveDyn * compressionBreath})`);
-      gDyn.addColorStop(0.6, `rgba(150, 110, 255, ${0.08 * reactiveDyn})`);
-      gDyn.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = gDyn;
-      ctx.beginPath();
-      ctx.arc(x, y, dynRing, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Animated compression reduction ring (visible feedback)
-      if (bandDynamicGainDb && bandDynamicGainDb[i] < -0.3) {
-        const reductionRing = 8 + Math.abs(bandDynamicGainDb[i]) * 3.5;
+      if (!knobDragging) {
+        // Skip during knob drag for performance
+        const compressionBreath = 0.8 + 0.2 * Math.sin(now * 0.004);
+        const dynRing = 14 + reactiveDyn * 7;
+        const gDyn = ctx.createRadialGradient(x, y, 13, x, y, dynRing);
+        gDyn.addColorStop(0, `rgba(200, 130, 255, ${0.18 * reactiveDyn * compressionBreath})`);
+        gDyn.addColorStop(0.6, `rgba(150, 110, 255, ${0.08 * reactiveDyn})`);
+        gDyn.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = gDyn;
         ctx.beginPath();
-        ctx.arc(x, y, reductionRing, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255, 120, 140, ${0.3 * Math.abs(bandDynamicGainDb[i]) / 30})`;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+        ctx.arc(x, y, dynRing, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Animated compression reduction ring (visible feedback)
+        if (bandDynamicGainDb && bandDynamicGainDb[i] < -0.3) {
+          const reductionRing = 8 + Math.abs(bandDynamicGainDb[i]) * 3.5;
+          ctx.beginPath();
+          ctx.arc(x, y, reductionRing, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(255, 120, 140, ${0.3 * Math.abs(bandDynamicGainDb[i]) / 30})`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
       }
     }
 
