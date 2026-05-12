@@ -256,7 +256,6 @@ function setInteractionActive(active) {
         nativeSetInteractionActive(true);
       } catch (_) {}
     }, 0);
-    if (pluginRoot) pluginRoot.classList.add("interaction-fast");
     return;
   }
 
@@ -268,7 +267,6 @@ function setInteractionActive(active) {
     try {
       nativeSetInteractionActive(false);
     } catch (_) {}
-    if (pluginRoot) pluginRoot.classList.remove("interaction-fast");
   }, 120);
 }
 
