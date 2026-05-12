@@ -1225,16 +1225,8 @@ function buildKnob(el, options) {
     indicator.style.transform = `translateX(-50%) rotate(${deg}deg)`;
     const progressLength = Math.max(0, norm * trackLength);
     ctrl.arc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
-    // Keep expensive blur/filter layers static while dragging for smoother interaction.
-    ctrl.bloomArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.massArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.coreArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.taperArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.headArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.headArc.setAttribute("opacity", "0");
+    // Keep drag visual path minimal to reduce per-move DOM churn.
     ctrl.arc.style.opacity = 0.96;
-    el.style.setProperty("--arc-reflect", `${0.06 + 0.2 * Math.pow(norm, 0.92)}`);
-    el.style.setProperty("--arc-angle", `${deg}deg`);
   };
 
   // Use pointer capture so drag tracking is scoped to this element only.
@@ -1248,6 +1240,13 @@ function buildKnob(el, options) {
     lastDragValue = options.get();
     knobDragging = true;
     setInteractionActive(true);
+    // Disable expensive arc layers once on pickup instead of every pointermove.
+    ctrl.bloomArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.massArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.coreArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.taperArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.headArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.headArc.setAttribute("opacity", "0");
     el.style.opacity = "0.96";
   });
 
