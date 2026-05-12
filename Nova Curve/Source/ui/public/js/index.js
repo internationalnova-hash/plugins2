@@ -116,6 +116,7 @@ let graphDragRafPending = false;
 let pendingGraphDragX = 0;
 let pendingGraphDragY = 0;
 let pendingGraphDragFine = 1;
+let graphDragUndoPending = false;
 let graphDragReadoutTick = 0;
 let interactionActiveState = false;
 let interactionDeactivateTimer = 0;
@@ -1212,8 +1213,6 @@ function buildKnob(el, options) {
   let drag = null;
   let lastDragValue = options.get();
   let readoutUpdateFrame = 0;
-  let knobVisualRafPending = false;
-  let pendingKnobVisualValue = options.get();
 
   const valueToNorm = (v) => {
     if (options.toNorm) return clamp(options.toNorm(v), 0, 1);
@@ -1255,33 +1254,20 @@ function buildKnob(el, options) {
     lastDragValue = options.get();
     knobDragging = true;
     setInteractionActive(true);
-    el.style.opacity = "0.92";
-    ctrl.arc.style.filter = "drop-shadow(0 0 5px rgba(130, 110, 245, 0.52)) drop-shadow(0 0 1px rgba(220, 232, 255, 0.18))";
-    ctrl.massArc.style.filter = "drop-shadow(0 0 3px rgba(150, 110, 245, 0.24))";
-    ctrl.headArc.style.filter = "drop-shadow(0 0 6px rgba(170, 150, 255, 0.58))";
-    ambientRing.style.filter = "drop-shadow(0 0 3px rgba(100, 125, 245, 0.18))";
-    ring.style.filter = "drop-shadow(0 0 2px rgba(110, 100, 220, 0.22))";
-    indicator.style.filter = "drop-shadow(0 0 2px rgba(190, 210, 255, 0.28))";
   });
 
   el.addEventListener("pointermove", (e) => {
     if (!drag || !el.hasPointerCapture(e.pointerId)) return;
-    const delta = drag.lastY - e.clientY;
-    drag.lastY = e.clientY;
-    const fine = (e.shiftKey || e.metaKey) ? 0.2 : 1;
-    drag.norm = clamp(drag.norm + delta * 0.00245 * fine, 0, 1);
+    const coalesced = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
+    const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
+    const delta = drag.lastY - latest.clientY;
+    drag.lastY = latest.clientY;
+    const fine = (latest.shiftKey || latest.metaKey) ? 0.2 : 1;
+    drag.norm = clamp(drag.norm + delta * 0.0031 * fine, 0, 1);
     // Update model only — no queuePushState during drag to avoid IPC backpressure.
     const newValue = normToValue(drag.norm);
     options.set(clamp(newValue, options.min, options.max), false);
-    pendingKnobVisualValue = options.get();
-    if (!knobVisualRafPending) {
-      knobVisualRafPending = true;
-      requestAnimationFrame(() => {
-        knobVisualRafPending = false;
-        if (!drag) return;
-        setDragVisual(pendingKnobVisualValue);
-      });
-    }
+    setDragVisual(options.get());
     lastDragValue = options.get();
     interactionEnergy = Math.min(1, interactionEnergy + 0.05);
   });
@@ -1292,13 +1278,6 @@ function buildKnob(el, options) {
     knobDragging = false;
     setInteractionActive(false);
     readoutUpdateFrame = 0;
-    el.style.opacity = "1";
-    ctrl.arc.style.filter = "drop-shadow(0 0 1px rgba(120, 100, 220, 0.24))";
-    ctrl.massArc.style.filter = "none";
-    ctrl.headArc.style.filter = "drop-shadow(0 0 2px rgba(160, 140, 240, 0.28))";
-    ambientRing.style.filter = "drop-shadow(0 0 1px rgba(100, 125, 245, 0.12))";
-    ring.style.filter = "drop-shadow(0 0 1px rgba(100, 90, 200, 0.1))";
-    indicator.style.filter = "drop-shadow(0 0 0.5px rgba(190, 210, 255, 0.16))";
     ctrl.set(options.get(), false);
     updateSelectedBandReadouts(options.readoutKey || "all");
     if (pushState) queuePushState();
@@ -2022,10 +2001,15 @@ function onGraphDown(e) {
   const nearest = findNearestBandIndex(x, y, rect.width, rect.height, 18);
 
   if (nearest >= 0) {
-    snapshotForUndo();
+    graphDragUndoPending = true;
     draggingBand = nearest;
     hoveredBand = nearest;
     state.selectedBand = nearest;
+    const b = state.bands[nearest];
+    // Snap immediately on pickup so the node follows from the first click.
+    b.frequency = clamp(xToHz(x, rect.width), FREQ_MIN, FREQ_MAX);
+    b.gainDb = clamp(yToGain(y, rect.height), -30, 30);
+    b.enabled = 1;
     calloutVisible = true;
     calloutTargetX = x;
     calloutTargetY = y;
@@ -2082,11 +2066,17 @@ function onGraphMove(e) {
     pendingGraphDragY = y;
     pendingGraphDragFine = (e.shiftKey || e.metaKey) ? 0.24 : 1;
     dragPreviewActive = true;
+    calloutVisible = false;
+    calloutBandIndex = -1;
     if (!graphDragRafPending) {
       graphDragRafPending = true;
       requestAnimationFrame(() => {
         graphDragRafPending = false;
         if (draggingBand < 0) return;
+        if (graphDragUndoPending) {
+          snapshotForUndo();
+          graphDragUndoPending = false;
+        }
         const b = state.bands[draggingBand];
         dragPreviewActive = true;
         const targetFreq = clamp(xToHz(pendingGraphDragX, rect.width), FREQ_MIN, FREQ_MAX);
@@ -2101,9 +2091,6 @@ function onGraphMove(e) {
         b.frequency = newFreq;
         b.gainDb = newGain;
         b.enabled = 1;
-        calloutVisible = true;
-        calloutTargetX = pendingGraphDragX;
-        calloutTargetY = pendingGraphDragY;
         interactionEnergy = Math.min(1, interactionEnergy + 0.06);
 
         // Keep drag path lightweight: update readouts at a reduced cadence.
@@ -2116,6 +2103,7 @@ function onGraphMove(e) {
         }
       });
     }
+    return;
   }
 
   const activeIdx = draggingBand >= 0 ? draggingBand : (hoveredBand >= 0 ? hoveredBand : state.selectedBand);
@@ -2195,6 +2183,7 @@ function onGraphUp() {
   draggingBand = -1;
   graphDragRafPending = false;
   graphDragReadoutTick = 0;
+  graphDragUndoPending = false;
   setInteractionActive(false);
 
   // Commit once after drag ends to avoid per-frame sync lag.
