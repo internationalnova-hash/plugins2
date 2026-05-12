@@ -1190,9 +1190,8 @@ function buildKnob(el, options) {
       const featherLength = Math.min(trackLength, Math.max(0, progressLength + 8.0));
       this.taperArc.setAttribute("stroke-dasharray", `${featherLength} ${fullArcLength}`);
       this.taperArc.setAttribute("stroke-dashoffset", `${-4.3}`);
-      const interactionBoost = 0.72 + interactionEnergy * 0.62;
-      this.bloomArc.setAttribute("opacity", progressLength > 0.8 ? `${(0.22 + 0.31 * Math.pow(norm, 1.18)) * interactionBoost}` : "0");
-      this.massArc.setAttribute("opacity", progressLength > 0.8 ? `${Math.min(1, (0.86 + 0.24 * Math.pow(norm, 0.92)) * interactionBoost)}` : "0");
+      this.bloomArc.setAttribute("opacity", progressLength > 0.8 ? `${0.22 + 0.31 * Math.pow(norm, 1.18)}` : "0");
+      this.massArc.setAttribute("opacity", progressLength > 0.8 ? `${Math.min(1, 0.86 + 0.24 * Math.pow(norm, 0.92))}` : "0");
       this.coreArc.setAttribute("opacity", progressLength > 0.8 ? `${0.34 + 0.2 * taperCurve}` : "0");
       this.taperArc.setAttribute("opacity", progressLength > 0.8 ? `${0.28 + 0.2 * Math.pow(norm, 1.0)}` : "0");
 
@@ -1204,7 +1203,7 @@ function buildKnob(el, options) {
       this.headArc.setAttribute("opacity", progressLength > 1.1 ? `${0.5 + 0.24 * norm}` : "0");
 
       // Arc intensity + reflection coupling
-      const glowIntensity = (0.9 + 0.36 * taperCurve) * (0.98 + interactionEnergy * 0.32);
+      const glowIntensity = 0.9 + 0.36 * taperCurve;
       this.arc.style.opacity = glowIntensity;
       el.style.setProperty("--arc-reflect", `${0.05 + 0.28 * Math.pow(norm, 0.92)}`);
       el.style.setProperty("--arc-angle", `${deg}deg`);
