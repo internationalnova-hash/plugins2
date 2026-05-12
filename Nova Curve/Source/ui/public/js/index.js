@@ -116,7 +116,7 @@ let graphDragUndoPending = false;
 let interactionActiveState = false;
 let interactionDeactivateTimer = 0;
 let activeKnobDrag = null;
-let knobGlobalDragBound = false;
+let interactionUltraFast = false;
 
 let lastFrameMs = performance.now();
 let interactionEnergy = 0;
@@ -256,6 +256,7 @@ function setInteractionActive(active) {
         nativeSetInteractionActive(true);
       } catch (_) {}
     }, 0);
+    if (pluginRoot) pluginRoot.classList.add("interaction-fast");
     return;
   }
 
@@ -267,6 +268,7 @@ function setInteractionActive(active) {
     try {
       nativeSetInteractionActive(false);
     } catch (_) {}
+    if (pluginRoot) pluginRoot.classList.remove("interaction-fast");
   }, 120);
 }
 
@@ -884,49 +886,7 @@ async function setupNativeBridge() {
   }
 }
 
-function ensureGlobalKnobDragHandlers() {
-  if (knobGlobalDragBound) return;
-  knobGlobalDragBound = true;
-
-  const updateActiveKnobDrag = (e) => {
-    if (!activeKnobDrag) return;
-    if (activeKnobDrag.pointerId !== null && typeof e.pointerId !== "undefined" && e.pointerId !== activeKnobDrag.pointerId) return;
-    if (e.cancelable) e.preventDefault();
-
-    const coalesced = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
-    const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
-    const delta = activeKnobDrag.lastY - latest.clientY;
-    activeKnobDrag.lastY = latest.clientY;
-    const fine = (latest.shiftKey || latest.metaKey) ? 0.2 : 1;
-    activeKnobDrag.norm = clamp(activeKnobDrag.norm + delta * 0.0031 * fine, 0, 1);
-
-    const newValue = activeKnobDrag.normToValue(activeKnobDrag.norm);
-    activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
-    activeKnobDrag.setDragVisual(activeKnobDrag.options.get());
-    interactionEnergy = Math.min(1, interactionEnergy + 0.05);
-  };
-
-  const finishActiveKnobDrag = (e, pushState = true) => {
-    if (!activeKnobDrag) return;
-    if (activeKnobDrag.pointerId !== null && e && typeof e.pointerId !== "undefined" && e.pointerId !== activeKnobDrag.pointerId) return;
-
-    const drag = activeKnobDrag;
-    activeKnobDrag = null;
-    knobDragging = false;
-    setInteractionActive(false);
-    drag.ctrl.set(drag.options.get(), false);
-    updateSelectedBandReadouts(drag.options.readoutKey || "all");
-    if (pushState) queuePushState();
-  };
-
-  document.addEventListener("pointermove", updateActiveKnobDrag, { passive: false });
-  document.addEventListener("pointerup", (e) => finishActiveKnobDrag(e, true));
-  document.addEventListener("pointercancel", (e) => finishActiveKnobDrag(e, true));
-  document.addEventListener("mouseleave", (e) => finishActiveKnobDrag(e, false));
-}
-
 function buildKnob(el, options) {
-  ensureGlobalKnobDragHandlers();
   const visualId = ++knobVisualSeed;
   const gradientId = `arcGradient-${visualId}`;
   const glowId = `arcGlow-${visualId}`;
@@ -1283,7 +1243,45 @@ function buildKnob(el, options) {
     el.style.setProperty("--arc-angle", `${deg}deg`);
   };
 
-  // Pointerdown only seeds the active drag; movement is handled globally.
+  const updateKnobDragFromPointer = (e) => {
+    if (!activeKnobDrag || activeKnobDrag.ctrl !== ctrl) return;
+    if (activeKnobDrag.pointerId !== null && typeof e.pointerId !== "undefined" && e.pointerId !== activeKnobDrag.pointerId) return;
+    if (e.cancelable) e.preventDefault();
+
+    const coalesced = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
+    const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
+    const delta = activeKnobDrag.lastY - latest.clientY;
+    activeKnobDrag.lastY = latest.clientY;
+    const fine = (latest.shiftKey || latest.metaKey) ? 0.2 : 1;
+    activeKnobDrag.norm = clamp(activeKnobDrag.norm + delta * 0.0031 * fine, 0, 1);
+
+    const newValue = activeKnobDrag.normToValue(activeKnobDrag.norm);
+    activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
+    activeKnobDrag.setDragVisual(activeKnobDrag.options.get());
+    interactionEnergy = Math.min(1, interactionEnergy + 0.05);
+  };
+
+  const finishKnobDrag = (e, pushState = true) => {
+    if (!activeKnobDrag || activeKnobDrag.ctrl !== ctrl) return;
+    if (activeKnobDrag.pointerId !== null && e && typeof e.pointerId !== "undefined" && e.pointerId !== activeKnobDrag.pointerId) return;
+
+    if (activeKnobDrag.pointerId !== null) {
+      try {
+        el.releasePointerCapture(activeKnobDrag.pointerId);
+      } catch (_) {}
+    }
+
+    const drag = activeKnobDrag;
+    activeKnobDrag = null;
+    knobDragging = false;
+    interactionUltraFast = false;
+    setInteractionActive(false);
+    drag.ctrl.set(drag.options.get(), false);
+    updateSelectedBandReadouts(drag.options.readoutKey || "all");
+    if (pushState) queuePushState();
+  };
+
+  // Pointerdown seeds drag and captures movement on this knob only.
   el.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -1299,10 +1297,17 @@ function buildKnob(el, options) {
     };
 
     knobDragging = true;
+    interactionUltraFast = true;
+    try {
+      if (typeof e.pointerId !== "undefined") el.setPointerCapture(e.pointerId);
+    } catch (_) {}
     setInteractionActive(true);
   });
 
-  // Drag updates/finish are handled by the single global pointer loop.
+  el.addEventListener("pointermove", updateKnobDragFromPointer, { passive: false });
+  el.addEventListener("pointerup", (e) => finishKnobDrag(e, true));
+  el.addEventListener("pointercancel", (e) => finishKnobDrag(e, true));
+  el.addEventListener("lostpointercapture", (e) => finishKnobDrag(e, true));
 
   el.addEventListener("wheel", (e) => {
     e.preventDefault();
@@ -2020,8 +2025,10 @@ function onGraphDown(e) {
   const nearest = findNearestBandIndex(x, y, rect.width, rect.height, 18);
 
   if (nearest >= 0) {
-    graphDragUndoPending = true;
+    snapshotForUndo();
+    graphDragUndoPending = false;
     draggingBand = nearest;
+    interactionUltraFast = true;
     hoveredBand = nearest;
     state.selectedBand = nearest;
     const b = state.bands[nearest];
@@ -2029,7 +2036,7 @@ function onGraphDown(e) {
     b.frequency = clamp(xToHz(x, rect.width), FREQ_MIN, FREQ_MAX);
     b.gainDb = clamp(yToGain(y, rect.height), -30, 30);
     b.enabled = 1;
-    calloutVisible = true;
+    calloutVisible = !interactionUltraFast;
     calloutTargetX = x;
     calloutTargetY = y;
     interactionEnergy = Math.min(1, interactionEnergy + 0.18);
@@ -2041,7 +2048,8 @@ function onGraphDown(e) {
   }
 
   // Single-click on empty graph creates a new band and allows immediate drag.
-  createBandAtGraphPosition(x, y, rect, true);
+  const created = createBandAtGraphPosition(x, y, rect, true);
+  if (created) interactionUltraFast = true;
 }
 
 function onGraphMove(e) {
@@ -2082,13 +2090,10 @@ function onGraphMove(e) {
 
   if (draggingBand >= 0) {
     const dragFine = (e.shiftKey || e.metaKey) ? 0.24 : 1;
+    interactionUltraFast = true;
     dragPreviewActive = true;
     calloutVisible = false;
     calloutBandIndex = -1;
-    if (graphDragUndoPending) {
-      snapshotForUndo();
-      graphDragUndoPending = false;
-    }
 
     const b = state.bands[draggingBand];
     const targetFreq = clamp(xToHz(x, rect.width), FREQ_MIN, FREQ_MAX);
@@ -2182,6 +2187,7 @@ function onGraphUp() {
   const releasedBand = draggingBand;
   draggingBand = -1;
   graphDragUndoPending = false;
+  interactionUltraFast = false;
   setInteractionActive(false);
 
   // Commit once after drag ends to avoid per-frame sync lag.
@@ -2271,6 +2277,7 @@ function drawGraph() {
   const reactiveDyn = dynActivity * (0.18 + 0.82 * signalMotionAmt);
   const reactivePeak = outputPeak * (0.2 + 0.8 * signalMotionAmt);
   const fastInteraction = draggingBand >= 0 || knobDragging;
+  const ultraFast = interactionUltraFast || fastInteraction;
 
   ensureDisplayBands();
   for (let i = 0; i < state.bands.length; i++) {
@@ -2302,7 +2309,9 @@ function drawGraph() {
   const w = rect.width;
   const h = rect.height;
 
-  if (calloutVisible) {
+  if (ultraFast) {
+    callout.classList.remove("visible");
+  } else if (calloutVisible) {
     const targetX = clamp(calloutTargetX, 0, w);
     const targetY = clamp(calloutTargetY, 0, h);
     calloutX = smoothTo(calloutX, targetX, 26, dt);
@@ -2330,15 +2339,15 @@ function drawGraph() {
   if (!fastInteraction) {
     // Deep-space atmospheric layering behind all graph content.
     const rearFog = ctx.createRadialGradient(w * 0.5, h * 1.18, 0, w * 0.5, h * 1.18, h * 1.25);
-    rearFog.addColorStop(0, "rgba(0, 0, 0, 0.24)");
-    rearFog.addColorStop(0.56, "rgba(10, 18, 40, 0.14)");
+    rearFog.addColorStop(0, "rgba(0, 0, 0, 0.18)");
+    rearFog.addColorStop(0.56, "rgba(10, 18, 40, 0.10)");
     rearFog.addColorStop(1, "rgba(0, 0, 0, 0)");
     ctx.fillStyle = rearFog;
     ctx.fillRect(0, 0, w, h);
 
     const centerLift = ctx.createRadialGradient(w * 0.5, h * 0.52, 0, w * 0.5, h * 0.52, h * 0.75);
-    centerLift.addColorStop(0, "rgba(188, 208, 255, 0.06)");
-    centerLift.addColorStop(0.42, "rgba(154, 172, 244, 0.032)");
+    centerLift.addColorStop(0, "rgba(188, 208, 255, 0.085)");
+    centerLift.addColorStop(0.42, "rgba(154, 172, 244, 0.048)");
     centerLift.addColorStop(1, "rgba(0, 0, 0, 0)");
     ctx.fillStyle = centerLift;
     ctx.fillRect(0, 0, w, h);
@@ -2346,12 +2355,12 @@ function drawGraph() {
     const cornerDarkness = ctx.createRadialGradient(w * 0.5, h * 0.5, Math.min(w, h) * 0.35, w * 0.5, h * 0.5, Math.min(w, h) * 0.8);
     cornerDarkness.addColorStop(0, "rgba(0, 0, 0, 0)");
     cornerDarkness.addColorStop(0.7, "rgba(0, 0, 0, 0)");
-    cornerDarkness.addColorStop(1, "rgba(0, 0, 0, 0.18)");
+    cornerDarkness.addColorStop(1, "rgba(0, 0, 0, 0.13)");
     ctx.fillStyle = cornerDarkness;
     ctx.fillRect(0, 0, w, h);
   }
 
-  ctx.strokeStyle = "rgba(98, 124, 194, 0.11)";
+  ctx.strokeStyle = "rgba(108, 132, 206, 0.15)";
   ctx.lineWidth = 0.9;
 
   if (knobDragging) {
