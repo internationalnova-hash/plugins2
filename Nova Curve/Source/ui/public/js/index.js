@@ -1210,9 +1210,10 @@ function buildKnob(el, options) {
   };
 
   let drag = null;
-  let knobDragRafPending = false;
   let lastDragValue = options.get();
   let readoutUpdateFrame = 0;
+  let knobVisualRafPending = false;
+  let pendingKnobVisualValue = options.get();
 
   const valueToNorm = (v) => {
     if (options.toNorm) return clamp(options.toNorm(v), 0, 1);
@@ -1231,8 +1232,16 @@ function buildKnob(el, options) {
     indicator.style.transform = `translateX(-50%) rotate(${deg}deg)`;
     const progressLength = Math.max(0, norm * trackLength);
     ctrl.arc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
-    // Keep drag visual path minimal to reduce per-move DOM churn.
+    // Keep expensive blur/filter layers static while dragging for smoother interaction.
+    ctrl.bloomArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.massArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.coreArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.taperArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.headArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
+    ctrl.headArc.setAttribute("opacity", "0");
     ctrl.arc.style.opacity = 0.96;
+    el.style.setProperty("--arc-reflect", `${0.06 + 0.2 * Math.pow(norm, 0.92)}`);
+    el.style.setProperty("--arc-angle", `${deg}deg`);
   };
 
   // Use pointer capture so drag tracking is scoped to this element only.
@@ -1242,42 +1251,39 @@ function buildKnob(el, options) {
     if (e.button !== 0) return;
     e.preventDefault();
     el.setPointerCapture(e.pointerId);
-    drag = { lastY: e.clientY, prevY: e.clientY, norm: valueToNorm(options.get()), fine: 1 };
+    drag = { lastY: e.clientY, norm: valueToNorm(options.get()) };
     lastDragValue = options.get();
     knobDragging = true;
     setInteractionActive(true);
-    // Disable expensive arc layers once on pickup instead of every pointermove.
-    ctrl.bloomArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.massArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.coreArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.taperArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.headArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
-    ctrl.headArc.setAttribute("opacity", "0");
-    el.style.opacity = "0.96";
+    el.style.opacity = "0.92";
+    ctrl.arc.style.filter = "drop-shadow(0 0 5px rgba(130, 110, 245, 0.52)) drop-shadow(0 0 1px rgba(220, 232, 255, 0.18))";
+    ctrl.massArc.style.filter = "drop-shadow(0 0 3px rgba(150, 110, 245, 0.24))";
+    ctrl.headArc.style.filter = "drop-shadow(0 0 6px rgba(170, 150, 255, 0.58))";
+    ambientRing.style.filter = "drop-shadow(0 0 3px rgba(100, 125, 245, 0.18))";
+    ring.style.filter = "drop-shadow(0 0 2px rgba(110, 100, 220, 0.22))";
+    indicator.style.filter = "drop-shadow(0 0 2px rgba(190, 210, 255, 0.28))";
   });
 
   el.addEventListener("pointermove", (e) => {
     if (!drag || !el.hasPointerCapture(e.pointerId)) return;
-    const coalesced = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
-    const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
-    drag.lastY = latest.clientY;
-    drag.fine = (latest.shiftKey || latest.metaKey) ? 0.2 : 1;
-    if (knobDragRafPending) return;
-    knobDragRafPending = true;
-    requestAnimationFrame(() => {
-      knobDragRafPending = false;
-      if (!drag) return;
-      const delta = drag.lastY - (drag.prevY ?? drag.lastY);
-      drag.prevY = drag.lastY;
-      drag.norm = clamp(drag.norm + (delta * 0.00315 * drag.fine), 0, 1);
-      // Update model only — no queuePushState during drag to avoid IPC backpressure.
-      const newValue = normToValue(drag.norm);
-      options.set(clamp(newValue, options.min, options.max), false);
-      // Apply drag visuals immediately once per frame to avoid pointer backlog.
-      setDragVisual(options.get());
-      lastDragValue = options.get();
-      interactionEnergy = Math.min(1, interactionEnergy + 0.05);
-    });
+    const delta = drag.lastY - e.clientY;
+    drag.lastY = e.clientY;
+    const fine = (e.shiftKey || e.metaKey) ? 0.2 : 1;
+    drag.norm = clamp(drag.norm + delta * 0.00245 * fine, 0, 1);
+    // Update model only — no queuePushState during drag to avoid IPC backpressure.
+    const newValue = normToValue(drag.norm);
+    options.set(clamp(newValue, options.min, options.max), false);
+    pendingKnobVisualValue = options.get();
+    if (!knobVisualRafPending) {
+      knobVisualRafPending = true;
+      requestAnimationFrame(() => {
+        knobVisualRafPending = false;
+        if (!drag) return;
+        setDragVisual(pendingKnobVisualValue);
+      });
+    }
+    lastDragValue = options.get();
+    interactionEnergy = Math.min(1, interactionEnergy + 0.05);
   });
 
   function finishKnobDrag(pushState = true) {
@@ -1287,6 +1293,12 @@ function buildKnob(el, options) {
     setInteractionActive(false);
     readoutUpdateFrame = 0;
     el.style.opacity = "1";
+    ctrl.arc.style.filter = "drop-shadow(0 0 1px rgba(120, 100, 220, 0.24))";
+    ctrl.massArc.style.filter = "none";
+    ctrl.headArc.style.filter = "drop-shadow(0 0 2px rgba(160, 140, 240, 0.28))";
+    ambientRing.style.filter = "drop-shadow(0 0 1px rgba(100, 125, 245, 0.12))";
+    ring.style.filter = "drop-shadow(0 0 1px rgba(100, 90, 200, 0.1))";
+    indicator.style.filter = "drop-shadow(0 0 0.5px rgba(190, 210, 255, 0.16))";
     ctrl.set(options.get(), false);
     updateSelectedBandReadouts(options.readoutKey || "all");
     if (pushState) queuePushState();
@@ -1979,11 +1991,9 @@ function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
   b.gainDb = clamp(yToGain(y, rect.height), -30, 30);
   b.q = 1.2;
   hoveredBand = idx;
-  calloutVisible = !beginDrag;
-  if (!beginDrag) {
-    calloutTargetX = x;
-    calloutTargetY = y;
-  }
+  calloutVisible = true;
+  calloutTargetX = x;
+  calloutTargetY = y;
   interactionEnergy = Math.min(1, interactionEnergy + 0.22);
   if (beginDrag) draggingBand = idx;
   if (!beginDrag) {
@@ -2016,14 +2026,9 @@ function onGraphDown(e) {
     draggingBand = nearest;
     hoveredBand = nearest;
     state.selectedBand = nearest;
-    const b = state.bands[nearest];
-    // Snap immediately on pickup so drag never feels like it has to catch up.
-    b.frequency = clamp(xToHz(x, rect.width), FREQ_MIN, FREQ_MAX);
-    b.gainDb = clamp(yToGain(y, rect.height), -30, 30);
-    b.enabled = 1;
-    calloutVisible = false;
-    calloutBandIndex = -1;
-    cancelCalloutHide();
+    calloutVisible = true;
+    calloutTargetX = x;
+    calloutTargetY = y;
     interactionEnergy = Math.min(1, interactionEnergy + 0.18);
     // Skip full syncControlsFromState during drag — too expensive to fire per frame.
     // Only update the band selector readout so the UI label stays correct.
@@ -2037,11 +2042,9 @@ function onGraphDown(e) {
 }
 
 function onGraphMove(e) {
-  const coalesced = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
-  const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
   const rect = cachedCanvasRect || (cachedCanvasRect = canvas.getBoundingClientRect());
-  const x = latest.clientX - rect.left;
-  const y = latest.clientY - rect.top;
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
   hoverGraphX = x;
   hoverGraphY = y;
 
@@ -2077,61 +2080,57 @@ function onGraphMove(e) {
   if (draggingBand >= 0) {
     pendingGraphDragX = x;
     pendingGraphDragY = y;
-    pendingGraphDragFine = (latest.shiftKey || latest.metaKey) ? 0.24 : 1;
+    pendingGraphDragFine = (e.shiftKey || e.metaKey) ? 0.24 : 1;
     dragPreviewActive = true;
-    calloutVisible = false;
-    calloutBandIndex = -1;
-    if (graphDragRafPending) return;
-    graphDragRafPending = true;
-    requestAnimationFrame(() => {
-      graphDragRafPending = false;
-      if (draggingBand < 0) return;
-      const b = state.bands[draggingBand];
-      if (!b) return;
-      const targetFreq = clamp(xToHz(pendingGraphDragX, rect.width), FREQ_MIN, FREQ_MAX);
-      const targetGain = clamp(yToGain(pendingGraphDragY, rect.height), -30, 30);
-      // Keep slight damping only for fine-control drag, but apply once per frame.
-      const dragResponse = pendingGraphDragFine < 1 ? 0.42 : 1.0;
-      const newFreq = clamp(b.frequency + (targetFreq - b.frequency) * dragResponse, FREQ_MIN, FREQ_MAX);
-      const newGain = clamp(b.gainDb + (targetGain - b.gainDb) * dragResponse, -30, 30);
-      dragPreviewFreq = newFreq;
-      dragPreviewGain = newGain;
+    if (!graphDragRafPending) {
+      graphDragRafPending = true;
+      requestAnimationFrame(() => {
+        graphDragRafPending = false;
+        if (draggingBand < 0) return;
+        const b = state.bands[draggingBand];
+        dragPreviewActive = true;
+        const targetFreq = clamp(xToHz(pendingGraphDragX, rect.width), FREQ_MIN, FREQ_MAX);
+        const targetGain = clamp(yToGain(pendingGraphDragY, rect.height), -30, 30);
+        // Make normal drag feel immediate; keep slight damping only for fine-control drag.
+        const dragResponse = pendingGraphDragFine < 1 ? 0.42 : 1.0;
+        const newFreq = clamp(b.frequency + (targetFreq - b.frequency) * dragResponse, FREQ_MIN, FREQ_MAX);
+        const newGain = clamp(b.gainDb + (targetGain - b.gainDb) * dragResponse, -30, 30);
+        dragPreviewFreq = newFreq;
+        dragPreviewGain = newGain;
 
-      b.frequency = newFreq;
-      b.gainDb = newGain;
-      b.enabled = 1;
-      interactionEnergy = Math.min(1, interactionEnergy + 0.06);
+        b.frequency = newFreq;
+        b.gainDb = newGain;
+        b.enabled = 1;
+        calloutVisible = true;
+        calloutTargetX = pendingGraphDragX;
+        calloutTargetY = pendingGraphDragY;
+        interactionEnergy = Math.min(1, interactionEnergy + 0.06);
 
-      // Keep drag path lightweight: update readouts at a reduced cadence.
-      graphDragReadoutTick++;
-      if ((graphDragReadoutTick % 2) === 0) {
-        const freqRead = document.getElementById("freqRead");
-        const gainRead = document.getElementById("gainRead");
-        if (freqRead) freqRead.textContent = fmtHz(newFreq);
-        if (gainRead) gainRead.textContent = fmtDb(newGain);
-      }
-    });
-    return;
+        // Keep drag path lightweight: update readouts at a reduced cadence.
+        graphDragReadoutTick++;
+        if ((graphDragReadoutTick % 2) === 0) {
+          const freqRead = document.getElementById("freqRead");
+          const gainRead = document.getElementById("gainRead");
+          if (freqRead) freqRead.textContent = fmtHz(newFreq);
+          if (gainRead) gainRead.textContent = fmtDb(newGain);
+        }
+      });
+    }
   }
 
   const activeIdx = draggingBand >= 0 ? draggingBand : (hoveredBand >= 0 ? hoveredBand : state.selectedBand);
   const b = state.bands[activeIdx] || selectedBand();
-  if (draggingBand >= 0) {
-    calloutVisible = false;
-    calloutBandIndex = -1;
-  } else {
-    calloutBandIndex = activeIdx;
-    const anchorX = calloutBandIndex >= 0 ? hzToX(b.frequency, rect.width) : x;
-    const anchorY = calloutBandIndex >= 0 ? gainToY(b.gainDb, rect.height) : y;
-    calloutTargetX = anchorX;
-    calloutTargetY = anchorY;
-  }
-  if (draggingBand < 0) {
-    const coFreq = document.getElementById("coFreq");
-    const coGain = document.getElementById("coGain");
-    if (coFreq) coFreq.textContent = fmtHz(b.frequency);
-    if (coGain) coGain.textContent = fmtDb(b.gainDb);
-  }
+  calloutBandIndex = activeIdx;
+  const anchorX = draggingBand >= 0 ? x : (calloutBandIndex >= 0 ? hzToX(b.frequency, rect.width) : x);
+  const anchorY = draggingBand >= 0 ? y : (calloutBandIndex >= 0 ? gainToY(b.gainDb, rect.height) : y);
+  calloutTargetX = anchorX;
+  calloutTargetY = anchorY;
+  if (calloutVisible) callout.classList.add("visible");
+  else callout.classList.remove("visible");
+  const coFreq = document.getElementById("coFreq");
+  const coGain = document.getElementById("coGain");
+  if (coFreq) coFreq.textContent = fmtHz(b.frequency);
+  if (coGain) coGain.textContent = fmtDb(b.gainDb);
 
   // Avoid expensive, unchanged DOM churn while dragging.
   if (draggingBand < 0) {
@@ -2280,7 +2279,6 @@ function drawGraph() {
   const reactiveDyn = dynActivity * (0.18 + 0.82 * signalMotionAmt);
   const reactivePeak = outputPeak * (0.2 + 0.8 * signalMotionAmt);
   const fastInteraction = draggingBand >= 0 || knobDragging;
-  const presetOverlayActive = presetBrowserOpen || savePresetOpen;
 
   ensureDisplayBands();
   for (let i = 0; i < state.bands.length; i++) {
@@ -2297,67 +2295,22 @@ function drawGraph() {
     dst.channel = src.channel;
   }
 
-  if (!fastInteraction && !presetOverlayActive) {
-    drawFallbackSpectrum(now);
-  }
+  drawFallbackSpectrum(now);
 
-  const viewW = canvas.clientWidth || graphWrap.clientWidth || 1;
-  const viewH = canvas.clientHeight || graphWrap.clientHeight || 1;
-  const dpr = (fastInteraction || presetOverlayActive) ? 1 : (window.devicePixelRatio || 1);
-  const targetW = Math.floor(viewW * dpr);
-  const targetH = Math.floor(viewH * dpr);
+  const rect = graphWrap.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const targetW = Math.floor(rect.width * dpr);
+  const targetH = Math.floor(rect.height * dpr);
 
   if (canvas.width !== targetW || canvas.height !== targetH) {
     canvas.width = targetW;
     canvas.height = targetH;
   }
 
-  const w = viewW;
-  const h = viewH;
-
-  // Ultra-flat diagnostic: if interaction detected and flag is enabled, render minimal graph
-  if (ULTRA_FLAT_MODE && fastInteraction) {
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, w, h);
-    ctx.shadowBlur = 0;
-    ctx.shadowColor = "transparent";
-
-    // Draw ONLY the EQ curve in flat white, no gradients/shadows/halos
-    const active = displayBands
-      .map((b, i) => ({ b, i }))
-      .filter((entry) => entry.b.enabled > 0.5)
-      .sort((a, b) => a.b.frequency - b.b.frequency);
-    const activeBands = active.map((entry) => entry.b);
-
-    if (active.length > 0) {
-      ctx.beginPath();
-      ctx.lineWidth = 2.2;
-      drawEqResponsePath(ctx, activeBands, w, h);
-      ctx.strokeStyle = "#ffffff";
-      ctx.stroke();
-    }
-
-    // Draw flat node circles with no bloom/glow/shadow
-    for (const band of activeBands) {
-      if (band.enabled > 0.5) {
-        const x = logFreqToX(band.frequency, w);
-        const y = gainToY(band.gainDb, h);
-        ctx.beginPath();
-        ctx.arc(x, y, 5.2, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffffff";
-        ctx.fill();
-      }
-    }
-
-    rafHandle = requestAnimationFrame(drawGraph);
-    return;
-  }
+  const w = rect.width;
+  const h = rect.height;
 
   if (calloutVisible) {
-    if (draggingBand >= 0) {
-      // Avoid expensive callout layout/measurement while dragging nodes.
-      callout.classList.remove("visible");
-    } else {
     const targetX = clamp(calloutTargetX, 0, w);
     const targetY = clamp(calloutTargetY, 0, h);
     calloutX = smoothTo(calloutX, targetX, 26, dt);
@@ -2366,33 +2319,15 @@ function drawGraph() {
     const cw = Math.max(180, callout.offsetWidth || 0);
     const ch = Math.max(110, callout.offsetHeight || 0);
     const edgePad = 8;
-    const sideGap = 18;
-    const minLeft = edgePad;
-    const maxLeft = Math.max(edgePad, w - cw - edgePad);
-    let left;
-    if (calloutX < cw * 0.5 + sideGap + edgePad) {
-      left = clamp(calloutX + sideGap + 40, minLeft, maxLeft);
-    } else if (calloutX > w - (cw * 0.5 + sideGap + edgePad)) {
-      left = clamp(calloutX - cw - sideGap - 40, minLeft, maxLeft);
-    } else {
-      left = clamp(calloutX - cw * 0.5, minLeft, maxLeft);
-    }
+    const left = clamp(calloutX - cw * 0.5, edgePad, Math.max(edgePad, w - cw - edgePad));
     const preferAboveTop = calloutY - ch - 14;
     const top = preferAboveTop < edgePad ? clamp(calloutY + 14, edgePad, Math.max(edgePad, h - ch - edgePad)) : clamp(preferAboveTop, edgePad, Math.max(edgePad, h - ch - edgePad));
 
     callout.style.left = `${left}px`;
     callout.style.top = `${top}px`;
     callout.classList.add("visible");
-    }
   } else {
     callout.classList.remove("visible");
-  }
-
-  if (presetOverlayActive && !fastInteraction) {
-    // Preset overlay is covering the graph; skip expensive redraw work in DAW.
-    callout.classList.remove("visible");
-    rafHandle = requestAnimationFrame(drawGraph);
-    return;
   }
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2471,10 +2406,15 @@ function drawGraph() {
       ctx.shadowBlur = 0;
       ctx.shadowColor = "transparent";
       ctx.beginPath();
-      ctx.lineWidth = 2.15;
-      // Keep EQ line visible while interacting, but with fewer points for speed.
+      ctx.lineWidth = 3.25;
       drawEqResponsePath(ctx, activeBands, w, h, 120);
-      ctx.strokeStyle = "#cfdcff";
+      const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
+      lineGrad.addColorStop(0, "#ffffff");
+      lineGrad.addColorStop(0.15, "#faf6ff");
+      lineGrad.addColorStop(0.35, "#e86dff");
+      lineGrad.addColorStop(0.62, "#a888ff");
+      lineGrad.addColorStop(1, "#88c8ff");
+      ctx.strokeStyle = lineGrad;
       ctx.stroke();
     }
 
