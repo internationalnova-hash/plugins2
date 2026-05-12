@@ -112,12 +112,7 @@ let hoverGraphX = 0;
 let hoverGraphY = 0;
 let cachedCanvasRect = null;
 let knobDragging = false;
-let graphDragRafPending = false;
-let pendingGraphDragX = 0;
-let pendingGraphDragY = 0;
-let pendingGraphDragFine = 1;
 let graphDragUndoPending = false;
-let graphDragReadoutTick = 0;
 let interactionActiveState = false;
 let interactionDeactivateTimer = 0;
 let activeKnobDrag = null;
@@ -2086,47 +2081,28 @@ function onGraphMove(e) {
   }
 
   if (draggingBand >= 0) {
-    pendingGraphDragX = x;
-    pendingGraphDragY = y;
-    pendingGraphDragFine = (e.shiftKey || e.metaKey) ? 0.24 : 1;
+    const dragFine = (e.shiftKey || e.metaKey) ? 0.24 : 1;
     dragPreviewActive = true;
     calloutVisible = false;
     calloutBandIndex = -1;
-    if (!graphDragRafPending) {
-      graphDragRafPending = true;
-      requestAnimationFrame(() => {
-        graphDragRafPending = false;
-        if (draggingBand < 0) return;
-        if (graphDragUndoPending) {
-          snapshotForUndo();
-          graphDragUndoPending = false;
-        }
-        const b = state.bands[draggingBand];
-        dragPreviewActive = true;
-        const targetFreq = clamp(xToHz(pendingGraphDragX, rect.width), FREQ_MIN, FREQ_MAX);
-        const targetGain = clamp(yToGain(pendingGraphDragY, rect.height), -30, 30);
-        // Make normal drag feel immediate; keep slight damping only for fine-control drag.
-        const dragResponse = pendingGraphDragFine < 1 ? 0.42 : 1.0;
-        const newFreq = clamp(b.frequency + (targetFreq - b.frequency) * dragResponse, FREQ_MIN, FREQ_MAX);
-        const newGain = clamp(b.gainDb + (targetGain - b.gainDb) * dragResponse, -30, 30);
-        dragPreviewFreq = newFreq;
-        dragPreviewGain = newGain;
-
-        b.frequency = newFreq;
-        b.gainDb = newGain;
-        b.enabled = 1;
-        interactionEnergy = Math.min(1, interactionEnergy + 0.06);
-
-        // Keep drag path lightweight: update readouts at a reduced cadence.
-        graphDragReadoutTick++;
-        if ((graphDragReadoutTick % 2) === 0) {
-          const freqRead = document.getElementById("freqRead");
-          const gainRead = document.getElementById("gainRead");
-          if (freqRead) freqRead.textContent = fmtHz(newFreq);
-          if (gainRead) gainRead.textContent = fmtDb(newGain);
-        }
-      });
+    if (graphDragUndoPending) {
+      snapshotForUndo();
+      graphDragUndoPending = false;
     }
+
+    const b = state.bands[draggingBand];
+    const targetFreq = clamp(xToHz(x, rect.width), FREQ_MIN, FREQ_MAX);
+    const targetGain = clamp(yToGain(y, rect.height), -30, 30);
+    // Keep tiny damping only for fine-control drag; normal drag follows immediately.
+    const dragResponse = dragFine < 1 ? 0.42 : 1.0;
+    const newFreq = clamp(b.frequency + (targetFreq - b.frequency) * dragResponse, FREQ_MIN, FREQ_MAX);
+    const newGain = clamp(b.gainDb + (targetGain - b.gainDb) * dragResponse, -30, 30);
+    dragPreviewFreq = newFreq;
+    dragPreviewGain = newGain;
+    b.frequency = newFreq;
+    b.gainDb = newGain;
+    b.enabled = 1;
+    interactionEnergy = Math.min(1, interactionEnergy + 0.06);
     return;
   }
 
@@ -2205,15 +2181,15 @@ function onGraphContextMenu(e) {
 function onGraphUp() {
   const releasedBand = draggingBand;
   draggingBand = -1;
-  graphDragRafPending = false;
-  graphDragReadoutTick = 0;
   graphDragUndoPending = false;
   setInteractionActive(false);
 
   // Commit once after drag ends to avoid per-frame sync lag.
   if (releasedBand >= 0) {
     state.selectedBand = releasedBand;
-    syncControlsFromState(false);
+    if (bandDisplay) bandDisplay.textContent = `${releasedBand + 1}`;
+    if (bandIndexSelect) bandIndexSelect.value = String(releasedBand);
+    updateSelectedBandReadouts("all");
     const rect = cachedCanvasRect || canvas.getBoundingClientRect();
     const released = state.bands[releasedBand];
     if (released) {
@@ -2222,6 +2198,9 @@ function onGraphUp() {
       calloutTargetY = gainToY(released.gainDb, rect.height);
       calloutVisible = true;
     }
+    requestAnimationFrame(() => {
+      syncControlsFromState(false);
+    });
     queuePushState();
   }
 
@@ -2351,15 +2330,15 @@ function drawGraph() {
   if (!fastInteraction) {
     // Deep-space atmospheric layering behind all graph content.
     const rearFog = ctx.createRadialGradient(w * 0.5, h * 1.18, 0, w * 0.5, h * 1.18, h * 1.25);
-    rearFog.addColorStop(0, "rgba(0, 0, 0, 0.43)");
-    rearFog.addColorStop(0.56, "rgba(10, 18, 40, 0.26)");
+    rearFog.addColorStop(0, "rgba(0, 0, 0, 0.24)");
+    rearFog.addColorStop(0.56, "rgba(10, 18, 40, 0.14)");
     rearFog.addColorStop(1, "rgba(0, 0, 0, 0)");
     ctx.fillStyle = rearFog;
     ctx.fillRect(0, 0, w, h);
 
     const centerLift = ctx.createRadialGradient(w * 0.5, h * 0.52, 0, w * 0.5, h * 0.52, h * 0.75);
-    centerLift.addColorStop(0, "rgba(188, 208, 255, 0.115)");
-    centerLift.addColorStop(0.42, "rgba(154, 172, 244, 0.066)");
+    centerLift.addColorStop(0, "rgba(188, 208, 255, 0.06)");
+    centerLift.addColorStop(0.42, "rgba(154, 172, 244, 0.032)");
     centerLift.addColorStop(1, "rgba(0, 0, 0, 0)");
     ctx.fillStyle = centerLift;
     ctx.fillRect(0, 0, w, h);
@@ -2420,7 +2399,7 @@ function drawGraph() {
       ctx.shadowColor = "transparent";
       ctx.beginPath();
       ctx.lineWidth = 3.25;
-      drawEqResponsePath(ctx, activeBands, w, h, 120);
+      drawEqResponsePath(ctx, activeBands, w, h, 84);
       const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
       lineGrad.addColorStop(0, "#ffffff");
       lineGrad.addColorStop(0.15, "#faf6ff");
@@ -2481,8 +2460,8 @@ function drawGraph() {
   ctx.closePath();
 
   const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
-  fillGrad.addColorStop(0, "rgba(184, 202, 255, 0.066)");
-  fillGrad.addColorStop(0.45, "rgba(122, 126, 222, 0.03)");
+  fillGrad.addColorStop(0, "rgba(184, 202, 255, 0.036)");
+  fillGrad.addColorStop(0.45, "rgba(122, 126, 222, 0.016)");
   fillGrad.addColorStop(1, "rgba(50, 70, 132, 0.014)");
   ctx.fillStyle = fillGrad;
   ctx.fill();
@@ -2500,7 +2479,7 @@ function drawGraph() {
     ctx.lineTo(w, h);
     ctx.closePath();
     const hazeC = ctx.createLinearGradient(0, 0, 0, h);
-    hazeC.addColorStop(0, "rgba(108, 126, 220, 0.033)");
+    hazeC.addColorStop(0, "rgba(108, 126, 220, 0.017)");
     hazeC.addColorStop(1, "rgba(108, 126, 220, 0)");
     ctx.fillStyle = hazeC;
     ctx.fill();
@@ -2517,7 +2496,7 @@ function drawGraph() {
     ctx.lineTo(w, h);
     ctx.closePath();
     const hazeB = ctx.createLinearGradient(0, 0, 0, h);
-    hazeB.addColorStop(0, "rgba(150, 140, 242, 0.026)");
+    hazeB.addColorStop(0, "rgba(150, 140, 242, 0.013)");
     hazeB.addColorStop(1, "rgba(150, 140, 242, 0)");
     ctx.fillStyle = hazeB;
     ctx.fill();
@@ -2531,10 +2510,10 @@ function drawGraph() {
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = "rgba(108, 126, 220, 0.011)";
+    ctx.strokeStyle = "rgba(108, 126, 220, 0.006)";
     ctx.lineWidth = 5.4;
     ctx.shadowColor = "rgba(98, 112, 208, 0.045)";
-    ctx.shadowBlur = 30;
+    ctx.shadowBlur = 18;
     ctx.stroke();
     ctx.restore();
 
@@ -2546,10 +2525,10 @@ function drawGraph() {
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = "rgba(132, 156, 242, 0.026)";
+    ctx.strokeStyle = "rgba(132, 156, 242, 0.014)";
     ctx.lineWidth = 3.9;
     ctx.shadowColor = "rgba(124, 146, 233, 0.058)";
-    ctx.shadowBlur = 25;
+    ctx.shadowBlur = 14;
     ctx.stroke();
     ctx.restore();
   }
@@ -2563,10 +2542,10 @@ function drawGraph() {
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = "rgba(170, 168, 255, 0.033)";
+    ctx.strokeStyle = "rgba(170, 168, 255, 0.018)";
     ctx.lineWidth = 0.9;
     ctx.shadowColor = "rgba(156, 130, 255, 0.045)";
-    ctx.shadowBlur = 18;
+    ctx.shadowBlur = 11;
     ctx.stroke();
     ctx.restore();
 
@@ -2629,8 +2608,8 @@ function drawGraph() {
       lineGrad.addColorStop(0.65, "#9f72ff");
       lineGrad.addColorStop(1, "#88c8ff");
       ctx.strokeStyle = lineGrad;
-      const reactiveBloom = 8 + reactiveDyn * 6;
-      ctx.shadowColor = `rgba(255, 186, 255, ${0.72 + reactiveDyn * 0.28})`;
+      const reactiveBloom = 6 + reactiveDyn * 4;
+      ctx.shadowColor = `rgba(255, 186, 255, ${0.84 + reactiveDyn * 0.24})`;
       ctx.shadowBlur = reactiveBloom;
       ctx.stroke();
       ctx.shadowBlur = 0;
@@ -2662,8 +2641,8 @@ function drawGraph() {
     lineGrad.addColorStop(0.62, "#a56fff");
     lineGrad.addColorStop(1, "#88c8ff");
     ctx.strokeStyle = lineGrad;
-    const reactiveBloom2 = 15 + reactiveDyn * 10;
-    ctx.shadowColor = `rgba(255, 138, 255, ${0.92 + reactiveDyn * 0.2})`;
+    const reactiveBloom2 = 11 + reactiveDyn * 7;
+    ctx.shadowColor = `rgba(255, 138, 255, ${1 + reactiveDyn * 0.16})`;
     ctx.shadowBlur = reactiveBloom2;
     ctx.stroke();
     ctx.beginPath();
@@ -2671,7 +2650,7 @@ function drawGraph() {
     drawEqResponsePath(ctx, activeBands, w, h);
     ctx.strokeStyle = "rgba(214, 160, 255, 0.2)";
     ctx.shadowColor = "rgba(190, 146, 255, 0.28)";
-    ctx.shadowBlur = 24 + reactiveDyn * 8;
+    ctx.shadowBlur = 18 + reactiveDyn * 6;
     ctx.stroke();
     ctx.shadowBlur = 0;
     }
@@ -2844,11 +2823,11 @@ function drawGraph() {
   orb.style.setProperty("--orb-core-y", `${orbCoreY.toFixed(3)}px`);
   orb.style.setProperty("--orb-parallax-x", `${orbParallaxX.toFixed(3)}px`);
   orb.style.setProperty("--orb-parallax-y", `${orbParallaxY.toFixed(3)}px`);
-  orb.style.boxShadow = `inset 0 -10px ${52 + reactiveDyn * 40}px rgba(0,0,0,0.62), inset 0 0 ${52 + reactiveDyn * 64}px rgba(194,118,255,0.76), inset 0 0 ${124 + reactiveDyn * 52}px rgba(72,96,228,0.54), inset 0 0 ${178 + reactiveDyn * 42}px rgba(2,8,28,0.92), 0 0 ${10 + reactivePeak * 22}px rgba(128,124,255,0.22), 0 0 ${28 + reactivePeak * 34}px rgba(92,98,250,0.15)`;
+  orb.style.boxShadow = `inset 0 -10px ${46 + reactiveDyn * 32}px rgba(0,0,0,0.66), inset 0 0 ${44 + reactiveDyn * 42}px rgba(198,118,255,0.82), inset 0 0 ${98 + reactiveDyn * 38}px rgba(72,96,228,0.58), inset 0 0 ${156 + reactiveDyn * 30}px rgba(2,8,28,0.94), 0 0 ${8 + reactivePeak * 14}px rgba(128,124,255,0.28), 0 0 ${20 + reactivePeak * 22}px rgba(92,98,250,0.2)`;
 
   if (pluginRoot) {
-    const envGraphGlow = clamp(0.05 + reactivePeak * 0.2 + reactiveDyn * 0.15, 0, 0.28);
-    const envOrbGlow = clamp(0.04 + orbEnergy * 0.16, 0, 0.25);
+    const envGraphGlow = clamp(0.028 + reactivePeak * 0.11 + reactiveDyn * 0.08, 0, 0.17);
+    const envOrbGlow = clamp(0.02 + orbEnergy * 0.1, 0, 0.16);
     const ambientBreathe = 0.5 + Math.sin(now * 0.00085) * 0.5;
     const ambientDrift = Math.sin(now * 0.00037) * 1.6;
     pluginRoot.style.setProperty("--env-graph-glow", `${envGraphGlow.toFixed(3)}`);
