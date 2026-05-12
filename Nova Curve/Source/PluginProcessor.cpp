@@ -600,8 +600,10 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         {
             const auto band = soloBands[static_cast<size_t> (i)];
             const auto freq = clampValue (bands[static_cast<size_t> (band)].frequency.load(), 20.0f, 20000.0f);
-            const auto q = clampValue (bands[static_cast<size_t> (band)].q.load(), 0.10f, 10.0f);
-            const auto coeff = juce::dsp::IIR::Coefficients<float>::makeBandPass (currentSampleRate, freq, q);
+            // Solo should isolate band content clearly; enforce tighter audition Q than program Q.
+            const auto programQ = clampValue (bands[static_cast<size_t> (band)].q.load(), 0.10f, 10.0f);
+            const auto auditionQ = juce::jlimit (3.0f, 12.0f, juce::jmax (programQ, 5.0f));
+            const auto coeff = juce::dsp::IIR::Coefficients<float>::makeBandPass (currentSampleRate, freq, auditionQ);
 
             for (int channel = 0; channel < juce::jmin (2, buffer.getNumChannels()); ++channel)
                 auditionFilters[static_cast<size_t> (channel)][static_cast<size_t> (band)].coefficients = coeff;

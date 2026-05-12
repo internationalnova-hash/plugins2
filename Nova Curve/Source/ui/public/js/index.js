@@ -1222,6 +1222,13 @@ function buildKnob(el, options) {
     return options.min + norm * (options.max - options.min);
   };
 
+  // Normalize configured sensitivity into [norm-units per pixel] for consistent drag feel.
+  const valueRange = Math.max(1.0e-6, options.max - options.min);
+  const configuredSensitivity = typeof options.sensitivity === "number"
+    ? options.sensitivity
+    : (valueRange * 0.0031);
+  const dragNormPerPixel = (configuredSensitivity / valueRange) * 1.85;
+
   const setDragVisual = (value) => {
     const norm = clamp(options.toNorm ? options.toNorm(value) : (value - options.min) / (options.max - options.min), 0, 1);
     const deg = -135 + norm * 270;
@@ -1246,8 +1253,8 @@ function buildKnob(el, options) {
     const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
     const delta = activeKnobDrag.lastY - latest.clientY;
     activeKnobDrag.lastY = latest.clientY;
-    const fine = (latest.shiftKey || latest.metaKey) ? 0.2 : 1;
-    activeKnobDrag.norm = clamp(activeKnobDrag.norm + delta * 0.0031 * fine, 0, 1);
+    const fine = (latest.shiftKey || latest.metaKey) ? 0.22 : 1;
+    activeKnobDrag.norm = clamp(activeKnobDrag.norm + delta * dragNormPerPixel * fine, 0, 1);
 
     const newValue = activeKnobDrag.normToValue(activeKnobDrag.norm);
     activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
