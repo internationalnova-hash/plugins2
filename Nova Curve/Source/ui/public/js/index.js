@@ -37,6 +37,10 @@ const PRESETS = [
   { name: "Podcast / Voice", ops: [{ i: 0, t: 3, f: 75 }, { i: 2, g: -3.4, f: 250 }, { i: 3, g: 2.6, f: 2600 }, { i: 5, g: 2.8, f: 11000, t: 2 }] }
 ];
 
+// Ultra-flat diagnostic mode: set to true to strip all visual effects during interaction
+// This helps isolate whether lag is visual (fixable) or systemic (architectural).
+const ULTRA_FLAT_MODE = true;
+
 const defaultBand = (i) => ({
   enabled: i < 6 ? 1 : 0,
   type: i === 0 ? 3 : i === 5 ? 2 : 0,
@@ -2290,6 +2294,44 @@ function drawGraph() {
   const w = viewW;
   const h = viewH;
 
+  // Ultra-flat diagnostic: if interaction detected and flag is enabled, render minimal graph
+  if (ULTRA_FLAT_MODE && fastInteraction) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
+
+    // Draw ONLY the EQ curve in flat white, no gradients/shadows/halos
+    const active = displayBands
+      .map((b, i) => ({ b, i }))
+      .filter((entry) => entry.b.enabled > 0.5)
+      .sort((a, b) => a.b.frequency - b.b.frequency);
+    const activeBands = active.map((entry) => entry.b);
+
+    if (active.length > 0) {
+      ctx.beginPath();
+      ctx.lineWidth = 2.2;
+      drawEqResponsePath(ctx, activeBands, w, h);
+      ctx.strokeStyle = "#ffffff";
+      ctx.stroke();
+    }
+
+    // Draw flat node circles with no bloom/glow/shadow
+    for (const band of activeBands) {
+      if (band.enabled > 0.5) {
+        const x = logFreqToX(band.frequency, w);
+        const y = gainToY(band.gainDb, h);
+        ctx.beginPath();
+        ctx.arc(x, y, 5.2, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+      }
+    }
+
+    rafHandle = requestAnimationFrame(drawGraph);
+    return;
+  }
+
   if (calloutVisible) {
     if (draggingBand >= 0) {
       // Avoid expensive callout layout/measurement while dragging nodes.
@@ -2404,13 +2446,46 @@ function drawGraph() {
       .sort((a, b) => a.b.frequency - b.b.frequency);
     const activeBands = active.map((entry) => entry.b);
 
+    // ULTRA-FLAT MODE: Strip all visual complexity during drag/knob interaction
+    if (ultraFastInteraction) {
+      // Single-color EQ line, no gradients
+      if (active.length > 0) {
+        ctx.beginPath();
+        ctx.lineWidth = 1.8;
+        drawEqResponsePath(ctx, activeBands, w, h, 40); // Minimal points
+        ctx.strokeStyle = "#8899ff";
+        ctx.stroke();
+      }
+
+      // Flat node rendering: solid circles, no halos/glows/gradients
+      displayBands.forEach((b, i) => {
+        if (b.enabled < 0.5) return;
+        const x = hzToX(b.frequency, w);
+        const y = gainToY(b.gainDb, h);
+        const activeDrag = i === draggingBand;
+
+        // Just a simple circle fill + stroke, no radial gradients
+        ctx.beginPath();
+        ctx.arc(x, y, 10, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(15, 25, 60, 0.98)";
+        ctx.fill();
+        ctx.strokeStyle = activeDrag ? "#ff9933" : "#7788ff";
+        ctx.lineWidth = activeDrag ? 2.2 : 1.6;
+        ctx.stroke();
+      });
+
+      rafHandle = requestAnimationFrame(drawGraph);
+      return;
+    }
+
+    // Normal fast interaction (not ultra-flat):
     if (active.length > 0) {
       ctx.shadowBlur = 0;
       ctx.shadowColor = "transparent";
       ctx.beginPath();
       ctx.lineWidth = 2.15;
       // Keep EQ line visible while interacting, but with fewer points for speed.
-      drawEqResponsePath(ctx, activeBands, w, h, ultraFastInteraction ? 56 : 120);
+      drawEqResponsePath(ctx, activeBands, w, h, 120);
       ctx.strokeStyle = "#cfdcff";
       ctx.stroke();
     }
@@ -2432,13 +2507,11 @@ function drawGraph() {
       ctx.lineWidth = activeDrag ? 2.5 : selected ? 2.2 : 1.9;
       ctx.stroke();
 
-      if (!ultraFastInteraction) {
-        ctx.fillStyle = "#edf3ff";
-        ctx.font = "600 13px Avenir Next";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(String(i + 1), x, y + 0.5);
-      }
+      ctx.fillStyle = "#edf3ff";
+      ctx.font = "600 13px Avenir Next";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(i + 1), x, y + 0.5);
     });
 
     rafHandle = requestAnimationFrame(drawGraph);
