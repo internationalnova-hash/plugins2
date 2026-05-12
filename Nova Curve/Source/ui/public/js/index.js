@@ -2402,10 +2402,10 @@ function drawGraph() {
       .sort((a, b) => a.b.frequency - b.b.frequency);
     const activeBands = active.map((entry) => entry.b);
 
-    // Normal fast interaction (not ultra-flat):
+    // Fast mode keeps a crisp line with no glow.
     if (active.length > 0) {
-      ctx.shadowBlur = 0;
       ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.lineWidth = 3.25;
       drawEqResponsePath(ctx, activeBands, w, h, 84);
@@ -2617,11 +2617,9 @@ function drawGraph() {
       lineGrad.addColorStop(0.65, "#9f72ff");
       lineGrad.addColorStop(1, "#88c8ff");
       ctx.strokeStyle = lineGrad;
-      const reactiveBloom = 4 + reactiveDyn * 3;
-      ctx.shadowColor = `rgba(255, 186, 255, ${0.84 + reactiveDyn * 0.24})`;
-      ctx.shadowBlur = reactiveBloom;
-      ctx.stroke();
+      ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
+      ctx.stroke();
     } else {
     const bandThree = displayBands[2];
     if (bandThree && bandThree.enabled > 0.5) {
@@ -2650,18 +2648,9 @@ function drawGraph() {
     lineGrad.addColorStop(0.62, "#a56fff");
     lineGrad.addColorStop(1, "#88c8ff");
     ctx.strokeStyle = lineGrad;
-    const reactiveBloom2 = 8 + reactiveDyn * 5;
-    ctx.shadowColor = `rgba(255, 138, 255, ${1 + reactiveDyn * 0.16})`;
-    ctx.shadowBlur = reactiveBloom2;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.lineWidth = 5.6;
-    drawEqResponsePath(ctx, activeBands, w, h);
-    ctx.strokeStyle = "rgba(214, 160, 255, 0.2)";
-    ctx.shadowColor = "rgba(190, 146, 255, 0.28)";
-    ctx.shadowBlur = 13 + reactiveDyn * 4;
-    ctx.stroke();
+    ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
+    ctx.stroke();
     }
   }
 
