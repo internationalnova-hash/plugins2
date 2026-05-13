@@ -518,11 +518,18 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 continue;
 
             const auto type = static_cast<int> (std::round (bands[static_cast<size_t> (band)].type.load()));
+            const auto mode = static_cast<int> (std::round (bands[static_cast<size_t> (band)].mode.load()));
             auto freq = clampValue (bands[static_cast<size_t> (band)].frequency.load(), 20.0f, 20000.0f);
             auto q = clampValue (bands[static_cast<size_t> (band)].q.load(), 0.10f, 10.0f);
             auto targetGain = clampValue (bands[static_cast<size_t> (band)].gainDb.load() + bandDynamicGainDb[static_cast<size_t> (band)], -30.0f, 30.0f);
-            smoothedAppliedGainDb[static_cast<size_t> (band)] = smoothedAppliedGainDb[static_cast<size_t> (band)] * 0.84f
-                + targetGain * 0.16f;
+
+            // In static mode with no dynamic movement, apply gain directly so manual EQ edits are immediate.
+            const auto hasDynamicMovement = std::abs (bandDynamicGainDb[static_cast<size_t> (band)]) > 0.001f;
+            if (mode == 0 && ! hasDynamicMovement)
+                smoothedAppliedGainDb[static_cast<size_t> (band)] = targetGain;
+            else
+                smoothedAppliedGainDb[static_cast<size_t> (band)] = smoothedAppliedGainDb[static_cast<size_t> (band)] * 0.40f
+                    + targetGain * 0.60f;
             auto gain = clampValue (smoothedAppliedGainDb[static_cast<size_t> (band)], -30.0f, 30.0f);
             const auto slope = bands[static_cast<size_t> (band)].slope.load();
             const auto channelMode = static_cast<int> (std::round (bands[static_cast<size_t> (band)].channel.load()));
@@ -601,7 +608,7 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // True solo audition path: isolate selected regions with type-aware filters.
     if (soloCount > 0)
     {
-        const auto auditionPost = analyzerMode.load() > 0.5f && ! bypass;
+        const auto auditionPost = ! bypass;
         if (auditionPost)
             soloSourceBuffer.makeCopyOf (buffer, true);
         else
