@@ -119,6 +119,7 @@ private:
     std::array<std::array<juce::dsp::IIR::Filter<float>, maxBands>, 2> eqFilters;
     std::array<std::array<juce::dsp::IIR::Filter<float>, maxBands>, 2> detectorFilters;
     std::array<std::array<juce::dsp::IIR::Filter<float>, maxBands>, 2> auditionFilters;
+    std::array<std::array<juce::dsp::IIR::Filter<float>, maxBands>, 2> auditionFiltersStage2;
     std::array<float, maxBands> detectorEnvelopes {};
     std::array<float, maxBands> bandDynamicGainDb {};
     std::array<float, maxBands> lastDynamicGainDb {};  // For smooth transient tracking
