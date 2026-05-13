@@ -118,6 +118,8 @@ private:
 
     std::array<std::array<juce::dsp::IIR::Filter<float>, maxBands>, 2> eqFilters;
     std::array<std::array<juce::dsp::IIR::Filter<float>, maxBands>, 2> eqFiltersStage2;
+    std::array<std::array<juce::dsp::IIR::Filter<float>, maxBands>, 2> eqFiltersStage3;
+    std::array<std::array<juce::dsp::IIR::Filter<float>, maxBands>, 2> eqFiltersStage4;
     std::array<std::array<juce::dsp::IIR::Filter<float>, maxBands>, 2> detectorFilters;
     std::array<std::array<juce::dsp::IIR::Filter<float>, maxBands>, 2> auditionFilters;
     std::array<std::array<juce::dsp::IIR::Filter<float>, maxBands>, 2> auditionFiltersStage2;

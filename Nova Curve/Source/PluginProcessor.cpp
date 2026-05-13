@@ -34,14 +34,15 @@ namespace
     float strengthenGainDb (float gainDb)
     {
         const auto absGain = std::abs (gainDb);
-        const auto emphasis = 1.0f + juce::jlimit (0.0f, 0.32f, absGain / 60.0f);
+        const auto normalized = juce::jlimit (0.0f, 1.0f, absGain / 30.0f);
+        const auto emphasis = 1.10f + 0.52f * std::pow (normalized, 1.1f);
         return juce::jlimit (-36.0f, 36.0f, gainDb * emphasis);
     }
 
     float sharpenQ (float q)
     {
         const auto safeQ = clampValue (q, 0.10f, 10.0f);
-        return juce::jlimit (0.12f, 18.0f, std::pow (safeQ, 1.18f));
+        return juce::jlimit (0.20f, 36.0f, 0.35f + 0.55f * std::pow (safeQ, 1.8f));
     }
 
     float shelfQFromUser (float q)
@@ -151,6 +152,14 @@ void NovaCurveAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
                 eqFiltersStage2[static_cast<size_t> (channel)][static_cast<size_t> (band)].reset();
                 eqFiltersStage2[static_cast<size_t> (channel)][static_cast<size_t> (band)].coefficients = juce::dsp::IIR::Coefficients<float>::makeAllPass (currentSampleRate, 1000.0f);
 
+                eqFiltersStage3[static_cast<size_t> (channel)][static_cast<size_t> (band)].prepare (spec);
+                eqFiltersStage3[static_cast<size_t> (channel)][static_cast<size_t> (band)].reset();
+                eqFiltersStage3[static_cast<size_t> (channel)][static_cast<size_t> (band)].coefficients = juce::dsp::IIR::Coefficients<float>::makeAllPass (currentSampleRate, 1000.0f);
+
+                eqFiltersStage4[static_cast<size_t> (channel)][static_cast<size_t> (band)].prepare (spec);
+                eqFiltersStage4[static_cast<size_t> (channel)][static_cast<size_t> (band)].reset();
+                eqFiltersStage4[static_cast<size_t> (channel)][static_cast<size_t> (band)].coefficients = juce::dsp::IIR::Coefficients<float>::makeAllPass (currentSampleRate, 1000.0f);
+
             detectorFilters[static_cast<size_t> (channel)][static_cast<size_t> (band)].prepare (spec);
             detectorFilters[static_cast<size_t> (channel)][static_cast<size_t> (band)].reset();
             detectorFilters[static_cast<size_t> (channel)][static_cast<size_t> (band)].coefficients = juce::dsp::IIR::Coefficients<float>::makeBandPass (currentSampleRate, getBandFrequencyForIndex (band), 1.0f);
@@ -230,16 +239,8 @@ juce::dsp::IIR::Coefficients<float>::Ptr NovaCurveAudioProcessor::createBandCoef
     {
         case 1: return juce::dsp::IIR::Coefficients<float>::makeLowShelf  (sampleRate, hz, shelfQ, gain);
         case 2: return juce::dsp::IIR::Coefficients<float>::makeHighShelf (sampleRate, hz, shelfQ, gain);
-        case 3:
-        {
-            const auto slopeFactor = juce::jlimit (0.55f, 2.8f, slopeDbPerOct / 18.0f);
-            return juce::dsp::IIR::Coefficients<float>::makeHighPass (sampleRate, hz, clampValue (bellQ * slopeFactor, 0.25f, 6.0f));
-        }
-        case 4:
-        {
-            const auto slopeFactor = juce::jlimit (0.55f, 2.8f, slopeDbPerOct / 18.0f);
-            return juce::dsp::IIR::Coefficients<float>::makeLowPass (sampleRate, hz, clampValue (bellQ * slopeFactor, 0.25f, 6.0f));
-        }
+        case 3: return juce::dsp::IIR::Coefficients<float>::makeHighPass (sampleRate, hz, juce::jlimit (0.50f, 2.6f, 0.707f + (safeQ - 1.0f) * 0.18f));
+        case 4: return juce::dsp::IIR::Coefficients<float>::makeLowPass  (sampleRate, hz, juce::jlimit (0.50f, 2.6f, 0.707f + (safeQ - 1.0f) * 0.18f));
         case 5: return juce::dsp::IIR::Coefficients<float>::makeNotch (sampleRate, hz, bellQ);
         case 6: return juce::dsp::IIR::Coefficients<float>::makeBandPass (sampleRate, hz, bellQ);
         case 7:
@@ -560,6 +561,21 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             const auto slope = bands[static_cast<size_t> (band)].slope.load();
             const auto channelMode = static_cast<int> (std::round (bands[static_cast<size_t> (band)].channel.load()));
 
+            auto stageCount = 1;
+            if (type == 3 || type == 4)
+            {
+                const auto slopeClamped = juce::jlimit (6.0f, 96.0f, slope);
+                stageCount = juce::jlimit (1, 4, static_cast<int> (std::round (slopeClamped / 12.0f)));
+            }
+            else if (type == 5 || type == 6)
+            {
+                stageCount = q >= 2.5f ? 2 : 1;
+            }
+            else if (type == 0)
+            {
+                stageCount = q >= 5.0f ? 2 : 1;
+            }
+
             if (harmonicLinkEnabled)
             {
                 float gainSum = 0.0f;
@@ -605,6 +621,10 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             eqFilters[1][static_cast<size_t> (band)].coefficients = coeff;
             eqFiltersStage2[0][static_cast<size_t> (band)].coefficients = coeffStage2;
             eqFiltersStage2[1][static_cast<size_t> (band)].coefficients = coeffStage2;
+            eqFiltersStage3[0][static_cast<size_t> (band)].coefficients = coeffStage2;
+            eqFiltersStage3[1][static_cast<size_t> (band)].coefficients = coeffStage2;
+            eqFiltersStage4[0][static_cast<size_t> (band)].coefficients = coeffStage2;
+            eqFiltersStage4[1][static_cast<size_t> (band)].coefficients = coeffStage2;
 
             if (channelMode == 3)
             {
@@ -612,8 +632,12 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                 {
                     auto currentSample = buffer.getSample (0, sample);
                     currentSample = eqFilters[0][static_cast<size_t> (band)].processSample (currentSample);
-                    if (type >= 3)
+                    if (stageCount >= 2)
                         currentSample = eqFiltersStage2[0][static_cast<size_t> (band)].processSample (currentSample);
+                    if (stageCount >= 3)
+                        currentSample = eqFiltersStage3[0][static_cast<size_t> (band)].processSample (currentSample);
+                    if (stageCount >= 4)
+                        currentSample = eqFiltersStage4[0][static_cast<size_t> (band)].processSample (currentSample);
                     buffer.setSample (0, sample, currentSample);
                 }
             }
@@ -625,8 +649,12 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     {
                         auto currentSample = buffer.getSample (1, sample);
                         currentSample = eqFilters[1][static_cast<size_t> (band)].processSample (currentSample);
-                        if (type >= 3)
+                        if (stageCount >= 2)
                             currentSample = eqFiltersStage2[1][static_cast<size_t> (band)].processSample (currentSample);
+                        if (stageCount >= 3)
+                            currentSample = eqFiltersStage3[1][static_cast<size_t> (band)].processSample (currentSample);
+                        if (stageCount >= 4)
+                            currentSample = eqFiltersStage4[1][static_cast<size_t> (band)].processSample (currentSample);
                         buffer.setSample (1, sample, currentSample);
                     }
                 }
@@ -639,8 +667,12 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     {
                         auto currentSample = buffer.getSample (channel, sample);
                         currentSample = eqFilters[static_cast<size_t> (channel)][static_cast<size_t> (band)].processSample (currentSample);
-                        if (type >= 3)
+                        if (stageCount >= 2)
                             currentSample = eqFiltersStage2[static_cast<size_t> (channel)][static_cast<size_t> (band)].processSample (currentSample);
+                        if (stageCount >= 3)
+                            currentSample = eqFiltersStage3[static_cast<size_t> (channel)][static_cast<size_t> (band)].processSample (currentSample);
+                        if (stageCount >= 4)
+                            currentSample = eqFiltersStage4[static_cast<size_t> (channel)][static_cast<size_t> (band)].processSample (currentSample);
                         buffer.setSample (channel, sample, currentSample);
                     }
                 }
