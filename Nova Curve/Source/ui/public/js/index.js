@@ -1228,6 +1228,26 @@ function buildKnob(el, options) {
     ? options.sensitivity
     : (valueRange * 0.0031);
   const dragNormPerPixel = (configuredSensitivity / valueRange) * 3.2;
+  let pendingDragDeltaY = 0;
+  let dragFineScale = 1;
+  let knobDragRaf = 0;
+
+  const applyQueuedKnobDrag = () => {
+    knobDragRaf = 0;
+    if (!activeKnobDrag || activeKnobDrag.ctrl !== ctrl) {
+      pendingDragDeltaY = 0;
+      return;
+    }
+
+    if (pendingDragDeltaY === 0) return;
+    activeKnobDrag.norm = clamp(activeKnobDrag.norm + pendingDragDeltaY * dragNormPerPixel * dragFineScale, 0, 1);
+    pendingDragDeltaY = 0;
+
+    const newValue = activeKnobDrag.normToValue(activeKnobDrag.norm);
+    activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
+    activeKnobDrag.setDragVisual(activeKnobDrag.options.get());
+    interactionEnergy = Math.min(1, interactionEnergy + 0.05);
+  };
 
   const setDragVisual = (value) => {
     const norm = clamp(options.toNorm ? options.toNorm(value) : (value - options.min) / (options.max - options.min), 0, 1);
@@ -1252,13 +1272,11 @@ function buildKnob(el, options) {
     const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
     const delta = activeKnobDrag.lastY - latest.clientY;
     activeKnobDrag.lastY = latest.clientY;
-    const fine = (latest.shiftKey || latest.metaKey) ? 0.22 : 1;
-    activeKnobDrag.norm = clamp(activeKnobDrag.norm + delta * dragNormPerPixel * fine, 0, 1);
-
-    const newValue = activeKnobDrag.normToValue(activeKnobDrag.norm);
-    activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
-    activeKnobDrag.setDragVisual(activeKnobDrag.options.get());
-    interactionEnergy = Math.min(1, interactionEnergy + 0.05);
+    pendingDragDeltaY += delta;
+    dragFineScale = (latest.shiftKey || latest.metaKey) ? 0.22 : 1;
+    if (!knobDragRaf) {
+      knobDragRaf = requestAnimationFrame(applyQueuedKnobDrag);
+    }
   };
 
   const finishKnobDrag = (e, pushState = true) => {
@@ -1273,6 +1291,11 @@ function buildKnob(el, options) {
 
     const drag = activeKnobDrag;
     activeKnobDrag = null;
+    pendingDragDeltaY = 0;
+    if (knobDragRaf) {
+      cancelAnimationFrame(knobDragRaf);
+      knobDragRaf = 0;
+    }
     knobDragging = false;
     interactionUltraFast = false;
     setInteractionActive(false);
@@ -1296,6 +1319,8 @@ function buildKnob(el, options) {
       normToValue
     };
 
+    pendingDragDeltaY = 0;
+    dragFineScale = 1;
     knobDragging = true;
     interactionUltraFast = true;
     // Freeze expensive decorative arc layers once for the duration of drag.
@@ -2284,6 +2309,7 @@ function drawGraph() {
   const signalMotionAmt = signalMotionVisual;
   const reactiveDyn = dynActivity * (0.18 + 0.82 * signalMotionAmt);
   const reactivePeak = outputPeak * (0.2 + 0.8 * signalMotionAmt);
+  const knobFastPath = knobDragging;
   const fastInteraction = draggingBand >= 0 || knobDragging;
   const ultraFast = interactionUltraFast || fastInteraction;
 
@@ -2316,6 +2342,30 @@ function drawGraph() {
 
   const w = rect.width;
   const h = rect.height;
+
+  if (knobFastPath) {
+    callout.classList.remove("visible");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
+    ctx.strokeStyle = "rgba(108, 132, 206, 0.15)";
+    ctx.lineWidth = 0.9;
+    [20, 1000, 20000].forEach((hz) => {
+      const x = hzToX(hz, w);
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    });
+    const y = gainToY(0, h);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+    rafHandle = requestAnimationFrame(drawGraph);
+    return;
+  }
 
   if (ultraFast) {
     callout.classList.remove("visible");
