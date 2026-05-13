@@ -150,6 +150,8 @@ let savePresetFavorite = false;
 let nativeGetState = async () => "";
 let nativeSetState = async () => true;
 let nativeSetInteractionActive = async () => true;
+let nativeBridgeReady = false;
+let nativeBridgeInitStarted = false;
 
 const graphWrap = document.getElementById("graphWrap");
 const canvas = document.getElementById("graphCanvas");
@@ -870,6 +872,9 @@ function queuePushState() {
       queuePushState();
       return;
     }
+    if (!nativeBridgeReady) {
+      tryBridgeRebind();
+    }
     try { await nativeSetState(JSON.stringify(state)); } catch (_) {}
   }, 65);
 }
@@ -891,6 +896,9 @@ function flushRealtimeStatePush() {
   lastRealtimePushMs = performance.now();
 
   (async () => {
+    if (!nativeBridgeReady) {
+      tryBridgeRebind();
+    }
     try { await nativeSetState(JSON.stringify(state)); } catch (_) {}
     realtimePushInFlight = false;
     if (realtimePushPending && !realtimePushTimer) {
@@ -912,21 +920,46 @@ function pushStateImmediate() {
   realtimePushTimer = 0;
   realtimePushPending = false;
   (async () => {
+    if (!nativeBridgeReady) {
+      tryBridgeRebind();
+    }
     try { await nativeSetState(JSON.stringify(state)); } catch (_) {}
   })();
 }
 
-async function setupNativeBridge() {
-  if (typeof window.__JUCE__ === "undefined")
+function tryBridgeRebind() {
+  if (nativeBridgeReady || nativeBridgeInitStarted)
     return;
 
-  try {
-    const juce = await import("./juce/index.js");
-    nativeGetState = juce.getNativeFunction("getInitialState");
-    nativeSetState = juce.getNativeFunction("setUiState");
-    nativeSetInteractionActive = juce.getNativeFunction("setInteractionActive");
-  } catch (error) {
-    console.warn("Native bridge unavailable, staying in preview mode", error);
+  nativeBridgeInitStarted = true;
+  setupNativeBridge().finally(() => {
+    nativeBridgeInitStarted = false;
+  });
+}
+
+async function setupNativeBridge() {
+  const maxAttempts = 80;
+  const retryDelayMs = 50;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (typeof window.__JUCE__ === "undefined") {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      continue;
+    }
+
+    try {
+      const juce = await import("./juce/index.js");
+      nativeGetState = juce.getNativeFunction("getInitialState");
+      nativeSetState = juce.getNativeFunction("setUiState");
+      nativeSetInteractionActive = juce.getNativeFunction("setInteractionActive");
+      nativeBridgeReady = true;
+      return;
+    } catch (error) {
+      if (attempt === maxAttempts - 1) {
+        console.warn("Native bridge unavailable, staying in preview mode", error);
+      }
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
   }
 }
 
