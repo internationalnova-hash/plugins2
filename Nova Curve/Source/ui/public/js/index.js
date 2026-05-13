@@ -1227,18 +1227,17 @@ function buildKnob(el, options) {
   const configuredSensitivity = typeof options.sensitivity === "number"
     ? options.sensitivity
     : (valueRange * 0.0031);
-  const dragNormPerPixel = (configuredSensitivity / valueRange) * 1.85;
+  const dragNormPerPixel = (configuredSensitivity / valueRange) * 3.2;
 
   const setDragVisual = (value) => {
     const norm = clamp(options.toNorm ? options.toNorm(value) : (value - options.min) / (options.max - options.min), 0, 1);
     const deg = -135 + norm * 270;
     indicator.style.transform = `translateX(-50%) rotate(${deg}deg)`;
-    const progressLength = Math.max(0, norm * trackLength);
-    ctrl.arc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
-    // Keep expensive blur/filter layers static while dragging for smoother interaction.
-    // Only write these static attributes once at drag start.
-    ctrl.arc.style.opacity = 1;
+    // During drag, keep the knob visually responsive by avoiding per-move arc writes.
     if (!knobDragging) {
+      const progressLength = Math.max(0, norm * trackLength);
+      ctrl.arc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
+      ctrl.arc.style.opacity = 1;
       el.style.setProperty("--arc-reflect", `${0.09 + 0.24 * Math.pow(norm, 0.92)}`);
       el.style.setProperty("--arc-angle", `${deg}deg`);
     }
