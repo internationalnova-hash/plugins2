@@ -125,6 +125,7 @@ private:
     std::array<float, maxBands> smoothedAppliedGainDb {}; // Smoothed total gain to avoid zipper/click artifacts
 
     juce::AudioBuffer<float> dryBuffer;
+    juce::AudioBuffer<float> soloSourceBuffer;
     double currentSampleRate { 44100.0 };
     float transientDecay { 0.0f };  // For transient preservation
 

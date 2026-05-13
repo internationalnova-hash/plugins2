@@ -870,6 +870,13 @@ function queuePushState() {
   }, 65);
 }
 
+function pushStateImmediate() {
+  clearTimeout(pushTimer);
+  (async () => {
+    try { await nativeSetState(JSON.stringify(state)); } catch (_) {}
+  })();
+}
+
 async function setupNativeBridge() {
   if (typeof window.__JUCE__ === "undefined")
     return;
@@ -1685,7 +1692,16 @@ function bindEvents() {
   phaseModeSelect.onchange = () => { state.phaseMode = Number(phaseModeSelect.value) || 1; queuePushState(); };
 
   bypassBtn.onclick = () => { state.bypassed = state.bypassed > 0.5 ? 0 : 1; syncControlsFromState(); queuePushState(); };
-  soloBtn.onclick = () => { selectedBand().solo = selectedBand().solo > 0.5 ? 0 : 1; syncControlsFromState(); queuePushState(); };
+  soloBtn.onclick = () => {
+    const b = selectedBand();
+    b.solo = b.solo > 0.5 ? 0 : 1;
+    const active = b.solo > 0.5;
+    soloBtn.style.opacity = active ? "1" : "0.74";
+    soloBtn.classList.toggle("active", active);
+    soloBtn.setAttribute("aria-pressed", active ? "true" : "false");
+    syncControlsFromState(false);
+    pushStateImmediate();
+  };
 
   meterSourceBtn.onclick = () => {
     meterSourceExternal = ! meterSourceExternal;
@@ -1938,8 +1954,14 @@ function bindEvents() {
       const b = state.bands[calloutBandIndex];
       b.solo = b.solo > 0.5 ? 0 : 1;
       state.selectedBand = calloutBandIndex;
+      const soloActive = b.solo > 0.5;
+      coSoloBtn.innerHTML = `<span class="icon">🎧</span><span>${soloActive ? "Unsolo Band" : "Band Solo"}</span>`;
+      coSoloBtn.classList.toggle("active", soloActive);
+      soloBtn.style.opacity = soloActive ? "1" : "0.74";
+      soloBtn.classList.toggle("active", soloActive);
+      soloBtn.setAttribute("aria-pressed", soloActive ? "true" : "false");
       syncControlsFromState(false);
-      queuePushState();
+      pushStateImmediate();
       calloutVisible = true;
       calloutSoloPersistent = (b.solo > 0.5);
       cancelCalloutHide();
@@ -2363,6 +2385,26 @@ function drawGraph() {
     ctx.moveTo(0, y);
     ctx.lineTo(w, y);
     ctx.stroke();
+
+    const active = displayBands
+      .filter((b) => b.enabled > 0.5)
+      .sort((a, b) => a.frequency - b.frequency);
+    if (active.length > 0) {
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.lineWidth = 2.9;
+      drawEqResponsePath(ctx, active, w, h, 84);
+      const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
+      lineGrad.addColorStop(0, "#ffffff");
+      lineGrad.addColorStop(0.15, "#faf6ff");
+      lineGrad.addColorStop(0.35, "#e86dff");
+      lineGrad.addColorStop(0.62, "#a888ff");
+      lineGrad.addColorStop(1, "#88c8ff");
+      ctx.strokeStyle = lineGrad;
+      ctx.stroke();
+    }
+
     rafHandle = requestAnimationFrame(drawGraph);
     return;
   }

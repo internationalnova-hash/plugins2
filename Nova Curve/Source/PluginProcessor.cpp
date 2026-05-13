@@ -139,7 +139,9 @@ void NovaCurveAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     }
 
     dryBuffer.setSize (juce::jmax (2, getTotalNumOutputChannels()), samplesPerBlock, false, false, true);
+    soloSourceBuffer.setSize (juce::jmax (2, getTotalNumOutputChannels()), samplesPerBlock, false, false, true);
     dryBuffer.clear();
+    soloSourceBuffer.clear();
 
     std::fill (detectorEnvelopes.begin(), detectorEnvelopes.end(), 0.0f);
     std::fill (bandDynamicGainDb.begin(), bandDynamicGainDb.end(), 0.0f);
@@ -159,6 +161,7 @@ void NovaCurveAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 void NovaCurveAudioProcessor::releaseResources()
 {
     dryBuffer.setSize (0, 0);
+    soloSourceBuffer.setSize (0, 0);
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -591,40 +594,121 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         }
     }
 
-    // Solo audition path: isolate selected solo bands as focused band-pass monitoring.
+    // True solo audition path: isolate selected regions with type-aware filters.
     if (soloCount > 0)
     {
-        buffer.clear();
+        const auto auditionPost = analyzerMode.load() > 0.5f && ! bypass;
+        if (auditionPost)
+            soloSourceBuffer.makeCopyOf (buffer, true);
+        else
+            soloSourceBuffer.makeCopyOf (dryBuffer, true);
+
+        std::array<float, maxBands> soloBandLinearGain {};
 
         for (int i = 0; i < soloCount; ++i)
         {
             const auto band = soloBands[static_cast<size_t> (i)];
             const auto freq = clampValue (bands[static_cast<size_t> (band)].frequency.load(), 20.0f, 20000.0f);
-            // Solo should isolate band content clearly; enforce tighter audition Q than program Q.
             const auto programQ = clampValue (bands[static_cast<size_t> (band)].q.load(), 0.10f, 10.0f);
-            const auto auditionQ = juce::jlimit (3.0f, 12.0f, juce::jmax (programQ, 5.0f));
-            const auto coeff = juce::dsp::IIR::Coefficients<float>::makeBandPass (currentSampleRate, freq, auditionQ);
+            const auto type = static_cast<int> (std::round (bands[static_cast<size_t> (band)].type.load()));
+            const auto slope = clampValue (bands[static_cast<size_t> (band)].slope.load(), 6.0f, 96.0f);
+            const auto mode = static_cast<int> (std::round (bands[static_cast<size_t> (band)].mode.load()));
+            const auto staticGainDb = clampValue (bands[static_cast<size_t> (band)].gainDb.load(), -30.0f, 30.0f);
+            const auto dynamicGainDb = bandDynamicGainDb[static_cast<size_t> (band)];
+            const auto movementDb = clampValue (staticGainDb + dynamicGainDb, -30.0f, 30.0f);
+
+            juce::dsp::IIR::Coefficients<float>::Ptr coeff;
+
+            switch (type)
+            {
+                case 1: // Low shelf -> audition low shelf region.
+                    coeff = juce::dsp::IIR::Coefficients<float>::makeLowPass (
+                        currentSampleRate,
+                        freq,
+                        juce::jlimit (0.35f, 1.35f, 0.55f + 0.02f * std::abs (movementDb)));
+                    break;
+
+                case 2: // High shelf -> audition high shelf region.
+                    coeff = juce::dsp::IIR::Coefficients<float>::makeHighPass (
+                        currentSampleRate,
+                        freq,
+                        juce::jlimit (0.35f, 1.35f, 0.55f + 0.02f * std::abs (movementDb)));
+                    break;
+
+                case 3: // High-pass -> audition cutoff behavior above cutoff.
+                    coeff = juce::dsp::IIR::Coefficients<float>::makeHighPass (
+                        currentSampleRate,
+                        freq,
+                        juce::jlimit (0.45f, 6.5f, programQ * (0.9f + 0.7f * (slope / 24.0f))));
+                    break;
+
+                case 4: // Low-pass -> audition cutoff behavior below cutoff.
+                    coeff = juce::dsp::IIR::Coefficients<float>::makeLowPass (
+                        currentSampleRate,
+                        freq,
+                        juce::jlimit (0.45f, 6.5f, programQ * (0.9f + 0.7f * (slope / 24.0f))));
+                    break;
+
+                case 5: // Notch -> narrow whistle-like surgical focus.
+                    coeff = juce::dsp::IIR::Coefficients<float>::makeBandPass (
+                        currentSampleRate,
+                        freq,
+                        juce::jlimit (8.0f, 18.0f, juce::jmax (8.0f, programQ * 2.2f)));
+                    break;
+
+                case 6: // Band-pass -> preserve programmed focus width.
+                    coeff = juce::dsp::IIR::Coefficients<float>::makeBandPass (
+                        currentSampleRate,
+                        freq,
+                        juce::jlimit (0.75f, 14.0f, programQ * 1.25f));
+                    break;
+
+                case 7: // Tilt -> broad focus around pivot.
+                    coeff = juce::dsp::IIR::Coefficients<float>::makeBandPass (
+                        currentSampleRate,
+                        freq,
+                        0.75f);
+                    break;
+
+                case 0:
+                default: // Bell
+                    coeff = juce::dsp::IIR::Coefficients<float>::makeBandPass (
+                        currentSampleRate,
+                        freq,
+                        juce::jlimit (0.7f, 12.0f, juce::jmax (0.7f, programQ)));
+                    break;
+            }
 
             for (int channel = 0; channel < juce::jmin (2, buffer.getNumChannels()); ++channel)
                 auditionFilters[static_cast<size_t> (channel)][static_cast<size_t> (band)].coefficients = coeff;
+
+            // Keep solo audible and dynamic-aware while still heavily isolating the region.
+            auto makeupDb = juce::jlimit (0.0f, 10.0f, 4.0f + 0.26f * std::abs (movementDb));
+            if (mode == 1)
+                makeupDb = juce::jlimit (0.0f, 12.0f, makeupDb + 0.7f * std::abs (dynamicGainDb));
+            if (type == 5)
+                makeupDb = juce::jlimit (0.0f, 14.0f, makeupDb + 1.2f);
+            soloBandLinearGain[static_cast<size_t> (band)] = juce::Decibels::decibelsToGain (makeupDb);
         }
 
+        buffer.clear();
         const auto gainComp = 1.0f / std::sqrt (static_cast<float> (juce::jmax (1, soloCount)));
 
         for (int channel = 0; channel < juce::jmin (2, buffer.getNumChannels()); ++channel)
         {
             for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
             {
-                const auto src = dryBuffer.getSample (channel, sample);
+                const auto src = soloSourceBuffer.getSample (channel, sample);
                 float auditionSum = 0.0f;
 
                 for (int i = 0; i < soloCount; ++i)
                 {
                     const auto band = soloBands[static_cast<size_t> (i)];
-                    auditionSum += auditionFilters[static_cast<size_t> (channel)][static_cast<size_t> (band)].processSample (src);
+                    const auto filtered = auditionFilters[static_cast<size_t> (channel)][static_cast<size_t> (band)].processSample (src);
+                    auditionSum += filtered * soloBandLinearGain[static_cast<size_t> (band)];
                 }
 
-                buffer.setSample (channel, sample, auditionSum * gainComp);
+                buffer.setSample (channel, sample, juce::jlimit (-1.5f, 1.5f, auditionSum * gainComp));
             }
         }
     }
