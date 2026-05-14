@@ -121,6 +121,7 @@ let interactionActiveState = false;
 let interactionDeactivateTimer = 0;
 let activeKnobDrag = null;
 let interactionUltraFast = false;
+let lastDragKnobSyncMs = 0;
 
 let lastFrameMs = performance.now();
 let interactionEnergy = 0;
@@ -134,6 +135,7 @@ let calloutHovering = false;
 let calloutHideTimer = 0;
 let calloutSoloPersistent = false;
 let calloutContextMode = false;
+let suppressCalloutSoloClickOnce = false;
 let displayBands = [];
 let userPresets = [];
 let presetBrowserOpen = false;
@@ -914,6 +916,26 @@ function updateSelectedBandReadouts(readoutKey = "all") {
     k.style.pointerEvents = dynActive ? "auto" : "none";
     k.style.filter = dynActive ? "none" : "saturate(0.65)";
   });
+}
+
+function syncSoloButtonsForBand(bandIndex) {
+  const b = state.bands[bandIndex];
+  if (!b) return;
+
+  const soloActive = b.solo > 0.5;
+  if (soloBtn && state.selectedBand === bandIndex) {
+    soloBtn.style.opacity = soloActive ? "1" : "0.74";
+    soloBtn.classList.toggle("active", soloActive);
+    soloBtn.setAttribute("aria-pressed", soloActive ? "true" : "false");
+  }
+
+  if (calloutBandIndex === bandIndex) {
+    const coSoloBtn = document.getElementById("coSoloBtn");
+    if (coSoloBtn) {
+      coSoloBtn.innerHTML = `<span class="icon">🎧</span><span>${soloActive ? "Unsolo Band" : "Band Solo"}</span>`;
+      coSoloBtn.classList.toggle("active", soloActive);
+    }
+  }
 }
 
 function snapshotForUndo() {
@@ -1893,11 +1915,7 @@ function bindEvents() {
   soloBtn.onclick = () => {
     const b = selectedBand();
     b.solo = b.solo > 0.5 ? 0 : 1;
-    const active = b.solo > 0.5;
-    soloBtn.style.opacity = active ? "1" : "0.74";
-    soloBtn.classList.toggle("active", active);
-    soloBtn.setAttribute("aria-pressed", active ? "true" : "false");
-    syncControlsFromState(false);
+    syncSoloButtonsForBand(state.selectedBand);
     pushStateImmediate();
   };
 
@@ -2145,25 +2163,39 @@ function bindEvents() {
 
   const coSoloBtn = document.getElementById("coSoloBtn");
   if (coSoloBtn) {
-    coSoloBtn.onclick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+    const toggleCalloutSolo = () => {
       if (calloutBandIndex < 0 || calloutBandIndex >= state.bands.length) return;
       const b = state.bands[calloutBandIndex];
       b.solo = b.solo > 0.5 ? 0 : 1;
       state.selectedBand = calloutBandIndex;
-      const soloActive = b.solo > 0.5;
-      coSoloBtn.innerHTML = `<span class="icon">🎧</span><span>${soloActive ? "Unsolo Band" : "Band Solo"}</span>`;
-      coSoloBtn.classList.toggle("active", soloActive);
-      soloBtn.style.opacity = soloActive ? "1" : "0.74";
-      soloBtn.classList.toggle("active", soloActive);
-      soloBtn.setAttribute("aria-pressed", soloActive ? "true" : "false");
-      syncControlsFromState(false);
+      syncSoloButtonsForBand(calloutBandIndex);
+      if (bandDisplay) bandDisplay.textContent = `${calloutBandIndex + 1}`;
+      if (bandIndexSelect) bandIndexSelect.value = String(calloutBandIndex);
+      updateSelectedBandReadouts("all");
       pushStateImmediate();
       calloutVisible = true;
       calloutSoloPersistent = (b.solo > 0.5);
       cancelCalloutHide();
     };
+
+    coSoloBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (suppressCalloutSoloClickOnce) {
+        suppressCalloutSoloClickOnce = false;
+        return;
+      }
+      toggleCalloutSolo();
+    };
+
+    // Pointerdown feels more immediate than click on some hosts/webviews.
+    coSoloBtn.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.button !== 0) return;
+      suppressCalloutSoloClickOnce = true;
+      toggleCalloutSolo();
+    }, { passive: false });
   }
 
   if (coModeSelect) {
@@ -2343,8 +2375,8 @@ function onGraphMove(e) {
     const dragFine = (e.shiftKey || e.metaKey) ? 0.24 : 1;
     interactionUltraFast = true;
     dragPreviewActive = true;
-    calloutVisible = false;
-    calloutBandIndex = -1;
+    calloutVisible = true;
+    calloutBandIndex = draggingBand;
 
     const b = state.bands[draggingBand];
     const targetFreq = clamp(xToHz(x, rect.width), FREQ_MIN, FREQ_MAX);
@@ -2358,6 +2390,28 @@ function onGraphMove(e) {
     b.frequency = newFreq;
     b.gainDb = newGain;
     b.enabled = 1;
+
+    // Keep readouts and key controls live while dragging (FabFilter-like feel).
+    state.selectedBand = draggingBand;
+    if (bandDisplay) bandDisplay.textContent = `${draggingBand + 1}`;
+    if (bandIndexSelect) bandIndexSelect.value = String(draggingBand);
+    updateSelectedBandReadouts("freq");
+    updateSelectedBandReadouts("gain");
+
+    const nowMs = performance.now();
+    if (nowMs - lastDragKnobSyncMs >= 16) {
+      lastDragKnobSyncMs = nowMs;
+      if (knobControllers.freq) knobControllers.freq.set(newFreq, false);
+      if (knobControllers.gain) knobControllers.gain.set(newGain, false);
+    }
+
+    calloutTargetX = x;
+    calloutTargetY = y;
+    const coFreq = document.getElementById("coFreq");
+    const coGain = document.getElementById("coGain");
+    if (coFreq) coFreq.textContent = fmtHz(newFreq);
+    if (coGain) coGain.textContent = fmtDb(newGain);
+
     queueRealtimeStatePush();
     interactionEnergy = Math.min(1, interactionEnergy + 0.06);
     return;
