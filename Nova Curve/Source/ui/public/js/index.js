@@ -261,30 +261,8 @@ function applyUiScale() {
 }
 
 function setInteractionActive(active) {
-  const shouldBeActive = active === true;
-  if (shouldBeActive) {
-    clearTimeout(interactionDeactivateTimer);
-    if (interactionActiveState) return;
-    interactionActiveState = true;
-    // Keep pointerdown hot path light: bridge activation is deferred one tick.
-    setTimeout(() => {
-      if (!interactionActiveState) return;
-      try {
-        nativeSetInteractionActive(true);
-      } catch (_) {}
-    }, 0);
-    return;
-  }
-
-  clearTimeout(interactionDeactivateTimer);
-  interactionDeactivateTimer = setTimeout(() => {
-    if (draggingBand >= 0 || knobDragging) return;
-    if (!interactionActiveState) return;
-    interactionActiveState = false;
-    try {
-      nativeSetInteractionActive(false);
-    } catch (_) {}
-  }, 120);
+  // Disabled for lag/freeze diagnostic: do nothing
+  return;
 }
 
 function freqToNorm(hz) {
