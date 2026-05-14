@@ -100,7 +100,6 @@ let bandDynamicGainDb = new Array(MAX_BANDS).fill(0); // For compression visuali
 let pushTimer = 0;
 let realtimePushTimer = 0;
 let realtimePushPending = false;
-let realtimePushInFlight = false;
 let lastRealtimePushMs = 0;
 let rafHandle = 0;
 let draggingBand = -1;
@@ -342,6 +341,38 @@ function drawEqResponsePath(ctx, bands, width, height, pointCount = 260) {
 function fmtHz(hz) { return hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${Math.round(hz)} Hz`; }
 function fmtDb(db) { return `${db >= 0 ? "+" : ""}${db.toFixed(1)} dB`; }
 function fmtMs(ms) { return ms < 100 ? `${ms.toFixed(1)} ms` : `${Math.round(ms)} ms`; }
+
+function positionCalloutNearNode(anchorX, anchorY, width, height, calloutWidth, calloutHeight) {
+  const edgePad = 8;
+  const sideGap = 14;
+  const nodeRadius = 14;
+
+  const hasRight = (anchorX + sideGap + calloutWidth) <= (width - edgePad);
+  const hasLeft = (anchorX - sideGap - calloutWidth) >= edgePad;
+  let left;
+  if (hasRight) left = anchorX + sideGap;
+  else if (hasLeft) left = anchorX - sideGap - calloutWidth;
+  else left = clamp(anchorX - calloutWidth * 0.5, edgePad, Math.max(edgePad, width - calloutWidth - edgePad));
+
+  let top = clamp(anchorY - calloutHeight * 0.5, edgePad, Math.max(edgePad, height - calloutHeight - edgePad));
+
+  const calloutRight = left + calloutWidth;
+  const calloutBottom = top + calloutHeight;
+  const nodeLeft = anchorX - nodeRadius;
+  const nodeRight = anchorX + nodeRadius;
+  const nodeTop = anchorY - nodeRadius;
+  const nodeBottom = anchorY + nodeRadius;
+  const overlapsNode = !(calloutRight < nodeLeft || left > nodeRight || calloutBottom < nodeTop || top > nodeBottom);
+
+  if (overlapsNode) {
+    const aboveTop = anchorY - calloutHeight - 10;
+    const belowTop = anchorY + 10;
+    if (aboveTop >= edgePad) top = aboveTop;
+    else if (belowTop <= (height - calloutHeight - edgePad)) top = belowTop;
+  }
+
+  return { left, top };
+}
 
 function inferPresetCategory(name) {
   const n = String(name || "").toLowerCase();
@@ -893,29 +924,23 @@ function queuePushState() {
 function flushRealtimeStatePush() {
   realtimePushTimer = 0;
   if (!realtimePushPending) return;
-  if (realtimePushInFlight) return;
 
   const elapsed = performance.now() - lastRealtimePushMs;
-  const minIntervalMs = (draggingBand >= 0 || knobDragging) ? 24 : 16;
+  const minIntervalMs = (draggingBand >= 0 || knobDragging) ? 8 : 14;
   if (elapsed < minIntervalMs) {
     realtimePushTimer = setTimeout(flushRealtimeStatePush, minIntervalMs - elapsed);
     return;
   }
 
   realtimePushPending = false;
-  realtimePushInFlight = true;
   lastRealtimePushMs = performance.now();
-
-  (async () => {
-    if (!nativeBridgeReady) {
-      tryBridgeRebind();
-    }
-    try { await nativeSetState(JSON.stringify(state)); } catch (_) {}
-    realtimePushInFlight = false;
-    if (realtimePushPending && !realtimePushTimer) {
-      realtimePushTimer = setTimeout(flushRealtimeStatePush, minIntervalMs);
-    }
-  })();
+  if (!nativeBridgeReady) {
+    tryBridgeRebind();
+  }
+  try { nativeSetState(JSON.stringify(state)); } catch (_) {}
+  if (realtimePushPending && !realtimePushTimer) {
+    realtimePushTimer = setTimeout(flushRealtimeStatePush, minIntervalMs);
+  }
 }
 
 function queueRealtimeStatePush() {
@@ -1456,11 +1481,18 @@ function buildKnob(el, options) {
     const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
     const delta = activeKnobDrag.lastY - latest.clientY;
     activeKnobDrag.lastY = latest.clientY;
-    pendingDragDeltaY += delta;
     dragFineScale = (latest.shiftKey || latest.metaKey) ? 0.22 : 1;
-    if (!knobDragRaf) {
-      knobDragRaf = requestAnimationFrame(applyQueuedKnobDrag);
-    }
+
+    const deltaNorm = delta * dragNormPerPixel * dragFineScale;
+    dragTargetNorm = clamp(dragTargetNorm + clamp(deltaNorm, -0.11, 0.11), 0, 1);
+    dragCurrentNorm = dragTargetNorm;
+
+    const newValue = activeKnobDrag.normToValue(dragCurrentNorm);
+    activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
+    activeKnobDrag.setDragVisual(activeKnobDrag.options.get());
+    updateSelectedBandReadouts(activeKnobDrag.options.readoutKey || "all");
+    queueRealtimeStatePush();
+    interactionEnergy = Math.min(1, interactionEnergy + 0.05);
   };
 
   const finishKnobDrag = (e, pushState = true) => {
@@ -2379,12 +2411,7 @@ function onGraphMove(e) {
     updateSelectedBandReadouts("freq");
     updateSelectedBandReadouts("gain");
 
-    const nowMs = performance.now();
-    if (nowMs - lastDragKnobSyncMs >= 6) {
-      lastDragKnobSyncMs = nowMs;
-      if (knobControllers.freq) knobControllers.freq.set(newFreq, false);
-      if (knobControllers.gain) knobControllers.gain.set(newGain, false);
-    }
+    // Avoid expensive knob SVG updates while dragging nodes; readouts + graph are enough.
 
     calloutTargetX = x;
     calloutTargetY = y;
@@ -2628,12 +2655,9 @@ function drawGraph() {
       calloutY = targetY;
       const cw = Math.max(180, callout.offsetWidth || 0);
       const ch = Math.max(110, callout.offsetHeight || 0);
-      const edgePad = 8;
-      const left = clamp(calloutX + 12, edgePad, Math.max(edgePad, w - cw - edgePad));
-      const preferAboveTop = calloutY - ch - 8;
-      const top = preferAboveTop < edgePad
-        ? clamp(calloutY + 8, edgePad, Math.max(edgePad, h - ch - edgePad))
-        : clamp(preferAboveTop, edgePad, Math.max(edgePad, h - ch - edgePad));
+      const pos = positionCalloutNearNode(calloutX, calloutY, w, h, cw, ch);
+      const left = pos.left;
+      const top = pos.top;
       callout.style.left = `${left}px`;
       callout.style.top = `${top}px`;
       callout.classList.add("visible");
@@ -2721,14 +2745,9 @@ function drawGraph() {
 
     const cw = Math.max(180, callout.offsetWidth || 0);
     const ch = Math.max(110, callout.offsetHeight || 0);
-    const edgePad = 8;
-    const left = followHard
-      ? clamp(calloutX + 12, edgePad, Math.max(edgePad, w - cw - edgePad))
-      : clamp(calloutX - cw * 0.5, edgePad, Math.max(edgePad, w - cw - edgePad));
-    const preferAboveTop = calloutY - ch - (followHard ? 8 : 10);
-    const top = preferAboveTop < edgePad
-      ? clamp(calloutY + (followHard ? 8 : 10), edgePad, Math.max(edgePad, h - ch - edgePad))
-      : clamp(preferAboveTop, edgePad, Math.max(edgePad, h - ch - edgePad));
+    const pos = positionCalloutNearNode(calloutX, calloutY, w, h, cw, ch);
+    const left = pos.left;
+    const top = pos.top;
 
     callout.style.left = `${left}px`;
     callout.style.top = `${top}px`;
