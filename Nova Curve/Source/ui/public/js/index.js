@@ -162,6 +162,8 @@ let nativeCompleteListenerInstalled = false;
 const nativePendingCalls = new Map();
 const realtimeParamQueue = new Map();
 let realtimeParamFlushRaf = 0;
+let dragNodeOverlay = null;
+let dragNodeOverlayLabel = null;
 let dspDiagnostics = {
   applyCount: 0,
   applyAgeMs: -1,
@@ -260,6 +262,58 @@ function applySignalMotionState() {
 }
 
 function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+function ensureDragNodeOverlay() {
+  if (dragNodeOverlay) return dragNodeOverlay;
+
+  const computed = window.getComputedStyle(graphWrap);
+  if (computed.position === "static") {
+    graphWrap.style.position = "relative";
+  }
+
+  dragNodeOverlay = document.createElement("div");
+  dragNodeOverlay.style.position = "absolute";
+  dragNodeOverlay.style.width = "22.4px";
+  dragNodeOverlay.style.height = "22.4px";
+  dragNodeOverlay.style.borderRadius = "50%";
+  dragNodeOverlay.style.background = "rgba(6, 10, 24, 0.94)";
+  dragNodeOverlay.style.border = "2.35px solid #c099ff";
+  dragNodeOverlay.style.display = "none";
+  dragNodeOverlay.style.alignItems = "center";
+  dragNodeOverlay.style.justifyContent = "center";
+  dragNodeOverlay.style.pointerEvents = "none";
+  dragNodeOverlay.style.zIndex = "8";
+  dragNodeOverlay.style.transform = "translate3d(0, 0, 0)";
+  dragNodeOverlay.style.willChange = "transform";
+
+  dragNodeOverlayLabel = document.createElement("span");
+  dragNodeOverlayLabel.style.color = "#edf3ff";
+  dragNodeOverlayLabel.style.font = "600 13px Avenir Next";
+  dragNodeOverlayLabel.style.lineHeight = "1";
+  dragNodeOverlay.appendChild(dragNodeOverlayLabel);
+
+  graphWrap.appendChild(dragNodeOverlay);
+  return dragNodeOverlay;
+}
+
+function showDragNodeOverlay(x, y, bandIndex) {
+  const overlay = ensureDragNodeOverlay();
+  const b = state.bands[bandIndex] || selectedBand();
+  const dynamic = b.mode > 0.5;
+  const notch = b.type === 5;
+  const borderColor = notch ? "#89b4ff" : dynamic ? "#7fa8ff" : "#c099ff";
+
+  overlay.style.borderColor = borderColor;
+  overlay.style.display = "flex";
+  overlay.style.transform = `translate3d(${(x - 11.2).toFixed(2)}px, ${(y - 11.2).toFixed(2)}px, 0)`;
+  if (dragNodeOverlayLabel) dragNodeOverlayLabel.textContent = String((bandIndex || 0) + 1);
+}
+
+function hideDragNodeOverlay() {
+  if (dragNodeOverlay) {
+    dragNodeOverlay.style.display = "none";
+  }
+}
 
 function applyUiScale() {
   const margin = 12;
@@ -2374,6 +2428,7 @@ function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
     // Dragging immediately — defer full sync and state push to onGraphUp.
     if (bandDisplay) bandDisplay.textContent = `${idx + 1}`;
     bandIndexSelect.value = String(idx);
+    showDragNodeOverlay(x, y, idx);
   }
   return true;
 }
@@ -2414,6 +2469,7 @@ function onGraphDown(e) {
     calloutVisible = true;
     calloutTargetX = x;
     calloutTargetY = y;
+    showDragNodeOverlay(x, y, nearest);
     interactionEnergy = Math.min(1, interactionEnergy + 0.18);
     // Skip full syncControlsFromState during drag — too expensive to fire per frame.
     // Only update the band selector readout so the UI label stays correct.
@@ -2469,6 +2525,7 @@ function onGraphMove(e) {
     dragPreviewActive = true;
     calloutVisible = true;
     calloutBandIndex = draggingBand;
+    showDragNodeOverlay(x, y, draggingBand);
 
     const b = state.bands[draggingBand];
     const targetFreq = clamp(xToHz(x, rect.width), FREQ_MIN, FREQ_MAX);
@@ -2606,6 +2663,7 @@ function onGraphContextMenu(e) {
 function onGraphUp() {
   const releasedBand = draggingBand;
   draggingBand = -1;
+  hideDragNodeOverlay();
   graphDragTargetFreq = 0;
   graphDragTargetGain = 0;
   graphDragUndoPending = false;
@@ -2801,7 +2859,7 @@ function drawGraph() {
       ctx.beginPath();
       ctx.lineWidth = 2.9;
       // Use a lighter response curve while dragging to keep node lock tighter.
-      drawEqResponsePath(ctx, active, w, h, activeNodeDrag ? 58 : 84);
+      drawEqResponsePath(ctx, active, w, h, activeNodeDrag ? 46 : 84);
       const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
       lineGrad.addColorStop(0, "#ffffff");
       lineGrad.addColorStop(0.15, "#faf6ff");
@@ -2815,6 +2873,7 @@ function drawGraph() {
     // Keep node visibility during fast interaction so targeting remains stable.
     displayBands.forEach((b, i) => {
       if (b.enabled < 0.5) return;
+      if (i === draggingBand && dragNodeOverlay && dragNodeOverlay.style.display !== "none") return;
       const isDragged = i === draggingBand;
       const x = isDragged ? clamp(hoverGraphX, 0, w) : hzToX(b.frequency, w);
       const yNode = isDragged ? clamp(hoverGraphY, 0, h) : gainToY(b.gainDb, h);
