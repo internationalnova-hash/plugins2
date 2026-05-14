@@ -35,20 +35,31 @@ namespace
     {
         const auto absGain = std::abs (gainDb);
         const auto normalized = juce::jlimit (0.0f, 1.0f, absGain / 30.0f);
-        const auto emphasis = 1.10f + 0.52f * std::pow (normalized, 1.1f);
+
+        // Keep strong responsiveness, but with a smoother premium contour.
+        auto emphasis = 1.04f + 0.34f * std::pow (normalized, 1.05f);
+
+        // Tame edgy bell-like boosts at the top of the range without weakening cuts.
+        if (gainDb > 0.0f)
+            emphasis *= (1.0f - 0.08f * std::pow (normalized, 1.2f));
+
         return juce::jlimit (-36.0f, 36.0f, gainDb * emphasis);
     }
 
     float sharpenQ (float q)
     {
         const auto safeQ = clampValue (q, 0.10f, 10.0f);
-        return juce::jlimit (0.20f, 36.0f, 0.35f + 0.55f * std::pow (safeQ, 1.8f));
+
+        // Preserve surgical control while avoiding brittle ultra-narrow resonance.
+        return juce::jlimit (0.20f, 24.0f, 0.38f + 0.52f * std::pow (safeQ, 1.55f));
     }
 
     float shelfQFromUser (float q)
     {
         const auto safeQ = clampValue (q, 0.10f, 10.0f);
-        return juce::jlimit (0.45f, 1.35f, 0.52f + 0.08f * safeQ);
+
+        // Broader, more musical shelf transitions.
+        return juce::jlimit (0.50f, 1.10f, 0.50f + 0.055f * safeQ);
     }
 }
 
@@ -230,9 +241,24 @@ juce::dsp::IIR::Coefficients<float>::Ptr NovaCurveAudioProcessor::createBandCoef
     const auto hz = clampValue (frequency, 20.0f, 20000.0f);
     const auto safeQ = clampValue (q, 0.10f, 10.0f);
     const auto strongGainDb = strengthenGainDb (gainDb);
-    const auto gain = juce::Decibels::decibelsToGain (strongGainDb);
     const auto bellQ = sharpenQ (safeQ);
     const auto shelfQ = shelfQFromUser (safeQ);
+
+    auto shapedGainDb = strongGainDb;
+
+    // Additional polish: keep boosts smooth at high-Q and shelves broad/musical.
+    if (type == 0 && gainDb > 0.0f)
+    {
+        const auto qFactor = juce::jlimit (0.0f, 1.0f, (bellQ - 3.0f) / 15.0f);
+        const auto gFactor = juce::jlimit (0.0f, 1.0f, std::abs (strongGainDb) / 24.0f);
+        shapedGainDb *= (1.0f - 0.12f * qFactor * gFactor);
+    }
+    else if (type == 1 || type == 2)
+    {
+        shapedGainDb *= 0.93f;
+    }
+
+    const auto gain = juce::Decibels::decibelsToGain (shapedGainDb);
 
     // Phase behavior: natural phase for shelves/passes, minimal for peaking
     switch (type)
@@ -569,11 +595,12 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
             else if (type == 5 || type == 6)
             {
-                stageCount = q >= 2.5f ? 2 : 1;
+                stageCount = q >= 3.0f ? 2 : 1;
             }
             else if (type == 0)
             {
-                stageCount = q >= 5.0f ? 2 : 1;
+                // Keep extra stage only for truly surgical/high-impact bell work.
+                stageCount = (q >= 6.5f && std::abs (gain) >= 8.0f) ? 2 : 1;
             }
 
             if (harmonicLinkEnabled)
