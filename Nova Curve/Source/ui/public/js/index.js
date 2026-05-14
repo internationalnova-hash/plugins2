@@ -1442,8 +1442,7 @@ function buildKnob(el, options) {
 
     if (pendingDragDeltaY !== 0) {
       const deltaNorm = pendingDragDeltaY * dragNormPerPixel * dragFineScale;
-      // Clamp bursty pointer spikes so drag never jumps unexpectedly.
-      dragTargetNorm = clamp(dragTargetNorm + clamp(deltaNorm, -0.11, 0.11), 0, 1);
+      dragTargetNorm = clamp(dragTargetNorm + deltaNorm, 0, 1);
     }
     pendingDragDeltaY = 0;
 
@@ -1504,7 +1503,7 @@ function buildKnob(el, options) {
     dragFineScale = (latest.shiftKey || latest.metaKey) ? 0.22 : 1;
 
     const deltaNorm = delta * dragNormPerPixel * dragFineScale;
-    dragTargetNorm = clamp(dragTargetNorm + clamp(deltaNorm, -0.11, 0.11), 0, 1);
+    dragTargetNorm = clamp(dragTargetNorm + deltaNorm, 0, 1);
     dragCurrentNorm = dragTargetNorm;
 
     const newValue = activeKnobDrag.normToValue(dragCurrentNorm);
@@ -2755,8 +2754,9 @@ function drawGraph() {
       // Keep node visibility during fast interaction so targeting remains stable.
       displayBands.forEach((b, i) => {
         if (b.enabled < 0.5) return;
-        const x = hzToX(b.frequency, w);
-        const yNode = gainToY(b.gainDb, h);
+        const activeDrag = i === draggingBand;
+        const x = activeDrag ? clamp(hoverGraphX, 0, w) : hzToX(b.frequency, w);
+        const yNode = activeDrag ? clamp(hoverGraphY, 0, h) : gainToY(b.gainDb, h);
         const selected = i === state.selectedBand;
         const dynamic = b.mode > 0.5;
         const notch = b.type === 5;
@@ -2899,7 +2899,6 @@ function drawGraph() {
       const x = hzToX(b.frequency, w);
       const y = gainToY(b.gainDb, h);
       const selected = i === state.selectedBand;
-      const activeDrag = i === draggingBand;
       const dynamic = b.mode > 0.5;
       const notch = b.type === 5;
 
