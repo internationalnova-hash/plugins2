@@ -107,6 +107,7 @@ let hoveredBand = -1;
 let hoverGraphX = 0;
 let hoverGraphY = 0;
 let cachedCanvasRect = null;
+let cachedGraphRect = null;
 let knobDragging = false;
 let graphDragUndoPending = false;
 let interactionActiveState = false;
@@ -1584,6 +1585,7 @@ function buildKnob(el, options) {
     dragCurrentNorm = dragTargetNorm;
     knobDragging = false;
     el.classList.remove("dragging");
+    indicator.style.filter = ''; // Restore CSS-defined filter
     interactionUltraFast = false;
     setInteractionActive(false);
     flushRealtimeParamQueueImmediate();
@@ -1614,6 +1616,7 @@ function buildKnob(el, options) {
   dragCurrentNorm = dragTargetNorm;
     knobDragging = true;
     el.classList.add("dragging");
+    indicator.style.filter = 'none'; // Remove CSS filter so transform is GPU-composited during drag
     interactionUltraFast = true;
     // Freeze expensive decorative arc layers once for the duration of drag.
     ctrl.bloomArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
@@ -1931,7 +1934,8 @@ function syncControlsFromState(refreshKnobs = true) {
   }
   applySignalMotionState();
   const bandEnabled = b.enabled > 0.5;
-  if (bandPanel) {
+  // Don't toggle band panel during drag — prevents 220ms CSS background transition from firing mid-interaction.
+  if (bandPanel && draggingBand < 0 && !knobDragging) {
     bandPanel.classList.toggle("active", bandEnabled);
   }
   if (bandPowerBtn) {
@@ -2738,7 +2742,9 @@ function drawGraph() {
 
   drawFallbackSpectrum(now);
 
-  const rect = graphWrap.getBoundingClientRect();
+  // Cache rect to avoid forcing browser layout every RAF frame.
+  if (!cachedGraphRect) cachedGraphRect = graphWrap.getBoundingClientRect();
+  const rect = cachedGraphRect;
   const dpr = window.devicePixelRatio || 1;
   const targetW = Math.floor(rect.width * dpr);
   const targetH = Math.floor(rect.height * dpr);
@@ -2746,6 +2752,7 @@ function drawGraph() {
   if (canvas.width !== targetW || canvas.height !== targetH) {
     canvas.width = targetW;
     canvas.height = targetH;
+    cachedGraphRect = null; // Remeasure next frame on resize
   }
 
   const w = rect.width;
@@ -2794,7 +2801,7 @@ function drawGraph() {
       .filter((b) => b.enabled > 0.5)
       .sort((a, b) => a.frequency - b.frequency);
 
-    if (!activeNodeDrag && active.length > 0) {
+    if (active.length > 0) {
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
       ctx.beginPath();
