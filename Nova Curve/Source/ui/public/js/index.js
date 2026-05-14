@@ -282,7 +282,7 @@ function ensureDragNodeOverlay() {
   dragNodeOverlay.style.alignItems = "center";
   dragNodeOverlay.style.justifyContent = "center";
   dragNodeOverlay.style.pointerEvents = "none";
-  dragNodeOverlay.style.zIndex = "8";
+  dragNodeOverlay.style.zIndex = "120";
   dragNodeOverlay.style.transform = "translate3d(0, 0, 0)";
   dragNodeOverlay.style.willChange = "transform";
 
@@ -2873,7 +2873,6 @@ function drawGraph() {
     // Keep node visibility during fast interaction so targeting remains stable.
     displayBands.forEach((b, i) => {
       if (b.enabled < 0.5) return;
-      if (i === draggingBand && dragNodeOverlay && dragNodeOverlay.style.display !== "none") return;
       const isDragged = i === draggingBand;
       const x = isDragged ? clamp(hoverGraphX, 0, w) : hzToX(b.frequency, w);
       const yNode = isDragged ? clamp(hoverGraphY, 0, h) : gainToY(b.gainDb, h);
