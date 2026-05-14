@@ -119,6 +119,9 @@ let graphDragTargetGain = 0;
 let graphDragStartFreq = 0;
 let graphDragStartGain = 0;
 let lastInteractionRealtimePushMs = 0;
+let lastKnobRealtimePushMs = 0;
+let lastNodeRealtimePushMs = 0;
+let lastNodeUiRefreshMs = 0;
 
 let lastFrameMs = performance.now();
 let interactionEnergy = 0;
@@ -1498,21 +1501,31 @@ function buildKnob(el, options) {
 
     const coalesced = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
     const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
-    const delta = activeKnobDrag.lastY - latest.clientY;
+    const deltaX = latest.clientX - (activeKnobDrag.lastX ?? latest.clientX);
+    const deltaY = activeKnobDrag.lastY - latest.clientY;
+    activeKnobDrag.lastX = latest.clientX;
     activeKnobDrag.lastY = latest.clientY;
     dragFineScale = (latest.shiftKey || latest.metaKey) ? 0.22 : 1;
 
-    const deltaNorm = delta * dragNormPerPixel * dragFineScale;
+    // Input-first mapping: include horizontal movement to keep visual lock with cursor motion.
+    const deltaNorm = (deltaY + deltaX * 0.9) * dragNormPerPixel * dragFineScale;
     dragTargetNorm = clamp(dragTargetNorm + deltaNorm, 0, 1);
     dragCurrentNorm = dragTargetNorm;
 
     const newValue = activeKnobDrag.normToValue(dragCurrentNorm);
     activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
     activeKnobDrag.setDragVisual(activeKnobDrag.options.get());
-    updateSelectedBandReadouts(activeKnobDrag.options.readoutKey || "all");
+    const nowMs = performance.now();
+    if (nowMs - lastDragKnobSyncMs >= 16) {
+      lastDragKnobSyncMs = nowMs;
+      updateSelectedBandReadouts(activeKnobDrag.options.readoutKey || "all");
+    }
     if (activeKnobDrag.options.realtimeParam) {
       const targetBand = activeKnobDrag.options.isGlobalParam ? 0 : state.selectedBand;
-      pushRealtimeParam(activeKnobDrag.options.realtimeParam, activeKnobDrag.options.get(), targetBand);
+      if (nowMs - lastKnobRealtimePushMs >= 8) {
+        lastKnobRealtimePushMs = nowMs;
+        pushRealtimeParam(activeKnobDrag.options.realtimeParam, activeKnobDrag.options.get(), targetBand);
+      }
     } else {
       queueRealtimeStatePush();
     }
@@ -1554,6 +1567,7 @@ function buildKnob(el, options) {
 
     activeKnobDrag = {
       pointerId: typeof e.pointerId !== "undefined" ? e.pointerId : null,
+      lastX: e.clientX,
       lastY: e.clientY,
       norm: valueToNorm(options.get()),
       options,
@@ -2457,8 +2471,12 @@ function onGraphMove(e) {
     state.selectedBand = draggingBand;
     if (bandDisplay) bandDisplay.textContent = `${draggingBand + 1}`;
     if (bandIndexSelect) bandIndexSelect.value = String(draggingBand);
-    updateSelectedBandReadouts("freq");
-    updateSelectedBandReadouts("gain");
+    const nowMs = performance.now();
+    if (nowMs - lastNodeUiRefreshMs >= 16) {
+      lastNodeUiRefreshMs = nowMs;
+      updateSelectedBandReadouts("freq");
+      updateSelectedBandReadouts("gain");
+    }
 
     // Avoid expensive knob SVG updates while dragging nodes; readouts + graph are enough.
 
@@ -2466,12 +2484,17 @@ function onGraphMove(e) {
     calloutTargetY = y;
     const coFreq = document.getElementById("coFreq");
     const coGain = document.getElementById("coGain");
-    if (coFreq) coFreq.textContent = fmtHz(newFreq);
-    if (coGain) coGain.textContent = fmtDb(newGain);
+    if (nowMs - lastNodeUiRefreshMs >= 16) {
+      if (coFreq) coFreq.textContent = fmtHz(newFreq);
+      if (coGain) coGain.textContent = fmtDb(newGain);
+    }
 
-    pushRealtimeParam("selectedBand", draggingBand, 0);
-    pushRealtimeParam("frequency", newFreq, draggingBand);
-    pushRealtimeParam("gainDb", newGain, draggingBand);
+    if (nowMs - lastNodeRealtimePushMs >= 8) {
+      lastNodeRealtimePushMs = nowMs;
+      pushRealtimeParam("selectedBand", draggingBand, 0);
+      pushRealtimeParam("frequency", newFreq, draggingBand);
+      pushRealtimeParam("gainDb", newGain, draggingBand);
+    }
     interactionEnergy = Math.min(1, interactionEnergy + 0.06);
     return;
   }
