@@ -916,7 +916,7 @@ function flushRealtimeStatePush() {
   if (realtimePushInFlight) return;
 
   const elapsed = performance.now() - lastRealtimePushMs;
-  const minIntervalMs = 16;
+  const minIntervalMs = 12;
   if (elapsed < minIntervalMs) {
     realtimePushTimer = setTimeout(flushRealtimeStatePush, minIntervalMs - elapsed);
     return;
@@ -1404,14 +1404,13 @@ function buildKnob(el, options) {
   const configuredSensitivity = typeof options.sensitivity === "number"
     ? options.sensitivity
     : (valueRange * 0.0031);
-  const normDragScalar = options.toNorm ? 1.45 : 2.6;
+  const normDragScalar = options.toNorm ? 2.0 : 3.0;
   const dragNormPerPixel = (configuredSensitivity / valueRange) * normDragScalar;
   let pendingDragDeltaY = 0;
   let dragFineScale = 1;
   let knobDragRaf = 0;
   let dragTargetNorm = valueToNorm(options.get());
   let dragCurrentNorm = dragTargetNorm;
-  let lastDragFrameMs = 0;
 
   const applyQueuedKnobDrag = () => {
     knobDragRaf = 0;
@@ -1420,19 +1419,15 @@ function buildKnob(el, options) {
       return;
     }
 
-    const frameNow = performance.now();
-    const dt = lastDragFrameMs > 0 ? Math.min(40, Math.max(6, frameNow - lastDragFrameMs)) : 16;
-    lastDragFrameMs = frameNow;
-
     if (pendingDragDeltaY !== 0) {
       const deltaNorm = pendingDragDeltaY * dragNormPerPixel * dragFineScale;
       // Clamp bursty pointer spikes so drag never jumps unexpectedly.
-      dragTargetNorm = clamp(dragTargetNorm + clamp(deltaNorm, -0.065, 0.065), 0, 1);
+      dragTargetNorm = clamp(dragTargetNorm + clamp(deltaNorm, -0.11, 0.11), 0, 1);
     }
     pendingDragDeltaY = 0;
 
-    const interp = 1 - Math.exp(-dt / 18);
-    dragCurrentNorm = clamp(dragCurrentNorm + (dragTargetNorm - dragCurrentNorm) * interp, 0, 1);
+    // During active drag, follow target immediately for premium low-latency feel.
+    dragCurrentNorm = dragTargetNorm;
 
     const newValue = activeKnobDrag.normToValue(dragCurrentNorm);
     activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
@@ -1454,9 +1449,8 @@ function buildKnob(el, options) {
     queueRealtimeStatePush();
     interactionEnergy = Math.min(1, interactionEnergy + 0.05);
 
-    if (Math.abs(dragTargetNorm - dragCurrentNorm) > 0.0008) {
+    if (Math.abs(dragTargetNorm - dragCurrentNorm) > 0.0004)
       knobDragRaf = requestAnimationFrame(applyQueuedKnobDrag);
-    }
   };
 
   const setDragVisual = (value) => {
@@ -1508,7 +1502,6 @@ function buildKnob(el, options) {
     }
     dragTargetNorm = valueToNorm(drag.options.get());
     dragCurrentNorm = dragTargetNorm;
-    lastDragFrameMs = 0;
     knobDragging = false;
     interactionUltraFast = false;
     setInteractionActive(false);
@@ -1536,7 +1529,6 @@ function buildKnob(el, options) {
     dragFineScale = 1;
   dragTargetNorm = valueToNorm(options.get());
   dragCurrentNorm = dragTargetNorm;
-  lastDragFrameMs = 0;
     knobDragging = true;
     interactionUltraFast = true;
     // Freeze expensive decorative arc layers once for the duration of drag.
@@ -1614,7 +1606,7 @@ function createKnobs() {
     max: FREQ_MAX,
     get: () => selectedBand().frequency,
     set: (v, push) => { selectedBand().frequency = clamp(v, FREQ_MIN, FREQ_MAX); selectedBand().enabled = 1; if (push) queuePushState(); },
-    sensitivity: 34,
+    sensitivity: 58,
     wheelStep: 0.015,
     toNorm: (v) => freqToNorm(v),
     fromNorm: (n) => normToFreq(n),
@@ -2383,8 +2375,8 @@ function onGraphMove(e) {
     // Smooth in perceptual frequency space for premium, consistent node motion.
     const currentFreqNorm = freqToNorm(b.frequency);
     const targetFreqNorm = freqToNorm(graphDragTargetFreq);
-    const freqBlend = dragFine < 1 ? 0.34 : 0.58;
-    const gainBlend = dragFine < 1 ? 0.28 : 0.52;
+    const freqBlend = dragFine < 1 ? 0.72 : 1.0;
+    const gainBlend = dragFine < 1 ? 0.68 : 1.0;
     const newFreqNorm = currentFreqNorm + (targetFreqNorm - currentFreqNorm) * freqBlend;
     const newFreq = clamp(normToFreq(newFreqNorm), FREQ_MIN, FREQ_MAX);
     const newGain = clamp(b.gainDb + (graphDragTargetGain - b.gainDb) * gainBlend, -30, 30);
@@ -2402,7 +2394,7 @@ function onGraphMove(e) {
     updateSelectedBandReadouts("gain");
 
     const nowMs = performance.now();
-    if (nowMs - lastDragKnobSyncMs >= 16) {
+    if (nowMs - lastDragKnobSyncMs >= 6) {
       lastDragKnobSyncMs = nowMs;
       if (knobControllers.freq) knobControllers.freq.set(newFreq, false);
       if (knobControllers.gain) knobControllers.gain.set(newGain, false);
@@ -2598,8 +2590,7 @@ function drawGraph() {
     const src = state.bands[i];
     const dst = displayBands[i];
     if (!dst) continue;
-    const isSelectedInteractive = i === state.selectedBand && fastInteraction;
-    const smooth = isSelectedInteractive ? 0.62 : (fastInteraction ? 0.44 : 0.24);
+    const smooth = fastInteraction ? 1.0 : 0.30;
     const freqNorm = freqToNorm(dst.frequency);
     const srcFreqNorm = freqToNorm(src.frequency);
     dst.frequency = normToFreq(freqNorm + (srcFreqNorm - freqNorm) * smooth);
