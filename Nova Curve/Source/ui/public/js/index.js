@@ -1465,8 +1465,7 @@ function buildKnob(el, options) {
   let pendingDragDeltaY = 0;
   let dragFineScale = 1;
   let knobDragRaf = 0;
-  let dragTargetNorm = valueToNorm(options.get());
-  let dragCurrentNorm = dragTargetNorm;
+  let dragCurrentNorm = valueToNorm(options.get());
 
   const applyQueuedKnobDrag = () => {
     // Legacy RAF path — kept for wheel/non-direct interactions only.
@@ -1510,14 +1509,12 @@ function buildKnob(el, options) {
     const norm = clamp(options.toNorm ? options.toNorm(value) : (value - options.min) / (options.max - options.min), 0, 1);
     const deg = -135 + norm * 270;
     indicator.style.transform = `translateX(-50%) rotate(${deg}deg)`;
-    // During drag, keep the knob visually responsive by avoiding per-move arc writes.
-    if (!knobDragging) {
-      const progressLength = Math.max(0, norm * trackLength);
-      ctrl.arc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
-      ctrl.arc.style.opacity = 1;
-      el.style.setProperty("--arc-reflect", `${0.09 + 0.24 * Math.pow(norm, 0.92)}`);
-      el.style.setProperty("--arc-angle", `${deg}deg`);
-    }
+    // Keep primary arc in lock-step with pointer during drag.
+    const progressLength = Math.max(0, norm * trackLength);
+    ctrl.arc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
+    ctrl.arc.style.opacity = 1;
+    el.style.setProperty("--arc-reflect", `${0.09 + 0.24 * Math.pow(norm, 0.92)}`);
+    el.style.setProperty("--arc-angle", `${deg}deg`);
   };
 
   const updateKnobDragFromPointer = (e) => {
@@ -1574,8 +1571,7 @@ function buildKnob(el, options) {
       cancelAnimationFrame(knobDragRaf);
       knobDragRaf = 0;
     }
-    dragTargetNorm = valueToNorm(drag.options.get());
-    dragCurrentNorm = dragTargetNorm;
+    dragCurrentNorm = valueToNorm(drag.options.get());
     knobDragging = false;
     el.classList.remove("dragging");
     indicator.style.filter = ''; // Restore CSS-defined filter
@@ -1605,8 +1601,7 @@ function buildKnob(el, options) {
 
     pendingDragDeltaY = 0;
     dragFineScale = 1;
-  dragTargetNorm = valueToNorm(options.get());
-  dragCurrentNorm = dragTargetNorm;
+    dragCurrentNorm = valueToNorm(options.get());
     knobDragging = true;
     el.classList.add("dragging");
     indicator.style.filter = 'none'; // Remove CSS filter so transform is GPU-composited during drag
@@ -2206,6 +2201,8 @@ function bindEvents() {
 
   canvas.addEventListener("pointerdown", onGraphDown);
   canvas.addEventListener("pointermove", onGraphMove);
+  // Use raw pointer updates when available to reduce node drag latency.
+  canvas.addEventListener("pointerrawupdate", onGraphMove);
   canvas.addEventListener("pointerup", onGraphUp);
   canvas.addEventListener("pointercancel", onGraphUp);
   canvas.addEventListener("lostpointercapture", onGraphUp);
@@ -2213,6 +2210,7 @@ function bindEvents() {
   // Invalidate cached canvas rect on window resize so coordinates remain accurate.
   window.addEventListener("resize", () => {
     cachedCanvasRect = null;
+    cachedGraphRect = null;
     applyUiScale();
   });
   // When clicking on callout, disable solo persistence so it can hide normally
@@ -2802,7 +2800,8 @@ function drawGraph() {
       ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.lineWidth = 2.9;
-      drawEqResponsePath(ctx, active, w, h, 84);
+      // Use a lighter response curve while dragging to keep node lock tighter.
+      drawEqResponsePath(ctx, active, w, h, activeNodeDrag ? 58 : 84);
       const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
       lineGrad.addColorStop(0, "#ffffff");
       lineGrad.addColorStop(0.15, "#faf6ff");
