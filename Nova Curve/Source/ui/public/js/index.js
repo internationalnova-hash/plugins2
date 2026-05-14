@@ -45,7 +45,7 @@ const ULTRA_FLAT_MODE = false;
 const defaultBand = (i) => ({
   enabled: i < 6 ? 1 : 0,
   type: i === 0 ? 3 : i === 5 ? 2 : 0,
-  mode: i === 3 || i === 4 ? 1 : 0,
+  mode: 0,
   channel: 0,
   frequency: 20 * Math.pow(1000, i / (MAX_BANDS - 1)),
   gainDb: 0,
@@ -159,6 +159,8 @@ let nativeBridgeWarned = false;
 let nativePromiseId = 1;
 let nativeCompleteListenerInstalled = false;
 const nativePendingCalls = new Map();
+const realtimeParamQueue = new Map();
+let realtimeParamFlushRaf = 0;
 let dspDiagnostics = {
   applyCount: 0,
   applyAgeMs: -1,
@@ -961,10 +963,39 @@ function queueRealtimeStatePush() {
 }
 
 function pushRealtimeParam(paramKey, value, bandIndex = state.selectedBand) {
+  const key = `${String(paramKey)}:${Number(bandIndex) || 0}`;
+  realtimeParamQueue.set(key, {
+    paramKey: String(paramKey),
+    bandIndex: Number(bandIndex) || 0,
+    value: Number(value) || 0
+  });
+
+  if (realtimeParamFlushRaf) return;
+  realtimeParamFlushRaf = requestAnimationFrame(() => {
+    realtimeParamFlushRaf = 0;
+    if (!nativeBridgeReady) {
+      tryBridgeRebind();
+    }
+    for (const entry of realtimeParamQueue.values()) {
+      try { nativeSetRealtimeParam(entry.paramKey, entry.bandIndex, entry.value); } catch (_) {}
+    }
+    realtimeParamQueue.clear();
+  });
+}
+
+function flushRealtimeParamQueueImmediate() {
+  if (!realtimeParamQueue.size) return;
+  if (realtimeParamFlushRaf) {
+    cancelAnimationFrame(realtimeParamFlushRaf);
+    realtimeParamFlushRaf = 0;
+  }
   if (!nativeBridgeReady) {
     tryBridgeRebind();
   }
-  try { nativeSetRealtimeParam(String(paramKey), Number(bandIndex) || 0, Number(value) || 0); } catch (_) {}
+  for (const entry of realtimeParamQueue.values()) {
+    try { nativeSetRealtimeParam(entry.paramKey, entry.bandIndex, entry.value); } catch (_) {}
+  }
+  realtimeParamQueue.clear();
 }
 
 function pushStateImmediate() {
@@ -1555,6 +1586,7 @@ function buildKnob(el, options) {
     el.classList.remove("dragging");
     interactionUltraFast = false;
     setInteractionActive(false);
+    flushRealtimeParamQueueImmediate();
     drag.ctrl.set(drag.options.get(), false);
     updateSelectedBandReadouts(drag.options.readoutKey || "all");
     if (pushState) queuePushState();
@@ -2489,9 +2521,8 @@ function onGraphMove(e) {
       if (coGain) coGain.textContent = fmtDb(newGain);
     }
 
-    if (nowMs - lastNodeRealtimePushMs >= 8) {
+    if (nowMs - lastNodeRealtimePushMs >= 12) {
       lastNodeRealtimePushMs = nowMs;
-      pushRealtimeParam("selectedBand", draggingBand, 0);
       pushRealtimeParam("frequency", newFreq, draggingBand);
       pushRealtimeParam("gainDb", newGain, draggingBand);
     }
@@ -2582,6 +2613,7 @@ function onGraphUp() {
   graphDragUndoPending = false;
   interactionUltraFast = false;
   setInteractionActive(false);
+  flushRealtimeParamQueueImmediate();
 
   // Commit once after drag ends to avoid per-frame sync lag.
   if (releasedBand >= 0) {
