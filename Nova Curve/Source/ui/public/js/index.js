@@ -152,6 +152,10 @@ let nativeSetState = async () => true;
 let nativeSetInteractionActive = async () => true;
 let nativeBridgeReady = false;
 let nativeBridgeInitStarted = false;
+let nativeBridgeWarned = false;
+let nativePromiseId = 1;
+let nativeCompleteListenerInstalled = false;
+const nativePendingCalls = new Map();
 
 const graphWrap = document.getElementById("graphWrap");
 const canvas = document.getElementById("graphCanvas");
@@ -927,22 +931,76 @@ function pushStateImmediate() {
   })();
 }
 
-function tryBridgeRebind() {
+function installNativeCompleteListener() {
+  if (nativeCompleteListenerInstalled)
+    return;
+
+  if (typeof window.__JUCE__ === "undefined" || !window.__JUCE__.backend)
+    return;
+
+  window.__JUCE__.backend.addEventListener("__juce__complete", ({ promiseId, result }) => {
+    const resolver = nativePendingCalls.get(promiseId);
+    if (!resolver)
+      return;
+
+    nativePendingCalls.delete(promiseId);
+    resolver(result);
+  });
+
+  nativeCompleteListenerInstalled = true;
+}
+
+function createBackendNativeFunction(name) {
+  return (...params) => new Promise((resolve) => {
+    if (typeof window.__JUCE__ === "undefined" || !window.__JUCE__.backend) {
+      resolve(false);
+      return;
+    }
+
+    installNativeCompleteListener();
+
+    const resultId = nativePromiseId++;
+    nativePendingCalls.set(resultId, resolve);
+    window.__JUCE__.backend.emitEvent("__juce__invoke", {
+      name,
+      params,
+      resultId,
+    });
+  });
+}
+
+function tryBridgeRebind(force = false) {
   if (nativeBridgeReady || nativeBridgeInitStarted)
     return;
 
+  if (!force) {
+    const hasRuntime = typeof window.__JUCE__ !== "undefined" && !!window.__JUCE__.backend;
+    if (!hasRuntime)
+      return;
+  }
+
   nativeBridgeInitStarted = true;
-  setupNativeBridge().finally(() => {
+  setupNativeBridge(12).then((ready) => {
+    if (ready) {
+      loadInitialState().then(() => {
+        syncControlsFromState();
+        queuePushState();
+      });
+    } else if (!nativeBridgeWarned) {
+      nativeBridgeWarned = true;
+      console.warn("Native bridge unavailable; UI is running in visual-only fallback mode.");
+    }
+  }).finally(() => {
     nativeBridgeInitStarted = false;
   });
 }
 
-async function setupNativeBridge() {
-  const maxAttempts = 80;
+async function setupNativeBridge(maxAttempts = 1) {
   const retryDelayMs = 50;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    if (typeof window.__JUCE__ === "undefined") {
+    const hasRuntime = typeof window.__JUCE__ !== "undefined" && !!window.__JUCE__.backend;
+    if (!hasRuntime) {
       await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       continue;
     }
@@ -953,14 +1011,27 @@ async function setupNativeBridge() {
       nativeSetState = juce.getNativeFunction("setUiState");
       nativeSetInteractionActive = juce.getNativeFunction("setInteractionActive");
       nativeBridgeReady = true;
-      return;
+      nativeBridgeWarned = false;
+      return true;
     } catch (error) {
-      if (attempt === maxAttempts - 1) {
-        console.warn("Native bridge unavailable, staying in preview mode", error);
+      // Fallback path that does not rely on dynamic module import timing.
+      try {
+        nativeGetState = createBackendNativeFunction("getInitialState");
+        nativeSetState = createBackendNativeFunction("setUiState");
+        nativeSetInteractionActive = createBackendNativeFunction("setInteractionActive");
+        nativeBridgeReady = true;
+        nativeBridgeWarned = false;
+        return true;
+      } catch (_) {
+        if (attempt === maxAttempts - 1) {
+          console.warn("Native bridge unavailable, staying in preview mode", error);
+        }
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       }
-      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
     }
   }
+
+  return false;
 }
 
 function buildKnob(el, options) {
@@ -3078,12 +3149,11 @@ async function loadInitialState() {
 
 async function start() {
   applyUiScale();
-  await setupNativeBridge();
+  tryBridgeRebind(true);
   populateUi();
   createKnobs();
   bindEvents();
   applySignalMotionState();
-  await loadInitialState();
   syncControlsFromState();
   queuePushState();
   if (!rafHandle) rafHandle = requestAnimationFrame(drawGraph);
