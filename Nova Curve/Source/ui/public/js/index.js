@@ -117,6 +117,8 @@ let interactionUltraFast = false;
 let lastDragKnobSyncMs = 0;
 let graphDragTargetFreq = 0;
 let graphDragTargetGain = 0;
+let graphDragStartFreq = 0;
+let graphDragStartGain = 0;
 
 let lastFrameMs = performance.now();
 let interactionEnergy = 0;
@@ -894,7 +896,7 @@ function flushRealtimeStatePush() {
   if (realtimePushInFlight) return;
 
   const elapsed = performance.now() - lastRealtimePushMs;
-  const minIntervalMs = 12;
+  const minIntervalMs = (draggingBand >= 0 || knobDragging) ? 24 : 16;
   if (elapsed < minIntervalMs) {
     realtimePushTimer = setTimeout(flushRealtimeStatePush, minIntervalMs - elapsed);
     return;
@@ -1485,7 +1487,7 @@ function buildKnob(el, options) {
     setInteractionActive(false);
     drag.ctrl.set(drag.options.get(), false);
     updateSelectedBandReadouts(drag.options.readoutKey || "all");
-    if (pushState) pushStateImmediate();
+    if (pushState) queuePushState();
   };
 
   // Pointerdown seeds drag and captures movement on this knob only.
@@ -2238,6 +2240,8 @@ function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
   b.gainDb = clamp(yToGain(y, rect.height), -30, 30);
   graphDragTargetFreq = b.frequency;
   graphDragTargetGain = b.gainDb;
+  graphDragStartFreq = b.frequency;
+  graphDragStartGain = b.gainDb;
   b.q = 1.2;
   hoveredBand = idx;
   calloutVisible = true;
@@ -2271,8 +2275,7 @@ function onGraphDown(e) {
   const nearest = findNearestBandIndex(x, y, rect.width, rect.height, 18);
 
   if (nearest >= 0) {
-    snapshotForUndo();
-    graphDragUndoPending = false;
+    graphDragUndoPending = true;
     draggingBand = nearest;
     interactionUltraFast = true;
     hoveredBand = nearest;
@@ -2281,10 +2284,11 @@ function onGraphDown(e) {
     // Snap immediately on pickup so the node follows from the first click.
     b.frequency = clamp(xToHz(x, rect.width), FREQ_MIN, FREQ_MAX);
     b.gainDb = clamp(yToGain(y, rect.height), -30, 30);
+    graphDragStartFreq = b.frequency;
+    graphDragStartGain = b.gainDb;
     graphDragTargetFreq = b.frequency;
     graphDragTargetGain = b.gainDb;
     b.enabled = 1;
-    queueRealtimeStatePush();
     calloutVisible = true;
     calloutTargetX = x;
     calloutTargetY = y;
@@ -2353,6 +2357,15 @@ function onGraphMove(e) {
     // Remove all smoothing: follow pointer exactly for FabFilter-like feel.
     const newFreq = clamp(graphDragTargetFreq, FREQ_MIN, FREQ_MAX);
     const newGain = clamp(graphDragTargetGain, -30, 30);
+
+    if (graphDragUndoPending) {
+      const movedEnough = Math.abs(newGain - graphDragStartGain) >= 0.05 || Math.abs(freqToNorm(newFreq) - freqToNorm(graphDragStartFreq)) >= 0.0007;
+      if (movedEnough) {
+        snapshotForUndo();
+        graphDragUndoPending = false;
+      }
+    }
+
     dragPreviewFreq = newFreq;
     dragPreviewGain = newGain;
     b.frequency = newFreq;
@@ -2486,7 +2499,7 @@ function onGraphUp() {
     requestAnimationFrame(() => {
       syncControlsFromState(false);
     });
-    pushStateImmediate();
+    queuePushState();
   }
 
   if (hoveredBand < 0) calloutVisible = false;
@@ -2555,7 +2568,8 @@ function drawGraph() {
   const signalMotionAmt = signalMotionVisual;
   const reactiveDyn = dynActivity * (0.18 + 0.82 * signalMotionAmt);
   const reactivePeak = outputPeak * (0.2 + 0.8 * signalMotionAmt);
-  const fastInteraction = draggingBand >= 0 || knobDragging;
+  // Keep a consistent low-latency render path to prevent click/release visual mode shifts.
+  const fastInteraction = true;
   const ultraFast = interactionUltraFast || fastInteraction;
 
   ensureDisplayBands();
