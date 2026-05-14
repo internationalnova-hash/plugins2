@@ -315,6 +315,44 @@ function hideDragNodeOverlay() {
   }
 }
 
+function openBandEditorCallout(bandIndex, rect, anchorX = null, anchorY = null) {
+  if (bandIndex < 0 || bandIndex >= state.bands.length) return;
+
+  const b = state.bands[bandIndex];
+  state.selectedBand = bandIndex;
+  hoveredBand = bandIndex;
+  calloutBandIndex = bandIndex;
+  calloutVisible = true;
+  calloutContextMode = true;
+  calloutSoloPersistent = true;
+  cancelCalloutHide();
+
+  calloutTargetX = anchorX == null ? hzToX(b.frequency, rect.width) : anchorX;
+  calloutTargetY = anchorY == null ? gainToY(b.gainDb, rect.height) : anchorY;
+
+  if (bandDisplay) bandDisplay.textContent = `${bandIndex + 1}`;
+  if (bandIndexSelect) bandIndexSelect.value = String(bandIndex);
+
+  const coType = document.getElementById("coType");
+  const coQ = document.getElementById("coQ");
+  const coFreq = document.getElementById("coFreq");
+  const coGain = document.getElementById("coGain");
+  if (coType) coType.textContent = FILTER_TYPES[Math.round(b.type)] || "Bell";
+  if (coQ) coQ.textContent = b.q.toFixed(2);
+  if (coFreq) coFreq.textContent = fmtHz(b.frequency);
+  if (coGain) coGain.textContent = fmtDb(b.gainDb);
+  if (coEdit) coEdit.classList.add("visible");
+  if (coModeSelect) coModeSelect.value = String(Math.round(b.mode || 0));
+  if (coTypeSelect) coTypeSelect.value = String(Math.round(b.type || 0));
+
+  const coSoloBtn = document.getElementById("coSoloBtn");
+  if (coSoloBtn) {
+    const soloActive = b.solo > 0.5;
+    coSoloBtn.innerHTML = `<span class="icon">🎧</span><span>${soloActive ? "Unsolo Band" : "Band Solo"}</span>`;
+    coSoloBtn.classList.toggle("active", soloActive);
+  }
+}
+
 function applyUiScale() {
   const margin = 12;
   const sx = (window.innerWidth - margin * 2) / UI_BASE_WIDTH;
@@ -2421,14 +2459,17 @@ function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
     syncControlsFromState();
     queuePushState();
   } else {
-    pushRealtimeParam("selectedBand", idx, 0);
-    pushRealtimeParam("enabled", 1, idx);
-    pushRealtimeParam("frequency", b.frequency, idx);
-    pushRealtimeParam("gainDb", b.gainDb, idx);
+    if (nativeBridgeReady) {
+      try { nativeSetRealtimeParam("selectedBand", 0, idx); } catch (_) {}
+      try { nativeSetRealtimeParam("enabled", idx, 1); } catch (_) {}
+      try { nativeSetRealtimeParam("frequency", idx, b.frequency); } catch (_) {}
+      try { nativeSetRealtimeParam("gainDb", idx, b.gainDb); } catch (_) {}
+    }
     // Dragging immediately — defer full sync and state push to onGraphUp.
     if (bandDisplay) bandDisplay.textContent = `${idx + 1}`;
     bandIndexSelect.value = String(idx);
     showDragNodeOverlay(x, y, idx);
+    openBandEditorCallout(idx, rect, x, y);
   }
   return true;
 }
@@ -2436,8 +2477,6 @@ function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
 function onGraphDown(e) {
   e.preventDefault();
   if (e.button !== 0) return;
-  calloutContextMode = false;
-  if (coEdit) coEdit.classList.remove("visible");
   canvas.setPointerCapture(e.pointerId);
   setInteractionActive(true);
   cachedCanvasRect = canvas.getBoundingClientRect();
@@ -2462,13 +2501,13 @@ function onGraphDown(e) {
     graphDragTargetFreq = b.frequency;
     graphDragTargetGain = b.gainDb;
     b.enabled = 1;
-    pushRealtimeParam("selectedBand", nearest, 0);
-    pushRealtimeParam("enabled", 1, nearest);
-    pushRealtimeParam("frequency", b.frequency, nearest);
-    pushRealtimeParam("gainDb", b.gainDb, nearest);
-    calloutVisible = true;
-    calloutTargetX = x;
-    calloutTargetY = y;
+    if (nativeBridgeReady) {
+      try { nativeSetRealtimeParam("selectedBand", 0, nearest); } catch (_) {}
+      try { nativeSetRealtimeParam("enabled", nearest, 1); } catch (_) {}
+      try { nativeSetRealtimeParam("frequency", nearest, b.frequency); } catch (_) {}
+      try { nativeSetRealtimeParam("gainDb", nearest, b.gainDb); } catch (_) {}
+    }
+    openBandEditorCallout(nearest, rect, x, y);
     showDragNodeOverlay(x, y, nearest);
     interactionEnergy = Math.min(1, interactionEnergy + 0.18);
     // Skip full syncControlsFromState during drag — too expensive to fire per frame.
@@ -2501,22 +2540,10 @@ function onGraphMove(e) {
     calloutTargetY = gainToY(bCtx.gainDb, rect.height);
     if (coEdit) coEdit.classList.add("visible");
   } else if (draggingBand < 0) {
-    if (calloutHovering && calloutBandIndex >= 0) {
-      hoveredBand = calloutBandIndex;
-      calloutVisible = true;
-      cancelCalloutHide();
-    } else {
-      const newHovered = findNearestBandIndex(x, y, rect.width, rect.height, 22);
-      if (newHovered >= 0) {
-        hoveredBand = newHovered;
-        // Hovering should not open callout; callout appears only after click/drag/context.
-      } else {
-        hoveredBand = -1;
-        if (calloutVisible && !calloutSoloPersistent && !calloutHovering) {
-          scheduleCalloutHide(420);
-        }
-      }
-    }
+    const newHovered = findNearestBandIndex(x, y, rect.width, rect.height, 22);
+    hoveredBand = newHovered >= 0 ? newHovered : -1;
+    // Disable hover-only callout to prevent blocking nodes.
+    if (!calloutSoloPersistent) calloutVisible = false;
   }
 
   if (draggingBand >= 0) {
@@ -2556,7 +2583,7 @@ function onGraphMove(e) {
     if (bandDisplay) bandDisplay.textContent = `${draggingBand + 1}`;
     if (bandIndexSelect) bandIndexSelect.value = String(draggingBand);
     const nowMs = performance.now();
-    if (nowMs - lastNodeUiRefreshMs >= 16) {
+    if (nowMs - lastNodeUiRefreshMs >= 24) {
       lastNodeUiRefreshMs = nowMs;
       updateSelectedBandReadouts("freq");
       updateSelectedBandReadouts("gain");
@@ -2566,14 +2593,7 @@ function onGraphMove(e) {
 
     calloutTargetX = x;
     calloutTargetY = y;
-    const coFreq = document.getElementById("coFreq");
-    const coGain = document.getElementById("coGain");
-    if (nowMs - lastNodeUiRefreshMs >= 16) {
-      if (coFreq) coFreq.textContent = fmtHz(newFreq);
-      if (coGain) coGain.textContent = fmtDb(newGain);
-    }
-
-    if (nowMs - lastNodeRealtimePushMs >= 12) {
+    if (nowMs - lastNodeRealtimePushMs >= 8) {
       lastNodeRealtimePushMs = nowMs;
       // Nova Aura pattern: call bridge directly in pointermove, no RAF queue.
       if (nativeBridgeReady) {
@@ -2619,45 +2639,8 @@ function onGraphMove(e) {
 }
 
 function onGraphContextMenu(e) {
+  // Right-click option removed; editor callout is opened via normal node interaction.
   e.preventDefault();
-  const rect = cachedCanvasRect || (cachedCanvasRect = canvas.getBoundingClientRect());
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  const nearest = findNearestBandIndex(x, y, rect.width, rect.height, 22);
-  if (nearest < 0) return;
-
-  state.selectedBand = nearest;
-  hoveredBand = nearest;
-  calloutBandIndex = nearest;
-  calloutVisible = true;
-  calloutContextMode = true;
-  calloutSoloPersistent = true;
-  calloutTargetX = hzToX(state.bands[nearest].frequency, rect.width);
-  calloutTargetY = gainToY(state.bands[nearest].gainDb, rect.height);
-  cancelCalloutHide();
-
-  if (bandDisplay) bandDisplay.textContent = `${nearest + 1}`;
-  bandIndexSelect.value = String(nearest);
-
-  const b = state.bands[nearest];
-  const coType = document.getElementById("coType");
-  const coQ = document.getElementById("coQ");
-  const coFreq = document.getElementById("coFreq");
-  const coGain = document.getElementById("coGain");
-  if (coType) coType.textContent = FILTER_TYPES[Math.round(b.type)] || "Bell";
-  if (coQ) coQ.textContent = b.q.toFixed(2);
-  if (coFreq) coFreq.textContent = fmtHz(b.frequency);
-  if (coGain) coGain.textContent = fmtDb(b.gainDb);
-  if (coEdit) coEdit.classList.add("visible");
-  if (coModeSelect) coModeSelect.value = String(Math.round(b.mode || 0));
-  if (coTypeSelect) coTypeSelect.value = String(Math.round(b.type || 0));
-
-  const coSoloBtn = document.getElementById("coSoloBtn");
-  if (coSoloBtn) {
-    const soloActive = b.solo > 0.5;
-    coSoloBtn.innerHTML = `<span class="icon">🎧</span><span>${soloActive ? "Unsolo Band" : "Band Solo"}</span>`;
-    coSoloBtn.classList.toggle("active", soloActive);
-  }
 }
 
 function onGraphUp() {
@@ -2680,10 +2663,7 @@ function onGraphUp() {
     const rect = cachedCanvasRect || canvas.getBoundingClientRect();
     const released = state.bands[releasedBand];
     if (released) {
-      calloutBandIndex = releasedBand;
-      calloutTargetX = hzToX(released.frequency, rect.width);
-      calloutTargetY = gainToY(released.gainDb, rect.height);
-      calloutVisible = true;
+      openBandEditorCallout(releasedBand, rect);
     }
     requestAnimationFrame(() => {
       syncControlsFromState(false);
@@ -2850,8 +2830,7 @@ function drawGraph() {
     ctx.stroke();
 
     const active = displayBands
-      .filter((b) => b.enabled > 0.5)
-      .sort((a, b) => a.frequency - b.frequency);
+      .filter((b) => b.enabled > 0.5);
 
     if (active.length > 0) {
       ctx.shadowColor = "transparent";
