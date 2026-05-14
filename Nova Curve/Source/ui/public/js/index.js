@@ -1469,6 +1469,7 @@ function buildKnob(el, options) {
   let dragCurrentNorm = dragTargetNorm;
 
   const applyQueuedKnobDrag = () => {
+    // Legacy RAF path — kept for wheel/non-direct interactions only.
     knobDragRaf = 0;
     if (!activeKnobDrag || activeKnobDrag.ctrl !== ctrl) {
       pendingDragDeltaY = 0;
@@ -1477,19 +1478,15 @@ function buildKnob(el, options) {
 
     if (pendingDragDeltaY !== 0) {
       const deltaNorm = pendingDragDeltaY * dragNormPerPixel * dragFineScale;
-      dragTargetNorm = clamp(dragTargetNorm + deltaNorm, 0, 1);
+      dragCurrentNorm = clamp(dragCurrentNorm + deltaNorm, 0, 1);
     }
     pendingDragDeltaY = 0;
-
-    // During active drag, follow target immediately for premium low-latency feel.
-    dragCurrentNorm = dragTargetNorm;
 
     const newValue = activeKnobDrag.normToValue(dragCurrentNorm);
     activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
     activeKnobDrag.setDragVisual(activeKnobDrag.options.get());
     updateSelectedBandReadouts(activeKnobDrag.options.readoutKey || "all");
 
-    // Keep active callout text in sync while turning frequency/gain knobs.
     if (calloutVisible) {
       const activeIdx = calloutBandIndex >= 0 ? calloutBandIndex : state.selectedBand;
       const b = state.bands[activeIdx];
@@ -1504,12 +1501,9 @@ function buildKnob(el, options) {
     queueRealtimeStatePush();
     if (activeKnobDrag.options.realtimeParam) {
       const targetBand = activeKnobDrag.options.isGlobalParam ? 0 : state.selectedBand;
-      pushRealtimeParam(activeKnobDrag.options.realtimeParam, activeKnobDrag.options.get(), targetBand);
+      if (nativeBridgeReady) try { nativeSetRealtimeParam(activeKnobDrag.options.realtimeParam, targetBand, activeKnobDrag.options.get()); } catch (_) {}
     }
     interactionEnergy = Math.min(1, interactionEnergy + 0.05);
-
-    if (Math.abs(dragTargetNorm - dragCurrentNorm) > 0.0004)
-      knobDragRaf = requestAnimationFrame(applyQueuedKnobDrag);
   };
 
   const setDragVisual = (value) => {
@@ -1539,26 +1533,25 @@ function buildKnob(el, options) {
     activeKnobDrag.lastY = latest.clientY;
     dragFineScale = (latest.shiftKey || latest.metaKey) ? 0.22 : 1;
 
-    // Input-first mapping: include horizontal movement to keep visual lock with cursor motion.
+    // Nova Aura pattern: apply delta directly, no intermediate target/current split.
     const deltaNorm = (deltaY + deltaX * 0.9) * dragNormPerPixel * dragFineScale;
-    dragTargetNorm = clamp(dragTargetNorm + deltaNorm, 0, 1);
-    dragCurrentNorm = dragTargetNorm;
+    dragCurrentNorm = clamp(dragCurrentNorm + deltaNorm, 0, 1);
 
     const newValue = activeKnobDrag.normToValue(dragCurrentNorm);
     activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
+    // Visual update: synchronous, GPU-composited via will-change:transform + filter:none
     activeKnobDrag.setDragVisual(activeKnobDrag.options.get());
-    const nowMs = performance.now();
-    if (nowMs - lastDragKnobSyncMs >= 16) {
-      lastDragKnobSyncMs = nowMs;
-      updateSelectedBandReadouts(activeKnobDrag.options.readoutKey || "all");
-    }
-    if (activeKnobDrag.options.realtimeParam) {
+    updateSelectedBandReadouts(activeKnobDrag.options.readoutKey || "all");
+
+    // Nova Aura pattern: push to native bridge directly in pointermove, no RAF queue.
+    if (activeKnobDrag.options.realtimeParam && nativeBridgeReady) {
       const targetBand = activeKnobDrag.options.isGlobalParam ? 0 : state.selectedBand;
+      const nowMs = performance.now();
       if (nowMs - lastKnobRealtimePushMs >= 8) {
         lastKnobRealtimePushMs = nowMs;
-        pushRealtimeParam(activeKnobDrag.options.realtimeParam, activeKnobDrag.options.get(), targetBand);
+        try { nativeSetRealtimeParam(activeKnobDrag.options.realtimeParam, targetBand, activeKnobDrag.options.get()); } catch (_) {}
       }
-    } else {
+    } else if (!activeKnobDrag.options.realtimeParam) {
       queueRealtimeStatePush();
     }
     interactionEnergy = Math.min(1, interactionEnergy + 0.05);
@@ -2527,8 +2520,11 @@ function onGraphMove(e) {
 
     if (nowMs - lastNodeRealtimePushMs >= 12) {
       lastNodeRealtimePushMs = nowMs;
-      pushRealtimeParam("frequency", newFreq, draggingBand);
-      pushRealtimeParam("gainDb", newGain, draggingBand);
+      // Nova Aura pattern: call bridge directly in pointermove, no RAF queue.
+      if (nativeBridgeReady) {
+        try { nativeSetRealtimeParam("frequency", draggingBand, newFreq); } catch (_) {}
+        try { nativeSetRealtimeParam("gainDb", draggingBand, newGain); } catch (_) {}
+      }
     }
     interactionEnergy = Math.min(1, interactionEnergy + 0.06);
     return;
