@@ -285,6 +285,7 @@ function ensureDragNodeOverlay() {
   dragNodeOverlay.style.zIndex = "120";
   dragNodeOverlay.style.transform = "translate3d(0, 0, 0)";
   dragNodeOverlay.style.willChange = "transform";
+  dragNodeOverlay.style.boxShadow = "0 0 10px rgba(170, 160, 255, 0.42), 0 0 2px rgba(255, 255, 255, 0.36)";
 
   dragNodeOverlayLabel = document.createElement("span");
   dragNodeOverlayLabel.style.color = "#edf3ff";
@@ -2524,10 +2525,9 @@ function onGraphDown(e) {
 
 function onGraphMove(e) {
   const rect = cachedCanvasRect || (cachedCanvasRect = canvas.getBoundingClientRect());
-  const coalesced = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
-  const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
-  const x = latest.clientX - rect.left;
-  const y = latest.clientY - rect.top;
+  // Use the dispatched pointer position directly for minimum visual latency.
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
   hoverGraphX = x;
   hoverGraphY = y;
 
@@ -2838,7 +2838,7 @@ function drawGraph() {
       ctx.beginPath();
       ctx.lineWidth = 2.9;
       // Use a lighter response curve while dragging to keep node lock tighter.
-      drawEqResponsePath(ctx, active, w, h, activeNodeDrag ? 46 : 84);
+      drawEqResponsePath(ctx, active, w, h, activeNodeDrag ? 34 : 84);
       const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
       lineGrad.addColorStop(0, "#ffffff");
       lineGrad.addColorStop(0.15, "#faf6ff");
@@ -2852,6 +2852,7 @@ function drawGraph() {
     // Keep node visibility during fast interaction so targeting remains stable.
     displayBands.forEach((b, i) => {
       if (b.enabled < 0.5) return;
+      if (i === draggingBand && dragNodeOverlay && dragNodeOverlay.style.display !== "none") return;
       const isDragged = i === draggingBand;
       const x = isDragged ? clamp(hoverGraphX, 0, w) : hzToX(b.frequency, w);
       const yNode = isDragged ? clamp(hoverGraphY, 0, h) : gainToY(b.gainDb, h);
