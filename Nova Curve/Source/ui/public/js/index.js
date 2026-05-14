@@ -2751,8 +2751,10 @@ function drawGraph() {
   const w = rect.width;
   const h = rect.height;
 
+  const activeNodeDrag = draggingBand >= 0;
+
   if (fastInteraction) {
-    if (knobDragging) {
+    if (knobDragging || activeNodeDrag) {
       callout.classList.remove("visible");
     } else if (calloutVisible) {
       const targetX = clamp(calloutTargetX, 0, w);
@@ -2791,12 +2793,13 @@ function drawGraph() {
     const active = displayBands
       .filter((b) => b.enabled > 0.5)
       .sort((a, b) => a.frequency - b.frequency);
-    if (active.length > 0) {
+
+    if (!activeNodeDrag && active.length > 0) {
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.lineWidth = 2.9;
-      drawEqResponsePath(ctx, active, w, h, draggingBand >= 0 ? 72 : 84);
+      drawEqResponsePath(ctx, active, w, h, 84);
       const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
       lineGrad.addColorStop(0, "#ffffff");
       lineGrad.addColorStop(0.15, "#faf6ff");
@@ -2805,32 +2808,32 @@ function drawGraph() {
       lineGrad.addColorStop(1, "#88c8ff");
       ctx.strokeStyle = lineGrad;
       ctx.stroke();
-
-      // Keep node visibility during fast interaction so targeting remains stable.
-      displayBands.forEach((b, i) => {
-        if (b.enabled < 0.5) return;
-        const activeDrag = i === draggingBand;
-        const x = activeDrag ? clamp(hoverGraphX, 0, w) : hzToX(b.frequency, w);
-        const yNode = activeDrag ? clamp(hoverGraphY, 0, h) : gainToY(b.gainDb, h);
-        const selected = i === state.selectedBand;
-        const dynamic = b.mode > 0.5;
-        const notch = b.type === 5;
-
-        ctx.beginPath();
-        ctx.arc(x, yNode, 11.2, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(6, 10, 24, 0.94)";
-        ctx.fill();
-        ctx.strokeStyle = notch ? "#89b4ff" : selected ? "#c099ff" : dynamic ? "#7fa8ff" : "#d6e4ff";
-        ctx.lineWidth = selected ? 2.35 : 1.9;
-        ctx.stroke();
-
-        ctx.fillStyle = "#edf3ff";
-        ctx.font = "600 13px Avenir Next";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(String(i + 1), x, yNode + 0.4);
-      });
     }
+
+    // Keep node visibility during fast interaction so targeting remains stable.
+    displayBands.forEach((b, i) => {
+      if (b.enabled < 0.5) return;
+      const isDragged = i === draggingBand;
+      const x = isDragged ? clamp(hoverGraphX, 0, w) : hzToX(b.frequency, w);
+      const yNode = isDragged ? clamp(hoverGraphY, 0, h) : gainToY(b.gainDb, h);
+      const selected = i === state.selectedBand;
+      const dynamic = b.mode > 0.5;
+      const notch = b.type === 5;
+
+      ctx.beginPath();
+      ctx.arc(x, yNode, 11.2, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(6, 10, 24, 0.94)";
+      ctx.fill();
+      ctx.strokeStyle = notch ? "#89b4ff" : selected ? "#c099ff" : dynamic ? "#7fa8ff" : "#d6e4ff";
+      ctx.lineWidth = selected ? 2.35 : 1.9;
+      ctx.stroke();
+
+      ctx.fillStyle = "#edf3ff";
+      ctx.font = "600 13px Avenir Next";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(i + 1), x, yNode + 0.4);
+    });
 
     rafHandle = requestAnimationFrame(drawGraph);
     return;
