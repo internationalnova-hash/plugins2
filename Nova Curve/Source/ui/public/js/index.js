@@ -73,13 +73,6 @@ const state = {
   bands: Array.from({ length: MAX_BANDS }, (_, i) => defaultBand(i))
 };
 
-state.bands[0].frequency = 34;
-state.bands[1].frequency = 110; state.bands[1].gainDb = 3.2;
-state.bands[2].frequency = 360; state.bands[2].gainDb = -10.8; state.bands[2].type = 5;
-state.bands[3].frequency = 2730; state.bands[3].gainDb = 4.8;
-state.bands[4].frequency = 5000;
-state.bands[5].frequency = 13000; state.bands[5].type = 2; state.bands[5].gainDb = 5.6;
-
 let undoStack = [];
 let redoStack = [];
 let snapshotA = JSON.stringify(state);
@@ -158,7 +151,6 @@ let nativeBridgeWarned = false;
 let nativePromiseId = 1;
 let nativeCompleteListenerInstalled = false;
 const nativePendingCalls = new Map();
-let dspDiagHud = null;
 let dspDiagnostics = {
   applyCount: 0,
   applyAgeMs: -1,
@@ -368,48 +360,6 @@ function drawEqResponsePath(ctx, bands, width, height, pointCount = 260) {
 function fmtHz(hz) { return hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${Math.round(hz)} Hz`; }
 function fmtDb(db) { return `${db >= 0 ? "+" : ""}${db.toFixed(1)} dB`; }
 function fmtMs(ms) { return ms < 100 ? `${ms.toFixed(1)} ms` : `${Math.round(ms)} ms`; }
-
-function ensureDspDiagHud() {
-  if (dspDiagHud || !pluginRoot) return;
-
-  dspDiagHud = document.createElement("div");
-  dspDiagHud.id = "dspDiagHud";
-  dspDiagHud.style.position = "absolute";
-  dspDiagHud.style.right = "14px";
-  dspDiagHud.style.bottom = "12px";
-  dspDiagHud.style.padding = "7px 10px";
-  dspDiagHud.style.borderRadius = "8px";
-  dspDiagHud.style.background = "rgba(5, 9, 20, 0.84)";
-  dspDiagHud.style.border = "1px solid rgba(120, 145, 235, 0.35)";
-  dspDiagHud.style.color = "rgba(231, 238, 255, 0.96)";
-  dspDiagHud.style.fontSize = "11px";
-  dspDiagHud.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-  dspDiagHud.style.lineHeight = "1.35";
-  dspDiagHud.style.letterSpacing = "0.02em";
-  dspDiagHud.style.pointerEvents = "none";
-  dspDiagHud.style.zIndex = "50";
-  pluginRoot.appendChild(dspDiagHud);
-}
-
-function renderDspDiagHud() {
-  if (!dspDiagHud) return;
-
-  const age = Number.isFinite(dspDiagnostics.applyAgeMs) ? Math.max(0, Math.round(dspDiagnostics.applyAgeMs)) : -1;
-  const ageLabel = age >= 0 ? `${age} ms` : "n/a";
-  const enabledLabel = Number(dspDiagnostics.bandEnabled) > 0 ? "on" : "off";
-  const soloLabel = Number(dspDiagnostics.bandSolo) > 0 ? "on" : "off";
-  const bandLabel = Number.isFinite(dspDiagnostics.selectedBand) ? Number(dspDiagnostics.selectedBand) + 1 : "?";
-  const freqLabel = Number.isFinite(dspDiagnostics.bandFreq) ? fmtHz(Number(dspDiagnostics.bandFreq)) : "n/a";
-  const gainLabel = Number.isFinite(dspDiagnostics.bandGain) ? fmtDb(Number(dspDiagnostics.bandGain)) : "n/a";
-  const qLabel = Number.isFinite(dspDiagnostics.bandQ) ? Number(dspDiagnostics.bandQ).toFixed(2) : "n/a";
-
-  dspDiagHud.innerHTML =
-    `DSP LINK` +
-    `<br>applyCount: ${Number(dspDiagnostics.applyCount) || 0}` +
-    `<br>applyAge: ${ageLabel}` +
-    `<br>band: ${bandLabel} enabled:${enabledLabel} solo:${soloLabel}` +
-    `<br>freq:${freqLabel} gain:${gainLabel} q:${qLabel}`;
-}
 
 function inferPresetCategory(name) {
   const n = String(name || "").toLowerCase();
@@ -1471,6 +1421,20 @@ function buildKnob(el, options) {
     const newValue = activeKnobDrag.normToValue(activeKnobDrag.norm);
     activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
     activeKnobDrag.setDragVisual(activeKnobDrag.options.get());
+    updateSelectedBandReadouts(activeKnobDrag.options.readoutKey || "all");
+
+    // Keep active callout text in sync while turning frequency/gain knobs.
+    if (calloutVisible) {
+      const activeIdx = calloutBandIndex >= 0 ? calloutBandIndex : state.selectedBand;
+      const b = state.bands[activeIdx];
+      if (b) {
+        const coFreq = document.getElementById("coFreq");
+        const coGain = document.getElementById("coGain");
+        if (coFreq) coFreq.textContent = fmtHz(b.frequency);
+        if (coGain) coGain.textContent = fmtDb(b.gainDb);
+      }
+    }
+
     queueRealtimeStatePush();
     interactionEnergy = Math.min(1, interactionEnergy + 0.05);
   };
@@ -2321,7 +2285,7 @@ function onGraphDown(e) {
     b.gainDb = clamp(yToGain(y, rect.height), -30, 30);
     b.enabled = 1;
     queueRealtimeStatePush();
-    calloutVisible = !interactionUltraFast;
+    calloutVisible = true;
     calloutTargetX = x;
     calloutTargetY = y;
     interactionEnergy = Math.min(1, interactionEnergy + 0.18);
@@ -2687,20 +2651,30 @@ function drawGraph() {
     return;
   }
 
-  if (ultraFast) {
+  if (ultraFast && draggingBand < 0) {
     callout.classList.remove("visible");
   } else if (calloutVisible) {
     const targetX = clamp(calloutTargetX, 0, w);
     const targetY = clamp(calloutTargetY, 0, h);
-    calloutX = smoothTo(calloutX, targetX, 26, dt);
-    calloutY = smoothTo(calloutY, targetY, 26, dt);
+    const followHard = draggingBand >= 0;
+    if (followHard) {
+      calloutX = targetX;
+      calloutY = targetY;
+    } else {
+      calloutX = smoothTo(calloutX, targetX, 26, dt);
+      calloutY = smoothTo(calloutY, targetY, 26, dt);
+    }
 
     const cw = Math.max(180, callout.offsetWidth || 0);
     const ch = Math.max(110, callout.offsetHeight || 0);
     const edgePad = 8;
-    const left = clamp(calloutX - cw * 0.5, edgePad, Math.max(edgePad, w - cw - edgePad));
-    const preferAboveTop = calloutY - ch - 14;
-    const top = preferAboveTop < edgePad ? clamp(calloutY + 14, edgePad, Math.max(edgePad, h - ch - edgePad)) : clamp(preferAboveTop, edgePad, Math.max(edgePad, h - ch - edgePad));
+    const left = followHard
+      ? clamp(calloutX + 12, edgePad, Math.max(edgePad, w - cw - edgePad))
+      : clamp(calloutX - cw * 0.5, edgePad, Math.max(edgePad, w - cw - edgePad));
+    const preferAboveTop = calloutY - ch - (followHard ? 8 : 10);
+    const top = preferAboveTop < edgePad
+      ? clamp(calloutY + (followHard ? 8 : 10), edgePad, Math.max(edgePad, h - ch - edgePad))
+      : clamp(preferAboveTop, edgePad, Math.max(edgePad, h - ch - edgePad));
 
     callout.style.left = `${left}px`;
     callout.style.top = `${top}px`;
@@ -3198,8 +3172,6 @@ function drawGraph() {
     pluginRoot.style.setProperty("--ambient-drift", `${ambientDrift.toFixed(3)}`);
   }
 
-  renderDspDiagHud();
-
   if (dynMeterFill) {
     const meterValue = clamp((meterSourceExternal ? dynActivity : outputPeak) * 100, 6, 100);
     dynMeterFill.style.height = `${meterValue}%`;
@@ -3268,7 +3240,6 @@ async function start() {
   populateUi();
   createKnobs();
   bindEvents();
-  ensureDspDiagHud();
   applySignalMotionState();
   syncControlsFromState();
   queuePushState();

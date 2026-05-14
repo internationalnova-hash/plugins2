@@ -104,21 +104,6 @@ void NovaCurveAudioProcessor::initialiseDefaultState()
         bands[static_cast<size_t> (i)].ratio.store (2.2f);
         bands[static_cast<size_t> (i)].solo.store (0.0f);
     }
-
-    // Quick-start bands inspired by the visual mockup layout.
-    bands[0].frequency.store (34.0f);
-    bands[0].type.store (3.0f);
-    bands[1].frequency.store (110.0f);
-    bands[1].gainDb.store (3.2f);
-    bands[2].frequency.store (360.0f);
-    bands[2].gainDb.store (-10.8f);
-    bands[3].frequency.store (2730.0f);
-    bands[3].gainDb.store (4.8f);
-    bands[4].frequency.store (5000.0f);
-    bands[4].gainDb.store (0.0f);
-    bands[5].frequency.store (13000.0f);
-    bands[5].type.store (2.0f);
-    bands[5].gainDb.store (5.6f);
 }
 
 const juce::String NovaCurveAudioProcessor::getName() const
@@ -732,50 +717,55 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
             juce::dsp::IIR::Coefficients<float>::Ptr coeff;
 
-            // Solo audition should be focused but still retain some context (FabFilter-like).
+            // Solo audition should be focused but smooth enough for extended auditioning.
             auto auditionFreq = freq;
-            auto auditionQ = juce::jmax (3.0f, programQ * 1.55f);
+            auto auditionQ = juce::jmax (2.7f, programQ * 1.42f);
+
+            // Keep upper-mid soloing less brittle around the harshness zone.
+            const auto upperMidBlend = juce::jlimit (0.0f, 1.0f, (freq - 2800.0f) / 5200.0f);
 
             switch (type)
             {
                 case 1: // Low shelf -> emphasize shelf knee region.
-                    auditionQ = juce::jlimit (3.8f, 8.4f, 4.2f + 0.05f * std::abs (movementDb));
+                    auditionQ = juce::jlimit (3.4f, 7.2f, 3.9f + 0.04f * std::abs (movementDb));
                     auditionFreq = clampValue (freq * 0.88f, 20.0f, 20000.0f);
                     break;
 
                 case 2: // High shelf -> emphasize shelf knee region.
-                    auditionQ = juce::jlimit (3.8f, 8.4f, 4.2f + 0.05f * std::abs (movementDb));
+                    auditionQ = juce::jlimit (3.2f, 6.8f, 3.7f + 0.04f * std::abs (movementDb));
                     auditionFreq = clampValue (freq * 1.12f, 20.0f, 20000.0f);
                     break;
 
                 case 3: // High-pass -> focus tightly around cutoff transition.
                 case 4: // Low-pass -> focus tightly around cutoff transition.
-                    auditionQ = juce::jlimit (3.6f, 8.6f, 3.7f + 0.20f * (slope / 24.0f));
+                    auditionQ = juce::jlimit (3.1f, 7.2f, 3.3f + 0.16f * (slope / 24.0f));
                     break;
 
                 case 5: // Notch -> very narrow whistle-like focus.
-                    auditionQ = juce::jlimit (7.0f, 16.0f, juce::jmax (7.0f, programQ * 2.1f));
+                    auditionQ = juce::jlimit (5.0f, 12.0f, juce::jmax (5.0f, programQ * 1.7f));
                     break;
 
                 case 6: // Band-pass
-                    auditionQ = juce::jlimit (3.8f, 9.5f, juce::jmax (3.8f, programQ * 1.65f));
+                    auditionQ = juce::jlimit (3.2f, 7.6f, juce::jmax (3.2f, programQ * 1.45f));
                     break;
 
                 case 7: // Tilt
-                    auditionQ = 3.8f;
+                    auditionQ = 3.2f;
                     break;
 
                 case 0:
                 default: // Bell
-                    auditionQ = juce::jlimit (3.4f, 9.5f, juce::jmax (3.4f, programQ * 1.7f));
+                    auditionQ = juce::jlimit (2.9f, 7.5f, juce::jmax (2.9f, programQ * 1.45f));
                     break;
             }
+
+            auditionQ *= (1.0f - 0.18f * upperMidBlend);
 
             coeff = juce::dsp::IIR::Coefficients<float>::makeBandPass (currentSampleRate, auditionFreq, auditionQ);
             const auto coeffStage2 = juce::dsp::IIR::Coefficients<float>::makeBandPass (
                 currentSampleRate,
                 auditionFreq,
-                juce::jlimit (3.0f, 12.0f, auditionQ * 1.06f));
+                juce::jlimit (2.5f, 9.0f, auditionQ * 0.98f));
 
             for (int channel = 0; channel < juce::jmin (2, buffer.getNumChannels()); ++channel)
             {
@@ -784,11 +774,13 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
             }
 
             // Keep solo audible and dynamic-aware while still heavily isolating the region.
-            auto makeupDb = juce::jlimit (0.0f, 6.0f, 2.2f + 0.14f * std::abs (movementDb));
+            auto makeupDb = juce::jlimit (0.0f, 4.8f, 1.6f + 0.10f * std::abs (movementDb));
             if (mode == 1)
-                makeupDb = juce::jlimit (0.0f, 7.2f, makeupDb + 0.4f * std::abs (dynamicGainDb));
+                makeupDb = juce::jlimit (0.0f, 5.6f, makeupDb + 0.3f * std::abs (dynamicGainDb));
             if (type == 5)
-                makeupDb = juce::jlimit (0.0f, 8.0f, makeupDb + 0.6f);
+                makeupDb = juce::jlimit (0.0f, 6.2f, makeupDb + 0.4f);
+
+            makeupDb *= (1.0f - 0.16f * upperMidBlend);
             soloBandLinearGain[static_cast<size_t> (band)] = juce::Decibels::decibelsToGain (makeupDb);
         }
 
@@ -807,7 +799,7 @@ void NovaCurveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
                     const auto band = soloBands[static_cast<size_t> (i)];
                     const auto filteredStage1 = auditionFilters[static_cast<size_t> (channel)][static_cast<size_t> (band)].processSample (src);
                     const auto filteredStage2 = auditionFiltersStage2[static_cast<size_t> (channel)][static_cast<size_t> (band)].processSample (filteredStage1);
-                    const auto filtered = filteredStage2 * 0.72f + filteredStage1 * 0.28f;
+                    const auto filtered = filteredStage2 * 0.62f + filteredStage1 * 0.38f;
                     auditionSum += filtered * soloBandLinearGain[static_cast<size_t> (band)];
                 }
 
