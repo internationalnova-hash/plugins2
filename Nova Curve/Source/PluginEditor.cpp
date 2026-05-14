@@ -60,12 +60,26 @@ void NovaCurveAudioProcessorEditor::timerCallback()
         return output;
     };
 
+    const auto nowMs = static_cast<int> (juce::Time::getMillisecondCounter());
+    const auto lastApplyMs = processorRef.getUiStateLastApplyMs();
+    const auto applyAgeMs = juce::jmax (0, nowMs - lastApplyMs);
+    const auto uiDiag = "{applyCount:" + juce::String (processorRef.getUiStateApplyCount())
+                     + ",applyAgeMs:" + juce::String (applyAgeMs)
+                     + ",selectedBand:" + juce::String (processorRef.getUiStateDiagSelectedBand())
+                     + ",bandFreq:" + juce::String (processorRef.getUiStateDiagFrequency(), 2)
+                     + ",bandGain:" + juce::String (processorRef.getUiStateDiagGainDb(), 2)
+                     + ",bandQ:" + juce::String (processorRef.getUiStateDiagQ(), 2)
+                     + ",bandEnabled:" + juce::String (processorRef.getUiStateDiagEnabled())
+                     + ",bandSolo:" + juce::String (processorRef.getUiStateDiagSolo())
+                     + "}";
+
     const auto script = "if (window.updateCurveAnalyzer) { window.updateCurveAnalyzer("
                       + serialiseSpectrum (processorRef.getPreSpectrum()) + ","
                       + serialiseSpectrum (processorRef.getPostSpectrum()) + ","
                       + serialiseSpectrum (processorRef.getReductionSpectrum()) + ","
                       + juce::String (processorRef.outputPeakLevel.load(), 4) + ","
-                      + juce::String (processorRef.dynamicActivity.load(), 4) + "); }";
+                      + juce::String (processorRef.dynamicActivity.load(), 4) + ","
+                      + uiDiag + "); }";
 
     webView->evaluateJavascript (script);
 }

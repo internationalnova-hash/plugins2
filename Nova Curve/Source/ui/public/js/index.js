@@ -156,6 +156,17 @@ let nativeBridgeWarned = false;
 let nativePromiseId = 1;
 let nativeCompleteListenerInstalled = false;
 const nativePendingCalls = new Map();
+let dspDiagHud = null;
+let dspDiagnostics = {
+  applyCount: 0,
+  applyAgeMs: -1,
+  selectedBand: 0,
+  bandFreq: 0,
+  bandGain: 0,
+  bandQ: 0,
+  bandEnabled: 0,
+  bandSolo: 0,
+};
 
 const graphWrap = document.getElementById("graphWrap");
 const canvas = document.getElementById("graphCanvas");
@@ -355,6 +366,48 @@ function drawEqResponsePath(ctx, bands, width, height, pointCount = 260) {
 function fmtHz(hz) { return hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${Math.round(hz)} Hz`; }
 function fmtDb(db) { return `${db >= 0 ? "+" : ""}${db.toFixed(1)} dB`; }
 function fmtMs(ms) { return ms < 100 ? `${ms.toFixed(1)} ms` : `${Math.round(ms)} ms`; }
+
+function ensureDspDiagHud() {
+  if (dspDiagHud || !pluginRoot) return;
+
+  dspDiagHud = document.createElement("div");
+  dspDiagHud.id = "dspDiagHud";
+  dspDiagHud.style.position = "absolute";
+  dspDiagHud.style.right = "14px";
+  dspDiagHud.style.bottom = "12px";
+  dspDiagHud.style.padding = "7px 10px";
+  dspDiagHud.style.borderRadius = "8px";
+  dspDiagHud.style.background = "rgba(5, 9, 20, 0.84)";
+  dspDiagHud.style.border = "1px solid rgba(120, 145, 235, 0.35)";
+  dspDiagHud.style.color = "rgba(231, 238, 255, 0.96)";
+  dspDiagHud.style.fontSize = "11px";
+  dspDiagHud.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  dspDiagHud.style.lineHeight = "1.35";
+  dspDiagHud.style.letterSpacing = "0.02em";
+  dspDiagHud.style.pointerEvents = "none";
+  dspDiagHud.style.zIndex = "50";
+  pluginRoot.appendChild(dspDiagHud);
+}
+
+function renderDspDiagHud() {
+  if (!dspDiagHud) return;
+
+  const age = Number.isFinite(dspDiagnostics.applyAgeMs) ? Math.max(0, Math.round(dspDiagnostics.applyAgeMs)) : -1;
+  const ageLabel = age >= 0 ? `${age} ms` : "n/a";
+  const enabledLabel = Number(dspDiagnostics.bandEnabled) > 0 ? "on" : "off";
+  const soloLabel = Number(dspDiagnostics.bandSolo) > 0 ? "on" : "off";
+  const bandLabel = Number.isFinite(dspDiagnostics.selectedBand) ? Number(dspDiagnostics.selectedBand) + 1 : "?";
+  const freqLabel = Number.isFinite(dspDiagnostics.bandFreq) ? fmtHz(Number(dspDiagnostics.bandFreq)) : "n/a";
+  const gainLabel = Number.isFinite(dspDiagnostics.bandGain) ? fmtDb(Number(dspDiagnostics.bandGain)) : "n/a";
+  const qLabel = Number.isFinite(dspDiagnostics.bandQ) ? Number(dspDiagnostics.bandQ).toFixed(2) : "n/a";
+
+  dspDiagHud.innerHTML =
+    `DSP LINK` +
+    `<br>applyCount: ${Number(dspDiagnostics.applyCount) || 0}` +
+    `<br>applyAge: ${ageLabel}` +
+    `<br>band: ${bandLabel} enabled:${enabledLabel} solo:${soloLabel}` +
+    `<br>freq:${freqLabel} gain:${gainLabel} q:${qLabel}`;
+}
 
 function inferPresetCategory(name) {
   const n = String(name || "").toLowerCase();
@@ -3091,6 +3144,8 @@ function drawGraph() {
     pluginRoot.style.setProperty("--ambient-drift", `${ambientDrift.toFixed(3)}`);
   }
 
+  renderDspDiagHud();
+
   if (dynMeterFill) {
     const meterValue = clamp((meterSourceExternal ? dynActivity : outputPeak) * 100, 6, 100);
     dynMeterFill.style.height = `${meterValue}%`;
@@ -3116,11 +3171,14 @@ function drawGraph() {
   rafHandle = requestAnimationFrame(drawGraph);
 }
 
-window.updateCurveAnalyzer = function (pre, post, reduction, peak, activity) {
+window.updateCurveAnalyzer = function (pre, post, reduction, peak, activity, diag) {
   // Skip heavy array parsing while user is actively dragging to keep interaction instant.
   if (draggingBand >= 0 || knobDragging) {
     outputPeak = Number(peak) || 0;
     dynActivity = Number(activity) || 0;
+    if (diag && typeof diag === "object") {
+      dspDiagnostics = { ...dspDiagnostics, ...diag };
+    }
     return;
   }
   if (Array.isArray(pre)) preSpectrum = Float32Array.from(pre.slice(0, BINS));
@@ -3128,6 +3186,9 @@ window.updateCurveAnalyzer = function (pre, post, reduction, peak, activity) {
   if (Array.isArray(reduction)) reductionSpectrum = Float32Array.from(reduction.slice(0, BINS));
   outputPeak = Number(peak) || 0;
   dynActivity = Number(activity) || 0;
+  if (diag && typeof diag === "object") {
+    dspDiagnostics = { ...dspDiagnostics, ...diag };
+  }
   lastAnalyzerUpdateMs = performance.now();
 };
 
@@ -3153,6 +3214,7 @@ async function start() {
   populateUi();
   createKnobs();
   bindEvents();
+  ensureDspDiagHud();
   applySignalMotionState();
   syncControlsFromState();
   queuePushState();

@@ -901,6 +901,18 @@ void NovaCurveAudioProcessor::applyStateVar (const juce::var& parsed)
             }
         }
     }
+
+    const auto selectedIndex = juce::jlimit (0, maxBands - 1, static_cast<int> (std::round (selectedBand.load())));
+    const auto selected = static_cast<size_t> (selectedIndex);
+
+    uiStateApplyCount.fetch_add (1, std::memory_order_relaxed);
+    uiStateLastApplyMs.store (static_cast<int> (juce::Time::getMillisecondCounter()), std::memory_order_relaxed);
+    uiStateDiagSelectedBand.store (selectedIndex, std::memory_order_relaxed);
+    uiStateDiagFrequency.store (bands[selected].frequency.load(), std::memory_order_relaxed);
+    uiStateDiagGainDb.store (bands[selected].gainDb.load(), std::memory_order_relaxed);
+    uiStateDiagQ.store (bands[selected].q.load(), std::memory_order_relaxed);
+    uiStateDiagEnabled.store (bands[selected].enabled.load() > 0.5f ? 1 : 0, std::memory_order_relaxed);
+    uiStateDiagSolo.store (bands[selected].solo.load() > 0.5f ? 1 : 0, std::memory_order_relaxed);
 }
 
 juce::String NovaCurveAudioProcessor::getUiStateAsJson() const

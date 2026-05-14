@@ -2,6 +2,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
@@ -49,6 +50,14 @@ public:
     const std::array<std::atomic<float>, spectrumBins>& getPreSpectrum() const noexcept { return preSpectrum; }
     const std::array<std::atomic<float>, spectrumBins>& getPostSpectrum() const noexcept { return postSpectrum; }
     const std::array<std::atomic<float>, spectrumBins>& getReductionSpectrum() const noexcept { return reductionSpectrum; }
+    int getUiStateApplyCount() const noexcept { return uiStateApplyCount.load (std::memory_order_relaxed); }
+    int getUiStateLastApplyMs() const noexcept { return uiStateLastApplyMs.load (std::memory_order_relaxed); }
+    int getUiStateDiagSelectedBand() const noexcept { return uiStateDiagSelectedBand.load (std::memory_order_relaxed); }
+    float getUiStateDiagFrequency() const noexcept { return uiStateDiagFrequency.load (std::memory_order_relaxed); }
+    float getUiStateDiagGainDb() const noexcept { return uiStateDiagGainDb.load (std::memory_order_relaxed); }
+    float getUiStateDiagQ() const noexcept { return uiStateDiagQ.load (std::memory_order_relaxed); }
+    int getUiStateDiagEnabled() const noexcept { return uiStateDiagEnabled.load (std::memory_order_relaxed); }
+    int getUiStateDiagSolo() const noexcept { return uiStateDiagSolo.load (std::memory_order_relaxed); }
     std::atomic<float> outputPeakLevel { 0.0f };
     std::atomic<float> dynamicActivity { 0.0f };
 
@@ -127,6 +136,15 @@ private:
     std::array<float, maxBands> bandDynamicGainDb {};
     std::array<float, maxBands> lastDynamicGainDb {};  // For smooth transient tracking
     std::array<float, maxBands> smoothedAppliedGainDb {}; // Smoothed total gain to avoid zipper/click artifacts
+
+    std::atomic<int> uiStateApplyCount { 0 };
+    std::atomic<int> uiStateLastApplyMs { 0 };
+    std::atomic<int> uiStateDiagSelectedBand { 0 };
+    std::atomic<float> uiStateDiagFrequency { 0.0f };
+    std::atomic<float> uiStateDiagGainDb { 0.0f };
+    std::atomic<float> uiStateDiagQ { 0.0f };
+    std::atomic<int> uiStateDiagEnabled { 0 };
+    std::atomic<int> uiStateDiagSolo { 0 };
 
     juce::AudioBuffer<float> dryBuffer;
     juce::AudioBuffer<float> soloSourceBuffer;
