@@ -108,6 +108,18 @@ juce::WebBrowserComponent::Options NovaCurveAudioProcessorEditor::createWebOptio
 
                          complete (true);
                      })
+                     .withNativeFunction ("setRealtimeParam", [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion complete)
+                     {
+                         if (args.size() >= 3)
+                         {
+                             const auto key = args[0].toString();
+                             const auto bandIndex = static_cast<int> (args[1]);
+                             const auto value = static_cast<float> (args[2]);
+                             editor.processorRef.applyRealtimeParamFromUi (key, bandIndex, value);
+                         }
+
+                         complete (true);
+                     })
                      .withNativeFunction ("setInteractionActive", [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion complete)
                      {
                          if (! args.isEmpty())

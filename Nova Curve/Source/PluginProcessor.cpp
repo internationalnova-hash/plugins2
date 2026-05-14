@@ -949,6 +949,117 @@ void NovaCurveAudioProcessor::applyUiStateFromJson (const juce::String& jsonText
         applyStateVar (parsed);
 }
 
+void NovaCurveAudioProcessor::applyRealtimeParamFromUi (const juce::String& key, int bandIndex, float value)
+{
+    const auto lowerKey = key.toLowerCase();
+    const auto index = static_cast<size_t> (juce::jlimit (0, maxBands - 1, bandIndex));
+
+    if (lowerKey == "selectedband")
+    {
+        selectedBand.store (static_cast<float> (juce::jlimit (0, maxBands - 1, static_cast<int> (std::round (value)))));
+    }
+    else if (lowerKey == "frequency")
+    {
+        bands[index].frequency.store (juce::jlimit (20.0f, 20000.0f, value));
+        bands[index].enabled.store (1.0f);
+    }
+    else if (lowerKey == "gaindb")
+    {
+        bands[index].gainDb.store (juce::jlimit (-30.0f, 30.0f, value));
+        bands[index].enabled.store (1.0f);
+    }
+    else if (lowerKey == "q")
+    {
+        bands[index].q.store (juce::jlimit (0.10f, 10.0f, value));
+        bands[index].enabled.store (1.0f);
+    }
+    else if (lowerKey == "dynrangedb")
+    {
+        bands[index].dynRangeDb.store (juce::jlimit (-30.0f, 30.0f, value));
+        bands[index].mode.store (1.0f);
+    }
+    else if (lowerKey == "thresholddb")
+    {
+        bands[index].thresholdDb.store (juce::jlimit (-60.0f, 6.0f, value));
+        bands[index].mode.store (1.0f);
+    }
+    else if (lowerKey == "attackms")
+    {
+        bands[index].attackMs.store (juce::jlimit (0.1f, 200.0f, value));
+        bands[index].mode.store (1.0f);
+    }
+    else if (lowerKey == "releasems")
+    {
+        bands[index].releaseMs.store (juce::jlimit (10.0f, 1000.0f, value));
+        bands[index].mode.store (1.0f);
+    }
+    else if (lowerKey == "ratio")
+    {
+        bands[index].ratio.store (juce::jlimit (1.0f, 10.0f, value));
+        bands[index].mode.store (1.0f);
+    }
+    else if (lowerKey == "enabled")
+    {
+        bands[index].enabled.store (value >= 0.5f ? 1.0f : 0.0f);
+    }
+    else if (lowerKey == "mode")
+    {
+        bands[index].mode.store (juce::jlimit (0.0f, 2.0f, value));
+    }
+    else if (lowerKey == "type")
+    {
+        bands[index].type.store (juce::jlimit (0.0f, 7.0f, value));
+    }
+    else if (lowerKey == "channel")
+    {
+        bands[index].channel.store (juce::jlimit (0.0f, 4.0f, value));
+    }
+    else if (lowerKey == "solo")
+    {
+        bands[index].solo.store (value >= 0.5f ? 1.0f : 0.0f);
+    }
+    else if (lowerKey == "outputgaindb")
+    {
+        outputGainDb.store (juce::jlimit (-24.0f, 24.0f, value));
+    }
+    else if (lowerKey == "resonanceamount")
+    {
+        resonanceAmount.store (juce::jlimit (0.0f, 100.0f, value));
+    }
+    else if (lowerKey == "harmoniclink")
+    {
+        harmonicLink.store (value >= 0.5f ? 1.0f : 0.0f);
+    }
+    else if (lowerKey == "analyzermode")
+    {
+        analyzerMode.store (value >= 0.5f ? 1.0f : 0.0f);
+    }
+    else if (lowerKey == "phasemode")
+    {
+        phaseMode.store (juce::jlimit (0.0f, 2.0f, value));
+    }
+    else if (lowerKey == "qualitymode")
+    {
+        qualityMode.store (juce::jlimit (0.0f, 2.0f, value));
+    }
+    else if (lowerKey == "bypassed")
+    {
+        bypassed.store (value >= 0.5f ? 1.0f : 0.0f);
+    }
+
+    const auto selectedIndex = juce::jlimit (0, maxBands - 1, static_cast<int> (std::round (selectedBand.load())));
+    const auto selected = static_cast<size_t> (selectedIndex);
+
+    uiStateApplyCount.fetch_add (1, std::memory_order_relaxed);
+    uiStateLastApplyMs.store (static_cast<int> (juce::Time::getMillisecondCounter()), std::memory_order_relaxed);
+    uiStateDiagSelectedBand.store (selectedIndex, std::memory_order_relaxed);
+    uiStateDiagFrequency.store (bands[selected].frequency.load(), std::memory_order_relaxed);
+    uiStateDiagGainDb.store (bands[selected].gainDb.load(), std::memory_order_relaxed);
+    uiStateDiagQ.store (bands[selected].q.load(), std::memory_order_relaxed);
+    uiStateDiagEnabled.store (bands[selected].enabled.load() > 0.5f ? 1 : 0, std::memory_order_relaxed);
+    uiStateDiagSolo.store (bands[selected].solo.load() > 0.5f ? 1 : 0, std::memory_order_relaxed);
+}
+
 void NovaCurveAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     const auto jsonText = getUiStateAsJson();

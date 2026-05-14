@@ -118,6 +118,7 @@ let graphDragTargetFreq = 0;
 let graphDragTargetGain = 0;
 let graphDragStartFreq = 0;
 let graphDragStartGain = 0;
+let lastInteractionRealtimePushMs = 0;
 
 let lastFrameMs = performance.now();
 let interactionEnergy = 0;
@@ -147,6 +148,7 @@ let savePresetFavorite = false;
 
 let nativeGetState = async () => "";
 let nativeSetState = async () => true;
+let nativeSetRealtimeParam = async () => true;
 let nativeSetInteractionActive = async () => true;
 let nativeBridgeReady = false;
 let nativeBridgeInitStarted = false;
@@ -944,10 +946,22 @@ function flushRealtimeStatePush() {
 }
 
 function queueRealtimeStatePush() {
+  if (draggingBand >= 0 || knobDragging) {
+    const nowMs = performance.now();
+    if (nowMs - lastInteractionRealtimePushMs < 24) return;
+    lastInteractionRealtimePushMs = nowMs;
+  }
   realtimePushPending = true;
   if (!realtimePushTimer) {
     realtimePushTimer = setTimeout(flushRealtimeStatePush, 0);
   }
+}
+
+function pushRealtimeParam(paramKey, value, bandIndex = state.selectedBand) {
+  if (!nativeBridgeReady) {
+    tryBridgeRebind();
+  }
+  try { nativeSetRealtimeParam(String(paramKey), Number(bandIndex) || 0, Number(value) || 0); } catch (_) {}
 }
 
 function pushStateImmediate() {
@@ -1041,6 +1055,7 @@ async function setupNativeBridge(maxAttempts = 1) {
       const juce = await import("./juce/index.js");
       nativeGetState = juce.getNativeFunction("getInitialState");
       nativeSetState = juce.getNativeFunction("setUiState");
+      nativeSetRealtimeParam = juce.getNativeFunction("setRealtimeParam");
       nativeSetInteractionActive = juce.getNativeFunction("setInteractionActive");
       nativeBridgeReady = true;
       nativeBridgeWarned = false;
@@ -1050,6 +1065,7 @@ async function setupNativeBridge(maxAttempts = 1) {
       try {
         nativeGetState = createBackendNativeFunction("getInitialState");
         nativeSetState = createBackendNativeFunction("setUiState");
+        nativeSetRealtimeParam = createBackendNativeFunction("setRealtimeParam");
         nativeSetInteractionActive = createBackendNativeFunction("setInteractionActive");
         nativeBridgeReady = true;
         nativeBridgeWarned = false;
@@ -1452,6 +1468,10 @@ function buildKnob(el, options) {
     }
 
     queueRealtimeStatePush();
+    if (activeKnobDrag.options.realtimeParam) {
+      const targetBand = activeKnobDrag.options.isGlobalParam ? 0 : state.selectedBand;
+      pushRealtimeParam(activeKnobDrag.options.realtimeParam, activeKnobDrag.options.get(), targetBand);
+    }
     interactionEnergy = Math.min(1, interactionEnergy + 0.05);
 
     if (Math.abs(dragTargetNorm - dragCurrentNorm) > 0.0004)
@@ -1491,7 +1511,12 @@ function buildKnob(el, options) {
     activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
     activeKnobDrag.setDragVisual(activeKnobDrag.options.get());
     updateSelectedBandReadouts(activeKnobDrag.options.readoutKey || "all");
-    queueRealtimeStatePush();
+    if (activeKnobDrag.options.realtimeParam) {
+      const targetBand = activeKnobDrag.options.isGlobalParam ? 0 : state.selectedBand;
+      pushRealtimeParam(activeKnobDrag.options.realtimeParam, activeKnobDrag.options.get(), targetBand);
+    } else {
+      queueRealtimeStatePush();
+    }
     interactionEnergy = Math.min(1, interactionEnergy + 0.05);
   };
 
@@ -1515,6 +1540,7 @@ function buildKnob(el, options) {
     dragTargetNorm = valueToNorm(drag.options.get());
     dragCurrentNorm = dragTargetNorm;
     knobDragging = false;
+    el.classList.remove("dragging");
     interactionUltraFast = false;
     setInteractionActive(false);
     drag.ctrl.set(drag.options.get(), false);
@@ -1542,6 +1568,7 @@ function buildKnob(el, options) {
   dragTargetNorm = valueToNorm(options.get());
   dragCurrentNorm = dragTargetNorm;
     knobDragging = true;
+    el.classList.add("dragging");
     interactionUltraFast = true;
     // Freeze expensive decorative arc layers once for the duration of drag.
     ctrl.bloomArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
@@ -1568,7 +1595,12 @@ function buildKnob(el, options) {
     const currentNorm = valueToNorm(options.get());
     const stepNorm = 0.007 * fine;
     ctrl.set(normToValue(currentNorm + dir * stepNorm), false);
-    queueRealtimeStatePush();
+    if (options.realtimeParam) {
+      const targetBand = options.isGlobalParam ? 0 : state.selectedBand;
+      pushRealtimeParam(options.realtimeParam, options.get(), targetBand);
+    } else {
+      queueRealtimeStatePush();
+    }
     lastDragValue = options.get();
     updateSelectedBandReadouts(options.readoutKey || "all");
     interactionEnergy = Math.min(1, interactionEnergy + 0.035);
@@ -1585,7 +1617,6 @@ function buildKnob(el, options) {
   el.addEventListener("mouseenter", () => {
     const isDraggingThisKnob = !!activeKnobDrag && activeKnobDrag.ctrl === ctrl;
     if (!isDraggingThisKnob) {
-      el.style.transition = "all 240ms cubic-bezier(0.22, 1, 0.36, 1)";
       ctrl.arc.style.filter = "drop-shadow(0 0 4px rgba(148, 104, 245, 0.48))";
       ctrl.massArc.style.filter = "drop-shadow(0 0 3px rgba(164, 108, 255, 0.28))";
       ctrl.headArc.style.filter = "drop-shadow(0 0 5px rgba(176, 142, 255, 0.52))";
@@ -1598,7 +1629,6 @@ function buildKnob(el, options) {
   el.addEventListener("mouseleave", () => {
     const isDraggingThisKnob = !!activeKnobDrag && activeKnobDrag.ctrl === ctrl;
     if (!isDraggingThisKnob) {
-      el.style.transition = "all 380ms ease-out";
       ctrl.arc.style.filter = "drop-shadow(0 0 1.2px rgba(126, 100, 226, 0.28))";
       ctrl.massArc.style.filter = "none";
       ctrl.headArc.style.filter = "drop-shadow(0 0 2.2px rgba(168, 144, 244, 0.34))";
@@ -1624,6 +1654,7 @@ function createKnobs() {
     fromNorm: (n) => normToFreq(n),
     defaultValue: 1000,
     readoutKey: "freq"
+    ,realtimeParam: "frequency"
   });
 
   knobControllers.gain = buildKnob(document.getElementById("knobGain"), {
@@ -1634,7 +1665,8 @@ function createKnobs() {
     sensitivity: 0.18,
     wheelStep: 0.2,
     defaultValue: 0,
-    readoutKey: "gain"
+    readoutKey: "gain",
+    realtimeParam: "gainDb"
   });
 
   knobControllers.q = buildKnob(document.getElementById("knobQ"), {
@@ -1645,7 +1677,8 @@ function createKnobs() {
     sensitivity: 0.035,
     wheelStep: 0.08,
     defaultValue: 1.2,
-    readoutKey: "q"
+    readoutKey: "q",
+    realtimeParam: "q"
   });
 
   knobControllers.range = buildKnob(document.getElementById("knobRange"), {
@@ -1656,7 +1689,8 @@ function createKnobs() {
     sensitivity: 0.16,
     wheelStep: 0.2,
     defaultValue: -6,
-    readoutKey: "range"
+    readoutKey: "range",
+    realtimeParam: "dynRangeDb"
   });
 
   knobControllers.threshold = buildKnob(document.getElementById("knobThreshold"), {
@@ -1667,7 +1701,8 @@ function createKnobs() {
     sensitivity: 0.2,
     wheelStep: 0.2,
     defaultValue: -22,
-    readoutKey: "threshold"
+    readoutKey: "threshold",
+    realtimeParam: "thresholdDb"
   });
 
   knobControllers.attack = buildKnob(document.getElementById("knobAttack"), {
@@ -1678,7 +1713,8 @@ function createKnobs() {
     sensitivity: 0.6,
     wheelStep: 1,
     defaultValue: 10,
-    readoutKey: "attack"
+    readoutKey: "attack",
+    realtimeParam: "attackMs"
   });
 
   knobControllers.release = buildKnob(document.getElementById("knobRelease"), {
@@ -1689,7 +1725,8 @@ function createKnobs() {
     sensitivity: 2.9,
     wheelStep: 8,
     defaultValue: 120,
-    readoutKey: "release"
+    readoutKey: "release",
+    realtimeParam: "releaseMs"
   });
 
   knobControllers.ratio = buildKnob(document.getElementById("knobRatio"), {
@@ -1700,7 +1737,8 @@ function createKnobs() {
     sensitivity: 0.03,
     wheelStep: 0.1,
     defaultValue: 2.2,
-    readoutKey: "ratio"
+    readoutKey: "ratio",
+    realtimeParam: "ratio"
   });
 
   knobControllers.resonance = buildKnob(document.getElementById("knobResonance"), {
@@ -1711,7 +1749,9 @@ function createKnobs() {
     sensitivity: 0.35,
     wheelStep: 1,
     defaultValue: 42,
-    readoutKey: "resonance"
+    readoutKey: "resonance",
+    realtimeParam: "resonanceAmount",
+    isGlobalParam: true
   });
 
   knobControllers.output = buildKnob(document.getElementById("knobOutput"), {
@@ -1722,7 +1762,9 @@ function createKnobs() {
     sensitivity: 0.08,
     wheelStep: 0.1,
     defaultValue: 0,
-    readoutKey: "output"
+    readoutKey: "output",
+    realtimeParam: "outputGainDb",
+    isGlobalParam: true
   });
 }
 
@@ -2285,6 +2327,10 @@ function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
     syncControlsFromState();
     queuePushState();
   } else {
+    pushRealtimeParam("selectedBand", idx, 0);
+    pushRealtimeParam("enabled", 1, idx);
+    pushRealtimeParam("frequency", b.frequency, idx);
+    pushRealtimeParam("gainDb", b.gainDb, idx);
     // Dragging immediately — defer full sync and state push to onGraphUp.
     if (bandDisplay) bandDisplay.textContent = `${idx + 1}`;
     bandIndexSelect.value = String(idx);
@@ -2321,6 +2367,10 @@ function onGraphDown(e) {
     graphDragTargetFreq = b.frequency;
     graphDragTargetGain = b.gainDb;
     b.enabled = 1;
+    pushRealtimeParam("selectedBand", nearest, 0);
+    pushRealtimeParam("enabled", 1, nearest);
+    pushRealtimeParam("frequency", b.frequency, nearest);
+    pushRealtimeParam("gainDb", b.gainDb, nearest);
     calloutVisible = true;
     calloutTargetX = x;
     calloutTargetY = y;
@@ -2420,7 +2470,9 @@ function onGraphMove(e) {
     if (coFreq) coFreq.textContent = fmtHz(newFreq);
     if (coGain) coGain.textContent = fmtDb(newGain);
 
-    queueRealtimeStatePush();
+    pushRealtimeParam("selectedBand", draggingBand, 0);
+    pushRealtimeParam("frequency", newFreq, draggingBand);
+    pushRealtimeParam("gainDb", newGain, draggingBand);
     interactionEnergy = Math.min(1, interactionEnergy + 0.06);
     return;
   }

@@ -46,6 +46,7 @@ public:
 
     juce::String getUiStateAsJson() const;
     void applyUiStateFromJson (const juce::String& jsonText);
+    void applyRealtimeParamFromUi (const juce::String& key, int bandIndex, float value);
 
     const std::array<std::atomic<float>, spectrumBins>& getPreSpectrum() const noexcept { return preSpectrum; }
     const std::array<std::atomic<float>, spectrumBins>& getPostSpectrum() const noexcept { return postSpectrum; }
