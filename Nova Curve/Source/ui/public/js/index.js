@@ -2372,14 +2372,9 @@ function onGraphMove(e) {
     graphDragTargetFreq = targetFreq;
     graphDragTargetGain = targetGain;
 
-    // Smooth in perceptual frequency space for premium, consistent node motion.
-    const currentFreqNorm = freqToNorm(b.frequency);
-    const targetFreqNorm = freqToNorm(graphDragTargetFreq);
-    const freqBlend = dragFine < 1 ? 0.72 : 1.0;
-    const gainBlend = dragFine < 1 ? 0.68 : 1.0;
-    const newFreqNorm = currentFreqNorm + (targetFreqNorm - currentFreqNorm) * freqBlend;
-    const newFreq = clamp(normToFreq(newFreqNorm), FREQ_MIN, FREQ_MAX);
-    const newGain = clamp(b.gainDb + (graphDragTargetGain - b.gainDb) * gainBlend, -30, 30);
+    // Remove all smoothing: follow pointer exactly for FabFilter-like feel.
+    const newFreq = clamp(graphDragTargetFreq, FREQ_MIN, FREQ_MAX);
+    const newGain = clamp(graphDragTargetGain, -30, 30);
     dragPreviewFreq = newFreq;
     dragPreviewGain = newGain;
     b.frequency = newFreq;
@@ -2590,17 +2585,30 @@ function drawGraph() {
     const src = state.bands[i];
     const dst = displayBands[i];
     if (!dst) continue;
-    const smooth = fastInteraction ? 1.0 : 0.30;
-    const freqNorm = freqToNorm(dst.frequency);
-    const srcFreqNorm = freqToNorm(src.frequency);
-    dst.frequency = normToFreq(freqNorm + (srcFreqNorm - freqNorm) * smooth);
-    dst.gainDb = dst.gainDb + (src.gainDb - dst.gainDb) * smooth;
-    dst.q = dst.q + (src.q - dst.q) * smooth;
-    dst.dynRangeDb = dst.dynRangeDb + (src.dynRangeDb - dst.dynRangeDb) * smooth;
-    dst.enabled = src.enabled;
-    dst.mode = src.mode;
-    dst.type = src.type;
-    dst.channel = src.channel;
+    // During drag or knob interaction, copy state directly for zero-lag response
+    if (draggingBand >= 0 || knobDragging) {
+      dst.frequency = src.frequency;
+      dst.gainDb = src.gainDb;
+      dst.q = src.q;
+      dst.dynRangeDb = src.dynRangeDb;
+      dst.enabled = src.enabled;
+      dst.mode = src.mode;
+      dst.type = src.type;
+      dst.channel = src.channel;
+    } else {
+      // Otherwise, use smoothing for idle/animated state
+      const smooth = 0.30;
+      const freqNorm = freqToNorm(dst.frequency);
+      const srcFreqNorm = freqToNorm(src.frequency);
+      dst.frequency = normToFreq(freqNorm + (srcFreqNorm - freqNorm) * smooth);
+      dst.gainDb = dst.gainDb + (src.gainDb - dst.gainDb) * smooth;
+      dst.q = dst.q + (src.q - dst.q) * smooth;
+      dst.dynRangeDb = dst.dynRangeDb + (src.dynRangeDb - dst.dynRangeDb) * smooth;
+      dst.enabled = src.enabled;
+      dst.mode = src.mode;
+      dst.type = src.type;
+      dst.channel = src.channel;
+    }
   }
 
   drawFallbackSpectrum(now);
