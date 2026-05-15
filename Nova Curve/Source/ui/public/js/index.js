@@ -314,9 +314,14 @@ function showDragNodeOverlay(x, y, bandIndex, clientX = null, clientY = null, re
     dragNodeOverlayBand = bandIndex;
   }
   const r = rect || cachedCanvasRect || (cachedCanvasRect = canvas.getBoundingClientRect());
-  const px = clientX == null ? (r.left + x) : clientX;
-  const py = clientY == null ? (r.top + y) : clientY;
-  overlay.style.transform = `translate3d(${px - 11.2}px, ${py - 11.2}px, 0)`;
+  const radius = 11.2;
+  const rawPx = clientX == null ? (r.left + x) : clientX;
+  const rawPy = clientY == null ? (r.top + y) : clientY;
+  // Keep overlay constrained to graph bounds so it never appears as a ghost
+  // in the lower control panel when dragging near/outside graph edges.
+  const px = clamp(rawPx, r.left + radius, r.right - radius);
+  const py = clamp(rawPy, r.top + radius, r.bottom - radius);
+  overlay.style.transform = `translate3d(${px - radius}px, ${py - radius}px, 0)`;
 }
 
 function hideDragNodeOverlay() {
