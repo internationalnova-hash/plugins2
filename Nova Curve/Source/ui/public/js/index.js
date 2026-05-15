@@ -1718,6 +1718,7 @@ function buildKnob(el, options) {
     el.classList.remove("dragging");
     indicator.style.filter = ''; // Restore CSS-defined filter
     interactionUltraFast = false;
+    if (pluginRoot) pluginRoot.classList.remove('interaction-fast');
     hideDragNodeOverlay();
     setInteractionActive(false);
     flushRealtimeParamQueueImmediate();
@@ -1751,6 +1752,7 @@ function buildKnob(el, options) {
     el.classList.add("dragging");
     indicator.style.filter = 'none'; // Remove CSS filter so transform is GPU-composited during drag
     interactionUltraFast = true;
+    if (pluginRoot) pluginRoot.classList.add('interaction-fast');
     // Freeze expensive decorative arc layers once for the duration of drag.
     ctrl.bloomArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
     ctrl.massArc.setAttribute("stroke-dasharray", `0 ${fullArcLength}`);
@@ -2548,6 +2550,7 @@ function onGraphDown(e) {
     graphDragUndoPending = true;
     draggingBand = nearest;
     interactionUltraFast = true;
+    if (pluginRoot) pluginRoot.classList.add('interaction-fast');
     hoveredBand = nearest;
     state.selectedBand = nearest;
     const b = state.bands[nearest];
@@ -2704,6 +2707,7 @@ function onGraphUp() {
   graphDragTargetGain = 0;
   graphDragUndoPending = false;
   interactionUltraFast = false;
+  if (pluginRoot) pluginRoot.classList.remove('interaction-fast');
   setInteractionActive(false);
   flushRealtimeParamQueueImmediate();
 
