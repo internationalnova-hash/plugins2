@@ -2879,20 +2879,17 @@ function drawGraph() {
     if (active.length > 0) {
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
-      // During active node drag, skip response path paint so pointer tracking wins.
-      if (!activeNodeDrag) {
-        ctx.beginPath();
-        ctx.lineWidth = 2.9;
-        drawEqResponsePath(ctx, active, w, h, 64);
-        const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
-        lineGrad.addColorStop(0, "#ffffff");
-        lineGrad.addColorStop(0.15, "#faf6ff");
-        lineGrad.addColorStop(0.35, "#e86dff");
-        lineGrad.addColorStop(0.62, "#a888ff");
-        lineGrad.addColorStop(1, "#88c8ff");
-        ctx.strokeStyle = lineGrad;
-        ctx.stroke();
-      }
+      ctx.beginPath();
+      ctx.lineWidth = 2.9;
+      drawEqResponsePath(ctx, active, w, h, 64);
+      const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
+      lineGrad.addColorStop(0, "#ffffff");
+      lineGrad.addColorStop(0.15, "#faf6ff");
+      lineGrad.addColorStop(0.35, "#e86dff");
+      lineGrad.addColorStop(0.62, "#a888ff");
+      lineGrad.addColorStop(1, "#88c8ff");
+      ctx.strokeStyle = lineGrad;
+      ctx.stroke();
     }
 
     // Keep node visibility during fast interaction so targeting remains stable.
