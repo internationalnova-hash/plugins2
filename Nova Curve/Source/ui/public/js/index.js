@@ -122,6 +122,7 @@ let graphDragStartGain = 0;
 let lastInteractionRealtimePushMs = 0;
 let lastKnobRealtimePushMs = 0;
 let lastKnobUiRefreshMs = 0;
+let lastKnobArcRefreshMs = 0;
 let lastNodeRealtimePushMs = 0;
 let lastNodeUiRefreshMs = 0;
 const supportsPointerRaw = "onpointerrawupdate" in window;
@@ -1612,6 +1613,11 @@ function buildKnob(el, options) {
     const norm = clamp(options.toNorm ? options.toNorm(value) : (value - options.min) / (options.max - options.min), 0, 1);
     const deg = -135 + norm * 270;
     indicator.style.transform = `translateX(-50%) rotate(${deg}deg)`;
+    const nowMs = performance.now();
+    const isActiveDrag = !!activeKnobDrag && activeKnobDrag.ctrl === ctrl;
+    // Keep the pointer feel hard-locked by capping heavy SVG updates.
+    if (isActiveDrag && (nowMs - lastKnobArcRefreshMs) < 16) return;
+    lastKnobArcRefreshMs = nowMs;
     // Keep primary arc in lock-step with pointer during drag.
     const progressLength = Math.max(0, norm * trackLength);
     ctrl.arc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
@@ -1650,7 +1656,7 @@ function buildKnob(el, options) {
     // Nova Aura pattern: push to native bridge directly in pointermove, no RAF queue.
     if (activeKnobDrag.options.realtimeParam && nativeBridgeReady) {
       const targetBand = activeKnobDrag.options.isGlobalParam ? 0 : state.selectedBand;
-      if (nowMs - lastKnobRealtimePushMs >= 8) {
+      if (nowMs - lastKnobRealtimePushMs >= 12) {
         lastKnobRealtimePushMs = nowMs;
         try { nativeSetRealtimeParam(activeKnobDrag.options.realtimeParam, targetBand, activeKnobDrag.options.get()); } catch (_) {}
       }
@@ -1708,6 +1714,7 @@ function buildKnob(el, options) {
     pendingDragDeltaY = 0;
     dragFineScale = 1;
     dragCurrentNorm = valueToNorm(options.get());
+    lastKnobArcRefreshMs = 0;
     knobDragging = true;
     el.classList.add("dragging");
     indicator.style.filter = 'none'; // Remove CSS filter so transform is GPU-composited during drag
@@ -2602,7 +2609,7 @@ function onGraphMove(e) {
     if (bandDisplay) bandDisplay.textContent = `${draggingBand + 1}`;
     if (bandIndexSelect) bandIndexSelect.value = String(draggingBand);
     const nowMs = performance.now();
-    if (nowMs - lastNodeUiRefreshMs >= 24) {
+    if (nowMs - lastNodeUiRefreshMs >= 36) {
       lastNodeUiRefreshMs = nowMs;
       updateSelectedBandReadouts("freq");
       updateSelectedBandReadouts("gain");
@@ -2612,7 +2619,7 @@ function onGraphMove(e) {
 
     calloutTargetX = x;
     calloutTargetY = y;
-    if (nowMs - lastNodeRealtimePushMs >= 8) {
+    if (nowMs - lastNodeRealtimePushMs >= 12) {
       lastNodeRealtimePushMs = nowMs;
       // Nova Aura pattern: call bridge directly in pointermove, no RAF queue.
       if (nativeBridgeReady) {
@@ -2856,8 +2863,8 @@ function drawGraph() {
       ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.lineWidth = 2.9;
-      // Use a lighter response curve while dragging to keep node lock tighter.
-      drawEqResponsePath(ctx, active, w, h, activeNodeDrag ? 34 : 84);
+      // Keep stable response geometry during drag to avoid shape morphing.
+      drawEqResponsePath(ctx, active, w, h, 64);
       const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
       lineGrad.addColorStop(0, "#ffffff");
       lineGrad.addColorStop(0.15, "#faf6ff");
