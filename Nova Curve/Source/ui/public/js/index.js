@@ -125,7 +125,6 @@ let lastKnobUiRefreshMs = 0;
 let lastKnobArcRefreshMs = 0;
 let lastNodeRealtimePushMs = 0;
 let lastNodeUiRefreshMs = 0;
-let lastNodeImmediateDrawMs = 0;
 const supportsPointerRaw = "onpointerrawupdate" in window;
 
 let lastFrameMs = performance.now();
@@ -373,8 +372,27 @@ function applyUiScale() {
 }
 
 function setInteractionActive(active) {
-  // Disabled for lag/freeze diagnostic: do nothing
-  return;
+  if (active) {
+    if (interactionDeactivateTimer) {
+      clearTimeout(interactionDeactivateTimer);
+      interactionDeactivateTimer = 0;
+    }
+    if (interactionActiveState) return;
+    interactionActiveState = true;
+    if (!nativeBridgeReady) tryBridgeRebind();
+    try { nativeSetInteractionActive(true); } catch (_) {}
+    return;
+  }
+
+  if (interactionDeactivateTimer) clearTimeout(interactionDeactivateTimer);
+  interactionDeactivateTimer = setTimeout(() => {
+    interactionDeactivateTimer = 0;
+    if (draggingBand >= 0 || knobDragging) return;
+    if (!interactionActiveState) return;
+    interactionActiveState = false;
+    if (!nativeBridgeReady) tryBridgeRebind();
+    try { nativeSetInteractionActive(false); } catch (_) {}
+  }, 90);
 }
 
 function freqToNorm(hz) {
@@ -1655,7 +1673,7 @@ function buildKnob(el, options) {
     // Nova Aura pattern: push to native bridge directly in pointermove, no RAF queue.
     if (activeKnobDrag.options.realtimeParam && nativeBridgeReady) {
       const targetBand = activeKnobDrag.options.isGlobalParam ? 0 : state.selectedBand;
-      if (nowMs - lastKnobRealtimePushMs >= 12) {
+      if (nowMs - lastKnobRealtimePushMs >= 16) {
         lastKnobRealtimePushMs = nowMs;
         try { nativeSetRealtimeParam(activeKnobDrag.options.realtimeParam, targetBand, activeKnobDrag.options.get()); } catch (_) {}
       }
@@ -2618,22 +2636,13 @@ function onGraphMove(e) {
 
     calloutTargetX = x;
     calloutTargetY = y;
-    if (nowMs - lastNodeRealtimePushMs >= 16) {
+    if (nowMs - lastNodeRealtimePushMs >= 24) {
       lastNodeRealtimePushMs = nowMs;
       // Nova Aura pattern: call bridge directly in pointermove, no RAF queue.
       if (nativeBridgeReady) {
         try { nativeSetRealtimeParam("frequency", draggingBand, newFreq); } catch (_) {}
         try { nativeSetRealtimeParam("gainDb", draggingBand, newGain); } catch (_) {}
       }
-    }
-    // Render immediately on pointer updates so the dragged canvas node stays visually attached.
-    if (nowMs - lastNodeImmediateDrawMs >= 2) {
-      lastNodeImmediateDrawMs = nowMs;
-      if (rafHandle) {
-        cancelAnimationFrame(rafHandle);
-        rafHandle = 0;
-      }
-      drawGraph();
     }
     interactionEnergy = Math.min(1, interactionEnergy + 0.06);
     return;
@@ -2887,6 +2896,7 @@ function drawGraph() {
     displayBands.forEach((b, i) => {
       if (b.enabled < 0.5) return;
       const isDragged = i === draggingBand;
+      const overlayActive = isDragged && dragNodeOverlay && dragNodeOverlay.style.display !== "none";
       const x = isDragged ? clamp(hoverGraphX, 0, w) : hzToX(b.frequency, w);
       const yNode = isDragged ? clamp(hoverGraphY, 0, h) : gainToY(b.gainDb, h);
       const selected = i === state.selectedBand;
@@ -2895,13 +2905,13 @@ function drawGraph() {
 
       ctx.beginPath();
       ctx.arc(x, yNode, 11.2, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(6, 10, 24, 0.94)";
+      ctx.fillStyle = overlayActive ? "rgba(6, 10, 24, 0.36)" : "rgba(6, 10, 24, 0.94)";
       ctx.fill();
       ctx.strokeStyle = notch ? "#89b4ff" : selected ? "#c099ff" : dynamic ? "#7fa8ff" : "#d6e4ff";
-      ctx.lineWidth = selected ? 2.35 : 1.9;
+      ctx.lineWidth = overlayActive ? 1.1 : (selected ? 2.35 : 1.9);
       ctx.stroke();
 
-      ctx.fillStyle = "#edf3ff";
+      ctx.fillStyle = overlayActive ? "rgba(237, 243, 255, 0.5)" : "#edf3ff";
       ctx.font = "600 13px Avenir Next";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
