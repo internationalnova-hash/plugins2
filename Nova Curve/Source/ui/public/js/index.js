@@ -125,6 +125,7 @@ let lastKnobUiRefreshMs = 0;
 let lastKnobArcRefreshMs = 0;
 let lastNodeRealtimePushMs = 0;
 let lastNodeUiRefreshMs = 0;
+let lastGraphMoveEventTs = 0;
 const supportsPointerRaw = "onpointerrawupdate" in window;
 
 let lastFrameMs = performance.now();
@@ -1587,6 +1588,7 @@ function buildKnob(el, options) {
   let dragFineScale = 1;
   let knobDragRaf = 0;
   let dragCurrentNorm = valueToNorm(options.get());
+  let lastKnobDragEventTs = 0;
 
   const applyQueuedKnobDrag = () => {
     // Legacy RAF path — kept for wheel/non-direct interactions only.
@@ -1646,6 +1648,9 @@ function buildKnob(el, options) {
   const updateKnobDragFromPointer = (e) => {
     if (!activeKnobDrag || activeKnobDrag.ctrl !== ctrl) return;
     if (activeKnobDrag.pointerId !== null && typeof e.pointerId !== "undefined" && e.pointerId !== activeKnobDrag.pointerId) return;
+    const eventTs = Number(e.timeStamp) || 0;
+    if (eventTs > 0 && eventTs <= lastKnobDragEventTs) return;
+    if (eventTs > 0) lastKnobDragEventTs = eventTs;
     if (e.cancelable) e.preventDefault();
 
     // Use dispatched pointer coordinates directly for minimum drag latency.
@@ -1731,6 +1736,7 @@ function buildKnob(el, options) {
     pendingDragDeltaY = 0;
     dragFineScale = 1;
     dragCurrentNorm = valueToNorm(options.get());
+    lastKnobDragEventTs = 0;
     lastKnobArcRefreshMs = 0;
     knobDragging = true;
     el.classList.add("dragging");
@@ -1749,10 +1755,9 @@ function buildKnob(el, options) {
     setInteractionActive(true);
   });
 
+  el.addEventListener("pointermove", updateKnobDragFromPointer, { passive: false });
   if (supportsPointerRaw) {
     el.addEventListener("pointerrawupdate", updateKnobDragFromPointer, { passive: false });
-  } else {
-    el.addEventListener("pointermove", updateKnobDragFromPointer, { passive: false });
   }
   el.addEventListener("pointerup", (e) => finishKnobDrag(e, true));
   el.addEventListener("pointercancel", (e) => finishKnobDrag(e, true));
@@ -2334,10 +2339,9 @@ function bindEvents() {
   });
 
   canvas.addEventListener("pointerdown", onGraphDown);
+  canvas.addEventListener("pointermove", onGraphMove);
   if (supportsPointerRaw) {
     canvas.addEventListener("pointerrawupdate", onGraphMove);
-  } else {
-    canvas.addEventListener("pointermove", onGraphMove);
   }
   canvas.addEventListener("pointerup", onGraphUp);
   canvas.addEventListener("pointercancel", onGraphUp);
@@ -2521,6 +2525,7 @@ function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
 function onGraphDown(e) {
   e.preventDefault();
   if (e.button !== 0) return;
+  lastGraphMoveEventTs = 0;
   canvas.setPointerCapture(e.pointerId);
   setInteractionActive(true);
   cachedCanvasRect = canvas.getBoundingClientRect();
@@ -2567,6 +2572,9 @@ function onGraphDown(e) {
 }
 
 function onGraphMove(e) {
+  const eventTs = Number(e.timeStamp) || 0;
+  if (eventTs > 0 && eventTs <= lastGraphMoveEventTs) return;
+  if (eventTs > 0) lastGraphMoveEventTs = eventTs;
   const rect = cachedCanvasRect || (cachedCanvasRect = canvas.getBoundingClientRect());
   // Use the dispatched pointer position directly for minimum visual latency.
   const x = e.clientX - rect.left;
@@ -2593,8 +2601,7 @@ function onGraphMove(e) {
     const dragFine = (e.shiftKey || e.metaKey) ? 0.24 : 1;
     interactionUltraFast = true;
     dragPreviewActive = true;
-    calloutVisible = true;
-    calloutBandIndex = draggingBand;
+    calloutVisible = false;
     showDragNodeOverlay(x, y, draggingBand, e.clientX, e.clientY, rect);
 
     const b = state.bands[draggingBand];
@@ -2623,14 +2630,8 @@ function onGraphMove(e) {
 
     // Keep readouts and key controls live while dragging (FabFilter-like feel).
     state.selectedBand = draggingBand;
-    if (bandDisplay) bandDisplay.textContent = `${draggingBand + 1}`;
-    if (bandIndexSelect) bandIndexSelect.value = String(draggingBand);
     const nowMs = performance.now();
-    if (nowMs - lastNodeUiRefreshMs >= 36) {
-      lastNodeUiRefreshMs = nowMs;
-      updateSelectedBandReadouts("freq");
-      updateSelectedBandReadouts("gain");
-    }
+    // Avoid readout/selector DOM churn while dragging; sync once on release.
 
     // Avoid expensive knob SVG updates while dragging nodes; readouts + graph are enough.
 
@@ -2878,25 +2879,26 @@ function drawGraph() {
     if (active.length > 0) {
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
-      ctx.beginPath();
-      ctx.lineWidth = 2.9;
-      // Keep stable response geometry during drag to avoid shape morphing.
-      drawEqResponsePath(ctx, active, w, h, activeNodeDrag ? 48 : 64);
-      const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
-      lineGrad.addColorStop(0, "#ffffff");
-      lineGrad.addColorStop(0.15, "#faf6ff");
-      lineGrad.addColorStop(0.35, "#e86dff");
-      lineGrad.addColorStop(0.62, "#a888ff");
-      lineGrad.addColorStop(1, "#88c8ff");
-      ctx.strokeStyle = lineGrad;
-      ctx.stroke();
+      // During active node drag, skip response path paint so pointer tracking wins.
+      if (!activeNodeDrag) {
+        ctx.beginPath();
+        ctx.lineWidth = 2.9;
+        drawEqResponsePath(ctx, active, w, h, 64);
+        const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
+        lineGrad.addColorStop(0, "#ffffff");
+        lineGrad.addColorStop(0.15, "#faf6ff");
+        lineGrad.addColorStop(0.35, "#e86dff");
+        lineGrad.addColorStop(0.62, "#a888ff");
+        lineGrad.addColorStop(1, "#88c8ff");
+        ctx.strokeStyle = lineGrad;
+        ctx.stroke();
+      }
     }
 
     // Keep node visibility during fast interaction so targeting remains stable.
     displayBands.forEach((b, i) => {
       if (b.enabled < 0.5) return;
       const isDragged = i === draggingBand;
-      const overlayActive = isDragged && dragNodeOverlay && dragNodeOverlay.style.display !== "none";
       const x = isDragged ? clamp(hoverGraphX, 0, w) : hzToX(b.frequency, w);
       const yNode = isDragged ? clamp(hoverGraphY, 0, h) : gainToY(b.gainDb, h);
       const selected = i === state.selectedBand;
@@ -2905,13 +2907,13 @@ function drawGraph() {
 
       ctx.beginPath();
       ctx.arc(x, yNode, 11.2, 0, Math.PI * 2);
-      ctx.fillStyle = overlayActive ? "rgba(6, 10, 24, 0.36)" : "rgba(6, 10, 24, 0.94)";
+      ctx.fillStyle = "rgba(6, 10, 24, 0.94)";
       ctx.fill();
       ctx.strokeStyle = notch ? "#89b4ff" : selected ? "#c099ff" : dynamic ? "#7fa8ff" : "#d6e4ff";
-      ctx.lineWidth = overlayActive ? 1.1 : (selected ? 2.35 : 1.9);
+      ctx.lineWidth = selected ? 2.35 : 1.9;
       ctx.stroke();
 
-      ctx.fillStyle = overlayActive ? "rgba(237, 243, 255, 0.5)" : "#edf3ff";
+      ctx.fillStyle = "#edf3ff";
       ctx.font = "600 13px Avenir Next";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
