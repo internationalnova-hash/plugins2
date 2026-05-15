@@ -1632,12 +1632,8 @@ function buildKnob(el, options) {
     const norm = clamp(options.toNorm ? options.toNorm(value) : (value - options.min) / (options.max - options.min), 0, 1);
     const deg = -135 + norm * 270;
     indicator.style.transform = `translateX(-50%) rotate(${deg}deg)`;
-    const nowMs = performance.now();
-    const isActiveDrag = !!activeKnobDrag && activeKnobDrag.ctrl === ctrl;
-    // Keep the pointer feel hard-locked by capping heavy SVG updates.
-    if (isActiveDrag && (nowMs - lastKnobArcRefreshMs) < 16) return;
-    lastKnobArcRefreshMs = nowMs;
-    // Keep primary arc in lock-step with pointer during drag.
+    // Update arc and reflection in lockstep with the indicator — decorative arcs
+    // are already frozen at drag start so this is just the main arc + two CSS vars.
     const progressLength = Math.max(0, norm * trackLength);
     ctrl.arc.setAttribute("stroke-dasharray", `${progressLength} ${fullArcLength}`);
     ctrl.arc.style.opacity = 1;
@@ -1685,6 +1681,18 @@ function buildKnob(el, options) {
     } else if (!activeKnobDrag.options.realtimeParam) {
       queueRealtimeStatePush();
     }
+    // For freq/gain knobs, drive the band node overlay synchronously so it
+    // tracks the pointer without waiting for the next RAF frame.
+    const rtp = activeKnobDrag.options.realtimeParam;
+    if (rtp === "frequency" || rtp === "gainDb") {
+      const r = cachedCanvasRect || canvas.getBoundingClientRect();
+      const b = state.bands[state.selectedBand];
+      if (r && b) {
+        const nx = hzToX(b.frequency, r.width);
+        const ny = gainToY(b.gainDb, r.height);
+        showDragNodeOverlay(nx, ny, state.selectedBand, null, null, r);
+      }
+    }
     interactionEnergy = Math.min(1, interactionEnergy + 0.05);
   };
 
@@ -1710,6 +1718,7 @@ function buildKnob(el, options) {
     el.classList.remove("dragging");
     indicator.style.filter = ''; // Restore CSS-defined filter
     interactionUltraFast = false;
+    hideDragNodeOverlay();
     setInteractionActive(false);
     flushRealtimeParamQueueImmediate();
     drag.ctrl.set(drag.options.get(), false);
