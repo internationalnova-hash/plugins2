@@ -125,6 +125,7 @@ let lastKnobUiRefreshMs = 0;
 let lastKnobArcRefreshMs = 0;
 let lastNodeRealtimePushMs = 0;
 let lastNodeUiRefreshMs = 0;
+let lastNodeImmediateDrawMs = 0;
 const supportsPointerRaw = "onpointerrawupdate" in window;
 
 let lastFrameMs = performance.now();
@@ -271,13 +272,8 @@ function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
 function ensureDragNodeOverlay() {
   if (dragNodeOverlay) return dragNodeOverlay;
 
-  const computed = window.getComputedStyle(graphWrap);
-  if (computed.position === "static") {
-    graphWrap.style.position = "relative";
-  }
-
   dragNodeOverlay = document.createElement("div");
-  dragNodeOverlay.style.position = "absolute";
+  dragNodeOverlay.style.position = "fixed";
   dragNodeOverlay.style.width = "22.4px";
   dragNodeOverlay.style.height = "22.4px";
   dragNodeOverlay.style.borderRadius = "50%";
@@ -287,10 +283,10 @@ function ensureDragNodeOverlay() {
   dragNodeOverlay.style.alignItems = "center";
   dragNodeOverlay.style.justifyContent = "center";
   dragNodeOverlay.style.pointerEvents = "none";
-  dragNodeOverlay.style.zIndex = "120";
+  dragNodeOverlay.style.zIndex = "9999";
   dragNodeOverlay.style.transform = "translate3d(0, 0, 0)";
   dragNodeOverlay.style.willChange = "transform";
-  dragNodeOverlay.style.boxShadow = "0 0 10px rgba(170, 160, 255, 0.42), 0 0 2px rgba(255, 255, 255, 0.36)";
+  dragNodeOverlay.style.boxShadow = "none";
 
   dragNodeOverlayLabel = document.createElement("span");
   dragNodeOverlayLabel.style.color = "#edf3ff";
@@ -298,11 +294,11 @@ function ensureDragNodeOverlay() {
   dragNodeOverlayLabel.style.lineHeight = "1";
   dragNodeOverlay.appendChild(dragNodeOverlayLabel);
 
-  graphWrap.appendChild(dragNodeOverlay);
+  document.body.appendChild(dragNodeOverlay);
   return dragNodeOverlay;
 }
 
-function showDragNodeOverlay(x, y, bandIndex) {
+function showDragNodeOverlay(x, y, bandIndex, clientX = null, clientY = null, rect = null) {
   const overlay = ensureDragNodeOverlay();
   if (overlay.style.display !== "flex") overlay.style.display = "flex";
   if (dragNodeOverlayBand !== bandIndex) {
@@ -317,7 +313,10 @@ function showDragNodeOverlay(x, y, bandIndex) {
     if (dragNodeOverlayLabel) dragNodeOverlayLabel.textContent = String((bandIndex || 0) + 1);
     dragNodeOverlayBand = bandIndex;
   }
-  overlay.style.transform = `translate3d(${x - 11.2}px, ${y - 11.2}px, 0)`;
+  const r = rect || cachedCanvasRect || (cachedCanvasRect = canvas.getBoundingClientRect());
+  const px = clientX == null ? (r.left + x) : clientX;
+  const py = clientY == null ? (r.top + y) : clientY;
+  overlay.style.transform = `translate3d(${px - 11.2}px, ${py - 11.2}px, 0)`;
 }
 
 function hideDragNodeOverlay() {
@@ -2495,7 +2494,7 @@ function createBandAtGraphPosition(x, y, rect, beginDrag = false) {
     // Dragging immediately — defer full sync and state push to onGraphUp.
     if (bandDisplay) bandDisplay.textContent = `${idx + 1}`;
     bandIndexSelect.value = String(idx);
-    showDragNodeOverlay(x, y, idx);
+    showDragNodeOverlay(x, y, idx, rect.left + x, rect.top + y, rect);
     openBandEditorCallout(idx, rect, x, y);
   }
   return true;
@@ -2535,7 +2534,7 @@ function onGraphDown(e) {
       try { nativeSetRealtimeParam("gainDb", nearest, b.gainDb); } catch (_) {}
     }
     openBandEditorCallout(nearest, rect, x, y);
-    showDragNodeOverlay(x, y, nearest);
+    showDragNodeOverlay(x, y, nearest, e.clientX, e.clientY, rect);
     interactionEnergy = Math.min(1, interactionEnergy + 0.18);
     // Skip full syncControlsFromState during drag — too expensive to fire per frame.
     // Only update the band selector readout so the UI label stays correct.
@@ -2578,7 +2577,7 @@ function onGraphMove(e) {
     dragPreviewActive = true;
     calloutVisible = true;
     calloutBandIndex = draggingBand;
-    showDragNodeOverlay(x, y, draggingBand);
+    showDragNodeOverlay(x, y, draggingBand, e.clientX, e.clientY, rect);
 
     const b = state.bands[draggingBand];
     const targetFreq = clamp(xToHz(x, rect.width), FREQ_MIN, FREQ_MAX);
@@ -2619,13 +2618,22 @@ function onGraphMove(e) {
 
     calloutTargetX = x;
     calloutTargetY = y;
-    if (nowMs - lastNodeRealtimePushMs >= 12) {
+    if (nowMs - lastNodeRealtimePushMs >= 16) {
       lastNodeRealtimePushMs = nowMs;
       // Nova Aura pattern: call bridge directly in pointermove, no RAF queue.
       if (nativeBridgeReady) {
         try { nativeSetRealtimeParam("frequency", draggingBand, newFreq); } catch (_) {}
         try { nativeSetRealtimeParam("gainDb", draggingBand, newGain); } catch (_) {}
       }
+    }
+    // Render immediately on pointer updates so the dragged canvas node stays visually attached.
+    if (nowMs - lastNodeImmediateDrawMs >= 2) {
+      lastNodeImmediateDrawMs = nowMs;
+      if (rafHandle) {
+        cancelAnimationFrame(rafHandle);
+        rafHandle = 0;
+      }
+      drawGraph();
     }
     interactionEnergy = Math.min(1, interactionEnergy + 0.06);
     return;
@@ -2864,7 +2872,7 @@ function drawGraph() {
       ctx.beginPath();
       ctx.lineWidth = 2.9;
       // Keep stable response geometry during drag to avoid shape morphing.
-      drawEqResponsePath(ctx, active, w, h, 64);
+      drawEqResponsePath(ctx, active, w, h, activeNodeDrag ? 48 : 64);
       const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
       lineGrad.addColorStop(0, "#ffffff");
       lineGrad.addColorStop(0.15, "#faf6ff");
