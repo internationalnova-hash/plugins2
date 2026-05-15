@@ -121,8 +121,10 @@ let graphDragStartFreq = 0;
 let graphDragStartGain = 0;
 let lastInteractionRealtimePushMs = 0;
 let lastKnobRealtimePushMs = 0;
+let lastKnobUiRefreshMs = 0;
 let lastNodeRealtimePushMs = 0;
 let lastNodeUiRefreshMs = 0;
+const supportsPointerRaw = "onpointerrawupdate" in window;
 
 let lastFrameMs = performance.now();
 let interactionEnergy = 0;
@@ -164,6 +166,8 @@ const realtimeParamQueue = new Map();
 let realtimeParamFlushRaf = 0;
 let dragNodeOverlay = null;
 let dragNodeOverlayLabel = null;
+let dragNodeOverlayBand = -1;
+let dragNodeOverlayBorderColor = "";
 let dspDiagnostics = {
   applyCount: 0,
   applyAgeMs: -1,
@@ -299,20 +303,26 @@ function ensureDragNodeOverlay() {
 
 function showDragNodeOverlay(x, y, bandIndex) {
   const overlay = ensureDragNodeOverlay();
-  const b = state.bands[bandIndex] || selectedBand();
-  const dynamic = b.mode > 0.5;
-  const notch = b.type === 5;
-  const borderColor = notch ? "#89b4ff" : dynamic ? "#7fa8ff" : "#c099ff";
-
-  overlay.style.borderColor = borderColor;
-  overlay.style.display = "flex";
-  overlay.style.transform = `translate3d(${(x - 11.2).toFixed(2)}px, ${(y - 11.2).toFixed(2)}px, 0)`;
-  if (dragNodeOverlayLabel) dragNodeOverlayLabel.textContent = String((bandIndex || 0) + 1);
+  if (overlay.style.display !== "flex") overlay.style.display = "flex";
+  if (dragNodeOverlayBand !== bandIndex) {
+    const b = state.bands[bandIndex] || selectedBand();
+    const dynamic = b.mode > 0.5;
+    const notch = b.type === 5;
+    const borderColor = notch ? "#89b4ff" : dynamic ? "#7fa8ff" : "#c099ff";
+    if (dragNodeOverlayBorderColor !== borderColor) {
+      overlay.style.borderColor = borderColor;
+      dragNodeOverlayBorderColor = borderColor;
+    }
+    if (dragNodeOverlayLabel) dragNodeOverlayLabel.textContent = String((bandIndex || 0) + 1);
+    dragNodeOverlayBand = bandIndex;
+  }
+  overlay.style.transform = `translate3d(${x - 11.2}px, ${y - 11.2}px, 0)`;
 }
 
 function hideDragNodeOverlay() {
   if (dragNodeOverlay) {
     dragNodeOverlay.style.display = "none";
+    dragNodeOverlayBand = -1;
   }
 }
 
@@ -1615,13 +1625,12 @@ function buildKnob(el, options) {
     if (activeKnobDrag.pointerId !== null && typeof e.pointerId !== "undefined" && e.pointerId !== activeKnobDrag.pointerId) return;
     if (e.cancelable) e.preventDefault();
 
-    const coalesced = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
-    const latest = (coalesced && coalesced.length > 0) ? coalesced[coalesced.length - 1] : e;
-    const deltaX = latest.clientX - (activeKnobDrag.lastX ?? latest.clientX);
-    const deltaY = activeKnobDrag.lastY - latest.clientY;
-    activeKnobDrag.lastX = latest.clientX;
-    activeKnobDrag.lastY = latest.clientY;
-    dragFineScale = (latest.shiftKey || latest.metaKey) ? 0.22 : 1;
+    // Use dispatched pointer coordinates directly for minimum drag latency.
+    const deltaX = e.clientX - (activeKnobDrag.lastX ?? e.clientX);
+    const deltaY = activeKnobDrag.lastY - e.clientY;
+    activeKnobDrag.lastX = e.clientX;
+    activeKnobDrag.lastY = e.clientY;
+    dragFineScale = (e.shiftKey || e.metaKey) ? 0.22 : 1;
 
     // Nova Aura pattern: apply delta directly, no intermediate target/current split.
     const deltaNorm = (deltaY + deltaX * 0.9) * dragNormPerPixel * dragFineScale;
@@ -1631,12 +1640,16 @@ function buildKnob(el, options) {
     activeKnobDrag.options.set(clamp(newValue, activeKnobDrag.options.min, activeKnobDrag.options.max), false);
     // Visual update: synchronous, GPU-composited via will-change:transform + filter:none
     activeKnobDrag.setDragVisual(activeKnobDrag.options.get());
-    updateSelectedBandReadouts(activeKnobDrag.options.readoutKey || "all");
+    const nowMs = performance.now();
+    // Throttle DOM text updates so pointer tracking remains hard-locked.
+    if (nowMs - lastKnobUiRefreshMs >= 20) {
+      lastKnobUiRefreshMs = nowMs;
+      updateSelectedBandReadouts(activeKnobDrag.options.readoutKey || "all");
+    }
 
     // Nova Aura pattern: push to native bridge directly in pointermove, no RAF queue.
     if (activeKnobDrag.options.realtimeParam && nativeBridgeReady) {
       const targetBand = activeKnobDrag.options.isGlobalParam ? 0 : state.selectedBand;
-      const nowMs = performance.now();
       if (nowMs - lastKnobRealtimePushMs >= 8) {
         lastKnobRealtimePushMs = nowMs;
         try { nativeSetRealtimeParam(activeKnobDrag.options.realtimeParam, targetBand, activeKnobDrag.options.get()); } catch (_) {}
@@ -1712,7 +1725,11 @@ function buildKnob(el, options) {
     setInteractionActive(true);
   });
 
-  el.addEventListener("pointermove", updateKnobDragFromPointer, { passive: false });
+  if (supportsPointerRaw) {
+    el.addEventListener("pointerrawupdate", updateKnobDragFromPointer, { passive: false });
+  } else {
+    el.addEventListener("pointermove", updateKnobDragFromPointer, { passive: false });
+  }
   el.addEventListener("pointerup", (e) => finishKnobDrag(e, true));
   el.addEventListener("pointercancel", (e) => finishKnobDrag(e, true));
   el.addEventListener("lostpointercapture", (e) => finishKnobDrag(e, true));
@@ -2293,9 +2310,11 @@ function bindEvents() {
   });
 
   canvas.addEventListener("pointerdown", onGraphDown);
-  canvas.addEventListener("pointermove", onGraphMove);
-  // Use raw pointer updates when available to reduce node drag latency.
-  canvas.addEventListener("pointerrawupdate", onGraphMove);
+  if (supportsPointerRaw) {
+    canvas.addEventListener("pointerrawupdate", onGraphMove);
+  } else {
+    canvas.addEventListener("pointermove", onGraphMove);
+  }
   canvas.addEventListener("pointerup", onGraphUp);
   canvas.addEventListener("pointercancel", onGraphUp);
   canvas.addEventListener("lostpointercapture", onGraphUp);
