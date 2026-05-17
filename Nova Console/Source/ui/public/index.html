@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nova Console</title>
+  <style>
+    :root {
+      --ui-scale: 1;
+      --line: rgba(179, 191, 209, 0.2);
+      --line-soft: rgba(179, 191, 209, 0.11);
+      --text: #d9dde3;
+      --text-sub: #9ea8b6;
+      --amber-soft: rgba(198, 146, 84, 0.18);
+      --meter-off: rgba(20, 22, 26, 0.84);
+      --meter-on: linear-gradient(180deg, #f8ddb1 0%, #dca05b 58%, #9a5724 100%);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      font-family: "Avenir Next", "Optima", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(130% 95% at 50% 35%, #1f2731 0%, #141b24 42%, #0d1218 72%, #080b10 100%);
+    }
+
+    body { display: grid; place-items: center; }
+
+    .viewport {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .frame {
+      width: 1536px;
+      height: 1005px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background:
+        radial-gradient(120% 120% at 50% 0%, rgba(170, 186, 212, 0.06) 0%, transparent 42%),
+        linear-gradient(180deg, #252d38 0%, #1a212a 30%, #121821 100%);
+      box-shadow: inset 0 1px 0 rgba(226, 232, 242, 0.1), inset 0 -36px 50px rgba(0, 0, 0, 0.58), 0 36px 86px rgba(0, 0, 0, 0.74);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .frame::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(80% 24% at 50% 0%, rgba(182, 201, 229, 0.08) 0%, transparent 72%),
+        linear-gradient(90deg, rgba(222, 230, 243, 0.03) 0%, transparent 18%, transparent 82%, rgba(222, 230, 243, 0.03) 100%);
+      mix-blend-mode: screen;
+    }
+
+    .header {
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      top: 14px;
+      height: 116px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background:
+        radial-gradient(120% 130% at 50% -30%, rgba(193, 210, 234, 0.12) 0%, transparent 50%),
+        linear-gradient(180deg, rgba(52, 60, 72, 0.97) 0%, rgba(30, 37, 47, 0.99) 62%, rgba(22, 28, 37, 0.99) 100%);
+      box-shadow: inset 0 1px 0 rgba(229, 236, 246, 0.16), inset 0 -20px 28px rgba(0, 0, 0, 0.58), 0 8px 18px rgba(0, 0, 0, 0.38);
+      display: grid;
+      grid-template-columns: 560px 1fr 292px;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      z-index: 3;
+      overflow: visible;
+    }
+
+    .header::before {
+      content: "";
+      position: absolute;
+      left: 28%;
+      right: 22%;
+      top: -34px;
+      height: 110px;
+      border-radius: 999px;
+      background: radial-gradient(closest-side, rgba(198, 212, 234, 0.16) 0%, rgba(198, 212, 234, 0.04) 56%, transparent 100%);
+      pointer-events: none;
+      filter: blur(2px);
+    }
+
+    .header::after {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(208, 220, 238, 0.1);
+      box-shadow: inset 0 1px 0 rgba(236, 242, 250, 0.08), inset 0 -10px 14px rgba(0, 0, 0, 0.34);
+      pointer-events: none;
+    }
+
+    .headerMeta {
+      grid-column: 1;
+      display: grid;
+      grid-template-rows: auto auto;
+      gap: 6px;
+      align-content: center;
+      justify-items: start;
+      padding-left: 6px;
+    }
+
+    .brand {
+      justify-self: start;
+      text-align: left;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    .brand .title {
+      font-size: 31px;
+      letter-spacing: 0.32em;
+      font-weight: 760;
+      line-height: 1;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 16px rgba(0, 0, 0, 0.42);
+    }
+
+    .brand .subtitle {
+      margin-top: 5px;
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      color: var(--text-sub);
+    }
+
+    .headerSession {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .presetBtn,
+    .abBtn {
+      border-radius: 6px;
+      border: 1px solid rgba(175, 191, 214, 0.26);
+      background: linear-gradient(180deg, rgba(58, 66, 79, 0.96) 0%, rgba(29, 35, 43, 0.99) 100%);
+      color: #c3cfde;
+      text-transform: uppercase;
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      font-weight: 650;
+      min-height: 24px;
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 1px 0 rgba(230, 238, 248, 0.1), inset 0 -5px 7px rgba(0, 0, 0, 0.48), 0 2px 4px rgba(0, 0, 0, 0.24);
+      padding: 0 10px;
+    }
+
+    .presetBtn.main {
+      min-width: 112px;
+      justify-content: start;
+      text-align: left;
+      padding: 0 10px;
+    }
+
+    .abGroup {
+      display: flex;
+      gap: 4px;
+      margin-left: 4px;
+    }
+
+    .abBtn {
+      min-width: 34px;
+      padding: 0;
+    }
+
+    .abBtn.active {
+      background: linear-gradient(180deg, #566274 0%, #36404f 100%);
+      border-color: rgba(198, 213, 234, 0.38);
+      color: #e2eaf5;
+    }
+
+    .topControls {
+      grid-column: 2;
+      justify-self: end;
+      align-self: start;
+      display: grid;
+      grid-template-columns: repeat(3, 122px);
+      gap: 6px;
+      margin-top: 2px;
+      padding: 6px;
+      border-radius: 10px;
+      border: 1px solid rgba(173, 190, 214, 0.12);
+      background: linear-gradient(180deg, rgba(31, 36, 45, 0.84) 0%, rgba(19, 24, 31, 0.92) 100%);
+      box-shadow: inset 0 1px 0 rgba(230, 237, 247, 0.08), inset 0 -8px 10px rgba(0, 0, 0, 0.42);
+    }
+
+    .ctrl {
+      border-radius: 10px;
+      border: 1px solid var(--line-soft);
+      background: linear-gradient(180deg, rgba(49, 57, 69, 0.96) 0%, rgba(28, 34, 43, 0.99) 100%);
+      position: relative;
+      height: 38px;
+      box-shadow: inset 0 1px 0 rgba(233, 240, 250, 0.14), inset 0 -8px 10px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+    }
+
+    .ctrl::after {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 223, 181, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 241, 219, 0.08), inset 0 -6px 8px rgba(0, 0, 0, 0.34);
+      pointer-events: none;
+    }
+
+    .ctrl::before {
+      content: attr(data-label);
+      position: absolute;
+      left: 8px;
+      top: 2px;
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-sub);
+      pointer-events: none;
+    }
+
+    .ctrl select {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      padding: 12px 8px 2px 8px;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      appearance: none;
+    }
+
+    .vu {
+      grid-column: 3;
+      width: 282px;
+      height: 108px;
+      border-radius: 14px;
+      border: 1px solid rgba(180, 198, 220, 0.42);
+      background:
+        radial-gradient(130% 120% at 50% -16%, rgba(200, 214, 233, 0.2) 0%, transparent 50%),
+        linear-gradient(180deg, #4b5666 0%, #2c3440 52%, #1f252f 100%);
+      box-shadow: inset 0 2px 0 rgba(230, 238, 248, 0.24), inset 0 -14px 20px rgba(0, 0, 0, 0.68), 0 10px 18px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.5);
+      padding: 8px;
+      align-self: center;
+      justify-self: end;
+      position: relative;
+      transform: translateY(-34px);
+      overflow: hidden;
+    }
+
+    .vu::before {
+      content: "";
+      position: absolute;
+      inset: 4px;
+      border-radius: 11px;
+      border: 1px solid rgba(196, 211, 230, 0.28);
+      box-shadow: inset 0 1px 0 rgba(236, 243, 252, 0.15), inset 0 -8px 10px rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .vu::after {
+      content: "";
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      top: 10px;
+      height: 18px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.02) 100%);
+      opacity: 0.62;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .vuGlass {
+      width: 100%;
+      height: 100%;
+      border-radius: 11px;
+      border: 1px solid rgba(196, 210, 228, 0.44);
+      background:
+        radial-gradient(145% 130% at 50% 100%, rgba(246, 241, 228, 0.98) 0%, rgba(226, 215, 191, 0.92) 42%, rgba(143, 133, 112, 0.5) 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.04) 44%, rgba(0, 0, 0, 0.24) 100%);
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 8px 14px rgba(255, 244, 221, 0.26), inset 0 -14px 18px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(0, 0, 0, 0.22);
+    }
+
+    .vuGlass::before {
+      content: "VU";
+      position: absolute;
+      inset: 8px 14px 10px;
+      border-radius: 8px;
+      color: rgba(61, 55, 41, 0.78);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-align: center;
+      line-height: 76px;
+      background:
+        radial-gradient(110% 130% at 50% 100%, transparent 58%, rgba(32, 20, 12, 0.72) 59%, rgba(32, 20, 12, 0.72) 60%, transparent 61%),
+        repeating-linear-gradient(90deg, transparent 0 12px, rgba(33, 21, 13, 0.32) 12px 13px);
+      opacity: 0.95;
+    }
+
+    .vuGlass::after {
+      content: "";
+      position: absolute;
+      inset: 6px 10px auto;
+      height: 22px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.05) 100%);
+      opacity: 0.65;
+      pointer-events: none;
+    }
+
+    .vuNeedle {
+      position: absolute;
+      left: 50%;
+      top: 80%;
+      width: 2px;
+      height: 41px;
+      transform-origin: 50% 92%;
+      transform: translate(-50%, -92%) rotate(-26deg);
+      border-radius: 2px;
+      background: linear-gradient(180deg, #613822 0%, #bb5c2f 100%);
+      box-shadow: 0 0 3px rgba(112, 59, 31, 0.28);
+      z-index: 6;
+      animation: vuSwing 2s ease-in-out infinite alternate;
+    }
+
+    .vuPivot {
+      position: absolute;
+      left: 50%;
+      top: 80%;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: #3a2d24;
+      box-shadow: 0 0 0 2px rgba(255, 246, 226, 0.45);
+      z-index: 7;
+    }
+
+    @keyframes vuSwing {
+      from { transform: translate(-50%, -92%) rotate(-38deg); }
+      to { transform: translate(-50%, -92%) rotate(8deg); }
+    }
+
+    .surface {
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      top: 156px;
+      bottom: 56px;
+      border-radius: 14px;
+      border: 1px solid var(--line-soft);
+      background:
+        radial-gradient(130% 120% at 50% 30%, #28313c 0%, #1f2732 40%, #171e27 68%, #121820 100%),
+        repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.01) 0 2px, rgba(0, 0, 0, 0.02) 2px 5px);
+      box-shadow: inset 0 1px 0 rgba(229, 237, 248, 0.12), inset 0 -28px 38px rgba(0, 0, 0, 0.64), 0 8px 20px rgba(0, 0, 0, 0.34);
+      padding: 10px 4px;
+      display: grid;
+      grid-template-columns: 136px 154px 136px minmax(332px, 1fr) 206px 130px 156px;
+      gap: 0;
+      align-items: stretch;
+      z-index: 1;
+    }
+
+    .module {
+      position: relative;
+      border-right: 1px solid rgba(175, 191, 214, 0.12);
+      padding: 6px;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 6px;
+      background:
+        linear-gradient(180deg, rgba(41, 49, 61, 0.62) 0%, rgba(23, 29, 38, 0.74) 100%),
+        repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.012) 0 2px, rgba(0, 0, 0, 0.016) 2px 5px),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.006) 0 1px, rgba(0, 0, 0, 0.008) 1px 2px);
+      box-shadow: inset 1px 0 0 rgba(219, 230, 245, 0.05), inset -1px 0 0 rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(231, 239, 249, 0.04);
+    }
+
+    .module::before {
+      content: "";
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      top: 8px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(211, 223, 240, 0.2) 50%, transparent 100%);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .module:last-child { border-right: 0; }
+
+    .name {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #bcc7d6;
+      font-weight: 650;
+      text-shadow: 0 0 4px rgba(167, 180, 201, 0.16);
+      min-height: 14px;
+    }
+
+    .body {
+      min-height: 0;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+
+    .inputBody { grid-template-columns: 1fr 16px; align-items: center; height: 100%; }
+    .preampBody { grid-template-rows: repeat(3, auto); height: 100%; align-content: start; gap: 6px; }
+    .gateBody { grid-template-rows: repeat(4, auto); height: 100%; align-content: start; gap: 5px; }
+    .filterBody { grid-template-rows: auto auto auto; height: 100%; align-content: start; gap: 6px; }
+    .compBody { grid-template-columns: 1fr 14px; gap: 8px; height: 100%; align-items: center; }
+    .compGrid { display: grid; grid-template-rows: repeat(3, auto); align-content: center; gap: 8px; min-height: 0; padding: 0; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: center; }
+    .compGrid .kLabel { margin-top: 4px; min-height: 16px; }
+    .compGrid .smallButton {
+      width: 82px;
+      min-height: 30px;
+      justify-self: center;
+      font-size: 8px;
+      letter-spacing: 0.12em;
+    }
+    .analogBody { grid-template-columns: 1fr 78px; gap: 6px; height: 100%; align-content: start; }
+    .analogGrid { display: grid; grid-template-rows: repeat(5, auto); gap: 4px; align-content: start; min-height: 0; }
+    .eqBody { grid-template-rows: 222px auto auto auto; height: 100%; gap: 4px; }
+    .eqKnobRow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      align-items: center;
+    }
+    .eqKnobRow .knob.small { width: 64px; }
+    .modeSelectorRow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      align-items: start;
+    }
+    .modeSelector {
+      display: grid;
+      grid-template-rows: 20px 20px;
+      justify-items: center;
+      gap: 2px;
+    }
+
+    .modeButton.ghost {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .eqDisplay {
+      border-radius: 12px;
+      border: 1px solid rgba(174, 190, 212, 0.24);
+      background:
+        radial-gradient(130% 90% at 50% 16%, rgba(184, 201, 223, 0.07) 0%, rgba(184, 201, 223, 0.02) 38%, transparent 65%),
+        linear-gradient(180deg, rgba(17, 22, 29, 0.98) 0%, rgba(10, 14, 19, 0.99) 100%);
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 10px 14px rgba(213, 223, 239, 0.04), inset 0 -14px 16px rgba(0, 0, 0, 0.62);
+    }
+
+    .eqDisplay::before {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border-radius: 8px;
+      background:
+        linear-gradient(transparent 17px, rgba(170, 186, 208, 0.16) 18px),
+        linear-gradient(90deg, transparent 27px, rgba(170, 186, 208, 0.12) 28px),
+        linear-gradient(180deg, rgba(208, 221, 239, 0.03) 0%, rgba(0, 0, 0, 0.16) 100%);
+      background-size: 100% 18px, 28px 100%, 100% 100%;
+      opacity: 0.56;
+    }
+
+    .eqDisplay::after {
+      content: "";
+      position: absolute;
+      inset: 16px 16px 10px;
+      border-radius: 9px;
+      background:
+        radial-gradient(140% 70% at 50% 54%, rgba(169, 185, 207, 0.09) 0%, rgba(169, 185, 207, 0.02) 42%, transparent 80%);
+      filter: blur(0.5px);
+      opacity: 0.62;
+      pointer-events: none;
+    }
+
+    .eqCurve {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      top: 26px;
+      bottom: 10px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .eqSvg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .eqPathGlow {
+      fill: none;
+      stroke: rgba(173, 190, 212, 0.1);
+      stroke-width: 2.2;
+      filter: blur(0.25px);
+    }
+
+    .eqPathMain {
+      fill: none;
+      stroke: rgba(208, 221, 238, 0.9);
+      stroke-width: 1.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 0 1px rgba(170, 186, 208, 0.12));
+      animation: none;
+    }
+
+    .eqNode {
+      fill: rgba(216, 228, 242, 0.96);
+      stroke: rgba(26, 33, 43, 0.92);
+      stroke-width: 0.45;
+      filter: drop-shadow(0 0 1px rgba(169, 186, 209, 0.1));
+    }
+
+    @keyframes eqPulse {
+      0%, 100% { opacity: 0.86; }
+      50% { opacity: 1; }
+    }
+
+    @keyframes eqSweep {
+      to { stroke-dashoffset: -240; }
+    }
+
+    .power, .smallButton {
+      border-radius: 8px;
+      border: 1px solid rgba(176, 190, 211, 0.26);
+      background: linear-gradient(180deg, rgba(56, 63, 74, 0.96) 0%, rgba(28, 34, 42, 0.99) 100%);
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 8px;
+      min-height: 28px;
+      display: grid;
+      place-items: center;
+    }
+
+    .module.hasPower .name {
+      padding-left: 24px;
+    }
+
+    .power {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      width: 16px;
+      height: 16px;
+      min-height: 16px;
+      border-radius: 50%;
+      padding: 0;
+      font-size: 0;
+      line-height: 0;
+      letter-spacing: 0;
+      text-indent: -9999px;
+      overflow: hidden;
+      border: 1px solid rgba(186, 201, 224, 0.34);
+      background: linear-gradient(180deg, rgba(64, 73, 86, 0.98) 0%, rgba(29, 35, 44, 1) 100%);
+      box-shadow: inset 0 1px 0 rgba(236, 243, 252, 0.18), inset 0 -4px 6px rgba(0, 0, 0, 0.62), 0 1px 2px rgba(0, 0, 0, 0.45);
+      z-index: 3;
+    }
+
+    .power::before {
+      content: "";
+      position: absolute;
+      inset: 3px;
+      border-radius: 50%;
+      border: 1px solid rgba(198, 213, 234, 0.62);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.36);
+    }
+
+    .power::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 2px;
+      width: 2px;
+      height: 6px;
+      transform: translateX(-50%);
+      border-radius: 1px;
+      background: linear-gradient(180deg, rgba(229, 238, 250, 0.96) 0%, rgba(166, 184, 210, 0.92) 100%);
+      box-shadow: 0 0 2px rgba(184, 200, 224, 0.25);
+    }
+
+    .smallButton {
+      box-shadow: inset 0 1px 0 rgba(229, 236, 245, 0.1), inset 0 -6px 8px rgba(0, 0, 0, 0.54), 0 2px 5px rgba(0, 0, 0, 0.3);
+      text-shadow: none;
+    }
+
+    .btnRow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+    .filterBody .btnRow { gap: 4px; }
+    .filterBody .smallButton {
+      min-height: 20px;
+      font-size: 7px;
+      letter-spacing: 0.1em;
+      border-radius: 6px;
+    }
+    .knobWrap { display: grid; place-items: center; min-height: 0; }
+
+    .knob {
+      width: 82px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 1px solid rgba(193, 207, 226, 0.24);
+      background:
+        radial-gradient(118% 110% at 28% 20%, rgba(229, 237, 247, 0.14) 0%, rgba(229, 237, 247, 0.02) 25%, transparent 55%),
+        repeating-conic-gradient(from 0deg, rgba(206, 218, 234, 0.05) 0deg 4deg, rgba(18, 22, 28, 0.08) 4deg 8deg),
+        radial-gradient(110% 110% at 32% 24%, #4f5968 0%, #3a4350 34%, #2a313b 62%, #1b2129 100%);
+      box-shadow:
+        inset 0 2px 3px rgba(234, 242, 252, 0.14),
+        inset 0 -14px 20px rgba(0, 0, 0, 0.62),
+        inset 0 0 0 9px rgba(16, 20, 26, 0.92),
+        0 11px 19px rgba(0, 0, 0, 0.66),
+        0 0 0 1px rgba(0, 0, 0, 0.46);
+      position: relative;
+      filter: contrast(1.02) saturate(0.9);
+    }
+
+    .inputBody .meter.dots {
+      border-color: rgba(215, 156, 92, 0.25);
+      background: linear-gradient(180deg, #120f0d 0%, #090807 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 226, 186, 0.08), inset 0 -10px 14px rgba(0, 0, 0, 0.72);
+    }
+
+    .inputBody .meter.dots .seg.on {
+      background: linear-gradient(180deg, #e8d0a0 0%, #ad7c3e 58%, #693a15 100%);
+      box-shadow: 0 0 1px rgba(173, 124, 62, 0.12);
+    }
+
+    .inputBody .knob.large {
+      box-shadow:
+        inset 0 2px 3px rgba(255, 236, 201, 0.2),
+        inset 0 -14px 20px rgba(0, 0, 0, 0.7),
+        inset 0 0 0 9px rgba(16, 14, 12, 0.94),
+        0 14px 22px rgba(0, 0, 0, 0.72),
+        0 0 0 1px rgba(0, 0, 0, 0.5);
+    }
+
+    .knob.large { width: 114px; }
+    .knob.small { width: 68px; }
+
+    .knob::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 11%;
+      width: 4px;
+      height: 30%;
+      border-radius: 2px;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, #f2f6fb 0%, #b9c6d8 100%);
+      box-shadow: 0 0 1px rgba(235, 242, 252, 0.35);
+    }
+
+    .knob::after {
+      content: "";
+      position: absolute;
+      inset: 22%;
+      border-radius: 50%;
+      border: 1px solid rgba(189, 203, 224, 0.18);
+      background:
+        radial-gradient(100% 100% at 35% 28%, rgba(229, 237, 247, 0.1) 0%, rgba(229, 237, 247, 0.01) 32%, transparent 56%),
+        repeating-conic-gradient(from 12deg, rgba(206, 218, 234, 0.025) 0deg 8deg, rgba(0, 0, 0, 0.04) 8deg 16deg),
+        linear-gradient(180deg, rgba(50, 57, 67, 0.96) 0%, rgba(22, 26, 32, 0.98) 100%);
+      box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.42), inset 0 -5px 8px rgba(0, 0, 0, 0.52);
+    }
+
+    .kLabel {
+      margin-top: 4px;
+      text-align: center;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #b4c0d0;
+      font-weight: 600;
+      text-shadow: none;
+      line-height: 1.2;
+      min-height: 16px;
+    }
+
+    .meter {
+      width: 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(170, 186, 208, 0.22);
+      background: linear-gradient(180deg, #171d25 0%, #0f141a 100%);
+      box-shadow: inset 0 1px 0 rgba(228, 236, 246, 0.07), inset 0 -8px 11px rgba(0, 0, 0, 0.66), 0 2px 6px rgba(0, 0, 0, 0.36), inset 0 0 0 1px rgba(0, 0, 0, 0.42);
+      padding: 3px;
+      display: grid;
+      gap: 2px;
+      align-self: stretch;
+      grid-template-rows: repeat(24, 1fr);
+      z-index: 2; /* Ensure it is above overlapping elements */
+    }
+
+    .meter.long { grid-template-rows: repeat(32, 1fr); }
+    .meter.dots {
+      width: 14px;
+      gap: 3px;
+      padding: 2px;
+      background: linear-gradient(180deg, #14181e 0%, #0e1116 100%);
+      border-color: rgba(170, 186, 208, 0.2);
+    }
+
+    .meter.dots .seg {
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 1px rgba(182, 196, 216, 0.08);
+      opacity: 0.24;
+    }
+
+    .meter.dualPpm {
+      width: 34px;
+      grid-template-rows: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      padding: 3px;
+      background: linear-gradient(180deg, #1a1512 0%, #0f0d0b 100%);
+    }
+
+    .analogSide {
+      display: grid;
+      grid-template-rows: auto auto auto auto;
+      gap: 6px;
+      align-content: start;
+      justify-items: center;
+    }
+
+    .consoleLinkBtns {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+
+    .consoleLinkRow {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+    }
+
+    .consoleLinkBtns .smallButton {
+      min-height: 18px;
+      font-size: 7px;
+      letter-spacing: 0.1em;
+      border-radius: 5px;
+      padding: 0 4px;
+      text-align: center;
+    }
+
+    .driftStage .knob.small { width: 62px; }
+    .driftStage .kLabel {
+      margin-top: 4px;
+      min-height: 14px;
+      font-size: 8px;
+      letter-spacing: 0.1em;
+    }
+
+    .meter.dualPpm .seg.on.g {
+      background: linear-gradient(180deg, #d4d9be 0%, #8f9a6c 58%, #5b6641 100%);
+      box-shadow: 0 0 1px rgba(148, 165, 108, 0.06);
+    }
+
+    .meter.dualPpm .seg.on.y {
+      background: linear-gradient(180deg, #e2cf9f 0%, #a98549 58%, #725023 100%);
+      box-shadow: 0 0 1px rgba(169, 133, 73, 0.06);
+    }
+
+    .meter.dualPpm .seg.on.r {
+      background: linear-gradient(180deg, #d2b6aa 0%, #8f624f 58%, #643a2d 100%);
+      box-shadow: 0 0 1px rgba(143, 98, 79, 0.06);
+    }
+
+    .ppmCol {
+      display: grid;
+      gap: 2px;
+      grid-template-rows: repeat(32, 1fr);
+      min-height: 0;
+    }
+
+    .seg { border-radius: 2px; background: rgba(17, 21, 27, 0.88); }
+    .seg.on { background: var(--meter-on); box-shadow: 0 0 2px var(--amber-soft); opacity: 0.94; }
+    .meter.dots .seg:nth-child(3n) { opacity: 0.2; }
+    .meter.dots .seg:nth-child(4n+1) { opacity: 0.28; }
+    .meter.dots .seg.on { opacity: 0.95; filter: saturate(1.04) brightness(1.03); }
+    .seg.on.g {
+      background: linear-gradient(180deg, #cfd8bb 0%, #88966a 58%, #546345 100%);
+      box-shadow: 0 0 2px rgba(136, 150, 106, 0.09);
+    }
+
+    .seg.on.y {
+      background: linear-gradient(180deg, #e4d09f 0%, #a98549 58%, #755325 100%);
+      box-shadow: 0 0 2px rgba(169, 133, 73, 0.09);
+    }
+
+    .seg.on.r {
+      background: linear-gradient(180deg, #d5b8ad 0%, #8e634f 58%, #633c2f 100%);
+      box-shadow: 0 0 2px rgba(142, 99, 79, 0.09);
+    }
+
+    .compBody .meter.dots {
+      opacity: 0.62;
+      filter: saturate(0.58) brightness(0.82);
+    }
+
+    .compBody .meter.dots .seg.on {
+      background: linear-gradient(180deg, #e6d3ad 0%, #b88a4e 58%, #774a1f 100%);
+      box-shadow: 0 0 1px rgba(184, 138, 78, 0.12);
+    }
+
+    .gateBody .knob.small { width: 76px; }
+
+    .analogDivider {
+      height: 1px;
+      margin: 2px 8px 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(189, 204, 225, 0.28) 50%, transparent 100%);
+      box-shadow: 0 0 4px rgba(175, 191, 214, 0.09);
+    }
+
+    .outputStage .knob { width: 88px; }
+
+    .outputStage .kLabel {
+      letter-spacing: 0.16em;
+      color: #c3ccda;
+      text-shadow: none;
+    }
+
+    .analogGrid .knobWrap:nth-child(2) .knob.small {
+      width: 80px;
+      box-shadow:
+        inset 0 2px 3px rgba(255, 236, 201, 0.28),
+        inset 0 -15px 20px rgba(0, 0, 0, 0.64),
+        inset 0 0 0 9px rgba(18, 16, 14, 0.9),
+        0 12px 20px rgba(0, 0, 0, 0.66),
+        0 0 0 1px rgba(0, 0, 0, 0.5),
+        0 0 10px rgba(232, 152, 72, 0.14);
+    }
+
+    .analogGrid .knobWrap:last-child .knob {
+      width: 88px;
+      box-shadow:
+        inset 0 2px 3px rgba(255, 238, 204, 0.3),
+        inset 0 -16px 22px rgba(0, 0, 0, 0.66),
+        inset 0 0 0 10px rgba(18, 16, 14, 0.92),
+        0 13px 22px rgba(0, 0, 0, 0.68),
+        0 0 0 1px rgba(0, 0, 0, 0.52),
+        0 0 14px rgba(232, 152, 72, 0.16);
+    }
+
+    .utility {
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      bottom: 14px;
+      height: 30px;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+    }
+
+    .uBtn {
+      border-radius: 7px;
+      border: 1px solid rgba(172, 187, 208, 0.22);
+      background: linear-gradient(180deg, rgba(52, 60, 71, 0.93) 0%, rgba(27, 33, 41, 0.98) 100%);
+      box-shadow: inset 0 1px 0 rgba(230, 237, 246, 0.12), inset 0 -8px 10px rgba(0, 0, 0, 0.52), 0 3px 6px rgba(0, 0, 0, 0.34);
+      color: #b2bece;
+      font-size: 8px;
+      letter-spacing: 0.14em;
+      font-weight: 600;
+      text-transform: uppercase;
+      display: grid;
+      place-items: center;
+    }
+
+    .modeButtonRow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .modeButtonGroup {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .modeButton {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 20px;
+      width: 50px;
+      background: linear-gradient(180deg, #2f3742 0%, #1b2129 100%);
+      border: 1px solid rgba(162, 178, 199, 0.25);
+      border-radius: 4px;
+      font-size: 10px;
+      color: #b4c0d0;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: inset 0 -1px 2px rgba(0, 0, 0, 0.5);
+      transition: background 0.15s;
+    }
+
+    .modeButton:hover {
+      background: linear-gradient(180deg, #394352 0%, #242d39 100%);
+    }
+
+    .modeButton:active {
+      background: linear-gradient(180deg, #232a34 0%, #151a21 100%);
+    }
+
+    .modeButton.active {
+      background: linear-gradient(180deg, #556170 0%, #353f4d 100%);
+      border-color: rgba(193, 208, 229, 0.36);
+      color: #dbe3ee;
+      box-shadow: inset 0 1px 0 rgba(236, 243, 252, 0.2), inset 0 -3px 5px rgba(0, 0, 0, 0.45);
+    }
+  </style>
+</head>
+<body>
+  <div class="viewport">
+    <div class="frame">
+      <div class="header">
+        <div class="headerMeta">
+          <div class="brand">
+            <div class="title">Nova Console</div>
+            <div class="subtitle">Analog Channel System</div>
+          </div>
+          <div class="headerSession">
+            <div class="presetBtn main">Preset 01</div>
+            <div class="presetBtn">Prev</div>
+            <div class="presetBtn">Next</div>
+            <div class="abGroup">
+              <div class="abBtn active">A</div>
+              <div class="abBtn">B</div>
+            </div>
+          </div>
+        </div>
+        <div class="topControls">
+          <div class="ctrl" data-label="Console Mode"><select><option>Clean</option></select></div>
+          <div class="ctrl" data-label="Quality"><select><option>Mix</option></select></div>
+          <div class="ctrl" data-label="Oversampling"><select><option>2x</option></select></div>
+        </div>
+        <div class="vu"><div class="vuGlass"></div><div class="vuNeedle"></div><div class="vuPivot"></div></div>
+      </div>
+
+      <div class="surface">
+        <section class="module">
+          <div class="name">Input</div>
+          <div class="body inputBody">
+            <div class="knobWrap"><div><div class="knob large"></div><div class="kLabel">Input</div></div></div>
+            <div class="meter dots"> <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div></div>
+          </div>
+        </section>
+
+        <section class="module hasPower">
+          <div class="name">Preamp / Drive</div>
+          <div class="body preampBody">
+            <div class="power">Power</div>
+            <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Drive</div></div></div>
+            <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Color</div></div></div>
+            <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Trim</div></div></div>
+          </div>
+        </section>
+
+        <section class="module hasPower">
+          <div class="name">Filters</div>
+          <div class="body filterBody">
+            <div class="power">Power</div>
+            <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">HPF</div></div></div>
+            <div class="btnRow"><div class="smallButton">12</div><div class="smallButton">24</div><div class="smallButton">48</div></div>
+            <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">LPF</div></div></div>
+          </div>
+        </section>
+
+        <section class="module">
+          <div class="name">Equalizer</div>
+          <div class="body eqBody">
+            <div class="eqDisplay"><div class="eqCurve"><svg class="eqSvg" viewBox="0 0 100 40" preserveAspectRatio="none"><path class="eqPathGlow" d="M 0 25 C 10 25, 16 18, 26 21 C 36 24, 44 14, 54 20 C 64 26, 72 16, 82 21 C 90 24, 96 22, 100 20" /><path class="eqPathMain" d="M 0 25 C 10 25, 16 18, 26 21 C 36 24, 44 14, 54 20 C 64 26, 72 16, 82 21 C 90 24, 96 22, 100 20" /><circle class="eqNode" cx="26" cy="21" r="1.1" /><circle class="eqNode" cx="54" cy="20" r="1.1" /><circle class="eqNode" cx="82" cy="21" r="1.1" /></svg></div></div>
+            <div class="eqKnobRow">
+              <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Low Gain</div></div></div>
+              <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Low-Mid Gain</div></div></div>
+              <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">High-Mid Gain</div></div></div>
+              <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">High Gain</div></div></div>
+              <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Air Gain</div></div></div>
+            </div>
+            <div class="eqKnobRow">
+              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Low Freq</div></div></div>
+              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Low-Mid Freq</div></div></div>
+              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">High-Mid Freq</div></div></div>
+              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">High Freq</div></div></div>
+              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Air Freq</div></div></div>
+            </div>
+            <div class="modeSelectorRow">
+              <div class="modeSelector">
+                <div class="modeButton active">Bell</div>
+                <div class="modeButton">Shelf</div>
+              </div>
+              <div class="modeSelector">
+                <div class="modeButton active">Bell</div>
+                <div class="modeButton ghost">.</div>
+              </div>
+              <div class="modeSelector">
+                <div class="modeButton active">Bell</div>
+                <div class="modeButton ghost">.</div>
+              </div>
+              <div class="modeSelector">
+                <div class="modeButton active">Bell</div>
+                <div class="modeButton">Shelf</div>
+              </div>
+              <div class="modeSelector">
+                <div class="modeButton active">Air</div>
+                <div class="modeButton ghost">.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="module">
+          <div class="name">Compressor</div>
+          <div class="body compBody">
+            <div class="compGrid">
+              <div class="pair"><div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Threshold</div></div></div><div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Ratio</div></div></div></div>
+              <div class="pair"><div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Attack</div></div></div><div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Release</div></div></div></div>
+              <div class="pair"><div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Mix</div></div></div><div class="knobWrap"><div class="smallButton">Punch</div></div></div>
+            </div>
+            <div class="meter dots"> <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div></div>
+          </div>
+        </section>
+
+        <section class="module">
+          <div class="name">Gate / Expander</div>
+          <div class="body gateBody">
+            <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Threshold</div></div></div>
+            <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Expand</div></div></div>
+            <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Release</div></div></div>
+            <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Range</div></div></div>
+          </div>
+        </section>
+
+        <section class="module hasPower">
+          <div class="name">Analog Engine</div>
+          <div class="body analogBody">
+            <div class="analogGrid">
+              <div class="power">Power</div>
+              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Heat</div></div></div>
+              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Depth</div></div></div>
+              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Width</div></div></div>
+              <div class="analogDivider"></div>
+              <div class="knobWrap outputStage"><div><div class="knob"></div><div class="kLabel">Output</div></div></div>
+            </div>
+            <div class="analogSide">
+              <div class="meter dualPpm">
+                <div class="ppmCol">
+                  <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+                  <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+                  <div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div>
+                  <div class="seg on y"></div><div class="seg on y"></div><div class="seg on y"></div><div class="seg on y"></div>
+                  <div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div>
+                </div>
+                <div class="ppmCol">
+                  <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+                  <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+                  <div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div>
+                  <div class="seg on y"></div><div class="seg on y"></div><div class="seg on y"></div><div class="seg on y"></div>
+                  <div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div>
+                </div>
+              </div>
+              <div class="consoleLinkBtns">
+                <div class="consoleLinkRow">
+                  <div class="smallButton">Console L</div>
+                  <div class="smallButton">Console R</div>
+                </div>
+                <div class="smallButton">Crosstalk L/R</div>
+              </div>
+              <div class="knobWrap driftStage"><div><div class="knob small"></div><div class="kLabel">Drift</div></div></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="utility">
+        <div class="uBtn">Sidechain</div>
+        <div class="uBtn">HPF</div>
+        <div class="uBtn">Oversampling</div>
+        <div class="uBtn">Smart Gain</div>
+        <div class="uBtn">Mix Assist</div>
+        <div class="uBtn">Focus Mode</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      function fitUi() {
+        const targetW = 1536;
+        const targetH = 1005;
+        const vv = window.visualViewport;
+        const w = Math.max(1, vv ? vv.width : (window.innerWidth || targetW));
+        const h = Math.max(1, vv ? vv.height : (window.innerHeight || targetH));
+        const scale = Math.min(w / targetW, h / targetH, 1);
+        const frame = document.querySelector(".frame");
+        if (frame) frame.style.zoom = String(Math.max(0.12, scale));
+      }
+      window.addEventListener("resize", fitUi);
+      if (window.visualViewport) window.visualViewport.addEventListener("resize", fitUi);
+      fitUi();
+    })();
+  </script>
+</body>
+</html>
