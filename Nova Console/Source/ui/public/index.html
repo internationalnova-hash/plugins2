@@ -540,7 +540,7 @@
       left: 8px;
       right: 20px;
       top: 156px;
-      bottom: 110px;
+      bottom: 96px;
       border-radius: 14px;
       border: 1px solid var(--line-soft);
       background:
@@ -2861,14 +2861,29 @@
             const startY = e.clientY || (e.touches && e.touches[0].clientY);
             const startValue = knobState[paramId].lastValue;
 
+            const RATIO_SNAPS = [1.5, 2, 4, 8, 10, 12];
+            const snapToRatio = (v) => RATIO_SNAPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a);
+            const applyRatioUi = (snapped) => {
+              const idx = RATIO_SNAPS.indexOf(snapped);
+              const readout = knobWrap.querySelector('.ratioReadout');
+              if (readout) readout.textContent = `${snapped}:1`;
+              Array.from(knobWrap.querySelectorAll('.ratioTickLabels span'))
+                .forEach((t, i) => t.classList.toggle('active', i === idx));
+              applyKnobVisual(knobEl, minVal, maxVal, snapped);
+            };
+
             const handleMouseMove = (moveEvent) => {
               if (!isDragging) return;
               const currentY = moveEvent.clientY || (moveEvent.touches && moveEvent.touches[0].clientY);
               const delta = (startY - currentY) * 0.5; // Vertical drag sensitivity
               const range = maxVal - minVal;
               const step = range * (delta / 200); // Smooth step scaling
-              const nextValue = Math.max(minVal, Math.min(maxVal, startValue + step));
-              if (!hasBackend) {
+              let nextValue = Math.max(minVal, Math.min(maxVal, startValue + step));
+              if (paramId === 'comp_ratio') {
+                nextValue = snapToRatio(nextValue);
+                if (!hasBackend) { knobState[paramId].lastValue = nextValue; }
+                applyRatioUi(nextValue);
+              } else if (!hasBackend) {
                 knobState[paramId].lastValue = nextValue;
                 applyKnobVisual(knobEl, minVal, maxVal, nextValue);
               }
@@ -2899,6 +2914,21 @@
           knobEl.addEventListener('wheel', (e) => {
             e.preventDefault();
             const delta = e.deltaY > 0 ? -1 : 1;
+            if (paramId === 'comp_ratio') {
+              const RATIO_SNAPS_W = [1.5, 2, 4, 8, 10, 12];
+              const curIdx = RATIO_SNAPS_W.findIndex(v => Math.abs(v - knobState[paramId].lastValue) < 0.01);
+              const safeIdx = curIdx === -1 ? 2 : curIdx;
+              const nextIdx = Math.max(0, Math.min(RATIO_SNAPS_W.length - 1, safeIdx + delta));
+              const nextValue = RATIO_SNAPS_W[nextIdx];
+              if (!hasBackend) { knobState[paramId].lastValue = nextValue; }
+              const readout = knobWrap.querySelector('.ratioReadout');
+              if (readout) readout.textContent = `${nextValue}:1`;
+              Array.from(knobWrap.querySelectorAll('.ratioTickLabels span'))
+                .forEach((t, i) => t.classList.toggle('active', i === nextIdx));
+              applyKnobVisual(knobEl, minVal, maxVal, nextValue);
+              emitParamValue(paramId, nextValue);
+              return;
+            }
             const range = maxVal - minVal;
             const step = (range * 0.01) * delta;
             const nextValue = Math.max(minVal, Math.min(maxVal, knobState[paramId].lastValue + step));
