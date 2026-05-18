@@ -2919,6 +2919,7 @@
 
       const passiveClickTargets = Array.from(document.querySelectorAll('.smallButton, .scBtn, .presetBtn, .abBtn, .power'));
       const hasDataBinding = (el) => el.matches('[data-toggle], [data-toggle-float], [data-param], [data-choice]') || !!el.closest('.modeSelector[data-param]');
+      const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
       passiveClickTargets.forEach((btn) => {
         if (hasDataBinding(btn)) return;
@@ -3149,7 +3150,6 @@
       const ARC_TOTAL_DEG = 240;
       const DRAG_SENSITIVITY = 0.45;
 
-      const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
       const getClientY = (ev) => {
         if (ev && ev.touches && ev.touches.length) return ev.touches[0].clientY;
         if (ev && ev.changedTouches && ev.changedTouches.length) return ev.changedTouches[0].clientY;
