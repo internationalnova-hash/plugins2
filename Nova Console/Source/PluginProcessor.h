@@ -48,21 +48,40 @@ public:
     float getGainReductionMeter() const noexcept { return gainReductionMeter.load(); }
 
 private:
-    enum class ConsoleMode : int { clean = 0, british, tube, tape, gold, modern };
+    enum class ConsoleMode : int { clean = 0, british, tubeTape, gold, modern };
     enum class QualityMode : int { eco = 0, mix, master };
+
+    struct ModeProfile
+    {
+        float warmth = 0.2f;
+        float presence = 1.0f;
+        float eqWidth = 1.0f;
+        float upperMidAggression = 1.0f;
+        float airSmoothness = 1.0f;
+        float lowMidWeight = 1.0f;
+        float oddDrive = 0.5f;
+        float evenDrive = 0.5f;
+        float clipSoftness = 1.0f;
+        float transientPunch = 1.0f;
+        float transientRetention = 1.0f;
+        float stereoWidthBias = 1.0f;
+        float centerWeight = 1.0f;
+        float sideSoftness = 1.0f;
+        float crosstalkBias = 1.0f;
+    };
 
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     void updateLinearStageCoefficients();
 
-    void processPreamp (juce::AudioBuffer<float>& buffer, ConsoleMode mode, int osFactor);
+    void processPreamp (juce::AudioBuffer<float>& buffer, const ModeProfile& profile, int osFactor);
     void processFilters (juce::AudioBuffer<float>& buffer);
-    void processEq (juce::AudioBuffer<float>& buffer, ConsoleMode mode);
-    void processCompressor (juce::AudioBuffer<float>& buffer, ConsoleMode mode, QualityMode quality);
+    void processEq (juce::AudioBuffer<float>& buffer, const ModeProfile& profile);
+    void processCompressor (juce::AudioBuffer<float>& buffer, const ModeProfile& profile, QualityMode quality);
     void processGate (juce::AudioBuffer<float>& buffer);
-    void processAnalogEngine (juce::AudioBuffer<float>& buffer, ConsoleMode mode, int osFactor, QualityMode quality);
+    void processAnalogEngine (juce::AudioBuffer<float>& buffer, const ModeProfile& profile, int osFactor, QualityMode quality);
 
-    static float modeWarmth (ConsoleMode mode) noexcept;
-    static float modePresence (ConsoleMode mode) noexcept;
+    static ModeProfile profileForMode (ConsoleMode mode) noexcept;
+    static ModeProfile blendProfiles (const ModeProfile& a, const ModeProfile& b, float t) noexcept;
 
     juce::dsp::StateVariableTPTFilter<float> hpf[2];
     juce::dsp::StateVariableTPTFilter<float> lpf[2];
@@ -137,6 +156,10 @@ private:
     std::array<float, 2> preampPrevInput { 0.0f, 0.0f };
     std::array<float, 2> analogPrevInput { 0.0f, 0.0f };
     std::array<float, 2> analogToneMemory { 0.0f, 0.0f };
+
+    ConsoleMode modeFrom = ConsoleMode::british;
+    ConsoleMode modeTo = ConsoleMode::british;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> modeMorph;
 
     float lastHpfHz = -1.0f;
     float lastLpfHz = -1.0f;
