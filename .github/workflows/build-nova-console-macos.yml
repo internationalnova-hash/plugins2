@@ -1,0 +1,56 @@
+name: Build Nova Console macOS
+run-name: Nova Console macOS | ${{ github.event_name }} | ${{ github.sha }}
+
+on:
+  push:
+    paths:
+      - 'Nova Console/**'
+      - '.github/workflows/build-nova-console-macos.yml'
+  pull_request:
+    paths:
+      - 'Nova Console/**'
+      - '.github/workflows/build-nova-console-macos.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        run: brew install cmake
+
+      - name: Clean build directory
+        run: rm -rf "Nova Console/build"
+
+      - name: Configure CMake
+        run: cmake -S "Nova Console" -B "Nova Console/build"
+
+      - name: Build
+        run: cmake --build "Nova Console/build" --config Release
+
+      - name: Package VST3 Bundle
+        run: |
+          cd "Nova Console/build/NovaConsole_artefacts/VST3"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Console.vst3" "NovaConsole-macOS-vst3.zip"
+
+      - name: Package AU Bundle
+        run: |
+          cd "Nova Console/build/NovaConsole_artefacts/AU"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Console.component" "NovaConsole-macOS-au.zip"
+
+      - name: Upload Deliverables Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaConsole-macOS-deliverables
+          path: |
+            Nova Console/build/NovaConsole_artefacts/VST3/NovaConsole-macOS-vst3.zip
+            Nova Console/build/NovaConsole_artefacts/AU/NovaConsole-macOS-au.zip
+
+      - name: Upload Full Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaConsole-macOS-build
+          path: Nova Console/build

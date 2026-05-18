@@ -2767,6 +2767,15 @@
       function bindFloatKnobs() {
         const knobElements = document.querySelectorAll('[data-param][data-type="float"]');
         const knobState = {};
+        const hasBackend = !!backend;
+
+        const applyKnobVisual = (knobEl, minVal, maxVal, value) => {
+          const safeRange = Math.max(0.000001, maxVal - minVal);
+          const normalized = (value - minVal) / safeRange;
+          const clamped = Math.max(0, Math.min(1, normalized));
+          const rotation = (clamped * 320 - 160); // 320 deg rotation range
+          knobEl.style.transform = `rotate(${rotation}deg)`;
+        };
 
         knobElements.forEach((knobWrap) => {
           const paramId = knobWrap.dataset.param;
@@ -2777,13 +2786,12 @@
           if (!knobEl || !paramId) return;
 
           knobState[paramId] = { minVal, maxVal, lastValue: (minVal + maxVal) / 2 };
+          applyKnobVisual(knobEl, minVal, maxVal, knobState[paramId].lastValue);
 
           // Listen for backend value changes and update knob visual
           addBackendListener(paramId, (value) => {
             knobState[paramId].lastValue = value;
-            const normalized = (value - minVal) / (maxVal - minVal);
-            const rotation = (normalized * 320 - 160); // 320° rotation range
-            knobEl.style.transform = `rotate(${rotation}deg)`;
+            applyKnobVisual(knobEl, minVal, maxVal, value);
           });
 
           // Handle knob wheel/drag interaction
@@ -2800,6 +2808,10 @@
               const range = maxVal - minVal;
               const step = range * (delta / 200); // Smooth step scaling
               const nextValue = Math.max(minVal, Math.min(maxVal, startValue + step));
+              if (!hasBackend) {
+                knobState[paramId].lastValue = nextValue;
+                applyKnobVisual(knobEl, minVal, maxVal, nextValue);
+              }
               emitParamValue(paramId, nextValue);
             };
 
@@ -2824,6 +2836,10 @@
             const range = maxVal - minVal;
             const step = (range * 0.01) * delta;
             const nextValue = Math.max(minVal, Math.min(maxVal, knobState[paramId].lastValue + step));
+            if (!hasBackend) {
+              knobState[paramId].lastValue = nextValue;
+              applyKnobVisual(knobEl, minVal, maxVal, nextValue);
+            }
             emitParamValue(paramId, nextValue);
           });
 
