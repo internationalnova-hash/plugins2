@@ -1,0 +1,324 @@
+okay <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nova Console Meter Showcase</title>
+  <style>
+    :root {
+      --bg-0: #0b0f15;
+      --bg-1: #151d27;
+      --panel: #1b2633;
+      --line: rgba(255, 214, 160, 0.24);
+      --text: #e8dcc8;
+      --text-sub: #b59a73;
+      --off: rgba(24, 18, 12, 0.7);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
+      color: var(--text);
+      background: radial-gradient(120% 100% at 50% 20%, var(--bg-1) 0%, var(--bg-0) 60%, #070a10 100%);
+    }
+
+    .wrap {
+      min-height: 100%;
+      padding: 22px;
+      display: grid;
+      gap: 16px;
+      grid-template-rows: auto 1fr;
+    }
+
+    .title {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+      background: linear-gradient(180deg, rgba(44, 56, 72, 0.88) 0%, rgba(20, 28, 38, 0.94) 100%);
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .title p {
+      margin: 8px 0 0;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-sub);
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      align-items: stretch;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: linear-gradient(180deg, rgba(37, 49, 63, 0.9) 0%, rgba(19, 26, 34, 0.96) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 238, 207, 0.14), inset 0 -10px 16px rgba(0, 0, 0, 0.42);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+      min-height: 360px;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #d7bc95;
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-sub);
+    }
+
+    .stage {
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 214, 160, 0.16);
+      background: radial-gradient(120% 100% at 50% 10%, rgba(255, 188, 108, 0.08) 0%, rgba(13, 17, 24, 0.95) 68%);
+      min-height: 250px;
+      padding: 12px;
+    }
+
+    .vu {
+      position: relative;
+      width: 220px;
+      height: 126px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 214, 160, 0.26);
+      background: linear-gradient(180deg, #2d3441 0%, #191f29 38%, #131821 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 238, 207, 0.18), inset 0 -10px 16px rgba(0, 0, 0, 0.55), 0 12px 20px rgba(0, 0, 0, 0.48);
+      overflow: hidden;
+    }
+
+    .vu.cool {
+      background: linear-gradient(180deg, #3a4351 0%, #232c39 45%, #1a212c 100%);
+      border-color: rgba(189, 207, 236, 0.34);
+    }
+
+    .vu.cool .vuGlass {
+      border-color: rgba(189, 207, 236, 0.3);
+      background:
+        radial-gradient(130% 120% at 50% 100%, rgba(233, 240, 252, 0.9) 0%, rgba(197, 214, 240, 0.68) 40%, rgba(112, 132, 160, 0.34) 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.04) 50%, rgba(0, 0, 0, 0.2) 100%);
+    }
+
+    .vu.cool .vuNeedle {
+      background: linear-gradient(180deg, #2d3b5a 0%, #4c7bc0 100%);
+      box-shadow: 0 0 4px rgba(76, 123, 192, 0.36);
+    }
+
+    .vu.hot {
+      background: linear-gradient(180deg, #4c2d2b 0%, #2f1f1e 48%, #211717 100%);
+      border-color: rgba(245, 176, 145, 0.34);
+    }
+
+    .vu.hot .vuNeedle {
+      background: linear-gradient(180deg, #7a1f1f 0%, #d04b31 100%);
+      box-shadow: 0 0 4px rgba(208, 75, 49, 0.38);
+    }
+
+    .vuGlass {
+      position: absolute;
+      inset: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 214, 160, 0.24);
+      background:
+        radial-gradient(130% 120% at 50% 100%, rgba(255, 243, 224, 0.87) 0%, rgba(247, 222, 183, 0.72) 34%, rgba(170, 147, 116, 0.38) 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.03) 48%, rgba(0, 0, 0, 0.18) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -8px 12px rgba(0, 0, 0, 0.16);
+    }
+
+    .vuNeedle {
+      position: absolute;
+      left: 50%;
+      top: 78%;
+      width: 2px;
+      height: 44px;
+      transform-origin: 50% 92%;
+      transform: translate(-50%, -92%) rotate(-36deg);
+      border-radius: 2px;
+      background: linear-gradient(180deg, #5a2f1d 0%, #b2542a 100%);
+      box-shadow: 0 0 4px rgba(118, 57, 28, 0.36);
+      z-index: 2;
+      animation: swing 1.8s ease-in-out infinite alternate;
+    }
+
+    .vuPivot {
+      position: absolute;
+      left: 50%;
+      top: 78%;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: #3a2d24;
+      box-shadow: 0 0 0 2px rgba(255, 246, 226, 0.38);
+      z-index: 3;
+    }
+
+    @keyframes swing {
+      from { transform: translate(-50%, -92%) rotate(-46deg); }
+      to { transform: translate(-50%, -92%) rotate(12deg); }
+    }
+
+    .bar {
+      width: 22px;
+      height: 230px;
+      border-radius: 7px;
+      border: 1px solid rgba(255, 214, 160, 0.2);
+      background: linear-gradient(180deg, #171d26 0%, #10151b 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 237, 206, 0.1), inset 0 -5px 8px rgba(0, 0, 0, 0.56);
+      padding: 4px;
+      display: grid;
+      gap: 2px;
+      grid-template-rows: repeat(24, 1fr);
+    }
+
+    .seg {
+      border-radius: 2px;
+      background: var(--off);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .seg.on {
+      background: linear-gradient(180deg, #ffe5c0 0%, #ffc47f 56%, #eb9b4d 100%);
+      box-shadow: 0 0 8px rgba(255, 188, 108, 0.26);
+    }
+
+    .ppmWrap {
+      width: 56px;
+      height: 250px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 214, 160, 0.2);
+      background: linear-gradient(180deg, #171d26 0%, #10151b 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 237, 206, 0.1), inset 0 -5px 8px rgba(0, 0, 0, 0.56);
+      padding: 4px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px;
+    }
+
+    .ppmCol {
+      display: grid;
+      gap: 2px;
+      grid-template-rows: repeat(32, 1fr);
+      min-height: 0;
+    }
+
+    .seg.g { background: linear-gradient(180deg, #dff6c8 0%, #86cf5f 58%, #447f29 100%); box-shadow: 0 0 4px rgba(124, 228, 90, 0.16); }
+    .seg.y { background: linear-gradient(180deg, #fff1c7 0%, #e5bf5d 58%, #a56d2c 100%); box-shadow: 0 0 4px rgba(255, 214, 102, 0.16); }
+    .seg.r { background: linear-gradient(180deg, #ffd9d1 0%, #d88767 58%, #a74b37 100%); box-shadow: 0 0 4px rgba(255, 120, 102, 0.16); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">
+      <h1>SSL Style Meter Browser</h1>
+      <p>Live visual menu of all meter styles currently available to use in Nova Console</p>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Needle VU (SSL/Console)</h2>
+        <div class="stage">
+          <div class="vu">
+            <div class="vuGlass"></div>
+            <div class="vuNeedle"></div>
+            <div class="vuPivot"></div>
+          </div>
+        </div>
+        <p>Best for top master VU display</p>
+      </section>
+
+      <section class="card">
+        <h2>Needle VU (Blue Steel)</h2>
+        <div class="stage">
+          <div class="vu cool">
+            <div class="vuGlass"></div>
+            <div class="vuNeedle"></div>
+            <div class="vuPivot"></div>
+          </div>
+        </div>
+        <p>Cool-toned analog variant</p>
+      </section>
+
+      <section class="card">
+        <h2>Needle VU (Hot Red)</h2>
+        <div class="stage">
+          <div class="vu hot">
+            <div class="vuGlass"></div>
+            <div class="vuNeedle"></div>
+            <div class="vuPivot"></div>
+          </div>
+        </div>
+        <p>Aggressive vintage broadcast look</p>
+      </section>
+
+      <section class="card">
+        <h2>Slim LED Bar (GR/Input)</h2>
+        <div class="stage">
+          <div class="bar">
+            <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+            <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+            <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+            <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+            <div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div>
+            <div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div>
+          </div>
+        </div>
+        <p>Classic SSL channel strip meter</p>
+      </section>
+
+      <section class="card">
+        <h2>Dual PPM Stereo</h2>
+        <div class="stage">
+          <div class="ppmWrap">
+            <div class="ppmCol">
+              <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+              <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+              <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+              <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+              <div class="seg g"></div><div class="seg g"></div><div class="seg g"></div><div class="seg g"></div><div class="seg g"></div><div class="seg g"></div>
+              <div class="seg y"></div><div class="seg y"></div><div class="seg y"></div><div class="seg y"></div>
+              <div class="seg r"></div><div class="seg r"></div><div class="seg r"></div><div class="seg r"></div><div class="seg r"></div><div class="seg r"></div>
+            </div>
+            <div class="ppmCol">
+              <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+              <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+              <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+              <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+              <div class="seg g"></div><div class="seg g"></div><div class="seg g"></div><div class="seg g"></div><div class="seg g"></div><div class="seg g"></div>
+              <div class="seg y"></div><div class="seg y"></div><div class="seg y"></div><div class="seg y"></div>
+              <div class="seg r"></div><div class="seg r"></div><div class="seg r"></div><div class="seg r"></div><div class="seg r"></div><div class="seg r"></div>
+            </div>
+          </div>
+        </div>
+        <p>Master output meter style</p>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

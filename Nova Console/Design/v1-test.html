@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nova Console - Live UI Preview</title>
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --panel: #12151a;
+      --line: #2d323a;
+      --text: #d8d9dc;
+      --accent: #f0a84a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 20% 0%, #161a21 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: "Segoe UI", sans-serif;
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #171b22, #0f1217);
+    }
+
+    .badge {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ffe2b8;
+      background: rgba(240, 168, 74, 0.2);
+      border: 1px solid rgba(240, 168, 74, 0.5);
+      border-radius: 999px;
+      padding: 4px 10px;
+    }
+
+    .meta {
+      font-size: 12px;
+      opacity: 0.86;
+    }
+
+    .meta strong {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .spacer { flex: 1; }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+      color: #fff0dc;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #090b0e;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="badge">Live Preview</span>
+    <div class="meta">
+      Editing <strong>Source/ui/public/index.html</strong>. Auto-reloads every 900ms.
+    </div>
+    <div class="spacer"></div>
+    <button id="reloadBtn" type="button">Reload now</button>
+    <button id="toggleBtn" type="button">Pause auto-reload</button>
+  </div>
+
+  <iframe id="previewFrame" title="Nova Console UI preview"></iframe>
+
+  <script>
+    const frame = document.getElementById('previewFrame');
+    const reloadBtn = document.getElementById('reloadBtn');
+    const toggleBtn = document.getElementById('toggleBtn');
+
+    const basePath = '../Source/ui/public/index.html';
+    let autoReload = true;
+
+    function loadFrame() {
+      frame.src = `${basePath}?live=${Date.now()}`;
+    }
+
+    function setAutoReload(next) {
+      autoReload = next;
+      toggleBtn.textContent = autoReload ? 'Pause auto-reload' : 'Resume auto-reload';
+    }
+
+    reloadBtn.addEventListener('click', loadFrame);
+
+    toggleBtn.addEventListener('click', () => {
+      setAutoReload(!autoReload);
+    });
+
+    setInterval(() => {
+      if (autoReload) loadFrame();
+    }, 900);
+
+    loadFrame();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nova Console</title>
+  <style>
+    :root {
+      --ui-scale: 1;
+      --bg-0: #05070a;
+      --bg-1: #0a0d12;
+      --panel-0: #141920;
+      --panel-1: #1c232d;
+      --panel-2: #27303d;
+      --line-soft: rgba(255, 214, 156, 0.14);
+      --line-mid: rgba(255, 214, 156, 0.24);
+      --text-main: #e7d6b9;
+      --text-sub: #a48b66;
+      overflow: hidden;
+    }
+
+    .mainConsole {
+      position: absolute;
+      inset: 14px;
+      display: grid;
+      grid-template-columns: 210px 210px 190px 1.75fr 248px 142px 152px;
+      grid-template-rows: 100%;
+      gap: 14px;
+      align-items: stretch;
+      z-index: 2;
+    }
+
+    .moduleCard {
+      position: relative;
+      border-radius: 15px;
+      border: 1px solid var(--line-soft);
+      background: linear-gradient(180deg, rgba(32, 28, 24, 0.94) 0%, rgba(18, 16, 14, 0.98) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 237, 204, 0.08), inset 0 -14px 22px rgba(0, 0, 0, 0.42);
+      overflow: hidden;
+    }
+
+    .moduleCard::before {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border-radius: 11px;
+      border: 1px solid rgba(255, 214, 160, 0.08);
+      pointer-events: none;
+    }
+
+    .moduleTitle {
+      position: absolute;
+      left: 14px;
+      top: 10px;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #d0b28a;
+      z-index: 2;
+    }
+
+    .moduleBody {
+      position: absolute;
+      inset: 34px 14px 14px 14px;
+    }
+
+    .moduleBody.grid2x2,
+    .moduleBody.grid2x3,
+    .moduleBody.grid1x3,
+    .moduleBody.grid1x4 {
+      display: grid;
+      gap: 12px;
+    }
+
+    .moduleBody.grid2x2 { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
+    .moduleBody.grid2x3 { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto 1fr auto; }
+    .moduleBody.grid1x3 { grid-template-columns: 1fr; grid-template-rows: repeat(3, 1fr); }
+    .moduleBody.grid1x4 { grid-template-columns: 1fr; grid-template-rows: repeat(4, 1fr); }
+
+    .moduleBody.split {
+      display: grid;
+      grid-template-columns: 1fr 18px;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .moduleSlot {
+      position: relative;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 214, 160, 0.08);
+      background: linear-gradient(180deg, rgba(38, 31, 26, 0.45) 0%, rgba(16, 13, 12, 0.1) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 239, 214, 0.04);
+      min-height: 0;
+    }
+
+    .moduleSlot.centered {
+      display: grid;
+      place-items: center;
+      padding: 10px;
+    }
+
+    .moduleSlot.stack {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .moduleSlot.labelRow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #c9ad84;
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0 6px;
+      min-height: 28px;
+    }
+
+    .moduleSlot.row {
+      display: grid;
+      place-items: center;
+      padding: 8px;
+    }
+
+    .moduleSlot.buttonRow {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      padding: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+    }
+
+    .miniSwitch,
+    .modeButton,
+    .filterButton,
+    .utilityButton {
+      border-radius: 7px;
+      border: 1px solid rgba(255, 214, 160, 0.16);
+      background: linear-gradient(180deg, rgba(50, 41, 34, 0.94) 0%, rgba(20, 16, 14, 0.96) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 239, 214, 0.09), inset 0 -8px 12px rgba(0, 0, 0, 0.32);
+      color: #cfb08b;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 8px;
+      min-height: 26px;
+      display: grid;
+      place-items: center;
+      user-select: none;
+    }
+
+    .miniSwitch { width: 100%; min-height: 30px; }
+
+    .hardwareSwitch {
+      width: 100%;
+      min-height: 34px;
+      border-radius: 9px;
+      border: 1px solid rgba(255, 214, 160, 0.18);
+      background: linear-gradient(180deg, rgba(46, 38, 31, 0.95) 0%, rgba(20, 17, 14, 0.98) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 239, 214, 0.08), inset 0 -9px 14px rgba(0, 0, 0, 0.36);
+      display: grid;
+      place-items: center;
+      color: #dfc29a;
+      letter-spacing: 0.1em;
+      font-size: 8px;
+      text-transform: uppercase;
+    }
+
+    .knobRack {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      align-items: end;
+    }
+
+    .knobRack.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .knobRack.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .knobRack.five {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .knobRack.single {
+      grid-template-columns: 1fr;
+      justify-items: center;
+    }
+
+    .knobRack .knobWrap {
+      position: relative;
+      min-height: 140px;
+      display: grid;
+      place-items: end center;
+    }
+
+    .knobWrap.big { min-height: 190px; }
+    .knobWrap.medium { min-height: 156px; }
+    .knobWrap.small { min-height: 132px; }
+
+    .knobWrap .kTag {
+      top: auto;
+      bottom: 0;
+    }
+
+    .eqDisplay {
+      position: relative;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 214, 160, 0.14);
+      background:
+        radial-gradient(140% 100% at 50% 26%, rgba(255, 179, 96, 0.1) 0%, transparent 54%),
+        linear-gradient(180deg, rgba(22, 19, 16, 0.96) 0%, rgba(10, 9, 8, 0.98) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 239, 214, 0.08), inset 0 -14px 20px rgba(0, 0, 0, 0.48);
+      height: 232px;
+      overflow: hidden;
+    }
+
+    .eqDisplay::before {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border-radius: 12px;
+      background:
+        linear-gradient(transparent 29px, rgba(255, 214, 160, 0.05) 30px),
+        linear-gradient(90deg, transparent 50px, rgba(255, 214, 160, 0.05) 51px);
+      background-size: 100% 30px, 50px 100%;
+      opacity: 0.32;
+    }
+
+    .eqDisplay .eqSvg {
+      left: 16px;
+      right: 16px;
+      top: 42px;
+      height: 164px;
+    }
+
+    .moduleBody.eqBody {
+      display: grid;
+      grid-template-rows: auto 232px 1fr 1fr;
+      gap: 14px;
+    }
+
+    .meterColumn {
+      width: 18px;
+      border-radius: 8px;
+      padding: 4px;
+      background: linear-gradient(180deg, #161411 0%, #0d0b0a 100%);
+      border: 1px solid rgba(255, 214, 160, 0.16);
+      box-shadow: inset 0 1px 0 rgba(255, 237, 206, 0.08), inset 0 -5px 8px rgba(0, 0, 0, 0.56);
+      display: grid;
+    }
+
+    .meterColumn.tall { height: 250px; }
+    .meterColumn.mid { height: 270px; }
+    .meterColumn.long { height: 560px; }
+
+    .meterColumn.thin { width: 16px; }
+
+    .meterColumn.dual {
+      width: 38px;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+    }
+
+    .meterColumn.verticalHost {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      bottom: 10px;
+      z-index: 3;
+    }
+
+    .moduleCard.inputCard .moduleBody,
+    .moduleCard.preampCard .moduleBody,
+    .moduleCard.filterCard .moduleBody,
+    .moduleCard.gateCard .moduleBody,
+    .moduleCard.analogCard .moduleBody,
+    .moduleCard.compCard .moduleBody { padding-right: 24px; }
+
+    .moduleCard.inputCard .moduleBody { display: grid; grid-template-columns: 1fr 22px; gap: 12px; align-items: center; }
+
+    .moduleCard.preampCard .moduleBody,
+    .moduleCard.filterCard .moduleBody,
+    .moduleCard.gateCard .moduleBody,
+    .moduleCard.analogCard .moduleBody { display: grid; grid-template-rows: auto 1fr; gap: 12px; }
+
+    .moduleCard.compCard .moduleBody { display: grid; grid-template-columns: 1fr 18px; gap: 12px; }
+
+    .moduleCard.analogCard .moduleBody { padding-right: 28px; }
+
+    .moduleCard.inputCard .knobWrap.big { min-height: 230px; }
+    .moduleCard.inputCard .inputMeterHost,
+    .moduleCard.compCard .grMeterHost,
+    .moduleCard.analogCard .outputMeterHost {
+      justify-self: end;
+      align-self: center;
+      height: 250px;
+    }
+
+    .moduleCard.analogCard .outputMeterHost { height: 300px; }
+
+    .moduleCard.compCard .grMeterHost {
+      height: 270px;
+      margin-top: 18px;
+    }
+
+    .moduleCard.inputCard .moduleSlots,
+    .moduleCard.compCard .moduleSlots,
+    .moduleCard.analogCard .moduleSlots {
+      display: grid;
+      gap: 12px;
+    }
+
+    .moduleCard.compCard .moduleSlots {
+      grid-template-rows: repeat(3, auto);
+      padding-right: 0;
+    }
+
+    .moduleCard.analogCard .moduleSlots {
+      grid-template-rows: repeat(2, auto);
+    }
+
+    .meterHost {
+      display: grid;
+      place-items: center;
+    }
+
+    .meterHost .meter {
+      position: relative;
+      left: auto;
+      top: auto;
+      right: auto;
+      bottom: auto;
+    }
+
+    .compactLabel {
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #c6a983;
+      text-align: center;
+    }
+
+    .utilityBar {
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      bottom: 14px;
+      height: 32px;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      z-index: 9;
+    }
+
+    .utilityButton {
+      min-height: 32px;
+      border-radius: 8px;
+      font-size: 8px;
+    }
+
+    .topControls {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 8px;
+    }
+
+    .vu {
+      width: 236px;
+      height: 136px;
+      --amber-0: #ffe9ca;
+      --amber-1: #ffc885;
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
+      background:
+        radial-gradient(125% 95% at 50% 38%, #151b24 0%, #0b1017 42%, #070a0f 72%, #05070b 100%);
+      color: var(--text-main);
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      position: relative;
+      isolation: isolate;
+    }
+
+    body::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(92% 64% at 50% 54%, transparent 56%, rgba(0, 0, 0, 0.48) 100%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.32) 0%, transparent 24%, transparent 78%, rgba(0, 0, 0, 0.38) 100%);
+      z-index: 0;
+    }
+
+    .viewport {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .frame {
+      position: relative;
+      width: 1536px;
+      height: 1005px;
+      transform-origin: 50% 50%;
+      transform: scale(var(--ui-scale));
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid var(--line-mid);
+      background:
+        radial-gradient(132% 96% at 50% 16%, #303948 0%, #212935 24%, #161d26 54%, #0f141b 78%, #0a0d13 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 238, 208, 0.16),
+        inset 0 -24px 38px rgba(0, 0, 0, 0.44),
+        0 28px 70px rgba(0, 0, 0, 0.64);
+    }
+
+    .frame::before,
+    .frame::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .frame::before {
+      background:
+        linear-gradient(120deg, rgba(255, 255, 255, 0.03) 0%, transparent 30%, transparent 76%, rgba(255, 255, 255, 0.03) 100%),
+        repeating-linear-gradient(103deg, rgba(255, 255, 255, 0.013) 0 1px, transparent 1px 4px);
+      mix-blend-mode: soft-light;
+    }
+
+    .frame::after {
+      background: radial-gradient(112% 76% at 50% 64%, transparent 51%, rgba(0, 0, 0, 0.52) 100%);
+    }
+
+    .header {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      top: 14px;
+      height: 122px;
+      border-radius: 14px;
+      border: 1px solid var(--line-mid);
+      background: linear-gradient(180deg, rgba(43, 52, 65, 0.92) 0%, rgba(24, 31, 40, 0.97) 62%, rgba(15, 20, 28, 0.99) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 239, 210, 0.16), inset 0 -10px 16px rgba(0, 0, 0, 0.36);
+      z-index: 10;
+    }
+
+    .brandBlock {
+      position: absolute;
+      left: 50%;
+      top: 18px;
+      transform: translateX(-50%);
+      display: grid;
+      justify-items: center;
+      gap: 3px;
+    }
+
+    .brandBlock .title {
+      font-size: 34px;
+      letter-spacing: 0.34em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-main);
+      text-shadow: 0 0 18px rgba(255, 189, 110, 0.18);
+    }
+
+    .brandBlock .subtitle {
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-sub);
+    }
+
+    .headerLeft {
+      position: absolute;
+      left: 24px;
+      top: 80px;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #c9b08a;
+    }
+
+    .topControls {
+      position: absolute;
+      right: 18px;
+      top: 14px;
+      display: grid;
+      grid-template-columns: repeat(4, 132px);
+      gap: 8px;
+    }
+
+    .ctrl {
+      position: relative;
+      height: 44px;
+      border-radius: 10px;
+      border: 1px solid var(--line-mid);
+      background: linear-gradient(180deg, rgba(40, 48, 60, 0.95) 0%, rgba(21, 27, 35, 0.98) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 236, 200, 0.16), inset 0 -7px 11px rgba(0, 0, 0, 0.33);
+      overflow: hidden;
+    }
+
+    .ctrl::before {
+      content: attr(data-label);
+      position: absolute;
+      left: 9px;
+      top: 3px;
+      font-size: 8px;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: #9f8762;
+      pointer-events: none;
+    }
+
+    .ctrl::after {
+      content: "";
+      position: absolute;
+      right: 10px;
+      top: 18px;
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid #d9ab70;
+      border-bottom: 2px solid #d9ab70;
+      transform: rotate(45deg);
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    .ctrl select {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      outline: 0;
+      appearance: none;
+      background: transparent;
+      color: #ecd8b8;
+      padding: 16px 26px 3px 9px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .surface {
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      top: 146px;
+      bottom: 54px;
+      border-radius: 16px;
+      border: 1px solid var(--line-soft);
+      background: radial-gradient(130% 120% at 50% 30%, #262f3c 0%, #1d2430 36%, #151b23 66%, #11161d 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 238, 208, 0.1), inset 0 -22px 34px rgba(0, 0, 0, 0.44);
+      z-index: 1;
+    }
+
+    .eqHero {
+      position: absolute;
+      left: 488px;
+      top: 218px;
+      width: 592px;
+      height: 600px;
+      border-radius: 28px;
+      border: 1px solid var(--line-mid);
+      background:
+        radial-gradient(140% 90% at 50% 34%, rgba(255, 174, 91, 0.11) 0%, transparent 58%),
+        linear-gradient(180deg, rgba(14, 18, 24, 0.99) 0%, rgba(9, 12, 16, 0.99) 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 237, 204, 0.08),
+        inset 0 -18px 26px rgba(0, 0, 0, 0.58),
+        0 16px 28px rgba(0, 0, 0, 0.54);
+      z-index: 4;
+      overflow: hidden;
+    }
+
+    .eqHero::before {
+      content: "";
+      position: absolute;
+      inset: 16px;
+      border-radius: 20px;
+      background:
+        linear-gradient(transparent 31px, rgba(255, 214, 160, 0.07) 32px),
+        linear-gradient(90deg, transparent 47px, rgba(255, 214, 160, 0.06) 48px);
+      background-size: 100% 32px, 48px 100%;
+      opacity: 0.25;
+      pointer-events: none;
+    }
+
+    .eqTitle {
+      position: absolute;
+      left: 26px;
+      top: 18px;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #ccb089;
+      z-index: 3;
+    }
+
+    .eqSvg {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      top: 50px;
+      height: 238px;
+      z-index: 2;
+    }
+
+    .module {
+      position: absolute;
+      border-radius: 14px;
+      border: 1px solid var(--line-soft);
+      background: linear-gradient(180deg, rgba(40, 49, 61, 0.92) 0%, rgba(21, 27, 35, 0.97) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 237, 204, 0.11), inset 0 -10px 16px rgba(0, 0, 0, 0.36);
+      z-index: 6;
+    }
+
+    .module .name {
+      position: absolute;
+      left: 12px;
+      top: 8px;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #c8af88;
+    }
+
+    .inputMod { left: 34px; top: 168px; width: 224px; height: 302px; }
+    .preampMod { left: 34px; top: 486px; width: 224px; height: 324px; }
+    .filterMod { left: 272px; top: 486px; width: 196px; height: 324px; }
+    .compMod { left: 1094px; top: 344px; width: 184px; height: 466px; }
+    .gateMod { left: 1288px; top: 344px; width: 112px; height: 466px; }
+    .analogMod { left: 1410px; top: 168px; width: 96px; height: 642px; }
+
+    .knobLayer {
+      position: absolute;
+      inset: 0;
+      z-index: 8;
+    }
+
+    .knob {
+      position: absolute;
+      width: 86px;
+      height: 86px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 219, 171, 0.2);
+      background:
+        radial-gradient(100% 100% at 29% 26%, #3f4a5c 0%, #303949 38%, #242c38 66%, #1a202a 100%),
+        repeating-conic-gradient(from 0deg, rgba(255,255,255,0.04) 0deg 2deg, rgba(0,0,0,0.03) 2deg 4deg);
+      box-shadow:
+        inset 0 2px 4px rgba(255, 238, 209, 0.15),
+        inset 0 -7px 13px rgba(0, 0, 0, 0.58),
+        0 10px 18px rgba(0, 0, 0, 0.54),
+        0 0 0 7px rgba(8, 11, 15, 0.78),
+        0 0 0 9px rgba(255, 218, 166, 0.1);
+      cursor: ns-resize;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+
+    .knob.lg { width: 104px; height: 104px; }
+    .knob.sm { width: 72px; height: 72px; }
+
+    .knob::before {
+      content: "";
+      position: absolute;
+      inset: 11%;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 229, 191, 0.09);
+      background: radial-gradient(100% 100% at 34% 30%, #303847 0%, #262e3b 56%, #1f2631 100%);
+      box-shadow: inset 0 1px 2px rgba(255, 240, 217, 0.11), inset 0 -3px 6px rgba(0, 0, 0, 0.5);
+    }
+
+    .knob::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 20%;
+      height: 20%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 32% 32%, #5b6678 0%, #343e4d 58%, #252d39 100%);
+      transform: translate(-50%, -50%);
+      box-shadow: inset 0 1px 1px rgba(255, 246, 228, 0.22), 0 1px 4px rgba(0, 0, 0, 0.72);
+    }
+
+    .needle {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 3px;
+      height: 36%;
+      border-radius: 2px;
+      transform-origin: 50% 92%;
+      transform: translate(-50%, -92%) rotate(-140deg);
+      background: linear-gradient(180deg, #f7eedf 0%, #d8cab2 74%, #a79476 100%);
+      box-shadow: 0 0 3px rgba(255, 236, 206, 0.28), 0 0 6px rgba(255, 188, 108, 0.14);
+      pointer-events: none;
+    }
+
+    .knob.active {
+      box-shadow:
+        inset 0 2px 4px rgba(255, 240, 216, 0.2),
+        inset 0 -7px 13px rgba(0, 0, 0, 0.6),
+        0 11px 20px rgba(0, 0, 0, 0.56),
+        0 0 0 7px rgba(8, 11, 15, 0.82),
+        0 0 0 9px rgba(255, 218, 166, 0.16),
+        0 0 18px rgba(255, 188, 108, 0.2);
+    }
+
+    .kTag {
+      position: absolute;
+      left: 50%;
+      top: calc(100% + 8px);
+      transform: translateX(-50%);
+      min-width: 106px;
+      text-align: center;
+      display: grid;
+      gap: 3px;
+      pointer-events: none;
+    }
+
+    .kTag .n {
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #bfa580;
+    }
+
+    .kTag .v {
+      font-size: 9px;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: #ffd9a8;
+      opacity: 0;
+      transition: opacity 120ms ease;
+      text-shadow: 0 0 10px rgba(255, 190, 111, 0.22);
+    }
+
+    .knob:hover .kTag .v,
+    .knob.active .kTag .v { opacity: 1; }
+
+    .switch {
+      position: absolute;
+      width: 52px;
+      height: 23px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 214, 160, 0.24);
+      background: linear-gradient(180deg, #2b3341 0%, #1a212c 100%);
+      box-shadow: inset 0 1px 1px rgba(255, 236, 202, 0.13), inset 0 -2px 4px rgba(0, 0, 0, 0.48), 0 5px 10px rgba(0, 0, 0, 0.42);
+      cursor: pointer;
+    }
+
+    .switch::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 3px;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #5a667d 0%, #313b4a 62%, #252d39 100%);
+      box-shadow: inset 0 1px 1px rgba(255, 243, 220, 0.18), 0 2px 5px rgba(0, 0, 0, 0.68);
+      transition: left 120ms ease;
+    }
+
+    .switch.on::before { left: 30px; }
+
+    .switchLabel {
+      position: absolute;
+      left: 50%;
+      top: -15px;
+      transform: translateX(-50%);
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #bca27c;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .meter {
+      position: absolute;
+      border-radius: 7px;
+      border: 1px solid rgba(255, 214, 160, 0.2);
+      background: linear-gradient(180deg, #171d26 0%, #10151b 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 237, 206, 0.1), inset 0 -5px 8px rgba(0, 0, 0, 0.56);
+      padding: 4px;
+      z-index: 7;
+      pointer-events: none;
+    }
+
+    .meter.in { left: 224px; top: 196px; width: 18px; height: 250px; }
+    .meter.gr { left: 1258px; top: 394px; width: 18px; height: 270px; }
+    .meter.out { left: 1468px; top: 192px; width: 44px; height: 560px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+
+    .meterGrid {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      gap: 2px;
+    }
+
+    .meterGrid.slim { grid-template-rows: repeat(24, 1fr); }
+    .meterGrid.tall { grid-template-rows: repeat(40, 1fr); }
+    .meterGrid.ppm { grid-template-rows: repeat(40, 1fr); }
+
+    .seg {
+      border-radius: 2px;
+      background: rgba(20, 14, 8, 0.66);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .seg.on {
+      background: linear-gradient(180deg, #ffe5c0 0%, #ffc47f 56%, #eb9b4d 100%);
+      box-shadow: 0 0 9px rgba(255, 188, 108, 0.32);
+    }
+
+    .seg.on.g {
+      background: linear-gradient(180deg, #dff6c8 0%, #86cf5f 58%, #447f29 100%);
+      box-shadow: 0 0 4px rgba(124, 228, 90, 0.16);
+    }
+
+    .seg.on.y {
+      background: linear-gradient(180deg, #fff1c7 0%, #e5bf5d 58%, #a56d2c 100%);
+      box-shadow: 0 0 4px rgba(255, 214, 102, 0.16);
+    }
+
+    .seg.on.r {
+      background: linear-gradient(180deg, #ffd9d1 0%, #d88767 58%, #a74b37 100%);
+      box-shadow: 0 0 4px rgba(255, 120, 102, 0.16);
+    }
+
+    .vu {
+      position: absolute;
+      right: 26px;
+      top: 24px;
+      width: 220px;
+      height: 126px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 214, 160, 0.26);
+      background: linear-gradient(180deg, #2d3441 0%, #191f29 38%, #131821 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 238, 207, 0.18), inset 0 -10px 16px rgba(0, 0, 0, 0.55), 0 12px 20px rgba(0, 0, 0, 0.48);
+      overflow: hidden;
+      z-index: 11;
+      pointer-events: none;
+    }
+
+    .vuGlass {
+      position: absolute;
+      inset: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 214, 160, 0.24);
+      background:
+        radial-gradient(130% 120% at 50% 100%, rgba(255, 243, 224, 0.87) 0%, rgba(247, 222, 183, 0.72) 34%, rgba(170, 147, 116, 0.38) 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.03) 48%, rgba(0, 0, 0, 0.18) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -8px 12px rgba(0, 0, 0, 0.16);
+    }
+
+    .vuNeedle {
+      position: absolute;
+      left: 50%;
+      top: 78%;
+      width: 2px;
+      height: 44px;
+      transform-origin: 50% 92%;
+      transform: translate(-50%, -92%) rotate(-46deg);
+      border-radius: 2px;
+      background: linear-gradient(180deg, #5a2f1d 0%, #b2542a 100%);
+      box-shadow: 0 0 4px rgba(118, 57, 28, 0.36);
+      z-index: 2;
+    }
+
+    .vuPivot {
+      position: absolute;
+      left: 50%;
+      top: 78%;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: #3a2d24;
+      box-shadow: 0 0 0 2px rgba(255, 246, 226, 0.38);
+      z-index: 3;
+    }
+
+    .utility {
+      display: none;
+    }
+
+    .uBtn {
+      border-radius: 6px;
+      border: 1px solid rgba(255, 214, 160, 0.16);
+      background: linear-gradient(180deg, rgba(42, 51, 63, 0.72) 0%, rgba(23, 29, 38, 0.84) 100%);
+      color: #bda37e;
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      display: grid;
+      place-items: center;
+      user-select: none;
+    }
+
+    .bridge {
+      position: absolute;
+      left: -10000px;
+      top: -10000px;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .fallback {
+      position: absolute;
+      left: 50%;
+      bottom: 42px;
+      transform: translateX(-50%);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #ffd7a4;
+      background: rgba(0, 0, 0, 0.64);
+      border: 1px solid rgba(255, 197, 126, 0.34);
+      border-radius: 5px;
+      padding: 5px 8px;
+      display: none;
+      z-index: 12;
+    }
+
+    .frame.no-ui .fallback { display: block; }
+  </style>
+</head>
+<body>
+  <div class="viewport">
+    <div class="frame" id="frameRoot">
+      <div class="header">
+        <div class="brandBlock">
+          <div class="title">Nova Console</div>
+          <div class="subtitle">Analog Channel System</div>
+        </div>
+        <div class="topControls">
+          <div class="ctrl" data-label="Console Mode"><select id="console_mode"></select></div>
+          <div class="ctrl" data-label="Quality"><select id="quality"></select></div>
+          <div class="ctrl" data-label="Oversampling"><select id="oversampling"></select></div>
+          <div class="ctrl" data-label="Preset"><select id="preset_ui"></select></div>
+        </div>
+        <div class="vu">
+          <div class="vuGlass"></div>
+          <div class="vuNeedle" id="vuNeedle"></div>
+          <div class="vuPivot"></div>
+        </div>
+      </div>
+
+      <div class="surface"></div>
+
+      <div class="mainConsole">
+        <section class="moduleCard inputCard">
+          <div class="moduleTitle">Input</div>
+          <div class="moduleBody split">
+            <div class="moduleSlot centered">
+              <div class="knobRack single"><div class="knobWrap big" id="inputHost"></div></div>
+            </div>
+            <div class="meterHost inputMeterHost">
+              <div class="meterColumn thin tall" id="meterIn"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="moduleCard preampCard">
+          <div class="moduleTitle">Preamp / Drive</div>
+          <div class="moduleBody grid1x4">
+            <div class="moduleSlot centered"><div class="hardwareSwitch" id="preamp_on_ui">Power</div></div>
+            <div class="moduleSlot centered"><div class="knobWrap medium" id="driveHost"></div></div>
+            <div class="moduleSlot centered"><div class="knobWrap medium" id="colorHost"></div></div>
+            <div class="moduleSlot centered"><div class="knobWrap medium" id="trimHost"></div></div>
+          </div>
+        </section>
+
+        <section class="moduleCard filterCard">
+          <div class="moduleTitle">Filters</div>
+          <div class="moduleBody grid1x4">
+            <div class="moduleSlot centered"><div class="hardwareSwitch" id="filter_on_ui">Power</div></div>
+            <div class="moduleSlot centered"><div class="knobWrap medium" id="filterHostA"></div></div>
+            <div class="moduleSlot centered"><div class="knobWrap medium" id="filterHostB"></div></div>
+            <div class="moduleSlot buttonRow"><div class="filterButton">12</div><div class="filterButton">24</div><div class="filterButton">48</div></div>
+          </div>
+        </section>
+
+        <section class="moduleCard eqCard">
+          <div class="moduleTitle">Equalizer</div>
+          <div class="moduleBody eqBody">
+            <div class="eqDisplay">
+              <svg class="eqSvg" viewBox="0 0 556 238" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="curveGrad" x1="0" x2="1" y1="0" y2="0">
+                    <stop offset="0%" stop-color="#ffd9a8" stop-opacity="0.5"/>
+                    <stop offset="50%" stop-color="#ffbe77" stop-opacity="0.95"/>
+                    <stop offset="100%" stop-color="#ffd9a8" stop-opacity="0.5"/>
+                  </linearGradient>
+                  <filter id="curveGlow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="3" result="g"/>
+                    <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+                  </filter>
+                </defs>
+                <path d="M 0 122 C 64 122, 102 92, 168 116 C 236 138, 286 64, 350 108 C 410 148, 476 108, 556 122"
+                  fill="none" stroke="url(#curveGrad)" stroke-width="3" filter="url(#curveGlow)" />
+                <g id="eqNodes"></g>
+              </svg>
+            </div>
+            <div class="moduleSlot centered"><div class="knobRack five"><div class="knobWrap medium" id="eqLowGainHost"></div><div class="knobWrap medium" id="eqLowMidGainHost"></div><div class="knobWrap medium" id="eqHighMidGainHost"></div><div class="knobWrap medium" id="eqHighGainHost"></div><div class="knobWrap medium" id="eqAirGainHost"></div></div></div>
+            <div class="moduleSlot centered"><div class="knobRack five"><div class="knobWrap small" id="eqLowFreqHost"></div><div class="knobWrap small" id="eqLowMidFreqHost"></div><div class="knobWrap small" id="eqHighMidFreqHost"></div><div class="knobWrap small" id="eqHighFreqHost"></div><div class="knobWrap small" id="eqAirFreqHost"></div></div></div>
+            <div class="moduleSlot centered"><div class="compactLabel">Large Center EQ Module</div></div>
+          </div>
+        </section>
+
+        <section class="moduleCard compCard">
+          <div class="moduleTitle">Compressor</div>
+          <div class="moduleBody">
+            <div class="moduleSlots">
+              <div class="moduleSlot centered"><div class="knobRack two"><div class="knobWrap medium" id="compThresholdHost"></div><div class="knobWrap medium" id="compRatioHost"></div></div></div>
+              <div class="moduleSlot centered"><div class="knobRack two"><div class="knobWrap medium" id="compAttackHost"></div><div class="knobWrap medium" id="compReleaseHost"></div></div></div>
+              <div class="moduleSlot centered"><div class="knobRack two"><div class="knobWrap medium" id="compMixHost"></div><div class="knobWrap medium" id="compPunchHost"></div></div></div>
+            </div>
+            <div class="meterHost grMeterHost"><div class="meterColumn thin mid" id="meterGr"></div></div>
+          </div>
+        </section>
+
+        <section class="moduleCard gateCard">
+          <div class="moduleTitle">Gate / Expander</div>
+          <div class="moduleBody grid1x3">
+            <div class="moduleSlot centered"><div class="knobWrap medium" id="gateThresholdHost"></div></div>
+            <div class="moduleSlot centered"><div class="knobWrap medium" id="gateReleaseHost"></div></div>
+            <div class="moduleSlot centered"><div class="knobWrap medium" id="gateRangeHost"></div></div>
+          </div>
+        </section>
+
+        <section class="moduleCard analogCard">
+          <div class="moduleTitle">Analog Engine</div>
+          <div class="moduleBody">
+            <div class="moduleSlots">
+              <div class="moduleSlot centered"><div class="hardwareSwitch" id="analog_on_ui">Power</div></div>
+              <div class="moduleSlot centered"><div class="knobRack single"><div class="knobWrap small" id="analogHeatHost"></div><div class="knobWrap small" id="analogDepthHost"></div><div class="knobWrap small" id="analogWidthHost"></div><div class="knobWrap small" id="analogDriftHost"></div><div class="knobWrap small" id="analogNoiseHost"></div></div></div>
+              <div class="moduleSlot centered"><div class="knobWrap medium" id="outputHost"></div></div>
+            </div>
+            <div class="meterHost outputMeterHost"><div class="meterColumn dual long" id="meterOut"></div></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="knobLayer" id="knobLayer"></div>
+
+      <div class="utilityBar">
+        <div class="utilityButton">Sidechain</div>
+        <div class="utilityButton">HPF</div>
+        <div class="utilityButton">Oversampling</div>
+        <div class="utilityButton">Smart Gain</div>
+        <div class="utilityButton">Mix Assist</div>
+        <div class="utilityButton">Focus Mode</div>
+      </div>
+
+      <div class="bridge" aria-hidden="true">
+        <input id="input" type="range" min="-18" max="18" step="0.1"/>
+        <input id="output" type="range" min="-18" max="18" step="0.1"/>
+        <input id="drive" type="range" min="0" max="100" step="0.01"/>
+        <input id="color" type="range" min="0" max="100" step="0.01"/>
+        <input id="trim" type="range" min="-12" max="12" step="0.1"/>
+
+        <input id="comp_threshold" type="range" min="-40" max="0" step="0.1"/>
+        <input id="comp_ratio" type="range" min="1" max="10" step="0.01"/>
+        <input id="comp_attack" type="range" min="0.5" max="60" step="0.01"/>
+        <input id="comp_release" type="range" min="20" max="500" step="0.01"/>
+        <input id="comp_mix" type="range" min="0" max="100" step="0.01"/>
+
+        <input id="analog_heat" type="range" min="0" max="100" step="0.01"/>
+        <input id="analog_depth" type="range" min="0" max="100" step="0.01"/>
+        <input id="analog_width" type="range" min="0" max="100" step="0.01"/>
+        <input id="analog_noise" type="range" min="0" max="100" step="0.01"/>
+
+        <input id="preamp_on" type="checkbox"/>
+        <input id="filter_on" type="checkbox"/>
+        <input id="comp_on" type="checkbox"/>
+        <input id="analog_on" type="checkbox"/>
+
+        <span id="v_console_mode"></span>
+        <span id="v_quality"></span>
+        <span id="v_oversampling"></span>
+        <span id="v_input"></span>
+        <span id="v_output"></span>
+        <span id="v_drive"></span>
+        <span id="v_color"></span>
+        <span id="v_trim"></span>
+        <span id="v_comp_threshold"></span>
+        <span id="v_comp_ratio"></span>
+        <span id="v_comp_attack"></span>
+        <span id="v_comp_release"></span>
+        <span id="v_comp_mix"></span>
+        <span id="v_analog_heat"></span>
+        <span id="v_analog_depth"></span>
+        <span id="v_analog_width"></span>
+        <span id="v_analog_noise"></span>
+      </div>
+
+      <div class="fallback">Nova Console UI failed to initialize.</div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const choiceDefs = {
+        console_mode: ["Clean", "British", "Tube", "Tape", "Gold", "Modern"],
+        quality: ["Eco", "Mix", "Master"],
+        oversampling: ["Off", "2x", "4x"],
+        preset_ui: ["Default", "Vocal", "Drums", "Mix Bus"]
+      };
+
+      const sliderDefs = [
+        ["input", "dB"], ["output", "dB"], ["drive", "%"], ["color", "%"], ["trim", "dB"],
+        ["comp_threshold", "dB"], ["comp_ratio", ""], ["comp_attack", "ms"], ["comp_release", "ms"], ["comp_mix", "%"],
+        ["analog_heat", "%"], ["analog_depth", "%"], ["analog_width", "%"], ["analog_noise", "%"]
+      ];
+
+      const toggleDefs = ["preamp_on", "filter_on", "comp_on", "analog_on"];
+
+      const mappedKnobs = [
+        { id: "input", name: "Input", host: "inputHost", cls: "lg" },
+        { id: "drive", name: "Drive", host: "driveHost" },
+        { id: "color", name: "Color", host: "colorHost" },
+        { id: "trim", name: "Trim", host: "trimHost" },
+
+        { id: "comp_threshold", name: "Threshold", host: "compThresholdHost" },
+        { id: "comp_ratio", name: "Ratio", host: "compRatioHost", cls: "sm" },
+        { id: "comp_attack", name: "Attack", host: "compAttackHost", cls: "sm" },
+        { id: "comp_release", name: "Release", host: "compReleaseHost", cls: "sm" },
+        { id: "comp_mix", name: "Mix", host: "compMixHost", cls: "sm" },
+
+        { id: "analog_heat", name: "Heat", host: "analogHeatHost", cls: "sm" },
+        { id: "analog_depth", name: "Depth", host: "analogDepthHost", cls: "sm" },
+        { id: "analog_width", name: "Width", host: "analogWidthHost", cls: "sm" },
+        { id: "analog_noise", name: "Noise", host: "analogNoiseHost", cls: "sm" },
+
+        { id: "output", name: "Output", host: "outputHost" }
+      ];
+
+      const visualKnobs = [
+        { name: "HPF", host: "filterHostA" },
+        { name: "LPF", host: "filterHostB" },
+
+        { name: "Low Gain", host: "eqLowGainHost" },
+        { name: "Low Mid Gain", host: "eqLowMidGainHost" },
+        { name: "High Mid Gain", host: "eqHighMidGainHost" },
+        { name: "High Gain", host: "eqHighGainHost" },
+        { name: "Air Gain", host: "eqAirGainHost" },
+
+        { name: "Low Freq", host: "eqLowFreqHost", cls: "sm" },
+        { name: "Low Mid Freq", host: "eqLowMidFreqHost", cls: "sm" },
+        { name: "High Mid Freq", host: "eqHighMidFreqHost", cls: "sm" },
+        { name: "High Freq", host: "eqHighFreqHost", cls: "sm" },
+        { name: "Air Freq", host: "eqAirFreqHost", cls: "sm" },
+
+        { name: "Punch", host: "compPunchHost", cls: "sm" },
+
+        { name: "Gate Threshold", host: "gateThresholdHost", cls: "sm" },
+        { name: "Gate Release", host: "gateReleaseHost", cls: "sm" },
+        { name: "Range", host: "gateRangeHost", cls: "sm" },
+
+        { name: "Drift", host: "analogDriftHost", cls: "sm" }
+      ];
+
+      const switches = [
+        { id: "preamp_on", name: "Power", host: "preamp_on_ui" },
+        { id: "filter_on", name: "Power", host: "filter_on_ui" },
+        { id: "analog_on", name: "Power", host: "analog_on_ui" }
+      ];
+
+      const juceAvailable = !!(window.__JUCE__ && window.__JUCE__.backend && typeof window.__JUCE__.backend.emitEvent === "function");
+      const states = {};
+
+      function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+      function smooth(current, target, up, down) { return current + (target - current) * (target > current ? up : down); }
+
+      function fitUiToViewport() {
+        const targetW = 1536;
+        const targetH = 1005;
+        const frame = document.getElementById("frameRoot");
+        const availW = Math.max(1, window.visualViewport ? window.visualViewport.width : (window.innerWidth || targetW));
+        const availH = Math.max(1, window.visualViewport ? window.visualViewport.height : (window.innerHeight || targetH));
+        const scale = clamp(Math.min(availW / targetW, availH / targetH), 0.05, 1);
+        document.documentElement.style.setProperty("--ui-scale", String(scale));
+        if (frame) {
+          frame.style.zoom = String(scale);
+          frame.style.transform = "scale(1)";
+        }
+      }
+
+      function createListenerList() {
+        return {
+          listeners: [],
+          addListener(fn) { this.listeners.push(fn); return this.listeners.length - 1; },
+          callListeners(payload) { this.listeners.forEach((l) => l(payload)); }
+        };
+      }
+
+      function createSliderState(name) {
+        const backend = juceAvailable && window.__JUCE__ ? window.__JUCE__.backend : null;
+        const element = document.getElementById(name);
+        const minFromEl = element && element.min !== "" ? Number(element.min) : 0;
+        const maxFromEl = element && element.max !== "" ? Number(element.max) : 1;
+        const safeMin = Number.isFinite(minFromEl) ? minFromEl : 0;
+        const safeMax = Number.isFinite(maxFromEl) ? maxFromEl : 1;
+
+        const state = {
+          name,
+          identifier: `__juce__slider${name}`,
+          scaledValue: safeMin,
+          properties: { start: safeMin, end: safeMax, skew: 1, interval: 0, numSteps: 100 },
+          valueChangedEvent: createListenerList(),
+          setNormalisedValue(newValue) {
+            const normalised = clamp(newValue, 0, 1);
+            const start = typeof this.properties.start === "number" ? this.properties.start : 0;
+            const end = typeof this.properties.end === "number" ? this.properties.end : 1;
+            const interval = typeof this.properties.interval === "number" ? this.properties.interval : 0;
+            let scaled = start + normalised * (end - start);
+            if (interval > 0) scaled = Math.round(scaled / interval) * interval;
+            this.scaledValue = scaled;
+            if (backend && typeof backend.emitEvent === "function") backend.emitEvent(this.identifier, { eventType: "valueChanged", value: scaled });
+            this.valueChangedEvent.callListeners({ eventType: "valueChanged", value: scaled });
+          },
+          sliderDragStarted() {
+            if (backend && typeof backend.emitEvent === "function") backend.emitEvent(this.identifier, { eventType: "sliderDragStarted" });
+          },
+          sliderDragEnded() {
+            if (backend && typeof backend.emitEvent === "function") backend.emitEvent(this.identifier, { eventType: "sliderDragEnded" });
+          }
+        };
+
+        if (backend && typeof backend.addEventListener === "function") {
+          backend.addEventListener(state.identifier, (event) => {
+            if (!event) return;
+            if (event.eventType === "valueChanged") {
+              if (typeof event.value === "number") state.scaledValue = event.value;
+              state.valueChangedEvent.callListeners(event);
+            }
+            if (event.eventType === "propertiesChanged") {
+              if (event.properties && typeof event.properties === "object") state.properties = Object.assign({}, state.properties, event.properties);
+              state.valueChangedEvent.callListeners(event);
+            }
+          });
+        }
+
+        return state;
+      }
+
+      function getStateRange(state, id) {
+        const el = document.getElementById(id);
+        const min = el ? Number(el.min) : NaN;
+        const max = el ? Number(el.max) : NaN;
+        const s = state && state.properties ? state.properties.start : NaN;
+        const e = state && state.properties ? state.properties.end : NaN;
+        const lo = Number.isFinite(s) ? s : (Number.isFinite(min) ? min : 0);
+        const hi = Number.isFinite(e) ? e : (Number.isFinite(max) ? max : 1);
+        return { lo, hi };
+      }
+
+      function setStatePlainValue(state, id, plainValue) {
+        const { lo, hi } = getStateRange(state, id);
+        const clamped = clamp(plainValue, Math.min(lo, hi), Math.max(lo, hi));
+        const n = (clamped - lo) / ((hi - lo) || 1);
+        state.setNormalisedValue(clamp(n, 0, 1));
+      }
+
+      function getStatePlainValue(state, id) {
+        const { lo, hi } = getStateRange(state, id);
+        const v = Number(state.scaledValue);
+        return Number.isFinite(v) ? v : lo + 0.5 * (hi - lo);
+      }
+
+      function getStepForControl(id) {
+        const el = document.getElementById(id);
+        if (!el) return 0.01;
+        const step = Number(el.step);
+        return Number.isFinite(step) && step > 0 ? step : 0.01;
+      }
+
+      function formatValue(value, unit) {
+        if (!Number.isFinite(value)) return "--";
+        return unit ? `${value.toFixed(2)} ${unit}` : value.toFixed(2);
+      }
+
+      function setupSelects() {
+        Object.entries(choiceDefs).forEach(([id, options]) => {
+          const select = document.getElementById(id);
+          if (!select) return;
+          select.innerHTML = "";
+          options.forEach((label, i) => {
+            const opt = document.createElement("option");
+            opt.value = String(i);
+            opt.textContent = label;
+            select.appendChild(opt);
+          });
+        });
+
+        ["console_mode", "quality", "oversampling"].forEach((id) => {
+          const state = states[id];
+          const select = document.getElementById(id);
+          if (!state || !select) return;
+
+          const options = choiceDefs[id];
+          const reflect = () => {
+            const idx = clamp(Math.round(state.scaledValue), 0, options.length - 1);
+            select.value = String(idx);
+          };
+
+          state.valueChangedEvent.addListener(reflect);
+          reflect();
+
+          select.addEventListener("change", () => {
+            state.sliderDragStarted();
+            const idx = Number(select.value) || 0;
+            const n = options.length <= 1 ? 0 : idx / (options.length - 1);
+            state.setNormalisedValue(n);
+            state.sliderDragEnded();
+          });
+        });
+      }
+
+      function createKnobBase(def) {
+        const sizePx = def.cls === "lg" ? 104 : (def.cls === "sm" ? 72 : 86);
+        const knob = document.createElement("div");
+        knob.className = "knob";
+        if (def.cls) knob.classList.add(def.cls);
+        knob.style.left = "50%";
+        knob.style.top = "0px";
+        knob.style.transform = "translateX(-50%)";
+
+        const needle = document.createElement("div");
+        needle.className = "needle";
+        knob.appendChild(needle);
+
+        const tag = document.createElement("div");
+        tag.className = "kTag";
+        const n = document.createElement("div");
+        n.className = "n";
+        n.textContent = def.name;
+        const v = document.createElement("div");
+        v.className = "v";
+        tag.appendChild(n);
+        tag.appendChild(v);
+        knob.appendChild(tag);
+
+        return { knob, needle, valueEl: v };
+      }
+
+      function buildMappedKnobs() {
+        mappedKnobs.forEach((def) => {
+          const state = states[def.id];
+          if (!state) return;
+          const unit = (sliderDefs.find((s) => s[0] === def.id) || [null, ""])[1];
+          const { knob, needle, valueEl } = createKnobBase(def);
+          const host = document.getElementById(def.host);
+          if (!host) return;
+
+          const refresh = () => {
+            const v = getStatePlainValue(state, def.id);
+            valueEl.textContent = formatValue(v, unit);
+            const { lo, hi } = getStateRange(state, def.id);
+            const norm = clamp((v - lo) / ((hi - lo) || 1), 0, 1);
+            const angle = -140 + norm * 280;
+            needle.style.transform = `translate(-50%, -92%) rotate(${angle}deg)`;
+          };
+
+          state.valueChangedEvent.addListener(refresh);
+          refresh();
+
+          let dragging = false;
+          let startY = 0;
+          let startValue = 0;
+
+          const endDrag = () => {
+            if (!dragging) return;
+            dragging = false;
+            knob.classList.remove("active");
+            state.sliderDragEnded();
+          };
+
+          knob.addEventListener("pointerdown", (e) => {
+            dragging = true;
+            startY = e.clientY;
+            startValue = getStatePlainValue(state, def.id);
+            knob.classList.add("active");
+            state.sliderDragStarted();
+            knob.setPointerCapture(e.pointerId);
+          });
+
+          knob.addEventListener("pointermove", (e) => {
+            if (!dragging) return;
+            const dy = startY - e.clientY;
+            const step = getStepForControl(def.id);
+            setStatePlainValue(state, def.id, startValue + dy * step);
+          });
+
+          knob.addEventListener("pointerup", endDrag);
+          knob.addEventListener("pointercancel", endDrag);
+          knob.addEventListener("lostpointercapture", endDrag);
+
+          knob.addEventListener("wheel", (e) => {
+            e.preventDefault();
+            state.sliderDragStarted();
+            const step = getStepForControl(def.id) * 3;
+            const delta = e.deltaY < 0 ? step : -step;
+            const current = getStatePlainValue(state, def.id);
+            setStatePlainValue(state, def.id, current + delta);
+            state.sliderDragEnded();
+          }, { passive: false });
+
+          host.appendChild(knob);
+        });
+      }
+
+      function buildVisualKnobs() {
+        visualKnobs.forEach((def) => {
+          const { knob, needle, valueEl } = createKnobBase(def);
+          const host = document.getElementById(def.host);
+          if (!host) return;
+          let norm = 0.5;
+
+          const refresh = () => {
+            const angle = -140 + norm * 280;
+            needle.style.transform = `translate(-50%, -92%) rotate(${angle}deg)`;
+            valueEl.textContent = `${Math.round(norm * 100)}%`;
+          };
+          refresh();
+
+          let dragging = false;
+          let startY = 0;
+          let startNorm = 0;
+
+          const endDrag = () => {
+            if (!dragging) return;
+            dragging = false;
+            knob.classList.remove("active");
+          };
+
+          knob.addEventListener("pointerdown", (e) => {
+            dragging = true;
+            startY = e.clientY;
+            startNorm = norm;
+            knob.classList.add("active");
+            knob.setPointerCapture(e.pointerId);
+          });
+
+          knob.addEventListener("pointermove", (e) => {
+            if (!dragging) return;
+            const dy = startY - e.clientY;
+            norm = clamp(startNorm + dy * 0.005, 0, 1);
+            refresh();
+          });
+
+          knob.addEventListener("pointerup", endDrag);
+          knob.addEventListener("pointercancel", endDrag);
+          knob.addEventListener("lostpointercapture", endDrag);
+
+          knob.addEventListener("wheel", (e) => {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 0.03 : -0.03;
+            norm = clamp(norm + delta, 0, 1);
+            refresh();
+          }, { passive: false });
+
+          host.appendChild(knob);
+        });
+      }
+
+      function buildSwitches() {
+        switches.forEach((def) => {
+          const sw = document.createElement("div");
+          sw.className = "hardwareSwitch";
+          sw.textContent = def.name;
+
+          const state = states[def.id];
+          if (state) {
+            const reflect = () => sw.classList.toggle("on", state.scaledValue >= 0.5);
+            state.valueChangedEvent.addListener(reflect);
+            reflect();
+
+            sw.addEventListener("click", () => {
+              const next = state.scaledValue < 0.5 ? 1 : 0;
+              state.sliderDragStarted();
+              state.setNormalisedValue(next);
+              state.sliderDragEnded();
+            });
+          } else {
+            sw.addEventListener("click", () => sw.classList.toggle("on"));
+          }
+
+          const host = document.getElementById(def.host);
+          if (host) host.appendChild(sw);
+        });
+      }
+
+      function buildEqNodes() {
+        const host = document.getElementById("eqNodes");
+        if (!host) return;
+
+        const points = [
+          { x: 98, y: 126 },
+          { x: 188, y: 154 },
+          { x: 282, y: 86 },
+          { x: 372, y: 142 },
+          { x: 462, y: 124 }
+        ];
+
+        points.forEach((p) => {
+          const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+
+          const glow = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          glow.setAttribute("cx", String(p.x));
+          glow.setAttribute("cy", String(p.y));
+          glow.setAttribute("r", "14");
+          glow.setAttribute("fill", "rgba(255, 188, 108, 0.2)");
+          glow.setAttribute("filter", "url(#curveGlow)");
+
+          const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          ring.setAttribute("cx", String(p.x));
+          ring.setAttribute("cy", String(p.y));
+          ring.setAttribute("r", "7");
+          ring.setAttribute("fill", "rgba(20, 26, 34, 0.96)");
+          ring.setAttribute("stroke", "rgba(255, 219, 165, 0.84)");
+          ring.setAttribute("stroke-width", "2");
+
+          const core = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          core.setAttribute("cx", String(p.x));
+          core.setAttribute("cy", String(p.y));
+          core.setAttribute("r", "3");
+          core.setAttribute("fill", "#ffe4be");
+
+          g.appendChild(glow);
+          g.appendChild(ring);
+          g.appendChild(core);
+          host.appendChild(g);
+        });
+      }
+
+      function buildSegments(id, count) {
+        const host = document.getElementById(id);
+        if (!host) return [];
+        host.innerHTML = "";
+        const list = [];
+        for (let i = 0; i < count; ++i) {
+          const seg = document.createElement("div");
+          seg.className = "seg";
+          host.appendChild(seg);
+          list.push(seg);
+        }
+        return list;
+      }
+
+      function setMeterSegments(list, value) {
+        const n = clamp(Math.round(clamp(value, 0, 1) * list.length), 0, list.length);
+        list.forEach((seg, idx) => seg.classList.toggle("on", idx >= list.length - n));
+      }
+
+      let meterIn = [], meterGr = [], meterOut = [];
+      let inTarget = 0, outTarget = 0, grTarget = 0;
+      let inDisp = 0, outDisp = 0, grDisp = 0;
+      let meterAnimating = false;
+
+      function meterStep() {
+        inDisp = smooth(inDisp, inTarget, 0.28, 0.14);
+        outDisp = smooth(outDisp, outTarget, 0.28, 0.13);
+        grDisp = smooth(grDisp, grTarget, 0.34, 0.2);
+
+        setMeterSegments(meterIn, inDisp);
+        setMeterSegments(meterGr, grDisp);
+        setMeterSegments(meterOut, outDisp);
+
+        const vu = document.getElementById("vuNeedle");
+        if (vu) {
+          const angle = -46 + clamp(outDisp, 0, 1) * 92;
+          vu.style.transform = `translate(-50%, -92%) rotate(${angle}deg)`;
+        }
+
+        if (Math.abs(inTarget - inDisp) > 0.001 || Math.abs(outTarget - outDisp) > 0.001 || Math.abs(grTarget - grDisp) > 0.001) {
+          requestAnimationFrame(meterStep);
+        } else {
+          meterAnimating = false;
+        }
+      }
+
+      window.updateMeters = function (inV, outV, grV) {
+        inTarget = clamp(Number(inV) || 0, 0, 1);
+        outTarget = clamp(Number(outV) || 0, 0, 1);
+        grTarget = clamp(Number(grV) || 0, 0, 1);
+        if (!meterAnimating) {
+          meterAnimating = true;
+          requestAnimationFrame(meterStep);
+        }
+      };
+
+      function boot() {
+        fitUiToViewport();
+        window.addEventListener("resize", fitUiToViewport);
+        if (window.visualViewport) window.visualViewport.addEventListener("resize", fitUiToViewport);
+
+        const mappedParams = ["console_mode", "quality", "oversampling", ...sliderDefs.map(([id]) => id), ...toggleDefs];
+        mappedParams.forEach((p) => { states[p] = createSliderState(p); });
+
+        setupSelects();
+        buildEqNodes();
+        buildMappedKnobs();
+        buildVisualKnobs();
+        buildSwitches();
+
+        meterIn = buildSegments("meterIn", 24);
+        meterGr = buildSegments("meterGr", 24);
+        meterOut = buildSegments("meterOut", 40);
+
+        document.getElementById("frameRoot")?.classList.remove("no-ui");
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", boot, { once: true });
+      } else {
+        boot();
+      }
+    })();
+  </script>
+</body>
+</html>

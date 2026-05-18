@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1100" viewBox="0 0 1800 1100">
+  <defs>
+    <style>
+      .bg { fill: #0b0f15; }
+      .panel { fill: #111722; stroke: #2a3444; stroke-width: 2; rx: 14; }
+      .title { fill: #f2d7a5; font: 700 26px 'DejaVu Sans', sans-serif; }
+      .label { fill: #e8c98e; font: 700 18px 'DejaVu Sans', sans-serif; }
+      .sub { fill: #bfae8a; font: 400 14px 'DejaVu Sans', sans-serif; }
+      .off { fill: #2a1d12; }
+      .amber1 { fill: #f9c56b; }
+      .amber2 { fill: #ec9c43; }
+      .amber3 { fill: #c7742e; }
+      .green { fill: #7ddc42; }
+      .yellow { fill: #e3d44d; }
+      .red { fill: #d9583f; }
+      .tick { stroke: #6f7c8f; stroke-width: 1.5; opacity: 0.7; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1800" height="1100"/>
+  <text class="title" x="40" y="50">Nova Console Meter Option Board</text>
+  <text class="sub" x="40" y="78">Pick by number. I will apply that exact meter type to INPUT, GR, and OUTPUT.</text>
+
+  <!-- Card 1 -->
+  <g transform="translate(40,120)">
+    <rect class="panel" x="0" y="0" width="400" height="430"/>
+    <text class="label" x="20" y="34">1. Slim Amber LED Ladder (Recommended)</text>
+    <text class="sub" x="20" y="58">Embedded, subtle, SSL/Neve-inspired</text>
+    <rect x="165" y="95" width="70" height="290" rx="8" fill="#0b0d12" stroke="#394657"/>
+    <g transform="translate(190,115)">
+      <rect class="off" x="0" y="240" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="226" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="212" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="198" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="184" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="170" width="20" height="10" rx="2"/>
+      <rect class="amber3" x="0" y="156" width="20" height="10" rx="2"/>
+      <rect class="amber2" x="0" y="142" width="20" height="10" rx="2"/>
+      <rect class="amber2" x="0" y="128" width="20" height="10" rx="2"/>
+      <rect class="amber1" x="0" y="114" width="20" height="10" rx="2"/>
+      <rect class="amber1" x="0" y="100" width="20" height="10" rx="2"/>
+      <rect class="amber1" x="0" y="86" width="20" height="10" rx="2"/>
+      <rect class="amber1" x="0" y="72" width="20" height="10" rx="2"/>
+      <rect class="amber1" x="0" y="58" width="20" height="10" rx="2"/>
+    </g>
+  </g>
+
+  <!-- Card 2 -->
+  <g transform="translate(470,120)">
+    <rect class="panel" x="0" y="0" width="400" height="430"/>
+    <text class="label" x="20" y="34">2. GR Top-Down Amber Ladder</text>
+    <text class="sub" x="20" y="58">Lights from top as compression increases</text>
+    <rect x="165" y="95" width="70" height="290" rx="8" fill="#0b0d12" stroke="#394657"/>
+    <g transform="translate(190,115)">
+      <rect class="amber1" x="0" y="2" width="20" height="10" rx="2"/>
+      <rect class="amber1" x="0" y="16" width="20" height="10" rx="2"/>
+      <rect class="amber1" x="0" y="30" width="20" height="10" rx="2"/>
+      <rect class="amber2" x="0" y="44" width="20" height="10" rx="2"/>
+      <rect class="amber2" x="0" y="58" width="20" height="10" rx="2"/>
+      <rect class="amber3" x="0" y="72" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="86" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="100" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="114" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="128" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="142" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="156" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="170" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="184" width="20" height="10" rx="2"/>
+    </g>
+  </g>
+
+  <!-- Card 3 -->
+  <g transform="translate(900,120)">
+    <rect class="panel" x="0" y="0" width="400" height="430"/>
+    <text class="label" x="20" y="34">3. Dual Amber Output L/R</text>
+    <text class="sub" x="20" y="58">Two slim ladders for stereo output</text>
+    <rect x="135" y="95" width="130" height="290" rx="8" fill="#0b0d12" stroke="#394657"/>
+    <g transform="translate(158,115)">
+      <g>
+        <rect class="amber3" x="0" y="170" width="18" height="9" rx="2"/>
+        <rect class="amber2" x="0" y="158" width="18" height="9" rx="2"/>
+        <rect class="amber2" x="0" y="146" width="18" height="9" rx="2"/>
+        <rect class="amber1" x="0" y="134" width="18" height="9" rx="2"/>
+        <rect class="amber1" x="0" y="122" width="18" height="9" rx="2"/>
+        <rect class="amber1" x="0" y="110" width="18" height="9" rx="2"/>
+        <rect class="off" x="0" y="98" width="18" height="9" rx="2"/>
+        <rect class="off" x="0" y="86" width="18" height="9" rx="2"/>
+      </g>
+      <g transform="translate(38,0)">
+        <rect class="amber3" x="0" y="180" width="18" height="9" rx="2"/>
+        <rect class="amber2" x="0" y="168" width="18" height="9" rx="2"/>
+        <rect class="amber2" x="0" y="156" width="18" height="9" rx="2"/>
+        <rect class="amber1" x="0" y="144" width="18" height="9" rx="2"/>
+        <rect class="amber1" x="0" y="132" width="18" height="9" rx="2"/>
+        <rect class="off" x="0" y="120" width="18" height="9" rx="2"/>
+        <rect class="off" x="0" y="108" width="18" height="9" rx="2"/>
+        <rect class="off" x="0" y="96" width="18" height="9" rx="2"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- Card 4 -->
+  <g transform="translate(1330,120)">
+    <rect class="panel" x="0" y="0" width="430" height="430"/>
+    <text class="label" x="20" y="34">4. Classic VU Needle</text>
+    <text class="sub" x="20" y="58">Analog needle face (not ladder)</text>
+    <rect x="40" y="90" width="350" height="260" rx="10" fill="#f1c86e" stroke="#8f5a29"/>
+    <path d="M70 280 A140 110 0 0 1 360 280" fill="none" stroke="#6f3f1c" stroke-width="2"/>
+    <line x1="215" y1="280" x2="315" y2="190" stroke="#d14a2f" stroke-width="3"/>
+    <circle cx="215" cy="280" r="8" fill="#3a210f"/>
+  </g>
+
+  <!-- Bottom row -->
+  <g transform="translate(40,590)">
+    <rect class="panel" x="0" y="0" width="560" height="420"/>
+    <text class="label" x="20" y="34">5. PPM Ladder (Green/Yellow/Red)</text>
+    <text class="sub" x="20" y="58">Broadcast style, less vintage-console</text>
+    <rect x="250" y="95" width="70" height="290" rx="8" fill="#0b0d12" stroke="#394657"/>
+    <g transform="translate(275,115)">
+      <rect class="green" x="0" y="210" width="20" height="10" rx="2"/>
+      <rect class="green" x="0" y="196" width="20" height="10" rx="2"/>
+      <rect class="green" x="0" y="182" width="20" height="10" rx="2"/>
+      <rect class="green" x="0" y="168" width="20" height="10" rx="2"/>
+      <rect class="yellow" x="0" y="154" width="20" height="10" rx="2"/>
+      <rect class="yellow" x="0" y="140" width="20" height="10" rx="2"/>
+      <rect class="red" x="0" y="126" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="112" width="20" height="10" rx="2"/>
+      <rect class="off" x="0" y="98" width="20" height="10" rx="2"/>
+    </g>
+  </g>
+
+  <g transform="translate(630,590)">
+    <rect class="panel" x="0" y="0" width="560" height="420"/>
+    <text class="label" x="20" y="34">6. Dot Column SSL-Style</text>
+    <text class="sub" x="20" y="58">Round LEDs, premium but more stylized</text>
+    <rect x="250" y="95" width="70" height="290" rx="8" fill="#0b0d12" stroke="#394657"/>
+    <g transform="translate(285,120)">
+      <circle cx="0" cy="220" r="6" fill="#c7742e"/>
+      <circle cx="0" cy="198" r="6" fill="#ec9c43"/>
+      <circle cx="0" cy="176" r="6" fill="#f9c56b"/>
+      <circle cx="0" cy="154" r="6" fill="#f9c56b"/>
+      <circle cx="0" cy="132" r="6" fill="#f9c56b"/>
+      <circle cx="0" cy="110" r="6" fill="#2a1d12"/>
+      <circle cx="0" cy="88" r="6" fill="#2a1d12"/>
+      <circle cx="0" cy="66" r="6" fill="#2a1d12"/>
+    </g>
+  </g>
+
+  <g transform="translate(1220,590)">
+    <rect class="panel" x="0" y="0" width="540" height="420"/>
+    <text class="label" x="20" y="34">7. Horizontal Bar Meter</text>
+    <text class="sub" x="20" y="58">Not preferred for this console layout</text>
+    <rect x="60" y="180" width="420" height="40" rx="6" fill="#0b0d12" stroke="#394657"/>
+    <rect x="66" y="186" width="240" height="28" rx="4" fill="#ec9c43"/>
+  </g>
+</svg>

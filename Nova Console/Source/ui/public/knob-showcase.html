@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nova Console Knob Showcase</title>
+  <style>
+    :root {
+      --bg-0: #0b0f15;
+      --bg-1: #171f2a;
+      --panel: #1a2531;
+      --line: rgba(240, 191, 132, 0.24);
+      --text: #eadbc1;
+      --text-sub: #b79b73;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      font-family: "Avenir Next", "Optima", "Trebuchet MS", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(120% 110% at 50% 12%, var(--bg-1) 0%, var(--bg-0) 62%, #070a10 100%);
+    }
+
+    .wrap {
+      min-height: 100vh;
+      padding: 22px;
+      display: grid;
+      gap: 14px;
+      grid-template-rows: auto 1fr;
+    }
+
+    .header {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+      background: linear-gradient(180deg, rgba(44, 57, 73, 0.88) 0%, rgba(20, 28, 38, 0.95) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 239, 210, 0.14), inset 0 -10px 14px rgba(0, 0, 0, 0.38);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .header p {
+      margin: 7px 0 0;
+      font-size: 11px;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-sub);
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      align-items: stretch;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(36, 48, 62, 0.9) 0%, rgba(20, 27, 35, 0.96) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 237, 205, 0.12), inset 0 -10px 16px rgba(0, 0, 0, 0.44);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      grid-template-rows: auto 1fr auto;
+      min-height: 280px;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 10px;
+      letter-spacing: 0.17em;
+      text-transform: uppercase;
+      color: #d8bd96;
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-sub);
+    }
+
+    .stage {
+      border: 1px solid rgba(240, 191, 132, 0.15);
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(130% 105% at 50% 5%, rgba(255, 184, 100, 0.08) 0%, rgba(13, 17, 23, 0.96) 70%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 7px);
+      pointer-events: none;
+    }
+
+    .knob {
+      width: 104px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      position: relative;
+      border: 1px solid rgba(238, 199, 150, 0.24);
+      box-shadow:
+        inset 0 2px 3px rgba(255, 236, 202, 0.16),
+        inset 0 -14px 20px rgba(0, 0, 0, 0.64),
+        inset 0 0 0 11px rgba(16, 15, 13, 0.9),
+        0 14px 24px rgba(0, 0, 0, 0.62),
+        0 0 0 1px rgba(0, 0, 0, 0.52);
+      transform: rotate(-24deg);
+    }
+
+    .knob::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 11%;
+      width: 4px;
+      height: 30%;
+      border-radius: 2px;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, #fff1d8 0%, #dcb188 100%);
+      box-shadow: 0 0 4px rgba(234, 161, 88, 0.2);
+    }
+
+    .knob::after {
+      content: "";
+      position: absolute;
+      inset: 24%;
+      border-radius: 50%;
+      border: 1px solid rgba(228, 179, 124, 0.18);
+    }
+
+    .k1 {
+      background:
+        radial-gradient(118% 110% at 28% 20%, rgba(255, 225, 176, 0.14) 0%, rgba(255, 225, 176, 0.02) 25%, transparent 55%),
+        repeating-conic-gradient(from 0deg, rgba(255, 220, 177, 0.04) 0deg 5deg, rgba(20, 18, 16, 0.07) 5deg 10deg),
+        radial-gradient(110% 110% at 32% 24%, #4e4843 0%, #37322e 34%, #252220 62%, #181614 100%);
+    }
+
+    .k2 {
+      background:
+        radial-gradient(116% 112% at 28% 18%, rgba(235, 245, 255, 0.15) 0%, rgba(235, 245, 255, 0.01) 30%, transparent 58%),
+        repeating-conic-gradient(from 0deg, rgba(210, 226, 255, 0.05) 0deg 6deg, rgba(15, 18, 24, 0.08) 6deg 12deg),
+        radial-gradient(112% 112% at 30% 24%, #4b5565 0%, #36404d 36%, #232b36 66%, #171c24 100%);
+    }
+
+    .k3 {
+      background:
+        radial-gradient(118% 110% at 32% 22%, rgba(250, 205, 145, 0.18) 0%, rgba(250, 205, 145, 0.02) 28%, transparent 58%),
+        repeating-conic-gradient(from 0deg, rgba(248, 201, 136, 0.05) 0deg 5deg, rgba(24, 18, 14, 0.08) 5deg 10deg),
+        radial-gradient(112% 112% at 33% 25%, #5b4636 0%, #433224 36%, #2f231a 66%, #1f1711 100%);
+    }
+
+    .k4 {
+      background:
+        radial-gradient(118% 110% at 34% 20%, rgba(222, 228, 236, 0.14) 0%, rgba(222, 228, 236, 0.02) 28%, transparent 58%),
+        repeating-conic-gradient(from 0deg, rgba(214, 219, 226, 0.05) 0deg 4deg, rgba(20, 23, 29, 0.08) 4deg 8deg),
+        radial-gradient(112% 112% at 33% 24%, #545b66 0%, #3f4650 36%, #2b3138 66%, #1d2228 100%);
+    }
+
+    .k5 {
+      background:
+        radial-gradient(116% 110% at 28% 20%, rgba(244, 222, 194, 0.12) 0%, rgba(244, 222, 194, 0.02) 24%, transparent 56%),
+        repeating-conic-gradient(from 0deg, rgba(255, 239, 216, 0.02) 0deg 5deg, rgba(10, 10, 10, 0.08) 5deg 10deg),
+        radial-gradient(112% 112% at 30% 24%, #3d3d3d 0%, #2f2f2f 36%, #212121 66%, #141414 100%);
+    }
+
+    .k6 {
+      background:
+        radial-gradient(114% 108% at 30% 20%, rgba(234, 180, 128, 0.12) 0%, rgba(234, 180, 128, 0.015) 26%, transparent 58%),
+        repeating-conic-gradient(from 0deg, rgba(245, 190, 130, 0.03) 0deg 5deg, rgba(24, 18, 14, 0.08) 5deg 10deg),
+        radial-gradient(112% 112% at 31% 24%, #6a4e3a 0%, #503a2a 36%, #39291e 66%, #281c14 100%);
+    }
+
+    .k7 {
+      background:
+        radial-gradient(116% 110% at 27% 20%, rgba(198, 218, 240, 0.11) 0%, rgba(198, 218, 240, 0.01) 28%, transparent 58%),
+        repeating-conic-gradient(from 0deg, rgba(198, 218, 240, 0.04) 0deg 5deg, rgba(13, 17, 24, 0.08) 5deg 10deg),
+        radial-gradient(112% 112% at 31% 24%, #3d4b5a 0%, #2d3844 36%, #202934 66%, #151b22 100%);
+    }
+
+    .k8 {
+      background:
+        radial-gradient(116% 110% at 30% 20%, rgba(255, 200, 178, 0.12) 0%, rgba(255, 200, 178, 0.01) 28%, transparent 58%),
+        repeating-conic-gradient(from 0deg, rgba(255, 200, 178, 0.03) 0deg 5deg, rgba(20, 14, 14, 0.08) 5deg 10deg),
+        radial-gradient(112% 112% at 32% 24%, #5a3e3c 0%, #412d2c 36%, #2d1f1e 66%, #1e1414 100%);
+    }
+
+    .small {
+      width: 84px;
+    }
+
+    .large {
+      width: 118px;
+    }
+
+    .meta {
+      display: grid;
+      gap: 2px;
+      text-align: center;
+    }
+
+    .meta .name {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #d8bd96;
+    }
+
+    .meta .fit {
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-sub);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="header">
+      <h1>Analog Knob Material Browser</h1>
+      <p>Pick the knob style ID you want and I will apply it to Nova Console</p>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>K1 Warm Mastering Matte</h2>
+        <div class="stage"><div class="knob k1"></div></div>
+        <div class="meta"><div class="name">ID: K1</div><div class="fit">Most V2-compatible base</div></div>
+      </article>
+
+      <article class="card">
+        <h2>K2 Blue Steel Broadcast</h2>
+        <div class="stage"><div class="knob k2"></div></div>
+        <div class="meta"><div class="name">ID: K2</div><div class="fit">Cool pro-console look</div></div>
+      </article>
+
+      <article class="card">
+        <h2>K3 Vintage Bronze</h2>
+        <div class="stage"><div class="knob k3"></div></div>
+        <div class="meta"><div class="name">ID: K3</div><div class="fit">Warm analog character</div></div>
+      </article>
+
+      <article class="card">
+        <h2>K4 Gunmetal Precision</h2>
+        <div class="stage"><div class="knob k4"></div></div>
+        <div class="meta"><div class="name">ID: K4</div><div class="fit">Neutral mastering style</div></div>
+      </article>
+
+      <article class="card">
+        <h2>K5 Black Bakelite</h2>
+        <div class="stage"><div class="knob k5"></div></div>
+        <div class="meta"><div class="name">ID: K5</div><div class="fit">Classic vintage rack feel</div></div>
+      </article>
+
+      <article class="card">
+        <h2>K6 Copper Satin</h2>
+        <div class="stage"><div class="knob k6"></div></div>
+        <div class="meta"><div class="name">ID: K6</div><div class="fit">Rich tonal hardware look</div></div>
+      </article>
+
+      <article class="card">
+        <h2>K7 Slate Studio</h2>
+        <div class="stage"><div class="knob k7"></div></div>
+        <div class="meta"><div class="name">ID: K7</div><div class="fit">Modern analog blend</div></div>
+      </article>
+
+      <article class="card">
+        <h2>K8 Red-Brown Valve</h2>
+        <div class="stage"><div class="knob k8"></div></div>
+        <div class="meta"><div class="name">ID: K8</div><div class="fit">Tube-era inspired</div></div>
+      </article>
+
+      <article class="card">
+        <h2>K1 Small Variant</h2>
+        <div class="stage"><div class="knob k1 small"></div></div>
+        <div class="meta"><div class="name">ID: K1-S</div><div class="fit">For filter and utility controls</div></div>
+      </article>
+
+      <article class="card">
+        <h2>K1 Large Variant</h2>
+        <div class="stage"><div class="knob k1 large"></div></div>
+        <div class="meta"><div class="name">ID: K1-L</div><div class="fit">For input or output stages</div></div>
+      </article>
+    </section>
+  </div>
+</body>
+</html>

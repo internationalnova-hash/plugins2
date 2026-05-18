@@ -12,8 +12,13 @@
       --text: #d0d3d7;
       --text-sub: #8f959d;
       --amber-soft: rgba(198, 146, 84, 0.18);
+      --arc-reflect: rgba(203, 174, 132, 0.24);
+      --arc-reflect-tail: rgba(203, 174, 132, 0.07);
+      --arc-tick: rgba(210, 220, 233, 0.24);
       --meter-off: rgba(20, 22, 26, 0.84);
       --meter-on: linear-gradient(180deg, #f8ddb1 0%, #dca05b 58%, #9a5724 100%);
+      --eng-readout-color: rgba(238, 214, 171, 0.98);
+      --eng-readout-shadow: 0 1px 0 rgba(0, 0, 0, 0.72), 0 0 3px rgba(232, 194, 132, 0.2);
     }
 
     * { box-sizing: border-box; }
@@ -146,9 +151,13 @@
 
     .brand .subtitle {
       margin-top: 5px;
-      font-size: 10px;
-      letter-spacing: 0.22em;
-      color: var(--text-sub);
+      font-family: "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Brush Script MT", cursive;
+      font-size: 22px;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      color: rgba(222, 199, 160, 0.92);
+      text-shadow: 0 0 10px rgba(201, 156, 94, 0.16), 0 1px 0 rgba(0, 0, 0, 0.4);
     }
 
     .headerSession {
@@ -221,47 +230,109 @@
     }
 
     .abBtn.active {
-      background: linear-gradient(180deg, #566274 0%, #36404f 100%);
-      border-color: rgba(198, 213, 234, 0.38);
-      color: #e2eaf5;
+      background: linear-gradient(180deg, #f2c46f 0%, #d8933f 58%, #8f5522 100%);
+      border-color: rgba(248, 214, 152, 0.72);
+      color: #fff1d4;
+      text-shadow: 0 0 6px rgba(255, 222, 162, 0.45);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 242, 212, 0.5),
+        inset 0 -5px 8px rgba(82, 44, 16, 0.5),
+        0 0 8px rgba(242, 180, 92, 0.46),
+        0 0 18px rgba(214, 132, 49, 0.28);
     }
 
     .topControls {
       grid-column: 2;
-      justify-self: end;
+      justify-self: start;
       align-self: start;
       display: grid;
-      grid-template-columns: repeat(3, 122px);
-      gap: 5px;
+      grid-template-columns: 1fr;
+      gap: 6px;
       margin-top: 2px;
-      padding: 5px;
+      margin-left: -14px;
+      padding: 7px;
       border-radius: 10px;
       border: 1px solid rgba(173, 190, 214, 0.12);
       background: linear-gradient(180deg, rgba(31, 36, 45, 0.84) 0%, rgba(19, 24, 31, 0.92) 100%);
       box-shadow: inset 0 1px 0 rgba(230, 237, 247, 0.08), inset 0 -8px 10px rgba(0, 0, 0, 0.42);
+      width: 420px;
+    }
+
+    .consoleHead {
+      min-height: 16px;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #a7b4c6;
+      font-weight: 650;
+      padding-left: 6px;
+    }
+
+    .consoleStyleRow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+
+    .consoleStyleBtn {
+      min-height: 36px;
+      border-radius: 8px;
+      border: 1px solid rgba(176, 191, 214, 0.24);
+      background: linear-gradient(180deg, rgba(58, 66, 79, 0.96) 0%, rgba(29, 35, 43, 0.99) 100%);
+      color: #c3cfde;
+      text-transform: uppercase;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      font-weight: 650;
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 1px 0 rgba(230, 238, 248, 0.1), inset 0 -5px 7px rgba(0, 0, 0, 0.48), 0 2px 4px rgba(0, 0, 0, 0.24);
+      text-align: center;
+      padding: 0 6px;
+    }
+
+    .consoleStyleBtn.active {
+      background: linear-gradient(180deg, #f2c46f 0%, #d8933f 58%, #8f5522 100%);
+      border-color: rgba(248, 214, 152, 0.72);
+      color: #fff1d4;
+      text-shadow: 0 0 6px rgba(255, 222, 162, 0.45);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 242, 212, 0.5),
+        inset 0 -5px 8px rgba(82, 44, 16, 0.5),
+        0 0 8px rgba(242, 180, 92, 0.46),
+        0 0 18px rgba(214, 132, 49, 0.28);
     }
 
     .headerRight {
       grid-column: 3;
       display: grid;
       grid-template-columns: 88px 1fr;
-      align-items: center;
+      grid-template-rows: auto auto;
+      align-items: start;
       gap: 6px;
       justify-self: end;
-      width: 100%;
+      width: auto;
     }
 
     .headerOutput {
+      grid-column: 1;
+      grid-row: 1 / span 2;
       justify-self: start;
-      align-self: center;
+      align-self: start;
+      transform: translateY(-14px);
       display: grid;
       justify-items: center;
-      gap: 3px;
-      padding: 3px 4px 2px;
+      gap: 4px;
+      padding: 1px 4px 2px;
       border-radius: 9px;
       border: 1px solid rgba(174, 188, 206, 0.14);
       background: linear-gradient(180deg, rgba(36, 41, 50, 0.72) 0%, rgba(21, 25, 32, 0.82) 100%);
       box-shadow: inset 0 1px 0 rgba(226, 234, 245, 0.07), inset 0 -6px 8px rgba(0, 0, 0, 0.44);
+    }
+
+    .headerOutput > div {
+      row-gap: 4px;
+      padding-top: 0;
     }
 
     .headerOutput .knob {
@@ -273,6 +344,23 @@
       min-height: 14px;
       font-size: 8px;
       letter-spacing: 0.1em;
+      position: relative;
+      z-index: 2;
+    }
+
+    .outputScale {
+      display: grid;
+      grid-template-columns: repeat(3, auto);
+      gap: 6px;
+      align-items: center;
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--eng-readout-color);
+      line-height: 1;
+      margin-top: -1px;
+      min-height: 10px;
+      text-shadow: var(--eng-readout-shadow);
     }
 
     .ctrl {
@@ -322,7 +410,8 @@
     }
 
     .vu {
-      grid-column: 3;
+      grid-column: 2;
+      grid-row: 1;
       width: 296px;
       height: 108px;
       border-radius: 14px;
@@ -370,11 +459,12 @@
       border-radius: 11px;
       border: 1px solid rgba(196, 210, 228, 0.44);
       background:
-        radial-gradient(145% 130% at 50% 100%, rgba(246, 241, 228, 0.98) 0%, rgba(226, 215, 191, 0.92) 42%, rgba(143, 133, 112, 0.5) 100%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.04) 44%, rgba(0, 0, 0, 0.24) 100%);
+        /* Darkened paper, aged whites */
+        radial-gradient(145% 130% at 50% 100%, rgba(235, 228, 212, 0.92) 0%, rgba(215, 202, 175, 0.86) 42%, rgba(138, 128, 107, 0.48) 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0.02) 44%, rgba(0, 0, 0, 0.28) 100%);
       position: relative;
       overflow: hidden;
-      box-shadow: inset 0 8px 14px rgba(255, 244, 221, 0.26), inset 0 -14px 18px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(0, 0, 0, 0.22);
+      box-shadow: inset 0 8px 14px rgba(255, 244, 221, 0.22), inset 0 -14px 18px rgba(0, 0, 0, 0.44), inset 0 0 0 1px rgba(0, 0, 0, 0.24);
     }
 
     .vuGlass::before {
@@ -443,7 +533,7 @@
       left: 8px;
       right: 20px;
       top: 156px;
-      bottom: 56px;
+      bottom: 104px;
       border-radius: 14px;
       border: 1px solid var(--line-soft);
       background:
@@ -457,8 +547,8 @@
         0 12px 28px rgba(0, 0, 0, 0.5);
       padding: 8px 10px 10px 0;
       display: grid;
-      grid-template-columns: 136px 154px minmax(248px, 1fr) 224px 122px 108px;
-      gap: 6px;
+      grid-template-columns: 134px 150px minmax(248px, 1fr) 230px 118px 104px;
+      gap: 4px;
       align-items: stretch;
       z-index: 1;
     }
@@ -523,7 +613,7 @@
     .module:last-child { border-right: 0; }
 
     .name {
-      font-size: 10px;
+      font-size: 11px;
       letter-spacing: 0.2em;
       text-transform: uppercase;
       color: #bcc7d6;
@@ -563,24 +653,27 @@
       width: 100%;
       align-items: center;
       font-size: 8px;
-      letter-spacing: 0.1em;
-      color: #c0ccdc;
+      letter-spacing: 0.12em;
+      color: var(--eng-readout-color);
       text-transform: uppercase;
+      text-shadow: var(--eng-readout-shadow);
     }
     .inputScale span:first-child { justify-self: start; }
     .inputScale span:last-child { justify-self: end; }
     .inputUnit {
       font-size: 8px;
-      letter-spacing: 0.1em;
-      color: rgba(192, 204, 220, 0.82);
+      letter-spacing: 0.12em;
+      color: var(--eng-readout-color);
       text-transform: uppercase;
+      text-shadow: var(--eng-readout-shadow);
     }
-    .preampBody { grid-template-rows: repeat(3, auto); height: 100%; align-content: start; gap: 8px; }
+    .preampBody { grid-template-rows: auto 1fr; height: 100%; align-content: stretch; gap: 8px; }
+    .preampBody .knobWrap { align-self: center; }
     .gateBody {
-      grid-template-rows: repeat(4, auto);
+      grid-template-rows: repeat(5, auto);
       height: 100%;
       align-content: start;
-      gap: 8px;
+      gap: 3px;
       padding: 3px 3px 2px;
       border-radius: 9px;
       border: 1px solid rgba(181, 198, 220, 0.16);
@@ -591,25 +684,83 @@
       grid-template-rows: auto auto auto;
       height: 100%;
       align-content: start;
-      gap: 6px;
-      padding: 4px 5px 4px;
+      gap: 5px;
+      padding: 4px 6px 3px;
       border-radius: 10px;
-      border: 1px solid rgba(184, 201, 223, 0.2);
+      border: 1px solid rgba(184, 201, 223, 0.24);
       background: linear-gradient(180deg, rgba(38, 43, 51, 0.78) 0%, rgba(20, 25, 32, 0.9) 100%);
       box-shadow: inset 0 1px 0 rgba(230, 238, 247, 0.08), inset 0 -10px 14px rgba(0, 0, 0, 0.54);
     }
+
+    .filterBody .knobWrap,
+    .filterBody .btnRow {
+      padding: 2px 5px;
+      border-radius: 7px;
+      border: 1px solid rgba(177, 194, 216, 0.14);
+      background: linear-gradient(180deg, rgba(39, 45, 55, 0.56) 0%, rgba(21, 25, 32, 0.72) 100%);
+      box-shadow: inset 0 1px 0 rgba(231, 238, 248, 0.05), inset 0 -6px 8px rgba(0, 0, 0, 0.46);
+    }
     .compBody {
-      grid-template-columns: 1fr 20px;
+      grid-template-columns: 1fr 22px auto 1fr;
       gap: 6px;
       height: 100%;
       align-items: start;
       margin-left: 0;
     }
+
+    .compGrReadout {
+      display: grid;
+      grid-template-rows: repeat(5, 1fr);
+      align-items: center;
+      justify-items: end;
+      min-height: 196px;
+      width: 22px;
+      position: relative;
+      font-size: 7px;
+      letter-spacing: 0.08em;
+      line-height: 1;
+      color: rgba(201, 178, 137, 0.9);
+      text-shadow: 0 0 3px rgba(219, 180, 120, 0.14);
+      padding-top: 2px;
+    }
+
+    .compGrReadout::before {
+      content: "GR";
+      position: absolute;
+      top: -12px;
+      right: 0;
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      color: rgba(201, 178, 137, 0.72);
+    }
+
     .compBody .meter.dots {
       position: relative !important;
       left: 0 !important;
-      transform: translateX(-46px) !important;
-      justify-self: start;
+      transform: none !important;
+      justify-self: center;
+      align-self: start;
+      height: 196px;
+      min-height: 196px;
+    }
+
+    .compMeterCol {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      justify-items: center;
+      align-items: start;
+      gap: 3px;
+      min-height: 0;
+      justify-self: center;
+      transform: translateX(24px);
+    }
+
+    .compMeterLabel {
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      color: rgba(201, 178, 137, 0.8);
+      text-shadow: 0 0 3px rgba(219, 180, 120, 0.14);
+      line-height: 1;
     }
     .compGrid {
       display: grid;
@@ -620,10 +771,12 @@
       min-height: 0;
       padding: 0;
       overflow: visible;
+      margin-left: -34px;
     }
     .compGrid > .knobWrap:first-child {
       justify-self: center;
       margin-left: 0;
+      transform: translateX(24px);
     }
     .compGrid .kLabel { margin-top: 4px; min-height: 16px; }
     .compGrid .smallButton {
@@ -635,12 +788,14 @@
     }
     .compPunchStack {
       display: grid;
-      grid-template-rows: repeat(5, auto);
-      gap: 4px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-auto-rows: auto;
+      column-gap: 8px;
+      row-gap: 4px;
       justify-items: center;
       align-self: start;
       justify-self: center;
-      width: auto;
+      width: 100%;
     }
 
     .compPunchStack > div {
@@ -654,6 +809,82 @@
 
     .compPunchStack .knob {
       width: 62px;
+    }
+
+    .compPunchStack .ratioControl {
+      row-gap: 2px;
+    }
+
+    .compPunchStack .attackControl,
+    .compPunchStack .mixControl {
+      transform: translateX(48px);
+    }
+
+    .compPunchStack .releaseControl,
+    .compPunchStack .ratioControl {
+      justify-self: end;
+      transform: translateX(96px);
+    }
+
+    .compPunchStack .makeupControl {
+      grid-column: 1 / -1;
+      row-gap: 2px;
+      justify-self: center;
+      transform: translateX(24px);
+    }
+
+    .compPunchStack > .smallButton {
+      grid-column: 1 / -1;
+      justify-self: center;
+      transform: translateX(32px);
+    }
+
+    .ratioKnobCluster {
+      position: relative;
+      display: grid;
+      justify-items: center;
+    }
+
+    .ratioTickLabels {
+      position: absolute;
+      left: 50%;
+      top: -16px;
+      width: 102px;
+      height: 102px;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    .ratioTickLabels span {
+      position: absolute;
+      font-size: 7px;
+      letter-spacing: 0.04em;
+      color: rgba(199, 210, 225, 0.74);
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.68);
+      transform: translate(-50%, -50%);
+      transition: color 0.12s ease, text-shadow 0.12s ease;
+    }
+
+    .ratioTickLabels span.active {
+      color: #f3d6a5;
+      text-shadow: 0 0 5px rgba(232, 177, 99, 0.34);
+    }
+
+    .ratioTickLabels span:nth-child(1) { left: 17%; top: 24%; }
+    .ratioTickLabels span:nth-child(2) { left: 31%; top: 15%; }
+    .ratioTickLabels span:nth-child(3) { left: 49%; top: 11%; }
+    .ratioTickLabels span:nth-child(4) { left: 67%; top: 15%; }
+    .ratioTickLabels span:nth-child(5) { left: 81%; top: 24%; }
+    .ratioTickLabels span:nth-child(6) { left: 89%; top: 37%; }
+
+    .ratioReadout {
+      margin-top: 2px;
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--eng-readout-color);
+      min-height: 10px;
+      text-shadow: var(--eng-readout-shadow);
     }
     .compPunchStack .knobWrap {
       display: grid;
@@ -679,7 +910,7 @@
       line-height: 1.2;
     }
 
-    .compPunchStack > div:nth-child(2)::before {
+    .compPunchStack .attackControl::before {
       display: none;
     }
 
@@ -702,10 +933,70 @@
     }
     .surface > .module:nth-child(5),
     .surface > .module:nth-child(6) {
-      transform: translateX(-44px);
+      transform: translateX(-26px);
     }
-    .analogBody { grid-template-columns: minmax(0, 1fr) 50px; gap: 4px; height: 100%; align-content: start; }
-    .analogGrid { display: grid; grid-template-rows: auto repeat(5, auto); gap: 6px; align-content: start; min-height: 0; }
+    .analogBody { grid-template-columns: minmax(0, 1fr) 50px; gap: 4px; height: 100%; align-content: start; position: relative; }
+    .analogGrid {
+      display: grid;
+      grid-template-rows: auto repeat(5, auto);
+      gap: 5px;
+      align-content: start;
+      min-height: 0;
+      padding: 4px 5px 66px;
+      border-radius: 10px;
+      border: 1px solid rgba(181, 196, 216, 0.2);
+      background: linear-gradient(180deg, rgba(35, 40, 48, 0.66) 0%, rgba(16, 20, 26, 0.84) 100%);
+      box-shadow: inset 0 1px 0 rgba(230, 237, 247, 0.06), inset 0 -10px 14px rgba(0, 0, 0, 0.52);
+    }
+
+    .analogScale {
+      display: grid;
+      grid-template-columns: auto auto;
+      align-items: center;
+      width: 100%;
+      margin-top: 2px;
+      font-size: 8px;
+      letter-spacing: 0.1em;
+      color: #c2cedd;
+      text-transform: uppercase;
+    }
+
+    .analogScale span:first-child { justify-self: start; }
+    .analogScale span:last-child { justify-self: end; }
+
+    .analogReadout {
+      margin-top: 0;
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      color: var(--eng-readout-color);
+      text-transform: uppercase;
+      min-height: 9px;
+      text-align: center;
+      text-shadow: var(--eng-readout-shadow);
+    }
+
+    .analogGrid .knobWrap > div {
+      row-gap: 4px;
+      padding-top: 4px;
+    }
+
+    .analogGrid .kLabel {
+      margin-top: 2px;
+      min-height: 12px;
+    }
+
+    .analogReadout,
+    .unitReadout,
+    .inputScale,
+    .inputUnit,
+    .preampReadout,
+    .preampUnit,
+    .ratioReadout,
+    .outputScale {
+      color: var(--eng-readout-color);
+      text-shadow: var(--eng-readout-shadow);
+      font-weight: 500;
+    }
 
     .surface > .module:not(.inputDock):not(:nth-child(3)):not(:nth-child(4)) .knobWrap > div {
       row-gap: 6px;
@@ -718,9 +1009,9 @@
       line-height: 1.22;
     }
     .eqBody {
-      grid-template-rows: minmax(172px, 1fr) auto auto auto;
+      grid-template-rows: minmax(126px, 1fr) auto auto auto;
       height: 100%;
-      gap: 6px;
+      gap: 1px;
       padding-right: 4px;
     }
     .eqBandLabels {
@@ -728,8 +1019,8 @@
       grid-template-columns: repeat(5, 1fr);
       gap: 3px;
       align-items: center;
-      margin-top: 1px;
-      margin-bottom: 1px;
+      margin-top: 0;
+      margin-bottom: 0;
     }
 
     .eqBandLabel {
@@ -757,12 +1048,12 @@
       grid-template-columns: repeat(5, 1fr);
       gap: 6px;
       align-items: center;
-      margin-top: 1px;
+      margin-top: -4px;
     }
 
     .eqKnobRow .knobWrap > div {
       row-gap: 4px;
-      padding-top: 4px;
+      padding-top: 2px;
     }
 
     .eqKnobRow .kLabel {
@@ -806,41 +1097,50 @@
     }
 
     .eqDisplay {
-      min-height: 182px;
+      min-height: 132px;
       border-radius: 12px;
-      border: 1px solid rgba(174, 190, 212, 0.24);
+      border: 1px solid rgba(170, 146, 108, 0.28);
       background:
-        radial-gradient(130% 90% at 50% 14%, rgba(106, 124, 150, 0.03) 0%, rgba(106, 124, 150, 0.008) 34%, transparent 68%),
-        linear-gradient(180deg, rgba(10, 13, 18, 1) 0%, rgba(5, 7, 10, 1) 100%);
+        radial-gradient(140% 100% at 50% 8%, rgba(255, 236, 202, 0.05) 0%, rgba(255, 236, 202, 0.008) 30%, transparent 70%),
+        linear-gradient(180deg, rgba(12, 11, 10, 1) 0%, rgba(8, 8, 9, 1) 100%);
       position: relative;
       overflow: hidden;
-      box-shadow: inset 0 8px 12px rgba(210, 221, 238, 0.02), inset 0 -18px 20px rgba(0, 0, 0, 0.72);
+      box-shadow:
+        /* Subtle recessed inner shadow */
+        inset 0 2px 2px rgba(244, 224, 188, 0.08),
+        inset 0 12px 16px rgba(0, 0, 0, 0.62),
+        inset 0 -26px 24px rgba(0, 0, 0, 0.78),
+        /* Darker edge vignette */
+        inset 18px 0 24px rgba(0, 0, 0, 0.58),
+        inset -18px 0 24px rgba(0, 0, 0, 0.58);
       margin-right: 6px;
     }
 
     .eqDisplay::before {
       content: "";
       position: absolute;
-      inset: 10px;
+      inset: 9px;
       border-radius: 8px;
       background:
-        linear-gradient(180deg, rgba(232, 240, 250, 0.08) 0%, rgba(232, 240, 250, 0.02) 8%, transparent 14%),
-        linear-gradient(transparent 17px, rgba(152, 166, 186, 0.08) 18px),
-        linear-gradient(90deg, transparent 27px, rgba(152, 166, 186, 0.06) 28px),
-        linear-gradient(180deg, rgba(188, 202, 224, 0.015) 0%, rgba(0, 0, 0, 0.2) 100%);
+        linear-gradient(180deg, rgba(255, 244, 222, 0.13) 0%, rgba(255, 244, 222, 0.04) 8%, transparent 16%),
+        linear-gradient(transparent 17px, rgba(190, 171, 140, 0.09) 18px),
+        linear-gradient(90deg, transparent 27px, rgba(180, 164, 137, 0.06) 28px),
+        linear-gradient(180deg, rgba(222, 199, 162, 0.02) 0%, rgba(0, 0, 0, 0.24) 100%);
       background-size: 100% 18px, 100% 18px, 28px 100%, 100% 100%;
-      opacity: 0.46;
+      opacity: 0.54;
     }
 
     .eqDisplay::after {
       content: "";
       position: absolute;
-      inset: 16px 16px 10px;
+      inset: 14px 14px 10px;
       border-radius: 9px;
       background:
-        radial-gradient(140% 70% at 50% 56%, rgba(110, 126, 148, 0.05) 0%, rgba(110, 126, 148, 0.012) 40%, transparent 82%);
-      filter: blur(0.2px);
-      opacity: 0.38;
+        /* Faint glass reflection */
+        radial-gradient(140% 76% at 50% 56%, rgba(255, 225, 176, 0.04) 0%, rgba(255, 225, 176, 0.008) 38%, transparent 86%),
+        linear-gradient(180deg, rgba(255, 245, 228, 0.06) 0%, transparent 24%, transparent 76%, rgba(0, 0, 0, 0.38) 100%);
+      filter: blur(0.1px);
+      opacity: 0.45;
       pointer-events: none;
     }
 
@@ -848,11 +1148,77 @@
       position: absolute;
       left: 14px;
       right: 14px;
-      top: 20px;
-      bottom: 10px;
+      top: 12px;
+      bottom: 6px;
       border-radius: 8px;
       overflow: hidden;
     }
+
+    .eqDbScale {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      top: 12px;
+      bottom: 6px;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .eqDbLine {
+      position: absolute;
+      left: 0;
+      right: 0;
+      border-top: 1px solid rgba(199, 178, 146, 0.08);
+    }
+
+    .eqDbLine span {
+      position: absolute;
+      left: 2px;
+      top: -5px;
+      font-size: 6px;
+      letter-spacing: 0.1em;
+      color: rgba(204, 184, 150, 0.42);
+      text-transform: uppercase;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.56);
+      line-height: 1;
+      background: rgba(10, 10, 10, 0.2);
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+
+    .eqFreqScale {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 4px;
+      height: 8px;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .eqFreqScale span {
+      position: absolute;
+      bottom: 0;
+      transform: translateX(-50%);
+      font-size: 6px;
+      letter-spacing: 0.08em;
+      color: rgba(204, 184, 150, 0.44);
+      text-transform: uppercase;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.58);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .eqFreqScale span:nth-child(1) { left: 0.8%; }
+    .eqFreqScale span:nth-child(2) { left: 9%; }
+    .eqFreqScale span:nth-child(3) { left: 18%; }
+    .eqFreqScale span:nth-child(4) { left: 28%; }
+    .eqFreqScale span:nth-child(5) { left: 42%; }
+    .eqFreqScale span:nth-child(6) { left: 56%; }
+    .eqFreqScale span:nth-child(7) { left: 68%; }
+    .eqFreqScale span:nth-child(8) { left: 80%; }
+    .eqFreqScale span:nth-child(9) { left: 90%; }
+    .eqFreqScale span:nth-child(10) { left: 99.2%; }
 
     .eqSvg {
       width: 100%;
@@ -861,27 +1227,27 @@
     }
 
     .eqGridLine {
-      stroke: rgba(154, 164, 182, 0.045);
+      stroke: rgba(181, 166, 139, 0.04);
       stroke-width: 0.22;
       shape-rendering: crispEdges;
     }
 
     .eqGridLine.major {
-      stroke: rgba(168, 178, 196, 0.06);
+      stroke: rgba(195, 177, 147, 0.06);
       stroke-width: 0.26;
     }
 
     .eqPathGlow {
       fill: none;
-      stroke: rgba(134, 164, 242, 0.035);
-      stroke-width: 0.16;
-      filter: blur(0.05px);
+      stroke: rgba(233, 196, 132, 0.22);
+      stroke-width: 0.44;
+      filter: blur(0.15px);
     }
 
     .eqPathMain {
       fill: none;
       stroke: url(#eqLineGrad);
-      stroke-width: 0.32;
+      stroke-width: 0.46;
       stroke-linecap: round;
       stroke-linejoin: round;
       filter: none;
@@ -889,16 +1255,28 @@
     }
 
     .eqNode {
-      fill: rgba(214, 228, 255, 0.96);
-      stroke: rgba(18, 24, 38, 0.92);
-      stroke-width: 0.24;
+      fill: rgba(220, 199, 168, 0.84);
+      stroke: rgba(32, 25, 16, 0.88);
+      stroke-width: 0.19;
       filter: none;
+      opacity: 0;
+      transition: opacity 0.3s ease-out;
+    }
+
+    .eqNode.visible {
+      opacity: 0.84;
     }
 
     .eqNodeHalo {
-      fill: rgba(151, 181, 246, 0.01);
-      stroke: rgba(151, 181, 246, 0.02);
-      stroke-width: 0.05;
+      fill: rgba(255, 219, 165, 0.08);
+      stroke: rgba(255, 219, 165, 0.1);
+      stroke-width: 0.04;
+      opacity: 0;
+      transition: opacity 0.3s ease-out;
+    }
+
+    .eqNodeHalo.visible {
+      opacity: 1;
     }
 
     @keyframes eqPulse {
@@ -975,7 +1353,7 @@
     }
 
     .btnRow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-    .filterBody .btnRow { gap: 3px; }
+    .filterBody .btnRow { gap: 4px; }
     .filterBody .smallButton {
       min-height: 20px;
       font-size: 7px;
@@ -983,9 +1361,14 @@
       border-radius: 6px;
     }
 
+    .filterBody .kLabel {
+      letter-spacing: 0.12em;
+      color: #c0cbd9;
+    }
+
     .filterBody .knobWrap > div::before {
-      background: repeating-conic-gradient(from 205deg, rgba(232, 239, 248, 0.48) 0deg 0.6deg, transparent 0.6deg 24deg);
-      opacity: 0.58;
+      background: repeating-conic-gradient(from 205deg, var(--arc-tick) 0deg 0.4deg, transparent 0.4deg 24deg);
+      opacity: 0.34;
     }
 
     .filterBody .knobWrap > div::after {
@@ -998,12 +1381,12 @@
       transform: translateX(-50%);
       border-radius: 50%;
       --arc-sweep: 120deg;
-      background: conic-gradient(from 210deg, rgba(214, 189, 151, 0.58) 0deg var(--arc-sweep), rgba(214, 189, 151, 0.14) var(--arc-sweep) 240deg, transparent 240deg 360deg);
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
-      box-shadow: 0 0 5px rgba(214, 189, 151, 0.15);
+      background: conic-gradient(from 210deg, var(--arc-reflect) 0deg var(--arc-sweep), var(--arc-reflect-tail) var(--arc-sweep) 240deg, transparent 240deg 360deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1px), #000 calc(100% - 1px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 1px), #000 calc(100% - 1px));
+      box-shadow: none;
       clip-path: inset(0 0 52% 0);
-      opacity: 0.62;
+      opacity: 0.34;
       pointer-events: none;
     }
 
@@ -1024,9 +1407,9 @@
       aspect-ratio: 1;
       transform: translateX(-50%);
       border-radius: 50%;
-      background: repeating-conic-gradient(from 205deg, rgba(232, 240, 248, 0.52) 0deg 0.6deg, transparent 0.6deg 24deg);
+      background: repeating-conic-gradient(from 205deg, var(--arc-tick) 0deg 0.4deg, transparent 0.4deg 24deg);
       clip-path: inset(0 0 49% 0);
-      opacity: 0.58;
+      opacity: 0.32;
       pointer-events: none;
     }
 
@@ -1036,10 +1419,21 @@
       border-radius: 50%;
       border: 1px solid rgba(193, 207, 226, 0.24);
       background:
+        /* Subtle brushed metal texture */
+        repeating-linear-gradient(120deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.01) 2px, transparent 4px, transparent 12px),
+        repeating-linear-gradient(60deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.01) 1.5px, transparent 3px, transparent 10px),
+        /* Micro edge highlight */
+        radial-gradient(110% 110% at 60% 18%, rgba(255,255,255,0.10) 0%, transparent 60%),
+        /* Tiny imperfections */
+        radial-gradient(8% 8% at 70% 80%, rgba(255,255,255,0.07) 0%, transparent 100%),
+        radial-gradient(6% 6% at 30% 60%, rgba(255,255,255,0.04) 0%, transparent 100%),
+        /* Existing gradients */
         radial-gradient(118% 110% at 28% 20%, rgba(229, 237, 247, 0.14) 0%, rgba(229, 237, 247, 0.02) 25%, transparent 55%),
         repeating-conic-gradient(from 0deg, rgba(206, 218, 234, 0.05) 0deg 4deg, rgba(18, 22, 28, 0.08) 4deg 8deg),
         radial-gradient(110% 110% at 32% 24%, #4f5968 0%, #3a4350 34%, #2a313b 62%, #1b2129 100%);
       box-shadow:
+        /* Micro edge highlight */
+        0 0 0 2px rgba(255,255,255,0.04),
         inset 0 2px 3px rgba(236, 244, 252, 0.16),
         inset 0 -16px 22px rgba(0, 0, 0, 0.68),
         inset 0 0 0 9px rgba(15, 19, 24, 0.94),
@@ -1061,12 +1455,20 @@
     }
 
     .inputBody .knob.large {
+      width: 106px;
       box-shadow:
         inset 0 2px 3px rgba(255, 236, 201, 0.2),
         inset 0 -14px 20px rgba(0, 0, 0, 0.7),
         inset 0 0 0 9px rgba(16, 14, 12, 0.94),
         0 14px 22px rgba(0, 0, 0, 0.72),
         0 0 0 1px rgba(0, 0, 0, 0.5);
+    }
+
+    .inputLabel {
+      margin-top: 2px;
+      min-height: 12px;
+      font-size: 8px;
+      letter-spacing: 0.12em;
     }
 
     .preampBody .knob {
@@ -1076,8 +1478,8 @@
     .preampBody .knobWrap > div::before {
       top: -12px;
       width: calc(100% + 22px);
-      opacity: 0.64;
-      background: repeating-conic-gradient(from 205deg, rgba(233, 241, 249, 0.54) 0deg 0.6deg, transparent 0.6deg 24deg);
+      opacity: 0.34;
+      background: repeating-conic-gradient(from 205deg, var(--arc-tick) 0deg 0.4deg, transparent 0.4deg 24deg);
     }
 
     .preampBody > .knobWrap:nth-child(2) > div::after {
@@ -1090,12 +1492,12 @@
       transform: translateX(-50%);
       border-radius: 50%;
       --arc-sweep: 120deg;
-      background: conic-gradient(from 210deg, rgba(220, 160, 91, 0.9) 0deg var(--arc-sweep), rgba(220, 160, 91, 0.2) var(--arc-sweep) 240deg, transparent 240deg 360deg);
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
-      box-shadow: 0 0 6px rgba(220, 160, 91, 0.2);
+      background: conic-gradient(from 210deg, var(--arc-reflect) 0deg var(--arc-sweep), var(--arc-reflect-tail) var(--arc-sweep) 240deg, transparent 240deg 360deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1px), #000 calc(100% - 1px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 1px), #000 calc(100% - 1px));
+      box-shadow: none;
       clip-path: inset(0 0 52% 0);
-      opacity: 0.66;
+      opacity: 0.36;
       pointer-events: none;
     }
 
@@ -1115,9 +1517,10 @@
       margin-top: 3px;
       font-size: 8px;
       line-height: 1;
-      letter-spacing: 0.11em;
-      color: #c0ccdc;
+      letter-spacing: 0.12em;
+      color: var(--eng-readout-color);
       text-transform: uppercase;
+      text-shadow: var(--eng-readout-shadow);
     }
 
     .preampScale {
@@ -1131,7 +1534,28 @@
 
     .preampUnit {
       justify-self: center;
-      color: rgba(192, 204, 220, 0.78);
+      color: var(--eng-readout-color);
+    }
+
+    .unitReadout {
+      margin-top: 2px;
+      min-height: 10px;
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      line-height: 1;
+      text-transform: uppercase;
+      color: var(--eng-readout-color);
+      text-align: center;
+      white-space: nowrap;
+      text-shadow: var(--eng-readout-shadow);
+    }
+
+    .eqKnobRow .unitReadout,
+    .filterBody .unitReadout,
+    .compBody .unitReadout,
+    .gateBody .unitReadout {
+      color: var(--eng-readout-color);
+      letter-spacing: 0.12em;
     }
 
     .knob.large { width: 114px; }
@@ -1205,6 +1629,23 @@
       opacity: 0.24;
     }
 
+    .inputBody .meter.dots {
+      filter: saturate(0.76) brightness(0.88);
+    }
+
+    .inputBody .meter.dots .seg {
+      opacity: 0.14;
+    }
+
+    .inputBody .meter.dots .seg:nth-child(4n+1) {
+      opacity: 0.19;
+    }
+
+    .inputBody .meter.dots .seg.on {
+      opacity: 0.86;
+      filter: saturate(0.9) brightness(0.94);
+    }
+
     .meter.dualPpm {
       width: 44px;
       height: 214px;
@@ -1218,6 +1659,7 @@
       align-self: stretch;
       justify-self: stretch;
       box-shadow: inset 0 1px 0 rgba(241, 246, 252, 0.08), inset 0 -10px 16px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.22);
+      opacity: 0.96;
     }
 
     .ppmReadout {
@@ -1271,13 +1713,103 @@
       transform: translateX(48px) !important;
     }
 
+    .calibrationControl {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
+      margin-top: 0;
+    }
+
+    .headerRight .calibrationControl {
+      grid-column: 2;
+      grid-row: 2;
+      justify-self: start;
+      align-self: start;
+      margin-top: -30px;
+      transform: translateX(10px);
+    }
+
+    .calibrationLabel {
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #a9b6c8;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .calibrationSelect {
+      min-width: 82px;
+      height: 22px;
+      border-radius: 6px;
+      border: 1px solid rgba(172, 188, 211, 0.28);
+      background: linear-gradient(180deg, rgba(49, 56, 67, 0.96) 0%, rgba(24, 30, 38, 0.99) 100%);
+      color: #c8d3e2;
+      font-size: 8px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-align: center;
+      box-shadow: inset 0 1px 0 rgba(234, 242, 251, 0.1), inset 0 -4px 6px rgba(0, 0, 0, 0.48);
+      padding: 0 5px;
+      outline: none;
+      cursor: pointer;
+    }
+
     .microRow {
       grid-column: 1 / -1;
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 4px;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px;
       align-items: center;
-      margin-bottom: 2px;
+      margin-bottom: 1px;
+    }
+
+    .analogBadgeRow {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3px;
+    }
+
+    .analogBadge {
+      min-height: 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(185, 167, 134, 0.26);
+      background: linear-gradient(180deg, rgba(45, 41, 34, 0.9) 0%, rgba(20, 18, 15, 0.98) 100%);
+      color: rgba(219, 196, 155, 0.92);
+      font-size: 7px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 1px 0 rgba(255, 234, 199, 0.14), inset 0 -5px 7px rgba(0, 0, 0, 0.56);
+    }
+
+    .analogMiniSwitch {
+      min-height: 20px;
+      border-radius: 999px;
+      border: 1px solid rgba(187, 203, 226, 0.22);
+      background: linear-gradient(180deg, rgba(44, 52, 64, 0.96) 0%, rgba(20, 26, 34, 0.99) 100%);
+      box-shadow: inset 0 1px 0 rgba(237, 243, 251, 0.1), inset 0 -4px 6px rgba(0, 0, 0, 0.42);
+      display: grid;
+      place-items: center;
+      color: #afbbcb;
+      font-size: 7px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .analogMiniSwitch .led {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      margin-left: 6px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #eef4fb 0%, #93a4be 38%, #46556b 100%);
+      box-shadow: 0 0 4px rgba(163, 181, 207, 0.18);
+      vertical-align: middle;
     }
 
     .crosstalkBlock {
@@ -1355,6 +1887,9 @@
     }
 
     .microSlider {
+      --slider-pos: 58;
+      --fill-start: 8%;
+      --fill-end: 58%;
       height: 12px;
       border-radius: 999px;
       border: 1px solid rgba(173, 190, 214, 0.16);
@@ -1362,6 +1897,8 @@
       box-shadow: inset 0 1px 0 rgba(233, 241, 250, 0.06), inset 0 -3px 5px rgba(0, 0, 0, 0.38);
       position: relative;
       overflow: hidden;
+      cursor: pointer;
+      touch-action: none;
     }
 
     .microControl .microSwitch {
@@ -1375,8 +1912,8 @@
     .microSlider::before {
       content: "";
       position: absolute;
-      left: 8%;
-      right: 22%;
+      left: var(--fill-start);
+      right: calc(100% - var(--fill-end));
       top: 50%;
       height: 2px;
       transform: translateY(-50%);
@@ -1388,7 +1925,7 @@
     .microSlider::after {
       content: "";
       position: absolute;
-      left: 58%;
+      left: calc(var(--slider-pos) * 1% - 5px);
       top: 50%;
       width: 10px;
       height: 10px;
@@ -1477,7 +2014,7 @@
       opacity: 0.9;
     }
 
-    .seg { border-radius: 2px; background: rgba(17, 21, 27, 0.88); }
+    .seg { border-radius: 2px; background: rgba(17, 21, 27, 0.92); }
     .seg.on { background: var(--meter-on); box-shadow: 0 0 2px var(--amber-soft); opacity: 0.94; }
     .meter.dots .seg:nth-child(3n) { opacity: 0.2; }
     .meter.dots .seg:nth-child(4n+1) { opacity: 0.28; }
@@ -1507,7 +2044,37 @@
       box-shadow: 0 0 1px rgba(184, 138, 78, 0.12);
     }
 
-    .gateBody .knob.small { width: 76px; }
+    .gateBody .knob.small { width: 82px; }
+
+    .gateModeStack {
+      display: grid;
+      grid-template-rows: auto auto auto auto;
+      gap: 2px;
+      padding: 2px 2px 3px;
+      border-radius: 8px;
+      border: 1px solid rgba(180, 197, 218, 0.15);
+      background: linear-gradient(180deg, rgba(38, 44, 53, 0.5) 0%, rgba(22, 26, 33, 0.66) 100%);
+    }
+
+    .gateAuxRow {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+    }
+
+    .gateAuxRow .smallButton {
+      min-height: 18px;
+      font-size: 7px;
+      letter-spacing: 0.11em;
+      border-radius: 6px;
+    }
+
+    .gateBody .meter.dots {
+      width: 22px;
+      justify-self: center;
+      opacity: 0.78;
+      filter: saturate(0.8) brightness(0.9);
+    }
 
     .gateBody > .knobWrap:nth-child(1) > div::after,
     .gateBody > .knobWrap:nth-child(2) > div::after {
@@ -1520,12 +2087,12 @@
       transform: translateX(-50%);
       border-radius: 50%;
       --arc-sweep: 120deg;
-      background: conic-gradient(from 210deg, rgba(214, 189, 151, 0.58) 0deg var(--arc-sweep), rgba(214, 189, 151, 0.14) var(--arc-sweep) 240deg, transparent 240deg 360deg);
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
-      box-shadow: 0 0 5px rgba(214, 189, 151, 0.15);
+      background: conic-gradient(from 210deg, var(--arc-reflect) 0deg var(--arc-sweep), var(--arc-reflect-tail) var(--arc-sweep) 240deg, transparent 240deg 360deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1px), #000 calc(100% - 1px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 1px), #000 calc(100% - 1px));
+      box-shadow: none;
       clip-path: inset(0 0 52% 0);
-      opacity: 0.62;
+      opacity: 0.34;
       pointer-events: none;
     }
 
@@ -1566,30 +2133,165 @@
         0 0 14px rgba(232, 152, 72, 0.16);
     }
 
-    .analogGrid .driftStage {
-      grid-column: 1 / -1;
-      justify-self: end;
-      margin-top: 22px;
-      transform: translateX(10px);
-    }
-
     .utility {
       position: absolute;
       left: 20px;
       right: 20px;
-      bottom: 14px;
-      height: 36px;
+      bottom: 13px;
+      height: 86px;
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 6px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      align-items: stretch;
+      z-index: 4;
+      transform: none;
+      border-radius: 11px;
+      border: 1px solid rgba(166, 181, 203, 0.14);
+      background: linear-gradient(180deg, rgba(23, 27, 33, 0.72) 0%, rgba(12, 15, 20, 0.82) 100%);
+      box-shadow: inset 0 1px 0 rgba(219, 228, 241, 0.05), inset 0 -10px 14px rgba(0, 0, 0, 0.54);
+      padding: 6px 8px 7px;
+    }
+
+    .sidechainBlock {
+      display: grid;
+      grid-template-rows: auto auto;
+      gap: 3px;
+      align-self: stretch;
+      min-width: 0;
+      padding: 2px 3px;
+      border-radius: 8px;
+      border: 1px solid rgba(171, 188, 210, 0.12);
+      background: linear-gradient(180deg, rgba(28, 33, 40, 0.62) 0%, rgba(16, 20, 26, 0.74) 100%);
+      box-shadow: inset 0 1px 0 rgba(224, 233, 245, 0.04), inset 0 -7px 9px rgba(0, 0, 0, 0.46);
+    }
+
+    .sidechainTitle {
+      font-size: 14px;
+      line-height: 1.05;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #aab4c1;
+      text-align: center;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.64);
+    }
+
+    .sidechainBtns {
+      display: grid;
+      grid-template-columns: repeat(2, auto);
+      gap: 4px;
+      min-height: 36px;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .oversampleBtns {
+      display: grid;
+      grid-template-columns: repeat(3, auto);
+      gap: 3px;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .oversampleBtns .scBtn {
+      letter-spacing: 0.1em;
+    }
+
+    .smartGainBtns {
+      display: grid;
+      grid-template-columns: repeat(3, auto);
+      gap: 3px;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .smartGainBtns .scBtn {
+      letter-spacing: 0.1em;
+    }
+
+    .mixAssistBtns {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .mixAssistBtns .microSlider {
+      width: 84px;
+      height: 14px;
+    }
+
+    .mixAssistReadout {
+      min-width: 34px;
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #c1ccdc;
+      line-height: 1;
+      text-align: left;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.58);
+    }
+
+    .driftUtilityBtns {
+      display: grid;
+      grid-template-columns: auto;
+      justify-content: center;
+      align-items: center;
+      min-height: 36px;
+    }
+
+    .driftUtilityBtns .knobWrap > div {
+      row-gap: 2px;
+      padding-top: 0;
+    }
+
+    .driftUtilityBtns .knob.small {
+      width: 44px;
+    }
+
+    .driftUtilityBtns .kLabel {
+      margin-top: 2px;
+      min-height: 10px;
+      font-size: 8px;
+      letter-spacing: 0.12em;
+    }
+
+    .scBtn {
+      border-radius: 7px;
+      border: 1px solid rgba(112, 122, 136, 0.56);
+      background: linear-gradient(180deg, rgba(42, 47, 54, 0.98) 0%, rgba(23, 27, 33, 1) 58%, rgba(14, 16, 20, 1) 100%);
+      box-shadow: inset 0 1px 0 rgba(236, 240, 246, 0.06), inset 0 -10px 12px rgba(0, 0, 0, 0.74), inset 0 0 0 1px rgba(8, 10, 13, 0.88);
+      color: #aab4c1;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      font-weight: 600;
+      text-transform: uppercase;
+      display: grid;
+      place-items: center;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.64);
+      min-height: 32px;
+      min-width: 60px;
+      padding: 4px 8px;
+    }
+
+    .scBtn.in {
+      grid-template-columns: auto auto;
+      gap: 4px;
+    }
+
+    .scPowerIcon {
+      font-size: 10px;
+      line-height: 1;
+      color: #d4deeb;
+      text-shadow: 0 0 2px rgba(132, 149, 171, 0.22);
+      transform: translateY(-0.5px);
     }
 
     .uBtn {
       border-radius: 7px;
-      border: 1px solid rgba(172, 187, 208, 0.22);
-      background: linear-gradient(180deg, rgba(52, 60, 71, 0.93) 0%, rgba(27, 33, 41, 0.98) 100%);
-      box-shadow: inset 0 1px 0 rgba(230, 237, 246, 0.12), inset 0 -8px 10px rgba(0, 0, 0, 0.52), 0 3px 6px rgba(0, 0, 0, 0.34);
-      color: #b2bece;
+      border: 1px solid rgba(112, 122, 136, 0.56);
+      background: linear-gradient(180deg, rgba(50, 54, 60, 0.98) 0%, rgba(27, 31, 37, 1) 58%, rgba(18, 20, 24, 1) 100%);
+      box-shadow: inset 0 1px 0 rgba(236, 240, 246, 0.08), inset 0 -8px 10px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(11, 13, 16, 0.84);
+      color: #aab4c1;
       font-size: 8px;
       letter-spacing: 0.14em;
       font-weight: 600;
@@ -1598,7 +2300,7 @@
       place-items: center;
       position: relative;
       padding-left: 16px;
-      text-shadow: 0 0 4px rgba(185, 199, 216, 0.08);
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.64);
     }
 
     .uBtn::before {
@@ -1610,8 +2312,8 @@
       height: 6px;
       transform: translateY(-50%);
       border-radius: 50%;
-      background: radial-gradient(circle at 35% 35%, #eef4fb 0%, #93a4be 38%, #46556b 100%);
-      box-shadow: 0 0 4px rgba(163, 181, 207, 0.18);
+      background: radial-gradient(circle at 35% 35%, #d4deeb 0%, #7d8ea6 38%, #334152 100%);
+      box-shadow: inset 0 1px 0 rgba(241, 247, 255, 0.2), 0 0 2px rgba(132, 149, 171, 0.2);
     }
 
     .modeButtonRow {
@@ -1654,10 +2356,38 @@
     }
 
     .modeButton.active {
-      background: linear-gradient(180deg, #556170 0%, #353f4d 100%);
-      border-color: rgba(193, 208, 229, 0.36);
-      color: #dbe3ee;
-      box-shadow: inset 0 1px 0 rgba(236, 243, 252, 0.2), inset 0 -3px 5px rgba(0, 0, 0, 0.45);
+      background: linear-gradient(180deg, #e8b85f 0%, #d08c36 58%, #895020 100%);
+      border-color: rgba(245, 210, 145, 0.60);
+      color: #f5e8c8;
+      text-shadow: 0 0 4px rgba(255, 220, 155, 0.32);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 240, 205, 0.40),
+        inset 0 -5px 8px rgba(75, 40, 14, 0.45),
+        0 0 6px rgba(235, 170, 80, 0.35),
+        0 0 14px rgba(210, 125, 45, 0.18);
+    }
+
+    .smallButton.active,
+    .uBtn.active,
+    .presetBtn.active,
+    .filterButton.active {
+      background: linear-gradient(180deg, #f2c46f 0%, #d8933f 58%, #8f5522 100%);
+      border-color: rgba(248, 214, 152, 0.72);
+      color: #fff1d4;
+      text-shadow: 0 0 6px rgba(255, 222, 162, 0.45);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 242, 212, 0.5),
+        inset 0 -5px 8px rgba(82, 44, 16, 0.5),
+        0 0 8px rgba(242, 180, 92, 0.46),
+        0 0 18px rgba(214, 132, 49, 0.28);
+    }
+
+    .uBtn.active {
+      background: linear-gradient(180deg, rgba(91, 79, 58, 0.96) 0%, rgba(54, 43, 28, 0.98) 56%, rgba(32, 24, 15, 1) 100%);
+      border-color: rgba(168, 133, 87, 0.56);
+      color: #e0c7a0;
+      box-shadow: inset 0 1px 0 rgba(255, 235, 198, 0.14), inset 0 -8px 12px rgba(0, 0, 0, 0.66), inset 0 0 0 1px rgba(28, 20, 11, 0.8);
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
     }
   </style>
 </head>
@@ -1667,11 +2397,12 @@
       <section class="module inputDock">
         <div class="name">Input</div>
         <div class="body inputBody">
-          <div class="knobWrap">
+          <div class="knobWrap" data-param="input" data-type="float" data-min="-18" data-max="18">
             <div class="inputDial">
               <div class="knob large"></div>
               <div class="inputScale"><span>-24</span><span>+24</span></div>
               <div class="inputUnit">dB</div>
+              <div class="kLabel inputLabel">Input</div>
             </div>
           </div>
           <div class="meter dots"> <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div></div>
@@ -1681,8 +2412,7 @@
       <div class="header">
         <div class="headerMeta">
           <div class="brand">
-            <div class="title">Nova Console</div>
-            <div class="subtitle">Analog Channel System</div>
+            <div class="title">Nova <span style="font-family: 'Snell Roundhand', 'Apple Chancery', 'URW Chancery L', 'Brush Script MT', cursive; font-size: 44px; font-weight: 500; letter-spacing: 0.04em; text-transform: none; color: #e2c7a0; text-shadow: 0 0 10px rgba(201, 156, 94, 0.16), 0 1px 0 rgba(0, 0, 0, 0.4);">Console</span></div>
           </div>
           <div class="signalFlow">
             <span class="flowNode">Input</span>
@@ -1702,13 +2432,28 @@
           </div>
         </div>
         <div class="topControls">
-          <div class="ctrl" data-label="Console Mode"><select><option>Clean</option></select></div>
-          <div class="ctrl" data-label="Quality"><select><option>Mix</option></select></div>
-          <div class="ctrl" data-label="Oversampling"><select><option>2x</option></select></div>
+          <div class="consoleHead">Console Type</div>
+          <div class="consoleStyleRow">
+            <div class="consoleStyleBtn active" data-param="console_mode" data-choice="0">Clean</div>
+            <div class="consoleStyleBtn" data-param="console_mode" data-choice="1">British</div>
+            <div class="consoleStyleBtn" data-param="console_mode" data-choice="2,3">Tube Tape</div>
+            <div class="consoleStyleBtn" data-param="console_mode" data-choice="4">Gold</div>
+            <div class="consoleStyleBtn" data-param="console_mode" data-choice="5">Modern Analog</div>
+          </div>
         </div>
         <div class="headerRight">
-          <div class="knobWrap headerOutput"><div><div class="knob"></div><div class="kLabel">Output</div></div></div>
+          <div class="knobWrap headerOutput" data-param="output" data-type="float" data-min="-18" data-max="18"><div><div class="knob"></div><div class="kLabel">Output</div><div class="outputScale"><span>-24</span><span>0</span><span>+24 dB</span></div></div></div>
           <div class="vu"><div class="vuGlass"></div><div class="vuNeedle"></div><div class="vuPivot"></div></div>
+          <div class="calibrationControl">
+            <div class="calibrationLabel">Calibration</div>
+            <select class="calibrationSelect" data-param="vu_calibration_db">
+              <option value="-12">-12 dB</option>
+              <option value="-14">-14 dB</option>
+              <option value="-16">-16 dB</option>
+              <option value="-18" selected>-18 dB</option>
+              <option value="-20">-20 dB</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -1716,20 +2461,12 @@
         <section class="module hasPower">
           <div class="name">Preamp / Drive</div>
           <div class="body preampBody">
-            <div class="power">Power</div>
-            <div class="knobWrap">
+            <div class="power active" data-toggle="preamp_on">Power</div>
+            <div class="knobWrap" data-param="drive" data-type="float" data-min="0" data-max="100">
               <div>
                 <div class="knob"></div>
                 <div class="preampReadout preampScale"><span>0</span><span>100</span></div>
                 <div class="kLabel">Drive</div>
-              </div>
-            </div>
-            <div class="knobWrap">
-              <div>
-                <div class="knob"></div>
-                <div class="preampReadout preampScale"><span>-12</span><span>+12</span></div>
-                <div class="preampReadout preampUnit">dB</div>
-                <div class="kLabel">Trim</div>
               </div>
             </div>
           </div>
@@ -1738,43 +2475,36 @@
         <section class="module hasPower">
           <div class="name">Filters</div>
           <div class="body filterBody">
-            <div class="power">Power</div>
-            <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">HPF</div></div></div>
-            <div class="btnRow"><div class="smallButton">12</div><div class="smallButton">24</div><div class="smallButton">48</div></div>
-            <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">LPF</div></div></div>
-            <div class="btnRow"><div class="smallButton">12</div><div class="smallButton">24</div><div class="smallButton">48</div></div>
+            <div class="power active" data-toggle="filter_on">Power</div>
+            <div class="knobWrap" data-param="hpf" data-type="float" data-min="20" data-max="1200"><div><div class="knob small"></div><div class="unitReadout">80 Hz</div><div class="kLabel">HPF</div></div></div>
+            <div class="btnRow"><div class="smallButton filterSlopeBtn" data-param="hpf_slope" data-choice="0">12</div><div class="smallButton filterSlopeBtn active" data-param="hpf_slope" data-choice="1">24</div><div class="smallButton filterSlopeBtn" data-param="hpf_slope" data-choice="2">48</div></div>
+            <div class="knobWrap" data-param="lpf" data-type="float" data-min="1800" data-max="20000"><div><div class="knob small"></div><div class="unitReadout">16 kHz</div><div class="kLabel">LPF</div></div></div>
+            <div class="btnRow"><div class="smallButton filterSlopeBtn" data-param="lpf_slope" data-choice="0">12</div><div class="smallButton filterSlopeBtn active" data-param="lpf_slope" data-choice="1">24</div><div class="smallButton filterSlopeBtn" data-param="lpf_slope" data-choice="2">48</div></div>
           </div>
         </section>
 
         <section class="module">
           <div class="name">Equalizer</div>
           <div class="body eqBody">
-            <div class="eqDisplay"><div class="eqCurve"><svg class="eqSvg" viewBox="0 0 100 40" preserveAspectRatio="none"><defs><linearGradient id="eqLineGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="rgba(122, 156, 236, 0.9)" /><stop offset="55%" stop-color="rgba(166, 140, 243, 0.9)" /><stop offset="100%" stop-color="rgba(198, 164, 255, 0.86)" /></linearGradient></defs><g><line class="eqGridLine major" x1="0" y1="6" x2="100" y2="6" /><line class="eqGridLine" x1="0" y1="12" x2="100" y2="12" /><line class="eqGridLine major" x1="0" y1="18" x2="100" y2="18" /><line class="eqGridLine" x1="0" y1="24" x2="100" y2="24" /><line class="eqGridLine major" x1="0" y1="30" x2="100" y2="30" /><line class="eqGridLine" x1="0" y1="36" x2="100" y2="36" /><line class="eqGridLine major" x1="10" y1="0" x2="10" y2="40" /><line class="eqGridLine" x1="20" y1="0" x2="20" y2="40" /><line class="eqGridLine major" x1="30" y1="0" x2="30" y2="40" /><line class="eqGridLine" x1="40" y1="0" x2="40" y2="40" /><line class="eqGridLine major" x1="50" y1="0" x2="50" y2="40" /><line class="eqGridLine" x1="60" y1="0" x2="60" y2="40" /><line class="eqGridLine major" x1="70" y1="0" x2="70" y2="40" /><line class="eqGridLine" x1="80" y1="0" x2="80" y2="40" /><line class="eqGridLine major" x1="90" y1="0" x2="90" y2="40" /></g><path class="eqPathGlow" d="M 0 22.8 C 10 22.8, 18 22.1, 28 21.8 C 38 21.5, 46 20.2, 54 19.9 C 62 19.7, 71 20.1, 80 20.0 C 88 19.9, 95 19.3, 100 19.2" /><path class="eqPathMain" d="M 0 22.8 C 10 22.8, 18 22.1, 28 21.8 C 38 21.5, 46 20.2, 54 19.9 C 62 19.7, 71 20.1, 80 20.0 C 88 19.9, 95 19.3, 100 19.2" /><circle class="eqNodeHalo" cx="28" cy="21.8" r="1.05" /><circle class="eqNode" cx="28" cy="21.8" r="0.62" /><circle class="eqNodeHalo" cx="54" cy="19.9" r="1.05" /><circle class="eqNode" cx="54" cy="19.9" r="0.62" /><circle class="eqNodeHalo" cx="80" cy="20.0" r="1.05" /><circle class="eqNode" cx="80" cy="20.0" r="0.62" /></svg></div></div>
-            <div class="eqBandLabels">
-              <div class="eqBandLabel"><div>Low</div></div>
-              <div class="eqBandLabel"><div>Low-Mid</div></div>
-              <div class="eqBandLabel"><div>High-Mid</div></div>
-              <div class="eqBandLabel"><div>High</div></div>
-              <div class="eqBandLabel"><div>Air</div></div>
+            <div class="eqDisplay"><div class="eqCurve"><svg class="eqSvg" viewBox="0 0 100 40" preserveAspectRatio="none"><defs><linearGradient id="eqLineGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="rgba(239, 214, 170, 0.96)" /><stop offset="55%" stop-color="rgba(232, 186, 121, 0.94)" /><stop offset="100%" stop-color="rgba(206, 151, 82, 0.9)" /></linearGradient></defs><g><line class="eqGridLine major" x1="0" y1="6" x2="100" y2="6" /><line class="eqGridLine" x1="0" y1="12" x2="100" y2="12" /><line class="eqGridLine major" x1="0" y1="18" x2="100" y2="18" /><line class="eqGridLine" x1="0" y1="24" x2="100" y2="24" /><line class="eqGridLine major" x1="0" y1="30" x2="100" y2="30" /><line class="eqGridLine" x1="0" y1="36" x2="100" y2="36" /><line class="eqGridLine major" x1="10" y1="0" x2="10" y2="40" /><line class="eqGridLine" x1="20" y1="0" x2="20" y2="40" /><line class="eqGridLine major" x1="30" y1="0" x2="30" y2="40" /><line class="eqGridLine" x1="40" y1="0" x2="40" y2="40" /><line class="eqGridLine major" x1="50" y1="0" x2="50" y2="40" /><line class="eqGridLine" x1="60" y1="0" x2="60" y2="40" /><line class="eqGridLine major" x1="70" y1="0" x2="70" y2="40" /><line class="eqGridLine" x1="80" y1="0" x2="80" y2="40" /><line class="eqGridLine major" x1="90" y1="0" x2="90" y2="40" /></g><path class="eqPathGlow" d="M 0 22.8 C 10 22.8, 18 22.1, 28 21.8 C 38 21.5, 46 20.2, 54 19.9 C 62 19.7, 71 20.1, 80 20.0 C 88 19.9, 95 19.3, 100 19.2" /><path class="eqPathMain" d="M 0 22.8 C 10 22.8, 18 22.1, 28 21.8 C 38 21.5, 46 20.2, 54 19.9 C 62 19.7, 71 20.1, 80 20.0 C 88 19.9, 95 19.3, 100 19.2" /><circle class="eqNodeHalo" data-band="low" cx="28" cy="20" r="1.2" /><circle class="eqNode" data-band="low" cx="28" cy="20" r="0.72" /><circle class="eqNodeHalo" data-band="low_mid" cx="33" cy="20" r="1.2" /><circle class="eqNode" data-band="low_mid" cx="33" cy="20" r="0.72" /><circle class="eqNodeHalo" data-band="high_mid" cx="54" cy="20" r="1.2" /><circle class="eqNode" data-band="high_mid" cx="54" cy="20" r="0.72" /><circle class="eqNodeHalo" data-band="high" cx="80" cy="20" r="1.2" /><circle class="eqNode" data-band="high" cx="80" cy="20" r="0.72" /><circle class="eqNodeHalo" data-band="air" cx="91" cy="20" r="1.2" /><circle class="eqNode" data-band="air" cx="91" cy="20" r="0.72" /></svg></div><div class="eqDbScale"><div class="eqDbLine" style="top: 4%;"><span>+12</span></div><div class="eqDbLine" style="top: 26%;"><span>+6</span></div><div class="eqDbLine" style="top: 49%;"><span>0</span></div><div class="eqDbLine" style="top: 72%;"><span>-6</span></div><div class="eqDbLine" style="top: 94%;"><span>-12</span></div></div><div class="eqFreqScale"><span>20</span><span>50</span><span>100</span><span>200</span><span>500</span><span>1k</span><span>2k</span><span>5k</span><span>10k</span><span>20k</span></div></div>
+            <div class="eqKnobRow">
+              <div class="knobWrap" data-param="eq_low_freq" data-type="float" data-min="35" data-max="180"><div><div class="knob small"></div><div class="unitReadout">60 Hz</div><div class="kLabel">Freq</div></div></div>
+              <div class="knobWrap" data-param="eq_low_mid_freq" data-type="float" data-min="180" data-max="1200"><div><div class="knob small"></div><div class="unitReadout">120 Hz</div><div class="kLabel">Freq</div></div></div>
+              <div class="knobWrap" data-param="eq_high_mid_freq" data-type="float" data-min="1000" data-max="7000"><div><div class="knob small"></div><div class="unitReadout">1.2 kHz</div><div class="kLabel">Freq</div></div></div>
+              <div class="knobWrap" data-param="eq_high_freq" data-type="float" data-min="3500" data-max="12000"><div><div class="knob small"></div><div class="unitReadout">8 kHz</div><div class="kLabel">Freq</div></div></div>
+              <div class="knobWrap" data-param="eq_air_freq" data-type="float" data-min="8000" data-max="18000"><div><div class="knob small"></div><div class="unitReadout">16 kHz</div><div class="kLabel">Freq</div></div></div>
             </div>
             <div class="eqKnobRow">
-              <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Gain</div></div></div>
-              <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Gain</div></div></div>
-              <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Gain</div></div></div>
-              <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Gain</div></div></div>
-              <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Gain</div></div></div>
-            </div>
-            <div class="eqKnobRow">
-              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Freq</div></div></div>
-              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Freq</div></div></div>
-              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Freq</div></div></div>
-              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Freq</div></div></div>
-              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Freq</div></div></div>
+              <div class="knobWrap" data-param="eq_low" data-type="float" data-min="-12" data-max="12"><div><div class="knob"></div><div class="unitReadout">-2 dB</div><div class="kLabel">Gain</div></div></div>
+              <div class="knobWrap" data-param="eq_low_mid" data-type="float" data-min="-12" data-max="12"><div><div class="knob"></div><div class="unitReadout">+1 dB</div><div class="kLabel">Gain</div></div></div>
+              <div class="knobWrap" data-param="eq_high_mid" data-type="float" data-min="-12" data-max="12"><div><div class="knob"></div><div class="unitReadout">+3 dB</div><div class="kLabel">Gain</div></div></div>
+              <div class="knobWrap" data-param="eq_high" data-type="float" data-min="-12" data-max="12"><div><div class="knob"></div><div class="unitReadout">+2 dB</div><div class="kLabel">Gain</div></div></div>
+              <div class="knobWrap" data-param="eq_air" data-type="float" data-min="-8" data-max="8"><div><div class="knob"></div><div class="unitReadout">+4 dB</div><div class="kLabel">Gain</div></div></div>
             </div>
             <div class="modeSelectorRow">
-              <div class="modeSelector" data-band="Low">
-                <div class="modeButton active">Bell</div>
-                <div class="modeButton">Shelf</div>
+              <div class="modeSelector" data-band="Low" data-param="eq_low_mode">
+                <div class="modeButton" data-choice="1">Bell</div>
+                <div class="modeButton active" data-choice="0">Shelf</div>
               </div>
               <div class="modeSelector" data-band="Low-Mid">
                 <div class="modeButton active">Bell</div>
@@ -1784,12 +2514,12 @@
                 <div class="modeButton active">Bell</div>
                 <div class="modeButton ghost">.</div>
               </div>
-              <div class="modeSelector" data-band="High">
-                <div class="modeButton active">Bell</div>
-                <div class="modeButton">Shelf</div>
+              <div class="modeSelector" data-band="High" data-param="eq_high_mode">
+                <div class="modeButton" data-choice="1">Bell</div>
+                <div class="modeButton active" data-choice="0">Shelf</div>
               </div>
-              <div class="modeSelector" data-band="Air">
-                <div class="modeButton active">Air</div>
+              <div class="modeSelector" data-band="Air" data-param="eq_air_mode">
+                <div class="modeButton active" data-choice="0">Air</div>
                 <div class="modeButton ghost">.</div>
               </div>
             </div>
@@ -1800,50 +2530,52 @@
           <div class="name">Compressor</div>
           <div class="body compBody">
             <div class="compGrid">
-              <div class="knobWrap"><div><div class="knob"></div><div class="kLabel">Threshold</div></div></div>
+              <div class="knobWrap" data-param="comp_threshold" data-type="float" data-min="-40" data-max="0"><div><div class="knob"></div><div class="unitReadout">-18 dB</div><div class="kLabel">Threshold</div></div></div>
               <div class="knobWrap compPunchStack">
-                <div><div class="knob"></div><div class="kLabel">Ratio</div></div>
-                <div><div class="knob"></div><div class="kLabel">Attack</div></div>
-                <div><div class="knob"></div><div class="kLabel">Release</div></div>
-                <div><div class="knob"></div><div class="kLabel">Mix</div></div>
-                <div class="smallButton">Punch</div>
+                <div class="makeupControl" data-param="comp_makeup" data-type="float" data-min="0" data-max="24"><div class="knob"></div><div class="unitReadout">+2 dB</div><div class="kLabel">Makeup</div></div>
+                <div class="attackControl" data-param="comp_attack" data-type="float" data-min="0.5" data-max="60"><div class="knob"></div><div class="unitReadout">10 ms</div><div class="kLabel">Attack</div></div>
+                <div class="releaseControl" data-param="comp_release" data-type="float" data-min="20" data-max="500"><div class="knob"></div><div class="unitReadout">120 ms</div><div class="kLabel">Release</div></div>
+                <div class="mixControl" data-param="comp_mix" data-type="float" data-min="0" data-max="100"><div class="knob"></div><div class="unitReadout">62 %</div><div class="kLabel">Mix</div></div>
+                <div class="ratioControl" data-param="comp_ratio" data-type="float" data-min="1" data-max="10"><div class="ratioKnobCluster"><div class="knob ratioKnob"></div><div class="ratioTickLabels"><span>1.5</span><span>2</span><span>4</span><span>8</span><span>10</span><span>12</span></div></div><div class="ratioReadout">4:1</div><div class="kLabel">Ratio</div></div>
+                <div class="smallButton" data-toggle-float="comp_punch" data-on-value="100" data-off-value="0">Punch</div>
               </div>
             </div>
-            <div class="meter dots"> <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div></div>
+            <div class="compGrReadout"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span></div>
+            <div class="compMeterCol">
+              <div class="compMeterLabel">GR</div>
+              <div class="meter dots"> <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div></div>
+            </div>
           </div>
         </section>
 
         <section class="module">
           <div class="name">Gate / Expander</div>
           <div class="body gateBody">
-            <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Threshold</div></div></div>
-            <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Range</div></div></div>
-            <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Attack</div></div></div>
-            <div class="gateModeStack"><div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Release</div></div></div><div class="smallButton">Expand</div><div class="smallButton">Gate</div></div>
+            <div class="knobWrap" data-param="gate_threshold" data-type="float" data-min="-70" data-max="-10"><div><div class="knob small"></div><div class="unitReadout">-36 dB</div><div class="kLabel">Threshold</div></div></div>
+            <div class="knobWrap" data-param="gate_range" data-type="float" data-min="-36" data-max="-3"><div><div class="knob small"></div><div class="unitReadout">18 dB</div><div class="kLabel">Range</div></div></div>
+            <div class="knobWrap" data-param="gate_attack" data-type="float" data-min="0.1" data-max="100"><div><div class="knob small"></div><div class="unitReadout">8 ms</div><div class="kLabel">Attack</div></div></div>
+            <div class="knobWrap" data-param="gate_hold" data-type="float" data-min="0" data-max="500"><div><div class="knob small"></div><div class="unitReadout">40 ms</div><div class="kLabel">Hold</div></div></div>
+            <div class="gateModeStack"><div class="knobWrap" data-param="gate_release" data-type="float" data-min="20" data-max="500"><div><div class="knob small"></div><div class="unitReadout">160 ms</div><div class="kLabel">Release</div></div></div><div class="smallButton gateModeBtn active" data-param="gate_smooth" data-choice="1">Expand</div><div class="smallButton gateModeBtn" data-param="gate_smooth" data-choice="0">Gate</div></div>
           </div>
         </section>
 
         <section class="module hasPower">
           <div class="name">Analog Engine</div>
           <div class="body analogBody">
-            <div class="microRow">
-              <div class="microSwitch">Console Model <span class="led"></span></div>
-            </div>
             <div class="analogGrid">
-              <div class="power">Power</div>
-              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Heat</div></div></div>
-              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Width</div></div></div>
-              <div class="knobWrap"><div><div class="knob small"></div><div class="kLabel">Depth</div></div></div>
+              <div class="power active" data-toggle="analog_on">Power</div>
+              <div class="knobWrap analogKnobControl" data-param="analog_heat" data-type="float" data-min="0" data-max="100"><div><div class="knob small"></div><div class="analogScale"><span>0</span><span>100</span></div><div class="analogReadout">50%</div><div class="kLabel">Heat</div></div></div>
+              <div class="knobWrap analogKnobControl" data-param="analog_width" data-type="float" data-min="0" data-max="100"><div><div class="knob small"></div><div class="analogScale"><span>0</span><span>100</span></div><div class="analogReadout">50%</div><div class="kLabel">Width</div></div></div>
+              <div class="knobWrap analogKnobControl" data-param="analog_depth" data-type="float" data-min="0" data-max="100"><div><div class="knob small"></div><div class="analogScale"><span>0</span><span>100</span></div><div class="analogReadout">50%</div><div class="kLabel">Depth</div></div></div>
               <div class="crosstalkBlock">
                 <div class="blockTitle">Crosstalk</div>
-                <div class="crosstalkSliderRow">
+                <div class="crosstalkSliderRow" data-param="analog_crosstalk" data-type="float" data-min="0" data-max="100">
                   <div class="crosstalkLabel">L</div>
                   <div class="microSlider"></div>
                   <div class="crosstalkLabel">R</div>
                 </div>
                 <div class="crosstalkReadout">62%</div>
               </div>
-              <div class="knobWrap driftStage"><div><div class="knob small"></div><div class="kLabel">Drift</div></div></div>
               <div class="analogDivider"></div>
             </div>
             <div class="analogSide">
@@ -1870,12 +2602,46 @@
       </div>
 
       <div class="utility">
-        <div class="uBtn">Sidechain</div>
-        <div class="uBtn">HPF</div>
-        <div class="uBtn">Oversampling</div>
-        <div class="uBtn">Smart Gain</div>
-        <div class="uBtn">Mix Assist</div>
-        <div class="uBtn">Focus Mode</div>
+        <div class="sidechainBlock">
+          <div class="sidechainTitle">Sidechain</div>
+          <div class="sidechainBtns">
+            <div class="scBtn in"><span class="scPowerIcon">&#x23FB;</span><span>In</span></div>
+            <div class="scBtn">Ext</div>
+          </div>
+        </div>
+        <div class="sidechainBlock">
+          <div class="sidechainTitle">Oversampling</div>
+          <div class="sidechainBtns oversampleBtns">
+            <div class="scBtn oversampleBtn active" data-param="oversample_mode" data-choice="0">Off</div>
+            <div class="scBtn oversampleBtn" data-param="oversample_mode" data-choice="1">2x</div>
+            <div class="scBtn oversampleBtn" data-param="oversample_mode" data-choice="2">4x</div>
+          </div>
+        </div>
+        <div class="sidechainBlock">
+          <div class="sidechainTitle">Smart Gain</div>
+          <div class="sidechainBtns smartGainBtns">
+            <div class="scBtn in"><span class="scPowerIcon">&#x23FB;</span><span>On</span></div>
+          </div>
+        </div>
+        <div class="sidechainBlock">
+          <div class="sidechainTitle">Mix Assist</div>
+          <div class="sidechainBtns mixAssistBtns">
+            <div class="microSlider"></div>
+            <div class="mixAssistReadout">62%</div>
+          </div>
+        </div>
+        <div class="sidechainBlock">
+          <div class="sidechainTitle">Focus Mode</div>
+          <div class="sidechainBtns smartGainBtns">
+            <div class="scBtn in active" data-toggle="focus_mode"><span class="scPowerIcon">&#x23FB;</span></div>
+          </div>
+        </div>
+        <div class="sidechainBlock">
+          <div class="sidechainTitle">Drift</div>
+          <div class="sidechainBtns driftUtilityBtns">
+            <div class="knobWrap analogKnobControl" data-param="analog_drift" data-type="float" data-min="0" data-max="100"><div><div class="knob small"></div><div class="kLabel">Drift</div></div></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1895,6 +2661,472 @@
       window.addEventListener("resize", fitUi);
       if (window.visualViewport) window.visualViewport.addEventListener("resize", fitUi);
       fitUi();
+
+      const backend = window.__JUCE__ && window.__JUCE__.backend && typeof window.__JUCE__.backend.emitEvent === "function"
+        ? window.__JUCE__.backend
+        : null;
+
+      function emitParamValue(paramId, value) {
+        if (!backend) return;
+        backend.emitEvent(`__juce__slider${paramId}`, { eventType: "valueChanged", value });
+      }
+
+      function addBackendListener(paramId, onValueChanged) {
+        if (!backend || typeof backend.addEventListener !== "function") return;
+        backend.addEventListener(`__juce__slider${paramId}`, (event) => {
+          if (!event || event.eventType !== "valueChanged" || typeof event.value !== "number") return;
+          onValueChanged(event.value);
+        });
+      }
+
+      function bindChoiceButtons(buttons, paramId) {
+        if (!buttons.length) return;
+
+        const setActive = (value) => {
+          const rounded = Math.round(value);
+          buttons.forEach((btn) => {
+            const values = (btn.dataset.choice || "")
+              .split(",")
+              .map((x) => Number(x.trim()))
+              .filter((x) => Number.isFinite(x));
+            btn.classList.toggle("active", values.includes(rounded));
+          });
+        };
+
+        buttons.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const values = (btn.dataset.choice || "")
+              .split(",")
+              .map((x) => Number(x.trim()))
+              .filter((x) => Number.isFinite(x));
+            const target = values.length ? values[0] : 0;
+            emitParamValue(paramId, target);
+            setActive(target);
+          });
+        });
+
+        addBackendListener(paramId, setActive);
+      }
+
+      function bindBoolToggleButtons(buttons, paramId) {
+        if (!buttons.length) return;
+
+        const setActive = (isOn) => {
+          buttons.forEach((btn) => btn.classList.toggle("active", !!isOn));
+        };
+
+        buttons.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const next = !btn.classList.contains("active");
+            emitParamValue(paramId, next ? 1 : 0);
+            setActive(next);
+          });
+        });
+
+        addBackendListener(paramId, (v) => setActive(v >= 0.5));
+      }
+
+      function bindFloatToggleButtons(buttons, paramId, onValue, offValue) {
+        if (!buttons.length) return;
+
+        const setActive = (value) => {
+          buttons.forEach((btn) => btn.classList.toggle("active", value >= (onValue + offValue) * 0.5));
+        };
+
+        buttons.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const nextOn = !btn.classList.contains("active");
+            emitParamValue(paramId, nextOn ? onValue : offValue);
+            setActive(nextOn ? onValue : offValue);
+          });
+        });
+
+        addBackendListener(paramId, setActive);
+      }
+
+      function bindSelectControl(selectEl, paramId) {
+        if (!selectEl) return;
+
+        const setValue = (value) => {
+          const rounded = Math.round(value);
+          const options = Array.from(selectEl.options);
+          const match = options.find((opt) => Number(opt.value) === rounded);
+          if (match) selectEl.value = match.value;
+        };
+
+        selectEl.addEventListener("change", () => {
+          const next = Number(selectEl.value);
+          if (!Number.isFinite(next)) return;
+          emitParamValue(paramId, next);
+        });
+
+        addBackendListener(paramId, setValue);
+      }
+
+      // Knob binding for float parameters
+      function bindFloatKnobs() {
+        const knobElements = document.querySelectorAll('[data-param][data-type="float"]');
+        const knobState = {};
+
+        knobElements.forEach((knobWrap) => {
+          const paramId = knobWrap.dataset.param;
+          const minVal = Number(knobWrap.dataset.min || "0");
+          const maxVal = Number(knobWrap.dataset.max || "100");
+          const knobEl = knobWrap.querySelector('.knob, .microSlider');
+          
+          if (!knobEl || !paramId) return;
+
+          knobState[paramId] = { minVal, maxVal, lastValue: (minVal + maxVal) / 2 };
+
+          // Listen for backend value changes and update knob visual
+          addBackendListener(paramId, (value) => {
+            knobState[paramId].lastValue = value;
+            const normalized = (value - minVal) / (maxVal - minVal);
+            const rotation = (normalized * 320 - 160); // 320° rotation range
+            knobEl.style.transform = `rotate(${rotation}deg)`;
+          });
+
+          // Handle knob wheel/drag interaction
+          let isDragging = false;
+          const handleMouseDown = (e) => {
+            isDragging = true;
+            const startY = e.clientY || (e.touches && e.touches[0].clientY);
+            const startValue = knobState[paramId].lastValue;
+
+            const handleMouseMove = (moveEvent) => {
+              if (!isDragging) return;
+              const currentY = moveEvent.clientY || (moveEvent.touches && moveEvent.touches[0].clientY);
+              const delta = (startY - currentY) * 0.5; // Vertical drag sensitivity
+              const range = maxVal - minVal;
+              const step = range * (delta / 200); // Smooth step scaling
+              const nextValue = Math.max(minVal, Math.min(maxVal, startValue + step));
+              emitParamValue(paramId, nextValue);
+            };
+
+            const handleMouseUp = () => {
+              isDragging = false;
+              document.removeEventListener('mousemove', handleMouseMove);
+              document.removeEventListener('touchmove', handleMouseMove);
+              document.removeEventListener('mouseup', handleMouseUp);
+              document.removeEventListener('touchend', handleMouseUp);
+            };
+
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('touchmove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            document.addEventListener('touchend', handleMouseUp);
+          };
+
+          // Wheel scroll for fine control
+          knobEl.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -1 : 1;
+            const range = maxVal - minVal;
+            const step = (range * 0.01) * delta;
+            const nextValue = Math.max(minVal, Math.min(maxVal, knobState[paramId].lastValue + step));
+            emitParamValue(paramId, nextValue);
+          });
+
+          knobEl.addEventListener('mousedown', handleMouseDown);
+          knobEl.addEventListener('touchstart', handleMouseDown);
+          knobEl.style.cursor = 'grab';
+        });
+      }
+
+      // Meter update handler
+      window.updateMeters = function(inLevel, outLevel, grLevel) {
+        // Smoothing constants for analog meter feel
+        const riseSmooth = 0.15; // 150ms rise time
+        const fallSmooth = 0.5;  // 500ms fall time (slower decay)
+        const grRiseSmooth = 0.08; // 80ms rise for GR
+        const grFallSmooth = 0.3;  // 300ms fall for GR
+
+        // Input meter (VU style)
+        const inMeter = document.querySelector('.inputBody .meter');
+        if (inMeter) {
+          const segs = Array.from(inMeter.querySelectorAll('.seg'));
+          const inNorm = Math.max(0, Math.min(1, inLevel));
+          const onCount = Math.round(inNorm * segs.length);
+          segs.forEach((seg, i) => seg.classList.toggle('on', i < onCount));
+        }
+
+        // Output meter
+        const outMeter = document.querySelector('.headerOutput .meter');
+        if (outMeter) {
+          const segs = Array.from(outMeter.querySelectorAll('.seg'));
+          const outNorm = Math.max(0, Math.min(1, outLevel));
+          const onCount = Math.round(outNorm * segs.length);
+          segs.forEach((seg, i) => seg.classList.toggle('on', i < onCount));
+        }
+
+        // GR meter
+        const grMeter = document.querySelector('.compMeterCol .meter');
+        if (grMeter) {
+          const segs = Array.from(grMeter.querySelectorAll('.seg'));
+          const grNorm = Math.max(0, Math.min(1, grLevel));
+          const onCount = Math.round(grNorm * segs.length);
+          segs.forEach((seg, i) => seg.classList.toggle('on', i < onCount));
+        }
+      };
+
+      // Bind all knobs and meters
+      bindFloatKnobs();
+
+      bindChoiceButtons(Array.from(document.querySelectorAll('.consoleStyleBtn[data-param="console_mode"]')), "console_mode");
+      bindChoiceButtons(Array.from(document.querySelectorAll('.filterSlopeBtn[data-param="hpf_slope"]')), "hpf_slope");
+      bindChoiceButtons(Array.from(document.querySelectorAll('.filterSlopeBtn[data-param="lpf_slope"]')), "lpf_slope");
+      bindChoiceButtons(Array.from(document.querySelectorAll('.gateModeBtn[data-param="gate_smooth"]')), "gate_smooth");
+      bindChoiceButtons(Array.from(document.querySelectorAll('.oversampleBtn[data-param="oversampling"]')), "oversampling");
+
+      Array.from(document.querySelectorAll('.modeSelector[data-param]')).forEach((group) => {
+        const paramId = group.dataset.param;
+        const buttons = Array.from(group.querySelectorAll('.modeButton:not(.ghost)'));
+        bindChoiceButtons(buttons, paramId);
+      });
+
+      Array.from(document.querySelectorAll('[data-toggle]')).forEach((btn) => {
+        const paramId = btn.dataset.toggle;
+        bindBoolToggleButtons([btn], paramId);
+      });
+
+      Array.from(document.querySelectorAll('[data-toggle-float]')).forEach((btn) => {
+        const paramId = btn.dataset.toggleFloat;
+        const onValue = Number(btn.dataset.onValue || "100");
+        const offValue = Number(btn.dataset.offValue || "0");
+        bindFloatToggleButtons([btn], paramId, onValue, offValue);
+      });
+
+      Array.from(document.querySelectorAll('select[data-param]')).forEach((selectEl) => {
+        const paramId = selectEl.dataset.param;
+        bindSelectControl(selectEl, paramId);
+      });
+
+      const passiveClickTargets = Array.from(document.querySelectorAll('.smallButton, .scBtn, .presetBtn, .abBtn, .power'));
+      const hasDataBinding = (el) => el.matches('[data-toggle], [data-toggle-float], [data-param], [data-choice]') || !!el.closest('.modeSelector[data-param]');
+
+      passiveClickTargets.forEach((btn) => {
+        if (hasDataBinding(btn)) return;
+
+        btn.style.cursor = "pointer";
+        btn.addEventListener("click", () => {
+          if (btn.classList.contains("abBtn")) {
+            const group = btn.closest(".abGroup");
+            if (group) {
+              Array.from(group.querySelectorAll(".abBtn")).forEach((peer) => peer.classList.toggle("active", peer === btn));
+              return;
+            }
+          }
+
+          const sidechainGroup = btn.classList.contains("scBtn") ? btn.closest(".sidechainBtns") : null;
+          if (sidechainGroup) {
+            const peers = Array.from(sidechainGroup.querySelectorAll(".scBtn")).filter((peer) => !hasDataBinding(peer));
+            if (peers.length > 1) {
+              peers.forEach((peer) => peer.classList.toggle("active", peer === btn));
+              return;
+            }
+          }
+
+          btn.classList.toggle("active");
+        });
+      });
+
+      const microSliders = Array.from(document.querySelectorAll(".microSlider"));
+      const sliderState = { active: null };
+
+      const clampSlider = (v) => clamp(v, 0, 100);
+      const getClientX = (ev) => {
+        if (ev && ev.touches && ev.touches.length) return ev.touches[0].clientX;
+        if (ev && ev.changedTouches && ev.changedTouches.length) return ev.changedTouches[0].clientX;
+        return ev && typeof ev.clientX === "number" ? ev.clientX : 0;
+      };
+
+      const findSliderReadout = (slider) => {
+        const scoped = slider.closest('.sidechainBlock, .crosstalkBlock');
+        return scoped ? scoped.querySelector('.mixAssistReadout, .crosstalkReadout') : null;
+      };
+
+      const updateMicroSlider = (slider, value) => {
+        const next = clampSlider(value);
+        slider.style.setProperty("--slider-pos", String(next));
+        slider.style.setProperty("--fill-end", `${next}%`);
+        slider.dataset.value = String(next);
+
+        const readout = findSliderReadout(slider);
+        if (readout) readout.textContent = `${Math.round(next)}%`;
+      };
+
+      const sliderValueFromEvent = (slider, ev) => {
+        const rect = slider.getBoundingClientRect();
+        const x = getClientX(ev);
+        if (rect.width <= 0) return Number(slider.dataset.value || "62");
+        return clampSlider(((x - rect.left) / rect.width) * 100);
+      };
+
+      microSliders.forEach((slider) => {
+        const readout = findSliderReadout(slider);
+        const initial = readout ? Number.parseFloat(readout.textContent) : 62;
+        updateMicroSlider(slider, Number.isFinite(initial) ? initial : 62);
+
+        slider.addEventListener("pointerdown", (ev) => {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          sliderState.active = slider;
+          updateMicroSlider(slider, sliderValueFromEvent(slider, ev));
+          if (ev.pointerId != null && typeof slider.setPointerCapture === "function") {
+            try { slider.setPointerCapture(ev.pointerId); } catch (_) {}
+          }
+        });
+
+        slider.addEventListener("mousedown", (ev) => {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          sliderState.active = slider;
+          updateMicroSlider(slider, sliderValueFromEvent(slider, ev));
+        });
+
+        slider.addEventListener("touchstart", (ev) => {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          sliderState.active = slider;
+          updateMicroSlider(slider, sliderValueFromEvent(slider, ev));
+        }, { passive: false });
+
+        slider.addEventListener("wheel", (ev) => {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          const direction = ev.deltaY > 0 ? -1 : 1;
+          const step = ev.shiftKey ? 0.6 : 2;
+          updateMicroSlider(slider, Number(slider.dataset.value || "62") + direction * step);
+        }, { passive: false });
+      });
+
+      const moveSlider = (ev) => {
+        if (!sliderState.active) return;
+        if (ev && ev.preventDefault) ev.preventDefault();
+        updateMicroSlider(sliderState.active, sliderValueFromEvent(sliderState.active, ev));
+      };
+
+      const endSlider = () => {
+        sliderState.active = null;
+      };
+
+      document.addEventListener("pointermove", moveSlider);
+      document.addEventListener("mousemove", moveSlider);
+      document.addEventListener("touchmove", moveSlider, { passive: false });
+      document.addEventListener("pointerup", endSlider);
+      document.addEventListener("mouseup", endSlider);
+      document.addEventListener("touchend", endSlider);
+      document.addEventListener("pointercancel", endSlider);
+      document.addEventListener("touchcancel", endSlider);
+
+      // EQ Node visibility management - passive hardware-inspired behavior
+      const eqNodeManager = (() => {
+        const FADE_OUT_DELAY = 400; // ms before fading out when gain returns to 0
+        const GAIN_THRESHOLD = 0.15; // dB threshold for considering band "active"
+        
+        const bands = [
+          { id: 'low', gainParam: 'eq_low', freqParam: 'eq_low_freq', touchClass: 'eq_low_control', fadeTimer: null },
+          { id: 'low_mid', gainParam: 'eq_low_mid', freqParam: 'eq_low_mid_freq', touchClass: 'eq_low_mid_control', fadeTimer: null },
+          { id: 'high_mid', gainParam: 'eq_high_mid', freqParam: 'eq_high_mid_freq', touchClass: 'eq_high_mid_control', fadeTimer: null },
+          { id: 'high', gainParam: 'eq_high', freqParam: 'eq_high_freq', touchClass: 'eq_high_control', fadeTimer: null },
+          { id: 'air', gainParam: 'eq_air', freqParam: 'eq_air_freq', touchClass: 'eq_air_control', fadeTimer: null }
+        ];
+        
+        const state = {
+          bandGains: { eq_low: 0, eq_low_mid: 0, eq_high_mid: 0, eq_high: 0, eq_air: 0 },
+          activeTouches: new Set(),
+          visibleBands: new Set()
+        };
+
+        const getNodes = (bandId) => {
+          return {
+            halo: document.querySelector(`.eqNodeHalo[data-band="${bandId}"]`),
+            node: document.querySelector(`.eqNode[data-band="${bandId}"]`)
+          };
+        };
+
+        const showNode = (bandId) => {
+          if (state.visibleBands.has(bandId)) return;
+          state.visibleBands.add(bandId);
+          const { halo, node } = getNodes(bandId);
+          if (halo) halo.classList.add('visible');
+          if (node) node.classList.add('visible');
+          
+          // Clear any pending fade-out for this band
+          const band = bands.find(b => b.id === bandId);
+          if (band && band.fadeTimer) {
+            clearTimeout(band.fadeTimer);
+            band.fadeTimer = null;
+          }
+        };
+
+        const scheduleNodeFade = (bandId) => {
+          const band = bands.find(b => b.id === bandId);
+          if (!band) return;
+          
+          // Clear existing timer
+          if (band.fadeTimer) clearTimeout(band.fadeTimer);
+          
+          // Schedule fade out
+          band.fadeTimer = setTimeout(() => {
+            if (state.visibleBands.has(bandId)) {
+              state.visibleBands.delete(bandId);
+              const { halo, node } = getNodes(bandId);
+              if (halo) halo.classList.remove('visible');
+              if (node) node.classList.remove('visible');
+            }
+            band.fadeTimer = null;
+          }, FADE_OUT_DELAY);
+        };
+
+        const updateBandVisibility = (bandId) => {
+          const band = bands.find(b => b.id === bandId);
+          if (!band) return;
+          
+          const gain = Math.abs(state.bandGains[band.gainParam] || 0);
+          const isTouched = state.activeTouches.has(band.gainParam) || state.activeTouches.has(band.freqParam);
+          
+          if (gain > GAIN_THRESHOLD || isTouched) {
+            showNode(bandId);
+          } else if (gain <= GAIN_THRESHOLD && !isTouched) {
+            scheduleNodeFade(bandId);
+          }
+        };
+
+        // Listen to gain parameter changes
+        bands.forEach((band) => {
+          addBackendListener(band.gainParam, (value) => {
+            state.bandGains[band.gainParam] = value;
+            updateBandVisibility(band.id);
+          });
+        });
+
+        // Track touch state on EQ knobs
+        const eqKnobs = document.querySelectorAll('[data-param^="eq_"]');
+        eqKnobs.forEach((knobWrap) => {
+          const paramId = knobWrap.dataset.param;
+          const knobEl = knobWrap.querySelector('.knob');
+          
+          if (knobEl) {
+            const handleTouchStart = () => {
+              state.activeTouches.add(paramId);
+              // Determine which band is being touched
+              const bandId = paramId.split('_').slice(1).join('_');
+              updateBandVisibility(bandId);
+            };
+            
+            const handleTouchEnd = () => {
+              state.activeTouches.delete(paramId);
+              const bandId = paramId.split('_').slice(1).join('_');
+              updateBandVisibility(bandId);
+            };
+            
+            knobEl.addEventListener('mousedown', handleTouchStart);
+            knobEl.addEventListener('touchstart', handleTouchStart);
+            knobEl.addEventListener('mouseup', handleTouchEnd);
+            knobEl.addEventListener('touchend', handleTouchEnd);
+            knobEl.addEventListener('mouseleave', handleTouchEnd);
+          }
+        });
+
+        return { showNode, scheduleNodeFade, updateBandVisibility };
+      })();
 
       const KNOB_MIN_DEG = -120;
       const KNOB_MAX_DEG = 120;
@@ -1916,13 +3148,39 @@
       }).filter(Boolean);
 
       const dragState = { active: null };
+      const ratioSteps = [1.5, 2, 4, 8, 10, 12];
+
+      const isRatioKnob = (entry) => entry && entry.knob && entry.knob.classList.contains("ratioKnob");
+      const ratioStepCount = ratioSteps.length - 1;
+      const ratioIndexFromValue = (value) => Math.round((clamp(value, 0, 100) / 100) * ratioStepCount);
+      const ratioValueFromIndex = (index) => (clamp(index, 0, ratioStepCount) / ratioStepCount) * 100;
+      const snapRatioValue = (value) => ratioValueFromIndex(ratioIndexFromValue(value));
 
       function updateKnobVisual(entry) {
+        if (isRatioKnob(entry)) {
+          entry.value = snapRatioValue(entry.value);
+        }
+
         const frac = clamp(entry.value, 0, 100) / 100;
         const angle = KNOB_MIN_DEG + frac * (KNOB_MAX_DEG - KNOB_MIN_DEG);
         const sweep = frac * ARC_TOTAL_DEG;
         entry.knob.style.transform = `rotate(${angle}deg)`;
         entry.container.style.setProperty("--arc-sweep", `${sweep.toFixed(2)}deg`);
+
+        if (entry.knobWrap.classList.contains("analogKnobControl")) {
+          const readout = entry.knobWrap.querySelector(":scope .analogReadout");
+          if (readout) readout.textContent = `${Math.round(entry.value)}%`;
+        }
+
+        if (isRatioKnob(entry)) {
+          const stepIndex = ratioIndexFromValue(entry.value);
+          const value = ratioSteps[stepIndex];
+          const readout = entry.knobWrap.querySelector(":scope .ratioReadout");
+          if (readout) readout.textContent = `${value}:1`;
+
+          const ticks = Array.from(entry.knobWrap.querySelectorAll(":scope .ratioTickLabels span"));
+          ticks.forEach((tick, idx) => tick.classList.toggle("active", idx === stepIndex));
+        }
       }
 
       function startDrag(entry, ev) {
@@ -1951,7 +3209,8 @@
 
         const delta = active.startY - getClientY(ev);
         const fine = ev && ev.shiftKey ? 0.25 : 1;
-        active.entry.value = clamp(active.startValue + delta * DRAG_SENSITIVITY * fine, 0, 100);
+        const nextValue = clamp(active.startValue + delta * DRAG_SENSITIVITY * fine, 0, 100);
+        active.entry.value = isRatioKnob(active.entry) ? snapRatioValue(nextValue) : nextValue;
         updateKnobVisual(active.entry);
       }
 
@@ -1971,9 +3230,16 @@
 
       function wheelAdjust(entry, ev) {
         if (ev && ev.preventDefault) ev.preventDefault();
-        const amount = ev && ev.shiftKey ? 0.15 : 1;
         const sign = ev && ev.deltaY > 0 ? -1 : 1;
-        entry.value = clamp(entry.value + sign * amount, 0, 100);
+
+        if (isRatioKnob(entry)) {
+          const nextIndex = ratioIndexFromValue(entry.value) + sign;
+          entry.value = ratioValueFromIndex(nextIndex);
+        } else {
+          const amount = ev && ev.shiftKey ? 0.15 : 1;
+          entry.value = clamp(entry.value + sign * amount, 0, 100);
+        }
+
         updateKnobVisual(entry);
       }
 

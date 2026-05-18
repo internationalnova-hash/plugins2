@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nova Console: Meter Gallery</title>
+  <link rel="stylesheet" href="index.html">
+  <style>
+    body { background: #181b1f; color: #c8d0e0; font-family: 'Avenir Next', 'Optima', 'Segoe UI', sans-serif; margin: 0; padding: 0; }
+    .galleryWrap { max-width: 900px; margin: 0 auto; padding: 32px 0 64px; }
+    h1 { font-size: 2.2em; margin-bottom: 0.2em; }
+    .meterGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 48px 32px; margin-top: 32px; }
+    .meterDemo { background: #23262b; border-radius: 16px; box-shadow: 0 4px 24px #000a, 0 0 0 1px #222; padding: 32px 24px 24px; display: flex; flex-direction: column; align-items: center; }
+    .meterLabel { margin-top: 18px; font-size: 1.1em; letter-spacing: 0.08em; color: #e0cfa0; text-shadow: 0 1px 0 #0008; }
+    .meterDemo .meter, .meterDemo .vu { margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div class="galleryWrap">
+    <h1>Nova Console: Meter Gallery</h1>
+    <div class="meterGrid">
+      <!-- Dots Meter -->
+      <div class="meterDemo">
+        <div class="meter dots">
+          <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div><div class="seg on"></div>
+        </div>
+        <div class="meterLabel">Dots Meter</div>
+      </div>
+      <!-- Dual PPM Meter -->
+      <div class="meterDemo">
+        <div class="meter dualPpm">
+          <div class="ppmReadout"><span>12</span><span>9</span><span>6</span><span>3</span><span>0</span></div>
+          <div class="ppmCol" data-band="L">
+            <div class="ppmMark">0</div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+            <div class="ppmMark">3</div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+            <div class="ppmMark">6</div><div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div>
+            <div class="ppmMark">9</div><div class="seg on y"></div><div class="seg on y"></div><div class="seg on y"></div><div class="seg on y"></div><div class="seg"></div>
+            <div class="ppmMark">12</div><div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div>
+          </div>
+          <div class="ppmCol" data-band="R">
+            <div class="ppmMark">0</div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+            <div class="ppmMark">3</div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+            <div class="ppmMark">6</div><div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div><div class="seg on g"></div>
+            <div class="ppmMark">9</div><div class="seg on y"></div><div class="seg on y"></div><div class="seg on y"></div><div class="seg on y"></div><div class="seg"></div>
+            <div class="ppmMark">12</div><div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div><div class="seg on r"></div>
+          </div>
+        </div>
+        <div class="meterLabel">Dual PPM Meter</div>
+      </div>
+      <!-- VU Meter -->
+      <div class="meterDemo">
+        <div class="vu"><div class="vuGlass"></div><div class="vuNeedle"></div><div class="vuPivot"></div></div>
+        <div class="meterLabel">VU Meter</div>
+      </div>
+    </div>
+    <p style="margin-top:48px;color:#b8b8b8;font-size:1em;max-width:600px;">This gallery shows all current Nova Console meter designs: Dots Meter, Dual PPM Meter, and VU Meter. Review for realism, clarity, and analog feel. Let me know which to refine or if you want new meter styles added.</p>
+  </div>
+</body>
+</html>

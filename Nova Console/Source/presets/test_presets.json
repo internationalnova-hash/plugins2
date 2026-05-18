@@ -1,0 +1,74 @@
+{
+  "presets": [
+    {
+      "name": "Drum Glue",
+      "parameters": {
+        "comp_threshold": 0.4,
+        "comp_ratio": 0.7,
+        "comp_attack": 0.2,
+        "comp_release": 0.5,
+        "comp_mix": 0.8,
+        "eq_low": 0.1,
+        "eq_high": 0.1,
+        "analog_heat": 0.3,
+        "output": 0.65
+      }
+    },
+    {
+      "name": "Vocal Console",
+      "parameters": {
+        "comp_threshold": 0.5,
+        "comp_ratio": 0.5,
+        "comp_attack": 0.3,
+        "comp_release": 0.6,
+        "eq_low_mid": 0.2,
+        "eq_high_mid": 0.3,
+        "analog_width": 0.5,
+        "output": 0.7
+      }
+    },
+    {
+      "name": "Analog Warmth",
+      "parameters": {
+        "analog_heat": 0.7,
+        "analog_depth": 0.5,
+        "analog_width": 0.4,
+        "drive": 0.5,
+        "output": 0.65
+      }
+    },
+    {
+      "name": "Mixbus",
+      "parameters": {
+        "comp_threshold": 0.6,
+        "comp_ratio": 0.6,
+        "comp_attack": 0.4,
+        "comp_release": 0.7,
+        "eq_low": 0.2,
+        "eq_high": 0.2,
+        "analog_heat": 0.4,
+        "output": 0.7
+      }
+    },
+    {
+      "name": "Aggressive Saturation",
+      "parameters": {
+        "drive": 0.9,
+        "analog_heat": 0.8,
+        "analog_width": 0.6,
+        "output": 0.65
+      }
+    },
+    {
+      "name": "Clean Console",
+      "parameters": {
+        "comp_threshold": 0.7,
+        "comp_ratio": 0.4,
+        "eq_low": 0.0,
+        "eq_high": 0.0,
+        "analog_heat": 0.0,
+        "output": 0.7
+      }
+    }
+  ]
+}
