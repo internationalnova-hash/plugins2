@@ -68,6 +68,7 @@ private:
         float centerWeight = 1.0f;
         float sideSoftness = 1.0f;
         float crosstalkBias = 1.0f;
+        float outputTrim = 1.0f;
     };
 
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

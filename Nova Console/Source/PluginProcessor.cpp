@@ -421,7 +421,7 @@ void NovaConsoleAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
     const int rawMode = juce::jlimit (0, 4, static_cast<int> (apvts.getRawParameterValue (modeId)->load()));
     modeFrom = static_cast<ConsoleMode> (rawMode);
     modeTo = modeFrom;
-    modeMorph.reset (sampleRate, 0.05);
+    modeMorph.reset (sampleRate, 0.035);
     modeMorph.setCurrentAndTargetValue (1.0f);
 
     updateLinearStageCoefficients();
@@ -464,6 +464,7 @@ NovaConsoleAudioProcessor::ModeProfile NovaConsoleAudioProcessor::profileForMode
             p.centerWeight = 0.98f;
             p.sideSoftness = 1.00f;
             p.crosstalkBias = 0.90f;
+            p.outputTrim = 1.00f;
             break;
 
         case ConsoleMode::british:
@@ -482,6 +483,7 @@ NovaConsoleAudioProcessor::ModeProfile NovaConsoleAudioProcessor::profileForMode
             p.centerWeight = 1.04f;
             p.sideSoftness = 0.96f;
             p.crosstalkBias = 1.08f;
+            p.outputTrim = 0.975f;
             break;
 
         case ConsoleMode::tubeTape:
@@ -500,6 +502,7 @@ NovaConsoleAudioProcessor::ModeProfile NovaConsoleAudioProcessor::profileForMode
             p.centerWeight = 1.01f;
             p.sideSoftness = 1.05f;
             p.crosstalkBias = 1.02f;
+            p.outputTrim = 0.955f;
             break;
 
         case ConsoleMode::gold:
@@ -518,6 +521,7 @@ NovaConsoleAudioProcessor::ModeProfile NovaConsoleAudioProcessor::profileForMode
             p.centerWeight = 1.00f;
             p.sideSoftness = 1.03f;
             p.crosstalkBias = 0.98f;
+            p.outputTrim = 0.97f;
             break;
 
         case ConsoleMode::modern:
@@ -536,6 +540,7 @@ NovaConsoleAudioProcessor::ModeProfile NovaConsoleAudioProcessor::profileForMode
             p.centerWeight = 0.97f;
             p.sideSoftness = 1.01f;
             p.crosstalkBias = 0.92f;
+                p.outputTrim = 0.985f;
             break;
     }
 
@@ -562,6 +567,7 @@ NovaConsoleAudioProcessor::ModeProfile NovaConsoleAudioProcessor::blendProfiles 
     p.centerWeight = juce::jmap (m, a.centerWeight, b.centerWeight);
     p.sideSoftness = juce::jmap (m, a.sideSoftness, b.sideSoftness);
     p.crosstalkBias = juce::jmap (m, a.crosstalkBias, b.crosstalkBias);
+    p.outputTrim = juce::jmap (m, a.outputTrim, b.outputTrim);
 
     return p;
 }
@@ -721,6 +727,10 @@ void NovaConsoleAudioProcessor::processPreamp (juce::AudioBuffer<float>& buffer,
 
             const float stageGain = 1.0f + driveNow * (3.2f + 1.2f * warmth - osRelief);
             const float asym = 0.025f + 0.08f * driveNow + 0.05f * profile.oddDrive;
+            const float clipDrive = juce::jlimit (0.85f, 1.2f, 1.0f / profile.clipSoftness);
+            const float oddW = 0.55f + 0.45f * profile.oddDrive;
+            const float evenW = 0.35f + 0.55f * profile.evenDrive;
+            const float satNorm = 1.0f / juce::jmax (0.35f, oddW + evenW);
 
             const float input = channelData[i] * stageGain;
             float x = 0.0f;
@@ -730,11 +740,10 @@ void NovaConsoleAudioProcessor::processPreamp (juce::AudioBuffer<float>& buffer,
             {
                 const float t = static_cast<float> (os + 1) / static_cast<float> (osFactor);
                 const float interp = previousIn + (input - previousIn) * t;
-                const float oddSat = saturateSmooth (interp + asym) - saturateSmooth (asym);
-                const float evenSat = 0.5f * (saturateSmooth ((interp + asym) * 0.92f)
-                                            + saturateSmooth ((interp - asym) * 0.92f));
-                const float mixedSat = oddSat * (0.55f + 0.45f * profile.oddDrive)
-                                     + evenSat * (0.35f + 0.55f * profile.evenDrive);
+                const float oddSat = saturateSmooth ((interp + asym) * clipDrive) - saturateSmooth (asym * clipDrive);
+                const float evenSat = 0.5f * (saturateSmooth ((interp + asym) * 0.92f * clipDrive)
+                                            + saturateSmooth ((interp - asym) * 0.92f * clipDrive));
+                const float mixedSat = (oddSat * oddW + evenSat * evenW) * satNorm;
                 x += mixedSat;
             }
 
@@ -1005,16 +1014,20 @@ void NovaConsoleAudioProcessor::processAnalogEngine (juce::AudioBuffer<float>& b
             const float driftMod = 1.0f + driftState[0] * drift * 0.003f;
 
             const float driven = data[i] * driftMod;
+            const float clipDrive = juce::jlimit (0.85f, 1.2f, 1.0f / profile.clipSoftness);
+            const float oddW = 0.55f + 0.4f * profile.oddDrive;
+            const float evenW = 0.35f + 0.5f * profile.evenDrive;
+            const float satNorm = 1.0f / juce::jmax (0.35f, oddW + evenW);
 
             float x = 0.0f;
             for (int os = 0; os < osFactor; ++os)
             {
                 const float t = static_cast<float> (os + 1) / static_cast<float> (osFactor);
                 const float interp = previousIn + (driven - previousIn) * t;
-                const float odd = saturateSmooth (interp * (1.0f + heat * (2.0f + warmth) * qualityScale * osScale));
-                const float even = 0.5f * (saturateSmooth ((interp + 0.03f) * (1.0f + heat * 1.6f))
-                                         + saturateSmooth ((interp - 0.03f) * (1.0f + heat * 1.6f)));
-                x += odd * (0.55f + 0.4f * profile.oddDrive) + even * (0.35f + 0.5f * profile.evenDrive);
+                const float odd = saturateSmooth (interp * (1.0f + heat * (2.0f + warmth) * qualityScale * osScale) * clipDrive);
+                const float even = 0.5f * (saturateSmooth ((interp + 0.03f) * (1.0f + heat * 1.6f) * clipDrive)
+                                         + saturateSmooth ((interp - 0.03f) * (1.0f + heat * 1.6f) * clipDrive));
+                x += (odd * oddW + even * evenW) * satNorm;
             }
 
             x /= static_cast<float> (osFactor);
@@ -1133,6 +1146,7 @@ void NovaConsoleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     const ModeProfile toProfile = profileForMode (modeTo);
     const float morphNow = modeMorph.skip (buffer.getNumSamples());
     const ModeProfile activeProfile = blendProfiles (fromProfile, toProfile, morphNow);
+    const float modeTrim = activeProfile.outputTrim;
 
     if (modeMorph.isSmoothing() == false)
         modeFrom = modeTo;
@@ -1180,6 +1194,7 @@ void NovaConsoleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         auto* data = buffer.getWritePointer (ch);
         for (int i = 0; i < buffer.getNumSamples(); ++i)
         {
+            data[i] = juce::jlimit (-1.35f, 1.35f, data[i] * modeTrim);
             data[i] *= outputSmoothed.getNextValue();
             outPeak = juce::jmax (outPeak, std::abs (data[i]));
         }
