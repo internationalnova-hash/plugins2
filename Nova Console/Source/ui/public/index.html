@@ -2656,7 +2656,22 @@
         const h = Math.max(1, vv ? vv.height : (window.innerHeight || targetH));
         const scale = Math.min(w / targetW, h / targetH, 1);
         const frame = document.querySelector(".frame");
-        if (frame) frame.style.zoom = String(Math.max(0.12, scale));
+        if (!frame) return;
+
+        const safeScale = Math.max(0.12, scale);
+        const supportsZoom = typeof CSS !== "undefined"
+          && typeof CSS.supports === "function"
+          && CSS.supports("zoom", "1");
+
+        if (supportsZoom) {
+          frame.style.zoom = String(safeScale);
+          frame.style.transform = "";
+          frame.style.transformOrigin = "";
+        } else {
+          frame.style.zoom = "";
+          frame.style.transformOrigin = "top left";
+          frame.style.transform = `scale(${safeScale})`;
+        }
       }
       window.addEventListener("resize", fitUi);
       if (window.visualViewport) window.visualViewport.addEventListener("resize", fitUi);
