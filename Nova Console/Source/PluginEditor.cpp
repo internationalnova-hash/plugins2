@@ -24,7 +24,8 @@ NovaConsoleAudioProcessorEditor::NovaConsoleAudioProcessorEditor (NovaConsoleAud
     filterOnAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("filter_on"), filterOnRelay, nullptr);
     hpfAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("hpf"), hpfRelay, nullptr);
     lpfAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("lpf"), lpfRelay, nullptr);
-    filterSlopeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("filter_slope"), filterSlopeRelay, nullptr);
+    hpfSlopeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("hpf_slope"), hpfSlopeRelay, nullptr);
+    lpfSlopeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("lpf_slope"), lpfSlopeRelay, nullptr);
 
     lowModeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("eq_low_mode"), lowModeRelay, nullptr);
     highModeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("eq_high_mode"), highModeRelay, nullptr);
@@ -133,7 +134,8 @@ juce::WebBrowserComponent::Options NovaConsoleAudioProcessorEditor::createWebOpt
                      .withOptionsFrom (editor.filterOnRelay)
                      .withOptionsFrom (editor.hpfRelay)
                      .withOptionsFrom (editor.lpfRelay)
-                     .withOptionsFrom (editor.filterSlopeRelay)
+                     .withOptionsFrom (editor.hpfSlopeRelay)
+                     .withOptionsFrom (editor.lpfSlopeRelay)
                      .withOptionsFrom (editor.lowModeRelay)
                      .withOptionsFrom (editor.highModeRelay)
                      .withOptionsFrom (editor.airModeRelay)
@@ -143,13 +145,26 @@ juce::WebBrowserComponent::Options NovaConsoleAudioProcessorEditor::createWebOpt
                      .withOptionsFrom (editor.compAttackRelay)
                      .withOptionsFrom (editor.compReleaseRelay)
                      .withOptionsFrom (editor.compMixRelay)
+                     .withOptionsFrom (editor.compMakeupRelay)
                      .withOptionsFrom (editor.compPunchRelay)
+                     .withOptionsFrom (editor.gateOnRelay)
+                     .withOptionsFrom (editor.gateThresholdRelay)
+                     .withOptionsFrom (editor.gateAttackRelay)
+                     .withOptionsFrom (editor.gateHoldRelay)
+                     .withOptionsFrom (editor.gateReleaseRelay)
+                     .withOptionsFrom (editor.gateRangeRelay)
                      .withOptionsFrom (editor.gateSmoothRelay)
                      .withOptionsFrom (editor.analogOnRelay)
                      .withOptionsFrom (editor.analogHeatRelay)
                      .withOptionsFrom (editor.analogDepthRelay)
                      .withOptionsFrom (editor.analogWidthRelay)
-                     .withOptionsFrom (editor.analogNoiseRelay);
+                     .withOptionsFrom (editor.analogDriftRelay)
+                     .withOptionsFrom (editor.analogCrosstalkRelay)
+                     .withOptionsFrom (editor.analogNoiseRelay)
+                     .withOptionsFrom (editor.smartGainRelay)
+                     .withOptionsFrom (editor.focusModeRelay)
+                     .withOptionsFrom (editor.mixAssistRelay)
+                     .withOptionsFrom (editor.sidechainModeRelay);
 
     return options;
 }

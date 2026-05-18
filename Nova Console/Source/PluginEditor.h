@@ -40,7 +40,8 @@ private:
     juce::WebSliderRelay filterOnRelay { "filter_on" };
     juce::WebSliderRelay hpfRelay { "hpf" };
     juce::WebSliderRelay lpfRelay { "lpf" };
-    juce::WebSliderRelay filterSlopeRelay { "filter_slope" };
+    juce::WebSliderRelay hpfSlopeRelay { "hpf_slope" };
+    juce::WebSliderRelay lpfSlopeRelay { "lpf_slope" };
     juce::WebSliderRelay lowModeRelay { "eq_low_mode" };
     juce::WebSliderRelay highModeRelay { "eq_high_mode" };
     juce::WebSliderRelay airModeRelay { "eq_air_mode" };
@@ -75,7 +76,7 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> modeAttachment, qualityAttachment, oversamplingAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> inputAttachment, outputAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> preampOnAttachment, driveAttachment, colorAttachment, trimAttachment;
-    std::unique_ptr<juce::WebSliderParameterAttachment> filterOnAttachment, hpfAttachment, lpfAttachment, filterSlopeAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> filterOnAttachment, hpfAttachment, lpfAttachment, hpfSlopeAttachment, lpfSlopeAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> lowModeAttachment, highModeAttachment, airModeAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> compOnAttachment, compThresholdAttachment, compRatioAttachment, compAttackAttachment, compReleaseAttachment, compMixAttachment, compMakeupAttachment, compPunchAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> gateOnAttachment, gateThresholdAttachment, gateAttackAttachment, gateHoldAttachment, gateReleaseAttachment, gateRangeAttachment, gateSmoothAttachment;
