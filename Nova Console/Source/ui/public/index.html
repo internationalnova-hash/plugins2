@@ -2694,6 +2694,9 @@
         : null;
 
       function emitParamValue(paramId, value) {
+        document.dispatchEvent(new CustomEvent("__nova_param_emit__", {
+          detail: { paramId, value }
+        }));
         if (!backend) return;
         backend.emitEvent(`__juce__slider${paramId}`, { eventType: "valueChanged", value });
       }
@@ -3078,6 +3081,32 @@
           visibleBands: new Set()
         };
 
+        const PARAM_TO_BAND = {
+          eq_low: 'low',
+          eq_low_freq: 'low',
+          eq_low_mid: 'low_mid',
+          eq_low_mid_freq: 'low_mid',
+          eq_high_mid: 'high_mid',
+          eq_high_mid_freq: 'high_mid',
+          eq_high: 'high',
+          eq_high_freq: 'high',
+          eq_air: 'air',
+          eq_air_freq: 'air'
+        };
+
+        const setNodeVisibility = (el, visible, targetOpacity) => {
+          if (!el) return;
+          if (visible) {
+            el.classList.add('visible');
+            // Inline SVG style fallback for host WebViews that intermittently ignore class-only updates.
+            el.style.opacity = String(targetOpacity);
+            el.style.visibility = 'visible';
+          } else {
+            el.classList.remove('visible');
+            el.style.opacity = '0';
+          }
+        };
+
         const getNodes = (bandId) => {
           return {
             halo: document.querySelector(`.eqNodeHalo[data-band="${bandId}"]`),
@@ -3089,8 +3118,8 @@
           if (state.visibleBands.has(bandId)) return;
           state.visibleBands.add(bandId);
           const { halo, node } = getNodes(bandId);
-          if (halo) halo.classList.add('visible');
-          if (node) node.classList.add('visible');
+          setNodeVisibility(halo, true, 1);
+          setNodeVisibility(node, true, 0.84);
           
           // Clear any pending fade-out for this band
           const band = bands.find(b => b.id === bandId);
@@ -3112,8 +3141,8 @@
             if (state.visibleBands.has(bandId)) {
               state.visibleBands.delete(bandId);
               const { halo, node } = getNodes(bandId);
-              if (halo) halo.classList.remove('visible');
-              if (node) node.classList.remove('visible');
+              setNodeVisibility(halo, false, 0);
+              setNodeVisibility(node, false, 0);
             }
             band.fadeTimer = null;
           }, FADE_OUT_DELAY);
@@ -3141,6 +3170,20 @@
           });
         });
 
+        // Also react to local UI emits so nodes still work if host backend callbacks are delayed/missing.
+        document.addEventListener("__nova_param_emit__", (event) => {
+          const detail = event && event.detail ? event.detail : null;
+          if (!detail || typeof detail.paramId !== "string" || typeof detail.value !== "number") return;
+          const bandId = PARAM_TO_BAND[detail.paramId];
+          if (!bandId) return;
+
+          if (detail.paramId in state.bandGains) {
+            state.bandGains[detail.paramId] = detail.value;
+          }
+          showNode(bandId);
+          updateBandVisibility(bandId);
+        });
+
         // Track touch state on EQ knobs
         const eqKnobs = document.querySelectorAll('[data-param^="eq_"]');
         eqKnobs.forEach((knobWrap) => {
@@ -3150,14 +3193,16 @@
           if (knobEl) {
             const handleTouchStart = () => {
               state.activeTouches.add(paramId);
-              // Determine which band is being touched
-              const bandId = paramId.split('_').slice(1).join('_');
+              const bandId = PARAM_TO_BAND[paramId];
+              if (!bandId) return;
+              showNode(bandId);
               updateBandVisibility(bandId);
             };
             
             const handleTouchEnd = () => {
               state.activeTouches.delete(paramId);
-              const bandId = paramId.split('_').slice(1).join('_');
+              const bandId = PARAM_TO_BAND[paramId];
+              if (!bandId) return;
               updateBandVisibility(bandId);
             };
             
@@ -3166,7 +3211,31 @@
             knobEl.addEventListener('mouseup', handleTouchEnd);
             knobEl.addEventListener('touchend', handleTouchEnd);
             knobEl.addEventListener('mouseleave', handleTouchEnd);
+
+            // Wheel interaction may not produce consistent touch/mouse-down sequences across hosts.
+            knobEl.addEventListener('wheel', () => {
+              const bandId = PARAM_TO_BAND[paramId];
+              if (!bandId) return;
+              showNode(bandId);
+              updateBandVisibility(bandId);
+            }, { passive: true });
           }
+
+          // Fallback: attach on wrapper too in case knob sub-layer is not the event target in embedded WebViews.
+          knobWrap.addEventListener('mousedown', () => {
+            const bandId = PARAM_TO_BAND[paramId];
+            if (!bandId) return;
+            state.activeTouches.add(paramId);
+            showNode(bandId);
+            updateBandVisibility(bandId);
+          });
+
+          knobWrap.addEventListener('mouseup', () => {
+            const bandId = PARAM_TO_BAND[paramId];
+            if (!bandId) return;
+            state.activeTouches.delete(paramId);
+            updateBandVisibility(bandId);
+          });
         });
 
         return { showNode, scheduleNodeFade, updateBandVisibility };
