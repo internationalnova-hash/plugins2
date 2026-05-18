@@ -3083,15 +3083,16 @@
         const GAIN_THRESHOLD = 0.15; // dB threshold for considering band "active"
         
         const bands = [
-          { id: 'low', gainParam: 'eq_low', freqParam: 'eq_low_freq', touchClass: 'eq_low_control', fadeTimer: null },
-          { id: 'low_mid', gainParam: 'eq_low_mid', freqParam: 'eq_low_mid_freq', touchClass: 'eq_low_mid_control', fadeTimer: null },
-          { id: 'high_mid', gainParam: 'eq_high_mid', freqParam: 'eq_high_mid_freq', touchClass: 'eq_high_mid_control', fadeTimer: null },
-          { id: 'high', gainParam: 'eq_high', freqParam: 'eq_high_freq', touchClass: 'eq_high_control', fadeTimer: null },
-          { id: 'air', gainParam: 'eq_air', freqParam: 'eq_air_freq', touchClass: 'eq_air_control', fadeTimer: null }
+          { id: 'low', gainParam: 'eq_low', freqParam: 'eq_low_freq', touchClass: 'eq_low_control', fadeTimer: null, freqMin: 35, freqMax: 180, gainMin: -12, gainMax: 12, defaultFreq: 60, defaultGain: 0 },
+          { id: 'low_mid', gainParam: 'eq_low_mid', freqParam: 'eq_low_mid_freq', touchClass: 'eq_low_mid_control', fadeTimer: null, freqMin: 180, freqMax: 1200, gainMin: -12, gainMax: 12, defaultFreq: 400, defaultGain: 0 },
+          { id: 'high_mid', gainParam: 'eq_high_mid', freqParam: 'eq_high_mid_freq', touchClass: 'eq_high_mid_control', fadeTimer: null, freqMin: 1000, freqMax: 7000, gainMin: -12, gainMax: 12, defaultFreq: 2400, defaultGain: 0 },
+          { id: 'high', gainParam: 'eq_high', freqParam: 'eq_high_freq', touchClass: 'eq_high_control', fadeTimer: null, freqMin: 3500, freqMax: 12000, gainMin: -12, gainMax: 12, defaultFreq: 8000, defaultGain: 0 },
+          { id: 'air', gainParam: 'eq_air', freqParam: 'eq_air_freq', touchClass: 'eq_air_control', fadeTimer: null, freqMin: 8000, freqMax: 18000, gainMin: -8, gainMax: 8, defaultFreq: 16000, defaultGain: 0 }
         ];
         
         const state = {
           bandGains: { eq_low: 0, eq_low_mid: 0, eq_high_mid: 0, eq_high: 0, eq_air: 0 },
+          bandFreqs: { eq_low_freq: 60, eq_low_mid_freq: 400, eq_high_mid_freq: 2400, eq_high_freq: 8000, eq_air_freq: 16000 },
           activeTouches: new Set(),
           visibleBands: new Set()
         };
@@ -3122,6 +3123,45 @@
           }
         };
 
+        const clampNum = (value, min, max) => Math.min(max, Math.max(min, value));
+        const logNorm = (value, min, max) => {
+          const safeMin = Math.max(1, min);
+          const safeMax = Math.max(safeMin + 1, max);
+          const safeValue = clampNum(value, safeMin, safeMax);
+          const denom = Math.log(safeMax / safeMin);
+          if (denom <= 1.0e-8) return 0;
+          return clampNum(Math.log(safeValue / safeMin) / denom, 0, 1);
+        };
+
+        const gainNorm = (value, min, max) => {
+          const safe = clampNum(value, min, max);
+          const range = Math.max(0.0001, max - min);
+          return (safe - min) / range;
+        };
+
+        const setNodePosition = (bandId) => {
+          const band = bands.find((b) => b.id === bandId);
+          if (!band) return;
+
+          const freqValue = state.bandFreqs[band.freqParam] != null ? state.bandFreqs[band.freqParam] : band.defaultFreq;
+          const gainValue = state.bandGains[band.gainParam] != null ? state.bandGains[band.gainParam] : band.defaultGain;
+
+          // Analog-style response: logarithmic frequency travel and gentle gain vertical excursion.
+          const x = 10 + logNorm(freqValue, band.freqMin, band.freqMax) * 82;
+          const centered = gainNorm(gainValue, band.gainMin, band.gainMax) - 0.5;
+          const y = clampNum(20 - centered * 16, 6, 34);
+
+          const { halo, node } = getNodes(bandId);
+          if (halo) {
+            halo.setAttribute('cx', x.toFixed(2));
+            halo.setAttribute('cy', y.toFixed(2));
+          }
+          if (node) {
+            node.setAttribute('cx', x.toFixed(2));
+            node.setAttribute('cy', y.toFixed(2));
+          }
+        };
+
         const getNodes = (bandId) => {
           return {
             halo: document.querySelector(`.eqNodeHalo[data-band="${bandId}"]`),
@@ -3132,6 +3172,7 @@
         const showNode = (bandId) => {
           if (state.visibleBands.has(bandId)) return;
           state.visibleBands.add(bandId);
+          setNodePosition(bandId);
           const { halo, node } = getNodes(bandId);
           setNodeVisibility(halo, true, 1);
           setNodeVisibility(node, true, 0.84);
@@ -3181,6 +3222,13 @@
         bands.forEach((band) => {
           addBackendListener(band.gainParam, (value) => {
             state.bandGains[band.gainParam] = value;
+            setNodePosition(band.id);
+            updateBandVisibility(band.id);
+          });
+
+          addBackendListener(band.freqParam, (value) => {
+            state.bandFreqs[band.freqParam] = value;
+            setNodePosition(band.id);
             updateBandVisibility(band.id);
           });
         });
@@ -3195,6 +3243,10 @@
           if (detail.paramId in state.bandGains) {
             state.bandGains[detail.paramId] = detail.value;
           }
+          if (detail.paramId in state.bandFreqs) {
+            state.bandFreqs[detail.paramId] = detail.value;
+          }
+          setNodePosition(bandId);
           showNode(bandId);
           updateBandVisibility(bandId);
         });
@@ -3277,6 +3329,9 @@
             updateBandVisibility(bandId);
           });
         });
+
+        // Initialize geometry once so first interaction always starts from valid node coordinates.
+        bands.forEach((band) => setNodePosition(band.id));
 
         return { showNode, scheduleNodeFade, updateBandVisibility };
       })();
