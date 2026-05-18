@@ -2694,9 +2694,17 @@
         : null;
 
       function emitParamValue(paramId, value) {
-        document.dispatchEvent(new CustomEvent("__nova_param_emit__", {
-          detail: { paramId, value }
-        }));
+        try {
+          if (typeof CustomEvent === "function") {
+            document.dispatchEvent(new CustomEvent("__nova_param_emit__", {
+              detail: { paramId, value }
+            }));
+          } else {
+            const evt = document.createEvent("CustomEvent");
+            evt.initCustomEvent("__nova_param_emit__", false, false, { paramId, value });
+            document.dispatchEvent(evt);
+          }
+        } catch (_) {}
         if (!backend) return;
         backend.emitEvent(`__juce__slider${paramId}`, { eventType: "valueChanged", value });
       }
@@ -2847,14 +2855,20 @@
 
             const handleMouseUp = () => {
               isDragging = false;
+              document.removeEventListener('pointermove', handleMouseMove);
               document.removeEventListener('mousemove', handleMouseMove);
               document.removeEventListener('touchmove', handleMouseMove);
+              document.removeEventListener('pointerup', handleMouseUp);
+              document.removeEventListener('pointercancel', handleMouseUp);
               document.removeEventListener('mouseup', handleMouseUp);
               document.removeEventListener('touchend', handleMouseUp);
             };
 
+            document.addEventListener('pointermove', handleMouseMove);
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('touchmove', handleMouseMove);
+            document.addEventListener('pointerup', handleMouseUp);
+            document.addEventListener('pointercancel', handleMouseUp);
             document.addEventListener('mouseup', handleMouseUp);
             document.addEventListener('touchend', handleMouseUp);
           };
@@ -2873,6 +2887,7 @@
             emitParamValue(paramId, nextValue);
           });
 
+          knobEl.addEventListener('pointerdown', handleMouseDown);
           knobEl.addEventListener('mousedown', handleMouseDown);
           knobEl.addEventListener('touchstart', handleMouseDown);
           knobEl.style.cursor = 'grab';
@@ -3207,8 +3222,11 @@
             };
             
             knobEl.addEventListener('mousedown', handleTouchStart);
+            knobEl.addEventListener('pointerdown', handleTouchStart);
             knobEl.addEventListener('touchstart', handleTouchStart);
             knobEl.addEventListener('mouseup', handleTouchEnd);
+            knobEl.addEventListener('pointerup', handleTouchEnd);
+            knobEl.addEventListener('pointercancel', handleTouchEnd);
             knobEl.addEventListener('touchend', handleTouchEnd);
             knobEl.addEventListener('mouseleave', handleTouchEnd);
 
@@ -3230,7 +3248,29 @@
             updateBandVisibility(bandId);
           });
 
+          knobWrap.addEventListener('pointerdown', () => {
+            const bandId = PARAM_TO_BAND[paramId];
+            if (!bandId) return;
+            state.activeTouches.add(paramId);
+            showNode(bandId);
+            updateBandVisibility(bandId);
+          });
+
           knobWrap.addEventListener('mouseup', () => {
+            const bandId = PARAM_TO_BAND[paramId];
+            if (!bandId) return;
+            state.activeTouches.delete(paramId);
+            updateBandVisibility(bandId);
+          });
+
+          knobWrap.addEventListener('pointerup', () => {
+            const bandId = PARAM_TO_BAND[paramId];
+            if (!bandId) return;
+            state.activeTouches.delete(paramId);
+            updateBandVisibility(bandId);
+          });
+
+          knobWrap.addEventListener('pointercancel', () => {
             const bandId = PARAM_TO_BAND[paramId];
             if (!bandId) return;
             state.activeTouches.delete(paramId);
