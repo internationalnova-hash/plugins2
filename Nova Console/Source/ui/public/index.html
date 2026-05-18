@@ -34,13 +34,19 @@
         radial-gradient(130% 95% at 50% 35%, #212327 0%, #14171b 42%, #0d0f12 72%, #07080a 100%);
     }
 
-    body { display: grid; place-items: center; }
+    body {
+      display: block;
+      margin: 0;
+      padding: 0;
+      --ui-scale: 1;
+      width: calc(1536px * var(--ui-scale));
+      height: calc(1005px * var(--ui-scale));
+      overflow: hidden;
+    }
 
     .viewport {
-      width: 100%;
-      height: 100%;
-      display: grid;
-      place-items: center;
+      width: calc(1536px * var(--ui-scale));
+      height: calc(1005px * var(--ui-scale));
       overflow: hidden;
     }
 
@@ -2690,30 +2696,16 @@
   <script>
     (() => {
       function fitUi() {
-        const targetW = 1536;
-        const targetH = 1005;
-        const vv = window.visualViewport;
-        const candidatesW = [
-          vv && Number.isFinite(vv.width) ? vv.width : null,
-          Number.isFinite(window.innerWidth) ? window.innerWidth : null,
-          document.documentElement && Number.isFinite(document.documentElement.clientWidth) ? document.documentElement.clientWidth : null
-        ].filter((v) => typeof v === "number" && v > 0);
-        const candidatesH = [
-          vv && Number.isFinite(vv.height) ? vv.height : null,
-          Number.isFinite(window.innerHeight) ? window.innerHeight : null,
-          document.documentElement && Number.isFinite(document.documentElement.clientHeight) ? document.documentElement.clientHeight : null
-        ].filter((v) => typeof v === "number" && v > 0);
-
-        const w = Math.max(1, candidatesW.length ? Math.min(...candidatesW) : targetW);
-        const h = Math.max(1, candidatesH.length ? Math.min(...candidatesH) : targetH);
-        const scale = Math.min(w / targetW, h / targetH, 1);
-        const frame = document.querySelector(".frame");
-        if (!frame) return;
-
+        const W = 1536;
+        const H = 1005;
+        const scale = Math.min(window.innerWidth / W, window.innerHeight / H, 1);
         const safeScale = Math.max(0.12, scale);
-        frame.style.zoom = "";
-        frame.style.transformOrigin = "50% 50%";
-        frame.style.transform = `translateZ(0) scale(${safeScale})`;
+        document.body.style.setProperty('--ui-scale', String(safeScale));
+        const frame = document.querySelector('.frame');
+        if (!frame) return;
+        frame.style.zoom = '';
+        frame.style.transform = `scale(${safeScale})`;
+        frame.style.transformOrigin = 'top left';
       }
       window.addEventListener("resize", fitUi);
       if (window.visualViewport) window.visualViewport.addEventListener("resize", fitUi);
