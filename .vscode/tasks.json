@@ -42,6 +42,40 @@
       "runOptions": {
         "runOn": "default"
       }
+    },
+    {
+      "label": "Nova Console: Start Live UI Preview",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        "set -e && cd /workspaces/plugins2/Nova\\ Console && if lsof -i:5501 -t >/dev/null 2>&1; then echo \"Preview server already running on port 5501.\"; else nohup python3 -m http.server 5501 >/tmp/nova-console-preview.log 2>&1 & echo \"Started preview server on port 5501.\"; fi && \"$BROWSER\" \"http://localhost:5501/Source/ui/public/index.html\" && echo \"Opened Nova Console live preview in browser.\""
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": [],
+      "runOptions": {
+        "runOn": "default"
+      }
+    },
+    {
+      "label": "Nova Console: Stop Live UI Preview",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        "if lsof -i:5501 -t >/dev/null 2>&1; then lsof -i:5501 -t | xargs -r kill && echo \"Stopped preview server on port 5501.\"; else echo \"No preview server running on port 5501.\"; fi"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": [],
+      "runOptions": {
+        "runOn": "default"
+      }
     }
   ]
 }

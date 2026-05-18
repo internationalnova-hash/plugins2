@@ -337,6 +337,7 @@
 
     .headerOutput .knob {
       width: 72px;
+      height: 72px;
     }
 
     .headerOutput .kLabel {
@@ -809,6 +810,7 @@
 
     .compPunchStack .knob {
       width: 62px;
+      height: 62px;
     }
 
     .compPunchStack .ratioControl {
@@ -1068,7 +1070,7 @@
       background: repeating-conic-gradient(from 205deg, rgba(224, 232, 244, 0.42) 0deg 0.6deg, transparent 0.6deg 28deg);
       opacity: 0.52;
     }
-    .eqKnobRow .knob.small { width: 58px; }
+    .eqKnobRow .knob.small { width: 58px; height: 58px; }
     .modeSelectorRow {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -1377,6 +1379,7 @@
       left: 50%;
       top: -10px;
       width: calc(100% + 22px);
+      height: calc(100% + 22px);
       aspect-ratio: 1;
       transform: translateX(-50%);
       border-radius: 50%;
@@ -1404,6 +1407,7 @@
       left: 50%;
       top: -10px;
       width: calc(100% + 18px);
+      height: calc(100% + 18px);
       aspect-ratio: 1;
       transform: translateX(-50%);
       border-radius: 50%;
@@ -1415,6 +1419,7 @@
 
     .knob {
       width: 82px;
+      height: 82px;
       aspect-ratio: 1;
       border-radius: 50%;
       border: 1px solid rgba(193, 207, 226, 0.24);
@@ -1456,6 +1461,7 @@
 
     .inputBody .knob.large {
       width: 106px;
+      height: 106px;
       box-shadow:
         inset 0 2px 3px rgba(255, 236, 201, 0.2),
         inset 0 -14px 20px rgba(0, 0, 0, 0.7),
@@ -1473,6 +1479,7 @@
 
     .preampBody .knob {
       width: 92px;
+      height: 92px;
     }
 
     .preampBody .knobWrap > div::before {
@@ -1488,6 +1495,7 @@
       left: 50%;
       top: -10px;
       width: calc(100% + 22px);
+      height: calc(100% + 22px);
       aspect-ratio: 1;
       transform: translateX(-50%);
       border-radius: 50%;
@@ -1558,8 +1566,8 @@
       letter-spacing: 0.12em;
     }
 
-    .knob.large { width: 114px; }
-    .knob.small { width: 68px; }
+    .knob.large { width: 114px; height: 114px; }
+    .knob.small { width: 68px; height: 68px; }
 
     .knob::before {
       content: "";
@@ -1960,7 +1968,7 @@
       box-shadow: 0 0 4px rgba(163, 181, 207, 0.18);
     }
 
-    .driftStage .knob.small { width: 62px; }
+    .driftStage .knob.small { width: 62px; height: 62px; }
     .driftStage .kLabel {
       margin-top: 4px;
       min-height: 14px;
@@ -2044,7 +2052,7 @@
       box-shadow: 0 0 1px rgba(184, 138, 78, 0.12);
     }
 
-    .gateBody .knob.small { width: 82px; }
+    .gateBody .knob.small { width: 82px; height: 82px; }
 
     .gateModeStack {
       display: grid;
@@ -2083,6 +2091,7 @@
       left: 50%;
       top: -10px;
       width: calc(100% + 22px);
+      height: calc(100% + 22px);
       aspect-ratio: 1;
       transform: translateX(-50%);
       border-radius: 50%;
@@ -2103,7 +2112,7 @@
       box-shadow: 0 0 4px rgba(175, 191, 214, 0.09);
     }
 
-    .outputStage .knob { width: 88px; }
+    .outputStage .knob { width: 88px; height: 88px; }
 
     .outputStage .kLabel {
       letter-spacing: 0.16em;
@@ -2113,6 +2122,7 @@
 
     .analogGrid .knobWrap:nth-child(2) .knob.small {
       width: 80px;
+      height: 80px;
       box-shadow:
         inset 0 2px 3px rgba(255, 236, 201, 0.28),
         inset 0 -15px 20px rgba(0, 0, 0, 0.64),
@@ -2124,6 +2134,7 @@
 
     .analogGrid .knobWrap:last-child .knob {
       width: 88px;
+      height: 88px;
       box-shadow:
         inset 0 2px 3px rgba(255, 238, 204, 0.3),
         inset 0 -16px 22px rgba(0, 0, 0, 0.66),
@@ -2246,6 +2257,7 @@
 
     .driftUtilityBtns .knob.small {
       width: 44px;
+      height: 44px;
     }
 
     .driftUtilityBtns .kLabel {
@@ -3172,8 +3184,8 @@
       };
 
       const knobs = Array.from(document.querySelectorAll(".knobWrap")).map((knobWrap) => {
-        const container = knobWrap.querySelector(":scope > div");
-        const knob = knobWrap.querySelector(":scope .knob");
+        const container = knobWrap.firstElementChild;
+        const knob = knobWrap.querySelector(".knob");
         if (!container || !knob) return null;
         return { knobWrap, container, knob, value: 50 };
       }).filter(Boolean);
@@ -3199,17 +3211,17 @@
         entry.container.style.setProperty("--arc-sweep", `${sweep.toFixed(2)}deg`);
 
         if (entry.knobWrap.classList.contains("analogKnobControl")) {
-          const readout = entry.knobWrap.querySelector(":scope .analogReadout");
+          const readout = entry.knobWrap.querySelector(".analogReadout");
           if (readout) readout.textContent = `${Math.round(entry.value)}%`;
         }
 
         if (isRatioKnob(entry)) {
           const stepIndex = ratioIndexFromValue(entry.value);
           const value = ratioSteps[stepIndex];
-          const readout = entry.knobWrap.querySelector(":scope .ratioReadout");
+          const readout = entry.knobWrap.querySelector(".ratioReadout");
           if (readout) readout.textContent = `${value}:1`;
 
-          const ticks = Array.from(entry.knobWrap.querySelectorAll(":scope .ratioTickLabels span"));
+          const ticks = Array.from(entry.knobWrap.querySelectorAll(".ratioTickLabels span"));
           ticks.forEach((tick, idx) => tick.classList.toggle("active", idx === stepIndex));
         }
       }

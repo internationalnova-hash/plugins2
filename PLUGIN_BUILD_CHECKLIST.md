@@ -133,6 +133,20 @@ High-value validation pass before shipping:
 - Reload plugin instance and verify knob states restore correctly.
 - Switch presets/modes and ensure knobs stay synced.
 
+Knob UX parity checks (match existing Nova plugin behavior):
+
+- Drag model matches repo standard: vertical drag where up increases and down decreases.
+- Use the same pointer lifecycle pattern as existing plugins:
+  - `pointerdown` start gesture
+  - `pointermove` update value
+  - `pointerup`/`pointercancel` end gesture
+- Do not replace static knob labels with live percentages during drag.
+- If a colored outer arc is used, it must be value-driven fill/progress, not full wrapper rotation.
+- Arc color rules remain semantic:
+  - Drive arc = amber
+  - Filter and Gate threshold/range arcs = green
+- Verify wheel and fine-adjust behavior (`Shift`) are consistent with other Nova plugins when enabled.
+
 Known failure patterns to catch early:
 
 - UI knob renders but has no pointer drag handler.
