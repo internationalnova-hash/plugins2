@@ -1262,7 +1262,8 @@
       stroke-width: 0.19;
       filter: none;
       opacity: 0;
-      transition: opacity 0.3s ease-out;
+      transform-origin: center;
+      transition: opacity 0.3s ease-out, filter 0.22s ease-out;
     }
 
     .eqNode.visible {
@@ -1274,11 +1275,39 @@
       stroke: rgba(255, 219, 165, 0.1);
       stroke-width: 0.04;
       opacity: 0;
-      transition: opacity 0.3s ease-out;
+      transition: opacity 0.3s ease-out, stroke 0.24s ease-out, fill 0.24s ease-out;
     }
 
     .eqNodeHalo.visible {
       opacity: 1;
+    }
+
+    .eqNode.focused {
+      fill: rgba(231, 212, 184, 0.94);
+      filter: drop-shadow(0 0 1.8px rgba(225, 183, 124, 0.36));
+    }
+
+    .eqNodeHalo.focused {
+      fill: rgba(248, 216, 167, 0.14);
+      stroke: rgba(248, 216, 167, 0.3);
+    }
+
+    .eqQOverlayBand {
+      fill: none;
+      stroke: rgba(235, 204, 158, 0.56);
+      stroke-width: 0.16;
+      opacity: 0;
+      transition: opacity 0.24s ease-out, rx 0.14s ease-out, ry 0.14s ease-out;
+      pointer-events: none;
+    }
+
+    .eqQOverlayRing {
+      fill: none;
+      stroke: rgba(236, 210, 176, 0.46);
+      stroke-width: 0.12;
+      opacity: 0;
+      transition: opacity 0.24s ease-out;
+      pointer-events: none;
     }
 
     @keyframes eqPulse {
@@ -3080,20 +3109,102 @@
 
       // EQ Node visibility management - passive hardware-inspired behavior
       const eqNodeManager = (() => {
-        const FADE_OUT_DELAY = 400; // ms before fading out when gain returns to 0
-        const GAIN_THRESHOLD = 0.15; // dB threshold for considering band "active"
-        
+        const FADE_OUT_DELAY = 400;
+        const FOCUS_TIMEOUT_MS = 2600;
+        const GAIN_THRESHOLD = 0.15;
+
         const bands = [
-          { id: 'low', gainParam: 'eq_low', freqParam: 'eq_low_freq', touchClass: 'eq_low_control', fadeTimer: null, freqMin: 35, freqMax: 180, gainMin: -12, gainMax: 12, defaultFreq: 60, defaultGain: 0 },
-          { id: 'low_mid', gainParam: 'eq_low_mid', freqParam: 'eq_low_mid_freq', touchClass: 'eq_low_mid_control', fadeTimer: null, freqMin: 180, freqMax: 1200, gainMin: -12, gainMax: 12, defaultFreq: 400, defaultGain: 0 },
-          { id: 'high_mid', gainParam: 'eq_high_mid', freqParam: 'eq_high_mid_freq', touchClass: 'eq_high_mid_control', fadeTimer: null, freqMin: 1000, freqMax: 7000, gainMin: -12, gainMax: 12, defaultFreq: 2400, defaultGain: 0 },
-          { id: 'high', gainParam: 'eq_high', freqParam: 'eq_high_freq', touchClass: 'eq_high_control', fadeTimer: null, freqMin: 3500, freqMax: 12000, gainMin: -12, gainMax: 12, defaultFreq: 8000, defaultGain: 0 },
-          { id: 'air', gainParam: 'eq_air', freqParam: 'eq_air_freq', touchClass: 'eq_air_control', fadeTimer: null, freqMin: 8000, freqMax: 18000, gainMin: -8, gainMax: 8, defaultFreq: 16000, defaultGain: 0 }
+          {
+            id: 'low',
+            gainParam: 'eq_low',
+            freqParam: 'eq_low_freq',
+            qParam: 'eq_low_q',
+            modeParam: 'eq_low_mode',
+            fadeTimer: null,
+            freqMin: 35,
+            freqMax: 180,
+            gainMin: -12,
+            gainMax: 12,
+            qMin: 0.4,
+            qMax: 1.4,
+            defaultFreq: 60,
+            defaultGain: 0,
+            defaultQ: 0.62
+          },
+          {
+            id: 'low_mid',
+            gainParam: 'eq_low_mid',
+            freqParam: 'eq_low_mid_freq',
+            qParam: 'eq_low_mid_q',
+            fadeTimer: null,
+            freqMin: 180,
+            freqMax: 1200,
+            gainMin: -12,
+            gainMax: 12,
+            qMin: 0.35,
+            qMax: 2.5,
+            defaultFreq: 400,
+            defaultGain: 0,
+            defaultQ: 0.8
+          },
+          {
+            id: 'high_mid',
+            gainParam: 'eq_high_mid',
+            freqParam: 'eq_high_mid_freq',
+            qParam: 'eq_high_mid_q',
+            fadeTimer: null,
+            freqMin: 1000,
+            freqMax: 7000,
+            gainMin: -12,
+            gainMax: 12,
+            qMin: 0.35,
+            qMax: 2.5,
+            defaultFreq: 2400,
+            defaultGain: 0,
+            defaultQ: 0.85
+          },
+          {
+            id: 'high',
+            gainParam: 'eq_high',
+            freqParam: 'eq_high_freq',
+            qParam: 'eq_high_q',
+            modeParam: 'eq_high_mode',
+            fadeTimer: null,
+            freqMin: 3500,
+            freqMax: 12000,
+            gainMin: -12,
+            gainMax: 12,
+            qMin: 0.4,
+            qMax: 1.4,
+            defaultFreq: 8000,
+            defaultGain: 0,
+            defaultQ: 0.7
+          },
+          {
+            id: 'air',
+            gainParam: 'eq_air',
+            freqParam: 'eq_air_freq',
+            qParam: 'eq_air_q',
+            modeParam: 'eq_air_mode',
+            fadeTimer: null,
+            freqMin: 8000,
+            freqMax: 18000,
+            gainMin: -8,
+            gainMax: 8,
+            qMin: 0.4,
+            qMax: 1.4,
+            defaultFreq: 16000,
+            defaultGain: 0,
+            defaultQ: 0.75
+          }
         ];
-        
+
         const state = {
           bandGains: { eq_low: 0, eq_low_mid: 0, eq_high_mid: 0, eq_high: 0, eq_air: 0 },
           bandFreqs: { eq_low_freq: 60, eq_low_mid_freq: 400, eq_high_mid_freq: 2400, eq_high_freq: 8000, eq_air_freq: 16000 },
+          bandQs: { eq_low_q: 0.62, eq_low_mid_q: 0.8, eq_high_mid_q: 0.85, eq_high_q: 0.7, eq_air_q: 0.75 },
+          bandQTargets: { eq_low_q: 0.62, eq_low_mid_q: 0.8, eq_high_mid_q: 0.85, eq_high_q: 0.7, eq_air_q: 0.75 },
+          bandModes: { eq_low_mode: 0, eq_high_mode: 0, eq_air_mode: 0 },
           bandCoords: {
             low: { x: 28, y: 20 },
             low_mid: { x: 33, y: 20 },
@@ -3102,36 +3213,58 @@
             air: { x: 91, y: 20 }
           },
           activeTouches: new Set(),
-          visibleBands: new Set()
+          visibleBands: new Set(),
+          focusedBandId: null,
+          focusTimer: null,
+          qAnimFrame: null,
+          qDrag: null
         };
 
         const PARAM_TO_BAND = {
           eq_low: 'low',
           eq_low_freq: 'low',
+          eq_low_q: 'low',
+          eq_low_mode: 'low',
           eq_low_mid: 'low_mid',
           eq_low_mid_freq: 'low_mid',
+          eq_low_mid_q: 'low_mid',
           eq_high_mid: 'high_mid',
           eq_high_mid_freq: 'high_mid',
+          eq_high_mid_q: 'high_mid',
           eq_high: 'high',
           eq_high_freq: 'high',
+          eq_high_q: 'high',
+          eq_high_mode: 'high',
           eq_air: 'air',
-          eq_air_freq: 'air'
+          eq_air_freq: 'air',
+          eq_air_q: 'air',
+          eq_air_mode: 'air'
         };
 
-        const setNodeVisibility = (el, visible, targetOpacity) => {
-          if (!el) return;
-          if (visible) {
-            el.classList.add('visible');
-            // Inline SVG style fallback for host WebViews that intermittently ignore class-only updates.
-            el.style.opacity = String(targetOpacity);
-            el.style.visibility = 'visible';
-          } else {
-            el.classList.remove('visible');
-            el.style.opacity = '0';
-          }
-        };
+        const eqDisplay = document.querySelector('.eqDisplay');
+        const eqSvg = document.querySelector('.eqSvg');
+        const qOverlayBand = eqSvg ? document.createElementNS('http://www.w3.org/2000/svg', 'ellipse') : null;
+        const qOverlayRing = eqSvg ? document.createElementNS('http://www.w3.org/2000/svg', 'circle') : null;
+
+        if (qOverlayBand && qOverlayRing && eqSvg) {
+          qOverlayBand.setAttribute('class', 'eqQOverlayBand');
+          qOverlayBand.setAttribute('cx', '50');
+          qOverlayBand.setAttribute('cy', '20');
+          qOverlayBand.setAttribute('rx', '8');
+          qOverlayBand.setAttribute('ry', '2.2');
+
+          qOverlayRing.setAttribute('class', 'eqQOverlayRing');
+          qOverlayRing.setAttribute('cx', '50');
+          qOverlayRing.setAttribute('cy', '20');
+          qOverlayRing.setAttribute('r', '1.5');
+
+          eqSvg.appendChild(qOverlayBand);
+          eqSvg.appendChild(qOverlayRing);
+        }
 
         const clampNum = (value, min, max) => Math.min(max, Math.max(min, value));
+        const getBand = (bandId) => bands.find((b) => b.id === bandId) || null;
+
         const logNorm = (value, min, max) => {
           const safeMin = Math.max(1, min);
           const safeMax = Math.max(safeMin + 1, max);
@@ -3147,14 +3280,167 @@
           return (safe - min) / range;
         };
 
+        const qNorm = (band, qValue) => {
+          if (!band) return 0;
+          return gainNorm(qValue, band.qMin, band.qMax);
+        };
+
+        const getNodes = (bandId) => ({
+          halo: document.querySelector(`.eqNodeHalo[data-band="${bandId}"]`),
+          node: document.querySelector(`.eqNode[data-band="${bandId}"]`)
+        });
+
+        const clearFocusTimer = () => {
+          if (!state.focusTimer) return;
+          clearTimeout(state.focusTimer);
+          state.focusTimer = null;
+        };
+
+        const setNodeVisibility = (el, visible, targetOpacity) => {
+          if (!el) return;
+          if (visible) {
+            el.classList.add('visible');
+            el.style.opacity = String(targetOpacity);
+            el.style.visibility = 'visible';
+          } else {
+            el.classList.remove('visible');
+            el.style.opacity = '0';
+          }
+        };
+
+        const setFocusedVisual = (bandId, focused) => {
+          const { halo, node } = getNodes(bandId);
+          if (!node || !halo) return;
+          node.classList.toggle('focused', focused);
+          halo.classList.toggle('focused', focused);
+          node.setAttribute('r', focused ? '0.78' : '0.72');
+          halo.setAttribute('r', focused ? '1.35' : '1.2');
+        };
+
+        const updateQOverlay = () => {
+          if (!qOverlayBand || !qOverlayRing) return;
+
+          const focusedBand = getBand(state.focusedBandId);
+          if (!focusedBand || !state.visibleBands.has(focusedBand.id)) {
+            qOverlayBand.style.opacity = '0';
+            qOverlayRing.style.opacity = '0';
+            return;
+          }
+
+          const coord = state.bandCoords[focusedBand.id] || { x: 50, y: 20 };
+          const qValue = state.bandQs[focusedBand.qParam] != null ? state.bandQs[focusedBand.qParam] : focusedBand.defaultQ;
+          const qWide = 1 - qNorm(focusedBand, qValue);
+
+          const rx = 3.8 + qWide * 11.2;
+          const ry = 0.9 + qWide * 1.9;
+
+          qOverlayBand.setAttribute('cx', coord.x.toFixed(2));
+          qOverlayBand.setAttribute('cy', coord.y.toFixed(2));
+          qOverlayBand.setAttribute('rx', rx.toFixed(2));
+          qOverlayBand.setAttribute('ry', ry.toFixed(2));
+
+          qOverlayRing.setAttribute('cx', coord.x.toFixed(2));
+          qOverlayRing.setAttribute('cy', coord.y.toFixed(2));
+          qOverlayRing.setAttribute('r', '1.56');
+
+          qOverlayBand.style.opacity = '1';
+          qOverlayRing.style.opacity = '1';
+        };
+
+        const renderCurve = () => {
+          const mainPath = document.querySelector('.eqPathMain');
+          const glowPath = document.querySelector('.eqPathGlow');
+          if (!mainPath && !glowPath) return;
+
+          const baseY = 20;
+          const points = [];
+
+          for (let x = 0; x <= 100; x += 1.35) {
+            let y = baseY;
+
+            bands.forEach((band) => {
+              const gain = state.bandGains[band.gainParam] != null ? state.bandGains[band.gainParam] : 0;
+              if (Math.abs(gain) < 0.01) return;
+
+              const coord = state.bandCoords[band.id] || { x: 50, y: baseY };
+              const qValue = state.bandQs[band.qParam] != null ? state.bandQs[band.qParam] : band.defaultQ;
+              const qN = qNorm(band, qValue);
+              const modeValue = typeof band.modeParam === 'string' ? Math.round(state.bandModes[band.modeParam] || 0) : 1;
+
+              const width = modeValue === 0
+                ? 14.5 - qN * 4.5
+                : 16.5 - qN * 12.5;
+              const dx = x - coord.x;
+              const bell = Math.exp(-(dx * dx) / (2 * width * width));
+              const shelfShape = modeValue === 0
+                ? 0.5 + 0.5 * Math.tanh(dx / (width * 1.3))
+                : 0;
+
+              const yDelta = (baseY - coord.y);
+              const contribution = modeValue === 0 && (band.id === 'low' || band.id === 'high' || band.id === 'air')
+                ? yDelta * shelfShape
+                : yDelta * bell;
+
+              y += contribution;
+            });
+
+            points.push({ x, y: clampNum(y, 4.5, 35.5) });
+          }
+
+          if (!points.length) return;
+          let d = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+          for (let i = 1; i < points.length; i += 1) {
+            d += ` L ${points[i].x.toFixed(2)} ${points[i].y.toFixed(2)}`;
+          }
+
+          if (mainPath) mainPath.setAttribute('d', d);
+          if (glowPath) glowPath.setAttribute('d', d);
+        };
+
+        const ensureQAnimator = () => {
+          if (state.qAnimFrame != null) return;
+
+          const tick = () => {
+            let changed = false;
+            bands.forEach((band) => {
+              const param = band.qParam;
+              const current = state.bandQs[param];
+              const target = state.bandQTargets[param];
+              const next = current + (target - current) * 0.24;
+              if (Math.abs(target - current) > 0.0006) {
+                state.bandQs[param] = next;
+                changed = true;
+              } else {
+                state.bandQs[param] = target;
+              }
+            });
+
+            if (changed) {
+              renderCurve();
+              updateQOverlay();
+              state.qAnimFrame = requestAnimationFrame(tick);
+            } else {
+              state.qAnimFrame = null;
+            }
+          };
+
+          state.qAnimFrame = requestAnimationFrame(tick);
+        };
+
+        const armFocusTimeout = () => {
+          clearFocusTimer();
+          state.focusTimer = setTimeout(() => {
+            setFocusedBand(null);
+          }, FOCUS_TIMEOUT_MS);
+        };
+
         const setNodePosition = (bandId) => {
-          const band = bands.find((b) => b.id === bandId);
+          const band = getBand(bandId);
           if (!band) return;
 
           const freqValue = state.bandFreqs[band.freqParam] != null ? state.bandFreqs[band.freqParam] : band.defaultFreq;
           const gainValue = state.bandGains[band.gainParam] != null ? state.bandGains[band.gainParam] : band.defaultGain;
 
-          // Analog-style response: logarithmic frequency travel and gentle gain vertical excursion.
           const x = 10 + logNorm(freqValue, band.freqMin, band.freqMax) * 82;
           const centered = gainNorm(gainValue, band.gainMin, band.gainMax) - 0.5;
           const y = clampNum(20 - centered * 16, 6, 34);
@@ -3172,50 +3458,48 @@
           }
 
           renderCurve();
+          updateQOverlay();
         };
 
-        const renderCurve = () => {
-          const mainPath = document.querySelector('.eqPathMain');
-          const glowPath = document.querySelector('.eqPathGlow');
-          if (!mainPath && !glowPath) return;
-
-          const baseY = 20;
-          const anchors = [
-            { x: 0, y: baseY },
-            state.bandCoords.low || { x: 28, y: baseY },
-            state.bandCoords.low_mid || { x: 33, y: baseY },
-            state.bandCoords.high_mid || { x: 54, y: baseY },
-            state.bandCoords.high || { x: 80, y: baseY },
-            state.bandCoords.air || { x: 91, y: baseY },
-            { x: 100, y: baseY }
-          ].sort((a, b) => a.x - b.x);
-
-          let d = `M ${anchors[0].x.toFixed(2)} ${anchors[0].y.toFixed(2)}`;
-          const tension = 0.88;
-
-          for (let i = 0; i < anchors.length - 1; i += 1) {
-            const p0 = anchors[i - 1] || anchors[i];
-            const p1 = anchors[i];
-            const p2 = anchors[i + 1];
-            const p3 = anchors[i + 2] || p2;
-
-            const cp1x = p1.x + ((p2.x - p0.x) / 6) * tension;
-            const cp1y = p1.y + ((p2.y - p0.y) / 6) * tension;
-            const cp2x = p2.x - ((p3.x - p1.x) / 6) * tension;
-            const cp2y = p2.y - ((p3.y - p1.y) / 6) * tension;
-
-            d += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+        const setFocusedBand = (bandId) => {
+          if (state.focusedBandId === bandId) {
+            if (bandId) armFocusTimeout();
+            return;
           }
 
-          if (mainPath) mainPath.setAttribute('d', d);
-          if (glowPath) glowPath.setAttribute('d', d);
+          if (state.focusedBandId) {
+            setFocusedVisual(state.focusedBandId, false);
+          }
+
+          state.focusedBandId = bandId;
+
+          if (!bandId) {
+            clearFocusTimer();
+            updateQOverlay();
+            return;
+          }
+
+          showNode(bandId);
+          setFocusedVisual(bandId, true);
+          updateQOverlay();
+          armFocusTimeout();
         };
 
-        const getNodes = (bandId) => {
-          return {
-            halo: document.querySelector(`.eqNodeHalo[data-band="${bandId}"]`),
-            node: document.querySelector(`.eqNode[data-band="${bandId}"]`)
-          };
+        const applyQDelta = (bandId, wheelDelta, coarse = false) => {
+          const band = getBand(bandId);
+          if (!band) return;
+
+          const dir = wheelDelta < 0 ? 1 : -1;
+          const step = (band.qMax - band.qMin) * (coarse ? 0.045 : 0.024);
+          const currentTarget = state.bandQTargets[band.qParam];
+          const next = clampNum(currentTarget + dir * step, band.qMin, band.qMax);
+
+          state.bandQTargets[band.qParam] = next;
+          emitParamValue(band.qParam, next);
+          ensureQAnimator();
+          showNode(band.id);
+          setFocusedBand(band.id);
+          armFocusTimeout();
         };
 
         const showNode = (bandId) => {
@@ -3225,9 +3509,8 @@
           const { halo, node } = getNodes(bandId);
           setNodeVisibility(halo, true, 1);
           setNodeVisibility(node, true, 0.84);
-          
-          // Clear any pending fade-out for this band
-          const band = bands.find(b => b.id === bandId);
+
+          const band = getBand(bandId);
           if (band && band.fadeTimer) {
             clearTimeout(band.fadeTimer);
             band.fadeTimer = null;
@@ -3235,14 +3518,13 @@
         };
 
         const scheduleNodeFade = (bandId) => {
-          const band = bands.find(b => b.id === bandId);
+          const band = getBand(bandId);
           if (!band) return;
-          
-          // Clear existing timer
+
           if (band.fadeTimer) clearTimeout(band.fadeTimer);
-          
-          // Schedule fade out
+
           band.fadeTimer = setTimeout(() => {
+            if (state.focusedBandId === bandId) return;
             if (state.visibleBands.has(bandId)) {
               state.visibleBands.delete(bandId);
               const { halo, node } = getNodes(bandId);
@@ -3254,20 +3536,19 @@
         };
 
         const updateBandVisibility = (bandId) => {
-          const band = bands.find(b => b.id === bandId);
+          const band = getBand(bandId);
           if (!band) return;
-          
+
           const gain = Math.abs(state.bandGains[band.gainParam] || 0);
           const isTouched = state.activeTouches.has(band.gainParam) || state.activeTouches.has(band.freqParam);
-          
-          if (gain > GAIN_THRESHOLD || isTouched) {
+
+          if (gain > GAIN_THRESHOLD || isTouched || state.focusedBandId === bandId) {
             showNode(bandId);
           } else if (gain <= GAIN_THRESHOLD && !isTouched) {
             scheduleNodeFade(bandId);
           }
         };
 
-        // Listen to gain parameter changes
         bands.forEach((band) => {
           addBackendListener(band.gainParam, (value) => {
             state.bandGains[band.gainParam] = value;
@@ -3280,32 +3561,134 @@
             setNodePosition(band.id);
             updateBandVisibility(band.id);
           });
+
+          addBackendListener(band.qParam, (value) => {
+            state.bandQTargets[band.qParam] = clampNum(value, band.qMin, band.qMax);
+            ensureQAnimator();
+          });
+
+          if (band.modeParam) {
+            addBackendListener(band.modeParam, (value) => {
+              state.bandModes[band.modeParam] = Math.round(value);
+              renderCurve();
+            });
+          }
         });
 
-        // Also react to local UI emits so nodes still work if host backend callbacks are delayed/missing.
         document.addEventListener("__nova_param_emit__", (event) => {
           const detail = event && event.detail ? event.detail : null;
           if (!detail || typeof detail.paramId !== "string" || typeof detail.value !== "number") return;
           const bandId = PARAM_TO_BAND[detail.paramId];
           if (!bandId) return;
 
-          if (detail.paramId in state.bandGains) {
-            state.bandGains[detail.paramId] = detail.value;
+          const band = getBand(bandId);
+          if (!band) return;
+
+          if (detail.paramId in state.bandGains) state.bandGains[detail.paramId] = detail.value;
+          if (detail.paramId in state.bandFreqs) state.bandFreqs[detail.paramId] = detail.value;
+          if (detail.paramId in state.bandQTargets) {
+            state.bandQTargets[detail.paramId] = clampNum(detail.value, band.qMin, band.qMax);
+            ensureQAnimator();
           }
-          if (detail.paramId in state.bandFreqs) {
-            state.bandFreqs[detail.paramId] = detail.value;
-          }
+          if (detail.paramId in state.bandModes) state.bandModes[detail.paramId] = Math.round(detail.value);
+
           setNodePosition(bandId);
           showNode(bandId);
           updateBandVisibility(bandId);
         });
 
-        // Track touch state on EQ knobs
+        const getPointerY = (ev) => {
+          if (ev && ev.touches && ev.touches.length) return ev.touches[0].clientY;
+          if (ev && ev.changedTouches && ev.changedTouches.length) return ev.changedTouches[0].clientY;
+          return ev && typeof ev.clientY === 'number' ? ev.clientY : 0;
+        };
+
+        const bindNodeFocus = (bandId) => {
+          const { halo, node } = getNodes(bandId);
+          [halo, node].forEach((el) => {
+            if (!el) return;
+
+            el.addEventListener('pointerdown', (ev) => {
+              if (ev && ev.preventDefault) ev.preventDefault();
+              if (ev && ev.stopPropagation) ev.stopPropagation();
+
+              showNode(bandId);
+              setFocusedBand(bandId);
+
+              if (ev && ev.shiftKey) {
+                const band = getBand(bandId);
+                if (band) {
+                  state.qDrag = {
+                    pointerId: ev.pointerId != null ? ev.pointerId : null,
+                    bandId,
+                    startY: getPointerY(ev),
+                    startQ: state.bandQTargets[band.qParam]
+                  };
+                }
+              }
+            });
+
+            el.addEventListener('wheel', (ev) => {
+              if (ev && ev.preventDefault) ev.preventDefault();
+              if (ev && ev.stopPropagation) ev.stopPropagation();
+              applyQDelta(bandId, ev.deltaY, !!ev.shiftKey);
+            }, { passive: false });
+          });
+        };
+
+        bands.forEach((band) => bindNodeFocus(band.id));
+
+        if (eqDisplay) {
+          eqDisplay.addEventListener('wheel', (ev) => {
+            if (!state.focusedBandId) return;
+            if (ev && ev.preventDefault) ev.preventDefault();
+            applyQDelta(state.focusedBandId, ev.deltaY, !!ev.shiftKey);
+          }, { passive: false });
+
+          eqDisplay.addEventListener('pointerdown', (ev) => {
+            const target = ev.target;
+            if (!(target instanceof Element)) return;
+            if (target.classList.contains('eqNode') || target.classList.contains('eqNodeHalo')) return;
+            setFocusedBand(null);
+          });
+        }
+
+        document.addEventListener('pointermove', (ev) => {
+          const drag = state.qDrag;
+          if (!drag) return;
+          if (drag.pointerId != null && ev.pointerId != null && drag.pointerId !== ev.pointerId) return;
+
+          const band = getBand(drag.bandId);
+          if (!band) return;
+
+          const delta = drag.startY - getPointerY(ev);
+          const span = band.qMax - band.qMin;
+          const next = clampNum(drag.startQ + (delta / 220) * span, band.qMin, band.qMax);
+          state.bandQTargets[band.qParam] = next;
+          emitParamValue(band.qParam, next);
+          ensureQAnimator();
+          setFocusedBand(drag.bandId);
+        }, { passive: true });
+
+        const endQDrag = () => {
+          state.qDrag = null;
+        };
+        document.addEventListener('pointerup', endQDrag);
+        document.addEventListener('pointercancel', endQDrag);
+
+        document.addEventListener('pointerdown', (ev) => {
+          if (!state.focusedBandId || !eqDisplay) return;
+          const target = ev.target;
+          if (!(target instanceof Element)) return;
+          if (eqDisplay.contains(target)) return;
+          setFocusedBand(null);
+        });
+
         const eqKnobs = document.querySelectorAll('[data-param^="eq_"]');
         eqKnobs.forEach((knobWrap) => {
           const paramId = knobWrap.dataset.param;
           const knobEl = knobWrap.querySelector('.knob');
-          
+
           if (knobEl) {
             const handleTouchStart = () => {
               state.activeTouches.add(paramId);
@@ -3314,14 +3697,14 @@
               showNode(bandId);
               updateBandVisibility(bandId);
             };
-            
+
             const handleTouchEnd = () => {
               state.activeTouches.delete(paramId);
               const bandId = PARAM_TO_BAND[paramId];
               if (!bandId) return;
               updateBandVisibility(bandId);
             };
-            
+
             knobEl.addEventListener('mousedown', handleTouchStart);
             knobEl.addEventListener('pointerdown', handleTouchStart);
             knobEl.addEventListener('touchstart', handleTouchStart);
@@ -3331,7 +3714,6 @@
             knobEl.addEventListener('touchend', handleTouchEnd);
             knobEl.addEventListener('mouseleave', handleTouchEnd);
 
-            // Wheel interaction may not produce consistent touch/mouse-down sequences across hosts.
             knobEl.addEventListener('wheel', () => {
               const bandId = PARAM_TO_BAND[paramId];
               if (!bandId) return;
@@ -3340,7 +3722,6 @@
             }, { passive: true });
           }
 
-          // Fallback: attach on wrapper too in case knob sub-layer is not the event target in embedded WebViews.
           knobWrap.addEventListener('mousedown', () => {
             const bandId = PARAM_TO_BAND[paramId];
             if (!bandId) return;
@@ -3379,8 +3760,10 @@
           });
         });
 
-        // Initialize geometry once so first interaction always starts from valid node coordinates.
-        bands.forEach((band) => setNodePosition(band.id));
+        bands.forEach((band) => {
+          setNodePosition(band.id);
+          renderCurve();
+        });
 
         return { showNode, scheduleNodeFade, updateBandVisibility };
       })();
