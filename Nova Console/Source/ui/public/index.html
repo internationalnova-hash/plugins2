@@ -547,7 +547,7 @@
       left: 8px;
       right: 20px;
       top: 156px;
-      bottom: 64px;
+      bottom: 54px;
       border-radius: 14px;
       border: 1px solid var(--line-soft);
       background:
@@ -559,7 +559,7 @@
         inset 10px 0 16px rgba(0, 0, 0, 0.22),
         inset -7px 0 12px rgba(224, 232, 244, 0.03),
         0 12px 28px rgba(0, 0, 0, 0.5);
-      padding: 8px 10px 8px 0;
+      padding: 8px 10px 4px 0;
       display: grid;
       grid-template-columns: 134px 150px minmax(248px, 1fr) 230px 118px 104px;
       gap: 4px;
@@ -1024,9 +1024,9 @@
       line-height: 1.22;
     }
     .eqBody {
-      grid-template-rows: minmax(84px, 0.72fr) auto auto auto;
+      grid-template-rows: minmax(72px, 0.62fr) auto auto auto;
       height: 100%;
-      gap: 1px;
+      gap: 0;
       padding-right: 4px;
     }
     .eqBandLabels {
@@ -1063,7 +1063,7 @@
       grid-template-columns: repeat(5, 1fr);
       gap: 6px;
       align-items: center;
-      margin-top: -4px;
+      margin-top: -9px;
     }
 
     .eqKnobRow .knobWrap > div {
@@ -1092,9 +1092,9 @@
     }
     .modeSelector {
       display: grid;
-      grid-template-rows: 20px 20px;
+      grid-template-rows: 16px 16px;
       justify-items: center;
-      gap: 2px;
+      gap: 1px;
     }
 
     .modeSelector::before {
@@ -1112,7 +1112,7 @@
     }
 
     .eqDisplay {
-      min-height: 116px;
+      min-height: 102px;
       border-radius: 12px;
       border: 1px solid rgba(170, 146, 108, 0.28);
       background:
@@ -1164,7 +1164,7 @@
       left: 14px;
       right: 14px;
       top: 18px;
-      bottom: 8px;
+      bottom: 4px;
       border-radius: 8px;
       overflow: hidden;
     }
@@ -1174,7 +1174,7 @@
       left: 14px;
       right: 14px;
       top: 18px;
-      bottom: 10px;
+      bottom: 6px;
       pointer-events: none;
       z-index: 2;
     }
@@ -1205,7 +1205,7 @@
       position: absolute;
       left: 14px;
       right: 14px;
-      bottom: 2px;
+      bottom: -1px;
       height: 8px;
       pointer-events: none;
       z-index: 3;
@@ -1346,16 +1346,16 @@
     }
 
     .module.hasPower .name {
-      padding-left: 24px;
+      padding-left: 20px;
     }
 
     .power {
       position: absolute;
-      top: 6px;
-      left: 6px;
-      width: 16px;
-      height: 16px;
-      min-height: 16px;
+      top: 5px;
+      left: 5px;
+      width: 12px;
+      height: 12px;
+      min-height: 12px;
       border-radius: 50%;
       padding: 0;
       font-size: 0;
@@ -1372,7 +1372,7 @@
     .power::before {
       content: "";
       position: absolute;
-      inset: 3px;
+      inset: 1px;
       border-radius: 50%;
       border: 1px solid rgba(198, 213, 234, 0.62);
       box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.36);
@@ -1382,9 +1382,9 @@
       content: "";
       position: absolute;
       left: 50%;
-      top: 2px;
+      top: 1px;
       width: 2px;
-      height: 6px;
+      height: 4px;
       transform: translateX(-50%);
       border-radius: 1px;
       background: linear-gradient(180deg, rgba(229, 238, 250, 0.96) 0%, rgba(166, 184, 210, 0.92) 100%);
@@ -2190,8 +2190,8 @@
       position: absolute;
       left: 20px;
       right: 20px;
-      bottom: 16px;
-      height: 50px;
+      bottom: 12px;
+      height: 46px;
       box-sizing: border-box;
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -2203,7 +2203,7 @@
       border: 1px solid rgba(166, 181, 203, 0.14);
       background: linear-gradient(180deg, rgba(23, 27, 33, 0.72) 0%, rgba(12, 15, 20, 0.82) 100%);
       box-shadow: inset 0 1px 0 rgba(219, 228, 241, 0.05), inset 0 -10px 14px rgba(0, 0, 0, 0.54);
-      padding: 3px 8px 4px;
+      padding: 2px 7px 3px;
     }
 
     .sidechainBlock {
@@ -2539,9 +2539,10 @@
           </div>
         </section>
 
-        <section class="module">
+        <section class="module hasPower">
           <div class="name">Equalizer</div>
           <div class="body eqBody">
+            <div class="power active" data-toggle="eq_on">Power</div>
             <div class="eqDisplay"><div class="eqCurve"><svg class="eqSvg" viewBox="0 0 100 40" preserveAspectRatio="none"><defs><linearGradient id="eqLineGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="rgba(239, 214, 170, 0.96)" /><stop offset="55%" stop-color="rgba(232, 186, 121, 0.94)" /><stop offset="100%" stop-color="rgba(206, 151, 82, 0.9)" /></linearGradient></defs><g><line class="eqGridLine major" x1="0" y1="6" x2="100" y2="6" /><line class="eqGridLine" x1="0" y1="12" x2="100" y2="12" /><line class="eqGridLine major" x1="0" y1="18" x2="100" y2="18" /><line class="eqGridLine" x1="0" y1="24" x2="100" y2="24" /><line class="eqGridLine major" x1="0" y1="30" x2="100" y2="30" /><line class="eqGridLine" x1="0" y1="36" x2="100" y2="36" /><line class="eqGridLine major" x1="10" y1="0" x2="10" y2="40" /><line class="eqGridLine" x1="20" y1="0" x2="20" y2="40" /><line class="eqGridLine major" x1="30" y1="0" x2="30" y2="40" /><line class="eqGridLine" x1="40" y1="0" x2="40" y2="40" /><line class="eqGridLine major" x1="50" y1="0" x2="50" y2="40" /><line class="eqGridLine" x1="60" y1="0" x2="60" y2="40" /><line class="eqGridLine major" x1="70" y1="0" x2="70" y2="40" /><line class="eqGridLine" x1="80" y1="0" x2="80" y2="40" /><line class="eqGridLine major" x1="90" y1="0" x2="90" y2="40" /></g><path class="eqPathGlow" d="M 0 22.8 C 10 22.8, 18 22.1, 28 21.8 C 38 21.5, 46 20.2, 54 19.9 C 62 19.7, 71 20.1, 80 20.0 C 88 19.9, 95 19.3, 100 19.2" /><path class="eqPathMain" d="M 0 22.8 C 10 22.8, 18 22.1, 28 21.8 C 38 21.5, 46 20.2, 54 19.9 C 62 19.7, 71 20.1, 80 20.0 C 88 19.9, 95 19.3, 100 19.2" /><circle class="eqNodeHalo" data-band="low" cx="28" cy="20" r="1.2" /><circle class="eqNode" data-band="low" cx="28" cy="20" r="0.72" /><circle class="eqNodeHalo" data-band="low_mid" cx="33" cy="20" r="1.2" /><circle class="eqNode" data-band="low_mid" cx="33" cy="20" r="0.72" /><circle class="eqNodeHalo" data-band="high_mid" cx="54" cy="20" r="1.2" /><circle class="eqNode" data-band="high_mid" cx="54" cy="20" r="0.72" /><circle class="eqNodeHalo" data-band="high" cx="80" cy="20" r="1.2" /><circle class="eqNode" data-band="high" cx="80" cy="20" r="0.72" /><circle class="eqNodeHalo" data-band="air" cx="91" cy="20" r="1.2" /><circle class="eqNode" data-band="air" cx="91" cy="20" r="0.72" /></svg></div><div class="eqDbScale"><div class="eqDbLine" style="top: 4%;"><span>+12</span></div><div class="eqDbLine" style="top: 26%;"><span>+6</span></div><div class="eqDbLine" style="top: 49%;"><span>0</span></div><div class="eqDbLine" style="top: 72%;"><span>-6</span></div><div class="eqDbLine" style="top: 94%;"><span>-12</span></div></div><div class="eqFreqScale"><span>20</span><span>50</span><span>100</span><span>200</span><span>500</span><span>1k</span><span>2k</span><span>5k</span><span>10k</span><span>20k</span></div></div>
             <div class="eqKnobRow">
               <div class="knobWrap" data-param="eq_low_freq" data-type="float" data-min="35" data-max="180"><div><div class="knob small"></div><div class="unitReadout">60 Hz</div><div class="kLabel">Freq</div></div></div>
@@ -2582,9 +2583,10 @@
           </div>
         </section>
 
-        <section class="module">
+        <section class="module hasPower">
           <div class="name">Compressor</div>
           <div class="body compBody">
+            <div class="power active" data-toggle="comp_on">Power</div>
             <div class="compGrid">
               <div class="knobWrap" data-param="comp_threshold" data-type="float" data-min="-40" data-max="0"><div><div class="knob"></div><div class="unitReadout">-18 dB</div><div class="kLabel">Threshold</div></div></div>
               <div class="knobWrap compPunchStack">
@@ -2604,9 +2606,10 @@
           </div>
         </section>
 
-        <section class="module">
+        <section class="module hasPower">
           <div class="name">Gate / Expander</div>
           <div class="body gateBody">
+            <div class="power active" data-toggle="gate_on">Power</div>
             <div class="knobWrap" data-param="gate_threshold" data-type="float" data-min="-70" data-max="-10"><div><div class="knob small"></div><div class="unitReadout">-36 dB</div><div class="kLabel">Threshold</div></div></div>
             <div class="knobWrap" data-param="gate_range" data-type="float" data-min="-36" data-max="-3"><div><div class="knob small"></div><div class="unitReadout">18 dB</div><div class="kLabel">Range</div></div></div>
             <div class="knobWrap" data-param="gate_attack" data-type="float" data-min="0.1" data-max="100"><div><div class="knob small"></div><div class="unitReadout">8 ms</div><div class="kLabel">Attack</div></div></div>
@@ -2956,35 +2959,65 @@
       // Meter update handler
       window.updateMeters = function(inLevel, outLevel, grLevel) {
         // Smoothing constants for analog meter feel
-        const riseSmooth = 0.15; // 150ms rise time
-        const fallSmooth = 0.5;  // 500ms fall time (slower decay)
-        const grRiseSmooth = 0.08; // 80ms rise for GR
-        const grFallSmooth = 0.3;  // 300ms fall for GR
+        const riseSmooth = 0.24;
+        const fallSmooth = 0.10;
+        const grRiseSmooth = 0.16;
+        const grFallSmooth = 0.08;
+
+        const meterState = window.__novaMeterState || (window.__novaMeterState = { in: 0, out: 0, gr: 0 });
+        const clamp01 = (v) => Math.max(0, Math.min(1, v));
+        const normalizeMeterValue = (raw) => {
+          if (!Number.isFinite(raw)) return 0;
+          // Support both linear [0..1] and dB-style values.
+          if (raw < 0 || raw > 1.4) {
+            const db = Math.max(-72, Math.min(6, raw));
+            return clamp01((db + 72) / 78);
+          }
+          return clamp01(raw);
+        };
+        const smooth = (prev, next, rise, fall) => prev + (next > prev ? rise : fall) * (next - prev);
 
         // Input meter (VU style)
         const inMeter = document.querySelector('.inputBody .meter');
         if (inMeter) {
           const segs = Array.from(inMeter.querySelectorAll('.seg'));
-          const inNorm = Math.max(0, Math.min(1, inLevel));
-          const onCount = Math.round(inNorm * segs.length);
+          const inNorm = Math.pow(normalizeMeterValue(inLevel), 0.55);
+          meterState.in = smooth(meterState.in, inNorm, riseSmooth, fallSmooth);
+          const onCount = Math.round(meterState.in * segs.length);
           segs.forEach((seg, i) => seg.classList.toggle('on', i < onCount));
         }
 
-        // Output meter
-        const outMeter = document.querySelector('.headerOutput .meter');
-        if (outMeter) {
-          const segs = Array.from(outMeter.querySelectorAll('.seg'));
-          const outNorm = Math.max(0, Math.min(1, outLevel));
-          const onCount = Math.round(outNorm * segs.length);
-          segs.forEach((seg, i) => seg.classList.toggle('on', i < onCount));
-        }
+        // Final output meter (right-side dual PPM near Analog Engine)
+        const outNorm = Math.pow(normalizeMeterValue(outLevel), 0.45);
+        meterState.out = smooth(meterState.out, outNorm, riseSmooth, fallSmooth);
+        const ppmColumns = Array.from(document.querySelectorAll('.analogSide .ppmCol'));
+        ppmColumns.forEach((col) => {
+          const segs = Array.from(col.querySelectorAll('.seg'));
+          const total = segs.length;
+          if (total === 0) return;
+
+          // Illuminate from bottom to top so this reads as final plugin output energy.
+          const rawCount = Math.round(meterState.out * total);
+          const onCount = meterState.out > 0.01 ? Math.max(1, rawCount) : 0;
+          const firstOnIndex = Math.max(0, total - onCount);
+
+          segs.forEach((seg, i) => {
+            const fromBottom = total - 1 - i;
+            seg.classList.remove('g', 'y', 'r');
+            if (fromBottom < 15) seg.classList.add('g');
+            else if (fromBottom < 22) seg.classList.add('y');
+            else seg.classList.add('r');
+            seg.classList.toggle('on', i >= firstOnIndex);
+          });
+        });
 
         // GR meter
         const grMeter = document.querySelector('.compMeterCol .meter');
         if (grMeter) {
           const segs = Array.from(grMeter.querySelectorAll('.seg'));
-          const grNorm = Math.max(0, Math.min(1, grLevel));
-          const onCount = Math.round(grNorm * segs.length);
+          const grNorm = normalizeMeterValue(grLevel);
+          meterState.gr = smooth(meterState.gr, grNorm, grRiseSmooth, grFallSmooth);
+          const onCount = Math.round(meterState.gr * segs.length);
           segs.forEach((seg, i) => seg.classList.toggle('on', i < onCount));
         }
       };
