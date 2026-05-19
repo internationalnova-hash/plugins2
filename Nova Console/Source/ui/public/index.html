@@ -955,7 +955,7 @@
     .surface > .module:nth-child(6) {
       transform: translateX(-26px);
     }
-    .analogBody { grid-template-columns: minmax(0, 1fr) 50px; gap: 4px; height: 100%; align-content: start; position: relative; }
+    .analogBody { grid-template-columns: minmax(0, 1fr) 50px; gap: 4px; height: 100%; align-content: start; }
     .analogGrid {
       display: grid;
       grid-template-rows: auto repeat(5, auto);
@@ -2667,8 +2667,8 @@
         <section class="module hasPower">
           <div class="name">Analog Engine</div>
           <div class="body analogBody">
+            <div class="power active" data-toggle="analog_on">Power</div>
             <div class="analogGrid">
-              <div class="power active" data-toggle="analog_on">Power</div>
               <div class="knobWrap analogKnobControl" data-param="analog_heat" data-type="float" data-min="0" data-max="100"><div><div class="knob small"></div><div class="analogScale"><span>0</span><span>100</span></div><div class="analogReadout">50%</div><div class="kLabel">Heat</div></div></div>
               <div class="knobWrap analogKnobControl" data-param="analog_width" data-type="float" data-min="0" data-max="100"><div><div class="knob small"></div><div class="analogScale"><span>0</span><span>100</span></div><div class="analogReadout">50%</div><div class="kLabel">Width</div></div></div>
               <div class="knobWrap analogKnobControl" data-param="analog_depth" data-type="float" data-min="0" data-max="100"><div><div class="knob small"></div><div class="analogScale"><span>0</span><span>100</span></div><div class="analogReadout">50%</div><div class="kLabel">Depth</div></div></div>

@@ -69,9 +69,8 @@ NovaConsoleAudioProcessorEditor::NovaConsoleAudioProcessorEditor (NovaConsoleAud
     webView->goToURL (cacheBustedUrl);
 
     setResizable (false, false);
-    // Match the UI design aspect ratio so the frame fills width without right gutter
-    // and the bottom utility strip is no longer clipped.
-    setSize (1240, 812);
+    // Use the suite baseline editor size for reliable host fit across platforms.
+    setSize (1080, 680);
     startTimerHz (30);
 }
 
