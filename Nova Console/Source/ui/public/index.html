@@ -51,8 +51,8 @@
     }
 
     .stage {
-      width: calc(1536px * var(--ui-scale));
-      height: calc(1005px * var(--ui-scale));
+      width: 100%;
+      height: 100%;
       overflow: hidden;
     }
 
@@ -2756,14 +2756,17 @@
       function fitUi() {
         const W = 1536;
         const H = 1005;
-        const scale = Math.min(window.innerWidth / W, window.innerHeight / H, 1);
+        // Subtract 2px safety buffer so rounding/sub-pixel differences never clip the bottom.
+        const scale = Math.min(window.innerWidth / W, (window.innerHeight - 2) / H, 1);
         const safeScale = Math.max(0.12, scale);
         document.documentElement.style.setProperty('--ui-scale', String(safeScale));
         const frame = document.querySelector('.frame');
         if (!frame) return;
-        frame.style.zoom = '';
-        frame.style.transform = `scale(${safeScale})`;
-        frame.style.transformOrigin = 'top left';
+        // Use zoom instead of transform: scale so the layout box shrinks with the visual size.
+        // transform: scale only shrinks visually; the 1536x1005 layout box remains, causing overflow clipping.
+        frame.style.transform = '';
+        frame.style.transformOrigin = '';
+        frame.style.zoom = safeScale;
       }
       window.addEventListener("resize", fitUi);
       if (window.visualViewport) window.visualViewport.addEventListener("resize", fitUi);
