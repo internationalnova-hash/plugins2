@@ -953,7 +953,7 @@
     }
     .surface > .module:nth-child(5),
     .surface > .module:nth-child(6) {
-      transform: translateX(-26px);
+      transform: none;
     }
     .analogBody { grid-template-columns: minmax(0, 1fr) 50px; gap: 4px; height: 100%; align-content: start; }
     .analogGrid {
@@ -2756,8 +2756,17 @@
       function fitUi() {
         const W = 1536;
         const H = 1005;
-        // Subtract 2px safety buffer so rounding/sub-pixel differences never clip the bottom.
-        const scale = Math.min(window.innerWidth / W, (window.innerHeight - 2) / H, 1);
+        const viewport = window.visualViewport;
+        const rawW = viewport ? viewport.width : (window.innerWidth || document.documentElement.clientWidth || W);
+        const rawH = viewport ? viewport.height : (window.innerHeight || document.documentElement.clientHeight || H);
+
+        // FL Studio (and some hosts) report a taller WebView than the truly usable draw area.
+        // Reserve a small guard band to avoid clipping the utility strip at the bottom.
+        const hostChromeReserveY = 28;
+        const hostChromeReserveX = 6;
+        const availW = Math.max(1, rawW - hostChromeReserveX);
+        const availH = Math.max(1, rawH - hostChromeReserveY);
+        const scale = Math.min(availW / W, availH / H, 1);
         const safeScale = Math.max(0.12, scale);
         document.documentElement.style.setProperty('--ui-scale', String(safeScale));
         const frame = document.querySelector('.frame');
