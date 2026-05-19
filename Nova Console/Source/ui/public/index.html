@@ -546,7 +546,7 @@
       left: 8px;
       right: 20px;
       top: 156px;
-      bottom: 72px;
+      bottom: 64px;
       border-radius: 14px;
       border: 1px solid var(--line-soft);
       background:
@@ -558,7 +558,7 @@
         inset 10px 0 16px rgba(0, 0, 0, 0.22),
         inset -7px 0 12px rgba(224, 232, 244, 0.03),
         0 12px 28px rgba(0, 0, 0, 0.5);
-      padding: 8px 10px 10px 0;
+      padding: 8px 10px 8px 0;
       display: grid;
       grid-template-columns: 134px 150px minmax(248px, 1fr) 230px 118px 104px;
       gap: 4px;
@@ -2706,10 +2706,7 @@
       function fitUi() {
         const W = 1536;
         const H = 1005;
-        const viewportWidth = window.visualViewport ? window.visualViewport.width : window.innerWidth;
-        const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-        const verticalSafetyPx = 8;
-        const scale = Math.min(viewportWidth / W, Math.max(0, viewportHeight - verticalSafetyPx) / H, 1);
+        const scale = Math.min(window.innerWidth / W, window.innerHeight / H, 1);
         const safeScale = Math.max(0.12, scale);
         document.documentElement.style.setProperty('--ui-scale', String(safeScale));
         const frame = document.querySelector('.frame');
