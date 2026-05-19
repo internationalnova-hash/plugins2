@@ -599,6 +599,11 @@
         inset 0 -10px 14px rgba(0, 0, 0, 0.2);
     }
 
+    .module.hasPower.section-off {
+      opacity: 0.52;
+      filter: saturate(0.66) brightness(0.82);
+    }
+
     .module::before {
       content: "";
       position: absolute;
@@ -2825,7 +2830,11 @@
         if (!buttons.length) return;
 
         const setActive = (isOn) => {
-          buttons.forEach((btn) => btn.classList.toggle("active", !!isOn));
+          buttons.forEach((btn) => {
+            btn.classList.toggle("active", !!isOn);
+            const section = btn.closest('.module.hasPower');
+            if (section) section.classList.toggle('section-off', !isOn);
+          });
         };
 
         buttons.forEach((btn) => {

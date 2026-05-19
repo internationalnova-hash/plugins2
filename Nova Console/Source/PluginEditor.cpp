@@ -26,6 +26,7 @@ NovaConsoleAudioProcessorEditor::NovaConsoleAudioProcessorEditor (NovaConsoleAud
     lpfAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("lpf"), lpfRelay, nullptr);
     hpfSlopeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("hpf_slope"), hpfSlopeRelay, nullptr);
     lpfSlopeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("lpf_slope"), lpfSlopeRelay, nullptr);
+    eqOnAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("eq_on"), eqOnRelay, nullptr);
 
     lowModeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("eq_low_mode"), lowModeRelay, nullptr);
     highModeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("eq_high_mode"), highModeRelay, nullptr);
@@ -68,7 +69,9 @@ NovaConsoleAudioProcessorEditor::NovaConsoleAudioProcessorEditor (NovaConsoleAud
     webView->goToURL (cacheBustedUrl);
 
     setResizable (false, false);
-    setSize (1240, 760);
+    // Match the UI design aspect ratio so the frame fills width without right gutter
+    // and the bottom utility strip is no longer clipped.
+    setSize (1240, 812);
     startTimerHz (30);
 }
 
@@ -136,6 +139,7 @@ juce::WebBrowserComponent::Options NovaConsoleAudioProcessorEditor::createWebOpt
                      .withOptionsFrom (editor.lpfRelay)
                      .withOptionsFrom (editor.hpfSlopeRelay)
                      .withOptionsFrom (editor.lpfSlopeRelay)
+                     .withOptionsFrom (editor.eqOnRelay)
                      .withOptionsFrom (editor.lowModeRelay)
                      .withOptionsFrom (editor.highModeRelay)
                      .withOptionsFrom (editor.airModeRelay)
