@@ -540,7 +540,7 @@
       left: 8px;
       right: 20px;
       top: 156px;
-      bottom: 64px;
+      bottom: 72px;
       border-radius: 14px;
       border: 1px solid var(--line-soft);
       background:
@@ -2183,8 +2183,8 @@
       position: absolute;
       left: 20px;
       right: 20px;
-      bottom: 12px;
-      height: 54px;
+      bottom: 16px;
+      height: 50px;
       box-sizing: border-box;
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -2196,7 +2196,7 @@
       border: 1px solid rgba(166, 181, 203, 0.14);
       background: linear-gradient(180deg, rgba(23, 27, 33, 0.72) 0%, rgba(12, 15, 20, 0.82) 100%);
       box-shadow: inset 0 1px 0 rgba(219, 228, 241, 0.05), inset 0 -10px 14px rgba(0, 0, 0, 0.54);
-      padding: 4px 8px 5px;
+      padding: 3px 8px 4px;
     }
 
     .sidechainBlock {
@@ -2882,9 +2882,9 @@
               let nextValue = Math.max(minVal, Math.min(maxVal, startValue + step));
               if (paramId === 'comp_ratio') {
                 nextValue = snapToRatio(nextValue);
-                if (!hasBackend) { knobState[paramId].lastValue = nextValue; }
+                knobState[paramId].lastValue = nextValue;
                 applyRatioUi(nextValue);
-              } else if (!hasBackend) {
+              } else {
                 knobState[paramId].lastValue = nextValue;
                 applyKnobVisual(knobEl, minVal, maxVal, nextValue);
               }
@@ -2921,7 +2921,7 @@
               const safeIdx = curIdx === -1 ? 2 : curIdx;
               const nextIdx = Math.max(0, Math.min(RATIO_SNAPS_W.length - 1, safeIdx + delta));
               const nextValue = RATIO_SNAPS_W[nextIdx];
-              if (!hasBackend) { knobState[paramId].lastValue = nextValue; }
+              knobState[paramId].lastValue = nextValue;
               const readout = knobWrap.querySelector('.ratioReadout');
               if (readout) readout.textContent = `${nextValue}:1`;
               Array.from(knobWrap.querySelectorAll('.ratioTickLabels span'))
@@ -2933,10 +2933,8 @@
             const range = maxVal - minVal;
             const step = (range * 0.01) * delta;
             const nextValue = Math.max(minVal, Math.min(maxVal, knobState[paramId].lastValue + step));
-            if (!hasBackend) {
-              knobState[paramId].lastValue = nextValue;
-              applyKnobVisual(knobEl, minVal, maxVal, nextValue);
-            }
+            knobState[paramId].lastValue = nextValue;
+            applyKnobVisual(knobEl, minVal, maxVal, nextValue);
             emitParamValue(paramId, nextValue);
           });
 
