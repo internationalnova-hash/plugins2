@@ -1796,7 +1796,7 @@
     .analogSide .meter.dualPpm {
       position: relative !important;
       left: 0 !important;
-      transform: translateX(48px) !important;
+      transform: none !important;
     }
 
     .calibrationControl {
@@ -2765,8 +2765,8 @@
 
         // FL Studio (and some hosts) report a taller WebView than the truly usable draw area.
         // Reserve a small guard band to avoid clipping the utility strip at the bottom.
-        const hostChromeReserveY = 44;
-        const hostChromeReserveX = 18;
+        const hostChromeReserveY = Math.max(44, Math.min(66, Math.round(rawH * 0.09)));
+        const hostChromeReserveX = Math.max(12, Math.min(24, Math.round(rawW * 0.012)));
         const availW = Math.max(1, rawW - hostChromeReserveX);
         const availH = Math.max(1, rawH - hostChromeReserveY);
         const scale = Math.min(availW / W, availH / H, 1);
