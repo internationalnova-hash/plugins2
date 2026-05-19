@@ -545,7 +545,7 @@
     .surface {
       position: absolute;
       left: 8px;
-      right: 20px;
+      right: 8px;
       top: 156px;
       bottom: 54px;
       border-radius: 14px;
@@ -1369,6 +1369,24 @@
       z-index: 3;
     }
 
+    .power:not(.active) {
+      border-color: rgba(126, 136, 152, 0.42);
+      background: linear-gradient(180deg, rgba(46, 52, 62, 0.96) 0%, rgba(20, 24, 30, 1) 100%);
+      box-shadow: inset 0 1px 0 rgba(205, 214, 227, 0.12), inset 0 -4px 6px rgba(0, 0, 0, 0.72), 0 1px 2px rgba(0, 0, 0, 0.5);
+      filter: saturate(0.82) brightness(0.9);
+    }
+
+    .power.active {
+      border-color: rgba(247, 209, 147, 0.78);
+      background: radial-gradient(circle at 35% 35%, #fff0cf 0%, #f0c584 34%, #9d6228 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 244, 216, 0.46),
+        inset 0 -4px 6px rgba(58, 30, 11, 0.62),
+        0 0 6px rgba(241, 183, 94, 0.42),
+        0 0 12px rgba(214, 130, 45, 0.24);
+      filter: saturate(1.06) brightness(1.02);
+    }
+
     .power::before {
       content: "";
       position: absolute;
@@ -1389,6 +1407,16 @@
       border-radius: 1px;
       background: linear-gradient(180deg, rgba(229, 238, 250, 0.96) 0%, rgba(166, 184, 210, 0.92) 100%);
       box-shadow: 0 0 2px rgba(184, 200, 224, 0.25);
+    }
+
+    .power.active::before {
+      border-color: rgba(255, 236, 201, 0.82);
+      box-shadow: inset 0 0 0 1px rgba(91, 54, 22, 0.46);
+    }
+
+    .power.active::after {
+      background: linear-gradient(180deg, #fff8e8 0%, #ffdca8 100%);
+      box-shadow: 0 0 3px rgba(255, 216, 156, 0.55);
     }
 
     .smallButton {
@@ -2099,8 +2127,9 @@
     .gateModeStack {
       display: grid;
       grid-template-rows: auto auto auto auto;
-      gap: 2px;
-      padding: 2px 2px 3px;
+      gap: 1px;
+      padding: 1px 2px 2px;
+      margin-top: -2px;
       border-radius: 8px;
       border: 1px solid rgba(180, 197, 218, 0.15);
       background: linear-gradient(180deg, rgba(38, 44, 53, 0.5) 0%, rgba(22, 26, 33, 0.66) 100%);
@@ -2113,10 +2142,22 @@
     }
 
     .gateAuxRow .smallButton {
-      min-height: 18px;
+      min-height: 16px;
       font-size: 7px;
       letter-spacing: 0.11em;
       border-radius: 6px;
+    }
+
+    /* Keep Gate threshold/range/attack prominent, but reduce Hold/Release footprint. */
+    .gateBody > .knobWrap:nth-child(5) .knob.small,
+    .gateModeStack .knobWrap:first-child .knob.small {
+      width: 68px;
+      height: 68px;
+    }
+
+    .gateBody > .knobWrap:nth-child(5) .kLabel,
+    .gateModeStack .knobWrap:first-child .kLabel {
+      margin-top: 2px;
     }
 
     .gateBody .meter.dots {
