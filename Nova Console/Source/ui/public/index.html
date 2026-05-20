@@ -27,7 +27,7 @@
       margin: 0;
       width: 100%;
       height: 100%;
-      overflow: visible;
+      overflow: hidden;
       font-family: "Avenir Next", "Optima", "Segoe UI", sans-serif;
       color: var(--text);
       background:
@@ -64,7 +64,7 @@
       flex: 0 0 auto;
       width: calc(1536px * var(--ui-scale));
       height: calc(1020px * var(--ui-scale));
-      overflow: visible;
+      overflow: hidden;
     }
 
     .frame {
@@ -2797,7 +2797,7 @@
           viewportH
         ], H);
 
-        // Small host headroom so FL Studio chrome does not clip right/bottom edges.
+        // Host headroom for FL Studio/WebView bottom insets while preserving width-led scale.
         const hostReserveX = 4;
         const hostReserveY = 24;
         const availW = Math.max(1, rawW - hostReserveX);

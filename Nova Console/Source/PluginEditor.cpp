@@ -63,9 +63,8 @@ NovaConsoleAudioProcessorEditor::NovaConsoleAudioProcessorEditor (NovaConsoleAud
     sidechainModeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("sidechain_mode"), sidechainModeRelay, nullptr);
 
     setResizable (false, false);
-    // Nova Console needs slightly more native height so the HTML UI scales by width,
-    // avoiding footer clipping in FL Studio hosts.
-    setSize (1080, 720);
+    // Keep UI scale unchanged; expand editor container so FL Studio/WebView bottom insets do not clip the footer strip.
+    setSize (1080, 752);
 
     addAndMakeVisible (*webView);
 
