@@ -2766,12 +2766,14 @@
       function fitUi() {
         const W = 1536;
         const H = 1005;
+        const stage = document.querySelector('.stage');
         const viewport = window.visualViewport;
         const rawW = viewport ? viewport.width : (window.innerWidth || document.documentElement.clientWidth || W);
         const rawH = viewport ? viewport.height : (window.innerHeight || document.documentElement.clientHeight || H);
         const scale = Math.min(rawW / W, rawH / H, 1);
         const safeScale = Math.max(0.12, scale);
         document.documentElement.style.setProperty('--ui-scale', String(safeScale));
+        if (stage) stage.style.setProperty('--ui-scale', String(safeScale));
       }
       window.addEventListener("resize", fitUi);
       if (window.visualViewport) window.visualViewport.addEventListener("resize", fitUi);
