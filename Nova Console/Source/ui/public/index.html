@@ -1361,6 +1361,8 @@
       min-height: 28px;
       display: grid;
       place-items: center;
+      cursor: pointer;
+      touch-action: manipulation;
     }
 
     .module.hasPower .name {
@@ -2390,6 +2392,8 @@
       min-height: 32px;
       min-width: 60px;
       padding: 4px 8px;
+      cursor: pointer;
+      touch-action: manipulation;
     }
 
     .scBtn.in {
@@ -2861,8 +2865,24 @@
           });
         };
 
-        buttons.forEach((btn) => {
+        const attachPress = (btn, handler) => {
+          let suppressClickUntil = 0;
+          const onPress = (ev) => {
+            if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+            suppressClickUntil = Date.now() + 250;
+            handler();
+          };
           btn.addEventListener("click", () => {
+            if (Date.now() < suppressClickUntil) return;
+            handler();
+          });
+          btn.addEventListener("pointerdown", onPress);
+          btn.addEventListener("mousedown", onPress);
+          btn.addEventListener("touchstart", onPress, { passive: false });
+        };
+
+        buttons.forEach((btn) => {
+          attachPress(btn, () => {
             const values = (btn.dataset.choice || "")
               .split(",")
               .map((x) => Number(x.trim()))
@@ -2887,8 +2907,24 @@
           });
         };
 
-        buttons.forEach((btn) => {
+        const attachPress = (btn, handler) => {
+          let suppressClickUntil = 0;
+          const onPress = (ev) => {
+            if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+            suppressClickUntil = Date.now() + 250;
+            handler();
+          };
           btn.addEventListener("click", () => {
+            if (Date.now() < suppressClickUntil) return;
+            handler();
+          });
+          btn.addEventListener("pointerdown", onPress);
+          btn.addEventListener("mousedown", onPress);
+          btn.addEventListener("touchstart", onPress, { passive: false });
+        };
+
+        buttons.forEach((btn) => {
+          attachPress(btn, () => {
             const next = !btn.classList.contains("active");
             emitParamValue(paramId, next ? 1 : 0);
             setActive(next);
@@ -2905,8 +2941,24 @@
           buttons.forEach((btn) => btn.classList.toggle("active", value >= (onValue + offValue) * 0.5));
         };
 
-        buttons.forEach((btn) => {
+        const attachPress = (btn, handler) => {
+          let suppressClickUntil = 0;
+          const onPress = (ev) => {
+            if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+            suppressClickUntil = Date.now() + 250;
+            handler();
+          };
           btn.addEventListener("click", () => {
+            if (Date.now() < suppressClickUntil) return;
+            handler();
+          });
+          btn.addEventListener("pointerdown", onPress);
+          btn.addEventListener("mousedown", onPress);
+          btn.addEventListener("touchstart", onPress, { passive: false });
+        };
+
+        buttons.forEach((btn) => {
+          attachPress(btn, () => {
             const nextOn = !btn.classList.contains("active");
             emitParamValue(paramId, nextOn ? onValue : offValue);
             setActive(nextOn ? onValue : offValue);
