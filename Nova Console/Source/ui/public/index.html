@@ -2768,9 +2768,19 @@
         const H = 1005;
         const stage = document.querySelector('.stage');
         const viewport = window.visualViewport;
-        const rawW = viewport ? viewport.width : (window.innerWidth || document.documentElement.clientWidth || W);
-        const rawH = viewport ? viewport.height : (window.innerHeight || document.documentElement.clientHeight || H);
-        const scale = Math.min(rawW / W, rawH / H, 1);
+        const viewportW = viewport ? viewport.width : Number.POSITIVE_INFINITY;
+        const viewportH = viewport ? viewport.height : Number.POSITIVE_INFINITY;
+        const rawW = Math.min(window.innerWidth || W, document.documentElement.clientWidth || W, viewportW);
+        const rawH = Math.min(window.innerHeight || H, document.documentElement.clientHeight || H, viewportH);
+
+        // FL Studio reports a larger drawable region than what is truly visible.
+        // Keep small explicit headroom so right edge and bottom utility strip remain visible.
+        const hostReserveX = 10;
+        const hostReserveY = 44;
+        const availW = Math.max(1, rawW - hostReserveX);
+        const availH = Math.max(1, rawH - hostReserveY);
+
+        const scale = Math.min(availW / W, availH / H, 1);
         const safeScale = Math.max(0.12, scale);
         document.documentElement.style.setProperty('--ui-scale', String(safeScale));
         if (stage) stage.style.setProperty('--ui-scale', String(safeScale));
