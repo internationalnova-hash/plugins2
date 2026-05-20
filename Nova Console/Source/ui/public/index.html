@@ -2768,14 +2768,22 @@
 
   <script>
     (() => {
+      const query = new URLSearchParams(window.location.search);
+
       function fitUi() {
         const W = 1536;
         const H = 970;
+        const editorWidth = Number(query.get("editorWidth"));
+        const editorHeight = Number(query.get("editorHeight"));
         const viewport = window.visualViewport;
         const viewportW = viewport ? viewport.width : Number.POSITIVE_INFINITY;
         const viewportH = viewport ? viewport.height : Number.POSITIVE_INFINITY;
-        const rawW = Math.min(window.innerWidth || W, document.documentElement.clientWidth || W, viewportW);
-        const rawH = Math.min(window.innerHeight || H, document.documentElement.clientHeight || H, viewportH);
+        const rawW = Number.isFinite(editorWidth) && editorWidth > 0
+          ? editorWidth
+          : Math.min(window.innerWidth || W, document.documentElement.clientWidth || W, viewportW);
+        const rawH = Number.isFinite(editorHeight) && editorHeight > 0
+          ? editorHeight
+          : Math.min(window.innerHeight || H, document.documentElement.clientHeight || H, viewportH);
 
         // Small host headroom so FL Studio chrome does not clip right/bottom edges.
         const hostReserveX = 4;

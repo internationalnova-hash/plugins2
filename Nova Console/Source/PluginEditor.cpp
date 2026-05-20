@@ -62,15 +62,19 @@ NovaConsoleAudioProcessorEditor::NovaConsoleAudioProcessorEditor (NovaConsoleAud
     mixAssistAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("mix_assist"), mixAssistRelay, nullptr);
     sidechainModeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("sidechain_mode"), sidechainModeRelay, nullptr);
 
+    setResizable (false, false);
+    // Nova Console needs slightly more native height so the HTML UI scales by width,
+    // avoiding footer clipping in FL Studio hosts.
+    setSize (1080, 720);
+
     addAndMakeVisible (*webView);
 
     const auto cacheBustedUrl = juce::WebBrowserComponent::getResourceProviderRoot()
-                              + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
+                              + "/index.html?editorWidth=" + juce::String (getWidth())
+                              + "&editorHeight=" + juce::String (getHeight())
+                              + "&v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
-    // Use the suite baseline editor size for reliable host fit across platforms.
-    setSize (1080, 680);
     startTimerHz (30);
 }
 
