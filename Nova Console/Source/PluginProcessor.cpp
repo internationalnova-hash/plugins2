@@ -298,7 +298,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaConsoleAudioProcessor::c
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.01f), 50.0f));
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { sidechainModeId, 1 }, "Sidechain Mode",
-        juce::StringArray { "Internal", "External 1", "External 2" }, 0));
+        juce::StringArray { "Off", "Internal", "External" }, 0));
 
     return layout;
 }
@@ -868,6 +868,7 @@ void NovaConsoleAudioProcessor::processCompressor (juce::AudioBuffer<float>& buf
                                                    const ModeProfile& profile,
                                                    QualityMode quality,
                                                    const juce::AudioBuffer<float>* detectorBuffer,
+                                                   bool detectorSidechainEnabled,
                                                    bool useExternalDetector)
 {
     compThresholdSmoothed.setTargetValue (apvts.getRawParameterValue (thresholdId)->load());
@@ -939,7 +940,7 @@ void NovaConsoleAudioProcessor::processCompressor (juce::AudioBuffer<float>& buf
         float detectorL = externalAvailable ? detLeft[i] : drivenL;
         float detectorR = externalAvailable ? detRight[i] : drivenR;
 
-        if (externalAvailable)
+        if (detectorSidechainEnabled)
         {
             for (int stage = 0; stage < hpfStages; ++stage)
             {
@@ -1026,6 +1027,7 @@ void NovaConsoleAudioProcessor::processCompressor (juce::AudioBuffer<float>& buf
 
 void NovaConsoleAudioProcessor::processGate (juce::AudioBuffer<float>& buffer,
                                              const juce::AudioBuffer<float>* detectorBuffer,
+                                             bool detectorSidechainEnabled,
                                              bool useExternalDetector)
 {
     gateThresholdSmoothed.setTargetValue (apvts.getRawParameterValue (gateThresholdId)->load());
@@ -1100,9 +1102,11 @@ void NovaConsoleAudioProcessor::processGate (juce::AudioBuffer<float>& buffer,
             const float x = data[i];
             float detectorSample = x;
 
-            if (externalAvailable)
+            if (detectorSidechainEnabled)
             {
-                detectorSample = 0.5f * (detLeft[i] + detRight[i]);
+                if (externalAvailable)
+                    detectorSample = 0.5f * (detLeft[i] + detRight[i]);
+
                 for (int stage = 0; stage < hpfStages; ++stage)
                 {
                     auto& hpState = gateDetectorHpfState[static_cast<size_t> (stage)][static_cast<size_t> (ch)];
@@ -1560,7 +1564,8 @@ void NovaConsoleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     if (quality == QualityMode::eco)
         osFactor = 1;
 
-    const bool sidechainExtRequested = sidechainModeChoice > 0;
+    const bool detectorSidechainEnabled = sidechainModeChoice > 0;
+    const bool sidechainExtRequested = sidechainModeChoice == 2;
     const auto& sidechainInput = getBusBuffer (buffer, true, 1);
     const bool sidechainExtActive = sidechainExtRequested && sidechainInput.getNumChannels() > 0;
     const juce::AudioBuffer<float>* detectorBuffer = sidechainExtActive ? &sidechainInput : nullptr;
@@ -1615,12 +1620,12 @@ void NovaConsoleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         processEq (buffer, activeProfile);
 
     if (apvts.getRawParameterValue (compOnId)->load() > 0.5f)
-        processCompressor (buffer, activeProfile, quality, detectorBuffer, sidechainExtActive);
+        processCompressor (buffer, activeProfile, quality, detectorBuffer, detectorSidechainEnabled, sidechainExtActive);
     else
         gainReductionMeter.store (0.92f * gainReductionMeter.load());
 
     if (apvts.getRawParameterValue (gateOnId)->load() > 0.5f)
-        processGate (buffer, detectorBuffer, sidechainExtActive);
+        processGate (buffer, detectorBuffer, detectorSidechainEnabled, sidechainExtActive);
 
     if (apvts.getRawParameterValue (analogOnId)->load() > 0.5f)
         processAnalogEngine (buffer, activeProfile, osFactor, quality, mixAssistAmount, focusAmount);

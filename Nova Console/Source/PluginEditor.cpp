@@ -69,7 +69,9 @@ NovaConsoleAudioProcessorEditor::NovaConsoleAudioProcessorEditor (NovaConsoleAud
     addAndMakeVisible (*webView);
 
     const auto cacheBustedUrl = juce::WebBrowserComponent::getResourceProviderRoot()
-                              + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
+                              + "/index.html?editorWidth=" + juce::String (getWidth())
+                              + "&editorHeight=" + juce::String (getHeight())
+                              + "&v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
     startTimerHz (30);

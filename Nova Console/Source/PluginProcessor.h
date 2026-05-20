@@ -81,9 +81,11 @@ private:
                             const ModeProfile& profile,
                             QualityMode quality,
                             const juce::AudioBuffer<float>* detectorBuffer,
+                        bool detectorSidechainEnabled,
                             bool useExternalDetector);
     void processGate (juce::AudioBuffer<float>& buffer,
                       const juce::AudioBuffer<float>* detectorBuffer,
+                    bool detectorSidechainEnabled,
                       bool useExternalDetector);
     void processAnalogEngine (juce::AudioBuffer<float>& buffer,
                               const ModeProfile& profile,
