@@ -63,14 +63,14 @@
       position: relative;
       flex: 0 0 auto;
       width: calc(1536px * var(--ui-scale));
-      height: calc(970px * var(--ui-scale));
+      height: calc(1020px * var(--ui-scale));
       overflow: visible;
     }
 
     .frame {
       box-sizing: border-box;
       width: 1536px;
-      height: 970px;
+      height: 1020px;
       transform: scale(var(--ui-scale));
       transform-origin: top left;
       border-radius: 16px;
@@ -2772,7 +2772,7 @@
 
       function fitUi() {
         const W = 1536;
-        const H = 970;
+        const H = 1020;
         const editorWidth = Number(query.get("editorWidth"));
         const editorHeight = Number(query.get("editorHeight"));
         const viewport = window.visualViewport;
