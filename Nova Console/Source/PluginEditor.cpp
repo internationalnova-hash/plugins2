@@ -64,7 +64,7 @@ NovaConsoleAudioProcessorEditor::NovaConsoleAudioProcessorEditor (NovaConsoleAud
 
     setResizable (false, false);
     // Keep UI scale unchanged; expand editor container so FL Studio/WebView bottom insets do not clip the footer strip.
-    setSize (1080, 752);
+    setSize (1080, 784);
 
     addAndMakeVisible (*webView);
 
