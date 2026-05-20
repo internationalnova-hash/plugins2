@@ -51,8 +51,11 @@
     }
 
     .stage {
-      width: calc(1536px * var(--ui-scale));
-      height: calc(1005px * var(--ui-scale));
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
       overflow: hidden;
     }
 
@@ -2762,9 +2765,9 @@
         const rawW = Math.min(window.innerWidth || W, document.documentElement.clientWidth || W, viewportW);
         const rawH = Math.min(window.innerHeight || H, document.documentElement.clientHeight || H, viewportH);
 
-        // Conservative headroom for FL Studio host chrome that steals visible area.
-        const hostReserveX = 10;
-        const hostReserveY = 44;
+        // Small host headroom so FL Studio chrome does not clip right/bottom edges.
+        const hostReserveX = 8;
+        const hostReserveY = 14;
         const availW = Math.max(1, rawW - hostReserveX);
         const availH = Math.max(1, rawH - hostReserveY);
 
@@ -2773,9 +2776,9 @@
         document.documentElement.style.setProperty('--ui-scale', String(safeScale));
         const frame = document.querySelector('.frame');
         if (!frame) return;
-        frame.style.zoom = '';
-        frame.style.transform = `scale(${safeScale})`;
-        frame.style.transformOrigin = 'top left';
+        frame.style.zoom = String(safeScale);
+        frame.style.transform = '';
+        frame.style.transformOrigin = '';
       }
       window.addEventListener("resize", fitUi);
       if (window.visualViewport) window.visualViewport.addEventListener("resize", fitUi);
