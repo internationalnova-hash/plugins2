@@ -59,10 +59,20 @@
       overflow: hidden;
     }
 
+    .frameShell {
+      position: relative;
+      flex: 0 0 auto;
+      width: calc(1536px * var(--ui-scale));
+      height: calc(970px * var(--ui-scale));
+      overflow: visible;
+    }
+
     .frame {
       box-sizing: border-box;
       width: 1536px;
-      height: 1005px;
+      height: 970px;
+      transform: scale(var(--ui-scale));
+      transform-origin: top left;
       border-radius: 16px;
       border: 1px solid var(--line);
       background:
@@ -2239,12 +2249,12 @@
       position: absolute;
       left: 20px;
       right: 20px;
-      bottom: 12px;
-      height: 46px;
+      bottom: 8px;
+      height: 42px;
       box-sizing: border-box;
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 8px;
+      gap: 6px;
       align-items: stretch;
       z-index: 4;
       transform: none;
@@ -2252,7 +2262,7 @@
       border: 1px solid rgba(166, 181, 203, 0.14);
       background: linear-gradient(180deg, rgba(23, 27, 33, 0.72) 0%, rgba(12, 15, 20, 0.82) 100%);
       box-shadow: inset 0 1px 0 rgba(219, 228, 241, 0.05), inset 0 -10px 14px rgba(0, 0, 0, 0.54);
-      padding: 2px 7px 3px;
+      padding: 1px 6px 2px;
     }
 
     .sidechainBlock {
@@ -2498,6 +2508,7 @@
 <body>
   <div class="viewport">
       <div class="stage">
+    <div class="frameShell">
     <div class="frame">
       <section class="module inputDock">
         <div class="name">Input</div>
@@ -2752,13 +2763,14 @@
         </div>
       </div>
     </div>
+    </div>
   </div>
 
   <script>
     (() => {
       function fitUi() {
         const W = 1536;
-        const H = 1005;
+        const H = 970;
         const viewport = window.visualViewport;
         const viewportW = viewport ? viewport.width : Number.POSITIVE_INFINITY;
         const viewportH = viewport ? viewport.height : Number.POSITIVE_INFINITY;
@@ -2766,7 +2778,7 @@
         const rawH = Math.min(window.innerHeight || H, document.documentElement.clientHeight || H, viewportH);
 
         // Small host headroom so FL Studio chrome does not clip right/bottom edges.
-        const hostReserveX = 8;
+        const hostReserveX = 4;
         const hostReserveY = 14;
         const availW = Math.max(1, rawW - hostReserveX);
         const availH = Math.max(1, rawH - hostReserveY);
@@ -2774,11 +2786,10 @@
         const scale = Math.min(availW / W, availH / H, 1);
         const safeScale = Math.max(0.12, scale);
         document.documentElement.style.setProperty('--ui-scale', String(safeScale));
-        const frame = document.querySelector('.frame');
-        if (!frame) return;
-        frame.style.zoom = String(safeScale);
-        frame.style.transform = '';
-        frame.style.transformOrigin = '';
+        const frameShell = document.querySelector('.frameShell');
+        if (!frameShell) return;
+        frameShell.style.width = `${W * safeScale}px`;
+        frameShell.style.height = `${H * safeScale}px`;
       }
       window.addEventListener("resize", fitUi);
       if (window.visualViewport) window.visualViewport.addEventListener("resize", fitUi);
