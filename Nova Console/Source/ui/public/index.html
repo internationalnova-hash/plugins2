@@ -64,7 +64,7 @@
       flex: 0 0 auto;
       width: calc(1536px * var(--ui-scale));
       height: calc(1020px * var(--ui-scale));
-      overflow: hidden;
+      overflow: visible;
     }
 
     .frame {
@@ -560,7 +560,7 @@
       left: 8px;
       right: 8px;
       top: 156px;
-      bottom: 76px;
+      bottom: 86px;
       border-radius: 14px;
       border: 1px solid var(--line-soft);
       background:
@@ -2249,7 +2249,7 @@
       position: absolute;
       left: 20px;
       right: 20px;
-      bottom: 2px;
+      bottom: 12px;
       height: 64px;
       box-sizing: border-box;
       display: grid;
@@ -2773,8 +2773,6 @@
       function fitUi() {
         const W = 1536;
         const H = 1020;
-        const editorWidth = Number(query.get("editorWidth"));
-        const editorHeight = Number(query.get("editorHeight"));
         const viewport = window.visualViewport;
         const viewportW = viewport ? viewport.width : Number.POSITIVE_INFINITY;
         const viewportH = viewport ? viewport.height : Number.POSITIVE_INFINITY;
@@ -2785,13 +2783,11 @@
           return filtered.length ? Math.min(...filtered) : fallback;
         };
         const rawW = pickMinPositive([
-          editorWidth,
           window.innerWidth,
           document.documentElement.clientWidth,
           viewportW
         ], W);
         const rawH = pickMinPositive([
-          editorHeight,
           window.innerHeight,
           document.documentElement.clientHeight,
           viewportH
@@ -2813,6 +2809,8 @@
       }
       window.addEventListener("resize", fitUi);
       if (window.visualViewport) window.visualViewport.addEventListener("resize", fitUi);
+      window.addEventListener("load", fitUi);
+      requestAnimationFrame(fitUi);
       fitUi();
 
       const backend = window.__JUCE__ && window.__JUCE__.backend && typeof window.__JUCE__.backend.emitEvent === "function"

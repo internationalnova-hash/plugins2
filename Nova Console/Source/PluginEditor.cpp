@@ -64,14 +64,12 @@ NovaConsoleAudioProcessorEditor::NovaConsoleAudioProcessorEditor (NovaConsoleAud
 
     setResizable (false, false);
     // Keep UI scale unchanged; expand editor container so FL Studio/WebView bottom insets do not clip the footer strip.
-    setSize (1080, 784);
+    setSize (1080, 752);
 
     addAndMakeVisible (*webView);
 
     const auto cacheBustedUrl = juce::WebBrowserComponent::getResourceProviderRoot()
-                              + "/index.html?editorWidth=" + juce::String (getWidth())
-                              + "&editorHeight=" + juce::String (getHeight())
-                              + "&v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
+                              + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
     startTimerHz (30);
