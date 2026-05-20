@@ -2346,7 +2346,8 @@
 
     .driftUtilityBtns {
       display: grid;
-      grid-template-columns: auto;
+      grid-template-columns: auto auto;
+      column-gap: 8px;
       justify-content: center;
       align-items: center;
       min-height: 36px;
@@ -2362,11 +2363,15 @@
       height: 44px;
     }
 
-    .driftUtilityBtns .kLabel {
-      margin-top: 2px;
-      min-height: 10px;
-      font-size: 8px;
+    .driftUtilityReadout {
+      min-width: 34px;
+      font-size: 9px;
       letter-spacing: 0.12em;
+      line-height: 1;
+      text-transform: uppercase;
+      color: #c1ccdc;
+      text-align: left;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.58);
     }
 
     .scBtn {
@@ -2724,28 +2729,28 @@
         <div class="sidechainBlock">
           <div class="sidechainTitle">Sidechain</div>
           <div class="sidechainBtns">
-            <div class="scBtn in"><span class="scPowerIcon">&#x23FB;</span><span>In</span></div>
-            <div class="scBtn">Ext</div>
+            <div class="scBtn in" data-param="sidechain_mode" data-choice="0"><span class="scPowerIcon">&#x23FB;</span><span>In</span></div>
+            <div class="scBtn" data-param="sidechain_mode" data-choice="1">Ext</div>
           </div>
         </div>
         <div class="sidechainBlock">
           <div class="sidechainTitle">Oversampling</div>
           <div class="sidechainBtns oversampleBtns">
-            <div class="scBtn oversampleBtn active" data-param="oversample_mode" data-choice="0">Off</div>
-            <div class="scBtn oversampleBtn" data-param="oversample_mode" data-choice="1">2x</div>
-            <div class="scBtn oversampleBtn" data-param="oversample_mode" data-choice="2">4x</div>
+            <div class="scBtn oversampleBtn active" data-param="oversampling" data-choice="0">Off</div>
+            <div class="scBtn oversampleBtn" data-param="oversampling" data-choice="1">2x</div>
+            <div class="scBtn oversampleBtn" data-param="oversampling" data-choice="2">4x</div>
           </div>
         </div>
         <div class="sidechainBlock">
           <div class="sidechainTitle">Smart Gain</div>
           <div class="sidechainBtns smartGainBtns">
-            <div class="scBtn in"><span class="scPowerIcon">&#x23FB;</span><span>On</span></div>
+            <div class="scBtn in" data-toggle="smart_gain"><span class="scPowerIcon">&#x23FB;</span><span>On</span></div>
           </div>
         </div>
         <div class="sidechainBlock">
           <div class="sidechainTitle">Mix Assist</div>
           <div class="sidechainBtns mixAssistBtns">
-            <div class="microSlider"></div>
+            <div class="microSlider" data-param="mix_assist" data-type="float" data-min="0" data-max="100"></div>
             <div class="mixAssistReadout">62%</div>
           </div>
         </div>
@@ -2758,7 +2763,8 @@
         <div class="sidechainBlock">
           <div class="sidechainTitle">Drift</div>
           <div class="sidechainBtns driftUtilityBtns">
-            <div class="knobWrap analogKnobControl" data-param="analog_drift" data-type="float" data-min="0" data-max="100"><div><div class="knob small"></div><div class="kLabel">Drift</div></div></div>
+            <div class="knobWrap analogKnobControl" data-param="analog_drift" data-type="float" data-min="0" data-max="100"><div><div class="knob small"></div></div></div>
+            <div class="driftUtilityReadout">12%</div>
           </div>
         </div>
       </div>
@@ -2947,7 +2953,7 @@
           const paramId = knobWrap.dataset.param;
           const minVal = Number(knobWrap.dataset.min || "0");
           const maxVal = Number(knobWrap.dataset.max || "100");
-          const knobEl = knobWrap.querySelector('.knob, .microSlider');
+          const knobEl = knobWrap.querySelector('.knob');
           
           if (!knobEl || !paramId) return;
 
@@ -3124,6 +3130,7 @@
       bindChoiceButtons(Array.from(document.querySelectorAll('.filterSlopeBtn[data-param="lpf_slope"]')), "lpf_slope");
       bindChoiceButtons(Array.from(document.querySelectorAll('.gateModeBtn[data-param="gate_smooth"]')), "gate_smooth");
       bindChoiceButtons(Array.from(document.querySelectorAll('.oversampleBtn[data-param="oversampling"]')), "oversampling");
+      bindChoiceButtons(Array.from(document.querySelectorAll('.sidechainBtns .scBtn[data-param="sidechain_mode"]')), "sidechain_mode");
 
       Array.from(document.querySelectorAll('.modeSelector[data-param]')).forEach((group) => {
         const paramId = group.dataset.param;
@@ -3203,6 +3210,13 @@
         if (readout) readout.textContent = `${Math.round(next)}%`;
       };
 
+      const sliderParamContext = (slider) => slider.closest('[data-param][data-type="float"]');
+      const emitMicroSliderValue = (slider, value) => {
+        const holder = sliderParamContext(slider);
+        if (!holder || !holder.dataset.param) return;
+        emitParamValue(holder.dataset.param, value);
+      };
+
       const sliderValueFromEvent = (slider, ev) => {
         const rect = slider.getBoundingClientRect();
         const x = getClientX(ev);
@@ -3215,10 +3229,17 @@
         const initial = readout ? Number.parseFloat(readout.textContent) : 62;
         updateMicroSlider(slider, Number.isFinite(initial) ? initial : 62);
 
+        const holder = sliderParamContext(slider);
+        if (holder && holder.dataset.param) {
+          addBackendListener(holder.dataset.param, (value) => updateMicroSlider(slider, value));
+        }
+
         slider.addEventListener("pointerdown", (ev) => {
           if (ev && ev.preventDefault) ev.preventDefault();
           sliderState.active = slider;
-          updateMicroSlider(slider, sliderValueFromEvent(slider, ev));
+          const next = sliderValueFromEvent(slider, ev);
+          updateMicroSlider(slider, next);
+          emitMicroSliderValue(slider, next);
           if (ev.pointerId != null && typeof slider.setPointerCapture === "function") {
             try { slider.setPointerCapture(ev.pointerId); } catch (_) {}
           }
@@ -3227,28 +3248,41 @@
         slider.addEventListener("mousedown", (ev) => {
           if (ev && ev.preventDefault) ev.preventDefault();
           sliderState.active = slider;
-          updateMicroSlider(slider, sliderValueFromEvent(slider, ev));
+          const next = sliderValueFromEvent(slider, ev);
+          updateMicroSlider(slider, next);
+          emitMicroSliderValue(slider, next);
         });
 
         slider.addEventListener("touchstart", (ev) => {
           if (ev && ev.preventDefault) ev.preventDefault();
           sliderState.active = slider;
-          updateMicroSlider(slider, sliderValueFromEvent(slider, ev));
+          const next = sliderValueFromEvent(slider, ev);
+          updateMicroSlider(slider, next);
+          emitMicroSliderValue(slider, next);
         }, { passive: false });
 
         slider.addEventListener("wheel", (ev) => {
           if (ev && ev.preventDefault) ev.preventDefault();
           const direction = ev.deltaY > 0 ? -1 : 1;
           const step = ev.shiftKey ? 0.6 : 2;
-          updateMicroSlider(slider, Number(slider.dataset.value || "62") + direction * step);
+          const next = Number(slider.dataset.value || "62") + direction * step;
+          updateMicroSlider(slider, next);
+          emitMicroSliderValue(slider, clampSlider(next));
         }, { passive: false });
       });
 
       const moveSlider = (ev) => {
         if (!sliderState.active) return;
         if (ev && ev.preventDefault) ev.preventDefault();
-        updateMicroSlider(sliderState.active, sliderValueFromEvent(sliderState.active, ev));
+        const next = sliderValueFromEvent(sliderState.active, ev);
+        updateMicroSlider(sliderState.active, next);
+        emitMicroSliderValue(sliderState.active, next);
       };
+
+      addBackendListener("analog_drift", (value) => {
+        const driftReadout = document.querySelector('.driftUtilityReadout');
+        if (driftReadout) driftReadout.textContent = `${Math.round(clamp(value, 0, 100))}%`;
+      });
 
       const endSlider = () => {
         sliderState.active = null;

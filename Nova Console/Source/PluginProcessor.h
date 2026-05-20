@@ -77,15 +77,34 @@ private:
     void processPreamp (juce::AudioBuffer<float>& buffer, const ModeProfile& profile, int osFactor);
     void processFilters (juce::AudioBuffer<float>& buffer);
     void processEq (juce::AudioBuffer<float>& buffer, const ModeProfile& profile);
-    void processCompressor (juce::AudioBuffer<float>& buffer, const ModeProfile& profile, QualityMode quality);
-    void processGate (juce::AudioBuffer<float>& buffer);
-    void processAnalogEngine (juce::AudioBuffer<float>& buffer, const ModeProfile& profile, int osFactor, QualityMode quality);
+    void processCompressor (juce::AudioBuffer<float>& buffer,
+                            const ModeProfile& profile,
+                            QualityMode quality,
+                            const juce::AudioBuffer<float>* detectorBuffer,
+                            bool useExternalDetector);
+    void processGate (juce::AudioBuffer<float>& buffer,
+                      const juce::AudioBuffer<float>* detectorBuffer,
+                      bool useExternalDetector);
+    void processAnalogEngine (juce::AudioBuffer<float>& buffer,
+                              const ModeProfile& profile,
+                              int osFactor,
+                              QualityMode quality,
+                              float mixAssistAmount,
+                              float focusAmount);
+    void processMixAssistAndFocus (juce::AudioBuffer<float>& buffer, float mixAssistAmount, float focusAmount);
+    void applySmartGainCompensation (juce::AudioBuffer<float>& buffer, float preProcessRms, float postProcessRms, int numSamples);
 
     static ModeProfile profileForMode (ConsoleMode mode) noexcept;
     static ModeProfile blendProfiles (const ModeProfile& a, const ModeProfile& b, float t) noexcept;
 
     juce::dsp::StateVariableTPTFilter<float> hpf[2];
     juce::dsp::StateVariableTPTFilter<float> lpf[2];
+    juce::dsp::StateVariableTPTFilter<float> hpfStage2[2];
+    juce::dsp::StateVariableTPTFilter<float> hpfStage3[2];
+    juce::dsp::StateVariableTPTFilter<float> hpfStage4[2];
+    juce::dsp::StateVariableTPTFilter<float> lpfStage2[2];
+    juce::dsp::StateVariableTPTFilter<float> lpfStage3[2];
+    juce::dsp::StateVariableTPTFilter<float> lpfStage4[2];
 
     juce::dsp::IIR::Filter<float> lowShelf[2];
     juce::dsp::IIR::Filter<float> lowMidPeak[2];
@@ -147,6 +166,11 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> noiseSmoothed;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> crosstalkSmoothed;
 
+    // Smart intelligence controls
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> smartGainCompDbSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mixAssistAmountSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> focusAmountSmoothed;
+
     float compressorDetector = 0.0f;
     float compressorGainState = 1.0f;
     std::array<float, 2> compressorPunchMemory { 0.0f, 0.0f };
@@ -154,9 +178,29 @@ private:
     std::array<int32_t, 2> gateHoldCounter { 0, 0 };
     std::array<float, 2> gatePreviousEnv { 0.0f, 0.0f };
     std::array<float, 2> driftState { 0.0f, 0.0f };
+    std::array<float, 2> driftHarmonicState { 0.0f, 0.0f };
+    std::array<float, 2> driftStereoState { 0.0f, 0.0f };
+    std::array<float, 2> driftContourState { 0.0f, 0.0f };
+    float driftFilterState = 0.0f;
     std::array<float, 2> preampPrevInput { 0.0f, 0.0f };
     std::array<float, 2> analogPrevInput { 0.0f, 0.0f };
     std::array<float, 2> analogToneMemory { 0.0f, 0.0f };
+    std::array<float, 2> mixAssistLowState { 0.0f, 0.0f };
+    std::array<float, 2> mixAssistPresenceLpState { 0.0f, 0.0f };
+    std::array<float, 2> mixAssistHarshLpState { 0.0f, 0.0f };
+    std::array<float, 2> mixAssistHarshEnvState { 0.0f, 0.0f };
+    std::array<std::array<float, 2>, 4> compDetectorHpfState {};
+    std::array<std::array<float, 2>, 4> compDetectorLpfState {};
+    std::array<std::array<float, 2>, 4> gateDetectorHpfState {};
+    std::array<std::array<float, 2>, 4> gateDetectorLpfState {};
+    std::array<float, 2> crosstalkLowState { 0.0f, 0.0f };
+    std::array<float, 2> crosstalkHighState { 0.0f, 0.0f };
+    std::array<std::array<float, 64>, 2> crosstalkDelayBuffer {};
+    int crosstalkDelayWriteIndex = 0;
+
+    float smartGainPreRmsEnv = 0.0f;
+    float smartGainPostRmsEnv = 0.0f;
+    float assistDensityEnv = 0.0f;
 
     ConsoleMode modeFrom = ConsoleMode::british;
     ConsoleMode modeTo = ConsoleMode::british;

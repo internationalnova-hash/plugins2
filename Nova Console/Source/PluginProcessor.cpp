@@ -104,6 +104,7 @@ NovaConsoleAudioProcessor::NovaConsoleAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
     : AudioProcessor (BusesProperties()
                         .withInput  ("Input", juce::AudioChannelSet::stereo(), true)
+                        .withInput  ("Sidechain", juce::AudioChannelSet::stereo(), false)
                         .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
 #else
     :
@@ -326,9 +327,21 @@ void NovaConsoleAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 
         hpf[ch].setType (juce::dsp::StateVariableTPTFilterType::highpass);
         lpf[ch].setType (juce::dsp::StateVariableTPTFilterType::lowpass);
+        hpfStage2[ch].setType (juce::dsp::StateVariableTPTFilterType::highpass);
+        hpfStage3[ch].setType (juce::dsp::StateVariableTPTFilterType::highpass);
+        hpfStage4[ch].setType (juce::dsp::StateVariableTPTFilterType::highpass);
+        lpfStage2[ch].setType (juce::dsp::StateVariableTPTFilterType::lowpass);
+        lpfStage3[ch].setType (juce::dsp::StateVariableTPTFilterType::lowpass);
+        lpfStage4[ch].setType (juce::dsp::StateVariableTPTFilterType::lowpass);
 
         hpf[ch].prepare (spec);
         lpf[ch].prepare (spec);
+        hpfStage2[ch].prepare (spec);
+        hpfStage3[ch].prepare (spec);
+        hpfStage4[ch].prepare (spec);
+        lpfStage2[ch].prepare (spec);
+        lpfStage3[ch].prepare (spec);
+        lpfStage4[ch].prepare (spec);
 
         lowShelf[ch].prepare (spec);
         lowMidPeak[ch].prepare (spec);
@@ -391,14 +404,42 @@ void NovaConsoleAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
     noiseSmoothed.reset (sampleRate, 0.050);
     crosstalkSmoothed.reset (sampleRate, 0.050);
 
+    // Smart Gain / Mix Assist / Focus smoothing
+    smartGainCompDbSmoothed.reset (sampleRate, 0.150);
+    mixAssistAmountSmoothed.reset (sampleRate, 0.120);
+    focusAmountSmoothed.reset (sampleRate, 0.100);
+    smartGainCompDbSmoothed.setCurrentAndTargetValue (0.0f);
+    mixAssistAmountSmoothed.setCurrentAndTargetValue (0.0f);
+    focusAmountSmoothed.setCurrentAndTargetValue (0.0f);
+
     compressorDetector = 0.0f;
     compressorGainState = 1.0f;
     compressorPunchMemory = { 0.0f, 0.0f };
-    gateEnv = { 0.0f, 0.0f };
+    gateEnv = { 1.0f, 1.0f };
     driftState = { 0.0f, 0.0f };
+    driftHarmonicState = { 0.0f, 0.0f };
+    driftStereoState = { 0.0f, 0.0f };
+    driftContourState = { 0.0f, 0.0f };
+    driftFilterState = 0.0f;
     preampPrevInput = { 0.0f, 0.0f };
     analogPrevInput = { 0.0f, 0.0f };
     analogToneMemory = { 0.0f, 0.0f };
+    mixAssistLowState = { 0.0f, 0.0f };
+    mixAssistPresenceLpState = { 0.0f, 0.0f };
+    mixAssistHarshLpState = { 0.0f, 0.0f };
+    mixAssistHarshEnvState = { 0.0f, 0.0f };
+
+    smartGainPreRmsEnv = 0.0f;
+    smartGainPostRmsEnv = 0.0f;
+    assistDensityEnv = 0.0f;
+    crosstalkLowState = { 0.0f, 0.0f };
+    crosstalkHighState = { 0.0f, 0.0f };
+    crosstalkDelayBuffer = {};
+    crosstalkDelayWriteIndex = 0;
+    compDetectorHpfState = {};
+    compDetectorLpfState = {};
+    gateDetectorHpfState = {};
+    gateDetectorLpfState = {};
 
     lastHpfHz = -1.0f;
     lastLpfHz = -1.0f;
@@ -646,10 +687,20 @@ void NovaConsoleAudioProcessor::updateLinearStageCoefficients()
     for (int ch = 0; ch < 2; ++ch)
     {
         if (hpfChanged)
+        {
             hpf[ch].setCutoffFrequency (hpfHz);
+            hpfStage2[ch].setCutoffFrequency (hpfHz);
+            hpfStage3[ch].setCutoffFrequency (hpfHz);
+            hpfStage4[ch].setCutoffFrequency (hpfHz);
+        }
 
         if (lpfChanged)
+        {
             lpf[ch].setCutoffFrequency (lpfHz);
+            lpfStage2[ch].setCutoffFrequency (lpfHz);
+            lpfStage3[ch].setCutoffFrequency (lpfHz);
+            lpfStage4[ch].setCutoffFrequency (lpfHz);
+        }
     }
 
     if (eqChanged || modeChanged)
@@ -773,10 +824,15 @@ void NovaConsoleAudioProcessor::processFilters (juce::AudioBuffer<float>& buffer
         for (int i = 0; i < buffer.getNumSamples(); ++i)
         {
             float sample = data[i];
-            for (int s = 0; s < hpfStages; ++s)
-                sample = hpf[ch].processSample (0, sample);
-            for (int s = 0; s < lpfStages; ++s)
-                sample = lpf[ch].processSample (0, sample);
+            sample = hpf[ch].processSample (0, sample);
+            if (hpfStages >= 2) sample = hpfStage2[ch].processSample (0, sample);
+            if (hpfStages >= 3) sample = hpfStage3[ch].processSample (0, sample);
+            if (hpfStages >= 4) sample = hpfStage4[ch].processSample (0, sample);
+
+            sample = lpf[ch].processSample (0, sample);
+            if (lpfStages >= 2) sample = lpfStage2[ch].processSample (0, sample);
+            if (lpfStages >= 3) sample = lpfStage3[ch].processSample (0, sample);
+            if (lpfStages >= 4) sample = lpfStage4[ch].processSample (0, sample);
             data[i] = sample;
         }
     }
@@ -808,7 +864,11 @@ void NovaConsoleAudioProcessor::processEq (juce::AudioBuffer<float>& buffer, con
     }
 }
 
-void NovaConsoleAudioProcessor::processCompressor (juce::AudioBuffer<float>& buffer, const ModeProfile& profile, QualityMode quality)
+void NovaConsoleAudioProcessor::processCompressor (juce::AudioBuffer<float>& buffer,
+                                                   const ModeProfile& profile,
+                                                   QualityMode quality,
+                                                   const juce::AudioBuffer<float>* detectorBuffer,
+                                                   bool useExternalDetector)
 {
     compThresholdSmoothed.setTargetValue (apvts.getRawParameterValue (thresholdId)->load());
     compRatioSmoothed.setTargetValue (apvts.getRawParameterValue (ratioId)->load());
@@ -831,6 +891,23 @@ void NovaConsoleAudioProcessor::processCompressor (juce::AudioBuffer<float>& buf
 
     auto* left = buffer.getWritePointer (0);
     auto* right = channels > 1 ? buffer.getWritePointer (1) : nullptr;
+
+    const bool externalAvailable = useExternalDetector && detectorBuffer != nullptr && detectorBuffer->getNumChannels() > 0;
+    const auto* detLeft = externalAvailable ? detectorBuffer->getReadPointer (0) : left;
+    const auto* detRight = externalAvailable
+        ? detectorBuffer->getReadPointer (detectorBuffer->getNumChannels() > 1 ? 1 : 0)
+        : (right != nullptr ? right : left);
+
+    const int hpfSlopeChoice = juce::jlimit (0, 2, static_cast<int> (apvts.getRawParameterValue (hpfSlopeId)->load()));
+    const int lpfSlopeChoice = juce::jlimit (0, 2, static_cast<int> (apvts.getRawParameterValue (lpfSlopeId)->load()));
+    const int hpfStages = hpfSlopeChoice == 0 ? 1 : (hpfSlopeChoice == 1 ? 2 : 4);
+    const int lpfStages = lpfSlopeChoice == 0 ? 1 : (lpfSlopeChoice == 1 ? 2 : 4);
+    const float detectorHpfHz = apvts.getRawParameterValue (hpfId)->load();
+    const float detectorLpfHz = apvts.getRawParameterValue (lpfId)->load();
+    const float detectorHpfCoeff = juce::jlimit (0.0001f, 0.999f,
+        1.0f - std::exp (-juce::MathConstants<float>::twoPi * detectorHpfHz / sr));
+    const float detectorLpfCoeff = juce::jlimit (0.0001f, 0.999f,
+        1.0f - std::exp (-juce::MathConstants<float>::twoPi * detectorLpfHz / sr));
 
     const float kneeDb = 4.0f;
 
@@ -859,10 +936,36 @@ void NovaConsoleAudioProcessor::processCompressor (juce::AudioBuffer<float>& buf
         const float drivenL = dryL + transL * punch * 0.45f * modePunch;
         const float drivenR = dryR + transR * punch * 0.45f * modePunch;
 
-        const float absL = std::abs (drivenL);
-        const float absR = std::abs (drivenR);
+        float detectorL = externalAvailable ? detLeft[i] : drivenL;
+        float detectorR = externalAvailable ? detRight[i] : drivenR;
+
+        if (externalAvailable)
+        {
+            for (int stage = 0; stage < hpfStages; ++stage)
+            {
+                auto& hpStateL = compDetectorHpfState[static_cast<size_t> (stage)][0];
+                auto& hpStateR = compDetectorHpfState[static_cast<size_t> (stage)][1];
+                hpStateL += detectorHpfCoeff * (detectorL - hpStateL);
+                hpStateR += detectorHpfCoeff * (detectorR - hpStateR);
+                detectorL -= hpStateL;
+                detectorR -= hpStateR;
+            }
+
+            for (int stage = 0; stage < lpfStages; ++stage)
+            {
+                auto& lpStateL = compDetectorLpfState[static_cast<size_t> (stage)][0];
+                auto& lpStateR = compDetectorLpfState[static_cast<size_t> (stage)][1];
+                lpStateL += detectorLpfCoeff * (detectorL - lpStateL);
+                lpStateR += detectorLpfCoeff * (detectorR - lpStateR);
+                detectorL = lpStateL;
+                detectorR = lpStateR;
+            }
+        }
+
+        const float absL = std::abs (detectorL);
+        const float absR = std::abs (detectorR);
         const float peak = juce::jmax (absL, absR);
-        const float rms = std::sqrt ((drivenL * drivenL + drivenR * drivenR) * 0.5f);
+        const float rms = std::sqrt ((detectorL * detectorL + detectorR * detectorR) * 0.5f);
         const float detector = 0.66f * rms + 0.34f * peak;
 
         const float crest = peak / juce::jmax (rms, 1.0e-5f);
@@ -921,7 +1024,9 @@ void NovaConsoleAudioProcessor::processCompressor (juce::AudioBuffer<float>& buf
     gainReductionMeter.store (0.84f * gainReductionMeter.load() + 0.16f * juce::jlimit (0.0f, 1.0f, maxReduction / 18.0f));
 }
 
-void NovaConsoleAudioProcessor::processGate (juce::AudioBuffer<float>& buffer)
+void NovaConsoleAudioProcessor::processGate (juce::AudioBuffer<float>& buffer,
+                                             const juce::AudioBuffer<float>* detectorBuffer,
+                                             bool useExternalDetector)
 {
     gateThresholdSmoothed.setTargetValue (apvts.getRawParameterValue (gateThresholdId)->load());
     gateReleaseSmoothed.setTargetValue (apvts.getRawParameterValue (gateReleaseId)->load());
@@ -929,9 +1034,37 @@ void NovaConsoleAudioProcessor::processGate (juce::AudioBuffer<float>& buffer)
     gateAttackSmoothed.setTargetValue (apvts.getRawParameterValue (gateAttackId)->load());
     gateHoldSmoothed.setTargetValue (apvts.getRawParameterValue (gateHoldId)->load());
 
-    const bool smooth = apvts.getRawParameterValue (gateSmoothId)->load() > 0.5f;
+    const bool expandMode = apvts.getRawParameterValue (gateSmoothId)->load() > 0.5f;
     const float sr = static_cast<float> (currentSampleRate);
-    const float hysteresisDb = 3.0f;
+    const auto mode = static_cast<ConsoleMode> (juce::jlimit (0, 4, static_cast<int> (apvts.getRawParameterValue (modeId)->load())));
+
+    float modeExpandSoftness = 1.0f;
+    float modeGateTightness = 1.0f;
+    switch (mode)
+    {
+        case ConsoleMode::clean:    modeExpandSoftness = 1.12f; modeGateTightness = 0.92f; break;
+        case ConsoleMode::british:  modeExpandSoftness = 0.96f; modeGateTightness = 1.10f; break;
+        case ConsoleMode::tubeTape: modeExpandSoftness = 1.20f; modeGateTightness = 0.88f; break;
+        case ConsoleMode::gold:     modeExpandSoftness = 1.15f; modeGateTightness = 0.95f; break;
+        case ConsoleMode::modern:   modeExpandSoftness = 1.04f; modeGateTightness = 1.02f; break;
+    }
+
+    const bool externalAvailable = useExternalDetector && detectorBuffer != nullptr && detectorBuffer->getNumChannels() > 0;
+    const auto* detLeft = externalAvailable ? detectorBuffer->getReadPointer (0) : nullptr;
+    const auto* detRight = externalAvailable
+        ? detectorBuffer->getReadPointer (detectorBuffer->getNumChannels() > 1 ? 1 : 0)
+        : nullptr;
+
+    const int hpfSlopeChoice = juce::jlimit (0, 2, static_cast<int> (apvts.getRawParameterValue (hpfSlopeId)->load()));
+    const int lpfSlopeChoice = juce::jlimit (0, 2, static_cast<int> (apvts.getRawParameterValue (lpfSlopeId)->load()));
+    const int hpfStages = hpfSlopeChoice == 0 ? 1 : (hpfSlopeChoice == 1 ? 2 : 4);
+    const int lpfStages = lpfSlopeChoice == 0 ? 1 : (lpfSlopeChoice == 1 ? 2 : 4);
+    const float detectorHpfHz = apvts.getRawParameterValue (hpfId)->load();
+    const float detectorLpfHz = apvts.getRawParameterValue (lpfId)->load();
+    const float detectorHpfCoeff = juce::jlimit (0.0001f, 0.999f,
+        1.0f - std::exp (-juce::MathConstants<float>::twoPi * detectorHpfHz / sr));
+    const float detectorLpfCoeff = juce::jlimit (0.0001f, 0.999f,
+        1.0f - std::exp (-juce::MathConstants<float>::twoPi * detectorLpfHz / sr));
 
     const int channels = juce::jmin (2, buffer.getNumChannels());
     for (int ch = 0; ch < channels; ++ch)
@@ -946,35 +1079,83 @@ void NovaConsoleAudioProcessor::processGate (juce::AudioBuffer<float>& buffer)
             const float attackMs = gateAttackSmoothed.getNextValue();
             const float holdMs = gateHoldSmoothed.getNextValue();
 
-            const float releaseCoeff = std::exp (-1.0f / (0.001f * releaseMs * sr));
-            const float attackCoeff = std::exp (-1.0f / (0.001f * juce::jmax (0.1f, attackMs * 0.8f) * sr));
+            const float maxAttenDb = juce::jmax (3.0f, -rangeDb);
+            const float userAttackMs = juce::jmax (0.1f, attackMs);
+            const float userReleaseMs = juce::jmax (8.0f, releaseMs);
+
+            const float effAttackMs = expandMode
+                ? userAttackMs * (1.35f * modeExpandSoftness)
+                : userAttackMs * (0.68f / juce::jmax (0.75f, modeGateTightness));
+            const float effReleaseMs = expandMode
+                ? userReleaseMs * (1.45f * modeExpandSoftness)
+                : userReleaseMs * (0.72f / juce::jmax (0.75f, modeGateTightness));
+
+            const float releaseCoeff = std::exp (-1.0f / (0.001f * effReleaseMs * sr));
+            const float attackCoeff = std::exp (-1.0f / (0.001f * effAttackMs * sr));
             const int32_t holdSamples = static_cast<int32_t> ((holdMs * sr) / 1000.0f);
-            const float floorGain = dbToGain (rangeDb);
+            const float hysteresisDb = expandMode
+                ? (4.2f * modeExpandSoftness)
+                : (2.0f / juce::jmax (0.75f, modeGateTightness));
 
             const float x = data[i];
-            const float level = std::abs (x);
+            float detectorSample = x;
+
+            if (externalAvailable)
+            {
+                detectorSample = 0.5f * (detLeft[i] + detRight[i]);
+                for (int stage = 0; stage < hpfStages; ++stage)
+                {
+                    auto& hpState = gateDetectorHpfState[static_cast<size_t> (stage)][static_cast<size_t> (ch)];
+                    hpState += detectorHpfCoeff * (detectorSample - hpState);
+                    detectorSample -= hpState;
+                }
+
+                for (int stage = 0; stage < lpfStages; ++stage)
+                {
+                    auto& lpState = gateDetectorLpfState[static_cast<size_t> (stage)][static_cast<size_t> (ch)];
+                    lpState += detectorLpfCoeff * (detectorSample - lpState);
+                    detectorSample = lpState;
+                }
+            }
+
+            const float level = std::abs (detectorSample);
             const float levelDb = gainToDb (level);
 
-            float targetDb = thresholdDb;
-            if (levelDb > (thresholdDb + hysteresisDb))
-                targetDb = thresholdDb + hysteresisDb;
-            else if (levelDb < (thresholdDb - hysteresisDb))
-                targetDb = thresholdDb - hysteresisDb;
+            const bool aboveOpenThreshold = levelDb > (thresholdDb + hysteresisDb);
+            const bool belowCloseThreshold = levelDb < (thresholdDb - hysteresisDb);
 
-            float target = levelDb > targetDb ? 1.0f : floorGain;
+            float target = 1.0f;
+            if (expandMode)
+            {
+                const float ratio = juce::jlimit (2.0f, 6.0f, 2.0f + (maxAttenDb - 3.0f) * (4.0f / 33.0f));
+                const float kneeDb = 8.0f * modeExpandSoftness;
+                const float belowDb = juce::jmax (0.0f, thresholdDb - levelDb);
+                const float expansionDb = -juce::jmin (maxAttenDb, belowDb * (1.0f - 1.0f / ratio));
+                const float blend = juce::jlimit (0.0f, 1.0f, belowDb / juce::jmax (1.0f, kneeDb));
+                const float blendShaped = blend * blend * (3.0f - 2.0f * blend);
+                target = dbToGain (expansionDb * blendShaped);
+            }
+            else
+            {
+                const float kneeDb = 2.0f / juce::jmax (0.75f, modeGateTightness);
+                const float closeSpanDb = juce::jmax (4.0f, 10.0f / juce::jmax (0.75f, modeGateTightness));
+                const float close = juce::jlimit (0.0f, 1.0f, (thresholdDb - levelDb + kneeDb) / closeSpanDb);
+                const float curve = std::pow (close, 1.6f * modeGateTightness);
+                const float gateDb = -juce::jmin (maxAttenDb, maxAttenDb * curve);
+                target = dbToGain (gateDb);
+            }
 
-            if (levelDb > thresholdDb)
+            if (aboveOpenThreshold)
             {
                 gateHoldCounter[static_cast<size_t> (ch)] = holdSamples;
-            }
-            else if (gateHoldCounter[static_cast<size_t> (ch)] > 0)
-            {
-                gateHoldCounter[static_cast<size_t> (ch)]--;
                 target = 1.0f;
             }
-
-            if (smooth)
-                target = juce::jmap (juce::jlimit (0.0f, 1.0f, (levelDb - (thresholdDb - 12.0f)) / 12.0f), floorGain, 1.0f);
+            else if (!belowCloseThreshold || gateHoldCounter[static_cast<size_t> (ch)] > 0)
+            {
+                if (gateHoldCounter[static_cast<size_t> (ch)] > 0)
+                    gateHoldCounter[static_cast<size_t> (ch)]--;
+                target = 1.0f;
+            }
 
             float& gateEnvRef = gateEnv[static_cast<size_t> (ch)];
             if (target > gateEnvRef)
@@ -987,7 +1168,12 @@ void NovaConsoleAudioProcessor::processGate (juce::AudioBuffer<float>& buffer)
     }
 }
 
-void NovaConsoleAudioProcessor::processAnalogEngine (juce::AudioBuffer<float>& buffer, const ModeProfile& profile, int osFactor, QualityMode quality)
+void NovaConsoleAudioProcessor::processAnalogEngine (juce::AudioBuffer<float>& buffer,
+                                                     const ModeProfile& profile,
+                                                     int osFactor,
+                                                     QualityMode quality,
+                                                     float mixAssistAmount,
+                                                     float focusAmount)
 {
     heatSmoothed.setTargetValue (apvts.getRawParameterValue (heatId)->load() / 100.0f);
     depthSmoothed.setTargetValue (apvts.getRawParameterValue (depthId)->load() / 100.0f);
@@ -999,6 +1185,17 @@ void NovaConsoleAudioProcessor::processAnalogEngine (juce::AudioBuffer<float>& b
     const float warmth = profile.warmth;
     const float qualityScale = quality == QualityMode::master ? 1.15f : (quality == QualityMode::eco ? 0.85f : 1.0f);
     const float osScale = juce::jmap (static_cast<float> (osFactor), 1.0f, 4.0f, 1.0f, 0.88f);
+    const float sr = static_cast<float> (currentSampleRate);
+    const auto mode = static_cast<ConsoleMode> (juce::jlimit (0, 4, static_cast<int> (apvts.getRawParameterValue (modeId)->load())));
+    float driftModeScale = 1.0f;
+    switch (mode)
+    {
+        case ConsoleMode::clean:    driftModeScale = 0.55f; break;
+        case ConsoleMode::british:  driftModeScale = 0.90f; break;
+        case ConsoleMode::tubeTape: driftModeScale = 1.18f; break;
+        case ConsoleMode::gold:     driftModeScale = 0.82f; break;
+        case ConsoleMode::modern:   driftModeScale = 0.65f; break;
+    }
 
     if (buffer.getNumChannels() < 2)
     {
@@ -1006,36 +1203,53 @@ void NovaConsoleAudioProcessor::processAnalogEngine (juce::AudioBuffer<float>& b
         float previousIn = analogPrevInput[0];
         for (int i = 0; i < buffer.getNumSamples(); ++i)
         {
-            const float heat = heatSmoothed.getNextValue();
-            const float drift = driftSmoothed.getNextValue();
+            const float inputSample = data[i];
+            const float heatRaw = heatSmoothed.getNextValue();
+            const float driftRaw = driftSmoothed.getNextValue();
             const float noise = noiseSmoothed.getNextValue();
 
-            driftState[0] = 0.9985f * driftState[0] + 0.0015f * randDist (rng);
-            const float driftMod = 1.0f + driftState[0] * drift * 0.003f;
+            const float densityProbe = std::abs (data[i]);
+            assistDensityEnv = 0.996f * assistDensityEnv + 0.004f * densityProbe;
+            const float dense = juce::jlimit (0.0f, 1.0f, (assistDensityEnv - 0.10f) / 0.55f);
+            const float assistRestrain = mixAssistAmount * (0.35f + 0.65f * dense);
+            const float heat = heatRaw * (1.0f - 0.20f * assistRestrain - 0.12f * focusAmount);
+            const float drift = driftRaw * driftModeScale * (1.0f - 0.16f * assistRestrain - 0.30f * focusAmount);
 
-            const float driven = data[i] * driftMod;
+            driftHarmonicState[0] = juce::jlimit (-1.0f, 1.0f, 0.99925f * driftHarmonicState[0] + 0.0020f * randDist (rng));
+            driftContourState[0] = juce::jlimit (-1.0f, 1.0f, 0.99945f * driftContourState[0] + 0.0012f * randDist (rng));
+            driftFilterState = juce::jlimit (-1.0f, 1.0f, 0.99965f * driftFilterState + 0.0008f * randDist (rng));
+
+            const float harmonicMotion = driftHarmonicState[0] * drift;
+            const float contourMotion = driftContourState[0] * drift;
+            const float contourTilt = driftFilterState * drift * 0.015f;
+
             const float clipDrive = juce::jlimit (0.85f, 1.2f, 1.0f / profile.clipSoftness);
-            const float oddW = 0.55f + 0.4f * profile.oddDrive;
-            const float evenW = 0.35f + 0.5f * profile.evenDrive;
+            const float clipDriveVar = clipDrive * (1.0f + contourMotion * 0.08f);
+            const float oddW = juce::jlimit (0.30f, 1.05f, 0.55f + 0.4f * profile.oddDrive + harmonicMotion * 0.06f);
+            const float evenW = juce::jlimit (0.22f, 1.05f, 0.35f + 0.5f * profile.evenDrive - harmonicMotion * 0.05f);
             const float satNorm = 1.0f / juce::jmax (0.35f, oddW + evenW);
+            const float harmonicDrive = 1.0f + heat * (2.0f + warmth) * qualityScale * osScale + harmonicMotion * 0.12f;
+            const float evenDriveVar = 1.0f + heat * 1.6f - harmonicMotion * 0.08f;
 
             float x = 0.0f;
             for (int os = 0; os < osFactor; ++os)
             {
                 const float t = static_cast<float> (os + 1) / static_cast<float> (osFactor);
-                const float interp = previousIn + (driven - previousIn) * t;
-                const float odd = saturateSmooth (interp * (1.0f + heat * (2.0f + warmth) * qualityScale * osScale) * clipDrive);
-                const float even = 0.5f * (saturateSmooth ((interp + 0.03f) * (1.0f + heat * 1.6f) * clipDrive)
-                                         + saturateSmooth ((interp - 0.03f) * (1.0f + heat * 1.6f) * clipDrive));
+                const float interp = previousIn + (inputSample - previousIn) * t;
+                const float odd = saturateSmooth (interp * harmonicDrive * clipDriveVar);
+                const float even = 0.5f * (saturateSmooth ((interp + 0.03f + contourTilt) * evenDriveVar * clipDriveVar)
+                                         + saturateSmooth ((interp - 0.03f - contourTilt) * evenDriveVar * clipDriveVar));
                 x += (odd * oddW + even * evenW) * satNorm;
             }
 
             x /= static_cast<float> (osFactor);
-            analogToneMemory[0] = 0.996f * analogToneMemory[0] + 0.004f * x;
-            x = 0.985f * x + 0.015f * analogToneMemory[0];
+            const float toneMemoryCoeff = juce::jlimit (0.992f, 0.999f, 0.996f + contourTilt * 0.10f);
+            analogToneMemory[0] = toneMemoryCoeff * analogToneMemory[0] + (1.0f - toneMemoryCoeff) * x;
+            const float toneBlend = juce::jlimit (0.008f, 0.030f, 0.015f + contourMotion * 0.01f);
+            x = (1.0f - toneBlend) * x + toneBlend * analogToneMemory[0];
             x += (noise * 0.0007f) * randDist (rng);
             data[i] = x;
-            previousIn = driven;
+            previousIn = inputSample;
         }
 
         analogPrevInput[0] = previousIn;
@@ -1047,46 +1261,71 @@ void NovaConsoleAudioProcessor::processAnalogEngine (juce::AudioBuffer<float>& b
 
     float previousL = analogPrevInput[0];
     float previousR = analogPrevInput[1];
+    const float crosstalkLowCoeff = juce::jlimit (0.0001f, 0.999f,
+        1.0f - std::exp (-juce::MathConstants<float>::twoPi * 80.0f / sr));
+    const float crosstalkHighCoeff = juce::jlimit (0.0001f, 0.999f,
+        1.0f - std::exp (-juce::MathConstants<float>::twoPi * 10000.0f / sr));
+    int delayWrite = crosstalkDelayWriteIndex;
 
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
-        const float heat = heatSmoothed.getNextValue();
+        const float heatRaw = heatSmoothed.getNextValue();
         const float depth = depthSmoothed.getNextValue();
-        const float width = widthSmoothed.getNextValue();
-        const float drift = driftSmoothed.getNextValue();
+        const float widthRaw = widthSmoothed.getNextValue();
+        const float driftRaw = driftSmoothed.getNextValue();
         const float noise = noiseSmoothed.getNextValue();
-        const float crosstalkAmt = crosstalkSmoothed.getNextValue();
+        const float crosstalkRaw = crosstalkSmoothed.getNextValue();
 
-        driftState[0] = 0.9985f * driftState[0] + 0.0015f * randDist (rng);
-        driftState[1] = 0.9985f * driftState[1] + 0.0015f * randDist (rng);
+        const float densityProbe = 0.5f * (std::abs (left[i]) + std::abs (right[i]));
+        assistDensityEnv = 0.996f * assistDensityEnv + 0.004f * densityProbe;
+        const float dense = juce::jlimit (0.0f, 1.0f, (assistDensityEnv - 0.10f) / 0.55f);
+        const float assistRestrain = mixAssistAmount * (0.35f + 0.65f * dense);
 
-        const float lDrift = 1.0f + driftState[0] * drift * 0.0025f;
-        const float rDrift = 1.0f + driftState[1] * drift * 0.0025f;
+        const float heat = heatRaw * (1.0f - 0.20f * assistRestrain - 0.12f * focusAmount);
+        const float width = widthRaw * (1.0f - 0.14f * assistRestrain - 0.08f * focusAmount);
+        const float drift = driftRaw * driftModeScale * (1.0f - 0.16f * assistRestrain - 0.30f * focusAmount);
+        const float crosstalkAmt = crosstalkRaw * (1.0f - 0.10f * assistRestrain - 0.30f * focusAmount);
 
-        const float lDriven = left[i] * lDrift;
-        const float rDriven = right[i] * rDrift;
+        driftHarmonicState[0] = juce::jlimit (-1.0f, 1.0f, 0.99930f * driftHarmonicState[0] + 0.0018f * randDist (rng));
+        driftHarmonicState[1] = juce::jlimit (-1.0f, 1.0f, 0.99930f * driftHarmonicState[1] + 0.0018f * randDist (rng));
+        driftStereoState[0] = juce::jlimit (-1.0f, 1.0f, 0.99945f * driftStereoState[0] + 0.0012f * randDist (rng));
+        driftStereoState[1] = juce::jlimit (-1.0f, 1.0f, 0.99945f * driftStereoState[1] + 0.0012f * randDist (rng));
+        driftContourState[0] = juce::jlimit (-1.0f, 1.0f, 0.99955f * driftContourState[0] + 0.0010f * randDist (rng));
+        driftContourState[1] = juce::jlimit (-1.0f, 1.0f, 0.99955f * driftContourState[1] + 0.0010f * randDist (rng));
+        driftFilterState = juce::jlimit (-1.0f, 1.0f, 0.99970f * driftFilterState + 0.0006f * randDist (rng));
+
+        const float harmonicMotionL = driftHarmonicState[0] * drift;
+        const float harmonicMotionR = driftHarmonicState[1] * drift;
+        const float stereoMotion = 0.5f * (driftStereoState[0] - driftStereoState[1]) * drift;
+        const float contourMotion = 0.5f * (driftContourState[0] + driftContourState[1]) * drift;
+        const float contourTilt = driftFilterState * drift * 0.02f;
+
+        const float satDriveL = 1.0f + heat * (2.0f + warmth) * qualityScale * osScale + harmonicMotionL * 0.12f;
+        const float satDriveR = 1.0f + heat * (2.0f + warmth) * qualityScale * osScale + harmonicMotionR * 0.12f;
 
         float l = 0.0f;
         float r = 0.0f;
         for (int os = 0; os < osFactor; ++os)
         {
             const float t = static_cast<float> (os + 1) / static_cast<float> (osFactor);
-            const float lInterp = previousL + (lDriven - previousL) * t;
-            const float rInterp = previousR + (rDriven - previousR) * t;
+            const float lInterp = previousL + (left[i] - previousL) * t;
+            const float rInterp = previousR + (right[i] - previousR) * t;
 
-            l += saturateSmooth (lInterp * (1.0f + heat * (2.0f + warmth) * qualityScale * osScale));
-            r += saturateSmooth (rInterp * (1.0f + heat * (2.0f + warmth) * qualityScale * osScale));
+            l += saturateSmooth (lInterp * satDriveL);
+            r += saturateSmooth (rInterp * satDriveR);
         }
 
         l /= static_cast<float> (osFactor);
         r /= static_cast<float> (osFactor);
-        previousL = lDriven;
-        previousR = rDriven;
+        previousL = left[i];
+        previousR = right[i];
 
-        analogToneMemory[0] = 0.996f * analogToneMemory[0] + 0.004f * l;
-        analogToneMemory[1] = 0.996f * analogToneMemory[1] + 0.004f * r;
-        l = 0.988f * l + 0.012f * analogToneMemory[0];
-        r = 0.988f * r + 0.012f * analogToneMemory[1];
+        const float toneMemoryCoeff = juce::jlimit (0.992f, 0.999f, 0.996f + contourTilt * 0.08f);
+        analogToneMemory[0] = toneMemoryCoeff * analogToneMemory[0] + (1.0f - toneMemoryCoeff) * l;
+        analogToneMemory[1] = toneMemoryCoeff * analogToneMemory[1] + (1.0f - toneMemoryCoeff) * r;
+        const float toneBlend = juce::jlimit (0.008f, 0.024f, 0.012f + contourMotion * 0.008f);
+        l = (1.0f - toneBlend) * l + toneBlend * analogToneMemory[0];
+        r = (1.0f - toneBlend) * r + toneBlend * analogToneMemory[1];
 
         float mid = 0.5f * (l + r);
         float side = 0.5f * (l - r);
@@ -1095,19 +1334,194 @@ void NovaConsoleAudioProcessor::processAnalogEngine (juce::AudioBuffer<float>& b
         mid += saturateSmooth (mid * (1.0f + 0.4f * heat)) * (0.015f + 0.02f * heat);
         const float stereoBias = width * profile.stereoWidthBias;
         side = side * juce::jlimit (0.84f, 1.28f, 0.92f + stereoBias * 0.32f);
-        side *= juce::jlimit (0.94f, 1.06f, profile.sideSoftness);
-        mid *= juce::jlimit (0.95f, 1.06f, profile.centerWeight);
-        const float crosstalk = (0.004f + 0.008f * depth) * crosstalkAmt * profile.crosstalkBias * (r - l);
+        side *= juce::jlimit (0.94f, 1.06f, profile.sideSoftness * (1.0f + stereoMotion * 0.08f));
+        mid *= juce::jlimit (0.95f, 1.06f, profile.centerWeight * (1.0f - stereoMotion * 0.05f));
+        mid *= (1.0f - contourTilt * 0.35f);
+        side *= (1.0f + contourTilt * 0.45f);
+        float preOutL = mid + side;
+        float preOutR = mid - side;
+
+        crosstalkLowState[0] += crosstalkLowCoeff * (preOutL - crosstalkLowState[0]);
+        crosstalkLowState[1] += crosstalkLowCoeff * (preOutR - crosstalkLowState[1]);
+        const float hpL = preOutL - crosstalkLowState[0];
+        const float hpR = preOutR - crosstalkLowState[1];
+        crosstalkHighState[0] += crosstalkHighCoeff * (hpL - crosstalkHighState[0]);
+        crosstalkHighState[1] += crosstalkHighCoeff * (hpR - crosstalkHighState[1]);
+
+        const float delayMs = juce::jmap (crosstalkAmt, 0.0f, 1.0f, 0.05f, 0.30f);
+        const int delaySamples = juce::jlimit (1, 30, static_cast<int> (std::round (0.001f * delayMs * sr)));
+        const int delayRead = (delayWrite - delaySamples + 64) % 64;
+        const float delayedL = crosstalkDelayBuffer[0][static_cast<size_t> (delayRead)];
+        const float delayedR = crosstalkDelayBuffer[1][static_cast<size_t> (delayRead)];
+
+        crosstalkDelayBuffer[0][static_cast<size_t> (delayWrite)] = crosstalkHighState[0];
+        crosstalkDelayBuffer[1][static_cast<size_t> (delayWrite)] = crosstalkHighState[1];
+        delayWrite = (delayWrite + 1) % 64;
+
+        const float interaction = juce::jlimit (0.0f, 0.08f,
+            crosstalkAmt * 0.08f * profile.crosstalkBias * (1.0f + 0.12f * std::abs (stereoMotion)));
+        const float crosstalkL = interaction * (0.76f * delayedR + 0.24f * hpR);
+        const float crosstalkR = interaction * (0.76f * delayedL + 0.24f * hpL);
 
         const float noiseAmt = noise * 0.0007f;
         const float n = randDist (rng) * noiseAmt;
 
-        left[i] = mid + side + crosstalk + n;
-        right[i] = mid - side - crosstalk - n;
+        left[i] = preOutL + crosstalkL + n;
+        right[i] = preOutR + crosstalkR - n;
     }
 
     analogPrevInput[0] = previousL;
     analogPrevInput[1] = previousR;
+    crosstalkDelayWriteIndex = delayWrite;
+}
+
+void NovaConsoleAudioProcessor::processMixAssistAndFocus (juce::AudioBuffer<float>& buffer,
+                                                          float mixAssistAmount,
+                                                          float focusAmount)
+{
+    mixAssistAmount = juce::jlimit (0.0f, 1.0f, mixAssistAmount);
+    focusAmount = juce::jlimit (0.0f, 1.0f, focusAmount);
+
+    if (mixAssistAmount <= 0.0001f && focusAmount <= 0.0001f)
+        return;
+
+    const int channels = juce::jmin (2, buffer.getNumChannels());
+    if (channels == 0 || currentSampleRate <= 1000.0)
+        return;
+
+    const float sr = static_cast<float> (currentSampleRate);
+    const auto onePoleCoeff = [sr] (float hz)
+    {
+        const float omega = juce::MathConstants<float>::twoPi * hz / sr;
+        return juce::jlimit (0.0001f, 0.999f, 1.0f - std::exp (-omega));
+    };
+
+    const float lowCoeff = onePoleCoeff (120.0f);
+    const float presenceCoeff = onePoleCoeff (2200.0f);
+    const float harshCoeff = onePoleCoeff (5000.0f);
+    const float harshEnvCoeff = juce::jlimit (0.0005f, 0.2f, 1.0f - std::exp (-1.0f / (sr * 0.05f)));
+
+    if (channels == 1)
+    {
+        auto* mono = buffer.getWritePointer (0);
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+        {
+            float x = mono[i];
+            auto& lowState = mixAssistLowState[0];
+            auto& presenceState = mixAssistPresenceLpState[0];
+            auto& harshLp = mixAssistHarshLpState[0];
+            auto& harshEnv = mixAssistHarshEnvState[0];
+
+            lowState += lowCoeff * (x - lowState);
+            presenceState += presenceCoeff * (x - presenceState);
+            harshLp += harshCoeff * (x - harshLp);
+
+            const float lowSense = std::abs (lowState);
+            const float harshBand = presenceState - harshLp;
+            harshEnv += harshEnvCoeff * (std::abs (harshBand) - harshEnv);
+
+            const float lowExcess = juce::jlimit (0.0f, 1.0f, (lowSense - 0.11f) / 0.32f);
+            const float harshExcess = juce::jlimit (0.0f, 1.0f, (harshEnv - 0.028f) / 0.20f);
+
+            const float lowTrimDb = juce::jmax (-1.5f, -1.5f * mixAssistAmount * lowExcess * lowExcess);
+            const float harshTrimDb = juce::jmax (-1.0f, -1.0f * mixAssistAmount * harshExcess * harshExcess);
+            const float tighten = (mixAssistAmount * 0.06f + focusAmount * 0.09f) * lowExcess;
+
+            x = (x - lowState * tighten) * dbToGain (lowTrimDb + harshTrimDb);
+            x += (x - presenceState) * (focusAmount * 0.09f);
+            mono[i] = x;
+        }
+        return;
+    }
+
+    auto* left = buffer.getWritePointer (0);
+    auto* right = buffer.getWritePointer (1);
+
+    for (int i = 0; i < buffer.getNumSamples(); ++i)
+    {
+        float processed[2] { left[i], right[i] };
+        float lowExcessAccum = 0.0f;
+
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            float x = processed[ch];
+            auto& lowState = mixAssistLowState[static_cast<size_t> (ch)];
+            auto& presenceState = mixAssistPresenceLpState[static_cast<size_t> (ch)];
+            auto& harshLp = mixAssistHarshLpState[static_cast<size_t> (ch)];
+            auto& harshEnv = mixAssistHarshEnvState[static_cast<size_t> (ch)];
+
+            lowState += lowCoeff * (x - lowState);
+            presenceState += presenceCoeff * (x - presenceState);
+            harshLp += harshCoeff * (x - harshLp);
+
+            const float lowSense = std::abs (lowState);
+            const float harshBand = presenceState - harshLp;
+            harshEnv += harshEnvCoeff * (std::abs (harshBand) - harshEnv);
+
+            const float lowExcess = juce::jlimit (0.0f, 1.0f, (lowSense - 0.11f) / 0.32f);
+            const float harshExcess = juce::jlimit (0.0f, 1.0f, (harshEnv - 0.028f) / 0.20f);
+            lowExcessAccum += lowExcess;
+
+            const float lowTrimDb = juce::jmax (-1.5f, -1.5f * mixAssistAmount * lowExcess * lowExcess);
+            const float harshTrimDb = juce::jmax (-1.0f, -1.0f * mixAssistAmount * harshExcess * harshExcess);
+            const float tighten = (mixAssistAmount * 0.06f + focusAmount * 0.09f) * lowExcess;
+
+            x = (x - lowState * tighten) * dbToGain (lowTrimDb + harshTrimDb);
+            x += (x - presenceState) * (focusAmount * 0.09f);
+            processed[ch] = x;
+        }
+
+        float mid = 0.5f * (processed[0] + processed[1]);
+        float side = 0.5f * (processed[0] - processed[1]);
+        const float widthFactor = juce::jlimit (0.88f, 1.0f,
+                                                1.0f - 0.08f * focusAmount - 0.02f * mixAssistAmount);
+        side *= widthFactor;
+
+        const float lowTighten = juce::jlimit (0.0f, 1.0f, 0.5f * lowExcessAccum);
+        mid -= lowTighten * focusAmount * 0.05f * mid;
+
+        left[i] = mid + side;
+        right[i] = mid - side;
+    }
+}
+
+void NovaConsoleAudioProcessor::applySmartGainCompensation (juce::AudioBuffer<float>& buffer,
+                                                            float preProcessRms,
+                                                            float postProcessRms,
+                                                            int numSamples)
+{
+    if (numSamples <= 0 || currentSampleRate <= 1000.0)
+        return;
+
+    const float blockSeconds = static_cast<float> (numSamples / currentSampleRate);
+    const float rmsWindowSeconds = 0.300f;
+    const float envCoeff = juce::jlimit (0.0005f, 1.0f, 1.0f - std::exp (-blockSeconds / rmsWindowSeconds));
+
+    smartGainPreRmsEnv += envCoeff * (preProcessRms - smartGainPreRmsEnv);
+    smartGainPostRmsEnv += envCoeff * (postProcessRms - smartGainPostRmsEnv);
+
+    const bool smartGainOn = apvts.getRawParameterValue (smartGainId)->load() > 0.5f;
+    float targetCompDb = 0.0f;
+
+    if (smartGainOn)
+    {
+        const float preDb = gainToDb (smartGainPreRmsEnv + 1.0e-7f);
+        const float postDb = gainToDb (smartGainPostRmsEnv + 1.0e-7f);
+        const float deltaDb = postDb - preDb;
+        const float weightedComp = -deltaDb * 0.68f;
+        const float nonlinearWeight = 0.60f + 0.40f * std::tanh (std::abs (deltaDb) / 7.5f);
+        targetCompDb = juce::jlimit (-6.0f, 6.0f, weightedComp * nonlinearWeight);
+    }
+
+    smartGainCompDbSmoothed.setTargetValue (targetCompDb);
+
+    const int channels = juce::jmin (2, buffer.getNumChannels());
+    for (int i = 0; i < numSamples; ++i)
+    {
+        const float gain = dbToGain (smartGainCompDbSmoothed.getNextValue());
+        for (int ch = 0; ch < channels; ++ch)
+            buffer.getWritePointer (ch)[i] *= gain;
+    }
 }
 
 void NovaConsoleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
@@ -1129,10 +1543,27 @@ void NovaConsoleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     const auto requestedMode = static_cast<ConsoleMode> (juce::jlimit (0, 4, static_cast<int> (apvts.getRawParameterValue (modeId)->load())));
     const auto quality = static_cast<QualityMode> (static_cast<int> (apvts.getRawParameterValue (qualityId)->load()));
     const int oversamplingChoice = static_cast<int> (apvts.getRawParameterValue (oversamplingId)->load());
+    const int sidechainModeChoice = juce::jlimit (0, 2, static_cast<int> (apvts.getRawParameterValue (sidechainModeId)->load()));
+    const float mixAssistTarget = apvts.getRawParameterValue (mixAssistId)->load() / 100.0f;
+    const float focusTarget = apvts.getRawParameterValue (focusModeId)->load() > 0.5f ? 1.0f : 0.0f;
+
+    mixAssistAmountSmoothed.setTargetValue (mixAssistTarget);
+    focusAmountSmoothed.setTargetValue (focusTarget);
+    const float mixAssistStart = mixAssistAmountSmoothed.getCurrentValue();
+    const float focusStart = focusAmountSmoothed.getCurrentValue();
+    const float mixAssistEnd = mixAssistAmountSmoothed.skip (buffer.getNumSamples());
+    const float focusEnd = focusAmountSmoothed.skip (buffer.getNumSamples());
+    const float mixAssistAmount = 0.5f * (mixAssistStart + mixAssistEnd);
+    const float focusAmount = 0.5f * (focusStart + focusEnd);
 
     int osFactor = (oversamplingChoice == 2 ? 4 : (oversamplingChoice == 1 ? 2 : 1));
     if (quality == QualityMode::eco)
         osFactor = 1;
+
+    const bool sidechainExtRequested = sidechainModeChoice > 0;
+    const auto& sidechainInput = getBusBuffer (buffer, true, 1);
+    const bool sidechainExtActive = sidechainExtRequested && sidechainInput.getNumChannels() > 0;
+    const juce::AudioBuffer<float>* detectorBuffer = sidechainExtActive ? &sidechainInput : nullptr;
 
     if (requestedMode != modeTo)
     {
@@ -1156,6 +1587,8 @@ void NovaConsoleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     float inPeak = 0.0f;
     float outPeak = 0.0f;
+    float preProcessSqAccum = 0.0f;
+    float postProcessSqAccum = 0.0f;
 
     const int channels = juce::jmin (2, buffer.getNumChannels());
     for (int ch = 0; ch < channels; ++ch)
@@ -1164,9 +1597,12 @@ void NovaConsoleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         for (int i = 0; i < buffer.getNumSamples(); ++i)
         {
             data[i] *= inputSmoothed.getNextValue();
+            preProcessSqAccum += data[i] * data[i];
             inPeak = juce::jmax (inPeak, std::abs (data[i]));
         }
     }
+
+    const float preProcessRms = std::sqrt (preProcessSqAccum / juce::jmax (1, channels * buffer.getNumSamples()));
 
     // Dynamic unload: if a module is bypassed, its DSP stage is skipped entirely.
     if (apvts.getRawParameterValue (preampOnId)->load() > 0.5f)
@@ -1179,15 +1615,17 @@ void NovaConsoleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         processEq (buffer, activeProfile);
 
     if (apvts.getRawParameterValue (compOnId)->load() > 0.5f)
-        processCompressor (buffer, activeProfile, quality);
+        processCompressor (buffer, activeProfile, quality, detectorBuffer, sidechainExtActive);
     else
         gainReductionMeter.store (0.92f * gainReductionMeter.load());
 
     if (apvts.getRawParameterValue (gateOnId)->load() > 0.5f)
-        processGate (buffer);
+        processGate (buffer, detectorBuffer, sidechainExtActive);
 
     if (apvts.getRawParameterValue (analogOnId)->load() > 0.5f)
-        processAnalogEngine (buffer, activeProfile, osFactor, quality);
+        processAnalogEngine (buffer, activeProfile, osFactor, quality, mixAssistAmount, focusAmount);
+
+    processMixAssistAndFocus (buffer, mixAssistAmount, focusAmount);
 
     for (int ch = 0; ch < channels; ++ch)
     {
@@ -1196,8 +1634,18 @@ void NovaConsoleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         {
             data[i] = juce::jlimit (-1.35f, 1.35f, data[i] * modeTrim);
             data[i] *= outputSmoothed.getNextValue();
-            outPeak = juce::jmax (outPeak, std::abs (data[i]));
+            postProcessSqAccum += data[i] * data[i];
         }
+    }
+
+    const float postProcessRms = std::sqrt (postProcessSqAccum / juce::jmax (1, channels * buffer.getNumSamples()));
+    applySmartGainCompensation (buffer, preProcessRms, postProcessRms, buffer.getNumSamples());
+
+    for (int ch = 0; ch < channels; ++ch)
+    {
+        const auto* data = buffer.getReadPointer (ch);
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+            outPeak = juce::jmax (outPeak, std::abs (data[i]));
     }
 
     inputMeter.store (0.84f * inputMeter.load() + 0.16f * juce::jlimit (0.0f, 1.0f, inPeak));
