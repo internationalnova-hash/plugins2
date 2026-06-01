@@ -1,0 +1,275 @@
+#pragma once
+
+#include <JuceHeader.h>
+#include "../Session.h"
+#include "../TransportState.h"
+#include "../TimelineModel.h"
+#include "../ArrangementModel.h"
+#include "WaveformCache.h"
+#include "AnimationUtils.h"
+#include "Theme.h"
+
+namespace NovaStudioUI
+{
+    class TransportBar : public juce::Component,
+                         private juce::Button::Listener,
+                         private juce::Timer
+    {
+    public:
+        TransportBar();
+        ~TransportBar() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+
+        std::function<void()> onPlay;
+        std::function<void()> onStop;
+        std::function<void()> onRecord;
+        std::function<void()> onArm;
+        std::function<void()> onMonitor;
+        std::function<void()> onLoop;
+
+        void setTempo(int bpm);
+        void setTimecode(const juce::String& timecode);
+        void setPlayState(bool isPlaying, bool isRecording);
+        void setLoopState(bool enabled);
+        void setArmState(bool armed);
+        void setMonitorState(bool enabled);
+        void setPlaybackState(bool previewEnabled, bool hasPreview);
+        std::function<void(bool)> onTogglePreview; // called when user toggles preview on/off
+
+    private:
+        void buttonClicked(juce::Button* button) override;
+        void timerCallback() override;
+
+        juce::TextButton playButton {"Play"};
+        juce::TextButton stopButton {"Stop"};
+        juce::TextButton recordButton {"Rec"};
+        juce::TextButton loopButton {"Loop"};
+        juce::TextButton armButton {"Arm"};
+        juce::TextButton monitorButton {"Monitor"};
+
+        juce::Label tempoLabel;
+        juce::Label timeLabel;
+        juce::Label playbackLabel;
+        juce::TextButton playbackToggleButton { "Toggle" };
+
+        NovaStudioUI::AnimatedValue hoverAlpha;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TransportBar)
+    };
+
+    class TrackPanel : public juce::Component,
+                       private juce::ListBoxModel
+    {
+    public:
+        explicit TrackPanel(NovaStudio::Session& session);
+        ~TrackPanel() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+
+        int getNumRows() override;
+        void paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected) override;
+
+    private:
+        NovaStudio::Session& session;
+        juce::ListBox trackList;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TrackPanel)
+    };
+
+    class InspectorPanel : public juce::Component,
+                           private juce::Slider::Listener,
+                           private juce::Button::Listener,
+                           private juce::ChangeListener
+    {
+    public:
+        explicit InspectorPanel(NovaStudio::ArrangementModel& arrangementModel);
+        ~InspectorPanel() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+
+        void changeListenerCallback(juce::ChangeBroadcaster* source) override;
+
+    private:
+        void refreshContent();
+        void sliderValueChanged(juce::Slider* slider) override;
+        void buttonClicked(juce::Button* button) override;
+
+        NovaStudio::ArrangementModel& arrangementModel;
+        juce::Label titleLabel;
+        juce::Label selectedClipLabel;
+        juce::Label trackInfoLabel;
+        juce::Slider gainSlider;
+        juce::Label gainLabel;
+        juce::Slider fadeInSlider;
+        juce::Slider fadeOutSlider;
+        juce::Label fadeInLabel;
+        juce::Label fadeOutLabel;
+        juce::ToggleButton muteToggle {"Mute"};
+        juce::ToggleButton lockToggle {"Lock"};
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(InspectorPanel)
+    };
+
+    class ArrangementView : public juce::Component,
+                            private juce::ChangeListener,
+                            private juce::Timer
+    {
+    public:
+        ArrangementView(NovaStudio::TransportState& transportState,
+                        NovaStudio::TimelineModel& timelineModel,
+                        NovaStudio::ArrangementModel& arrangementModel);
+        ~ArrangementView() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+        void mouseDown(const juce::MouseEvent& event) override;
+        void mouseDrag(const juce::MouseEvent& event) override;
+        void mouseUp(const juce::MouseEvent& event) override;
+
+    private:
+        void changeListenerCallback(juce::ChangeBroadcaster* source) override;
+        void timerCallback() override;
+
+        NovaStudio::TransportState& transportState;
+        NovaStudio::TimelineModel& timelineModel;
+        NovaStudio::ArrangementModel& arrangementModel;
+        WaveformCache waveformCache;
+        bool isDraggingClip = false;
+        int dragStartX = 0;
+        int64_t originalClipStartSample = 0;
+        int64_t originalClipLength = 0;
+        bool isDraggingTrimLeft = false;
+        bool isDraggingTrimRight = false;
+        int64_t currentTrimSample = 0;
+        double zoomFactor = 1.0;
+        bool isMarqueeSelecting = false;
+        juce::Point<float> marqueeStart {0.0f, 0.0f};
+        juce::Rectangle<float> marqueeRect {0.0f, 0.0f, 0.0f, 0.0f};
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ArrangementView)
+    };
+
+    class MixerPanel : public juce::Component
+    {
+    public:
+        MixerPanel();
+        ~MixerPanel() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+    };
+
+    class BrowserPanel : public juce::Component
+    {
+    public:
+        BrowserPanel();
+        ~BrowserPanel() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+    };
+
+    class PianoRollPanel : public juce::Component
+    {
+    public:
+        PianoRollPanel();
+        ~PianoRollPanel() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+    };
+
+    class StepSequencerPanel : public juce::Component
+    {
+    public:
+        StepSequencerPanel();
+        ~StepSequencerPanel() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+    };
+
+    class NovaAlignPanel : public juce::Component,
+                           private juce::Button::Listener,
+                           private juce::Slider::Listener,
+                           private juce::ListBoxModel,
+                           private juce::ChangeListener
+    {
+    public:
+        explicit NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModel);
+        ~NovaAlignPanel() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+
+        std::function<void(const juce::String&)> onStatusMessage;
+
+    private:
+        void buttonClicked(juce::Button* button) override;
+        void sliderValueChanged(juce::Slider* slider) override;
+        int getNumRows() override;
+        void paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected) override;
+        void changeListenerCallback(juce::ChangeBroadcaster* source) override;
+        void refreshContent();
+
+        NovaStudio::ArrangementModel& arrangementModel;
+        juce::Label titleLabel;
+        juce::Label guideLabel;
+        juce::ListBox targetClipList;
+        juce::Label alignAmountLabel;
+        juce::Slider alignAmountSlider;
+        juce::Label naturalnessLabel;
+        juce::Slider naturalnessSlider;
+        juce::Label tightnessLabel;
+        juce::Slider tightnessSlider;
+        juce::Label phraseSensitivityLabel;
+        juce::Slider phraseSensitivitySlider;
+        juce::Label consonantPriorityLabel;
+        juce::Slider consonantPrioritySlider;
+        juce::ToggleButton createNewVersionToggle;
+        juce::ToggleButton bypassPreviewToggle {"Bypass Preview"};
+        juce::TextButton revertButton {"Revert"};
+        juce::Label statusLabel;
+        juce::TextButton previewButton {"Preview"};
+        juce::TextButton commitButton {"Commit"};
+        juce::TextButton resetButton {"Reset"};
+        juce::Label shortcutLabel;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NovaAlignPanel)
+    };
+
+    class WorkspaceToolbar : public juce::Component,
+                             private juce::Button::Listener
+    {
+    public:
+        WorkspaceToolbar();
+        ~WorkspaceToolbar() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+
+        std::function<void(int)> onModeSelected; // 0=Edit,1=Mixer,2=Split,3=Beat,4=Rack
+        std::function<void(NovaStudio::ArrangementModel::EditMode)> onEditModeSelected;
+        std::function<void()> onNovaAlign;
+
+    private:
+        void buttonClicked(juce::Button* b) override;
+
+        juce::TextButton editBtn {"Edit"};
+        juce::TextButton mixerBtn {"Mixer"};
+        juce::TextButton splitBtn {"Split"};
+        juce::TextButton beatBtn {"Beat"};
+        juce::TextButton rackBtn {"Rack"};
+        juce::TextButton slipBtn {"Slip"};
+        juce::TextButton gridBtn {"Grid"};
+        juce::TextButton shuffleBtn {"Shuffle"};
+        juce::TextButton spotBtn {"Spot"};
+        juce::TextButton novaAlignBtn {"Nova Align"};
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WorkspaceToolbar)
+    };
+}
