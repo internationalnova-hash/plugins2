@@ -24,6 +24,12 @@ namespace NovaStudio
             if (plugin)
                 plugin->prepareToPlay(sampleRate, samplesPerBlockExpected);
         }
+
+        juce::dsp::ProcessSpec pdcSpec { sampleRate,
+                                         (juce::uint32) samplesPerBlockExpected,
+                                         (juce::uint32) juce::jmax(1, trackChannels) };
+        pdcDelayLine.prepare(pdcSpec);
+        pdcDelayLine.setDelay((float) pdcDelaySamples);
     }
 
     void StudioAudioEngine::TrackPlayer::releaseResources()
@@ -31,6 +37,7 @@ namespace NovaStudio
         transportSource.releaseResources();
         scratchBuffer.setSize(trackChannels, 0);
         readerSource.reset();
+        pdcDelayLine.reset();
     }
 
     void StudioAudioEngine::TrackPlayer::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
@@ -70,6 +77,14 @@ namespace NovaStudio
                 if (auto& plugin = pluginChain.getReference(pi))
                     if (!isPluginBypassed(pi))
                         plugin->processBlock(*bufferToFill.buffer, emptyMidi);
+
+            if (pdcDelaySamples > 0)
+            {
+                auto block = juce::dsp::AudioBlock<float>(*bufferToFill.buffer)
+                                 .getSubBlock((size_t) bufferToFill.startSample, (size_t) bufferToFill.numSamples);
+                juce::dsp::ProcessContextReplacing<float> pdcContext(block);
+                pdcDelayLine.process(pdcContext);
+            }
 
             // Meter: aux return level from the send bus buffer directly
             if (busBuf->getNumChannels() > 0)
@@ -192,6 +207,16 @@ namespace NovaStudio
             auto& plugin = pluginChain.getReference(pi);
             if (plugin && !isPluginBypassed(pi))
                 plugin->processBlock(*bufferToFill.buffer, emptyMidi);
+        }
+
+        // Plugin delay compensation — pad this track's output so all tracks'
+        // signals reach the mix bus in sync regardless of plugin latency.
+        if (pdcDelaySamples > 0)
+        {
+            auto block = juce::dsp::AudioBlock<float>(*bufferToFill.buffer)
+                             .getSubBlock((size_t) bufferToFill.startSample, (size_t) bufferToFill.numSamples);
+            juce::dsp::ProcessContextReplacing<float> pdcContext(block);
+            pdcDelayLine.process(pdcContext);
         }
 
         // Recalculate EQ biquad coefficients if parameters changed
@@ -393,6 +418,28 @@ namespace NovaStudio
         return false;
     }
 
+    int StudioAudioEngine::TrackPlayer::getPluginChainLatencySamples() const
+    {
+        int total = 0;
+        for (int i = 0; i < pluginChain.size(); ++i)
+        {
+            if (i < pluginBypassed.size() && pluginBypassed.getReference(i))
+                continue;
+            if (auto& plugin = pluginChain.getReference(i))
+                total += plugin->getLatencySamples();
+        }
+        return total;
+    }
+
+    void StudioAudioEngine::TrackPlayer::setPdcDelaySamples(int samples)
+    {
+        samples = juce::jmax(0, samples);
+        if (samples == pdcDelaySamples)
+            return;
+        pdcDelaySamples = samples;
+        pdcDelayLine.setDelay((float) pdcDelaySamples);
+    }
+
     juce::AudioPluginInstance* StudioAudioEngine::TrackPlayer::getPlugin(int index) const
     {
         if (isPositiveAndBelow(index, pluginChain.size()))
@@ -566,6 +613,7 @@ namespace NovaStudio
             return false;
 
         trackPlayers.getReference(trackIndex)->addPlugin(std::move(instance));
+        updatePluginDelayCompensation();
         return true;
     }
 
@@ -592,6 +640,7 @@ namespace NovaStudio
             return false;
 
         trackPlayers.getReference(targetTrack)->addPlugin(std::move(instance));
+        updatePluginDelayCompensation();
         return true;
     }
 
@@ -1183,9 +1232,14 @@ namespace NovaStudio
     bool StudioAudioEngine::removePluginFromTrack(int trackIndex, int pluginSlot)
     {
         if (trackIndex == kMasterTrackIndex) return removeMasterPlugin(pluginSlot);
-        juce::ScopedLock sl(playerLock);
-        if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return false;
-        return trackPlayers.getReference(trackIndex)->removePlugin(pluginSlot);
+        bool removed = false;
+        {
+            juce::ScopedLock sl(playerLock);
+            if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return false;
+            removed = trackPlayers.getReference(trackIndex)->removePlugin(pluginSlot);
+        }
+        if (removed) updatePluginDelayCompensation();
+        return removed;
     }
 
     bool StudioAudioEngine::movePluginInTrack(int trackIndex, int fromSlot, int toSlot)
@@ -1201,6 +1255,7 @@ namespace NovaStudio
         if (trackIndex == kMasterTrackIndex) return;
         if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return;
         trackPlayers.getReference(trackIndex)->setPluginBypassed(pluginSlot, bypassed);
+        updatePluginDelayCompensation();
     }
 
     bool StudioAudioEngine::isPluginBypassed(int trackIndex, int pluginSlot) const
@@ -1919,6 +1974,22 @@ namespace NovaStudio
         }
 
         updateSoloStates();
+        updatePluginDelayCompensation();
+    }
+
+    void StudioAudioEngine::updatePluginDelayCompensation()
+    {
+        juce::ScopedLock sl(playerLock);
+
+        int maxLatency = 0;
+        for (int i = 0; i < trackPlayers.size(); ++i)
+            maxLatency = juce::jmax(maxLatency, trackPlayers.getReference(i)->getPluginChainLatencySamples());
+
+        for (int i = 0; i < trackPlayers.size(); ++i)
+        {
+            auto* player = trackPlayers.getReference(i).get();
+            player->setPdcDelaySamples(maxLatency - player->getPluginChainLatencySamples());
+        }
     }
 
     void StudioAudioEngine::refreshTrackPlaybackStates()

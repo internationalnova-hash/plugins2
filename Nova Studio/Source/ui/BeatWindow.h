@@ -122,7 +122,8 @@ namespace NovaStudioUI
         void toolStrum(bool ascending, int stepsBetweenNotes = 1);
         void toolFlam();
         void toolChop(int numSlices);
-        void toolArpeggiate(int pattern);  // 0 = up, 1 = down, 2 = up-down
+        void toolArpeggiate(int pattern);  // 0=up, 1=down, 2=up-down, 3=down-up, 4=random
+        void toolChordStamp(int chordShape); // 0=major,1=minor,2=dim,3=aug,4=maj7,5=min7,6=dom7,7=sus2,8=sus4
         void toolQuantizeSelection();
 
         static constexpr int kNumScaleTypes = 5;

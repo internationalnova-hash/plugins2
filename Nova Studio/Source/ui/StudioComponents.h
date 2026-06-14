@@ -637,11 +637,26 @@ namespace NovaStudioUI
     {
     public:
         AudioDirFilter() : FileFilter("Audio") {}
+
+        // When non-empty, files must match this text in their name OR in one of
+        // their user-assigned tags (see BrowserPanel's tagging system) to pass.
+        juce::String searchText;
+        std::function<juce::StringArray(const juce::File&)> getTagsForFile;
+
         bool isFileSuitable(const juce::File& f) const override
         {
             static const char* exts[] = {".wav",".aif",".aiff",".mp3",".flac",".ogg",".m4a",nullptr};
             auto ext = f.getFileExtension().toLowerCase();
-            for (int i = 0; exts[i]; ++i) if (ext == exts[i]) return true;
+            bool extOk = false;
+            for (int i = 0; exts[i]; ++i)
+                if (ext == exts[i]) { extOk = true; break; }
+            if (!extOk) return false;
+
+            if (searchText.isEmpty()) return true;
+            if (f.getFileName().containsIgnoreCase(searchText)) return true;
+            if (getTagsForFile)
+                for (auto& tag : getTagsForFile(f))
+                    if (tag.containsIgnoreCase(searchText)) return true;
             return false;
         }
         bool isDirectorySuitable(const juce::File&) const override { return true; }
@@ -673,7 +688,8 @@ namespace NovaStudioUI
 
     class BrowserPanel : public juce::Component,
                          public juce::FileBrowserListener,
-                         public juce::Button::Listener
+                         public juce::Button::Listener,
+                         private juce::TextEditor::Listener
     {
     public:
         BrowserPanel();
@@ -696,6 +712,19 @@ namespace NovaStudioUI
     private:
         void navigateTo(const juce::File& dir);
 
+        // TextEditor::Listener — search box drives both filename and tag matching
+        void textEditorTextChanged(juce::TextEditor&) override;
+
+        // Sample tagging — persisted as JSON, keyed by absolute file path
+        juce::StringArray getTagsForFile(const juce::File& f) const;
+        void setTagsForFile(const juce::File& f, const juce::StringArray& tags);
+        void showTagEditorForSelectedFile();
+        void loadTags();
+        void saveTags();
+        juce::File getTagsFile() const;
+
+        std::map<juce::String, juce::StringArray> sampleTags;
+
         AudioDirFilter audioFilter;
         juce::TimeSliceThread dirThread { "NovaBrowserThread" };
         juce::DirectoryContentsList dirContents { &audioFilter, dirThread };
@@ -712,7 +741,7 @@ namespace NovaStudioUI
         static constexpr int kHeaderH   = 28;
         static constexpr int kSearchH   = 26;
         static constexpr int kBookmarkH = 24;
-        static constexpr int kPreviewH  = 54;
+        static constexpr int kPreviewH  = 70;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BrowserPanel)
     };

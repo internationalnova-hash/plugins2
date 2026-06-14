@@ -813,6 +813,27 @@ void PianoRollView::toolArpeggiate(int pattern)
         }
         order = seq;
     }
+    else if (pattern == 3) // down-up — replay the ascending half as new note copies
+    {
+        std::reverse(order.begin(), order.end());
+        juce::Array<int> seq = order;
+        for (int i = (int)order.size() - 2; i > 0; --i)
+        {
+            auto copy = notes.getReference(order[i]);
+            notes.add(copy);
+            seq.add(notes.size() - 1);
+        }
+        order = seq;
+    }
+    else if (pattern == 4) // random
+    {
+        juce::Random rng;
+        for (int i = order.size() - 1; i > 0; --i)
+        {
+            int j = rng.nextInt(i + 1);
+            order.swap(i, j);
+        }
+    }
 
     int anchor = notes.getReference(order.getFirst()).startStep;
     for (int idx : selectedNotes)
@@ -827,6 +848,62 @@ void PianoRollView::toolArpeggiate(int pattern)
     }
 
     selectedNotes = order;
+    repaint();
+}
+
+void PianoRollView::toolChordStamp(int chordShape)
+{
+    if (selectedNotes.isEmpty()) return;
+
+    // Semitone offsets stacked above each selected note's root pitch.
+    static const int shapes[][3] = {
+        { 0, 4, 7 },   // major
+        { 0, 3, 7 },   // minor
+        { 0, 3, 6 },   // diminished
+        { 0, 4, 8 },   // augmented
+        { 0, 4, 7 },   // maj7 (extra handled below)
+        { 0, 3, 7 },   // min7
+        { 0, 4, 7 },   // dom7
+        { 0, 2, 7 },   // sus2
+        { 0, 5, 7 },   // sus4
+    };
+    static const int extraTone[] = { -1, -1, -1, -1, 11, 10, 10, -1, -1 }; // 7th interval, -1 = none
+
+    if (! juce::isPositiveAndBelow(chordShape, (int) (sizeof(shapes) / sizeof(shapes[0]))))
+        return;
+
+    juce::Array<int> roots = selectedNotes;
+    roots.sort();
+
+    juce::Array<int> newSelection;
+    for (int idx : roots)
+    {
+        if (! juce::isPositiveAndBelow(idx, notes.size())) continue;
+        const auto root = notes.getReference(idx);
+        newSelection.add(idx);
+
+        for (int t = 1; t < 3; ++t)
+        {
+            int p = root.pitch + shapes[chordShape][t];
+            if (p >= 0 && p <= 127)
+            {
+                notes.add({ p, root.startStep, root.lengthSteps, root.velocity });
+                newSelection.add(notes.size() - 1);
+            }
+        }
+
+        if (extraTone[chordShape] >= 0)
+        {
+            int p = root.pitch + extraTone[chordShape];
+            if (p >= 0 && p <= 127)
+            {
+                notes.add({ p, root.startStep, root.lengthSteps, root.velocity });
+                newSelection.add(notes.size() - 1);
+            }
+        }
+    }
+
+    selectedNotes = newSelection;
     repaint();
 }
 
@@ -864,14 +941,29 @@ void PianoRollView::showNoteContextMenu(int noteIndex)
     arpSub.addItem(20, "Arpeggiate up");
     arpSub.addItem(21, "Arpeggiate down");
     arpSub.addItem(22, "Arpeggiate up-down");
+    arpSub.addItem(23, "Arpeggiate down-up");
+    arpSub.addItem(24, "Arpeggiate random");
+
+    juce::PopupMenu chordSub;
+    chordSub.addItem(40, "Major");
+    chordSub.addItem(41, "Minor");
+    chordSub.addItem(42, "Diminished");
+    chordSub.addItem(43, "Augmented");
+    chordSub.addItem(44, "Major 7th");
+    chordSub.addItem(45, "Minor 7th");
+    chordSub.addItem(46, "Dominant 7th");
+    chordSub.addItem(47, "Sus2");
+    chordSub.addItem(48, "Sus4");
 
     const bool haveChord = selectedNotes.size() >= 2;
+    const bool haveAny   = ! selectedNotes.isEmpty();
 
     juce::PopupMenu m;
     m.addSubMenu("Strum", strumSub, haveChord);
     m.addItem(102, "Flam");
     m.addSubMenu("Chop", chopSub);
     m.addSubMenu("Arpeggiate", arpSub, haveChord);
+    m.addSubMenu("Chord stamp", chordSub, haveAny);
     m.addItem(30, "Quantize to grid");
     m.addSeparator();
     m.addItem(99, "Delete");
@@ -889,6 +981,17 @@ void PianoRollView::showNoteContextMenu(int noteIndex)
             case 20:  toolArpeggiate(0); break;
             case 21:  toolArpeggiate(1); break;
             case 22:  toolArpeggiate(2); break;
+            case 23:  toolArpeggiate(3); break;
+            case 24:  toolArpeggiate(4); break;
+            case 40:  toolChordStamp(0); break;
+            case 41:  toolChordStamp(1); break;
+            case 42:  toolChordStamp(2); break;
+            case 43:  toolChordStamp(3); break;
+            case 44:  toolChordStamp(4); break;
+            case 45:  toolChordStamp(5); break;
+            case 46:  toolChordStamp(6); break;
+            case 47:  toolChordStamp(7); break;
+            case 48:  toolChordStamp(8); break;
             case 30:  toolQuantizeSelection(); break;
             case 99:
             {

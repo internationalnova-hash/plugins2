@@ -248,6 +248,8 @@ namespace NovaStudio
             void setPluginBypassed(int index, bool bypassed);
             bool isPluginBypassed(int index) const;
             juce::AudioPluginInstance* getPlugin(int index) const;
+            int  getPluginChainLatencySamples() const;
+            void setPdcDelaySamples(int samples);
             int getNumPlugins() const { return pluginChain.size(); }
             void getPluginState(int index, juce::MemoryBlock& dest) const;
             void setPluginState(int index, const void* data, size_t size);
@@ -261,6 +263,11 @@ namespace NovaStudio
             juce::AudioFormatManager formatManager;
             juce::Array<std::unique_ptr<juce::AudioPluginInstance>> pluginChain;
             juce::Array<bool> pluginBypassed;
+
+            // Plugin delay compensation — aligns this track's output with the
+            // slowest (highest-latency) track's plugin chain in the session.
+            juce::dsp::DelayLine<float> pdcDelayLine { 192000 };
+            int pdcDelaySamples = 0;
             void setSessionTrack(Session* s, int index) { sessionPtr = s; trackIndex = index; }
 
             float volumeDb = 0.0f;
@@ -314,6 +321,7 @@ namespace NovaStudio
                                           double sampleRate, float lfoValue);
 
         void buildTrackPlayers();
+        void updatePluginDelayCompensation();
         void refreshTrackPlaybackStates();
         void updateSoloStates();
         void startRecordingInternal();

@@ -3464,12 +3464,16 @@ BrowserPanel::BrowserPanel()
     fileTree.addListener(this);
     addAndMakeVisible(fileTree);
 
-    // Search box
-    searchBox.setTextToShowWhenEmpty("Search files...", juce::Colours::grey);
+    loadTags();
+    audioFilter.getTagsForFile = [this](const juce::File& f) { return getTagsForFile(f); };
+
+    // Search box — filters by filename AND user-assigned tags
+    searchBox.setTextToShowWhenEmpty("Search files or tags...", juce::Colours::grey);
     searchBox.setColour(juce::TextEditor::backgroundColourId, juce::Colour::fromRGB(22, 26, 36));
     searchBox.setColour(juce::TextEditor::textColourId, juce::Colours::white.withAlpha(0.85f));
     searchBox.setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
     searchBox.setFont(juce::Font(juce::FontOptions(10.0f)));
+    searchBox.addListener(this);
     addAndMakeVisible(searchBox);
 
     // Bookmark buttons
@@ -3486,7 +3490,104 @@ BrowserPanel::BrowserPanel()
 BrowserPanel::~BrowserPanel()
 {
     fileTree.removeListener(this);
+    searchBox.removeListener(this);
     dirThread.stopThread(2000);
+}
+
+juce::File BrowserPanel::getTagsFile() const
+{
+    auto dir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                   .getChildFile("NovaStudio");
+    dir.createDirectory();
+    return dir.getChildFile("sampleTags.json");
+}
+
+void BrowserPanel::loadTags()
+{
+    sampleTags.clear();
+    auto file = getTagsFile();
+    if (!file.existsAsFile()) return;
+
+    auto parsed = juce::JSON::parse(file.loadFileAsString());
+    if (auto* obj = parsed.getDynamicObject())
+    {
+        for (auto& prop : obj->getProperties())
+        {
+            juce::StringArray tags;
+            if (auto* arr = prop.value.getArray())
+                for (auto& v : *arr)
+                    tags.add(v.toString());
+            if (!tags.isEmpty())
+                sampleTags[prop.name.toString()] = tags;
+        }
+    }
+}
+
+void BrowserPanel::saveTags()
+{
+    auto obj = std::make_unique<juce::DynamicObject>();
+    for (auto& entry : sampleTags)
+    {
+        juce::Array<juce::var> arr;
+        for (auto& tag : entry.second)
+            arr.add(tag);
+        obj->setProperty(entry.first, arr);
+    }
+    juce::var root(obj.release());
+    getTagsFile().replaceWithText(juce::JSON::toString(root));
+}
+
+juce::StringArray BrowserPanel::getTagsForFile(const juce::File& f) const
+{
+    auto it = sampleTags.find(f.getFullPathName());
+    return it != sampleTags.end() ? it->second : juce::StringArray();
+}
+
+void BrowserPanel::setTagsForFile(const juce::File& f, const juce::StringArray& tags)
+{
+    const auto path = f.getFullPathName();
+    if (tags.isEmpty())
+        sampleTags.erase(path);
+    else
+        sampleTags[path] = tags;
+    saveTags();
+    repaint();
+}
+
+void BrowserPanel::showTagEditorForSelectedFile()
+{
+    if (!selectedFile.existsAsFile()) return;
+
+    auto* aw = new juce::AlertWindow("Edit Tags",
+                                      "Comma-separated tags for \"" + selectedFile.getFileNameWithoutExtension() + "\"\n"
+                                      "(e.g. kick, 808, dark, loop)",
+                                      juce::AlertWindow::NoIcon);
+    aw->addTextEditor("tags", getTagsForFile(selectedFile).joinIntoString(", "));
+    aw->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    aw->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+
+    aw->enterModalState(true, juce::ModalCallbackFunction::create([this, aw](int result)
+    {
+        std::unique_ptr<juce::AlertWindow> owned(aw);
+        if (result != 1) return;
+
+        auto raw = aw->getTextEditorContents("tags");
+        juce::StringArray tags;
+        for (auto& t : juce::StringArray::fromTokens(raw, ",", "\""))
+        {
+            auto trimmed = t.trim();
+            if (trimmed.isNotEmpty())
+                tags.addIfNotAlreadyThere(trimmed);
+        }
+        setTagsForFile(selectedFile, tags);
+    }), false);
+}
+
+void BrowserPanel::textEditorTextChanged(juce::TextEditor& ed)
+{
+    if (&ed != &searchBox) return;
+    audioFilter.searchText = searchBox.getText();
+    dirContents.refresh();
 }
 
 void BrowserPanel::navigateTo(const juce::File& dir)
@@ -3579,9 +3680,18 @@ void BrowserPanel::paint(juce::Graphics& g)
         g.drawText(juce::File::descriptionOfSizeInBytes(selectedFile.getSize())
                        + "  " + selectedFile.getFileExtension().toUpperCase(),
                    8, previewY + 21, W - 16, 12, juce::Justification::centredLeft);
-        g.setColour(juce::Colour::fromRGB(150, 120, 255).withAlpha(0.7f));
+
+        // Tags row — click to edit
+        const auto tags = getTagsForFile(selectedFile);
+        g.setColour(juce::Colour::fromRGB(120, 200, 160).withAlpha(0.8f));
         g.setFont(juce::Font(juce::FontOptions(8.0f)));
-        g.drawText(u8"⟵ Drag to timeline", 8, previewY + 35, W - 16, 12,
+        g.drawText(tags.isEmpty() ? juce::String(u8"+ Add tags...")
+                                  : (u8"\U0001F3F7 " + tags.joinIntoString(", ")),
+                   8, previewY + 36, W - 16, 12, juce::Justification::centredLeft, true);
+
+        g.setColour(juce::Colour::fromRGB(150, 120, 255).withAlpha(0.6f));
+        g.setFont(juce::Font(juce::FontOptions(7.5f)));
+        g.drawText(u8"⟵ Drag to timeline", 8, previewY + 50, W - 16, 12,
                    juce::Justification::centredLeft);
     }
     else
@@ -3614,7 +3724,8 @@ void BrowserPanel::resized()
     fileTree.setBounds(0, y, W, treeH);
 }
 
-// mouseDown on the header area handles the "+" open folder picker
+// mouseDown on the header area handles the "+" open folder picker;
+// mouseDown on the preview footer's tags row opens the tag editor.
 void BrowserPanel::mouseDown(const juce::MouseEvent& e)
 {
     // "+" button is drawn at (W-40, 0, 18, kHeaderH)
@@ -3630,6 +3741,13 @@ void BrowserPanel::mouseDown(const juce::MouseEvent& e)
                 if (result.isDirectory())
                     navigateTo(result);
             });
+        return;
+    }
+
+    const int previewY = getHeight() - kPreviewH;
+    if (selectedFile.existsAsFile() && e.y >= previewY + 36 && e.y < previewY + 48)
+    {
+        showTagEditorForSelectedFile();
     }
 }
 
