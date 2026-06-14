@@ -212,7 +212,7 @@
     /* ══════════════════════════ BODY ══════════════════════════ */
     .body {
       display: grid;
-      grid-template-columns: 165px 1fr 174px;
+      grid-template-columns: 165px 1fr 192px;
       gap: 0;
       overflow: hidden;
     }
@@ -263,9 +263,10 @@
         0 1px 3px rgba(0,0,0,0.5);
     }
     .knob.sm  { width: 60px; height: 60px; }
+    .knob.md  { width: 72px; height: 72px; }
     .knob.xs  { width: 67px; height: 67px; }
     .knob.lg  {
-      width: 86px; height: 86px;
+      width: 100px; height: 100px;
       box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.10),
         inset 0 -8px 18px rgba(0,0,0,0.65),
@@ -316,9 +317,13 @@
       width: 2px; height: 15px;
       transform: translate(-50%, -50%) rotate(var(--turn, -135deg)) translateY(-19px);
     }
+    .knob.md .knob-ptr {
+      width: 2.5px; height: 18px;
+      transform: translate(-50%, -50%) rotate(var(--turn, -135deg)) translateY(-22px);
+    }
     .knob.lg .knob-ptr {
-      width: 3px; height: 21px;
-      transform: translate(-50%, -50%) rotate(var(--turn, -135deg)) translateY(-27px);
+      width: 3px; height: 24px;
+      transform: translate(-50%, -50%) rotate(var(--turn, -135deg)) translateY(-31px);
     }
 
     .k-label { font-size: 9px; letter-spacing: .14em; color: var(--gold); font-weight: 700; text-transform: uppercase; text-align: center; }
@@ -1075,24 +1080,24 @@
       <div class="bot-group-cells">
         <div class="bot-cell">
           <span class="bot-label">Lookahead</span>
-          <div class="knob sm" data-param="lookahead" data-min="0" data-max="5" data-def="5">
-            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#D6B06A" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+          <div class="knob md" data-param="lookahead" data-min="0" data-max="5" data-def="5">
+            <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(214,176,106,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#D6B06A" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
             <div class="knob-ptr"></div>
           </div>
           <div class="bot-readout" data-readout="lookahead">5.0 ms</div>
         </div>
         <div class="bot-cell">
           <span class="bot-label">Attack</span>
-          <div class="knob sm" data-param="attack" data-min="0.1" data-max="100" data-def="1.5">
-            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#D6B06A" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+          <div class="knob md" data-param="attack" data-min="0.1" data-max="100" data-def="1.5">
+            <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(214,176,106,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#D6B06A" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
             <div class="knob-ptr"></div>
           </div>
           <div class="bot-readout" data-readout="attack">1.5 ms</div>
         </div>
         <div class="bot-cell">
           <span class="bot-label">Release</span>
-          <div class="knob sm" data-param="release" data-min="10" data-max="1000" data-def="100">
-            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#D6B06A" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+          <div class="knob md" data-param="release" data-min="10" data-max="1000" data-def="100">
+            <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(214,176,106,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#D6B06A" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
             <div class="knob-ptr"></div>
           </div>
           <div class="bot-readout" data-readout="release">100 ms</div>
@@ -1626,8 +1631,14 @@ function drawWave() {
     ctx.fillRect(0, 0, w, h);
   }
 
+  // Subtle "loudness target zone" band — -9 to -6 dBFS, always visible
+  const zoneTop = (6 / 22) * h * 0.88 + h * 0.06;
+  const zoneBot = (9 / 22) * h * 0.88 + h * 0.06;
+  ctx.fillStyle = 'rgba(214,176,106,0.028)';
+  ctx.fillRect(0, zoneTop, w, zoneBot - zoneTop);
+
   // Vertical time grid
-  ctx.strokeStyle = 'rgba(200,160,96,0.035)';
+  ctx.strokeStyle = 'rgba(214,176,106,0.055)';
   ctx.lineWidth = 0.8;
   for (let t = 1; t < 8; t++) {
     const x = (t / 8) * w;
@@ -1638,9 +1649,16 @@ function drawWave() {
   const dbLines = [0,-3,-6,-9,-12,-18];
   dbLines.forEach(db => {
     const y = (Math.abs(db) / 22) * h * 0.88 + h * 0.06;
-    ctx.strokeStyle = db === 0 ? 'rgba(200,160,96,0.20)' : 'rgba(200,160,96,0.048)';
-    ctx.lineWidth = db === 0 ? 1.0 : 0.7;
+    ctx.strokeStyle = db === 0 ? 'rgba(214,176,106,0.28)' : (db === -9 ? 'rgba(214,176,106,0.09)' : 'rgba(214,176,106,0.065)');
+    ctx.lineWidth = db === 0 ? 1.2 : 0.7;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    // dB labels on the right side
+    if (db !== 0) {
+      ctx.fillStyle = 'rgba(214,176,106,0.28)';
+      ctx.font = '8px "Avenir Next", "Segoe UI", sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(db + ' dB', w - 5, y - 2);
+    }
   });
 
   const mid = h * 0.88;
@@ -1763,15 +1781,15 @@ function drawGR() {
   const w = grCanvas.width, h = grCanvas.height;
   const ctx = grCtx;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = '#050403';
+  ctx.fillStyle = '#030408';
   ctx.fillRect(0, 0, w, h);
 
   // dB scale marks (GR goes downward from 0 at top)
   const grDbLines = [0, 3, 6, 9, 12, 18];
   grDbLines.forEach(db => {
     const y = (db / 20) * h;
-    ctx.strokeStyle = db === 0 ? 'rgba(200,160,96,0.18)' : 'rgba(200,160,96,0.055)';
-    ctx.lineWidth = db === 0 ? 1.0 : 0.7;
+    ctx.strokeStyle = db === 0 ? 'rgba(214,176,106,0.22)' : 'rgba(214,176,106,0.065)';
+    ctx.lineWidth = db === 0 ? 1.2 : 0.7;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
   });
 
@@ -1875,12 +1893,13 @@ function simulateTick() {
 // ══════════════════════════ TELEMETRY API ══════════════════════════
 window.updateApexTelemetry = function(data) {
   lastTelemetry = data;
-  const inL  = data.inputLevelL  || 0;
-  const inR  = data.inputLevelR  || 0;
-  const outL = data.outputLevelL || 0;
-  const outR = data.outputLevelR || 0;
-  const gr   = Math.abs(data.gainReductionDb || 0);
-  const lufs = data.lufs    !== undefined ? data.lufs    : -8.7;
+  // JUCE sends: inputL, inputR, outputL, outputR, grDb, lufs, truePeak
+  const inL  = data.inputL  || 0;
+  const inR  = data.inputR  || 0;
+  const outL = data.outputL || 0;
+  const outR = data.outputR || 0;
+  const gr   = Math.abs(data.grDb || 0);
+  const lufs = data.lufs     !== undefined ? data.lufs     : -8.7;
   const tp   = data.truePeak !== undefined ? data.truePeak : -0.3;
 
   const inLin  = Math.max(inL, inR);
@@ -1953,19 +1972,36 @@ function lerpBallistic(cur, target) {
 // Smoothed current values written each frame
 let _curIn = 0, _curOut = 0, _curGR = 0;
 
+// Track silence: fall back to simulation after 90 frames of near-zero signal
+let _silenceFrames = 0;
+const SILENCE_FALLBACK = 90;
+
 function frame() {
   if (!lastTelemetry) {
     simulateTick();
   } else {
-    // Lerp smoothed values toward targets
-    _curIn  = lerpBallistic(_curIn,  _smInL);
-    _curOut = lerpBallistic(_curOut, _smOutL);
-    _curGR  = lerpBallistic(_curGR,  _smGR);
+    // Detect sustained silence — if signal has been near-zero for a while, show simulation
+    const isActive = (_smInL > 0.003 || _smOutL > 0.003 || _smGR > 0.01);
+    if (isActive) {
+      _silenceFrames = 0;
+    } else {
+      _silenceFrames++;
+    }
 
-    inputBuf[histHead]  = _curIn;
-    outputBuf[histHead] = _curOut;
-    grBuf[histHead]     = _curGR;
-    histHead = (histHead + 1) % HIST;
+    if (_silenceFrames > SILENCE_FALLBACK) {
+      // No real audio — show animated simulation so graph looks alive
+      simulateTick();
+    } else {
+      // Real audio: lerp smoothed values toward targets
+      _curIn  = lerpBallistic(_curIn,  _smInL);
+      _curOut = lerpBallistic(_curOut, _smOutL);
+      _curGR  = lerpBallistic(_curGR,  _smGR);
+
+      inputBuf[histHead]  = _curIn;
+      outputBuf[histHead] = _curOut;
+      grBuf[histHead]     = _curGR;
+      histHead = (histHead + 1) % HIST;
+    }
   }
   drawWave();
   drawGR();
