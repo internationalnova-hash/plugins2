@@ -33,6 +33,7 @@ namespace NovaStudioUI
         int  getNumRows() override;
         void paintListBoxItem(int row, juce::Graphics& g, int w, int h, bool selected) override;
         void listBoxItemDoubleClicked(int row, const juce::MouseEvent&) override;
+        void selectedRowsChanged(int lastRowSelected) override;
 
         // Button::Listener
         void buttonClicked(juce::Button* b) override;
@@ -43,6 +44,7 @@ namespace NovaStudioUI
         void startScan();
         void rebuildFilteredList();
         void loadSelectedPlugin();
+        void finishScan(juce::Array<juce::PluginDescription> results);
 
         NovaStudio::StudioAudioEngine& engine;
 
@@ -63,7 +65,18 @@ namespace NovaStudioUI
 
         int targetTrack = 0;
         int targetSlot  = 0;
-        bool scanning   = false;
+        std::atomic<bool> scanning { false };
+
+        // Background scan thread
+        struct ScanThread : public juce::Thread
+        {
+            PluginBrowserPanel& owner;
+            juce::AudioPluginFormatManager& fmgr;
+            ScanThread(PluginBrowserPanel& o, juce::AudioPluginFormatManager& f)
+                : juce::Thread("PluginScan"), owner(o), fmgr(f) {}
+            void run() override;
+        };
+        std::unique_ptr<ScanThread> scanThread;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginBrowserPanel)
     };

@@ -59,7 +59,14 @@ PluginBrowserPanel::PluginBrowserPanel(NovaStudio::StudioAudioEngine& engineRef)
     progressBar.setVisible(false);
 }
 
-PluginBrowserPanel::~PluginBrowserPanel() = default;
+PluginBrowserPanel::~PluginBrowserPanel()
+{
+    if (scanThread && scanThread->isThreadRunning())
+    {
+        scanThread->signalThreadShouldExit();
+        scanThread->waitForThreadToExit(3000);
+    }
+}
 
 void PluginBrowserPanel::setTargetTrackAndSlot(int trackIndex, int slotIndex)
 {
@@ -68,6 +75,8 @@ void PluginBrowserPanel::setTargetTrackAndSlot(int trackIndex, int slotIndex)
     targetLabel.setText("Target: Track " + juce::String(trackIndex + 1) +
                         "  |  Insert Slot " + juce::String(slotIndex + 1),
                         juce::dontSendNotification);
+    pluginList.selectRow(-1, true);  // clear prior selection so re-targeting a new slot starts fresh
+    loadBtn.setEnabled(false);
 }
 
 void PluginBrowserPanel::paint(juce::Graphics& g)
@@ -162,58 +171,43 @@ void PluginBrowserPanel::listBoxItemDoubleClicked(int /*row*/, const juce::Mouse
     loadSelectedPlugin();
 }
 
+void PluginBrowserPanel::selectedRowsChanged(int lastRowSelected)
+{
+    loadBtn.setEnabled(isPositiveAndBelow(lastRowSelected, filteredPlugins.size()));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Scan
 // ─────────────────────────────────────────────────────────────────────────────
 
 void PluginBrowserPanel::startScan()
 {
-    if (scanning) return;
+    if (scanning.load()) return;
     scanning = true;
     scanBtn.setEnabled(false);
     progressBar.setVisible(true);
-    scanProgress = -1.0; // indeterminate
+    scanProgress = -1.0;
 
-    statusLabel.setText("Scanning...", juce::dontSendNotification);
-    repaint();
-
-    // Collect search paths for all formats
-    juce::FileSearchPath searchPaths;
-    for (int i = 0; i < formatManager.getNumFormats(); ++i)
-    {
-        auto* fmt = formatManager.getFormat(i);
-        searchPaths.addPath(fmt->getDefaultLocationsToSearch());
-    }
-
-    // Also add common Linux/Mac/Windows VST3 paths
-#if JUCE_LINUX
-    searchPaths.add(juce::File("/usr/lib/vst3"));
-    searchPaths.add(juce::File("/usr/local/lib/vst3"));
-    searchPaths.add(juce::File(juce::File::getSpecialLocation(juce::File::userHomeDirectory).getFullPathName() + "/.vst3"));
-    searchPaths.add(juce::File("/usr/lib/lv2"));
-    searchPaths.add(juce::File("/usr/local/lib/lv2"));
-    searchPaths.add(juce::File(juce::File::getSpecialLocation(juce::File::userHomeDirectory).getFullPathName() + "/.lv2"));
-#elif JUCE_MAC
-    searchPaths.add(juce::File("/Library/Audio/Plug-Ins/VST3"));
-    searchPaths.add(juce::File(juce::File::getSpecialLocation(juce::File::userHomeDirectory).getFullPathName() + "/Library/Audio/Plug-Ins/VST3"));
-    searchPaths.add(juce::File("/Library/Audio/Plug-Ins/Components"));
-#elif JUCE_WINDOWS
-    searchPaths.add(juce::File("C:/Program Files/Common Files/VST3"));
-    searchPaths.add(juce::File("C:/Program Files (x86)/Common Files/VST3"));
-#endif
-
-    knownPlugins.clear();
     allPlugins.clear();
     filteredPlugins.clear();
     pluginList.updateContent();
+    statusLabel.setText("Scanning (background)...", juce::dontSendNotification);
+    repaint();
 
-    juce::PluginDirectoryScanner scanner(knownPlugins, *formatManager.getFormat(0),
-                                          searchPaths, true, juce::File(), false);
+    scanThread = std::make_unique<ScanThread>(*this, formatManager);
+    scanThread->startThread();
+}
 
-    // Run all formats
-    for (int fi = 0; fi < formatManager.getNumFormats(); ++fi)
+void PluginBrowserPanel::ScanThread::run()
+{
+    juce::KnownPluginList tempKnown;
+    juce::Array<juce::PluginDescription> results;
+
+    for (int fi = 0; fi < fmgr.getNumFormats(); ++fi)
     {
-        auto* fmt = formatManager.getFormat(fi);
+        if (threadShouldExit()) break;
+
+        auto* fmt = fmgr.getFormat(fi);
         juce::FileSearchPath fmtPaths;
         fmtPaths.addPath(fmt->getDefaultLocationsToSearch());
 
@@ -240,39 +234,43 @@ void PluginBrowserPanel::startScan()
         fmtPaths.add(juce::File("C:/Program Files (x86)/Common Files/VST3"));
 #endif
 
-        juce::KnownPluginList tempList;
-        juce::PluginDirectoryScanner fmtScanner(tempList, *fmt, fmtPaths, true, juce::File(), false);
+        juce::KnownPluginList fmtList;
+        juce::PluginDirectoryScanner fmtScanner(fmtList, *fmt, fmtPaths, true, juce::File(), false);
 
         juce::String nextPlugin;
-        while (fmtScanner.scanNextFile(true, nextPlugin))
-        {
-            // keep moving
-        }
+        while (!threadShouldExit() && fmtScanner.scanNextFile(true, nextPlugin)) {}
 
-        for (auto& desc : tempList.getTypes())
-            knownPlugins.addType(desc);
+        for (auto& desc : fmtList.getTypes())
+            results.add(desc);
     }
 
-    // Collect all types
-    for (auto& desc : knownPlugins.getTypes())
-        allPlugins.add(desc);
-
-    // Sort by name
     struct ByName
     {
         static int compareElements(const juce::PluginDescription& a, const juce::PluginDescription& b)
-        {
-            return a.name.compareIgnoreCase(b.name);
-        }
+        { return a.name.compareIgnoreCase(b.name); }
     } sorter;
-    allPlugins.sort(sorter);
+    results.sort(sorter);
 
+    // Post results back to message thread
+    juce::Array<juce::PluginDescription> captured = results;
+    juce::MessageManager::callAsync([&owner = this->owner, captured]() mutable
+    {
+        owner.finishScan(std::move(captured));
+    });
+}
+
+void PluginBrowserPanel::finishScan(juce::Array<juce::PluginDescription> results)
+{
     scanning = false;
     scanBtn.setEnabled(true);
     progressBar.setVisible(false);
 
-    rebuildFilteredList();
+    knownPlugins.clear();
+    allPlugins = std::move(results);
+    for (auto& d : allPlugins)
+        knownPlugins.addType(d);
 
+    rebuildFilteredList();
     statusLabel.setText("Found " + juce::String(allPlugins.size()) + " plugin(s).",
                         juce::dontSendNotification);
 }
@@ -368,15 +366,20 @@ void PluginBrowserPanel::buttonClicked(juce::Button* b)
             "*.vst3;*.so;*.dll;*.component;*.lv2");
 
         chooser->launchAsync(
-            juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            juce::FileBrowserComponent::openMode
+                | juce::FileBrowserComponent::canSelectFiles
+                | juce::FileBrowserComponent::canSelectMultipleItems,
             [this, chooser](const juce::FileChooser& fc)
             {
-                auto result = fc.getResult();
-                if (!result.existsAsFile() && !result.isDirectory()) return;
+                auto results = fc.getResults();
+                if (results.isEmpty()) return;
+
+                juce::StringArray paths;
+                for (auto& f : results)
+                    paths.add(f.getFullPathName());
 
                 juce::OwnedArray<juce::PluginDescription> found;
-                knownPlugins.scanAndAddDragAndDroppedFiles(formatManager,
-                    juce::StringArray(result.getFullPathName()), found);
+                knownPlugins.scanAndAddDragAndDroppedFiles(formatManager, paths, found);
 
                 for (auto* d : found)
                 {
