@@ -56,7 +56,9 @@ namespace NovaStudioUI
         std::function<void(bool)>      onMuteToggled;
         std::function<void(bool)>      onSoloToggled;
         std::function<void(bool)>      onArmToggled;
-        std::function<void(int slot)>  onInsertClicked; // slot 0..2
+        std::function<void(int slot)>  onInsertClicked;       // open editor (slot has plugin) or browser (empty)
+        std::function<void(int slot)>  onInsertChangePlugin;  // replace plugin in slot
+        std::function<void(int slot)>  onInsertRemovePlugin;  // remove plugin from slot
 
         void mouseDown(const juce::MouseEvent& e) override;
 

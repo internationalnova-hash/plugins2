@@ -200,6 +200,14 @@ namespace NovaStudio
         return true;
     }
 
+    bool StudioAudioEngine::TrackPlayer::removePlugin(int index)
+    {
+        if (!isPositiveAndBelow(index, pluginChain.size()))
+            return false;
+        pluginChain.remove(index);
+        return true;
+    }
+
     juce::AudioPluginInstance* StudioAudioEngine::TrackPlayer::getPlugin(int index) const
     {
         if (isPositiveAndBelow(index, pluginChain.size()))
@@ -742,6 +750,13 @@ namespace NovaStudio
     {
         if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return;
         trackPlayers.getReference(trackIndex)->setPluginState(pluginSlot, data, size);
+    }
+
+    bool StudioAudioEngine::removePluginFromTrack(int trackIndex, int pluginSlot)
+    {
+        juce::ScopedLock sl(playerLock);
+        if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return false;
+        return trackPlayers.getReference(trackIndex)->removePlugin(pluginSlot);
     }
 
     // ── Metering ──────────────────────────────────────────────────────────────

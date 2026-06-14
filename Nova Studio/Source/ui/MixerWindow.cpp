@@ -19,6 +19,7 @@ static juce::Colour kMeterYellow   = juce::Colour::fromRGB(230, 200,  40);
 static juce::Colour kMeterRed      = juce::Colour::fromRGB(220,  55,  55);
 static juce::Colour kSlotBg        = juce::Colour::fromRGB(24,  27,  36);
 static juce::Colour kSlotEdge      = juce::Colour::fromRGBA(255, 255, 255, 22);
+static constexpr int kDropArrowW   = 14; // width of the ▼ dropdown arrow on loaded slots
 static juce::Colour kMasterEdge    = juce::Colour::fromRGB(180, 130,  50);
 static juce::Colour kAuxEdge       = juce::Colour::fromRGB( 60, 110, 180);
 
@@ -215,7 +216,6 @@ void ChannelStrip::mouseDown(const juce::MouseEvent& e)
     r.removeFromBottom(16);   // routing label
     r.removeFromBottom(76);   // meter
     r.removeFromBottom(40);   // sends
-    // r is now insertsArea
     auto slotArea = r.reduced(4, 2);
 
     const int slotH = 16;
@@ -224,11 +224,43 @@ void ChannelStrip::mouseDown(const juce::MouseEvent& e)
     {
         auto slot = slotArea.removeFromTop(slotH);
         slotArea.removeFromTop(gap);
-        if (slot.contains(e.getPosition()))
+        if (!slot.contains(e.getPosition()))
+            continue;
+
+        bool hasPlugin = insertSlotNames[i].isNotEmpty();
+        if (!hasPlugin)
         {
+            // Empty slot → open browser to load
             if (onInsertClicked) onInsertClicked(i);
             return;
         }
+
+        // Check if click was on the ▼ arrow (right kDropArrowW px)
+        bool onArrow = (e.position.x >= slot.getRight() - kDropArrowW);
+        if (onArrow)
+        {
+            // Show dropdown context menu
+            const int slotCapture = i;
+            juce::PopupMenu menu;
+            menu.addItem(1, "Open Editor");
+            menu.addItem(2, "Change Plugin...");
+            menu.addSeparator();
+            menu.addItem(3, "Remove");
+
+            menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this),
+                [this, slotCapture](int result)
+                {
+                    if (result == 1 && onInsertClicked)       onInsertClicked(slotCapture);
+                    else if (result == 2 && onInsertChangePlugin) onInsertChangePlugin(slotCapture);
+                    else if (result == 3 && onInsertRemovePlugin) onInsertRemovePlugin(slotCapture);
+                });
+        }
+        else
+        {
+            // Click on plugin name → open editor
+            if (onInsertClicked) onInsertClicked(i);
+        }
+        return;
     }
 }
 
@@ -252,8 +284,22 @@ void ChannelStrip::drawInsertSlots(juce::Graphics& g, juce::Rectangle<int> area)
         g.setFont(juce::FontOptions(8.5f));
         if (hasPlugin)
         {
+            // Plugin name (leaves room for ▼ on right)
+            auto textArea = slot.withTrimmedRight(kDropArrowW);
             g.setColour(juce::Colours::white.withAlpha(0.88f));
-            g.drawText(insertSlotNames[i], slot.reduced(3, 0), juce::Justification::centredLeft, true);
+            g.drawText(insertSlotNames[i], textArea.reduced(3, 0), juce::Justification::centredLeft, true);
+
+            // ▼ dropdown arrow region
+            auto arrowArea = slot.removeFromRight(kDropArrowW);
+            g.setColour(juce::Colour::fromRGBA(90, 120, 255, 80));
+            g.fillRect(arrowArea.withTrimmedLeft(1));
+            g.setColour(juce::Colours::white.withAlpha(0.55f));
+            // Small triangle
+            const float ax = arrowArea.getCentreX();
+            const float ay = arrowArea.getCentreY() - 1.0f;
+            juce::Path tri;
+            tri.addTriangle(ax - 3.0f, ay - 1.0f, ax + 3.0f, ay - 1.0f, ax, ay + 3.0f);
+            g.fillPath(tri);
         }
         else
         {
@@ -459,11 +505,23 @@ void MixerWindow::buildStrips()
         };
         strip->onInsertClicked = [this, i](int slot)
         {
-            // If slot has a plugin → open its editor. Otherwise → open browser to load.
             if (engine.getTrackPlugin(i, slot) != nullptr)
                 openPluginEditor(i, slot);
             else
                 openPluginBrowser(i, slot);
+        };
+        strip->onInsertChangePlugin = [this, i](int slot)
+        {
+            // Remove existing plugin from the slot first, then open browser to load a new one
+            engine.removePluginFromTrack(i, slot);
+            refreshInsertSlotNames();
+            openPluginBrowser(i, slot);
+        };
+        strip->onInsertRemovePlugin = [this, i](int slot)
+        {
+            engine.removePluginFromTrack(i, slot);
+            refreshInsertSlotNames();
+            repaint();
         };
     }
 

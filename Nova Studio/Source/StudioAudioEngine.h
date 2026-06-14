@@ -19,6 +19,7 @@ namespace NovaStudio
         bool loadPluginOnTrack(int trackIndex, const juce::File& pluginFile);
         bool loadAudioClip(int trackIndex, const juce::File& audioFile);
         bool loadPluginByDescription(const juce::PluginDescription& desc, int trackIndex = -1);
+        bool removePluginFromTrack(int trackIndex, int pluginSlot);
 
         void addTrack(const juce::String& name, TrackType type = TrackType::Audio);
         void removeTrack(int index);
@@ -87,6 +88,7 @@ namespace NovaStudio
             void setLoopActive(bool looping);
             bool loadClip(const juce::File& file, double sampleRate);
             bool addPlugin(std::unique_ptr<juce::AudioPluginInstance> plugin);
+            bool removePlugin(int index);
             juce::AudioPluginInstance* getPlugin(int index) const;
             int getNumPlugins() const { return pluginChain.size(); }
             void getPluginState(int index, juce::MemoryBlock& dest) const;
