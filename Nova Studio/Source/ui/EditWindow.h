@@ -23,7 +23,8 @@ namespace NovaStudioUI
 
         void setTrackCallbacks(std::function<void(int,bool)> onArm,
                                std::function<void(int,bool)> onMute,
-                               std::function<void(int,bool)> onSolo);
+                               std::function<void(int,bool)> onSolo,
+                               std::function<void(int, const juce::String&)> onRenamed = nullptr);
 
     private:
         void changeListenerCallback(juce::ChangeBroadcaster* source) override;

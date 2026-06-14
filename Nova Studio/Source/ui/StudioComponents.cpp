@@ -418,20 +418,29 @@ namespace NovaStudioUI
         if (trackIndex < 0 || trackIndex >= session.getNumTracks()) return;
 
         auto& track = session.getTrack(trackIndex);
-        juce::AlertWindow::showInputBoxAsync(
-            "Rename Track",
-            "Enter new track name:",
-            track.name,
-            nullptr,
-            [this, trackIndex](const juce::String& result)
+        auto* dialog = new juce::AlertWindow("Rename Track",
+                                             "Enter new track name:",
+                                             juce::MessageBoxIconType::NoIcon);
+        dialog->addTextEditor("name", track.name, "Name:");
+        dialog->addButton("OK",     1, juce::KeyPress(juce::KeyPress::returnKey));
+        dialog->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+        dialog->setColour(juce::AlertWindow::backgroundColourId, juce::Colour::fromRGB(18, 20, 28));
+        dialog->setColour(juce::AlertWindow::textColourId, juce::Colours::white);
+
+        dialog->enterModalState(true,
+            juce::ModalCallbackFunction::create([this, dialog, trackIndex](int result)
             {
-                if (result.isNotEmpty())
+                if (result == 1)
                 {
-                    session.getTrack(trackIndex).name = result;
-                    if (onTrackRenamed) onTrackRenamed(trackIndex, result);
-                    repaint();
+                    const juce::String newName = dialog->getTextEditorContents("name").trim();
+                    if (newName.isNotEmpty())
+                    {
+                        session.getTrack(trackIndex).name = newName;
+                        if (onTrackRenamed) onTrackRenamed(trackIndex, newName);
+                        repaint();
+                    }
                 }
-            });
+            }), true);
     }
 
     InspectorPanel::InspectorPanel(NovaStudio::ArrangementModel& arrangementModelRef)

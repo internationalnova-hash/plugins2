@@ -58,13 +58,17 @@ EditWindow::~EditWindow()
 
 void EditWindow::setTrackCallbacks(std::function<void(int,bool)> onArm,
                                    std::function<void(int,bool)> onMute,
-                                   std::function<void(int,bool)> onSolo)
+                                   std::function<void(int,bool)> onSolo,
+                                   std::function<void(int, const juce::String&)> onRenamed)
 {
     if (trackPanel)
     {
         trackPanel->onTrackArm  = std::move(onArm);
         trackPanel->onTrackMute = std::move(onMute);
         trackPanel->onTrackSolo = std::move(onSolo);
+        trackPanel->onTrackRenamed = onRenamed
+            ? std::move(onRenamed)
+            : [this](int, const juce::String&) { arrangementModel.sendChangeMessage(); };
     }
 }
 
