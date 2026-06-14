@@ -81,6 +81,7 @@ target_sources(NovaStudio PRIVATE
     Source/ui/MixerWindow.cpp
     Source/ui/BeatWindow.cpp
     Source/ui/PluginBrowserPanel.cpp
+    Source/ui/MacroPanel.cpp
 )
 
 target_link_libraries(NovaStudio PRIVATE

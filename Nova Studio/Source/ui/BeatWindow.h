@@ -112,6 +112,8 @@ namespace NovaStudioUI
     class PianoRollView : public juce::Component
     {
     public:
+        struct NoteBlock { int pitch, startStep, lengthSteps; float velocity; };
+
         PianoRollView();
         void paint(juce::Graphics& g) override;
         void resized() override;
@@ -130,6 +132,12 @@ namespace NovaStudioUI
         static const char* scaleTypeName(int type);
         void setScale(int rootPitchClass, int scaleType);  // rootPitchClass: -1 = off (chromatic), 0-11 = C..B
         void setSnapMode(int mode);                         // 0=1/4 1=1/8 2=1/16 3=1/32 4=Free
+
+        // Ghost notes — faint reference copies of notes from another channel/pattern,
+        // drawn behind the editable notes so the user can align melodies against them.
+        void setGhostNotes(juce::Array<NoteBlock> ghosts);
+        void setShowGhostNotes(bool shouldShow);
+        bool isShowingGhostNotes() const noexcept { return showGhostNotes; }
 
     private:
         void drawPianoKeys(juce::Graphics& g, juce::Rectangle<int> keysArea) const;
@@ -155,9 +163,11 @@ namespace NovaStudioUI
         static constexpr int kSnapH      = 22;
         static constexpr int kToolsH     = 24;
 
-        struct NoteBlock { int pitch, startStep, lengthSteps; float velocity; };
         juce::Array<NoteBlock> notes;
         juce::Array<int> selectedNotes;   // indices into `notes`
+
+        juce::Array<NoteBlock> ghostNotes;
+        bool showGhostNotes = false;
 
         int snapMode   = 2;     // index into {1/4, 1/8, 1/16, 1/32, Free}
         int scaleRoot  = -1;    // -1 = chromatic (no highlight), 0-11 = pitch class of root (C=0)
@@ -317,6 +327,7 @@ namespace NovaStudioUI
             juce::String name;
             int   stepCount = 16;
             float swing     = 0.0f;
+            int   grooveTemplate = 0;
             std::array<ChannelData, kNumRows> channels;
 
             Pattern()
@@ -364,6 +375,7 @@ namespace NovaStudioUI
         std::function<void(const juce::String& filePath)>      onPreviewSample;
         std::function<void(int stepCount)>                     onStepCountChanged;
         std::function<void(float swing)>                       onSwingChanged;
+        std::function<void(int grooveTemplate)>                onGrooveChanged;
 
         // Number of mixer inserts available for routing (set by BeatWindow/MainComponent)
         int numMixerInserts = 8;
@@ -800,6 +812,7 @@ namespace NovaStudioUI
         void setPatternName(const juce::String& name);
         void setStepCount(int steps);
         void setSwing(float pct);
+        void setGroove(int templateIndex);
 
         // Callbacks
         std::function<void()>                    onPrevPattern;
@@ -808,6 +821,7 @@ namespace NovaStudioUI
         std::function<void()>                    onAddChannel;
         std::function<void(int)>                 onStepCountChanged;
         std::function<void(float)>               onSwingChanged;
+        std::function<void(int)>                 onGrooveChanged;   // index into StudioAudioEngine::StepSequencerState groove templates
         std::function<void(bool)>                onShowVelocityGraph;
         std::function<void(bool)>                onPatSongToggle;
         // Pattern dropdown actions: "rename","color","randomcolor","insert","clone","delete","moveup","movedown","findempty"
@@ -830,6 +844,7 @@ namespace NovaStudioUI
         juce::Label      swingLabel;
         juce::TextButton swingDnBtn  { "-" };
         juce::TextButton swingUpBtn  { "+" };
+        juce::TextButton grooveBtn   { "GROOVE: Straight" };
 
         juce::TextButton addChanBtn  { "+ Chan" };
         juce::TextButton velGraphBtn { "VEL" };
@@ -837,6 +852,8 @@ namespace NovaStudioUI
 
         int   currentSteps = 16;
         float currentSwing = 0.0f;
+        int   currentGroove = 0;
+        void  showGrooveMenu();
         bool  showVel      = true;
         bool  isPat        = true;
 
@@ -946,6 +963,8 @@ namespace NovaStudioUI
             { stepSeq.onStepCountChanged = std::move(fn); }
         void setOnSwingChanged(std::function<void(float)> fn)
             { stepSeq.onSwingChanged = std::move(fn); }
+        void setOnGrooveChanged(std::function<void(int)> fn)
+            { stepSeq.onGrooveChanged = std::move(fn); }
 
         // Transport callbacks — wire from MainComponent
         std::function<void()>    onPlay;

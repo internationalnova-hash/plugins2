@@ -380,6 +380,7 @@ namespace NovaStudioUI
         std::function<void(bool)>       onSnapEnabled;
         std::function<void(int)>        onHZoomChanged;
         std::function<void(int)>        onVZoomChanged;
+        std::function<void()>           onMacroPanelRequested;
 
         void setEditMode(EditMode m);
         void setCursorTool(CursorTool t);
@@ -416,6 +417,9 @@ namespace NovaStudioUI
         juce::TextButton hZoomOutBtn {"H-"};
         juce::TextButton vZoomInBtn  {"V+"};
         juce::TextButton vZoomOutBtn {"V-"};
+
+        // Macro controls launcher
+        juce::TextButton macroBtn {"MACRO"};
 
         juce::Label modeLabel, toolLabel, gridLabel, nudgeLabel, zoomLabel;
 

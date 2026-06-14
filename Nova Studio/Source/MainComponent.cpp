@@ -106,6 +106,12 @@ MainComponent::MainComponent()
     beatWindow->setOnRowSampleRegionChanged([this](int row, float startFrac, float endFrac, bool loop) {
         engine.setStepSeqRowSampleRegion(row, startFrac, endFrac, loop);
     });
+    beatWindow->setOnSwingChanged([this](float swing) {
+        engine.setStepSeqSwing(swing);
+    });
+    beatWindow->setOnGrooveChanged([this](int templateIndex) {
+        engine.setStepSeqGroove(templateIndex);
+    });
     beatWindow->setNumMixerInserts(engine.getSession().getNumTracks());
 
     // Compact in-window mixer — keeps producers in the beat view while mixing

@@ -85,6 +85,11 @@ namespace NovaStudio
             return "Bus " + juce::String(busIndex * 2 + 1) + "-" + juce::String(busIndex * 2 + 2);
         }
 
+        // Macro controls — one knob fanning out to many target parameters,
+        // addressed with the same scheme as AutomationLane::parameterId.
+        void setMacroValue(int macroIndex, float normalizedValue);
+        void applyMacroTargets(const MacroControl& macro);
+
         // Send routing per track
         void  setTrackSendLevel(int trackIndex, int sendIndex, float db);
         float getTrackSendLevel(int trackIndex, int sendIndex) const noexcept;
@@ -104,6 +109,8 @@ namespace NovaStudio
         // New step sequencer control methods
         void setStepSeqActiveStepCount(int count);          // 16, 32, or 64
         void setStepSeqSwing(float swing);                  // 0.0-1.0
+        void setStepSeqGroove(int templateIndex);           // 0..StepSequencerState::kNumGrooveTemplates-1
+        int  getStepSeqGroove() const noexcept;
         void setStepSeqVelocity(int row, int step, float velocity);
         void setStepSeqRowVolume(int row, float vol);
         void setStepSeqRowPan(int row, float pan);
@@ -164,6 +171,14 @@ namespace NovaStudio
             static constexpr int kNumSteps = 64;  // max supported
             int   activeStepCount = 16;            // current pattern length: 16, 32, or 64
             float swing = 0.0f;                    // 0.0 = no swing, 0.5 = heavy
+
+            // FL-style groove/accent template — applies a per-step velocity
+            // multiplier on top of the per-step velocity the user drew in.
+            // 0 = Straight (no accent), see kGrooveAccentTables in the .cpp.
+            int grooveTemplate = 0;
+            static constexpr int kNumGrooveTemplates = 5;
+            static const char* grooveTemplateName(int index);
+            static float grooveAccentForStep(int templateIndex, int stepIndex);
 
             std::array<ChannelEngine, kNumRows> channelEngines;
 

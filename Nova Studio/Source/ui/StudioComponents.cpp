@@ -790,6 +790,13 @@ namespace NovaStudioUI
         for (auto* b : { &hZoomInBtn, &hZoomOutBtn, &vZoomInBtn, &vZoomOutBtn })
         { addAndMakeVisible(b); b->addListener(this); }
 
+        // Macro controls launcher
+        macroBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(40, 36, 60));
+        macroBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(190, 170, 255));
+        macroBtn.setTooltip("Open macro controls");
+        addAndMakeVisible(macroBtn);
+        macroBtn.addListener(this);
+
         // Section labels
         auto setupLabel = [&](juce::Label& l, const char* text) {
             l.setText(text, juce::dontSendNotification);
@@ -815,7 +822,7 @@ namespace NovaStudioUI
     {
         for (auto* b : { &slipBtn, &gridBtn, &spotBtn, &shuffleBtn,
                          &pointerBtn, &trimBtn, &splitBtn, &fadeBtn,
-                         &snapBtn, &hZoomInBtn, &hZoomOutBtn, &vZoomInBtn, &vZoomOutBtn })
+                         &snapBtn, &hZoomInBtn, &hZoomOutBtn, &vZoomInBtn, &vZoomOutBtn, &macroBtn })
             b->removeListener(this);
         gridBox.removeListener(this);
         nudgeBox.removeListener(this);
@@ -868,7 +875,10 @@ namespace NovaStudioUI
         hZoomOutBtn.setBounds(area.removeFromLeft(sW)); area.removeFromLeft(g1);
         hZoomInBtn.setBounds(area.removeFromLeft(sW));  area.removeFromLeft(g1);
         vZoomOutBtn.setBounds(area.removeFromLeft(sW)); area.removeFromLeft(g1);
-        vZoomInBtn.setBounds(area.removeFromLeft(sW));
+        vZoomInBtn.setBounds(area.removeFromLeft(sW));  area.removeFromLeft(g2);
+
+        // ── Macros ─────────────────────────────────────────────────────
+        macroBtn.setBounds(area.removeFromLeft(52));
     }
 
     void EditModeToolbar::setEditMode(EditMode m)
@@ -932,6 +942,7 @@ namespace NovaStudioUI
         else if (b == &hZoomOutBtn) { if (onHZoomChanged) onHZoomChanged(-1); }
         else if (b == &vZoomInBtn)  { if (onVZoomChanged) onVZoomChanged(+1); }
         else if (b == &vZoomOutBtn) { if (onVZoomChanged) onVZoomChanged(-1); }
+        else if (b == &macroBtn)    { if (onMacroPanelRequested) onMacroPanelRequested(); }
     }
 
     void EditModeToolbar::comboBoxChanged(juce::ComboBox* c)

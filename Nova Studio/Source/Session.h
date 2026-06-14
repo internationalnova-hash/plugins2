@@ -91,6 +91,29 @@ namespace NovaStudio
         static Track fromVar(const juce::var& var);
     };
 
+    // FL-style macro control: a single knob that fans out to one or more target
+    // parameters (addressed using the same scheme as AutomationLane::parameterId,
+    // e.g. "volume", "pan", "send1".."send6", "plugin:<slot>:<paramIndex>"),
+    // each scaled into its own [min,max] range as the macro value (0..1) sweeps.
+    struct MacroTarget
+    {
+        int trackIndex = -1;
+        juce::String parameterId;
+        float minValue = 0.0f;
+        float maxValue = 1.0f;
+        juce::var toVar() const;
+        static MacroTarget fromVar(const juce::var& var);
+    };
+
+    struct MacroControl
+    {
+        juce::String name;
+        float value = 0.5f;   // normalized 0..1
+        juce::Array<MacroTarget> targets;
+        juce::var toVar() const;
+        static MacroControl fromVar(const juce::var& var);
+    };
+
     struct Marker
     {
         juce::String name;
@@ -134,6 +157,12 @@ namespace NovaStudio
         void setName(const juce::String& projectName) noexcept;
         const juce::String& getName() const noexcept;
 
+        int getNumMacros() const noexcept { return macros.size(); }
+        MacroControl& getMacro(int index) { return macros.getReference(index); }
+        const MacroControl& getMacro(int index) const { return macros.getReference(index); }
+        MacroControl& addMacro(const juce::String& name);
+        void removeMacro(int index);
+
         void addMarker(const Marker& marker);
         void removeMarker(int index);
         void renameMarker(int index, const juce::String& newName);
@@ -150,6 +179,7 @@ namespace NovaStudio
         double tempoBpm = 120.0;
         double sampleRate = 44100.0;
         juce::Array<Track> tracks;
+        juce::Array<MacroControl> macros;
         juce::Array<Marker> markers;
         juce::Array<TempoPoint> tempoMap;
         juce::var novaAlignSettings;

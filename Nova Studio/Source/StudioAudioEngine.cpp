@@ -1671,7 +1671,8 @@ namespace NovaStudio
 
                     // Determine velocity for the last triggered step
                     // We use currentStep as an approximation; for per-step accuracy this is sufficient
-                    const float velocity   = stepSeq.velocities[row][currentStep];
+                    const float groove     = StepSequencerState::grooveAccentForStep(stepSeq.grooveTemplate, currentStep);
+                    const float velocity   = juce::jlimit(0.0f, 1.0f, stepSeq.velocities[row][currentStep] * groove);
                     const float rowVolume  = stepSeq.rowVolumes[row];
                     const float rowPan     = stepSeq.rowPans[row];
                     const float leftGain   = (rowPan <= 0.0f ? 1.0f : 1.0f - rowPan)  * rowVolume * velocity;
@@ -2108,6 +2109,53 @@ namespace NovaStudio
         }
     }
 
+    void StudioAudioEngine::setMacroValue(int macroIndex, float normalizedValue)
+    {
+        if (!isPositiveAndBelow(macroIndex, session.getNumMacros()))
+            return;
+
+        auto& macro = session.getMacro(macroIndex);
+        macro.value = juce::jlimit(0.0f, 1.0f, normalizedValue);
+        applyMacroTargets(macro);
+    }
+
+    void StudioAudioEngine::applyMacroTargets(const MacroControl& macro)
+    {
+        for (const auto& target : macro.targets)
+        {
+            if (!isPositiveAndBelow(target.trackIndex, session.getNumTracks()))
+                continue;
+
+            const float scaled = target.minValue + (target.maxValue - target.minValue) * macro.value;
+
+            if (target.parameterId == "volume")
+                setTrackVolume(target.trackIndex, scaled);
+            else if (target.parameterId == "pan")
+                setTrackPan(target.trackIndex, scaled);
+            else if (target.parameterId.startsWith("send"))
+            {
+                const int sendIndex = target.parameterId.substring(4).getIntValue() - 1;
+                if (isPositiveAndBelow(sendIndex, 6))
+                    setTrackSendLevel(target.trackIndex, sendIndex, scaled);
+            }
+            else if (target.parameterId.startsWith("plugin:"))
+            {
+                auto tokens = juce::StringArray::fromTokens(target.parameterId, ":", "");
+                if (tokens.size() == 3)
+                {
+                    const int slot = tokens[1].getIntValue();
+                    const int paramIndex = tokens[2].getIntValue();
+                    if (auto* plugin = getTrackPlugin(target.trackIndex, slot))
+                    {
+                        auto& params = plugin->getParameters();
+                        if (isPositiveAndBelow(paramIndex, params.size()))
+                            params[paramIndex]->setValue(juce::jlimit(0.0f, 1.0f, scaled));
+                    }
+                }
+            }
+        }
+    }
+
     void StudioAudioEngine::setTrackSendLevel(int trackIndex, int sendIndex, float db)
     {
         if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return;
@@ -2168,6 +2216,47 @@ namespace NovaStudio
     void StudioAudioEngine::setStepSeqSwing(float swing)
     {
         stepSeq.swing = juce::jlimit(0.0f, 1.0f, swing);
+    }
+
+    // Groove/accent templates: a 4-step repeating pattern of velocity multipliers,
+    // tiled across the whole pattern length. FL-style "feel" presets layered on
+    // top of the user's drawn-in velocities and the existing global swing amount.
+    static const float kGrooveAccentTables[StudioAudioEngine::StepSequencerState::kNumGrooveTemplates][4] =
+    {
+        { 1.00f, 1.00f, 1.00f, 1.00f },   // Straight — no accent
+        { 1.00f, 0.78f, 0.92f, 0.78f },   // Backbeat — emphasise beats 1 & 3
+        { 1.00f, 0.70f, 0.85f, 0.70f },   // Pop — strong downbeat, soft off-beats
+        { 0.85f, 1.00f, 0.85f, 1.00f },   // Push — emphasise the off-beats
+        { 1.00f, 0.60f, 0.75f, 0.55f },   // Hip-Hop — heavy downbeat, laid-back ghosts
+    };
+
+    static const char* kGrooveTemplateNames[StudioAudioEngine::StepSequencerState::kNumGrooveTemplates] =
+    {
+        "Straight", "Backbeat", "Pop", "Push", "Hip-Hop"
+    };
+
+    const char* StudioAudioEngine::StepSequencerState::grooveTemplateName(int index)
+    {
+        if (juce::isPositiveAndBelow(index, kNumGrooveTemplates))
+            return kGrooveTemplateNames[index];
+        return "Straight";
+    }
+
+    float StudioAudioEngine::StepSequencerState::grooveAccentForStep(int templateIndex, int stepIndex)
+    {
+        if (!juce::isPositiveAndBelow(templateIndex, kNumGrooveTemplates))
+            templateIndex = 0;
+        return kGrooveAccentTables[templateIndex][((stepIndex % 4) + 4) % 4];
+    }
+
+    void StudioAudioEngine::setStepSeqGroove(int templateIndex)
+    {
+        stepSeq.grooveTemplate = juce::jlimit(0, StepSequencerState::kNumGrooveTemplates - 1, templateIndex);
+    }
+
+    int StudioAudioEngine::getStepSeqGroove() const noexcept
+    {
+        return stepSeq.grooveTemplate;
     }
 
     void StudioAudioEngine::setStepSeqVelocity(int row, int step, float velocity)

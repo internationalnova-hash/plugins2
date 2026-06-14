@@ -6,6 +6,7 @@
 #include "../ArrangementModel.h"
 #include "Theme.h"
 #include "StudioComponents.h"
+#include "MacroPanel.h"
 #include "../StudioAudioEngine.h"
 
 namespace NovaStudioUI
@@ -63,6 +64,7 @@ namespace NovaStudioUI
         std::unique_ptr<ArrangementView> arrangementView;
         std::unique_ptr<TrackPanel> trackPanel;
         std::unique_ptr<ProductionPanel> productionPanel;
+        std::unique_ptr<MacroPanelWindow> macroPanelWindow;
 
         // Collapse state
         bool leftCollapsed  = false;

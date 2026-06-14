@@ -88,6 +88,19 @@ void EditWindow::setEngine(NovaStudio::StudioAudioEngine& e)
 {
     enginePtr = &e;
 
+    if (editModeToolbar)
+    {
+        editModeToolbar->onMacroPanelRequested = [this]()
+        {
+            if (!enginePtr) return;
+            if (macroPanelWindow == nullptr)
+                macroPanelWindow = std::make_unique<MacroPanelWindow>(*enginePtr);
+            macroPanelWindow->setVisible(true);
+            macroPanelWindow->toFront(true);
+            macroPanelWindow->getPanel()->refresh();
+        };
+    }
+
     if (!productionPanel) return;
 
     // onInsertClicked: open editor if plugin loaded, else open browser

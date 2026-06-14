@@ -355,11 +355,11 @@ void PianoRollView::mouseDown(const juce::MouseEvent& e)
     // ── Tools row clicks ─────────────────────────────────────────────────
     if (toolsArea.contains(e.getPosition()))
     {
-        static const char* toolNames[] = { "Strum", "Flam", "Chop", "Arp", "Scale" };
+        static const char* toolNames[] = { "Strum", "Flam", "Chop", "Arp", "Scale", "Ghost" };
         const int btnW = 56;
         int btnX0 = toolsArea.getX() + 6;
         int idx = (e.x - btnX0) / btnW;
-        if (idx >= 0 && idx < 5 && e.x < btnX0 + 5 * btnW)
+        if (idx >= 0 && idx < 6 && e.x < btnX0 + 6 * btnW)
         {
             switch (idx)
             {
@@ -372,6 +372,7 @@ void PianoRollView::mouseDown(const juce::MouseEvent& e)
                     toolArpeggiate(e.mods.isShiftDown() ? 1 : 0);
                     break;
                 case 4: showScalePickerMenu(); break;
+                case 5: setShowGhostNotes(! showGhostNotes); break;
                 default: break;
             }
             juce::ignoreUnused(toolNames);
@@ -559,6 +560,26 @@ void PianoRollView::drawNotes(juce::Graphics& g, juce::Rectangle<int> area) cons
     const int numSteps     = 32;
     int stepW = juce::jmax(1, area.getWidth() / numSteps);
 
+    if (showGhostNotes)
+    {
+        for (const auto& ghost : ghostNotes)
+        {
+            int pitchIdx = (startPitch + totalPitches - 1 - ghost.pitch);
+            if (pitchIdx < 0 || pitchIdx >= totalPitches) continue;
+
+            int x = area.getX() + ghost.startStep * stepW;
+            int y = area.getY() + kHeaderH + pitchIdx * kRowHeight;
+            int w = ghost.lengthSteps * stepW - 2;
+            int h = kRowHeight - 1;
+
+            auto gr = juce::Rectangle<int>(x, y, w, h);
+            g.setColour(BeatTheme::noteBlock().withAlpha(0.18f));
+            g.fillRoundedRectangle(gr.toFloat(), 2.0f);
+            g.setColour(juce::Colours::white.withAlpha(0.12f));
+            g.drawRoundedRectangle(gr.toFloat(), 2.0f, 1.0f);
+        }
+    }
+
     for (int i = 0; i < notes.size(); ++i)
     {
         const auto& note = notes.getReference(i);
@@ -639,13 +660,14 @@ void PianoRollView::drawToolsRow(juce::Graphics& g, juce::Rectangle<int> area) c
     g.setColour(BeatTheme::panel().brighter(0.03f));
     g.fillRect(area);
 
-    static const char* names[] = { "Strum", "Flam", "Chop", "Arp", "Scale" };
+    static const char* names[] = { "Strum", "Flam", "Chop", "Arp", "Scale", "Ghost" };
     const int btnW = 56;
     int btnX = area.getX() + 6;
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < 6; ++i)
     {
         bool isScaleBtn = (i == 4);
-        bool active = isScaleBtn && scaleRoot >= 0;
+        bool isGhostBtn = (i == 5);
+        bool active = (isScaleBtn && scaleRoot >= 0) || (isGhostBtn && showGhostNotes);
         auto br = juce::Rectangle<float>((float)btnX, (float)(area.getY() + 3), (float)(btnW - 6), (float)(area.getHeight() - 6));
         g.setColour(active ? BeatTheme::accent().withAlpha(0.8f) : BeatTheme::stepOff());
         g.fillRoundedRectangle(br, 3.0f);
@@ -677,6 +699,18 @@ void PianoRollView::drawToolsRow(juce::Graphics& g, juce::Rectangle<int> area) c
 void PianoRollView::setSnapMode(int mode)
 {
     snapMode = juce::jlimit(0, 4, mode);
+    repaint();
+}
+
+void PianoRollView::setGhostNotes(juce::Array<NoteBlock> ghosts)
+{
+    ghostNotes = std::move(ghosts);
+    repaint();
+}
+
+void PianoRollView::setShowGhostNotes(bool shouldShow)
+{
+    showGhostNotes = shouldShow;
     repaint();
 }
 
@@ -3170,7 +3204,7 @@ BeatPatternToolbar::BeatPatternToolbar()
 
     for (auto* b : { &prevPatBtn, &nextPatBtn, &addPatBtn, &patDropBtn,
                      &steps16Btn, &steps32Btn, &steps64Btn,
-                     &swingDnBtn, &swingUpBtn,
+                     &swingDnBtn, &swingUpBtn, &grooveBtn,
                      &addChanBtn, &velGraphBtn, &patSongBtn })
         styleSm(*b);
 
@@ -3199,6 +3233,9 @@ BeatPatternToolbar::BeatPatternToolbar()
     swingLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(swingLabel);
 
+    grooveBtn.setClickingTogglesState(false);
+    grooveBtn.setTooltip("Groove/feel template — applies an accent pattern on top of swing");
+
     updateStepButtons();
 }
 
@@ -3206,7 +3243,7 @@ BeatPatternToolbar::~BeatPatternToolbar()
 {
     for (auto* b : { &prevPatBtn, &nextPatBtn, &addPatBtn, &patDropBtn,
                      &steps16Btn, &steps32Btn, &steps64Btn,
-                     &swingDnBtn, &swingUpBtn,
+                     &swingDnBtn, &swingUpBtn, &grooveBtn,
                      &addChanBtn, &velGraphBtn, &patSongBtn })
         b->removeListener(this);
 }
@@ -3243,6 +3280,30 @@ void BeatPatternToolbar::setSwing(float pct)
     currentSwing = pct;
     swingLabel.setText("SWING " + juce::String(juce::roundToInt(pct)) + "%",
                        juce::dontSendNotification);
+}
+
+void BeatPatternToolbar::setGroove(int templateIndex)
+{
+    static const char* names[] = { "Straight", "Backbeat", "Pop", "Push", "Hip-Hop" };
+    currentGroove = juce::jlimit(0, 4, templateIndex);
+    grooveBtn.setButtonText(juce::String("GROOVE: ") + names[currentGroove]);
+}
+
+void BeatPatternToolbar::showGrooveMenu()
+{
+    static const char* names[] = { "Straight", "Backbeat", "Pop", "Push", "Hip-Hop" };
+
+    juce::PopupMenu m;
+    for (int i = 0; i < 5; ++i)
+        m.addItem(i + 1, names[i], true, currentGroove == i);
+
+    m.showMenuAsync(juce::PopupMenu::Options(), [this](int result)
+    {
+        if (result < 1 || result > 5) return;
+        const int idx = result - 1;
+        setGroove(idx);
+        if (onGrooveChanged) onGrooveChanged(idx);
+    });
 }
 
 void BeatPatternToolbar::paint(juce::Graphics& g)
@@ -3296,6 +3357,10 @@ void BeatPatternToolbar::resized()
     place(swingUpBtn,  18);
     gap8();
 
+    // Groove/feel template
+    place(grooveBtn, 110);
+    gap8();
+
     // Tools
     place(patSongBtn,  56);
     place(velGraphBtn, 38);
@@ -3327,6 +3392,7 @@ void BeatPatternToolbar::buttonClicked(juce::Button* b)
         if (onSwingChanged) onSwingChanged(currentSwing);
         return;
     }
+    if (b == &grooveBtn) { showGrooveMenu(); return; }
     if (b == &velGraphBtn)
     {
         showVel = !showVel;
@@ -3566,10 +3632,15 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
         stepSeq.currentPattern().swing = pct / 100.0f;
         if (stepSeq.onSwingChanged) stepSeq.onSwingChanged(pct / 100.0f);
     };
+    patternToolbar.onGrooveChanged = [this](int idx) {
+        stepSeq.currentPattern().grooveTemplate = idx;
+        if (stepSeq.onGrooveChanged) stepSeq.onGrooveChanged(idx);
+    };
     auto syncPatternUI = [this]() {
         const auto& p = stepSeq.currentPattern();
         patternToolbar.setPatternName(p.name);
         patternToolbar.setStepCount(p.stepCount);
+        patternToolbar.setGroove(p.grooveTemplate);
         // Use the first channel's colour as the pattern colour for the playlist stamp
         playlist.setActivePattern(p.name, p.channels[0].colour);
         stepSeq.repaint();

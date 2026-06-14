@@ -190,6 +190,58 @@ Clip ClipFromVar(const juce::var& var)
         return track;
     }
 
+    juce::var MacroTarget::toVar() const
+    {
+        juce::DynamicObject::Ptr object = new juce::DynamicObject();
+        object->setProperty("trackIndex", trackIndex);
+        object->setProperty("parameterId", parameterId);
+        object->setProperty("minValue", minValue);
+        object->setProperty("maxValue", maxValue);
+        return object.get();
+    }
+
+    MacroTarget MacroTarget::fromVar(const juce::var& var)
+    {
+        MacroTarget target;
+        if (auto* object = var.getDynamicObject())
+        {
+            target.trackIndex  = (int)object->getProperty("trackIndex");
+            target.parameterId = object->getProperty("parameterId").toString();
+            target.minValue    = (float)(double)object->getProperty("minValue");
+            target.maxValue    = (float)(double)object->getProperty("maxValue");
+        }
+        return target;
+    }
+
+    juce::var MacroControl::toVar() const
+    {
+        juce::DynamicObject::Ptr object = new juce::DynamicObject();
+        object->setProperty("name", name);
+        object->setProperty("value", value);
+
+        juce::Array<juce::var> targetsVar;
+        for (const auto& target : targets)
+            targetsVar.add(target.toVar());
+        object->setProperty("targets", targetsVar);
+        return object.get();
+    }
+
+    MacroControl MacroControl::fromVar(const juce::var& var)
+    {
+        MacroControl macro;
+        if (auto* object = var.getDynamicObject())
+        {
+            macro.name  = object->getProperty("name").toString();
+            macro.value = (float)(double)object->getProperty("value");
+
+            auto targetsVar = object->getProperty("targets");
+            if (targetsVar.isArray())
+                for (auto& targetVar : *targetsVar.getArray())
+                    macro.targets.add(MacroTarget::fromVar(targetVar));
+        }
+        return macro;
+    }
+
     juce::var Marker::toVar() const
     {
         juce::DynamicObject::Ptr object = new juce::DynamicObject();
@@ -306,6 +358,20 @@ Clip ClipFromVar(const juce::var& var)
         return projectName;
     }
 
+    MacroControl& Session::addMacro(const juce::String& name)
+    {
+        MacroControl macro;
+        macro.name = name;
+        macros.add(macro);
+        return macros.getReference(macros.size() - 1);
+    }
+
+    void Session::removeMacro(int index)
+    {
+        if (isPositiveAndBelow(index, macros.size()))
+            macros.remove(index);
+    }
+
     void Session::addMarker(const Marker& marker)
     {
         markers.add(marker);
@@ -350,6 +416,10 @@ Clip ClipFromVar(const juce::var& var)
         for (const auto& track : tracks)
             tracksVar.add(track.toVar());
 
+        juce::Array<juce::var> macrosVar;
+        for (const auto& macro : macros)
+            macrosVar.add(macro.toVar());
+
         juce::Array<juce::var> markersVar;
         for (const auto& marker : markers)
             markersVar.add(marker.toVar());
@@ -359,6 +429,7 @@ Clip ClipFromVar(const juce::var& var)
             tempoVar.add(tempoPoint.toVar());
 
         root->setProperty("tracks", tracksVar);
+        root->setProperty("macros", macrosVar);
         root->setProperty("markers", markersVar);
         root->setProperty("tempoMap", tempoVar);
         root->setProperty("novaAlignSettings", novaAlignSettings);
@@ -387,6 +458,7 @@ Clip ClipFromVar(const juce::var& var)
         sampleRate = (double)root->getProperty("sampleRate");
 
         tracks.clear();
+        macros.clear();
         markers.clear();
         tempoMap.clear();
 
@@ -395,6 +467,13 @@ Clip ClipFromVar(const juce::var& var)
         {
             for (auto& trackVar : *tracksVar.getArray())
                 tracks.add(Track::fromVar(trackVar));
+        }
+
+        const juce::var macrosVar = root->getProperty("macros");
+        if (macrosVar.isArray())
+        {
+            for (auto& macroVar : *macrosVar.getArray())
+                macros.add(MacroControl::fromVar(macroVar));
         }
 
         const juce::var markersVar = root->getProperty("markers");
