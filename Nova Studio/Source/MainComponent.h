@@ -75,6 +75,7 @@ private:
 
     // Nova Assistant (AI menu)
     void runNovaAssistant();
+    void runAiMix();
     void findClippingTracks();
     void organizeSession();
     void createVocalBuses();
