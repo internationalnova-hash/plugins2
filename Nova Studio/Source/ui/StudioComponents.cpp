@@ -237,9 +237,13 @@ namespace NovaStudioUI
     TrackPanel::TrackPanel(NovaStudio::Session& sessionRef)
         : session(sessionRef)
     {
+        startTimerHz(24); // 24 fps meter refresh
     }
 
-    TrackPanel::~TrackPanel() = default;
+    TrackPanel::~TrackPanel()
+    {
+        stopTimer();
+    }
 
     static const juce::Colour kTrackBg0   = juce::Colour::fromRGB(22, 24, 34);
     static const juce::Colour kTrackBg1   = juce::Colour::fromRGB(19, 21, 30);
@@ -350,6 +354,40 @@ namespace NovaStudioUI
             g.fillRoundedRectangle((float)soloX, (float)btnY, (float)btnW, (float)btnH, 3.0f);
             g.setColour(track.solo ? juce::Colours::black : juce::Colours::white.withAlpha(0.4f));
             g.drawText("S", soloX, btnY, btnW, btnH, juce::Justification::centred);
+
+            // Inline L/R level meters (two 4px bars, right-aligned below buttons)
+            {
+                const float levelL = getTrackLevel ? getTrackLevel(i, 0) : 0.0f;
+                const float levelR = getTrackLevel ? getTrackLevel(i, 1) : 0.0f;
+                const int meterH   = kTrackHeight - 18;
+                const int meterY   = y + 9;
+                const int mRx      = W - 5;   // right bar x
+                const int mLx      = mRx - 5; // left bar x
+                const int barW     = 4;
+
+                // Trough
+                g.setColour(juce::Colour::fromRGB(18, 20, 28));
+                g.fillRect(mLx, meterY, barW, meterH);
+                g.fillRect(mRx, meterY, barW, meterH);
+
+                // Level fill L
+                const int fillHL = juce::jlimit(0, meterH, (int)(levelL * meterH));
+                const int fillHR = juce::jlimit(0, meterH, (int)(levelR * meterH));
+                if (fillHL > 0)
+                {
+                    g.setColour(levelL > 0.9f ? juce::Colour::fromRGB(220, 40, 40)
+                                : levelL > 0.7f ? juce::Colour::fromRGB(200, 180, 30)
+                                               : juce::Colour::fromRGB(50, 190, 100));
+                    g.fillRect(mLx, meterY + meterH - fillHL, barW, fillHL);
+                }
+                if (fillHR > 0)
+                {
+                    g.setColour(levelR > 0.9f ? juce::Colour::fromRGB(220, 40, 40)
+                                : levelR > 0.7f ? juce::Colour::fromRGB(200, 180, 30)
+                                               : juce::Colour::fromRGB(50, 190, 100));
+                    g.fillRect(mRx, meterY + meterH - fillHR, barW, fillHR);
+                }
+            }
 
             // Row separator
             g.setColour(juce::Colour::fromRGB(25, 27, 38));
@@ -1808,11 +1846,21 @@ namespace NovaStudioUI
             if (clip == nullptr || clip->locked)
                 return;
 
-            const auto localX = static_cast<int>(event.x - 8.0f);
-            const int64_t sampleAtX = static_cast<int64_t>(timelineModel.getSamplePositionForX(localX));
+            // Trim is slip-mode by default (pixel-accurate).
+            // Only snap if Cmd/Ctrl is held.
+            const bool snapTrim = event.mods.isCommandDown() && snapEnabled;
+            const auto localX = static_cast<int>(event.x);
+            const int64_t rawSample = static_cast<int64_t>(timelineModel.getSamplePositionForX(localX));
+            const int64_t sampleAtX = snapTrim
+                ? arrangementModel.getSnappedSamplePosition(rawSample)
+                : juce::jmax<int64_t>(0, rawSample);
+
             if (isDraggingTrimLeft)
             {
-                const int64_t newStart = arrangementModel.getSnappedSamplePosition(juce::jlimit<int64_t>(originalClipStartSample, originalClipStartSample + originalClipLength - 1, sampleAtX));
+                const int64_t newStart = juce::jlimit<int64_t>(
+                    originalClipStartSample,
+                    originalClipStartSample + originalClipLength - 1,
+                    sampleAtX);
                 if (newStart != currentTrimSample)
                 {
                     currentTrimSample = newStart;
@@ -1824,7 +1872,10 @@ namespace NovaStudioUI
             }
             else if (isDraggingTrimRight)
             {
-                const int64_t newEnd = arrangementModel.getSnappedSamplePosition(juce::jlimit<int64_t>(originalClipStartSample + 1, originalClipStartSample + originalClipLength, sampleAtX));
+                const int64_t newEnd = juce::jlimit<int64_t>(
+                    originalClipStartSample + 1,
+                    originalClipStartSample + originalClipLength,
+                    sampleAtX);
                 if (newEnd != currentTrimSample)
                 {
                     currentTrimSample = newEnd;
@@ -3565,7 +3616,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         insertSlots[slot].pluginName = name;
         if (name.isEmpty())
         {
-            insertSlots[slot].nameBtn.setButtonText("— empty —");
+            insertSlots[slot].nameBtn.setButtonText("[ Empty Slot ]");
             insertSlots[slot].nameBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(90, 90, 110));
         }
         else

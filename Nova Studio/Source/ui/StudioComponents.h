@@ -59,7 +59,8 @@ namespace NovaStudioUI
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TransportBar)
     };
 
-    class TrackPanel : public juce::Component
+    class TrackPanel : public juce::Component,
+                       private juce::Timer
     {
     public:
         static constexpr int kTrackHeight = 64;
@@ -80,10 +81,14 @@ namespace NovaStudioUI
         std::function<void(int, bool)> onTrackSolo;
         std::function<void(int trackIndex, const juce::String& newName)> onTrackRenamed;
         std::function<void(int scrollY)> onScrollChanged;
+        // Wire to engine.getTrackPeakLevel(trackIndex, channel) — 0=L, 1=R
+        std::function<float(int trackIndex, int channel)> getTrackLevel;
 
         void mouseDoubleClick(const juce::MouseEvent& e) override;
 
     private:
+        void timerCallback() override { repaint(); }
+
         enum class HitButton { None, Arm, Mute, Solo };
         HitButton hitTest(int trackIndex, juce::Point<int> pos) const;
 

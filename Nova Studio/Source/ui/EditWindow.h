@@ -31,6 +31,10 @@ namespace NovaStudioUI
         // Set by MainComponent — called when a file drop needs a new track
         std::function<int(const juce::String&, bool)> onCreateAudioTrack;
 
+        // Wire engine peak level reader to track header meters
+        void setLevelCallback(std::function<float(int,int)> fn);
+
+
     private:
         void changeListenerCallback(juce::ChangeBroadcaster* source) override;
 

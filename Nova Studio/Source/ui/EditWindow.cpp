@@ -88,6 +88,12 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
     }
 }
 
+void EditWindow::setLevelCallback(std::function<float(int,int)> fn)
+{
+    if (trackPanel)
+        trackPanel->getTrackLevel = std::move(fn);
+}
+
 void EditWindow::zoomHorizontal(int direction)
 {
     if (arrangementView)
