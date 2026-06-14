@@ -1184,12 +1184,13 @@ void MainComponent::exportForProTools()
 // ─────────────────────────────────────────────────────────────────────────────
 // One-Click Mix — Ozuna / Rauw Alejandro Latin Urban style
 //
-// Vocal chain:  Nova Clean → Nova Silk → Nova Pitch → Nova Console
-//            → Nova Tone → Nova Curve → Nova Aura → Nova Level
-//            → Nova Heat → Nova Clip
-// Sends to: Space By Nova (reverb bus) + Nova Delay (delay bus)
-// Music/beat: Nova Console → Nova Curve → Nova Level → Nova Clip
-// Master bus (Aux "Master"): Nova Master → Nova Apex
+// Bus hierarchy:
+//   Lead vocals  → Lead Vocal Bus → Vocal Bus → Master Bus → Out
+//   Doubles      → Lead Vocal Bus → Vocal Bus → Master Bus → Out
+//   Harmonies/BGV→ Vocal Bus ──────────────── → Master Bus → Out
+//   Music/beat   → Music Bus ──────────────── → Master Bus → Out
+//   Sends:         Reverb Bus (Space By Nova) → Master Bus → Out
+//                  Delay Bus  (Nova Delay)    → Master Bus → Out
 // ─────────────────────────────────────────────────────────────────────────────
 void MainComponent::runAiMix()
 {
@@ -1203,8 +1204,7 @@ void MainComponent::runAiMix()
     }
 
     // ── 1. Classify tracks ──────────────────────────────────────────────────
-    // Track roles based on name matching
-    enum class Role { LeadVocal, DoubleTrack, Harmony, BackgroundVocal, Music, Unknown };
+    enum class Role { LeadVocal, DoubleTrack, BackgroundVocal, Music, Unknown };
 
     auto classifyTrack = [](const juce::String& name) -> Role
     {
@@ -1217,7 +1217,7 @@ void MainComponent::runAiMix()
             || n.contains("background") || n.contains("choir"))
             return Role::BackgroundVocal;
         if (n.contains("vocal") || n.contains("vox") || n.contains("vx") || n.contains("singer"))
-            return Role::LeadVocal;   // unnamed vocal → treat as lead
+            return Role::LeadVocal;
         if (n.contains("beat") || n.contains("music") || n.contains("inst") || n.contains("track")
             || n.contains("bass") || n.contains("drum") || n.contains("piano") || n.contains("synth")
             || n.contains("guitar") || n.contains("perc") || n.contains("keys") || n.contains("pad")
@@ -1226,8 +1226,6 @@ void MainComponent::runAiMix()
         return Role::Unknown;
     };
 
-    // If nothing is clearly classified, treat audio tracks as vocals and
-    // any remaining as music (user's typical session = 1-2 vocal + 2-track beat)
     bool hasAnyVocal = false;
     for (int t = 0; t < numTracks; ++t)
     {
@@ -1235,75 +1233,96 @@ void MainComponent::runAiMix()
         if (r == Role::LeadVocal || r == Role::DoubleTrack || r == Role::BackgroundVocal)
             hasAnyVocal = true;
     }
-
-    // Fallback: first audio track = lead vocal, rest = music
     bool useFallback = !hasAnyVocal;
-
-    // ── 2. Create/find Reverb and Delay buses ──────────────────────────────
-    // Look for existing buses so we don't duplicate
-    int reverbBusTrack = -1, delayBusTrack = -1, masterBusTrack = -1;
-    for (int t = 0; t < session.getNumTracks(); ++t)
-    {
-        const auto n = session.getTrack(t).name.toLowerCase();
-        if (session.getTrack(t).type == NovaStudio::TrackType::Aux)
-        {
-            if (n.contains("reverb") || n.contains("verb") || n.contains("space"))
-                reverbBusTrack = t;
-            else if (n.contains("delay") || n.contains("echo"))
-                delayBusTrack = t;
-            else if (n.contains("master"))
-                masterBusTrack = t;
-        }
-    }
-
-    if (reverbBusTrack < 0)
-    {
-        engine.addTrack("Reverb Bus (Space By Nova)", NovaStudio::TrackType::Aux);
-        reverbBusTrack = session.getNumTracks() - 1;
-        auto& rb = session.getTrack(reverbBusTrack);
-        rb.colour    = juce::Colour::fromRGB(80, 60, 140);
-        rb.volumeDb  = -6.0f;
-        rb.outputBus = "Main Out";
-        // Nova Suite plugin note stored in groupName field (display only)
-        rb.groupName = "Space By Nova";
-    }
-
-    if (delayBusTrack < 0)
-    {
-        engine.addTrack("Delay Bus (Nova Delay)", NovaStudio::TrackType::Aux);
-        delayBusTrack = session.getNumTracks() - 1;
-        auto& db = session.getTrack(delayBusTrack);
-        db.colour    = juce::Colour::fromRGB(60, 100, 140);
-        db.volumeDb  = -9.0f;
-        db.outputBus = "Main Out";
-        db.groupName = "Nova Delay";
-    }
-
-    if (masterBusTrack < 0)
-    {
-        engine.addTrack("Master Bus", NovaStudio::TrackType::Aux);
-        masterBusTrack = session.getNumTracks() - 1;
-        auto& mb = session.getTrack(masterBusTrack);
-        mb.colour    = juce::Colour::fromRGB(200, 160, 60);
-        mb.volumeDb  = -18.0f;
-        mb.outputBus = "Main Out";
-        mb.groupName = "Nova Master → Nova Apex";
-    }
-
-    // ── 3. Apply mix settings per track ────────────────────────────────────
-    // Ozuna/Rauw style signature:
-    //   Lead vocal:  bright, upfront, heavy pitch correction, plate reverb tail, slapback delay
-    //   Double/ad-lib: panned ±25%, slightly lower, short reverb
-    //   Harmonies:   panned wide ±40%, lower volume, lush reverb
-    //   Music/beat:  balanced stereo, punchy, low-mid presence, compressed
-
-    juce::StringArray actions;
     int firstAudioTrack = -1;
     for (int t = 0; t < numTracks; ++t)
         if (session.getTrack(t).type == NovaStudio::TrackType::Audio && firstAudioTrack < 0)
             firstAudioTrack = t;
 
-    int doubleCount = 0;
+    // ── 2. Find or create all 6 buses ───────────────────────────────────────
+    // Bus indices; -1 = needs creation
+    int leadVocalBusIdx = -1, vocalBusIdx  = -1, musicBusIdx   = -1;
+    int reverbBusIdx    = -1, delayBusIdx  = -1, masterBusIdx  = -1;
+
+    for (int t = 0; t < session.getNumTracks(); ++t)
+    {
+        if (session.getTrack(t).type != NovaStudio::TrackType::Aux) continue;
+        const auto n = session.getTrack(t).name.toLowerCase();
+        if      (n.contains("lead vocal bus"))  leadVocalBusIdx = t;
+        else if (n.contains("vocal bus"))        vocalBusIdx    = t;
+        else if (n.contains("music bus"))        musicBusIdx    = t;
+        else if (n.contains("reverb"))           reverbBusIdx   = t;
+        else if (n.contains("delay"))            delayBusIdx    = t;
+        else if (n.contains("master bus"))       masterBusIdx   = t;
+    }
+
+    // Helper: create an Aux bus, return its index
+    auto makeBus = [&](const juce::String& busName,
+                       juce::Colour colour,
+                       float volumeDb,
+                       const juce::String& outputBus,
+                       const juce::String& chain) -> int
+    {
+        engine.addTrack (busName, NovaStudio::TrackType::Aux);
+        int idx = session.getNumTracks() - 1;
+        auto& b = session.getTrack(idx);
+        b.colour    = colour;
+        b.volumeDb  = volumeDb;
+        b.outputBus = outputBus;
+        b.groupName = chain;
+        return idx;
+    };
+
+    // Create Master Bus first — everything routes into it
+    if (masterBusIdx < 0)
+        masterBusIdx = makeBus ("Master Bus",
+                                juce::Colour::fromRGB(200, 160, 60),
+                                -18.0f, "Main Out",
+                                "Nova Master → Nova Apex");
+
+    const juce::String& masterBusName = session.getTrack(masterBusIdx).name;
+
+    // Reverb and Delay return to Master Bus
+    if (reverbBusIdx < 0)
+        reverbBusIdx = makeBus ("Reverb Bus (Space By Nova)",
+                                juce::Colour::fromRGB(80, 60, 140),
+                                -6.0f, masterBusName,
+                                "Space By Nova");
+
+    if (delayBusIdx < 0)
+        delayBusIdx = makeBus ("Delay Bus (Nova Delay)",
+                               juce::Colour::fromRGB(60, 100, 140),
+                               -9.0f, masterBusName,
+                               "Nova Delay");
+
+    // Music Bus → Master Bus  (Nova Console→Curve→Level→Clip)
+    if (musicBusIdx < 0)
+        musicBusIdx = makeBus ("Music Bus",
+                               juce::Colour::fromRGB(50, 150, 80),
+                               -3.0f, masterBusName,
+                               "Nova Console → Nova Curve → Nova Level → Nova Clip");
+
+    // Vocal Bus → Master Bus  (Nova Level glue + Nova Clip)
+    if (vocalBusIdx < 0)
+        vocalBusIdx = makeBus ("Vocal Bus",
+                               juce::Colour::fromRGB(80, 120, 220),
+                               -3.0f, masterBusName,
+                               "Nova Level → Nova Clip");
+
+    // Lead Vocal Bus → Vocal Bus  (Nova Aura + Nova Heat subtle saturation)
+    const juce::String& vocalBusName = session.getTrack(vocalBusIdx).name;
+    if (leadVocalBusIdx < 0)
+        leadVocalBusIdx = makeBus ("Lead Vocal Bus",
+                                   juce::Colour::fromRGB(60, 100, 200),
+                                   -3.0f, vocalBusName,
+                                   "Nova Aura → Nova Heat");
+
+    const juce::String& leadVocalBusName = session.getTrack(leadVocalBusIdx).name;
+    const juce::String& musicBusName     = session.getTrack(musicBusIdx).name;
+
+    // ── 3. Apply settings to audio tracks ───────────────────────────────────
+    juce::StringArray actions;
+    int doubleCount  = 0;
     int harmonyCount = 0;
 
     for (int t = 0; t < numTracks; ++t)
@@ -1316,118 +1335,107 @@ void MainComponent::runAiMix()
         if (useFallback)
             role = (t == firstAudioTrack) ? Role::LeadVocal : Role::Music;
 
+        // Clear previous send assignments
+        for (int s = 0; s < 6; ++s)
+        {
+            track.sendBusIndex[s] = -1;
+            track.sendLevels[s]   = -100.0f;
+            track.sendPreFader[s] = false;
+        }
+
         switch (role)
         {
             case Role::LeadVocal:
             {
-                // Lead vocal: upfront, centered, tight compression
-                track.volumeDb  = -12.0f;   // -12 dBFS internal = sits above music
+                track.volumeDb  = -12.0f;
                 track.pan       = 0.0f;
                 track.colour    = juce::Colour::fromRGB(60, 120, 220);
-                track.groupName = "Vocals";
-                // Plugin chain annotation
-                track.inputBus  = "";
-                track.outputBus = "Main Out";
-                // Reverb send: -18 dB (subtle plate tail)
-                track.sendBusIndex[0]  = reverbBusTrack;
-                track.sendLevels[0]    = -18.0f;
-                track.sendPreFader[0]  = false;
-                // Delay send: -22 dB (slapback, low in mix)
-                track.sendBusIndex[1]  = delayBusTrack;
-                track.sendLevels[1]    = -22.0f;
-                track.sendPreFader[1]  = false;
-                actions.add("Lead Vocal \"" + track.name + "\": -12 dB, center, reverb -18 dB, delay -22 dB");
-                // Nova Suite chain: Nova Clean→Silk→Pitch→Console→Tone→Curve→Aura→Level→Heat→Clip
-                track.groupName = "Vocals | Chain: Nova Clean→Silk→Pitch→Console→Tone→Curve→Aura→Level→Heat→Clip";
+                track.outputBus = leadVocalBusName;
+                // Reverb send (plate tail) + Delay send (slapback)
+                track.sendBusIndex[0] = reverbBusIdx;  track.sendLevels[0] = -18.0f;
+                track.sendBusIndex[1] = delayBusIdx;   track.sendLevels[1] = -22.0f;
+                track.groupName = "Lead Vocals | Nova Clean→Silk→Pitch→Console→Tone→Curve→Level→Clip";
+                actions.add ("Lead Vocal \"" + track.name + "\": -12 dB, center → Lead Vocal Bus");
                 break;
             }
 
             case Role::DoubleTrack:
             {
-                // Ad-libs/doubles: panned slightly, lower level
                 ++doubleCount;
                 float panDir = (doubleCount % 2 == 1) ? 0.25f : -0.25f;
                 track.volumeDb  = -16.0f;
                 track.pan       = panDir;
                 track.colour    = juce::Colour::fromRGB(80, 140, 220);
-                track.groupName = "Vocals | Chain: Nova Clean→Silk→Pitch→Console→Level→Heat→Clip";
-                track.outputBus = "Main Out";
-                track.sendBusIndex[0] = reverbBusTrack;
-                track.sendLevels[0]   = -15.0f;
-                track.sendPreFader[0] = false;
-                track.sendBusIndex[1] = delayBusTrack;
-                track.sendLevels[1]   = -24.0f;
-                track.sendPreFader[1] = false;
-                actions.add("Double/Ad-lib \"" + track.name + "\": -16 dB, pan " + juce::String(panDir > 0 ? "R" : "L") + "25%");
+                track.outputBus = leadVocalBusName;
+                track.sendBusIndex[0] = reverbBusIdx;  track.sendLevels[0] = -15.0f;
+                track.sendBusIndex[1] = delayBusIdx;   track.sendLevels[1] = -24.0f;
+                track.groupName = "Lead Vocals | Nova Clean→Silk→Pitch→Console→Level→Clip";
+                actions.add ("Double/Ad-lib \"" + track.name + "\": -16 dB, "
+                             + juce::String(panDir > 0 ? "R" : "L") + "25% → Lead Vocal Bus");
                 break;
             }
 
             case Role::BackgroundVocal:
-            case Role::Harmony:
             {
-                // Harmonies/BGVs: wide stereo image, lush reverb
                 ++harmonyCount;
                 float panDir = (harmonyCount % 2 == 1) ? 0.40f : -0.40f;
                 track.volumeDb  = -18.0f;
                 track.pan       = panDir;
                 track.colour    = juce::Colour::fromRGB(100, 160, 240);
-                track.groupName = "Vocals | Chain: Nova Clean→Silk→Pitch→Console→Curve→Level→Clip";
-                track.outputBus = "Main Out";
-                track.sendBusIndex[0] = reverbBusTrack;
-                track.sendLevels[0]   = -12.0f;   // more reverb for width
-                track.sendPreFader[0] = false;
-                track.sendBusIndex[1] = delayBusTrack;
-                track.sendLevels[1]   = -30.0f;
-                track.sendPreFader[1] = false;
-                actions.add("Harmony/BGV \"" + track.name + "\": -18 dB, pan " + juce::String(panDir > 0 ? "R" : "L") + "40%");
+                track.outputBus = vocalBusName;          // bypass Lead Vocal Bus
+                track.sendBusIndex[0] = reverbBusIdx;  track.sendLevels[0] = -12.0f;
+                track.sendBusIndex[1] = delayBusIdx;   track.sendLevels[1] = -30.0f;
+                track.groupName = "BGV/Harmony | Nova Clean→Silk→Pitch→Console→Curve→Level→Clip";
+                actions.add ("Harmony/BGV \"" + track.name + "\": -18 dB, "
+                             + juce::String(panDir > 0 ? "R" : "L") + "40% → Vocal Bus");
                 break;
             }
 
             case Role::Music:
             case Role::Unknown:
             {
-                // Beat/music: full stereo, punchy, slightly back in mix
-                track.volumeDb  = -18.0f;   // music sits at headroom default
+                track.volumeDb  = -18.0f;
                 track.pan       = 0.0f;
                 track.colour    = juce::Colour::fromRGB(60, 160, 90);
-                track.groupName = "Music | Chain: Nova Console→Curve→Level→Clip";
-                track.outputBus = "Main Out";
-                // Light reverb to glue music with vocals
-                track.sendBusIndex[0] = reverbBusTrack;
-                track.sendLevels[0]   = -28.0f;
-                track.sendPreFader[0] = false;
-                actions.add("Music \"" + track.name + "\": -18 dB, center");
+                track.outputBus = musicBusName;
+                // Light glue reverb on music
+                track.sendBusIndex[0] = reverbBusIdx;  track.sendLevels[0] = -28.0f;
+                track.groupName = "Music | Nova Console → Nova Curve → Nova Level → Nova Clip";
+                actions.add ("Music \"" + track.name + "\": -18 dB, center → Music Bus");
                 break;
             }
         }
     }
 
-    // ── 4. Colour-code and refresh ─────────────────────────────────────────
+    // ── 4. Refresh UI ───────────────────────────────────────────────────────
     refreshTrackList();
     arrangementModel.sendChangeMessage();
 
-    // ── 5. Show result summary ─────────────────────────────────────────────
+    // ── 5. Summary dialog ───────────────────────────────────────────────────
     juce::StringArray report;
-    report.add("One-Click Mix applied — Ozuna / Rauw Alejandro Latin Urban style");
-    report.add("");
-    report.add("What was set:");
+    report.add ("One-Click Mix — Ozuna / Rauw Alejandro Latin Urban style");
+    report.add ("");
+    report.add ("Tracks configured:");
     for (auto& a : actions)
-        report.add("  • " + a);
-    report.add("");
-    report.add("Buses created/configured:");
-    report.add("  • Reverb Bus (Space By Nova) — wet returns");
-    report.add("  • Delay Bus (Nova Delay) — slapback/echo returns");
-    report.add("  • Master Bus — Nova Master → Nova Apex");
-    report.add("");
-    report.add("Recommended Nova Suite chains are shown in each track's group label.");
-    report.add("Load the plugins manually on each track to complete the signal chain.");
+        report.add ("  • " + a);
+    report.add ("");
+    report.add ("Bus hierarchy created:");
+    report.add ("  Lead Vocal Bus  → Vocal Bus → Master Bus → Out");
+    report.add ("  Vocal Bus (BGV) → ──────────→ Master Bus → Out");
+    report.add ("  Music Bus       → ──────────→ Master Bus → Out");
+    report.add ("  Reverb Bus      → ──────────→ Master Bus → Out");
+    report.add ("  Delay Bus       → ──────────→ Master Bus → Out");
+    report.add ("");
+    report.add ("Nova Suite plugin chains are shown in each track's group label.");
+    report.add ("Load the plugins manually to complete the signal chain.");
 
     juce::AlertWindow::showMessageBoxAsync (
         juce::MessageBoxIconType::InfoIcon,
         "One-Click Mix — Nova AI",
         report.joinIntoString ("\n"));
 
-    updateStatusMessage ("One-Click Mix applied: " + juce::String(actions.size()) + " tracks configured");
+    updateStatusMessage ("One-Click Mix applied: " + juce::String(actions.size())
+                         + " tracks configured across 6 buses");
 }
 
 void MainComponent::runNovaAssistant()
