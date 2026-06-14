@@ -4,6 +4,7 @@
 #include "Theme.h"
 #include "../Session.h"
 #include "../StudioAudioEngine.h"
+#include "PluginBrowserPanel.h"
 
 namespace NovaStudioUI
 {
@@ -37,6 +38,17 @@ namespace NovaStudioUI
         void setMeterLevel(float left, float right);
         float getMeterLeft()  const noexcept { return meterLeft; }
         float getMeterRight() const noexcept { return meterRight; }
+
+        // Update displayed insert slot names (called by MixerWindow when plugins change)
+        void setInsertSlotName(int slot, const juce::String& name)
+        {
+            if (isPositiveAndBelow(slot, 3))
+            {
+                insertSlotNames[slot] = name;
+                repaint();
+            }
+        }
+        juce::String insertSlotNames[3];
 
         // Callbacks wired by MixerWindow after construction
         std::function<void(float dB)>  onVolumeChanged;
@@ -120,6 +132,9 @@ namespace NovaStudioUI
         // Open the plugin editor for a given track/slot (creates floating window)
         void openPluginEditor(int trackIndex, int pluginSlot);
 
+        // Open the plugin browser to load a plugin onto a track/slot
+        void openPluginBrowser(int trackIndex, int slotIndex);
+
     private:
         void buildStrips();
         void timerCallback() override;
@@ -133,7 +148,10 @@ namespace NovaStudioUI
         juce::OwnedArray<ChannelStrip> trackStrips;
         juce::OwnedArray<ChannelStrip> auxStrips;
         std::unique_ptr<ChannelStrip>  masterStrip;
-        juce::OwnedArray<PluginEditorWindow> editorWindows;
+        juce::OwnedArray<PluginEditorWindow>   editorWindows;
+        std::unique_ptr<PluginBrowserWindow>   pluginBrowserWindow;
+
+        void refreshInsertSlotNames();
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MixerWindow)
     };

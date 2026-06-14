@@ -242,16 +242,24 @@ void ChannelStrip::drawInsertSlots(juce::Graphics& g, juce::Rectangle<int> area)
     {
         auto slot = r.removeFromTop(slotH);
         r.removeFromTop(gap);
-        g.setColour(kSlotBg);
+
+        bool hasPlugin = insertSlotNames[i].isNotEmpty();
+        g.setColour(hasPlugin ? juce::Colour::fromRGB(30, 38, 70) : kSlotBg);
         g.fillRoundedRectangle(slot.toFloat(), 3.0f);
-        g.setColour(kSlotEdge);
+        g.setColour(hasPlugin ? juce::Colour::fromRGBA(90, 120, 255, 140) : kSlotEdge);
         g.drawRoundedRectangle(slot.toFloat().reduced(0.5f), 3.0f, 0.8f);
-        g.setColour(juce::Colours::white.withAlpha(0.18f));
+
+        g.setFont(juce::FontOptions(8.5f));
+        if (hasPlugin)
         {
-            juce::Font f(juce::FontOptions(8.5f));
-            g.setFont(f);
+            g.setColour(juce::Colours::white.withAlpha(0.88f));
+            g.drawText(insertSlotNames[i], slot.reduced(3, 0), juce::Justification::centredLeft, true);
         }
-        g.drawText("-- empty --", slot, juce::Justification::centred);
+        else
+        {
+            g.setColour(juce::Colours::white.withAlpha(0.18f));
+            g.drawText("-- empty --", slot, juce::Justification::centred);
+        }
     }
 }
 
@@ -451,7 +459,11 @@ void MixerWindow::buildStrips()
         };
         strip->onInsertClicked = [this, i](int slot)
         {
-            openPluginEditor(i, slot);
+            // If slot has a plugin → open its editor. Otherwise → open browser to load.
+            if (engine.getTrackPlugin(i, slot) != nullptr)
+                openPluginEditor(i, slot);
+            else
+                openPluginBrowser(i, slot);
         };
     }
 
@@ -469,6 +481,8 @@ void MixerWindow::buildStrips()
     masterStrip->setMaster(true);
     masterStrip->updateAsMaster();
     stripsContainer.addAndMakeVisible(*masterStrip);
+
+    refreshInsertSlotNames();
 }
 
 void MixerWindow::timerCallback()
@@ -492,6 +506,39 @@ void MixerWindow::timerCallback()
 
     if (masterStrip)
         masterStrip->setMeterLevel(masterStrip->getMeterLeft() * kDecay, masterStrip->getMeterRight() * kDecay);
+}
+
+void MixerWindow::refreshInsertSlotNames()
+{
+    for (int t = 0; t < trackStrips.size(); ++t)
+    {
+        auto* strip = trackStrips[t];
+        for (int s = 0; s < 3; ++s)
+        {
+            auto* plugin = engine.getTrackPlugin(t, s);
+            strip->setInsertSlotName(s, plugin ? plugin->getName() : juce::String());
+        }
+    }
+}
+
+void MixerWindow::openPluginBrowser(int trackIndex, int slotIndex)
+{
+    if (pluginBrowserWindow != nullptr && pluginBrowserWindow->isVisible())
+    {
+        // Retarget existing browser window
+        pluginBrowserWindow->getPanel()->setTargetTrackAndSlot(trackIndex, slotIndex);
+        pluginBrowserWindow->toFront(true);
+        return;
+    }
+
+    pluginBrowserWindow = std::make_unique<PluginBrowserWindow>(
+        engine, trackIndex, slotIndex,
+        [this](int track, int slot, const juce::String& name)
+        {
+            // Fired after successful load — update strip display
+            if (isPositiveAndBelow(track, trackStrips.size()))
+                trackStrips[track]->setInsertSlotName(slot, name);
+        });
 }
 
 void MixerWindow::openPluginEditor(int trackIndex, int pluginSlot)

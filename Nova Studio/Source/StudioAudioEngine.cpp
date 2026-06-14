@@ -297,6 +297,29 @@ namespace NovaStudio
         return true;
     }
 
+    bool StudioAudioEngine::loadPluginByDescription(const juce::PluginDescription& desc, int trackIndex)
+    {
+        // If no track specified, use first armed track, then first track
+        int targetTrack = trackIndex;
+        if (targetTrack < 0)
+        {
+            targetTrack = 0;
+            for (int i = 0; i < trackPlayers.size(); ++i)
+                if (trackPlayers.getReference(i)->armed) { targetTrack = i; break; }
+        }
+
+        juce::String errorMessage;
+        auto instance = pluginFormatManager.createPluginInstance(desc, currentSampleRate, currentBufferSize, errorMessage);
+        if (!instance)
+            return false;
+
+        if (!isPositiveAndBelow(targetTrack, trackPlayers.size()))
+            return false;
+
+        trackPlayers.getReference(targetTrack)->addPlugin(std::move(instance));
+        return true;
+    }
+
     bool StudioAudioEngine::loadAudioClip(int trackIndex, const juce::File& audioFile)
     {
         if (!audioFile.existsAsFile())

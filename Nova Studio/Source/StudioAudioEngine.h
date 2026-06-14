@@ -18,6 +18,7 @@ namespace NovaStudio
         bool setSampleRate(int newSampleRate, int newBufferSize);
         bool loadPluginOnTrack(int trackIndex, const juce::File& pluginFile);
         bool loadAudioClip(int trackIndex, const juce::File& audioFile);
+        bool loadPluginByDescription(const juce::PluginDescription& desc, int trackIndex = -1);
 
         void addTrack(const juce::String& name, TrackType type = TrackType::Audio);
         void removeTrack(int index);
