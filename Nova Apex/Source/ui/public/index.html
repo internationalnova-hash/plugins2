@@ -26,16 +26,17 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
-      width: 100%; height: 100%; overflow: hidden;
+      width: 1000px; height: 625px; overflow: hidden;
       background: var(--bg);
       color: var(--gold);
       font-family: "Avenir Next", "Segoe UI", sans-serif;
       -webkit-font-smoothing: antialiased;
+      margin: 0; padding: 0;
     }
 
-    body { display: grid; place-items: center; }
+    body { display: block; }
 
-    .ui-stage { width: 1400px; height: 860px; position: relative; overflow: hidden; }
+    .ui-stage { width: 1000px; height: 625px; position: relative; overflow: hidden; }
 
     .plugin {
       width: 1400px; height: 860px;
@@ -43,6 +44,9 @@
       display: grid;
       grid-template-rows: 90px 1fr 136px 36px;
       overflow: hidden;
+      /* Scale 1400×860 design into 1000×625 window */
+      transform: scale(0.7143);
+      transform-origin: top left;
     }
 
     /* ══════════════════════════ HEADER ══════════════════════════ */
@@ -1337,8 +1341,7 @@ function syncKnob(knobEl, id) {
     arcFill.setAttribute('stroke-dasharray', normToArcDash(n, circ));
   }
 
-  const rd = knobEl.closest('[class]').querySelector('[data-readout="' + id + '"]');
-  if (rd) rd.textContent = p.fmt(v);
+  document.querySelectorAll('[data-readout="' + id + '"]').forEach(rd => { rd.textContent = p.fmt(v); });
 }
 
 function updateKnobsForParam(id) {
@@ -1354,17 +1357,18 @@ document.querySelectorAll('.knob[data-param]').forEach(knobEl => {
   knobEl.addEventListener('pointerdown', e => {
     e.preventDefault();
     knobEl.setPointerCapture(e.pointerId);
-    dragInfo = { id, knobEl, startY: e.clientY, startVal: state[id] };
+    dragInfo = { id, knobEl, lastY: e.clientY };
     emitJUCE(id, state[id], 'gestureStart');
   });
 
   knobEl.addEventListener('pointermove', e => {
     if (!dragInfo || dragInfo.id !== id) return;
     const p = PARAMS[id];
-    const delta = dragInfo.startY - e.clientY;
+    const dy = dragInfo.lastY - e.clientY;   // positive = dragged up = increase
+    dragInfo.lastY = e.clientY;
     const range = p.max - p.min;
-    const sens = e.shiftKey ? 0.001 : 0.004;
-    state[id] = Math.max(p.min, Math.min(p.max, dragInfo.startVal + delta * range * sens));
+    const sens = e.shiftKey ? 0.002 : 0.007;
+    state[id] = Math.max(p.min, Math.min(p.max, state[id] + dy * range * sens));
     syncKnob(knobEl, id);
     emitJUCE(id, state[id], 'valueChanged');
   });

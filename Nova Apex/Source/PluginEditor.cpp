@@ -32,8 +32,8 @@ NovaApexAudioProcessorEditor::NovaApexAudioProcessorEditor (NovaApexAudioProcess
                               + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
-    setSize (1400, 860);
+    setResizable (true, false);
+    setSize (1000, 625);
     startTimerHz (30);
 }
 
