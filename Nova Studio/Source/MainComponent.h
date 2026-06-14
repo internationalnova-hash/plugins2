@@ -122,18 +122,18 @@ private:
             const float hs = 5.0f;
 
             juce::Path arrow;
-            // When collapsed, point right (open); when expanded, point left (close)
+            // Horizontal toggle bar: collapsed = point up (open), expanded = point down (close)
             if (collapsed)
             {
-                arrow.addTriangle(cx - hs * 0.5f, cy - hs,
-                                  cx + hs * 0.5f, cy,
-                                  cx - hs * 0.5f, cy + hs);
+                arrow.addTriangle(cx - hs, cy + hs * 0.5f,
+                                  cx,      cy - hs * 0.5f,
+                                  cx + hs, cy + hs * 0.5f);
             }
             else
             {
-                arrow.addTriangle(cx + hs * 0.5f, cy - hs,
-                                  cx - hs * 0.5f, cy,
-                                  cx + hs * 0.5f, cy + hs);
+                arrow.addTriangle(cx - hs, cy - hs * 0.5f,
+                                  cx,      cy + hs * 0.5f,
+                                  cx + hs, cy - hs * 0.5f);
             }
             g.fillPath(arrow);
         }

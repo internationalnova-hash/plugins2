@@ -476,8 +476,8 @@ void MainComponent::resized()
         browserPanel.setBounds({});
     }
 
-    // Bottom dock toggle bar (always visible — 10px horizontal strip)
-    bottomDockToggleBar.setBounds(area.removeFromBottom(10));
+    // Bottom dock toggle bar (always visible — 14px horizontal strip)
+    bottomDockToggleBar.setBounds(area.removeFromBottom(14));
     // Bottom dock: only if not collapsed
     if (!bottomDockCollapsed)
     {
