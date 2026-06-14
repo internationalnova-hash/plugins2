@@ -62,6 +62,8 @@ public:
 private:
     void updateStatusMessage(const juce::String& message);
     void refreshTrackList();
+    void promptClipFadeLength(bool isFadeIn);
+    void promptBounceClipToAudio();
     bool keyPressed(const juce::KeyPress& key, juce::Component* originatingComponent) override;
     void parentHierarchyChanged() override;
 

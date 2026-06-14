@@ -7,6 +7,21 @@ namespace NovaStudio
         return juce::Decibels::decibelsToGain(db);
     }
 
+    // Linear fade-in/fade-out envelope: 1.0 in the steady region, ramping from
+    // 0 at the clip edges over fadeInSamples/fadeOutSamples.
+    static float clipFadeGainAt(int64_t relativeSample, int64_t lengthSamples,
+                                int64_t fadeInSamples, int64_t fadeOutSamples)
+    {
+        float gain = 1.0f;
+        if (fadeInSamples > 0)
+            gain = juce::jmin(gain, juce::jlimit(0.0f, 1.0f,
+                       (float) relativeSample / (float) fadeInSamples));
+        if (fadeOutSamples > 0)
+            gain = juce::jmin(gain, juce::jlimit(0.0f, 1.0f,
+                       (float) (lengthSamples - relativeSample) / (float) fadeOutSamples));
+        return gain;
+    }
+
     StudioAudioEngine::TrackPlayer::TrackPlayer()
     {
         formatManager.registerBasicFormats();
@@ -164,6 +179,20 @@ namespace NovaStudio
         scratchBuffer.setSize(bufferToFill.buffer->getNumChannels(), bufferToFill.numSamples, false, false, true);
         juce::AudioSourceChannelInfo scratchInfo(&scratchBuffer, 0, bufferToFill.numSamples);
         transportSource.getNextAudioBlock(scratchInfo);
+
+        // Apply non-destructive clip fade in/out: ramp the block's gain across
+        // the clip's fade regions so edits stay sample-accurate without baking
+        // the fade into the source file.
+        if (activeClip->fadeInSamples > 0 || activeClip->fadeOutSamples > 0)
+        {
+            const float startGain = clipFadeGainAt(clipRelativeStart, activeClip->lengthSamples,
+                                                    activeClip->fadeInSamples, activeClip->fadeOutSamples);
+            const float endGain   = clipFadeGainAt(clipRelativeStart + bufferToFill.numSamples - 1,
+                                                    activeClip->lengthSamples,
+                                                    activeClip->fadeInSamples, activeClip->fadeOutSamples);
+            for (int channel = 0; channel < scratchBuffer.getNumChannels(); ++channel)
+                scratchBuffer.applyGainRamp(channel, 0, bufferToFill.numSamples, startGain, endGain);
+        }
 
         // Apply track volume/pan and clip gain
         const float trackLinearGain = decibelsToGain(volumeDb);

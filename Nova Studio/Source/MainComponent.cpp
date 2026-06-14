@@ -656,6 +656,76 @@ void MainComponent::updateStatusMessage(const juce::String& message)
     statusLabel.setText(statusMessage, juce::dontSendNotification);
 }
 
+void MainComponent::promptClipFadeLength(bool isFadeIn)
+{
+    auto* clip = arrangementModel.getSelectedClip();
+    if (clip == nullptr || clip->isMidi)
+    {
+        updateStatusMessage(juce::String(isFadeIn ? "Fade In" : "Fade Out") + ": no audio clip selected");
+        return;
+    }
+
+    const double sr = engine.getTransportState().getSampleRate();
+    const int64_t currentSamples = isFadeIn ? clip->fadeInSamples : clip->fadeOutSamples;
+    const int currentMs = sr > 0.0 ? (int) juce::roundToInt((double) currentSamples / sr * 1000.0) : 0;
+
+    auto* dlg = new juce::AlertWindow(isFadeIn ? "Fade In" : "Fade Out",
+                                      "Fade length in milliseconds:",
+                                      juce::MessageBoxIconType::NoIcon);
+    dlg->addTextEditor("ms", juce::String(currentMs), "Length (ms):");
+    dlg->addButton("Apply",  1, juce::KeyPress(juce::KeyPress::returnKey));
+    dlg->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    dlg->setColour(juce::AlertWindow::backgroundColourId, juce::Colour::fromRGB(18, 20, 28));
+    dlg->setColour(juce::AlertWindow::textColourId, juce::Colours::white);
+    dlg->enterModalState(true,
+        juce::ModalCallbackFunction::create([this, dlg, isFadeIn, sr](int result) mutable
+        {
+            if (result == 1 && sr > 0.0)
+            {
+                const int ms = juce::jmax(0, dlg->getTextEditorContents("ms").getIntValue());
+                const int64_t samples = (int64_t) juce::roundToInt((double) ms / 1000.0 * sr);
+                const bool ok = isFadeIn ? arrangementModel.setSelectedClipFadeIn(samples)
+                                         : arrangementModel.setSelectedClipFadeOut(samples);
+                updateStatusMessage(ok ? (juce::String(isFadeIn ? "Fade in" : "Fade out") + " set to " + juce::String(ms) + " ms")
+                                       : juce::String(isFadeIn ? "Fade In" : "Fade Out") + ": could not apply");
+                refreshTrackList();
+            }
+            delete dlg;
+        }));
+}
+
+void MainComponent::promptBounceClipToAudio()
+{
+    auto* clip = arrangementModel.getSelectedClip();
+    if (clip == nullptr || clip->isMidi)
+    {
+        updateStatusMessage("Bounce Clip: no audio clip selected");
+        return;
+    }
+
+    if (clip->locked)
+    {
+        updateStatusMessage("Bounce Clip: clip is locked");
+        return;
+    }
+
+    juce::AlertWindow::showOkCancelBox(juce::MessageBoxIconType::QuestionIcon,
+        "Bounce Clip to Audio",
+        "This will render the clip's gain and fade in/out into a new audio file, "
+        "and reset its gain/fades to neutral. The clip can still be edited afterwards.",
+        "Bounce", "Cancel", this,
+        juce::ModalCallbackFunction::create([this](int result)
+        {
+            if (result != 1)
+                return;
+            if (arrangementModel.bounceSelectedClipToAudio())
+                updateStatusMessage("Bounced clip to audio");
+            else
+                updateStatusMessage("Bounce Clip: nothing to bounce (no gain/fade applied)");
+            refreshTrackList();
+        }));
+}
+
 bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*originatingComponent*/)
 {
     const bool isCmd = key.getModifiers().isCommandDown();
@@ -1355,10 +1425,10 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         menu.addItem(402, "Normalize",        arrangementModel.hasSelection());
         menu.addItem(403, "Reverse",          arrangementModel.hasSelection());
         menu.addSeparator();
-        menu.addItem(404, "Fade In",          false);
-        menu.addItem(405, "Fade Out",         false);
+        menu.addItem(404, "Fade In...",       arrangementModel.hasSelection());
+        menu.addItem(405, "Fade Out...",      arrangementModel.hasSelection());
         menu.addSeparator();
-        menu.addItem(406, "Bounce Clip",      false);
+        menu.addItem(406, "Bounce Clip to Audio", arrangementModel.hasSelection());
         menu.addItem(407, "Nova Align Selected");
         break;
 
@@ -1539,6 +1609,15 @@ void MainComponent::menuItemSelected(int id, int)
         else
             updateStatusMessage("Reverse: no audio clip selected");
         refreshTrackList();
+        break;
+    case 404:
+        promptClipFadeLength(true);
+        break;
+    case 405:
+        promptClipFadeLength(false);
+        break;
+    case 406:
+        promptBounceClipToAudio();
         break;
     case 407:
         setWorkspaceMode(0);

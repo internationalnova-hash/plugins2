@@ -941,6 +941,50 @@ void PianoRollView::toolChordStamp(int chordShape)
     repaint();
 }
 
+void PianoRollView::toolRandomizeVelocity(float amount)
+{
+    if (selectedNotes.isEmpty()) return;
+    juce::Random rng;
+    const float jitter = juce::jlimit(0.0f, 1.0f, amount);
+
+    for (int idx : selectedNotes)
+        if (juce::isPositiveAndBelow(idx, notes.size()))
+        {
+            auto& n = notes.getReference(idx);
+            const float delta = (rng.nextFloat() * 2.0f - 1.0f) * jitter;
+            n.velocity = juce::jlimit(0.05f, 1.0f, n.velocity + delta);
+        }
+    repaint();
+}
+
+void PianoRollView::toolScaleVelocity(float factor)
+{
+    if (selectedNotes.isEmpty()) return;
+
+    for (int idx : selectedNotes)
+        if (juce::isPositiveAndBelow(idx, notes.size()))
+        {
+            auto& n = notes.getReference(idx);
+            n.velocity = juce::jlimit(0.05f, 1.0f, n.velocity * factor);
+        }
+    repaint();
+}
+
+void PianoRollView::toolHumanizeTiming(int maxStepJitter)
+{
+    if (selectedNotes.isEmpty() || maxStepJitter <= 0) return;
+    juce::Random rng;
+
+    for (int idx : selectedNotes)
+        if (juce::isPositiveAndBelow(idx, notes.size()))
+        {
+            auto& n = notes.getReference(idx);
+            const int jitter = rng.nextInt(juce::Range<int>(-maxStepJitter, maxStepJitter + 1));
+            n.startStep = juce::jmax(0, n.startStep + jitter);
+        }
+    repaint();
+}
+
 void PianoRollView::toolQuantizeSelection()
 {
     if (selectedNotes.isEmpty()) return;
@@ -992,6 +1036,16 @@ void PianoRollView::showNoteContextMenu(int noteIndex)
     const bool haveChord = selectedNotes.size() >= 2;
     const bool haveAny   = ! selectedNotes.isEmpty();
 
+    juce::PopupMenu velSub;
+    velSub.addItem(60, "Randomize (subtle)");
+    velSub.addItem(61, "Randomize (wide)");
+    velSub.addItem(62, "Scale up (x1.2)");
+    velSub.addItem(63, "Scale down (x0.8)");
+
+    juce::PopupMenu humanizeSub;
+    humanizeSub.addItem(70, "Humanize timing (subtle)");
+    humanizeSub.addItem(71, "Humanize timing (loose)");
+
     juce::PopupMenu m;
     m.addSubMenu("Strum", strumSub, haveChord);
     m.addItem(102, "Flam");
@@ -999,6 +1053,8 @@ void PianoRollView::showNoteContextMenu(int noteIndex)
     m.addSubMenu("Arpeggiate", arpSub, haveChord);
     m.addSubMenu("Chord stamp", chordSub, haveAny);
     m.addItem(30, "Quantize to grid");
+    m.addSubMenu("Velocity", velSub, haveAny);
+    m.addSubMenu("Humanize", humanizeSub, haveAny);
     m.addSeparator();
     m.addItem(99, "Delete");
 
@@ -1027,6 +1083,12 @@ void PianoRollView::showNoteContextMenu(int noteIndex)
             case 47:  toolChordStamp(7); break;
             case 48:  toolChordStamp(8); break;
             case 30:  toolQuantizeSelection(); break;
+            case 60:  toolRandomizeVelocity(0.12f); break;
+            case 61:  toolRandomizeVelocity(0.35f); break;
+            case 62:  toolScaleVelocity(1.2f);  break;
+            case 63:  toolScaleVelocity(0.8f);  break;
+            case 70:  toolHumanizeTiming(1); break;
+            case 71:  toolHumanizeTiming(3); break;
             case 99:
             {
                 juce::Array<int> sorted = selectedNotes;

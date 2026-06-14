@@ -82,6 +82,11 @@ namespace NovaStudio
         bool normalizeSelectedClip(float targetPeakDb = -0.3f);
         bool reverseSelectedClip();
 
+        // "Bounce"/freeze: bake the clip's gain and fade in/out envelope into a
+        // new flattened audio file, resetting gainDb/fades to neutral. Lets users
+        // commit non-destructive edits to audio for further slicing/exporting.
+        bool bounceSelectedClipToAudio();
+
         bool setSelectedClipGain(float gainDb);
         bool setSelectedClipFadeIn(int64_t samples);
         bool setSelectedClipFadeOut(int64_t samples);

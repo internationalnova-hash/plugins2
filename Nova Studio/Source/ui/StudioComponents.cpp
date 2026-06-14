@@ -2213,10 +2213,13 @@ namespace NovaStudioUI
                     juce::PopupMenu menu;
                     menu.addItem(1, "Normalize", isAudio && !clip.locked);
                     menu.addItem(2, "Reverse",   isAudio && !clip.locked);
+                    menu.addItem(3, "Bounce to Audio", isAudio && !clip.locked
+                                     && (clip.gainDb != 0.0f || clip.fadeInSamples > 0 || clip.fadeOutSamples > 0));
                     menu.showMenuAsync(juce::PopupMenu::Options(), [this](int result)
                     {
                         if (result == 1) arrangementModel.normalizeSelectedClip();
                         else if (result == 2) arrangementModel.reverseSelectedClip();
+                        else if (result == 3) arrangementModel.bounceSelectedClipToAudio();
                     });
                     found = true;
                     break;

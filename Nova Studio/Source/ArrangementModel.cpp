@@ -1227,6 +1227,53 @@ namespace NovaStudio
         return replaceSelectedClipWithUndo(newClip, "Reverse Clip");
     }
 
+    bool ArrangementModel::bounceSelectedClipToAudio()
+    {
+        Clip* clip = getSelectedClip();
+        if (clip == nullptr || clip->locked || clip->isMidi)
+            return false;
+
+        if (clip->gainDb == 0.0f && clip->fadeInSamples == 0 && clip->fadeOutSamples == 0)
+            return false; // nothing to bake in
+
+        juce::AudioBuffer<float> buffer;
+        double sr = 0.0;
+        if (!readClipRegionToBuffer(*clip, buffer, sr))
+            return false;
+
+        const float linearGain = juce::Decibels::decibelsToGain(clip->gainDb);
+        const int   numSamples = buffer.getNumSamples();
+
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+        {
+            auto* data = buffer.getWritePointer(ch);
+            for (int i = 0; i < numSamples; ++i)
+            {
+                float fade = 1.0f;
+                if (clip->fadeInSamples > 0)
+                    fade = juce::jmin(fade, juce::jlimit(0.0f, 1.0f,
+                               (float) i / (float) clip->fadeInSamples));
+                if (clip->fadeOutSamples > 0)
+                    fade = juce::jmin(fade, juce::jlimit(0.0f, 1.0f,
+                               (float) (numSamples - i) / (float) clip->fadeOutSamples));
+                data[i] *= linearGain * fade;
+            }
+        }
+
+        auto bouncedFile = writeBufferToTempWavFile(buffer, sr);
+        if (bouncedFile == juce::File())
+            return false;
+
+        Clip newClip = *clip;
+        newClip.file = bouncedFile;
+        newClip.fileOffsetSamples = 0;
+        newClip.lengthSamples = numSamples;
+        newClip.gainDb = 0.0f;
+        newClip.fadeInSamples = 0;
+        newClip.fadeOutSamples = 0;
+        return replaceSelectedClipWithUndo(newClip, "Bounce Clip to Audio");
+    }
+
     bool ArrangementModel::setSelectedClipGain(float gainDb)
     {
         Clip* clip = getSelectedClip();

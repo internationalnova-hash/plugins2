@@ -127,6 +127,9 @@ namespace NovaStudioUI
         void toolArpeggiate(int pattern);  // 0=up, 1=down, 2=up-down, 3=down-up, 4=random
         void toolChordStamp(int chordShape); // 0=major,1=minor,2=dim,3=aug,4=maj7,5=min7,6=dom7,7=sus2,8=sus4
         void toolQuantizeSelection();
+        void toolRandomizeVelocity(float amount);           // amount: 0..1, jitter around current velocity
+        void toolScaleVelocity(float factor);               // multiply velocities (clamped 0..1)
+        void toolHumanizeTiming(int maxStepJitter);         // randomly nudge note start by up to ±maxStepJitter
 
         static constexpr int kNumScaleTypes = 5;
         static const char* scaleTypeName(int type);
