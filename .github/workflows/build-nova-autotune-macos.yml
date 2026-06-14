@@ -1,0 +1,85 @@
+name: Build Nova Autotune macOS
+run-name: Nova Autotune macOS | ${{ github.event_name }} | ${{ github.sha }}
+
+on:
+  push:
+    paths:
+      - 'Nova Autotune/**'
+      - '.github/workflows/build-nova-autotune-macos.yml'
+  pull_request:
+    paths:
+      - 'Nova Autotune/**'
+      - '.github/workflows/build-nova-autotune-macos.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        run: |
+          brew install cmake
+
+      - name: Build Rubber Band as universal static lib
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v4.0.0 https://github.com/breakfastquay/rubberband.git /tmp/rubberband-src
+
+          clang++ -arch arm64 -arch x86_64 \
+            -std=c++17 -O2 \
+            -mmacosx-version-min=11.0 \
+            -DHAVE_VDSP=1 \
+            -DUSE_BQRESAMPLER=1 \
+            -DNDEBUG \
+            -I/tmp/rubberband-src \
+            -c /tmp/rubberband-src/single/RubberBandSingle.cpp \
+            -o /tmp/rubberband.o
+
+          ar rcs /tmp/librubberband.a /tmp/rubberband.o
+
+          mkdir -p /tmp/rubberband-universal/lib
+          cp /tmp/librubberband.a /tmp/rubberband-universal/lib/librubberband.a
+          mkdir -p /tmp/rubberband-universal/include
+          cp -r /tmp/rubberband-src/rubberband /tmp/rubberband-universal/include/rubberband
+
+          echo "Universal Rubber Band built:"
+          lipo -info /tmp/rubberband-universal/lib/librubberband.a
+
+      - name: Clean build directory
+        run: rm -rf "Nova Autotune/build"
+
+      - name: Configure CMake
+        run: |
+          cmake -S "Nova Autotune" -B "Nova Autotune/build" \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DRUBBERBAND_STATIC_LIB=/tmp/rubberband-universal/lib/librubberband.a \
+            -DRUBBERBAND_INCLUDE_DIR=/tmp/rubberband-universal/include
+
+      - name: Build
+        run: cmake --build "Nova Autotune/build" --config Release
+
+      - name: Package VST3 Bundle
+        run: |
+          cd "Nova Autotune/build/NovaAutotune_artefacts/VST3"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Autotune.vst3" "NovaAutotune-macOS-vst3.zip"
+
+      - name: Package AU Bundle
+        run: |
+          cd "Nova Autotune/build/NovaAutotune_artefacts/AU"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Autotune.component" "NovaAutotune-macOS-au.zip"
+
+      - name: Upload Deliverables Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaAutotune-macOS-deliverables
+          path: |
+            Nova Autotune/build/NovaAutotune_artefacts/VST3/NovaAutotune-macOS-vst3.zip
+            Nova Autotune/build/NovaAutotune_artefacts/AU/NovaAutotune-macOS-au.zip
+
+      - name: Upload Full Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaAutotune-macOS-build
+          path: Nova Autotune/build
