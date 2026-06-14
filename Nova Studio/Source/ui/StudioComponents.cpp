@@ -506,127 +506,201 @@ namespace NovaStudioUI
 
     // ── EditModeToolbar ──────────────────────────────────────────────────────
 
+    // ── EditModeToolbar ──────────────────────────────────────────────────────
+
+    static void styleResBox(juce::ComboBox& box)
+    {
+        box.setColour(juce::ComboBox::backgroundColourId,  juce::Colour::fromRGB(24, 27, 38));
+        box.setColour(juce::ComboBox::outlineColourId,     juce::Colour::fromRGB(50, 55, 72));
+        box.setColour(juce::ComboBox::textColourId,        juce::Colours::white.withAlpha(0.85f));
+        box.setColour(juce::ComboBox::arrowColourId,       juce::Colours::white.withAlpha(0.5f));
+    }
+
+    static void populateResBox(juce::ComboBox& box)
+    {
+        box.addItem("1 Bar",     1);
+        box.addItem("1/2 Note",  2);
+        box.addItem("1/4 Note",  3);
+        box.addItem("1/8 Note",  4);
+        box.addItem("1/16 Note", 5);
+        box.addItem("1/32 Note", 6);
+        box.addItem("1/64 Note", 7);
+        box.addItem("Samples",   8);
+    }
+
+    double EditModeToolbar::beatsForResolutionId(int id)
+    {
+        switch (id)
+        {
+            case 1: return 4.0;     // 1 Bar  (4 quarter-note beats)
+            case 2: return 2.0;     // 1/2
+            case 3: return 1.0;     // 1/4
+            case 4: return 0.5;     // 1/8
+            case 5: return 0.25;    // 1/16
+            case 6: return 0.125;   // 1/32
+            case 7: return 0.0625;  // 1/64
+            default: return 0.0;    // Samples — no beat snap
+        }
+    }
+
     EditModeToolbar::EditModeToolbar()
     {
-        for (auto* btn : { &slipBtn, &gridBtn, &spotBtn, &snapBtn, &zoomInBtn, &zoomOutBtn })
+        // Mode buttons
+        for (auto* b : { &slipBtn, &gridBtn, &spotBtn, &shuffleBtn })
         {
-            addAndMakeVisible(btn);
-            btn->addListener(this);
+            addAndMakeVisible(b);
+            b->addListener(this);
         }
 
-        resolutionBox.addItem("1 Bar",     1);
-        resolutionBox.addItem("1/2 Note",  2);
-        resolutionBox.addItem("1/4 Note",  3);
-        resolutionBox.addItem("1/8 Note",  4);
-        resolutionBox.addItem("1/16 Note", 5);
-        resolutionBox.addItem("1/32 Note", 6);
-        resolutionBox.addItem("1/64 Note", 7);
-        resolutionBox.addItem("Samples",   8);
-        resolutionBox.setSelectedId(1, juce::dontSendNotification);
-        resolutionBox.addListener(this);
-        addAndMakeVisible(resolutionBox);
+        // Snap / grid resolution
+        addAndMakeVisible(snapBtn);
+        snapBtn.addListener(this);
 
-        resLabel.setText("Snap:", juce::dontSendNotification);
-        resLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.7f));
-        addAndMakeVisible(resLabel);
+        populateResBox(gridBox);
+        styleResBox(gridBox);
+        gridBox.setSelectedId(1, juce::dontSendNotification); // 1 Bar
+        gridBox.addListener(this);
+        addAndMakeVisible(gridBox);
 
-        zoomLabel.setText("Zoom:", juce::dontSendNotification);
-        zoomLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.7f));
-        addAndMakeVisible(zoomLabel);
+        // Nudge resolution
+        populateResBox(nudgeBox);
+        styleResBox(nudgeBox);
+        nudgeBox.setSelectedId(5, juce::dontSendNotification); // 1/16
+        nudgeBox.addListener(this);
+        addAndMakeVisible(nudgeBox);
 
-        snapBtn.setToggleable(true);
-        snapBtn.setToggleState(true, juce::dontSendNotification);
+        // Zoom buttons
+        for (auto* b : { &hZoomInBtn, &hZoomOutBtn, &vZoomInBtn, &vZoomOutBtn })
+        {
+            addAndMakeVisible(b);
+            b->addListener(this);
+        }
+
+        // Labels
+        gridLabel.setText("Grid:",  juce::dontSendNotification);
+        nudgeLabel.setText("Nudge:", juce::dontSendNotification);
+        zoomLabel.setText("Zoom:",   juce::dontSendNotification);
+        for (auto* lbl : { &gridLabel, &nudgeLabel, &zoomLabel })
+        {
+            lbl->setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.55f));
+            lbl->setFont(juce::Font(juce::FontOptions(10.0f)));
+            addAndMakeVisible(lbl);
+        }
+
+        // SHUFFLE is placeholder — greyed out
+        shuffleBtn.setEnabled(false);
+        shuffleBtn.setAlpha(0.4f);
+        shuffleBtn.setTooltip("Shuffle (ripple) editing — coming soon");
 
         setEditMode(EditMode::Slip);
     }
 
     EditModeToolbar::~EditModeToolbar()
     {
-        for (auto* btn : { &slipBtn, &gridBtn, &spotBtn, &snapBtn, &zoomInBtn, &zoomOutBtn })
-            btn->removeListener(this);
-        resolutionBox.removeListener(this);
+        for (auto* b : { &slipBtn, &gridBtn, &spotBtn, &shuffleBtn,
+                         &snapBtn, &hZoomInBtn, &hZoomOutBtn, &vZoomInBtn, &vZoomOutBtn })
+            b->removeListener(this);
+        gridBox.removeListener(this);
+        nudgeBox.removeListener(this);
     }
 
     void EditModeToolbar::paint(juce::Graphics& g)
     {
-        g.setColour(juce::Colour::fromRGB(16, 18, 26));
+        g.setColour(juce::Colour::fromRGB(14, 16, 22));
         g.fillAll();
+        // Bottom separator
         g.setColour(juce::Colour::fromRGB(35, 38, 52));
         g.fillRect(0, getHeight() - 1, getWidth(), 1);
     }
 
     void EditModeToolbar::resized()
     {
-        auto area = getLocalBounds().reduced(4, 2);
-        const int btnW = 46, btnH = area.getHeight(), gap = 3;
+        auto area = getLocalBounds().reduced(6, 3);
+        const int gap  = 3;
+        const int gap2 = 8;  // section separator
+        const int bW   = 48;
+        const int sW   = 36; // small button
 
-        slipBtn.setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap);
-        gridBtn.setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap);
-        spotBtn.setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap * 3);
+        // Mode group
+        slipBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(gap);
+        gridBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(gap);
+        spotBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(gap);
+        shuffleBtn.setBounds(area.removeFromLeft(bW)); area.removeFromLeft(gap2);
 
-        resLabel.setBounds(area.removeFromLeft(36)); area.removeFromLeft(gap);
-        snapBtn.setBounds(area.removeFromLeft(46)); area.removeFromLeft(gap);
-        resolutionBox.setBounds(area.removeFromLeft(90)); area.removeFromLeft(gap * 3);
+        // Snap + grid resolution
+        snapBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(gap);
+        gridLabel.setBounds(area.removeFromLeft(32));  area.removeFromLeft(gap);
+        gridBox.setBounds(area.removeFromLeft(84));    area.removeFromLeft(gap2);
 
-        zoomLabel.setBounds(area.removeFromLeft(40)); area.removeFromLeft(gap);
-        zoomInBtn.setBounds(area.removeFromLeft(28)); area.removeFromLeft(gap);
-        zoomOutBtn.setBounds(area.removeFromLeft(28));
+        // Nudge resolution
+        nudgeLabel.setBounds(area.removeFromLeft(38)); area.removeFromLeft(gap);
+        nudgeBox.setBounds(area.removeFromLeft(84));   area.removeFromLeft(gap2);
+
+        // Zoom group (right side)
+        zoomLabel.setBounds(area.removeFromLeft(34));  area.removeFromLeft(gap);
+        hZoomOutBtn.setBounds(area.removeFromLeft(sW)); area.removeFromLeft(gap);
+        hZoomInBtn.setBounds(area.removeFromLeft(sW));  area.removeFromLeft(gap);
+        vZoomOutBtn.setBounds(area.removeFromLeft(sW)); area.removeFromLeft(gap);
+        vZoomInBtn.setBounds(area.removeFromLeft(sW));
     }
 
     void EditModeToolbar::setEditMode(EditMode m)
     {
         currentMode = m;
-        slipBtn.setToggleState(m == EditMode::Slip, juce::dontSendNotification);
-        gridBtn.setToggleState(m == EditMode::Grid, juce::dontSendNotification);
-        spotBtn.setToggleState(m == EditMode::Spot, juce::dontSendNotification);
+        const auto activeCol  = juce::Colour::fromRGB(180, 140, 60);
+        const auto inactiveCol = juce::Colour::fromRGB(28, 32, 46);
+        const auto snapOnCol  = juce::Colour::fromRGB(50, 160, 80);
 
-        const auto on  = juce::Colour::fromRGB(180, 140, 60);
-        const auto off = juce::Colour::fromRGB(35, 40, 55);
-        auto styleBtn = [&](juce::TextButton* btn, bool active) {
-            btn->setColour(juce::TextButton::buttonColourId,   active ? on : off);
-            btn->setColour(juce::TextButton::buttonOnColourId, on);
-            btn->setColour(juce::TextButton::textColourOffId,  juce::Colours::white);
+        auto styleMode = [&](juce::TextButton& btn, bool active) {
+            btn.setColour(juce::TextButton::buttonColourId,  active ? activeCol : inactiveCol);
+            btn.setColour(juce::TextButton::buttonOnColourId, activeCol);
+            btn.setColour(juce::TextButton::textColourOffId,  juce::Colours::white);
+            btn.setColour(juce::TextButton::textColourOnId,   juce::Colours::white);
         };
-        styleBtn(&slipBtn, m == EditMode::Slip);
-        styleBtn(&gridBtn, m == EditMode::Grid);
-        styleBtn(&spotBtn, m == EditMode::Spot);
+
+        styleMode(slipBtn,    m == EditMode::Slip);
+        styleMode(gridBtn,    m == EditMode::Grid);
+        styleMode(spotBtn,    m == EditMode::Spot);
+
+        // Snap button stays green when enabled
+        snapBtn.setColour(juce::TextButton::buttonColourId,
+                          snapEnabled ? snapOnCol : inactiveCol);
+        snapBtn.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+
+        // Shuffle always dim
+        shuffleBtn.setColour(juce::TextButton::buttonColourId,  inactiveCol);
+        shuffleBtn.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.4f));
     }
 
     void EditModeToolbar::buttonClicked(juce::Button* b)
     {
-        if (b == &slipBtn) { setEditMode(EditMode::Slip); if (onEditModeChanged) onEditModeChanged(EditMode::Slip); }
-        else if (b == &gridBtn) { setEditMode(EditMode::Grid); if (onEditModeChanged) onEditModeChanged(EditMode::Grid); }
-        else if (b == &spotBtn) { setEditMode(EditMode::Spot); if (onEditModeChanged) onEditModeChanged(EditMode::Spot); }
+        if      (b == &slipBtn)    { setEditMode(EditMode::Slip);    if (onEditModeChanged) onEditModeChanged(EditMode::Slip); }
+        else if (b == &gridBtn)    { setEditMode(EditMode::Grid);    if (onEditModeChanged) onEditModeChanged(EditMode::Grid); }
+        else if (b == &spotBtn)    { setEditMode(EditMode::Spot);    if (onEditModeChanged) onEditModeChanged(EditMode::Spot); }
+        else if (b == &shuffleBtn) { /* placeholder */ }
         else if (b == &snapBtn)
         {
             snapEnabled = !snapEnabled;
-            snapBtn.setToggleState(snapEnabled, juce::dontSendNotification);
-            snapBtn.setColour(juce::TextButton::buttonColourId,
-                              snapEnabled ? juce::Colour::fromRGB(60, 160, 90) : juce::Colour::fromRGB(35, 40, 55));
+            setEditMode(currentMode); // refreshes button colours
             if (onSnapEnabled) onSnapEnabled(snapEnabled);
         }
-        else if (b == &zoomInBtn)  { if (onZoomChanged) onZoomChanged(+1); }
-        else if (b == &zoomOutBtn) { if (onZoomChanged) onZoomChanged(-1); }
+        else if (b == &hZoomInBtn)  { if (onHZoomChanged) onHZoomChanged(+1); }
+        else if (b == &hZoomOutBtn) { if (onHZoomChanged) onHZoomChanged(-1); }
+        else if (b == &vZoomInBtn)  { if (onVZoomChanged) onVZoomChanged(+1); }
+        else if (b == &vZoomOutBtn) { if (onVZoomChanged) onVZoomChanged(-1); }
     }
 
     void EditModeToolbar::comboBoxChanged(juce::ComboBox* c)
     {
-        if (c == &resolutionBox)
+        if (c == &gridBox)
         {
-            const double beatsPerBar = 4.0;
-            switch (resolutionBox.getSelectedId())
-            {
-                case 1: snapBeats = beatsPerBar;      break; // 1 Bar
-                case 2: snapBeats = 2.0;              break; // 1/2
-                case 3: snapBeats = 1.0;              break; // 1/4
-                case 4: snapBeats = 0.5;              break; // 1/8
-                case 5: snapBeats = 0.25;             break; // 1/16
-                case 6: snapBeats = 0.125;            break; // 1/32
-                case 7: snapBeats = 0.0625;           break; // 1/64
-                case 8: snapBeats = 0.0;              break; // Samples
-                default: snapBeats = 1.0;             break;
-            }
+            snapBeats = beatsForResolutionId(gridBox.getSelectedId());
             if (onSnapResolutionChanged) onSnapResolutionChanged(snapBeats);
+        }
+        else if (c == &nudgeBox)
+        {
+            nudgeBeats = beatsForResolutionId(nudgeBox.getSelectedId());
+            if (onNudgeResolutionChanged) onNudgeResolutionChanged(nudgeBeats);
         }
     }
 
@@ -640,6 +714,7 @@ namespace NovaStudioUI
         transportState.addChangeListener(this);
         arrangementModel.addChangeListener(this);
         startTimerHz(30);
+        setWantsKeyboardFocus(true);
     }
 
     ArrangementView::~ArrangementView()
@@ -648,38 +723,136 @@ namespace NovaStudioUI
         arrangementModel.removeChangeListener(this);
     }
 
-    void ArrangementView::adjustZoom(int direction)
+    void ArrangementView::adjustHZoom(int direction)
     {
         if (direction > 0)
-            zoomFactor = juce::jmin(zoomFactor * 1.5, 32.0);
+            zoomFactor = juce::jmin(zoomFactor * 1.5, 64.0);
         else
-            zoomFactor = juce::jmax(zoomFactor / 1.5, 0.1);
+            zoomFactor = juce::jmax(zoomFactor / 1.5, 0.05);
         timelineModel.setZoomFactor(zoomFactor);
         repaint();
+    }
+
+    void ArrangementView::adjustVZoom(int direction)
+    {
+        if (direction > 0)
+            trackHeightPx = juce::jmin(trackHeightPx + 16, 192);
+        else
+            trackHeightPx = juce::jmax(trackHeightPx - 16, 32);
+        repaint();
+    }
+
+    void ArrangementView::nudgeSelected(int direction)
+    {
+        const auto selected = arrangementModel.getSelectedClips();
+        if (selected.isEmpty()) return;
+
+        const double sr    = arrangementModel.getSession().getSampleRate();
+        const double tempo = arrangementModel.getSession().getTempo();
+        if (sr <= 0.0 || tempo <= 0.0) return;
+
+        int64_t deltaSamples = 0;
+        if (nudgeBeats > 0.0)
+        {
+            const double samplesPerBeat = (60.0 / tempo) * sr;
+            deltaSamples = static_cast<int64_t>(nudgeBeats * samplesPerBeat);
+        }
+        else
+        {
+            deltaSamples = 1; // sample-accurate mode
+        }
+
+        arrangementModel.moveClipsBySamples(selected, direction * deltaSamples);
+        repaint();
+    }
+
+    bool ArrangementView::keyPressed(const juce::KeyPress& key)
+    {
+        const int kc = key.getKeyCode();
+
+        // Nudge right: + or = (with or without shift)
+        if (kc == '+' || kc == '=' || kc == juce::KeyPress::numberPadAdd)
+        {
+            nudgeSelected(+1);
+            return true;
+        }
+        // Nudge left: -
+        if (kc == '-' || kc == juce::KeyPress::numberPadSubtract)
+        {
+            nudgeSelected(-1);
+            return true;
+        }
+        // Also support Alt+Arrow
+        if (key.getModifiers().isAltDown())
+        {
+            if (kc == juce::KeyPress::rightKey) { nudgeSelected(+1); return true; }
+            if (kc == juce::KeyPress::leftKey)  { nudgeSelected(-1); return true; }
+        }
+        return false;
     }
 
     void ArrangementView::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
     {
         if (e.mods.isCommandDown())
-        {
-            adjustZoom(wheel.deltaY > 0 ? +1 : -1);
-        }
+            adjustHZoom(wheel.deltaY > 0 ? +1 : -1);
         else
-        {
             juce::Component::mouseWheelMove(e, wheel);
-        }
     }
 
     int64_t ArrangementView::snapToGrid(int64_t sample) const
     {
         if (!snapEnabled || snapBeats <= 0.0)
             return sample;
-        const double sr = arrangementModel.getSession().getSampleRate();
+        const double sr    = arrangementModel.getSession().getSampleRate();
         const double tempo = arrangementModel.getSession().getTempo();
         if (sr <= 0.0 || tempo <= 0.0) return sample;
         const double samplesPerBeat = (60.0 / tempo) * sr;
-        const double snapSamples = snapBeats * samplesPerBeat;
-        return static_cast<int64_t>(std::round(static_cast<double>(sample) / snapSamples) * snapSamples);
+        return static_cast<int64_t>(std::round(static_cast<double>(sample) / (snapBeats * samplesPerBeat))
+                                    * (snapBeats * samplesPerBeat));
+    }
+
+    void ArrangementView::showSpotDialog(int trackIndex, int clipIndex)
+    {
+        const auto* clip = &arrangementModel.getSession().getTrack(trackIndex).clips.getReference(clipIndex);
+        const double sr    = arrangementModel.getSession().getSampleRate();
+        const double tempo = arrangementModel.getSession().getTempo();
+        if (sr <= 0.0 || tempo <= 0.0) return;
+
+        const double samplesPerBeat = (60.0 / tempo) * sr;
+        const double currentBeat    = static_cast<double>(clip->startSample) / samplesPerBeat;
+        const int    currentBar     = static_cast<int>(currentBeat / 4) + 1;
+        const int    beatInBar      = static_cast<int>(currentBeat) % 4 + 1;
+
+        auto* dialog = new juce::AlertWindow("Spot — Move Clip to Position",
+                                             "Enter the destination Bar and Beat:",
+                                             juce::MessageBoxIconType::NoIcon);
+        dialog->addTextEditor("bar",  juce::String(currentBar),  "Bar:");
+        dialog->addTextEditor("beat", juce::String(beatInBar),   "Beat (1–4):");
+        dialog->addButton("Move",   1);
+        dialog->addButton("Cancel", 0);
+        dialog->setColour(juce::AlertWindow::backgroundColourId, juce::Colour::fromRGB(18, 20, 28));
+        dialog->setColour(juce::AlertWindow::textColourId,       juce::Colours::white);
+
+        dialog->enterModalState(true,
+            juce::ModalCallbackFunction::create([this, dialog, trackIndex, clipIndex,
+                                                 samplesPerBeat](int result)
+            {
+                if (result == 1)
+                {
+                    const int bar  = juce::jmax(1, dialog->getTextEditorContents("bar").getIntValue());
+                    const int beat = juce::jlimit(1, 4, dialog->getTextEditorContents("beat").getIntValue());
+                    const double targetBeat = (bar - 1) * 4.0 + (beat - 1);
+                    const int64_t targetSample = static_cast<int64_t>(targetBeat * samplesPerBeat);
+
+                    auto clipCopy = arrangementModel.getSession()
+                                                    .getTrack(trackIndex)
+                                                    .clips.getReference(clipIndex);
+                    clipCopy.startSample = juce::jmax<int64_t>(0, targetSample);
+                    arrangementModel.replaceClipWithoutUndo(trackIndex, clipIndex, clipCopy);
+                    arrangementModel.sendChangeMessage();
+                    repaint();
+                }
+            }), true);
     }
 
     // In paint, draw waveform using cache where available and simple handles for selected clips
@@ -747,8 +920,8 @@ namespace NovaStudioUI
             }
         }
 
-        // Track lanes — aligned with TrackPanel rows (28px header offset on left panel)
-        const float trackHeight = (float)TrackPanel::kTrackHeight;
+        // Track lanes — height follows vertical zoom setting
+        const float trackHeight = (float)trackHeightPx;
         const NovaStudio::Session& session = arrangementModel.getSession();
         const int trackCount = session.getNumTracks();
         const float lanesTop = (float)rulerH;
@@ -961,10 +1134,13 @@ namespace NovaStudioUI
 
     void ArrangementView::mouseDown(const juce::MouseEvent& event)
     {
+        // Grab keyboard focus so keyPressed (nudge shortcuts) works
+        grabKeyboardFocus();
+
         const auto clickPoint = event.position;
         const int width = getWidth() - 16;
         const auto trackArea = juce::Rectangle<float>(8.0f, 72.0f, (float)width, getHeight() - 88.0f);
-        const float trackHeight = (float)TrackPanel::kTrackHeight;
+        const float trackHeight = (float)trackHeightPx;
 
         const int trackIndex = static_cast<int>((clickPoint.y - trackArea.getY()) / trackHeight);
         if (trackIndex < 0 || trackIndex >= arrangementModel.getSession().getNumTracks())
@@ -1020,10 +1196,17 @@ namespace NovaStudioUI
                 {
                     arrangementModel.toggleClipSelection(trackIndex, clipIndex);
                 }
+                else if (editMode == EditModeToolbar::EditMode::Spot)
+                {
+                    // Spot mode: select then immediately open position dialog
+                    arrangementModel.selectClip(trackIndex, clipIndex);
+                    showSpotDialog(trackIndex, clipIndex);
+                }
                 else
                 {
+                    // Slip / Grid: select and start drag
                     arrangementModel.selectClip(trackIndex, clipIndex);
-                    isDraggingClip = true;
+                    isDraggingClip = (editMode != EditModeToolbar::EditMode::Spot);
                     dragStartX = event.x;
                     originalClipStartSample = clip.startSample;
                 }
@@ -1058,7 +1241,7 @@ namespace NovaStudioUI
             // determine intersecting clips
             juce::Array<juce::Point<int>> hits;
             const int width = getWidth() - 16;
-            const float trackHeight = (float)TrackPanel::kTrackHeight;
+            const float trackHeight = (float)trackHeightPx;
             const auto trackAreaY = 72.0f;
             for (int t = 0; t < arrangementModel.getSession().getNumTracks(); ++t)
             {
@@ -1221,7 +1404,7 @@ void ArrangementView::itemDropped(const SourceDetails& details)
     if (!file.existsAsFile()) return;
 
     const int rulerH = 28;
-    const float trackHeight = (float)TrackPanel::kTrackHeight;
+    const float trackHeight = (float)trackHeightPx;
     const int dropY = (int)details.localPosition.y;
     const int dropX = (int)details.localPosition.x;
 

@@ -128,7 +128,7 @@ namespace NovaStudioUI
                             private juce::ComboBox::Listener
     {
     public:
-        enum class EditMode { Slip, Grid, Spot };
+        enum class EditMode { Slip, Grid, Spot, Shuffle };
 
         EditModeToolbar();
         ~EditModeToolbar() override;
@@ -136,32 +136,44 @@ namespace NovaStudioUI
         void paint(juce::Graphics& g) override;
         void resized() override;
 
+        // Callbacks → ArrangementView
         std::function<void(EditMode)> onEditModeChanged;
-        std::function<void(double)>   onSnapResolutionChanged; // beats per snap
+        std::function<void(double)>   onSnapResolutionChanged; // beats per snap unit
+        std::function<void(double)>   onNudgeResolutionChanged;
         std::function<void(bool)>     onSnapEnabled;
-        std::function<void(int)>      onZoomChanged; // +1 zoom in, -1 zoom out
+        std::function<void(int)>      onHZoomChanged;  // +1 in / -1 out
+        std::function<void(int)>      onVZoomChanged;
 
         void setEditMode(EditMode m);
-        EditMode getEditMode() const { return currentMode; }
-        double getSnapBeats() const  { return snapBeats; }
-        bool isSnapOn() const        { return snapEnabled; }
+        EditMode getEditMode() const  { return currentMode; }
+        double getSnapBeats() const   { return snapBeats; }
+        double getNudgeBeats() const  { return nudgeBeats; }
+        bool isSnapOn() const         { return snapEnabled; }
 
     private:
         void buttonClicked(juce::Button* b) override;
         void comboBoxChanged(juce::ComboBox* c) override;
+        static double beatsForResolutionId(int id);
 
-        juce::TextButton slipBtn  {"SLIP"};
-        juce::TextButton gridBtn  {"GRID"};
-        juce::TextButton spotBtn  {"SPOT"};
-        juce::TextButton snapBtn  {"SNAP"};
-        juce::TextButton zoomInBtn  {"+"};
-        juce::TextButton zoomOutBtn {"-"};
-        juce::ComboBox   resolutionBox;
-        juce::Label      resLabel;
-        juce::Label      zoomLabel;
+        juce::TextButton slipBtn    {"SLIP"};
+        juce::TextButton gridBtn    {"GRID"};
+        juce::TextButton spotBtn    {"SPOT"};
+        juce::TextButton shuffleBtn {"SHUFFLE"};
+
+        juce::TextButton snapBtn    {"SNAP"};
+        juce::ComboBox   gridBox;   // snap/grid resolution
+        juce::ComboBox   nudgeBox;  // nudge resolution
+
+        juce::TextButton hZoomInBtn  {"H+"};
+        juce::TextButton hZoomOutBtn {"H-"};
+        juce::TextButton vZoomInBtn  {"V+"};
+        juce::TextButton vZoomOutBtn {"V-"};
+
+        juce::Label gridLabel, nudgeLabel, zoomLabel;
 
         EditMode currentMode = EditMode::Slip;
-        double   snapBeats   = 1.0;  // 1 bar
+        double   snapBeats   = 4.0;  // 1 bar (4 beats)
+        double   nudgeBeats  = 0.25; // 1/16 note
         bool     snapEnabled = true;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EditModeToolbar)
@@ -184,40 +196,51 @@ namespace NovaStudioUI
         void mouseDrag(const juce::MouseEvent& event) override;
         void mouseUp(const juce::MouseEvent& event) override;
         void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
+        bool keyPressed(const juce::KeyPress& key) override;
 
         // DragAndDropTarget
         bool isInterestedInDragSource(const SourceDetails& details) override;
         void itemDropped(const SourceDetails& details) override;
 
-        // Grid/snap/zoom control (called from EditModeToolbar callbacks)
+        // Called from EditModeToolbar callbacks
         void setEditMode(EditModeToolbar::EditMode m) { editMode = m; }
         void setSnapResolution(double beats)          { snapBeats = beats; }
+        void setNudgeResolution(double beats)         { nudgeBeats = beats; }
         void setSnapEnabled(bool on)                  { snapEnabled = on; }
-        void adjustZoom(int direction);               // +1 = in, -1 = out
+        void adjustHZoom(int direction);
+        void adjustVZoom(int direction);
+        int  getTrackHeight() const { return trackHeightPx; }
+
+        // Nudge selected clips by nudgeBeats (called from keyboard or toolbar)
+        void nudgeSelected(int direction); // +1 right, -1 left
 
     private:
         void changeListenerCallback(juce::ChangeBroadcaster* source) override;
         void timerCallback() override;
         int64_t snapToGrid(int64_t sample) const;
+        void showSpotDialog(int trackIndex, int clipIndex);
 
         NovaStudio::TransportState& transportState;
         NovaStudio::TimelineModel& timelineModel;
         NovaStudio::ArrangementModel& arrangementModel;
         WaveformCache waveformCache;
-        bool isDraggingClip = false;
-        int dragStartX = 0;
+
+        bool isDraggingClip      = false;
+        int  dragStartX          = 0;
         int64_t originalClipStartSample = 0;
-        int64_t originalClipLength = 0;
-        bool isDraggingTrimLeft = false;
+        int64_t originalClipLength      = 0;
+        bool isDraggingTrimLeft  = false;
         bool isDraggingTrimRight = false;
         int64_t currentTrimSample = 0;
-        double zoomFactor = 1.0;
-        bool isMarqueeSelecting = false;
+        double  zoomFactor        = 1.0;
+        int     trackHeightPx     = 64; // vertical zoom
+        bool isMarqueeSelecting   = false;
         juce::Point<float> marqueeStart {0.0f, 0.0f};
         juce::Rectangle<float> marqueeRect {0.0f, 0.0f, 0.0f, 0.0f};
 
         EditModeToolbar::EditMode editMode = EditModeToolbar::EditMode::Slip;
-        double  snapBeats   = 1.0;
+        double  snapBeats   = 4.0;   // 1 bar
+        double  nudgeBeats  = 0.25;  // 1/16
         bool    snapEnabled = true;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ArrangementView)

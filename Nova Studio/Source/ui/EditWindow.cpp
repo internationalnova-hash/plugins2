@@ -33,11 +33,17 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
     editModeToolbar->onSnapResolutionChanged = [this](double beats) {
         if (arrangementView) arrangementView->setSnapResolution(beats);
     };
+    editModeToolbar->onNudgeResolutionChanged = [this](double beats) {
+        if (arrangementView) arrangementView->setNudgeResolution(beats);
+    };
     editModeToolbar->onSnapEnabled = [this](bool on) {
         if (arrangementView) arrangementView->setSnapEnabled(on);
     };
-    editModeToolbar->onZoomChanged = [this](int dir) {
-        if (arrangementView) arrangementView->adjustZoom(dir);
+    editModeToolbar->onHZoomChanged = [this](int dir) {
+        if (arrangementView) arrangementView->adjustHZoom(dir);
+    };
+    editModeToolbar->onVZoomChanged = [this](int dir) {
+        if (arrangementView) arrangementView->adjustVZoom(dir);
     };
 }
 
