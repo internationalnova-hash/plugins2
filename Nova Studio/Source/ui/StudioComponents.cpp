@@ -3036,7 +3036,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
     {
         addAndMakeVisible(editBtn);
         addAndMakeVisible(mixBtn);
-        addAndMakeVisible(browseBtn);
+        addAndMakeVisible(beatBtn);
         addAndMakeVisible(rtzBtn);
         addAndMakeVisible(rewindBtn);
         addAndMakeVisible(playBtn);
@@ -3053,7 +3053,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
 
         editBtn.addListener(this);
         mixBtn.addListener(this);
-        browseBtn.addListener(this);
+        beatBtn.addListener(this);
         rtzBtn.addListener(this);
         rewindBtn.addListener(this);
         playBtn.addListener(this);
@@ -3067,7 +3067,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         novaAlignBtn.addListener(this);
 
         // Mode tab styling — dark base, will highlight active
-        for (auto* btn : {&editBtn, &mixBtn, &browseBtn})
+        for (auto* btn : {&editBtn, &mixBtn, &beatBtn})
         {
             btn->setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(18, 20, 28));
             btn->setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.65f));
@@ -3250,7 +3250,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         // Mode tabs
         editBtn.setBounds(x, btnY, 52, btnH); x += 56;
         mixBtn.setBounds(x, btnY, 44, btnH); x += 48;
-        browseBtn.setBounds(x, btnY, 60, btnH); x += 64;
+        beatBtn.setBounds(x, btnY, 48, btnH); x += 52;
         // x now at ~395, past divider at 390
 
         x = 398;
@@ -3312,9 +3312,22 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
 
     void WorkspaceToolbar::buttonClicked(juce::Button* b)
     {
-        if (b == &editBtn && onModeSelected) onModeSelected(0);
-        else if (b == &mixBtn && onModeSelected) onModeSelected(1);
-        else if (b == &browseBtn && onModeSelected) onModeSelected(2);
+        const auto kActive   = juce::Colour::fromRGB(30, 28, 50);
+        const auto kInactive = juce::Colour::fromRGB(18, 20, 28);
+        const auto kActiveText   = juce::Colour::fromRGB(180, 155, 255);
+        const auto kInactiveText = juce::Colours::white.withAlpha(0.65f);
+
+        auto setTabActive = [&](juce::TextButton* active) {
+            for (auto* btn : {&editBtn, &mixBtn, &beatBtn}) {
+                const bool on = (btn == active);
+                btn->setColour(juce::TextButton::buttonColourId, on ? kActive : kInactive);
+                btn->setColour(juce::TextButton::textColourOffId, on ? kActiveText : kInactiveText);
+            }
+        };
+
+        if (b == &editBtn)  { setTabActive(&editBtn);  if (onModeSelected) onModeSelected(0); }
+        else if (b == &mixBtn)  { setTabActive(&mixBtn);   if (onModeSelected) onModeSelected(1); }
+        else if (b == &beatBtn) { setTabActive(&beatBtn);  if (onModeSelected) onModeSelected(2); }
         else if (b == &rtzBtn && onReturnToZero) onReturnToZero();
         else if (b == &playBtn && onPlay) onPlay();
         else if (b == &stopBtn && onStop) onStop();

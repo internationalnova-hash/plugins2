@@ -606,7 +606,7 @@ namespace NovaStudioUI
         void resized() override;
 
         // Mode callbacks
-        std::function<void(int)> onModeSelected; // 0=Edit,1=Mixer,2=Browse
+        std::function<void(int)> onModeSelected; // 0=Edit,1=Mixer,2=Beat
         std::function<void(NovaStudio::ArrangementModel::EditMode)> onEditModeSelected;
         std::function<void()> onNovaAlign;
         std::function<void()> onSave;
@@ -638,7 +638,7 @@ namespace NovaStudioUI
         // Mode buttons
         juce::TextButton editBtn {"EDIT"};
         juce::TextButton mixBtn {"MIX"};
-        juce::TextButton browseBtn {"BROWSE"};
+        juce::TextButton beatBtn {"BEAT"};
 
         // Transport buttons (empty text — icons drawn in paint())
         juce::TextButton rtzBtn     {};  // |◀  return to start

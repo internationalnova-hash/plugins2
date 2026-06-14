@@ -568,15 +568,7 @@ void MainComponent::setWorkspaceMode(int mode)
         bottomDock.setVisible(false);
         resized();
         break;
-    case 2: // Browse / Split
-        if (editWindow) editWindow->setVisible(true);
-        if (mixerWindow) mixerWindow->setVisible(false);
-        if (beatWindow) beatWindow->setVisible(false);
-        alignPanel.setVisible(false);
-        bottomDock.setVisible(true);
-        resized();
-        break;
-    case 3: // Beat
+    case 2: // Beat
         if (editWindow) editWindow->setVisible(false);
         if (mixerWindow) mixerWindow->setVisible(false);
         if (beatWindow) beatWindow->setVisible(true);
