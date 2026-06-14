@@ -13,6 +13,7 @@ endif()
 
 project(NovaApex VERSION 1.0.0)
 
+# JUCE setup using FetchContent
 include(FetchContent)
 FetchContent_Declare(
     juce
@@ -21,26 +22,44 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
-# Nova Apex — True-peak loudness mastering limiter
-# Uses custom JUCE-painted UI (no WebView)
+# Nova Apex
+# True-peak loudness mastering limiter with dark luxury WebView UI
 
 set(PLUGIN_TARGET NovaApex)
+set(NEEDS_WEBVIEW2 FALSE)
+set(NEEDS_WEB_BROWSER FALSE)
 set(AU_MAIN_TYPE "")
 set(LV2_URI "")
 
 if(WIN32)
     set(PLUGIN_FORMATS VST3 Standalone)
+    set(NEEDS_WEBVIEW2 TRUE)
+    set(WEBVIEW_BACKEND "WebView2")
 elseif(APPLE)
     set(PLUGIN_FORMATS VST3 AU Standalone)
+    set(WEBVIEW_BACKEND "WKWebView")
     set(AU_MAIN_TYPE kAudioUnitType_Effect)
 elseif(UNIX)
     set(PLUGIN_FORMATS VST3 LV2 Standalone)
+    set(NEEDS_WEB_BROWSER TRUE)
+    set(WEBVIEW_BACKEND "WebKitGTK")
     set(LV2_URI "https://github.com/noizefield/audio-plugin-coder/NovaApex")
 else()
     message(FATAL_ERROR "Unsupported platform")
 endif()
 
 message(STATUS "Nova Apex: Building for ${PLUGIN_FORMATS}")
+message(STATUS "Nova Apex: WebView backend: ${WEBVIEW_BACKEND}")
+
+juce_add_binary_data(NovaApex_WebUI
+    SOURCES
+        Source/ui/public/index.html
+        Source/ui/public/n_logo.png
+        Source/ui/public/js/index.js
+        Source/ui/public/js/juce/index.js
+        Source/ui/public/js/juce/check_native_interop.js
+    NAMESPACE nova_apex_BinaryData
+)
 
 juce_add_plugin(${PLUGIN_TARGET}
     COMPANY_NAME "International Nova"
@@ -50,6 +69,8 @@ juce_add_plugin(${PLUGIN_TARGET}
     PLUGIN_CODE NvAp
     FORMATS ${PLUGIN_FORMATS}
     PRODUCT_NAME "Nova Apex"
+    NEEDS_WEBVIEW2 ${NEEDS_WEBVIEW2}
+    NEEDS_WEB_BROWSER ${NEEDS_WEB_BROWSER}
     VST3_CATEGORIES Fx Dynamics
     AU_MAIN_TYPE ${AU_MAIN_TYPE}
     LV2URI ${LV2_URI}
@@ -66,10 +87,12 @@ target_sources(${PLUGIN_TARGET}
         Source/PluginProcessor.h
         Source/PluginEditor.cpp
         Source/PluginEditor.h
+        Source/ParameterIDs.hpp
 )
 
 target_link_libraries(${PLUGIN_TARGET}
     PRIVATE
+        NovaApex_WebUI
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats
@@ -91,13 +114,14 @@ target_link_libraries(${PLUGIN_TARGET}
 
 target_compile_definitions(${PLUGIN_TARGET}
     PUBLIC
-        JUCE_WEB_BROWSER=0
+        JUCE_WEB_BROWSER=1
         JUCE_VST3_CAN_REPLACE_VST2=0
 )
 
 if(WIN32)
     target_compile_definitions(${PLUGIN_TARGET}
         PUBLIC
+            JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
             _USE_MATH_DEFINES=1
     )
 endif()

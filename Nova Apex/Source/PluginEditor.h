@@ -1,80 +1,10 @@
 #pragma once
 
-#include <juce_gui_basics/juce_gui_basics.h>
-#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_gui_extra/juce_gui_extra.h>
 
 #include "PluginProcessor.h"
+#include "ParameterIDs.hpp"
 
-// -----------------------------------------------------------------------------
-// Nova Apex colour palette
-namespace ApexColours
-{
-    inline constexpr juce::uint32 background   = 0xFF0D0D10;
-    inline constexpr juce::uint32 panel        = 0xFF151518;
-    inline constexpr juce::uint32 panelBorder  = 0xFF252530;
-    inline constexpr juce::uint32 champagne    = 0xFFC8A97E;
-    inline constexpr juce::uint32 champagneDim = 0xFF8A7055;
-    inline constexpr juce::uint32 white        = 0xFFE8E4DC;
-    inline constexpr juce::uint32 red          = 0xFFD64C3A;
-    inline constexpr juce::uint32 textMuted    = 0xFF666670;
-}
-
-// -----------------------------------------------------------------------------
-// Custom LookAndFeel for Nova Apex knobs & buttons
-class ApexLookAndFeel : public juce::LookAndFeel_V4
-{
-public:
-    ApexLookAndFeel();
-
-    void drawRotarySlider (juce::Graphics&, int x, int y, int width, int height,
-                           float sliderPos, float rotaryStartAngle, float rotaryEndAngle,
-                           juce::Slider&) override;
-
-    void drawButtonBackground (juce::Graphics&, juce::Button&,
-                                const juce::Colour& backgroundColour,
-                                bool shouldDrawButtonAsHighlighted,
-                                bool shouldDrawButtonAsDown) override;
-
-    void drawButtonText (juce::Graphics&, juce::TextButton&,
-                         bool shouldDrawButtonAsHighlighted,
-                         bool shouldDrawButtonAsDown) override;
-
-    void drawLabel (juce::Graphics&, juce::Label&) override;
-};
-
-// -----------------------------------------------------------------------------
-// Gain-reduction / waveform display component
-class GRDisplayComponent : public juce::Component
-{
-public:
-    GRDisplayComponent();
-
-    void pushGRValue (float grDb);
-    void setInputLevel (float l, float r) noexcept;
-    void paint (juce::Graphics&) override;
-
-private:
-    static constexpr int kHistorySize = 512;
-    std::array<float, kHistorySize> grHistory {};
-    int writePos { 0 };
-    float inputL { 0.0f }, inputR { 0.0f };
-};
-
-// -----------------------------------------------------------------------------
-// True-peak meter (vertical segmented bar)
-class TruePeakMeter : public juce::Component
-{
-public:
-    TruePeakMeter();
-    void setLevel (float linearLevel) noexcept;
-    void paint (juce::Graphics&) override;
-
-private:
-    float levelLinear { 0.0f };
-};
-
-// -----------------------------------------------------------------------------
-// Main editor
 class NovaApexAudioProcessorEditor : public juce::AudioProcessorEditor,
                                      private juce::Timer
 {
@@ -87,53 +17,54 @@ public:
 
 private:
     void timerCallback() override;
-    void buildKnob (juce::Slider& s, const juce::String& paramId,
-                    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>& att);
-
-    void paintHeader      (juce::Graphics&);
-    void paintLeftPanel   (juce::Graphics&);
-    void paintRightPanel  (juce::Graphics&);
-    void paintStyleStrip  (juce::Graphics&);
-    void paintBottomStrip (juce::Graphics&);
 
     NovaApexAudioProcessor& processorRef;
-    ApexLookAndFeel laf;
 
-    GRDisplayComponent grDisplay;
-    TruePeakMeter      tpMeter;
+    // CRITICAL: order is Relays -> WebView -> Attachments.
+    juce::WebSliderRelay gainRelay              { ParameterIDs::gain };
+    juce::WebSliderRelay driveRelay             { ParameterIDs::drive };
+    juce::WebSliderRelay ceilingRelay           { ParameterIDs::ceiling };
+    juce::WebSliderRelay outputGainRelay        { ParameterIDs::outputGain };
+    juce::WebSliderRelay styleRelay             { ParameterIDs::style };
+    juce::WebSliderRelay attackRelay            { ParameterIDs::attack };
+    juce::WebSliderRelay releaseRelay           { ParameterIDs::release };
+    juce::WebSliderRelay lookaheadRelay         { ParameterIDs::lookahead };
+    juce::WebSliderRelay oversampleRelay        { ParameterIDs::oversample };
+    juce::WebSliderRelay linkRelay              { ParameterIDs::link };
+    juce::WebSliderRelay ditherRelay            { ParameterIDs::dither };
+    juce::WebSliderRelay transientPreserveRelay { ParameterIDs::transientPreserve };
+    juce::WebSliderRelay lowEndProtectRelay     { ParameterIDs::lowEndProtect };
+    juce::WebSliderRelay loudnessTargetRelay    { ParameterIDs::loudnessTarget };
 
-    // Large knobs — left panel
-    juce::Slider gainKnob  { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
-    juce::Slider driveKnob { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
+    struct SinglePageBrowser : juce::WebBrowserComponent
+    {
+        using WebBrowserComponent::WebBrowserComponent;
 
-    // Large knobs — right panel
-    juce::Slider ceilingKnob { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
-    juce::Slider outputKnob  { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
+        bool pageAboutToLoad (const juce::String& newURL) override
+        {
+            return newURL.startsWith (getResourceProviderRoot()) || newURL == getResourceProviderRoot();
+        }
+    };
 
-    // Small knobs — bottom strip
-    juce::Slider attackKnob    { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
-    juce::Slider releaseKnob   { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
-    juce::Slider lookaheadKnob { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
+    std::unique_ptr<SinglePageBrowser> webView;
 
-    // Style toggle buttons
-    juce::TextButton styleButtons[6];
+    std::unique_ptr<juce::WebSliderParameterAttachment> gainAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> driveAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> ceilingAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> outputGainAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> styleAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> attackAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> releaseAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> lookaheadAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> oversampleAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> linkAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> ditherAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> transientPreserveAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> lowEndProtectAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> loudnessTargetAttachment;
 
-    // Bottom-strip controls
-    juce::TextButton  oversampleButton { "2x" };
-    juce::ToggleButton linkButton;
-    juce::ToggleButton ditherButton;
-    juce::TextButton  matchButton { "Match" };
-
-    using SliderAtt = juce::AudioProcessorValueTreeState::SliderAttachment;
-
-    std::unique_ptr<SliderAtt> gainAtt, driveAtt, ceilingAtt, outputAtt;
-    std::unique_ptr<SliderAtt> attackAtt, releaseAtt, lookaheadAtt;
-
-    // Cached meter values (updated in timer)
-    float cachedLufs     { -70.0f };
-    float cachedTruePeak { -70.0f };
-    float cachedGR       { 0.0f };
-    int   currentOversampleIdx { 1 };
+    std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
+    static juce::WebBrowserComponent::Options createWebOptions (NovaApexAudioProcessorEditor& editor);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaApexAudioProcessorEditor)
 };

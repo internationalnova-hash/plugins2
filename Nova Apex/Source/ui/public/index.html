@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Apex</title>
+  <style>
+    :root {
+      --gold: #ffbf2c;
+      --gold-soft: #ffd97f;
+      --bg-0: #050505;
+      --bg-1: #090807;
+      --bg-2: #0d0b09;
+      --edge: rgba(255, 187, 52, 0.32);
+      --text: #f6d58d;
+      --text-soft: #c9a969;
+      --ease-meter: 100ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #050505;
+      color: var(--text);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+    }
+
+    body { display: grid; place-items: center; }
+
+    .ui-stage { width: 900px; height: 540px; position: relative; }
+
+    .plugin {
+      width: 900px; height: 540px;
+      background:
+        radial-gradient(700px 200px at 50% -10%, rgba(255,185,50,0.08), transparent 70%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.008) 0 1px, transparent 1px 10px),
+        linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 52%, var(--bg-0) 100%);
+      padding: 12px;
+      display: grid;
+      grid-template-rows: 68px 1fr 52px 48px;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    /* HEADER */
+    .top {
+      display: grid;
+      grid-template-columns: 300px 1fr 260px;
+      align-items: center; gap: 10px;
+    }
+    .brand { display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: center; }
+    .logo {
+      width: 44px; height: 44px; border-radius: 12px;
+      border: 1px solid rgba(255,187,52,0.4);
+      background: radial-gradient(circle at 35% 30%, rgba(255,216,120,0.45), rgba(82,52,17,0.78));
+      display: grid; place-items: center; overflow: hidden;
+    }
+    .logo img { width: 34px; height: 34px; object-fit: contain; filter: brightness(1.18); }
+    .title { line-height: 1; }
+    .title .nova   { font-size:14px; letter-spacing:.16em; color:#ffc95d; font-weight:700; display:block; margin-bottom:2px; }
+    .title .plugin-name { font-size:28px; font-weight:800; letter-spacing:.06em; color:#f4f4f4; display:block; margin-bottom:2px; }
+    .title .sub    { font-size:9px; letter-spacing:.14em; color:#f0c86c; font-weight:700; text-transform:uppercase; display:block; white-space:nowrap; }
+    .toolbar {
+      border:1px solid var(--edge); border-radius:999px; height:32px;
+      display:grid; grid-template-columns:1fr 36px 36px;
+      background:rgba(6,6,6,0.9); overflow:hidden;
+    }
+    .preset-trigger {
+      border:0; border-right:1px solid rgba(255,187,52,0.25);
+      background:transparent; color:#ffcb62; font-size:11px;
+      letter-spacing:.06em; text-align:left; padding:0 14px;
+      cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .toolbar button {
+      border:0; border-right:1px solid rgba(255,187,52,0.25);
+      background:transparent; color:#ffcb62; font-size:14px; font-weight:700; cursor:pointer;
+    }
+    .toolbar button:last-child { border-right:0; }
+    .byline {
+      display:flex; justify-content:flex-end; align-items:center; gap:8px;
+      font-family:"Snell Roundhand","Brush Script MT",cursive;
+      font-size:20px; color:#ffc94f; white-space:nowrap;
+    }
+    .gear {
+      width:36px; height:36px; border-radius:10px;
+      border:1px solid var(--edge); background:rgba(7,7,7,0.9);
+      color:#ffc84d; font-size:18px; cursor:pointer;
+    }
+
+    /* BODY */
+    .body { display:grid; grid-template-columns:140px 1fr 168px; gap:8px; }
+    .panel {
+      border:1px solid var(--edge); border-radius:14px;
+      background:linear-gradient(180deg,rgba(10,9,8,0.95),rgba(7,6,6,0.95));
+    }
+
+    /* LEFT: Gain / Drive */
+    .left-panel { display:flex; flex-direction:column; align-items:center; justify-content:space-evenly; padding:10px 6px; }
+
+    /* CENTER */
+    .center-panel { display:grid; grid-template-rows:auto 1fr auto; gap:0; padding:8px 10px; }
+    .center-legend { display:flex; justify-content:space-between; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-soft); margin-bottom:4px; }
+    .gr-canvas-wrap { border:1px solid rgba(255,187,52,0.12); border-radius:8px; overflow:hidden; position:relative; background:rgba(0,0,0,0.6); }
+    #gr-canvas { width:100%; height:100%; display:block; }
+    .center-footer { display:flex; justify-content:space-between; align-items:center; margin-top:4px; font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-soft); }
+    .lufs-read, .tp-read { font-size:13px; font-weight:700; color:#ffd97f; letter-spacing:.03em; }
+
+    /* RIGHT */
+    .right-panel { display:grid; grid-template-columns:1fr 18px; gap:6px; padding:8px 6px; }
+    .right-knobs { display:flex; flex-direction:column; align-items:center; justify-content:space-evenly; }
+    .tp-meter { display:flex; flex-direction:column-reverse; gap:1px; height:100%; }
+    .tp-seg { flex:1; border-radius:2px; background:rgba(255,186,52,0.06); transition:background var(--ease-meter); }
+    .tp-seg.on-safe { background:#a047ff; box-shadow:0 0 5px rgba(160,71,255,0.5); }
+    .tp-seg.on-warn { background:#ffd46f; box-shadow:0 0 5px rgba(255,212,111,0.5); }
+    .tp-seg.on-hot  { background:#ff4444; box-shadow:0 0 5px rgba(255,68,68,0.5); }
+
+    /* KNOBS */
+    .knob-cell { display:flex; flex-direction:column; align-items:center; gap:4px; }
+    .k-label { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-soft); text-align:center; }
+    .k-readout {
+      font-size:10px; font-weight:700; color:#ffd97f; letter-spacing:.03em;
+      border:1px solid rgba(255,187,52,0.3); border-radius:6px; padding:1px 5px;
+      background:rgba(5,5,5,0.9); text-align:center; min-width:52px;
+    }
+    .knob {
+      border-radius:50%;
+      border:1px solid transparent;
+      border-top-color:rgba(255,255,255,0.26); border-left-color:rgba(255,255,255,0.18);
+      border-bottom-color:rgba(0,0,0,0.72); border-right-color:rgba(0,0,0,0.56);
+      position:relative; touch-action:none; cursor:ns-resize; user-select:none;
+      background:
+        radial-gradient(circle at 28% 22%,rgba(255,255,255,0.18),rgba(255,255,255,0.03) 12%,transparent 20%),
+        radial-gradient(circle at 70% 76%,rgba(0,0,0,0.38),transparent 36%),
+        linear-gradient(155deg,#14161c 0%,#080a0f 52%,#020308 100%);
+      box-shadow:inset 0 2px 0 rgba(255,255,255,0.18),inset 0 -12px 20px rgba(0,0,0,0.78),0 0 0 1px rgba(10,8,6,0.94),0 5px 12px rgba(0,0,0,0.52);
+    }
+    .knob.large  { width:72px; height:72px; }
+    .knob.medium { width:56px; height:56px; }
+    .knob.small  { width:44px; height:44px; }
+    .knob::before {
+      content:""; position:absolute; inset:0; border-radius:50%;
+      background:radial-gradient(circle at 21% 13%,rgba(255,255,255,1) 0%,rgba(255,255,255,0.46) 5%,rgba(255,255,255,0.03) 8%,transparent 11%);
+      pointer-events:none; opacity:0.86;
+    }
+    .ring { position:absolute; inset:3px; border-radius:50%; }
+    .ring::before {
+      content:""; position:absolute; inset:0; border-radius:50%;
+      background:conic-gradient(from 210deg,#0a0a0d 0deg,#0a0a0d 106deg,#d6a85a 210deg,#f5d38c 240deg,#b38536 284deg,rgba(112,66,196,0.28) 310deg,rgba(92,48,170,0.22) 322deg,#0a0a0d 360deg);
+      -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 9px),#000 calc(100% - 7px));
+      mask:radial-gradient(farthest-side,transparent calc(100% - 9px),#000 calc(100% - 7px));
+    }
+    .knob.small .ring::before {
+      -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 7px),#000 calc(100% - 5px));
+      mask:radial-gradient(farthest-side,transparent calc(100% - 7px),#000 calc(100% - 5px));
+    }
+    .pointer {
+      position:absolute; width:2px; height:16px; left:50%; top:50%;
+      transform:translate(-50%,-50%) rotate(var(--turn,-120deg)) translateY(-20px);
+      border-radius:1px;
+      background:linear-gradient(180deg,#fff5d4 0%,#f0c053 60%,#9a6820 100%);
+      box-shadow:0 0 0 0.5px rgba(0,0,0,0.70);
+    }
+    .knob.small  .pointer { height:12px; transform:translate(-50%,-50%) rotate(var(--turn,-120deg)) translateY(-16px); }
+    .knob.large  .pointer { height:20px; transform:translate(-50%,-50%) rotate(var(--turn,-120deg)) translateY(-25px); }
+
+    /* STYLE STRIP */
+    .style-strip {
+      display:grid; grid-template-columns:repeat(6,1fr); gap:6px;
+      border:1px solid var(--edge); border-radius:10px; padding:5px;
+      background:rgba(8,8,8,0.95);
+    }
+    .style-btn {
+      height:34px; border:1px solid rgba(255,187,52,0.22); border-radius:999px;
+      background:linear-gradient(180deg,rgba(12,10,8,0.96),rgba(8,7,6,0.94));
+      color:#c9a969; font-size:11px; font-weight:700; letter-spacing:.07em;
+      text-transform:uppercase; cursor:pointer;
+      transition:background 120ms,border-color 120ms,color 120ms,box-shadow 120ms;
+    }
+    .style-btn:hover  { filter:brightness(1.1); }
+    .style-btn:active { transform:scale(0.97); }
+    .style-btn.active {
+      border-color:rgba(255,196,88,0.58);
+      background:linear-gradient(180deg,rgba(255,196,88,0.28),rgba(124,78,16,0.52));
+      color:#ffeebf; box-shadow:0 0 14px rgba(255,186,48,0.4),inset 0 0 8px rgba(255,224,140,0.14);
+    }
+
+    /* BOTTOM STRIP */
+    .bottom-strip {
+      display:grid; grid-template-columns:repeat(7,1fr); gap:4px;
+      border:1px solid var(--edge); border-radius:10px; padding:4px 6px;
+      background:rgba(8,8,8,0.95);
+    }
+    .bottom-cell { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+    .bottom-cell .k-label   { font-size:8px; }
+    .bottom-cell .k-readout { font-size:8px; min-width:36px; padding:1px 3px; }
+    .toggle-btn {
+      width:44px; height:22px;
+      border:1px solid rgba(255,187,52,0.3); border-radius:999px;
+      background:rgba(8,8,8,0.92); color:#c9a969;
+      font-size:9px; font-weight:700; letter-spacing:.07em; cursor:pointer;
+      transition:background 120ms,color 120ms,box-shadow 120ms;
+    }
+    .toggle-btn.active {
+      border-color:rgba(255,196,88,0.6);
+      background:linear-gradient(180deg,rgba(255,196,88,0.26),rgba(124,78,16,0.5));
+      color:#ffeebf; box-shadow:0 0 10px rgba(255,186,48,0.3);
+    }
+  </style>
+</head>
+<body>
+<div class="ui-stage">
+<div class="plugin" id="plugin-root">
+
+  <!-- HEADER -->
+  <section class="top">
+    <div class="brand">
+      <div class="logo"><img src="n_logo.png" alt="N" /></div>
+      <div class="title">
+        <span class="nova">NOVA</span>
+        <span class="plugin-name">APEX</span>
+        <span class="sub">TRUE-PEAK LOUDNESS MASTER</span>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="preset-trigger" id="preset-trigger" type="button">Presets: Default &#9662;</button>
+      <button type="button" id="preset-prev">&#x2039;</button>
+      <button type="button" id="preset-next">&#x203A;</button>
+    </div>
+    <div class="byline">
+      <span>by International Nova</span>
+      <button class="gear" type="button">&#9881;</button>
+    </div>
+  </section>
+
+  <!-- BODY -->
+  <section class="body">
+
+    <!-- LEFT: Gain / Drive -->
+    <div class="panel left-panel">
+      <div class="knob-cell">
+        <div class="k-label">Gain</div>
+        <div class="knob large" data-param="gain" data-min="0" data-max="24">
+          <div class="ring"></div><div class="pointer"></div>
+        </div>
+        <div class="k-readout" data-readout="gain">0.0 dB</div>
+      </div>
+      <div class="knob-cell">
+        <div class="k-label">Drive</div>
+        <div class="knob large" data-param="drive" data-min="0" data-max="10">
+          <div class="ring"></div><div class="pointer"></div>
+        </div>
+        <div class="k-readout" data-readout="drive">0.0</div>
+      </div>
+    </div>
+
+    <!-- CENTER: GR display -->
+    <div class="panel center-panel">
+      <div class="center-legend">
+        <span>GR / WAVEFORM</span>
+        <span id="gr-label">0.0 dB GR</span>
+      </div>
+      <div class="gr-canvas-wrap">
+        <canvas id="gr-canvas"></canvas>
+      </div>
+      <div class="center-footer">
+        <span>LUFS: <span class="lufs-read" id="lufs-read">---</span></span>
+        <span>TP: <span class="tp-read" id="tp-read">---</span></span>
+      </div>
+    </div>
+
+    <!-- RIGHT: Ceiling / Output + TP Meter -->
+    <div class="panel right-panel">
+      <div class="right-knobs">
+        <div class="knob-cell">
+          <div class="k-label">Ceiling</div>
+          <div class="knob medium" data-param="ceiling" data-min="-12" data-max="0">
+            <div class="ring"></div><div class="pointer"></div>
+          </div>
+          <div class="k-readout" data-readout="ceiling">-0.1 dBFS</div>
+        </div>
+        <div class="knob-cell">
+          <div class="k-label">Output</div>
+          <div class="knob medium" data-param="outputGain" data-min="-12" data-max="0">
+            <div class="ring"></div><div class="pointer"></div>
+          </div>
+          <div class="k-readout" data-readout="outputGain">0.0 dB</div>
+        </div>
+      </div>
+      <div class="tp-meter" id="tp-meter"></div>
+    </div>
+
+  </section>
+
+  <!-- STYLE STRIP -->
+  <section class="style-strip">
+    <button class="style-btn active" data-style="0" type="button">Clean</button>
+    <button class="style-btn" data-style="1" type="button">Punch</button>
+    <button class="style-btn" data-style="2" type="button">Smooth</button>
+    <button class="style-btn" data-style="3" type="button">Loud</button>
+    <button class="style-btn" data-style="4" type="button">Analog</button>
+    <button class="style-btn" data-style="5" type="button">Master</button>
+  </section>
+
+  <!-- BOTTOM STRIP -->
+  <section class="bottom-strip">
+    <div class="bottom-cell">
+      <div class="k-label">Attack</div>
+      <div class="knob small" data-param="attack" data-min="0.1" data-max="50">
+        <div class="ring"></div><div class="pointer"></div>
+      </div>
+      <div class="k-readout" data-readout="attack">1.0 ms</div>
+    </div>
+    <div class="bottom-cell">
+      <div class="k-label">Release</div>
+      <div class="knob small" data-param="release" data-min="10" data-max="1000">
+        <div class="ring"></div><div class="pointer"></div>
+      </div>
+      <div class="k-readout" data-readout="release">100 ms</div>
+    </div>
+    <div class="bottom-cell">
+      <div class="k-label">Lookahead</div>
+      <div class="knob small" data-param="lookahead" data-min="0" data-max="20">
+        <div class="ring"></div><div class="pointer"></div>
+      </div>
+      <div class="k-readout" data-readout="lookahead">5.0 ms</div>
+    </div>
+    <div class="bottom-cell">
+      <div class="k-label">Oversample</div>
+      <button class="toggle-btn active" id="oversample-btn" type="button">2x</button>
+    </div>
+    <div class="bottom-cell">
+      <div class="k-label">Link</div>
+      <button class="toggle-btn active" id="link-btn" type="button">LINK</button>
+    </div>
+    <div class="bottom-cell">
+      <div class="k-label">Dither</div>
+      <button class="toggle-btn" id="dither-btn" type="button">DITH</button>
+    </div>
+    <div class="bottom-cell">
+      <div class="k-label" style="font-size:8px;color:#ffd97f;text-align:center;">IN&nbsp;OUT</div>
+      <div style="display:flex;gap:3px;align-items:flex-end;height:28px;">
+        <canvas id="in-meter"  width="8" height="28" style="border-radius:3px;"></canvas>
+        <canvas id="out-meter" width="8" height="28" style="border-radius:3px;"></canvas>
+      </div>
+    </div>
+  </section>
+
+</div>
+</div>
+
+<script>
+(() => {
+  // ── GR canvas ────────────────────────────────────────────────────────
+  const grCanvas = document.getElementById('gr-canvas');
+  const grCtx    = grCanvas.getContext('2d');
+  const GR_HIST  = 400;
+  const grBuf    = new Float32Array(GR_HIST);
+  let   grHead   = 0;
+
+  function resizeGR() {
+    const w = grCanvas.parentElement;
+    grCanvas.width  = w.clientWidth  || 400;
+    grCanvas.height = w.clientHeight || 140;
+  }
+  resizeGR();
+  window.addEventListener('resize', resizeGR);
+
+  function drawGR() {
+    const w = grCanvas.width, h = grCanvas.height;
+    grCtx.clearRect(0, 0, w, h);
+    grCtx.fillStyle = 'rgba(0,0,0,0.72)';
+    grCtx.fillRect(0, 0, w, h);
+
+    // Grid
+    grCtx.strokeStyle = 'rgba(255,187,52,0.1)';
+    grCtx.lineWidth = 1;
+    for (let db = 6; db <= 36; db += 6) {
+      const y = (db / 36) * h;
+      grCtx.beginPath(); grCtx.moveTo(0, y); grCtx.lineTo(w, y); grCtx.stroke();
+    }
+
+    // Fill
+    grCtx.beginPath();
+    for (let i = 0; i < GR_HIST; i++) {
+      const idx = (grHead + i) % GR_HIST;
+      const x = (i / (GR_HIST - 1)) * w;
+      const y = Math.min(h, (Math.abs(grBuf[idx]) / 36) * h);
+      i === 0 ? grCtx.moveTo(x, y) : grCtx.lineTo(x, y);
+    }
+    grCtx.lineTo(w, 0); grCtx.lineTo(0, 0); grCtx.closePath();
+    const grd = grCtx.createLinearGradient(0, 0, 0, h);
+    grd.addColorStop(0, 'rgba(255,186,48,0.72)');
+    grd.addColorStop(1, 'rgba(255,186,48,0.05)');
+    grCtx.fillStyle = grd;
+    grCtx.fill();
+
+    // Line
+    grCtx.beginPath();
+    for (let i = 0; i < GR_HIST; i++) {
+      const idx = (grHead + i) % GR_HIST;
+      const x = (i / (GR_HIST - 1)) * w;
+      const y = Math.min(h, (Math.abs(grBuf[idx]) / 36) * h);
+      i === 0 ? grCtx.moveTo(x, y) : grCtx.lineTo(x, y);
+    }
+    grCtx.strokeStyle = 'rgba(255,215,100,0.9)';
+    grCtx.lineWidth = 1.5;
+    grCtx.stroke();
+  }
+
+  // ── TP meter ─────────────────────────────────────────────────────────
+  const tpMeterEl = document.getElementById('tp-meter');
+  const TP_SEGS   = 16;
+  const tpSegs    = [];
+  for (let i = 0; i < TP_SEGS; i++) {
+    const seg = document.createElement('div');
+    seg.className = 'tp-seg';
+    tpMeterEl.appendChild(seg);
+    tpSegs.push(seg);
+  }
+
+  function updateTPMeter(lin) {
+    const db   = lin > 1e-5 ? 20 * Math.log10(lin) : -60;
+    const norm = Math.max(0, Math.min(1, (db + 18) / 18));
+    const nOn  = Math.round(norm * TP_SEGS);
+    tpSegs.forEach((seg, i) => {
+      seg.className = 'tp-seg';
+      if (i < nOn) {
+        const r = i / TP_SEGS;
+        if      (r > 0.85) seg.classList.add('on-hot');
+        else if (r > 0.70) seg.classList.add('on-warn');
+        else               seg.classList.add('on-safe');
+      }
+    });
+  }
+
+  // ── Small L/R meters ─────────────────────────────────────────────────
+  const inMC  = document.getElementById('in-meter').getContext('2d');
+  const outMC = document.getElementById('out-meter').getContext('2d');
+
+  function drawSmMeter(ctx, lin) {
+    const w = ctx.canvas.width, h = ctx.canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0,0,w,h);
+    const db   = lin > 1e-5 ? 20 * Math.log10(lin) : -60;
+    const norm = Math.max(0, Math.min(1, (db + 24) / 24));
+    const bH   = norm * h;
+    const g2   = ctx.createLinearGradient(0, h, 0, 0);
+    g2.addColorStop(0,   'rgba(160,71,255,0.9)');
+    g2.addColorStop(0.7, 'rgba(255,212,111,0.9)');
+    g2.addColorStop(1,   'rgba(255,60,60,0.9)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(0, h - bH, w, bH);
+  }
+
+  // ── Knob wiring ───────────────────────────────────────────────────────
+  const paramState = {};
+  let dragInfo     = null;
+
+  function normToTurn(n) { return -120 + n * 240; }
+
+  function paramNorm(id) {
+    const s = paramState[id]; if (!s) return 0;
+    return (s.value - s.min) / (s.max - s.min);
+  }
+
+  function fmtParam(id, v) {
+    switch (id) {
+      case 'gain':       return v.toFixed(1) + ' dB';
+      case 'drive':      return v.toFixed(1);
+      case 'ceiling':    return v.toFixed(1) + ' dBFS';
+      case 'outputGain': return v.toFixed(1) + ' dB';
+      case 'attack':     return v.toFixed(1) + ' ms';
+      case 'release':    return Math.round(v) + ' ms';
+      case 'lookahead':  return v.toFixed(1) + ' ms';
+      default:           return v.toFixed(1);
+    }
+  }
+
+  function syncKnob(knobEl, id) {
+    const n   = paramNorm(id);
+    const deg = normToTurn(n);
+    const ptr = knobEl.querySelector('.pointer');
+    if (ptr) ptr.style.setProperty('--turn', deg + 'deg');
+    // find readout – may be sibling or in parent cell
+    const cell = knobEl.closest('.knob-cell, .bottom-cell');
+    if (cell) {
+      const rd = cell.querySelector('[data-readout="' + id + '"]');
+      if (rd) rd.textContent = fmtParam(id, paramState[id].value);
+    }
+  }
+
+  function emitJUCE(id, val, evType) {
+    try {
+      const relay = window['__juce__slider' + id];
+      if (relay && typeof relay[evType] === 'function') relay[evType](val);
+    } catch (_) {}
+  }
+
+  // Default param values matching APVTS
+  const defaults = {
+    gain: { min:0, max:24, def:0 },
+    drive: { min:0, max:10, def:0 },
+    ceiling: { min:-12, max:0, def:-0.1 },
+    outputGain: { min:-12, max:0, def:0 },
+    attack: { min:0.1, max:50, def:1 },
+    release: { min:10, max:1000, def:100 },
+    lookahead: { min:0, max:20, def:5 },
+  };
+
+  document.querySelectorAll('.knob').forEach(knobEl => {
+    const id  = knobEl.dataset.param;
+    const min = parseFloat(knobEl.dataset.min);
+    const max = parseFloat(knobEl.dataset.max);
+    if (!id) return;
+    const def = defaults[id] ? defaults[id].def : (min + max) / 2;
+    paramState[id] = { value: def, min, max };
+    syncKnob(knobEl, id);
+
+    knobEl.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      knobEl.setPointerCapture(e.pointerId);
+      dragInfo = { id, knobEl, startY: e.clientY, startVal: paramState[id].value };
+      emitJUCE(id, paramState[id].value, 'gestureStart');
+    });
+
+    knobEl.addEventListener('pointermove', e => {
+      if (!dragInfo || dragInfo.id !== id) return;
+      const delta = dragInfo.startY - e.clientY;
+      const range = max - min;
+      const sens  = e.shiftKey ? 0.0015 : 0.004;
+      const nv    = Math.max(min, Math.min(max, dragInfo.startVal + delta * range * sens));
+      paramState[id].value = nv;
+      syncKnob(knobEl, id);
+      emitJUCE(id, nv, 'valueChanged');
+    });
+
+    const endDrag = () => {
+      if (dragInfo && dragInfo.id === id) {
+        emitJUCE(id, paramState[id].value, 'gestureEnd');
+        dragInfo = null;
+      }
+    };
+    knobEl.addEventListener('pointerup', endDrag);
+    knobEl.addEventListener('pointercancel', endDrag);
+  });
+
+  // JUCE → JS: parameter sync
+  function hookRelays() {
+    Object.keys(defaults).forEach(id => {
+      try {
+        const relay = window['__juce__slider' + id];
+        if (relay && relay.addParameterChangeListener) {
+          relay.addParameterChangeListener(norm => {
+            if (!paramState[id]) return;
+            const { min, max } = paramState[id];
+            paramState[id].value = min + norm * (max - min);
+            document.querySelectorAll('.knob[data-param="' + id + '"]').forEach(k => syncKnob(k, id));
+          });
+        }
+      } catch (_) {}
+    });
+  }
+
+  // ── Style buttons ─────────────────────────────────────────────────────
+  document.querySelectorAll('.style-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const s = parseInt(btn.dataset.style);
+      document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      emitJUCE('style', s, 'valueChanged');
+    });
+  });
+
+  // Oversample cycle
+  const ovLabels = ['1x','2x','4x','8x'];
+  let ovIdx = 1;
+  const ovBtn = document.getElementById('oversample-btn');
+  ovBtn.addEventListener('click', () => {
+    ovIdx = (ovIdx + 1) % 4;
+    ovBtn.textContent = ovLabels[ovIdx];
+    emitJUCE('oversample', ovIdx, 'valueChanged');
+  });
+
+  // Link
+  let linkOn = true;
+  const linkBtn = document.getElementById('link-btn');
+  linkBtn.addEventListener('click', () => {
+    linkOn = !linkOn;
+    linkBtn.classList.toggle('active', linkOn);
+    emitJUCE('link', linkOn ? 1 : 0, 'valueChanged');
+  });
+
+  // Dither
+  let ditherOn = false;
+  const ditherBtn = document.getElementById('dither-btn');
+  ditherBtn.addEventListener('click', () => {
+    ditherOn = !ditherOn;
+    ditherBtn.classList.toggle('active', ditherOn);
+    emitJUCE('dither', ditherOn ? 1 : 0, 'valueChanged');
+  });
+
+  // ── Meter update from C++ timer ───────────────────────────────────────
+  window.updateApexTelemetry = function(t) {
+    const gr   = t.grDb      || 0;
+    const lufs = t.lufs      || -70;
+    const tp   = t.truePeak  || -60;
+    const inL  = t.inputL    || 0;
+    const inR  = t.inputR    || 0;
+    const outL = t.outputL   || 0;
+    const outR = t.outputR   || 0;
+
+    grBuf[grHead] = gr;
+    grHead = (grHead + 1) % GR_HIST;
+
+    document.getElementById('gr-label').textContent = Math.abs(gr).toFixed(1) + ' dB GR';
+
+    const lufsEl = document.getElementById('lufs-read');
+    const tpEl   = document.getElementById('tp-read');
+    lufsEl.textContent = lufs > -70 ? lufs.toFixed(1) + ' LUFS' : '---';
+    tpEl.textContent   = tp   > -60 ? tp.toFixed(1)   + ' dBTP' : '---';
+
+    updateTPMeter(Math.max(outL, outR));
+    drawSmMeter(inMC,  Math.max(inL,  inR));
+    drawSmMeter(outMC, Math.max(outL, outR));
+  };
+
+  // ── Render loop ───────────────────────────────────────────────────────
+  function frame() { drawGR(); requestAnimationFrame(frame); }
+  setTimeout(hookRelays, 400);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
