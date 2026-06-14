@@ -30,10 +30,7 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
     rightPanel.addAndMakeVisible(*productionPanel);
 
     // Insert callbacks are wired after setEngine() is called (see setEngine)
-    productionPanel->onEQChanged = [](int band, float freq, float gainDb, float q) {
-        DBG("EQ band " + juce::String(band) + " freq=" + juce::String(freq)
-            + " gain=" + juce::String(gainDb) + " q=" + juce::String(q));
-    };
+    // onEQChanged is wired after setEngine() (see setEngine)
     productionPanel->onSendLevelChanged = [](int send, float level) {
         DBG("Send " + juce::String(send) + " level=" + juce::String(level));
     };
@@ -122,6 +119,14 @@ void EditWindow::setEngine(NovaStudio::StudioAudioEngine& e)
         if (idx < 0) return;
         enginePtr->removePluginFromTrack(idx, slot);
         arrangementModel.sendChangeMessage();
+    };
+
+    productionPanel->onEQChanged = [this](int band, float freq, float gainDb, float q)
+    {
+        if (!enginePtr) return;
+        int idx = arrangementModel.getSelectedTrackIndex();
+        if (idx < 0) return;
+        enginePtr->setTrackEQBand(idx, band, true, freq, gainDb, q);
     };
 }
 

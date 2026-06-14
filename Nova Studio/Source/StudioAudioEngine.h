@@ -42,6 +42,7 @@ namespace NovaStudio
 
         // Output metering: returns peak since last call (resets after read), range 0-1
         float getTrackPeakLevel(int trackIndex, int channel) const noexcept;
+        void  setTrackEQBand(int trackIndex, int band, bool enabled, float freq, float gainDb, float q);
 
         // Send bus levels (dB)
         void  setTrackSendLevel(int trackIndex, int sendIndex, float db);
@@ -117,8 +118,21 @@ namespace NovaStudio
             bool isPlaying = false;
             int trackChannels = 2;
             double clipStartSeconds = 0.0;
-            std::atomic<float> peakLevelLeft { 0.0f };
+            std::atomic<float> peakLevelLeft  { 0.0f };
             std::atomic<float> peakLevelRight { 0.0f };
+
+            struct EQBand {
+                std::atomic<bool>  enabled { true };
+                std::atomic<float> freq    { 1000.0f };
+                std::atomic<float> gainDb  { 0.0f };
+                std::atomic<float> q       { 0.707f };
+                // Biquad state (audio thread only — not atomic)
+                double b0=1,b1=0,b2=0,a1=0,a2=0;
+                double z1L=0,z2L=0,z1R=0,z2R=0;
+            };
+            static constexpr int kNumEQBands = 6;
+            std::array<EQBand, kNumEQBands> eqBands;
+            bool eqDirty { true };
         };
 
         void audioDeviceIOCallbackWithContext(const float* const* inputChannelData,

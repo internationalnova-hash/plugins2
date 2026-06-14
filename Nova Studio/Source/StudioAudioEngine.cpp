@@ -137,12 +137,84 @@ namespace NovaStudio
                 plugin->processBlock(*bufferToFill.buffer, emptyMidi);
         }
 
+        // Recalculate EQ biquad coefficients if parameters changed
+        if (eqDirty)
+        {
+            eqDirty = false;
+            const double sr = (sessionPtr && sessionPtr->getSampleRate() > 0.0)
+                              ? sessionPtr->getSampleRate() : 44100.0;
+            for (int b = 0; b < kNumEQBands; ++b)
+            {
+                auto& band = eqBands[b];
+                const double freq   = band.freq.load();
+                const double gainDb = band.gainDb.load();
+                const double q      = band.q.load();
+                const double w0     = 2.0 * juce::MathConstants<double>::pi * freq / sr;
+                const double cosw   = std::cos(w0);
+                const double sinw   = std::sin(w0);
+                const double alpha  = sinw / (2.0 * q);
+                double b0, b1, b2, a0, a1, a2;
+                if (b == 0) // HPF
+                {
+                    b0=(1+cosw)/2; b1=-(1+cosw); b2=(1+cosw)/2;
+                    a0=1+alpha;    a1=-2*cosw;    a2=1-alpha;
+                }
+                else if (b == kNumEQBands - 1) // LPF
+                {
+                    b0=(1-cosw)/2; b1=1-cosw;  b2=(1-cosw)/2;
+                    a0=1+alpha;    a1=-2*cosw;  a2=1-alpha;
+                }
+                else // Peaking EQ
+                {
+                    const double A = std::pow(10.0, gainDb / 40.0);
+                    b0=1+alpha*A; b1=-2*cosw; b2=1-alpha*A;
+                    a0=1+alpha/A; a1=-2*cosw; a2=1-alpha/A;
+                }
+                band.b0=b0/a0; band.b1=b1/a0; band.b2=b2/a0;
+                band.a1=a1/a0; band.a2=a2/a0;
+            }
+        }
+
+        // Apply EQ bands in series (Direct Form II Transposed biquad)
+        const int numSamples  = bufferToFill.numSamples;
+        const int startSample = bufferToFill.startSample;
+        for (int b = 0; b < kNumEQBands; ++b)
+        {
+            auto& band = eqBands[b];
+            if (!band.enabled.load()) continue;
+            const int numCh = bufferToFill.buffer->getNumChannels();
+            if (numCh > 0)
+            {
+                float* L = bufferToFill.buffer->getWritePointer(0, startSample);
+                for (int i = 0; i < numSamples; ++i)
+                {
+                    const double in  = L[i];
+                    const double out = band.b0 * in + band.z1L;
+                    band.z1L = band.b1 * in - band.a1 * out + band.z2L;
+                    band.z2L = band.b2 * in - band.a2 * out;
+                    L[i] = (float)out;
+                }
+            }
+            if (numCh > 1)
+            {
+                float* R = bufferToFill.buffer->getWritePointer(1, startSample);
+                for (int i = 0; i < numSamples; ++i)
+                {
+                    const double in  = R[i];
+                    const double out = band.b0 * in + band.z1R;
+                    band.z1R = band.b1 * in - band.a1 * out + band.z2R;
+                    band.z2R = band.b2 * in - band.a2 * out;
+                    R[i] = (float)out;
+                }
+            }
+        }
+
         // Update peak meters
         const int numCh = bufferToFill.buffer->getNumChannels();
         if (numCh > 0)
-            peakLevelLeft.store(bufferToFill.buffer->getMagnitude(0, bufferToFill.startSample, bufferToFill.numSamples));
+            peakLevelLeft.store(bufferToFill.buffer->getMagnitude(0, startSample, numSamples));
         if (numCh > 1)
-            peakLevelRight.store(bufferToFill.buffer->getMagnitude(1, bufferToFill.startSample, bufferToFill.numSamples));
+            peakLevelRight.store(bufferToFill.buffer->getMagnitude(1, startSample, numSamples));
     }
 
     void StudioAudioEngine::TrackPlayer::setTrackMetadata(const Track& trackInfo)
@@ -766,6 +838,20 @@ namespace NovaStudio
         if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return 0.0f;
         auto& player = *trackPlayers.getReference(trackIndex);
         return channel == 0 ? player.peakLevelLeft.load() : player.peakLevelRight.load();
+    }
+
+    void StudioAudioEngine::setTrackEQBand(int trackIndex, int band, bool enabled,
+                                            float freq, float gainDb, float q)
+    {
+        if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return;
+        if (band < 0 || band >= TrackPlayer::kNumEQBands) return;
+        auto& player = *trackPlayers.getReference(trackIndex);
+        auto& b = player.eqBands[band];
+        b.enabled.store(enabled);
+        b.freq.store(freq);
+        b.gainDb.store(gainDb);
+        b.q.store(q);
+        player.eqDirty = true;
     }
 
     void StudioAudioEngine::setTrackSendLevel(int trackIndex, int sendIndex, float db)
