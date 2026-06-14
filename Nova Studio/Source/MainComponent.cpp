@@ -91,7 +91,9 @@ MainComponent::MainComponent()
     transportBar.setLoopState(engine.getTransportState().isLooping());
 
     if (!engine.initialize())
-        updateStatusMessage("Audio initialization failed.");
+        updateStatusMessage("Audio initialization failed. Check System Preferences -> Sound.");
+    else if (engine.getActiveInputChannelCount() == 0)
+        updateStatusMessage("No input channels — grant microphone access in System Preferences -> Security & Privacy -> Microphone, then relaunch.");
 
     transportBar.setTempo(static_cast<int>(engine.getSession().getTempo()));
     transportBar.setTimecode(transportState.getTimecodeString(transportState.getPositionSamples()));

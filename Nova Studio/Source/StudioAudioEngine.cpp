@@ -260,17 +260,29 @@ namespace NovaStudio
 
     bool StudioAudioEngine::initialize()
     {
-        juce::String result = deviceManager.initialiseWithDefaultDevices(2, 2);
-        if (result.isNotEmpty())
+        // Try progressively simpler configurations until a device opens.
+        // On macOS, requesting 2 inputs while microphone permission is pending/denied
+        // causes CoreAudio to reject the session; JUCE returns success but no device.
+        struct Config { int ins; int outs; };
+        const Config configs[] = { {2, 2}, {1, 2}, {0, 2} };
+
+        juce::AudioIODevice* device = nullptr;
+        for (auto& cfg : configs)
         {
-            juce::Logger::writeToLog("initialiseWithDefaultDevices FAILED: " + result);
-            return false;
+            juce::String result = deviceManager.initialiseWithDefaultDevices(cfg.ins, cfg.outs);
+            device = deviceManager.getCurrentAudioDevice();
+            juce::Logger::writeToLog("initialiseWithDefaultDevices(" + juce::String(cfg.ins)
+                + "," + juce::String(cfg.outs) + ")"
+                + "  result=\"" + result + "\""
+                + "  device=" + (device ? device->getName() : "null"));
+            if (device != nullptr)
+                break;
         }
 
-        auto* device = deviceManager.getCurrentAudioDevice();
         if (device == nullptr)
         {
-            juce::Logger::writeToLog("initialize: getCurrentAudioDevice returned null");
+            juce::Logger::writeToLog("FATAL: No audio device could be opened. "
+                "Check System Preferences -> Sound and microphone permissions.");
             return false;
         }
 
@@ -279,13 +291,20 @@ namespace NovaStudio
         transportState.setSampleRate(currentSampleRate);
         transportState.setTempo(static_cast<int>(session.getTempo()));
 
-        juce::Logger::writeToLog("Audio device: " + device->getName()
+        const int activeIns  = device->getActiveInputChannels().countNumberOfSetBits();
+        const int activeOuts = device->getActiveOutputChannels().countNumberOfSetBits();
+        juce::Logger::writeToLog("Device open: " + device->getName()
             + "  SR=" + juce::String(currentSampleRate)
             + "  buf=" + juce::String(currentBufferSize)
-            + "  inputs=" + juce::String(device->getInputChannelNames().size())
-            + "  outputs=" + juce::String(device->getOutputChannelNames().size()));
-        juce::Logger::writeToLog("Active input channels:  " + device->getActiveInputChannels().toString(2));
-        juce::Logger::writeToLog("Active output channels: " + device->getActiveOutputChannels().toString(2));
+            + "  activeIn=" + juce::String(activeIns)
+            + "  activeOut=" + juce::String(activeOuts));
+
+        cachedActiveInputChannels = activeIns;
+
+        if (activeIns == 0)
+            juce::Logger::writeToLog("WARNING: Device opened with 0 input channels. "
+                "Recording will capture silence. "
+                "Grant microphone permission: System Preferences -> Security & Privacy -> Microphone.");
 
         deviceManager.addAudioCallback(this);
         return true;

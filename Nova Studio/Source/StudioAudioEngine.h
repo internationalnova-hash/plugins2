@@ -59,6 +59,7 @@ namespace NovaStudio
 
         juce::File getRecordingFolder()  const noexcept { return recordingFolder; }
         juce::File getLastRecordingFile() const noexcept { return currentRecordingFile; }
+        int getActiveInputChannelCount() const noexcept { return cachedActiveInputChannels; }
 
         static juce::File getDefaultSessionsFolder()
         {
@@ -138,6 +139,7 @@ namespace NovaStudio
         double currentSampleRate = 44100.0;
         int currentBufferSize = 512;
         std::atomic<bool> recordingActive { false };
+        int cachedActiveInputChannels = 0;
         int64_t recordingStartSample = 0;
         int recordingWriterChannels = 1;  // actual channel count used by the writer
         TransportState transportState;
