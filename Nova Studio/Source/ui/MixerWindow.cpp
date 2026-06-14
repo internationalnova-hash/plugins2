@@ -581,7 +581,7 @@ void ChannelStrip::drawInsertSlots(juce::Graphics& g, juce::Rectangle<int> area)
         else
         {
             g.setColour(juce::Colours::white.withAlpha(0.18f));
-            g.drawText("-- empty --", slot, juce::Justification::centred);
+            g.drawText("Empty Slot", slot, juce::Justification::centred);
         }
     }
 

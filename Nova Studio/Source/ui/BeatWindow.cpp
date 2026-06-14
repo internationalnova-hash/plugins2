@@ -826,7 +826,7 @@ void DrumRackPanel::drawPluginChain(juce::Graphics& g, juce::Rectangle<int> area
         g.setColour(BeatTheme::stepOff());
         g.fillRoundedRectangle(slot.toFloat(), 3.0f);
         g.setColour(juce::Colours::white.withAlpha(0.3f));
-        g.drawText("-- empty --", slot.reduced(4, 0), juce::Justification::centredLeft);
+        g.drawText("Empty Slot", slot.reduced(4, 0), juce::Justification::centredLeft);
     }
 
     g.setColour(BeatTheme::edge());

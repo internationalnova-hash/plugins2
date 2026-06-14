@@ -370,6 +370,16 @@ namespace NovaStudioUI
                 g.drawText(panStr, pBarX + pBarW + 3, pBarY - 1, 24, 11, juce::Justification::left);
             }
 
+            // Input/Output bus labels (small, grey, at y+36)
+            {
+                const juce::String inStr  = track.inputBus.isEmpty()  ? "Default In" : track.inputBus;
+                const juce::String outStr = track.outputBus.isEmpty() ? "Main Out"   : track.outputBus;
+                g.setColour(juce::Colours::white.withAlpha(0.28f));
+                g.setFont(juce::Font(juce::FontOptions(9.0f)));
+                g.drawText(inStr,  32, y + 36, armX - 36, 11, juce::Justification::left);
+                g.drawText(outStr, 32, y + 36, armX - 36, 11, juce::Justification::right);
+            }
+
             // Buttons (bottom row)
             const int btnY = y + kTrackHeight - btnH - 6;
 
@@ -1616,6 +1626,14 @@ namespace NovaStudioUI
                     loopDragStartSample = xToSample(clickPoint.x, timelineModel, snapNow, snapBeats, session);
                     return;
                 }
+            }
+
+            // Double-click in ruler → return to zero
+            if (event.getNumberOfClicks() == 2)
+            {
+                transportState.setPositionSamples(0, true);
+                repaint();
+                return;
             }
 
             // Click-drag in ruler → start range/selection drag
@@ -3619,10 +3637,12 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         viewport.setViewedComponent(&contentComp, false);
         viewport.setScrollBarsShown(true, false);
         addAndMakeVisible(viewport);
+        startTimerHz(30);
     }
 
     ProductionPanel::~ProductionPanel()
     {
+        stopTimer();
         for (auto* btn : { &muteBtn, &soloBtn, &armBtn })
             btn->removeListener(this);
         for (auto& slot : insertSlots)
@@ -3688,28 +3708,82 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
 
     void ProductionPanel::paintMeter(juce::Graphics& g, juce::Rectangle<int> r)
     {
-        // Placeholder stereo meter — two vertical bars
-        g.setColour(juce::Colour::fromRGB(20, 22, 32));
+        // Dark background
+        g.setColour(juce::Colour::fromRGB(10, 12, 18));
         g.fillRect(r);
 
-        int barW = (r.getWidth() - 4) / 2;
-        // L channel — draw a static placeholder at -12dB
-        float lvl = 0.5f;
-        juce::Rectangle<int> lBar(r.getX(), r.getY(), barW, r.getHeight());
-        juce::Rectangle<int> rBar(r.getX() + barW + 4, r.getY(), barW, r.getHeight());
+        // Reserve space for dB labels on right (20px)
+        const int labelW = 20;
+        const int labelsX = r.getRight() - labelW;
 
-        auto drawBar = [&](juce::Rectangle<int> bar, float level)
-        {
-            g.setColour(juce::Colour::fromRGB(20, 22, 32));
-            g.fillRect(bar);
-            int fillH = (int)(bar.getHeight() * level);
-            auto fill = bar.removeFromBottom(fillH);
-            g.setColour(kBypassOn);
-            g.fillRect(fill);
+        // dB scale labels
+        static const struct { float db; const char* label; } kDbLabels[] = {
+            { 3.0f, "+3" }, { 0.0f, "0" }, { -6.0f, "-6" },
+            { -12.0f, "-12" }, { -24.0f, "-24" }
         };
 
-        drawBar(lBar, lvl);
-        drawBar(rBar, lvl * 0.85f);
+        // Map dB to y position (top = +3dB, bottom = -inf)
+        auto dbToY = [&](float db) -> float {
+            if (db >= 0.0f)
+                return (float)r.getY() + (3.0f - db) / 3.0f * 0.15f * (float)r.getHeight();
+            const float dbClamped = juce::jmax(db, -60.0f);
+            return (float)r.getY() + 0.15f * (float)r.getHeight()
+                   + (-dbClamped / 60.0f) * 0.85f * (float)r.getHeight();
+        };
+
+        g.setFont(juce::FontOptions(7.5f));
+        for (auto& lbl : kDbLabels)
+        {
+            float fy = dbToY(lbl.db);
+            g.setColour(juce::Colours::white.withAlpha(lbl.db == 0.0f ? 0.5f : 0.3f));
+            g.drawText(lbl.label, labelsX, (int)(fy - 5.0f), labelW - 1, 10,
+                       juce::Justification::centredLeft, false);
+            // tick on meter side
+            g.setColour(juce::Colours::white.withAlpha(0.15f));
+            g.fillRect((float)r.getX(), fy, (float)(labelsX - r.getX() - 2), 0.8f);
+        }
+
+        // Channel bars
+        const int barsRight = labelsX - 3;
+        const int totalBarW = barsRight - r.getX() - 4;
+        const int barW = (totalBarW - 3) / 2;
+
+        auto drawMeterBar = [&](int bx, float level)
+        {
+            // background
+            g.setColour(juce::Colour::fromRGB(15, 17, 24));
+            g.fillRect(bx, r.getY(), barW, r.getHeight());
+
+            if (level < 0.001f) return;
+
+            // Convert linear to dB
+            const float db = 20.0f * std::log10(juce::jmax(level, 1e-6f));
+            const float yTop = dbToY(juce::jmin(db, 3.0f));
+            const float yBot = (float)r.getBottom();
+
+            // Segmented fill with gradient colour
+            const int segH = 3, segGap = 1;
+            for (float fy = yBot - segH; fy >= yTop; fy -= (segH + segGap))
+            {
+                // Colour: green at bottom, yellow at -6dB, red at top
+                const float normPos = 1.0f - (fy - (float)r.getY()) / (float)r.getHeight();
+                juce::Colour segCol;
+                if (normPos < 0.7f)      segCol = juce::Colour::fromRGB(50, 200, 80);
+                else if (normPos < 0.88f) segCol = juce::Colour::fromRGB(220, 200, 30);
+                else                      segCol = juce::Colour::fromRGB(220, 50, 50);
+                g.setColour(segCol);
+                g.fillRect((float)bx, fy, (float)barW, (float)segH);
+            }
+        };
+
+        drawMeterBar(r.getX() + 2, meterLevelL);
+        drawMeterBar(r.getX() + 2 + barW + 3, meterLevelR);
+
+        // L / R labels
+        g.setColour(juce::Colours::white.withAlpha(0.4f));
+        g.setFont(juce::FontOptions(7.0f));
+        g.drawText("L", r.getX() + 2, r.getBottom() - 10, barW, 10, juce::Justification::centred, false);
+        g.drawText("R", r.getX() + 2 + barW + 3, r.getBottom() - 10, barW, 10, juce::Justification::centred, false);
     }
 
     double ProductionPanel::calcBiquadMagnitude(int bandIdx, double normFreq) const
@@ -3811,8 +3885,62 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
             else        curve.lineTo(x, y);
         }
 
+        // Filled gradient under curve
+        {
+            juce::Path filled = curve;
+            filled.lineTo((float)(r.getRight()), (float)r.getBottom());
+            filled.lineTo((float)r.getX(), (float)r.getBottom());
+            filled.closeSubPath();
+            juce::ColourGradient grad(kAccent.withAlpha(0.15f), 0.0f, (float)r.getY(),
+                                      juce::Colours::transparentBlack, 0.0f, (float)r.getBottom(), false);
+            g.setGradientFill(grad);
+            g.fillPath(filled);
+        }
+
         g.setColour(kEQCurve);
         g.strokePath(curve, juce::PathStrokeType(1.5f));
+
+        // 0 dB center line (slightly brighter)
+        {
+            float zeroY = r.getY() + r.getHeight() * 0.5f;
+            g.setColour(juce::Colour::fromRGB(45, 52, 65));
+            g.drawHorizontalLine((int)zeroY, (float)r.getX(), (float)r.getRight());
+        }
+
+        // Frequency axis labels at bottom
+        {
+            static const struct { float hz; const char* label; } kFreqLabels[] = {
+                { 50.0f, "50" }, { 200.0f, "200" }, { 1000.0f, "1k" },
+                { 5000.0f, "5k" }, { 20000.0f, "20k" }
+            };
+            const float logMin = std::log10(20.0f), logMax = std::log10(20000.0f);
+            g.setFont(juce::FontOptions(7.0f));
+            for (auto& fl : kFreqLabels)
+            {
+                float nx = (std::log10(fl.hz) - logMin) / (logMax - logMin);
+                float fx = r.getX() + nx * r.getWidth();
+                g.setColour(juce::Colours::white.withAlpha(0.35f));
+                g.drawText(fl.label, (int)(fx - 12), r.getBottom() - 11, 24, 10,
+                           juce::Justification::centred, false);
+                g.setColour(juce::Colour::fromRGB(30, 35, 45));
+                g.drawVerticalLine((int)fx, (float)r.getY(), (float)(r.getBottom() - 11));
+            }
+        }
+
+        // dB labels on right edge
+        {
+            static const struct { float db; const char* label; } kDbEdge[] = {
+                { 12.0f, "+12" }, { 0.0f, "0" }, { -12.0f, "-12" }
+            };
+            g.setFont(juce::FontOptions(7.0f));
+            for (auto& dl : kDbEdge)
+            {
+                float dy = r.getY() + r.getHeight() * (1.0f - (dl.db + 12.0f) / 24.0f);
+                g.setColour(juce::Colours::white.withAlpha(0.35f));
+                g.drawText(dl.label, r.getRight() - 20, (int)(dy - 4), 19, 9,
+                           juce::Justification::centredRight, false);
+            }
+        }
 
         // Draw draggable band nodes
         static const juce::Colour nodeColours[] = {

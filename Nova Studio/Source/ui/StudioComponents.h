@@ -140,11 +140,19 @@ namespace NovaStudioUI
     // =========================================================================
     class ProductionPanel : public juce::Component,
                             private juce::Slider::Listener,
-                            private juce::Button::Listener
+                            private juce::Button::Listener,
+                            private juce::Timer
     {
     public:
         explicit ProductionPanel(NovaStudio::ArrangementModel& arrangementModel);
         ~ProductionPanel() override;
+
+        void setMeterLevels(float L, float R)
+        {
+            meterLevelL = juce::jmax(meterLevelL, L);
+            meterLevelR = juce::jmax(meterLevelR, R);
+            repaint();
+        }
 
         void paint(juce::Graphics& g) override;
         void resized() override;
@@ -166,6 +174,17 @@ namespace NovaStudioUI
         std::function<void(int send, float level)>                        onSendLevelChanged;
 
     private:
+        void timerCallback() override
+        {
+            bool needRepaint = false;
+            if (meterLevelL > 0.001f) { meterLevelL *= 0.92f; needRepaint = true; }
+            if (meterLevelR > 0.001f) { meterLevelR *= 0.92f; needRepaint = true; }
+            if (needRepaint) repaint();
+        }
+
+        float meterLevelL = 0.0f;
+        float meterLevelR = 0.0f;
+
         struct EQBand { bool enabled = true; float freq = 1000.0f; float gain = 0.0f; float q = 0.707f; };
         static constexpr int kNumBands   = 6;
         static constexpr int kNumInserts = 8;
@@ -192,7 +211,7 @@ namespace NovaStudioUI
         struct InsertSlot
         {
             juce::TextButton bypassBtn  {""};
-            juce::TextButton nameBtn    {"\u2014 empty \u2014"};
+            juce::TextButton nameBtn    {"Empty Slot"};
             juce::String     pluginName;
             bool             bypassed = false;
         };
