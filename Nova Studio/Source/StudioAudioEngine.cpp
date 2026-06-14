@@ -519,6 +519,16 @@ namespace NovaStudio
         juce::Logger::writeToLog("startRecordingInternal: deviceInputs=" + juce::String(deviceInputs)
             + "  SR=" + juce::String(currentSampleRate));
 
+        if (auto* device = deviceManager.getCurrentAudioDevice())
+        {
+            auto inputNames = device->getInputChannelNames();
+            auto activeInputs = device->getActiveInputChannels();
+            for (int i = 0; i < inputNames.size(); ++i)
+                juce::Logger::writeToLog("  input ch" + juce::String(i)
+                    + " active=" + juce::String((int)activeInputs[i])
+                    + " name=\"" + inputNames[i] + "\"");
+        }
+
         if (deviceInputs == 0)
         {
             juce::Logger::writeToLog("WARNING: No active input channels. "
@@ -863,15 +873,22 @@ namespace NovaStudio
 
         if (recordingActive.load() && recordingWriter != nullptr)
         {
-            // Log the first block to confirm callback is firing with valid input
             const int64_t blockNum = diagBlocksReceived.fetch_add(1);
-            if (blockNum == 0)
+            // Log signal levels for first 10 blocks to diagnose silent input
+            if (blockNum < 10)
             {
-                // Safe to call from audio thread in JUCE's Logger (uses lock-free queue)
-                juce::Logger::writeToLog("Recording: first audio block received. "
-                    "numInputChannels=" + juce::String(numInputChannels)
-                    + "  numSamples=" + juce::String(numSamples)
-                    + "  writerChannels=" + juce::String(recordingWriterChannels));
+                juce::String msg = "RecBlock#" + juce::String(blockNum)
+                    + " numIn=" + juce::String(numInputChannels)
+                    + " writerCh=" + juce::String(recordingWriterChannels) + " peaks:";
+                for (int ch = 0; ch < numInputChannels; ++ch)
+                {
+                    float peak = 0.0f;
+                    if (inputChannelData[ch] != nullptr)
+                        for (int s = 0; s < numSamples; ++s)
+                            peak = juce::jmax(peak, std::abs(inputChannelData[ch][s]));
+                    msg += " ch" + juce::String(ch) + "=" + juce::String(peak, 6);
+                }
+                juce::Logger::writeToLog(msg);
             }
 
             const int writerCh = recordingWriterChannels;
