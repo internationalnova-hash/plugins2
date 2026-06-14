@@ -3,7 +3,6 @@
 #include <array>
 #include <atomic>
 #include <vector>
-#include <complex>
 #include <cmath>
 #include <memory>
 
@@ -82,43 +81,76 @@ private:
     float hzToMidi        (float hz)   const;
 
     // -------------------------------------------------------------------------
-    // Phase vocoder
+    // Simple two-pointer crossfading pitch shifter (grain-based, no FFT)
     // -------------------------------------------------------------------------
-    struct PVChannel
+    struct SimplePitchShifter
     {
-        std::vector<float>               inputBuf;   // ring buffer for input
-        int                              inputWritePos { 0 };
-        std::vector<float>               outputBuf;  // overlap-add accumulation
-        int                              outputWritePos { 0 };
-        int                              outputReadPos  { 0 };
-        std::vector<float>               lastAnalysisPhase;
-        std::vector<float>               synthesisPhase;
-        std::vector<std::complex<float>> fftBuf;
-        int                              samplesSinceLastHop { 0 };
+        static constexpr int N    = 8192;   // ring buffer size (must be power of 2)
+        static constexpr int MASK = N - 1;
 
-        void reset (int fftSize)
+        std::array<float, N> buf {};
+        int   writePos = 0;
+        // Relative positions: negative means "this many samples behind the write pointer"
+        float readArel = -(N / 2.0f);          // nominal: half-buffer behind
+        float readBrel = -(N * 3.0f / 4.0f);  // B starts one more quarter behind
+
+        void reset() noexcept
         {
-            int bufSize = fftSize * 4;
-            inputBuf.assign  (bufSize, 0.0f);
-            outputBuf.assign (bufSize, 0.0f);
-            lastAnalysisPhase.assign (fftSize / 2 + 1, 0.0f);
-            synthesisPhase.assign    (fftSize / 2 + 1, 0.0f);
-            fftBuf.assign            (fftSize,          { 0.0f, 0.0f });
-            inputWritePos  = 0;
-            outputWritePos = 0;
-            outputReadPos  = 0;
-            samplesSinceLastHop = 0;
+            buf.fill (0.0f);
+            writePos = 0;
+            readArel = -(N / 2.0f);
+            readBrel = -(N * 3.0f / 4.0f);
+        }
+
+        float process (float input, float ratio) noexcept
+        {
+            // Write
+            buf[writePos & MASK] = input;
+            ++writePos;
+
+            // Each reader gains `(ratio-1)` relative to the write pointer per sample.
+            // At ratio=1: no movement relative to write.
+            // At ratio>1: reader drifts toward write (distance shrinks).
+            // At ratio<1: reader drifts away (distance grows).
+            readArel += (ratio - 1.0f);
+            readBrel += (ratio - 1.0f);
+
+            // Clamp: keep relative position in safe range
+            // Too close to write (> -N/8): jump back half-buffer to avoid reading the future
+            // Too far from write (< -7N/8): jump forward to avoid reading stale data
+            constexpr float minDist = -(N / 8.0f);      // closest allowed = -1024
+            constexpr float maxDist = -(7.0f * N / 8.0f); // furthest allowed = -7168
+            constexpr float jump    = -(N / 2.0f);       // jump amount = -4096
+
+            if (readArel > minDist) readArel += jump;
+            if (readArel < maxDist) readArel -= jump;
+            if (readBrel > minDist) readBrel += jump;
+            if (readBrel < maxDist) readBrel -= jump;
+
+            // Cross-fade weights: fade a reader out as it approaches minDist (jump zone)
+            constexpr float fadeWidth = N / 8.0f;        // 1024 samples to fade
+            float wA = juce::jlimit (0.0f, 1.0f, (minDist - readArel) / fadeWidth);
+            float wB = juce::jlimit (0.0f, 1.0f, (minDist - readBrel) / fadeWidth);
+            float totalW = wA + wB;
+            if (totalW < 1e-6f) { wA = 0.5f; wB = 0.5f; }
+            else { wA /= totalW; wB /= totalW; }
+
+            // Interpolated buffer reads
+            auto lerp = [this](float rel) -> float
+            {
+                float abs = (float)writePos + rel - 1.0f;  // -1 because writePos already incremented
+                float wrapped = abs - (float)N * std::floor (abs / (float)N);
+                int i0 = (int)wrapped & MASK;
+                int i1 = (i0 + 1) & MASK;
+                float frac = wrapped - (float)(int)wrapped;
+                return buf[i0] * (1.0f - frac) + buf[i1] * frac;
+            };
+
+            return lerp (readArel) * wA + lerp (readBrel) * wB;
         }
     };
 
-    void initPV (bool lowLatency);
-    void processPVChannel (PVChannel& ch, const float* in, float* out, int numSamples, float ratio);
-    void runPVFrame (PVChannel& ch, float ratio);
-
-    // -------------------------------------------------------------------------
-    // Formant envelope helpers
-    // -------------------------------------------------------------------------
-    void computeSpectralEnvelope (const std::vector<float>& mag, std::vector<float>& env, int smoothBins);
+    SimplePitchShifter spL, spR;   // one per channel
 
     // -------------------------------------------------------------------------
     // Member state
@@ -132,16 +164,12 @@ private:
     int    blocksSinceValidPitch{ 0 };
     static constexpr int maxHoldBlocks = 20;
 
-    // Pitch ratio smoothing
+    // Pitch correction smoothing
     float pitchRatioSmoothed    { 1.0f };
 
-    // PV engine
-    std::unique_ptr<juce::dsp::FFT> fft;
-    std::vector<float>              hannWindow;
-    int  currentFftSize  { 2048 };
-    int  currentHopSize  { 512 };
-    int  currentFftOrder { 11 };
-    PVChannel pvL, pvR;
+    // Pitch detection history for median filter (last 5 blocks)
+    std::array<float, 5> pitchHistory5 {};
+    int  ph5index = 0;
 
     // UI atomics
     std::atomic<float> detectedPitch  { 0.0f };

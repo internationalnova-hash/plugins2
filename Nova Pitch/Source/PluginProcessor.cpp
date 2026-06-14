@@ -21,6 +21,7 @@ NovaPitchAudioProcessor::NovaPitchAudioProcessor()
       apvts (*this, nullptr, "Parameters", createParameterLayout())
 {
     yinBuf.assign (yinBufferSize, 0.0f);
+    pitchHistory5.fill (0.0f);
 }
 
 NovaPitchAudioProcessor::~NovaPitchAudioProcessor() {}
@@ -52,50 +53,26 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
 {
     currentSampleRate = sampleRate;
 
-    bool ll = static_cast<bool> (apvts.getRawParameterValue ("lowLatency")->load());
-    initPV (ll);
+    spL.reset();
+    spR.reset();
 
     yinBuf.assign (yinBufferSize, 0.0f);
-    yinWritePos          = 0;
-    smoothedDetectedHz   = 0.0f;
+    yinWritePos           = 0;
+    smoothedDetectedHz    = 0.0f;
     blocksSinceValidPitch = 0;
-    pitchRatioSmoothed   = 1.0f;
-    historyIndex         = 0;
+    pitchRatioSmoothed    = 1.0f;
+    historyIndex          = 0;
+    ph5index              = 0;
+    pitchHistory5.fill (0.0f);
+
+    // The grain shifter introduces ~N/2 = 4096 samples of latency
+    setLatencySamples (SimplePitchShifter::N / 2);
 }
 
 void NovaPitchAudioProcessor::releaseResources() {}
 
 // ---------------------------------------------------------------------------
-// PV init
-// ---------------------------------------------------------------------------
-void NovaPitchAudioProcessor::initPV (bool lowLatency)
-{
-    if (lowLatency)
-    {
-        currentFftOrder = 9;   // 512
-        currentHopSize  = 128;
-    }
-    else
-    {
-        currentFftOrder = 11;  // 2048
-        currentHopSize  = 512;
-    }
-    currentFftSize = 1 << currentFftOrder;
-
-    fft = std::make_unique<juce::dsp::FFT> (currentFftOrder);
-
-    hannWindow.resize ((size_t)currentFftSize);
-    for (int i = 0; i < currentFftSize; ++i)
-        hannWindow[(size_t)i] = 0.5f - 0.5f * std::cos (2.0f * juce::MathConstants<float>::pi * (float)i / (float)(currentFftSize - 1));
-
-    pvL.reset (currentFftSize);
-    pvR.reset (currentFftSize);
-
-    setLatencySamples (currentFftSize);
-}
-
-// ---------------------------------------------------------------------------
-// YIN pitch detector
+// YIN pitch detection
 // ---------------------------------------------------------------------------
 float NovaPitchAudioProcessor::detectYIN (const float* samples, int n)
 {
@@ -164,7 +141,6 @@ int NovaPitchAudioProcessor::quantizeToScale (float hz)
             if (dist < bestDist) { bestDist = dist; best = degrees[i]; }
         }
         int octave = midiR - pc;
-        // snap to nearest octave relative to midiR
         int candidate = octave + best + key % 12;
         if (candidate < midiR - 6) candidate += 12;
         if (candidate > midiR + 6) candidate -= 12;
@@ -186,140 +162,6 @@ float NovaPitchAudioProcessor::midiToHz (int midi) const { return midiToHzF ((fl
 float NovaPitchAudioProcessor::hzToMidi (float hz)  const { return hzToMidiF (hz); }
 
 // ---------------------------------------------------------------------------
-// Spectral envelope for formant preservation
-// ---------------------------------------------------------------------------
-void NovaPitchAudioProcessor::computeSpectralEnvelope (
-    const std::vector<float>& mag, std::vector<float>& env, int smoothBins)
-{
-    env.resize (mag.size());
-    std::vector<float> logMag (mag.size());
-    for (size_t i = 0; i < mag.size(); ++i)
-        logMag[i] = std::log (mag[i] + 1e-9f);
-
-    int half = smoothBins / 2;
-    for (int i = 0; i < (int)logMag.size(); ++i)
-    {
-        int lo = std::max (0, i - half);
-        int hi = std::min ((int)logMag.size() - 1, i + half);
-        float sum = 0.0f;
-        for (int k = lo; k <= hi; ++k) sum += logMag[(size_t)k];
-        env[(size_t)i] = std::exp (sum / (float)(hi - lo + 1));
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Phase vocoder frame
-// ---------------------------------------------------------------------------
-void NovaPitchAudioProcessor::runPVFrame (PVChannel& ch, float ratio)
-{
-    const int N     = currentFftSize;
-    const int bins  = N / 2 + 1;
-    const float twoPi = juce::MathConstants<float>::twoPi;
-
-    // Windowed input frame
-    std::vector<float> fftData (N * 2, 0.0f);
-    for (int i = 0; i < N; ++i)
-    {
-        int idx = (ch.inputWritePos - N + i + (int)ch.inputBuf.size()) % (int)ch.inputBuf.size();
-        fftData[(size_t)i] = ch.inputBuf[(size_t)idx] * hannWindow[(size_t)i];
-    }
-
-    fft->performRealOnlyForwardTransform (fftData.data(), true);
-
-    // Analysis: magnitude + true frequency
-    std::vector<float> mag  (bins, 0.0f);
-    std::vector<float> freq (bins, 0.0f);
-    for (int k = 0; k < bins; ++k)
-    {
-        float re = fftData[(size_t)(k * 2)];
-        float im = fftData[(size_t)(k * 2 + 1)];
-        mag[(size_t)k] = std::sqrt (re * re + im * im);
-
-        float phase     = std::atan2 (im, re);
-        float phaseDiff = phase - ch.lastAnalysisPhase[(size_t)k];
-        ch.lastAnalysisPhase[(size_t)k] = phase;
-
-        float expected  = twoPi * (float)k * (float)currentHopSize / (float)N;
-        float deltaPhi  = phaseDiff - expected;
-        deltaPhi -= twoPi * std::round (deltaPhi / twoPi);
-        freq[(size_t)k] = ((float)k + deltaPhi * (float)N / (twoPi * (float)currentHopSize))
-                          * (float)currentSampleRate / (float)N;
-    }
-
-    // Optional formant envelope capture
-    bool doFormant = static_cast<bool> (apvts.getRawParameterValue ("formant")->load());
-    std::vector<float> envOrig;
-    if (doFormant)
-        computeSpectralEnvelope (mag, envOrig, 30);
-
-    // Bin scatter by ratio
-    std::vector<float> magOut  (bins, 0.0f);
-    std::vector<float> freqOut (bins, 0.0f);
-    for (int k = 0; k < bins; ++k)
-    {
-        int kNew = (int)std::round ((float)k * ratio);
-        if (kNew >= 0 && kNew < bins && mag[(size_t)k] > magOut[(size_t)kNew])
-        {
-            magOut [(size_t)kNew] = mag [(size_t)k];
-            freqOut[(size_t)kNew] = freq[(size_t)k] * ratio;
-        }
-    }
-
-    // Formant correction
-    if (doFormant)
-    {
-        std::vector<float> envShifted;
-        computeSpectralEnvelope (magOut, envShifted, 30);
-        for (int k = 0; k < bins; ++k)
-            magOut[(size_t)k] *= envOrig[(size_t)k] / (envShifted[(size_t)k] + 1e-9f);
-    }
-
-    // Synthesis phase accumulation + IFFT
-    std::vector<float> synthData (N * 2, 0.0f);
-    for (int k = 0; k < bins; ++k)
-    {
-        float expected  = twoPi * (float)k * (float)currentHopSize / (float)N;
-        float deltaPhi  = (freqOut[(size_t)k] * (float)N / (float)currentSampleRate - (float)k)
-                          * twoPi * (float)currentHopSize / (float)N;
-        ch.synthesisPhase[(size_t)k] += expected + deltaPhi;
-        float sp = ch.synthesisPhase[(size_t)k];
-        synthData[(size_t)(k * 2)]     = magOut[(size_t)k] * std::cos (sp);
-        synthData[(size_t)(k * 2 + 1)] = magOut[(size_t)k] * std::sin (sp);
-    }
-    fft->performRealOnlyInverseTransform (synthData.data());
-
-    // Overlap-add
-    float gain = (float)currentHopSize / ((float)N * 0.5f);
-    for (int i = 0; i < N; ++i)
-    {
-        int idx = (ch.outputWritePos + i) % (int)ch.outputBuf.size();
-        ch.outputBuf[(size_t)idx] += synthData[(size_t)i] * hannWindow[(size_t)i] * gain;
-    }
-    ch.outputWritePos = (ch.outputWritePos + currentHopSize) % (int)ch.outputBuf.size();
-}
-
-void NovaPitchAudioProcessor::processPVChannel (
-    PVChannel& ch, const float* in, float* out, int numSamples, float ratio)
-{
-    for (int s = 0; s < numSamples; ++s)
-    {
-        ch.inputBuf[(size_t)ch.inputWritePos] = in[s];
-        ch.inputWritePos = (ch.inputWritePos + 1) % (int)ch.inputBuf.size();
-        ch.samplesSinceLastHop++;
-
-        if (ch.samplesSinceLastHop >= currentHopSize)
-        {
-            ch.samplesSinceLastHop = 0;
-            runPVFrame (ch, ratio);
-        }
-
-        out[s] = ch.outputBuf[(size_t)ch.outputReadPos];
-        ch.outputBuf[(size_t)ch.outputReadPos] = 0.0f;
-        ch.outputReadPos = (ch.outputReadPos + 1) % (int)ch.outputBuf.size();
-    }
-}
-
-// ---------------------------------------------------------------------------
 // processBlock
 // ---------------------------------------------------------------------------
 void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
@@ -330,13 +172,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const int numSamples  = buffer.getNumSamples();
     const int numChannels = buffer.getNumChannels();
 
-    // Reinit if low-latency mode changed
-    bool llWanted  = static_cast<bool> (apvts.getRawParameterValue ("lowLatency")->load());
-    bool llCurrent = (currentFftSize == 512);
-    if (llWanted != llCurrent)
-        initPV (llWanted);
-
-    // Feed mono sum into YIN ring buffer
+    // Feed mono sum into YIN ring buffer (from input, before processing)
     const float* chL = buffer.getReadPointer (0);
     const float* chR = (numChannels > 1) ? buffer.getReadPointer (1) : chL;
     for (int s = 0; s < numSamples; ++s)
@@ -345,7 +181,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         yinWritePos = (yinWritePos + 1) % yinBufferSize;
     }
 
-    // YIN detection
+    // YIN pitch detection on the last yinBufferSize samples
     float detectedHz = -1.0f;
     {
         std::vector<float> linear (yinBufferSize);
@@ -354,28 +190,50 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         detectedHz = detectYIN (linear.data(), yinBufferSize);
     }
 
+    // Update 5-block pitch history (for median filter)
     if (detectedHz > 0.0f)
+    {
+        pitchHistory5[(size_t)ph5index] = detectedHz;
+        ph5index = (ph5index + 1) % 5;
+    }
+
+    // Compute median of last 5 valid detections
+    float medianHz = 0.0f;
+    {
+        // Collect non-zero history entries
+        std::array<float, 5> tmp = pitchHistory5;
+        // Sort and pick middle
+        std::sort (tmp.begin(), tmp.end());
+        // Use the middle non-zero value
+        int nonZeroCount = 0;
+        for (auto v : tmp) if (v > 0.0f) ++nonZeroCount;
+        if (nonZeroCount >= 3)
+            medianHz = tmp[(size_t)(nonZeroCount / 2 + (5 - nonZeroCount))]; // median of valid ones
+        else if (nonZeroCount > 0)
+            medianHz = tmp[(size_t)(5 - nonZeroCount)]; // take the smallest non-zero (most recent)
+    }
+
+    // Smooth the median-filtered detection
+    if (medianHz > 0.0f)
     {
         if (smoothedDetectedHz > 0.0f)
         {
-            float semiDist = std::abs (hzToMidiF (detectedHz) - hzToMidiF (smoothedDetectedHz));
+            float semiDist = std::abs (hzToMidiF (medianHz) - hzToMidiF (smoothedDetectedHz));
 
-            // Reject octave-confusion jumps — YIN often returns 2x/0.5x the true pitch.
-            // If the new detection is near an octave multiple, keep tracking slowly.
-            float hzRatio = detectedHz / (smoothedDetectedHz + 1e-9f);
+            // Octave-jump rejection
+            float hzRatio = medianHz / (smoothedDetectedHz + 1e-9f);
             bool octaveJump = (hzRatio > 1.88f && hzRatio < 2.12f)
                            || (hzRatio > 0.47f && hzRatio < 0.53f);
 
-            float alpha = octaveJump    ? 0.02f   // probably a YIN alias — barely move
-                        : semiDist > 2.0f ? 0.15f // genuine new note — track moderately
-                        : semiDist > 0.5f ? 0.08f // moderate deviation — follow slowly
-                                          : 0.04f; // micro-wobble — barely move
-
-            smoothedDetectedHz = alpha * detectedHz + (1.0f - alpha) * smoothedDetectedHz;
+            float alpha = octaveJump    ? 0.02f
+                        : semiDist > 2.0f ? 0.15f
+                        : semiDist > 0.5f ? 0.08f
+                                          : 0.04f;
+            smoothedDetectedHz = alpha * medianHz + (1.0f - alpha) * smoothedDetectedHz;
         }
         else
         {
-            smoothedDetectedHz = detectedHz;
+            smoothedDetectedHz = medianHz;
         }
         blocksSinceValidPitch = 0;
     }
@@ -402,40 +260,33 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         correctedPitch.store (targetHz);
         pitchConfidence.store (confThresh);
 
-        // Cents deviation from target
         float detectedMidi = hzToMidiF (smoothedDetectedHz);
         float centsDiff    = (hzToMidiF (targetHz) - detectedMidi) * 100.0f;
 
-        // Deadband (tolerance): if within N cents, don't correct at all
-        // tolerance=0 → 0 cents deadband (always correct), tolerance=1 → 50 cents deadband
         float deadbandCents = tolerance * 50.0f;
 
         if (std::abs (centsDiff) <= deadbandCents)
         {
-            // Inside deadband — glide ratio back toward 1.0 gently
-            pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.08f;
+            // Inside deadband — glide back to unity
+            pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.05f;
         }
         else
         {
-            // Absolute pitch ratio — what the vocoder needs to bring voice to targetHz
+            // Absolute pitch ratio needed to reach targetHz
             float fullRatio = targetHz / (smoothedDetectedHz + 1e-9f);
 
-            // Soft deadband: scale correction to zero inside the band, full outside
+            // Soft deadband scale
             float absCents  = std::abs (centsDiff);
             float bandScale = juce::jlimit (0.0f, 1.0f,
                                 (absCents - deadbandCents) / (deadbandCents + 1.0f));
-
             float targetRatio = 1.0f + (fullRatio - 1.0f) * bandScale;
 
-            // Exponential smoothing — amount controls speed (MetaTune feel).
-            // Cap alpha at 0.12 so the phase vocoder never sees a ratio jump > ~12% per block.
-            // amount=0 → α=0.005 (very slow glide), amount=1 → α=0.12 (fast but smooth)
-            float alpha = 0.005f + amount * amount * 0.115f;
+            // Exponential smoothing — amount controls speed
+            // amount=0 → α=0.005 (very slow), amount=1 → α=0.08 (fast but smooth)
+            float alpha = 0.005f + amount * amount * 0.075f;
             pitchRatioSmoothed += (targetRatio - pitchRatioSmoothed) * alpha;
         }
 
-        // Vibrato preservation: blend some of the original (uncorrected) ratio back in
-        // vibrato=0 → full correction, vibrato=1 → no correction (pass-through)
         if (vibratoAmt > 0.0f)
             pitchRatioSmoothed = pitchRatioSmoothed * (1.0f - vibratoAmt) + 1.0f * vibratoAmt;
 
@@ -443,49 +294,55 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
     else
     {
-        // No pitch detected — glide back to unity
-        pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.08f;
+        pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.05f;
         ratio = pitchRatioSmoothed;
     }
 
-    ratio = juce::jlimit (0.5f, 2.0f, ratio);
+    // Clamp to ±2 semitones max correction (safer range for grain shifter)
+    ratio = juce::jlimit (0.89f, 1.12f, ratio);
 
     pitchHistory[(size_t)historyIndex].store (smoothedDetectedHz);
     historyIndex = (historyIndex + 1) % pitchHistorySize;
 
-    // Phase vocoder
-    if (numChannels >= 2)
+    // Apply grain pitch shifter sample by sample
+    float* bufL = buffer.getWritePointer (0);
+    float* bufR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
+
+    for (int s = 0; s < numSamples; ++s)
     {
-        juce::AudioBuffer<float> outBuf (2, numSamples);
-        outBuf.clear();
-        processPVChannel (pvL, buffer.getReadPointer (0), outBuf.getWritePointer (0), numSamples, ratio);
-        processPVChannel (pvR, buffer.getReadPointer (1), outBuf.getWritePointer (1), numSamples, ratio);
-        buffer.copyFrom (0, 0, outBuf, 0, 0, numSamples);
-        buffer.copyFrom (1, 0, outBuf, 1, 0, numSamples);
-    }
-    else if (numChannels == 1)
-    {
-        juce::AudioBuffer<float> outBuf (1, numSamples);
-        outBuf.clear();
-        processPVChannel (pvL, buffer.getReadPointer (0), outBuf.getWritePointer (0), numSamples, ratio);
-        buffer.copyFrom (0, 0, outBuf, 0, 0, numSamples);
+        bufL[s] = spL.process (bufL[s], ratio);
+        if (bufR != nullptr)
+            bufR[s] = spR.process (bufR[s], ratio);
     }
 }
 
 // ---------------------------------------------------------------------------
 // Bus layout
 // ---------------------------------------------------------------------------
+#ifndef JucePlugin_PreferredChannelConfigurations
 bool NovaPitchAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono() &&
-        layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
+     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
-    return layouts.getMainInputChannelSet() == layouts.getMainOutputChannelSet();
+
+    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
+        return false;
+
+    return true;
 }
+#endif
 
 // ---------------------------------------------------------------------------
-// Standard boilerplate
+// Editor / boilerplate
 // ---------------------------------------------------------------------------
+juce::AudioProcessorEditor* NovaPitchAudioProcessor::createEditor()
+{
+    return new NovaPitchAudioProcessorEditor (*this);
+}
+
+bool NovaPitchAudioProcessor::hasEditor() const { return true; }
+
 const juce::String NovaPitchAudioProcessor::getName() const { return JucePlugin_Name; }
 bool NovaPitchAudioProcessor::acceptsMidi()  const { return false; }
 bool NovaPitchAudioProcessor::producesMidi() const { return false; }
@@ -494,15 +351,9 @@ double NovaPitchAudioProcessor::getTailLengthSeconds() const { return 0.0; }
 
 int NovaPitchAudioProcessor::getNumPrograms()                             { return 1; }
 int NovaPitchAudioProcessor::getCurrentProgram()                          { return 0; }
-void NovaPitchAudioProcessor::setCurrentProgram (int)                    {}
-const juce::String NovaPitchAudioProcessor::getProgramName (int)         { return {}; }
+void NovaPitchAudioProcessor::setCurrentProgram (int)                     {}
+const juce::String NovaPitchAudioProcessor::getProgramName (int)          { return {}; }
 void NovaPitchAudioProcessor::changeProgramName (int, const juce::String&) {}
-
-bool NovaPitchAudioProcessor::hasEditor() const { return true; }
-juce::AudioProcessorEditor* NovaPitchAudioProcessor::createEditor()
-{
-    return new NovaPitchAudioProcessorEditor (*this);
-}
 
 void NovaPitchAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
@@ -513,9 +364,9 @@ void NovaPitchAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 
 void NovaPitchAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
-    if (xml && xml->hasTagName (apvts.state.getType()))
-        apvts.replaceState (juce::ValueTree::fromXml (*xml));
+    std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
+    if (xmlState != nullptr && xmlState->hasTagName (apvts.state.getType()))
+        apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
