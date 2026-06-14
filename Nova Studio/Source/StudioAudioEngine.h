@@ -153,7 +153,7 @@ namespace NovaStudio
             std::atomic<float> peakLevelRight { 0.0f };
 
             struct EQBand {
-                std::atomic<bool>  enabled { true };
+                std::atomic<bool>  enabled { false };  // disabled by default — flat until user enables
                 std::atomic<float> freq    { 1000.0f };
                 std::atomic<float> gainDb  { 0.0f };
                 std::atomic<float> q       { 0.707f };

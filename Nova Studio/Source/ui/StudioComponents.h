@@ -232,6 +232,10 @@ namespace NovaStudioUI
             repaint();
         }
 
+        // Called every timer tick to pull live meter levels from the engine
+        std::function<float(int)> getMeterLevel;  // arg: 0=L, 1=R
+        std::function<void(float)> onVolumeChanged;
+
         void paint(juce::Graphics& g) override;
         void resized() override;
         void mouseDown(const juce::MouseEvent& e) override;
@@ -256,9 +260,14 @@ namespace NovaStudioUI
     private:
         void timerCallback() override
         {
+            if (getMeterLevel)
+            {
+                meterLevelL = juce::jmax(meterLevelL, getMeterLevel(0));
+                meterLevelR = juce::jmax(meterLevelR, getMeterLevel(1));
+            }
             bool needRepaint = false;
-            if (meterLevelL > 0.001f) { meterLevelL *= 0.92f; needRepaint = true; }
-            if (meterLevelR > 0.001f) { meterLevelR *= 0.92f; needRepaint = true; }
+            if (meterLevelL > 0.001f) { meterLevelL *= 0.88f; needRepaint = true; }
+            if (meterLevelR > 0.001f) { meterLevelR *= 0.88f; needRepaint = true; }
             if (needRepaint) repaint();
         }
 
@@ -330,6 +339,8 @@ namespace NovaStudioUI
         // Scrollable content
         juce::Viewport viewport;
         juce::Component contentComp;
+
+        juce::Slider volumeKnob { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
 
         // Current track state
         float currentVolDb  = 0.0f;

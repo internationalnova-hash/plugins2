@@ -160,6 +160,21 @@ void EditWindow::setEngine(NovaStudio::StudioAudioEngine& e)
         int idx = arrangementModel.getSelectedTrackIndex();
         if (idx >= 0) enginePtr->setTrackSendPreFader(idx, send, pre);
     };
+
+    productionPanel->getMeterLevel = [this](int ch) -> float
+    {
+        if (!enginePtr) return 0.0f;
+        const int idx = arrangementModel.getSelectedTrackIndex();
+        if (idx < 0) return 0.0f;
+        return enginePtr->getTrackPeakLevel(idx, ch);
+    };
+
+    productionPanel->onVolumeChanged = [this](float db)
+    {
+        if (!enginePtr) return;
+        const int idx = arrangementModel.getSelectedTrackIndex();
+        if (idx >= 0) enginePtr->setTrackVolume(idx, db);
+    };
 }
 
 void EditWindow::setLevelCallback(std::function<float(int,int)> fn)

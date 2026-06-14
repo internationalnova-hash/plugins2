@@ -3592,6 +3592,15 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         gainDbLabel.setJustificationType(juce::Justification::centred);
         contentComp.addAndMakeVisible(gainDbLabel);
 
+        volumeKnob.setRange(-60.0, 12.0, 0.1);
+        volumeKnob.setValue(0.0, juce::dontSendNotification);
+        volumeKnob.setDoubleClickReturnValue(true, 0.0);
+        volumeKnob.setTooltip("Track volume (dB) — double-click to reset");
+        volumeKnob.setColour(juce::Slider::rotarySliderFillColourId, kAccent);
+        volumeKnob.setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour::fromRGB(40,44,58));
+        volumeKnob.addListener(this);
+        contentComp.addAndMakeVisible(volumeKnob);
+
         for (auto* btn : { &muteBtn, &soloBtn, &armBtn })
         {
             btn->setColour(juce::TextButton::buttonColourId, kSlotBg);
@@ -3656,8 +3665,8 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
             contentComp.addAndMakeVisible(bc.qSlider);
 
             bc.enableBtn.setClickingTogglesState(true);
-            bc.enableBtn.setToggleState(true, juce::dontSendNotification);
-            bc.enableBtn.setColour(juce::TextButton::buttonColourId, kBypassOn);
+            bc.enableBtn.setToggleState(false, juce::dontSendNotification);
+            bc.enableBtn.setColour(juce::TextButton::buttonColourId, kBypassOff);
             bc.enableBtn.setColour(juce::TextButton::buttonOnColourId, kBypassOn);
             bc.enableBtn.addListener(this);
             contentComp.addAndMakeVisible(bc.enableBtn);
@@ -3730,6 +3739,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
     ProductionPanel::~ProductionPanel()
     {
         stopTimer();
+        volumeKnob.removeListener(this);
         for (auto* btn : { &muteBtn, &soloBtn, &armBtn })
             btn->removeListener(this);
         for (auto& slot : insertSlots)
@@ -3757,6 +3767,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         currentArmed  = track.armed;
 
         gainDbLabel.setText(juce::String(track.volumeDb, 1) + " dB", juce::dontSendNotification);
+        volumeKnob.setValue(track.volumeDb, juce::dontSendNotification);
         muteBtn.setToggleState(track.muted, juce::dontSendNotification);
         soloBtn.setToggleState(track.solo, juce::dontSendNotification);
         armBtn.setToggleState(track.armed, juce::dontSendNotification);
@@ -4058,23 +4069,50 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
             juce::Colour::fromRGB(200, 80,  80),   // HF   red
             juce::Colour::fromRGB(80, 200, 200),   // LPF  cyan
         };
+        static const char* kBandShortNames[] = { "HP","LF","LM","HM","HF","LP" };
         for (int i = 0; i < kNumBands; ++i)
         {
-            if (!eqBands[i].enabled) continue;
             auto node = eqNodePos(r, eqBands[i].freq, eqBands[i].gain);
-            const bool dragging = (i == dragBandIndex);
-            const float radius  = dragging ? 7.0f : 5.0f;
-            g.setColour(nodeColours[i % 6].withAlpha(dragging ? 1.0f : 0.85f));
+            const bool dragging  = (i == dragBandIndex);
+            const bool isEnabled = eqBands[i].enabled;
+            const float radius   = dragging ? 10.0f : 8.0f;
+            const juce::Colour col = nodeColours[i % 6];
+
+            // Glow halo for enabled nodes
+            if (isEnabled)
+            {
+                g.setColour(col.withAlpha(0.18f));
+                g.fillEllipse(node.x - radius - 4, node.y - radius - 4,
+                              (radius + 4) * 2, (radius + 4) * 2);
+            }
+
+            // Outer ring
+            g.setColour(isEnabled ? col : col.withAlpha(0.3f));
             g.fillEllipse(node.x - radius, node.y - radius, radius * 2, radius * 2);
-            g.setColour(juce::Colours::white.withAlpha(0.7f));
-            g.drawEllipse(node.x - radius, node.y - radius, radius * 2, radius * 2, 1.0f);
-            // Frequency label below node
+
+            // Inner highlight
+            g.setColour(juce::Colours::white.withAlpha(isEnabled ? 0.25f : 0.10f));
+            g.fillEllipse(node.x - radius * 0.5f, node.y - radius * 0.8f,
+                          radius * 0.7f, radius * 0.5f);
+
+            // Border
+            g.setColour(juce::Colours::white.withAlpha(dragging ? 1.0f : 0.7f));
+            g.drawEllipse(node.x - radius, node.y - radius, radius * 2, radius * 2,
+                          dragging ? 2.0f : 1.2f);
+
+            // Band label inside node
+            g.setFont(juce::FontOptions(juce::Font::plain).withHeight(7.5f).withStyle("Bold"));
+            g.setColour(juce::Colours::white.withAlpha(isEnabled ? 0.9f : 0.4f));
+            g.drawText(kBandShortNames[i], (int)(node.x - radius), (int)(node.y - 5),
+                       (int)(radius * 2), 10, juce::Justification::centred);
+
+            // Frequency value below node
             g.setFont(juce::FontOptions(6.5f));
-            g.setColour(juce::Colours::white.withAlpha(0.6f));
+            g.setColour(col.withAlpha(isEnabled ? 0.8f : 0.4f));
             const juce::String freqLabel = eqBands[i].freq >= 1000.0f
                 ? juce::String(eqBands[i].freq / 1000.0f, 1) + "k"
                 : juce::String((int)eqBands[i].freq);
-            g.drawText(freqLabel, (int)(node.x - 12), (int)(node.y + radius + 1), 24, 8,
+            g.drawText(freqLabel, (int)(node.x - 14), (int)(node.y + radius + 2), 28, 9,
                        juce::Justification::centred);
         }
     }
@@ -4103,30 +4141,34 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
 
         int y = 0;
 
-        // ---- Section 1: Track Channel (180px) ----
-        const int sec1H = 180;
-        // Header bar
-        int headerH = 18;
-        // Track name
+        // ---- Section 1: Track Channel ----
+        const int headerH = 18;
+
+        // Track name row
         trackNameLabel.setBounds(4, y + 2, W - 8, 22);
         y += 26;
-        // Meter — drawn directly in paint(), just reserve space here
-        const int meterH = 60;
+
+        // Meter (left 55%) + volume knob (right 40%)
+        const int meterH   = 70;
+        const int knobSize = 52;
+        const int meterW   = W - knobSize - 12;
+        // meter drawn in paint() — just reserve space
+        const int knobX = meterW + 8;
+        volumeKnob.setBounds(knobX, y + (meterH - knobSize) / 2, knobSize, knobSize);
         y += meterH + 4;
+
         // IN/OUT labels
         inputLabel.setBounds(4, y, W/2 - 6, 14);
         outputLabel.setBounds(W/2 + 2, y, W/2 - 6, 14);
         y += 18;
-        // MSR buttons + gain label
-        int btnW = 30;
+
+        // MSR buttons + dB readout
+        const int btnW = 28;
         muteBtn.setBounds(4, y, btnW, 22);
         soloBtn.setBounds(4 + btnW + 3, y, btnW, 22);
         armBtn.setBounds(4 + (btnW + 3) * 2, y, btnW, 22);
         gainDbLabel.setBounds(4 + (btnW + 3) * 3, y, W - 4 - (btnW + 3) * 3 - 4, 22);
-        y += 26;
-
-        // Pad to sec1H
-        y = juce::jmax(y, sec1H);
+        y += 28;
 
         // ---- Section 2: Inserts (header 18 + 8*22 + gap 8) ----
         // Header painted in paint()
@@ -4223,18 +4265,25 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
                                                           viewport.getY() + offset.y);
         if (!graphInThis.contains(e.getPosition())) return;
 
-        // Hit-test each band node (12px radius)
+        // Hit-test each band node (14px radius) — dragging a disabled band auto-enables it
         dragBandIndex = -1;
         for (int i = 0; i < kNumBands; ++i)
         {
-            if (!eqBands[i].enabled) continue;
             auto node = eqNodePos(graphInThis, eqBands[i].freq, eqBands[i].gain);
-            if (e.position.getDistanceFrom(node) < 12.0f)
+            if (e.position.getDistanceFrom(node) < 14.0f)
             {
                 dragBandIndex  = i;
                 dragStartFreq  = eqBands[i].freq;
                 dragStartGain  = eqBands[i].gain;
                 dragStartPos   = e.position;
+                // Auto-enable band when user grabs the node
+                if (!eqBands[i].enabled)
+                {
+                    eqBands[i].enabled = true;
+                    bandControls[i].enableBtn.setToggleState(true, juce::dontSendNotification);
+                    bandControls[i].enableBtn.setColour(juce::TextButton::buttonColourId, kBypassOn);
+                    if (onEQChanged) onEQChanged(i, eqBands[i].freq, eqBands[i].gain, eqBands[i].q);
+                }
                 return;
             }
         }
@@ -4310,6 +4359,14 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
                 if (onSendLevelChanged) onSendLevelChanged(i, (float)s->getValue());
                 return;
             }
+        }
+
+        if (s == &volumeKnob)
+        {
+            currentVolDb = (float)s->getValue();
+            gainDbLabel.setText(juce::String(currentVolDb, 1) + " dB", juce::dontSendNotification);
+            if (onVolumeChanged) onVolumeChanged(currentVolDb);
+            return;
         }
     }
 
