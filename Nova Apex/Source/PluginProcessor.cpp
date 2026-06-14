@@ -24,25 +24,99 @@ namespace
     inline float dbToLinear (float db) noexcept { return std::pow (10.0f, db / 20.0f); }
     inline float linearToDb (float lin) noexcept { return 20.0f * std::log10 (lin + 1.0e-10f); }
 
-    inline float makeAttackCoeff (float ms, double sr) noexcept
+    inline float makeCoeff (float ms, double sr) noexcept
     {
+        if (ms <= 0.0f) return 0.0f;
         return std::exp (-1.0f / (static_cast<float> (sr) * ms * 0.001f));
     }
 
-    inline float makeReleaseCoeff (float ms, double sr) noexcept
+    // Triangular PDF dither, amplitude scaled to target bit depth
+    inline float triangleDither (float& state, int bits) noexcept
     {
-        return std::exp (-1.0f / (static_cast<float> (sr) * ms * 0.001f));
-    }
-
-    // Triangular PDF dither, ~0.5 LSB at 24-bit
-    inline float triangleDither (float& state) noexcept
-    {
-        constexpr float amplitude = 1.0f / 16777216.0f; // 2^-24
+        const float amplitude = 1.0f / static_cast<float> (1 << bits);
         const float r1 = static_cast<float> (rand()) / static_cast<float> (RAND_MAX);
         const float r2 = state;
         state = r1;
         return amplitude * (r1 - r2);
     }
+
+    // Nova Heat-style soft saturation: asymmetric with even harmonics
+    inline float novaHeatSaturate (float x, float drive) noexcept
+    {
+        // drive 0..10 mapped to saturation depth
+        const float depth = 1.0f + drive * 0.35f;
+        const float s = std::tanh (x * depth);
+        // Asymmetric: slight bias generates 2nd harmonic like tape/tube
+        return s + 0.015f * drive * (s * s);
+    }
+
+    // 8 factory presets: { gain, drive, ceiling, outputGain, style(0-5),
+    //   attack, release, lookahead, oversample(0-3), link, dither,
+    //   transientPreserve, lowEndProtect, loudnessTarget }
+    struct PresetData
+    {
+        const char* name;
+        float gain, drive, ceiling, outputGain;
+        int   style;
+        float attack, release, lookahead;
+        int   oversample;
+        bool  link;
+        bool  dither;
+        float transientPreserve, lowEndProtect, loudnessTarget;
+    };
+
+    static const PresetData kPresets[] =
+    {
+        // Transparent Master — surgical, minimal colouring
+        { "Transparent Master",
+          0.0f, 0.0f, -0.1f, 0.0f, 0 /*Clean*/,
+          0.5f, 200.0f, 7.0f, 1 /*2x*/, true, false,
+          0.4f, 0.5f, -14.0f },
+
+        // Streaming Ready — -14 LUFS, soft ceiling
+        { "Streaming Ready",
+          2.0f, 0.5f, -1.0f, -0.5f, 0 /*Clean*/,
+          1.0f, 150.0f, 5.0f, 1, true, true,
+          0.3f, 0.4f, -14.0f },
+
+        // Loud Pop — competitive loudness with preserved transients
+        { "Loud Pop",
+          6.0f, 2.0f, -0.1f, 0.0f, 3 /*Loud*/,
+          0.3f, 60.0f, 3.0f, 2 /*4x*/, true, false,
+          0.6f, 0.3f, -9.0f },
+
+        // Punchy Hip Hop — slow attack, big transients, sub punch
+        { "Punchy Hip Hop",
+          4.0f, 1.5f, -0.3f, 0.0f, 1 /*Punch*/,
+          3.0f, 100.0f, 5.0f, 1, true, false,
+          0.7f, 0.8f, -10.0f },
+
+        // Analog Glue — Nova Heat saturation before limiting, warm & wide
+        { "Analog Glue",
+          3.0f, 5.0f, -0.3f, -0.5f, 4 /*Analog*/,
+          2.0f, 120.0f, 6.0f, 2, true, false,
+          0.5f, 0.6f, -11.0f },
+
+        // Vocal Master — smooth release, preserve detail
+        { "Vocal Master",
+          1.0f, 0.5f, -0.5f, 0.0f, 2 /*Smooth*/,
+          1.5f, 300.0f, 8.0f, 1, false, true,
+          0.2f, 0.1f, -14.0f },
+
+        // EDM Loud — maximum loudness, fast everything
+        { "EDM Loud",
+          8.0f, 3.0f, -0.1f, 0.0f, 3 /*Loud*/,
+          0.1f, 40.0f, 2.0f, 3 /*8x*/, true, false,
+          0.3f, 0.5f, -7.0f },
+
+        // Release Ready — conservative, broadcast safe, dithered
+        { "Release Ready",
+          1.0f, 0.0f, -0.3f, -0.2f, 5 /*Master*/,
+          1.0f, 250.0f, 10.0f, 1, true, true,
+          0.5f, 0.5f, -16.0f },
+    };
+
+    static constexpr int kNumPresets = 8;
 }
 
 NovaApexAudioProcessor::NovaApexAudioProcessor()
@@ -56,6 +130,8 @@ NovaApexAudioProcessor::NovaApexAudioProcessor()
       apvts (*this, nullptr, juce::Identifier ("NovaApex"), createParameterLayout())
 {
     for (auto& buf : lookaheadBuf)
+        buf.assign (kMaxLookaheadSamples, 0.0f);
+    for (auto& buf : preLimitBuf)
         buf.assign (kMaxLookaheadSamples, 0.0f);
 }
 
@@ -142,22 +218,69 @@ const juce::String NovaApexAudioProcessor::getName() const { return JucePlugin_N
 bool NovaApexAudioProcessor::acceptsMidi() const { return false; }
 bool NovaApexAudioProcessor::producesMidi() const { return false; }
 bool NovaApexAudioProcessor::isMidiEffect() const { return false; }
-double NovaApexAudioProcessor::getTailLengthSeconds() const { return 0.02; } // 20ms lookahead
-int NovaApexAudioProcessor::getNumPrograms() { return 1; }
-int NovaApexAudioProcessor::getCurrentProgram() { return 0; }
-void NovaApexAudioProcessor::setCurrentProgram (int) {}
-const juce::String NovaApexAudioProcessor::getProgramName (int) { return {}; }
+double NovaApexAudioProcessor::getTailLengthSeconds() const { return 0.025; }
+
+int NovaApexAudioProcessor::getNumPrograms() { return kNumPresets; }
+int NovaApexAudioProcessor::getCurrentProgram() { return currentProgram; }
+
+void NovaApexAudioProcessor::setCurrentProgram (int index)
+{
+    if (index < 0 || index >= kNumPresets) return;
+    currentProgram = index;
+
+    const auto& p = kPresets[index];
+    apvts.getParameter (gainId)->setValueNotifyingHost (
+        apvts.getParameter (gainId)->convertTo0to1 (p.gain));
+    apvts.getParameter (driveId)->setValueNotifyingHost (
+        apvts.getParameter (driveId)->convertTo0to1 (p.drive));
+    apvts.getParameter (ceilingId)->setValueNotifyingHost (
+        apvts.getParameter (ceilingId)->convertTo0to1 (p.ceiling));
+    apvts.getParameter (outputGainId)->setValueNotifyingHost (
+        apvts.getParameter (outputGainId)->convertTo0to1 (p.outputGain));
+    apvts.getParameter (styleId)->setValueNotifyingHost (
+        apvts.getParameter (styleId)->convertTo0to1 (static_cast<float> (p.style)));
+    apvts.getParameter (attackId)->setValueNotifyingHost (
+        apvts.getParameter (attackId)->convertTo0to1 (p.attack));
+    apvts.getParameter (releaseId)->setValueNotifyingHost (
+        apvts.getParameter (releaseId)->convertTo0to1 (p.release));
+    apvts.getParameter (lookaheadId)->setValueNotifyingHost (
+        apvts.getParameter (lookaheadId)->convertTo0to1 (p.lookahead));
+    apvts.getParameter (oversampleId)->setValueNotifyingHost (
+        apvts.getParameter (oversampleId)->convertTo0to1 (static_cast<float> (p.oversample)));
+    apvts.getParameter (linkId)->setValueNotifyingHost (p.link ? 1.0f : 0.0f);
+    apvts.getParameter (ditherId)->setValueNotifyingHost (p.dither ? 1.0f : 0.0f);
+    apvts.getParameter (transientPreserveId)->setValueNotifyingHost (
+        apvts.getParameter (transientPreserveId)->convertTo0to1 (p.transientPreserve));
+    apvts.getParameter (lowEndProtectId)->setValueNotifyingHost (
+        apvts.getParameter (lowEndProtectId)->convertTo0to1 (p.lowEndProtect));
+    apvts.getParameter (loudnessTargetId)->setValueNotifyingHost (
+        apvts.getParameter (loudnessTargetId)->convertTo0to1 (p.loudnessTarget));
+}
+
+const juce::String NovaApexAudioProcessor::getProgramName (int index)
+{
+    if (index >= 0 && index < kNumPresets) return kPresets[index].name;
+    return {};
+}
+
 void NovaApexAudioProcessor::changeProgramName (int, const juce::String&) {}
 
 void NovaApexAudioProcessor::resetState() noexcept
 {
     gainEnv = { 1.0f, 1.0f };
-    for (auto& buf : lookaheadBuf)
-        std::fill (buf.begin(), buf.end(), 0.0f);
+    for (auto& buf : lookaheadBuf)  std::fill (buf.begin(), buf.end(), 0.0f);
+    for (auto& buf : preLimitBuf)   std::fill (buf.begin(), buf.end(), 0.0f);
     lookaheadWritePos = { 0, 0 };
-    rmsAccum = 0.0f;
-    rmsCount = 0;
-    tpHold = 0.0f;
+    preLimitWritePos  = { 0, 0 };
+    transientFastEnv  = { 0.0f, 0.0f };
+    transientSlowEnv  = { 0.0f, 0.0f };
+    lowEndLPState     = { 0.0f, 0.0f };
+    novaGuardAccum    = 0.0f;
+    adaptiveReleaseMul = 1.0f;
+    rmsAccum    = 0.0f;
+    rmsAccumOut = 0.0f;
+    rmsCount    = 0;
+    tpHold      = 0.0f;
     inputPeakHoldL = inputPeakHoldR = 0.0f;
     outputPeakHoldL = outputPeakHoldR = 0.0f;
     ditherState = { 0.0f, 0.0f };
@@ -168,10 +291,32 @@ void NovaApexAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     currentSampleRate = sampleRate;
     currentBlockSize  = samplesPerBlock;
 
+    // Envelope coefficients for transient detector
+    transientFastCoeff = makeCoeff (3.0f, sampleRate);
+    transientSlowCoeff = makeCoeff (80.0f, sampleRate);
+
+    // Low-end LP: ~80 Hz
+    const float lpFreq = 80.0f;
+    lowEndLPCoeff = std::exp (-2.0f * juce::MathConstants<float>::pi * lpFreq
+                              / static_cast<float> (sampleRate));
+
+    // Nova Guard decay: ~2 second window
+    novaGuardDecay = std::exp (-1.0f / (static_cast<float> (sampleRate) * 2.0f));
+
     const float lookaheadMs = apvts.getRawParameterValue (lookaheadId)->load();
-    lookaheadDelaySamples = juce::jmin (
+    lookaheadDelaySamples   = juce::jmin (
         static_cast<int> (lookaheadMs * 0.001f * static_cast<float> (sampleRate)),
         kMaxLookaheadSamples - 1);
+
+    // Build oversampler for the nonlinear drive stage
+    const int osChoice = juce::roundToInt (apvts.getRawParameterValue (oversampleId)->load());
+    const int osFactor = (osChoice == 0) ? 1 : (1 << osChoice); // 1,2,4,8
+    lastOversampleFactor = osFactor;
+
+    oversampler = std::make_unique<juce::dsp::Oversampling<float>> (
+        2, static_cast<size_t> (osChoice == 0 ? 0 : osChoice),
+        juce::dsp::Oversampling<float>::filterHalfBandFIREquiripple, true);
+    oversampler->initProcessing (static_cast<size_t> (samplesPerBlock));
 
     resetState();
 }
@@ -181,79 +326,66 @@ void NovaApexAudioProcessor::releaseResources() {}
 #ifndef JucePlugin_PreferredChannelConfigurations
 bool NovaApexAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-    const auto input  = layouts.getMainInputChannelSet();
-    const auto output = layouts.getMainOutputChannelSet();
-
-    if (output != juce::AudioChannelSet::mono() && output != juce::AudioChannelSet::stereo())
+    const auto in  = layouts.getMainInputChannelSet();
+    const auto out = layouts.getMainOutputChannelSet();
+    if (out != juce::AudioChannelSet::mono() && out != juce::AudioChannelSet::stereo())
         return false;
-
-    return input == output;
+    return in == out;
 }
 #endif
 
-float NovaApexAudioProcessor::processSampleLimiter (float sample, int channel,
-                                                     float ceilingLinear, float inputGainLinear,
-                                                     float attackCoeff, float releaseCoeff,
-                                                     int style, bool link) noexcept
+float NovaApexAudioProcessor::applyDrive (float x, float driveAmt, int style) noexcept
 {
-    const int envCh = link ? 0 : channel;
+    if (driveAmt < 0.001f) return x;
 
-    // Apply input gain
-    float driven = sample * inputGainLinear;
+    if (style == 4) // Analog: full Nova Heat saturation
+        return novaHeatSaturate (x, driveAmt);
 
-    // Analog style: tanh saturation before limiting
-    if (style == 4)
-    {
-        const float sat = 1.6f;
-        driven = std::tanh (driven * sat) / sat;
-    }
+    // All other styles: subtle harmonic density — partial drive blend
+    const float blend = driveAmt * 0.06f;
+    return x + blend * (novaHeatSaturate (x, driveAmt * 0.4f) - x);
+}
 
-    const float epsilon = 1.0e-9f;
-    const float absVal  = std::abs (driven);
+float NovaApexAudioProcessor::lowEndProtectFactor (float sample, int ch, float amount) noexcept
+{
+    if (amount < 0.001f) return 0.0f;
 
-    // Compute instantaneous target gain reduction
-    float targetGr = 1.0f;
-    if (absVal > ceilingLinear)
-    {
-        switch (style)
-        {
-            case 0: // Clean: linear
-                targetGr = ceilingLinear / (absVal + epsilon);
-                break;
-            case 1: // Punch: harder attack factor
-                targetGr = ceilingLinear / (absVal * 1.08f + epsilon);
-                break;
-            case 2: // Smooth: softer ratio
-                targetGr = std::sqrt (ceilingLinear / (absVal + epsilon));
-                break;
-            case 3: // Loud: more aggressive
-                targetGr = ceilingLinear / (absVal * 1.15f + epsilon);
-                break;
-            case 4: // Analog: soft-knee
-            {
-                const float over = absVal - ceilingLinear;
-                targetGr = (ceilingLinear + over * 0.12f) / (absVal + epsilon);
-                break;
-            }
-            case 5: // Master: very conservative
-                targetGr = (ceilingLinear + (absVal - ceilingLinear) * 0.05f) / (absVal + epsilon);
-                break;
-            default:
-                targetGr = ceilingLinear / (absVal + epsilon);
-                break;
-        }
-        targetGr = juce::jmin (1.0f, targetGr);
-    }
+    // Track low-end energy via LP filter
+    lowEndLPState[ch] = lowEndLPCoeff * lowEndLPState[ch]
+                        + (1.0f - lowEndLPCoeff) * std::abs (sample);
 
-    // Smooth gain envelope
-    float& env = gainEnv[envCh];
-    if (targetGr < env)
-        env = attackCoeff * env + (1.0f - attackCoeff) * targetGr;
-    else
-        env = releaseCoeff * env + (1.0f - releaseCoeff) * targetGr;
+    // High low-end energy → relax GR; return 0..1 suppression multiplier
+    // A value of 1 means "don't reduce GR at all from low-end protect"
+    const float lpEnergy = lowEndLPState[ch];
+    const float threshold = 0.05f;
+    if (lpEnergy < threshold) return 0.0f;
 
-    // Punch style: slower release on transients — env is already channel-tracked
-    return driven * env;
+    const float factor = juce::jlimit (0.0f, 1.0f, (lpEnergy - threshold) / 0.3f);
+    return factor * amount;
+}
+
+float NovaApexAudioProcessor::transientWeight (float sample, int ch, float amount) noexcept
+{
+    if (amount < 0.001f) return 0.0f;
+
+    const float absVal = std::abs (sample);
+    transientFastEnv[ch] = transientFastCoeff * transientFastEnv[ch]
+                           + (1.0f - transientFastCoeff) * absVal;
+    transientSlowEnv[ch] = transientSlowCoeff * transientSlowEnv[ch]
+                           + (1.0f - transientSlowCoeff) * absVal;
+
+    // Transient present when fast > slow by a meaningful margin
+    const float ratio = (transientSlowEnv[ch] > 1.0e-6f)
+                        ? (transientFastEnv[ch] / transientSlowEnv[ch])
+                        : 1.0f;
+    const float transientStrength = juce::jlimit (0.0f, 1.0f, (ratio - 1.4f) / 2.0f);
+    return transientStrength * amount;
+}
+
+float NovaApexAudioProcessor::novaGuardMultiplier() const noexcept
+{
+    // When guard accumulator is high (lots of GR activity), slow release more
+    return 1.0f + novaGuardAccum * 2.5f; // up to 3.5x release time
 }
 
 void NovaApexAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
@@ -268,91 +400,201 @@ void NovaApexAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     for (int ch = totalIn; ch < totalOut; ++ch)
         buffer.clear (ch, 0, buffer.getNumSamples());
 
-    if (buffer.getNumSamples() == 0)
-        return;
+    const int numChannels = juce::jmin (2, buffer.getNumChannels());
+    const int numSamples  = buffer.getNumSamples();
+    if (numSamples == 0) return;
 
-    // Read parameters
-    const float gainDb       = apvts.getRawParameterValue (gainId)->load();
-    const float ceilingDb    = apvts.getRawParameterValue (ceilingId)->load();
-    const float outputGainDb = apvts.getRawParameterValue (outputGainId)->load();
-    const float driveVal     = apvts.getRawParameterValue (driveId)->load();
-    const int   style        = juce::roundToInt (apvts.getRawParameterValue (styleId)->load());
-    const float attackMs     = apvts.getRawParameterValue (attackId)->load();
-    const float releaseMs    = apvts.getRawParameterValue (releaseId)->load();
-    const float lookaheadMs  = apvts.getRawParameterValue (lookaheadId)->load();
-    const bool  link         = apvts.getRawParameterValue (linkId)->load() > 0.5f;
-    const bool  dither       = apvts.getRawParameterValue (ditherId)->load() > 0.5f;
+    // Read parameters (once per block)
+    const float gainDb           = apvts.getRawParameterValue (gainId)->load();
+    const float ceilingDb        = apvts.getRawParameterValue (ceilingId)->load();
+    const float outputGainDb     = apvts.getRawParameterValue (outputGainId)->load();
+    const float driveVal         = apvts.getRawParameterValue (driveId)->load();
+    const int   style            = juce::roundToInt (apvts.getRawParameterValue (styleId)->load());
+    const float attackMs         = apvts.getRawParameterValue (attackId)->load();
+    const float releaseMs        = apvts.getRawParameterValue (releaseId)->load();
+    const float lookaheadMs      = apvts.getRawParameterValue (lookaheadId)->load();
+    const int   osChoice         = juce::roundToInt (apvts.getRawParameterValue (oversampleId)->load());
+    const bool  link             = apvts.getRawParameterValue (linkId)->load() > 0.5f;
+    const float transientAmt     = apvts.getRawParameterValue (transientPreserveId)->load();
+    const float lowEndAmt        = apvts.getRawParameterValue (lowEndProtectId)->load();
+    const bool  isDelta          = deltaMode.load();
+    const int   ditherBitsVal    = ditherBits.load();
 
-    const float inputGainLin  = dbToLinear (gainDb) * (1.0f + driveVal * 0.1f);
+    const float inputGainLin  = dbToLinear (gainDb);
     const float ceilingLinear = dbToLinear (ceilingDb);
     const float outputGainLin = dbToLinear (outputGainDb);
 
-    const float attackCoeff  = makeAttackCoeff (attackMs, currentSampleRate);
-    const float releaseCoeff = makeReleaseCoeff (releaseMs, currentSampleRate);
+    // Style-adjusted attack/release
+    float effAttackMs  = attackMs;
+    float effReleaseMs = releaseMs;
+    switch (style)
+    {
+        case 1: // Punch: slower attack to let transient through
+            effAttackMs  = attackMs * 2.5f;
+            effReleaseMs = releaseMs * 0.8f;
+            break;
+        case 2: // Smooth: slower release
+            effReleaseMs = releaseMs * 2.0f;
+            break;
+        case 3: // Loud: fastest everything
+            effAttackMs  = attackMs * 0.5f;
+            effReleaseMs = releaseMs * 0.4f;
+            break;
+        case 5: // Master: moderate, true-peak priority
+            effAttackMs  = attackMs * 1.2f;
+            effReleaseMs = releaseMs * 1.5f;
+            break;
+        default: break;
+    }
 
-    // Update lookahead delay length
-    const int newLookahead = juce::jmin (
+    // Nova Guard adaptive release multiplier
+    const float ngMul         = novaGuardMultiplier();
+    effReleaseMs *= ngMul;
+
+    const float attackCoeff  = makeCoeff (effAttackMs,  currentSampleRate);
+    const float releaseCoeff = makeCoeff (effReleaseMs, currentSampleRate);
+
+    // Update lookahead length
+    lookaheadDelaySamples = juce::jmin (
         static_cast<int> (lookaheadMs * 0.001f * static_cast<float> (currentSampleRate)),
         kMaxLookaheadSamples - 1);
-    lookaheadDelaySamples = newLookahead;
 
-    const int numChannels = juce::jmin (2, buffer.getNumChannels());
-    const int numSamples  = buffer.getNumSamples();
+    // Rebuild oversampler if factor changed
+    const int osFactor = (osChoice == 0) ? 1 : (1 << osChoice);
+    if (osFactor != lastOversampleFactor)
+    {
+        lastOversampleFactor = osFactor;
+        oversampler = std::make_unique<juce::dsp::Oversampling<float>> (
+            2, static_cast<size_t> (osChoice == 0 ? 0 : osChoice),
+            juce::dsp::Oversampling<float>::filterHalfBandFIREquiripple, true);
+        oversampler->initProcessing (static_cast<size_t> (currentBlockSize));
+    }
 
+    // ── Drive stage with oversampling ──────────────────────────────────
+    // Only run oversampled path when drive is active or Analog style
+    const bool needsOversample = (driveVal > 0.01f || style == 4) && osChoice > 0;
+
+    if (needsOversample)
+    {
+        juce::dsp::AudioBlock<float> inputBlock (buffer);
+        auto oversampledBlock = oversampler->processSamplesUp (inputBlock);
+
+        const int osLen = static_cast<int> (oversampledBlock.getNumSamples());
+        for (int ch = 0; ch < numChannels; ++ch)
+        {
+            float* data = oversampledBlock.getChannelPointer (static_cast<size_t> (ch));
+            for (int i = 0; i < osLen; ++i)
+            {
+                float driven = data[i] * inputGainLin;
+                driven = applyDrive (driven, driveVal, style);
+                data[i] = driven;
+            }
+        }
+        oversampler->processSamplesDown (inputBlock);
+    }
+    else
+    {
+        // No oversampling: apply drive at native rate
+        for (int ch = 0; ch < numChannels; ++ch)
+        {
+            float* data = buffer.getWritePointer (ch);
+            for (int i = 0; i < numSamples; ++i)
+            {
+                data[i] = applyDrive (data[i] * inputGainLin, driveVal, style);
+            }
+        }
+    }
+
+    // ── Per-sample limiter with lookahead ─────────────────────────────
     float inPeakL  = 0.0f, inPeakR  = 0.0f;
     float outPeakL = 0.0f, outPeakR = 0.0f;
     float grAccum  = 0.0f;
+    float grSqAccum = 0.0f;
 
-    for (int sampleIdx = 0; sampleIdx < numSamples; ++sampleIdx)
+    for (int i = 0; i < numSamples; ++i)
     {
-        // Peak input for linked detection
+        // Record raw driven samples for linked peak and transient detect
+        float samples[2] = { 0.0f, 0.0f };
+        for (int ch = 0; ch < numChannels; ++ch)
+            samples[ch] = buffer.getSample (ch, i);
+
+        // Linked peak for sidechain
         float linkedPeak = 0.0f;
         for (int ch = 0; ch < numChannels; ++ch)
-            linkedPeak = juce::jmax (linkedPeak, std::abs (buffer.getSample (ch, sampleIdx)));
+            linkedPeak = juce::jmax (linkedPeak, std::abs (samples[ch]));
 
         for (int ch = 0; ch < numChannels; ++ch)
         {
-            const float rawIn = buffer.getSample (ch, sampleIdx);
+            const float rawDriven = samples[ch];
 
-            // Write into lookahead buffer
-            lookaheadBuf[ch][lookaheadWritePos[ch]] = rawIn;
+            // Store into lookahead + pre-limit buffers
+            lookaheadBuf[ch][lookaheadWritePos[ch]] = rawDriven;
+            preLimitBuf[ch][preLimitWritePos[ch]]   = rawDriven;
 
-            // Read from lookahead (delayed output)
             const int readPos = (lookaheadWritePos[ch] - lookaheadDelaySamples
                                  + kMaxLookaheadSamples) % kMaxLookaheadSamples;
-            const float delayedSample = lookaheadBuf[ch][readPos];
+            const float delayed = lookaheadBuf[ch][readPos];
 
             lookaheadWritePos[ch] = (lookaheadWritePos[ch] + 1) % kMaxLookaheadSamples;
+            preLimitWritePos[ch]  = (preLimitWritePos[ch]  + 1) % kMaxLookaheadSamples;
 
-            // Use the incoming (look-ahead) sample to compute GR, apply to delayed sample
-            const float previewVal = link
-                ? (linkedPeak * (rawIn >= 0.0f ? 1.0f : -1.0f))
-                : rawIn;
+            // Sidechain value (current look-ahead preview)
+            const float sidechain = link ? linkedPeak : std::abs (rawDriven);
+            const float epsilon   = 1.0e-9f;
 
-            // Compute target GR on preview, apply envelope
-            const float absPreview   = std::abs (previewVal * inputGainLin);
-            const float epsilon      = 1.0e-9f;
+            // Compute limiting target gain
             float targetGr = 1.0f;
-            if (absPreview > ceilingLinear)
+            if (sidechain > ceilingLinear)
             {
                 switch (style)
                 {
-                    case 0: targetGr = ceilingLinear / (absPreview + epsilon); break;
-                    case 1: targetGr = ceilingLinear / (absPreview * 1.08f + epsilon); break;
-                    case 2: targetGr = std::sqrt (ceilingLinear / (absPreview + epsilon)); break;
-                    case 3: targetGr = ceilingLinear / (absPreview * 1.15f + epsilon); break;
-                    case 4:
+                    case 0: // Clean: linear
+                        targetGr = ceilingLinear / (sidechain + epsilon);
+                        break;
+                    case 1: // Punch: slightly harder ceiling
+                        targetGr = ceilingLinear / (sidechain * 1.06f + epsilon);
+                        break;
+                    case 2: // Smooth: geometric (gentler ratio)
+                        targetGr = std::sqrt (ceilingLinear / (sidechain + epsilon));
+                        break;
+                    case 3: // Loud: very aggressive
+                        targetGr = ceilingLinear / (sidechain * 1.18f + epsilon);
+                        break;
+                    case 4: // Analog: soft-knee (~3dB knee width)
                     {
-                        const float over = absPreview - ceilingLinear;
-                        targetGr = (ceilingLinear + over * 0.12f) / (absPreview + epsilon);
+                        const float over = sidechain - ceilingLinear;
+                        const float knee = ceilingLinear * 0.15f;
+                        if (over < knee)
+                        {
+                            const float t = over / knee;
+                            targetGr = 1.0f - t * t * (1.0f - ceilingLinear / (sidechain + epsilon));
+                        }
+                        else
+                        {
+                            targetGr = ceilingLinear / (sidechain + epsilon);
+                        }
                         break;
                     }
-                    case 5: targetGr = (ceilingLinear + (absPreview - ceilingLinear) * 0.05f) / (absPreview + epsilon); break;
-                    default: targetGr = ceilingLinear / (absPreview + epsilon); break;
+                    case 5: // Master: very conservative true-peak priority
+                        targetGr = (ceilingLinear + (sidechain - ceilingLinear) * 0.04f)
+                                   / (sidechain + epsilon);
+                        break;
+                    default:
+                        targetGr = ceilingLinear / (sidechain + epsilon);
+                        break;
                 }
                 targetGr = juce::jmin (1.0f, targetGr);
             }
 
+            // Transient preserve: relax GR on transient attacks
+            const float tWeight = transientWeight (rawDriven, ch, transientAmt);
+            targetGr = juce::jmin (1.0f, targetGr + (1.0f - targetGr) * tWeight * 0.6f);
+
+            // Low-end protect: reduce GR when bass energy is high
+            const float lpFactor = lowEndProtectFactor (rawDriven, ch, lowEndAmt);
+            targetGr = juce::jmin (1.0f, targetGr + (1.0f - targetGr) * lpFactor * 0.5f);
+
+            // Smooth gain envelope
             const int envCh = link ? 0 : ch;
             float& env = gainEnv[envCh];
             if (targetGr < env)
@@ -360,33 +602,40 @@ void NovaApexAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             else
                 env = releaseCoeff * env + (1.0f - releaseCoeff) * targetGr;
 
-            // Apply: input gain + GR + analog saturation
-            float out = delayedSample * inputGainLin * env;
+            // Apply gain reduction to delayed sample
+            float out = delayed * env;
 
-            if (style == 4) // Analog: tanh
-            {
-                const float sat = 1.4f;
-                out = std::tanh (out * sat) / sat;
-            }
+            // Hard ceiling safety
+            out = juce::jlimit (-ceilingLinear, ceilingLinear, out);
 
             // Output gain
             out *= outputGainLin;
 
-            // Hard clip safety
-            out = juce::jlimit (-ceilingLinear, ceilingLinear, out);
+            // Delta: output what the limiter removed
+            if (isDelta)
+            {
+                const int preReadPos = (preLimitWritePos[ch] - lookaheadDelaySamples - 1
+                                        + kMaxLookaheadSamples) % kMaxLookaheadSamples;
+                const float preSignal = preLimitBuf[ch][preReadPos] * inputGainLin * outputGainLin;
+                out = preSignal - out;
+            }
 
             // Dither
-            if (dither)
-                out += triangleDither (ditherState[ch]);
+            if (ditherBitsVal > 0)
+                out += triangleDither (ditherState[ch], ditherBitsVal);
 
-            buffer.setSample (ch, sampleIdx, out);
+            buffer.setSample (ch, i, out);
 
-            // Metering accumulation
-            const float inAbs  = std::abs (rawIn);
+            // Accumulate GR for metering / Nova Guard
+            const float grDb  = linearToDb (env);
+            grAccum  += grDb;
+            grSqAccum += grDb * grDb;
+
+            // Metering
+            const float inAbs  = std::abs (rawDriven);
             const float outAbs = std::abs (out);
-            grAccum += juce::jmax (0.0f, linearToDb (env));
-
-            rmsAccum += rawIn * rawIn;
+            rmsAccum    += rawDriven * rawDriven;
+            rmsAccumOut += out * out;
             ++rmsCount;
             tpHold = juce::jmax (tpHold, outAbs);
 
@@ -401,8 +650,26 @@ void NovaApexAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         outPeakR = outPeakL;
     }
 
+    // Nova Guard: accumulate distortion stress (GR variance indicates pumping)
+    {
+        const int grN = numSamples * numChannels;
+        if (grN > 0)
+        {
+            const float grMean = grAccum / static_cast<float> (grN);
+            const float grVar  = (grSqAccum / static_cast<float> (grN)) - grMean * grMean;
+            // Variance > threshold means pumping/distortion
+            const float stress = juce::jlimit (0.0f, 1.0f, std::sqrt (juce::jmax (0.0f, grVar)) * 0.4f);
+            novaGuardAccum = novaGuardDecay * novaGuardAccum + (1.0f - novaGuardDecay) * stress;
+
+            // Adaptive release: ramp multiplier smoothly
+            const float targetMul = 1.0f + novaGuardAccum * 2.5f;
+            adaptiveReleaseMul = 0.999f * adaptiveReleaseMul + 0.001f * targetMul;
+        }
+        novaGuardActivity.store (novaGuardAccum);
+    }
+
     // Smoothed peak decay
-    const float decayCoeff = 0.9995f;
+    constexpr float decayCoeff = 0.9995f;
     inputPeakHoldL  = juce::jmax (inPeakL,  inputPeakHoldL  * decayCoeff);
     inputPeakHoldR  = juce::jmax (inPeakR,  inputPeakHoldR  * decayCoeff);
     outputPeakHoldL = juce::jmax (outPeakL, outputPeakHoldL * decayCoeff);
@@ -413,23 +680,27 @@ void NovaApexAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     outputLevelL.store (outputPeakHoldL);
     outputLevelR.store (outputPeakHoldR);
 
-    const float avgGr = (numSamples * numChannels) > 0
-                        ? grAccum / static_cast<float> (numSamples * numChannels)
-                        : 0.0f;
-    gainReductionDb.store (juce::jmin (0.0f, avgGr));
+    const float totalSamples = static_cast<float> (numSamples * numChannels);
+    gainReductionDb.store (totalSamples > 0 ? grAccum / totalSamples : 0.0f);
 
-    // Rolling LUFS (simple RMS approximation over ~400ms integration)
-    constexpr int lufsIntegrationSamples = 17640; // ~400ms @ 44.1kHz
+    // Rolling LUFS (~400ms integration)
+    constexpr int lufsIntegrationSamples = 17640;
     if (rmsCount >= lufsIntegrationSamples)
     {
-        const float rms = std::sqrt (rmsAccum / static_cast<float> (rmsCount));
-        const float lufs = linearToDb (rms) - 0.691f; // approximate K-weighting offset
+        const float rmsIn  = std::sqrt (rmsAccum    / static_cast<float> (rmsCount));
+        const float rmsOut = std::sqrt (rmsAccumOut / static_cast<float> (rmsCount));
+        const float lufs   = linearToDb (rmsOut) - 0.691f;
         lufsEstimate.store (lufs);
-
         truePeakEstimate.store (linearToDb (tpHold));
-        tpHold   = 0.0f;
-        rmsAccum = 0.0f;
-        rmsCount = 0;
+
+        // Smart loudness match: gain difference to bring bypass to same level as output
+        const float inLufs = linearToDb (rmsIn) - 0.691f;
+        smartMatchGain.store (lufs - inLufs);
+
+        tpHold      = 0.0f;
+        rmsAccum    = 0.0f;
+        rmsAccumOut = 0.0f;
+        rmsCount    = 0;
     }
 }
 
@@ -450,9 +721,8 @@ void NovaApexAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 void NovaApexAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
-    if (xmlState != nullptr)
-        if (xmlState->hasTagName (apvts.state.getType()))
-            apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
+    if (xmlState && xmlState->hasTagName (apvts.state.getType()))
+        apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

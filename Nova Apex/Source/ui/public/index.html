@@ -502,12 +502,13 @@
         <div class="dot" id="tp-dot"></div>
         <span class="tp-label">True Peak</span>
       </div>
-      <button class="smart-btn" type="button">
+      <button class="smart-btn" type="button" id="slm-btn">
         <span class="smart-icon">〜</span>
         <div class="smart-text">
           <span class="smart-line1">Smart Loudness</span>
           <span class="smart-line2">Match</span>
         </div>
+        <span id="slm-readout" style="font-size:7px;color:var(--gold-dim);letter-spacing:.05em;margin-left:4px;"></span>
       </button>
     </div>
 
@@ -983,11 +984,33 @@ document.getElementById('dither-btns').addEventListener('click', e => {
 });
 
 // ══════════════════════════ POWER / TOGGLE BUTTONS ══════════════════════════
-['tp-power','lep-power','auto-btn','delta-btn','bypass-btn'].forEach(id => {
+['tp-power','lep-power','auto-btn','bypass-btn'].forEach(id => {
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener('click', () => el.classList.toggle('active'));
 });
+
+// DELTA — hears what the limiter removes; calls native function to enable delta mode
+const deltaBtn = document.getElementById('delta-btn');
+if (deltaBtn) {
+  deltaBtn.addEventListener('click', () => {
+    const isActive = deltaBtn.classList.toggle('active');
+    if (window.__juce__ && window.__juce__.initialisationData) {
+      window.__juce__.callNativeFunction('apexSetMode', ['delta', isActive], () => {});
+    }
+  });
+}
+
+// SMART LOUDNESS MATCH
+const slmBtn = document.getElementById('slm-btn');
+if (slmBtn) {
+  slmBtn.addEventListener('click', () => {
+    const isActive = slmBtn.classList.toggle('active');
+    if (window.__juce__ && window.__juce__.initialisationData) {
+      window.__juce__.callNativeFunction('apexSetMode', ['smartLoudness', isActive], () => {});
+    }
+  });
+}
 
 document.getElementById('link-icon').addEventListener('click', e => {
   e.currentTarget.classList.toggle('active');
@@ -1199,6 +1222,26 @@ window.updateApexTelemetry = function(data) {
 
   // TP dot color
   document.getElementById('tp-dot').classList.toggle('red', tp > -1.0);
+
+  // Nova Guard activity — pulse the footer dot amber→red based on activity
+  const ng = data.novaGuard !== undefined ? data.novaGuard : 0;
+  const footerDot = document.querySelector('.footer-status .dot');
+  if (footerDot) {
+    if (ng > 0.6)      footerDot.style.background = '#ff4444';
+    else if (ng > 0.2) footerDot.style.background = '#ffaa00';
+    else               footerDot.style.background = '#44dd88';
+  }
+
+  // Smart Loudness Match — show gain offset
+  const sm = data.smartMatch !== undefined ? data.smartMatch : 0;
+  const smEl = document.getElementById('slm-readout');
+  if (smEl) smEl.textContent = (sm >= 0 ? '+' : '') + sm.toFixed(1) + ' dB';
+
+  // Sync delta button state from processor (in case it was reset)
+  if (data.deltaActive !== undefined) {
+    const db = document.getElementById('delta-btn');
+    if (db) db.classList.toggle('active', data.deltaActive);
+  }
 };
 
 // ══════════════════════════ RENDER LOOP ══════════════════════════

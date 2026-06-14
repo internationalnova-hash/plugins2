@@ -64,16 +64,19 @@ void NovaApexAudioProcessorEditor::timerCallback()
 
     const auto script = juce::String (
         "if (window.updateApexTelemetry) { window.updateApexTelemetry({"
-        "inputL:")    + juce::String (processorRef.inputLevelL.load(),  4)
-      + ",inputR:"    + juce::String (processorRef.inputLevelR.load(),  4)
-      + ",outputL:"   + juce::String (processorRef.outputLevelL.load(), 4)
-      + ",outputR:"   + juce::String (processorRef.outputLevelR.load(), 4)
-      + ",grDb:"      + juce::String (processorRef.gainReductionDb.load(), 3)
-      + ",lufs:"      + juce::String (processorRef.getLUFS(),     2)
-      + ",truePeak:"  + juce::String (processorRef.getTruePeak(), 2)
-      + ",gain:"      + juce::String (loadParam (ParameterIDs::gain),    3)
-      + ",ceiling:"   + juce::String (loadParam (ParameterIDs::ceiling), 3)
-      + ",style:"     + juce::String (loadParam (ParameterIDs::style),   1)
+        "inputL:")       + juce::String (processorRef.inputLevelL.load(),  4)
+      + ",inputR:"       + juce::String (processorRef.inputLevelR.load(),  4)
+      + ",outputL:"      + juce::String (processorRef.outputLevelL.load(), 4)
+      + ",outputR:"      + juce::String (processorRef.outputLevelR.load(), 4)
+      + ",grDb:"         + juce::String (processorRef.gainReductionDb.load(), 3)
+      + ",lufs:"         + juce::String (processorRef.getLUFS(),     2)
+      + ",truePeak:"     + juce::String (processorRef.getTruePeak(), 2)
+      + ",novaGuard:"    + juce::String (processorRef.novaGuardActivity.load(), 3)
+      + ",smartMatch:"   + juce::String (processorRef.getSmartMatchGain(), 2)
+      + ",deltaActive:"  + (processorRef.deltaMode.load() ? "true" : "false")
+      + ",gain:"         + juce::String (loadParam (ParameterIDs::gain),    3)
+      + ",ceiling:"      + juce::String (loadParam (ParameterIDs::ceiling), 3)
+      + ",style:"        + juce::String (loadParam (ParameterIDs::style),   1)
       + "}); }";
 
     webView->evaluateJavascript (script);
@@ -96,6 +99,22 @@ juce::WebBrowserComponent::Options NovaApexAudioProcessorEditor::createWebOption
                      {
                          return editor.getResource (url);
                      })
+                     .withNativeFunction ("apexSetMode",
+                         [&editor] (const juce::Array<juce::var>& args, auto complete)
+                         {
+                             if (args.size() >= 2)
+                             {
+                                 const auto mode  = args[0].toString();
+                                 const bool value = static_cast<bool> (args[1]);
+                                 if (mode == "delta")
+                                     editor.processorRef.deltaMode.store (value);
+                                 else if (mode == "smartLoudness")
+                                     editor.processorRef.smartLoudnessMode.store (value);
+                                 else if (mode == "ditherBits")
+                                     editor.processorRef.ditherBits.store (static_cast<int> (args[1]));
+                             }
+                             complete ({});
+                         })
                      .withOptionsFrom (editor.gainRelay)
                      .withOptionsFrom (editor.driveRelay)
                      .withOptionsFrom (editor.ceilingRelay)
