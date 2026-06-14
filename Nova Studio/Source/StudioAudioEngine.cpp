@@ -1312,6 +1312,7 @@ namespace NovaStudio
                         if (stepSeq.steps[row][currentStep] && stepSeq.sampleLoaded[row])
                         {
                             stepSeq.playPositions[row] = 0;
+                            stepSeq.playPosFrac[row]   = 0.0;
                             stepSeq.rowTriggered[row]  = true;
                         }
                     }
@@ -1323,9 +1324,7 @@ namespace NovaStudio
                     if (stepSeq.rowMuted[row]) { stepSeq.rowTriggered[row] = false; continue; }
 
                     const auto& buf = stepSeq.sampleBuffers[row];
-                    const int64_t remaining = buf.getNumSamples() - stepSeq.playPositions[row];
-                    if (remaining <= 0) { stepSeq.rowTriggered[row] = false; continue; }
-                    const int toCopy = (int)juce::jmin<int64_t>(remaining, numSamples);
+                    const int   numSrcSamples = buf.getNumSamples();
 
                     // Determine velocity for the last triggered step
                     // We use currentStep as an approximation; for per-step accuracy this is sufficient
@@ -1335,18 +1334,59 @@ namespace NovaStudio
                     const float leftGain   = (rowPan <= 0.0f ? 1.0f : 1.0f - rowPan)  * rowVolume * velocity;
                     const float rightGain  = (rowPan >= 0.0f ? 1.0f : 1.0f + rowPan)  * rowVolume * velocity;
 
-                    for (int ch = 0; ch < numOutputChannels; ++ch)
+                    // FL-style per-channel pitch knob — resample the one-shot at a
+                    // playback rate of 2^(semitones/12) using linear interpolation.
+                    const float semitones = stepSeq.rowPitches[row];
+                    const double rate = std::pow(2.0, (double) semitones / 12.0);
+
+                    if (juce::approximatelyEqual(rate, 1.0))
                     {
-                        if (outputChannelData[ch] == nullptr) continue;
-                        const int srcCh = juce::jmin(ch, buf.getNumChannels() - 1);
-                        const float* src = buf.getReadPointer(srcCh, (int)stepSeq.playPositions[row]);
-                        const float chanGain = (ch == 0) ? leftGain : rightGain;
-                        for (int s = 0; s < toCopy; ++s)
-                            outputChannelData[ch][s] += src[s] * chanGain;
+                        const int64_t remaining = numSrcSamples - stepSeq.playPositions[row];
+                        if (remaining <= 0) { stepSeq.rowTriggered[row] = false; continue; }
+                        const int toCopy = (int) juce::jmin<int64_t>(remaining, numSamples);
+
+                        for (int ch = 0; ch < numOutputChannels; ++ch)
+                        {
+                            if (outputChannelData[ch] == nullptr) continue;
+                            const int srcCh = juce::jmin(ch, buf.getNumChannels() - 1);
+                            const float* src = buf.getReadPointer(srcCh, (int) stepSeq.playPositions[row]);
+                            const float chanGain = (ch == 0) ? leftGain : rightGain;
+                            for (int s = 0; s < toCopy; ++s)
+                                outputChannelData[ch][s] += src[s] * chanGain;
+                        }
+                        stepSeq.playPositions[row] += toCopy;
+                        if (stepSeq.playPositions[row] >= numSrcSamples)
+                            stepSeq.rowTriggered[row] = false;
                     }
-                    stepSeq.playPositions[row] += toCopy;
-                    if (stepSeq.playPositions[row] >= buf.getNumSamples())
-                        stepSeq.rowTriggered[row] = false;
+                    else
+                    {
+                        double readPos = stepSeq.playPosFrac[row];
+                        for (int s = 0; s < numSamples; ++s)
+                        {
+                            if (readPos >= (double) (numSrcSamples - 1))
+                            {
+                                stepSeq.rowTriggered[row] = false;
+                                break;
+                            }
+
+                            const int    i0   = (int) readPos;
+                            const float  frac = (float) (readPos - (double) i0);
+
+                            for (int ch = 0; ch < numOutputChannels; ++ch)
+                            {
+                                if (outputChannelData[ch] == nullptr) continue;
+                                const int srcCh = juce::jmin(ch, buf.getNumChannels() - 1);
+                                const float* src = buf.getReadPointer(srcCh);
+                                const float samp = src[i0] + (src[i0 + 1] - src[i0]) * frac;
+                                const float chanGain = (ch == 0) ? leftGain : rightGain;
+                                outputChannelData[ch][s] += samp * chanGain;
+                            }
+
+                            readPos += rate;
+                        }
+                        stepSeq.playPosFrac[row] = readPos;
+                        stepSeq.playPositions[row] = (int64_t) readPos;
+                    }
                 }
             }
         }
@@ -1704,6 +1744,12 @@ namespace NovaStudio
     {
         if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
         stepSeq.rowPans[row] = juce::jlimit(-1.0f, 1.0f, pan);
+    }
+
+    void StudioAudioEngine::setStepSeqRowPitch(int row, float semitones)
+    {
+        if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
+        stepSeq.rowPitches[row] = juce::jlimit(-24.0f, 24.0f, semitones);
     }
 
     void StudioAudioEngine::setStepSeqRowMuted(int row, bool muted)

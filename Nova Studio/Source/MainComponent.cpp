@@ -91,6 +91,9 @@ MainComponent::MainComponent()
     beatWindow->setOnRowMixerTrackChanged([this](int row, int mixerTrack) {
         juce::ignoreUnused(row, mixerTrack);
     });
+    beatWindow->setOnRowPitchChanged([this](int row, float semitones) {
+        engine.setStepSeqRowPitch(row, semitones);
+    });
     beatWindow->setNumMixerInserts(engine.getSession().getNumTracks());
 
     // Compact in-window mixer — keeps producers in the beat view while mixing

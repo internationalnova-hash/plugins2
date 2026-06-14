@@ -83,6 +83,7 @@ namespace NovaStudio
         void setStepSeqVelocity(int row, int step, float velocity);
         void setStepSeqRowVolume(int row, float vol);
         void setStepSeqRowPan(int row, float pan);
+        void setStepSeqRowPitch(int row, float semitones);
         void setStepSeqRowMuted(int row, bool muted);
         int  getStepSeqCurrentStep() const noexcept;        // returns which step is playing (-1 if stopped)
 
@@ -97,11 +98,13 @@ namespace NovaStudio
             float                    velocities[kNumRows][kNumSteps];
             float                    rowVolumes[kNumRows];
             float                    rowPans[kNumRows];
+            float                    rowPitches[kNumRows] {};   // semitones, FL-style per-channel pitch
             bool                     rowMuted[kNumRows] {};
 
             juce::AudioBuffer<float> sampleBuffers[kNumRows];
             bool                     sampleLoaded[kNumRows]   {};
             int64_t                  playPositions[kNumRows]  {};
+            double                   playPosFrac[kNumRows]    {};  // fractional read position for pitch-shifted playback
             bool                     rowTriggered[kNumRows]   {};
 
             StepSequencerState()

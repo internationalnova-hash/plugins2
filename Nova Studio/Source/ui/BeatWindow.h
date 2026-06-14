@@ -258,8 +258,10 @@ namespace NovaStudioUI
             juce::Colour colour;
             float volume = 1.0f;
             float pan    = 0.0f;
+            float pitch  = 0.0f;    // semitones, -24..+24 — FL-style per-channel pitch knob
             bool  muted  = false;
             int   mixerTrack = 0;   // routing: 0 = Master, 1..N = mixer track index
+            juce::String group;     // FL-style channel group tag — "" = ungrouped
             bool  steps[kMaxSteps] {};
             float velocities[kMaxSteps];
             ChannelData() { std::fill(velocities, velocities + kMaxSteps, 1.0f); }
@@ -307,6 +309,7 @@ namespace NovaStudioUI
         std::function<void(int row, int step, float velocity)> onVelocityChanged;
         std::function<void(int row, float volume)>             onRowVolumeChanged;
         std::function<void(int row, float pan)>                onRowPanChanged;
+        std::function<void(int row, float pitch)>              onRowPitchChanged;
         std::function<void(int row, bool muted)>               onRowMutedChanged;
         std::function<void(int row, int mixerTrack)>           onRowMixerTrackChanged;
         std::function<void(const juce::String& filePath)>      onPreviewSample;
@@ -368,6 +371,10 @@ namespace NovaStudioUI
         int  selectedRow       = 0;
         bool showGraphEditor   = true;
         int  cursorStep        = -1;
+
+        // FL-style channel group filter — "" shows all rows; otherwise dims rows
+        // whose ChannelData::group doesn't match. Toggled via Ctrl/Cmd-click on a channel name.
+        juce::String groupFilter;
 
         // Drag state
         bool isDragging      = false;
@@ -817,6 +824,8 @@ namespace NovaStudioUI
             { stepSeq.onRowVolumeChanged = std::move(fn); }
         void setOnRowPanChanged(std::function<void(int,float)> fn)
             { stepSeq.onRowPanChanged = std::move(fn); }
+        void setOnRowPitchChanged(std::function<void(int,float)> fn)
+            { stepSeq.onRowPitchChanged = std::move(fn); }
         void setOnRowMutedChanged(std::function<void(int,bool)> fn)
             { stepSeq.onRowMutedChanged = std::move(fn); }
         void setOnRowMixerTrackChanged(std::function<void(int,int)> fn)

@@ -967,6 +967,7 @@ void StepSequencerView::paintChannelStrip(juce::Graphics& g, juce::Rectangle<int
 {
     const auto& ch = currentPattern().channels[(size_t)row];
     const bool isSelected = (row == selectedRow);
+    const bool dimmedByFilter = groupFilter.isNotEmpty() && ch.group != groupFilter;
 
     // Background
     g.setColour(isSelected ? BeatTheme::panel().brighter(0.08f) : BeatTheme::panel());
@@ -1013,13 +1014,33 @@ void StepSequencerView::paintChannelStrip(juce::Graphics& g, juce::Rectangle<int
 
     // Name (flat, no rounded pill background — just a coloured underline when selected)
     auto nameR = juce::Rectangle<int>(cx, r.getY(), r.getRight() - cx - 4, r.getHeight());
-    g.setColour(juce::Colours::white.withAlpha(ch.muted ? 0.35f : (isSelected ? 0.95f : 0.8f)));
+    const float nameAlpha = (dimmedByFilter ? 0.3f : 1.0f) * (ch.muted ? 0.35f : (isSelected ? 0.95f : 0.8f));
+    g.setColour(juce::Colours::white.withAlpha(nameAlpha));
     g.setFont(juce::FontOptions(11.0f));
+
+    // If this channel belongs to a group, show a small group tag chip after the name
+    if (ch.group.isNotEmpty())
+    {
+        auto tagR = nameR.removeFromRight(juce::jmin(54, nameR.getWidth() / 2)).reduced(2, 4);
+        g.setColour(ch.colour.withAlpha(dimmedByFilter ? 0.18f : 0.35f));
+        g.fillRoundedRectangle(tagR.toFloat(), 3.0f);
+        g.setColour(juce::Colours::white.withAlpha(dimmedByFilter ? 0.25f : 0.65f));
+        g.setFont(juce::FontOptions(9.0f));
+        g.drawText(ch.group, tagR, juce::Justification::centred, true);
+        g.setFont(juce::FontOptions(11.0f));
+    }
+
     g.drawText(ch.name, nameR.reduced(4, 0), juce::Justification::centredLeft, true);
     if (isSelected)
     {
         g.setColour(ch.colour.withAlpha(0.8f));
         g.fillRect(nameR.getX(), r.getBottom() - 2, nameR.getWidth(), 2);
+    }
+
+    if (dimmedByFilter)
+    {
+        g.setColour(juce::Colours::black.withAlpha(0.45f));
+        g.fillRect(r);
     }
 
     // Row separator
@@ -1091,6 +1112,13 @@ void StepSequencerView::paintStepGrid(juce::Graphics& g, juce::Rectangle<int> r)
         // Row separator
         g.setColour(BeatTheme::edge());
         g.drawHorizontalLine(ry + kRowH - 1, (float)r.getX(), (float)r.getRight());
+
+        // Dim rows that don't match the active group filter (FL-style channel filtering)
+        if (groupFilter.isNotEmpty() && ch.group != groupFilter)
+        {
+            g.setColour(juce::Colours::black.withAlpha(0.45f));
+            g.fillRect(r.getX(), ry, r.getWidth(), kRowH);
+        }
     }
 
     g.setColour(BeatTheme::edge());
@@ -1196,7 +1224,7 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
                 else if (part == 4) // right-click name = sample editor popup
                 {
                     auto& ch = currentPattern().channels[(size_t)row];
-                    auto* popup = new SampleEditorPopup(ch.name, ch.samplePath, ch.volume, ch.pan, 0.0f,
+                    auto* popup = new SampleEditorPopup(ch.name, ch.samplePath, ch.volume, ch.pan, ch.pitch,
                                                          ch.mixerTrack, numMixerInserts);
 
                     popup->onVolumeChanged = [this, row](float v) {
@@ -1206,6 +1234,10 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
                     popup->onPanChanged = [this, row](float p) {
                         currentPattern().channels[(size_t)row].pan = p;
                         if (onRowPanChanged) onRowPanChanged(row, p);
+                    };
+                    popup->onPitchChanged = [this, row](float p) {
+                        currentPattern().channels[(size_t)row].pitch = p;
+                        if (onRowPitchChanged) onRowPitchChanged(row, p);
                     };
                     popup->onMixerTrackChanged = [this, row](int trackIdx) {
                         currentPattern().channels[(size_t)row].mixerTrack = trackIdx;
@@ -1274,7 +1306,17 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
             }
             if (part == 4) // name button
             {
-                if (e.getNumberOfClicks() >= 2)
+                if (e.mods.isCtrlDown() || e.mods.isCommandDown())
+                {
+                    // Ctrl/Cmd-click = toggle group filter for this channel's group
+                    auto grp = currentPattern().channels[(size_t)row].group;
+                    if (grp.isNotEmpty())
+                    {
+                        groupFilter = (groupFilter == grp) ? juce::String() : grp;
+                        repaint();
+                    }
+                }
+                else if (e.getNumberOfClicks() >= 2)
                 {
                     // Double-click = rename
                     renameChannel(row);
@@ -1507,12 +1549,29 @@ void StepSequencerView::handleChannelRightClickMenu(int row)
     fillSub.addItem(22, "Fill every 4 steps");
     fillSub.addItem(23, "Fill every 8 steps");
 
+    // Build "Set Group" submenu from groups already used in this pattern
+    auto& chForMenu = currentPattern().channels[(size_t)row];
+    juce::StringArray existingGroups;
+    for (auto& c : currentPattern().channels)
+        if (c.group.isNotEmpty() && ! existingGroups.contains(c.group))
+            existingGroups.add(c.group);
+    static constexpr int kGroupBaseId = 100;
+    juce::PopupMenu groupSub;
+    for (int i = 0; i < existingGroups.size(); ++i)
+        groupSub.addItem(kGroupBaseId + i, existingGroups[i], true, chForMenu.group == existingGroups[i]);
+    if (existingGroups.size() > 0)
+        groupSub.addSeparator();
+    groupSub.addItem(198, "No group (clear)");
+    groupSub.addItem(199, "New group...");
+
     juce::PopupMenu m;
     m.addItem(1,  "Load sample...");
+    m.addItem(44, "Replace sample...");
     m.addSeparator();
     m.addItem(2,  "Rename");
     m.addItem(3,  "Change color");
     m.addItem(4,  "Random color");
+    m.addSubMenu("Set Group", groupSub);
     m.addSeparator();
     m.addItem(5,  "Cut");
     m.addItem(6,  "Copy");
@@ -1524,13 +1583,14 @@ void StepSequencerView::handleChannelRightClickMenu(int row)
     m.addSeparator();
     m.addItem(40, "Clear steps");
     m.addItem(41, "Clone to next row");
+    m.addItem(43, "Clone channel (full)");
     m.addItem(42, "Delete row");
 
     // Capture steps for copy/paste
     static bool stepClipboard[kMaxSteps] {};
     static int  stepClipboardCount = 0;
 
-    m.showMenuAsync(juce::PopupMenu::Options(), [this, row](int result)
+    m.showMenuAsync(juce::PopupMenu::Options(), [this, row, existingGroups](int result)
     {
         auto& pat = currentPattern();
         auto& ch  = pat.channels[(size_t)row];
@@ -1645,7 +1705,74 @@ void StepSequencerView::handleChannelRightClickMenu(int row)
                 for (int s = 0; s < sc; ++s) { ch.steps[s] = false; if (onStepChanged) onStepChanged(row, s, false); }
                 ch.name = "Empty";
                 repaint(); break;
-            default: break;
+            case 43: // Clone channel (full duplicate incl. sample/settings) into next row
+                if (row + 1 < kNumRows)
+                {
+                    auto& dst = pat.channels[(size_t)(row + 1)];
+                    dst = ch;
+                    dst.name = ch.name + " Copy";
+                    if (onSampleAssigned)     onSampleAssigned(row + 1, dst.samplePath);
+                    if (onRowVolumeChanged)   onRowVolumeChanged(row + 1, dst.volume);
+                    if (onRowPanChanged)      onRowPanChanged(row + 1, dst.pan);
+                    if (onRowPitchChanged)    onRowPitchChanged(row + 1, dst.pitch);
+                    if (onRowMutedChanged)    onRowMutedChanged(row + 1, dst.muted);
+                    if (onRowMixerTrackChanged) onRowMixerTrackChanged(row + 1, dst.mixerTrack);
+                    for (int s = 0; s < sc; ++s) if (onStepChanged) onStepChanged(row + 1, s, dst.steps[s]);
+                    repaint();
+                }
+                break;
+            case 44: // Replace sample — swap audio file, keep volume/pan/pitch/group/steps
+            {
+                auto chooser = std::make_shared<juce::FileChooser>(
+                    "Replace Sample for " + ch.name,
+                    juce::File::getSpecialLocation(juce::File::userMusicDirectory),
+                    "*.wav;*.aif;*.aiff;*.mp3;*.flac;*.ogg");
+                chooser->launchAsync(
+                    juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                    [this, row, chooser](const juce::FileChooser& fc)
+                    {
+                        auto f = fc.getResult();
+                        if (f.existsAsFile())
+                        {
+                            currentPattern().channels[(size_t)row].samplePath = f.getFullPathName();
+                            if (onSampleAssigned) onSampleAssigned(row, f.getFullPathName());
+                            repaint();
+                        }
+                    });
+                break;
+            }
+            case 198: // Clear group
+                ch.group.clear();
+                repaint(); break;
+            case 199: // New group...
+            {
+                auto* aw = new juce::AlertWindow("New Group", "Enter a group name for \"" + ch.name + "\":",
+                                                  juce::MessageBoxIconType::NoIcon);
+                aw->addTextEditor("groupName", "");
+                aw->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+                aw->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+                aw->enterModalState(true, juce::ModalCallbackFunction::create([this, row, aw](int okPressed)
+                {
+                    if (okPressed == 1)
+                    {
+                        auto name = aw->getTextEditorContents("groupName").trim();
+                        if (name.isNotEmpty())
+                        {
+                            currentPattern().channels[(size_t)row].group = name;
+                            repaint();
+                        }
+                    }
+                    delete aw;
+                }), false);
+                break;
+            }
+            default:
+                if (result >= kGroupBaseId && result < kGroupBaseId + existingGroups.size())
+                {
+                    ch.group = existingGroups[result - kGroupBaseId];
+                    repaint();
+                }
+                break;
         }
     });
 }
