@@ -1101,7 +1101,6 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
                     {
                         if (result == 1)
                         {
-                            // Solo: mute all other rows
                             for (int r2 = 0; r2 < kNumRows; ++r2)
                             {
                                 bool muted = (r2 != row);
@@ -1119,6 +1118,43 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
                         }
                         repaint();
                     });
+                }
+                else if (part == 4) // right-click name = sample editor popup
+                {
+                    auto& ch = currentPattern().channels[(size_t)row];
+                    auto* popup = new SampleEditorPopup(ch.name, juce::String(), ch.volume, ch.pan, 0.0f);
+
+                    popup->onVolumeChanged = [this, row](float v) {
+                        currentPattern().channels[(size_t)row].volume = v;
+                        if (onRowVolumeChanged) onRowVolumeChanged(row, v);
+                    };
+                    popup->onPanChanged = [this, row](float p) {
+                        currentPattern().channels[(size_t)row].pan = p;
+                        if (onRowPanChanged) onRowPanChanged(row, p);
+                    };
+                    popup->onLoadSample = [this, row, popup]() {
+                        auto chooser = std::make_shared<juce::FileChooser>(
+                            "Load Sample",
+                            juce::File::getSpecialLocation(juce::File::userMusicDirectory),
+                            "*.wav;*.aif;*.aiff;*.mp3;*.flac;*.ogg");
+                        chooser->launchAsync(
+                            juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                            [this, row, chooser](const juce::FileChooser& fc)
+                            {
+                                auto f = fc.getResult();
+                                if (f.existsAsFile())
+                                {
+                                    currentPattern().channels[(size_t)row].name = f.getFileNameWithoutExtension();
+                                    if (onSampleAssigned) onSampleAssigned(row, f.getFullPathName());
+                                    repaint();
+                                }
+                            });
+                    };
+
+                    auto* callout = &juce::CallOutBox::launchAsynchronously(
+                        std::unique_ptr<juce::Component>(popup),
+                        sr, nullptr);
+                    juce::ignoreUnused(callout);
                 }
                 else
                 {
@@ -1155,11 +1191,12 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
             {
                 if (e.getNumberOfClicks() >= 2)
                 {
+                    // Double-click = rename
                     renameChannel(row);
                 }
                 else
                 {
-                    // Single click: open file browser to load sample
+                    // Single left-click = open file browser to load sample
                     auto chooser = std::make_shared<juce::FileChooser>(
                         "Load Sample for " + currentPattern().channels[(size_t)row].name,
                         juce::File::getSpecialLocation(juce::File::userMusicDirectory),
@@ -1168,11 +1205,11 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
                         juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
                         [this, row, chooser](const juce::FileChooser& fc)
                         {
-                            auto result = fc.getResult();
-                            if (result.existsAsFile())
+                            auto result2 = fc.getResult();
+                            if (result2.existsAsFile())
                             {
-                                currentPattern().channels[(size_t)row].name = result.getFileNameWithoutExtension();
-                                if (onSampleAssigned) onSampleAssigned(row, result.getFullPathName());
+                                currentPattern().channels[(size_t)row].name = result2.getFileNameWithoutExtension();
+                                if (onSampleAssigned) onSampleAssigned(row, result2.getFullPathName());
                                 repaint();
                             }
                         });
@@ -1857,6 +1894,137 @@ void DrumRackPanel::itemDropped(const SourceDetails& details)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SampleEditorPopup
+// ─────────────────────────────────────────────────────────────────────────────
+
+SampleEditorPopup::SampleEditorPopup(const juce::String& channelName,
+                                     const juce::String& filePath,
+                                     float volume, float pan, float pitch)
+    : name(channelName), path(filePath), vol(volume), panVal(pan), pitchVal(pitch)
+{
+    setSize(320, 260);
+
+    auto styleSlider = [](juce::Slider& s, double lo, double hi, double val)
+    {
+        s.setRange(lo, hi);
+        s.setValue(val, juce::dontSendNotification);
+        s.setSliderStyle(juce::Slider::LinearHorizontal);
+        s.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 18);
+        s.setColour(juce::Slider::backgroundColourId,   juce::Colour::fromRGB(20, 23, 34));
+        s.setColour(juce::Slider::thumbColourId,        juce::Colour::fromRGB(80, 100, 255));
+        s.setColour(juce::Slider::trackColourId,        juce::Colour::fromRGB(50, 60, 120));
+        s.setColour(juce::Slider::textBoxTextColourId,  juce::Colours::white.withAlpha(0.8f));
+        s.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour::fromRGB(15, 18, 28));
+        s.setColour(juce::Slider::textBoxOutlineColourId, juce::Colour::fromRGBA(0,0,0,0));
+    };
+
+    styleSlider(volumeSlider, 0.0, 2.0, volume);
+    volumeSlider.onValueChange = [this]() { if (onVolumeChanged) onVolumeChanged((float)volumeSlider.getValue()); };
+    addAndMakeVisible(volumeSlider);
+
+    styleSlider(panSlider, -1.0, 1.0, pan);
+    panSlider.onValueChange = [this]() { if (onPanChanged) onPanChanged((float)panSlider.getValue()); };
+    addAndMakeVisible(panSlider);
+
+    styleSlider(pitchSlider, -24.0, 24.0, pitch);
+    pitchSlider.onValueChange = [this]() { if (onPitchChanged) onPitchChanged((float)pitchSlider.getValue()); };
+    addAndMakeVisible(pitchSlider);
+
+    auto styleLabel = [](juce::Label& l, const juce::String& text)
+    {
+        l.setText(text, juce::dontSendNotification);
+        l.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.6f));
+        l.setFont(juce::FontOptions(11.0f));
+    };
+    styleLabel(volLabel,   "Volume");
+    styleLabel(panLabel,   "Pan");
+    styleLabel(pitchLabel, "Pitch (st)");
+    addAndMakeVisible(volLabel);
+    addAndMakeVisible(panLabel);
+    addAndMakeVisible(pitchLabel);
+
+    fileLabel.setText(path.isEmpty() ? "No sample loaded" : juce::File(path).getFileName(),
+                      juce::dontSendNotification);
+    fileLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.5f));
+    fileLabel.setFont(juce::FontOptions(10.0f));
+    fileLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(fileLabel);
+
+    loadBtn.setColour(juce::TextButton::buttonColourId,  juce::Colour::fromRGB(28, 32, 50));
+    loadBtn.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.8f));
+    loadBtn.onClick = [this]() { if (onLoadSample) onLoadSample(); };
+    addAndMakeVisible(loadBtn);
+}
+
+void SampleEditorPopup::paint(juce::Graphics& g)
+{
+    g.fillAll(juce::Colour::fromRGB(14, 17, 26));
+    g.setColour(juce::Colour::fromRGBA(255,255,255,18));
+    g.drawRect(getLocalBounds(), 1);
+
+    // Title bar
+    auto titleR = getLocalBounds().removeFromTop(28);
+    g.setColour(juce::Colour::fromRGB(20, 24, 38));
+    g.fillRect(titleR);
+    g.setColour(juce::Colours::white);
+    g.setFont(juce::FontOptions(13.0f));
+    g.drawText(name, titleR.reduced(8, 0), juce::Justification::centredLeft);
+
+    // Waveform placeholder
+    auto waveR = juce::Rectangle<int>(8, 32, getWidth() - 16, 80);
+    g.setColour(juce::Colour::fromRGB(10, 12, 20));
+    g.fillRoundedRectangle(waveR.toFloat(), 4.0f);
+    g.setColour(juce::Colour::fromRGBA(255,255,255,12));
+    g.drawRoundedRectangle(waveR.toFloat(), 4.0f, 1.0f);
+
+    if (path.isEmpty())
+    {
+        g.setColour(juce::Colours::white.withAlpha(0.2f));
+        g.setFont(juce::FontOptions(11.0f));
+        g.drawText("No sample loaded — click Load Sample", waveR, juce::Justification::centred);
+    }
+    else
+    {
+        // Simple fake waveform squiggle
+        juce::Path wave;
+        const int n = waveR.getWidth();
+        wave.startNewSubPath((float)waveR.getX(), (float)waveR.getCentreY());
+        for (int i = 0; i < n; i += 2)
+        {
+            float t   = (float)i / (float)n;
+            float amp = (0.3f + 0.5f * std::sin(t * 6.0f)) * (waveR.getHeight() * 0.4f);
+            amp *= (1.0f - 0.5f * t);  // fade out toward end
+            float y   = (float)waveR.getCentreY() + (i % 4 == 0 ? amp : -amp);
+            wave.lineTo((float)(waveR.getX() + i), y);
+        }
+        g.setColour(juce::Colour::fromRGB(80, 100, 255).withAlpha(0.8f));
+        g.strokePath(wave, juce::PathStrokeType(1.5f));
+    }
+}
+
+void SampleEditorPopup::resized()
+{
+    const int labelW = 62;
+    const int sliderH = 22;
+    const int gap = 6;
+    int y = 120;
+
+    auto row = [&](juce::Label& lbl, juce::Slider& sl) {
+        lbl.setBounds(8, y, labelW, sliderH);
+        sl.setBounds(labelW + 10, y, getWidth() - labelW - 18, sliderH);
+        y += sliderH + gap;
+    };
+    row(volLabel,   volumeSlider);
+    row(panLabel,   panSlider);
+    row(pitchLabel, pitchSlider);
+
+    y += 4;
+    fileLabel.setBounds(8, y, getWidth() - 16, 16);
+    y += 20;
+    loadBtn.setBounds(8, y, getWidth() - 16, 24);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // BeatPatternToolbar
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1871,7 +2039,7 @@ BeatPatternToolbar::BeatPatternToolbar()
         addAndMakeVisible(&btn);
     };
 
-    for (auto* b : { &prevPatBtn, &nextPatBtn, &addPatBtn,
+    for (auto* b : { &prevPatBtn, &nextPatBtn, &addPatBtn, &patDropBtn,
                      &steps16Btn, &steps32Btn, &steps64Btn,
                      &swingDnBtn, &swingUpBtn,
                      &addChanBtn, &velGraphBtn, &patSongBtn })
@@ -1902,7 +2070,7 @@ BeatPatternToolbar::BeatPatternToolbar()
 
 BeatPatternToolbar::~BeatPatternToolbar()
 {
-    for (auto* b : { &prevPatBtn, &nextPatBtn, &addPatBtn,
+    for (auto* b : { &prevPatBtn, &nextPatBtn, &addPatBtn, &patDropBtn,
                      &steps16Btn, &steps32Btn, &steps64Btn,
                      &swingDnBtn, &swingUpBtn,
                      &addChanBtn, &velGraphBtn, &patSongBtn })
@@ -1955,32 +2123,49 @@ void BeatPatternToolbar::paint(juce::Graphics& g)
 
 void BeatPatternToolbar::resized()
 {
-    auto area = getLocalBounds().reduced(4, 3);
-    const int h   = area.getHeight();
+    const int h   = getHeight() - 6;
     const int gap = 3;
 
-    // Pattern navigation: < [Pattern Name] > +
-    prevPatBtn  .setBounds(area.removeFromLeft(20));  area.removeFromLeft(gap);
-    patNameLabel.setBounds(area.removeFromLeft(100)); area.removeFromLeft(gap);
-    nextPatBtn  .setBounds(area.removeFromLeft(20));  area.removeFromLeft(gap);
-    addPatBtn   .setBounds(area.removeFromLeft(20));  area.removeFromLeft(gap + 8);
+    // Calculate total content width to center it
+    // Pattern nav: 20 + 3 + 100 + 3 + 20 + 3 + 18 + 3 + 20 + (11) = 201
+    // Steps:       28+3+28+3+28 + 11 = 101
+    // Swing:       18+3+68+3+18 + 11 = 121
+    // Tools:       44+3+34+3+56 = 140
+    // Total ~ 563
+    const int totalW = 20+3+100+3+20+3+18+3+20+11 + 28+3+28+3+28+11 + 18+3+68+3+18+11 + 44+3+34+3+56;
+    int startX = juce::jmax(4, (getWidth() - totalW) / 2);
+    const int y = 3;
+
+    auto place = [&](juce::Component& c, int w) {
+        c.setBounds(startX, y, w, h);
+        startX += w + gap;
+    };
+    auto gap8 = [&]() { startX += 8; };
+
+    // Pattern navigation: < [Name] [v] > +
+    place(prevPatBtn,   20);
+    place(patNameLabel, 100);
+    place(patDropBtn,   18);
+    place(nextPatBtn,   20);
+    place(addPatBtn,    20);
+    gap8();
 
     // Step count
-    steps16Btn.setBounds(area.removeFromLeft(28));  area.removeFromLeft(gap);
-    steps32Btn.setBounds(area.removeFromLeft(28));  area.removeFromLeft(gap);
-    steps64Btn.setBounds(area.removeFromLeft(28));  area.removeFromLeft(gap + 8);
+    place(steps16Btn, 28);
+    place(steps32Btn, 28);
+    place(steps64Btn, 28);
+    gap8();
 
     // Swing
-    swingDnBtn .setBounds(area.removeFromLeft(18));  area.removeFromLeft(gap);
-    swingLabel .setBounds(area.removeFromLeft(72));  area.removeFromLeft(gap);
-    swingUpBtn .setBounds(area.removeFromLeft(18));  area.removeFromLeft(gap + 8);
+    place(swingDnBtn,  18);
+    place(swingLabel,  68);
+    place(swingUpBtn,  18);
+    gap8();
 
-    // Right-side tools
-    patSongBtn .setBounds(area.removeFromLeft(38));  area.removeFromLeft(gap);
-    velGraphBtn.setBounds(area.removeFromLeft(34));  area.removeFromLeft(gap);
-    addChanBtn .setBounds(area.removeFromLeft(72));
-
-    juce::ignoreUnused(h);
+    // Tools
+    place(patSongBtn,  44);
+    place(velGraphBtn, 34);
+    place(addChanBtn,  56);
 }
 
 void BeatPatternToolbar::buttonClicked(juce::Button* b)
@@ -2025,6 +2210,56 @@ void BeatPatternToolbar::buttonClicked(juce::Button* b)
         if (onPatSongToggle) onPatSongToggle(isPat);
         return;
     }
+    if (b == &patDropBtn)
+    {
+        showPatternDropdown();
+        return;
+    }
+}
+
+void BeatPatternToolbar::mouseDown(const juce::MouseEvent& e)
+{
+    // Right-click anywhere on the pattern name area = dropdown
+    if (e.mods.isRightButtonDown() && patNameLabel.getBounds().contains(e.getPosition()))
+        showPatternDropdown();
+}
+
+void BeatPatternToolbar::showPatternDropdown()
+{
+    juce::PopupMenu m;
+    m.addItem(1,  "Find first empty");
+    m.addItem(2,  "Find next empty");
+    m.addSeparator();
+    m.addItem(3,  "Rename and color...");
+    m.addItem(4,  "Change color...");
+    m.addItem(5,  "Random color");
+    m.addSeparator();
+    m.addItem(6,  "Insert one");
+    m.addItem(7,  "Clone");
+    m.addItem(8,  "Delete");
+    m.addSeparator();
+    m.addItem(9,  "Move up");
+    m.addItem(10, "Move down");
+
+    m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&patDropBtn),
+        [this](int result)
+        {
+            if (!onPatternMenuAction) return;
+            switch (result)
+            {
+                case 1:  onPatternMenuAction("findfirst");   break;
+                case 2:  onPatternMenuAction("findnext");    break;
+                case 3:  onPatternMenuAction("rename");      break;
+                case 4:  onPatternMenuAction("color");       break;
+                case 5:  onPatternMenuAction("randomcolor"); break;
+                case 6:  onPatternMenuAction("insert");      break;
+                case 7:  onPatternMenuAction("clone");       break;
+                case 8:  onPatternMenuAction("delete");      break;
+                case 9:  onPatternMenuAction("moveup");      break;
+                case 10: onPatternMenuAction("movedown");    break;
+                default: break;
+            }
+        });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2069,17 +2304,27 @@ void BeatTransportBar::paint(juce::Graphics& g)
 
 void BeatTransportBar::resized()
 {
-    auto area = getLocalBounds().reduced(4, 3);
-    const int btnSz = area.getHeight();
-    const int gap   = 3;
+    const int h     = getHeight() - 6;
+    const int btnSz = h;
+    const int gap   = 4;
 
-    rtzBtn .setBounds(area.removeFromLeft(btnSz)); area.removeFromLeft(gap);
-    playBtn.setBounds(area.removeFromLeft(btnSz)); area.removeFromLeft(gap);
-    stopBtn.setBounds(area.removeFromLeft(btnSz)); area.removeFromLeft(gap);
-    recBtn .setBounds(area.removeFromLeft(btnSz)); area.removeFromLeft(gap + 6);
+    // Total width of transport content: 4 buttons + gaps + timecode + gap + bpm
+    const int totalW = (btnSz * 4) + (gap * 3) + 10 + 115 + 8 + 90;
+    int x = juce::jmax(6, (getWidth() - totalW) / 2);
+    const int y = 3;
 
-    timecodeLabel.setBounds(area.removeFromLeft(115)); area.removeFromLeft(8);
-    bpmLabel.setBounds(area.removeFromLeft(90));
+    auto place = [&](juce::Component& c, int w) {
+        c.setBounds(x, y, w, h); x += w + gap;
+    };
+
+    place(rtzBtn,  btnSz);
+    place(playBtn, btnSz);
+    place(stopBtn, btnSz);
+    place(recBtn,  btnSz);
+    x += 10;
+    place(timecodeLabel, 115);
+    x += 4;
+    place(bpmLabel, 90);
 }
 
 void BeatTransportBar::setPlayState(bool playing, bool recording)
@@ -2150,8 +2395,96 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
     };
     patternToolbar.onPatSongToggle = [this](bool isPat) {
         patMode = isPat;
-        // In PAT mode, loop back to zero when play is hit; SONG mode plays through
-        if (isPat) transportBar.onReturnToZero = [this]() { if (onReturnToZero) onReturnToZero(); };
+    };
+
+    patternToolbar.onPatternMenuAction = [this, syncPatternUI](const juce::String& action)
+    {
+        if (action == "findfirst")
+        {
+            // Jump to first pattern with all steps off
+            for (int i = 0; i < stepSeq.patterns.size(); ++i)
+            {
+                const auto& p = stepSeq.patterns.getReference(i);
+                bool empty = true;
+                for (int r = 0; r < StepSequencerView::kNumRows && empty; ++r)
+                    for (int s = 0; s < p.stepCount && empty; ++s)
+                        if (p.channels[r].steps[s]) empty = false;
+                if (empty) { stepSeq.currentPatternIdx = i; syncPatternUI(); return; }
+            }
+        }
+        else if (action == "findnext")
+        {
+            for (int i = stepSeq.currentPatternIdx + 1; i < stepSeq.patterns.size(); ++i)
+            {
+                const auto& p = stepSeq.patterns.getReference(i);
+                bool empty = true;
+                for (int r = 0; r < StepSequencerView::kNumRows && empty; ++r)
+                    for (int s = 0; s < p.stepCount && empty; ++s)
+                        if (p.channels[r].steps[s]) empty = false;
+                if (empty) { stepSeq.currentPatternIdx = i; syncPatternUI(); return; }
+            }
+        }
+        else if (action == "rename")
+        {
+            stepSeq.showInlineRename({4, 0, 140, 22},
+                                     stepSeq.currentPattern().name, true);
+        }
+        else if (action == "color")
+        {
+            static const juce::Colour cols[] = {
+                juce::Colour::fromRGB(80,100,255), juce::Colour::fromRGB(255,100,60),
+                juce::Colour::fromRGB(60,200,120), juce::Colour::fromRGB(220,180,40),
+                juce::Colour::fromRGB(160,60,220), juce::Colour::fromRGB(60,180,255)
+            };
+            static int ci = 0;
+            for (int r = 0; r < StepSequencerView::kNumRows; ++r)
+                stepSeq.currentPattern().channels[r].colour = cols[ci % 6];
+            ci++;
+            syncPatternUI();
+        }
+        else if (action == "randomcolor")
+        {
+            auto c = juce::Colour::fromHSV(juce::Random::getSystemRandom().nextFloat(), 0.7f, 0.9f, 1.0f);
+            for (int r = 0; r < StepSequencerView::kNumRows; ++r)
+                stepSeq.currentPattern().channels[r].colour = c;
+            syncPatternUI();
+        }
+        else if (action == "insert")
+        {
+            StepSequencerView::Pattern p;
+            p.name = "Pattern " + juce::String(stepSeq.patterns.size() + 1);
+            stepSeq.patterns.insert(stepSeq.currentPatternIdx, p);
+            syncPatternUI();
+        }
+        else if (action == "clone")
+        {
+            auto copy = stepSeq.currentPattern();
+            copy.name += " (copy)";
+            stepSeq.patterns.insert(stepSeq.currentPatternIdx + 1, copy);
+            stepSeq.currentPatternIdx++;
+            syncPatternUI();
+        }
+        else if (action == "delete")
+        {
+            if (stepSeq.patterns.size() > 1)
+            {
+                stepSeq.patterns.remove(stepSeq.currentPatternIdx);
+                stepSeq.currentPatternIdx = juce::jmax(0, stepSeq.currentPatternIdx - 1);
+                syncPatternUI();
+            }
+        }
+        else if (action == "moveup" && stepSeq.currentPatternIdx > 0)
+        {
+            stepSeq.patterns.swap(stepSeq.currentPatternIdx, stepSeq.currentPatternIdx - 1);
+            stepSeq.currentPatternIdx--;
+            syncPatternUI();
+        }
+        else if (action == "movedown" && stepSeq.currentPatternIdx < stepSeq.patterns.size() - 1)
+        {
+            stepSeq.patterns.swap(stepSeq.currentPatternIdx, stepSeq.currentPatternIdx + 1);
+            stepSeq.currentPatternIdx++;
+            syncPatternUI();
+        }
     };
 }
 

@@ -457,6 +457,34 @@ namespace NovaStudioUI
     // ─────────────────────────────────────────────────────────────────────────
     // BeatPatternToolbar — second toolbar row (pattern controls, step count, etc.)
     // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // SampleEditorPopup — shown when right-clicking an instrument name
+    // ─────────────────────────────────────────────────────────────────────────
+    class SampleEditorPopup : public juce::Component
+    {
+    public:
+        SampleEditorPopup(const juce::String& channelName, const juce::String& filePath,
+                          float volume, float pan, float pitch);
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+
+        // Callbacks
+        std::function<void(float)> onVolumeChanged;
+        std::function<void(float)> onPanChanged;
+        std::function<void(float)> onPitchChanged;
+        std::function<void()>      onLoadSample;
+
+    private:
+        juce::String name, path;
+        float vol, panVal, pitchVal;
+
+        juce::Slider volumeSlider, panSlider, pitchSlider;
+        juce::Label  volLabel, panLabel, pitchLabel, fileLabel;
+        juce::TextButton loadBtn { "Load Sample..." };
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SampleEditorPopup)
+    };
+
     class BeatPatternToolbar : public juce::Component,
                                private juce::Button::Listener
     {
@@ -466,27 +494,32 @@ namespace NovaStudioUI
 
         void paint(juce::Graphics& g) override;
         void resized() override;
+        void mouseDown(const juce::MouseEvent& e) override;
 
         void setPatternName(const juce::String& name);
-        void setStepCount(int steps);    // 16, 32, or 64
-        void setSwing(float pct);        // 0-100
+        void setStepCount(int steps);
+        void setSwing(float pct);
 
         // Callbacks
-        std::function<void()>      onPrevPattern;
-        std::function<void()>      onNextPattern;
-        std::function<void()>      onAddPattern;
-        std::function<void()>      onAddChannel;
-        std::function<void(int)>   onStepCountChanged;   // 16/32/64
-        std::function<void(float)> onSwingChanged;       // 0-100
-        std::function<void(bool)>  onShowVelocityGraph;
-        std::function<void(bool)>  onPatSongToggle;      // true=PAT, false=SONG
+        std::function<void()>                    onPrevPattern;
+        std::function<void()>                    onNextPattern;
+        std::function<void()>                    onAddPattern;
+        std::function<void()>                    onAddChannel;
+        std::function<void(int)>                 onStepCountChanged;
+        std::function<void(float)>               onSwingChanged;
+        std::function<void(bool)>                onShowVelocityGraph;
+        std::function<void(bool)>                onPatSongToggle;
+        // Pattern dropdown actions: "rename","color","randomcolor","insert","clone","delete","moveup","movedown","findempty"
+        std::function<void(const juce::String&)> onPatternMenuAction;
 
     private:
         void buttonClicked(juce::Button* b) override;
+        void showPatternDropdown();
 
         juce::TextButton prevPatBtn  { "<" };
         juce::TextButton nextPatBtn  { ">" };
         juce::TextButton addPatBtn   { "+" };
+        juce::TextButton patDropBtn  { "v" };  // dropdown arrow on pattern name
         juce::Label      patNameLabel;
 
         juce::TextButton steps16Btn  { "16" };
@@ -497,7 +530,7 @@ namespace NovaStudioUI
         juce::TextButton swingDnBtn  { "-" };
         juce::TextButton swingUpBtn  { "+" };
 
-        juce::TextButton addChanBtn  { "+ Channel" };
+        juce::TextButton addChanBtn  { "+ Chan" };
         juce::TextButton velGraphBtn { "VEL" };
         juce::TextButton patSongBtn  { "PAT" };
 
