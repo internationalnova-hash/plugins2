@@ -67,6 +67,15 @@ MainComponent::MainComponent()
     transportBar.onArm = [this] {
         const bool armed = !engine.getTransportState().isRecordArmed();
         engine.getTransportState().setRecordArmed(armed);
+        // Arm/disarm the first audio track in the session so createRecordingClipIfNeeded finds it
+        for (int i = 0; i < engine.getTrackCount(); ++i)
+        {
+            if (engine.getSession().getTrack(i).type == NovaStudio::TrackType::Audio)
+            {
+                engine.setTrackArm(i, armed);
+                break;
+            }
+        }
         transportBar.setArmState(armed);
         updateStatusMessage(armed ? "Record armed." : "Record disarmed.");
     };
