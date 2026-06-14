@@ -1688,6 +1688,30 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
                         currentPattern().channels[(size_t)row].mixerTrack = trackIdx;
                         if (onRowMixerTrackChanged) onRowMixerTrackChanged(row, trackIdx);
                     };
+                    popup->onEnvelopeChanged = [this, row](bool en, float a, float h, float d, float s, float r) {
+                        auto& c = currentPattern().channels[(size_t)row];
+                        c.envEnabled = en; c.envAttack = a; c.envHold = h; c.envDecay = d; c.envSustain = s; c.envRelease = r;
+                        if (onRowEnvelopeChanged) onRowEnvelopeChanged(row, en, a, h, d, s, r);
+                    };
+                    popup->onFilterChanged = [this, row](bool en, int type, float cutoff, float reso) {
+                        auto& c = currentPattern().channels[(size_t)row];
+                        c.filterEnabled = en; c.filterType = type; c.filterCutoff = cutoff; c.filterResonance = reso;
+                        if (onRowFilterChanged) onRowFilterChanged(row, en, type, cutoff, reso);
+                    };
+                    popup->onLFOChanged = [this, row](bool en, int target, float rate, float depth) {
+                        auto& c = currentPattern().channels[(size_t)row];
+                        c.lfoEnabled = en; c.lfoTarget = target; c.lfoRate = rate; c.lfoDepth = depth;
+                        if (onRowLFOChanged) onRowLFOChanged(row, en, target, rate, depth);
+                    };
+                    popup->onSampleRegionChanged = [this, row](float startFrac, float endFrac, bool loop) {
+                        auto& c = currentPattern().channels[(size_t)row];
+                        c.sampleStart = startFrac; c.sampleEnd = endFrac; c.loopEnabled = loop;
+                        if (onRowSampleRegionChanged) onRowSampleRegionChanged(row, startFrac, endFrac, loop);
+                    };
+                    popup->initEngineState(ch.envEnabled, ch.envAttack, ch.envHold, ch.envDecay, ch.envSustain, ch.envRelease,
+                                           ch.filterEnabled, ch.filterType, ch.filterCutoff, ch.filterResonance,
+                                           ch.lfoEnabled, ch.lfoTarget, ch.lfoRate, ch.lfoDepth,
+                                           ch.sampleStart, ch.sampleEnd, ch.loopEnabled);
                     popup->onPreviewSample = [this, row]() {
                         const auto& chan = currentPattern().channels[(size_t)row];
                         if (chan.samplePath.isNotEmpty() && onPreviewSample)
@@ -2564,15 +2588,16 @@ SampleEditorPopup::SampleEditorPopup(const juce::String& channelName,
     : name(channelName), path(filePath), vol(volume), panVal(pan), pitchVal(pitch),
       trackRouting(mixerTrack), numTracks(numMixerTracks)
 {
-    setSize(320, 280);
+    setSize(340, 360);
 
-    // ── Tab bar (FL Studio style: Sample / Envelope / Functions) ─────────────
+    // ── Tab bar (FL Studio style: Sample / Envelope / Functions / Engine) ────
     sampleTabBtn.toggled = true;
-    for (auto* b : { &sampleTabBtn, &envelopeTabBtn, &functionsTabBtn })
+    for (auto* b : { &sampleTabBtn, &envelopeTabBtn, &functionsTabBtn, &engineTabBtn })
         addAndMakeVisible(b);
     sampleTabBtn.onClick    = [this]() { showTab(kTabSample); };
     envelopeTabBtn.onClick  = [this]() { showTab(kTabEnvelope); };
     functionsTabBtn.onClick = [this]() { showTab(kTabFunctions); };
+    engineTabBtn.onClick    = [this]() { showTab(kTabEngine); };
 
     // ── Preview / audition button ─────────────────────────────────────────────
     addAndMakeVisible(previewBtn);
@@ -2637,7 +2662,136 @@ SampleEditorPopup::SampleEditorPopup(const juce::String& channelName,
     };
     addChildComponent(routingBox);
 
+    // ── Tab 3: Engine — AHDSR / Filter / LFO / sample region ──────────────────
+    auto styleToggle = [](juce::ToggleButton& t)
+    {
+        t.setColour(juce::ToggleButton::textColourId, juce::Colours::white.withAlpha(0.75f));
+        t.setColour(juce::ToggleButton::tickColourId, juce::Colour::fromRGB(80, 100, 255));
+    };
+    auto styleSmallLabel = [](juce::Label& l, const juce::String& text)
+    {
+        l.setText(text, juce::dontSendNotification);
+        l.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.55f));
+        l.setFont(juce::FontOptions(9.0f));
+        l.setJustificationType(juce::Justification::centred);
+    };
+
+    // Envelope row
+    styleToggle(envEnableToggle);
+    envEnableToggle.onClick = [this]() { fireEnvelopeChanged(); };
+    addChildComponent(envEnableToggle);
+    styleSmallKnob(attackKnob,  0.0, 4.0, 0.001);
+    styleSmallKnob(holdKnob,    0.0, 2.0, 0.0);
+    styleSmallKnob(decayKnob,   0.0, 4.0, 0.1);
+    styleSmallKnob(sustainKnob, 0.0, 1.0, 1.0);
+    styleSmallKnob(releaseKnob, 0.0, 4.0, 0.05);
+    for (auto* k : { &attackKnob, &holdKnob, &decayKnob, &sustainKnob, &releaseKnob })
+    {
+        k->onValueChange = [this]() { fireEnvelopeChanged(); };
+        addChildComponent(k);
+    }
+    styleSmallLabel(attackLabel,  "ATK");
+    styleSmallLabel(holdLabel,    "HOLD");
+    styleSmallLabel(decayLabel,   "DEC");
+    styleSmallLabel(sustainLabel, "SUS");
+    styleSmallLabel(releaseLabel, "REL");
+    for (auto* l : { &attackLabel, &holdLabel, &decayLabel, &sustainLabel, &releaseLabel })
+        addChildComponent(l);
+
+    // Filter row
+    styleToggle(filterEnableToggle);
+    filterEnableToggle.onClick = [this]() { fireFilterChanged(); };
+    addChildComponent(filterEnableToggle);
+    filterTypeBox.addItem("Lowpass", 1);
+    filterTypeBox.addItem("Highpass", 2);
+    filterTypeBox.setSelectedId(1, juce::dontSendNotification);
+    filterTypeBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour::fromRGB(20, 23, 34));
+    filterTypeBox.setColour(juce::ComboBox::textColourId,       juce::Colours::white.withAlpha(0.85f));
+    filterTypeBox.setColour(juce::ComboBox::outlineColourId,    juce::Colour::fromRGBA(255,255,255,24));
+    filterTypeBox.onChange = [this]() { fireFilterChanged(); };
+    addChildComponent(filterTypeBox);
+    styleSmallKnob(cutoffKnob,     20.0, 20000.0, 8000.0);
+    cutoffKnob.setSkewFactorFromMidPoint(1000.0);
+    styleSmallKnob(resonanceKnob,  0.1, 10.0, 0.707);
+    for (auto* k : { &cutoffKnob, &resonanceKnob })
+    {
+        k->onValueChange = [this]() { fireFilterChanged(); };
+        addChildComponent(k);
+    }
+    styleSmallLabel(cutoffLabel,    "CUTOFF");
+    styleSmallLabel(resonanceLabel, "RESO");
+    addChildComponent(cutoffLabel);
+    addChildComponent(resonanceLabel);
+
+    // LFO row
+    styleToggle(lfoEnableToggle);
+    lfoEnableToggle.onClick = [this]() { fireLFOChanged(); };
+    addChildComponent(lfoEnableToggle);
+    lfoTargetBox.addItem("Pitch",  1);
+    lfoTargetBox.addItem("Volume", 2);
+    lfoTargetBox.addItem("Cutoff", 3);
+    lfoTargetBox.setSelectedId(1, juce::dontSendNotification);
+    lfoTargetBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour::fromRGB(20, 23, 34));
+    lfoTargetBox.setColour(juce::ComboBox::textColourId,       juce::Colours::white.withAlpha(0.85f));
+    lfoTargetBox.setColour(juce::ComboBox::outlineColourId,    juce::Colour::fromRGBA(255,255,255,24));
+    lfoTargetBox.onChange = [this]() { fireLFOChanged(); };
+    addChildComponent(lfoTargetBox);
+    styleSmallKnob(lfoRateKnob,  0.01, 30.0, 4.0);
+    styleSmallKnob(lfoDepthKnob, 0.0, 1.0, 0.0);
+    for (auto* k : { &lfoRateKnob, &lfoDepthKnob })
+    {
+        k->onValueChange = [this]() { fireLFOChanged(); };
+        addChildComponent(k);
+    }
+    styleSmallLabel(lfoRateLabel,  "RATE");
+    styleSmallLabel(lfoDepthLabel, "DEPTH");
+    addChildComponent(lfoRateLabel);
+    addChildComponent(lfoDepthLabel);
+
+    // Sample region row
+    styleToggle(loopEnableToggle);
+    loopEnableToggle.onClick = [this]() { fireSampleRegionChanged(); };
+    addChildComponent(loopEnableToggle);
+    styleSmallKnob(sampleStartKnob, 0.0, 1.0, 0.0);
+    styleSmallKnob(sampleEndKnob,   0.0, 1.0, 1.0);
+    for (auto* k : { &sampleStartKnob, &sampleEndKnob })
+    {
+        k->onValueChange = [this]() { fireSampleRegionChanged(); };
+        addChildComponent(k);
+    }
+    styleSmallLabel(sampleStartLabel, "START");
+    styleSmallLabel(sampleEndLabel,   "END");
+    addChildComponent(sampleStartLabel);
+    addChildComponent(sampleEndLabel);
+
     showTab(kTabSample);
+}
+
+void SampleEditorPopup::initEngineState(bool envEnabledIn, float attack, float hold, float decay, float sustain, float release,
+                                         bool filterEnabledIn, int filterTypeIn, float cutoffHz, float resonance,
+                                         bool lfoEnabledIn, int lfoTargetIn, float lfoRateIn, float lfoDepthIn,
+                                         float sampleStartIn, float sampleEndIn, bool loopEnabledIn)
+{
+    envEnableToggle.setToggleState(envEnabledIn, juce::dontSendNotification);
+    attackKnob.setValue(attack,   juce::dontSendNotification);
+    holdKnob.setValue(hold,       juce::dontSendNotification);
+    decayKnob.setValue(decay,     juce::dontSendNotification);
+    sustainKnob.setValue(sustain, juce::dontSendNotification);
+    releaseKnob.setValue(release, juce::dontSendNotification);
+
+    filterEnableToggle.setToggleState(filterEnabledIn, juce::dontSendNotification);
+    filterTypeBox.setSelectedId(filterTypeIn + 1, juce::dontSendNotification);
+    cutoffKnob.setValue(cutoffHz,    juce::dontSendNotification);
+    resonanceKnob.setValue(resonance, juce::dontSendNotification);
+
+    lfoEnableToggle.setToggleState(lfoEnabledIn, juce::dontSendNotification);
+    lfoTargetBox.setSelectedId(lfoTargetIn + 1, juce::dontSendNotification);
+    lfoRateKnob.setValue(lfoRateIn,   juce::dontSendNotification);
+    lfoDepthKnob.setValue(lfoDepthIn, juce::dontSendNotification);
+
+    loopEnableToggle.setToggleState(loopEnabledIn, juce::dontSendNotification);
+    sampleStartKnob.setValue(sampleStartIn, juce::dontSendNotification);
+    sampleEndKnob.setValue(sampleEndIn,     juce::dontSendNotification);
 }
 
 SampleEditorPopup::~SampleEditorPopup() = default;
@@ -2658,6 +2812,45 @@ void SampleEditorPopup::styleKnob(juce::Slider& s, double lo, double hi, double 
     s.setColour(juce::Slider::textBoxOutlineColourId,     juce::Colour::fromRGBA(0,0,0,0));
 }
 
+void SampleEditorPopup::styleSmallKnob(juce::Slider& s, double lo, double hi, double val)
+{
+    styleKnob(s, lo, hi, val);
+    s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 44, 14);
+}
+
+void SampleEditorPopup::fireEnvelopeChanged()
+{
+    if (onEnvelopeChanged)
+        onEnvelopeChanged(envEnableToggle.getToggleState(),
+                          (float) attackKnob.getValue(),  (float) holdKnob.getValue(),
+                          (float) decayKnob.getValue(),   (float) sustainKnob.getValue(),
+                          (float) releaseKnob.getValue());
+}
+
+void SampleEditorPopup::fireFilterChanged()
+{
+    if (onFilterChanged)
+        onFilterChanged(filterEnableToggle.getToggleState(),
+                        filterTypeBox.getSelectedId() - 1,
+                        (float) cutoffKnob.getValue(), (float) resonanceKnob.getValue());
+}
+
+void SampleEditorPopup::fireLFOChanged()
+{
+    if (onLFOChanged)
+        onLFOChanged(lfoEnableToggle.getToggleState(),
+                     lfoTargetBox.getSelectedId() - 1,
+                     (float) lfoRateKnob.getValue(), (float) lfoDepthKnob.getValue());
+}
+
+void SampleEditorPopup::fireSampleRegionChanged()
+{
+    if (onSampleRegionChanged)
+        onSampleRegionChanged((float) sampleStartKnob.getValue(),
+                              (float) sampleEndKnob.getValue(),
+                              loopEnableToggle.getToggleState());
+}
+
 void SampleEditorPopup::buttonClicked(juce::Button*) {}
 
 void SampleEditorPopup::showTab(int index)
@@ -2666,9 +2859,11 @@ void SampleEditorPopup::showTab(int index)
     sampleTabBtn.toggled    = (index == kTabSample);
     envelopeTabBtn.toggled  = (index == kTabEnvelope);
     functionsTabBtn.toggled = (index == kTabFunctions);
+    engineTabBtn.toggled    = (index == kTabEngine);
     sampleTabBtn.repaint();
     envelopeTabBtn.repaint();
     functionsTabBtn.repaint();
+    engineTabBtn.repaint();
 
     fileLabel.setVisible(index == kTabSample);
     loadBtn.setVisible(index == kTabSample);
@@ -2679,6 +2874,23 @@ void SampleEditorPopup::showTab(int index)
 
     routingLabel.setVisible(index == kTabFunctions);
     routingBox.setVisible(index == kTabFunctions);
+
+    const bool onEngine = (index == kTabEngine);
+    for (auto* c : { (juce::Component*)&envEnableToggle,
+                     (juce::Component*)&attackKnob, (juce::Component*)&holdKnob, (juce::Component*)&decayKnob,
+                     (juce::Component*)&sustainKnob, (juce::Component*)&releaseKnob,
+                     (juce::Component*)&attackLabel, (juce::Component*)&holdLabel, (juce::Component*)&decayLabel,
+                     (juce::Component*)&sustainLabel, (juce::Component*)&releaseLabel,
+                     (juce::Component*)&filterEnableToggle, (juce::Component*)&filterTypeBox,
+                     (juce::Component*)&cutoffKnob, (juce::Component*)&resonanceKnob,
+                     (juce::Component*)&cutoffLabel, (juce::Component*)&resonanceLabel,
+                     (juce::Component*)&lfoEnableToggle, (juce::Component*)&lfoTargetBox,
+                     (juce::Component*)&lfoRateKnob, (juce::Component*)&lfoDepthKnob,
+                     (juce::Component*)&lfoRateLabel, (juce::Component*)&lfoDepthLabel,
+                     (juce::Component*)&loopEnableToggle,
+                     (juce::Component*)&sampleStartKnob, (juce::Component*)&sampleEndKnob,
+                     (juce::Component*)&sampleStartLabel, (juce::Component*)&sampleEndLabel })
+        c->setVisible(onEngine);
 
     repaint();
 }
@@ -2742,6 +2954,18 @@ void SampleEditorPopup::paint(juce::Graphics& g)
         g.drawText("Choose which mixer insert this channel's audio is routed to",
                    8, 64, getWidth() - 16, 32, juce::Justification::centredTop);
     }
+    else if (activeTab == kTabEngine)
+    {
+        g.setColour(juce::Colours::white.withAlpha(0.3f));
+        g.setFont(juce::FontOptions(9.0f));
+        const int rowH = 78;
+        int y = 40;
+        for (auto* sectionTitle : { "ENVELOPE (AHDSR)", "FILTER", "LFO", "SAMPLE REGION" })
+        {
+            g.drawText(sectionTitle, 70, y, getWidth() - 80, 14, juce::Justification::centredLeft);
+            y += rowH;
+        }
+    }
 }
 
 void SampleEditorPopup::resized()
@@ -2750,6 +2974,7 @@ void SampleEditorPopup::resized()
     sampleTabBtn.setBounds(6, 2, tabSz, tabSz);
     envelopeTabBtn.setBounds(6 + tabSz + 4, 2, tabSz, tabSz);
     functionsTabBtn.setBounds(6 + (tabSz + 4) * 2, 2, tabSz, tabSz);
+    engineTabBtn.setBounds(6 + (tabSz + 4) * 3, 2, tabSz, tabSz);
     previewBtn.setBounds(getWidth() - tabSz - 6, 2, tabSz, tabSz);
 
     if (activeTab == kTabSample)
@@ -2777,6 +3002,51 @@ void SampleEditorPopup::resized()
     {
         routingLabel.setBounds(8, 100, getWidth() - 16, 18);
         routingBox.setBounds(8, 122, getWidth() - 16, 26);
+    }
+    else if (activeTab == kTabEngine)
+    {
+        const int knobSz  = 40;
+        const int rowH    = 78;
+        const int toggleW = 56;
+        int y = 38;
+
+        auto layoutKnobRow = [&](juce::ToggleButton& toggle,
+                                 std::initializer_list<std::pair<juce::Slider*, juce::Label*>> knobs,
+                                 juce::ComboBox* combo)
+        {
+            toggle.setBounds(6, y + 18, toggleW, 22);
+
+            int x = 70;
+            if (combo != nullptr)
+            {
+                combo->setBounds(x, y + 16, 84, 22);
+                x += 84 + 14;
+            }
+            for (auto& kp : knobs)
+            {
+                kp.first->setBounds(x, y + 14, knobSz, knobSz);
+                kp.second->setBounds(x - 6, y + 14 + knobSz, knobSz + 12, 12);
+                x += knobSz + 16;
+            }
+            y += rowH;
+        };
+
+        layoutKnobRow(envEnableToggle,
+                      { { &attackKnob, &attackLabel }, { &holdKnob, &holdLabel }, { &decayKnob, &decayLabel },
+                        { &sustainKnob, &sustainLabel }, { &releaseKnob, &releaseLabel } },
+                      nullptr);
+
+        layoutKnobRow(filterEnableToggle,
+                      { { &cutoffKnob, &cutoffLabel }, { &resonanceKnob, &resonanceLabel } },
+                      &filterTypeBox);
+
+        layoutKnobRow(lfoEnableToggle,
+                      { { &lfoRateKnob, &lfoRateLabel }, { &lfoDepthKnob, &lfoDepthLabel } },
+                      &lfoTargetBox);
+
+        layoutKnobRow(loopEnableToggle,
+                      { { &sampleStartKnob, &sampleStartLabel }, { &sampleEndKnob, &sampleEndLabel } },
+                      nullptr);
     }
 }
 

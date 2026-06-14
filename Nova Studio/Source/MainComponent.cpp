@@ -94,6 +94,18 @@ MainComponent::MainComponent()
     beatWindow->setOnRowPitchChanged([this](int row, float semitones) {
         engine.setStepSeqRowPitch(row, semitones);
     });
+    beatWindow->setOnRowEnvelopeChanged([this](int row, bool enabled, float attack, float hold, float decay, float sustain, float release) {
+        engine.setStepSeqRowEnvelope(row, enabled, attack, hold, decay, sustain, release);
+    });
+    beatWindow->setOnRowFilterChanged([this](int row, bool enabled, int filterType, float cutoffHz, float resonance) {
+        engine.setStepSeqRowFilter(row, enabled, filterType, cutoffHz, resonance);
+    });
+    beatWindow->setOnRowLFOChanged([this](int row, bool enabled, int target, float rateHz, float depth) {
+        engine.setStepSeqRowLFO(row, enabled, target, rateHz, depth);
+    });
+    beatWindow->setOnRowSampleRegionChanged([this](int row, float startFrac, float endFrac, bool loop) {
+        engine.setStepSeqRowSampleRegion(row, startFrac, endFrac, loop);
+    });
     beatWindow->setNumMixerInserts(engine.getSession().getNumTracks());
 
     // Compact in-window mixer — keeps producers in the beat view while mixing

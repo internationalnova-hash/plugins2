@@ -290,6 +290,22 @@ namespace NovaStudioUI
             bool  muted  = false;
             int   mixerTrack = 0;   // routing: 0 = Master, 1..N = mixer track index
             juce::String group;     // FL-style channel group tag — "" = ungrouped
+
+            // FL-style "channel settings" engine — persisted per channel so the
+            // Engine tab in the sample editor reflects/restores the right state
+            bool  envEnabled  = false;
+            float envAttack   = 0.001f, envHold = 0.0f, envDecay = 0.1f, envSustain = 1.0f, envRelease = 0.05f;
+            bool  filterEnabled   = false;
+            int   filterType      = 0;        // 0 = lowpass, 1 = highpass
+            float filterCutoff    = 8000.0f;
+            float filterResonance = 0.707f;
+            bool  lfoEnabled = false;
+            int   lfoTarget  = 0;             // 0 = pitch, 1 = volume, 2 = cutoff
+            float lfoRate    = 4.0f;
+            float lfoDepth   = 0.0f;
+            float sampleStart = 0.0f, sampleEnd = 1.0f;
+            bool  loopEnabled = false;
+
             bool  steps[kMaxSteps] {};
             float velocities[kMaxSteps];
             ChannelData() { std::fill(velocities, velocities + kMaxSteps, 1.0f); }
@@ -338,6 +354,10 @@ namespace NovaStudioUI
         std::function<void(int row, float volume)>             onRowVolumeChanged;
         std::function<void(int row, float pan)>                onRowPanChanged;
         std::function<void(int row, float pitch)>              onRowPitchChanged;
+        std::function<void(int row, bool enabled, float attack, float hold, float decay, float sustain, float release)> onRowEnvelopeChanged;
+        std::function<void(int row, bool enabled, int filterType, float cutoffHz, float resonance)>                     onRowFilterChanged;
+        std::function<void(int row, bool enabled, int target, float rateHz, float depth)>                               onRowLFOChanged;
+        std::function<void(int row, float startFrac, float endFrac, bool loop)>                                         onRowSampleRegionChanged;
         std::function<void(int row, bool muted)>               onRowMutedChanged;
         std::function<void(int row, int mixerTrack)>           onRowMixerTrackChanged;
         std::function<void(const juce::String& filePath)>      onPreviewSample;
@@ -692,12 +712,32 @@ namespace NovaStudioUI
         std::function<void()>      onPreviewSample;     // play/stop the loaded sample once
         std::function<void(int)>   onMixerTrackChanged; // routing target changed
 
+        // FL-style "channel settings" engine — fired whenever the user edits a
+        // control on the Engine tab. Each callback ships the full parameter set
+        // for its section so the host can forward it straight to the audio engine.
+        std::function<void(bool enabled, float attack, float hold, float decay, float sustain, float release)> onEnvelopeChanged;
+        std::function<void(bool enabled, int filterType, float cutoffHz, float resonance)>                     onFilterChanged;
+        std::function<void(bool enabled, int target, float rateHz, float depth)>                               onLFOChanged;
+        std::function<void(float startFrac, float endFrac, bool loop)>                                         onSampleRegionChanged;
+
+        // Initialise the Engine tab controls from persisted channel state without
+        // firing the on*Changed callbacks (call right after construction).
+        void initEngineState(bool envEnabled, float attack, float hold, float decay, float sustain, float release,
+                             bool filterEnabled, int filterType, float cutoffHz, float resonance,
+                             bool lfoEnabled, int lfoTarget, float lfoRate, float lfoDepth,
+                             float sampleStart, float sampleEnd, bool loopEnabled);
+
     private:
         void buttonClicked(juce::Button* b) override;
         void showTab(int index);
         void styleKnob(juce::Slider& s, double lo, double hi, double val);
+        void styleSmallKnob(juce::Slider& s, double lo, double hi, double val);
+        void fireEnvelopeChanged();
+        void fireFilterChanged();
+        void fireLFOChanged();
+        void fireSampleRegionChanged();
 
-        enum { kTabSample = 0, kTabEnvelope = 1, kTabFunctions = 2 };
+        enum { kTabSample = 0, kTabEnvelope = 1, kTabFunctions = 2, kTabEngine = 3 };
 
         juce::String name, path;
         float vol, panVal, pitchVal;
@@ -708,6 +748,7 @@ namespace NovaStudioUI
         IconButton sampleTabBtn   { IconButton::Icon::Waveform };
         IconButton envelopeTabBtn { IconButton::Icon::Envelope };
         IconButton functionsTabBtn{ IconButton::Icon::Functions };
+        IconButton engineTabBtn   { IconButton::Icon::Mixer };
         IconButton previewBtn     { IconButton::Icon::Play };
 
         // Tab 0: Sample — waveform + file + load
@@ -721,6 +762,25 @@ namespace NovaStudioUI
         // Tab 2: Functions — mixer routing
         juce::ComboBox routingBox;
         juce::Label    routingLabel;
+
+        // Tab 3: Engine — FL-style AHDSR / filter / LFO / sample region
+        juce::ToggleButton envEnableToggle    { "AHDSR Envelope" };
+        juce::Slider attackKnob, holdKnob, decayKnob, sustainKnob, releaseKnob;
+        juce::Label  attackLabel, holdLabel, decayLabel, sustainLabel, releaseLabel;
+
+        juce::ToggleButton filterEnableToggle { "Filter" };
+        juce::ComboBox     filterTypeBox;
+        juce::Slider cutoffKnob, resonanceKnob;
+        juce::Label  cutoffLabel, resonanceLabel;
+
+        juce::ToggleButton lfoEnableToggle    { "LFO" };
+        juce::ComboBox     lfoTargetBox;
+        juce::Slider lfoRateKnob, lfoDepthKnob;
+        juce::Label  lfoRateLabel, lfoDepthLabel;
+
+        juce::ToggleButton loopEnableToggle   { "Loop region" };
+        juce::Slider sampleStartKnob, sampleEndKnob;
+        juce::Label  sampleStartLabel, sampleEndLabel;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SampleEditorPopup)
     };
@@ -854,6 +914,14 @@ namespace NovaStudioUI
             { stepSeq.onRowPanChanged = std::move(fn); }
         void setOnRowPitchChanged(std::function<void(int,float)> fn)
             { stepSeq.onRowPitchChanged = std::move(fn); }
+        void setOnRowEnvelopeChanged(std::function<void(int,bool,float,float,float,float,float)> fn)
+            { stepSeq.onRowEnvelopeChanged = std::move(fn); }
+        void setOnRowFilterChanged(std::function<void(int,bool,int,float,float)> fn)
+            { stepSeq.onRowFilterChanged = std::move(fn); }
+        void setOnRowLFOChanged(std::function<void(int,bool,int,float,float)> fn)
+            { stepSeq.onRowLFOChanged = std::move(fn); }
+        void setOnRowSampleRegionChanged(std::function<void(int,float,float,bool)> fn)
+            { stepSeq.onRowSampleRegionChanged = std::move(fn); }
         void setOnRowMutedChanged(std::function<void(int,bool)> fn)
             { stepSeq.onRowMutedChanged = std::move(fn); }
         void setOnRowMixerTrackChanged(std::function<void(int,int)> fn)
