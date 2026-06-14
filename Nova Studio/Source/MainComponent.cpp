@@ -1064,8 +1064,8 @@ void MainComponent::refreshTrackList()
 {
     if (editWindow)
         editWindow->repaint();
-    if (mixerWindow && mixerWindow->isVisible())
-        mixerWindow->refresh();
+    if (mixerWindow)
+        mixerWindow->refresh();  // always refresh — mixer must stay in sync regardless of visibility
 }
 
 void MainComponent::setWorkspaceMode(int mode)

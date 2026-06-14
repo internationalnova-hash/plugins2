@@ -69,11 +69,13 @@ namespace NovaStudio
             for (auto& plugin : pluginChain)
                 if (plugin) plugin->processBlock(*bufferToFill.buffer, emptyMidi);
 
-            // Metering
-            if (bufferToFill.buffer->getNumChannels() > 0)
-                peakLevelLeft.store(bufferToFill.buffer->getMagnitude(0, startSample, numSamples));
-            if (bufferToFill.buffer->getNumChannels() > 1)
-                peakLevelRight.store(bufferToFill.buffer->getMagnitude(1, startSample, numSamples));
+            // Meter: aux return level from the send bus buffer directly
+            if (busBuf->getNumChannels() > 0)
+                peakLevelLeft .store(busBuf->getMagnitude(0, 0, numSamples) * trackGain * leftGain);
+            if (busBuf->getNumChannels() > 1)
+                peakLevelRight.store(busBuf->getMagnitude(1, 0, numSamples) * trackGain * rightGain);
+            else if (busBuf->getNumChannels() > 0)
+                peakLevelRight.store(busBuf->getMagnitude(0, 0, numSamples) * trackGain * rightGain);
             return;
         }
 
@@ -161,6 +163,24 @@ namespace NovaStudio
                                         trackLinearGain * clipLinearGain * channelGain);
         }
 
+        // Meter: measure from scratchBuffer (this track's audio only, pre-mix) with final gain applied.
+        // Using scratchBuffer guarantees we read only this track, regardless of MixerAudioSource ordering.
+        if (!muted && !(soloModeActive && !solo))
+        {
+            const float combGain = trackLinearGain * clipLinearGain;
+            if (scratchBuffer.getNumChannels() > 0)
+                peakLevelLeft .store(scratchBuffer.getMagnitude(0, 0, bufferToFill.numSamples) * combGain * leftGain);
+            if (scratchBuffer.getNumChannels() > 1)
+                peakLevelRight.store(scratchBuffer.getMagnitude(1, 0, bufferToFill.numSamples) * combGain * rightGain);
+            else if (scratchBuffer.getNumChannels() > 0)
+                peakLevelRight.store(scratchBuffer.getMagnitude(0, 0, bufferToFill.numSamples) * combGain * rightGain);
+        }
+        else
+        {
+            peakLevelLeft .store(0.0f);
+            peakLevelRight.store(0.0f);
+        }
+
         if (muted || (soloModeActive && !solo))
             bufferToFill.clearActiveBufferRegion();
 
@@ -243,12 +263,8 @@ namespace NovaStudio
             }
         }
 
-        // Update peak meters
-        const int numCh = bufferToFill.buffer->getNumChannels();
-        if (numCh > 0)
-            peakLevelLeft.store(bufferToFill.buffer->getMagnitude(0, startSample, numSamples));
-        if (numCh > 1)
-            peakLevelRight.store(bufferToFill.buffer->getMagnitude(1, startSample, numSamples));
+        // Peak meters are updated from scratchBuffer above (before EQ/routing).
+        // EQ changes level slightly but the scratchBuffer measurement is accurate enough.
 
         // ── Send bus writes ──────────────────────────────────────────────────
         // Pre-fader sends read from scratchBuffer (before gain); post-fader from bufferToFill.

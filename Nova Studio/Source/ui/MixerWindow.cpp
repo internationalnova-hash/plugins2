@@ -1153,32 +1153,31 @@ void MixerWindow::buildStrips()
 
 void MixerWindow::timerCallback()
 {
-    static constexpr float kDecay = 0.85f; // ballistic decay per 30Hz tick
+    static constexpr float kDecay = 0.92f; // ballistic decay per 30Hz tick
 
-    for (int i = 0; i < trackStrips.size(); ++i)
+    // Track strips — use each strip's stored track index (not the loop counter)
+    // so aux tracks interspersed in the session don't offset the peak reads.
+    for (auto* strip : trackStrips)
     {
-        float L = engine.getTrackPeakLevel(i, 0);
-        float R = engine.getTrackPeakLevel(i, 1);
-        // Smooth decay on the display strip
-        auto* strip = trackStrips[i];
-        float prevL = strip->getMeterLeft();
-        float prevR = strip->getMeterRight();
-        strip->setMeterLevel(juce::jmax(L, prevL * kDecay),
-                             juce::jmax(R, prevR * kDecay));
+        const int ti = strip->getTrackIndex();
+        const float L = engine.getTrackPeakLevel(ti, 0);
+        const float R = engine.getTrackPeakLevel(ti, 1);
+        strip->setMeterLevel(juce::jmax(L, strip->getMeterLeft()  * kDecay),
+                             juce::jmax(R, strip->getMeterRight() * kDecay));
     }
 
     for (auto* strip : auxStrips)
     {
         const int ti = strip->getTrackIndex();
-        float L = (ti >= 0) ? engine.getTrackPeakLevel(ti, 0) : 0.0f;
-        float R = (ti >= 0) ? engine.getTrackPeakLevel(ti, 1) : 0.0f;
+        const float L = (ti >= 0) ? engine.getTrackPeakLevel(ti, 0) : 0.0f;
+        const float R = (ti >= 0) ? engine.getTrackPeakLevel(ti, 1) : 0.0f;
         strip->setMeterLevel(juce::jmax(L, strip->getMeterLeft()  * kDecay),
                              juce::jmax(R, strip->getMeterRight() * kDecay));
     }
 
     if (masterStrip)
     {
-        // Sum all track levels as a proxy for master bus level
+        // Master level = peak across all tracks (summed mix proxy)
         float L = 0.0f, R = 0.0f;
         const int nt = engine.getSession().getNumTracks();
         for (int i = 0; i < nt; ++i)
