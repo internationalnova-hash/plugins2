@@ -138,6 +138,40 @@ namespace NovaStudioUI
     };
 
     // ─────────────────────────────────────────────────────────────────────────
+    // FloatingSubPanel — a small draggable/resizable internal "window" that
+    // hosts another component, FL Studio-style (Channel rack / Mixer float
+    // over the main view rather than being permanently docked).
+    // ─────────────────────────────────────────────────────────────────────────
+    class FloatingSubPanel : public juce::Component
+    {
+    public:
+        explicit FloatingSubPanel(const juce::String& title);
+        ~FloatingSubPanel() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+        void mouseDown(const juce::MouseEvent& e) override;
+        void mouseDrag(const juce::MouseEvent& e) override;
+
+        // Hosts another component without owning it
+        void setContent(juce::Component* c);
+
+        std::function<void()> onClose;
+
+        static constexpr int kTitleBarH = 24;
+
+    private:
+        juce::String        titleText;
+        juce::Component*    content = nullptr;
+        juce::ComponentDragger dragger;
+        juce::ComponentBoundsConstrainer constrainer;
+        std::unique_ptr<juce::ResizableCornerComponent> resizer;
+        juce::TextButton closeBtn { "x" };
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FloatingSubPanel)
+    };
+
+    // ─────────────────────────────────────────────────────────────────────────
     // CompactMixerView — small in-window mixer (FL Studio-style), shown inside
     // the beat production window so users don't need to leave it to adjust
     // track levels/pan/mute.
@@ -826,7 +860,14 @@ namespace NovaStudioUI
         // Update playback cursor (call from MainComponent timer)
         void setPlayCursor(int step) { stepSeq.setPlayCursor(step); }
 
+        // Show the same File/Edit/... menu bar that the edit window uses
+        // (so the beat window feels consistent whether docked or floating)
+        void setMenuBarModel(juce::MenuBarModel* model);
+
     private:
+        std::unique_ptr<juce::MenuBarComponent> menuBar;
+        static constexpr int kMenuBarH = 24;
+
         BeatTransportBar   transportBar;
         BeatPatternToolbar patternToolbar;
         BrowserPanel       browser;
@@ -834,9 +875,20 @@ namespace NovaStudioUI
         StepSequencerView  stepSeq;
         PianoRollView      pianoRoll;
         CompactMixerView   compactMixer;
-        bool               showingPianoRoll = false;
-        bool               showingMixer     = false;
+
+        // Step sequencer ("Channel Rack") and Mixer float over the main view,
+        // FL Studio-style, instead of being permanently docked.
+        FloatingSubPanel   stepSeqPanel { "Channel Rack" };
+        FloatingSubPanel   mixerPanel   { "Mixer" };
+
+        juce::Rectangle<int> canvasArea;     // area below the playlist where panels float
+        bool               showingPianoRoll  = false;
+        bool               stepSeqPanelOpen  = true;   // Channel Rack floats open by default
+        bool               mixerPanelOpen    = false;
         bool               patMode = true;  // PAT=true, SONG=false
+
+        void toggleFloatingPanel(FloatingSubPanel& panel, bool& flag,
+                                 juce::Rectangle<int> defaultBounds);
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatWindow)
     };

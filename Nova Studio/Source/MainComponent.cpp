@@ -75,6 +75,9 @@ MainComponent::MainComponent()
     beatWindow = std::make_unique<NovaStudioUI::BeatWindow>(transportState);
     addAndMakeVisible(*beatWindow);
     beatWindow->setVisible(false);
+    // Show the same File/Edit/... menu bar as the edit window so the beat
+    // window feels consistent whether docked in the workspace or floating.
+    beatWindow->setMenuBarModel(this);
 
     beatWindow->setOnSampleAssigned([this](int row, const juce::String& path) {
         engine.setStepSeqSample(row, path);

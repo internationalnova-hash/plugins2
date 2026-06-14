@@ -518,6 +518,84 @@ void PianoRollView::drawSnapControls(juce::Graphics& g, juce::Rectangle<int> are
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// FloatingSubPanel
+// ─────────────────────────────────────────────────────────────────────────────
+
+FloatingSubPanel::FloatingSubPanel(const juce::String& title)
+    : titleText(title)
+{
+    closeBtn.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+    closeBtn.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.7f));
+    closeBtn.onClick = [this]() { if (onClose) onClose(); };
+    addAndMakeVisible(closeBtn);
+
+    resizer.reset(new juce::ResizableCornerComponent(this, &constrainer));
+    constrainer.setMinimumSize(220, 160);
+    addAndMakeVisible(*resizer);
+
+    setOpaque(false);
+}
+
+FloatingSubPanel::~FloatingSubPanel() = default;
+
+void FloatingSubPanel::setContent(juce::Component* c)
+{
+    content = c;
+    if (content != nullptr)
+        addAndMakeVisible(*content);
+    resized();
+}
+
+void FloatingSubPanel::paint(juce::Graphics& g)
+{
+    auto area = getLocalBounds();
+
+    // Drop shadow / border so the floating panel reads as separate from the canvas behind it
+    g.setColour(juce::Colours::black.withAlpha(0.45f));
+    g.fillRect(area.translated(3, 3));
+
+    g.setColour(BeatTheme::panel());
+    g.fillRect(area);
+
+    auto titleBar = area.removeFromTop(kTitleBarH);
+    g.setColour(BeatTheme::panel().brighter(0.12f));
+    g.fillRect(titleBar);
+    g.setColour(juce::Colours::white.withAlpha(0.85f));
+    g.setFont(juce::FontOptions(12.5f, juce::Font::bold));
+    g.drawText(titleText, titleBar.reduced(8, 0), juce::Justification::centredLeft);
+
+    g.setColour(BeatTheme::edge());
+    g.drawRect(getLocalBounds(), 1);
+}
+
+void FloatingSubPanel::resized()
+{
+    auto area = getLocalBounds();
+    auto titleBar = area.removeFromTop(kTitleBarH);
+    closeBtn.setBounds(titleBar.removeFromRight(kTitleBarH).reduced(4));
+
+    if (content != nullptr)
+        content->setBounds(area);
+
+    resizer->setBounds(getWidth() - 14, getHeight() - 14, 14, 14);
+}
+
+void FloatingSubPanel::mouseDown(const juce::MouseEvent& e)
+{
+    if (e.y < kTitleBarH)
+    {
+        dragger.startDraggingComponent(this, e);
+        toFront(true);
+    }
+}
+
+void FloatingSubPanel::mouseDrag(const juce::MouseEvent& e)
+{
+    if (e.getMouseDownPosition().y < kTitleBarH)
+        dragger.dragComponent(this, e, &constrainer);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CompactMixerView
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2395,9 +2473,9 @@ BeatTransportBar::BeatTransportBar()
     recBtn.onClick  = [this]() { if (onRecord)       onRecord(); };
 
     stepGridViewBtn.toggled = true;
-    stepGridViewBtn.onClick  = [this]() { setActiveView(0); if (onShowStepSequencer) onShowStepSequencer(); };
-    pianoRollViewBtn.onClick = [this]() { setActiveView(1); if (onShowPianoRoll)     onShowPianoRoll(); };
-    mixerViewBtn.onClick     = [this]() { setActiveView(2); if (onShowMixer)         onShowMixer(); };
+    stepGridViewBtn.onClick  = [this]() { if (onShowStepSequencer) onShowStepSequencer(); };
+    pianoRollViewBtn.onClick = [this]() { if (onShowPianoRoll)     onShowPianoRoll(); };
+    mixerViewBtn.onClick     = [this]() { if (onShowMixer)         onShowMixer(); };
 
     timecodeLabel.setText("00:00:00.000", juce::dontSendNotification);
     timecodeLabel.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -2455,6 +2533,7 @@ void BeatTransportBar::resized()
 
 void BeatTransportBar::setActiveView(int viewIndex)
 {
+    // viewIndex == -1: no view highlighted (e.g. a floating panel was closed)
     stepGridViewBtn.toggled  = (viewIndex == 0);
     pianoRollViewBtn.toggled = (viewIndex == 1);
     mixerViewBtn.toggled     = (viewIndex == 2);
@@ -2482,9 +2561,22 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
     addAndMakeVisible(patternToolbar);
     addAndMakeVisible(browser);
     addAndMakeVisible(playlist);
-    addAndMakeVisible(stepSeq);
     addChildComponent(pianoRoll);     // hidden until the user switches views
-    addChildComponent(compactMixer);  // hidden until the user switches to the mixer view
+
+    // Step sequencer ("Channel Rack") and Mixer are floating panels that hover
+    // over the main canvas, FL Studio-style — draggable, resizable, closable —
+    // rather than permanently docked, so the workspace looks neater.
+    stepSeqPanel.setContent(&stepSeq);
+    stepSeqPanel.onClose = [this]() { stepSeqPanelOpen = false; stepSeqPanel.setVisible(false);
+                                      transportBar.setActiveView(-1); };
+    addChildComponent(stepSeqPanel);
+    stepSeqPanel.setVisible(stepSeqPanelOpen);   // Channel Rack floats open by default
+
+    mixerPanel.setContent(&compactMixer);
+    mixerPanel.onClose = [this]() { mixerPanelOpen = false; mixerPanel.setVisible(false);
+                                    transportBar.setActiveView(-1); };
+    addChildComponent(mixerPanel);
+    mixerPanel.setVisible(mixerPanelOpen);
 
     transportBar.onPlay          = [this]() { if (onPlay)          onPlay(); };
     transportBar.onStop          = [this]() { if (onStop)          onStop(); };
@@ -2492,29 +2584,29 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
     transportBar.onReturnToZero  = [this]() { if (onReturnToZero)  onReturnToZero(); };
     transportBar.onTempoChanged  = [this](int bpm) { if (onTempoChanged) onTempoChanged(bpm); };
 
-    // FL Studio-style view switcher: Step sequencer / Piano roll / Mixer.
-    // The mixer shows a small in-window compact mixer (rather than popping out
-    // the full mixer window) so producers can stay in the beat view.
+    // FL Studio-style view switcher: Step sequencer (Channel Rack) / Piano roll / Mixer.
+    // Step sequencer and Mixer toggle floating panels (can be open together);
+    // Piano roll is the docked canvas view.
     transportBar.onShowStepSequencer = [this]() {
         showingPianoRoll = false;
-        showingMixer     = false;
-        stepSeq.setVisible(true);
         pianoRoll.setVisible(false);
-        compactMixer.setVisible(false);
+        auto defaultBounds = canvasArea.withSizeKeepingCentre(
+            juce::jmin(560, canvasArea.getWidth() - 20), juce::jmin(360, canvasArea.getHeight() - 20))
+            .translated(-40, -20);
+        toggleFloatingPanel(stepSeqPanel, stepSeqPanelOpen, defaultBounds);
+        transportBar.setActiveView(stepSeqPanelOpen ? 0 : -1);
     };
     transportBar.onShowPianoRoll = [this]() {
         showingPianoRoll = true;
-        showingMixer     = false;
-        stepSeq.setVisible(false);
         pianoRoll.setVisible(true);
-        compactMixer.setVisible(false);
+        transportBar.setActiveView(1);
     };
     transportBar.onShowMixer = [this]() {
-        showingPianoRoll = false;
-        showingMixer     = true;
-        stepSeq.setVisible(false);
-        pianoRoll.setVisible(false);
-        compactMixer.setVisible(true);
+        auto defaultBounds = canvasArea.withSizeKeepingCentre(
+            juce::jmin(420, canvasArea.getWidth() - 20), juce::jmin(280, canvasArea.getHeight() - 20))
+            .translated(60, 40);
+        toggleFloatingPanel(mixerPanel, mixerPanelOpen, defaultBounds);
+        transportBar.setActiveView(mixerPanelOpen ? 2 : -1);
     };
 
     // Wire pattern toolbar → step sequencer
@@ -2653,6 +2745,37 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
 
 BeatWindow::~BeatWindow() = default;
 
+void BeatWindow::toggleFloatingPanel(FloatingSubPanel& panel, bool& flag,
+                                     juce::Rectangle<int> defaultBounds)
+{
+    flag = ! flag;
+    if (flag)
+    {
+        if (panel.getBounds().isEmpty() && ! defaultBounds.isEmpty())
+            panel.setBounds(defaultBounds);
+        panel.setVisible(true);
+        panel.toFront(true);
+    }
+    else
+    {
+        panel.setVisible(false);
+    }
+}
+
+void BeatWindow::setMenuBarModel(juce::MenuBarModel* model)
+{
+    if (model == nullptr)
+    {
+        menuBar.reset();
+    }
+    else
+    {
+        menuBar = std::make_unique<juce::MenuBarComponent>(model);
+        addAndMakeVisible(*menuBar);
+    }
+    resized();
+}
+
 void BeatWindow::setPlayState(bool playing, bool recording)
 {
     transportBar.setPlayState(playing, recording);
@@ -2677,6 +2800,11 @@ void BeatWindow::resized()
 {
     auto area = getLocalBounds();
 
+    // Top menu bar (File/Edit/...) — same as the edit window, for consistency
+    // whether the beat window is docked or popped out as a floating window.
+    if (menuBar != nullptr)
+        menuBar->setBounds(area.removeFromTop(kMenuBarH));
+
     // Row 1: transport bar (full width)
     transportBar.setBounds(area.removeFromTop(40));
     area.removeFromTop(1);
@@ -2694,10 +2822,22 @@ void BeatWindow::resized()
     playlist.setBounds(area.removeFromTop(playlistH));
     area.removeFromTop(2);
 
-    // Step sequencer / piano roll / mixer fill the rest (mutually exclusive views)
-    stepSeq.setBounds(area);
+    // Remaining canvas area: piano roll docks here when active; the step
+    // sequencer ("Channel Rack") and Mixer hover above it as floating panels.
+    canvasArea = area;
     pianoRoll.setBounds(area);
-    compactMixer.setBounds(area);
+
+    auto defaultPanelBounds = [&](int w, int h, int dx, int dy)
+    {
+        return area.withSizeKeepingCentre(juce::jmin(w, area.getWidth() - 20),
+                                           juce::jmin(h, area.getHeight() - 20))
+                   .translated(dx, dy);
+    };
+
+    if (stepSeqPanel.getBounds().isEmpty())
+        stepSeqPanel.setBounds(defaultPanelBounds(560, 360, -40, -20));
+    if (mixerPanel.getBounds().isEmpty())
+        mixerPanel.setBounds(defaultPanelBounds(420, 280, 60, 40));
 
     browser.setBounds(browserArea);
 }
