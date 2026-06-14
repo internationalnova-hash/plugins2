@@ -29,18 +29,23 @@ std::vector<float> WaveformCache::getPeaks(const juce::File& file) const
 {
     const std::lock_guard<std::mutex> lock(mutex);
     auto it = cache.find(file.getFullPathName());
-    if (it == cache.end())
-        return {};
+    if (it == cache.end()) return {};
     return it->second.peaks;
+}
+
+int WaveformCache::getNumChannels(const juce::File& file) const
+{
+    const std::lock_guard<std::mutex> lock(mutex);
+    auto it = cache.find(file.getFullPathName());
+    if (it == cache.end()) return 1;
+    return it->second.numChannels;
 }
 
 bool WaveformCache::hasPendingJob(const juce::String& key, int samplesPerPixel) const
 {
     for (const auto& job : jobQueue)
-    {
         if (job.file.getFullPathName() == key && job.samplesPerPixel == samplesPerPixel)
             return true;
-    }
     return false;
 }
 
@@ -52,82 +57,77 @@ void WaveformCache::processJobs()
         {
             std::unique_lock<std::mutex> lock(workerMutex);
             workerCondition.wait(lock, [this] { return stopWorker || !jobQueue.empty(); });
-            if (stopWorker && jobQueue.empty())
-                return;
+            if (stopWorker && jobQueue.empty()) return;
 
-            auto bestIt = std::min_element(jobQueue.begin(), jobQueue.end(), [](const Job& a, const Job& b) {
-                return a.priority < b.priority;
-            });
+            auto bestIt = std::min_element(jobQueue.begin(), jobQueue.end(),
+                [](const Job& a, const Job& b) { return a.priority < b.priority; });
             nextJob = *bestIt;
             jobQueue.erase(bestIt);
         }
 
-        if (isCached(nextJob.file))
-            continue;
-
-        ensureCached(nextJob.file, nextJob.samplesPerPixel);
+        if (!isCached(nextJob.file))
+            ensureCached(nextJob.file, nextJob.samplesPerPixel);
     }
 }
 
 bool WaveformCache::ensureCached(const juce::File& file, int samplesPerPixel)
 {
-    if (!file.existsAsFile())
-        return false;
+    if (!file.existsAsFile()) return false;
 
     const juce::String key = file.getFullPathName();
     {
         const std::lock_guard<std::mutex> lock(mutex);
-        if (cache.find(key) != cache.end())
-            return true;
+        if (cache.find(key) != cache.end()) return true;
     }
 
     std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(file));
-    if (!reader)
-        return false;
+    if (!reader) return false;
 
     const int64_t totalSamples = reader->lengthInSamples;
-    if (totalSamples <= 0)
-        return false;
+    if (totalSamples <= 0) return false;
 
-    const int numBlocks = static_cast<int>((totalSamples + samplesPerPixel - 1) / samplesPerPixel);
+    const int numCh     = (int)juce::jmin<int>((int)reader->numChannels, 2); // cap at stereo
+    const int numBlocks = (int)((totalSamples + samplesPerPixel - 1) / samplesPerPixel);
+
+    // Layout: per block → [ch0_min, ch0_max, ch1_min, ch1_max, ...]
     std::vector<float> peaks;
-    peaks.reserve(numBlocks * 2);
+    peaks.reserve(numBlocks * numCh * 2);
 
-    juce::AudioBuffer<float> buffer((int)reader->numChannels, samplesPerPixel);
+    juce::AudioBuffer<float> buffer(numCh, samplesPerPixel);
+
     for (int block = 0; block < numBlocks; ++block)
     {
         const int64_t startSample = (int64_t)block * samplesPerPixel;
         const int readCount = (int)juce::jmin<int64_t>(samplesPerPixel, totalSamples - startSample);
+
         if (readCount <= 0)
         {
-            peaks.push_back(0.0f);
-            peaks.push_back(0.0f);
+            for (int ch = 0; ch < numCh; ++ch) { peaks.push_back(0.0f); peaks.push_back(0.0f); }
             continue;
         }
 
         buffer.clear();
         reader->read(&buffer, 0, readCount, startSample, true, true);
 
-        float minV = 0.0f;
-        float maxV = 0.0f;
-        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+        for (int ch = 0; ch < numCh; ++ch)
         {
-            auto* data = buffer.getReadPointer(ch);
+            float minV = 0.0f, maxV = 0.0f;
+            const float* data = buffer.getReadPointer(ch);
             for (int i = 0; i < readCount; ++i)
             {
                 const float v = data[i];
                 if (v < minV) minV = v;
                 if (v > maxV) maxV = v;
             }
+            peaks.push_back(minV);
+            peaks.push_back(maxV);
         }
-
-        peaks.push_back(minV);
-        peaks.push_back(maxV);
     }
 
     {
         const std::lock_guard<std::mutex> lock(mutex);
         cache[key].peaks.swap(peaks);
+        cache[key].numChannels = numCh;
     }
 
     return true;
@@ -135,23 +135,18 @@ bool WaveformCache::ensureCached(const juce::File& file, int samplesPerPixel)
 
 void WaveformCache::ensureCachedAsync(const juce::File& file, int samplesPerPixel)
 {
-    if (!file.existsAsFile())
-        return;
+    if (!file.existsAsFile()) return;
 
     const juce::String key = file.getFullPathName();
     {
         const std::lock_guard<std::mutex> lock(mutex);
-        if (cache.find(key) != cache.end())
-            return;
+        if (cache.find(key) != cache.end()) return;
     }
 
-    const int priority = samplesPerPixel;
     {
         const std::lock_guard<std::mutex> lock(workerMutex);
-        if (hasPendingJob(key, samplesPerPixel))
-            return;
-        jobQueue.push_back({ file, samplesPerPixel, priority });
+        if (hasPendingJob(key, samplesPerPixel)) return;
+        jobQueue.push_back({ file, samplesPerPixel, samplesPerPixel });
     }
-
     workerCondition.notify_one();
 }

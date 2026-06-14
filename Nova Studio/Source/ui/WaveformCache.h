@@ -14,21 +14,21 @@ public:
     WaveformCache();
     ~WaveformCache();
 
-    // Ensure a cached downsampled peak buffer exists for the file at the given samplesPerPixel resolution.
-    // This call is synchronous and may read the entire file.
     bool ensureCached(const juce::File& file, int samplesPerPixel = 512);
-
-    // Queue a background task to create the cache asynchronously. Returns immediately.
     void ensureCachedAsync(const juce::File& file, int samplesPerPixel = 512);
-
-    // Check if cached
     bool isCached(const juce::File& file) const;
 
-    // Get peaks (min/max interleaved: min0,max0,min1,max1,...). Empty vector if not cached.
+    // Per-channel peak data. Layout per block: ch0_min, ch0_max, ch1_min, ch1_max, ...
+    // Use getNumChannels() to know the stride (2 floats per channel per block).
     std::vector<float> getPeaks(const juce::File& file) const;
+    int getNumChannels(const juce::File& file) const;
 
 private:
-    struct Entry { std::vector<float> peaks; };
+    struct Entry
+    {
+        std::vector<float> peaks;
+        int numChannels = 1;
+    };
     struct Job { juce::File file; int samplesPerPixel = 512; int priority = 0; };
 
     void processJobs();

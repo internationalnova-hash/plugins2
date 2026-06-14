@@ -371,6 +371,8 @@ void MainComponent::refreshTrackList()
 {
     if (editWindow)
         editWindow->repaint();
+    if (mixerWindow && mixerWindow->isVisible())
+        mixerWindow->refresh();
 }
 
 void MainComponent::setWorkspaceMode(int mode)

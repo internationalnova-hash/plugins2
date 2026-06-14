@@ -169,14 +169,17 @@ namespace NovaStudio
         soloModeActive = soloActive;
     }
 
-    bool StudioAudioEngine::TrackPlayer::loadClip(const juce::File& file, double sampleRate)
+    bool StudioAudioEngine::TrackPlayer::loadClip(const juce::File& file, double /*deviceSampleRate*/)
     {
         auto* reader = formatManager.createReaderFor(file);
         if (reader == nullptr)
             return false;
 
+        // Capture the file's actual sample rate BEFORE passing ownership to AudioFormatReaderSource.
+        // AudioTransportSource needs the source sample rate so it can resample to the device rate.
+        const double fileSampleRate = reader->sampleRate;
         readerSource.reset(new juce::AudioFormatReaderSource(reader, true));
-        transportSource.setSource(readerSource.get(), 0, nullptr, sampleRate);
+        transportSource.setSource(readerSource.get(), 0, nullptr, fileSampleRate);
         transportSource.setPosition(0.0);
         loadedFile = file;
         return true;

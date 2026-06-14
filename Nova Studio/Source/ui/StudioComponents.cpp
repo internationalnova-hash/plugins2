@@ -1171,22 +1171,41 @@ namespace NovaStudioUI
                     if (!waveformCache.isCached(clip.file))
                         waveformCache.ensureCachedAsync(clip.file, samplesPerPixel);
 
-                    const auto peaks = waveformCache.getPeaks(clip.file);
-                    const int blocks = (int)peaks.size() / 2;
+                    const auto peaks    = waveformCache.getPeaks(clip.file);
+                    const int  numCh    = waveformCache.getNumChannels(clip.file);
+                    const int  stride   = numCh * 2;           // floats per block
+                    const int  blocks   = (stride > 0) ? (int)peaks.size() / stride : 0;
+
                     if (blocks > 0)
                     {
-                        const float centerY = clipY + clipHeight * 0.5f;
-                        const float amp = clipHeight * 0.45f;
-                        for (int b = 0; b < blocks; ++b)
+                        // For stereo: split clip height into two equal lanes (L top, R bottom)
+                        // For mono: single lane centred
+                        for (int ch = 0; ch < numCh; ++ch)
                         {
-                            const float minV = peaks[b * 2];
-                            const float maxV = peaks[b * 2 + 1];
-                            const float nx = (float)clipStartX + (b / (float)blocks) * clipWidth;
-                            const float x2 = nx + (clipWidth / (float)blocks);
-                            const float y1 = centerY - (maxV * amp);
-                            const float y2 = centerY - (minV * amp);
-                            g.setColour(juce::Colours::white.withAlpha(0.35f));
-                            g.drawLine(nx, y1, nx, y2, juce::jmax(1.0f, clipWidth / blocks * 0.6f));
+                            const float laneTop    = clipY    + ch       * (clipHeight / (float)numCh);
+                            const float laneBottom = clipY    + (ch + 1) * (clipHeight / (float)numCh);
+                            const float centerY    = (laneTop + laneBottom) * 0.5f;
+                            const float amp        = (laneBottom - laneTop) * 0.44f;
+
+                            // Faint lane divider for stereo
+                            if (numCh > 1 && ch > 0)
+                            {
+                                g.setColour(juce::Colours::white.withAlpha(0.08f));
+                                g.drawHorizontalLine((int)laneTop, (float)clipStartX, (float)clipStartX + clipWidth);
+                            }
+
+                            g.setColour(juce::Colours::white.withAlpha(0.38f));
+                            for (int b = 0; b < blocks; ++b)
+                            {
+                                const int   idx = b * stride + ch * 2;
+                                const float minV = peaks[idx];
+                                const float maxV = peaks[idx + 1];
+                                const float nx = (float)clipStartX + (b / (float)blocks) * clipWidth;
+                                const float x2 = clipWidth / (float)blocks;
+                                const float y1 = centerY - (maxV * amp);
+                                const float y2 = centerY - (minV * amp);
+                                g.drawLine(nx, y1, nx, y2, juce::jmax(1.0f, x2 * 0.6f));
+                            }
                         }
                     }
                 }
