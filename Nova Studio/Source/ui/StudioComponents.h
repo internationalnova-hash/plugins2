@@ -195,6 +195,7 @@ namespace NovaStudioUI
         void mouseDown(const juce::MouseEvent& event) override;
         void mouseDrag(const juce::MouseEvent& event) override;
         void mouseUp(const juce::MouseEvent& event) override;
+        void mouseMove(const juce::MouseEvent& event) override;
         void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
         bool keyPressed(const juce::KeyPress& key) override;
 
@@ -238,6 +239,16 @@ namespace NovaStudioUI
         juce::Point<float> marqueeStart {0.0f, 0.0f};
         juce::Rectangle<float> marqueeRect {0.0f, 0.0f, 0.0f, 0.0f};
 
+        // Playhead scrubbing
+        bool isDraggingPlayhead = false;
+
+        // Loop brace dragging
+        enum class LoopDragHandle { None, Start, End, Body };
+        LoopDragHandle loopDragHandle = LoopDragHandle::None;
+        int64_t loopDragStartSample = 0; // position at drag start
+        int64_t loopOrigStart = 0;
+        int64_t loopOrigEnd   = 0;
+
         EditModeToolbar::EditMode editMode = EditModeToolbar::EditMode::Slip;
         double  snapBeats   = 4.0;   // 1 bar
         double  nudgeBeats  = 0.25;  // 1/16
@@ -266,6 +277,9 @@ namespace NovaStudioUI
 
         void paint(juce::Graphics& g) override;
         void resized() override;
+        void mouseDown(const juce::MouseEvent& e) override;
+        void mouseDrag(const juce::MouseEvent& e) override;
+        void mouseUp(const juce::MouseEvent& e) override;
 
     private:
         void buttonClicked(juce::Button*) override {}
@@ -273,8 +287,24 @@ namespace NovaStudioUI
         void paintPianoRoll(juce::Graphics& g, juce::Rectangle<int> area);
         void paintStepSequencer(juce::Graphics& g, juce::Rectangle<int> area);
 
+        // Returns strip index and fader hit (-1 if none)
+        int stripIndexAt(int x) const;
+        bool faderHitTest(int stripIndex, juce::Point<int> pos, juce::Rectangle<int> mixerArea) const;
+
         juce::TextButton mixerTab{"MIXER"}, channelsTab{"CHANNELS"},
                          effectsTab{"EFFECTS"},  metersTab{"METERS"};
+
+        static constexpr int kStripW = 68;
+        static constexpr int kNumStrips = 13;
+
+        // Interactive fader state — stored per strip (0.0 = top, 1.0 = bottom)
+        float faderPositions[kNumStrips] = {
+            0.35f, 0.35f, 0.35f, 0.35f, 0.35f, 0.35f,
+            0.35f, 0.35f, 0.35f, 0.35f, 0.35f, 0.35f, 0.30f
+        };
+        int   activeFaderStrip  = -1;
+        int   faderDragStartY   = 0;
+        float faderDragStartPos = 0.0f;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BottomDockPanel)
     };
