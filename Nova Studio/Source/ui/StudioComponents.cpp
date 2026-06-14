@@ -3774,7 +3774,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         tempoLabel.setBounds(x, btnY, 100, btnH); x += 108;
 
         // Zoom controls — right of tempo
-        const int zSz = 24;
+        const int zSz = 30;
         hZoomOutBtn.setBounds(x, btnY, zSz, btnH); x += zSz + 2;
         hZoomInBtn.setBounds (x, btnY, zSz, btnH); x += zSz + 6;
         vZoomOutBtn.setBounds(x, btnY, zSz, btnH); x += zSz + 2;
