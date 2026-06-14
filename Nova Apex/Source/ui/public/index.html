@@ -130,12 +130,17 @@
     .brand { display: flex; align-items: center; gap: 10px; }
     .logo-box {
       width: 42px; height: 42px;
-      border: 1px solid var(--edge);
+      border: 1px solid rgba(200,160,96,0.32);
       border-radius: 10px;
-      background: radial-gradient(circle at 38% 30%, rgba(200,160,96,0.4), rgba(40,24,8,0.9));
+      background: radial-gradient(circle at 38% 30%, rgba(200,160,96,0.18), rgba(20,14,6,0.95));
       display: grid; place-items: center; flex-shrink: 0;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 12px rgba(0,0,0,0.4);
     }
-    .logo-svg { width: 26px; height: 26px; }
+    .logo-n {
+      width: 30px; height: 30px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 6px rgba(200,160,96,0.35)) drop-shadow(0 0 12px rgba(200,160,96,0.18));
+    }
     .brand-text { display: flex; flex-direction: column; gap: 2px; }
     .brand-line1 { display: flex; align-items: baseline; gap: 5px; }
     .brand-nova { font-size: 13px; font-weight: 700; letter-spacing: .18em; color: var(--gold); }
@@ -727,10 +732,7 @@
       <!-- Brand -->
       <div class="brand">
         <div class="logo-box">
-          <svg class="logo-svg" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="1" y="1" width="24" height="24" rx="5" stroke="#C8A060" stroke-width="1.4" fill="none"/>
-            <polygon points="8,6 20,13 8,20" fill="#C8A060" opacity="0.9"/>
-          </svg>
+          <img src="n_logo.png" alt="N" class="logo-n" />
         </div>
         <div class="brand-text">
           <div class="brand-line1">
