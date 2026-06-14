@@ -2316,12 +2316,12 @@ void BeatPatternToolbar::resized()
     const int gap = 3;
 
     // Calculate total content width to center it
-    // Pattern nav: 20 + 3 + 100 + 3 + 20 + 3 + 18 + 3 + 20 + (11) = 201
+    // Pattern nav: 28 + 3 + 100 + 3 + 24 + 3 + 28 + 3 + 28 + (11) = 231
     // Steps:       28+3+28+3+28 + 11 = 101
     // Swing:       18+3+68+3+18 + 11 = 121
     // Tools:       56+3+38+3+68 = 168
-    // Total ~ 591
-    const int totalW = 20+3+100+3+20+3+18+3+20+11 + 28+3+28+3+28+11 + 18+3+68+3+18+11 + 56+3+38+3+68;
+    // Total ~ 621
+    const int totalW = 28+3+100+3+24+3+28+3+28+11 + 28+3+28+3+28+11 + 18+3+68+3+18+11 + 56+3+38+3+68;
     int startX = juce::jmax(4, (getWidth() - totalW) / 2);
     const int y = 3;
 
@@ -2332,11 +2332,11 @@ void BeatPatternToolbar::resized()
     auto gap8 = [&]() { startX += 8; };
 
     // Pattern navigation: < [Name] [v] > +
-    place(prevPatBtn,   20);
+    place(prevPatBtn,   28);
     place(patNameLabel, 100);
-    place(patDropBtn,   18);
-    place(nextPatBtn,   20);
-    place(addPatBtn,    20);
+    place(patDropBtn,   24);
+    place(nextPatBtn,   28);
+    place(addPatBtn,    28);
     gap8();
 
     // Step count
@@ -2587,13 +2587,18 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
     // FL Studio-style view switcher: Step sequencer (Channel Rack) / Piano roll / Mixer.
     // Step sequencer and Mixer toggle floating panels (can be open together);
     // Piano roll is the docked canvas view.
-    transportBar.onShowStepSequencer = [this]() {
+    auto panelBoundsFraction = [this](float wFrac, float hFrac, int dx, int dy)
+    {
+        const int w = juce::jmax(360, juce::roundToInt(canvasArea.getWidth()  * wFrac));
+        const int h = juce::jmax(260, juce::roundToInt(canvasArea.getHeight() * hFrac));
+        return canvasArea.withSizeKeepingCentre(w, h).translated(dx, dy);
+    };
+
+    transportBar.onShowStepSequencer = [this, panelBoundsFraction]() {
         showingPianoRoll = false;
         pianoRoll.setVisible(false);
-        auto defaultBounds = canvasArea.withSizeKeepingCentre(
-            juce::jmin(560, canvasArea.getWidth() - 20), juce::jmin(360, canvasArea.getHeight() - 20))
-            .translated(-40, -20);
-        toggleFloatingPanel(stepSeqPanel, stepSeqPanelOpen, defaultBounds);
+        // The Channel Rack needs real working room — size it close to the full canvas
+        toggleFloatingPanel(stepSeqPanel, stepSeqPanelOpen, panelBoundsFraction(0.94f, 0.92f, -16, -10));
         transportBar.setActiveView(stepSeqPanelOpen ? 0 : -1);
     };
     transportBar.onShowPianoRoll = [this]() {
@@ -2601,11 +2606,8 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
         pianoRoll.setVisible(true);
         transportBar.setActiveView(1);
     };
-    transportBar.onShowMixer = [this]() {
-        auto defaultBounds = canvasArea.withSizeKeepingCentre(
-            juce::jmin(420, canvasArea.getWidth() - 20), juce::jmin(280, canvasArea.getHeight() - 20))
-            .translated(60, 40);
-        toggleFloatingPanel(mixerPanel, mixerPanelOpen, defaultBounds);
+    transportBar.onShowMixer = [this, panelBoundsFraction]() {
+        toggleFloatingPanel(mixerPanel, mixerPanelOpen, panelBoundsFraction(0.6f, 0.78f, 30, 24));
         transportBar.setActiveView(mixerPanelOpen ? 2 : -1);
     };
 
@@ -2827,17 +2829,17 @@ void BeatWindow::resized()
     canvasArea = area;
     pianoRoll.setBounds(area);
 
-    auto defaultPanelBounds = [&](int w, int h, int dx, int dy)
+    auto defaultPanelBounds = [&](float wFrac, float hFrac, int dx, int dy)
     {
-        return area.withSizeKeepingCentre(juce::jmin(w, area.getWidth() - 20),
-                                           juce::jmin(h, area.getHeight() - 20))
-                   .translated(dx, dy);
+        const int w = juce::jmax(360, juce::roundToInt(area.getWidth()  * wFrac));
+        const int h = juce::jmax(260, juce::roundToInt(area.getHeight() * hFrac));
+        return area.withSizeKeepingCentre(w, h).translated(dx, dy);
     };
 
     if (stepSeqPanel.getBounds().isEmpty())
-        stepSeqPanel.setBounds(defaultPanelBounds(560, 360, -40, -20));
+        stepSeqPanel.setBounds(defaultPanelBounds(0.94f, 0.92f, -16, -10));
     if (mixerPanel.getBounds().isEmpty())
-        mixerPanel.setBounds(defaultPanelBounds(420, 280, 60, 40));
+        mixerPanel.setBounds(defaultPanelBounds(0.6f, 0.78f, 30, 24));
 
     browser.setBounds(browserArea);
 }
