@@ -461,7 +461,48 @@ namespace NovaStudioUI
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BottomDockPanel)
     };
 
-    class BrowserPanel : public juce::Component
+    // Filter: shows directories + audio files only
+    class AudioDirFilter : public juce::FileFilter
+    {
+    public:
+        AudioDirFilter() : FileFilter("Audio") {}
+        bool isFileSuitable(const juce::File& f) const override
+        {
+            static const char* exts[] = {".wav",".aif",".aiff",".mp3",".flac",".ogg",".m4a",nullptr};
+            auto ext = f.getFileExtension().toLowerCase();
+            for (int i = 0; exts[i]; ++i) if (ext == exts[i]) return true;
+            return false;
+        }
+        bool isDirectorySuitable(const juce::File&) const override { return true; }
+    };
+
+    // FileTreeComponent subclass that initiates DnD on drag of an audio file
+    class DraggableFileTree : public juce::FileTreeComponent
+    {
+    public:
+        explicit DraggableFileTree(juce::DirectoryContentsList& d)
+            : juce::FileTreeComponent(d) {}
+        void mouseDrag(const juce::MouseEvent& e) override
+        {
+            if (e.getDistanceFromDragStart() > 5)
+            {
+                const auto sel = getSelectedFile(0);
+                if (sel.existsAsFile())
+                {
+                    if (auto* dc = juce::DragAndDropContainer::findParentDragContainerFor(this))
+                    {
+                        dc->startDragging(sel.getFullPathName(), this);
+                        return;
+                    }
+                }
+            }
+            juce::FileTreeComponent::mouseDrag(e);
+        }
+    };
+
+    class BrowserPanel : public juce::Component,
+                         public juce::FileBrowserListener,
+                         public juce::Button::Listener
     {
     public:
         BrowserPanel();
@@ -470,20 +511,37 @@ namespace NovaStudioUI
         void paint(juce::Graphics& g) override;
         void resized() override;
         void mouseDown(const juce::MouseEvent& e) override;
-        void mouseDrag(const juce::MouseEvent& e) override;
-
         void refresh();
 
-    private:
-        int fileIndexAt(int y) const;
+        // FileBrowserListener
+        void selectionChanged() override;
+        void fileClicked(const juce::File&, const juce::MouseEvent&) override {}
+        void fileDoubleClicked(const juce::File& f) override;
+        void browserRootChanged(const juce::File&) override {}
 
-        juce::Array<juce::File> files;
-        int selectedIndex = -1;
-        static constexpr int kHeaderH  = 32;
-        static constexpr int kSearchH  = 28;
-        static constexpr int kTabsH    = 24;
-        static constexpr int kItemH    = 22;
-        static constexpr int kPreviewH = 80;
+        // Button::Listener
+        void buttonClicked(juce::Button* b) override;
+
+    private:
+        void navigateTo(const juce::File& dir);
+
+        AudioDirFilter audioFilter;
+        juce::TimeSliceThread dirThread { "NovaBrowserThread" };
+        juce::DirectoryContentsList dirContents { &audioFilter, dirThread };
+        DraggableFileTree fileTree { dirContents };
+
+        juce::TextEditor searchBox;
+        juce::TextButton homeBtn   { "Home" };
+        juce::TextButton desktopBtn{ "Desktop" };
+        juce::TextButton docsBtn   { "Docs" };
+        juce::TextButton musicBtn  { "Music" };
+        juce::TextButton recBtn    { "Rec" };
+
+        juce::File selectedFile;
+        static constexpr int kHeaderH   = 28;
+        static constexpr int kSearchH   = 26;
+        static constexpr int kBookmarkH = 24;
+        static constexpr int kPreviewH  = 54;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BrowserPanel)
     };

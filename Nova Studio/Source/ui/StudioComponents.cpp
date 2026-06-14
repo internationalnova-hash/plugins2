@@ -2557,162 +2557,193 @@ void BottomDockPanel::paint(juce::Graphics& g)
     paintStepSequencer(g, juce::Rectangle<int>(stepX + 1, 28, getWidth() - stepX - 1, getHeight() - 28));
 }
 
+// ─── BrowserPanel ─────────────────────────────────────────────────────────────
+
 BrowserPanel::BrowserPanel()
 {
-    refresh();
-    setRepaintsOnMouseActivity(true);
+    dirThread.startThread();
+    navigateTo(juce::File::getSpecialLocation(juce::File::userHomeDirectory));
+
+    // Style the file tree for dark theme
+    fileTree.setColour(juce::FileTreeComponent::backgroundColourId,
+                       juce::Colour::fromRGB(12, 14, 20));
+    fileTree.setColour(juce::FileTreeComponent::selectedItemBackgroundColourId,
+                       juce::Colour::fromRGB(50, 40, 90));
+    fileTree.setColour(juce::ListBox::backgroundColourId,
+                       juce::Colour::fromRGB(12, 14, 20));
+    fileTree.setColour(juce::TreeView::backgroundColourId,
+                       juce::Colour::fromRGB(12, 14, 20));
+    fileTree.addListener(this);
+    addAndMakeVisible(fileTree);
+
+    // Search box
+    searchBox.setTextToShowWhenEmpty("Search files...", juce::Colours::grey);
+    searchBox.setColour(juce::TextEditor::backgroundColourId, juce::Colour::fromRGB(22, 26, 36));
+    searchBox.setColour(juce::TextEditor::textColourId, juce::Colours::white.withAlpha(0.85f));
+    searchBox.setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
+    searchBox.setFont(juce::Font(juce::FontOptions(10.0f)));
+    addAndMakeVisible(searchBox);
+
+    // Bookmark buttons
+    for (auto* btn : { &homeBtn, &desktopBtn, &docsBtn, &musicBtn, &recBtn })
+    {
+        btn->setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(20, 22, 32));
+        btn->setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.6f));
+        btn->setColour(juce::TextButton::textColourOnId, juce::Colour::fromRGB(180, 155, 255));
+        btn->addListener(this);
+        addAndMakeVisible(btn);
+    }
 }
 
-BrowserPanel::~BrowserPanel() = default;
+BrowserPanel::~BrowserPanel()
+{
+    fileTree.removeListener(this);
+    dirThread.stopThread(2000);
+}
+
+void BrowserPanel::navigateTo(const juce::File& dir)
+{
+    dirContents.setDirectory(dir, true, true);
+}
 
 void BrowserPanel::refresh()
 {
-    files.clear();
-    auto folder = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
-                      .getChildFile("NovaStudio").getChildFile("Recordings");
-    if (folder.isDirectory())
-        folder.findChildFiles(files, juce::File::findFiles, false, "*.wav;*.aif;*.aiff;*.mp3;*.flac");
-    files.sort();
+    dirContents.refresh();
+}
+
+void BrowserPanel::selectionChanged()
+{
+    selectedFile = fileTree.getSelectedFile(0);
     repaint();
 }
 
-int BrowserPanel::fileIndexAt(int y) const
+void BrowserPanel::fileDoubleClicked(const juce::File& f)
 {
-    const int listTop = kHeaderH + kSearchH + kTabsH + 2;
-    const int listBot = getHeight() - kPreviewH;
-    if (y < listTop || y >= listBot) return -1;
-    const int idx = (y - listTop) / kItemH;
-    return (idx >= 0 && idx < files.size()) ? idx : -1;
+    if (f.isDirectory())
+        navigateTo(f);
 }
 
-void BrowserPanel::mouseDown(const juce::MouseEvent& e)
+void BrowserPanel::buttonClicked(juce::Button* b)
 {
-    selectedIndex = fileIndexAt(e.y);
-    repaint();
-}
-
-void BrowserPanel::mouseDrag(const juce::MouseEvent& e)
-{
-    if (selectedIndex < 0 || selectedIndex >= files.size()) return;
-    if (e.getDistanceFromDragStart() < 6) return;
-
-    if (auto* dc = juce::DragAndDropContainer::findParentDragContainerFor(this))
-        dc->startDragging(files[selectedIndex].getFullPathName(), this);
+    if (b == &homeBtn)
+        navigateTo(juce::File::getSpecialLocation(juce::File::userHomeDirectory));
+    else if (b == &desktopBtn)
+        navigateTo(juce::File::getSpecialLocation(juce::File::userDesktopDirectory));
+    else if (b == &docsBtn)
+        navigateTo(juce::File::getSpecialLocation(juce::File::userDocumentsDirectory));
+    else if (b == &musicBtn)
+        navigateTo(juce::File::getSpecialLocation(juce::File::userMusicDirectory));
+    else if (b == &recBtn)
+    {
+        auto recFolder = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                             .getChildFile("NovaStudio").getChildFile("Recordings");
+        recFolder.createDirectory();
+        navigateTo(recFolder);
+    }
 }
 
 void BrowserPanel::paint(juce::Graphics& g)
 {
     const int W = getWidth();
-    const int H = getHeight();
-
     g.fillAll(juce::Colour::fromRGB(12, 14, 20));
 
-    // Header
-    g.setColour(juce::Colour::fromRGB(18, 20, 28));
+    // Header bar
+    g.setColour(juce::Colour::fromRGB(18, 20, 30));
     g.fillRect(0, 0, W, kHeaderH);
     g.setColour(juce::Colours::white.withAlpha(0.75f));
-    g.setFont(juce::Font(juce::FontOptions(11.0f).withStyle("Bold")));
-    g.drawText("BROWSER", 12, 0, W - 24, kHeaderH, juce::Justification::centredLeft);
-    // Refresh icon hint
-    g.setColour(juce::Colours::white.withAlpha(0.3f));
-    g.setFont(juce::Font(juce::FontOptions(13.0f)));
-    g.drawText(u8"↻", W - 26, 0, 22, kHeaderH, juce::Justification::centred);
+    g.setFont(juce::Font(juce::FontOptions(10.5f).withStyle("Bold")));
+    g.drawText("BROWSER", 10, 0, W - 46, kHeaderH, juce::Justification::centredLeft);
 
-    // Search bar
-    g.setColour(juce::Colour::fromRGB(22, 26, 36));
-    g.fillRoundedRectangle(8.0f, (float)kHeaderH + 2.0f, W - 16.0f, kSearchH - 4.0f, 5.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.28f));
-    g.setFont(juce::Font(juce::FontOptions(10.5f)));
-    g.drawText("Search recordings...", 16, kHeaderH + 2, W - 32, kSearchH - 4, juce::Justification::centredLeft);
-
-    // Category tabs
-    const int tabsY = kHeaderH + kSearchH;
-    g.setColour(juce::Colour::fromRGB(16, 18, 26));
-    g.fillRect(0, tabsY, W, kTabsH);
-    g.setColour(juce::Colour::fromRGB(35, 38, 52));
-    g.fillRect(0, tabsY + kTabsH - 1, W, 1);
-    g.setFont(juce::Font(juce::FontOptions(9.0f).withStyle("Bold")));
+    // "+" button hint (drawn as text, clickable via fileChooser in mouseDown)
     g.setColour(juce::Colour::fromRGB(150, 120, 255));
-    g.drawText("RECORDINGS", 8, tabsY, W - 16, kTabsH, juce::Justification::centredLeft);
+    g.setFont(juce::Font(juce::FontOptions(14.0f)));
+    g.drawText("+", W - 40, 0, 18, kHeaderH, juce::Justification::centred);
 
-    // File list
-    const int listTop = kHeaderH + kSearchH + kTabsH + 2;
-    const int listBot = H - kPreviewH;
-    const int visCount = (listBot - listTop) / kItemH;
+    // Folder icon (open folder hint)
+    g.setColour(juce::Colours::white.withAlpha(0.35f));
+    g.setFont(juce::Font(juce::FontOptions(12.0f)));
+    g.drawText(u8"\U0001F4C2", W - 22, 0, 20, kHeaderH, juce::Justification::centred);
 
-    for (int i = 0; i < files.size() && i < visCount; ++i)
-    {
-        const int iy = listTop + i * kItemH;
-        const bool sel = (i == selectedIndex);
-
-        if (sel)
-        {
-            g.setColour(juce::Colour::fromRGB(50, 40, 90));
-            g.fillRect(0, iy, W, kItemH);
-        }
-
-        // Waveform icon dot
-        g.setColour(juce::Colour::fromRGB(100, 80, 180).withAlpha(0.8f));
-        g.fillEllipse(8.0f, (float)iy + 7.0f, 5.0f, 5.0f);
-
-        // File name
-        g.setColour(sel ? juce::Colours::white : juce::Colours::white.withAlpha(0.72f));
-        g.setFont(juce::Font(juce::FontOptions(10.5f)));
-        g.drawText(files[i].getFileNameWithoutExtension(), 18, iy, W - 26, kItemH,
-                   juce::Justification::centredLeft, true);
-
-        // Row separator
-        g.setColour(juce::Colour::fromRGB(22, 24, 34));
-        g.fillRect(0, iy + kItemH - 1, W, 1);
-    }
-
-    if (files.isEmpty())
-    {
-        g.setColour(juce::Colours::white.withAlpha(0.28f));
-        g.setFont(juce::Font(juce::FontOptions(10.0f)));
-        g.drawText("No recordings found", 0, listTop + 20, W, 20, juce::Justification::centred);
-        g.setColour(juce::Colours::white.withAlpha(0.18f));
-        g.setFont(juce::Font(juce::FontOptions(9.0f)));
-        g.drawText("Record something first", 0, listTop + 42, W, 18, juce::Justification::centred);
-    }
-
-    // Preview area
-    g.setColour(juce::Colour::fromRGB(14, 16, 22));
-    g.fillRect(0, listBot, W, kPreviewH);
+    // Divider
     g.setColour(juce::Colour::fromRGB(30, 34, 48));
-    g.fillRect(0, listBot, W, 1);
+    g.fillRect(0, kHeaderH - 1, W, 1);
 
-    if (selectedIndex >= 0 && selectedIndex < files.size())
+    // Current path label
+    const int pathY = kHeaderH + kSearchH + kBookmarkH;
+    g.setColour(juce::Colour::fromRGB(22, 24, 34));
+    g.fillRect(0, pathY - 1, W, 1);
+
+    // Preview footer
+    const int previewY = getHeight() - kPreviewH;
+    g.setColour(juce::Colour::fromRGB(14, 16, 24));
+    g.fillRect(0, previewY, W, kPreviewH);
+    g.setColour(juce::Colour::fromRGB(30, 34, 48));
+    g.fillRect(0, previewY, W, 1);
+
+    if (selectedFile.existsAsFile())
     {
-        const auto& f = files[selectedIndex];
-        g.setColour(juce::Colours::white.withAlpha(0.8f));
+        g.setColour(juce::Colours::white.withAlpha(0.85f));
         g.setFont(juce::Font(juce::FontOptions(9.5f).withStyle("Bold")));
-        g.drawText(f.getFileNameWithoutExtension(), 8, listBot + 6, W - 16, 14,
-                   juce::Justification::centredLeft, true);
-        g.setColour(juce::Colours::white.withAlpha(0.4f));
-        g.setFont(juce::Font(juce::FontOptions(9.0f)));
-        const auto size = f.getSize();
-        g.drawText(juce::File::descriptionOfSizeInBytes(size) + "  •  WAV",
-                   8, listBot + 22, W - 16, 14, juce::Justification::centredLeft);
-        // Drag hint
-        g.setColour(juce::Colour::fromRGB(150, 120, 255).withAlpha(0.55f));
+        g.drawText(selectedFile.getFileNameWithoutExtension(),
+                   8, previewY + 5, W - 16, 14, juce::Justification::centredLeft, true);
+        g.setColour(juce::Colours::white.withAlpha(0.45f));
         g.setFont(juce::Font(juce::FontOptions(8.5f)));
-        g.drawText("Drag to timeline to place", 8, listBot + 40, W - 16, 14, juce::Justification::centredLeft);
+        g.drawText(juce::File::descriptionOfSizeInBytes(selectedFile.getSize())
+                       + "  " + selectedFile.getFileExtension().toUpperCase(),
+                   8, previewY + 21, W - 16, 12, juce::Justification::centredLeft);
+        g.setColour(juce::Colour::fromRGB(150, 120, 255).withAlpha(0.7f));
+        g.setFont(juce::Font(juce::FontOptions(8.0f)));
+        g.drawText(u8"⟵ Drag to timeline", 8, previewY + 35, W - 16, 12,
+                   juce::Justification::centredLeft);
     }
     else
     {
-        g.setColour(juce::Colours::white.withAlpha(0.28f));
-        g.setFont(juce::Font(juce::FontOptions(9.5f)));
-        g.drawText("Click to select  •  Drag to place", 0, listBot + 26, W, 18, juce::Justification::centred);
+        g.setColour(juce::Colours::white.withAlpha(0.25f));
+        g.setFont(juce::Font(juce::FontOptions(9.0f)));
+        g.drawText("Select a file  •  Drag to timeline",
+                   0, previewY + 14, W, 14, juce::Justification::centred);
     }
-
-    // NOVA AUDIO branding
-    g.setColour(juce::Colour::fromRGB(200, 155, 60).withAlpha(0.45f));
-    g.setFont(juce::Font(juce::FontOptions(9.0f).withStyle("Bold")));
-    g.drawText("NOVA AUDIO", 0, H - 16, W, 14, juce::Justification::centred);
 }
 
-void BrowserPanel::resized() {}
+void BrowserPanel::resized()
+{
+    const int W = getWidth();
+    int y = kHeaderH;
+
+    searchBox.setBounds(6, y + 2, W - 12, kSearchH - 4);
+    y += kSearchH;
+
+    // Bookmark strip — 5 equal buttons
+    const int bw = W / 5;
+    homeBtn   .setBounds(0,          y, bw,     kBookmarkH);
+    desktopBtn.setBounds(bw,         y, bw,     kBookmarkH);
+    docsBtn   .setBounds(bw * 2,     y, bw,     kBookmarkH);
+    musicBtn  .setBounds(bw * 3,     y, bw,     kBookmarkH);
+    recBtn    .setBounds(bw * 4,     y, W - bw * 4, kBookmarkH);
+    y += kBookmarkH;
+
+    const int treeH = getHeight() - y - kPreviewH;
+    fileTree.setBounds(0, y, W, treeH);
+}
+
+// mouseDown on the header area handles the "+" open folder picker
+void BrowserPanel::mouseDown(const juce::MouseEvent& e)
+{
+    // "+" button is drawn at (W-40, 0, 18, kHeaderH)
+    if (e.y < kHeaderH && e.x >= getWidth() - 42)
+    {
+        auto chooser = std::make_shared<juce::FileChooser>(
+            "Choose a folder to browse",
+            juce::File::getSpecialLocation(juce::File::userHomeDirectory));
+        chooser->launchAsync(juce::FileBrowserComponent::openMode
+                             | juce::FileBrowserComponent::canSelectDirectories,
+            [this, chooser](const juce::FileChooser& fc) {
+                auto result = fc.getResult();
+                if (result.isDirectory())
+                    navigateTo(result);
+            });
+    }
+}
 
 PianoRollPanel::PianoRollPanel() {}
 PianoRollPanel::~PianoRollPanel() = default;
