@@ -388,6 +388,7 @@ namespace NovaStudio
     StudioAudioEngine::StudioAudioEngine()
     {
         pluginFormatManager.addDefaultFormats();
+        previewFormatManager.registerBasicFormats();
 
         juce::File novaRoot = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
                                   .getChildFile("NovaStudio");
@@ -485,6 +486,10 @@ namespace NovaStudio
         deviceManager.removeAudioCallback(this);
         recordingActive.store(false);
         recordingWriter.reset();
+        previewActive.store(false);
+        previewTransport.stop();
+        previewTransport.setSource(nullptr);
+        previewReaderSource.reset();
         mixerSource.releaseResources();
         for (auto& player : trackPlayers)
             player->releaseResources();
@@ -709,6 +714,32 @@ namespace NovaStudio
 
         if (recordingActive)
             stopRecordingInternal();
+    }
+
+    void StudioAudioEngine::previewSample(const juce::File& file)
+    {
+        if (! file.existsAsFile())
+            return;
+
+        std::unique_ptr<juce::AudioFormatReader> reader(previewFormatManager.createReaderFor(file));
+        if (reader == nullptr)
+            return;
+
+        auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader.release(), true);
+
+        previewTransport.stop();
+        previewTransport.setSource(nullptr);
+        previewReaderSource = std::move(newSource);
+        previewTransport.setSource(previewReaderSource.get(), 0, nullptr, currentSampleRate);
+        previewTransport.setPosition(0.0);
+        previewTransport.start();
+        previewActive.store(true);
+    }
+
+    void StudioAudioEngine::stopPreviewSample()
+    {
+        previewActive.store(false);
+        previewTransport.stop();
     }
 
     void StudioAudioEngine::startRecordingInternal()
@@ -1201,6 +1232,25 @@ namespace NovaStudio
                 std::memcpy(destData, sourceData, static_cast<size_t>(sizeof(float) * numSamples));
         }
 
+        // ── Sample audition / preview — mixed straight into the main output ──
+        if (previewActive.load() && previewTransport.isPlaying())
+        {
+            previewScratchBuffer.setSize(numOutputChannels, numSamples, false, false, true);
+            juce::AudioSourceChannelInfo previewInfo(previewScratchBuffer);
+            previewTransport.getNextAudioBlock(previewInfo);
+
+            for (int channel = 0; channel < numOutputChannels; ++channel)
+            {
+                if (outputChannelData[channel] == nullptr) continue;
+                const float* src = previewScratchBuffer.getReadPointer(juce::jmin(channel, previewScratchBuffer.getNumChannels() - 1));
+                for (int s = 0; s < numSamples; ++s)
+                    outputChannelData[channel][s] += src[s];
+            }
+
+            if (! previewTransport.isPlaying())
+                previewActive.store(false);
+        }
+
         // Input monitoring: mix live input into output when any armed track has monitoring on
         if (transportState.isInputMonitoring())
         {
@@ -1386,6 +1436,9 @@ namespace NovaStudio
             trackPlayers.getReference(i)->prepareToPlay(currentBufferSize, currentSampleRate);
 
         prepareSendBuses(2, currentBufferSize);
+
+        previewTransport.prepareToPlay(currentBufferSize, currentSampleRate);
+        previewScratchBuffer.setSize(2, currentBufferSize);
     }
 
     void StudioAudioEngine::audioDeviceStopped()
@@ -1393,6 +1446,8 @@ namespace NovaStudio
         mixerSource.releaseResources();
         for (int i = 0; i < trackPlayers.size(); ++i)
             trackPlayers.getReference(i)->releaseResources();
+
+        previewTransport.releaseResources();
     }
 
     void StudioAudioEngine::buildTrackPlayers()

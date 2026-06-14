@@ -122,6 +122,10 @@ namespace NovaStudio
         void toggleRecord();
         bool isRecording() const noexcept;
 
+        // One-shot sample audition/preview (mixed directly into the main output)
+        void previewSample(const juce::File& file);
+        void stopPreviewSample();
+
         bool saveSession(const juce::File& file) const;
         bool loadSession(const juce::File& file);
         bool exportStereoMix(const juce::File& destinationFile);
@@ -232,6 +236,14 @@ namespace NovaStudio
 
         juce::AudioDeviceManager deviceManager;
         juce::MixerAudioSource mixerSource;
+
+        // Sample audition / preview — independent one-shot transport mixed into output
+        juce::AudioFormatManager previewFormatManager;
+        juce::AudioTransportSource previewTransport;
+        std::unique_ptr<juce::AudioFormatReaderSource> previewReaderSource;
+        juce::AudioBuffer<float> previewScratchBuffer;
+        std::atomic<bool> previewActive { false };
+
         juce::CriticalSection playerLock;  // guards trackPlayers across audio+main threads
         juce::AudioPluginFormatManager pluginFormatManager;
         juce::KnownPluginList knownPlugins;

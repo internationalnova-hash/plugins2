@@ -138,6 +138,53 @@ namespace NovaStudioUI
     };
 
     // ─────────────────────────────────────────────────────────────────────────
+    // CompactMixerView — small in-window mixer (FL Studio-style), shown inside
+    // the beat production window so users don't need to leave it to adjust
+    // track levels/pan/mute.
+    // ─────────────────────────────────────────────────────────────────────────
+    class CompactMixerView : public juce::Component,
+                             private juce::Slider::Listener,
+                             private juce::Button::Listener
+    {
+    public:
+        CompactMixerView();
+        ~CompactMixerView() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+
+        // Rebuild strips for the given track count (called when session changes)
+        void setNumTracks(int numTracks);
+
+        // Push current state from the engine/session into a strip
+        void setTrackInfo(int index, const juce::String& name, juce::Colour colour,
+                          float volumeDb, float pan, bool muted);
+
+        std::function<void(int track, float dB)>  onVolumeChanged;
+        std::function<void(int track, float pan)> onPanChanged;
+        std::function<void(int track, bool)>      onMuteToggled;
+
+    private:
+        void sliderValueChanged(juce::Slider* s) override;
+        void buttonClicked(juce::Button* b) override;
+
+        struct Strip
+        {
+            juce::Label      nameLabel;
+            juce::Slider     volumeFader;
+            juce::Slider     panKnob;
+            juce::TextButton muteBtn { "M" };
+            juce::Colour     colour { 100, 80, 200 };
+        };
+
+        static constexpr int kStripWidth = 56;
+
+        juce::OwnedArray<Strip> strips;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CompactMixerView)
+    };
+
+    // ─────────────────────────────────────────────────────────────────────────
     // StepSequencerView — FL Studio-style beat producer
     // ─────────────────────────────────────────────────────────────────────────
     class StepSequencerView : public juce::Component,
@@ -173,10 +220,12 @@ namespace NovaStudioUI
         struct ChannelData
         {
             juce::String name;
+            juce::String samplePath;
             juce::Colour colour;
             float volume = 1.0f;
             float pan    = 0.0f;
             bool  muted  = false;
+            int   mixerTrack = 0;   // routing: 0 = Master, 1..N = mixer track index
             bool  steps[kMaxSteps] {};
             float velocities[kMaxSteps];
             ChannelData() { std::fill(velocities, velocities + kMaxSteps, 1.0f); }
@@ -225,8 +274,13 @@ namespace NovaStudioUI
         std::function<void(int row, float volume)>             onRowVolumeChanged;
         std::function<void(int row, float pan)>                onRowPanChanged;
         std::function<void(int row, bool muted)>               onRowMutedChanged;
+        std::function<void(int row, int mixerTrack)>           onRowMixerTrackChanged;
+        std::function<void(const juce::String& filePath)>      onPreviewSample;
         std::function<void(int stepCount)>                     onStepCountChanged;
         std::function<void(float swing)>                       onSwingChanged;
+
+        // Number of mixer inserts available for routing (set by BeatWindow/MainComponent)
+        int numMixerInserts = 8;
 
         // External step cursor update (called from MainComponent timer or getStepSeqCurrentStep)
         void setPlayCursor(int step) { if (step != cursorStep) { cursorStep = step; repaint(); } }
@@ -377,7 +431,8 @@ namespace NovaStudioUI
     class IconButton : public juce::Component
     {
     public:
-        enum class Icon { Play, Stop, Record, ReturnToZero, StepGrid, PianoRoll, Mixer };
+        enum class Icon { Play, Stop, Record, ReturnToZero, StepGrid, PianoRoll, Mixer,
+                          Waveform, Envelope, Functions };
         Icon icon;
         bool toggled = false;
         std::function<void()> onClick;
@@ -396,7 +451,10 @@ namespace NovaStudioUI
                 case Icon::ReturnToZero:  base = juce::Colour::fromRGB(55, 65, 100); break;
                 case Icon::StepGrid:
                 case Icon::PianoRoll:
-                case Icon::Mixer:         base = juce::Colour::fromRGB(60, 70, 95);  break;
+                case Icon::Mixer:
+                case Icon::Waveform:
+                case Icon::Envelope:
+                case Icon::Functions:     base = juce::Colour::fromRGB(60, 70, 95);  break;
             }
             juce::Colour bg = toggled ? base : base.darker(0.5f);
             if (over) bg = bg.brighter(0.25f);
@@ -471,6 +529,45 @@ namespace NovaStudioUI
                     g.fillRect(juce::Rectangle<float>(keys.getX() + kw * 1.62f, keys.getY(), kw * 0.5f, kh * 0.6f));
                     break;
                 }
+                case Icon::Waveform:
+                {
+                    juce::Path wave;
+                    const int n = 7;
+                    const float ampl[n] = { 0.3f, 0.9f, 0.5f, 1.0f, 0.4f, 0.8f, 0.35f };
+                    const float ww = s * 2.4f / (float)(n - 1);
+                    for (int i = 0; i < n; ++i)
+                    {
+                        float bx = cx - s * 1.2f + i * ww;
+                        float bh = s * ampl[i];
+                        g.fillRect(juce::Rectangle<float>(bx - ww * 0.3f, cy - bh, ww * 0.6f, bh * 2.0f));
+                    }
+                    break;
+                }
+                case Icon::Envelope:
+                {
+                    juce::Path env;
+                    env.startNewSubPath(cx - s, cy + s * 0.7f);
+                    env.lineTo(cx - s * 0.3f, cy - s);
+                    env.lineTo(cx + s * 0.2f, cy - s * 0.3f);
+                    env.lineTo(cx + s,        cy + s * 0.7f);
+                    g.strokePath(env, juce::PathStrokeType(1.6f));
+                    break;
+                }
+                case Icon::Functions:
+                {
+                    // Simple cog: circle with small teeth
+                    const float r1 = s * 0.55f;
+                    g.drawEllipse(cx - r1, cy - r1, r1 * 2.0f, r1 * 2.0f, 1.6f);
+                    g.fillEllipse(cx - r1 * 0.35f, cy - r1 * 0.35f, r1 * 0.7f, r1 * 0.7f);
+                    for (int i = 0; i < 6; ++i)
+                    {
+                        float ang = (float)i / 6.0f * juce::MathConstants<float>::twoPi;
+                        float tx = cx + std::cos(ang) * r1 * 1.35f;
+                        float ty = cy + std::sin(ang) * r1 * 1.35f;
+                        g.fillRect(juce::Rectangle<float>(tx - 1.2f, ty - 1.2f, 2.4f, 2.4f));
+                    }
+                    break;
+                }
                 case Icon::Mixer:
                 {
                     // Three vertical fader strips with knobs at different heights
@@ -508,11 +605,13 @@ namespace NovaStudioUI
     // ─────────────────────────────────────────────────────────────────────────
     // SampleEditorPopup — shown when right-clicking an instrument name
     // ─────────────────────────────────────────────────────────────────────────
-    class SampleEditorPopup : public juce::Component
+    class SampleEditorPopup : public juce::Component,
+                              private juce::Button::Listener
     {
     public:
         SampleEditorPopup(const juce::String& channelName, const juce::String& filePath,
-                          float volume, float pan, float pitch);
+                          float volume, float pan, float pitch, int mixerTrack, int numMixerTracks);
+        ~SampleEditorPopup() override;
         void paint(juce::Graphics& g) override;
         void resized() override;
 
@@ -521,14 +620,38 @@ namespace NovaStudioUI
         std::function<void(float)> onPanChanged;
         std::function<void(float)> onPitchChanged;
         std::function<void()>      onLoadSample;
+        std::function<void()>      onPreviewSample;     // play/stop the loaded sample once
+        std::function<void(int)>   onMixerTrackChanged; // routing target changed
 
     private:
+        void buttonClicked(juce::Button* b) override;
+        void showTab(int index);
+        void styleKnob(juce::Slider& s, double lo, double hi, double val);
+
+        enum { kTabSample = 0, kTabEnvelope = 1, kTabFunctions = 2 };
+
         juce::String name, path;
         float vol, panVal, pitchVal;
+        int   trackRouting, numTracks;
+        int   activeTab = kTabSample;
 
-        juce::Slider volumeSlider, panSlider, pitchSlider;
-        juce::Label  volLabel, panLabel, pitchLabel, fileLabel;
+        // Tab bar (FL Studio style icon tabs)
+        IconButton sampleTabBtn   { IconButton::Icon::Waveform };
+        IconButton envelopeTabBtn { IconButton::Icon::Envelope };
+        IconButton functionsTabBtn{ IconButton::Icon::Functions };
+        IconButton previewBtn     { IconButton::Icon::Play };
+
+        // Tab 0: Sample — waveform + file + load
+        juce::Label  fileLabel;
         juce::TextButton loadBtn { "Load Sample..." };
+
+        // Tab 1: Envelope — knobs (replaces sliders)
+        juce::Slider volumeKnob, panKnob, pitchKnob;
+        juce::Label  volLabel, panLabel, pitchLabel;
+
+        // Tab 2: Functions — mixer routing
+        juce::ComboBox routingBox;
+        juce::Label    routingLabel;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SampleEditorPopup)
     };
@@ -662,6 +785,23 @@ namespace NovaStudioUI
             { stepSeq.onRowPanChanged = std::move(fn); }
         void setOnRowMutedChanged(std::function<void(int,bool)> fn)
             { stepSeq.onRowMutedChanged = std::move(fn); }
+        void setOnRowMixerTrackChanged(std::function<void(int,int)> fn)
+            { stepSeq.onRowMixerTrackChanged = std::move(fn); }
+        void setOnPreviewSample(std::function<void(const juce::String&)> fn)
+            { stepSeq.onPreviewSample = std::move(fn); }
+        void setNumMixerInserts(int n) { stepSeq.numMixerInserts = n; }
+
+        // Compact in-window mixer — populated by MainComponent from the session
+        void setMixerTrackCount(int n) { compactMixer.setNumTracks(n); }
+        void setMixerTrackInfo(int index, const juce::String& name, juce::Colour colour,
+                               float volumeDb, float pan, bool muted)
+            { compactMixer.setTrackInfo(index, name, colour, volumeDb, pan, muted); }
+        void setOnMixerVolumeChanged(std::function<void(int,float)> fn)
+            { compactMixer.onVolumeChanged = std::move(fn); }
+        void setOnMixerPanChanged(std::function<void(int,float)> fn)
+            { compactMixer.onPanChanged = std::move(fn); }
+        void setOnMixerMuteToggled(std::function<void(int,bool)> fn)
+            { compactMixer.onMuteToggled = std::move(fn); }
         void setOnStepCountChanged(std::function<void(int)> fn)
             { stepSeq.onStepCountChanged = std::move(fn); }
         void setOnSwingChanged(std::function<void(float)> fn)
@@ -693,7 +833,9 @@ namespace NovaStudioUI
         PatternPlaylist    playlist;
         StepSequencerView  stepSeq;
         PianoRollView      pianoRoll;
+        CompactMixerView   compactMixer;
         bool               showingPianoRoll = false;
+        bool               showingMixer     = false;
         bool               patMode = true;  // PAT=true, SONG=false
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatWindow)

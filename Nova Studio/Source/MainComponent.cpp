@@ -82,6 +82,27 @@ MainComponent::MainComponent()
     beatWindow->setOnStepChanged([this](int row, int step, bool active) {
         engine.setStepSeqStep(row, step, active);
     });
+    beatWindow->setOnPreviewSample([this](const juce::String& path) {
+        engine.previewSample(juce::File(path));
+    });
+    beatWindow->setOnRowMixerTrackChanged([this](int row, int mixerTrack) {
+        juce::ignoreUnused(row, mixerTrack);
+    });
+    beatWindow->setNumMixerInserts(engine.getSession().getNumTracks());
+
+    // Compact in-window mixer — keeps producers in the beat view while mixing
+    beatWindow->setOnMixerVolumeChanged([this](int track, float db) {
+        engine.setTrackVolume(track, db);
+        refreshTrackList();
+    });
+    beatWindow->setOnMixerPanChanged([this](int track, float pan) {
+        engine.setTrackPan(track, pan);
+        refreshTrackList();
+    });
+    beatWindow->setOnMixerMuteToggled([this](int track, bool muted) {
+        engine.setTrackMute(track, muted);
+        refreshTrackList();
+    });
 
     // Beat window transport wiring
     beatWindow->onPlay = [this]() {
@@ -1160,6 +1181,30 @@ void MainComponent::refreshTrackList()
         editWindow->repaint();
     if (mixerWindow)
         mixerWindow->refresh();  // always refresh — mixer must stay in sync regardless of visibility
+
+    // Keep the beat window's compact mixer in sync with the session's tracks
+    if (beatWindow)
+    {
+        static const juce::Colour kCompactMixerPalette[] = {
+            juce::Colour::fromRGB(120, 80, 200),
+            juce::Colour::fromRGB(80, 100, 200),
+            juce::Colour::fromRGB(50, 160, 160),
+            juce::Colour::fromRGB(60, 120, 200),
+            juce::Colour::fromRGB(40, 180, 160),
+            juce::Colour::fromRGB(60, 180, 80),
+            juce::Colour::fromRGB(160, 190, 50),
+            juce::Colour::fromRGB(190, 110, 40),
+        };
+
+        const int numTracks = engine.getSession().getNumTracks();
+        beatWindow->setMixerTrackCount(numTracks);
+        for (int i = 0; i < numTracks; ++i)
+        {
+            const auto& track = engine.getSession().getTrack(i);
+            beatWindow->setMixerTrackInfo(i, track.name, kCompactMixerPalette[i % 8],
+                                          track.volumeDb, track.pan, track.muted);
+        }
+    }
 }
 
 void MainComponent::setWorkspaceMode(int mode)

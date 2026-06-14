@@ -518,6 +518,177 @@ void PianoRollView::drawSnapControls(juce::Graphics& g, juce::Rectangle<int> are
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CompactMixerView
+// ─────────────────────────────────────────────────────────────────────────────
+
+CompactMixerView::CompactMixerView()
+{
+}
+
+CompactMixerView::~CompactMixerView()
+{
+    for (auto* strip : strips)
+    {
+        strip->volumeFader.removeListener(this);
+        strip->panKnob.removeListener(this);
+        strip->muteBtn.removeListener(this);
+    }
+}
+
+void CompactMixerView::setNumTracks(int numTracks)
+{
+    for (auto* strip : strips)
+    {
+        strip->volumeFader.removeListener(this);
+        strip->panKnob.removeListener(this);
+        strip->muteBtn.removeListener(this);
+        removeChildComponent(&strip->nameLabel);
+        removeChildComponent(&strip->volumeFader);
+        removeChildComponent(&strip->panKnob);
+        removeChildComponent(&strip->muteBtn);
+    }
+    strips.clear();
+
+    for (int i = 0; i < numTracks; ++i)
+    {
+        auto* strip = strips.add(new Strip());
+
+        strip->nameLabel.setText("Trk " + juce::String(i + 1), juce::dontSendNotification);
+        strip->nameLabel.setJustificationType(juce::Justification::centred);
+        strip->nameLabel.setFont(juce::FontOptions(11.0f));
+        strip->nameLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+        addAndMakeVisible(strip->nameLabel);
+
+        strip->volumeFader.setSliderStyle(juce::Slider::LinearVertical);
+        strip->volumeFader.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+        strip->volumeFader.setRange(-60.0, 6.0, 0.1);
+        strip->volumeFader.setValue(0.0, juce::dontSendNotification);
+        strip->volumeFader.setColour(juce::Slider::trackColourId, BeatTheme::accent());
+        strip->volumeFader.setColour(juce::Slider::backgroundColourId, BeatTheme::stepOff());
+        strip->volumeFader.setColour(juce::Slider::thumbColourId, juce::Colours::white);
+        strip->volumeFader.addListener(this);
+        strip->volumeFader.setComponentID(juce::String(i));
+        addAndMakeVisible(strip->volumeFader);
+
+        strip->panKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+        strip->panKnob.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+        strip->panKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.2f,
+                                           juce::MathConstants<float>::pi * 2.8f, true);
+        strip->panKnob.setRange(-1.0, 1.0, 0.01);
+        strip->panKnob.setValue(0.0, juce::dontSendNotification);
+        strip->panKnob.setColour(juce::Slider::rotarySliderFillColourId, BeatTheme::accent());
+        strip->panKnob.setColour(juce::Slider::rotarySliderOutlineColourId, BeatTheme::stepOff());
+        strip->panKnob.setColour(juce::Slider::thumbColourId, juce::Colours::white);
+        strip->panKnob.addListener(this);
+        strip->panKnob.setComponentID(juce::String(i));
+        addAndMakeVisible(strip->panKnob);
+
+        strip->muteBtn.setClickingTogglesState(true);
+        strip->muteBtn.setColour(juce::TextButton::buttonColourId, BeatTheme::stepOff());
+        strip->muteBtn.setColour(juce::TextButton::buttonOnColourId, juce::Colours::orangered);
+        strip->muteBtn.addListener(this);
+        strip->muteBtn.setComponentID(juce::String(i));
+        addAndMakeVisible(strip->muteBtn);
+    }
+
+    resized();
+    repaint();
+}
+
+void CompactMixerView::setTrackInfo(int index, const juce::String& name, juce::Colour colour,
+                                    float volumeDb, float pan, bool muted)
+{
+    if (! juce::isPositiveAndBelow(index, strips.size()))
+        return;
+
+    auto* strip = strips.getUnchecked(index);
+    strip->colour = colour;
+    strip->nameLabel.setText(name, juce::dontSendNotification);
+    strip->volumeFader.setValue(volumeDb, juce::dontSendNotification);
+    strip->panKnob.setValue(pan, juce::dontSendNotification);
+    strip->muteBtn.setToggleState(muted, juce::dontSendNotification);
+    repaint();
+}
+
+void CompactMixerView::sliderValueChanged(juce::Slider* s)
+{
+    const int index = s->getComponentID().getIntValue();
+    if (! juce::isPositiveAndBelow(index, strips.size()))
+        return;
+
+    auto* strip = strips.getUnchecked(index);
+    if (s == &strip->volumeFader)
+    {
+        if (onVolumeChanged) onVolumeChanged(index, (float) s->getValue());
+    }
+    else if (s == &strip->panKnob)
+    {
+        if (onPanChanged) onPanChanged(index, (float) s->getValue());
+    }
+}
+
+void CompactMixerView::buttonClicked(juce::Button* b)
+{
+    const int index = b->getComponentID().getIntValue();
+    if (! juce::isPositiveAndBelow(index, strips.size()))
+        return;
+
+    auto* strip = strips.getUnchecked(index);
+    if (b == &strip->muteBtn)
+    {
+        if (onMuteToggled) onMuteToggled(index, b->getToggleState());
+    }
+}
+
+void CompactMixerView::paint(juce::Graphics& g)
+{
+    g.fillAll(BeatTheme::bg());
+
+    g.setColour(BeatTheme::panel());
+    g.fillRect(getLocalBounds().removeFromTop(22));
+    g.setColour(juce::Colours::white.withAlpha(0.8f));
+    g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
+    g.drawText("MIXER", getLocalBounds().removeFromTop(22), juce::Justification::centred);
+
+    auto area = getLocalBounds().withTrimmedTop(22);
+    for (int i = 0; i < strips.size(); ++i)
+    {
+        auto stripArea = juce::Rectangle<int>(area.getX() + i * kStripWidth, area.getY(),
+                                               kStripWidth, area.getHeight());
+        g.setColour(strips.getUnchecked(i)->colour.withAlpha(0.18f));
+        g.fillRect(stripArea.reduced(2));
+        g.setColour(BeatTheme::edge());
+        g.drawRect(stripArea, 1);
+    }
+
+    if (strips.isEmpty())
+    {
+        g.setColour(juce::Colours::white.withAlpha(0.5f));
+        g.setFont(juce::FontOptions(13.0f));
+        g.drawText("No tracks yet — add a track to see it here.",
+                   area, juce::Justification::centred);
+    }
+}
+
+void CompactMixerView::resized()
+{
+    auto area = getLocalBounds().withTrimmedTop(22);
+
+    for (int i = 0; i < strips.size(); ++i)
+    {
+        auto* strip = strips.getUnchecked(i);
+        auto stripArea = juce::Rectangle<int>(area.getX() + i * kStripWidth, area.getY(),
+                                               kStripWidth, area.getHeight()).reduced(4);
+
+        strip->nameLabel.setBounds(stripArea.removeFromTop(16));
+        strip->panKnob.setBounds(stripArea.removeFromTop(36).reduced(8, 0));
+        strip->muteBtn.setBounds(stripArea.removeFromBottom(22));
+        stripArea.removeFromBottom(4);
+        strip->volumeFader.setBounds(stripArea);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // StepSequencerView
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -947,7 +1118,8 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
                 else if (part == 4) // right-click name = sample editor popup
                 {
                     auto& ch = currentPattern().channels[(size_t)row];
-                    auto* popup = new SampleEditorPopup(ch.name, juce::String(), ch.volume, ch.pan, 0.0f);
+                    auto* popup = new SampleEditorPopup(ch.name, ch.samplePath, ch.volume, ch.pan, 0.0f,
+                                                         ch.mixerTrack, numMixerInserts);
 
                     popup->onVolumeChanged = [this, row](float v) {
                         currentPattern().channels[(size_t)row].volume = v;
@@ -956,6 +1128,15 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
                     popup->onPanChanged = [this, row](float p) {
                         currentPattern().channels[(size_t)row].pan = p;
                         if (onRowPanChanged) onRowPanChanged(row, p);
+                    };
+                    popup->onMixerTrackChanged = [this, row](int trackIdx) {
+                        currentPattern().channels[(size_t)row].mixerTrack = trackIdx;
+                        if (onRowMixerTrackChanged) onRowMixerTrackChanged(row, trackIdx);
+                    };
+                    popup->onPreviewSample = [this, row]() {
+                        const auto& chan = currentPattern().channels[(size_t)row];
+                        if (chan.samplePath.isNotEmpty() && onPreviewSample)
+                            onPreviewSample(chan.samplePath);
                     };
                     popup->onLoadSample = [this, row, popup]() {
                         auto chooser = std::make_shared<juce::FileChooser>(
@@ -970,6 +1151,7 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
                                 if (f.existsAsFile())
                                 {
                                     currentPattern().channels[(size_t)row].name = f.getFileNameWithoutExtension();
+                                    currentPattern().channels[(size_t)row].samplePath = f.getFullPathName();
                                     if (onSampleAssigned) onSampleAssigned(row, f.getFullPathName());
                                     repaint();
                                 }
@@ -1034,6 +1216,7 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
                             if (result2.existsAsFile())
                             {
                                 currentPattern().channels[(size_t)row].name = result2.getFileNameWithoutExtension();
+                                    currentPattern().channels[(size_t)row].samplePath = result2.getFullPathName();
                                 if (onSampleAssigned) onSampleAssigned(row, result2.getFullPathName());
                                 repaint();
                             }
@@ -1294,6 +1477,7 @@ void StepSequencerView::handleChannelRightClickMenu(int row)
                         if (result2.existsAsFile())
                         {
                             currentPattern().channels[(size_t)row].name = result2.getFileNameWithoutExtension();
+                                    currentPattern().channels[(size_t)row].samplePath = result2.getFullPathName();
                             if (onSampleAssigned) onSampleAssigned(row, result2.getFullPathName());
                             repaint();
                         }
@@ -1485,6 +1669,7 @@ void StepSequencerView::itemDropped(const SourceDetails& details)
     {
         juce::String path = details.description.toString();
         currentPattern().channels[(size_t)row].name = juce::File(path).getFileNameWithoutExtension();
+        currentPattern().channels[(size_t)row].samplePath = path;
         if (onSampleAssigned) onSampleAssigned(row, path);
     }
     dragHighlightRow = -1;
@@ -1724,61 +1909,128 @@ void DrumRackPanel::itemDropped(const SourceDetails& details)
 
 SampleEditorPopup::SampleEditorPopup(const juce::String& channelName,
                                      const juce::String& filePath,
-                                     float volume, float pan, float pitch)
-    : name(channelName), path(filePath), vol(volume), panVal(pan), pitchVal(pitch)
+                                     float volume, float pan, float pitch,
+                                     int mixerTrack, int numMixerTracks)
+    : name(channelName), path(filePath), vol(volume), panVal(pan), pitchVal(pitch),
+      trackRouting(mixerTrack), numTracks(numMixerTracks)
 {
-    setSize(320, 260);
+    setSize(320, 280);
 
-    auto styleSlider = [](juce::Slider& s, double lo, double hi, double val)
-    {
-        s.setRange(lo, hi);
-        s.setValue(val, juce::dontSendNotification);
-        s.setSliderStyle(juce::Slider::LinearHorizontal);
-        s.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 18);
-        s.setColour(juce::Slider::backgroundColourId,   juce::Colour::fromRGB(20, 23, 34));
-        s.setColour(juce::Slider::thumbColourId,        juce::Colour::fromRGB(80, 100, 255));
-        s.setColour(juce::Slider::trackColourId,        juce::Colour::fromRGB(50, 60, 120));
-        s.setColour(juce::Slider::textBoxTextColourId,  juce::Colours::white.withAlpha(0.8f));
-        s.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour::fromRGB(15, 18, 28));
-        s.setColour(juce::Slider::textBoxOutlineColourId, juce::Colour::fromRGBA(0,0,0,0));
-    };
+    // ── Tab bar (FL Studio style: Sample / Envelope / Functions) ─────────────
+    sampleTabBtn.toggled = true;
+    for (auto* b : { &sampleTabBtn, &envelopeTabBtn, &functionsTabBtn })
+        addAndMakeVisible(b);
+    sampleTabBtn.onClick    = [this]() { showTab(kTabSample); };
+    envelopeTabBtn.onClick  = [this]() { showTab(kTabEnvelope); };
+    functionsTabBtn.onClick = [this]() { showTab(kTabFunctions); };
 
-    styleSlider(volumeSlider, 0.0, 2.0, volume);
-    volumeSlider.onValueChange = [this]() { if (onVolumeChanged) onVolumeChanged((float)volumeSlider.getValue()); };
-    addAndMakeVisible(volumeSlider);
+    // ── Preview / audition button ─────────────────────────────────────────────
+    addAndMakeVisible(previewBtn);
+    previewBtn.onClick = [this]() { if (onPreviewSample) onPreviewSample(); };
 
-    styleSlider(panSlider, -1.0, 1.0, pan);
-    panSlider.onValueChange = [this]() { if (onPanChanged) onPanChanged((float)panSlider.getValue()); };
-    addAndMakeVisible(panSlider);
+    // ── Tab 0: Sample ─────────────────────────────────────────────────────────
+    fileLabel.setText(path.isEmpty() ? "No sample loaded" : juce::File(path).getFileName(),
+                      juce::dontSendNotification);
+    fileLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.5f));
+    fileLabel.setFont(juce::FontOptions(10.0f));
+    fileLabel.setJustificationType(juce::Justification::centred);
+    addChildComponent(fileLabel);
 
-    styleSlider(pitchSlider, -24.0, 24.0, pitch);
-    pitchSlider.onValueChange = [this]() { if (onPitchChanged) onPitchChanged((float)pitchSlider.getValue()); };
-    addAndMakeVisible(pitchSlider);
+    loadBtn.setColour(juce::TextButton::buttonColourId,  juce::Colour::fromRGB(28, 32, 50));
+    loadBtn.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.8f));
+    loadBtn.onClick = [this]() { if (onLoadSample) onLoadSample(); };
+    addChildComponent(loadBtn);
+
+    // ── Tab 1: Envelope — rotary knobs ────────────────────────────────────────
+    styleKnob(volumeKnob, 0.0, 2.0, volume);
+    volumeKnob.onValueChange = [this]() { if (onVolumeChanged) onVolumeChanged((float)volumeKnob.getValue()); };
+    addChildComponent(volumeKnob);
+
+    styleKnob(panKnob, -1.0, 1.0, pan);
+    panKnob.onValueChange = [this]() { if (onPanChanged) onPanChanged((float)panKnob.getValue()); };
+    addChildComponent(panKnob);
+
+    styleKnob(pitchKnob, -24.0, 24.0, pitch);
+    pitchKnob.onValueChange = [this]() { if (onPitchChanged) onPitchChanged((float)pitchKnob.getValue()); };
+    addChildComponent(pitchKnob);
 
     auto styleLabel = [](juce::Label& l, const juce::String& text)
     {
         l.setText(text, juce::dontSendNotification);
         l.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.6f));
         l.setFont(juce::FontOptions(11.0f));
+        l.setJustificationType(juce::Justification::centred);
     };
-    styleLabel(volLabel,   "Volume");
-    styleLabel(panLabel,   "Pan");
-    styleLabel(pitchLabel, "Pitch (st)");
-    addAndMakeVisible(volLabel);
-    addAndMakeVisible(panLabel);
-    addAndMakeVisible(pitchLabel);
+    styleLabel(volLabel,   "VOLUME");
+    styleLabel(panLabel,   "PAN");
+    styleLabel(pitchLabel, "PITCH (st)");
+    addChildComponent(volLabel);
+    addChildComponent(panLabel);
+    addChildComponent(pitchLabel);
 
-    fileLabel.setText(path.isEmpty() ? "No sample loaded" : juce::File(path).getFileName(),
-                      juce::dontSendNotification);
-    fileLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.5f));
-    fileLabel.setFont(juce::FontOptions(10.0f));
-    fileLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(fileLabel);
+    // ── Tab 2: Functions — mixer routing ──────────────────────────────────────
+    routingLabel.setText("Mixer routing", juce::dontSendNotification);
+    routingLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.6f));
+    routingLabel.setFont(juce::FontOptions(11.0f));
+    addChildComponent(routingLabel);
 
-    loadBtn.setColour(juce::TextButton::buttonColourId,  juce::Colour::fromRGB(28, 32, 50));
-    loadBtn.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.8f));
-    loadBtn.onClick = [this]() { if (onLoadSample) onLoadSample(); };
-    addAndMakeVisible(loadBtn);
+    routingBox.addItem("Master", 1);
+    for (int t = 1; t <= numTracks; ++t)
+        routingBox.addItem("Insert " + juce::String(t), t + 1);
+    routingBox.setSelectedId(trackRouting + 1, juce::dontSendNotification);
+    routingBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour::fromRGB(20, 23, 34));
+    routingBox.setColour(juce::ComboBox::textColourId,       juce::Colours::white.withAlpha(0.85f));
+    routingBox.setColour(juce::ComboBox::outlineColourId,    juce::Colour::fromRGBA(255,255,255,24));
+    routingBox.onChange = [this]() {
+        trackRouting = routingBox.getSelectedId() - 1;
+        if (onMixerTrackChanged) onMixerTrackChanged(trackRouting);
+    };
+    addChildComponent(routingBox);
+
+    showTab(kTabSample);
+}
+
+SampleEditorPopup::~SampleEditorPopup() = default;
+
+void SampleEditorPopup::styleKnob(juce::Slider& s, double lo, double hi, double val)
+{
+    s.setRange(lo, hi);
+    s.setValue(val, juce::dontSendNotification);
+    s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    s.setRotaryParameters(juce::MathConstants<float>::pi * 1.2f,
+                          juce::MathConstants<float>::pi * 2.8f, true);
+    s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 16);
+    s.setColour(juce::Slider::rotarySliderFillColourId,   juce::Colour::fromRGB(80, 100, 255));
+    s.setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour::fromRGB(40, 44, 60));
+    s.setColour(juce::Slider::thumbColourId,              juce::Colours::white);
+    s.setColour(juce::Slider::textBoxTextColourId,        juce::Colours::white.withAlpha(0.8f));
+    s.setColour(juce::Slider::textBoxBackgroundColourId,  juce::Colour::fromRGBA(0,0,0,0));
+    s.setColour(juce::Slider::textBoxOutlineColourId,     juce::Colour::fromRGBA(0,0,0,0));
+}
+
+void SampleEditorPopup::buttonClicked(juce::Button*) {}
+
+void SampleEditorPopup::showTab(int index)
+{
+    activeTab = index;
+    sampleTabBtn.toggled    = (index == kTabSample);
+    envelopeTabBtn.toggled  = (index == kTabEnvelope);
+    functionsTabBtn.toggled = (index == kTabFunctions);
+    sampleTabBtn.repaint();
+    envelopeTabBtn.repaint();
+    functionsTabBtn.repaint();
+
+    fileLabel.setVisible(index == kTabSample);
+    loadBtn.setVisible(index == kTabSample);
+
+    for (auto* c : { (juce::Component*)&volumeKnob, (juce::Component*)&panKnob, (juce::Component*)&pitchKnob,
+                     (juce::Component*)&volLabel,   (juce::Component*)&panLabel, (juce::Component*)&pitchLabel })
+        c->setVisible(index == kTabEnvelope);
+
+    routingLabel.setVisible(index == kTabFunctions);
+    routingBox.setVisible(index == kTabFunctions);
+
+    repaint();
 }
 
 void SampleEditorPopup::paint(juce::Graphics& g)
@@ -1793,60 +2045,89 @@ void SampleEditorPopup::paint(juce::Graphics& g)
     g.fillRect(titleR);
     g.setColour(juce::Colours::white);
     g.setFont(juce::FontOptions(13.0f));
-    g.drawText(name, titleR.reduced(8, 0), juce::Justification::centredLeft);
+    g.drawText(name, titleR.reduced(40, 0), juce::Justification::centredLeft);
 
-    // Waveform placeholder
-    auto waveR = juce::Rectangle<int>(8, 32, getWidth() - 16, 80);
-    g.setColour(juce::Colour::fromRGB(10, 12, 20));
-    g.fillRoundedRectangle(waveR.toFloat(), 4.0f);
-    g.setColour(juce::Colour::fromRGBA(255,255,255,12));
-    g.drawRoundedRectangle(waveR.toFloat(), 4.0f, 1.0f);
+    if (activeTab == kTabSample)
+    {
+        // Waveform display
+        auto waveR = juce::Rectangle<int>(8, 76, getWidth() - 16, 80);
+        g.setColour(juce::Colour::fromRGB(10, 12, 20));
+        g.fillRoundedRectangle(waveR.toFloat(), 4.0f);
+        g.setColour(juce::Colour::fromRGBA(255,255,255,12));
+        g.drawRoundedRectangle(waveR.toFloat(), 4.0f, 1.0f);
 
-    if (path.isEmpty())
-    {
-        g.setColour(juce::Colours::white.withAlpha(0.2f));
-        g.setFont(juce::FontOptions(11.0f));
-        g.drawText("No sample loaded — click Load Sample", waveR, juce::Justification::centred);
-    }
-    else
-    {
-        // Simple fake waveform squiggle
-        juce::Path wave;
-        const int n = waveR.getWidth();
-        wave.startNewSubPath((float)waveR.getX(), (float)waveR.getCentreY());
-        for (int i = 0; i < n; i += 2)
+        if (path.isEmpty())
         {
-            float t   = (float)i / (float)n;
-            float amp = (0.3f + 0.5f * std::sin(t * 6.0f)) * (waveR.getHeight() * 0.4f);
-            amp *= (1.0f - 0.5f * t);  // fade out toward end
-            float y   = (float)waveR.getCentreY() + (i % 4 == 0 ? amp : -amp);
-            wave.lineTo((float)(waveR.getX() + i), y);
+            g.setColour(juce::Colours::white.withAlpha(0.2f));
+            g.setFont(juce::FontOptions(11.0f));
+            g.drawText("No sample loaded — click Load Sample", waveR, juce::Justification::centred);
         }
-        g.setColour(juce::Colour::fromRGB(80, 100, 255).withAlpha(0.8f));
-        g.strokePath(wave, juce::PathStrokeType(1.5f));
+        else
+        {
+            // Simple fake waveform squiggle
+            juce::Path wave;
+            const int n = waveR.getWidth();
+            wave.startNewSubPath((float)waveR.getX(), (float)waveR.getCentreY());
+            for (int i = 0; i < n; i += 2)
+            {
+                float t   = (float)i / (float)n;
+                float amp = (0.3f + 0.5f * std::sin(t * 6.0f)) * (waveR.getHeight() * 0.4f);
+                amp *= (1.0f - 0.5f * t);  // fade out toward end
+                float y   = (float)waveR.getCentreY() + (i % 4 == 0 ? amp : -amp);
+                wave.lineTo((float)(waveR.getX() + i), y);
+            }
+            g.setColour(juce::Colour::fromRGB(80, 100, 255).withAlpha(0.8f));
+            g.strokePath(wave, juce::PathStrokeType(1.5f));
+        }
+
+        g.setColour(juce::Colours::white.withAlpha(0.35f));
+        g.setFont(juce::FontOptions(10.0f));
+        g.drawText("Click the play icon above to audition this sample",
+                   8, waveR.getBottom() + 6, getWidth() - 16, 16, juce::Justification::centred);
+    }
+    else if (activeTab == kTabFunctions)
+    {
+        g.setColour(juce::Colours::white.withAlpha(0.35f));
+        g.setFont(juce::FontOptions(10.0f));
+        g.drawText("Choose which mixer insert this channel's audio is routed to",
+                   8, 64, getWidth() - 16, 32, juce::Justification::centredTop);
     }
 }
 
 void SampleEditorPopup::resized()
 {
-    const int labelW = 62;
-    const int sliderH = 22;
-    const int gap = 6;
-    int y = 120;
+    const int tabSz = 24;
+    sampleTabBtn.setBounds(6, 2, tabSz, tabSz);
+    envelopeTabBtn.setBounds(6 + tabSz + 4, 2, tabSz, tabSz);
+    functionsTabBtn.setBounds(6 + (tabSz + 4) * 2, 2, tabSz, tabSz);
+    previewBtn.setBounds(getWidth() - tabSz - 6, 2, tabSz, tabSz);
 
-    auto row = [&](juce::Label& lbl, juce::Slider& sl) {
-        lbl.setBounds(8, y, labelW, sliderH);
-        sl.setBounds(labelW + 10, y, getWidth() - labelW - 18, sliderH);
-        y += sliderH + gap;
-    };
-    row(volLabel,   volumeSlider);
-    row(panLabel,   panSlider);
-    row(pitchLabel, pitchSlider);
-
-    y += 4;
-    fileLabel.setBounds(8, y, getWidth() - 16, 16);
-    y += 20;
-    loadBtn.setBounds(8, y, getWidth() - 16, 24);
+    if (activeTab == kTabSample)
+    {
+        auto waveR = juce::Rectangle<int>(8, 76, getWidth() - 16, 80);
+        fileLabel.setBounds(8, waveR.getBottom() + 26, getWidth() - 16, 16);
+        loadBtn.setBounds(8, waveR.getBottom() + 46, getWidth() - 16, 24);
+    }
+    else if (activeTab == kTabEnvelope)
+    {
+        const int knobSz = 64;
+        const int gap    = (getWidth() - knobSz * 3) / 4;
+        int x = gap;
+        int y = 90;
+        for (auto pair : { std::pair<juce::Slider*, juce::Label*>{ &volumeKnob, &volLabel },
+                           std::pair<juce::Slider*, juce::Label*>{ &panKnob,    &panLabel },
+                           std::pair<juce::Slider*, juce::Label*>{ &pitchKnob,  &pitchLabel } })
+        {
+            pair.first->setBounds(x, y, knobSz, knobSz);
+            pair.second->setBounds(x - 10, y + knobSz + 2, knobSz + 20, 16);
+            x += knobSz + gap;
+        }
+    }
+    else if (activeTab == kTabFunctions)
+    {
+        routingLabel.setBounds(8, 100, getWidth() - 16, 18);
+        routingBox.setBounds(8, 122, getWidth() - 16, 26);
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2116,7 +2397,7 @@ BeatTransportBar::BeatTransportBar()
     stepGridViewBtn.toggled = true;
     stepGridViewBtn.onClick  = [this]() { setActiveView(0); if (onShowStepSequencer) onShowStepSequencer(); };
     pianoRollViewBtn.onClick = [this]() { setActiveView(1); if (onShowPianoRoll)     onShowPianoRoll(); };
-    mixerViewBtn.onClick     = [this]() { if (onShowMixer) onShowMixer(); };
+    mixerViewBtn.onClick     = [this]() { setActiveView(2); if (onShowMixer)         onShowMixer(); };
 
     timecodeLabel.setText("00:00:00.000", juce::dontSendNotification);
     timecodeLabel.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -2176,8 +2457,10 @@ void BeatTransportBar::setActiveView(int viewIndex)
 {
     stepGridViewBtn.toggled  = (viewIndex == 0);
     pianoRollViewBtn.toggled = (viewIndex == 1);
+    mixerViewBtn.toggled     = (viewIndex == 2);
     stepGridViewBtn.repaint();
     pianoRollViewBtn.repaint();
+    mixerViewBtn.repaint();
 }
 
 void BeatTransportBar::setPlayState(bool playing, bool recording)
@@ -2200,7 +2483,8 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
     addAndMakeVisible(browser);
     addAndMakeVisible(playlist);
     addAndMakeVisible(stepSeq);
-    addChildComponent(pianoRoll);   // hidden until the user switches views
+    addChildComponent(pianoRoll);     // hidden until the user switches views
+    addChildComponent(compactMixer);  // hidden until the user switches to the mixer view
 
     transportBar.onPlay          = [this]() { if (onPlay)          onPlay(); };
     transportBar.onStop          = [this]() { if (onStop)          onStop(); };
@@ -2208,18 +2492,30 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
     transportBar.onReturnToZero  = [this]() { if (onReturnToZero)  onReturnToZero(); };
     transportBar.onTempoChanged  = [this](int bpm) { if (onTempoChanged) onTempoChanged(bpm); };
 
-    // FL Studio-style view switcher: Step sequencer / Piano roll / Mixer
+    // FL Studio-style view switcher: Step sequencer / Piano roll / Mixer.
+    // The mixer shows a small in-window compact mixer (rather than popping out
+    // the full mixer window) so producers can stay in the beat view.
     transportBar.onShowStepSequencer = [this]() {
         showingPianoRoll = false;
+        showingMixer     = false;
         stepSeq.setVisible(true);
         pianoRoll.setVisible(false);
+        compactMixer.setVisible(false);
     };
     transportBar.onShowPianoRoll = [this]() {
         showingPianoRoll = true;
+        showingMixer     = false;
         stepSeq.setVisible(false);
         pianoRoll.setVisible(true);
+        compactMixer.setVisible(false);
     };
-    transportBar.onShowMixer = [this]() { if (onShowMixer) onShowMixer(); };
+    transportBar.onShowMixer = [this]() {
+        showingPianoRoll = false;
+        showingMixer     = true;
+        stepSeq.setVisible(false);
+        pianoRoll.setVisible(false);
+        compactMixer.setVisible(true);
+    };
 
     // Wire pattern toolbar → step sequencer
     patternToolbar.onStepCountChanged = [this](int steps) {
@@ -2398,9 +2694,10 @@ void BeatWindow::resized()
     playlist.setBounds(area.removeFromTop(playlistH));
     area.removeFromTop(2);
 
-    // Step sequencer / piano roll fill the rest (mutually exclusive views)
+    // Step sequencer / piano roll / mixer fill the rest (mutually exclusive views)
     stepSeq.setBounds(area);
     pianoRoll.setBounds(area);
+    compactMixer.setBounds(area);
 
     browser.setBounds(browserArea);
 }
