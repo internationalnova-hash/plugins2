@@ -974,11 +974,74 @@ BrowserPanel::~BrowserPanel() = default;
 
 void BrowserPanel::paint(juce::Graphics& g)
 {
-    g.setColour(juce::Colour::fromRGB(17, 20, 26));
-    g.fillRoundedRectangle(getLocalBounds().toFloat().reduced(2.0f), 12.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.55f));
-    g.setFont(juce::Font(13.0f, juce::Font::bold));
-    g.drawText("BROWSER", 14, 12, getWidth() - 28, 18, juce::Justification::left);
+    // Background
+    g.fillAll(juce::Colour::fromRGB(12, 14, 20));
+
+    // Header
+    g.setColour(juce::Colour::fromRGB(18, 20, 28));
+    g.fillRect(0, 0, getWidth(), 32);
+    g.setColour(juce::Colours::white.withAlpha(0.75f));
+    g.setFont(juce::Font(juce::FontOptions(11.0f).withStyle("Bold")));
+    g.drawText("BROWSER", 12, 0, getWidth()-24, 32, juce::Justification::centredLeft);
+
+    // Search bar
+    g.setColour(juce::Colour::fromRGB(22, 26, 36));
+    g.fillRoundedRectangle(8.0f, 36.0f, getWidth()-16.0f, 24.0f, 5.0f);
+    g.setColour(juce::Colours::white.withAlpha(0.3f));
+    g.setFont(juce::Font(juce::FontOptions(11.0f)));
+    g.drawText("Search...", 16, 36, getWidth()-32, 24, juce::Justification::centredLeft);
+
+    // Category tabs
+    g.setColour(juce::Colour::fromRGB(18, 20, 28));
+    g.fillRect(0, 64, getWidth(), 24);
+    const juce::StringArray tabs{"ALL","PROJECT","SOUNDS","PLUGINS"};
+    const int tabW = getWidth() / 4;
+    g.setFont(juce::Font(juce::FontOptions(9.5f).withStyle("Bold")));
+    for (int i = 0; i < tabs.size(); ++i) {
+        const bool active = (i == 0);
+        if (active) {
+            g.setColour(juce::Colour::fromRGB(35, 40, 55));
+            g.fillRect(i*tabW, 64, tabW, 24);
+        }
+        g.setColour(active ? juce::Colours::white : juce::Colours::white.withAlpha(0.45f));
+        g.drawText(tabs[i], i*tabW, 64, tabW, 24, juce::Justification::centred);
+    }
+
+    // Separator
+    g.setColour(juce::Colour::fromRGB(30, 34, 48));
+    g.fillRect(0, 88, getWidth(), 1);
+
+    // Tree items
+    const juce::StringArray items{
+        "  Nova Kits", "  Drums", "    808s", "    Claps", "    Cymbals",
+        "    FX", "    Hi Hats", "    Kicks", "    Percs", "    Snares",
+        "  Vocals", "  Instruments", "  Loops", "  One Shots",
+        "  Audio Files", "  Templates"
+    };
+    const bool isFolder[] = {true,true,false,false,false,false,false,false,false,false,true,true,true,true,true,true};
+    int itemY = 92;
+    g.setFont(juce::Font(juce::FontOptions(11.5f)));
+    for (int i = 0; i < items.size(); ++i) {
+        g.setColour(juce::Colours::white.withAlpha(isFolder[i] ? 0.85f : 0.62f));
+        g.drawText(items[i], 8, itemY, getWidth()-16, 20, juce::Justification::centredLeft);
+        itemY += 21;
+    }
+
+    // Bottom divider
+    g.setColour(juce::Colour::fromRGB(30, 34, 48));
+    g.fillRect(0, getHeight()-80, getWidth(), 1);
+
+    // Bottom preview area
+    g.setColour(juce::Colour::fromRGB(16, 18, 24));
+    g.fillRect(0, getHeight()-79, getWidth(), 79);
+    g.setColour(juce::Colours::white.withAlpha(0.35f));
+    g.setFont(juce::Font(juce::FontOptions(10.0f)));
+    g.drawText("No file selected", 8, getHeight()-76, getWidth()-16, 18, juce::Justification::centredLeft);
+
+    // NOVA AUDIO branding at very bottom
+    g.setColour(juce::Colour::fromRGB(200,155,60).withAlpha(0.6f));
+    g.setFont(juce::Font(juce::FontOptions(10.0f).withStyle("Bold")));
+    g.drawText("NOVA AUDIO", 0, getHeight()-22, getWidth(), 20, juce::Justification::centred);
 }
 
 void BrowserPanel::resized() {}
@@ -1304,32 +1367,46 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
     WorkspaceToolbar::WorkspaceToolbar()
     {
         addAndMakeVisible(editBtn);
-        addAndMakeVisible(mixerBtn);
-        addAndMakeVisible(splitBtn);
-        addAndMakeVisible(beatBtn);
-        addAndMakeVisible(rackBtn);
-        addAndMakeVisible(slipBtn);
-        addAndMakeVisible(gridBtn);
-        addAndMakeVisible(shuffleBtn);
-        addAndMakeVisible(spotBtn);
-        addAndMakeVisible(novaAlignBtn);
+        addAndMakeVisible(mixBtn);
+        addAndMakeVisible(browseBtn);
+        addAndMakeVisible(rtzBtn);
+        addAndMakeVisible(playBtn);
+        addAndMakeVisible(stopBtn);
+        addAndMakeVisible(recordBtn);
+        addAndMakeVisible(armBtn);
+        addAndMakeVisible(monitorBtn);
+        addAndMakeVisible(loopBtn);
+        addAndMakeVisible(timecodeLabel);
+        addAndMakeVisible(tempoLabel);
         addAndMakeVisible(saveBtn);
         addAndMakeVisible(loadBtn);
         addAndMakeVisible(audioBtn);
+        addAndMakeVisible(novaAlignBtn);
 
         editBtn.addListener(this);
-        mixerBtn.addListener(this);
-        splitBtn.addListener(this);
-        beatBtn.addListener(this);
-        rackBtn.addListener(this);
-        slipBtn.addListener(this);
-        gridBtn.addListener(this);
-        shuffleBtn.addListener(this);
-        spotBtn.addListener(this);
-        novaAlignBtn.addListener(this);
+        mixBtn.addListener(this);
+        browseBtn.addListener(this);
+        rtzBtn.addListener(this);
+        playBtn.addListener(this);
+        stopBtn.addListener(this);
+        recordBtn.addListener(this);
+        armBtn.addListener(this);
+        monitorBtn.addListener(this);
+        loopBtn.addListener(this);
         saveBtn.addListener(this);
         loadBtn.addListener(this);
         audioBtn.addListener(this);
+        novaAlignBtn.addListener(this);
+
+        timecodeLabel.setJustificationType(juce::Justification::centred);
+        timecodeLabel.setColour(juce::Label::textColourId, juce::Colour::fromRGB(255, 185, 50));
+        timecodeLabel.setFont(juce::Font(juce::FontOptions(20.0f).withStyle("Bold")));
+        timecodeLabel.setText("00:00:00:00", juce::dontSendNotification);
+
+        tempoLabel.setJustificationType(juce::Justification::centred);
+        tempoLabel.setColour(juce::Label::textColourId, juce::Colour::fromRGB(255, 185, 50));
+        tempoLabel.setFont(juce::Font(juce::FontOptions(12.0f)));
+        tempoLabel.setText("120 BPM", juce::dontSendNotification);
 
         saveBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(30, 50, 30));
         saveBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(120, 220, 100));
@@ -1337,52 +1414,132 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         loadBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(140, 180, 255));
         audioBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(30, 30, 50));
         audioBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(180, 160, 255));
+        novaAlignBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(40, 30, 50));
+        novaAlignBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(200, 160, 255));
     }
 
     WorkspaceToolbar::~WorkspaceToolbar() = default;
 
     void WorkspaceToolbar::paint(juce::Graphics& g)
     {
-        g.fillAll(juce::Colour::fromRGB(8, 10, 14));
+        auto bounds = getLocalBounds().toFloat();
+        g.setGradientFill({juce::Colour::fromRGB(8,9,13), 0.0f, 0.0f,
+                           juce::Colour::fromRGB(14,16,22), 0.0f, (float)getHeight(), false});
+        g.fillRect(bounds);
+
+        // Bottom border line
+        g.setColour(juce::Colour::fromRGB(35,38,52));
+        g.fillRect(0, getHeight()-1, getWidth(), 1);
+
+        // Logo area — circular N badge
+        g.setColour(juce::Colour::fromRGB(200,155,60));
+        g.fillEllipse(14.0f, 8.0f, 38.0f, 38.0f);
+        g.setColour(juce::Colour::fromRGB(8,9,13));
+        g.setFont(juce::Font(juce::FontOptions(22.0f).withStyle("Bold")));
+        g.drawText("N", 14, 8, 38, 38, juce::Justification::centred);
+
+        // NOVA STUDIO text
+        g.setColour(juce::Colours::white);
+        g.setFont(juce::Font(juce::FontOptions(16.0f).withStyle("Bold")));
+        g.drawText("NOVA STUDIO", 58, 8, 120, 38, juce::Justification::centredLeft);
+
+        // Vertical dividers
+        g.setColour(juce::Colour::fromRGB(40,44,60));
+        g.fillRect(185, 8, 1, getHeight()-16);
+        g.fillRect(470, 8, 1, getHeight()-16);
+        g.fillRect(760, 8, 1, getHeight()-16);
     }
 
     void WorkspaceToolbar::resized()
     {
-        auto area = getLocalBounds().reduced(8);
-        auto topRow = area.removeFromTop(32);
-        auto bottomRow = area;
+        const int H = getHeight();
+        const int btnH = 28;
+        const int btnY = (H - btnH) / 2;
 
-        // Reserve right-side buttons FIRST so workspace buttons share remaining space
-        saveBtn.setBounds(topRow.removeFromRight(56).reduced(4));
-        loadBtn.setBounds(topRow.removeFromRight(56).reduced(4));
-        audioBtn.setBounds(topRow.removeFromRight(60).reduced(4));
+        // Logo area: first 190px (painted, not a component)
+        int x = 195;
 
-        auto buttonWidth = topRow.getWidth() / 5;
-        editBtn.setBounds(topRow.removeFromLeft(buttonWidth).reduced(4));
-        mixerBtn.setBounds(topRow.removeFromLeft(buttonWidth).reduced(4));
-        splitBtn.setBounds(topRow.removeFromLeft(buttonWidth).reduced(4));
-        beatBtn.setBounds(topRow.removeFromLeft(buttonWidth).reduced(4));
-        rackBtn.setBounds(topRow.removeFromLeft(buttonWidth).reduced(4));
+        // Mode tabs
+        editBtn.setBounds(x, btnY, 54, btnH); x += 58;
+        mixBtn.setBounds(x, btnY, 46, btnH); x += 50;
+        browseBtn.setBounds(x, btnY, 64, btnH); x += 74;
 
-        buttonWidth = bottomRow.getWidth() / 5;
-        slipBtn.setBounds(bottomRow.removeFromLeft(buttonWidth).reduced(4));
-        gridBtn.setBounds(bottomRow.removeFromLeft(buttonWidth).reduced(4));
-        shuffleBtn.setBounds(bottomRow.removeFromLeft(buttonWidth).reduced(4));
-        spotBtn.setBounds(bottomRow.removeFromLeft(buttonWidth).reduced(4));
-        novaAlignBtn.setBounds(bottomRow.removeFromLeft(buttonWidth).reduced(4));
+        // Gap to transport (divider at 470)
+        x = 478;
+
+        // Transport buttons
+        rtzBtn.setBounds(x, btnY, 32, btnH); x += 36;
+        playBtn.setBounds(x, btnY, 54, btnH); x += 58;
+        stopBtn.setBounds(x, btnY, 54, btnH); x += 58;
+        recordBtn.setBounds(x, btnY, 46, btnH); x += 50;
+        x += 4;
+        armBtn.setBounds(x, btnY, 44, btnH); x += 48;
+        monitorBtn.setBounds(x, btnY, 44, btnH); x += 48;
+        loopBtn.setBounds(x, btnY, 44, btnH); x += 48;
+
+        // Timecode + tempo after divider at ~760
+        x = 768;
+        timecodeLabel.setBounds(x, btnY - 4, 155, btnH + 8); x += 158;
+        tempoLabel.setBounds(x, btnY, 90, btnH); x += 94;
+
+        // Right-side buttons (from right)
+        int rx = getWidth() - 8;
+        audioBtn.setBounds(rx - 60, btnY, 58, btnH); rx -= 64;
+        loadBtn.setBounds(rx - 50, btnY, 48, btnH); rx -= 54;
+        saveBtn.setBounds(rx - 50, btnY, 48, btnH); rx -= 54;
+        novaAlignBtn.setBounds(rx - 84, btnY, 82, btnH); rx -= 88;
     }
+
+    void WorkspaceToolbar::setPlayState(bool isPlaying, bool isRecording)
+    {
+        playBtn.setColour(juce::TextButton::buttonColourId,
+            isPlaying ? juce::Colours::lightgreen.withAlpha(0.35f) : juce::Colours::transparentBlack);
+        recordBtn.setColour(juce::TextButton::buttonColourId,
+            isRecording ? juce::Colours::red.withAlpha(0.55f) : juce::Colours::transparentBlack);
+    }
+
+    void WorkspaceToolbar::setLoopState(bool enabled)
+    {
+        loopBtn.setColour(juce::TextButton::buttonColourId,
+            enabled ? juce::Colours::yellow.withAlpha(0.35f) : juce::Colours::transparentBlack);
+    }
+
+    void WorkspaceToolbar::setArmState(bool armed)
+    {
+        armBtn.setColour(juce::TextButton::buttonColourId,
+            armed ? juce::Colours::orange.withAlpha(0.45f) : juce::Colours::transparentBlack);
+    }
+
+    void WorkspaceToolbar::setMonitorState(bool enabled)
+    {
+        monitorBtn.setColour(juce::TextButton::buttonColourId,
+            enabled ? juce::Colours::skyblue.withAlpha(0.35f) : juce::Colours::transparentBlack);
+    }
+
+    void WorkspaceToolbar::setTempo(int bpm)
+    {
+        tempoLabel.setText(juce::String(bpm) + " BPM", juce::dontSendNotification);
+    }
+
+    void WorkspaceToolbar::setTimecode(const juce::String& tc)
+    {
+        timecodeLabel.setText(tc, juce::dontSendNotification);
+    }
+
+    void WorkspaceToolbar::setPlaybackState(bool /*previewEnabled*/, bool /*hasPreview*/) {}
 
     void WorkspaceToolbar::buttonClicked(juce::Button* b)
     {
         if (b == &editBtn && onModeSelected) onModeSelected(0);
-        else if (b == &mixerBtn && onModeSelected) onModeSelected(1);
-        else if (b == &splitBtn && onModeSelected) onModeSelected(2);
-        else if (b == &beatBtn && onModeSelected) onModeSelected(3);
-        else if (b == &rackBtn && onModeSelected) onModeSelected(4);
-        else if (b == &slipBtn && onEditModeSelected) onEditModeSelected(NovaStudio::ArrangementModel::EditMode::Slip);
-        else if (b == &gridBtn && onEditModeSelected) onEditModeSelected(NovaStudio::ArrangementModel::EditMode::Grid);
-        else if (b == &shuffleBtn && onEditModeSelected) onEditModeSelected(NovaStudio::ArrangementModel::EditMode::Shuffle);
-        else if (b == &spotBtn && onEditModeSelected) onEditModeSelected(NovaStudio::ArrangementModel::EditMode::Spot);
+        else if (b == &mixBtn && onModeSelected) onModeSelected(1);
+        else if (b == &browseBtn && onModeSelected) onModeSelected(2);
+        else if (b == &rtzBtn && onReturnToZero) onReturnToZero();
+        else if (b == &playBtn && onPlay) onPlay();
+        else if (b == &stopBtn && onStop) onStop();
+        else if (b == &recordBtn && onRecord) onRecord();
+        else if (b == &armBtn && onArm) onArm();
+        else if (b == &monitorBtn && onMonitor) onMonitor();
+        else if (b == &loopBtn && onLoop) onLoop();
         else if (b == &novaAlignBtn && onNovaAlign) onNovaAlign();
         else if (b == &saveBtn && onSave) onSave();
         else if (b == &loadBtn && onLoad) onLoad();

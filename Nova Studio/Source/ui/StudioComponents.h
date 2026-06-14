@@ -178,6 +178,10 @@ namespace NovaStudioUI
 
         void paint(juce::Graphics& g) override;
         void resized() override;
+
+    private:
+        juce::Label searchLabel;
+        juce::Label contentLabel;
     };
 
     class PianoRollPanel : public juce::Component
@@ -296,29 +300,57 @@ namespace NovaStudioUI
         void paint(juce::Graphics& g) override;
         void resized() override;
 
-        std::function<void(int)> onModeSelected; // 0=Edit,1=Mixer,2=Split,3=Beat,4=Rack
+        // Mode callbacks
+        std::function<void(int)> onModeSelected; // 0=Edit,1=Mixer,2=Browse
         std::function<void(NovaStudio::ArrangementModel::EditMode)> onEditModeSelected;
         std::function<void()> onNovaAlign;
         std::function<void()> onSave;
         std::function<void()> onLoad;
         std::function<void()> onAudioSettings;
 
+        // Transport callbacks
+        std::function<void()> onPlay;
+        std::function<void()> onStop;
+        std::function<void()> onRecord;
+        std::function<void()> onReturnToZero;
+        std::function<void()> onArm;
+        std::function<void()> onMonitor;
+        std::function<void()> onLoop;
+        std::function<void(bool)> onTogglePreview;
+
+        // Transport setters
+        void setPlayState(bool isPlaying, bool isRecording);
+        void setLoopState(bool enabled);
+        void setArmState(bool armed);
+        void setMonitorState(bool enabled);
+        void setTempo(int bpm);
+        void setTimecode(const juce::String& tc);
+        void setPlaybackState(bool previewEnabled, bool hasPreview);
+
     private:
         void buttonClicked(juce::Button* b) override;
 
-        juce::TextButton editBtn {"Edit"};
-        juce::TextButton mixerBtn {"Mixer"};
-        juce::TextButton splitBtn {"Split"};
-        juce::TextButton beatBtn {"Beat"};
-        juce::TextButton rackBtn {"Rack"};
-        juce::TextButton slipBtn {"Slip"};
-        juce::TextButton gridBtn {"Grid"};
-        juce::TextButton shuffleBtn {"Shuffle"};
-        juce::TextButton spotBtn {"Spot"};
-        juce::TextButton novaAlignBtn {"Nova Align"};
+        // Mode buttons
+        juce::TextButton editBtn {"EDIT"};
+        juce::TextButton mixBtn {"MIX"};
+        juce::TextButton browseBtn {"BROWSE"};
+
+        // Transport buttons
+        juce::TextButton rtzBtn {"|<<"};
+        juce::TextButton playBtn {"Play"};
+        juce::TextButton stopBtn {"Stop"};
+        juce::TextButton recordBtn {"Rec"};
+        juce::TextButton armBtn {"ARM"};
+        juce::TextButton monitorBtn {"MON"};
+        juce::TextButton loopBtn {"LOOP"};
+
+        juce::Label timecodeLabel;
+        juce::Label tempoLabel;
+
         juce::TextButton saveBtn {"Save"};
         juce::TextButton loadBtn {"Load"};
         juce::TextButton audioBtn {"Audio"};
+        juce::TextButton novaAlignBtn {"Nova Align"};
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WorkspaceToolbar)
     };

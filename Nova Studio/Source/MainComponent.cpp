@@ -11,7 +11,7 @@ MainComponent::MainComponent()
     setSize(1440, 900);
 
     addAndMakeVisible(workspaceToolbar);
-    addAndMakeVisible(transportBar);
+    addAndMakeVisible(browserPanel);
     addAndMakeVisible(trackPanel);
     addAndMakeVisible(arrangementView);
     addAndMakeVisible(alignPanel);
@@ -40,7 +40,7 @@ MainComponent::MainComponent()
     addAndMakeVisible(bottomTabs);
     addAndMakeVisible(statusLabel);
 
-    bottomTabs.addTab("Browser", juce::Colours::transparentBlack, &browserPanel, false);
+    bottomTabs.addTab("Mixer", juce::Colours::transparentBlack, &mixerPanel, false);
     bottomTabs.addTab("Piano Roll", juce::Colours::transparentBlack, &pianoRollPanel, false);
     bottomTabs.addTab("Step Seq", juce::Colours::transparentBlack, &stepSequencerPanel, false);
 
@@ -48,23 +48,23 @@ MainComponent::MainComponent()
     statusLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.8f));
     statusLabel.setText("Nova Studio Lite prototype ready", juce::dontSendNotification);
 
-    transportBar.onReturnToZero = [this] {
+    workspaceToolbar.onReturnToZero = [this] {
         engine.stop();
         transportState.setPositionSamples(0, true);
-        transportBar.setPlayState(false, false);
+        workspaceToolbar.setPlayState(false, false);
         updateStatusMessage("Returned to zero.");
     };
 
-    transportBar.onPlay = [this] {
+    workspaceToolbar.onPlay = [this] {
         engine.play();
-        transportBar.setPlayState(true, engine.isRecording());
+        workspaceToolbar.setPlayState(true, engine.isRecording());
         updateStatusMessage("Playback engaged.");
     };
 
-    transportBar.onStop = [this] {
+    workspaceToolbar.onStop = [this] {
         bool wasRecording = engine.isRecording();
         engine.stop();
-        transportBar.setPlayState(false, false);
+        workspaceToolbar.setPlayState(false, false);
         if (wasRecording)
         {
             auto f = engine.getLastRecordingFile();
@@ -78,13 +78,13 @@ MainComponent::MainComponent()
         }
     };
 
-    transportBar.onRecord = [this] {
+    workspaceToolbar.onRecord = [this] {
         engine.toggleRecord();
-        transportBar.setPlayState(engine.getTransportState().isPlaying(), engine.isRecording());
+        workspaceToolbar.setPlayState(engine.getTransportState().isPlaying(), engine.isRecording());
         updateStatusMessage(engine.isRecording() ? "Recording active." : "Record stopped.");
     };
 
-    transportBar.onArm = [this] {
+    workspaceToolbar.onArm = [this] {
         const bool armed = !engine.getTransportState().isRecordArmed();
         engine.getTransportState().setRecordArmed(armed);
         // Arm/disarm the first audio track in the session so createRecordingClipIfNeeded finds it
@@ -96,40 +96,40 @@ MainComponent::MainComponent()
                 break;
             }
         }
-        transportBar.setArmState(armed);
+        workspaceToolbar.setArmState(armed);
         updateStatusMessage(armed ? "Record armed." : "Record disarmed.");
     };
 
-    transportBar.onMonitor = [this] {
+    workspaceToolbar.onMonitor = [this] {
         const bool monitor = !engine.getTransportState().isInputMonitoring();
         engine.getTransportState().setInputMonitoring(monitor);
-        transportBar.setMonitorState(monitor);
+        workspaceToolbar.setMonitorState(monitor);
         updateStatusMessage(monitor ? "Input monitoring enabled." : "Input monitoring disabled.");
     };
 
-    transportBar.onLoop = [this] {
+    workspaceToolbar.onLoop = [this] {
         const bool looping = !engine.getTransportState().isLooping();
         engine.getTransportState().setLooping(looping);
-        transportBar.setLoopState(looping);
+        workspaceToolbar.setLoopState(looping);
         updateStatusMessage(looping ? "Loop enabled." : "Loop disabled.");
     };
 
-    transportBar.setPlayState(false, false);
-    transportBar.setArmState(engine.getTransportState().isRecordArmed());
-    transportBar.setMonitorState(engine.getTransportState().isInputMonitoring());
-    transportBar.setLoopState(engine.getTransportState().isLooping());
+    workspaceToolbar.setPlayState(false, false);
+    workspaceToolbar.setArmState(engine.getTransportState().isRecordArmed());
+    workspaceToolbar.setMonitorState(engine.getTransportState().isInputMonitoring());
+    workspaceToolbar.setLoopState(engine.getTransportState().isLooping());
 
     if (!engine.initialize())
         updateStatusMessage("Audio initialization failed. Check System Preferences -> Sound.");
     else if (engine.getActiveInputChannelCount() == 0)
         updateStatusMessage("No input channels — grant microphone access in System Preferences -> Security & Privacy -> Microphone, then relaunch.");
 
-    transportBar.setTempo(static_cast<int>(engine.getSession().getTempo()));
-    transportBar.setTimecode(transportState.getTimecodeString(transportState.getPositionSamples()));
+    workspaceToolbar.setTempo(static_cast<int>(engine.getSession().getTempo()));
+    workspaceToolbar.setTimecode(transportState.getTimecodeString(transportState.getPositionSamples()));
 
     // initial playback indicator and toggle hookup
-    transportBar.setPlaybackState(engine.getSession().isPreviewPlaybackEnabled(), arrangementModel.hasAlignmentPreview());
-    transportBar.onTogglePreview = [this](bool wantsPreview) {
+    workspaceToolbar.setPlaybackState(engine.getSession().isPreviewPlaybackEnabled(), arrangementModel.hasAlignmentPreview());
+    workspaceToolbar.onTogglePreview = [this](bool wantsPreview) {
         engine.getSession().setPreviewPlaybackEnabled(wantsPreview);
         arrangementModel.sendChangeMessage();
         updateStatusMessage(wantsPreview ? "Preview audio enabled." : "Playing original audio.");
@@ -252,7 +252,7 @@ void MainComponent::changeListenerCallback(juce::ChangeBroadcaster* source)
 {
     if (source == &arrangementModel)
     {
-        transportBar.setPlaybackState(engine.getSession().isPreviewPlaybackEnabled(), arrangementModel.hasAlignmentPreview());
+        workspaceToolbar.setPlaybackState(engine.getSession().isPreviewPlaybackEnabled(), arrangementModel.hasAlignmentPreview());
     }
 }
 
@@ -261,46 +261,48 @@ MainComponent::~MainComponent() = default;
 void MainComponent::paint(juce::Graphics& g)
 {
     juce::Colour top = juce::Colour::fromRGB(10, 12, 18);
-    juce::Colour bottom = juce::Colour::fromRGB(18, 24, 36);
+    juce::Colour bottom = juce::Colour::fromRGB(16, 20, 30);
     g.setGradientFill({ top, 0.0f, 0.0f, bottom, 0.0f, (float)getHeight(), false });
     g.fillAll();
-
-    g.setColour(juce::Colours::white.withAlpha(0.65f));
-    {
-        juce::Font font(juce::FontOptions(28.0f).withStyle("Bold"));
-        g.setFont(font);
-    }
-    g.drawText("Nova Studio", 24, 20, 320, 32, juce::Justification::left);
 }
 
 void MainComponent::resized()
 {
-    auto area = getLocalBounds().reduced(18);
-    auto toolbarArea = area.removeFromTop(56);
-    workspaceToolbar.setBounds(toolbarArea.reduced(0, 6));
+    auto area = getLocalBounds();
 
-    auto transportArea = area.removeFromTop(112);
-    transportBar.setBounds(transportArea);
+    // Unified top header
+    workspaceToolbar.setBounds(area.removeFromTop(56));
 
-    auto bottomArea = area.removeFromBottom(260);
+    // Left browser sidebar
+    auto leftSidebar = area.removeFromLeft(190);
+    browserPanel.setBounds(leftSidebar);
+
+    // Bottom tabs (Mixer / Piano Roll / Step Seq)
+    auto bottomArea = area.removeFromBottom(200);
     bottomTabs.setBounds(bottomArea);
 
-    auto centreArea = area;
-    auto leftPane = centreArea.removeFromLeft(280);
-    trackPanel.setBounds(leftPane.reduced(0, 4));
-    auto rightPane = centreArea.removeFromRight(360);
-    auto alignArea = rightPane.removeFromTop(340);
-    alignPanel.setBounds(alignArea.reduced(0, 4));
-    mixerPanel.setBounds(rightPane.reduced(0, 4));
-    arrangementView.setBounds(centreArea.reduced(0, 4));
-    if (editWindow)
-        editWindow->setBounds(centreArea.reduced(0, 4));
-    if (mixerWindow)
-        mixerWindow->setBounds(getLocalBounds().reduced(18).withTrimmedTop(56 + 12 + 112 + 4));
-    if (beatWindow)
-        beatWindow->setBounds(getLocalBounds().reduced(18).withTrimmedTop(56 + 12 + 112 + 4));
+    // Status label (overlay, bottom right)
+    statusLabel.setBounds(getWidth() - 500, getHeight() - 26, 480, 22);
 
-    statusLabel.setBounds(getWidth() - 520, getHeight() - 32, 500, 24);
+    // Edit mode: editWindow takes remaining center area
+    if (editWindow)
+        editWindow->setBounds(area);
+
+    // Mixer mode: full screen minus header
+    if (mixerWindow)
+        mixerWindow->setBounds(getLocalBounds().withTrimmedTop(56));
+
+    // Beat mode: full screen minus header
+    if (beatWindow)
+        beatWindow->setBounds(getLocalBounds().withTrimmedTop(56));
+
+    // Nova Align: side panel over center
+    alignPanel.setBounds(area.removeFromRight(360));
+
+    // Legacy panels (hidden in new layout but kept for compat)
+    trackPanel.setBounds(0, 0, 0, 0);
+    arrangementView.setBounds(0, 0, 0, 0);
+    mixerPanel.setBounds(0, 0, 0, 0);
 }
 
 void MainComponent::updateStatusMessage(const juce::String& message)
@@ -358,87 +360,53 @@ void MainComponent::refreshTrackList()
 
 void MainComponent::setWorkspaceMode(int mode)
 {
-    // 0=Edit,1=Mixer,2=Split,3=Beat,4=Rack
+    browserPanel.setVisible(true); // always visible
+
     switch (mode)
     {
-        case 0: // Edit
-            if (editWindow)
-                editWindow->setVisible(true);
-            if (mixerWindow)
-                mixerWindow->setVisible(false);
-            if (beatWindow)
-                beatWindow->setVisible(false);
-            arrangementView.setVisible(false);
-            trackPanel.setVisible(false);
-            alignPanel.setVisible(true);
-            mixerPanel.setVisible(false);
-            bottomTabs.setVisible(true);
-            break;
-        case 1: // Mixer
-            if (editWindow)
-                editWindow->setVisible(false);
-            if (beatWindow)
-                beatWindow->setVisible(false);
-            arrangementView.setVisible(false);
-            trackPanel.setVisible(false);
-            alignPanel.setVisible(false);
-            mixerPanel.setVisible(false);
-            if (mixerWindow)
-            {
-                mixerWindow->refresh();
-                mixerWindow->setVisible(true);
-            }
-            bottomTabs.setVisible(false);
-            break;
-        case 2: // Split
-            if (editWindow)
-                editWindow->setVisible(false);
-            if (mixerWindow)
-                mixerWindow->setVisible(false);
-            if (beatWindow)
-                beatWindow->setVisible(false);
-            arrangementView.setVisible(true);
-            trackPanel.setVisible(true);
-            alignPanel.setVisible(true);
-            mixerPanel.setVisible(false);
-            bottomTabs.setVisible(true);
-            break;
-        case 3: // Beat
-            if (editWindow)
-                editWindow->setVisible(false);
-            if (mixerWindow)
-                mixerWindow->setVisible(false);
-            if (beatWindow)
-                beatWindow->setVisible(true);
-            arrangementView.setVisible(false);
-            trackPanel.setVisible(false);
-            alignPanel.setVisible(false);
-            mixerPanel.setVisible(false);
-            bottomTabs.setVisible(false);
-            break;
-        case 4: // Rack
-            if (editWindow)
-                editWindow->setVisible(false);
-            if (mixerWindow)
-                mixerWindow->setVisible(false);
-            if (beatWindow)
-                beatWindow->setVisible(false);
-            arrangementView.setVisible(false);
-            trackPanel.setVisible(true);
-            alignPanel.setVisible(true);
-            mixerPanel.setVisible(false);
-            bottomTabs.setVisible(true);
-            break;
+    case 0: // Edit
+        if (editWindow) editWindow->setVisible(true);
+        if (mixerWindow) mixerWindow->setVisible(false);
+        if (beatWindow) beatWindow->setVisible(false);
+        alignPanel.setVisible(false);
+        bottomTabs.setVisible(true);
+        break;
+    case 1: // Mixer
+        if (editWindow) editWindow->setVisible(false);
+        if (mixerWindow) { mixerWindow->refresh(); mixerWindow->setVisible(true); }
+        if (beatWindow) beatWindow->setVisible(false);
+        alignPanel.setVisible(false);
+        bottomTabs.setVisible(false);
+        break;
+    case 2: // Browse / Split
+        if (editWindow) editWindow->setVisible(true);
+        if (mixerWindow) mixerWindow->setVisible(false);
+        if (beatWindow) beatWindow->setVisible(false);
+        alignPanel.setVisible(false);
+        bottomTabs.setVisible(true);
+        break;
+    case 3: // Beat
+        if (editWindow) editWindow->setVisible(false);
+        if (mixerWindow) mixerWindow->setVisible(false);
+        if (beatWindow) beatWindow->setVisible(true);
+        alignPanel.setVisible(false);
+        bottomTabs.setVisible(false);
+        break;
+    default:
+        if (editWindow) editWindow->setVisible(true);
+        if (mixerWindow) mixerWindow->setVisible(false);
+        if (beatWindow) beatWindow->setVisible(false);
+        alignPanel.setVisible(false);
+        bottomTabs.setVisible(true);
+        break;
     }
 
     // persist
     juce::DynamicObject::Ptr obj = new juce::DynamicObject();
     obj->setProperty("mode", mode);
     juce::var root(obj.get());
-    auto content = juce::JSON::toString(root);
     juce::File cfgDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("NovaStudio");
     cfgDir.createDirectory();
-    juce::File cfg = cfgDir.getChildFile("workspace.json");
-    cfg.replaceWithText(content);
+    cfgDir.getChildFile("workspace.json").replaceWithText(juce::JSON::toString(root));
     resized();
 }

@@ -28,7 +28,6 @@ private:
     NovaStudio::TimelineModel timelineModel;
     NovaStudio::ArrangementModel arrangementModel;
     NovaStudioUI::WorkspaceToolbar workspaceToolbar;
-    NovaStudioUI::TransportBar transportBar;
     NovaStudioUI::TrackPanel trackPanel;
     NovaStudioUI::ArrangementView arrangementView;
     std::unique_ptr<NovaStudioUI::EditWindow>   editWindow;
