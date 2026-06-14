@@ -8,9 +8,10 @@ NovaChordAudioProcessorEditor::NovaChordAudioProcessorEditor (NovaChordAudioProc
 {
     webView = std::make_unique<SinglePageBrowser> (createWebOptions (*this));
 
-    keyAttachment   = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("key"),   keyRelay,   nullptr);
-    scaleAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("scale"), scaleRelay, nullptr);
-    styleAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("style"), styleRelay, nullptr);
+    styleIdxAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("styleIdx"),    styleIdxRelay,    nullptr);
+    octaveShiftAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("octaveShift"), octaveShiftRelay, nullptr);
+    velocityAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("velocity"),    velocityRelay,    nullptr);
+    passThroughAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("passThrough"), passThroughRelay, nullptr);
 
     addAndMakeVisible (*webView);
 
@@ -19,7 +20,7 @@ NovaChordAudioProcessorEditor::NovaChordAudioProcessorEditor (NovaChordAudioProc
     webView->goToURL (cacheBustedUrl);
 
     setResizable (false, false);
-    setSize (1060, 640);
+    setSize (1100, 700);
     startTimerHz (30);
 }
 
@@ -30,7 +31,7 @@ NovaChordAudioProcessorEditor::~NovaChordAudioProcessorEditor()
 
 void NovaChordAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour::fromRGB (8, 17, 29));
+    g.fillAll (juce::Colour::fromRGB (10, 10, 15));
 }
 
 void NovaChordAudioProcessorEditor::resized()
@@ -44,50 +45,19 @@ void NovaChordAudioProcessorEditor::timerCallback()
     if (webView == nullptr || ! webView->isVisible())
         return;
 
-    const int rootNote    = processorRef.getDetectedRootNote().load();
-    const bool hasInput   = processorRef.getHasInput().load();
+    const int  noteOn      = processorRef.getLastNoteOn();
+    const int  chordRoot   = processorRef.getChordRootMidi();
+    const bool chordActive = processorRef.isChordActive();
 
-    // Build suggestions JSON
-    juce::String suggestionsJson = "[";
-    {
-        const auto& sug = processorRef.getSuggestions();
-        for (size_t i = 0; i < sug.size(); ++i)
-        {
-            if (i > 0) suggestionsJson += ",";
-            suggestionsJson += "{\"name\":\"" + juce::String (sug[i].name) + "\","
-                             + "\"root\":" + juce::String (sug[i].rootMidi) + "}";
-        }
-    }
-    suggestionsJson += "]";
-
-    // Build progression JSON
-    juce::String progressionJson = "[";
-    {
-        const auto& prog = processorRef.getProgression();
-        for (size_t i = 0; i < prog.size(); ++i)
-        {
-            if (i > 0) progressionJson += ",";
-            progressionJson += "{\"name\":\"" + juce::String (prog[i].name) + "\","
-                             + "\"root\":" + juce::String (prog[i].rootMidi) + "}";
-        }
-    }
-    progressionJson += "]";
-
-    static const char* noteNms[] = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
-    juce::String rootName = (rootNote >= 0) ? juce::String (noteNms[rootNote % 12]) : "";
-
-    const auto script = "if (window.receiveDSP) { window.receiveDSP({"
-                      "hasInput:" + juce::String (hasInput ? "true" : "false")
-                      + ",rootNote:" + juce::String (rootNote)
-                      + ",rootName:\"" + rootName + "\""
-                      + ",suggestions:" + suggestionsJson
-                      + ",progression:" + progressionJson
+    const auto script = "if (window.receiveChordDSP) { window.receiveChordDSP({"
+                      "lastNoteOn:"  + juce::String (noteOn)
+                      + ",chordRoot:"  + juce::String (chordRoot)
+                      + ",chordActive:" + juce::String (chordActive ? "true" : "false")
                       + "}); }";
 
     webView->evaluateJavascript (script);
 }
 
-//==============================================================================
 juce::WebBrowserComponent::Options NovaChordAudioProcessorEditor::createWebOptions (NovaChordAudioProcessorEditor& editor)
 {
     auto options = juce::WebBrowserComponent::Options {};
@@ -101,86 +71,18 @@ juce::WebBrowserComponent::Options NovaChordAudioProcessorEditor::createWebOptio
    #endif
 
     options = options.withNativeIntegrationEnabled()
-                     .withNativeFunction ("triggerChord",
-                         [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion complete)
-                         {
-                             if (! args.isEmpty())
-                                 editor.processorRef.triggerChord (static_cast<int> (args[0]));
-                             complete (true);
-                         })
-                     .withNativeFunction ("triggerProgressionChord",
-                         [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion complete)
-                         {
-                             if (! args.isEmpty())
-                                 editor.processorRef.triggerProgressionChord (static_cast<int> (args[0]));
-                             complete (true);
-                         })
-                     .withNativeFunction ("addToProgression",
-                         [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion complete)
-                         {
-                             if (! args.isEmpty())
-                                 editor.processorRef.addToProgression (static_cast<int> (args[0]));
-                             complete (true);
-                         })
-                     .withNativeFunction ("removeFromProgression",
-                         [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion complete)
-                         {
-                             if (! args.isEmpty())
-                                 editor.processorRef.removeFromProgression (static_cast<int> (args[0]));
-                             complete (true);
-                         })
-                     .withNativeFunction ("clearProgression",
-                         [&editor] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion complete)
-                         {
-                             editor.processorRef.clearProgression();
-                             complete (true);
-                         })
-                     .withNativeFunction ("setApiKey",
-                         [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion complete)
-                         {
-                             if (! args.isEmpty())
-                                 editor.processorRef.setApiKey (args[0].toString());
-                             complete (true);
-                         })
-                     .withNativeFunction ("generateFromPrompt",
-                         [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion complete)
-                         {
-                             if (! args.isEmpty())
-                             {
-                                 juce::String prompt = args[0].toString();
-                                 editor.processorRef.generateFromPrompt (prompt,
-                                     [&editor] (const std::vector<ChordDef>& chords)
-                                     {
-                                         editor.processorRef.setProgressionFromAI (chords);
-                                     });
-                             }
-                             complete (true);
-                         })
-                     .withNativeFunction ("exportMidi",
-                         [&editor] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion complete)
-                         {
-                             juce::MessageManager::callAsync ([&editor]()
-                             {
-                                 juce::FileChooser chooser ("Export MIDI",
-                                     juce::File::getSpecialLocation (juce::File::userDesktopDirectory),
-                                     "*.mid");
-                                 if (chooser.browseForFileToSave (true))
-                                     editor.processorRef.exportMidi (chooser.getResult());
-                             });
-                             complete (true);
-                         })
                      .withResourceProvider ([&editor] (const juce::String& url)
                      {
                          return editor.getResource (url);
                      })
-                     .withOptionsFrom (editor.keyRelay)
-                     .withOptionsFrom (editor.scaleRelay)
-                     .withOptionsFrom (editor.styleRelay);
+                     .withOptionsFrom (editor.styleIdxRelay)
+                     .withOptionsFrom (editor.octaveShiftRelay)
+                     .withOptionsFrom (editor.velocityRelay)
+                     .withOptionsFrom (editor.passThroughRelay);
 
     return options;
 }
 
-//==============================================================================
 std::optional<juce::WebBrowserComponent::Resource> NovaChordAudioProcessorEditor::getResource (const juce::String& url)
 {
     auto makeResource = [] (const char* data, int size, const char* mime)

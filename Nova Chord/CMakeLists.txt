@@ -7,6 +7,7 @@ set(JUCE_VST2SDK_PATH "" CACHE PATH "" FORCE)
 cmake_minimum_required(VERSION 3.15)
 
 if(APPLE)
+    # Default to universal, but allow CI/local builds to override (e.g. arm64-only).
     if(NOT DEFINED CMAKE_OSX_ARCHITECTURES OR CMAKE_OSX_ARCHITECTURES STREQUAL "")
         set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
     endif()
@@ -22,6 +23,7 @@ FetchContent_Declare(
     GIT_TAG        8.0.8
 )
 FetchContent_MakeAvailable(juce)
+
 
 set(PLUGIN_TARGET NovaChord)
 set(NEEDS_WEBVIEW2 FALSE)
@@ -46,6 +48,9 @@ else()
     message(FATAL_ERROR "Unsupported platform")
 endif()
 
+message(STATUS "Nova Chord: Building for ${PLUGIN_FORMATS}")
+message(STATUS "Nova Chord: WebView backend: ${WEBVIEW_BACKEND}")
+
 juce_add_binary_data(NovaChord_WebUI
     SOURCES
         Source/ui/public/index.html
@@ -67,7 +72,7 @@ juce_add_plugin(${PLUGIN_TARGET}
     PRODUCT_NAME "Nova Chord"
     NEEDS_WEBVIEW2 ${NEEDS_WEBVIEW2}
     NEEDS_WEB_BROWSER ${NEEDS_WEB_BROWSER}
-    VST3_CATEGORIES Fx MIDI
+    VST3_CATEGORIES Instrument
     AU_MAIN_TYPE ${AU_MAIN_TYPE}
     LV2URI ${LV2_URI}
     IS_SYNTH FALSE
@@ -108,11 +113,11 @@ target_link_libraries(${PLUGIN_TARGET}
         juce::juce_recommended_warning_flags
 )
 
-target_compile_definitions(${PLUGIN_TARGET}
+    target_compile_definitions(${PLUGIN_TARGET}
     PUBLIC
         JUCE_WEB_BROWSER=1
         JUCE_VST3_CAN_REPLACE_VST2=0
-)
+    )
 
 if(WIN32)
     target_compile_definitions(${PLUGIN_TARGET}
@@ -135,6 +140,7 @@ if(UNIX AND NOT APPLE)
             JUCE_USE_CURL=0
             JUCE_JACK=1
     )
+
     if(TARGET ${PLUGIN_TARGET}_Standalone)
         target_link_libraries(${PLUGIN_TARGET}_Standalone
             PRIVATE

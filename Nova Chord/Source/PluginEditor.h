@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_gui_extra/juce_gui_extra.h>
+
 #include "PluginProcessor.h"
 
 class NovaChordAudioProcessorEditor : public juce::AudioProcessorEditor,
@@ -18,13 +19,15 @@ private:
 
     NovaChordAudioProcessor& processorRef;
 
-    juce::WebSliderRelay keyRelay   { "key" };
-    juce::WebSliderRelay scaleRelay { "scale" };
-    juce::WebSliderRelay styleRelay { "style" };
+    juce::WebSliderRelay styleIdxRelay    { "styleIdx" };
+    juce::WebSliderRelay octaveShiftRelay { "octaveShift" };
+    juce::WebSliderRelay velocityRelay    { "velocity" };
+    juce::WebSliderRelay passThroughRelay { "passThrough" };
 
     struct SinglePageBrowser : juce::WebBrowserComponent
     {
         using WebBrowserComponent::WebBrowserComponent;
+
         bool pageAboutToLoad (const juce::String& newURL) override
         {
             return newURL.startsWith (getResourceProviderRoot()) || newURL == getResourceProviderRoot();
@@ -33,9 +36,10 @@ private:
 
     std::unique_ptr<SinglePageBrowser> webView;
 
-    std::unique_ptr<juce::WebSliderParameterAttachment> keyAttachment;
-    std::unique_ptr<juce::WebSliderParameterAttachment> scaleAttachment;
-    std::unique_ptr<juce::WebSliderParameterAttachment> styleAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> styleIdxAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> octaveShiftAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> velocityAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> passThroughAttachment;
 
     std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
     static juce::WebBrowserComponent::Options createWebOptions (NovaChordAudioProcessorEditor& editor);
