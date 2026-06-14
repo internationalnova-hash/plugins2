@@ -252,6 +252,7 @@ namespace NovaStudio
 
         bool saveSession(const juce::File& file) const;
         bool loadSession(const juce::File& file);
+        void newSession();
         bool exportStereoMix(const juce::File& destinationFile);
 
         const TransportState& getTransportState() const noexcept;

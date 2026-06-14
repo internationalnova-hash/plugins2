@@ -1420,6 +1420,18 @@ namespace NovaStudio
         return true;
     }
 
+    void StudioAudioEngine::newSession()
+    {
+        session.clear();
+        session.setName("Untitled Session");
+        session.setTempo(120.0);
+        session.setSampleRate(44100.0);
+        transportState.setTempo(120);
+        transportState.stop();
+        transportState.setPositionSamples(0);
+        buildTrackPlayers();
+    }
+
     bool StudioAudioEngine::loadSession(const juce::File& file)
     {
         if (!session.loadFromFile(file))

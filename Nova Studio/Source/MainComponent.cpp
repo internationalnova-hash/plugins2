@@ -1988,8 +1988,26 @@ void MainComponent::menuItemSelected(int id, int)
     {
     // ── File ────────────────────────────────────────────────────────────────
     case 101: // New Session
-        updateStatusMessage("New Session: not yet implemented.");
+    {
+        juce::AlertWindow::showOkCancelBox(juce::MessageBoxIconType::QuestionIcon,
+            "New Session",
+            "Start a new session? Any unsaved changes will be lost.",
+            "New Session", "Cancel", this,
+            juce::ModalCallbackFunction::create([this](int result)
+            {
+                if (result != 1)
+                    return;
+                engine.newSession();
+                arrangementModel.clearSelection();
+                if (mixerWindow)  mixerWindow->refresh();
+                if (beatWindow)   beatWindow->setMixerTrackCount(0);
+                workspaceToolbar.setTempo(120);
+                refreshTrackList();
+                arrangementModel.sendChangeMessage();
+                updateStatusMessage("New session created");
+            }));
         break;
+    }
     case 102: if (workspaceToolbar.onLoad) workspaceToolbar.onLoad(); break;
     case 103: // Save
     case 104: if (workspaceToolbar.onSave) workspaceToolbar.onSave(); break;
@@ -2132,8 +2150,18 @@ void MainComponent::menuItemSelected(int id, int)
         break;
     }
     case 308:
-        updateStatusMessage("Remove Track: not yet implemented.");
+    {
+        const int last = engine.getTrackCount() - 1;
+        if (last < 0) break;
+        const juce::String trackName = engine.getSession().getTrack(last).name;
+        engine.removeTrack(last);
+        arrangementModel.clearSelection();
+        if (mixerWindow) mixerWindow->refresh();
+        refreshTrackList();
+        arrangementModel.sendChangeMessage();
+        updateStatusMessage("Removed track: " + trackName);
         break;
+    }
 
     // ── Clip ────────────────────────────────────────────────────────────────
     case 401:
