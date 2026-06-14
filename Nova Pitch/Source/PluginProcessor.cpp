@@ -410,11 +410,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
         else
         {
-            // Outside deadband — MetaTune-style speed-based correction:
-            // Amount controls how fast (semitones/second) we move toward the target.
-            // amount=1.0 → instant snap, amount=0 → ~0.3 semitones/sec
-            float targetRatio = targetHz / (smoothedDetectedHz + 1e-9f);
-
             // Absolute pitch ratio — what the vocoder needs to bring voice to targetHz
             float fullRatio = targetHz / (smoothedDetectedHz + 1e-9f);
 
