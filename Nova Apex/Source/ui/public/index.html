@@ -189,7 +189,7 @@
     /* ══════════════════════════ BODY ══════════════════════════ */
     .body {
       display: grid;
-      grid-template-columns: 165px 1fr 188px;
+      grid-template-columns: 165px 1fr 174px;
       gap: 0;
       overflow: hidden;
     }
@@ -240,6 +240,7 @@
         0 1px 3px rgba(0,0,0,0.5);
     }
     .knob.sm  { width: 48px; height: 48px; }
+    .knob.xs  { width: 58px; height: 58px; }
     .knob.lg  { width: 86px; height: 86px; }
     .knob::before {
       content: ""; position: absolute; inset: 0; border-radius: 50%;
@@ -272,6 +273,10 @@
       background: linear-gradient(180deg, #fffae8 0%, #d8a840 60%, #7a5010 100%);
       box-shadow: 0 0 3px rgba(220,180,80,0.45), 0 1px 0 rgba(0,0,0,0.5);
       pointer-events: none;
+    }
+    .knob.xs .knob-ptr {
+      width: 2px; height: 14px;
+      transform: translate(-50%, -50%) rotate(var(--turn, -135deg)) translateY(-18px);
     }
     .knob.sm .knob-ptr {
       width: 2px; height: 12px;
@@ -352,13 +357,29 @@
 
     /* Waveform panel */
     .wave-panel {
-      background: #07060504;
-      border-bottom: 1px solid var(--edge);
+      background: #050403;
+      border-bottom: 1px solid rgba(200,160,96,0.18);
       position: relative;
       flex: 0 0 280px;
-      padding: 8px 10px 6px;
+      padding: 8px 10px 5px;
       display: flex; flex-direction: column; gap: 4px;
+      /* Ambient glow updated by JS when GR is active */
+      transition: box-shadow 400ms ease;
     }
+    .wave-panel.limiting {
+      box-shadow: inset 0 0 40px rgba(200,140,40,0.04), inset 0 -2px 0 rgba(200,140,40,0.18);
+    }
+    /* Delta active banner */
+    .delta-badge {
+      display: none; position: absolute; top: 8px; right: 36px;
+      background: rgba(200,140,40,0.18); border: 1px solid rgba(200,160,60,0.5);
+      border-radius: 3px; padding: 1px 7px;
+      font-size: 7.5px; font-weight: 700; letter-spacing: .18em;
+      color: var(--gold); text-transform: uppercase;
+      box-shadow: 0 0 8px rgba(200,160,60,0.2);
+      z-index: 2;
+    }
+    .delta-badge.visible { display: block; }
     .wave-legend {
       display: flex; gap: 16px; align-items: center; flex-shrink: 0;
     }
@@ -374,10 +395,10 @@
     .legend-out { color: #786050; }
     .legend-gr  { color: #c05050; }
     .wave-canvas-wrap {
-      flex: 1; position: relative; border-radius: 6px; overflow: hidden;
-      background: #050403;
+      flex: 1; position: relative; border-radius: 4px; overflow: hidden;
+      background: #040302;
       border: 1px solid rgba(200,160,96,0.10);
-      box-shadow: var(--inset), inset 0 0 40px rgba(0,0,0,0.5);
+      box-shadow: var(--inset), inset 0 0 60px rgba(0,0,0,0.6);
     }
     .wave-scale {
       position: absolute; right: 4px; top: 0; bottom: 0;
@@ -423,11 +444,12 @@
     .gr-scale span { font-size: 7px; color: var(--text-dim); letter-spacing: .04em; text-align: right; }
     #gr-canvas { display: block; width: 100%; height: 100%; }
 
-    /* Loudness bar */
+    /* Loudness bar — integrated with metering environment */
     .loud-bar {
-      background: linear-gradient(180deg, #0e0d0b 0%, #0a0908 100%);
+      background: #050403;
       border-bottom: 1px solid var(--edge);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+      border-top: 1px solid rgba(200,160,96,0.08);
+      box-shadow: inset 0 1px 8px rgba(0,0,0,0.4);
       flex: 1;
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -435,13 +457,18 @@
     }
     .loud-cell {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 2px; padding: 8px 6px;
-      border-right: 1px solid rgba(200,160,96,0.10);
+      gap: 1px; padding: 6px 6px;
+      border-right: 1px solid rgba(200,160,96,0.08);
+      position: relative;
     }
     .loud-cell:last-child { border-right: none; }
-    .loud-lbl { font-size: 6.5px; letter-spacing: .18em; color: var(--gold-dim); font-weight: 700; text-transform: uppercase; text-align: center; }
-    .loud-val { font-size: 26px; font-weight: 800; color: var(--white); line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-    .loud-unit { font-size: 8px; letter-spacing: .1em; color: var(--gold-dim); font-weight: 700; }
+    .loud-cell::before {
+      content: ""; position: absolute; top: 0; left: 20%; right: 20%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(200,160,96,0.15), transparent);
+    }
+    .loud-lbl { font-size: 6px; letter-spacing: .16em; color: rgba(120,96,50,0.6); font-weight: 700; text-transform: uppercase; text-align: center; }
+    .loud-val { font-size: 24px; font-weight: 700; color: #d8cfc4; line-height: 1.1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; font-family: "Courier New", monospace; }
+    .loud-unit { font-size: 7px; letter-spacing: .12em; color: rgba(120,96,50,0.55); font-weight: 700; }
 
     /* ── RIGHT COLUMN ── */
     .col-right {
@@ -727,7 +754,8 @@
     <div class="col-center">
 
       <!-- Waveform panel -->
-      <div class="wave-panel">
+      <div class="wave-panel" id="wave-panel">
+        <div class="delta-badge" id="delta-badge">Δ DELTA</div>
         <div class="wave-legend">
           <div class="legend-item legend-inp"><div class="legend-dash inp"></div>INPUT</div>
           <div class="legend-item legend-out"><div class="legend-dash out"></div>OUTPUT</div>
@@ -799,14 +827,14 @@
         <div class="k-readout" data-readout="ceiling" style="font-size:11px;min-width:70px;">-0.1 dBTP</div>
       </div>
 
-      <!-- OUTPUT knob -->
+      <!-- OUTPUT knob — intentionally smaller than Ceiling -->
       <div class="knob-cell">
-        <span class="section-label">Output</span>
-        <div class="knob" data-param="outputGain" data-min="-24" data-max="24" data-def="0">
-          <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#C8A060" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
+        <span class="section-label" style="color:var(--text-dim);">Output</span>
+        <div class="knob xs" data-param="outputGain" data-min="-12" data-max="0" data-def="0">
+          <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.10)" stroke-width="3.5" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.65)" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
           <div class="knob-ptr"></div>
         </div>
-        <div class="k-readout" data-readout="outputGain">0.0 dB</div>
+        <div class="k-readout" data-readout="outputGain" style="font-size:9px;">0.0 dB</div>
       </div>
 
       <!-- TRUE PEAK meters -->
@@ -1257,27 +1285,40 @@ function drawWave() {
   const ctx = waveCtx;
   ctx.clearRect(0, 0, w, h);
 
-  // Deep background with very subtle vignette
-  const bg = ctx.createRadialGradient(w/2, h/2, h * 0.1, w/2, h/2, h * 0.85);
-  bg.addColorStop(0, '#060504');
-  bg.addColorStop(1, '#030302');
-  ctx.fillStyle = bg;
+  // Compute current GR intensity for ambient effects
+  let curGR = 0;
+  for (let i = Math.floor(HIST * 0.88); i < HIST; i++)
+    curGR = Math.max(curGR, grBuf[(histHead + i) % HIST]);
+  const grIntensity = Math.min(1, curGR / 0.6); // 0..1
+
+  // Background: very dark, slight amber warmth when limiting
+  ctx.fillStyle = '#040302';
   ctx.fillRect(0, 0, w, h);
 
-  // Vertical time grid (subtle)
-  ctx.strokeStyle = 'rgba(200,160,96,0.04)';
-  ctx.lineWidth = 1;
-  for (let t = 0; t <= 8; t++) {
+  // Ambient glow from center when GR is high — the "heart beating" effect
+  if (grIntensity > 0.05) {
+    const glow = ctx.createRadialGradient(w * 0.5, h * 0.48, 0, w * 0.5, h * 0.48, w * 0.55);
+    glow.addColorStop(0,   `rgba(200,140,40,${grIntensity * 0.055})`);
+    glow.addColorStop(0.5, `rgba(180,120,30,${grIntensity * 0.025})`);
+    glow.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  // Vertical time grid
+  ctx.strokeStyle = 'rgba(200,160,96,0.035)';
+  ctx.lineWidth = 0.8;
+  for (let t = 1; t < 8; t++) {
     const x = (t / 8) * w;
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
   }
 
-  // Horizontal dB grid with labeled brightness variation
+  // Horizontal dB grid — 0 dB noticeably brighter, others faint
   const dbLines = [0,-3,-6,-9,-12,-18];
-  dbLines.forEach((db, i) => {
+  dbLines.forEach(db => {
     const y = (Math.abs(db) / 22) * h * 0.88 + h * 0.06;
-    ctx.strokeStyle = db === 0 ? 'rgba(200,160,96,0.14)' : 'rgba(200,160,96,0.055)';
-    ctx.lineWidth = db === 0 ? 1.2 : 0.8;
+    ctx.strokeStyle = db === 0 ? 'rgba(200,160,96,0.20)' : 'rgba(200,160,96,0.048)';
+    ctx.lineWidth = db === 0 ? 1.0 : 0.7;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
   });
 
@@ -1318,39 +1359,40 @@ function drawWave() {
   ctx.lineWidth = 0.8;
   ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
 
-  // INPUT waveform — amber, layered
+  // INPUT waveform — warm amber, visually dominant
   const inTop = ctx.createLinearGradient(0, h/2, 0, 0);
-  inTop.addColorStop(0, 'rgba(200,160,80,0.14)');
-  inTop.addColorStop(0.4, 'rgba(200,155,75,0.38)');
-  inTop.addColorStop(1,   'rgba(200,150,70,0.52)');
+  inTop.addColorStop(0,   'rgba(200,158,72,0.12)');
+  inTop.addColorStop(0.35,'rgba(196,152,68,0.42)');
+  inTop.addColorStop(0.75,'rgba(192,148,64,0.58)');
+  inTop.addColorStop(1,   'rgba(188,144,60,0.64)');
   const inBot = ctx.createLinearGradient(0, h/2, 0, h);
-  inBot.addColorStop(0, 'rgba(180,140,65,0.10)');
-  inBot.addColorStop(1, 'rgba(140,108,48,0.04)');
-  drawSymmetric(inputBuf, inTop, inBot, h * 0.40);
+  inBot.addColorStop(0, 'rgba(176,138,58,0.14)');
+  inBot.addColorStop(1, 'rgba(144,112,46,0.04)');
+  drawSymmetric(inputBuf, inTop, inBot, h * 0.41);
 
-  // Input top edge line
+  // Input edge line
   ctx.beginPath();
   for (let i = 0; i < HIST; i++) {
     const idx = (histHead + i) % HIST;
     const x = (i / (HIST - 1)) * w;
-    const y = h/2 - inputBuf[idx] * h * 0.40;
+    const y = h/2 - inputBuf[idx] * h * 0.41;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
-  ctx.strokeStyle = 'rgba(200,158,78,0.65)';
-  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = 'rgba(210,165,80,0.80)';
+  ctx.lineWidth = 1.4;
   ctx.stroke();
 
-  // OUTPUT waveform — cooler, more recessed
+  // OUTPUT waveform — visibly contained inside input, noticeably different
   const outTop = ctx.createLinearGradient(0, h/2, 0, 0);
-  outTop.addColorStop(0, 'rgba(90,82,68,0.10)');
-  outTop.addColorStop(0.4, 'rgba(100,90,74,0.28)');
-  outTop.addColorStop(1,   'rgba(110,98,80,0.40)');
+  outTop.addColorStop(0,   'rgba(78,70,56,0.08)');
+  outTop.addColorStop(0.4, 'rgba(88,80,64,0.30)');
+  outTop.addColorStop(1,   'rgba(96,86,70,0.42)');
   const outBot = ctx.createLinearGradient(0, h/2, 0, h);
-  outBot.addColorStop(0, 'rgba(80,72,60,0.08)');
-  outBot.addColorStop(1, 'rgba(60,54,44,0.03)');
+  outBot.addColorStop(0, 'rgba(72,64,52,0.08)');
+  outBot.addColorStop(1, 'rgba(56,50,40,0.02)');
   drawSymmetric(outputBuf, outTop, outBot, h * 0.36);
 
-  // Output top edge line
+  // Output edge line
   ctx.beginPath();
   for (let i = 0; i < HIST; i++) {
     const idx = (histHead + i) % HIST;
@@ -1358,38 +1400,40 @@ function drawWave() {
     const y = h/2 - outputBuf[idx] * h * 0.36;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
-  ctx.strokeStyle = 'rgba(120,106,86,0.55)';
-  ctx.lineWidth = 0.9;
+  ctx.strokeStyle = 'rgba(110,98,80,0.62)';
+  ctx.lineWidth = 1.1;
   ctx.stroke();
 
-  // GAIN REDUCTION — red band from top, decreasing downward
+  // GAIN REDUCTION band — scales with intensity for emotional weight
+  const grScale = 0.38 + grIntensity * 0.10; // grows slightly when working hard
   ctx.beginPath();
   ctx.moveTo(0, 0);
   for (let i = 0; i < HIST; i++) {
     const idx = (histHead + i) % HIST;
     const x = (i / (HIST - 1)) * w;
-    const y = Math.min(h * 0.55, grBuf[idx] * h * 0.42);
+    const y = Math.min(h * 0.52, grBuf[idx] * h * grScale);
     ctx.lineTo(x, y);
   }
   ctx.lineTo(w, 0);
   ctx.closePath();
   const grFill = ctx.createLinearGradient(0, 0, 0, h * 0.5);
-  grFill.addColorStop(0,   'rgba(180,42,42,0.38)');
-  grFill.addColorStop(0.5, 'rgba(160,36,36,0.16)');
-  grFill.addColorStop(1,   'rgba(140,30,30,0.0)');
+  const grAlpha = 0.32 + grIntensity * 0.18;
+  grFill.addColorStop(0,    `rgba(190,46,46,${grAlpha})`);
+  grFill.addColorStop(0.45, `rgba(170,38,38,${grAlpha * 0.45})`);
+  grFill.addColorStop(1,    'rgba(140,30,30,0)');
   ctx.fillStyle = grFill;
   ctx.fill();
 
-  // GR edge line
+  // GR edge line — brighter when working harder
   ctx.beginPath();
   for (let i = 0; i < HIST; i++) {
     const idx = (histHead + i) % HIST;
     const x = (i / (HIST - 1)) * w;
-    const y = Math.min(h * 0.55, grBuf[idx] * h * 0.42);
+    const y = Math.min(h * 0.52, grBuf[idx] * h * grScale);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
-  ctx.strokeStyle = 'rgba(200,60,60,0.55)';
-  ctx.lineWidth = 1.0;
+  ctx.strokeStyle = `rgba(210,65,65,${0.50 + grIntensity * 0.30})`;
+  ctx.lineWidth = 1.1 + grIntensity * 0.4;
   ctx.stroke();
 }
 
@@ -1425,7 +1469,12 @@ function drawGR() {
     peakGR = Math.max(peakGR, grBuf[idx]);
   }
 
-  // GR filled area with gradient
+  // Current peak GR for intensity
+  let grPeak = 0;
+  for (let i = 0; i < HIST; i++) grPeak = Math.max(grPeak, grBuf[(histHead + i) % HIST]);
+  const grI = Math.min(1, grPeak / 0.6);
+
+  // GR filled area
   ctx.beginPath();
   ctx.moveTo(0, 0);
   for (let i = 0; i < HIST; i++) {
@@ -1437,9 +1486,9 @@ function drawGR() {
   ctx.lineTo(w, 0);
   ctx.closePath();
   const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
-  fillGrad.addColorStop(0,   'rgba(200,158,72,0.44)');
-  fillGrad.addColorStop(0.35,'rgba(180,140,60,0.18)');
-  fillGrad.addColorStop(1,   'rgba(140,110,44,0.02)');
+  fillGrad.addColorStop(0,    `rgba(200,158,72,${0.38 + grI * 0.16})`);
+  fillGrad.addColorStop(0.38, `rgba(180,140,60,${0.15 + grI * 0.06})`);
+  fillGrad.addColorStop(1,    'rgba(140,110,44,0.02)');
   ctx.fillStyle = fillGrad;
   ctx.fill();
 
@@ -1469,8 +1518,8 @@ function drawGR() {
     const y = Math.min(h * 0.97, (grBuf[idx] / 18) * h);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
-  ctx.strokeStyle = 'rgba(210,168,82,0.88)';
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = `rgba(210,168,82,${0.78 + grI * 0.18})`;
+  ctx.lineWidth = 1.4 + grI * 0.3;
   ctx.stroke();
 
   // Current GR marker line (rightmost value)
@@ -1487,10 +1536,14 @@ function drawGR() {
 
 // ══════════════════════════ SIMULATION ══════════════════════════
 function simulateTick() {
-  simPhase += 0.018;
-  const inLin  = 0.55 + 0.35 * Math.abs(Math.sin(simPhase * 1.7) * Math.cos(simPhase * 0.9));
-  const gr     = 0.15 + 0.18 * Math.abs(Math.sin(simPhase * 2.1 + 1.0));
-  const outLin = Math.max(0, inLin - gr * 0.6);
+  simPhase += 0.016;
+  // Simulate a mastering-level signal: loud, with occasional transients and GR events
+  const base   = 0.68 + 0.22 * Math.abs(Math.sin(simPhase * 1.3));
+  const trans  = Math.max(0, Math.sin(simPhase * 4.7) * Math.sin(simPhase * 2.1)) * 0.28;
+  const inLin  = Math.min(1.0, base + trans);
+  const grAmt  = Math.max(0, inLin - 0.82) * 2.2 + 0.08 * Math.abs(Math.sin(simPhase * 1.9));
+  const gr     = Math.min(0.55, grAmt);
+  const outLin = Math.max(0, inLin - gr * 0.8);
 
   inputBuf[histHead]  = inLin;
   outputBuf[histHead] = outLin;
@@ -1551,10 +1604,19 @@ window.updateApexTelemetry = function(data) {
   const smEl = document.getElementById('slm-readout');
   if (smEl) smEl.textContent = (sm >= 0 ? '+' : '') + sm.toFixed(1) + ' dB';
 
-  // Sync delta button state from processor (in case it was reset)
+  // Sync delta button state + badge
   if (data.deltaActive !== undefined) {
     const db = document.getElementById('delta-btn');
     if (db) db.classList.toggle('active', data.deltaActive);
+    const badge = document.getElementById('delta-badge');
+    if (badge) badge.classList.toggle('visible', data.deltaActive);
+  }
+
+  // Wave panel limiting glow
+  const wavePanel = document.getElementById('wave-panel');
+  if (wavePanel) {
+    const isLimiting = gr > 0.3;
+    wavePanel.classList.toggle('limiting', isLimiting);
   }
 };
 
