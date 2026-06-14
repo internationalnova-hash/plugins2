@@ -1,733 +1,1958 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nova Writer — AI Songwriting Companion</title>
 <style>
-:root{
-  --bg:#0a0a0f;--sidebar:#0d0d15;--panel:#111118;--card:#16161f;
-  --gold:#f5c842;--gold-dark:#c9a52a;--gold-glow:rgba(245,200,66,0.15);--gold-soft:rgba(245,200,66,0.08);
-  --purple:#6c63ff;--purple-mid:#8b5cf6;--purple-hi:#a78bfa;
-  --text:#ede9f8;--text-soft:#a89dc8;--text-muted:rgba(200,188,230,0.5);
-  --border:rgba(245,200,66,0.18);--border-soft:rgba(139,92,246,0.22);
-  --ease:220ms cubic-bezier(0.22,1,0.36,1);
+/* ===== RESET & ROOT ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0a0f;
+  --sidebar: #0e0e16;
+  --panel: #111118;
+  --card: #16161f;
+  --gold: #f5c842;
+  --gold-dark: #c9a52a;
+  --gold-glow: rgba(245,200,66,0.15);
+  --purple: #6c63ff;
+  --purple-mid: #8b5cf6;
+  --text: #ede9f8;
+  --text-soft: #a89dc8;
+  --text-muted: rgba(200,188,230,0.55);
+  --border: rgba(245,200,66,0.18);
+  --border-soft: rgba(139,92,246,0.22);
+  --green: #4ade80;
+  --red: #f87171;
 }
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);
-  font-family:"Avenir Next","Segoe UI","Helvetica Neue",Arial,sans-serif;font-size:13px;
-  -webkit-font-smoothing:antialiased}
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  line-height: 1.5;
+}
 
-/* ── LAYOUT ── */
-.app{display:grid;grid-template-columns:200px 1fr 340px;grid-template-rows:1fr 52px;height:100vh;overflow:hidden}
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--purple-mid); }
 
-/* ── SIDEBAR ── */
-.sidebar{grid-row:1/3;background:var(--sidebar);border-right:1px solid rgba(245,200,66,0.12);
-  display:flex;flex-direction:column;overflow:hidden}
-.sidebar-brand{padding:20px 16px 14px;border-bottom:1px solid rgba(245,200,66,0.10)}
-.brand-logo{display:flex;align-items:center;gap:10px;margin-bottom:4px}
-.brand-logo img{width:28px;height:28px;filter:drop-shadow(0 0 6px rgba(245,200,66,0.5))}
-.brand-name{font-size:15px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#f0ecff}
-.brand-name span{color:var(--gold)}
-.brand-tag{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--text-muted);margin-left:2px}
-.new-song-btn{width:100%;margin-top:12px;padding:9px 0;border-radius:8px;border:none;
-  background:linear-gradient(135deg,var(--gold),var(--gold-dark));
-  color:#0a0a0f;font-weight:800;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;
-  cursor:pointer;transition:all var(--ease);display:flex;align-items:center;justify-content:center;gap:6px}
-.new-song-btn:hover{filter:brightness(1.1);box-shadow:0 0 18px var(--gold-glow)}
+/* ===== MAIN LAYOUT ===== */
+#app {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+#main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
 
-.sidebar-nav{padding:12px 8px;display:flex;flex-direction:column;gap:2px}
-.nav-item{padding:7px 10px;border-radius:7px;display:flex;align-items:center;gap:9px;
-  cursor:pointer;color:var(--text-soft);font-size:12px;font-weight:500;transition:all var(--ease)}
-.nav-item:hover,.nav-item.active{background:rgba(245,200,66,0.08);color:var(--text)}
-.nav-item svg{opacity:0.6;flex-shrink:0}
-.nav-item.active svg{opacity:1}
+/* ===== LEFT SIDEBAR ===== */
+#sidebar {
+  width: 220px;
+  min-width: 220px;
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.sidebar-logo {
+  padding: 20px 16px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.logo-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.logo-star {
+  color: var(--gold);
+  font-size: 18px;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px var(--gold));
+}
+.logo-img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+.logo-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+.logo-tagline {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-left: 32px;
+}
+.sidebar-new-btn {
+  margin: 14px 14px 10px;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+  color: #0a0a0f;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  width: calc(100% - 28px);
+  transition: opacity 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+.sidebar-new-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+.sidebar-new-btn:active { transform: translateY(0); }
 
-.sidebar-section{padding:12px 16px 6px;font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-muted)}
-.project-item{padding:6px 12px;cursor:pointer;border-radius:6px;transition:all var(--ease);
-  display:flex;justify-content:space-between;align-items:center}
-.project-item:hover{background:rgba(139,92,246,0.1)}
-.project-name{font-size:12px;color:var(--text-soft)}
-.project-date{font-size:10px;color:var(--text-muted)}
-.project-item.active .project-name{color:var(--text)}
+.sidebar-nav { padding: 6px 0; }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  color: var(--text-soft);
+  cursor: pointer;
+  border-radius: 0;
+  transition: all 0.15s;
+  font-size: 12.5px;
+  position: relative;
+}
+.nav-item:hover { color: var(--text); background: rgba(139,92,246,0.08); }
+.nav-item.active {
+  color: var(--gold);
+  background: var(--gold-glow);
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--gold);
+  border-radius: 0 2px 2px 0;
+}
+.nav-icon { font-size: 14px; width: 18px; text-align: center; }
 
-.sidebar-bottom{margin-top:auto;padding:12px 14px;border-top:1px solid rgba(245,200,66,0.10)}
-.nova-studio-badge{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
-  border:1px solid rgba(245,200,66,0.22);background:rgba(245,200,66,0.05)}
-.studio-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px #4ade80;flex-shrink:0}
-.studio-label{font-size:10px;font-weight:700;letter-spacing:0.1em;color:var(--text-soft)}
-.studio-label small{display:block;font-size:9px;letter-spacing:0.12em;color:#4ade80;font-weight:600}
+.sidebar-section-label {
+  padding: 12px 16px 5px;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.recent-item {
+  padding: 7px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.recent-item:hover { background: rgba(139,92,246,0.08); }
+.recent-item.active { background: var(--gold-glow); }
+.recent-name { font-size: 12px; color: var(--text-soft); }
+.recent-item.active .recent-name { color: var(--gold); }
+.recent-date { font-size: 10px; color: var(--text-muted); }
 
-/* ── CENTER ── */
-.center{grid-row:1;overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)}
-.center::-webkit-scrollbar{width:4px}
-.center::-webkit-scrollbar-track{background:transparent}
-.center::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.3);border-radius:2px}
+.sidebar-bottom {
+  margin-top: auto;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+}
+.connected-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.green-dot {
+  width: 7px; height: 7px;
+  background: var(--green);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.api-key-btn {
+  margin-top: 8px;
+  background: none;
+  border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 10px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s;
+  letter-spacing: 0.05em;
+}
+.api-key-btn:hover { border-color: var(--gold); color: var(--gold); }
 
-.prompt-area{padding:20px 22px 16px;border-bottom:1px solid rgba(139,92,246,0.15)}
-.prompt-label{font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:var(--gold);
-  font-weight:700;margin-bottom:10px}
-.prompt-row{display:flex;gap:12px;align-items:flex-start}
-.prompt-wrap{flex:1;position:relative}
-.prompt-input{width:100%;height:72px;background:rgba(14,12,28,0.92);border:1px solid rgba(245,200,66,0.22);
-  border-radius:10px;padding:12px 14px;color:var(--text);font-size:13px;line-height:1.5;
-  resize:none;outline:none;transition:border-color var(--ease)}
-.prompt-input::placeholder{color:var(--text-muted)}
-.prompt-input:focus{border-color:rgba(245,200,66,0.5)}
-.char-count{position:absolute;bottom:8px;right:10px;font-size:10px;color:var(--text-muted)}
-.generate-btn{padding:12px 18px;border-radius:10px;border:none;white-space:nowrap;
-  background:linear-gradient(135deg,var(--gold) 0%,var(--gold-dark) 100%);
-  color:#0a0a0f;font-weight:800;font-size:12px;letter-spacing:0.08em;
-  cursor:pointer;transition:all var(--ease);display:flex;align-items:center;gap:6px;height:72px}
-.generate-btn:hover{filter:brightness(1.12);box-shadow:0 0 24px var(--gold-glow)}
-.generate-btn.loading{opacity:0.7;cursor:not-allowed}
+/* ===== CENTER AREA ===== */
+#center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+.center-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
-.filter-row{display:flex;gap:8px;flex-wrap:wrap;padding:12px 22px;border-bottom:1px solid rgba(139,92,246,0.12);
-  background:rgba(10,9,20,0.6)}
-.filter-group{display:flex;flex-direction:column;gap:3px}
-.filter-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
-.filter-select,.filter-input{background:rgba(14,12,28,0.9);border:1px solid rgba(139,92,246,0.22);
-  border-radius:6px;color:var(--text-soft);font-size:11px;padding:4px 8px;outline:none;cursor:pointer;
-  transition:all var(--ease)}
-.filter-select:focus,.filter-input:focus{border-color:var(--purple-mid);color:var(--text)}
-.filter-input{width:52px;text-align:center}
-.energy-bar{display:flex;gap:3px;align-items:center;height:26px}
-.energy-seg{width:14px;height:16px;border-radius:3px;border:1px solid rgba(245,200,66,0.2);
-  background:rgba(245,200,66,0.05);cursor:pointer;transition:all 150ms}
-.energy-seg.active{background:var(--gold);border-color:var(--gold);box-shadow:0 0 6px var(--gold-glow)}
+/* ===== IDEA PROMPT ===== */
+.section-label {
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.prompt-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+}
+.prompt-textarea {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  resize: none;
+  height: 88px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  outline: none;
+}
+.prompt-textarea:focus { border-color: var(--gold); }
+.prompt-textarea::placeholder { color: var(--text-muted); }
+.prompt-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+.char-counter { font-size: 11px; color: var(--text-muted); }
+.generate-btn {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+  color: #0a0a0f;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 0 16px rgba(245,200,66,0.25);
+}
+.generate-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 0 24px rgba(245,200,66,0.4); }
+.generate-btn:active { transform: translateY(0); }
+.generate-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-/* ── BLUEPRINT ── */
-.blueprint{padding:16px 22px;display:none}
-.blueprint.visible{display:block}
-.section-title{font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--text-muted);
-  font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
-.section-title::after{content:"";flex:1;height:1px;background:rgba(139,92,246,0.18)}
+/* ===== FILTER ROW ===== */
+.filter-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.filter-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+}
+.filter-item { display: flex; flex-direction: column; gap: 4px; }
+.filter-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.filter-select, .filter-input {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  padding: 6px 9px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+.filter-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23a89dc8'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.filter-select:focus, .filter-input:focus { border-color: var(--gold); }
+.filter-select option { background: var(--card); color: var(--text); }
+.filter-input { width: 64px; }
 
-.title-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-.title-chip{padding:5px 12px;border-radius:999px;border:1px solid rgba(245,200,66,0.28);
-  background:rgba(245,200,66,0.06);color:var(--text-soft);font-size:11px;cursor:pointer;transition:all var(--ease)}
-.title-chip:hover,.title-chip.active{border-color:var(--gold);color:var(--gold);background:var(--gold-soft)}
+/* ===== ENERGY BAR ===== */
+.energy-bar {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  margin-top: 2px;
+}
+.energy-seg {
+  width: 14px; height: 20px;
+  border-radius: 3px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.energy-seg.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  box-shadow: 0 0 6px rgba(245,200,66,0.5);
+}
+.energy-seg:hover:not(.active) { background: rgba(245,200,66,0.2); }
 
-.concept-text{font-size:12px;color:var(--text-soft);line-height:1.6;margin-bottom:16px;
-  padding:10px 14px;border-radius:8px;border:1px solid rgba(139,92,246,0.18);
-  background:rgba(14,12,28,0.7)}
+/* ===== SONG BLUEPRINT ===== */
+.blueprint-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.blueprint-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.blueprint-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.blueprint-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 12px;
+}
+.blueprint-meta span { color: var(--text-soft); }
 
-.struct-tabs{display:flex;gap:4px;margin-bottom:12px;overflow-x:auto}
-.struct-tab{padding:6px 12px;border-radius:6px;border:1px solid rgba(139,92,246,0.22);
-  background:transparent;color:var(--text-muted);font-size:11px;font-weight:600;letter-spacing:0.06em;
-  cursor:pointer;transition:all var(--ease);white-space:nowrap;flex-shrink:0}
-.struct-tab:hover{border-color:rgba(245,200,66,0.4);color:var(--text-soft)}
-.struct-tab.active{border-color:var(--gold);background:var(--gold-soft);color:var(--gold)}
+/* Section tabs */
+.section-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.section-tab {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft);
+  background: var(--panel);
+  color: var(--text-soft);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.section-tab:hover { border-color: var(--gold); color: var(--text); }
+.section-tab.active {
+  background: var(--gold-glow);
+  border-color: var(--gold);
+  color: var(--gold);
+  font-weight: 600;
+}
+.section-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.section-bars {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--panel);
+  border-radius: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--border-soft);
+}
+.section-chords {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.chord-pill {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--purple-mid);
+  font-family: 'Courier New', monospace;
+}
 
-.struct-info{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;
-  border:1px solid rgba(139,92,246,0.18);background:rgba(14,12,28,0.7);margin-bottom:14px}
-.struct-bars{font-size:10px;color:var(--text-muted);letter-spacing:0.1em}
-.struct-chords{font-size:13px;font-weight:700;color:var(--text);letter-spacing:0.08em}
+/* Chord Grid */
+.chord-grid { margin-bottom: 14px; }
+.chord-grid-label {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.chord-grid-rows { display: flex; flex-direction: column; gap: 6px; }
+.chord-grid-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.chord-row-label {
+  width: 70px;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+.chord-boxes {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.chord-box {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-soft);
+  font-family: 'Courier New', monospace;
+  min-width: 36px;
+  text-align: center;
+  cursor: default;
+  transition: all 0.15s;
+}
+.chord-box:hover { border-color: var(--gold); color: var(--gold); }
 
-.prog-grid{margin-bottom:16px}
-.prog-row{display:grid;grid-template-columns:70px repeat(4,1fr);gap:6px;margin-bottom:6px;align-items:center}
-.prog-section-name{font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted);font-weight:700}
-.prog-chord{padding:6px;border-radius:6px;border:1px solid rgba(139,92,246,0.22);
-  background:rgba(16,14,32,0.8);text-align:center;font-size:13px;font-weight:700;color:var(--text);
-  cursor:pointer;transition:all var(--ease)}
-.prog-chord:hover,.prog-chord.active{border-color:var(--gold);background:var(--gold-soft);color:var(--gold)}
+/* Hook ideas */
+.hook-ideas { margin-bottom: 14px; }
+.hook-idea-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  margin-bottom: 5px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.hook-idea-item:hover { background: var(--panel); border-color: var(--border-soft); }
+.hook-idea-num {
+  width: 20px; height: 20px;
+  background: var(--gold-glow);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.hook-idea-text { font-size: 12.5px; color: var(--text-soft); line-height: 1.5; }
 
-.hook-ideas{margin-bottom:16px}
-.hook-idea{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;
-  border:1px solid rgba(139,92,246,0.18);background:rgba(14,12,28,0.7);margin-bottom:6px;cursor:pointer;
-  transition:all var(--ease)}
-.hook-idea:hover{border-color:rgba(245,200,66,0.4);background:var(--gold-soft)}
-.hook-num{width:20px;height:20px;border-radius:50%;background:rgba(108,99,255,0.3);
-  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--purple-hi);flex-shrink:0}
-.hook-text{font-size:12px;color:var(--text-soft);flex:1}
-.hook-play{font-size:14px;opacity:0.5;transition:opacity 150ms}
-.hook-idea:hover .hook-play{opacity:1}
+/* Melody preview piano roll */
+.melody-preview {
+  background: #090912;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 0;
+  height: 80px;
+  position: relative;
+  overflow: hidden;
+}
 
-/* Piano roll */
-.piano-roll{background:rgba(10,9,20,0.8);border:1px solid rgba(139,92,246,0.22);border-radius:10px;
-  overflow:hidden;margin-bottom:16px;position:relative}
-.piano-roll-header{padding:8px 12px;border-bottom:1px solid rgba(139,92,246,0.15);
-  font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);font-weight:700;
-  display:flex;justify-content:space-between;align-items:center}
-.piano-roll canvas{display:block}
+/* ===== RIGHT PANEL ===== */
+#right-panel {
+  width: 300px;
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  overflow: hidden;
+}
+.right-top {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+.panel-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.panel-tab {
+  padding: 11px 14px;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: all 0.15s;
+  text-transform: uppercase;
+}
+.panel-tab:hover { color: var(--text-soft); }
+.panel-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
 
-/* ── RIGHT PANEL ── */
-.right-panel{grid-row:1;background:var(--panel);border-left:1px solid rgba(139,92,246,0.18);
-  display:flex;flex-direction:column;overflow:hidden}
+.sub-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 12px 0;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+.sub-tab {
+  padding: 5px 10px;
+  border-radius: 5px;
+  background: var(--card);
+  border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  font-size: 10.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.sub-tab:hover { color: var(--text-soft); border-color: var(--border); }
+.sub-tab.active { background: var(--gold-glow); border-color: var(--gold); color: var(--gold); }
 
-.writer-room-header{padding:14px 16px 0;border-bottom:1px solid rgba(139,92,246,0.18)}
-.wr-title{font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:var(--text-muted);font-weight:700;margin-bottom:10px}
-.wr-tabs{display:flex;gap:2px}
-.wr-tab{padding:6px 12px;border-radius:6px 6px 0 0;border:1px solid transparent;font-size:11px;
-  font-weight:600;color:var(--text-muted);cursor:pointer;transition:all var(--ease)}
-.wr-tab:hover{color:var(--text-soft)}
-.wr-tab.active{border-color:rgba(139,92,246,0.22);border-bottom-color:var(--panel);
-  background:var(--panel);color:var(--text)}
+.lyrics-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+.lyrics-section-title {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  margin-top: 12px;
+}
+.lyrics-section-title:first-child { margin-top: 0; }
+.lyrics-stanza {
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--text-soft);
+  padding: 10px 12px;
+  background: var(--card);
+  border-radius: 7px;
+  border-left: 3px solid var(--border-soft);
+  white-space: pre-wrap;
+  margin-bottom: 8px;
+  transition: border-color 0.2s;
+}
+.lyrics-stanza:hover { border-left-color: var(--gold); }
+.generate-lyrics-btn {
+  margin: 10px 12px;
+  background: linear-gradient(135deg, var(--purple) 0%, var(--purple-mid) 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  width: calc(100% - 24px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: opacity 0.2s, transform 0.1s;
+  flex-shrink: 0;
+}
+.generate-lyrics-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+.generate-lyrics-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-.section-sub-tabs{display:flex;gap:4px;padding:8px 16px;border-bottom:1px solid rgba(139,92,246,0.12);overflow-x:auto}
-.sub-tab{padding:4px 10px;border-radius:4px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
-  font-weight:700;color:var(--text-muted);cursor:pointer;transition:all var(--ease)}
-.sub-tab:hover{color:var(--text-soft)}
-.sub-tab.active{background:rgba(108,99,255,0.18);color:var(--purple-hi)}
+/* AI Tools */
+.ai-tools-panel {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--sidebar);
+}
+.ai-tools-label {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.ai-tools-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+.ai-tool-btn {
+  background: var(--card);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  color: var(--text-soft);
+  font-size: 10.5px;
+  padding: 7px 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  font-family: inherit;
+}
+.ai-tool-btn:hover { background: var(--panel); border-color: var(--purple-mid); color: var(--text); }
+.ai-tool-btn:active { transform: scale(0.97); }
+.ai-tool-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
 
-.writer-content{flex:1;overflow-y:auto;padding:14px 16px;display:flex;gap:12px}
-.writer-content::-webkit-scrollbar{width:3px}
-.writer-content::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.3);border-radius:2px}
+/* ===== REFERENCE VOCAL ===== */
+.ref-vocal {
+  flex-shrink: 0;
+  padding: 12px;
+  background: var(--sidebar);
+  border-top: 1px solid var(--border);
+}
+.ref-vocal-label {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.ref-vocal-top {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+.ref-thumb {
+  width: 52px; height: 52px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--purple) 0%, var(--gold-dark) 100%);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 4px 12px rgba(108,99,255,0.3);
+}
+.ref-info { flex: 1; min-width: 0; }
+.ref-song-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.ref-section { font-size: 10px; color: var(--text-muted); }
+.ref-waveform {
+  width: 100%;
+  height: 36px;
+  background: var(--card);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  position: relative;
+}
+.ref-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.play-btn-sm {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #0a0a0f;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  box-shadow: 0 0 10px rgba(245,200,66,0.35);
+}
+.play-btn-sm:hover { transform: scale(1.08); box-shadow: 0 0 16px rgba(245,200,66,0.55); }
+.ref-time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+.ref-singer {
+  background: var(--card);
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  color: var(--text-soft);
+  font-size: 10.5px;
+  padding: 4px 8px;
+  flex: 1;
+  outline: none;
+  font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+.ref-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.ref-btn {
+  background: var(--card);
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  color: var(--text-soft);
+  font-size: 9.5px;
+  padding: 5px 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  font-family: inherit;
+}
+.ref-btn:hover { border-color: var(--gold); color: var(--gold); }
+.export-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.export-btn {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 9px;
+  padding: 5px 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+}
+.export-btn:hover { border-color: var(--purple-mid); color: var(--purple-mid); }
 
-.lyrics-area{flex:1}
-.lyrics-text{font-size:13px;line-height:2;color:var(--text-soft);white-space:pre-wrap;min-height:100px}
-.lyrics-text .highlight{color:var(--gold);font-weight:700}
-.lyrics-placeholder{color:var(--text-muted);font-style:italic;font-size:12px}
-.generate-lyrics-btn{margin-top:10px;padding:7px 14px;border-radius:7px;border:1px solid rgba(245,200,66,0.35);
-  background:var(--gold-soft);color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;
-  transition:all var(--ease)}
-.generate-lyrics-btn:hover{border-color:var(--gold);background:rgba(245,200,66,0.15)}
+/* ===== TRANSPORT BAR ===== */
+#transport {
+  height: 56px;
+  background: #080810;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 14px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+.transport-track {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 150px;
+}
+.transport-thumb {
+  width: 36px; height: 36px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--purple) 0%, var(--gold-dark) 100%);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+.transport-info { min-width: 0; }
+.transport-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.transport-meta { font-size: 10px; color: var(--text-muted); }
+.transport-heart {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  transition: all 0.2s;
+}
+.transport-heart:hover, .transport-heart.active { color: var(--red); }
 
-.ai-tools{width:148px;flex-shrink:0}
-.ai-tools-title{font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-muted);
-  font-weight:700;margin-bottom:8px}
-.ai-tool-btn{width:100%;text-align:left;padding:7px 10px;border-radius:7px;border:1px solid rgba(139,92,246,0.18);
-  background:transparent;color:var(--text-soft);font-size:11px;cursor:pointer;transition:all var(--ease);
-  margin-bottom:4px;display:flex;align-items:center;gap:6px}
-.ai-tool-btn:hover{border-color:rgba(245,200,66,0.4);color:var(--text);background:var(--gold-soft)}
-.ai-tool-btn svg{flex-shrink:0;opacity:0.6}
+.transport-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.transport-btn {
+  background: none;
+  border: none;
+  color: var(--text-soft);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.15s;
+  line-height: 1;
+}
+.transport-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.transport-play {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: none;
+  color: #0a0a0f;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  box-shadow: 0 0 12px rgba(245,200,66,0.3);
+}
+.transport-play:hover { transform: scale(1.08); }
+.transport-play.playing { background: var(--purple-mid); box-shadow: 0 0 12px rgba(139,92,246,0.4); }
 
-/* ── REFERENCE VOCAL ── */
-.ref-vocal{border-top:1px solid rgba(139,92,246,0.18);padding:14px 16px;background:rgba(10,9,20,0.6)}
-.rv-header{font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-muted);font-weight:700;margin-bottom:10px}
-.rv-body{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}
-.rv-thumb{width:52px;height:52px;border-radius:8px;background:linear-gradient(135deg,#2a1a4a,#1a0a2a);
-  flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;
-  border:1px solid rgba(245,200,66,0.2)}
-.rv-info{flex:1}
-.rv-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px}
-.rv-sub{font-size:10px;color:var(--text-muted)}
-.rv-waveform{margin-bottom:8px}
-.rv-controls{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.rv-play{width:34px;height:34px;border-radius:50%;border:none;background:var(--gold);
-  display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
-  transition:all var(--ease)}
-.rv-play:hover{filter:brightness(1.1);box-shadow:0 0 14px var(--gold-glow)}
-.rv-time{font-size:11px;color:var(--text-muted);flex:1}
-.rv-singer{background:rgba(14,12,28,0.9);border:1px solid rgba(139,92,246,0.22);border-radius:6px;
-  color:var(--text-soft);font-size:11px;padding:4px 8px;outline:none;cursor:pointer}
-.rv-action-btns{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px}
-.rv-btn{padding:6px 8px;border-radius:6px;border:1px solid rgba(139,92,246,0.28);
-  background:rgba(14,12,28,0.8);color:var(--text-soft);font-size:10px;font-weight:600;
-  cursor:pointer;transition:all var(--ease);text-align:center}
-.rv-btn:hover{border-color:rgba(245,200,66,0.4);color:var(--text);background:var(--gold-soft)}
-.rv-export-label{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px}
-.rv-export-btns{display:grid;grid-template-columns:1fr 1fr;gap:5px}
-.export-btn{padding:6px 6px;border-radius:6px;border:1px solid rgba(139,92,246,0.22);
-  background:rgba(14,12,28,0.8);color:var(--text-muted);font-size:10px;font-weight:600;
-  cursor:pointer;transition:all var(--ease);text-align:center}
-.export-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-soft)}
+.transport-progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.progress-time { font-size: 10.5px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.progress-bar-wrap {
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--purple-mid), var(--gold));
+  border-radius: 2px;
+  transition: width 0.1s;
+}
 
-/* ── TRANSPORT ── */
-.transport{grid-column:2/4;background:rgba(8,8,16,0.97);border-top:1px solid rgba(139,92,246,0.18);
-  display:flex;align-items:center;gap:14px;padding:0 18px}
-.transport-thumb{width:36px;height:36px;border-radius:6px;background:linear-gradient(135deg,#2a1a4a,#1a0a2a);
-  display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-.transport-info{flex-shrink:0}
-.transport-title{font-size:12px;font-weight:700;color:var(--text)}
-.transport-meta{font-size:10px;color:var(--text-muted)}
-.transport-like{color:var(--text-muted);cursor:pointer;font-size:16px;transition:color 150ms;flex-shrink:0}
-.transport-like:hover{color:#ff6b8a}
-.transport-controls{display:flex;align-items:center;gap:10px;flex-shrink:0}
-.t-btn{background:none;border:none;color:var(--text-soft);cursor:pointer;font-size:14px;
-  transition:color 150ms;display:flex;align-items:center}
-.t-btn:hover{color:var(--text)}
-.t-play{width:36px;height:36px;border-radius:50%;border:none;background:var(--gold);
-  display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all var(--ease)}
-.t-play:hover{filter:brightness(1.1);box-shadow:0 0 14px var(--gold-glow)}
-.progress-area{flex:1;display:flex;align-items:center;gap:8px}
-.progress-bar{flex:1;height:3px;background:rgba(139,92,246,0.2);border-radius:2px;cursor:pointer;position:relative}
-.progress-fill{height:100%;width:0%;background:var(--gold);border-radius:2px;transition:width 1s linear}
-.progress-time{font-size:10px;color:var(--text-muted);white-space:nowrap}
-.midi-out-btn{padding:5px 10px;border-radius:6px;border:1px solid rgba(139,92,246,0.36);
-  background:rgba(108,99,255,0.1);color:var(--purple-hi);font-size:10px;font-weight:700;
-  cursor:pointer;transition:all var(--ease);letter-spacing:0.08em}
-.midi-out-btn:hover{border-color:var(--purple-mid);background:rgba(108,99,255,0.2)}
+.transport-volume {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.volume-icon { font-size: 14px; color: var(--text-muted); }
+.volume-slider {
+  width: 70px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+.midi-out-btn {
+  background: rgba(108,99,255,0.15);
+  border: 1px solid var(--border-soft);
+  color: var(--purple-mid);
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+.midi-out-btn:hover { background: rgba(108,99,255,0.28); border-color: var(--purple-mid); }
 
-/* ── API KEY MODAL ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:999;
-  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
-.modal-overlay.hidden{display:none}
-.modal-box{width:420px;background:var(--card);border:1px solid rgba(245,200,66,0.28);border-radius:16px;
-  padding:30px;box-shadow:0 24px 60px rgba(0,0,0,0.6)}
-.modal-title{font-size:18px;font-weight:800;color:var(--text);margin-bottom:6px}
-.modal-title span{color:var(--gold)}
-.modal-sub{font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:20px}
-.modal-input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(245,200,66,0.28);
-  background:rgba(10,8,22,0.9);color:var(--text);font-size:13px;outline:none;margin-bottom:14px;
-  transition:border-color var(--ease)}
-.modal-input:focus{border-color:var(--gold)}
-.modal-btn{width:100%;padding:11px;border-radius:8px;border:none;
-  background:linear-gradient(135deg,var(--gold),var(--gold-dark));
-  color:#0a0a0f;font-weight:800;font-size:13px;cursor:pointer;transition:all var(--ease)}
-.modal-btn:hover{filter:brightness(1.1)}
-.modal-note{font-size:10px;color:var(--text-muted);margin-top:10px;text-align:center}
+/* ===== MODAL ===== */
+#modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+#modal-overlay.hidden { display: none; }
+.modal-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  width: 420px;
+  max-width: 90vw;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px var(--border-soft);
+}
+.modal-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.modal-star { font-size: 24px; color: var(--gold); filter: drop-shadow(0 0 8px var(--gold)); }
+.modal-title { font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: 0.04em; }
+.modal-sub { font-size: 11px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.modal-desc {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  line-height: 1.7;
+  margin-bottom: 18px;
+  padding: 12px;
+  background: var(--panel);
+  border-radius: 8px;
+  border-left: 3px solid var(--gold);
+}
+.modal-label { font-size: 10.5px; letter-spacing: 0.1em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; }
+.modal-input {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 11px 14px;
+  outline: none;
+  font-family: monospace;
+  letter-spacing: 0.05em;
+  margin-bottom: 14px;
+  transition: border-color 0.2s;
+}
+.modal-input:focus { border-color: var(--gold); }
+.modal-input::placeholder { color: var(--text-muted); font-family: 'Segoe UI', sans-serif; letter-spacing: normal; }
+.modal-save-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+  color: #0a0a0f;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  box-shadow: 0 0 20px rgba(245,200,66,0.25);
+}
+.modal-save-btn:hover { opacity: 0.9; }
+.modal-skip {
+  display: block;
+  text-align: center;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.modal-skip:hover { color: var(--text-soft); }
 
-/* ── TOAST ── */
-.toast{position:fixed;bottom:70px;right:20px;padding:10px 16px;border-radius:8px;
-  border:1px solid rgba(245,200,66,0.4);background:rgba(14,12,28,0.96);
-  color:var(--text-soft);font-size:12px;z-index:200;opacity:0;transform:translateY(8px);
-  transition:all 300ms;pointer-events:none}
-.toast.show{opacity:1;transform:translateY(0)}
+/* ===== LOADING SPINNER ===== */
+.spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid rgba(0,0,0,0.2);
+  border-top-color: rgba(0,0,0,0.8);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner-gold {
+  border-color: rgba(245,200,66,0.2);
+  border-top-color: var(--gold);
+}
+.spinner-white {
+  border-color: rgba(255,255,255,0.2);
+  border-top-color: #fff;
+}
 
-/* ── LOADING SPINNER ── */
-@keyframes spin{to{transform:rotate(360deg)}}
-.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(10,10,20,0.4);
-  border-top-color:#0a0a0f;border-radius:50%;animation:spin 0.7s linear infinite}
+/* ===== EMPTY STATE ===== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  text-align: center;
+  gap: 10px;
+  color: var(--text-muted);
+}
+.empty-icon { font-size: 36px; opacity: 0.4; }
+.empty-title { font-size: 13px; font-weight: 600; color: var(--text-soft); }
+.empty-sub { font-size: 11.5px; line-height: 1.6; max-width: 220px; }
+
+/* ===== TOAST ===== */
+#toast {
+  position: fixed;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 12.5px;
+  color: var(--text);
+  opacity: 0;
+  transition: all 0.3s;
+  z-index: 500;
+  pointer-events: none;
+  white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.error { border-color: var(--red); color: var(--red); }
+#toast.success { border-color: var(--green); }
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  #sidebar, #right-panel, #transport, .filter-card, .prompt-card, .blueprint-card { display: none !important; }
+  body { background: white !important; color: black !important; overflow: auto !important; }
+  #app, #main-content { display: block !important; }
+  #center { width: 100% !important; }
+  .center-scroll { overflow: visible !important; padding: 20px !important; }
+  #print-lyrics { display: block !important; position: static !important; }
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fadeIn 0.35s ease forwards; }
+
+/* ===== UTILITY ===== */
+.hidden { display: none !important; }
+.divider { height: 1px; background: var(--border); margin: 8px 0; }
 </style>
 </head>
 <body>
 
 <!-- API KEY MODAL -->
-<div class="modal-overlay" id="apiModal">
+<div id="modal-overlay">
   <div class="modal-box">
-    <div class="modal-title"><span>Nova</span> Writer</div>
-    <div class="modal-sub">Enter your Anthropic API key to power Nova Writer's AI generation. Your key is stored locally and never sent to our servers.</div>
-    <input class="modal-input" id="apiKeyInput" type="password" placeholder="sk-ant-..." autocomplete="off"/>
-    <button class="modal-btn" onclick="saveApiKey()">Start Writing ✦</button>
-    <div class="modal-note">Need a key? Visit console.anthropic.com</div>
+    <div class="modal-logo">
+      <span class="modal-star">✦</span>
+      <div>
+        <div class="modal-title">Connect Your Claude API Key</div>
+        <div class="modal-sub">Nova Writer &middot; AI Songwriting Companion</div>
+      </div>
+    </div>
+    <div class="modal-desc">
+      Nova Writer uses the Claude AI API to generate song blueprints, lyrics, chord progressions, and creative suggestions. Your key is stored locally in your browser and never sent to any server other than Anthropic.
+    </div>
+    <div class="modal-label">Anthropic API Key</div>
+    <input type="password" class="modal-input" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off">
+    <button class="modal-save-btn" id="modal-save-btn">Save &amp; Start Writing</button>
+    <span class="modal-skip" id="modal-skip">Skip for now (AI features disabled)</span>
   </div>
 </div>
 
-<!-- TOAST -->
-<div class="toast" id="toast"></div>
+<!-- TOAST NOTIFICATION -->
+<div id="toast"></div>
 
-<!-- APP SHELL -->
-<div class="app">
+<!-- APP WRAPPER -->
+<div id="app">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="sidebar-brand">
-      <div class="brand-logo">
-        <img src="n_logo.png" alt="Nova"/>
-        <div>
-          <div class="brand-name"><span>Nova</span> Writer</div>
-          <div class="brand-tag">AI Songwriting Companion</div>
-        </div>
+  <!-- ===== LEFT SIDEBAR ===== -->
+  <div id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-row">
+        <span class="logo-star">✦</span>
+        <img src="n_logo.png" class="logo-img" alt="Nova" onerror="this.style.display='none'">
+        <span class="logo-title">NOVA WRITER</span>
       </div>
-      <button class="new-song-btn" onclick="newSong()">
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="#0a0a0f" stroke-width="2" stroke-linecap="round"/></svg>
-        New Song
-      </button>
+      <div class="logo-tagline">AI Songwriting Companion</div>
     </div>
+
+    <button class="sidebar-new-btn" onclick="newSong()">
+      <span style="font-size:16px;line-height:1">+</span> New Song
+    </button>
+
     <nav class="sidebar-nav">
       <div class="nav-item active" onclick="setNav(this)">
-        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M4 7h6M4 4.5h6M4 9.5h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        Home
+        <span class="nav-icon">&#8962;</span> Home
       </div>
       <div class="nav-item" onclick="setNav(this)">
-        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M2 2h10v10H2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M5 2v10M9 2v10M2 5h3M2 9h3M9 5h3M9 9h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-        Projects
+        <span class="nav-icon">&#9713;</span> Projects
       </div>
       <div class="nav-item" onclick="setNav(this)">
-        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M7 1l1.5 3.5L13 5.5l-3 3 .7 4.5L7 11l-3.7 2 .7-4.5-3-3 4.5-.5L7 1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
-        Song Ideas
+        <span class="nav-icon">&#10023;</span> Song Ideas
       </div>
       <div class="nav-item" onclick="setNav(this)">
-        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="7" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 13c0-2.76 2.24-5 5-5s5 2.24 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        Artist DNA
+        <span class="nav-icon">&#9830;</span> Artist DNA
       </div>
       <div class="nav-item" onclick="setNav(this)">
-        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><rect x="1" y="3" width="12" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 3V2M9 3V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        Presets
+        <span class="nav-icon">&#9672;</span> Presets
       </div>
       <div class="nav-item" onclick="setNav(this)">
-        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M2 2h10v10H2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M5 5h4M5 8h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        Templates
+        <span class="nav-icon">&#10064;</span> Templates
       </div>
       <div class="nav-item" onclick="setNav(this)">
-        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M7 2v8M4 7l3 3 3-3M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        My Exports
+        <span class="nav-icon">&#11015;</span> My Exports
       </div>
     </nav>
 
-    <div class="sidebar-section">Recent Projects</div>
-    <div id="projectList"></div>
+    <div class="divider"></div>
+
+    <div class="sidebar-section-label">Recent Projects</div>
+    <div id="recent-list"></div>
 
     <div class="sidebar-bottom">
-      <div class="nova-studio-badge">
-        <div class="studio-dot"></div>
-        <div class="studio-label">NOVA STUDIO<small>CONNECTED</small></div>
+      <div class="connected-badge">
+        <div class="green-dot"></div>
+        Nova Studio &bull; Connected
       </div>
+      <button class="api-key-btn" onclick="openApiModal()">&#9881; Update API Key</button>
     </div>
-  </aside>
+  </div><!-- #sidebar -->
 
-  <!-- CENTER -->
-  <main class="center" id="centerPanel">
-    <!-- Prompt Area -->
-    <div class="prompt-area">
-      <div class="prompt-label">WHAT DO YOU WANT TO WRITE TODAY?</div>
-      <div class="prompt-row">
-        <div class="prompt-wrap">
-          <textarea class="prompt-input" id="promptInput" maxlength="500"
+  <!-- ===== MAIN CONTENT ===== -->
+  <div id="main-content">
+
+    <!-- ===== CENTER ===== -->
+    <div id="center">
+      <div class="center-scroll">
+
+        <!-- IDEA PROMPT -->
+        <div class="prompt-card">
+          <div class="section-label">What do you want to write today?</div>
+          <textarea
+            class="prompt-textarea"
+            id="prompt-textarea"
+            maxlength="500"
+            oninput="updateCharCount(this)"
             placeholder="I want a summer Latin pop record like Sola, fun, romantic, beach club energy, driving with the windows down."
-            oninput="updateCharCount()"></textarea>
-          <div class="char-count" id="charCount">0/500</div>
-        </div>
-        <button class="generate-btn" id="generateBtn" onclick="generateBlueprint()">
-          <span id="generateBtnIcon">✦</span>
-          <span id="generateBtnText">GENERATE SONG<br/>BLUEPRINT</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Filter Row -->
-    <div class="filter-row">
-      <div class="filter-group">
-        <div class="filter-label">Language</div>
-        <select class="filter-select" id="langSelect" onchange="updateState('language',this.value)">
-          <option>English</option>
-          <option selected>Spanglish</option>
-          <option>Spanish</option>
-          <option>Bilingual</option>
-          <option>Latin Crossover</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <div class="filter-label">Dialect / Flavor</div>
-        <select class="filter-select" id="dialectSelect" onchange="updateState('dialect',this.value)">
-          <option selected>Neutral Latin</option>
-          <option>Puerto Rican / Caribbean</option>
-          <option>Dominican</option>
-          <option>Mexican</option>
-          <option>Colombian</option>
-          <option>Spain</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <div class="filter-label">Spanglish Amount</div>
-        <select class="filter-select" onchange="updateState('spanglishAmount',this.value)">
-          <option>Light</option>
-          <option selected>Medium</option>
-          <option>Heavy</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <div class="filter-label">Hook Language</div>
-        <select class="filter-select" onchange="updateState('hookLanguage',this.value)">
-          <option>English</option>
-          <option selected>Spanish</option>
-          <option>Mixed</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <div class="filter-label">Genre</div>
-        <select class="filter-select" onchange="updateState('genre',this.value)">
-          <option selected>Latin Pop</option>
-          <option>Reggaeton</option>
-          <option>R&amp;B</option>
-          <option>Pop</option>
-          <option>Trap</option>
-          <option>Afrobeats</option>
-          <option>Gospel</option>
-          <option>Drill</option>
-          <option>Cinematic</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <div class="filter-label">Mood</div>
-        <select class="filter-select" onchange="updateState('mood',this.value)">
-          <option selected>Fun / Romantic</option>
-          <option>Dark / Emotional</option>
-          <option>Uplifting</option>
-          <option>Introspective</option>
-          <option>Energetic</option>
-          <option>Melancholic</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <div class="filter-label">BPM</div>
-        <input class="filter-input" type="number" id="bpmInput" value="96" min="60" max="200"
-          onchange="updateState('bpm',this.value)"/>
-      </div>
-      <div class="filter-group">
-        <div class="filter-label">Key</div>
-        <div style="display:flex;gap:4px">
-          <select class="filter-select" onchange="updateState('key',this.value)" style="width:52px">
-            <option>C</option><option>C#</option><option>D</option><option>D#</option>
-            <option selected>E</option><option>F</option><option>F#</option><option>G</option>
-            <option>G#</option><option>A</option><option>A#</option><option>B</option>
-          </select>
-          <select class="filter-select" onchange="updateState('keyMode',this.value)" style="width:58px">
-            <option selected>Minor</option><option>Major</option>
-          </select>
-        </div>
-      </div>
-      <div class="filter-group">
-        <div class="filter-label">Energy</div>
-        <div class="energy-bar" id="energyBar"></div>
-      </div>
-    </div>
-
-    <!-- Blueprint -->
-    <div class="blueprint" id="blueprint">
-      <div class="section-title">Song Title Ideas</div>
-      <div class="title-chips" id="titleChips"></div>
-
-      <div class="section-title">Song Concept</div>
-      <div class="concept-text" id="conceptText"></div>
-
-      <div class="section-title">Song Structure</div>
-      <div class="struct-tabs" id="structTabs"></div>
-      <div class="struct-info" id="structInfo"></div>
-
-      <div class="section-title">Chord Progressions</div>
-      <div class="prog-grid" id="progGrid"></div>
-
-      <div class="section-title">Hook Ideas</div>
-      <div class="hook-ideas" id="hookIdeas"></div>
-
-      <div class="section-title">Melody Preview</div>
-      <div class="piano-roll">
-        <div class="piano-roll-header">
-          <span>MELODY PREVIEW (HOOK)</span>
-          <div style="display:flex;gap:8px">
-            <button style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px">✎</button>
-            <button style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px">▶</button>
+          ></textarea>
+          <div class="prompt-footer">
+            <span class="char-counter" id="char-counter">0/500</span>
+            <button class="generate-btn" id="gen-blueprint-btn" onclick="generateBlueprint()">
+              <span>&#10022;</span>
+              <span id="gen-btn-text">Generate Song Blueprint</span>
+            </button>
           </div>
         </div>
-        <canvas id="pianoRoll" width="600" height="100"></canvas>
-      </div>
-    </div>
-  </main>
 
-  <!-- RIGHT PANEL -->
-  <aside class="right-panel">
-    <div class="writer-room-header">
-      <div class="wr-title">WRITER ROOM</div>
-      <div class="wr-tabs">
-        <div class="wr-tab active" onclick="setWrTab(this,'lyrics')">Lyrics</div>
-        <div class="wr-tab" onclick="setWrTab(this,'chords')">Chords</div>
-        <div class="wr-tab" onclick="setWrTab(this,'melody')">Melody</div>
-        <div class="wr-tab" onclick="setWrTab(this,'arrangement')">Arrangement</div>
-        <div class="wr-tab" onclick="setWrTab(this,'references')">References</div>
-      </div>
-    </div>
-    <div class="section-sub-tabs">
-      <div class="sub-tab" onclick="setSub(this,'verse1')">Verse 1</div>
-      <div class="sub-tab" onclick="setSub(this,'pre')">Pre</div>
-      <div class="sub-tab active" onclick="setSub(this,'hook')">Hook</div>
-      <div class="sub-tab" onclick="setSub(this,'verse2')">Verse 2</div>
-      <div class="sub-tab" onclick="setSub(this,'bridge')">Bridge</div>
-    </div>
-    <div class="writer-content">
-      <div class="lyrics-area">
-        <div id="lyricsDisplay">
-          <div class="lyrics-placeholder">Generate a Song Blueprint first, then click "Generate Lyrics" to write for this section.</div>
+        <!-- FILTER ROW -->
+        <div class="filter-card">
+          <div class="filter-grid">
+            <div class="filter-item">
+              <div class="filter-label">Language</div>
+              <select class="filter-select" onchange="state.language = this.value">
+                <option>English</option>
+                <option>Spanish</option>
+                <option selected>Spanglish</option>
+                <option>Bilingual</option>
+                <option>Latin Crossover</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Dialect / Flavor</div>
+              <select class="filter-select" onchange="state.dialect = this.value">
+                <option selected>Neutral Latin</option>
+                <option>Puerto Rican-Caribbean</option>
+                <option>Dominican</option>
+                <option>Mexican</option>
+                <option>Colombian</option>
+                <option>Spain</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Spanglish Amount</div>
+              <select class="filter-select" onchange="state.spanglishAmount = this.value">
+                <option>Light</option>
+                <option selected>Medium</option>
+                <option>Heavy</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Hook Language</div>
+              <select class="filter-select" onchange="state.hookLanguage = this.value">
+                <option>English</option>
+                <option selected>Spanish</option>
+                <option>Mixed</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Genre</div>
+              <select class="filter-select" onchange="state.genre = this.value">
+                <option selected>Latin Pop</option>
+                <option>Reggaeton</option>
+                <option>R&amp;B</option>
+                <option>Pop</option>
+                <option>Trap</option>
+                <option>Afrobeats</option>
+                <option>Gospel</option>
+                <option>Drill</option>
+                <option>Cinematic</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Mood</div>
+              <select class="filter-select" onchange="state.mood = this.value">
+                <option selected>Fun / Romantic</option>
+                <option>Dark / Emotional</option>
+                <option>Uplifting</option>
+                <option>Introspective</option>
+                <option>Energetic</option>
+                <option>Melancholic</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">BPM</div>
+              <input type="number" class="filter-input" id="bpm-input" value="96" min="40" max="220"
+                oninput="state.bpm = +this.value; updateTransportMeta()">
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Key</div>
+              <div style="display:flex;gap:4px">
+                <select class="filter-select" style="width:56px" onchange="state.key = this.value; updateTransportMeta()">
+                  <option>C</option><option>C#</option><option>D</option><option>D#</option>
+                  <option selected>E</option><option>F</option><option>F#</option><option>G</option>
+                  <option>G#</option><option>A</option><option>A#</option><option>B</option>
+                </select>
+                <select class="filter-select" style="width:68px" onchange="state.keyMode = this.value; updateTransportMeta()">
+                  <option>Major</option>
+                  <option selected>Minor</option>
+                </select>
+              </div>
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Energy</div>
+              <div class="energy-bar" id="energy-bar"></div>
+            </div>
+          </div>
         </div>
-        <button class="generate-lyrics-btn" id="genLyricsBtn" onclick="generateLyrics()" style="display:none">
-          ✦ Generate Lyrics
-        </button>
-      </div>
-      <div class="ai-tools">
-        <div class="ai-tools-title">AI TOOLS</div>
-        <button class="ai-tool-btn" onclick="aiTool('Make this hook stronger and more memorable')">
-          <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M5 1l1 3h3l-2.5 2 1 3L5 7.5 2.5 9l1-3L1 4h3z" fill="currentColor"/></svg>
-          Make Hook Stronger
-        </button>
-        <button class="ai-tool-btn" onclick="aiTool('Make this more emotionally powerful and vulnerable')">
-          <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M5 8.5C2.5 6.5 1 5 1 3.5a2 2 0 014 0 2 2 0 014 0C9 5 7.5 6.5 5 8.5z" stroke="currentColor" stroke-width="1.2"/></svg>
-          More Emotional
-        </button>
-        <button class="ai-tool-btn" onclick="aiTool('Add more Latin rhythm, rhyme patterns, and cultural references')">
-          🌴 More Latin
-        </button>
-        <button class="ai-tool-btn" onclick="aiTool('Simplify this — shorter lines, simpler words, catchier')">
-          ✂ Simplify
-        </button>
-        <button class="ai-tool-btn" onclick="aiTool('Add natural Spanglish phrasing — blend English and Spanish the way artists actually speak')">
-          🌐 Add Spanglish
-        </button>
-        <button class="ai-tool-btn" onclick="aiTool('Add a call-and-response section to this hook')">
-          🎤 Add Call &amp; Response
-        </button>
-        <button class="ai-tool-btn" onclick="aiTool('Completely rewrite this hook from a fresh angle, same vibe but new approach')">
-          🔄 Rewrite Hook
-        </button>
-        <button class="ai-tool-btn" onclick="aiTool('Generate a completely alternate version of this section')">
-          ✦ Generate Alternate
-        </button>
-      </div>
-    </div>
 
-    <!-- Reference Vocal -->
-    <div class="ref-vocal">
-      <div class="rv-header">REFERENCE VOCAL</div>
-      <div class="rv-body">
-        <div class="rv-thumb">🌴</div>
-        <div class="rv-info">
-          <div class="rv-title" id="rvTitle">SOLA VIBES - HOOK</div>
-          <div class="rv-sub">E Minor · 96 BPM</div>
+        <!-- SONG BLUEPRINT -->
+        <div class="blueprint-card" id="blueprint-card">
+          <div class="blueprint-header">
+            <div class="blueprint-title">
+              &#10022; Song Blueprint
+            </div>
+            <div class="blueprint-meta">
+              <span id="bp-key-display">E Min</span>
+              <span id="bp-bpm-display">96 BPM</span>
+            </div>
+          </div>
+          <div id="blueprint-body">
+            <div class="empty-state">
+              <div class="empty-icon">&#10022;</div>
+              <div class="empty-title">Blueprint Ready</div>
+              <div class="empty-sub">Enter your idea above and click Generate Song Blueprint to create your song structure, chords, and hook concepts.</div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="rv-waveform">
-        <svg width="100%" height="36" id="waveformSvg" viewBox="0 0 300 36" preserveAspectRatio="none"></svg>
-      </div>
-      <div class="rv-controls">
-        <button class="rv-play" onclick="togglePlay()">
-          <svg id="playIcon" width="14" height="14" fill="#0a0a0f" viewBox="0 0 14 14"><path d="M3 2l9 5-9 5V2z"/></svg>
-        </button>
-        <div class="rv-time">0:00 / 0:28</div>
-        <select class="rv-singer">
-          <option>Female Lead (Warm)</option>
-          <option>Female Lead (Bright)</option>
-          <option>Male Lead (Deep)</option>
-          <option>Male Lead (Tenor)</option>
-          <option>Harmony (Soft)</option>
-        </select>
-      </div>
-      <div class="rv-action-btns">
-        <div class="rv-btn" onclick="toast('Reference vocal generation coming in Phase 2')">Regenerate Vocal</div>
-        <div class="rv-btn" onclick="toast('Reference vocal generation coming in Phase 2')">Hook Only</div>
-        <div class="rv-btn" onclick="toast('Reference vocal generation coming in Phase 2')">Full Demo</div>
-        <div class="rv-btn" onclick="exportDemo()">Export Demo</div>
-      </div>
-      <div class="rv-export-label">EXPORT</div>
-      <div class="rv-export-btns">
-        <div class="export-btn" onclick="exportMidi('chords')">Export Chords (MIDI)</div>
-        <div class="export-btn" onclick="exportMidi('melody')">Export Melody (MIDI)</div>
-        <div class="export-btn" onclick="exportLyrics()">Export Lyrics (PDF)</div>
-        <div class="export-btn" onclick="exportDemo()">Export Demo (WAV)</div>
-      </div>
-    </div>
-  </aside>
 
-  <!-- TRANSPORT -->
-  <div class="transport">
-    <div class="transport-thumb">🌴</div>
+      </div><!-- .center-scroll -->
+    </div><!-- #center -->
+
+    <!-- ===== RIGHT PANEL ===== -->
+    <div id="right-panel">
+      <div class="right-top">
+
+        <!-- Panel tabs -->
+        <div class="panel-tabs" id="panel-tabs">
+          <div class="panel-tab active" onclick="setPanelTab(this,'lyrics')">Lyrics</div>
+          <div class="panel-tab" onclick="setPanelTab(this,'chords')">Chords</div>
+          <div class="panel-tab" onclick="setPanelTab(this,'melody')">Melody</div>
+          <div class="panel-tab" onclick="setPanelTab(this,'arrangement')">Arrangement</div>
+          <div class="panel-tab" onclick="setPanelTab(this,'references')">References</div>
+        </div>
+
+        <!-- Section sub-tabs -->
+        <div class="sub-tabs" id="sub-tabs">
+          <div class="sub-tab active" onclick="setSubTab(this,'verse1')">Verse 1</div>
+          <div class="sub-tab" onclick="setSubTab(this,'pre')">Pre</div>
+          <div class="sub-tab" onclick="setSubTab(this,'hook')">Hook</div>
+          <div class="sub-tab" onclick="setSubTab(this,'verse2')">Verse 2</div>
+          <div class="sub-tab" onclick="setSubTab(this,'bridge')">Bridge</div>
+        </div>
+
+        <!-- Generate lyrics btn -->
+        <button class="generate-lyrics-btn" id="gen-lyrics-btn" onclick="generateLyrics()">
+          <span>&#10022;</span>
+          <span id="gen-lyrics-text">Generate Lyrics</span>
+        </button>
+
+        <!-- Lyrics / Content area -->
+        <div class="lyrics-area" id="lyrics-area">
+          <div class="empty-state">
+            <div class="empty-icon">&#9834;</div>
+            <div class="empty-title">Writer Room</div>
+            <div class="empty-sub">Generate a blueprint first, then click Generate Lyrics to start writing your song.</div>
+          </div>
+        </div>
+
+        <!-- AI Tools -->
+        <div class="ai-tools-panel">
+          <div class="ai-tools-label">&#10022; AI Tools</div>
+          <div class="ai-tools-grid">
+            <button class="ai-tool-btn" onclick="runAiTool('Make the hook stronger and more memorable with better phrasing')">&#128293; Make Hook Stronger</button>
+            <button class="ai-tool-btn" onclick="runAiTool('Make the lyrics more emotional, vulnerable, and heartfelt')">&#128167; More Emotional</button>
+            <button class="ai-tool-btn" onclick="runAiTool('Add more authentic Latin culture, slang, and Spanish influence')">&#127796; More Latin</button>
+            <button class="ai-tool-btn" onclick="runAiTool('Simplify the lyrics, remove complexity, make them more singable and accessible')">&#9986; Simplify</button>
+            <button class="ai-tool-btn" onclick="runAiTool('Blend English and Spanish naturally throughout (Spanglish style)')">&#8644; Add Spanglish</button>
+            <button class="ai-tool-btn" onclick="runAiTool('Add call and response sections between lead vocal and background vocals')">&#127908; Call &amp; Response</button>
+            <button class="ai-tool-btn" onclick="runAiTool('Completely rewrite the hook with a fresh concept and different angle')">&#8617; Rewrite Hook</button>
+            <button class="ai-tool-btn" onclick="runAiTool('Generate an alternate version of the full song with a different creative approach')">&#9889; Generate Alternate</button>
+          </div>
+        </div>
+
+      </div><!-- .right-top -->
+
+      <!-- Reference Vocal -->
+      <div class="ref-vocal">
+        <div class="ref-vocal-label">Reference Vocal</div>
+        <div class="ref-vocal-top">
+          <div class="ref-thumb">&#127925;</div>
+          <div class="ref-info">
+            <div class="ref-song-title" id="ref-title">Sola Vibes</div>
+            <div class="ref-section" id="ref-section">Hook &middot; 8 bars</div>
+          </div>
+        </div>
+        <div class="ref-waveform">
+          <svg width="100%" height="36" viewBox="0 0 276 36" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="waveGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#6c63ff" stop-opacity="0.7"/>
+                <stop offset="100%" stop-color="#f5c842" stop-opacity="0.7"/>
+              </linearGradient>
+            </defs>
+            <path d="M0,18 Q4,6 8,18 Q12,30 16,18 Q20,8 24,18 Q28,26 32,18 Q36,10 40,18 Q44,28 48,18 Q52,14 56,18 Q60,22 64,18 Q68,8 72,18 Q76,28 80,18 Q84,12 88,18 Q92,24 96,18 Q100,10 104,18 Q108,28 112,18 Q116,14 120,18 Q124,22 128,18 Q132,6 136,18 Q140,30 144,18 Q148,12 152,18 Q156,24 160,18 Q164,8 168,18 Q172,26 176,18 Q180,14 184,18 Q188,22 192,18 Q196,10 200,18 Q204,28 208,18 Q212,16 216,18 Q220,20 224,18 Q228,8 232,18 Q236,28 240,18 Q244,14 248,18 Q252,22 256,18 Q260,10 264,18 Q268,26 272,18 Q274,16 276,18" stroke="url(#waveGrad)" stroke-width="2" fill="none"/>
+          </svg>
+        </div>
+        <div class="ref-controls">
+          <button class="play-btn-sm" id="ref-play-btn" onclick="toggleRefPlay()">&#9654;</button>
+          <span class="ref-time" id="ref-time">0:00 / 0:28</span>
+          <select class="ref-singer" onchange="state.singer = this.value">
+            <option>Female Lead (Warm)</option>
+            <option>Female Lead (Bright)</option>
+            <option>Male Lead (Smooth)</option>
+            <option>Male Lead (Raspy)</option>
+            <option>Duet</option>
+          </select>
+        </div>
+        <div class="ref-btns">
+          <button class="ref-btn" onclick="showToast('Regenerating reference vocal...')">&#8634; Regenerate Vocal</button>
+          <button class="ref-btn" onclick="showToast('Generating hook only...')">Hook Only</button>
+          <button class="ref-btn" onclick="showToast('Generating full demo...')">Full Demo</button>
+          <button class="ref-btn" onclick="showToast('Exporting demo...')">Export Demo</button>
+        </div>
+        <div class="export-row">
+          <button class="export-btn" onclick="exportChordsMidi()">Export Chords (MIDI)</button>
+          <button class="export-btn" onclick="exportMelodyMidi()">Export Melody (MIDI)</button>
+          <button class="export-btn" onclick="exportLyricsPdf()">Export Lyrics (PDF)</button>
+          <button class="export-btn" onclick="exportDemoWav()">Export Demo (WAV)</button>
+        </div>
+      </div><!-- .ref-vocal -->
+
+    </div><!-- #right-panel -->
+
+  </div><!-- #main-content -->
+</div><!-- #app -->
+
+<!-- TRANSPORT BAR -->
+<div id="transport">
+  <div class="transport-track">
+    <div class="transport-thumb">&#127925;</div>
     <div class="transport-info">
-      <div class="transport-title" id="transportTitle">Sola Vibes</div>
-      <div class="transport-meta" id="transportMeta">E Minor · 96 BPM</div>
+      <div class="transport-name" id="transport-name">Sola Vibes</div>
+      <div class="transport-meta" id="transport-meta">E Min &middot; 96 BPM</div>
     </div>
-    <div class="transport-like" onclick="this.style.color='#ff6b8a'">♡</div>
-    <div class="transport-controls">
-      <button class="t-btn">⏮</button>
-      <button class="t-btn">⏭</button>
-      <button class="t-play" onclick="togglePlay()">
-        <svg id="tPlayIcon" width="14" height="14" fill="#0a0a0f" viewBox="0 0 14 14"><path d="M3 2l9 5-9 5V2z"/></svg>
-      </button>
-      <button class="t-btn">⏭</button>
-    </div>
-    <div class="progress-area">
-      <span class="progress-time">0:00</span>
-      <div class="progress-bar" onclick="seekTo(event)">
-        <div class="progress-fill" id="progressFill"></div>
-      </div>
-      <span class="progress-time">2:38</span>
-    </div>
-    <button class="midi-out-btn">MIDI OUT ▾</button>
   </div>
-
-</div><!-- /app -->
+  <button class="transport-heart" id="heart-btn" onclick="toggleHeart()">&#9825;</button>
+  <div class="transport-controls">
+    <button class="transport-btn" onclick="skipBack()" title="Skip to start">&#9198;</button>
+    <button class="transport-play" id="transport-play-btn" onclick="togglePlay()">&#9654;</button>
+    <button class="transport-btn" onclick="skipForward()" title="Skip forward 15s">&#9197;</button>
+  </div>
+  <div class="transport-progress">
+    <span class="progress-time" id="progress-time">0:00</span>
+    <div class="progress-bar-wrap" id="progress-bar" onclick="seekProgress(event)">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+    <span class="progress-time" id="progress-total">3:24</span>
+  </div>
+  <div class="transport-volume">
+    <span class="volume-icon">&#128266;</span>
+    <input type="range" class="volume-slider" min="0" max="100" value="75" oninput="state.volume = +this.value">
+  </div>
+  <button class="midi-out-btn" onclick="showToast('MIDI OUT active')">MIDI OUT</button>
+</div>
 
 <script>
-// ── STATE ──
+// =========================================================
+// STATE
+// =========================================================
 const state = {
   apiKey: localStorage.getItem('nova_writer_api_key') || '',
-  prompt: '',
-  language: 'Spanglish', dialect: 'Neutral Latin',
-  spanglishAmount: 'Medium', hookLanguage: 'Spanish',
-  genre: 'Latin Pop', mood: 'Fun / Romantic',
-  bpm: 96, key: 'E', keyMode: 'Minor', energy: 6,
-  blueprint: null, lyrics: null,
-  activeSection: 'hook', activeWrTab: 'lyrics',
+  prompt: 'I want a summer Latin pop record like Sola, fun, romantic, beach club energy, driving with the windows down.',
+  language: 'Spanglish',
+  dialect: 'Neutral Latin',
+  spanglishAmount: 'Medium',
+  hookLanguage: 'Spanish',
+  genre: 'Latin Pop',
+  mood: 'Fun / Romantic',
+  bpm: 96,
+  key: 'E',
+  keyMode: 'Minor',
+  energy: 6,
+  blueprint: null,
+  lyrics: null,
+  activeSection: 'hook',
+  activeTab: 'lyrics',
+  activeSubTab: 'verse1',
   isPlaying: false,
+  refPlaying: false,
+  heartActive: false,
+  singer: 'Female Lead (Warm)',
+  volume: 75,
   currentProject: 'Sola Vibes',
   projects: [
-    {name:'Sola Vibes',date:'Today'},
-    {name:'Late Night Drive',date:'May 28'},
-    {name:'Tu & Yo',date:'May 26'},
-    {name:'Summer Romance',date:'May 24'},
-    {name:'Ocean Eyes',date:'May 22'}
+    { name: 'Sola Vibes',      date: 'Today'  },
+    { name: 'Late Night Drive', date: 'May 28' },
+    { name: 'Tu & Yo',          date: 'May 26' },
+    { name: 'Summer Romance',   date: 'May 24' },
+    { name: 'Ocean Eyes',       date: 'May 22' }
+  ],
+  progressInterval: null,
+  progressSeconds: 0,
+  totalSeconds: 204
+};
+
+// =========================================================
+// DEFAULTS (shown on load)
+// =========================================================
+const defaultBlueprint = {
+  titles: ['Sola Vibes', 'Noches de Verano', 'Tu Ritmo'],
+  concept: 'A sun-drenched summer Latin pop anthem about falling in love at a beach club — windows down, the world feels infinite and light, every night could change your life.',
+  bpm: 96,
+  key: 'E',
+  keyMode: 'Minor',
+  structure: {
+    intro:     { bars: 4,  chords: ['Em','C','G','D'] },
+    verse1:    { bars: 8,  chords: ['Em','C','G','D','Am','C','G','D'] },
+    preChorus: { bars: 4,  chords: ['Am','C','D','Em'] },
+    hook:      { bars: 8,  chords: ['C','G','D','Em','C','G','Am','D'] },
+    bridge:    { bars: 4,  chords: ['Am','F','C','G'] },
+    outro:     { bars: 4,  chords: ['Em','C','G','D'] }
+  },
+  hookIdeas: [
+    '"Sola en la playa, pero no te sientes sola" — lonely on the beach but your heart is full of life',
+    '"Esta noche es tuya" — a declaration that the whole summer night belongs to her',
+    '"Algo en el aire" — there\'s something electric in the air, magic, love incoming',
+    '"El sol se queda" — the sun stays for you; eternal summer energy that never fades',
+    '"Tus ojos dicen lo que no puedo decir" — your eyes say what I can\'t put into words'
   ]
 };
 
-// ── INIT ──
+const defaultLyrics = {
+  verse1: `Manejo por la costa con el windows down
+El viento en tu pelo como una canción
+Las luces de la ciudad se quedan atrás
+Esta noche es diferente, siento que es más
+
+Tu risa llena el carro, no necesito más
+Reggaeton low volume, tú y yo nada más
+El mundo se detiene cuando estás aquí
+Baby I can't explain what you do to me`,
+
+  preChorus: `Y algo en el aire me dice que sí
+Que esta noche cambia todo para ti y pa' mí
+No hay apuro, no hay prisa
+Solo tú y tu sonrisa`,
+
+  hook: `Sola en la playa pero no te sientes sola
+Esta noche es tuya, baby ven y toma control-a
+El sol se queda brillando pa' los dos
+Algo en el aire, se siente en tu voz
+
+Tu ritmo me llama, no puedo ignorar
+Baby esta noche vamos a celebrar
+Sola Vibes, sola vibes
+Esta noche es nuestra, baby sola vibes`,
+
+  bridge: `No me digas adiós todavía
+La noche es larga y joven como tú y yo
+Quédate hasta que salga el sol
+Sola Vibes, baby let it go`
+};
+
+// =========================================================
+// INIT
+// =========================================================
 document.addEventListener('DOMContentLoaded', () => {
-  if (!state.apiKey) {
-    document.getElementById('apiModal').classList.remove('hidden');
-  }
-  renderProjects();
-  buildEnergyBar();
-  generateWaveform();
-  updateCharCount();
+  initEnergyBar();
+  initRecentList();
+  initPrompt();
+  checkApiKey();
+  renderBlueprint(defaultBlueprint);
+  renderLyrics(defaultLyrics);
+  updateTransportMeta();
 });
 
-function saveApiKey() {
-  const k = document.getElementById('apiKeyInput').value.trim();
-  if (!k.startsWith('sk-')) { toast('Please enter a valid API key (starts with sk-)'); return; }
-  state.apiKey = k;
-  localStorage.setItem('nova_writer_api_key', k);
-  document.getElementById('apiModal').classList.add('hidden');
-  toast('API key saved. Ready to write!');
+// =========================================================
+// API KEY MODAL
+// =========================================================
+function checkApiKey() {
+  if (!state.apiKey) {
+    document.getElementById('modal-overlay').classList.remove('hidden');
+  } else {
+    document.getElementById('modal-overlay').classList.add('hidden');
+  }
 }
 
-function renderProjects() {
-  const el = document.getElementById('projectList');
-  el.innerHTML = state.projects.map(p => `
-    <div class="project-item ${p.name===state.currentProject?'active':''}" onclick="loadProject('${p.name}')">
-      <span class="project-name">${p.name}</span>
-      <span class="project-date">${p.date}</span>
-    </div>`).join('');
+function openApiModal() {
+  document.getElementById('api-key-input').value = state.apiKey || '';
+  document.getElementById('modal-overlay').classList.remove('hidden');
 }
 
-function loadProject(name) {
-  state.currentProject = name;
-  document.getElementById('transportTitle').textContent = name;
-  renderProjects();
-  toast(`Loaded: ${name}`);
+document.getElementById('modal-save-btn').addEventListener('click', () => {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key) { showToast('Please enter your Anthropic API key', 'error'); return; }
+  if (!key.startsWith('sk-')) { showToast('Key should start with sk-', 'error'); return; }
+  state.apiKey = key;
+  localStorage.setItem('nova_writer_api_key', key);
+  document.getElementById('modal-overlay').classList.add('hidden');
+  showToast('API key saved — AI features enabled!', 'success');
+});
+
+document.getElementById('modal-skip').addEventListener('click', () => {
+  document.getElementById('modal-overlay').classList.add('hidden');
+  showToast('Skipped — add your API key in the sidebar to enable AI');
+});
+
+// =========================================================
+// PROMPT
+// =========================================================
+function initPrompt() {
+  const ta = document.getElementById('prompt-textarea');
+  ta.value = state.prompt;
+  updateCharCount(ta);
 }
 
-function newSong() {
-  state.blueprint = null; state.lyrics = null;
-  document.getElementById('blueprint').classList.remove('visible');
-  document.getElementById('promptInput').value = '';
-  document.getElementById('lyricsDisplay').innerHTML = '<div class="lyrics-placeholder">Generate a Song Blueprint first, then click "Generate Lyrics" to write for this section.</div>';
-  document.getElementById('genLyricsBtn').style.display = 'none';
-  updateCharCount();
+function updateCharCount(ta) {
+  state.prompt = ta.value;
+  document.getElementById('char-counter').textContent = `${ta.value.length}/500`;
 }
 
-function buildEnergyBar() {
-  const bar = document.getElementById('energyBar');
+// =========================================================
+// ENERGY BAR
+// =========================================================
+function initEnergyBar() {
+  const bar = document.getElementById('energy-bar');
   bar.innerHTML = '';
-  for (let i=1;i<=8;i++) {
+  for (let i = 1; i <= 8; i++) {
     const seg = document.createElement('div');
     seg.className = 'energy-seg' + (i <= state.energy ? ' active' : '');
-    seg.onclick = () => { state.energy = i; buildEnergyBar(); };
+    seg.title = `Energy ${i}`;
+    seg.onclick = () => {
+      state.energy = i;
+      document.querySelectorAll('.energy-seg').forEach((s, idx) => {
+        s.classList.toggle('active', (idx + 1) <= i);
+      });
+    };
     bar.appendChild(seg);
   }
 }
 
-function updateCharCount() {
-  const v = document.getElementById('promptInput').value;
-  state.prompt = v;
-  document.getElementById('charCount').textContent = v.length + '/500';
+// =========================================================
+// RECENT LIST
+// =========================================================
+function initRecentList() {
+  const list = document.getElementById('recent-list');
+  list.innerHTML = '';
+  state.projects.forEach((p, idx) => {
+    const item = document.createElement('div');
+    item.className = 'recent-item' + (p.name === state.currentProject ? ' active' : '');
+    item.innerHTML = `<span class="recent-name">${escHtml(p.name)}</span><span class="recent-date">${escHtml(p.date)}</span>`;
+    item.onclick = () => {
+      state.currentProject = p.name;
+      document.querySelectorAll('.recent-item').forEach(el => el.classList.remove('active'));
+      item.classList.add('active');
+      document.getElementById('transport-name').textContent = p.name;
+      document.getElementById('ref-title').textContent = p.name;
+      updateTransportMeta();
+      showToast(`Opened: ${p.name}`);
+    };
+    list.appendChild(item);
+  });
 }
 
-function updateState(key, val) { state[key] = val; }
-function setNav(el) { document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active')); el.classList.add('active'); }
-function setWrTab(el, tab) {
-  document.querySelectorAll('.wr-tab').forEach(e=>e.classList.remove('active')); el.classList.add('active');
-  state.activeWrTab = tab;
-  renderLyricsPanel();
+// =========================================================
+// NAV
+// =========================================================
+function setNav(el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
 }
-function setSub(el, section) {
-  document.querySelectorAll('.sub-tab').forEach(e=>e.classList.remove('active')); el.classList.add('active');
+
+// =========================================================
+// PANEL TABS
+// =========================================================
+function setPanelTab(el, tab) {
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  state.activeTab = tab;
+  renderTabContent(tab);
+}
+
+function setSubTab(el, sub) {
+  document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  state.activeSubTab = sub;
+  if (state.activeTab === 'lyrics' && state.lyrics) {
+    renderLyricsSection(sub);
+  }
+}
+
+function renderTabContent(tab) {
+  const lyricsArea = document.getElementById('lyrics-area');
+  const subTabs    = document.getElementById('sub-tabs');
+  const genBtn     = document.getElementById('gen-lyrics-btn');
+
+  if (tab === 'lyrics') {
+    subTabs.style.display = '';
+    genBtn.style.display  = '';
+    if (state.lyrics) renderLyrics(state.lyrics);
+    else lyricsArea.innerHTML = `<div class="empty-state"><div class="empty-icon">&#9834;</div><div class="empty-title">Writer Room</div><div class="empty-sub">Generate a blueprint first, then click Generate Lyrics.</div></div>`;
+
+  } else if (tab === 'chords') {
+    subTabs.style.display = 'none';
+    genBtn.style.display  = 'none';
+    renderChordsTab(lyricsArea);
+
+  } else if (tab === 'melody') {
+    subTabs.style.display = 'none';
+    genBtn.style.display  = 'none';
+    renderMelodyTab(lyricsArea);
+
+  } else if (tab === 'arrangement') {
+    subTabs.style.display = 'none';
+    genBtn.style.display  = 'none';
+    renderArrangementTab(lyricsArea);
+
+  } else if (tab === 'references') {
+    subTabs.style.display = 'none';
+    genBtn.style.display  = 'none';
+    renderReferencesTab(lyricsArea);
+  }
+}
+
+// =========================================================
+// TAB CONTENT RENDERERS
+// =========================================================
+function renderChordsTab(container) {
+  const bp = state.blueprint || defaultBlueprint;
+  const sectionLabels = { intro:'Intro', verse1:'Verse 1', preChorus:'Pre-Chorus', hook:'Hook', bridge:'Bridge', outro:'Outro' };
+  let html = '<div style="padding:8px" class="fade-in">';
+  Object.entries(bp.structure).forEach(([section, data]) => {
+    html += `<div style="margin-bottom:14px">
+      <div class="lyrics-section-title">${sectionLabels[section] || section}</div>
+      <div style="background:var(--card);border-radius:7px;padding:8px;display:flex;flex-wrap:wrap;gap:5px">
+        ${data.chords.map(c => `<div class="chord-box">${escHtml(c)}</div>`).join('')}
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function renderMelodyTab(container) {
+  container.innerHTML = `<div style="padding:12px" class="fade-in">
+    <div class="section-label">Melody Preview &mdash; 4 Bars</div>
+    <div class="melody-preview" style="height:110px;margin-bottom:12px">
+      ${generatePianoRollSvg(110)}
+    </div>
+    <div class="section-label" style="margin-top:12px">Melody Notes (Hook)</div>
+    <div style="background:var(--card);border-radius:7px;padding:10px;font-family:'Courier New',monospace;font-size:11.5px;color:var(--text-soft);line-height:2.2">
+      Bar 1:&nbsp; E4 &mdash; G4 &mdash; A4 &mdash; B4<br>
+      Bar 2:&nbsp; C5 &mdash; B4 &mdash; G4 &mdash; E4<br>
+      Bar 3:&nbsp; A4 &mdash; G4 &mdash; F#4 &mdash; E4<br>
+      Bar 4:&nbsp; D4 &mdash; E4 &mdash; G4 &mdash; A4
+    </div>
+    <div style="margin-top:10px;display:flex;gap:6px">
+      <button class="ai-tool-btn" style="flex:1;text-align:center" onclick="showToast('Generating new melody...')">&#8634; New Melody</button>
+      <button class="ai-tool-btn" style="flex:1;text-align:center" onclick="exportMelodyMidi()">&#11015; Export MIDI</button>
+    </div>
+  </div>`;
+}
+
+function renderArrangementTab(container) {
+  const sections = ['Intro','Verse 1','Pre','Hook','Verse 2','Pre','Hook','Bridge','Hook','Outro'];
+  const bars     = [4,8,4,8,8,4,8,4,8,4];
+  const colors   = ['#6c63ff','#8b5cf6','#c9a52a','#f5c842','#8b5cf6','#c9a52a','#f5c842','#f87171','#f5c842','#6c63ff'];
+  const tracks   = ['Vocals','Melody Lead','Chords','Bass','Drums','Percussion','Pads / Atmosphere','FX / Ear Candy'];
+
+  let tl = sections.map((s,i) => {
+    const w = Math.max(28, bars[i] * 10);
+    return `<div style="flex-shrink:0;width:${w}px;height:46px;background:${colors[i]};opacity:0.72;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:700;text-align:center;padding:3px;cursor:default;border:1px solid rgba(255,255,255,0.1)" title="${s} (${bars[i]} bars)">${s}<br><span style="opacity:0.7;font-weight:400">${bars[i]}b</span></div>`;
+  }).join('');
+
+  let trackRows = tracks.map(t => {
+    const w = (55 + Math.random() * 40) | 0;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="width:100px;font-size:10.5px;color:var(--text-muted);flex-shrink:0">${t}</div>
+      <div style="flex:1;height:16px;background:var(--card);border-radius:3px;overflow:hidden;border:1px solid var(--border-soft)">
+        <div style="height:100%;width:${w}%;background:linear-gradient(90deg,var(--purple-mid),var(--gold));opacity:0.6;border-radius:3px"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `<div style="padding:12px" class="fade-in">
+    <div class="section-label">Song Timeline</div>
+    <div style="display:flex;gap:3px;overflow-x:auto;padding:8px 0 10px;margin-bottom:12px">${tl}</div>
+    <div class="section-label">Track Layers</div>
+    ${trackRows}
+  </div>`;
+}
+
+function renderReferencesTab(container) {
+  const refs = [
+    { title: 'Haw&aacute;&#237;',          artist: 'Maluma',     vibe: 'Latin Pop &bull; Romantic &bull; 95 BPM' },
+    { title: 'Tit&iacute; Me Pregunt&oacute;', artist: 'Bad Bunny', vibe: 'Reggaeton &bull; Fun &bull; 102 BPM'    },
+    { title: 'Un Verano Sin Ti',    artist: 'Bad Bunny', vibe: 'Latin Pop &bull; Summer &bull; 88 BPM'  },
+    { title: 'Deja Vu',            artist: 'J. Balvin',  vibe: 'Reggaeton &bull; Club &bull; 98 BPM'   },
+    { title: 'Pepas',              artist: 'Farruko',    vibe: 'Latin Pop &bull; Dance &bull; 100 BPM' }
+  ];
+  let html = `<div style="padding:12px" class="fade-in"><div class="section-label">Style References</div>`;
+  const hues = [250, 220, 280, 200, 260];
+  refs.forEach((r,i) => {
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--card);border-radius:7px;margin-bottom:6px;cursor:pointer;border:1px solid transparent;transition:border-color 0.15s"
+      onmouseenter="this.style.borderColor='var(--border-soft)'"
+      onmouseleave="this.style.borderColor='transparent'"
+      onclick="showToast('Loading reference: ${r.title.replace(/&[^;]+;/g,'')}')">
+      <div style="width:38px;height:38px;border-radius:6px;background:hsl(${hues[i]},55%,32%);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px">&#127925;</div>
+      <div style="min-width:0">
+        <div style="font-size:12.5px;font-weight:600;color:var(--text)">${r.title}</div>
+        <div style="font-size:11px;color:var(--text-soft)">${r.artist}</div>
+        <div style="font-size:10px;color:var(--text-muted)">${r.vibe}</div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// =========================================================
+// LYRICS SECTION VIEW
+// =========================================================
+function renderLyricsSection(sub) {
+  if (!state.lyrics) return;
+  const map  = { verse1:'verse1', pre:'preChorus', hook:'hook', verse2:'verse1', bridge:'bridge' };
+  const names = { verse1:'Verse 1', pre:'Pre-Chorus', hook:'&#10022; Hook', verse2:'Verse 2 (alt)', bridge:'Bridge' };
+  const key  = map[sub] || 'hook';
+  const text = state.lyrics[key] || state.lyrics.hook || '';
+  document.getElementById('lyrics-area').innerHTML = `<div class="fade-in">
+    <div class="lyrics-section-title">${names[sub] || sub}</div>
+    <div class="lyrics-stanza">${textToHtml(text)}</div>
+  </div>`;
+}
+
+// =========================================================
+// BLUEPRINT RENDER
+// =========================================================
+function renderBlueprint(bp) {
+  state.blueprint = bp;
+
+  const bpKey = bp.key || state.key;
+  const bpMode = bp.keyMode || state.keyMode;
+  const bpBpm  = bp.bpm  || state.bpm;
+
+  document.getElementById('bp-key-display').textContent = `${bpKey} ${bpMode}`;
+  document.getElementById('bp-bpm-display').textContent = `${bpBpm} BPM`;
+
+  const sectionKeys   = ['intro','verse1','preChorus','hook','bridge','outro'];
+  const sectionLabels = { intro:'Intro', verse1:'Verse 1', preChorus:'Pre-Chorus', hook:'Hook', bridge:'Bridge', outro:'Outro' };
+  const activeSection = state.activeSection || 'hook';
+
+  // ---- Titles
+  const titlesHtml = bp.titles ? `
+    <div style="margin-bottom:12px">
+      <div class="section-label">Suggested Titles</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        ${bp.titles.map((t,i) => `<div
+          style="background:var(--card);border:1px solid ${i===0?'var(--gold)':'var(--border-soft)'};border-radius:6px;padding:5px 12px;font-size:12.5px;font-weight:${i===0?700:400};color:${i===0?'var(--gold)':'var(--text-soft)'};cursor:pointer;transition:all 0.15s"
+          onclick="selectTitle('${escAttr(t)}')"
+          onmouseenter="if(${i}!==0)this.style.borderColor='var(--gold)'"
+          onmouseleave="if(${i}!==0)this.style.borderColor='var(--border-soft)'"
+        >${escHtml(t)}</div>`).join('')}
+      </div>
+    </div>` : '';
+
+  // ---- Concept
+  const conceptHtml = bp.concept ? `
+    <div style="margin-bottom:12px;padding:10px 12px;background:var(--panel);border-radius:7px;border-left:3px solid var(--purple-mid);font-size:12px;color:var(--text-soft);line-height:1.65">
+      ${escHtml(bp.concept)}
+    </div>` : '';
+
+  // ---- Section tabs
+  const tabsHtml = `
+    <div class="section-tabs" id="bp-section-tabs">
+      ${sectionKeys.map(k => `<div class="section-tab${k===activeSection?' active':''}" data-section="${k}" onclick="selectBlueprintSection(this,'${k}')">${sectionLabels[k]}</div>`).join('')}
+    </div>
+    <div id="bp-section-detail"></div>`;
+
+  // ---- Chord grid
+  const gridHtml = `
+    <div class="chord-grid" style="margin-top:14px">
+      <div class="chord-grid-label">Chord Progression Grid</div>
+      <div class="chord-grid-rows">
+        ${['verse1','preChorus','hook','bridge'].map(k => {
+          const data = bp.structure[k] || { chords:['Em','C','G','D'] };
+          return `<div class="chord-grid-row">
+            <div class="chord-row-label">${sectionLabels[k]||k}</div>
+            <div class="chord-boxes">${data.chords.slice(0,8).map(c => `<div class="chord-box">${escHtml(c)}</div>`).join('')}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+  // ---- Hook ideas
+  const hooksHtml = bp.hookIdeas ? `
+    <div class="hook-ideas" style="margin-top:14px">
+      <div class="chord-grid-label">Hook Concepts</div>
+      ${bp.hookIdeas.map((h,i) => `<div class="hook-idea-item">
+        <div class="hook-idea-num">${i+1}</div>
+        <div class="hook-idea-text">${escHtml(h)}</div>
+      </div>`).join('')}
+    </div>` : '';
+
+  // ---- Melody
+  const melodyHtml = `
+    <div style="margin-top:14px">
+      <div class="chord-grid-label">Melody Preview &mdash; 4 Bars</div>
+      <div class="melody-preview">${generatePianoRollSvg(80)}</div>
+    </div>`;
+
+  const body = document.getElementById('blueprint-body');
+  body.className = 'fade-in';
+  body.innerHTML = titlesHtml + conceptHtml + tabsHtml + gridHtml + hooksHtml + melodyHtml;
+
+  selectBlueprintSectionByKey(activeSection);
+}
+
+function selectBlueprintSection(el, section) {
+  document.querySelectorAll('#bp-section-tabs .section-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
   state.activeSection = section;
-  renderLyricsPanel();
+  selectBlueprintSectionByKey(section);
 }
 
-// ── API CALL ──
-async function callClaude(system, user) {
+function selectBlueprintSectionByKey(section) {
+  const bp = state.blueprint || defaultBlueprint;
+  const data = bp.structure[section] || { bars:4, chords:['Em','C','G','D'] };
+  const detail = document.getElementById('bp-section-detail');
+  if (!detail) return;
+  detail.innerHTML = `<div class="section-info fade-in">
+    <div class="section-bars">${data.bars} bars</div>
+    <div class="section-chords">
+      ${data.chords.map(c => `<div class="chord-pill">${escHtml(c)}</div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function selectTitle(title) {
+  state.currentProject = title;
+  document.getElementById('transport-name').textContent = title;
+  document.getElementById('ref-title').textContent = title;
+  showToast(`Title set: ${title}`);
+}
+
+// =========================================================
+// PIANO ROLL SVG
+// =========================================================
+function generatePianoRollSvg(height) {
+  const noteColors = ['#8b5cf6','#6c63ff','#f5c842','#8b5cf6','#f5c842','#6c63ff','#8b5cf6','#f5c842','#6c63ff','#8b5cf6'];
+  const notes = [
+    {x:4,  y:22, w:28},
+    {x:36, y:38, w:20},
+    {x:60, y:15, w:26},
+    {x:90, y:44, w:18},
+    {x:112,y:28, w:24},
+    {x:140,y:12, w:30},
+    {x:174,y:36, w:20},
+    {x:198,y:20, w:26},
+    {x:228,y:42, w:18},
+    {x:250,y:16, w:22}
+  ];
+  const vLines = [0,1,2,3].map(i => `<line x1="${i*69}" y1="0" x2="${i*69}" y2="${height}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`).join('');
+  const hLines = [0,1,2,3,4].map(i => `<line x1="0" y1="${i*(height/4)}" x2="276" y2="${i*(height/4)}" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>`).join('');
+  const rects = notes.map((n,i) => `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="10" rx="3" fill="${noteColors[i%noteColors.length]}" opacity="0.88"/>`).join('');
+  return `<svg width="100%" height="100%" viewBox="0 0 276 ${height}" preserveAspectRatio="none" style="position:absolute;inset:0">${hLines}${vLines}${rects}</svg>`;
+}
+
+// =========================================================
+// LYRICS RENDER
+// =========================================================
+function renderLyrics(lyricsObj) {
+  state.lyrics = lyricsObj;
+  const area = document.getElementById('lyrics-area');
+  const map  = { verse1:'Verse 1', preChorus:'Pre-Chorus', hook:'&#10022; Hook', bridge:'Bridge' };
+  let html = '';
+  Object.entries(lyricsObj).forEach(([key, text]) => {
+    if (!text) return;
+    html += `<div class="lyrics-section-title fade-in">${map[key] || key}</div>
+      <div class="lyrics-stanza fade-in">${textToHtml(text)}</div>`;
+  });
+  area.innerHTML = html || `<div class="empty-state"><div class="empty-icon">&#9834;</div><div class="empty-title">No lyrics yet</div></div>`;
+}
+
+// =========================================================
+// CLAUDE API
+// =========================================================
+async function callClaude(systemPrompt, userPrompt) {
+  const key = state.apiKey || localStorage.getItem('nova_writer_api_key');
+  if (!key) throw new Error('No API key set. Add your Claude API key in the sidebar.');
+
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      'x-api-key': state.apiKey,
+      'x-api-key': key,
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
       'anthropic-dangerous-direct-browser-access': 'true'
@@ -735,424 +1960,498 @@ async function callClaude(system, user) {
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 2048,
-      system,
-      messages: [{role:'user', content: user}]
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }]
     })
   });
-  if (!resp.ok) throw new Error(`API error ${resp.status}`);
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API error ${resp.status}`);
+  }
   const data = await resp.json();
   return data.content[0].text;
 }
 
-// ── LANGUAGE RULES ──
-function languageRules() {
-  const lang = state.language;
-  if (lang === 'Spanish') return 'Write all lyrics fully in Spanish with native Spanish-language rhythm, rhyme, slang, and emotional phrasing. Never translate word-for-word from English.';
-  if (lang === 'Spanglish') return `Write lyrics in natural Spanglish (${state.spanglishAmount} blend). Use Spanish for emotional punch lines and Spanish/English for memorable hook phrases. Hook language preference: ${state.hookLanguage}. Dialect/flavor: ${state.dialect}. Never use awkward direct translations — write like a real artist would speak.`;
-  if (lang === 'Bilingual') return 'Write verses in English and hook in Spanish, or vice versa. Keep each language natural and idiomatic.';
-  if (lang === 'Latin Crossover') return `Write in Latin Crossover style: English structure with Spanish phrases and rhythmic Latin phrasing. Dialect: ${state.dialect}. Hook in Spanish preferred. Energy: summer/club/romantic.`;
-  return 'Write all lyrics in English with natural, commercial phrasing.';
+// =========================================================
+// GENERATE SONG BLUEPRINT
+// =========================================================
+async function generateBlueprint() {
+  if (!state.apiKey) { showToast('Please set your API key first', 'error'); openApiModal(); return; }
+
+  const btn     = document.getElementById('gen-blueprint-btn');
+  const btnText = document.getElementById('gen-btn-text');
+  btn.disabled  = true;
+  btnText.innerHTML = '<span class="spinner"></span> Generating Blueprint...';
+
+  const systemPrompt = `You are an elite music producer and songwriter AI. Return ONLY valid JSON — no markdown fences, no explanation, no extra text.
+
+Required JSON structure:
+{
+  "titles": ["Title1","Title2","Title3"],
+  "concept": "One or two sentence creative concept",
+  "bpm": 96,
+  "key": "E",
+  "keyMode": "Minor",
+  "structure": {
+    "intro":     { "bars": 4,  "chords": ["Em","C","G","D"] },
+    "verse1":    { "bars": 8,  "chords": ["Em","C","G","D","Am","C","G","D"] },
+    "preChorus": { "bars": 4,  "chords": ["Am","C","D","Em"] },
+    "hook":      { "bars": 8,  "chords": ["C","G","D","Em","C","G","Am","D"] },
+    "bridge":    { "bars": 4,  "chords": ["Am","F","C","G"] },
+    "outro":     { "bars": 4,  "chords": ["Em","C","G","D"] }
+  },
+  "hookIdeas": [
+    "Hook concept 1 with brief explanation",
+    "Hook concept 2 with brief explanation",
+    "Hook concept 3 with brief explanation",
+    "Hook concept 4 with brief explanation",
+    "Hook concept 5 with brief explanation"
+  ]
 }
 
-// ── GENERATE BLUEPRINT ──
-async function generateBlueprint() {
-  if (!state.apiKey) { document.getElementById('apiModal').classList.remove('hidden'); return; }
-  const prompt = document.getElementById('promptInput').value.trim();
-  if (!prompt) { toast('Write a prompt first!'); return; }
+Chord names: standard notation (Em, C, G, Am, D, Bm, F, etc). Make them authentic to the genre and mood.`;
 
-  const btn = document.getElementById('generateBtn');
-  btn.classList.add('loading');
-  document.getElementById('generateBtnIcon').innerHTML = '<span class="spinner"></span>';
-  document.getElementById('generateBtnText').textContent = 'GENERATING...';
+  const userPrompt = `Generate a song blueprint for this idea:
+"${state.prompt}"
 
-  const system = `You are Nova Writer, an elite AI songwriting companion for professional artists and producers. Generate song blueprints in valid JSON only — no markdown, no extra text.`;
+Production settings:
+- Language: ${state.language}
+- Dialect / Flavor: ${state.dialect}
+- Spanglish Amount: ${state.spanglishAmount}
+- Hook Language: ${state.hookLanguage}
+- Genre: ${state.genre}
+- Mood: ${state.mood}
+- Target BPM: ${state.bpm}
+- Key: ${state.key} ${state.keyMode}
+- Energy Level: ${state.energy}/8
 
-  const user = `Generate a complete Song Blueprint for: "${prompt}"
+Return only valid JSON.`;
 
-Settings: Genre=${state.genre}, Mood=${state.mood}, BPM=${state.bpm}, Key=${state.key} ${state.keyMode}, Energy=${state.energy}/8
-Language rules: ${languageRules()}
+  try {
+    const text = await callClaude(systemPrompt, userPrompt);
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('No JSON found in response');
+    const bp = JSON.parse(match[0]);
+    renderBlueprint(bp);
+    updateTransportMeta();
+    showToast('Song blueprint generated!', 'success');
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+    console.error('Blueprint generation error:', e);
+  } finally {
+    btn.disabled = false;
+    btnText.innerHTML = '&#10022; Generate Song Blueprint';
+  }
+}
 
-Return ONLY valid JSON:
+// =========================================================
+// GENERATE LYRICS
+// =========================================================
+async function generateLyrics() {
+  if (!state.apiKey) { showToast('Please set your API key first', 'error'); openApiModal(); return; }
+
+  const btn     = document.getElementById('gen-lyrics-btn');
+  const btnText = document.getElementById('gen-lyrics-text');
+  btn.disabled  = true;
+  btnText.innerHTML = '<span class="spinner spinner-white"></span> Writing Lyrics...';
+
+  const bp = state.blueprint || defaultBlueprint;
+
+  const systemPrompt = `You are a world-class songwriter and lyricist AI. Write authentic, singable, emotionally resonant song lyrics. Return ONLY valid JSON — no markdown, no explanation.
+
+JSON structure (each value is a multiline string with \\n for line breaks):
 {
-  "titles": ["Title 1","Title 2","Title 3"],
-  "concept": "2-3 sentence concept",
-  "bpm": ${state.bpm},
-  "key": "${state.key} ${state.keyMode}",
-  "structure": {
-    "intro": {"bars":4,"chords":["Em","C","G","D"]},
-    "verse1": {"bars":8,"chords":["Em","C","G","D"]},
-    "preChorus": {"bars":4,"chords":["Am","C","D","Em"]},
-    "hook": {"bars":8,"chords":["C","G","D","Em"]},
-    "bridge": {"bars":4,"chords":["Am","G","C","D"]},
-    "outro": {"bars":4,"chords":["Em","C","G","D"]}
-  },
-  "hookIdeas": ["Hook idea 1","Hook idea 2","Hook idea 3","Hook idea 4","Hook idea 5"],
-  "songTitles": ["Title A","Title B","Title C","Title D","Title E"]
+  "verse1": "verse 1 lyrics (8 lines)",
+  "preChorus": "pre-chorus lyrics (4 lines)",
+  "hook": "hook/chorus lyrics (8 lines)",
+  "bridge": "bridge lyrics (4 lines)"
 }`;
 
-  try {
-    const raw = await callClaude(system, user);
-    const json = raw.replace(/```json|```/g,'').trim();
-    state.blueprint = JSON.parse(json);
-    renderBlueprint();
-    document.getElementById('genLyricsBtn').style.display = 'block';
-    document.getElementById('lyricsDisplay').innerHTML = '<div class="lyrics-placeholder">Click "Generate Lyrics" to write for this section.</div>';
-    toast('Song Blueprint generated!');
-  } catch(e) {
-    console.error(e);
-    toast('Generation failed. Check your API key.');
-  }
+  const userPrompt = `Write complete lyrics for this song:
 
-  btn.classList.remove('loading');
-  document.getElementById('generateBtnIcon').textContent = '✦';
-  document.getElementById('generateBtnText').innerHTML = 'GENERATE SONG<br/>BLUEPRINT';
-}
+Idea: "${state.prompt}"
+Concept: ${bp.concept || 'Summer Latin pop anthem'}
+Title: ${bp.titles ? bp.titles[0] : 'Sola Vibes'}
 
-// ── RENDER BLUEPRINT ──
-function renderBlueprint() {
-  const bp = state.blueprint;
-  if (!bp) return;
+Language settings:
+- Language: ${state.language}
+- Dialect: ${state.dialect}
+- Spanglish Amount: ${state.spanglishAmount}
+- Hook Language: ${state.hookLanguage}
+- Genre: ${state.genre}
+- Mood: ${state.mood}
+- Key: ${bp.key || state.key} ${bp.keyMode || state.keyMode}
+- BPM: ${bp.bpm || state.bpm}
 
-  const el = document.getElementById('blueprint');
-  el.classList.add('visible');
+Hook chord progression: ${(bp.structure.hook?.chords || ['C','G','D','Em']).join(' — ')}
 
-  // Titles
-  const titles = bp.titles || bp.songTitles || [];
-  document.getElementById('titleChips').innerHTML = titles.map((t,i) =>
-    `<div class="title-chip ${i===0?'active':''}" onclick="selectTitle(this,'${t.replace(/'/g,"\\'")}')">
-      ${escHtml(t)}</div>`).join('');
+Hook concepts to consider:
+${bp.hookIdeas ? bp.hookIdeas.slice(0,3).map((h,i) => `${i+1}. ${h}`).join('\n') : 'Write something original and catchy'}
 
-  // Concept
-  document.getElementById('conceptText').textContent = bp.concept || '';
-
-  // Structure tabs
-  const sections = [{k:'intro',l:'Intro'},{k:'verse1',l:'Verse 1'},{k:'preChorus',l:'Pre-Chorus'},
-    {k:'hook',l:'Hook'},{k:'bridge',l:'Bridge'},{k:'outro',l:'Outro'}];
-  document.getElementById('structTabs').innerHTML = sections.map((s,i) =>
-    `<div class="struct-tab ${i===3?'active':''}" onclick="selectSection(this,'${s.k}')">${s.l}</div>`).join('');
-
-  state.activeStructSection = 'hook';
-  renderStructInfo('hook');
-
-  // Chord prog grid
-  const rows = ['verse1','preChorus','hook','bridge'];
-  const labels = {verse1:'Verse',preChorus:'Pre',hook:'Hook',bridge:'Bridge'};
-  const progEl = document.getElementById('progGrid');
-  progEl.innerHTML = rows.map(row => {
-    const s = bp.structure?.[row] || {chords:['C','G','Am','F']};
-    const chords = s.chords || [];
-    return `<div class="prog-row">
-      <div class="prog-section-name">${labels[row]||row}</div>
-      ${chords.slice(0,4).map((c,i) =>
-        `<div class="prog-chord ${row==='hook'&&i===0?'active':''}">${escHtml(c)}</div>`).join('')}
-    </div>`;
-  }).join('');
-
-  // Hook ideas
-  document.getElementById('hookIdeas').innerHTML = (bp.hookIdeas||[]).map((h,i) =>
-    `<div class="hook-idea" onclick="useHookIdea(this,${i})">
-      <div class="hook-num">${i+1}</div>
-      <div class="hook-text">${escHtml(h)}</div>
-      <div class="hook-play">▶</div>
-    </div>`).join('');
-
-  // Piano roll
-  drawPianoRoll();
-
-  // Update transport
-  if (bp.key) {
-    document.getElementById('transportMeta').textContent = `${bp.key} · ${bp.bpm||state.bpm} BPM`;
-    document.querySelector('.rv-sub').textContent = `${bp.key} · ${bp.bpm||state.bpm} BPM`;
-  }
-  if (titles[0]) {
-    document.getElementById('rvTitle').textContent = `${titles[0].toUpperCase()} - HOOK`;
-    document.getElementById('transportTitle').textContent = titles[0];
-    state.currentProject = titles[0];
-    renderProjects();
-  }
-}
-
-function selectTitle(el, title) {
-  document.querySelectorAll('.title-chip').forEach(e=>e.classList.remove('active'));
-  el.classList.add('active');
-}
-
-function selectSection(el, key) {
-  document.querySelectorAll('.struct-tab').forEach(e=>e.classList.remove('active'));
-  el.classList.add('active');
-  state.activeStructSection = key;
-  renderStructInfo(key);
-}
-
-function renderStructInfo(key) {
-  const bp = state.blueprint;
-  if (!bp?.structure) return;
-  const s = bp.structure[key] || {bars:4,chords:['C','G','Am','F']};
-  document.getElementById('structInfo').innerHTML = `
-    <div class="struct-bars">${s.bars||4} BARS</div>
-    <div class="struct-chords">${(s.chords||[]).join(' | ')}</div>`;
-}
-
-function useHookIdea(el, idx) {
-  const bp = state.blueprint;
-  if (!bp?.hookIdeas) return;
-  toast(`Hook idea ${idx+1} selected`);
-}
-
-// ── PIANO ROLL ──
-function drawPianoRoll() {
-  const canvas = document.getElementById('pianoRoll');
-  canvas.width = canvas.offsetWidth || 600;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = 100;
-
-  ctx.fillStyle = '#0a091a';
-  ctx.fillRect(0,0,W,H);
-
-  // Grid lines
-  ctx.strokeStyle = 'rgba(139,92,246,0.12)';
-  for (let i=0;i<=4;i++) {
-    ctx.beginPath(); ctx.moveTo(i*W/4,0); ctx.lineTo(i*W/4,H); ctx.stroke();
-  }
-  for (let i=0;i<=4;i++) {
-    ctx.beginPath(); ctx.moveTo(0,i*H/4); ctx.lineTo(W,i*H/4); ctx.stroke();
-  }
-
-  // Notes — random but seeded-looking
-  const colors = ['#f5c842','#8b5cf6','#6c63ff','#a78bfa'];
-  const notes = [
-    {x:0.02,y:0.25,w:0.12,c:0},{x:0.16,y:0.45,w:0.08,c:1},{x:0.26,y:0.30,w:0.10,c:2},
-    {x:0.38,y:0.55,w:0.09,c:0},{x:0.49,y:0.20,w:0.11,c:3},{x:0.62,y:0.40,w:0.07,c:1},
-    {x:0.71,y:0.60,w:0.10,c:2},{x:0.83,y:0.35,w:0.12,c:0},{x:0.02,y:0.65,w:0.08,c:3},
-    {x:0.26,y:0.70,w:0.09,c:1},{x:0.49,y:0.75,w:0.08,c:0},{x:0.71,y:0.15,w:0.11,c:2}
-  ];
-  notes.forEach(n => {
-    ctx.fillStyle = colors[n.c] + 'cc';
-    const x = n.x*W, y = n.y*H, w = n.w*W, h = 10;
-    ctx.beginPath();
-    ctx.roundRect(x,y,w,h,3);
-    ctx.fill();
-  });
-}
-
-// ── GENERATE LYRICS ──
-async function generateLyrics() {
-  if (!state.apiKey) { document.getElementById('apiModal').classList.remove('hidden'); return; }
-  if (!state.blueprint) { toast('Generate a blueprint first!'); return; }
-
-  const btn = document.getElementById('genLyricsBtn');
-  btn.textContent = '⏳ Writing...';
-  btn.disabled = true;
-
-  const bp = state.blueprint;
-  const section = state.activeSection;
-  const sectionLabels = {verse1:'Verse 1',pre:'Pre-Chorus',hook:'Hook',verse2:'Verse 2',bridge:'Bridge'};
-  const chords = bp.structure?.[section]?.chords || bp.structure?.hook?.chords || ['C','G','Am','F'];
-
-  const system = `You are Nova Writer, an elite AI lyricist. Write only the requested lyrics — no explanations, no JSON, just the lyrics.`;
-  const user = `Write ${sectionLabels[section]||section} lyrics for this song:
-
-Title concept: ${bp.titles?.[0] || 'Untitled'}
-Concept: ${bp.concept}
-Chords: ${chords.join(' - ')}
-Key: ${bp.key}, BPM: ${bp.bpm}
-Genre: ${state.genre}, Mood: ${state.mood}
-
-Language rules: ${languageRules()}
-
-Write 4-8 lines that feel natural over these chords. Add the section name in parentheses at the top.`;
+Write singable, authentic lyrics. Return only valid JSON.`;
 
   try {
-    const lyrics = await callClaude(system, user);
-    state.lyrics = state.lyrics || {};
-    state.lyrics[section] = lyrics;
-    renderLyricsPanel();
-    toast('Lyrics generated!');
-  } catch(e) {
-    toast('Lyrics generation failed.');
+    const text = await callClaude(systemPrompt, userPrompt);
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('No JSON found in response');
+    const lyrics = JSON.parse(match[0]);
+    renderLyrics(lyrics);
+    showToast('Lyrics generated!', 'success');
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+    console.error('Lyrics generation error:', e);
+  } finally {
+    btn.disabled = false;
+    btnText.innerHTML = '&#10022; Generate Lyrics';
   }
-
-  btn.textContent = '✦ Generate Lyrics';
-  btn.disabled = false;
 }
 
-function renderLyricsPanel() {
-  const display = document.getElementById('lyricsDisplay');
-  const lyrics = state.lyrics?.[state.activeSection];
-  if (!lyrics) {
-    const hasBp = !!state.blueprint;
-    display.innerHTML = hasBp
-      ? '<div class="lyrics-placeholder">Click "Generate Lyrics" to write for this section.</div>'
-      : '<div class="lyrics-placeholder">Generate a Song Blueprint first, then click "Generate Lyrics".</div>';
-    return;
-  }
-  // Highlight some words
-  const highlighted = lyrics.replace(/(playa|amor|sol|noche|corazón|verano|baby|yeah|hey)/gi,
-    '<span class="highlight">$1</span>');
-  display.innerHTML = `<div class="lyrics-text">${highlighted}</div>`;
-}
+// =========================================================
+// AI TOOLS
+// =========================================================
+async function runAiTool(instruction) {
+  if (!state.apiKey) { showToast('Please set your API key first', 'error'); openApiModal(); return; }
 
-// ── AI TOOLS ──
-async function aiTool(instruction) {
-  if (!state.apiKey) { document.getElementById('apiModal').classList.remove('hidden'); return; }
-  const current = state.lyrics?.[state.activeSection];
-  if (!current) { toast('Generate lyrics first!'); return; }
+  const lyrics = state.lyrics || defaultLyrics;
+  const allBtns = document.querySelectorAll('.ai-tool-btn');
+  allBtns.forEach(b => b.disabled = true);
 
-  toast('Rewriting...');
-  const system = 'You are Nova Writer, an elite AI lyricist. Return only the rewritten lyrics, no explanations.';
-  const user = `${instruction}\n\nCurrent lyrics:\n${current}\n\nLanguage rules: ${languageRules()}`;
+  const area = document.getElementById('lyrics-area');
+  const prevContent = area.innerHTML;
+
+  area.innerHTML = `<div class="empty-state">
+    <div class="spinner spinner-gold" style="width:28px;height:28px;border-width:3px"></div>
+    <div class="empty-title" style="margin-top:14px">Rewriting...</div>
+    <div class="empty-sub" style="color:var(--text-muted)">${escHtml(instruction)}</div>
+  </div>`;
+
+  const systemPrompt = `You are a world-class songwriter AI. You improve song lyrics based on specific instructions. Return ONLY valid JSON — no markdown, no explanation.
+
+Return the same structure as input:
+{
+  "verse1": "updated verse 1",
+  "preChorus": "updated pre-chorus",
+  "hook": "updated hook",
+  "bridge": "updated bridge"
+}`;
+
+  const userPrompt = `Current song lyrics:
+${JSON.stringify(lyrics, null, 2)}
+
+Song context:
+- Genre: ${state.genre}
+- Language setting: ${state.language}
+- Mood: ${state.mood}
+
+Instruction: ${instruction}
+
+Apply the instruction while maintaining the song's identity, overall theme, and singability. Return only valid JSON.`;
 
   try {
-    const result = await callClaude(system, user);
-    state.lyrics = state.lyrics || {};
-    state.lyrics[state.activeSection] = result;
-    renderLyricsPanel();
-    toast('Done!');
-  } catch(e) { toast('Failed. Try again.'); }
+    const text = await callClaude(systemPrompt, userPrompt);
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('No JSON in response');
+    const newLyrics = JSON.parse(match[0]);
+    renderLyrics(newLyrics);
+    showToast('Lyrics updated!', 'success');
+  } catch (e) {
+    area.innerHTML = prevContent;
+    showToast('Error: ' + e.message, 'error');
+    console.error('AI tool error:', e);
+  } finally {
+    allBtns.forEach(b => b.disabled = false);
+  }
 }
 
-// ── WAVEFORM ──
-function generateWaveform() {
-  const svg = document.getElementById('waveformSvg');
-  const W = 300, H = 36, mid = H/2;
-  let path = `M0,${mid}`;
-  for (let x=0;x<=W;x+=4) {
-    const amp = (Math.sin(x*0.15)*0.4 + Math.sin(x*0.07)*0.3 + Math.sin(x*0.31)*0.2 + Math.random()*0.1) * mid * 0.85;
-    path += ` L${x},${mid - Math.abs(amp)}`;
-  }
-  for (let x=W;x>=0;x-=4) {
-    const amp = (Math.sin(x*0.15)*0.4 + Math.sin(x*0.07)*0.3 + Math.sin(x*0.31)*0.2 + Math.random()*0.1) * mid * 0.85;
-    path += ` L${x},${mid + Math.abs(amp)}`;
-  }
-  svg.innerHTML = `<path d="${path}" fill="rgba(108,99,255,0.35)" stroke="rgba(139,92,246,0.7)" stroke-width="0.8"/>`;
-}
-
-// ── PLAYBACK ──
-let playTimer = null;
-let playProgress = 0;
+// =========================================================
+// TRANSPORT
+// =========================================================
 function togglePlay() {
   state.isPlaying = !state.isPlaying;
-  const icon = `<path d="${state.isPlaying ? 'M3 2h3v10H3zM8 2h3v10H8z' : 'M3 2l9 5-9 5V2z'}"/>`;
-  document.getElementById('playIcon').innerHTML = icon;
-  document.getElementById('tPlayIcon').innerHTML = icon;
-
+  const btn = document.getElementById('transport-play-btn');
   if (state.isPlaying) {
-    playTimer = setInterval(() => {
-      playProgress = Math.min(1, playProgress + 0.003);
-      document.getElementById('progressFill').style.width = (playProgress*100) + '%';
-      if (playProgress >= 1) { playProgress = 0; togglePlay(); }
-    }, 100);
+    btn.innerHTML = '&#9646;&#9646;';
+    btn.classList.add('playing');
+    startProgress();
   } else {
-    clearInterval(playTimer);
+    btn.innerHTML = '&#9654;';
+    btn.classList.remove('playing');
+    stopProgress();
   }
 }
 
-function seekTo(e) {
-  const bar = e.currentTarget;
-  playProgress = e.offsetX / bar.offsetWidth;
-  document.getElementById('progressFill').style.width = (playProgress*100) + '%';
-}
-
-// ── EXPORT ──
-function exportMidi(type) {
-  // Build minimal MIDI file bytes
-  const midi = buildMidiFile(type);
-  const blob = new Blob([midi], {type:'audio/midi'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `nova-writer-${type}.mid`; a.click();
-  URL.revokeObjectURL(url);
-  toast(`${type} MIDI exported!`);
-}
-
-function buildMidiFile(type) {
-  // Minimal standard MIDI file (format 0)
-  const header = [0x4D,0x54,0x68,0x64,0,0,0,6,0,0,0,1,0,0x60]; // 96 ppq
-  const trackHeader = [0x4D,0x54,0x72,0x6B];
-  const bp = state.blueprint;
-  const chords = bp?.structure?.hook?.chords || ['C','G','Am','F'];
-  const noteMap = {C:60,'C#':61,D:62,'D#':63,E:64,F:65,'F#':66,G:67,'G#':68,A:69,'A#':70,B:71};
-  const events = [];
-  const ppq = 96;
-
-  if (type === 'chords') {
-    chords.forEach((chord,ci) => {
-      const root = noteMap[chord.replace('m','').replace('7','').replace('maj','').replace('sus','').replace(/\d/,'')] || 60;
-      const notes = chord.includes('m') && !chord.includes('maj') ? [root,root+3,root+7] : [root,root+4,root+7];
-      notes.forEach(n => events.push({t:ci*ppq*2, type:0x90, note:Math.min(n,127), vel:80}));
-      notes.forEach(n => events.push({t:ci*ppq*2+ppq*2-1, type:0x80, note:Math.min(n,127), vel:0}));
-    });
-  } else {
-    // Simple melody
-    const scale = [60,62,64,65,67,69,71,72];
-    for (let i=0;i<16;i++) {
-      const n = scale[Math.floor(Math.random()*scale.length)];
-      events.push({t:i*ppq/2, type:0x90, note:n, vel:70});
-      events.push({t:i*ppq/2+ppq/2-1, type:0x80, note:n, vel:0});
+function startProgress() {
+  stopProgress();
+  state.progressInterval = setInterval(() => {
+    state.progressSeconds++;
+    if (state.progressSeconds >= state.totalSeconds) {
+      state.progressSeconds = 0;
     }
+    updateProgressDisplay();
+  }, 1000);
+}
+
+function stopProgress() {
+  if (state.progressInterval) {
+    clearInterval(state.progressInterval);
+    state.progressInterval = null;
   }
+}
 
-  events.sort((a,b)=>a.t-b.t);
-  const trackData = [];
-  let lastT = 0;
-  events.forEach(ev => {
-    const dt = ev.t - lastT; lastT = ev.t;
-    trackData.push(...encodeVarLen(dt), ev.type, ev.note, ev.vel);
+function updateProgressDisplay() {
+  const pct = (state.progressSeconds / state.totalSeconds) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-time').textContent = formatTime(state.progressSeconds);
+}
+
+function seekProgress(e) {
+  const bar  = document.getElementById('progress-bar');
+  const rect = bar.getBoundingClientRect();
+  const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  state.progressSeconds = Math.floor(pct * state.totalSeconds);
+  updateProgressDisplay();
+}
+
+function skipBack() {
+  state.progressSeconds = 0;
+  updateProgressDisplay();
+}
+
+function skipForward() {
+  state.progressSeconds = Math.min(state.totalSeconds - 1, state.progressSeconds + 15);
+  updateProgressDisplay();
+}
+
+function toggleHeart() {
+  state.heartActive = !state.heartActive;
+  const btn = document.getElementById('heart-btn');
+  btn.innerHTML = state.heartActive ? '&#9829;' : '&#9825;';
+  btn.classList.toggle('active', state.heartActive);
+}
+
+function toggleRefPlay() {
+  state.refPlaying = !state.refPlaying;
+  const btn = document.getElementById('ref-play-btn');
+  btn.innerHTML = state.refPlaying ? '&#9646;&#9646;' : '&#9654;';
+}
+
+function updateTransportMeta() {
+  document.getElementById('transport-meta').textContent = `${state.key} ${state.keyMode} · ${state.bpm} BPM`;
+  document.getElementById('transport-name').textContent = state.currentProject;
+}
+
+function formatTime(secs) {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+// =========================================================
+// NEW SONG
+// =========================================================
+function newSong() {
+  const name = prompt('Enter song name:', 'Untitled Song');
+  if (!name || !name.trim()) return;
+  const clean = name.trim();
+
+  state.currentProject = clean;
+  state.blueprint = null;
+  state.lyrics    = null;
+  state.progressSeconds = 0;
+  updateProgressDisplay();
+
+  const ta = document.getElementById('prompt-textarea');
+  ta.value = '';
+  state.prompt = '';
+  updateCharCount(ta);
+
+  document.getElementById('blueprint-body').innerHTML = `<div class="empty-state"><div class="empty-icon">&#10022;</div><div class="empty-title">Blueprint Ready</div><div class="empty-sub">Enter your idea above and click Generate Song Blueprint.</div></div>`;
+  document.getElementById('lyrics-area').innerHTML = `<div class="empty-state"><div class="empty-icon">&#9834;</div><div class="empty-title">Writer Room</div><div class="empty-sub">Generate a blueprint first, then click Generate Lyrics.</div></div>`;
+
+  updateTransportMeta();
+  document.getElementById('ref-title').textContent = clean;
+
+  state.projects.unshift({ name: clean, date: 'Just now' });
+  if (state.projects.length > 8) state.projects.pop();
+  initRecentList();
+
+  showToast(`New song created: ${clean}`, 'success');
+}
+
+// =========================================================
+// EXPORT FUNCTIONS
+// =========================================================
+function exportLyricsPdf() {
+  const lyrics = state.lyrics || defaultLyrics;
+  const sectionNames = { verse1:'VERSE 1', preChorus:'PRE-CHORUS', hook:'HOOK', bridge:'BRIDGE' };
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>${state.currentProject} — Lyrics</title>
+  <style>
+    body{font-family:Georgia,serif;padding:48px;color:#111;max-width:600px;margin:0 auto}
+    h1{font-size:26px;margin-bottom:4px}
+    .meta{color:#666;font-size:13px;margin-bottom:32px}
+    h3{font-size:11px;letter-spacing:0.2em;color:#444;margin-top:28px;margin-bottom:10px;text-transform:uppercase}
+    p{line-height:2;font-size:15px;white-space:pre-wrap}
+    @media print{body{padding:20px}}
+  </style></head><body>
+  <h1>${escHtml(state.currentProject)}</h1>
+  <div class="meta">${state.key} ${state.keyMode} &middot; ${state.bpm} BPM &middot; ${state.genre}</div>
+  ${Object.entries(lyrics).map(([k,v]) => v ? `<h3>${sectionNames[k]||k}</h3><p>${escHtml(v)}</p>` : '').join('')}
+  <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
+function exportChordsMidi() {
+  const bp     = state.blueprint || defaultBlueprint;
+  const chords = bp.structure.hook?.chords || ['Em','C','G','D'];
+  try {
+    const midi = generateMidiChords(chords);
+    downloadBuffer(midi, `${sanitizeFilename(state.currentProject)}_Chords.mid`, 'audio/midi');
+    showToast('Chords MIDI exported!', 'success');
+  } catch(e) {
+    showToast('MIDI export error: ' + e.message, 'error');
+  }
+}
+
+function exportMelodyMidi() {
+  try {
+    const midi = generateMidiMelody();
+    downloadBuffer(midi, `${sanitizeFilename(state.currentProject)}_Melody.mid`, 'audio/midi');
+    showToast('Melody MIDI exported!', 'success');
+  } catch(e) {
+    showToast('MIDI export error: ' + e.message, 'error');
+  }
+}
+
+function exportDemoWav() {
+  showToast('Reference vocal WAV export coming in Phase 2');
+}
+
+// =========================================================
+// MIDI GENERATION
+// =========================================================
+const noteMap = {
+  'C':60,'C#':61,'Db':61,'D':62,'D#':63,'Eb':63,
+  'E':64,'F':65,'F#':66,'Gb':66,'G':67,'G#':68,
+  'Ab':68,'A':69,'A#':70,'Bb':70,'B':71
+};
+
+function chordToNotes(chord) {
+  const isMinor = /m$/.test(chord) && !/maj/.test(chord);
+  const root = chord.replace(/m$|maj.*$/,'');
+  const r = noteMap[root] || 60;
+  return isMinor ? [r, r+3, r+7] : [r, r+4, r+7];
+}
+
+function encodeVarLen(val) {
+  if (val < 128) return [val & 0x7F];
+  const bytes = [];
+  let v = val;
+  bytes.unshift(v & 0x7F);
+  v >>= 7;
+  while (v > 0) { bytes.unshift((v & 0x7F) | 0x80); v >>= 7; }
+  return bytes;
+}
+
+function int32(n) {
+  return [(n>>24)&0xFF,(n>>16)&0xFF,(n>>8)&0xFF,n&0xFF];
+}
+
+function buildMidi(track) {
+  const TICKS_PER_BEAT = 96;
+  const header = [0x4D,0x54,0x68,0x64, 0,0,0,6, 0,0, 0,1, 0,TICKS_PER_BEAT];
+  const trackHeader = [0x4D,0x54,0x72,0x6B, ...int32(track.length)];
+  return new Uint8Array([...header, ...trackHeader, ...track]).buffer;
+}
+
+function generateMidiChords(chords) {
+  const BEAT = 96;
+  let track = [];
+  const push = (delta, ...bytes) => { track.push(...encodeVarLen(delta), ...bytes); };
+
+  // Tempo: 120bpm = 500000 microseconds
+  push(0, 0xFF,0x51,0x03, 0x07,0xA1,0x20);
+
+  chords.forEach(chord => {
+    const notes = chordToNotes(chord);
+    notes.forEach((n,i) => push(i===0?0:0, 0x90, n, 80));
+    push(BEAT*2, 0x80, notes[0], 0);
+    notes.slice(1).forEach(n => push(0, 0x80, n, 0));
   });
-  trackData.push(0,0xFF,0x2F,0); // end of track
 
-  const trackLen = [0,0,0,0];
-  trackLen[0] = (trackData.length >> 24) & 0xFF;
-  trackLen[1] = (trackData.length >> 16) & 0xFF;
-  trackLen[2] = (trackData.length >> 8) & 0xFF;
-  trackLen[3] = trackData.length & 0xFF;
-
-  return new Uint8Array([...header, ...trackHeader, ...trackLen, ...trackData]);
+  push(0, 0xFF,0x2F,0x00); // End of track
+  return buildMidi(track);
 }
 
-function encodeVarLen(n) {
-  if (n < 0x80) return [n];
-  if (n < 0x4000) return [0x80|(n>>7), n&0x7F];
-  return [0x80|(n>>14), 0x80|((n>>7)&0x7F), n&0x7F];
+function generateMidiMelody() {
+  // E minor pentatonic melody
+  const melody = [64,67,69,71,72,71,69,67,64,62,64,67,69,64,62,60];
+  const BEAT = 96;
+  let track = [];
+  const push = (delta, ...bytes) => { track.push(...encodeVarLen(delta), ...bytes); };
+
+  push(0, 0xFF,0x51,0x03, 0x07,0xA1,0x20);
+
+  melody.forEach(n => {
+    push(0, 0x90, n, 90);
+    push(BEAT/2, 0x80, n, 0);
+  });
+
+  push(0, 0xFF,0x2F,0x00);
+  return buildMidi(track);
 }
 
-function exportLyrics() {
-  const all = state.lyrics;
-  if (!all) { toast('Generate lyrics first!'); return; }
-  const bp = state.blueprint;
-  const title = bp?.titles?.[0] || state.currentProject;
-  const content = Object.entries(all).map(([sec,lyr]) => `\n${lyr}`).join('\n\n');
-  const win = window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
-    <style>body{font-family:Georgia,serif;max-width:600px;margin:60px auto;line-height:2;color:#111}
-    h1{font-size:24px;margin-bottom:4px}h2{font-size:14px;color:#666;font-weight:normal;margin-bottom:40px}
-    pre{white-space:pre-wrap;font-family:Georgia,serif;font-size:15px}</style></head>
-    <body><h1>${escHtml(title)}</h1><h2>${bp?.key||''} · ${bp?.bpm||''}BPM · ${state.genre}</h2>
-    <pre>${escHtml(content)}</pre></body></html>`);
-  win.print();
-  toast('Lyrics PDF opened!');
+function downloadBuffer(buffer, filename, mimeType) {
+  const blob = new Blob([buffer], { type: mimeType });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function exportDemo() {
-  toast('Reference vocal export coming in Phase 2 — stay tuned!');
+// =========================================================
+// HELPERS
+// =========================================================
+function escHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
 }
 
-// ── UTILS ──
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function escAttr(str) {
+  return String(str || '').replace(/'/g,"\\'");
 }
 
-function toast(msg) {
+function textToHtml(str) {
+  if (!str) return '';
+  return escHtml(str).replace(/\n/g,'<br>');
+}
+
+function sanitizeFilename(str) {
+  return String(str || 'Nova_Song').replace(/[^a-zA-Z0-9_\- ]/g,'').replace(/\s+/g,'_');
+}
+
+// =========================================================
+// TOAST
+// =========================================================
+let toastTimer = null;
+function showToast(msg, type = '') {
   const el = document.getElementById('toast');
   el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'), 3000);
+  el.className   = 'show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3200);
 }
-
-// Resize piano roll on window resize
-window.addEventListener('resize', () => {
-  if (state.blueprint) drawPianoRoll();
-});
 </script>
 </body>
 </html>
