@@ -506,9 +506,11 @@ void MainComponent::popOutMixer()
                 juce::ignoreUnused(w);
                 redockMixer();
             });
-        auto mainBounds = getTopLevelComponent()->getBounds();
-        floatingMixer->setBounds(mainBounds.getX(), mainBounds.getBottom() + 4,
-                                 juce::jmax(900, mainBounds.getWidth()), 900);
+        const auto screen = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userArea;
+        const int w = juce::jlimit(900, screen.getWidth(),  juce::jmax(900, getTopLevelComponent()->getWidth()));
+        const int h = juce::jlimit(500, screen.getHeight(), 820);
+        floatingMixer->setSize(w, h);
+        floatingMixer->centreWithSize(w, h);
         floatingMixer->setResizable(true, false);
         floatingMixer->addKeyListener(this); // forward shortcuts to MainComponent
     }
@@ -533,9 +535,11 @@ void MainComponent::popOutBeat()
                 juce::ignoreUnused(w);
                 redockBeat();
             });
-        auto mainBounds = getTopLevelComponent()->getBounds();
-        floatingBeat->setBounds(mainBounds.getX(), mainBounds.getBottom() + 4,
-                                juce::jmax(800, mainBounds.getWidth()), 700);
+        const auto screen = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userArea;
+        const int w = juce::jlimit(800, screen.getWidth(),  juce::jmax(800, getTopLevelComponent()->getWidth()));
+        const int h = juce::jlimit(500, screen.getHeight(), 700);
+        floatingBeat->setSize(w, h);
+        floatingBeat->centreWithSize(w, h);
         floatingBeat->setResizable(true, false);
         floatingBeat->addKeyListener(this);
     }
