@@ -358,12 +358,19 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         if (smoothedDetectedHz > 0.0f)
         {
-            // Adaptive smoothing: faster on large pitch jumps (new note),
-            // slower on small deviations (vibrato/drift) — like MetaTune's detector
             float semiDist = std::abs (hzToMidiF (detectedHz) - hzToMidiF (smoothedDetectedHz));
-            float alpha = (semiDist > 2.0f) ? 0.55f   // big jump → snap quickly to new note
-                        : (semiDist > 0.5f) ? 0.25f   // moderate → track moderately
-                                            : 0.10f;  // small wobble → smooth it out
+
+            // Reject octave-confusion jumps — YIN often returns 2x/0.5x the true pitch.
+            // If the new detection is near an octave multiple, keep tracking slowly.
+            float hzRatio = detectedHz / (smoothedDetectedHz + 1e-9f);
+            bool octaveJump = (hzRatio > 1.88f && hzRatio < 2.12f)
+                           || (hzRatio > 0.47f && hzRatio < 0.53f);
+
+            float alpha = octaveJump    ? 0.02f   // probably a YIN alias — barely move
+                        : semiDist > 2.0f ? 0.15f // genuine new note — track moderately
+                        : semiDist > 0.5f ? 0.08f // moderate deviation — follow slowly
+                                          : 0.04f; // micro-wobble — barely move
+
             smoothedDetectedHz = alpha * detectedHz + (1.0f - alpha) * smoothedDetectedHz;
         }
         else
@@ -420,9 +427,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
             float targetRatio = 1.0f + (fullRatio - 1.0f) * bandScale;
 
-            // Exponential smoothing — amount controls speed (MetaTune feel)
-            // amount=0 → α≈0.005 (slow glide), amount=1 → α=0.7 (fast, near-instant)
-            float alpha = 0.005f + amount * amount * 0.695f;
+            // Exponential smoothing — amount controls speed (MetaTune feel).
+            // Cap alpha at 0.12 so the phase vocoder never sees a ratio jump > ~12% per block.
+            // amount=0 → α=0.005 (very slow glide), amount=1 → α=0.12 (fast but smooth)
+            float alpha = 0.005f + amount * amount * 0.115f;
             pitchRatioSmoothed += (targetRatio - pitchRatioSmoothed) * alpha;
         }
 
