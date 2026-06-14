@@ -74,12 +74,34 @@ namespace NovaStudioUI
         void paint(juce::Graphics& g) override;
         void resized() override;
         void mouseDown(const juce::MouseEvent& e) override;
+        void mouseDrag(const juce::MouseEvent& e) override;
+        void mouseUp(const juce::MouseEvent& e) override;
+
+        // Set the current pattern name/color that gets stamped on click
+        void setActivePattern(const juce::String& name, juce::Colour colour)
+            { activeName = name; activeColour = colour; }
 
     private:
         struct PatternBlock { int lane, startBar, lengthBars; juce::Colour colour; juce::String name; };
         juce::Array<PatternBlock> blocks;
-        int numBars = 16;
+        int numBars      = 32;
         int selectedLane = -1;
+
+        juce::String activeName   { "Pattern 1" };
+        juce::Colour activeColour { juce::Colour::fromRGB(80, 100, 255) };
+
+        // Drag state
+        int  dragBlockIdx   = -1;
+        int  dragOffsetBars = 0;
+
+        // Hit-test helpers
+        static constexpr int kHeaderH = 20;
+        static constexpr int kLaneH   = 28;
+        static constexpr int kLabelW  = 50;
+        static constexpr int kNumLanes = 4;
+
+        int  blockAtPoint(int x, int y) const;
+        void laneBarFromPoint(int x, int y, int& lane, int& bar) const;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PatternPlaylist)
     };
@@ -558,6 +580,9 @@ namespace NovaStudioUI
         std::function<void()>    onReturnToZero;
         std::function<void(int)> onTempoChanged;
 
+        // PAT = loop step sequencer, SONG = play full arrangement
+        bool isPatMode() const { return patMode; }
+
         // Update displayed transport state
         void setPlayState(bool playing, bool recording);
         void setTimecode(const juce::String& tc);
@@ -572,6 +597,7 @@ namespace NovaStudioUI
         BrowserPanel       browser;
         PatternPlaylist    playlist;
         StepSequencerView  stepSeq;
+        bool               patMode = true;  // PAT=true, SONG=false
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatWindow)
     };

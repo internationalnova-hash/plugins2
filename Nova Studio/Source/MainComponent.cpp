@@ -85,6 +85,9 @@ MainComponent::MainComponent()
 
     // Beat window transport wiring
     beatWindow->onPlay = [this]() {
+        // PAT mode: always loop from position 0
+        if (beatWindow && beatWindow->isPatMode())
+            transportState.setPositionSamples(0, true);
         engine.play();
         workspaceToolbar.setPlayState(true, engine.isRecording());
         if (beatWindow) beatWindow->setPlayState(true, engine.isRecording());

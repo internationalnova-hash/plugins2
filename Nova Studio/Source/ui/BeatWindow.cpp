@@ -120,28 +120,48 @@ void BeatBrowser::ContentModel::paintListBoxItem(int row, juce::Graphics& g,
 
 PatternPlaylist::PatternPlaylist()
 {
-    blocks.add({ 0, 0, 4, juce::Colour::fromRGB(80,100,255), "Pattern A" });
-    blocks.add({ 0, 5, 2, juce::Colour::fromRGB(90,60,200),  "Pattern B" });
-    blocks.add({ 1, 0, 8, juce::Colour::fromRGB(60,160,255), "Loop 1"    });
-    blocks.add({ 2, 2, 4, juce::Colour::fromRGB(255,100,60), "Perc"      });
+    setMouseCursor(juce::MouseCursor::PointingHandCursor);
+}
+
+int PatternPlaylist::blockAtPoint(int x, int y) const
+{
+    if (y < kHeaderH) return -1;
+    int lane = (y - kHeaderH) / kLaneH;
+    if (lane < 0 || lane >= kNumLanes) return -1;
+    int barW = juce::jmax(1, (getWidth() - kLabelW) / numBars);
+    int bar  = (x - kLabelW) / barW;
+
+    for (int i = 0; i < blocks.size(); ++i)
+    {
+        const auto& blk = blocks.getReference(i);
+        if (blk.lane == lane && bar >= blk.startBar && bar < blk.startBar + blk.lengthBars)
+            return i;
+    }
+    return -1;
+}
+
+void PatternPlaylist::laneBarFromPoint(int x, int y, int& lane, int& bar) const
+{
+    lane = (y - kHeaderH) / kLaneH;
+    int barW = juce::jmax(1, (getWidth() - kLabelW) / numBars);
+    bar  = (x - kLabelW) / barW;
+    lane = juce::jlimit(0, kNumLanes - 1, lane);
+    bar  = juce::jlimit(0, numBars - 1, bar);
 }
 
 void PatternPlaylist::paint(juce::Graphics& g)
 {
     g.fillAll(BeatTheme::bg());
 
-    const int headerH = 20;
-    const int laneH   = 28;
-    const int numLanes = 4;
-    int barW = juce::jmax(1, (getWidth() - 50) / numBars);
+    int barW = juce::jmax(1, (getWidth() - kLabelW) / numBars);
 
+    // Header row
     g.setColour(BeatTheme::panel());
-    g.fillRect(0, 0, getWidth(), headerH);
-
+    g.fillRect(0, 0, getWidth(), kHeaderH);
     g.setFont(juce::FontOptions(10.0f));
     for (int b = 0; b < numBars; ++b)
     {
-        int x = 50 + b * barW;
+        int x = kLabelW + b * barW;
         g.setColour((b % 4 == 0) ? BeatTheme::gridBeat() : BeatTheme::grid());
         g.drawVerticalLine(x, 0.0f, (float)getHeight());
         if (b % 4 == 0)
@@ -151,29 +171,42 @@ void PatternPlaylist::paint(juce::Graphics& g)
         }
     }
 
+    // Lane rows
     const char* laneNames[] = { "Drums", "Bass", "Lead", "FX" };
-    for (int ln = 0; ln < numLanes; ++ln)
+    for (int ln = 0; ln < kNumLanes; ++ln)
     {
-        int y = headerH + ln * laneH;
-        g.setColour(ln == selectedLane ? BeatTheme::panel().brighter(0.05f) : BeatTheme::panel());
-        g.fillRect(0, y, 50, laneH);
+        int y = kHeaderH + ln * kLaneH;
+        g.setColour(ln == selectedLane ? BeatTheme::panel().brighter(0.08f) : BeatTheme::panel());
+        g.fillRect(0, y, kLabelW, kLaneH);
         g.setColour(BeatTheme::edge());
-        g.drawRect(0, y, 50, laneH, 1);
+        g.drawRect(0, y, kLabelW, kLaneH, 1);
         g.setColour(juce::Colours::white.withAlpha(0.6f));
         g.setFont(juce::FontOptions(10.0f));
-        g.drawText(laneNames[ln], 4, y, 44, laneH, juce::Justification::centredLeft);
+        g.drawText(laneNames[ln], 4, y, kLabelW - 4, kLaneH, juce::Justification::centredLeft);
 
-        g.setColour(BeatTheme::stepOff().withAlpha(0.4f));
-        g.fillRect(50, y, getWidth() - 50, laneH);
+        g.setColour(BeatTheme::stepOff().withAlpha(0.35f));
+        g.fillRect(kLabelW, y, getWidth() - kLabelW, kLaneH);
+
+        // Beat grid lines within lane
+        for (int b = 0; b < numBars; ++b)
+        {
+            if (b % 4 == 0)
+            {
+                g.setColour(BeatTheme::gridBeat());
+                g.drawVerticalLine(kLabelW + b * barW, (float)y, (float)(y + kLaneH));
+            }
+        }
     }
 
-    for (auto& blk : blocks)
+    // Pattern blocks
+    for (int i = 0; i < blocks.size(); ++i)
     {
-        int x = 50 + blk.startBar * barW;
-        int y = headerH + blk.lane * laneH;
+        const auto& blk = blocks.getReference(i);
+        int x = kLabelW + blk.startBar * barW;
+        int y = kHeaderH + blk.lane * kLaneH;
         int w = blk.lengthBars * barW - 2;
-        auto r = juce::Rectangle<int>(x, y + 2, w, laneH - 4);
-        g.setColour(blk.colour.withAlpha(0.7f));
+        auto r = juce::Rectangle<int>(x, y + 2, w, kLaneH - 4);
+        g.setColour(blk.colour.withAlpha(i == dragBlockIdx ? 0.9f : 0.7f));
         g.fillRoundedRectangle(r.toFloat(), 3.0f);
         g.setColour(blk.colour.brighter(0.3f));
         g.drawRoundedRectangle(r.toFloat(), 3.0f, 1.0f);
@@ -190,11 +223,54 @@ void PatternPlaylist::resized() {}
 
 void PatternPlaylist::mouseDown(const juce::MouseEvent& e)
 {
-    const int headerH = 20;
-    const int laneH   = 28;
-    int lane = (e.y - headerH) / laneH;
-    if (lane >= 0 && lane < 4)
-        selectedLane = lane;
+    if (e.y < kHeaderH) return;
+
+    int lane, bar;
+    laneBarFromPoint(e.x, e.y, lane, bar);
+    selectedLane = lane;
+
+    int hit = blockAtPoint(e.x, e.y);
+
+    if (e.mods.isRightButtonDown())
+    {
+        // Right-click: erase block
+        if (hit >= 0)
+            blocks.remove(hit);
+        repaint();
+        return;
+    }
+
+    if (hit >= 0)
+    {
+        // Start dragging existing block
+        dragBlockIdx   = hit;
+        int barW = juce::jmax(1, (getWidth() - kLabelW) / numBars);
+        dragOffsetBars = bar - blocks.getReference(hit).startBar;
+    }
+    else
+    {
+        // Stamp a new 4-bar block at click position
+        blocks.add({ lane, bar, 4, activeColour, activeName });
+        dragBlockIdx   = blocks.size() - 1;
+        dragOffsetBars = 0;
+    }
+    repaint();
+}
+
+void PatternPlaylist::mouseDrag(const juce::MouseEvent& e)
+{
+    if (dragBlockIdx < 0 || dragBlockIdx >= blocks.size()) return;
+    int lane, bar;
+    laneBarFromPoint(e.x, e.y, lane, bar);
+    auto& blk = blocks.getReference(dragBlockIdx);
+    blk.startBar = juce::jmax(0, bar - dragOffsetBars);
+    blk.lane     = lane;
+    repaint();
+}
+
+void PatternPlaylist::mouseUp(const juce::MouseEvent&)
+{
+    dragBlockIdx = -1;
     repaint();
 }
 
@@ -832,6 +908,17 @@ void StepSequencerView::paintStepGrid(juce::Graphics& g, juce::Rectangle<int> r)
                 g.fillRoundedRectangle(cellR, 3.0f);
                 g.setColour(ch.colour.brighter(0.4f).withAlpha(0.6f));
                 g.drawRoundedRectangle(cellR.reduced(0.5f), 3.0f, 1.0f);
+
+                // Inline velocity bar at bottom of cell (FL Studio style)
+                float vel = ch.velocities[s];
+                const float velH = 4.0f;
+                float filledW = cellR.getWidth() * vel;
+                g.setColour(juce::Colours::black.withAlpha(0.25f));
+                g.fillRect(juce::Rectangle<float>(cellR.getX(), cellR.getBottom() - velH,
+                                                  cellR.getWidth(), velH));
+                g.setColour(juce::Colours::white.withAlpha(0.55f));
+                g.fillRect(juce::Rectangle<float>(cellR.getX(), cellR.getBottom() - velH,
+                                                  filledW, velH));
             }
             else
             {
@@ -1005,11 +1092,42 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
 
             if (e.mods.isRightButtonDown())
             {
-                handleChannelRightClickMenu(row);
+                if (part == 1) // right-click LED = solo menu
+                {
+                    juce::PopupMenu m;
+                    m.addItem(1, "Solo");
+                    m.addItem(2, "Unsolo all");
+                    m.showMenuAsync(juce::PopupMenu::Options(), [this, row](int result)
+                    {
+                        if (result == 1)
+                        {
+                            // Solo: mute all other rows
+                            for (int r2 = 0; r2 < kNumRows; ++r2)
+                            {
+                                bool muted = (r2 != row);
+                                currentPattern().channels[(size_t)r2].muted = muted;
+                                if (onRowMutedChanged) onRowMutedChanged(r2, muted);
+                            }
+                        }
+                        else if (result == 2)
+                        {
+                            for (int r2 = 0; r2 < kNumRows; ++r2)
+                            {
+                                currentPattern().channels[(size_t)r2].muted = false;
+                                if (onRowMutedChanged) onRowMutedChanged(r2, false);
+                            }
+                        }
+                        repaint();
+                    });
+                }
+                else
+                {
+                    handleChannelRightClickMenu(row);
+                }
                 return;
             }
 
-            if (part == 1) // mute LED
+            if (part == 1) // mute LED — left-click toggles mute
             {
                 auto& ch = currentPattern().channels[(size_t)row];
                 ch.muted = !ch.muted;
@@ -1091,7 +1209,15 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
 
             if (e.mods.isRightButtonDown())
             {
-                handleStepRightClickMenu(row, step);
+                // Right-click = deactivate step (FL Studio behavior)
+                auto& active = currentPattern().channels[(size_t)row].steps[step];
+                active = false;
+                dragActivating = false;
+                isDragging     = true;
+                dragStartRow   = row;
+                dragStartStep  = step;
+                if (onStepChanged) onStepChanged(row, step, false);
+                repaint();
                 return;
             }
 
@@ -1156,7 +1282,7 @@ void StepSequencerView::mouseDrag(const juce::MouseEvent& e)
         return;
     }
 
-    // Step grid drag — activate/deactivate range
+    // Step grid drag — activate/deactivate range (works for both left and right button)
     if (isDragging)
     {
         int row = -1, step = -1;
@@ -1993,31 +2119,39 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
         stepSeq.currentPattern().swing = pct / 100.0f;
         if (stepSeq.onSwingChanged) stepSeq.onSwingChanged(pct / 100.0f);
     };
-    patternToolbar.onNextPattern = [this]() {
-        auto& patterns = stepSeq.patterns;
-        stepSeq.currentPatternIdx = juce::jmin(stepSeq.currentPatternIdx + 1, patterns.size() - 1);
-        patternToolbar.setPatternName(stepSeq.currentPattern().name);
-        patternToolbar.setStepCount(stepSeq.currentPattern().stepCount);
+    auto syncPatternUI = [this]() {
+        const auto& p = stepSeq.currentPattern();
+        patternToolbar.setPatternName(p.name);
+        patternToolbar.setStepCount(p.stepCount);
+        // Use the first channel's colour as the pattern colour for the playlist stamp
+        playlist.setActivePattern(p.name, p.channels[0].colour);
         stepSeq.repaint();
     };
-    patternToolbar.onPrevPattern = [this]() {
+
+    patternToolbar.onNextPattern = [this, syncPatternUI]() {
+        stepSeq.currentPatternIdx = juce::jmin(stepSeq.currentPatternIdx + 1,
+                                               stepSeq.patterns.size() - 1);
+        syncPatternUI();
+    };
+    patternToolbar.onPrevPattern = [this, syncPatternUI]() {
         stepSeq.currentPatternIdx = juce::jmax(0, stepSeq.currentPatternIdx - 1);
-        patternToolbar.setPatternName(stepSeq.currentPattern().name);
-        patternToolbar.setStepCount(stepSeq.currentPattern().stepCount);
-        stepSeq.repaint();
+        syncPatternUI();
     };
-    patternToolbar.onAddPattern = [this]() {
+    patternToolbar.onAddPattern = [this, syncPatternUI]() {
         StepSequencerView::Pattern p;
         p.name = "Pattern " + juce::String(stepSeq.patterns.size() + 1);
         stepSeq.patterns.add(p);
         stepSeq.currentPatternIdx = stepSeq.patterns.size() - 1;
-        patternToolbar.setPatternName(stepSeq.currentPattern().name);
-        patternToolbar.setStepCount(stepSeq.currentPattern().stepCount);
-        stepSeq.repaint();
+        syncPatternUI();
     };
     patternToolbar.onShowVelocityGraph = [this](bool show) {
         stepSeq.showGraphEditor = show;
         stepSeq.repaint();
+    };
+    patternToolbar.onPatSongToggle = [this](bool isPat) {
+        patMode = isPat;
+        // In PAT mode, loop back to zero when play is hit; SONG mode plays through
+        if (isPat) transportBar.onReturnToZero = [this]() { if (onReturnToZero) onReturnToZero(); };
     };
 }
 
