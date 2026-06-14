@@ -1252,29 +1252,75 @@ void StepSequencerView::handleStepRightClickMenu(int row, int /*step*/)
 
 void StepSequencerView::handleChannelRightClickMenu(int row)
 {
+    juce::PopupMenu fillSub;
+    fillSub.addItem(20, "Fill every step");
+    fillSub.addItem(21, "Fill every 2 steps");
+    fillSub.addItem(22, "Fill every 4 steps");
+    fillSub.addItem(23, "Fill every 8 steps");
+
     juce::PopupMenu m;
-    m.addItem(1, "Rename");
-    m.addItem(2, "Change Color");
-    m.addItem(3, "Clear Steps");
-    m.addItem(4, "Copy Steps");
-    m.addItem(5, "Paste Steps");
+    m.addItem(1,  "Load sample...");
+    m.addSeparator();
+    m.addItem(2,  "Rename");
+    m.addItem(3,  "Change color");
+    m.addItem(4,  "Random color");
+    m.addSeparator();
+    m.addItem(5,  "Cut");
+    m.addItem(6,  "Copy");
+    m.addItem(7,  "Paste");
+    m.addSeparator();
+    m.addSubMenu("Fill", fillSub);
+    m.addItem(30, "Rotate left");
+    m.addItem(31, "Rotate right");
+    m.addSeparator();
+    m.addItem(40, "Clear steps");
+    m.addItem(41, "Clone to next row");
+    m.addItem(42, "Delete row");
+
+    // Capture steps for copy/paste
+    static bool stepClipboard[kMaxSteps] {};
+    static int  stepClipboardCount = 0;
 
     m.showMenuAsync(juce::PopupMenu::Options(), [this, row](int result)
     {
-        auto& ch = currentPattern().channels[(size_t)row];
+        auto& pat = currentPattern();
+        auto& ch  = pat.channels[(size_t)row];
+        const int sc = pat.stepCount;
+
+        static bool stepClipboard[kMaxSteps] {};
+        static int  stepClipboardCount = 0;
+
         switch (result)
         {
-            case 1: renameChannel(row); break;
-            case 2:
+            case 1: // Load sample
             {
-                // Cycle through a few preset colours
+                auto chooser = std::make_shared<juce::FileChooser>(
+                    "Load Sample for " + ch.name,
+                    juce::File::getSpecialLocation(juce::File::userMusicDirectory),
+                    "*.wav;*.aif;*.aiff;*.mp3;*.flac;*.ogg");
+                chooser->launchAsync(
+                    juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                    [this, row, chooser](const juce::FileChooser& fc)
+                    {
+                        auto result2 = fc.getResult();
+                        if (result2.existsAsFile())
+                        {
+                            currentPattern().channels[(size_t)row].name = result2.getFileNameWithoutExtension();
+                            if (onSampleAssigned) onSampleAssigned(row, result2.getFullPathName());
+                            repaint();
+                        }
+                    });
+                break;
+            }
+            case 2: renameChannel(row); break;
+            case 3:
+            {
                 static const juce::Colour presets[] = {
-                    juce::Colour::fromRGB(255,100,60), juce::Colour::fromRGB(60,180,255),
-                    juce::Colour::fromRGB(220,200,60), juce::Colour::fromRGB(160,80,255),
-                    juce::Colour::fromRGB(80,220,120), juce::Colour::fromRGB(255,160,40),
+                    juce::Colour::fromRGB(255,100,60),  juce::Colour::fromRGB(60,180,255),
+                    juce::Colour::fromRGB(220,200,60),  juce::Colour::fromRGB(160,80,255),
+                    juce::Colour::fromRGB(80,220,120),  juce::Colour::fromRGB(255,160,40),
                     juce::Colour::fromRGB(200,80,200),  juce::Colour::fromRGB(60,200,200)
                 };
-                // Find current colour index and advance
                 int idx = 0;
                 for (int i = 0; i < 8; ++i)
                     if (ch.colour == presets[i]) { idx = (i + 1) % 8; break; }
@@ -1282,13 +1328,73 @@ void StepSequencerView::handleChannelRightClickMenu(int row)
                 repaint();
                 break;
             }
-            case 3:
-            {
-                const int sc = currentPattern().stepCount;
+            case 4: // Random color
+                ch.colour = juce::Colour::fromHSV(juce::Random::getSystemRandom().nextFloat(), 0.7f, 0.9f, 1.0f);
+                repaint();
+                break;
+            case 5: // Cut
+                std::copy(ch.steps, ch.steps + sc, stepClipboard);
+                stepClipboardCount = sc;
                 for (int s = 0; s < sc; ++s) { ch.steps[s] = false; if (onStepChanged) onStepChanged(row, s, false); }
                 repaint();
                 break;
+            case 6: // Copy
+                std::copy(ch.steps, ch.steps + sc, stepClipboard);
+                stepClipboardCount = sc;
+                break;
+            case 7: // Paste
+                if (stepClipboardCount > 0)
+                {
+                    int n = juce::jmin(sc, stepClipboardCount);
+                    for (int s = 0; s < n; ++s) { ch.steps[s] = stepClipboard[s]; if (onStepChanged) onStepChanged(row, s, ch.steps[s]); }
+                    repaint();
+                }
+                break;
+            case 20: // Fill every step
+                for (int s = 0; s < sc; ++s) { ch.steps[s] = true;      if (onStepChanged) onStepChanged(row, s, true); }
+                repaint(); break;
+            case 21: // Fill every 2
+                for (int s = 0; s < sc; ++s) { ch.steps[s] = (s % 2 == 0); if (onStepChanged) onStepChanged(row, s, ch.steps[s]); }
+                repaint(); break;
+            case 22: // Fill every 4
+                for (int s = 0; s < sc; ++s) { ch.steps[s] = (s % 4 == 0); if (onStepChanged) onStepChanged(row, s, ch.steps[s]); }
+                repaint(); break;
+            case 23: // Fill every 8
+                for (int s = 0; s < sc; ++s) { ch.steps[s] = (s % 8 == 0); if (onStepChanged) onStepChanged(row, s, ch.steps[s]); }
+                repaint(); break;
+            case 30: // Rotate left
+            {
+                bool tmp = ch.steps[0];
+                for (int s = 0; s < sc - 1; ++s) ch.steps[s] = ch.steps[s + 1];
+                ch.steps[sc - 1] = tmp;
+                for (int s = 0; s < sc; ++s) if (onStepChanged) onStepChanged(row, s, ch.steps[s]);
+                repaint(); break;
             }
+            case 31: // Rotate right
+            {
+                bool tmp = ch.steps[sc - 1];
+                for (int s = sc - 1; s > 0; --s) ch.steps[s] = ch.steps[s - 1];
+                ch.steps[0] = tmp;
+                for (int s = 0; s < sc; ++s) if (onStepChanged) onStepChanged(row, s, ch.steps[s]);
+                repaint(); break;
+            }
+            case 40: // Clear steps
+                for (int s = 0; s < sc; ++s) { ch.steps[s] = false; if (onStepChanged) onStepChanged(row, s, false); }
+                repaint(); break;
+            case 41: // Clone to next row
+                if (row + 1 < kNumRows)
+                {
+                    auto& dst = pat.channels[(size_t)(row + 1)];
+                    std::copy(ch.steps, ch.steps + sc, dst.steps);
+                    std::copy(ch.velocities, ch.velocities + sc, dst.velocities);
+                    for (int s = 0; s < sc; ++s) if (onStepChanged) onStepChanged(row + 1, s, dst.steps[s]);
+                    repaint();
+                }
+                break;
+            case 42: // Delete (clear + rename to empty)
+                for (int s = 0; s < sc; ++s) { ch.steps[s] = false; if (onStepChanged) onStepChanged(row, s, false); }
+                ch.name = "Empty";
+                repaint(); break;
             default: break;
         }
     });
@@ -1634,24 +1740,13 @@ void DrumRackPanel::itemDropped(const SourceDetails& details)
 
 BeatTransportBar::BeatTransportBar()
 {
-    auto styleBtn = [](juce::TextButton& btn, juce::Colour c)
-    {
-        btn.setColour(juce::TextButton::buttonColourId,   juce::Colour::fromRGB(22, 26, 38));
-        btn.setColour(juce::TextButton::buttonOnColourId,  c);
-        btn.setColour(juce::TextButton::textColourOffId,  juce::Colours::white.withAlpha(0.85f));
-        btn.setColour(juce::TextButton::textColourOnId,   juce::Colours::white);
-    };
-
-    styleBtn(playBtn, juce::Colour::fromRGB(60, 180, 100));
-    styleBtn(stopBtn, juce::Colour::fromRGB(80, 100, 255));
-    styleBtn(recBtn,  juce::Colour::fromRGB(200, 50, 50));
-    styleBtn(rtzBtn,  juce::Colour::fromRGB(60, 70, 100));
-
-    for (auto* b : { &playBtn, &stopBtn, &recBtn, &rtzBtn })
-    {
-        b->addListener(this);
+    for (auto* b : { &rtzBtn, &playBtn, &stopBtn, &recBtn })
         addAndMakeVisible(b);
-    }
+
+    rtzBtn.onClick  = [this]() { if (onReturnToZero) onReturnToZero(); };
+    playBtn.onClick = [this]() { if (onPlay)         onPlay(); };
+    stopBtn.onClick = [this]() { if (onStop)         onStop(); };
+    recBtn.onClick  = [this]() { if (onRecord)       onRecord(); };
 
     timecodeLabel.setText("00:00:00.000", juce::dontSendNotification);
     timecodeLabel.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -1667,12 +1762,6 @@ BeatTransportBar::BeatTransportBar()
     addAndMakeVisible(bpmLabel);
 }
 
-BeatTransportBar::~BeatTransportBar()
-{
-    for (auto* b : { &playBtn, &stopBtn, &recBtn, &rtzBtn })
-        b->removeListener(this);
-}
-
 void BeatTransportBar::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour::fromRGB(14, 16, 24));
@@ -1683,31 +1772,24 @@ void BeatTransportBar::paint(juce::Graphics& g)
 void BeatTransportBar::resized()
 {
     auto area = getLocalBounds().reduced(4, 3);
-    const int btnW = 42;
-    const int gap  = 3;
+    const int btnSz = area.getHeight();
+    const int gap   = 3;
 
-    rtzBtn .setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap);
-    playBtn.setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap);
-    stopBtn.setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap);
-    recBtn .setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap + 4);
+    rtzBtn .setBounds(area.removeFromLeft(btnSz)); area.removeFromLeft(gap);
+    playBtn.setBounds(area.removeFromLeft(btnSz)); area.removeFromLeft(gap);
+    stopBtn.setBounds(area.removeFromLeft(btnSz)); area.removeFromLeft(gap);
+    recBtn .setBounds(area.removeFromLeft(btnSz)); area.removeFromLeft(gap + 6);
 
-    timecodeLabel.setBounds(area.removeFromLeft(110)); area.removeFromLeft(8);
+    timecodeLabel.setBounds(area.removeFromLeft(115)); area.removeFromLeft(8);
     bpmLabel.setBounds(area.removeFromLeft(90));
 }
 
 void BeatTransportBar::setPlayState(bool playing, bool recording)
 {
-    playBtn.setToggleState(playing,   juce::dontSendNotification);
-    recBtn .setToggleState(recording, juce::dontSendNotification);
-    repaint();
-}
-
-void BeatTransportBar::buttonClicked(juce::Button* b)
-{
-    if (b == &playBtn  && onPlay)          onPlay();
-    if (b == &stopBtn  && onStop)          onStop();
-    if (b == &recBtn   && onRecord)        onRecord();
-    if (b == &rtzBtn   && onReturnToZero)  onReturnToZero();
+    playBtn.toggled = playing;
+    recBtn.toggled  = recording;
+    playBtn.repaint();
+    recBtn.repaint();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1718,10 +1800,10 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
     : stepSeq(transport)
 {
     addAndMakeVisible(transportBar);
+    addAndMakeVisible(browser);
     addAndMakeVisible(playlist);
     addAndMakeVisible(stepSeq);
 
-    // Wire internal transport bar callbacks out to owner
     transportBar.onPlay          = [this]() { if (onPlay)          onPlay(); };
     transportBar.onStop          = [this]() { if (onStop)          onStop(); };
     transportBar.onRecord        = [this]() { if (onRecord)        onRecord(); };
@@ -1754,13 +1836,21 @@ void BeatWindow::resized()
 {
     auto area = getLocalBounds();
 
-    const int transportH = 40;
-    transportBar.setBounds(area.removeFromTop(transportH));
+    // Transport bar spans full width at top
+    transportBar.setBounds(area.removeFromTop(40));
     area.removeFromTop(2);
 
-    const int playlistH = 110;
+    // Browser on left
+    auto browserArea = area.removeFromLeft(180);
+    area.removeFromLeft(2);
+
+    // Pattern arranger takes top ~40% of remaining center
+    const int playlistH = juce::roundToInt(area.getHeight() * 0.40f);
     playlist.setBounds(area.removeFromTop(playlistH));
     area.removeFromTop(2);
 
+    // Step sequencer fills the rest
     stepSeq.setBounds(area);
+
+    browser.setBounds(browserArea);
 }

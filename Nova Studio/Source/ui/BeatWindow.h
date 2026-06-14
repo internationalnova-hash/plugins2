@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "Theme.h"
+#include "StudioComponents.h"
 #include "../Session.h"
 #include "../TransportState.h"
 
@@ -350,12 +351,91 @@ namespace NovaStudioUI
     // ─────────────────────────────────────────────────────────────────────────
     // BeatTransportBar — transport controls at top of BeatWindow
     // ─────────────────────────────────────────────────────────────────────────
-    class BeatTransportBar : public juce::Component,
-                             private juce::Button::Listener
+    // Icon button drawn with juce::Path — no font dependency
+    class IconButton : public juce::Component
+    {
+    public:
+        enum class Icon { Play, Stop, Record, ReturnToZero };
+        Icon icon;
+        bool toggled = false;
+        std::function<void()> onClick;
+
+        explicit IconButton(Icon i) : icon(i) { setMouseCursor(juce::MouseCursor::PointingHandCursor); }
+
+        void paint(juce::Graphics& g) override
+        {
+            const bool over = isMouseOver();
+            juce::Colour base;
+            switch (icon)
+            {
+                case Icon::Play:          base = juce::Colour::fromRGB(50, 200, 90);  break;
+                case Icon::Stop:          base = juce::Colour::fromRGB(70, 90, 220);  break;
+                case Icon::Record:        base = juce::Colour::fromRGB(210, 45, 45);  break;
+                case Icon::ReturnToZero:  base = juce::Colour::fromRGB(55, 65, 100); break;
+            }
+            juce::Colour bg = toggled ? base : base.darker(0.5f);
+            if (over) bg = bg.brighter(0.25f);
+
+            g.setColour(bg);
+            g.fillRoundedRectangle(getLocalBounds().toFloat(), 4.0f);
+
+            g.setColour(juce::Colours::white.withAlpha(0.9f));
+            const float cx = getWidth()  * 0.5f;
+            const float cy = getHeight() * 0.5f;
+            const float s  = juce::jmin(getWidth(), getHeight()) * 0.32f;
+
+            switch (icon)
+            {
+                case Icon::Play:
+                {
+                    juce::Path p;
+                    p.addTriangle(cx - s * 0.7f, cy - s,
+                                  cx - s * 0.7f, cy + s,
+                                  cx + s,        cy);
+                    g.fillPath(p);
+                    break;
+                }
+                case Icon::Stop:
+                {
+                    g.fillRect(juce::Rectangle<float>(cx - s, cy - s, s * 2.0f, s * 2.0f));
+                    break;
+                }
+                case Icon::Record:
+                {
+                    g.setColour(toggled ? juce::Colours::white : juce::Colour::fromRGB(255, 80, 80));
+                    g.fillEllipse(cx - s, cy - s, s * 2.0f, s * 2.0f);
+                    break;
+                }
+                case Icon::ReturnToZero:
+                {
+                    // Vertical bar + left-pointing triangle
+                    g.fillRect(juce::Rectangle<float>(cx - s, cy - s, s * 0.35f, s * 2.0f));
+                    juce::Path p;
+                    p.addTriangle(cx + s * 0.25f, cy - s,
+                                  cx + s * 0.25f, cy + s,
+                                  cx - s * 0.5f,  cy);
+                    g.fillPath(p);
+                    break;
+                }
+            }
+        }
+
+        void mouseDown(const juce::MouseEvent&) override { repaint(); }
+        void mouseUp(const juce::MouseEvent& e) override
+        {
+            if (getLocalBounds().contains(e.getPosition()) && onClick)
+                onClick();
+            repaint();
+        }
+        void mouseEnter(const juce::MouseEvent&) override { repaint(); }
+        void mouseExit(const juce::MouseEvent&)  override { repaint(); }
+    };
+
+    class BeatTransportBar : public juce::Component
     {
     public:
         BeatTransportBar();
-        ~BeatTransportBar() override;
+        ~BeatTransportBar() override = default;
 
         void paint(juce::Graphics& g) override;
         void resized() override;
@@ -372,14 +452,12 @@ namespace NovaStudioUI
         std::function<void()> onReturnToZero;
 
     private:
-        void buttonClicked(juce::Button* b) override;
-
-        juce::TextButton playBtn  { "PLAY" };
-        juce::TextButton stopBtn  { "STOP" };
-        juce::TextButton recBtn   { "REC" };
-        juce::TextButton rtzBtn   { "RTZ" };
-        juce::Label      timecodeLabel;
-        juce::Label      bpmLabel;
+        IconButton rtzBtn  { IconButton::Icon::ReturnToZero };
+        IconButton playBtn { IconButton::Icon::Play };
+        IconButton stopBtn { IconButton::Icon::Stop };
+        IconButton recBtn  { IconButton::Icon::Record };
+        juce::Label timecodeLabel;
+        juce::Label bpmLabel;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatTransportBar)
     };
@@ -429,6 +507,7 @@ namespace NovaStudioUI
 
     private:
         BeatTransportBar  transportBar;
+        BrowserPanel      browser;
         PatternPlaylist   playlist;
         StepSequencerView stepSeq;
 
