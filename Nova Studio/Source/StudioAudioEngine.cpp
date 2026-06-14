@@ -132,6 +132,13 @@ namespace NovaStudio
             if (plugin)
                 plugin->processBlock(*bufferToFill.buffer, emptyMidi);
         }
+
+        // Update peak meters
+        const int numCh = bufferToFill.buffer->getNumChannels();
+        if (numCh > 0)
+            peakLevelLeft.store(bufferToFill.buffer->getMagnitude(0, bufferToFill.startSample, bufferToFill.numSamples));
+        if (numCh > 1)
+            peakLevelRight.store(bufferToFill.buffer->getMagnitude(1, bufferToFill.startSample, bufferToFill.numSamples));
     }
 
     void StudioAudioEngine::TrackPlayer::setTrackMetadata(const Track& trackInfo)
@@ -183,9 +190,29 @@ namespace NovaStudio
         if (!plugin)
             return false;
 
+        // prepareToPlay will be called again with correct values in audioDeviceAboutToStart
         plugin->prepareToPlay(44100.0, 512);
         pluginChain.add(std::move(plugin));
         return true;
+    }
+
+    juce::AudioPluginInstance* StudioAudioEngine::TrackPlayer::getPlugin(int index) const
+    {
+        if (isPositiveAndBelow(index, pluginChain.size()))
+            return pluginChain.getReference(index).get();
+        return nullptr;
+    }
+
+    void StudioAudioEngine::TrackPlayer::getPluginState(int index, juce::MemoryBlock& dest) const
+    {
+        if (auto* p = getPlugin(index))
+            p->getStateInformation(dest);
+    }
+
+    void StudioAudioEngine::TrackPlayer::setPluginState(int index, const void* data, size_t size)
+    {
+        if (auto* p = getPlugin(index))
+            p->setStateInformation(data, (int)size);
     }
 
     StudioAudioEngine::StudioAudioEngine()
@@ -476,9 +503,81 @@ namespace NovaStudio
         return recordingActive;
     }
 
+    // ── Plugin management ─────────────────────────────────────────────────────
+
+    juce::AudioPluginInstance* StudioAudioEngine::getTrackPlugin(int trackIndex, int pluginSlot) const
+    {
+        if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return nullptr;
+        return trackPlayers.getReference(trackIndex)->getPlugin(pluginSlot);
+    }
+
+    int StudioAudioEngine::getTrackPluginCount(int trackIndex) const
+    {
+        if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return 0;
+        return trackPlayers.getReference(trackIndex)->getNumPlugins();
+    }
+
+    void StudioAudioEngine::getTrackPluginState(int trackIndex, int pluginSlot, juce::MemoryBlock& dest) const
+    {
+        if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return;
+        trackPlayers.getReference(trackIndex)->getPluginState(pluginSlot, dest);
+    }
+
+    void StudioAudioEngine::setTrackPluginState(int trackIndex, int pluginSlot, const void* data, size_t size)
+    {
+        if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return;
+        trackPlayers.getReference(trackIndex)->setPluginState(pluginSlot, data, size);
+    }
+
+    // ── Metering ──────────────────────────────────────────────────────────────
+
+    float StudioAudioEngine::getTrackPeakLevel(int trackIndex, int channel) const noexcept
+    {
+        if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return 0.0f;
+        auto& player = *trackPlayers.getReference(trackIndex);
+        return channel == 0 ? player.peakLevelLeft.load() : player.peakLevelRight.load();
+    }
+
     bool StudioAudioEngine::saveSession(const juce::File& file) const
     {
-        return session.saveToFile(file);
+        if (!session.saveToFile(file))
+            return false;
+
+        // Persist plugin chains as a sidecar .plugins.json next to the session file
+        auto sidecar = file.getSiblingFile(file.getFileNameWithoutExtension() + ".plugins.json");
+        juce::DynamicObject::Ptr root = new juce::DynamicObject();
+        juce::Array<juce::var> tracksArray;
+
+        for (int t = 0; t < trackPlayers.size(); ++t)
+        {
+            auto& player = *trackPlayers.getReference(t);
+            juce::Array<juce::var> pluginsArray;
+
+            for (int p = 0; p < player.getNumPlugins(); ++p)
+            {
+                auto* instance = player.getPlugin(p);
+                if (!instance) continue;
+
+                juce::MemoryBlock stateData;
+                instance->getStateInformation(stateData);
+
+                juce::DynamicObject::Ptr plugObj = new juce::DynamicObject();
+                plugObj->setProperty("name",         instance->getName());
+                plugObj->setProperty("uid",          instance->getPluginDescription().uniqueId);
+                plugObj->setProperty("fileOrId",     instance->getPluginDescription().fileOrIdentifier);
+                plugObj->setProperty("formatName",   instance->getPluginDescription().pluginFormatName);
+                plugObj->setProperty("state",        juce::Base64::toBase64(stateData.getData(), stateData.getSize()));
+                pluginsArray.add(juce::var(plugObj.get()));
+            }
+
+            juce::DynamicObject::Ptr trackObj = new juce::DynamicObject();
+            trackObj->setProperty("plugins", juce::var(pluginsArray));
+            tracksArray.add(juce::var(trackObj.get()));
+        }
+
+        root->setProperty("tracks", juce::var(tracksArray));
+        sidecar.replaceWithText(juce::JSON::toString(juce::var(root.get())));
+        return true;
     }
 
     bool StudioAudioEngine::loadSession(const juce::File& file)
@@ -488,6 +587,58 @@ namespace NovaStudio
 
         transportState.setTempo(static_cast<int>(session.getTempo()));
         buildTrackPlayers();
+
+        // Restore plugin chains from sidecar
+        auto sidecar = file.getSiblingFile(file.getFileNameWithoutExtension() + ".plugins.json");
+        if (sidecar.existsAsFile())
+        {
+            auto parsed = juce::JSON::parse(sidecar.loadFileAsString());
+            if (parsed.isObject())
+            {
+                auto* root = parsed.getDynamicObject();
+                auto tracksVar = root->getProperty("tracks");
+                if (auto* tracksArr = tracksVar.getArray())
+                {
+                    for (int t = 0; t < tracksArr->size() && t < trackPlayers.size(); ++t)
+                    {
+                        juce::var trackVar = (*tracksArr)[t];
+                        if (!trackVar.isObject()) continue;
+                        juce::var pluginsVar = trackVar.getDynamicObject()->getProperty("plugins");
+                        if (auto* pluginsArr = pluginsVar.getArray())
+                        {
+                            for (int p = 0; p < pluginsArr->size(); ++p)
+                            {
+                                juce::var plugVar = (*pluginsArr)[p];
+                                if (!plugVar.isObject()) continue;
+                                auto* plugObj = plugVar.getDynamicObject();
+
+                                juce::PluginDescription desc;
+                                desc.name                = plugObj->getProperty("name").toString();
+                                desc.uniqueId            = (int)plugObj->getProperty("uid");
+                                desc.fileOrIdentifier    = plugObj->getProperty("fileOrId").toString();
+                                desc.pluginFormatName    = plugObj->getProperty("formatName").toString();
+
+                                juce::String errorMsg;
+                                auto instance = pluginFormatManager.createPluginInstance(
+                                    desc, currentSampleRate, currentBufferSize, errorMsg);
+
+                                if (instance)
+                                {
+                                    juce::String stateBase64 = plugObj->getProperty("state").toString();
+                                    juce::MemoryOutputStream decoded;
+                                    juce::Base64::convertFromBase64(decoded, stateBase64);
+                                    juce::MemoryBlock stateBlock(decoded.getData(), decoded.getDataSize());
+                                    instance->setStateInformation(stateBlock.getData(), (int)stateBlock.getSize());
+
+                                    trackPlayers.getReference(t)->addPlugin(std::move(instance));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         return true;
     }
 
@@ -562,6 +713,20 @@ namespace NovaStudio
             float* destData = outputChannelData[channel];
             if (destData != nullptr)
                 std::memcpy(destData, sourceData, static_cast<size_t>(sizeof(float) * numSamples));
+        }
+
+        // Input monitoring: mix live input into output when any armed track has monitoring on
+        if (transportState.isInputMonitoring())
+        {
+            for (int channel = 0; channel < numOutputChannels; ++channel)
+            {
+                int srcCh = juce::jmin(channel, numInputChannels - 1);
+                if (srcCh >= 0 && inputChannelData[srcCh] != nullptr && outputChannelData[channel] != nullptr)
+                {
+                    for (int s = 0; s < numSamples; ++s)
+                        outputChannelData[channel][s] += inputChannelData[srcCh][s];
+                }
+            }
         }
 
         if (recordingActive && recordingWriter != nullptr)

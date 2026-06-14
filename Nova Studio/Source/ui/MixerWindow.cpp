@@ -203,6 +203,35 @@ void ChannelStrip::buttonClicked(juce::Button* b)
     }
 }
 
+void ChannelStrip::mouseDown(const juce::MouseEvent& e)
+{
+    // Determine insert slot area (mirrors paint() layout)
+    auto r = getLocalBounds();
+    r.removeFromBottom(22);   // name
+    r.removeFromBottom(26);   // M/S/A
+    r.removeFromBottom(16);   // dB label
+    r.removeFromBottom(130);  // fader
+    r.removeFromBottom(28);   // pan
+    r.removeFromBottom(16);   // routing label
+    r.removeFromBottom(76);   // meter
+    r.removeFromBottom(40);   // sends
+    // r is now insertsArea
+    auto slotArea = r.reduced(4, 2);
+
+    const int slotH = 16;
+    const int gap   = 3;
+    for (int i = 0; i < 3; ++i)
+    {
+        auto slot = slotArea.removeFromTop(slotH);
+        slotArea.removeFromTop(gap);
+        if (slot.contains(e.getPosition()))
+        {
+            if (onInsertClicked) onInsertClicked(i);
+            return;
+        }
+    }
+}
+
 void ChannelStrip::drawInsertSlots(juce::Graphics& g, juce::Rectangle<int> area) const
 {
     const int slotH = 16;
@@ -420,6 +449,10 @@ void MixerWindow::buildStrips()
         {
             engine.setTrackArm(i, armed);
         };
+        strip->onInsertClicked = [this, i](int slot)
+        {
+            openPluginEditor(i, slot);
+        };
     }
 
     // ── Aux strips (placeholders) ─────────────────────────────────────────
@@ -440,16 +473,44 @@ void MixerWindow::buildStrips()
 
 void MixerWindow::timerCallback()
 {
-    // Decay meter levels toward 0 — real levels would come from engine output metering.
-    // TODO: connect to engine.getTrackOutputLevel(i) once exposed.
-    for (auto* strip : trackStrips)
+    static constexpr float kDecay = 0.85f; // ballistic decay per 30Hz tick
+
+    for (int i = 0; i < trackStrips.size(); ++i)
     {
-        strip->setMeterLevel(0.0f, 0.0f);
+        float L = engine.getTrackPeakLevel(i, 0);
+        float R = engine.getTrackPeakLevel(i, 1);
+        // Smooth decay on the display strip
+        auto* strip = trackStrips[i];
+        float prevL = strip->getMeterLeft();
+        float prevR = strip->getMeterRight();
+        strip->setMeterLevel(juce::jmax(L, prevL * kDecay),
+                             juce::jmax(R, prevR * kDecay));
     }
+
     for (auto* strip : auxStrips)
-        strip->setMeterLevel(0.0f, 0.0f);
+        strip->setMeterLevel(strip->getMeterLeft() * kDecay, strip->getMeterRight() * kDecay);
+
     if (masterStrip)
-        masterStrip->setMeterLevel(0.0f, 0.0f);
+        masterStrip->setMeterLevel(masterStrip->getMeterLeft() * kDecay, masterStrip->getMeterRight() * kDecay);
+}
+
+void MixerWindow::openPluginEditor(int trackIndex, int pluginSlot)
+{
+    auto* instance = engine.getTrackPlugin(trackIndex, pluginSlot);
+    if (instance == nullptr)
+        return;
+
+    // Bring existing editor to front if already open
+    for (auto* win : editorWindows)
+    {
+        if (win->isVisible())
+        {
+            win->toFront(true);
+            return;
+        }
+    }
+
+    editorWindows.add(new PluginEditorWindow(*instance, trackIndex, pluginSlot));
 }
 
 void MixerWindow::paint(juce::Graphics& g)

@@ -35,6 +35,8 @@ namespace NovaStudioUI
 
         // Meter level: 0.0–1.0, called by timer
         void setMeterLevel(float left, float right);
+        float getMeterLeft()  const noexcept { return meterLeft; }
+        float getMeterRight() const noexcept { return meterRight; }
 
         // Callbacks wired by MixerWindow after construction
         std::function<void(float dB)>  onVolumeChanged;
@@ -42,6 +44,9 @@ namespace NovaStudioUI
         std::function<void(bool)>      onMuteToggled;
         std::function<void(bool)>      onSoloToggled;
         std::function<void(bool)>      onArmToggled;
+        std::function<void(int slot)>  onInsertClicked; // slot 0..2
+
+        void mouseDown(const juce::MouseEvent& e) override;
 
     private:
         void sliderValueChanged(juce::Slider* s) override;
@@ -68,6 +73,34 @@ namespace NovaStudioUI
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChannelStrip)
     };
 
+    // ── PluginEditorWindow ────────────────────────────────────────────────────
+    // Floating window that hosts a plugin's GUI.
+
+    class PluginEditorWindow : public juce::DocumentWindow
+    {
+    public:
+        PluginEditorWindow(juce::AudioPluginInstance& instance, int trackIndex, int pluginSlot)
+            : juce::DocumentWindow(instance.getName(),
+                                   juce::Colour::fromRGB(24, 26, 36),
+                                   DocumentWindow::closeButton | DocumentWindow::minimiseButton)
+        {
+            setUsingNativeTitleBar(false);
+            auto* editor = instance.createEditorIfNeeded();
+            if (editor == nullptr)
+                editor = new juce::GenericAudioProcessorEditor(instance);
+            setContentOwned(editor, true);
+            setResizable(true, false);
+            centreWithSize(getWidth(), getHeight());
+            setVisible(true);
+            toFront(true);
+            (void)trackIndex; (void)pluginSlot;
+        }
+
+        void closeButtonPressed() override { setVisible(false); }
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginEditorWindow)
+    };
+
     // ── MixerWindow ───────────────────────────────────────────────────────────
 
     class MixerWindow : public juce::Component,
@@ -84,6 +117,9 @@ namespace NovaStudioUI
         // Call when the track list changes (tracks added/removed)
         void refresh();
 
+        // Open the plugin editor for a given track/slot (creates floating window)
+        void openPluginEditor(int trackIndex, int pluginSlot);
+
     private:
         void buildStrips();
         void timerCallback() override;
@@ -97,6 +133,7 @@ namespace NovaStudioUI
         juce::OwnedArray<ChannelStrip> trackStrips;
         juce::OwnedArray<ChannelStrip> auxStrips;
         std::unique_ptr<ChannelStrip>  masterStrip;
+        juce::OwnedArray<PluginEditorWindow> editorWindows;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MixerWindow)
     };

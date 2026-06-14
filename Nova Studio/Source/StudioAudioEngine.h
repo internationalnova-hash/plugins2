@@ -32,6 +32,15 @@ namespace NovaStudio
         const Session& getSession() const noexcept;
         Session& getSession() noexcept;
 
+        // Plugin management (public surface for UI)
+        juce::AudioPluginInstance* getTrackPlugin(int trackIndex, int pluginSlot) const;
+        int getTrackPluginCount(int trackIndex) const;
+        void getTrackPluginState(int trackIndex, int pluginSlot, juce::MemoryBlock& dest) const;
+        void setTrackPluginState(int trackIndex, int pluginSlot, const void* data, size_t size);
+
+        // Output metering: returns peak since last call (resets after read), range 0-1
+        float getTrackPeakLevel(int trackIndex, int channel) const noexcept;
+
         void play();
         void stop();
         void toggleRecord();
@@ -65,6 +74,10 @@ namespace NovaStudio
             void setLoopActive(bool looping);
             bool loadClip(const juce::File& file, double sampleRate);
             bool addPlugin(std::unique_ptr<juce::AudioPluginInstance> plugin);
+            juce::AudioPluginInstance* getPlugin(int index) const;
+            int getNumPlugins() const { return pluginChain.size(); }
+            void getPluginState(int index, juce::MemoryBlock& dest) const;
+            void setPluginState(int index, const void* data, size_t size);
 
             juce::AudioTransportSource transportSource;
                 std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
@@ -85,6 +98,8 @@ namespace NovaStudio
             bool isPlaying = false;
             int trackChannels = 2;
             double clipStartSeconds = 0.0;
+            std::atomic<float> peakLevelLeft { 0.0f };
+            std::atomic<float> peakLevelRight { 0.0f };
         };
 
         void audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
