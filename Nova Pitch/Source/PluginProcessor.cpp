@@ -415,30 +415,20 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             // amount=1.0 → instant snap, amount=0 → ~0.3 semitones/sec
             float targetRatio = targetHz / (smoothedDetectedHz + 1e-9f);
 
-            // Shave off the deadband portion — only correct the excess
-            float signedDeadband = std::copysign (deadbandCents / 100.0f, centsDiff);
-            float correctionMidi = (centsDiff / 100.0f) - signedDeadband;
-            float correctedTargetRatio = std::pow (2.0f, correctionMidi / 12.0f);
-            juce::ignoreUnused (targetRatio);
+            // Absolute pitch ratio — what the vocoder needs to bring voice to targetHz
+            float fullRatio = targetHz / (smoothedDetectedHz + 1e-9f);
 
-            if (amount >= 0.99f)
-            {
-                // Hard snap — instant correction (Auto-Tune effect style)
-                pitchRatioSmoothed = correctedTargetRatio;
-            }
-            else
-            {
-                // Rate-limited glide: max movement in semitones per audio block
-                // amount=0 → 0.3 semitones/sec, amount=0.99 → 30 semitones/sec
-                float semitonesPerSec  = 0.3f + amount * amount * 80.0f;
-                float blocksPerSec     = (float)currentSampleRate / (float)juce::jmax (1, numSamples);
-                float maxSemisPerBlock = semitonesPerSec / blocksPerSec;
-                float maxRatioChange   = std::pow (2.0f, maxSemisPerBlock / 12.0f) - 1.0f;
+            // Soft deadband: scale correction to zero inside the band, full outside
+            float absCents  = std::abs (centsDiff);
+            float bandScale = juce::jlimit (0.0f, 1.0f,
+                                (absCents - deadbandCents) / (deadbandCents + 1.0f));
 
-                float ratioDiff  = correctedTargetRatio - pitchRatioSmoothed;
-                float clampedDiff = juce::jlimit (-maxRatioChange, maxRatioChange, ratioDiff);
-                pitchRatioSmoothed += clampedDiff;
-            }
+            float targetRatio = 1.0f + (fullRatio - 1.0f) * bandScale;
+
+            // Exponential smoothing — amount controls speed (MetaTune feel)
+            // amount=0 → α≈0.005 (slow glide), amount=1 → α=0.7 (fast, near-instant)
+            float alpha = 0.005f + amount * amount * 0.695f;
+            pitchRatioSmoothed += (targetRatio - pitchRatioSmoothed) * alpha;
         }
 
         // Vibrato preservation: blend some of the original (uncorrected) ratio back in
