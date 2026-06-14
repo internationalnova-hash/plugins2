@@ -16,10 +16,10 @@ namespace NovaStudioUI
                          private juce::Button::Listener
     {
     public:
-        static constexpr int kWidth       = 96;
-        static constexpr int kMasterWidth = 112;
-        static constexpr int kHeight      = 580;
-        static constexpr int kNumSends    = 4;
+        static constexpr int kWidth       = 88;
+        static constexpr int kMasterWidth = 100;
+        static constexpr int kHeight      = 700;
+        static constexpr int kNumSends    = 2;   // Verb + Delay (matches mockup)
 
         ChannelStrip();
         ~ChannelStrip() override;
@@ -32,6 +32,7 @@ namespace NovaStudioUI
         void setTrackNumber(int n)       { trackNumber = n; repaint(); }
         void setMaster(bool master)      { isMaster = master; repaint(); }
         void setAux(bool aux)            { isAux = aux; repaint(); }
+        void setTrackColour(juce::Colour c) { trackColour = c; repaint(); }
 
         void updateFromTrack(const NovaStudio::Track& track);
         void updateAsMaster();
@@ -45,29 +46,37 @@ namespace NovaStudioUI
         {
             if (isPositiveAndBelow(slot, 9)) { insertSlotNames[slot] = name; repaint(); }
         }
-        void setSendName(int send, const juce::String& name)
+        // sendBusName: destination bus (e.g. "Verb", "Delay")
+        void setSendBusName(int send, const juce::String& busName)
         {
-            if (isPositiveAndBelow(send, kNumSends)) { sendNames[send] = name; repaint(); }
+            if (isPositiveAndBelow(send, kNumSends)) { sendBusNames[send] = busName; repaint(); }
         }
         void setSendLevel(int send, float db)
         {
             if (isPositiveAndBelow(send, kNumSends))
                 sendKnobs[send].setValue(db, juce::dontSendNotification);
         }
+        void setInputName (const juce::String& s) { inputLabel .setText(s, juce::dontSendNotification); }
+        void setOutputName(const juce::String& s) { outputLabel.setText(s, juce::dontSendNotification); }
 
         juce::String insertSlotNames[9];
         bool insertsExpanded = false;
 
         // Callbacks
-        std::function<void(float dB)>         onVolumeChanged;
-        std::function<void(float pan)>        onPanChanged;
-        std::function<void(bool)>             onMuteToggled;
-        std::function<void(bool)>             onSoloToggled;
-        std::function<void(bool)>             onArmToggled;
-        std::function<void(int slot)>         onInsertClicked;
-        std::function<void(int slot)>         onInsertChangePlugin;
-        std::function<void(int slot)>         onInsertRemovePlugin;
-        std::function<void(int send, float)>  onSendChanged;  // send index, dB value
+        std::function<void(float dB)>          onVolumeChanged;
+        std::function<void(float pan)>         onPanChanged;
+        std::function<void(bool)>              onMuteToggled;
+        std::function<void(bool)>              onSoloToggled;
+        std::function<void(bool)>              onArmToggled;
+        std::function<void(int slot)>          onInsertClicked;
+        std::function<void(int slot)>          onInsertChangePlugin;
+        std::function<void(int slot)>          onInsertRemovePlugin;
+        std::function<void(int send, float)>   onSendChanged;
+        std::function<void(const juce::String&)> onInputChanged;
+        std::function<void(const juce::String&)> onOutputChanged;
+        // Supply available routing names for the I/O popup menus
+        std::function<juce::StringArray()>     getAvailableInputs;
+        std::function<juce::StringArray()>     getAvailableOutputs;
 
         void mouseDown(const juce::MouseEvent& e) override;
 
@@ -76,14 +85,21 @@ namespace NovaStudioUI
         void buttonClicked(juce::Button* b) override;
         void drawInsertSlots(juce::Graphics& g, juce::Rectangle<int> area) const;
         void drawMeter(juce::Graphics& g, juce::Rectangle<int> area) const;
-        void drawDbScale(juce::Graphics& g, juce::Rectangle<int> faderArea) const;
+        void showIOPopup(bool isInput);
 
-        int   trackIndex  = -1;
-        int   trackNumber = 0;
-        bool  isMaster    = false;
-        bool  isAux       = false;
-        float meterLeft   = 0.0f;
-        float meterRight  = 0.0f;
+        // Layout helpers — returns rects matching resized() allocation
+        juce::Rectangle<int> getFaderRect()  const;
+        juce::Rectangle<int> getMeterRect()  const;
+        juce::Rectangle<int> getInsertRect() const;
+        juce::Rectangle<int> getSendsRect()  const;
+
+        int          trackIndex  = -1;
+        int          trackNumber = 0;
+        bool         isMaster    = false;
+        bool         isAux       = false;
+        float        meterLeft   = 0.0f;
+        float        meterRight  = 0.0f;
+        juce::Colour trackColour { 100, 80, 200 };
 
         juce::Label      nameLabel;
         juce::TextButton muteBtn  { "M" };
@@ -92,16 +108,16 @@ namespace NovaStudioUI
         juce::TextButton preBtn   { "PRE" };
         juce::TextButton readBtn  { "Read" };
         juce::Slider     fader;
-        juce::Slider     panSlider;
+        juce::Slider     panKnob;     // rotary
         juce::Label      faderDbLabel;
         juce::Label      inputLabel;
         juce::Label      outputLabel;
 
-        // Send controls — one knob + label per send (A B C D)
+        // Sends — one rotary knob + dB label + enable button per send
         juce::Slider     sendKnobs[kNumSends];
         juce::Label      sendDbLabels[kNumSends];
         juce::TextButton sendEnableBtns[kNumSends];
-        juce::String     sendNames[kNumSends] { "A", "B", "C", "D" };
+        juce::String     sendBusNames[kNumSends] { "Verb", "Delay" };
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChannelStrip)
     };

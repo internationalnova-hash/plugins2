@@ -177,7 +177,7 @@ static void styleButton(juce::TextButton& btn, bool active, juce::Colour onColou
 
 ChannelStrip::ChannelStrip()
 {
-    // Main fader
+    // ── Main fader ────────────────────────────────────────────────────────
     fader.setSliderStyle(juce::Slider::LinearVertical);
     fader.setRange(-60.0, 12.0, 0.1);
     fader.setValue(0.0, juce::dontSendNotification);
@@ -187,39 +187,43 @@ ChannelStrip::ChannelStrip()
     addAndMakeVisible(fader);
     fader.addListener(this);
 
-    // Pan slider
-    panSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    panSlider.setRange(-1.0, 1.0, 0.01);
-    panSlider.setValue(0.0, juce::dontSendNotification);
-    panSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
-    applyPanStyle(panSlider);
-    addAndMakeVisible(panSlider);
-    panSlider.addListener(this);
+    // ── Pan — rotary knob ──────────────────────────────────────────────────
+    panKnob.setSliderStyle(juce::Slider::RotaryVerticalDrag);
+    panKnob.setRange(-1.0, 1.0, 0.01);
+    panKnob.setValue(0.0, juce::dontSendNotification);
+    panKnob.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+    panKnob.setColour(juce::Slider::rotarySliderFillColourId,    juce::Colour::fromRGB(100, 80, 200));
+    panKnob.setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour::fromRGB(30, 33, 46));
+    panKnob.setColour(juce::Slider::thumbColourId, juce::Colours::white);
+    addAndMakeVisible(panKnob);
+    panKnob.addListener(this);
 
-    // Track name
+    // ── Track name ─────────────────────────────────────────────────────────
     nameLabel.setJustificationType(juce::Justification::centred);
-    nameLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.85f));
-    nameLabel.setFont(juce::Font(juce::FontOptions(10.0f).withStyle("Bold")));
+    nameLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.9f));
+    nameLabel.setFont(juce::Font(juce::FontOptions(9.5f).withStyle("Bold")));
     addAndMakeVisible(nameLabel);
 
-    // Fader dB
+    // ── Fader dB readout ───────────────────────────────────────────────────
     faderDbLabel.setJustificationType(juce::Justification::centred);
-    faderDbLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.55f));
+    faderDbLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.7f));
     faderDbLabel.setFont(juce::Font(juce::FontOptions(9.0f)));
+    faderDbLabel.setText("0.0 dB", juce::dontSendNotification);
     addAndMakeVisible(faderDbLabel);
 
-    // I/O labels
+    // ── I/O labels (clickable) ─────────────────────────────────────────────
     for (auto* lbl : { &inputLabel, &outputLabel })
     {
         lbl->setFont(juce::Font(juce::FontOptions(8.5f)));
-        lbl->setJustificationType(juce::Justification::centred);
-        lbl->setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.4f));
+        lbl->setJustificationType(juce::Justification::centredLeft);
+        lbl->setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.6f));
+        lbl->setColour(juce::Label::backgroundColourId, juce::Colour::fromRGB(22, 24, 34));
         addAndMakeVisible(*lbl);
     }
-    inputLabel.setText("Input 1", juce::dontSendNotification);
+    inputLabel .setText("Input 1",  juce::dontSendNotification);
     outputLabel.setText("Main Out", juce::dontSendNotification);
 
-    // M S R buttons
+    // ── M S R buttons ──────────────────────────────────────────────────────
     for (auto* btn : { &muteBtn, &soloBtn, &armBtn })
     {
         btn->setConnectedEdges(juce::Button::ConnectedOnLeft | juce::Button::ConnectedOnRight);
@@ -230,22 +234,22 @@ ChannelStrip::ChannelStrip()
     styleButton(soloBtn, false, kSoloBtnOn);
     styleButton(armBtn,  false, kArmBtnOn);
 
-    // PRE button
-    preBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(40, 44, 60));
-    preBtn.setColour(juce::TextButton::buttonOnColourId, juce::Colour::fromRGB(80, 160, 255));
-    preBtn.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.55f));
-    preBtn.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    // ── PRE button ─────────────────────────────────────────────────────────
+    preBtn.setColour(juce::TextButton::buttonColourId,   juce::Colour::fromRGB(38, 30, 70));
+    preBtn.setColour(juce::TextButton::buttonOnColourId, juce::Colour::fromRGB(90, 60, 200));
+    preBtn.setColour(juce::TextButton::textColourOffId,  juce::Colours::white.withAlpha(0.6f));
+    preBtn.setColour(juce::TextButton::textColourOnId,   juce::Colours::white);
     preBtn.setClickingTogglesState(true);
     addAndMakeVisible(preBtn);
     preBtn.addListener(this);
 
-    // Read (automation) button
-    readBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(30, 120, 30));
-    readBtn.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.85f));
+    // ── Read (automation) button ───────────────────────────────────────────
+    readBtn.setColour(juce::TextButton::buttonColourId,  juce::Colour::fromRGB(20, 90, 20));
+    readBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(80, 220, 80));
     addAndMakeVisible(readBtn);
     readBtn.addListener(this);
 
-    // Send knobs (A B C D)
+    // ── Send knobs (Verb / Delay) ──────────────────────────────────────────
     for (int i = 0; i < kNumSends; ++i)
     {
         auto& k = sendKnobs[i];
@@ -253,27 +257,26 @@ ChannelStrip::ChannelStrip()
         k.setRange(-60.0, 0.0, 0.1);
         k.setValue(-20.0, juce::dontSendNotification);
         k.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
-        k.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour::fromRGB(80, 160, 255));
-        k.setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour::fromRGB(30, 33, 46));
+        k.setColour(juce::Slider::rotarySliderFillColourId,    juce::Colour::fromRGB(70, 130, 220));
+        k.setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour::fromRGB(28, 30, 44));
         k.setColour(juce::Slider::thumbColourId, juce::Colours::white);
         addAndMakeVisible(k);
         k.addListener(this);
 
         auto& lbl = sendDbLabels[i];
         lbl.setFont(juce::Font(juce::FontOptions(7.5f)));
-        lbl.setJustificationType(juce::Justification::centred);
-        lbl.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.5f));
-        lbl.setText("-20", juce::dontSendNotification);
+        lbl.setJustificationType(juce::Justification::centredLeft);
+        lbl.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.55f));
+        lbl.setText("-20.0", juce::dontSendNotification);
         addAndMakeVisible(lbl);
 
         auto& eb = sendEnableBtns[i];
-        eb.setButtonText(sendNames[i]);
         eb.setClickingTogglesState(true);
         eb.setToggleState(true, juce::dontSendNotification);
-        eb.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(30, 33, 46));
-        eb.setColour(juce::TextButton::buttonOnColourId, juce::Colour::fromRGB(50, 80, 160));
-        eb.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.4f));
-        eb.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+        eb.setColour(juce::TextButton::buttonColourId,   juce::Colour::fromRGB(28, 30, 46));
+        eb.setColour(juce::TextButton::buttonOnColourId, juce::Colour::fromRGB(38, 60, 140));
+        eb.setColour(juce::TextButton::textColourOffId,  juce::Colours::white.withAlpha(0.4f));
+        eb.setColour(juce::TextButton::textColourOnId,   juce::Colours::white);
         addAndMakeVisible(eb);
         eb.addListener(this);
     }
@@ -283,7 +286,7 @@ ChannelStrip::~ChannelStrip()
 {
     fader.setLookAndFeel(nullptr);
     fader.removeListener(this);
-    panSlider.removeListener(this);
+    panKnob.removeListener(this);
     for (auto& k : sendKnobs) k.removeListener(this);
     for (auto* btn : { &muteBtn, &soloBtn, &armBtn, &preBtn, &readBtn })
         btn->removeListener(this);
@@ -294,7 +297,7 @@ void ChannelStrip::updateFromTrack(const NovaStudio::Track& track)
 {
     nameLabel.setText(track.name, juce::dontSendNotification);
     fader.setValue(track.volumeDb, juce::dontSendNotification);
-    panSlider.setValue(track.pan, juce::dontSendNotification);
+    panKnob.setValue(track.pan, juce::dontSendNotification);
 
     styleButton(muteBtn, track.muted, kMuteBtnOn);
     styleButton(soloBtn, track.solo,  kSoloBtnOn);
@@ -339,9 +342,9 @@ void ChannelStrip::sliderValueChanged(juce::Slider* s)
         faderDbLabel.setText(juce::String(db, 1) + " dB", juce::dontSendNotification);
         if (onVolumeChanged) onVolumeChanged(db);
     }
-    else if (s == &panSlider)
+    else if (s == &panKnob)
     {
-        if (onPanChanged) onPanChanged((float)panSlider.getValue());
+        if (onPanChanged) onPanChanged((float)panKnob.getValue());
     }
     else
     {
@@ -383,19 +386,56 @@ void ChannelStrip::buttonClicked(juce::Button* b)
     }
 }
 
+void ChannelStrip::showIOPopup(bool isInput)
+{
+    juce::StringArray options;
+    if (isInput && getAvailableInputs)
+        options = getAvailableInputs();
+    else if (!isInput && getAvailableOutputs)
+        options = getAvailableOutputs();
+
+    if (options.isEmpty())
+    {
+        if (isInput)
+            for (int i = 1; i <= 8; ++i) options.add("Input " + juce::String(i));
+        else
+        {
+            options.add("Main Out");
+            options.add("Headphones");
+        }
+    }
+
+    juce::PopupMenu menu;
+    for (int i = 0; i < options.size(); ++i)
+        menu.addItem(i + 1, options[i]);
+
+    auto& target = isInput ? inputLabel : outputLabel;
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&target),
+        [this, isInput, options](int result)
+        {
+            if (result <= 0) return;
+            const juce::String chosen = options[result - 1];
+            if (isInput)
+            {
+                inputLabel.setText(chosen, juce::dontSendNotification);
+                if (onInputChanged) onInputChanged(chosen);
+            }
+            else
+            {
+                outputLabel.setText(chosen, juce::dontSendNotification);
+                if (onOutputChanged) onOutputChanged(chosen);
+            }
+        });
+}
+
 void ChannelStrip::mouseDown(const juce::MouseEvent& e)
 {
-    // Determine insert slot area (mirrors paint() layout)
-    auto r = getLocalBounds();
-    r.removeFromBottom(22);   // name
-    r.removeFromBottom(26);   // M/S/A
-    r.removeFromBottom(16);   // dB label
-    r.removeFromBottom(130);  // fader
-    r.removeFromBottom(28);   // pan
-    r.removeFromBottom(16);   // routing label
-    r.removeFromBottom(76);   // meter
-    r.removeFromBottom(40);   // sends
-    auto slotArea = r.reduced(4, 2);
+    // I/O popup
+    if (inputLabel .getBounds().contains(e.getPosition())) { showIOPopup(true);  return; }
+    if (outputLabel.getBounds().contains(e.getPosition())) { showIOPopup(false); return; }
+
+    // Insert slot hit-test uses getInsertRect()
+    auto slotArea = getInsertRect().reduced(4, 2);
 
     const int slotH = 16;
     const int gap   = 3;
@@ -587,154 +627,218 @@ void ChannelStrip::paint(juce::Graphics& g)
     g.setColour(edge);
     g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
 
-    // ── Track number badge at top ──────────────────────────────────────────
-    if (trackNumber > 0 && !isMaster)
+    // ── Header bar: colour swatch + track number ───────────────────────────
     {
-        g.setColour(edge.withAlpha(0.85f));
-        g.fillRoundedRectangle(juce::Rectangle<float>(4.0f, 4.0f, 22.0f, 14.0f), 3.0f);
+        const int hdrH = 20;
+        g.setColour(trackColour.withAlpha(0.85f));
+        juce::Path hdrPath;
+        hdrPath.addRoundedRectangle(bounds.getX(), bounds.getY(), bounds.getWidth(), (float)hdrH, 6.0f, 6.0f, true, true, false, false);
+        g.fillPath(hdrPath);
+
         g.setColour(juce::Colours::white);
-        g.setFont(juce::FontOptions(8.5f).withStyle("Bold"));
-        g.drawText(juce::String(trackNumber), 4, 4, 22, 14, juce::Justification::centred);
+        g.setFont(juce::FontOptions(9.0f).withStyle("Bold"));
+        if (!isMaster && trackNumber > 0)
+            g.drawText(juce::String(trackNumber), 4, 2, W - 8, hdrH - 4, juce::Justification::centredLeft);
+        else
+            g.drawText(isMaster ? "M" : "A", 4, 2, W - 8, hdrH - 4, juce::Justification::centredLeft);
     }
 
-    // ── Compute layout (mirrors resized()) ────────────────────────────────
-    auto r = getLocalBounds().reduced(2, 2);
-    r.removeFromBottom(18);  // name
-    r.removeFromBottom(22);  // MSR
-    r.removeFromBottom(14);  // dB label
-    const auto faderArea = r.removeFromBottom(138).reduced(8, 2);
-    r.removeFromBottom(22);  // pan
-    r.removeFromBottom(13);  // input
-    r.removeFromBottom(13);  // output
-    r.removeFromBottom(18);  // pre+read
-
-    // ── Meter section ─────────────────────────────────────────────────────
-    auto meterArea = r.removeFromBottom(70);
-    drawMeter(g, meterArea);
-    g.setColour(kStripEdge);
-    g.drawHorizontalLine(meterArea.getY(), 4.0f, (float)W - 4.0f);
-
-    // ── Pan value label painted above pan slider ───────────────────────────
+    // ── Pan value label (painted beside panKnob) ──────────────────────────
     {
-        const float pan = (float)panSlider.getValue();
+        const float pan = (float)panKnob.getValue();
         juce::String panStr;
         if (std::abs(pan) < 0.02f) panStr = "C";
         else if (pan < 0) panStr = "L" + juce::String((int)(-pan * 100));
-        else              panStr = "R" + juce::String((int)( pan * 100));
-        g.setColour(juce::Colours::white.withAlpha(0.4f));
-        g.setFont(juce::FontOptions(7.5f));
-        // Paint just above where panSlider lives (already positioned by resized)
-        const auto panBounds = panSlider.getBounds().withHeight(10).translated(0, -10);
-        g.drawText(panStr, panBounds, juce::Justification::centred);
+        else              panStr = "R" + juce::String((int)(pan * 100));
+        // Draw to the right of the knob
+        auto kb = panKnob.getBounds();
+        g.setColour(juce::Colours::white.withAlpha(0.55f));
+        g.setFont(juce::FontOptions(8.0f));
+        g.drawText(panStr, kb.getRight() + 2, kb.getY(), W - kb.getRight() - 4, kb.getHeight(),
+                   juce::Justification::centredLeft);
     }
 
-    // ── dB scale beside fader ──────────────────────────────────────────────
-    drawDbScale(g, faderArea);
+    // ── INSERTS section header ─────────────────────────────────────────────
+    {
+        auto insHdr = getInsertRect().withHeight(12).translated(0, -12);
+        g.setColour(juce::Colour::fromRGB(20, 22, 32));
+        g.fillRect(insHdr);
+        g.setColour(kStripEdge);
+        g.drawHorizontalLine(insHdr.getY(), 4.0f, (float)W - 4.0f);
+        g.setColour(juce::Colours::white.withAlpha(0.35f));
+        g.setFont(juce::FontOptions(7.0f).withStyle("Bold"));
+        g.drawText("INSERTS", insHdr, juce::Justification::centred);
+    }
 
-    // ── Sends section header ───────────────────────────────────────────────
-    r.removeFromBottom(88 + 13); // sends area + header space
-    auto sendsHdr = r.removeFromBottom(13);
-    g.setColour(juce::Colour::fromRGB(20, 22, 32));
-    g.fillRect(sendsHdr);
-    g.setColour(kStripEdge);
-    g.drawHorizontalLine(sendsHdr.getY(), 4.0f, (float)W - 4.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.35f));
-    g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
-    g.drawText("SENDS", sendsHdr, juce::Justification::centred);
+    // ── Insert slots ───────────────────────────────────────────────────────
+    drawInsertSlots(g, getInsertRect());
 
-    // ── Inserts header + slots ────────────────────────────────────────────
-    auto insertsHdr = r.removeFromTop(13);
-    g.setColour(juce::Colour::fromRGB(20, 22, 32));
-    g.fillRect(insertsHdr);
-    g.setColour(juce::Colours::white.withAlpha(0.35f));
-    g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
-    g.drawText("INSERTS", insertsHdr, juce::Justification::centred);
-    g.setColour(kStripEdge);
-    g.drawHorizontalLine(insertsHdr.getBottom(), 4.0f, (float)W - 4.0f);
+    // ── SENDS section header ───────────────────────────────────────────────
+    {
+        auto sndHdr = getSendsRect().withHeight(12).translated(0, -12);
+        g.setColour(juce::Colour::fromRGB(20, 22, 32));
+        g.fillRect(sndHdr);
+        g.setColour(kStripEdge);
+        g.drawHorizontalLine(sndHdr.getY(), 4.0f, (float)W - 4.0f);
+        g.setColour(juce::Colours::white.withAlpha(0.35f));
+        g.setFont(juce::FontOptions(7.0f).withStyle("Bold"));
+        g.drawText("SENDS", sndHdr, juce::Justification::centred);
+    }
 
-    drawInsertSlots(g, r);
+    // ── Send rows: bus label + dB painted behind controls ─────────────────
+    {
+        auto sndArea = getSendsRect();
+        const char* letters[] = { "A", "B" };
+        for (int i = 0; i < kNumSends; ++i)
+        {
+            auto row = sndArea.removeFromTop(sndArea.getHeight() / juce::jmax(1, kNumSends - i));
+            // Letter badge
+            g.setColour(juce::Colour::fromRGB(50, 50, 80));
+            g.fillRoundedRectangle(juce::Rectangle<float>((float)row.getX() + 2, (float)row.getY() + 2, 12.0f, 12.0f), 2.0f);
+            g.setColour(juce::Colours::white.withAlpha(0.7f));
+            g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
+            g.drawText(letters[i], row.getX() + 2, row.getY() + 2, 12, 12, juce::Justification::centred);
+            // Bus name
+            g.setColour(juce::Colours::white.withAlpha(0.6f));
+            g.setFont(juce::FontOptions(8.0f));
+            g.drawText(sendBusNames[i], row.getX() + 16, row.getY() + 2, 32, 12, juce::Justification::centredLeft);
+        }
+    }
+
+    // ── I/O section separator ──────────────────────────────────────────────
+    {
+        int ioY = inputLabel.getY() - 1;
+        g.setColour(kStripEdge);
+        g.drawHorizontalLine(ioY, 4.0f, (float)W - 4.0f);
+        // "I/O" micro label
+        g.setColour(juce::Colours::white.withAlpha(0.25f));
+        g.setFont(juce::FontOptions(6.5f).withStyle("Bold"));
+        g.drawText("I/O", 4, ioY - 10, 20, 10, juce::Justification::centredLeft);
+    }
+
+    // ── Fader area: draw meter bars on right side of fader ────────────────
+    {
+        const auto fr = getFaderRect();
+        // Meter occupies right 14px of fader area
+        const int meterW = 14;
+        auto meterArea = fr.withLeft(fr.getRight() - meterW);
+        drawMeter(g, meterArea);
+        // dB scale to right of fader (left of meter)
+        auto scaleArea = fr.withLeft(fr.getRight() - meterW - 22).withRight(fr.getRight() - meterW);
+        // Use ProFaderLookAndFeel's built-in scale — just add 0dB notch marker
+        g.setColour(juce::Colour::fromRGBA(160, 120, 255, 140));
+        // 0dB sits at 75% down the fader
+        const int zeroY = fr.getY() + (int)(fr.getHeight() * 0.75f);
+        g.fillRect(fr.getX(), zeroY, fr.getWidth() - meterW, 1);
+    }
 }
 
-void ChannelStrip::drawDbScale(juce::Graphics& g, juce::Rectangle<int> faderArea) const
+// ── Layout helpers ────────────────────────────────────────────────────────────
+// These must match what resized() allocates exactly.
+
+juce::Rectangle<int> ChannelStrip::getFaderRect() const
 {
-    static const float dbs[]    = { 12.f, 6.f, 0.f, -6.f, -12.f, -20.f, -30.f };
-    static const char* labels[] = { "+12", "+6", "0", "-6", "-12", "-20", "-30" };
-    constexpr int n = 7;
-    const float minDb = -60.f, maxDb = 12.f, range = maxDb - minDb;
-    g.setFont(juce::FontOptions(6.5f));
-    g.setColour(juce::Colours::white.withAlpha(0.25f));
-    for (int i = 0; i < n; ++i)
-    {
-        const float norm = (dbs[i] - minDb) / range;
-        const int y = faderArea.getBottom() - (int)(norm * faderArea.getHeight());
-        g.drawHorizontalLine(y, (float)(faderArea.getRight() + 1), (float)(faderArea.getRight() + 4));
-        g.drawText(labels[i], faderArea.getRight() + 2, y - 4, 22, 8, juce::Justification::left);
-    }
+    // Bottom section: name(20) + dBLabel(14) + MSR(20) + read(18) + fader(190)
+    auto r = getLocalBounds().reduced(2, 2);
+    r.removeFromBottom(20);   // name
+    r.removeFromBottom(14);   // dB label
+    r.removeFromBottom(20);   // MSR
+    r.removeFromBottom(18);   // read
+    return r.removeFromBottom(190).reduced(4, 2);
+}
+
+juce::Rectangle<int> ChannelStrip::getMeterRect() const
+{
+    auto fr = getFaderRect();
+    return fr.withLeft(fr.getRight() - 14);
+}
+
+juce::Rectangle<int> ChannelStrip::getInsertRect() const
+{
+    auto r = getLocalBounds().reduced(2, 2);
+    r.removeFromTop(20);  // header bar
+    r.removeFromTop(18);  // name
+    r.removeFromTop(18);  // PRE
+    r.removeFromTop(46);  // pan knob
+    r.removeFromTop(12);  // INSERTS header
+    // Insert area: 6 visible * 19px + expand row
+    const int visH = 6 * 19 + 14;
+    return r.removeFromTop(visH);
+}
+
+juce::Rectangle<int> ChannelStrip::getSendsRect() const
+{
+    auto r = getLocalBounds().reduced(2, 2);
+    r.removeFromTop(20);   // header
+    r.removeFromTop(18);   // name
+    r.removeFromTop(18);   // PRE
+    r.removeFromTop(46);   // pan
+    r.removeFromTop(12);   // INSERTS header
+    const int insH = 6 * 19 + 14;
+    r.removeFromTop(insH); // inserts
+    r.removeFromTop(12);   // SENDS header
+    return r.removeFromTop(kNumSends * 30);
 }
 
 void ChannelStrip::resized()
 {
     auto r = getLocalBounds().reduced(2, 2);
 
-    // ── Bottom: name ──────────────────────────────────────────────────────
-    nameLabel.setBounds(r.removeFromBottom(18));
+    // ── TOP: colour header bar (painted only) ─────────────────────────────
+    r.removeFromTop(20);
 
-    // ── M S R buttons ─────────────────────────────────────────────────────
+    // ── Track name ─────────────────────────────────────────────────────────
+    nameLabel.setBounds(r.removeFromTop(18));
+
+    // ── PRE button ─────────────────────────────────────────────────────────
+    preBtn.setBounds(r.removeFromTop(18).reduced(2, 1));
+
+    // ── Pan knob (rotary, left-aligned; pan label painted to right) ────────
+    panKnob.setBounds(r.removeFromTop(46).withWidth(42).reduced(2, 2));
+
+    // ── INSERTS header (painted) then slots (painted) ─────────────────────
+    r.removeFromTop(12); // INSERTS header
+    const int insH = 6 * 19 + 14;
+    r.removeFromTop(insH);
+
+    // ── SENDS header (painted) then send rows ─────────────────────────────
+    r.removeFromTop(12); // SENDS header
     {
-        auto row = r.removeFromBottom(22).reduced(2, 2);
+        for (int i = 0; i < kNumSends; ++i)
+        {
+            auto row = r.removeFromTop(30).reduced(1, 1);
+            // knob on left (after 16px letter + 34px bus name)
+            const int knobX = 16;
+            sendKnobs[i]     .setBounds(row.withLeft(knobX).withWidth(28).reduced(1, 1));
+            sendEnableBtns[i].setBounds(row.withLeft(knobX + 30).withWidth(row.getWidth() - knobX - 30).reduced(1, 2));
+            sendDbLabels[i]  .setBounds(row.withLeft(knobX + 30).withTop(row.getCentreY() + 2).withWidth(row.getWidth() - knobX - 30));
+        }
+    }
+
+    // ── I/O labels (clickable) ─────────────────────────────────────────────
+    r.removeFromTop(4);
+    inputLabel .setBounds(r.removeFromTop(15).reduced(2, 1));
+    outputLabel.setBounds(r.removeFromTop(15).reduced(2, 1));
+
+    // ── Read button ────────────────────────────────────────────────────────
+    readBtn.setBounds(r.removeFromTop(18).reduced(2, 1));
+
+    // ── M S R buttons ──────────────────────────────────────────────────────
+    {
+        auto row = r.removeFromTop(20).reduced(2, 1);
         const int btnW = isMaster ? row.getWidth() / 2 : row.getWidth() / 3;
         muteBtn.setBounds(row.removeFromLeft(btnW));
         soloBtn.setBounds(row.removeFromLeft(btnW));
         if (!isMaster) armBtn.setBounds(row);
     }
 
-    // ── fader dB label ─────────────────────────────────────────────────────
-    faderDbLabel.setBounds(r.removeFromBottom(14));
-
     // ── Main fader ─────────────────────────────────────────────────────────
-    fader.setBounds(r.removeFromBottom(138).reduced(8, 2));
+    // Leave right 14px for meter (painted)
+    auto faderRow = r.removeFromTop(190);
+    fader.setBounds(faderRow.withTrimmedRight(14).reduced(4, 2));
 
-    // ── Pan slider + label ─────────────────────────────────────────────────
-    panSlider.setBounds(r.removeFromBottom(22).reduced(4, 3));
-
-    // ── I/O labels ─────────────────────────────────────────────────────────
-    inputLabel .setBounds(r.removeFromBottom(13));
-    outputLabel.setBounds(r.removeFromBottom(13));
-
-    // ── Read (auto) + PRE ──────────────────────────────────────────────────
-    {
-        auto row = r.removeFromBottom(18).reduced(2, 1);
-        preBtn .setBounds(row.removeFromLeft(row.getWidth() / 2));
-        readBtn.setBounds(row);
-    }
-
-    // ── Meter ──────────────────────────────────────────────────────────────
-    // (painted by paint(), no child components)
-    const int meterH = 70;
-    r.removeFromBottom(meterH); // reserve but paint handles it
-
-    // ── Sends — 2 rows of 2 knobs (A B / C D) ─────────────────────────────
-    {
-        const int sendsH = 88;
-        auto sendsArea = r.removeFromBottom(sendsH).reduced(2, 0);
-        r.removeFromBottom(13); // section header painted by paint()
-        const int rowH = sendsArea.getHeight() / 2;
-        for (int row = 0; row < 2; ++row)
-        {
-            auto rowArea = (row == 0) ? sendsArea.removeFromTop(rowH)
-                                      : sendsArea;
-            const int colW = rowArea.getWidth() / 2;
-            for (int col = 0; col < 2; ++col)
-            {
-                const int si = row * 2 + col;
-                auto cell = rowArea.removeFromLeft(colW).reduced(1, 1);
-                sendEnableBtns[si].setBounds(cell.removeFromTop(12));
-                sendDbLabels  [si].setBounds(cell.removeFromBottom(10));
-                sendKnobs     [si].setBounds(cell);
-            }
-        }
-    }
-    // remaining top area = inserts (paint handles it)
+    // ── Fader dB label ─────────────────────────────────────────────────────
+    faderDbLabel.setBounds(r.removeFromTop(14));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -803,8 +907,19 @@ void MixerWindow::buildStrips()
         };
     };
 
-    // Default send bus names (A=Verb, B=Delay, C=Bus 3, D=Bus 4)
-    const juce::String sendBusNames[ChannelStrip::kNumSends] = { "Verb", "Delay", "Bus 3", "Bus 4" };
+    // Default send bus names — match aux channel names where possible
+    const juce::String defaultSendBusNames[ChannelStrip::kNumSends] = { "Verb", "Delay" };
+
+    static const juce::Colour kTrackPalette[] = {
+        juce::Colour::fromRGB(120, 80, 200),
+        juce::Colour::fromRGB(80, 100, 200),
+        juce::Colour::fromRGB(50, 160, 160),
+        juce::Colour::fromRGB(60, 120, 200),
+        juce::Colour::fromRGB(40, 180, 160),
+        juce::Colour::fromRGB(60, 180, 80),
+        juce::Colour::fromRGB(160, 190, 50),
+        juce::Colour::fromRGB(190, 110, 40),
+    };
 
     int stripNum = 1;
 
@@ -817,18 +932,37 @@ void MixerWindow::buildStrips()
 
         auto* strip = trackStrips.add(new ChannelStrip());
         strip->setTrackIndex(i);
-        strip->setTrackNumber(stripNum++);
+        strip->setTrackNumber(stripNum);
+        strip->setTrackColour(kTrackPalette[(stripNum - 1) % 8]);
+        stripNum++;
         strip->updateFromTrack(track);
         for (int s = 0; s < ChannelStrip::kNumSends; ++s)
-            strip->setSendName(s, sendBusNames[s]);
+            strip->setSendBusName(s, defaultSendBusNames[s]);
         stripsContainer.addAndMakeVisible(strip);
 
-        strip->onVolumeChanged = [this, i](float db)   { engine.setTrackVolume(i, db); };
-        strip->onPanChanged    = [this, i](float pan)   { engine.setTrackPan(i, pan); };
-        strip->onMuteToggled   = [this, i](bool muted)  { engine.setTrackMute(i, muted); };
-        strip->onSoloToggled   = [this, i](bool solo)   { engine.setTrackSolo(i, solo); };
-        strip->onArmToggled    = [this, i](bool armed)  { engine.setTrackArm(i, armed); };
-        strip->onSendChanged   = [this, i](int send, float db) { engine.setTrackSendLevel(i, send, db); };
+        strip->onVolumeChanged    = [this, i](float db)   { engine.setTrackVolume(i, db); };
+        strip->onPanChanged       = [this, i](float pan)   { engine.setTrackPan(i, pan); };
+        strip->onMuteToggled      = [this, i](bool muted)  { engine.setTrackMute(i, muted); };
+        strip->onSoloToggled      = [this, i](bool solo)   { engine.setTrackSolo(i, solo); };
+        strip->onArmToggled       = [this, i](bool armed)  { engine.setTrackArm(i, armed); };
+        strip->onSendChanged      = [this, i](int send, float db) { engine.setTrackSendLevel(i, send, db); };
+        strip->getAvailableInputs = [this]() -> juce::StringArray {
+            juce::StringArray inputs;
+            for (int n = 1; n <= 8; ++n) inputs.add("Input " + juce::String(n));
+            return inputs;
+        };
+        strip->getAvailableOutputs = [this]() -> juce::StringArray {
+            juce::StringArray outputs;
+            outputs.add("Main Out");
+            const auto& sess = engine.getSession();
+            for (int n = 0; n < sess.getNumTracks(); ++n)
+            {
+                const auto& t = sess.getTrack(n);
+                if (t.type == NovaStudio::TrackType::Aux)
+                    outputs.add(t.name);
+            }
+            return outputs;
+        };
         wireInserts(strip, i);
     }
 
@@ -845,7 +979,7 @@ void MixerWindow::buildStrips()
         strip->setAux(true);
         strip->updateAsAux(track.name);
         for (int s = 0; s < ChannelStrip::kNumSends; ++s)
-            strip->setSendName(s, sendBusNames[s]);
+            strip->setSendBusName(s, defaultSendBusNames[s]);
         stripsContainer.addAndMakeVisible(strip);
 
         strip->onVolumeChanged = [this, i](float db)   { engine.setTrackVolume(i, db); };
