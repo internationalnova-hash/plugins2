@@ -447,9 +447,18 @@ void NovaApexAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const bool  smartReleaseOn   = apvts.getRawParameterValue (smartReleaseId)->load() > 0.5f;
     const bool  safeModeOn       = apvts.getRawParameterValue (safeModeId)->load() > 0.5f;
 
-    const float inputGainLin  = dbToLinear (gainDb);
+    // Loudness macro: outputGainDb drives input and ceiling in tandem (L2/Pro-L style).
+    // Positive Loudness → pushes more into the limiter (+0.5 dB input per +1 dB output)
+    //                      and raises the ceiling slightly (+0.25 dB per +1 dB output).
+    // Negative Loudness → pulls back symmetrically, keeping the chain consistent.
+    const float loudnessDriveDb  = outputGainDb * 0.5f;   // extra input push
+    const float loudnessCeilAdj  = outputGainDb * 0.25f;  // ceiling lift
+    const float effectiveGainDb  = gainDb + loudnessDriveDb;
+    const float effectiveCeilDb  = juce::jlimit (-3.0f, 0.0f, ceilingDb + loudnessCeilAdj);
+
+    const float inputGainLin  = dbToLinear (effectiveGainDb);
     // Safe Mode: pull ceiling in by 0.3 dB — more headroom, less distortion risk
-    const float safeCeilingDb = safeModeOn ? ceilingDb - 0.3f : ceilingDb;
+    const float safeCeilingDb = safeModeOn ? effectiveCeilDb - 0.3f : effectiveCeilDb;
     const float ceilingLinear = dbToLinear (safeCeilingDb);
     const float outputGainLin = dbToLinear (outputGainDb);
 
