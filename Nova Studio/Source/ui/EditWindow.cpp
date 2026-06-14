@@ -11,6 +11,15 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
     addAndMakeVisible(centerPanel);
     addAndMakeVisible(rightPanel);
 
+    // Toggle bars
+    leftToggleBar.isLeft = true;
+    rightToggleBar.isLeft = false;
+    addAndMakeVisible(leftToggleBar);
+    addAndMakeVisible(rightToggleBar);
+
+    leftToggleBar.onClick = [this]() { setLeftPanelCollapsed(!leftCollapsed); };
+    rightToggleBar.onClick = [this]() { setRightPanelCollapsed(!rightCollapsed); };
+
     transportState.addChangeListener(this);
     arrangementModel.addChangeListener(this);
 
@@ -100,6 +109,24 @@ void EditWindow::zoomHorizontal(int direction)
         arrangementView->adjustHZoom(direction);
 }
 
+void EditWindow::setLeftPanelCollapsed(bool collapsed)
+{
+    leftCollapsed = collapsed;
+    leftToggleBar.collapsed = collapsed;
+    leftPanel.setVisible(!collapsed);
+    leftToggleBar.repaint();
+    resized();
+}
+
+void EditWindow::setRightPanelCollapsed(bool collapsed)
+{
+    rightCollapsed = collapsed;
+    rightToggleBar.collapsed = collapsed;
+    rightPanel.setVisible(!collapsed);
+    rightToggleBar.repaint();
+    resized();
+}
+
 EditWindow::~EditWindow()
 {
     transportState.removeChangeListener(this);
@@ -128,30 +155,55 @@ void EditWindow::paint(juce::Graphics& g)
     g.fillAll(juce::Colour::fromRGB(10, 11, 16));
 
     // Left track panel background
-    g.setColour(juce::Colour::fromRGB(14, 16, 22));
-    g.fillRect(leftPanel.getBounds());
+    if (!leftCollapsed)
+    {
+        g.setColour(juce::Colour::fromRGB(14, 16, 22));
+        g.fillRect(leftPanel.getBounds());
+        g.setColour(juce::Colour::fromRGB(35, 38, 52));
+        g.fillRect(leftPanel.getRight(), 0, 1, getHeight());
+    }
 
     // Right inspector background
-    g.setColour(juce::Colour::fromRGB(16, 18, 26));
-    g.fillRect(rightPanel.getBounds());
-
-    // Subtle dividers
-    g.setColour(juce::Colour::fromRGB(35, 38, 52));
-    g.fillRect(leftPanel.getRight(), 0, 1, getHeight());
-    g.fillRect(rightPanel.getX() - 1, 0, 1, getHeight());
+    if (!rightCollapsed)
+    {
+        g.setColour(juce::Colour::fromRGB(16, 18, 26));
+        g.fillRect(rightPanel.getBounds());
+        g.setColour(juce::Colour::fromRGB(35, 38, 52));
+        g.fillRect(rightPanel.getX() - 1, 0, 1, getHeight());
+    }
 }
 
 void EditWindow::resized()
 {
     auto r = getLocalBounds();
 
-    // Left: track panel — fixed width, full height
-    auto left = r.removeFromLeft(220);
-    leftPanel.setBounds(left);
+    // Left toggle bar is always visible at the left edge
+    leftToggleBar.setBounds(r.removeFromLeft(kToggleBarW));
 
-    // Right: inspector — fixed width, full height
-    auto right = r.removeFromRight(240);
-    rightPanel.setBounds(right);
+    // Left panel (only if not collapsed)
+    if (!leftCollapsed)
+    {
+        auto left = r.removeFromLeft(220);
+        leftPanel.setBounds(left);
+    }
+    else
+    {
+        leftPanel.setBounds({});
+    }
+
+    // Right toggle bar at the right edge
+    rightToggleBar.setBounds(r.removeFromRight(kToggleBarW));
+
+    // Right panel (only if not collapsed)
+    if (!rightCollapsed)
+    {
+        auto right = r.removeFromRight(240);
+        rightPanel.setBounds(right);
+    }
+    else
+    {
+        rightPanel.setBounds({});
+    }
 
     // Center: edit mode toolbar at top, arrangement view fills rest
     centerPanel.setBounds(r);

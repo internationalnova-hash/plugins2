@@ -13,6 +13,14 @@ MainComponent::MainComponent()
     addAndMakeVisible(menuBar);
     addAndMakeVisible(workspaceToolbar);
     addAndMakeVisible(browserPanel);
+    addAndMakeVisible(browserToggleBar);
+    browserToggleBar.onClick = [this]() {
+        browserCollapsed = !browserCollapsed;
+        browserToggleBar.collapsed = browserCollapsed;
+        browserPanel.setVisible(!browserCollapsed);
+        browserToggleBar.repaint();
+        resized();
+    };
     // Legacy components kept for API compat but hidden — EditWindow owns the real instances.
     // They MUST be invisible so they don't intercept mouse events over other panels.
     addAndMakeVisible(trackPanel);
@@ -56,6 +64,23 @@ MainComponent::MainComponent()
     beatWindow = std::make_unique<NovaStudioUI::BeatWindow>(transportState);
     addAndMakeVisible(*beatWindow);
     beatWindow->setVisible(false);
+
+    // Pop-out buttons
+    auto configPopBtn = [](juce::TextButton& btn) {
+        btn.setTooltip("Pop out as floating window");
+        btn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(30, 34, 48));
+        btn.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.7f));
+    };
+    configPopBtn(popMixerBtn);
+    configPopBtn(popBeatBtn);
+    configPopBtn(popBrowserBtn);
+    addAndMakeVisible(popMixerBtn);
+    addAndMakeVisible(popBeatBtn);
+    addAndMakeVisible(popBrowserBtn);
+
+    popMixerBtn.onClick   = [this]() { popOutMixer(); };
+    popBeatBtn.onClick    = [this]() { popOutBeat(); };
+    popBrowserBtn.onClick = [this]() { popOutBrowser(); };
     addAndMakeVisible(mixerPanel);
     mixerPanel.setVisible(false);
     addAndMakeVisible(bottomDock);
@@ -279,7 +304,92 @@ void MainComponent::changeListenerCallback(juce::ChangeBroadcaster* source)
     }
 }
 
-MainComponent::~MainComponent() = default;
+MainComponent::~MainComponent()
+{
+    // Close floating windows before destroying content
+    if (floatingMixer)  { floatingMixer->setContentNonOwned(nullptr, false);  floatingMixer.reset(); }
+    if (floatingBeat)   { floatingBeat->setContentNonOwned(nullptr, false);   floatingBeat.reset(); }
+    if (floatingBrowser){ floatingBrowser->setContentNonOwned(nullptr, false); floatingBrowser.reset(); }
+}
+
+void MainComponent::popOutMixer()
+{
+    if (floatingMixer) { floatingMixer->toFront(true); return; }
+    if (mixerWindow)
+    {
+        mixerWindow->setVisible(true);
+        floatingMixer = std::make_unique<FloatingPanelWindow>(
+            "Mixer", mixerWindow.get(),
+            [this](FloatingPanelWindow* w) {
+                juce::ignoreUnused(w);
+                redockMixer();
+            });
+    }
+}
+
+void MainComponent::redockMixer()
+{
+    floatingMixer.reset();
+    if (mixerWindow)
+    {
+        addAndMakeVisible(*mixerWindow);
+        mixerWindow->setVisible(false); // hidden until mode 1 selected
+    }
+    resized();
+}
+
+void MainComponent::popOutBeat()
+{
+    if (floatingBeat) { floatingBeat->toFront(true); return; }
+    if (beatWindow)
+    {
+        beatWindow->setVisible(true);
+        floatingBeat = std::make_unique<FloatingPanelWindow>(
+            "Beat Production", beatWindow.get(),
+            [this](FloatingPanelWindow* w) {
+                juce::ignoreUnused(w);
+                redockBeat();
+            });
+    }
+}
+
+void MainComponent::redockBeat()
+{
+    floatingBeat.reset();
+    if (beatWindow)
+    {
+        addAndMakeVisible(*beatWindow);
+        beatWindow->setVisible(false);
+    }
+    resized();
+}
+
+void MainComponent::popOutBrowser()
+{
+    if (floatingBrowser) { floatingBrowser->toFront(true); return; }
+    browserPanel.setVisible(true);
+    browserCollapsed = true;
+    browserToggleBar.collapsed = true;
+    browserToggleBar.repaint();
+    floatingBrowser = std::make_unique<FloatingPanelWindow>(
+        "Browser", &browserPanel,
+        [this](FloatingPanelWindow* w) {
+            juce::ignoreUnused(w);
+            redockBrowser();
+        });
+    resized();
+}
+
+void MainComponent::redockBrowser()
+{
+    floatingBrowser.reset();
+    addAndMakeVisible(browserPanel);
+    browserCollapsed = false;
+    browserToggleBar.collapsed = false;
+    browserToggleBar.repaint();
+    browserPanel.setVisible(true);
+    resized();
+}
 
 void MainComponent::paint(juce::Graphics& g)
 {
@@ -299,9 +409,17 @@ void MainComponent::resized()
     // Unified top header
     workspaceToolbar.setBounds(area.removeFromTop(56));
 
-    // Left browser sidebar
-    auto leftSidebar = area.removeFromLeft(190);
-    browserPanel.setBounds(leftSidebar);
+    // Left browser sidebar + toggle bar
+    browserToggleBar.setBounds(area.removeFromLeft(kToggleW));
+    if (!browserCollapsed)
+    {
+        auto leftSidebar = area.removeFromLeft(190);
+        browserPanel.setBounds(leftSidebar);
+    }
+    else
+    {
+        browserPanel.setBounds({});
+    }
 
     // Bottom dock: mixer channels + piano roll + step seq — secondary to timeline
     // Keep dock compact (≈25% of window) so the arrangement gets ≈65%
@@ -476,6 +594,25 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
     if ((isCmd || isCtrl) && !isShift && (key.getTextCharacter() == 's' || key.getTextCharacter() == 'S'))
     {
         if (workspaceToolbar.onSave) workspaceToolbar.onSave();
+        return true;
+    }
+
+    // ── Panel collapse shortcuts ─────────────────────────────────────────────
+    // Cmd+\ → Maximize timeline (collapse left + right panels in edit mode)
+    if ((isCmd || isCtrl) && key.getKeyCode() == '\\')
+    {
+        if (editWindow && editWindow->isVisible())
+        {
+            bool anyCollapsed = editWindow->isLeftPanelCollapsed() || editWindow->isRightPanelCollapsed();
+            editWindow->setLeftPanelCollapsed(!anyCollapsed);
+            editWindow->setRightPanelCollapsed(!anyCollapsed);
+            browserCollapsed = !anyCollapsed;
+            browserToggleBar.collapsed = browserCollapsed;
+            browserPanel.setVisible(!browserCollapsed);
+            browserToggleBar.repaint();
+            resized();
+            updateStatusMessage(anyCollapsed ? "Panels restored." : "Timeline maximized.");
+        }
         return true;
     }
 
