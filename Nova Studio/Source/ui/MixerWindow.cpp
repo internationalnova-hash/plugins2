@@ -828,7 +828,7 @@ void MixerWindow::buildStrips()
         strip->onMuteToggled   = [this, i](bool muted)  { engine.setTrackMute(i, muted); };
         strip->onSoloToggled   = [this, i](bool solo)   { engine.setTrackSolo(i, solo); };
         strip->onArmToggled    = [this, i](bool armed)  { engine.setTrackArm(i, armed); };
-        strip->onSendChanged   = [](int, float) {};  // TODO: wire to engine send routing
+        strip->onSendChanged   = [this, i](int send, float db) { engine.setTrackSendLevel(i, send, db); };
         wireInserts(strip, i);
     }
 
@@ -882,10 +882,27 @@ void MixerWindow::timerCallback()
     }
 
     for (auto* strip : auxStrips)
-        strip->setMeterLevel(strip->getMeterLeft() * kDecay, strip->getMeterRight() * kDecay);
+    {
+        const int ti = strip->getTrackIndex();
+        float L = (ti >= 0) ? engine.getTrackPeakLevel(ti, 0) : 0.0f;
+        float R = (ti >= 0) ? engine.getTrackPeakLevel(ti, 1) : 0.0f;
+        strip->setMeterLevel(juce::jmax(L, strip->getMeterLeft()  * kDecay),
+                             juce::jmax(R, strip->getMeterRight() * kDecay));
+    }
 
     if (masterStrip)
-        masterStrip->setMeterLevel(masterStrip->getMeterLeft() * kDecay, masterStrip->getMeterRight() * kDecay);
+    {
+        // Sum all track levels as a proxy for master bus level
+        float L = 0.0f, R = 0.0f;
+        const int nt = engine.getSession().getNumTracks();
+        for (int i = 0; i < nt; ++i)
+        {
+            L = juce::jmax(L, engine.getTrackPeakLevel(i, 0));
+            R = juce::jmax(R, engine.getTrackPeakLevel(i, 1));
+        }
+        masterStrip->setMeterLevel(juce::jmax(L, masterStrip->getMeterLeft()  * kDecay),
+                                   juce::jmax(R, masterStrip->getMeterRight() * kDecay));
+    }
 }
 
 void MixerWindow::refreshInsertSlotNames()

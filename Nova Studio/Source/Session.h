@@ -50,6 +50,7 @@ namespace NovaStudio
         bool muted = false;
         bool solo = false;
         bool armed = false;
+        float sendLevels[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
         juce::Array<Clip> clips;
 
         Track() = default;

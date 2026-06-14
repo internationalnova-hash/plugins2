@@ -161,23 +161,27 @@ namespace NovaStudioUI
     // ─────────────────────────────────────────────────────────────────────────
     // DrumRackPanel — right panel
     // ─────────────────────────────────────────────────────────────────────────
-    class DrumRackPanel : public juce::Component
+    class DrumRackPanel : public juce::Component,
+                          private juce::Timer
     {
     public:
         DrumRackPanel();
+        ~DrumRackPanel() override;
         void paint(juce::Graphics& g) override;
         void resized() override;
         void mouseDown(const juce::MouseEvent& e) override;
 
     private:
+        void timerCallback() override;
         void drawPad(juce::Graphics& g, juce::Rectangle<int> r,
-                     const juce::String& name, bool selected, juce::Colour accent) const;
+                     const juce::String& name, bool selected, bool pressed, juce::Colour accent) const;
         void drawSoundControls(juce::Graphics& g, juce::Rectangle<int> area) const;
         void drawPluginChain(juce::Graphics& g, juce::Rectangle<int> area) const;
 
         static constexpr int kPadRows = 4;
         static constexpr int kPadCols = 4;
         int selectedPad = 0;
+        int pressedPad  = -1;
 
         const char* kPadNames[kPadRows * kPadCols] = {
             "Kick 1","Kick 2","Kick 3","Kick 4",

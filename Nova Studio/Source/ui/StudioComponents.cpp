@@ -3726,6 +3726,8 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         return std::sqrt(bMag2 / (aMag2 + 1e-30));
     }
 
+    static juce::Point<float> eqNodePos(const juce::Rectangle<int>&, float, float); // forward decl
+
     void ProductionPanel::paintEQGraph(juce::Graphics& g, juce::Rectangle<int> r)
     {
         g.setColour(kEQGraphBg);
@@ -3764,6 +3766,35 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
 
         g.setColour(kEQCurve);
         g.strokePath(curve, juce::PathStrokeType(1.5f));
+
+        // Draw draggable band nodes
+        static const juce::Colour nodeColours[] = {
+            juce::Colour::fromRGB(80, 160, 255),   // HPF  blue
+            juce::Colour::fromRGB(80, 200, 120),   // LF   green
+            juce::Colour::fromRGB(200, 160, 60),   // LMF  amber
+            juce::Colour::fromRGB(200, 100, 200),  // HMF  purple
+            juce::Colour::fromRGB(200, 80,  80),   // HF   red
+            juce::Colour::fromRGB(80, 200, 200),   // LPF  cyan
+        };
+        for (int i = 0; i < kNumBands; ++i)
+        {
+            if (!eqBands[i].enabled) continue;
+            auto node = eqNodePos(r, eqBands[i].freq, eqBands[i].gain);
+            const bool dragging = (i == dragBandIndex);
+            const float radius  = dragging ? 7.0f : 5.0f;
+            g.setColour(nodeColours[i % 6].withAlpha(dragging ? 1.0f : 0.85f));
+            g.fillEllipse(node.x - radius, node.y - radius, radius * 2, radius * 2);
+            g.setColour(juce::Colours::white.withAlpha(0.7f));
+            g.drawEllipse(node.x - radius, node.y - radius, radius * 2, radius * 2, 1.0f);
+            // Frequency label below node
+            g.setFont(juce::FontOptions(6.5f));
+            g.setColour(juce::Colours::white.withAlpha(0.6f));
+            const juce::String freqLabel = eqBands[i].freq >= 1000.0f
+                ? juce::String(eqBands[i].freq / 1000.0f, 1) + "k"
+                : juce::String((int)eqBands[i].freq);
+            g.drawText(freqLabel, (int)(node.x - 12), (int)(node.y + radius + 1), 24, 8,
+                       juce::Justification::centred);
+        }
     }
 
     void ProductionPanel::paint(juce::Graphics& g)
@@ -3887,6 +3918,81 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         repaint();
 
         juce::ignoreUnused(sec2HeaderY, sec3HeaderY, sec4HeaderY);
+    }
+
+    // ── EQ graph mouse: drag nodes to adjust freq (X) and gain (Y) ────────────
+
+    static juce::Point<float> eqNodePos(const juce::Rectangle<int>& r,
+                                        float freq, float gain)
+    {
+        // X: log scale 20Hz–20kHz
+        const float logMin = std::log10(20.0f), logMax = std::log10(20000.0f);
+        const float nx = (std::log10(juce::jlimit(20.0f, 20000.0f, freq)) - logMin)
+                         / (logMax - logMin);
+        // Y: gain ±12 dB linear
+        const float ny = 1.0f - (juce::jlimit(-12.0f, 12.0f, gain) + 12.0f) / 24.0f;
+        return { r.getX() + nx * r.getWidth(), r.getY() + ny * r.getHeight() };
+    }
+
+    void ProductionPanel::mouseDown(const juce::MouseEvent& e)
+    {
+        if (eqGraphBounds.getWidth() <= 0) return;
+        const auto offset = contentComp.getBounds().getPosition() - viewport.getViewPosition();
+        const auto graphInThis = eqGraphBounds.translated(viewport.getX() + offset.x,
+                                                          viewport.getY() + offset.y);
+        if (!graphInThis.contains(e.getPosition())) return;
+
+        // Hit-test each band node (12px radius)
+        dragBandIndex = -1;
+        for (int i = 0; i < kNumBands; ++i)
+        {
+            if (!eqBands[i].enabled) continue;
+            auto node = eqNodePos(graphInThis, eqBands[i].freq, eqBands[i].gain);
+            if (e.position.getDistanceFrom(node) < 12.0f)
+            {
+                dragBandIndex  = i;
+                dragStartFreq  = eqBands[i].freq;
+                dragStartGain  = eqBands[i].gain;
+                dragStartPos   = e.position;
+                return;
+            }
+        }
+    }
+
+    void ProductionPanel::mouseDrag(const juce::MouseEvent& e)
+    {
+        if (dragBandIndex < 0 || eqGraphBounds.getWidth() <= 0) return;
+        const auto offset = contentComp.getBounds().getPosition() - viewport.getViewPosition();
+        const auto graphInThis = eqGraphBounds.translated(viewport.getX() + offset.x,
+                                                          viewport.getY() + offset.y);
+
+        // X → freq (log)
+        const float logMin = std::log10(20.0f), logMax = std::log10(20000.0f);
+        const float nx = juce::jlimit(0.0f, 1.0f,
+            (e.position.x - graphInThis.getX()) / (float)graphInThis.getWidth());
+        const float newFreq = std::pow(10.0f, logMin + nx * (logMax - logMin));
+
+        // Y → gain (linear ±12 dB)
+        const float ny = juce::jlimit(0.0f, 1.0f,
+            (e.position.y - graphInThis.getY()) / (float)graphInThis.getHeight());
+        const float newGain = 12.0f - ny * 24.0f;
+
+        eqBands[dragBandIndex].freq = newFreq;
+        eqBands[dragBandIndex].gain = newGain;
+
+        // Sync knob positions
+        bandControls[dragBandIndex].freqSlider.setValue(newFreq, juce::dontSendNotification);
+        bandControls[dragBandIndex].gainSlider.setValue(newGain, juce::dontSendNotification);
+
+        if (onEQChanged)
+            onEQChanged(dragBandIndex, newFreq, newGain, eqBands[dragBandIndex].q);
+
+        repaint();
+    }
+
+    void ProductionPanel::mouseUp(const juce::MouseEvent&)
+    {
+        dragBandIndex = -1;
     }
 
     void ProductionPanel::sliderValueChanged(juce::Slider* s)

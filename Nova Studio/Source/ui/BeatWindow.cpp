@@ -230,7 +230,52 @@ void PianoRollView::paint(juce::Graphics& g)
 
 void PianoRollView::resized() {}
 
-void PianoRollView::mouseDown(const juce::MouseEvent& /*e*/) {}
+void PianoRollView::mouseDown(const juce::MouseEvent& e)
+{
+    auto bounds = getLocalBounds();
+    bounds.removeFromBottom(kSnapH);
+    bounds.removeFromBottom(kVelHeight);
+    auto mainArea = bounds;
+    mainArea.removeFromLeft(kKeyWidth);
+    auto gridArea = mainArea;
+
+    // Only handle clicks in the grid area (below header)
+    if (!gridArea.contains(e.getPosition()))
+        return;
+
+    const int totalPitches = kNumOctaves * 12;
+    const int startPitch   = 36;
+    const int numSteps     = 32;
+    int stepW = juce::jmax(1, gridArea.getWidth() / numSteps);
+
+    int relX = e.x - gridArea.getX();
+    int relY = e.y - gridArea.getY() - kHeaderH;
+    if (relY < 0) return;
+
+    int pitchRow = relY / kRowHeight;
+    int step     = relX / stepW;
+
+    if (pitchRow < 0 || pitchRow >= totalPitches) return;
+    if (step < 0 || step >= numSteps) return;
+
+    int pitch = startPitch + (totalPitches - 1 - pitchRow);
+
+    // Check if an existing note was clicked — if so, remove it
+    for (int i = notes.size() - 1; i >= 0; --i)
+    {
+        const auto& n = notes.getReference(i);
+        if (n.pitch == pitch && step >= n.startStep && step < n.startStep + n.lengthSteps)
+        {
+            notes.remove(i);
+            repaint();
+            return;
+        }
+    }
+
+    // Add a new note (1 step long, velocity 0.8)
+    notes.add({ pitch, step, 1, 0.8f });
+    repaint();
+}
 
 void PianoRollView::drawPianoKeys(juce::Graphics& g, juce::Rectangle<int> area) const
 {
@@ -555,6 +600,18 @@ void StepSequencerView::drawStep(juce::Graphics& g, juce::Rectangle<int> r,
 
 DrumRackPanel::DrumRackPanel() {}
 
+DrumRackPanel::~DrumRackPanel()
+{
+    stopTimer();
+}
+
+void DrumRackPanel::timerCallback()
+{
+    pressedPad = -1;
+    stopTimer();
+    repaint();
+}
+
 void DrumRackPanel::paint(juce::Graphics& g)
 {
     g.fillAll(BeatTheme::panel());
@@ -580,7 +637,7 @@ void DrumRackPanel::paint(juce::Graphics& g)
             auto r = juce::Rectangle<int>(padArea.getX() + col * padW,
                                            padArea.getY() + row * padH,
                                            padW - 2, padH - 2);
-            drawPad(g, r, kPadNames[idx], idx == selectedPad, kPadAccents[row]);
+            drawPad(g, r, kPadNames[idx], idx == selectedPad, idx == pressedPad, kPadAccents[row]);
         }
     }
 
@@ -608,25 +665,29 @@ void DrumRackPanel::mouseDown(const juce::MouseEvent& e)
     if (row >= 0 && row < kPadRows && col >= 0 && col < kPadCols)
     {
         selectedPad = row * kPadCols + col;
+        pressedPad  = selectedPad;
         repaint();
+        startTimer(150);
     }
 }
 
 void DrumRackPanel::drawPad(juce::Graphics& g, juce::Rectangle<int> r,
-                              const juce::String& name, bool selected,
+                              const juce::String& name, bool selected, bool pressed,
                               juce::Colour accent) const
 {
-    g.setColour(selected ? accent.withAlpha(0.55f) : BeatTheme::padBase());
+    juce::Colour bg = pressed ? BeatTheme::padHit()
+                               : (selected ? accent.withAlpha(0.55f) : BeatTheme::padBase());
+    g.setColour(bg);
     g.fillRoundedRectangle(r.toFloat(), 5.0f);
 
-    g.setColour(accent.withAlpha(selected ? 0.9f : 0.25f));
-    g.drawRoundedRectangle(r.toFloat().reduced(1.0f), 5.0f, selected ? 1.5f : 1.0f);
+    g.setColour(accent.withAlpha(pressed ? 1.0f : (selected ? 0.9f : 0.25f)));
+    g.drawRoundedRectangle(r.toFloat().reduced(1.0f), 5.0f, (selected || pressed) ? 1.5f : 1.0f);
 
-    g.setColour(juce::Colours::white.withAlpha(selected ? 1.0f : 0.65f));
+    g.setColour(juce::Colours::white.withAlpha((selected || pressed) ? 1.0f : 0.65f));
     g.setFont(juce::FontOptions(9.5f));
     g.drawText(name, r.reduced(3, 0), juce::Justification::centred, true);
 
-    g.setColour(accent.withAlpha(selected ? 0.9f : 0.4f));
+    g.setColour(accent.withAlpha((selected || pressed) ? 0.9f : 0.4f));
     g.fillEllipse((float)(r.getCentreX() - 3), (float)(r.getBottom() - 8), 6.0f, 6.0f);
 }
 

@@ -43,6 +43,10 @@ namespace NovaStudio
         // Output metering: returns peak since last call (resets after read), range 0-1
         float getTrackPeakLevel(int trackIndex, int channel) const noexcept;
 
+        // Send bus levels (dB)
+        void  setTrackSendLevel(int trackIndex, int sendIndex, float db);
+        float getTrackSendLevel(int trackIndex, int sendIndex) const noexcept;
+
         void play();
         void stop();
         void toggleRecord();

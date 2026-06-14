@@ -147,6 +147,9 @@ namespace NovaStudioUI
 
         void paint(juce::Graphics& g) override;
         void resized() override;
+        void mouseDown(const juce::MouseEvent& e) override;
+        void mouseDrag(const juce::MouseEvent& e) override;
+        void mouseUp(const juce::MouseEvent& e) override;
 
         // Called when selected track changes
         void updateFromTrack(const NovaStudio::Track& track);
@@ -215,6 +218,12 @@ namespace NovaStudioUI
             juce::TextButton onBtn       {"ON"};
         };
         std::array<SendRow, kNumSends> sendRows;
+
+        // EQ drag state
+        int   dragBandIndex = -1;
+        float dragStartFreq = 0.0f;
+        float dragStartGain = 0.0f;
+        juce::Point<float> dragStartPos;
 
         // Scrollable content
         juce::Viewport viewport;

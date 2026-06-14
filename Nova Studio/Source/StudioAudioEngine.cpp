@@ -768,6 +768,20 @@ namespace NovaStudio
         return channel == 0 ? player.peakLevelLeft.load() : player.peakLevelRight.load();
     }
 
+    void StudioAudioEngine::setTrackSendLevel(int trackIndex, int sendIndex, float db)
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return;
+        if (!isPositiveAndBelow(sendIndex, 4)) return;
+        session.getTrack(trackIndex).sendLevels[sendIndex] = db;
+    }
+
+    float StudioAudioEngine::getTrackSendLevel(int trackIndex, int sendIndex) const noexcept
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return 0.0f;
+        if (!isPositiveAndBelow(sendIndex, 4)) return 0.0f;
+        return session.getTrack(trackIndex).sendLevels[sendIndex];
+    }
+
     bool StudioAudioEngine::saveSession(const juce::File& file) const
     {
         if (!session.saveToFile(file))
