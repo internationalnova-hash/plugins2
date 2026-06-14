@@ -1258,17 +1258,17 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         auto topRow = area.removeFromTop(32);
         auto bottomRow = area;
 
+        // Reserve right-side buttons FIRST so workspace buttons share remaining space
+        saveBtn.setBounds(topRow.removeFromRight(56).reduced(4));
+        loadBtn.setBounds(topRow.removeFromRight(56).reduced(4));
+        audioBtn.setBounds(topRow.removeFromRight(60).reduced(4));
+
         auto buttonWidth = topRow.getWidth() / 5;
         editBtn.setBounds(topRow.removeFromLeft(buttonWidth).reduced(4));
         mixerBtn.setBounds(topRow.removeFromLeft(buttonWidth).reduced(4));
         splitBtn.setBounds(topRow.removeFromLeft(buttonWidth).reduced(4));
         beatBtn.setBounds(topRow.removeFromLeft(buttonWidth).reduced(4));
         rackBtn.setBounds(topRow.removeFromLeft(buttonWidth).reduced(4));
-
-        // Audio / Save / Load on the right side of the top row
-        saveBtn.setBounds(topRow.removeFromRight(56).reduced(4));
-        loadBtn.setBounds(topRow.removeFromRight(56).reduced(4));
-        audioBtn.setBounds(topRow.removeFromRight(60).reduced(4));
 
         buttonWidth = bottomRow.getWidth() / 5;
         slipBtn.setBounds(bottomRow.removeFromLeft(buttonWidth).reduced(4));
