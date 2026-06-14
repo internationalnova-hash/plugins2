@@ -717,6 +717,122 @@
     .foot-btn:hover { border-color: var(--gold); color: var(--gold); }
     .foot-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(200,160,96,0.14); }
     .foot-hq { display: flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700; color: var(--gold-dim); letter-spacing: .1em; }
+
+    /* ══════════════════════════ PRESET BROWSER MODAL ══════════════════════════ */
+    .preset-overlay {
+      display: none; position: absolute; inset: 0;
+      background: rgba(0,0,0,0.72);
+      z-index: 100; place-items: center;
+      backdrop-filter: blur(2px);
+    }
+    .preset-overlay.open { display: grid; }
+
+    .preset-modal {
+      width: 760px;
+      background: linear-gradient(180deg, #181410 0%, #0e0c09 100%);
+      border: 1px solid rgba(200,160,96,0.40);
+      border-top-color: rgba(200,160,96,0.60);
+      border-radius: 10px;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.8),
+        0 32px 64px rgba(0,0,0,0.7),
+        0 0 60px rgba(200,140,40,0.06);
+      overflow: hidden;
+    }
+
+    .pm-header {
+      padding: 18px 24px 14px;
+      border-bottom: 1px solid rgba(200,160,96,0.16);
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(180deg, rgba(30,24,14,0.9) 0%, transparent 100%);
+    }
+    .pm-title-block { display: flex; flex-direction: column; gap: 2px; }
+    .pm-nova { font-size: 8px; font-weight: 700; letter-spacing: .22em; color: var(--gold-dim); text-transform: uppercase; }
+    .pm-title { font-size: 15px; font-weight: 800; letter-spacing: .08em; color: var(--white); text-transform: uppercase; }
+    .pm-close {
+      width: 28px; height: 28px; border: 1px solid rgba(200,160,96,0.24);
+      border-radius: 5px; background: transparent;
+      color: var(--gold-dim); cursor: pointer; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 120ms, color 120ms;
+    }
+    .pm-close:hover { border-color: var(--gold); color: var(--gold); }
+
+    .pm-cards {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px; padding: 16px 20px;
+      max-height: 500px; overflow-y: auto;
+    }
+    .pm-cards::-webkit-scrollbar { width: 4px; }
+    .pm-cards::-webkit-scrollbar-track { background: transparent; }
+    .pm-cards::-webkit-scrollbar-thumb { background: rgba(200,160,96,0.24); border-radius: 2px; }
+
+    .pm-card {
+      background: linear-gradient(180deg, rgba(22,18,11,0.95) 0%, rgba(12,10,7,0.98) 100%);
+      border: 1px solid rgba(200,160,96,0.14);
+      border-radius: 7px; padding: 12px 14px;
+      cursor: pointer;
+      transition: border-color 150ms, background 150ms, box-shadow 150ms;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .pm-card:hover {
+      border-color: rgba(200,160,96,0.40);
+      background: linear-gradient(180deg, rgba(32,26,16,0.98) 0%, rgba(16,13,9,0.99) 100%);
+      box-shadow: 0 0 14px rgba(200,140,40,0.08);
+    }
+    .pm-card.selected {
+      border-color: rgba(200,160,96,0.65);
+      background: linear-gradient(180deg, rgba(42,34,18,0.98) 0%, rgba(20,16,10,0.99) 100%);
+      box-shadow: 0 0 18px rgba(200,140,40,0.14), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .pm-card-mode {
+      font-size: 7px; font-weight: 800; letter-spacing: .22em;
+      color: var(--gold-dim); text-transform: uppercase;
+      border: 1px solid rgba(200,160,96,0.20);
+      border-radius: 3px; padding: 1px 6px;
+      display: inline-flex; align-self: flex-start;
+      background: rgba(200,160,96,0.06);
+    }
+    .pm-card.selected .pm-card-mode {
+      color: var(--gold-lt); border-color: rgba(200,160,96,0.50);
+      background: rgba(200,160,96,0.12);
+    }
+    .pm-card-name {
+      font-size: 12px; font-weight: 700; color: var(--white);
+      letter-spacing: .04em; line-height: 1.2;
+    }
+    .pm-card-desc {
+      font-size: 9px; color: rgba(160,128,72,0.70); letter-spacing: .06em;
+      line-height: 1.5; font-style: italic;
+    }
+    .pm-card.selected .pm-card-desc { color: rgba(200,165,90,0.85); }
+
+    .pm-footer {
+      padding: 12px 20px;
+      border-top: 1px solid rgba(200,160,96,0.12);
+      display: flex; justify-content: flex-end; gap: 8px;
+      background: rgba(0,0,0,0.3);
+    }
+    .pm-btn {
+      height: 30px; padding: 0 18px; border-radius: 5px; cursor: pointer;
+      font-size: 10px; font-weight: 700; letter-spacing: .10em; text-transform: uppercase;
+      transition: border-color 120ms, background 120ms, color 120ms;
+    }
+    .pm-btn-cancel {
+      border: 1px solid rgba(200,160,96,0.22);
+      background: transparent; color: var(--gold-dim);
+    }
+    .pm-btn-cancel:hover { border-color: rgba(200,160,96,0.42); color: var(--gold); }
+    .pm-btn-load {
+      border: 1px solid var(--gold);
+      background: linear-gradient(180deg, rgba(44,34,18,0.98) 0%, rgba(24,18,10,0.99) 100%);
+      color: var(--gold-lt);
+      box-shadow: 0 0 12px rgba(200,140,40,0.16);
+    }
+    .pm-btn-load:hover {
+      background: linear-gradient(180deg, rgba(56,44,22,0.98) 0%, rgba(30,22,12,0.99) 100%);
+      box-shadow: 0 0 18px rgba(200,140,40,0.24);
+    }
   </style>
 </head>
 <body>
@@ -1096,6 +1212,24 @@
 </div>
 </div>
 
+<!-- ═══════════════════════════════ PRESET BROWSER MODAL ═══════════════════════════════ -->
+<div class="preset-overlay" id="preset-overlay">
+  <div class="preset-modal">
+    <div class="pm-header">
+      <div class="pm-title-block">
+        <span class="pm-nova">Nova Apex</span>
+        <span class="pm-title">Factory Mastering Presets</span>
+      </div>
+      <button class="pm-close" id="pm-close" type="button">&#x2715;</button>
+    </div>
+    <div class="pm-cards" id="pm-cards"></div>
+    <div class="pm-footer">
+      <button class="pm-btn pm-btn-cancel" id="pm-cancel" type="button">Cancel</button>
+      <button class="pm-btn pm-btn-load" id="pm-load" type="button">Load Preset</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (() => {
 'use strict';
@@ -1146,7 +1280,27 @@ function hookJUCERelays() {
           if (!p) return;
           state[id] = p.min + norm * (p.max - p.min);
           updateKnobsForParam(id);
+
+          // Style param change → sync pill without re-triggering JUCE
+          if (id === 'style') setStyle(Math.round(state[id]));
         });
+      }
+    } catch (_) {}
+  });
+
+  // Feature toggle buttons ↔ DAW param sync
+  const FEAT_RELAYS = [
+    { id: 'isp-btn',      param: 'ispProtect'   },
+    { id: 'smartrel-btn', param: 'smartRelease'  },
+    { id: 'safe-btn',     param: 'safeMode'      },
+  ];
+  FEAT_RELAYS.forEach(({ id, param }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    try {
+      const relay = window['__juce__slider' + param];
+      if (relay && relay.addParameterChangeListener) {
+        relay.addParameterChangeListener(norm => el.classList.toggle('active', norm > 0.5));
       }
     } catch (_) {}
   });
@@ -1262,16 +1416,39 @@ if (stylePrevEl) stylePrevEl.addEventListener('click', () => setStyle(currentSty
 if (styleNextEl) styleNextEl.addEventListener('click', () => setStyle(currentStyle + 1));
 
 // ══════════════════════════ PRESETS ══════════════════════════
-const PRESETS = ['Modern Master','Streaming Master','Broadcast Safe','Club Mix','Film Score','Reference Level','Podcast Ready','Vinyl Prep'];
+// Order matches kPresets[] in PluginProcessor.cpp exactly
+const PRESETS = [
+  'Modern Master',
+  'Streaming Ready',
+  'Competitive Loud',
+  'Punch Preserve',
+  'Analog Finish',
+  'Smooth Vocal Master',
+  'Mix Bus Preview',
+  'Ultra Safe Delivery',
+];
+
+// Style index each preset activates (matches kPresets[].style)
+const PRESET_STYLES = [5, 0, 3, 1, 4, 2, 5, 0]; // Master, Clean, Loud, Punch, Analog, Smooth, Master, Clean
+
 let presetIdx = 0;
 
 function setPreset(idx) {
   presetIdx = ((idx % PRESETS.length) + PRESETS.length) % PRESETS.length;
   document.getElementById('preset-name').textContent = PRESETS[presetIdx];
+
+  // Tell JUCE to load this factory preset (triggers all param updates via relays)
+  if (window.__juce__ && window.__juce__.initialisationData) {
+    window.__juce__.callNativeFunction('apexSetMode', ['loadPreset', presetIdx], () => {});
+  }
+
+  // Visually switch style pill immediately — don't wait for relay callback
+  setStyle(PRESET_STYLES[presetIdx]);
 }
+
 document.getElementById('preset-prev').addEventListener('click', () => setPreset(presetIdx - 1));
 document.getElementById('preset-next').addEventListener('click', () => setPreset(presetIdx + 1));
-document.getElementById('preset-trigger').addEventListener('click', () => setPreset(presetIdx + 1));
+// preset-trigger opens the modal — wired below after modal HTML is parsed
 
 // ══════════════════════════ OVERSAMPLE ══════════════════════════
 document.getElementById('oversample-btns').addEventListener('click', e => {
@@ -1803,7 +1980,65 @@ setInterval(() => {
   }
 }, 80);
 
+  // ══════════════════════════ PRESET BROWSER ══════════════════════════
+  const PRESET_DATA = [
+    { name: 'Modern Master',       mode: 'MASTER', desc: 'Balanced hybrid mode. Recommended starting point for any genre.' },
+    { name: 'Streaming Ready',     mode: 'CLEAN',  desc: 'Optimized for Spotify and Apple Music delivery. Conservative true peak.' },
+    { name: 'Competitive Loud',    mode: 'LOUD',   desc: 'Maximum density with controlled dynamics. Modern Pop, Hip-Hop, EDM.' },
+    { name: 'Punch Preserve',      mode: 'PUNCH',  desc: 'Preserves transient attack and low-end impact. Drums, rock, live recordings.' },
+    { name: 'Analog Finish',       mode: 'ANALOG', desc: 'Adds warmth, glue, and harmonic weight via Nova Heat saturation.' },
+    { name: 'Smooth Vocal Master', mode: 'SMOOTH', desc: 'Softer release contour, gentle loudness lift. R&B, Pop, Singer-Songwriter.' },
+    { name: 'Mix Bus Preview',     mode: 'MASTER', desc: 'Light limiting for mixing through Apex before final mastering.' },
+    { name: 'Ultra Safe Delivery', mode: 'CLEAN',  desc: 'Conservative ceiling with ISP and Safe Mode. Broadcast, film, client delivery.' },
+  ];
+
+  let pmPendingIdx = presetIdx;
+
+  function buildPresetCards() {
+    const container = document.getElementById('pm-cards');
+    container.innerHTML = '';
+    PRESET_DATA.forEach((p, i) => {
+      const card = document.createElement('div');
+      card.className = 'pm-card' + (i === presetIdx ? ' selected' : '');
+      card.dataset.idx = i;
+      card.innerHTML = `
+        <span class="pm-card-mode">MODE: ${p.mode}</span>
+        <span class="pm-card-name">${p.name}</span>
+        <span class="pm-card-desc">${p.desc}</span>`;
+      card.addEventListener('click', () => {
+        pmPendingIdx = i;
+        container.querySelectorAll('.pm-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+      });
+      card.addEventListener('dblclick', () => { pmPendingIdx = i; loadPendingPreset(); });
+      container.appendChild(card);
+    });
+  }
+
+  function openPresetBrowser() {
+    pmPendingIdx = presetIdx;
+    buildPresetCards();
+    document.getElementById('preset-overlay').classList.add('open');
+  }
+
+  function loadPendingPreset() {
+    setPreset(pmPendingIdx);
+    document.getElementById('preset-overlay').classList.remove('open');
+  }
+
+  document.getElementById('pm-close').addEventListener('click', () =>
+    document.getElementById('preset-overlay').classList.remove('open'));
+  document.getElementById('pm-cancel').addEventListener('click', () =>
+    document.getElementById('preset-overlay').classList.remove('open'));
+  document.getElementById('pm-load').addEventListener('click', loadPendingPreset);
+  document.getElementById('preset-overlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget)
+      e.currentTarget.classList.remove('open');
+  });
+  document.getElementById('preset-trigger').addEventListener('click', openPresetBrowser);
+
 })();
 </script>
+
 </body>
 </html>

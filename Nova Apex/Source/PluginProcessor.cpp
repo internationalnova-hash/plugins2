@@ -66,57 +66,66 @@ namespace
         bool  link;
         bool  dither;
         float transientPreserve, lowEndProtect, loudnessTarget;
+        bool  ispProtect, smartRelease, safeMode;
     };
 
     static const PresetData kPresets[] =
     {
-        // Transparent Master — surgical, minimal colouring
-        { "Transparent Master",
-          0.0f, 0.0f, -0.1f, 0.0f, 0 /*Clean*/,
-          0.5f, 200.0f, 7.0f, 1 /*2x*/, true, false,
-          0.4f, 0.5f, -14.0f },
+        // 1. Modern Master — default, balanced, works on almost everything
+        { "Modern Master",
+          0.0f, 0.0f, -0.1f, 0.0f, 5 /*Master*/,
+          1.0f, 200.0f, 7.0f, 1 /*4x*/, true, false,
+          0.4f, 0.4f, -14.0f,
+          true, false, false },
 
-        // Streaming Ready — -14 LUFS, soft ceiling
+        // 2. Streaming Ready — Spotify / Apple Music delivery
         { "Streaming Ready",
-          2.0f, 0.5f, -1.0f, -0.5f, 0 /*Clean*/,
-          1.0f, 150.0f, 5.0f, 1, true, true,
-          0.3f, 0.4f, -14.0f },
+          2.0f, 0.0f, -1.0f, 0.0f, 0 /*Clean*/,
+          1.0f, 180.0f, 8.0f, 1, true, true,
+          0.3f, 0.3f, -14.0f,
+          true, false, true },
 
-        // Loud Pop — competitive loudness with preserved transients
-        { "Loud Pop",
+        // 3. Competitive Loud — modern Pop / Hip-Hop / EDM
+        { "Competitive Loud",
           6.0f, 2.0f, -0.1f, 0.0f, 3 /*Loud*/,
-          0.3f, 60.0f, 3.0f, 2 /*4x*/, true, false,
-          0.6f, 0.3f, -9.0f },
+          0.3f, 60.0f, 3.0f, 2 /*8x*/, true, false,
+          0.4f, 0.4f, -9.0f,
+          true, true, false },
 
-        // Punchy Hip Hop — slow attack, big transients, sub punch
-        { "Punchy Hip Hop",
-          4.0f, 1.5f, -0.3f, 0.0f, 1 /*Punch*/,
-          3.0f, 100.0f, 5.0f, 1, true, false,
-          0.7f, 0.8f, -10.0f },
+        // 4. Punch Preserve — drums, rock, live instruments
+        { "Punch Preserve",
+          3.0f, 1.0f, -0.3f, 0.0f, 1 /*Punch*/,
+          3.0f, 120.0f, 5.0f, 1, true, false,
+          0.75f, 0.6f, -11.0f,
+          true, false, false },
 
-        // Analog Glue — Nova Heat saturation before limiting, warm & wide
-        { "Analog Glue",
-          3.0f, 5.0f, -0.3f, -0.5f, 4 /*Analog*/,
-          2.0f, 120.0f, 6.0f, 2, true, false,
-          0.5f, 0.6f, -11.0f },
+        // 5. Analog Finish — glue and weight, harmonic enhancement
+        { "Analog Finish",
+          3.0f, 5.0f, -0.3f, 0.0f, 4 /*Analog*/,
+          2.0f, 140.0f, 6.0f, 2, true, false,
+          0.5f, 0.5f, -11.0f,
+          true, false, false },
 
-        // Vocal Master — smooth release, preserve detail
-        { "Vocal Master",
-          1.0f, 0.5f, -0.5f, 0.0f, 2 /*Smooth*/,
-          1.5f, 300.0f, 8.0f, 1, false, true,
-          0.2f, 0.1f, -14.0f },
+        // 6. Smooth Vocal Master — R&B, Pop, Singer-Songwriter
+        { "Smooth Vocal Master",
+          2.0f, 0.5f, -0.5f, 0.0f, 2 /*Smooth*/,
+          1.5f, 350.0f, 8.0f, 1, false, true,
+          0.25f, 0.15f, -14.0f,
+          true, false, false },
 
-        // EDM Loud — maximum loudness, fast everything
-        { "EDM Loud",
-          8.0f, 3.0f, -0.1f, 0.0f, 3 /*Loud*/,
-          0.1f, 40.0f, 2.0f, 3 /*8x*/, true, false,
-          0.3f, 0.5f, -7.0f },
+        // 7. Mix Bus Preview — mixing through Apex before final mastering
+        { "Mix Bus Preview",
+          0.0f, 0.0f, -0.3f, 0.0f, 5 /*Master*/,
+          2.0f, 300.0f, 10.0f, 1, true, false,
+          0.5f, 0.5f, -18.0f,
+          true, false, false },
 
-        // Release Ready — conservative, broadcast safe, dithered
-        { "Release Ready",
-          1.0f, 0.0f, -0.3f, -0.2f, 5 /*Master*/,
-          1.0f, 250.0f, 10.0f, 1, true, true,
-          0.5f, 0.5f, -16.0f },
+        // 8. Ultra Safe Delivery — broadcast, film, client delivery
+        { "Ultra Safe Delivery",
+          0.0f, 0.0f, -1.0f, 0.0f, 0 /*Clean*/,
+          2.0f, 400.0f, 12.0f, 1, true, true,
+          0.3f, 0.2f, -16.0f,
+          true, false, true },
     };
 
     static constexpr int kNumPresets = 8;
@@ -267,6 +276,9 @@ void NovaApexAudioProcessor::setCurrentProgram (int index)
         apvts.getParameter (lowEndProtectId)->convertTo0to1 (p.lowEndProtect));
     apvts.getParameter (loudnessTargetId)->setValueNotifyingHost (
         apvts.getParameter (loudnessTargetId)->convertTo0to1 (p.loudnessTarget));
+    apvts.getParameter (ispProtectId)->setValueNotifyingHost   (p.ispProtect   ? 1.0f : 0.0f);
+    apvts.getParameter (smartReleaseId)->setValueNotifyingHost (p.smartRelease ? 1.0f : 0.0f);
+    apvts.getParameter (safeModeId)->setValueNotifyingHost     (p.safeMode     ? 1.0f : 0.0f);
 }
 
 const juce::String NovaApexAudioProcessor::getProgramName (int index)

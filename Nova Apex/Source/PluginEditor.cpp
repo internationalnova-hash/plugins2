@@ -115,6 +115,8 @@ juce::WebBrowserComponent::Options NovaApexAudioProcessorEditor::createWebOption
                                      editor.processorRef.smartLoudnessMode.store (value);
                                  else if (mode == "ditherBits")
                                      editor.processorRef.ditherBits.store (static_cast<int> (args[1]));
+                                 else if (mode == "loadPreset")
+                                     editor.processorRef.setCurrentProgram (static_cast<int> (args[1]));
                              }
                              complete ({});
                          })
