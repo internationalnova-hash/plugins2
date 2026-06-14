@@ -24,6 +24,136 @@ static juce::Colour kMasterEdge    = juce::Colour::fromRGB(180, 130,  50);
 static juce::Colour kAuxEdge       = juce::Colour::fromRGB( 60, 110, 180);
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Pro Fader LookAndFeel  (SSL / Pro Tools style)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class ProFaderLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    void drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height,
+                          float sliderPos, float /*minPos*/, float /*maxPos*/,
+                          const juce::Slider::SliderStyle, juce::Slider&) override
+    {
+        const float cx     = (float)x + width * 0.5f;
+        const float top    = (float)y + 4.0f;
+        const float bottom = (float)(y + height) - 4.0f;
+        const float range  = bottom - top;
+
+        // dB → Y: +12 at top, 0 dB at 75% from top, -60 at bottom
+        auto dbToY = [&](float db) -> float {
+            // piecewise: +12→0%, 0→75%, -60→100%
+            if (db >= 0.0f)
+                return top + (12.0f - db) / 12.0f * 0.75f * range;
+            else
+                return top + 0.75f * range + (-db) / 60.0f * 0.25f * range;
+        };
+
+        // ── dB scale labels ──────────────────────────────────────────────────
+        const float labelX = (float)x;
+        const float labelW = 12.0f;
+        static const float kDbMarks[] = { 12.f, 6.f, 0.f, -6.f, -12.f, -18.f, -24.f, -36.f, -48.f, -60.f };
+        g.setFont(juce::FontOptions(7.0f));
+        for (float db : kDbMarks)
+        {
+            float fy = dbToY(db);
+            // tick
+            g.setColour(juce::Colours::white.withAlpha(0.22f));
+            g.drawHorizontalLine(juce::roundToInt(fy), labelX + labelW, labelX + labelW + 4.0f);
+            // label
+            g.setColour(juce::Colours::white.withAlpha(0.30f));
+            juce::String lbl = (db > 0) ? juce::String("+") + juce::String((int)db)
+                                         : juce::String((int)db);
+            g.drawText(lbl, juce::Rectangle<float>(labelX, fy - 4.0f, labelW, 9.0f),
+                       juce::Justification::centredRight, false);
+        }
+
+        // ── Recessed trough ──────────────────────────────────────────────────
+        const float troughX = cx - 3.5f;
+        const float troughW = 7.0f;
+        juce::Rectangle<float> trough(troughX, top, troughW, range);
+
+        // outer shadow
+        g.setColour(juce::Colours::black.withAlpha(0.55f));
+        g.fillRoundedRectangle(trough.expanded(1.2f, 0.5f), 3.0f);
+        // groove fill (very dark)
+        g.setColour(juce::Colour::fromRGB(14, 16, 22));
+        g.fillRoundedRectangle(trough, 2.5f);
+        // inner top highlight (recessed effect)
+        g.setColour(juce::Colours::black.withAlpha(0.7f));
+        g.drawRoundedRectangle(trough.reduced(0.5f), 2.5f, 0.8f);
+        // subtle inner glow at bottom
+        g.setColour(juce::Colours::white.withAlpha(0.04f));
+        g.fillRoundedRectangle(trough.withTrimmedTop(trough.getHeight() * 0.7f), 2.0f);
+
+        // unity (0 dB) tick line on trough
+        const float unityY = dbToY(0.0f);
+        g.setColour(juce::Colour::fromRGBA(140, 100, 220, 160));
+        g.drawHorizontalLine(juce::roundToInt(unityY), troughX - 2.0f, troughX + troughW + 2.0f);
+
+        // ── Fader cap ────────────────────────────────────────────────────────
+        const float capH = 22.0f;
+        const float capW = (float)width - 10.0f;
+        const float capX = (float)x + 5.0f;
+        const float capY = sliderPos - capH * 0.5f;
+
+        // drop shadow
+        g.setColour(juce::Colours::black.withAlpha(0.50f));
+        g.fillRoundedRectangle(capX + 1.5f, capY + 2.5f, capW, capH, 3.0f);
+
+        // metallic gradient body
+        juce::ColourGradient metalGrad(
+            juce::Colour::fromRGB(210, 213, 225), capX,          capY,
+            juce::Colour::fromRGB(105, 109, 125), capX + capW,   capY,
+            false);
+        metalGrad.addColour(0.15, juce::Colour::fromRGB(230, 233, 242));
+        metalGrad.addColour(0.45, juce::Colour::fromRGB(185, 188, 200));
+        metalGrad.addColour(0.55, juce::Colour::fromRGB(145, 148, 162));
+        metalGrad.addColour(0.85, juce::Colour::fromRGB(118, 121, 136));
+        g.setGradientFill(metalGrad);
+        g.fillRoundedRectangle(capX, capY, capW, capH, 3.0f);
+
+        // top bevel (light)
+        juce::ColourGradient topBevel(
+            juce::Colours::white.withAlpha(0.55f), capX, capY,
+            juce::Colours::white.withAlpha(0.0f),  capX, capY + 5.0f,
+            false);
+        g.setGradientFill(topBevel);
+        g.fillRoundedRectangle(capX, capY, capW, 5.0f, 2.0f);
+
+        // bottom shadow
+        juce::ColourGradient botBevel(
+            juce::Colours::black.withAlpha(0.0f),  capX, capY + capH - 5.0f,
+            juce::Colours::black.withAlpha(0.35f), capX, capY + capH,
+            false);
+        g.setGradientFill(botBevel);
+        g.fillRoundedRectangle(capX, capY + capH - 5.0f, capW, 5.0f, 2.0f);
+
+        // outline
+        g.setColour(juce::Colours::black.withAlpha(0.6f));
+        g.drawRoundedRectangle(capX + 0.5f, capY + 0.5f, capW - 1.0f, capH - 1.0f, 3.0f, 0.8f);
+
+        // 3 grip lines in the centre
+        const float midX = capX + capW * 0.5f;
+        const float midY = capY + capH * 0.5f;
+        const float gripW = capW * 0.4f;
+        g.setColour(juce::Colours::black.withAlpha(0.30f));
+        for (int k = -1; k <= 1; ++k)
+        {
+            float gy = midY + (float)k * 3.0f;
+            g.drawHorizontalLine(juce::roundToInt(gy), midX - gripW * 0.5f, midX + gripW * 0.5f);
+        }
+        g.setColour(juce::Colours::white.withAlpha(0.18f));
+        for (int k = -1; k <= 1; ++k)
+        {
+            float gy = midY + (float)k * 3.0f - 0.5f;
+            g.drawHorizontalLine(juce::roundToInt(gy), midX - gripW * 0.5f, midX + gripW * 0.5f);
+        }
+    }
+};
+
+static ProFaderLookAndFeel sProFaderLF;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // LookAndFeel helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -66,6 +196,7 @@ ChannelStrip::ChannelStrip()
     fader.setRange(-60.0, 12.0, 0.1);
     fader.setValue(0.0, juce::dontSendNotification);
     fader.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+    fader.setLookAndFeel(&sProFaderLF);
     applyFaderStyle(fader);
     addAndMakeVisible(fader);
     fader.addListener(this);
@@ -117,6 +248,7 @@ ChannelStrip::ChannelStrip()
 
 ChannelStrip::~ChannelStrip()
 {
+    fader.setLookAndFeel(nullptr);
     fader.removeListener(this);
     panSlider.removeListener(this);
     muteBtn.removeListener(this);
@@ -361,37 +493,60 @@ void ChannelStrip::drawSendSlots(juce::Graphics& g, juce::Rectangle<int> area) c
 
 void ChannelStrip::drawMeter(juce::Graphics& g, juce::Rectangle<int> area) const
 {
-    auto r = area.reduced(6, 2);
+    auto r = area.reduced(5, 2);
+
+    // Clip indicator row at top
+    auto clipRow = r.removeFromTop(5);
+    bool isClipping = (meterLeft > 0.95f || meterRight > 0.95f);
+    g.setColour(isClipping ? kMeterRed : juce::Colour::fromRGB(40, 44, 58));
+    g.fillRoundedRectangle(clipRow.toFloat(), 1.5f);
+    r.removeFromTop(2);
+
     const int barW = (r.getWidth() - 3) / 2;
+    const int segH = 3;
+    const int segGap = 1;
+    const int segStep = segH + segGap;
+    const int totalH = r.getHeight();
+    const int numSegs = totalH / segStep;
 
     for (int ch = 0; ch < 2; ++ch)
     {
         float level = (ch == 0) ? meterLeft : meterRight;
-        auto bar = juce::Rectangle<int>(r.getX() + ch * (barW + 3), r.getY(),
-                                         barW, r.getHeight());
+        int litSegs = juce::roundToInt(level * (float)numSegs);
 
-        g.setColour(kFaderTrack);
-        g.fillRoundedRectangle(bar.toFloat(), 2.0f);
+        int barX = r.getX() + ch * (barW + 3);
+        int barBottom = r.getBottom();
 
-        if (level > 0.001f)
+        for (int s = 0; s < numSegs; ++s)
         {
-            int fillH = juce::roundToInt(bar.getHeight() * level);
-            auto fill = bar.removeFromBottom(fillH);
+            // s=0 is bottom, s=numSegs-1 is top
+            float frac = (float)s / (float)(numSegs - 1);  // 0=bottom,1=top
+            int segY = barBottom - (s + 1) * segStep + segGap;
+            juce::Rectangle<float> seg((float)barX, (float)segY, (float)barW, (float)segH);
 
-            juce::ColourGradient grad(kMeterGreen, 0.0f, (float)bar.getBottom(),
-                                     kMeterRed,   0.0f, (float)bar.getY(), false);
-            grad.addColour(0.75, kMeterYellow);
-            g.setGradientFill(grad);
-            g.fillRoundedRectangle(fill.toFloat(), 2.0f);
+            bool lit = (s < litSegs);
+            juce::Colour segColour;
+            if (!lit)
+            {
+                segColour = juce::Colour::fromRGB(22, 25, 34);
+            }
+            else if (frac > 0.88f)
+                segColour = kMeterRed;
+            else if (frac > 0.70f)
+                segColour = kMeterYellow;
+            else
+                segColour = kMeterGreen;
+
+            // Lit segments get a subtle inner highlight
+            g.setColour(segColour);
+            g.fillRoundedRectangle(seg, 1.0f);
+            if (lit)
+            {
+                g.setColour(segColour.brighter(0.35f).withAlpha(0.5f));
+                g.fillRoundedRectangle(seg.withHeight(1.0f), 0.5f);
+            }
         }
     }
-
-    // Clip indicator at top
-    auto clipArea = juce::Rectangle<int>(r.getX(), r.getY(), r.getWidth(), 4);
-    g.setColour((meterLeft > 0.95f || meterRight > 0.95f)
-                    ? kMeterRed
-                    : juce::Colour::fromRGB(40, 44, 58));
-    g.fillRoundedRectangle(clipArea.toFloat(), 1.5f);
 }
 
 void ChannelStrip::paint(juce::Graphics& g)
