@@ -2836,10 +2836,19 @@ void BeatWindow::resized()
         return area.withSizeKeepingCentre(w, h).translated(dx, dy);
     };
 
-    if (stepSeqPanel.getBounds().isEmpty())
+    // Position the floating panels on first layout once the canvas has a
+    // sensible size (avoids them landing tiny/top-left during early/zero-size
+    // layout passes that happen before the window reaches its real size).
+    if (! stepSeqPanelPositioned && area.getWidth() > 200 && area.getHeight() > 200)
+    {
         stepSeqPanel.setBounds(defaultPanelBounds(0.94f, 0.92f, -16, -10));
-    if (mixerPanel.getBounds().isEmpty())
+        stepSeqPanelPositioned = true;
+    }
+    if (! mixerPanelPositioned && area.getWidth() > 200 && area.getHeight() > 200)
+    {
         mixerPanel.setBounds(defaultPanelBounds(0.6f, 0.78f, 30, 24));
+        mixerPanelPositioned = true;
+    }
 
     browser.setBounds(browserArea);
 }

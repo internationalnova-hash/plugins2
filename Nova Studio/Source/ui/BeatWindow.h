@@ -885,6 +885,8 @@ namespace NovaStudioUI
         bool               showingPianoRoll  = false;
         bool               stepSeqPanelOpen  = true;   // Channel Rack floats open by default
         bool               mixerPanelOpen    = false;
+        bool               stepSeqPanelPositioned = false;
+        bool               mixerPanelPositioned   = false;
         bool               patMode = true;  // PAT=true, SONG=false
 
         void toggleFloatingPanel(FloatingSubPanel& panel, bool& flag,
