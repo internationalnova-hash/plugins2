@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Nova Writer — AI Songwriting Companion</title>
+<style>
+:root{
+  --bg:#0a0a0f;--sidebar:#0d0d15;--panel:#111118;--card:#16161f;
+  --gold:#f5c842;--gold-dark:#c9a52a;--gold-glow:rgba(245,200,66,0.15);--gold-soft:rgba(245,200,66,0.08);
+  --purple:#6c63ff;--purple-mid:#8b5cf6;--purple-hi:#a78bfa;
+  --text:#ede9f8;--text-soft:#a89dc8;--text-muted:rgba(200,188,230,0.5);
+  --border:rgba(245,200,66,0.18);--border-soft:rgba(139,92,246,0.22);
+  --ease:220ms cubic-bezier(0.22,1,0.36,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:"Avenir Next","Segoe UI","Helvetica Neue",Arial,sans-serif;font-size:13px;
+  -webkit-font-smoothing:antialiased}
+
+/* ── LAYOUT ── */
+.app{display:grid;grid-template-columns:200px 1fr 340px;grid-template-rows:1fr 52px;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{grid-row:1/3;background:var(--sidebar);border-right:1px solid rgba(245,200,66,0.12);
+  display:flex;flex-direction:column;overflow:hidden}
+.sidebar-brand{padding:20px 16px 14px;border-bottom:1px solid rgba(245,200,66,0.10)}
+.brand-logo{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.brand-logo img{width:28px;height:28px;filter:drop-shadow(0 0 6px rgba(245,200,66,0.5))}
+.brand-name{font-size:15px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#f0ecff}
+.brand-name span{color:var(--gold)}
+.brand-tag{font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:var(--text-muted);margin-left:2px}
+.new-song-btn{width:100%;margin-top:12px;padding:9px 0;border-radius:8px;border:none;
+  background:linear-gradient(135deg,var(--gold),var(--gold-dark));
+  color:#0a0a0f;font-weight:800;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;
+  cursor:pointer;transition:all var(--ease);display:flex;align-items:center;justify-content:center;gap:6px}
+.new-song-btn:hover{filter:brightness(1.1);box-shadow:0 0 18px var(--gold-glow)}
+
+.sidebar-nav{padding:12px 8px;display:flex;flex-direction:column;gap:2px}
+.nav-item{padding:7px 10px;border-radius:7px;display:flex;align-items:center;gap:9px;
+  cursor:pointer;color:var(--text-soft);font-size:12px;font-weight:500;transition:all var(--ease)}
+.nav-item:hover,.nav-item.active{background:rgba(245,200,66,0.08);color:var(--text)}
+.nav-item svg{opacity:0.6;flex-shrink:0}
+.nav-item.active svg{opacity:1}
+
+.sidebar-section{padding:12px 16px 6px;font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-muted)}
+.project-item{padding:6px 12px;cursor:pointer;border-radius:6px;transition:all var(--ease);
+  display:flex;justify-content:space-between;align-items:center}
+.project-item:hover{background:rgba(139,92,246,0.1)}
+.project-name{font-size:12px;color:var(--text-soft)}
+.project-date{font-size:10px;color:var(--text-muted)}
+.project-item.active .project-name{color:var(--text)}
+
+.sidebar-bottom{margin-top:auto;padding:12px 14px;border-top:1px solid rgba(245,200,66,0.10)}
+.nova-studio-badge{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
+  border:1px solid rgba(245,200,66,0.22);background:rgba(245,200,66,0.05)}
+.studio-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px #4ade80;flex-shrink:0}
+.studio-label{font-size:10px;font-weight:700;letter-spacing:0.1em;color:var(--text-soft)}
+.studio-label small{display:block;font-size:9px;letter-spacing:0.12em;color:#4ade80;font-weight:600}
+
+/* ── CENTER ── */
+.center{grid-row:1;overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)}
+.center::-webkit-scrollbar{width:4px}
+.center::-webkit-scrollbar-track{background:transparent}
+.center::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.3);border-radius:2px}
+
+.prompt-area{padding:20px 22px 16px;border-bottom:1px solid rgba(139,92,246,0.15)}
+.prompt-label{font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:var(--gold);
+  font-weight:700;margin-bottom:10px}
+.prompt-row{display:flex;gap:12px;align-items:flex-start}
+.prompt-wrap{flex:1;position:relative}
+.prompt-input{width:100%;height:72px;background:rgba(14,12,28,0.92);border:1px solid rgba(245,200,66,0.22);
+  border-radius:10px;padding:12px 14px;color:var(--text);font-size:13px;line-height:1.5;
+  resize:none;outline:none;transition:border-color var(--ease)}
+.prompt-input::placeholder{color:var(--text-muted)}
+.prompt-input:focus{border-color:rgba(245,200,66,0.5)}
+.char-count{position:absolute;bottom:8px;right:10px;font-size:10px;color:var(--text-muted)}
+.generate-btn{padding:12px 18px;border-radius:10px;border:none;white-space:nowrap;
+  background:linear-gradient(135deg,var(--gold) 0%,var(--gold-dark) 100%);
+  color:#0a0a0f;font-weight:800;font-size:12px;letter-spacing:0.08em;
+  cursor:pointer;transition:all var(--ease);display:flex;align-items:center;gap:6px;height:72px}
+.generate-btn:hover{filter:brightness(1.12);box-shadow:0 0 24px var(--gold-glow)}
+.generate-btn.loading{opacity:0.7;cursor:not-allowed}
+
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;padding:12px 22px;border-bottom:1px solid rgba(139,92,246,0.12);
+  background:rgba(10,9,20,0.6)}
+.filter-group{display:flex;flex-direction:column;gap:3px}
+.filter-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+.filter-select,.filter-input{background:rgba(14,12,28,0.9);border:1px solid rgba(139,92,246,0.22);
+  border-radius:6px;color:var(--text-soft);font-size:11px;padding:4px 8px;outline:none;cursor:pointer;
+  transition:all var(--ease)}
+.filter-select:focus,.filter-input:focus{border-color:var(--purple-mid);color:var(--text)}
+.filter-input{width:52px;text-align:center}
+.energy-bar{display:flex;gap:3px;align-items:center;height:26px}
+.energy-seg{width:14px;height:16px;border-radius:3px;border:1px solid rgba(245,200,66,0.2);
+  background:rgba(245,200,66,0.05);cursor:pointer;transition:all 150ms}
+.energy-seg.active{background:var(--gold);border-color:var(--gold);box-shadow:0 0 6px var(--gold-glow)}
+
+/* ── BLUEPRINT ── */
+.blueprint{padding:16px 22px;display:none}
+.blueprint.visible{display:block}
+.section-title{font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--text-muted);
+  font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.section-title::after{content:"";flex:1;height:1px;background:rgba(139,92,246,0.18)}
+
+.title-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.title-chip{padding:5px 12px;border-radius:999px;border:1px solid rgba(245,200,66,0.28);
+  background:rgba(245,200,66,0.06);color:var(--text-soft);font-size:11px;cursor:pointer;transition:all var(--ease)}
+.title-chip:hover,.title-chip.active{border-color:var(--gold);color:var(--gold);background:var(--gold-soft)}
+
+.concept-text{font-size:12px;color:var(--text-soft);line-height:1.6;margin-bottom:16px;
+  padding:10px 14px;border-radius:8px;border:1px solid rgba(139,92,246,0.18);
+  background:rgba(14,12,28,0.7)}
+
+.struct-tabs{display:flex;gap:4px;margin-bottom:12px;overflow-x:auto}
+.struct-tab{padding:6px 12px;border-radius:6px;border:1px solid rgba(139,92,246,0.22);
+  background:transparent;color:var(--text-muted);font-size:11px;font-weight:600;letter-spacing:0.06em;
+  cursor:pointer;transition:all var(--ease);white-space:nowrap;flex-shrink:0}
+.struct-tab:hover{border-color:rgba(245,200,66,0.4);color:var(--text-soft)}
+.struct-tab.active{border-color:var(--gold);background:var(--gold-soft);color:var(--gold)}
+
+.struct-info{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;
+  border:1px solid rgba(139,92,246,0.18);background:rgba(14,12,28,0.7);margin-bottom:14px}
+.struct-bars{font-size:10px;color:var(--text-muted);letter-spacing:0.1em}
+.struct-chords{font-size:13px;font-weight:700;color:var(--text);letter-spacing:0.08em}
+
+.prog-grid{margin-bottom:16px}
+.prog-row{display:grid;grid-template-columns:70px repeat(4,1fr);gap:6px;margin-bottom:6px;align-items:center}
+.prog-section-name{font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted);font-weight:700}
+.prog-chord{padding:6px;border-radius:6px;border:1px solid rgba(139,92,246,0.22);
+  background:rgba(16,14,32,0.8);text-align:center;font-size:13px;font-weight:700;color:var(--text);
+  cursor:pointer;transition:all var(--ease)}
+.prog-chord:hover,.prog-chord.active{border-color:var(--gold);background:var(--gold-soft);color:var(--gold)}
+
+.hook-ideas{margin-bottom:16px}
+.hook-idea{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;
+  border:1px solid rgba(139,92,246,0.18);background:rgba(14,12,28,0.7);margin-bottom:6px;cursor:pointer;
+  transition:all var(--ease)}
+.hook-idea:hover{border-color:rgba(245,200,66,0.4);background:var(--gold-soft)}
+.hook-num{width:20px;height:20px;border-radius:50%;background:rgba(108,99,255,0.3);
+  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--purple-hi);flex-shrink:0}
+.hook-text{font-size:12px;color:var(--text-soft);flex:1}
+.hook-play{font-size:14px;opacity:0.5;transition:opacity 150ms}
+.hook-idea:hover .hook-play{opacity:1}
+
+/* Piano roll */
+.piano-roll{background:rgba(10,9,20,0.8);border:1px solid rgba(139,92,246,0.22);border-radius:10px;
+  overflow:hidden;margin-bottom:16px;position:relative}
+.piano-roll-header{padding:8px 12px;border-bottom:1px solid rgba(139,92,246,0.15);
+  font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);font-weight:700;
+  display:flex;justify-content:space-between;align-items:center}
+.piano-roll canvas{display:block}
+
+/* ── RIGHT PANEL ── */
+.right-panel{grid-row:1;background:var(--panel);border-left:1px solid rgba(139,92,246,0.18);
+  display:flex;flex-direction:column;overflow:hidden}
+
+.writer-room-header{padding:14px 16px 0;border-bottom:1px solid rgba(139,92,246,0.18)}
+.wr-title{font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:var(--text-muted);font-weight:700;margin-bottom:10px}
+.wr-tabs{display:flex;gap:2px}
+.wr-tab{padding:6px 12px;border-radius:6px 6px 0 0;border:1px solid transparent;font-size:11px;
+  font-weight:600;color:var(--text-muted);cursor:pointer;transition:all var(--ease)}
+.wr-tab:hover{color:var(--text-soft)}
+.wr-tab.active{border-color:rgba(139,92,246,0.22);border-bottom-color:var(--panel);
+  background:var(--panel);color:var(--text)}
+
+.section-sub-tabs{display:flex;gap:4px;padding:8px 16px;border-bottom:1px solid rgba(139,92,246,0.12);overflow-x:auto}
+.sub-tab{padding:4px 10px;border-radius:4px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
+  font-weight:700;color:var(--text-muted);cursor:pointer;transition:all var(--ease)}
+.sub-tab:hover{color:var(--text-soft)}
+.sub-tab.active{background:rgba(108,99,255,0.18);color:var(--purple-hi)}
+
+.writer-content{flex:1;overflow-y:auto;padding:14px 16px;display:flex;gap:12px}
+.writer-content::-webkit-scrollbar{width:3px}
+.writer-content::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.3);border-radius:2px}
+
+.lyrics-area{flex:1}
+.lyrics-text{font-size:13px;line-height:2;color:var(--text-soft);white-space:pre-wrap;min-height:100px}
+.lyrics-text .highlight{color:var(--gold);font-weight:700}
+.lyrics-placeholder{color:var(--text-muted);font-style:italic;font-size:12px}
+.generate-lyrics-btn{margin-top:10px;padding:7px 14px;border-radius:7px;border:1px solid rgba(245,200,66,0.35);
+  background:var(--gold-soft);color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;
+  transition:all var(--ease)}
+.generate-lyrics-btn:hover{border-color:var(--gold);background:rgba(245,200,66,0.15)}
+
+.ai-tools{width:148px;flex-shrink:0}
+.ai-tools-title{font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-muted);
+  font-weight:700;margin-bottom:8px}
+.ai-tool-btn{width:100%;text-align:left;padding:7px 10px;border-radius:7px;border:1px solid rgba(139,92,246,0.18);
+  background:transparent;color:var(--text-soft);font-size:11px;cursor:pointer;transition:all var(--ease);
+  margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.ai-tool-btn:hover{border-color:rgba(245,200,66,0.4);color:var(--text);background:var(--gold-soft)}
+.ai-tool-btn svg{flex-shrink:0;opacity:0.6}
+
+/* ── REFERENCE VOCAL ── */
+.ref-vocal{border-top:1px solid rgba(139,92,246,0.18);padding:14px 16px;background:rgba(10,9,20,0.6)}
+.rv-header{font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-muted);font-weight:700;margin-bottom:10px}
+.rv-body{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}
+.rv-thumb{width:52px;height:52px;border-radius:8px;background:linear-gradient(135deg,#2a1a4a,#1a0a2a);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;
+  border:1px solid rgba(245,200,66,0.2)}
+.rv-info{flex:1}
+.rv-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px}
+.rv-sub{font-size:10px;color:var(--text-muted)}
+.rv-waveform{margin-bottom:8px}
+.rv-controls{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.rv-play{width:34px;height:34px;border-radius:50%;border:none;background:var(--gold);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
+  transition:all var(--ease)}
+.rv-play:hover{filter:brightness(1.1);box-shadow:0 0 14px var(--gold-glow)}
+.rv-time{font-size:11px;color:var(--text-muted);flex:1}
+.rv-singer{background:rgba(14,12,28,0.9);border:1px solid rgba(139,92,246,0.22);border-radius:6px;
+  color:var(--text-soft);font-size:11px;padding:4px 8px;outline:none;cursor:pointer}
+.rv-action-btns{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px}
+.rv-btn{padding:6px 8px;border-radius:6px;border:1px solid rgba(139,92,246,0.28);
+  background:rgba(14,12,28,0.8);color:var(--text-soft);font-size:10px;font-weight:600;
+  cursor:pointer;transition:all var(--ease);text-align:center}
+.rv-btn:hover{border-color:rgba(245,200,66,0.4);color:var(--text);background:var(--gold-soft)}
+.rv-export-label{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px}
+.rv-export-btns{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.export-btn{padding:6px 6px;border-radius:6px;border:1px solid rgba(139,92,246,0.22);
+  background:rgba(14,12,28,0.8);color:var(--text-muted);font-size:10px;font-weight:600;
+  cursor:pointer;transition:all var(--ease);text-align:center}
+.export-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-soft)}
+
+/* ── TRANSPORT ── */
+.transport{grid-column:2/4;background:rgba(8,8,16,0.97);border-top:1px solid rgba(139,92,246,0.18);
+  display:flex;align-items:center;gap:14px;padding:0 18px}
+.transport-thumb{width:36px;height:36px;border-radius:6px;background:linear-gradient(135deg,#2a1a4a,#1a0a2a);
+  display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.transport-info{flex-shrink:0}
+.transport-title{font-size:12px;font-weight:700;color:var(--text)}
+.transport-meta{font-size:10px;color:var(--text-muted)}
+.transport-like{color:var(--text-muted);cursor:pointer;font-size:16px;transition:color 150ms;flex-shrink:0}
+.transport-like:hover{color:#ff6b8a}
+.transport-controls{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.t-btn{background:none;border:none;color:var(--text-soft);cursor:pointer;font-size:14px;
+  transition:color 150ms;display:flex;align-items:center}
+.t-btn:hover{color:var(--text)}
+.t-play{width:36px;height:36px;border-radius:50%;border:none;background:var(--gold);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all var(--ease)}
+.t-play:hover{filter:brightness(1.1);box-shadow:0 0 14px var(--gold-glow)}
+.progress-area{flex:1;display:flex;align-items:center;gap:8px}
+.progress-bar{flex:1;height:3px;background:rgba(139,92,246,0.2);border-radius:2px;cursor:pointer;position:relative}
+.progress-fill{height:100%;width:0%;background:var(--gold);border-radius:2px;transition:width 1s linear}
+.progress-time{font-size:10px;color:var(--text-muted);white-space:nowrap}
+.midi-out-btn{padding:5px 10px;border-radius:6px;border:1px solid rgba(139,92,246,0.36);
+  background:rgba(108,99,255,0.1);color:var(--purple-hi);font-size:10px;font-weight:700;
+  cursor:pointer;transition:all var(--ease);letter-spacing:0.08em}
+.midi-out-btn:hover{border-color:var(--purple-mid);background:rgba(108,99,255,0.2)}
+
+/* ── API KEY MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:999;
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.hidden{display:none}
+.modal-box{width:420px;background:var(--card);border:1px solid rgba(245,200,66,0.28);border-radius:16px;
+  padding:30px;box-shadow:0 24px 60px rgba(0,0,0,0.6)}
+.modal-title{font-size:18px;font-weight:800;color:var(--text);margin-bottom:6px}
+.modal-title span{color:var(--gold)}
+.modal-sub{font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:20px}
+.modal-input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(245,200,66,0.28);
+  background:rgba(10,8,22,0.9);color:var(--text);font-size:13px;outline:none;margin-bottom:14px;
+  transition:border-color var(--ease)}
+.modal-input:focus{border-color:var(--gold)}
+.modal-btn{width:100%;padding:11px;border-radius:8px;border:none;
+  background:linear-gradient(135deg,var(--gold),var(--gold-dark));
+  color:#0a0a0f;font-weight:800;font-size:13px;cursor:pointer;transition:all var(--ease)}
+.modal-btn:hover{filter:brightness(1.1)}
+.modal-note{font-size:10px;color:var(--text-muted);margin-top:10px;text-align:center}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:70px;right:20px;padding:10px 16px;border-radius:8px;
+  border:1px solid rgba(245,200,66,0.4);background:rgba(14,12,28,0.96);
+  color:var(--text-soft);font-size:12px;z-index:200;opacity:0;transform:translateY(8px);
+  transition:all 300ms;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+
+/* ── LOADING SPINNER ── */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(10,10,20,0.4);
+  border-top-color:#0a0a0f;border-radius:50%;animation:spin 0.7s linear infinite}
+</style>
+</head>
+<body>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="apiModal">
+  <div class="modal-box">
+    <div class="modal-title"><span>Nova</span> Writer</div>
+    <div class="modal-sub">Enter your Anthropic API key to power Nova Writer's AI generation. Your key is stored locally and never sent to our servers.</div>
+    <input class="modal-input" id="apiKeyInput" type="password" placeholder="sk-ant-..." autocomplete="off"/>
+    <button class="modal-btn" onclick="saveApiKey()">Start Writing ✦</button>
+    <div class="modal-note">Need a key? Visit console.anthropic.com</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- APP SHELL -->
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-logo">
+        <img src="n_logo.png" alt="Nova"/>
+        <div>
+          <div class="brand-name"><span>Nova</span> Writer</div>
+          <div class="brand-tag">AI Songwriting Companion</div>
+        </div>
+      </div>
+      <button class="new-song-btn" onclick="newSong()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="#0a0a0f" stroke-width="2" stroke-linecap="round"/></svg>
+        New Song
+      </button>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active" onclick="setNav(this)">
+        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M4 7h6M4 4.5h6M4 9.5h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Home
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M2 2h10v10H2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M5 2v10M9 2v10M2 5h3M2 9h3M9 5h3M9 9h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Projects
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M7 1l1.5 3.5L13 5.5l-3 3 .7 4.5L7 11l-3.7 2 .7-4.5-3-3 4.5-.5L7 1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        Song Ideas
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="7" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 13c0-2.76 2.24-5 5-5s5 2.24 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Artist DNA
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><rect x="1" y="3" width="12" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 3V2M9 3V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Presets
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M2 2h10v10H2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M5 5h4M5 8h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Templates
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M7 2v8M4 7l3 3 3-3M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        My Exports
+      </div>
+    </nav>
+
+    <div class="sidebar-section">Recent Projects</div>
+    <div id="projectList"></div>
+
+    <div class="sidebar-bottom">
+      <div class="nova-studio-badge">
+        <div class="studio-dot"></div>
+        <div class="studio-label">NOVA STUDIO<small>CONNECTED</small></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CENTER -->
+  <main class="center" id="centerPanel">
+    <!-- Prompt Area -->
+    <div class="prompt-area">
+      <div class="prompt-label">WHAT DO YOU WANT TO WRITE TODAY?</div>
+      <div class="prompt-row">
+        <div class="prompt-wrap">
+          <textarea class="prompt-input" id="promptInput" maxlength="500"
+            placeholder="I want a summer Latin pop record like Sola, fun, romantic, beach club energy, driving with the windows down."
+            oninput="updateCharCount()"></textarea>
+          <div class="char-count" id="charCount">0/500</div>
+        </div>
+        <button class="generate-btn" id="generateBtn" onclick="generateBlueprint()">
+          <span id="generateBtnIcon">✦</span>
+          <span id="generateBtnText">GENERATE SONG<br/>BLUEPRINT</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Row -->
+    <div class="filter-row">
+      <div class="filter-group">
+        <div class="filter-label">Language</div>
+        <select class="filter-select" id="langSelect" onchange="updateState('language',this.value)">
+          <option>English</option>
+          <option selected>Spanglish</option>
+          <option>Spanish</option>
+          <option>Bilingual</option>
+          <option>Latin Crossover</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Dialect / Flavor</div>
+        <select class="filter-select" id="dialectSelect" onchange="updateState('dialect',this.value)">
+          <option selected>Neutral Latin</option>
+          <option>Puerto Rican / Caribbean</option>
+          <option>Dominican</option>
+          <option>Mexican</option>
+          <option>Colombian</option>
+          <option>Spain</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Spanglish Amount</div>
+        <select class="filter-select" onchange="updateState('spanglishAmount',this.value)">
+          <option>Light</option>
+          <option selected>Medium</option>
+          <option>Heavy</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Hook Language</div>
+        <select class="filter-select" onchange="updateState('hookLanguage',this.value)">
+          <option>English</option>
+          <option selected>Spanish</option>
+          <option>Mixed</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Genre</div>
+        <select class="filter-select" onchange="updateState('genre',this.value)">
+          <option selected>Latin Pop</option>
+          <option>Reggaeton</option>
+          <option>R&amp;B</option>
+          <option>Pop</option>
+          <option>Trap</option>
+          <option>Afrobeats</option>
+          <option>Gospel</option>
+          <option>Drill</option>
+          <option>Cinematic</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Mood</div>
+        <select class="filter-select" onchange="updateState('mood',this.value)">
+          <option selected>Fun / Romantic</option>
+          <option>Dark / Emotional</option>
+          <option>Uplifting</option>
+          <option>Introspective</option>
+          <option>Energetic</option>
+          <option>Melancholic</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">BPM</div>
+        <input class="filter-input" type="number" id="bpmInput" value="96" min="60" max="200"
+          onchange="updateState('bpm',this.value)"/>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Key</div>
+        <div style="display:flex;gap:4px">
+          <select class="filter-select" onchange="updateState('key',this.value)" style="width:52px">
+            <option>C</option><option>C#</option><option>D</option><option>D#</option>
+            <option selected>E</option><option>F</option><option>F#</option><option>G</option>
+            <option>G#</option><option>A</option><option>A#</option><option>B</option>
+          </select>
+          <select class="filter-select" onchange="updateState('keyMode',this.value)" style="width:58px">
+            <option selected>Minor</option><option>Major</option>
+          </select>
+        </div>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Energy</div>
+        <div class="energy-bar" id="energyBar"></div>
+      </div>
+    </div>
+
+    <!-- Blueprint -->
+    <div class="blueprint" id="blueprint">
+      <div class="section-title">Song Title Ideas</div>
+      <div class="title-chips" id="titleChips"></div>
+
+      <div class="section-title">Song Concept</div>
+      <div class="concept-text" id="conceptText"></div>
+
+      <div class="section-title">Song Structure</div>
+      <div class="struct-tabs" id="structTabs"></div>
+      <div class="struct-info" id="structInfo"></div>
+
+      <div class="section-title">Chord Progressions</div>
+      <div class="prog-grid" id="progGrid"></div>
+
+      <div class="section-title">Hook Ideas</div>
+      <div class="hook-ideas" id="hookIdeas"></div>
+
+      <div class="section-title">Melody Preview</div>
+      <div class="piano-roll">
+        <div class="piano-roll-header">
+          <span>MELODY PREVIEW (HOOK)</span>
+          <div style="display:flex;gap:8px">
+            <button style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px">✎</button>
+            <button style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px">▶</button>
+          </div>
+        </div>
+        <canvas id="pianoRoll" width="600" height="100"></canvas>
+      </div>
+    </div>
+  </main>
+
+  <!-- RIGHT PANEL -->
+  <aside class="right-panel">
+    <div class="writer-room-header">
+      <div class="wr-title">WRITER ROOM</div>
+      <div class="wr-tabs">
+        <div class="wr-tab active" onclick="setWrTab(this,'lyrics')">Lyrics</div>
+        <div class="wr-tab" onclick="setWrTab(this,'chords')">Chords</div>
+        <div class="wr-tab" onclick="setWrTab(this,'melody')">Melody</div>
+        <div class="wr-tab" onclick="setWrTab(this,'arrangement')">Arrangement</div>
+        <div class="wr-tab" onclick="setWrTab(this,'references')">References</div>
+      </div>
+    </div>
+    <div class="section-sub-tabs">
+      <div class="sub-tab" onclick="setSub(this,'verse1')">Verse 1</div>
+      <div class="sub-tab" onclick="setSub(this,'pre')">Pre</div>
+      <div class="sub-tab active" onclick="setSub(this,'hook')">Hook</div>
+      <div class="sub-tab" onclick="setSub(this,'verse2')">Verse 2</div>
+      <div class="sub-tab" onclick="setSub(this,'bridge')">Bridge</div>
+    </div>
+    <div class="writer-content">
+      <div class="lyrics-area">
+        <div id="lyricsDisplay">
+          <div class="lyrics-placeholder">Generate a Song Blueprint first, then click "Generate Lyrics" to write for this section.</div>
+        </div>
+        <button class="generate-lyrics-btn" id="genLyricsBtn" onclick="generateLyrics()" style="display:none">
+          ✦ Generate Lyrics
+        </button>
+      </div>
+      <div class="ai-tools">
+        <div class="ai-tools-title">AI TOOLS</div>
+        <button class="ai-tool-btn" onclick="aiTool('Make this hook stronger and more memorable')">
+          <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M5 1l1 3h3l-2.5 2 1 3L5 7.5 2.5 9l1-3L1 4h3z" fill="currentColor"/></svg>
+          Make Hook Stronger
+        </button>
+        <button class="ai-tool-btn" onclick="aiTool('Make this more emotionally powerful and vulnerable')">
+          <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M5 8.5C2.5 6.5 1 5 1 3.5a2 2 0 014 0 2 2 0 014 0C9 5 7.5 6.5 5 8.5z" stroke="currentColor" stroke-width="1.2"/></svg>
+          More Emotional
+        </button>
+        <button class="ai-tool-btn" onclick="aiTool('Add more Latin rhythm, rhyme patterns, and cultural references')">
+          🌴 More Latin
+        </button>
+        <button class="ai-tool-btn" onclick="aiTool('Simplify this — shorter lines, simpler words, catchier')">
+          ✂ Simplify
+        </button>
+        <button class="ai-tool-btn" onclick="aiTool('Add natural Spanglish phrasing — blend English and Spanish the way artists actually speak')">
+          🌐 Add Spanglish
+        </button>
+        <button class="ai-tool-btn" onclick="aiTool('Add a call-and-response section to this hook')">
+          🎤 Add Call &amp; Response
+        </button>
+        <button class="ai-tool-btn" onclick="aiTool('Completely rewrite this hook from a fresh angle, same vibe but new approach')">
+          🔄 Rewrite Hook
+        </button>
+        <button class="ai-tool-btn" onclick="aiTool('Generate a completely alternate version of this section')">
+          ✦ Generate Alternate
+        </button>
+      </div>
+    </div>
+
+    <!-- Reference Vocal -->
+    <div class="ref-vocal">
+      <div class="rv-header">REFERENCE VOCAL</div>
+      <div class="rv-body">
+        <div class="rv-thumb">🌴</div>
+        <div class="rv-info">
+          <div class="rv-title" id="rvTitle">SOLA VIBES - HOOK</div>
+          <div class="rv-sub">E Minor · 96 BPM</div>
+        </div>
+      </div>
+      <div class="rv-waveform">
+        <svg width="100%" height="36" id="waveformSvg" viewBox="0 0 300 36" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="rv-controls">
+        <button class="rv-play" onclick="togglePlay()">
+          <svg id="playIcon" width="14" height="14" fill="#0a0a0f" viewBox="0 0 14 14"><path d="M3 2l9 5-9 5V2z"/></svg>
+        </button>
+        <div class="rv-time">0:00 / 0:28</div>
+        <select class="rv-singer">
+          <option>Female Lead (Warm)</option>
+          <option>Female Lead (Bright)</option>
+          <option>Male Lead (Deep)</option>
+          <option>Male Lead (Tenor)</option>
+          <option>Harmony (Soft)</option>
+        </select>
+      </div>
+      <div class="rv-action-btns">
+        <div class="rv-btn" onclick="toast('Reference vocal generation coming in Phase 2')">Regenerate Vocal</div>
+        <div class="rv-btn" onclick="toast('Reference vocal generation coming in Phase 2')">Hook Only</div>
+        <div class="rv-btn" onclick="toast('Reference vocal generation coming in Phase 2')">Full Demo</div>
+        <div class="rv-btn" onclick="exportDemo()">Export Demo</div>
+      </div>
+      <div class="rv-export-label">EXPORT</div>
+      <div class="rv-export-btns">
+        <div class="export-btn" onclick="exportMidi('chords')">Export Chords (MIDI)</div>
+        <div class="export-btn" onclick="exportMidi('melody')">Export Melody (MIDI)</div>
+        <div class="export-btn" onclick="exportLyrics()">Export Lyrics (PDF)</div>
+        <div class="export-btn" onclick="exportDemo()">Export Demo (WAV)</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- TRANSPORT -->
+  <div class="transport">
+    <div class="transport-thumb">🌴</div>
+    <div class="transport-info">
+      <div class="transport-title" id="transportTitle">Sola Vibes</div>
+      <div class="transport-meta" id="transportMeta">E Minor · 96 BPM</div>
+    </div>
+    <div class="transport-like" onclick="this.style.color='#ff6b8a'">♡</div>
+    <div class="transport-controls">
+      <button class="t-btn">⏮</button>
+      <button class="t-btn">⏭</button>
+      <button class="t-play" onclick="togglePlay()">
+        <svg id="tPlayIcon" width="14" height="14" fill="#0a0a0f" viewBox="0 0 14 14"><path d="M3 2l9 5-9 5V2z"/></svg>
+      </button>
+      <button class="t-btn">⏭</button>
+    </div>
+    <div class="progress-area">
+      <span class="progress-time">0:00</span>
+      <div class="progress-bar" onclick="seekTo(event)">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <span class="progress-time">2:38</span>
+    </div>
+    <button class="midi-out-btn">MIDI OUT ▾</button>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ── STATE ──
+const state = {
+  apiKey: localStorage.getItem('nova_writer_api_key') || '',
+  prompt: '',
+  language: 'Spanglish', dialect: 'Neutral Latin',
+  spanglishAmount: 'Medium', hookLanguage: 'Spanish',
+  genre: 'Latin Pop', mood: 'Fun / Romantic',
+  bpm: 96, key: 'E', keyMode: 'Minor', energy: 6,
+  blueprint: null, lyrics: null,
+  activeSection: 'hook', activeWrTab: 'lyrics',
+  isPlaying: false,
+  currentProject: 'Sola Vibes',
+  projects: [
+    {name:'Sola Vibes',date:'Today'},
+    {name:'Late Night Drive',date:'May 28'},
+    {name:'Tu & Yo',date:'May 26'},
+    {name:'Summer Romance',date:'May 24'},
+    {name:'Ocean Eyes',date:'May 22'}
+  ]
+};
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', () => {
+  if (!state.apiKey) {
+    document.getElementById('apiModal').classList.remove('hidden');
+  }
+  renderProjects();
+  buildEnergyBar();
+  generateWaveform();
+  updateCharCount();
+});
+
+function saveApiKey() {
+  const k = document.getElementById('apiKeyInput').value.trim();
+  if (!k.startsWith('sk-')) { toast('Please enter a valid API key (starts with sk-)'); return; }
+  state.apiKey = k;
+  localStorage.setItem('nova_writer_api_key', k);
+  document.getElementById('apiModal').classList.add('hidden');
+  toast('API key saved. Ready to write!');
+}
+
+function renderProjects() {
+  const el = document.getElementById('projectList');
+  el.innerHTML = state.projects.map(p => `
+    <div class="project-item ${p.name===state.currentProject?'active':''}" onclick="loadProject('${p.name}')">
+      <span class="project-name">${p.name}</span>
+      <span class="project-date">${p.date}</span>
+    </div>`).join('');
+}
+
+function loadProject(name) {
+  state.currentProject = name;
+  document.getElementById('transportTitle').textContent = name;
+  renderProjects();
+  toast(`Loaded: ${name}`);
+}
+
+function newSong() {
+  state.blueprint = null; state.lyrics = null;
+  document.getElementById('blueprint').classList.remove('visible');
+  document.getElementById('promptInput').value = '';
+  document.getElementById('lyricsDisplay').innerHTML = '<div class="lyrics-placeholder">Generate a Song Blueprint first, then click "Generate Lyrics" to write for this section.</div>';
+  document.getElementById('genLyricsBtn').style.display = 'none';
+  updateCharCount();
+}
+
+function buildEnergyBar() {
+  const bar = document.getElementById('energyBar');
+  bar.innerHTML = '';
+  for (let i=1;i<=8;i++) {
+    const seg = document.createElement('div');
+    seg.className = 'energy-seg' + (i <= state.energy ? ' active' : '');
+    seg.onclick = () => { state.energy = i; buildEnergyBar(); };
+    bar.appendChild(seg);
+  }
+}
+
+function updateCharCount() {
+  const v = document.getElementById('promptInput').value;
+  state.prompt = v;
+  document.getElementById('charCount').textContent = v.length + '/500';
+}
+
+function updateState(key, val) { state[key] = val; }
+function setNav(el) { document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active')); el.classList.add('active'); }
+function setWrTab(el, tab) {
+  document.querySelectorAll('.wr-tab').forEach(e=>e.classList.remove('active')); el.classList.add('active');
+  state.activeWrTab = tab;
+  renderLyricsPanel();
+}
+function setSub(el, section) {
+  document.querySelectorAll('.sub-tab').forEach(e=>e.classList.remove('active')); el.classList.add('active');
+  state.activeSection = section;
+  renderLyricsPanel();
+}
+
+// ── API CALL ──
+async function callClaude(system, user) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': state.apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2048,
+      system,
+      messages: [{role:'user', content: user}]
+    })
+  });
+  if (!resp.ok) throw new Error(`API error ${resp.status}`);
+  const data = await resp.json();
+  return data.content[0].text;
+}
+
+// ── LANGUAGE RULES ──
+function languageRules() {
+  const lang = state.language;
+  if (lang === 'Spanish') return 'Write all lyrics fully in Spanish with native Spanish-language rhythm, rhyme, slang, and emotional phrasing. Never translate word-for-word from English.';
+  if (lang === 'Spanglish') return `Write lyrics in natural Spanglish (${state.spanglishAmount} blend). Use Spanish for emotional punch lines and Spanish/English for memorable hook phrases. Hook language preference: ${state.hookLanguage}. Dialect/flavor: ${state.dialect}. Never use awkward direct translations — write like a real artist would speak.`;
+  if (lang === 'Bilingual') return 'Write verses in English and hook in Spanish, or vice versa. Keep each language natural and idiomatic.';
+  if (lang === 'Latin Crossover') return `Write in Latin Crossover style: English structure with Spanish phrases and rhythmic Latin phrasing. Dialect: ${state.dialect}. Hook in Spanish preferred. Energy: summer/club/romantic.`;
+  return 'Write all lyrics in English with natural, commercial phrasing.';
+}
+
+// ── GENERATE BLUEPRINT ──
+async function generateBlueprint() {
+  if (!state.apiKey) { document.getElementById('apiModal').classList.remove('hidden'); return; }
+  const prompt = document.getElementById('promptInput').value.trim();
+  if (!prompt) { toast('Write a prompt first!'); return; }
+
+  const btn = document.getElementById('generateBtn');
+  btn.classList.add('loading');
+  document.getElementById('generateBtnIcon').innerHTML = '<span class="spinner"></span>';
+  document.getElementById('generateBtnText').textContent = 'GENERATING...';
+
+  const system = `You are Nova Writer, an elite AI songwriting companion for professional artists and producers. Generate song blueprints in valid JSON only — no markdown, no extra text.`;
+
+  const user = `Generate a complete Song Blueprint for: "${prompt}"
+
+Settings: Genre=${state.genre}, Mood=${state.mood}, BPM=${state.bpm}, Key=${state.key} ${state.keyMode}, Energy=${state.energy}/8
+Language rules: ${languageRules()}
+
+Return ONLY valid JSON:
+{
+  "titles": ["Title 1","Title 2","Title 3"],
+  "concept": "2-3 sentence concept",
+  "bpm": ${state.bpm},
+  "key": "${state.key} ${state.keyMode}",
+  "structure": {
+    "intro": {"bars":4,"chords":["Em","C","G","D"]},
+    "verse1": {"bars":8,"chords":["Em","C","G","D"]},
+    "preChorus": {"bars":4,"chords":["Am","C","D","Em"]},
+    "hook": {"bars":8,"chords":["C","G","D","Em"]},
+    "bridge": {"bars":4,"chords":["Am","G","C","D"]},
+    "outro": {"bars":4,"chords":["Em","C","G","D"]}
+  },
+  "hookIdeas": ["Hook idea 1","Hook idea 2","Hook idea 3","Hook idea 4","Hook idea 5"],
+  "songTitles": ["Title A","Title B","Title C","Title D","Title E"]
+}`;
+
+  try {
+    const raw = await callClaude(system, user);
+    const json = raw.replace(/```json|```/g,'').trim();
+    state.blueprint = JSON.parse(json);
+    renderBlueprint();
+    document.getElementById('genLyricsBtn').style.display = 'block';
+    document.getElementById('lyricsDisplay').innerHTML = '<div class="lyrics-placeholder">Click "Generate Lyrics" to write for this section.</div>';
+    toast('Song Blueprint generated!');
+  } catch(e) {
+    console.error(e);
+    toast('Generation failed. Check your API key.');
+  }
+
+  btn.classList.remove('loading');
+  document.getElementById('generateBtnIcon').textContent = '✦';
+  document.getElementById('generateBtnText').innerHTML = 'GENERATE SONG<br/>BLUEPRINT';
+}
+
+// ── RENDER BLUEPRINT ──
+function renderBlueprint() {
+  const bp = state.blueprint;
+  if (!bp) return;
+
+  const el = document.getElementById('blueprint');
+  el.classList.add('visible');
+
+  // Titles
+  const titles = bp.titles || bp.songTitles || [];
+  document.getElementById('titleChips').innerHTML = titles.map((t,i) =>
+    `<div class="title-chip ${i===0?'active':''}" onclick="selectTitle(this,'${t.replace(/'/g,"\\'")}')">
+      ${escHtml(t)}</div>`).join('');
+
+  // Concept
+  document.getElementById('conceptText').textContent = bp.concept || '';
+
+  // Structure tabs
+  const sections = [{k:'intro',l:'Intro'},{k:'verse1',l:'Verse 1'},{k:'preChorus',l:'Pre-Chorus'},
+    {k:'hook',l:'Hook'},{k:'bridge',l:'Bridge'},{k:'outro',l:'Outro'}];
+  document.getElementById('structTabs').innerHTML = sections.map((s,i) =>
+    `<div class="struct-tab ${i===3?'active':''}" onclick="selectSection(this,'${s.k}')">${s.l}</div>`).join('');
+
+  state.activeStructSection = 'hook';
+  renderStructInfo('hook');
+
+  // Chord prog grid
+  const rows = ['verse1','preChorus','hook','bridge'];
+  const labels = {verse1:'Verse',preChorus:'Pre',hook:'Hook',bridge:'Bridge'};
+  const progEl = document.getElementById('progGrid');
+  progEl.innerHTML = rows.map(row => {
+    const s = bp.structure?.[row] || {chords:['C','G','Am','F']};
+    const chords = s.chords || [];
+    return `<div class="prog-row">
+      <div class="prog-section-name">${labels[row]||row}</div>
+      ${chords.slice(0,4).map((c,i) =>
+        `<div class="prog-chord ${row==='hook'&&i===0?'active':''}">${escHtml(c)}</div>`).join('')}
+    </div>`;
+  }).join('');
+
+  // Hook ideas
+  document.getElementById('hookIdeas').innerHTML = (bp.hookIdeas||[]).map((h,i) =>
+    `<div class="hook-idea" onclick="useHookIdea(this,${i})">
+      <div class="hook-num">${i+1}</div>
+      <div class="hook-text">${escHtml(h)}</div>
+      <div class="hook-play">▶</div>
+    </div>`).join('');
+
+  // Piano roll
+  drawPianoRoll();
+
+  // Update transport
+  if (bp.key) {
+    document.getElementById('transportMeta').textContent = `${bp.key} · ${bp.bpm||state.bpm} BPM`;
+    document.querySelector('.rv-sub').textContent = `${bp.key} · ${bp.bpm||state.bpm} BPM`;
+  }
+  if (titles[0]) {
+    document.getElementById('rvTitle').textContent = `${titles[0].toUpperCase()} - HOOK`;
+    document.getElementById('transportTitle').textContent = titles[0];
+    state.currentProject = titles[0];
+    renderProjects();
+  }
+}
+
+function selectTitle(el, title) {
+  document.querySelectorAll('.title-chip').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function selectSection(el, key) {
+  document.querySelectorAll('.struct-tab').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  state.activeStructSection = key;
+  renderStructInfo(key);
+}
+
+function renderStructInfo(key) {
+  const bp = state.blueprint;
+  if (!bp?.structure) return;
+  const s = bp.structure[key] || {bars:4,chords:['C','G','Am','F']};
+  document.getElementById('structInfo').innerHTML = `
+    <div class="struct-bars">${s.bars||4} BARS</div>
+    <div class="struct-chords">${(s.chords||[]).join(' | ')}</div>`;
+}
+
+function useHookIdea(el, idx) {
+  const bp = state.blueprint;
+  if (!bp?.hookIdeas) return;
+  toast(`Hook idea ${idx+1} selected`);
+}
+
+// ── PIANO ROLL ──
+function drawPianoRoll() {
+  const canvas = document.getElementById('pianoRoll');
+  canvas.width = canvas.offsetWidth || 600;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = 100;
+
+  ctx.fillStyle = '#0a091a';
+  ctx.fillRect(0,0,W,H);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(139,92,246,0.12)';
+  for (let i=0;i<=4;i++) {
+    ctx.beginPath(); ctx.moveTo(i*W/4,0); ctx.lineTo(i*W/4,H); ctx.stroke();
+  }
+  for (let i=0;i<=4;i++) {
+    ctx.beginPath(); ctx.moveTo(0,i*H/4); ctx.lineTo(W,i*H/4); ctx.stroke();
+  }
+
+  // Notes — random but seeded-looking
+  const colors = ['#f5c842','#8b5cf6','#6c63ff','#a78bfa'];
+  const notes = [
+    {x:0.02,y:0.25,w:0.12,c:0},{x:0.16,y:0.45,w:0.08,c:1},{x:0.26,y:0.30,w:0.10,c:2},
+    {x:0.38,y:0.55,w:0.09,c:0},{x:0.49,y:0.20,w:0.11,c:3},{x:0.62,y:0.40,w:0.07,c:1},
+    {x:0.71,y:0.60,w:0.10,c:2},{x:0.83,y:0.35,w:0.12,c:0},{x:0.02,y:0.65,w:0.08,c:3},
+    {x:0.26,y:0.70,w:0.09,c:1},{x:0.49,y:0.75,w:0.08,c:0},{x:0.71,y:0.15,w:0.11,c:2}
+  ];
+  notes.forEach(n => {
+    ctx.fillStyle = colors[n.c] + 'cc';
+    const x = n.x*W, y = n.y*H, w = n.w*W, h = 10;
+    ctx.beginPath();
+    ctx.roundRect(x,y,w,h,3);
+    ctx.fill();
+  });
+}
+
+// ── GENERATE LYRICS ──
+async function generateLyrics() {
+  if (!state.apiKey) { document.getElementById('apiModal').classList.remove('hidden'); return; }
+  if (!state.blueprint) { toast('Generate a blueprint first!'); return; }
+
+  const btn = document.getElementById('genLyricsBtn');
+  btn.textContent = '⏳ Writing...';
+  btn.disabled = true;
+
+  const bp = state.blueprint;
+  const section = state.activeSection;
+  const sectionLabels = {verse1:'Verse 1',pre:'Pre-Chorus',hook:'Hook',verse2:'Verse 2',bridge:'Bridge'};
+  const chords = bp.structure?.[section]?.chords || bp.structure?.hook?.chords || ['C','G','Am','F'];
+
+  const system = `You are Nova Writer, an elite AI lyricist. Write only the requested lyrics — no explanations, no JSON, just the lyrics.`;
+  const user = `Write ${sectionLabels[section]||section} lyrics for this song:
+
+Title concept: ${bp.titles?.[0] || 'Untitled'}
+Concept: ${bp.concept}
+Chords: ${chords.join(' - ')}
+Key: ${bp.key}, BPM: ${bp.bpm}
+Genre: ${state.genre}, Mood: ${state.mood}
+
+Language rules: ${languageRules()}
+
+Write 4-8 lines that feel natural over these chords. Add the section name in parentheses at the top.`;
+
+  try {
+    const lyrics = await callClaude(system, user);
+    state.lyrics = state.lyrics || {};
+    state.lyrics[section] = lyrics;
+    renderLyricsPanel();
+    toast('Lyrics generated!');
+  } catch(e) {
+    toast('Lyrics generation failed.');
+  }
+
+  btn.textContent = '✦ Generate Lyrics';
+  btn.disabled = false;
+}
+
+function renderLyricsPanel() {
+  const display = document.getElementById('lyricsDisplay');
+  const lyrics = state.lyrics?.[state.activeSection];
+  if (!lyrics) {
+    const hasBp = !!state.blueprint;
+    display.innerHTML = hasBp
+      ? '<div class="lyrics-placeholder">Click "Generate Lyrics" to write for this section.</div>'
+      : '<div class="lyrics-placeholder">Generate a Song Blueprint first, then click "Generate Lyrics".</div>';
+    return;
+  }
+  // Highlight some words
+  const highlighted = lyrics.replace(/(playa|amor|sol|noche|corazón|verano|baby|yeah|hey)/gi,
+    '<span class="highlight">$1</span>');
+  display.innerHTML = `<div class="lyrics-text">${highlighted}</div>`;
+}
+
+// ── AI TOOLS ──
+async function aiTool(instruction) {
+  if (!state.apiKey) { document.getElementById('apiModal').classList.remove('hidden'); return; }
+  const current = state.lyrics?.[state.activeSection];
+  if (!current) { toast('Generate lyrics first!'); return; }
+
+  toast('Rewriting...');
+  const system = 'You are Nova Writer, an elite AI lyricist. Return only the rewritten lyrics, no explanations.';
+  const user = `${instruction}\n\nCurrent lyrics:\n${current}\n\nLanguage rules: ${languageRules()}`;
+
+  try {
+    const result = await callClaude(system, user);
+    state.lyrics = state.lyrics || {};
+    state.lyrics[state.activeSection] = result;
+    renderLyricsPanel();
+    toast('Done!');
+  } catch(e) { toast('Failed. Try again.'); }
+}
+
+// ── WAVEFORM ──
+function generateWaveform() {
+  const svg = document.getElementById('waveformSvg');
+  const W = 300, H = 36, mid = H/2;
+  let path = `M0,${mid}`;
+  for (let x=0;x<=W;x+=4) {
+    const amp = (Math.sin(x*0.15)*0.4 + Math.sin(x*0.07)*0.3 + Math.sin(x*0.31)*0.2 + Math.random()*0.1) * mid * 0.85;
+    path += ` L${x},${mid - Math.abs(amp)}`;
+  }
+  for (let x=W;x>=0;x-=4) {
+    const amp = (Math.sin(x*0.15)*0.4 + Math.sin(x*0.07)*0.3 + Math.sin(x*0.31)*0.2 + Math.random()*0.1) * mid * 0.85;
+    path += ` L${x},${mid + Math.abs(amp)}`;
+  }
+  svg.innerHTML = `<path d="${path}" fill="rgba(108,99,255,0.35)" stroke="rgba(139,92,246,0.7)" stroke-width="0.8"/>`;
+}
+
+// ── PLAYBACK ──
+let playTimer = null;
+let playProgress = 0;
+function togglePlay() {
+  state.isPlaying = !state.isPlaying;
+  const icon = `<path d="${state.isPlaying ? 'M3 2h3v10H3zM8 2h3v10H8z' : 'M3 2l9 5-9 5V2z'}"/>`;
+  document.getElementById('playIcon').innerHTML = icon;
+  document.getElementById('tPlayIcon').innerHTML = icon;
+
+  if (state.isPlaying) {
+    playTimer = setInterval(() => {
+      playProgress = Math.min(1, playProgress + 0.003);
+      document.getElementById('progressFill').style.width = (playProgress*100) + '%';
+      if (playProgress >= 1) { playProgress = 0; togglePlay(); }
+    }, 100);
+  } else {
+    clearInterval(playTimer);
+  }
+}
+
+function seekTo(e) {
+  const bar = e.currentTarget;
+  playProgress = e.offsetX / bar.offsetWidth;
+  document.getElementById('progressFill').style.width = (playProgress*100) + '%';
+}
+
+// ── EXPORT ──
+function exportMidi(type) {
+  // Build minimal MIDI file bytes
+  const midi = buildMidiFile(type);
+  const blob = new Blob([midi], {type:'audio/midi'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `nova-writer-${type}.mid`; a.click();
+  URL.revokeObjectURL(url);
+  toast(`${type} MIDI exported!`);
+}
+
+function buildMidiFile(type) {
+  // Minimal standard MIDI file (format 0)
+  const header = [0x4D,0x54,0x68,0x64,0,0,0,6,0,0,0,1,0,0x60]; // 96 ppq
+  const trackHeader = [0x4D,0x54,0x72,0x6B];
+  const bp = state.blueprint;
+  const chords = bp?.structure?.hook?.chords || ['C','G','Am','F'];
+  const noteMap = {C:60,'C#':61,D:62,'D#':63,E:64,F:65,'F#':66,G:67,'G#':68,A:69,'A#':70,B:71};
+  const events = [];
+  const ppq = 96;
+
+  if (type === 'chords') {
+    chords.forEach((chord,ci) => {
+      const root = noteMap[chord.replace('m','').replace('7','').replace('maj','').replace('sus','').replace(/\d/,'')] || 60;
+      const notes = chord.includes('m') && !chord.includes('maj') ? [root,root+3,root+7] : [root,root+4,root+7];
+      notes.forEach(n => events.push({t:ci*ppq*2, type:0x90, note:Math.min(n,127), vel:80}));
+      notes.forEach(n => events.push({t:ci*ppq*2+ppq*2-1, type:0x80, note:Math.min(n,127), vel:0}));
+    });
+  } else {
+    // Simple melody
+    const scale = [60,62,64,65,67,69,71,72];
+    for (let i=0;i<16;i++) {
+      const n = scale[Math.floor(Math.random()*scale.length)];
+      events.push({t:i*ppq/2, type:0x90, note:n, vel:70});
+      events.push({t:i*ppq/2+ppq/2-1, type:0x80, note:n, vel:0});
+    }
+  }
+
+  events.sort((a,b)=>a.t-b.t);
+  const trackData = [];
+  let lastT = 0;
+  events.forEach(ev => {
+    const dt = ev.t - lastT; lastT = ev.t;
+    trackData.push(...encodeVarLen(dt), ev.type, ev.note, ev.vel);
+  });
+  trackData.push(0,0xFF,0x2F,0); // end of track
+
+  const trackLen = [0,0,0,0];
+  trackLen[0] = (trackData.length >> 24) & 0xFF;
+  trackLen[1] = (trackData.length >> 16) & 0xFF;
+  trackLen[2] = (trackData.length >> 8) & 0xFF;
+  trackLen[3] = trackData.length & 0xFF;
+
+  return new Uint8Array([...header, ...trackHeader, ...trackLen, ...trackData]);
+}
+
+function encodeVarLen(n) {
+  if (n < 0x80) return [n];
+  if (n < 0x4000) return [0x80|(n>>7), n&0x7F];
+  return [0x80|(n>>14), 0x80|((n>>7)&0x7F), n&0x7F];
+}
+
+function exportLyrics() {
+  const all = state.lyrics;
+  if (!all) { toast('Generate lyrics first!'); return; }
+  const bp = state.blueprint;
+  const title = bp?.titles?.[0] || state.currentProject;
+  const content = Object.entries(all).map(([sec,lyr]) => `\n${lyr}`).join('\n\n');
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+    <style>body{font-family:Georgia,serif;max-width:600px;margin:60px auto;line-height:2;color:#111}
+    h1{font-size:24px;margin-bottom:4px}h2{font-size:14px;color:#666;font-weight:normal;margin-bottom:40px}
+    pre{white-space:pre-wrap;font-family:Georgia,serif;font-size:15px}</style></head>
+    <body><h1>${escHtml(title)}</h1><h2>${bp?.key||''} · ${bp?.bpm||''}BPM · ${state.genre}</h2>
+    <pre>${escHtml(content)}</pre></body></html>`);
+  win.print();
+  toast('Lyrics PDF opened!');
+}
+
+function exportDemo() {
+  toast('Reference vocal export coming in Phase 2 — stay tuned!');
+}
+
+// ── UTILS ──
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 3000);
+}
+
+// Resize piano roll on window resize
+window.addEventListener('resize', () => {
+  if (state.blueprint) drawPianoRoll();
+});
+</script>
+</body>
+</html>
