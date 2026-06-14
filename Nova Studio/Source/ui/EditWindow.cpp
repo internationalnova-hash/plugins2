@@ -30,6 +30,9 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
     editModeToolbar->onEditModeChanged = [this](EditModeToolbar::EditMode m) {
         if (arrangementView) arrangementView->setEditMode(m);
     };
+    editModeToolbar->onCursorToolChanged = [this](EditModeToolbar::CursorTool t) {
+        if (arrangementView) arrangementView->setCursorTool(t);
+    };
     editModeToolbar->onSnapResolutionChanged = [this](double beats) {
         if (arrangementView) arrangementView->setSnapResolution(beats);
     };

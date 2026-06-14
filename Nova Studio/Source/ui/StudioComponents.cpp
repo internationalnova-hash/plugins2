@@ -545,59 +545,55 @@ namespace NovaStudioUI
 
     EditModeToolbar::EditModeToolbar()
     {
-        // Mode buttons
+        // Edit mode buttons
         for (auto* b : { &slipBtn, &gridBtn, &spotBtn, &shuffleBtn })
-        {
-            addAndMakeVisible(b);
-            b->addListener(this);
-        }
+        { addAndMakeVisible(b); b->addListener(this); }
 
-        // Snap / grid resolution
+        // Cursor tool buttons
+        for (auto* b : { &pointerBtn, &trimBtn, &splitBtn, &fadeBtn })
+        { addAndMakeVisible(b); b->addListener(this); }
+
+        // Snap / grid
         addAndMakeVisible(snapBtn);
         snapBtn.addListener(this);
+        populateResBox(gridBox);  styleResBox(gridBox);
+        gridBox.setSelectedId(1, juce::dontSendNotification);
+        gridBox.addListener(this); addAndMakeVisible(gridBox);
 
-        populateResBox(gridBox);
-        styleResBox(gridBox);
-        gridBox.setSelectedId(1, juce::dontSendNotification); // 1 Bar
-        gridBox.addListener(this);
-        addAndMakeVisible(gridBox);
+        // Nudge
+        populateResBox(nudgeBox); styleResBox(nudgeBox);
+        nudgeBox.setSelectedId(5, juce::dontSendNotification);
+        nudgeBox.addListener(this); addAndMakeVisible(nudgeBox);
 
-        // Nudge resolution
-        populateResBox(nudgeBox);
-        styleResBox(nudgeBox);
-        nudgeBox.setSelectedId(5, juce::dontSendNotification); // 1/16
-        nudgeBox.addListener(this);
-        addAndMakeVisible(nudgeBox);
-
-        // Zoom buttons
+        // Zoom
         for (auto* b : { &hZoomInBtn, &hZoomOutBtn, &vZoomInBtn, &vZoomOutBtn })
-        {
-            addAndMakeVisible(b);
-            b->addListener(this);
-        }
+        { addAndMakeVisible(b); b->addListener(this); }
 
-        // Labels
-        gridLabel.setText("Grid:",  juce::dontSendNotification);
-        nudgeLabel.setText("Nudge:", juce::dontSendNotification);
-        zoomLabel.setText("Zoom:",   juce::dontSendNotification);
-        for (auto* lbl : { &gridLabel, &nudgeLabel, &zoomLabel })
-        {
-            lbl->setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.55f));
-            lbl->setFont(juce::Font(juce::FontOptions(10.0f)));
-            addAndMakeVisible(lbl);
-        }
+        // Section labels
+        auto setupLabel = [&](juce::Label& l, const char* text) {
+            l.setText(text, juce::dontSendNotification);
+            l.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.45f));
+            l.setFont(juce::Font(juce::FontOptions(9.0f)));
+            addAndMakeVisible(l);
+        };
+        setupLabel(modeLabel,  "MODE");
+        setupLabel(toolLabel,  "TOOL");
+        setupLabel(gridLabel,  "Grid:");
+        setupLabel(nudgeLabel, "Nudge:");
+        setupLabel(zoomLabel,  "Zoom:");
 
-        // SHUFFLE is placeholder — greyed out
         shuffleBtn.setEnabled(false);
         shuffleBtn.setAlpha(0.4f);
-        shuffleBtn.setTooltip("Shuffle (ripple) editing — coming soon");
+        shuffleBtn.setTooltip("Shuffle/ripple editing — coming soon");
 
         setEditMode(EditMode::Slip);
+        setCursorTool(CursorTool::Pointer);
     }
 
     EditModeToolbar::~EditModeToolbar()
     {
         for (auto* b : { &slipBtn, &gridBtn, &spotBtn, &shuffleBtn,
+                         &pointerBtn, &trimBtn, &splitBtn, &fadeBtn,
                          &snapBtn, &hZoomInBtn, &hZoomOutBtn, &vZoomInBtn, &vZoomOutBtn })
             b->removeListener(this);
         gridBox.removeListener(this);
@@ -606,84 +602,111 @@ namespace NovaStudioUI
 
     void EditModeToolbar::paint(juce::Graphics& g)
     {
-        g.setColour(juce::Colour::fromRGB(14, 16, 22));
+        g.setColour(juce::Colour::fromRGB(11, 13, 19));
         g.fillAll();
-        // Bottom separator
+        // Divider below
         g.setColour(juce::Colour::fromRGB(35, 38, 52));
         g.fillRect(0, getHeight() - 1, getWidth(), 1);
+
+        // Section dividers between groups
+        const juce::Colour div = juce::Colour::fromRGB(35, 38, 52);
+        // (The paint-only divider lines between groups — positions determined in resized())
     }
 
     void EditModeToolbar::resized()
     {
-        auto area = getLocalBounds().reduced(6, 3);
-        const int gap  = 3;
-        const int gap2 = 8;  // section separator
-        const int bW   = 48;
-        const int sW   = 36; // small button
+        auto area = getLocalBounds().reduced(4, 3);
+        const int g1 = 2, g2 = 10;
+        const int bW = 38, sW = 28;
 
-        // Mode group
-        slipBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(gap);
-        gridBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(gap);
-        spotBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(gap);
-        shuffleBtn.setBounds(area.removeFromLeft(bW)); area.removeFromLeft(gap2);
+        // ── Mode group ───────────────────────────────────────────────
+        modeLabel.setBounds(area.removeFromLeft(38)); area.removeFromLeft(g1);
+        slipBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(g1);
+        gridBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(g1);
+        spotBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(g1);
+        shuffleBtn.setBounds(area.removeFromLeft(bW)); area.removeFromLeft(g2);
 
-        // Snap + grid resolution
-        snapBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(gap);
-        gridLabel.setBounds(area.removeFromLeft(32));  area.removeFromLeft(gap);
-        gridBox.setBounds(area.removeFromLeft(84));    area.removeFromLeft(gap2);
+        // ── Tool group ───────────────────────────────────────────────
+        toolLabel.setBounds(area.removeFromLeft(32));  area.removeFromLeft(g1);
+        pointerBtn.setBounds(area.removeFromLeft(bW)); area.removeFromLeft(g1);
+        trimBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(g1);
+        splitBtn.setBounds(area.removeFromLeft(bW));   area.removeFromLeft(g1);
+        fadeBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(g2);
 
-        // Nudge resolution
-        nudgeLabel.setBounds(area.removeFromLeft(38)); area.removeFromLeft(gap);
-        nudgeBox.setBounds(area.removeFromLeft(84));   area.removeFromLeft(gap2);
+        // ── Snap/grid ─────────────────────────────────────────────────
+        snapBtn.setBounds(area.removeFromLeft(bW));    area.removeFromLeft(g1);
+        gridLabel.setBounds(area.removeFromLeft(28));  area.removeFromLeft(g1);
+        gridBox.setBounds(area.removeFromLeft(82));    area.removeFromLeft(g2);
 
-        // Zoom group (right side)
-        zoomLabel.setBounds(area.removeFromLeft(34));  area.removeFromLeft(gap);
-        hZoomOutBtn.setBounds(area.removeFromLeft(sW)); area.removeFromLeft(gap);
-        hZoomInBtn.setBounds(area.removeFromLeft(sW));  area.removeFromLeft(gap);
-        vZoomOutBtn.setBounds(area.removeFromLeft(sW)); area.removeFromLeft(gap);
+        // ── Nudge ──────────────────────────────────────────────────────
+        nudgeLabel.setBounds(area.removeFromLeft(36)); area.removeFromLeft(g1);
+        nudgeBox.setBounds(area.removeFromLeft(82));   area.removeFromLeft(g2);
+
+        // ── Zoom ───────────────────────────────────────────────────────
+        zoomLabel.setBounds(area.removeFromLeft(30));  area.removeFromLeft(g1);
+        hZoomOutBtn.setBounds(area.removeFromLeft(sW)); area.removeFromLeft(g1);
+        hZoomInBtn.setBounds(area.removeFromLeft(sW));  area.removeFromLeft(g1);
+        vZoomOutBtn.setBounds(area.removeFromLeft(sW)); area.removeFromLeft(g1);
         vZoomInBtn.setBounds(area.removeFromLeft(sW));
     }
 
     void EditModeToolbar::setEditMode(EditMode m)
     {
         currentMode = m;
-        const auto activeCol  = juce::Colour::fromRGB(180, 140, 60);
-        const auto inactiveCol = juce::Colour::fromRGB(28, 32, 46);
-        const auto snapOnCol  = juce::Colour::fromRGB(50, 160, 80);
+        const auto gold    = juce::Colour::fromRGB(180, 140, 60);
+        const auto dim     = juce::Colour::fromRGB(24, 28, 42);
+        const auto snapOn  = juce::Colour::fromRGB(40, 150, 70);
 
-        auto styleMode = [&](juce::TextButton& btn, bool active) {
-            btn.setColour(juce::TextButton::buttonColourId,  active ? activeCol : inactiveCol);
-            btn.setColour(juce::TextButton::buttonOnColourId, activeCol);
+        auto style = [&](juce::TextButton& btn, bool active, juce::Colour ac) {
+            btn.setColour(juce::TextButton::buttonColourId,  active ? ac : dim);
+            btn.setColour(juce::TextButton::buttonOnColourId, ac);
             btn.setColour(juce::TextButton::textColourOffId,  juce::Colours::white);
             btn.setColour(juce::TextButton::textColourOnId,   juce::Colours::white);
         };
 
-        styleMode(slipBtn,    m == EditMode::Slip);
-        styleMode(gridBtn,    m == EditMode::Grid);
-        styleMode(spotBtn,    m == EditMode::Spot);
+        style(slipBtn,    m == EditMode::Slip,  gold);
+        style(gridBtn,    m == EditMode::Grid,  gold);
+        style(spotBtn,    m == EditMode::Spot,  gold);
+        style(shuffleBtn, false, dim); // always dim
 
-        // Snap button stays green when enabled
-        snapBtn.setColour(juce::TextButton::buttonColourId,
-                          snapEnabled ? snapOnCol : inactiveCol);
+        snapBtn.setColour(juce::TextButton::buttonColourId, snapEnabled ? snapOn : dim);
         snapBtn.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    }
 
-        // Shuffle always dim
-        shuffleBtn.setColour(juce::TextButton::buttonColourId,  inactiveCol);
-        shuffleBtn.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.4f));
+    void EditModeToolbar::setCursorTool(CursorTool t)
+    {
+        currentTool = t;
+        const auto teal = juce::Colour::fromRGB(40, 140, 180);
+        const auto dim  = juce::Colour::fromRGB(24, 28, 42);
+
+        auto style = [&](juce::TextButton& btn, bool active) {
+            btn.setColour(juce::TextButton::buttonColourId,  active ? teal : dim);
+            btn.setColour(juce::TextButton::buttonOnColourId, teal);
+            btn.setColour(juce::TextButton::textColourOffId,  juce::Colours::white);
+            btn.setColour(juce::TextButton::textColourOnId,   juce::Colours::white);
+        };
+
+        style(pointerBtn, t == CursorTool::Pointer);
+        style(trimBtn,    t == CursorTool::Trim);
+        style(splitBtn,   t == CursorTool::Split);
+        style(fadeBtn,    t == CursorTool::Fade);
     }
 
     void EditModeToolbar::buttonClicked(juce::Button* b)
     {
-        if      (b == &slipBtn)    { setEditMode(EditMode::Slip);    if (onEditModeChanged) onEditModeChanged(EditMode::Slip); }
-        else if (b == &gridBtn)    { setEditMode(EditMode::Grid);    if (onEditModeChanged) onEditModeChanged(EditMode::Grid); }
-        else if (b == &spotBtn)    { setEditMode(EditMode::Spot);    if (onEditModeChanged) onEditModeChanged(EditMode::Spot); }
+        // Edit mode
+        if      (b == &slipBtn)    { setEditMode(EditMode::Slip);  if (onEditModeChanged) onEditModeChanged(EditMode::Slip); }
+        else if (b == &gridBtn)    { setEditMode(EditMode::Grid);  if (onEditModeChanged) onEditModeChanged(EditMode::Grid); }
+        else if (b == &spotBtn)    { setEditMode(EditMode::Spot);  if (onEditModeChanged) onEditModeChanged(EditMode::Spot); }
         else if (b == &shuffleBtn) { /* placeholder */ }
-        else if (b == &snapBtn)
-        {
-            snapEnabled = !snapEnabled;
-            setEditMode(currentMode); // refreshes button colours
-            if (onSnapEnabled) onSnapEnabled(snapEnabled);
-        }
+        // Cursor tools
+        else if (b == &pointerBtn) { setCursorTool(CursorTool::Pointer); if (onCursorToolChanged) onCursorToolChanged(CursorTool::Pointer); }
+        else if (b == &trimBtn)    { setCursorTool(CursorTool::Trim);    if (onCursorToolChanged) onCursorToolChanged(CursorTool::Trim); }
+        else if (b == &splitBtn)   { setCursorTool(CursorTool::Split);   if (onCursorToolChanged) onCursorToolChanged(CursorTool::Split); }
+        else if (b == &fadeBtn)    { setCursorTool(CursorTool::Fade);    if (onCursorToolChanged) onCursorToolChanged(CursorTool::Fade); }
+        // Snap
+        else if (b == &snapBtn)    { snapEnabled = !snapEnabled; setEditMode(currentMode); if (onSnapEnabled) onSnapEnabled(snapEnabled); }
+        // Zoom
         else if (b == &hZoomInBtn)  { if (onHZoomChanged) onHZoomChanged(+1); }
         else if (b == &hZoomOutBtn) { if (onHZoomChanged) onHZoomChanged(-1); }
         else if (b == &vZoomInBtn)  { if (onVZoomChanged) onVZoomChanged(+1); }
@@ -1166,6 +1189,68 @@ namespace NovaStudioUI
         return static_cast<int64_t>(std::round(static_cast<double>(raw) / snapSamples) * snapSamples);
     }
 
+    void ArrangementView::updateCursorForTool()
+    {
+        switch (cursorTool)
+        {
+            case EditModeToolbar::CursorTool::Trim:
+                setMouseCursor(juce::MouseCursor::LeftRightResizeCursor); break;
+            case EditModeToolbar::CursorTool::Split:
+                setMouseCursor(juce::MouseCursor::CrosshairCursor); break;
+            case EditModeToolbar::CursorTool::Fade:
+                setMouseCursor(juce::MouseCursor::UpDownLeftRightResizeCursor); break;
+            default:
+                setMouseCursor(juce::MouseCursor::NormalCursor); break;
+        }
+    }
+
+    ArrangementView::HoverZone ArrangementView::hoverZone(juce::Point<float> pos, int& outTrack, int& outClip) const
+    {
+        outTrack = -1;
+        outClip  = -1;
+        const int rulerH = 28;
+        if (pos.y < (float)rulerH) return HoverZone::None;
+
+        const float trackHeight = (float)trackHeightPx;
+        const int   width       = getWidth();
+        const auto& session     = arrangementModel.getSession();
+        const int   trackIndex  = static_cast<int>((pos.y - rulerH) / trackHeight);
+        if (trackIndex < 0 || trackIndex >= session.getNumTracks()) return HoverZone::None;
+
+        const auto& track = session.getTrack(trackIndex);
+        for (int ci = 0; ci < track.clips.size(); ++ci)
+        {
+            const auto& clip    = track.clips.getReference(ci);
+            const float cStartX = (float)timelineModel.getXForSamplePosition(clip.startSample, width);
+            const float cEndX   = (float)timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width);
+            const float clipY   = (float)rulerH + trackIndex * trackHeight + 6.0f;
+            const float clipH   = trackHeight - 12.0f;
+            const auto  cRect   = juce::Rectangle<float>(cStartX, clipY, cEndX - cStartX, clipH);
+            if (!cRect.contains(pos)) continue;
+
+            outTrack = trackIndex;
+            outClip  = ci;
+
+            const float edgeTol = 8.0f;
+            if (pos.x < cStartX + edgeTol) return HoverZone::ClipLeftEdge;
+            if (pos.x > cEndX   - edgeTol) return HoverZone::ClipRightEdge;
+
+            const float clipW = cEndX - cStartX;
+            if (clip.fadeInSamples > 0)
+            {
+                const float fadeInX = cStartX + juce::jmin(1.0f, (float)clip.fadeInSamples / (float)clip.lengthSamples) * clipW;
+                if (pos.x < fadeInX) return HoverZone::ClipFadeIn;
+            }
+            if (clip.fadeOutSamples > 0)
+            {
+                const float fadeOutX = cEndX - juce::jmin(1.0f, (float)clip.fadeOutSamples / (float)clip.lengthSamples) * clipW;
+                if (pos.x > fadeOutX) return HoverZone::ClipFadeOut;
+            }
+            return HoverZone::ClipBody;
+        }
+        return HoverZone::None;
+    }
+
     void ArrangementView::mouseMove(const juce::MouseEvent& event)
     {
         const float y = event.position.y;
@@ -1174,16 +1259,37 @@ namespace NovaStudioUI
 
         if (y < (float)rulerH)
         {
-            // Near playhead → show hand or left-right cursor
             const double phX = timelineModel.getXForSamplePosition(transportState.getPositionSamples(), getWidth());
             if (std::abs(x - (float)phX) < 8.0f)
                 setMouseCursor(juce::MouseCursor::LeftRightResizeCursor);
             else
                 setMouseCursor(juce::MouseCursor::PointingHandCursor);
+            return;
         }
-        else
+
+        int ht = -1, hc = -1;
+        const auto zone = hoverZone(event.position, ht, hc);
+
+        switch (cursorTool)
         {
-            setMouseCursor(juce::MouseCursor::NormalCursor);
+            case EditModeToolbar::CursorTool::Trim:
+                setMouseCursor((zone == HoverZone::ClipLeftEdge || zone == HoverZone::ClipRightEdge)
+                               ? juce::MouseCursor::LeftRightResizeCursor
+                               : juce::MouseCursor::NormalCursor);
+                break;
+            case EditModeToolbar::CursorTool::Split:
+                setMouseCursor((zone != HoverZone::None)
+                               ? juce::MouseCursor::CrosshairCursor
+                               : juce::MouseCursor::NormalCursor);
+                break;
+            case EditModeToolbar::CursorTool::Fade:
+                setMouseCursor((zone != HoverZone::None)
+                               ? juce::MouseCursor::UpDownLeftRightResizeCursor
+                               : juce::MouseCursor::NormalCursor);
+                break;
+            default:
+                setMouseCursor(juce::MouseCursor::NormalCursor);
+                break;
         }
     }
 
@@ -1300,6 +1406,48 @@ namespace NovaStudioUI
                 else if (event.mods.isShiftDown())
                 {
                     arrangementModel.toggleClipSelection(trackIndex, clipIndex);
+                }
+                else if (cursorTool == EditModeToolbar::CursorTool::Split)
+                {
+                    arrangementModel.selectClip(trackIndex, clipIndex);
+                    const int64_t splitSample = xToSample(clickPoint.x, timelineModel, snapEnabled, snapBeats, arrangementModel.getSession());
+                    arrangementModel.splitSelectedClip(splitSample);
+                }
+                else if (cursorTool == EditModeToolbar::CursorTool::Fade)
+                {
+                    arrangementModel.selectClip(trackIndex, clipIndex);
+                    const float cStartX = (float)(trackArea.getX() + timelineModel.getXForSamplePosition(clip.startSample, width));
+                    const float cEndX   = (float)(trackArea.getX() + timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width));
+                    const float clipW   = cEndX - cStartX;
+                    const float fadeInX = cStartX + juce::jmin(1.0f, (float)clip.fadeInSamples / (float)juce::jmax<int64_t>(1, clip.lengthSamples)) * clipW;
+                    if (clickPoint.x <= fadeInX + 16.0f)
+                    {
+                        isDraggingFadeIn = true;
+                        fadeOrigIn = clip.fadeInSamples;
+                    }
+                    else
+                    {
+                        isDraggingFadeOut = true;
+                        fadeOrigOut = clip.fadeOutSamples;
+                    }
+                }
+                else if (cursorTool == EditModeToolbar::CursorTool::Trim)
+                {
+                    arrangementModel.selectClip(trackIndex, clipIndex);
+                    const float cStartX = (float)(trackArea.getX() + timelineModel.getXForSamplePosition(clip.startSample, width));
+                    const float cEndX   = (float)(trackArea.getX() + timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width));
+                    originalClipStartSample = clip.startSample;
+                    originalClipLength = clip.lengthSamples;
+                    if (clickPoint.x < cStartX + (cEndX - cStartX) * 0.5f)
+                    {
+                        isDraggingTrimLeft = true;
+                        currentTrimSample = clip.startSample;
+                    }
+                    else
+                    {
+                        isDraggingTrimRight = true;
+                        currentTrimSample = clip.startSample + clip.lengthSamples;
+                    }
                 }
                 else if (editMode == EditModeToolbar::EditMode::Spot)
                 {
@@ -1420,6 +1568,33 @@ namespace NovaStudioUI
             return;
         }
 
+        // ── Fade handle drag ─────────────────────────────────────────────────────
+        if (isDraggingFadeIn || isDraggingFadeOut)
+        {
+            auto* clip = arrangementModel.getSelectedClip();
+            if (clip == nullptr || clip->locked) return;
+
+            const int width2 = getWidth();
+            const float cStartX = (float)timelineModel.getXForSamplePosition(clip->startSample, width2);
+            const float cEndX   = (float)timelineModel.getXForSamplePosition(clip->startSample + clip->lengthSamples, width2);
+            const float clipW   = juce::jmax(1.0f, cEndX - cStartX);
+
+            if (isDraggingFadeIn)
+            {
+                const float ratio = juce::jlimit(0.0f, 1.0f, (event.position.x - cStartX) / clipW);
+                const int64_t newFade = static_cast<int64_t>(ratio * (float)clip->lengthSamples);
+                arrangementModel.setSelectedClipFadeIn(newFade);
+            }
+            else
+            {
+                const float ratio = juce::jlimit(0.0f, 1.0f, (cEndX - event.position.x) / clipW);
+                const int64_t newFade = static_cast<int64_t>(ratio * (float)clip->lengthSamples);
+                arrangementModel.setSelectedClipFadeOut(newFade);
+            }
+            repaint();
+            return;
+        }
+
         if (isDraggingTrimLeft || isDraggingTrimRight)
         {
             auto* clip = arrangementModel.getSelectedClip();
@@ -1495,8 +1670,10 @@ namespace NovaStudioUI
         juce::ignoreUnused(event);
 
         isDraggingPlayhead = false;
+        isDraggingFadeIn   = false;
+        isDraggingFadeOut  = false;
         loopDragHandle = LoopDragHandle::None;
-        setMouseCursor(juce::MouseCursor::NormalCursor);
+        updateCursorForTool();
 
         if (isMarqueeSelecting)
         {
