@@ -122,13 +122,14 @@ namespace NovaStudioUI
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(InspectorPanel)
     };
 
-    // Toolbar that sits directly above the arrangement view — edit modes, grid, zoom
+    // Toolbar that sits directly above the arrangement view — edit modes, cursor tools, grid, zoom
     class EditModeToolbar : public juce::Component,
                             private juce::Button::Listener,
                             private juce::ComboBox::Listener
     {
     public:
-        enum class EditMode { Slip, Grid, Spot, Shuffle };
+        enum class EditMode  { Slip, Grid, Spot, Shuffle };
+        enum class CursorTool { Pointer, Trim, Split, Fade, Smart };
 
         EditModeToolbar();
         ~EditModeToolbar() override;
@@ -137,44 +138,57 @@ namespace NovaStudioUI
         void resized() override;
 
         // Callbacks → ArrangementView
-        std::function<void(EditMode)> onEditModeChanged;
-        std::function<void(double)>   onSnapResolutionChanged; // beats per snap unit
-        std::function<void(double)>   onNudgeResolutionChanged;
-        std::function<void(bool)>     onSnapEnabled;
-        std::function<void(int)>      onHZoomChanged;  // +1 in / -1 out
-        std::function<void(int)>      onVZoomChanged;
+        std::function<void(EditMode)>   onEditModeChanged;
+        std::function<void(CursorTool)> onCursorToolChanged;
+        std::function<void(double)>     onSnapResolutionChanged;
+        std::function<void(double)>     onNudgeResolutionChanged;
+        std::function<void(bool)>       onSnapEnabled;
+        std::function<void(int)>        onHZoomChanged;
+        std::function<void(int)>        onVZoomChanged;
 
         void setEditMode(EditMode m);
-        EditMode getEditMode() const  { return currentMode; }
-        double getSnapBeats() const   { return snapBeats; }
-        double getNudgeBeats() const  { return nudgeBeats; }
-        bool isSnapOn() const         { return snapEnabled; }
+        void setCursorTool(CursorTool t);
+        EditMode   getEditMode() const   { return currentMode; }
+        CursorTool getCursorTool() const { return currentTool; }
+        double getSnapBeats() const      { return snapBeats; }
+        double getNudgeBeats() const     { return nudgeBeats; }
+        bool isSnapOn() const            { return snapEnabled; }
 
     private:
         void buttonClicked(juce::Button* b) override;
         void comboBoxChanged(juce::ComboBox* c) override;
         static double beatsForResolutionId(int id);
 
+        // Edit mode buttons
         juce::TextButton slipBtn    {"SLIP"};
         juce::TextButton gridBtn    {"GRID"};
         juce::TextButton spotBtn    {"SPOT"};
-        juce::TextButton shuffleBtn {"SHUFFLE"};
+        juce::TextButton shuffleBtn {"SHFL"};
 
-        juce::TextButton snapBtn    {"SNAP"};
-        juce::ComboBox   gridBox;   // snap/grid resolution
-        juce::ComboBox   nudgeBox;  // nudge resolution
+        // Cursor tool buttons
+        juce::TextButton pointerBtn {"PTR"};
+        juce::TextButton trimBtn    {"TRIM"};
+        juce::TextButton splitBtn   {"SPLT"};
+        juce::TextButton fadeBtn    {"FADE"};
 
+        // Snap / grid
+        juce::TextButton snapBtn {"SNAP"};
+        juce::ComboBox   gridBox;
+        juce::ComboBox   nudgeBox;
+
+        // Zoom
         juce::TextButton hZoomInBtn  {"H+"};
         juce::TextButton hZoomOutBtn {"H-"};
         juce::TextButton vZoomInBtn  {"V+"};
         juce::TextButton vZoomOutBtn {"V-"};
 
-        juce::Label gridLabel, nudgeLabel, zoomLabel;
+        juce::Label modeLabel, toolLabel, gridLabel, nudgeLabel, zoomLabel;
 
-        EditMode currentMode = EditMode::Slip;
-        double   snapBeats   = 4.0;  // 1 bar (4 beats)
-        double   nudgeBeats  = 0.25; // 1/16 note
-        bool     snapEnabled = true;
+        EditMode   currentMode = EditMode::Slip;
+        CursorTool currentTool = CursorTool::Pointer;
+        double     snapBeats   = 4.0;
+        double     nudgeBeats  = 0.25;
+        bool       snapEnabled = true;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EditModeToolbar)
     };
@@ -204,15 +218,15 @@ namespace NovaStudioUI
         void itemDropped(const SourceDetails& details) override;
 
         // Called from EditModeToolbar callbacks
-        void setEditMode(EditModeToolbar::EditMode m) { editMode = m; }
-        void setSnapResolution(double beats)          { snapBeats = beats; }
-        void setNudgeResolution(double beats)         { nudgeBeats = beats; }
-        void setSnapEnabled(bool on)                  { snapEnabled = on; }
+        void setEditMode(EditModeToolbar::EditMode m)    { editMode = m; updateCursorForTool(); }
+        void setCursorTool(EditModeToolbar::CursorTool t){ cursorTool = t; updateCursorForTool(); }
+        void setSnapResolution(double beats)             { snapBeats = beats; }
+        void setNudgeResolution(double beats)            { nudgeBeats = beats; }
+        void setSnapEnabled(bool on)                     { snapEnabled = on; }
         void adjustHZoom(int direction);
         void adjustVZoom(int direction);
         int  getTrackHeight() const { return trackHeightPx; }
 
-        // Nudge selected clips by nudgeBeats (called from keyboard or toolbar)
         void nudgeSelected(int direction); // +1 right, -1 left
 
     private:
@@ -220,6 +234,11 @@ namespace NovaStudioUI
         void timerCallback() override;
         int64_t snapToGrid(int64_t sample) const;
         void showSpotDialog(int trackIndex, int clipIndex);
+        void updateCursorForTool();
+
+        // Classify what's under the mouse for smart-tool behaviour
+        enum class HoverZone { None, ClipBody, ClipLeftEdge, ClipRightEdge, ClipFadeIn, ClipFadeOut };
+        HoverZone hoverZone(juce::Point<float> pos, int& outTrack, int& outClip) const;
 
         NovaStudio::TransportState& transportState;
         NovaStudio::TimelineModel& timelineModel;
@@ -249,10 +268,17 @@ namespace NovaStudioUI
         int64_t loopOrigStart = 0;
         int64_t loopOrigEnd   = 0;
 
-        EditModeToolbar::EditMode editMode = EditModeToolbar::EditMode::Slip;
-        double  snapBeats   = 4.0;   // 1 bar
-        double  nudgeBeats  = 0.25;  // 1/16
+        EditModeToolbar::EditMode   editMode   = EditModeToolbar::EditMode::Slip;
+        EditModeToolbar::CursorTool cursorTool = EditModeToolbar::CursorTool::Pointer;
+        double  snapBeats   = 4.0;
+        double  nudgeBeats  = 0.25;
         bool    snapEnabled = true;
+
+        // Fade dragging state
+        bool    isDraggingFadeIn  = false;
+        bool    isDraggingFadeOut = false;
+        int64_t fadeOrigIn  = 0;
+        int64_t fadeOrigOut = 0;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ArrangementView)
     };
