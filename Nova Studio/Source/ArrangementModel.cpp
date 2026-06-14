@@ -854,7 +854,7 @@ namespace NovaStudio
 
             Clip before = track.clips.getReference(p.y);
             Clip after = before;
-            after.startSample = getSnappedSamplePosition(juce::jmax<int64_t>(0, before.startSample + deltaSamples));
+            after.startSample = juce::jmax<int64_t>(0, before.startSample + deltaSamples);
 
             action->trackIndices.add(p.x);
             action->clipIndices.add(p.y);
