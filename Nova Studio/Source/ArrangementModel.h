@@ -106,6 +106,12 @@ namespace NovaStudio
         // and append the copy to the session (FL/Pro Tools "Duplicate Track").
         bool duplicateTrack(int trackIndex);
 
+        // Scans every audio clip's region for inter-sample peaks at or above
+        // the given linear threshold (default ~ -0.1 dBFS) and returns their
+        // (trackIndex, clipIndex) locations — backs Nova Assistant's
+        // "Find Clipping Tracks".
+        juce::Array<juce::Point<int>> findClippingClips(float thresholdLinear = 0.989f);
+
         bool setSelectedClipGain(float gainDb);
         bool setSelectedClipFadeIn(int64_t samples);
         bool setSelectedClipFadeOut(int64_t samples);

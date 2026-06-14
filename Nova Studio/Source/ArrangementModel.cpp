@@ -1576,6 +1576,37 @@ namespace NovaStudio
         return true;
     }
 
+    juce::Array<juce::Point<int>> ArrangementModel::findClippingClips(float thresholdLinear)
+    {
+        juce::Array<juce::Point<int>> hits;
+
+        for (int t = 0; t < session.getNumTracks(); ++t)
+        {
+            auto& track = session.getTrack(t);
+            for (int c = 0; c < track.clips.size(); ++c)
+            {
+                const Clip& clip = track.clips.getReference(c);
+                if (clip.isMidi)
+                    continue;
+
+                juce::AudioBuffer<float> region;
+                double sr = 0.0;
+                if (!readClipRegionToBuffer(clip, region, sr))
+                    continue;
+
+                const float linearGain = juce::Decibels::decibelsToGain(clip.gainDb);
+                float peak = 0.0f;
+                for (int ch = 0; ch < region.getNumChannels(); ++ch)
+                    peak = juce::jmax(peak, region.getMagnitude(ch, 0, region.getNumSamples()));
+
+                if (peak * linearGain >= thresholdLinear)
+                    hits.add(juce::Point<int>(t, c));
+            }
+        }
+
+        return hits;
+    }
+
     bool ArrangementModel::setSelectedClipGain(float gainDb)
     {
         Clip* clip = getSelectedClip();

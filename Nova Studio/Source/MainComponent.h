@@ -72,6 +72,14 @@ private:
     void promptSessionSettings();
     void showPluginManager();
     void scanForPlugins(bool clearExistingFirst);
+
+    // Nova Assistant (AI menu)
+    void runNovaAssistant();
+    void findClippingTracks();
+    void organizeSession();
+    void createVocalBuses();
+    void alignBackgroundVocals();
+    void exportForProTools();
     bool keyPressed(const juce::KeyPress& key, juce::Component* originatingComponent) override;
     void parentHierarchyChanged() override;
 

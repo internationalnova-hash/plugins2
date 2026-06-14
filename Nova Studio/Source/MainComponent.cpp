@@ -944,6 +944,280 @@ void MainComponent::scanForPlugins(bool clearExistingFirst)
         : ("Scanned plugins — found " + juce::String(numFound)));
 }
 
+namespace
+{
+    bool looksLikeVocalTrackName(const juce::String& name)
+    {
+        static const char* keywords[] = { "vocal", "vox", "vx", "bgv", "choir", "singer", "harmony", "bg vox" };
+        const auto lower = name.toLowerCase();
+        for (auto* kw : keywords)
+            if (lower.contains(kw))
+                return true;
+        return false;
+    }
+}
+
+void MainComponent::findClippingTracks()
+{
+    auto hits = arrangementModel.findClippingClips();
+    if (hits.isEmpty())
+    {
+        juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,
+            "Find Clipping Tracks",
+            "No clipping detected — every audio clip peaks below 0 dBFS.");
+        return;
+    }
+
+    juce::StringArray lines;
+    for (auto& p : hits)
+    {
+        const auto& track = engine.getSession().getTrack(p.x);
+        const auto& clip  = track.clips.getReference(p.y);
+        lines.add(track.name + " — " + clip.file.getFileNameWithoutExtension());
+    }
+
+    arrangementModel.selectClip(hits.getFirst().x, hits.getFirst().y);
+    refreshTrackList();
+
+    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::WarningIcon,
+        "Find Clipping Tracks",
+        "Found " + juce::String(hits.size()) + " clipping clip(s):\n\n"
+            + lines.joinIntoString("\n")
+            + "\n\nThe first one has been selected — try Clip > Normalize, "
+              "lower its gain, or add a Fade to tame the peak.");
+}
+
+void MainComponent::organizeSession()
+{
+    struct Category { const char* keyword; juce::Colour colour; const char* group; };
+    static const Category categories[] = {
+        { "kick",   juce::Colours::orangered, "Drums"   },
+        { "snare",  juce::Colours::orangered, "Drums"   },
+        { "drum",   juce::Colours::orangered, "Drums"   },
+        { "perc",   juce::Colours::orange,    "Drums"   },
+        { "bass",   juce::Colours::seagreen,  "Bass"    },
+        { "vocal",  juce::Colours::royalblue, "Vocals"  },
+        { "vox",    juce::Colours::royalblue, "Vocals"  },
+        { "guitar", juce::Colours::goldenrod, "Guitars" },
+        { "gtr",    juce::Colours::goldenrod, "Guitars" },
+        { "key",    juce::Colours::orchid,    "Keys"    },
+        { "synth",  juce::Colours::orchid,    "Keys"    },
+        { "piano",  juce::Colours::orchid,    "Keys"    },
+    };
+
+    int changed = 0;
+    for (int t = 0; t < engine.getSession().getNumTracks(); ++t)
+    {
+        auto& track = engine.getSession().getTrack(t);
+        const auto lower = track.name.toLowerCase();
+        for (auto& cat : categories)
+        {
+            if (lower.contains(cat.keyword))
+            {
+                track.colour    = cat.colour;
+                track.groupName = cat.group;
+                ++changed;
+                break;
+            }
+        }
+    }
+
+    if (changed > 0)
+    {
+        refreshTrackList();
+        arrangementModel.sendChangeMessage();
+        updateStatusMessage("Organize Session: colour-coded and grouped " + juce::String(changed) + " track(s) by instrument type");
+    }
+    else
+    {
+        updateStatusMessage("Organize Session: no recognizable instrument names found to group");
+    }
+}
+
+void MainComponent::createVocalBuses()
+{
+    juce::Array<int> vocalTracks;
+    for (int t = 0; t < engine.getSession().getNumTracks(); ++t)
+        if (looksLikeVocalTrackName(engine.getSession().getTrack(t).name))
+            vocalTracks.add(t);
+
+    if (vocalTracks.isEmpty())
+    {
+        updateStatusMessage("Create Vocal Buses: no tracks named like vocals were found");
+        return;
+    }
+
+    engine.addTrack("Vocal Bus", NovaStudio::TrackType::Aux);
+    auto& bus = engine.getSession().getTrack(engine.getSession().getNumTracks() - 1);
+    bus.outputBus = "Main Out";
+    bus.colour    = juce::Colours::mediumpurple;
+
+    for (int t : vocalTracks)
+        engine.getSession().getTrack(t).outputBus = bus.name;
+
+    refreshTrackList();
+    arrangementModel.sendChangeMessage();
+    updateStatusMessage("Routed " + juce::String(vocalTracks.size()) + " vocal track(s) to a new Vocal Bus");
+}
+
+void MainComponent::alignBackgroundVocals()
+{
+    juce::Array<int> vocalTracks;
+    for (int t = 0; t < engine.getSession().getNumTracks(); ++t)
+        if (looksLikeVocalTrackName(engine.getSession().getTrack(t).name) && !engine.getSession().getTrack(t).clips.isEmpty())
+            vocalTracks.add(t);
+
+    if (vocalTracks.size() < 2)
+    {
+        updateStatusMessage("Align Background Vocals: need at least 2 vocal tracks with audio clips");
+        return;
+    }
+
+    const int guideTrack = vocalTracks.getFirst();
+    arrangementModel.clearGuideClip();
+    if (!arrangementModel.setGuideClip(guideTrack, 0))
+    {
+        updateStatusMessage("Align Background Vocals: couldn't set a guide clip");
+        return;
+    }
+
+    int numTargets = 0;
+    for (int i = 1; i < vocalTracks.size(); ++i)
+        if (arrangementModel.toggleAlignTargetClip(vocalTracks.getUnchecked(i), 0))
+            ++numTargets;
+
+    if (numTargets == 0)
+    {
+        arrangementModel.clearGuideClip();
+        updateStatusMessage("Align Background Vocals: no target clips available to align");
+        return;
+    }
+
+    NovaStudio::ArrangementModel::AlignSettings settings;
+    const bool ok = arrangementModel.alignSelectedTargetsToGuide(settings, true);
+    const juce::String guideName = engine.getSession().getTrack(guideTrack).name;
+    arrangementModel.clearGuideClip();
+
+    refreshTrackList();
+    updateStatusMessage(ok
+        ? ("Aligned " + juce::String(numTargets) + " background vocal clip(s) to \"" + guideName + "\"")
+        : "Align Background Vocals: alignment failed");
+}
+
+void MainComponent::exportForProTools()
+{
+    if (engine.getTrackCount() <= 0)
+    {
+        updateStatusMessage("Export For Pro Tools: session has no tracks");
+        return;
+    }
+
+    auto chooser = std::make_shared<juce::FileChooser>(
+        "Choose a folder to export for Pro Tools",
+        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory));
+    chooser->launchAsync(
+        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+        [this, chooser](const juce::FileChooser& fc)
+        {
+            auto folder = fc.getResult();
+            if (!folder.isDirectory())
+                return;
+
+            updateStatusMessage("Exporting for Pro Tools...");
+
+            // Per-track stems, plus a plain-text session manifest describing
+            // each clip's position — a simple, universally-readable interchange
+            // format that can be used to rebuild the session in Pro Tools.
+            int exported = 0;
+            juce::StringArray manifest;
+            manifest.add("Nova Studio session export — " + engine.getSession().getName());
+            manifest.add("Tempo: " + juce::String(engine.getSession().getTempo(), 2) + " BPM");
+            manifest.add("Sample rate: " + juce::String((int) engine.getSession().getSampleRate()) + " Hz");
+            manifest.add("");
+
+            for (int t = 0; t < engine.getSession().getNumTracks(); ++t)
+            {
+                const auto& track = engine.getSession().getTrack(t);
+                if (track.clips.isEmpty())
+                    continue;
+
+                auto safeName = track.name.retainCharacters(
+                    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ -_").trim();
+                if (safeName.isEmpty())
+                    safeName = "Track " + juce::String(t + 1);
+
+                auto destFile = folder.getChildFile(safeName + ".wav");
+                if (arrangementModel.exportTrackToFile(t, destFile))
+                    ++exported;
+
+                const double sr = engine.getSession().getSampleRate() > 0.0 ? engine.getSession().getSampleRate() : 44100.0;
+                manifest.add("Track: " + track.name + "  (file: " + destFile.getFileName() + ")");
+                for (auto& clip : track.clips)
+                {
+                    if (clip.isMidi)
+                        continue;
+                    manifest.add(juce::String::formatted("    clip \"%s\"  start %.3fs  length %.3fs",
+                        clip.file.getFileNameWithoutExtension().toRawUTF8(),
+                        (double) clip.startSample / sr,
+                        (double) clip.lengthSamples / sr));
+                }
+            }
+
+            folder.getChildFile("Session Info.txt").replaceWithText(manifest.joinIntoString("\n"));
+
+            if (exported > 0)
+                updateStatusMessage("Exported " + juce::String(exported) + " track(s) and a session manifest to " + folder.getFileName());
+            else
+                updateStatusMessage("Export For Pro Tools: nothing to render (no audio clips found)");
+        });
+}
+
+void MainComponent::runNovaAssistant()
+{
+    auto& session = engine.getSession();
+    const int numTracks = session.getNumTracks();
+
+    int numAudio = 0, numMidi = 0, numAux = 0;
+    int numVocalTracks = 0;
+    for (int t = 0; t < numTracks; ++t)
+    {
+        const auto& track = session.getTrack(t);
+        switch (track.type)
+        {
+            case NovaStudio::TrackType::Audio: ++numAudio; break;
+            case NovaStudio::TrackType::Midi:  ++numMidi;  break;
+            case NovaStudio::TrackType::Aux:   ++numAux;   break;
+            default: break;
+        }
+        if (looksLikeVocalTrackName(track.name))
+            ++numVocalTracks;
+    }
+
+    const auto clippingHits = arrangementModel.findClippingClips();
+
+    juce::StringArray report;
+    report.add("Session \"" + session.getName() + "\" — " + juce::String(numTracks) + " track(s) "
+               "(" + juce::String(numAudio) + " audio, " + juce::String(numMidi) + " MIDI/instrument, " + juce::String(numAux) + " aux)");
+    report.add("");
+
+    if (clippingHits.isEmpty())
+        report.add("- No clipping detected.");
+    else
+        report.add("- " + juce::String(clippingHits.size()) + " clip(s) are clipping — try AI > Find Clipping Tracks.");
+
+    if (numVocalTracks >= 2)
+        report.add("- " + juce::String(numVocalTracks) + " vocal-style tracks found — try AI > Align Background Vocals or Create Vocal Buses.");
+    else if (numVocalTracks == 1)
+        report.add("- 1 vocal-style track found.");
+
+    if (numTracks >= 4)
+        report.add("- Try AI > Organize Session to colour-code and group your tracks by instrument.");
+
+    report.add("- Use File > Export Mix/Stems or AI > Export For Pro Tools when you're ready to deliver.");
+
+    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon, "Nova Assistant", report.joinIntoString("\n"));
+}
+
 bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*originatingComponent*/)
 {
     const bool isCmd = key.getModifiers().isCommandDown();
@@ -1678,14 +1952,14 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         break;
 
     case 7: // AI
-        menu.addItem(801, "Nova Assistant",           false);
+        menu.addItem(801, "Nova Assistant");
         menu.addSeparator();
-        menu.addItem(802, "Align Background Vocals",  false);
-        menu.addItem(803, "Organize Session",         false);
-        menu.addItem(804, "Create Vocal Buses",       false);
-        menu.addItem(805, "Stem Out Session",         false);
-        menu.addItem(806, "Export For Pro Tools",     false);
-        menu.addItem(807, "Find Clipping Tracks",     false);
+        menu.addItem(802, "Align Background Vocals",  engine.getTrackCount() > 0);
+        menu.addItem(803, "Organize Session",         engine.getTrackCount() > 0);
+        menu.addItem(804, "Create Vocal Buses",       engine.getTrackCount() > 0);
+        menu.addItem(805, "Stem Out Session",         engine.getTrackCount() > 0);
+        menu.addItem(806, "Export For Pro Tools",     engine.getTrackCount() > 0);
+        menu.addItem(807, "Find Clipping Tracks",     engine.getTrackCount() > 0);
         break;
 
     case 8: // Window
@@ -1897,6 +2171,15 @@ void MainComponent::menuItemSelected(int id, int)
         alignPanel.setVisible(true);
         alignPanel.toFront(true);
         break;
+
+    // ── AI / Nova Assistant ─────────────────────────────────────────────────
+    case 801: runNovaAssistant();      break;
+    case 802: alignBackgroundVocals(); break;
+    case 803: organizeSession();       break;
+    case 804: createVocalBuses();      break;
+    case 805: promptExportStems();     break;
+    case 806: exportForProTools();     break;
+    case 807: findClippingTracks();    break;
 
     // ── Audio ───────────────────────────────────────────────────────────────
     case 501: // Audio Settings...
