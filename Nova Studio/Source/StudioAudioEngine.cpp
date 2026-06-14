@@ -1626,22 +1626,30 @@ namespace NovaStudio
         // Ordering: MixerAudioSource calls players in insertion order, so aux tracks
         // that were added AFTER regular tracks see the already-written bus data.
 
-        // Output protection: soft-clip the master bus before sending to the device.
-        // Mastered/loud audio files can have inter-sample peaks > 1.0f, which the
-        // OS audio driver hard-clips to noise. Unity gain below 0.85, smooth knee
-        // 0.85..1.0, hard wall at ±1.0 — transparent on normal signals.
-        for (int channel = 0; channel < tempBuffer.getNumChannels(); ++channel)
+        // Pro Tools-style master output protection: hard clip at ±1.0f.
+        // Completely transparent below 0 dBFS. Any sample that exceeds 0 dBFS is
+        // clamped and the clip indicator is set so the UI can warn the user.
         {
-            float* data = tempBuffer.getWritePointer(channel);
-            for (int s = 0; s < numSamples; ++s)
+            float peakThisBlock = 0.0f;
+            bool  clippedThisBlock = false;
+            for (int channel = 0; channel < tempBuffer.getNumChannels(); ++channel)
             {
-                float x = data[s];
-                if (x > 0.85f)
-                    x = 0.85f + 0.15f * std::tanh((x - 0.85f) / 0.15f);
-                else if (x < -0.85f)
-                    x = -0.85f - 0.15f * std::tanh((-x - 0.85f) / 0.15f);
-                data[s] = x;
+                float* data = tempBuffer.getWritePointer(channel);
+                for (int s = 0; s < numSamples; ++s)
+                {
+                    const float x = data[s];
+                    const float ax = std::abs(x);
+                    if (ax > peakThisBlock) peakThisBlock = ax;
+                    if (ax > 1.0f)
+                    {
+                        data[s] = x > 0.0f ? 1.0f : -1.0f;
+                        clippedThisBlock = true;
+                    }
+                }
             }
+            masterOutputPeak.store(peakThisBlock);
+            if (clippedThisBlock)
+                masterOutputClipped.store(true);
         }
 
         for (int channel = 0; channel < numOutputChannels; ++channel)

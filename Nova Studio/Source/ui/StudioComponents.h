@@ -889,7 +889,8 @@ namespace NovaStudioUI
     };
 
     class WorkspaceToolbar : public juce::Component,
-                             private juce::Button::Listener
+                             private juce::Button::Listener,
+                             private juce::Timer
     {
     public:
         WorkspaceToolbar();
@@ -931,6 +932,13 @@ namespace NovaStudioUI
         std::function<void(int)> onHZoomChanged;   // +1 = zoom in, -1 = zoom out
         std::function<void(int)> onVZoomChanged;
 
+        // Master clip indicator — set this callback to let the toolbar poll engine state.
+        // Return true if a clip occurred since last call (read-and-clear semantics).
+        // Click the clip light in the toolbar to reset it.
+        std::function<bool()> onPollMasterClip;
+        void mouseDown(const juce::MouseEvent& e) override;
+        void clearMasterClip() { masterClipLit = false; repaint(); }
+
     private:
         void buttonClicked(juce::Button* b) override;
 
@@ -957,6 +965,9 @@ namespace NovaStudioUI
         juce::TextButton vZoomInBtn  {"V+"};
 
         juce::TextButton novaAlignBtn {"Nova Align"};
+
+        bool masterClipLit { false };
+        void timerCallback() override;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WorkspaceToolbar)
     };

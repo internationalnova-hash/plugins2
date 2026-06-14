@@ -343,6 +343,11 @@ MainComponent::MainComponent()
         updateStatusMessage(wantsPreview ? "Preview audio enabled." : "Playing original audio.");
     };
 
+    // Master clip indicator — toolbar polls engine at ~12Hz, lights red on output > 0 dBFS
+    workspaceToolbar.onPollMasterClip = [this]() {
+        return engine.readAndClearMasterClip();
+    };
+
     // listen for arrangement changes to update playback indicator
     arrangementModel.addChangeListener(this);
 

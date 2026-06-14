@@ -77,6 +77,11 @@ namespace NovaStudio
 
         // Output metering: returns peak since last call (resets after read), range 0-1
         float getTrackPeakLevel(int trackIndex, int channel) const noexcept;
+
+        // Master output clip indicator: true if output hit 0 dBFS since last call.
+        // Calling this resets the flag (Pro Tools style — light stays until you read it).
+        bool readAndClearMasterClip() noexcept { return masterOutputClipped.exchange(false); }
+        float getMasterOutputPeak() const noexcept { return masterOutputPeak.load(); }
         void  setTrackEQBand(int trackIndex, int band, bool enabled, float freq, float gainDb, float q);
 
         // Send buses: 8 stereo buses named "Bus 1-2" through "Bus 15-16"
@@ -440,5 +445,9 @@ namespace NovaStudio
 
         // Step sequencer playback state (audio thread writes, UI thread reads)
         std::atomic<int> currentPlayingStep { -1 };
+
+        // Master output clip state (audio thread writes, UI thread reads)
+        std::atomic<bool>  masterOutputClipped { false };
+        std::atomic<float> masterOutputPeak    { 0.0f };
     };
 }

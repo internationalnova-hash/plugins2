@@ -4106,8 +4106,18 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         bypassPreviewToggle.setToggleState(!previewEnabled, juce::dontSendNotification);
     }
 
+    void WorkspaceToolbar::timerCallback()
+    {
+        if (onPollMasterClip && onPollMasterClip())
+        {
+            masterClipLit = true;
+            repaint();
+        }
+    }
+
     WorkspaceToolbar::WorkspaceToolbar()
     {
+        startTimer(80); // ~12Hz poll — enough to catch clip events without hammering the UI
         addAndMakeVisible(editBtn);
         addAndMakeVisible(mixBtn);
         addAndMakeVisible(beatBtn);
@@ -4233,6 +4243,22 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         g.fillRect(390, 6, 1, getHeight() - 12);  // after mode tabs
         g.fillRect(760, 6, 1, getHeight() - 12);  // after transport
         g.fillRect(940, 6, 1, getHeight() - 12);  // after timecode
+
+        // Master clip indicator (Pro Tools style) — lights red on output > 0 dBFS,
+        // click it to clear. Drawn to the right of the timecode divider.
+        {
+            const int cx = 960, cy = getHeight() / 2;
+            const int r = 5;
+            const auto clipColor = masterClipLit
+                ? juce::Colour::fromRGB(255, 50, 40)
+                : juce::Colour::fromRGB(40, 14, 12);
+            g.setColour(clipColor);
+            g.fillEllipse((float)(cx - r), (float)(cy - r), (float)(r * 2), (float)(r * 2));
+            g.setColour(masterClipLit ? juce::Colours::white.withAlpha(0.9f)
+                                      : juce::Colour::fromRGB(100, 40, 36));
+            g.setFont(juce::Font(juce::FontOptions(7.0f).withStyle("Bold")));
+            g.drawText("CLIP", cx + r + 2, cy - 6, 28, 12, juce::Justification::centredLeft);
+        }
     }
 
     void WorkspaceToolbar::paintOverChildren(juce::Graphics& g)
@@ -4403,6 +4429,14 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
     }
 
     void WorkspaceToolbar::setPlaybackState(bool /*previewEnabled*/, bool /*hasPreview*/) {}
+
+    void WorkspaceToolbar::mouseDown(const juce::MouseEvent& e)
+    {
+        // Click the CLIP indicator area to reset it (Pro Tools behavior)
+        const int cx = 960, cy = getHeight() / 2;
+        if (e.x >= cx - 6 && e.x <= cx + 36 && std::abs(e.y - cy) <= 10)
+            clearMasterClip();
+    }
 
     void WorkspaceToolbar::buttonClicked(juce::Button* b)
     {
