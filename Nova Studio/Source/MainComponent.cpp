@@ -159,7 +159,7 @@ MainComponent::MainComponent()
     {
         setWorkspaceMode(0);
         alignPanel.setVisible(true);
-        alignPanel.toFront(true);
+        resized(); // re-layout so editWindow shrinks to make room
         updateStatusMessage("Nova Align panel opened.");
     };
 
@@ -296,6 +296,12 @@ void MainComponent::resized()
     // Status label (overlay, bottom right)
     statusLabel.setBounds(getWidth() - 500, getHeight() - 26, 480, 22);
 
+    // Nova Align: reserve right 360px when visible so it doesn't overlap editWindow
+    if (alignPanel.isVisible())
+        alignPanel.setBounds(area.removeFromRight(360));
+    else
+        alignPanel.setBounds({});
+
     // Edit mode: editWindow takes remaining center area
     if (editWindow)
         editWindow->setBounds(area);
@@ -307,9 +313,6 @@ void MainComponent::resized()
     // Beat mode: full screen minus header
     if (beatWindow)
         beatWindow->setBounds(getLocalBounds().withTrimmedTop(56));
-
-    // Nova Align: side panel over center
-    alignPanel.setBounds(area.removeFromRight(360));
 
     // Legacy panels (hidden in new layout but kept for compat)
     trackPanel.setBounds(0, 0, 0, 0);
@@ -380,6 +383,7 @@ void MainComponent::setWorkspaceMode(int mode)
         if (beatWindow) beatWindow->setVisible(false);
         alignPanel.setVisible(false);
         bottomDock.setVisible(true);
+        resized();
         break;
     case 1: // Mixer
         if (editWindow) editWindow->setVisible(false);
@@ -387,6 +391,7 @@ void MainComponent::setWorkspaceMode(int mode)
         if (beatWindow) beatWindow->setVisible(false);
         alignPanel.setVisible(false);
         bottomDock.setVisible(false);
+        resized();
         break;
     case 2: // Browse / Split
         if (editWindow) editWindow->setVisible(true);
@@ -394,6 +399,7 @@ void MainComponent::setWorkspaceMode(int mode)
         if (beatWindow) beatWindow->setVisible(false);
         alignPanel.setVisible(false);
         bottomDock.setVisible(true);
+        resized();
         break;
     case 3: // Beat
         if (editWindow) editWindow->setVisible(false);
@@ -401,6 +407,7 @@ void MainComponent::setWorkspaceMode(int mode)
         if (beatWindow) beatWindow->setVisible(true);
         alignPanel.setVisible(false);
         bottomDock.setVisible(false);
+        resized();
         break;
     default:
         if (editWindow) editWindow->setVisible(true);

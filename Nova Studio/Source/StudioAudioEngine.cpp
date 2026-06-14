@@ -419,11 +419,25 @@ namespace NovaStudio
 
     void StudioAudioEngine::addTrack(const juce::String& name, TrackType type)
     {
+        const int newIndex = session.getNumTracks(); // capture before add
         session.addTrack(name, type);
-        if (recordingActive.load())
-            juce::MessageManager::callAsync([this] { buildTrackPlayers(); });
-        else
-            buildTrackPlayers();
+
+        // Add a single new player without destroying running players.
+        // Full rebuild (buildTrackPlayers) tears down all sources mid-stream
+        // which races with the audio callback even under playerLock.
+        auto newPlayer = std::make_unique<TrackPlayer>();
+        newPlayer->setTrackMetadata(session.getTrack(newIndex));
+        newPlayer->setSessionTrack(&session, newIndex);
+        if (currentSampleRate > 0 && currentBufferSize > 0)
+            newPlayer->prepareToPlay(currentBufferSize, currentSampleRate);
+
+        TrackPlayer* rawPtr = newPlayer.get();
+        {
+            juce::ScopedLock sl(playerLock);
+            trackPlayers.add(std::move(newPlayer));
+        }
+        mixerSource.addInputSource(rawPtr, false);
+        updateSoloStates();
     }
 
     void StudioAudioEngine::removeTrack(int index)
@@ -1042,9 +1056,12 @@ namespace NovaStudio
 
     void StudioAudioEngine::refreshTrackPlaybackStates()
     {
-        for (int index = 0; index < trackPlayers.size(); ++index)
-            trackPlayers.getReference(index)->setTrackMetadata(session.getTrack(index));
-
+        {
+            juce::ScopedLock sl(playerLock);
+            const int n = juce::jmin(trackPlayers.size(), session.getNumTracks());
+            for (int index = 0; index < n; ++index)
+                trackPlayers.getReference(index)->setTrackMetadata(session.getTrack(index));
+        }
         updateSoloStates();
     }
 
@@ -1060,6 +1077,7 @@ namespace NovaStudio
             }
         }
 
+        juce::ScopedLock sl(playerLock);
         for (int index = 0; index < trackPlayers.size(); ++index)
             trackPlayers.getReference(index)->setSoloMode(anySolo);
     }

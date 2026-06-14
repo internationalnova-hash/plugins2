@@ -1637,17 +1637,22 @@ namespace NovaStudioUI
         if (sampleRate <= 0.0)
             return;
 
-        const int dx = event.x - dragStartX;
-        const double seconds = dx / timelineModel.getPixelsPerSecond();
-        const int64_t deltaSamples = static_cast<int64_t>(seconds * sampleRate);
+        const double dx = static_cast<double>(event.x) - static_cast<double>(dragStartX);
+        const double deltaSamplesF = dx / timelineModel.getPixelsPerSecond() * sampleRate;
+        const int64_t deltaSamples = static_cast<int64_t>(deltaSamplesF);
+
+        // Only update the baseline when we actually moved at least one sample.
+        // This lets sub-pixel movements accumulate until they cross a sample boundary,
+        // which is important at high sample rates (e.g. 96 kHz) where 1 sample < 1 pixel.
+        if (deltaSamples == 0)
+            return;
 
         const auto targets = arrangementModel.getSelectedClips();
 
-        // In Grid mode with snap enabled, snap clip start to grid after move
-        if (editMode == EditModeToolbar::EditMode::Grid && snapEnabled && deltaSamples != 0)
+        // Grid mode: snap clip start to grid after move
+        if (editMode == EditModeToolbar::EditMode::Grid && snapEnabled)
         {
             arrangementModel.moveClipsBySamples(targets, deltaSamples);
-            // Snap the selected clip's start to grid
             auto* clip = arrangementModel.getSelectedClip();
             if (clip != nullptr)
             {
@@ -1659,9 +1664,9 @@ namespace NovaStudioUI
         }
         else
         {
+            // Slip mode: free placement, no snap
             arrangementModel.moveClipsBySamples(targets, deltaSamples);
         }
-        // update baseline so further dragging accumulates
         dragStartX = event.x;
     }
 
@@ -1945,7 +1950,7 @@ void BottomDockPanel::mouseDown(const juce::MouseEvent& e)
         const int labelW = 44;
         const int rowH = area_h / numRows;
         const int stepW = (getWidth() - stepX - 1 - labelW) / numSteps;
-        const int row = (e.y - 28) / juce::jmax(1, rowH);
+        const int row = (e.y - 28 - 22) / juce::jmax(1, rowH); // 22px = step seq header height
         const int col = (e.x - stepX - 1 - labelW) / juce::jmax(1, stepW);
         if (row >= 0 && row < numRows && col >= 0 && col < numSteps)
         {
