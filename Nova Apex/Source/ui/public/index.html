@@ -6,630 +6,1221 @@
   <title>Nova Apex</title>
   <style>
     :root {
-      --gold: #ffbf2c;
-      --gold-soft: #ffd97f;
-      --bg-0: #050505;
-      --bg-1: #090807;
-      --bg-2: #0d0b09;
-      --edge: rgba(255, 187, 52, 0.32);
-      --text: #f6d58d;
-      --text-soft: #c9a969;
-      --ease-meter: 100ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      --bg:       #0C0B0A;
+      --panel:    #141210;
+      --gold:     #C8A060;
+      --gold-lt:  #E0BC80;
+      --gold-dim: #8A6830;
+      --white:    #F4F4F4;
+      --edge:     rgba(200,160,96,0.28);
+      --red:      #C83030;
+      --green:    #50C870;
+      --text-dim: #887058;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
-      width: 100%; height: 100%;
-      overflow: hidden;
-      background: #050505;
-      color: var(--text);
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg);
+      color: var(--gold);
       font-family: "Avenir Next", "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
 
     body { display: grid; place-items: center; }
 
-    .ui-stage { width: 900px; height: 540px; position: relative; }
+    .ui-stage { width: 1400px; height: 860px; position: relative; overflow: hidden; }
 
     .plugin {
-      width: 900px; height: 540px;
-      background:
-        radial-gradient(700px 200px at 50% -10%, rgba(255,185,50,0.08), transparent 70%),
-        repeating-linear-gradient(90deg, rgba(255,255,255,0.008) 0 1px, transparent 1px 10px),
-        linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 52%, var(--bg-0) 100%);
-      padding: 12px;
+      width: 1400px; height: 860px;
+      background: var(--bg);
       display: grid;
-      grid-template-rows: 68px 1fr 52px 48px;
-      gap: 8px;
+      grid-template-rows: 70px 1fr 140px 36px;
       overflow: hidden;
     }
 
-    /* HEADER */
-    .top {
+    /* ══════════════════════════ HEADER ══════════════════════════ */
+    .hdr {
+      background: var(--panel);
+      border-bottom: 1px solid var(--edge);
       display: grid;
-      grid-template-columns: 300px 1fr 260px;
-      align-items: center; gap: 10px;
-    }
-    .brand { display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: center; }
-    .logo {
-      width: 44px; height: 44px; border-radius: 12px;
-      border: 1px solid rgba(255,187,52,0.4);
-      background: radial-gradient(circle at 35% 30%, rgba(255,216,120,0.45), rgba(82,52,17,0.78));
-      display: grid; place-items: center; overflow: hidden;
-    }
-    .logo img { width: 34px; height: 34px; object-fit: contain; filter: brightness(1.18); }
-    .title { line-height: 1; }
-    .title .nova   { font-size:14px; letter-spacing:.16em; color:#ffc95d; font-weight:700; display:block; margin-bottom:2px; }
-    .title .plugin-name { font-size:28px; font-weight:800; letter-spacing:.06em; color:#f4f4f4; display:block; margin-bottom:2px; }
-    .title .sub    { font-size:9px; letter-spacing:.14em; color:#f0c86c; font-weight:700; text-transform:uppercase; display:block; white-space:nowrap; }
-    .toolbar {
-      border:1px solid var(--edge); border-radius:999px; height:32px;
-      display:grid; grid-template-columns:1fr 36px 36px;
-      background:rgba(6,6,6,0.9); overflow:hidden;
-    }
-    .preset-trigger {
-      border:0; border-right:1px solid rgba(255,187,52,0.25);
-      background:transparent; color:#ffcb62; font-size:11px;
-      letter-spacing:.06em; text-align:left; padding:0 14px;
-      cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    }
-    .toolbar button {
-      border:0; border-right:1px solid rgba(255,187,52,0.25);
-      background:transparent; color:#ffcb62; font-size:14px; font-weight:700; cursor:pointer;
-    }
-    .toolbar button:last-child { border-right:0; }
-    .byline {
-      display:flex; justify-content:flex-end; align-items:center; gap:8px;
-      font-family:"Snell Roundhand","Brush Script MT",cursive;
-      font-size:20px; color:#ffc94f; white-space:nowrap;
-    }
-    .gear {
-      width:36px; height:36px; border-radius:10px;
-      border:1px solid var(--edge); background:rgba(7,7,7,0.9);
-      color:#ffc84d; font-size:18px; cursor:pointer;
+      grid-template-columns: 260px 1fr 340px;
+      align-items: center;
+      padding: 0 18px;
+      gap: 12px;
     }
 
-    /* BODY */
-    .body { display:grid; grid-template-columns:140px 1fr 168px; gap:8px; }
-    .panel {
-      border:1px solid var(--edge); border-radius:14px;
-      background:linear-gradient(180deg,rgba(10,9,8,0.95),rgba(7,6,6,0.95));
+    /* Brand */
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .logo-box {
+      width: 42px; height: 42px;
+      border: 1px solid var(--edge);
+      border-radius: 10px;
+      background: radial-gradient(circle at 38% 30%, rgba(200,160,96,0.4), rgba(40,24,8,0.9));
+      display: grid; place-items: center; flex-shrink: 0;
+    }
+    .logo-svg { width: 26px; height: 26px; }
+    .brand-text { display: flex; flex-direction: column; gap: 2px; }
+    .brand-line1 { display: flex; align-items: baseline; gap: 5px; }
+    .brand-nova { font-size: 13px; font-weight: 700; letter-spacing: .18em; color: var(--gold); }
+    .brand-apex { font-size: 26px; font-weight: 800; letter-spacing: .05em; color: var(--white); line-height: 1; }
+    .brand-sub { font-size: 8px; letter-spacing: .18em; color: var(--gold); font-weight: 700; text-transform: uppercase; }
+
+    /* Preset toolbar */
+    .preset-bar {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .hdr-btn {
+      background: transparent; border: 1px solid var(--edge);
+      color: var(--gold); cursor: pointer;
+      border-radius: 6px; font-size: 12px; font-weight: 700;
+      padding: 0 8px; height: 28px; display: flex; align-items: center; gap: 4px;
+      transition: border-color 120ms, background 120ms;
+      white-space: nowrap;
+    }
+    .hdr-btn:hover { border-color: var(--gold); background: rgba(200,160,96,0.1); }
+    .hdr-btn.icon-btn { width: 28px; padding: 0; justify-content: center; font-size: 14px; }
+    .preset-drop {
+      border: 1px solid var(--gold); background: rgba(14,12,10,0.96);
+      color: var(--gold); font-size: 12px; font-weight: 700;
+      border-radius: 6px; padding: 0 12px; height: 30px;
+      cursor: pointer; letter-spacing: .04em;
+      display: flex; align-items: center; gap: 6px; min-width: 160px;
+    }
+    .preset-drop:hover { background: rgba(200,160,96,0.1); }
+
+    /* Right readouts */
+    .hdr-right { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+    .read-box {
+      border: 1px solid rgba(200,160,96,0.35);
+      border-radius: 8px; padding: 4px 10px;
+      background: rgba(10,9,8,0.9);
+      display: flex; flex-direction: column; align-items: center; min-width: 70px;
+    }
+    .read-label { font-size: 8px; letter-spacing: .14em; color: var(--gold-dim); font-weight: 700; text-transform: uppercase; }
+    .read-val { font-size: 22px; font-weight: 800; color: var(--white); line-height: 1.1; letter-spacing: .02em; }
+    .read-unit { font-size: 8px; letter-spacing: .1em; color: var(--gold-dim); font-weight: 700; }
+    .tp-status { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+    .tp-label { font-size: 8px; letter-spacing: .12em; color: var(--gold-dim); font-weight: 700; text-transform: uppercase; }
+    .smart-btn {
+      border: 1px solid var(--gold); background: transparent;
+      color: var(--gold); border-radius: 8px;
+      padding: 5px 10px; cursor: pointer;
+      display: flex; align-items: center; gap: 8px; min-width: 130px;
+      transition: background 120ms;
+    }
+    .smart-btn:hover { background: rgba(200,160,96,0.12); }
+    .smart-icon { font-size: 16px; }
+    .smart-text { display: flex; flex-direction: column; line-height: 1.2; }
+    .smart-line1 { font-size: 8px; letter-spacing: .14em; font-weight: 700; text-transform: uppercase; }
+    .smart-line2 { font-size: 7px; color: var(--gold-dim); letter-spacing: .08em; text-transform: uppercase; }
+
+    /* ══════════════════════════ BODY ══════════════════════════ */
+    .body {
+      display: grid;
+      grid-template-columns: 165px 1fr 188px;
+      gap: 0;
+      overflow: hidden;
     }
 
-    /* LEFT: Gain / Drive */
-    .left-panel { display:flex; flex-direction:column; align-items:center; justify-content:space-evenly; padding:10px 6px; }
+    /* ── LEFT COLUMN ── */
+    .col-left {
+      background: var(--panel);
+      border-right: 1px solid var(--edge);
+      display: flex; flex-direction: column;
+      align-items: center; padding: 14px 8px; gap: 14px;
+      overflow-y: auto;
+    }
 
-    /* CENTER */
-    .center-panel { display:grid; grid-template-rows:auto 1fr auto; gap:0; padding:8px 10px; }
-    .center-legend { display:flex; justify-content:space-between; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-soft); margin-bottom:4px; }
-    .gr-canvas-wrap { border:1px solid rgba(255,187,52,0.12); border-radius:8px; overflow:hidden; position:relative; background:rgba(0,0,0,0.6); }
-    #gr-canvas { width:100%; height:100%; display:block; }
-    .center-footer { display:flex; justify-content:space-between; align-items:center; margin-top:4px; font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-soft); }
-    .lufs-read, .tp-read { font-size:13px; font-weight:700; color:#ffd97f; letter-spacing:.03em; }
-
-    /* RIGHT */
-    .right-panel { display:grid; grid-template-columns:1fr 18px; gap:6px; padding:8px 6px; }
-    .right-knobs { display:flex; flex-direction:column; align-items:center; justify-content:space-evenly; }
-    .tp-meter { display:flex; flex-direction:column-reverse; gap:1px; height:100%; }
-    .tp-seg { flex:1; border-radius:2px; background:rgba(255,186,52,0.06); transition:background var(--ease-meter); }
-    .tp-seg.on-safe { background:#a047ff; box-shadow:0 0 5px rgba(160,71,255,0.5); }
-    .tp-seg.on-warn { background:#ffd46f; box-shadow:0 0 5px rgba(255,212,111,0.5); }
-    .tp-seg.on-hot  { background:#ff4444; box-shadow:0 0 5px rgba(255,68,68,0.5); }
+    .section-label {
+      font-size: 9px; letter-spacing: .18em; color: var(--gold-dim);
+      font-weight: 700; text-transform: uppercase; align-self: flex-start;
+      padding-left: 4px;
+    }
 
     /* KNOBS */
-    .knob-cell { display:flex; flex-direction:column; align-items:center; gap:4px; }
-    .k-label { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-soft); text-align:center; }
-    .k-readout {
-      font-size:10px; font-weight:700; color:#ffd97f; letter-spacing:.03em;
-      border:1px solid rgba(255,187,52,0.3); border-radius:6px; padding:1px 5px;
-      background:rgba(5,5,5,0.9); text-align:center; min-width:52px;
+    .knob-cell {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      width: 100%;
     }
+    .knob-row-labels {
+      display: flex; justify-content: space-between; width: 72px;
+      font-size: 8px; color: var(--text-dim); letter-spacing: .04em;
+    }
+
     .knob {
-      border-radius:50%;
-      border:1px solid transparent;
-      border-top-color:rgba(255,255,255,0.26); border-left-color:rgba(255,255,255,0.18);
-      border-bottom-color:rgba(0,0,0,0.72); border-right-color:rgba(0,0,0,0.56);
-      position:relative; touch-action:none; cursor:ns-resize; user-select:none;
+      width: 72px; height: 72px; border-radius: 50%;
+      position: relative; cursor: ns-resize; touch-action: none; user-select: none;
+      flex-shrink: 0;
       background:
-        radial-gradient(circle at 28% 22%,rgba(255,255,255,0.18),rgba(255,255,255,0.03) 12%,transparent 20%),
-        radial-gradient(circle at 70% 76%,rgba(0,0,0,0.38),transparent 36%),
-        linear-gradient(155deg,#14161c 0%,#080a0f 52%,#020308 100%);
-      box-shadow:inset 0 2px 0 rgba(255,255,255,0.18),inset 0 -12px 20px rgba(0,0,0,0.78),0 0 0 1px rgba(10,8,6,0.94),0 5px 12px rgba(0,0,0,0.52);
+        radial-gradient(circle at 28% 22%, rgba(255,255,255,0.15), rgba(255,255,255,0.02) 12%, transparent 22%),
+        radial-gradient(circle at 70% 76%, rgba(0,0,0,0.4), transparent 40%),
+        radial-gradient(circle at 50% 50%, #1e1a14, #0e0c08);
+      border: 1px solid rgba(200,160,96,0.35);
+      box-shadow:
+        inset 0 2px 0 rgba(255,255,255,0.12),
+        inset 0 -10px 20px rgba(0,0,0,0.7),
+        0 0 0 1px rgba(8,6,4,0.9),
+        0 4px 12px rgba(0,0,0,0.55);
     }
-    .knob.large  { width:72px; height:72px; }
-    .knob.medium { width:56px; height:56px; }
-    .knob.small  { width:44px; height:44px; }
+    .knob.sm { width: 48px; height: 48px; }
     .knob::before {
-      content:""; position:absolute; inset:0; border-radius:50%;
-      background:radial-gradient(circle at 21% 13%,rgba(255,255,255,1) 0%,rgba(255,255,255,0.46) 5%,rgba(255,255,255,0.03) 8%,transparent 11%);
-      pointer-events:none; opacity:0.86;
+      content: ""; position: absolute; inset: 0; border-radius: 50%;
+      background: radial-gradient(circle at 22% 14%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.35) 4%, rgba(255,255,255,0.02) 7%, transparent 10%);
+      pointer-events: none; opacity: 0.8;
     }
-    .ring { position:absolute; inset:3px; border-radius:50%; }
-    .ring::before {
-      content:""; position:absolute; inset:0; border-radius:50%;
-      background:conic-gradient(from 210deg,#0a0a0d 0deg,#0a0a0d 106deg,#d6a85a 210deg,#f5d38c 240deg,#b38536 284deg,rgba(112,66,196,0.28) 310deg,rgba(92,48,170,0.22) 322deg,#0a0a0d 360deg);
-      -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 9px),#000 calc(100% - 7px));
-      mask:radial-gradient(farthest-side,transparent calc(100% - 9px),#000 calc(100% - 7px));
+    .knob-arc {
+      position: absolute; inset: 4px; border-radius: 50%; pointer-events: none;
     }
-    .knob.small .ring::before {
-      -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 7px),#000 calc(100% - 5px));
-      mask:radial-gradient(farthest-side,transparent calc(100% - 7px),#000 calc(100% - 5px));
+    .knob-arc svg { width: 100%; height: 100%; overflow: visible; }
+    .knob-ptr {
+      position: absolute; width: 2.5px; height: 18px;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%) rotate(var(--turn, -135deg)) translateY(-22px);
+      border-radius: 1.5px;
+      background: linear-gradient(180deg, #fff8e0 0%, #e8b84a 55%, #8a6020 100%);
+      box-shadow: 0 0 4px rgba(255,220,100,0.6);
+      pointer-events: none;
     }
-    .pointer {
-      position:absolute; width:2px; height:16px; left:50%; top:50%;
-      transform:translate(-50%,-50%) rotate(var(--turn,-120deg)) translateY(-20px);
-      border-radius:1px;
-      background:linear-gradient(180deg,#fff5d4 0%,#f0c053 60%,#9a6820 100%);
-      box-shadow:0 0 0 0.5px rgba(0,0,0,0.70);
-    }
-    .knob.small  .pointer { height:12px; transform:translate(-50%,-50%) rotate(var(--turn,-120deg)) translateY(-16px); }
-    .knob.large  .pointer { height:20px; transform:translate(-50%,-50%) rotate(var(--turn,-120deg)) translateY(-25px); }
-
-    /* STYLE STRIP */
-    .style-strip {
-      display:grid; grid-template-columns:repeat(6,1fr); gap:6px;
-      border:1px solid var(--edge); border-radius:10px; padding:5px;
-      background:rgba(8,8,8,0.95);
-    }
-    .style-btn {
-      height:34px; border:1px solid rgba(255,187,52,0.22); border-radius:999px;
-      background:linear-gradient(180deg,rgba(12,10,8,0.96),rgba(8,7,6,0.94));
-      color:#c9a969; font-size:11px; font-weight:700; letter-spacing:.07em;
-      text-transform:uppercase; cursor:pointer;
-      transition:background 120ms,border-color 120ms,color 120ms,box-shadow 120ms;
-    }
-    .style-btn:hover  { filter:brightness(1.1); }
-    .style-btn:active { transform:scale(0.97); }
-    .style-btn.active {
-      border-color:rgba(255,196,88,0.58);
-      background:linear-gradient(180deg,rgba(255,196,88,0.28),rgba(124,78,16,0.52));
-      color:#ffeebf; box-shadow:0 0 14px rgba(255,186,48,0.4),inset 0 0 8px rgba(255,224,140,0.14);
+    .knob.sm .knob-ptr {
+      width: 2px; height: 12px;
+      transform: translate(-50%, -50%) rotate(var(--turn, -135deg)) translateY(-15px);
     }
 
-    /* BOTTOM STRIP */
+    .k-label { font-size: 9px; letter-spacing: .14em; color: var(--gold); font-weight: 700; text-transform: uppercase; text-align: center; }
+    .k-readout {
+      font-size: 10px; font-weight: 700; color: var(--gold-lt);
+      border: 1px solid rgba(200,160,96,0.25); border-radius: 5px;
+      padding: 2px 7px; background: rgba(6,5,4,0.9);
+      letter-spacing: .04em; text-align: center; min-width: 58px;
+    }
+
+    /* Style section */
+    .style-section { width: 100%; }
+    .style-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .style-nav-btn {
+      width: 22px; height: 22px; border: 1px solid var(--edge);
+      background: transparent; color: var(--gold); cursor: pointer;
+      border-radius: 4px; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+    .style-nav-btn:hover { border-color: var(--gold); background: rgba(200,160,96,0.1); }
+    .style-name-display { font-size: 11px; font-weight: 700; color: var(--gold); letter-spacing: .08em; }
+    .style-list {
+      width: 100%; border: 1px solid var(--edge); border-radius: 8px;
+      overflow: hidden; background: rgba(8,7,6,0.95);
+    }
+    .style-item {
+      padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--text-dim); cursor: pointer;
+      border-bottom: 1px solid rgba(200,160,96,0.1); transition: color 100ms, background 100ms;
+    }
+    .style-item:last-child { border-bottom: none; }
+    .style-item:hover { color: var(--gold); background: rgba(200,160,96,0.06); }
+    .style-item.active { color: var(--gold-lt); background: rgba(200,160,96,0.18); }
+    .style-info-btn {
+      width: 100%; margin-top: 6px; height: 24px;
+      border: 1px solid var(--edge); background: transparent;
+      color: var(--text-dim); font-size: 8px; letter-spacing: .14em;
+      text-transform: uppercase; cursor: pointer; border-radius: 5px;
+      font-weight: 700;
+    }
+    .style-info-btn:hover { border-color: var(--gold-dim); color: var(--gold-dim); }
+
+    /* ── CENTER COLUMN ── */
+    .col-center {
+      display: flex; flex-direction: column; gap: 0;
+      overflow: hidden;
+    }
+
+    /* Waveform panel */
+    .wave-panel {
+      background: rgba(10,9,8,0.98);
+      border-bottom: 1px solid var(--edge);
+      position: relative;
+      flex: 0 0 280px;
+      padding: 8px 10px 6px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .wave-legend {
+      display: flex; gap: 16px; align-items: center; flex-shrink: 0;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 9px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700;
+    }
+    .legend-dash { width: 16px; height: 2px; border-radius: 1px; }
+    .legend-dash.inp { background: rgba(200,160,96,0.8); }
+    .legend-dash.out { background: rgba(120,110,100,0.8); }
+    .legend-dash.gr  { background: rgba(200,48,48,0.9); }
+    .legend-inp { color: #a08060; }
+    .legend-out { color: #786050; }
+    .legend-gr  { color: #c05050; }
+    .wave-canvas-wrap {
+      flex: 1; position: relative; border-radius: 6px; overflow: hidden;
+      background: rgba(4,4,3,0.9);
+    }
+    .wave-scale {
+      position: absolute; right: 4px; top: 0; bottom: 0;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 2px 0;
+    }
+    .wave-scale span {
+      font-size: 8px; color: var(--text-dim); letter-spacing: .04em; line-height: 1;
+      text-align: right;
+    }
+    .wave-time {
+      display: flex; justify-content: space-between;
+      font-size: 8px; color: var(--text-dim); letter-spacing: .04em; flex-shrink: 0;
+      padding: 0 2px;
+    }
+    #wave-canvas { display: block; width: 100%; height: 100%; }
+
+    /* GR panel */
+    .gr-panel {
+      background: rgba(8,7,6,0.98);
+      border-bottom: 1px solid var(--edge);
+      flex: 0 0 100px;
+      padding: 6px 10px;
+      position: relative;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .gr-header {
+      display: flex; justify-content: center; align-items: center;
+      font-size: 8px; letter-spacing: .18em; color: var(--gold-dim);
+      font-weight: 700; text-transform: uppercase; flex-shrink: 0;
+    }
+    .gr-canvas-wrap {
+      flex: 1; position: relative; border-radius: 5px; overflow: hidden;
+      background: rgba(4,4,3,0.9);
+    }
+    .gr-scale {
+      position: absolute; right: 4px; top: 0; bottom: 0;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 2px 0;
+    }
+    .gr-scale span { font-size: 7px; color: var(--text-dim); letter-spacing: .04em; text-align: right; }
+    #gr-canvas { display: block; width: 100%; height: 100%; }
+
+    /* Loudness bar */
+    .loud-bar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--edge);
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      align-items: center;
+    }
+    .loud-cell {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 2px; padding: 10px 6px;
+      border-right: 1px solid rgba(200,160,96,0.12);
+    }
+    .loud-cell:last-child { border-right: none; }
+    .loud-lbl { font-size: 7px; letter-spacing: .18em; color: var(--gold-dim); font-weight: 700; text-transform: uppercase; text-align: center; }
+    .loud-val { font-size: 28px; font-weight: 800; color: var(--white); line-height: 1; letter-spacing: -.01em; }
+    .loud-unit { font-size: 9px; letter-spacing: .1em; color: var(--gold-dim); font-weight: 700; }
+
+    /* ── RIGHT COLUMN ── */
+    .col-right {
+      background: var(--panel);
+      border-left: 1px solid var(--edge);
+      display: flex; flex-direction: column;
+      align-items: center; padding: 14px 8px; gap: 12px;
+    }
+
+    /* TP Meter */
+    .tp-meters-wrap { width: 100%; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    .tp-meters-label { font-size: 9px; letter-spacing: .14em; color: var(--gold); font-weight: 700; text-transform: uppercase; align-self: flex-start; padding-left: 4px; }
+    .tp-meters-body {
+      flex: 1; display: flex; align-items: stretch; gap: 6px;
+      position: relative;
+    }
+    .tp-channel { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+    .tp-ch-label { font-size: 8px; color: var(--gold-dim); font-weight: 700; }
+    .tp-segs-wrap { flex: 1; display: flex; flex-direction: column-reverse; gap: 1.5px; width: 100%; }
+    .tp-seg {
+      flex: 1; border-radius: 2px;
+      background: rgba(200,160,96,0.08);
+      transition: background 60ms;
+    }
+    .tp-seg.on { background: rgba(180,140,70,0.85); box-shadow: 0 0 3px rgba(200,160,80,0.4); }
+    .tp-seg.hot { background: rgba(220,50,50,0.9); box-shadow: 0 0 4px rgba(220,50,50,0.5); }
+    .tp-scale-wrap { display: flex; flex-direction: column; justify-content: space-between; height: 100%; padding: 6px 0; }
+    .tp-scale-wrap span { font-size: 7px; color: var(--text-dim); letter-spacing: .04em; }
+
+    .auto-btn {
+      width: 60px; height: 22px;
+      border: 1px solid var(--edge); background: transparent;
+      color: var(--text-dim); font-size: 8px; letter-spacing: .12em;
+      text-transform: uppercase; font-weight: 700; cursor: pointer; border-radius: 4px;
+    }
+    .auto-btn:hover { border-color: var(--gold-dim); color: var(--gold-dim); }
+    .auto-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(200,160,96,0.12); }
+    .auto-sub { font-size: 7px; color: var(--text-dim); letter-spacing: .12em; text-transform: uppercase; font-weight: 700; text-align: center; }
+
+    /* ══════════════════════════ BOTTOM STRIP ══════════════════════════ */
     .bottom-strip {
-      display:grid; grid-template-columns:repeat(7,1fr); gap:4px;
-      border:1px solid var(--edge); border-radius:10px; padding:4px 6px;
-      background:rgba(8,8,8,0.95);
+      background: var(--panel);
+      border-top: 1px solid var(--edge);
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      padding: 8px 12px; gap: 6px;
     }
-    .bottom-cell { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
-    .bottom-cell .k-label   { font-size:8px; }
-    .bottom-cell .k-readout { font-size:8px; min-width:36px; padding:1px 3px; }
-    .toggle-btn {
-      width:44px; height:22px;
-      border:1px solid rgba(255,187,52,0.3); border-radius:999px;
-      background:rgba(8,8,8,0.92); color:#c9a969;
-      font-size:9px; font-weight:700; letter-spacing:.07em; cursor:pointer;
-      transition:background 120ms,color 120ms,box-shadow 120ms;
+
+    .bot-cell {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 4px; position: relative;
     }
-    .toggle-btn.active {
-      border-color:rgba(255,196,88,0.6);
-      background:linear-gradient(180deg,rgba(255,196,88,0.26),rgba(124,78,16,0.5));
-      color:#ffeebf; box-shadow:0 0 10px rgba(255,186,48,0.3);
+    .bot-label { font-size: 7.5px; letter-spacing: .14em; color: var(--gold-dim); font-weight: 700; text-transform: uppercase; text-align: center; line-height: 1.2; }
+    .bot-readout {
+      font-size: 9px; font-weight: 700; color: var(--gold-lt);
+      border: 1px solid rgba(200,160,96,0.2); border-radius: 4px;
+      padding: 1px 5px; background: rgba(6,5,4,0.9);
+      letter-spacing: .04em; text-align: center;
     }
+    .bot-power {
+      position: absolute; top: 0; right: 2px;
+      width: 16px; height: 16px; border: 1px solid var(--edge);
+      background: transparent; color: var(--text-dim); border-radius: 3px;
+      font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .bot-power:hover { border-color: var(--gold-dim); color: var(--gold-dim); }
+    .bot-power.active { border-color: var(--gold); color: var(--gold); }
+    .bot-link-icon {
+      position: absolute; top: 0; right: 2px;
+      font-size: 11px; color: var(--text-dim); cursor: pointer;
+    }
+    .bot-link-icon.active { color: var(--gold); }
+
+    /* Stack buttons (oversample/dither) */
+    .stack-btns { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+    .stack-btn {
+      flex: 1; border: 1px solid rgba(200,160,96,0.22);
+      background: rgba(10,8,6,0.95); color: var(--text-dim);
+      font-size: 8px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; cursor: pointer; border-radius: 3px;
+      padding: 3px 4px; text-align: center; transition: background 100ms, color 100ms, border-color 100ms;
+    }
+    .stack-btn:hover { color: var(--gold-dim); }
+    .stack-btn.active {
+      border-color: rgba(200,160,96,0.6);
+      background: rgba(200,160,96,0.2);
+      color: var(--gold-lt);
+      box-shadow: 0 0 6px rgba(200,160,96,0.25);
+    }
+
+    /* ══════════════════════════ FOOTER ══════════════════════════ */
+    .footer {
+      background: #0A0908;
+      border-top: 1px solid var(--gold);
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      align-items: center;
+      padding: 0 16px;
+    }
+    .footer-left { display: flex; align-items: center; gap: 8px; }
+    .footer-logo { width: 20px; height: 20px; }
+    .footer-brand { font-size: 10px; font-weight: 700; letter-spacing: .14em; color: var(--gold); text-transform: uppercase; }
+    .footer-status { display: flex; align-items: center; gap: 5px; }
+    .footer-on { font-size: 9px; font-weight: 700; color: var(--green); letter-spacing: .1em; }
+    .footer-center {
+      text-align: center;
+      font-size: 8px; letter-spacing: .18em; color: var(--gold-dim);
+      font-weight: 700; text-transform: uppercase; font-style: italic;
+    }
+    .footer-right { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+    .foot-btn {
+      border: 1px solid var(--edge); background: transparent;
+      color: var(--gold-dim); font-size: 9px; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase;
+      padding: 3px 10px; border-radius: 4px; cursor: pointer;
+      transition: background 120ms, border-color 120ms, color 120ms;
+    }
+    .foot-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .foot-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(200,160,96,0.14); }
+    .foot-hq { display: flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700; color: var(--gold-dim); letter-spacing: .1em; }
   </style>
 </head>
 <body>
 <div class="ui-stage">
 <div class="plugin" id="plugin-root">
 
-  <!-- HEADER -->
-  <section class="top">
+  <!-- ═══════════════════════════════ HEADER ═══════════════════════════════ -->
+  <header class="hdr">
+
+    <!-- Brand -->
     <div class="brand">
-      <div class="logo"><img src="n_logo.png" alt="N" /></div>
-      <div class="title">
-        <span class="nova">NOVA</span>
-        <span class="plugin-name">APEX</span>
-        <span class="sub">TRUE-PEAK LOUDNESS MASTER</span>
+      <div class="logo-box">
+        <svg class="logo-svg" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="1" width="24" height="24" rx="5" stroke="#C8A060" stroke-width="1.4" fill="none"/>
+          <polygon points="8,6 20,13 8,20" fill="#C8A060" opacity="0.9"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-line1">
+          <span class="brand-nova">NOVA</span>
+          <span class="brand-apex">APEX</span>
+        </div>
+        <span class="brand-sub">Precision Mastering Limiter</span>
       </div>
     </div>
-    <div class="toolbar">
-      <button class="preset-trigger" id="preset-trigger" type="button">Presets: Default &#9662;</button>
-      <button type="button" id="preset-prev">&#x2039;</button>
-      <button type="button" id="preset-next">&#x203A;</button>
-    </div>
-    <div class="byline">
-      <span>by International Nova</span>
-      <button class="gear" type="button">&#9881;</button>
-    </div>
-  </section>
 
-  <!-- BODY -->
+    <!-- Preset toolbar -->
+    <div class="preset-bar">
+      <button class="hdr-btn icon-btn" id="preset-prev" type="button">&#x2039;</button>
+      <button class="hdr-btn icon-btn" id="preset-next" type="button">&#x203A;</button>
+      <div class="preset-drop" id="preset-trigger" role="button" tabindex="0">
+        <span id="preset-name">Modern Master</span>
+        <span>&#9662;</span>
+      </div>
+      <button class="hdr-btn icon-btn" type="button">&#x203A;</button>
+      <button class="hdr-btn" id="ab-btn" type="button">A / B</button>
+      <button class="hdr-btn" id="atob-btn" type="button">A &#x2192; B</button>
+      <button class="hdr-btn icon-btn" type="button">&#9881;</button>
+    </div>
+
+    <!-- Right readouts + smart match -->
+    <div class="hdr-right">
+      <div class="read-box">
+        <span class="read-label">Target</span>
+        <span class="read-val" id="target-val">-9.0</span>
+        <span class="read-unit">LUFS</span>
+      </div>
+      <div class="read-box">
+        <span class="read-label">TP</span>
+        <span class="read-val" id="tp-hdr-val">-0.3</span>
+        <span class="read-unit">dBTP</span>
+      </div>
+      <div class="tp-status">
+        <div class="dot" id="tp-dot"></div>
+        <span class="tp-label">True Peak</span>
+      </div>
+      <button class="smart-btn" type="button">
+        <span class="smart-icon">〜</span>
+        <div class="smart-text">
+          <span class="smart-line1">Smart Loudness</span>
+          <span class="smart-line2">Match</span>
+        </div>
+      </button>
+    </div>
+
+  </header>
+
+  <!-- ═══════════════════════════════ BODY ═══════════════════════════════ -->
   <section class="body">
 
-    <!-- LEFT: Gain / Drive -->
-    <div class="panel left-panel">
+    <!-- ──── LEFT COLUMN ──── -->
+    <div class="col-left">
+
+      <!-- INPUT knob -->
       <div class="knob-cell">
-        <div class="k-label">Gain</div>
-        <div class="knob large" data-param="gain" data-min="0" data-max="24">
-          <div class="ring"></div><div class="pointer"></div>
+        <span class="section-label">Input</span>
+        <div class="knob" data-param="gain" data-min="-24" data-max="24" data-def="0">
+          <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#C8A060" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
+          <div class="knob-ptr"></div>
         </div>
+        <div class="knob-row-labels"><span>-24</span><span>+24</span></div>
         <div class="k-readout" data-readout="gain">0.0 dB</div>
       </div>
+
+      <!-- DRIVE knob -->
       <div class="knob-cell">
-        <div class="k-label">Drive</div>
-        <div class="knob large" data-param="drive" data-min="0" data-max="10">
-          <div class="ring"></div><div class="pointer"></div>
+        <span class="section-label">Drive</span>
+        <div class="knob" data-param="drive" data-min="0" data-max="100" data-def="0">
+          <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#C8A060" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
+          <div class="knob-ptr"></div>
         </div>
-        <div class="k-readout" data-readout="drive">0.0</div>
+        <div class="knob-row-labels"><span>0</span><span>100</span></div>
+        <div class="k-readout" data-readout="drive">15 %</div>
       </div>
+
+      <!-- STYLE section -->
+      <div class="style-section">
+        <span class="section-label" style="display:block;margin-bottom:6px;">Style</span>
+        <div class="style-nav">
+          <button class="style-nav-btn" id="style-prev" type="button">&#x2039;</button>
+          <span class="style-name-display" id="style-display">CLEAN</span>
+          <button class="style-nav-btn" id="style-next" type="button">&#x203A;</button>
+        </div>
+        <div class="style-list" id="style-list">
+          <div class="style-item active" data-style="0">CLEAN</div>
+          <div class="style-item" data-style="1">PUNCH</div>
+          <div class="style-item" data-style="2">SMOOTH</div>
+          <div class="style-item" data-style="3">LOUD</div>
+          <div class="style-item" data-style="4">ANALOG</div>
+          <div class="style-item" data-style="5">MASTER</div>
+        </div>
+        <button class="style-info-btn" type="button">STYLE INFO</button>
+      </div>
+
     </div>
 
-    <!-- CENTER: GR display -->
-    <div class="panel center-panel">
-      <div class="center-legend">
-        <span>GR / WAVEFORM</span>
-        <span id="gr-label">0.0 dB GR</span>
+    <!-- ──── CENTER COLUMN ──── -->
+    <div class="col-center">
+
+      <!-- Waveform panel -->
+      <div class="wave-panel">
+        <div class="wave-legend">
+          <div class="legend-item legend-inp"><div class="legend-dash inp"></div>INPUT</div>
+          <div class="legend-item legend-out"><div class="legend-dash out"></div>OUTPUT</div>
+          <div class="legend-item legend-gr"><div class="legend-dash gr"></div>GAIN REDUCTION</div>
+        </div>
+        <div class="wave-canvas-wrap" id="wave-wrap">
+          <canvas id="wave-canvas"></canvas>
+          <div class="wave-scale">
+            <span>0</span><span>-3</span><span>-6</span><span>-9</span><span>-12</span><span>-15</span><span>-18</span>
+          </div>
+        </div>
+        <div class="wave-time">
+          <span>-8s</span><span>-6s</span><span>-4s</span><span>-2s</span><span>0s</span>
+        </div>
       </div>
-      <div class="gr-canvas-wrap">
-        <canvas id="gr-canvas"></canvas>
+
+      <!-- GR panel -->
+      <div class="gr-panel">
+        <div class="gr-header">Gain Reduction</div>
+        <div class="gr-canvas-wrap" id="gr-wrap">
+          <canvas id="gr-canvas"></canvas>
+          <div class="gr-scale">
+            <span>0</span><span>-6</span><span>-12</span><span>-18</span>
+          </div>
+        </div>
       </div>
-      <div class="center-footer">
-        <span>LUFS: <span class="lufs-read" id="lufs-read">---</span></span>
-        <span>TP: <span class="tp-read" id="tp-read">---</span></span>
+
+      <!-- Loudness bar -->
+      <div class="loud-bar">
+        <div class="loud-cell">
+          <span class="loud-lbl">Integrated</span>
+          <span class="loud-val" id="loud-integrated">-8.7</span>
+          <span class="loud-unit">LUFS</span>
+        </div>
+        <div class="loud-cell">
+          <span class="loud-lbl">Short Term</span>
+          <span class="loud-val" id="loud-short">-7.6</span>
+          <span class="loud-unit">LUFS</span>
+        </div>
+        <div class="loud-cell">
+          <span class="loud-lbl">Loudness Range</span>
+          <span class="loud-val" id="loud-range">4.2</span>
+          <span class="loud-unit">LU</span>
+        </div>
+        <div class="loud-cell">
+          <span class="loud-lbl">Peak</span>
+          <span class="loud-val" id="loud-peak">-0.4</span>
+          <span class="loud-unit">dBTP</span>
+        </div>
+        <div class="loud-cell">
+          <span class="loud-lbl">Dynamic Range</span>
+          <span class="loud-val" id="loud-dr">7.8</span>
+          <span class="loud-unit">LU</span>
+        </div>
       </div>
+
     </div>
 
-    <!-- RIGHT: Ceiling / Output + TP Meter -->
-    <div class="panel right-panel">
-      <div class="right-knobs">
-        <div class="knob-cell">
-          <div class="k-label">Ceiling</div>
-          <div class="knob medium" data-param="ceiling" data-min="-12" data-max="0">
-            <div class="ring"></div><div class="pointer"></div>
-          </div>
-          <div class="k-readout" data-readout="ceiling">-0.1 dBFS</div>
+    <!-- ──── RIGHT COLUMN ──── -->
+    <div class="col-right">
+
+      <!-- CEILING knob -->
+      <div class="knob-cell">
+        <span class="section-label">Ceiling</span>
+        <div class="knob" data-param="ceiling" data-min="-3" data-max="0" data-def="-0.1">
+          <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#C8A060" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
+          <div class="knob-ptr"></div>
         </div>
-        <div class="knob-cell">
-          <div class="k-label">Output</div>
-          <div class="knob medium" data-param="outputGain" data-min="-12" data-max="0">
-            <div class="ring"></div><div class="pointer"></div>
+        <div class="k-readout" data-readout="ceiling">-0.3 dBTP</div>
+      </div>
+
+      <!-- OUTPUT knob -->
+      <div class="knob-cell">
+        <span class="section-label">Output</span>
+        <div class="knob" data-param="outputGain" data-min="-24" data-max="24" data-def="0">
+          <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#C8A060" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
+          <div class="knob-ptr"></div>
+        </div>
+        <div class="k-readout" data-readout="outputGain">0.0 dB</div>
+      </div>
+
+      <!-- TRUE PEAK meters -->
+      <div class="tp-meters-wrap">
+        <span class="tp-meters-label">True Peak</span>
+        <div class="tp-meters-body">
+          <div class="tp-channel">
+            <div class="tp-ch-label">L</div>
+            <div class="tp-segs-wrap" id="tp-segs-l"></div>
           </div>
-          <div class="k-readout" data-readout="outputGain">0.0 dB</div>
+          <div class="tp-channel">
+            <div class="tp-ch-label">R</div>
+            <div class="tp-segs-wrap" id="tp-segs-r"></div>
+          </div>
+          <div class="tp-scale-wrap">
+            <span>0</span><span>-3</span><span>-6</span><span>-9</span>
+            <span>-12</span><span>-18</span><span>-24</span><span>-30</span><span>-40</span>
+          </div>
         </div>
       </div>
-      <div class="tp-meter" id="tp-meter"></div>
+
+      <!-- AUTO / RELEASE CEILING -->
+      <button class="auto-btn" id="auto-btn" type="button">AUTO</button>
+      <div class="auto-sub">Release Ceiling</div>
+
     </div>
 
   </section>
 
-  <!-- STYLE STRIP -->
-  <section class="style-strip">
-    <button class="style-btn active" data-style="0" type="button">Clean</button>
-    <button class="style-btn" data-style="1" type="button">Punch</button>
-    <button class="style-btn" data-style="2" type="button">Smooth</button>
-    <button class="style-btn" data-style="3" type="button">Loud</button>
-    <button class="style-btn" data-style="4" type="button">Analog</button>
-    <button class="style-btn" data-style="5" type="button">Master</button>
-  </section>
-
-  <!-- BOTTOM STRIP -->
+  <!-- ═══════════════════════════════ BOTTOM STRIP ═══════════════════════════════ -->
   <section class="bottom-strip">
-    <div class="bottom-cell">
-      <div class="k-label">Attack</div>
-      <div class="knob small" data-param="attack" data-min="0.1" data-max="50">
-        <div class="ring"></div><div class="pointer"></div>
+
+    <!-- 1: LOOKAHEAD -->
+    <div class="bot-cell">
+      <span class="bot-label">Lookahead</span>
+      <div class="knob sm" data-param="lookahead" data-min="0" data-max="5" data-def="5">
+        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+        <div class="knob-ptr"></div>
       </div>
-      <div class="k-readout" data-readout="attack">1.0 ms</div>
+      <div class="bot-readout" data-readout="lookahead">2.00 ms</div>
     </div>
-    <div class="bottom-cell">
-      <div class="k-label">Release</div>
-      <div class="knob small" data-param="release" data-min="10" data-max="1000">
-        <div class="ring"></div><div class="pointer"></div>
+
+    <!-- 2: ATTACK -->
+    <div class="bot-cell">
+      <span class="bot-label">Attack</span>
+      <div class="knob sm" data-param="attack" data-min="0.1" data-max="100" data-def="1.5">
+        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+        <div class="knob-ptr"></div>
       </div>
-      <div class="k-readout" data-readout="release">100 ms</div>
+      <div class="bot-readout" data-readout="attack">1.50 ms</div>
     </div>
-    <div class="bottom-cell">
-      <div class="k-label">Lookahead</div>
-      <div class="knob small" data-param="lookahead" data-min="0" data-max="20">
-        <div class="ring"></div><div class="pointer"></div>
+
+    <!-- 3: RELEASE -->
+    <div class="bot-cell">
+      <span class="bot-label">Release</span>
+      <div class="knob sm" data-param="release" data-min="10" data-max="5000" data-def="120">
+        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+        <div class="knob-ptr"></div>
       </div>
-      <div class="k-readout" data-readout="lookahead">5.0 ms</div>
+      <div class="bot-readout" data-readout="release">120 ms</div>
     </div>
-    <div class="bottom-cell">
-      <div class="k-label">Oversample</div>
-      <button class="toggle-btn active" id="oversample-btn" type="button">2x</button>
+
+    <!-- 4: TRANSIENT PRESERVE -->
+    <div class="bot-cell">
+      <span class="bot-label">Transient<br>Preserve</span>
+      <button class="bot-power" id="tp-power" type="button" title="Toggle">&#x23FB;</button>
+      <div class="knob sm" data-param="transientPreserve" data-min="0" data-max="100" data-def="0">
+        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+        <div class="knob-ptr"></div>
+      </div>
+      <div class="bot-readout" data-readout="transientPreserve">65 %</div>
     </div>
-    <div class="bottom-cell">
-      <div class="k-label">Link</div>
-      <button class="toggle-btn active" id="link-btn" type="button">LINK</button>
+
+    <!-- 5: LOW END PROTECT -->
+    <div class="bot-cell">
+      <span class="bot-label">Low End<br>Protect</span>
+      <button class="bot-power" id="lep-power" type="button" title="Toggle">&#x23FB;</button>
+      <div class="knob sm" data-param="lowEndProtect" data-min="0" data-max="100" data-def="0">
+        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+        <div class="knob-ptr"></div>
+      </div>
+      <div class="bot-readout" data-readout="lowEndProtect">35 %</div>
     </div>
-    <div class="bottom-cell">
-      <div class="k-label">Dither</div>
-      <button class="toggle-btn" id="dither-btn" type="button">DITH</button>
+
+    <!-- 6: CHANNEL LINK -->
+    <div class="bot-cell">
+      <span class="bot-label">Channel<br>Link</span>
+      <span class="bot-link-icon active" id="link-icon">&#x26D3;</span>
+      <div class="knob sm" data-param="link" data-min="0" data-max="100" data-def="100">
+        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+        <div class="knob-ptr"></div>
+      </div>
+      <div class="bot-readout" data-readout="link">75 %</div>
     </div>
-    <div class="bottom-cell">
-      <div class="k-label" style="font-size:8px;color:#ffd97f;text-align:center;">IN&nbsp;OUT</div>
-      <div style="display:flex;gap:3px;align-items:flex-end;height:28px;">
-        <canvas id="in-meter"  width="8" height="28" style="border-radius:3px;"></canvas>
-        <canvas id="out-meter" width="8" height="28" style="border-radius:3px;"></canvas>
+
+    <!-- 7: OVERSAMPLING -->
+    <div class="bot-cell">
+      <span class="bot-label">Oversampling</span>
+      <div class="stack-btns" id="oversample-btns">
+        <button class="stack-btn" data-ov="0" type="button">2x</button>
+        <button class="stack-btn active" data-ov="1" type="button">4x</button>
+        <button class="stack-btn" data-ov="2" type="button">8x</button>
+        <button class="stack-btn" data-ov="3" type="button">16x</button>
       </div>
     </div>
+
+    <!-- 8: DITHER -->
+    <div class="bot-cell">
+      <span class="bot-label">Dither</span>
+      <div class="stack-btns" id="dither-btns">
+        <button class="stack-btn active" data-dith="0" type="button">OFF</button>
+        <button class="stack-btn" data-dith="1" type="button">16 BIT</button>
+        <button class="stack-btn" data-dith="2" type="button">20 BIT</button>
+        <button class="stack-btn" data-dith="3" type="button">24 BIT</button>
+      </div>
+    </div>
+
+    <!-- 9: OUTPUT DITHER -->
+    <div class="bot-cell">
+      <span class="bot-label">Output<br>Dither</span>
+      <div class="knob sm" data-param="outputDither" data-min="0" data-max="100" data-def="50">
+        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+        <div class="knob-ptr"></div>
+      </div>
+      <div class="bot-readout" data-readout="outputDither">50 %</div>
+    </div>
+
   </section>
+
+  <!-- ═══════════════════════════════ FOOTER ═══════════════════════════════ -->
+  <footer class="footer">
+    <div class="footer-left">
+      <svg class="footer-logo" viewBox="0 0 20 20" fill="none">
+        <rect x="0.7" y="0.7" width="18.6" height="18.6" rx="4" stroke="#C8A060" stroke-width="1.2" fill="none"/>
+        <polygon points="6,5 16,10 6,15" fill="#C8A060" opacity="0.85"/>
+      </svg>
+      <span class="footer-brand">Nova Guard</span>
+      <div class="footer-status">
+        <div class="dot"></div>
+        <span class="footer-on">ON</span>
+      </div>
+    </div>
+    <div class="footer-center">
+      Intelligent Limiting. Maximum Loudness. Zero Compromise.
+    </div>
+    <div class="footer-right">
+      <button class="foot-btn" id="delta-btn" type="button">DELTA</button>
+      <button class="foot-btn" id="bypass-btn" type="button">BYPASS</button>
+      <div class="foot-hq">
+        <span>HQ</span>
+        <div class="dot"></div>
+      </div>
+    </div>
+  </footer>
 
 </div>
 </div>
 
 <script>
 (() => {
-  // ── GR canvas ────────────────────────────────────────────────────────
-  const grCanvas = document.getElementById('gr-canvas');
-  const grCtx    = grCanvas.getContext('2d');
-  const GR_HIST  = 400;
-  const grBuf    = new Float32Array(GR_HIST);
-  let   grHead   = 0;
+'use strict';
 
-  function resizeGR() {
-    const w = grCanvas.parentElement;
-    grCanvas.width  = w.clientWidth  || 400;
-    grCanvas.height = w.clientHeight || 140;
+// ══════════════════════════ PARAM STATE ══════════════════════════
+const PARAMS = {
+  gain:             { min: -24,  max: 24,   def: 0,      fmt: v => v.toFixed(1) + ' dB' },
+  drive:            { min: 0,    max: 100,  def: 0,      fmt: v => v.toFixed(0) + ' %' },
+  ceiling:          { min: -3,   max: 0,    def: -0.1,   fmt: v => v.toFixed(1) + ' dBTP' },
+  outputGain:       { min: -24,  max: 24,   def: 0,      fmt: v => v.toFixed(1) + ' dB' },
+  attack:           { min: 0.1,  max: 100,  def: 1.5,    fmt: v => v.toFixed(2) + ' ms' },
+  release:          { min: 10,   max: 5000, def: 120,    fmt: v => Math.round(v) + ' ms' },
+  lookahead:        { min: 0,    max: 5,    def: 5,      fmt: v => v.toFixed(2) + ' ms' },
+  transientPreserve:{ min: 0,    max: 100,  def: 0,      fmt: v => v.toFixed(0) + ' %' },
+  lowEndProtect:    { min: 0,    max: 100,  def: 0,      fmt: v => v.toFixed(0) + ' %' },
+  link:             { min: 0,    max: 100,  def: 100,    fmt: v => v.toFixed(0) + ' %' },
+  outputDither:     { min: 0,    max: 100,  def: 50,     fmt: v => v.toFixed(0) + ' %' },
+};
+
+const state = {};
+Object.entries(PARAMS).forEach(([id, p]) => { state[id] = p.def; });
+
+let dragInfo = null;
+
+// ══════════════════════════ JUCE RELAY ══════════════════════════
+function emitJUCE(id, value, evType) {
+  try {
+    const norm = (value - PARAMS[id].min) / (PARAMS[id].max - PARAMS[id].min);
+    const relay = window['__juce__slider' + id];
+    if (relay) {
+      if (typeof relay.sliderValueChanged === 'function') relay.sliderValueChanged(norm);
+      else if (typeof relay[evType] === 'function') relay[evType](norm);
+      else {
+        const evt = new CustomEvent('__juce__slider' + id, { detail: { eventType: evType, value: norm } });
+        document.dispatchEvent(evt);
+      }
+    }
+  } catch (_) {}
+}
+
+function hookJUCERelays() {
+  Object.keys(PARAMS).forEach(id => {
+    try {
+      const relay = window['__juce__slider' + id];
+      if (relay && relay.addParameterChangeListener) {
+        relay.addParameterChangeListener(norm => {
+          const p = PARAMS[id];
+          if (!p) return;
+          state[id] = p.min + norm * (p.max - p.min);
+          updateKnobsForParam(id);
+        });
+      }
+    } catch (_) {}
+  });
+}
+
+// ══════════════════════════ KNOB ARC ══════════════════════════
+const ARC_TRAVEL = 270; // degrees
+const ARC_START  = 135; // degrees from 3-o-clock (CSS: bottom start)
+const CIRC_LG    = 2 * Math.PI * 26; // r=26 for large knobs
+const CIRC_SM    = 2 * Math.PI * 18; // r=18 for small knobs
+
+function normToTurnDeg(n) {
+  // -135deg = min, +135deg = max
+  return -135 + n * 270;
+}
+
+function normToArcDash(n, circ) {
+  const filled = n * (ARC_TRAVEL / 360) * circ;
+  return filled + ' ' + circ;
+}
+
+function syncKnob(knobEl, id) {
+  const p = PARAMS[id]; if (!p) return;
+  const v = state[id];
+  const n = Math.max(0, Math.min(1, (v - p.min) / (p.max - p.min)));
+
+  const ptr = knobEl.querySelector('.knob-ptr');
+  if (ptr) ptr.style.setProperty('--turn', normToTurnDeg(n) + 'deg');
+
+  const arcFill = knobEl.querySelector('.arc-fill');
+  if (arcFill) {
+    const isSmall = knobEl.classList.contains('sm');
+    const circ = isSmall ? CIRC_SM : CIRC_LG;
+    arcFill.setAttribute('stroke-dasharray', normToArcDash(n, circ));
   }
-  resizeGR();
-  window.addEventListener('resize', resizeGR);
 
-  function drawGR() {
-    const w = grCanvas.width, h = grCanvas.height;
-    grCtx.clearRect(0, 0, w, h);
-    grCtx.fillStyle = 'rgba(0,0,0,0.72)';
-    grCtx.fillRect(0, 0, w, h);
+  const rd = knobEl.closest('[class]').querySelector('[data-readout="' + id + '"]');
+  if (rd) rd.textContent = p.fmt(v);
+}
 
-    // Grid
-    grCtx.strokeStyle = 'rgba(255,187,52,0.1)';
-    grCtx.lineWidth = 1;
-    for (let db = 6; db <= 36; db += 6) {
-      const y = (db / 36) * h;
-      grCtx.beginPath(); grCtx.moveTo(0, y); grCtx.lineTo(w, y); grCtx.stroke();
+function updateKnobsForParam(id) {
+  document.querySelectorAll('.knob[data-param="' + id + '"]').forEach(k => syncKnob(k, id));
+}
+
+// Init knobs
+document.querySelectorAll('.knob[data-param]').forEach(knobEl => {
+  const id = knobEl.dataset.param;
+  if (!PARAMS[id]) return;
+  syncKnob(knobEl, id);
+
+  knobEl.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    knobEl.setPointerCapture(e.pointerId);
+    dragInfo = { id, knobEl, startY: e.clientY, startVal: state[id] };
+    emitJUCE(id, state[id], 'gestureStart');
+  });
+
+  knobEl.addEventListener('pointermove', e => {
+    if (!dragInfo || dragInfo.id !== id) return;
+    const p = PARAMS[id];
+    const delta = dragInfo.startY - e.clientY;
+    const range = p.max - p.min;
+    const sens = e.shiftKey ? 0.001 : 0.004;
+    state[id] = Math.max(p.min, Math.min(p.max, dragInfo.startVal + delta * range * sens));
+    syncKnob(knobEl, id);
+    emitJUCE(id, state[id], 'valueChanged');
+  });
+
+  const endDrag = () => {
+    if (dragInfo && dragInfo.id === id) {
+      emitJUCE(id, state[id], 'gestureEnd');
+      dragInfo = null;
     }
+  };
+  knobEl.addEventListener('pointerup', endDrag);
+  knobEl.addEventListener('pointercancel', endDrag);
+});
 
-    // Fill
-    grCtx.beginPath();
-    for (let i = 0; i < GR_HIST; i++) {
-      const idx = (grHead + i) % GR_HIST;
-      const x = (i / (GR_HIST - 1)) * w;
-      const y = Math.min(h, (Math.abs(grBuf[idx]) / 36) * h);
-      i === 0 ? grCtx.moveTo(x, y) : grCtx.lineTo(x, y);
-    }
-    grCtx.lineTo(w, 0); grCtx.lineTo(0, 0); grCtx.closePath();
-    const grd = grCtx.createLinearGradient(0, 0, 0, h);
-    grd.addColorStop(0, 'rgba(255,186,48,0.72)');
-    grd.addColorStop(1, 'rgba(255,186,48,0.05)');
-    grCtx.fillStyle = grd;
-    grCtx.fill();
+// ══════════════════════════ STYLE SELECTOR ══════════════════════════
+const STYLE_NAMES = ['CLEAN','PUNCH','SMOOTH','LOUD','ANALOG','MASTER'];
+let currentStyle = 0;
 
-    // Line
-    grCtx.beginPath();
-    for (let i = 0; i < GR_HIST; i++) {
-      const idx = (grHead + i) % GR_HIST;
-      const x = (i / (GR_HIST - 1)) * w;
-      const y = Math.min(h, (Math.abs(grBuf[idx]) / 36) * h);
-      i === 0 ? grCtx.moveTo(x, y) : grCtx.lineTo(x, y);
-    }
-    grCtx.strokeStyle = 'rgba(255,215,100,0.9)';
-    grCtx.lineWidth = 1.5;
-    grCtx.stroke();
-  }
+function setStyle(idx) {
+  currentStyle = Math.max(0, Math.min(5, idx));
+  document.getElementById('style-display').textContent = STYLE_NAMES[currentStyle];
+  document.querySelectorAll('.style-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.style) === currentStyle);
+  });
+  emitJUCE('style', currentStyle, 'valueChanged');
+}
 
-  // ── TP meter ─────────────────────────────────────────────────────────
-  const tpMeterEl = document.getElementById('tp-meter');
-  const TP_SEGS   = 16;
-  const tpSegs    = [];
+document.querySelectorAll('.style-item').forEach(el => {
+  el.addEventListener('click', () => setStyle(parseInt(el.dataset.style)));
+});
+document.getElementById('style-prev').addEventListener('click', () => setStyle(currentStyle - 1));
+document.getElementById('style-next').addEventListener('click', () => setStyle(currentStyle + 1));
+
+// ══════════════════════════ PRESETS ══════════════════════════
+const PRESETS = ['Modern Master','Streaming Master','Broadcast Safe','Club Mix','Film Score','Reference Level','Podcast Ready','Vinyl Prep'];
+let presetIdx = 0;
+
+function setPreset(idx) {
+  presetIdx = ((idx % PRESETS.length) + PRESETS.length) % PRESETS.length;
+  document.getElementById('preset-name').textContent = PRESETS[presetIdx];
+}
+document.getElementById('preset-prev').addEventListener('click', () => setPreset(presetIdx - 1));
+document.getElementById('preset-next').addEventListener('click', () => setPreset(presetIdx + 1));
+document.getElementById('preset-trigger').addEventListener('click', () => setPreset(presetIdx + 1));
+
+// ══════════════════════════ OVERSAMPLE ══════════════════════════
+document.getElementById('oversample-btns').addEventListener('click', e => {
+  const btn = e.target.closest('.stack-btn'); if (!btn) return;
+  const ov = parseInt(btn.dataset.ov);
+  document.querySelectorAll('#oversample-btns .stack-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  emitJUCE('oversample', ov, 'valueChanged');
+});
+
+// ══════════════════════════ DITHER ══════════════════════════
+document.getElementById('dither-btns').addEventListener('click', e => {
+  const btn = e.target.closest('.stack-btn'); if (!btn) return;
+  const d = parseInt(btn.dataset.dith);
+  document.querySelectorAll('#dither-btns .stack-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  emitJUCE('dither', d, 'valueChanged');
+});
+
+// ══════════════════════════ POWER / TOGGLE BUTTONS ══════════════════════════
+['tp-power','lep-power','auto-btn','delta-btn','bypass-btn'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('click', () => el.classList.toggle('active'));
+});
+
+document.getElementById('link-icon').addEventListener('click', e => {
+  e.currentTarget.classList.toggle('active');
+});
+
+// ══════════════════════════ TP METER SEGMENTS ══════════════════════════
+const TP_SEGS = 16;
+const TP_SCALES = [0,-3,-6,-9,-12,-18,-24,-30,-40];
+// Map dBFS to segment index (16 segs, top = 0 dBFS, bottom = -40 dBFS)
+// segment 0 = bottom (-40), segment 15 = top (0)
+
+function buildTPSegs(wrapperId) {
+  const wrap = document.getElementById(wrapperId);
+  wrap.innerHTML = '';
+  const segs = [];
   for (let i = 0; i < TP_SEGS; i++) {
     const seg = document.createElement('div');
     seg.className = 'tp-seg';
-    tpMeterEl.appendChild(seg);
-    tpSegs.push(seg);
+    wrap.appendChild(seg);
+    segs.push(seg);
   }
+  return segs;
+}
 
-  function updateTPMeter(lin) {
-    const db   = lin > 1e-5 ? 20 * Math.log10(lin) : -60;
-    const norm = Math.max(0, Math.min(1, (db + 18) / 18));
-    const nOn  = Math.round(norm * TP_SEGS);
-    tpSegs.forEach((seg, i) => {
-      seg.className = 'tp-seg';
-      if (i < nOn) {
-        const r = i / TP_SEGS;
-        if      (r > 0.85) seg.classList.add('on-hot');
-        else if (r > 0.70) seg.classList.add('on-warn');
-        else               seg.classList.add('on-safe');
-      }
-    });
-  }
+const tpSegsL = buildTPSegs('tp-segs-l');
+const tpSegsR = buildTPSegs('tp-segs-r');
 
-  // ── Small L/R meters ─────────────────────────────────────────────────
-  const inMC  = document.getElementById('in-meter').getContext('2d');
-  const outMC = document.getElementById('out-meter').getContext('2d');
-
-  function drawSmMeter(ctx, lin) {
-    const w = ctx.canvas.width, h = ctx.canvas.height;
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0,0,w,h);
-    const db   = lin > 1e-5 ? 20 * Math.log10(lin) : -60;
-    const norm = Math.max(0, Math.min(1, (db + 24) / 24));
-    const bH   = norm * h;
-    const g2   = ctx.createLinearGradient(0, h, 0, 0);
-    g2.addColorStop(0,   'rgba(160,71,255,0.9)');
-    g2.addColorStop(0.7, 'rgba(255,212,111,0.9)');
-    g2.addColorStop(1,   'rgba(255,60,60,0.9)');
-    ctx.fillStyle = g2;
-    ctx.fillRect(0, h - bH, w, bH);
-  }
-
-  // ── Knob wiring ───────────────────────────────────────────────────────
-  const paramState = {};
-  let dragInfo     = null;
-
-  function normToTurn(n) { return -120 + n * 240; }
-
-  function paramNorm(id) {
-    const s = paramState[id]; if (!s) return 0;
-    return (s.value - s.min) / (s.max - s.min);
-  }
-
-  function fmtParam(id, v) {
-    switch (id) {
-      case 'gain':       return v.toFixed(1) + ' dB';
-      case 'drive':      return v.toFixed(1);
-      case 'ceiling':    return v.toFixed(1) + ' dBFS';
-      case 'outputGain': return v.toFixed(1) + ' dB';
-      case 'attack':     return v.toFixed(1) + ' ms';
-      case 'release':    return Math.round(v) + ' ms';
-      case 'lookahead':  return v.toFixed(1) + ' ms';
-      default:           return v.toFixed(1);
+function updateTPChannel(segs, lin) {
+  const db = lin > 1e-6 ? 20 * Math.log10(lin) : -80;
+  // map -40..0 dBFS -> 0..1
+  const norm = Math.max(0, Math.min(1, (db + 40) / 40));
+  const nOn = Math.round(norm * TP_SEGS);
+  segs.forEach((seg, i) => {
+    seg.className = 'tp-seg';
+    if (i < nOn) {
+      // top 2 segments are hot (i >= 14 = near 0 dBFS)
+      seg.classList.add(i >= 14 ? 'hot' : 'on');
     }
-  }
+  });
+}
 
-  function syncKnob(knobEl, id) {
-    const n   = paramNorm(id);
-    const deg = normToTurn(n);
-    const ptr = knobEl.querySelector('.pointer');
-    if (ptr) ptr.style.setProperty('--turn', deg + 'deg');
-    // find readout – may be sibling or in parent cell
-    const cell = knobEl.closest('.knob-cell, .bottom-cell');
-    if (cell) {
-      const rd = cell.querySelector('[data-readout="' + id + '"]');
-      if (rd) rd.textContent = fmtParam(id, paramState[id].value);
+// ══════════════════════════ CANVAS SETUP ══════════════════════════
+const waveCanvas = document.getElementById('wave-canvas');
+const waveCtx    = waveCanvas.getContext('2d');
+const grCanvas   = document.getElementById('gr-canvas');
+const grCtx      = grCanvas.getContext('2d');
+
+const HIST = 512;
+const inputBuf  = new Float32Array(HIST);
+const outputBuf = new Float32Array(HIST);
+const grBuf     = new Float32Array(HIST);
+let   histHead  = 0;
+
+// Simulated telemetry for animation
+let simPhase = 0;
+let lastTelemetry = null;
+
+function resizeCanvases() {
+  const ww = document.getElementById('wave-wrap');
+  const gw = document.getElementById('gr-wrap');
+  waveCanvas.width  = ww.clientWidth  || 800;
+  waveCanvas.height = ww.clientHeight || 220;
+  grCanvas.width    = gw.clientWidth  || 800;
+  grCanvas.height   = gw.clientHeight || 60;
+}
+resizeCanvases();
+window.addEventListener('resize', resizeCanvases);
+
+// ── WAVE CANVAS ──
+function drawWave() {
+  const w = waveCanvas.width, h = waveCanvas.height;
+  const ctx = waveCtx;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(4,4,3,0.96)';
+  ctx.fillRect(0, 0, w, h);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(200,160,96,0.07)';
+  ctx.lineWidth = 1;
+  const dbLines = [0,-3,-6,-9,-12,-15,-18];
+  dbLines.forEach(db => {
+    const y = ((Math.abs(db)) / 18) * (h * 0.85) + h * 0.05;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  });
+
+  // Helper: draw filled area from buffer
+  function drawFilled(buf, color, scaleH, flip) {
+    const mid = h / 2;
+    ctx.beginPath();
+    for (let i = 0; i < HIST; i++) {
+      const idx = (histHead + i) % HIST;
+      const x = (i / (HIST - 1)) * w;
+      const v = buf[idx];
+      const amp = v * scaleH;
+      if (i === 0) ctx.moveTo(x, flip ? 0 : h);
+      ctx.lineTo(x, flip ? amp : h - amp);
     }
+    ctx.lineTo(w, flip ? 0 : h);
+    ctx.lineTo(0, flip ? 0 : h);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
   }
 
-  function emitJUCE(id, val, evType) {
-    try {
-      const relay = window['__juce__slider' + id];
-      if (relay && typeof relay[evType] === 'function') relay[evType](val);
-    } catch (_) {}
+  // INPUT waveform (gold, fills from center out)
+  const inGrad = ctx.createLinearGradient(0, 0, 0, h);
+  inGrad.addColorStop(0, 'rgba(200,160,96,0.55)');
+  inGrad.addColorStop(1, 'rgba(200,160,96,0.15)');
+  drawFilled(inputBuf, inGrad, h * 0.44, false);
+
+  // OUTPUT waveform (darker gray)
+  const outGrad = ctx.createLinearGradient(0, 0, 0, h);
+  outGrad.addColorStop(0, 'rgba(110,100,85,0.5)');
+  outGrad.addColorStop(1, 'rgba(80,72,62,0.12)');
+  drawFilled(outputBuf, outGrad, h * 0.40, false);
+
+  // GAIN REDUCTION (red, grows downward from top)
+  const grGrad = ctx.createLinearGradient(0, 0, 0, h * 0.4);
+  grGrad.addColorStop(0, 'rgba(200,48,48,0.75)');
+  grGrad.addColorStop(1, 'rgba(200,48,48,0.1)');
+  drawFilled(grBuf, grGrad, h * 0.35, true);
+}
+
+// ── GR CANVAS ──
+function drawGR() {
+  const w = grCanvas.width, h = grCanvas.height;
+  const ctx = grCtx;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(4,4,3,0.96)';
+  ctx.fillRect(0, 0, w, h);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(200,160,96,0.07)';
+  ctx.lineWidth = 1;
+  [0,-6,-12,-18].forEach(db => {
+    const y = (Math.abs(db) / 18) * h;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  });
+
+  // GR line
+  ctx.beginPath();
+  for (let i = 0; i < HIST; i++) {
+    const idx = (histHead + i) % HIST;
+    const x = (i / (HIST - 1)) * w;
+    const y = Math.min(h, (grBuf[idx] / 18) * h);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
+  const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
+  fillGrad.addColorStop(0, 'rgba(200,160,96,0.7)');
+  fillGrad.addColorStop(1, 'rgba(200,160,96,0.05)');
 
-  // Default param values matching APVTS
-  const defaults = {
-    gain: { min:0, max:24, def:0 },
-    drive: { min:0, max:10, def:0 },
-    ceiling: { min:-12, max:0, def:-0.1 },
-    outputGain: { min:-12, max:0, def:0 },
-    attack: { min:0.1, max:50, def:1 },
-    release: { min:10, max:1000, def:100 },
-    lookahead: { min:0, max:20, def:5 },
-  };
+  ctx.lineTo(w, 0); ctx.lineTo(0, 0); ctx.closePath();
+  ctx.fillStyle = fillGrad;
+  ctx.fill();
 
-  document.querySelectorAll('.knob').forEach(knobEl => {
-    const id  = knobEl.dataset.param;
-    const min = parseFloat(knobEl.dataset.min);
-    const max = parseFloat(knobEl.dataset.max);
-    if (!id) return;
-    const def = defaults[id] ? defaults[id].def : (min + max) / 2;
-    paramState[id] = { value: def, min, max };
-    syncKnob(knobEl, id);
-
-    knobEl.addEventListener('pointerdown', e => {
-      e.preventDefault();
-      knobEl.setPointerCapture(e.pointerId);
-      dragInfo = { id, knobEl, startY: e.clientY, startVal: paramState[id].value };
-      emitJUCE(id, paramState[id].value, 'gestureStart');
-    });
-
-    knobEl.addEventListener('pointermove', e => {
-      if (!dragInfo || dragInfo.id !== id) return;
-      const delta = dragInfo.startY - e.clientY;
-      const range = max - min;
-      const sens  = e.shiftKey ? 0.0015 : 0.004;
-      const nv    = Math.max(min, Math.min(max, dragInfo.startVal + delta * range * sens));
-      paramState[id].value = nv;
-      syncKnob(knobEl, id);
-      emitJUCE(id, nv, 'valueChanged');
-    });
-
-    const endDrag = () => {
-      if (dragInfo && dragInfo.id === id) {
-        emitJUCE(id, paramState[id].value, 'gestureEnd');
-        dragInfo = null;
-      }
-    };
-    knobEl.addEventListener('pointerup', endDrag);
-    knobEl.addEventListener('pointercancel', endDrag);
-  });
-
-  // JUCE → JS: parameter sync
-  function hookRelays() {
-    Object.keys(defaults).forEach(id => {
-      try {
-        const relay = window['__juce__slider' + id];
-        if (relay && relay.addParameterChangeListener) {
-          relay.addParameterChangeListener(norm => {
-            if (!paramState[id]) return;
-            const { min, max } = paramState[id];
-            paramState[id].value = min + norm * (max - min);
-            document.querySelectorAll('.knob[data-param="' + id + '"]').forEach(k => syncKnob(k, id));
-          });
-        }
-      } catch (_) {}
-    });
+  ctx.beginPath();
+  for (let i = 0; i < HIST; i++) {
+    const idx = (histHead + i) % HIST;
+    const x = (i / (HIST - 1)) * w;
+    const y = Math.min(h, (grBuf[idx] / 18) * h);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
+  ctx.strokeStyle = 'rgba(220,180,100,0.9)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
 
-  // ── Style buttons ─────────────────────────────────────────────────────
-  document.querySelectorAll('.style-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const s = parseInt(btn.dataset.style);
-      document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      emitJUCE('style', s, 'valueChanged');
-    });
-  });
+// ══════════════════════════ SIMULATION ══════════════════════════
+function simulateTick() {
+  simPhase += 0.018;
+  const inLin  = 0.55 + 0.35 * Math.abs(Math.sin(simPhase * 1.7) * Math.cos(simPhase * 0.9));
+  const gr     = 0.15 + 0.18 * Math.abs(Math.sin(simPhase * 2.1 + 1.0));
+  const outLin = Math.max(0, inLin - gr * 0.6);
 
-  // Oversample cycle
-  const ovLabels = ['1x','2x','4x','8x'];
-  let ovIdx = 1;
-  const ovBtn = document.getElementById('oversample-btn');
-  ovBtn.addEventListener('click', () => {
-    ovIdx = (ovIdx + 1) % 4;
-    ovBtn.textContent = ovLabels[ovIdx];
-    emitJUCE('oversample', ovIdx, 'valueChanged');
-  });
+  inputBuf[histHead]  = inLin;
+  outputBuf[histHead] = outLin;
+  grBuf[histHead]     = gr;
+  histHead = (histHead + 1) % HIST;
+}
 
-  // Link
-  let linkOn = true;
-  const linkBtn = document.getElementById('link-btn');
-  linkBtn.addEventListener('click', () => {
-    linkOn = !linkOn;
-    linkBtn.classList.toggle('active', linkOn);
-    emitJUCE('link', linkOn ? 1 : 0, 'valueChanged');
-  });
+// ══════════════════════════ TELEMETRY API ══════════════════════════
+window.updateApexTelemetry = function(data) {
+  lastTelemetry = data;
+  const inL  = data.inputLevelL  || 0;
+  const inR  = data.inputLevelR  || 0;
+  const outL = data.outputLevelL || 0;
+  const outR = data.outputLevelR || 0;
+  const gr   = Math.abs(data.gainReductionDb || 0);
+  const lufs = data.lufs    !== undefined ? data.lufs    : -8.7;
+  const tp   = data.truePeak !== undefined ? data.truePeak : -0.3;
 
-  // Dither
-  let ditherOn = false;
-  const ditherBtn = document.getElementById('dither-btn');
-  ditherBtn.addEventListener('click', () => {
-    ditherOn = !ditherOn;
-    ditherBtn.classList.toggle('active', ditherOn);
-    emitJUCE('dither', ditherOn ? 1 : 0, 'valueChanged');
-  });
+  const inLin  = Math.max(inL, inR);
+  const outLin = Math.max(outL, outR);
+  const grNorm = Math.min(1, gr / 18);
 
-  // ── Meter update from C++ timer ───────────────────────────────────────
-  window.updateApexTelemetry = function(t) {
-    const gr   = t.grDb      || 0;
-    const lufs = t.lufs      || -70;
-    const tp   = t.truePeak  || -60;
-    const inL  = t.inputL    || 0;
-    const inR  = t.inputR    || 0;
-    const outL = t.outputL   || 0;
-    const outR = t.outputR   || 0;
+  inputBuf[histHead]  = inLin;
+  outputBuf[histHead] = outLin;
+  grBuf[histHead]     = grNorm * 18;
+  histHead = (histHead + 1) % HIST;
 
-    grBuf[grHead] = gr;
-    grHead = (grHead + 1) % GR_HIST;
+  updateTPChannel(tpSegsL, inL);
+  updateTPChannel(tpSegsR, inR);
 
-    document.getElementById('gr-label').textContent = Math.abs(gr).toFixed(1) + ' dB GR';
+  // Loudness readouts
+  document.getElementById('loud-integrated').textContent = lufs.toFixed(1);
+  document.getElementById('loud-short').textContent      = (lufs + 0.8 + Math.random() * 0.3).toFixed(1);
+  document.getElementById('tp-hdr-val').textContent      = tp.toFixed(1);
+  document.getElementById('loud-peak').textContent       = tp.toFixed(1);
 
-    const lufsEl = document.getElementById('lufs-read');
-    const tpEl   = document.getElementById('tp-read');
-    lufsEl.textContent = lufs > -70 ? lufs.toFixed(1) + ' LUFS' : '---';
-    tpEl.textContent   = tp   > -60 ? tp.toFixed(1)   + ' dBTP' : '---';
+  // TP dot color
+  document.getElementById('tp-dot').classList.toggle('red', tp > -1.0);
+};
 
-    updateTPMeter(Math.max(outL, outR));
-    drawSmMeter(inMC,  Math.max(inL,  inR));
-    drawSmMeter(outMC, Math.max(outL, outR));
-  };
-
-  // ── Render loop ───────────────────────────────────────────────────────
-  function frame() { drawGR(); requestAnimationFrame(frame); }
-  setTimeout(hookRelays, 400);
+// ══════════════════════════ RENDER LOOP ══════════════════════════
+function frame() {
+  if (!lastTelemetry) simulateTick();
+  drawWave();
+  drawGR();
   requestAnimationFrame(frame);
+}
+
+setTimeout(hookJUCERelays, 400);
+requestAnimationFrame(frame);
+
+// Simulate idle motion for TP meters
+setInterval(() => {
+  if (!lastTelemetry) {
+    const inLin = 0.45 + 0.4 * Math.random();
+    updateTPChannel(tpSegsL, inLin);
+    updateTPChannel(tpSegsR, inLin * (0.9 + 0.1 * Math.random()));
+  }
+}, 80);
+
 })();
 </script>
 </body>

@@ -30,7 +30,7 @@ NovaApexAudioProcessorEditor::NovaApexAudioProcessorEditor (NovaApexAudioProcess
     webView->goToURL (cacheBustedUrl);
 
     setResizable (false, false);
-    setSize (900, 540);
+    setSize (1400, 860);
     startTimerHz (30);
 }
 
