@@ -1,48 +1,31 @@
-// Fallback boot script - loads when native bridge is not available
-console.warn('JUCE native bridge not available - running in fallback mode');
+// Nova Chord — Fallback boot script
+// Loads when the JUCE native bridge is not available (e.g. browser preview).
+// Provides stub implementations so the UI doesn't throw errors.
 
-// Mock implementations for testing
-window.juceAPI = {
-    parameters: {
-        key: 0,
-        scale: 0,
-        tolerance: 0,
-        amount: 0,
-        confidenceThreshold: 0,
-        vibrato: 0,
-        formant: 0,
-        lowLatency: 0,
-        detectedPitch: 0,
-        correctedPitch: 0
-    },
+(function () {
+  'use strict';
 
-    setParameter: function(param, value) {
-        if (this.parameters.hasOwnProperty(param)) {
-            this.parameters[param] = value;
-            console.log('Set ' + param + ' to ' + value);
-        }
-    },
+  if (typeof window.__JUCE__ !== 'undefined') {
+    // Native bridge is present — nothing to do.
+    return;
+  }
 
-    getParameter: function(param) {
-        return this.parameters[param] || 0;
-    },
+  console.warn('Nova Chord: JUCE native bridge not available — running in fallback mode');
 
-    updatePitchData: function(detected, corrected) {
-        this.parameters.detectedPitch = detected;
-        this.parameters.correctedPitch = corrected;
-    }
-};
+  // Stub getNativeFunction if juce/index.js hasn't provided one yet
+  if (typeof window.getNativeFunction === 'undefined') {
+    window.getNativeFunction = function (name) {
+      return function () {
+        console.log('Fallback stub called:', name, Array.prototype.slice.call(arguments));
+        return Promise.resolve(null);
+      };
+    };
+  }
 
-// Expose to window
-window.NativeBridge = {
-    callNativeFunction: function(name, data) {
-        if (name === 'setParameter' && data.parameter) {
-            window.juceAPI.setParameter(data.parameter, data.value);
-        } else if (name === 'getParameter' && data.parameter) {
-            return window.juceAPI.getParameter(data.parameter);
-        }
-        return null;
-    }
-};
+  // Stub getSliderState
+  if (typeof window.getSliderState === 'undefined') {
+    window.getSliderState = function () { return null; };
+  }
 
-console.log('Fallback API initialized');
+  console.log('Nova Chord fallback stubs ready');
+})();

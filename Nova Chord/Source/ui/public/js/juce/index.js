@@ -1,59 +1,60 @@
-// JUCE Native Interop - Bridges JUCE backend to JavaScript UI
-// This file is auto-injected by JUCE's WebView when native methods are available
+/**
+ * Nova Chord — JUCE WebBrowser bridge (non-module, globally scoped)
+ * Provides getNativeFunction() for calling C++ withNativeFunction() handlers.
+ */
+(function (global) {
+  'use strict';
 
-(function() {
-    'use strict';
+  // Promise handler for native function calls
+  var lastPromiseId = 0;
+  var promises = {};
 
-    // Detect JUCE backend availability
-    if (typeof window === 'undefined') return;
+  function setupCompleteListener() {
+    if (!global.__JUCE__ || !global.__JUCE__.backend) return;
+    global.__JUCE__.backend.addEventListener('__juce__complete', function (evt) {
+      var p = promises[evt.promiseId];
+      if (p) {
+        p.resolve(evt.result);
+        delete promises[evt.promiseId];
+      }
+    });
+  }
 
-    const juceBackendAvailable = () => {
-        return window.__JUCE && window.__JUCE.sendMessage !== undefined;
+  // Try immediately; retry after DOMContentLoaded in case JUCE inits late
+  setupCompleteListener();
+  document.addEventListener('DOMContentLoaded', setupCompleteListener);
+
+  /**
+   * Returns a function that calls a JUCE withNativeFunction() handler by name.
+   * Usage: var fn = getNativeFunction('myFunc'); fn(arg1, arg2).then(result => ...);
+   */
+  global.getNativeFunction = function (name) {
+    return function () {
+      if (!global.__JUCE__ || !global.__JUCE__.backend) {
+        console.warn('JUCE backend not available for native function:', name);
+        return Promise.resolve(null);
+      }
+
+      var promiseId = lastPromiseId++;
+      var result = new Promise(function (resolve, reject) {
+        promises[promiseId] = { resolve: resolve, reject: reject };
+      });
+
+      global.__JUCE__.backend.emitEvent('__juce__invoke', {
+        name: name,
+        params: Array.prototype.slice.call(arguments),
+        resultId: promiseId,
+      });
+
+      return result;
     };
+  };
 
-    // Create bridge API
-    window.JuceAPI = {
-        parameters: {},
+  // Expose slider state helper (used for parameter sync via WebSliderRelay)
+  global.getSliderState = function (name) {
+    if (!global.__JUCE__ || !global.__JUCE__.sliderState) return null;
+    return global.__JUCE__.sliderState[name] || null;
+  };
 
-        // Send message to JUCE backend
-        send: (command, data) => {
-            if (!juceBackendAvailable()) {
-                console.warn('JUCE backend not available for command:', command);
-                return null;
-            }
-            try {
-                const msg = JSON.stringify({ command, data });
-                return window.__JUCE.sendMessage(msg);
-            } catch (e) {
-                console.error('Error sending message to JUCE:', e);
-                return null;
-            }
-        },
-
-        // Set plugin parameter
-        setParameter: (paramName, value) => {
-            return window.JuceAPI.send('setParameter', { parameter: paramName, value });
-        },
-
-        // Get plugin parameter
-        getParameter: (paramName) => {
-            return window.JuceAPI.send('getParameter', { parameter: paramName });
-        },
-
-        // Update parameter sync with JUCE state tree
-        syncParameter: (paramName, value) => {
-            window.JuceAPI.parameters[paramName] = value;
-            return window.JuceAPI.setParameter(paramName, value);
-        },
-
-        // Request pitch data
-        getPitchData: () => {
-            return window.JuceAPI.send('getPitchData', {});
-        }
-    };
-
-    // Global bridge for backward compatibility
-    window.NativeBridge = window.JuceAPI;
-
-    console.log('JUCE Interop initialized');
-})();
+  console.log('Nova Chord JUCE bridge initialised');
+})(window);

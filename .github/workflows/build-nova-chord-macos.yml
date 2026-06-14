@@ -1,0 +1,58 @@
+name: Build Nova Chord macOS
+run-name: Nova Chord macOS | ${{ github.event_name }} | ${{ github.sha }}
+
+on:
+  push:
+    paths:
+      - 'Nova Chord/**'
+      - '.github/workflows/build-nova-chord-macos.yml'
+  pull_request:
+    paths:
+      - 'Nova Chord/**'
+      - '.github/workflows/build-nova-chord-macos.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        run: |
+          brew install cmake
+
+      - name: Clean build directory
+        run: rm -rf "Nova Chord/build"
+
+      - name: Configure CMake
+        run: |
+          cmake -S "Nova Chord" -B "Nova Chord/build" \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+
+      - name: Build
+        run: cmake --build "Nova Chord/build" --config Release
+
+      - name: Package VST3 Bundle
+        run: |
+          cd "Nova Chord/build/NovaChord_artefacts/VST3"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Chord.vst3" "NovaChord-macOS-vst3.zip"
+
+      - name: Package AU Bundle
+        run: |
+          cd "Nova Chord/build/NovaChord_artefacts/AU"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Chord.component" "NovaChord-macOS-au.zip"
+
+      - name: Upload Deliverables Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaChord-macOS-deliverables
+          path: |
+            Nova Chord/build/NovaChord_artefacts/VST3/NovaChord-macOS-vst3.zip
+            Nova Chord/build/NovaChord_artefacts/AU/NovaChord-macOS-au.zip
+
+      - name: Upload Full Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaChord-macOS-build
+          path: Nova Chord/build

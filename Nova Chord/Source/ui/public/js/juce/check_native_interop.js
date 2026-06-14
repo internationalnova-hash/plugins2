@@ -1,27 +1,26 @@
-// JUCE Native Interop Check
-// Verifies availability of JUCE backend and sets up appropriate mode
+/**
+ * Nova Chord — JUCE native interop check
+ * Verifies that the JUCE backend is available and logs its state.
+ */
+(function () {
+  'use strict';
 
-(function() {
-    'use strict';
-
-    const checkJuceBackend = () => {
-        return typeof window !== 'undefined' && window.__JUCE !== undefined;
-    };
-
-    const initMode = () => {
-        if (checkJuceBackend()) {
-            console.log('JUCE native backend detected - running in native mode');
-            window.juceNativeMode = true;
-        } else {
-            console.log('JUCE native backend not detected - fallback mode active');
-            window.juceNativeMode = false;
-        }
-    };
-
-    // Wait for document to be ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initMode);
+  function checkJuceBackend() {
+    if (typeof window.__JUCE__ !== 'undefined') {
+      console.log('JUCE native backend detected — native mode active');
+      if (window.__JUCE__.initialisationData) {
+        console.log('JUCE functions:', window.__JUCE__.initialisationData.__juce__functions || []);
+      }
+      window.juceNativeMode = true;
     } else {
-        initMode();
+      console.log('JUCE native backend not detected — fallback mode active');
+      window.juceNativeMode = false;
     }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', checkJuceBackend);
+  } else {
+    checkJuceBackend();
+  }
 })();
