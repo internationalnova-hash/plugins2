@@ -6,20 +6,20 @@
   <title>Nova Apex</title>
   <style>
     :root {
-      --bg:        #0A0908;
-      --panel:     #121110;
-      --panel-hi:  #181614;
-      --gold:      #C8A060;
-      --gold-lt:   #DDB870;
-      --gold-dim:  #7A5C28;
-      --gold-edge: rgba(200,160,96,0.22);
+      --bg:        #070809;
+      --panel:     #0C0D0F;
+      --panel-hi:  #111315;
+      --gold:      #D6B06A;
+      --gold-lt:   #F0D090;
+      --gold-dim:  #8A7040;
+      --gold-edge: rgba(214,176,106,0.22);
       --white:     #EEEAE4;
-      --edge:      rgba(200,160,96,0.22);
-      --edge-hi:   rgba(200,160,96,0.42);
+      --edge:      rgba(214,176,106,0.22);
+      --edge-hi:   rgba(214,176,106,0.42);
       --red:       #B83030;
       --red-dim:   rgba(184,48,48,0.18);
       --green:     #44C870;
-      --text-dim:  #786248;
+      --text-dim:  #607080;
       --inset:     inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.4);
     }
 
@@ -42,7 +42,7 @@
       width: 1400px; height: 860px;
       background: var(--bg);
       display: grid;
-      grid-template-rows: 90px 1fr 136px 36px;
+      grid-template-rows: 90px 1fr 176px 36px;
       overflow: hidden;
       /* Scale 1400×860 design into 1000×625 window */
       transform: scale(0.7143);
@@ -51,7 +51,7 @@
 
     /* ══════════════════════════ HEADER ══════════════════════════ */
     .hdr {
-      background: linear-gradient(180deg, #1a1714 0%, #111009 100%);
+      background: linear-gradient(180deg, #131518 0%, #0C0D10 100%);
       border-bottom: 1px solid var(--edge-hi);
       box-shadow: 0 1px 0 rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
       display: flex;
@@ -76,7 +76,7 @@
       padding: 0 18px;
       height: 30px;
       border-top: 1px solid rgba(200,160,96,0.14);
-      background: linear-gradient(180deg, rgba(10,9,7,0.9) 0%, rgba(8,7,5,0.95) 100%);
+      background: linear-gradient(180deg, rgba(8,9,12,0.9) 0%, rgba(5,6,9,0.95) 100%);
       flex-shrink: 0;
     }
     .style-mode-label {
@@ -101,7 +101,7 @@
     .style-pill.active {
       color: var(--gold-lt);
       border-color: rgba(200,160,96,0.55);
-      background: linear-gradient(180deg, rgba(40,30,16,0.9) 0%, rgba(22,16,8,0.95) 100%);
+      background: linear-gradient(180deg, rgba(20,22,28,0.9) 0%, rgba(12,13,18,0.95) 100%);
       box-shadow: 0 0 8px rgba(200,160,96,0.12), var(--inset);
     }
     .style-pill.active::after {
@@ -136,7 +136,7 @@
       width: 42px; height: 42px;
       border: 1px solid rgba(200,160,96,0.32);
       border-radius: 10px;
-      background: radial-gradient(circle at 38% 30%, rgba(200,160,96,0.18), rgba(20,14,6,0.95));
+      background: radial-gradient(circle at 38% 30%, rgba(214,176,106,0.18), rgba(10,12,18,0.95));
       display: grid; place-items: center; flex-shrink: 0;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 12px rgba(0,0,0,0.4);
     }
@@ -156,7 +156,7 @@
       display: flex; align-items: center; justify-content: center; gap: 6px;
     }
     .hdr-btn {
-      background: linear-gradient(180deg, rgba(30,26,20,0.9) 0%, rgba(14,12,9,0.95) 100%);
+      background: linear-gradient(180deg, rgba(18,20,26,0.9) 0%, rgba(10,11,16,0.95) 100%);
       border: 1px solid var(--edge);
       box-shadow: var(--inset), 0 1px 3px rgba(0,0,0,0.4);
       color: var(--gold-dim); cursor: pointer;
@@ -165,12 +165,12 @@
       transition: border-color 120ms, background 120ms, color 120ms;
       white-space: nowrap; letter-spacing: .06em;
     }
-    .hdr-btn:hover { border-color: var(--gold); color: var(--gold); background: linear-gradient(180deg, rgba(40,32,20,0.9) 0%, rgba(20,16,10,0.95) 100%); }
+    .hdr-btn:hover { border-color: var(--gold); color: var(--gold); background: linear-gradient(180deg, rgba(22,24,32,0.9) 0%, rgba(12,14,20,0.95) 100%); }
     .hdr-btn.active { border-color: var(--gold); color: var(--gold-lt); background: rgba(200,160,96,0.12); }
     .hdr-btn.icon-btn { width: 26px; padding: 0; justify-content: center; font-size: 13px; }
     .preset-drop {
       border: 1px solid rgba(200,160,96,0.5);
-      background: linear-gradient(180deg, rgba(28,22,14,0.98) 0%, rgba(14,11,7,0.99) 100%);
+      background: linear-gradient(180deg, rgba(16,18,24,0.98) 0%, rgba(9,10,15,0.99) 100%);
       box-shadow: var(--inset), 0 1px 4px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.3);
       color: var(--gold); font-size: 11px; font-weight: 700;
       border-radius: 5px; padding: 0 12px; height: 28px;
@@ -185,7 +185,7 @@
       border: 1px solid rgba(200,160,96,0.3);
       border-top-color: rgba(200,160,96,0.15);
       border-radius: 7px; padding: 5px 12px;
-      background: linear-gradient(180deg, rgba(6,5,4,0.95) 0%, rgba(12,10,8,0.98) 100%);
+      background: linear-gradient(180deg, rgba(5,6,9,0.95) 0%, rgba(8,9,14,0.98) 100%);
       box-shadow: var(--inset), 0 2px 8px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.4);
       display: flex; flex-direction: column; align-items: center; min-width: 72px;
     }
@@ -250,7 +250,7 @@
       background:
         radial-gradient(circle at 32% 24%, rgba(255,255,255,0.11) 0%, transparent 28%),
         radial-gradient(circle at 65% 72%, rgba(0,0,0,0.55) 0%, transparent 44%),
-        radial-gradient(circle at 50% 50%, #252018 0%, #0f0d0a 100%);
+        radial-gradient(circle at 50% 50%, #1A1C22 0%, #0A0B0E 100%);
       border: 1px solid rgba(200,160,96,0.30);
       border-top-color: rgba(200,160,96,0.50);
       border-bottom-color: rgba(0,0,0,0.8);
@@ -304,7 +304,7 @@
       left: 50%; top: 50%;
       transform: translate(-50%, -50%) rotate(var(--turn, -135deg)) translateY(-26px);
       border-radius: 1.5px;
-      background: linear-gradient(180deg, #fffae8 0%, #d8a840 60%, #7a5010 100%);
+      background: linear-gradient(180deg, #fffaf2 0%, #e0be78 60%, #908068 100%);
       box-shadow: 0 0 3px rgba(220,180,80,0.45), 0 1px 0 rgba(0,0,0,0.5);
       pointer-events: none;
     }
@@ -350,7 +350,7 @@
       border-top-color: rgba(200,160,96,0.30);
       border-radius: 6px;
       overflow: hidden;
-      background: linear-gradient(180deg, rgba(10,8,6,0.98) 0%, rgba(7,6,4,0.99) 100%);
+      background: linear-gradient(180deg, rgba(6,7,11,0.98) 0%, rgba(4,5,8,0.99) 100%);
       box-shadow: var(--inset), 0 2px 6px rgba(0,0,0,0.4);
     }
     .style-item {
@@ -391,7 +391,7 @@
 
     /* Waveform panel */
     .wave-panel {
-      background: #050403;
+      background: #040507;
       border-bottom: 1px solid rgba(200,160,96,0.18);
       position: relative;
       flex: 0 0 300px;
@@ -430,8 +430,8 @@
     .legend-gr  { color: #c05050; }
     .wave-canvas-wrap {
       flex: 1; position: relative; border-radius: 4px; overflow: hidden;
-      background: #040302;
-      border: 1px solid rgba(200,160,96,0.10);
+      background: #030407;
+      border: 1px solid rgba(214,176,106,0.10);
       box-shadow: var(--inset), inset 0 0 60px rgba(0,0,0,0.6);
     }
     .wave-scale {
@@ -452,7 +452,7 @@
 
     /* GR panel */
     .gr-panel {
-      background: #060504;
+      background: #040508;
       border-bottom: 1px solid var(--edge);
       flex: 0 0 100px;
       padding: 6px 10px;
@@ -466,8 +466,8 @@
     }
     .gr-canvas-wrap {
       flex: 1; position: relative; border-radius: 5px; overflow: hidden;
-      background: #050403;
-      border: 1px solid rgba(200,160,96,0.09);
+      background: #030408;
+      border: 1px solid rgba(214,176,106,0.09);
       box-shadow: var(--inset), inset 0 0 20px rgba(0,0,0,0.5);
     }
     .gr-scale {
@@ -480,7 +480,7 @@
 
     /* Loudness bar — integrated with metering environment */
     .loud-bar {
-      background: #050403;
+      background: #040508;
       border-bottom: 1px solid var(--edge);
       border-top: 1px solid rgba(200,160,96,0.08);
       box-shadow: inset 0 1px 8px rgba(0,0,0,0.4);
@@ -519,7 +519,7 @@
     .tp-meters-body {
       flex: 1; display: flex; align-items: stretch; gap: 6px;
       position: relative;
-      background: linear-gradient(180deg, #030202 0%, #060504 60%, #070605 100%);
+      background: linear-gradient(180deg, #030408 0%, #050609 60%, #060708 100%);
       border: 1px solid rgba(200,160,96,0.16);
       border-top-color: rgba(200,160,96,0.30);
       border-bottom-color: rgba(0,0,0,0.6);
@@ -546,11 +546,11 @@
     }
     .tp-seg {
       flex: 1; border-radius: 1.5px;
-      background: rgba(28,22,12,0.85);
+      background: rgba(10,12,18,0.85);
       transition: background 50ms;
     }
     .tp-seg.on {
-      background: linear-gradient(180deg, rgba(185,144,68,0.95) 0%, rgba(158,122,54,0.85) 100%);
+      background: linear-gradient(180deg, rgba(224,184,104,0.96) 0%, rgba(196,158,82,0.88) 100%);
     }
     .tp-seg.hot {
       background: linear-gradient(180deg, rgba(215,50,50,0.96) 0%, rgba(180,38,38,0.88) 100%);
@@ -571,115 +571,115 @@
 
     /* ══════════════════════════ BOTTOM STRIP ══════════════════════════ */
     .bottom-strip {
-      background: linear-gradient(180deg, #0f0e0c 0%, #0a0908 100%);
+      background: linear-gradient(180deg, #0C0D10 0%, #080910 100%);
       border-top: 1px solid var(--edge-hi);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
       display: flex;
       align-items: stretch;
-      padding: 0 10px;
+      padding: 0 14px;
       gap: 0;
     }
     .bot-group {
       display: flex; flex-direction: column;
-      padding: 0 6px;
-      border-right: 1px solid rgba(200,160,96,0.10);
+      padding: 0 14px;
+      border-right: 1px solid rgba(214,176,106,0.10);
       flex-shrink: 0;
     }
     .bot-group:last-child { border-right: none; flex: 1; }
     .bot-group-label {
-      font-size: 6px; font-weight: 700; letter-spacing: .22em;
-      color: rgba(100,80,42,0.5); text-transform: uppercase;
-      text-align: center; padding: 4px 0 2px;
-      border-bottom: 1px solid rgba(200,160,96,0.07);
-      margin-bottom: 4px;
+      font-size: 8px; font-weight: 700; letter-spacing: .20em;
+      color: rgba(138,112,64,0.65); text-transform: uppercase;
+      text-align: center; padding: 7px 0 4px;
+      border-bottom: 1px solid rgba(214,176,106,0.08);
+      margin-bottom: 6px;
     }
-    .bot-group-cells { display: flex; align-items: center; gap: 4px; flex: 1; padding-bottom: 4px; }
+    .bot-group-cells { display: flex; align-items: center; gap: 14px; flex: 1; padding-bottom: 6px; }
     .bot-cell {
       display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 3px; position: relative;
-      padding: 0 4px;
+      justify-content: center; gap: 5px; position: relative;
+      padding: 0 6px;
     }
-    .bot-label { font-size: 7px; letter-spacing: .12em; color: var(--gold-dim); font-weight: 700; text-transform: uppercase; text-align: center; line-height: 1.3; }
+    .bot-label { font-size: 9px; letter-spacing: .10em; color: var(--gold-dim); font-weight: 700; text-transform: uppercase; text-align: center; line-height: 1.35; }
     .bot-readout {
-      font-size: 9px; font-weight: 700; color: var(--gold-lt);
-      border: 1px solid rgba(200,160,96,0.18);
-      border-top-color: rgba(200,160,96,0.08);
-      border-radius: 3px;
-      padding: 1px 5px;
-      background: linear-gradient(180deg, rgba(6,5,3,0.95) 0%, rgba(10,8,5,0.98) 100%);
+      font-size: 11px; font-weight: 700; color: var(--gold-lt);
+      border: 1px solid rgba(214,176,106,0.20);
+      border-top-color: rgba(214,176,106,0.08);
+      border-radius: 4px;
+      padding: 2px 8px;
+      background: linear-gradient(180deg, rgba(5,6,9,0.95) 0%, rgba(8,9,13,0.98) 100%);
       box-shadow: var(--inset);
       letter-spacing: .03em; text-align: center; font-variant-numeric: tabular-nums;
     }
     .bot-power {
       position: absolute; top: 0; right: 2px;
-      width: 16px; height: 16px; border: 1px solid var(--edge);
+      width: 18px; height: 18px; border: 1px solid var(--edge);
       background: transparent; color: var(--text-dim); border-radius: 3px;
-      font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;
     }
     .bot-power:hover { border-color: var(--gold-dim); color: var(--gold-dim); }
     .bot-power.active { border-color: var(--gold); color: var(--gold); }
     .bot-link-icon {
       position: absolute; top: 0; right: 2px;
-      font-size: 11px; color: var(--text-dim); cursor: pointer;
+      font-size: 14px; color: var(--text-dim); cursor: pointer;
     }
     .bot-link-icon.active { color: var(--gold); }
 
     /* Feature toggle cells (ISP Protection, Smart Release, Safe Mode) */
     .feat-cell {
       display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 4px; padding: 0 6px;
+      justify-content: center; gap: 6px; padding: 0 8px;
     }
     .feat-toggle {
-      width: 54px; height: 20px;
-      border: 1px solid rgba(200,160,96,0.22);
-      border-radius: 3px;
-      background: linear-gradient(180deg, rgba(14,11,7,0.9) 0%, rgba(8,6,4,0.95) 100%);
-      color: rgba(120,96,50,0.65);
-      font-size: 7.5px; font-weight: 700; letter-spacing: .10em; text-transform: uppercase;
+      width: 68px; height: 28px;
+      border: 1px solid rgba(214,176,106,0.22);
+      border-radius: 4px;
+      background: linear-gradient(180deg, rgba(10,11,14,0.9) 0%, rgba(6,7,10,0.95) 100%);
+      color: rgba(138,112,64,0.65);
+      font-size: 9px; font-weight: 700; letter-spacing: .10em; text-transform: uppercase;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer;
       transition: border-color 150ms, background 150ms, color 150ms, box-shadow 150ms;
       user-select: none;
     }
-    .feat-toggle:hover { border-color: rgba(200,160,96,0.42); color: var(--gold-dim); }
+    .feat-toggle:hover { border-color: rgba(214,176,106,0.42); color: var(--gold-dim); }
     .feat-toggle.active {
-      border-color: rgba(200,160,96,0.60);
-      background: linear-gradient(180deg, rgba(34,26,14,0.95) 0%, rgba(18,13,7,0.98) 100%);
+      border-color: rgba(214,176,106,0.60);
+      background: linear-gradient(180deg, rgba(22,24,30,0.95) 0%, rgba(12,13,18,0.98) 100%);
       color: var(--gold-lt);
-      box-shadow: 0 0 8px rgba(200,160,96,0.14), inset 0 0 4px rgba(200,160,96,0.06);
+      box-shadow: 0 0 10px rgba(214,176,106,0.14), inset 0 0 4px rgba(214,176,106,0.06);
     }
     .feat-label {
-      font-size: 7px; letter-spacing: .12em; color: var(--text-dim);
-      font-weight: 700; text-transform: uppercase; text-align: center; line-height: 1.3;
+      font-size: 9px; letter-spacing: .10em; color: var(--text-dim);
+      font-weight: 700; text-transform: uppercase; text-align: center; line-height: 1.35;
     }
     .bot-group-sep {
       width: 1px; background: rgba(200,160,96,0.08); align-self: stretch; margin: 4px 2px;
     }
 
     /* Stack buttons (oversample/dither) */
-    .stack-btns { display: flex; flex-direction: column; gap: 1.5px; width: 100%; }
+    .stack-btns { display: flex; flex-direction: column; gap: 2px; width: 100%; }
     .stack-btn {
       flex: 1;
-      border: 1px solid rgba(200,160,96,0.14);
-      background: linear-gradient(180deg, rgba(18,14,10,0.95) 0%, rgba(8,7,5,0.98) 100%);
+      border: 1px solid rgba(214,176,106,0.14);
+      background: linear-gradient(180deg, rgba(10,11,15,0.95) 0%, rgba(6,7,10,0.98) 100%);
       box-shadow: var(--inset);
-      color: rgba(100,82,54,0.65);
-      font-size: 7.5px; font-weight: 700; letter-spacing: .1em;
+      color: rgba(138,112,64,0.65);
+      font-size: 9px; font-weight: 700; letter-spacing: .1em;
       text-transform: uppercase; cursor: pointer; border-radius: 3px;
-      padding: 3px 4px; text-align: center;
+      padding: 4px 6px; text-align: center;
       transition: background 100ms, color 100ms, border-color 100ms;
     }
-    .stack-btn:hover { color: var(--gold-dim); border-color: rgba(200,160,96,0.28); }
+    .stack-btn:hover { color: var(--gold-dim); border-color: rgba(214,176,106,0.28); }
     .stack-btn.active {
-      border-color: rgba(200,160,96,0.5);
-      background: linear-gradient(180deg, rgba(40,30,16,0.95) 0%, rgba(20,15,8,0.98) 100%);
+      border-color: rgba(214,176,106,0.5);
+      background: linear-gradient(180deg, rgba(18,20,26,0.95) 0%, rgba(10,12,16,0.98) 100%);
       color: var(--gold);
-      box-shadow: var(--inset), inset 0 0 0 1px rgba(200,160,96,0.08);
+      box-shadow: var(--inset), inset 0 0 0 1px rgba(214,176,106,0.08);
     }
 
     /* ══════════════════════════ FOOTER ══════════════════════════ */
     .footer {
-      background: linear-gradient(180deg, #141210 0%, #0C0A09 100%);
+      background: linear-gradient(180deg, #111318 0%, #090A0F 100%);
       border-top: 1px solid rgba(200,160,96,0.5);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
       display: grid;
@@ -733,7 +733,7 @@
 
     .preset-modal {
       width: 760px;
-      background: linear-gradient(180deg, #181410 0%, #0e0c09 100%);
+      background: linear-gradient(180deg, #111318 0%, #09090E 100%);
       border: 1px solid rgba(200,160,96,0.40);
       border-top-color: rgba(200,160,96,0.60);
       border-radius: 10px;
@@ -748,7 +748,7 @@
       padding: 18px 24px 14px;
       border-bottom: 1px solid rgba(200,160,96,0.16);
       display: flex; align-items: center; justify-content: space-between;
-      background: linear-gradient(180deg, rgba(30,24,14,0.9) 0%, transparent 100%);
+      background: linear-gradient(180deg, rgba(18,20,28,0.9) 0%, transparent 100%);
     }
     .pm-title-block { display: flex; flex-direction: column; gap: 2px; }
     .pm-nova { font-size: 8px; font-weight: 700; letter-spacing: .22em; color: var(--gold-dim); text-transform: uppercase; }
@@ -772,7 +772,7 @@
     .pm-cards::-webkit-scrollbar-thumb { background: rgba(200,160,96,0.24); border-radius: 2px; }
 
     .pm-card {
-      background: linear-gradient(180deg, rgba(22,18,11,0.95) 0%, rgba(12,10,7,0.98) 100%);
+      background: linear-gradient(180deg, rgba(13,14,19,0.95) 0%, rgba(8,9,13,0.98) 100%);
       border: 1px solid rgba(200,160,96,0.14);
       border-radius: 7px; padding: 12px 14px;
       cursor: pointer;
@@ -781,12 +781,12 @@
     }
     .pm-card:hover {
       border-color: rgba(200,160,96,0.40);
-      background: linear-gradient(180deg, rgba(32,26,16,0.98) 0%, rgba(16,13,9,0.99) 100%);
+      background: linear-gradient(180deg, rgba(18,20,28,0.98) 0%, rgba(10,11,17,0.99) 100%);
       box-shadow: 0 0 14px rgba(200,140,40,0.08);
     }
     .pm-card.selected {
       border-color: rgba(200,160,96,0.65);
-      background: linear-gradient(180deg, rgba(42,34,18,0.98) 0%, rgba(20,16,10,0.99) 100%);
+      background: linear-gradient(180deg, rgba(20,22,30,0.98) 0%, rgba(12,13,20,0.99) 100%);
       box-shadow: 0 0 18px rgba(200,140,40,0.14), inset 0 1px 0 rgba(255,255,255,0.04);
     }
     .pm-card-mode {
@@ -829,12 +829,12 @@
     .pm-btn-cancel:hover { border-color: rgba(200,160,96,0.42); color: var(--gold); }
     .pm-btn-load {
       border: 1px solid var(--gold);
-      background: linear-gradient(180deg, rgba(44,34,18,0.98) 0%, rgba(24,18,10,0.99) 100%);
+      background: linear-gradient(180deg, rgba(16,18,26,0.98) 0%, rgba(9,10,16,0.99) 100%);
       color: var(--gold-lt);
       box-shadow: 0 0 12px rgba(200,140,40,0.16);
     }
     .pm-btn-load:hover {
-      background: linear-gradient(180deg, rgba(56,44,22,0.98) 0%, rgba(30,22,12,0.99) 100%);
+      background: linear-gradient(180deg, rgba(20,22,32,0.98) 0%, rgba(12,13,22,0.99) 100%);
       box-shadow: 0 0 18px rgba(200,140,40,0.24);
     }
   </style>
@@ -932,7 +932,7 @@
       <div class="knob-cell" style="margin-top:8px;">
         <span class="section-label">Input</span>
         <div class="knob" data-param="gain" data-min="-24" data-max="24" data-def="0">
-          <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#C8A060" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
+          <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#D6B06A" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
           <div class="knob-ptr"></div>
         </div>
         <div class="knob-row-labels"><span>-24</span><span>+24</span></div>
@@ -943,7 +943,7 @@
       <div class="knob-cell" style="margin-top:16px;">
         <span class="section-label">Drive</span>
         <div class="knob" data-param="drive" data-min="0" data-max="100" data-def="0">
-          <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#C8A060" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
+          <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#D6B06A" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
           <div class="knob-ptr"></div>
         </div>
         <div class="knob-row-labels"><span>0</span><span>100</span></div>
@@ -1023,7 +1023,7 @@
       <div class="knob-cell" style="margin-top:6px;">
         <span class="section-label" style="font-size:10px;color:var(--gold);letter-spacing:.2em;">Ceiling</span>
         <div class="knob lg" data-param="ceiling" data-min="-3" data-max="0" data-def="-0.1">
-          <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#C8A060" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
+          <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#D6B06A" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
           <div class="knob-ptr"></div>
         </div>
         <div class="k-readout" data-readout="ceiling" style="font-size:11px;min-width:70px;color:#F0D090;border-color:rgba(200,160,96,0.45);box-shadow:0 0 8px rgba(200,150,60,0.22);">-0.1 dBTP</div>
@@ -1076,7 +1076,7 @@
         <div class="bot-cell">
           <span class="bot-label">Lookahead</span>
           <div class="knob sm" data-param="lookahead" data-min="0" data-max="5" data-def="5">
-            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#D6B06A" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
             <div class="knob-ptr"></div>
           </div>
           <div class="bot-readout" data-readout="lookahead">5.0 ms</div>
@@ -1084,7 +1084,7 @@
         <div class="bot-cell">
           <span class="bot-label">Attack</span>
           <div class="knob sm" data-param="attack" data-min="0.1" data-max="100" data-def="1.5">
-            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#D6B06A" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
             <div class="knob-ptr"></div>
           </div>
           <div class="bot-readout" data-readout="attack">1.5 ms</div>
@@ -1092,7 +1092,7 @@
         <div class="bot-cell">
           <span class="bot-label">Release</span>
           <div class="knob sm" data-param="release" data-min="10" data-max="1000" data-def="100">
-            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#D6B06A" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
             <div class="knob-ptr"></div>
           </div>
           <div class="bot-readout" data-readout="release">100 ms</div>
@@ -1108,7 +1108,7 @@
           <span class="bot-label">Transient<br>Preserve</span>
           <button class="bot-power" id="tp-power" type="button" title="Toggle">&#x23FB;</button>
           <div class="knob sm" data-param="transientPreserve" data-min="0" data-max="100" data-def="0">
-            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#D6B06A" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
             <div class="knob-ptr"></div>
           </div>
           <div class="bot-readout" data-readout="transientPreserve">0 %</div>
@@ -1117,7 +1117,7 @@
           <span class="bot-label">Low-End<br>Protect</span>
           <button class="bot-power" id="lep-power" type="button" title="Toggle">&#x23FB;</button>
           <div class="knob sm" data-param="lowEndProtect" data-min="0" data-max="100" data-def="0">
-            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#D6B06A" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
             <div class="knob-ptr"></div>
           </div>
           <div class="bot-readout" data-readout="lowEndProtect">0 %</div>
@@ -1133,7 +1133,7 @@
           <span class="bot-label">Channel<br>Link</span>
           <span class="bot-link-icon active" id="link-icon">&#x26D3;</span>
           <div class="knob sm" data-param="link" data-min="0" data-max="100" data-def="100">
-            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#D6B06A" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
             <div class="knob-ptr"></div>
           </div>
           <div class="bot-readout" data-readout="link">100 %</div>
@@ -1188,7 +1188,7 @@
   <footer class="footer">
     <div class="footer-left">
       <svg class="footer-logo" viewBox="0 0 22 22" fill="none">
-        <rect x="0.8" y="0.8" width="20.4" height="20.4" rx="4" stroke="#C8A060" stroke-width="1.3" fill="none"/>
+        <rect x="0.8" y="0.8" width="20.4" height="20.4" rx="4" stroke="#D6B06A" stroke-width="1.3" fill="none"/>
         <polygon points="7,5.5 17,11 7,16.5" fill="#C8A060" opacity="0.88"/>
       </svg>
       <div class="nova-guard-block">
@@ -1612,8 +1612,8 @@ function drawWave() {
     curGR = Math.max(curGR, grBuf[(histHead + i) % HIST]);
   const grIntensity = Math.min(1, curGR / 0.6); // 0..1
 
-  // Background: very dark, slight amber warmth when limiting
-  ctx.fillStyle = '#040302';
+  // Background: near-black with blue-black tint
+  ctx.fillStyle = '#030407';
   ctx.fillRect(0, 0, w, h);
 
   // Ambient glow from center when GR is high — the "heart beating" effect
@@ -1680,15 +1680,15 @@ function drawWave() {
   ctx.lineWidth = 0.8;
   ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
 
-  // INPUT waveform — high-contrast amber, reads from across the room
+  // INPUT waveform — champagne gold, illuminated through black glass
   const inTop = ctx.createLinearGradient(0, h/2, 0, 0);
-  inTop.addColorStop(0,    'rgba(200,158,72,0.20)');
-  inTop.addColorStop(0.25, 'rgba(198,154,70,0.55)');
-  inTop.addColorStop(0.65, 'rgba(196,150,67,0.74)');
-  inTop.addColorStop(1,    'rgba(192,146,64,0.82)');
+  inTop.addColorStop(0,    'rgba(214,176,106,0.14)');
+  inTop.addColorStop(0.25, 'rgba(218,180,110,0.42)');
+  inTop.addColorStop(0.65, 'rgba(222,184,112,0.58)');
+  inTop.addColorStop(1,    'rgba(226,188,116,0.65)');
   const inBot = ctx.createLinearGradient(0, h/2, 0, h);
-  inBot.addColorStop(0, 'rgba(178,140,60,0.26)');
-  inBot.addColorStop(1, 'rgba(146,114,48,0.06)');
+  inBot.addColorStop(0, 'rgba(200,168,100,0.20)');
+  inBot.addColorStop(1, 'rgba(160,136,80,0.04)');
   drawSymmetric(inputBuf, inTop, inBot, h * 0.42);
 
   // Input edge line — bright, crisp
@@ -1699,7 +1699,7 @@ function drawWave() {
     const y = h/2 - inputBuf[idx] * h * 0.42;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
-  ctx.strokeStyle = 'rgba(224,178,88,0.95)';
+  ctx.strokeStyle = 'rgba(234,194,118,0.95)';
   ctx.lineWidth = 1.6;
   ctx.stroke();
 
