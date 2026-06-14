@@ -51,7 +51,7 @@ namespace NovaStudio
         bool muted = false;
         bool solo = false;
         bool armed = false;
-        float sendLevels[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        float sendLevels[6] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
         juce::String inputBus;   // e.g. "Bus 1-2", "Input 1" — empty = default
         juce::String outputBus;  // e.g. "Main Out", "Bus 3-4"
         juce::Array<Clip> clips;

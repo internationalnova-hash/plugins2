@@ -531,10 +531,10 @@ void ChannelStrip::mouseDown(const juce::MouseEvent& e)
         }
     }
 
-    // Hit-test slots 6..8 (only if expanded)
+    // Hit-test slots 6..9 (only if expanded)
     if (insertsExpanded)
     {
-        for (int i = 6; i < 9; ++i)
+        for (int i = 6; i < 10; ++i)
             if (handleSlotClick(i)) return;
     }
 }
@@ -545,7 +545,7 @@ void ChannelStrip::drawInsertSlots(juce::Graphics& g, juce::Rectangle<int> area)
     const int gap   = 3;
     auto r = area.reduced(4, 2);
 
-    const int visibleSlots = insertsExpanded ? 9 : 6;
+    const int visibleSlots = insertsExpanded ? 10 : 6;
 
     for (int i = 0; i < visibleSlots; ++i)
     {
@@ -589,7 +589,7 @@ void ChannelStrip::drawInsertSlots(juce::Graphics& g, juce::Rectangle<int> area)
     auto expandRow = r.removeFromTop(16);
     g.setColour(juce::Colours::white.withAlpha(0.25f));
     g.setFont(juce::FontOptions(8.0f));
-    g.drawText(insertsExpanded ? u8"▲ less" : u8"▼ +3 slots", expandRow, juce::Justification::centred);
+    g.drawText(insertsExpanded ? u8"▲ less" : u8"▼ +4 slots", expandRow, juce::Justification::centred);
 }
 
 
@@ -1176,7 +1176,7 @@ void MixerWindow::refreshInsertSlotNames()
         for (auto* strip : strips)
         {
             const int t = strip->getTrackIndex();
-            for (int s = 0; s < 9; ++s)
+            for (int s = 0; s < 10; ++s)
             {
                 auto* plugin = engine.getTrackPlugin(t, s);
                 strip->setInsertSlotName(s, plugin ? plugin->getName() : juce::String());

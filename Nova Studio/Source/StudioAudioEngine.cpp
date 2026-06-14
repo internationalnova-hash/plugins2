@@ -771,14 +771,14 @@ namespace NovaStudio
     void StudioAudioEngine::setTrackSendLevel(int trackIndex, int sendIndex, float db)
     {
         if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return;
-        if (!isPositiveAndBelow(sendIndex, 4)) return;
+        if (!isPositiveAndBelow(sendIndex, 6)) return;
         session.getTrack(trackIndex).sendLevels[sendIndex] = db;
     }
 
     float StudioAudioEngine::getTrackSendLevel(int trackIndex, int sendIndex) const noexcept
     {
         if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return 0.0f;
-        if (!isPositiveAndBelow(sendIndex, 4)) return 0.0f;
+        if (!isPositiveAndBelow(sendIndex, 6)) return 0.0f;
         return session.getTrack(trackIndex).sendLevels[sendIndex];
     }
 

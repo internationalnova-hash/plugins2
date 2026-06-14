@@ -18,8 +18,8 @@ namespace NovaStudioUI
     public:
         static constexpr int kWidth       = 88;
         static constexpr int kMasterWidth = 100;
-        static constexpr int kHeight      = 700;
-        static constexpr int kNumSends    = 2;   // Verb + Delay (matches mockup)
+        static constexpr int kHeight      = 820;  // taller to fit 10 inserts + 6 sends
+        static constexpr int kNumSends    = 6;
 
         ChannelStrip();
         ~ChannelStrip() override;
@@ -44,7 +44,7 @@ namespace NovaStudioUI
 
         void setInsertSlotName(int slot, const juce::String& name)
         {
-            if (isPositiveAndBelow(slot, 9)) { insertSlotNames[slot] = name; repaint(); }
+            if (isPositiveAndBelow(slot, 10)) { insertSlotNames[slot] = name; repaint(); }
         }
         // sendBusName: destination bus (e.g. "Verb", "Delay")
         void setSendBusName(int send, const juce::String& busName)
@@ -59,7 +59,7 @@ namespace NovaStudioUI
         void setInputName (const juce::String& s) { inputLabel .setText(s, juce::dontSendNotification); }
         void setOutputName(const juce::String& s) { outputLabel.setText(s, juce::dontSendNotification); }
 
-        juce::String insertSlotNames[9];
+        juce::String insertSlotNames[10];
         bool insertsExpanded = false;
 
         // Callbacks
