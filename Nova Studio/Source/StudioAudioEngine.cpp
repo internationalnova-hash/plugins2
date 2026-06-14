@@ -888,10 +888,14 @@ namespace NovaStudio
         juce::AudioBuffer<float> tempBuffer(numOutputChannels, numSamples);
         juce::AudioSourceChannelInfo info(tempBuffer);
 
-        // Update each track player's playback position (sample-accurate) from transport
+        // Update each track player's playback position (sample-accurate) from transport.
+        // Hold playerLock so buildTrackPlayers() cannot clear the array mid-iteration.
         const double transportSeconds = static_cast<double>(transportState.getPositionSamples()) / transportState.getSampleRate();
-        for (int i = 0; i < trackPlayers.size(); ++i)
-            trackPlayers.getReference(i)->setPlaybackPosition(transportSeconds);
+        {
+            juce::ScopedLock sl(playerLock);
+            for (int i = 0; i < trackPlayers.size(); ++i)
+                trackPlayers.getReference(i)->setPlaybackPosition(transportSeconds);
+        }
 
         mixerSource.getNextAudioBlock(info);
 
@@ -994,21 +998,30 @@ namespace NovaStudio
 
     void StudioAudioEngine::buildTrackPlayers()
     {
-        mixerSource.removeAllInputs();
-        trackPlayers.clear();
-
+        // Build new players outside the lock so prepareToPlay (which can be slow)
+        // doesn't block the audio thread.
+        juce::Array<std::unique_ptr<TrackPlayer>> newPlayers;
         for (int index = 0; index < session.getNumTracks(); ++index)
         {
             auto trackPlayer = std::make_unique<TrackPlayer>();
             trackPlayer->setTrackMetadata(session.getTrack(index));
             trackPlayer->setSessionTrack(&session, index);
-            // Prepare immediately if the device is already running
             if (currentSampleRate > 0 && currentBufferSize > 0)
                 trackPlayer->prepareToPlay(currentBufferSize, currentSampleRate);
-
-            trackPlayers.add(std::move(trackPlayer));
-            mixerSource.addInputSource(trackPlayers.getReference(trackPlayers.size() - 1).get(), false);
+            newPlayers.add(std::move(trackPlayer));
         }
+
+        // Swap atomically: remove old inputs, install new ones, swap the array.
+        // MixerAudioSource::removeAllInputs/addInputSource are internally locked, so
+        // the audio callback's getNextAudioBlock() won't touch a destroyed source.
+        // The playerLock guards our direct trackPlayers iteration in the audio callback.
+        mixerSource.removeAllInputs();
+        {
+            juce::ScopedLock sl(playerLock);
+            trackPlayers = std::move(newPlayers);
+        }
+        for (int i = 0; i < trackPlayers.size(); ++i)
+            mixerSource.addInputSource(trackPlayers.getReference(i).get(), false);
 
         updateSoloStates();
     }

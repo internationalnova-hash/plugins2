@@ -132,6 +132,7 @@ namespace NovaStudio
 
         juce::AudioDeviceManager deviceManager;
         juce::MixerAudioSource mixerSource;
+        juce::CriticalSection playerLock;  // guards trackPlayers across audio+main threads
         juce::AudioPluginFormatManager pluginFormatManager;
         juce::KnownPluginList knownPlugins;
         Session session;
