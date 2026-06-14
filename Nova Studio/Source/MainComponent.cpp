@@ -173,6 +173,17 @@ MainComponent::MainComponent()
             });
     };
 
+    workspaceToolbar.onAudioSettings = [this]()
+    {
+        if (audioSettingsWindow == nullptr)
+            audioSettingsWindow = std::make_unique<NovaStudioUI::AudioSettingsWindow>(engine.getDeviceManager());
+        else
+        {
+            audioSettingsWindow->setVisible(true);
+            audioSettingsWindow->toFront(true);
+        }
+    };
+
     alignPanel.onStatusMessage = [this](const juce::String& message)
     {
         updateStatusMessage(message);

@@ -60,6 +60,7 @@ namespace NovaStudio
         juce::File getRecordingFolder()  const noexcept { return recordingFolder; }
         juce::File getLastRecordingFile() const noexcept { return currentRecordingFile; }
         int getActiveInputChannelCount() const noexcept { return cachedActiveInputChannels; }
+        juce::AudioDeviceManager& getDeviceManager() noexcept { return deviceManager; }
 
         static juce::File getDefaultSessionsFolder()
         {

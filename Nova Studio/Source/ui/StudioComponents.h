@@ -242,6 +242,43 @@ namespace NovaStudioUI
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NovaAlignPanel)
     };
 
+    // Floating window containing JUCE's built-in audio device selector.
+    // Owns the selector component; caller passes in the engine's AudioDeviceManager.
+    class AudioSettingsWindow : public juce::DocumentWindow
+    {
+    public:
+        AudioSettingsWindow(juce::AudioDeviceManager& dm)
+            : juce::DocumentWindow("Audio Settings",
+                                   juce::Colour::fromRGB(18, 20, 28),
+                                   juce::DocumentWindow::closeButton)
+        {
+            selector = std::make_unique<juce::AudioDeviceSelectorComponent>(
+                dm,
+                /*minInputChannels*/  0,
+                /*maxInputChannels*/  32,
+                /*minOutputChannels*/ 0,
+                /*maxOutputChannels*/ 32,
+                /*showMidiInputOptions*/   false,
+                /*showMidiOutputSelector*/ false,
+                /*showChannelsAsStereoPairs*/ true,
+                /*hideAdvancedOptionsWithButton*/ false);
+
+            selector->setSize(500, 420);
+            setContentOwned(selector.release(), true);
+            setUsingNativeTitleBar(true);
+            setResizable(true, false);
+            centreWithSize(500, 450);
+            setVisible(true);
+            toFront(true);
+        }
+
+        void closeButtonPressed() override { setVisible(false); }
+
+    private:
+        std::unique_ptr<juce::AudioDeviceSelectorComponent> selector;
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioSettingsWindow)
+    };
+
     class WorkspaceToolbar : public juce::Component,
                              private juce::Button::Listener
     {
@@ -257,6 +294,7 @@ namespace NovaStudioUI
         std::function<void()> onNovaAlign;
         std::function<void()> onSave;
         std::function<void()> onLoad;
+        std::function<void()> onAudioSettings;
 
     private:
         void buttonClicked(juce::Button* b) override;
@@ -273,6 +311,7 @@ namespace NovaStudioUI
         juce::TextButton novaAlignBtn {"Nova Align"};
         juce::TextButton saveBtn {"Save"};
         juce::TextButton loadBtn {"Load"};
+        juce::TextButton audioBtn {"Audio"};
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WorkspaceToolbar)
     };

@@ -42,6 +42,7 @@ private:
     NovaStudioUI::StepSequencerPanel stepSequencerPanel;
     juce::Label statusLabel;
     juce::String statusMessage;
+    std::unique_ptr<NovaStudioUI::AudioSettingsWindow> audioSettingsWindow;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
     void changeListenerCallback(juce::ChangeBroadcaster* source) override;

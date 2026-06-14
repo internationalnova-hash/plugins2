@@ -1221,6 +1221,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         addAndMakeVisible(novaAlignBtn);
         addAndMakeVisible(saveBtn);
         addAndMakeVisible(loadBtn);
+        addAndMakeVisible(audioBtn);
 
         editBtn.addListener(this);
         mixerBtn.addListener(this);
@@ -1234,11 +1235,14 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         novaAlignBtn.addListener(this);
         saveBtn.addListener(this);
         loadBtn.addListener(this);
+        audioBtn.addListener(this);
 
         saveBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(30, 50, 30));
         saveBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(120, 220, 100));
         loadBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(28, 36, 50));
         loadBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(140, 180, 255));
+        audioBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(30, 30, 50));
+        audioBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(180, 160, 255));
     }
 
     WorkspaceToolbar::~WorkspaceToolbar() = default;
@@ -1261,9 +1265,10 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         beatBtn.setBounds(topRow.removeFromLeft(buttonWidth).reduced(4));
         rackBtn.setBounds(topRow.removeFromLeft(buttonWidth).reduced(4));
 
-        // Save/Load on the right side of the top row
+        // Audio / Save / Load on the right side of the top row
         saveBtn.setBounds(topRow.removeFromRight(56).reduced(4));
         loadBtn.setBounds(topRow.removeFromRight(56).reduced(4));
+        audioBtn.setBounds(topRow.removeFromRight(60).reduced(4));
 
         buttonWidth = bottomRow.getWidth() / 5;
         slipBtn.setBounds(bottomRow.removeFromLeft(buttonWidth).reduced(4));
@@ -1287,5 +1292,6 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         else if (b == &novaAlignBtn && onNovaAlign) onNovaAlign();
         else if (b == &saveBtn && onSave) onSave();
         else if (b == &loadBtn && onLoad) onLoad();
+        else if (b == &audioBtn && onAudioSettings) onAudioSettings();
     }
 }
