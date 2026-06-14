@@ -35,6 +35,13 @@ MainComponent::MainComponent()
     statusLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.8f));
     statusLabel.setText("Nova Studio Lite prototype ready", juce::dontSendNotification);
 
+    transportBar.onReturnToZero = [this] {
+        engine.stop();
+        transportState.setPositionSamples(0, true);
+        transportBar.setPlayState(false, false);
+        updateStatusMessage("Returned to zero.");
+    };
+
     transportBar.onPlay = [this] {
         engine.play();
         transportBar.setPlayState(true, engine.isRecording());

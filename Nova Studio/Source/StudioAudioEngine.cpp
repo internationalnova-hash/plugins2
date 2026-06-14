@@ -604,9 +604,16 @@ namespace NovaStudio
         if (!currentRecordingFile.existsAsFile())
             return;
 
+        juce::Logger::writeToLog("createRecordingClip: numTracks=" + juce::String(session.getNumTracks())
+            + "  file=" + currentRecordingFile.getFileName());
+
+        bool clipAdded = false;
         for (int i = 0; i < session.getNumTracks(); ++i)
         {
             auto& track = session.getTrack(i);
+            juce::Logger::writeToLog("  track[" + juce::String(i) + "] name=" + track.name
+                + " type=" + juce::String((int)track.type)
+                + " armed=" + juce::String((int)track.armed));
             if (track.type == TrackType::Audio && track.armed)
             {
                 Clip clip;
@@ -615,9 +622,15 @@ namespace NovaStudio
                 clip.lengthSamples = recordingSampleCount;
                 clip.isMidi = false;
                 track.clips.add(clip);
+                juce::Logger::writeToLog("  -> clip added at startSample=" + juce::String(recordingStartSample)
+                    + " length=" + juce::String(recordingSampleCount));
+                clipAdded = true;
                 break;
             }
         }
+
+        if (!clipAdded)
+            juce::Logger::writeToLog("  -> WARNING: no armed audio track found, clip not added!");
 
         buildTrackPlayers();
     }
@@ -636,8 +649,13 @@ namespace NovaStudio
             if (!transportState.isRecordArmed())
                 transportState.setRecordArmed(true);
 
+            // Always record from position 0 when transport is stopped so clips
+            // land at the start of the timeline and are immediately visible.
             if (!transportState.isPlaying())
+            {
+                transportState.setPositionSamples(0, false);
                 play();
+            }
 
             transportState.startRecording();
             startRecordingInternal();

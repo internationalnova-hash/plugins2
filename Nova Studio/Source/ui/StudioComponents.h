@@ -25,6 +25,7 @@ namespace NovaStudioUI
         std::function<void()> onPlay;
         std::function<void()> onStop;
         std::function<void()> onRecord;
+        std::function<void()> onReturnToZero;
         std::function<void()> onArm;
         std::function<void()> onMonitor;
         std::function<void()> onLoop;
@@ -42,6 +43,7 @@ namespace NovaStudioUI
         void buttonClicked(juce::Button* button) override;
         void timerCallback() override;
 
+        juce::TextButton rtzButton {"|<<"};
         juce::TextButton playButton {"Play"};
         juce::TextButton stopButton {"Stop"};
         juce::TextButton recordButton {"Rec"};

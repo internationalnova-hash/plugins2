@@ -6,6 +6,7 @@ namespace NovaStudioUI
 {
     TransportBar::TransportBar()
     {
+        addAndMakeVisible(rtzButton);
         addAndMakeVisible(playButton);
         addAndMakeVisible(stopButton);
         addAndMakeVisible(recordButton);
@@ -15,6 +16,7 @@ namespace NovaStudioUI
         addAndMakeVisible(tempoLabel);
         addAndMakeVisible(timeLabel);
 
+        rtzButton.addListener(this);
         playButton.addListener(this);
         stopButton.addListener(this);
         recordButton.addListener(this);
@@ -57,6 +59,7 @@ namespace NovaStudioUI
         auto area = getLocalBounds().reduced(14);
         auto buttonWidth = 88;
         auto tall = 32;
+        rtzButton.setBounds(area.removeFromLeft(44).removeFromTop(tall).reduced(4));
         playButton.setBounds(area.removeFromLeft(buttonWidth).removeFromTop(tall).reduced(4));
         stopButton.setBounds(area.removeFromLeft(buttonWidth).removeFromTop(tall).reduced(4));
         recordButton.setBounds(area.removeFromLeft(buttonWidth).removeFromTop(tall).reduced(4));
@@ -143,7 +146,8 @@ namespace NovaStudioUI
     // Button listener handles playback toggle
     void TransportBar::buttonClicked(juce::Button* button)
     {
-        if (button == &playButton && onPlay) onPlay();
+        if (button == &rtzButton && onReturnToZero) onReturnToZero();
+        else if (button == &playButton && onPlay) onPlay();
         else if (button == &stopButton && onStop) onStop();
         else if (button == &recordButton && onRecord) onRecord();
         else if (button == &armButton && onArm) onArm();
