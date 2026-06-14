@@ -637,7 +637,10 @@ namespace NovaStudio
         if (!clipAdded)
             juce::Logger::writeToLog("  -> WARNING: no armed audio track found, clip not added!");
 
-        buildTrackPlayers();
+        // Refresh player metadata only — do NOT rebuild players while the audio
+        // device is still running. Players read clips from the session on the fly,
+        // so they will pick up the new clip automatically at playback time.
+        refreshTrackPlaybackStates();
     }
 
     void StudioAudioEngine::toggleRecord()
