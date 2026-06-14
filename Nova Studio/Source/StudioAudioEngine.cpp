@@ -218,8 +218,28 @@ namespace NovaStudio
     StudioAudioEngine::StudioAudioEngine()
     {
         pluginFormatManager.addDefaultFormats();
-        recordingFolder = juce::File::getCurrentWorkingDirectory().getChildFile("NovaStudioProjects").getChildFile("Recordings");
-        recordingFolder.createDirectory();
+
+        // Prefer ~/Documents/NovaStudio/Recordings; fall back to cwd if creation fails
+        juce::File preferred = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                                   .getChildFile("NovaStudio")
+                                   .getChildFile("Recordings");
+        if (preferred.createDirectory().wasOk())
+        {
+            recordingFolder = preferred;
+        }
+        else
+        {
+            recordingFolder = juce::File::getCurrentWorkingDirectory()
+                                  .getChildFile("NovaStudioProjects")
+                                  .getChildFile("Recordings");
+            recordingFolder.createDirectory();
+        }
+
+        // Ensure Sessions folder exists alongside Recordings
+        juce::File sessionsFolder = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                                        .getChildFile("NovaStudio")
+                                        .getChildFile("Sessions");
+        sessionsFolder.createDirectory();
         transportState.setSampleRate(currentSampleRate);
         transportState.setTempo(static_cast<int>(session.getTempo()));
     }

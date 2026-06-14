@@ -42,9 +42,18 @@ MainComponent::MainComponent()
     };
 
     transportBar.onStop = [this] {
+        bool wasRecording = engine.isRecording();
         engine.stop();
-        transportBar.setPlayState(false, engine.isRecording());
-        updateStatusMessage("Playback stopped.");
+        transportBar.setPlayState(false, false);
+        if (wasRecording)
+        {
+            auto f = engine.getLastRecordingFile();
+            updateStatusMessage("Recorded: " + (f.existsAsFile() ? f.getFullPathName() : "unknown path"));
+        }
+        else
+        {
+            updateStatusMessage("Playback stopped.");
+        }
     };
 
     transportBar.onRecord = [this] {
@@ -118,7 +127,7 @@ MainComponent::MainComponent()
     {
         auto chooser = std::make_shared<juce::FileChooser>(
             "Save Session",
-            juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("NovaStudio"),
+            NovaStudio::StudioAudioEngine::getDefaultSessionsFolder(),
             "*.novastudio");
         chooser->launchAsync(
             juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
@@ -139,7 +148,7 @@ MainComponent::MainComponent()
     {
         auto chooser = std::make_shared<juce::FileChooser>(
             "Open Session",
-            juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("NovaStudio"),
+            NovaStudio::StudioAudioEngine::getDefaultSessionsFolder(),
             "*.novastudio");
         chooser->launchAsync(
             juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,

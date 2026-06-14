@@ -57,6 +57,16 @@ namespace NovaStudio
         double getCurrentSampleRate() const noexcept;
         int getCurrentBufferSize() const noexcept;
 
+        juce::File getRecordingFolder()  const noexcept { return recordingFolder; }
+        juce::File getLastRecordingFile() const noexcept { return currentRecordingFile; }
+
+        static juce::File getDefaultSessionsFolder()
+        {
+            return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                       .getChildFile("NovaStudio")
+                       .getChildFile("Sessions");
+        }
+
     private:
         struct TrackPlayer : public juce::AudioSource
         {

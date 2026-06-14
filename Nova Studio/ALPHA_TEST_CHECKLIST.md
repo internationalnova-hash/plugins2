@@ -14,10 +14,11 @@ open build/NovaStudio_artefacts/Release/NovaStudio.app
 ```
 
 **Files are saved to:**
-- Sessions: `~/Documents/NovaStudio/` (`.novastudio` + `.plugins.json` sidecar)
-- Recordings: `<app working directory>/NovaStudioProjects/Recordings/`
-  - On Mac this is typically next to the `.app` bundle unless you `cd` first
+- Sessions: `~/Documents/NovaStudio/Sessions/` (`.novastudio` + `.plugins.json` sidecar)
+- Recordings: `~/Documents/NovaStudio/Recordings/`
+  - All three folders are auto-created on first launch
   - Recorded files are named `NovaStudioRecording_<date>_<time>.wav`
+  - After stopping a recording, the status bar shows the full file path
 
 ---
 
@@ -151,7 +152,7 @@ JUCE picks your default Core Audio device automatically via `initialiseWithDefau
   - `vocal_test_01.novastudio` — tracks, clips, tempo, markers
   - `vocal_test_01.plugins.json` — plugin chain + all parameter states (base64)
 
-**Note:** The recorded WAV file is **not** moved into the session folder — it stays in `NovaStudioProjects/Recordings/`. Keep both locations for a complete session.
+**Note:** The recorded WAV file is **not** embedded in the session file — it stays in `~/Documents/NovaStudio/Recordings/`. After stopping, the status bar shows the full path. Keep both the session and recordings folders for a complete project.
 
 ---
 
