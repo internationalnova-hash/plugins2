@@ -712,6 +712,37 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
         return true;
     }
 
+    // Cmd+C → Copy selected clip
+    if ((isCmd || isCtrl) && !isShift && (key.getTextCharacter() == 'c' || key.getTextCharacter() == 'C'))
+    {
+        arrangementModel.copySelectedClip();
+        updateStatusMessage("Clip copied");
+        return true;
+    }
+    // Cmd+V → Paste clip at playhead position on selected track
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'v' || key.getTextCharacter() == 'V'))
+    {
+        const int64_t pos = engine.getTransportState().getPositionSamples();
+        const int track   = arrangementModel.getSelectedTrackIndex();
+        if (arrangementModel.pasteClipboardClip(track, pos))
+        {
+            refreshTrackList();
+            updateStatusMessage("Clip pasted");
+        }
+        return true;
+    }
+    // Cmd+X → Cut selected clip
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'x' || key.getTextCharacter() == 'X'))
+    {
+        if (arrangementModel.hasSelection())
+        {
+            arrangementModel.copySelectedClip();
+            arrangementModel.deleteSelectedClip();
+            refreshTrackList();
+            updateStatusMessage("Clip cut");
+        }
+        return true;
+    }
     // Cmd+D → Duplicate selected clip
     if ((isCmd || isCtrl) && (key.getTextCharacter() == 'd' || key.getTextCharacter() == 'D'))
     {
