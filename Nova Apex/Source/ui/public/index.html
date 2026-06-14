@@ -203,7 +203,14 @@
       display: flex; align-items: center; gap: 8px; min-width: 130px;
       transition: background 120ms;
     }
-    .smart-btn:hover { background: rgba(200,160,96,0.12); }
+    .smart-btn:hover { background: rgba(214,176,106,0.12); }
+    .smart-btn.active {
+      background: rgba(214,176,106,0.14);
+      border-color: var(--gold);
+      box-shadow: 0 0 12px rgba(214,176,106,0.22), inset 0 0 6px rgba(214,176,106,0.06);
+    }
+    .smart-btn.active .smart-line1 { color: var(--gold-lt); }
+    .smart-btn.active .smart-line2 { color: var(--gold-dim); }
     .smart-icon { font-size: 16px; }
     .smart-text { display: flex; flex-direction: column; line-height: 1.2; }
     .smart-line1 { font-size: 8px; letter-spacing: .14em; font-weight: 700; text-transform: uppercase; }
