@@ -1263,18 +1263,43 @@ Object.entries(PARAMS).forEach(([id, p]) => { state[id] = p.def; });
 
 let dragInfo = null;
 
+// ══════════════════════════ NATIVE FUNCTION BRIDGE ══════════════════════════
+// JUCE 8 exposes window.__JUCE__ (uppercase). Fire-and-forget native calls.
+let _apexCallId = 0;
+function callApexMode(mode, value) {
+  try {
+    if (typeof window.__JUCE__ !== 'undefined' && window.__JUCE__.backend) {
+      window.__JUCE__.backend.emitEvent('__juce__invoke', {
+        name: 'apexSetMode',
+        params: [mode, value],
+        resultId: _apexCallId++
+      });
+    }
+  } catch (_) {}
+}
+
 // ══════════════════════════ JUCE RELAY ══════════════════════════
+// JUCE 8: use window.__JUCE__.getSliderState(id) / slider.setScaledValue(norm)
+function getJUCESlider(id) {
+  try {
+    if (typeof window.__JUCE__ !== 'undefined' && window.__JUCE__.getSliderState)
+      return window.__JUCE__.getSliderState(id);
+  } catch (_) {}
+  return null;
+}
+
 function emitJUCE(id, value, evType) {
   try {
-    const norm = (value - PARAMS[id].min) / (PARAMS[id].max - PARAMS[id].min);
-    const relay = window['__juce__slider' + id];
-    if (relay) {
-      if (typeof relay.sliderValueChanged === 'function') relay.sliderValueChanged(norm);
-      else if (typeof relay[evType] === 'function') relay[evType](norm);
-      else {
-        const evt = new CustomEvent('__juce__slider' + id, { detail: { eventType: evType, value: norm } });
-        document.dispatchEvent(evt);
-      }
+    const p = PARAMS[id]; if (!p) return;
+    const norm = Math.max(0, Math.min(1, (value - p.min) / (p.max - p.min)));
+    const slider = getJUCESlider(id);
+    if (slider) {
+      if (evType === 'gestureStart' && typeof slider.sliderDragStarted === 'function')
+        slider.sliderDragStarted();
+      else if (evType === 'gestureEnd' && typeof slider.sliderDragEnded === 'function')
+        slider.sliderDragEnded();
+      if (typeof slider.setScaledValue === 'function')
+        slider.setScaledValue(norm);
     }
   } catch (_) {}
 }
@@ -1282,22 +1307,19 @@ function emitJUCE(id, value, evType) {
 function hookJUCERelays() {
   Object.keys(PARAMS).forEach(id => {
     try {
-      const relay = window['__juce__slider' + id];
-      if (relay && relay.addParameterChangeListener) {
-        relay.addParameterChangeListener(norm => {
-          const p = PARAMS[id];
-          if (!p) return;
-          state[id] = p.min + norm * (p.max - p.min);
+      const slider = getJUCESlider(id);
+      if (slider && slider.valueChangedEvent) {
+        slider.valueChangedEvent.addListener(() => {
+          const p = PARAMS[id]; if (!p) return;
+          state[id] = p.min + slider.getScaledValue() * (p.max - p.min);
           updateKnobsForParam(id);
-
-          // Style param change → sync pill without re-triggering JUCE
           if (id === 'style') setStyle(Math.round(state[id]));
         });
       }
     } catch (_) {}
   });
 
-  // Feature toggle buttons ↔ DAW param sync
+  // Feature toggle buttons ↔ DAW param sync (ispProtect, smartRelease, safeMode)
   const FEAT_RELAYS = [
     { id: 'isp-btn',      param: 'ispProtect'   },
     { id: 'smartrel-btn', param: 'smartRelease'  },
@@ -1307,9 +1329,11 @@ function hookJUCERelays() {
     const el = document.getElementById(id);
     if (!el) return;
     try {
-      const relay = window['__juce__slider' + param];
-      if (relay && relay.addParameterChangeListener) {
-        relay.addParameterChangeListener(norm => el.classList.toggle('active', norm > 0.5));
+      const slider = getJUCESlider(param);
+      if (slider && slider.valueChangedEvent) {
+        slider.valueChangedEvent.addListener(() => {
+          el.classList.toggle('active', slider.getScaledValue() > 0.5);
+        });
       }
     } catch (_) {}
   });
@@ -1447,9 +1471,7 @@ function setPreset(idx) {
   document.getElementById('preset-name').textContent = PRESETS[presetIdx];
 
   // Tell JUCE to load this factory preset (triggers all param updates via relays)
-  if (window.__juce__ && window.__juce__.initialisationData) {
-    window.__juce__.callNativeFunction('apexSetMode', ['loadPreset', presetIdx], () => {});
-  }
+  callApexMode('loadPreset', presetIdx);
 
   // Visually switch style pill immediately — don't wait for relay callback
   setStyle(PRESET_STYLES[presetIdx]);
@@ -1515,9 +1537,7 @@ const deltaBtn = document.getElementById('delta-btn');
 if (deltaBtn) {
   deltaBtn.addEventListener('click', () => {
     const isActive = deltaBtn.classList.toggle('active');
-    if (window.__juce__ && window.__juce__.initialisationData) {
-      window.__juce__.callNativeFunction('apexSetMode', ['delta', isActive], () => {});
-    }
+    callApexMode('delta', isActive);
   });
 }
 
@@ -1526,9 +1546,7 @@ const slmBtn = document.getElementById('slm-btn');
 if (slmBtn) {
   slmBtn.addEventListener('click', () => {
     const isActive = slmBtn.classList.toggle('active');
-    if (window.__juce__ && window.__juce__.initialisationData) {
-      window.__juce__.callNativeFunction('apexSetMode', ['smartLoudness', isActive], () => {});
-    }
+    callApexMode('smartLoudness', isActive);
   });
 }
 
