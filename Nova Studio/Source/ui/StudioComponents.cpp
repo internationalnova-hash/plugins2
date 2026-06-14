@@ -1324,40 +1324,57 @@ namespace NovaStudioUI
                     if (!waveformCache.isCached(clip.file))
                         waveformCache.ensureCachedAsync(clip.file, samplesPerPixel);
 
-                    const auto peaks    = waveformCache.getPeaks(clip.file);
-                    const int  numCh    = waveformCache.getNumChannels(clip.file);
-                    const int  stride   = numCh * 2;           // floats per block
-                    const int  blocks   = (stride > 0) ? (int)peaks.size() / stride : 0;
+                    const auto peaks  = waveformCache.getPeaks(clip.file);
+                    const int  numCh  = waveformCache.getNumChannels(clip.file);
+                    const int  stride = numCh * 2;
+                    const int  blocks = (stride > 0) ? (int)peaks.size() / stride : 0;
 
                     if (blocks > 0)
                     {
-                        // For stereo: split clip height into two equal lanes (L top, R bottom)
-                        // For mono: single lane centred
+                        // Normalize to the file's own peak so the waveform fills the clip
+                        float filePeak = 0.001f;
+                        for (float v : peaks) filePeak = juce::jmax(filePeak, std::abs(v));
+                        const float invPeak = 1.0f / filePeak;
+
+                        // Title text sits in top 18px; waveform occupies the rest
+                        const float waveTop = clipY + 18.0f;
+
                         for (int ch = 0; ch < numCh; ++ch)
                         {
-                            const float laneTop    = clipY    + ch       * (clipHeight / (float)numCh);
-                            const float laneBottom = clipY    + (ch + 1) * (clipHeight / (float)numCh);
-                            const float centerY    = (laneTop + laneBottom) * 0.5f;
-                            const float amp        = (laneBottom - laneTop) * 0.44f;
+                            const float laneH      = (clipHeight - 18.0f) / (float)numCh;
+                            const float laneTop2   = waveTop + ch * laneH;
+                            const float laneBot2   = laneTop2 + laneH;
+                            const float centerY    = (laneTop2 + laneBot2) * 0.5f;
+                            const float amp        = laneH * 0.48f;
 
                             // Faint lane divider for stereo
                             if (numCh > 1 && ch > 0)
                             {
-                                g.setColour(juce::Colours::white.withAlpha(0.08f));
-                                g.drawHorizontalLine((int)laneTop, (float)clipStartX, (float)clipStartX + clipWidth);
+                                g.setColour(juce::Colours::white.withAlpha(0.12f));
+                                g.drawHorizontalLine((int)laneTop2, (float)clipStartX, (float)clipStartX + clipWidth);
                             }
 
-                            g.setColour(juce::Colours::white.withAlpha(0.38f));
+                            const float barW = juce::jmax(1.0f, clipWidth / (float)blocks);
+
                             for (int b = 0; b < blocks; ++b)
                             {
-                                const int   idx = b * stride + ch * 2;
-                                const float minV = peaks[idx];
-                                const float maxV = peaks[idx + 1];
-                                const float nx = (float)clipStartX + (b / (float)blocks) * clipWidth;
-                                const float x2 = clipWidth / (float)blocks;
-                                const float y1 = centerY - (maxV * amp);
-                                const float y2 = centerY - (minV * amp);
-                                g.drawLine(nx, y1, nx, y2, juce::jmax(1.0f, x2 * 0.6f));
+                                const int   idx  = b * stride + ch * 2;
+                                const float minV = peaks[idx]     * invPeak;
+                                const float maxV = peaks[idx + 1] * invPeak;
+                                const float nx   = (float)clipStartX + b * barW;
+                                const float y1   = centerY - (maxV * amp);
+                                const float y2   = centerY - (minV * amp);
+                                const float h    = juce::jmax(1.0f, y2 - y1);
+
+                                // Filled solid bar — body colour with slight gradient tint by amplitude
+                                const float energy = (maxV - minV) * 0.5f;
+                                const float alpha  = 0.55f + energy * 0.35f;
+                                g.setColour(juce::Colour::fromRGB(130, 200, 255).withAlpha(alpha));
+                                g.fillRect(nx, y1, juce::jmax(1.0f, barW - 0.5f), h);
+
+                                // Bright outline on top of bar
+                                g.setColour(juce::Colour::fromRGB(200, 235, 255).withAlpha(0.6f));
+                                g.drawLine(nx, y1, nx + juce::jmax(1.0f, barW - 0.5f), y1, 0.75f);
                             }
                         }
                     }
@@ -3289,9 +3306,6 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         addAndMakeVisible(punchBtn);
         addAndMakeVisible(timecodeLabel);
         addAndMakeVisible(tempoLabel);
-        addAndMakeVisible(saveBtn);
-        addAndMakeVisible(loadBtn);
-        addAndMakeVisible(audioBtn);
         addAndMakeVisible(novaAlignBtn);
 
         editBtn.addListener(this);
@@ -3307,9 +3321,6 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         punchInBtn.addListener(this);
         punchOutBtn.addListener(this);
         punchBtn.addListener(this);
-        saveBtn.addListener(this);
-        loadBtn.addListener(this);
-        audioBtn.addListener(this);
         novaAlignBtn.addListener(this);
 
         // Mode tab styling — dark base, will highlight active
@@ -3348,12 +3359,6 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         // Right utility buttons
         novaAlignBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(35, 25, 55));
         novaAlignBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(190, 150, 255));
-        saveBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(20, 40, 22));
-        saveBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(100, 210, 90));
-        loadBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(20, 30, 48));
-        loadBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(120, 170, 255));
-        audioBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(22, 20, 40));
-        audioBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(160, 140, 255));
     }
 
     WorkspaceToolbar::~WorkspaceToolbar() = default;
@@ -3525,9 +3530,6 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
 
         // Right buttons (from right edge)
         int rx = getWidth() - 6;
-        audioBtn.setBounds(rx - 58, btnY, 56, btnH); rx -= 62;
-        loadBtn.setBounds(rx - 50, btnY, 48, btnH); rx -= 54;
-        saveBtn.setBounds(rx - 50, btnY, 48, btnH); rx -= 54;
         novaAlignBtn.setBounds(rx - 80, btnY, 78, btnH);
     }
 
@@ -3594,9 +3596,6 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         else if (b == &punchOutBtn && onPunchOut)    onPunchOut();
         else if (b == &punchBtn    && onPunchToggle) onPunchToggle();
         else if (b == &novaAlignBtn && onNovaAlign) onNovaAlign();
-        else if (b == &saveBtn && onSave) onSave();
-        else if (b == &loadBtn && onLoad) onLoad();
-        else if (b == &audioBtn && onAudioSettings) onAudioSettings();
     }
 
     // =========================================================================

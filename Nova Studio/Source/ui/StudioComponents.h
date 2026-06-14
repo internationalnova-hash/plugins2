@@ -847,9 +847,7 @@ namespace NovaStudioUI
         juce::Label timecodeLabel;
         BPMLabel    tempoLabel;
 
-        juce::TextButton saveBtn {"Save"};
-        juce::TextButton loadBtn {"Load"};
-        juce::TextButton audioBtn {"Audio"};
+
         juce::TextButton novaAlignBtn {"Nova Align"};
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WorkspaceToolbar)
