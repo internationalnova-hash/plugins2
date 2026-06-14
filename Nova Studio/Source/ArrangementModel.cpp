@@ -1274,6 +1274,152 @@ namespace NovaStudio
         return replaceSelectedClipWithUndo(newClip, "Bounce Clip to Audio");
     }
 
+    bool ArrangementModel::consolidateSelectedClips()
+    {
+        if (selectedClips.size() < 2)
+            return false;
+
+        const int trackIndex = selectedClips.getFirst().x;
+        for (auto& p : selectedClips)
+            if (p.x != trackIndex)
+                return false; // FL/Pro Tools-style consolidate operates within a single track
+
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks()))
+            return false;
+
+        auto& track = session.getTrack(trackIndex);
+
+        juce::Array<juce::Point<int>> sorted = selectedClips;
+        std::sort(sorted.begin(), sorted.end(),
+                  [](const juce::Point<int>& a, const juce::Point<int>& b) { return a.y < b.y; });
+
+        juce::Array<Clip> sourceClips;
+        juce::Array<int>  sourceIndices;
+        for (auto& p : sorted)
+        {
+            if (!isPositiveAndBelow(p.y, track.clips.size()))
+                return false;
+            const Clip& c = track.clips.getReference(p.y);
+            if (c.isMidi || c.locked)
+                return false;
+            sourceClips.add(c);
+            sourceIndices.add(p.y);
+        }
+
+        // Combined time span across all selected clips (gaps are filled with silence)
+        int64_t combinedStart = sourceClips.getFirst().startSample;
+        int64_t combinedEnd   = combinedStart + sourceClips.getFirst().lengthSamples;
+        for (auto& c : sourceClips)
+        {
+            combinedStart = juce::jmin(combinedStart, c.startSample);
+            combinedEnd   = juce::jmax(combinedEnd, c.startSample + c.lengthSamples);
+        }
+        const int64_t combinedLength = combinedEnd - combinedStart;
+        if (combinedLength <= 0)
+            return false;
+
+        double sr = 0.0;
+        int numChannels = 2;
+        for (auto& c : sourceClips)
+        {
+            juce::AudioBuffer<float> probe;
+            double probeSr = 0.0;
+            if (readClipRegionToBuffer(c, probe, probeSr))
+            {
+                sr = probeSr;
+                numChannels = probe.getNumChannels();
+                break;
+            }
+        }
+        if (sr <= 0.0)
+            return false;
+
+        juce::AudioBuffer<float> combined((int) numChannels, (int) combinedLength);
+        combined.clear();
+
+        for (auto& c : sourceClips)
+        {
+            juce::AudioBuffer<float> region;
+            double regionSr = 0.0;
+            if (!readClipRegionToBuffer(c, region, regionSr))
+                continue;
+
+            const float linearGain = juce::Decibels::decibelsToGain(c.gainDb);
+            const int   numSamples = region.getNumSamples();
+            for (int ch = 0; ch < region.getNumChannels(); ++ch)
+            {
+                auto* data = region.getWritePointer(ch);
+                for (int i = 0; i < numSamples; ++i)
+                {
+                    float fade = 1.0f;
+                    if (c.fadeInSamples > 0)
+                        fade = juce::jmin(fade, juce::jlimit(0.0f, 1.0f, (float) i / (float) c.fadeInSamples));
+                    if (c.fadeOutSamples > 0)
+                        fade = juce::jmin(fade, juce::jlimit(0.0f, 1.0f, (float) (numSamples - i) / (float) c.fadeOutSamples));
+                    data[i] *= linearGain * fade;
+                }
+            }
+
+            const int destOffset = (int) (c.startSample - combinedStart);
+            for (int ch = 0; ch < combined.getNumChannels(); ++ch)
+                combined.addFrom(ch, destOffset, region, juce::jmin(ch, region.getNumChannels() - 1), 0, numSamples);
+        }
+
+        auto consolidatedFile = writeBufferToTempWavFile(combined, sr);
+        if (consolidatedFile == juce::File())
+            return false;
+
+        Clip newClip;
+        newClip.file              = consolidatedFile;
+        newClip.startSample       = combinedStart;
+        newClip.lengthSamples     = combinedLength;
+        newClip.fileOffsetSamples = 0;
+        newClip.isMidi            = false;
+        newClip.clipColor         = sourceClips.getFirst().clipColor;
+
+        struct ConsolidateAction : public juce::UndoableAction
+        {
+            ArrangementModel* model;
+            int trackIndex;
+            juce::Array<int>  originalIndices;
+            juce::Array<Clip> originalClips;
+            Clip newClip;
+            int  insertIndex = 0;
+
+            ConsolidateAction(ArrangementModel* m, int t) : model(m), trackIndex(t) {}
+
+            bool perform() override
+            {
+                for (int i = originalIndices.size() - 1; i >= 0; --i)
+                    model->removeClipWithoutUndo(trackIndex, originalIndices.getUnchecked(i));
+                insertIndex = juce::jmin(originalIndices.getFirst(), model->getSession().getTrack(trackIndex).clips.size());
+                model->insertClipWithoutUndo(trackIndex, insertIndex, newClip);
+                return true;
+            }
+
+            bool undo() override
+            {
+                model->removeClipWithoutUndo(trackIndex, insertIndex);
+                for (int i = 0; i < originalIndices.size(); ++i)
+                    model->insertClipWithoutUndo(trackIndex, originalIndices.getUnchecked(i), originalClips.getUnchecked(i));
+                return true;
+            }
+
+            int getSizeInUnits() override { return 1; }
+        };
+
+        auto* action = new ConsolidateAction(this, trackIndex);
+        action->originalIndices = sourceIndices;
+        action->originalClips   = sourceClips;
+        action->newClip         = newClip;
+
+        undoManager.beginNewTransaction("Consolidate Clips");
+        undoManager.perform(action);
+        clearSelection();
+        selectClip(trackIndex, action->insertIndex);
+        return true;
+    }
+
     bool ArrangementModel::setSelectedClipGain(float gainDb)
     {
         Clip* clip = getSelectedClip();

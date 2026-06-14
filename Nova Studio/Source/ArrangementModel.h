@@ -74,6 +74,7 @@ namespace NovaStudio
         bool duplicateSelectedClip();
         bool deleteSelectedClip();
         bool copySelectedClip();
+        bool hasClipboardClip() const noexcept { return clipboardClip.has_value(); }
         bool pasteClipboardClip(int trackIndex, int64_t samplePosition);
         bool toggleSelectedClipMute();
         // Offline (non-realtime) sample editing — operate on the audio region the
@@ -86,6 +87,11 @@ namespace NovaStudio
         // new flattened audio file, resetting gainDb/fades to neutral. Lets users
         // commit non-destructive edits to audio for further slicing/exporting.
         bool bounceSelectedClipToAudio();
+
+        // Merge two or more selected audio clips on the same track (with any
+        // gaps filled by silence) into a single bounced audio clip spanning
+        // their combined time range — FL/Pro Tools-style "Consolidate".
+        bool consolidateSelectedClips();
 
         bool setSelectedClipGain(float gainDb);
         bool setSelectedClipFadeIn(int64_t samples);

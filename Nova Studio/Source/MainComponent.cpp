@@ -94,6 +94,9 @@ MainComponent::MainComponent()
     beatWindow->setOnPreviewSample([this](const juce::String& path) {
         engine.previewSample(juce::File(path));
     });
+    beatWindow->setOnPianoKeyEvent([this](int pitch, bool keyDown) {
+        engine.previewPianoKey(pitch, keyDown);
+    });
     beatWindow->setOnRowMixerTrackChanged([this](int row, int mixerTrack) {
         juce::ignoreUnused(row, mixerTrack);
     });
@@ -1400,14 +1403,14 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         menu.addItem(201, "Undo");
         menu.addItem(202, "Redo");
         menu.addSeparator();
-        menu.addItem(203, "Cut",       false);
-        menu.addItem(204, "Copy",      false);
-        menu.addItem(205, "Paste",     false);
+        menu.addItem(203, "Cut",       arrangementModel.hasSelection());
+        menu.addItem(204, "Copy",      arrangementModel.hasSelection());
+        menu.addItem(205, "Paste",     arrangementModel.hasClipboardClip() && arrangementModel.getSelectedTrackIndex() >= 0);
         menu.addItem(206, "Duplicate");
         menu.addItem(207, "Delete");
         menu.addSeparator();
         menu.addItem(208, "Split Clip at Playhead");
-        menu.addItem(209, "Select All", false);
+        menu.addItem(209, "Select All", arrangementModel.getSelectedTrackIndex() >= 0);
         break;
 
     case 2: // Track
@@ -1421,7 +1424,7 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         break;
 
     case 3: // Clip
-        menu.addItem(401, "Consolidate",      false);
+        menu.addItem(401, "Consolidate",      arrangementModel.getSelectedClips().size() >= 2);
         menu.addItem(402, "Normalize",        arrangementModel.hasSelection());
         menu.addItem(403, "Reverse",          arrangementModel.hasSelection());
         menu.addSeparator();
@@ -1534,6 +1537,37 @@ void MainComponent::menuItemSelected(int id, int)
     // ── Edit ────────────────────────────────────────────────────────────────
     case 201: arrangementModel.undo();  updateStatusMessage("Undo"); break;
     case 202: arrangementModel.redo();  updateStatusMessage("Redo"); break;
+    case 203:
+        if (arrangementModel.copySelectedClip() && arrangementModel.deleteSelectedClip())
+            updateStatusMessage("Cut clip");
+        refreshTrackList();
+        break;
+    case 204:
+        if (arrangementModel.copySelectedClip())
+            updateStatusMessage("Copied clip");
+        break;
+    case 205:
+    {
+        const int track = arrangementModel.getSelectedTrackIndex();
+        const int64_t pos = engine.getTransportState().getPositionSamples();
+        if (track >= 0 && arrangementModel.pasteClipboardClip(track, pos))
+            updateStatusMessage("Pasted clip");
+        refreshTrackList();
+        break;
+    }
+    case 209:
+    {
+        const int ti = arrangementModel.getSelectedTrackIndex();
+        if (ti >= 0)
+        {
+            const auto& track = arrangementModel.getSession().getTrack(ti);
+            for (int ci = 0; ci < track.clips.size(); ++ci)
+                arrangementModel.addClipToSelection(ti, ci);
+            updateStatusMessage("All clips selected");
+        }
+        refreshTrackList();
+        break;
+    }
     case 206: arrangementModel.duplicateSelectedClip(); refreshTrackList(); break;
     case 207: arrangementModel.deleteSelectedClip();    refreshTrackList(); break;
     case 208: arrangementModel.splitSelectedClip(transportState.getPositionSamples()); refreshTrackList(); break;
@@ -1596,6 +1630,13 @@ void MainComponent::menuItemSelected(int id, int)
         break;
 
     // ── Clip ────────────────────────────────────────────────────────────────
+    case 401:
+        if (arrangementModel.consolidateSelectedClips())
+            updateStatusMessage("Consolidated clips");
+        else
+            updateStatusMessage("Consolidate: select 2+ unlocked audio clips on the same track");
+        refreshTrackList();
+        break;
     case 402:
         if (arrangementModel.normalizeSelectedClip())
             updateStatusMessage("Normalized selected clip");

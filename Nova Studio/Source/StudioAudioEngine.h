@@ -245,6 +245,11 @@ namespace NovaStudio
         void previewSample(const juce::File& file);
         void stopPreviewSample();
 
+        // On-screen piano-key preview — a small built-in sine synth so clicking
+        // keys in the Piano Roll/Channel Rack produces audible feedback, FL
+        // Studio-style, without requiring full MIDI routing into hosted plugins.
+        void previewPianoKey(int midiNoteNumber, bool noteOn);
+
         bool saveSession(const juce::File& file) const;
         bool loadSession(const juce::File& file);
         bool exportStereoMix(const juce::File& destinationFile);
@@ -387,6 +392,13 @@ namespace NovaStudio
         std::unique_ptr<juce::AudioFormatReaderSource> previewReaderSource;
         juce::AudioBuffer<float> previewScratchBuffer;
         std::atomic<bool> previewActive { false };
+
+        // Piano-key preview synth — single-voice sine with a short attack/release
+        std::atomic<bool> pianoKeyActive     { false };
+        std::atomic<bool> pianoKeyReleasing  { false };
+        double pianoKeyPhase            = 0.0;
+        double pianoKeyPhaseIncrement   = 0.0;
+        float  pianoKeyEnvelope         = 0.0f;
 
         juce::CriticalSection playerLock;  // guards trackPlayers across audio+main threads
         juce::AudioPluginFormatManager pluginFormatManager;

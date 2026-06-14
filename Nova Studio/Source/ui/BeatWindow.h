@@ -118,6 +118,13 @@ namespace NovaStudioUI
         void paint(juce::Graphics& g) override;
         void resized() override;
         void mouseDown(const juce::MouseEvent& e) override;
+        void mouseDrag(const juce::MouseEvent& e) override;
+        void mouseUp(const juce::MouseEvent& e) override;
+
+        // FL-style on-screen keyboard: click/drag across the key strip to
+        // audition pitches. Fires (pitch, true) on press/slide-in and
+        // (pitch, false) on release/slide-out.
+        std::function<void(int pitch, bool keyDown)> onPianoKeyEvent;
 
         // ── FL-style note tools (operate on the current selection; act as no-ops
         // when nothing is selected) ──────────────────────────────────────────
@@ -157,6 +164,9 @@ namespace NovaStudioUI
         bool isPitchInScale(int pitch) const;
         int  snapDivisorSteps() const;
         int  hitTestNote(int pitch, int step) const; // -1 if none
+        int  pitchAtKeyboardY(int relativeY) const;  // -1 if outside the key strip
+
+        int  activeKeyPitch = -1;   // currently-auditioned on-screen-keyboard pitch (-1 = none)
 
         static constexpr int kKeyWidth   = 36;
         static constexpr int kRowHeight  = 12;
@@ -985,6 +995,8 @@ namespace NovaStudioUI
             { stepSeq.onRowMixerTrackChanged = std::move(fn); }
         void setOnPreviewSample(std::function<void(const juce::String&)> fn)
             { stepSeq.onPreviewSample = std::move(fn); }
+        void setOnPianoKeyEvent(std::function<void(int pitch, bool keyDown)> fn)
+            { pianoRoll.onPianoKeyEvent = std::move(fn); }
         void setNumMixerInserts(int n) { stepSeq.numMixerInserts = n; }
 
         // Compact in-window mixer — populated by MainComponent from the session

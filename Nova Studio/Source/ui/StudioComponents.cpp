@@ -2208,18 +2208,24 @@ namespace NovaStudioUI
             {
                 if (event.mods.isPopupMenu())
                 {
-                    arrangementModel.selectClip(trackIndex, clipIndex);
+                    // Preserve an existing multi-selection (e.g. shift-clicked clips)
+                    // when right-clicking inside it, so Consolidate stays available.
+                    const bool hasMultiSelection = arrangementModel.getSelectedClips().size() >= 2;
+                    if (!hasMultiSelection)
+                        arrangementModel.selectClip(trackIndex, clipIndex);
                     const bool isAudio = !clip.isMidi;
                     juce::PopupMenu menu;
                     menu.addItem(1, "Normalize", isAudio && !clip.locked);
                     menu.addItem(2, "Reverse",   isAudio && !clip.locked);
                     menu.addItem(3, "Bounce to Audio", isAudio && !clip.locked
                                      && (clip.gainDb != 0.0f || clip.fadeInSamples > 0 || clip.fadeOutSamples > 0));
+                    menu.addItem(4, "Consolidate", arrangementModel.getSelectedClips().size() >= 2);
                     menu.showMenuAsync(juce::PopupMenu::Options(), [this](int result)
                     {
                         if (result == 1) arrangementModel.normalizeSelectedClip();
                         else if (result == 2) arrangementModel.reverseSelectedClip();
                         else if (result == 3) arrangementModel.bounceSelectedClipToAudio();
+                        else if (result == 4) arrangementModel.consolidateSelectedClips();
                     });
                     found = true;
                     break;

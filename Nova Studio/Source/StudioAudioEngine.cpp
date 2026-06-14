@@ -1045,6 +1045,22 @@ namespace NovaStudio
         previewTransport.stop();
     }
 
+    void StudioAudioEngine::previewPianoKey(int midiNoteNumber, bool noteOn)
+    {
+        if (noteOn)
+        {
+            const double freqHz = 440.0 * std::pow(2.0, (midiNoteNumber - 69) / 12.0);
+            const double sr = currentSampleRate > 0.0 ? currentSampleRate : 44100.0;
+            pianoKeyPhaseIncrement = juce::MathConstants<double>::twoPi * freqHz / sr;
+            pianoKeyReleasing.store(false);
+            pianoKeyActive.store(true);
+        }
+        else
+        {
+            pianoKeyReleasing.store(true);
+        }
+    }
+
     void StudioAudioEngine::startRecordingInternal()
     {
         // Determine how many input channels the device actually opened
@@ -1623,6 +1639,44 @@ namespace NovaStudio
 
             if (! previewTransport.isPlaying())
                 previewActive.store(false);
+        }
+
+        // ── On-screen piano-key preview synth — short sine voice with attack/release ──
+        if (pianoKeyActive.load())
+        {
+            constexpr float kGain    = 0.12f;
+            constexpr float kAttack  = 0.01f;   // envelope step per sample (~ a few ms)
+            constexpr float kRelease = 0.004f;
+            const bool releasing = pianoKeyReleasing.load();
+
+            for (int s = 0; s < numSamples; ++s)
+            {
+                if (releasing)
+                {
+                    pianoKeyEnvelope -= kRelease;
+                    if (pianoKeyEnvelope <= 0.0f)
+                    {
+                        pianoKeyEnvelope = 0.0f;
+                        pianoKeyActive.store(false);
+                    }
+                }
+                else if (pianoKeyEnvelope < 1.0f)
+                {
+                    pianoKeyEnvelope = juce::jmin(1.0f, pianoKeyEnvelope + kAttack);
+                }
+
+                const float sampleValue = (float) std::sin(pianoKeyPhase) * pianoKeyEnvelope * kGain;
+                pianoKeyPhase += pianoKeyPhaseIncrement;
+                if (pianoKeyPhase > juce::MathConstants<double>::twoPi)
+                    pianoKeyPhase -= juce::MathConstants<double>::twoPi;
+
+                for (int channel = 0; channel < numOutputChannels; ++channel)
+                    if (outputChannelData[channel] != nullptr)
+                        outputChannelData[channel][s] += sampleValue;
+
+                if (! pianoKeyActive.load())
+                    break;
+            }
         }
 
         // Input monitoring: mix live input into output when any armed track has monitoring on

@@ -339,8 +339,21 @@ void PianoRollView::mouseDown(const juce::MouseEvent& e)
     auto toolsArea = bounds.removeFromBottom(kToolsH);
     bounds.removeFromBottom(kVelHeight);
     auto mainArea = bounds;
-    mainArea.removeFromLeft(kKeyWidth);
+    auto keysArea = mainArea.removeFromLeft(kKeyWidth);
     auto gridArea = mainArea;
+
+    // ── On-screen keyboard: click a key to audition its pitch ───────────
+    if (keysArea.contains(e.getPosition()))
+    {
+        const int pitch = pitchAtKeyboardY(e.y - keysArea.getY());
+        if (pitch >= 0)
+        {
+            activeKeyPitch = pitch;
+            if (onPianoKeyEvent) onPianoKeyEvent(pitch, true);
+            repaint();
+        }
+        return;
+    }
 
     // ── Snap row clicks ──────────────────────────────────────────────────
     if (snapArea.contains(e.getPosition()))
@@ -457,6 +470,55 @@ void PianoRollView::mouseDown(const juce::MouseEvent& e)
     repaint();
 }
 
+void PianoRollView::mouseDrag(const juce::MouseEvent& e)
+{
+    if (activeKeyPitch < 0)
+        return;
+
+    auto bounds = getLocalBounds();
+    bounds.removeFromBottom(kSnapH);
+    bounds.removeFromBottom(kToolsH);
+    bounds.removeFromBottom(kVelHeight);
+    auto keysArea = bounds.removeFromLeft(kKeyWidth);
+
+    // Slide across the on-screen keyboard to glide between pitches, FL-style
+    const int pitch = keysArea.getX() <= e.x && e.x < keysArea.getRight()
+                          ? pitchAtKeyboardY(e.y - keysArea.getY())
+                          : -1;
+
+    if (pitch >= 0 && pitch != activeKeyPitch)
+    {
+        if (onPianoKeyEvent) onPianoKeyEvent(activeKeyPitch, false);
+        activeKeyPitch = pitch;
+        if (onPianoKeyEvent) onPianoKeyEvent(activeKeyPitch, true);
+        repaint();
+    }
+}
+
+void PianoRollView::mouseUp(const juce::MouseEvent&)
+{
+    if (activeKeyPitch >= 0)
+    {
+        if (onPianoKeyEvent) onPianoKeyEvent(activeKeyPitch, false);
+        activeKeyPitch = -1;
+        repaint();
+    }
+}
+
+int PianoRollView::pitchAtKeyboardY(int relativeY) const
+{
+    const int totalPitches = kNumOctaves * 12;
+    const int startPitch   = 36;
+
+    const int y = relativeY - kHeaderH;
+    if (y < 0) return -1;
+
+    const int row = y / kRowHeight;
+    if (row < 0 || row >= totalPitches) return -1;
+
+    return startPitch + (totalPitches - 1 - row);
+}
+
 void PianoRollView::drawPianoKeys(juce::Graphics& g, juce::Rectangle<int> area) const
 {
     const int totalPitches = kNumOctaves * 12;
@@ -472,7 +534,8 @@ void PianoRollView::drawPianoKeys(juce::Graphics& g, juce::Rectangle<int> area) 
         int note = pitch % 12;
         bool isBlack = (note == 1 || note == 3 || note == 6 || note == 8 || note == 10);
 
-        g.setColour(isBlack ? juce::Colour::fromRGB(30,30,40) : juce::Colour::fromRGB(200,200,210));
+        auto baseColour = isBlack ? juce::Colour::fromRGB(30,30,40) : juce::Colour::fromRGB(200,200,210);
+        g.setColour(pitch == activeKeyPitch ? BeatTheme::accent() : baseColour);
         g.fillRect(area.getX(), y, isBlack ? (int)(area.getWidth() * 0.6f) : area.getWidth(), kRowHeight - 1);
 
         if (note == 0)
