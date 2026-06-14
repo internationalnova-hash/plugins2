@@ -2934,10 +2934,11 @@ BottomDockPanel::BottomDockPanel()
     }
     mixerTab.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
 
-    // Init fader/pan arrays to unity defaults
+    // Init fader/pan arrays — default -18 dB (Pro Tools headroom model)
+    // fPos=0.70 = 0dB unity, so -18dB = jmap(-18, -96, 0, 0.0, 0.70) = 0.70*(78/96) = ~0.569
     for (int i = 0; i < kMaxStrips; ++i)
     {
-        faderPositions[i] = 0.35f;
+        faderPositions[i] = 0.569f;
         panPositions[i]   = 0.5f;
     }
 }
@@ -3229,7 +3230,7 @@ void BottomDockPanel::paintMixerStrips(juce::Graphics& g, juce::Rectangle<int> a
         g.drawRoundedRectangle((float)(fCX - 3), (float)faderTop, 6.0f, (float)fTravel, 3.0f, 0.8f);
 
         // Unity (0 dB) tick mark — at 35% position
-        const int unityY = faderTop + (int)(0.35f * fTravel);
+        const int unityY = faderTop + (int)(0.70f * fTravel);
         g.setColour(col.withAlpha(0.45f));
         g.fillRect(fCX - 8, unityY - 1, 16, 2);
 
@@ -3298,9 +3299,11 @@ void BottomDockPanel::paintMixerStrips(juce::Graphics& g, juce::Rectangle<int> a
                                (float)thumbW, (float)thumbH, 4.0f, 1.0f);
 
         // ── dB readout below fader ────────────────────────────────────────
-        const float dbVal = (fPos < 0.35f)
-                            ? juce::jmap(fPos, 0.0f, 0.35f, -96.0f, 0.0f)
-                            : juce::jmap(fPos, 0.35f, 1.0f, 0.0f, 6.0f);
+        // Fader scale: 0.0=bottom(-96dB), 0.70=unity(0dB), 1.0=top(+24dB)
+        // Matches Pro Tools headroom model — default sits below unity with room to push
+        const float dbVal = (fPos < 0.70f)
+                            ? juce::jmap(fPos, 0.0f, 0.70f, -96.0f, 0.0f)
+                            : juce::jmap(fPos, 0.70f, 1.0f, 0.0f, 24.0f);
         const juce::String dbStr = (dbVal < -90.0f) ? "-inf" : (juce::String(dbVal, 1) + " dB");
         g.setColour(juce::Colours::white.withAlpha(0.45f));
         g.setFont(juce::Font(juce::FontOptions(7.0f)));
@@ -4507,9 +4510,9 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         gainDbLabel.setJustificationType(juce::Justification::centred);
         contentComp.addAndMakeVisible(gainDbLabel);
 
-        volumeKnob.setRange(-60.0, 12.0, 0.1);
-        volumeKnob.setValue(0.0, juce::dontSendNotification);
-        volumeKnob.setDoubleClickReturnValue(true, 0.0);
+        volumeKnob.setRange(-60.0, 24.0, 0.1);
+        volumeKnob.setValue(-18.0, juce::dontSendNotification);
+        volumeKnob.setDoubleClickReturnValue(true, -18.0);
         volumeKnob.setTooltip("Track volume (dB) — double-click to reset to 0 dB");
         volumeKnob.setColour(juce::Slider::trackColourId,         juce::Colour::fromRGB(40,44,60));
         volumeKnob.setColour(juce::Slider::thumbColourId,         juce::Colour::fromRGB(130,140,200));

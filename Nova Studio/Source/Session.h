@@ -66,7 +66,7 @@ namespace NovaStudio
         juce::String name;
         TrackType type = TrackType::Audio;
         bool isStereo  = true;   // true = stereo, false = mono
-        float volumeDb = 0.0f;
+        float volumeDb = -18.0f;  // Pro Tools-style: -18 dB internal headroom by default
         float pan = 0.0f;
         bool muted = false;
         bool solo = false;
