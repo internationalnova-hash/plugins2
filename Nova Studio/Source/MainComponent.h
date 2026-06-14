@@ -64,6 +64,11 @@ private:
     void refreshTrackList();
     void promptClipFadeLength(bool isFadeIn);
     void promptBounceClipToAudio();
+    void promptExportMix();
+    void promptExportStems();
+    void showAboutDialog();
+    void showKeyboardShortcutsDialog();
+    void showManualDialog();
     bool keyPressed(const juce::KeyPress& key, juce::Component* originatingComponent) override;
     void parentHierarchyChanged() override;
 

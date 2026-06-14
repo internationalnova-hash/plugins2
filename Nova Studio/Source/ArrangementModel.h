@@ -93,6 +93,19 @@ namespace NovaStudio
         // their combined time range — FL/Pro Tools-style "Consolidate".
         bool consolidateSelectedClips();
 
+        // Offline mixdown — render every unmuted (or soloed) audio clip across
+        // all tracks, with per-clip gain/fade and per-track volume baked in,
+        // down to a single stereo WAV file at the given location.
+        bool exportMixToFile(const juce::File& destFile);
+
+        // Render a single track's audio clips (gain/fade/volume baked in) to
+        // its own WAV file — used for "Export Stems".
+        bool exportTrackToFile(int trackIndex, const juce::File& destFile);
+
+        // Clone a track — including its clips and mixer/routing settings —
+        // and append the copy to the session (FL/Pro Tools "Duplicate Track").
+        bool duplicateTrack(int trackIndex);
+
         bool setSelectedClipGain(float gainDb);
         bool setSelectedClipFadeIn(int64_t samples);
         bool setSelectedClipFadeOut(int64_t samples);
@@ -151,6 +164,8 @@ namespace NovaStudio
         juce::Array<juce::File> editedTemporaryFiles;
         bool readClipRegionToBuffer(const Clip& clip, juce::AudioBuffer<float>& dest, double& sampleRateOut);
         juce::File writeBufferToTempWavFile(const juce::AudioBuffer<float>& buffer, double sampleRate);
+        bool writeBufferToWavFile(const juce::File& destFile, const juce::AudioBuffer<float>& buffer, double sampleRate);
+        bool renderTracksToBuffer(const juce::Array<int>& trackIndices, juce::AudioBuffer<float>& dest, double& sampleRateOut);
         std::optional<Clip> clipboardClip;
 
         int64_t snapResolutionSamples() const noexcept;

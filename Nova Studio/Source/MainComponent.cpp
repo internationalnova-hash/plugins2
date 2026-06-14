@@ -729,6 +729,128 @@ void MainComponent::promptBounceClipToAudio()
         }));
 }
 
+void MainComponent::promptExportMix()
+{
+    if (engine.getTrackCount() <= 0)
+    {
+        updateStatusMessage("Export Mix: session has no tracks");
+        return;
+    }
+
+    auto chooser = std::make_shared<juce::FileChooser>(
+        "Export Mix As...",
+        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile(engine.getSession().getName() + " Mix.wav"),
+        "*.wav");
+    chooser->launchAsync(
+        juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting,
+        [this, chooser](const juce::FileChooser& fc)
+        {
+            auto f = fc.getResult();
+            if (f == juce::File())
+                return;
+            if (f.getFileExtension().isEmpty())
+                f = f.withFileExtension("wav");
+
+            updateStatusMessage("Exporting mix...");
+            if (arrangementModel.exportMixToFile(f))
+                updateStatusMessage("Exported mix to " + f.getFileName());
+            else
+                updateStatusMessage("Export Mix: nothing to render (no audio clips found)");
+        });
+}
+
+void MainComponent::promptExportStems()
+{
+    if (engine.getTrackCount() <= 0)
+    {
+        updateStatusMessage("Export Stems: session has no tracks");
+        return;
+    }
+
+    auto chooser = std::make_shared<juce::FileChooser>(
+        "Choose a folder for stems",
+        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory));
+    chooser->launchAsync(
+        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+        [this, chooser](const juce::FileChooser& fc)
+        {
+            auto folder = fc.getResult();
+            if (!folder.isDirectory())
+                return;
+
+            updateStatusMessage("Exporting stems...");
+            int exported = 0;
+            for (int t = 0; t < engine.getSession().getNumTracks(); ++t)
+            {
+                const auto& track = engine.getSession().getTrack(t);
+                if (track.clips.isEmpty())
+                    continue;
+
+                auto safeName = track.name.isNotEmpty() ? track.name : ("Track " + juce::String(t + 1));
+                safeName = safeName.retainCharacters(
+                    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ -_").trim();
+                if (safeName.isEmpty())
+                    safeName = "Track " + juce::String(t + 1);
+
+                auto destFile = folder.getChildFile(safeName + ".wav");
+                if (arrangementModel.exportTrackToFile(t, destFile))
+                    ++exported;
+            }
+
+            if (exported > 0)
+                updateStatusMessage("Exported " + juce::String(exported) + " stem(s) to " + folder.getFileName());
+            else
+                updateStatusMessage("Export Stems: nothing to render (no audio clips found)");
+        });
+}
+
+void MainComponent::showAboutDialog()
+{
+    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,
+        "About Nova Studio",
+        juce::String("Nova Studio\n"
+                     "A digital audio workstation built on JUCE.\n\n")
+            + juce::SystemStats::getJUCEVersion() + "\n"
+            + "(c) Nova Studio");
+}
+
+void MainComponent::showKeyboardShortcutsDialog()
+{
+    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,
+        "Keyboard Shortcuts",
+        "Transport\n"
+        "  Space — Play / Stop\n"
+        "  Return — Return to start\n\n"
+        "Editing\n"
+        "  Ctrl/Cmd+Z — Undo\n"
+        "  Ctrl/Cmd+Shift+Z — Redo\n"
+        "  Ctrl/Cmd+X — Cut\n"
+        "  Ctrl/Cmd+C — Copy\n"
+        "  Ctrl/Cmd+V — Paste\n"
+        "  Ctrl/Cmd+D — Duplicate\n"
+        "  Ctrl/Cmd+A — Select All\n"
+        "  Delete / Backspace — Delete selection\n\n"
+        "View\n"
+        "  Ctrl/Cmd+1 — Edit Window\n"
+        "  Ctrl/Cmd+2 — Mixer\n");
+}
+
+void MainComponent::showManualDialog()
+{
+    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,
+        "Nova Studio Manual",
+        "Nova Studio is organized into a few core windows:\n\n"
+        "  - Edit Window — arrange and edit audio/MIDI clips on the timeline\n"
+        "  - Mixer — control track volume, pan, sends and EQ\n"
+        "  - Piano Roll — compose and edit MIDI notes (click the on-screen keys to audition pitches)\n"
+        "  - Browser — import audio files into your session\n\n"
+        "Use the File menu to import audio and export your mix or stems, "
+        "the Track menu to add or duplicate tracks, and the Clip menu for "
+        "non-destructive editing tools such as Normalize, Reverse, Fades, "
+        "Bounce to Audio and Consolidate.\n\n"
+        "See Help > Keyboard Shortcuts for a full list of shortcuts.");
+}
+
 bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*originatingComponent*/)
 {
     const bool isCmd = key.getModifiers().isCommandDown();
@@ -1391,8 +1513,8 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         menu.addItem(104, "Save As...");
         menu.addSeparator();
         menu.addItem(105, "Import Audio...");
-        menu.addItem(106, "Export Mix...",        false);
-        menu.addItem(107, "Export Stems...",      false);
+        menu.addItem(106, "Export Mix...",        engine.getTrackCount() > 0);
+        menu.addItem(107, "Export Stems...",      engine.getTrackCount() > 0);
         menu.addSeparator();
         menu.addItem(108, "Session Settings...",  false);
         menu.addSeparator();
@@ -1419,7 +1541,7 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         menu.addItem(303, "New Instrument Track");
         menu.addItem(304, "New Aux Track");
         menu.addSeparator();
-        menu.addItem(307, "Duplicate Track",       false);
+        menu.addItem(307, "Duplicate Track",       arrangementModel.getSelectedTrackIndex() >= 0);
         menu.addItem(308, "Remove Last Track",     engine.getTrackCount() > 0);
         break;
 
@@ -1475,17 +1597,17 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
 
     case 8: // Window
         menu.addItem(901, "Reset Layout");
-        menu.addItem(902, "Full Screen",       false);
+        menu.addItem(902, "Full Screen",       true);
         menu.addSeparator();
         menu.addItem(903, "Floating Mixer",    false);
         menu.addItem(904, "Floating Browser",  false);
         break;
 
     case 9: // Help
-        menu.addItem(1001, "Nova Studio Manual",   false);
-        menu.addItem(1002, "Keyboard Shortcuts",   false);
+        menu.addItem(1001, "Nova Studio Manual",   true);
+        menu.addItem(1002, "Keyboard Shortcuts",   true);
         menu.addSeparator();
-        menu.addItem(1003, "About Nova Studio...", false);
+        menu.addItem(1003, "About Nova Studio...", true);
         break;
 
     default: break;
@@ -1532,6 +1654,8 @@ void MainComponent::menuItemSelected(int id, int)
             });
         break;
     }
+    case 106: promptExportMix();   break;
+    case 107: promptExportStems(); break;
     case 109: juce::JUCEApplication::getInstance()->systemRequestedQuit(); break;
 
     // ── Edit ────────────────────────────────────────────────────────────────
@@ -1625,6 +1749,20 @@ void MainComponent::menuItemSelected(int id, int)
             }), false);
         break;
     }
+    case 307:
+    {
+        const int ti = arrangementModel.getSelectedTrackIndex();
+        if (ti >= 0 && arrangementModel.duplicateTrack(ti))
+        {
+            refreshTrackList();
+            updateStatusMessage("Duplicated track");
+        }
+        else
+        {
+            updateStatusMessage("Duplicate Track: select a track first");
+        }
+        break;
+    }
     case 308:
         updateStatusMessage("Remove Track: not yet implemented.");
         break;
@@ -1682,6 +1820,19 @@ void MainComponent::menuItemSelected(int id, int)
 
     // ── Window ──────────────────────────────────────────────────────────────
     case 901: setWorkspaceMode(0); resized(); break;
+    case 902:
+        if (auto* peer = getPeer())
+        {
+            const bool goingFullScreen = ! peer->isFullScreen();
+            peer->setFullScreen(goingFullScreen);
+            updateStatusMessage(goingFullScreen ? "Entered full screen" : "Exited full screen");
+        }
+        break;
+
+    // ── Help ────────────────────────────────────────────────────────────────
+    case 1001: showManualDialog();             break;
+    case 1002: showKeyboardShortcutsDialog();  break;
+    case 1003: showAboutDialog();              break;
 
     default:
         updateStatusMessage("Coming soon.");

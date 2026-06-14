@@ -1420,6 +1420,162 @@ namespace NovaStudio
         return true;
     }
 
+    bool ArrangementModel::writeBufferToWavFile(const juce::File& destFile, const juce::AudioBuffer<float>& buffer, double sampleRate)
+    {
+        if (destFile == juce::File())
+            return false;
+
+        destFile.deleteFile();
+        std::unique_ptr<juce::FileOutputStream> stream(destFile.createOutputStream());
+        if (stream == nullptr)
+            return false;
+
+        juce::WavAudioFormat wavFormat;
+        std::unique_ptr<juce::AudioFormatWriter> writer(
+            wavFormat.createWriterFor(stream.get(), sampleRate, (unsigned int) buffer.getNumChannels(), 24, {}, 0));
+        if (writer == nullptr)
+            return false;
+
+        stream.release(); // writer now owns the stream
+        writer->writeFromAudioSampleBuffer(buffer, 0, buffer.getNumSamples());
+        writer.reset();   // flush
+        return true;
+    }
+
+    bool ArrangementModel::renderTracksToBuffer(const juce::Array<int>& trackIndices, juce::AudioBuffer<float>& dest, double& sampleRateOut)
+    {
+        int64_t totalLength = 0;
+        double sr = 0.0;
+        int numChannels = 2;
+
+        for (int t : trackIndices)
+        {
+            if (!isPositiveAndBelow(t, session.getNumTracks()))
+                continue;
+            for (auto& c : session.getTrack(t).clips)
+            {
+                if (c.isMidi || c.muted)
+                    continue;
+                totalLength = juce::jmax(totalLength, c.startSample + c.lengthSamples);
+                if (sr <= 0.0)
+                {
+                    juce::AudioBuffer<float> probe;
+                    double probeSr = 0.0;
+                    if (readClipRegionToBuffer(c, probe, probeSr))
+                    {
+                        sr = probeSr;
+                        numChannels = probe.getNumChannels();
+                    }
+                }
+            }
+        }
+
+        if (totalLength <= 0 || sr <= 0.0)
+            return false;
+
+        dest.setSize(numChannels, (int) totalLength);
+        dest.clear();
+
+        for (int t : trackIndices)
+        {
+            if (!isPositiveAndBelow(t, session.getNumTracks()))
+                continue;
+
+            auto& track = session.getTrack(t);
+            const float trackGain = juce::Decibels::decibelsToGain(track.volumeDb);
+
+            for (auto& c : track.clips)
+            {
+                if (c.isMidi || c.muted)
+                    continue;
+
+                juce::AudioBuffer<float> region;
+                double regionSr = 0.0;
+                if (!readClipRegionToBuffer(c, region, regionSr))
+                    continue;
+
+                const float linearGain = juce::Decibels::decibelsToGain(c.gainDb) * trackGain;
+                const int   numSamples = region.getNumSamples();
+                for (int ch = 0; ch < region.getNumChannels(); ++ch)
+                {
+                    auto* data = region.getWritePointer(ch);
+                    for (int i = 0; i < numSamples; ++i)
+                    {
+                        float fade = 1.0f;
+                        if (c.fadeInSamples > 0)
+                            fade = juce::jmin(fade, juce::jlimit(0.0f, 1.0f, (float) i / (float) c.fadeInSamples));
+                        if (c.fadeOutSamples > 0)
+                            fade = juce::jmin(fade, juce::jlimit(0.0f, 1.0f, (float) (numSamples - i) / (float) c.fadeOutSamples));
+                        data[i] *= linearGain * fade;
+                    }
+                }
+
+                const int destOffset = (int) c.startSample;
+                for (int ch = 0; ch < dest.getNumChannels(); ++ch)
+                    dest.addFrom(ch, destOffset, region, juce::jmin(ch, region.getNumChannels() - 1), 0, numSamples);
+            }
+        }
+
+        sampleRateOut = sr;
+        return true;
+    }
+
+    bool ArrangementModel::exportMixToFile(const juce::File& destFile)
+    {
+        const bool anySoloed = [this]
+        {
+            for (int t = 0; t < session.getNumTracks(); ++t)
+                if (session.getTrack(t).solo)
+                    return true;
+            return false;
+        }();
+
+        juce::Array<int> trackIndices;
+        for (int t = 0; t < session.getNumTracks(); ++t)
+        {
+            const auto& track = session.getTrack(t);
+            if (track.muted || (anySoloed && !track.solo))
+                continue;
+            trackIndices.add(t);
+        }
+
+        juce::AudioBuffer<float> mix;
+        double sr = 0.0;
+        if (!renderTracksToBuffer(trackIndices, mix, sr))
+            return false;
+
+        return writeBufferToWavFile(destFile, mix, sr);
+    }
+
+    bool ArrangementModel::exportTrackToFile(int trackIndex, const juce::File& destFile)
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks()))
+            return false;
+
+        juce::Array<int> trackIndices { trackIndex };
+
+        juce::AudioBuffer<float> rendered;
+        double sr = 0.0;
+        if (!renderTracksToBuffer(trackIndices, rendered, sr))
+            return false;
+
+        return writeBufferToWavFile(destFile, rendered, sr);
+    }
+
+    bool ArrangementModel::duplicateTrack(int trackIndex)
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks()))
+            return false;
+
+        Track sourceCopy = session.getTrack(trackIndex);
+        Track& dest = session.addTrack(sourceCopy.name, sourceCopy.type);
+        sourceCopy.name = sourceCopy.name + " Copy";
+        dest = sourceCopy;
+
+        sendChangeMessage();
+        return true;
+    }
+
     bool ArrangementModel::setSelectedClipGain(float gainDb)
     {
         Clip* clip = getSelectedClip();
