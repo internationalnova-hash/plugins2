@@ -37,12 +37,12 @@ MainComponent::MainComponent()
     addAndMakeVisible(*beatWindow);
     beatWindow->setVisible(false);
     addAndMakeVisible(mixerPanel);
-    addAndMakeVisible(bottomTabs);
+    addAndMakeVisible(bottomDock);
     addAndMakeVisible(statusLabel);
 
-    bottomTabs.addTab("Mixer", juce::Colours::transparentBlack, &mixerPanel, false);
-    bottomTabs.addTab("Piano Roll", juce::Colours::transparentBlack, &pianoRollPanel, false);
-    bottomTabs.addTab("Step Seq", juce::Colours::transparentBlack, &stepSequencerPanel, false);
+    
+    
+    
 
     statusLabel.setJustificationType(juce::Justification::centredLeft);
     statusLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.8f));
@@ -277,9 +277,9 @@ void MainComponent::resized()
     auto leftSidebar = area.removeFromLeft(190);
     browserPanel.setBounds(leftSidebar);
 
-    // Bottom tabs (Mixer / Piano Roll / Step Seq)
-    auto bottomArea = area.removeFromBottom(200);
-    bottomTabs.setBounds(bottomArea);
+    // Bottom dock: mixer channels + piano roll + step seq (all visible simultaneously)
+    auto bottomArea = area.removeFromBottom(280);
+    bottomDock.setBounds(bottomArea);
 
     // Status label (overlay, bottom right)
     statusLabel.setBounds(getWidth() - 500, getHeight() - 26, 480, 22);
@@ -369,35 +369,35 @@ void MainComponent::setWorkspaceMode(int mode)
         if (mixerWindow) mixerWindow->setVisible(false);
         if (beatWindow) beatWindow->setVisible(false);
         alignPanel.setVisible(false);
-        bottomTabs.setVisible(true);
+        bottomDock.setVisible(true);
         break;
     case 1: // Mixer
         if (editWindow) editWindow->setVisible(false);
         if (mixerWindow) { mixerWindow->refresh(); mixerWindow->setVisible(true); }
         if (beatWindow) beatWindow->setVisible(false);
         alignPanel.setVisible(false);
-        bottomTabs.setVisible(false);
+        bottomDock.setVisible(false);
         break;
     case 2: // Browse / Split
         if (editWindow) editWindow->setVisible(true);
         if (mixerWindow) mixerWindow->setVisible(false);
         if (beatWindow) beatWindow->setVisible(false);
         alignPanel.setVisible(false);
-        bottomTabs.setVisible(true);
+        bottomDock.setVisible(true);
         break;
     case 3: // Beat
         if (editWindow) editWindow->setVisible(false);
         if (mixerWindow) mixerWindow->setVisible(false);
         if (beatWindow) beatWindow->setVisible(true);
         alignPanel.setVisible(false);
-        bottomTabs.setVisible(false);
+        bottomDock.setVisible(false);
         break;
     default:
         if (editWindow) editWindow->setVisible(true);
         if (mixerWindow) mixerWindow->setVisible(false);
         if (beatWindow) beatWindow->setVisible(false);
         alignPanel.setVisible(false);
-        bottomTabs.setVisible(true);
+        bottomDock.setVisible(true);
         break;
     }
 

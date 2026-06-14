@@ -34,8 +34,8 @@ private:
     std::unique_ptr<NovaStudioUI::MixerWindow>  mixerWindow;
     std::unique_ptr<NovaStudioUI::BeatWindow>   beatWindow;
     NovaStudioUI::NovaAlignPanel alignPanel;
-    NovaStudioUI::MixerPanel mixerPanel; // side-panel stub kept for split/rack modes
-    juce::TabbedComponent bottomTabs { juce::TabbedButtonBar::TabsAtTop };
+    NovaStudioUI::MixerPanel mixerPanel;
+    NovaStudioUI::BottomDockPanel bottomDock;
     NovaStudioUI::BrowserPanel browserPanel;
     NovaStudioUI::PianoRollPanel pianoRollPanel;
     NovaStudioUI::StepSequencerPanel stepSequencerPanel;

@@ -183,79 +183,119 @@ namespace NovaStudioUI
 
     void TrackPanel::paint(juce::Graphics& g)
     {
-        // Header
-        g.setColour(juce::Colour::fromRGB(14, 16, 22));
-        g.fillRect(getLocalBounds());
-        g.setColour(juce::Colour::fromRGB(35, 38, 52));
+        g.fillAll(juce::Colour::fromRGB(10, 11, 16));
+
+        // Header bar
+        g.setColour(juce::Colour::fromRGB(14, 15, 22));
         g.fillRect(0, 0, getWidth(), 28);
-        g.setColour(juce::Colours::white.withAlpha(0.45f));
-        g.setFont(juce::Font(11.0f, juce::Font::bold));
-        g.drawText("TRACKS", 10, 0, getWidth(), 28, juce::Justification::centredLeft);
+        g.setColour(juce::Colour::fromRGB(40, 44, 60));
+        g.fillRect(0, 27, getWidth(), 1);
+        g.setColour(juce::Colours::white.withAlpha(0.5f));
+        g.setFont(juce::Font(juce::FontOptions(10.0f).withStyle("Bold")));
+        g.drawText("TRACKS", 36, 0, 80, 28, juce::Justification::centredLeft);
+
+        // Add button (+) in header
+        g.setColour(juce::Colours::white.withAlpha(0.3f));
+        g.setFont(juce::Font(juce::FontOptions(16.0f)));
+        g.drawText("+", getWidth() - 28, 0, 22, 28, juce::Justification::centred);
+
+        // Palette of track colors matching mockup
+        static const juce::Colour trackPalette[] = {
+            juce::Colour::fromRGB(120, 80, 200),   // purple — vocal lead
+            juce::Colour::fromRGB(80, 100, 200),   // blue-purple — harmony
+            juce::Colour::fromRGB(50, 160, 160),   // teal — adlibs
+            juce::Colour::fromRGB(60, 120, 200),   // blue — beat
+            juce::Colour::fromRGB(40, 180, 160),   // teal-green — bass
+            juce::Colour::fromRGB(60, 180, 80),    // green — keys
+            juce::Colour::fromRGB(160, 190, 50),   // yellow-green — guitar
+            juce::Colour::fromRGB(190, 110, 40),   // orange — FX
+        };
+        const int numPalette = 8;
 
         const int numTracks = session.getNumTracks();
-        const int w = getWidth();
-
-        // Button layout constants (right-aligned)
-        const int btnW = 26, btnH = 18, btnGap = 3;
-        const int soloX  = w - btnW - 6;
-        const int muteX  = soloX - btnW - btnGap;
-        const int armX   = muteX - btnW - btnGap;
+        const int W = getWidth();
+        const int btnW = 24, btnH = 16, btnGap = 2;
+        const int soloX = W - btnW - 6;
+        const int muteX = soloX - btnW - btnGap;
+        const int armX  = muteX - btnW - btnGap;
 
         for (int i = 0; i < numTracks; ++i)
         {
             const auto& track = session.getTrack(i);
             const int y = 28 + i * kTrackHeight;
+            const juce::Colour trackColor = trackPalette[i % numPalette];
 
-            // Row background
-            g.setColour((i % 2 == 0) ? kTrackBg0 : kTrackBg1);
-            g.fillRect(0, y, w, kTrackHeight);
+            // Alternating row background
+            g.setColour((i % 2 == 0) ? juce::Colour::fromRGB(14, 15, 22)
+                                     : juce::Colour::fromRGB(12, 13, 19));
+            g.fillRect(0, y, W, kTrackHeight);
 
-            // Left color bar
-            g.setColour(track.clips.size() > 0 ? track.clips[0].clipColor
-                                               : juce::Colour::fromRGB(80, 80, 120));
-            g.fillRect(0, y, 4, kTrackHeight);
+            // Armed track: subtle red tint
+            if (track.armed)
+            {
+                g.setColour(juce::Colour::fromRGB(180, 30, 30).withAlpha(0.08f));
+                g.fillRect(0, y, W, kTrackHeight);
+            }
+
+            // Track number
+            g.setColour(juce::Colours::white.withAlpha(0.35f));
+            g.setFont(juce::Font(juce::FontOptions(10.0f)));
+            g.drawText(juce::String(i + 1), 4, y, 18, kTrackHeight, juce::Justification::centred);
+
+            // Color swatch/badge (left side, full height, 4px wide)
+            g.setColour(trackColor);
+            g.fillRect(22, y + 4, 4, kTrackHeight - 8);
 
             // Track name
             g.setColour(juce::Colours::white.withAlpha(0.92f));
-            g.setFont(juce::Font(13.0f, juce::Font::bold));
-            g.drawText(track.name, 12, y + 10, armX - 16, 18, juce::Justification::left);
+            g.setFont(juce::Font(juce::FontOptions(12.0f).withStyle("Bold")));
+            g.drawText(track.name, 32, y + 8, armX - 36, 18, juce::Justification::left);
 
-            // Track type
-            g.setColour(juce::Colours::white.withAlpha(0.38f));
-            g.setFont(juce::Font(10.0f));
-            g.drawText(track.type == NovaStudio::TrackType::Audio ? "Audio" : "MIDI",
-                       12, y + 30, armX - 16, 14, juce::Justification::left);
+            // Track type label
+            g.setColour(trackColor.withAlpha(0.7f));
+            g.setFont(juce::Font(juce::FontOptions(9.5f)));
+            g.drawText(track.type == NovaStudio::TrackType::Audio ? "AUDIO" : "MIDI",
+                       32, y + 28, armX - 36, 14, juce::Justification::left);
+
+            // Buttons
+            const int btnY = y + (kTrackHeight - btnH) / 2;
 
             // ARM button
-            const int btnY = y + (kTrackHeight - btnH) / 2;
-            g.setColour(track.armed ? kArmedCol : kBtnDark);
+            g.setColour(track.armed ? juce::Colour::fromRGB(220, 50, 50)
+                                    : juce::Colour::fromRGB(28, 30, 42));
             g.fillRoundedRectangle((float)armX, (float)btnY, (float)btnW, (float)btnH, 3.0f);
-            g.setColour(track.armed ? juce::Colours::white : juce::Colours::white.withAlpha(0.45f));
-            g.setFont(juce::Font(10.0f, juce::Font::bold));
+            g.setColour(track.armed ? juce::Colours::white : juce::Colours::white.withAlpha(0.4f));
+            g.setFont(juce::Font(juce::FontOptions(9.0f).withStyle("Bold")));
             g.drawText("R", armX, btnY, btnW, btnH, juce::Justification::centred);
 
             // MUTE button
-            g.setColour(track.muted ? kMuteCol : kBtnDark);
+            g.setColour(track.muted ? juce::Colour::fromRGB(200, 150, 20)
+                                    : juce::Colour::fromRGB(28, 30, 42));
             g.fillRoundedRectangle((float)muteX, (float)btnY, (float)btnW, (float)btnH, 3.0f);
-            g.setColour(track.muted ? juce::Colours::black : juce::Colours::white.withAlpha(0.45f));
+            g.setColour(track.muted ? juce::Colours::black : juce::Colours::white.withAlpha(0.4f));
             g.drawText("M", muteX, btnY, btnW, btnH, juce::Justification::centred);
 
             // SOLO button
-            g.setColour(track.solo ? kSoloCol : kBtnDark);
+            g.setColour(track.solo ? juce::Colour::fromRGB(30, 170, 170)
+                                   : juce::Colour::fromRGB(28, 30, 42));
             g.fillRoundedRectangle((float)soloX, (float)btnY, (float)btnW, (float)btnH, 3.0f);
-            g.setColour(track.solo ? juce::Colours::black : juce::Colours::white.withAlpha(0.45f));
+            g.setColour(track.solo ? juce::Colours::black : juce::Colours::white.withAlpha(0.4f));
             g.drawText("S", soloX, btnY, btnW, btnH, juce::Justification::centred);
 
             // Row separator
-            g.setColour(kTrackSep);
-            g.drawLine(0, (float)(y + kTrackHeight - 1), (float)w, (float)(y + kTrackHeight - 1), 1.0f);
+            g.setColour(juce::Colour::fromRGB(25, 27, 38));
+            g.fillRect(0, y + kTrackHeight - 1, W, 1);
         }
+
+        // Right border
+        g.setColour(juce::Colour::fromRGB(35, 38, 52));
+        g.fillRect(W - 1, 0, 1, getHeight());
     }
 
     TrackPanel::HitButton TrackPanel::hitTest(int trackIndex, juce::Point<int> pos) const
     {
         const int w = getWidth();
-        const int btnW = 26, btnH = 18, btnGap = 3;
+        const int btnW = 24, btnH = 16, btnGap = 2;
         const int soloX = w - btnW - 6;
         const int muteX = soloX - btnW - btnGap;
         const int armX  = muteX - btnW - btnGap;
@@ -304,6 +344,14 @@ namespace NovaStudioUI
     InspectorPanel::InspectorPanel(NovaStudio::ArrangementModel& arrangementModelRef)
         : arrangementModel(arrangementModelRef)
     {
+        addAndMakeVisible(tabs);
+        tabs.addTab("CHANNEL", juce::Colours::transparentBlack, new juce::Component(), true);
+        tabs.addTab("INSERTS", juce::Colours::transparentBlack, new juce::Component(), true);
+        tabs.addTab("SENDS",   juce::Colours::transparentBlack, new juce::Component(), true);
+        tabs.setColour(juce::TabbedButtonBar::tabTextColourId, juce::Colours::white.withAlpha(0.7f));
+        tabs.setColour(juce::TabbedComponent::backgroundColourId, juce::Colours::transparentBlack);
+        tabs.setColour(juce::TabbedComponent::outlineColourId, juce::Colours::transparentBlack);
+
         addAndMakeVisible(titleLabel);
         addAndMakeVisible(selectedClipLabel);
         addAndMakeVisible(trackInfoLabel);
@@ -355,14 +403,17 @@ namespace NovaStudioUI
 
     void InspectorPanel::paint(juce::Graphics& g)
     {
-        g.fillAll(juce::Colour::fromRGB(20, 24, 34));
-        g.setColour(Theme::panelEdge());
-        g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(1.0f), 16.0f, 1.5f);
+        g.fillAll(juce::Colour::fromRGB(11, 12, 18));
+        // left border
+        g.setColour(juce::Colour::fromRGB(35, 38, 52));
+        g.fillRect(0, 0, 1, getHeight());
     }
 
     void InspectorPanel::resized()
     {
-        auto area = getLocalBounds().reduced(16);
+        auto area = getLocalBounds();
+        tabs.setBounds(area.removeFromTop(32));
+        area = area.reduced(16);
         titleLabel.setBounds(area.removeFromTop(28));
         area.removeFromTop(12);
         selectedClipLabel.setBounds(area.removeFromTop(24));
@@ -513,6 +564,27 @@ namespace NovaStudioUI
             }
         }
 
+        // Section markers (drawn over ruler — decorative)
+        if (arrangementModel.getSession().getNumTracks() > 0)
+        {
+            struct Section { const char* name; float beatPos; juce::Colour color; };
+            static const Section sections[] = {
+                {"INTRO",    0.0f,  juce::Colour::fromRGB(100, 100, 140)},
+                {"VERSE 1",  8.0f,  juce::Colour::fromRGB(80, 120, 160)},
+                {"HOOK",     24.0f, juce::Colour::fromRGB(140, 80, 160)},
+                {"VERSE 2",  40.0f, juce::Colour::fromRGB(80, 120, 160)},
+                {"OUTRO",    56.0f, juce::Colour::fromRGB(100, 100, 140)},
+            };
+            for (auto& sec : sections)
+            {
+                const double secX = sec.beatPos * pixelsPerBeat;
+                if (secX < 0 || secX > W) continue;
+                g.setColour(sec.color.withAlpha(0.6f));
+                g.setFont(juce::Font(juce::FontOptions(9.0f).withStyle("Bold")));
+                g.drawText(sec.name, (int)secX + 4, 2, 80, 12, juce::Justification::left);
+            }
+        }
+
         // Track lanes — aligned with TrackPanel rows (28px header offset on left panel)
         const float trackHeight = (float)TrackPanel::kTrackHeight;
         const NovaStudio::Session& session = arrangementModel.getSession();
@@ -568,25 +640,25 @@ namespace NovaStudioUI
                 const auto& selected = arrangementModel.getSelectedClips();
                 const bool clipMultiSelected = selected.contains(juce::Point<int>(trackIndex, clipIndex));
 
-                juce::Colour fillColor = clip.clipColor;
-                if (clip.muted)
-                    fillColor = fillColor.withAlpha(0.25f);
-                else if (clipSelectedSingle || clipMultiSelected)
-                    fillColor = fillColor.brighter(0.4f);
+                static const juce::Colour palette[] = {
+                    juce::Colour::fromRGB(100, 65, 175),
+                    juce::Colour::fromRGB(65, 85, 175),
+                    juce::Colour::fromRGB(40, 140, 140),
+                    juce::Colour::fromRGB(50, 100, 175),
+                    juce::Colour::fromRGB(35, 155, 140),
+                    juce::Colour::fromRGB(50, 155, 70),
+                    juce::Colour::fromRGB(140, 165, 45),
+                    juce::Colour::fromRGB(165, 95, 35),
+                };
+                juce::Colour fillColor = palette[trackIndex % 8];
+                if (clip.muted) fillColor = fillColor.withAlpha(0.25f);
+                else if (clipSelectedSingle || clipMultiSelected) fillColor = fillColor.brighter(0.3f);
 
                 g.setColour(fillColor);
                 g.fillRoundedRectangle((float)clipStartX, clipY, clipWidth, clipHeight, 8.0f);
 
                 g.setColour(juce::Colours::black.withAlpha(0.12f));
                 g.drawRoundedRectangle((float)clipStartX, clipY, clipWidth, clipHeight, 8.0f, 1.4f);
-
-                const int stripeCount = juce::jmax(2, static_cast<int>(clipWidth / 22.0));
-                g.setColour(juce::Colours::white.withAlpha(0.12f));
-                for (int stripe = 0; stripe < stripeCount; ++stripe)
-                {
-                    const float lineX = (float)clipStartX + stripe * 22.0f;
-                    g.drawLine(lineX, clipY + 4.0f, lineX, clipY + clipHeight - 4.0f, 1.0f);
-                }
 
                 const bool isGuideClip = arrangementModel.isGuideClip(trackIndex, clipIndex);
                 const bool isTargetClip = arrangementModel.isAlignTargetClip(trackIndex, clipIndex);
@@ -646,7 +718,7 @@ namespace NovaStudioUI
                             const float x2 = nx + (clipWidth / (float)blocks);
                             const float y1 = centerY - (maxV * amp);
                             const float y2 = centerY - (minV * amp);
-                            g.setColour(juce::Colours::white.withAlpha(0.12f));
+                            g.setColour(juce::Colours::white.withAlpha(0.35f));
                             g.drawLine(nx, y1, nx, y2, juce::jmax(1.0f, clipWidth / blocks * 0.6f));
                         }
                     }
@@ -960,14 +1032,386 @@ MixerPanel::~MixerPanel() = default;
 
 void MixerPanel::paint(juce::Graphics& g)
 {
-    g.setColour(juce::Colour::fromRGB(19, 22, 28));
-    g.fillRoundedRectangle(getLocalBounds().toFloat().reduced(2.0f), 14.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.55f));
-    g.setFont(juce::Font(13.0f, juce::Font::bold));
-    g.drawText("MIXER", 14, 12, getWidth() - 28, 18, juce::Justification::left);
+    g.fillAll(juce::Colour::fromRGB(9, 10, 15));
+
+    // Header bar
+    g.setColour(juce::Colour::fromRGB(14, 15, 22));
+    g.fillRect(0, 0, getWidth(), 28);
+    g.setColour(juce::Colours::white.withAlpha(0.5f));
+    g.setFont(juce::Font(juce::FontOptions(10.0f).withStyle("Bold")));
+    g.drawText("MIXER", 12, 0, 80, 28, juce::Justification::centredLeft);
+
+    // Separator
+    g.setColour(juce::Colour::fromRGB(35, 38, 52));
+    g.fillRect(0, 27, getWidth(), 1);
+
+    // Draw channel strip placeholders
+    static const juce::Colour palette[] = {
+        juce::Colour::fromRGB(100, 65, 175),
+        juce::Colour::fromRGB(65, 85, 175),
+        juce::Colour::fromRGB(40, 140, 140),
+        juce::Colour::fromRGB(50, 100, 175),
+        juce::Colour::fromRGB(35, 155, 140),
+        juce::Colour::fromRGB(50, 155, 70),
+        juce::Colour::fromRGB(140, 165, 45),
+        juce::Colour::fromRGB(165, 95, 35),
+    };
+    static const char* names[] = {"VOC LEAD","HARMONY","ADLIBS","BEAT","BASS","KEYS","GUITAR","FX"};
+
+    const int stripW = 72;
+    const int numStrips = juce::jmin(8, (getWidth() - 80) / stripW);
+    const int H = getHeight();
+
+    for (int i = 0; i < numStrips; ++i)
+    {
+        const int sx = 8 + i * stripW;
+        const juce::Colour col = palette[i];
+
+        // Strip background
+        g.setColour(juce::Colour::fromRGB(14, 15, 22));
+        g.fillRect(sx, 32, stripW - 4, H - 36);
+
+        // Color indicator top
+        g.setColour(col);
+        g.fillRect(sx, 32, stripW - 4, 3);
+
+        // Track name
+        g.setColour(juce::Colours::white.withAlpha(0.8f));
+        g.setFont(juce::Font(juce::FontOptions(8.5f).withStyle("Bold")));
+        g.drawText(names[i], sx, 38, stripW - 4, 14, juce::Justification::centred);
+
+        // Fader track (vertical line)
+        const int faderX = sx + (stripW - 4) / 2;
+        const int faderTop = 60;
+        const int faderBot = H - 36;
+        g.setColour(juce::Colour::fromRGB(28, 30, 42));
+        g.fillRect(faderX - 2, faderTop, 4, faderBot - faderTop);
+
+        // Fader handle at ~80% position
+        const int faderHandleY = faderTop + (int)((faderBot - faderTop) * 0.25f);
+        g.setColour(juce::Colour::fromRGB(80, 84, 110));
+        g.fillRoundedRectangle((float)(sx + 6), (float)(faderHandleY - 6), (float)(stripW - 16), 12.0f, 3.0f);
+        g.setColour(juce::Colour::fromRGB(120, 124, 160));
+        g.fillRect(sx + 6, faderHandleY - 1, stripW - 16, 2);
+
+        // M / S buttons at bottom
+        g.setColour(juce::Colour::fromRGB(28, 30, 42));
+        g.fillRoundedRectangle((float)sx + 2, (float)(H - 32), 20.0f, 14.0f, 2.0f);
+        g.fillRoundedRectangle((float)sx + 26, (float)(H - 32), 20.0f, 14.0f, 2.0f);
+        g.setColour(juce::Colours::white.withAlpha(0.45f));
+        g.setFont(juce::Font(juce::FontOptions(8.0f).withStyle("Bold")));
+        g.drawText("M", sx + 2, H - 32, 20, 14, juce::Justification::centred);
+        g.drawText("S", sx + 26, H - 32, 20, 14, juce::Justification::centred);
+
+        // dB label at bottom
+        g.setColour(juce::Colours::white.withAlpha(0.4f));
+        g.setFont(juce::Font(juce::FontOptions(8.0f)));
+        g.drawText("-3.2", sx, H - 16, stripW - 4, 14, juce::Justification::centred);
+
+        // Strip separator
+        g.setColour(juce::Colour::fromRGB(22, 24, 34));
+        g.fillRect(sx + stripW - 4, 32, 1, H - 36);
+    }
 }
 
 void MixerPanel::resized() {}
+
+// ─── BottomDockPanel ────────────────────────────────────────────────────────
+
+BottomDockPanel::BottomDockPanel()
+{
+    for (auto* b : {&mixerTab, &channelsTab, &effectsTab, &metersTab})
+    {
+        addAndMakeVisible(b);
+        b->addListener(this);
+        b->setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+        b->setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.55f));
+    }
+    mixerTab.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+}
+
+BottomDockPanel::~BottomDockPanel() = default;
+
+void BottomDockPanel::resized()
+{
+    const int tabH = 28;
+    auto area = getLocalBounds();
+    auto tabRow = area.removeFromTop(tabH);
+    const int tabW = 80;
+    mixerTab.setBounds(tabRow.removeFromLeft(tabW));
+    channelsTab.setBounds(tabRow.removeFromLeft(tabW));
+    effectsTab.setBounds(tabRow.removeFromLeft(tabW));
+    metersTab.setBounds(tabRow.removeFromLeft(tabW));
+}
+
+static const juce::Colour kDockPalette[] = {
+    juce::Colour::fromRGB(100, 65, 175),
+    juce::Colour::fromRGB(65,  85, 175),
+    juce::Colour::fromRGB(40, 140, 140),
+    juce::Colour::fromRGB(50, 100, 175),
+    juce::Colour::fromRGB(35, 155, 140),
+    juce::Colour::fromRGB(50, 155,  70),
+    juce::Colour::fromRGB(140,165,  45),
+    juce::Colour::fromRGB(165, 95,  35),
+    juce::Colour::fromRGB( 80, 80, 120),  // BUS 1
+    juce::Colour::fromRGB( 80, 80, 120),  // BUS 2
+    juce::Colour::fromRGB( 60, 80, 140),  // REVERB
+    juce::Colour::fromRGB( 60, 80, 140),  // DELAY
+    juce::Colour::fromRGB(160,140,  60),  // MASTER
+};
+static const char* kDockNames[] = {
+    "VOC LEAD","HARMONY","ADLIBS","BEAT","BASS","KEYS","GUITAR","FX",
+    "BUS 1","BUS 2","REVERB","DELAY","MASTER"
+};
+static const float kFaderPos[] = {
+    0.22f, 0.28f, 0.32f, 0.26f, 0.30f, 0.35f, 0.30f, 0.50f,
+    0.25f, 0.28f, 0.55f, 0.62f, 0.18f
+};
+
+void BottomDockPanel::paintMixerStrips(juce::Graphics& g, juce::Rectangle<int> area)
+{
+    const int H   = area.getHeight();
+    const int top = area.getY();
+    const int stripW = 68;
+    const int numStrips = juce::jmin(13, area.getWidth() / stripW);
+
+    for (int i = 0; i < numStrips; ++i)
+    {
+        const int sx  = area.getX() + i * stripW;
+        const juce::Colour col = kDockPalette[i];
+
+        // Strip bg
+        g.setColour(juce::Colour::fromRGB(13, 14, 20));
+        g.fillRect(sx, top, stripW - 2, H);
+
+        // Colour bar at top
+        g.setColour(col);
+        g.fillRect(sx, top, stripW - 2, 3);
+
+        // Track name
+        g.setColour(juce::Colours::white.withAlpha(0.82f));
+        g.setFont(juce::Font(juce::FontOptions(8.0f).withStyle("Bold")));
+        g.drawText(kDockNames[i], sx + 2, top + 5, stripW - 6, 13, juce::Justification::centred);
+
+        // Pan knob (circle)
+        const float knobCX = (float)sx + (stripW - 2) * 0.5f;
+        const float knobCY = (float)top + 26.0f;
+        const float kr = 8.0f;
+        g.setColour(juce::Colour::fromRGB(28, 30, 44));
+        g.fillEllipse(knobCX - kr, knobCY - kr, kr * 2.0f, kr * 2.0f);
+        g.setColour(col.withAlpha(0.7f));
+        g.drawEllipse(knobCX - kr, knobCY - kr, kr * 2.0f, kr * 2.0f, 1.2f);
+        // Knob pointer (centre = no pan)
+        g.setColour(juce::Colours::white.withAlpha(0.8f));
+        g.drawLine(knobCX, knobCY - kr + 2.0f, knobCX, knobCY - 2.0f, 1.5f);
+
+        // Fader rail
+        const int faderTop = top + 42;
+        const int faderBot = top + H - 32;
+        const int faderX   = sx + (stripW - 2) / 2;
+        g.setColour(juce::Colour::fromRGB(22, 24, 34));
+        g.fillRect(faderX - 2, faderTop, 4, faderBot - faderTop);
+
+        // Fader level marks (thin lines)
+        g.setColour(juce::Colour::fromRGB(35, 38, 52));
+        for (int m = 0; m < 6; ++m)
+        {
+            const int my = faderTop + m * (faderBot - faderTop) / 5;
+            g.drawLine((float)(sx + 8), (float)my, (float)(sx + 16), (float)my, 0.5f);
+        }
+
+        // Fader handle
+        const float fPos  = kFaderPos[i];
+        const int handleY = faderTop + (int)(fPos * (faderBot - faderTop));
+        g.setColour(juce::Colour::fromRGB(72, 76, 106));
+        g.fillRoundedRectangle((float)(sx + 8), (float)(handleY - 7), (float)(stripW - 18), 14.0f, 3.0f);
+        g.setColour(juce::Colour::fromRGB(110, 115, 155));
+        g.fillRect(sx + 8, handleY - 1, stripW - 18, 2);
+
+        // M / S buttons
+        const int btnY = top + H - 30;
+        g.setColour(juce::Colour::fromRGB(24, 26, 38));
+        g.fillRoundedRectangle((float)(sx + 3),  (float)btnY, 18.0f, 13.0f, 2.0f);
+        g.fillRoundedRectangle((float)(sx + 24), (float)btnY, 18.0f, 13.0f, 2.0f);
+        g.setColour(juce::Colours::white.withAlpha(0.45f));
+        g.setFont(juce::Font(juce::FontOptions(7.5f).withStyle("Bold")));
+        g.drawText("M", sx + 3,  btnY, 18, 13, juce::Justification::centred);
+        g.drawText("S", sx + 24, btnY, 18, 13, juce::Justification::centred);
+
+        // dB value
+        const float dbVal = -3.2f - i * 0.8f;
+        g.setColour(juce::Colours::white.withAlpha(0.38f));
+        g.setFont(juce::Font(juce::FontOptions(7.5f)));
+        g.drawText(juce::String(dbVal, 1), sx + 2, top + H - 14, stripW - 6, 12, juce::Justification::centred);
+
+        // Separator
+        g.setColour(juce::Colour::fromRGB(20, 22, 32));
+        g.fillRect(sx + stripW - 2, top, 1, H);
+    }
+}
+
+void BottomDockPanel::paintPianoRoll(juce::Graphics& g, juce::Rectangle<int> area)
+{
+    g.setColour(juce::Colour::fromRGB(12, 13, 19));
+    g.fillRect(area);
+
+    // Header
+    g.setColour(juce::Colour::fromRGB(16, 18, 26));
+    g.fillRect(area.getX(), area.getY(), area.getWidth(), 22);
+    g.setColour(juce::Colours::white.withAlpha(0.7f));
+    g.setFont(juce::Font(juce::FontOptions(9.5f).withStyle("Bold")));
+    g.drawText("PIANO ROLL", area.getX() + 8, area.getY(), 90, 22, juce::Justification::centredLeft);
+    g.setColour(juce::Colours::white.withAlpha(0.4f));
+    g.setFont(juce::Font(juce::FontOptions(8.5f)));
+    g.drawText("Snap: 1/16", area.getRight() - 70, area.getY(), 64, 22, juce::Justification::centredRight);
+
+    // Piano keys on left
+    const int keyW = 18;
+    const int noteH = 8;
+    const int numKeys = (area.getHeight() - 22) / noteH;
+    const bool isBlack[] = {false,true,false,true,false,false,true,false,true,false,true,false};
+    for (int k = 0; k < numKeys; ++k)
+    {
+        const int ky = area.getY() + 22 + k * noteH;
+        const bool black = isBlack[k % 12];
+        g.setColour(black ? juce::Colour::fromRGB(18, 20, 28) : juce::Colour::fromRGB(40, 44, 58));
+        g.fillRect(area.getX(), ky, keyW, noteH - 1);
+    }
+
+    // Note grid
+    const int gridX = area.getX() + keyW;
+    const int gridW = area.getWidth() - keyW;
+    const int gridH = area.getHeight() - 22;
+
+    // Beat lines
+    const int beatsVisible = 8;
+    const int beatW = gridW / beatsVisible;
+    for (int b = 0; b < beatsVisible; ++b)
+    {
+        const int bx = gridX + b * beatW;
+        g.setColour(b % 4 == 0 ? juce::Colour::fromRGB(30, 33, 48)
+                                : juce::Colour::fromRGB(22, 24, 34));
+        g.fillRect(bx, area.getY() + 22, 1, gridH);
+    }
+
+    // Row lines
+    for (int k = 0; k < numKeys; ++k)
+    {
+        const int ky = area.getY() + 22 + k * noteH;
+        const bool black = isBlack[k % 12];
+        g.setColour(black ? juce::Colour::fromRGB(14, 15, 22)
+                          : juce::Colour::fromRGB(16, 18, 26));
+        g.fillRect(gridX, ky, gridW, noteH - 1);
+    }
+
+    // Sample notes (decorative purple blobs)
+    struct Note { int beat, key, len; };
+    static const Note notes[] = {
+        {0,5,2},{2,5,1},{3,7,2},{6,5,3},{0,8,4},{4,10,2},{7,3,1}
+    };
+    g.setColour(juce::Colour::fromRGB(130, 80, 200).withAlpha(0.85f));
+    for (auto& n : notes)
+    {
+        const int nx = gridX + n.beat * beatW;
+        const int ny = area.getY() + 22 + n.key * noteH;
+        g.fillRoundedRectangle((float)nx + 1.0f, (float)ny + 1.0f,
+                               (float)(n.len * beatW - 3), (float)(noteH - 2), 2.0f);
+    }
+}
+
+void BottomDockPanel::paintStepSequencer(juce::Graphics& g, juce::Rectangle<int> area)
+{
+    g.setColour(juce::Colour::fromRGB(11, 12, 17));
+    g.fillRect(area);
+
+    // Header
+    g.setColour(juce::Colour::fromRGB(15, 17, 24));
+    g.fillRect(area.getX(), area.getY(), area.getWidth(), 22);
+    g.setColour(juce::Colours::white.withAlpha(0.7f));
+    g.setFont(juce::Font(juce::FontOptions(9.5f).withStyle("Bold")));
+    g.drawText("STEP SEQUENCER", area.getX() + 8, area.getY(), 130, 22, juce::Justification::centredLeft);
+    g.setColour(juce::Colours::white.withAlpha(0.4f));
+    g.setFont(juce::Font(juce::FontOptions(8.5f)));
+    g.drawText("Pattern 01", area.getRight() - 70, area.getY(), 64, 22, juce::Justification::centredRight);
+
+    const char* rows[] = {"Kick","Snare","Hi Hat","808","Clap","Perc"};
+    const int numRows = 6;
+    const int numSteps = 16;
+    const int labelW = 44;
+    const int rowH = (area.getHeight() - 22) / numRows;
+    const int stepW = (area.getWidth() - labelW) / numSteps;
+
+    // Active step pattern (bit masks per row)
+    static const uint16_t patterns[] = {
+        0b1001001010010010,  // Kick
+        0b0000100000001000,  // Snare
+        0b1010101010101010,  // Hi Hat
+        0b0001000000010000,  // 808
+        0b0000100000001000,  // Clap
+        0b0000001000000010,  // Perc
+    };
+
+    for (int r = 0; r < numRows; ++r)
+    {
+        const int ry = area.getY() + 22 + r * rowH;
+
+        // Row label
+        g.setColour(juce::Colours::white.withAlpha(0.55f));
+        g.setFont(juce::Font(juce::FontOptions(8.5f)));
+        g.drawText(rows[r], area.getX() + 2, ry, labelW - 4, rowH, juce::Justification::centredLeft);
+
+        for (int s = 0; s < numSteps; ++s)
+        {
+            const int sx = area.getX() + labelW + s * stepW;
+            const bool active = ((patterns[r] >> (15 - s)) & 1) != 0;
+            const bool beat   = (s % 4 == 0);
+
+            g.setColour(active ? juce::Colour::fromRGB(200, 140, 40).withAlpha(beat ? 1.0f : 0.75f)
+                               : juce::Colour::fromRGB(24, 26, 36));
+            g.fillRoundedRectangle((float)sx + 1.0f, (float)ry + 2.0f,
+                                   (float)(stepW - 2), (float)(rowH - 4), 2.0f);
+
+            // Beat group divider
+            if (s % 4 == 0 && s > 0)
+            {
+                g.setColour(juce::Colour::fromRGB(30, 33, 48));
+                g.fillRect(sx, ry, 1, rowH);
+            }
+        }
+    }
+}
+
+void BottomDockPanel::paint(juce::Graphics& g)
+{
+    // Background
+    g.fillAll(juce::Colour::fromRGB(10, 11, 16));
+
+    // Top tab bar background
+    g.setColour(juce::Colour::fromRGB(13, 14, 20));
+    g.fillRect(0, 0, getWidth(), 28);
+    g.setColour(juce::Colour::fromRGB(35, 38, 52));
+    g.fillRect(0, 27, getWidth(), 1);
+
+    // Active tab underline (MIXER)
+    g.setColour(juce::Colour::fromRGB(150, 110, 255));
+    g.fillRect(0, 25, 80, 2);
+
+    // Divider between mixer and piano roll sections
+    const int splitX = (int)(getWidth() * 0.62f);
+    g.setColour(juce::Colour::fromRGB(30, 33, 48));
+    g.fillRect(splitX, 28, 1, getHeight() - 28);
+
+    // Divider between piano roll and step seq
+    const int pianoW  = (int)((getWidth() - splitX) * 0.42f);
+    const int stepX   = splitX + pianoW;
+    g.setColour(juce::Colour::fromRGB(30, 33, 48));
+    g.fillRect(stepX, 28, 1, getHeight() - 28);
+
+    // Paint sections
+    paintMixerStrips(g, juce::Rectangle<int>(0, 28, splitX, getHeight() - 28));
+    paintPianoRoll(g,   juce::Rectangle<int>(splitX + 1, 28, pianoW - 1, getHeight() - 28));
+    paintStepSequencer(g, juce::Rectangle<int>(stepX + 1, 28, getWidth() - stepX - 1, getHeight() - 28));
+}
 
 BrowserPanel::BrowserPanel() {}
 BrowserPanel::~BrowserPanel() = default;
@@ -1022,8 +1466,18 @@ void BrowserPanel::paint(juce::Graphics& g)
     int itemY = 92;
     g.setFont(juce::Font(juce::FontOptions(11.5f)));
     for (int i = 0; i < items.size(); ++i) {
-        g.setColour(juce::Colours::white.withAlpha(isFolder[i] ? 0.85f : 0.62f));
-        g.drawText(items[i], 8, itemY, getWidth()-16, 20, juce::Justification::centredLeft);
+        const bool isFolderItem = isFolder[i];
+        if (isFolderItem) {
+            g.setColour(juce::Colours::white.withAlpha(0.35f));
+            juce::Path tri;
+            tri.addTriangle(12.0f, (float)itemY + 7.0f, 19.0f, (float)itemY + 7.0f, 15.5f, (float)itemY + 13.0f);
+            g.fillPath(tri);
+        } else {
+            g.setColour(juce::Colours::white.withAlpha(0.2f));
+            g.fillEllipse(15.0f, (float)itemY + 8.0f, 4.0f, 4.0f);
+        }
+        g.setColour(juce::Colours::white.withAlpha(isFolderItem ? 0.85f : 0.55f));
+        g.drawText(items[i], 24, itemY, getWidth() - 32, 20, juce::Justification::centredLeft);
         itemY += 21;
     }
 
@@ -1398,96 +1852,128 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         audioBtn.addListener(this);
         novaAlignBtn.addListener(this);
 
-        timecodeLabel.setJustificationType(juce::Justification::centred);
-        timecodeLabel.setColour(juce::Label::textColourId, juce::Colour::fromRGB(255, 185, 50));
+        // Mode tab styling — dark base, will highlight active
+        for (auto* btn : {&editBtn, &mixBtn, &browseBtn})
+        {
+            btn->setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(18, 20, 28));
+            btn->setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.65f));
+            btn->setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+        }
+        // Edit is default active — highlight it
+        editBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(30, 28, 50));
+        editBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(180, 155, 255));
+
+        // Transport styling
+        for (auto* btn : {&rtzBtn, &playBtn, &stopBtn, &recordBtn, &armBtn, &monitorBtn, &loopBtn})
+        {
+            btn->setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(20, 22, 30));
+            btn->setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.8f));
+        }
+        recordBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(255, 80, 80));
+
+        // Timecode label — large amber
+        timecodeLabel.setColour(juce::Label::textColourId, juce::Colour::fromRGB(255, 190, 60));
         timecodeLabel.setFont(juce::Font(juce::FontOptions(20.0f).withStyle("Bold")));
+        timecodeLabel.setJustificationType(juce::Justification::centred);
         timecodeLabel.setText("00:00:00:00", juce::dontSendNotification);
 
+        // Tempo label — amber, smaller
+        tempoLabel.setColour(juce::Label::textColourId, juce::Colour::fromRGB(220, 170, 60));
         tempoLabel.setJustificationType(juce::Justification::centred);
-        tempoLabel.setColour(juce::Label::textColourId, juce::Colour::fromRGB(255, 185, 50));
-        tempoLabel.setFont(juce::Font(juce::FontOptions(12.0f)));
         tempoLabel.setText("120 BPM", juce::dontSendNotification);
 
-        saveBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(30, 50, 30));
-        saveBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(120, 220, 100));
-        loadBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(28, 36, 50));
-        loadBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(140, 180, 255));
-        audioBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(30, 30, 50));
-        audioBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(180, 160, 255));
-        novaAlignBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(40, 30, 50));
-        novaAlignBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(200, 160, 255));
+        // Right utility buttons
+        novaAlignBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(35, 25, 55));
+        novaAlignBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(190, 150, 255));
+        saveBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(20, 40, 22));
+        saveBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(100, 210, 90));
+        loadBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(20, 30, 48));
+        loadBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(120, 170, 255));
+        audioBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(22, 20, 40));
+        audioBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(160, 140, 255));
     }
 
     WorkspaceToolbar::~WorkspaceToolbar() = default;
 
     void WorkspaceToolbar::paint(juce::Graphics& g)
     {
-        auto bounds = getLocalBounds().toFloat();
-        g.setGradientFill({juce::Colour::fromRGB(8,9,13), 0.0f, 0.0f,
-                           juce::Colour::fromRGB(14,16,22), 0.0f, (float)getHeight(), false});
-        g.fillRect(bounds);
+        // Very dark gradient background
+        g.setGradientFill(juce::ColourGradient(
+            juce::Colour::fromRGB(8, 9, 14), 0.0f, 0.0f,
+            juce::Colour::fromRGB(12, 14, 20), 0.0f, (float)getHeight(), false));
+        g.fillRect(getLocalBounds());
 
-        // Bottom border line
-        g.setColour(juce::Colour::fromRGB(35,38,52));
-        g.fillRect(0, getHeight()-1, getWidth(), 1);
+        // Bottom border — subtle gold line
+        g.setColour(juce::Colour::fromRGB(100, 82, 40).withAlpha(0.4f));
+        g.fillRect(0, getHeight() - 1, getWidth(), 1);
 
-        // Logo area — circular N badge
-        g.setColour(juce::Colour::fromRGB(200,155,60));
-        g.fillEllipse(14.0f, 8.0f, 38.0f, 38.0f);
-        g.setColour(juce::Colour::fromRGB(8,9,13));
-        g.setFont(juce::Font(juce::FontOptions(22.0f).withStyle("Bold")));
-        g.drawText("N", 14, 8, 38, 38, juce::Justification::centred);
+        // Gold circular N badge
+        const float badgeX = 14.0f, badgeY = 9.0f, badgeD = 36.0f;
+        // Outer gold ring
+        g.setColour(juce::Colour::fromRGB(180, 140, 50));
+        g.drawEllipse(badgeX, badgeY, badgeD, badgeD, 1.5f);
+        // Inner dark fill
+        g.setColour(juce::Colour::fromRGB(10, 10, 15));
+        g.fillEllipse(badgeX + 2.0f, badgeY + 2.0f, badgeD - 4.0f, badgeD - 4.0f);
+        // N letter in gold
+        g.setColour(juce::Colour::fromRGB(200, 160, 60));
+        g.setFont(juce::Font(juce::FontOptions(18.0f).withStyle("Bold")));
+        g.drawText("N", (int)badgeX, (int)badgeY, (int)badgeD, (int)badgeD, juce::Justification::centred);
 
-        // NOVA STUDIO text
+        // "NOVA STUDIO" text
         g.setColour(juce::Colours::white);
-        g.setFont(juce::Font(juce::FontOptions(16.0f).withStyle("Bold")));
-        g.drawText("NOVA STUDIO", 58, 8, 120, 38, juce::Justification::centredLeft);
+        g.setFont(juce::Font(juce::FontOptions(13.0f).withStyle("Bold")));
+        g.drawText("NOVA", 56, 9, 52, 16, juce::Justification::centredLeft);
+        g.setColour(juce::Colours::white.withAlpha(0.55f));
+        g.setFont(juce::Font(juce::FontOptions(10.0f)));
+        g.drawText("STUDIO", 56, 26, 52, 14, juce::Justification::centredLeft);
 
-        // Vertical dividers
-        g.setColour(juce::Colour::fromRGB(40,44,60));
-        g.fillRect(185, 8, 1, getHeight()-16);
-        g.fillRect(470, 8, 1, getHeight()-16);
-        g.fillRect(760, 8, 1, getHeight()-16);
+        // Vertical dividers between sections
+        auto divColor = juce::Colour::fromRGB(40, 44, 58);
+        g.setColour(divColor);
+        g.fillRect(185, 6, 1, getHeight() - 12);  // after logo
+        g.fillRect(390, 6, 1, getHeight() - 12);  // after mode tabs
+        g.fillRect(760, 6, 1, getHeight() - 12);  // after transport
+        g.fillRect(940, 6, 1, getHeight() - 12);  // after timecode
     }
 
     void WorkspaceToolbar::resized()
     {
         const int H = getHeight();
-        const int btnH = 28;
+        const int btnH = 26;
         const int btnY = (H - btnH) / 2;
 
-        // Logo area: first 190px (painted, not a component)
-        int x = 195;
+        // Logo area: 0-185 (painted)
+        int x = 193;
 
         // Mode tabs
-        editBtn.setBounds(x, btnY, 54, btnH); x += 58;
-        mixBtn.setBounds(x, btnY, 46, btnH); x += 50;
-        browseBtn.setBounds(x, btnY, 64, btnH); x += 74;
+        editBtn.setBounds(x, btnY, 52, btnH); x += 56;
+        mixBtn.setBounds(x, btnY, 44, btnH); x += 48;
+        browseBtn.setBounds(x, btnY, 60, btnH); x += 64;
+        // x now at ~395, past divider at 390
 
-        // Gap to transport (divider at 470)
-        x = 478;
-
-        // Transport buttons
-        rtzBtn.setBounds(x, btnY, 32, btnH); x += 36;
-        playBtn.setBounds(x, btnY, 54, btnH); x += 58;
-        stopBtn.setBounds(x, btnY, 54, btnH); x += 58;
-        recordBtn.setBounds(x, btnY, 46, btnH); x += 50;
-        x += 4;
+        x = 398;
+        // Transport
+        rtzBtn.setBounds(x, btnY, 30, btnH); x += 34;
+        playBtn.setBounds(x, btnY, 56, btnH); x += 60;
+        stopBtn.setBounds(x, btnY, 52, btnH); x += 56;
+        recordBtn.setBounds(x, btnY, 44, btnH); x += 48;
+        x += 6;
         armBtn.setBounds(x, btnY, 44, btnH); x += 48;
         monitorBtn.setBounds(x, btnY, 44, btnH); x += 48;
         loopBtn.setBounds(x, btnY, 44, btnH); x += 48;
+        // x ~760
 
-        // Timecode + tempo after divider at ~760
         x = 768;
-        timecodeLabel.setBounds(x, btnY - 4, 155, btnH + 8); x += 158;
-        tempoLabel.setBounds(x, btnY, 90, btnH); x += 94;
+        timecodeLabel.setBounds(x, btnY - 2, 160, btnH + 4); x += 164;
+        tempoLabel.setBounds(x, btnY, 100, btnH); x += 104;
 
-        // Right-side buttons (from right)
-        int rx = getWidth() - 8;
-        audioBtn.setBounds(rx - 60, btnY, 58, btnH); rx -= 64;
+        // Right buttons (from right edge)
+        int rx = getWidth() - 6;
+        audioBtn.setBounds(rx - 58, btnY, 56, btnH); rx -= 62;
         loadBtn.setBounds(rx - 50, btnY, 48, btnH); rx -= 54;
         saveBtn.setBounds(rx - 50, btnY, 48, btnH); rx -= 54;
-        novaAlignBtn.setBounds(rx - 84, btnY, 82, btnH); rx -= 88;
+        novaAlignBtn.setBounds(rx - 80, btnY, 78, btnH);
     }
 
     void WorkspaceToolbar::setPlayState(bool isPlaying, bool isRecording)

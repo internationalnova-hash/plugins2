@@ -106,6 +106,7 @@ namespace NovaStudioUI
         void buttonClicked(juce::Button* button) override;
 
         NovaStudio::ArrangementModel& arrangementModel;
+        juce::TabbedComponent tabs { juce::TabbedButtonBar::TabsAtTop };
         juce::Label titleLabel;
         juce::Label selectedClipLabel;
         juce::Label trackInfoLabel;
@@ -168,6 +169,29 @@ namespace NovaStudioUI
 
         void paint(juce::Graphics& g) override;
         void resized() override;
+    };
+
+    // Bottom dock: mixer channels + piano roll + step sequencer all visible simultaneously
+    class BottomDockPanel : public juce::Component,
+                            private juce::Button::Listener
+    {
+    public:
+        BottomDockPanel();
+        ~BottomDockPanel() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+
+    private:
+        void buttonClicked(juce::Button*) override {}
+        void paintMixerStrips(juce::Graphics& g, juce::Rectangle<int> area);
+        void paintPianoRoll(juce::Graphics& g, juce::Rectangle<int> area);
+        void paintStepSequencer(juce::Graphics& g, juce::Rectangle<int> area);
+
+        juce::TextButton mixerTab{"MIXER"}, channelsTab{"CHANNELS"},
+                         effectsTab{"EFFECTS"},  metersTab{"METERS"};
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BottomDockPanel)
     };
 
     class BrowserPanel : public juce::Component
