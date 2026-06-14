@@ -184,7 +184,7 @@
     .read-val { font-size: 24px; font-weight: 800; color: var(--white); line-height: 1.1; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
     .read-unit { font-size: 7.5px; letter-spacing: .1em; color: var(--gold-dim); font-weight: 700; }
     .tp-status { display: flex; align-items: center; gap: 5px; }
-    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); transition: background 600ms ease, box-shadow 600ms ease; }
     .dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
     .tp-label { font-size: 8px; letter-spacing: .12em; color: var(--gold-dim); font-weight: 700; text-transform: uppercase; }
     .smart-btn {
@@ -255,7 +255,18 @@
     }
     .knob.sm  { width: 48px; height: 48px; }
     .knob.xs  { width: 58px; height: 58px; }
-    .knob.lg  { width: 86px; height: 86px; }
+    .knob.lg  {
+      width: 86px; height: 86px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.10),
+        inset 0 -8px 18px rgba(0,0,0,0.65),
+        0 0 0 1px rgba(6,5,3,0.95),
+        0 3px 0 rgba(0,0,0,0.7),
+        0 6px 18px rgba(0,0,0,0.65),
+        0 1px 3px rgba(0,0,0,0.5),
+        0 0 22px 4px rgba(200,152,72,0.18),
+        0 0 48px 10px rgba(200,140,60,0.10);
+    }
     .knob::before {
       content: ""; position: absolute; inset: 0; border-radius: 50%;
       background: radial-gradient(ellipse at 28% 18%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.18) 5%, rgba(255,255,255,0.02) 9%, transparent 14%);
@@ -681,7 +692,7 @@
     .nova-guard-bar-fill {
       height: 100%; width: 0%; border-radius: 1px;
       background: var(--green);
-      transition: width 300ms ease, background 300ms;
+      transition: width 300ms ease, background 600ms ease;
     }
     .footer-center {
       text-align: center;
@@ -891,7 +902,7 @@
           <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#C8A060" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
           <div class="knob-ptr"></div>
         </div>
-        <div class="k-readout" data-readout="ceiling" style="font-size:11px;min-width:70px;">-0.1 dBTP</div>
+        <div class="k-readout" data-readout="ceiling" style="font-size:11px;min-width:70px;color:#F0D090;border-color:rgba(200,160,96,0.45);box-shadow:0 0 8px rgba(200,150,60,0.22);">-0.1 dBTP</div>
       </div>
 
       <!-- OUTPUT knob — intentionally smaller than Ceiling -->
@@ -1367,6 +1378,12 @@ let   histHead  = 0;
 let simPhase = 0;
 let lastTelemetry = null;
 
+// 60fps smoothing targets — telemetry arrives at 30Hz, canvas draws at RAF
+let _smInL = 0, _smInR = 0, _smOutL = 0, _smOutR = 0, _smGR = 0;
+// Lerp coefficients: fast attack, slow release for natural meter ballistics
+const LERP_ATK = 0.72;   // ~3 frames to reach new peak
+const LERP_REL = 0.18;   // smooth decay
+
 function resizeCanvases() {
   const ww = document.getElementById('wave-wrap');
   const gw = document.getElementById('gr-wrap');
@@ -1458,53 +1475,53 @@ function drawWave() {
   ctx.lineWidth = 0.8;
   ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
 
-  // INPUT waveform — warm amber, visually dominant
+  // INPUT waveform — high-contrast amber, reads from across the room
   const inTop = ctx.createLinearGradient(0, h/2, 0, 0);
-  inTop.addColorStop(0,   'rgba(200,158,72,0.12)');
-  inTop.addColorStop(0.35,'rgba(196,152,68,0.42)');
-  inTop.addColorStop(0.75,'rgba(192,148,64,0.58)');
-  inTop.addColorStop(1,   'rgba(188,144,60,0.64)');
+  inTop.addColorStop(0,    'rgba(200,158,72,0.20)');
+  inTop.addColorStop(0.25, 'rgba(198,154,70,0.55)');
+  inTop.addColorStop(0.65, 'rgba(196,150,67,0.74)');
+  inTop.addColorStop(1,    'rgba(192,146,64,0.82)');
   const inBot = ctx.createLinearGradient(0, h/2, 0, h);
-  inBot.addColorStop(0, 'rgba(176,138,58,0.14)');
-  inBot.addColorStop(1, 'rgba(144,112,46,0.04)');
-  drawSymmetric(inputBuf, inTop, inBot, h * 0.41);
+  inBot.addColorStop(0, 'rgba(178,140,60,0.26)');
+  inBot.addColorStop(1, 'rgba(146,114,48,0.06)');
+  drawSymmetric(inputBuf, inTop, inBot, h * 0.42);
 
-  // Input edge line
+  // Input edge line — bright, crisp
   ctx.beginPath();
   for (let i = 0; i < HIST; i++) {
     const idx = (histHead + i) % HIST;
     const x = (i / (HIST - 1)) * w;
-    const y = h/2 - inputBuf[idx] * h * 0.41;
+    const y = h/2 - inputBuf[idx] * h * 0.42;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
-  ctx.strokeStyle = 'rgba(210,165,80,0.80)';
-  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = 'rgba(224,178,88,0.95)';
+  ctx.lineWidth = 1.6;
   ctx.stroke();
 
-  // OUTPUT waveform — visibly contained inside input, noticeably different
+  // OUTPUT waveform — cool gray, clearly subordinate but still readable
   const outTop = ctx.createLinearGradient(0, h/2, 0, 0);
-  outTop.addColorStop(0,   'rgba(78,70,56,0.08)');
-  outTop.addColorStop(0.4, 'rgba(88,80,64,0.30)');
-  outTop.addColorStop(1,   'rgba(96,86,70,0.42)');
+  outTop.addColorStop(0,   'rgba(80,72,58,0.14)');
+  outTop.addColorStop(0.4, 'rgba(90,82,66,0.42)');
+  outTop.addColorStop(1,   'rgba(100,90,72,0.56)');
   const outBot = ctx.createLinearGradient(0, h/2, 0, h);
-  outBot.addColorStop(0, 'rgba(72,64,52,0.08)');
-  outBot.addColorStop(1, 'rgba(56,50,40,0.02)');
-  drawSymmetric(outputBuf, outTop, outBot, h * 0.36);
+  outBot.addColorStop(0, 'rgba(74,66,54,0.14)');
+  outBot.addColorStop(1, 'rgba(58,52,42,0.03)');
+  drawSymmetric(outputBuf, outTop, outBot, h * 0.37);
 
-  // Output edge line
+  // Output edge line — visible but clearly secondary
   ctx.beginPath();
   for (let i = 0; i < HIST; i++) {
     const idx = (histHead + i) % HIST;
     const x = (i / (HIST - 1)) * w;
-    const y = h/2 - outputBuf[idx] * h * 0.36;
+    const y = h/2 - outputBuf[idx] * h * 0.37;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
-  ctx.strokeStyle = 'rgba(110,98,80,0.62)';
-  ctx.lineWidth = 1.1;
+  ctx.strokeStyle = 'rgba(128,114,92,0.75)';
+  ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  // GAIN REDUCTION band — scales with intensity for emotional weight
-  const grScale = 0.38 + grIntensity * 0.10; // grows slightly when working hard
+  // GAIN REDUCTION band
+  const grScale = 0.38 + grIntensity * 0.10;
   ctx.beginPath();
   ctx.moveTo(0, 0);
   for (let i = 0; i < HIST; i++) {
@@ -1516,14 +1533,14 @@ function drawWave() {
   ctx.lineTo(w, 0);
   ctx.closePath();
   const grFill = ctx.createLinearGradient(0, 0, 0, h * 0.5);
-  const grAlpha = 0.32 + grIntensity * 0.18;
-  grFill.addColorStop(0,    `rgba(190,46,46,${grAlpha})`);
-  grFill.addColorStop(0.45, `rgba(170,38,38,${grAlpha * 0.45})`);
+  const grAlpha = 0.38 + grIntensity * 0.20;
+  grFill.addColorStop(0,    `rgba(200,50,50,${grAlpha})`);
+  grFill.addColorStop(0.45, `rgba(178,40,40,${grAlpha * 0.45})`);
   grFill.addColorStop(1,    'rgba(140,30,30,0)');
   ctx.fillStyle = grFill;
   ctx.fill();
 
-  // GR edge line — brighter when working harder
+  // GR edge line
   ctx.beginPath();
   for (let i = 0; i < HIST; i++) {
     const idx = (histHead + i) % HIST;
@@ -1531,8 +1548,8 @@ function drawWave() {
     const y = Math.min(h * 0.52, grBuf[idx] * h * grScale);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
-  ctx.strokeStyle = `rgba(210,65,65,${0.50 + grIntensity * 0.30})`;
-  ctx.lineWidth = 1.1 + grIntensity * 0.4;
+  ctx.strokeStyle = `rgba(220,72,72,${0.60 + grIntensity * 0.32})`;
+  ctx.lineWidth = 1.2 + grIntensity * 0.5;
   ctx.stroke();
 }
 
@@ -1665,10 +1682,12 @@ window.updateApexTelemetry = function(data) {
   const outLin = Math.max(outL, outR);
   const grNorm = Math.min(1, gr / 18);
 
-  inputBuf[histHead]  = inLin;
-  outputBuf[histHead] = outLin;
-  grBuf[histHead]     = grNorm * 18;
-  histHead = (histHead + 1) % HIST;
+  // Set smoothing targets — actual buffer writes happen in frame() at 60fps
+  _smInL  = inLin;
+  _smInR  = inR;
+  _smOutL = outLin;
+  _smOutR = outR;
+  _smGR   = grNorm * 18;
 
   updateTPChannel(tpSegsL, inL);
   updateTPChannel(tpSegsR, inR);
@@ -1720,8 +1739,29 @@ window.updateApexTelemetry = function(data) {
 };
 
 // ══════════════════════════ RENDER LOOP ══════════════════════════
+// Lerp helper: fast attack, slow release ballistics
+function lerpBallistic(cur, target) {
+  const alpha = target > cur ? LERP_ATK : LERP_REL;
+  return cur + (target - cur) * alpha;
+}
+
+// Smoothed current values written each frame
+let _curIn = 0, _curOut = 0, _curGR = 0;
+
 function frame() {
-  if (!lastTelemetry) simulateTick();
+  if (!lastTelemetry) {
+    simulateTick();
+  } else {
+    // Lerp smoothed values toward targets
+    _curIn  = lerpBallistic(_curIn,  _smInL);
+    _curOut = lerpBallistic(_curOut, _smOutL);
+    _curGR  = lerpBallistic(_curGR,  _smGR);
+
+    inputBuf[histHead]  = _curIn;
+    outputBuf[histHead] = _curOut;
+    grBuf[histHead]     = _curGR;
+    histHead = (histHead + 1) % HIST;
+  }
   drawWave();
   drawGR();
   requestAnimationFrame(frame);
