@@ -21,16 +21,10 @@ namespace NovaStudioUI
         recordButton.addListener(this);
         monitorButton.addListener(this);
         loopButton.addListener(this);
-        punchInButton.addListener(this);
-        punchOutButton.addListener(this);
         punchButton.addListener(this);
-        addAndMakeVisible(punchInButton);
-        addAndMakeVisible(punchOutButton);
         addAndMakeVisible(punchButton);
 
-        punchInButton.setTooltip("Set punch-in point at current playhead position");
-        punchOutButton.setTooltip("Set punch-out point at current playhead position");
-        punchButton.setTooltip("Enable/disable punch recording");
+        punchButton.setTooltip("Auto-Punch: enable/disable punch recording. Set punch range by Cmd+dragging in the timeline ruler.");
 
         monitorButton.setTooltip("Input Monitor: hear your audio input live through the mix while recording");
 
@@ -151,9 +145,7 @@ namespace NovaStudioUI
         place(loopButton, btnSz);      // ↻  loop
         place(monitorButton, btnSz);   // 🎧 input monitor
         x += 8;
-        place(punchInButton,  50);
-        place(punchOutButton, 50);
-        place(punchButton,    54);
+        place(punchButton,    60);
 
         // Timecode + tempo on the right
         auto rightArea = getLocalBounds().withTrimmedLeft(x + 8).withTrimmedRight(8);
@@ -242,8 +234,6 @@ namespace NovaStudioUI
         else if (button == &recordButton && onRecord) onRecord();
         else if (button == &monitorButton && onMonitor) onMonitor();
         else if (button == &loopButton && onLoop) onLoop();
-        else if (button == &punchInButton  && onPunchIn)     onPunchIn();
-        else if (button == &punchOutButton && onPunchOut)    onPunchOut();
         else if (button == &punchButton    && onPunchToggle) onPunchToggle();
         else if (button == &playbackToggleButton)
         {
@@ -1475,6 +1465,29 @@ namespace NovaStudioUI
             }
         }
 
+        // Punch range — drawn in ruler only, orange/red tint (Pro Tools style)
+        if (transportState.isPunchEnabled() && transportState.getPunchOutSample() > transportState.getPunchInSample())
+        {
+            const float piX = (float)timelineModel.getXForSamplePosition(transportState.getPunchInSample(),  width);
+            const float poX = (float)timelineModel.getXForSamplePosition(transportState.getPunchOutSample(), width);
+            const float pw  = juce::jmax(2.0f, poX - piX);
+
+            // Ruler fill — orange
+            g.setColour(juce::Colour::fromRGBA(255, 100, 30, 70));
+            g.fillRect(piX, 2.0f, pw, (float)rulerH - 2.0f);
+            g.setColour(juce::Colour::fromRGB(255, 120, 40));
+            g.drawRect(piX, 2.0f, pw, (float)rulerH - 2.0f, 1.0f);
+
+            // Edge bars
+            g.fillRect(piX - 1.5f, 2.0f, 3.0f, (float)rulerH - 2.0f);
+            g.fillRect(poX - 1.5f, 2.0f, 3.0f, (float)rulerH - 2.0f);
+
+            // "P" label
+            g.setColour(juce::Colours::white.withAlpha(0.9f));
+            g.setFont(juce::Font(juce::FontOptions(9.0f)));
+            g.drawText("P", (int)piX + 4, 8, 12, 12, juce::Justification::centredLeft);
+        }
+
         // Playhead — red line with glow + triangular scrub head
         const float playheadX = (float)currentX;
         // Soft glow behind the line
@@ -1690,6 +1703,15 @@ namespace NovaStudioUI
                 return;
             }
 
+            // Cmd+drag in ruler → set punch in/out range (Pro Tools style)
+            if (event.mods.isCommandDown())
+            {
+                isDraggingPunchRange = true;
+                punchAnchorSample = juce::jmax<int64_t>(0, xToSample(clickPoint.x, timelineModel, snapNow, snapBeats, session));
+                repaint();
+                return;
+            }
+
             // Click-drag in ruler → start range/selection drag
             // Set playhead immediately on mouseDown so single-click feels instant;
             // mouseUp will commit as loop range if drag distance exceeds threshold.
@@ -1845,6 +1867,18 @@ namespace NovaStudioUI
         {
             const int64_t pos = xToSample(event.position.x, timelineModel, snapNow, snapBeats, session);
             transportState.setPositionSamples(juce::jmax<int64_t>(0, pos), true);
+            repaint();
+            return;
+        }
+
+        // ── Punch range drag (Cmd+drag in ruler) ─────────────────────────────
+        if (isDraggingPunchRange)
+        {
+            const int64_t curSample = juce::jmax<int64_t>(0, xToSample(event.position.x, timelineModel, snapNow, snapBeats, session));
+            const int64_t pIn  = juce::jmin(punchAnchorSample, curSample);
+            const int64_t pOut = juce::jmax(punchAnchorSample, curSample);
+            if (pOut > pIn && onPunchRangeChanged)
+                onPunchRangeChanged(pIn, pOut);
             repaint();
             return;
         }
@@ -2081,14 +2115,21 @@ namespace NovaStudioUI
             const double minDurationSamples = transportState.getSampleRate() * 0.05; // 50 ms threshold
             if ((double)(newEnd - newStart) < minDurationSamples)
             {
-                // Tiny or no drag → treat as a plain playhead click
+                // Plain click in ruler: move playhead AND clear loop/selection range
                 transportState.setPositionSamples(juce::jmax<int64_t>(0, rangeAnchorSample), true);
+                transportState.clearLoopRange();
             }
             else
             {
                 transportState.setLoopRange(newStart, newEnd);
                 transportState.setPositionSamples(newStart, true);
             }
+            repaint();
+        }
+
+        if (isDraggingPunchRange)
+        {
+            isDraggingPunchRange = false;
             repaint();
         }
 
@@ -3301,8 +3342,6 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         addAndMakeVisible(recordBtn);
         addAndMakeVisible(ffBtn);
         addAndMakeVisible(loopBtn);
-        addAndMakeVisible(punchInBtn);
-        addAndMakeVisible(punchOutBtn);
         addAndMakeVisible(punchBtn);
         addAndMakeVisible(timecodeLabel);
         addAndMakeVisible(tempoLabel);
@@ -3318,8 +3357,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         recordBtn.addListener(this);
         ffBtn.addListener(this);
         loopBtn.addListener(this);
-        punchInBtn.addListener(this);
-        punchOutBtn.addListener(this);
+        punchBtn.setTooltip("Auto-Punch: Cmd+drag in the timeline ruler to set punch range, then enable here");
         punchBtn.addListener(this);
         novaAlignBtn.addListener(this);
 
@@ -3520,8 +3558,6 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         x += 6;
         loopBtn.setBounds  (x, btnY, tSz, tSz); x += tSz + 3;
         x += 6;
-        punchInBtn.setBounds (x, btnY, 44, tSz); x += 48;
-        punchOutBtn.setBounds(x, btnY, 48, tSz); x += 52;
         punchBtn.setBounds   (x, btnY, 54, tSz); x += 58;
 
         x = juce::jmax(x + 4, 860);  // timecode after punch buttons
@@ -3592,8 +3628,6 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         else if (b == &stopBtn && onStop) onStop();
         else if (b == &recordBtn && onRecord) onRecord();
         else if (b == &loopBtn && onLoop) onLoop();
-        else if (b == &punchInBtn  && onPunchIn)     onPunchIn();
-        else if (b == &punchOutBtn && onPunchOut)    onPunchOut();
         else if (b == &punchBtn    && onPunchToggle) onPunchToggle();
         else if (b == &novaAlignBtn && onNovaAlign) onNovaAlign();
     }

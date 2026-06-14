@@ -54,6 +54,11 @@ MainComponent::MainComponent()
         return engine.getSession().getNumTracks() - 1;
     };
 
+    editWindow->onPunchRangeChanged = [this](int64_t pIn, int64_t pOut) {
+        engine.getTransportState().setPunchRange(pIn, pOut);
+        workspaceToolbar.setPunchState(engine.getTransportState().isPunchEnabled());
+    };
+
     editWindow->setLevelCallback([this](int track, int ch) -> float {
         return engine.getTrackPeakLevel(track, ch);
     });
@@ -179,20 +184,6 @@ MainComponent::MainComponent()
         engine.getTransportState().setLooping(looping);
         workspaceToolbar.setLoopState(looping);
         updateStatusMessage(looping ? "Loop enabled." : "Loop disabled.");
-    };
-
-    workspaceToolbar.onPunchIn = [this] {
-        const int64_t pos = engine.getTransportState().getPositionSamples();
-        engine.getTransportState().setPunchRange(pos,
-            engine.getTransportState().getPunchOutSample() > pos
-                ? engine.getTransportState().getPunchOutSample() : pos + (int64_t)(engine.getCurrentSampleRate() * 4));
-        updateStatusMessage("Punch in set at " + engine.getTransportState().getTimecodeString(pos));
-    };
-
-    workspaceToolbar.onPunchOut = [this] {
-        const int64_t pos = engine.getTransportState().getPositionSamples();
-        engine.getTransportState().setPunchRange(engine.getTransportState().getPunchInSample(), pos);
-        updateStatusMessage("Punch out set.");
     };
 
     workspaceToolbar.onPunchToggle = [this] {
@@ -595,13 +586,103 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
     // Space → Play / Stop toggle
     if (!isCmd && !isCtrl && key.getKeyCode() == juce::KeyPress::spaceKey)
     {
-        if (workspaceToolbar.onPlay)  workspaceToolbar.onPlay();
+        if (workspaceToolbar.onPlay) workspaceToolbar.onPlay();
+        return true;
+    }
+    // Shift+Space → Half-speed playback
+    if (!isCmd && !isCtrl && isShift && key.getKeyCode() == juce::KeyPress::spaceKey)
+    {
+        updateStatusMessage("Half-speed playback not yet available");
         return true;
     }
     // Return/Enter → Return to zero
-    if (!isCmd && !isCtrl && key.getKeyCode() == juce::KeyPress::returnKey)
+    if (!isCmd && !isCtrl && !isShift && key.getKeyCode() == juce::KeyPress::returnKey)
     {
         if (workspaceToolbar.onReturnToZero) workspaceToolbar.onReturnToZero();
+        return true;
+    }
+    // F12 → Record
+    if (key.getKeyCode() == juce::KeyPress::F12Key)
+    {
+        engine.toggleRecord();
+        return true;
+    }
+    // Numpad 0 → Stop
+    if (key.getKeyCode() == juce::KeyPress::numberPad0)
+    {
+        engine.stop();
+        return true;
+    }
+    // Numpad Separator (Enter on numpad on some keyboards) → Play
+    if (key.getKeyCode() == juce::KeyPress::numberPadSeparator)
+    {
+        if (workspaceToolbar.onPlay) workspaceToolbar.onPlay();
+        return true;
+    }
+    // Numpad 1 → Rewind (go to start)
+    if (key.getKeyCode() == juce::KeyPress::numberPad1)
+    {
+        engine.getTransportState().setPositionSamples(0, true);
+        updateStatusMessage("Return to zero");
+        return true;
+    }
+    // Numpad 3 → Record (Pro Tools alternate)
+    if (key.getKeyCode() == juce::KeyPress::numberPad3)
+    {
+        engine.toggleRecord();
+        return true;
+    }
+    // Numpad 4 → Toggle loop playback
+    if (key.getKeyCode() == juce::KeyPress::numberPad4)
+    {
+        if (workspaceToolbar.onLoop) workspaceToolbar.onLoop();
+        return true;
+    }
+    // Numpad 6 → Toggle QuickPunch
+    if (key.getKeyCode() == juce::KeyPress::numberPad6)
+    {
+        if (workspaceToolbar.onPunchToggle) workspaceToolbar.onPunchToggle();
+        return true;
+    }
+
+    // ── Edit mode F-keys (Pro Tools F1-F4) ──────────────────────────────────
+    // F2 = Slip, F4 = Grid
+    if (key.getKeyCode() == juce::KeyPress::F2Key && editWindow)
+    {
+        editWindow->setEditMode(NovaStudioUI::EditModeToolbar::EditMode::Slip);
+        updateStatusMessage("Slip mode");
+        return true;
+    }
+    if (key.getKeyCode() == juce::KeyPress::F3Key && editWindow)
+    {
+        editWindow->setEditMode(NovaStudioUI::EditModeToolbar::EditMode::Spot);
+        updateStatusMessage("Spot mode");
+        return true;
+    }
+    if (key.getKeyCode() == juce::KeyPress::F4Key && editWindow)
+    {
+        editWindow->setEditMode(NovaStudioUI::EditModeToolbar::EditMode::Grid);
+        updateStatusMessage("Grid mode");
+        return true;
+    }
+
+    // ── Edit tool F-keys (Pro Tools F6-F8) ──────────────────────────────────
+    if (key.getKeyCode() == juce::KeyPress::F6Key && editWindow)
+    {
+        editWindow->setCursorTool(NovaStudioUI::EditModeToolbar::CursorTool::Trim);
+        updateStatusMessage("Trim tool (F6)");
+        return true;
+    }
+    if (key.getKeyCode() == juce::KeyPress::F7Key && editWindow)
+    {
+        editWindow->setCursorTool(NovaStudioUI::EditModeToolbar::CursorTool::Pointer);
+        updateStatusMessage("Selector tool (F7)");
+        return true;
+    }
+    if (key.getKeyCode() == juce::KeyPress::F8Key && editWindow)
+    {
+        editWindow->setCursorTool(NovaStudioUI::EditModeToolbar::CursorTool::Smart);
+        updateStatusMessage("Smart tool (F8)");
         return true;
     }
 
@@ -644,12 +725,94 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
         }
     }
 
-    // Cmd+T → Split clip at playhead  (Pro Tools: Cmd+E / B in commands focus)
+    // Cmd+E → Split clip at selection/playhead (Pro Tools standard)
+    if ((isCmd || isCtrl) && !isShift && (key.getTextCharacter() == 'e' || key.getTextCharacter() == 'E'))
+    {
+        arrangementModel.splitSelectedClip(engine.getTransportState().getPositionSamples());
+        refreshTrackList();
+        updateStatusMessage("Clip split");
+        return true;
+    }
+    // Cmd+T → Split clip at playhead (Nova alias)
     if ((isCmd || isCtrl) && (key.getTextCharacter() == 't' || key.getTextCharacter() == 'T'))
     {
         arrangementModel.splitSelectedClip(engine.getTransportState().getPositionSamples());
         refreshTrackList();
         updateStatusMessage("Clip split at playhead");
+        return true;
+    }
+    // Cmd+H → Heal separation (join selected clip back with adjacent)
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'h' || key.getTextCharacter() == 'H'))
+    {
+        // Heal is undo of a split — just undo
+        arrangementModel.undo();
+        updateStatusMessage("Heal separation");
+        return true;
+    }
+    // Cmd+L → Lock / unlock selected clip
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'l' || key.getTextCharacter() == 'L'))
+    {
+        if (arrangementModel.hasSelection())
+        {
+            const bool wasLocked = arrangementModel.getSelectedClip() && arrangementModel.getSelectedClip()->locked;
+            arrangementModel.lockSelectedClip(!wasLocked);
+            updateStatusMessage(wasLocked ? "Clip unlocked" : "Clip locked");
+        }
+        return true;
+    }
+    // Cmd+M → Mute / unmute selected clip
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'm' || key.getTextCharacter() == 'M'))
+    {
+        if (arrangementModel.hasSelection())
+        {
+            arrangementModel.toggleSelectedClipMute();
+            updateStatusMessage("Clip mute toggled");
+        }
+        return true;
+    }
+    // Cmd+A → Select all clips on selected track
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'a' || key.getTextCharacter() == 'A'))
+    {
+        const int ti = arrangementModel.getSelectedTrackIndex();
+        if (ti >= 0)
+        {
+            const auto& track = arrangementModel.getSession().getTrack(ti);
+            for (int ci = 0; ci < track.clips.size(); ++ci)
+                arrangementModel.addClipToSelection(ti, ci);
+            updateStatusMessage("All clips selected");
+        }
+        return true;
+    }
+    // Cmd+Shift+N → New audio track (Pro Tools)
+    if ((isCmd || isCtrl) && isShift && (key.getTextCharacter() == 'n' || key.getTextCharacter() == 'N'))
+    {
+        engine.addTrack("Audio " + juce::String(engine.getSession().getNumTracks() + 1), NovaStudio::TrackType::Audio);
+        refreshTrackList();
+        updateStatusMessage("New audio track added");
+        return true;
+    }
+    // Numpad + → Nudge clip forward
+    if (key.getKeyCode() == juce::KeyPress::numberPadAdd)
+    {
+        if (arrangementModel.hasSelection())
+        {
+            const double nudgeSamples = engine.getCurrentSampleRate() * 0.01; // 10ms default nudge
+            const auto targets = arrangementModel.getSelectedClips();
+            arrangementModel.moveClipsBySamples(targets, (int64_t)nudgeSamples);
+            updateStatusMessage("Nudge forward");
+        }
+        return true;
+    }
+    // Numpad - → Nudge clip backward
+    if (key.getKeyCode() == juce::KeyPress::numberPadSubtract)
+    {
+        if (arrangementModel.hasSelection())
+        {
+            const double nudgeSamples = engine.getCurrentSampleRate() * 0.01;
+            const auto targets = arrangementModel.getSelectedClips();
+            arrangementModel.moveClipsBySamples(targets, -(int64_t)nudgeSamples);
+            updateStatusMessage("Nudge backward");
+        }
         return true;
     }
 
@@ -745,6 +908,74 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
         {
             arrangementModel.undo();
             updateStatusMessage("Undo");
+            return true;
+        }
+        // A → Trim clip start to playhead
+        if (k == 'a' || k == 'A')
+        {
+            const auto* clip = arrangementModel.getSelectedClip();
+            if (clip)
+            {
+                const int64_t pos = engine.getTransportState().getPositionSamples();
+                if (pos > clip->startSample && pos < clip->startSample + clip->lengthSamples)
+                {
+                    NovaStudio::Clip c = *clip;
+                    const int64_t delta = pos - c.startSample;
+                    c.fileOffsetSamples += delta;
+                    c.startSample  = pos;
+                    c.lengthSamples -= delta;
+                    arrangementModel.replaceSelectedClipWithUndo(c, "Trim Start to Playhead");
+                    updateStatusMessage("Trim start");
+                }
+            }
+            return true;
+        }
+        // S → Trim clip end to playhead
+        if (k == 's' || k == 'S')
+        {
+            const auto* clip = arrangementModel.getSelectedClip();
+            if (clip)
+            {
+                const int64_t pos = engine.getTransportState().getPositionSamples();
+                if (pos > clip->startSample && pos < clip->startSample + clip->lengthSamples)
+                {
+                    NovaStudio::Clip c = *clip;
+                    c.lengthSamples = pos - c.startSample;
+                    arrangementModel.replaceSelectedClipWithUndo(c, "Trim End to Playhead");
+                    updateStatusMessage("Trim end");
+                }
+            }
+            return true;
+        }
+        // R → Zoom out horizontally
+        if (k == 'r' || k == 'R')
+        {
+            if (editWindow) editWindow->zoomHorizontal(-1);
+            return true;
+        }
+        // T → Zoom in horizontally
+        if (k == 't' || k == 'T')
+        {
+            if (editWindow) editWindow->zoomHorizontal(1);
+            return true;
+        }
+        // X → Cut (single key)
+        if (k == 'x' || k == 'X')
+        {
+            if (arrangementModel.hasSelection())
+            {
+                arrangementModel.copySelectedClip();
+                arrangementModel.deleteSelectedClip();
+                refreshTrackList();
+                updateStatusMessage("Cut");
+            }
+            return true;
+        }
+        // C → Copy (single key)
+        if (k == 'c' || k == 'C')
+        {
+            arrangementModel.copySelectedClip();
+            updateStatusMessage("Copied");
             return true;
         }
     }

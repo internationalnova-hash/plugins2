@@ -99,8 +99,6 @@ namespace NovaStudioUI
         std::function<void()> onReturnToZero;
         std::function<void()> onMonitor;
         std::function<void()> onLoop;
-        std::function<void()> onPunchIn;
-        std::function<void()> onPunchOut;
         std::function<void()> onPunchToggle;
 
         void setTempo(int bpm);
@@ -123,8 +121,6 @@ namespace NovaStudioUI
         juce::TextButton recordButton  {};
         juce::TextButton loopButton    {};
         juce::TextButton monitorButton {};
-        juce::TextButton punchInButton  { "P.IN" };
-        juce::TextButton punchOutButton { "P.OUT" };
         juce::TextButton punchButton    { "PUNCH" };
 
         BPMLabel tempoLabel;
@@ -515,6 +511,10 @@ namespace NovaStudioUI
         int64_t fadeOrigIn  = 0;
         int64_t fadeOrigOut = 0;
 
+        // Punch range drag (Cmd+drag in ruler)
+        bool    isDraggingPunchRange = false;
+        int64_t punchAnchorSample    = 0;
+
         // Vertical scroll (shared with TrackPanel via onScrollChanged)
         int trackScrollY = 0;
 
@@ -524,6 +524,8 @@ namespace NovaStudioUI
         std::function<void(int)> onScrollChanged;  // fires when ArrangementView scrolls
         // Called when a file drop needs a new track: (name, isStereo) -> new track index
         std::function<int(const juce::String&, bool)> onCreateAudioTrack;
+        // Called when Cmd+drag in ruler sets a punch range (in, out samples)
+        std::function<void(int64_t, int64_t)> onPunchRangeChanged;
 
     private:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ArrangementView)
@@ -810,8 +812,6 @@ namespace NovaStudioUI
         std::function<void()> onArm;
         std::function<void()> onMonitor;
         std::function<void()> onLoop;
-        std::function<void()> onPunchIn;
-        std::function<void()> onPunchOut;
         std::function<void()> onPunchToggle;
         std::function<void(bool)> onTogglePreview;
 
@@ -840,8 +840,6 @@ namespace NovaStudioUI
         juce::TextButton recordBtn     {};
         juce::TextButton ffBtn         {};
         juce::TextButton loopBtn       {};
-        juce::TextButton punchInBtn    { "P.IN" };
-        juce::TextButton punchOutBtn   { "P.OUT" };
         juce::TextButton punchBtn      { "PUNCH" };
 
         juce::Label timecodeLabel;

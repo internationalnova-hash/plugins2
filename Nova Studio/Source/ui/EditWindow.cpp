@@ -78,6 +78,9 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
             if (onCreateAudioTrack) return onCreateAudioTrack(name, stereo);
             return -1;
         };
+        arrangementView->onPunchRangeChanged = [this](int64_t pIn, int64_t pOut) {
+            if (onPunchRangeChanged) onPunchRangeChanged(pIn, pOut);
+        };
     }
 }
 
@@ -187,6 +190,18 @@ void EditWindow::zoomHorizontal(int direction)
 {
     if (arrangementView)
         arrangementView->adjustHZoom(direction);
+}
+
+void EditWindow::setEditMode(EditModeToolbar::EditMode m)
+{
+    if (editModeToolbar) editModeToolbar->setEditMode(m);
+    if (arrangementView)  arrangementView->setEditMode(m);
+}
+
+void EditWindow::setCursorTool(EditModeToolbar::CursorTool t)
+{
+    if (editModeToolbar) editModeToolbar->setCursorTool(t);
+    if (arrangementView)  arrangementView->setCursorTool(t);
 }
 
 void EditWindow::setLeftPanelCollapsed(bool collapsed)

@@ -28,10 +28,13 @@ namespace NovaStudioUI
                                std::function<void(int, const juce::String&)> onRenamed = nullptr);
 
         void zoomHorizontal(int direction);   // +1 = zoom in, -1 = zoom out
+        void setEditMode(EditModeToolbar::EditMode m);
+        void setCursorTool(EditModeToolbar::CursorTool t);
 
         std::function<int(const juce::String&, bool)> onCreateAudioTrack;
         std::function<void()> onAddTrackClicked;
         std::function<void(int trackIndex, int slot)> onOpenPluginEditor;
+        std::function<void(int64_t, int64_t)> onPunchRangeChanged;
 
         // Link engine so insert chain mutations are routed through a single path
         void setEngine(NovaStudio::StudioAudioEngine& e);
