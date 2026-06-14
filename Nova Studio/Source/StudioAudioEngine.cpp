@@ -420,7 +420,10 @@ namespace NovaStudio
     void StudioAudioEngine::addTrack(const juce::String& name, TrackType type)
     {
         session.addTrack(name, type);
-        buildTrackPlayers();
+        if (recordingActive.load())
+            juce::MessageManager::callAsync([this] { buildTrackPlayers(); });
+        else
+            buildTrackPlayers();
     }
 
     void StudioAudioEngine::removeTrack(int index)

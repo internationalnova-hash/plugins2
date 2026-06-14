@@ -1350,10 +1350,10 @@ namespace NovaStudioUI
         }
 
         // ── Track lanes ──────────────────────────────────────────────────────
-        const auto trackArea = juce::Rectangle<float>(8.0f, (float)rulerH + 8.0f, (float)(width - 16), getHeight() - (float)(rulerH + 16));
         const float trackHeight = (float)trackHeightPx;
+        const float lanesTop = (float)rulerH;
 
-        const int trackIndex = static_cast<int>((clickPoint.y - trackArea.getY()) / trackHeight);
+        const int trackIndex = static_cast<int>((clickPoint.y - lanesTop) / trackHeight);
         if (trackIndex < 0 || trackIndex >= arrangementModel.getSession().getNumTracks())
         {
             arrangementModel.clearSelection();
@@ -1365,10 +1365,11 @@ namespace NovaStudioUI
         for (int clipIndex = 0; clipIndex < track.clips.size(); ++clipIndex)
         {
             const auto& clip = track.clips.getReference(clipIndex);
-            const double clipStartX = trackArea.getX() + timelineModel.getXForSamplePosition(clip.startSample, width);
-            const double clipEndX = trackArea.getX() + timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width);
-            const auto clipRect = juce::Rectangle<float>((float)clipStartX, trackArea.getY() + trackIndex * trackHeight + 38.0f,
-                                                        (float)juce::jmax(8.0, clipEndX - clipStartX), trackHeight - 48.0f);
+            const double clipStartX = timelineModel.getXForSamplePosition(clip.startSample, width);
+            const double clipEndX = timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width);
+            const float clipY = lanesTop + trackIndex * trackHeight + 6.0f;
+            const float clipH = trackHeight - 12.0f;
+            const auto clipRect = juce::Rectangle<float>((float)clipStartX, clipY, (float)juce::jmax(8.0, clipEndX - clipStartX), clipH);
             const float handleW = 10.0f;
             const auto leftHandle = juce::Rectangle<float>((float)clipStartX - 1.0f, clipRect.getBottom() - 12.0f, handleW, 10.0f);
             const auto rightHandle = juce::Rectangle<float>((float)clipEndX - handleW + 1.0f, clipRect.getBottom() - 12.0f, handleW, 10.0f);
@@ -1416,8 +1417,8 @@ namespace NovaStudioUI
                 else if (cursorTool == EditModeToolbar::CursorTool::Fade)
                 {
                     arrangementModel.selectClip(trackIndex, clipIndex);
-                    const float cStartX = (float)(trackArea.getX() + timelineModel.getXForSamplePosition(clip.startSample, width));
-                    const float cEndX   = (float)(trackArea.getX() + timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width));
+                    const float cStartX = (float)(timelineModel.getXForSamplePosition(clip.startSample, width));
+                    const float cEndX   = (float)(timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width));
                     const float clipW   = cEndX - cStartX;
                     const float fadeInX = cStartX + juce::jmin(1.0f, (float)clip.fadeInSamples / (float)juce::jmax<int64_t>(1, clip.lengthSamples)) * clipW;
                     if (clickPoint.x <= fadeInX + 16.0f)
@@ -1434,8 +1435,8 @@ namespace NovaStudioUI
                 else if (cursorTool == EditModeToolbar::CursorTool::Trim)
                 {
                     arrangementModel.selectClip(trackIndex, clipIndex);
-                    const float cStartX = (float)(trackArea.getX() + timelineModel.getXForSamplePosition(clip.startSample, width));
-                    const float cEndX   = (float)(trackArea.getX() + timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width));
+                    const float cStartX = (float)(timelineModel.getXForSamplePosition(clip.startSample, width));
+                    const float cEndX   = (float)(timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width));
                     originalClipStartSample = clip.startSample;
                     originalClipLength = clip.lengthSamples;
                     if (clickPoint.x < cStartX + (cEndX - cStartX) * 0.5f)
@@ -1532,19 +1533,18 @@ namespace NovaStudioUI
 
             // determine intersecting clips
             juce::Array<juce::Point<int>> hits;
-            const int width = getWidth() - 16;
+            const int width = getWidth();
             const float trackHeight = (float)trackHeightPx;
-            const auto trackAreaY = 72.0f;
             for (int t = 0; t < arrangementModel.getSession().getNumTracks(); ++t)
             {
                 const auto& track = arrangementModel.getSession().getTrack(t);
                 for (int c = 0; c < track.clips.size(); ++c)
                 {
                     const auto& clip = track.clips.getReference(c);
-                    const double clipStartX = 8.0 + timelineModel.getXForSamplePosition(clip.startSample, width);
-                    const double clipEndX = 8.0 + timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width);
-                    const auto clipRect = juce::Rectangle<float>((float)clipStartX, trackAreaY + t * trackHeight + 38.0f,
-                                                                (float)juce::jmax(8.0, clipEndX - clipStartX), trackHeight - 48.0f);
+                    const double clipStartX = timelineModel.getXForSamplePosition(clip.startSample, width);
+                    const double clipEndX = timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width);
+                    const auto clipRect = juce::Rectangle<float>((float)clipStartX, 28.0f + t * trackHeight + 6.0f,
+                                                                (float)juce::jmax(8.0, clipEndX - clipStartX), trackHeight - 12.0f);
                     if (clipRect.intersects(marqueeRect))
                         hits.add(juce::Point<int>(t, c));
                 }
@@ -1930,6 +1930,29 @@ void BottomDockPanel::mouseDown(const juce::MouseEvent& e)
         activeFaderStrip  = si;
         faderDragStartY   = e.y;
         faderDragStartPos = faderPositions[si];
+        return;
+    }
+
+    // Step sequencer click
+    const int splitX = (int)(getWidth() * 0.62f);
+    const int pianoW = (int)((getWidth() - splitX) * 0.42f);
+    const int stepX  = splitX + pianoW;
+    if (e.x > stepX && e.y > 28)
+    {
+        const int area_h = getHeight() - 28;
+        const int numRows = 6;
+        const int numSteps = 16;
+        const int labelW = 44;
+        const int rowH = area_h / numRows;
+        const int stepW = (getWidth() - stepX - 1 - labelW) / numSteps;
+        const int row = (e.y - 28) / juce::jmax(1, rowH);
+        const int col = (e.x - stepX - 1 - labelW) / juce::jmax(1, stepW);
+        if (row >= 0 && row < numRows && col >= 0 && col < numSteps)
+        {
+            stepStates[row][col] = !stepStates[row][col];
+            repaint();
+        }
+        return;
     }
 }
 
@@ -2178,16 +2201,6 @@ void BottomDockPanel::paintStepSequencer(juce::Graphics& g, juce::Rectangle<int>
     const int rowH = (area.getHeight() - 22) / numRows;
     const int stepW = (area.getWidth() - labelW) / numSteps;
 
-    // Active step pattern (bit masks per row)
-    static const uint16_t patterns[] = {
-        0b1001001010010010,  // Kick
-        0b0000100000001000,  // Snare
-        0b1010101010101010,  // Hi Hat
-        0b0001000000010000,  // 808
-        0b0000100000001000,  // Clap
-        0b0000001000000010,  // Perc
-    };
-
     for (int r = 0; r < numRows; ++r)
     {
         const int ry = area.getY() + 22 + r * rowH;
@@ -2200,7 +2213,7 @@ void BottomDockPanel::paintStepSequencer(juce::Graphics& g, juce::Rectangle<int>
         for (int s = 0; s < numSteps; ++s)
         {
             const int sx = area.getX() + labelW + s * stepW;
-            const bool active = ((patterns[r] >> (15 - s)) & 1) != 0;
+            const bool active = stepStates[r][s];
             const bool beat   = (s % 4 == 0);
 
             g.setColour(active ? juce::Colour::fromRGB(200, 140, 40).withAlpha(beat ? 1.0f : 0.75f)

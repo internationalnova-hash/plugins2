@@ -332,6 +332,8 @@ namespace NovaStudioUI
         int   faderDragStartY   = 0;
         float faderDragStartPos = 0.0f;
 
+        bool stepStates[6][16] = {};  // step sequencer toggle state
+
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BottomDockPanel)
     };
 
