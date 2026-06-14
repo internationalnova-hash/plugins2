@@ -711,13 +711,10 @@ namespace NovaStudio
                 }
             }
 
-            // Always record from position 0 when transport is stopped so clips
-            // land at the start of the timeline and are immediately visible.
+            // Start playback from wherever the playhead currently sits.
+            // Do NOT reset to 0 — user sets the cursor to choose the record-in point.
             if (!transportState.isPlaying())
-            {
-                transportState.setPositionSamples(0, false);
                 play();
-            }
 
             transportState.startRecording();
             startRecordingInternal();
