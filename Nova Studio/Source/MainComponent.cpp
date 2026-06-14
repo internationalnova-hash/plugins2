@@ -364,6 +364,52 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
         return false;
     }
 
+    // ── Window / mode switching ──────────────────────────────────────────────
+    // Cmd+E  or  Cmd+=  → Edit window  (Pro Tools: Cmd+=)
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'e' || key.getTextCharacter() == 'E'
+                               || key.getKeyCode() == '='))
+    {
+        setWorkspaceMode(0);
+        updateStatusMessage("Edit window");
+        return true;
+    }
+    // Cmd+M  or  Cmd+-  → Mixer  (Pro Tools: Cmd+-)
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'm' || key.getTextCharacter() == 'M'
+                               || key.getKeyCode() == '-'))
+    {
+        setWorkspaceMode(1);
+        updateStatusMessage("Mixer");
+        return true;
+    }
+    // Cmd+B → Beat production screen
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'b' || key.getTextCharacter() == 'B'))
+    {
+        setWorkspaceMode(3);  // Beat/browse mode
+        updateStatusMessage("Beat Production");
+        return true;
+    }
+    // Cmd+W → Browse panel
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'w' || key.getTextCharacter() == 'W'))
+    {
+        setWorkspaceMode(2);
+        updateStatusMessage("Browser");
+        return true;
+    }
+
+    // ── Transport shortcuts ──────────────────────────────────────────────────
+    // Space → Play / Stop toggle
+    if (!isCmd && !isCtrl && key.getKeyCode() == juce::KeyPress::spaceKey)
+    {
+        if (workspaceToolbar.onPlay)  workspaceToolbar.onPlay();
+        return true;
+    }
+    // Return/Enter → Return to zero
+    if (!isCmd && !isCtrl && key.getKeyCode() == juce::KeyPress::returnKey)
+    {
+        if (workspaceToolbar.onReturnToZero) workspaceToolbar.onReturnToZero();
+        return true;
+    }
+
     return false;
 }
 
