@@ -2310,19 +2310,54 @@ void MixerPanel::paint(juce::Graphics& g)
         g.setFont(juce::Font(juce::FontOptions(8.5f).withStyle("Bold")));
         g.drawText(names[i], sx, 38, stripW - 4, 14, juce::Justification::centred);
 
-        // Fader track (vertical line)
-        const int faderX = sx + (stripW - 4) / 2;
-        const int faderTop = 60;
-        const int faderBot = H - 36;
-        g.setColour(juce::Colour::fromRGB(28, 30, 42));
-        g.fillRect(faderX - 2, faderTop, 4, faderBot - faderTop);
+        // Fader + meter layout: fader left, meter (8px) right
+        const int faderTop  = 60;
+        const int faderBot  = H - 36;
+        const int meterW2   = 8;
+        const int meterGap  = 3;
+        const int meterX    = sx + (stripW - 4) - meterW2 - 2;
+        const int faderRight = meterX - meterGap;
+        const int faderLeft  = sx + 4;
+        const int faderCX    = (faderLeft + faderRight) / 2;
 
-        // Fader handle at ~80% position
+        // Fader track
+        g.setColour(juce::Colour::fromRGB(28, 30, 42));
+        g.fillRect(faderCX - 2, faderTop, 4, faderBot - faderTop);
+
+        // Fader handle (interactive via faderPositions)
         const int faderHandleY = faderTop + (int)((faderBot - faderTop) * 0.25f);
         g.setColour(juce::Colour::fromRGB(80, 84, 110));
-        g.fillRoundedRectangle((float)(sx + 6), (float)(faderHandleY - 6), (float)(stripW - 16), 12.0f, 3.0f);
+        g.fillRoundedRectangle((float)faderLeft, (float)(faderHandleY - 6),
+                               (float)(faderRight - faderLeft), 12.0f, 3.0f);
         g.setColour(juce::Colour::fromRGB(120, 124, 160));
-        g.fillRect(sx + 6, faderHandleY - 1, stripW - 16, 2);
+        g.fillRect(faderLeft, faderHandleY - 1, faderRight - faderLeft, 2);
+
+        // Level meter (static placeholder — green bar at moderate level)
+        {
+            // Background
+            g.setColour(juce::Colour::fromRGB(14, 16, 24));
+            g.fillRoundedRectangle((float)meterX, (float)faderTop,
+                                   (float)meterW2, (float)(faderBot - faderTop), 2.0f);
+
+            // Simulated level: ~60% green, 15% yellow at top
+            const int totalH2 = faderBot - faderTop;
+            const int greenH  = (int)(totalH2 * 0.58f);
+            const int yellowH = (int)(totalH2 * 0.12f);
+            const int fillTop = faderBot - greenH - yellowH;
+
+            // Green section
+            const int segH = 3, segGap = 1;
+            for (int fy = faderBot - segH; fy >= fillTop; fy -= (segH + segGap))
+            {
+                const float t = 1.0f - (float)(fy - faderTop) / (float)totalH2;
+                juce::Colour segCol;
+                if (t < 0.70f)      segCol = juce::Colour::fromRGB(50, 200,  80);
+                else if (t < 0.88f) segCol = juce::Colour::fromRGB(220, 200,  30);
+                else                segCol = juce::Colour::fromRGB(220,  50,  50);
+                g.setColour(segCol);
+                g.fillRect(meterX + 1, fy, meterW2 - 2, segH);
+            }
+        }
 
         // M / S buttons at bottom
         g.setColour(juce::Colour::fromRGB(28, 30, 42));
@@ -2581,11 +2616,14 @@ void BottomDockPanel::paintMixerStrips(juce::Graphics& g, juce::Rectangle<int> a
         else                    panStr = "R" + juce::String((int)((panVal - 0.5f) * 200.0f));
         g.drawText(panStr, sx + 2, (int)(knobCY + kr + 1.0f), sw - 4, 9, juce::Justification::centred);
 
-        // ── Fader track ───────────────────────────────────────────────────
-        const int faderTop = top + 44;
-        const int faderBot = top + H - 34;
-        const int fTravel  = faderBot - faderTop;
-        const int fCX      = sx + sw / 2;
+        // ── Fader + level meter layout ────────────────────────────────────
+        const int meterColW  = 9;   // width of vertical level meter column
+        const int meterColX  = sx + sw - meterColW - 1;  // meter on right edge
+        const int faderTop   = top + 44;
+        const int faderBot   = top + H - 34;
+        const int fTravel    = faderBot - faderTop;
+        // Fader groove centred in the area left of the meter
+        const int fCX        = sx + (meterColX - sx) / 2;
 
         // Background groove
         const juce::Colour grooveCol = juce::Colour::fromRGB(6, 7, 11);
@@ -2609,11 +2647,32 @@ void BottomDockPanel::paintMixerStrips(juce::Graphics& g, juce::Rectangle<int> a
             g.drawText(dbMarks[m], sx + 2, tickY - 4, 18, 8, juce::Justification::right);
         }
 
+        // ── Level meter (right column) ────────────────────────────────────
+        {
+            g.setColour(juce::Colour::fromRGB(8, 10, 16));
+            g.fillRoundedRectangle((float)meterColX, (float)faderTop,
+                                   (float)meterColW, (float)fTravel, 2.0f);
+            // Static placeholder level: moderate fill with green/yellow segments
+            const float levelNorm = 0.62f;
+            const int fillH  = (int)(fTravel * levelNorm);
+            const int segH = 3, segGap = 1;
+            for (int fy = faderBot - segH; fy >= faderBot - fillH; fy -= (segH + segGap))
+            {
+                const float t = 1.0f - (float)(fy - faderTop) / (float)fTravel;
+                juce::Colour segCol;
+                if (t < 0.70f)      segCol = juce::Colour::fromRGB(50, 200,  80);
+                else if (t < 0.88f) segCol = juce::Colour::fromRGB(220, 200,  30);
+                else                segCol = juce::Colour::fromRGB(220,  50,  50);
+                g.setColour(segCol);
+                g.fillRect(meterColX + 1, fy, meterColW - 2, segH);
+            }
+        }
+
         // ── Fader thumb (analog-style, wide flat knob) ────────────────────
         const float fPos  = faderPositions[i];
         const int handleY = faderTop + (int)(fPos * fTravel);
         const int thumbH  = 18;
-        const int thumbW  = sw - 12;
+        const int thumbW  = meterColX - sx - 10;   // narrowed to leave meter space
         const int thumbX  = sx + 6;
 
         // Shadow under thumb
@@ -3673,9 +3732,10 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         volumeKnob.setRange(-60.0, 12.0, 0.1);
         volumeKnob.setValue(0.0, juce::dontSendNotification);
         volumeKnob.setDoubleClickReturnValue(true, 0.0);
-        volumeKnob.setTooltip("Track volume (dB) — double-click to reset");
-        volumeKnob.setColour(juce::Slider::rotarySliderFillColourId, kAccent);
-        volumeKnob.setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour::fromRGB(40,44,58));
+        volumeKnob.setTooltip("Track volume (dB) — double-click to reset to 0 dB");
+        volumeKnob.setColour(juce::Slider::trackColourId,         juce::Colour::fromRGB(40,44,60));
+        volumeKnob.setColour(juce::Slider::thumbColourId,         juce::Colour::fromRGB(130,140,200));
+        volumeKnob.setColour(juce::Slider::backgroundColourId,    juce::Colour::fromRGB(18,20,30));
         volumeKnob.addListener(this);
         contentComp.addAndMakeVisible(volumeKnob);
 
@@ -3918,82 +3978,54 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
 
     void ProductionPanel::paintMeter(juce::Graphics& g, juce::Rectangle<int> r)
     {
-        // Dark background
-        g.setColour(juce::Colour::fromRGB(10, 12, 18));
-        g.fillRect(r);
+        // Horizontal L/R meter bars
+        // r is split: top half = L, bottom half = R (with 2px gap)
+        const int barH  = (r.getHeight() - 6) / 2;  // height of each bar
+        const int lY    = r.getY() + 1;
+        const int rY    = lY + barH + 4;
+        const int barW  = r.getWidth() - 22;         // 22px for label on left
+        const int barX  = r.getX() + 20;
 
-        // Reserve space for dB labels on right (20px)
-        const int labelW = 20;
-        const int labelsX = r.getRight() - labelW;
-
-        // dB scale labels
-        static const struct { float db; const char* label; } kDbLabels[] = {
-            { 3.0f, "+3" }, { 0.0f, "0" }, { -6.0f, "-6" },
-            { -12.0f, "-12" }, { -24.0f, "-24" }
-        };
-
-        // Map dB to y position (top = +3dB, bottom = -inf)
-        auto dbToY = [&](float db) -> float {
-            if (db >= 0.0f)
-                return (float)r.getY() + (3.0f - db) / 3.0f * 0.15f * (float)r.getHeight();
-            const float dbClamped = juce::jmax(db, -60.0f);
-            return (float)r.getY() + 0.15f * (float)r.getHeight()
-                   + (-dbClamped / 60.0f) * 0.85f * (float)r.getHeight();
-        };
-
-        g.setFont(juce::FontOptions(7.5f));
-        for (auto& lbl : kDbLabels)
+        auto drawHBar = [&](int bx, int by, int bw, int bh, float level, const char* label)
         {
-            float fy = dbToY(lbl.db);
-            g.setColour(juce::Colours::white.withAlpha(lbl.db == 0.0f ? 0.5f : 0.3f));
-            g.drawText(lbl.label, labelsX, (int)(fy - 5.0f), labelW - 1, 10,
-                       juce::Justification::centredLeft, false);
-            // tick on meter side
-            g.setColour(juce::Colours::white.withAlpha(0.15f));
-            g.fillRect((float)r.getX(), fy, (float)(labelsX - r.getX() - 2), 0.8f);
-        }
+            // Label
+            g.setColour(juce::Colours::white.withAlpha(0.45f));
+            g.setFont(juce::FontOptions(7.5f));
+            g.drawText(label, r.getX(), by, 18, bh, juce::Justification::centredRight, false);
 
-        // Channel bars
-        const int barsRight = labelsX - 3;
-        const int totalBarW = barsRight - r.getX() - 4;
-        const int barW = (totalBarW - 3) / 2;
-
-        auto drawMeterBar = [&](int bx, float level)
-        {
-            // background
-            g.setColour(juce::Colour::fromRGB(15, 17, 24));
-            g.fillRect(bx, r.getY(), barW, r.getHeight());
+            // Dark background track
+            g.setColour(juce::Colour::fromRGB(14, 16, 24));
+            g.fillRoundedRectangle((float)bx, (float)by, (float)bw, (float)bh, 2.0f);
 
             if (level < 0.001f) return;
 
-            // Convert linear to dB
-            const float db = 20.0f * std::log10(juce::jmax(level, 1e-6f));
-            const float yTop = dbToY(juce::jmin(db, 3.0f));
-            const float yBot = (float)r.getBottom();
+            const float db      = 20.0f * std::log10(juce::jmax(level, 1e-6f));
+            // Map dB to fill fraction: -60..+3 → 0..1
+            const float norm    = juce::jlimit(0.0f, 1.0f, (db + 60.0f) / 63.0f);
+            const int   fillW   = (int)(norm * bw);
 
-            // Segmented fill with gradient colour
-            const int segH = 3, segGap = 1;
-            for (float fy = yBot - segH; fy >= yTop; fy -= (segH + segGap))
+            // Segmented horizontal bars (green→yellow→red left to right)
+            const int segW = 3, segGap = 1;
+            for (int fx = bx; fx < bx + fillW - segW; fx += segW + segGap)
             {
-                // Colour: green at bottom, yellow at -6dB, red at top
-                const float normPos = 1.0f - (fy - (float)r.getY()) / (float)r.getHeight();
+                const float t = (float)(fx - bx) / (float)bw;
                 juce::Colour segCol;
-                if (normPos < 0.7f)      segCol = juce::Colour::fromRGB(50, 200, 80);
-                else if (normPos < 0.88f) segCol = juce::Colour::fromRGB(220, 200, 30);
-                else                      segCol = juce::Colour::fromRGB(220, 50, 50);
+                if (t < 0.70f)       segCol = juce::Colour::fromRGB(50, 200,  80);
+                else if (t < 0.88f)  segCol = juce::Colour::fromRGB(220, 200,  30);
+                else                 segCol = juce::Colour::fromRGB(220,  50,  50);
                 g.setColour(segCol);
-                g.fillRect((float)bx, fy, (float)barW, (float)segH);
+                g.fillRect(fx, by + 1, juce::jmin(segW, bx + fillW - fx), bh - 2);
             }
+
+            // dB value overlay on right
+            g.setColour(juce::Colours::white.withAlpha(0.55f));
+            g.setFont(juce::FontOptions(6.5f));
+            const juce::String dbStr = (db >= 0.0f ? "+" : "") + juce::String(db, 1) + "dB";
+            g.drawText(dbStr, bx + bw - 36, by, 36, bh, juce::Justification::centredRight, false);
         };
 
-        drawMeterBar(r.getX() + 2, meterLevelL);
-        drawMeterBar(r.getX() + 2 + barW + 3, meterLevelR);
-
-        // L / R labels
-        g.setColour(juce::Colours::white.withAlpha(0.4f));
-        g.setFont(juce::FontOptions(7.0f));
-        g.drawText("L", r.getX() + 2, r.getBottom() - 10, barW, 10, juce::Justification::centred, false);
-        g.drawText("R", r.getX() + 2 + barW + 3, r.getBottom() - 10, barW, 10, juce::Justification::centred, false);
+        drawHBar(barX, lY, barW, barH, meterLevelL, "L");
+        drawHBar(barX, rY, barW, barH, meterLevelR, "R");
     }
 
     double ProductionPanel::calcBiquadMagnitude(int bandIdx, double normFreq) const
@@ -4212,15 +4244,19 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
     void ProductionPanel::paint(juce::Graphics& g)
     {
         g.fillAll(kPanelBg);
-        // EQ graph is painted inside resized/paint of contentComp via this override
-        // We paint the EQ graph here directly into the content component coordinate space
+
+        // Translate contentComp-relative bounds into panel coordinates
+        auto offset = contentComp.getBounds().getPosition() - viewport.getViewPosition();
+        const int tx = viewport.getX() + offset.x;
+        const int ty = viewport.getY() + offset.y;
+
+        // Horizontal L/R level meter
+        if (meterBounds.getWidth() > 0)
+            paintMeter(g, meterBounds.translated(tx, ty));
+
+        // EQ graph
         if (eqGraphBounds.getWidth() > 0)
-        {
-            // Convert eqGraphBounds from contentComp to this component
-            auto offset = contentComp.getBounds().getPosition() - viewport.getViewPosition();
-            auto translated = eqGraphBounds.translated(viewport.getX() + offset.x, viewport.getY() + offset.y);
-            paintEQGraph(g, translated);
-        }
+            paintEQGraph(g, eqGraphBounds.translated(tx, ty));
     }
 
     void ProductionPanel::resized()
@@ -4240,14 +4276,14 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         trackNameLabel.setBounds(4, y + 2, W - 8, 22);
         y += 26;
 
-        // Meter (left 55%) + volume knob (right 40%)
-        const int meterH   = 70;
-        const int knobSize = 52;
-        const int meterW   = W - knobSize - 12;
-        // meter drawn in paint() — just reserve space
-        const int knobX = meterW + 8;
-        volumeKnob.setBounds(knobX, y + (meterH - knobSize) / 2, knobSize, knobSize);
+        // Horizontal L/R meter (full width, 28px tall)
+        const int meterH = 28;
+        meterBounds = { 4, y, W - 8, meterH };
         y += meterH + 4;
+
+        // Horizontal volume fader (full width, 20px)
+        volumeKnob.setBounds(4, y, W - 8, 20);
+        y += 24;
 
         // IN/OUT labels
         inputLabel.setBounds(4, y, W/2 - 6, 14);

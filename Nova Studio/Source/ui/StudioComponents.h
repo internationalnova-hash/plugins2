@@ -336,7 +336,10 @@ namespace NovaStudioUI
         juce::Viewport viewport;
         juce::Component contentComp;
 
-        juce::Slider volumeKnob { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
+        juce::Slider volumeKnob { juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
+
+        // Bounds (in contentComp space) for the horizontal meter — used by paint() to blit it
+        juce::Rectangle<int> meterBounds;
 
         // Current track state
         float currentVolDb  = 0.0f;
