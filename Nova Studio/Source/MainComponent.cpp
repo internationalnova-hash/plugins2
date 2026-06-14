@@ -382,11 +382,13 @@ void MainComponent::popOutMixer()
         floatingMixer->setBounds(mainBounds.getX(), mainBounds.getBottom() + 4,
                                  juce::jmax(900, mainBounds.getWidth()), 900);
         floatingMixer->setResizable(true, false);
+        floatingMixer->addKeyListener(this); // forward shortcuts to MainComponent
     }
 }
 
 void MainComponent::redockMixer()
 {
+    if (floatingMixer) floatingMixer->removeKeyListener(this);
     floatingMixer.reset();
     resized();
 }
@@ -407,11 +409,13 @@ void MainComponent::popOutBeat()
         floatingBeat->setBounds(mainBounds.getX(), mainBounds.getBottom() + 4,
                                 juce::jmax(800, mainBounds.getWidth()), 700);
         floatingBeat->setResizable(true, false);
+        floatingBeat->addKeyListener(this);
     }
 }
 
 void MainComponent::redockBeat()
 {
+    if (floatingBeat) floatingBeat->removeKeyListener(this);
     floatingBeat.reset();
     if (beatWindow)
     {
@@ -434,11 +438,13 @@ void MainComponent::popOutBrowser()
             juce::ignoreUnused(w);
             redockBrowser();
         });
+    floatingBrowser->addKeyListener(this);
     resized();
 }
 
 void MainComponent::redockBrowser()
 {
+    if (floatingBrowser) floatingBrowser->removeKeyListener(this);
     floatingBrowser.reset();
     addAndMakeVisible(browserPanel);
     browserCollapsed = false;
