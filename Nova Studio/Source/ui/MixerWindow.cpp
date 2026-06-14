@@ -810,13 +810,22 @@ void ChannelStrip::paint(juce::Graphics& g)
 
 juce::Rectangle<int> ChannelStrip::getFaderRect() const
 {
-    // Bottom section: name(20) + dBLabel(14) + MSR(20) + read(18) + fader(190)
+    // Must match resized() layout exactly (top-down order)
     auto r = getLocalBounds().reduced(2, 2);
-    r.removeFromBottom(20);   // name
-    r.removeFromBottom(14);   // dB label
-    r.removeFromBottom(20);   // MSR
-    r.removeFromBottom(18);   // read
-    return r.removeFromBottom(190).reduced(4, 2);
+    r.removeFromTop(20);                // header bar
+    r.removeFromTop(18);                // name label
+    r.removeFromTop(18);                // PRE button
+    r.removeFromTop(46);                // pan knob
+    r.removeFromTop(12);                // INSERTS header
+    r.removeFromTop(6 * 19 + 14);      // insert slots (always 6 visible)
+    r.removeFromTop(12);                // SENDS header
+    r.removeFromTop(kNumSends * 30);    // send rows
+    r.removeFromTop(4);                 // gap
+    r.removeFromTop(15);                // input label
+    r.removeFromTop(15);                // output label
+    r.removeFromTop(18);                // read button
+    r.removeFromTop(20);                // MSR buttons
+    return r.removeFromTop(190).reduced(4, 2);
 }
 
 juce::Rectangle<int> ChannelStrip::getMeterRect() const

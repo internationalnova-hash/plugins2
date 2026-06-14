@@ -1405,6 +1405,31 @@ namespace NovaStudioUI
                     g.drawLine(fadeInX, clipY, fadeInX, clipY + clipHeight, 1.2f);
                     g.drawLine(fadeOutX, clipY, fadeOutX, clipY + clipHeight, 1.2f);
                 }
+
+                // ── Clip gain line (always visible) ──────────────────────────
+                {
+                    const float waveH = clipHeight - 22.0f;
+                    const float gainNorm = juce::jlimit(0.0f, 1.0f, (clip.gainDb + 24.0f) / 48.0f);
+                    const float gainLineY = clipY + 20.0f + (1.0f - gainNorm) * juce::jmax(1.0f, waveH - 4.0f);
+                    const bool isBeingDragged = (isDraggingClipGain && gainDragTrackIndex == trackIndex && gainDragClipIndex == clipIndex);
+
+                    g.setColour(isBeingDragged ? juce::Colour::fromRGB(255, 210, 60).withAlpha(0.95f)
+                                               : juce::Colour::fromRGB(180, 220, 255).withAlpha(0.55f));
+                    g.drawLine((float)clipStartX + 2.0f, gainLineY, (float)clipStartX + clipWidth - 2.0f, gainLineY, 1.5f);
+
+                    // Small grip circle at center of gain line
+                    const float cx = (float)clipStartX + clipWidth * 0.5f;
+                    g.fillEllipse(cx - 4.0f, gainLineY - 4.0f, 8.0f, 8.0f);
+
+                    // dB label when gain is non-zero or being dragged
+                    if (std::abs(clip.gainDb) > 0.05f || isBeingDragged)
+                    {
+                        juce::String gainStr = (clip.gainDb >= 0 ? "+" : "") + juce::String(clip.gainDb, 1) + " dB";
+                        g.setColour(isBeingDragged ? juce::Colour::fromRGB(255, 210, 60) : juce::Colours::white.withAlpha(0.80f));
+                        g.setFont(juce::FontOptions(9.0f));
+                        g.drawText(gainStr, (int)clipStartX + 4, (int)gainLineY - 11, (int)clipWidth - 8, 11, juce::Justification::centredLeft);
+                    }
+                }
             }
         }
 
@@ -1749,6 +1774,26 @@ namespace NovaStudioUI
             const auto rightHandle = juce::Rectangle<float>((float)clipEndX - handleW + 1.0f, clipRect.getBottom() - 12.0f, handleW, 10.0f);
             const bool clipSelectedSingle = (trackIndex == arrangementModel.getSelectedTrackIndex() && clipIndex == arrangementModel.getSelectedClipIndex());
 
+            // ── Clip gain drag (click within ±5px of gain line) ──────────────
+            if (clipRect.contains(clickPoint) && !clip.locked
+                && cursorTool == EditModeToolbar::CursorTool::Pointer)
+            {
+                const float waveH = clipH - 22.0f;
+                const float gainNorm = juce::jlimit(0.0f, 1.0f, (clip.gainDb + 24.0f) / 48.0f);
+                const float gainLineY = clipY + 20.0f + (1.0f - gainNorm) * juce::jmax(1.0f, waveH - 4.0f);
+                if (std::abs(clickPoint.y - gainLineY) <= 6.0f)
+                {
+                    arrangementModel.selectClip(trackIndex, clipIndex);
+                    isDraggingClipGain = true;
+                    gainDragTrackIndex = trackIndex;
+                    gainDragClipIndex  = clipIndex;
+                    gainDragOrigDb     = clip.gainDb;
+                    gainDragStartY     = clickPoint.y;
+                    found = true;
+                    break;
+                }
+            }
+
             if (clipSelectedSingle && leftHandle.contains(clickPoint))
             {
                 isDraggingTrimLeft = true;
@@ -1973,6 +2018,23 @@ namespace NovaStudioUI
             return;
         }
 
+        // ── Clip gain drag ───────────────────────────────────────────────────────
+        if (isDraggingClipGain)
+        {
+            auto* clip = arrangementModel.getSelectedClip();
+            if (clip != nullptr && !clip->locked)
+            {
+                const float trackH = (float)trackHeightPx;
+                const float waveH = juce::jmax(1.0f, (trackH - 12.0f) - 22.0f - 4.0f);
+                const float dbPerPixel = 48.0f / waveH;
+                const float newGain = juce::jlimit(-24.0f, 24.0f,
+                    gainDragOrigDb - (event.position.y - gainDragStartY) * dbPerPixel);
+                arrangementModel.setSelectedClipGain(newGain);
+            }
+            repaint();
+            return;
+        }
+
         // ── Fade handle drag ─────────────────────────────────────────────────────
         if (isDraggingFadeIn || isDraggingFadeOut)
         {
@@ -2136,6 +2198,16 @@ namespace NovaStudioUI
         isDraggingPlayhead = false;
         isDraggingFadeIn   = false;
         isDraggingFadeOut  = false;
+
+        if (isDraggingClipGain)
+        {
+            isDraggingClipGain = false;
+            auto* clip = arrangementModel.getSelectedClip();
+            if (clip != nullptr && !clip->locked)
+                arrangementModel.replaceSelectedClipWithUndo(*clip, "Adjust Clip Gain");
+            gainDragTrackIndex = -1;
+            gainDragClipIndex  = -1;
+        }
         loopDragHandle = LoopDragHandle::None;
         updateCursorForTool();
 

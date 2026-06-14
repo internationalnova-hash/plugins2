@@ -522,6 +522,13 @@ namespace NovaStudioUI
         bool    isDraggingPunchRange = false;
         int64_t punchAnchorSample    = 0;
 
+        // Clip gain drag (drag gain line inside clip)
+        bool  isDraggingClipGain    = false;
+        int   gainDragTrackIndex    = -1;
+        int   gainDragClipIndex     = -1;
+        float gainDragOrigDb        = 0.0f;
+        float gainDragStartY        = 0.0f;
+
         // Vertical scroll (shared with TrackPanel via onScrollChanged)
         int trackScrollY = 0;
 
