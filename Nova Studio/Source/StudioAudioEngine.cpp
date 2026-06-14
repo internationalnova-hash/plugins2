@@ -500,6 +500,11 @@ namespace NovaStudio
         for (auto& player : trackPlayers)
             player->prepareToPlay(currentBufferSize, currentSampleRate);
         mixerSource.prepareToPlay(currentBufferSize, currentSampleRate);
+        {
+            juce::ScopedLock sl(masterPluginLock);
+            for (auto* p : masterPlugins)
+                if (p) p->prepareToPlay(currentSampleRate, currentBufferSize);
+        }
 
         session.setSampleRate(currentSampleRate);
         return true;
@@ -522,6 +527,9 @@ namespace NovaStudio
         if (!instance)
             return false;
 
+        if (trackIndex == kMasterTrackIndex)
+            return addMasterPlugin(std::move(instance));
+
         if (!isPositiveAndBelow(trackIndex, trackPlayers.size()))
             return false;
 
@@ -531,6 +539,14 @@ namespace NovaStudio
 
     bool StudioAudioEngine::loadPluginByDescription(const juce::PluginDescription& desc, int trackIndex)
     {
+        juce::String errorMessage;
+        auto instance = pluginFormatManager.createPluginInstance(desc, currentSampleRate, currentBufferSize, errorMessage);
+        if (!instance) return false;
+
+        // Master channel
+        if (trackIndex == kMasterTrackIndex)
+            return addMasterPlugin(std::move(instance));
+
         // If no track specified, use first armed track, then first track
         int targetTrack = trackIndex;
         if (targetTrack < 0)
@@ -539,11 +555,6 @@ namespace NovaStudio
             for (int i = 0; i < trackPlayers.size(); ++i)
                 if (trackPlayers.getReference(i)->armed) { targetTrack = i; break; }
         }
-
-        juce::String errorMessage;
-        auto instance = pluginFormatManager.createPluginInstance(desc, currentSampleRate, currentBufferSize, errorMessage);
-        if (!instance)
-            return false;
 
         if (!isPositiveAndBelow(targetTrack, trackPlayers.size()))
             return false;
@@ -885,33 +896,72 @@ namespace NovaStudio
 
     juce::AudioPluginInstance* StudioAudioEngine::getTrackPlugin(int trackIndex, int pluginSlot) const
     {
+        if (trackIndex == kMasterTrackIndex) return getMasterPlugin(pluginSlot);
         if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return nullptr;
         return trackPlayers.getReference(trackIndex)->getPlugin(pluginSlot);
     }
 
     int StudioAudioEngine::getTrackPluginCount(int trackIndex) const
     {
+        if (trackIndex == kMasterTrackIndex) return getMasterPluginCount();
         if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return 0;
         return trackPlayers.getReference(trackIndex)->getNumPlugins();
     }
 
     void StudioAudioEngine::getTrackPluginState(int trackIndex, int pluginSlot, juce::MemoryBlock& dest) const
     {
+        if (trackIndex == kMasterTrackIndex) return; // TODO: master plugin state persistence
         if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return;
         trackPlayers.getReference(trackIndex)->getPluginState(pluginSlot, dest);
     }
 
     void StudioAudioEngine::setTrackPluginState(int trackIndex, int pluginSlot, const void* data, size_t size)
     {
+        if (trackIndex == kMasterTrackIndex) return; // TODO: master plugin state persistence
         if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return;
         trackPlayers.getReference(trackIndex)->setPluginState(pluginSlot, data, size);
     }
 
     bool StudioAudioEngine::removePluginFromTrack(int trackIndex, int pluginSlot)
     {
+        if (trackIndex == kMasterTrackIndex) return removeMasterPlugin(pluginSlot);
         juce::ScopedLock sl(playerLock);
         if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return false;
         return trackPlayers.getReference(trackIndex)->removePlugin(pluginSlot);
+    }
+
+    // ── Master plugin chain ───────────────────────────────────────────────────
+
+    bool StudioAudioEngine::addMasterPlugin(std::unique_ptr<juce::AudioPluginInstance> plugin)
+    {
+        if (!plugin) return false;
+        juce::ScopedLock sl(masterPluginLock);
+        if (masterPlugins.size() >= kMaxMasterPlugins) return false;
+        if (currentSampleRate > 0 && currentBufferSize > 0)
+            plugin->prepareToPlay(currentSampleRate, currentBufferSize);
+        masterPlugins.add(plugin.release());
+        return true;
+    }
+
+    bool StudioAudioEngine::removeMasterPlugin(int slot)
+    {
+        juce::ScopedLock sl(masterPluginLock);
+        if (!isPositiveAndBelow(slot, masterPlugins.size())) return false;
+        masterPlugins.remove(slot);
+        return true;
+    }
+
+    juce::AudioPluginInstance* StudioAudioEngine::getMasterPlugin(int slot) const
+    {
+        juce::ScopedLock sl(masterPluginLock);
+        if (!isPositiveAndBelow(slot, masterPlugins.size())) return nullptr;
+        return masterPlugins[slot];
+    }
+
+    int StudioAudioEngine::getMasterPluginCount() const
+    {
+        juce::ScopedLock sl(masterPluginLock);
+        return masterPlugins.size();
     }
 
     // ── Metering ──────────────────────────────────────────────────────────────
@@ -1112,6 +1162,14 @@ namespace NovaStudio
         clearSendBuses(numSamples);
 
         mixerSource.getNextAudioBlock(info);  // regular + aux tracks all run here
+
+        // ── Master plugin chain ───────────────────────────────────────────────
+        {
+            juce::ScopedLock sl(masterPluginLock);
+            juce::MidiBuffer emptyMidi;
+            for (auto* plugin : masterPlugins)
+                if (plugin) plugin->processBlock(tempBuffer, emptyMidi);
+        }
 
         // ── Aux track pass: mix aux return outputs into the main output ───────
         // Aux TrackPlayers are already part of mixerSource and wrote their output

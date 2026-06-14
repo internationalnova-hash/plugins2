@@ -40,6 +40,16 @@ namespace NovaStudio
         void getTrackPluginState(int trackIndex, int pluginSlot, juce::MemoryBlock& dest) const;
         void setTrackPluginState(int trackIndex, int pluginSlot, const void* data, size_t size);
 
+        // Master channel plugin chain.
+        // Pass kMasterTrackIndex (-2) as trackIndex to getTrackPlugin /
+        // removePluginFromTrack / loadPluginByDescription for master inserts.
+        static constexpr int kMasterTrackIndex  = -2;
+        static constexpr int kMaxMasterPlugins  = 10;
+        bool addMasterPlugin(std::unique_ptr<juce::AudioPluginInstance> plugin);
+        bool removeMasterPlugin(int slot);
+        juce::AudioPluginInstance* getMasterPlugin(int slot) const;
+        int  getMasterPluginCount() const;
+
         // Output metering: returns peak since last call (resets after read), range 0-1
         float getTrackPeakLevel(int trackIndex, int channel) const noexcept;
         void  setTrackEQBand(int trackIndex, int band, bool enabled, float freq, float gainDb, float q);
@@ -227,6 +237,10 @@ namespace NovaStudio
         juce::KnownPluginList knownPlugins;
         Session session;
         juce::Array<std::unique_ptr<TrackPlayer>> trackPlayers;
+
+        // Master channel plugin chain — processed on the final mixed buffer
+        juce::OwnedArray<juce::AudioPluginInstance> masterPlugins;
+        juce::CriticalSection masterPluginLock;
 
         // Send bus buffers — cleared each block, written by regular TrackPlayers,
         // read by Aux TrackPlayers.

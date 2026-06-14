@@ -1150,7 +1150,9 @@ void MixerWindow::buildStrips()
     masterStrip = std::make_unique<ChannelStrip>();
     masterStrip->setMaster(true);
     masterStrip->updateAsMaster();
+    masterStrip->setTrackIndex(NovaStudio::StudioAudioEngine::kMasterTrackIndex);
     stripsContainer.addAndMakeVisible(*masterStrip);
+    wireInserts(masterStrip.get(), NovaStudio::StudioAudioEngine::kMasterTrackIndex);
 
     refreshInsertSlotNames();
 }
@@ -1295,6 +1297,15 @@ void MixerWindow::refreshInsertSlotNames()
     };
     refresh(trackStrips);
     refresh(auxStrips);
+    // Master strip uses kMasterTrackIndex — getTrackPlugin handles it
+    if (masterStrip)
+    {
+        for (int s = 0; s < 10; ++s)
+        {
+            auto* plugin = engine.getTrackPlugin(NovaStudio::StudioAudioEngine::kMasterTrackIndex, s);
+            masterStrip->setInsertSlotName(s, plugin ? plugin->getName() : juce::String());
+        }
+    }
 }
 
 void MixerWindow::openPluginBrowser(int trackIndex, int slotIndex)
@@ -1311,9 +1322,14 @@ void MixerWindow::openPluginBrowser(int trackIndex, int slotIndex)
         engine, trackIndex, slotIndex,
         [this](int track, int slot, const juce::String& name)
         {
-            // Fired after successful load — update strip display, broadcast, open editor
-            if (isPositiveAndBelow(track, trackStrips.size()))
+            if (track == NovaStudio::StudioAudioEngine::kMasterTrackIndex)
+            {
+                if (masterStrip) masterStrip->setInsertSlotName(slot, name);
+            }
+            else if (isPositiveAndBelow(track, trackStrips.size()))
+            {
                 trackStrips[track]->setInsertSlotName(slot, name);
+            }
             notifyPluginChainChanged();
             openPluginEditor(track, slot);
         });
