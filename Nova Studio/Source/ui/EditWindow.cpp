@@ -29,11 +29,7 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
     productionPanel = std::make_unique<ProductionPanel>(arrangementModel);
     rightPanel.addAndMakeVisible(*productionPanel);
 
-    // Insert callbacks are wired after setEngine() is called (see setEngine)
-    // onEQChanged is wired after setEngine() (see setEngine)
-    productionPanel->onSendLevelChanged = [](int send, float level) {
-        DBG("Send " + juce::String(send) + " level=" + juce::String(level));
-    };
+    // Insert/send callbacks are wired after setEngine() is called (see setEngine)
 
     editModeToolbar = std::make_unique<EditModeToolbar>();
     centerPanel.addAndMakeVisible(*editModeToolbar);
@@ -127,6 +123,42 @@ void EditWindow::setEngine(NovaStudio::StudioAudioEngine& e)
         int idx = arrangementModel.getSelectedTrackIndex();
         if (idx < 0) return;
         enginePtr->setTrackEQBand(idx, band, true, freq, gainDb, q);
+    };
+
+    productionPanel->onSendLevelChanged = [this](int send, float db)
+    {
+        if (!enginePtr) return;
+        int idx = arrangementModel.getSelectedTrackIndex();
+        if (idx >= 0) enginePtr->setTrackSendLevel(idx, send, db);
+    };
+
+    productionPanel->onSendBusChanged = [this](int send, int busIndex)
+    {
+        if (!enginePtr) return;
+        int idx = arrangementModel.getSelectedTrackIndex();
+        if (idx < 0) return;
+        enginePtr->setTrackSendBus(idx, send, busIndex);
+        if (busIndex >= 0)
+        {
+            const int n = enginePtr->getSession().getNumTracks();
+            bool found = false;
+            for (int t = 0; t < n; ++t)
+            {
+                const auto& tr = enginePtr->getSession().getTrack(t);
+                if (tr.type == NovaStudio::TrackType::Aux && tr.auxInputBusIndex == busIndex)
+                { found = true; break; }
+            }
+            if (!found)
+                enginePtr->addAuxTrack("Aux " + NovaStudio::StudioAudioEngine::sendBusName(busIndex), busIndex);
+        }
+        arrangementModel.sendChangeMessage();
+    };
+
+    productionPanel->onSendPreFaderChanged = [this](int send, bool pre)
+    {
+        if (!enginePtr) return;
+        int idx = arrangementModel.getSelectedTrackIndex();
+        if (idx >= 0) enginePtr->setTrackSendPreFader(idx, send, pre);
     };
 }
 

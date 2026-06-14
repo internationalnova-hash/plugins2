@@ -44,9 +44,24 @@ namespace NovaStudio
         float getTrackPeakLevel(int trackIndex, int channel) const noexcept;
         void  setTrackEQBand(int trackIndex, int band, bool enabled, float freq, float gainDb, float q);
 
-        // Send bus levels (dB)
+        // Send buses: 8 stereo buses named "Bus 1-2" through "Bus 15-16"
+        static constexpr int kNumSendBuses = 8;
+        static juce::String sendBusName(int busIndex)
+        {
+            return "Bus " + juce::String(busIndex * 2 + 1) + "-" + juce::String(busIndex * 2 + 2);
+        }
+
+        // Send routing per track
         void  setTrackSendLevel(int trackIndex, int sendIndex, float db);
         float getTrackSendLevel(int trackIndex, int sendIndex) const noexcept;
+        void  setTrackSendBus(int trackIndex, int sendIndex, int busIndex);   // -1 = unassigned
+        int   getTrackSendBus(int trackIndex, int sendIndex) const noexcept;
+        void  setTrackSendPreFader(int trackIndex, int sendIndex, bool preFader);
+        bool  getTrackSendPreFader(int trackIndex, int sendIndex) const noexcept;
+
+        // Aux track management
+        int   addAuxTrack(const juce::String& name, int busIndex);  // returns track index
+        void  setAuxTrackBus(int trackIndex, int busIndex);
 
         // Step sequencer sample playback
         void setStepSeqSample(int row, const juce::String& filePath);
@@ -149,6 +164,17 @@ namespace NovaStudio
             static constexpr int kNumEQBands = 6;
             std::array<EQBand, kNumEQBands> eqBands;
             bool eqDirty { true };
+
+            // Send bus wiring (set by engine after buildTrackPlayers)
+            static constexpr int kMaxSends = 6;
+            juce::AudioBuffer<float>* sendBusBuffers[8] {};   // pointers to engine's bus buffers
+            int   sendBusIndex[kMaxSends]  = { -1,-1,-1,-1,-1,-1 };
+            float sendLevels[kMaxSends]    = { -100.f,-100.f,-100.f,-100.f,-100.f,-100.f };
+            bool  sendPreFader[kMaxSends]  = {};
+
+            // Aux track: if true, reads from auxInputBus instead of clips
+            bool isAuxTrack = false;
+            int  auxInputBusIndex = -1;  // which bus to read from
         };
 
         void audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
@@ -173,6 +199,13 @@ namespace NovaStudio
         juce::KnownPluginList knownPlugins;
         Session session;
         juce::Array<std::unique_ptr<TrackPlayer>> trackPlayers;
+
+        // Send bus buffers — cleared each block, written by regular TrackPlayers,
+        // read by Aux TrackPlayers.
+        juce::AudioBuffer<float> sendBusBuffers[kNumSendBuses];
+        void prepareSendBuses(int numChannels, int numSamples);
+        void clearSendBuses(int numSamples);
+        void syncTrackPlayerSends(int trackIndex);
 
         double currentSampleRate = 44100.0;
         int currentBufferSize = 512;

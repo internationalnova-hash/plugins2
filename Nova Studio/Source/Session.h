@@ -51,9 +51,12 @@ namespace NovaStudio
         bool muted = false;
         bool solo = false;
         bool armed = false;
-        float sendLevels[6] = { -100.0f, -100.0f, -100.0f, -100.0f, -100.0f, -100.0f };
+        float sendLevels[6]    = { -100.0f,-100.0f,-100.0f,-100.0f,-100.0f,-100.0f };
+        int   sendBusIndex[6]  = { -1,-1,-1,-1,-1,-1 };  // which send bus each slot routes to
+        bool  sendPreFader[6]  = {};                      // true = pre-fader
         juce::String inputBus;   // e.g. "Bus 1-2", "Input 1" — empty = default
         juce::String outputBus;  // e.g. "Main Out", "Bus 3-4"
+        int   auxInputBusIndex = -1;  // for Aux tracks: which send bus to read from
         juce::Array<Clip> clips;
 
         Track() = default;

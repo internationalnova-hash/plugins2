@@ -3664,25 +3664,61 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         }
 
         // ---- Section 4: Sends ----
-        static const char* kSendNames[kNumSends] = { "Send A", "Send B", "Send C", "Send D" };
         for (int i = 0; i < kNumSends; ++i)
         {
             auto& row = sendRows[i];
-            row.nameLabel.setFont(juce::Font(10.0f));
-            row.nameLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
-            row.nameLabel.setText(kSendNames[i], juce::dontSendNotification);
-            contentComp.addAndMakeVisible(row.nameLabel);
 
-            row.levelSlider.setRange(0.0, 1.0, 0.01);
-            row.levelSlider.setValue(0.0, juce::dontSendNotification);
+            // Bus assignment button — click to pick bus
+            row.busBtn.setButtonText("—");
+            row.busBtn.setColour(juce::TextButton::buttonColourId, kSlotBg);
+            row.busBtn.setColour(juce::TextButton::textColourOffId, juce::Colours::lightgrey);
+            row.busBtn.setTooltip("Click to assign a send bus");
+            const int sendIdx = i;
+            row.busBtn.onClick = [this, sendIdx]() {
+                juce::PopupMenu m;
+                m.addItem(1, "Unassign");
+                m.addSeparator();
+                for (int b = 0; b < 8; ++b)
+                    m.addItem(b + 2, "Bus " + juce::String(b * 2 + 1) + "-" + juce::String(b * 2 + 2));
+                m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&sendRows[sendIdx].busBtn),
+                    [this, sendIdx](int result) {
+                        const int busIndex = (result <= 1) ? -1 : result - 2;
+                        sendRows[sendIdx].assignedBus = busIndex;
+                        const juce::String label = busIndex < 0 ? "—"
+                            : ("B" + juce::String(busIndex * 2 + 1) + "-" + juce::String(busIndex * 2 + 2));
+                        sendRows[sendIdx].busBtn.setButtonText(label);
+                        sendRows[sendIdx].busBtn.setColour(juce::TextButton::buttonColourId,
+                            busIndex >= 0 ? kAccent.withAlpha(0.5f) : kSlotBg);
+                        if (onSendBusChanged) onSendBusChanged(sendIdx, busIndex);
+                        // Raise level to 0 dB when bus first assigned
+                        if (busIndex >= 0 && sendRows[sendIdx].levelSlider.getValue() < -90.0)
+                        {
+                            sendRows[sendIdx].levelSlider.setValue(0.0, juce::sendNotification);
+                        }
+                    });
+            };
+            contentComp.addAndMakeVisible(row.busBtn);
+
+            // Level fader: -inf to +6 dB
+            row.levelSlider.setRange(-100.0, 6.0, 0.1);
+            row.levelSlider.setValue(-100.0, juce::dontSendNotification);
+            row.levelSlider.setSkewFactorFromMidPoint(-18.0);
+            row.levelSlider.setTooltip("Send level (dB)");
             row.levelSlider.addListener(this);
             contentComp.addAndMakeVisible(row.levelSlider);
 
-            row.onBtn.setClickingTogglesState(true);
-            row.onBtn.setColour(juce::TextButton::buttonColourId, kSlotBg);
-            row.onBtn.setColour(juce::TextButton::buttonOnColourId, kAccent);
-            row.onBtn.addListener(this);
-            contentComp.addAndMakeVisible(row.onBtn);
+            // PRE/POST fader toggle
+            row.preBtn.setClickingTogglesState(true);
+            row.preBtn.setColour(juce::TextButton::buttonColourId, kSlotBg);
+            row.preBtn.setColour(juce::TextButton::buttonOnColourId, juce::Colours::orange.withAlpha(0.5f));
+            row.preBtn.setTooltip("Toggle Pre/Post fader send");
+            row.preBtn.onClick = [this, sendIdx]() {
+                const bool pre = sendRows[sendIdx].preBtn.getToggleState();
+                sendRows[sendIdx].preBtn.setButtonText(pre ? "PRE" : "POST");
+                sendRows[sendIdx].isPreFader = pre;
+                if (onSendPreFaderChanged) onSendPreFaderChanged(sendIdx, pre);
+            };
+            contentComp.addAndMakeVisible(row.preBtn);
         }
 
         viewport.setViewedComponent(&contentComp, false);
@@ -3709,10 +3745,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
             bc.enableBtn.removeListener(this);
         }
         for (auto& row : sendRows)
-        {
             row.levelSlider.removeListener(this);
-            row.onBtn.removeListener(this);
-        }
     }
 
     void ProductionPanel::updateFromTrack(const NovaStudio::Track& track)
@@ -3727,6 +3760,29 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         muteBtn.setToggleState(track.muted, juce::dontSendNotification);
         soloBtn.setToggleState(track.solo, juce::dontSendNotification);
         armBtn.setToggleState(track.armed, juce::dontSendNotification);
+
+        // Restore send state for this track
+        for (int i = 0; i < kNumSends; ++i)
+        {
+            auto& row = sendRows[i];
+            const int busIdx  = track.sendBusIndex[i];
+            const float level = track.sendLevels[i];
+            const bool pre    = track.sendPreFader[i];
+
+            row.assignedBus  = busIdx;
+            row.isPreFader   = pre;
+
+            const juce::String label = busIdx < 0 ? "—"
+                : ("B" + juce::String(busIdx * 2 + 1) + "-" + juce::String(busIdx * 2 + 2));
+            row.busBtn.setButtonText(label);
+            row.busBtn.setColour(juce::TextButton::buttonColourId,
+                busIdx >= 0 ? kAccent.withAlpha(0.5f) : kSlotBg);
+
+            row.levelSlider.setValue(level, juce::dontSendNotification);
+            row.preBtn.setToggleState(pre, juce::dontSendNotification);
+            row.preBtn.setButtonText(pre ? "PRE" : "POST");
+        }
+
         repaint();
     }
 
@@ -4124,14 +4180,13 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         int sec4HeaderY = y;
         y += headerH;
 
-        const int sendRowH = 26;
-        const int sendKnobSz = 22;
-        const int sendBtnW = 28;
+        const int sendRowH = 32;
         for (int i = 0; i < kNumSends; ++i)
         {
-            sendRows[i].nameLabel.setBounds(4, y + 4, 54, 18);
-            sendRows[i].levelSlider.setBounds(60, y + 2, sendKnobSz, sendKnobSz);
-            sendRows[i].onBtn.setBounds(W - sendBtnW - 4, y + 2, sendBtnW, sendKnobSz);
+            // [BusBtn 70px] [Fader 8px wide full height] [PRE/POST btn 40px]
+            sendRows[i].busBtn.setBounds(4, y + 2, 70, 22);
+            sendRows[i].levelSlider.setBounds(78, y + 2, 8, sendRowH - 6);
+            sendRows[i].preBtn.setBounds(W - 44, y + 4, 40, 18);
             y += sendRowH;
         }
         y += 10;

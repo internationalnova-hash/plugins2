@@ -43,6 +43,40 @@ namespace NovaStudio
         if (!isPlaying)
             return;
 
+        // ── Aux track: read from send bus, process through plugin chain ──────
+        if (isAuxTrack)
+        {
+            if (muted || (soloModeActive && !solo)) return;
+            if (auxInputBusIndex < 0 || auxInputBusIndex >= 8) return;
+            juce::AudioBuffer<float>* busBuf = sendBusBuffers[auxInputBusIndex];
+            if (busBuf == nullptr) return;
+
+            const int numSamples  = bufferToFill.numSamples;
+            const int startSample = bufferToFill.startSample;
+            const float trackGain = juce::Decibels::decibelsToGain(volumeDb);
+            const float leftGain  = pan <= 0.0f ? 1.0f : 1.0f - pan;
+            const float rightGain = pan >= 0.0f ? 1.0f : 1.0f + pan;
+
+            for (int ch = 0; ch < bufferToFill.buffer->getNumChannels(); ++ch)
+            {
+                const int srcCh = juce::jmin(ch, busBuf->getNumChannels() - 1);
+                const float chanGain = (ch == 0 ? leftGain : rightGain) * trackGain;
+                bufferToFill.buffer->addFrom(ch, startSample, *busBuf, srcCh, 0, numSamples, chanGain);
+            }
+
+            // Plugin chain (e.g. reverb, delay on the aux return)
+            juce::MidiBuffer emptyMidi;
+            for (auto& plugin : pluginChain)
+                if (plugin) plugin->processBlock(*bufferToFill.buffer, emptyMidi);
+
+            // Metering
+            if (bufferToFill.buffer->getNumChannels() > 0)
+                peakLevelLeft.store(bufferToFill.buffer->getMagnitude(0, startSample, numSamples));
+            if (bufferToFill.buffer->getNumChannels() > 1)
+                peakLevelRight.store(bufferToFill.buffer->getMagnitude(1, startSample, numSamples));
+            return;
+        }
+
         // Determine current transport sample position from the last set transport seconds
         const double sr = sessionPtr->getSampleRate();
         const int64_t currentTransportSamples = sr > 0.0 ? static_cast<int64_t>(currentTransportSeconds * sr) : 0;
@@ -215,6 +249,39 @@ namespace NovaStudio
             peakLevelLeft.store(bufferToFill.buffer->getMagnitude(0, startSample, numSamples));
         if (numCh > 1)
             peakLevelRight.store(bufferToFill.buffer->getMagnitude(1, startSample, numSamples));
+
+        // ── Send bus writes ──────────────────────────────────────────────────
+        // Pre-fader sends read from scratchBuffer (before gain); post-fader from bufferToFill.
+        if (!isAuxTrack)
+        {
+            for (int si = 0; si < kMaxSends; ++si)
+            {
+                const int busIdx = sendBusIndex[si];
+                if (busIdx < 0 || busIdx >= 8) continue;
+                juce::AudioBuffer<float>* busBuf = sendBusBuffers[busIdx];
+                if (busBuf == nullptr) continue;
+
+                const float sendLin = juce::Decibels::decibelsToGain(sendLevels[si]);
+                if (sendPreFader[si])
+                {
+                    // Pre-fader: source is scratchBuffer (dry, before track fader)
+                    for (int ch = 0; ch < busBuf->getNumChannels(); ++ch)
+                    {
+                        const int srcCh = juce::jmin(ch, scratchBuffer.getNumChannels() - 1);
+                        busBuf->addFrom(ch, 0, scratchBuffer, srcCh, 0, numSamples, sendLin);
+                    }
+                }
+                else
+                {
+                    // Post-fader: source is bufferToFill (after volume/pan/EQ)
+                    for (int ch = 0; ch < busBuf->getNumChannels(); ++ch)
+                    {
+                        const int srcCh = juce::jmin(ch, bufferToFill.buffer->getNumChannels() - 1);
+                        busBuf->addFrom(ch, 0, *bufferToFill.buffer, srcCh, startSample, numSamples, sendLin);
+                    }
+                }
+            }
+        }
     }
 
     void StudioAudioEngine::TrackPlayer::setTrackMetadata(const Track& trackInfo)
@@ -854,20 +921,6 @@ namespace NovaStudio
         player.eqDirty = true;
     }
 
-    void StudioAudioEngine::setTrackSendLevel(int trackIndex, int sendIndex, float db)
-    {
-        if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return;
-        if (!isPositiveAndBelow(sendIndex, 6)) return;
-        session.getTrack(trackIndex).sendLevels[sendIndex] = db;
-    }
-
-    float StudioAudioEngine::getTrackSendLevel(int trackIndex, int sendIndex) const noexcept
-    {
-        if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return 0.0f;
-        if (!isPositiveAndBelow(sendIndex, 6)) return 0.0f;
-        return session.getTrack(trackIndex).sendLevels[sendIndex];
-    }
-
     bool StudioAudioEngine::saveSession(const juce::File& file) const
     {
         if (!session.saveToFile(file))
@@ -1039,7 +1092,19 @@ namespace NovaStudio
                 trackPlayers.getReference(i)->setPlaybackPosition(transportSeconds);
         }
 
-        mixerSource.getNextAudioBlock(info);
+        // Clear send buses before the regular track mix writes into them
+        clearSendBuses(numSamples);
+
+        mixerSource.getNextAudioBlock(info);  // regular + aux tracks all run here
+
+        // ── Aux track pass: mix aux return outputs into the main output ───────
+        // Aux TrackPlayers are already part of mixerSource and wrote their output
+        // into tempBuffer. This is the correct behaviour: aux tracks are normal
+        // MixerAudioSource inputs whose getNextAudioBlock reads from send bus buffers.
+        // The send writes happen during the same mixerSource call above (in each
+        // non-aux TrackPlayer's getNextAudioBlock via the send bus write block).
+        // Ordering: MixerAudioSource calls players in insertion order, so aux tracks
+        // that were added AFTER regular tracks see the already-written bus data.
 
         for (int channel = 0; channel < numOutputChannels; ++channel)
         {
@@ -1190,6 +1255,8 @@ namespace NovaStudio
         mixerSource.prepareToPlay(currentBufferSize, currentSampleRate);
         for (int i = 0; i < trackPlayers.size(); ++i)
             trackPlayers.getReference(i)->prepareToPlay(currentBufferSize, currentSampleRate);
+
+        prepareSendBuses(2, currentBufferSize);
     }
 
     void StudioAudioEngine::audioDeviceStopped()
@@ -1206,9 +1273,37 @@ namespace NovaStudio
         juce::Array<std::unique_ptr<TrackPlayer>> newPlayers;
         for (int index = 0; index < session.getNumTracks(); ++index)
         {
+            const Track& tr = session.getTrack(index);
             auto trackPlayer = std::make_unique<TrackPlayer>();
-            trackPlayer->setTrackMetadata(session.getTrack(index));
+            trackPlayer->setTrackMetadata(tr);
             trackPlayer->setSessionTrack(&session, index);
+
+            // Wire send bus pointers
+            for (int si = 0; si < TrackPlayer::kMaxSends; ++si)
+            {
+                trackPlayer->sendBusIndex[si] = tr.sendBusIndex[si];
+                trackPlayer->sendLevels[si]   = tr.sendLevels[si];
+                trackPlayer->sendPreFader[si]  = tr.sendPreFader[si];
+                const int busIdx = tr.sendBusIndex[si];
+                trackPlayer->sendBusBuffers[busIdx >= 0 && busIdx < kNumSendBuses ? busIdx : 0]
+                    = (busIdx >= 0 && busIdx < kNumSendBuses) ? &sendBusBuffers[busIdx] : nullptr;
+            }
+            // Zero out any unassigned bus slots
+            for (int b = 0; b < kNumSendBuses; ++b)
+            {
+                bool used = false;
+                for (int si = 0; si < TrackPlayer::kMaxSends; ++si)
+                    if (tr.sendBusIndex[si] == b) { used = true; break; }
+                if (!used) trackPlayer->sendBusBuffers[b] = nullptr;
+            }
+
+            // Aux track config
+            if (tr.type == TrackType::Aux)
+            {
+                trackPlayer->isAuxTrack = true;
+                trackPlayer->auxInputBusIndex = tr.auxInputBusIndex;
+            }
+
             if (currentSampleRate > 0 && currentBufferSize > 0)
                 trackPlayer->prepareToPlay(currentBufferSize, currentSampleRate);
             newPlayers.add(std::move(trackPlayer));
@@ -1256,6 +1351,111 @@ namespace NovaStudio
         juce::ScopedLock sl(playerLock);
         for (int index = 0; index < trackPlayers.size(); ++index)
             trackPlayers.getReference(index)->setSoloMode(anySolo);
+    }
+
+    // ── Send bus helpers ────────────────────────────────────────────────────────
+
+    void StudioAudioEngine::prepareSendBuses(int numChannels, int numSamples)
+    {
+        for (int b = 0; b < kNumSendBuses; ++b)
+            sendBusBuffers[b].setSize(numChannels, numSamples, false, true, true);
+    }
+
+    void StudioAudioEngine::clearSendBuses(int numSamples)
+    {
+        for (int b = 0; b < kNumSendBuses; ++b)
+            sendBusBuffers[b].clear(0, numSamples);
+    }
+
+    void StudioAudioEngine::syncTrackPlayerSends(int trackIndex)
+    {
+        if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return;
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return;
+        const Track& tr = session.getTrack(trackIndex);
+        auto& player    = *trackPlayers.getReference(trackIndex);
+
+        for (int si = 0; si < TrackPlayer::kMaxSends; ++si)
+        {
+            player.sendBusIndex[si] = tr.sendBusIndex[si];
+            player.sendLevels[si]   = tr.sendLevels[si];
+            player.sendPreFader[si] = tr.sendPreFader[si];
+        }
+        for (int b = 0; b < kNumSendBuses; ++b)
+        {
+            bool used = false;
+            for (int si = 0; si < TrackPlayer::kMaxSends; ++si)
+                if (tr.sendBusIndex[si] == b) { used = true; break; }
+            player.sendBusBuffers[b] = used ? &sendBusBuffers[b] : nullptr;
+        }
+    }
+
+    void StudioAudioEngine::setTrackSendBus(int trackIndex, int sendIndex, int busIndex)
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return;
+        if (!isPositiveAndBelow(sendIndex, 6)) return;
+        session.getTrack(trackIndex).sendBusIndex[sendIndex] = busIndex;
+        juce::ScopedLock sl(playerLock);
+        syncTrackPlayerSends(trackIndex);
+    }
+
+    int StudioAudioEngine::getTrackSendBus(int trackIndex, int sendIndex) const noexcept
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return -1;
+        if (!isPositiveAndBelow(sendIndex, 6)) return -1;
+        return session.getTrack(trackIndex).sendBusIndex[sendIndex];
+    }
+
+    void StudioAudioEngine::setTrackSendPreFader(int trackIndex, int sendIndex, bool preFader)
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return;
+        if (!isPositiveAndBelow(sendIndex, 6)) return;
+        session.getTrack(trackIndex).sendPreFader[sendIndex] = preFader;
+        juce::ScopedLock sl(playerLock);
+        syncTrackPlayerSends(trackIndex);
+    }
+
+    bool StudioAudioEngine::getTrackSendPreFader(int trackIndex, int sendIndex) const noexcept
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return false;
+        if (!isPositiveAndBelow(sendIndex, 6)) return false;
+        return session.getTrack(trackIndex).sendPreFader[sendIndex];
+    }
+
+    int StudioAudioEngine::addAuxTrack(const juce::String& name, int busIndex)
+    {
+        Track& t = session.addTrack(name, TrackType::Aux);
+        t.auxInputBusIndex = busIndex;
+        buildTrackPlayers();
+        return session.getNumTracks() - 1;
+    }
+
+    void StudioAudioEngine::setAuxTrackBus(int trackIndex, int busIndex)
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return;
+        session.getTrack(trackIndex).auxInputBusIndex = busIndex;
+        juce::ScopedLock sl(playerLock);
+        if (isPositiveAndBelow(trackIndex, trackPlayers.size()))
+        {
+            trackPlayers.getReference(trackIndex)->isAuxTrack      = true;
+            trackPlayers.getReference(trackIndex)->auxInputBusIndex = busIndex;
+        }
+    }
+
+    void StudioAudioEngine::setTrackSendLevel(int trackIndex, int sendIndex, float db)
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return;
+        if (!isPositiveAndBelow(sendIndex, 6)) return;
+        session.getTrack(trackIndex).sendLevels[sendIndex] = db;
+        juce::ScopedLock sl(playerLock);
+        if (isPositiveAndBelow(trackIndex, trackPlayers.size()))
+            trackPlayers.getReference(trackIndex)->sendLevels[sendIndex] = db;
+    }
+
+    float StudioAudioEngine::getTrackSendLevel(int trackIndex, int sendIndex) const noexcept
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return -100.0f;
+        if (!isPositiveAndBelow(sendIndex, 6)) return -100.0f;
+        return session.getTrack(trackIndex).sendLevels[sendIndex];
     }
 
     // ── Step sequencer ──────────────────────────────────────────────────────────

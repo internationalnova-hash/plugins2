@@ -250,6 +250,8 @@ namespace NovaStudioUI
         std::function<void(int slot)>                                     onInsertRemovePlugin;
         std::function<void(int band, float freq, float gainDb, float q)>  onEQChanged;
         std::function<void(int send, float level)>                        onSendLevelChanged;
+        std::function<void(int send, int busIndex)>                       onSendBusChanged;
+        std::function<void(int send, bool preFader)>                      onSendPreFaderChanged;
 
     private:
         void timerCallback() override
@@ -311,9 +313,11 @@ namespace NovaStudioUI
         // ---- Section 4: Sends ----
         struct SendRow
         {
-            juce::Label      nameLabel;
-            juce::Slider     levelSlider { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
-            juce::TextButton onBtn       {"ON"};
+            juce::TextButton busBtn    { "—" };     // shows assigned bus, click to pick
+            juce::Slider     levelSlider { juce::Slider::LinearVertical, juce::Slider::NoTextBox };
+            juce::TextButton preBtn    { "POST" };  // toggles PRE/POST
+            int  assignedBus = -1;
+            bool isPreFader  = false;
         };
         std::array<SendRow, kNumSends> sendRows;
 
