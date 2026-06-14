@@ -61,22 +61,27 @@ namespace NovaStudioUI
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TransportBar)
     };
 
-    class TrackPanel : public juce::Component,
-                       private juce::ListBoxModel
+    class TrackPanel : public juce::Component
     {
     public:
+        static constexpr int kTrackHeight = 64;
+
         explicit TrackPanel(NovaStudio::Session& session);
         ~TrackPanel() override;
 
         void paint(juce::Graphics& g) override;
-        void resized() override;
+        void mouseDown(const juce::MouseEvent& e) override;
+        void refresh() { repaint(); }
 
-        int getNumRows() override;
-        void paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected) override;
+        std::function<void(int, bool)> onTrackArm;
+        std::function<void(int, bool)> onTrackMute;
+        std::function<void(int, bool)> onTrackSolo;
 
     private:
+        enum class HitButton { None, Arm, Mute, Solo };
+        HitButton hitTest(int trackIndex, juce::Point<int> pos) const;
+
         NovaStudio::Session& session;
-        juce::ListBox trackList;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TrackPanel)
     };

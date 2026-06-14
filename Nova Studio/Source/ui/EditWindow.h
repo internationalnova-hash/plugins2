@@ -21,6 +21,10 @@ namespace NovaStudioUI
         void paint(juce::Graphics& g) override;
         void resized() override;
 
+        void setTrackCallbacks(std::function<void(int,bool)> onArm,
+                               std::function<void(int,bool)> onMute,
+                               std::function<void(int,bool)> onSolo);
+
     private:
         void changeListenerCallback(juce::ChangeBroadcaster* source) override;
 

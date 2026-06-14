@@ -169,53 +169,136 @@ namespace NovaStudioUI
     TrackPanel::TrackPanel(NovaStudio::Session& sessionRef)
         : session(sessionRef)
     {
-        addAndMakeVisible(trackList);
-        trackList.setModel(this);
-        trackList.setMultipleSelectionEnabled(false);
-        trackList.setRowHeight(36);
     }
 
     TrackPanel::~TrackPanel() = default;
 
+    static const juce::Colour kTrackBg0   = juce::Colour::fromRGB(22, 24, 34);
+    static const juce::Colour kTrackBg1   = juce::Colour::fromRGB(19, 21, 30);
+    static const juce::Colour kTrackSep   = juce::Colour::fromRGB(32, 35, 48);
+    static const juce::Colour kArmedCol   = juce::Colour::fromRGB(210, 45, 45);
+    static const juce::Colour kMuteCol    = juce::Colour::fromRGB(210, 155, 25);
+    static const juce::Colour kSoloCol    = juce::Colour::fromRGB(35, 175, 175);
+    static const juce::Colour kBtnDark    = juce::Colour::fromRGB(30, 33, 46);
+
     void TrackPanel::paint(juce::Graphics& g)
     {
-        auto bounds = getLocalBounds().toFloat();
-        g.setColour(juce::Colour::fromRGB(18, 22, 30));
-        g.fillRoundedRectangle(bounds.reduced(2.0f), 12.0f);
-        g.setColour(juce::Colours::white.withAlpha(0.55f));
-        g.setFont(juce::Font(13.0f, juce::Font::bold));
-        g.drawText("TRACKS", 14, 12, getWidth() - 28, 18, juce::Justification::left);
+        // Header
+        g.setColour(juce::Colour::fromRGB(14, 16, 22));
+        g.fillRect(getLocalBounds());
+        g.setColour(juce::Colour::fromRGB(35, 38, 52));
+        g.fillRect(0, 0, getWidth(), 28);
+        g.setColour(juce::Colours::white.withAlpha(0.45f));
+        g.setFont(juce::Font(11.0f, juce::Font::bold));
+        g.drawText("TRACKS", 10, 0, getWidth(), 28, juce::Justification::centredLeft);
+
+        const int numTracks = session.getNumTracks();
+        const int w = getWidth();
+
+        // Button layout constants (right-aligned)
+        const int btnW = 26, btnH = 18, btnGap = 3;
+        const int soloX  = w - btnW - 6;
+        const int muteX  = soloX - btnW - btnGap;
+        const int armX   = muteX - btnW - btnGap;
+
+        for (int i = 0; i < numTracks; ++i)
+        {
+            const auto& track = session.getTrack(i);
+            const int y = 28 + i * kTrackHeight;
+
+            // Row background
+            g.setColour((i % 2 == 0) ? kTrackBg0 : kTrackBg1);
+            g.fillRect(0, y, w, kTrackHeight);
+
+            // Left color bar
+            g.setColour(track.clips.size() > 0 ? track.clips[0].clipColor
+                                               : juce::Colour::fromRGB(80, 80, 120));
+            g.fillRect(0, y, 4, kTrackHeight);
+
+            // Track name
+            g.setColour(juce::Colours::white.withAlpha(0.92f));
+            g.setFont(juce::Font(13.0f, juce::Font::bold));
+            g.drawText(track.name, 12, y + 10, armX - 16, 18, juce::Justification::left);
+
+            // Track type
+            g.setColour(juce::Colours::white.withAlpha(0.38f));
+            g.setFont(juce::Font(10.0f));
+            g.drawText(track.type == NovaStudio::TrackType::Audio ? "Audio" : "MIDI",
+                       12, y + 30, armX - 16, 14, juce::Justification::left);
+
+            // ARM button
+            const int btnY = y + (kTrackHeight - btnH) / 2;
+            g.setColour(track.armed ? kArmedCol : kBtnDark);
+            g.fillRoundedRectangle((float)armX, (float)btnY, (float)btnW, (float)btnH, 3.0f);
+            g.setColour(track.armed ? juce::Colours::white : juce::Colours::white.withAlpha(0.45f));
+            g.setFont(juce::Font(10.0f, juce::Font::bold));
+            g.drawText("R", armX, btnY, btnW, btnH, juce::Justification::centred);
+
+            // MUTE button
+            g.setColour(track.muted ? kMuteCol : kBtnDark);
+            g.fillRoundedRectangle((float)muteX, (float)btnY, (float)btnW, (float)btnH, 3.0f);
+            g.setColour(track.muted ? juce::Colours::black : juce::Colours::white.withAlpha(0.45f));
+            g.drawText("M", muteX, btnY, btnW, btnH, juce::Justification::centred);
+
+            // SOLO button
+            g.setColour(track.solo ? kSoloCol : kBtnDark);
+            g.fillRoundedRectangle((float)soloX, (float)btnY, (float)btnW, (float)btnH, 3.0f);
+            g.setColour(track.solo ? juce::Colours::black : juce::Colours::white.withAlpha(0.45f));
+            g.drawText("S", soloX, btnY, btnW, btnH, juce::Justification::centred);
+
+            // Row separator
+            g.setColour(kTrackSep);
+            g.drawLine(0, (float)(y + kTrackHeight - 1), (float)w, (float)(y + kTrackHeight - 1), 1.0f);
+        }
     }
 
-    void TrackPanel::resized()
+    TrackPanel::HitButton TrackPanel::hitTest(int trackIndex, juce::Point<int> pos) const
     {
-        auto content = getLocalBounds().reduced(12);
-        content.removeFromTop(28);
-        trackList.setBounds(content);
+        const int w = getWidth();
+        const int btnW = 26, btnH = 18, btnGap = 3;
+        const int soloX = w - btnW - 6;
+        const int muteX = soloX - btnW - btnGap;
+        const int armX  = muteX - btnW - btnGap;
+        const int y     = 28 + trackIndex * kTrackHeight;
+        const int btnY  = y + (kTrackHeight - btnH) / 2;
+
+        juce::Rectangle<int> armR  { armX,  btnY, btnW, btnH };
+        juce::Rectangle<int> muteR { muteX, btnY, btnW, btnH };
+        juce::Rectangle<int> soloR { soloX, btnY, btnW, btnH };
+
+        if (armR.contains(pos))  return HitButton::Arm;
+        if (muteR.contains(pos)) return HitButton::Mute;
+        if (soloR.contains(pos)) return HitButton::Solo;
+        return HitButton::None;
     }
 
-    int TrackPanel::getNumRows()
+    void TrackPanel::mouseDown(const juce::MouseEvent& e)
     {
-        return session.getNumTracks();
-    }
+        const int numTracks = session.getNumTracks();
+        const auto pos = e.getPosition();
 
-    void TrackPanel::paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected)
-    {
-        if (rowNumber < 0 || rowNumber >= session.getNumTracks())
-            return;
-
-        const auto& track = session.getTrack(rowNumber);
-        if (rowIsSelected)
-            g.fillAll(juce::Colours::white.withAlpha(0.08f));
-
-        g.setColour(juce::Colours::white);
-        g.setFont(juce::Font(14.0f, juce::Font::bold));
-        g.drawText(track.name, 12, 8, width / 2, 20, juce::Justification::left);
-
-        g.setColour(juce::Colours::white.withAlpha(0.55f));
-        g.setFont(juce::Font(11.0f));
-        g.drawText(track.type == NovaStudio::TrackType::Audio ? "Audio" : "MIDI",
-                   12, 24, width / 2, 12, juce::Justification::left);
+        for (int i = 0; i < numTracks; ++i)
+        {
+            const int y = 28 + i * kTrackHeight;
+            if (pos.y >= y && pos.y < y + kTrackHeight)
+            {
+                switch (hitTest(i, pos))
+                {
+                    case HitButton::Arm:
+                        if (onTrackArm) onTrackArm(i, !session.getTrack(i).armed);
+                        break;
+                    case HitButton::Mute:
+                        if (onTrackMute) onTrackMute(i, !session.getTrack(i).muted);
+                        break;
+                    case HitButton::Solo:
+                        if (onTrackSolo) onTrackSolo(i, !session.getTrack(i).solo);
+                        break;
+                    default: break;
+                }
+                repaint();
+                return;
+            }
+        }
     }
 
     InspectorPanel::InspectorPanel(NovaStudio::ArrangementModel& arrangementModelRef)
@@ -390,96 +473,97 @@ namespace NovaStudioUI
 
     void ArrangementView::paint(juce::Graphics& g)
     {
-        const auto bounds = getLocalBounds().toFloat();
-        const float corner = 14.0f;
-        g.setColour(juce::Colour::fromRGB(14, 16, 22));
-        g.fillRoundedRectangle(bounds.reduced(2.0f), corner);
+        const int W = getWidth();
+        const int H = getHeight();
 
-        const auto rulerArea = juce::Rectangle<float>(bounds.getX() + 2.0f, bounds.getY() + 2.0f, bounds.getWidth() - 4.0f, 48.0f);
-        g.setColour(juce::Colour::fromRGB(24, 28, 38));
-        g.fillRoundedRectangle(rulerArea, 12.0f);
+        // Overall background
+        g.setColour(juce::Colour::fromRGB(12, 13, 19));
+        g.fillRect(0, 0, W, H);
 
-        const int width = getWidth() - 16;
-        const auto gridArea = juce::Rectangle<float>(bounds.getX() + 8.0f, bounds.getY() + 72.0f, width, getHeight() - 88);
-
-        const int64_t currentSample = transportState.getPositionSamples();
-        const double currentX = timelineModel.getXForSamplePosition(currentSample, width);
+        const int rulerH = 28;  // matches TrackPanel header height
         const double pixelsPerBeat = timelineModel.getPixelsPerBeat();
         const int beatsPerBar = timelineModel.getBeatsPerBar();
+        const int64_t currentSample = transportState.getPositionSamples();
+        const double currentX = timelineModel.getXForSamplePosition(currentSample, W);
+        const int width = W;
 
-        g.setColour(juce::Colours::white.withAlpha(0.75f));
-        g.setFont(juce::Font(12.0f, juce::Font::bold));
-        g.drawText("TIMECODE", rulerArea.getX() + 14.0f, rulerArea.getY() + 12.0f, 180, 16, juce::Justification::left);
-        g.drawText(transportState.getTimecodeString(currentSample), rulerArea.getX() + 14.0f, rulerArea.getY() + 28.0f, 180, 16, juce::Justification::left);
-        g.drawText("BAR.BEAT", rulerArea.getX() + 220.0f, rulerArea.getY() + 12.0f, 140, 16, juce::Justification::left);
-        g.drawText(transportState.getBarBeatString(currentSample), rulerArea.getX() + 220.0f, rulerArea.getY() + 28.0f, 140, 16, juce::Justification::left);
-        g.drawText("BPM " + juce::String(transportState.getTempo()), rulerArea.getX() + 380.0f, rulerArea.getY() + 12.0f, 120, 16, juce::Justification::left);
-        g.drawText("SR " + juce::String((int)transportState.getSampleRate()), rulerArea.getX() + 380.0f, rulerArea.getY() + 28.0f, 120, 16, juce::Justification::left);
+        // Ruler
+        g.setColour(juce::Colour::fromRGB(20, 23, 33));
+        g.fillRect(0, 0, W, rulerH);
+        g.setColour(juce::Colour::fromRGB(35, 38, 52));
+        g.fillRect(0, rulerH - 1, W, 1);
 
-        g.setColour(juce::Colours::white.withAlpha(0.35f));
-        g.setFont(juce::Font(10.0f));
-        g.drawText("Alt+click = Guide, Ctrl+click = NovaAlign target, Shift+click = add/remove selection, drag to marquee select", rulerArea.getX() + 14.0f, rulerArea.getY() + 44.0f, 720, 12, juce::Justification::left);
-
-        const int numBars = static_cast<int>(std::ceil((width / pixelsPerBeat) / beatsPerBar)) + 2;
+        const int numBars = static_cast<int>(std::ceil((W / pixelsPerBeat) / beatsPerBar)) + 2;
         for (int bar = 0; bar < numBars; ++bar)
         {
-            const double x = rulerArea.getX() + 8.0f + bar * beatsPerBar * pixelsPerBeat;
-            g.setColour(juce::Colours::white.withAlpha(0.12f));
-            g.drawLine((float)x, rulerArea.getY(), (float)x, rulerArea.getBottom(), 1.0f);
-            g.setColour(juce::Colours::white.withAlpha(0.65f));
+            const double x = bar * beatsPerBar * pixelsPerBeat;
+            // Bar line
+            g.setColour(juce::Colour::fromRGB(50, 55, 72));
+            g.drawLine((float)x, 0.0f, (float)x, (float)rulerH, 1.0f);
+            // Bar label
+            g.setColour(juce::Colours::white.withAlpha(0.6f));
             g.setFont(juce::Font(10.0f, juce::Font::bold));
-            g.drawText("Bar " + juce::String(bar + 1), (int)x + 4, (int)rulerArea.getY() + 4, 64, 12, juce::Justification::left);
-
+            g.drawText(juce::String(bar + 1), (int)x + 4, 6, 40, 14, juce::Justification::left);
+            // Beat subdivisions
             for (int sub = 1; sub < beatsPerBar; ++sub)
             {
                 const double beatX = x + sub * pixelsPerBeat;
-                g.setColour(juce::Colours::white.withAlpha(0.08f));
-                g.drawLine((float)beatX, rulerArea.getY(), (float)beatX, rulerArea.getBottom(), 0.8f);
+                g.setColour(juce::Colour::fromRGB(38, 42, 58));
+                g.drawLine((float)beatX, (float)(rulerH / 2), (float)beatX, (float)rulerH, 0.8f);
             }
         }
 
-        g.setColour(juce::Colour::fromRGB(18, 22, 34));
-        g.fillRoundedRectangle(gridArea, 12.0f);
-
-        const auto markerArea = juce::Rectangle<float>(gridArea.getX(), gridArea.getY(), gridArea.getWidth(), 40.0f);
-        g.setColour(juce::Colour::fromRGB(28, 32, 44));
-        g.fillRoundedRectangle(markerArea, 10.0f);
-        g.setColour(juce::Colours::white.withAlpha(0.4f));
-        g.drawText("MARKER LANE", markerArea.getX() + 12.0f, markerArea.getY() + 12.0f, 120, 16, juce::Justification::left);
-
-        const auto trackArea = juce::Rectangle<float>(gridArea.getX(), gridArea.getY() + 50.0f, gridArea.getWidth(), gridArea.getHeight() - 50.0f);
-        g.setColour(juce::Colour::fromRGB(18, 22, 34));
-        g.fillRoundedRectangle(trackArea, 12.0f);
-
-        const float trackHeight = 84.0f;
+        // Track lanes — aligned with TrackPanel rows (28px header offset on left panel)
+        const float trackHeight = (float)TrackPanel::kTrackHeight;
         const NovaStudio::Session& session = arrangementModel.getSession();
         const int trackCount = session.getNumTracks();
-        const int visibleTracks = juce::jmin(trackCount, static_cast<int>(trackArea.getHeight() / trackHeight));
+        const float lanesTop = (float)rulerH;
+        const int visibleTracks = juce::jmin(trackCount, static_cast<int>((H - rulerH) / trackHeight));
 
         for (int trackIndex = 0; trackIndex < visibleTracks; ++trackIndex)
         {
-            const float top = trackArea.getY() + trackIndex * trackHeight;
-            const float rowHeight = trackHeight - 4.0f;
-            g.setColour((trackIndex % 2 == 0) ? juce::Colour::fromRGB(23, 28, 40) : juce::Colour::fromRGB(20, 24, 34));
-            g.fillRoundedRectangle(trackArea.getX(), top, trackArea.getWidth(), rowHeight, 10.0f);
-
+            const float top = lanesTop + trackIndex * trackHeight;
             const auto& track = session.getTrack(trackIndex);
-            g.setColour(juce::Colours::white.withAlpha(0.75f));
-            g.setFont(juce::Font(13.0f, juce::Font::bold));
-            g.drawText(track.name, (int)trackArea.getX() + 10, (int)top + 10, 180, 20, juce::Justification::left);
-            g.setColour(juce::Colours::white.withAlpha(0.4f));
-            g.setFont(juce::Font(11.0f));
-            g.drawText(track.type == NovaStudio::TrackType::Audio ? "Audio Track" : "MIDI Track",
-                       (int)trackArea.getX() + 10, (int)top + 28, 160, 16, juce::Justification::left);
+
+            // Lane background
+            g.setColour((trackIndex % 2 == 0) ? juce::Colour::fromRGB(16, 18, 26)
+                                              : juce::Colour::fromRGB(14, 16, 22));
+            g.fillRect(0.0f, top, (float)W, trackHeight);
+
+            // Armed track tint
+            if (track.armed)
+            {
+                g.setColour(juce::Colour::fromRGB(200, 30, 30).withAlpha(0.06f));
+                g.fillRect(0.0f, top, (float)W, trackHeight);
+            }
+
+            // Beat grid lines within lane
+            for (int bar = 0; bar < numBars; ++bar)
+            {
+                const double x = bar * beatsPerBar * pixelsPerBeat;
+                g.setColour(juce::Colour::fromRGB(28, 31, 44));
+                g.drawLine((float)x, top, (float)x, top + trackHeight, 1.0f);
+                for (int sub = 1; sub < beatsPerBar; ++sub)
+                {
+                    const double beatX = x + sub * pixelsPerBeat;
+                    g.setColour(juce::Colour::fromRGB(22, 24, 35));
+                    g.drawLine((float)beatX, top, (float)beatX, top + trackHeight, 0.5f);
+                }
+            }
+
+            // Lane separator
+            g.setColour(juce::Colour::fromRGB(28, 31, 44));
+            g.drawLine(0.0f, top + trackHeight - 1.0f, (float)W, top + trackHeight - 1.0f, 1.0f);
 
             for (int clipIndex = 0; clipIndex < track.clips.size(); ++clipIndex)
             {
                 const auto& clip = track.clips.getReference(clipIndex);
-                const double clipStartX = trackArea.getX() + timelineModel.getXForSamplePosition(clip.startSample, width);
-                const double clipEndX = trackArea.getX() + timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width);
-                const float clipWidth = (float)juce::jmax(8.0, clipEndX - clipStartX);
-                const float clipY = top + 38.0f;
-                const float clipHeight = rowHeight - 48.0f;
+                const double clipStartX = timelineModel.getXForSamplePosition(clip.startSample, width);
+                const double clipEndX   = timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width);
+                const float clipWidth  = (float)juce::jmax(8.0, clipEndX - clipStartX);
+                const float clipY      = top + 6.0f;
+                const float clipHeight = trackHeight - 12.0f;
+                const float rowHeight  = clipHeight;
                 const bool clipSelectedSingle = (trackIndex == arrangementModel.getSelectedTrackIndex() && clipIndex == arrangementModel.getSelectedClipIndex());
                 const auto& selected = arrangementModel.getSelectedClips();
                 const bool clipMultiSelected = selected.contains(juce::Point<int>(trackIndex, clipIndex));
@@ -606,22 +690,28 @@ namespace NovaStudioUI
             }
         }
 
+        // Loop region
         if (timelineModel.isLooping())
         {
-            const double loopStartX = trackArea.getX() + timelineModel.getXForSamplePosition(timelineModel.getLoopStartSample(), width);
-            const double loopEndX = trackArea.getX() + timelineModel.getXForSamplePosition(timelineModel.getLoopEndSample(), width);
-            const auto loopRect = juce::Rectangle<float>((float)loopStartX, trackArea.getY(), (float)juce::jmax(1.0, loopEndX - loopStartX), trackArea.getHeight());
-            g.setColour(juce::Colours::yellow.withAlpha(0.12f));
+            const double loopStartX = timelineModel.getXForSamplePosition(timelineModel.getLoopStartSample(), width);
+            const double loopEndX   = timelineModel.getXForSamplePosition(timelineModel.getLoopEndSample(), width);
+            const auto loopRect = juce::Rectangle<float>((float)loopStartX, (float)rulerH,
+                                                         (float)juce::jmax(1.0, loopEndX - loopStartX), (float)(H - rulerH));
+            g.setColour(juce::Colours::yellow.withAlpha(0.09f));
             g.fillRect(loopRect);
-            g.setColour(juce::Colours::yellow.withAlpha(0.35f));
+            g.setColour(juce::Colours::yellow.withAlpha(0.32f));
             g.drawRect(loopRect, 1.4f);
         }
 
-        const float playheadX = (float)(trackArea.getX() + currentX);
-        g.setColour(juce::Colours::white.withAlpha(0.95f));
-        g.drawLine(playheadX, trackArea.getY(), playheadX, trackArea.getBottom(), 2.0f);
-        g.setColour(juce::Colours::white.withAlpha(0.25f));
-        g.drawLine(playheadX + 1, trackArea.getY(), playheadX + 1, trackArea.getBottom(), 0.8f);
+        // Playhead
+        const float playheadX = (float)currentX;
+        g.setColour(juce::Colour::fromRGB(255, 60, 60).withAlpha(0.9f));
+        g.drawLine(playheadX, 0.0f, playheadX, (float)H, 2.0f);
+        // Playhead triangle on ruler
+        juce::Path arrow;
+        arrow.addTriangle(playheadX - 6.0f, 0.0f, playheadX + 6.0f, 0.0f, playheadX, 10.0f);
+        g.setColour(juce::Colour::fromRGB(255, 60, 60));
+        g.fillPath(arrow);
 
         // Marquee visual
         if (isMarqueeSelecting && marqueeRect.getWidth() > 0 && marqueeRect.getHeight() > 0)
@@ -640,7 +730,7 @@ namespace NovaStudioUI
         const auto clickPoint = event.position;
         const int width = getWidth() - 16;
         const auto trackArea = juce::Rectangle<float>(8.0f, 72.0f, (float)width, getHeight() - 88.0f);
-        const float trackHeight = 84.0f;
+        const float trackHeight = (float)TrackPanel::kTrackHeight;
 
         const int trackIndex = static_cast<int>((clickPoint.y - trackArea.getY()) / trackHeight);
         if (trackIndex < 0 || trackIndex >= arrangementModel.getSession().getNumTracks())
@@ -734,7 +824,7 @@ namespace NovaStudioUI
             // determine intersecting clips
             juce::Array<juce::Point<int>> hits;
             const int width = getWidth() - 16;
-            const float trackHeight = 84.0f;
+            const float trackHeight = (float)TrackPanel::kTrackHeight;
             const auto trackAreaY = 72.0f;
             for (int t = 0; t < arrangementModel.getSession().getNumTracks(); ++t)
             {

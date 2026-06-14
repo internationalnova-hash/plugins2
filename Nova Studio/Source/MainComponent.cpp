@@ -17,6 +17,19 @@ MainComponent::MainComponent()
     addAndMakeVisible(alignPanel);
     editWindow = std::make_unique<NovaStudioUI::EditWindow>(transportState, timelineModel, arrangementModel);
     addAndMakeVisible(*editWindow);
+    editWindow->setTrackCallbacks(
+        [this](int idx, bool armed) {
+            engine.setTrackArm(idx, armed);
+            if (editWindow) editWindow->repaint();
+        },
+        [this](int idx, bool muted) {
+            engine.setTrackMute(idx, muted);
+            if (editWindow) editWindow->repaint();
+        },
+        [this](int idx, bool solo) {
+            engine.setTrackSolo(idx, solo);
+            if (editWindow) editWindow->repaint();
+        });
     mixerWindow = std::make_unique<NovaStudioUI::MixerWindow>(engine);
     addAndMakeVisible(*mixerWindow);
     mixerWindow->setVisible(false);
