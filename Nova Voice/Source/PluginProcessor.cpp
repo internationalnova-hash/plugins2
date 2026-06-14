@@ -165,9 +165,11 @@ void NovaVoiceAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
         rightReductionFilters[index].reset();
     }
 
-    previousWetLeft = 0.0f;
-    previousWetRight = 0.0f;
-    modulationPhase = 0.0f;
+    juce::dsp::ProcessSpec shelfSpec { sampleRate, (juce::uint32)samplesPerBlock, 1 };
+    airShelfL.prepare (shelfSpec); airShelfR.prepare (shelfSpec);
+    airShelfL.reset(); airShelfR.reset();
+
+    std::fill (bandCurrentReductionDb.begin(), bandCurrentReductionDb.end(), 0.0f);
 }
 
 void NovaVoiceAudioProcessor::releaseResources() {}
@@ -291,11 +293,11 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     const float airNorm = air / 10.0f;
     const float blendNorm = blend / 100.0f;
 
-    struct ModeBias { float morph; float texture; float formRange; float brightness; float motion; };
-    ModeBias mode = { 0.85f, 0.90f, 2.2f, 1.0f, 1.0f }; // Hybrid default
-    if (modeIndex == 0) mode = { 0.60f, 0.55f, 1.5f, 0.90f, 0.70f };      // Clean
-    else if (modeIndex == 1) mode = { 1.00f, 1.15f, 3.0f, 1.15f, 1.10f }; // Digital
-    else if (modeIndex == 3) mode = { 1.25f, 1.35f, 5.0f, 1.20f, 1.35f }; // Extreme
+    struct ModeBias { float morph; float texture; float formRange; float brightness; };
+    ModeBias mode = { 0.85f, 0.90f, 2.2f, 1.0f }; // Hybrid default
+    if (modeIndex == 0) mode = { 0.60f, 0.55f, 1.5f, 0.90f };      // Clean
+    else if (modeIndex == 1) mode = { 1.00f, 1.15f, 3.0f, 1.15f }; // Digital
+    else if (modeIndex == 3) mode = { 1.25f, 1.35f, 5.0f, 1.20f }; // Extreme
 
     const auto* dryLeft = dryBuffer.getReadPointer (0);
     const auto* dryRight = dryBuffer.getNumChannels() > 1 ? dryBuffer.getReadPointer (1) : nullptr;

@@ -87,11 +87,11 @@ private:
     std::array<IIRFilter, smoothingBandCount> leftReductionFilters;
     std::array<IIRFilter, smoothingBandCount> rightReductionFilters;
 
+    juce::dsp::IIR::Filter<float> airShelfL, airShelfR;
+    std::array<float, smoothingBandCount> bandCurrentReductionDb {};
+
     juce::AudioBuffer<float> dryBuffer;
     double currentSampleRate { 44100.0 };
-    float previousWetLeft { 0.0f };
-    float previousWetRight { 0.0f };
-    float modulationPhase { 0.0f };
 
     std::array<std::atomic<float>, spectrumBins> inputSpectrum {};
     std::array<std::atomic<float>, spectrumBins> problemSpectrum {};
