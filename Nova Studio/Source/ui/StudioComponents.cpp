@@ -3105,6 +3105,75 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         g.fillRect(390, 6, 1, getHeight() - 12);  // after mode tabs
         g.fillRect(760, 6, 1, getHeight() - 12);  // after transport
         g.fillRect(940, 6, 1, getHeight() - 12);  // after timecode
+
+        // Draw transport icons on top of the (now text-less) buttons
+        auto drawTransportIcon = [&](juce::TextButton& btn,
+                                     std::function<void(juce::Graphics&, juce::Rectangle<float>)> fn)
+        {
+            if (btn.isVisible())
+                fn(g, btn.getBounds().toFloat());
+        };
+
+        // RTZ |◀
+        drawTransportIcon(rtzBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(juce::Colours::white.withAlpha(0.85f));
+            g2.fillRect(r.getX() + r.getWidth() * 0.22f, r.getY() + r.getHeight() * 0.28f,
+                        2.0f, r.getHeight() * 0.44f);
+            juce::Path tri;
+            float cx = r.getCentreX() + 3.0f, cy = r.getCentreY(), h = r.getHeight() * 0.28f;
+            tri.addTriangle(cx + h, cy - h, cx + h, cy + h, cx - h * 0.5f, cy);
+            g2.fillPath(tri);
+        });
+        // Play ▶
+        drawTransportIcon(playBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(juce::Colours::white.withAlpha(0.9f));
+            juce::Path tri;
+            float cx = r.getCentreX(), cy = r.getCentreY(), h = r.getHeight() * 0.32f;
+            tri.addTriangle(cx - h * 0.6f, cy - h, cx - h * 0.6f, cy + h, cx + h, cy);
+            g2.fillPath(tri);
+        });
+        // Stop ■
+        drawTransportIcon(stopBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(juce::Colours::white.withAlpha(0.85f));
+            float s = r.getHeight() * 0.38f;
+            g2.fillRect(r.getCentreX() - s * 0.5f, r.getCentreY() - s * 0.5f, s, s);
+        });
+        // Record ●
+        drawTransportIcon(recordBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(juce::Colour::fromRGB(220, 55, 55).withAlpha(0.95f));
+            float s = r.getHeight() * 0.34f;
+            g2.fillEllipse(r.getCentreX() - s, r.getCentreY() - s, s * 2.0f, s * 2.0f);
+        });
+        // Arm ⬤ (orange dot = arm/ready to record)
+        drawTransportIcon(armBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(juce::Colour::fromRGB(230, 130, 30).withAlpha(0.9f));
+            float cx = r.getCentreX(), cy = r.getCentreY(), s = r.getHeight() * 0.22f;
+            g2.drawEllipse(cx - s * 1.3f, cy - s * 1.3f, s * 2.6f, s * 2.6f, 1.5f);
+            g2.fillEllipse(cx - s, cy - s, s * 2.0f, s * 2.0f);
+        });
+        // Monitor ◎
+        drawTransportIcon(monitorBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(juce::Colours::white.withAlpha(0.85f));
+            float cx = r.getCentreX(), cy = r.getCentreY(), rad = r.getHeight() * 0.26f;
+            g2.drawEllipse(cx - rad, cy - rad, rad * 2.0f, rad * 2.0f, 1.5f);
+            float ir = rad * 0.42f;
+            g2.fillEllipse(cx - ir, cy - ir, ir * 2.0f, ir * 2.0f);
+        });
+        // Loop ↻
+        drawTransportIcon(loopBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(juce::Colours::white.withAlpha(0.85f));
+            float cx = r.getCentreX(), cy = r.getCentreY(), rad = r.getHeight() * 0.28f;
+            juce::Path arc;
+            arc.addArc(cx - rad, cy - rad, rad * 2.0f, rad * 2.0f,
+                       juce::MathConstants<float>::pi * 0.2f,
+                       juce::MathConstants<float>::pi * 1.9f, true);
+            g2.strokePath(arc, juce::PathStrokeType(1.8f));
+            float ax = cx + rad * std::cos(juce::MathConstants<float>::pi * 0.2f);
+            float ay = cy + rad * std::sin(juce::MathConstants<float>::pi * 0.2f);
+            juce::Path head;
+            head.addTriangle(ax, ay - 3.0f, ax + 5.0f, ay + 1.0f, ax - 2.0f, ay + 3.0f);
+            g2.fillPath(head);
+        });
     }
 
     void WorkspaceToolbar::resized()

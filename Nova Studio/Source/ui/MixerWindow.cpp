@@ -100,17 +100,27 @@ public:
         g.setColour(juce::Colours::black.withAlpha(0.50f));
         g.fillRoundedRectangle(capX + 1.5f, capY + 2.5f, capW, capH, 3.0f);
 
-        // metallic gradient body
+        // metallic gradient body — top-to-bottom (light top edge → dark body → light bottom edge)
         juce::ColourGradient metalGrad(
-            juce::Colour::fromRGB(210, 213, 225), capX,          capY,
-            juce::Colour::fromRGB(105, 109, 125), capX + capW,   capY,
+            juce::Colour::fromRGB(235, 238, 248), capX, capY,
+            juce::Colour::fromRGB(130, 133, 148), capX, capY + capH,
             false);
-        metalGrad.addColour(0.15, juce::Colour::fromRGB(230, 233, 242));
-        metalGrad.addColour(0.45, juce::Colour::fromRGB(185, 188, 200));
-        metalGrad.addColour(0.55, juce::Colour::fromRGB(145, 148, 162));
-        metalGrad.addColour(0.85, juce::Colour::fromRGB(118, 121, 136));
+        metalGrad.addColour(0.08, juce::Colour::fromRGB(215, 218, 230));
+        metalGrad.addColour(0.40, juce::Colour::fromRGB(175, 178, 192));
+        metalGrad.addColour(0.55, juce::Colour::fromRGB(155, 158, 173));
+        metalGrad.addColour(0.88, juce::Colour::fromRGB(140, 143, 158));
         g.setGradientFill(metalGrad);
         g.fillRoundedRectangle(capX, capY, capW, capH, 3.0f);
+
+        // horizontal centre highlight strip (the chrome "ridge" on SSL-style caps)
+        float ridgeY = capY + capH * 0.35f;
+        juce::ColourGradient ridgeGrad(
+            juce::Colours::white.withAlpha(0.0f), capX, ridgeY,
+            juce::Colours::white.withAlpha(0.0f), capX, ridgeY + 6.0f,
+            false);
+        ridgeGrad.addColour(0.5, juce::Colours::white.withAlpha(0.38f));
+        g.setGradientFill(ridgeGrad);
+        g.fillRoundedRectangle(capX + 2.0f, ridgeY, capW - 4.0f, 6.0f, 1.5f);
 
         // top bevel (light)
         juce::ColourGradient topBevel(
@@ -648,7 +658,6 @@ void MixerWindow::changeListenerCallback(juce::ChangeBroadcaster*)
 
 void MixerWindow::buildStrips()
 {
-    // Detach old strips from container
     stripsContainer.removeAllChildren();
     trackStrips.clear();
     auxStrips.clear();
@@ -657,34 +666,9 @@ void MixerWindow::buildStrips()
     const auto& session = engine.getSession();
     const int numTracks = session.getNumTracks();
 
-    // ── Track strips ──────────────────────────────────────────────────────
-    for (int i = 0; i < numTracks; ++i)
+    // Helper: wire all plugin-insert callbacks for a strip at engine track index i
+    auto wireInserts = [this](ChannelStrip* strip, int i)
     {
-        auto* strip = trackStrips.add(new ChannelStrip());
-        strip->setTrackIndex(i);
-        strip->updateFromTrack(session.getTrack(i));
-        stripsContainer.addAndMakeVisible(strip);
-
-        strip->onVolumeChanged = [this, i](float db)
-        {
-            engine.setTrackVolume(i, db);
-        };
-        strip->onPanChanged = [this, i](float pan)
-        {
-            engine.setTrackPan(i, pan);
-        };
-        strip->onMuteToggled = [this, i](bool muted)
-        {
-            engine.setTrackMute(i, muted);
-        };
-        strip->onSoloToggled = [this, i](bool solo)
-        {
-            engine.setTrackSolo(i, solo);
-        };
-        strip->onArmToggled = [this, i](bool armed)
-        {
-            engine.setTrackArm(i, armed);
-        };
         strip->onInsertClicked = [this, i](int slot)
         {
             if (engine.getTrackPlugin(i, slot) != nullptr)
@@ -694,7 +678,6 @@ void MixerWindow::buildStrips()
         };
         strip->onInsertChangePlugin = [this, i](int slot)
         {
-            // Remove existing plugin from the slot first, then open browser to load a new one
             engine.removePluginFromTrack(i, slot);
             refreshInsertSlotNames();
             openPluginBrowser(i, slot);
@@ -705,15 +688,46 @@ void MixerWindow::buildStrips()
             refreshInsertSlotNames();
             repaint();
         };
+    };
+
+    // ── Track strips (Audio / MIDI / Instrument) ──────────────────────────
+    for (int i = 0; i < numTracks; ++i)
+    {
+        const auto& track = session.getTrack(i);
+        if (track.type == NovaStudio::TrackType::Aux || track.type == NovaStudio::TrackType::Master)
+            continue;
+
+        auto* strip = trackStrips.add(new ChannelStrip());
+        strip->setTrackIndex(i);
+        strip->updateFromTrack(track);
+        stripsContainer.addAndMakeVisible(strip);
+
+        strip->onVolumeChanged = [this, i](float db)  { engine.setTrackVolume(i, db); };
+        strip->onPanChanged    = [this, i](float pan)  { engine.setTrackPan(i, pan); };
+        strip->onMuteToggled   = [this, i](bool muted) { engine.setTrackMute(i, muted); };
+        strip->onSoloToggled   = [this, i](bool solo)  { engine.setTrackSolo(i, solo); };
+        strip->onArmToggled    = [this, i](bool armed)  { engine.setTrackArm(i, armed); };
+        wireInserts(strip, i);
     }
 
-    // ── Aux strips (placeholders) ─────────────────────────────────────────
-    for (int i = 0; i < 2; ++i)
+    // ── Aux strips (engine tracks of type Aux) ────────────────────────────
+    for (int i = 0; i < numTracks; ++i)
     {
+        const auto& track = session.getTrack(i);
+        if (track.type != NovaStudio::TrackType::Aux)
+            continue;
+
         auto* strip = auxStrips.add(new ChannelStrip());
+        strip->setTrackIndex(i);
         strip->setAux(true);
-        strip->updateAsAux("Aux " + juce::String(i + 1));
+        strip->updateAsAux(track.name);
         stripsContainer.addAndMakeVisible(strip);
+
+        strip->onVolumeChanged = [this, i](float db)  { engine.setTrackVolume(i, db); };
+        strip->onPanChanged    = [this, i](float pan)  { engine.setTrackPan(i, pan); };
+        strip->onMuteToggled   = [this, i](bool muted) { engine.setTrackMute(i, muted); };
+        strip->onSoloToggled   = [this, i](bool solo)  { engine.setTrackSolo(i, solo); };
+        wireInserts(strip, i);
     }
 
     // ── Master strip ──────────────────────────────────────────────────────
@@ -750,15 +764,20 @@ void MixerWindow::timerCallback()
 
 void MixerWindow::refreshInsertSlotNames()
 {
-    for (int t = 0; t < trackStrips.size(); ++t)
+    auto refresh = [this](juce::OwnedArray<ChannelStrip>& strips)
     {
-        auto* strip = trackStrips[t];
-        for (int s = 0; s < 9; ++s)
+        for (auto* strip : strips)
         {
-            auto* plugin = engine.getTrackPlugin(t, s);
-            strip->setInsertSlotName(s, plugin ? plugin->getName() : juce::String());
+            const int t = strip->getTrackIndex();
+            for (int s = 0; s < 9; ++s)
+            {
+                auto* plugin = engine.getTrackPlugin(t, s);
+                strip->setInsertSlotName(s, plugin ? plugin->getName() : juce::String());
+            }
         }
-    }
+    };
+    refresh(trackStrips);
+    refresh(auxStrips);
 }
 
 void MixerWindow::openPluginBrowser(int trackIndex, int slotIndex)
@@ -775,9 +794,10 @@ void MixerWindow::openPluginBrowser(int trackIndex, int slotIndex)
         engine, trackIndex, slotIndex,
         [this](int track, int slot, const juce::String& name)
         {
-            // Fired after successful load — update strip display
+            // Fired after successful load — update strip display then open editor
             if (isPositiveAndBelow(track, trackStrips.size()))
                 trackStrips[track]->setInsertSlotName(slot, name);
+            openPluginEditor(track, slot);
         });
 }
 

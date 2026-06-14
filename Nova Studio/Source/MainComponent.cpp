@@ -146,7 +146,9 @@ MainComponent::MainComponent()
     arrangementModel.addChangeListener(this);
 
     engine.addTrack("Audio 1", NovaStudio::TrackType::Audio);
-    engine.addTrack("MIDI 1", NovaStudio::TrackType::Midi);
+    engine.addTrack("MIDI 1",  NovaStudio::TrackType::Midi);
+    engine.addTrack("Aux 1",   NovaStudio::TrackType::Aux);
+    engine.addTrack("Aux 2",   NovaStudio::TrackType::Aux);
     refreshTrackList();
 
     workspaceToolbar.onModeSelected = [this](int mode) { setWorkspaceMode(mode); };
@@ -473,10 +475,8 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
     case 2: // Track
         menu.addItem(301, "New Audio Track");
         menu.addItem(302, "New MIDI Track");
-        menu.addItem(303, "New Instrument Track", false);
-        menu.addItem(304, "New Aux Track",         false);
-        menu.addItem(305, "New Bus",               false);
-        menu.addItem(306, "New Folder Track",      false);
+        menu.addItem(303, "New Instrument Track");
+        menu.addItem(304, "New Aux Track");
         menu.addSeparator();
         menu.addItem(307, "Duplicate Track",       false);
         menu.addItem(308, "Remove Last Track",     engine.getTrackCount() > 0);
@@ -603,14 +603,45 @@ void MainComponent::menuItemSelected(int id, int)
     // ── Track ───────────────────────────────────────────────────────────────
     case 301:
     case 302:
+    case 303:
+    case 304:
     {
-        const auto type = (id == 301) ? NovaStudio::TrackType::Audio : NovaStudio::TrackType::Midi;
-        const juce::String prefix = (id == 301) ? "Audio " : "MIDI ";
-        const int n = engine.getTrackCount() + 1;
-        engine.addTrack(prefix + juce::String(n), type);
-        refreshTrackList();
-        arrangementModel.sendChangeMessage();
-        updateStatusMessage("Added " + prefix + juce::String(n));
+        NovaStudio::TrackType type;
+        juce::String prefix;
+        switch (id)
+        {
+            case 301: type = NovaStudio::TrackType::Audio;  prefix = "Audio ";  break;
+            case 302: type = NovaStudio::TrackType::Midi;   prefix = "MIDI ";   break;
+            case 303: type = NovaStudio::TrackType::Midi;   prefix = "Inst ";   break;
+            case 304: type = NovaStudio::TrackType::Aux;    prefix = "Aux ";    break;
+            default:  type = NovaStudio::TrackType::Audio;  prefix = "Audio ";  break;
+        }
+        // Ask how many tracks to add
+        auto* dlg = new juce::AlertWindow("Add Track",
+                                          "How many " + prefix.trimEnd() + " tracks to add?",
+                                          juce::MessageBoxIconType::NoIcon);
+        dlg->addTextEditor("count", "1", "Number of tracks:");
+        dlg->addButton("Add",    1, juce::KeyPress(juce::KeyPress::returnKey));
+        dlg->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+        dlg->setColour(juce::AlertWindow::backgroundColourId, juce::Colour::fromRGB(18, 20, 28));
+        dlg->setColour(juce::AlertWindow::textColourId, juce::Colours::white);
+        dlg->enterModalState(true,
+            juce::ModalCallbackFunction::create([this, dlg, type, prefix](int result) mutable
+            {
+                if (result == 1)
+                {
+                    int count = juce::jlimit(1, 64, dlg->getTextEditorContents("count").getIntValue());
+                    for (int k = 0; k < count; ++k)
+                    {
+                        const int n = engine.getTrackCount() + 1;
+                        engine.addTrack(prefix + juce::String(n), type);
+                    }
+                    refreshTrackList();
+                    arrangementModel.sendChangeMessage();
+                    updateStatusMessage("Added " + juce::String(count) + " " + prefix.trimEnd() + " track(s)");
+                }
+                delete dlg;
+            }), false);
         break;
     }
     case 308:

@@ -27,6 +27,7 @@ namespace NovaStudioUI
         void resized() override;
 
         void setTrackIndex(int index)    { trackIndex = index; }
+        int  getTrackIndex() const       { return trackIndex; }
         void setMaster(bool master)      { isMaster = master; repaint(); }
         void setAux(bool aux)            { isAux = aux; repaint(); }
 
