@@ -1,0 +1,51 @@
+name: Build Nova Studio macOS
+run-name: Nova Studio macOS | ${{ github.event_name }} | ${{ github.sha }}
+
+on:
+  push:
+    paths:
+      - 'Nova Studio/**'
+      - '.github/workflows/build-nova-studio-macos.yml'
+  pull_request:
+    paths:
+      - 'Nova Studio/**'
+      - '.github/workflows/build-nova-studio-macos.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        run: brew install cmake
+
+      - name: Clean build directory
+        run: rm -rf "Nova Studio/build"
+
+      - name: Configure CMake
+        run: cmake -S "Nova Studio" -B "Nova Studio/build" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build NovaStudio
+        run: cmake --build "Nova Studio/build" --config Release --target NovaStudio -j$(sysctl -n hw.logicalcpu)
+
+      - name: Package NovaStudio.app
+        run: |
+          cd "Nova Studio/build/NovaStudio_artefacts/Release"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Studio.app" "NovaStudio-macOS.zip"
+
+      - name: Upload App Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaStudio-macOS
+          path: Nova Studio/build/NovaStudio_artefacts/Release/NovaStudio-macOS.zip
+
+      - name: Upload Full Build Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaStudio-macOS-build
+          path: Nova Studio/build
