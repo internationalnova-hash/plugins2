@@ -97,6 +97,7 @@ MainComponent::MainComponent()
     mixerPanel.setVisible(false);
     addAndMakeVisible(bottomDock);
     addAndMakeVisible(bottomDockToggleBar);
+    bottomDockToggleBar.isHorizontal = true;
     bottomDockToggleBar.onClick = [this]() {
         bottomDockCollapsed = !bottomDockCollapsed;
         bottomDockToggleBar.collapsed = bottomDockCollapsed;

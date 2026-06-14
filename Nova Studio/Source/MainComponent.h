@@ -108,6 +108,7 @@ private:
     struct SidebarToggleBar : public juce::Component
     {
         bool collapsed = false;
+        bool isHorizontal = false;  // true = bottom dock (up/down arrows), false = sidebar (left/right)
         std::function<void()> onClick;
 
         void paint(juce::Graphics& g) override
@@ -122,18 +123,21 @@ private:
             const float hs = 5.0f;
 
             juce::Path arrow;
-            // Horizontal toggle bar: collapsed = point up (open), expanded = point down (close)
-            if (collapsed)
+            if (isHorizontal)
             {
-                arrow.addTriangle(cx - hs, cy + hs * 0.5f,
-                                  cx,      cy - hs * 0.5f,
-                                  cx + hs, cy + hs * 0.5f);
+                // Bottom dock: collapsed = point up (show panel), expanded = point down (hide panel)
+                if (collapsed)
+                    arrow.addTriangle(cx - hs, cy + hs * 0.5f, cx, cy - hs * 0.5f, cx + hs, cy + hs * 0.5f);
+                else
+                    arrow.addTriangle(cx - hs, cy - hs * 0.5f, cx, cy + hs * 0.5f, cx + hs, cy - hs * 0.5f);
             }
             else
             {
-                arrow.addTriangle(cx - hs, cy - hs * 0.5f,
-                                  cx,      cy + hs * 0.5f,
-                                  cx + hs, cy - hs * 0.5f);
+                // Sidebar: collapsed = point right (open), expanded = point left (close)
+                if (collapsed)
+                    arrow.addTriangle(cx - hs * 0.5f, cy - hs, cx + hs * 0.5f, cy, cx - hs * 0.5f, cy + hs);
+                else
+                    arrow.addTriangle(cx + hs * 0.5f, cy - hs, cx - hs * 0.5f, cy, cx + hs * 0.5f, cy + hs);
             }
             g.fillPath(arrow);
         }
@@ -147,7 +151,7 @@ private:
 
     // Bottom dock collapse
     bool bottomDockCollapsed = false;
-    SidebarToggleBar bottomDockToggleBar; // horizontal toggle bar (draws up/down arrow)
+    SidebarToggleBar bottomDockToggleBar;
 
     // Floating windows (non-owning: content is still owned by unique_ptrs above)
     std::unique_ptr<FloatingPanelWindow> floatingMixer;
