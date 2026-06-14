@@ -192,6 +192,12 @@ void EditWindow::zoomHorizontal(int direction)
         arrangementView->adjustHZoom(direction);
 }
 
+void EditWindow::zoomVertical(int direction)
+{
+    if (arrangementView)
+        arrangementView->adjustVZoom(direction);
+}
+
 void EditWindow::setEditMode(EditModeToolbar::EditMode m)
 {
     if (editModeToolbar) editModeToolbar->setEditMode(m);

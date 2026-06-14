@@ -261,6 +261,13 @@ MainComponent::MainComponent()
         arrangementModel.setEditMode(mode);
         updateStatusMessage("Edit mode set to " + juce::String(static_cast<int>(mode)) + ".");
     };
+    workspaceToolbar.onHZoomChanged = [this](int dir) {
+        if (editWindow) editWindow->zoomHorizontal(dir);
+    };
+    workspaceToolbar.onVZoomChanged = [this](int dir) {
+        if (editWindow) editWindow->zoomVertical(dir);
+    };
+
     workspaceToolbar.onNovaAlign = [this]()
     {
         setWorkspaceMode(0);

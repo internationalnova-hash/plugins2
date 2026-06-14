@@ -841,6 +841,8 @@ namespace NovaStudioUI
         void setTimecode(const juce::String& tc);
         void setPlaybackState(bool previewEnabled, bool hasPreview);
         std::function<void(int)> onTempoChanged;
+        std::function<void(int)> onHZoomChanged;   // +1 = zoom in, -1 = zoom out
+        std::function<void(int)> onVZoomChanged;
 
     private:
         void buttonClicked(juce::Button* b) override;
@@ -861,6 +863,11 @@ namespace NovaStudioUI
         juce::Label timecodeLabel;
         BPMLabel    tempoLabel;
 
+        // Zoom controls — in toolbar so they're never covered by side panels
+        juce::TextButton hZoomOutBtn {"H-"};
+        juce::TextButton hZoomInBtn  {"H+"};
+        juce::TextButton vZoomOutBtn {"V-"};
+        juce::TextButton vZoomInBtn  {"V+"};
 
         juce::TextButton novaAlignBtn {"Nova Align"};
 

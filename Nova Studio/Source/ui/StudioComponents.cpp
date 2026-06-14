@@ -3536,6 +3536,10 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         addAndMakeVisible(timecodeLabel);
         addAndMakeVisible(tempoLabel);
         addAndMakeVisible(novaAlignBtn);
+        addAndMakeVisible(hZoomOutBtn);
+        addAndMakeVisible(hZoomInBtn);
+        addAndMakeVisible(vZoomOutBtn);
+        addAndMakeVisible(vZoomInBtn);
 
         editBtn.addListener(this);
         mixBtn.addListener(this);
@@ -3550,6 +3554,21 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         punchBtn.setTooltip("Auto-Punch: Cmd+drag in the timeline ruler to set punch range, then enable here");
         punchBtn.addListener(this);
         novaAlignBtn.addListener(this);
+        hZoomOutBtn.addListener(this);
+        hZoomInBtn.addListener(this);
+        vZoomOutBtn.addListener(this);
+        vZoomInBtn.addListener(this);
+
+        // Zoom button styling — subtle, smaller than transport
+        for (auto* btn : {&hZoomOutBtn, &hZoomInBtn, &vZoomOutBtn, &vZoomInBtn})
+        {
+            btn->setColour(juce::TextButton::buttonColourId,  juce::Colour::fromRGB(28, 30, 42));
+            btn->setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.55f));
+        }
+        hZoomOutBtn.setTooltip("Zoom out (horizontal)");
+        hZoomInBtn.setTooltip("Zoom in (horizontal)");
+        vZoomOutBtn.setTooltip("Zoom out (vertical / track height)");
+        vZoomInBtn.setTooltip("Zoom in (vertical / track height)");
 
         // Mode tab styling — dark base, will highlight active
         for (auto* btn : {&editBtn, &mixBtn, &beatBtn})
@@ -3752,7 +3771,14 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
 
         x = juce::jmax(x + 4, 860);  // timecode after punch buttons
         timecodeLabel.setBounds(x, btnY - 2, 160, btnH + 4); x += 164;
-        tempoLabel.setBounds(x, btnY, 100, btnH); x += 104;
+        tempoLabel.setBounds(x, btnY, 100, btnH); x += 108;
+
+        // Zoom controls — right of tempo
+        const int zSz = 24;
+        hZoomOutBtn.setBounds(x, btnY, zSz, btnH); x += zSz + 2;
+        hZoomInBtn.setBounds (x, btnY, zSz, btnH); x += zSz + 6;
+        vZoomOutBtn.setBounds(x, btnY, zSz, btnH); x += zSz + 2;
+        vZoomInBtn.setBounds (x, btnY, zSz, btnH);
 
         // Right buttons (from right edge)
         int rx = getWidth() - 6;
@@ -3820,6 +3846,10 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         else if (b == &loopBtn && onLoop) onLoop();
         else if (b == &punchBtn    && onPunchToggle) onPunchToggle();
         else if (b == &novaAlignBtn && onNovaAlign) onNovaAlign();
+        else if (b == &hZoomOutBtn && onHZoomChanged) onHZoomChanged(-1);
+        else if (b == &hZoomInBtn  && onHZoomChanged) onHZoomChanged(+1);
+        else if (b == &vZoomOutBtn && onVZoomChanged) onVZoomChanged(-1);
+        else if (b == &vZoomInBtn  && onVZoomChanged) onVZoomChanged(+1);
     }
 
     // =========================================================================
