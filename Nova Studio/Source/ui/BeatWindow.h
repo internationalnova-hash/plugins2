@@ -141,6 +141,10 @@ namespace NovaStudioUI
         void itemDragExit(const SourceDetails& details) override;
         void itemDropped(const SourceDetails& details) override;
 
+        // Engine callbacks — wire from MainComponent
+        std::function<void(int row, const juce::String& path)> onSampleAssigned;
+        std::function<void(int row, int step, bool active)>    onStepChanged;
+
     private:
         void timerCallback() override;
         void drawRowHeader(juce::Graphics& g, juce::Rectangle<int> r,
@@ -234,6 +238,10 @@ namespace NovaStudioUI
         ~BeatWindow() override;
         void paint(juce::Graphics& g) override;
         void resized() override;
+
+        // Engine wiring — call after construction
+        void setOnSampleAssigned(std::function<void(int, const juce::String&)> fn) { stepSeq.onSampleAssigned = std::move(fn); }
+        void setOnStepChanged(std::function<void(int, int, bool)> fn)              { stepSeq.onStepChanged    = std::move(fn); }
 
     private:
         BeatBrowser       browser;

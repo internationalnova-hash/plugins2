@@ -70,6 +70,13 @@ MainComponent::MainComponent()
     addAndMakeVisible(*beatWindow);
     beatWindow->setVisible(false);
 
+    beatWindow->setOnSampleAssigned([this](int row, const juce::String& path) {
+        engine.setStepSeqSample(row, path);
+    });
+    beatWindow->setOnStepChanged([this](int row, int step, bool active) {
+        engine.setStepSeqStep(row, step, active);
+    });
+
     // Pop-out buttons
     auto configPopBtn = [](juce::TextButton& btn) {
         btn.setTooltip("Pop out as floating window");
@@ -171,6 +178,27 @@ MainComponent::MainComponent()
         engine.getTransportState().setLooping(looping);
         workspaceToolbar.setLoopState(looping);
         updateStatusMessage(looping ? "Loop enabled." : "Loop disabled.");
+    };
+
+    workspaceToolbar.onPunchIn = [this] {
+        const int64_t pos = engine.getTransportState().getPositionSamples();
+        engine.getTransportState().setPunchRange(pos,
+            engine.getTransportState().getPunchOutSample() > pos
+                ? engine.getTransportState().getPunchOutSample() : pos + (int64_t)(engine.getCurrentSampleRate() * 4));
+        updateStatusMessage("Punch in set at " + engine.getTransportState().getTimecodeString(pos));
+    };
+
+    workspaceToolbar.onPunchOut = [this] {
+        const int64_t pos = engine.getTransportState().getPositionSamples();
+        engine.getTransportState().setPunchRange(engine.getTransportState().getPunchInSample(), pos);
+        updateStatusMessage("Punch out set.");
+    };
+
+    workspaceToolbar.onPunchToggle = [this] {
+        const bool enabled = !engine.getTransportState().isPunchEnabled();
+        engine.getTransportState().setPunchEnabled(enabled);
+        workspaceToolbar.setPunchState(enabled);
+        updateStatusMessage(enabled ? "Punch recording enabled." : "Punch recording disabled.");
     };
 
     workspaceToolbar.setPlayState(false, false);

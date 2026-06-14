@@ -99,6 +99,9 @@ namespace NovaStudioUI
         std::function<void()> onReturnToZero;
         std::function<void()> onMonitor;
         std::function<void()> onLoop;
+        std::function<void()> onPunchIn;
+        std::function<void()> onPunchOut;
+        std::function<void()> onPunchToggle;
 
         void setTempo(int bpm);
         void setTimecode(const juce::String& timecode);
@@ -106,6 +109,7 @@ namespace NovaStudioUI
         void setLoopState(bool enabled);
         void setMonitorState(bool enabled);
         void setPlaybackState(bool previewEnabled, bool hasPreview);
+        void setPunchState(bool enabled);
         std::function<void(bool)> onTogglePreview;
         std::function<void(int)>  onTempoChanged;
 
@@ -119,6 +123,9 @@ namespace NovaStudioUI
         juce::TextButton recordButton  {};
         juce::TextButton loopButton    {};
         juce::TextButton monitorButton {};
+        juce::TextButton punchInButton  { "P.IN" };
+        juce::TextButton punchOutButton { "P.OUT" };
+        juce::TextButton punchButton    { "PUNCH" };
 
         BPMLabel tempoLabel;
         juce::Label timeLabel;
@@ -786,6 +793,9 @@ namespace NovaStudioUI
         std::function<void()> onArm;
         std::function<void()> onMonitor;
         std::function<void()> onLoop;
+        std::function<void()> onPunchIn;
+        std::function<void()> onPunchOut;
+        std::function<void()> onPunchToggle;
         std::function<void(bool)> onTogglePreview;
 
         // Transport setters
@@ -793,6 +803,7 @@ namespace NovaStudioUI
         void setLoopState(bool enabled);
         void setArmState(bool armed);
         void setMonitorState(bool enabled);
+        void setPunchState(bool enabled);
         void setTempo(int bpm);
         void setTimecode(const juce::String& tc);
         void setPlaybackState(bool previewEnabled, bool hasPreview);
@@ -805,13 +816,16 @@ namespace NovaStudioUI
         juce::TextButton mixBtn {"MIX"};
         juce::TextButton beatBtn {"BEAT"};
 
-        juce::TextButton rtzBtn     {};
-        juce::TextButton rewindBtn  {};
-        juce::TextButton playBtn    {};
-        juce::TextButton stopBtn    {};
-        juce::TextButton recordBtn  {};
-        juce::TextButton ffBtn      {};
-        juce::TextButton loopBtn    {};
+        juce::TextButton rtzBtn        {};
+        juce::TextButton rewindBtn     {};
+        juce::TextButton playBtn       {};
+        juce::TextButton stopBtn       {};
+        juce::TextButton recordBtn     {};
+        juce::TextButton ffBtn         {};
+        juce::TextButton loopBtn       {};
+        juce::TextButton punchInBtn    { "P.IN" };
+        juce::TextButton punchOutBtn   { "P.OUT" };
+        juce::TextButton punchBtn      { "PUNCH" };
 
         juce::Label timecodeLabel;
         BPMLabel    tempoLabel;

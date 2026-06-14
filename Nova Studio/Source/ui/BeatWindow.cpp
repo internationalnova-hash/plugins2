@@ -537,6 +537,7 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
     if (row < kNumRows && col < kNumSteps)
     {
         steps[row][col] = !steps[row][col];
+        if (onStepChanged) onStepChanged(row, col, steps[row][col]);
         repaint();
     }
 }
@@ -655,8 +656,8 @@ void StepSequencerView::itemDropped(const SourceDetails& details)
     if (row >= 0)
     {
         rowSampleFiles[row] = details.description.toString();
-        // Use the filename (without extension) as the new row display name
         rowNames[row] = juce::File(rowSampleFiles[row]).getFileNameWithoutExtension();
+        if (onSampleAssigned) onSampleAssigned(row, rowSampleFiles[row]);
     }
     dragHighlightRow = -1;
     repaint();

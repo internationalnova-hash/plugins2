@@ -229,6 +229,32 @@ namespace NovaStudio
         return playing.load();
     }
 
+    void TransportState::setPunchRange(int64_t inSample, int64_t outSample) noexcept
+    {
+        punchInSample.store(inSample);
+        punchOutSample.store(outSample);
+    }
+
+    void TransportState::setPunchEnabled(bool on) noexcept
+    {
+        punchEnabled.store(on);
+    }
+
+    bool TransportState::isPunchEnabled() const noexcept
+    {
+        return punchEnabled.load();
+    }
+
+    int64_t TransportState::getPunchInSample() const noexcept
+    {
+        return punchInSample.load();
+    }
+
+    int64_t TransportState::getPunchOutSample() const noexcept
+    {
+        return punchOutSample.load();
+    }
+
     juce::String TransportState::getBarBeatString(int64_t samplePosition) const
     {
         const double seconds = static_cast<double>(samplePosition) / sampleRate.load();

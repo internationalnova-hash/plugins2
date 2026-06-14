@@ -48,6 +48,22 @@ namespace NovaStudio
         void  setTrackSendLevel(int trackIndex, int sendIndex, float db);
         float getTrackSendLevel(int trackIndex, int sendIndex) const noexcept;
 
+        // Step sequencer sample playback
+        void setStepSeqSample(int row, const juce::String& filePath);
+        void setStepSeqStep(int row, int step, bool active);
+
+        struct StepSequencerState {
+            static constexpr int kNumRows  = 4;
+            static constexpr int kNumSteps = 16;
+            juce::String             sampleFiles[kNumRows];
+            bool                     steps[kNumRows][kNumSteps] {};
+            juce::AudioBuffer<float> sampleBuffers[kNumRows];
+            bool                     sampleLoaded[kNumRows]   {};
+            int64_t                  playPositions[kNumRows]  {};
+            bool                     rowTriggered[kNumRows]   {};
+        };
+        StepSequencerState stepSeq;
+
         void play();
         void stop();
         void toggleRecord();

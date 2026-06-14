@@ -21,6 +21,16 @@ namespace NovaStudioUI
         recordButton.addListener(this);
         monitorButton.addListener(this);
         loopButton.addListener(this);
+        punchInButton.addListener(this);
+        punchOutButton.addListener(this);
+        punchButton.addListener(this);
+        addAndMakeVisible(punchInButton);
+        addAndMakeVisible(punchOutButton);
+        addAndMakeVisible(punchButton);
+
+        punchInButton.setTooltip("Set punch-in point at current playhead position");
+        punchOutButton.setTooltip("Set punch-out point at current playhead position");
+        punchButton.setTooltip("Enable/disable punch recording");
 
         monitorButton.setTooltip("Input Monitor: hear your audio input live through the mix while recording");
 
@@ -140,6 +150,10 @@ namespace NovaStudioUI
         x += 8;                        // separator
         place(loopButton, btnSz);      // ↻  loop
         place(monitorButton, btnSz);   // 🎧 input monitor
+        x += 8;
+        place(punchInButton,  50);
+        place(punchOutButton, 50);
+        place(punchButton,    54);
 
         // Timecode + tempo on the right
         auto rightArea = getLocalBounds().withTrimmedLeft(x + 8).withTrimmedRight(8);
@@ -179,7 +193,12 @@ namespace NovaStudioUI
         monitorButton.setColour(juce::TextButton::buttonColourId, enabled ? juce::Colours::skyblue.withAlpha(0.35f) : juce::Colours::transparentBlack);
     }
 
-    
+    void TransportBar::setPunchState(bool enabled)
+    {
+        punchButton.setColour(juce::TextButton::buttonColourId, enabled ? juce::Colours::orangered.withAlpha(0.45f) : juce::Colours::transparentBlack);
+    }
+
+
 
     void TransportBar::setPlaybackState(bool previewEnabled, bool hasPreview)
     {
@@ -223,6 +242,9 @@ namespace NovaStudioUI
         else if (button == &recordButton && onRecord) onRecord();
         else if (button == &monitorButton && onMonitor) onMonitor();
         else if (button == &loopButton && onLoop) onLoop();
+        else if (button == &punchInButton  && onPunchIn)     onPunchIn();
+        else if (button == &punchOutButton && onPunchOut)    onPunchOut();
+        else if (button == &punchButton    && onPunchToggle) onPunchToggle();
         else if (button == &playbackToggleButton)
         {
             if (onTogglePreview)
@@ -3217,6 +3239,9 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         addAndMakeVisible(recordBtn);
         addAndMakeVisible(ffBtn);
         addAndMakeVisible(loopBtn);
+        addAndMakeVisible(punchInBtn);
+        addAndMakeVisible(punchOutBtn);
+        addAndMakeVisible(punchBtn);
         addAndMakeVisible(timecodeLabel);
         addAndMakeVisible(tempoLabel);
         addAndMakeVisible(saveBtn);
@@ -3234,6 +3259,9 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         recordBtn.addListener(this);
         ffBtn.addListener(this);
         loopBtn.addListener(this);
+        punchInBtn.addListener(this);
+        punchOutBtn.addListener(this);
+        punchBtn.addListener(this);
         saveBtn.addListener(this);
         loadBtn.addListener(this);
         audioBtn.addListener(this);
@@ -3441,9 +3469,12 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         ffBtn.setBounds    (x, btnY, tSz, tSz); x += tSz + 3;
         x += 6;
         loopBtn.setBounds  (x, btnY, tSz, tSz); x += tSz + 3;
-        // x ~760
+        x += 6;
+        punchInBtn.setBounds (x, btnY, 44, tSz); x += 48;
+        punchOutBtn.setBounds(x, btnY, 48, tSz); x += 52;
+        punchBtn.setBounds   (x, btnY, 54, tSz); x += 58;
 
-        x = 768;
+        x = juce::jmax(x + 4, 860);  // timecode after punch buttons
         timecodeLabel.setBounds(x, btnY - 2, 160, btnH + 4); x += 164;
         tempoLabel.setBounds(x, btnY, 100, btnH); x += 104;
 
@@ -3472,6 +3503,12 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
     void WorkspaceToolbar::setArmState(bool /*armed*/) {}
 
     void WorkspaceToolbar::setMonitorState(bool /*enabled*/) {}
+
+    void WorkspaceToolbar::setPunchState(bool enabled)
+    {
+        punchBtn.setColour(juce::TextButton::buttonColourId,
+            enabled ? juce::Colours::orangered.withAlpha(0.45f) : juce::Colours::transparentBlack);
+    }
 
     void WorkspaceToolbar::setTempo(int bpm)
     {
@@ -3508,6 +3545,9 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         else if (b == &stopBtn && onStop) onStop();
         else if (b == &recordBtn && onRecord) onRecord();
         else if (b == &loopBtn && onLoop) onLoop();
+        else if (b == &punchInBtn  && onPunchIn)     onPunchIn();
+        else if (b == &punchOutBtn && onPunchOut)    onPunchOut();
+        else if (b == &punchBtn    && onPunchToggle) onPunchToggle();
         else if (b == &novaAlignBtn && onNovaAlign) onNovaAlign();
         else if (b == &saveBtn && onSave) onSave();
         else if (b == &loadBtn && onLoad) onLoad();

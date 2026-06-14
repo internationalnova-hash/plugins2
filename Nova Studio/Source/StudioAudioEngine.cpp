@@ -1063,6 +1063,78 @@ namespace NovaStudio
             }
         }
 
+        // ── Step sequencer playback ──────────────────────────────────────────
+        if (transportState.isPlaying())
+        {
+            const int64_t positionSamples = transportState.getPositionSamples();
+            const double  sr  = transportState.getSampleRate();
+            const double  bpm = (double)transportState.getTempo();
+            if (sr > 0.0 && bpm > 0.0)
+            {
+                const double stepsPerSec = (bpm / 60.0) * 4.0;
+                const int currentStep = ((int)(positionSamples / sr * stepsPerSec))
+                                        % StepSequencerState::kNumSteps;
+                const int prevStep    = ((int)(juce::jmax<int64_t>(0, positionSamples - numSamples)
+                                              / sr * stepsPerSec))
+                                        % StepSequencerState::kNumSteps;
+                if (currentStep != prevStep)
+                {
+                    for (int row = 0; row < StepSequencerState::kNumRows; ++row)
+                    {
+                        if (stepSeq.steps[row][currentStep] && stepSeq.sampleLoaded[row])
+                        {
+                            stepSeq.playPositions[row] = 0;
+                            stepSeq.rowTriggered[row]  = true;
+                        }
+                    }
+                }
+
+                for (int row = 0; row < StepSequencerState::kNumRows; ++row)
+                {
+                    if (!stepSeq.rowTriggered[row] || !stepSeq.sampleLoaded[row]) continue;
+                    const auto& buf = stepSeq.sampleBuffers[row];
+                    const int64_t remaining = buf.getNumSamples() - stepSeq.playPositions[row];
+                    if (remaining <= 0) { stepSeq.rowTriggered[row] = false; continue; }
+                    const int toCopy = (int)juce::jmin<int64_t>(remaining, numSamples);
+                    for (int ch = 0; ch < numOutputChannels; ++ch)
+                    {
+                        if (outputChannelData[ch] == nullptr) continue;
+                        const int srcCh = juce::jmin(ch, buf.getNumChannels() - 1);
+                        const float* src = buf.getReadPointer(srcCh, (int)stepSeq.playPositions[row]);
+                        for (int s = 0; s < toCopy; ++s)
+                            outputChannelData[ch][s] += src[s];
+                    }
+                    stepSeq.playPositions[row] += toCopy;
+                    if (stepSeq.playPositions[row] >= buf.getNumSamples())
+                        stepSeq.rowTriggered[row] = false;
+                }
+            }
+        }
+
+        // ── Aux send routing (simplified: additive to master output) ─────────
+        {
+            juce::ScopedLock sl(playerLock);
+            const int numTracks = session.getNumTracks();
+            for (int ti = 0; ti < numTracks && ti < trackPlayers.size(); ++ti)
+            {
+                const Track& tr = session.getTrack(ti);
+                for (int s = 0; s < 6; ++s)
+                {
+                    const float sendDb = tr.sendLevels[s];
+                    if (sendDb <= -90.0f) continue;
+                    const float sendGain = juce::Decibels::decibelsToGain(sendDb);
+                    for (int ch = 0; ch < numOutputChannels; ++ch)
+                    {
+                        if (outputChannelData[ch] == nullptr) continue;
+                        const float* srcData = tempBuffer.getReadPointer(
+                            juce::jmin(ch, tempBuffer.getNumChannels() - 1));
+                        for (int samp = 0; samp < numSamples; ++samp)
+                            outputChannelData[ch][samp] += srcData[samp] * sendGain;
+                    }
+                }
+            }
+        }
+
         if (recordingActive.load() && recordingWriter != nullptr)
         {
             const int64_t blockNum = diagBlocksReceived.fetch_add(1);
@@ -1081,6 +1153,19 @@ namespace NovaStudio
                     msg += " ch" + juce::String(ch) + "=" + juce::String(peak, 6);
                 }
                 juce::Logger::writeToLog(msg);
+            }
+
+            // Punch gating: skip write if punch is enabled and we're outside the range
+            if (transportState.isPunchEnabled())
+            {
+                const int64_t pos  = transportState.getPositionSamples();
+                const int64_t pIn  = transportState.getPunchInSample();
+                const int64_t pOut = transportState.getPunchOutSample();
+                if (pos < pIn || pos >= pOut)
+                {
+                    recordingSampleCount += numSamples; // advance clip length counter
+                    return;
+                }
             }
 
             const int writerCh = recordingWriterChannels;
@@ -1195,5 +1280,39 @@ namespace NovaStudio
         juce::ScopedLock sl(playerLock);
         for (int index = 0; index < trackPlayers.size(); ++index)
             trackPlayers.getReference(index)->setSoloMode(anySolo);
+    }
+
+    // ── Step sequencer ──────────────────────────────────────────────────────────
+
+    void StudioAudioEngine::setStepSeqSample(int row, const juce::String& filePath)
+    {
+        if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
+        stepSeq.sampleFiles[row]  = filePath;
+        stepSeq.sampleLoaded[row] = false;
+        stepSeq.sampleBuffers[row].setSize(0, 0);
+
+        juce::File f(filePath);
+        if (!f.existsAsFile()) return;
+
+        juce::AudioFormatManager fmtMgr;
+        fmtMgr.registerBasicFormats();
+        std::unique_ptr<juce::AudioFormatReader> reader(fmtMgr.createReaderFor(f));
+        if (reader == nullptr) return;
+
+        const int     numCh      = (int)reader->numChannels;
+        const int64_t numSamples = reader->lengthInSamples;
+        stepSeq.sampleBuffers[row].setSize(numCh, (int)numSamples);
+        reader->read(&stepSeq.sampleBuffers[row], 0, (int)numSamples, 0, true, true);
+
+        stepSeq.sampleLoaded[row]  = true;
+        stepSeq.playPositions[row] = 0;
+        stepSeq.rowTriggered[row]  = false;
+    }
+
+    void StudioAudioEngine::setStepSeqStep(int row, int step, bool active)
+    {
+        if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
+        if (!isPositiveAndBelow(step, StepSequencerState::kNumSteps)) return;
+        stepSeq.steps[row][step] = active;
     }
 }
