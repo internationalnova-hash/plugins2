@@ -17,7 +17,7 @@ class NovaAutotuneAudioProcessor : public juce::AudioProcessor
 {
 public:
     static constexpr int pitchHistorySize = 256;
-    static constexpr int mpmBufferSize    = 4096;
+    static constexpr int mpmBufferSize    = 2048;
 
     NovaAutotuneAudioProcessor();
     ~NovaAutotuneAudioProcessor() override;

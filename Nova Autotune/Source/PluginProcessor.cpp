@@ -73,11 +73,15 @@ void NovaAutotuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
 
     stretcher = std::make_unique<RubberBandStretcher> (
         (size_t)sampleRate, (size_t)numCh, options);
-    stretcher->setMaxProcessSize ((size_t)samplesPerBlock);
     stretcher->setPitchScale (1.0);
 
-    // RubberBand in real-time mode introduces latency
-    setLatencySamples (stretcher->getLatency());
+    const int latency = static_cast<int> (stretcher->getLatency());
+    setLatencySamples (latency);
+
+    // Prime with silence to fill internal latency buffer
+    std::vector<float> silence (static_cast<size_t> (latency), 0.0f);
+    const float* ptrs[2] = { silence.data(), silence.data() };
+    stretcher->process (ptrs, static_cast<size_t> (latency), false);
 #else
     setLatencySamples (0);
     juce::ignoreUnused (samplesPerBlock);
@@ -165,8 +169,7 @@ float NovaAutotuneAudioProcessor::quantizeToScale (float hz)
             int dist = std::min (d, d2);
             if (dist < bestDist) { bestDist = dist; best = degrees[i]; }
         }
-        int octave = midiR - pc;
-        int candidate = octave + best + key % 12;
+        int candidate = (midiR - pc) + best;
         if (candidate < midiR - 6) candidate += 12;
         if (candidate > midiR + 6) candidate -= 12;
         return midiToHzF ((float)candidate);
@@ -293,8 +296,15 @@ void NovaAutotuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
         else
         {
-            // Full ratio to reach target
-            float fullRatio = targetHz / (smoothedDetectedHz + 1e-9f);
+            // Octave-align detected pitch to target octave before computing ratio
+            float alignedHz = smoothedDetectedHz;
+            if (targetHz > 1.0f)
+            {
+                while (alignedHz < targetHz * 0.70710678f) alignedHz *= 2.0f;
+                while (alignedHz > targetHz * 1.41421356f) alignedHz *= 0.5f;
+            }
+
+            float fullRatio = targetHz / (alignedHz + 1e-9f);
             float targetRatio = 1.0f + (fullRatio - 1.0f) * amount;
 
             // Retune speed: 0 = instant (dt→0 → alpha→1), 100 = very slow (500ms)
@@ -323,6 +333,9 @@ void NovaAutotuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.05f;
         correctionRatio = pitchRatioSmoothed;
     }
+
+    // Clamp to ±3 semitones — prevents octave-error blowouts
+    correctionRatio = juce::jlimit (0.841f, 1.189f, correctionRatio);
 
     // Store pitch history for UI
     pitchHistory[(size_t)historyIndex].store (smoothedDetectedHz);
