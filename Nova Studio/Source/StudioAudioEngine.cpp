@@ -494,6 +494,7 @@ namespace NovaStudio
     {
         transportState.play();
         const double transportSeconds = static_cast<double>(transportState.getPositionSamples()) / transportState.getSampleRate();
+        juce::ScopedLock sl(playerLock);
         for (int i = 0; i < trackPlayers.size(); ++i)
         {
             auto* player = trackPlayers.getReference(i).get();
@@ -506,8 +507,11 @@ namespace NovaStudio
     void StudioAudioEngine::stop()
     {
         transportState.stop();
-        for (int i = 0; i < trackPlayers.size(); ++i)
-            trackPlayers.getReference(i)->setPlaying(false);
+        {
+            juce::ScopedLock sl(playerLock);
+            for (int i = 0; i < trackPlayers.size(); ++i)
+                trackPlayers.getReference(i)->setPlaying(false);
+        }
 
         if (recordingActive)
             stopRecordingInternal();
@@ -641,8 +645,11 @@ namespace NovaStudio
         if (recordingActive)
         {
             transportState.stopRecording();
-            for (int i = 0; i < trackPlayers.size(); ++i)
-                trackPlayers.getReference(i)->setPlaying(false);
+            {
+                juce::ScopedLock sl(playerLock);
+                for (int i = 0; i < trackPlayers.size(); ++i)
+                    trackPlayers.getReference(i)->setPlaying(false);
+            }
             stopRecordingInternal();
         }
         else
@@ -1012,16 +1019,17 @@ namespace NovaStudio
         }
 
         // Swap atomically: remove old inputs, install new ones, swap the array.
-        // MixerAudioSource::removeAllInputs/addInputSource are internally locked, so
-        // the audio callback's getNextAudioBlock() won't touch a destroyed source.
-        // The playerLock guards our direct trackPlayers iteration in the audio callback.
-        mixerSource.removeAllInputs();
+        // Hold playerLock for the entire replace so the audio callback cannot call
+        // setPlaybackPosition on players that are being destroyed.
+        // MixerAudioSource's own lock serialises getNextAudioBlock() against
+        // removeAllInputs/addInputSource, preventing use-after-free via that path.
         {
             juce::ScopedLock sl(playerLock);
+            mixerSource.removeAllInputs();
             trackPlayers = std::move(newPlayers);
+            for (int i = 0; i < trackPlayers.size(); ++i)
+                mixerSource.addInputSource(trackPlayers.getReference(i).get(), false);
         }
-        for (int i = 0; i < trackPlayers.size(); ++i)
-            mixerSource.addInputSource(trackPlayers.getReference(i).get(), false);
 
         updateSoloStates();
     }

@@ -13,9 +13,14 @@ MainComponent::MainComponent()
     addAndMakeVisible(menuBar);
     addAndMakeVisible(workspaceToolbar);
     addAndMakeVisible(browserPanel);
+    // Legacy components kept for API compat but hidden — EditWindow owns the real instances.
+    // They MUST be invisible so they don't intercept mouse events over other panels.
     addAndMakeVisible(trackPanel);
+    trackPanel.setVisible(false);
     addAndMakeVisible(arrangementView);
+    arrangementView.setVisible(false);
     addAndMakeVisible(alignPanel);
+    alignPanel.setVisible(false);
     editWindow = std::make_unique<NovaStudioUI::EditWindow>(transportState, timelineModel, arrangementModel);
     addAndMakeVisible(*editWindow);
     editWindow->setTrackCallbacks(
@@ -38,6 +43,7 @@ MainComponent::MainComponent()
     addAndMakeVisible(*beatWindow);
     beatWindow->setVisible(false);
     addAndMakeVisible(mixerPanel);
+    mixerPanel.setVisible(false);
     addAndMakeVisible(bottomDock);
     addAndMakeVisible(statusLabel);
 
@@ -356,8 +362,6 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
 
 void MainComponent::refreshTrackList()
 {
-    trackPanel.repaint();
-    arrangementView.repaint();
     if (editWindow)
         editWindow->repaint();
 }
