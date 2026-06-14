@@ -231,7 +231,7 @@ void PatternPlaylist::mouseDown(const juce::MouseEvent& e)
 
     int hit = blockAtPoint(e.x, e.y);
 
-    if (e.mods.isRightButtonDown())
+    if (e.mods.isRightButtonDown() || e.mods.isPopupMenu())
     {
         // Right-click: erase block
         if (hit >= 0)
@@ -1090,7 +1090,7 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
             auto localP = pos - sr.getTopLeft();
             int part = hitTestChannelStrip(localP);
 
-            if (e.mods.isRightButtonDown())
+            if (e.mods.isRightButtonDown() || e.mods.isPopupMenu())
             {
                 if (part == 1) // right-click LED = solo menu
                 {
@@ -1244,7 +1244,7 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
         {
             selectedRow = row;
 
-            if (e.mods.isRightButtonDown())
+            if (e.mods.isRightButtonDown() || e.mods.isPopupMenu())
             {
                 // Right-click = deactivate step (FL Studio behavior)
                 auto& active = currentPattern().channels[(size_t)row].steps[step];
@@ -2057,7 +2057,12 @@ BeatPatternToolbar::BeatPatternToolbar()
     patNameLabel.setColour(juce::Label::backgroundColourId, juce::Colour::fromRGB(20, 24, 36));
     patNameLabel.setFont(juce::FontOptions(13.0f));
     patNameLabel.setJustificationType(juce::Justification::centred);
+    patNameLabel.setInterceptsMouseClicks(false, false); // pass clicks to toolbar
     addAndMakeVisible(patNameLabel);
+
+    // Style the dropdown button distinctly
+    patDropBtn.setColour(juce::TextButton::buttonColourId,  juce::Colour::fromRGB(40, 50, 80));
+    patDropBtn.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.9f));
 
     swingLabel.setText("SWING 0%", juce::dontSendNotification);
     swingLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.7f));
@@ -2219,8 +2224,10 @@ void BeatPatternToolbar::buttonClicked(juce::Button* b)
 
 void BeatPatternToolbar::mouseDown(const juce::MouseEvent& e)
 {
-    // Right-click anywhere on the pattern name area = dropdown
-    if (e.mods.isRightButtonDown() && patNameLabel.getBounds().contains(e.getPosition()))
+    // Click or right-click on the pattern name label = show dropdown
+    if (patNameLabel.getBounds().contains(e.getPosition()))
+        showPatternDropdown();
+    else if (e.mods.isRightButtonDown() || e.mods.isPopupMenu())
         showPatternDropdown();
 }
 
