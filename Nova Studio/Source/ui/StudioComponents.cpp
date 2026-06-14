@@ -447,7 +447,7 @@ namespace NovaStudioUI
         const int muteX = soloX - btnW - btnGap;
         const int armX  = muteX - btnW - btnGap;
         const int y     = 28 + trackIndex * kTrackHeight - scrollY;
-        const int btnY  = y + (kTrackHeight - btnH) / 2;
+        const int btnY  = y + kTrackHeight - btnH - 6;
 
         juce::Rectangle<int> armR  { armX,  btnY, btnW, btnH };
         juce::Rectangle<int> muteR { muteX, btnY, btnW, btnH };
@@ -463,6 +463,13 @@ namespace NovaStudioUI
     {
         const int numTracks = session.getNumTracks();
         const auto pos = e.getPosition();
+
+        // "+" button in header bar (top 28px)
+        if (pos.y < 28 && pos.x >= getWidth() - 30)
+        {
+            if (onAddTrackClicked) onAddTrackClicked();
+            return;
+        }
 
         for (int i = 0; i < numTracks; ++i)
         {

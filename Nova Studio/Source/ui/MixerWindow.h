@@ -184,6 +184,8 @@ namespace NovaStudioUI
         void buildStrips();
         void timerCallback() override;
         void changeListenerCallback(juce::ChangeBroadcaster*) override;
+        // Returns list of internal buses (one per aux track) + optionally hardware outputs
+        juce::StringArray buildBusList(bool includeHardware) const;
 
         NovaStudio::StudioAudioEngine& engine;
 

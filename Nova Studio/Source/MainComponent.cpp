@@ -37,7 +37,9 @@ MainComponent::MainComponent()
             if (editWindow) editWindow->repaint();
         });
 
-    // Auto-create audio track when user drags a file from the browser
+    // "+" button in track panel header
+    editWindow->onAddTrackClicked = [this]() { menuItemSelected(301, 0); };
+
     editWindow->onCreateAudioTrack = [this](const juce::String& name, bool /*stereo*/) -> int {
         engine.addTrack(name, NovaStudio::TrackType::Audio);
         refreshTrackList();
@@ -793,11 +795,14 @@ void MainComponent::menuItemSelected(int id, int)
             case 304: type = NovaStudio::TrackType::Aux;    prefix = "Aux ";    break;
             default:  type = NovaStudio::TrackType::Audio;  prefix = "Audio ";  break;
         }
-        // Ask how many tracks to add
-        auto* dlg = new juce::AlertWindow("Add Track",
-                                          "How many " + prefix.trimEnd() + " tracks to add?",
+        // Ask track count + mono/stereo
+        auto* dlg = new juce::AlertWindow("Add " + prefix.trimEnd() + " Track",
+                                          "Configure new track:",
                                           juce::MessageBoxIconType::NoIcon);
         dlg->addTextEditor("count", "1", "Number of tracks:");
+        // Mono/stereo only relevant for Audio and Aux
+        if (type == NovaStudio::TrackType::Audio || type == NovaStudio::TrackType::Aux)
+            dlg->addComboBox("channels", { "Stereo", "Mono" }, "Channels:");
         dlg->addButton("Add",    1, juce::KeyPress(juce::KeyPress::returnKey));
         dlg->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
         dlg->setColour(juce::AlertWindow::backgroundColourId, juce::Colour::fromRGB(18, 20, 28));
@@ -808,10 +813,16 @@ void MainComponent::menuItemSelected(int id, int)
                 if (result == 1)
                 {
                     int count = juce::jlimit(1, 64, dlg->getTextEditorContents("count").getIntValue());
+                    bool isStereo = true;
+                    if (auto* cb = dlg->getComboBoxComponent("channels"))
+                        isStereo = (cb->getSelectedItemIndex() == 0); // 0=Stereo, 1=Mono
                     for (int k = 0; k < count; ++k)
                     {
                         const int n = engine.getTrackCount() + 1;
                         engine.addTrack(prefix + juce::String(n), type);
+                        auto& t = engine.getSession().getTrack(engine.getSession().getNumTracks() - 1);
+                        t.isStereo  = isStereo;
+                        t.outputBus = "Main Out";
                     }
                     refreshTrackList();
                     arrangementModel.sendChangeMessage();

@@ -393,7 +393,10 @@ void ChannelStrip::showIOPopup(bool isInput)
     for (int i = 0; i < options.size(); ++i)
         menu.addItem(i + 1, options[i]);
 
-    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this),
+    const auto& targetBounds = isInput ? inputLabelBounds : outputLabelBounds;
+    const auto screenPt = localPointToGlobal(targetBounds.getBottomLeft());
+    menu.showMenuAsync(juce::PopupMenu::Options()
+                           .withTargetScreenArea(juce::Rectangle<int>(screenPt.x, screenPt.y, targetBounds.getWidth(), 1)),
         [this, isInput, options](int result)
         {
             if (result <= 0) return;
@@ -408,6 +411,7 @@ void ChannelStrip::showIOPopup(bool isInput)
                 outputLabel.setText(chosen, juce::dontSendNotification);
                 if (onOutputChanged) onOutputChanged(chosen);
             }
+            repaint();
         });
 }
 
@@ -442,7 +446,9 @@ void ChannelStrip::mouseDown(const juce::MouseEvent& e)
                 }
 
                 const int captureI = i;
-                menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this),
+                const auto rowScreenPt = localPointToGlobal(row.getBottomLeft());
+                menu.showMenuAsync(juce::PopupMenu::Options()
+                    .withTargetScreenArea(juce::Rectangle<int>(rowScreenPt.x, rowScreenPt.y, row.getWidth(), 1)),
                     [this, captureI, outputs](int result)
                     {
                         if (result == 1000 + captureI)
@@ -493,7 +499,9 @@ void ChannelStrip::mouseDown(const juce::MouseEvent& e)
             menu.addSeparator();
             menu.addItem(3, "Remove");
 
-            menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this),
+            const auto slotScreenPt = localPointToGlobal(slot.getBottomLeft());
+            menu.showMenuAsync(juce::PopupMenu::Options()
+                .withTargetScreenArea(juce::Rectangle<int>(slotScreenPt.x, slotScreenPt.y, slot.getWidth(), 1)),
                 [this, slotCapture](int result)
                 {
                     if (result == 1 && onInsertClicked)           onInsertClicked(slotCapture);
@@ -947,6 +955,40 @@ void MixerWindow::changeListenerCallback(juce::ChangeBroadcaster*)
     refresh();
 }
 
+juce::StringArray MixerWindow::buildBusList(bool includeHardware) const
+{
+    juce::StringArray list;
+
+    // Internal buses — one per aux track, named by channel count
+    int ch = 1;
+    const auto& sess = engine.getSession();
+    for (int i = 0; i < sess.getNumTracks(); ++i)
+    {
+        const auto& t = sess.getTrack(i);
+        if (t.type != NovaStudio::TrackType::Aux) continue;
+        if (t.isStereo)
+        {
+            list.add("Bus " + juce::String(ch) + "-" + juce::String(ch + 1)
+                     + "  (" + t.name + ")");
+            ch += 2;
+        }
+        else
+        {
+            list.add("Bus " + juce::String(ch) + "  (" + t.name + ")");
+            ch += 1;
+        }
+    }
+
+    if (includeHardware)
+    {
+        list.add("Main Out");
+        for (int n = 1; n <= 8; ++n)
+            list.add("Output " + juce::String(n) + "-" + juce::String(n + 1));
+    }
+
+    return list;
+}
+
 void MixerWindow::buildStrips()
 {
     stripsContainer.removeAllChildren();
@@ -1018,39 +1060,47 @@ void MixerWindow::buildStrips()
         strip->onSoloToggled      = [this, i](bool solo)   { engine.setTrackSolo(i, solo); };
         strip->onArmToggled       = [this, i](bool armed)  { engine.setTrackArm(i, armed); };
         strip->onSendChanged      = [this, i](int send, float db) { engine.setTrackSendLevel(i, send, db); };
+        // Available hardware inputs
         strip->getAvailableInputs = [this]() -> juce::StringArray {
             juce::StringArray inputs;
             for (int n = 1; n <= 8; ++n) inputs.add("Input " + juce::String(n));
             return inputs;
         };
+        // Available outputs: hardware + internal buses (one per aux track)
         strip->getAvailableOutputs = [this]() -> juce::StringArray {
-            juce::StringArray outputs;
-            outputs.add("Main Out");
-            const auto& sess = engine.getSession();
-            for (int n = 0; n < sess.getNumTracks(); ++n)
-            {
-                const auto& t = sess.getTrack(n);
-                if (t.type == NovaStudio::TrackType::Aux)
-                    outputs.add(t.name);
-            }
-            return outputs;
+            return buildBusList(true);
         };
         wireInserts(strip, i);
     }
 
     // ── Aux strips (engine tracks of type Aux) ────────────────────────────
+    int auxBusChannel = 1; // running channel counter for bus naming
     for (int i = 0; i < numTracks; ++i)
     {
         const auto& track = session.getTrack(i);
         if (track.type != NovaStudio::TrackType::Aux)
             continue;
 
+        // Generate the bus name this aux receives on
+        juce::String busName;
+        if (track.isStereo)
+        {
+            busName = "Bus " + juce::String(auxBusChannel) + "-" + juce::String(auxBusChannel + 1);
+            auxBusChannel += 2;
+        }
+        else
+        {
+            busName = "Bus " + juce::String(auxBusChannel);
+            auxBusChannel += 1;
+        }
+
         auto* strip = auxStrips.add(new ChannelStrip());
         strip->setTrackIndex(i);
         strip->setTrackNumber(stripNum++);
         strip->setAux(true);
         strip->updateAsAux(track.name);
-        // sends start unassigned
+        strip->setInputName(track.inputBus.isEmpty() ? busName : track.inputBus);
+        strip->setOutputName(track.outputBus.isEmpty() ? "Main Out" : track.outputBus);
         stripsContainer.addAndMakeVisible(strip);
 
         strip->onVolumeChanged = [this, i](float db)   { engine.setTrackVolume(i, db); };
@@ -1058,6 +1108,15 @@ void MixerWindow::buildStrips()
         strip->onMuteToggled   = [this, i](bool muted)  { engine.setTrackMute(i, muted); };
         strip->onSoloToggled   = [this, i](bool solo)   { engine.setTrackSolo(i, solo); };
         strip->onSendChanged   = [](int, float) {};
+        strip->onInputChanged  = [this, i](const juce::String& bus) {
+            engine.getSession().getTrack(i).inputBus = bus;
+        };
+        strip->onOutputChanged = [this, i](const juce::String& bus) {
+            engine.getSession().getTrack(i).outputBus = bus;
+        };
+        // Aux inputs = internal buses; outputs = hardware + other buses
+        strip->getAvailableInputs  = [this]() -> juce::StringArray { return buildBusList(false); };
+        strip->getAvailableOutputs = [this]() -> juce::StringArray { return buildBusList(true);  };
         wireInserts(strip, i);
     }
 

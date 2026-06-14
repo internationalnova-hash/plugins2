@@ -28,8 +28,8 @@ namespace NovaStudioUI
 
         void zoomHorizontal(int direction);   // +1 = zoom in, -1 = zoom out
 
-        // Set by MainComponent — called when a file drop needs a new track
         std::function<int(const juce::String&, bool)> onCreateAudioTrack;
+        std::function<void()> onAddTrackClicked;
 
         // Wire engine peak level reader to track header meters
         void setLevelCallback(std::function<float(int,int)> fn);

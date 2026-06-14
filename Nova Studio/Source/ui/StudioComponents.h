@@ -81,6 +81,7 @@ namespace NovaStudioUI
         std::function<void(int, bool)> onTrackSolo;
         std::function<void(int trackIndex, const juce::String& newName)> onTrackRenamed;
         std::function<void(int scrollY)> onScrollChanged;
+        std::function<void()> onAddTrackClicked;
         // Wire to engine.getTrackPeakLevel(trackIndex, channel) — 0=L, 1=R
         std::function<float(int trackIndex, int channel)> getTrackLevel;
 

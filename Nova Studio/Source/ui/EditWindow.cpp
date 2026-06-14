@@ -119,6 +119,7 @@ void EditWindow::setTrackCallbacks(std::function<void(int,bool)> onArm,
         trackPanel->onTrackRenamed = onRenamed
             ? std::move(onRenamed)
             : [this](int, const juce::String&) { arrangementModel.sendChangeMessage(); };
+        trackPanel->onAddTrackClicked = [this]() { if (onAddTrackClicked) onAddTrackClicked(); };
     }
 }
 
