@@ -1111,30 +1111,6 @@ namespace NovaStudio
             }
         }
 
-        // ── Aux send routing (simplified: additive to master output) ─────────
-        {
-            juce::ScopedLock sl(playerLock);
-            const int numTracks = session.getNumTracks();
-            for (int ti = 0; ti < numTracks && ti < trackPlayers.size(); ++ti)
-            {
-                const Track& tr = session.getTrack(ti);
-                for (int s = 0; s < 6; ++s)
-                {
-                    const float sendDb = tr.sendLevels[s];
-                    if (sendDb <= -90.0f) continue;
-                    const float sendGain = juce::Decibels::decibelsToGain(sendDb);
-                    for (int ch = 0; ch < numOutputChannels; ++ch)
-                    {
-                        if (outputChannelData[ch] == nullptr) continue;
-                        const float* srcData = tempBuffer.getReadPointer(
-                            juce::jmin(ch, tempBuffer.getNumChannels() - 1));
-                        for (int samp = 0; samp < numSamples; ++samp)
-                            outputChannelData[ch][samp] += srcData[samp] * sendGain;
-                    }
-                }
-            }
-        }
-
         if (recordingActive.load() && recordingWriter != nullptr)
         {
             const int64_t blockNum = diagBlocksReceived.fetch_add(1);
