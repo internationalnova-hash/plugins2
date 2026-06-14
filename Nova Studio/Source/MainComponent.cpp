@@ -575,8 +575,8 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
         updateStatusMessage("Mix window");
         return true;
     }
-    // Cmd+- → Back to Edit window (Pro Tools Cmd+= goes to mixer, Escape/Cmd+- goes back)
-    if ((isCmd || isCtrl) && key.getKeyCode() == '-')
+    // Cmd+E → Back to Edit window
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'e' || key.getTextCharacter() == 'E'))
     {
         setWorkspaceMode(0);
         updateStatusMessage("Edit window");
