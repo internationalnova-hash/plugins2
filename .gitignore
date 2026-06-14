@@ -19,3 +19,4 @@ NovaStudioProjects/
 
 # JUCE generated helper binaries
 **/juce_*_helper
+.claude/
