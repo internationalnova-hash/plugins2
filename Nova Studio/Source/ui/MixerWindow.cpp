@@ -211,17 +211,10 @@ ChannelStrip::ChannelStrip()
     faderDbLabel.setText("0.0 dB", juce::dontSendNotification);
     addAndMakeVisible(faderDbLabel);
 
-    // ── I/O labels (clickable) ─────────────────────────────────────────────
-    for (auto* lbl : { &inputLabel, &outputLabel })
-    {
-        lbl->setFont(juce::Font(juce::FontOptions(8.5f)));
-        lbl->setJustificationType(juce::Justification::centredLeft);
-        lbl->setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.6f));
-        lbl->setColour(juce::Label::backgroundColourId, juce::Colour::fromRGB(22, 24, 34));
-        addAndMakeVisible(*lbl);
-    }
+    // ── I/O labels (painted as hit targets in paint(); stored as strings only)
     inputLabel .setText("Input 1",  juce::dontSendNotification);
     outputLabel.setText("Main Out", juce::dontSendNotification);
+    // Do NOT addAndMakeVisible — we paint them manually so mouseDown reaches us
 
     // ── M S R buttons ──────────────────────────────────────────────────────
     for (auto* btn : { &muteBtn, &soloBtn, &armBtn })
@@ -270,15 +263,7 @@ ChannelStrip::ChannelStrip()
         lbl.setText("-20.0", juce::dontSendNotification);
         addAndMakeVisible(lbl);
 
-        auto& eb = sendEnableBtns[i];
-        eb.setClickingTogglesState(true);
-        eb.setToggleState(true, juce::dontSendNotification);
-        eb.setColour(juce::TextButton::buttonColourId,   juce::Colour::fromRGB(28, 30, 46));
-        eb.setColour(juce::TextButton::buttonOnColourId, juce::Colour::fromRGB(38, 60, 140));
-        eb.setColour(juce::TextButton::textColourOffId,  juce::Colours::white.withAlpha(0.4f));
-        eb.setColour(juce::TextButton::textColourOnId,   juce::Colours::white);
-        addAndMakeVisible(eb);
-        eb.addListener(this);
+        // sendBusNames[i] stays empty — user assigns via click
     }
 }
 
@@ -290,7 +275,6 @@ ChannelStrip::~ChannelStrip()
     for (auto& k : sendKnobs) k.removeListener(this);
     for (auto* btn : { &muteBtn, &soloBtn, &armBtn, &preBtn, &readBtn })
         btn->removeListener(this);
-    for (auto& eb : sendEnableBtns) eb.removeListener(this);
 }
 
 void ChannelStrip::updateFromTrack(const NovaStudio::Track& track)
@@ -409,8 +393,7 @@ void ChannelStrip::showIOPopup(bool isInput)
     for (int i = 0; i < options.size(); ++i)
         menu.addItem(i + 1, options[i]);
 
-    auto& target = isInput ? inputLabel : outputLabel;
-    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&target),
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this),
         [this, isInput, options](int result)
         {
             if (result <= 0) return;
@@ -431,8 +414,54 @@ void ChannelStrip::showIOPopup(bool isInput)
 void ChannelStrip::mouseDown(const juce::MouseEvent& e)
 {
     // I/O popup
-    if (inputLabel .getBounds().contains(e.getPosition())) { showIOPopup(true);  return; }
-    if (outputLabel.getBounds().contains(e.getPosition())) { showIOPopup(false); return; }
+    if (inputLabelBounds .contains(e.getPosition())) { showIOPopup(true);  return; }
+    if (outputLabelBounds.contains(e.getPosition())) { showIOPopup(false); return; }
+
+    // Send row click — assign or re-assign destination bus
+    {
+        auto sndArea = getSendsRect();
+        for (int i = 0; i < kNumSends; ++i)
+        {
+            auto row = sndArea.removeFromTop(30);
+            if (row.contains(e.getPosition()))
+            {
+                // Build popup: available outputs + "Remove" if already assigned
+                juce::StringArray outputs;
+                if (getAvailableOutputs) outputs = getAvailableOutputs();
+                if (outputs.isEmpty()) { outputs.add("Main Out"); }
+
+                juce::PopupMenu menu;
+                for (int j = 0; j < outputs.size(); ++j)
+                    menu.addItem(j + 1, outputs[j],
+                                 /*enabled=*/true,
+                                 /*ticked=*/outputs[j] == sendBusNames[i]);
+                if (sendBusNames[i].isNotEmpty())
+                {
+                    menu.addSeparator();
+                    menu.addItem(1000 + i, "Remove Send");
+                }
+
+                const int captureI = i;
+                menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this),
+                    [this, captureI, outputs](int result)
+                    {
+                        if (result == 1000 + captureI)
+                        {
+                            sendBusNames[captureI] = {};
+                            resized();
+                            repaint();
+                        }
+                        else if (result > 0 && result <= outputs.size())
+                        {
+                            sendBusNames[captureI] = outputs[result - 1];
+                            resized();
+                            repaint();
+                        }
+                    });
+                return;
+            }
+        }
+    }
 
     // Insert slot hit-test uses getInsertRect()
     auto slotArea = getInsertRect().reduced(4, 2);
@@ -685,35 +714,70 @@ void ChannelStrip::paint(juce::Graphics& g)
         g.drawText("SENDS", sndHdr, juce::Justification::centred);
     }
 
-    // ── Send rows: bus label + dB painted behind controls ─────────────────
+    // ── Send rows: each row is a click target ─────────────────────────────
     {
         auto sndArea = getSendsRect();
         const char* letters[] = { "A", "B" };
         for (int i = 0; i < kNumSends; ++i)
         {
-            auto row = sndArea.removeFromTop(sndArea.getHeight() / juce::jmax(1, kNumSends - i));
-            // Letter badge
-            g.setColour(juce::Colour::fromRGB(50, 50, 80));
-            g.fillRoundedRectangle(juce::Rectangle<float>((float)row.getX() + 2, (float)row.getY() + 2, 12.0f, 12.0f), 2.0f);
-            g.setColour(juce::Colours::white.withAlpha(0.7f));
-            g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
-            g.drawText(letters[i], row.getX() + 2, row.getY() + 2, 12, 12, juce::Justification::centred);
-            // Bus name
-            g.setColour(juce::Colours::white.withAlpha(0.6f));
-            g.setFont(juce::FontOptions(8.0f));
-            g.drawText(sendBusNames[i], row.getX() + 16, row.getY() + 2, 32, 12, juce::Justification::centredLeft);
+            auto row = sndArea.removeFromTop(30);
+            const bool assigned = sendBusNames[i].isNotEmpty();
+
+            // Row background
+            g.setColour(juce::Colour::fromRGB(22, 24, 36));
+            g.fillRoundedRectangle(row.toFloat().reduced(1.0f), 3.0f);
+            g.setColour(kStripEdge);
+            g.drawRoundedRectangle(row.toFloat().reduced(1.0f), 3.0f, 0.7f);
+
+            if (assigned)
+            {
+                // Letter badge
+                g.setColour(juce::Colour::fromRGB(50, 60, 120));
+                g.fillRoundedRectangle(juce::Rectangle<float>((float)row.getX() + 3, (float)row.getCentreY() - 6, 12.0f, 12.0f), 2.0f);
+                g.setColour(juce::Colours::white.withAlpha(0.9f));
+                g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
+                g.drawText(letters[i], row.getX() + 3, row.getCentreY() - 6, 12, 12, juce::Justification::centred);
+                // Bus name
+                g.setColour(juce::Colours::white.withAlpha(0.85f));
+                g.setFont(juce::FontOptions(8.5f));
+                g.drawText(sendBusNames[i], row.getX() + 17, row.getY() + 2, row.getWidth() - 48, row.getHeight() - 4, juce::Justification::centredLeft);
+            }
+            else
+            {
+                // Unassigned: dim prompt
+                g.setColour(juce::Colours::white.withAlpha(0.22f));
+                g.setFont(juce::FontOptions(7.5f));
+                g.drawText(juce::String(letters[i]) + "  -- click to assign --", row.reduced(4, 0), juce::Justification::centredLeft);
+            }
         }
     }
 
-    // ── I/O section separator ──────────────────────────────────────────────
+    // ── I/O rows (painted as clickable pill buttons) ───────────────────────
     {
-        int ioY = inputLabel.getY() - 1;
-        g.setColour(kStripEdge);
-        g.drawHorizontalLine(ioY, 4.0f, (float)W - 4.0f);
-        // "I/O" micro label
-        g.setColour(juce::Colours::white.withAlpha(0.25f));
-        g.setFont(juce::FontOptions(6.5f).withStyle("Bold"));
-        g.drawText("I/O", 4, ioY - 10, 20, 10, juce::Justification::centredLeft);
+        auto paintIO = [&](const juce::Rectangle<int>& b, const juce::String& text, bool isIn)
+        {
+            g.setColour(juce::Colour::fromRGB(22, 25, 38));
+            g.fillRoundedRectangle(b.toFloat(), 3.0f);
+            g.setColour(kStripEdge.withAlpha(0.6f));
+            g.drawRoundedRectangle(b.toFloat().reduced(0.5f), 3.0f, 0.7f);
+            // prefix label
+            g.setColour(juce::Colours::white.withAlpha(0.35f));
+            g.setFont(juce::FontOptions(7.0f));
+            g.drawText(isIn ? "IN" : "OUT", b.getX() + 2, b.getY(), 18, b.getHeight(), juce::Justification::centredLeft);
+            // value + dropdown arrow
+            g.setColour(juce::Colours::white.withAlpha(0.75f));
+            g.setFont(juce::FontOptions(8.0f));
+            g.drawText(text, b.getX() + 20, b.getY(), b.getWidth() - 28, b.getHeight(), juce::Justification::centredLeft);
+            // ▼ arrow
+            g.setColour(juce::Colours::white.withAlpha(0.4f));
+            const float ax = (float)(b.getRight() - 9);
+            const float ay = (float)b.getCentreY() - 1.0f;
+            juce::Path tri;
+            tri.addTriangle(ax - 3.0f, ay - 1.0f, ax + 3.0f, ay - 1.0f, ax, ay + 3.0f);
+            g.fillPath(tri);
+        };
+        paintIO(inputLabelBounds,  inputLabel .getText(), true);
+        paintIO(outputLabelBounds, outputLabel.getText(), false);
     }
 
     // ── Fader area: draw meter bars on right side of fader ────────────────
@@ -807,18 +871,28 @@ void ChannelStrip::resized()
         for (int i = 0; i < kNumSends; ++i)
         {
             auto row = r.removeFromTop(30).reduced(1, 1);
-            // knob on left (after 16px letter + 34px bus name)
-            const int knobX = 16;
-            sendKnobs[i]     .setBounds(row.withLeft(knobX).withWidth(28).reduced(1, 1));
-            sendEnableBtns[i].setBounds(row.withLeft(knobX + 30).withWidth(row.getWidth() - knobX - 30).reduced(1, 2));
-            sendDbLabels[i]  .setBounds(row.withLeft(knobX + 30).withTop(row.getCentreY() + 2).withWidth(row.getWidth() - knobX - 30));
+            const bool assigned = sendBusNames[i].isNotEmpty();
+            if (assigned)
+            {
+                // Knob on the right, dB label below knob
+                auto knobArea = row.removeFromRight(30).reduced(1, 1);
+                sendKnobs[i]   .setBounds(knobArea.withHeight(20));
+                sendDbLabels[i].setBounds(knobArea.withTop(knobArea.getY() + 20));
+                sendKnobs[i]   .setVisible(true);
+                sendDbLabels[i].setVisible(true);
+            }
+            else
+            {
+                sendKnobs[i]   .setVisible(false);
+                sendDbLabels[i].setVisible(false);
+            }
         }
     }
 
-    // ── I/O labels (clickable) ─────────────────────────────────────────────
+    // ── I/O rows (painted, hit-tested via stored bounds) ───────────────────
     r.removeFromTop(4);
-    inputLabel .setBounds(r.removeFromTop(15).reduced(2, 1));
-    outputLabel.setBounds(r.removeFromTop(15).reduced(2, 1));
+    inputLabelBounds  = r.removeFromTop(15).reduced(2, 1);
+    outputLabelBounds = r.removeFromTop(15).reduced(2, 1);
 
     // ── Read button ────────────────────────────────────────────────────────
     readBtn.setBounds(r.removeFromTop(18).reduced(2, 1));
@@ -907,8 +981,7 @@ void MixerWindow::buildStrips()
         };
     };
 
-    // Default send bus names — match aux channel names where possible
-    const juce::String defaultSendBusNames[ChannelStrip::kNumSends] = { "Verb", "Delay" };
+    // Sends start unassigned — user picks the destination via click
 
     static const juce::Colour kTrackPalette[] = {
         juce::Colour::fromRGB(120, 80, 200),
@@ -936,8 +1009,7 @@ void MixerWindow::buildStrips()
         strip->setTrackColour(kTrackPalette[(stripNum - 1) % 8]);
         stripNum++;
         strip->updateFromTrack(track);
-        for (int s = 0; s < ChannelStrip::kNumSends; ++s)
-            strip->setSendBusName(s, defaultSendBusNames[s]);
+        // sends start unassigned
         stripsContainer.addAndMakeVisible(strip);
 
         strip->onVolumeChanged    = [this, i](float db)   { engine.setTrackVolume(i, db); };
@@ -978,8 +1050,7 @@ void MixerWindow::buildStrips()
         strip->setTrackNumber(stripNum++);
         strip->setAux(true);
         strip->updateAsAux(track.name);
-        for (int s = 0; s < ChannelStrip::kNumSends; ++s)
-            strip->setSendBusName(s, defaultSendBusNames[s]);
+        // sends start unassigned
         stripsContainer.addAndMakeVisible(strip);
 
         strip->onVolumeChanged = [this, i](float db)   { engine.setTrackVolume(i, db); };

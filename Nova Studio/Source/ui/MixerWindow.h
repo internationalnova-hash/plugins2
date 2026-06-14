@@ -110,14 +110,15 @@ namespace NovaStudioUI
         juce::Slider     fader;
         juce::Slider     panKnob;     // rotary
         juce::Label      faderDbLabel;
-        juce::Label      inputLabel;
-        juce::Label      outputLabel;
+        juce::Label      inputLabel;   // text storage only — not added as child
+        juce::Label      outputLabel;  // text storage only — not added as child
+        juce::Rectangle<int> inputLabelBounds;
+        juce::Rectangle<int> outputLabelBounds;
 
-        // Sends — one rotary knob + dB label + enable button per send
+        // Sends — one rotary knob + dB label per send; bus name empty = unassigned
         juce::Slider     sendKnobs[kNumSends];
         juce::Label      sendDbLabels[kNumSends];
-        juce::TextButton sendEnableBtns[kNumSends];
-        juce::String     sendBusNames[kNumSends] { "Verb", "Delay" };
+        juce::String     sendBusNames[kNumSends];   // empty = unassigned
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChannelStrip)
     };
