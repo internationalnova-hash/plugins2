@@ -374,10 +374,10 @@ namespace NovaStudioUI
     private:
         void buttonClicked(juce::Button* b) override;
 
-        juce::TextButton playBtn  { "▶" };
-        juce::TextButton stopBtn  { "■" };
-        juce::TextButton recBtn   { "●" };
-        juce::TextButton rtzBtn   { "|◀" };
+        juce::TextButton playBtn  { "PLAY" };
+        juce::TextButton stopBtn  { "STOP" };
+        juce::TextButton recBtn   { "REC" };
+        juce::TextButton rtzBtn   { "RTZ" };
         juce::Label      timecodeLabel;
         juce::Label      bpmLabel;
 

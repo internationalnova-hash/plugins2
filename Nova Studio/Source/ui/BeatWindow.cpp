@@ -1683,7 +1683,7 @@ void BeatTransportBar::paint(juce::Graphics& g)
 void BeatTransportBar::resized()
 {
     auto area = getLocalBounds().reduced(4, 3);
-    const int btnW = 32;
+    const int btnW = 42;
     const int gap  = 3;
 
     rtzBtn .setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap);
