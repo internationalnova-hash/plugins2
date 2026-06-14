@@ -87,11 +87,61 @@ namespace NovaStudio
         void setStepSeqRowMuted(int row, bool muted);
         int  getStepSeqCurrentStep() const noexcept;        // returns which step is playing (-1 if stopped)
 
+        // FL-style per-channel sampler engine: AHDSR amplitude envelope, filter,
+        // LFO modulation, and sample start/end/loop region — all per row.
+        void setStepSeqRowEnvelope(int row, bool enabled, float attackSecs, float holdSecs,
+                                   float decaySecs, float sustainLevel, float releaseSecs);
+        void setStepSeqRowFilter(int row, bool enabled, int filterType /*0=LP,1=HP*/,
+                                 float cutoffHz, float resonance);
+        void setStepSeqRowLFO(int row, bool enabled, int target /*0=pitch,1=volume,2=cutoff*/,
+                              float rateHz, float depth);
+        void setStepSeqRowSampleRegion(int row, float startFrac, float endFrac, bool loop);
+
+        // FL-style "channel settings" engine — AHDSR envelope, filter, LFO and
+        // sample region/loop, all per step-sequencer row (one instance per channel).
+        struct ChannelEngine
+        {
+            // AHDSR amplitude envelope (Attack-Hold-Decay-Sustain-Release)
+            bool   envEnabled = false;
+            float  envAttack  = 0.001f;   // seconds
+            float  envHold    = 0.0f;     // seconds
+            float  envDecay   = 0.1f;     // seconds
+            float  envSustain = 1.0f;     // 0..1 sustain level
+            float  envRelease = 0.05f;    // seconds
+            int    envStage   = 0;        // 0=idle 1=attack 2=hold 3=decay 4=sustain 5=release
+            double envPos     = 0.0;      // samples elapsed within current stage
+            float  envLevel   = 0.0f;     // current envelope output, 0..1
+
+            // Filter — single lowpass/highpass biquad with cutoff + resonance
+            bool   filterEnabled   = false;
+            int    filterType      = 0;       // 0 = lowpass, 1 = highpass
+            float  filterCutoffHz  = 8000.0f;
+            float  filterResonance = 0.707f;
+            bool   filterDirty     = true;    // recompute coefficients on next process
+            double fb0=1, fb1=0, fb2=0, fa1=0, fa2=0;     // cached biquad coefficients
+            double fz1L=0, fz2L=0, fz1R=0, fz2R=0;        // Direct Form II Transposed state
+
+            // LFO — modulates pitch, volume, or filter cutoff
+            bool   lfoEnabled = false;
+            int    lfoTarget  = 0;     // 0 = pitch, 1 = volume, 2 = filter cutoff
+            float  lfoRateHz  = 4.0f;
+            float  lfoDepth   = 0.0f;  // 0..1
+            double lfoPhase   = 0.0;   // 0..1, wraps
+
+            // Sample region — start/end as a 0..1 fraction of the loaded sample,
+            // with optional looping within that region
+            float sampleStart = 0.0f;
+            float sampleEnd   = 1.0f;
+            bool  loopEnabled = false;
+        };
+
         struct StepSequencerState {
             static constexpr int kNumRows  = 8;
             static constexpr int kNumSteps = 64;  // max supported
             int   activeStepCount = 16;            // current pattern length: 16, 32, or 64
             float swing = 0.0f;                    // 0.0 = no swing, 0.5 = heavy
+
+            std::array<ChannelEngine, kNumRows> channelEngines;
 
             juce::String             sampleFiles[kNumRows];
             bool                     steps[kNumRows][kNumSteps] {};
@@ -230,6 +280,11 @@ namespace NovaStudio
                               const juce::AudioIODeviceCallbackContext& context) override;
         void audioDeviceAboutToStart(juce::AudioIODevice* device) override;
         void audioDeviceStopped() override;
+        // FL-style per-channel sampler engine helpers (AHDSR envelope + filter)
+        static float  advanceChannelEnvelope(ChannelEngine& ce, double sampleRate);
+        static double applyChannelFilter(ChannelEngine& ce, int channel, double sample,
+                                          double sampleRate, float lfoValue);
+
         void buildTrackPlayers();
         void refreshTrackPlaybackStates();
         void updateSoloStates();

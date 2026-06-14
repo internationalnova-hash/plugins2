@@ -1314,6 +1314,14 @@ namespace NovaStudio
                             stepSeq.playPositions[row] = 0;
                             stepSeq.playPosFrac[row]   = 0.0;
                             stepSeq.rowTriggered[row]  = true;
+
+                            // Re-trigger the channel engine: reset envelope/LFO so each
+                            // hit starts a fresh AHDSR cycle and modulation phase.
+                            auto& ceTrig = stepSeq.channelEngines[(size_t)row];
+                            ceTrig.envStage = 0;
+                            ceTrig.envPos   = 0.0;
+                            ceTrig.envLevel = 0.0f;
+                            ceTrig.lfoPhase = 0.0;
                         }
                     }
                 }
@@ -1325,6 +1333,7 @@ namespace NovaStudio
 
                     const auto& buf = stepSeq.sampleBuffers[row];
                     const int   numSrcSamples = buf.getNumSamples();
+                    auto&       ce = stepSeq.channelEngines[(size_t)row];
 
                     // Determine velocity for the last triggered step
                     // We use currentStep as an approximation; for per-step accuracy this is sufficient
@@ -1338,6 +1347,90 @@ namespace NovaStudio
                     // playback rate of 2^(semitones/12) using linear interpolation.
                     const float semitones = stepSeq.rowPitches[row];
                     const double rate = std::pow(2.0, (double) semitones / 12.0);
+
+                    const bool useChannelEngine = ce.envEnabled || ce.filterEnabled || ce.lfoEnabled
+                                                    || ce.loopEnabled || ce.sampleStart > 0.0f || ce.sampleEnd < 1.0f;
+
+                    if (useChannelEngine)
+                    {
+                        const double sr = currentSampleRate;
+                        const int regionStart = juce::jlimit(0, juce::jmax(0, numSrcSamples - 1),
+                                                              (int) (ce.sampleStart * (float) numSrcSamples));
+                        const int regionEnd   = juce::jlimit(regionStart + 1, numSrcSamples,
+                                                              (int) (ce.sampleEnd * (float) numSrcSamples));
+                        const double releaseSamples = juce::jmax(1.0f, ce.envRelease) * sr;
+
+                        double readPos = juce::jmax(stepSeq.playPosFrac[row], (double) regionStart);
+
+                        for (int s = 0; s < numSamples; ++s)
+                        {
+                            if (readPos >= (double) (regionEnd - 1))
+                            {
+                                if (ce.loopEnabled)
+                                {
+                                    readPos = (double) regionStart;
+                                }
+                                else
+                                {
+                                    stepSeq.rowTriggered[row] = false;
+                                    break;
+                                }
+                            }
+
+                            // Auto-release: begin the release stage shortly before the
+                            // (non-looping) region ends so AHDSR completes naturally.
+                            if (ce.envEnabled && ! ce.loopEnabled && ce.envStage < 5
+                                && (double) regionEnd - readPos <= releaseSamples)
+                            {
+                                ce.envStage = 5;
+                                ce.envPos   = 0.0;
+                            }
+
+                            float lfoVal = 0.0f;
+                            if (ce.lfoEnabled)
+                            {
+                                lfoVal = (float) std::sin(ce.lfoPhase * juce::MathConstants<double>::twoPi);
+                                ce.lfoPhase += ce.lfoRateHz / sr;
+                                if (ce.lfoPhase >= 1.0) ce.lfoPhase -= 1.0;
+                            }
+
+                            double sampleRate2 = rate;
+                            float  ampMod = 1.0f;
+                            if (ce.lfoEnabled)
+                            {
+                                if (ce.lfoTarget == 0)       // pitch — up to one octave swing * depth
+                                    sampleRate2 *= std::pow(2.0, (double) (lfoVal * ce.lfoDepth));
+                                else if (ce.lfoTarget == 1)  // volume — tremolo
+                                    ampMod = 1.0f + lfoVal * ce.lfoDepth * 0.5f;
+                            }
+
+                            const float envGain = ce.envEnabled ? advanceChannelEnvelope(ce, sr) : 1.0f;
+
+                            const int   i0   = (int) readPos;
+                            const int   i1   = juce::jmin(i0 + 1, numSrcSamples - 1);
+                            const float frac = (float) (readPos - (double) i0);
+
+                            for (int ch = 0; ch < numOutputChannels; ++ch)
+                            {
+                                if (outputChannelData[ch] == nullptr) continue;
+                                const int srcCh = juce::jmin(ch, buf.getNumChannels() - 1);
+                                const float* src = buf.getReadPointer(srcCh);
+                                float samp = src[i0] + (src[i1] - src[i0]) * frac;
+
+                                if (ce.filterEnabled)
+                                    samp = (float) applyChannelFilter(ce, ch, (double) samp, sr, lfoVal);
+
+                                const float chanGain = (ch == 0) ? leftGain : rightGain;
+                                outputChannelData[ch][s] += samp * chanGain * envGain * ampMod;
+                            }
+
+                            readPos += sampleRate2;
+                        }
+
+                        stepSeq.playPosFrac[row]   = readPos;
+                        stepSeq.playPositions[row] = (int64_t) readPos;
+                        continue;
+                    }
 
                     if (juce::approximatelyEqual(rate, 1.0))
                     {
@@ -1756,6 +1849,160 @@ namespace NovaStudio
     {
         if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
         stepSeq.rowMuted[row] = muted;
+    }
+
+    void StudioAudioEngine::setStepSeqRowEnvelope(int row, bool enabled, float attackSecs, float holdSecs,
+                                                   float decaySecs, float sustainLevel, float releaseSecs)
+    {
+        if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
+        auto& ce = stepSeq.channelEngines[(size_t)row];
+        ce.envEnabled = enabled;
+        ce.envAttack  = juce::jmax(0.0005f, attackSecs);
+        ce.envHold    = juce::jmax(0.0f, holdSecs);
+        ce.envDecay   = juce::jmax(0.0005f, decaySecs);
+        ce.envSustain = juce::jlimit(0.0f, 1.0f, sustainLevel);
+        ce.envRelease = juce::jmax(0.0005f, releaseSecs);
+    }
+
+    void StudioAudioEngine::setStepSeqRowFilter(int row, bool enabled, int filterType,
+                                                 float cutoffHz, float resonance)
+    {
+        if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
+        auto& ce = stepSeq.channelEngines[(size_t)row];
+        ce.filterEnabled   = enabled;
+        ce.filterType      = juce::jlimit(0, 1, filterType);
+        ce.filterCutoffHz  = juce::jlimit(20.0f, 20000.0f, cutoffHz);
+        ce.filterResonance = juce::jlimit(0.1f, 10.0f, resonance);
+        ce.filterDirty     = true;
+    }
+
+    void StudioAudioEngine::setStepSeqRowLFO(int row, bool enabled, int target, float rateHz, float depth)
+    {
+        if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
+        auto& ce = stepSeq.channelEngines[(size_t)row];
+        ce.lfoEnabled = enabled;
+        ce.lfoTarget  = juce::jlimit(0, 2, target);
+        ce.lfoRateHz  = juce::jlimit(0.01f, 30.0f, rateHz);
+        ce.lfoDepth   = juce::jlimit(0.0f, 1.0f, depth);
+    }
+
+    void StudioAudioEngine::setStepSeqRowSampleRegion(int row, float startFrac, float endFrac, bool loop)
+    {
+        if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
+        auto& ce = stepSeq.channelEngines[(size_t)row];
+        float s = juce::jlimit(0.0f, 1.0f, startFrac);
+        float e = juce::jlimit(0.0f, 1.0f, endFrac);
+        if (e <= s) e = juce::jmin(1.0f, s + 0.01f);
+        ce.sampleStart  = s;
+        ce.sampleEnd    = e;
+        ce.loopEnabled  = loop;
+    }
+
+    float StudioAudioEngine::advanceChannelEnvelope(ChannelEngine& ce, double sampleRate)
+    {
+        const auto secsToSamples = [sampleRate](float secs) { return juce::jmax(1.0, (double) secs * sampleRate); };
+
+        switch (ce.envStage)
+        {
+            case 0: // Idle -> begin Attack on (re)trigger
+                ce.envStage = 1;
+                ce.envPos   = 0.0;
+                break;
+            default: break;
+        }
+
+        switch (ce.envStage)
+        {
+            case 1: // Attack: 0 -> 1
+            {
+                const double atk = secsToSamples(ce.envAttack);
+                ce.envLevel = (float) juce::jmin(1.0, ce.envPos / atk);
+                ce.envPos += 1.0;
+                if (ce.envPos >= atk) { ce.envStage = 2; ce.envPos = 0.0; }
+                break;
+            }
+            case 2: // Hold at peak
+            {
+                ce.envLevel = 1.0f;
+                const double hold = secsToSamples(ce.envHold);
+                ce.envPos += 1.0;
+                if (ce.envPos >= hold) { ce.envStage = 3; ce.envPos = 0.0; }
+                break;
+            }
+            case 3: // Decay: 1 -> sustain level
+            {
+                const double dec = secsToSamples(ce.envDecay);
+                const double t   = juce::jmin(1.0, ce.envPos / dec);
+                ce.envLevel = (float) (1.0 + ((double) ce.envSustain - 1.0) * t);
+                ce.envPos += 1.0;
+                if (ce.envPos >= dec) { ce.envStage = 4; ce.envPos = 0.0; }
+                break;
+            }
+            case 4: // Sustain: held until release is triggered
+                ce.envLevel = ce.envSustain;
+                break;
+            case 5: // Release: sustain -> 0
+            {
+                const double rel = secsToSamples(ce.envRelease);
+                const double t   = juce::jmin(1.0, ce.envPos / rel);
+                ce.envLevel = (float) ((double) ce.envSustain * (1.0 - t));
+                ce.envPos += 1.0;
+                break;
+            }
+            default: break;
+        }
+
+        return ce.envLevel;
+    }
+
+    double StudioAudioEngine::applyChannelFilter(ChannelEngine& ce, int channel, double sample,
+                                                  double sampleRate, float lfoValue)
+    {
+        const bool modulatingCutoff = ce.lfoEnabled && ce.lfoTarget == 2;
+
+        if (ce.filterDirty || modulatingCutoff)
+        {
+            float cutoff = ce.filterCutoffHz;
+            if (modulatingCutoff)
+                cutoff *= std::pow(2.0f, lfoValue * ce.lfoDepth * 2.0f); // up to +/- 2 octaves
+            cutoff = juce::jlimit(20.0f, (float) (sampleRate * 0.45), cutoff);
+
+            const double w0    = juce::MathConstants<double>::twoPi * (double) cutoff / sampleRate;
+            const double cosw0 = std::cos(w0);
+            const double sinw0 = std::sin(w0);
+            const double Q     = juce::jmax(0.1, (double) ce.filterResonance);
+            const double alpha = sinw0 / (2.0 * Q);
+
+            double b0, b1, b2, a0, a1, a2;
+            if (ce.filterType == 1) // highpass
+            {
+                b0 =  (1.0 + cosw0) / 2.0;
+                b1 = -(1.0 + cosw0);
+                b2 =  (1.0 + cosw0) / 2.0;
+            }
+            else // lowpass
+            {
+                b0 = (1.0 - cosw0) / 2.0;
+                b1 =  1.0 - cosw0;
+                b2 = (1.0 - cosw0) / 2.0;
+            }
+            a0 =  1.0 + alpha;
+            a1 = -2.0 * cosw0;
+            a2 =  1.0 - alpha;
+
+            ce.fb0 = b0 / a0; ce.fb1 = b1 / a0; ce.fb2 = b2 / a0;
+            ce.fa1 = a1 / a0; ce.fa2 = a2 / a0;
+            ce.filterDirty = false;
+        }
+
+        double& z1 = (channel == 0) ? ce.fz1L : ce.fz1R;
+        double& z2 = (channel == 0) ? ce.fz2L : ce.fz2R;
+
+        const double in  = sample;
+        const double out = ce.fb0 * in + z1;
+        z1 = ce.fb1 * in - ce.fa1 * out + z2;
+        z2 = ce.fb2 * in - ce.fa2 * out;
+        return out;
     }
 
     int StudioAudioEngine::getStepSeqCurrentStep() const noexcept
