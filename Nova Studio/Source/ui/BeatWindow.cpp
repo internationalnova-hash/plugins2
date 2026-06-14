@@ -289,9 +289,10 @@ PianoRollView::PianoRollView()
 void PianoRollView::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds();
-    auto snapArea = bounds.removeFromBottom(kSnapH);
-    auto velArea  = bounds.removeFromBottom(kVelHeight);
-    auto mainArea = bounds;
+    auto snapArea  = bounds.removeFromBottom(kSnapH);
+    auto toolsArea = bounds.removeFromBottom(kToolsH);
+    auto velArea   = bounds.removeFromBottom(kVelHeight);
+    auto mainArea  = bounds;
 
     auto keysArea = mainArea.removeFromLeft(kKeyWidth);
     auto gridArea = mainArea;
@@ -301,19 +302,82 @@ void PianoRollView::paint(juce::Graphics& g)
     drawGrid(g, gridArea);
     drawNotes(g, gridArea);
     drawVelocityLane(g, velArea);
+    drawToolsRow(g, toolsArea);
     drawSnapControls(g, snapArea);
 }
 
 void PianoRollView::resized() {}
 
+int PianoRollView::hitTestNote(int pitch, int step) const
+{
+    for (int i = notes.size() - 1; i >= 0; --i)
+    {
+        const auto& n = notes.getReference(i);
+        if (n.pitch == pitch && step >= n.startStep && step < n.startStep + n.lengthSteps)
+            return i;
+    }
+    return -1;
+}
+
+int PianoRollView::snapDivisorSteps() const
+{
+    // Grid steps are 1/16-note resolution; map snap choice to a step count.
+    switch (snapMode)
+    {
+        case 0: return 4; // 1/4
+        case 1: return 2; // 1/8
+        case 2: return 1; // 1/16
+        case 3: return 1; // 1/32 — finer than grid resolution, falls back to per-step
+        default: return 1; // Free
+    }
+}
+
 void PianoRollView::mouseDown(const juce::MouseEvent& e)
 {
     auto bounds = getLocalBounds();
-    bounds.removeFromBottom(kSnapH);
+    auto snapArea  = bounds.removeFromBottom(kSnapH);
+    auto toolsArea = bounds.removeFromBottom(kToolsH);
     bounds.removeFromBottom(kVelHeight);
     auto mainArea = bounds;
     mainArea.removeFromLeft(kKeyWidth);
     auto gridArea = mainArea;
+
+    // ── Snap row clicks ──────────────────────────────────────────────────
+    if (snapArea.contains(e.getPosition()))
+    {
+        const int btnX0 = snapArea.getX() + 92;
+        const int idx = (e.x - btnX0) / 38;
+        if (idx >= 0 && idx <= 4 && e.x < btnX0 + 5 * 38)
+            setSnapMode(idx);
+        return;
+    }
+
+    // ── Tools row clicks ─────────────────────────────────────────────────
+    if (toolsArea.contains(e.getPosition()))
+    {
+        static const char* toolNames[] = { "Strum", "Flam", "Chop", "Arp", "Scale" };
+        const int btnW = 56;
+        int btnX0 = toolsArea.getX() + 6;
+        int idx = (e.x - btnX0) / btnW;
+        if (idx >= 0 && idx < 5 && e.x < btnX0 + 5 * btnW)
+        {
+            switch (idx)
+            {
+                case 0: // Strum — ascending by default, shift = descending
+                    toolStrum(! e.mods.isShiftDown());
+                    break;
+                case 1: toolFlam(); break;
+                case 2: toolChop(e.mods.isShiftDown() ? 4 : 2); break;
+                case 3: // Arpeggiate — cycle pattern with shift, default up
+                    toolArpeggiate(e.mods.isShiftDown() ? 1 : 0);
+                    break;
+                case 4: showScalePickerMenu(); break;
+                default: break;
+            }
+            juce::ignoreUnused(toolNames);
+        }
+        return;
+    }
 
     if (!gridArea.contains(e.getPosition()))
         return;
@@ -334,19 +398,61 @@ void PianoRollView::mouseDown(const juce::MouseEvent& e)
     if (step < 0 || step >= numSteps) return;
 
     int pitch = startPitch + (totalPitches - 1 - pitchRow);
+    int hitIdx = hitTestNote(pitch, step);
 
-    for (int i = notes.size() - 1; i >= 0; --i)
+    if (e.mods.isRightButtonDown() || e.mods.isPopupMenu())
     {
-        const auto& n = notes.getReference(i);
-        if (n.pitch == pitch && step >= n.startStep && step < n.startStep + n.lengthSteps)
+        if (hitIdx >= 0)
         {
-            notes.remove(i);
-            repaint();
-            return;
+            if (! selectedNotes.contains(hitIdx))
+            {
+                if (! e.mods.isShiftDown())
+                    selectedNotes.clear();
+                selectedNotes.add(hitIdx);
+            }
+            showNoteContextMenu(hitIdx);
         }
+        else
+        {
+            showGridContextMenu();
+        }
+        repaint();
+        return;
     }
 
-    notes.add({ pitch, step, 1, 0.8f });
+    if (hitIdx >= 0)
+    {
+        // Select (shift = add/remove from selection)
+        if (e.mods.isShiftDown())
+        {
+            if (selectedNotes.contains(hitIdx))
+                selectedNotes.removeFirstMatchingValue(hitIdx);
+            else
+                selectedNotes.add(hitIdx);
+        }
+        else if (e.getNumberOfClicks() >= 2)
+        {
+            // Double-click = delete
+            notes.remove(hitIdx);
+            selectedNotes.clear();
+        }
+        else
+        {
+            selectedNotes.clearQuick();
+            selectedNotes.add(hitIdx);
+        }
+        repaint();
+        return;
+    }
+
+    // Snap the new note's start position to the active grid resolution
+    int divisor = snapDivisorSteps();
+    int snappedStep = (divisor > 1) ? (step / divisor) * divisor : step;
+
+    notes.add({ pitch, snappedStep, 1, 0.8f });
+    if (! e.mods.isShiftDown())
+        selectedNotes.clearQuick();
+    selectedNotes.add(notes.size() - 1);
     repaint();
 }
 
@@ -424,6 +530,13 @@ void PianoRollView::drawGrid(juce::Graphics& g, juce::Rectangle<int> area) const
         g.setColour(isBlack ? BeatTheme::stepOff().darker(0.2f) : BeatTheme::stepOff());
         g.fillRect(area.getX(), y, area.getWidth(), kRowHeight);
 
+        // Highlight rows that fall within the active scale (FL-style scale guide)
+        if (scaleRoot >= 0 && isPitchInScale(pitch))
+        {
+            g.setColour(BeatTheme::accent().withAlpha(0.10f));
+            g.fillRect(area.getX(), y, area.getWidth(), kRowHeight);
+        }
+
         g.setColour(note == 0 ? BeatTheme::gridBeat() : BeatTheme::grid());
         g.drawHorizontalLine(y, (float)area.getX(), (float)area.getRight());
     }
@@ -446,8 +559,9 @@ void PianoRollView::drawNotes(juce::Graphics& g, juce::Rectangle<int> area) cons
     const int numSteps     = 32;
     int stepW = juce::jmax(1, area.getWidth() / numSteps);
 
-    for (auto& note : notes)
+    for (int i = 0; i < notes.size(); ++i)
     {
+        const auto& note = notes.getReference(i);
         int pitchIdx = (startPitch + totalPitches - 1 - note.pitch);
         if (pitchIdx < 0 || pitchIdx >= totalPitches) continue;
 
@@ -456,11 +570,13 @@ void PianoRollView::drawNotes(juce::Graphics& g, juce::Rectangle<int> area) cons
         int w = note.lengthSteps * stepW - 2;
         int h = kRowHeight - 1;
 
+        const bool isSelected = selectedNotes.contains(i);
+
         auto nr = juce::Rectangle<int>(x, y, w, h);
-        g.setColour(BeatTheme::noteBlock().withAlpha(0.85f));
+        g.setColour((isSelected ? BeatTheme::noteBlock().brighter(0.5f) : BeatTheme::noteBlock()).withAlpha(0.85f));
         g.fillRoundedRectangle(nr.toFloat(), 2.0f);
-        g.setColour(BeatTheme::noteBlock().brighter(0.4f));
-        g.drawRoundedRectangle(nr.toFloat(), 2.0f, 1.0f);
+        g.setColour(isSelected ? juce::Colours::white.withAlpha(0.9f) : BeatTheme::noteBlock().brighter(0.4f));
+        g.drawRoundedRectangle(nr.toFloat(), 2.0f, isSelected ? 1.6f : 1.0f);
 
         g.setColour(juce::Colour::fromRGBA(200, 220, 255, (uint8_t)(note.velocity * 180)));
         g.fillRect(x, y, 3, h);
@@ -497,24 +613,353 @@ void PianoRollView::drawSnapControls(juce::Graphics& g, juce::Rectangle<int> are
     g.setColour(BeatTheme::panel().brighter(0.05f));
     g.fillRect(area);
 
+    static const char* labels[] = { "1/4", "1/8", "1/16", "1/32", "Free" };
     g.setColour(juce::Colours::white.withAlpha(0.5f));
     g.setFont(juce::FontOptions(10.0f));
-    g.drawText("Snap: 1/16", area.getX() + 8, area.getY(), 80, area.getHeight(), juce::Justification::centredLeft);
+    g.drawText("Snap: " + juce::String(labels[juce::jlimit(0, 4, snapMode)]),
+               area.getX() + 8, area.getY(), 80, area.getHeight(), juce::Justification::centredLeft);
 
-    const char* labels[] = { "1/4", "1/8", "1/16", "1/32", "Free" };
     int btnX = area.getX() + 92;
-    for (auto* lbl : labels)
+    for (int i = 0; i < 5; ++i)
     {
-        bool active = juce::String(lbl) == "1/16";
+        bool active = (i == snapMode);
         g.setColour(active ? BeatTheme::accent() : BeatTheme::stepOff());
         g.fillRoundedRectangle((float)btnX, (float)(area.getY() + 3), 34.0f, (float)(area.getHeight() - 6), 3.0f);
         g.setColour(juce::Colours::white.withAlpha(active ? 1.0f : 0.6f));
-        g.drawText(lbl, btnX, area.getY(), 34, area.getHeight(), juce::Justification::centred);
+        g.drawText(labels[i], btnX, area.getY(), 34, area.getHeight(), juce::Justification::centred);
         btnX += 38;
     }
 
     g.setColour(BeatTheme::edge());
     g.drawRect(area, 1);
+}
+
+void PianoRollView::drawToolsRow(juce::Graphics& g, juce::Rectangle<int> area) const
+{
+    g.setColour(BeatTheme::panel().brighter(0.03f));
+    g.fillRect(area);
+
+    static const char* names[] = { "Strum", "Flam", "Chop", "Arp", "Scale" };
+    const int btnW = 56;
+    int btnX = area.getX() + 6;
+    for (int i = 0; i < 5; ++i)
+    {
+        bool isScaleBtn = (i == 4);
+        bool active = isScaleBtn && scaleRoot >= 0;
+        auto br = juce::Rectangle<float>((float)btnX, (float)(area.getY() + 3), (float)(btnW - 6), (float)(area.getHeight() - 6));
+        g.setColour(active ? BeatTheme::accent().withAlpha(0.8f) : BeatTheme::stepOff());
+        g.fillRoundedRectangle(br, 3.0f);
+        g.setColour(juce::Colours::white.withAlpha(active ? 1.0f : 0.7f));
+        g.setFont(juce::FontOptions(10.0f));
+        juce::String label = names[i];
+        if (isScaleBtn && scaleRoot >= 0)
+        {
+            static const char* rootNames[] = { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" };
+            label = juce::String(rootNames[scaleRoot]) + " " + scaleTypeName(scaleType);
+        }
+        g.drawText(label, br.toNearestInt(), juce::Justification::centred, true);
+        btnX += btnW;
+    }
+
+    g.setColour(juce::Colours::white.withAlpha(0.35f));
+    g.setFont(juce::FontOptions(9.0f));
+    g.drawText(selectedNotes.isEmpty() ? "Select notes, then apply a tool"
+                                       : (juce::String(selectedNotes.size()) + " note(s) selected"),
+               btnX + 8, area.getY(), area.getWidth() - (btnX + 8 - area.getX()), area.getHeight(),
+               juce::Justification::centredLeft, true);
+
+    g.setColour(BeatTheme::edge());
+    g.drawRect(area, 1);
+}
+
+// ── Snap / scale state ───────────────────────────────────────────────────────
+
+void PianoRollView::setSnapMode(int mode)
+{
+    snapMode = juce::jlimit(0, 4, mode);
+    repaint();
+}
+
+const char* PianoRollView::scaleTypeName(int type)
+{
+    static const char* names[] = { "Major", "Minor", "Dorian", "Mixolydian", "Chromatic" };
+    return names[juce::jlimit(0, kNumScaleTypes - 1, type)];
+}
+
+void PianoRollView::setScale(int rootPitchClass, int newScaleType)
+{
+    scaleRoot = juce::jlimit(-1, 11, rootPitchClass);
+    scaleType = juce::jlimit(0, kNumScaleTypes - 1, newScaleType);
+    repaint();
+}
+
+bool PianoRollView::isPitchInScale(int pitch) const
+{
+    if (scaleRoot < 0) return false;
+    if (scaleType == 4) return true; // Chromatic — every note belongs
+
+    static const int intervals[kNumScaleTypes - 1][7] = {
+        { 0, 2, 4, 5, 7, 9, 11 },   // Major
+        { 0, 2, 3, 5, 7, 8, 10 },   // Natural minor
+        { 0, 2, 3, 5, 7, 9, 10 },   // Dorian
+        { 0, 2, 4, 5, 7, 9, 10 },   // Mixolydian
+    };
+    int rel = ((pitch - scaleRoot) % 12 + 12) % 12;
+    for (int iv : intervals[scaleType])
+        if (iv == rel) return true;
+    return false;
+}
+
+// ── Note tools (FL Studio Piano Roll parity) ─────────────────────────────────
+
+void PianoRollView::toolStrum(bool ascending, int stepsBetweenNotes)
+{
+    if (selectedNotes.size() < 2) return;
+
+    juce::Array<int> order = selectedNotes;
+    std::sort(order.begin(), order.end(), [this, ascending](int a, int b)
+    {
+        int pa = notes.getReference(a).pitch;
+        int pb = notes.getReference(b).pitch;
+        return ascending ? (pa < pb) : (pa > pb);
+    });
+
+    int anchor = notes.getReference(order.getFirst()).startStep;
+    for (int idx : order)
+        anchor = juce::jmin(anchor, notes.getReference(idx).startStep);
+
+    for (int i = 0; i < order.size(); ++i)
+        notes.getReference(order[i]).startStep = anchor + i * juce::jmax(1, stepsBetweenNotes);
+
+    repaint();
+}
+
+void PianoRollView::toolFlam()
+{
+    if (selectedNotes.isEmpty()) return;
+
+    juce::Array<int> sorted = selectedNotes;
+    sorted.sort();
+
+    juce::Array<NoteBlock> graceNotes;
+    for (int idx : sorted)
+    {
+        if (! juce::isPositiveAndBelow(idx, notes.size())) continue;
+        const auto& n = notes.getReference(idx);
+        if (n.startStep > 0)
+            graceNotes.add({ n.pitch, n.startStep - 1, 1, juce::jmax(0.1f, n.velocity * 0.6f) });
+    }
+
+    for (auto& gn : graceNotes)
+    {
+        notes.add(gn);
+        selectedNotes.addIfNotAlreadyThere(notes.size() - 1);
+    }
+    repaint();
+}
+
+void PianoRollView::toolChop(int numSlices)
+{
+    if (selectedNotes.isEmpty() || numSlices < 2) return;
+
+    juce::Array<int> sorted = selectedNotes;
+    sorted.sort();
+
+    juce::Array<NoteBlock> originals;
+    for (int idx : sorted)
+        if (juce::isPositiveAndBelow(idx, notes.size()))
+            originals.add(notes.getReference(idx));
+
+    for (int i = sorted.size() - 1; i >= 0; --i)
+        notes.remove(sorted[i]);
+
+    selectedNotes.clearQuick();
+
+    for (auto& orig : originals)
+    {
+        int sliceLen = juce::jmax(1, orig.lengthSteps / numSlices);
+        int n = juce::jmax(1, orig.lengthSteps / sliceLen);
+        for (int s = 0; s < n; ++s)
+        {
+            notes.add({ orig.pitch, orig.startStep + s * sliceLen, sliceLen, orig.velocity });
+            selectedNotes.add(notes.size() - 1);
+        }
+    }
+    repaint();
+}
+
+void PianoRollView::toolArpeggiate(int pattern)
+{
+    if (selectedNotes.size() < 2) return;
+
+    juce::Array<int> order = selectedNotes;
+    std::sort(order.begin(), order.end(), [this](int a, int b)
+    {
+        return notes.getReference(a).pitch < notes.getReference(b).pitch;
+    });
+
+    if (pattern == 1) // down
+    {
+        std::reverse(order.begin(), order.end());
+    }
+    else if (pattern == 2) // up-down — replay the descending half as new note copies
+    {
+        juce::Array<int> seq = order;
+        for (int i = (int)order.size() - 2; i > 0; --i)
+        {
+            auto copy = notes.getReference(order[i]);
+            notes.add(copy);
+            seq.add(notes.size() - 1);
+        }
+        order = seq;
+    }
+
+    int anchor = notes.getReference(order.getFirst()).startStep;
+    for (int idx : selectedNotes)
+        anchor = juce::jmin(anchor, notes.getReference(idx).startStep);
+
+    const int spacing = juce::jmax(1, snapDivisorSteps());
+    for (int i = 0; i < order.size(); ++i)
+    {
+        auto& n = notes.getReference(order[i]);
+        n.startStep   = anchor + i * spacing;
+        n.lengthSteps = juce::jmin(n.lengthSteps, spacing);
+    }
+
+    selectedNotes = order;
+    repaint();
+}
+
+void PianoRollView::toolQuantizeSelection()
+{
+    if (selectedNotes.isEmpty()) return;
+    int divisor = snapDivisorSteps();
+    if (divisor <= 1) return;
+
+    for (int idx : selectedNotes)
+        if (juce::isPositiveAndBelow(idx, notes.size()))
+        {
+            auto& n = notes.getReference(idx);
+            n.startStep = (n.startStep / divisor) * divisor;
+        }
+    repaint();
+}
+
+// ── Context menus ────────────────────────────────────────────────────────────
+
+void PianoRollView::showNoteContextMenu(int noteIndex)
+{
+    juce::ignoreUnused(noteIndex);
+
+    juce::PopupMenu strumSub;
+    strumSub.addItem(1, "Strum up (low to high)");
+    strumSub.addItem(2, "Strum down (high to low)");
+
+    juce::PopupMenu chopSub;
+    chopSub.addItem(10, "Chop into 2");
+    chopSub.addItem(11, "Chop into 3");
+    chopSub.addItem(12, "Chop into 4");
+
+    juce::PopupMenu arpSub;
+    arpSub.addItem(20, "Arpeggiate up");
+    arpSub.addItem(21, "Arpeggiate down");
+    arpSub.addItem(22, "Arpeggiate up-down");
+
+    const bool haveChord = selectedNotes.size() >= 2;
+
+    juce::PopupMenu m;
+    m.addSubMenu("Strum", strumSub, haveChord);
+    m.addItem(102, "Flam");
+    m.addSubMenu("Chop", chopSub);
+    m.addSubMenu("Arpeggiate", arpSub, haveChord);
+    m.addItem(30, "Quantize to grid");
+    m.addSeparator();
+    m.addItem(99, "Delete");
+
+    m.showMenuAsync(juce::PopupMenu::Options(), [this](int result)
+    {
+        switch (result)
+        {
+            case 1:   toolStrum(true);  break;
+            case 2:   toolStrum(false); break;
+            case 102: toolFlam();       break;
+            case 10:  toolChop(2);      break;
+            case 11:  toolChop(3);      break;
+            case 12:  toolChop(4);      break;
+            case 20:  toolArpeggiate(0); break;
+            case 21:  toolArpeggiate(1); break;
+            case 22:  toolArpeggiate(2); break;
+            case 30:  toolQuantizeSelection(); break;
+            case 99:
+            {
+                juce::Array<int> sorted = selectedNotes;
+                sorted.sort();
+                for (int i = sorted.size() - 1; i >= 0; --i)
+                    if (juce::isPositiveAndBelow(sorted[i], notes.size()))
+                        notes.remove(sorted[i]);
+                selectedNotes.clear();
+                repaint();
+                break;
+            }
+            default: break;
+        }
+    });
+}
+
+void PianoRollView::showGridContextMenu()
+{
+    juce::PopupMenu m;
+    m.addItem(1, "Select all");
+    m.addItem(2, "Clear selection");
+    m.addSeparator();
+    m.addItem(3, "Set scale/key...");
+    m.addItem(4, "Clear scale highlight", scaleRoot >= 0);
+
+    m.showMenuAsync(juce::PopupMenu::Options(), [this](int result)
+    {
+        switch (result)
+        {
+            case 1:
+                selectedNotes.clearQuick();
+                for (int i = 0; i < notes.size(); ++i)
+                    selectedNotes.add(i);
+                repaint();
+                break;
+            case 2: selectedNotes.clear(); repaint(); break;
+            case 3: showScalePickerMenu(); break;
+            case 4: setScale(-1, scaleType); break;
+            default: break;
+        }
+    });
+}
+
+void PianoRollView::showScalePickerMenu()
+{
+    static const char* rootNames[] = { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" };
+
+    juce::PopupMenu rootSub;
+    for (int i = 0; i < 12; ++i)
+        rootSub.addItem(100 + i, rootNames[i], true, scaleRoot == i);
+
+    juce::PopupMenu typeSub;
+    for (int t = 0; t < kNumScaleTypes; ++t)
+        typeSub.addItem(200 + t, scaleTypeName(t), true, scaleType == t);
+
+    juce::PopupMenu m;
+    m.addSubMenu("Root note", rootSub);
+    m.addSubMenu("Scale type", typeSub);
+    m.addSeparator();
+    m.addItem(1, "Off (chromatic guide)");
+
+    m.showMenuAsync(juce::PopupMenu::Options(), [this](int result)
+    {
+        if (result == 1)
+            setScale(-1, scaleType);
+        else if (result >= 100 && result < 112)
+            setScale(result - 100, scaleType);
+        else if (result >= 200 && result < 200 + kNumScaleTypes)
+            setScale(scaleRoot < 0 ? 0 : scaleRoot, result - 200);
+    });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

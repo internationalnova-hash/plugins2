@@ -117,12 +117,34 @@ namespace NovaStudioUI
         void resized() override;
         void mouseDown(const juce::MouseEvent& e) override;
 
+        // ── FL-style note tools (operate on the current selection; act as no-ops
+        // when nothing is selected) ──────────────────────────────────────────
+        void toolStrum(bool ascending, int stepsBetweenNotes = 1);
+        void toolFlam();
+        void toolChop(int numSlices);
+        void toolArpeggiate(int pattern);  // 0 = up, 1 = down, 2 = up-down
+        void toolQuantizeSelection();
+
+        static constexpr int kNumScaleTypes = 5;
+        static const char* scaleTypeName(int type);
+        void setScale(int rootPitchClass, int scaleType);  // rootPitchClass: -1 = off (chromatic), 0-11 = C..B
+        void setSnapMode(int mode);                         // 0=1/4 1=1/8 2=1/16 3=1/32 4=Free
+
     private:
         void drawPianoKeys(juce::Graphics& g, juce::Rectangle<int> keysArea) const;
         void drawGrid(juce::Graphics& g, juce::Rectangle<int> gridArea) const;
         void drawNotes(juce::Graphics& g, juce::Rectangle<int> gridArea) const;
         void drawVelocityLane(juce::Graphics& g, juce::Rectangle<int> area) const;
         void drawSnapControls(juce::Graphics& g, juce::Rectangle<int> area) const;
+        void drawToolsRow(juce::Graphics& g, juce::Rectangle<int> area) const;
+
+        void showNoteContextMenu(int noteIndex);
+        void showGridContextMenu();
+        void showScalePickerMenu();
+
+        bool isPitchInScale(int pitch) const;
+        int  snapDivisorSteps() const;
+        int  hitTestNote(int pitch, int step) const; // -1 if none
 
         static constexpr int kKeyWidth   = 36;
         static constexpr int kRowHeight  = 12;
@@ -130,9 +152,15 @@ namespace NovaStudioUI
         static constexpr int kHeaderH    = 24;
         static constexpr int kNumOctaves = 5;
         static constexpr int kSnapH      = 22;
+        static constexpr int kToolsH     = 24;
 
         struct NoteBlock { int pitch, startStep, lengthSteps; float velocity; };
         juce::Array<NoteBlock> notes;
+        juce::Array<int> selectedNotes;   // indices into `notes`
+
+        int snapMode   = 2;     // index into {1/4, 1/8, 1/16, 1/32, Free}
+        int scaleRoot  = -1;    // -1 = chromatic (no highlight), 0-11 = pitch class of root (C=0)
+        int scaleType  = 0;     // index into scale interval table
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PianoRollView)
     };
