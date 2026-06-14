@@ -907,11 +907,14 @@ namespace NovaStudio
     {
         currentSampleRate = device->getCurrentSampleRate();
         currentBufferSize = device->getCurrentBufferSizeSamples();
+        session.setSampleRate(currentSampleRate);
+        transportState.setSampleRate(currentSampleRate);
+        cachedActiveInputChannels = device->getActiveInputChannels().countNumberOfSetBits();
 
         juce::Logger::writeToLog("audioDeviceAboutToStart: " + device->getName()
             + "  SR=" + juce::String(currentSampleRate)
             + "  buf=" + juce::String(currentBufferSize)
-            + "  activeIn=" + juce::String(device->getActiveInputChannels().countNumberOfSetBits())
+            + "  activeIn=" + juce::String(cachedActiveInputChannels)
             + "  activeOut=" + juce::String(device->getActiveOutputChannels().countNumberOfSetBits()));
 
         mixerSource.prepareToPlay(currentBufferSize, currentSampleRate);
@@ -935,8 +938,10 @@ namespace NovaStudio
         {
             auto trackPlayer = std::make_unique<TrackPlayer>();
             trackPlayer->setTrackMetadata(session.getTrack(index));
-            // give the player a reference to the session and its track index so it can gate clips
             trackPlayer->setSessionTrack(&session, index);
+            // Prepare immediately if the device is already running
+            if (currentSampleRate > 0 && currentBufferSize > 0)
+                trackPlayer->prepareToPlay(currentBufferSize, currentSampleRate);
 
             trackPlayers.add(std::move(trackPlayer));
             mixerSource.addInputSource(trackPlayers.getReference(trackPlayers.size() - 1).get(), false);
