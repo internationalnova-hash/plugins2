@@ -41,13 +41,13 @@ namespace NovaStudioUI
         void buttonClicked(juce::Button* button) override;
         void timerCallback() override;
 
-        // Unicode icon buttons — no text labels
-        juce::TextButton rtzButton     { juce::CharPointer_UTF8("\xe2\x8f\xae")   }; // ⏮
-        juce::TextButton playButton    { juce::CharPointer_UTF8("\xe2\x96\xb6")   }; // ▶
-        juce::TextButton stopButton    { juce::CharPointer_UTF8("\xe2\x96\xa0")   }; // ■
-        juce::TextButton recordButton  { juce::CharPointer_UTF8("\xe2\x8f\xba")   }; // ⏺
-        juce::TextButton loopButton    { juce::CharPointer_UTF8("\xe2\x86\xbb")   }; // ↻
-        juce::TextButton monitorButton { juce::CharPointer_UTF8("\xf0\x9f\x8e\xa7") }; // 🎧
+        // Buttons with icons drawn manually in paint() — empty text to avoid font issues on Linux
+        juce::TextButton rtzButton     {};
+        juce::TextButton playButton    {};
+        juce::TextButton stopButton    {};
+        juce::TextButton recordButton  {};
+        juce::TextButton loopButton    {};
+        juce::TextButton monitorButton {};
 
         juce::Label tempoLabel;
         juce::Label timeLabel;
@@ -74,6 +74,9 @@ namespace NovaStudioUI
         std::function<void(int, bool)> onTrackArm;
         std::function<void(int, bool)> onTrackMute;
         std::function<void(int, bool)> onTrackSolo;
+        std::function<void(int trackIndex, const juce::String& newName)> onTrackRenamed;
+
+        void mouseDoubleClick(const juce::MouseEvent& e) override;
 
     private:
         enum class HitButton { None, Arm, Mute, Solo };

@@ -52,6 +52,70 @@ namespace NovaStudioUI
         g.setColour(juce::Colours::white.withAlpha(0.72f));
         g.setFont(juce::Font(12.0f, juce::Font::bold));
         g.drawText("TRANSPORT", 16, 12, 120, 16, juce::Justification::left);
+
+        // Draw icons at each button's position (avoids Unicode font issues on Linux)
+        auto drawIcon = [&](juce::TextButton& btn, std::function<void(juce::Graphics&, juce::Rectangle<float>)> fn) {
+            fn(g, btn.getBounds().toFloat());
+        };
+
+        // RTZ |◀
+        drawIcon(rtzButton, [](juce::Graphics& g, juce::Rectangle<float> r) {
+            g.setColour(juce::Colours::white.withAlpha(0.85f));
+            g.fillRect(r.getX() + r.getWidth()*0.2f, r.getY() + r.getHeight()*0.25f, 2.0f, r.getHeight()*0.5f);
+            juce::Path tri;
+            float cx = r.getCentreX() + 2.0f, cy = r.getCentreY();
+            float h = r.getHeight() * 0.35f;
+            tri.addTriangle(cx + h, cy - h, cx + h, cy + h, cx - h*0.5f, cy);
+            g.fillPath(tri);
+        });
+
+        // Play ▶
+        drawIcon(playButton, [](juce::Graphics& g, juce::Rectangle<float> r) {
+            g.setColour(juce::Colours::white.withAlpha(0.85f));
+            juce::Path tri;
+            float cx = r.getCentreX(), cy = r.getCentreY(), h = r.getHeight()*0.35f;
+            tri.addTriangle(cx - h*0.6f, cy - h, cx - h*0.6f, cy + h, cx + h, cy);
+            g.fillPath(tri);
+        });
+
+        // Stop ■
+        drawIcon(stopButton, [](juce::Graphics& g, juce::Rectangle<float> r) {
+            g.setColour(juce::Colours::white.withAlpha(0.85f));
+            float s = r.getHeight() * 0.4f;
+            g.fillRect(r.getCentreX() - s/2, r.getCentreY() - s/2, s, s);
+        });
+
+        // Record ●
+        drawIcon(recordButton, [](juce::Graphics& g, juce::Rectangle<float> r) {
+            g.setColour(juce::Colour::fromRGB(220, 55, 55).withAlpha(0.9f));
+            float s = r.getHeight() * 0.38f;
+            g.fillEllipse(r.getCentreX() - s, r.getCentreY() - s, s*2, s*2);
+        });
+
+        // Loop ↻ (arc + arrowhead)
+        drawIcon(loopButton, [](juce::Graphics& g, juce::Rectangle<float> r) {
+            g.setColour(juce::Colours::white.withAlpha(0.85f));
+            float cx = r.getCentreX(), cy = r.getCentreY(), rad = r.getHeight()*0.3f;
+            juce::Path arc;
+            arc.addArc(cx - rad, cy - rad, rad*2, rad*2,
+                       juce::MathConstants<float>::pi * 0.2f,
+                       juce::MathConstants<float>::pi * 1.9f, true);
+            g.strokePath(arc, juce::PathStrokeType(1.8f));
+            float ax = cx + rad * std::cos(juce::MathConstants<float>::pi * 0.2f);
+            float ay = cy + rad * std::sin(juce::MathConstants<float>::pi * 0.2f);
+            juce::Path head;
+            head.addTriangle(ax, ay - 3.0f, ax + 5.0f, ay + 1.0f, ax - 2.0f, ay + 3.0f);
+            g.fillPath(head);
+        });
+
+        // Monitor ◎
+        drawIcon(monitorButton, [](juce::Graphics& g, juce::Rectangle<float> r) {
+            g.setColour(juce::Colours::white.withAlpha(0.85f));
+            float cx = r.getCentreX(), cy = r.getCentreY(), rad = r.getHeight()*0.28f;
+            g.drawEllipse(cx - rad, cy - rad, rad*2, rad*2, 1.5f);
+            float ir = rad * 0.45f;
+            g.fillEllipse(cx - ir, cy - ir, ir*2, ir*2);
+        });
     }
 
     void TransportBar::resized()
@@ -343,6 +407,31 @@ namespace NovaStudioUI
                 return;
             }
         }
+    }
+
+    void TrackPanel::mouseDoubleClick(const juce::MouseEvent& e)
+    {
+        const int kHdrH = 28; // header height above track 0
+        const int y = e.y - kHdrH;
+        if (y < 0) return;
+        const int trackIndex = y / kTrackHeight;
+        if (trackIndex < 0 || trackIndex >= session.getNumTracks()) return;
+
+        auto& track = session.getTrack(trackIndex);
+        juce::AlertWindow::showInputBoxAsync(
+            "Rename Track",
+            "Enter new track name:",
+            track.name,
+            nullptr,
+            [this, trackIndex](const juce::String& result)
+            {
+                if (result.isNotEmpty())
+                {
+                    session.getTrack(trackIndex).name = result;
+                    if (onTrackRenamed) onTrackRenamed(trackIndex, result);
+                    repaint();
+                }
+            });
     }
 
     InspectorPanel::InspectorPanel(NovaStudio::ArrangementModel& arrangementModelRef)

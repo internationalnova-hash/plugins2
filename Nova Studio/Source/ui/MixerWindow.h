@@ -96,7 +96,8 @@ namespace NovaStudioUI
         PluginEditorWindow(juce::AudioPluginInstance& instance, int trackIndex, int pluginSlot)
             : juce::DocumentWindow(instance.getName(),
                                    juce::Colour::fromRGB(24, 26, 36),
-                                   DocumentWindow::closeButton | DocumentWindow::minimiseButton)
+                                   DocumentWindow::closeButton | DocumentWindow::minimiseButton),
+              trackIdx(trackIndex), pluginSlotIdx(pluginSlot)
         {
             setUsingNativeTitleBar(false);
             auto* editor = instance.createEditorIfNeeded();
@@ -107,10 +108,16 @@ namespace NovaStudioUI
             centreWithSize(getWidth(), getHeight());
             setVisible(true);
             toFront(true);
-            (void)trackIndex; (void)pluginSlot;
         }
 
         void closeButtonPressed() override { setVisible(false); }
+
+        int getTrackIndex() const { return trackIdx; }
+        int getPluginSlot() const { return pluginSlotIdx; }
+
+    private:
+        int trackIdx;
+        int pluginSlotIdx;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginEditorWindow)
     };

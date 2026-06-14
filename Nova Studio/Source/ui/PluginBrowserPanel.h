@@ -13,7 +13,8 @@ namespace NovaStudioUI
     class PluginBrowserPanel : public juce::Component,
                                private juce::ListBoxModel,
                                private juce::Button::Listener,
-                               private juce::TextEditor::Listener
+                               private juce::TextEditor::Listener,
+                               private juce::Timer
     {
     public:
         explicit PluginBrowserPanel(NovaStudio::StudioAudioEngine& engineRef);
@@ -67,16 +68,12 @@ namespace NovaStudioUI
         int targetSlot  = 0;
         std::atomic<bool> scanning { false };
 
-        // Background scan thread
-        struct ScanThread : public juce::Thread
-        {
-            PluginBrowserPanel& owner;
-            juce::AudioPluginFormatManager& fmgr;
-            ScanThread(PluginBrowserPanel& o, juce::AudioPluginFormatManager& f)
-                : juce::Thread("PluginScan"), owner(o), fmgr(f) {}
-            void run() override;
-        };
-        std::unique_ptr<ScanThread> scanThread;
+        // Timer-based step scanner (runs on message thread — safe for VST3/X11)
+        juce::OwnedArray<juce::KnownPluginList>        scanFmtLists;
+        juce::OwnedArray<juce::PluginDirectoryScanner> scanners;
+        juce::Array<juce::PluginDescription>           scanResults;
+        int currentScannerIdx = 0;
+        void timerCallback() override;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginBrowserPanel)
     };
@@ -99,6 +96,7 @@ namespace NovaStudioUI
             panel->onPluginLoaded = [this, onLoaded](int t, int s, const juce::String& name)
             {
                 if (onLoaded) onLoaded(t, s, name);
+                setVisible(false);  // auto-close after successful load
             };
             setUsingNativeTitleBar(false);
             setContentNonOwned(panel.get(), false);

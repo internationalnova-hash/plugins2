@@ -602,19 +602,20 @@ void MixerWindow::openPluginBrowser(int trackIndex, int slotIndex)
 void MixerWindow::openPluginEditor(int trackIndex, int pluginSlot)
 {
     auto* instance = engine.getTrackPlugin(trackIndex, pluginSlot);
-    if (instance == nullptr)
-        return;
+    if (instance == nullptr) return;
 
-    // Bring existing editor to front if already open
+    // Find existing editor for this exact track+slot
     for (auto* win : editorWindows)
     {
-        if (win->isVisible())
+        if (win->getTrackIndex() == trackIndex && win->getPluginSlot() == pluginSlot)
         {
+            win->setVisible(true);
             win->toFront(true);
             return;
         }
     }
 
+    // No existing window — create one
     editorWindows.add(new PluginEditorWindow(*instance, trackIndex, pluginSlot));
 }
 

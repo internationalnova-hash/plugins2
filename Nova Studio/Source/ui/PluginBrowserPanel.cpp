@@ -61,11 +61,7 @@ PluginBrowserPanel::PluginBrowserPanel(NovaStudio::StudioAudioEngine& engineRef)
 
 PluginBrowserPanel::~PluginBrowserPanel()
 {
-    if (scanThread && scanThread->isThreadRunning())
-    {
-        scanThread->signalThreadShouldExit();
-        scanThread->waitForThreadToExit(3000);
-    }
+    stopTimer();
 }
 
 void PluginBrowserPanel::setTargetTrackAndSlot(int trackIndex, int slotIndex)
@@ -191,23 +187,18 @@ void PluginBrowserPanel::startScan()
     allPlugins.clear();
     filteredPlugins.clear();
     pluginList.updateContent();
-    statusLabel.setText("Scanning (background)...", juce::dontSendNotification);
+    statusLabel.setText("Scanning...", juce::dontSendNotification);
     repaint();
 
-    scanThread = std::make_unique<ScanThread>(*this, formatManager);
-    scanThread->startThread();
-}
+    // Set up one PluginDirectoryScanner per format (runs on message thread — safe for VST3/X11)
+    scanFmtLists.clear();
+    scanners.clear();
+    scanResults.clear();
+    currentScannerIdx = 0;
 
-void PluginBrowserPanel::ScanThread::run()
-{
-    juce::KnownPluginList tempKnown;
-    juce::Array<juce::PluginDescription> results;
-
-    for (int fi = 0; fi < fmgr.getNumFormats(); ++fi)
+    for (int fi = 0; fi < formatManager.getNumFormats(); ++fi)
     {
-        if (threadShouldExit()) break;
-
-        auto* fmt = fmgr.getFormat(fi);
+        auto* fmt = formatManager.getFormat(fi);
         juce::FileSearchPath fmtPaths;
         fmtPaths.addPath(fmt->getDefaultLocationsToSearch());
 
@@ -234,29 +225,39 @@ void PluginBrowserPanel::ScanThread::run()
         fmtPaths.add(juce::File("C:/Program Files (x86)/Common Files/VST3"));
 #endif
 
-        juce::KnownPluginList fmtList;
-        juce::PluginDirectoryScanner fmtScanner(fmtList, *fmt, fmtPaths, true, juce::File(), false);
-
-        juce::String nextPlugin;
-        while (!threadShouldExit() && fmtScanner.scanNextFile(true, nextPlugin)) {}
-
-        for (auto& desc : fmtList.getTypes())
-            results.add(desc);
+        auto* fmtList = scanFmtLists.add(new juce::KnownPluginList());
+        scanners.add(new juce::PluginDirectoryScanner(*fmtList, *fmt, fmtPaths, true, juce::File(), false));
     }
 
-    struct ByName
-    {
-        static int compareElements(const juce::PluginDescription& a, const juce::PluginDescription& b)
-        { return a.name.compareIgnoreCase(b.name); }
-    } sorter;
-    results.sort(sorter);
+    startTimerHz(30);
+}
 
-    // Post results back to message thread
-    juce::Array<juce::PluginDescription> captured = results;
-    juce::MessageManager::callAsync([&owner = this->owner, captured]() mutable
+void PluginBrowserPanel::timerCallback()
+{
+    if (currentScannerIdx >= scanners.size())
     {
-        owner.finishScan(std::move(captured));
-    });
+        stopTimer();
+        finishScan(std::move(scanResults));
+        return;
+    }
+
+    // Scan up to 3 files per tick to balance speed vs responsiveness
+    for (int i = 0; i < 3; ++i)
+    {
+        juce::String next;
+        bool more = scanners[currentScannerIdx]->scanNextFile(true, next);
+        // Update progress label
+        if (!next.isEmpty())
+            statusLabel.setText("Scanning: " + juce::File(next).getFileName(), juce::dontSendNotification);
+        if (!more)
+        {
+            // Format done — collect results
+            for (auto& d : scanFmtLists[currentScannerIdx]->getTypes())
+                scanResults.add(d);
+            ++currentScannerIdx;
+            break;
+        }
+    }
 }
 
 void PluginBrowserPanel::finishScan(juce::Array<juce::PluginDescription> results)
