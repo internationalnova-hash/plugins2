@@ -1968,23 +1968,38 @@ void ArrangementView::itemDropped(const SourceDetails& details)
     const int dropY = (int)details.localPosition.y;
     const int dropX = (int)details.localPosition.x;
 
-    const int trackIndex = juce::jmax(0, (int)((dropY - rulerH + trackScrollY) / trackHeight));
-    auto& session = arrangementModel.getSession();
-    if (trackIndex >= session.getNumTracks()) return;
-
-    const int64_t samplePos = juce::jmax<int64_t>(0,
-        (int64_t)timelineModel.getSamplePositionForX(dropX));
-
-    // Read actual duration from file
+    // Read file metadata first — need channel count and length
     juce::AudioFormatManager fmt;
     fmt.registerBasicFormats();
     std::unique_ptr<juce::AudioFormatReader> reader(fmt.createReaderFor(file));
 
+    const bool isStereo     = reader && reader->numChannels >= 2;
+    const int64_t lengthSmp = reader ? reader->lengthInSamples : (int64_t)(44100 * 5);
+
+    auto& session = arrangementModel.getSession();
+    int trackIndex = (int)((dropY - rulerH + trackScrollY) / trackHeight);
+
+    // If dropped below all tracks (or on empty space), create a new track
+    if (trackIndex < 0 || trackIndex >= session.getNumTracks())
+    {
+        const juce::String trackName = (isStereo ? "Stereo - " : "Mono - ")
+                                       + file.getFileNameWithoutExtension();
+        if (onCreateAudioTrack)
+            trackIndex = onCreateAudioTrack(trackName, isStereo);
+        else
+            trackIndex = session.getNumTracks() - 1;  // fallback: last track
+
+        if (trackIndex < 0 || trackIndex >= session.getNumTracks()) return;
+    }
+
+    const int64_t samplePos = juce::jmax<int64_t>(0,
+        (int64_t)timelineModel.getSamplePositionForX(dropX));
+
     NovaStudio::Clip clip;
-    clip.file         = file;
-    clip.startSample  = samplePos;
-    clip.lengthSamples = reader ? reader->lengthInSamples : (int64_t)(44100 * 5);
-    clip.isMidi       = false;
+    clip.file           = file;
+    clip.startSample    = samplePos;
+    clip.lengthSamples  = lengthSmp;
+    clip.isMidi         = false;
 
     session.getTrack(trackIndex).clips.add(clip);
     arrangementModel.sendChangeMessage();

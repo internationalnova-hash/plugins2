@@ -393,6 +393,8 @@ namespace NovaStudioUI
         void setTrackScrollY(int y) { trackScrollY = y; repaint(); }
         int  getTrackScrollY() const { return trackScrollY; }
         std::function<void(int)> onScrollChanged;  // fires when ArrangementView scrolls
+        // Called when a file drop needs a new track: (name, isStereo) -> new track index
+        std::function<int(const juce::String&, bool)> onCreateAudioTrack;
 
     private:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ArrangementView)

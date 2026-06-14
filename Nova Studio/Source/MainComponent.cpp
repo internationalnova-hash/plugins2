@@ -36,6 +36,14 @@ MainComponent::MainComponent()
             engine.setTrackSolo(idx, solo);
             if (editWindow) editWindow->repaint();
         });
+
+    // Auto-create audio track when user drags a file from the browser
+    editWindow->onCreateAudioTrack = [this](const juce::String& name, bool /*stereo*/) -> int {
+        engine.addTrack(name, NovaStudio::TrackType::Audio);
+        refreshTrackList();
+        return engine.getSession().getNumTracks() - 1;
+    };
+
     mixerWindow = std::make_unique<NovaStudioUI::MixerWindow>(engine);
     addAndMakeVisible(*mixerWindow);
     mixerWindow->setVisible(false);

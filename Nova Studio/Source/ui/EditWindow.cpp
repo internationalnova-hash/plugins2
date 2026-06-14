@@ -77,6 +77,15 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
             if (trackPanel) trackPanel->setScrollY(y);
         };
     }
+
+    // Forward track-creation request to MainComponent via our own callback
+    if (arrangementView)
+    {
+        arrangementView->onCreateAudioTrack = [this](const juce::String& name, bool stereo) -> int {
+            if (onCreateAudioTrack) return onCreateAudioTrack(name, stereo);
+            return -1;
+        };
+    }
 }
 
 void EditWindow::zoomHorizontal(int direction)

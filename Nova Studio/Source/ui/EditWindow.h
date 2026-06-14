@@ -28,6 +28,9 @@ namespace NovaStudioUI
 
         void zoomHorizontal(int direction);   // +1 = zoom in, -1 = zoom out
 
+        // Set by MainComponent — called when a file drop needs a new track
+        std::function<int(const juce::String&, bool)> onCreateAudioTrack;
+
     private:
         void changeListenerCallback(juce::ChangeBroadcaster* source) override;
 
