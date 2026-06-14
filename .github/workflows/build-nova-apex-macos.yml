@@ -1,0 +1,36 @@
+name: Build Nova Apex macOS
+
+on:
+  push:
+    paths:
+      - 'Nova Apex/**'
+      - '.github/workflows/build-nova-apex-macos.yml'
+  pull_request:
+    paths:
+      - 'Nova Apex/**'
+      - '.github/workflows/build-nova-apex-macos.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        run: brew install cmake
+
+      - name: Clean build directory
+        run: rm -rf "Nova Apex/build"
+
+      - name: Configure CMake
+        run: cmake -S "Nova Apex" -B "Nova Apex/build"
+
+      - name: Build
+        run: cmake --build "Nova Apex/build" --config Release
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaApex-macOS-build
+          path: Nova Apex/build
