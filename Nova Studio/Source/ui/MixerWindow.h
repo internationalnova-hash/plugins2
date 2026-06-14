@@ -16,9 +16,10 @@ namespace NovaStudioUI
                          private juce::Button::Listener
     {
     public:
-        static constexpr int kWidth       = 90;
-        static constexpr int kMasterWidth = 108;
-        static constexpr int kHeight      = 480;
+        static constexpr int kWidth       = 96;
+        static constexpr int kMasterWidth = 112;
+        static constexpr int kHeight      = 580;
+        static constexpr int kNumSends    = 4;
 
         ChannelStrip();
         ~ChannelStrip() override;
@@ -28,6 +29,7 @@ namespace NovaStudioUI
 
         void setTrackIndex(int index)    { trackIndex = index; }
         int  getTrackIndex() const       { return trackIndex; }
+        void setTrackNumber(int n)       { trackNumber = n; repaint(); }
         void setMaster(bool master)      { isMaster = master; repaint(); }
         void setAux(bool aux)            { isAux = aux; repaint(); }
 
@@ -35,32 +37,37 @@ namespace NovaStudioUI
         void updateAsMaster();
         void updateAsAux(const juce::String& label);
 
-        // Meter level: 0.0–1.0, called by timer
         void setMeterLevel(float left, float right);
         float getMeterLeft()  const noexcept { return meterLeft; }
         float getMeterRight() const noexcept { return meterRight; }
 
-        // Update displayed insert slot names (called by MixerWindow when plugins change)
         void setInsertSlotName(int slot, const juce::String& name)
         {
-            if (isPositiveAndBelow(slot, 9))
-            {
-                insertSlotNames[slot] = name;
-                repaint();
-            }
+            if (isPositiveAndBelow(slot, 9)) { insertSlotNames[slot] = name; repaint(); }
         }
+        void setSendName(int send, const juce::String& name)
+        {
+            if (isPositiveAndBelow(send, kNumSends)) { sendNames[send] = name; repaint(); }
+        }
+        void setSendLevel(int send, float db)
+        {
+            if (isPositiveAndBelow(send, kNumSends))
+                sendKnobs[send].setValue(db, juce::dontSendNotification);
+        }
+
         juce::String insertSlotNames[9];
         bool insertsExpanded = false;
 
-        // Callbacks wired by MixerWindow after construction
-        std::function<void(float dB)>  onVolumeChanged;
-        std::function<void(float pan)> onPanChanged;
-        std::function<void(bool)>      onMuteToggled;
-        std::function<void(bool)>      onSoloToggled;
-        std::function<void(bool)>      onArmToggled;
-        std::function<void(int slot)>  onInsertClicked;       // open editor (slot has plugin) or browser (empty)
-        std::function<void(int slot)>  onInsertChangePlugin;  // replace plugin in slot
-        std::function<void(int slot)>  onInsertRemovePlugin;  // remove plugin from slot
+        // Callbacks
+        std::function<void(float dB)>         onVolumeChanged;
+        std::function<void(float pan)>        onPanChanged;
+        std::function<void(bool)>             onMuteToggled;
+        std::function<void(bool)>             onSoloToggled;
+        std::function<void(bool)>             onArmToggled;
+        std::function<void(int slot)>         onInsertClicked;
+        std::function<void(int slot)>         onInsertChangePlugin;
+        std::function<void(int slot)>         onInsertRemovePlugin;
+        std::function<void(int send, float)>  onSendChanged;  // send index, dB value
 
         void mouseDown(const juce::MouseEvent& e) override;
 
@@ -68,23 +75,33 @@ namespace NovaStudioUI
         void sliderValueChanged(juce::Slider* s) override;
         void buttonClicked(juce::Button* b) override;
         void drawInsertSlots(juce::Graphics& g, juce::Rectangle<int> area) const;
-        void drawSendSlots(juce::Graphics& g, juce::Rectangle<int> area) const;
         void drawMeter(juce::Graphics& g, juce::Rectangle<int> area) const;
+        void drawDbScale(juce::Graphics& g, juce::Rectangle<int> faderArea) const;
 
-        int   trackIndex = -1;
-        bool  isMaster   = false;
-        bool  isAux      = false;
-        float meterLeft  = 0.0f;
-        float meterRight = 0.0f;
+        int   trackIndex  = -1;
+        int   trackNumber = 0;
+        bool  isMaster    = false;
+        bool  isAux       = false;
+        float meterLeft   = 0.0f;
+        float meterRight  = 0.0f;
 
         juce::Label      nameLabel;
         juce::TextButton muteBtn  { "M" };
         juce::TextButton soloBtn  { "S" };
-        juce::TextButton armBtn   { "A" };
+        juce::TextButton armBtn   { "R" };
+        juce::TextButton preBtn   { "PRE" };
+        juce::TextButton readBtn  { "Read" };
         juce::Slider     fader;
         juce::Slider     panSlider;
         juce::Label      faderDbLabel;
-        juce::Label      routingLabel;
+        juce::Label      inputLabel;
+        juce::Label      outputLabel;
+
+        // Send controls — one knob + label per send (A B C D)
+        juce::Slider     sendKnobs[kNumSends];
+        juce::Label      sendDbLabels[kNumSends];
+        juce::TextButton sendEnableBtns[kNumSends];
+        juce::String     sendNames[kNumSends] { "A", "B", "C", "D" };
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChannelStrip)
     };
