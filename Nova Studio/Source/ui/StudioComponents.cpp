@@ -3872,6 +3872,20 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
             row.preBtn.setButtonText(pre ? "PRE" : "POST");
         }
 
+        // Always reset EQ to flat/disabled when switching tracks.
+        // EQ state lives in the engine's TrackPlayer, not in the Track struct,
+        // so we can't restore it here — just guarantee a flat starting state.
+        static const float kDefaultFreqs[kNumBands] = { 80.0f, 200.0f, 800.0f, 3000.0f, 8000.0f, 16000.0f };
+        for (int i = 0; i < kNumBands; ++i)
+        {
+            eqBands[i].freq    = kDefaultFreqs[i];
+            eqBands[i].gain    = 0.0f;
+            eqBands[i].q       = 0.707f;
+            eqBands[i].enabled = false;
+            bandControls[i].enableBtn.setToggleState(false, juce::dontSendNotification);
+            bandControls[i].enableBtn.setColour(juce::TextButton::buttonColourId, kBypassOff);
+        }
+
         repaint();
     }
 

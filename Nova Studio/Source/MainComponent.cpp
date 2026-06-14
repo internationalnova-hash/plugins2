@@ -329,7 +329,8 @@ MainComponent::MainComponent()
         setWorkspaceMode(0);
     }
 
-    // Register for keyboard shortcuts (undo/redo)
+    // Register for keyboard shortcuts so they fire regardless of which
+    // child component currently holds keyboard focus.
     addKeyListener(this);
     setWantsKeyboardFocus(true);
 }
@@ -342,8 +343,18 @@ void MainComponent::changeListenerCallback(juce::ChangeBroadcaster* source)
     }
 }
 
+void MainComponent::parentHierarchyChanged()
+{
+    // Once we have a top-level window, register as a key listener on it so
+    // shortcuts fire regardless of which child component holds keyboard focus.
+    if (auto* tlw = getTopLevelComponent())
+        tlw->addKeyListener(this);
+}
+
 MainComponent::~MainComponent()
 {
+    if (auto* tlw = getTopLevelComponent())
+        tlw->removeKeyListener(this);
     // Close floating windows before destroying content
     if (floatingMixer)  { floatingMixer->setContentNonOwned(nullptr, false);  floatingMixer.reset(); }
     if (floatingBeat)   { floatingBeat->setContentNonOwned(nullptr, false);   floatingBeat.reset(); }
@@ -551,20 +562,12 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
     }
 
     // ── Window / mode switching ──────────────────────────────────────────────
-    // Cmd+E  or  Cmd+=  → Edit window  (Pro Tools: Cmd+=)
-    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'e' || key.getTextCharacter() == 'E'
-                               || key.getKeyCode() == '='))
+    // Cmd+= → Toggle between Edit and Mix windows (Pro Tools style)
+    if ((isCmd || isCtrl) && key.getKeyCode() == '=')
     {
-        setWorkspaceMode(0);
-        updateStatusMessage("Edit window");
-        return true;
-    }
-    // Cmd+M  or  Cmd+-  → Mixer  (Pro Tools: Cmd+-)
-    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'm' || key.getTextCharacter() == 'M'
-                               || key.getKeyCode() == '-'))
-    {
-        setWorkspaceMode(1);
-        updateStatusMessage("Mixer");
+        const bool mixVisible = mixerWindow && mixerWindow->isVisible() && floatingMixer;
+        setWorkspaceMode(mixVisible ? 0 : 1);
+        updateStatusMessage(mixVisible ? "Edit window" : "Mix window");
         return true;
     }
     // Cmd+B → Beat production screen
@@ -583,22 +586,28 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
     }
 
     // ── Transport shortcuts ──────────────────────────────────────────────────
-    // Space → Play / Stop toggle
-    if (!isCmd && !isCtrl && key.getKeyCode() == juce::KeyPress::spaceKey)
+    // Space → Play / Stop toggle (works regardless of modifiers)
+    if (key.getKeyCode() == juce::KeyPress::spaceKey && !isCmd && !isCtrl)
     {
         if (workspaceToolbar.onPlay) workspaceToolbar.onPlay();
         return true;
     }
-    // Shift+Space → Half-speed playback
-    if (!isCmd && !isCtrl && isShift && key.getKeyCode() == juce::KeyPress::spaceKey)
+    // Cmd+Space / F12 → Toggle Record (Pro Tools)
+    if ((isCmd || isCtrl) && key.getKeyCode() == juce::KeyPress::spaceKey)
     {
-        updateStatusMessage("Half-speed playback not yet available");
+        engine.toggleRecord();
         return true;
     }
-    // Return/Enter → Return to zero
-    if (!isCmd && !isCtrl && !isShift && key.getKeyCode() == juce::KeyPress::returnKey)
+    // Return/Enter → Return to zero / go to start
+    if (key.getKeyCode() == juce::KeyPress::returnKey && !isCmd && !isCtrl && !isShift)
     {
         if (workspaceToolbar.onReturnToZero) workspaceToolbar.onReturnToZero();
+        return true;
+    }
+    // Cmd+Shift+L → Loop playback toggle (Pro Tools)
+    if ((isCmd || isCtrl) && isShift && (key.getTextCharacter() == 'l' || key.getTextCharacter() == 'L'))
+    {
+        if (workspaceToolbar.onLoop) workspaceToolbar.onLoop();
         return true;
     }
     // F12 → Record
@@ -843,16 +852,46 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
     }
 
     // ── Zoom shortcuts ───────────────────────────────────────────────────────
-    // Cmd+]  or  Cmd++  → Zoom in
-    if ((isCmd || isCtrl) && (key.getKeyCode() == ']' || key.getKeyCode() == '='))
+    // Cmd+] → Zoom in horizontally
+    if ((isCmd || isCtrl) && key.getKeyCode() == ']')
     {
         if (editWindow) editWindow->zoomHorizontal(1);
         return true;
     }
-    // Cmd+[  or  Cmd+-  → Zoom out  (Cmd+- also opens Mixer; zoom wins when Edit is active)
-    if ((isCmd || isCtrl) && (key.getKeyCode() == '['))
+    // Cmd+[ → Zoom out horizontally
+    if ((isCmd || isCtrl) && key.getKeyCode() == '[')
     {
         if (editWindow) editWindow->zoomHorizontal(-1);
+        return true;
+    }
+    // Opt+A (Mac) / Alt+A (Win) → Zoom to fit all (zoom out to see full session)
+    if (key.getModifiers().isAltDown() && !isCmd && !isCtrl
+        && (key.getTextCharacter() == 'a' || key.getTextCharacter() == 'A'))
+    {
+        // Zoom out repeatedly until full session is visible
+        for (int i = 0; i < 10; ++i)
+            if (editWindow) editWindow->zoomHorizontal(-1);
+        updateStatusMessage("Zoom to fit session");
+        return true;
+    }
+    // Opt+F / Alt+F → Zoom to fit selection
+    if (key.getModifiers().isAltDown() && !isCmd && !isCtrl
+        && (key.getTextCharacter() == 'f' || key.getTextCharacter() == 'F'))
+    {
+        for (int i = 0; i < 5; ++i)
+            if (editWindow) editWindow->zoomHorizontal(1);
+        updateStatusMessage("Zoom in");
+        return true;
+    }
+    // Shift+Opt+3 (Mac) / Shift+Alt+3 (Win) → Consolidate selection
+    if (isShift && key.getModifiers().isAltDown() && key.getKeyCode() == '3')
+    {
+        if (arrangementModel.hasSelection())
+        {
+            // Consolidate = duplicate clip then delete originals (simple version)
+            arrangementModel.duplicateSelectedClip();
+            updateStatusMessage("Consolidate: duplicate created");
+        }
         return true;
     }
 

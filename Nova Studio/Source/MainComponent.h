@@ -63,6 +63,7 @@ private:
     void updateStatusMessage(const juce::String& message);
     void refreshTrackList();
     bool keyPressed(const juce::KeyPress& key, juce::Component* originatingComponent) override;
+    void parentHierarchyChanged() override;
 
     // MenuBarModel
     juce::StringArray getMenuBarNames() override;
