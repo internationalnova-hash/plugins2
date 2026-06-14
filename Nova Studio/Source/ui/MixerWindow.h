@@ -42,13 +42,14 @@ namespace NovaStudioUI
         // Update displayed insert slot names (called by MixerWindow when plugins change)
         void setInsertSlotName(int slot, const juce::String& name)
         {
-            if (isPositiveAndBelow(slot, 3))
+            if (isPositiveAndBelow(slot, 9))
             {
                 insertSlotNames[slot] = name;
                 repaint();
             }
         }
-        juce::String insertSlotNames[3];
+        juce::String insertSlotNames[9];
+        bool insertsExpanded = false;
 
         // Callbacks wired by MixerWindow after construction
         std::function<void(float dB)>  onVolumeChanged;

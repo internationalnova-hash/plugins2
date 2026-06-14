@@ -220,26 +220,24 @@ void ChannelStrip::mouseDown(const juce::MouseEvent& e)
 
     const int slotH = 16;
     const int gap   = 3;
-    for (int i = 0; i < 3; ++i)
+
+    auto handleSlotClick = [&](int i) -> bool
     {
         auto slot = slotArea.removeFromTop(slotH);
         slotArea.removeFromTop(gap);
         if (!slot.contains(e.getPosition()))
-            continue;
+            return false;
 
         bool hasPlugin = insertSlotNames[i].isNotEmpty();
         if (!hasPlugin)
         {
-            // Empty slot → open browser to load
             if (onInsertClicked) onInsertClicked(i);
-            return;
+            return true;
         }
 
-        // Check if click was on the ▼ arrow (right kDropArrowW px)
         bool onArrow = (e.position.x >= slot.getRight() - kDropArrowW);
         if (onArrow)
         {
-            // Show dropdown context menu
             const int slotCapture = i;
             juce::PopupMenu menu;
             menu.addItem(1, "Open Editor");
@@ -250,17 +248,38 @@ void ChannelStrip::mouseDown(const juce::MouseEvent& e)
             menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this),
                 [this, slotCapture](int result)
                 {
-                    if (result == 1 && onInsertClicked)       onInsertClicked(slotCapture);
+                    if (result == 1 && onInsertClicked)           onInsertClicked(slotCapture);
                     else if (result == 2 && onInsertChangePlugin) onInsertChangePlugin(slotCapture);
                     else if (result == 3 && onInsertRemovePlugin) onInsertRemovePlugin(slotCapture);
                 });
         }
         else
         {
-            // Click on plugin name → open editor
             if (onInsertClicked) onInsertClicked(i);
         }
-        return;
+        return true;
+    };
+
+    // Hit-test slots 0..5 (always visible)
+    for (int i = 0; i < 6; ++i)
+        if (handleSlotClick(i)) return;
+
+    // Hit-test expand/collapse button
+    {
+        auto expandRow = slotArea.removeFromTop(slotH);
+        if (expandRow.contains(e.getPosition()))
+        {
+            insertsExpanded = !insertsExpanded;
+            repaint();
+            return;
+        }
+    }
+
+    // Hit-test slots 6..8 (only if expanded)
+    if (insertsExpanded)
+    {
+        for (int i = 6; i < 9; ++i)
+            if (handleSlotClick(i)) return;
     }
 }
 
@@ -270,7 +289,9 @@ void ChannelStrip::drawInsertSlots(juce::Graphics& g, juce::Rectangle<int> area)
     const int gap   = 3;
     auto r = area.reduced(4, 2);
 
-    for (int i = 0; i < 3; ++i)
+    const int visibleSlots = insertsExpanded ? 9 : 6;
+
+    for (int i = 0; i < visibleSlots; ++i)
     {
         auto slot = r.removeFromTop(slotH);
         r.removeFromTop(gap);
@@ -307,6 +328,12 @@ void ChannelStrip::drawInsertSlots(juce::Graphics& g, juce::Rectangle<int> area)
             g.drawText("-- empty --", slot, juce::Justification::centred);
         }
     }
+
+    // Expand/collapse button
+    auto expandRow = r.removeFromTop(16);
+    g.setColour(juce::Colours::white.withAlpha(0.25f));
+    g.setFont(juce::FontOptions(8.0f));
+    g.drawText(insertsExpanded ? u8"▲ less" : u8"▼ +3 slots", expandRow, juce::Justification::centred);
 }
 
 void ChannelStrip::drawSendSlots(juce::Graphics& g, juce::Rectangle<int> area) const
@@ -571,7 +598,7 @@ void MixerWindow::refreshInsertSlotNames()
     for (int t = 0; t < trackStrips.size(); ++t)
     {
         auto* strip = trackStrips[t];
-        for (int s = 0; s < 3; ++s)
+        for (int s = 0; s < 9; ++s)
         {
             auto* plugin = engine.getTrackPlugin(t, s);
             strip->setInsertSlotName(s, plugin ? plugin->getName() : juce::String());

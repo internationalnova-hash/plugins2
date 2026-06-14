@@ -57,6 +57,8 @@ PluginBrowserPanel::PluginBrowserPanel(NovaStudio::StudioAudioEngine& engineRef)
     // Progress bar (hidden until scan)
     addAndMakeVisible(progressBar);
     progressBar.setVisible(false);
+
+    loadPluginCache();
 }
 
 PluginBrowserPanel::~PluginBrowserPanel()
@@ -274,6 +276,43 @@ void PluginBrowserPanel::finishScan(juce::Array<juce::PluginDescription> results
     rebuildFilteredList();
     statusLabel.setText("Found " + juce::String(allPlugins.size()) + " plugin(s).",
                         juce::dontSendNotification);
+    savePluginCache();
+}
+
+juce::File PluginBrowserPanel::getPluginCacheFile() const
+{
+    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+               .getChildFile("NovaStudio")
+               .getChildFile("plugins.xml");
+}
+
+void PluginBrowserPanel::savePluginCache()
+{
+    auto f = getPluginCacheFile();
+    f.getParentDirectory().createDirectory();
+    auto xml = knownPlugins.createXml();
+    if (xml) xml->writeTo(f);
+}
+
+void PluginBrowserPanel::loadPluginCache()
+{
+    auto f = getPluginCacheFile();
+    if (!f.existsAsFile()) return;
+    auto xml = juce::XmlDocument::parse(f);
+    if (!xml) return;
+    knownPlugins.recreateFromXml(*xml);
+    allPlugins.clear();
+    for (auto& d : knownPlugins.getTypes())
+        allPlugins.add(d);
+    struct ByName {
+        static int compareElements(const juce::PluginDescription& a, const juce::PluginDescription& b)
+        { return a.name.compareIgnoreCase(b.name); }
+    } sorter;
+    allPlugins.sort(sorter);
+    rebuildFilteredList();
+    if (!allPlugins.isEmpty())
+        statusLabel.setText("Loaded " + juce::String(allPlugins.size()) + " cached plugin(s). Click 'Scan' to refresh.",
+                            juce::dontSendNotification);
 }
 
 void PluginBrowserPanel::rebuildFilteredList()
@@ -389,6 +428,7 @@ void PluginBrowserPanel::buttonClicked(juce::Button* b)
                 }
 
                 rebuildFilteredList();
+                savePluginCache();
                 statusLabel.setText("Added " + juce::String(found.size()) + " plugin(s) from file.",
                                     juce::dontSendNotification);
             });

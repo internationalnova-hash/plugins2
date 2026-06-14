@@ -47,6 +47,10 @@ namespace NovaStudioUI
         void loadSelectedPlugin();
         void finishScan(juce::Array<juce::PluginDescription> results);
 
+        void savePluginCache();
+        void loadPluginCache();
+        juce::File getPluginCacheFile() const;
+
         NovaStudio::StudioAudioEngine& engine;
 
         juce::TextButton    scanBtn     { "Scan Plugins" };
