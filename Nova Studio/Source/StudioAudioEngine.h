@@ -6,7 +6,8 @@
 
 namespace NovaStudio
 {
-    class StudioAudioEngine : private juce::AudioIODeviceCallback
+    class StudioAudioEngine : private juce::AudioIODeviceCallback,
+                              private juce::MidiInputCallback
     {
     public:
         StudioAudioEngine();
@@ -89,6 +90,32 @@ namespace NovaStudio
         // addressed with the same scheme as AutomationLane::parameterId.
         void setMacroValue(int macroIndex, float normalizedValue);
         void applyMacroTargets(const MacroControl& macro);
+        void applyParameterTarget(const MacroTarget& target, float normalizedValue);
+
+        // ── MIDI Learn — bind incoming MIDI CC messages to macro knobs or
+        // directly to track/plugin parameters (same addressing scheme as
+        // automation lanes / macro targets). ────────────────────────────────
+        struct MidiCCBinding
+        {
+            int ccNumber  = -1;
+            int channel   = 0;       // 0 = any channel
+            int macroIndex = -1;     // >= 0: drives a macro; otherwise uses `target`
+            MacroTarget target;
+            juce::var toVar() const;
+            static MidiCCBinding fromVar(const juce::var& v);
+        };
+
+        void beginMidiLearnForMacro(int macroIndex);
+        void beginMidiLearnForTarget(const MacroTarget& target);
+        void cancelMidiLearn();
+        bool isAwaitingMidiLearn() const noexcept { return midiLearnPending; }
+
+        int  getNumMidiBindings() const noexcept { return midiBindings.size(); }
+        const MidiCCBinding& getMidiBinding(int index) const { return midiBindings.getReference(index); }
+        void removeMidiBinding(int index);
+        juce::String describeMidiBinding(int index) const;
+
+        std::function<void(int bindingIndex)> onMidiLearned;   // fired on UI thread when a binding is captured
 
         // Send routing per track
         void  setTrackSendLevel(int trackIndex, int sendIndex, float db);
@@ -330,6 +357,7 @@ namespace NovaStudio
                               const juce::AudioIODeviceCallbackContext& context) override;
         void audioDeviceAboutToStart(juce::AudioIODevice* device) override;
         void audioDeviceStopped() override;
+        void handleIncomingMidiMessage(juce::MidiInput* source, const juce::MidiMessage& message) override;
         // FL-style per-channel sampler engine helpers (AHDSR envelope + filter)
         static float  advanceChannelEnvelope(ChannelEngine& ce, double sampleRate);
         static double applyChannelFilter(ChannelEngine& ce, int channel, double sample,
@@ -345,6 +373,13 @@ namespace NovaStudio
 
         juce::AudioDeviceManager deviceManager;
         juce::MixerAudioSource mixerSource;
+
+        // MIDI Learn state
+        juce::Array<MidiCCBinding> midiBindings;
+        std::atomic<bool> midiLearnPending { false };
+        int midiLearnMacroIndex = -1;
+        MacroTarget midiLearnTarget;
+        bool midiLearnIsForMacro = false;
 
         // Sample audition / preview — independent one-shot transport mixed into output
         juce::AudioFormatManager previewFormatManager;

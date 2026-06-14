@@ -552,12 +552,23 @@ namespace NovaStudio
                 "Grant microphone permission: System Preferences -> Security & Privacy -> Microphone.");
 
         deviceManager.addAudioCallback(this);
+
+        // Enable all currently-available MIDI inputs for MIDI Learn / controller mapping
+        for (auto& mi : juce::MidiInput::getAvailableDevices())
+        {
+            if (!deviceManager.isMidiInputDeviceEnabled(mi.identifier))
+                deviceManager.setMidiInputDeviceEnabled(mi.identifier, true);
+            deviceManager.addMidiInputDeviceCallback(mi.identifier, this);
+        }
+
         return true;
     }
 
     void StudioAudioEngine::shutdown()
     {
         deviceManager.removeAudioCallback(this);
+        for (auto& mi : juce::MidiInput::getAvailableDevices())
+            deviceManager.removeMidiInputDeviceCallback(mi.identifier, this);
         recordingActive.store(false);
         recordingWriter.reset();
         previewActive.store(false);
@@ -2122,37 +2133,173 @@ namespace NovaStudio
     void StudioAudioEngine::applyMacroTargets(const MacroControl& macro)
     {
         for (const auto& target : macro.targets)
+            applyParameterTarget(target, macro.value);
+    }
+
+    void StudioAudioEngine::applyParameterTarget(const MacroTarget& target, float normalizedValue)
+    {
+        if (!isPositiveAndBelow(target.trackIndex, session.getNumTracks()))
+            return;
+
+        const float n = juce::jlimit(0.0f, 1.0f, normalizedValue);
+        const float scaled = target.minValue + (target.maxValue - target.minValue) * n;
+
+        if (target.parameterId == "volume")
+            setTrackVolume(target.trackIndex, scaled);
+        else if (target.parameterId == "pan")
+            setTrackPan(target.trackIndex, scaled);
+        else if (target.parameterId.startsWith("send"))
         {
-            if (!isPositiveAndBelow(target.trackIndex, session.getNumTracks()))
-                continue;
-
-            const float scaled = target.minValue + (target.maxValue - target.minValue) * macro.value;
-
-            if (target.parameterId == "volume")
-                setTrackVolume(target.trackIndex, scaled);
-            else if (target.parameterId == "pan")
-                setTrackPan(target.trackIndex, scaled);
-            else if (target.parameterId.startsWith("send"))
+            const int sendIndex = target.parameterId.substring(4).getIntValue() - 1;
+            if (isPositiveAndBelow(sendIndex, 6))
+                setTrackSendLevel(target.trackIndex, sendIndex, scaled);
+        }
+        else if (target.parameterId.startsWith("plugin:"))
+        {
+            auto tokens = juce::StringArray::fromTokens(target.parameterId, ":", "");
+            if (tokens.size() == 3)
             {
-                const int sendIndex = target.parameterId.substring(4).getIntValue() - 1;
-                if (isPositiveAndBelow(sendIndex, 6))
-                    setTrackSendLevel(target.trackIndex, sendIndex, scaled);
-            }
-            else if (target.parameterId.startsWith("plugin:"))
-            {
-                auto tokens = juce::StringArray::fromTokens(target.parameterId, ":", "");
-                if (tokens.size() == 3)
+                const int slot = tokens[1].getIntValue();
+                const int paramIndex = tokens[2].getIntValue();
+                if (auto* plugin = getTrackPlugin(target.trackIndex, slot))
                 {
-                    const int slot = tokens[1].getIntValue();
-                    const int paramIndex = tokens[2].getIntValue();
-                    if (auto* plugin = getTrackPlugin(target.trackIndex, slot))
-                    {
-                        auto& params = plugin->getParameters();
-                        if (isPositiveAndBelow(paramIndex, params.size()))
-                            params[paramIndex]->setValue(juce::jlimit(0.0f, 1.0f, scaled));
-                    }
+                    auto& params = plugin->getParameters();
+                    if (isPositiveAndBelow(paramIndex, params.size()))
+                        params[paramIndex]->setValue(juce::jlimit(0.0f, 1.0f, scaled));
                 }
             }
+        }
+    }
+
+    // ── MIDI Learn ──────────────────────────────────────────────────────────
+
+    juce::var StudioAudioEngine::MidiCCBinding::toVar() const
+    {
+        auto* obj = new juce::DynamicObject();
+        obj->setProperty("ccNumber", ccNumber);
+        obj->setProperty("channel", channel);
+        obj->setProperty("macroIndex", macroIndex);
+        obj->setProperty("target", target.toVar());
+        return juce::var(obj);
+    }
+
+    StudioAudioEngine::MidiCCBinding StudioAudioEngine::MidiCCBinding::fromVar(const juce::var& v)
+    {
+        MidiCCBinding b;
+        if (auto* obj = v.getDynamicObject())
+        {
+            b.ccNumber   = obj->getProperty("ccNumber");
+            b.channel    = obj->getProperty("channel");
+            b.macroIndex = obj->getProperty("macroIndex");
+            b.target     = MacroTarget::fromVar(obj->getProperty("target"));
+        }
+        return b;
+    }
+
+    void StudioAudioEngine::beginMidiLearnForMacro(int macroIndex)
+    {
+        if (!isPositiveAndBelow(macroIndex, session.getNumMacros()))
+            return;
+        midiLearnIsForMacro = true;
+        midiLearnMacroIndex = macroIndex;
+        midiLearnTarget = MacroTarget();
+        midiLearnPending.store(true);
+    }
+
+    void StudioAudioEngine::beginMidiLearnForTarget(const MacroTarget& target)
+    {
+        midiLearnIsForMacro = false;
+        midiLearnMacroIndex = -1;
+        midiLearnTarget = target;
+        midiLearnPending.store(true);
+    }
+
+    void StudioAudioEngine::cancelMidiLearn()
+    {
+        midiLearnPending.store(false);
+        midiLearnMacroIndex = -1;
+    }
+
+    void StudioAudioEngine::removeMidiBinding(int index)
+    {
+        if (isPositiveAndBelow(index, midiBindings.size()))
+            midiBindings.remove(index);
+    }
+
+    juce::String StudioAudioEngine::describeMidiBinding(int index) const
+    {
+        if (!isPositiveAndBelow(index, midiBindings.size()))
+            return {};
+
+        const auto& b = midiBindings.getReference(index);
+        juce::String ccDesc = "CC " + juce::String(b.ccNumber)
+                            + (b.channel > 0 ? (" Ch" + juce::String(b.channel)) : juce::String(" (any ch)"));
+
+        if (b.macroIndex >= 0 && isPositiveAndBelow(b.macroIndex, session.getNumMacros()))
+            return ccDesc + "  ->  Macro: " + session.getMacro(b.macroIndex).name;
+
+        if (isPositiveAndBelow(b.target.trackIndex, session.getNumTracks()))
+            return ccDesc + "  ->  " + session.getTrack(b.target.trackIndex).name + " : " + b.target.parameterId;
+
+        return ccDesc + "  ->  (unknown target)";
+    }
+
+    void StudioAudioEngine::handleIncomingMidiMessage(juce::MidiInput* /*source*/, const juce::MidiMessage& message)
+    {
+        if (!message.isController())
+            return;
+
+        const int ccNumber = message.getControllerNumber();
+        const int channel  = message.getChannel();
+        const float normalized = message.getControllerValue() / 127.0f;
+
+        if (midiLearnPending.load())
+        {
+            MidiCCBinding binding;
+            binding.ccNumber = ccNumber;
+            binding.channel  = channel;
+
+            if (midiLearnIsForMacro)
+                binding.macroIndex = midiLearnMacroIndex;
+            else
+                binding.target = midiLearnTarget;
+
+            // Replace any existing binding for the same destination
+            for (int i = midiBindings.size(); --i >= 0;)
+            {
+                const auto& existing = midiBindings.getReference(i);
+                const bool sameMacro  = midiLearnIsForMacro && existing.macroIndex == midiLearnMacroIndex;
+                const bool sameTarget = !midiLearnIsForMacro && existing.macroIndex < 0
+                                     && existing.target.trackIndex == midiLearnTarget.trackIndex
+                                     && existing.target.parameterId == midiLearnTarget.parameterId;
+                if (sameMacro || sameTarget)
+                    midiBindings.remove(i);
+            }
+
+            const int newIndex = midiBindings.size();
+            midiBindings.add(binding);
+
+            midiLearnPending.store(false);
+            midiLearnMacroIndex = -1;
+
+            if (onMidiLearned)
+            {
+                juce::MessageManager::callAsync([this, newIndex]() { if (onMidiLearned) onMidiLearned(newIndex); });
+            }
+            return;
+        }
+
+        for (const auto& binding : midiBindings)
+        {
+            if (binding.ccNumber != ccNumber)
+                continue;
+            if (binding.channel != 0 && binding.channel != channel)
+                continue;
+
+            if (binding.macroIndex >= 0)
+                setMacroValue(binding.macroIndex, normalized);
+            else
+                applyParameterTarget(binding.target, normalized);
         }
     }
 

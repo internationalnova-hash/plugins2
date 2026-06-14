@@ -85,6 +85,12 @@ MainComponent::MainComponent()
     beatWindow->setOnStepChanged([this](int row, int step, bool active) {
         engine.setStepSeqStep(row, step, active);
     });
+    beatWindow->setOnVelocityChanged([this](int row, int step, float velocity) {
+        engine.setStepSeqVelocity(row, step, velocity);
+    });
+    beatWindow->getCurrentStep = [this]() {
+        return engine.getStepSeqCurrentStep();
+    };
     beatWindow->setOnPreviewSample([this](const juce::String& path) {
         engine.previewSample(juce::File(path));
     });
@@ -1346,8 +1352,8 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
 
     case 3: // Clip
         menu.addItem(401, "Consolidate",      false);
-        menu.addItem(402, "Normalize",        false);
-        menu.addItem(403, "Reverse",          false);
+        menu.addItem(402, "Normalize",        arrangementModel.hasSelection());
+        menu.addItem(403, "Reverse",          arrangementModel.hasSelection());
         menu.addSeparator();
         menu.addItem(404, "Fade In",          false);
         menu.addItem(405, "Fade Out",         false);
@@ -1520,6 +1526,20 @@ void MainComponent::menuItemSelected(int id, int)
         break;
 
     // ── Clip ────────────────────────────────────────────────────────────────
+    case 402:
+        if (arrangementModel.normalizeSelectedClip())
+            updateStatusMessage("Normalized selected clip");
+        else
+            updateStatusMessage("Normalize: no audio clip selected");
+        refreshTrackList();
+        break;
+    case 403:
+        if (arrangementModel.reverseSelectedClip())
+            updateStatusMessage("Reversed selected clip");
+        else
+            updateStatusMessage("Reverse: no audio clip selected");
+        refreshTrackList();
+        break;
     case 407:
         setWorkspaceMode(0);
         alignPanel.setVisible(true);

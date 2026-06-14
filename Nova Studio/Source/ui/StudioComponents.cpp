@@ -2206,6 +2206,22 @@ namespace NovaStudioUI
 
             if (clipRect.contains(clickPoint))
             {
+                if (event.mods.isPopupMenu())
+                {
+                    arrangementModel.selectClip(trackIndex, clipIndex);
+                    const bool isAudio = !clip.isMidi;
+                    juce::PopupMenu menu;
+                    menu.addItem(1, "Normalize", isAudio && !clip.locked);
+                    menu.addItem(2, "Reverse",   isAudio && !clip.locked);
+                    menu.showMenuAsync(juce::PopupMenu::Options(), [this](int result)
+                    {
+                        if (result == 1) arrangementModel.normalizeSelectedClip();
+                        else if (result == 2) arrangementModel.reverseSelectedClip();
+                    });
+                    found = true;
+                    break;
+                }
+
                 if (event.mods.isAltDown())
                 {
                     arrangementModel.setGuideClip(trackIndex, clipIndex);

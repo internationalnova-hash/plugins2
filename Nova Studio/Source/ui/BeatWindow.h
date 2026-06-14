@@ -258,6 +258,38 @@ namespace NovaStudioUI
     };
 
     // ─────────────────────────────────────────────────────────────────────────
+    // PatternLaunchGrid — Performance Mode launch pads. Click a pad to queue
+    // its pattern; it fires (and the pad highlights as "playing") at the next
+    // loop boundary. A second click on the playing pad re-queues it (re-launch).
+    // ─────────────────────────────────────────────────────────────────────────
+    class PatternLaunchGrid : public juce::Component
+    {
+    public:
+        PatternLaunchGrid();
+        ~PatternLaunchGrid() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+        void mouseDown(const juce::MouseEvent& e) override;
+
+        // Pad labels/colours mirror the pattern list (name per pad)
+        void setPatterns(const juce::StringArray& names, const juce::Array<juce::Colour>& colours);
+
+        void setQueuedIndex(int index);   // pad waiting to launch on next loop boundary (-1 = none)
+        void setPlayingIndex(int index);  // pad currently driving the engine (-1 = none)
+
+        std::function<void(int patternIndex)> onPadClicked;
+
+    private:
+        struct Pad { juce::String name; juce::Colour colour; juce::Rectangle<int> bounds; };
+        juce::Array<Pad> pads;
+        int queuedIndex  = -1;
+        int playingIndex = -1;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PatternLaunchGrid)
+    };
+
+    // ─────────────────────────────────────────────────────────────────────────
     // StepSequencerView — FL Studio-style beat producer
     // ─────────────────────────────────────────────────────────────────────────
     class StepSequencerView : public juce::Component,
@@ -824,6 +856,7 @@ namespace NovaStudioUI
         std::function<void(int)>                 onGrooveChanged;   // index into StudioAudioEngine::StepSequencerState groove templates
         std::function<void(bool)>                onShowVelocityGraph;
         std::function<void(bool)>                onPatSongToggle;
+        std::function<void()>                    onPerformModeToggled;
         // Pattern dropdown actions: "rename","color","randomcolor","insert","clone","delete","moveup","movedown","findempty"
         std::function<void(const juce::String&)> onPatternMenuAction;
 
@@ -845,6 +878,7 @@ namespace NovaStudioUI
         juce::TextButton swingDnBtn  { "-" };
         juce::TextButton swingUpBtn  { "+" };
         juce::TextButton grooveBtn   { "GROOVE: Straight" };
+        juce::TextButton performBtn  { "PERFORM" };
 
         juce::TextButton addChanBtn  { "+ Chan" };
         juce::TextButton velGraphBtn { "VEL" };
@@ -911,13 +945,15 @@ namespace NovaStudioUI
     // ─────────────────────────────────────────────────────────────────────────
     // BeatWindow — top-level
     // ─────────────────────────────────────────────────────────────────────────
-    class BeatWindow : public juce::Component
+    class BeatWindow : public juce::Component,
+                       private juce::Timer
     {
     public:
         explicit BeatWindow(NovaStudio::TransportState& transport);
         ~BeatWindow() override;
         void paint(juce::Graphics& g) override;
         void resized() override;
+        void timerCallback() override;
 
         // Engine wiring — call after construction
         void setOnSampleAssigned(std::function<void(int, const juce::String&)> fn)
@@ -961,6 +997,10 @@ namespace NovaStudioUI
             { compactMixer.onMuteToggled = std::move(fn); }
         void setOnStepCountChanged(std::function<void(int)> fn)
             { stepSeq.onStepCountChanged = std::move(fn); }
+
+        // Performance Mode — host provides a way to read the engine's current
+        // step index so pattern launches can be quantized to the loop boundary.
+        std::function<int()> getCurrentStep;
         void setOnSwingChanged(std::function<void(float)> fn)
             { stepSeq.onSwingChanged = std::move(fn); }
         void setOnGrooveChanged(std::function<void(int)> fn)
@@ -1005,14 +1045,26 @@ namespace NovaStudioUI
         // FL Studio-style, instead of being permanently docked.
         FloatingSubPanel   stepSeqPanel { "Channel Rack" };
         FloatingSubPanel   mixerPanel   { "Mixer" };
+        FloatingSubPanel   performPanel { "Performance" };
+        PatternLaunchGrid  launchGrid;
 
         juce::Rectangle<int> canvasArea;     // area below the playlist where panels float
         bool               showingPianoRoll  = false;
         bool               stepSeqPanelOpen  = true;   // Channel Rack floats open by default
         bool               mixerPanelOpen    = false;
+        bool               performPanelOpen  = false;
         bool               stepSeqPanelPositioned = false;
         bool               mixerPanelPositioned   = false;
+        bool               performPanelPositioned = false;
         bool               patMode = true;  // PAT=true, SONG=false
+
+        // Performance Mode: queue a pattern switch to fire on the next loop
+        // boundary (detected by polling the engine's current step for wrap-to-0).
+        int  queuedPatternIndex  = -1;
+        int  lastSeenStep        = -1;
+        void checkPerformanceLaunch();
+        void firePatternLaunch(int patternIndex);
+        void refreshLaunchGrid();
 
         void toggleFloatingPanel(FloatingSubPanel& panel, bool& flag,
                                  juce::Rectangle<int> defaultBounds);

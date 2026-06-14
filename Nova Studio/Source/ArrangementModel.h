@@ -76,6 +76,12 @@ namespace NovaStudio
         bool copySelectedClip();
         bool pasteClipboardClip(int trackIndex, int64_t samplePosition);
         bool toggleSelectedClipMute();
+        // Offline (non-realtime) sample editing — operate on the audio region the
+        // selected clip currently plays, bouncing the result to a new file and
+        // swapping it in via replaceSelectedClipWithUndo (fully undoable).
+        bool normalizeSelectedClip(float targetPeakDb = -0.3f);
+        bool reverseSelectedClip();
+
         bool setSelectedClipGain(float gainDb);
         bool setSelectedClipFadeIn(int64_t samples);
         bool setSelectedClipFadeOut(int64_t samples);
@@ -130,6 +136,10 @@ namespace NovaStudio
         int guideClipIndex = -1;
         juce::Array<juce::Point<int>> alignTargetClips;
         juce::Array<juce::File> previewTemporaryFiles;
+        juce::AudioFormatManager editFormatManager;
+        juce::Array<juce::File> editedTemporaryFiles;
+        bool readClipRegionToBuffer(const Clip& clip, juce::AudioBuffer<float>& dest, double& sampleRateOut);
+        juce::File writeBufferToTempWavFile(const juce::AudioBuffer<float>& buffer, double sampleRate);
         std::optional<Clip> clipboardClip;
 
         int64_t snapResolutionSamples() const noexcept;

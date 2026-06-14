@@ -10,6 +10,13 @@ namespace NovaStudioUI
         addBtn.addListener(this);
         addAndMakeVisible(addBtn);
 
+        engine.onMidiLearned = [this](int bindingIndex)
+        {
+            juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,
+                "MIDI Learn",
+                "Mapped: " + engine.describeMidiBinding(bindingIndex));
+        };
+
         rebuildSlots();
     }
 
@@ -164,10 +171,23 @@ namespace NovaStudioUI
             mapSub.addSubMenu(session.getTrack(t).name, trackSub);
         }
 
+        static constexpr int kMidiBase = 5000;
+        juce::PopupMenu midiSub;
+        bool hasMidiBinding = false;
+        for (int i = 0; i < engine.getNumMidiBindings(); ++i)
+        {
+            if (engine.getMidiBinding(i).macroIndex != macroIndex) continue;
+            hasMidiBinding = true;
+            midiSub.addItem(kMidiBase + i, "Remove: " + engine.describeMidiBinding(i));
+        }
+
         juce::PopupMenu m;
         m.addItem(1, "Rename...");
         m.addSubMenu("Map to track parameter", mapSub, numTracks > 0);
         m.addItem(2, "Clear all mappings", !session.getMacro(macroIndex).targets.isEmpty());
+        m.addSeparator();
+        m.addItem(4, engine.isAwaitingMidiLearn() ? "Waiting for MIDI CC..." : "MIDI Learn...", !engine.isAwaitingMidiLearn());
+        m.addSubMenu("MIDI mappings", midiSub, hasMidiBinding);
         m.addSeparator();
         m.addItem(3, "Remove macro");
 
@@ -188,6 +208,14 @@ namespace NovaStudioUI
             {
                 sess.removeMacro(macroIndex);
                 rebuildSlots();
+            }
+            else if (result == 4)
+            {
+                engine.beginMidiLearnForMacro(macroIndex);
+            }
+            else if (result >= kMidiBase)
+            {
+                engine.removeMidiBinding(result - kMidiBase);
             }
             else if (result >= 1000)
             {

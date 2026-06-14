@@ -1349,6 +1349,115 @@ void CompactMixerView::resized()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PatternLaunchGrid
+// ─────────────────────────────────────────────────────────────────────────────
+PatternLaunchGrid::PatternLaunchGrid()  { setInterceptsMouseClicks(true, false); }
+PatternLaunchGrid::~PatternLaunchGrid() = default;
+
+void PatternLaunchGrid::setPatterns(const juce::StringArray& names, const juce::Array<juce::Colour>& colours)
+{
+    pads.clear();
+    for (int i = 0; i < names.size(); ++i)
+    {
+        Pad pad;
+        pad.name   = names[i];
+        pad.colour = colours[i];
+        pads.add(pad);
+    }
+    resized();
+    repaint();
+}
+
+void PatternLaunchGrid::setQueuedIndex(int index)
+{
+    if (queuedIndex != index) { queuedIndex = index; repaint(); }
+}
+
+void PatternLaunchGrid::setPlayingIndex(int index)
+{
+    if (playingIndex != index) { playingIndex = index; repaint(); }
+}
+
+void PatternLaunchGrid::resized()
+{
+    auto area = getLocalBounds().reduced(10);
+    if (pads.isEmpty())
+        return;
+
+    const int cols = juce::jmax(1, (int) std::ceil(std::sqrt((double) pads.size())));
+    const int rows = (pads.size() + cols - 1) / cols;
+    const int gap  = 8;
+    const int padW = (area.getWidth()  - gap * (cols - 1)) / cols;
+    const int padH = (area.getHeight() - gap * (rows - 1)) / juce::jmax(1, rows);
+
+    for (int i = 0; i < pads.size(); ++i)
+    {
+        const int col = i % cols;
+        const int row = i / cols;
+        pads.getReference(i).bounds = juce::Rectangle<int>(area.getX() + col * (padW + gap),
+                                                            area.getY() + row * (padH + gap),
+                                                            padW, padH);
+    }
+}
+
+void PatternLaunchGrid::paint(juce::Graphics& g)
+{
+    g.fillAll(juce::Colour::fromRGB(28, 28, 34));
+
+    g.setColour(juce::Colours::white.withAlpha(0.6f));
+    g.setFont(13.0f);
+    g.drawFittedText("Click a pad to launch its pattern at the next loop boundary",
+                     getLocalBounds().removeFromTop(10).reduced(10, 0),
+                     juce::Justification::centredLeft, 1);
+
+    for (int i = 0; i < pads.size(); ++i)
+    {
+        const auto& pad = pads.getReference(i);
+        const bool playing = (i == playingIndex);
+        const bool queued  = (i == queuedIndex);
+
+        auto fill = pad.colour.withAlpha(playing ? 0.9f : 0.35f);
+        g.setColour(fill);
+        g.fillRoundedRectangle(pad.bounds.toFloat(), 6.0f);
+
+        g.setColour(queued ? juce::Colours::white : juce::Colours::black.withAlpha(0.4f));
+        g.drawRoundedRectangle(pad.bounds.toFloat().reduced(1.0f), 6.0f, queued ? 2.5f : 1.0f);
+
+        g.setColour(juce::Colours::white);
+        g.setFont(14.0f);
+        auto padArea = pad.bounds;
+        auto labelArea = padArea.removeFromBottom(16);
+        g.drawFittedText(pad.name, padArea.reduced(6), juce::Justification::centred, 2);
+
+        if (playing)
+        {
+            g.setFont(11.0f);
+            g.drawFittedText("PLAYING", labelArea.reduced(4, 0),
+                             juce::Justification::centredRight, 1);
+        }
+        else if (queued)
+        {
+            g.setFont(11.0f);
+            g.drawFittedText("QUEUED", labelArea.reduced(4, 0),
+                             juce::Justification::centredRight, 1);
+        }
+    }
+}
+
+void PatternLaunchGrid::mouseDown(const juce::MouseEvent& e)
+{
+    for (int i = 0; i < pads.size(); ++i)
+    {
+        if (pads.getReference(i).bounds.contains(e.getPosition()))
+        {
+            if (onPadClicked)
+                onPadClicked(i);
+            return;
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // StepSequencerView
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -3204,7 +3313,7 @@ BeatPatternToolbar::BeatPatternToolbar()
 
     for (auto* b : { &prevPatBtn, &nextPatBtn, &addPatBtn, &patDropBtn,
                      &steps16Btn, &steps32Btn, &steps64Btn,
-                     &swingDnBtn, &swingUpBtn, &grooveBtn,
+                     &swingDnBtn, &swingUpBtn, &grooveBtn, &performBtn,
                      &addChanBtn, &velGraphBtn, &patSongBtn })
         styleSm(*b);
 
@@ -3236,6 +3345,9 @@ BeatPatternToolbar::BeatPatternToolbar()
     grooveBtn.setClickingTogglesState(false);
     grooveBtn.setTooltip("Groove/feel template — applies an accent pattern on top of swing");
 
+    performBtn.setClickingTogglesState(false);
+    performBtn.setTooltip("Performance mode — launch patterns live, quantized to the loop boundary");
+
     updateStepButtons();
 }
 
@@ -3243,7 +3355,7 @@ BeatPatternToolbar::~BeatPatternToolbar()
 {
     for (auto* b : { &prevPatBtn, &nextPatBtn, &addPatBtn, &patDropBtn,
                      &steps16Btn, &steps32Btn, &steps64Btn,
-                     &swingDnBtn, &swingUpBtn, &grooveBtn,
+                     &swingDnBtn, &swingUpBtn, &grooveBtn, &performBtn,
                      &addChanBtn, &velGraphBtn, &patSongBtn })
         b->removeListener(this);
 }
@@ -3361,6 +3473,10 @@ void BeatPatternToolbar::resized()
     place(grooveBtn, 110);
     gap8();
 
+    // Performance mode
+    place(performBtn, 84);
+    gap8();
+
     // Tools
     place(patSongBtn,  56);
     place(velGraphBtn, 38);
@@ -3393,6 +3509,7 @@ void BeatPatternToolbar::buttonClicked(juce::Button* b)
         return;
     }
     if (b == &grooveBtn) { showGrooveMenu(); return; }
+    if (b == &performBtn) { if (onPerformModeToggled) onPerformModeToggled(); return; }
     if (b == &velGraphBtn)
     {
         showVel = !showVel;
@@ -3589,6 +3706,24 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
     addChildComponent(mixerPanel);
     mixerPanel.setVisible(mixerPanelOpen);
 
+    // Performance Mode — launch pad grid floats over the canvas like the
+    // step sequencer/mixer panels. Clicking a pad queues its pattern to take
+    // over the engine's active step grid at the next loop boundary.
+    performPanel.setContent(&launchGrid);
+    performPanel.onClose = [this]() { performPanelOpen = false; performPanel.setVisible(false);
+                                      queuedPatternIndex = -1; refreshLaunchGrid();
+                                      transportBar.setActiveView(-1); };
+    addChildComponent(performPanel);
+    performPanel.setVisible(performPanelOpen);
+
+    launchGrid.onPadClicked = [this](int patternIndex)
+    {
+        if (patternIndex == stepSeq.currentPatternIdx && queuedPatternIndex < 0)
+            return; // already playing this pattern and nothing queued — nothing to do
+        queuedPatternIndex = patternIndex;
+        refreshLaunchGrid();
+    };
+
     transportBar.onPlay          = [this]() { if (onPlay)          onPlay(); };
     transportBar.onStop          = [this]() { if (onStop)          onStop(); };
     transportBar.onRecord        = [this]() { if (onRecord)        onRecord(); };
@@ -3620,6 +3755,20 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
     transportBar.onShowMixer = [this, panelBoundsFraction]() {
         toggleFloatingPanel(mixerPanel, mixerPanelOpen, panelBoundsFraction(0.6f, 0.78f, 30, 24));
         transportBar.setActiveView(mixerPanelOpen ? 2 : -1);
+    };
+
+    patternToolbar.onPerformModeToggled = [this, panelBoundsFraction]() {
+        toggleFloatingPanel(performPanel, performPanelOpen, panelBoundsFraction(0.5f, 0.6f, -20, 20));
+        if (performPanelOpen)
+        {
+            refreshLaunchGrid();
+            startTimerHz(30);
+        }
+        else
+        {
+            queuedPatternIndex = -1;
+            stopTimer();
+        }
     };
 
     // Wire pattern toolbar → step sequencer
@@ -3865,6 +4014,79 @@ void BeatWindow::resized()
         mixerPanel.setBounds(defaultPanelBounds(0.6f, 0.78f, 30, 24));
         mixerPanelPositioned = true;
     }
+    if (! performPanelPositioned && area.getWidth() > 200 && area.getHeight() > 200)
+    {
+        performPanel.setBounds(defaultPanelBounds(0.5f, 0.6f, -20, 20));
+        performPanelPositioned = true;
+    }
 
     browser.setBounds(browserArea);
+}
+
+// ── Performance Mode ─────────────────────────────────────────────────────
+void BeatWindow::timerCallback()
+{
+    checkPerformanceLaunch();
+}
+
+void BeatWindow::checkPerformanceLaunch()
+{
+    if (queuedPatternIndex < 0 || ! getCurrentStep)
+        return;
+
+    const int step = getCurrentStep();
+    if (step < 0)
+        return;
+
+    // Detect the loop wrapping back to the start (a fall from a high step
+    // index down to 0/near-0) and fire the queued pattern at that boundary.
+    if (lastSeenStep > step)
+        firePatternLaunch(queuedPatternIndex);
+
+    lastSeenStep = step;
+}
+
+void BeatWindow::firePatternLaunch(int patternIndex)
+{
+    if (patternIndex < 0 || patternIndex >= stepSeq.patterns.size())
+        return;
+
+    queuedPatternIndex = -1;
+
+    auto& pattern = stepSeq.patterns.getReference(patternIndex);
+    stepSeq.currentPatternIdx = patternIndex;
+
+    // Push the launched pattern's full step/velocity grid into the engine
+    // through the existing per-step callbacks (already wired to the engine
+    // by MainComponent), so the new pattern actually drives playback.
+    for (int row = 0; row < StepSequencerView::kNumRows; ++row)
+    {
+        const auto& channel = pattern.channels[row];
+        for (int step = 0; step < pattern.stepCount; ++step)
+        {
+            if (stepSeq.onStepChanged)
+                stepSeq.onStepChanged(row, step, channel.steps[step]);
+            if (stepSeq.onVelocityChanged)
+                stepSeq.onVelocityChanged(row, step, channel.velocities[step]);
+        }
+    }
+    if (stepSeq.onStepCountChanged)
+        stepSeq.onStepCountChanged(pattern.stepCount);
+
+    stepSeq.repaint();
+    refreshLaunchGrid();
+}
+
+void BeatWindow::refreshLaunchGrid()
+{
+    juce::StringArray names;
+    juce::Array<juce::Colour> colours;
+    for (auto& p : stepSeq.patterns)
+    {
+        names.add(p.name);
+        colours.add(p.channels[0].colour);
+    }
+    launchGrid.setPatterns(names, colours);
+    launchGrid.setPlayingIndex(stepSeq.currentPatternIdx);
+    launchGrid.setQueuedIndex(queuedPatternIndex);
 }

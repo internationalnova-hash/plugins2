@@ -6,9 +6,14 @@ namespace NovaStudio
     ArrangementModel::ArrangementModel(Session& sessionRef, TimelineModel& timelineRef)
         : session(sessionRef), timelineModel(timelineRef)
     {
+        editFormatManager.registerBasicFormats();
     }
 
-    ArrangementModel::~ArrangementModel() = default;
+    ArrangementModel::~ArrangementModel()
+    {
+        for (auto& f : editedTemporaryFiles)
+            f.deleteFile();
+    }
 
     // Undoable action implementations
     struct ReplaceClipAction : public juce::UndoableAction
@@ -1123,6 +1128,103 @@ namespace NovaStudio
         undoManager.beginNewTransaction(transactionName);
         undoManager.perform(new ReplaceClipAction(this, selectedTrackIndex, selectedClipIndex, oldClip, newClip));
         return true;
+    }
+
+    bool ArrangementModel::readClipRegionToBuffer(const Clip& clip, juce::AudioBuffer<float>& dest, double& sampleRateOut)
+    {
+        if (clip.isMidi || clip.lengthSamples <= 0)
+            return false;
+
+        std::unique_ptr<juce::AudioFormatReader> reader(editFormatManager.createReaderFor(clip.file));
+        if (reader == nullptr)
+            return false;
+
+        const int64_t regionStart = juce::jlimit<int64_t>(0, reader->lengthInSamples, clip.fileOffsetSamples);
+        const int64_t regionLen   = juce::jlimit<int64_t>(0, reader->lengthInSamples - regionStart, clip.lengthSamples);
+        if (regionLen <= 0)
+            return false;
+
+        dest.setSize((int)reader->numChannels, (int)regionLen);
+        reader->read(&dest, 0, (int)regionLen, regionStart, true, true);
+        sampleRateOut = reader->sampleRate;
+        return true;
+    }
+
+    juce::File ArrangementModel::writeBufferToTempWavFile(const juce::AudioBuffer<float>& buffer, double sampleRate)
+    {
+        auto tempFile = juce::File::createTempFile("nova_edit_" + juce::String(juce::Random::getSystemRandom().nextInt64()) + ".wav");
+
+        juce::WavAudioFormat wavFormat;
+        std::unique_ptr<juce::FileOutputStream> stream(tempFile.createOutputStream());
+        if (stream == nullptr)
+            return {};
+
+        std::unique_ptr<juce::AudioFormatWriter> writer(
+            wavFormat.createWriterFor(stream.get(), sampleRate, (unsigned int)buffer.getNumChannels(), 24, {}, 0));
+        if (writer == nullptr)
+            return {};
+
+        stream.release(); // writer now owns the stream
+        writer->writeFromAudioSampleBuffer(buffer, 0, buffer.getNumSamples());
+        writer.reset();   // flush
+
+        editedTemporaryFiles.add(tempFile);
+        return tempFile;
+    }
+
+    bool ArrangementModel::normalizeSelectedClip(float targetPeakDb)
+    {
+        Clip* clip = getSelectedClip();
+        if (clip == nullptr || clip->locked || clip->isMidi)
+            return false;
+
+        juce::AudioBuffer<float> buffer;
+        double sr = 0.0;
+        if (!readClipRegionToBuffer(*clip, buffer, sr))
+            return false;
+
+        float peak = 0.0f;
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+            peak = juce::jmax(peak, buffer.getMagnitude(ch, 0, buffer.getNumSamples()));
+
+        if (peak <= 0.0001f)
+            return false; // silence — nothing to normalize
+
+        const float currentPeakDb = juce::Decibels::gainToDecibels(peak);
+        const float gainAdjustDb  = targetPeakDb - currentPeakDb;
+
+        Clip newClip = *clip;
+        newClip.gainDb = juce::jlimit(-60.0f, 24.0f, clip->gainDb + gainAdjustDb);
+        return replaceSelectedClipWithUndo(newClip, "Normalize Clip");
+    }
+
+    bool ArrangementModel::reverseSelectedClip()
+    {
+        Clip* clip = getSelectedClip();
+        if (clip == nullptr || clip->locked || clip->isMidi)
+            return false;
+
+        juce::AudioBuffer<float> buffer;
+        double sr = 0.0;
+        if (!readClipRegionToBuffer(*clip, buffer, sr))
+            return false;
+
+        // Reverse sample order in place, per channel
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+        {
+            auto* data = buffer.getWritePointer(ch);
+            std::reverse(data, data + buffer.getNumSamples());
+        }
+
+        auto reversedFile = writeBufferToTempWavFile(buffer, sr);
+        if (reversedFile == juce::File())
+            return false;
+
+        Clip newClip = *clip;
+        newClip.file = reversedFile;
+        newClip.fileOffsetSamples = 0;
+        newClip.lengthSamples = buffer.getNumSamples();
+        return replaceSelectedClipWithUndo(newClip, "Reverse Clip");
     }
 
     bool ArrangementModel::setSelectedClipGain(float gainDb)
