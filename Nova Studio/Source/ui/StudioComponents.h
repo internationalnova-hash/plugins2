@@ -129,6 +129,101 @@ namespace NovaStudioUI
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(InspectorPanel)
     };
 
+    // =========================================================================
+    // ProductionPanel — full channel strip replacing InspectorPanel
+    // =========================================================================
+    class ProductionPanel : public juce::Component,
+                            private juce::Slider::Listener,
+                            private juce::Button::Listener
+    {
+    public:
+        explicit ProductionPanel(NovaStudio::ArrangementModel& arrangementModel);
+        ~ProductionPanel() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+
+        // Called when selected track changes
+        void updateFromTrack(const NovaStudio::Track& track);
+
+        // Insert rack API
+        void setInsertSlotName(int slot, const juce::String& name);
+
+        // Callbacks — wire these up in EditWindow
+        std::function<void(int slot)>                                     onInsertClicked;
+        std::function<void(int slot)>                                     onInsertChangePlugin;
+        std::function<void(int slot)>                                     onInsertRemovePlugin;
+        std::function<void(int band, float freq, float gainDb, float q)>  onEQChanged;
+        std::function<void(int send, float level)>                        onSendLevelChanged;
+
+    private:
+        struct EQBand { bool enabled = true; float freq = 1000.0f; float gain = 0.0f; float q = 0.707f; };
+        static constexpr int kNumBands   = 6;
+        static constexpr int kNumInserts = 8;
+        static constexpr int kNumSends   = 4;
+
+        void sliderValueChanged(juce::Slider* s) override;
+        void buttonClicked(juce::Button* b) override;
+
+        void paintSectionHeader(juce::Graphics& g, juce::Rectangle<int> r, const juce::String& title);
+        void paintEQGraph(juce::Graphics& g, juce::Rectangle<int> r);
+        void paintMeter(juce::Graphics& g, juce::Rectangle<int> r);
+        double calcBiquadMagnitude(int band, double normFreq) const;
+
+        NovaStudio::ArrangementModel& arrangementModel;
+
+        // ---- Section 1: Track Channel ----
+        juce::Label      trackNameLabel;
+        juce::Label      inputLabel, outputLabel, gainDbLabel;
+        juce::TextButton muteBtn  {"M"};
+        juce::TextButton soloBtn  {"S"};
+        juce::TextButton armBtn   {"R"};
+
+        // ---- Section 2: Inserts ----
+        struct InsertSlot
+        {
+            juce::TextButton bypassBtn  {""};
+            juce::TextButton nameBtn    {"\u2014 empty \u2014"};
+            juce::String     pluginName;
+            bool             bypassed = false;
+        };
+        std::array<InsertSlot, kNumInserts> insertSlots;
+
+        // ---- Section 3: EQ ----
+        std::array<EQBand, kNumBands> eqBands;
+        struct BandControls
+        {
+            juce::Label    bandLabel;
+            juce::Slider   freqSlider  { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
+            juce::Slider   gainSlider  { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
+            juce::Slider   qSlider     { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
+            juce::TextButton enableBtn {"E"};
+        };
+        std::array<BandControls, kNumBands> bandControls;
+        juce::Rectangle<int> eqGraphBounds;
+
+        // ---- Section 4: Sends ----
+        struct SendRow
+        {
+            juce::Label      nameLabel;
+            juce::Slider     levelSlider { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
+            juce::TextButton onBtn       {"ON"};
+        };
+        std::array<SendRow, kNumSends> sendRows;
+
+        // Scrollable content
+        juce::Viewport viewport;
+        juce::Component contentComp;
+
+        // Current track state
+        float currentVolDb  = 0.0f;
+        bool  currentMuted  = false;
+        bool  currentSoloed = false;
+        bool  currentArmed  = false;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ProductionPanel)
+    };
+
     // Toolbar that sits directly above the arrangement view — edit modes, cursor tools, grid, zoom
     class EditModeToolbar : public juce::Component,
                             private juce::Button::Listener,

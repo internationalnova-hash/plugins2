@@ -40,6 +40,6 @@ namespace NovaStudioUI
         std::unique_ptr<EditModeToolbar> editModeToolbar;
         std::unique_ptr<ArrangementView> arrangementView;
         std::unique_ptr<TrackPanel> trackPanel;
-        std::unique_ptr<InspectorPanel> inspectorPanel;
+        std::unique_ptr<ProductionPanel> productionPanel;
     };
 }

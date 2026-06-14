@@ -3325,4 +3325,538 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         else if (b == &loadBtn && onLoad) onLoad();
         else if (b == &audioBtn && onAudioSettings) onAudioSettings();
     }
+
+    // =========================================================================
+    // ProductionPanel implementation
+    // =========================================================================
+
+    static const juce::Colour kPanelBg      = juce::Colour::fromRGB(14, 16, 22);
+    static const juce::Colour kSlotBg       = juce::Colour::fromRGB(22, 24, 34);
+    static const juce::Colour kAccent       = juce::Colour::fromRGB(100, 80, 200);
+    static const juce::Colour kBypassOn     = juce::Colour::fromRGB(60, 200, 90);
+    static const juce::Colour kBypassOff    = juce::Colour::fromRGB(40, 44, 58);
+    static const juce::Colour kEQGraphBg    = juce::Colour::fromRGB(10, 12, 18);
+    static const juce::Colour kEQCurve      = juce::Colour::fromRGB(80, 200, 100);
+    static const juce::Colour kHeaderText   = juce::Colours::white;
+
+    ProductionPanel::ProductionPanel(NovaStudio::ArrangementModel& model)
+        : arrangementModel(model)
+    {
+        // ---- Section 1 ----
+        trackNameLabel.setFont(juce::Font(16.0f, juce::Font::bold));
+        trackNameLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+        trackNameLabel.setText("No Track", juce::dontSendNotification);
+        contentComp.addAndMakeVisible(trackNameLabel);
+
+        inputLabel.setFont(juce::Font(10.0f));
+        inputLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
+        inputLabel.setText("IN: Default", juce::dontSendNotification);
+        contentComp.addAndMakeVisible(inputLabel);
+
+        outputLabel.setFont(juce::Font(10.0f));
+        outputLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
+        outputLabel.setText("OUT: Main", juce::dontSendNotification);
+        contentComp.addAndMakeVisible(outputLabel);
+
+        gainDbLabel.setFont(juce::Font(11.0f));
+        gainDbLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+        gainDbLabel.setText("0.0 dB", juce::dontSendNotification);
+        gainDbLabel.setJustificationType(juce::Justification::centred);
+        contentComp.addAndMakeVisible(gainDbLabel);
+
+        for (auto* btn : { &muteBtn, &soloBtn, &armBtn })
+        {
+            btn->setColour(juce::TextButton::buttonColourId, kSlotBg);
+            btn->setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+            btn->addListener(this);
+            contentComp.addAndMakeVisible(*btn);
+        }
+        muteBtn.setColour(juce::TextButton::buttonOnColourId, juce::Colour::fromRGB(200, 140, 40));
+        soloBtn.setColour(juce::TextButton::buttonOnColourId, juce::Colour::fromRGB(220, 200, 40));
+        armBtn.setColour(juce::TextButton::buttonOnColourId, juce::Colour::fromRGB(200, 60, 60));
+        muteBtn.setClickingTogglesState(true);
+        soloBtn.setClickingTogglesState(true);
+        armBtn.setClickingTogglesState(true);
+
+        // ---- Section 2: Inserts ----
+        for (int i = 0; i < kNumInserts; ++i)
+        {
+            auto& slot = insertSlots[i];
+            slot.bypassBtn.setColour(juce::TextButton::buttonColourId, kBypassOn);
+            slot.bypassBtn.setColour(juce::TextButton::buttonOnColourId, kBypassOff);
+            slot.bypassBtn.setClickingTogglesState(true);
+            slot.bypassBtn.addListener(this);
+            contentComp.addAndMakeVisible(slot.bypassBtn);
+
+            slot.nameBtn.setColour(juce::TextButton::buttonColourId, kSlotBg);
+            slot.nameBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(90, 90, 110));
+            slot.nameBtn.addListener(this);
+            contentComp.addAndMakeVisible(slot.nameBtn);
+        }
+
+        // ---- Section 3: EQ ----
+        static const char* kBandNames[kNumBands] = { "HPF", "LF", "LMF", "HMF", "HF", "LPF" };
+        static const float kDefaultFreqs[kNumBands] = { 80.0f, 200.0f, 800.0f, 3000.0f, 8000.0f, 16000.0f };
+
+        for (int i = 0; i < kNumBands; ++i)
+        {
+            eqBands[i].freq = kDefaultFreqs[i];
+
+            auto& bc = bandControls[i];
+            bc.bandLabel.setFont(juce::Font(9.0f, juce::Font::bold));
+            bc.bandLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+            bc.bandLabel.setText(kBandNames[i], juce::dontSendNotification);
+            bc.bandLabel.setJustificationType(juce::Justification::centred);
+            contentComp.addAndMakeVisible(bc.bandLabel);
+
+            bc.freqSlider.setRange(20.0, 20000.0, 1.0);
+            bc.freqSlider.setSkewFactorFromMidPoint(1000.0);
+            bc.freqSlider.setValue(kDefaultFreqs[i], juce::dontSendNotification);
+            bc.freqSlider.addListener(this);
+            contentComp.addAndMakeVisible(bc.freqSlider);
+
+            // HPF and LPF have no gain slider — we still add it but will hide
+            bc.gainSlider.setRange(-12.0, 12.0, 0.1);
+            bc.gainSlider.setValue(0.0, juce::dontSendNotification);
+            bc.gainSlider.addListener(this);
+            contentComp.addAndMakeVisible(bc.gainSlider);
+
+            bc.qSlider.setRange(0.1, 10.0, 0.01);
+            bc.qSlider.setSkewFactorFromMidPoint(1.0);
+            bc.qSlider.setValue(0.707, juce::dontSendNotification);
+            bc.qSlider.addListener(this);
+            contentComp.addAndMakeVisible(bc.qSlider);
+
+            bc.enableBtn.setClickingTogglesState(true);
+            bc.enableBtn.setToggleState(true, juce::dontSendNotification);
+            bc.enableBtn.setColour(juce::TextButton::buttonColourId, kBypassOn);
+            bc.enableBtn.setColour(juce::TextButton::buttonOnColourId, kBypassOn);
+            bc.enableBtn.addListener(this);
+            contentComp.addAndMakeVisible(bc.enableBtn);
+        }
+
+        // ---- Section 4: Sends ----
+        static const char* kSendNames[kNumSends] = { "Send A", "Send B", "Send C", "Send D" };
+        for (int i = 0; i < kNumSends; ++i)
+        {
+            auto& row = sendRows[i];
+            row.nameLabel.setFont(juce::Font(10.0f));
+            row.nameLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+            row.nameLabel.setText(kSendNames[i], juce::dontSendNotification);
+            contentComp.addAndMakeVisible(row.nameLabel);
+
+            row.levelSlider.setRange(0.0, 1.0, 0.01);
+            row.levelSlider.setValue(0.0, juce::dontSendNotification);
+            row.levelSlider.addListener(this);
+            contentComp.addAndMakeVisible(row.levelSlider);
+
+            row.onBtn.setClickingTogglesState(true);
+            row.onBtn.setColour(juce::TextButton::buttonColourId, kSlotBg);
+            row.onBtn.setColour(juce::TextButton::buttonOnColourId, kAccent);
+            row.onBtn.addListener(this);
+            contentComp.addAndMakeVisible(row.onBtn);
+        }
+
+        viewport.setViewedComponent(&contentComp, false);
+        viewport.setScrollBarsShown(true, false);
+        addAndMakeVisible(viewport);
+    }
+
+    ProductionPanel::~ProductionPanel()
+    {
+        for (auto* btn : { &muteBtn, &soloBtn, &armBtn })
+            btn->removeListener(this);
+        for (auto& slot : insertSlots)
+        {
+            slot.bypassBtn.removeListener(this);
+            slot.nameBtn.removeListener(this);
+        }
+        for (auto& bc : bandControls)
+        {
+            bc.freqSlider.removeListener(this);
+            bc.gainSlider.removeListener(this);
+            bc.qSlider.removeListener(this);
+            bc.enableBtn.removeListener(this);
+        }
+        for (auto& row : sendRows)
+        {
+            row.levelSlider.removeListener(this);
+            row.onBtn.removeListener(this);
+        }
+    }
+
+    void ProductionPanel::updateFromTrack(const NovaStudio::Track& track)
+    {
+        trackNameLabel.setText(track.name, juce::dontSendNotification);
+        currentVolDb  = track.volumeDb;
+        currentMuted  = track.muted;
+        currentSoloed = track.solo;
+        currentArmed  = track.armed;
+
+        gainDbLabel.setText(juce::String(track.volumeDb, 1) + " dB", juce::dontSendNotification);
+        muteBtn.setToggleState(track.muted, juce::dontSendNotification);
+        soloBtn.setToggleState(track.solo, juce::dontSendNotification);
+        armBtn.setToggleState(track.armed, juce::dontSendNotification);
+        repaint();
+    }
+
+    void ProductionPanel::setInsertSlotName(int slot, const juce::String& name)
+    {
+        if (slot < 0 || slot >= kNumInserts) return;
+        insertSlots[slot].pluginName = name;
+        if (name.isEmpty())
+        {
+            insertSlots[slot].nameBtn.setButtonText("— empty —");
+            insertSlots[slot].nameBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(90, 90, 110));
+        }
+        else
+        {
+            insertSlots[slot].nameBtn.setButtonText(name);
+            insertSlots[slot].nameBtn.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        }
+    }
+
+    void ProductionPanel::paintSectionHeader(juce::Graphics& g, juce::Rectangle<int> r, const juce::String& title)
+    {
+        g.setColour(juce::Colour::fromRGB(35, 38, 52));
+        g.fillRect(r);
+        g.setColour(juce::Colour::fromRGB(55, 58, 75));
+        g.fillRect(r.getX(), r.getBottom() - 1, r.getWidth(), 1);
+        g.setFont(juce::Font(10.0f, juce::Font::bold));
+        g.setColour(kHeaderText);
+        g.drawText(title, r.reduced(6, 0), juce::Justification::centredLeft);
+    }
+
+    void ProductionPanel::paintMeter(juce::Graphics& g, juce::Rectangle<int> r)
+    {
+        // Placeholder stereo meter — two vertical bars
+        g.setColour(juce::Colour::fromRGB(20, 22, 32));
+        g.fillRect(r);
+
+        int barW = (r.getWidth() - 4) / 2;
+        // L channel — draw a static placeholder at -12dB
+        float lvl = 0.5f;
+        juce::Rectangle<int> lBar(r.getX(), r.getY(), barW, r.getHeight());
+        juce::Rectangle<int> rBar(r.getX() + barW + 4, r.getY(), barW, r.getHeight());
+
+        auto drawBar = [&](juce::Rectangle<int> bar, float level)
+        {
+            g.setColour(juce::Colour::fromRGB(20, 22, 32));
+            g.fillRect(bar);
+            int fillH = (int)(bar.getHeight() * level);
+            auto fill = bar.removeFromBottom(fillH);
+            g.setColour(kBypassOn);
+            g.fillRect(fill);
+        };
+
+        drawBar(lBar, lvl);
+        drawBar(rBar, lvl * 0.85f);
+    }
+
+    double ProductionPanel::calcBiquadMagnitude(int bandIdx, double normFreq) const
+    {
+        // Simplified magnitude response for display only
+        const auto& band = eqBands[bandIdx];
+        if (!band.enabled) return 1.0;
+
+        double sampleRate = 44100.0;
+        double w0 = 2.0 * juce::MathConstants<double>::pi * band.freq / sampleRate;
+        double cosw0 = std::cos(w0);
+        double sinw0 = std::sin(w0);
+        double alpha = sinw0 / (2.0 * band.q);
+
+        double b0, b1, b2, a0, a1, a2;
+
+        if (bandIdx == 0) // HPF
+        {
+            b0 = (1.0 + cosw0) / 2.0;
+            b1 = -(1.0 + cosw0);
+            b2 = (1.0 + cosw0) / 2.0;
+            a0 = 1.0 + alpha;
+            a1 = -2.0 * cosw0;
+            a2 = 1.0 - alpha;
+        }
+        else if (bandIdx == kNumBands - 1) // LPF
+        {
+            b0 = (1.0 - cosw0) / 2.0;
+            b1 = 1.0 - cosw0;
+            b2 = (1.0 - cosw0) / 2.0;
+            a0 = 1.0 + alpha;
+            a1 = -2.0 * cosw0;
+            a2 = 1.0 - alpha;
+        }
+        else // Peaking EQ
+        {
+            double A = std::pow(10.0, band.gain / 40.0);
+            b0 = 1.0 + alpha * A;
+            b1 = -2.0 * cosw0;
+            b2 = 1.0 - alpha * A;
+            a0 = 1.0 + alpha / A;
+            a1 = -2.0 * cosw0;
+            a2 = 1.0 - alpha / A;
+        }
+
+        // Evaluate at normFreq (0..pi) using z = e^(jw)
+        double w = normFreq * juce::MathConstants<double>::pi;
+        double cosW = std::cos(w);
+        double sinW = std::sin(w);
+        double cos2W = std::cos(2.0 * w);
+        double sin2W = std::sin(2.0 * w);
+
+        double bRe = b0 + b1 * cosW + b2 * cos2W;
+        double bIm = -b1 * sinW - b2 * sin2W;
+        double aRe = a0 + a1 * cosW + a2 * cos2W;
+        double aIm = -a1 * sinW - a2 * sin2W;
+
+        double bMag2 = bRe * bRe + bIm * bIm;
+        double aMag2 = aRe * aRe + aIm * aIm;
+
+        return std::sqrt(bMag2 / (aMag2 + 1e-30));
+    }
+
+    void ProductionPanel::paintEQGraph(juce::Graphics& g, juce::Rectangle<int> r)
+    {
+        g.setColour(kEQGraphBg);
+        g.fillRect(r);
+        g.setColour(juce::Colour::fromRGB(30, 35, 45));
+        g.drawRect(r, 1);
+
+        // Grid lines
+        g.setColour(juce::Colour::fromRGB(25, 30, 40));
+        for (int db : { -12, -6, 0, 6, 12 })
+        {
+            float y = r.getY() + r.getHeight() * (1.0f - (db + 12.0f) / 24.0f);
+            g.drawHorizontalLine((int)y, (float)r.getX(), (float)r.getRight());
+        }
+
+        // Draw summed frequency response curve
+        juce::Path curve;
+        const int numPoints = r.getWidth();
+        bool first = true;
+        for (int px = 0; px < numPoints; ++px)
+        {
+            double normFreq = (double)px / numPoints;
+            // Sum magnitude in dB across all bands
+            double totalMag = 1.0;
+            for (int i = 0; i < kNumBands; ++i)
+                totalMag *= calcBiquadMagnitude(i, normFreq);
+
+            double dB = 20.0 * std::log10(totalMag + 1e-30);
+            dB = juce::jlimit(-12.0, 12.0, dB);
+            float y = r.getY() + r.getHeight() * (float)(1.0 - (dB + 12.0) / 24.0);
+            float x = (float)(r.getX() + px);
+
+            if (first) { curve.startNewSubPath(x, y); first = false; }
+            else        curve.lineTo(x, y);
+        }
+
+        g.setColour(kEQCurve);
+        g.strokePath(curve, juce::PathStrokeType(1.5f));
+    }
+
+    void ProductionPanel::paint(juce::Graphics& g)
+    {
+        g.fillAll(kPanelBg);
+        // EQ graph is painted inside resized/paint of contentComp via this override
+        // We paint the EQ graph here directly into the content component coordinate space
+        if (eqGraphBounds.getWidth() > 0)
+        {
+            // Convert eqGraphBounds from contentComp to this component
+            auto offset = contentComp.getBounds().getPosition() - viewport.getViewPosition();
+            auto translated = eqGraphBounds.translated(viewport.getX() + offset.x, viewport.getY() + offset.y);
+            paintEQGraph(g, translated);
+        }
+    }
+
+    void ProductionPanel::resized()
+    {
+        viewport.setBounds(getLocalBounds());
+
+        const int W = getWidth();
+        const int totalH = 180 + 18 + 8*22 + 14 + 80 + 14 + 18 + 8*22 + 10 + 200 + 14 + 4*28 + 20;
+        contentComp.setSize(W, juce::jmax(getHeight(), totalH));
+
+        int y = 0;
+
+        // ---- Section 1: Track Channel (180px) ----
+        const int sec1H = 180;
+        // Header bar
+        int headerH = 18;
+        // Track name
+        trackNameLabel.setBounds(4, y + 2, W - 8, 22);
+        y += 26;
+        // Meter — drawn directly in paint(), just reserve space here
+        const int meterH = 60;
+        y += meterH + 4;
+        // IN/OUT labels
+        inputLabel.setBounds(4, y, W/2 - 6, 14);
+        outputLabel.setBounds(W/2 + 2, y, W/2 - 6, 14);
+        y += 18;
+        // MSR buttons + gain label
+        int btnW = 30;
+        muteBtn.setBounds(4, y, btnW, 22);
+        soloBtn.setBounds(4 + btnW + 3, y, btnW, 22);
+        armBtn.setBounds(4 + (btnW + 3) * 2, y, btnW, 22);
+        gainDbLabel.setBounds(4 + (btnW + 3) * 3, y, W - 4 - (btnW + 3) * 3 - 4, 22);
+        y += 26;
+
+        // Pad to sec1H
+        y = juce::jmax(y, sec1H);
+
+        // ---- Section 2: Inserts (header 18 + 8*22 + gap 8) ----
+        // Header painted in paint()
+        y += 8; // gap before section
+
+        // Section header
+        int sec2HeaderY = y;
+        y += headerH;
+
+        const int slotH = 22;
+        const int bypassW = 18;
+        for (int i = 0; i < kNumInserts; ++i)
+        {
+            insertSlots[i].bypassBtn.setBounds(4, y, bypassW, slotH - 2);
+            insertSlots[i].nameBtn.setBounds(4 + bypassW + 2, y, W - 4 - bypassW - 6, slotH - 2);
+            y += slotH;
+        }
+        y += 8;
+
+        // ---- Section 3: EQ (header + graph + band controls) ----
+        int sec3HeaderY = y;
+        y += headerH;
+
+        // EQ graph
+        const int graphH = 80;
+        eqGraphBounds = juce::Rectangle<int>(4, y, W - 8, graphH);
+        y += graphH + 4;
+
+        // Band controls — 6 bands arranged horizontally
+        const int bandW = (W - 8) / kNumBands;
+        const int knobSz = 28;
+        const int smallKnobSz = 20;
+        for (int i = 0; i < kNumBands; ++i)
+        {
+            int bx = 4 + i * bandW;
+            auto& bc = bandControls[i];
+            bc.bandLabel.setBounds(bx, y, bandW, 12);
+            bc.enableBtn.setBounds(bx + (bandW - 14) / 2, y + 12, 14, 14);
+            bc.freqSlider.setBounds(bx + (bandW - knobSz) / 2, y + 28, knobSz, knobSz);
+            // HPF and LPF hide gain slider
+            bool hasGain = (i != 0 && i != kNumBands - 1);
+            bc.gainSlider.setVisible(hasGain);
+            if (hasGain)
+                bc.gainSlider.setBounds(bx + (bandW - smallKnobSz) / 2, y + 28 + knobSz + 2, smallKnobSz, smallKnobSz);
+            bc.qSlider.setBounds(bx + (bandW - smallKnobSz) / 2, y + 28 + knobSz + (hasGain ? smallKnobSz + 4 : 2), smallKnobSz, smallKnobSz);
+        }
+        y += 28 + knobSz + smallKnobSz + smallKnobSz + 8;
+        y += 8;
+
+        // ---- Section 4: Sends ----
+        int sec4HeaderY = y;
+        y += headerH;
+
+        const int sendRowH = 26;
+        const int sendKnobSz = 22;
+        const int sendBtnW = 28;
+        for (int i = 0; i < kNumSends; ++i)
+        {
+            sendRows[i].nameLabel.setBounds(4, y + 4, 54, 18);
+            sendRows[i].levelSlider.setBounds(60, y + 2, sendKnobSz, sendKnobSz);
+            sendRows[i].onBtn.setBounds(W - sendBtnW - 4, y + 2, sendBtnW, sendKnobSz);
+            y += sendRowH;
+        }
+        y += 10;
+
+        contentComp.setSize(W, juce::jmax(getHeight(), y));
+
+        // Store header y positions for paint
+        // We'll draw headers in paint() by reading contentComp position
+        // Store as member vars via a small trick: repaint after layout
+        repaint();
+
+        juce::ignoreUnused(sec2HeaderY, sec3HeaderY, sec4HeaderY);
+    }
+
+    void ProductionPanel::sliderValueChanged(juce::Slider* s)
+    {
+        for (int i = 0; i < kNumBands; ++i)
+        {
+            auto& bc = bandControls[i];
+            if (s == &bc.freqSlider)
+            {
+                eqBands[i].freq = (float)s->getValue();
+                if (onEQChanged) onEQChanged(i, eqBands[i].freq, eqBands[i].gain, eqBands[i].q);
+                repaint();
+                return;
+            }
+            if (s == &bc.gainSlider)
+            {
+                eqBands[i].gain = (float)s->getValue();
+                if (onEQChanged) onEQChanged(i, eqBands[i].freq, eqBands[i].gain, eqBands[i].q);
+                repaint();
+                return;
+            }
+            if (s == &bc.qSlider)
+            {
+                eqBands[i].q = (float)s->getValue();
+                if (onEQChanged) onEQChanged(i, eqBands[i].freq, eqBands[i].gain, eqBands[i].q);
+                repaint();
+                return;
+            }
+        }
+        for (int i = 0; i < kNumSends; ++i)
+        {
+            if (s == &sendRows[i].levelSlider)
+            {
+                if (onSendLevelChanged) onSendLevelChanged(i, (float)s->getValue());
+                return;
+            }
+        }
+    }
+
+    void ProductionPanel::buttonClicked(juce::Button* b)
+    {
+        for (int i = 0; i < kNumInserts; ++i)
+        {
+            if (b == &insertSlots[i].nameBtn)
+            {
+                if (insertSlots[i].pluginName.isNotEmpty())
+                {
+                    // Right-click / context: show popup menu
+                    juce::PopupMenu menu;
+                    menu.addItem(1, "Open Editor");
+                    menu.addItem(2, "Change Plugin...");
+                    menu.addItem(3, "Remove");
+                    menu.showMenuAsync(juce::PopupMenu::Options{}, [this, i](int result)
+                    {
+                        if (result == 1 && onInsertClicked)       onInsertClicked(i);
+                        else if (result == 2 && onInsertChangePlugin) onInsertChangePlugin(i);
+                        else if (result == 3 && onInsertRemovePlugin) onInsertRemovePlugin(i);
+                    });
+                }
+                else
+                {
+                    if (onInsertClicked) onInsertClicked(i);
+                }
+                return;
+            }
+            if (b == &insertSlots[i].bypassBtn)
+            {
+                insertSlots[i].bypassed = insertSlots[i].bypassBtn.getToggleState();
+                repaint();
+                return;
+            }
+        }
+        for (int i = 0; i < kNumBands; ++i)
+        {
+            if (b == &bandControls[i].enableBtn)
+            {
+                eqBands[i].enabled = bandControls[i].enableBtn.getToggleState();
+                if (onEQChanged) onEQChanged(i, eqBands[i].freq, eqBands[i].gain, eqBands[i].q);
+                repaint();
+                return;
+            }
+        }
+    }
 }
+

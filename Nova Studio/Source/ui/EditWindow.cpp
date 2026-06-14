@@ -17,8 +17,26 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
     trackPanel = std::make_unique<TrackPanel>(arrangement.getSession());
     leftPanel.addAndMakeVisible(*trackPanel);
 
-    inspectorPanel = std::make_unique<InspectorPanel>(arrangementModel);
-    rightPanel.addAndMakeVisible(*inspectorPanel);
+    productionPanel = std::make_unique<ProductionPanel>(arrangementModel);
+    rightPanel.addAndMakeVisible(*productionPanel);
+
+    // Wire ProductionPanel callbacks (no-ops for now — engine wiring is separate)
+    productionPanel->onInsertClicked = [](int slot) {
+        DBG("Insert slot clicked: " + juce::String(slot));
+    };
+    productionPanel->onInsertChangePlugin = [](int slot) {
+        DBG("Change plugin on slot: " + juce::String(slot));
+    };
+    productionPanel->onInsertRemovePlugin = [](int slot) {
+        DBG("Remove plugin on slot: " + juce::String(slot));
+    };
+    productionPanel->onEQChanged = [](int band, float freq, float gainDb, float q) {
+        DBG("EQ band " + juce::String(band) + " freq=" + juce::String(freq)
+            + " gain=" + juce::String(gainDb) + " q=" + juce::String(q));
+    };
+    productionPanel->onSendLevelChanged = [](int send, float level) {
+        DBG("Send " + juce::String(send) + " level=" + juce::String(level));
+    };
 
     editModeToolbar = std::make_unique<EditModeToolbar>();
     centerPanel.addAndMakeVisible(*editModeToolbar);
@@ -124,8 +142,8 @@ void EditWindow::resized()
 
     if (trackPanel)
         trackPanel->setBounds(leftPanel.getLocalBounds());
-    if (inspectorPanel)
-        inspectorPanel->setBounds(rightPanel.getLocalBounds().reduced(8));
+    if (productionPanel)
+        productionPanel->setBounds(rightPanel.getLocalBounds());
 
     auto centerArea = centerPanel.getLocalBounds();
     const int toolbarH = 28;
@@ -140,8 +158,13 @@ void EditWindow::changeListenerCallback(juce::ChangeBroadcaster* source)
     juce::ignoreUnused(source);
     if (trackPanel)
         trackPanel->refresh();
-    if (inspectorPanel)
-        inspectorPanel->repaint();
+    if (productionPanel)
+    {
+        auto idx = arrangementModel.getSelectedTrackIndex();
+        if (idx >= 0 && idx < arrangementModel.getSession().getNumTracks())
+            productionPanel->updateFromTrack(arrangementModel.getSession().getTrack(idx));
+        productionPanel->repaint();
+    }
     if (arrangementView)
         arrangementView->repaint();
     repaint();
