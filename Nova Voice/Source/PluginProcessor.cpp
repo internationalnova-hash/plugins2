@@ -358,8 +358,10 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         const float soft = 0.25f * prev + 0.5f * bandRawReductionDb[i] + 0.25f * next;
         bandSmoothedReductionDb[i] = juce::jmap (crossBlend, bandRawReductionDb[i], soft);
 
+        bandCurrentReductionDb[i] += (bandSmoothedReductionDb[i] - bandCurrentReductionDb[i]) * 0.15f;
+
         auto coeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter (
-            currentSampleRate, bandFrequencies[i], bandQValues[i], juce::Decibels::decibelsToGain (bandSmoothedReductionDb[i]));
+            currentSampleRate, bandFrequencies[i], bandQValues[i], juce::Decibels::decibelsToGain (bandCurrentReductionDb[i]));
         leftReductionFilters[i].coefficients = coeffs;
         rightReductionFilters[i].coefficients = coeffs;
     }
@@ -368,11 +370,17 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     auto* rightChannel = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
 
     float blockPeak = 0.0f;
-    const float textureDrive = 1.0f + textureNorm * 3.2f * mode.texture;
-    const float textureMix = juce::jlimit (0.08f, 0.82f, 0.12f + textureNorm * 0.52f * mode.texture);
-    const float airEnhance = juce::jlimit (0.00f, 0.22f, 0.03f + airNorm * 0.16f * mode.brightness);
-    const float motionDepth = juce::jlimit (0.0f, 0.22f, 0.02f + morphNorm * 0.10f * mode.motion + textureNorm * 0.06f);
-    const float phaseStep = juce::MathConstants<float>::twoPi * (0.22f + 0.35f * mode.motion) / static_cast<float> (currentSampleRate);
+    const float textureDrive = 1.0f + textureNorm * 1.6f * mode.texture;
+    const float textureMix = juce::jlimit (0.04f, 0.55f, 0.08f + textureNorm * 0.32f * mode.texture);
+
+    const float airGainDb = juce::jmap (airNorm, 0.0f, 1.0f, 0.0f, 9.0f) * mode.brightness;
+    auto airCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighShelf (
+        currentSampleRate, 8000.0f, 0.707f, juce::Decibels::decibelsToGain (airGainDb));
+    airShelfL.coefficients = airCoeffs;
+    airShelfR.coefficients = airCoeffs;
+
+    const float dryGain = std::cos (blendNorm * juce::MathConstants<float>::halfPi);
+    const float wetGain = std::sin (blendNorm * juce::MathConstants<float>::halfPi);
 
     for (int s = 0; s < buffer.getNumSamples(); ++s)
     {
@@ -390,25 +398,12 @@ void NovaVoiceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         wetL = juce::jmap (textureMix, wetL, satL);
         wetR = juce::jmap (textureMix, wetR, satR);
 
-        const float diffL = wetL - previousWetLeft;
-        const float diffR = wetR - previousWetRight;
-        previousWetLeft = wetL;
-        previousWetRight = wetR;
+        wetL = airShelfL.processSample (wetL);
+        wetR = airShelfR.processSample (wetR);
 
-        wetL += diffL * airEnhance;
-        wetR += diffR * airEnhance;
-
-        const float motion = std::sin (modulationPhase);
-        modulationPhase += phaseStep;
-        if (modulationPhase > juce::MathConstants<float>::twoPi)
-            modulationPhase -= juce::MathConstants<float>::twoPi;
-
-        wetL *= (1.0f + motionDepth * motion);
-        wetR *= (1.0f - motionDepth * motion);
-
-        const float outL = dryLeft[s] * (1.0f - blendNorm) + wetL * blendNorm;
+        const float outL = dryLeft[s] * dryGain + wetL * wetGain;
         const float dryRs = dryRight != nullptr ? dryRight[s] : dryLeft[s];
-        const float outR = dryRs * (1.0f - blendNorm) + wetR * blendNorm;
+        const float outR = dryRs * dryGain + wetR * wetGain;
 
         leftChannel[s] = outL;
         if (rightChannel != nullptr)
