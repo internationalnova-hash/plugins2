@@ -803,6 +803,16 @@ namespace NovaStudio
         if (!currentRecordingFile.existsAsFile())
             return;
 
+        // Skip clips shorter than ~200ms — these are accidental stops, not real recordings
+        const int64_t minSamples = static_cast<int64_t>(currentSampleRate * 0.2);
+        if (recordingSampleCount < minSamples)
+        {
+            juce::Logger::writeToLog("createRecordingClip: skipping — too short ("
+                + juce::String(recordingSampleCount) + " samples, min=" + juce::String(minSamples) + ")");
+            currentRecordingFile.deleteFile();
+            return;
+        }
+
         juce::Logger::writeToLog("createRecordingClip: numTracks=" + juce::String(session.getNumTracks())
             + "  file=" + currentRecordingFile.getFileName());
 

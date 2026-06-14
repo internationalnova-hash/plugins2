@@ -124,10 +124,20 @@ MainComponent::MainComponent()
     statusLabel.setText("Nova Studio Lite prototype ready", juce::dontSendNotification);
 
     workspaceToolbar.onReturnToZero = [this] {
+        bool wasRecording = engine.isRecording();
         engine.stop();
         transportState.setPositionSamples(0, true);
         workspaceToolbar.setPlayState(false, false);
-        updateStatusMessage("Returned to zero.");
+        if (wasRecording)
+        {
+            refreshTrackList();
+            arrangementModel.sendChangeMessage();
+            updateStatusMessage("Recording stopped. Returned to zero.");
+        }
+        else
+        {
+            updateStatusMessage("Returned to zero.");
+        }
     };
 
     workspaceToolbar.onPlay = [this] {
@@ -626,7 +636,15 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
     // Cmd+Space / F12 → Toggle Record (Pro Tools)
     if ((isCmd || isCtrl) && key.getKeyCode() == juce::KeyPress::spaceKey)
     {
+        bool wasRecording = engine.isRecording();
         engine.toggleRecord();
+        workspaceToolbar.setPlayState(engine.getTransportState().isPlaying(), engine.isRecording());
+        if (wasRecording && !engine.isRecording())
+        {
+            refreshTrackList();
+            arrangementModel.sendChangeMessage();
+            updateStatusMessage("Recording stopped.");
+        }
         return true;
     }
     // Return/Enter → Return to zero / go to start
