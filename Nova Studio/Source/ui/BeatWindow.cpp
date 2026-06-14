@@ -1303,80 +1303,33 @@ void FloatingSubPanel::mouseDrag(const juce::MouseEvent& e)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CompactMixerView
+// CompactMixerView — full-featured in-window mixer matching the main Mix window
 // ─────────────────────────────────────────────────────────────────────────────
 
-CompactMixerView::CompactMixerView()
+CompactMixerView::CompactMixerView() {}
+CompactMixerView::~CompactMixerView() = default;
+
+float CompactMixerView::posToDb(float pos) noexcept
 {
+    if (pos < 0.35f) return juce::jmap(pos, 0.0f, 0.35f, -96.0f, 0.0f);
+    return juce::jmap(pos, 0.35f, 1.0f, 0.0f, 6.0f);
 }
 
-CompactMixerView::~CompactMixerView()
+float CompactMixerView::dbToPos(float db) noexcept
 {
-    for (auto* strip : strips)
-    {
-        strip->volumeFader.removeListener(this);
-        strip->panKnob.removeListener(this);
-        strip->muteBtn.removeListener(this);
-    }
+    if (db <= -90.0f) return 0.0f;
+    if (db <=   0.0f) return juce::jmap(db, -96.0f, 0.0f, 0.0f, 0.35f);
+    return juce::jmap(db, 0.0f, 6.0f, 0.35f, 1.0f);
 }
 
 void CompactMixerView::setNumTracks(int numTracks)
 {
-    for (auto* strip : strips)
-    {
-        strip->volumeFader.removeListener(this);
-        strip->panKnob.removeListener(this);
-        strip->muteBtn.removeListener(this);
-        removeChildComponent(&strip->nameLabel);
-        removeChildComponent(&strip->volumeFader);
-        removeChildComponent(&strip->panKnob);
-        removeChildComponent(&strip->muteBtn);
-    }
     strips.clear();
-
     for (int i = 0; i < numTracks; ++i)
     {
-        auto* strip = strips.add(new Strip());
-
-        strip->nameLabel.setText("Trk " + juce::String(i + 1), juce::dontSendNotification);
-        strip->nameLabel.setJustificationType(juce::Justification::centred);
-        strip->nameLabel.setFont(juce::FontOptions(11.0f));
-        strip->nameLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-        addAndMakeVisible(strip->nameLabel);
-
-        strip->volumeFader.setSliderStyle(juce::Slider::LinearVertical);
-        strip->volumeFader.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
-        strip->volumeFader.setRange(-60.0, 6.0, 0.1);
-        strip->volumeFader.setValue(0.0, juce::dontSendNotification);
-        strip->volumeFader.setColour(juce::Slider::trackColourId, BeatTheme::accent());
-        strip->volumeFader.setColour(juce::Slider::backgroundColourId, BeatTheme::stepOff());
-        strip->volumeFader.setColour(juce::Slider::thumbColourId, juce::Colours::white);
-        strip->volumeFader.addListener(this);
-        strip->volumeFader.setComponentID(juce::String(i));
-        addAndMakeVisible(strip->volumeFader);
-
-        strip->panKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        strip->panKnob.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
-        strip->panKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.2f,
-                                           juce::MathConstants<float>::pi * 2.8f, true);
-        strip->panKnob.setRange(-1.0, 1.0, 0.01);
-        strip->panKnob.setValue(0.0, juce::dontSendNotification);
-        strip->panKnob.setColour(juce::Slider::rotarySliderFillColourId, BeatTheme::accent());
-        strip->panKnob.setColour(juce::Slider::rotarySliderOutlineColourId, BeatTheme::stepOff());
-        strip->panKnob.setColour(juce::Slider::thumbColourId, juce::Colours::white);
-        strip->panKnob.addListener(this);
-        strip->panKnob.setComponentID(juce::String(i));
-        addAndMakeVisible(strip->panKnob);
-
-        strip->muteBtn.setClickingTogglesState(true);
-        strip->muteBtn.setColour(juce::TextButton::buttonColourId, BeatTheme::stepOff());
-        strip->muteBtn.setColour(juce::TextButton::buttonOnColourId, juce::Colours::orangered);
-        strip->muteBtn.addListener(this);
-        strip->muteBtn.setComponentID(juce::String(i));
-        addAndMakeVisible(strip->muteBtn);
+        auto* s = strips.add(new Strip());
+        s->name = "Trk " + juce::String(i + 1);
     }
-
-    resized();
     repaint();
 }
 
@@ -1385,92 +1338,325 @@ void CompactMixerView::setTrackInfo(int index, const juce::String& name, juce::C
 {
     if (! juce::isPositiveAndBelow(index, strips.size()))
         return;
-
-    auto* strip = strips.getUnchecked(index);
-    strip->colour = colour;
-    strip->nameLabel.setText(name, juce::dontSendNotification);
-    strip->volumeFader.setValue(volumeDb, juce::dontSendNotification);
-    strip->panKnob.setValue(pan, juce::dontSendNotification);
-    strip->muteBtn.setToggleState(muted, juce::dontSendNotification);
+    auto* s     = strips.getUnchecked(index);
+    s->name     = name;
+    s->colour   = colour;
+    s->faderPos = dbToPos(volumeDb);
+    s->panPos   = juce::jlimit(0.0f, 1.0f, (pan + 1.0f) * 0.5f);
+    s->muted    = muted;
     repaint();
-}
-
-void CompactMixerView::sliderValueChanged(juce::Slider* s)
-{
-    const int index = s->getComponentID().getIntValue();
-    if (! juce::isPositiveAndBelow(index, strips.size()))
-        return;
-
-    auto* strip = strips.getUnchecked(index);
-    if (s == &strip->volumeFader)
-    {
-        if (onVolumeChanged) onVolumeChanged(index, (float) s->getValue());
-    }
-    else if (s == &strip->panKnob)
-    {
-        if (onPanChanged) onPanChanged(index, (float) s->getValue());
-    }
-}
-
-void CompactMixerView::buttonClicked(juce::Button* b)
-{
-    const int index = b->getComponentID().getIntValue();
-    if (! juce::isPositiveAndBelow(index, strips.size()))
-        return;
-
-    auto* strip = strips.getUnchecked(index);
-    if (b == &strip->muteBtn)
-    {
-        if (onMuteToggled) onMuteToggled(index, b->getToggleState());
-    }
 }
 
 void CompactMixerView::paint(juce::Graphics& g)
 {
-    g.fillAll(BeatTheme::bg());
+    g.fillAll(juce::Colour::fromRGB(11, 12, 18));
 
-    g.setColour(BeatTheme::panel());
-    g.fillRect(getLocalBounds().removeFromTop(22));
+    // Header bar
+    g.setColour(juce::Colour::fromRGB(17, 19, 28));
+    g.fillRect(0, 0, getWidth(), kHeaderH);
     g.setColour(juce::Colours::white.withAlpha(0.8f));
-    g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
-    g.drawText("MIXER", getLocalBounds().removeFromTop(22), juce::Justification::centred);
-
-    auto area = getLocalBounds().withTrimmedTop(22);
-    for (int i = 0; i < strips.size(); ++i)
-    {
-        auto stripArea = juce::Rectangle<int>(area.getX() + i * kStripWidth, area.getY(),
-                                               kStripWidth, area.getHeight());
-        g.setColour(strips.getUnchecked(i)->colour.withAlpha(0.18f));
-        g.fillRect(stripArea.reduced(2));
-        g.setColour(BeatTheme::edge());
-        g.drawRect(stripArea, 1);
-    }
+    g.setFont(juce::Font(juce::FontOptions(11.0f).withStyle("Bold")));
+    g.drawText("MIXER", 0, 0, getWidth(), kHeaderH, juce::Justification::centred);
 
     if (strips.isEmpty())
     {
-        g.setColour(juce::Colours::white.withAlpha(0.5f));
-        g.setFont(juce::FontOptions(13.0f));
-        g.drawText("No tracks yet — add a track to see it here.",
-                   area, juce::Justification::centred);
+        g.setColour(juce::Colours::white.withAlpha(0.4f));
+        g.setFont(juce::Font(juce::FontOptions(11.0f)));
+        g.drawText("No tracks — add a track to see it here.",
+                   getLocalBounds().withTrimmedTop(kHeaderH), juce::Justification::centred);
+        return;
     }
-}
 
-void CompactMixerView::resized()
-{
-    auto area = getLocalBounds().withTrimmedTop(22);
+    const int top     = kHeaderH;
+    const int H       = getHeight() - kHeaderH;
+    const int fTop    = top + 44;
+    const int fBot    = top + H - 34;
+    const int fTravel = juce::jmax(1, fBot - fTop);
+
+    static const char* const dbMarks[] = { "+6", "0", "-6", "-12", "-24", "-inf" };
 
     for (int i = 0; i < strips.size(); ++i)
     {
-        auto* strip = strips.getUnchecked(i);
-        auto stripArea = juce::Rectangle<int>(area.getX() + i * kStripWidth, area.getY(),
-                                               kStripWidth, area.getHeight()).reduced(4);
+        const auto* s  = strips.getUnchecked(i);
+        const int sx   = i * kStripW;
+        const int sw   = kStripW - 2;
+        const juce::Colour col = s->colour;
 
-        strip->nameLabel.setBounds(stripArea.removeFromTop(16));
-        strip->panKnob.setBounds(stripArea.removeFromTop(36).reduced(8, 0));
-        strip->muteBtn.setBounds(stripArea.removeFromBottom(22));
-        stripArea.removeFromBottom(4);
-        strip->volumeFader.setBounds(stripArea);
+        // Strip background
+        g.setColour(juce::Colour::fromRGB(11, 12, 18));
+        g.fillRect(sx, top, sw, H);
+
+        // Colour band at top
+        g.setColour(col);
+        g.fillRect(sx, top, sw, 4);
+
+        // Track name
+        g.setColour(juce::Colours::white.withAlpha(0.85f));
+        g.setFont(juce::Font(juce::FontOptions(8.5f).withStyle("Bold")));
+        g.drawText(s->name, sx + 2, top + 6, sw - 4, 12, juce::Justification::centred);
+
+        // ── Pan knob ──────────────────────────────────────────────────────────
+        const float knobCX  = (float)sx + sw * 0.5f;
+        const float knobCY  = (float)top + 28.0f;
+        const float kr      = 9.0f;
+        const float panVal  = s->panPos;
+
+        g.setColour(juce::Colour::fromRGB(8, 9, 14));
+        g.fillEllipse(knobCX - kr, knobCY - kr, kr * 2.0f, kr * 2.0f);
+        g.setColour(juce::Colour::fromRGB(38, 42, 60));
+        g.fillEllipse(knobCX - kr + 1.5f, knobCY - kr + 1.5f, (kr - 1.5f) * 2.0f, (kr - 1.5f) * 2.0f);
+
+        const float offCentre = std::abs(panVal - 0.5f) * 2.0f;
+        g.setColour(col.withAlpha(0.35f + offCentre * 0.5f));
+        g.drawEllipse(knobCX - kr, knobCY - kr, kr * 2.0f, kr * 2.0f, 1.5f);
+
+        {
+            const float sa = -juce::MathConstants<float>::pi * 0.75f;
+            const float ea =  juce::MathConstants<float>::pi * 0.75f;
+            const float pa = sa + panVal * (ea - sa);
+            juce::Path arc;
+            arc.addArc(knobCX - kr + 1.0f, knobCY - kr + 1.0f,
+                       (kr - 1.0f) * 2.0f, (kr - 1.0f) * 2.0f,
+                       juce::jmin(0.0f, pa), juce::jmax(0.0f, pa), true);
+            g.setColour(col.withAlpha(panVal != 0.5f ? 0.8f : 0.3f));
+            g.strokePath(arc, juce::PathStrokeType(2.0f));
+        }
+        {
+            const float sa = -juce::MathConstants<float>::pi * 0.75f;
+            const float ea =  juce::MathConstants<float>::pi * 0.75f;
+            const float pa = sa + panVal * (ea - sa);
+            const float px = knobCX + (kr - 3.0f) * std::sin(pa);
+            const float py = knobCY - (kr - 3.0f) * std::cos(pa);
+            g.setColour(juce::Colours::white.withAlpha(0.9f));
+            g.drawLine(knobCX, knobCY, px, py, 1.8f);
+        }
+
+        g.setColour(juce::Colours::white.withAlpha(0.3f));
+        g.setFont(juce::Font(juce::FontOptions(6.5f)));
+        juce::String panStr;
+        if (std::abs(panVal - 0.5f) < 0.01f) panStr = "C";
+        else if (panVal < 0.5f) panStr = "L" + juce::String((int)((0.5f - panVal) * 200.0f));
+        else                    panStr = "R" + juce::String((int)((panVal - 0.5f) * 200.0f));
+        g.drawText(panStr, sx + 2, (int)(knobCY + kr + 1.0f), sw - 4, 9, juce::Justification::centred);
+
+        // ── Fader + level meter ───────────────────────────────────────────────
+        const int meterColW = 9;
+        const int meterColX = sx + sw - meterColW - 1;
+        const int fCX       = sx + (meterColX - sx) / 2;
+
+        // Fader groove
+        g.setColour(juce::Colour::fromRGB(6, 7, 11));
+        g.fillRoundedRectangle((float)(fCX - 3), (float)fTop, 6.0f, (float)fTravel, 3.0f);
+        g.setColour(juce::Colour::fromRGB(30, 34, 48));
+        g.drawRoundedRectangle((float)(fCX - 3), (float)fTop, 6.0f, (float)fTravel, 3.0f, 0.8f);
+
+        // Unity (0 dB) tick mark at 35% position
+        const int unityY = fTop + (int)(0.35f * fTravel);
+        g.setColour(col.withAlpha(0.45f));
+        g.fillRect(fCX - 8, unityY - 1, 16, 2);
+
+        // dB scale ticks on the left
+        g.setColour(juce::Colours::white.withAlpha(0.18f));
+        g.setFont(juce::Font(juce::FontOptions(6.0f)));
+        for (int m = 0; m < 6; ++m)
+        {
+            const int tickY = fTop + m * fTravel / 5;
+            g.drawLine((float)(sx + 4), (float)tickY, (float)(fCX - 5), (float)tickY, 0.7f);
+            g.drawText(dbMarks[m], sx + 2, tickY - 4, 18, 8, juce::Justification::right);
+        }
+
+        // Segmented level meter
+        g.setColour(juce::Colour::fromRGB(8, 10, 16));
+        g.fillRoundedRectangle((float)meterColX, (float)fTop, (float)meterColW, (float)fTravel, 2.0f);
+        if (s->peakLevel > 0.001f)
+        {
+            const int fillH = (int)(fTravel * juce::jlimit(0.0f, 1.0f, s->peakLevel));
+            const int segH = 3, segGap = 1;
+            for (int fy = fBot - segH; fy >= fBot - fillH; fy -= (segH + segGap))
+            {
+                const float t = 1.0f - (float)(fy - fTop) / (float)fTravel;
+                juce::Colour segCol;
+                if (t < 0.70f)      segCol = juce::Colour::fromRGB(50, 200,  80);
+                else if (t < 0.88f) segCol = juce::Colour::fromRGB(220, 200,  30);
+                else                segCol = juce::Colour::fromRGB(220,  50,  50);
+                g.setColour(segCol);
+                g.fillRect(meterColX + 1, fy, meterColW - 2, segH);
+            }
+        }
+
+        // ── Fader thumb ───────────────────────────────────────────────────────
+        const int handleY = fTop + (int)(s->faderPos * fTravel);
+        const int thumbW  = meterColX - sx - 10;
+        const int thumbX  = sx + 6;
+
+        g.setColour(juce::Colours::black.withAlpha(0.5f));
+        g.fillRoundedRectangle((float)thumbX + 1.0f, (float)(handleY - kThumbH/2) + 2.0f,
+                               (float)thumbW, (float)kThumbH, 4.0f);
+
+        juce::ColourGradient thumbGrad(juce::Colour::fromRGB(72, 78, 110),
+                                       (float)thumbX, (float)(handleY - kThumbH/2),
+                                       juce::Colour::fromRGB(44, 48, 70),
+                                       (float)thumbX, (float)(handleY + kThumbH/2), false);
+        g.setGradientFill(thumbGrad);
+        g.fillRoundedRectangle((float)thumbX, (float)(handleY - kThumbH/2),
+                               (float)thumbW, (float)kThumbH, 4.0f);
+
+        g.setColour(juce::Colours::white.withAlpha(0.75f));
+        g.fillRect(thumbX + 4, handleY - 1, thumbW - 8, 2);
+
+        g.setColour(col.withAlpha(0.35f));
+        g.drawRoundedRectangle((float)thumbX, (float)(handleY - kThumbH/2),
+                               (float)thumbW, (float)kThumbH, 4.0f, 1.0f);
+
+        // dB readout below fader
+        const juce::String dbStr = (s->faderPos <= 0.0f)
+                                   ? "-inf"
+                                   : (juce::String(posToDb(s->faderPos), 1) + " dB");
+        g.setColour(juce::Colours::white.withAlpha(0.45f));
+        g.setFont(juce::Font(juce::FontOptions(7.0f)));
+        g.drawText(dbStr, sx + 2, fBot + 2, sw - 4, 12, juce::Justification::centred);
+
+        // ── M / S / R buttons ─────────────────────────────────────────────────
+        const int btnY  = top + H - 18;
+        const int btnH2 = 14;
+        const int btnW2 = (sw - 10) / 3;
+
+        auto drawBtn = [&](const char* lbl, int bx, juce::Colour bc)
+        {
+            g.setColour(bc);
+            g.fillRoundedRectangle((float)bx, (float)btnY, (float)btnW2, (float)btnH2, 2.5f);
+            g.setColour(juce::Colours::white.withAlpha(0.8f));
+            g.setFont(juce::Font(juce::FontOptions(7.5f).withStyle("Bold")));
+            g.drawText(lbl, bx, btnY, btnW2, btnH2, juce::Justification::centred);
+        };
+
+        drawBtn("M", sx + 3,
+                s->muted  ? juce::Colour::fromRGB(180, 50, 50) : juce::Colour::fromRGB(100, 30, 30));
+        drawBtn("S", sx + 3 + btnW2 + 2,
+                s->soloed ? juce::Colour::fromRGB(30, 170, 30) : juce::Colour::fromRGB(30, 90, 30));
+        drawBtn("R", sx + 3 + (btnW2 + 2) * 2,
+                juce::Colour::fromRGB(80, 30, 80));
+
+        // Strip separator
+        g.setColour(juce::Colour::fromRGB(6, 7, 11));
+        g.fillRect(sx + sw, top, 2, H);
     }
+}
+
+void CompactMixerView::resized() {}
+
+void CompactMixerView::mouseDown(const juce::MouseEvent& e)
+{
+    const int top     = kHeaderH;
+    const int H       = getHeight() - kHeaderH;
+    const int fTop    = top + 44;
+    const int fBot    = top + H - 34;
+    const int fTravel = juce::jmax(1, fBot - fTop);
+    const int btnY    = top + H - 18;
+    const int btnH2   = 14;
+
+    const int si = e.x / kStripW;
+    if (! juce::isPositiveAndBelow(si, strips.size())) return;
+
+    auto* s        = strips.getUnchecked(si);
+    const int sx   = si * kStripW;
+    const int sw   = kStripW - 2;
+    const int btnW2 = (sw - 10) / 3;
+
+    // Pan knob hit-test
+    const float knobCX = (float)sx + sw * 0.5f;
+    const float knobCY = (float)top + 28.0f;
+    const float kr     = 9.0f;
+    const float dx     = (float)e.x - knobCX;
+    const float dy     = (float)e.y - knobCY;
+    if (dx * dx + dy * dy <= kr * kr * 2.25f)
+    {
+        dragKind     = DragKind::Pan;
+        dragIdx      = si;
+        dragStartX   = e.x;
+        dragStartVal = s->panPos;
+        return;
+    }
+
+    // Fader thumb hit-test
+    const int meterColX = sx + sw - 10;
+    const int thumbW    = meterColX - sx - 10;
+    const int thumbX    = sx + 6;
+    const int handleY   = fTop + (int)(s->faderPos * fTravel);
+    juce::Rectangle<int> thumbRect(thumbX, handleY - kThumbH / 2, thumbW, kThumbH);
+    if (thumbRect.contains(e.getPosition()))
+    {
+        dragKind     = DragKind::Fader;
+        dragIdx      = si;
+        dragStartY   = e.y;
+        dragStartVal = s->faderPos;
+        return;
+    }
+
+    // Fader groove click — jump to position
+    juce::Rectangle<int> grooveRect(sx + 2, fTop, sw - 4, fTravel);
+    if (grooveRect.contains(e.getPosition()))
+    {
+        s->faderPos = juce::jlimit(0.0f, 1.0f, (float)(e.y - fTop) / (float)fTravel);
+        if (onVolumeChanged) onVolumeChanged(si, posToDb(s->faderPos));
+        dragKind     = DragKind::Fader;
+        dragIdx      = si;
+        dragStartY   = e.y;
+        dragStartVal = s->faderPos;
+        repaint();
+        return;
+    }
+
+    // M button
+    juce::Rectangle<int> muteRect(sx + 3, btnY, btnW2, btnH2);
+    if (muteRect.contains(e.getPosition()))
+    {
+        s->muted = !s->muted;
+        if (onMuteToggled) onMuteToggled(si, s->muted);
+        repaint();
+        return;
+    }
+
+    // S button
+    juce::Rectangle<int> soloRect(sx + 3 + btnW2 + 2, btnY, btnW2, btnH2);
+    if (soloRect.contains(e.getPosition()))
+    {
+        s->soloed = !s->soloed;
+        repaint();
+    }
+}
+
+void CompactMixerView::mouseDrag(const juce::MouseEvent& e)
+{
+    if (dragKind == DragKind::None || ! juce::isPositiveAndBelow(dragIdx, strips.size()))
+        return;
+
+    auto* s = strips.getUnchecked(dragIdx);
+
+    if (dragKind == DragKind::Fader)
+    {
+        const int H       = getHeight() - kHeaderH;
+        const int fTop    = kHeaderH + 44;
+        const int fBot    = kHeaderH + H - 34;
+        const int fTravel = juce::jmax(1, fBot - fTop);
+        const float delta = (float)(e.y - dragStartY) / (float)fTravel;
+        s->faderPos = juce::jlimit(0.0f, 1.0f, dragStartVal + delta);
+        if (onVolumeChanged) onVolumeChanged(dragIdx, posToDb(s->faderPos));
+        repaint();
+    }
+    else if (dragKind == DragKind::Pan)
+    {
+        const float delta = (float)(e.x - dragStartX) / 120.0f;
+        s->panPos = juce::jlimit(0.0f, 1.0f, dragStartVal + delta);
+        if (onPanChanged) onPanChanged(dragIdx, (s->panPos - 0.5f) * 2.0f);
+        repaint();
+    }
+}
+
+void CompactMixerView::mouseUp(const juce::MouseEvent&)
+{
+    dragKind = DragKind::None;
+    dragIdx  = -1;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3877,12 +4063,9 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
         pianoRoll.setVisible(true);
         transportBar.setActiveView(1);
     };
-    transportBar.onShowMixer = [this]() {
-        // Delegate to the BeatWindow-level callback so clicking Mixer in the
-        // Beat window opens the same full-featured MixerWindow used in the
-        // Edit/Mix workflow, rather than the stripped-down CompactMixerView.
-        if (onShowMixer) onShowMixer();
-        transportBar.setActiveView(2);
+    transportBar.onShowMixer = [this, panelBoundsFraction]() {
+        toggleFloatingPanel(mixerPanel, mixerPanelOpen, panelBoundsFraction(0.6f, 0.78f, 30, 24));
+        transportBar.setActiveView(mixerPanelOpen ? 2 : -1);
     };
 
     patternToolbar.onPerformModeToggled = [this, panelBoundsFraction]() {

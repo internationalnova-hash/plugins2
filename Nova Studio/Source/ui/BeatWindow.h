@@ -224,13 +224,12 @@ namespace NovaStudioUI
     };
 
     // ─────────────────────────────────────────────────────────────────────────
-    // CompactMixerView — small in-window mixer (FL Studio-style), shown inside
-    // the beat production window so users don't need to leave it to adjust
-    // track levels/pan/mute.
+    // CompactMixerView — full-featured in-window mixer (FL Studio-style).
+    // Uses the same professional channel strip design as the main Mix window:
+    // colour band, pan knob, fader with scale ticks + unity mark, segmented
+    // level meter, dB readout, and M/S/R buttons.
     // ─────────────────────────────────────────────────────────────────────────
-    class CompactMixerView : public juce::Component,
-                             private juce::Slider::Listener,
-                             private juce::Button::Listener
+    class CompactMixerView : public juce::Component
     {
     public:
         CompactMixerView();
@@ -238,11 +237,11 @@ namespace NovaStudioUI
 
         void paint(juce::Graphics& g) override;
         void resized() override;
+        void mouseDown(const juce::MouseEvent& e) override;
+        void mouseDrag(const juce::MouseEvent& e) override;
+        void mouseUp(const juce::MouseEvent& e) override;
 
-        // Rebuild strips for the given track count (called when session changes)
         void setNumTracks(int numTracks);
-
-        // Push current state from the engine/session into a strip
         void setTrackInfo(int index, const juce::String& name, juce::Colour colour,
                           float volumeDb, float pan, bool muted);
 
@@ -251,21 +250,32 @@ namespace NovaStudioUI
         std::function<void(int track, bool)>      onMuteToggled;
 
     private:
-        void sliderValueChanged(juce::Slider* s) override;
-        void buttonClicked(juce::Button* b) override;
-
         struct Strip
         {
-            juce::Label      nameLabel;
-            juce::Slider     volumeFader;
-            juce::Slider     panKnob;
-            juce::TextButton muteBtn { "M" };
-            juce::Colour     colour { 100, 80, 200 };
+            juce::String name;
+            juce::Colour colour { 100, 80, 200 };
+            float faderPos  = 0.35f;  // 0..1  (0.35 = 0 dB)
+            float panPos    = 0.5f;   // 0..1  (0.5 = centre)
+            bool  muted     = false;
+            bool  soloed    = false;
+            float peakLevel = 0.0f;
         };
 
-        static constexpr int kStripWidth = 56;
+        static constexpr int kStripW  = 68;
+        static constexpr int kHeaderH = 22;
+        static constexpr int kThumbH  = 18;
 
         juce::OwnedArray<Strip> strips;
+
+        enum class DragKind { None, Fader, Pan };
+        DragKind dragKind  = DragKind::None;
+        int   dragIdx      = -1;
+        int   dragStartY   = 0;
+        int   dragStartX   = 0;
+        float dragStartVal = 0.0f;
+
+        static float posToDb(float pos) noexcept;
+        static float dbToPos(float db)  noexcept;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CompactMixerView)
     };
