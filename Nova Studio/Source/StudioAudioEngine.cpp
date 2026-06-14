@@ -1626,6 +1626,24 @@ namespace NovaStudio
         // Ordering: MixerAudioSource calls players in insertion order, so aux tracks
         // that were added AFTER regular tracks see the already-written bus data.
 
+        // Output protection: soft-clip the master bus before sending to the device.
+        // Mastered/loud audio files can have inter-sample peaks > 1.0f, which the
+        // OS audio driver hard-clips to noise. Unity gain below 0.85, smooth knee
+        // 0.85..1.0, hard wall at ±1.0 — transparent on normal signals.
+        for (int channel = 0; channel < tempBuffer.getNumChannels(); ++channel)
+        {
+            float* data = tempBuffer.getWritePointer(channel);
+            for (int s = 0; s < numSamples; ++s)
+            {
+                float x = data[s];
+                if (x > 0.85f)
+                    x = 0.85f + 0.15f * std::tanh((x - 0.85f) / 0.15f);
+                else if (x < -0.85f)
+                    x = -0.85f - 0.15f * std::tanh((-x - 0.85f) / 0.15f);
+                data[s] = x;
+            }
+        }
+
         for (int channel = 0; channel < numOutputChannels; ++channel)
         {
             const float* sourceData = tempBuffer.getReadPointer(channel);
