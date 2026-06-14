@@ -34,130 +34,105 @@ public:
                           float sliderPos, float /*minPos*/, float /*maxPos*/,
                           const juce::Slider::SliderStyle, juce::Slider&) override
     {
-        const float cx     = (float)x + width * 0.5f;
-        const float top    = (float)y + 4.0f;
-        const float bottom = (float)(y + height) - 4.0f;
+        const float cx     = (float)x + width  * 0.5f;
+        const float top    = (float)y + 6.0f;
+        const float bottom = (float)(y + height) - 6.0f;
         const float range  = bottom - top;
 
-        // dB → Y: +12 at top, 0 dB at 75% from top, -60 at bottom
+        // dB scale Y mapping: +12→top, 0 dB at 75% down, -∞ at bottom
         auto dbToY = [&](float db) -> float {
-            // piecewise: +12→0%, 0→75%, -60→100%
             if (db >= 0.0f)
                 return top + (12.0f - db) / 12.0f * 0.75f * range;
-            else
-                return top + 0.75f * range + (-db) / 60.0f * 0.25f * range;
+            return top + 0.75f * range + juce::jmin((-db) / 60.0f, 1.0f) * 0.25f * range;
         };
 
-        // ── dB scale labels ──────────────────────────────────────────────────
-        const float labelX = (float)x;
-        const float labelW = 12.0f;
-        static const float kDbMarks[] = { 12.f, 6.f, 0.f, -6.f, -12.f, -18.f, -24.f, -36.f, -48.f, -60.f };
+        // ── dB scale (right side ticks + labels) ────────────────────────────
+        static const float kDbMarks[] = { 12.f, 6.f, 0.f, -6.f, -12.f, -18.f, -24.f, -36.f, -48.f };
+        const float tickX  = cx + 5.0f;   // right of trough
+        const float lblX   = tickX + 5.0f;
         g.setFont(juce::FontOptions(7.0f));
         for (float db : kDbMarks)
         {
             float fy = dbToY(db);
-            // tick
-            g.setColour(juce::Colours::white.withAlpha(0.22f));
-            g.drawHorizontalLine(juce::roundToInt(fy), labelX + labelW, labelX + labelW + 4.0f);
-            // label
+            g.setColour(juce::Colours::white.withAlpha(db == 0.0f ? 0.45f : 0.18f));
+            g.fillRect(tickX, fy - 0.5f, 4.0f, 1.0f);
             g.setColour(juce::Colours::white.withAlpha(0.30f));
-            juce::String lbl = (db > 0) ? juce::String("+") + juce::String((int)db)
-                                         : juce::String((int)db);
-            g.drawText(lbl, juce::Rectangle<float>(labelX, fy - 4.0f, labelW, 9.0f),
-                       juce::Justification::centredRight, false);
+            juce::String lbl = (db > 0) ? "+" + juce::String((int)db) : juce::String((int)db);
+            g.drawText(lbl, juce::Rectangle<float>(lblX, fy - 5.0f, 18.0f, 10.0f),
+                       juce::Justification::centredLeft, false);
         }
 
-        // ── Recessed trough ──────────────────────────────────────────────────
-        const float troughX = cx - 3.5f;
-        const float troughW = 7.0f;
+        // ── Thin recessed trough (3 px wide, centred) ────────────────────────
+        const float troughW = 4.0f;
+        const float troughX = cx - troughW * 0.5f;
         juce::Rectangle<float> trough(troughX, top, troughW, range);
 
-        // outer shadow
-        g.setColour(juce::Colours::black.withAlpha(0.55f));
-        g.fillRoundedRectangle(trough.expanded(1.2f, 0.5f), 3.0f);
-        // groove fill (very dark)
-        g.setColour(juce::Colour::fromRGB(14, 16, 22));
-        g.fillRoundedRectangle(trough, 2.5f);
-        // inner top highlight (recessed effect)
-        g.setColour(juce::Colours::black.withAlpha(0.7f));
-        g.drawRoundedRectangle(trough.reduced(0.5f), 2.5f, 0.8f);
-        // subtle inner glow at bottom
-        g.setColour(juce::Colours::white.withAlpha(0.04f));
-        g.fillRoundedRectangle(trough.withTrimmedTop(trough.getHeight() * 0.7f), 2.0f);
+        // shadow behind trough
+        g.setColour(juce::Colours::black.withAlpha(0.65f));
+        g.fillRoundedRectangle(trough.expanded(1.5f, 1.0f), 3.0f);
+        // very dark groove
+        g.setColour(juce::Colour::fromRGB(10, 12, 18));
+        g.fillRoundedRectangle(trough, 2.0f);
+        // recessed inner highlight on left edge
+        g.setColour(juce::Colours::white.withAlpha(0.06f));
+        g.fillRoundedRectangle(juce::Rectangle<float>(troughX, top, 1.0f, range), 1.0f);
 
-        // unity (0 dB) tick line on trough
+        // 0 dB reference notch on left side of trough
         const float unityY = dbToY(0.0f);
-        g.setColour(juce::Colour::fromRGBA(140, 100, 220, 160));
-        g.drawHorizontalLine(juce::roundToInt(unityY), troughX - 2.0f, troughX + troughW + 2.0f);
+        g.setColour(juce::Colour::fromRGBA(160, 120, 255, 180));
+        g.fillRect(troughX - 4.0f, unityY - 0.5f, troughW + 8.0f, 1.5f);
 
-        // ── Fader cap ────────────────────────────────────────────────────────
-        const float capH = 22.0f;
-        const float capW = (float)width - 10.0f;
-        const float capX = (float)x + 5.0f;
+        // ── Fader cap — SSL-style: wide pill, narrower than full strip ───────
+        // Cap dimensions: 72% of component width, 16 px tall
+        const float capW = (float)width * 0.72f;
+        const float capH = 17.0f;
+        const float capX = cx - capW * 0.5f;
         const float capY = sliderPos - capH * 0.5f;
+        const float capR = 3.5f;   // corner radius
 
-        // drop shadow
-        g.setColour(juce::Colours::black.withAlpha(0.50f));
-        g.fillRoundedRectangle(capX + 1.5f, capY + 2.5f, capW, capH, 3.0f);
+        // drop shadow (offset down-right)
+        g.setColour(juce::Colours::black.withAlpha(0.55f));
+        g.fillRoundedRectangle(capX + 1.0f, capY + 2.5f, capW, capH, capR);
 
-        // metallic gradient body — top-to-bottom (light top edge → dark body → light bottom edge)
-        juce::ColourGradient metalGrad(
-            juce::Colour::fromRGB(235, 238, 248), capX, capY,
-            juce::Colour::fromRGB(130, 133, 148), capX, capY + capH,
+        // SSL-style metallic body: left-to-right gradient simulating rounded 3-D form
+        //   bright near-white left → mid grey centre → slightly lighter right edge
+        juce::ColourGradient bodyGrad(
+            juce::Colour::fromRGB(200, 204, 218), capX,         capY + capH * 0.5f,
+            juce::Colour::fromRGB(115, 118, 133), capX + capW,  capY + capH * 0.5f,
             false);
-        metalGrad.addColour(0.08, juce::Colour::fromRGB(215, 218, 230));
-        metalGrad.addColour(0.40, juce::Colour::fromRGB(175, 178, 192));
-        metalGrad.addColour(0.55, juce::Colour::fromRGB(155, 158, 173));
-        metalGrad.addColour(0.88, juce::Colour::fromRGB(140, 143, 158));
-        g.setGradientFill(metalGrad);
-        g.fillRoundedRectangle(capX, capY, capW, capH, 3.0f);
+        bodyGrad.addColour(0.12, juce::Colour::fromRGB(228, 232, 244));
+        bodyGrad.addColour(0.38, juce::Colour::fromRGB(190, 193, 207));
+        bodyGrad.addColour(0.62, juce::Colour::fromRGB(155, 158, 172));
+        bodyGrad.addColour(0.88, juce::Colour::fromRGB(128, 131, 146));
+        g.setGradientFill(bodyGrad);
+        g.fillRoundedRectangle(capX, capY, capW, capH, capR);
 
-        // horizontal centre highlight strip (the chrome "ridge" on SSL-style caps)
-        float ridgeY = capY + capH * 0.35f;
-        juce::ColourGradient ridgeGrad(
-            juce::Colours::white.withAlpha(0.0f), capX, ridgeY,
-            juce::Colours::white.withAlpha(0.0f), capX, ridgeY + 6.0f,
-            false);
-        ridgeGrad.addColour(0.5, juce::Colours::white.withAlpha(0.38f));
-        g.setGradientFill(ridgeGrad);
-        g.fillRoundedRectangle(capX + 2.0f, ridgeY, capW - 4.0f, 6.0f, 1.5f);
-
-        // top bevel (light)
+        // top-edge bevel highlight (thin bright strip along the top)
         juce::ColourGradient topBevel(
-            juce::Colours::white.withAlpha(0.55f), capX, capY,
-            juce::Colours::white.withAlpha(0.0f),  capX, capY + 5.0f,
+            juce::Colours::white.withAlpha(0.60f), capX, capY,
+            juce::Colours::white.withAlpha(0.0f),  capX, capY + 4.5f,
             false);
         g.setGradientFill(topBevel);
-        g.fillRoundedRectangle(capX, capY, capW, 5.0f, 2.0f);
+        g.fillRoundedRectangle(capX, capY, capW, 4.5f, capR);
 
-        // bottom shadow
+        // bottom-edge shadow
         juce::ColourGradient botBevel(
-            juce::Colours::black.withAlpha(0.0f),  capX, capY + capH - 5.0f,
-            juce::Colours::black.withAlpha(0.35f), capX, capY + capH,
+            juce::Colours::black.withAlpha(0.0f),  capX, capY + capH - 4.0f,
+            juce::Colours::black.withAlpha(0.40f), capX, capY + capH,
             false);
         g.setGradientFill(botBevel);
-        g.fillRoundedRectangle(capX, capY + capH - 5.0f, capW, 5.0f, 2.0f);
+        g.fillRoundedRectangle(capX, capY + capH - 4.0f, capW, 4.0f, capR);
 
         // outline
-        g.setColour(juce::Colours::black.withAlpha(0.6f));
-        g.drawRoundedRectangle(capX + 0.5f, capY + 0.5f, capW - 1.0f, capH - 1.0f, 3.0f, 0.8f);
+        g.setColour(juce::Colours::black.withAlpha(0.55f));
+        g.drawRoundedRectangle(capX + 0.5f, capY + 0.5f, capW - 1.0f, capH - 1.0f, capR, 0.7f);
 
-        // 3 grip lines in the centre
-        const float midX = capX + capW * 0.5f;
+        // Centre position indicator line (the white stripe SSL faders have in the middle of the cap)
         const float midY = capY + capH * 0.5f;
-        const float gripW = capW * 0.4f;
-        g.setColour(juce::Colours::black.withAlpha(0.30f));
-        for (int k = -1; k <= 1; ++k)
-        {
-            float gy = midY + (float)k * 3.0f;
-            g.drawHorizontalLine(juce::roundToInt(gy), midX - gripW * 0.5f, midX + gripW * 0.5f);
-        }
-        g.setColour(juce::Colours::white.withAlpha(0.18f));
-        for (int k = -1; k <= 1; ++k)
-        {
-            float gy = midY + (float)k * 3.0f - 0.5f;
-            g.drawHorizontalLine(juce::roundToInt(gy), midX - gripW * 0.5f, midX + gripW * 0.5f);
-        }
+        g.setColour(juce::Colours::black.withAlpha(0.35f));
+        g.fillRect(capX + 4.0f, midY,           capW - 8.0f, 1.5f);
+        g.setColour(juce::Colours::white.withAlpha(0.55f));
+        g.fillRect(capX + 4.0f, midY - 0.5f,   capW - 8.0f, 1.0f);
     }
 };
 

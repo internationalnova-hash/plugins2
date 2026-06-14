@@ -2994,11 +2994,11 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         addAndMakeVisible(mixBtn);
         addAndMakeVisible(browseBtn);
         addAndMakeVisible(rtzBtn);
+        addAndMakeVisible(rewindBtn);
         addAndMakeVisible(playBtn);
         addAndMakeVisible(stopBtn);
         addAndMakeVisible(recordBtn);
-        addAndMakeVisible(armBtn);
-        addAndMakeVisible(monitorBtn);
+        addAndMakeVisible(ffBtn);
         addAndMakeVisible(loopBtn);
         addAndMakeVisible(timecodeLabel);
         addAndMakeVisible(tempoLabel);
@@ -3011,11 +3011,11 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         mixBtn.addListener(this);
         browseBtn.addListener(this);
         rtzBtn.addListener(this);
+        rewindBtn.addListener(this);
         playBtn.addListener(this);
         stopBtn.addListener(this);
         recordBtn.addListener(this);
-        armBtn.addListener(this);
-        monitorBtn.addListener(this);
+        ffBtn.addListener(this);
         loopBtn.addListener(this);
         saveBtn.addListener(this);
         loadBtn.addListener(this);
@@ -3033,13 +3033,14 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         editBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(30, 28, 50));
         editBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(180, 155, 255));
 
-        // Transport styling
-        for (auto* btn : {&rtzBtn, &playBtn, &stopBtn, &recordBtn, &armBtn, &monitorBtn, &loopBtn})
+        // Transport styling — all transparent so paint() icons show cleanly
+        for (auto* btn : {&rtzBtn, &rewindBtn, &playBtn, &stopBtn, &recordBtn, &ffBtn, &loopBtn})
         {
-            btn->setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(20, 22, 30));
-            btn->setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.8f));
+            btn->setColour(juce::TextButton::buttonColourId,     juce::Colour::fromRGB(20, 22, 30));
+            btn->setColour(juce::TextButton::buttonOnColourId,   juce::Colour::fromRGB(35, 38, 52));
+            btn->setColour(juce::TextButton::textColourOffId,    juce::Colours::transparentBlack);
+            btn->setColour(juce::TextButton::textColourOnId,     juce::Colours::transparentBlack);
         }
-        recordBtn.setColour(juce::TextButton::textColourOffId, juce::Colour::fromRGB(255, 80, 80));
 
         // Timecode label — large amber
         timecodeLabel.setColour(juce::Label::textColourId, juce::Colour::fromRGB(255, 190, 60));
@@ -3114,64 +3115,90 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
                 fn(g, btn.getBounds().toFloat());
         };
 
-        // RTZ |◀
-        drawTransportIcon(rtzBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
-            g2.setColour(juce::Colours::white.withAlpha(0.85f));
-            g2.fillRect(r.getX() + r.getWidth() * 0.22f, r.getY() + r.getHeight() * 0.28f,
-                        2.0f, r.getHeight() * 0.44f);
+        // Helper: white colour for normal icons, dimmed when button is just background
+        const juce::Colour iconWhite = juce::Colours::white.withAlpha(0.88f);
+        const juce::Colour iconRed   = juce::Colour::fromRGB(230, 55, 55);
+
+        // RTZ  |◀◀  (vertical bar + double left-pointing triangle)
+        drawTransportIcon(rtzBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(iconWhite);
+            float cy = r.getCentreY();
+            float h  = r.getHeight() * 0.30f;
+            // vertical bar
+            float barX = r.getX() + r.getWidth() * 0.20f;
+            g2.fillRect(barX, cy - h, 2.5f, h * 2.0f);
+            // first triangle (pointing left)
+            float t1R = barX + 2.5f + h * 1.1f;
+            juce::Path t1;
+            t1.addTriangle(t1R, cy - h, t1R, cy + h, t1R - h * 1.0f, cy);
+            g2.fillPath(t1);
+            // second triangle
+            float t2R = t1R + h * 1.1f;
+            juce::Path t2;
+            t2.addTriangle(t2R, cy - h, t2R, cy + h, t2R - h * 1.0f, cy);
+            g2.fillPath(t2);
+        });
+
+        // Rewind  ◀◀  (two left-pointing triangles)
+        drawTransportIcon(rewindBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(iconWhite);
+            float cx = r.getCentreX(), cy = r.getCentreY(), h = r.getHeight() * 0.28f;
+            juce::Path t1, t2;
+            t1.addTriangle(cx,       cy - h, cx,       cy + h, cx - h,       cy);
+            t2.addTriangle(cx + h,   cy - h, cx + h,   cy + h, cx,           cy);
+            g2.fillPath(t1);
+            g2.fillPath(t2);
+        });
+
+        // Play  ▶  (solid right-pointing triangle, slightly larger)
+        drawTransportIcon(playBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(iconWhite);
+            float cx = r.getCentreX() - 1.0f, cy = r.getCentreY(), h = r.getHeight() * 0.34f;
             juce::Path tri;
-            float cx = r.getCentreX() + 3.0f, cy = r.getCentreY(), h = r.getHeight() * 0.28f;
-            tri.addTriangle(cx + h, cy - h, cx + h, cy + h, cx - h * 0.5f, cy);
+            tri.addTriangle(cx - h * 0.55f, cy - h, cx - h * 0.55f, cy + h, cx + h, cy);
             g2.fillPath(tri);
         });
-        // Play ▶
-        drawTransportIcon(playBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
-            g2.setColour(juce::Colours::white.withAlpha(0.9f));
-            juce::Path tri;
-            float cx = r.getCentreX(), cy = r.getCentreY(), h = r.getHeight() * 0.32f;
-            tri.addTriangle(cx - h * 0.6f, cy - h, cx - h * 0.6f, cy + h, cx + h, cy);
-            g2.fillPath(tri);
+
+        // Stop  ■  (solid square — outline + fill so it's clearly visible)
+        drawTransportIcon(stopBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(iconWhite);
+            float s = r.getHeight() * 0.36f;
+            float sx = r.getCentreX() - s * 0.5f, sy = r.getCentreY() - s * 0.5f;
+            // filled square
+            g2.fillRect(sx, sy, s, s);
         });
-        // Stop ■
-        drawTransportIcon(stopBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
-            g2.setColour(juce::Colours::white.withAlpha(0.85f));
-            float s = r.getHeight() * 0.38f;
-            g2.fillRect(r.getCentreX() - s * 0.5f, r.getCentreY() - s * 0.5f, s, s);
-        });
-        // Record ●
-        drawTransportIcon(recordBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
-            g2.setColour(juce::Colour::fromRGB(220, 55, 55).withAlpha(0.95f));
-            float s = r.getHeight() * 0.34f;
+
+        // Record  ●  (solid red circle)
+        drawTransportIcon(recordBtn, [iconRed](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(iconRed);
+            float s = r.getHeight() * 0.33f;
             g2.fillEllipse(r.getCentreX() - s, r.getCentreY() - s, s * 2.0f, s * 2.0f);
         });
-        // Arm ⬤ (orange dot = arm/ready to record)
-        drawTransportIcon(armBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
-            g2.setColour(juce::Colour::fromRGB(230, 130, 30).withAlpha(0.9f));
-            float cx = r.getCentreX(), cy = r.getCentreY(), s = r.getHeight() * 0.22f;
-            g2.drawEllipse(cx - s * 1.3f, cy - s * 1.3f, s * 2.6f, s * 2.6f, 1.5f);
-            g2.fillEllipse(cx - s, cy - s, s * 2.0f, s * 2.0f);
+
+        // Fast-forward  ▶▶  (two right-pointing triangles)
+        drawTransportIcon(ffBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(iconWhite);
+            float cx = r.getCentreX(), cy = r.getCentreY(), h = r.getHeight() * 0.28f;
+            juce::Path t1, t2;
+            t1.addTriangle(cx - h, cy - h, cx - h, cy + h, cx,       cy);
+            t2.addTriangle(cx,     cy - h, cx,     cy + h, cx + h,   cy);
+            g2.fillPath(t1);
+            g2.fillPath(t2);
         });
-        // Monitor ◎
-        drawTransportIcon(monitorBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
-            g2.setColour(juce::Colours::white.withAlpha(0.85f));
-            float cx = r.getCentreX(), cy = r.getCentreY(), rad = r.getHeight() * 0.26f;
-            g2.drawEllipse(cx - rad, cy - rad, rad * 2.0f, rad * 2.0f, 1.5f);
-            float ir = rad * 0.42f;
-            g2.fillEllipse(cx - ir, cy - ir, ir * 2.0f, ir * 2.0f);
-        });
-        // Loop ↻
-        drawTransportIcon(loopBtn, [](juce::Graphics& g2, juce::Rectangle<float> r) {
-            g2.setColour(juce::Colours::white.withAlpha(0.85f));
+
+        // Loop  ↻  (arc with arrowhead)
+        drawTransportIcon(loopBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(iconWhite);
             float cx = r.getCentreX(), cy = r.getCentreY(), rad = r.getHeight() * 0.28f;
             juce::Path arc;
             arc.addArc(cx - rad, cy - rad, rad * 2.0f, rad * 2.0f,
-                       juce::MathConstants<float>::pi * 0.2f,
-                       juce::MathConstants<float>::pi * 1.9f, true);
+                       juce::MathConstants<float>::pi * 0.25f,
+                       juce::MathConstants<float>::pi * 1.85f, true);
             g2.strokePath(arc, juce::PathStrokeType(1.8f));
-            float ax = cx + rad * std::cos(juce::MathConstants<float>::pi * 0.2f);
-            float ay = cy + rad * std::sin(juce::MathConstants<float>::pi * 0.2f);
+            float endA = juce::MathConstants<float>::pi * 0.25f;
+            float ax = cx + rad * std::cos(endA), ay = cy + rad * std::sin(endA);
             juce::Path head;
-            head.addTriangle(ax, ay - 3.0f, ax + 5.0f, ay + 1.0f, ax - 2.0f, ay + 3.0f);
+            head.addTriangle(ax - 3.0f, ay - 4.0f, ax + 4.0f, ay, ax - 3.0f, ay + 4.0f);
             g2.fillPath(head);
         });
     }
@@ -3192,15 +3219,18 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         // x now at ~395, past divider at 390
 
         x = 398;
-        // Transport
-        rtzBtn.setBounds(x, btnY, 30, btnH); x += 34;
-        playBtn.setBounds(x, btnY, 56, btnH); x += 60;
-        stopBtn.setBounds(x, btnY, 52, btnH); x += 56;
-        recordBtn.setBounds(x, btnY, 44, btnH); x += 48;
+        // Transport — all same-size square buttons (btnH × btnH) with small gaps
+        const int tSz = btnH;  // square transport buttons
+        rtzBtn.setBounds   (x, btnY, tSz, tSz); x += tSz + 3;
+        rewindBtn.setBounds(x, btnY, tSz, tSz); x += tSz + 3;
+        x += 4;  // small spacer before play
+        playBtn.setBounds  (x, btnY, tSz, tSz); x += tSz + 3;
+        stopBtn.setBounds  (x, btnY, tSz, tSz); x += tSz + 3;
+        recordBtn.setBounds(x, btnY, tSz, tSz); x += tSz + 3;
+        x += 4;  // small spacer after record
+        ffBtn.setBounds    (x, btnY, tSz, tSz); x += tSz + 3;
         x += 6;
-        armBtn.setBounds(x, btnY, 44, btnH); x += 48;
-        monitorBtn.setBounds(x, btnY, 44, btnH); x += 48;
-        loopBtn.setBounds(x, btnY, 44, btnH); x += 48;
+        loopBtn.setBounds  (x, btnY, tSz, tSz); x += tSz + 3;
         // x ~760
 
         x = 768;
@@ -3229,17 +3259,9 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
             enabled ? juce::Colours::yellow.withAlpha(0.35f) : juce::Colours::transparentBlack);
     }
 
-    void WorkspaceToolbar::setArmState(bool armed)
-    {
-        armBtn.setColour(juce::TextButton::buttonColourId,
-            armed ? juce::Colours::orange.withAlpha(0.45f) : juce::Colours::transparentBlack);
-    }
+    void WorkspaceToolbar::setArmState(bool /*armed*/) {}
 
-    void WorkspaceToolbar::setMonitorState(bool enabled)
-    {
-        monitorBtn.setColour(juce::TextButton::buttonColourId,
-            enabled ? juce::Colours::skyblue.withAlpha(0.35f) : juce::Colours::transparentBlack);
-    }
+    void WorkspaceToolbar::setMonitorState(bool /*enabled*/) {}
 
     void WorkspaceToolbar::setTempo(int bpm)
     {
@@ -3262,8 +3284,6 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         else if (b == &playBtn && onPlay) onPlay();
         else if (b == &stopBtn && onStop) onStop();
         else if (b == &recordBtn && onRecord) onRecord();
-        else if (b == &armBtn && onArm) onArm();
-        else if (b == &monitorBtn && onMonitor) onMonitor();
         else if (b == &loopBtn && onLoop) onLoop();
         else if (b == &novaAlignBtn && onNovaAlign) onNovaAlign();
         else if (b == &saveBtn && onSave) onSave();

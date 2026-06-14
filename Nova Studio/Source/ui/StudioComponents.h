@@ -530,13 +530,13 @@ namespace NovaStudioUI
         juce::TextButton browseBtn {"BROWSE"};
 
         // Transport buttons (empty text — icons drawn in paint())
-        juce::TextButton rtzBtn  {};
-        juce::TextButton playBtn {};
-        juce::TextButton stopBtn {};
-        juce::TextButton recordBtn {};
-        juce::TextButton armBtn  {};
-        juce::TextButton monitorBtn {};
-        juce::TextButton loopBtn {};
+        juce::TextButton rtzBtn     {};  // |◀  return to start
+        juce::TextButton rewindBtn  {};  // ◀   step back
+        juce::TextButton playBtn    {};  // ▶   play
+        juce::TextButton stopBtn    {};  // ■   stop
+        juce::TextButton recordBtn  {};  // ●   record
+        juce::TextButton ffBtn      {};  // ▶   fast-forward / step forward
+        juce::TextButton loopBtn    {};
 
         juce::Label timecodeLabel;
         juce::Label tempoLabel;
