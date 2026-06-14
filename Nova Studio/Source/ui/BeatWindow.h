@@ -118,6 +118,7 @@ namespace NovaStudioUI
     // StepSequencerView — bottom center
     // ─────────────────────────────────────────────────────────────────────────
     class StepSequencerView : public juce::Component,
+                              public juce::DragAndDropTarget,
                               private juce::Timer
     {
     public:
@@ -133,14 +134,24 @@ namespace NovaStudioUI
         static constexpr int kRowH     = 36;
         static constexpr int kTopH     = 22;
 
+        // DragAndDropTarget
+        bool isInterestedInDragSource(const SourceDetails& details) override;
+        void itemDragEnter(const SourceDetails& details) override;
+        void itemDragMove(const SourceDetails& details) override;
+        void itemDragExit(const SourceDetails& details) override;
+        void itemDropped(const SourceDetails& details) override;
+
     private:
         void timerCallback() override;
         void drawRowHeader(juce::Graphics& g, juce::Rectangle<int> r,
                            int row, bool muted, bool solo) const;
         void drawStep(juce::Graphics& g, juce::Rectangle<int> r,
                       bool active, bool isCursor) const;
+        int rowAtY(int y) const;
+        static bool isAudioFile(const juce::String& path);
 
-        const char* kRowNames[kNumRows] = { "Kick", "Snare", "Hi-Hat", "Perc" };
+        juce::String rowNames[kNumRows]       = { "Kick", "Snare", "Hi-Hat", "Perc" };
+        juce::String rowSampleFiles[kNumRows]; // empty = no sample assigned
         juce::Colour kRowColours[kNumRows] = {
             juce::Colour::fromRGB(255, 100,  60),
             juce::Colour::fromRGB( 60, 180, 255),
@@ -151,7 +162,8 @@ namespace NovaStudioUI
         bool steps[kNumRows][kNumSteps] {};
         bool muted[kNumRows] {};
         bool soloed[kNumRows] {};
-        int  cursorStep = -1;
+        int  cursorStep       = -1;
+        int  dragHighlightRow = -1;
 
         NovaStudio::TransportState& transportState;
 
@@ -162,6 +174,7 @@ namespace NovaStudioUI
     // DrumRackPanel — right panel
     // ─────────────────────────────────────────────────────────────────────────
     class DrumRackPanel : public juce::Component,
+                          public juce::DragAndDropTarget,
                           private juce::Timer
     {
     public:
@@ -171,24 +184,36 @@ namespace NovaStudioUI
         void resized() override;
         void mouseDown(const juce::MouseEvent& e) override;
 
+        // DragAndDropTarget
+        bool isInterestedInDragSource(const SourceDetails& details) override;
+        void itemDragEnter(const SourceDetails& details) override;
+        void itemDragMove(const SourceDetails& details) override;
+        void itemDragExit(const SourceDetails& details) override;
+        void itemDropped(const SourceDetails& details) override;
+
     private:
         void timerCallback() override;
         void drawPad(juce::Graphics& g, juce::Rectangle<int> r,
-                     const juce::String& name, bool selected, bool pressed, juce::Colour accent) const;
+                     const juce::String& name, const juce::String& sampleFile,
+                     bool selected, bool pressed, bool dragOver, juce::Colour accent) const;
         void drawSoundControls(juce::Graphics& g, juce::Rectangle<int> area) const;
         void drawPluginChain(juce::Graphics& g, juce::Rectangle<int> area) const;
+        int padAtPoint(juce::Point<int> pos) const;
+        static bool isAudioFile(const juce::String& path);
 
         static constexpr int kPadRows = 4;
         static constexpr int kPadCols = 4;
-        int selectedPad = 0;
-        int pressedPad  = -1;
+        int selectedPad      = 0;
+        int pressedPad       = -1;
+        int dragHighlightPad = -1;
 
-        const char* kPadNames[kPadRows * kPadCols] = {
+        juce::String kPadNames[kPadRows * kPadCols] = {
             "Kick 1","Kick 2","Kick 3","Kick 4",
             "Snare 1","Snare 2","Clap","Rim",
             "HH Cl","HH Op","Cymbal","Ride",
             "Perc 1","Perc 2","Crash","FX"
         };
+        juce::String padSampleFiles[kPadRows * kPadCols]; // empty = no file assigned
         juce::Colour kPadAccents[kPadRows] = {
             juce::Colour::fromRGB(255, 100,  60),
             juce::Colour::fromRGB( 60, 180, 255),

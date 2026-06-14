@@ -544,14 +544,28 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
 void StepSequencerView::drawRowHeader(juce::Graphics& g, juce::Rectangle<int> r,
                                        int row, bool isMuted, bool isSolo) const
 {
-    g.setColour(BeatTheme::panel());
+    bool isHighlighted = (row == dragHighlightRow);
+
+    g.setColour(isHighlighted ? BeatTheme::accent().withAlpha(0.25f) : BeatTheme::panel());
     g.fillRect(r);
-    g.setColour(kRowColours[row].withAlpha(0.6f));
+    g.setColour(kRowColours[row].withAlpha(isHighlighted ? 1.0f : 0.6f));
     g.fillRect(r.getX(), r.getY(), 3, r.getHeight());
 
-    g.setColour(juce::Colours::white.withAlpha(isMuted ? 0.35f : 0.85f));
-    g.setFont(juce::FontOptions(11.0f));
-    g.drawText(kRowNames[row], r.getX() + 6, r.getY(), 44, r.getHeight(), juce::Justification::centredLeft);
+    if (isHighlighted)
+    {
+        g.setColour(BeatTheme::accent().withAlpha(0.6f));
+        g.drawRect(r, 1);
+    }
+
+    // Show sample file name if assigned, otherwise show row name
+    const juce::String& displayName = rowSampleFiles[row].isNotEmpty()
+        ? juce::File(rowSampleFiles[row]).getFileNameWithoutExtension()
+        : rowNames[row];
+
+    g.setColour(juce::Colours::white.withAlpha(isMuted ? 0.35f : (rowSampleFiles[row].isNotEmpty() ? 1.0f : 0.85f)));
+    g.setFont(juce::FontOptions(rowSampleFiles[row].isNotEmpty() ? 9.5f : 11.0f));
+    g.drawText(displayName, r.getX() + 6, r.getY(), r.getWidth() - 40, r.getHeight(),
+               juce::Justification::centredLeft, true);
 
     auto mr  = juce::Rectangle<int>(r.getRight() - 34, r.getCentreY() - 8, 14, 16);
     auto sr2 = juce::Rectangle<int>(r.getRight() - 18, r.getCentreY() - 8, 14, 16);
@@ -567,8 +581,11 @@ void StepSequencerView::drawRowHeader(juce::Graphics& g, juce::Rectangle<int> r,
     g.setColour(juce::Colours::white.withAlpha(0.8f));
     g.drawText("S", sr2, juce::Justification::centred);
 
-    g.setColour(BeatTheme::edge());
-    g.drawRect(r, 1);
+    if (!isHighlighted)
+    {
+        g.setColour(BeatTheme::edge());
+        g.drawRect(r, 1);
+    }
 }
 
 void StepSequencerView::drawStep(juce::Graphics& g, juce::Rectangle<int> r,
@@ -592,6 +609,57 @@ void StepSequencerView::drawStep(juce::Graphics& g, juce::Rectangle<int> r,
         g.setColour(BeatTheme::stepOff());
         g.fillRoundedRectangle(r.toFloat().reduced(1.0f), 3.0f);
     }
+}
+
+int StepSequencerView::rowAtY(int y) const
+{
+    int gridY = y - kTopH;
+    if (gridY < 0) return -1;
+    int row = gridY / kRowH;
+    return (row >= 0 && row < kNumRows) ? row : -1;
+}
+
+bool StepSequencerView::isAudioFile(const juce::String& path)
+{
+    auto ext = juce::File(path).getFileExtension().toLowerCase();
+    return ext == ".wav" || ext == ".aiff" || ext == ".aif" || ext == ".mp3"
+        || ext == ".ogg" || ext == ".flac" || ext == ".m4a";
+}
+
+bool StepSequencerView::isInterestedInDragSource(const SourceDetails& details)
+{
+    return isAudioFile(details.description.toString());
+}
+
+void StepSequencerView::itemDragEnter(const SourceDetails& details)
+{
+    dragHighlightRow = rowAtY(details.localPosition.y);
+    repaint();
+}
+
+void StepSequencerView::itemDragMove(const SourceDetails& details)
+{
+    int newRow = rowAtY(details.localPosition.y);
+    if (newRow != dragHighlightRow) { dragHighlightRow = newRow; repaint(); }
+}
+
+void StepSequencerView::itemDragExit(const SourceDetails&)
+{
+    dragHighlightRow = -1;
+    repaint();
+}
+
+void StepSequencerView::itemDropped(const SourceDetails& details)
+{
+    int row = rowAtY(details.localPosition.y);
+    if (row >= 0)
+    {
+        rowSampleFiles[row] = details.description.toString();
+        // Use the filename (without extension) as the new row display name
+        rowNames[row] = juce::File(rowSampleFiles[row]).getFileNameWithoutExtension();
+    }
+    dragHighlightRow = -1;
+    repaint();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -637,7 +705,8 @@ void DrumRackPanel::paint(juce::Graphics& g)
             auto r = juce::Rectangle<int>(padArea.getX() + col * padW,
                                            padArea.getY() + row * padH,
                                            padW - 2, padH - 2);
-            drawPad(g, r, kPadNames[idx], idx == selectedPad, idx == pressedPad, kPadAccents[row]);
+            drawPad(g, r, kPadNames[idx], padSampleFiles[idx],
+                    idx == selectedPad, idx == pressedPad, idx == dragHighlightPad, kPadAccents[row]);
         }
     }
 
@@ -672,20 +741,39 @@ void DrumRackPanel::mouseDown(const juce::MouseEvent& e)
 }
 
 void DrumRackPanel::drawPad(juce::Graphics& g, juce::Rectangle<int> r,
-                              const juce::String& name, bool selected, bool pressed,
+                              const juce::String& name, const juce::String& sampleFile,
+                              bool selected, bool pressed, bool dragOver,
                               juce::Colour accent) const
 {
-    juce::Colour bg = pressed ? BeatTheme::padHit()
-                               : (selected ? accent.withAlpha(0.55f) : BeatTheme::padBase());
+    juce::Colour bg = pressed  ? BeatTheme::padHit()
+                    : dragOver ? BeatTheme::accent().withAlpha(0.4f)
+                    : selected ? accent.withAlpha(0.55f)
+                               : BeatTheme::padBase();
     g.setColour(bg);
     g.fillRoundedRectangle(r.toFloat(), 5.0f);
 
-    g.setColour(accent.withAlpha(pressed ? 1.0f : (selected ? 0.9f : 0.25f)));
-    g.drawRoundedRectangle(r.toFloat().reduced(1.0f), 5.0f, (selected || pressed) ? 1.5f : 1.0f);
+    float borderAlpha = dragOver ? 1.0f : (pressed ? 1.0f : (selected ? 0.9f : 0.25f));
+    g.setColour(dragOver ? BeatTheme::accent() : accent.withAlpha(borderAlpha));
+    g.drawRoundedRectangle(r.toFloat().reduced(1.0f), 5.0f, (selected || pressed || dragOver) ? 1.5f : 1.0f);
 
+    // Top line: pad name; bottom line: sample name if assigned
     g.setColour(juce::Colours::white.withAlpha((selected || pressed) ? 1.0f : 0.65f));
-    g.setFont(juce::FontOptions(9.5f));
-    g.drawText(name, r.reduced(3, 0), juce::Justification::centred, true);
+    if (sampleFile.isNotEmpty())
+    {
+        auto topR    = r.reduced(3, 0).removeFromTop(r.getHeight() / 2);
+        auto botR    = r.reduced(3, 0).removeFromBottom(r.getHeight() / 2);
+        g.setFont(juce::FontOptions(9.5f));
+        g.drawText(name, topR, juce::Justification::centredBottom, true);
+        g.setColour(BeatTheme::accent().brighter(0.3f));
+        g.setFont(juce::FontOptions(8.0f));
+        g.drawText(juce::File(sampleFile).getFileNameWithoutExtension(),
+                   botR, juce::Justification::centredTop, true);
+    }
+    else
+    {
+        g.setFont(juce::FontOptions(9.5f));
+        g.drawText(name, r.reduced(3, 0), juce::Justification::centred, true);
+    }
 
     g.setColour(accent.withAlpha((selected || pressed) ? 0.9f : 0.4f));
     g.fillEllipse((float)(r.getCentreX() - 3), (float)(r.getBottom() - 8), 6.0f, 6.0f);
@@ -743,6 +831,63 @@ void DrumRackPanel::drawPluginChain(juce::Graphics& g, juce::Rectangle<int> area
 
     g.setColour(BeatTheme::edge());
     g.drawRoundedRectangle(area.toFloat().reduced(2.0f), 4.0f, 1.0f);
+}
+
+int DrumRackPanel::padAtPoint(juce::Point<int> pos) const
+{
+    auto area = getLocalBounds().reduced(4);
+    area.removeFromTop(22); // header
+
+    int padW = area.getWidth() / kPadCols;
+    int padH = 52;
+
+    int col = (pos.x - area.getX()) / padW;
+    int row = (pos.y - area.getY()) / padH;
+    if (row >= 0 && row < kPadRows && col >= 0 && col < kPadCols)
+        return row * kPadCols + col;
+    return -1;
+}
+
+bool DrumRackPanel::isAudioFile(const juce::String& path)
+{
+    auto ext = juce::File(path).getFileExtension().toLowerCase();
+    return ext == ".wav" || ext == ".aiff" || ext == ".aif" || ext == ".mp3"
+        || ext == ".ogg" || ext == ".flac" || ext == ".m4a";
+}
+
+bool DrumRackPanel::isInterestedInDragSource(const SourceDetails& details)
+{
+    return isAudioFile(details.description.toString());
+}
+
+void DrumRackPanel::itemDragEnter(const SourceDetails& details)
+{
+    dragHighlightPad = padAtPoint(details.localPosition);
+    repaint();
+}
+
+void DrumRackPanel::itemDragMove(const SourceDetails& details)
+{
+    int newPad = padAtPoint(details.localPosition);
+    if (newPad != dragHighlightPad) { dragHighlightPad = newPad; repaint(); }
+}
+
+void DrumRackPanel::itemDragExit(const SourceDetails&)
+{
+    dragHighlightPad = -1;
+    repaint();
+}
+
+void DrumRackPanel::itemDropped(const SourceDetails& details)
+{
+    int pad = padAtPoint(details.localPosition);
+    if (pad >= 0)
+    {
+        padSampleFiles[pad] = details.description.toString();
+        selectedPad = pad;
+    }
+    dragHighlightPad = -1;
+    repaint();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
