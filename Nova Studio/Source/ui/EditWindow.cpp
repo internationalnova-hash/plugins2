@@ -48,6 +48,17 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
     editModeToolbar->onVZoomChanged = [this](int dir) {
         if (arrangementView) arrangementView->adjustVZoom(dir);
     };
+
+    // Sync vertical scroll between track panel and arrangement view
+    if (trackPanel && arrangementView)
+    {
+        trackPanel->onScrollChanged = [this](int y) {
+            if (arrangementView) arrangementView->setTrackScrollY(y);
+        };
+        arrangementView->onScrollChanged = [this](int y) {
+            if (trackPanel) trackPanel->setScrollY(y);
+        };
+    }
 }
 
 void EditWindow::zoomHorizontal(int direction)

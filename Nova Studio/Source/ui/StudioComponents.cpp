@@ -290,7 +290,8 @@ namespace NovaStudioUI
         for (int i = 0; i < numTracks; ++i)
         {
             const auto& track = session.getTrack(i);
-            const int y = 28 + i * kTrackHeight;
+            const int y = 28 + i * kTrackHeight - scrollY;
+            if (y + kTrackHeight < 0 || y > getHeight()) continue;  // outside viewport
             const juce::Colour trackColor = trackPalette[i % numPalette];
 
             // Alternating row background
@@ -367,7 +368,7 @@ namespace NovaStudioUI
         const int soloX = w - btnW - 6;
         const int muteX = soloX - btnW - btnGap;
         const int armX  = muteX - btnW - btnGap;
-        const int y     = 28 + trackIndex * kTrackHeight;
+        const int y     = 28 + trackIndex * kTrackHeight - scrollY;
         const int btnY  = y + (kTrackHeight - btnH) / 2;
 
         juce::Rectangle<int> armR  { armX,  btnY, btnW, btnH };
@@ -387,7 +388,7 @@ namespace NovaStudioUI
 
         for (int i = 0; i < numTracks; ++i)
         {
-            const int y = 28 + i * kTrackHeight;
+            const int y = 28 + i * kTrackHeight - scrollY;
             if (pos.y >= y && pos.y < y + kTrackHeight)
             {
                 switch (hitTest(i, pos))
@@ -409,10 +410,19 @@ namespace NovaStudioUI
         }
     }
 
+    void TrackPanel::mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails& w)
+    {
+        const int totalH = session.getNumTracks() * kTrackHeight;
+        const int maxScroll = juce::jmax(0, totalH - (getHeight() - 28));
+        scrollY = juce::jlimit(0, maxScroll, scrollY - (int)(w.deltaY * 80.0f));
+        repaint();
+        if (onScrollChanged) onScrollChanged(scrollY);
+    }
+
     void TrackPanel::mouseDoubleClick(const juce::MouseEvent& e)
     {
-        const int kHdrH = 28; // header height above track 0
-        const int y = e.y - kHdrH;
+        const int kHdrH = 28;
+        const int y = e.y - kHdrH + scrollY;
         if (y < 0) return;
         const int trackIndex = y / kTrackHeight;
         if (trackIndex < 0 || trackIndex >= session.getNumTracks()) return;
@@ -926,9 +936,23 @@ namespace NovaStudioUI
     void ArrangementView::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
     {
         if (e.mods.isCommandDown())
+        {
             adjustHZoom(wheel.deltaY > 0 ? +1 : -1);
-        else
+        }
+        else if (e.mods.isShiftDown())
+        {
+            // Horizontal scroll
             juce::Component::mouseWheelMove(e, wheel);
+        }
+        else
+        {
+            // Vertical track scroll — clamp and sync with TrackPanel
+            const int totalH = arrangementModel.getSession().getNumTracks() * trackHeightPx;
+            const int maxScroll = juce::jmax(0, totalH - (getHeight() - 28));
+            trackScrollY = juce::jlimit(0, maxScroll, trackScrollY - (int)(wheel.deltaY * 80.0f));
+            repaint();
+            if (onScrollChanged) onScrollChanged(trackScrollY);
+        }
     }
 
     int64_t ArrangementView::snapToGrid(int64_t sample) const
@@ -1057,11 +1081,12 @@ namespace NovaStudioUI
         const NovaStudio::Session& session = arrangementModel.getSession();
         const int trackCount = session.getNumTracks();
         const float lanesTop = (float)rulerH;
-        const int visibleTracks = juce::jmin(trackCount, static_cast<int>((H - rulerH) / trackHeight));
 
-        for (int trackIndex = 0; trackIndex < visibleTracks; ++trackIndex)
+        for (int trackIndex = 0; trackIndex < trackCount; ++trackIndex)
         {
-            const float top = lanesTop + trackIndex * trackHeight;
+            const float top = lanesTop + trackIndex * trackHeight - (float)trackScrollY;
+            // skip if completely outside view
+            if (top + trackHeight <= lanesTop || top >= (float)H) continue;
             const auto& track = session.getTrack(trackIndex);
 
             // Lane background
@@ -1367,7 +1392,7 @@ namespace NovaStudioUI
         const float trackHeight = (float)trackHeightPx;
         const int   width       = getWidth();
         const auto& session     = arrangementModel.getSession();
-        const int   trackIndex  = static_cast<int>((pos.y - rulerH) / trackHeight);
+        const int   trackIndex  = static_cast<int>((pos.y - rulerH + trackScrollY) / trackHeight);
         if (trackIndex < 0 || trackIndex >= session.getNumTracks()) return HoverZone::None;
 
         const auto& track = session.getTrack(trackIndex);
@@ -1376,7 +1401,7 @@ namespace NovaStudioUI
             const auto& clip    = track.clips.getReference(ci);
             const float cStartX = (float)timelineModel.getXForSamplePosition(clip.startSample, width);
             const float cEndX   = (float)timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width);
-            const float clipY   = (float)rulerH + trackIndex * trackHeight + 6.0f;
+            const float clipY   = (float)rulerH + trackIndex * trackHeight - (float)trackScrollY + 6.0f;
             const float clipH   = trackHeight - 12.0f;
             const auto  cRect   = juce::Rectangle<float>(cStartX, clipY, cEndX - cStartX, clipH);
             if (!cRect.contains(pos)) continue;
@@ -1520,7 +1545,7 @@ namespace NovaStudioUI
         const float trackHeight = (float)trackHeightPx;
         const float lanesTop = (float)rulerH;
 
-        const int trackIndex = static_cast<int>((clickPoint.y - lanesTop) / trackHeight);
+        const int trackIndex = static_cast<int>((clickPoint.y - lanesTop + trackScrollY) / trackHeight);
         if (trackIndex < 0 || trackIndex >= arrangementModel.getSession().getNumTracks())
         {
             arrangementModel.clearSelection();
@@ -1534,7 +1559,7 @@ namespace NovaStudioUI
             const auto& clip = track.clips.getReference(clipIndex);
             const double clipStartX = timelineModel.getXForSamplePosition(clip.startSample, width);
             const double clipEndX = timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width);
-            const float clipY = lanesTop + trackIndex * trackHeight + 6.0f;
+            const float clipY = lanesTop + trackIndex * trackHeight - (float)trackScrollY + 6.0f;
             const float clipH = trackHeight - 12.0f;
             const auto clipRect = juce::Rectangle<float>((float)clipStartX, clipY, (float)juce::jmax(8.0, clipEndX - clipStartX), clipH);
             const float handleW = 10.0f;
@@ -1725,7 +1750,7 @@ namespace NovaStudioUI
                     const auto& clip = track.clips.getReference(c);
                     const double clipStartX = timelineModel.getXForSamplePosition(clip.startSample, width);
                     const double clipEndX = timelineModel.getXForSamplePosition(clip.startSample + clip.lengthSamples, width);
-                    const auto clipRect = juce::Rectangle<float>((float)clipStartX, 28.0f + t * trackHeight + 6.0f,
+                    const auto clipRect = juce::Rectangle<float>((float)clipStartX, 28.0f + t * trackHeight - (float)trackScrollY + 6.0f,
                                                                 (float)juce::jmax(8.0, clipEndX - clipStartX), trackHeight - 12.0f);
                     if (clipRect.intersects(marqueeRect))
                         hits.add(juce::Point<int>(t, c));
@@ -1943,7 +1968,7 @@ void ArrangementView::itemDropped(const SourceDetails& details)
     const int dropY = (int)details.localPosition.y;
     const int dropX = (int)details.localPosition.x;
 
-    const int trackIndex = juce::jmax(0, (int)((dropY - rulerH) / trackHeight));
+    const int trackIndex = juce::jmax(0, (int)((dropY - rulerH + trackScrollY) / trackHeight));
     auto& session = arrangementModel.getSession();
     if (trackIndex >= session.getNumTracks()) return;
 

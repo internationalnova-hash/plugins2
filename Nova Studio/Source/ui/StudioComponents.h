@@ -69,12 +69,17 @@ namespace NovaStudioUI
 
         void paint(juce::Graphics& g) override;
         void mouseDown(const juce::MouseEvent& e) override;
+        void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& w) override;
         void refresh() { repaint(); }
+
+        void setScrollY(int y) { scrollY = y; repaint(); }
+        int  getScrollY() const { return scrollY; }
 
         std::function<void(int, bool)> onTrackArm;
         std::function<void(int, bool)> onTrackMute;
         std::function<void(int, bool)> onTrackSolo;
         std::function<void(int trackIndex, const juce::String& newName)> onTrackRenamed;
+        std::function<void(int scrollY)> onScrollChanged;
 
         void mouseDoubleClick(const juce::MouseEvent& e) override;
 
@@ -83,6 +88,7 @@ namespace NovaStudioUI
         HitButton hitTest(int trackIndex, juce::Point<int> pos) const;
 
         NovaStudio::Session& session;
+        int scrollY = 0;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TrackPanel)
     };
@@ -285,6 +291,15 @@ namespace NovaStudioUI
         int64_t fadeOrigIn  = 0;
         int64_t fadeOrigOut = 0;
 
+        // Vertical scroll (shared with TrackPanel via onScrollChanged)
+        int trackScrollY = 0;
+
+    public:
+        void setTrackScrollY(int y) { trackScrollY = y; repaint(); }
+        int  getTrackScrollY() const { return trackScrollY; }
+        std::function<void(int)> onScrollChanged;  // fires when ArrangementView scrolls
+
+    private:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ArrangementView)
     };
 
