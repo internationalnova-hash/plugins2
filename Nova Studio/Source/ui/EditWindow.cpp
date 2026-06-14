@@ -100,13 +100,10 @@ void EditWindow::setEngine(NovaStudio::StudioAudioEngine& e)
         if (!enginePtr) return;
         int idx = arrangementModel.getSelectedTrackIndex();
         if (idx < 0) return;
-        if (enginePtr->getTrackPlugin(idx, slot))
+        if (enginePtr->getTrackPlugin(idx, slot) != nullptr)
         {
-            // open floating editor — re-use MixerWindow's openPluginEditor if available
-            // For now just log; the mixer's openPluginEditor handles this
-            DBG("Open plugin editor track=" + juce::String(idx) + " slot=" + juce::String(slot));
+            if (onOpenPluginEditor) onOpenPluginEditor(idx, slot);
         }
-        // else: no-op — user can load via onInsertChangePlugin
     };
 
     productionPanel->onInsertChangePlugin = [this](int slot)

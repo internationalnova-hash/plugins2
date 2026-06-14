@@ -1645,6 +1645,7 @@ namespace NovaStudioUI
             // Click-drag in ruler → start range/selection drag
             // Set playhead immediately on mouseDown so single-click feels instant;
             // mouseUp will commit as loop range if drag distance exceeds threshold.
+            isDraggingPlayhead    = true;
             isDraggingRangeSelect = true;
             rangeAnchorSample = juce::jmax<int64_t>(0, xToSample(clickPoint.x, timelineModel, snapNow, snapBeats, session));
             transportState.setPositionSamples(rangeAnchorSample, true);
@@ -1790,7 +1791,7 @@ namespace NovaStudioUI
         const auto& session = arrangementModel.getSession();
 
         // ── Playhead scrubbing ────────────────────────────────────────────────
-        if (isDraggingPlayhead)
+        if (isDraggingPlayhead && !isDraggingRangeSelect)
         {
             const int64_t pos = xToSample(event.position.x, timelineModel, snapNow, snapBeats, session);
             transportState.setPositionSamples(juce::jmax<int64_t>(0, pos), true);
@@ -1809,6 +1810,8 @@ namespace NovaStudioUI
             juce::ignoreUnused(dragDistPx);
             if (newEnd > newStart)
                 transportState.setLoopRange(newStart, newEnd);
+            // Scrub playhead to follow mouse during ruler drag
+            transportState.setPositionSamples(curSample, true);
             repaint();
             return;
         }

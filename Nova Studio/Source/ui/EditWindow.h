@@ -31,6 +31,7 @@ namespace NovaStudioUI
 
         std::function<int(const juce::String&, bool)> onCreateAudioTrack;
         std::function<void()> onAddTrackClicked;
+        std::function<void(int trackIndex, int slot)> onOpenPluginEditor;
 
         // Link engine so insert chain mutations are routed through a single path
         void setEngine(NovaStudio::StudioAudioEngine& e);

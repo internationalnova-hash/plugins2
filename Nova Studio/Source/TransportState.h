@@ -50,6 +50,13 @@ namespace NovaStudio
         int64_t getLoopStartSample() const noexcept;
         int64_t getLoopEndSample() const noexcept;
 
+        // ── Punch in/out ──────────────────────────────────────────────────────
+        void setPunchRange(int64_t inSample, int64_t outSample) noexcept;
+        void setPunchEnabled(bool on) noexcept;
+        bool isPunchEnabled() const noexcept;
+        int64_t getPunchInSample() const noexcept;
+        int64_t getPunchOutSample() const noexcept;
+
         juce::String getTimecodeString(int64_t samplePosition) const;
         juce::String getBarBeatString(int64_t samplePosition) const;
 
@@ -71,5 +78,9 @@ namespace NovaStudio
 
         std::atomic<int64_t> loopStartSample { 0 };
         std::atomic<int64_t> loopEndSample { 0 };
+
+        std::atomic<bool>    punchEnabled   { false };
+        std::atomic<int64_t> punchInSample  { 0 };
+        std::atomic<int64_t> punchOutSample { 0 };
     };
 }
