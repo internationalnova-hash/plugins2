@@ -7,6 +7,10 @@ build/
 NovaStudio_artefacts/
 **/NovaStudio_artefacts/
 
+# Nova Studio runtime-generated project/recording data
+NovaStudioProjects/
+**/NovaStudioProjects/
+
 # CMake build metadata
 **/CMakeFiles/
 **/CMakeCache.txt
