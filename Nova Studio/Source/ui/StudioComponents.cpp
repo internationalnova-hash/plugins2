@@ -1572,9 +1572,11 @@ namespace NovaStudioUI
             }
 
             // Click-drag in ruler → start range/selection drag
-            // (mouseUp with tiny movement → treated as plain playhead click)
+            // Set playhead immediately on mouseDown so single-click feels instant;
+            // mouseUp will commit as loop range if drag distance exceeds threshold.
             isDraggingRangeSelect = true;
             rangeAnchorSample = juce::jmax<int64_t>(0, xToSample(clickPoint.x, timelineModel, snapNow, snapBeats, session));
+            transportState.setPositionSamples(rangeAnchorSample, true);
             repaint();
             return;
         }
