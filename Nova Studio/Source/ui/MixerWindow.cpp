@@ -788,21 +788,23 @@ void ChannelStrip::paint(juce::Graphics& g)
         paintIO(outputLabelBounds, outputLabel.getText(), false);
     }
 
-    // ── Fader area: draw meter bars on right side of fader ────────────────
+    // ── Fader area: 0dB notch line (meter drawn in paintOverChildren) ────────
     {
         const auto fr = getFaderRect();
-        // Meter occupies right 14px of fader area
         const int meterW = 14;
-        auto meterArea = fr.withLeft(fr.getRight() - meterW);
-        drawMeter(g, meterArea);
-        // dB scale to right of fader (left of meter)
-        auto scaleArea = fr.withLeft(fr.getRight() - meterW - 22).withRight(fr.getRight() - meterW);
-        // Use ProFaderLookAndFeel's built-in scale — just add 0dB notch marker
         g.setColour(juce::Colour::fromRGBA(160, 120, 255, 140));
-        // 0dB sits at 75% down the fader
         const int zeroY = fr.getY() + (int)(fr.getHeight() * 0.75f);
         g.fillRect(fr.getX(), zeroY, fr.getWidth() - meterW, 1);
     }
+}
+
+void ChannelStrip::paintOverChildren(juce::Graphics& g)
+{
+    // Draw meter on top of all child components (fader slider, buttons etc.)
+    const auto fr = getFaderRect();
+    const int meterW = 14;
+    auto meterArea = fr.withLeft(fr.getRight() - meterW);
+    drawMeter(g, meterArea);
 }
 
 // ── Layout helpers ────────────────────────────────────────────────────────────

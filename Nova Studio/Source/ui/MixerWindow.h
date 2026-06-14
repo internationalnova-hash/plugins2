@@ -26,6 +26,7 @@ namespace NovaStudioUI
         ~ChannelStrip() override;
 
         void paint(juce::Graphics& g) override;
+        void paintOverChildren(juce::Graphics& g) override;
         void resized() override;
 
         void setTrackIndex(int index)    { trackIndex = index; }
