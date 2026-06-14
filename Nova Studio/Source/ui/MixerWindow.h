@@ -4,6 +4,7 @@
 #include "Theme.h"
 #include "../Session.h"
 #include "../StudioAudioEngine.h"
+#include "../ArrangementModel.h"
 #include "PluginBrowserPanel.h"
 
 namespace NovaStudioUI
@@ -174,6 +175,9 @@ namespace NovaStudioUI
         // Call when the track list changes (tracks added/removed)
         void refresh();
 
+        // Link to the ArrangementModel so plugin mutations broadcast to all views
+        void setArrangementModel(NovaStudio::ArrangementModel& model);
+
         // Open the plugin editor for a given track/slot (creates floating window)
         void openPluginEditor(int trackIndex, int pluginSlot);
 
@@ -184,10 +188,12 @@ namespace NovaStudioUI
         void buildStrips();
         void timerCallback() override;
         void changeListenerCallback(juce::ChangeBroadcaster*) override;
+        void notifyPluginChainChanged();
         // Returns list of internal buses (one per aux track) + optionally hardware outputs
         juce::StringArray buildBusList(bool includeHardware) const;
 
         NovaStudio::StudioAudioEngine& engine;
+        NovaStudio::ArrangementModel*  arrangementModelPtr = nullptr;
 
         juce::Viewport  viewport;
         juce::Component stripsContainer;

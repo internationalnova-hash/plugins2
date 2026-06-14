@@ -950,9 +950,32 @@ void MixerWindow::refresh()
     repaint();
 }
 
+void MixerWindow::setArrangementModel(NovaStudio::ArrangementModel& model)
+{
+    if (arrangementModelPtr)
+        arrangementModelPtr->removeChangeListener(this);
+    arrangementModelPtr = &model;
+    arrangementModelPtr->addChangeListener(this);
+}
+
+void MixerWindow::notifyPluginChainChanged()
+{
+    // Refresh our own insert labels immediately
+    refreshInsertSlotNames();
+    // Broadcast so EditWindow's ProductionPanel also refreshes
+    if (arrangementModelPtr)
+        arrangementModelPtr->sendChangeMessage();
+}
+
 void MixerWindow::changeListenerCallback(juce::ChangeBroadcaster*)
 {
-    refresh();
+    // Only rebuild strips if track count changed; otherwise just refresh inserts + meters
+    const int numTracks = engine.getSession().getNumTracks();
+    const int numStrips = trackStrips.size() + auxStrips.size() + (masterStrip ? 1 : 0);
+    if (numTracks != numStrips)
+        refresh();
+    else
+        refreshInsertSlotNames();
 }
 
 juce::StringArray MixerWindow::buildBusList(bool includeHardware) const
@@ -1012,14 +1035,13 @@ void MixerWindow::buildStrips()
         strip->onInsertChangePlugin = [this, i](int slot)
         {
             engine.removePluginFromTrack(i, slot);
-            refreshInsertSlotNames();
+            notifyPluginChainChanged();
             openPluginBrowser(i, slot);
         };
         strip->onInsertRemovePlugin = [this, i](int slot)
         {
             engine.removePluginFromTrack(i, slot);
-            refreshInsertSlotNames();
-            repaint();
+            notifyPluginChainChanged();
         };
     };
 
@@ -1201,9 +1223,10 @@ void MixerWindow::openPluginBrowser(int trackIndex, int slotIndex)
         engine, trackIndex, slotIndex,
         [this](int track, int slot, const juce::String& name)
         {
-            // Fired after successful load — update strip display then open editor
+            // Fired after successful load — update strip display, broadcast, open editor
             if (isPositiveAndBelow(track, trackStrips.size()))
                 trackStrips[track]->setInsertSlotName(slot, name);
+            notifyPluginChainChanged();
             openPluginEditor(track, slot);
         });
 }

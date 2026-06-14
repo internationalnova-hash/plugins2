@@ -29,16 +29,7 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
     productionPanel = std::make_unique<ProductionPanel>(arrangementModel);
     rightPanel.addAndMakeVisible(*productionPanel);
 
-    // Wire ProductionPanel callbacks (no-ops for now — engine wiring is separate)
-    productionPanel->onInsertClicked = [](int slot) {
-        DBG("Insert slot clicked: " + juce::String(slot));
-    };
-    productionPanel->onInsertChangePlugin = [](int slot) {
-        DBG("Change plugin on slot: " + juce::String(slot));
-    };
-    productionPanel->onInsertRemovePlugin = [](int slot) {
-        DBG("Remove plugin on slot: " + juce::String(slot));
-    };
+    // Insert callbacks are wired after setEngine() is called (see setEngine)
     productionPanel->onEQChanged = [](int band, float freq, float gainDb, float q) {
         DBG("EQ band " + juce::String(band) + " freq=" + juce::String(freq)
             + " gain=" + juce::String(gainDb) + " q=" + juce::String(q));
@@ -95,6 +86,46 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
             return -1;
         };
     }
+}
+
+void EditWindow::setEngine(NovaStudio::StudioAudioEngine& e)
+{
+    enginePtr = &e;
+
+    if (!productionPanel) return;
+
+    // onInsertClicked: open editor if plugin loaded, else open browser
+    productionPanel->onInsertClicked = [this](int slot)
+    {
+        if (!enginePtr) return;
+        int idx = arrangementModel.getSelectedTrackIndex();
+        if (idx < 0) return;
+        if (enginePtr->getTrackPlugin(idx, slot))
+        {
+            // open floating editor — re-use MixerWindow's openPluginEditor if available
+            // For now just log; the mixer's openPluginEditor handles this
+            DBG("Open plugin editor track=" + juce::String(idx) + " slot=" + juce::String(slot));
+        }
+        // else: no-op — user can load via onInsertChangePlugin
+    };
+
+    productionPanel->onInsertChangePlugin = [this](int slot)
+    {
+        if (!enginePtr) return;
+        int idx = arrangementModel.getSelectedTrackIndex();
+        if (idx < 0) return;
+        enginePtr->removePluginFromTrack(idx, slot);
+        arrangementModel.sendChangeMessage(); // both views refresh via changeListenerCallback
+    };
+
+    productionPanel->onInsertRemovePlugin = [this](int slot)
+    {
+        if (!enginePtr) return;
+        int idx = arrangementModel.getSelectedTrackIndex();
+        if (idx < 0) return;
+        enginePtr->removePluginFromTrack(idx, slot);
+        arrangementModel.sendChangeMessage();
+    };
 }
 
 void EditWindow::setLevelCallback(std::function<float(int,int)> fn)
@@ -230,7 +261,20 @@ void EditWindow::changeListenerCallback(juce::ChangeBroadcaster* source)
     {
         auto idx = arrangementModel.getSelectedTrackIndex();
         if (idx >= 0 && idx < arrangementModel.getSession().getNumTracks())
+        {
             productionPanel->updateFromTrack(arrangementModel.getSession().getTrack(idx));
+
+            // Sync insert slot names from the single engine plugin chain
+            if (enginePtr)
+            {
+                const int kMaxSlots = 10;
+                for (int s = 0; s < kMaxSlots; ++s)
+                {
+                    auto* plugin = enginePtr->getTrackPlugin(idx, s);
+                    productionPanel->setInsertSlotName(s, plugin ? plugin->getName() : juce::String());
+                }
+            }
+        }
         productionPanel->repaint();
     }
     if (arrangementView)

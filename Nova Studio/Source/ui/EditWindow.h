@@ -6,6 +6,7 @@
 #include "../ArrangementModel.h"
 #include "Theme.h"
 #include "StudioComponents.h"
+#include "../StudioAudioEngine.h"
 
 namespace NovaStudioUI
 {
@@ -31,6 +32,9 @@ namespace NovaStudioUI
         std::function<int(const juce::String&, bool)> onCreateAudioTrack;
         std::function<void()> onAddTrackClicked;
 
+        // Link engine so insert chain mutations are routed through a single path
+        void setEngine(NovaStudio::StudioAudioEngine& e);
+
         // Wire engine peak level reader to track header meters
         void setLevelCallback(std::function<float(int,int)> fn);
 
@@ -46,6 +50,7 @@ namespace NovaStudioUI
         NovaStudio::TransportState& transportState;
         NovaStudio::TimelineModel& timelineModel;
         NovaStudio::ArrangementModel& arrangementModel;
+        NovaStudio::StudioAudioEngine* enginePtr = nullptr;
 
         juce::Component leftPanel, centerPanel, bottomPanel, rightPanel, topPanel;
         std::unique_ptr<TransportBar> transportBar;

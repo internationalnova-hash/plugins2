@@ -57,8 +57,10 @@ MainComponent::MainComponent()
     editWindow->setLevelCallback([this](int track, int ch) -> float {
         return engine.getTrackPeakLevel(track, ch);
     });
+    editWindow->setEngine(engine);
 
     mixerWindow = std::make_unique<NovaStudioUI::MixerWindow>(engine);
+    mixerWindow->setArrangementModel(arrangementModel);
     addAndMakeVisible(*mixerWindow);
     mixerWindow->setVisible(false);
     beatWindow = std::make_unique<NovaStudioUI::BeatWindow>(transportState);
