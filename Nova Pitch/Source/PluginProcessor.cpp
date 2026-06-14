@@ -356,10 +356,20 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     if (detectedHz > 0.0f)
     {
-        const float alpha   = 0.15f;
-        smoothedDetectedHz  = (smoothedDetectedHz > 0.0f)
-                              ? alpha * detectedHz + (1.0f - alpha) * smoothedDetectedHz
-                              : detectedHz;
+        if (smoothedDetectedHz > 0.0f)
+        {
+            // Adaptive smoothing: faster on large pitch jumps (new note),
+            // slower on small deviations (vibrato/drift) — like MetaTune's detector
+            float semiDist = std::abs (hzToMidiF (detectedHz) - hzToMidiF (smoothedDetectedHz));
+            float alpha = (semiDist > 2.0f) ? 0.55f   // big jump → snap quickly to new note
+                        : (semiDist > 0.5f) ? 0.25f   // moderate → track moderately
+                                            : 0.10f;  // small wobble → smooth it out
+            smoothedDetectedHz = alpha * detectedHz + (1.0f - alpha) * smoothedDetectedHz;
+        }
+        else
+        {
+            smoothedDetectedHz = detectedHz;
+        }
         blocksSinceValidPitch = 0;
     }
     else
@@ -370,36 +380,78 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     detectedPitch.store (smoothedDetectedHz);
 
+    // Read parameters
     float amount    = apvts.getRawParameterValue ("amount")->load() / 100.0f;
     float tolerance = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
+    float vibratoAmt = apvts.getRawParameterValue ("vibrato")->load() / 100.0f;
+    float confThresh = apvts.getRawParameterValue ("confidenceThreshold")->load() / 100.0f;
 
-    float ratio   = 1.0f;
-    float targetHz = smoothedDetectedHz;
+    float ratio = 1.0f;
 
     if (smoothedDetectedHz > 0.0f)
     {
         int   targetMidi = quantizeToScale (smoothedDetectedHz);
-        targetHz         = midiToHz (targetMidi);
+        float targetHz   = midiToHz (targetMidi);
         correctedPitch.store (targetHz);
-        pitchConfidence.store (apvts.getRawParameterValue ("confidenceThreshold")->load() / 100.0f);
+        pitchConfidence.store (confThresh);
 
-        float rawRatio = targetHz / (smoothedDetectedHz + 1e-9f);
+        // Cents deviation from target
+        float detectedMidi = hzToMidiF (smoothedDetectedHz);
+        float centsDiff    = (hzToMidiF (targetHz) - detectedMidi) * 100.0f;
 
-        // Tolerance window: reduce correction when already close
-        float semiDiff = std::abs (hzToMidiF (targetHz) - hzToMidiF (smoothedDetectedHz));
-        float tolSemis = tolerance * 2.0f;
-        if (semiDiff < tolSemis)
-            rawRatio = 1.0f + (rawRatio - 1.0f) * (semiDiff / (tolSemis + 1e-9f));
+        // Deadband (tolerance): if within N cents, don't correct at all
+        // tolerance=0 → 0 cents deadband (always correct), tolerance=1 → 50 cents deadband
+        float deadbandCents = tolerance * 50.0f;
 
-        rawRatio = 1.0f + (rawRatio - 1.0f) * amount;
+        if (std::abs (centsDiff) <= deadbandCents)
+        {
+            // Inside deadband — glide ratio back toward 1.0 gently
+            pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.08f;
+        }
+        else
+        {
+            // Outside deadband — MetaTune-style speed-based correction:
+            // Amount controls how fast (semitones/second) we move toward the target.
+            // amount=1.0 → instant snap, amount=0 → ~0.3 semitones/sec
+            float targetRatio = targetHz / (smoothedDetectedHz + 1e-9f);
 
-        const float ratioAlpha = 0.05f + amount * 0.15f;
-        pitchRatioSmoothed = ratioAlpha * rawRatio + (1.0f - ratioAlpha) * pitchRatioSmoothed;
+            // Shave off the deadband portion — only correct the excess
+            float signedDeadband = std::copysign (deadbandCents / 100.0f, centsDiff);
+            float correctionMidi = (centsDiff / 100.0f) - signedDeadband;
+            float correctedTargetRatio = std::pow (2.0f, correctionMidi / 12.0f);
+            juce::ignoreUnused (targetRatio);
+
+            if (amount >= 0.99f)
+            {
+                // Hard snap — instant correction (Auto-Tune effect style)
+                pitchRatioSmoothed = correctedTargetRatio;
+            }
+            else
+            {
+                // Rate-limited glide: max movement in semitones per audio block
+                // amount=0 → 0.3 semitones/sec, amount=0.99 → 30 semitones/sec
+                float semitonesPerSec  = 0.3f + amount * amount * 80.0f;
+                float blocksPerSec     = (float)currentSampleRate / (float)juce::jmax (1, numSamples);
+                float maxSemisPerBlock = semitonesPerSec / blocksPerSec;
+                float maxRatioChange   = std::pow (2.0f, maxSemisPerBlock / 12.0f) - 1.0f;
+
+                float ratioDiff  = correctedTargetRatio - pitchRatioSmoothed;
+                float clampedDiff = juce::jlimit (-maxRatioChange, maxRatioChange, ratioDiff);
+                pitchRatioSmoothed += clampedDiff;
+            }
+        }
+
+        // Vibrato preservation: blend some of the original (uncorrected) ratio back in
+        // vibrato=0 → full correction, vibrato=1 → no correction (pass-through)
+        if (vibratoAmt > 0.0f)
+            pitchRatioSmoothed = pitchRatioSmoothed * (1.0f - vibratoAmt) + 1.0f * vibratoAmt;
+
         ratio = pitchRatioSmoothed;
     }
     else
     {
-        pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.05f;
+        // No pitch detected — glide back to unity
+        pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.08f;
         ratio = pitchRatioSmoothed;
     }
 
