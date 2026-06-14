@@ -291,6 +291,7 @@ namespace NovaStudioUI
         Pattern& currentPattern() { return patterns.getReference(currentPatternIdx); }
         const Pattern& currentPattern() const { return patterns.getReference(currentPatternIdx); }
 
+        friend class BeatWindow;
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(StepSequencerView)
     };
 
@@ -431,6 +432,64 @@ namespace NovaStudioUI
         void mouseExit(const juce::MouseEvent&)  override { repaint(); }
     };
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // BeatPatternToolbar — second toolbar row (pattern controls, step count, etc.)
+    // ─────────────────────────────────────────────────────────────────────────
+    class BeatPatternToolbar : public juce::Component,
+                               private juce::Button::Listener
+    {
+    public:
+        BeatPatternToolbar();
+        ~BeatPatternToolbar() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+
+        void setPatternName(const juce::String& name);
+        void setStepCount(int steps);    // 16, 32, or 64
+        void setSwing(float pct);        // 0-100
+
+        // Callbacks
+        std::function<void()>      onPrevPattern;
+        std::function<void()>      onNextPattern;
+        std::function<void()>      onAddPattern;
+        std::function<void()>      onAddChannel;
+        std::function<void(int)>   onStepCountChanged;   // 16/32/64
+        std::function<void(float)> onSwingChanged;       // 0-100
+        std::function<void(bool)>  onShowVelocityGraph;
+        std::function<void(bool)>  onPatSongToggle;      // true=PAT, false=SONG
+
+    private:
+        void buttonClicked(juce::Button* b) override;
+
+        juce::TextButton prevPatBtn  { "<" };
+        juce::TextButton nextPatBtn  { ">" };
+        juce::TextButton addPatBtn   { "+" };
+        juce::Label      patNameLabel;
+
+        juce::TextButton steps16Btn  { "16" };
+        juce::TextButton steps32Btn  { "32" };
+        juce::TextButton steps64Btn  { "64" };
+
+        juce::Label      swingLabel;
+        juce::TextButton swingDnBtn  { "-" };
+        juce::TextButton swingUpBtn  { "+" };
+
+        juce::TextButton addChanBtn  { "+ Channel" };
+        juce::TextButton velGraphBtn { "VEL" };
+        juce::TextButton patSongBtn  { "PAT" };
+
+        int   currentSteps = 16;
+        float currentSwing = 0.0f;
+        bool  showVel      = true;
+        bool  isPat        = true;
+
+        void styleToggleBtn(juce::TextButton& btn);
+        void updateStepButtons();
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatPatternToolbar)
+    };
+
     class BeatTransportBar : public juce::Component
     {
     public:
@@ -442,14 +501,15 @@ namespace NovaStudioUI
 
         // Update displayed state from outside
         void setPlayState(bool playing, bool recording);
-        void setTimecode(const juce::String& tc)  { timecodeLabel.setText(tc,  juce::dontSendNotification); }
-        void setBpm(double bpm)                   { bpmLabel.setText(juce::String(bpm, 1) + " BPM", juce::dontSendNotification); }
+        void setTimecode(const juce::String& tc) { timecodeLabel.setText(tc, juce::dontSendNotification); }
+        void setBpm(double bpm)                  { bpmLabel.setBPM(static_cast<int>(bpm)); }
 
         // Callbacks wired by BeatWindow owner
-        std::function<void()> onPlay;
-        std::function<void()> onStop;
-        std::function<void()> onRecord;
-        std::function<void()> onReturnToZero;
+        std::function<void()>    onPlay;
+        std::function<void()>    onStop;
+        std::function<void()>    onRecord;
+        std::function<void()>    onReturnToZero;
+        std::function<void(int)> onTempoChanged;
 
     private:
         IconButton rtzBtn  { IconButton::Icon::ReturnToZero };
@@ -457,7 +517,7 @@ namespace NovaStudioUI
         IconButton stopBtn { IconButton::Icon::Stop };
         IconButton recBtn  { IconButton::Icon::Record };
         juce::Label timecodeLabel;
-        juce::Label bpmLabel;
+        BPMLabel    bpmLabel;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatTransportBar)
     };
@@ -492,10 +552,11 @@ namespace NovaStudioUI
             { stepSeq.onSwingChanged = std::move(fn); }
 
         // Transport callbacks — wire from MainComponent
-        std::function<void()> onPlay;
-        std::function<void()> onStop;
-        std::function<void()> onRecord;
-        std::function<void()> onReturnToZero;
+        std::function<void()>    onPlay;
+        std::function<void()>    onStop;
+        std::function<void()>    onRecord;
+        std::function<void()>    onReturnToZero;
+        std::function<void(int)> onTempoChanged;
 
         // Update displayed transport state
         void setPlayState(bool playing, bool recording);
@@ -506,10 +567,11 @@ namespace NovaStudioUI
         void setPlayCursor(int step) { stepSeq.setPlayCursor(step); }
 
     private:
-        BeatTransportBar  transportBar;
-        BrowserPanel      browser;
-        PatternPlaylist   playlist;
-        StepSequencerView stepSeq;
+        BeatTransportBar   transportBar;
+        BeatPatternToolbar patternToolbar;
+        BrowserPanel       browser;
+        PatternPlaylist    playlist;
+        StepSequencerView  stepSeq;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatWindow)
     };

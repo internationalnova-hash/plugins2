@@ -1731,6 +1731,177 @@ void DrumRackPanel::itemDropped(const SourceDetails& details)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// BeatPatternToolbar
+// ─────────────────────────────────────────────────────────────────────────────
+
+BeatPatternToolbar::BeatPatternToolbar()
+{
+    auto styleSm = [this](juce::TextButton& btn) {
+        btn.setColour(juce::TextButton::buttonColourId,  juce::Colour::fromRGB(28, 32, 48));
+        btn.setColour(juce::TextButton::buttonOnColourId, BeatTheme::accent());
+        btn.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.8f));
+        btn.setColour(juce::TextButton::textColourOnId,  juce::Colours::white);
+        btn.addListener(this);
+        addAndMakeVisible(&btn);
+    };
+
+    for (auto* b : { &prevPatBtn, &nextPatBtn, &addPatBtn,
+                     &steps16Btn, &steps32Btn, &steps64Btn,
+                     &swingDnBtn, &swingUpBtn,
+                     &addChanBtn, &velGraphBtn, &patSongBtn })
+        styleSm(*b);
+
+    // Toggle-style buttons
+    steps16Btn.setClickingTogglesState(false);
+    steps32Btn.setClickingTogglesState(false);
+    steps64Btn.setClickingTogglesState(false);
+    velGraphBtn.setClickingTogglesState(false);
+    patSongBtn.setClickingTogglesState(false);
+
+    patNameLabel.setText("Pattern 1", juce::dontSendNotification);
+    patNameLabel.setColour(juce::Label::textColourId,       juce::Colours::white);
+    patNameLabel.setColour(juce::Label::backgroundColourId, juce::Colour::fromRGB(20, 24, 36));
+    patNameLabel.setFont(juce::FontOptions(13.0f));
+    patNameLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(patNameLabel);
+
+    swingLabel.setText("SWING 0%", juce::dontSendNotification);
+    swingLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.7f));
+    swingLabel.setFont(juce::FontOptions(11.0f));
+    swingLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(swingLabel);
+
+    updateStepButtons();
+}
+
+BeatPatternToolbar::~BeatPatternToolbar()
+{
+    for (auto* b : { &prevPatBtn, &nextPatBtn, &addPatBtn,
+                     &steps16Btn, &steps32Btn, &steps64Btn,
+                     &swingDnBtn, &swingUpBtn,
+                     &addChanBtn, &velGraphBtn, &patSongBtn })
+        b->removeListener(this);
+}
+
+void BeatPatternToolbar::styleToggleBtn(juce::TextButton& btn)
+{
+    btn.setColour(juce::TextButton::buttonOnColourId, BeatTheme::accent());
+}
+
+void BeatPatternToolbar::updateStepButtons()
+{
+    steps16Btn.setColour(juce::TextButton::buttonColourId,
+        currentSteps == 16  ? BeatTheme::accent() : juce::Colour::fromRGB(28, 32, 48));
+    steps32Btn.setColour(juce::TextButton::buttonColourId,
+        currentSteps == 32  ? BeatTheme::accent() : juce::Colour::fromRGB(28, 32, 48));
+    steps64Btn.setColour(juce::TextButton::buttonColourId,
+        currentSteps == 64  ? BeatTheme::accent() : juce::Colour::fromRGB(28, 32, 48));
+    repaint();
+}
+
+void BeatPatternToolbar::setPatternName(const juce::String& name)
+{
+    patNameLabel.setText(name, juce::dontSendNotification);
+}
+
+void BeatPatternToolbar::setStepCount(int steps)
+{
+    currentSteps = steps;
+    updateStepButtons();
+}
+
+void BeatPatternToolbar::setSwing(float pct)
+{
+    currentSwing = pct;
+    swingLabel.setText("SWING " + juce::String(juce::roundToInt(pct)) + "%",
+                       juce::dontSendNotification);
+}
+
+void BeatPatternToolbar::paint(juce::Graphics& g)
+{
+    g.fillAll(juce::Colour::fromRGB(16, 19, 28));
+    g.setColour(juce::Colour::fromRGBA(255, 255, 255, 14));
+    g.drawRect(getLocalBounds(), 1);
+
+    // Section dividers
+    g.setColour(juce::Colour::fromRGBA(255, 255, 255, 10));
+}
+
+void BeatPatternToolbar::resized()
+{
+    auto area = getLocalBounds().reduced(4, 3);
+    const int h   = area.getHeight();
+    const int gap = 3;
+
+    // Pattern navigation: < [Pattern Name] > +
+    prevPatBtn  .setBounds(area.removeFromLeft(20));  area.removeFromLeft(gap);
+    patNameLabel.setBounds(area.removeFromLeft(100)); area.removeFromLeft(gap);
+    nextPatBtn  .setBounds(area.removeFromLeft(20));  area.removeFromLeft(gap);
+    addPatBtn   .setBounds(area.removeFromLeft(20));  area.removeFromLeft(gap + 8);
+
+    // Step count
+    steps16Btn.setBounds(area.removeFromLeft(28));  area.removeFromLeft(gap);
+    steps32Btn.setBounds(area.removeFromLeft(28));  area.removeFromLeft(gap);
+    steps64Btn.setBounds(area.removeFromLeft(28));  area.removeFromLeft(gap + 8);
+
+    // Swing
+    swingDnBtn .setBounds(area.removeFromLeft(18));  area.removeFromLeft(gap);
+    swingLabel .setBounds(area.removeFromLeft(72));  area.removeFromLeft(gap);
+    swingUpBtn .setBounds(area.removeFromLeft(18));  area.removeFromLeft(gap + 8);
+
+    // Right-side tools
+    patSongBtn .setBounds(area.removeFromLeft(38));  area.removeFromLeft(gap);
+    velGraphBtn.setBounds(area.removeFromLeft(34));  area.removeFromLeft(gap);
+    addChanBtn .setBounds(area.removeFromLeft(72));
+
+    juce::ignoreUnused(h);
+}
+
+void BeatPatternToolbar::buttonClicked(juce::Button* b)
+{
+    if (b == &prevPatBtn && onPrevPattern)  { onPrevPattern(); return; }
+    if (b == &nextPatBtn && onNextPattern)  { onNextPattern(); return; }
+    if (b == &addPatBtn  && onAddPattern)   { onAddPattern();  return; }
+    if (b == &addChanBtn && onAddChannel)   { onAddChannel();  return; }
+
+    if (b == &steps16Btn) { currentSteps = 16; updateStepButtons(); if (onStepCountChanged) onStepCountChanged(16); return; }
+    if (b == &steps32Btn) { currentSteps = 32; updateStepButtons(); if (onStepCountChanged) onStepCountChanged(32); return; }
+    if (b == &steps64Btn) { currentSteps = 64; updateStepButtons(); if (onStepCountChanged) onStepCountChanged(64); return; }
+
+    if (b == &swingDnBtn)
+    {
+        currentSwing = juce::jmax(0.0f, currentSwing - 5.0f);
+        setSwing(currentSwing);
+        if (onSwingChanged) onSwingChanged(currentSwing);
+        return;
+    }
+    if (b == &swingUpBtn)
+    {
+        currentSwing = juce::jmin(100.0f, currentSwing + 5.0f);
+        setSwing(currentSwing);
+        if (onSwingChanged) onSwingChanged(currentSwing);
+        return;
+    }
+    if (b == &velGraphBtn)
+    {
+        showVel = !showVel;
+        velGraphBtn.setColour(juce::TextButton::buttonColourId,
+            showVel ? BeatTheme::accent() : juce::Colour::fromRGB(28, 32, 48));
+        if (onShowVelocityGraph) onShowVelocityGraph(showVel);
+        return;
+    }
+    if (b == &patSongBtn)
+    {
+        isPat = !isPat;
+        patSongBtn.setButtonText(isPat ? "PAT" : "SONG");
+        patSongBtn.setColour(juce::TextButton::buttonColourId,
+            isPat ? BeatTheme::accent() : juce::Colour::fromRGB(28, 32, 48));
+        if (onPatSongToggle) onPatSongToggle(isPat);
+        return;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // BeatWindow
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1755,10 +1926,11 @@ BeatTransportBar::BeatTransportBar()
     timecodeLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(timecodeLabel);
 
-    bpmLabel.setText("120.0 BPM", juce::dontSendNotification);
-    bpmLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.75f));
-    bpmLabel.setFont(juce::FontOptions(12.0f));
-    bpmLabel.setJustificationType(juce::Justification::centredLeft);
+    bpmLabel.setBPM(120);
+    bpmLabel.setColour(juce::Label::textColourId, juce::Colour::fromRGB(220, 170, 60));
+    bpmLabel.setJustificationType(juce::Justification::centred);
+    bpmLabel.setTooltip("Drag up/down to change BPM, or double-click to type");
+    bpmLabel.onTempoChanged = [this](int bpm) { if (onTempoChanged) onTempoChanged(bpm); };
     addAndMakeVisible(bpmLabel);
 }
 
@@ -1800,6 +1972,7 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
     : stepSeq(transport)
 {
     addAndMakeVisible(transportBar);
+    addAndMakeVisible(patternToolbar);
     addAndMakeVisible(browser);
     addAndMakeVisible(playlist);
     addAndMakeVisible(stepSeq);
@@ -1808,6 +1981,44 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
     transportBar.onStop          = [this]() { if (onStop)          onStop(); };
     transportBar.onRecord        = [this]() { if (onRecord)        onRecord(); };
     transportBar.onReturnToZero  = [this]() { if (onReturnToZero)  onReturnToZero(); };
+    transportBar.onTempoChanged  = [this](int bpm) { if (onTempoChanged) onTempoChanged(bpm); };
+
+    // Wire pattern toolbar → step sequencer
+    patternToolbar.onStepCountChanged = [this](int steps) {
+        stepSeq.currentPattern().stepCount = steps;
+        if (stepSeq.onStepCountChanged) stepSeq.onStepCountChanged(steps);
+        stepSeq.repaint();
+    };
+    patternToolbar.onSwingChanged = [this](float pct) {
+        stepSeq.currentPattern().swing = pct / 100.0f;
+        if (stepSeq.onSwingChanged) stepSeq.onSwingChanged(pct / 100.0f);
+    };
+    patternToolbar.onNextPattern = [this]() {
+        auto& patterns = stepSeq.patterns;
+        stepSeq.currentPatternIdx = juce::jmin(stepSeq.currentPatternIdx + 1, patterns.size() - 1);
+        patternToolbar.setPatternName(stepSeq.currentPattern().name);
+        patternToolbar.setStepCount(stepSeq.currentPattern().stepCount);
+        stepSeq.repaint();
+    };
+    patternToolbar.onPrevPattern = [this]() {
+        stepSeq.currentPatternIdx = juce::jmax(0, stepSeq.currentPatternIdx - 1);
+        patternToolbar.setPatternName(stepSeq.currentPattern().name);
+        patternToolbar.setStepCount(stepSeq.currentPattern().stepCount);
+        stepSeq.repaint();
+    };
+    patternToolbar.onAddPattern = [this]() {
+        StepSequencerView::Pattern p;
+        p.name = "Pattern " + juce::String(stepSeq.patterns.size() + 1);
+        stepSeq.patterns.add(p);
+        stepSeq.currentPatternIdx = stepSeq.patterns.size() - 1;
+        patternToolbar.setPatternName(stepSeq.currentPattern().name);
+        patternToolbar.setStepCount(stepSeq.currentPattern().stepCount);
+        stepSeq.repaint();
+    };
+    patternToolbar.onShowVelocityGraph = [this](bool show) {
+        stepSeq.showGraphEditor = show;
+        stepSeq.repaint();
+    };
 }
 
 BeatWindow::~BeatWindow() = default;
@@ -1836,16 +2047,20 @@ void BeatWindow::resized()
 {
     auto area = getLocalBounds();
 
-    // Transport bar spans full width at top
+    // Row 1: transport bar (full width)
     transportBar.setBounds(area.removeFromTop(40));
+    area.removeFromTop(1);
+
+    // Row 2: pattern toolbar (full width)
+    patternToolbar.setBounds(area.removeFromTop(28));
     area.removeFromTop(2);
 
     // Browser on left
     auto browserArea = area.removeFromLeft(180);
     area.removeFromLeft(2);
 
-    // Pattern arranger takes top ~40% of remaining center
-    const int playlistH = juce::roundToInt(area.getHeight() * 0.40f);
+    // Pattern arranger takes top ~38% of remaining center
+    const int playlistH = juce::roundToInt(area.getHeight() * 0.38f);
     playlist.setBounds(area.removeFromTop(playlistH));
     area.removeFromTop(2);
 

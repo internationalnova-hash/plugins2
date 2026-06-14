@@ -111,6 +111,12 @@ MainComponent::MainComponent()
         if (beatWindow) beatWindow->setPlayState(false, false);
         if (wasRecording) { refreshTrackList(); arrangementModel.sendChangeMessage(); }
     };
+    beatWindow->onTempoChanged = [this](int bpm) {
+        engine.getSession().setTempo(static_cast<double>(bpm));
+        transportState.setTempo(static_cast<double>(bpm));
+        workspaceToolbar.setTempo(bpm);
+        updateStatusMessage("Tempo: " + juce::String(bpm) + " BPM");
+    };
 
     // Pop-out buttons
     auto configPopBtn = [](juce::TextButton& btn) {
