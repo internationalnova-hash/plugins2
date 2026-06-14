@@ -22,6 +22,9 @@ NovaApexAudioProcessorEditor::NovaApexAudioProcessorEditor (NovaApexAudioProcess
     transientPreserveAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::transientPreserve), transientPreserveRelay, nullptr);
     lowEndProtectAttachment     = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::lowEndProtect),     lowEndProtectRelay,     nullptr);
     loudnessTargetAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::loudnessTarget),    loudnessTargetRelay,    nullptr);
+    ispProtectAttachment        = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::ispProtect),        ispProtectRelay,        nullptr);
+    smartReleaseAttachment      = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::smartRelease),      smartReleaseRelay,      nullptr);
+    safeModeAttachment          = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::safeMode),          safeModeRelay,          nullptr);
 
     addAndMakeVisible (*webView);
 
@@ -128,7 +131,10 @@ juce::WebBrowserComponent::Options NovaApexAudioProcessorEditor::createWebOption
                      .withOptionsFrom (editor.ditherRelay)
                      .withOptionsFrom (editor.transientPreserveRelay)
                      .withOptionsFrom (editor.lowEndProtectRelay)
-                     .withOptionsFrom (editor.loudnessTargetRelay);
+                     .withOptionsFrom (editor.loudnessTargetRelay)
+                     .withOptionsFrom (editor.ispProtectRelay)
+                     .withOptionsFrom (editor.smartReleaseRelay)
+                     .withOptionsFrom (editor.safeModeRelay);
 
     return options;
 }

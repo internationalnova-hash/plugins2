@@ -16,4 +16,7 @@ namespace ParameterIDs
     inline constexpr char transientPreserve[] = "transientPreserve";
     inline constexpr char lowEndProtect[]     = "lowEndProtect";
     inline constexpr char loudnessTarget[]    = "loudnessTarget";
+    inline constexpr char ispProtect[]        = "ispProtect";
+    inline constexpr char smartRelease[]      = "smartRelease";
+    inline constexpr char safeMode[]          = "safeMode";
 }

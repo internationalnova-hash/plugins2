@@ -35,6 +35,9 @@ private:
     juce::WebSliderRelay transientPreserveRelay { ParameterIDs::transientPreserve };
     juce::WebSliderRelay lowEndProtectRelay     { ParameterIDs::lowEndProtect };
     juce::WebSliderRelay loudnessTargetRelay    { ParameterIDs::loudnessTarget };
+    juce::WebSliderRelay ispProtectRelay        { ParameterIDs::ispProtect };
+    juce::WebSliderRelay smartReleaseRelay      { ParameterIDs::smartRelease };
+    juce::WebSliderRelay safeModeRelay          { ParameterIDs::safeMode };
 
     struct SinglePageBrowser : juce::WebBrowserComponent
     {
@@ -62,6 +65,9 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> transientPreserveAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> lowEndProtectAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> loudnessTargetAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> ispProtectAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> smartReleaseAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> safeModeAttachment;
 
     std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
     static juce::WebBrowserComponent::Options createWebOptions (NovaApexAudioProcessorEditor& editor);

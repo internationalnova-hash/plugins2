@@ -20,6 +20,9 @@ namespace
     constexpr auto transientPreserveId = "transientPreserve";
     constexpr auto lowEndProtectId     = "lowEndProtect";
     constexpr auto loudnessTargetId    = "loudnessTarget";
+    constexpr auto ispProtectId        = "ispProtect";
+    constexpr auto smartReleaseId      = "smartRelease";
+    constexpr auto safeModeId          = "safeMode";
 
     inline float dbToLinear (float db) noexcept { return std::pow (10.0f, db / 20.0f); }
     inline float linearToDb (float lin) noexcept { return 20.0f * std::log10 (lin + 1.0e-10f); }
@@ -210,6 +213,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaApexAudioProcessor::crea
         juce::NormalisableRange<float> (-23.0f, -6.0f, 0.1f), -14.0f,
         juce::String(), juce::AudioProcessorParameter::genericParameter,
         [] (float v, int) { return juce::String (v, 1) + " LUFS"; }));
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ispProtectId, 1 }, "ISP Protection", true));
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { smartReleaseId, 1 }, "Smart Release", false));
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { safeModeId, 1 }, "Safe Mode", false));
 
     return layout;
 }
@@ -419,9 +431,14 @@ void NovaApexAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float lowEndAmt        = apvts.getRawParameterValue (lowEndProtectId)->load();
     const bool  isDelta          = deltaMode.load();
     const int   ditherBitsVal    = ditherBits.load();
+    const bool  ispProtectOn     = apvts.getRawParameterValue (ispProtectId)->load() > 0.5f;
+    const bool  smartReleaseOn   = apvts.getRawParameterValue (smartReleaseId)->load() > 0.5f;
+    const bool  safeModeOn       = apvts.getRawParameterValue (safeModeId)->load() > 0.5f;
 
     const float inputGainLin  = dbToLinear (gainDb);
-    const float ceilingLinear = dbToLinear (ceilingDb);
+    // Safe Mode: pull ceiling in by 0.3 dB — more headroom, less distortion risk
+    const float safeCeilingDb = safeModeOn ? ceilingDb - 0.3f : ceilingDb;
+    const float ceilingLinear = dbToLinear (safeCeilingDb);
     const float outputGainLin = dbToLinear (outputGainDb);
 
     // Style-adjusted attack/release
@@ -546,7 +563,24 @@ void NovaApexAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             float targetGr = 1.0f;
             if (sidechain > ceilingLinear)
             {
-                switch (style)
+                // Safe Mode: wide soft-knee (6dB knee), capped at 12dB GR
+                if (safeModeOn)
+                {
+                    const float over = sidechain - ceilingLinear;
+                    const float knee = ceilingLinear * 0.40f; // ~6dB knee
+                    if (over < knee)
+                    {
+                        const float t = over / knee;
+                        targetGr = 1.0f - t * t * (1.0f - ceilingLinear / (sidechain + 1.0e-9f));
+                    }
+                    else
+                    {
+                        targetGr = ceilingLinear / (sidechain + 1.0e-9f);
+                    }
+                    // Cap GR at 12 dB to keep limiting clean
+                    targetGr = juce::jmax (targetGr, dbToLinear (-12.0f));
+                }
+                else switch (style)
                 {
                     case 0: // Clean: linear
                         targetGr = ceilingLinear / (sidechain + epsilon);
@@ -598,9 +632,21 @@ void NovaApexAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             const int envCh = link ? 0 : ch;
             float& env = gainEnv[envCh];
             if (targetGr < env)
+            {
                 env = attackCoeff * env + (1.0f - attackCoeff) * targetGr;
+            }
             else
-                env = releaseCoeff * env + (1.0f - releaseCoeff) * targetGr;
+            {
+                // Smart Release: dense transients → faster release (less pumping)
+                float relCoeff = releaseCoeff;
+                if (smartReleaseOn && tWeight > 0.05f)
+                {
+                    // High transient density speeds release by up to 4x
+                    const float speedup = 1.0f + tWeight * 3.0f;
+                    relCoeff = std::pow (releaseCoeff, speedup);
+                }
+                env = relCoeff * env + (1.0f - relCoeff) * targetGr;
+            }
 
             // Apply gain reduction to delayed sample
             float out = delayed * env;
@@ -641,6 +687,38 @@ void NovaApexAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
             if (ch == 0) { inPeakL = juce::jmax (inPeakL, inAbs); outPeakL = juce::jmax (outPeakL, outAbs); }
             else         { inPeakR = juce::jmax (inPeakR, inAbs); outPeakR = juce::jmax (outPeakR, outAbs); }
+        }
+    }
+
+    // ── ISP Protection ────────────────────────────────────────────────────
+    // Detects intersample peaks using 4-point cubic interpolation between
+    // consecutive output samples and attenuates if reconstruction exceeds ceiling.
+    if (ispProtectOn && numSamples >= 4)
+    {
+        const float ispCeiling = dbToLinear (safeCeilingDb);
+        for (int ch = 0; ch < numChannels; ++ch)
+        {
+            float* data = buffer.getWritePointer (ch);
+            for (int i = 1; i < numSamples - 2; ++i)
+            {
+                // Catmull-Rom cubic: interpolate midpoint between sample[i] and sample[i+1]
+                const float y0 = data[i - 1];
+                const float y1 = data[i];
+                const float y2 = data[i + 1];
+                const float y3 = (i + 2 < numSamples) ? data[i + 2] : y2;
+                // t=0.5 midpoint
+                const float mid = 0.5f * y1
+                                + 0.5f * y2
+                                - 0.0625f * (y3 - y1)
+                                + 0.0625f * (y0 - y2);
+                const float absMid = std::abs (mid);
+                if (absMid > ispCeiling)
+                {
+                    const float attenuation = ispCeiling / (absMid + 1.0e-9f);
+                    data[i]     *= attenuation;
+                    data[i + 1] *= attenuation;
+                }
+            }
         }
     }
 

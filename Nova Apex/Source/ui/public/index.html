@@ -186,7 +186,7 @@
     .tp-status { display: flex; align-items: center; gap: 5px; }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); transition: background 600ms ease, box-shadow 600ms ease; }
     .dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
-    .tp-label { font-size: 8px; letter-spacing: .12em; color: var(--gold-dim); font-weight: 700; text-transform: uppercase; }
+    .tp-label { font-size: 9.5px; letter-spacing: .12em; color: var(--gold-dim); font-weight: 700; text-transform: uppercase; }
     .smart-btn {
       border: 1px solid var(--gold); background: transparent;
       color: var(--gold); border-radius: 8px;
@@ -615,30 +615,32 @@
     }
     .bot-link-icon.active { color: var(--gold); }
 
-    /* Future feature cells */
-    .bot-future {
+    /* Feature toggle cells (ISP Protection, Smart Release, Safe Mode) */
+    .feat-cell {
       display: flex; flex-direction: column; align-items: center;
       justify-content: center; gap: 4px; padding: 0 6px;
-      opacity: 0.38;
     }
-    .bot-future-toggle {
+    .feat-toggle {
       width: 54px; height: 20px;
-      border: 1px solid rgba(200,160,96,0.18);
+      border: 1px solid rgba(200,160,96,0.22);
       border-radius: 3px;
       background: linear-gradient(180deg, rgba(14,11,7,0.9) 0%, rgba(8,6,4,0.95) 100%);
-      color: rgba(140,112,60,0.6);
+      color: rgba(120,96,50,0.65);
       font-size: 7.5px; font-weight: 700; letter-spacing: .10em; text-transform: uppercase;
-      display: flex; align-items: center; justify-content: center; gap: 5px;
-      cursor: default;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: border-color 150ms, background 150ms, color 150ms, box-shadow 150ms;
+      user-select: none;
     }
-    .bot-future-badge {
-      font-size: 5.5px; font-weight: 700; letter-spacing: .12em;
-      color: rgba(140,112,60,0.7); text-transform: uppercase;
-      border: 1px solid rgba(140,112,60,0.3); border-radius: 2px;
-      padding: 0px 3px; line-height: 1.6;
+    .feat-toggle:hover { border-color: rgba(200,160,96,0.42); color: var(--gold-dim); }
+    .feat-toggle.active {
+      border-color: rgba(200,160,96,0.60);
+      background: linear-gradient(180deg, rgba(34,26,14,0.95) 0%, rgba(18,13,7,0.98) 100%);
+      color: var(--gold-lt);
+      box-shadow: 0 0 8px rgba(200,160,96,0.14), inset 0 0 4px rgba(200,160,96,0.06);
     }
-    .bot-future-label {
-      font-size: 7px; letter-spacing: .12em; color: rgba(120,96,50,0.5);
+    .feat-label {
+      font-size: 7px; letter-spacing: .12em; color: var(--text-dim);
       font-weight: 700; text-transform: uppercase; text-align: center; line-height: 1.3;
     }
     .bot-group-sep {
@@ -1042,24 +1044,18 @@
 
         <div class="bot-group-sep"></div>
 
-        <!-- Future features — visually present, not yet active -->
-        <div class="bot-future">
-          <div class="bot-future-toggle">
-            ISP&nbsp;<span class="bot-future-badge">PRO</span>
-          </div>
-          <span class="bot-future-label">ISP<br>Protection</span>
+        <!-- Real feature toggles -->
+        <div class="feat-cell">
+          <div class="feat-toggle active" id="isp-btn" data-param="ispProtect">ISP</div>
+          <span class="feat-label">ISP<br>Protection</span>
         </div>
-        <div class="bot-future">
-          <div class="bot-future-toggle">
-            AUTO&nbsp;<span class="bot-future-badge">PRO</span>
-          </div>
-          <span class="bot-future-label">Smart<br>Release</span>
+        <div class="feat-cell">
+          <div class="feat-toggle" id="smartrel-btn" data-param="smartRelease">AUTO</div>
+          <span class="feat-label">Smart<br>Release</span>
         </div>
-        <div class="bot-future">
-          <div class="bot-future-toggle">
-            SAFE&nbsp;<span class="bot-future-badge">PRO</span>
-          </div>
-          <span class="bot-future-label">Safe<br>Mode</span>
+        <div class="feat-cell">
+          <div class="feat-toggle" id="safe-btn" data-param="safeMode">SAFE</div>
+          <span class="feat-label">Safe<br>Mode</span>
         </div>
       </div>
     </div>
@@ -1291,6 +1287,32 @@ document.getElementById('dither-btns').addEventListener('click', e => {
   document.querySelectorAll('#dither-btns .stack-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   emitJUCE('dither', d, 'valueChanged');
+});
+
+// ══════════════════════════ FEATURE TOGGLES (ISP / SMART RELEASE / SAFE MODE) ══════════════════════════
+[
+  { id: 'isp-btn',      param: 'ispProtect',   defaultOn: true  },
+  { id: 'smartrel-btn', param: 'smartRelease',  defaultOn: false },
+  { id: 'safe-btn',     param: 'safeMode',      defaultOn: false },
+].forEach(({ id, param, defaultOn }) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  // Sync initial state
+  if (defaultOn) el.classList.add('active');
+  el.addEventListener('click', () => {
+    const isOn = el.classList.toggle('active');
+    // 0..1 bool param: send 1 or 0 normalised
+    emitJUCE(param, isOn ? 1 : 0, 'valueChanged');
+  });
+  // Listen for DAW parameter changes (e.g. preset load, automation)
+  try {
+    const relay = window['__juce__slider' + param];
+    if (relay && relay.addParameterChangeListener) {
+      relay.addParameterChangeListener(norm => {
+        el.classList.toggle('active', norm > 0.5);
+      });
+    }
+  } catch (_) {}
 });
 
 // ══════════════════════════ POWER / TOGGLE BUTTONS ══════════════════════════
