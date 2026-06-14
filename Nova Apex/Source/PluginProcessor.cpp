@@ -155,19 +155,19 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaApexAudioProcessor::crea
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { gainId, 1 }, "Gain",
-        juce::NormalisableRange<float> (0.0f, 24.0f, 0.1f), 0.0f,
+        juce::NormalisableRange<float> (-24.0f, 24.0f, 0.1f), 0.0f,
         juce::String(), juce::AudioProcessorParameter::genericParameter,
         [] (float v, int) { return juce::String (v, 1) + " dB"; }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ceilingId, 1 }, "Ceiling",
-        juce::NormalisableRange<float> (-12.0f, 0.0f, 0.1f), -0.1f,
+        juce::NormalisableRange<float> (-3.0f, 0.0f, 0.01f), -0.1f,
         juce::String(), juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) { return juce::String (v, 1) + " dBFS"; }));
+        [] (float v, int) { return juce::String (v, 2) + " dBTP"; }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { outputGainId, 1 }, "Output",
-        juce::NormalisableRange<float> (-12.0f, 0.0f, 0.1f), 0.0f,
+        juce::NormalisableRange<float> (-24.0f, 24.0f, 0.1f), 0.0f,
         juce::String(), juce::AudioProcessorParameter::genericParameter,
         [] (float v, int) { return juce::String (v, 1) + " dB"; }));
 
