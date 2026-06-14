@@ -7,7 +7,11 @@
 #include "ui/MixerWindow.h"
 #include "ui/BeatWindow.h"
 
-class MainComponent : public juce::Component, public juce::KeyListener, public juce::ChangeListener
+class MainComponent : public juce::Component,
+                      public juce::KeyListener,
+                      public juce::ChangeListener,
+                      public juce::MenuBarModel,
+                      public juce::DragAndDropContainer
 {
 public:
     MainComponent();
@@ -22,6 +26,14 @@ private:
     void updateStatusMessage(const juce::String& message);
     void refreshTrackList();
     bool keyPressed(const juce::KeyPress& key, juce::Component* originatingComponent) override;
+
+    // MenuBarModel
+    juce::StringArray getMenuBarNames() override;
+    juce::PopupMenu getMenuForIndex(int menuIndex, const juce::String& menuName) override;
+    void menuItemSelected(int menuItemID, int topLevelMenuIndex) override;
+
+    juce::MenuBarComponent menuBar { this };
+    static constexpr int kMenuH = 24;
 
     NovaStudio::StudioAudioEngine engine;
     NovaStudio::TransportState& transportState;

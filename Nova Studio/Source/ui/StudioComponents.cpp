@@ -1027,6 +1027,46 @@ void ArrangementView::timerCallback()
     repaint();
 }
 
+bool ArrangementView::isInterestedInDragSource(const SourceDetails& details)
+{
+    const juce::String path = details.description.toString();
+    return path.endsWithIgnoreCase(".wav")  || path.endsWithIgnoreCase(".aif")
+        || path.endsWithIgnoreCase(".aiff") || path.endsWithIgnoreCase(".mp3")
+        || path.endsWithIgnoreCase(".flac");
+}
+
+void ArrangementView::itemDropped(const SourceDetails& details)
+{
+    const juce::File file(details.description.toString());
+    if (!file.existsAsFile()) return;
+
+    const int rulerH = 28;
+    const float trackHeight = (float)TrackPanel::kTrackHeight;
+    const int dropY = (int)details.localPosition.y;
+    const int dropX = (int)details.localPosition.x;
+
+    const int trackIndex = juce::jmax(0, (int)((dropY - rulerH) / trackHeight));
+    auto& session = arrangementModel.getSession();
+    if (trackIndex >= session.getNumTracks()) return;
+
+    const int64_t samplePos = juce::jmax<int64_t>(0,
+        (int64_t)timelineModel.getSamplePositionForX(dropX));
+
+    // Read actual duration from file
+    juce::AudioFormatManager fmt;
+    fmt.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader(fmt.createReaderFor(file));
+
+    NovaStudio::Clip clip;
+    clip.file         = file;
+    clip.startSample  = samplePos;
+    clip.lengthSamples = reader ? reader->lengthInSamples : (int64_t)(44100 * 5);
+    clip.isMidi       = false;
+
+    session.getTrack(trackIndex).clips.add(clip);
+    arrangementModel.sendChangeMessage();
+}
+
 MixerPanel::MixerPanel() {}
 MixerPanel::~MixerPanel() = default;
 
@@ -1413,89 +1453,159 @@ void BottomDockPanel::paint(juce::Graphics& g)
     paintStepSequencer(g, juce::Rectangle<int>(stepX + 1, 28, getWidth() - stepX - 1, getHeight() - 28));
 }
 
-BrowserPanel::BrowserPanel() {}
+BrowserPanel::BrowserPanel()
+{
+    refresh();
+    setRepaintsOnMouseActivity(true);
+}
+
 BrowserPanel::~BrowserPanel() = default;
+
+void BrowserPanel::refresh()
+{
+    files.clear();
+    auto folder = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                      .getChildFile("NovaStudio").getChildFile("Recordings");
+    if (folder.isDirectory())
+        folder.findChildFiles(files, juce::File::findFiles, false, "*.wav;*.aif;*.aiff;*.mp3;*.flac");
+    files.sort();
+    repaint();
+}
+
+int BrowserPanel::fileIndexAt(int y) const
+{
+    const int listTop = kHeaderH + kSearchH + kTabsH + 2;
+    const int listBot = getHeight() - kPreviewH;
+    if (y < listTop || y >= listBot) return -1;
+    const int idx = (y - listTop) / kItemH;
+    return (idx >= 0 && idx < files.size()) ? idx : -1;
+}
+
+void BrowserPanel::mouseDown(const juce::MouseEvent& e)
+{
+    selectedIndex = fileIndexAt(e.y);
+    repaint();
+}
+
+void BrowserPanel::mouseDrag(const juce::MouseEvent& e)
+{
+    if (selectedIndex < 0 || selectedIndex >= files.size()) return;
+    if (e.getDistanceFromDragStart() < 6) return;
+
+    if (auto* dc = juce::DragAndDropContainer::findParentDragContainerFor(this))
+        dc->startDragging(files[selectedIndex].getFullPathName(), this);
+}
 
 void BrowserPanel::paint(juce::Graphics& g)
 {
-    // Background
+    const int W = getWidth();
+    const int H = getHeight();
+
     g.fillAll(juce::Colour::fromRGB(12, 14, 20));
 
     // Header
     g.setColour(juce::Colour::fromRGB(18, 20, 28));
-    g.fillRect(0, 0, getWidth(), 32);
+    g.fillRect(0, 0, W, kHeaderH);
     g.setColour(juce::Colours::white.withAlpha(0.75f));
     g.setFont(juce::Font(juce::FontOptions(11.0f).withStyle("Bold")));
-    g.drawText("BROWSER", 12, 0, getWidth()-24, 32, juce::Justification::centredLeft);
+    g.drawText("BROWSER", 12, 0, W - 24, kHeaderH, juce::Justification::centredLeft);
+    // Refresh icon hint
+    g.setColour(juce::Colours::white.withAlpha(0.3f));
+    g.setFont(juce::Font(juce::FontOptions(13.0f)));
+    g.drawText(u8"↻", W - 26, 0, 22, kHeaderH, juce::Justification::centred);
 
     // Search bar
     g.setColour(juce::Colour::fromRGB(22, 26, 36));
-    g.fillRoundedRectangle(8.0f, 36.0f, getWidth()-16.0f, 24.0f, 5.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.3f));
-    g.setFont(juce::Font(juce::FontOptions(11.0f)));
-    g.drawText("Search...", 16, 36, getWidth()-32, 24, juce::Justification::centredLeft);
+    g.fillRoundedRectangle(8.0f, (float)kHeaderH + 2.0f, W - 16.0f, kSearchH - 4.0f, 5.0f);
+    g.setColour(juce::Colours::white.withAlpha(0.28f));
+    g.setFont(juce::Font(juce::FontOptions(10.5f)));
+    g.drawText("Search recordings...", 16, kHeaderH + 2, W - 32, kSearchH - 4, juce::Justification::centredLeft);
 
     // Category tabs
-    g.setColour(juce::Colour::fromRGB(18, 20, 28));
-    g.fillRect(0, 64, getWidth(), 24);
-    const juce::StringArray tabs{"ALL","PROJECT","SOUNDS","PLUGINS"};
-    const int tabW = getWidth() / 4;
-    g.setFont(juce::Font(juce::FontOptions(9.5f).withStyle("Bold")));
-    for (int i = 0; i < tabs.size(); ++i) {
-        const bool active = (i == 0);
-        if (active) {
-            g.setColour(juce::Colour::fromRGB(35, 40, 55));
-            g.fillRect(i*tabW, 64, tabW, 24);
+    const int tabsY = kHeaderH + kSearchH;
+    g.setColour(juce::Colour::fromRGB(16, 18, 26));
+    g.fillRect(0, tabsY, W, kTabsH);
+    g.setColour(juce::Colour::fromRGB(35, 38, 52));
+    g.fillRect(0, tabsY + kTabsH - 1, W, 1);
+    g.setFont(juce::Font(juce::FontOptions(9.0f).withStyle("Bold")));
+    g.setColour(juce::Colour::fromRGB(150, 120, 255));
+    g.drawText("RECORDINGS", 8, tabsY, W - 16, kTabsH, juce::Justification::centredLeft);
+
+    // File list
+    const int listTop = kHeaderH + kSearchH + kTabsH + 2;
+    const int listBot = H - kPreviewH;
+    const int visCount = (listBot - listTop) / kItemH;
+
+    for (int i = 0; i < files.size() && i < visCount; ++i)
+    {
+        const int iy = listTop + i * kItemH;
+        const bool sel = (i == selectedIndex);
+
+        if (sel)
+        {
+            g.setColour(juce::Colour::fromRGB(50, 40, 90));
+            g.fillRect(0, iy, W, kItemH);
         }
-        g.setColour(active ? juce::Colours::white : juce::Colours::white.withAlpha(0.45f));
-        g.drawText(tabs[i], i*tabW, 64, tabW, 24, juce::Justification::centred);
+
+        // Waveform icon dot
+        g.setColour(juce::Colour::fromRGB(100, 80, 180).withAlpha(0.8f));
+        g.fillEllipse(8.0f, (float)iy + 7.0f, 5.0f, 5.0f);
+
+        // File name
+        g.setColour(sel ? juce::Colours::white : juce::Colours::white.withAlpha(0.72f));
+        g.setFont(juce::Font(juce::FontOptions(10.5f)));
+        g.drawText(files[i].getFileNameWithoutExtension(), 18, iy, W - 26, kItemH,
+                   juce::Justification::centredLeft, true);
+
+        // Row separator
+        g.setColour(juce::Colour::fromRGB(22, 24, 34));
+        g.fillRect(0, iy + kItemH - 1, W, 1);
     }
 
-    // Separator
-    g.setColour(juce::Colour::fromRGB(30, 34, 48));
-    g.fillRect(0, 88, getWidth(), 1);
-
-    // Tree items
-    const juce::StringArray items{
-        "  Nova Kits", "  Drums", "    808s", "    Claps", "    Cymbals",
-        "    FX", "    Hi Hats", "    Kicks", "    Percs", "    Snares",
-        "  Vocals", "  Instruments", "  Loops", "  One Shots",
-        "  Audio Files", "  Templates"
-    };
-    const bool isFolder[] = {true,true,false,false,false,false,false,false,false,false,true,true,true,true,true,true};
-    int itemY = 92;
-    g.setFont(juce::Font(juce::FontOptions(11.5f)));
-    for (int i = 0; i < items.size(); ++i) {
-        const bool isFolderItem = isFolder[i];
-        if (isFolderItem) {
-            g.setColour(juce::Colours::white.withAlpha(0.35f));
-            juce::Path tri;
-            tri.addTriangle(12.0f, (float)itemY + 7.0f, 19.0f, (float)itemY + 7.0f, 15.5f, (float)itemY + 13.0f);
-            g.fillPath(tri);
-        } else {
-            g.setColour(juce::Colours::white.withAlpha(0.2f));
-            g.fillEllipse(15.0f, (float)itemY + 8.0f, 4.0f, 4.0f);
-        }
-        g.setColour(juce::Colours::white.withAlpha(isFolderItem ? 0.85f : 0.55f));
-        g.drawText(items[i], 24, itemY, getWidth() - 32, 20, juce::Justification::centredLeft);
-        itemY += 21;
+    if (files.isEmpty())
+    {
+        g.setColour(juce::Colours::white.withAlpha(0.28f));
+        g.setFont(juce::Font(juce::FontOptions(10.0f)));
+        g.drawText("No recordings found", 0, listTop + 20, W, 20, juce::Justification::centred);
+        g.setColour(juce::Colours::white.withAlpha(0.18f));
+        g.setFont(juce::Font(juce::FontOptions(9.0f)));
+        g.drawText("Record something first", 0, listTop + 42, W, 18, juce::Justification::centred);
     }
 
-    // Bottom divider
+    // Preview area
+    g.setColour(juce::Colour::fromRGB(14, 16, 22));
+    g.fillRect(0, listBot, W, kPreviewH);
     g.setColour(juce::Colour::fromRGB(30, 34, 48));
-    g.fillRect(0, getHeight()-80, getWidth(), 1);
+    g.fillRect(0, listBot, W, 1);
 
-    // Bottom preview area
-    g.setColour(juce::Colour::fromRGB(16, 18, 24));
-    g.fillRect(0, getHeight()-79, getWidth(), 79);
-    g.setColour(juce::Colours::white.withAlpha(0.35f));
-    g.setFont(juce::Font(juce::FontOptions(10.0f)));
-    g.drawText("No file selected", 8, getHeight()-76, getWidth()-16, 18, juce::Justification::centredLeft);
+    if (selectedIndex >= 0 && selectedIndex < files.size())
+    {
+        const auto& f = files[selectedIndex];
+        g.setColour(juce::Colours::white.withAlpha(0.8f));
+        g.setFont(juce::Font(juce::FontOptions(9.5f).withStyle("Bold")));
+        g.drawText(f.getFileNameWithoutExtension(), 8, listBot + 6, W - 16, 14,
+                   juce::Justification::centredLeft, true);
+        g.setColour(juce::Colours::white.withAlpha(0.4f));
+        g.setFont(juce::Font(juce::FontOptions(9.0f)));
+        const auto size = f.getSize();
+        g.drawText(juce::File::descriptionOfSizeInBytes(size) + "  •  WAV",
+                   8, listBot + 22, W - 16, 14, juce::Justification::centredLeft);
+        // Drag hint
+        g.setColour(juce::Colour::fromRGB(150, 120, 255).withAlpha(0.55f));
+        g.setFont(juce::Font(juce::FontOptions(8.5f)));
+        g.drawText("Drag to timeline to place", 8, listBot + 40, W - 16, 14, juce::Justification::centredLeft);
+    }
+    else
+    {
+        g.setColour(juce::Colours::white.withAlpha(0.28f));
+        g.setFont(juce::Font(juce::FontOptions(9.5f)));
+        g.drawText("Click to select  •  Drag to place", 0, listBot + 26, W, 18, juce::Justification::centred);
+    }
 
-    // NOVA AUDIO branding at very bottom
-    g.setColour(juce::Colour::fromRGB(200,155,60).withAlpha(0.6f));
-    g.setFont(juce::Font(juce::FontOptions(10.0f).withStyle("Bold")));
-    g.drawText("NOVA AUDIO", 0, getHeight()-22, getWidth(), 20, juce::Justification::centred);
+    // NOVA AUDIO branding
+    g.setColour(juce::Colour::fromRGB(200, 155, 60).withAlpha(0.45f));
+    g.setFont(juce::Font(juce::FontOptions(9.0f).withStyle("Bold")));
+    g.drawText("NOVA AUDIO", 0, H - 16, W, 14, juce::Justification::centred);
 }
 
 void BrowserPanel::resized() {}

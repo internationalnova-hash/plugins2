@@ -123,6 +123,7 @@ namespace NovaStudioUI
     };
 
     class ArrangementView : public juce::Component,
+                            public juce::DragAndDropTarget,
                             private juce::ChangeListener,
                             private juce::Timer
     {
@@ -137,6 +138,10 @@ namespace NovaStudioUI
         void mouseDown(const juce::MouseEvent& event) override;
         void mouseDrag(const juce::MouseEvent& event) override;
         void mouseUp(const juce::MouseEvent& event) override;
+
+        // DragAndDropTarget
+        bool isInterestedInDragSource(const SourceDetails& details) override;
+        void itemDropped(const SourceDetails& details) override;
 
     private:
         void changeListenerCallback(juce::ChangeBroadcaster* source) override;
@@ -202,10 +207,23 @@ namespace NovaStudioUI
 
         void paint(juce::Graphics& g) override;
         void resized() override;
+        void mouseDown(const juce::MouseEvent& e) override;
+        void mouseDrag(const juce::MouseEvent& e) override;
+
+        void refresh();
 
     private:
-        juce::Label searchLabel;
-        juce::Label contentLabel;
+        int fileIndexAt(int y) const;
+
+        juce::Array<juce::File> files;
+        int selectedIndex = -1;
+        static constexpr int kHeaderH  = 32;
+        static constexpr int kSearchH  = 28;
+        static constexpr int kTabsH    = 24;
+        static constexpr int kItemH    = 22;
+        static constexpr int kPreviewH = 80;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BrowserPanel)
     };
 
     class PianoRollPanel : public juce::Component
