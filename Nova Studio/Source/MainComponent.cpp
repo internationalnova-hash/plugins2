@@ -121,6 +121,8 @@ MainComponent::MainComponent()
         updateStatusMessage("Tempo: " + juce::String(bpm) + " BPM");
     };
 
+    beatWindow->onShowMixer = [this]() { popOutMixer(); };
+
     // Pop-out buttons
     auto configPopBtn = [](juce::TextButton& btn) {
         btn.setTooltip("Pop out as floating window");

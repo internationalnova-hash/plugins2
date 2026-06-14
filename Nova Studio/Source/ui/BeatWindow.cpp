@@ -634,13 +634,13 @@ int StepSequencerView::hitTestChannelStrip(juce::Point<int> localInStrip) const
     const int x = localInStrip.x;
     // color chip: 0-7
     if (x < 8) return 0;
-    // mute LED: 8-27
-    if (x < 28) return 1;
-    // pan: 28-47
-    if (x < 48) return 2;
-    // vol: 48-67
-    if (x < 68) return 3;
-    // name button: rest
+    // mute indicator
+    if (x < 25) return 1;
+    // pan indicator
+    if (x < 50) return 2;
+    // volume indicator
+    if (x < 75) return 3;
+    // name: rest
     return 4;
 }
 
@@ -698,8 +698,6 @@ void StepSequencerView::paint(juce::Graphics& g)
 {
     g.fillAll(BeatTheme::bg());
 
-    paintToolbar(g, toolbarArea());
-
     for (int row = 0; row < kNumRows; ++row)
         paintChannelStrip(g, channelStripArea(row), row);
 
@@ -713,74 +711,6 @@ void StepSequencerView::paint(juce::Graphics& g)
 }
 
 void StepSequencerView::resized() {}
-
-// ── Toolbar ───────────────────────────────────────────────────────────────────
-
-void StepSequencerView::paintToolbar(juce::Graphics& g, juce::Rectangle<int> r)
-{
-    g.setColour(BeatTheme::panel());
-    g.fillRect(r);
-    g.setColour(BeatTheme::edge());
-    g.drawRect(r, 1);
-
-    auto& pat = currentPattern();
-    int x = r.getX() + 4;
-    const int y = r.getY();
-    const int h = r.getHeight();
-
-    auto drawBtn = [&](const juce::String& label, int w, bool active = false) -> juce::Rectangle<int>
-    {
-        auto br = juce::Rectangle<int>(x, y + 4, w, h - 8);
-        g.setColour(active ? BeatTheme::accent() : BeatTheme::stepOff().brighter(0.15f));
-        g.fillRoundedRectangle(br.toFloat(), 3.0f);
-        g.setColour(active ? juce::Colours::white : juce::Colours::white.withAlpha(0.75f));
-        g.setFont(juce::FontOptions(10.0f));
-        g.drawText(label, br, juce::Justification::centred);
-        x += w + 3;
-        return br;
-    };
-
-    // Add pattern button
-    drawBtn("+", 22);
-
-    // Pattern prev/next + name
-    drawBtn("\xe2\x97\x80", 18); // ◀
-    auto nameR = juce::Rectangle<int>(x, y + 4, 110, h - 8);
-    g.setColour(BeatTheme::stepOff());
-    g.fillRoundedRectangle(nameR.toFloat(), 3.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.9f));
-    g.setFont(juce::FontOptions(10.0f));
-    g.drawText(pat.name.isEmpty() ? "Pattern " + juce::String(currentPatternIdx + 1) : pat.name,
-               nameR, juce::Justification::centred, true);
-    x += 113;
-    drawBtn("\xe2\x96\xb6", 18); // ▶
-
-    x += 8; // gap
-
-    // Step count buttons
-    for (int sc : { 16, 32, 64 })
-        drawBtn(juce::String(sc), 28, pat.stepCount == sc);
-
-    x += 8; // gap
-
-    // Swing label + scrub value
-    g.setColour(juce::Colours::white.withAlpha(0.5f));
-    g.setFont(juce::FontOptions(9.0f));
-    g.drawText("SWING", x, y, 36, h, juce::Justification::centred);
-    x += 38;
-    auto swingR = juce::Rectangle<int>(x, y + 4, 44, h - 8);
-    g.setColour(BeatTheme::stepOff());
-    g.fillRoundedRectangle(swingR.toFloat(), 3.0f);
-    g.setColour(BeatTheme::accent().brighter(0.2f));
-    g.setFont(juce::FontOptions(10.0f));
-    g.drawText(juce::String((int)(pat.swing * 100)) + "%", swingR, juce::Justification::centred);
-    x += 47;
-
-    x += 8; // gap
-
-    // Graph editor toggle
-    drawBtn("VEL", 28, showGraphEditor);
-}
 
 // ── Channel strip ─────────────────────────────────────────────────────────────
 
@@ -797,74 +727,51 @@ void StepSequencerView::paintChannelStrip(juce::Graphics& g, juce::Rectangle<int
     g.setColour(ch.colour);
     g.fillRect(r.getX(), r.getY(), 8, r.getHeight());
 
-    int cx = r.getX() + 8 + 2;
+    int cx = r.getX() + 8 + 3;
+    const int ctrlSz = juce::jmin(13, r.getHeight() - 8);
+    const int ctrlY  = r.getCentreY() - ctrlSz / 2;
 
-    // Mute LED (circle, 18px)
-    auto ledR = juce::Rectangle<int>(cx, r.getCentreY() - 9, 18, 18);
-    g.setColour(ch.muted ? juce::Colour::fromRGB(80,80,100) : BeatTheme::accent());
-    g.fillEllipse(ledR.toFloat());
-    g.setColour(juce::Colours::white.withAlpha(ch.muted ? 0.3f : 0.9f));
-    g.setFont(juce::FontOptions(7.0f));
-    g.drawText("M", ledR, juce::Justification::centred);
-    cx += 20;
-
-    // Pan knob (18px circle)
-    auto panR = juce::Rectangle<int>(cx, r.getCentreY() - 9, 18, 18);
-    g.setColour(BeatTheme::stepOff().brighter(0.2f));
-    g.fillEllipse(panR.toFloat());
+    // Mute indicator — small flat square, not a glowing LED
+    auto ledR = juce::Rectangle<int>(cx, ctrlY, ctrlSz, ctrlSz);
+    g.setColour(ch.muted ? juce::Colour::fromRGB(50, 52, 64) : BeatTheme::accent().withAlpha(0.85f));
+    g.fillRoundedRectangle(ledR.toFloat(), 2.0f);
     g.setColour(BeatTheme::edge());
-    g.drawEllipse(panR.toFloat(), 1.0f);
-    {
-        // Pan indicator line
-        float angle = juce::MathConstants<float>::pi * 0.75f
-                    + ch.pan * juce::MathConstants<float>::pi * 0.75f;
-        float cx2 = panR.getCentreX(), cy2 = panR.getCentreY();
-        float len = 6.0f;
-        g.setColour(BeatTheme::accent());
-        g.drawLine(cx2, cy2,
-                   cx2 + std::sin(angle) * len,
-                   cy2 - std::cos(angle) * len, 1.5f);
-    }
-    // "P" label below
-    g.setColour(juce::Colours::white.withAlpha(0.35f));
-    g.setFont(juce::FontOptions(7.0f));
-    g.drawText("P", panR.getX(), panR.getBottom(), 18, 8, juce::Justification::centred);
-    cx += 22;
+    g.drawRoundedRectangle(ledR.toFloat(), 2.0f, 1.0f);
+    cx += ctrlSz + 6;
 
-    // Volume knob (18px circle)
-    auto volR = juce::Rectangle<int>(cx, r.getCentreY() - 9, 18, 18);
-    g.setColour(BeatTheme::stepOff().brighter(0.2f));
-    g.fillEllipse(volR.toFloat());
+    // Pan indicator — flat bar with centred tick (no candy knob)
+    auto panR = juce::Rectangle<int>(cx, ctrlY, ctrlSz + 6, ctrlSz);
+    g.setColour(BeatTheme::stepOff());
+    g.fillRoundedRectangle(panR.toFloat(), 2.0f);
     g.setColour(BeatTheme::edge());
-    g.drawEllipse(volR.toFloat(), 1.0f);
+    g.drawRoundedRectangle(panR.toFloat(), 2.0f, 1.0f);
     {
-        // Vol indicator line: 0=bottom-left, 1=bottom-right arc
-        float angle = juce::MathConstants<float>::pi * 0.75f
-                    + ch.volume * juce::MathConstants<float>::pi * 1.5f;
-        float cx2 = volR.getCentreX(), cy2 = volR.getCentreY();
-        float len = 6.0f;
-        g.setColour(ch.colour.withAlpha(0.9f));
-        g.drawLine(cx2, cy2,
-                   cx2 + std::sin(angle) * len,
-                   cy2 - std::cos(angle) * len, 1.5f);
+        float tickX = panR.getX() + 2.0f + (panR.getWidth() - 4.0f) * (0.5f + ch.pan * 0.5f);
+        g.setColour(juce::Colours::white.withAlpha(0.55f));
+        g.fillRect(juce::Rectangle<float>(tickX - 0.75f, (float)panR.getY() + 2.0f, 1.5f, (float)panR.getHeight() - 4.0f));
     }
-    g.setColour(juce::Colours::white.withAlpha(0.35f));
-    g.setFont(juce::FontOptions(7.0f));
-    g.drawText("V", volR.getX(), volR.getBottom(), 18, 8, juce::Justification::centred);
-    cx += 22;
+    cx += ctrlSz + 6 + 6;
 
-    // Name button (remainder)
-    auto nameR = juce::Rectangle<int>(cx, r.getY() + 3, r.getRight() - cx - 3, r.getHeight() - 6);
-    g.setColour(ch.colour.withAlpha(isSelected ? 0.45f : 0.25f));
-    g.fillRoundedRectangle(nameR.toFloat(), 3.0f);
+    // Volume indicator — flat fill bar
+    auto volR = juce::Rectangle<int>(cx, ctrlY, ctrlSz + 6, ctrlSz);
+    g.setColour(BeatTheme::stepOff());
+    g.fillRoundedRectangle(volR.toFloat(), 2.0f);
+    g.setColour(juce::Colours::white.withAlpha(0.3f));
+    g.fillRoundedRectangle(volR.toFloat().withWidth(volR.getWidth() * ch.volume), 2.0f);
+    g.setColour(BeatTheme::edge());
+    g.drawRoundedRectangle(volR.toFloat(), 2.0f, 1.0f);
+    cx += ctrlSz + 6 + 8;
+
+    // Name (flat, no rounded pill background — just a coloured underline when selected)
+    auto nameR = juce::Rectangle<int>(cx, r.getY(), r.getRight() - cx - 4, r.getHeight());
+    g.setColour(juce::Colours::white.withAlpha(ch.muted ? 0.35f : (isSelected ? 0.95f : 0.8f)));
+    g.setFont(juce::FontOptions(11.0f));
+    g.drawText(ch.name, nameR.reduced(4, 0), juce::Justification::centredLeft, true);
     if (isSelected)
     {
-        g.setColour(ch.colour.withAlpha(0.7f));
-        g.drawRoundedRectangle(nameR.toFloat(), 3.0f, 1.0f);
+        g.setColour(ch.colour.withAlpha(0.8f));
+        g.fillRect(nameR.getX(), r.getBottom() - 2, nameR.getWidth(), 2);
     }
-    g.setColour(juce::Colours::white.withAlpha(ch.muted ? 0.4f : 0.9f));
-    g.setFont(juce::FontOptions(10.0f));
-    g.drawText(ch.name, nameR.reduced(4, 0), juce::Justification::centredLeft, true);
 
     // Row separator
     g.setColour(BeatTheme::edge());
@@ -899,15 +806,15 @@ void StepSequencerView::paintStepGrid(juce::Graphics& g, juce::Rectangle<int> r)
             if (isCursor)
             {
                 g.setColour(BeatTheme::stepCursor());
-                g.fillRoundedRectangle(cellR.expanded(0, 1), 3.0f);
+                g.fillRoundedRectangle(cellR.expanded(0, 1), 2.0f);
             }
 
             if (active)
             {
                 g.setColour(ch.colour);
-                g.fillRoundedRectangle(cellR, 3.0f);
+                g.fillRoundedRectangle(cellR, 2.0f);
                 g.setColour(ch.colour.brighter(0.4f).withAlpha(0.6f));
-                g.drawRoundedRectangle(cellR.reduced(0.5f), 3.0f, 1.0f);
+                g.drawRoundedRectangle(cellR.reduced(0.5f), 2.0f, 1.0f);
 
                 // Inline velocity bar at bottom of cell (FL Studio style)
                 float vel = ch.velocities[s];
@@ -923,7 +830,7 @@ void StepSequencerView::paintStepGrid(juce::Graphics& g, juce::Rectangle<int> r)
             else
             {
                 g.setColour(BeatTheme::stepOff());
-                g.fillRoundedRectangle(cellR, 3.0f);
+                g.fillRoundedRectangle(cellR, 2.0f);
             }
 
             x += cellW;
@@ -997,88 +904,6 @@ void StepSequencerView::paintGraphEditor(juce::Graphics& g, juce::Rectangle<int>
 void StepSequencerView::mouseDown(const juce::MouseEvent& e)
 {
     auto pos = e.getPosition();
-
-    // ── Toolbar ──────────────────────────────────────────────────────────────
-    if (toolbarArea().contains(pos))
-    {
-        auto& pat = currentPattern();
-        auto r = toolbarArea();
-        int x = r.getX() + 4;
-        const int h = r.getHeight();
-
-        // Helper: check if click is within next button region and advance x
-        auto inBtn = [&](int w) -> bool {
-            bool hit = (pos.x >= x && pos.x < x + w && pos.y >= r.getY() + 4 && pos.y < r.getBottom() - 4);
-            x += w + 3;
-            return hit;
-        };
-
-        // "+" add pattern
-        if (inBtn(22))
-        {
-            if (patterns.size() < 16)
-            {
-                patterns.add(Pattern());
-                currentPatternIdx = patterns.size() - 1;
-                repaint();
-            }
-            return;
-        }
-        // Prev pattern ◀
-        if (inBtn(18))
-        {
-            if (currentPatternIdx > 0) --currentPatternIdx;
-            repaint(); return;
-        }
-        // Pattern name label (110px)
-        if (pos.x >= x && pos.x < x + 110)
-        {
-            auto nameR = juce::Rectangle<int>(x, r.getY() + 4, 110, r.getHeight() - 8);
-            juce::String current = pat.name.isEmpty() ? "Pattern " + juce::String(currentPatternIdx + 1) : pat.name;
-            showInlineRename(nameR, current, true);
-            return;
-        }
-        x += 113;
-        // Next pattern ▶
-        if (inBtn(18))
-        {
-            if (currentPatternIdx < patterns.size() - 1) ++currentPatternIdx;
-            repaint(); return;
-        }
-
-        x += 8;
-        // Step count 16/32/64
-        for (int sc : { 16, 32, 64 })
-        {
-            if (inBtn(28))
-            {
-                pat.stepCount = sc;
-                if (onStepCountChanged) onStepCountChanged(sc);
-                repaint(); return;
-            }
-        }
-
-        x += 8;
-        // Swing label (36px) + swing scrub (44px)
-        x += 38; // skip "SWING" label
-        if (pos.x >= x && pos.x < x + 44)
-        {
-            isSwingDragging  = true;
-            swingDragStartX  = e.x;
-            swingDragStartVal = pat.swing;
-            return;
-        }
-        x += 47;
-
-        x += 8;
-        // VEL toggle
-        if (inBtn(28))
-        {
-            showGraphEditor = !showGraphEditor;
-            repaint(); return;
-        }
-        return;
-    }
 
     // ── Channel strip ─────────────────────────────────────────────────────────
     for (int row = 0; row < kNumRows; ++row)
@@ -2135,9 +1960,9 @@ void BeatPatternToolbar::resized()
     // Pattern nav: 20 + 3 + 100 + 3 + 20 + 3 + 18 + 3 + 20 + (11) = 201
     // Steps:       28+3+28+3+28 + 11 = 101
     // Swing:       18+3+68+3+18 + 11 = 121
-    // Tools:       44+3+34+3+56 = 140
-    // Total ~ 563
-    const int totalW = 20+3+100+3+20+3+18+3+20+11 + 28+3+28+3+28+11 + 18+3+68+3+18+11 + 44+3+34+3+56;
+    // Tools:       56+3+38+3+68 = 168
+    // Total ~ 591
+    const int totalW = 20+3+100+3+20+3+18+3+20+11 + 28+3+28+3+28+11 + 18+3+68+3+18+11 + 56+3+38+3+68;
     int startX = juce::jmax(4, (getWidth() - totalW) / 2);
     const int y = 3;
 
@@ -2168,9 +1993,9 @@ void BeatPatternToolbar::resized()
     gap8();
 
     // Tools
-    place(patSongBtn,  44);
-    place(velGraphBtn, 34);
-    place(addChanBtn,  56);
+    place(patSongBtn,  56);
+    place(velGraphBtn, 38);
+    place(addChanBtn,  68);
 }
 
 void BeatPatternToolbar::buttonClicked(juce::Button* b)
@@ -2279,13 +2104,19 @@ void BeatPatternToolbar::showPatternDropdown()
 
 BeatTransportBar::BeatTransportBar()
 {
-    for (auto* b : { &rtzBtn, &playBtn, &stopBtn, &recBtn })
+    for (auto* b : { &rtzBtn, &playBtn, &stopBtn, &recBtn,
+                     &stepGridViewBtn, &pianoRollViewBtn, &mixerViewBtn })
         addAndMakeVisible(b);
 
     rtzBtn.onClick  = [this]() { if (onReturnToZero) onReturnToZero(); };
     playBtn.onClick = [this]() { if (onPlay)         onPlay(); };
     stopBtn.onClick = [this]() { if (onStop)         onStop(); };
     recBtn.onClick  = [this]() { if (onRecord)       onRecord(); };
+
+    stepGridViewBtn.toggled = true;
+    stepGridViewBtn.onClick  = [this]() { setActiveView(0); if (onShowStepSequencer) onShowStepSequencer(); };
+    pianoRollViewBtn.onClick = [this]() { setActiveView(1); if (onShowPianoRoll)     onShowPianoRoll(); };
+    mixerViewBtn.onClick     = [this]() { if (onShowMixer) onShowMixer(); };
 
     timecodeLabel.setText("00:00:00.000", juce::dontSendNotification);
     timecodeLabel.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -2332,6 +2163,21 @@ void BeatTransportBar::resized()
     place(timecodeLabel, 115);
     x += 4;
     place(bpmLabel, 90);
+
+    // View-switcher icons (FL Studio-style) — right-aligned
+    int vx = getWidth() - 6 - btnSz * 3 - gap * 2;
+    auto placeAt = [&](juce::Component& c) { c.setBounds(vx, y, btnSz, h); vx += btnSz + gap; };
+    placeAt(stepGridViewBtn);
+    placeAt(pianoRollViewBtn);
+    placeAt(mixerViewBtn);
+}
+
+void BeatTransportBar::setActiveView(int viewIndex)
+{
+    stepGridViewBtn.toggled  = (viewIndex == 0);
+    pianoRollViewBtn.toggled = (viewIndex == 1);
+    stepGridViewBtn.repaint();
+    pianoRollViewBtn.repaint();
 }
 
 void BeatTransportBar::setPlayState(bool playing, bool recording)
@@ -2354,12 +2200,26 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
     addAndMakeVisible(browser);
     addAndMakeVisible(playlist);
     addAndMakeVisible(stepSeq);
+    addChildComponent(pianoRoll);   // hidden until the user switches views
 
     transportBar.onPlay          = [this]() { if (onPlay)          onPlay(); };
     transportBar.onStop          = [this]() { if (onStop)          onStop(); };
     transportBar.onRecord        = [this]() { if (onRecord)        onRecord(); };
     transportBar.onReturnToZero  = [this]() { if (onReturnToZero)  onReturnToZero(); };
     transportBar.onTempoChanged  = [this](int bpm) { if (onTempoChanged) onTempoChanged(bpm); };
+
+    // FL Studio-style view switcher: Step sequencer / Piano roll / Mixer
+    transportBar.onShowStepSequencer = [this]() {
+        showingPianoRoll = false;
+        stepSeq.setVisible(true);
+        pianoRoll.setVisible(false);
+    };
+    transportBar.onShowPianoRoll = [this]() {
+        showingPianoRoll = true;
+        stepSeq.setVisible(false);
+        pianoRoll.setVisible(true);
+    };
+    transportBar.onShowMixer = [this]() { if (onShowMixer) onShowMixer(); };
 
     // Wire pattern toolbar → step sequencer
     patternToolbar.onStepCountChanged = [this](int steps) {
@@ -2538,8 +2398,9 @@ void BeatWindow::resized()
     playlist.setBounds(area.removeFromTop(playlistH));
     area.removeFromTop(2);
 
-    // Step sequencer fills the rest
+    // Step sequencer / piano roll fill the rest (mutually exclusive views)
     stepSeq.setBounds(area);
+    pianoRoll.setBounds(area);
 
     browser.setBounds(browserArea);
 }

@@ -165,8 +165,8 @@ namespace NovaStudioUI
         static constexpr int kNumRows   = 8;
         static constexpr int kMaxSteps  = 64;
         static constexpr int kChannelW  = 130;   // left channel strip width
-        static constexpr int kRowH      = 34;
-        static constexpr int kToolbarH  = 32;
+        static constexpr int kRowH      = 26;   // compact, professional row height (was 34 — too tall/cartoony)
+        static constexpr int kToolbarH  = 0;    // internal toolbar removed; BeatPatternToolbar handles this now
         static constexpr int kGraphH    = 70;    // graph editor height
 
         // ── Data model ───────────────────────────────────────────────────────
@@ -239,7 +239,6 @@ namespace NovaStudioUI
         void timerCallback() override;
 
         // ── Drawing helpers ──────────────────────────────────────────────────
-        void paintToolbar(juce::Graphics& g, juce::Rectangle<int> r);
         void paintChannelStrip(juce::Graphics& g, juce::Rectangle<int> r, int row);
         void paintStepGrid(juce::Graphics& g, juce::Rectangle<int> r);
         void paintGraphEditor(juce::Graphics& g, juce::Rectangle<int> r);
@@ -378,7 +377,7 @@ namespace NovaStudioUI
     class IconButton : public juce::Component
     {
     public:
-        enum class Icon { Play, Stop, Record, ReturnToZero };
+        enum class Icon { Play, Stop, Record, ReturnToZero, StepGrid, PianoRoll, Mixer };
         Icon icon;
         bool toggled = false;
         std::function<void()> onClick;
@@ -395,6 +394,9 @@ namespace NovaStudioUI
                 case Icon::Stop:          base = juce::Colour::fromRGB(70, 90, 220);  break;
                 case Icon::Record:        base = juce::Colour::fromRGB(210, 45, 45);  break;
                 case Icon::ReturnToZero:  base = juce::Colour::fromRGB(55, 65, 100); break;
+                case Icon::StepGrid:
+                case Icon::PianoRoll:
+                case Icon::Mixer:         base = juce::Colour::fromRGB(60, 70, 95);  break;
             }
             juce::Colour bg = toggled ? base : base.darker(0.5f);
             if (over) bg = bg.brighter(0.25f);
@@ -438,6 +440,52 @@ namespace NovaStudioUI
                                   cx + s * 0.25f, cy + s,
                                   cx - s * 0.5f,  cy);
                     g.fillPath(p);
+                    break;
+                }
+                case Icon::StepGrid:
+                {
+                    // 4x2 grid of small squares — channel rack / step sequencer
+                    const float cell = s * 0.62f;
+                    const float gapC = s * 0.32f;
+                    const float totalW = cell * 4.0f + gapC * 3.0f;
+                    const float totalH = cell * 2.0f + gapC;
+                    float gx = cx - totalW * 0.5f;
+                    float gy = cy - totalH * 0.5f;
+                    for (int row = 0; row < 2; ++row)
+                        for (int col = 0; col < 4; ++col)
+                            g.fillRoundedRectangle(gx + col * (cell + gapC),
+                                                   gy + row * (cell + gapC),
+                                                   cell, cell, 1.0f);
+                    break;
+                }
+                case Icon::PianoRoll:
+                {
+                    // Stylised piano keys — white key outlines with black key overlays
+                    const float kw = s * 0.72f;
+                    const float kh = s * 2.0f;
+                    juce::Rectangle<float> keys(cx - kw * 1.5f, cy - kh * 0.5f, kw * 3.0f, kh);
+                    g.drawRoundedRectangle(keys, 1.5f, 1.2f);
+                    g.drawLine(keys.getX() + kw,       keys.getY(), keys.getX() + kw,       keys.getBottom(), 1.2f);
+                    g.drawLine(keys.getX() + kw * 2.0f, keys.getY(), keys.getX() + kw * 2.0f, keys.getBottom(), 1.2f);
+                    g.fillRect(juce::Rectangle<float>(keys.getX() + kw * 0.62f, keys.getY(), kw * 0.5f, kh * 0.6f));
+                    g.fillRect(juce::Rectangle<float>(keys.getX() + kw * 1.62f, keys.getY(), kw * 0.5f, kh * 0.6f));
+                    break;
+                }
+                case Icon::Mixer:
+                {
+                    // Three vertical fader strips with knobs at different heights
+                    const float fw = s * 0.32f;
+                    const float fh = s * 2.0f;
+                    const float gapF = s * 0.55f;
+                    const float startX = cx - (fw * 3.0f + gapF * 2.0f) * 0.5f;
+                    const float top = cy - fh * 0.5f;
+                    const float knobYs[3] = { 0.25f, 0.6f, 0.4f };
+                    for (int i = 0; i < 3; ++i)
+                    {
+                        float fx = startX + i * (fw + gapF);
+                        g.fillRect(juce::Rectangle<float>(fx + fw * 0.42f, top, fw * 0.16f, fh));
+                        g.fillRoundedRectangle(fx, top + fh * knobYs[i], fw, fw, 1.0f);
+                    }
                     break;
                 }
             }
@@ -566,6 +614,14 @@ namespace NovaStudioUI
         std::function<void()>    onReturnToZero;
         std::function<void(int)> onTempoChanged;
 
+        // View-switcher callbacks (FL Studio-style top icon row)
+        std::function<void()>    onShowStepSequencer;
+        std::function<void()>    onShowPianoRoll;
+        std::function<void()>    onShowMixer;
+
+        // Set which view-switcher icon is highlighted (0 = step seq, 1 = piano roll)
+        void setActiveView(int viewIndex);
+
     private:
         IconButton rtzBtn  { IconButton::Icon::ReturnToZero };
         IconButton playBtn { IconButton::Icon::Play };
@@ -573,6 +629,11 @@ namespace NovaStudioUI
         IconButton recBtn  { IconButton::Icon::Record };
         juce::Label timecodeLabel;
         BPMLabel    bpmLabel;
+
+        // FL Studio-style view-switcher icons (right side of bar)
+        IconButton stepGridViewBtn { IconButton::Icon::StepGrid };
+        IconButton pianoRollViewBtn{ IconButton::Icon::PianoRoll };
+        IconButton mixerViewBtn    { IconButton::Icon::Mixer };
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatTransportBar)
     };
@@ -612,6 +673,7 @@ namespace NovaStudioUI
         std::function<void()>    onRecord;
         std::function<void()>    onReturnToZero;
         std::function<void(int)> onTempoChanged;
+        std::function<void()>    onShowMixer;
 
         // PAT = loop step sequencer, SONG = play full arrangement
         bool isPatMode() const { return patMode; }
@@ -630,6 +692,8 @@ namespace NovaStudioUI
         BrowserPanel       browser;
         PatternPlaylist    playlist;
         StepSequencerView  stepSeq;
+        PianoRollView      pianoRoll;
+        bool               showingPianoRoll = false;
         bool               patMode = true;  // PAT=true, SONG=false
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatWindow)
