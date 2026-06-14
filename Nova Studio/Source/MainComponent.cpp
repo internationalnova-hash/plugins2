@@ -477,19 +477,18 @@ void MainComponent::resized()
         browserPanel.setBounds({});
     }
 
-    // Bottom dock toggle bar (always visible — 14px horizontal strip)
-    bottomDockToggleBar.setBounds(area.removeFromBottom(14));
-    // Bottom dock: only if not collapsed
+    // Bottom dock: remove from bottom first, then toggle bar sits just above it
     if (!bottomDockCollapsed)
     {
         const int dockH = juce::jmax(110, getHeight() / 4);
-        auto bottomArea = area.removeFromBottom(dockH);
-        bottomDock.setBounds(bottomArea);
+        bottomDock.setBounds(area.removeFromBottom(dockH));
     }
     else
     {
         bottomDock.setBounds({});
     }
+    // Toggle bar always sits between the arrangement area and the bottom dock
+    bottomDockToggleBar.setBounds(area.removeFromBottom(14));
 
     // Status label (overlay, bottom right)
     statusLabel.setBounds(getWidth() - 500, getHeight() - 26, 480, 22);
