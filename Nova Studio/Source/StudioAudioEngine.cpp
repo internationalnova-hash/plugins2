@@ -219,14 +219,14 @@ namespace NovaStudio
     {
         pluginFormatManager.addDefaultFormats();
 
-        // Prefer ~/Documents/NovaStudio/Recordings; fall back to cwd if creation fails
-        juce::File preferred = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
-                                   .getChildFile("NovaStudio")
-                                   .getChildFile("Recordings");
+        juce::File novaRoot = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                                  .getChildFile("NovaStudio");
+        novaRoot.createDirectory();
+
+        // Recordings folder
+        juce::File preferred = novaRoot.getChildFile("Recordings");
         if (preferred.createDirectory().wasOk())
-        {
             recordingFolder = preferred;
-        }
         else
         {
             recordingFolder = juce::File::getCurrentWorkingDirectory()
@@ -235,11 +235,18 @@ namespace NovaStudio
             recordingFolder.createDirectory();
         }
 
-        // Ensure Sessions folder exists alongside Recordings
-        juce::File sessionsFolder = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
-                                        .getChildFile("NovaStudio")
-                                        .getChildFile("Sessions");
-        sessionsFolder.createDirectory();
+        // Sessions folder
+        novaRoot.getChildFile("Sessions").createDirectory();
+
+        // Diagnostics log alongside recordings
+        diagLogger = std::make_unique<juce::FileLogger>(
+            novaRoot.getChildFile("nova_diag.log"),
+            "Nova Studio diagnostics", 1024 * 512);
+        juce::Logger::setCurrentLogger(diagLogger.get());
+        juce::Logger::writeToLog("StudioAudioEngine constructed. recordingFolder=" + recordingFolder.getFullPathName());
+
+        recordingThread.startThread();
+
         transportState.setSampleRate(currentSampleRate);
         transportState.setTempo(static_cast<int>(session.getTempo()));
     }
@@ -247,22 +254,38 @@ namespace NovaStudio
     StudioAudioEngine::~StudioAudioEngine()
     {
         shutdown();
+        recordingThread.stopThread(2000);
+        juce::Logger::setCurrentLogger(nullptr);
     }
 
     bool StudioAudioEngine::initialize()
     {
         juce::String result = deviceManager.initialiseWithDefaultDevices(2, 2);
         if (result.isNotEmpty())
+        {
+            juce::Logger::writeToLog("initialiseWithDefaultDevices FAILED: " + result);
             return false;
+        }
 
         auto* device = deviceManager.getCurrentAudioDevice();
         if (device == nullptr)
+        {
+            juce::Logger::writeToLog("initialize: getCurrentAudioDevice returned null");
             return false;
+        }
 
         currentSampleRate = device->getCurrentSampleRate();
         currentBufferSize = device->getCurrentBufferSizeSamples();
         transportState.setSampleRate(currentSampleRate);
         transportState.setTempo(static_cast<int>(session.getTempo()));
+
+        juce::Logger::writeToLog("Audio device: " + device->getName()
+            + "  SR=" + juce::String(currentSampleRate)
+            + "  buf=" + juce::String(currentBufferSize)
+            + "  inputs=" + juce::String(device->getInputChannelNames().size())
+            + "  outputs=" + juce::String(device->getOutputChannelNames().size()));
+        juce::Logger::writeToLog("Active input channels:  " + device->getActiveInputChannels().toString(2));
+        juce::Logger::writeToLog("Active output channels: " + device->getActiveOutputChannels().toString(2));
 
         deviceManager.addAudioCallback(this);
         return true;
@@ -271,11 +294,11 @@ namespace NovaStudio
     void StudioAudioEngine::shutdown()
     {
         deviceManager.removeAudioCallback(this);
+        recordingActive.store(false);
+        recordingWriter.reset();
         mixerSource.releaseResources();
         for (auto& player : trackPlayers)
             player->releaseResources();
-
-        recordingWriter.reset();
     }
 
     bool StudioAudioEngine::setSampleRate(int newSampleRate, int newBufferSize)
@@ -469,29 +492,76 @@ namespace NovaStudio
 
     void StudioAudioEngine::startRecordingInternal()
     {
-        auto timestamp = juce::Time::getCurrentTime().toString(true, true);
+        // Determine how many input channels the device actually opened
+        int deviceInputs = 0;
+        if (auto* device = deviceManager.getCurrentAudioDevice())
+            deviceInputs = device->getActiveInputChannels().countNumberOfSetBits();
+
+        juce::Logger::writeToLog("startRecordingInternal: deviceInputs=" + juce::String(deviceInputs)
+            + "  SR=" + juce::String(currentSampleRate));
+
+        if (deviceInputs == 0)
+        {
+            juce::Logger::writeToLog("WARNING: No active input channels. "
+                "Check that your audio interface is set as the system default INPUT device "
+                "in macOS System Preferences -> Sound -> Input. Recording may capture silence.");
+        }
+
+        // Use however many inputs the device has, minimum 1, maximum 2
+        recordingWriterChannels = juce::jmax(1, juce::jmin(deviceInputs, 2));
+
+        juce::String timestamp = juce::Time::getCurrentTime()
+            .toString(true, true, false, true)
+            .replaceCharacters(" :", "__")
+            .replaceCharacters("/,", "--");
         currentRecordingFile = recordingFolder.getChildFile("NovaStudioRecording_" + timestamp + ".wav");
         currentRecordingFile = currentRecordingFile.getNonexistentSibling();
 
+        juce::Logger::writeToLog("Recording to: " + currentRecordingFile.getFullPathName()
+            + "  channels=" + juce::String(recordingWriterChannels));
+
         auto outputStream = std::make_unique<juce::FileOutputStream>(currentRecordingFile);
         if (!outputStream->openedOk())
+        {
+            juce::Logger::writeToLog("ERROR: Could not open file for writing: " + currentRecordingFile.getFullPathName());
             return;
+        }
 
         juce::WavAudioFormat wavFormat;
         juce::StringPairArray metadata;
-        recordingWriter.reset(wavFormat.createWriterFor(outputStream.release(), currentSampleRate, 2, 32, metadata, 0));
-        if (!recordingWriter)
+        auto* rawWriter = wavFormat.createWriterFor(
+            outputStream.release(),
+            currentSampleRate,
+            (unsigned int)recordingWriterChannels,
+            32, metadata, 0);
+
+        if (rawWriter == nullptr)
+        {
+            juce::Logger::writeToLog("ERROR: createWriterFor returned null");
             return;
+        }
+
+        recordingWriter = std::make_unique<juce::AudioFormatWriter::ThreadedWriter>(rawWriter, recordingThread, 32768);
 
         recordingStartSample = transportState.getPositionSamples();
         recordingSampleCount = 0;
-        recordingActive = true;
+        diagBlocksReceived.store(0);
+        recordingActive.store(true);
+
+        juce::Logger::writeToLog("Recording STARTED. startSample=" + juce::String(recordingStartSample));
     }
 
     void StudioAudioEngine::stopRecordingInternal()
     {
-        recordingActive = false;
-        recordingWriter.reset();
+        recordingActive.store(false);
+        const int64_t blocks = diagBlocksReceived.load();
+        const int64_t samples = recordingSampleCount;
+        juce::Logger::writeToLog("Recording STOPPED. blocks=" + juce::String(blocks)
+            + "  samples=" + juce::String(samples)
+            + "  file=" + currentRecordingFile.getFullPathName());
+        recordingWriter.reset();   // flushes the ThreadedWriter FIFO to disk
+        if (currentRecordingFile.existsAsFile())
+            juce::Logger::writeToLog("File size after flush: " + juce::String(currentRecordingFile.getSize()) + " bytes");
         recordingSampleCount = 0;
         createRecordingClipIfNeeded();
     }
@@ -772,15 +842,44 @@ namespace NovaStudio
             }
         }
 
-        if (recordingActive && recordingWriter != nullptr)
+        if (recordingActive.load() && recordingWriter != nullptr)
         {
-            juce::AudioBuffer<float> inputBuffer(numInputChannels, numSamples);
-            for (int channel = 0; channel < numInputChannels; ++channel)
+            // Log the first block to confirm callback is firing with valid input
+            const int64_t blockNum = diagBlocksReceived.fetch_add(1);
+            if (blockNum == 0)
             {
-                if (inputChannelData[channel] != nullptr)
-                    inputBuffer.copyFrom(channel, 0, inputChannelData[channel], numSamples);
+                // Safe to call from audio thread in JUCE's Logger (uses lock-free queue)
+                juce::Logger::writeToLog("Recording: first audio block received. "
+                    "numInputChannels=" + juce::String(numInputChannels)
+                    + "  numSamples=" + juce::String(numSamples)
+                    + "  writerChannels=" + juce::String(recordingWriterChannels));
             }
-            recordingWriter->writeFromAudioSampleBuffer(inputBuffer, 0, numSamples);
+
+            const int writerCh = recordingWriterChannels;
+            const int availIn   = numInputChannels;
+
+            if (availIn <= 0)
+            {
+                // No live input at all — write silence so the clip has correct length
+                juce::AudioBuffer<float> silence(writerCh, numSamples);
+                silence.clear();
+                recordingWriter->write(silence.getArrayOfReadPointers(), numSamples);
+            }
+            else
+            {
+                // Build a buffer with exactly writerCh channels from available inputs
+                juce::AudioBuffer<float> inputBuffer(writerCh, numSamples);
+                for (int ch = 0; ch < writerCh; ++ch)
+                {
+                    const int srcCh = juce::jmin(ch, availIn - 1);
+                    if (inputChannelData[srcCh] != nullptr)
+                        inputBuffer.copyFrom(ch, 0, inputChannelData[srcCh], numSamples);
+                    else
+                        inputBuffer.clear(ch, 0, numSamples);
+                }
+                recordingWriter->write(inputBuffer.getArrayOfReadPointers(), numSamples);
+            }
+
             recordingSampleCount += numSamples;
         }
     }
@@ -789,6 +888,13 @@ namespace NovaStudio
     {
         currentSampleRate = device->getCurrentSampleRate();
         currentBufferSize = device->getCurrentBufferSizeSamples();
+
+        juce::Logger::writeToLog("audioDeviceAboutToStart: " + device->getName()
+            + "  SR=" + juce::String(currentSampleRate)
+            + "  buf=" + juce::String(currentBufferSize)
+            + "  activeIn=" + juce::String(device->getActiveInputChannels().countNumberOfSetBits())
+            + "  activeOut=" + juce::String(device->getActiveOutputChannels().countNumberOfSetBits()));
+
         mixerSource.prepareToPlay(currentBufferSize, currentSampleRate);
         for (int i = 0; i < trackPlayers.size(); ++i)
             trackPlayers.getReference(i)->prepareToPlay(currentBufferSize, currentSampleRate);

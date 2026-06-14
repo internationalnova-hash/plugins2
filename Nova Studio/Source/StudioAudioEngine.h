@@ -137,12 +137,16 @@ namespace NovaStudio
 
         double currentSampleRate = 44100.0;
         int currentBufferSize = 512;
-        bool recordingActive = false;
+        std::atomic<bool> recordingActive { false };
         int64_t recordingStartSample = 0;
+        int recordingWriterChannels = 1;  // actual channel count used by the writer
         TransportState transportState;
         juce::File recordingFolder;
         juce::File currentRecordingFile;
-        std::unique_ptr<juce::AudioFormatWriter> recordingWriter;
+        juce::TimeSliceThread recordingThread { "nova-recorder" };
+        std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> recordingWriter;
         int64_t recordingSampleCount = 0;
+        std::unique_ptr<juce::FileLogger> diagLogger;
+        std::atomic<int64_t> diagBlocksReceived { 0 };  // blocks seen while recordingActive
     };
 }
