@@ -1,6 +1,7 @@
 #include "StudioComponents.h"
 #include "WaveformCache.h"
 #include "Theme.h"
+#include <BinaryData.h>
 
 namespace NovaStudioUI
 {
@@ -4207,18 +4208,15 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         g.setColour(juce::Colour::fromRGB(100, 82, 40).withAlpha(0.4f));
         g.fillRect(0, getHeight() - 1, getWidth(), 1);
 
-        // Gold circular N badge
-        const float badgeX = 14.0f, badgeY = 9.0f, badgeD = 36.0f;
-        // Outer gold ring
-        g.setColour(juce::Colour::fromRGB(180, 140, 50));
-        g.drawEllipse(badgeX, badgeY, badgeD, badgeD, 1.5f);
-        // Inner dark fill
-        g.setColour(juce::Colour::fromRGB(10, 10, 15));
-        g.fillEllipse(badgeX + 2.0f, badgeY + 2.0f, badgeD - 4.0f, badgeD - 4.0f);
-        // N letter in gold
-        g.setColour(juce::Colour::fromRGB(200, 160, 60));
-        g.setFont(juce::Font(juce::FontOptions(18.0f).withStyle("Bold")));
-        g.drawText("N", (int)badgeX, (int)badgeY, (int)badgeD, (int)badgeD, juce::Justification::centred);
+        // Nova logo
+        {
+            const int logoSize = 36;
+            const int logoX = 14, logoY = 9;
+            auto logo = juce::ImageCache::getFromMemory(BinaryData::n_logo_png, BinaryData::n_logo_pngSize);
+            if (logo.isValid())
+                g.drawImage(logo, logoX, logoY, logoSize, logoSize,
+                            0, 0, logo.getWidth(), logo.getHeight());
+        }
 
         // "NOVA STUDIO" text
         g.setColour(juce::Colours::white);

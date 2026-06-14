@@ -54,6 +54,12 @@ elseif(WIN32)
     set(PLATFORM_CFLAGS "")
 endif()
 
+# ── Binary data ───────────────────────────────────────────────────────────────
+
+juce_add_binary_data(NovaStudioBinaryData SOURCES
+    Source/ui/Assets/n_logo.png
+)
+
 # ── Main application ──────────────────────────────────────────────────────────
 
 juce_add_gui_app(NovaStudio
@@ -85,6 +91,7 @@ target_sources(NovaStudio PRIVATE
 )
 
 target_link_libraries(NovaStudio PRIVATE
+    NovaStudioBinaryData
     juce::juce_audio_basics
     juce::juce_audio_devices
     juce::juce_audio_formats
