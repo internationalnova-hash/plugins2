@@ -3877,9 +3877,12 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
         pianoRoll.setVisible(true);
         transportBar.setActiveView(1);
     };
-    transportBar.onShowMixer = [this, panelBoundsFraction]() {
-        toggleFloatingPanel(mixerPanel, mixerPanelOpen, panelBoundsFraction(0.6f, 0.78f, 30, 24));
-        transportBar.setActiveView(mixerPanelOpen ? 2 : -1);
+    transportBar.onShowMixer = [this]() {
+        // Delegate to the BeatWindow-level callback so clicking Mixer in the
+        // Beat window opens the same full-featured MixerWindow used in the
+        // Edit/Mix workflow, rather than the stripped-down CompactMixerView.
+        if (onShowMixer) onShowMixer();
+        transportBar.setActiveView(2);
     };
 
     patternToolbar.onPerformModeToggled = [this, panelBoundsFraction]() {
