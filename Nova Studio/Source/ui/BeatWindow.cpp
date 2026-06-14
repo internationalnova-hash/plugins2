@@ -239,7 +239,6 @@ void PianoRollView::mouseDown(const juce::MouseEvent& e)
     mainArea.removeFromLeft(kKeyWidth);
     auto gridArea = mainArea;
 
-    // Only handle clicks in the grid area (below header)
     if (!gridArea.contains(e.getPosition()))
         return;
 
@@ -260,7 +259,6 @@ void PianoRollView::mouseDown(const juce::MouseEvent& e)
 
     int pitch = startPitch + (totalPitches - 1 - pitchRow);
 
-    // Check if an existing note was clicked — if so, remove it
     for (int i = notes.size() - 1; i >= 0; --i)
     {
         const auto& n = notes.getReference(i);
@@ -272,7 +270,6 @@ void PianoRollView::mouseDown(const juce::MouseEvent& e)
         }
     }
 
-    // Add a new note (1 step long, velocity 0.8)
     notes.add({ pitch, step, 1, 0.8f });
     repaint();
 }
@@ -451,12 +448,7 @@ void PianoRollView::drawSnapControls(juce::Graphics& g, juce::Rectangle<int> are
 StepSequencerView::StepSequencerView(NovaStudio::TransportState& transport)
     : transportState(transport)
 {
-    steps[0][0] = steps[0][4] = steps[0][8]  = steps[0][12] = true;
-    steps[1][2] = steps[1][6] = steps[1][10] = steps[1][14] = true;
-    steps[2][0] = steps[2][2] = steps[2][4]  = steps[2][6]  =
-    steps[2][8] = steps[2][10]= steps[2][12] = steps[2][14] = true;
-    steps[3][3] = steps[3][11] = true;
-
+    patterns.add(Pattern());
     startTimerHz(30);
 }
 
@@ -465,156 +457,129 @@ StepSequencerView::~StepSequencerView()
     stopTimer();
 }
 
-void StepSequencerView::timerCallback()
+// ── Layout helpers ────────────────────────────────────────────────────────────
+
+juce::Rectangle<int> StepSequencerView::toolbarArea() const
 {
-    if (transportState.isPlaying())
+    return { 0, 0, getWidth(), kToolbarH };
+}
+
+juce::Rectangle<int> StepSequencerView::allRowsArea() const
+{
+    return { 0, kToolbarH, getWidth(), kNumRows * kRowH };
+}
+
+juce::Rectangle<int> StepSequencerView::channelStripArea(int row) const
+{
+    return { 0, kToolbarH + row * kRowH, kChannelW, kRowH };
+}
+
+juce::Rectangle<int> StepSequencerView::stepGridArea() const
+{
+    return { kChannelW, kToolbarH, getWidth() - kChannelW, kNumRows * kRowH };
+}
+
+juce::Rectangle<int> StepSequencerView::graphArea() const
+{
+    if (!showGraphEditor) return {};
+    return { 0, kToolbarH + kNumRows * kRowH, getWidth(), kGraphH };
+}
+
+float StepSequencerView::stepCellWidth() const
+{
+    const int sc = currentPattern().stepCount;
+    const int gridW = getWidth() - kChannelW;
+    // Each group of 4 gets an extra 2px gap after it
+    const int numGroups = sc / 4;
+    const int totalGapPx = numGroups * 2;
+    return (float)(gridW - totalGapPx) / (float)sc;
+}
+
+bool StepSequencerView::hitTestGrid(juce::Point<int> p, int& outRow, int& outStep) const
+{
+    auto grid = stepGridArea();
+    if (!grid.contains(p)) return false;
+
+    int relY = p.y - grid.getY();
+    outRow = relY / kRowH;
+    if (outRow < 0 || outRow >= kNumRows) return false;
+
+    int relX = p.x - grid.getX();
+    const int sc = currentPattern().stepCount;
+    const float cellW = stepCellWidth();
+    const int numGroups = sc / 4;
+
+    // Step groups: each group of 4 is followed by 2px gap
+    // We need to find which step the x falls in
+    float x = 0.0f;
+    for (int s = 0; s < sc; ++s)
     {
-        double posSamples = (double)transportState.getPositionSamples();
-        double sr         = transportState.getSampleRate();
-        double bpm        = transportState.getTempo();
-        if (sr > 0.0 && bpm > 0.0)
+        float cellEnd = x + cellW;
+        if ((float)relX >= x && (float)relX < cellEnd)
         {
-            double stepsPerSec = (bpm / 60.0) * 4.0;
-            int newCursor = ((int)(posSamples / sr * stepsPerSec)) % kNumSteps;
-            if (newCursor != cursorStep) { cursorStep = newCursor; repaint(); }
+            outStep = s;
+            return true;
         }
+        x = cellEnd;
+        if ((s + 1) % 4 == 0 && s < sc - 1)
+            x += 2.0f; // group gap
     }
-    else if (cursorStep != -1)
-    {
-        cursorStep = -1;
-        repaint();
-    }
+    return false;
 }
 
-void StepSequencerView::paint(juce::Graphics& g)
+int StepSequencerView::hitTestGraph(juce::Point<int> p) const
 {
-    g.fillAll(BeatTheme::bg());
+    auto ga = graphArea();
+    if (!showGraphEditor || !ga.contains(p)) return -1;
 
-    g.setColour(BeatTheme::panel());
-    g.fillRect(0, 0, getWidth(), kTopH);
+    int relX = p.x - ga.getX() - kChannelW;
+    if (relX < 0) return -1;
 
-    int stepW = juce::jmax(1, (getWidth() - kHeaderW) / kNumSteps);
-    g.setFont(juce::FontOptions(10.0f));
-    for (int s = 0; s < kNumSteps; ++s)
+    const int sc = currentPattern().stepCount;
+    const float cellW = stepCellWidth();
+    const int numGroups = sc / 4;
+
+    float x = 0.0f;
+    for (int s = 0; s < sc; ++s)
     {
-        int x = kHeaderW + s * stepW;
-        if (s % 4 == 0)
-        {
-            g.setColour(juce::Colours::white.withAlpha(0.5f));
-            g.drawText(juce::String(s / 4 + 1), x + 2, 2, 20, kTopH - 4, juce::Justification::left);
-        }
-        g.setColour(s % 4 == 0 ? BeatTheme::gridBeat() : BeatTheme::grid());
-        g.drawVerticalLine(x, 0.0f, (float)kTopH);
+        float cellEnd = x + cellW;
+        if ((float)relX >= x && (float)relX < cellEnd)
+            return s;
+        x = cellEnd;
+        if ((s + 1) % 4 == 0 && s < sc - 1)
+            x += 2.0f;
     }
-
-    for (int row = 0; row < kNumRows; ++row)
-    {
-        int y = kTopH + row * kRowH;
-        drawRowHeader(g, { 0, y, kHeaderW, kRowH }, row, muted[row], soloed[row]);
-        for (int s = 0; s < kNumSteps; ++s)
-        {
-            int x = kHeaderW + s * stepW;
-            drawStep(g, { x + 1, y + 2, stepW - 2, kRowH - 4 },
-                     steps[row][s], s == cursorStep);
-        }
-    }
-
-    g.setColour(BeatTheme::edge());
-    g.drawRect(getLocalBounds(), 1);
+    return -1;
 }
 
-void StepSequencerView::resized() {}
-
-void StepSequencerView::mouseDown(const juce::MouseEvent& e)
+int StepSequencerView::hitTestChannelStrip(juce::Point<int> localInStrip) const
 {
-    int stepW = juce::jmax(1, (getWidth() - kHeaderW) / kNumSteps);
-    int gridX = e.x - kHeaderW;
-    int gridY = e.y - kTopH;
-    if (gridX < 0 || gridY < 0) return;
-
-    int row = gridY / kRowH;
-    int col = gridX / stepW;
-    if (row < kNumRows && col < kNumSteps)
-    {
-        steps[row][col] = !steps[row][col];
-        if (onStepChanged) onStepChanged(row, col, steps[row][col]);
-        repaint();
-    }
+    // 0=colorchip(skip), 1=mute LED, 2=pan, 3=vol, 4=name
+    const int x = localInStrip.x;
+    // color chip: 0-7
+    if (x < 8) return 0;
+    // mute LED: 8-27
+    if (x < 28) return 1;
+    // pan: 28-47
+    if (x < 48) return 2;
+    // vol: 48-67
+    if (x < 68) return 3;
+    // name button: rest
+    return 4;
 }
 
-void StepSequencerView::drawRowHeader(juce::Graphics& g, juce::Rectangle<int> r,
-                                       int row, bool isMuted, bool isSolo) const
+float StepSequencerView::graphYToVelocity(int y) const
 {
-    bool isHighlighted = (row == dragHighlightRow);
-
-    g.setColour(isHighlighted ? BeatTheme::accent().withAlpha(0.25f) : BeatTheme::panel());
-    g.fillRect(r);
-    g.setColour(kRowColours[row].withAlpha(isHighlighted ? 1.0f : 0.6f));
-    g.fillRect(r.getX(), r.getY(), 3, r.getHeight());
-
-    if (isHighlighted)
-    {
-        g.setColour(BeatTheme::accent().withAlpha(0.6f));
-        g.drawRect(r, 1);
-    }
-
-    // Show sample file name if assigned, otherwise show row name
-    const juce::String& displayName = rowSampleFiles[row].isNotEmpty()
-        ? juce::File(rowSampleFiles[row]).getFileNameWithoutExtension()
-        : rowNames[row];
-
-    g.setColour(juce::Colours::white.withAlpha(isMuted ? 0.35f : (rowSampleFiles[row].isNotEmpty() ? 1.0f : 0.85f)));
-    g.setFont(juce::FontOptions(rowSampleFiles[row].isNotEmpty() ? 9.5f : 11.0f));
-    g.drawText(displayName, r.getX() + 6, r.getY(), r.getWidth() - 40, r.getHeight(),
-               juce::Justification::centredLeft, true);
-
-    auto mr  = juce::Rectangle<int>(r.getRight() - 34, r.getCentreY() - 8, 14, 16);
-    auto sr2 = juce::Rectangle<int>(r.getRight() - 18, r.getCentreY() - 8, 14, 16);
-
-    g.setColour(isMuted ? juce::Colour::fromRGB(255,160,40) : BeatTheme::stepOff());
-    g.fillRoundedRectangle(mr.toFloat(), 2.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.8f));
-    g.setFont(juce::FontOptions(9.0f));
-    g.drawText("M", mr, juce::Justification::centred);
-
-    g.setColour(isSolo ? juce::Colour::fromRGB(160,80,255) : BeatTheme::stepOff());
-    g.fillRoundedRectangle(sr2.toFloat(), 2.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.8f));
-    g.drawText("S", sr2, juce::Justification::centred);
-
-    if (!isHighlighted)
-    {
-        g.setColour(BeatTheme::edge());
-        g.drawRect(r, 1);
-    }
-}
-
-void StepSequencerView::drawStep(juce::Graphics& g, juce::Rectangle<int> r,
-                                  bool active, bool isCursor) const
-{
-    if (isCursor)
-    {
-        g.setColour(BeatTheme::stepCursor());
-        g.fillRoundedRectangle(r.toFloat(), 3.0f);
-    }
-
-    if (active)
-    {
-        g.setColour(BeatTheme::stepOn());
-        g.fillRoundedRectangle(r.toFloat().reduced(isCursor ? 0.0f : 1.0f), 3.0f);
-        g.setColour(BeatTheme::accentGlow());
-        g.drawRoundedRectangle(r.toFloat().reduced(1.0f), 3.0f, 1.5f);
-    }
-    else
-    {
-        g.setColour(BeatTheme::stepOff());
-        g.fillRoundedRectangle(r.toFloat().reduced(1.0f), 3.0f);
-    }
+    auto ga = graphArea();
+    const int innerH = ga.getHeight() - 8;
+    int relY = ga.getBottom() - 4 - y;
+    float vel = (float)relY / (float)innerH;
+    return juce::jlimit(0.0f, 1.0f, vel);
 }
 
 int StepSequencerView::rowAtY(int y) const
 {
-    int gridY = y - kTopH;
+    int gridY = y - kToolbarH;
     if (gridY < 0) return -1;
     int row = gridY / kRowH;
     return (row >= 0 && row < kNumRows) ? row : -1;
@@ -626,6 +591,753 @@ bool StepSequencerView::isAudioFile(const juce::String& path)
     return ext == ".wav" || ext == ".aiff" || ext == ".aif" || ext == ".mp3"
         || ext == ".ogg" || ext == ".flac" || ext == ".m4a";
 }
+
+// ── Timer ─────────────────────────────────────────────────────────────────────
+
+void StepSequencerView::timerCallback()
+{
+    if (transportState.isPlaying())
+    {
+        double posSamples = (double)transportState.getPositionSamples();
+        double sr         = transportState.getSampleRate();
+        double bpm        = transportState.getTempo();
+        if (sr > 0.0 && bpm > 0.0)
+        {
+            double stepsPerSec = (bpm / 60.0) * 4.0;
+            int sc = currentPattern().stepCount;
+            int newCursor = ((int)(posSamples / sr * stepsPerSec)) % sc;
+            if (newCursor != cursorStep) { cursorStep = newCursor; repaint(); }
+        }
+    }
+    else if (cursorStep != -1)
+    {
+        cursorStep = -1;
+        repaint();
+    }
+}
+
+// ── Paint ─────────────────────────────────────────────────────────────────────
+
+void StepSequencerView::paint(juce::Graphics& g)
+{
+    g.fillAll(BeatTheme::bg());
+
+    paintToolbar(g, toolbarArea());
+
+    for (int row = 0; row < kNumRows; ++row)
+        paintChannelStrip(g, channelStripArea(row), row);
+
+    paintStepGrid(g, stepGridArea());
+
+    if (showGraphEditor)
+        paintGraphEditor(g, graphArea());
+
+    g.setColour(BeatTheme::edge());
+    g.drawRect(getLocalBounds(), 1);
+}
+
+void StepSequencerView::resized() {}
+
+// ── Toolbar ───────────────────────────────────────────────────────────────────
+
+void StepSequencerView::paintToolbar(juce::Graphics& g, juce::Rectangle<int> r)
+{
+    g.setColour(BeatTheme::panel());
+    g.fillRect(r);
+    g.setColour(BeatTheme::edge());
+    g.drawRect(r, 1);
+
+    auto& pat = currentPattern();
+    int x = r.getX() + 4;
+    const int y = r.getY();
+    const int h = r.getHeight();
+
+    auto drawBtn = [&](const juce::String& label, int w, bool active = false) -> juce::Rectangle<int>
+    {
+        auto br = juce::Rectangle<int>(x, y + 4, w, h - 8);
+        g.setColour(active ? BeatTheme::accent() : BeatTheme::stepOff().brighter(0.15f));
+        g.fillRoundedRectangle(br.toFloat(), 3.0f);
+        g.setColour(active ? juce::Colours::white : juce::Colours::white.withAlpha(0.75f));
+        g.setFont(juce::FontOptions(10.0f));
+        g.drawText(label, br, juce::Justification::centred);
+        x += w + 3;
+        return br;
+    };
+
+    // Add pattern button
+    drawBtn("+", 22);
+
+    // Pattern prev/next + name
+    drawBtn("\xe2\x97\x80", 18); // ◀
+    auto nameR = juce::Rectangle<int>(x, y + 4, 110, h - 8);
+    g.setColour(BeatTheme::stepOff());
+    g.fillRoundedRectangle(nameR.toFloat(), 3.0f);
+    g.setColour(juce::Colours::white.withAlpha(0.9f));
+    g.setFont(juce::FontOptions(10.0f));
+    g.drawText(pat.name.isEmpty() ? "Pattern " + juce::String(currentPatternIdx + 1) : pat.name,
+               nameR, juce::Justification::centred, true);
+    x += 113;
+    drawBtn("\xe2\x96\xb6", 18); // ▶
+
+    x += 8; // gap
+
+    // Step count buttons
+    for (int sc : { 16, 32, 64 })
+        drawBtn(juce::String(sc), 28, pat.stepCount == sc);
+
+    x += 8; // gap
+
+    // Swing label + scrub value
+    g.setColour(juce::Colours::white.withAlpha(0.5f));
+    g.setFont(juce::FontOptions(9.0f));
+    g.drawText("SWING", x, y, 36, h, juce::Justification::centred);
+    x += 38;
+    auto swingR = juce::Rectangle<int>(x, y + 4, 44, h - 8);
+    g.setColour(BeatTheme::stepOff());
+    g.fillRoundedRectangle(swingR.toFloat(), 3.0f);
+    g.setColour(BeatTheme::accent().brighter(0.2f));
+    g.setFont(juce::FontOptions(10.0f));
+    g.drawText(juce::String((int)(pat.swing * 100)) + "%", swingR, juce::Justification::centred);
+    x += 47;
+
+    x += 8; // gap
+
+    // Graph editor toggle
+    drawBtn("VEL", 28, showGraphEditor);
+}
+
+// ── Channel strip ─────────────────────────────────────────────────────────────
+
+void StepSequencerView::paintChannelStrip(juce::Graphics& g, juce::Rectangle<int> r, int row)
+{
+    const auto& ch = currentPattern().channels[(size_t)row];
+    const bool isSelected = (row == selectedRow);
+
+    // Background
+    g.setColour(isSelected ? BeatTheme::panel().brighter(0.08f) : BeatTheme::panel());
+    g.fillRect(r);
+
+    // Colour chip (8px left edge)
+    g.setColour(ch.colour);
+    g.fillRect(r.getX(), r.getY(), 8, r.getHeight());
+
+    int cx = r.getX() + 8 + 2;
+
+    // Mute LED (circle, 18px)
+    auto ledR = juce::Rectangle<int>(cx, r.getCentreY() - 9, 18, 18);
+    g.setColour(ch.muted ? juce::Colour::fromRGB(80,80,100) : BeatTheme::accent());
+    g.fillEllipse(ledR.toFloat());
+    g.setColour(juce::Colours::white.withAlpha(ch.muted ? 0.3f : 0.9f));
+    g.setFont(juce::FontOptions(7.0f));
+    g.drawText("M", ledR, juce::Justification::centred);
+    cx += 20;
+
+    // Pan knob (18px circle)
+    auto panR = juce::Rectangle<int>(cx, r.getCentreY() - 9, 18, 18);
+    g.setColour(BeatTheme::stepOff().brighter(0.2f));
+    g.fillEllipse(panR.toFloat());
+    g.setColour(BeatTheme::edge());
+    g.drawEllipse(panR.toFloat(), 1.0f);
+    {
+        // Pan indicator line
+        float angle = juce::MathConstants<float>::pi * 0.75f
+                    + ch.pan * juce::MathConstants<float>::pi * 0.75f;
+        float cx2 = panR.getCentreX(), cy2 = panR.getCentreY();
+        float len = 6.0f;
+        g.setColour(BeatTheme::accent());
+        g.drawLine(cx2, cy2,
+                   cx2 + std::sin(angle) * len,
+                   cy2 - std::cos(angle) * len, 1.5f);
+    }
+    // "P" label below
+    g.setColour(juce::Colours::white.withAlpha(0.35f));
+    g.setFont(juce::FontOptions(7.0f));
+    g.drawText("P", panR.getX(), panR.getBottom(), 18, 8, juce::Justification::centred);
+    cx += 22;
+
+    // Volume knob (18px circle)
+    auto volR = juce::Rectangle<int>(cx, r.getCentreY() - 9, 18, 18);
+    g.setColour(BeatTheme::stepOff().brighter(0.2f));
+    g.fillEllipse(volR.toFloat());
+    g.setColour(BeatTheme::edge());
+    g.drawEllipse(volR.toFloat(), 1.0f);
+    {
+        // Vol indicator line: 0=bottom-left, 1=bottom-right arc
+        float angle = juce::MathConstants<float>::pi * 0.75f
+                    + ch.volume * juce::MathConstants<float>::pi * 1.5f;
+        float cx2 = volR.getCentreX(), cy2 = volR.getCentreY();
+        float len = 6.0f;
+        g.setColour(ch.colour.withAlpha(0.9f));
+        g.drawLine(cx2, cy2,
+                   cx2 + std::sin(angle) * len,
+                   cy2 - std::cos(angle) * len, 1.5f);
+    }
+    g.setColour(juce::Colours::white.withAlpha(0.35f));
+    g.setFont(juce::FontOptions(7.0f));
+    g.drawText("V", volR.getX(), volR.getBottom(), 18, 8, juce::Justification::centred);
+    cx += 22;
+
+    // Name button (remainder)
+    auto nameR = juce::Rectangle<int>(cx, r.getY() + 3, r.getRight() - cx - 3, r.getHeight() - 6);
+    g.setColour(ch.colour.withAlpha(isSelected ? 0.45f : 0.25f));
+    g.fillRoundedRectangle(nameR.toFloat(), 3.0f);
+    if (isSelected)
+    {
+        g.setColour(ch.colour.withAlpha(0.7f));
+        g.drawRoundedRectangle(nameR.toFloat(), 3.0f, 1.0f);
+    }
+    g.setColour(juce::Colours::white.withAlpha(ch.muted ? 0.4f : 0.9f));
+    g.setFont(juce::FontOptions(10.0f));
+    g.drawText(ch.name, nameR.reduced(4, 0), juce::Justification::centredLeft, true);
+
+    // Row separator
+    g.setColour(BeatTheme::edge());
+    g.drawHorizontalLine(r.getBottom() - 1, (float)r.getX(), (float)r.getRight());
+}
+
+// ── Step grid ─────────────────────────────────────────────────────────────────
+
+void StepSequencerView::paintStepGrid(juce::Graphics& g, juce::Rectangle<int> r)
+{
+    g.setColour(BeatTheme::bg());
+    g.fillRect(r);
+
+    const auto& pat = currentPattern();
+    const int sc     = pat.stepCount;
+    const float cellW = stepCellWidth();
+
+    for (int row = 0; row < kNumRows; ++row)
+    {
+        const auto& ch = pat.channels[(size_t)row];
+        const int ry   = r.getY() + row * kRowH;
+
+        float x = (float)r.getX();
+        for (int s = 0; s < sc; ++s)
+        {
+            bool active   = ch.steps[s];
+            bool isCursor = (s == cursorStep);
+
+            auto cellR = juce::Rectangle<float>(x + 1, (float)(ry + 3), cellW - 2, (float)(kRowH - 6));
+
+            // Cursor highlight sweeps all rows
+            if (isCursor)
+            {
+                g.setColour(BeatTheme::stepCursor());
+                g.fillRoundedRectangle(cellR.expanded(0, 1), 3.0f);
+            }
+
+            if (active)
+            {
+                g.setColour(ch.colour);
+                g.fillRoundedRectangle(cellR, 3.0f);
+                g.setColour(ch.colour.brighter(0.4f).withAlpha(0.6f));
+                g.drawRoundedRectangle(cellR.reduced(0.5f), 3.0f, 1.0f);
+            }
+            else
+            {
+                g.setColour(BeatTheme::stepOff());
+                g.fillRoundedRectangle(cellR, 3.0f);
+            }
+
+            x += cellW;
+            // Group gap every 4 steps
+            if ((s + 1) % 4 == 0 && s < sc - 1)
+                x += 2.0f;
+        }
+
+        // Row separator
+        g.setColour(BeatTheme::edge());
+        g.drawHorizontalLine(ry + kRowH - 1, (float)r.getX(), (float)r.getRight());
+    }
+
+    g.setColour(BeatTheme::edge());
+    g.drawRect(r, 1);
+}
+
+// ── Graph editor ──────────────────────────────────────────────────────────────
+
+void StepSequencerView::paintGraphEditor(juce::Graphics& g, juce::Rectangle<int> r)
+{
+    g.setColour(BeatTheme::bg().darker(0.2f));
+    g.fillRect(r);
+
+    const auto& pat = currentPattern();
+    const auto& ch  = pat.channels[(size_t)selectedRow];
+    const int sc    = pat.stepCount;
+    const float cellW = stepCellWidth();
+    const int innerH = r.getHeight() - 8;
+
+    // "VELOCITY" label
+    g.setColour(ch.colour.withAlpha(0.6f));
+    g.setFont(juce::FontOptions(9.0f));
+    g.drawText("VELOCITY", r.getX() + 4, r.getY(), kChannelW - 8, r.getHeight(), juce::Justification::centredLeft);
+
+    // Velocity bars
+    float x = (float)(r.getX() + kChannelW);
+    for (int s = 0; s < sc; ++s)
+    {
+        float vel = ch.velocities[s];
+        float barH = vel * (float)innerH;
+        float barY = (float)(r.getBottom() - 4) - barH;
+
+        // Background slot
+        g.setColour(BeatTheme::stepOff());
+        g.fillRect(x + 1, (float)(r.getY() + 4), cellW - 2, (float)innerH);
+
+        // Bar
+        if (ch.steps[s])
+        {
+            g.setColour(ch.colour.withAlpha(0.85f));
+            g.fillRect(x + 1, barY, cellW - 2, barH);
+        }
+        else
+        {
+            g.setColour(ch.colour.withAlpha(0.35f));
+            g.fillRect(x + 1, barY, cellW - 2, barH);
+        }
+
+        x += cellW;
+        if ((s + 1) % 4 == 0 && s < sc - 1)
+            x += 2.0f;
+    }
+
+    g.setColour(BeatTheme::edge());
+    g.drawRect(r, 1);
+}
+
+// ── Interaction ───────────────────────────────────────────────────────────────
+
+void StepSequencerView::mouseDown(const juce::MouseEvent& e)
+{
+    auto pos = e.getPosition();
+
+    // ── Toolbar ──────────────────────────────────────────────────────────────
+    if (toolbarArea().contains(pos))
+    {
+        auto& pat = currentPattern();
+        auto r = toolbarArea();
+        int x = r.getX() + 4;
+        const int h = r.getHeight();
+
+        // Helper: check if click is within next button region and advance x
+        auto inBtn = [&](int w) -> bool {
+            bool hit = (pos.x >= x && pos.x < x + w && pos.y >= r.getY() + 4 && pos.y < r.getBottom() - 4);
+            x += w + 3;
+            return hit;
+        };
+
+        // "+" add pattern
+        if (inBtn(22))
+        {
+            if (patterns.size() < 16)
+            {
+                patterns.add(Pattern());
+                currentPatternIdx = patterns.size() - 1;
+                repaint();
+            }
+            return;
+        }
+        // Prev pattern ◀
+        if (inBtn(18))
+        {
+            if (currentPatternIdx > 0) --currentPatternIdx;
+            repaint(); return;
+        }
+        // Pattern name label (110px)
+        if (pos.x >= x && pos.x < x + 110)
+        {
+            auto nameR = juce::Rectangle<int>(x, r.getY() + 4, 110, r.getHeight() - 8);
+            juce::String current = pat.name.isEmpty() ? "Pattern " + juce::String(currentPatternIdx + 1) : pat.name;
+            showInlineRename(nameR, current, true);
+            return;
+        }
+        x += 113;
+        // Next pattern ▶
+        if (inBtn(18))
+        {
+            if (currentPatternIdx < patterns.size() - 1) ++currentPatternIdx;
+            repaint(); return;
+        }
+
+        x += 8;
+        // Step count 16/32/64
+        for (int sc : { 16, 32, 64 })
+        {
+            if (inBtn(28))
+            {
+                pat.stepCount = sc;
+                if (onStepCountChanged) onStepCountChanged(sc);
+                repaint(); return;
+            }
+        }
+
+        x += 8;
+        // Swing label (36px) + swing scrub (44px)
+        x += 38; // skip "SWING" label
+        if (pos.x >= x && pos.x < x + 44)
+        {
+            isSwingDragging  = true;
+            swingDragStartX  = e.x;
+            swingDragStartVal = pat.swing;
+            return;
+        }
+        x += 47;
+
+        x += 8;
+        // VEL toggle
+        if (inBtn(28))
+        {
+            showGraphEditor = !showGraphEditor;
+            repaint(); return;
+        }
+        return;
+    }
+
+    // ── Channel strip ─────────────────────────────────────────────────────────
+    for (int row = 0; row < kNumRows; ++row)
+    {
+        auto sr = channelStripArea(row);
+        if (sr.contains(pos))
+        {
+            selectedRow = row;
+            auto localP = pos - sr.getTopLeft();
+            int part = hitTestChannelStrip(localP);
+
+            if (e.mods.isRightButtonDown())
+            {
+                handleChannelRightClickMenu(row);
+                return;
+            }
+
+            if (part == 1) // mute LED
+            {
+                auto& ch = currentPattern().channels[(size_t)row];
+                ch.muted = !ch.muted;
+                if (onRowMutedChanged) onRowMutedChanged(row, ch.muted);
+                repaint();
+                return;
+            }
+            if (part == 2) // pan knob
+            {
+                knobDragType    = KnobDragType::Pan;
+                knobDragRow     = row;
+                knobDragStartY  = e.y;
+                knobDragStartVal = currentPattern().channels[(size_t)row].pan;
+                return;
+            }
+            if (part == 3) // vol knob
+            {
+                knobDragType    = KnobDragType::Volume;
+                knobDragRow     = row;
+                knobDragStartY  = e.y;
+                knobDragStartVal = currentPattern().channels[(size_t)row].volume;
+                return;
+            }
+            if (part == 4) // name button
+            {
+                if (e.getNumberOfClicks() >= 2)
+                    renameChannel(row);
+                repaint();
+                return;
+            }
+            repaint();
+            return;
+        }
+    }
+
+    // ── Graph editor ──────────────────────────────────────────────────────────
+    if (showGraphEditor && graphArea().contains(pos))
+    {
+        int step = hitTestGraph(pos);
+        if (step >= 0 && e.mods.isLeftButtonDown())
+        {
+            isDraggingGraph = true;
+            float vel = graphYToVelocity(pos.y);
+            currentPattern().channels[(size_t)selectedRow].velocities[step] = vel;
+            if (onVelocityChanged) onVelocityChanged(selectedRow, step, vel);
+            repaint();
+        }
+        return;
+    }
+
+    // ── Step grid ─────────────────────────────────────────────────────────────
+    {
+        int row = -1, step = -1;
+        if (hitTestGrid(pos, row, step))
+        {
+            selectedRow = row;
+
+            if (e.mods.isRightButtonDown())
+            {
+                handleStepRightClickMenu(row, step);
+                return;
+            }
+
+            // Left click: toggle and start drag
+            auto& active = currentPattern().channels[(size_t)row].steps[step];
+            dragActivating = !active;
+            active = dragActivating;
+            isDragging     = true;
+            dragStartRow   = row;
+            dragStartStep  = step;
+            if (onStepChanged) onStepChanged(row, step, active);
+            repaint();
+        }
+    }
+}
+
+void StepSequencerView::mouseDrag(const juce::MouseEvent& e)
+{
+    auto pos = e.getPosition();
+
+    // Swing scrub drag
+    if (isSwingDragging)
+    {
+        float delta = (float)(e.x - swingDragStartX) / 200.0f;
+        float newSwing = juce::jlimit(0.0f, 1.0f, swingDragStartVal + delta);
+        currentPattern().swing = newSwing;
+        if (onSwingChanged) onSwingChanged(newSwing);
+        repaint();
+        return;
+    }
+
+    // Knob drag
+    if (knobDragType != KnobDragType::None && knobDragRow >= 0)
+    {
+        float delta = (float)(knobDragStartY - e.y) / 80.0f;
+        auto& ch = currentPattern().channels[(size_t)knobDragRow];
+        if (knobDragType == KnobDragType::Pan)
+        {
+            ch.pan = juce::jlimit(-1.0f, 1.0f, knobDragStartVal + delta);
+            if (onRowPanChanged) onRowPanChanged(knobDragRow, ch.pan);
+        }
+        else
+        {
+            ch.volume = juce::jlimit(0.0f, 1.0f, knobDragStartVal + delta);
+            if (onRowVolumeChanged) onRowVolumeChanged(knobDragRow, ch.volume);
+        }
+        repaint();
+        return;
+    }
+
+    // Graph drag
+    if (isDraggingGraph && showGraphEditor)
+    {
+        int step = hitTestGraph(pos);
+        if (step >= 0)
+        {
+            float vel = graphYToVelocity(pos.y);
+            currentPattern().channels[(size_t)selectedRow].velocities[step] = vel;
+            if (onVelocityChanged) onVelocityChanged(selectedRow, step, vel);
+            repaint();
+        }
+        return;
+    }
+
+    // Step grid drag — activate/deactivate range
+    if (isDragging)
+    {
+        int row = -1, step = -1;
+        if (hitTestGrid(pos, row, step))
+        {
+            auto& active = currentPattern().channels[(size_t)row].steps[step];
+            if (active != dragActivating)
+            {
+                active = dragActivating;
+                if (onStepChanged) onStepChanged(row, step, active);
+                repaint();
+            }
+        }
+    }
+}
+
+void StepSequencerView::mouseUp(const juce::MouseEvent&)
+{
+    isDragging      = false;
+    isDraggingGraph = false;
+    isSwingDragging = false;
+    knobDragType    = KnobDragType::None;
+    knobDragRow     = -1;
+}
+
+// ── Context menus ─────────────────────────────────────────────────────────────
+
+void StepSequencerView::handleStepRightClickMenu(int row, int /*step*/)
+{
+    auto& pat = currentPattern();
+    auto& ch  = pat.channels[(size_t)row];
+    const int sc = pat.stepCount;
+
+    juce::PopupMenu m;
+    m.addItem(1, "Fill every 1");
+    m.addItem(2, "Fill every 2");
+    m.addItem(3, "Fill every 4");
+    m.addSeparator();
+    m.addItem(4, "Clear row");
+    m.addItem(5, "Reverse");
+    m.addItem(6, "Shift left");
+    m.addItem(7, "Shift right");
+    m.addItem(8, "Randomize");
+
+    m.showMenuAsync(juce::PopupMenu::Options(), [this, row, sc](int result)
+    {
+        auto& ch2 = currentPattern().channels[(size_t)row];
+        switch (result)
+        {
+            case 1: // Fill every 1
+                for (int s = 0; s < sc; ++s) { ch2.steps[s] = true; if (onStepChanged) onStepChanged(row, s, true); }
+                break;
+            case 2: // Fill every 2
+                for (int s = 0; s < sc; ++s) { ch2.steps[s] = (s % 2 == 0); if (onStepChanged) onStepChanged(row, s, ch2.steps[s]); }
+                break;
+            case 3: // Fill every 4
+                for (int s = 0; s < sc; ++s) { ch2.steps[s] = (s % 4 == 0); if (onStepChanged) onStepChanged(row, s, ch2.steps[s]); }
+                break;
+            case 4: // Clear
+                for (int s = 0; s < sc; ++s) { ch2.steps[s] = false; if (onStepChanged) onStepChanged(row, s, false); }
+                break;
+            case 5: // Reverse
+            {
+                bool tmp[kMaxSteps];
+                std::copy(ch2.steps, ch2.steps + sc, tmp);
+                for (int s = 0; s < sc; ++s) { ch2.steps[s] = tmp[sc - 1 - s]; if (onStepChanged) onStepChanged(row, s, ch2.steps[s]); }
+                break;
+            }
+            case 6: // Shift left
+            {
+                bool first = ch2.steps[0];
+                for (int s = 0; s < sc - 1; ++s) ch2.steps[s] = ch2.steps[s + 1];
+                ch2.steps[sc - 1] = first;
+                for (int s = 0; s < sc; ++s) if (onStepChanged) onStepChanged(row, s, ch2.steps[s]);
+                break;
+            }
+            case 7: // Shift right
+            {
+                bool last = ch2.steps[sc - 1];
+                for (int s = sc - 1; s > 0; --s) ch2.steps[s] = ch2.steps[s - 1];
+                ch2.steps[0] = last;
+                for (int s = 0; s < sc; ++s) if (onStepChanged) onStepChanged(row, s, ch2.steps[s]);
+                break;
+            }
+            case 8: // Randomize
+                for (int s = 0; s < sc; ++s) { ch2.steps[s] = (juce::Random::getSystemRandom().nextFloat() > 0.6f); if (onStepChanged) onStepChanged(row, s, ch2.steps[s]); }
+                break;
+            default: break;
+        }
+        repaint();
+    });
+}
+
+void StepSequencerView::handleChannelRightClickMenu(int row)
+{
+    juce::PopupMenu m;
+    m.addItem(1, "Rename");
+    m.addItem(2, "Change Color");
+    m.addItem(3, "Clear Steps");
+    m.addItem(4, "Copy Steps");
+    m.addItem(5, "Paste Steps");
+
+    m.showMenuAsync(juce::PopupMenu::Options(), [this, row](int result)
+    {
+        auto& ch = currentPattern().channels[(size_t)row];
+        switch (result)
+        {
+            case 1: renameChannel(row); break;
+            case 2:
+            {
+                // Cycle through a few preset colours
+                static const juce::Colour presets[] = {
+                    juce::Colour::fromRGB(255,100,60), juce::Colour::fromRGB(60,180,255),
+                    juce::Colour::fromRGB(220,200,60), juce::Colour::fromRGB(160,80,255),
+                    juce::Colour::fromRGB(80,220,120), juce::Colour::fromRGB(255,160,40),
+                    juce::Colour::fromRGB(200,80,200),  juce::Colour::fromRGB(60,200,200)
+                };
+                // Find current colour index and advance
+                int idx = 0;
+                for (int i = 0; i < 8; ++i)
+                    if (ch.colour == presets[i]) { idx = (i + 1) % 8; break; }
+                ch.colour = presets[idx];
+                repaint();
+                break;
+            }
+            case 3:
+            {
+                const int sc = currentPattern().stepCount;
+                for (int s = 0; s < sc; ++s) { ch.steps[s] = false; if (onStepChanged) onStepChanged(row, s, false); }
+                repaint();
+                break;
+            }
+            default: break;
+        }
+    });
+}
+
+void StepSequencerView::renameChannel(int row)
+{
+    // Show inline text editor over the channel name button
+    auto sr = channelStripArea(row);
+    // Compute name button area (same logic as paintChannelStrip)
+    int cx = sr.getX() + 8 + 2 + 20 + 22 + 22; // color chip + mute + pan + vol
+    auto nameR = juce::Rectangle<int>(cx, sr.getY() + 3, sr.getRight() - cx - 3, sr.getHeight() - 6);
+    showInlineRename(nameR, currentPattern().channels[(size_t)row].name, false);
+    inlineRenameRow = row;
+}
+
+void StepSequencerView::showInlineRename(juce::Rectangle<int> bounds, const juce::String& initial, bool isPattern)
+{
+    // Dismiss any existing editor first
+    if (inlineEditor)
+    {
+        finishInlineRename(false);
+    }
+
+    inlineIsPattern = isPattern;
+    inlineRenameRow = isPattern ? -1 : inlineRenameRow; // row already set by caller for channel
+
+    inlineEditor = std::make_unique<juce::TextEditor>();
+    inlineEditor->setText(initial, false);
+    inlineEditor->selectAll();
+    inlineEditor->setColour(juce::TextEditor::backgroundColourId, BeatTheme::bg());
+    inlineEditor->setColour(juce::TextEditor::textColourId, juce::Colours::white);
+    inlineEditor->setColour(juce::TextEditor::outlineColourId, BeatTheme::accent());
+    inlineEditor->setFont(juce::FontOptions(10.0f));
+    inlineEditor->setBounds(bounds);
+
+    // Commit on return, dismiss on escape
+    inlineEditor->onReturnKey  = [this] { finishInlineRename(true);  };
+    inlineEditor->onEscapeKey  = [this] { finishInlineRename(false); };
+    inlineEditor->onFocusLost  = [this] { finishInlineRename(true);  };
+
+    addAndMakeVisible(*inlineEditor);
+    inlineEditor->grabKeyboardFocus();
+}
+
+void StepSequencerView::finishInlineRename(bool accepted)
+{
+    if (!inlineEditor) return;
+
+    if (accepted)
+    {
+        juce::String result = inlineEditor->getText().trim();
+        if (result.isNotEmpty())
+        {
+            if (inlineIsPattern)
+            {
+                currentPattern().name = result;
+            }
+            else if (inlineRenameRow >= 0)
+            {
+                currentPattern().channels[(size_t)inlineRenameRow].name = result;
+            }
+        }
+    }
+
+    inlineEditor.reset();
+    inlineRenameRow = -1;
+    repaint();
+}
+
+// ── Drag-and-drop (sample files from BeatBrowser) ────────────────────────────
 
 bool StepSequencerView::isInterestedInDragSource(const SourceDetails& details)
 {
@@ -655,9 +1367,9 @@ void StepSequencerView::itemDropped(const SourceDetails& details)
     int row = rowAtY(details.localPosition.y);
     if (row >= 0)
     {
-        rowSampleFiles[row] = details.description.toString();
-        rowNames[row] = juce::File(rowSampleFiles[row]).getFileNameWithoutExtension();
-        if (onSampleAssigned) onSampleAssigned(row, rowSampleFiles[row]);
+        juce::String path = details.description.toString();
+        currentPattern().channels[(size_t)row].name = juce::File(path).getFileNameWithoutExtension();
+        if (onSampleAssigned) onSampleAssigned(row, path);
     }
     dragHighlightRow = -1;
     repaint();
@@ -757,12 +1469,11 @@ void DrumRackPanel::drawPad(juce::Graphics& g, juce::Rectangle<int> r,
     g.setColour(dragOver ? BeatTheme::accent() : accent.withAlpha(borderAlpha));
     g.drawRoundedRectangle(r.toFloat().reduced(1.0f), 5.0f, (selected || pressed || dragOver) ? 1.5f : 1.0f);
 
-    // Top line: pad name; bottom line: sample name if assigned
     g.setColour(juce::Colours::white.withAlpha((selected || pressed) ? 1.0f : 0.65f));
     if (sampleFile.isNotEmpty())
     {
-        auto topR    = r.reduced(3, 0).removeFromTop(r.getHeight() / 2);
-        auto botR    = r.reduced(3, 0).removeFromBottom(r.getHeight() / 2);
+        auto topR = r.reduced(3, 0).removeFromTop(r.getHeight() / 2);
+        auto botR = r.reduced(3, 0).removeFromBottom(r.getHeight() / 2);
         g.setFont(juce::FontOptions(9.5f));
         g.drawText(name, topR, juce::Justification::centredBottom, true);
         g.setColour(BeatTheme::accent().brighter(0.3f));
@@ -837,7 +1548,7 @@ void DrumRackPanel::drawPluginChain(juce::Graphics& g, juce::Rectangle<int> area
 int DrumRackPanel::padAtPoint(juce::Point<int> pos) const
 {
     auto area = getLocalBounds().reduced(4);
-    area.removeFromTop(22); // header
+    area.removeFromTop(22);
 
     int padW = area.getWidth() / kPadCols;
     int padH = 52;
@@ -925,7 +1636,10 @@ void BeatWindow::resized()
     playlist.setBounds(centerTop);
     area.removeFromTop(3);
 
-    const int seqH = StepSequencerView::kTopH + StepSequencerView::kNumRows * StepSequencerView::kRowH + 6;
+    // Step sequencer height: toolbar + 8 rows + optional graph editor
+    const int seqH = StepSequencerView::kToolbarH
+                   + StepSequencerView::kNumRows * StepSequencerView::kRowH
+                   + StepSequencerView::kGraphH + 4;
     stepSeq.setBounds(area.removeFromBottom(seqH));
     area.removeFromBottom(3);
     pianoRoll.setBounds(area);

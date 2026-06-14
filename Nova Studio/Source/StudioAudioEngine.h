@@ -67,15 +67,43 @@ namespace NovaStudio
         void setStepSeqSample(int row, const juce::String& filePath);
         void setStepSeqStep(int row, int step, bool active);
 
+        // New step sequencer control methods
+        void setStepSeqActiveStepCount(int count);          // 16, 32, or 64
+        void setStepSeqSwing(float swing);                  // 0.0-1.0
+        void setStepSeqVelocity(int row, int step, float velocity);
+        void setStepSeqRowVolume(int row, float vol);
+        void setStepSeqRowPan(int row, float pan);
+        void setStepSeqRowMuted(int row, bool muted);
+        int  getStepSeqCurrentStep() const noexcept;        // returns which step is playing (-1 if stopped)
+
         struct StepSequencerState {
-            static constexpr int kNumRows  = 4;
-            static constexpr int kNumSteps = 16;
+            static constexpr int kNumRows  = 8;
+            static constexpr int kNumSteps = 64;  // max supported
+            int   activeStepCount = 16;            // current pattern length: 16, 32, or 64
+            float swing = 0.0f;                    // 0.0 = no swing, 0.5 = heavy
+
             juce::String             sampleFiles[kNumRows];
             bool                     steps[kNumRows][kNumSteps] {};
+            float                    velocities[kNumRows][kNumSteps];
+            float                    rowVolumes[kNumRows];
+            float                    rowPans[kNumRows];
+            bool                     rowMuted[kNumRows] {};
+
             juce::AudioBuffer<float> sampleBuffers[kNumRows];
             bool                     sampleLoaded[kNumRows]   {};
             int64_t                  playPositions[kNumRows]  {};
             bool                     rowTriggered[kNumRows]   {};
+
+            StepSequencerState()
+            {
+                for (int r = 0; r < kNumRows; ++r)
+                {
+                    rowVolumes[r] = 1.0f;
+                    rowPans[r]    = 0.0f;
+                    for (int s = 0; s < kNumSteps; ++s)
+                        velocities[r][s] = 1.0f;
+                }
+            }
         };
         StepSequencerState stepSeq;
 
@@ -221,5 +249,8 @@ namespace NovaStudio
         int64_t recordingSampleCount = 0;
         std::unique_ptr<juce::FileLogger> diagLogger;
         std::atomic<int64_t> diagBlocksReceived { 0 };  // blocks seen while recordingActive
+
+        // Step sequencer playback state (audio thread writes, UI thread reads)
+        std::atomic<int> currentPlayingStep { -1 };
     };
 }

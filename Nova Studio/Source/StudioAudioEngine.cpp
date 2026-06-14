@@ -1136,16 +1136,42 @@ namespace NovaStudio
             const double  bpm = (double)transportState.getTempo();
             if (sr > 0.0 && bpm > 0.0)
             {
+                const int   activeSteps  = stepSeq.activeStepCount;
+                const float swingAmount  = stepSeq.swing;
                 const double stepsPerSec = (bpm / 60.0) * 4.0;
-                const int currentStep = ((int)(positionSamples / sr * stepsPerSec))
-                                        % StepSequencerState::kNumSteps;
-                const int prevStep    = ((int)(juce::jmax<int64_t>(0, positionSamples - numSamples)
-                                              / sr * stepsPerSec))
-                                        % StepSequencerState::kNumSteps;
+                const double stepDurationSamples = sr / stepsPerSec;
+
+                // Calculate current step with swing applied
+                // Swing shifts odd-numbered steps later by swing * stepDuration * 0.33
+                const double rawStep     = (double)positionSamples / sr * stepsPerSec;
+                const double rawStepPrev = (double)juce::jmax<int64_t>(0, positionSamples - numSamples)
+                                           / sr * stepsPerSec;
+
+                // Convert raw step position to swung step position
+                auto stepWithSwing = [&](double rawPos) -> double {
+                    // Each pair of steps (0-1, 2-3, ...) is a "beat"
+                    // Even step: starts at normal time
+                    // Odd step: delayed by swing * 0.33 * stepDuration
+                    const double beatIndex = std::floor(rawPos / 2.0);
+                    const double posInBeat = rawPos - beatIndex * 2.0;
+                    // Within a beat: even step occupies [0, 1+swing*0.33], odd step follows
+                    const double evenEnd = 1.0 + swingAmount * 0.33;
+                    if (posInBeat < evenEnd)
+                        return beatIndex * 2.0 + posInBeat / evenEnd;          // normalise even portion
+                    else
+                        return beatIndex * 2.0 + 1.0 + (posInBeat - evenEnd) / (2.0 - evenEnd);
+                };
+
+                const int currentStep = (int)stepWithSwing(rawStep)     % activeSteps;
+                const int prevStep    = (int)stepWithSwing(rawStepPrev)  % activeSteps;
+
+                currentPlayingStep.store(currentStep);
+
                 if (currentStep != prevStep)
                 {
                     for (int row = 0; row < StepSequencerState::kNumRows; ++row)
                     {
+                        if (stepSeq.rowMuted[row]) continue;
                         if (stepSeq.steps[row][currentStep] && stepSeq.sampleLoaded[row])
                         {
                             stepSeq.playPositions[row] = 0;
@@ -1157,23 +1183,39 @@ namespace NovaStudio
                 for (int row = 0; row < StepSequencerState::kNumRows; ++row)
                 {
                     if (!stepSeq.rowTriggered[row] || !stepSeq.sampleLoaded[row]) continue;
+                    if (stepSeq.rowMuted[row]) { stepSeq.rowTriggered[row] = false; continue; }
+
                     const auto& buf = stepSeq.sampleBuffers[row];
                     const int64_t remaining = buf.getNumSamples() - stepSeq.playPositions[row];
                     if (remaining <= 0) { stepSeq.rowTriggered[row] = false; continue; }
                     const int toCopy = (int)juce::jmin<int64_t>(remaining, numSamples);
+
+                    // Determine velocity for the last triggered step
+                    // We use currentStep as an approximation; for per-step accuracy this is sufficient
+                    const float velocity   = stepSeq.velocities[row][currentStep];
+                    const float rowVolume  = stepSeq.rowVolumes[row];
+                    const float rowPan     = stepSeq.rowPans[row];
+                    const float leftGain   = (rowPan <= 0.0f ? 1.0f : 1.0f - rowPan)  * rowVolume * velocity;
+                    const float rightGain  = (rowPan >= 0.0f ? 1.0f : 1.0f + rowPan)  * rowVolume * velocity;
+
                     for (int ch = 0; ch < numOutputChannels; ++ch)
                     {
                         if (outputChannelData[ch] == nullptr) continue;
                         const int srcCh = juce::jmin(ch, buf.getNumChannels() - 1);
                         const float* src = buf.getReadPointer(srcCh, (int)stepSeq.playPositions[row]);
+                        const float chanGain = (ch == 0) ? leftGain : rightGain;
                         for (int s = 0; s < toCopy; ++s)
-                            outputChannelData[ch][s] += src[s];
+                            outputChannelData[ch][s] += src[s] * chanGain;
                     }
                     stepSeq.playPositions[row] += toCopy;
                     if (stepSeq.playPositions[row] >= buf.getNumSamples())
                         stepSeq.rowTriggered[row] = false;
                 }
             }
+        }
+        else
+        {
+            currentPlayingStep.store(-1);
         }
 
         if (recordingActive.load() && recordingWriter != nullptr)
@@ -1490,5 +1532,46 @@ namespace NovaStudio
         if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
         if (!isPositiveAndBelow(step, StepSequencerState::kNumSteps)) return;
         stepSeq.steps[row][step] = active;
+    }
+
+    void StudioAudioEngine::setStepSeqActiveStepCount(int count)
+    {
+        if (count == 16 || count == 32 || count == 64)
+            stepSeq.activeStepCount = count;
+    }
+
+    void StudioAudioEngine::setStepSeqSwing(float swing)
+    {
+        stepSeq.swing = juce::jlimit(0.0f, 1.0f, swing);
+    }
+
+    void StudioAudioEngine::setStepSeqVelocity(int row, int step, float velocity)
+    {
+        if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
+        if (!isPositiveAndBelow(step, StepSequencerState::kNumSteps)) return;
+        stepSeq.velocities[row][step] = juce::jlimit(0.0f, 1.0f, velocity);
+    }
+
+    void StudioAudioEngine::setStepSeqRowVolume(int row, float vol)
+    {
+        if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
+        stepSeq.rowVolumes[row] = juce::jlimit(0.0f, 1.0f, vol);
+    }
+
+    void StudioAudioEngine::setStepSeqRowPan(int row, float pan)
+    {
+        if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
+        stepSeq.rowPans[row] = juce::jlimit(-1.0f, 1.0f, pan);
+    }
+
+    void StudioAudioEngine::setStepSeqRowMuted(int row, bool muted)
+    {
+        if (!isPositiveAndBelow(row, StepSequencerState::kNumRows)) return;
+        stepSeq.rowMuted[row] = muted;
+    }
+
+    int StudioAudioEngine::getStepSeqCurrentStep() const noexcept
+    {
+        return currentPlayingStep.load();
     }
 }

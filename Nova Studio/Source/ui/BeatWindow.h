@@ -115,7 +115,7 @@ namespace NovaStudioUI
     };
 
     // ─────────────────────────────────────────────────────────────────────────
-    // StepSequencerView — bottom center
+    // StepSequencerView — FL Studio-style beat producer
     // ─────────────────────────────────────────────────────────────────────────
     class StepSequencerView : public juce::Component,
                               public juce::DragAndDropTarget,
@@ -124,52 +124,171 @@ namespace NovaStudioUI
     public:
         explicit StepSequencerView(NovaStudio::TransportState& transport);
         ~StepSequencerView() override;
+
         void paint(juce::Graphics& g) override;
         void resized() override;
         void mouseDown(const juce::MouseEvent& e) override;
+        void mouseDrag(const juce::MouseEvent& e) override;
+        void mouseUp(const juce::MouseEvent& e) override;
 
-        static constexpr int kNumRows  = 4;
-        static constexpr int kNumSteps = 16;
-        static constexpr int kHeaderW  = 70;
-        static constexpr int kRowH     = 36;
-        static constexpr int kTopH     = 22;
-
-        // DragAndDropTarget
+        // DragAndDropTarget — for sample file drops
         bool isInterestedInDragSource(const SourceDetails& details) override;
         void itemDragEnter(const SourceDetails& details) override;
         void itemDragMove(const SourceDetails& details) override;
         void itemDragExit(const SourceDetails& details) override;
         void itemDropped(const SourceDetails& details) override;
 
-        // Engine callbacks — wire from MainComponent
-        std::function<void(int row, const juce::String& path)> onSampleAssigned;
-        std::function<void(int row, int step, bool active)>    onStepChanged;
+        // Layout constants
+        static constexpr int kNumRows   = 8;
+        static constexpr int kMaxSteps  = 64;
+        static constexpr int kChannelW  = 130;   // left channel strip width
+        static constexpr int kRowH      = 34;
+        static constexpr int kToolbarH  = 32;
+        static constexpr int kGraphH    = 70;    // graph editor height
 
-    private:
-        void timerCallback() override;
-        void drawRowHeader(juce::Graphics& g, juce::Rectangle<int> r,
-                           int row, bool muted, bool solo) const;
-        void drawStep(juce::Graphics& g, juce::Rectangle<int> r,
-                      bool active, bool isCursor) const;
-        int rowAtY(int y) const;
-        static bool isAudioFile(const juce::String& path);
-
-        juce::String rowNames[kNumRows]       = { "Kick", "Snare", "Hi-Hat", "Perc" };
-        juce::String rowSampleFiles[kNumRows]; // empty = no sample assigned
-        juce::Colour kRowColours[kNumRows] = {
-            juce::Colour::fromRGB(255, 100,  60),
-            juce::Colour::fromRGB( 60, 180, 255),
-            juce::Colour::fromRGB(220, 200,  60),
-            juce::Colour::fromRGB(160,  80, 255)
+        // ── Data model ───────────────────────────────────────────────────────
+        struct ChannelData
+        {
+            juce::String name;
+            juce::Colour colour;
+            float volume = 1.0f;
+            float pan    = 0.0f;
+            bool  muted  = false;
+            bool  steps[kMaxSteps] {};
+            float velocities[kMaxSteps];
+            ChannelData() { std::fill(velocities, velocities + kMaxSteps, 1.0f); }
         };
 
-        bool steps[kNumRows][kNumSteps] {};
-        bool muted[kNumRows] {};
-        bool soloed[kNumRows] {};
-        int  cursorStep       = -1;
-        int  dragHighlightRow = -1;
+        struct Pattern
+        {
+            juce::String name;
+            int   stepCount = 16;
+            float swing     = 0.0f;
+            std::array<ChannelData, kNumRows> channels;
+
+            Pattern()
+            {
+                static const char* names[] =
+                    { "Kick","Snare","Hi-Hat","Open HH","Clap","808","Perc","FX" };
+                static const juce::Colour cols[] = {
+                    juce::Colour::fromRGB(255, 100,  60),
+                    juce::Colour::fromRGB( 60, 180, 255),
+                    juce::Colour::fromRGB(220, 200,  60),
+                    juce::Colour::fromRGB(160,  80, 255),
+                    juce::Colour::fromRGB( 80, 220, 120),
+                    juce::Colour::fromRGB(255, 160,  40),
+                    juce::Colour::fromRGB(200,  80, 200),
+                    juce::Colour::fromRGB( 60, 200, 200)
+                };
+                for (int i = 0; i < kNumRows; ++i)
+                {
+                    channels[i].name   = names[i];
+                    channels[i].colour = cols[i];
+                }
+                // Default kick pattern
+                channels[0].steps[0] = channels[0].steps[4] =
+                channels[0].steps[8] = channels[0].steps[12] = true;
+                // Default snare
+                channels[1].steps[4] = channels[1].steps[12] = true;
+                // Default hi-hat (every 2)
+                for (int s = 0; s < 16; s += 2) channels[2].steps[s] = true;
+            }
+        };
+
+        // ── Engine callbacks ─────────────────────────────────────────────────
+        std::function<void(int row, const juce::String& path)> onSampleAssigned;
+        std::function<void(int row, int step, bool active)>    onStepChanged;
+        std::function<void(int row, int step, float velocity)> onVelocityChanged;
+        std::function<void(int row, float volume)>             onRowVolumeChanged;
+        std::function<void(int row, float pan)>                onRowPanChanged;
+        std::function<void(int row, bool muted)>               onRowMutedChanged;
+        std::function<void(int stepCount)>                     onStepCountChanged;
+        std::function<void(float swing)>                       onSwingChanged;
+
+        // External step cursor update (called from MainComponent timer or getStepSeqCurrentStep)
+        void setPlayCursor(int step) { if (step != cursorStep) { cursorStep = step; repaint(); } }
+
+        // Called by inline rename editor when done
+        void finishInlineRename(bool accepted);
+
+    private:
+        // ── Timer ────────────────────────────────────────────────────────────
+        void timerCallback() override;
+
+        // ── Drawing helpers ──────────────────────────────────────────────────
+        void paintToolbar(juce::Graphics& g, juce::Rectangle<int> r);
+        void paintChannelStrip(juce::Graphics& g, juce::Rectangle<int> r, int row);
+        void paintStepGrid(juce::Graphics& g, juce::Rectangle<int> r);
+        void paintGraphEditor(juce::Graphics& g, juce::Rectangle<int> r);
+
+        // ── Hit-testing ──────────────────────────────────────────────────────
+        // Returns the step grid area (excluding channel strip)
+        juce::Rectangle<int> stepGridArea() const;
+        juce::Rectangle<int> channelStripArea(int row) const;
+        juce::Rectangle<int> toolbarArea() const;
+        juce::Rectangle<int> graphArea() const;
+        juce::Rectangle<int> allRowsArea() const; // toolbar to bottom of rows (excl graph)
+
+        // Given a point inside the step grid area, return row and step (-1 if invalid)
+        bool hitTestGrid(juce::Point<int> p, int& outRow, int& outStep) const;
+        // Given a point in the graph area, return step index (-1 if invalid)
+        int  hitTestGraph(juce::Point<int> p) const;
+        // Which part of channel strip was clicked: 0=mute, 1=pan, 2=vol, 3=name
+        int  hitTestChannelStrip(juce::Point<int> localInStrip) const;
+
+        float graphYToVelocity(int y) const;
+
+        // ── Interaction helpers ──────────────────────────────────────────────
+        void handleStepRightClickMenu(int row, int step);
+        void handleChannelRightClickMenu(int row);
+        void renameChannel(int row);
+
+        // Step pixel metrics
+        float stepCellWidth() const;   // width of one step cell in the grid
+
+        static bool isAudioFile(const juce::String& path);
+        int rowAtY(int y) const;       // for drag-and-drop
+
+        // Inline rename helpers
+        void showInlineRename(juce::Rectangle<int> bounds, const juce::String& initial, bool isPattern);
+
+        // ── State ────────────────────────────────────────────────────────────
+        juce::Array<Pattern> patterns;
+        int  currentPatternIdx = 0;
+        int  selectedRow       = 0;
+        bool showGraphEditor   = true;
+        int  cursorStep        = -1;
+
+        // Drag state
+        bool isDragging      = false;
+        bool dragActivating  = false;  // true = activating steps, false = deactivating
+        int  dragStartRow    = -1;
+        int  dragStartStep   = -1;
+        bool isDraggingGraph = false;  // drag inside velocity graph
+        int  dragHighlightRow = -1;    // for sample D&D
+
+        // Swing scrub drag
+        bool   isSwingDragging  = false;
+        int    swingDragStartX  = 0;
+        float  swingDragStartVal = 0.0f;
+
+        // Pan/vol knob drag (compact custom knobs)
+        enum class KnobDragType { None, Pan, Volume };
+        KnobDragType knobDragType = KnobDragType::None;
+        int   knobDragRow   = -1;
+        int   knobDragStartY = 0;
+        float knobDragStartVal = 0.0f;
 
         NovaStudio::TransportState& transportState;
+
+        // Inline rename
+        std::unique_ptr<juce::TextEditor> inlineEditor;
+        int  inlineRenameRow = -1;   // -1 = pattern name
+        bool inlineIsPattern = false;
+
+        // Accessors to current pattern
+        Pattern& currentPattern() { return patterns.getReference(currentPatternIdx); }
+        const Pattern& currentPattern() const { return patterns.getReference(currentPatternIdx); }
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(StepSequencerView)
     };
@@ -240,8 +359,25 @@ namespace NovaStudioUI
         void resized() override;
 
         // Engine wiring — call after construction
-        void setOnSampleAssigned(std::function<void(int, const juce::String&)> fn) { stepSeq.onSampleAssigned = std::move(fn); }
-        void setOnStepChanged(std::function<void(int, int, bool)> fn)              { stepSeq.onStepChanged    = std::move(fn); }
+        void setOnSampleAssigned(std::function<void(int, const juce::String&)> fn)
+            { stepSeq.onSampleAssigned = std::move(fn); }
+        void setOnStepChanged(std::function<void(int, int, bool)> fn)
+            { stepSeq.onStepChanged = std::move(fn); }
+        void setOnVelocityChanged(std::function<void(int,int,float)> fn)
+            { stepSeq.onVelocityChanged = std::move(fn); }
+        void setOnRowVolumeChanged(std::function<void(int,float)> fn)
+            { stepSeq.onRowVolumeChanged = std::move(fn); }
+        void setOnRowPanChanged(std::function<void(int,float)> fn)
+            { stepSeq.onRowPanChanged = std::move(fn); }
+        void setOnRowMutedChanged(std::function<void(int,bool)> fn)
+            { stepSeq.onRowMutedChanged = std::move(fn); }
+        void setOnStepCountChanged(std::function<void(int)> fn)
+            { stepSeq.onStepCountChanged = std::move(fn); }
+        void setOnSwingChanged(std::function<void(float)> fn)
+            { stepSeq.onSwingChanged = std::move(fn); }
+
+        // Update playback cursor (call from MainComponent timer)
+        void setPlayCursor(int step) { stepSeq.setPlayCursor(step); }
 
     private:
         BeatBrowser       browser;
