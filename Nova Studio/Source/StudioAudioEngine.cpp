@@ -66,8 +66,10 @@ namespace NovaStudio
 
             // Plugin chain (e.g. reverb, delay on the aux return)
             juce::MidiBuffer emptyMidi;
-            for (auto& plugin : pluginChain)
-                if (plugin) plugin->processBlock(*bufferToFill.buffer, emptyMidi);
+            for (int pi = 0; pi < pluginChain.size(); ++pi)
+                if (auto& plugin = pluginChain.getReference(pi))
+                    if (!isPluginBypassed(pi))
+                        plugin->processBlock(*bufferToFill.buffer, emptyMidi);
 
             // Meter: aux return level from the send bus buffer directly
             if (busBuf->getNumChannels() > 0)
@@ -185,9 +187,10 @@ namespace NovaStudio
             bufferToFill.clearActiveBufferRegion();
 
         juce::MidiBuffer emptyMidi;
-        for (auto& plugin : pluginChain)
+        for (int pi = 0; pi < pluginChain.size(); ++pi)
         {
-            if (plugin)
+            auto& plugin = pluginChain.getReference(pi);
+            if (plugin && !isPluginBypassed(pi))
                 plugin->processBlock(*bufferToFill.buffer, emptyMidi);
         }
 
@@ -355,6 +358,7 @@ namespace NovaStudio
         // prepareToPlay will be called again with correct values in audioDeviceAboutToStart
         plugin->prepareToPlay(44100.0, 512);
         pluginChain.add(std::move(plugin));
+        pluginBypassed.add(false);
         return true;
     }
 
@@ -363,7 +367,30 @@ namespace NovaStudio
         if (!isPositiveAndBelow(index, pluginChain.size()))
             return false;
         pluginChain.remove(index);
+        pluginBypassed.remove(index);
         return true;
+    }
+
+    bool StudioAudioEngine::TrackPlayer::movePlugin(int fromIndex, int toIndex)
+    {
+        if (!isPositiveAndBelow(fromIndex, pluginChain.size()) || !isPositiveAndBelow(toIndex, pluginChain.size()))
+            return false;
+        pluginChain.move(fromIndex, toIndex);
+        pluginBypassed.move(fromIndex, toIndex);
+        return true;
+    }
+
+    void StudioAudioEngine::TrackPlayer::setPluginBypassed(int index, bool bypassed)
+    {
+        if (isPositiveAndBelow(index, pluginBypassed.size()))
+            pluginBypassed.getReference(index) = bypassed;
+    }
+
+    bool StudioAudioEngine::TrackPlayer::isPluginBypassed(int index) const
+    {
+        if (isPositiveAndBelow(index, pluginBypassed.size()))
+            return pluginBypassed.getReference(index);
+        return false;
     }
 
     juce::AudioPluginInstance* StudioAudioEngine::TrackPlayer::getPlugin(int index) const
@@ -1161,6 +1188,28 @@ namespace NovaStudio
         return trackPlayers.getReference(trackIndex)->removePlugin(pluginSlot);
     }
 
+    bool StudioAudioEngine::movePluginInTrack(int trackIndex, int fromSlot, int toSlot)
+    {
+        if (trackIndex == kMasterTrackIndex) return false;
+        juce::ScopedLock sl(playerLock);
+        if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return false;
+        return trackPlayers.getReference(trackIndex)->movePlugin(fromSlot, toSlot);
+    }
+
+    void StudioAudioEngine::setPluginBypassed(int trackIndex, int pluginSlot, bool bypassed)
+    {
+        if (trackIndex == kMasterTrackIndex) return;
+        if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return;
+        trackPlayers.getReference(trackIndex)->setPluginBypassed(pluginSlot, bypassed);
+    }
+
+    bool StudioAudioEngine::isPluginBypassed(int trackIndex, int pluginSlot) const
+    {
+        if (trackIndex == kMasterTrackIndex) return false;
+        if (!isPositiveAndBelow(trackIndex, trackPlayers.size())) return false;
+        return trackPlayers.getReference(trackIndex)->isPluginBypassed(pluginSlot);
+    }
+
     // ── Master plugin chain ───────────────────────────────────────────────────
 
     bool StudioAudioEngine::addMasterPlugin(std::unique_ptr<juce::AudioPluginInstance> plugin)
@@ -1410,6 +1459,22 @@ namespace NovaStudio
                             const int sendIndex = lane.parameterId.substring(4).getIntValue() - 1;
                             if (isPositiveAndBelow(sendIndex, TrackPlayer::kMaxSends))
                                 player->sendLevels[sendIndex] = value;
+                        }
+                        else if (lane.parameterId.startsWith("plugin:"))
+                        {
+                            // "plugin:<slot>:<paramIndex>" — value is normalised 0..1
+                            auto tokens = juce::StringArray::fromTokens(lane.parameterId, ":", "");
+                            if (tokens.size() == 3)
+                            {
+                                const int slot = tokens[1].getIntValue();
+                                const int paramIndex = tokens[2].getIntValue();
+                                if (auto* plugin = player->getPlugin(slot))
+                                {
+                                    auto& params = plugin->getParameters();
+                                    if (isPositiveAndBelow(paramIndex, params.size()))
+                                        params[paramIndex]->setValue(juce::jlimit(0.0f, 1.0f, value));
+                                }
+                            }
                         }
                     }
                 }

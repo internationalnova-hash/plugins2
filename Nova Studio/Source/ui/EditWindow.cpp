@@ -120,6 +120,23 @@ void EditWindow::setEngine(NovaStudio::StudioAudioEngine& e)
         arrangementModel.sendChangeMessage();
     };
 
+    productionPanel->onInsertBypassChanged = [this](int slot, bool bypassed)
+    {
+        if (!enginePtr) return;
+        int idx = arrangementModel.getSelectedTrackIndex();
+        if (idx < 0) return;
+        enginePtr->setPluginBypassed(idx, slot, bypassed);
+    };
+
+    productionPanel->onInsertReordered = [this](int fromSlot, int toSlot)
+    {
+        if (!enginePtr) return;
+        int idx = arrangementModel.getSelectedTrackIndex();
+        if (idx < 0) return;
+        if (enginePtr->movePluginInTrack(idx, fromSlot, toSlot))
+            arrangementModel.sendChangeMessage();
+    };
+
     productionPanel->onEQChanged = [this](int band, float freq, float gainDb, float q)
     {
         if (!enginePtr) return;
@@ -181,6 +198,26 @@ void EditWindow::setEngine(NovaStudio::StudioAudioEngine& e)
 
     if (arrangementView)
     {
+        arrangementView->getAutomatablePluginParameters = [this](int trackIndex) -> juce::StringArray
+        {
+            juce::StringArray result;
+            if (!enginePtr) return result;
+            const int kMaxSlots = 10;
+            for (int slot = 0; slot < kMaxSlots; ++slot)
+            {
+                auto* plugin = enginePtr->getTrackPlugin(trackIndex, slot);
+                if (plugin == nullptr) continue;
+                auto& params = plugin->getParameters();
+                for (int p = 0; p < params.size(); ++p)
+                {
+                    if (!params[p]->isAutomatable()) continue;
+                    result.add(juce::String(slot) + ":" + juce::String(p) + ":"
+                               + plugin->getName() + " — " + params[p]->getName(40));
+                }
+            }
+            return result;
+        };
+
         arrangementView->onAutoRouteSelectedTrack = [this]()
         {
             if (!enginePtr) return;
@@ -384,6 +421,7 @@ void EditWindow::changeListenerCallback(juce::ChangeBroadcaster* source)
                 {
                     auto* plugin = enginePtr->getTrackPlugin(idx, s);
                     productionPanel->setInsertSlotName(s, plugin ? plugin->getName() : juce::String());
+                    productionPanel->setInsertSlotBypassed(s, enginePtr->isPluginBypassed(idx, s));
                 }
             }
         }

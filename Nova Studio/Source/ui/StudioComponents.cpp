@@ -1133,6 +1133,7 @@ namespace NovaStudioUI
         if (parameterId == "volume") return 30.0f;   // ±30 dB
         if (parameterId == "pan")    return 1.0f;    // ±1.0
         if (parameterId.startsWith("send")) return 30.0f; // ±30 dB
+        if (parameterId.startsWith("plugin:")) return 0.5f; // normalised 0..1
         return 1.0f;
     }
 
@@ -1140,6 +1141,7 @@ namespace NovaStudioUI
     {
         if (parameterId == "volume") return -15.0f;
         if (parameterId.startsWith("send")) return -50.0f;
+        if (parameterId.startsWith("plugin:")) return 0.5f;
         return 0.0f;
     }
 
@@ -1539,7 +1541,14 @@ namespace NovaStudioUI
 
                     g.setColour(laneColour.withAlpha(0.7f));
                     g.setFont(juce::FontOptions(7.5f));
-                    g.drawText(lane.parameterId, 2, (int)stripTop, 60, (int)laneStripH, juce::Justification::centredLeft);
+                    juce::String laneLabel = lane.parameterId;
+                    if (laneLabel.startsWith("plugin:"))
+                    {
+                        auto tokens = juce::StringArray::fromTokens(laneLabel, ":", "");
+                        if (tokens.size() == 3)
+                            laneLabel = "FX " + tokens[1] + " #" + tokens[2];
+                    }
+                    g.drawText(laneLabel, 2, (int)stripTop, 80, (int)laneStripH, juce::Justification::centredLeft);
 
                     if (lane.points.size() >= 1)
                     {
@@ -2075,21 +2084,54 @@ namespace NovaStudioUI
                     { "send1", "Send 1" }, { "send2", "Send 2" }, { "send3", "Send 3" },
                     { "send4", "Send 4" }, { "send5", "Send 5" }, { "send6", "Send 6" },
                 };
+                const int kNumBuiltins = (int)juce::numElementsInArray(kParams);
+
                 juce::PopupMenu addMenu;
-                for (int p = 0; p < (int)juce::numElementsInArray(kParams); ++p)
+                for (int p = 0; p < kNumBuiltins; ++p)
                     addMenu.addItem(p + 1, kParams[p].second);
+
+                // Plugin-parameter automation: list automatable params from loaded plugins
+                juce::StringArray pluginParams;
+                if (getAutomatablePluginParameters)
+                    pluginParams = getAutomatablePluginParameters(trackIndex);
+
+                if (!pluginParams.isEmpty())
+                {
+                    addMenu.addSeparator();
+                    for (int p = 0; p < pluginParams.size(); ++p)
+                    {
+                        // entry format "slot:paramIndex:displayName"
+                        auto tokens = juce::StringArray::fromTokens(pluginParams[p], ":", "");
+                        const auto display = tokens.size() >= 3 ? tokens[2] : pluginParams[p];
+                        addMenu.addItem(kNumBuiltins + p + 1, display);
+                    }
+                }
 
                 juce::PopupMenu menu;
                 menu.addSubMenu("Add Automation Lane", addMenu);
 
                 const int trackIdx = trackIndex;
-                menu.showMenuAsync(juce::PopupMenu::Options(), [this, trackIdx](int result)
+                menu.showMenuAsync(juce::PopupMenu::Options(), [this, trackIdx, kNumBuiltins, pluginParams](int result)
                 {
-                    if (result < 1 || result > (int)juce::numElementsInArray(kParams)) return;
+                    if (result < 1) return;
                     NovaStudio::AutomationLane lane;
-                    lane.parameterId = kParams[result - 1].first;
                     lane.enabled = true;
-                    lane.points.add({ 0.0, 0.0f });
+
+                    if (result <= kNumBuiltins)
+                    {
+                        lane.parameterId = kParams[result - 1].first;
+                        lane.points.add({ 0.0, 0.0f });
+                    }
+                    else
+                    {
+                        const int idx = result - kNumBuiltins - 1;
+                        if (!isPositiveAndBelow(idx, pluginParams.size())) return;
+                        auto tokens = juce::StringArray::fromTokens(pluginParams[idx], ":", "");
+                        if (tokens.size() < 2) return;
+                        lane.parameterId = "plugin:" + tokens[0] + ":" + tokens[1];
+                        lane.points.add({ 0.0, 0.5f }); // normalised 0..1, default centre
+                    }
+
                     arrangementModel.getSession().getTrack(trackIdx).automationLanes.add(lane);
                     arrangementModel.sendChangeMessage();
                     repaint();
@@ -4515,6 +4557,13 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         }
     }
 
+    void ProductionPanel::setInsertSlotBypassed(int slot, bool bypassed)
+    {
+        if (slot < 0 || slot >= kNumInserts) return;
+        insertSlots[slot].bypassed = bypassed;
+        insertSlots[slot].bypassBtn.setToggleState(bypassed, juce::dontSendNotification);
+    }
+
     void ProductionPanel::paintSectionHeader(juce::Graphics& g, juce::Rectangle<int> r, const juce::String& title)
     {
         g.setColour(juce::Colour::fromRGB(35, 38, 52));
@@ -5073,11 +5122,16 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
                     menu.addItem(1, "Open Editor");
                     menu.addItem(2, "Change Plugin...");
                     menu.addItem(3, "Remove");
+                    menu.addSeparator();
+                    menu.addItem(4, "Move Up",   i > 0);
+                    menu.addItem(5, "Move Down", i < kNumInserts - 1 && insertSlots[i + 1].pluginName.isNotEmpty());
                     menu.showMenuAsync(juce::PopupMenu::Options{}, [this, i](int result)
                     {
                         if (result == 1 && onInsertClicked)       onInsertClicked(i);
                         else if (result == 2 && onInsertChangePlugin) onInsertChangePlugin(i);
                         else if (result == 3 && onInsertRemovePlugin) onInsertRemovePlugin(i);
+                        else if (result == 4 && onInsertReordered) onInsertReordered(i, i - 1);
+                        else if (result == 5 && onInsertReordered) onInsertReordered(i, i + 1);
                     });
                 }
                 else
@@ -5089,6 +5143,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
             if (b == &insertSlots[i].bypassBtn)
             {
                 insertSlots[i].bypassed = insertSlots[i].bypassBtn.getToggleState();
+                if (onInsertBypassChanged) onInsertBypassChanged(i, insertSlots[i].bypassed);
                 repaint();
                 return;
             }

@@ -20,6 +20,9 @@ namespace NovaStudio
         bool loadAudioClip(int trackIndex, const juce::File& audioFile);
         bool loadPluginByDescription(const juce::PluginDescription& desc, int trackIndex = -1);
         bool removePluginFromTrack(int trackIndex, int pluginSlot);
+        bool movePluginInTrack(int trackIndex, int fromSlot, int toSlot);
+        void setPluginBypassed(int trackIndex, int pluginSlot, bool bypassed);
+        bool isPluginBypassed(int trackIndex, int pluginSlot) const;
 
         void addTrack(const juce::String& name, TrackType type = TrackType::Audio);
         void removeTrack(int index);
@@ -241,6 +244,9 @@ namespace NovaStudio
             bool loadClip(const juce::File& file, double sampleRate);
             bool addPlugin(std::unique_ptr<juce::AudioPluginInstance> plugin);
             bool removePlugin(int index);
+            bool movePlugin(int fromIndex, int toIndex);
+            void setPluginBypassed(int index, bool bypassed);
+            bool isPluginBypassed(int index) const;
             juce::AudioPluginInstance* getPlugin(int index) const;
             int getNumPlugins() const { return pluginChain.size(); }
             void getPluginState(int index, juce::MemoryBlock& dest) const;
@@ -254,6 +260,7 @@ namespace NovaStudio
             juce::AudioBuffer<float> scratchBuffer;
             juce::AudioFormatManager formatManager;
             juce::Array<std::unique_ptr<juce::AudioPluginInstance>> pluginChain;
+            juce::Array<bool> pluginBypassed;
             void setSessionTrack(Session* s, int index) { sessionPtr = s; trackIndex = index; }
 
             float volumeDb = 0.0f;

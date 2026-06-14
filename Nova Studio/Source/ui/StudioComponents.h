@@ -245,11 +245,14 @@ namespace NovaStudioUI
 
         // Insert rack API
         void setInsertSlotName(int slot, const juce::String& name);
+        void setInsertSlotBypassed(int slot, bool bypassed);
 
         // Callbacks — wire these up in EditWindow
         std::function<void(int slot)>                                     onInsertClicked;
         std::function<void(int slot)>                                     onInsertChangePlugin;
         std::function<void(int slot)>                                     onInsertRemovePlugin;
+        std::function<void(int slot, bool bypassed)>                      onInsertBypassChanged;
+        std::function<void(int fromSlot, int toSlot)>                     onInsertReordered;
         std::function<void(int band, float freq, float gainDb, float q)>  onEQChanged;
         std::function<void(int send, float level)>                        onSendLevelChanged;
         std::function<void(int send, int busIndex)>                       onSendBusChanged;
@@ -555,6 +558,10 @@ namespace NovaStudioUI
         std::function<void(int64_t, int64_t)> onPunchRangeChanged;
         // Ctrl+L: quick-route the selected track to a new send bus + aux track
         std::function<void()> onAutoRouteSelectedTrack;
+        // Returns { "slot:paramIndex:displayName", ... } for automatable plugin
+        // parameters on the given track — used to populate the "Add Automation
+        // Lane" menu with real plugin parameters (FL-style parameter automation).
+        std::function<juce::StringArray(int trackIndex)> getAutomatablePluginParameters;
 
     private:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ArrangementView)
