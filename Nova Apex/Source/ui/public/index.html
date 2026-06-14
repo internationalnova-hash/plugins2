@@ -41,7 +41,7 @@
       width: 1400px; height: 860px;
       background: var(--bg);
       display: grid;
-      grid-template-rows: 70px 1fr 140px 36px;
+      grid-template-rows: 90px 1fr 136px 36px;
       overflow: hidden;
     }
 
@@ -50,12 +50,67 @@
       background: linear-gradient(180deg, #1a1714 0%, #111009 100%);
       border-bottom: 1px solid var(--edge-hi);
       box-shadow: 0 1px 0 rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow: hidden;
+    }
+    /* Top row: brand + preset bar + readouts */
+    .hdr-top {
       display: grid;
       grid-template-columns: 260px 1fr 340px;
       align-items: center;
       padding: 0 18px;
       gap: 12px;
+      flex: 1;
     }
+    /* Style row */
+    .hdr-style-row {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 0 18px;
+      height: 30px;
+      border-top: 1px solid rgba(200,160,96,0.14);
+      background: linear-gradient(180deg, rgba(10,9,7,0.9) 0%, rgba(8,7,5,0.95) 100%);
+      flex-shrink: 0;
+    }
+    .style-mode-label {
+      font-size: 7px; font-weight: 700; letter-spacing: .18em;
+      color: var(--gold-dim); text-transform: uppercase;
+      margin-right: 12px; white-space: nowrap;
+    }
+    .style-pills { display: flex; gap: 3px; align-items: center; }
+    .style-pill {
+      padding: 0 14px; height: 20px;
+      border: 1px solid rgba(200,160,96,0.14);
+      border-radius: 3px;
+      background: transparent;
+      color: rgba(100,82,54,0.6);
+      font-size: 9px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; cursor: pointer;
+      transition: background 100ms, border-color 100ms, color 100ms;
+      position: relative; white-space: nowrap;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .style-pill:hover { color: var(--gold-dim); border-color: rgba(200,160,96,0.28); }
+    .style-pill.active {
+      color: var(--gold-lt);
+      border-color: rgba(200,160,96,0.55);
+      background: linear-gradient(180deg, rgba(40,30,16,0.9) 0%, rgba(22,16,8,0.95) 100%);
+      box-shadow: 0 0 8px rgba(200,160,96,0.12), var(--inset);
+    }
+    .style-pill.active::after {
+      content: ""; position: absolute; bottom: -1px; left: 8px; right: 8px;
+      height: 1.5px; background: var(--gold);
+      box-shadow: 0 0 4px rgba(200,160,96,0.5);
+      border-radius: 1px;
+    }
+    .style-pill-desc {
+      font-size: 7px; font-weight: 400; color: var(--gold-dim); letter-spacing: .06em;
+      text-transform: none; opacity: 0.75;
+    }
+    .style-pill.active .style-pill-desc { opacity: 1; color: var(--gold-dim); }
 
     /* Brand */
     .brand { display: flex; align-items: center; gap: 10px; }
@@ -184,7 +239,8 @@
         0 6px 18px rgba(0,0,0,0.65),
         0 1px 3px rgba(0,0,0,0.5);
     }
-    .knob.sm { width: 48px; height: 48px; }
+    .knob.sm  { width: 48px; height: 48px; }
+    .knob.lg  { width: 86px; height: 86px; }
     .knob::before {
       content: ""; position: absolute; inset: 0; border-radius: 50%;
       background: radial-gradient(ellipse at 28% 18%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.18) 5%, rgba(255,255,255,0.02) 9%, transparent 14%);
@@ -220,6 +276,10 @@
     .knob.sm .knob-ptr {
       width: 2px; height: 12px;
       transform: translate(-50%, -50%) rotate(var(--turn, -135deg)) translateY(-15px);
+    }
+    .knob.lg .knob-ptr {
+      width: 3px; height: 21px;
+      transform: translate(-50%, -50%) rotate(var(--turn, -135deg)) translateY(-27px);
     }
 
     .k-label { font-size: 9px; letter-spacing: .14em; color: var(--gold); font-weight: 700; text-transform: uppercase; text-align: center; }
@@ -433,18 +493,31 @@
       background: linear-gradient(180deg, #0f0e0c 0%, #0a0908 100%);
       border-top: 1px solid var(--edge-hi);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-      display: grid;
-      grid-template-columns: repeat(9, 1fr);
-      padding: 6px 10px; gap: 4px;
+      display: flex;
+      align-items: stretch;
+      padding: 0 10px;
+      gap: 0;
     }
-
+    .bot-group {
+      display: flex; flex-direction: column;
+      padding: 0 6px;
+      border-right: 1px solid rgba(200,160,96,0.10);
+      flex-shrink: 0;
+    }
+    .bot-group:last-child { border-right: none; flex: 1; }
+    .bot-group-label {
+      font-size: 6px; font-weight: 700; letter-spacing: .22em;
+      color: rgba(100,80,42,0.5); text-transform: uppercase;
+      text-align: center; padding: 4px 0 2px;
+      border-bottom: 1px solid rgba(200,160,96,0.07);
+      margin-bottom: 4px;
+    }
+    .bot-group-cells { display: flex; align-items: center; gap: 4px; flex: 1; padding-bottom: 4px; }
     .bot-cell {
       display: flex; flex-direction: column; align-items: center;
       justify-content: center; gap: 3px; position: relative;
-      border-right: 1px solid rgba(200,160,96,0.07);
-      padding: 0 3px;
+      padding: 0 4px;
     }
-    .bot-cell:last-child { border-right: none; }
     .bot-label { font-size: 7px; letter-spacing: .12em; color: var(--gold-dim); font-weight: 700; text-transform: uppercase; text-align: center; line-height: 1.3; }
     .bot-readout {
       font-size: 9px; font-weight: 700; color: var(--gold-lt);
@@ -501,11 +574,24 @@
       align-items: center;
       padding: 0 16px;
     }
-    .footer-left { display: flex; align-items: center; gap: 8px; }
-    .footer-logo { width: 20px; height: 20px; }
-    .footer-brand { font-size: 10px; font-weight: 700; letter-spacing: .14em; color: var(--gold); text-transform: uppercase; }
-    .footer-status { display: flex; align-items: center; gap: 5px; }
-    .footer-on { font-size: 9px; font-weight: 700; color: var(--green); letter-spacing: .1em; }
+    .footer-left { display: flex; align-items: center; gap: 10px; }
+    .footer-logo { width: 22px; height: 22px; }
+    .nova-guard-block {
+      display: flex; flex-direction: column; gap: 1px;
+    }
+    .footer-brand { font-size: 11px; font-weight: 700; letter-spacing: .16em; color: var(--gold); text-transform: uppercase; line-height: 1; }
+    .footer-status { display: flex; align-items: center; gap: 5px; margin-top: 1px; }
+    .footer-on { font-size: 8px; font-weight: 700; color: var(--green); letter-spacing: .14em; text-transform: uppercase; }
+    .nova-guard-bar {
+      width: 60px; height: 2px; border-radius: 1px;
+      background: rgba(200,160,96,0.12);
+      overflow: hidden; margin-top: 1px;
+    }
+    .nova-guard-bar-fill {
+      height: 100%; width: 0%; border-radius: 1px;
+      background: var(--green);
+      transition: width 300ms ease, background 300ms;
+    }
     .footer-center {
       text-align: center;
       font-size: 8px; letter-spacing: .18em; color: var(--gold-dim);
@@ -531,61 +617,78 @@
   <!-- ═══════════════════════════════ HEADER ═══════════════════════════════ -->
   <header class="hdr">
 
-    <!-- Brand -->
-    <div class="brand">
-      <div class="logo-box">
-        <svg class="logo-svg" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="1" y="1" width="24" height="24" rx="5" stroke="#C8A060" stroke-width="1.4" fill="none"/>
-          <polygon points="8,6 20,13 8,20" fill="#C8A060" opacity="0.9"/>
-        </svg>
-      </div>
-      <div class="brand-text">
-        <div class="brand-line1">
-          <span class="brand-nova">NOVA</span>
-          <span class="brand-apex">APEX</span>
+    <!-- Top row -->
+    <div class="hdr-top">
+
+      <!-- Brand -->
+      <div class="brand">
+        <div class="logo-box">
+          <svg class="logo-svg" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1" y="1" width="24" height="24" rx="5" stroke="#C8A060" stroke-width="1.4" fill="none"/>
+            <polygon points="8,6 20,13 8,20" fill="#C8A060" opacity="0.9"/>
+          </svg>
         </div>
-        <span class="brand-sub">Precision Mastering Limiter</span>
+        <div class="brand-text">
+          <div class="brand-line1">
+            <span class="brand-nova">NOVA</span>
+            <span class="brand-apex">APEX</span>
+          </div>
+          <span class="brand-sub">Precision Mastering Limiter</span>
+        </div>
       </div>
+
+      <!-- Preset toolbar -->
+      <div class="preset-bar">
+        <button class="hdr-btn icon-btn" id="preset-prev" type="button">&#x2039;</button>
+        <button class="hdr-btn icon-btn" id="preset-next" type="button">&#x203A;</button>
+        <div class="preset-drop" id="preset-trigger" role="button" tabindex="0">
+          <span id="preset-name">Modern Master</span>
+          <span>&#9662;</span>
+        </div>
+        <button class="hdr-btn" id="ab-btn" type="button">A / B</button>
+        <button class="hdr-btn" id="atob-btn" type="button">A &#x2192; B</button>
+        <button class="hdr-btn icon-btn" type="button">&#9881;</button>
+      </div>
+
+      <!-- Right readouts + smart match -->
+      <div class="hdr-right">
+        <div class="read-box">
+          <span class="read-label">Target</span>
+          <span class="read-val" id="target-val">-9.0</span>
+          <span class="read-unit">LUFS</span>
+        </div>
+        <div class="read-box">
+          <span class="read-label">TP</span>
+          <span class="read-val" id="tp-hdr-val">-0.3</span>
+          <span class="read-unit">dBTP</span>
+        </div>
+        <div class="tp-status">
+          <div class="dot" id="tp-dot"></div>
+          <span class="tp-label">True Peak</span>
+        </div>
+        <button class="smart-btn" type="button" id="slm-btn">
+          <span class="smart-icon">〜</span>
+          <div class="smart-text">
+            <span class="smart-line1">Smart Loudness</span>
+            <span class="smart-line2">Match</span>
+          </div>
+          <span id="slm-readout" style="font-size:7px;color:var(--gold-dim);letter-spacing:.05em;margin-left:4px;"></span>
+        </button>
+      </div>
+
     </div>
 
-    <!-- Preset toolbar -->
-    <div class="preset-bar">
-      <button class="hdr-btn icon-btn" id="preset-prev" type="button">&#x2039;</button>
-      <button class="hdr-btn icon-btn" id="preset-next" type="button">&#x203A;</button>
-      <div class="preset-drop" id="preset-trigger" role="button" tabindex="0">
-        <span id="preset-name">Modern Master</span>
-        <span>&#9662;</span>
+    <!-- Style row -->
+    <div class="hdr-style-row">
+      <span class="style-mode-label">Mode</span>
+      <div class="style-pills" id="style-pills">
+        <button class="style-pill active" data-style="0" type="button">CLEAN<span class="style-pill-desc">Transparent</span></button>
+        <button class="style-pill" data-style="1" type="button">PUNCH<span class="style-pill-desc">Transient+</span></button>
+        <button class="style-pill" data-style="2" type="button">SMOOTH<span class="style-pill-desc">Soft Release</span></button>
+        <button class="style-pill" data-style="3" type="button">LOUD<span class="style-pill-desc">Aggressive</span></button>
+        <button class="style-pill" data-style="4" type="button">ANALOG<span class="style-pill-desc">Saturation</span></button>
+        <button class="style-pill" data-style="5" type="button">MASTER<span class="style-pill-desc">Conservative</span></button>
       </div>
-      <button class="hdr-btn icon-btn" type="button">&#x203A;</button>
-      <button class="hdr-btn" id="ab-btn" type="button">A / B</button>
-      <button class="hdr-btn" id="atob-btn" type="button">A &#x2192; B</button>
-      <button class="hdr-btn icon-btn" type="button">&#9881;</button>
-    </div>
-
-    <!-- Right readouts + smart match -->
-    <div class="hdr-right">
-      <div class="read-box">
-        <span class="read-label">Target</span>
-        <span class="read-val" id="target-val">-9.0</span>
-        <span class="read-unit">LUFS</span>
-      </div>
-      <div class="read-box">
-        <span class="read-label">TP</span>
-        <span class="read-val" id="tp-hdr-val">-0.3</span>
-        <span class="read-unit">dBTP</span>
-      </div>
-      <div class="tp-status">
-        <div class="dot" id="tp-dot"></div>
-        <span class="tp-label">True Peak</span>
-      </div>
-      <button class="smart-btn" type="button" id="slm-btn">
-        <span class="smart-icon">〜</span>
-        <div class="smart-text">
-          <span class="smart-line1">Smart Loudness</span>
-          <span class="smart-line2">Match</span>
-        </div>
-        <span id="slm-readout" style="font-size:7px;color:var(--gold-dim);letter-spacing:.05em;margin-left:4px;"></span>
-      </button>
     </div>
 
   </header>
@@ -597,7 +700,7 @@
     <div class="col-left">
 
       <!-- INPUT knob -->
-      <div class="knob-cell">
+      <div class="knob-cell" style="margin-top:8px;">
         <span class="section-label">Input</span>
         <div class="knob" data-param="gain" data-min="-24" data-max="24" data-def="0">
           <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#C8A060" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
@@ -608,33 +711,14 @@
       </div>
 
       <!-- DRIVE knob -->
-      <div class="knob-cell">
+      <div class="knob-cell" style="margin-top:16px;">
         <span class="section-label">Drive</span>
         <div class="knob" data-param="drive" data-min="0" data-max="100" data-def="0">
           <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#C8A060" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
           <div class="knob-ptr"></div>
         </div>
         <div class="knob-row-labels"><span>0</span><span>100</span></div>
-        <div class="k-readout" data-readout="drive">15 %</div>
-      </div>
-
-      <!-- STYLE section -->
-      <div class="style-section">
-        <span class="section-label" style="display:block;margin-bottom:6px;">Style</span>
-        <div class="style-nav">
-          <button class="style-nav-btn" id="style-prev" type="button">&#x2039;</button>
-          <span class="style-name-display" id="style-display">CLEAN</span>
-          <button class="style-nav-btn" id="style-next" type="button">&#x203A;</button>
-        </div>
-        <div class="style-list" id="style-list">
-          <div class="style-item active" data-style="0">CLEAN</div>
-          <div class="style-item" data-style="1">PUNCH</div>
-          <div class="style-item" data-style="2">SMOOTH</div>
-          <div class="style-item" data-style="3">LOUD</div>
-          <div class="style-item" data-style="4">ANALOG</div>
-          <div class="style-item" data-style="5">MASTER</div>
-        </div>
-        <button class="style-info-btn" type="button">STYLE INFO</button>
+        <div class="k-readout" data-readout="drive">0 %</div>
       </div>
 
     </div>
@@ -705,14 +789,14 @@
     <!-- ──── RIGHT COLUMN ──── -->
     <div class="col-right">
 
-      <!-- CEILING knob -->
-      <div class="knob-cell">
-        <span class="section-label">Ceiling</span>
-        <div class="knob" data-param="ceiling" data-min="-3" data-max="0" data-def="-0.1">
+      <!-- CEILING knob — hero knob, slightly larger -->
+      <div class="knob-cell" style="margin-top:6px;">
+        <span class="section-label" style="font-size:10px;color:var(--gold);letter-spacing:.2em;">Ceiling</span>
+        <div class="knob lg" data-param="ceiling" data-min="-3" data-max="0" data-def="-0.1">
           <div class="knob-arc"><svg viewBox="0 0 64 64"><circle class="arc-track" cx="32" cy="32" r="26" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="4" stroke-dasharray="220 360" stroke-dashoffset="-70" stroke-linecap="round"/><circle class="arc-fill" cx="32" cy="32" r="26" fill="none" stroke="#C8A060" stroke-width="4" stroke-dasharray="0 360" stroke-dashoffset="-70" stroke-linecap="round"/></svg></div>
           <div class="knob-ptr"></div>
         </div>
-        <div class="k-readout" data-readout="ceiling">-0.3 dBTP</div>
+        <div class="k-readout" data-readout="ceiling" style="font-size:11px;min-width:70px;">-0.1 dBTP</div>
       </div>
 
       <!-- OUTPUT knob -->
@@ -755,99 +839,101 @@
   <!-- ═══════════════════════════════ BOTTOM STRIP ═══════════════════════════════ -->
   <section class="bottom-strip">
 
-    <!-- 1: LOOKAHEAD -->
-    <div class="bot-cell">
-      <span class="bot-label">Lookahead</span>
-      <div class="knob sm" data-param="lookahead" data-min="0" data-max="5" data-def="5">
-        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
-        <div class="knob-ptr"></div>
-      </div>
-      <div class="bot-readout" data-readout="lookahead">2.00 ms</div>
-    </div>
-
-    <!-- 2: ATTACK -->
-    <div class="bot-cell">
-      <span class="bot-label">Attack</span>
-      <div class="knob sm" data-param="attack" data-min="0.1" data-max="100" data-def="1.5">
-        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
-        <div class="knob-ptr"></div>
-      </div>
-      <div class="bot-readout" data-readout="attack">1.50 ms</div>
-    </div>
-
-    <!-- 3: RELEASE -->
-    <div class="bot-cell">
-      <span class="bot-label">Release</span>
-      <div class="knob sm" data-param="release" data-min="10" data-max="5000" data-def="120">
-        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
-        <div class="knob-ptr"></div>
-      </div>
-      <div class="bot-readout" data-readout="release">120 ms</div>
-    </div>
-
-    <!-- 4: TRANSIENT PRESERVE -->
-    <div class="bot-cell">
-      <span class="bot-label">Transient<br>Preserve</span>
-      <button class="bot-power" id="tp-power" type="button" title="Toggle">&#x23FB;</button>
-      <div class="knob sm" data-param="transientPreserve" data-min="0" data-max="100" data-def="0">
-        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
-        <div class="knob-ptr"></div>
-      </div>
-      <div class="bot-readout" data-readout="transientPreserve">65 %</div>
-    </div>
-
-    <!-- 5: LOW END PROTECT -->
-    <div class="bot-cell">
-      <span class="bot-label">Low End<br>Protect</span>
-      <button class="bot-power" id="lep-power" type="button" title="Toggle">&#x23FB;</button>
-      <div class="knob sm" data-param="lowEndProtect" data-min="0" data-max="100" data-def="0">
-        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
-        <div class="knob-ptr"></div>
-      </div>
-      <div class="bot-readout" data-readout="lowEndProtect">35 %</div>
-    </div>
-
-    <!-- 6: CHANNEL LINK -->
-    <div class="bot-cell">
-      <span class="bot-label">Channel<br>Link</span>
-      <span class="bot-link-icon active" id="link-icon">&#x26D3;</span>
-      <div class="knob sm" data-param="link" data-min="0" data-max="100" data-def="100">
-        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
-        <div class="knob-ptr"></div>
-      </div>
-      <div class="bot-readout" data-readout="link">75 %</div>
-    </div>
-
-    <!-- 7: OVERSAMPLING -->
-    <div class="bot-cell">
-      <span class="bot-label">Oversampling</span>
-      <div class="stack-btns" id="oversample-btns">
-        <button class="stack-btn" data-ov="0" type="button">2x</button>
-        <button class="stack-btn active" data-ov="1" type="button">4x</button>
-        <button class="stack-btn" data-ov="2" type="button">8x</button>
-        <button class="stack-btn" data-ov="3" type="button">16x</button>
+    <!-- GROUP: DYNAMICS -->
+    <div class="bot-group">
+      <div class="bot-group-label">Dynamics</div>
+      <div class="bot-group-cells">
+        <div class="bot-cell">
+          <span class="bot-label">Lookahead</span>
+          <div class="knob sm" data-param="lookahead" data-min="0" data-max="5" data-def="5">
+            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+            <div class="knob-ptr"></div>
+          </div>
+          <div class="bot-readout" data-readout="lookahead">5.0 ms</div>
+        </div>
+        <div class="bot-cell">
+          <span class="bot-label">Attack</span>
+          <div class="knob sm" data-param="attack" data-min="0.1" data-max="100" data-def="1.5">
+            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+            <div class="knob-ptr"></div>
+          </div>
+          <div class="bot-readout" data-readout="attack">1.5 ms</div>
+        </div>
+        <div class="bot-cell">
+          <span class="bot-label">Release</span>
+          <div class="knob sm" data-param="release" data-min="10" data-max="1000" data-def="100">
+            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+            <div class="knob-ptr"></div>
+          </div>
+          <div class="bot-readout" data-readout="release">100 ms</div>
+        </div>
       </div>
     </div>
 
-    <!-- 8: DITHER -->
-    <div class="bot-cell">
-      <span class="bot-label">Dither</span>
-      <div class="stack-btns" id="dither-btns">
-        <button class="stack-btn active" data-dith="0" type="button">OFF</button>
-        <button class="stack-btn" data-dith="1" type="button">16 BIT</button>
-        <button class="stack-btn" data-dith="2" type="button">20 BIT</button>
-        <button class="stack-btn" data-dith="3" type="button">24 BIT</button>
+    <!-- GROUP: PRESERVATION -->
+    <div class="bot-group">
+      <div class="bot-group-label">Preservation</div>
+      <div class="bot-group-cells">
+        <div class="bot-cell">
+          <span class="bot-label">Transient<br>Preserve</span>
+          <button class="bot-power" id="tp-power" type="button" title="Toggle">&#x23FB;</button>
+          <div class="knob sm" data-param="transientPreserve" data-min="0" data-max="100" data-def="0">
+            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+            <div class="knob-ptr"></div>
+          </div>
+          <div class="bot-readout" data-readout="transientPreserve">0 %</div>
+        </div>
+        <div class="bot-cell">
+          <span class="bot-label">Low-End<br>Protect</span>
+          <button class="bot-power" id="lep-power" type="button" title="Toggle">&#x23FB;</button>
+          <div class="knob sm" data-param="lowEndProtect" data-min="0" data-max="100" data-def="0">
+            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+            <div class="knob-ptr"></div>
+          </div>
+          <div class="bot-readout" data-readout="lowEndProtect">0 %</div>
+        </div>
       </div>
     </div>
 
-    <!-- 9: OUTPUT DITHER -->
-    <div class="bot-cell">
-      <span class="bot-label">Output<br>Dither</span>
-      <div class="knob sm" data-param="outputDither" data-min="0" data-max="100" data-def="50">
-        <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
-        <div class="knob-ptr"></div>
+    <!-- GROUP: STEREO -->
+    <div class="bot-group">
+      <div class="bot-group-label">Stereo</div>
+      <div class="bot-group-cells">
+        <div class="bot-cell">
+          <span class="bot-label">Channel<br>Link</span>
+          <span class="bot-link-icon active" id="link-icon">&#x26D3;</span>
+          <div class="knob sm" data-param="link" data-min="0" data-max="100" data-def="100">
+            <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#C8A060" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
+            <div class="knob-ptr"></div>
+          </div>
+          <div class="bot-readout" data-readout="link">100 %</div>
+        </div>
       </div>
-      <div class="bot-readout" data-readout="outputDither">50 %</div>
+    </div>
+
+    <!-- GROUP: PROCESSING -->
+    <div class="bot-group" style="flex:1;">
+      <div class="bot-group-label">Processing</div>
+      <div class="bot-group-cells" style="gap:8px;">
+        <div class="bot-cell">
+          <span class="bot-label">Oversample</span>
+          <div class="stack-btns" id="oversample-btns">
+            <button class="stack-btn" data-ov="0" type="button">2x</button>
+            <button class="stack-btn active" data-ov="1" type="button">4x</button>
+            <button class="stack-btn" data-ov="2" type="button">8x</button>
+            <button class="stack-btn" data-ov="3" type="button">16x</button>
+          </div>
+        </div>
+        <div class="bot-cell">
+          <span class="bot-label">Dither</span>
+          <div class="stack-btns" id="dither-btns">
+            <button class="stack-btn active" data-dith="0" type="button">OFF</button>
+            <button class="stack-btn" data-dith="1" type="button">16 BIT</button>
+            <button class="stack-btn" data-dith="2" type="button">20 BIT</button>
+            <button class="stack-btn" data-dith="3" type="button">24 BIT</button>
+          </div>
+        </div>
+      </div>
     </div>
 
   </section>
@@ -855,14 +941,17 @@
   <!-- ═══════════════════════════════ FOOTER ═══════════════════════════════ -->
   <footer class="footer">
     <div class="footer-left">
-      <svg class="footer-logo" viewBox="0 0 20 20" fill="none">
-        <rect x="0.7" y="0.7" width="18.6" height="18.6" rx="4" stroke="#C8A060" stroke-width="1.2" fill="none"/>
-        <polygon points="6,5 16,10 6,15" fill="#C8A060" opacity="0.85"/>
+      <svg class="footer-logo" viewBox="0 0 22 22" fill="none">
+        <rect x="0.8" y="0.8" width="20.4" height="20.4" rx="4" stroke="#C8A060" stroke-width="1.3" fill="none"/>
+        <polygon points="7,5.5 17,11 7,16.5" fill="#C8A060" opacity="0.88"/>
       </svg>
-      <span class="footer-brand">Nova Guard</span>
-      <div class="footer-status">
-        <div class="dot"></div>
-        <span class="footer-on">ON</span>
+      <div class="nova-guard-block">
+        <span class="footer-brand">Nova Guard</span>
+        <div class="footer-status">
+          <div class="dot" id="ng-dot"></div>
+          <span class="footer-on" id="ng-status">ACTIVE</span>
+        </div>
+        <div class="nova-guard-bar"><div class="nova-guard-bar-fill" id="ng-bar"></div></div>
       </div>
     </div>
     <div class="footer-center">
@@ -1016,8 +1105,10 @@ let currentStyle = 0;
 
 function setStyle(idx) {
   currentStyle = Math.max(0, Math.min(5, idx));
-  document.getElementById('style-display').textContent = STYLE_NAMES[currentStyle];
   document.querySelectorAll('.style-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.style) === currentStyle);
+  });
+  document.querySelectorAll('.style-pill').forEach(el => {
     el.classList.toggle('active', parseInt(el.dataset.style) === currentStyle);
   });
   emitJUCE('style', currentStyle, 'valueChanged');
@@ -1026,8 +1117,13 @@ function setStyle(idx) {
 document.querySelectorAll('.style-item').forEach(el => {
   el.addEventListener('click', () => setStyle(parseInt(el.dataset.style)));
 });
-document.getElementById('style-prev').addEventListener('click', () => setStyle(currentStyle - 1));
-document.getElementById('style-next').addEventListener('click', () => setStyle(currentStyle + 1));
+document.querySelectorAll('.style-pill').forEach(el => {
+  el.addEventListener('click', () => setStyle(parseInt(el.dataset.style)));
+});
+const stylePrevEl = document.getElementById('style-prev');
+const styleNextEl = document.getElementById('style-next');
+if (stylePrevEl) stylePrevEl.addEventListener('click', () => setStyle(currentStyle - 1));
+if (styleNextEl) styleNextEl.addEventListener('click', () => setStyle(currentStyle + 1));
 
 // ══════════════════════════ PRESETS ══════════════════════════
 const PRESETS = ['Modern Master','Streaming Master','Broadcast Safe','Club Mix','Film Score','Reference Level','Podcast Ready','Vinyl Prep'];
@@ -1305,43 +1401,88 @@ function drawGR() {
   ctx.fillStyle = '#050403';
   ctx.fillRect(0, 0, w, h);
 
-  // Grid — horizontal dB lines
-  [0, 3, 6, 9, 12, 18].forEach(db => {
+  // dB scale marks (GR goes downward from 0 at top)
+  const grDbLines = [0, 3, 6, 9, 12, 18];
+  grDbLines.forEach(db => {
     const y = (db / 20) * h;
-    ctx.strokeStyle = db === 0 ? 'rgba(200,160,96,0.14)' : 'rgba(200,160,96,0.05)';
-    ctx.lineWidth = db === 0 ? 1.2 : 0.7;
+    ctx.strokeStyle = db === 0 ? 'rgba(200,160,96,0.18)' : 'rgba(200,160,96,0.055)';
+    ctx.lineWidth = db === 0 ? 1.0 : 0.7;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
   });
 
-  // GR filled area
+  // Vertical time ticks
+  ctx.strokeStyle = 'rgba(200,160,96,0.04)';
+  ctx.lineWidth = 0.7;
+  for (let t = 1; t < 8; t++) {
+    const x = (t / 8) * w;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+
+  // Compute peak GR in last ~10% of history for "current" marker
+  let peakGR = 0;
+  for (let i = Math.floor(HIST * 0.92); i < HIST; i++) {
+    const idx = (histHead + i) % HIST;
+    peakGR = Math.max(peakGR, grBuf[idx]);
+  }
+
+  // GR filled area with gradient
   ctx.beginPath();
   ctx.moveTo(0, 0);
   for (let i = 0; i < HIST; i++) {
     const idx = (histHead + i) % HIST;
     const x = (i / (HIST - 1)) * w;
-    const y = Math.min(h * 0.95, (grBuf[idx] / 18) * h);
+    const y = Math.min(h * 0.97, (grBuf[idx] / 18) * h);
     ctx.lineTo(x, y);
   }
   ctx.lineTo(w, 0);
   ctx.closePath();
   const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
-  fillGrad.addColorStop(0,   'rgba(200,160,80,0.48)');
-  fillGrad.addColorStop(0.4, 'rgba(180,140,64,0.22)');
-  fillGrad.addColorStop(1,   'rgba(160,120,48,0.03)');
+  fillGrad.addColorStop(0,   'rgba(200,158,72,0.44)');
+  fillGrad.addColorStop(0.35,'rgba(180,140,60,0.18)');
+  fillGrad.addColorStop(1,   'rgba(140,110,44,0.02)');
   ctx.fillStyle = fillGrad;
   ctx.fill();
 
-  // GR edge line
+  // Recovery shading: lighter color in the "return to 0" slope zones
+  // (draw a slightly brighter line on fast release slopes)
+  ctx.beginPath();
+  for (let i = 1; i < HIST; i++) {
+    const idx  = (histHead + i) % HIST;
+    const idxP = (histHead + i - 1) % HIST;
+    const x  = (i / (HIST - 1)) * w;
+    const xP = ((i - 1) / (HIST - 1)) * w;
+    const y  = Math.min(h * 0.97, (grBuf[idx]  / 18) * h);
+    const yP = Math.min(h * 0.97, (grBuf[idxP] / 18) * h);
+    const recovering = grBuf[idxP] > grBuf[idx] && grBuf[idxP] > 0.02;
+    if (recovering) {
+      ctx.strokeStyle = 'rgba(180,220,120,0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(xP, yP); ctx.lineTo(x, y); ctx.stroke();
+    }
+  }
+
+  // Main GR edge line
   ctx.beginPath();
   for (let i = 0; i < HIST; i++) {
     const idx = (histHead + i) % HIST;
     const x = (i / (HIST - 1)) * w;
-    const y = Math.min(h * 0.95, (grBuf[idx] / 18) * h);
+    const y = Math.min(h * 0.97, (grBuf[idx] / 18) * h);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
-  ctx.strokeStyle = 'rgba(210,170,90,0.85)';
-  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = 'rgba(210,168,82,0.88)';
+  ctx.lineWidth = 1.5;
   ctx.stroke();
+
+  // Current GR marker line (rightmost value)
+  const curIdx = (histHead + HIST - 1) % HIST;
+  const curY = Math.min(h * 0.97, (grBuf[curIdx] / 18) * h);
+  if (grBuf[curIdx] > 0.005) {
+    ctx.strokeStyle = 'rgba(220,180,90,0.5)';
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath(); ctx.moveTo(0, curY); ctx.lineTo(w, curY); ctx.stroke();
+    ctx.setLineDash([]);
+  }
 }
 
 // ══════════════════════════ SIMULATION ══════════════════════════
@@ -1389,14 +1530,21 @@ window.updateApexTelemetry = function(data) {
   // TP dot color
   document.getElementById('tp-dot').classList.toggle('red', tp > -1.0);
 
-  // Nova Guard activity — pulse the footer dot amber→red based on activity
+  // Nova Guard activity
   const ng = data.novaGuard !== undefined ? data.novaGuard : 0;
-  const footerDot = document.querySelector('.footer-status .dot');
-  if (footerDot) {
-    if (ng > 0.6)      footerDot.style.background = '#ff4444';
-    else if (ng > 0.2) footerDot.style.background = '#ffaa00';
-    else               footerDot.style.background = '#44dd88';
+  const ngDot  = document.getElementById('ng-dot');
+  const ngBar  = document.getElementById('ng-bar');
+  const ngStat = document.getElementById('ng-status');
+  if (ngDot) {
+    if (ng > 0.6)      { ngDot.style.background = '#C83030'; ngDot.style.boxShadow = '0 0 6px #C83030'; }
+    else if (ng > 0.2) { ngDot.style.background = '#C89030'; ngDot.style.boxShadow = '0 0 6px #C89030'; }
+    else               { ngDot.style.background = '#44C870'; ngDot.style.boxShadow = '0 0 6px #44C870'; }
   }
+  if (ngBar) {
+    ngBar.style.width = Math.round(ng * 100) + '%';
+    ngBar.style.background = ng > 0.6 ? '#C83030' : ng > 0.2 ? '#C89030' : '#44C870';
+  }
+  if (ngStat) ngStat.textContent = ng > 0.6 ? 'WORKING' : ng > 0.1 ? 'ACTIVE' : 'ACTIVE';
 
   // Smart Loudness Match — show gain offset
   const sm = data.smartMatch !== undefined ? data.smartMatch : 0;
