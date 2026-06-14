@@ -114,6 +114,52 @@ MainComponent::MainComponent()
         updateStatusMessage("Nova Align panel opened.");
     };
 
+    workspaceToolbar.onSave = [this]()
+    {
+        auto chooser = std::make_shared<juce::FileChooser>(
+            "Save Session",
+            juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("NovaStudio"),
+            "*.novastudio");
+        chooser->launchAsync(
+            juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
+            [this, chooser](const juce::FileChooser& fc)
+            {
+                auto f = fc.getResult();
+                if (f == juce::File{}) return;
+                auto target = f.withFileExtension(".novastudio");
+                target.getParentDirectory().createDirectory();
+                if (engine.saveSession(target))
+                    updateStatusMessage("Session saved: " + target.getFileName());
+                else
+                    updateStatusMessage("Save failed.");
+            });
+    };
+
+    workspaceToolbar.onLoad = [this]()
+    {
+        auto chooser = std::make_shared<juce::FileChooser>(
+            "Open Session",
+            juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("NovaStudio"),
+            "*.novastudio");
+        chooser->launchAsync(
+            juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this, chooser](const juce::FileChooser& fc)
+            {
+                auto f = fc.getResult();
+                if (!f.existsAsFile()) return;
+                if (engine.loadSession(f))
+                {
+                    if (mixerWindow) mixerWindow->refresh();
+                    refreshTrackList();
+                    updateStatusMessage("Session loaded: " + f.getFileName());
+                }
+                else
+                {
+                    updateStatusMessage("Load failed.");
+                }
+            });
+    };
+
     alignPanel.onStatusMessage = [this](const juce::String& message)
     {
         updateStatusMessage(message);

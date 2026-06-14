@@ -255,6 +255,8 @@ namespace NovaStudioUI
         std::function<void(int)> onModeSelected; // 0=Edit,1=Mixer,2=Split,3=Beat,4=Rack
         std::function<void(NovaStudio::ArrangementModel::EditMode)> onEditModeSelected;
         std::function<void()> onNovaAlign;
+        std::function<void()> onSave;
+        std::function<void()> onLoad;
 
     private:
         void buttonClicked(juce::Button* b) override;
@@ -269,6 +271,8 @@ namespace NovaStudioUI
         juce::TextButton shuffleBtn {"Shuffle"};
         juce::TextButton spotBtn {"Spot"};
         juce::TextButton novaAlignBtn {"Nova Align"};
+        juce::TextButton saveBtn {"Save"};
+        juce::TextButton loadBtn {"Load"};
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WorkspaceToolbar)
     };
