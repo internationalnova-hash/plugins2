@@ -70,6 +70,7 @@ target_link_libraries(NovaStudio PRIVATE
     ${GTK3_LIBRARIES}
     ${WEBKIT_LIBRARIES}
     CURL::libcurl
+    asound
 )
 
 target_include_directories(NovaStudio PRIVATE ${GTK3_INCLUDE_DIRS})

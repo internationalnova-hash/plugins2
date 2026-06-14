@@ -160,6 +160,8 @@ namespace NovaStudioUI
         }
     }
 
+    void TransportBar::timerCallback() {}
+
     TrackPanel::TrackPanel(NovaStudio::Session& sessionRef)
         : session(sessionRef)
     {

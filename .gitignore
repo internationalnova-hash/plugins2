@@ -1,5 +1,11 @@
 # Build output directories
+build/
+*/build/
 **/build/
+
+# JUCE artefacts
+NovaStudio_artefacts/
+**/NovaStudio_artefacts/
 
 # CMake build metadata
 **/CMakeFiles/
