@@ -321,17 +321,57 @@ namespace NovaStudioUI
 
             // Track name
             g.setColour(juce::Colours::white.withAlpha(0.92f));
-            g.setFont(juce::Font(juce::FontOptions(12.0f).withStyle("Bold")));
-            g.drawText(track.name, 32, y + 8, armX - 36, 18, juce::Justification::left);
+            g.setFont(juce::Font(juce::FontOptions(11.0f).withStyle("Bold")));
+            g.drawText(track.name, 32, y + 4, armX - 36, 16, juce::Justification::left);
 
-            // Track type label
+            // Track type badge
             g.setColour(trackColor.withAlpha(0.7f));
-            g.setFont(juce::Font(juce::FontOptions(9.5f)));
+            g.setFont(juce::Font(juce::FontOptions(8.5f)));
             g.drawText(track.type == NovaStudio::TrackType::Audio ? "AUDIO" : "MIDI",
-                       32, y + 28, armX - 36, 14, juce::Justification::left);
+                       32, y + 20, 32, 11, juce::Justification::left);
 
-            // Buttons
-            const int btnY = y + (kTrackHeight - btnH) / 2;
+            // Volume dB label (small, right of type)
+            {
+                juce::String volStr;
+                if (track.volumeDb <= -60.0f) volStr = "-inf";
+                else volStr = juce::String(track.volumeDb, 1) + "dB";
+                g.setColour(juce::Colours::white.withAlpha(0.45f));
+                g.setFont(juce::Font(juce::FontOptions(8.5f)));
+                g.drawText(volStr, 66, y + 20, armX - 70, 11, juce::Justification::left);
+            }
+
+            // Pan indicator: thin horizontal bar (40px wide)
+            {
+                const int pBarW = 40, pBarH = 4;
+                const int pBarX = 32;
+                const int pBarY = y + 33;
+                g.setColour(juce::Colour::fromRGB(30, 33, 48));
+                g.fillRect(pBarX, pBarY, pBarW, pBarH);
+                // center dot
+                g.setColour(juce::Colour::fromRGB(60, 65, 90));
+                g.fillRect(pBarX + pBarW / 2, pBarY, 1, pBarH);
+                // pan fill
+                const float panN = (track.pan + 1.0f) * 0.5f; // 0..1
+                const int   cX   = pBarX + pBarW / 2;
+                const int   pX   = pBarX + (int)(panN * pBarW);
+                const int   rx   = juce::jmin(cX, pX), rw = std::abs(pX - cX);
+                if (rw > 0)
+                {
+                    g.setColour(trackColor.withAlpha(0.8f));
+                    g.fillRect(rx, pBarY, rw, pBarH);
+                }
+                // Pan label (L/C/R)
+                juce::String panStr;
+                if (track.pan < -0.02f)       panStr = "L" + juce::String((int)(-track.pan * 100));
+                else if (track.pan > 0.02f)   panStr = "R" + juce::String((int)(track.pan * 100));
+                else                           panStr = "C";
+                g.setColour(juce::Colours::white.withAlpha(0.4f));
+                g.setFont(juce::Font(juce::FontOptions(8.0f)));
+                g.drawText(panStr, pBarX + pBarW + 3, pBarY - 1, 24, 11, juce::Justification::left);
+            }
+
+            // Buttons (bottom row)
+            const int btnY = y + kTrackHeight - btnH - 6;
 
             // ARM button
             g.setColour(track.armed ? juce::Colour::fromRGB(220, 50, 50)
