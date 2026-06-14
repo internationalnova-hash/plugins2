@@ -28,10 +28,7 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
     arrangementView = std::make_unique<ArrangementView>(transportState, timelineModel, arrangementModel);
     centerPanel.addAndMakeVisible(*arrangementView);
 
-    // load edit window mockup image if present (kept for reference/backdrop)
-    auto f = juce::File("/workspaces/plugins2/Nova Studio/Source/ui/Assets/edit-window.png");
-    if (f.existsAsFile())
-        editMockup = juce::ImageFileFormat::loadFrom(f);
+    // editMockup intentionally unused — EditWindow renders live components
 }
 
 EditWindow::~EditWindow()

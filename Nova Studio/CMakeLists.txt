@@ -25,16 +25,44 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
-pkg_check_modules(WEBKIT REQUIRED webkit2gtk-4.1)
+# ── Platform-specific dependencies ────────────────────────────────────────────
 
-find_package(CURL REQUIRED)
+if(UNIX AND NOT APPLE)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
+    pkg_check_modules(WEBKIT REQUIRED webkit2gtk-4.1)
+    find_package(CURL REQUIRED)
+    set(PLATFORM_LIBS ${GTK3_LIBRARIES} ${WEBKIT_LIBRARIES} CURL::libcurl asound)
+    set(PLATFORM_INCLUDES ${GTK3_INCLUDE_DIRS} ${WEBKIT_INCLUDE_DIRS})
+    set(PLATFORM_CFLAGS ${GTK3_CFLAGS_OTHER} ${WEBKIT_CFLAGS_OTHER})
+elseif(APPLE)
+    find_library(COREAUDIO_LIB CoreAudio REQUIRED)
+    find_library(AUDIOTOOLBOX_LIB AudioToolbox REQUIRED)
+    find_library(COREMIDI_LIB CoreMIDI REQUIRED)
+    find_library(ACCELERATE_LIB Accelerate REQUIRED)
+    find_library(COCOA_LIB Cocoa REQUIRED)
+    find_library(IOKIT_LIB IOKit REQUIRED)
+    find_library(COREFOUNDATION_LIB CoreFoundation REQUIRED)
+    set(PLATFORM_LIBS
+        ${COREAUDIO_LIB} ${AUDIOTOOLBOX_LIB} ${COREMIDI_LIB}
+        ${ACCELERATE_LIB} ${COCOA_LIB} ${IOKIT_LIB} ${COREFOUNDATION_LIB})
+    set(PLATFORM_INCLUDES "")
+    set(PLATFORM_CFLAGS "")
+elseif(WIN32)
+    set(PLATFORM_LIBS winmm ole32 oleaut32 imm32 comdlg32 shlwapi rpcrt4 wininet)
+    set(PLATFORM_INCLUDES "")
+    set(PLATFORM_CFLAGS "")
+endif()
+
+# ── Main application ──────────────────────────────────────────────────────────
 
 juce_add_gui_app(NovaStudio
-    COMPANY_NAME "International Nova"
-    BUNDLE_ID "com.internationalnova.novastudio"
-    VERSION ${PROJECT_VERSION}
+    COMPANY_NAME        "International Nova"
+    BUNDLE_ID           "com.internationalnova.novastudio"
+    PRODUCT_NAME        "Nova Studio"
+    VERSION             ${PROJECT_VERSION}
+    MICROPHONE_PERMISSION_ENABLED   TRUE
+    MICROPHONE_PERMISSION_TEXT      "Nova Studio needs microphone access to record audio."
 )
 
 target_sources(NovaStudio PRIVATE
@@ -68,23 +96,27 @@ target_link_libraries(NovaStudio PRIVATE
     juce::juce_graphics
     juce::juce_gui_basics
     juce::juce_recommended_config_flags
-    ${GTK3_LIBRARIES}
-    ${WEBKIT_LIBRARIES}
-    CURL::libcurl
-    asound
+    ${PLATFORM_LIBS}
 )
 
-target_include_directories(NovaStudio PRIVATE ${GTK3_INCLUDE_DIRS})
-target_include_directories(NovaStudio PRIVATE ${WEBKIT_INCLUDE_DIRS})
-target_compile_options(NovaStudio PRIVATE ${GTK3_CFLAGS_OTHER} ${WEBKIT_CFLAGS_OTHER})
+if(PLATFORM_INCLUDES)
+    target_include_directories(NovaStudio PRIVATE ${PLATFORM_INCLUDES})
+endif()
+if(PLATFORM_CFLAGS)
+    target_compile_options(NovaStudio PRIVATE ${PLATFORM_CFLAGS})
+endif()
 
 juce_generate_juce_header(NovaStudio)
 
 target_compile_definitions(NovaStudio PRIVATE
     JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_PLUGINHOST_VST3=1
+    JUCE_PLUGINHOST_LV2=1
+    JUCE_PLUGINHOST_AU=$<IF:$<BOOL:${APPLE}>,1,0>
 )
 
-# ─── Validation test executable ───────────────────────────────────────────────
+# ── Validation test executable ────────────────────────────────────────────────
+
 juce_add_console_app(NovaStudioValidation
     COMPANY_NAME "International Nova"
     BUNDLE_ID "com.internationalnova.novastudio.validation"
@@ -114,15 +146,15 @@ target_link_libraries(NovaStudioValidation PRIVATE
     juce::juce_graphics
     juce::juce_gui_basics
     juce::juce_recommended_config_flags
-    ${GTK3_LIBRARIES}
-    ${WEBKIT_LIBRARIES}
-    CURL::libcurl
-    asound
+    ${PLATFORM_LIBS}
 )
 
-target_include_directories(NovaStudioValidation PRIVATE ${GTK3_INCLUDE_DIRS})
-target_include_directories(NovaStudioValidation PRIVATE ${WEBKIT_INCLUDE_DIRS})
-target_compile_options(NovaStudioValidation PRIVATE ${GTK3_CFLAGS_OTHER} ${WEBKIT_CFLAGS_OTHER})
+if(PLATFORM_INCLUDES)
+    target_include_directories(NovaStudioValidation PRIVATE ${PLATFORM_INCLUDES})
+endif()
+if(PLATFORM_CFLAGS)
+    target_compile_options(NovaStudioValidation PRIVATE ${PLATFORM_CFLAGS})
+endif()
 
 juce_generate_juce_header(NovaStudioValidation)
 
@@ -130,4 +162,5 @@ target_compile_definitions(NovaStudioValidation PRIVATE
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_PLUGINHOST_VST3=1
     JUCE_PLUGINHOST_LV2=1
+    JUCE_PLUGINHOST_AU=$<IF:$<BOOL:${APPLE}>,1,0>
 )

@@ -29,7 +29,6 @@ namespace NovaStudioUI
         NovaStudio::ArrangementModel& arrangementModel;
 
         juce::Component leftPanel, centerPanel, bottomPanel, rightPanel, topPanel;
-        juce::Image editMockup;
         std::unique_ptr<TransportBar> transportBar;
         std::unique_ptr<ArrangementView> arrangementView;
         std::unique_ptr<TrackPanel> trackPanel;
