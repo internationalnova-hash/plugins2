@@ -595,8 +595,9 @@ namespace NovaStudio
         recordingWriter.reset();   // flushes the ThreadedWriter FIFO to disk
         if (currentRecordingFile.existsAsFile())
             juce::Logger::writeToLog("File size after flush: " + juce::String(currentRecordingFile.getSize()) + " bytes");
-        recordingSampleCount = 0;
+        // createRecordingClipIfNeeded() reads recordingSampleCount — do NOT zero it before calling
         createRecordingClipIfNeeded();
+        recordingSampleCount = 0;
     }
 
     void StudioAudioEngine::createRecordingClipIfNeeded()
