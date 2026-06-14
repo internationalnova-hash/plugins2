@@ -649,6 +649,29 @@ namespace NovaStudio
             if (!transportState.isRecordArmed())
                 transportState.setRecordArmed(true);
 
+            // Ensure at least one audio track is armed in the session.
+            // The transport arm state and session track arm are independent —
+            // createRecordingClipIfNeeded() needs session.track.armed == true.
+            bool anyArmed = false;
+            for (int i = 0; i < session.getNumTracks(); ++i)
+                if (session.getTrack(i).armed) { anyArmed = true; break; }
+
+            if (!anyArmed)
+            {
+                for (int i = 0; i < session.getNumTracks(); ++i)
+                {
+                    if (session.getTrack(i).type == TrackType::Audio)
+                    {
+                        session.getTrack(i).armed = true;
+                        if (isPositiveAndBelow(i, trackPlayers.size()))
+                            trackPlayers.getReference(i)->armed = true;
+                        juce::Logger::writeToLog("toggleRecord: auto-armed track " + juce::String(i)
+                            + " (" + session.getTrack(i).name + ")");
+                        break;
+                    }
+                }
+            }
+
             // Always record from position 0 when transport is stopped so clips
             // land at the start of the timeline and are immediately visible.
             if (!transportState.isPlaying())
