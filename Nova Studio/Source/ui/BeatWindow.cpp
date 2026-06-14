@@ -1036,7 +1036,29 @@ void StepSequencerView::mouseDown(const juce::MouseEvent& e)
             if (part == 4) // name button
             {
                 if (e.getNumberOfClicks() >= 2)
+                {
                     renameChannel(row);
+                }
+                else
+                {
+                    // Single click: open file browser to load sample
+                    auto chooser = std::make_shared<juce::FileChooser>(
+                        "Load Sample for " + currentPattern().channels[(size_t)row].name,
+                        juce::File::getSpecialLocation(juce::File::userMusicDirectory),
+                        "*.wav;*.aif;*.aiff;*.mp3;*.flac;*.ogg");
+                    chooser->launchAsync(
+                        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                        [this, row, chooser](const juce::FileChooser& fc)
+                        {
+                            auto result = fc.getResult();
+                            if (result.existsAsFile())
+                            {
+                                currentPattern().channels[(size_t)row].name = result.getFileNameWithoutExtension();
+                                if (onSampleAssigned) onSampleAssigned(row, result.getFullPathName());
+                                repaint();
+                            }
+                        });
+                }
                 repaint();
                 return;
             }
@@ -1606,17 +1628,122 @@ void DrumRackPanel::itemDropped(const SourceDetails& details)
 // BeatWindow
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// BeatTransportBar
+// ─────────────────────────────────────────────────────────────────────────────
+
+BeatTransportBar::BeatTransportBar()
+{
+    auto styleBtn = [](juce::TextButton& btn, juce::Colour c)
+    {
+        btn.setColour(juce::TextButton::buttonColourId,   juce::Colour::fromRGB(22, 26, 38));
+        btn.setColour(juce::TextButton::buttonOnColourId,  c);
+        btn.setColour(juce::TextButton::textColourOffId,  juce::Colours::white.withAlpha(0.85f));
+        btn.setColour(juce::TextButton::textColourOnId,   juce::Colours::white);
+    };
+
+    styleBtn(playBtn, juce::Colour::fromRGB(60, 180, 100));
+    styleBtn(stopBtn, juce::Colour::fromRGB(80, 100, 255));
+    styleBtn(recBtn,  juce::Colour::fromRGB(200, 50, 50));
+    styleBtn(rtzBtn,  juce::Colour::fromRGB(60, 70, 100));
+
+    for (auto* b : { &playBtn, &stopBtn, &recBtn, &rtzBtn })
+    {
+        b->addListener(this);
+        addAndMakeVisible(b);
+    }
+
+    timecodeLabel.setText("00:00:00.000", juce::dontSendNotification);
+    timecodeLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    timecodeLabel.setColour(juce::Label::backgroundColourId, juce::Colour::fromRGB(10, 12, 18));
+    timecodeLabel.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain));
+    timecodeLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(timecodeLabel);
+
+    bpmLabel.setText("120.0 BPM", juce::dontSendNotification);
+    bpmLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.75f));
+    bpmLabel.setFont(juce::FontOptions(12.0f));
+    bpmLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(bpmLabel);
+}
+
+BeatTransportBar::~BeatTransportBar()
+{
+    for (auto* b : { &playBtn, &stopBtn, &recBtn, &rtzBtn })
+        b->removeListener(this);
+}
+
+void BeatTransportBar::paint(juce::Graphics& g)
+{
+    g.fillAll(juce::Colour::fromRGB(14, 16, 24));
+    g.setColour(juce::Colour::fromRGBA(255, 255, 255, 18));
+    g.drawRect(getLocalBounds(), 1);
+}
+
+void BeatTransportBar::resized()
+{
+    auto area = getLocalBounds().reduced(4, 3);
+    const int btnW = 32;
+    const int gap  = 3;
+
+    rtzBtn .setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap);
+    playBtn.setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap);
+    stopBtn.setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap);
+    recBtn .setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap + 4);
+
+    timecodeLabel.setBounds(area.removeFromLeft(110)); area.removeFromLeft(8);
+    bpmLabel.setBounds(area.removeFromLeft(90));
+}
+
+void BeatTransportBar::setPlayState(bool playing, bool recording)
+{
+    playBtn.setToggleState(playing,   juce::dontSendNotification);
+    recBtn .setToggleState(recording, juce::dontSendNotification);
+    repaint();
+}
+
+void BeatTransportBar::buttonClicked(juce::Button* b)
+{
+    if (b == &playBtn  && onPlay)          onPlay();
+    if (b == &stopBtn  && onStop)          onStop();
+    if (b == &recBtn   && onRecord)        onRecord();
+    if (b == &rtzBtn   && onReturnToZero)  onReturnToZero();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BeatWindow
+// ─────────────────────────────────────────────────────────────────────────────
+
 BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
     : stepSeq(transport)
 {
-    addAndMakeVisible(browser);
+    addAndMakeVisible(transportBar);
     addAndMakeVisible(playlist);
-    addAndMakeVisible(pianoRoll);
     addAndMakeVisible(stepSeq);
-    addAndMakeVisible(drumRack);
+
+    // Wire internal transport bar callbacks out to owner
+    transportBar.onPlay          = [this]() { if (onPlay)          onPlay(); };
+    transportBar.onStop          = [this]() { if (onStop)          onStop(); };
+    transportBar.onRecord        = [this]() { if (onRecord)        onRecord(); };
+    transportBar.onReturnToZero  = [this]() { if (onReturnToZero)  onReturnToZero(); };
 }
 
 BeatWindow::~BeatWindow() = default;
+
+void BeatWindow::setPlayState(bool playing, bool recording)
+{
+    transportBar.setPlayState(playing, recording);
+}
+
+void BeatWindow::setTimecode(const juce::String& tc)
+{
+    transportBar.setTimecode(tc);
+}
+
+void BeatWindow::setBpm(double bpm)
+{
+    transportBar.setBpm(bpm);
+}
 
 void BeatWindow::paint(juce::Graphics& g)
 {
@@ -1625,22 +1752,15 @@ void BeatWindow::paint(juce::Graphics& g)
 
 void BeatWindow::resized()
 {
-    auto area = getLocalBounds().reduced(4);
+    auto area = getLocalBounds();
 
-    browser .setBounds(area.removeFromLeft(180));
-    area.removeFromLeft(3);
-    drumRack.setBounds(area.removeFromRight(220));
-    area.removeFromRight(3);
+    const int transportH = 40;
+    transportBar.setBounds(area.removeFromTop(transportH));
+    area.removeFromTop(2);
 
-    auto centerTop = area.removeFromTop(area.getHeight() / 4);
-    playlist.setBounds(centerTop);
-    area.removeFromTop(3);
+    const int playlistH = 110;
+    playlist.setBounds(area.removeFromTop(playlistH));
+    area.removeFromTop(2);
 
-    // Step sequencer height: toolbar + 8 rows + optional graph editor
-    const int seqH = StepSequencerView::kToolbarH
-                   + StepSequencerView::kNumRows * StepSequencerView::kRowH
-                   + StepSequencerView::kGraphH + 4;
-    stepSeq.setBounds(area.removeFromBottom(seqH));
-    area.removeFromBottom(3);
-    pianoRoll.setBounds(area);
+    stepSeq.setBounds(area);
 }

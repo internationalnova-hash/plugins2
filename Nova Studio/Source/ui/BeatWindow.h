@@ -348,6 +348,43 @@ namespace NovaStudioUI
     };
 
     // ─────────────────────────────────────────────────────────────────────────
+    // BeatTransportBar — transport controls at top of BeatWindow
+    // ─────────────────────────────────────────────────────────────────────────
+    class BeatTransportBar : public juce::Component,
+                             private juce::Button::Listener
+    {
+    public:
+        BeatTransportBar();
+        ~BeatTransportBar() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+
+        // Update displayed state from outside
+        void setPlayState(bool playing, bool recording);
+        void setTimecode(const juce::String& tc)  { timecodeLabel.setText(tc,  juce::dontSendNotification); }
+        void setBpm(double bpm)                   { bpmLabel.setText(juce::String(bpm, 1) + " BPM", juce::dontSendNotification); }
+
+        // Callbacks wired by BeatWindow owner
+        std::function<void()> onPlay;
+        std::function<void()> onStop;
+        std::function<void()> onRecord;
+        std::function<void()> onReturnToZero;
+
+    private:
+        void buttonClicked(juce::Button* b) override;
+
+        juce::TextButton playBtn  { "▶" };
+        juce::TextButton stopBtn  { "■" };
+        juce::TextButton recBtn   { "●" };
+        juce::TextButton rtzBtn   { "|◀" };
+        juce::Label      timecodeLabel;
+        juce::Label      bpmLabel;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatTransportBar)
+    };
+
+    // ─────────────────────────────────────────────────────────────────────────
     // BeatWindow — top-level
     // ─────────────────────────────────────────────────────────────────────────
     class BeatWindow : public juce::Component
@@ -376,15 +413,24 @@ namespace NovaStudioUI
         void setOnSwingChanged(std::function<void(float)> fn)
             { stepSeq.onSwingChanged = std::move(fn); }
 
+        // Transport callbacks — wire from MainComponent
+        std::function<void()> onPlay;
+        std::function<void()> onStop;
+        std::function<void()> onRecord;
+        std::function<void()> onReturnToZero;
+
+        // Update displayed transport state
+        void setPlayState(bool playing, bool recording);
+        void setTimecode(const juce::String& tc);
+        void setBpm(double bpm);
+
         // Update playback cursor (call from MainComponent timer)
         void setPlayCursor(int step) { stepSeq.setPlayCursor(step); }
 
     private:
-        BeatBrowser       browser;
+        BeatTransportBar  transportBar;
         PatternPlaylist   playlist;
-        PianoRollView     pianoRoll;
         StepSequencerView stepSeq;
-        DrumRackPanel     drumRack;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatWindow)
     };

@@ -83,6 +83,35 @@ MainComponent::MainComponent()
         engine.setStepSeqStep(row, step, active);
     });
 
+    // Beat window transport wiring
+    beatWindow->onPlay = [this]() {
+        engine.play();
+        workspaceToolbar.setPlayState(true, engine.isRecording());
+        if (beatWindow) beatWindow->setPlayState(true, engine.isRecording());
+    };
+    beatWindow->onStop = [this]() {
+        bool wasRecording = engine.isRecording() || engine.getTransportState().isRecording();
+        engine.stop();
+        workspaceToolbar.setPlayState(false, false);
+        if (beatWindow) beatWindow->setPlayState(false, false);
+        if (wasRecording) { refreshTrackList(); arrangementModel.sendChangeMessage(); }
+    };
+    beatWindow->onRecord = [this]() {
+        bool wasRecording = engine.isRecording() || engine.getTransportState().isRecording();
+        engine.toggleRecord();
+        workspaceToolbar.setPlayState(engine.getTransportState().isPlaying(), engine.isRecording());
+        if (beatWindow) beatWindow->setPlayState(engine.getTransportState().isPlaying(), engine.isRecording());
+        if (wasRecording && !engine.isRecording()) { refreshTrackList(); arrangementModel.sendChangeMessage(); }
+    };
+    beatWindow->onReturnToZero = [this]() {
+        bool wasRecording = engine.isRecording() || engine.getTransportState().isRecording();
+        engine.stop();
+        transportState.setPositionSamples(0, true);
+        workspaceToolbar.setPlayState(false, false);
+        if (beatWindow) beatWindow->setPlayState(false, false);
+        if (wasRecording) { refreshTrackList(); arrangementModel.sendChangeMessage(); }
+    };
+
     // Pop-out buttons
     auto configPopBtn = [](juce::TextButton& btn) {
         btn.setTooltip("Pop out as floating window");
@@ -235,8 +264,11 @@ MainComponent::MainComponent()
     workspaceToolbar.onTempoChanged = [this](int bpm) {
         engine.getSession().setTempo(static_cast<double>(bpm));
         transportState.setTempo(static_cast<double>(bpm));
+        if (beatWindow) beatWindow->setBpm(static_cast<double>(bpm));
         updateStatusMessage("Tempo: " + juce::String(bpm) + " BPM");
     };
+    // Sync initial BPM to beat window
+    if (beatWindow) beatWindow->setBpm(engine.getSession().getTempo());
 
     // initial playback indicator and toggle hookup
     workspaceToolbar.setPlaybackState(engine.getSession().isPreviewPlaybackEnabled(), arrangementModel.hasAlignmentPreview());
