@@ -11,6 +11,77 @@
 
 namespace NovaStudioUI
 {
+    // ── BPMLabel ────────────────────────────────────────────────────────────────
+    // A Label that also supports drag-up/down to change BPM and double-click
+    // to type a value. Fires onTempoChanged(int bpm) on any change.
+    class BPMLabel : public juce::Label
+    {
+    public:
+        std::function<void(int)> onTempoChanged;
+
+        BPMLabel()
+        {
+            setEditable(false, true); // double-click opens text editor
+            onTextChange = [this]
+            {
+                int newBpm = getText().retainCharacters("0123456789").getIntValue();
+                newBpm = juce::jlimit(20, 999, newBpm);
+                currentBPM = newBpm;
+                setText(juce::String(newBpm) + " BPM", juce::dontSendNotification);
+                if (onTempoChanged) onTempoChanged(newBpm);
+            };
+        }
+
+        void setBPM(int bpm)
+        {
+            currentBPM = juce::jlimit(20, 999, bpm);
+            setText(juce::String(currentBPM) + " BPM", juce::dontSendNotification);
+        }
+
+        int getBPM() const { return currentBPM; }
+
+        void mouseDown(const juce::MouseEvent& e) override
+        {
+            dragStartY   = e.y;
+            dragStartBPM = currentBPM;
+            isDragging   = false;
+            juce::Label::mouseDown(e);
+        }
+
+        void mouseDrag(const juce::MouseEvent& e) override
+        {
+            int delta = dragStartY - e.y; // drag up = increase
+            if (std::abs(delta) > 3)
+            {
+                isDragging = true;
+                int newBpm = juce::jlimit(20, 999, dragStartBPM + delta / 2);
+                if (newBpm != currentBPM)
+                {
+                    currentBPM = newBpm;
+                    setText(juce::String(currentBPM) + " BPM", juce::dontSendNotification);
+                    if (onTempoChanged) onTempoChanged(currentBPM);
+                }
+            }
+        }
+
+        void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails& wheel) override
+        {
+            int newBpm = juce::jlimit(20, 999, currentBPM + (wheel.deltaY > 0 ? 1 : -1));
+            if (newBpm != currentBPM)
+            {
+                currentBPM = newBpm;
+                setText(juce::String(currentBPM) + " BPM", juce::dontSendNotification);
+                if (onTempoChanged) onTempoChanged(currentBPM);
+            }
+        }
+
+    private:
+        int  currentBPM  = 120;
+        int  dragStartBPM = 120;
+        int  dragStartY   = 0;
+        bool isDragging   = false;
+    };
+
     class TransportBar : public juce::Component,
                          private juce::Button::Listener,
                          private juce::Timer
@@ -35,13 +106,13 @@ namespace NovaStudioUI
         void setLoopState(bool enabled);
         void setMonitorState(bool enabled);
         void setPlaybackState(bool previewEnabled, bool hasPreview);
-        std::function<void(bool)> onTogglePreview; // called when user toggles preview on/off
+        std::function<void(bool)> onTogglePreview;
+        std::function<void(int)>  onTempoChanged;
 
     private:
         void buttonClicked(juce::Button* button) override;
         void timerCallback() override;
 
-        // Buttons with icons drawn manually in paint() — empty text to avoid font issues on Linux
         juce::TextButton rtzButton     {};
         juce::TextButton playButton    {};
         juce::TextButton stopButton    {};
@@ -49,7 +120,7 @@ namespace NovaStudioUI
         juce::TextButton loopButton    {};
         juce::TextButton monitorButton {};
 
-        juce::Label tempoLabel;
+        BPMLabel tempoLabel;
         juce::Label timeLabel;
         juce::Label playbackLabel;
         juce::TextButton playbackToggleButton { "Toggle" };
@@ -725,26 +796,25 @@ namespace NovaStudioUI
         void setTempo(int bpm);
         void setTimecode(const juce::String& tc);
         void setPlaybackState(bool previewEnabled, bool hasPreview);
+        std::function<void(int)> onTempoChanged;
 
     private:
         void buttonClicked(juce::Button* b) override;
 
-        // Mode buttons
         juce::TextButton editBtn {"EDIT"};
         juce::TextButton mixBtn {"MIX"};
         juce::TextButton beatBtn {"BEAT"};
 
-        // Transport buttons (empty text — icons drawn in paint())
-        juce::TextButton rtzBtn     {};  // |◀  return to start
-        juce::TextButton rewindBtn  {};  // ◀   step back
-        juce::TextButton playBtn    {};  // ▶   play
-        juce::TextButton stopBtn    {};  // ■   stop
-        juce::TextButton recordBtn  {};  // ●   record
-        juce::TextButton ffBtn      {};  // ▶   fast-forward / step forward
+        juce::TextButton rtzBtn     {};
+        juce::TextButton rewindBtn  {};
+        juce::TextButton playBtn    {};
+        juce::TextButton stopBtn    {};
+        juce::TextButton recordBtn  {};
+        juce::TextButton ffBtn      {};
         juce::TextButton loopBtn    {};
 
         juce::Label timecodeLabel;
-        juce::Label tempoLabel;
+        BPMLabel    tempoLabel;
 
         juce::TextButton saveBtn {"Save"};
         juce::TextButton loadBtn {"Load"};

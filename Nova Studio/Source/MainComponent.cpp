@@ -58,6 +58,9 @@ MainComponent::MainComponent()
         return engine.getTrackPeakLevel(track, ch);
     });
     editWindow->setEngine(engine);
+    editWindow->onOpenPluginEditor = [this](int trackIndex, int slot) {
+        if (mixerWindow) mixerWindow->openPluginEditor(trackIndex, slot);
+    };
 
     mixerWindow = std::make_unique<NovaStudioUI::MixerWindow>(engine);
     mixerWindow->setArrangementModel(arrangementModel);
@@ -182,6 +185,11 @@ MainComponent::MainComponent()
 
     workspaceToolbar.setTempo(static_cast<int>(engine.getSession().getTempo()));
     workspaceToolbar.setTimecode(transportState.getTimecodeString(transportState.getPositionSamples()));
+    workspaceToolbar.onTempoChanged = [this](int bpm) {
+        engine.getSession().setTempo(static_cast<double>(bpm));
+        transportState.setTempo(static_cast<double>(bpm));
+        updateStatusMessage("Tempo: " + juce::String(bpm) + " BPM");
+    };
 
     // initial playback indicator and toggle hookup
     workspaceToolbar.setPlaybackState(engine.getSession().isPreviewPlaybackEnabled(), arrangementModel.hasAlignmentPreview());

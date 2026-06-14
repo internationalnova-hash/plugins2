@@ -24,8 +24,10 @@ namespace NovaStudioUI
 
         monitorButton.setTooltip("Input Monitor: hear your audio input live through the mix while recording");
 
-        tempoLabel.setText("120 BPM", juce::dontSendNotification);
+        tempoLabel.setBPM(120);
         tempoLabel.setJustificationType(juce::Justification::centred);
+        tempoLabel.setTooltip("Drag up/down to change BPM, or double-click to type");
+        tempoLabel.onTempoChanged = [this](int bpm) { if (onTempoChanged) onTempoChanged(bpm); };
         timeLabel.setText("00:00:00", juce::dontSendNotification);
         timeLabel.setJustificationType(juce::Justification::centred);
 
@@ -153,7 +155,7 @@ namespace NovaStudioUI
 
     void TransportBar::setTempo(int bpm)
     {
-        tempoLabel.setText(juce::String(bpm) + " BPM", juce::dontSendNotification);
+        tempoLabel.setBPM(bpm);
     }
 
     void TransportBar::setTimecode(const juce::String& timecode)
@@ -1379,12 +1381,16 @@ namespace NovaStudioUI
             const bool loopActive = transportState.isLooping();
 
             // Full-height lane overlay (brighter when loop is active)
-            g.setColour(juce::Colour::fromRGB(80, 110, 255).withAlpha(loopActive ? 0.14f : 0.07f));
+            g.setColour(juce::Colour::fromRGBA(80, 120, 255, loopActive ? 60 : 30));
             g.fillRect(lsXf, (float)rulerH, loopW, (float)(H - rulerH));
 
             // Ruler brace fill
-            g.setColour(juce::Colour::fromRGB(80, 110, 255).withAlpha(loopActive ? 0.55f : 0.35f));
+            g.setColour(juce::Colour::fromRGBA(80, 120, 255, 60));
             g.fillRect(lsXf, 2.0f, loopW, (float)rulerH - 2.0f);
+
+            // Ruler brace border
+            g.setColour(juce::Colour::fromRGB(80, 140, 255));
+            g.drawRect(lsXf, 2.0f, loopW, (float)rulerH - 2.0f, 1.0f);
 
             // Left + right edge lines (handle bars)
             g.setColour(juce::Colour::fromRGB(130, 160, 255));
@@ -3256,10 +3262,12 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         timecodeLabel.setJustificationType(juce::Justification::centred);
         timecodeLabel.setText("00:00:00:00", juce::dontSendNotification);
 
-        // Tempo label — amber, smaller
+        // Tempo label — amber, draggable/editable
         tempoLabel.setColour(juce::Label::textColourId, juce::Colour::fromRGB(220, 170, 60));
         tempoLabel.setJustificationType(juce::Justification::centred);
-        tempoLabel.setText("120 BPM", juce::dontSendNotification);
+        tempoLabel.setTooltip("Drag up/down to change BPM, or double-click to type");
+        tempoLabel.setBPM(120);
+        tempoLabel.onTempoChanged = [this](int bpm) { if (onTempoChanged) onTempoChanged(bpm); };
 
         // Right utility buttons
         novaAlignBtn.setColour(juce::TextButton::buttonColourId, juce::Colour::fromRGB(35, 25, 55));
@@ -3464,7 +3472,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
 
     void WorkspaceToolbar::setTempo(int bpm)
     {
-        tempoLabel.setText(juce::String(bpm) + " BPM", juce::dontSendNotification);
+        tempoLabel.setBPM(bpm);
     }
 
     void WorkspaceToolbar::setTimecode(const juce::String& tc)
