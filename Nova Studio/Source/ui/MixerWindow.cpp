@@ -82,10 +82,10 @@ public:
         g.setColour(juce::Colour::fromRGBA(160, 120, 255, 180));
         g.fillRect(troughX - 4.0f, unityY - 0.5f, troughW + 8.0f, 1.5f);
 
-        // ── Fader cap — SSL-style: wide pill, narrower than full strip ───────
-        // Cap dimensions: 72% of component width, 16 px tall
-        const float capW = (float)width * 0.72f;
-        const float capH = 17.0f;
+        // ── Fader cap — SSL-style: slim pill on a thin trough ────────────────
+        // Cap is ~52% of component width, 13 px tall — matches SSL proportions
+        const float capW = (float)width * 0.52f;
+        const float capH = 13.0f;
         const float capX = cx - capW * 0.5f;
         const float capY = sliderPos - capH * 0.5f;
         const float capR = 3.5f;   // corner radius
@@ -107,21 +107,21 @@ public:
         g.setGradientFill(bodyGrad);
         g.fillRoundedRectangle(capX, capY, capW, capH, capR);
 
-        // top-edge bevel highlight (thin bright strip along the top)
+        // top-edge bevel highlight
         juce::ColourGradient topBevel(
             juce::Colours::white.withAlpha(0.60f), capX, capY,
-            juce::Colours::white.withAlpha(0.0f),  capX, capY + 4.5f,
+            juce::Colours::white.withAlpha(0.0f),  capX, capY + 3.5f,
             false);
         g.setGradientFill(topBevel);
-        g.fillRoundedRectangle(capX, capY, capW, 4.5f, capR);
+        g.fillRoundedRectangle(capX, capY, capW, 3.5f, capR);
 
         // bottom-edge shadow
         juce::ColourGradient botBevel(
-            juce::Colours::black.withAlpha(0.0f),  capX, capY + capH - 4.0f,
+            juce::Colours::black.withAlpha(0.0f),  capX, capY + capH - 3.0f,
             juce::Colours::black.withAlpha(0.40f), capX, capY + capH,
             false);
         g.setGradientFill(botBevel);
-        g.fillRoundedRectangle(capX, capY + capH - 4.0f, capW, 4.0f, capR);
+        g.fillRoundedRectangle(capX, capY + capH - 3.0f, capW, 3.0f, capR);
 
         // outline
         g.setColour(juce::Colours::black.withAlpha(0.55f));

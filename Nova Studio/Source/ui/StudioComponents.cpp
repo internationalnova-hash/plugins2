@@ -3106,99 +3106,90 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
         g.fillRect(390, 6, 1, getHeight() - 12);  // after mode tabs
         g.fillRect(760, 6, 1, getHeight() - 12);  // after transport
         g.fillRect(940, 6, 1, getHeight() - 12);  // after timecode
+    }
 
-        // Draw transport icons on top of the (now text-less) buttons
-        auto drawTransportIcon = [&](juce::TextButton& btn,
-                                     std::function<void(juce::Graphics&, juce::Rectangle<float>)> fn)
+    void WorkspaceToolbar::paintOverChildren(juce::Graphics& g)
+    {
+        // Icons drawn here (AFTER children paint) so they appear on top of button backgrounds
+        const juce::Colour iconWhite = juce::Colours::white.withAlpha(0.92f);
+        const juce::Colour iconRed   = juce::Colour::fromRGB(235, 55, 55);
+
+        auto drawIcon = [&](juce::TextButton& btn,
+                            std::function<void(juce::Graphics&, juce::Rectangle<float>)> fn)
         {
             if (btn.isVisible())
                 fn(g, btn.getBounds().toFloat());
         };
 
-        // Helper: white colour for normal icons, dimmed when button is just background
-        const juce::Colour iconWhite = juce::Colours::white.withAlpha(0.88f);
-        const juce::Colour iconRed   = juce::Colour::fromRGB(230, 55, 55);
-
-        // RTZ  |◀◀  (vertical bar + double left-pointing triangle)
-        drawTransportIcon(rtzBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
+        // RTZ  |◀  (bar + single left triangle — matches mock up)
+        drawIcon(rtzBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
             g2.setColour(iconWhite);
-            float cy = r.getCentreY();
-            float h  = r.getHeight() * 0.30f;
-            // vertical bar
-            float barX = r.getX() + r.getWidth() * 0.20f;
+            float cy = r.getCentreY(), h = r.getHeight() * 0.32f;
+            float barX = r.getCentreX() - h * 1.2f;
             g2.fillRect(barX, cy - h, 2.5f, h * 2.0f);
-            // first triangle (pointing left)
-            float t1R = barX + 2.5f + h * 1.1f;
-            juce::Path t1;
-            t1.addTriangle(t1R, cy - h, t1R, cy + h, t1R - h * 1.0f, cy);
-            g2.fillPath(t1);
-            // second triangle
-            float t2R = t1R + h * 1.1f;
-            juce::Path t2;
-            t2.addTriangle(t2R, cy - h, t2R, cy + h, t2R - h * 1.0f, cy);
-            g2.fillPath(t2);
-        });
-
-        // Rewind  ◀◀  (two left-pointing triangles)
-        drawTransportIcon(rewindBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
-            g2.setColour(iconWhite);
-            float cx = r.getCentreX(), cy = r.getCentreY(), h = r.getHeight() * 0.28f;
-            juce::Path t1, t2;
-            t1.addTriangle(cx,       cy - h, cx,       cy + h, cx - h,       cy);
-            t2.addTriangle(cx + h,   cy - h, cx + h,   cy + h, cx,           cy);
-            g2.fillPath(t1);
-            g2.fillPath(t2);
-        });
-
-        // Play  ▶  (solid right-pointing triangle, slightly larger)
-        drawTransportIcon(playBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
-            g2.setColour(iconWhite);
-            float cx = r.getCentreX() - 1.0f, cy = r.getCentreY(), h = r.getHeight() * 0.34f;
             juce::Path tri;
-            tri.addTriangle(cx - h * 0.55f, cy - h, cx - h * 0.55f, cy + h, cx + h, cy);
+            tri.addTriangle(barX + 2.5f + h, cy - h, barX + 2.5f + h, cy + h, barX + 2.5f, cy);
             g2.fillPath(tri);
         });
 
-        // Stop  ■  (solid square — outline + fill so it's clearly visible)
-        drawTransportIcon(stopBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
+        // Rewind  ◀◀
+        drawIcon(rewindBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
             g2.setColour(iconWhite);
-            float s = r.getHeight() * 0.36f;
-            float sx = r.getCentreX() - s * 0.5f, sy = r.getCentreY() - s * 0.5f;
-            // filled square
-            g2.fillRect(sx, sy, s, s);
-        });
-
-        // Record  ●  (solid red circle)
-        drawTransportIcon(recordBtn, [iconRed](juce::Graphics& g2, juce::Rectangle<float> r) {
-            g2.setColour(iconRed);
-            float s = r.getHeight() * 0.33f;
-            g2.fillEllipse(r.getCentreX() - s, r.getCentreY() - s, s * 2.0f, s * 2.0f);
-        });
-
-        // Fast-forward  ▶▶  (two right-pointing triangles)
-        drawTransportIcon(ffBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
-            g2.setColour(iconWhite);
-            float cx = r.getCentreX(), cy = r.getCentreY(), h = r.getHeight() * 0.28f;
+            float cx = r.getCentreX(), cy = r.getCentreY(), h = r.getHeight() * 0.30f;
             juce::Path t1, t2;
-            t1.addTriangle(cx - h, cy - h, cx - h, cy + h, cx,       cy);
-            t2.addTriangle(cx,     cy - h, cx,     cy + h, cx + h,   cy);
+            t1.addTriangle(cx - 1.0f, cy - h, cx - 1.0f, cy + h, cx - 1.0f - h, cy);
+            t2.addTriangle(cx + h - 1.0f, cy - h, cx + h - 1.0f, cy + h, cx - 1.0f, cy);
             g2.fillPath(t1);
             g2.fillPath(t2);
         });
 
-        // Loop  ↻  (arc with arrowhead)
-        drawTransportIcon(loopBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
+        // Play  ▶
+        drawIcon(playBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(iconWhite);
+            float cx = r.getCentreX() - 1.5f, cy = r.getCentreY(), h = r.getHeight() * 0.34f;
+            juce::Path tri;
+            tri.addTriangle(cx - h * 0.5f, cy - h, cx - h * 0.5f, cy + h, cx + h, cy);
+            g2.fillPath(tri);
+        });
+
+        // Stop  ■  — filled white square, clearly visible
+        drawIcon(stopBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(iconWhite);
+            float s = r.getHeight() * 0.38f;
+            g2.fillRect(r.getCentreX() - s * 0.5f, r.getCentreY() - s * 0.5f, s, s);
+        });
+
+        // Record  ●  — solid red circle
+        drawIcon(recordBtn, [iconRed](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(iconRed);
+            float s = r.getHeight() * 0.34f;
+            g2.fillEllipse(r.getCentreX() - s, r.getCentreY() - s, s * 2.0f, s * 2.0f);
+        });
+
+        // Fast-forward  ▶▶
+        drawIcon(ffBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
+            g2.setColour(iconWhite);
+            float cx = r.getCentreX(), cy = r.getCentreY(), h = r.getHeight() * 0.30f;
+            juce::Path t1, t2;
+            t1.addTriangle(cx - h, cy - h, cx - h, cy + h, cx, cy);
+            t2.addTriangle(cx, cy - h, cx, cy + h, cx + h, cy);
+            g2.fillPath(t1);
+            g2.fillPath(t2);
+        });
+
+        // Loop  ↻
+        drawIcon(loopBtn, [iconWhite](juce::Graphics& g2, juce::Rectangle<float> r) {
             g2.setColour(iconWhite);
             float cx = r.getCentreX(), cy = r.getCentreY(), rad = r.getHeight() * 0.28f;
             juce::Path arc;
             arc.addArc(cx - rad, cy - rad, rad * 2.0f, rad * 2.0f,
-                       juce::MathConstants<float>::pi * 0.25f,
-                       juce::MathConstants<float>::pi * 1.85f, true);
+                       juce::MathConstants<float>::pi * 0.3f,
+                       juce::MathConstants<float>::pi * 1.9f, true);
             g2.strokePath(arc, juce::PathStrokeType(1.8f));
-            float endA = juce::MathConstants<float>::pi * 0.25f;
+            float endA = juce::MathConstants<float>::pi * 0.3f;
             float ax = cx + rad * std::cos(endA), ay = cy + rad * std::sin(endA);
             juce::Path head;
-            head.addTriangle(ax - 3.0f, ay - 4.0f, ax + 4.0f, ay, ax - 3.0f, ay + 4.0f);
+            head.addTriangle(ax - 4.0f, ay - 3.0f, ax + 3.0f, ay + 1.0f, ax - 1.0f, ay + 4.0f);
             g2.fillPath(head);
         });
     }
