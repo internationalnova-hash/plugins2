@@ -20,8 +20,25 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
     inspectorPanel = std::make_unique<InspectorPanel>(arrangementModel);
     rightPanel.addAndMakeVisible(*inspectorPanel);
 
+    editModeToolbar = std::make_unique<EditModeToolbar>();
+    centerPanel.addAndMakeVisible(*editModeToolbar);
+
     arrangementView = std::make_unique<ArrangementView>(transportState, timelineModel, arrangementModel);
     centerPanel.addAndMakeVisible(*arrangementView);
+
+    // Wire toolbar callbacks to arrangement view
+    editModeToolbar->onEditModeChanged = [this](EditModeToolbar::EditMode m) {
+        if (arrangementView) arrangementView->setEditMode(m);
+    };
+    editModeToolbar->onSnapResolutionChanged = [this](double beats) {
+        if (arrangementView) arrangementView->setSnapResolution(beats);
+    };
+    editModeToolbar->onSnapEnabled = [this](bool on) {
+        if (arrangementView) arrangementView->setSnapEnabled(on);
+    };
+    editModeToolbar->onZoomChanged = [this](int dir) {
+        if (arrangementView) arrangementView->adjustZoom(dir);
+    };
 }
 
 EditWindow::~EditWindow()
@@ -72,15 +89,20 @@ void EditWindow::resized()
     auto right = r.removeFromRight(240);
     rightPanel.setBounds(right);
 
-    // Center: arrangement view fills remaining space
+    // Center: edit mode toolbar at top, arrangement view fills rest
     centerPanel.setBounds(r);
 
     if (trackPanel)
         trackPanel->setBounds(leftPanel.getLocalBounds());
     if (inspectorPanel)
         inspectorPanel->setBounds(rightPanel.getLocalBounds().reduced(8));
+
+    auto centerArea = centerPanel.getLocalBounds();
+    const int toolbarH = 28;
+    if (editModeToolbar)
+        editModeToolbar->setBounds(centerArea.removeFromTop(toolbarH));
     if (arrangementView)
-        arrangementView->setBounds(centerPanel.getLocalBounds());
+        arrangementView->setBounds(centerArea);
 }
 
 void EditWindow::changeListenerCallback(juce::ChangeBroadcaster* source)

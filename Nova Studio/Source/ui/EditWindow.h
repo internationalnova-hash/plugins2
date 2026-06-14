@@ -34,6 +34,7 @@ namespace NovaStudioUI
 
         juce::Component leftPanel, centerPanel, bottomPanel, rightPanel, topPanel;
         std::unique_ptr<TransportBar> transportBar;
+        std::unique_ptr<EditModeToolbar> editModeToolbar;
         std::unique_ptr<ArrangementView> arrangementView;
         std::unique_ptr<TrackPanel> trackPanel;
         std::unique_ptr<InspectorPanel> inspectorPanel;

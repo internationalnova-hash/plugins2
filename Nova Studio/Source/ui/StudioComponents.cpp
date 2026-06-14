@@ -504,6 +504,134 @@ namespace NovaStudioUI
         }
     }
 
+    // ── EditModeToolbar ──────────────────────────────────────────────────────
+
+    EditModeToolbar::EditModeToolbar()
+    {
+        for (auto* btn : { &slipBtn, &gridBtn, &spotBtn, &snapBtn, &zoomInBtn, &zoomOutBtn })
+        {
+            addAndMakeVisible(btn);
+            btn->addListener(this);
+        }
+
+        resolutionBox.addItem("1 Bar",     1);
+        resolutionBox.addItem("1/2 Note",  2);
+        resolutionBox.addItem("1/4 Note",  3);
+        resolutionBox.addItem("1/8 Note",  4);
+        resolutionBox.addItem("1/16 Note", 5);
+        resolutionBox.addItem("1/32 Note", 6);
+        resolutionBox.addItem("1/64 Note", 7);
+        resolutionBox.addItem("Samples",   8);
+        resolutionBox.setSelectedId(1, juce::dontSendNotification);
+        resolutionBox.addListener(this);
+        addAndMakeVisible(resolutionBox);
+
+        resLabel.setText("Snap:", juce::dontSendNotification);
+        resLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.7f));
+        addAndMakeVisible(resLabel);
+
+        zoomLabel.setText("Zoom:", juce::dontSendNotification);
+        zoomLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.7f));
+        addAndMakeVisible(zoomLabel);
+
+        snapBtn.setToggleable(true);
+        snapBtn.setToggleState(true, juce::dontSendNotification);
+
+        setEditMode(EditMode::Slip);
+    }
+
+    EditModeToolbar::~EditModeToolbar()
+    {
+        for (auto* btn : { &slipBtn, &gridBtn, &spotBtn, &snapBtn, &zoomInBtn, &zoomOutBtn })
+            btn->removeListener(this);
+        resolutionBox.removeListener(this);
+    }
+
+    void EditModeToolbar::paint(juce::Graphics& g)
+    {
+        g.setColour(juce::Colour::fromRGB(16, 18, 26));
+        g.fillAll();
+        g.setColour(juce::Colour::fromRGB(35, 38, 52));
+        g.fillRect(0, getHeight() - 1, getWidth(), 1);
+    }
+
+    void EditModeToolbar::resized()
+    {
+        auto area = getLocalBounds().reduced(4, 2);
+        const int btnW = 46, btnH = area.getHeight(), gap = 3;
+
+        slipBtn.setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap);
+        gridBtn.setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap);
+        spotBtn.setBounds(area.removeFromLeft(btnW)); area.removeFromLeft(gap * 3);
+
+        resLabel.setBounds(area.removeFromLeft(36)); area.removeFromLeft(gap);
+        snapBtn.setBounds(area.removeFromLeft(46)); area.removeFromLeft(gap);
+        resolutionBox.setBounds(area.removeFromLeft(90)); area.removeFromLeft(gap * 3);
+
+        zoomLabel.setBounds(area.removeFromLeft(40)); area.removeFromLeft(gap);
+        zoomInBtn.setBounds(area.removeFromLeft(28)); area.removeFromLeft(gap);
+        zoomOutBtn.setBounds(area.removeFromLeft(28));
+    }
+
+    void EditModeToolbar::setEditMode(EditMode m)
+    {
+        currentMode = m;
+        slipBtn.setToggleState(m == EditMode::Slip, juce::dontSendNotification);
+        gridBtn.setToggleState(m == EditMode::Grid, juce::dontSendNotification);
+        spotBtn.setToggleState(m == EditMode::Spot, juce::dontSendNotification);
+
+        const auto on  = juce::Colour::fromRGB(180, 140, 60);
+        const auto off = juce::Colour::fromRGB(35, 40, 55);
+        auto styleBtn = [&](juce::TextButton* btn, bool active) {
+            btn->setColour(juce::TextButton::buttonColourId,   active ? on : off);
+            btn->setColour(juce::TextButton::buttonOnColourId, on);
+            btn->setColour(juce::TextButton::textColourOffId,  juce::Colours::white);
+        };
+        styleBtn(&slipBtn, m == EditMode::Slip);
+        styleBtn(&gridBtn, m == EditMode::Grid);
+        styleBtn(&spotBtn, m == EditMode::Spot);
+    }
+
+    void EditModeToolbar::buttonClicked(juce::Button* b)
+    {
+        if (b == &slipBtn) { setEditMode(EditMode::Slip); if (onEditModeChanged) onEditModeChanged(EditMode::Slip); }
+        else if (b == &gridBtn) { setEditMode(EditMode::Grid); if (onEditModeChanged) onEditModeChanged(EditMode::Grid); }
+        else if (b == &spotBtn) { setEditMode(EditMode::Spot); if (onEditModeChanged) onEditModeChanged(EditMode::Spot); }
+        else if (b == &snapBtn)
+        {
+            snapEnabled = !snapEnabled;
+            snapBtn.setToggleState(snapEnabled, juce::dontSendNotification);
+            snapBtn.setColour(juce::TextButton::buttonColourId,
+                              snapEnabled ? juce::Colour::fromRGB(60, 160, 90) : juce::Colour::fromRGB(35, 40, 55));
+            if (onSnapEnabled) onSnapEnabled(snapEnabled);
+        }
+        else if (b == &zoomInBtn)  { if (onZoomChanged) onZoomChanged(+1); }
+        else if (b == &zoomOutBtn) { if (onZoomChanged) onZoomChanged(-1); }
+    }
+
+    void EditModeToolbar::comboBoxChanged(juce::ComboBox* c)
+    {
+        if (c == &resolutionBox)
+        {
+            const double beatsPerBar = 4.0;
+            switch (resolutionBox.getSelectedId())
+            {
+                case 1: snapBeats = beatsPerBar;      break; // 1 Bar
+                case 2: snapBeats = 2.0;              break; // 1/2
+                case 3: snapBeats = 1.0;              break; // 1/4
+                case 4: snapBeats = 0.5;              break; // 1/8
+                case 5: snapBeats = 0.25;             break; // 1/16
+                case 6: snapBeats = 0.125;            break; // 1/32
+                case 7: snapBeats = 0.0625;           break; // 1/64
+                case 8: snapBeats = 0.0;              break; // Samples
+                default: snapBeats = 1.0;             break;
+            }
+            if (onSnapResolutionChanged) onSnapResolutionChanged(snapBeats);
+        }
+    }
+
+    // ── ArrangementView ──────────────────────────────────────────────────────
+
     ArrangementView::ArrangementView(NovaStudio::TransportState& transport,
                                      NovaStudio::TimelineModel& timelineModel,
                                      NovaStudio::ArrangementModel& arrangementModel)
@@ -518,6 +646,40 @@ namespace NovaStudioUI
     {
         transportState.removeChangeListener(this);
         arrangementModel.removeChangeListener(this);
+    }
+
+    void ArrangementView::adjustZoom(int direction)
+    {
+        if (direction > 0)
+            zoomFactor = juce::jmin(zoomFactor * 1.5, 32.0);
+        else
+            zoomFactor = juce::jmax(zoomFactor / 1.5, 0.1);
+        timelineModel.setZoomFactor(zoomFactor);
+        repaint();
+    }
+
+    void ArrangementView::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
+    {
+        if (e.mods.isCommandDown())
+        {
+            adjustZoom(wheel.deltaY > 0 ? +1 : -1);
+        }
+        else
+        {
+            juce::Component::mouseWheelMove(e, wheel);
+        }
+    }
+
+    int64_t ArrangementView::snapToGrid(int64_t sample) const
+    {
+        if (!snapEnabled || snapBeats <= 0.0)
+            return sample;
+        const double sr = arrangementModel.getSession().getSampleRate();
+        const double tempo = arrangementModel.getSession().getTempo();
+        if (sr <= 0.0 || tempo <= 0.0) return sample;
+        const double samplesPerBeat = (60.0 / tempo) * sr;
+        const double snapSamples = snapBeats * samplesPerBeat;
+        return static_cast<int64_t>(std::round(static_cast<double>(sample) / snapSamples) * snapSamples);
     }
 
     // In paint, draw waveform using cache where available and simple handles for selected clips
@@ -978,7 +1140,25 @@ namespace NovaStudioUI
         const int64_t deltaSamples = static_cast<int64_t>(seconds * sampleRate);
 
         const auto targets = arrangementModel.getSelectedClips();
-        arrangementModel.moveClipsBySamples(targets, deltaSamples);
+
+        // In Grid mode with snap enabled, snap clip start to grid after move
+        if (editMode == EditModeToolbar::EditMode::Grid && snapEnabled && deltaSamples != 0)
+        {
+            arrangementModel.moveClipsBySamples(targets, deltaSamples);
+            // Snap the selected clip's start to grid
+            auto* clip = arrangementModel.getSelectedClip();
+            if (clip != nullptr)
+            {
+                const int64_t snapped = snapToGrid(clip->startSample);
+                const int64_t snapDelta = snapped - clip->startSample;
+                if (snapDelta != 0)
+                    arrangementModel.moveClipsBySamples(targets, snapDelta);
+            }
+        }
+        else
+        {
+            arrangementModel.moveClipsBySamples(targets, deltaSamples);
+        }
         // update baseline so further dragging accumulates
         dragStartX = event.x;
     }

@@ -122,6 +122,51 @@ namespace NovaStudioUI
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(InspectorPanel)
     };
 
+    // Toolbar that sits directly above the arrangement view — edit modes, grid, zoom
+    class EditModeToolbar : public juce::Component,
+                            private juce::Button::Listener,
+                            private juce::ComboBox::Listener
+    {
+    public:
+        enum class EditMode { Slip, Grid, Spot };
+
+        EditModeToolbar();
+        ~EditModeToolbar() override;
+
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+
+        std::function<void(EditMode)> onEditModeChanged;
+        std::function<void(double)>   onSnapResolutionChanged; // beats per snap
+        std::function<void(bool)>     onSnapEnabled;
+        std::function<void(int)>      onZoomChanged; // +1 zoom in, -1 zoom out
+
+        void setEditMode(EditMode m);
+        EditMode getEditMode() const { return currentMode; }
+        double getSnapBeats() const  { return snapBeats; }
+        bool isSnapOn() const        { return snapEnabled; }
+
+    private:
+        void buttonClicked(juce::Button* b) override;
+        void comboBoxChanged(juce::ComboBox* c) override;
+
+        juce::TextButton slipBtn  {"SLIP"};
+        juce::TextButton gridBtn  {"GRID"};
+        juce::TextButton spotBtn  {"SPOT"};
+        juce::TextButton snapBtn  {"SNAP"};
+        juce::TextButton zoomInBtn  {"+"};
+        juce::TextButton zoomOutBtn {"-"};
+        juce::ComboBox   resolutionBox;
+        juce::Label      resLabel;
+        juce::Label      zoomLabel;
+
+        EditMode currentMode = EditMode::Slip;
+        double   snapBeats   = 1.0;  // 1 bar
+        bool     snapEnabled = true;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EditModeToolbar)
+    };
+
     class ArrangementView : public juce::Component,
                             public juce::DragAndDropTarget,
                             private juce::ChangeListener,
@@ -138,14 +183,22 @@ namespace NovaStudioUI
         void mouseDown(const juce::MouseEvent& event) override;
         void mouseDrag(const juce::MouseEvent& event) override;
         void mouseUp(const juce::MouseEvent& event) override;
+        void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
 
         // DragAndDropTarget
         bool isInterestedInDragSource(const SourceDetails& details) override;
         void itemDropped(const SourceDetails& details) override;
 
+        // Grid/snap/zoom control (called from EditModeToolbar callbacks)
+        void setEditMode(EditModeToolbar::EditMode m) { editMode = m; }
+        void setSnapResolution(double beats)          { snapBeats = beats; }
+        void setSnapEnabled(bool on)                  { snapEnabled = on; }
+        void adjustZoom(int direction);               // +1 = in, -1 = out
+
     private:
         void changeListenerCallback(juce::ChangeBroadcaster* source) override;
         void timerCallback() override;
+        int64_t snapToGrid(int64_t sample) const;
 
         NovaStudio::TransportState& transportState;
         NovaStudio::TimelineModel& timelineModel;
@@ -162,6 +215,10 @@ namespace NovaStudioUI
         bool isMarqueeSelecting = false;
         juce::Point<float> marqueeStart {0.0f, 0.0f};
         juce::Rectangle<float> marqueeRect {0.0f, 0.0f, 0.0f, 0.0f};
+
+        EditModeToolbar::EditMode editMode = EditModeToolbar::EditMode::Slip;
+        double  snapBeats   = 1.0;
+        bool    snapEnabled = true;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ArrangementView)
     };

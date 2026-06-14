@@ -288,7 +288,9 @@ void MainComponent::resized()
     browserPanel.setBounds(leftSidebar);
 
     // Bottom dock: mixer channels + piano roll + step seq — secondary to timeline
-    auto bottomArea = area.removeFromBottom(180);
+    // Keep dock compact (≈25% of window) so the arrangement gets ≈65%
+    const int dockH = juce::jmax(110, getHeight() / 4);
+    auto bottomArea = area.removeFromBottom(dockH);
     bottomDock.setBounds(bottomArea);
 
     // Status label (overlay, bottom right)
