@@ -558,6 +558,10 @@ namespace NovaStudioUI
         void mouseDrag(const juce::MouseEvent& e) override;
         void mouseUp(const juce::MouseEvent& e) override;
 
+        // Embed the real MixerWindow as a child in the mixer section.
+        // Pass nullptr to remove it (before reparenting to floating window etc.)
+        void setLiveMixerContent(juce::Component* c);
+
     private:
         void buttonClicked(juce::Button*) override {}
         void paintMixerStrips(juce::Graphics& g, juce::Rectangle<int> area);
@@ -593,6 +597,9 @@ namespace NovaStudioUI
         float panDragStartPos  = 0.5f;
 
         bool stepStates[6][16] = {};  // step sequencer toggle state
+
+        // Live mixer component (the real MixerWindow) — parented here when non-null
+        juce::Component* liveMixerContent = nullptr;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BottomDockPanel)
     };

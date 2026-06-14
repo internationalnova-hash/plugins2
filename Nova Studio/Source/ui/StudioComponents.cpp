@@ -2397,6 +2397,19 @@ BottomDockPanel::BottomDockPanel()
 
 BottomDockPanel::~BottomDockPanel() = default;
 
+void BottomDockPanel::setLiveMixerContent(juce::Component* c)
+{
+    if (liveMixerContent == c) return;
+    liveMixerContent = c;
+    if (c != nullptr)
+    {
+        addAndMakeVisible(c);   // reparents into this dock panel
+        c->setVisible(true);
+    }
+    resized();
+    repaint();
+}
+
 void BottomDockPanel::resized()
 {
     const int tabH = 28;
@@ -2407,6 +2420,13 @@ void BottomDockPanel::resized()
     channelsTab.setBounds(tabRow.removeFromLeft(tabW));
     effectsTab.setBounds(tabRow.removeFromLeft(tabW));
     metersTab.setBounds(tabRow.removeFromLeft(tabW));
+
+    // Position the live mixer in the left 62% of the content area (mirrors the static layout)
+    if (liveMixerContent != nullptr)
+    {
+        const int splitX = (int)(getWidth() * 0.62f);
+        liveMixerContent->setBounds(0, tabH, splitX, getHeight() - tabH);
+    }
 }
 
 static const juce::Colour kDockPalette[] = {
@@ -2877,9 +2897,16 @@ void BottomDockPanel::paint(juce::Graphics& g)
     g.setColour(juce::Colour::fromRGB(30, 33, 48));
     g.fillRect(stepX, 28, 1, getHeight() - 28);
 
-    // Paint sections
-    paintMixerStrips(g, juce::Rectangle<int>(0, 28, splitX, getHeight() - 28));
-    paintPianoRoll(g,   juce::Rectangle<int>(splitX + 1, 28, pianoW - 1, getHeight() - 28));
+    // Left mixer section: paint static strips only when no live mixer component is embedded
+    if (liveMixerContent == nullptr)
+        paintMixerStrips(g, juce::Rectangle<int>(0, 28, splitX, getHeight() - 28));
+    else
+    {
+        // Live MixerWindow covers this area — just paint a matching dark background behind it
+        g.setColour(juce::Colour::fromRGB(9, 10, 15));
+        g.fillRect(0, 28, splitX, getHeight() - 28);
+    }
+    paintPianoRoll(g,     juce::Rectangle<int>(splitX + 1, 28, pianoW - 1, getHeight() - 28));
     paintStepSequencer(g, juce::Rectangle<int>(stepX + 1, 28, getWidth() - stepX - 1, getHeight() - 28));
 }
 

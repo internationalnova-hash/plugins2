@@ -69,8 +69,9 @@ MainComponent::MainComponent()
 
     mixerWindow = std::make_unique<NovaStudioUI::MixerWindow>(engine);
     mixerWindow->setArrangementModel(arrangementModel);
-    addAndMakeVisible(*mixerWindow);
-    mixerWindow->setVisible(false);
+    // MixerWindow lives inside the bottom dock by default so both Edit and Mixer views
+    // share the exact same component with real session-driven channel strips.
+    // popOutMixer() reparents it to a FloatingPanelWindow when requested.
     beatWindow = std::make_unique<NovaStudioUI::BeatWindow>(transportState);
     addAndMakeVisible(*beatWindow);
     beatWindow->setVisible(false);
@@ -101,6 +102,8 @@ MainComponent::MainComponent()
     addAndMakeVisible(mixerPanel);
     mixerPanel.setVisible(false);
     addAndMakeVisible(bottomDock);
+    // Embed the real MixerWindow into the dock's mixer section immediately
+    bottomDock.setLiveMixerContent(mixerWindow.get());
     addAndMakeVisible(bottomDockToggleBar);
     bottomDockToggleBar.isHorizontal = true;
     bottomDockToggleBar.onClick = [this]() {
@@ -366,14 +369,17 @@ void MainComponent::popOutMixer()
     if (floatingMixer) { floatingMixer->toFront(true); return; }
     if (mixerWindow)
     {
+        // Remove from dock first — addAndMakeVisible on this reparents to MainComponent
+        bottomDock.setLiveMixerContent(nullptr);
+        addAndMakeVisible(*mixerWindow);
         mixerWindow->setVisible(true);
+        mixerWindow->refresh();
         floatingMixer = std::make_unique<FloatingPanelWindow>(
             "Nova Studio — Mixer", mixerWindow.get(),
             [this](FloatingPanelWindow* w) {
                 juce::ignoreUnused(w);
                 redockMixer();
             });
-        // Position to the right of or below the main window by default
         auto mainBounds = getTopLevelComponent()->getBounds();
         floatingMixer->setBounds(mainBounds.getX(), mainBounds.getBottom() + 4,
                                  juce::jmax(900, mainBounds.getWidth()), 900);
@@ -386,8 +392,8 @@ void MainComponent::redockMixer()
     floatingMixer.reset();
     if (mixerWindow)
     {
-        addAndMakeVisible(*mixerWindow);
-        mixerWindow->setVisible(false); // hidden until mode 1 selected
+        // Reparent back into the bottom dock so Edit view shows live mixer
+        bottomDock.setLiveMixerContent(mixerWindow.get());
     }
     resized();
 }
@@ -505,8 +511,9 @@ void MainComponent::resized()
     if (editWindow)
         editWindow->setBounds(area);
 
-    // Mixer mode: full screen minus header
-    if (mixerWindow)
+    // Mixer mode: full screen when floating (popped out).
+    // When docked (in bottomDock) its bounds are managed by BottomDockPanel::resized().
+    if (mixerWindow && floatingMixer == nullptr && mixerWindow->getParentComponent() == this)
         mixerWindow->setBounds(getLocalBounds().withTrimmedTop(56));
 
     // Beat mode: full screen minus header
