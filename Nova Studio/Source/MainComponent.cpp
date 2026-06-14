@@ -49,6 +49,8 @@ MainComponent::MainComponent()
         {
             auto f = engine.getLastRecordingFile();
             updateStatusMessage("Recorded: " + (f.existsAsFile() ? f.getFullPathName() : "unknown path"));
+            refreshTrackList();
+            arrangementModel.sendChangeMessage();
         }
         else
         {
