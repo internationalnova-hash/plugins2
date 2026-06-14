@@ -1061,7 +1061,7 @@ function flushRealtimeStatePush() {
   if (!realtimePushPending) return;
 
   const elapsed = performance.now() - lastRealtimePushMs;
-  const minIntervalMs = (draggingBand >= 0 || knobDragging) ? 8 : 14;
+  const minIntervalMs = (draggingBand >= 0 || knobDragging) ? 0 : 14;
   if (elapsed < minIntervalMs) {
     realtimePushTimer = setTimeout(flushRealtimeStatePush, minIntervalMs - elapsed);
     return;
@@ -1080,9 +1080,8 @@ function flushRealtimeStatePush() {
 
 function queueRealtimeStatePush() {
   if (draggingBand >= 0 || knobDragging) {
-    const nowMs = performance.now();
-    if (nowMs - lastInteractionRealtimePushMs < 24) return;
-    lastInteractionRealtimePushMs = nowMs;
+    // Node drag uses direct nativeSetRealtimeParam per pointer event — no gate needed here.
+    lastInteractionRealtimePushMs = performance.now();
   }
   realtimePushPending = true;
   if (!realtimePushTimer) {
@@ -2654,13 +2653,11 @@ function onGraphMove(e) {
 
     calloutTargetX = x;
     calloutTargetY = y;
-    if (nowMs - lastNodeRealtimePushMs >= 24) {
-      lastNodeRealtimePushMs = nowMs;
-      // Nova Aura pattern: call bridge directly in pointermove, no RAF queue.
-      if (nativeBridgeReady) {
-        try { nativeSetRealtimeParam("frequency", draggingBand, newFreq); } catch (_) {}
-        try { nativeSetRealtimeParam("gainDb", draggingBand, newGain); } catch (_) {}
-      }
+    // Send every pointermove with no throttle — browser already caps pointer events
+    // at display refresh rate, so this gives FabFilter-style instant response.
+    if (nativeBridgeReady) {
+      try { nativeSetRealtimeParam("frequency", draggingBand, newFreq); } catch (_) {}
+      try { nativeSetRealtimeParam("gainDb", draggingBand, newGain); } catch (_) {}
     }
     interactionEnergy = Math.min(1, interactionEnergy + 0.06);
     return;
