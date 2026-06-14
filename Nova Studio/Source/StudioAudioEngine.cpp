@@ -602,7 +602,15 @@ namespace NovaStudio
     void StudioAudioEngine::addTrack(const juce::String& name, TrackType type)
     {
         const int newIndex = session.getNumTracks(); // capture before add
-        session.addTrack(name, type);
+        auto& newTrack = session.addTrack(name, type);
+
+        static const juce::Colour kTrackPalette[] = {
+            juce::Colour::fromRGB(120, 80, 200), juce::Colour::fromRGB(80, 100, 200),
+            juce::Colour::fromRGB(50, 160, 160), juce::Colour::fromRGB(60, 120, 200),
+            juce::Colour::fromRGB(40, 180, 160), juce::Colour::fromRGB(60, 180, 80),
+            juce::Colour::fromRGB(160, 190, 50), juce::Colour::fromRGB(190, 110, 40),
+        };
+        newTrack.colour = kTrackPalette[newIndex % (int)juce::numElementsInArray(kTrackPalette)];
 
         // Add a single new player without destroying running players.
         // Full rebuild (buildTrackPlayers) tears down all sources mid-stream
@@ -672,6 +680,48 @@ namespace NovaStudio
 
         session.getTrack(index).armed = arm;
         trackPlayers.getReference(index)->armed = arm;
+    }
+
+    void StudioAudioEngine::setTrackColour(int index, juce::Colour colour)
+    {
+        if (!isPositiveAndBelow(index, session.getNumTracks()))
+            return;
+        session.getTrack(index).colour = colour;
+    }
+
+    juce::Colour StudioAudioEngine::getTrackColour(int index) const noexcept
+    {
+        if (!isPositiveAndBelow(index, session.getNumTracks()))
+            return juce::Colours::steelblue;
+        return session.getTrack(index).colour;
+    }
+
+    void StudioAudioEngine::setTrackGroup(int index, const juce::String& groupName)
+    {
+        if (!isPositiveAndBelow(index, session.getNumTracks()))
+            return;
+        session.getTrack(index).groupName = groupName;
+    }
+
+    juce::String StudioAudioEngine::getTrackGroup(int index) const noexcept
+    {
+        if (!isPositiveAndBelow(index, session.getNumTracks()))
+            return {};
+        return session.getTrack(index).groupName;
+    }
+
+    void StudioAudioEngine::setTrackLocked(int index, bool locked)
+    {
+        if (!isPositiveAndBelow(index, session.getNumTracks()))
+            return;
+        session.getTrack(index).locked = locked;
+    }
+
+    bool StudioAudioEngine::isTrackLocked(int index) const noexcept
+    {
+        if (!isPositiveAndBelow(index, session.getNumTracks()))
+            return false;
+        return session.getTrack(index).locked;
     }
 
     int StudioAudioEngine::getTrackCount() const noexcept

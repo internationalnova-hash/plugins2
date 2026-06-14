@@ -57,6 +57,9 @@ namespace NovaStudio
         juce::String inputBus;   // e.g. "Bus 1-2", "Input 1" — empty = default
         juce::String outputBus;  // e.g. "Main Out", "Bus 3-4"
         int   auxInputBusIndex = -1;  // for Aux tracks: which send bus to read from
+        juce::Colour colour = juce::Colours::steelblue;
+        juce::String groupName;  // empty = ungrouped; tracks sharing a name form a group
+        bool  locked = false;    // locked tracks cannot be edited (clips, volume, etc.)
         juce::Array<Clip> clips;
 
         Track() = default;
@@ -111,6 +114,8 @@ namespace NovaStudio
         const juce::String& getName() const noexcept;
 
         void addMarker(const Marker& marker);
+        void removeMarker(int index);
+        void renameMarker(int index, const juce::String& newName);
         void addTempoPoint(const TempoPoint& tempoPoint);
 
         int getNumMarkers() const noexcept;

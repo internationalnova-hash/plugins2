@@ -89,6 +89,9 @@ Clip ClipFromVar(const juce::var& var)
         object->setProperty("muted", boolToVar(muted));
         object->setProperty("solo", boolToVar(solo));
         object->setProperty("armed", boolToVar(armed));
+        object->setProperty("colour", colour.toString());
+        object->setProperty("groupName", groupName);
+        object->setProperty("locked", boolToVar(locked));
 
         juce::Array<juce::var> clipsVar;
         for (const auto& clip : clips)
@@ -110,6 +113,10 @@ Clip ClipFromVar(const juce::var& var)
             track.muted = varToBool(object->getProperty("muted"));
             track.solo = varToBool(object->getProperty("solo"));
             track.armed = varToBool(object->getProperty("armed"));
+            if (object->hasProperty("colour"))
+                track.colour = juce::Colour::fromString(object->getProperty("colour").toString());
+            track.groupName = object->getProperty("groupName").toString();
+            track.locked = varToBool(object->getProperty("locked"));
 
             auto clipsVar = object->getProperty("clips");
             if (clipsVar.isArray())
@@ -240,6 +247,18 @@ Clip ClipFromVar(const juce::var& var)
     void Session::addMarker(const Marker& marker)
     {
         markers.add(marker);
+    }
+
+    void Session::removeMarker(int index)
+    {
+        if (isPositiveAndBelow(index, markers.size()))
+            markers.remove(index);
+    }
+
+    void Session::renameMarker(int index, const juce::String& newName)
+    {
+        if (isPositiveAndBelow(index, markers.size()))
+            markers.getReference(index).name = newName;
     }
 
     void Session::addTempoPoint(const TempoPoint& tempoPoint)

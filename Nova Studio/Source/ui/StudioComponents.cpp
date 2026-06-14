@@ -1032,6 +1032,12 @@ namespace NovaStudioUI
             if (kc == juce::KeyPress::rightKey) { nudgeSelected(+1); return true; }
             if (kc == juce::KeyPress::leftKey)  { nudgeSelected(-1); return true; }
         }
+        // Ctrl+L → quick-route selected track to a new send bus (auto-routing)
+        if (kc == 'l' && key.getModifiers().isCommandDown())
+        {
+            if (onAutoRouteSelectedTrack) onAutoRouteSelectedTrack();
+            return true;
+        }
         // Escape → clear selection range
         if (kc == juce::KeyPress::escapeKey)
         {
@@ -1164,24 +1170,32 @@ namespace NovaStudioUI
             }
         }
 
-        // Section markers (drawn over ruler — decorative)
-        if (arrangementModel.getSession().getNumTracks() > 0)
+        // Session markers — named timeline positions (drawn over ruler)
         {
-            struct Section { const char* name; float beatPos; juce::Colour color; };
-            static const Section sections[] = {
-                {"INTRO",    0.0f,  juce::Colour::fromRGB(100, 100, 140)},
-                {"VERSE 1",  8.0f,  juce::Colour::fromRGB(80, 120, 160)},
-                {"HOOK",     24.0f, juce::Colour::fromRGB(140, 80, 160)},
-                {"VERSE 2",  40.0f, juce::Colour::fromRGB(80, 120, 160)},
-                {"OUTRO",    56.0f, juce::Colour::fromRGB(100, 100, 140)},
-            };
-            for (auto& sec : sections)
+            const auto& sess = arrangementModel.getSession();
+            const double sr = sess.getSampleRate();
+            for (int m = 0; m < sess.getNumMarkers(); ++m)
             {
-                const double secX = sec.beatPos * pixelsPerBeat;
-                if (secX < 0 || secX > W) continue;
-                g.setColour(sec.color.withAlpha(0.6f));
+                const auto& marker = sess.getMarker(m);
+                const auto markerSample = static_cast<int64_t>(marker.timeSeconds * sr);
+                const double markerX = timelineModel.getXForSamplePosition(markerSample, W);
+                if (markerX < -40.0 || markerX > (double)W) continue;
+
+                const auto markerColour = juce::Colour::fromRGB(230, 180, 60);
+                g.setColour(markerColour);
+                g.drawLine((float)markerX, 0.0f, (float)markerX, (float)rulerH, 1.5f);
+
+                // Flag/triangle pointing right at the top
+                juce::Path flag;
+                flag.startNewSubPath((float)markerX, 0.0f);
+                flag.lineTo((float)markerX + 8.0f, 4.0f);
+                flag.lineTo((float)markerX, 8.0f);
+                flag.closeSubPath();
+                g.fillPath(flag);
+
+                g.setColour(markerColour.withAlpha(0.9f));
                 g.setFont(juce::Font(juce::FontOptions(9.0f).withStyle("Bold")));
-                g.drawText(sec.name, (int)secX + 4, 2, 80, 12, juce::Justification::left);
+                g.drawText(marker.name, (int)markerX + 10, 1, 100, 12, juce::Justification::left);
             }
         }
 
@@ -1685,6 +1699,94 @@ namespace NovaStudioUI
         {
             const bool snapNow = (snapEnabled && editMode == EditModeToolbar::EditMode::Grid);
             const auto& session = arrangementModel.getSession();
+
+            // Right-click in ruler → marker context menu (add / rename / delete)
+            if (event.mods.isPopupMenu())
+            {
+                const double sr = session.getSampleRate();
+                int hitMarkerIndex = -1;
+                for (int m = 0; m < session.getNumMarkers(); ++m)
+                {
+                    const auto markerSample = static_cast<int64_t>(session.getMarker(m).timeSeconds * sr);
+                    const double markerX = timelineModel.getXForSamplePosition(markerSample, width);
+                    if (std::abs(clickPoint.x - markerX) < 8.0)
+                    {
+                        hitMarkerIndex = m;
+                        break;
+                    }
+                }
+
+                const int64_t clickSample = juce::jmax<int64_t>(0, xToSample(clickPoint.x, timelineModel, snapNow, snapBeats, session));
+                const double clickSeconds = sr > 0.0 ? (double)clickSample / sr : 0.0;
+
+                juce::PopupMenu menu;
+                if (hitMarkerIndex >= 0)
+                {
+                    menu.addItem(1, "Rename Marker...");
+                    menu.addItem(2, "Delete Marker");
+                }
+                else
+                {
+                    menu.addItem(1, "Add Marker Here");
+                }
+
+                menu.showMenuAsync(juce::PopupMenu::Options(), [this, hitMarkerIndex, clickSeconds](int result)
+                {
+                    auto& sess = arrangementModel.getSession();
+                    if (hitMarkerIndex < 0)
+                    {
+                        if (result == 1)
+                        {
+                            auto* aw = new juce::AlertWindow("Add Marker", "Marker name:", juce::MessageBoxIconType::NoIcon);
+                            aw->addTextEditor("name", "Marker " + juce::String(sess.getNumMarkers() + 1));
+                            aw->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+                            aw->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+                            aw->enterModalState(true, juce::ModalCallbackFunction::create([this, aw, clickSeconds](int r)
+                            {
+                                if (r == 1)
+                                {
+                                    NovaStudio::Marker marker;
+                                    marker.name = aw->getTextEditorContents("name");
+                                    marker.timeSeconds = clickSeconds;
+                                    arrangementModel.getSession().addMarker(marker);
+                                    arrangementModel.sendChangeMessage();
+                                    repaint();
+                                }
+                                delete aw;
+                            }), false);
+                        }
+                    }
+                    else
+                    {
+                        if (result == 1)
+                        {
+                            auto& m2 = sess.getMarker(hitMarkerIndex);
+                            auto* aw = new juce::AlertWindow("Rename Marker", "Marker name:", juce::MessageBoxIconType::NoIcon);
+                            aw->addTextEditor("name", m2.name);
+                            aw->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+                            aw->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+                            const int idx = hitMarkerIndex;
+                            aw->enterModalState(true, juce::ModalCallbackFunction::create([this, aw, idx](int r)
+                            {
+                                if (r == 1)
+                                {
+                                    arrangementModel.getSession().renameMarker(idx, aw->getTextEditorContents("name"));
+                                    arrangementModel.sendChangeMessage();
+                                    repaint();
+                                }
+                                delete aw;
+                            }), false);
+                        }
+                        else if (result == 2)
+                        {
+                            arrangementModel.getSession().removeMarker(hitMarkerIndex);
+                            arrangementModel.sendChangeMessage();
+                            repaint();
+                        }
+                    }
+                });
+                return;
+            }
 
             // Check loop brace handles first (only when loop is active)
             if (transportState.isLooping() && transportState.hasLoopRange())

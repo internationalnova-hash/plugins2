@@ -540,6 +540,8 @@ namespace NovaStudioUI
         std::function<int(const juce::String&, bool)> onCreateAudioTrack;
         // Called when Cmd+drag in ruler sets a punch range (in, out samples)
         std::function<void(int64_t, int64_t)> onPunchRangeChanged;
+        // Ctrl+L: quick-route the selected track to a new send bus + aux track
+        std::function<void()> onAutoRouteSelectedTrack;
 
     private:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ArrangementView)

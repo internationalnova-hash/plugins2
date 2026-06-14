@@ -34,6 +34,18 @@ namespace NovaStudioUI
         void setMaster(bool master)      { isMaster = master; repaint(); }
         void setAux(bool aux)            { isAux = aux; repaint(); }
         void setTrackColour(juce::Colour c) { trackColour = c; repaint(); }
+        void setGroupName(const juce::String& g) { groupName = g; repaint(); }
+        void setLocked(bool shouldBeLocked)
+        {
+            locked = shouldBeLocked;
+            fader.setEnabled(!locked);
+            panKnob.setEnabled(!locked);
+            for (auto* btn : { &muteBtn, &soloBtn, &armBtn })
+                btn->setEnabled(!locked);
+            for (auto& k : sendKnobs) k.setEnabled(!locked);
+            repaint();
+        }
+        bool isLocked() const noexcept { return locked; }
 
         void updateFromTrack(const NovaStudio::Track& track);
         void updateAsMaster();
@@ -75,6 +87,9 @@ namespace NovaStudioUI
         std::function<void(int send, float)>   onSendChanged;
         std::function<void(const juce::String&)> onInputChanged;
         std::function<void(const juce::String&)> onOutputChanged;
+        std::function<void(juce::Colour)>        onColourChanged;
+        std::function<void(const juce::String&)> onGroupChanged;
+        std::function<void(bool)>                onLockToggled;
         // Supply available routing names for the I/O popup menus
         std::function<juce::StringArray()>     getAvailableInputs;
         std::function<juce::StringArray()>     getAvailableOutputs;
@@ -103,6 +118,8 @@ namespace NovaStudioUI
         float        meterLeft   = 0.0f;
         float        meterRight  = 0.0f;
         juce::Colour trackColour { 100, 80, 200 };
+        juce::String groupName;
+        bool         locked = false;
 
         juce::Label      nameLabel;
         juce::TextButton muteBtn  { "M" };

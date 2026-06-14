@@ -178,6 +178,48 @@ void EditWindow::setEngine(NovaStudio::StudioAudioEngine& e)
         const int idx = arrangementModel.getSelectedTrackIndex();
         if (idx >= 0) enginePtr->setTrackVolume(idx, db);
     };
+
+    if (arrangementView)
+    {
+        arrangementView->onAutoRouteSelectedTrack = [this]()
+        {
+            if (!enginePtr) return;
+            const int idx = arrangementModel.getSelectedTrackIndex();
+            if (idx < 0) return;
+
+            const auto& sess = enginePtr->getSession();
+            if (idx >= sess.getNumTracks()) return;
+
+            // Find the first send bus not already used by an Aux track
+            int freeBus = -1;
+            for (int b = 0; b < NovaStudio::StudioAudioEngine::kNumSendBuses; ++b)
+            {
+                bool used = false;
+                for (int t = 0; t < sess.getNumTracks(); ++t)
+                {
+                    const auto& tr = sess.getTrack(t);
+                    if (tr.type == NovaStudio::TrackType::Aux && tr.auxInputBusIndex == b)
+                    { used = true; break; }
+                }
+                if (!used) { freeBus = b; break; }
+            }
+            if (freeBus < 0) return; // all buses in use
+
+            // Find a free send slot on the selected track
+            const auto& track = sess.getTrack(idx);
+            int freeSlot = -1;
+            for (int s = 0; s < 6; ++s)
+            {
+                if (track.sendBusIndex[s] < 0) { freeSlot = s; break; }
+            }
+            if (freeSlot < 0) return; // no free send slots
+
+            enginePtr->addAuxTrack(track.name + " Bus", freeBus);
+            enginePtr->setTrackSendBus(idx, freeSlot, freeBus);
+            enginePtr->setTrackSendLevel(idx, freeSlot, 0.0f);
+            arrangementModel.sendChangeMessage();
+        };
+    }
 }
 
 void EditWindow::setLevelCallback(std::function<float(int,int)> fn)

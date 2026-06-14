@@ -30,6 +30,14 @@ namespace NovaStudio
         void setTrackSolo(int index, bool solo);
         void setTrackArm(int index, bool arm);
 
+        // Track organization: colour-coding, named groups (FL-style), and locking
+        void setTrackColour(int index, juce::Colour colour);
+        juce::Colour getTrackColour(int index) const noexcept;
+        void setTrackGroup(int index, const juce::String& groupName);
+        juce::String getTrackGroup(int index) const noexcept;
+        void setTrackLocked(int index, bool locked);
+        bool isTrackLocked(int index) const noexcept;
+
         int getTrackCount() const noexcept;
         const Session& getSession() const noexcept;
         Session& getSession() noexcept;

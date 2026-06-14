@@ -280,6 +280,9 @@ ChannelStrip::~ChannelStrip()
 void ChannelStrip::updateFromTrack(const NovaStudio::Track& track)
 {
     nameLabel.setText(track.name, juce::dontSendNotification);
+    setTrackColour(track.colour);
+    setGroupName(track.groupName);
+    setLocked(track.locked);
     fader.setValue(track.volumeDb, juce::dontSendNotification);
     panKnob.setValue(track.pan, juce::dontSendNotification);
 
@@ -417,6 +420,74 @@ void ChannelStrip::showIOPopup(bool isInput)
 
 void ChannelStrip::mouseDown(const juce::MouseEvent& e)
 {
+    // Header bar — colour, group, and lock options (right-click or left-click)
+    {
+        auto hdr = getLocalBounds().removeFromTop(20);
+        if (!isMaster && hdr.contains(e.getPosition()))
+        {
+            static const juce::Colour kPalette[] = {
+                juce::Colour::fromRGB(120, 80, 200), juce::Colour::fromRGB(80, 100, 200),
+                juce::Colour::fromRGB(50, 160, 160), juce::Colour::fromRGB(60, 120, 200),
+                juce::Colour::fromRGB(40, 180, 160), juce::Colour::fromRGB(60, 180, 80),
+                juce::Colour::fromRGB(160, 190, 50), juce::Colour::fromRGB(190, 110, 40),
+                juce::Colour::fromRGB(200, 80, 80),  juce::Colour::fromRGB(200, 80, 160),
+            };
+
+            juce::PopupMenu colourMenu;
+            for (int c = 0; c < (int)juce::numElementsInArray(kPalette); ++c)
+                colourMenu.addItem(c + 1, "Colour " + juce::String(c + 1), true, kPalette[c] == trackColour);
+
+            juce::PopupMenu menu;
+            menu.addSubMenu("Track Colour", colourMenu);
+            menu.addItem(100, "Set Group Name...");
+            if (groupName.isNotEmpty())
+                menu.addItem(101, "Clear Group");
+            menu.addSeparator();
+            menu.addItem(200, locked ? "Unlock Track" : "Lock Track", true, locked);
+
+            menu.showMenuAsync(juce::PopupMenu::Options(), [this](int result)
+            {
+                if (result >= 1 && result <= (int)juce::numElementsInArray(kPalette))
+                {
+                    auto chosen = kPalette[result - 1];
+                    setTrackColour(chosen);
+                    if (onColourChanged) onColourChanged(chosen);
+                }
+                else if (result == 100)
+                {
+                    auto* aw = new juce::AlertWindow("Set Group Name",
+                                                      "Enter a group name (tracks sharing a name are grouped):",
+                                                      juce::MessageBoxIconType::NoIcon);
+                    aw->addTextEditor("group", groupName);
+                    aw->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+                    aw->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+                    aw->enterModalState(true, juce::ModalCallbackFunction::create([this, aw](int r)
+                    {
+                        if (r == 1)
+                        {
+                            auto newName = aw->getTextEditorContents("group");
+                            setGroupName(newName);
+                            if (onGroupChanged) onGroupChanged(newName);
+                        }
+                        delete aw;
+                    }), false);
+                }
+                else if (result == 101)
+                {
+                    setGroupName({});
+                    if (onGroupChanged) onGroupChanged({});
+                }
+                else if (result == 200)
+                {
+                    bool newLocked = !locked;
+                    setLocked(newLocked);
+                    if (onLockToggled) onLockToggled(newLocked);
+                }
+            });
+            return;
+        }
+    }
+
     // I/O popup
     if (inputLabelBounds .contains(e.getPosition())) { showIOPopup(true);  return; }
     if (outputLabelBounds.contains(e.getPosition())) { showIOPopup(false); return; }
@@ -678,6 +749,37 @@ void ChannelStrip::paint(juce::Graphics& g)
             g.drawText(juce::String(trackNumber), 4, 2, W - 8, hdrH - 4, juce::Justification::centredLeft);
         else
             g.drawText(isMaster ? "M" : "A", 4, 2, W - 8, hdrH - 4, juce::Justification::centredLeft);
+
+        // Lock padlock indicator (top-right of header)
+        if (locked)
+        {
+            auto lockR = juce::Rectangle<float>((float)W - 14.0f, 4.0f, 10.0f, 12.0f);
+            juce::Path body;
+            body.addRoundedRectangle(lockR.getX(), lockR.getY() + 4.0f, lockR.getWidth(), lockR.getHeight() - 4.0f, 1.5f);
+            g.setColour(juce::Colours::white.withAlpha(0.85f));
+            g.fillPath(body);
+            juce::Path shackle;
+            shackle.addArc(lockR.getCentreX() - 3.0f, lockR.getY(), 6.0f, 6.0f, juce::MathConstants<float>::pi, juce::MathConstants<float>::twoPi, true);
+            g.strokePath(shackle, juce::PathStrokeType(1.4f));
+        }
+    }
+
+    // ── Group name strip (just below header, if grouped) ──────────────────
+    if (groupName.isNotEmpty())
+    {
+        auto grpR = juce::Rectangle<float>(bounds.getX() + 2.0f, bounds.getY() + 21.0f, bounds.getWidth() - 4.0f, 11.0f);
+        g.setColour(trackColour.withAlpha(0.30f));
+        g.fillRoundedRectangle(grpR, 3.0f);
+        g.setColour(juce::Colours::white.withAlpha(0.75f));
+        g.setFont(juce::FontOptions(7.5f));
+        g.drawText(groupName, grpR.toNearestInt(), juce::Justification::centred);
+    }
+
+    // Locked overlay — subtle dimming over the whole strip
+    if (locked)
+    {
+        g.setColour(juce::Colours::black.withAlpha(0.25f));
+        g.fillRoundedRectangle(bounds, 6.0f);
     }
 
     // ── Pan value label (painted beside panKnob) ──────────────────────────
@@ -1051,17 +1153,6 @@ void MixerWindow::buildStrips()
 
     // Sends start unassigned — user picks the destination via click
 
-    static const juce::Colour kTrackPalette[] = {
-        juce::Colour::fromRGB(120, 80, 200),
-        juce::Colour::fromRGB(80, 100, 200),
-        juce::Colour::fromRGB(50, 160, 160),
-        juce::Colour::fromRGB(60, 120, 200),
-        juce::Colour::fromRGB(40, 180, 160),
-        juce::Colour::fromRGB(60, 180, 80),
-        juce::Colour::fromRGB(160, 190, 50),
-        juce::Colour::fromRGB(190, 110, 40),
-    };
-
     int stripNum = 1;
 
     // ── Track strips (Audio / MIDI / Instrument) ──────────────────────────
@@ -1074,7 +1165,6 @@ void MixerWindow::buildStrips()
         auto* strip = trackStrips.add(new ChannelStrip());
         strip->setTrackIndex(i);
         strip->setTrackNumber(stripNum);
-        strip->setTrackColour(kTrackPalette[(stripNum - 1) % 8]);
         stripNum++;
         strip->updateFromTrack(track);
         // sends start unassigned
@@ -1086,6 +1176,9 @@ void MixerWindow::buildStrips()
         strip->onSoloToggled      = [this, i](bool solo)   { engine.setTrackSolo(i, solo); };
         strip->onArmToggled       = [this, i](bool armed)  { engine.setTrackArm(i, armed); };
         strip->onSendChanged      = [this, i](int send, float db) { engine.setTrackSendLevel(i, send, db); };
+        strip->onColourChanged    = [this, i](juce::Colour c)      { engine.setTrackColour(i, c); };
+        strip->onGroupChanged     = [this, i](const juce::String& g) { engine.setTrackGroup(i, g); };
+        strip->onLockToggled      = [this, i](bool locked)        { engine.setTrackLocked(i, locked); };
         // Available hardware inputs
         strip->getAvailableInputs = [this]() -> juce::StringArray {
             juce::StringArray inputs;
