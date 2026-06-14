@@ -91,10 +91,14 @@ namespace NovaStudio
         if (activeClip == nullptr)
             return; // nothing to play for this block
 
-        // Ensure readerSource is loaded for this clip
+        // Ensure readerSource is loaded for this clip.
+        // setSource() internally stops the AudioTransportSource, so we must
+        // restart it after a lazy load — otherwise getNextAudioBlock produces silence.
         if (readerSource == nullptr || loadedFile != activeClip->file)
         {
             loadClip(activeClip->file, sessionPtr->getSampleRate());
+            if (isPlaying)
+                transportSource.start();
         }
 
         // Compute file playback position in seconds

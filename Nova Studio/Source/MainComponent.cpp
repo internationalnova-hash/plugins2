@@ -322,6 +322,7 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
 void MainComponent::refreshTrackList()
 {
     trackPanel.repaint();
+    arrangementView.repaint();
     if (editWindow)
         editWindow->repaint();
 }

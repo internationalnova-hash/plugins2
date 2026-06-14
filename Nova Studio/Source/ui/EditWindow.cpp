@@ -107,5 +107,7 @@ void EditWindow::changeListenerCallback(juce::ChangeBroadcaster* source)
         trackPanel->repaint();
     if (inspectorPanel)
         inspectorPanel->repaint();
+    if (arrangementView)
+        arrangementView->repaint();
     repaint();
 }
