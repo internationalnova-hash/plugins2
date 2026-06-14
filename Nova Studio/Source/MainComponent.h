@@ -69,6 +69,9 @@ private:
     void showAboutDialog();
     void showKeyboardShortcutsDialog();
     void showManualDialog();
+    void promptSessionSettings();
+    void showPluginManager();
+    void scanForPlugins(bool clearExistingFirst);
     bool keyPressed(const juce::KeyPress& key, juce::Component* originatingComponent) override;
     void parentHierarchyChanged() override;
 
@@ -108,6 +111,8 @@ private:
     juce::Label statusLabel;
     juce::String statusMessage;
     std::unique_ptr<NovaStudioUI::AudioSettingsWindow> audioSettingsWindow;
+    std::unique_ptr<NovaStudioUI::PluginManagerWindow> pluginManagerWindow;
+    std::unique_ptr<juce::PropertiesFile> pluginListProperties;
 
     // Browser collapse state
     bool browserCollapsed = false;

@@ -4037,6 +4037,18 @@ BeatWindow::BeatWindow(NovaStudio::TransportState& transport)
 
 BeatWindow::~BeatWindow() = default;
 
+void BeatWindow::showPianoRollView()
+{
+    if (transportBar.onShowPianoRoll)
+        transportBar.onShowPianoRoll();
+}
+
+void BeatWindow::showStepSequencerView()
+{
+    if (transportBar.onShowStepSequencer)
+        transportBar.onShowStepSequencer();
+}
+
 void BeatWindow::toggleFloatingPanel(FloatingSubPanel& panel, bool& flag,
                                      juce::Rectangle<int> defaultBounds)
 {

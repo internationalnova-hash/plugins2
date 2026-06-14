@@ -265,6 +265,11 @@ namespace NovaStudio
         int getActiveInputChannelCount() const noexcept { return cachedActiveInputChannels; }
         juce::AudioDeviceManager& getDeviceManager() noexcept { return deviceManager; }
 
+        // Exposed so the UI can host a juce::PluginListComponent (Plugin Manager)
+        // directly against the engine's existing format manager / known-plugin list.
+        juce::AudioPluginFormatManager& getPluginFormatManager() noexcept { return pluginFormatManager; }
+        juce::KnownPluginList& getKnownPluginList() noexcept { return knownPlugins; }
+
         static juce::File getDefaultSessionsFolder()
         {
             return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)

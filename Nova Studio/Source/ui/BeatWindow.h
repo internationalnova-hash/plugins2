@@ -997,6 +997,12 @@ namespace NovaStudioUI
             { stepSeq.onPreviewSample = std::move(fn); }
         void setOnPianoKeyEvent(std::function<void(int pitch, bool keyDown)> fn)
             { pianoRoll.onPianoKeyEvent = std::move(fn); }
+
+        // Switch the beat window's docked canvas to the Piano Roll, or open the
+        // Step Sequencer (Channel Rack) floating panel — used so the View menu's
+        // "Piano Roll"/"Step Sequencer" items can jump straight to the right view.
+        void showPianoRollView();
+        void showStepSequencerView();
         void setNumMixerInserts(int n) { stepSeq.numMixerInserts = n; }
 
         // Compact in-window mixer — populated by MainComponent from the session

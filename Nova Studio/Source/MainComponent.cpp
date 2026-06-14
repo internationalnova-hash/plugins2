@@ -851,6 +851,99 @@ void MainComponent::showManualDialog()
         "See Help > Keyboard Shortcuts for a full list of shortcuts.");
 }
 
+void MainComponent::promptSessionSettings()
+{
+    auto& session = engine.getSession();
+
+    auto* dlg = new juce::AlertWindow("Session Settings",
+                                      "Project-wide settings:",
+                                      juce::MessageBoxIconType::NoIcon);
+    dlg->addTextEditor("name",  session.getName(), "Project name:");
+    dlg->addTextEditor("tempo", juce::String(session.getTempo(), 2), "Tempo (BPM):");
+    dlg->addTextEditor("samplerate", juce::String((int) session.getSampleRate()), "Sample rate (Hz):");
+    dlg->addButton("Save",   1, juce::KeyPress(juce::KeyPress::returnKey));
+    dlg->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    dlg->setColour(juce::AlertWindow::backgroundColourId, juce::Colour::fromRGB(18, 20, 28));
+    dlg->setColour(juce::AlertWindow::textColourId, juce::Colours::white);
+    dlg->enterModalState(true,
+        juce::ModalCallbackFunction::create([this, dlg](int result) mutable
+        {
+            if (result == 1)
+            {
+                auto& s = engine.getSession();
+                const juce::String name = dlg->getTextEditorContents("name").trim();
+                if (name.isNotEmpty())
+                    s.setName(name);
+
+                const double tempo = dlg->getTextEditorContents("tempo").getDoubleValue();
+                if (tempo > 0.0)
+                    s.setTempo(juce::jlimit(20.0, 999.0, tempo));
+
+                const double sr = dlg->getTextEditorContents("samplerate").getDoubleValue();
+                if (sr > 0.0)
+                    s.setSampleRate(sr);
+
+                arrangementModel.sendChangeMessage();
+                updateStatusMessage("Session settings updated");
+            }
+            delete dlg;
+        }), false);
+}
+
+void MainComponent::showPluginManager()
+{
+    if (pluginManagerWindow == nullptr)
+    {
+        if (pluginListProperties == nullptr)
+        {
+            juce::PropertiesFile::Options options;
+            options.applicationName     = "NovaStudio";
+            options.filenameSuffix      = "settings";
+            options.osxLibrarySubFolder = "Application Support";
+            options.folderName          = "NovaStudio";
+            pluginListProperties = std::make_unique<juce::PropertiesFile>(options);
+        }
+
+        const auto deadMansPedal = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                                       .getChildFile("NovaStudio")
+                                       .getChildFile("PluginDeadMansPedal.txt");
+
+        pluginManagerWindow = std::make_unique<NovaStudioUI::PluginManagerWindow>(
+            engine.getPluginFormatManager(), engine.getKnownPluginList(), deadMansPedal, pluginListProperties.get());
+    }
+    else
+    {
+        pluginManagerWindow->setVisible(true);
+        pluginManagerWindow->toFront(true);
+    }
+}
+
+void MainComponent::scanForPlugins(bool clearExistingFirst)
+{
+    if (clearExistingFirst)
+        engine.getKnownPluginList().clear();
+
+    juce::FileSearchPath searchPath;
+    for (auto* format : engine.getPluginFormatManager().getFormats())
+        searchPath.addPath(format->getDefaultLocationsToSearch());
+
+    int numFound = 0;
+    for (auto* format : engine.getPluginFormatManager().getFormats())
+    {
+        juce::PluginDirectoryScanner scanner(engine.getKnownPluginList(), *format, searchPath, true,
+                                             juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                                                 .getChildFile("NovaStudio")
+                                                 .getChildFile("PluginDeadMansPedal.txt"));
+        juce::String pluginBeingScanned;
+        while (scanner.scanNextFile(true, pluginBeingScanned))
+            ++numFound;
+    }
+
+    updateStatusMessage(clearExistingFirst
+        ? ("Rescanned plugins — found " + juce::String(numFound))
+        : ("Scanned plugins — found " + juce::String(numFound)));
+}
+
 bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*originatingComponent*/)
 {
     const bool isCmd = key.getModifiers().isCommandDown();
@@ -1516,7 +1609,7 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         menu.addItem(106, "Export Mix...",        engine.getTrackCount() > 0);
         menu.addItem(107, "Export Stems...",      engine.getTrackCount() > 0);
         menu.addSeparator();
-        menu.addItem(108, "Session Settings...",  false);
+        menu.addItem(108, "Session Settings...",  true);
         menu.addSeparator();
         menu.addItem(109, "Quit");
         break;
@@ -1559,25 +1652,25 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
 
     case 4: // Audio
         menu.addItem(501, "Audio Settings...");
-        menu.addItem(502, "Input Routing...",    false);
-        menu.addItem(503, "Output Routing...",   false);
+        menu.addItem(502, "Input Routing...");
+        menu.addItem(503, "Output Routing...");
         menu.addSeparator();
-        menu.addItem(504, "Buffer Size",         false);
-        menu.addItem(505, "Sample Rate",         false);
+        menu.addItem(504, "Buffer Size");
+        menu.addItem(505, "Sample Rate");
         break;
 
     case 5: // Plugins
-        menu.addItem(601, "Plugin Manager...",   false);
-        menu.addItem(602, "Scan Plugins",        false);
-        menu.addItem(603, "Rescan Plugins",      false);
-        menu.addItem(604, "Plugin Paths...",     false);
+        menu.addItem(601, "Plugin Manager...");
+        menu.addItem(602, "Scan Plugins");
+        menu.addItem(603, "Rescan Plugins");
+        menu.addItem(604, "Plugin Paths...");
         break;
 
     case 6: // View
         menu.addItem(701, "Edit Window");
         menu.addItem(702, "Mixer");
-        menu.addItem(703, "Piano Roll",          false);
-        menu.addItem(704, "Step Sequencer",      false);
+        menu.addItem(703, "Piano Roll");
+        menu.addItem(704, "Step Sequencer");
         menu.addItem(705, "Browser");
         menu.addSeparator();
         menu.addItem(706, "Inspector");
@@ -1599,8 +1692,8 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         menu.addItem(901, "Reset Layout");
         menu.addItem(902, "Full Screen",       true);
         menu.addSeparator();
-        menu.addItem(903, "Floating Mixer",    false);
-        menu.addItem(904, "Floating Browser",  false);
+        menu.addItem(903, "Floating Mixer");
+        menu.addItem(904, "Floating Browser");
         break;
 
     case 9: // Help
@@ -1656,6 +1749,7 @@ void MainComponent::menuItemSelected(int id, int)
     }
     case 106: promptExportMix();   break;
     case 107: promptExportStems(); break;
+    case 108: promptSessionSettings(); break;
     case 109: juce::JUCEApplication::getInstance()->systemRequestedQuit(); break;
 
     // ── Edit ────────────────────────────────────────────────────────────────
@@ -1805,11 +1899,31 @@ void MainComponent::menuItemSelected(int id, int)
         break;
 
     // ── Audio ───────────────────────────────────────────────────────────────
-    case 501: if (workspaceToolbar.onAudioSettings) workspaceToolbar.onAudioSettings(); break;
+    case 501: // Audio Settings...
+    case 502: // Input Routing...   — exposed via the device selector's input-channel section
+    case 503: // Output Routing...  — exposed via the device selector's output-channel section
+    case 504: // Buffer Size        — exposed via the device selector's "Show advanced settings"
+    case 505: // Sample Rate        — exposed via the device selector's "Show advanced settings"
+        if (workspaceToolbar.onAudioSettings) workspaceToolbar.onAudioSettings();
+        break;
+
+    // ── Plugins ─────────────────────────────────────────────────────────────
+    case 601: showPluginManager();      break;
+    case 602: scanForPlugins(false);    break;
+    case 603: scanForPlugins(true);     break;
+    case 604: showPluginManager();      break; // Plugin Paths are managed from the same list component
 
     // ── View ────────────────────────────────────────────────────────────────
     case 701: setWorkspaceMode(0); break;
     case 702: setWorkspaceMode(1); break;
+    case 703: // Piano Roll — jump to the Beat window's docked piano roll canvas
+        setWorkspaceMode(2);
+        if (beatWindow) beatWindow->showPianoRollView();
+        break;
+    case 704: // Step Sequencer — jump to the Beat window's Channel Rack
+        setWorkspaceMode(2);
+        if (beatWindow) beatWindow->showStepSequencerView();
+        break;
     case 705: setWorkspaceMode(0); browserPanel.refresh(); break;
     case 706: setWorkspaceMode(0); break;
     case 707:
@@ -1828,6 +1942,8 @@ void MainComponent::menuItemSelected(int id, int)
             updateStatusMessage(goingFullScreen ? "Entered full screen" : "Exited full screen");
         }
         break;
+    case 903: popOutMixer();   updateStatusMessage("Floating Mixer");   break;
+    case 904: popOutBrowser(); updateStatusMessage("Floating Browser"); break;
 
     // ── Help ────────────────────────────────────────────────────────────────
     case 1001: showManualDialog();             break;

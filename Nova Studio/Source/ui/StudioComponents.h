@@ -856,6 +856,38 @@ namespace NovaStudioUI
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioSettingsWindow)
     };
 
+    // Hosts JUCE's built-in juce::PluginListComponent — gives the user scanning,
+    // format/path management, and the known-plugin list, all backed directly by
+    // the engine's existing AudioPluginFormatManager / KnownPluginList.
+    class PluginManagerWindow : public juce::DocumentWindow
+    {
+    public:
+        PluginManagerWindow(juce::AudioPluginFormatManager& formatManager,
+                            juce::KnownPluginList& knownPlugins,
+                            const juce::File& deadMansPedalFile,
+                            juce::PropertiesFile* propertiesToUse)
+            : juce::DocumentWindow("Plugin Manager",
+                                   juce::Colour::fromRGB(18, 20, 28),
+                                   juce::DocumentWindow::closeButton)
+        {
+            list = std::make_unique<juce::PluginListComponent>(
+                formatManager, knownPlugins, deadMansPedalFile, propertiesToUse, true);
+            list->setSize(700, 500);
+            setContentOwned(list.release(), true);
+            setUsingNativeTitleBar(true);
+            setResizable(true, false);
+            centreWithSize(700, 520);
+            setVisible(true);
+            toFront(true);
+        }
+
+        void closeButtonPressed() override { setVisible(false); }
+
+    private:
+        std::unique_ptr<juce::PluginListComponent> list;
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginManagerWindow)
+    };
+
     class WorkspaceToolbar : public juce::Component,
                              private juce::Button::Listener
     {
