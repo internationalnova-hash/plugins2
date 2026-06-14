@@ -811,6 +811,13 @@ namespace NovaStudioUI
             if (kc == juce::KeyPress::rightKey) { nudgeSelected(+1); return true; }
             if (kc == juce::KeyPress::leftKey)  { nudgeSelected(-1); return true; }
         }
+        // Escape → clear selection range
+        if (kc == juce::KeyPress::escapeKey)
+        {
+            transportState.clearLoopRange();
+            repaint();
+            return true;
+        }
         return false;
     }
 
@@ -1120,32 +1127,57 @@ namespace NovaStudioUI
             }
         }
 
-        // Loop region — drawn in ruler bar + shaded lane area
-        if (transportState.isLooping() && transportState.hasLoopRange())
+        // Selection / loop range — always draw when a range exists
+        if (transportState.hasLoopRange())
         {
             const double lsX = timelineModel.getXForSamplePosition(transportState.getLoopStartSample(), width);
             const double leX = timelineModel.getXForSamplePosition(transportState.getLoopEndSample(),   width);
             const float lsXf = (float)lsX, leXf = (float)leX;
             const float loopW = juce::jmax(2.0f, leXf - lsXf);
 
-            // Shaded lane region
-            g.setColour(juce::Colour::fromRGB(180, 140, 60).withAlpha(0.07f));
+            const bool loopActive = transportState.isLooping();
+
+            // Full-height lane overlay (brighter when loop is active)
+            g.setColour(juce::Colour::fromRGB(80, 110, 255).withAlpha(loopActive ? 0.14f : 0.07f));
             g.fillRect(lsXf, (float)rulerH, loopW, (float)(H - rulerH));
 
-            // Ruler brace bar
-            g.setColour(juce::Colour::fromRGB(220, 170, 50).withAlpha(0.75f));
-            g.fillRect(lsXf, 4.0f, loopW, 10.0f);
+            // Ruler brace fill
+            g.setColour(juce::Colour::fromRGB(80, 110, 255).withAlpha(loopActive ? 0.55f : 0.35f));
+            g.fillRect(lsXf, 2.0f, loopW, (float)rulerH - 2.0f);
 
-            // Start / end bracket handles (draggable)
-            g.setColour(juce::Colour::fromRGB(255, 200, 60));
-            g.fillRect(lsXf - 2.0f, 0.0f, 4.0f, (float)rulerH);
-            g.fillRect(leXf - 2.0f, 0.0f, 4.0f, (float)rulerH);
+            // Left + right edge lines (handle bars)
+            g.setColour(juce::Colour::fromRGB(130, 160, 255));
+            g.fillRect(lsXf - 1.5f, 0.0f, 3.0f, (float)H);
+            g.fillRect(leXf - 1.5f, 0.0f, 3.0f, (float)H);
 
-            // Labels
-            g.setColour(juce::Colour::fromRGB(10, 10, 10));
-            g.setFont(juce::Font(juce::FontOptions(8.0f).withStyle("Bold")));
-            g.drawText("IN",  (int)lsXf + 3, 5, 20, 10, juce::Justification::left);
-            g.drawText("OUT", (int)leXf - 22, 5, 22, 10, juce::Justification::right);
+            // Small triangle caps on ruler edges
+            juce::Path leftCap, rightCap;
+            leftCap.addTriangle (lsXf - 5.0f, 0.0f, lsXf + 5.0f, 0.0f, lsXf, 8.0f);
+            rightCap.addTriangle(leXf - 5.0f, 0.0f, leXf + 5.0f, 0.0f, leXf, 8.0f);
+            g.setColour(juce::Colour::fromRGB(140, 170, 255));
+            g.fillPath(leftCap);
+            g.fillPath(rightCap);
+
+            // Duration label in ruler
+            const double durationSamples = (double)(transportState.getLoopEndSample() - transportState.getLoopStartSample());
+            const double durationSecs    = durationSamples / juce::jmax(1.0, transportState.getSampleRate());
+            const int    mins  = (int)(durationSecs / 60.0);
+            const double secs  = durationSecs - mins * 60.0;
+            juce::String durStr = (mins > 0 ? juce::String(mins) + "m " : "") + juce::String(secs, 1) + "s";
+
+            g.setColour(juce::Colours::white.withAlpha(0.85f));
+            g.setFont(juce::Font(juce::FontOptions(9.0f)));
+            const float labelX = lsXf + 6.0f;
+            const float labelW = juce::jmax(40.0f, loopW - 12.0f);
+            g.drawText(durStr, (int)labelX, 6, (int)labelW, 14, juce::Justification::centredLeft, false);
+
+            // Loop-active indicator
+            if (loopActive)
+            {
+                g.setColour(juce::Colour::fromRGB(80, 110, 255).withAlpha(0.9f));
+                g.setFont(juce::Font(juce::FontOptions(8.0f)));
+                g.drawText(juce::CharPointer_UTF8("\xe2\x86\xba"), (int)(leXf - 18.0f), 6, 14, 14, juce::Justification::centred);
+            }
         }
 
         // Playhead — red line with glow + triangular scrub head
@@ -1259,11 +1291,25 @@ namespace NovaStudioUI
 
         if (y < (float)rulerH)
         {
-            const double phX = timelineModel.getXForSamplePosition(transportState.getPositionSamples(), getWidth());
+            const int width = getWidth();
+            // Near playhead?
+            const double phX = timelineModel.getXForSamplePosition(transportState.getPositionSamples(), width);
             if (std::abs(x - (float)phX) < 8.0f)
-                setMouseCursor(juce::MouseCursor::LeftRightResizeCursor);
-            else
-                setMouseCursor(juce::MouseCursor::PointingHandCursor);
+            { setMouseCursor(juce::MouseCursor::LeftRightResizeCursor); return; }
+
+            // Near existing loop handles?
+            if (transportState.hasLoopRange())
+            {
+                const float lsX = (float)timelineModel.getXForSamplePosition(transportState.getLoopStartSample(), width);
+                const float leX = (float)timelineModel.getXForSamplePosition(transportState.getLoopEndSample(),   width);
+                if (std::abs(x - lsX) < 10.0f || std::abs(x - leX) < 10.0f)
+                { setMouseCursor(juce::MouseCursor::LeftRightResizeCursor); return; }
+                if (x > lsX && x < leX)
+                { setMouseCursor(juce::MouseCursor::DraggingHandCursor); return; }
+            }
+
+            // Default ruler cursor → crosshair signals "draw range here"
+            setMouseCursor(juce::MouseCursor::CrosshairCursor);
             return;
         }
 
@@ -1341,10 +1387,10 @@ namespace NovaStudioUI
                 }
             }
 
-            // Click in ruler → move playhead + start scrub
-            isDraggingPlayhead = true;
-            const int64_t pos = xToSample(clickPoint.x, timelineModel, snapNow, snapBeats, session);
-            transportState.setPositionSamples(juce::jmax<int64_t>(0, pos), true);
+            // Click-drag in ruler → start range/selection drag
+            // (mouseUp with tiny movement → treated as plain playhead click)
+            isDraggingRangeSelect = true;
+            rangeAnchorSample = juce::jmax<int64_t>(0, xToSample(clickPoint.x, timelineModel, snapNow, snapBeats, session));
             repaint();
             return;
         }
@@ -1491,6 +1537,21 @@ namespace NovaStudioUI
         {
             const int64_t pos = xToSample(event.position.x, timelineModel, snapNow, snapBeats, session);
             transportState.setPositionSamples(juce::jmax<int64_t>(0, pos), true);
+            repaint();
+            return;
+        }
+
+        // ── Timeline range / selection drag ──────────────────────────────────
+        if (isDraggingRangeSelect)
+        {
+            // Commit to range mode as soon as we've moved more than a few pixels
+            const float dragDistPx = std::abs(event.position.x - (float)getWidth() * (rangeAnchorSample / juce::jmax(1.0, timelineModel.getVisibleRangeSeconds(getWidth()) * transportState.getSampleRate())));
+            const int64_t curSample = juce::jmax<int64_t>(0, xToSample(event.position.x, timelineModel, snapNow, snapBeats, session));
+            const int64_t newStart  = juce::jmin(rangeAnchorSample, curSample);
+            const int64_t newEnd    = juce::jmax(rangeAnchorSample, curSample);
+            juce::ignoreUnused(dragDistPx);
+            if (newEnd > newStart)
+                transportState.setLoopRange(newStart, newEnd);
             repaint();
             return;
         }
@@ -1672,7 +1733,29 @@ namespace NovaStudioUI
 
     void ArrangementView::mouseUp(const juce::MouseEvent& event)
     {
-        juce::ignoreUnused(event);
+        // ── Finalise range-select drag ────────────────────────────────────────
+        if (isDraggingRangeSelect)
+        {
+            isDraggingRangeSelect = false;
+            const bool snapNow = (snapEnabled && editMode == EditModeToolbar::EditMode::Grid);
+            const auto& session = arrangementModel.getSession();
+            const int64_t curSample = juce::jmax<int64_t>(0, xToSample(event.position.x, timelineModel, snapNow, snapBeats, session));
+            const int64_t newStart  = juce::jmin(rangeAnchorSample, curSample);
+            const int64_t newEnd    = juce::jmax(rangeAnchorSample, curSample);
+
+            const double minDurationSamples = transportState.getSampleRate() * 0.05; // 50 ms threshold
+            if ((double)(newEnd - newStart) < minDurationSamples)
+            {
+                // Tiny or no drag → treat as a plain playhead click
+                transportState.setPositionSamples(juce::jmax<int64_t>(0, rangeAnchorSample), true);
+            }
+            else
+            {
+                transportState.setLoopRange(newStart, newEnd);
+                transportState.setPositionSamples(newStart, true);
+            }
+            repaint();
+        }
 
         isDraggingPlayhead = false;
         isDraggingFadeIn   = false;

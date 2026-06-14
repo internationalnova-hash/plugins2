@@ -261,6 +261,10 @@ namespace NovaStudioUI
         // Playhead scrubbing
         bool isDraggingPlayhead = false;
 
+        // Timeline range / loop selection — click-drag in ruler
+        bool    isDraggingRangeSelect = false;
+        int64_t rangeAnchorSample     = 0;
+
         // Loop brace dragging
         enum class LoopDragHandle { None, Start, End, Body };
         LoopDragHandle loopDragHandle = LoopDragHandle::None;
