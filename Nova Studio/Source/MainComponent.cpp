@@ -154,9 +154,21 @@ MainComponent::MainComponent()
     };
 
     workspaceToolbar.onRecord = [this] {
+        bool wasRecording = engine.isRecording();
         engine.toggleRecord();
         workspaceToolbar.setPlayState(engine.getTransportState().isPlaying(), engine.isRecording());
-        updateStatusMessage(engine.isRecording() ? "Recording active." : "Record stopped.");
+        if (wasRecording && !engine.isRecording())
+        {
+            // Recording just stopped — add the clip to the timeline
+            refreshTrackList();
+            arrangementModel.sendChangeMessage();
+            auto f = engine.getLastRecordingFile();
+            updateStatusMessage("Recorded: " + (f.existsAsFile() ? f.getFullPathName() : "unknown path"));
+        }
+        else
+        {
+            updateStatusMessage(engine.isRecording() ? "Recording active." : "Record stopped.");
+        }
     };
 
     workspaceToolbar.onArm = [this] {
