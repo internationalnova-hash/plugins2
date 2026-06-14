@@ -102,8 +102,8 @@ MainComponent::MainComponent()
     addAndMakeVisible(mixerPanel);
     mixerPanel.setVisible(false);
     addAndMakeVisible(bottomDock);
-    // Embed the real MixerWindow into the dock's mixer section immediately
-    bottomDock.setLiveMixerContent(mixerWindow.get());
+    // Wire the engine so the dock can show real channels and live level meters
+    bottomDock.setEngine(engine);
     addAndMakeVisible(bottomDockToggleBar);
     bottomDockToggleBar.isHorizontal = true;
     bottomDockToggleBar.onClick = [this]() {
@@ -369,8 +369,6 @@ void MainComponent::popOutMixer()
     if (floatingMixer) { floatingMixer->toFront(true); return; }
     if (mixerWindow)
     {
-        // Remove from dock first — addAndMakeVisible on this reparents to MainComponent
-        bottomDock.setLiveMixerContent(nullptr);
         addAndMakeVisible(*mixerWindow);
         mixerWindow->setVisible(true);
         mixerWindow->refresh();
@@ -390,11 +388,6 @@ void MainComponent::popOutMixer()
 void MainComponent::redockMixer()
 {
     floatingMixer.reset();
-    if (mixerWindow)
-    {
-        // Reparent back into the bottom dock so Edit view shows live mixer
-        bottomDock.setLiveMixerContent(mixerWindow.get());
-    }
     resized();
 }
 

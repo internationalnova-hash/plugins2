@@ -2393,21 +2393,50 @@ BottomDockPanel::BottomDockPanel()
         b->setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.55f));
     }
     mixerTab.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+
+    // Init fader/pan arrays to unity defaults
+    for (int i = 0; i < kMaxStrips; ++i)
+    {
+        faderPositions[i] = 0.35f;
+        panPositions[i]   = 0.5f;
+    }
 }
 
-BottomDockPanel::~BottomDockPanel() = default;
-
-void BottomDockPanel::setLiveMixerContent(juce::Component* c)
+BottomDockPanel::~BottomDockPanel()
 {
-    if (liveMixerContent == c) return;
-    liveMixerContent = c;
-    if (c != nullptr)
+    stopTimer();
+}
+
+void BottomDockPanel::setEngine(NovaStudio::StudioAudioEngine& e)
+{
+    enginePtr = &e;
+    startTimerHz(30);
+}
+
+void BottomDockPanel::timerCallback()
+{
+    if (!enginePtr) return;
+    const int n = juce::jmin(enginePtr->getSession().getNumTracks() + 1, kMaxStrips); // +1 for master
+    bool changed = false;
+    for (int i = 0; i < n - 1; ++i)
     {
-        addAndMakeVisible(c);   // reparents into this dock panel
-        c->setVisible(true);
+        const float newL = enginePtr->getTrackPeakLevel(i, 0);
+        const float newR = enginePtr->getTrackPeakLevel(i, 1);
+        peakLevelL[i] = juce::jmax(peakLevelL[i] * 0.92f, newL);
+        peakLevelR[i] = juce::jmax(peakLevelR[i] * 0.92f, newR);
+        if (newL > 0.001f || newR > 0.001f || peakLevelL[i] > 0.001f || peakLevelR[i] > 0.001f)
+            changed = true;
     }
-    resized();
-    repaint();
+    // Master: peak across all tracks
+    {
+        const int mi = n - 1;
+        float mL = 0.0f, mR = 0.0f;
+        for (int i = 0; i < n - 1; ++i) { mL = juce::jmax(mL, peakLevelL[i]); mR = juce::jmax(mR, peakLevelR[i]); }
+        peakLevelL[mi] = mL;
+        peakLevelR[mi] = mR;
+        if (mL > 0.001f || mR > 0.001f) changed = true;
+    }
+    if (changed) repaint();
 }
 
 void BottomDockPanel::resized()
@@ -2420,13 +2449,6 @@ void BottomDockPanel::resized()
     channelsTab.setBounds(tabRow.removeFromLeft(tabW));
     effectsTab.setBounds(tabRow.removeFromLeft(tabW));
     metersTab.setBounds(tabRow.removeFromLeft(tabW));
-
-    // Position the live mixer in the left 62% of the content area (mirrors the static layout)
-    if (liveMixerContent != nullptr)
-    {
-        const int splitX = (int)(getWidth() * 0.62f);
-        liveMixerContent->setBounds(0, tabH, splitX, getHeight() - tabH);
-    }
 }
 
 static const juce::Colour kDockPalette[] = {
@@ -2448,10 +2470,6 @@ static const char* kDockNames[] = {
     "VOC LEAD","HARMONY","ADLIBS","BEAT","BASS","KEYS","GUITAR","FX",
     "BUS 1","BUS 2","REVERB","DELAY","MASTER"
 };
-static const float kFaderPos[] = {
-    0.22f, 0.28f, 0.32f, 0.26f, 0.30f, 0.35f, 0.30f, 0.50f,
-    0.25f, 0.28f, 0.55f, 0.62f, 0.18f
-};
 
 int BottomDockPanel::stripIndexAt(int x) const
 {
@@ -2464,7 +2482,7 @@ int BottomDockPanel::stripIndexAt(int x) const
 bool BottomDockPanel::faderHitTest(int stripIdx, juce::Point<int> pos,
                                     juce::Rectangle<int> mixerArea) const
 {
-    if (stripIdx < 0 || stripIdx >= kNumStrips) return false;
+    if (stripIdx < 0 || stripIdx >= kMaxStrips) return false;
     const int H      = mixerArea.getHeight();
     const int top    = mixerArea.getY();
     const int sx     = mixerArea.getX() + stripIdx * kStripW;
@@ -2483,7 +2501,7 @@ void BottomDockPanel::mouseDown(const juce::MouseEvent& e)
     const int si = stripIndexAt(e.x);
 
     // ── Pan knob hit-test ─────────────────────────────────────────────────
-    if (si >= 0 && si < kNumStrips)
+    if (si >= 0 && si < kMaxStrips)
     {
         const int sw    = kStripW - 2;
         const float knobCX = (float)(si * kStripW) + sw * 0.5f;
@@ -2564,7 +2582,13 @@ void BottomDockPanel::paintMixerStrips(juce::Graphics& g, juce::Rectangle<int> a
 {
     const int H      = area.getHeight();
     const int top    = area.getY();
-    const int numStrips = juce::jmin(kNumStrips, area.getWidth() / kStripW);
+
+    // Build strip list: real session tracks + master, or fallback to palette names
+    int numStrips = 0;
+    bool hasEngine = (enginePtr != nullptr);
+    int sessionTracks = hasEngine ? enginePtr->getSession().getNumTracks() : 0;
+    int totalStrips = hasEngine ? sessionTracks + 1 : (int)std::size(kDockNames); // +1 for master
+    numStrips = juce::jmin(totalStrips, area.getWidth() / kStripW, kMaxStrips);
 
     // dB scale labels reference (0 dB = 35% from top of fader travel)
     static const char* const dbMarks[] = { "+6", "0", "-6", "-12", "-24", "-inf" };
@@ -2573,20 +2597,32 @@ void BottomDockPanel::paintMixerStrips(juce::Graphics& g, juce::Rectangle<int> a
     {
         const int sx    = area.getX() + i * kStripW;
         const int sw    = kStripW - 2;
-        const juce::Colour col = kDockPalette[i];
+
+        // Track colour from palette
+        const juce::Colour col = kDockPalette[i % (int)std::size(kDockPalette)];
+
+        // Track name: from session if available, otherwise hardcoded
+        juce::String trackName;
+        bool isMaster = (hasEngine && i == sessionTracks);
+        if (hasEngine && !isMaster && i < sessionTracks)
+            trackName = enginePtr->getSession().getTrack(i).name;
+        else if (isMaster)
+            trackName = "MASTER";
+        else
+            trackName = (i < (int)std::size(kDockNames)) ? kDockNames[i] : ("CH" + juce::String(i + 1));
 
         // ── Strip body ────────────────────────────────────────────────────
         g.setColour(juce::Colour::fromRGB(11, 12, 18));
         g.fillRect(sx, top, sw, H);
 
         // Track colour band at top
-        g.setColour(col);
+        g.setColour(isMaster ? juce::Colour::fromRGB(160, 140, 60) : col);
         g.fillRect(sx, top, sw, 4);
 
         // ── Track name ────────────────────────────────────────────────────
         g.setColour(juce::Colours::white.withAlpha(0.85f));
         g.setFont(juce::Font(juce::FontOptions(8.5f).withStyle("Bold")));
-        g.drawText(kDockNames[i], sx + 2, top + 6, sw - 4, 12, juce::Justification::centred);
+        g.drawText(trackName, sx + 2, top + 6, sw - 4, 12, juce::Justification::centred);
 
         // ── Pan knob ──────────────────────────────────────────────────────
         const float knobCX = (float)sx + sw * 0.5f;
@@ -2667,24 +2703,27 @@ void BottomDockPanel::paintMixerStrips(juce::Graphics& g, juce::Rectangle<int> a
             g.drawText(dbMarks[m], sx + 2, tickY - 4, 18, 8, juce::Justification::right);
         }
 
-        // ── Level meter (right column) ────────────────────────────────────
+        // ── Level meter (right column, L+R averaged) ─────────────────────
         {
             g.setColour(juce::Colour::fromRGB(8, 10, 16));
             g.fillRoundedRectangle((float)meterColX, (float)faderTop,
                                    (float)meterColW, (float)fTravel, 2.0f);
-            // Static placeholder level: moderate fill with green/yellow segments
-            const float levelNorm = 0.62f;
-            const int fillH  = (int)(fTravel * levelNorm);
-            const int segH = 3, segGap = 1;
-            for (int fy = faderBot - segH; fy >= faderBot - fillH; fy -= (segH + segGap))
+            const float level = (i < kMaxStrips) ? (peakLevelL[i] + peakLevelR[i]) * 0.5f : 0.0f;
+            const float levelNorm = juce::jlimit(0.0f, 1.0f, level);
+            if (levelNorm > 0.001f)
             {
-                const float t = 1.0f - (float)(fy - faderTop) / (float)fTravel;
-                juce::Colour segCol;
-                if (t < 0.70f)      segCol = juce::Colour::fromRGB(50, 200,  80);
-                else if (t < 0.88f) segCol = juce::Colour::fromRGB(220, 200,  30);
-                else                segCol = juce::Colour::fromRGB(220,  50,  50);
-                g.setColour(segCol);
-                g.fillRect(meterColX + 1, fy, meterColW - 2, segH);
+                const int fillH  = (int)(fTravel * levelNorm);
+                const int segH = 3, segGap = 1;
+                for (int fy = faderBot - segH; fy >= faderBot - fillH; fy -= (segH + segGap))
+                {
+                    const float t = 1.0f - (float)(fy - faderTop) / (float)fTravel;
+                    juce::Colour segCol;
+                    if (t < 0.70f)      segCol = juce::Colour::fromRGB(50, 200,  80);
+                    else if (t < 0.88f) segCol = juce::Colour::fromRGB(220, 200,  30);
+                    else                segCol = juce::Colour::fromRGB(220,  50,  50);
+                    g.setColour(segCol);
+                    g.fillRect(meterColX + 1, fy, meterColW - 2, segH);
+                }
             }
         }
 
@@ -2897,15 +2936,8 @@ void BottomDockPanel::paint(juce::Graphics& g)
     g.setColour(juce::Colour::fromRGB(30, 33, 48));
     g.fillRect(stepX, 28, 1, getHeight() - 28);
 
-    // Left mixer section: paint static strips only when no live mixer component is embedded
-    if (liveMixerContent == nullptr)
-        paintMixerStrips(g, juce::Rectangle<int>(0, 28, splitX, getHeight() - 28));
-    else
-    {
-        // Live MixerWindow covers this area — just paint a matching dark background behind it
-        g.setColour(juce::Colour::fromRGB(9, 10, 15));
-        g.fillRect(0, 28, splitX, getHeight() - 28);
-    }
+    // Left mixer section: real session channels from engine
+    paintMixerStrips(g, juce::Rectangle<int>(0, 28, splitX, getHeight() - 28));
     paintPianoRoll(g,     juce::Rectangle<int>(splitX + 1, 28, pianoW - 1, getHeight() - 28));
     paintStepSequencer(g, juce::Rectangle<int>(stepX + 1, 28, getWidth() - stepX - 1, getHeight() - 28));
 }
@@ -4271,19 +4303,31 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
     void ProductionPanel::paint(juce::Graphics& g)
     {
         g.fillAll(kPanelBg);
+    }
 
-        // Translate contentComp-relative bounds into panel coordinates
-        auto offset = contentComp.getBounds().getPosition() - viewport.getViewPosition();
-        const int tx = viewport.getX() + offset.x;
-        const int ty = viewport.getY() + offset.y;
+    void ProductionPanel::paintOverChildren(juce::Graphics& g)
+    {
+        // Convert contentComp-local bounds to ProductionPanel coordinates.
+        // contentComp.getBounds() returns its position within viewport (parent).
+        // viewport is at {0,0} in ProductionPanel, so panel coord = contentComp pos + contentComp-local.
+        const auto vOffset = contentComp.getBounds().getPosition();
 
-        // Horizontal L/R level meter
+        // Horizontal L/R level meter (near top of content, scrolls with content)
         if (meterBounds.getWidth() > 0)
-            paintMeter(g, meterBounds.translated(tx, ty));
+        {
+            const auto meterInPanel = meterBounds.translated(vOffset.x, vOffset.y);
+            // Only draw if visible within panel bounds
+            if (meterInPanel.getBottom() > 0 && meterInPanel.getY() < getHeight())
+                paintMeter(g, meterInPanel);
+        }
 
         // EQ graph
         if (eqGraphBounds.getWidth() > 0)
-            paintEQGraph(g, eqGraphBounds.translated(tx, ty));
+        {
+            const auto eqInPanel = eqGraphBounds.translated(vOffset.x, vOffset.y);
+            if (eqInPanel.getBottom() > 0 && eqInPanel.getY() < getHeight())
+                paintEQGraph(g, eqInPanel);
+        }
     }
 
     void ProductionPanel::resized()

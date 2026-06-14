@@ -5,6 +5,7 @@
 #include "../TransportState.h"
 #include "../TimelineModel.h"
 #include "../ArrangementModel.h"
+#include "../StudioAudioEngine.h"
 #include "WaveformCache.h"
 #include "AnimationUtils.h"
 #include "Theme.h"
@@ -233,6 +234,7 @@ namespace NovaStudioUI
         std::function<void(float)> onVolumeChanged;
 
         void paint(juce::Graphics& g) override;
+        void paintOverChildren(juce::Graphics& g) override;
         void resized() override;
         void mouseDown(const juce::MouseEvent& e) override;
         void mouseDrag(const juce::MouseEvent& e) override;
@@ -258,13 +260,15 @@ namespace NovaStudioUI
         {
             if (getMeterLevel)
             {
-                meterLevelL = juce::jmax(meterLevelL, getMeterLevel(0));
-                meterLevelR = juce::jmax(meterLevelR, getMeterLevel(1));
+                meterLevelL = juce::jmax(meterLevelL * 0.88f, getMeterLevel(0));
+                meterLevelR = juce::jmax(meterLevelR * 0.88f, getMeterLevel(1));
             }
-            bool needRepaint = false;
-            if (meterLevelL > 0.001f) { meterLevelL *= 0.88f; needRepaint = true; }
-            if (meterLevelR > 0.001f) { meterLevelR *= 0.88f; needRepaint = true; }
-            if (needRepaint) repaint();
+            else
+            {
+                meterLevelL *= 0.88f;
+                meterLevelR *= 0.88f;
+            }
+            repaint();  // Always repaint at 30 Hz so the meter bar is always visible
         }
 
         float meterLevelL = 0.0f;
@@ -546,7 +550,8 @@ namespace NovaStudioUI
 
     // Bottom dock: mixer channels + piano roll + step sequencer all visible simultaneously
     class BottomDockPanel : public juce::Component,
-                            private juce::Button::Listener
+                            private juce::Button::Listener,
+                            private juce::Timer
     {
     public:
         BottomDockPanel();
@@ -558,12 +563,12 @@ namespace NovaStudioUI
         void mouseDrag(const juce::MouseEvent& e) override;
         void mouseUp(const juce::MouseEvent& e) override;
 
-        // Embed the real MixerWindow as a child in the mixer section.
-        // Pass nullptr to remove it (before reparenting to floating window etc.)
-        void setLiveMixerContent(juce::Component* c);
+        // Wire up engine so the dock can show real session channels and live levels.
+        void setEngine(NovaStudio::StudioAudioEngine& e);
 
     private:
         void buttonClicked(juce::Button*) override {}
+        void timerCallback() override;
         void paintMixerStrips(juce::Graphics& g, juce::Rectangle<int> area);
         void paintPianoRoll(juce::Graphics& g, juce::Rectangle<int> area);
         void paintStepSequencer(juce::Graphics& g, juce::Rectangle<int> area);
@@ -575,31 +580,25 @@ namespace NovaStudioUI
         juce::TextButton mixerTab{"MIXER"}, channelsTab{"CHANNELS"},
                          effectsTab{"EFFECTS"},  metersTab{"METERS"};
 
-        static constexpr int kStripW = 68;
-        static constexpr int kNumStrips = 13;
+        static constexpr int kStripW   = 68;
+        static constexpr int kMaxStrips = 32;  // max session tracks we'll show
 
-        // Interactive fader state — stored per strip (0.0 = top, 1.0 = bottom)
-        float faderPositions[kNumStrips] = {
-            0.35f, 0.35f, 0.35f, 0.35f, 0.35f, 0.35f,
-            0.35f, 0.35f, 0.35f, 0.35f, 0.35f, 0.35f, 0.30f
-        };
+        NovaStudio::StudioAudioEngine* enginePtr = nullptr;
+
+        // Per-strip state (sized to kMaxStrips; actual count from session)
+        float faderPositions[kMaxStrips] = {};
+        float panPositions  [kMaxStrips] = {};
+        float peakLevelL    [kMaxStrips] = {};
+        float peakLevelR    [kMaxStrips] = {};
+
         int   activeFaderStrip  = -1;
         int   faderDragStartY   = 0;
         float faderDragStartPos = 0.0f;
-
-        // Pan knob state — 0.0 = full left, 0.5 = centre, 1.0 = full right
-        float panPositions[kNumStrips] = {
-            0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
-            0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f
-        };
-        int   activePanStrip   = -1;
-        int   panDragStartX    = 0;
-        float panDragStartPos  = 0.5f;
+        int   activePanStrip    = -1;
+        int   panDragStartX     = 0;
+        float panDragStartPos   = 0.5f;
 
         bool stepStates[6][16] = {};  // step sequencer toggle state
-
-        // Live mixer component (the real MixerWindow) — parented here when non-null
-        juce::Component* liveMixerContent = nullptr;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BottomDockPanel)
     };
