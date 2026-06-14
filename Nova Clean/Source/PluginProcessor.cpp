@@ -85,11 +85,97 @@ void NovaCleanV2AudioProcessor::setCurrentProgram (int) {}
 const juce::String NovaCleanV2AudioProcessor::getProgramName (int) { return {}; }
 void NovaCleanV2AudioProcessor::changeProgramName (int, const juce::String&) {}
 
+void NovaCleanV2AudioProcessor::runNRFrame (NRChannel& ch, float cleanNorm)
+{
+    // 1. Build windowed frame from ring buffer
+    std::vector<float> fftData (nrFftSize * 2, 0.0f);
+    for (int i = 0; i < nrFftSize; ++i)
+    {
+        int idx = (ch.inputWritePos - nrFftSize + i + (int) ch.inputBuf.size()) % (int) ch.inputBuf.size();
+        fftData[i] = ch.inputBuf[idx] * nrHannWindow[i];
+    }
+
+    // 2. Forward FFT (real-only, interleaved)
+    nrFft->performRealOnlyForwardTransform (fftData.data(), true);
+
+    // 3. Compute magnitude per bin
+    std::vector<float> mag (nrBins);
+    for (int k = 0; k < nrBins; ++k)
+    {
+        float re = fftData[k * 2], im = fftData[k * 2 + 1];
+        mag[k] = std::sqrt (re * re + im * im);
+    }
+
+    // 4. Update noise floor (minimum statistics)
+    ch.magHistory[ch.magHistoryIdx] = mag;
+    ch.magHistoryIdx = (ch.magHistoryIdx + 1) % noiseMinFrames;
+
+    std::vector<float> minMag (nrBins, 1e9f);
+    for (int f = 0; f < noiseMinFrames; ++f)
+        for (int k = 0; k < nrBins; ++k)
+            minMag[k] = std::min (minMag[k], ch.magHistory[f][k]);
+
+    if (! ch.noiseFloorInitialized)
+    {
+        ch.noiseFloor = minMag;
+        ch.noiseFloorInitialized = true;
+    }
+    else
+    {
+        for (int k = 0; k < nrBins; ++k)
+        {
+            float alpha = (minMag[k] < ch.noiseFloor[k]) ? 0.9f : 0.995f;
+            ch.noiseFloor[k] = alpha * ch.noiseFloor[k] + (1.0f - alpha) * minMag[k];
+        }
+    }
+
+    // 5. Compute Wiener gain per bin and apply
+    float minGain = juce::jmap (cleanNorm, 0.0f, 1.0f, 0.35f, 0.05f);
+    for (int k = 0; k < nrBins; ++k)
+    {
+        float signal2 = mag[k] * mag[k];
+        float noise2  = ch.noiseFloor[k] * ch.noiseFloor[k] * 1.5f;
+        float snr = juce::jmax (0.0f, (signal2 - noise2) / (noise2 + 1e-12f));
+        float gain = juce::jmax (minGain, snr / (snr + 1.0f));
+        fftData[k * 2]     *= gain;
+        fftData[k * 2 + 1] *= gain;
+    }
+
+    // 6. Inverse FFT + overlap-add
+    nrFft->performRealOnlyInverseTransform (fftData.data());
+    float scale = (float) nrHopSize / ((float) nrFftSize * 0.5f);
+    for (int i = 0; i < nrFftSize; ++i)
+    {
+        int idx = (ch.outputWritePos + i) % (int) ch.outputBuf.size();
+        ch.outputBuf[idx] += fftData[i] * nrHannWindow[i] * scale;
+    }
+    ch.outputWritePos = (ch.outputWritePos + nrHopSize) % (int) ch.outputBuf.size();
+}
+
+void NovaCleanV2AudioProcessor::processNRChannel (NRChannel& ch, const float* in, float* out, int numSamples, float cleanNorm)
+{
+    for (int s = 0; s < numSamples; ++s)
+    {
+        ch.inputBuf[ch.inputWritePos] = in[s];
+        ch.inputWritePos = (ch.inputWritePos + 1) % (int) ch.inputBuf.size();
+        ch.samplesSinceHop++;
+        if (ch.samplesSinceHop >= nrHopSize)
+        {
+            ch.samplesSinceHop = 0;
+            runNRFrame (ch, cleanNorm);
+        }
+        out[s] = ch.outputBuf[ch.outputReadPos];
+        ch.outputBuf[ch.outputReadPos] = 0.0f;
+        ch.outputReadPos = (ch.outputReadPos + 1) % (int) ch.outputBuf.size();
+    }
+}
+
 void NovaCleanV2AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
     lookAheadSamples = juce::jmax (1, static_cast<int> (std::round (0.010 * currentSampleRate))); // 10 ms
-    setLatencySamples (lookAheadSamples);
+    const int nrLatency = nrHopSize;
+    setLatencySamples (juce::jmax (lookAheadSamples, nrLatency));
 
     const float dt = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate));
     const float rc = 1.0f / (2.0f * juce::MathConstants<float>::pi * 8000.0f);
@@ -97,6 +183,14 @@ void NovaCleanV2AudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 
     dryBuffer.setSize (2, samplesPerBlock);
     removedBuffer.setSize (2, samplesPerBlock);
+
+    // STFT NR init
+    nrFft = std::make_unique<juce::dsp::FFT> (nrFftOrder);
+    nrHannWindow.resize (nrFftSize);
+    for (int i = 0; i < nrFftSize; ++i)
+        nrHannWindow[i] = 0.5f * (1.0f - std::cos (2.0f * juce::MathConstants<float>::pi * i / (nrFftSize - 1)));
+    nrL.reset (nrFftSize, nrBins, noiseMinFrames);
+    nrR.reset (nrFftSize, nrBins, noiseMinFrames);
 
     for (auto& s : channelStates)
         s = ChannelState{};
@@ -180,6 +274,20 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     const int requiredFuture = juce::jmax (processingDelaySamples, repairWindowSamples + paprWindowSamples + 2);
 
     int removedEvents = 0;
+
+    // --- NR stage: run STFT spectral noise reduction before click repair ---
+    if (cleanNorm > 0.01f)
+    {
+        juce::AudioBuffer<float> nrOut (channels, numSamples);
+        nrOut.clear();
+        if (channels >= 1)
+            processNRChannel (nrL, buffer.getReadPointer (0), nrOut.getWritePointer (0), numSamples, cleanNorm);
+        if (channels >= 2)
+            processNRChannel (nrR, buffer.getReadPointer (1), nrOut.getWritePointer (1), numSamples, cleanNorm);
+        for (int ch = 0; ch < channels; ++ch)
+            buffer.copyFrom (ch, 0, nrOut, ch, 0, numSamples);
+    }
+    // --- End NR stage ---
 
     for (int ch = 0; ch < channels; ++ch)
     {

@@ -110,5 +110,50 @@ private:
 
     double currentSampleRate = 44100.0;
 
+    // STFT noise reduction state
+    static constexpr int nrFftOrder = 11;   // 2048
+    static constexpr int nrFftSize  = 1 << nrFftOrder;
+    static constexpr int nrHopSize  = 512;
+    static constexpr int nrBins     = nrFftSize / 2 + 1;
+    static constexpr int noiseMinFrames = 30;  // frames for min-stats window
+
+    struct NRChannel
+    {
+        std::vector<float> inputBuf;   // ring buffer
+        int inputWritePos { 0 };
+        std::vector<float> outputBuf;  // overlap-add buffer
+        int outputWritePos { 0 };
+        int outputReadPos  { 0 };
+        int samplesSinceHop { 0 };
+        std::vector<float> analysisPhase;
+        // Noise floor tracker: circular buffer of magnitude spectra
+        std::vector<std::vector<float>> magHistory;  // [noiseMinFrames][nrBins]
+        int magHistoryIdx { 0 };
+        std::vector<float> noiseFloor;   // smoothed noise estimate per bin
+        bool noiseFloorInitialized { false };
+
+        void reset (int fftSize, int bins, int histFrames)
+        {
+            inputBuf.assign (fftSize * 4, 0.0f);
+            outputBuf.assign (fftSize * 4, 0.0f);
+            analysisPhase.assign (bins, 0.0f);
+            noiseFloor.assign (bins, 0.0f);
+            magHistory.assign (histFrames, std::vector<float> (bins, 0.0f));
+            magHistoryIdx = 0;
+            noiseFloorInitialized = false;
+            inputWritePos = 0;
+            outputWritePos = 0;
+            outputReadPos = 0;
+            samplesSinceHop = 0;
+        }
+    };
+
+    std::unique_ptr<juce::dsp::FFT> nrFft;
+    std::vector<float> nrHannWindow;
+    NRChannel nrL, nrR;
+
+    void processNRChannel (NRChannel& ch, const float* in, float* out, int numSamples, float cleanNorm);
+    void runNRFrame (NRChannel& ch, float cleanNorm);
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaCleanV2AudioProcessor)
 };
