@@ -124,7 +124,7 @@ MainComponent::MainComponent()
     statusLabel.setText("Nova Studio Lite prototype ready", juce::dontSendNotification);
 
     workspaceToolbar.onReturnToZero = [this] {
-        bool wasRecording = engine.isRecording();
+        bool wasRecording = engine.isRecording() || engine.getTransportState().isRecording();
         engine.stop();
         transportState.setPositionSamples(0, true);
         workspaceToolbar.setPlayState(false, false);
@@ -147,15 +147,17 @@ MainComponent::MainComponent()
     };
 
     workspaceToolbar.onStop = [this] {
-        bool wasRecording = engine.isRecording();
+        // Check both flags: recordingActive (file write in progress) and
+        // transportState.isRecording() (user intended to record, even if file failed to open)
+        bool wasRecording = engine.isRecording() || engine.getTransportState().isRecording();
         engine.stop();
         workspaceToolbar.setPlayState(false, false);
         if (wasRecording)
         {
-            auto f = engine.getLastRecordingFile();
-            updateStatusMessage("Recorded: " + (f.existsAsFile() ? f.getFullPathName() : "unknown path"));
             refreshTrackList();
             arrangementModel.sendChangeMessage();
+            auto f = engine.getLastRecordingFile();
+            updateStatusMessage("Recorded: " + (f.existsAsFile() ? f.getFullPathName() : "Stopped."));
         }
         else
         {
@@ -164,7 +166,7 @@ MainComponent::MainComponent()
     };
 
     workspaceToolbar.onRecord = [this] {
-        bool wasRecording = engine.isRecording();
+        bool wasRecording = engine.isRecording() || engine.getTransportState().isRecording();
         engine.toggleRecord();
         workspaceToolbar.setPlayState(engine.getTransportState().isPlaying(), engine.isRecording());
         if (wasRecording && !engine.isRecording())
@@ -636,7 +638,7 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
     // Cmd+Space / F12 → Toggle Record (Pro Tools)
     if ((isCmd || isCtrl) && key.getKeyCode() == juce::KeyPress::spaceKey)
     {
-        bool wasRecording = engine.isRecording();
+        bool wasRecording = engine.isRecording() || engine.getTransportState().isRecording();
         engine.toggleRecord();
         workspaceToolbar.setPlayState(engine.getTransportState().isPlaying(), engine.isRecording());
         if (wasRecording && !engine.isRecording())
