@@ -562,12 +562,18 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
     }
 
     // ── Window / mode switching ──────────────────────────────────────────────
-    // Cmd+= → Toggle between Edit and Mix windows (Pro Tools style)
+    // Cmd+= → Open / bring Mixer to front
     if ((isCmd || isCtrl) && key.getKeyCode() == '=')
     {
-        const bool mixVisible = mixerWindow && mixerWindow->isVisible() && floatingMixer;
-        setWorkspaceMode(mixVisible ? 0 : 1);
-        updateStatusMessage(mixVisible ? "Edit window" : "Mix window");
+        setWorkspaceMode(1);
+        updateStatusMessage("Mix window");
+        return true;
+    }
+    // Cmd+- → Back to Edit window (Pro Tools Cmd+= goes to mixer, Escape/Cmd+- goes back)
+    if ((isCmd || isCtrl) && key.getKeyCode() == '-')
+    {
+        setWorkspaceMode(0);
+        updateStatusMessage("Edit window");
         return true;
     }
     // Cmd+B → Beat production screen
@@ -586,10 +592,17 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
     }
 
     // ── Transport shortcuts ──────────────────────────────────────────────────
-    // Space → Play / Stop toggle (works regardless of modifiers)
+    // Space → Play / Stop toggle
     if (key.getKeyCode() == juce::KeyPress::spaceKey && !isCmd && !isCtrl)
     {
-        if (workspaceToolbar.onPlay) workspaceToolbar.onPlay();
+        if (engine.getTransportState().isPlaying())
+        {
+            if (workspaceToolbar.onStop) workspaceToolbar.onStop();
+        }
+        else
+        {
+            if (workspaceToolbar.onPlay) workspaceToolbar.onPlay();
+        }
         return true;
     }
     // Cmd+Space / F12 → Toggle Record (Pro Tools)
