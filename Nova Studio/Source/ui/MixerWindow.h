@@ -26,7 +26,6 @@ namespace NovaStudioUI
         ~ChannelStrip() override;
 
         void paint(juce::Graphics& g) override;
-        void paintOverChildren(juce::Graphics& g) override;
         void resized() override;
 
         void setTrackIndex(int index)    { trackIndex = index; }
@@ -89,9 +88,11 @@ namespace NovaStudioUI
         void drawMeter(juce::Graphics& g, juce::Rectangle<int> area) const;
         void showIOPopup(bool isInput);
 
+    public:
         // Layout helpers — returns rects matching resized() allocation
         juce::Rectangle<int> getFaderRect()  const;
         juce::Rectangle<int> getMeterRect()  const;
+    private:
         juce::Rectangle<int> getInsertRect() const;
         juce::Rectangle<int> getSendsRect()  const;
 
@@ -171,6 +172,7 @@ namespace NovaStudioUI
         ~MixerWindow() override;
 
         void paint(juce::Graphics& g) override;
+        void paintOverChildren(juce::Graphics& g) override;
         void resized() override;
 
         // Call when the track list changes (tracks added/removed)
@@ -202,6 +204,12 @@ namespace NovaStudioUI
         juce::OwnedArray<ChannelStrip> trackStrips;
         juce::OwnedArray<ChannelStrip> auxStrips;
         std::unique_ptr<ChannelStrip>  masterStrip;
+
+        // Per-strip peak levels owned by MixerWindow, updated by timerCallback,
+        // drawn by paintOverChildren to bypass child-component repaint chain.
+        static constexpr int kMaxMeterStrips = 64;
+        float meterPeakL[kMaxMeterStrips] = {};
+        float meterPeakR[kMaxMeterStrips] = {};
         juce::OwnedArray<PluginEditorWindow>   editorWindows;
         std::unique_ptr<PluginBrowserWindow>   pluginBrowserWindow;
 

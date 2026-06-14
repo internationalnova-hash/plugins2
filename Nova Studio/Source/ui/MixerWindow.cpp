@@ -798,15 +798,6 @@ void ChannelStrip::paint(juce::Graphics& g)
     }
 }
 
-void ChannelStrip::paintOverChildren(juce::Graphics& g)
-{
-    // Draw meter on top of all child components (fader slider, buttons etc.)
-    const auto fr = getFaderRect();
-    const int meterW = 14;
-    auto meterArea = fr.withLeft(fr.getRight() - meterW);
-    drawMeter(g, meterArea);
-}
-
 // ── Layout helpers ────────────────────────────────────────────────────────────
 // These must match what resized() allocates exactly.
 
@@ -1029,6 +1020,8 @@ void MixerWindow::buildStrips()
     trackStrips.clear();
     auxStrips.clear();
     masterStrip.reset();
+    std::fill(std::begin(meterPeakL), std::end(meterPeakL), 0.0f);
+    std::fill(std::begin(meterPeakR), std::end(meterPeakR), 0.0f);
 
     const auto& session = engine.getSession();
     const int numTracks = session.getNumTracks();
@@ -1164,17 +1157,23 @@ void MixerWindow::buildStrips()
 
 void MixerWindow::timerCallback()
 {
-    static constexpr float kDecay = 0.92f; // ballistic decay per 30Hz tick
+    static constexpr float kDecay = 0.92f;
 
-    // Track strips — use each strip's stored track index (not the loop counter)
-    // so aux tracks interspersed in the session don't offset the peak reads.
+    // Index into meterPeakL/R: 0..trackStrips.size()-1 are track strips,
+    // then auxStrips, then master at the last slot.
+    int idx = 0;
+
     for (auto* strip : trackStrips)
     {
         const int ti = strip->getTrackIndex();
         const float L = engine.getTrackPeakLevel(ti, 0);
         const float R = engine.getTrackPeakLevel(ti, 1);
-        strip->setMeterLevel(juce::jmax(L, strip->getMeterLeft()  * kDecay),
-                             juce::jmax(R, strip->getMeterRight() * kDecay));
+        if (idx < kMaxMeterStrips)
+        {
+            meterPeakL[idx] = juce::jmax(L, meterPeakL[idx] * kDecay);
+            meterPeakR[idx] = juce::jmax(R, meterPeakR[idx] * kDecay);
+        }
+        ++idx;
     }
 
     for (auto* strip : auxStrips)
@@ -1182,13 +1181,17 @@ void MixerWindow::timerCallback()
         const int ti = strip->getTrackIndex();
         const float L = (ti >= 0) ? engine.getTrackPeakLevel(ti, 0) : 0.0f;
         const float R = (ti >= 0) ? engine.getTrackPeakLevel(ti, 1) : 0.0f;
-        strip->setMeterLevel(juce::jmax(L, strip->getMeterLeft()  * kDecay),
-                             juce::jmax(R, strip->getMeterRight() * kDecay));
+        if (idx < kMaxMeterStrips)
+        {
+            meterPeakL[idx] = juce::jmax(L, meterPeakL[idx] * kDecay);
+            meterPeakR[idx] = juce::jmax(R, meterPeakR[idx] * kDecay);
+        }
+        ++idx;
     }
 
-    if (masterStrip)
+    // Master: peak across all tracks
+    if (masterStrip && idx < kMaxMeterStrips)
     {
-        // Master level = peak across all tracks (summed mix proxy)
         float L = 0.0f, R = 0.0f;
         const int nt = engine.getSession().getNumTracks();
         for (int i = 0; i < nt; ++i)
@@ -1196,9 +1199,84 @@ void MixerWindow::timerCallback()
             L = juce::jmax(L, engine.getTrackPeakLevel(i, 0));
             R = juce::jmax(R, engine.getTrackPeakLevel(i, 1));
         }
-        masterStrip->setMeterLevel(juce::jmax(L, masterStrip->getMeterLeft()  * kDecay),
-                                   juce::jmax(R, masterStrip->getMeterRight() * kDecay));
+        meterPeakL[idx] = juce::jmax(L, meterPeakL[idx] * kDecay);
+        meterPeakR[idx] = juce::jmax(R, meterPeakR[idx] * kDecay);
     }
+
+    repaint(); // repaint MixerWindow itself — meters drawn in paintOverChildren
+}
+
+void MixerWindow::paintOverChildren(juce::Graphics& g)
+{
+    // Draw meters in MixerWindow coordinate space by converting strip-local
+    // fader rects through the viewport hierarchy.
+    auto drawStripMeter = [&](ChannelStrip* strip, float levelL, float levelR)
+    {
+        if (strip == nullptr) return;
+        const auto fr = strip->getFaderRect(); // strip-local coords
+        const int meterW = 14;
+        auto meterLocal = fr.withLeft(fr.getRight() - meterW);
+
+        // Convert strip-local top-left to MixerWindow coords
+        auto topLeft  = getLocalPoint(strip, meterLocal.getTopLeft());
+        auto botRight = getLocalPoint(strip, meterLocal.getBottomRight());
+        auto meterInMixer = juce::Rectangle<int>::leftTopRightBottom(
+            topLeft.x, topLeft.y, botRight.x, botRight.y);
+
+        if (!getLocalBounds().intersects(meterInMixer)) return;
+
+        // Re-use ChannelStrip::drawMeter logic inline
+        auto r = meterInMixer.reduced(1, 1);
+        auto clipRow = r.removeFromTop(5);
+        const bool isClipping = (levelL > 0.95f || levelR > 0.95f);
+        g.setColour(isClipping ? juce::Colour::fromRGB(220, 55, 55)
+                               : juce::Colour::fromRGB(40, 44, 58));
+        g.fillRoundedRectangle(clipRow.toFloat(), 1.5f);
+        r.removeFromTop(2);
+
+        const int barW   = juce::jmax(1, (r.getWidth() - 3) / 2);
+        const int segH   = 3;
+        const int segGap = 1;
+        const int segStep = segH + segGap;
+        const int totalH = r.getHeight();
+        const int numSegs = juce::jmax(1, totalH / segStep);
+
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            const float level  = (ch == 0) ? levelL : levelR;
+            const int litSegs  = juce::roundToInt(level * (float)numSegs);
+            const int barX     = r.getX() + ch * (barW + 3);
+            const int barBottom = r.getBottom();
+
+            for (int s = 0; s < numSegs; ++s)
+            {
+                const float frac = (float)s / (float)(numSegs - 1);
+                const int segY = barBottom - (s + 1) * segStep + segGap;
+                const juce::Rectangle<float> seg((float)barX, (float)segY,
+                                                  (float)barW, (float)segH);
+                const bool lit = (s < litSegs);
+                juce::Colour col;
+                if (!lit)
+                    col = juce::Colour::fromRGB(22, 25, 34);
+                else if (frac > 0.88f)
+                    col = juce::Colour::fromRGB(220, 55, 55);
+                else if (frac > 0.70f)
+                    col = juce::Colour::fromRGB(230, 200, 40);
+                else
+                    col = juce::Colour::fromRGB(60, 200, 90);
+                g.setColour(col);
+                g.fillRect(seg);
+            }
+        }
+    };
+
+    int idx = 0;
+    for (auto* strip : trackStrips)
+        drawStripMeter(strip, meterPeakL[idx], meterPeakR[idx++]);
+    for (auto* strip : auxStrips)
+        drawStripMeter(strip, meterPeakL[idx], meterPeakR[idx++]);
+    if (masterStrip)
+        drawStripMeter(masterStrip.get(), meterPeakL[idx], meterPeakR[idx]);
 }
 
 void MixerWindow::refreshInsertSlotNames()
