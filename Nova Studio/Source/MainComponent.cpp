@@ -410,6 +410,131 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
         return true;
     }
 
+    // ── Clip editing shortcuts ───────────────────────────────────────────────
+    const double sr = engine.getTransportState().getSampleRate();
+
+    // Cmd+F → Apply default fade (0.08s in + 0.08s out) to selected clip
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'f' || key.getTextCharacter() == 'F'))
+    {
+        if (arrangementModel.hasSelection())
+        {
+            const int64_t fadeSamples = (int64_t)(0.08 * sr);
+            arrangementModel.setSelectedClipFadeIn(fadeSamples);
+            arrangementModel.setSelectedClipFadeOut(fadeSamples);
+            updateStatusMessage("Fade applied — adjust in Inspector");
+            if (editWindow) editWindow->repaint();
+        }
+        return true;
+    }
+
+    // Cmd+D → Duplicate selected clip
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 'd' || key.getTextCharacter() == 'D'))
+    {
+        arrangementModel.duplicateSelectedClip();
+        refreshTrackList();
+        updateStatusMessage("Clip duplicated");
+        return true;
+    }
+
+    // Delete / Backspace → Delete selected clip
+    if (!isCmd && !isCtrl && (key.getKeyCode() == juce::KeyPress::deleteKey
+                               || key.getKeyCode() == juce::KeyPress::backspaceKey))
+    {
+        if (arrangementModel.hasSelection())
+        {
+            arrangementModel.deleteSelectedClip();
+            refreshTrackList();
+            updateStatusMessage("Clip deleted");
+            return true;
+        }
+    }
+
+    // Cmd+T → Split clip at playhead  (Pro Tools: Cmd+E / B in commands focus)
+    if ((isCmd || isCtrl) && (key.getTextCharacter() == 't' || key.getTextCharacter() == 'T'))
+    {
+        arrangementModel.splitSelectedClip(engine.getTransportState().getPositionSamples());
+        refreshTrackList();
+        updateStatusMessage("Clip split at playhead");
+        return true;
+    }
+
+    // ── Save session ─────────────────────────────────────────────────────────
+    if ((isCmd || isCtrl) && !isShift && (key.getTextCharacter() == 's' || key.getTextCharacter() == 'S'))
+    {
+        if (workspaceToolbar.onSave) workspaceToolbar.onSave();
+        return true;
+    }
+
+    // ── Zoom shortcuts ───────────────────────────────────────────────────────
+    // Cmd+]  or  Cmd++  → Zoom in
+    if ((isCmd || isCtrl) && (key.getKeyCode() == ']' || key.getKeyCode() == '='))
+    {
+        if (editWindow) editWindow->zoomHorizontal(1);
+        return true;
+    }
+    // Cmd+[  or  Cmd+-  → Zoom out  (Cmd+- also opens Mixer; zoom wins when Edit is active)
+    if ((isCmd || isCtrl) && (key.getKeyCode() == '['))
+    {
+        if (editWindow) editWindow->zoomHorizontal(-1);
+        return true;
+    }
+
+    // ── Single-key commands (Pro Tools Commands Focus style) ─────────────────
+    // Only fires when no modifier held and no text input is focused
+    if (!isCmd && !isCtrl && !isShift)
+    {
+        const int k = key.getKeyCode();
+        // D → Fade in to playhead position (sets fade in on selected clip)
+        if (k == 'd' || k == 'D')
+        {
+            if (arrangementModel.hasSelection())
+            {
+                const int64_t pos    = engine.getTransportState().getPositionSamples();
+                const auto*   clip   = arrangementModel.getSelectedClip();
+                if (clip)
+                {
+                    const int64_t rel = juce::jmax<int64_t>(0, pos - clip->startSample);
+                    arrangementModel.setSelectedClipFadeIn(rel);
+                    if (editWindow) editWindow->repaint();
+                    updateStatusMessage("Fade in set");
+                }
+            }
+            return true;
+        }
+        // G → Fade out from playhead position
+        if (k == 'g' || k == 'G')
+        {
+            if (arrangementModel.hasSelection())
+            {
+                const int64_t pos  = engine.getTransportState().getPositionSamples();
+                const auto*   clip = arrangementModel.getSelectedClip();
+                if (clip)
+                {
+                    const int64_t rel = juce::jmax<int64_t>(0, (clip->startSample + clip->lengthSamples) - pos);
+                    arrangementModel.setSelectedClipFadeOut(rel);
+                    if (editWindow) editWindow->repaint();
+                    updateStatusMessage("Fade out set");
+                }
+            }
+            return true;
+        }
+        // B → Split clip at playhead
+        if (k == 'b' || k == 'B')
+        {
+            arrangementModel.splitSelectedClip(engine.getTransportState().getPositionSamples());
+            refreshTrackList();
+            updateStatusMessage("Clip split");
+            return true;
+        }
+        // Z → Undo (single key, like Pro Tools commands focus)
+        if (k == 'z' || k == 'Z')
+        {
+            arrangementModel.undo();
+            updateStatusMessage("Undo");
+            return true;
+        }
+    }
+
     return false;
 }
 

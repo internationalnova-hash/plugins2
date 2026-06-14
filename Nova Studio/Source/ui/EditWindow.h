@@ -26,6 +26,8 @@ namespace NovaStudioUI
                                std::function<void(int,bool)> onSolo,
                                std::function<void(int, const juce::String&)> onRenamed = nullptr);
 
+        void zoomHorizontal(int direction);   // +1 = zoom in, -1 = zoom out
+
     private:
         void changeListenerCallback(juce::ChangeBroadcaster* source) override;
 

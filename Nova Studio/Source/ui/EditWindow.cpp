@@ -50,6 +50,12 @@ EditWindow::EditWindow(NovaStudio::TransportState& transport,
     };
 }
 
+void EditWindow::zoomHorizontal(int direction)
+{
+    if (arrangementView)
+        arrangementView->adjustHZoom(direction);
+}
+
 EditWindow::~EditWindow()
 {
     transportState.removeChangeListener(this);
