@@ -20,6 +20,9 @@ MainComponent::MainComponent()
     mixerWindow = std::make_unique<NovaStudioUI::MixerWindow>(engine);
     addAndMakeVisible(*mixerWindow);
     mixerWindow->setVisible(false);
+    beatWindow = std::make_unique<NovaStudioUI::BeatWindow>(transportState);
+    addAndMakeVisible(*beatWindow);
+    beatWindow->setVisible(false);
     addAndMakeVisible(mixerPanel);
     addAndMakeVisible(bottomTabs);
     addAndMakeVisible(statusLabel);
@@ -195,6 +198,8 @@ void MainComponent::resized()
         editWindow->setBounds(centreArea.reduced(0, 4));
     if (mixerWindow)
         mixerWindow->setBounds(getLocalBounds().reduced(18).withTrimmedTop(56 + 12 + 112 + 4));
+    if (beatWindow)
+        beatWindow->setBounds(getLocalBounds().reduced(18).withTrimmedTop(56 + 12 + 112 + 4));
 
     statusLabel.setBounds(getWidth() - 520, getHeight() - 32, 500, 24);
 }
@@ -261,6 +266,8 @@ void MainComponent::setWorkspaceMode(int mode)
                 editWindow->setVisible(true);
             if (mixerWindow)
                 mixerWindow->setVisible(false);
+            if (beatWindow)
+                beatWindow->setVisible(false);
             arrangementView.setVisible(false);
             trackPanel.setVisible(false);
             alignPanel.setVisible(true);
@@ -270,6 +277,8 @@ void MainComponent::setWorkspaceMode(int mode)
         case 1: // Mixer
             if (editWindow)
                 editWindow->setVisible(false);
+            if (beatWindow)
+                beatWindow->setVisible(false);
             arrangementView.setVisible(false);
             trackPanel.setVisible(false);
             alignPanel.setVisible(false);
@@ -286,6 +295,8 @@ void MainComponent::setWorkspaceMode(int mode)
                 editWindow->setVisible(false);
             if (mixerWindow)
                 mixerWindow->setVisible(false);
+            if (beatWindow)
+                beatWindow->setVisible(false);
             arrangementView.setVisible(true);
             trackPanel.setVisible(true);
             alignPanel.setVisible(true);
@@ -297,17 +308,21 @@ void MainComponent::setWorkspaceMode(int mode)
                 editWindow->setVisible(false);
             if (mixerWindow)
                 mixerWindow->setVisible(false);
-            arrangementView.setVisible(true);
-            trackPanel.setVisible(true);
-            alignPanel.setVisible(true);
+            if (beatWindow)
+                beatWindow->setVisible(true);
+            arrangementView.setVisible(false);
+            trackPanel.setVisible(false);
+            alignPanel.setVisible(false);
             mixerPanel.setVisible(false);
-            bottomTabs.setVisible(true);
+            bottomTabs.setVisible(false);
             break;
         case 4: // Rack
             if (editWindow)
                 editWindow->setVisible(false);
             if (mixerWindow)
                 mixerWindow->setVisible(false);
+            if (beatWindow)
+                beatWindow->setVisible(false);
             arrangementView.setVisible(false);
             trackPanel.setVisible(true);
             alignPanel.setVisible(true);

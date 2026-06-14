@@ -5,6 +5,7 @@
 #include "ui/StudioComponents.h"
 #include "ui/EditWindow.h"
 #include "ui/MixerWindow.h"
+#include "ui/BeatWindow.h"
 
 class MainComponent : public juce::Component, public juce::KeyListener, public juce::ChangeListener
 {
@@ -32,6 +33,7 @@ private:
     NovaStudioUI::ArrangementView arrangementView;
     std::unique_ptr<NovaStudioUI::EditWindow>   editWindow;
     std::unique_ptr<NovaStudioUI::MixerWindow>  mixerWindow;
+    std::unique_ptr<NovaStudioUI::BeatWindow>   beatWindow;
     NovaStudioUI::NovaAlignPanel alignPanel;
     NovaStudioUI::MixerPanel mixerPanel; // side-panel stub kept for split/rack modes
     juce::TabbedComponent bottomTabs { juce::TabbedButtonBar::TabsAtTop };
