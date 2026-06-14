@@ -112,6 +112,20 @@
     }
     .style-pill.active .style-pill-desc { opacity: 1; color: var(--gold-dim); }
 
+    /* Style personality readout */
+    .style-personality {
+      margin-left: 16px; flex: 1;
+      font-size: 8px; letter-spacing: .10em; color: rgba(140,110,58,0.7);
+      font-style: italic; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis;
+      border-left: 1px solid rgba(200,160,96,0.14);
+      padding-left: 14px;
+    }
+    .style-personality strong {
+      color: rgba(180,148,80,0.9); font-style: normal; font-weight: 700;
+      letter-spacing: .14em; margin-right: 6px;
+    }
+
     /* Brand */
     .brand { display: flex; align-items: center; gap: 10px; }
     .logo-box {
@@ -360,7 +374,7 @@
       background: #050403;
       border-bottom: 1px solid rgba(200,160,96,0.18);
       position: relative;
-      flex: 0 0 280px;
+      flex: 0 0 300px;
       padding: 8px 10px 5px;
       display: flex; flex-direction: column; gap: 4px;
       /* Ambient glow updated by JS when GR is active */
@@ -485,23 +499,43 @@
     .tp-meters-body {
       flex: 1; display: flex; align-items: stretch; gap: 6px;
       position: relative;
-      background: linear-gradient(180deg, #050403 0%, #070605 100%);
-      border: 1px solid rgba(200,160,96,0.14);
-      border-top-color: rgba(200,160,96,0.22);
+      background: linear-gradient(180deg, #030202 0%, #060504 60%, #070605 100%);
+      border: 1px solid rgba(200,160,96,0.16);
+      border-top-color: rgba(200,160,96,0.30);
+      border-bottom-color: rgba(0,0,0,0.6);
       border-radius: 5px;
-      box-shadow: var(--inset), inset 0 2px 8px rgba(0,0,0,0.6);
-      padding: 6px 4px;
+      box-shadow:
+        var(--inset),
+        inset 0 3px 10px rgba(0,0,0,0.7),
+        inset 0 0 1px rgba(255,255,255,0.03);
+      padding: 7px 4px 5px;
+    }
+    /* Subtle top-edge inner highlight — makes it feel recessed like real hardware */
+    .tp-meters-body::before {
+      content: "";
+      position: absolute; top: 1px; left: 6px; right: 6px; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+      border-radius: 1px; pointer-events: none;
     }
     .tp-channel { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
     .tp-ch-label { font-size: 7.5px; color: var(--text-dim); font-weight: 700; letter-spacing: .06em; }
-    .tp-segs-wrap { flex: 1; display: flex; flex-direction: column-reverse; gap: 1.5px; width: 100%; }
+    .tp-segs-wrap {
+      flex: 1; display: flex; flex-direction: column-reverse; gap: 1.5px; width: 100%;
+      /* Subtle inner side shadow to give the meter column depth */
+      filter: drop-shadow(0 0 1px rgba(0,0,0,0.8));
+    }
     .tp-seg {
       flex: 1; border-radius: 1.5px;
-      background: rgba(40,32,18,0.7);
+      background: rgba(28,22,12,0.85);
       transition: background 50ms;
     }
-    .tp-seg.on { background: rgba(168,130,62,0.88); }
-    .tp-seg.hot { background: rgba(200,44,44,0.92); box-shadow: 0 0 3px rgba(200,44,44,0.5); }
+    .tp-seg.on {
+      background: linear-gradient(180deg, rgba(185,144,68,0.95) 0%, rgba(158,122,54,0.85) 100%);
+    }
+    .tp-seg.hot {
+      background: linear-gradient(180deg, rgba(215,50,50,0.96) 0%, rgba(180,38,38,0.88) 100%);
+      box-shadow: 0 0 3px rgba(210,48,48,0.45);
+    }
     .tp-scale-wrap { display: flex; flex-direction: column; justify-content: space-between; height: 100%; padding: 6px 0; }
     .tp-scale-wrap span { font-size: 7px; color: var(--text-dim); letter-spacing: .04em; }
 
@@ -569,6 +603,36 @@
       font-size: 11px; color: var(--text-dim); cursor: pointer;
     }
     .bot-link-icon.active { color: var(--gold); }
+
+    /* Future feature cells */
+    .bot-future {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 4px; padding: 0 6px;
+      opacity: 0.38;
+    }
+    .bot-future-toggle {
+      width: 54px; height: 20px;
+      border: 1px solid rgba(200,160,96,0.18);
+      border-radius: 3px;
+      background: linear-gradient(180deg, rgba(14,11,7,0.9) 0%, rgba(8,6,4,0.95) 100%);
+      color: rgba(140,112,60,0.6);
+      font-size: 7.5px; font-weight: 700; letter-spacing: .10em; text-transform: uppercase;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      cursor: default;
+    }
+    .bot-future-badge {
+      font-size: 5.5px; font-weight: 700; letter-spacing: .12em;
+      color: rgba(140,112,60,0.7); text-transform: uppercase;
+      border: 1px solid rgba(140,112,60,0.3); border-radius: 2px;
+      padding: 0px 3px; line-height: 1.6;
+    }
+    .bot-future-label {
+      font-size: 7px; letter-spacing: .12em; color: rgba(120,96,50,0.5);
+      font-weight: 700; text-transform: uppercase; text-align: center; line-height: 1.3;
+    }
+    .bot-group-sep {
+      width: 1px; background: rgba(200,160,96,0.08); align-self: stretch; margin: 4px 2px;
+    }
 
     /* Stack buttons (oversample/dither) */
     .stack-btns { display: flex; flex-direction: column; gap: 1.5px; width: 100%; }
@@ -709,12 +773,15 @@
     <div class="hdr-style-row">
       <span class="style-mode-label">Mode</span>
       <div class="style-pills" id="style-pills">
-        <button class="style-pill active" data-style="0" type="button">CLEAN<span class="style-pill-desc">Transparent</span></button>
-        <button class="style-pill" data-style="1" type="button">PUNCH<span class="style-pill-desc">Transient+</span></button>
-        <button class="style-pill" data-style="2" type="button">SMOOTH<span class="style-pill-desc">Soft Release</span></button>
-        <button class="style-pill" data-style="3" type="button">LOUD<span class="style-pill-desc">Aggressive</span></button>
-        <button class="style-pill" data-style="4" type="button">ANALOG<span class="style-pill-desc">Saturation</span></button>
-        <button class="style-pill" data-style="5" type="button">MASTER<span class="style-pill-desc">Conservative</span></button>
+        <button class="style-pill active" data-style="0" type="button">CLEAN</button>
+        <button class="style-pill" data-style="1" type="button">PUNCH</button>
+        <button class="style-pill" data-style="2" type="button">SMOOTH</button>
+        <button class="style-pill" data-style="3" type="button">LOUD</button>
+        <button class="style-pill" data-style="4" type="button">ANALOG</button>
+        <button class="style-pill" data-style="5" type="button">MASTER</button>
+      </div>
+      <div class="style-personality" id="style-personality">
+        <strong>CLEAN</strong>Maximum transparency · Minimal harmonic enhancement · Fast true peak protection
       </div>
     </div>
 
@@ -942,7 +1009,7 @@
     <!-- GROUP: PROCESSING -->
     <div class="bot-group" style="flex:1;">
       <div class="bot-group-label">Processing</div>
-      <div class="bot-group-cells" style="gap:8px;">
+      <div class="bot-group-cells" style="gap:6px; align-items:center;">
         <div class="bot-cell">
           <span class="bot-label">Oversample</span>
           <div class="stack-btns" id="oversample-btns">
@@ -960,6 +1027,28 @@
             <button class="stack-btn" data-dith="2" type="button">20 BIT</button>
             <button class="stack-btn" data-dith="3" type="button">24 BIT</button>
           </div>
+        </div>
+
+        <div class="bot-group-sep"></div>
+
+        <!-- Future features — visually present, not yet active -->
+        <div class="bot-future">
+          <div class="bot-future-toggle">
+            ISP&nbsp;<span class="bot-future-badge">PRO</span>
+          </div>
+          <span class="bot-future-label">ISP<br>Protection</span>
+        </div>
+        <div class="bot-future">
+          <div class="bot-future-toggle">
+            AUTO&nbsp;<span class="bot-future-badge">PRO</span>
+          </div>
+          <span class="bot-future-label">Smart<br>Release</span>
+        </div>
+        <div class="bot-future">
+          <div class="bot-future-toggle">
+            SAFE&nbsp;<span class="bot-future-badge">PRO</span>
+          </div>
+          <span class="bot-future-label">Safe<br>Mode</span>
         </div>
       </div>
     </div>
@@ -1129,6 +1218,14 @@ document.querySelectorAll('.knob[data-param]').forEach(knobEl => {
 
 // ══════════════════════════ STYLE SELECTOR ══════════════════════════
 const STYLE_NAMES = ['CLEAN','PUNCH','SMOOTH','LOUD','ANALOG','MASTER'];
+const STYLE_PERSONALITY = [
+  'Maximum transparency · Minimal harmonic enhancement · Fast true peak protection',
+  'Preserves transient attack · Slightly slower onset limiting · More dynamic impact',
+  'Softer release contour · Less audible gain reduction · Natural breath between peaks',
+  'Highest loudness density · Aggressive gain riding · Maximum output energy',
+  'Harmonic enhancement · Subtle saturation before limiting · Warm analog character',
+  'Balanced hybrid mode · True peak priority · Smooth release · Recommended for final masters',
+];
 let currentStyle = 0;
 
 function setStyle(idx) {
@@ -1139,6 +1236,8 @@ function setStyle(idx) {
   document.querySelectorAll('.style-pill').forEach(el => {
     el.classList.toggle('active', parseInt(el.dataset.style) === currentStyle);
   });
+  const pd = document.getElementById('style-personality');
+  if (pd) pd.innerHTML = `<strong>${STYLE_NAMES[currentStyle]}</strong>${STYLE_PERSONALITY[currentStyle]}`;
   emitJUCE('style', currentStyle, 'valueChanged');
 }
 
