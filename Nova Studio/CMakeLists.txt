@@ -82,3 +82,51 @@ juce_generate_juce_header(NovaStudio)
 target_compile_definitions(NovaStudio PRIVATE
     JUCE_VST3_CAN_REPLACE_VST2=0
 )
+
+# ─── Validation test executable ───────────────────────────────────────────────
+juce_add_console_app(NovaStudioValidation
+    COMPANY_NAME "International Nova"
+    BUNDLE_ID "com.internationalnova.novastudio.validation"
+    VERSION ${PROJECT_VERSION}
+)
+
+target_sources(NovaStudioValidation PRIVATE
+    Source/ValidationTest.cpp
+    Source/StudioAudioEngine.cpp
+    Source/TransportState.cpp
+    Source/TimelineModel.cpp
+    Source/Session.cpp
+    Source/ArrangementModel.cpp
+    Source/NovaAlignProcessor.cpp
+)
+
+target_link_libraries(NovaStudioValidation PRIVATE
+    juce::juce_audio_basics
+    juce::juce_audio_devices
+    juce::juce_audio_formats
+    juce::juce_audio_processors
+    juce::juce_audio_utils
+    juce::juce_core
+    juce::juce_data_structures
+    juce::juce_dsp
+    juce::juce_events
+    juce::juce_graphics
+    juce::juce_gui_basics
+    juce::juce_recommended_config_flags
+    ${GTK3_LIBRARIES}
+    ${WEBKIT_LIBRARIES}
+    CURL::libcurl
+    asound
+)
+
+target_include_directories(NovaStudioValidation PRIVATE ${GTK3_INCLUDE_DIRS})
+target_include_directories(NovaStudioValidation PRIVATE ${WEBKIT_INCLUDE_DIRS})
+target_compile_options(NovaStudioValidation PRIVATE ${GTK3_CFLAGS_OTHER} ${WEBKIT_CFLAGS_OTHER})
+
+juce_generate_juce_header(NovaStudioValidation)
+
+target_compile_definitions(NovaStudioValidation PRIVATE
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_PLUGINHOST_VST3=1
+    JUCE_PLUGINHOST_LV2=1
+)
