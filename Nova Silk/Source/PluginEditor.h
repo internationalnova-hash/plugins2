@@ -16,6 +16,7 @@ public:
 
 private:
     void timerCallback() override;
+    void applyLearnResult(float smooth, float focus, float air, float body);
 
     NovaSilkAudioProcessor& processorRef;
 

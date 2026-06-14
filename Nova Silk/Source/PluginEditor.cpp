@@ -72,6 +72,38 @@ void NovaSilkAudioProcessorEditor::timerCallback()
                       + juce::String (processorRef.outputPeakLevel.load(), 4) + "); }";
 
     webView->evaluateJavascript (script);
+
+    // Push learn state to UI
+    {
+        bool learning = processorRef.isLearning();
+        float progress = processorRef.getLearnProgress();
+        float ls, lf, la, lb;
+        bool done = processorRef.consumeLearnResult(ls, lf, la, lb);
+        if (done)
+            applyLearnResult(ls, lf, la, lb);
+
+        const auto learnScript = "if (window.updateLearnState) { window.updateLearnState("
+            + juce::String(learning ? "true" : "false") + ","
+            + juce::String(progress, 3)
+            + "); }";
+        webView->evaluateJavascript(learnScript);
+    }
+}
+
+void NovaSilkAudioProcessorEditor::applyLearnResult(float smooth, float focus, float air, float body)
+{
+    auto setParam = [this](const juce::String& id, float normValue) {
+        if (auto* param = processorRef.apvts.getParameter(id))
+        {
+            param->beginChangeGesture();
+            param->setValueNotifyingHost(normValue);
+            param->endChangeGesture();
+        }
+    };
+    setParam("smooth", smooth);
+    setParam("focus",  focus);
+    setParam("air_preserve", air);
+    setParam("body",   body);
 }
 
 juce::WebBrowserComponent::Options NovaSilkAudioProcessorEditor::createWebOptions (NovaSilkAudioProcessorEditor& editor)
@@ -97,6 +129,11 @@ juce::WebBrowserComponent::Options NovaSilkAudioProcessorEditor::createWebOption
                      .withOptionsFrom (editor.bodyRelay)
                      .withOptionsFrom (editor.outputRelay)
                      .withOptionsFrom (editor.magicRelay);
+
+    options = options.withNativeFunction("novaLearn", [&editor](auto args, auto complete) {
+        editor.processorRef.startLearn();
+        complete("ok");
+    });
 
     return options;
 }

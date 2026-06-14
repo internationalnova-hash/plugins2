@@ -1127,6 +1127,42 @@
 
     applyPreset(activePreset, false);
 
+    // Learn button
+    (function() {
+      var learnBtn = document.getElementById('learn-btn');
+      if (!learnBtn) return;
+
+      learnBtn.addEventListener('click', function() {
+        if (learnBtn.classList.contains('learning')) return;
+        if (window.__JUCE__ && window.__JUCE__.backend) {
+          window.__JUCE__.backend.emitEvent('__juce__invoke', {
+            name: 'novaLearn',
+            params: [],
+            resultId: -1
+          });
+        }
+      });
+
+      // Called from C++ timer (30Hz) via evaluateJavascript
+      window.updateLearnState = function(isLearning, progress) {
+        if (isLearning) {
+          learnBtn.classList.add('learning');
+          learnBtn.classList.remove('done');
+          var pct = Math.round(progress * 100);
+          learnBtn.textContent = pct < 100 ? ('ANALYZING ' + pct + '%') : 'ANALYZING...';
+        } else if (learnBtn.classList.contains('learning')) {
+          // Transition: learning just ended
+          learnBtn.classList.remove('learning');
+          learnBtn.classList.add('done');
+          learnBtn.textContent = 'LEARNED ✓';
+          setTimeout(function() {
+            learnBtn.classList.remove('done');
+            learnBtn.textContent = 'LEARN';
+          }, 2500);
+        }
+      };
+    })();
+
     if (juceAvailable) {
       try {
         initParamStates();

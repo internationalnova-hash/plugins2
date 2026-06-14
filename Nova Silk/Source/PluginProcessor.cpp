@@ -497,6 +497,92 @@ void NovaSilkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
 
     outputPeakLevel.store (blockPeak);
     refreshAnalyzerData();
+
+    // ── Learn mode ───────────────────────────────────────────────────────────
+    if (learnRequested.exchange(false))
+    {
+        learnActive.store(true);
+        learnBlockCount = 0;
+        learnBandAccum.fill(0.0f);
+        learnProgress.store(0.0f);
+    }
+
+    if (learnActive.load())
+    {
+        for (size_t i = 0; i < smoothingBandCount; ++i)
+            learnBandAccum[i] += bandEnvelopes[i];
+        ++learnBlockCount;
+        learnProgress.store((float)learnBlockCount / (float)learnTargetBlocks);
+
+        if (learnBlockCount >= learnTargetBlocks)
+        {
+            // Normalize accumulated band energy
+            for (auto& v : learnBandAccum)
+                v /= (float)learnTargetBlocks;
+
+            // ── Derive Focus ────────────────────────────────────────────────
+            // Spectral centroid in Hz, mapped back to focus knob (0..1)
+            // Plugin maps: focusHz = 250 * 2^(focusNorm * 6)   [250Hz..16kHz]
+            float weightedSum = 0.0f, totalWeight = 0.0f;
+            for (size_t i = 0; i < smoothingBandCount; ++i)
+            {
+                weightedSum  += bandFrequencies[i] * learnBandAccum[i];
+                totalWeight  += learnBandAccum[i];
+            }
+            float centroidHz  = (totalWeight > 1e-9f) ? (weightedSum / totalWeight) : 1000.0f;
+            centroidHz        = juce::jlimit(250.0f, 16000.0f, centroidHz);
+            float focusNorm   = std::log2(centroidHz / 250.0f) / 6.0f;
+            focusNorm         = juce::jlimit(0.0f, 1.0f, focusNorm);
+
+            // ── Derive Smooth ───────────────────────────────────────────────
+            // Spectral flatness: geometric mean / arithmetic mean (0=very peaked, 1=flat)
+            // Peaky (harsh resonances) → high Smooth; flat (clean) → low Smooth
+            float logSum = 0.0f, arith = 0.0f;
+            for (size_t i = 0; i < smoothingBandCount; ++i)
+            {
+                logSum += std::log(learnBandAccum[i] + 1e-9f);
+                arith  += learnBandAccum[i];
+            }
+            float geom     = std::exp(logSum / (float)smoothingBandCount);
+            float arithm   = arith / (float)smoothingBandCount;
+            float flatness = (arithm > 1e-9f) ? juce::jlimit(0.0f, 1.0f, geom / arithm) : 0.5f;
+            // Peaky = low flatness = need more smooth
+            float smoothNorm = juce::jlimit(0.0f, 1.0f, 0.4f + (1.0f - flatness) * 0.85f);
+
+            // ── Derive Air Preserve ─────────────────────────────────────────
+            // High-frequency energy ratio (bands above ~6kHz)
+            float highEnergy = 0.0f, lowEnergy = 0.0f;
+            for (size_t i = 0; i < smoothingBandCount; ++i)
+            {
+                if (bandFrequencies[i] >= 6000.0f)
+                    highEnergy += learnBandAccum[i];
+                else
+                    lowEnergy  += learnBandAccum[i];
+            }
+            float totalE  = highEnergy + lowEnergy + 1e-9f;
+            float airRatio = highEnergy / totalE;
+            // More high-freq energy = needs more air preservation
+            float airNorm = juce::jlimit(0.0f, 1.0f, 0.3f + airRatio * 3.5f);
+
+            // ── Derive Body ─────────────────────────────────────────────────
+            // Low-mid energy ratio (100–600 Hz)
+            float bodyEnergy = 0.0f;
+            for (size_t i = 0; i < smoothingBandCount; ++i)
+            {
+                if (bandFrequencies[i] >= 100.0f && bandFrequencies[i] <= 600.0f)
+                    bodyEnergy += learnBandAccum[i];
+            }
+            float bodyRatio = bodyEnergy / totalE;
+            float bodyNorm  = juce::jlimit(0.0f, 1.0f, 0.25f + bodyRatio * 4.0f);
+
+            learnedSmooth.store(smoothNorm);
+            learnedFocus.store(focusNorm);
+            learnedAir.store(airNorm);
+            learnedBody.store(bodyNorm);
+            learnResultReady.store(true);
+            learnActive.store(false);
+        }
+    }
 }
 
 bool NovaSilkAudioProcessor::hasEditor() const

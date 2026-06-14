@@ -47,6 +47,22 @@ public:
 
     std::atomic<float> outputPeakLevel { 0.0f };
 
+    // Learn mode
+    void startLearn() noexcept { learnRequested.store(true); }
+    bool isLearning() const noexcept { return learnActive.load(); }
+    float getLearnProgress() const noexcept { return learnProgress.load(); }
+    // Returns true once (clears flag), outputs the learned normalized values (0..1)
+    bool consumeLearnResult(float& outSmooth, float& outFocus, float& outAir, float& outBody) noexcept
+    {
+        if (!learnResultReady.load()) return false;
+        learnResultReady.store(false);
+        outSmooth = learnedSmooth.load();
+        outFocus  = learnedFocus.load();
+        outAir    = learnedAir.load();
+        outBody   = learnedBody.load();
+        return true;
+    }
+
     const std::array<std::atomic<float>, spectrumBins>& getInputSpectrum() const noexcept { return inputSpectrum; }
     const std::array<std::atomic<float>, spectrumBins>& getProblemSpectrum() const noexcept { return problemSpectrum; }
     const std::array<std::atomic<float>, spectrumBins>& getReductionSpectrum() const noexcept { return reductionSpectrum; }
@@ -109,6 +125,20 @@ private:
     std::array<std::atomic<float>, spectrumBins> inputSpectrum {};
     std::array<std::atomic<float>, spectrumBins> problemSpectrum {};
     std::array<std::atomic<float>, spectrumBins> reductionSpectrum {};
+
+    // Learn state (audio thread writes, message thread reads)
+    std::atomic<bool>  learnRequested    { false };
+    std::atomic<bool>  learnActive       { false };
+    std::atomic<float> learnProgress     { 0.0f };
+    std::atomic<bool>  learnResultReady  { false };
+    std::atomic<float> learnedSmooth     { 0.0f };
+    std::atomic<float> learnedFocus      { 0.0f };
+    std::atomic<float> learnedAir        { 0.0f };
+    std::atomic<float> learnedBody       { 0.0f };
+
+    static constexpr int learnTargetBlocks = 250;
+    int  learnBlockCount { 0 };
+    std::array<float, smoothingBandCount> learnBandAccum {};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaSilkAudioProcessor)
 };
