@@ -869,6 +869,51 @@ namespace NovaStudio
         return true;
     }
 
+    bool ArrangementModel::moveClipToTrack(int sourceTrack, int clipIndex, int destTrack, int64_t newStartSample)
+    {
+        if (sourceTrack == destTrack) return false;
+        if (!isPositiveAndBelow(sourceTrack, session.getNumTracks())) return false;
+        if (!isPositiveAndBelow(destTrack,   session.getNumTracks())) return false;
+        auto& srcTrackRef = session.getTrack(sourceTrack);
+        if (!isPositiveAndBelow(clipIndex, srcTrackRef.clips.size())) return false;
+
+        Clip clip = srcTrackRef.clips.getReference(clipIndex);
+        clip.startSample = juce::jmax<int64_t>(0, newStartSample);
+
+        struct MoveToTrackAction : public juce::UndoableAction
+        {
+            ArrangementModel* model;
+            int srcTrack, srcClipIdx, dstTrack, dstClipIdx;
+            Clip clip;
+
+            MoveToTrackAction(ArrangementModel* m, int st, int sc, int dt, const Clip& c)
+                : model(m), srcTrack(st), srcClipIdx(sc), dstTrack(dt), dstClipIdx(0), clip(c) {}
+
+            bool perform() override
+            {
+                model->removeClipWithoutUndo(srcTrack, srcClipIdx);
+                dstClipIdx = model->getSession().getTrack(dstTrack).clips.size();
+                model->insertClipWithoutUndo(dstTrack, dstClipIdx, clip);
+                model->selectClip(dstTrack, dstClipIdx);
+                return true;
+            }
+
+            bool undo() override
+            {
+                model->removeClipWithoutUndo(dstTrack, dstClipIdx);
+                model->insertClipWithoutUndo(srcTrack, srcClipIdx, clip);
+                model->selectClip(srcTrack, srcClipIdx);
+                return true;
+            }
+
+            int getSizeInUnits() override { return 1; }
+        };
+
+        undoManager.beginNewTransaction("Move Clip To Track");
+        undoManager.perform(new MoveToTrackAction(this, sourceTrack, clipIndex, destTrack, clip));
+        return true;
+    }
+
     bool ArrangementModel::moveSelectedClipToSample(int64_t samplePosition)
     {
         Clip* clip = getSelectedClip();

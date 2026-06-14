@@ -476,6 +476,8 @@ namespace NovaStudioUI
 
         bool isDraggingClip      = false;
         int  dragStartX          = 0;
+        int  dragSourceTrackIndex = -1;
+        int  dragTargetTrackIndex = -1;
         int64_t originalClipStartSample = 0;
         int64_t originalClipLength      = 0;
         bool isDraggingTrimLeft  = false;

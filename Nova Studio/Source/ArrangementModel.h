@@ -108,6 +108,7 @@ namespace NovaStudio
 
         int64_t getSnappedSamplePosition(int64_t samplePosition) const noexcept;
         bool moveClipsBySamples(const juce::Array<juce::Point<int>>& targets, int64_t deltaSamples);
+        bool moveClipToTrack(int sourceTrack, int clipIndex, int destTrack, int64_t newStartSample);
 
         // Undo/Redo helpers
         void undo();

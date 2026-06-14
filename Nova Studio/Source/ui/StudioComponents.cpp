@@ -1213,6 +1213,15 @@ namespace NovaStudioUI
                                               : juce::Colour::fromRGB(14, 16, 22));
             g.fillRect(0.0f, top, (float)W, trackHeight);
 
+            // Cross-track drag target highlight
+            if (isDraggingClip && dragTargetTrackIndex == trackIndex && dragTargetTrackIndex != dragSourceTrackIndex)
+            {
+                g.setColour(juce::Colour::fromRGB(80, 160, 255).withAlpha(0.15f));
+                g.fillRect(0.0f, top, (float)W, trackHeight);
+                g.setColour(juce::Colour::fromRGB(80, 160, 255).withAlpha(0.6f));
+                g.drawRect(0.0f, top, (float)W, trackHeight, 1.5f);
+            }
+
             // Armed track tint
             if (track.armed)
             {
@@ -1788,6 +1797,8 @@ namespace NovaStudioUI
                     arrangementModel.selectClip(trackIndex, clipIndex);
                     isDraggingClip = (editMode != EditModeToolbar::EditMode::Spot);
                     dragStartX = event.x;
+                    dragSourceTrackIndex = trackIndex;
+                    dragTargetTrackIndex = trackIndex;
                     originalClipStartSample = clip.startSample;
                 }
 
@@ -1955,30 +1966,32 @@ namespace NovaStudioUI
 
             if (isDraggingTrimLeft)
             {
-                const int64_t newStart = juce::jlimit<int64_t>(
-                    originalClipStartSample,
-                    originalClipStartSample + originalClipLength - 1,
-                    sampleAtX);
+                // Allow extending left (revealing audio before original start) as long as
+                // fileOffsetSamples stays >= 0 and timeline position stays >= 0.
+                const int64_t maxExtend = juce::jmin(clip->fileOffsetSamples, originalClipStartSample);
+                const int64_t minStart  = originalClipStartSample - maxExtend;
+                const int64_t maxStart  = originalClipStartSample + originalClipLength - 1;
+                const int64_t newStart  = juce::jlimit<int64_t>(minStart, maxStart, sampleAtX);
                 if (newStart != currentTrimSample)
                 {
                     currentTrimSample = newStart;
+                    const int64_t delta = newStart - originalClipStartSample;
                     NovaStudio::Clip previewClip = *clip;
-                    previewClip.startSample = newStart;
-                    previewClip.lengthSamples = juce::jmax<int64_t>(1, originalClipLength - (newStart - originalClipStartSample));
+                    previewClip.startSample       = newStart;
+                    previewClip.fileOffsetSamples  = clip->fileOffsetSamples + delta;
+                    previewClip.lengthSamples      = juce::jmax<int64_t>(1, originalClipLength - delta);
                     arrangementModel.replaceClipWithoutUndo(arrangementModel.getSelectedTrackIndex(), arrangementModel.getSelectedClipIndex(), previewClip);
                 }
             }
             else if (isDraggingTrimRight)
             {
-                const int64_t newEnd = juce::jlimit<int64_t>(
-                    originalClipStartSample + 1,
-                    originalClipStartSample + originalClipLength,
-                    sampleAtX);
+                // Right trim: free movement, no snap unless Cmd held
+                const int64_t newEnd = juce::jmax<int64_t>(originalClipStartSample + 1, sampleAtX);
                 if (newEnd != currentTrimSample)
                 {
                     currentTrimSample = newEnd;
                     NovaStudio::Clip previewClip = *clip;
-                    previewClip.lengthSamples = juce::jmax<int64_t>(1, newEnd - originalClipStartSample);
+                    previewClip.lengthSamples = newEnd - originalClipStartSample;
                     arrangementModel.replaceClipWithoutUndo(arrangementModel.getSelectedTrackIndex(), arrangementModel.getSelectedClipIndex(), previewClip);
                 }
             }
@@ -1987,6 +2000,15 @@ namespace NovaStudioUI
 
         if (!isDraggingClip || arrangementModel.getSelectedClips().isEmpty())
             return;
+
+        // Track which lane the mouse is over for cross-track drag
+        {
+            const int rulerH = 28;
+            const int newTarget = static_cast<int>((event.y - rulerH + trackScrollY) / (float)trackHeightPx);
+            const int numTracks = arrangementModel.getSession().getNumTracks();
+            dragTargetTrackIndex = juce::jlimit(0, numTracks - 1, newTarget);
+            repaint(); // keep target-lane highlight live
+        }
 
         const int width = getWidth() - 16;
         const double sampleRate = transportState.getSampleRate();
@@ -2024,6 +2046,7 @@ namespace NovaStudioUI
             arrangementModel.moveClipsBySamples(targets, deltaSamples);
         }
         dragStartX = event.x;
+        juce::ignoreUnused(width);
     }
 
     void ArrangementView::mouseUp(const juce::MouseEvent& event)
@@ -2073,18 +2096,40 @@ namespace NovaStudioUI
             NovaStudio::Clip finalClip = *clip;
             if (isDraggingTrimLeft)
             {
-                finalClip.startSample = currentTrimSample;
-                finalClip.lengthSamples = juce::jmax<int64_t>(1, originalClipLength - (currentTrimSample - originalClipStartSample));
+                // finalClip already reflects the live preview state (replaceClipWithoutUndo during drag)
+                // Just commit with undo record; the clip data is already correct.
                 arrangementModel.replaceSelectedClipWithUndo(finalClip, "Trim Clip Start");
             }
             else if (isDraggingTrimRight)
             {
-                finalClip.lengthSamples = juce::jmax<int64_t>(1, currentTrimSample - originalClipStartSample);
                 arrangementModel.replaceSelectedClipWithUndo(finalClip, "Trim Clip End");
             }
         }
         isDraggingTrimLeft = false;
         isDraggingTrimRight = false;
+    }
+
+    if (isDraggingClip)
+    {
+        isDraggingClip = false;
+        // Cross-track: move clip to the target track lane
+        if (dragTargetTrackIndex >= 0 && dragTargetTrackIndex != dragSourceTrackIndex)
+        {
+            const auto& selClips = arrangementModel.getSelectedClips();
+            if (selClips.size() == 1)
+            {
+                const auto pt = selClips.getFirst();
+                if (pt.x == dragSourceTrackIndex)
+                {
+                    const auto* clip = arrangementModel.getSelectedClip();
+                    if (clip != nullptr)
+                        arrangementModel.moveClipToTrack(pt.x, pt.y, dragTargetTrackIndex, clip->startSample);
+                }
+            }
+        }
+        dragSourceTrackIndex = -1;
+        dragTargetTrackIndex = -1;
+        repaint();
     }
 }
 
