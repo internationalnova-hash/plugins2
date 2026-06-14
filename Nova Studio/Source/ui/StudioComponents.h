@@ -26,7 +26,6 @@ namespace NovaStudioUI
         std::function<void()> onStop;
         std::function<void()> onRecord;
         std::function<void()> onReturnToZero;
-        std::function<void()> onArm;
         std::function<void()> onMonitor;
         std::function<void()> onLoop;
 
@@ -34,7 +33,6 @@ namespace NovaStudioUI
         void setTimecode(const juce::String& timecode);
         void setPlayState(bool isPlaying, bool isRecording);
         void setLoopState(bool enabled);
-        void setArmState(bool armed);
         void setMonitorState(bool enabled);
         void setPlaybackState(bool previewEnabled, bool hasPreview);
         std::function<void(bool)> onTogglePreview; // called when user toggles preview on/off
@@ -43,13 +41,13 @@ namespace NovaStudioUI
         void buttonClicked(juce::Button* button) override;
         void timerCallback() override;
 
-        juce::TextButton rtzButton {"|<<"};
-        juce::TextButton playButton {"Play"};
-        juce::TextButton stopButton {"Stop"};
-        juce::TextButton recordButton {"Rec"};
-        juce::TextButton loopButton {"Loop"};
-        juce::TextButton armButton {"Arm"};
-        juce::TextButton monitorButton {"Monitor"};
+        // Unicode icon buttons — no text labels
+        juce::TextButton rtzButton     { juce::CharPointer_UTF8("\xe2\x8f\xae")   }; // ⏮
+        juce::TextButton playButton    { juce::CharPointer_UTF8("\xe2\x96\xb6")   }; // ▶
+        juce::TextButton stopButton    { juce::CharPointer_UTF8("\xe2\x96\xa0")   }; // ■
+        juce::TextButton recordButton  { juce::CharPointer_UTF8("\xe2\x8f\xba")   }; // ⏺
+        juce::TextButton loopButton    { juce::CharPointer_UTF8("\xe2\x86\xbb")   }; // ↻
+        juce::TextButton monitorButton { juce::CharPointer_UTF8("\xf0\x9f\x8e\xa7") }; // 🎧
 
         juce::Label tempoLabel;
         juce::Label timeLabel;
@@ -335,6 +333,15 @@ namespace NovaStudioUI
         int   activeFaderStrip  = -1;
         int   faderDragStartY   = 0;
         float faderDragStartPos = 0.0f;
+
+        // Pan knob state — 0.0 = full left, 0.5 = centre, 1.0 = full right
+        float panPositions[kNumStrips] = {
+            0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
+            0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f
+        };
+        int   activePanStrip   = -1;
+        int   panDragStartX    = 0;
+        float panDragStartPos  = 0.5f;
 
         bool stepStates[6][16] = {};  // step sequencer toggle state
 

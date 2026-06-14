@@ -10,7 +10,6 @@ namespace NovaStudioUI
         addAndMakeVisible(playButton);
         addAndMakeVisible(stopButton);
         addAndMakeVisible(recordButton);
-        addAndMakeVisible(armButton);
         addAndMakeVisible(monitorButton);
         addAndMakeVisible(loopButton);
         addAndMakeVisible(tempoLabel);
@@ -20,9 +19,10 @@ namespace NovaStudioUI
         playButton.addListener(this);
         stopButton.addListener(this);
         recordButton.addListener(this);
-        armButton.addListener(this);
         monitorButton.addListener(this);
         loopButton.addListener(this);
+
+        monitorButton.setTooltip("Input Monitor: hear your audio input live through the mix while recording");
 
         tempoLabel.setText("120 BPM", juce::dontSendNotification);
         tempoLabel.setJustificationType(juce::Justification::centred);
@@ -56,24 +56,34 @@ namespace NovaStudioUI
 
     void TransportBar::resized()
     {
-        auto area = getLocalBounds().reduced(14);
-        auto buttonWidth = 88;
-        auto tall = 32;
-        rtzButton.setBounds(area.removeFromLeft(44).removeFromTop(tall).reduced(4));
-        playButton.setBounds(area.removeFromLeft(buttonWidth).removeFromTop(tall).reduced(4));
-        stopButton.setBounds(area.removeFromLeft(buttonWidth).removeFromTop(tall).reduced(4));
-        recordButton.setBounds(area.removeFromLeft(buttonWidth).removeFromTop(tall).reduced(4));
-        armButton.setBounds(area.removeFromLeft(buttonWidth).removeFromTop(tall).reduced(4));
-        monitorButton.setBounds(area.removeFromLeft(buttonWidth).removeFromTop(tall).reduced(4));
-        loopButton.setBounds(area.removeFromLeft(buttonWidth).removeFromTop(tall).reduced(4));
+        const int H   = getHeight();
+        const int btnSz = juce::jmin(H - 10, 36); // square icon buttons
+        const int gap = 3;
+        int x = 12;
+        auto place = [&](juce::TextButton& btn, int w = -1) {
+            const int bw = (w < 0) ? btnSz : w;
+            btn.setBounds(x, (H - btnSz) / 2, bw, btnSz);
+            x += bw + gap;
+        };
 
-        auto rightArea = getLocalBounds().reduced(14).removeFromRight(260);
-        tempoLabel.setBounds(rightArea.removeFromLeft(120).reduced(4));
-        timeLabel.setBounds(rightArea.removeFromLeft(140).reduced(4));
+        place(rtzButton, btnSz);       // ⏮  return to zero
+        x += 4;                        // small spacer
+        place(playButton, btnSz);      // ▶  play
+        place(stopButton, btnSz);      // ■  stop
+        place(recordButton, btnSz);    // ⏺  record
+        x += 8;                        // separator
+        place(loopButton, btnSz);      // ↻  loop
+        place(monitorButton, btnSz);   // 🎧 input monitor
 
-        // Playback indicator near title
-        playbackLabel.setBounds(16, 34, 220, 18);
-        playbackToggleButton.setBounds(240, 30, 80, 22);
+        // Timecode + tempo on the right
+        auto rightArea = getLocalBounds().withTrimmedLeft(x + 8).withTrimmedRight(8);
+        const int midY = (H - btnSz) / 2;
+        tempoLabel.setBounds(rightArea.removeFromRight(90).withY(midY).withHeight(btnSz));
+        timeLabel.setBounds(rightArea.removeFromRight(120).withY(midY).withHeight(btnSz));
+
+        // Playback preview indicator (below main row, compact)
+        playbackLabel.setBounds(x + 8, H - 18, 200, 16);
+        playbackToggleButton.setBounds(x + 214, H - 20, 72, 18);
     }
 
 
@@ -96,11 +106,6 @@ namespace NovaStudioUI
     void TransportBar::setLoopState(bool enabled)
     {
         loopButton.setColour(juce::TextButton::buttonColourId, enabled ? juce::Colours::yellow.withAlpha(0.35f) : juce::Colours::transparentBlack);
-    }
-
-    void TransportBar::setArmState(bool armed)
-    {
-        armButton.setColour(juce::TextButton::buttonColourId, armed ? juce::Colours::orange.withAlpha(0.45f) : juce::Colours::transparentBlack);
     }
 
     void TransportBar::setMonitorState(bool enabled)
@@ -150,7 +155,6 @@ namespace NovaStudioUI
         else if (button == &playButton && onPlay) onPlay();
         else if (button == &stopButton && onStop) onStop();
         else if (button == &recordButton && onRecord) onRecord();
-        else if (button == &armButton && onArm) onArm();
         else if (button == &monitorButton && onMonitor) onMonitor();
         else if (button == &loopButton && onLoop) onLoop();
         else if (button == &playbackToggleButton)
@@ -2013,6 +2017,26 @@ void BottomDockPanel::mouseDown(const juce::MouseEvent& e)
     const int mixH = getHeight() - 28;
     const auto mixArea = juce::Rectangle<int>(0, 28, static_cast<int>(getWidth() * 0.62f), mixH);
     const int si = stripIndexAt(e.x);
+
+    // ── Pan knob hit-test ─────────────────────────────────────────────────
+    if (si >= 0 && si < kNumStrips)
+    {
+        const int sw    = kStripW - 2;
+        const float knobCX = (float)(si * kStripW) + sw * 0.5f;
+        const float knobCY = (float)(28 + 28);   // matches paintMixerStrips: top + 28
+        const float kr = 9.0f;
+        const float dx = e.position.x - knobCX;
+        const float dy = e.position.y - knobCY;
+        if (dx * dx + dy * dy <= (kr + 2.0f) * (kr + 2.0f))
+        {
+            activePanStrip   = si;
+            panDragStartX    = e.x;
+            panDragStartPos  = panPositions[si];
+            return;
+        }
+    }
+
+    // ── Fader hit-test ────────────────────────────────────────────────────
     if (si >= 0 && faderHitTest(si, e.getPosition(), mixArea))
     {
         activeFaderStrip  = si;
@@ -2046,6 +2070,18 @@ void BottomDockPanel::mouseDown(const juce::MouseEvent& e)
 
 void BottomDockPanel::mouseDrag(const juce::MouseEvent& e)
 {
+    // ── Pan drag ─────────────────────────────────────────────────────────
+    if (activePanStrip >= 0)
+    {
+        // Horizontal drag: right → more R, left → more L
+        // 80px of drag = full sweep (L to R)
+        const float delta = (float)(e.x - panDragStartX) / 80.0f;
+        panPositions[activePanStrip] = juce::jlimit(0.0f, 1.0f, panDragStartPos + delta);
+        repaint();
+        return;
+    }
+
+    // ── Fader drag ───────────────────────────────────────────────────────
     if (activeFaderStrip < 0) return;
     const int mixH   = getHeight() - 28;
     const int fRange = mixH - 78; // fader travel distance
@@ -2057,6 +2093,7 @@ void BottomDockPanel::mouseDrag(const juce::MouseEvent& e)
 void BottomDockPanel::mouseUp(const juce::MouseEvent&)
 {
     activeFaderStrip = -1;
+    activePanStrip   = -1;
 }
 
 void BottomDockPanel::paintMixerStrips(juce::Graphics& g, juce::Rectangle<int> area)
@@ -2091,22 +2128,49 @@ void BottomDockPanel::paintMixerStrips(juce::Graphics& g, juce::Rectangle<int> a
         const float knobCX = (float)sx + sw * 0.5f;
         const float knobCY = (float)top + 28.0f;
         const float kr = 9.0f;
-        // Outer arc ring (dark groove)
+        const float panVal = panPositions[i]; // 0.0 = L, 0.5 = C, 1.0 = R
+
+        // Outer dark groove
         g.setColour(juce::Colour::fromRGB(8, 9, 14));
         g.fillEllipse(knobCX - kr, knobCY - kr, kr * 2.0f, kr * 2.0f);
         // Knob body
         g.setColour(juce::Colour::fromRGB(38, 42, 60));
         g.fillEllipse(knobCX - kr + 1.5f, knobCY - kr + 1.5f, (kr - 1.5f) * 2.0f, (kr - 1.5f) * 2.0f);
-        // Colour rim
-        g.setColour(col.withAlpha(0.55f));
+        // Colour rim — brighter when panned off-centre
+        const float offCentre = std::abs(panVal - 0.5f) * 2.0f;
+        g.setColour(col.withAlpha(0.35f + offCentre * 0.5f));
         g.drawEllipse(knobCX - kr, knobCY - kr, kr * 2.0f, kr * 2.0f, 1.5f);
-        // Centre pointer (pan = 0)
-        g.setColour(juce::Colours::white.withAlpha(0.9f));
-        g.drawLine(knobCX, knobCY - kr + 3.0f, knobCX, knobCY - 3.0f, 1.8f);
-        // "PAN" label
+        // Pan arc: from centre (top) sweeping left or right
+        {
+            const float startAngle = -juce::MathConstants<float>::pi * 0.75f;  // ~7 o'clock
+            const float endAngle   =  juce::MathConstants<float>::pi * 0.75f;  // ~5 o'clock
+            const float centreAngle = 0.0f; // 12 o'clock = centre
+            const float panAngle    = startAngle + panVal * (endAngle - startAngle);
+            juce::Path arc;
+            arc.addArc(knobCX - kr + 1.0f, knobCY - kr + 1.0f, (kr - 1.0f) * 2.0f, (kr - 1.0f) * 2.0f,
+                       juce::jmin(centreAngle, panAngle),
+                       juce::jmax(centreAngle, panAngle), true);
+            g.setColour(col.withAlpha(panVal != 0.5f ? 0.8f : 0.3f));
+            g.strokePath(arc, juce::PathStrokeType(2.0f));
+        }
+        // Pointer line rotated to pan angle
+        {
+            const float startAngle = -juce::MathConstants<float>::pi * 0.75f;
+            const float endAngle   =  juce::MathConstants<float>::pi * 0.75f;
+            const float panAngle   = startAngle + panVal * (endAngle - startAngle);
+            const float px = knobCX + (kr - 3.0f) * std::sin(panAngle);
+            const float py = knobCY - (kr - 3.0f) * std::cos(panAngle);
+            g.setColour(juce::Colours::white.withAlpha(0.9f));
+            g.drawLine(knobCX, knobCY, px, py, 1.8f);
+        }
+        // "PAN" label + L/R value
         g.setColour(juce::Colours::white.withAlpha(0.3f));
         g.setFont(juce::Font(juce::FontOptions(6.5f)));
-        g.drawText("PAN", sx + 2, (int)(knobCY + kr + 1.0f), sw - 4, 9, juce::Justification::centred);
+        juce::String panStr;
+        if (std::abs(panVal - 0.5f) < 0.01f)      panStr = "C";
+        else if (panVal < 0.5f) panStr = "L" + juce::String((int)((0.5f - panVal) * 200.0f));
+        else                    panStr = "R" + juce::String((int)((panVal - 0.5f) * 200.0f));
+        g.drawText(panStr, sx + 2, (int)(knobCY + kr + 1.0f), sw - 4, 9, juce::Justification::centred);
 
         // ── Fader track ───────────────────────────────────────────────────
         const int faderTop = top + 44;
