@@ -1126,6 +1126,53 @@ namespace NovaStudioUI
             }), true);
     }
 
+    // Display range/centre for an automation parameter — used to map values to
+    // the 0..1 normalized vertical position drawn in the lane strip.
+    static float automationParameterRange(const juce::String& parameterId)
+    {
+        if (parameterId == "volume") return 30.0f;   // ±30 dB
+        if (parameterId == "pan")    return 1.0f;    // ±1.0
+        if (parameterId.startsWith("send")) return 30.0f; // ±30 dB
+        return 1.0f;
+    }
+
+    static float automationParameterCentre(const juce::String& parameterId)
+    {
+        if (parameterId == "volume") return -15.0f;
+        if (parameterId.startsWith("send")) return -50.0f;
+        return 0.0f;
+    }
+
+    static float automationValueToY(float value, const juce::String& parameterId, float stripTop, float stripBottom)
+    {
+        const float range  = automationParameterRange(parameterId);
+        const float centre = automationParameterCentre(parameterId);
+        const float norm = juce::jlimit(0.0f, 1.0f, 0.5f + (value - centre) / (2.0f * range));
+        return stripBottom - 2.0f - norm * (stripBottom - stripTop - 4.0f);
+    }
+
+    static float automationYToValue(float y, const juce::String& parameterId, float stripTop, float stripBottom)
+    {
+        const float range  = automationParameterRange(parameterId);
+        const float centre = automationParameterCentre(parameterId);
+        const float h = stripBottom - stripTop - 4.0f;
+        const float norm = h > 0.0f ? juce::jlimit(0.0f, 1.0f, (stripBottom - 2.0f - y) / h) : 0.5f;
+        return centre + (norm - 0.5f) * (2.0f * range);
+    }
+
+    static void insertAutomationPointSorted(juce::Array<NovaStudio::AutomationPoint>& points, double timeSeconds, float value)
+    {
+        NovaStudio::AutomationPoint point;
+        point.timeSeconds = timeSeconds;
+        point.value = value;
+        int insertIndex = points.size();
+        for (int i = 0; i < points.size(); ++i)
+        {
+            if (timeSeconds < points.getReference(i).timeSeconds) { insertIndex = i; break; }
+        }
+        points.insert(insertIndex, point);
+    }
+
     // In paint, draw waveform using cache where available and simple handles for selected clips
 
     void ArrangementView::paint(juce::Graphics& g)
@@ -1442,6 +1489,83 @@ namespace NovaStudioUI
                         g.setColour(isBeingDragged ? juce::Colour::fromRGB(255, 210, 60) : juce::Colours::white.withAlpha(0.80f));
                         g.setFont(juce::FontOptions(9.0f));
                         g.drawText(gainStr, (int)clipStartX + 4, (int)gainLineY - 11, (int)clipWidth - 8, 11, juce::Justification::centredLeft);
+                    }
+                }
+            }
+        }
+
+        // Automation lanes — drawn as translucent overlay strips along the
+        // bottom of each track's lane (FL-style automation clips, simplified
+        // to linear breakpoint curves overlaid on the arrangement).
+        {
+            automationStrips.clearQuick();
+            const double sr = session.getSampleRate();
+            const float laneStripH = 16.0f;
+
+            for (int trackIndex = 0; trackIndex < trackCount; ++trackIndex)
+            {
+                const auto& track = session.getTrack(trackIndex);
+                if (track.automationLanes.isEmpty()) continue;
+
+                const float top = lanesTop + trackIndex * trackHeight - (float)trackScrollY;
+                if (top + trackHeight <= lanesTop || top >= (float)H) continue;
+
+                int visibleLaneCount = 0;
+                for (auto& lane : track.automationLanes)
+                    if (lane.enabled) ++visibleLaneCount;
+                if (visibleLaneCount == 0) continue;
+
+                int laneSlot = 0;
+                for (int laneIndex = 0; laneIndex < track.automationLanes.size(); ++laneIndex)
+                {
+                    const auto& lane = track.automationLanes.getReference(laneIndex);
+                    if (!lane.enabled) continue;
+
+                    const float stripBottom = top + trackHeight - laneSlot * laneStripH;
+                    const float stripTop    = stripBottom - laneStripH;
+                    ++laneSlot;
+                    if (stripBottom <= lanesTop || stripTop >= (float)H) continue;
+
+                    automationStrips.add({ trackIndex, laneIndex,
+                        juce::Rectangle<float>(0.0f, stripTop, (float)W, laneStripH) });
+
+                    const auto laneColour = juce::Colour::fromHSV(
+                        (float)((laneIndex * 0.21) - std::floor(laneIndex * 0.21)), 0.55f, 0.95f, 1.0f);
+
+                    g.setColour(juce::Colour::fromRGB(8, 9, 14).withAlpha(0.65f));
+                    g.fillRect(0.0f, stripTop, (float)W, laneStripH);
+                    g.setColour(laneColour.withAlpha(0.35f));
+                    g.drawLine(0.0f, stripTop, (float)W, stripTop, 1.0f);
+
+                    g.setColour(laneColour.withAlpha(0.7f));
+                    g.setFont(juce::FontOptions(7.5f));
+                    g.drawText(lane.parameterId, 2, (int)stripTop, 60, (int)laneStripH, juce::Justification::centredLeft);
+
+                    if (lane.points.size() >= 1)
+                    {
+                        juce::Path curve;
+                        for (int p = 0; p < lane.points.size(); ++p)
+                        {
+                            const auto& pt = lane.points.getReference(p);
+                            const auto sampleAt = static_cast<int64_t>(pt.timeSeconds * sr);
+                            const float x = (float)timelineModel.getXForSamplePosition(sampleAt, width);
+                            const float y = automationValueToY(pt.value, lane.parameterId, stripTop, stripBottom);
+                            if (p == 0) curve.startNewSubPath(x, y);
+                            else        curve.lineTo(x, y);
+                        }
+                        g.setColour(laneColour.withAlpha(0.85f));
+                        g.strokePath(curve, juce::PathStrokeType(1.5f));
+
+                        for (int p = 0; p < lane.points.size(); ++p)
+                        {
+                            const auto& pt = lane.points.getReference(p);
+                            const auto sampleAt = static_cast<int64_t>(pt.timeSeconds * sr);
+                            const float x = (float)timelineModel.getXForSamplePosition(sampleAt, width);
+                            const float y = automationValueToY(pt.value, lane.parameterId, stripTop, stripBottom);
+                            if (x < -6.0f || x > (float)W + 6.0f) continue;
+                            g.setColour(laneColour);
+                            g.fillEllipse(x - 2.5f, y - 2.5f, 5.0f, 5.0f);
+                        }
                     }
                 }
             }
@@ -1850,6 +1974,73 @@ namespace NovaStudioUI
             return;
         }
 
+        // ── Automation lane strips: add / move / delete breakpoints ─────────
+        for (auto& strip : automationStrips)
+        {
+            if (!strip.bounds.contains(clickPoint)) continue;
+
+            const auto& sess = arrangementModel.getSession();
+            if (!isPositiveAndBelow(strip.trackIndex, sess.getNumTracks())) break;
+            const auto& lane = sess.getTrack(strip.trackIndex).automationLanes.getReference(strip.laneIndex);
+            const double sr = sess.getSampleRate();
+
+            // Hit-test existing points (within 6px)
+            int hitPoint = -1;
+            for (int p = 0; p < lane.points.size(); ++p)
+            {
+                const auto& pt = lane.points.getReference(p);
+                const auto sampleAt = static_cast<int64_t>(pt.timeSeconds * sr);
+                const float x = (float)timelineModel.getXForSamplePosition(sampleAt, width);
+                const float y = automationValueToY(pt.value, lane.parameterId, strip.bounds.getY(), strip.bounds.getBottom());
+                if (std::abs(clickPoint.x - x) < 6.0f && std::abs(clickPoint.y - y) < 6.0f)
+                { hitPoint = p; break; }
+            }
+
+            if (event.mods.isPopupMenu())
+            {
+                juce::PopupMenu menu;
+                if (hitPoint >= 0) menu.addItem(1, "Delete Point");
+                menu.addItem(2, "Remove Automation Lane");
+                const int trackIdx = strip.trackIndex, laneIdx = strip.laneIndex, pointIdx = hitPoint;
+                menu.showMenuAsync(juce::PopupMenu::Options(), [this, trackIdx, laneIdx, pointIdx](int result)
+                {
+                    auto& tr = arrangementModel.getSession().getTrack(trackIdx);
+                    if (result == 1 && pointIdx >= 0)
+                        tr.automationLanes.getReference(laneIdx).points.remove(pointIdx);
+                    else if (result == 2)
+                        tr.automationLanes.remove(laneIdx);
+                    else
+                        return;
+                    arrangementModel.sendChangeMessage();
+                    repaint();
+                });
+                return;
+            }
+
+            if (hitPoint >= 0)
+            {
+                isDraggingAutomationPoint = true;
+                dragAutomationTrack = strip.trackIndex;
+                dragAutomationLane  = strip.laneIndex;
+                dragAutomationPoint = hitPoint;
+                return;
+            }
+
+            // Empty area click → add a new breakpoint here
+            {
+                const bool snapNow = (snapEnabled && editMode == EditModeToolbar::EditMode::Grid);
+                const int64_t clickSample = juce::jmax<int64_t>(0, xToSample(clickPoint.x, timelineModel, snapNow, snapBeats, sess));
+                const double timeSeconds = sr > 0.0 ? (double)clickSample / sr : 0.0;
+                const float value = automationYToValue(clickPoint.y, lane.parameterId, strip.bounds.getY(), strip.bounds.getBottom());
+
+                auto& tr = arrangementModel.getSession().getTrack(strip.trackIndex);
+                insertAutomationPointSorted(tr.automationLanes.getReference(strip.laneIndex).points, timeSeconds, value);
+                arrangementModel.sendChangeMessage();
+                repaint();
+            }
+            return;
+        }
+
         // ── Track lanes ──────────────────────────────────────────────────────
         const float trackHeight = (float)trackHeightPx;
         const float lanesTop = (float)rulerH;
@@ -1862,6 +2053,51 @@ namespace NovaStudioUI
         }
 
         const auto& track = arrangementModel.getSession().getTrack(trackIndex);
+
+        // Right-click on empty track-lane area (no clip under cursor) → add automation lane
+        if (event.mods.isPopupMenu())
+        {
+            bool overClip = false;
+            for (int ci = 0; ci < track.clips.size(); ++ci)
+            {
+                const auto& c = track.clips.getReference(ci);
+                const double sx = timelineModel.getXForSamplePosition(c.startSample, width);
+                const double ex = timelineModel.getXForSamplePosition(c.startSample + c.lengthSamples, width);
+                const float cy = lanesTop + trackIndex * trackHeight - (float)trackScrollY + 6.0f;
+                if (juce::Rectangle<float>((float)sx, cy, (float)juce::jmax(8.0, ex - sx), trackHeight - 12.0f).contains(clickPoint))
+                { overClip = true; break; }
+            }
+
+            if (!overClip)
+            {
+                static const std::pair<const char*, const char*> kParams[] = {
+                    { "volume", "Volume" }, { "pan", "Pan" },
+                    { "send1", "Send 1" }, { "send2", "Send 2" }, { "send3", "Send 3" },
+                    { "send4", "Send 4" }, { "send5", "Send 5" }, { "send6", "Send 6" },
+                };
+                juce::PopupMenu addMenu;
+                for (int p = 0; p < (int)juce::numElementsInArray(kParams); ++p)
+                    addMenu.addItem(p + 1, kParams[p].second);
+
+                juce::PopupMenu menu;
+                menu.addSubMenu("Add Automation Lane", addMenu);
+
+                const int trackIdx = trackIndex;
+                menu.showMenuAsync(juce::PopupMenu::Options(), [this, trackIdx](int result)
+                {
+                    if (result < 1 || result > (int)juce::numElementsInArray(kParams)) return;
+                    NovaStudio::AutomationLane lane;
+                    lane.parameterId = kParams[result - 1].first;
+                    lane.enabled = true;
+                    lane.points.add({ 0.0, 0.0f });
+                    arrangementModel.getSession().getTrack(trackIdx).automationLanes.add(lane);
+                    arrangementModel.sendChangeMessage();
+                    repaint();
+                });
+                return;
+            }
+        }
+
         bool found = false;
         for (int clipIndex = 0; clipIndex < track.clips.size(); ++clipIndex)
         {
@@ -2008,6 +2244,32 @@ namespace NovaStudioUI
     {
         const bool snapNow = (snapEnabled && editMode == EditModeToolbar::EditMode::Grid);
         const auto& session = arrangementModel.getSession();
+
+        // ── Automation point drag ─────────────────────────────────────────────
+        if (isDraggingAutomationPoint)
+        {
+            for (auto& strip : automationStrips)
+            {
+                if (strip.trackIndex != dragAutomationTrack || strip.laneIndex != dragAutomationLane)
+                    continue;
+                if (!isPositiveAndBelow(dragAutomationTrack, session.getNumTracks())) break;
+
+                auto& tr = arrangementModel.getSession().getTrack(dragAutomationTrack);
+                auto& lane = tr.automationLanes.getReference(dragAutomationLane);
+                if (!isPositiveAndBelow(dragAutomationPoint, lane.points.size())) break;
+
+                const double sr = session.getSampleRate();
+                const int64_t sample = juce::jmax<int64_t>(0, xToSample(event.position.x, timelineModel, snapNow, snapBeats, session));
+                const double timeSeconds = sr > 0.0 ? (double)sample / sr : 0.0;
+                const float value = automationYToValue(event.position.y, lane.parameterId, strip.bounds.getY(), strip.bounds.getBottom());
+
+                lane.points.getReference(dragAutomationPoint).timeSeconds = timeSeconds;
+                lane.points.getReference(dragAutomationPoint).value = value;
+                repaint();
+                break;
+            }
+            return;
+        }
 
         // ── Playhead scrubbing ────────────────────────────────────────────────
         if (isDraggingPlayhead && !isDraggingRangeSelect)
@@ -2266,6 +2528,31 @@ namespace NovaStudioUI
 
     void ArrangementView::mouseUp(const juce::MouseEvent& event)
     {
+        // ── Finalise automation point drag — re-sort by time and persist ─────
+        if (isDraggingAutomationPoint)
+        {
+            isDraggingAutomationPoint = false;
+            auto& session = arrangementModel.getSession();
+            if (isPositiveAndBelow(dragAutomationTrack, session.getNumTracks()))
+            {
+                auto& tr = session.getTrack(dragAutomationTrack);
+                if (isPositiveAndBelow(dragAutomationLane, tr.automationLanes.size()))
+                {
+                    auto& points = tr.automationLanes.getReference(dragAutomationLane).points;
+                    if (isPositiveAndBelow(dragAutomationPoint, points.size()))
+                    {
+                        const auto moved = points.getReference(dragAutomationPoint);
+                        points.remove(dragAutomationPoint);
+                        insertAutomationPointSorted(points, moved.timeSeconds, moved.value);
+                    }
+                }
+            }
+            dragAutomationTrack = dragAutomationLane = dragAutomationPoint = -1;
+            arrangementModel.sendChangeMessage();
+            repaint();
+            return;
+        }
+
         // ── Finalise range-select drag ────────────────────────────────────────
         if (isDraggingRangeSelect)
         {

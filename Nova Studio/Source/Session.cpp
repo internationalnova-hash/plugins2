@@ -79,6 +79,56 @@ Clip ClipFromVar(const juce::var& var)
     return clip;
 }
 
+    juce::var AutomationPoint::toVar() const
+    {
+        juce::DynamicObject::Ptr object = new juce::DynamicObject();
+        object->setProperty("timeSeconds", timeSeconds);
+        object->setProperty("value", value);
+        return object.get();
+    }
+
+    AutomationPoint AutomationPoint::fromVar(const juce::var& var)
+    {
+        AutomationPoint point;
+        if (auto* object = var.getDynamicObject())
+        {
+            point.timeSeconds = (double)object->getProperty("timeSeconds");
+            point.value = (float)(double)object->getProperty("value");
+        }
+        return point;
+    }
+
+    juce::var AutomationLane::toVar() const
+    {
+        juce::DynamicObject::Ptr object = new juce::DynamicObject();
+        object->setProperty("parameterId", parameterId);
+        object->setProperty("enabled", boolToVar(enabled));
+
+        juce::Array<juce::var> pointsVar;
+        for (const auto& point : points)
+            pointsVar.add(point.toVar());
+        object->setProperty("points", pointsVar);
+        return object.get();
+    }
+
+    AutomationLane AutomationLane::fromVar(const juce::var& var)
+    {
+        AutomationLane lane;
+        if (auto* object = var.getDynamicObject())
+        {
+            lane.parameterId = object->getProperty("parameterId").toString();
+            lane.enabled = varToBool(object->getProperty("enabled"));
+
+            auto pointsVar = object->getProperty("points");
+            if (pointsVar.isArray())
+            {
+                for (auto& pointVar : *pointsVar.getArray())
+                    lane.points.add(AutomationPoint::fromVar(pointVar));
+            }
+        }
+        return lane;
+    }
+
     juce::var Track::toVar() const
     {
         juce::DynamicObject::Ptr object = new juce::DynamicObject();
@@ -92,6 +142,11 @@ Clip ClipFromVar(const juce::var& var)
         object->setProperty("colour", colour.toString());
         object->setProperty("groupName", groupName);
         object->setProperty("locked", boolToVar(locked));
+
+        juce::Array<juce::var> lanesVar;
+        for (const auto& lane : automationLanes)
+            lanesVar.add(lane.toVar());
+        object->setProperty("automationLanes", lanesVar);
 
         juce::Array<juce::var> clipsVar;
         for (const auto& clip : clips)
@@ -117,6 +172,13 @@ Clip ClipFromVar(const juce::var& var)
                 track.colour = juce::Colour::fromString(object->getProperty("colour").toString());
             track.groupName = object->getProperty("groupName").toString();
             track.locked = varToBool(object->getProperty("locked"));
+
+            auto lanesVar = object->getProperty("automationLanes");
+            if (lanesVar.isArray())
+            {
+                for (auto& laneVar : *lanesVar.getArray())
+                    track.automationLanes.add(AutomationLane::fromVar(laneVar));
+            }
 
             auto clipsVar = object->getProperty("clips");
             if (clipsVar.isArray())

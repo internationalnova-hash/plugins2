@@ -724,6 +724,143 @@ namespace NovaStudio
         return session.getTrack(index).locked;
     }
 
+    int StudioAudioEngine::addAutomationLane(int trackIndex, const juce::String& parameterId)
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks()))
+            return -1;
+
+        AutomationLane lane;
+        lane.parameterId = parameterId;
+        lane.enabled = true;
+        auto& track = session.getTrack(trackIndex);
+        track.automationLanes.add(lane);
+        return track.automationLanes.size() - 1;
+    }
+
+    void StudioAudioEngine::removeAutomationLane(int trackIndex, int laneIndex)
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks()))
+            return;
+        auto& lanes = session.getTrack(trackIndex).automationLanes;
+        if (isPositiveAndBelow(laneIndex, lanes.size()))
+            lanes.remove(laneIndex);
+    }
+
+    void StudioAudioEngine::setAutomationLaneEnabled(int trackIndex, int laneIndex, bool enabled)
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks()))
+            return;
+        auto& lanes = session.getTrack(trackIndex).automationLanes;
+        if (isPositiveAndBelow(laneIndex, lanes.size()))
+            lanes.getReference(laneIndex).enabled = enabled;
+    }
+
+    int StudioAudioEngine::getNumAutomationLanes(int trackIndex) const noexcept
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks()))
+            return 0;
+        return session.getTrack(trackIndex).automationLanes.size();
+    }
+
+    const AutomationLane* StudioAudioEngine::getAutomationLane(int trackIndex, int laneIndex) const
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks()))
+            return nullptr;
+        const auto& lanes = session.getTrack(trackIndex).automationLanes;
+        if (!isPositiveAndBelow(laneIndex, lanes.size()))
+            return nullptr;
+        return &lanes.getReference(laneIndex);
+    }
+
+    int StudioAudioEngine::addAutomationPoint(int trackIndex, int laneIndex, double timeSeconds, float value)
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks()))
+            return -1;
+        auto& lanes = session.getTrack(trackIndex).automationLanes;
+        if (!isPositiveAndBelow(laneIndex, lanes.size()))
+            return -1;
+
+        auto& points = lanes.getReference(laneIndex).points;
+        AutomationPoint point;
+        point.timeSeconds = timeSeconds;
+        point.value = value;
+
+        int insertIndex = points.size();
+        for (int i = 0; i < points.size(); ++i)
+        {
+            if (timeSeconds < points.getReference(i).timeSeconds)
+            {
+                insertIndex = i;
+                break;
+            }
+        }
+        points.insert(insertIndex, point);
+        return insertIndex;
+    }
+
+    void StudioAudioEngine::moveAutomationPoint(int trackIndex, int laneIndex, int pointIndex, double timeSeconds, float value)
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks()))
+            return;
+        auto& lanes = session.getTrack(trackIndex).automationLanes;
+        if (!isPositiveAndBelow(laneIndex, lanes.size()))
+            return;
+        auto& points = lanes.getReference(laneIndex).points;
+        if (!isPositiveAndBelow(pointIndex, points.size()))
+            return;
+
+        points.remove(pointIndex);
+        AutomationPoint point;
+        point.timeSeconds = timeSeconds;
+        point.value = value;
+        int insertIndex = points.size();
+        for (int i = 0; i < points.size(); ++i)
+        {
+            if (timeSeconds < points.getReference(i).timeSeconds)
+            {
+                insertIndex = i;
+                break;
+            }
+        }
+        points.insert(insertIndex, point);
+    }
+
+    void StudioAudioEngine::removeAutomationPoint(int trackIndex, int laneIndex, int pointIndex)
+    {
+        if (!isPositiveAndBelow(trackIndex, session.getNumTracks()))
+            return;
+        auto& lanes = session.getTrack(trackIndex).automationLanes;
+        if (!isPositiveAndBelow(laneIndex, lanes.size()))
+            return;
+        auto& points = lanes.getReference(laneIndex).points;
+        if (isPositiveAndBelow(pointIndex, points.size()))
+            points.remove(pointIndex);
+    }
+
+    float StudioAudioEngine::evaluateAutomationLane(const AutomationLane& lane, double timeSeconds)
+    {
+        const auto& points = lane.points;
+        if (points.isEmpty())
+            return 0.0f;
+        if (points.size() == 1 || timeSeconds <= points.getFirst().timeSeconds)
+            return points.getFirst().value;
+        if (timeSeconds >= points.getLast().timeSeconds)
+            return points.getLast().value;
+
+        for (int i = 0; i < points.size() - 1; ++i)
+        {
+            const auto& a = points.getReference(i);
+            const auto& b = points.getReference(i + 1);
+            if (timeSeconds >= a.timeSeconds && timeSeconds <= b.timeSeconds)
+            {
+                const double span = b.timeSeconds - a.timeSeconds;
+                const float t = span > 0.0 ? (float)((timeSeconds - a.timeSeconds) / span) : 0.0f;
+                return a.value + (b.value - a.value) * t;
+            }
+        }
+        return points.getLast().value;
+    }
+
     int StudioAudioEngine::getTrackCount() const noexcept
     {
         return session.getNumTracks();
@@ -1249,7 +1386,34 @@ namespace NovaStudio
         {
             juce::ScopedLock sl(playerLock);
             for (int i = 0; i < trackPlayers.size(); ++i)
-                trackPlayers.getReference(i)->setPlaybackPosition(transportSeconds);
+            {
+                auto* player = trackPlayers.getReference(i).get();
+                player->setPlaybackPosition(transportSeconds);
+
+                // Apply automation lanes (volume/pan/sends) for the current position —
+                // overrides the static mixer values fetched from the session while playing.
+                if (transportState.isPlaying() && isPositiveAndBelow(player->trackIndex, session.getNumTracks()))
+                {
+                    const auto& lanes = session.getTrack(player->trackIndex).automationLanes;
+                    for (const auto& lane : lanes)
+                    {
+                        if (!lane.enabled || lane.points.isEmpty())
+                            continue;
+
+                        const float value = evaluateAutomationLane(lane, transportSeconds);
+                        if (lane.parameterId == "volume")
+                            player->volumeDb = value;
+                        else if (lane.parameterId == "pan")
+                            player->pan = value;
+                        else if (lane.parameterId.startsWith("send"))
+                        {
+                            const int sendIndex = lane.parameterId.substring(4).getIntValue() - 1;
+                            if (isPositiveAndBelow(sendIndex, TrackPlayer::kMaxSends))
+                                player->sendLevels[sendIndex] = value;
+                        }
+                    }
+                }
+            }
         }
 
         // Clear send buses before the regular track mix writes into them

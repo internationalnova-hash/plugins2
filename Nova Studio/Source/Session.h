@@ -41,6 +41,26 @@ namespace NovaStudio
         juce::Colour clipColor = juce::Colours::steelblue;
     };
 
+    struct AutomationPoint
+    {
+        double timeSeconds = 0.0;
+        float  value       = 0.0f;
+        juce::var toVar() const;
+        static AutomationPoint fromVar(const juce::var& var);
+    };
+
+    // An automation lane targets a single parameter on its owning track and
+    // holds a time-ordered list of breakpoints; values are linearly
+    // interpolated between points during playback (FL-style automation clips).
+    struct AutomationLane
+    {
+        juce::String parameterId;   // "volume", "pan", "send1".."send6"
+        bool  enabled = true;
+        juce::Array<AutomationPoint> points;
+        juce::var toVar() const;
+        static AutomationLane fromVar(const juce::var& var);
+    };
+
     struct Track
     {
         juce::String name;
@@ -60,6 +80,7 @@ namespace NovaStudio
         juce::Colour colour = juce::Colours::steelblue;
         juce::String groupName;  // empty = ungrouped; tracks sharing a name form a group
         bool  locked = false;    // locked tracks cannot be edited (clips, volume, etc.)
+        juce::Array<AutomationLane> automationLanes;
         juce::Array<Clip> clips;
 
         Track() = default;

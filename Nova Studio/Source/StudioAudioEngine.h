@@ -38,6 +38,19 @@ namespace NovaStudio
         void setTrackLocked(int index, bool locked);
         bool isTrackLocked(int index) const noexcept;
 
+        // Automation lanes — FL-style automation clips: a time-ordered list of
+        // breakpoints linearly interpolated during playback and applied to the
+        // named parameter ("volume", "pan", "send1".."send6") each audio block.
+        int  addAutomationLane(int trackIndex, const juce::String& parameterId);
+        void removeAutomationLane(int trackIndex, int laneIndex);
+        void setAutomationLaneEnabled(int trackIndex, int laneIndex, bool enabled);
+        int  getNumAutomationLanes(int trackIndex) const noexcept;
+        const AutomationLane* getAutomationLane(int trackIndex, int laneIndex) const;
+        int  addAutomationPoint(int trackIndex, int laneIndex, double timeSeconds, float value);
+        void moveAutomationPoint(int trackIndex, int laneIndex, int pointIndex, double timeSeconds, float value);
+        void removeAutomationPoint(int trackIndex, int laneIndex, int pointIndex);
+        static float evaluateAutomationLane(const AutomationLane& lane, double timeSeconds);
+
         int getTrackCount() const noexcept;
         const Session& getSession() const noexcept;
         Session& getSession() noexcept;

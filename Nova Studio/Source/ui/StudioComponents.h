@@ -532,6 +532,19 @@ namespace NovaStudioUI
         // Vertical scroll (shared with TrackPanel via onScrollChanged)
         int trackScrollY = 0;
 
+        // Automation lane hit-rectangles, rebuilt each paint() and consulted by
+        // mouseDown/mouseDrag/mouseUp for adding/moving/deleting breakpoints.
+        struct AutomationStripInfo
+        {
+            int trackIndex, laneIndex;
+            juce::Rectangle<float> bounds;
+        };
+        juce::Array<AutomationStripInfo> automationStrips;
+        bool isDraggingAutomationPoint = false;
+        int  dragAutomationTrack  = -1;
+        int  dragAutomationLane   = -1;
+        int  dragAutomationPoint  = -1;
+
     public:
         void setTrackScrollY(int y) { trackScrollY = y; repaint(); }
         int  getTrackScrollY() const { return trackScrollY; }
