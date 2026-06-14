@@ -81,19 +81,15 @@ void EditWindow::resized()
     auto r = getLocalBounds().reduced(12);
     auto top = r.removeFromTop(72);
     topPanel.setBounds(top);
-    topPanel.setOpaque(true);
 
     auto bottom = r.removeFromBottom(160);
     bottomPanel.setBounds(bottom);
-    bottomPanel.setOpaque(true);
 
     auto right = r.removeFromRight(320);
     rightPanel.setBounds(right);
-    rightPanel.setOpaque(true);
 
     auto left = r.removeFromLeft(280);
     leftPanel.setBounds(left);
-    leftPanel.setOpaque(true);
 
     centerPanel.setBounds(r);
 

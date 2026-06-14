@@ -208,8 +208,12 @@ namespace NovaStudio
         if (result.isNotEmpty())
             return false;
 
-        currentSampleRate = deviceManager.getCurrentAudioDevice()->getCurrentSampleRate();
-        currentBufferSize = deviceManager.getCurrentAudioDevice()->getCurrentBufferSizeSamples();
+        auto* device = deviceManager.getCurrentAudioDevice();
+        if (device == nullptr)
+            return false;
+
+        currentSampleRate = device->getCurrentSampleRate();
+        currentBufferSize = device->getCurrentBufferSizeSamples();
         transportState.setSampleRate(currentSampleRate);
         transportState.setTempo(static_cast<int>(session.getTempo()));
 
