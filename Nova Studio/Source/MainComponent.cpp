@@ -84,6 +84,14 @@ MainComponent::MainComponent()
     addAndMakeVisible(mixerPanel);
     mixerPanel.setVisible(false);
     addAndMakeVisible(bottomDock);
+    addAndMakeVisible(bottomDockToggleBar);
+    bottomDockToggleBar.onClick = [this]() {
+        bottomDockCollapsed = !bottomDockCollapsed;
+        bottomDockToggleBar.collapsed = bottomDockCollapsed;
+        bottomDock.setVisible(!bottomDockCollapsed);
+        bottomDockToggleBar.repaint();
+        resized();
+    };
     addAndMakeVisible(statusLabel);
 
     
@@ -319,11 +327,16 @@ void MainComponent::popOutMixer()
     {
         mixerWindow->setVisible(true);
         floatingMixer = std::make_unique<FloatingPanelWindow>(
-            "Mixer", mixerWindow.get(),
+            "Nova Studio — Mixer", mixerWindow.get(),
             [this](FloatingPanelWindow* w) {
                 juce::ignoreUnused(w);
                 redockMixer();
             });
+        // Position to the right of or below the main window by default
+        auto mainBounds = getTopLevelComponent()->getBounds();
+        floatingMixer->setBounds(mainBounds.getX(), mainBounds.getBottom() + 4,
+                                 juce::jmax(900, mainBounds.getWidth()), 900);
+        floatingMixer->setResizable(true, false);
     }
 }
 
@@ -345,11 +358,15 @@ void MainComponent::popOutBeat()
     {
         beatWindow->setVisible(true);
         floatingBeat = std::make_unique<FloatingPanelWindow>(
-            "Beat Production", beatWindow.get(),
+            "Nova Studio — Beat Production", beatWindow.get(),
             [this](FloatingPanelWindow* w) {
                 juce::ignoreUnused(w);
                 redockBeat();
             });
+        auto mainBounds = getTopLevelComponent()->getBounds();
+        floatingBeat->setBounds(mainBounds.getX(), mainBounds.getBottom() + 4,
+                                juce::jmax(800, mainBounds.getWidth()), 700);
+        floatingBeat->setResizable(true, false);
     }
 }
 
@@ -421,11 +438,19 @@ void MainComponent::resized()
         browserPanel.setBounds({});
     }
 
-    // Bottom dock: mixer channels + piano roll + step seq — secondary to timeline
-    // Keep dock compact (≈25% of window) so the arrangement gets ≈65%
-    const int dockH = juce::jmax(110, getHeight() / 4);
-    auto bottomArea = area.removeFromBottom(dockH);
-    bottomDock.setBounds(bottomArea);
+    // Bottom dock toggle bar (always visible — 10px horizontal strip)
+    bottomDockToggleBar.setBounds(area.removeFromBottom(10));
+    // Bottom dock: only if not collapsed
+    if (!bottomDockCollapsed)
+    {
+        const int dockH = juce::jmax(110, getHeight() / 4);
+        auto bottomArea = area.removeFromBottom(dockH);
+        bottomDock.setBounds(bottomArea);
+    }
+    else
+    {
+        bottomDock.setBounds({});
+    }
 
     // Status label (overlay, bottom right)
     statusLabel.setBounds(getWidth() - 500, getHeight() - 26, 480, 22);
@@ -699,38 +724,50 @@ void MainComponent::refreshTrackList()
 
 void MainComponent::setWorkspaceMode(int mode)
 {
-    browserPanel.setVisible(true); // always visible
-
     switch (mode)
     {
-    case 0: // Edit
+    case 0: // Edit — show edit window, hide/close floating mixer & beat
         if (editWindow) editWindow->setVisible(true);
-        if (mixerWindow) mixerWindow->setVisible(false);
-        if (beatWindow) beatWindow->setVisible(false);
+        // Don't close floating mixer/beat — user may want them visible on other monitor
+        // Just bring edit window to front
+        if (editWindow) editWindow->getTopLevelComponent()->toFront(true);
         alignPanel.setVisible(false);
         bottomDock.setVisible(true);
         resized();
         break;
-    case 1: // Mixer
-        if (editWindow) editWindow->setVisible(false);
-        if (mixerWindow) { mixerWindow->refresh(); mixerWindow->setVisible(true); }
-        if (beatWindow) beatWindow->setVisible(false);
-        alignPanel.setVisible(false);
-        bottomDock.setVisible(false);
+
+    case 1: // Mixer — open as floating window (draggable to any monitor)
+        if (editWindow) editWindow->setVisible(true); // keep edit visible
+        if (!floatingMixer)
+        {
+            if (mixerWindow) { mixerWindow->refresh(); }
+            popOutMixer();
+        }
+        else
+        {
+            floatingMixer->setVisible(true);
+            floatingMixer->toFront(true);
+            if (mixerWindow) mixerWindow->refresh();
+        }
+        bottomDock.setVisible(true);
         resized();
         break;
-    case 2: // Beat
-        if (editWindow) editWindow->setVisible(false);
-        if (mixerWindow) mixerWindow->setVisible(false);
-        if (beatWindow) beatWindow->setVisible(true);
-        alignPanel.setVisible(false);
-        bottomDock.setVisible(false);
+
+    case 2: // Beat — open as floating window
+        if (editWindow) editWindow->setVisible(true); // keep edit visible
+        if (!floatingBeat)
+            popOutBeat();
+        else
+        {
+            floatingBeat->setVisible(true);
+            floatingBeat->toFront(true);
+        }
+        bottomDock.setVisible(true);
         resized();
         break;
+
     default:
         if (editWindow) editWindow->setVisible(true);
-        if (mixerWindow) mixerWindow->setVisible(false);
-        if (beatWindow) beatWindow->setVisible(false);
         alignPanel.setVisible(false);
         bottomDock.setVisible(true);
         break;

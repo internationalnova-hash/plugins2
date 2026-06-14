@@ -145,6 +145,10 @@ private:
 
     SidebarToggleBar browserToggleBar;
 
+    // Bottom dock collapse
+    bool bottomDockCollapsed = false;
+    SidebarToggleBar bottomDockToggleBar; // horizontal toggle bar (draws up/down arrow)
+
     // Floating windows (non-owning: content is still owned by unique_ptrs above)
     std::unique_ptr<FloatingPanelWindow> floatingMixer;
     std::unique_ptr<FloatingPanelWindow> floatingBeat;
