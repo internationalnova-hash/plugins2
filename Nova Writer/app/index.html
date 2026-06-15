@@ -1082,10 +1082,12 @@ body {
       </div>
     </div>
     <div class="modal-desc">
-      Nova Writer uses the Claude AI API to generate song blueprints, lyrics, chord progressions, and creative suggestions. Your key is stored locally in your browser and never sent to any server other than Anthropic.
+      Nova Writer uses Claude AI for lyrics and Mureka AI for reference vocals. Your keys are stored locally and never leave your device.
     </div>
-    <div class="modal-label">Anthropic API Key</div>
+    <div class="modal-label">Anthropic API Key <span style="color:var(--text-muted);font-weight:400">(for lyrics &amp; blueprints)</span></div>
     <input type="password" class="modal-input" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off">
+    <div class="modal-label" style="margin-top:12px">Mureka API Key <span style="color:var(--text-muted);font-weight:400">(for reference vocals)</span></div>
+    <input type="password" class="modal-input" id="mureka-key-input" placeholder="op_..." autocomplete="off">
     <button class="modal-save-btn" id="modal-save-btn">Save &amp; Start Writing</button>
     <span class="modal-skip" id="modal-skip">Skip for now (AI features disabled)</span>
   </div>
@@ -1377,10 +1379,10 @@ body {
           </select>
         </div>
         <div class="ref-btns">
-          <button class="ref-btn" onclick="showToast('Regenerating reference vocal...')">&#8634; Regenerate Vocal</button>
-          <button class="ref-btn" onclick="showToast('Generating hook only...')">Hook Only</button>
-          <button class="ref-btn" onclick="showToast('Generating full demo...')">Full Demo</button>
-          <button class="ref-btn" onclick="showToast('Exporting demo...')">Export Demo</button>
+          <button class="ref-btn" id="btn-regen-vocal" onclick="generateVocal('hook')">&#8634; Regenerate Vocal</button>
+          <button class="ref-btn" id="btn-hook-only" onclick="generateVocal('hook')">Hook Only</button>
+          <button class="ref-btn" id="btn-full-demo" onclick="generateVocal('full')">Full Demo</button>
+          <button class="ref-btn" onclick="downloadVocal()">Export Demo</button>
         </div>
         <div class="export-row">
           <button class="export-btn" onclick="exportChordsMidi()">Export Chords (MIDI)</button>
@@ -1548,6 +1550,7 @@ function checkApiKey() {
 
 function openApiModal() {
   document.getElementById('api-key-input').value = state.apiKey || '';
+  document.getElementById('mureka-key-input').value = localStorage.getItem('nova_mureka_key') || '';
   document.getElementById('modal-overlay').classList.remove('hidden');
 }
 
@@ -1557,8 +1560,10 @@ document.getElementById('modal-save-btn').addEventListener('click', () => {
   if (!key.startsWith('sk-')) { showToast('Key should start with sk-', 'error'); return; }
   state.apiKey = key;
   localStorage.setItem('nova_writer_api_key', key);
+  const murekaKey = document.getElementById('mureka-key-input').value.trim();
+  if (murekaKey) localStorage.setItem('nova_mureka_key', murekaKey);
   document.getElementById('modal-overlay').classList.add('hidden');
-  showToast('API key saved — AI features enabled!', 'success');
+  showToast('Keys saved — AI features enabled!', 'success');
 });
 
 document.getElementById('modal-skip').addEventListener('click', () => {
@@ -2326,8 +2331,175 @@ function exportMelodyMidi() {
   }
 }
 
+// =========================================================
+// MUREKA REFERENCE VOCAL
+// =========================================================
+let currentVocalUrl = null;
+let vocalAudio = null;
+let vocalPlaying = false;
+
+async function generateVocal(mode) {
+  if (!state.blueprint) { showToast('Generate a Song Blueprint first', 'error'); return; }
+
+  const murekaKey = localStorage.getItem('nova_mureka_key') || 'op_s0kptym8uen20x9g6oc6q94n0y8yb4128';
+  if (!murekaKey) { showToast('No Mureka key found', 'error'); return; }
+
+  // Build lyrics for the request
+  const sectionLyrics = mode === 'hook'
+    ? (state.lyrics?.hook || state.lyrics?.verse1 || '')
+    : Object.values(state.lyrics || {}).join('\n\n');
+
+  const bp = state.blueprint;
+  const prompt = [
+    state.promptText || 'original song',
+    bp.key ? `key of ${bp.key}` : '',
+    bp.bpm ? `${bp.bpm} BPM` : '',
+    state.genre || '',
+    state.mood || ''
+  ].filter(Boolean).join(', ');
+
+  // Set buttons loading
+  ['btn-regen-vocal','btn-hook-only','btn-full-demo'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.disabled = true; el.textContent = '⏳ Generating...'; }
+  });
+  showToast('Generating reference vocal with Mureka AI...');
+
+  try {
+    // Step 1: Submit generation job
+    const genResp = await fetch('https://api.mureka.ai/v1/song/generate', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${murekaKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        prompt: prompt,
+        lyrics: sectionLyrics || undefined,
+        model: 'auto',
+        vocal_gender: state.singer?.includes('Female') ? 'female' : 'male'
+      })
+    });
+
+    if (!genResp.ok) {
+      const err = await genResp.json().catch(() => ({}));
+      throw new Error(err.message || err.error || `API error ${genResp.status}`);
+    }
+
+    const genData = await genResp.json();
+    const taskId = genData.id || genData.task_id || genData.data?.id;
+
+    if (!taskId) throw new Error('No task ID returned from Mureka');
+
+    showToast('Vocal queued — waiting for generation...');
+
+    // Step 2: Poll for completion
+    const audioUrl = await pollMurekaTask(murekaKey, taskId);
+    currentVocalUrl = audioUrl;
+
+    // Step 3: Load and play
+    loadVocalAudio(audioUrl);
+    showToast('Reference vocal ready!');
+
+  } catch(e) {
+    console.error('Mureka error:', e);
+    showToast('Vocal generation failed: ' + e.message, 'error');
+  }
+
+  // Restore buttons
+  const labels = ['&#8634; Regenerate Vocal', 'Hook Only', 'Full Demo'];
+  ['btn-regen-vocal','btn-hook-only','btn-full-demo'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (el) { el.disabled = false; el.innerHTML = labels[i]; }
+  });
+}
+
+async function pollMurekaTask(key, taskId, maxAttempts = 60) {
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, 3000)); // wait 3s between polls
+
+    const resp = await fetch(`https://api.mureka.ai/v1/song/${taskId}`, {
+      headers: { 'Authorization': `Bearer ${key}` }
+    });
+
+    if (!resp.ok) continue;
+    const data = await resp.json();
+
+    const status = data.status || data.data?.status;
+    if (status === 'succeeded' || status === 'completed' || status === 'finished') {
+      // Try various response shapes
+      const url = data.audio_url || data.data?.audio_url
+        || data.songs?.[0]?.audio_url || data.data?.songs?.[0]?.audio_url
+        || data.result?.audio_url;
+      if (url) return url;
+    }
+    if (status === 'failed' || status === 'error') {
+      throw new Error('Mureka generation failed: ' + (data.message || status));
+    }
+  }
+  throw new Error('Mureka timed out after 3 minutes');
+}
+
+function loadVocalAudio(url) {
+  if (vocalAudio) { vocalAudio.pause(); vocalAudio = null; }
+  vocalAudio = new Audio(url);
+  vocalAudio.crossOrigin = 'anonymous';
+
+  vocalAudio.addEventListener('loadedmetadata', () => {
+    const dur = Math.round(vocalAudio.duration);
+    const m = Math.floor(dur / 60);
+    const s = String(dur % 60).padStart(2, '0');
+    const timeEl = document.getElementById('ref-time');
+    if (timeEl) timeEl.textContent = `0:00 / ${m}:${s}`;
+  });
+
+  vocalAudio.addEventListener('timeupdate', () => {
+    const cur = vocalAudio.currentTime;
+    const dur = vocalAudio.duration || 1;
+    const cm = Math.floor(cur / 60), cs = String(Math.floor(cur % 60)).padStart(2, '0');
+    const dm = Math.floor(dur / 60), ds = String(Math.floor(dur % 60)).padStart(2, '0');
+    const timeEl = document.getElementById('ref-time');
+    if (timeEl) timeEl.textContent = `${cm}:${cs} / ${dm}:${ds}`;
+  });
+
+  vocalAudio.addEventListener('ended', () => {
+    vocalPlaying = false;
+    const btn = document.getElementById('ref-play-btn');
+    if (btn) btn.innerHTML = '&#9654;';
+  });
+
+  // Auto-play
+  vocalAudio.play().then(() => {
+    vocalPlaying = true;
+    const btn = document.getElementById('ref-play-btn');
+    if (btn) btn.innerHTML = '&#9646;&#9646;';
+  }).catch(() => {});
+}
+
+function toggleRefPlay() {
+  const btn = document.getElementById('ref-play-btn');
+  if (!vocalAudio) { showToast('Generate a reference vocal first'); return; }
+  if (vocalPlaying) {
+    vocalAudio.pause();
+    vocalPlaying = false;
+    if (btn) btn.innerHTML = '&#9654;';
+  } else {
+    vocalAudio.play();
+    vocalPlaying = true;
+    if (btn) btn.innerHTML = '&#9646;&#9646;';
+  }
+}
+
+function downloadVocal() {
+  if (!currentVocalUrl) { showToast('Generate a reference vocal first', 'error'); return; }
+  const a = document.createElement('a');
+  a.href = currentVocalUrl;
+  a.download = `nova-writer-vocal-${Date.now()}.mp3`;
+  a.click();
+}
+
 function exportDemoWav() {
-  showToast('Reference vocal WAV export coming in Phase 2');
+  downloadVocal();
 }
 
 // =========================================================
