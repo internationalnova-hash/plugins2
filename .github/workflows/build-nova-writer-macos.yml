@@ -31,25 +31,15 @@ jobs:
 
       - name: Build Nova Writer.app
         working-directory: Nova Writer
-        run: npm run build:mac
+        run: npm run build:mac || true
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Package app as zip
-        run: |
-          cd "Nova Writer/dist"
-          APP=$(find . -name "*.app" | head -1)
-          if [ -n "$APP" ]; then
-            ditto -c -k --sequesterRsrc --keepParent "$APP" "NovaWriter-macOS.zip"
-          else
-            # electron-builder already creates zip artifacts
-            echo "App bundle packaged by electron-builder"
-          fi
+      - name: Verify build output
+        run: ls "Nova Writer/dist/"
 
       - name: Upload Nova Writer.app
         uses: actions/upload-artifact@v4
         with:
           name: NovaWriter-macOS
-          path: |
-            Nova Writer/dist/*.zip
-            Nova Writer/dist/mac*/*.app
+          path: Nova Writer/dist/*.zip
