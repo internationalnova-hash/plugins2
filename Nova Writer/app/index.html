@@ -2511,7 +2511,7 @@ async function generateVocal(mode) {
 
   const bp = state.blueprint;
   const prompt = [
-    state.promptText || 'original song',
+    state.prompt || (bp.titles?.[0]) || 'original song',
     bp.key ? `key of ${bp.key}` : '',
     bp.bpm ? `${bp.bpm} BPM` : '',
     state.genre || '',
@@ -2547,11 +2547,12 @@ async function generateVocal(mode) {
     }
 
     const genData = await genResp.json();
+    console.log('[Mureka] generate response:', JSON.stringify(genData));
     const taskId = genData.id || genData.task_id || genData.data?.id;
 
-    if (!taskId) throw new Error('No task ID returned from Mureka');
+    if (!taskId) throw new Error('No task ID returned from Mureka. Response: ' + JSON.stringify(genData).slice(0, 200));
 
-    showToast('Vocal queued — waiting for generation...');
+    showToast('Vocal queued — this takes ~1 minute...');
 
     // Step 2: Poll for completion
     const audioUrl = await pollMurekaTask(murekaKey, taskId);
@@ -2563,7 +2564,11 @@ async function generateVocal(mode) {
 
   } catch(e) {
     console.error('Mureka error:', e);
-    showToast('Vocal generation failed: ' + e.message, 'error');
+    // Show full message — truncate only for toast display
+    const msg = e.message || String(e);
+    showToast('Vocal error: ' + msg.slice(0, 120), 'error');
+    // Also log to console so DevTools shows the full response
+    console.error('[Nova Writer] Full Mureka error:', msg);
   }
 
   // Restore buttons
@@ -2582,20 +2587,30 @@ async function pollMurekaTask(key, taskId, maxAttempts = 60) {
       headers: { 'Authorization': `Bearer ${key}` }
     });
 
-    if (!resp.ok) continue;
+    if (!resp.ok) { console.warn('[Mureka] poll error', resp.status); continue; }
     const data = await resp.json();
+    console.log('[Mureka] poll status:', data.status || data.data?.status, JSON.stringify(data).slice(0, 300));
 
     const status = data.status || data.data?.status;
-    if (status === 'succeeded' || status === 'completed' || status === 'finished') {
-      // Try various response shapes
-      const url = data.audio_url || data.data?.audio_url
-        || data.songs?.[0]?.audio_url || data.data?.songs?.[0]?.audio_url
-        || data.result?.audio_url;
+    const done = ['succeeded','completed','finished','success'].includes(status);
+    if (done) {
+      // Mureka response shapes: choices[0].url, audio_url, songs[0].audio_url, result.url
+      const url = data.choices?.[0]?.url
+        || data.audio_url
+        || data.data?.audio_url
+        || data.songs?.[0]?.audio_url
+        || data.data?.songs?.[0]?.audio_url
+        || data.result?.audio_url
+        || data.result?.url
+        || data.data?.choices?.[0]?.url;
       if (url) return url;
+      throw new Error('Mureka returned success but no audio URL. Response: ' + JSON.stringify(data).slice(0, 300));
     }
-    if (status === 'failed' || status === 'error') {
-      throw new Error('Mureka generation failed: ' + (data.message || status));
+    if (['failed','error','cancelled'].includes(status)) {
+      throw new Error('Mureka generation failed: ' + (data.message || data.error || status));
     }
+    // Show progress toast every 5 polls
+    if (i % 5 === 4) showToast(`Still generating... (${Math.round((i+1)*3)}s elapsed)`);
   }
   throw new Error('Mureka timed out after 3 minutes');
 }
@@ -2603,7 +2618,7 @@ async function pollMurekaTask(key, taskId, maxAttempts = 60) {
 function loadVocalAudio(url) {
   if (vocalAudio) { vocalAudio.pause(); vocalAudio = null; }
   vocalAudio = new Audio(url);
-  vocalAudio.crossOrigin = 'anonymous';
+  // Do NOT set crossOrigin — Mureka CDN may not send CORS headers and it would silently block playback
 
   vocalAudio.addEventListener('loadedmetadata', () => {
     const dur = Math.round(vocalAudio.duration);
