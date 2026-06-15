@@ -1067,6 +1067,121 @@ body {
 /* ===== UTILITY ===== */
 .hidden { display: none !important; }
 .divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+/* ===== PREVIEW BUTTON ===== */
+.preview-play-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, var(--purple) 0%, var(--purple-mid) 100%);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.preview-play-btn:hover { opacity: 0.85; }
+.preview-play-btn.playing { background: linear-gradient(135deg, #e55 0%, #c33 100%); }
+
+/* ===== BEAT UPLOAD CARD ===== */
+.beat-upload-card {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 16px;
+  position: relative;
+}
+.beat-upload-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.beat-upload-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.beat-drop-zone {
+  border: 2px dashed var(--border-soft);
+  border-radius: 10px;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.beat-drop-zone:hover, .beat-drop-zone.drag-over {
+  border-color: var(--gold);
+  background: var(--gold-glow);
+}
+.beat-drop-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.7; }
+.beat-drop-text { font-size: 12px; color: var(--text-soft); line-height: 1.5; }
+.beat-drop-sub { font-size: 10.5px; color: var(--text-muted); margin-top: 4px; }
+.beat-loaded-info {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.beat-loaded-icon { font-size: 22px; flex-shrink: 0; }
+.beat-loaded-meta { flex: 1; min-width: 0; }
+.beat-loaded-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.beat-loaded-stats { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; display: flex; gap: 10px; flex-wrap: wrap; }
+.beat-loaded-stat { display: flex; align-items: center; gap: 3px; }
+.beat-loaded-stat span { color: var(--gold); font-weight: 700; }
+.beat-actions { display: flex; gap: 7px; margin-top: 11px; flex-wrap: wrap; }
+.beat-action-btn {
+  background: var(--card);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+}
+.beat-action-btn:hover { border-color: var(--gold); color: var(--gold); }
+.beat-action-btn.primary {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+  color: #0a0a0f;
+  border: none;
+  font-weight: 700;
+}
+.beat-action-btn.primary:hover { opacity: 0.9; }
+.beat-playback-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: var(--card);
+  border-radius: 7px;
+}
+.beat-waveform-mini {
+  flex: 1;
+  height: 28px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--panel);
+}
+.beat-waveform-mini canvas { position: absolute; inset: 0; }
 </style>
 </head>
 <body>
@@ -1275,9 +1390,12 @@ body {
             <div class="blueprint-title">
               &#10022; Song Blueprint
             </div>
-            <div class="blueprint-meta">
-              <span id="bp-key-display">E Min</span>
-              <span id="bp-bpm-display">96 BPM</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="blueprint-meta">
+                <span id="bp-key-display">E Min</span>
+                <span id="bp-bpm-display">96 BPM</span>
+              </div>
+              <button class="preview-play-btn" id="preview-play-btn" onclick="toggleBlueprintPreview()">&#9654; Preview</button>
             </div>
           </div>
           <div id="blueprint-body">
@@ -1287,6 +1405,47 @@ body {
               <div class="empty-sub">Enter your idea above and click Generate Song Blueprint to create your song structure, chords, and hook concepts.</div>
             </div>
           </div>
+        </div>
+
+        <!-- BEAT UPLOAD -->
+        <div class="beat-upload-card">
+          <div class="beat-upload-header">
+            <div class="beat-upload-title">&#127911; Upload Your Beat</div>
+            <div style="font-size:10px;color:var(--text-muted)">Generate lyrics &amp; melody on top of your beat</div>
+          </div>
+          <div id="beat-drop-zone" class="beat-drop-zone"
+            onclick="document.getElementById('beat-file-input').click()"
+            ondragover="event.preventDefault();this.classList.add('drag-over')"
+            ondragleave="this.classList.remove('drag-over')"
+            ondrop="event.preventDefault();this.classList.remove('drag-over');handleBeatDrop(event)">
+            <div class="beat-drop-icon">&#8679;</div>
+            <div class="beat-drop-text">Drop your beat here or click to browse</div>
+            <div class="beat-drop-sub">MP3, WAV, AIFF, OGG · Auto-detects BPM &amp; Key</div>
+          </div>
+          <div id="beat-loaded-panel" class="hidden">
+            <div class="beat-loaded-info">
+              <div class="beat-loaded-icon">&#127912;</div>
+              <div class="beat-loaded-meta">
+                <div class="beat-loaded-name" id="beat-filename">beat.mp3</div>
+                <div class="beat-loaded-stats">
+                  <div class="beat-loaded-stat">BPM <span id="beat-bpm-display">—</span></div>
+                  <div class="beat-loaded-stat">Key <span id="beat-key-display">—</span></div>
+                  <div class="beat-loaded-stat">Duration <span id="beat-dur-display">—</span></div>
+                </div>
+              </div>
+              <button class="beat-action-btn" onclick="document.getElementById('beat-file-input').click()" style="flex-shrink:0">&#8635; Change</button>
+            </div>
+            <div class="beat-playback-bar">
+              <button class="play-btn-sm" id="beat-play-btn" onclick="toggleBeatPlayback()" style="flex-shrink:0">&#9654;</button>
+              <div class="beat-waveform-mini"><canvas id="beat-waveform-canvas" width="300" height="28"></canvas></div>
+              <span id="beat-time-display" style="font-size:10.5px;color:var(--text-muted);flex-shrink:0;min-width:65px">0:00 / 0:00</span>
+            </div>
+            <div class="beat-actions">
+              <button class="beat-action-btn primary" onclick="generateOnBeat()">&#10022; Generate Lyrics &amp; Melody for This Beat</button>
+              <button class="beat-action-btn" onclick="applyBeatTempo()">&#127906; Apply BPM &amp; Key to Settings</button>
+            </div>
+          </div>
+          <input type="file" id="beat-file-input" accept="audio/*" style="display:none" onchange="handleBeatFileInput(this)">
         </div>
 
       </div><!-- .center-scroll -->
@@ -1426,6 +1585,7 @@ body {
   <button class="midi-out-btn" onclick="showToast('MIDI OUT active')">MIDI OUT</button>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
 <script>
 // =========================================================
 // STATE
@@ -2586,6 +2746,513 @@ function downloadBuffer(buffer, filename, mimeType) {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// =========================================================
+// WEBAUDIO PLAYBACK ENGINE
+// =========================================================
+let audioCtx = null;
+let previewPlaying = false;
+let previewScheduledStop = null;
+let sfPiano = null;
+let sfBass = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function midiNoteToName(midi) {
+  const names = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+  const octave = Math.floor(midi / 12) - 1;
+  return names[midi % 12] + octave;
+}
+
+async function loadSoundfont(instrument) {
+  const ctx = getAudioCtx();
+  return Soundfont.instrument(ctx, instrument, { soundfont: 'FluidR3_GM', gain: 3 });
+}
+
+async function toggleBlueprintPreview() {
+  const btn = document.getElementById('preview-play-btn');
+  if (previewPlaying) {
+    stopBlueprintPreview();
+    return;
+  }
+  if (!state.blueprint) { showToast('Generate a Song Blueprint first', 'error'); return; }
+
+  btn.innerHTML = '<span class="spinner spinner-white"></span> Loading...';
+  btn.disabled = true;
+
+  try {
+    if (typeof Soundfont === 'undefined') throw new Error('Soundfont library not loaded — check internet connection');
+
+    if (!sfPiano) sfPiano = await loadSoundfont('acoustic_grand_piano');
+    if (!sfBass)  sfBass  = await loadSoundfont('electric_bass_finger');
+
+    const ctx = getAudioCtx();
+    const bp  = state.blueprint;
+    const bpm = bp.bpm || state.bpm || 96;
+    const secPerBeat = 60 / bpm;
+    const chords = bp.structure.hook?.chords || ['Em','C','G','D'];
+    const drumPattern = getDrumPattern(state.genre, bpm);
+
+    previewPlaying = true;
+    btn.classList.add('playing');
+    btn.innerHTML = '&#9646;&#9646; Stop';
+    btn.disabled  = false;
+
+    let t = ctx.currentTime + 0.15;
+    const totalBars = 8;
+    const beatsPerBar = 4;
+
+    for (let bar = 0; bar < totalBars; bar++) {
+      const chord = chords[bar % chords.length];
+      const chordNotes = chordToNotes(chord);
+
+      // Play chord notes (piano)
+      chordNotes.forEach(midi => {
+        sfPiano.schedule(t, [{ time: 0, note: midiNoteToName(midi), duration: secPerBeat * beatsPerBar * 0.92, gain: 0.45 }]);
+      });
+
+      // Play bass (root note, one octave lower)
+      sfBass.schedule(t, [
+        { time: 0,              note: midiNoteToName(chordNotes[0] - 12), duration: secPerBeat * 1.8, gain: 0.6 },
+        { time: secPerBeat * 2, note: midiNoteToName(chordNotes[0] - 12), duration: secPerBeat * 1.8, gain: 0.5 }
+      ]);
+
+      // Play drum pattern
+      drumPattern.forEach(hit => {
+        playDrumHit(ctx, hit.type, t + hit.beat * secPerBeat, hit.vel);
+      });
+
+      t += secPerBeat * beatsPerBar;
+    }
+
+    previewScheduledStop = setTimeout(() => {
+      previewPlaying = false;
+      const b = document.getElementById('preview-play-btn');
+      if (b) { b.classList.remove('playing'); b.innerHTML = '&#9654; Preview'; b.disabled = false; }
+    }, (t - ctx.currentTime) * 1000 + 300);
+
+  } catch(e) {
+    previewPlaying = false;
+    btn.classList.remove('playing');
+    btn.innerHTML = '&#9654; Preview';
+    btn.disabled  = false;
+    showToast('Preview error: ' + e.message, 'error');
+  }
+}
+
+function stopBlueprintPreview() {
+  previewPlaying = false;
+  if (previewScheduledStop) { clearTimeout(previewScheduledStop); previewScheduledStop = null; }
+  const btn = document.getElementById('preview-play-btn');
+  if (btn) { btn.classList.remove('playing'); btn.innerHTML = '&#9654; Preview'; btn.disabled = false; }
+  // Stop all scheduled notes — simplest way is to close and recreate context
+  if (audioCtx && audioCtx.state !== 'closed') {
+    audioCtx.close();
+    audioCtx = null;
+    sfPiano = null;
+    sfBass  = null;
+  }
+}
+
+// =========================================================
+// DRUM SYNTHESIZER (WebAudio oscillators + buffers)
+// =========================================================
+function playDrumHit(ctx, type, time, vel = 0.8) {
+  const gain = ctx.createGain();
+  gain.connect(ctx.destination);
+  gain.gain.setValueAtTime(vel, time);
+
+  if (type === 'kick') {
+    const osc = ctx.createOscillator();
+    osc.connect(gain);
+    osc.frequency.setValueAtTime(150, time);
+    osc.frequency.exponentialRampToValueAtTime(40, time + 0.12);
+    gain.gain.setValueAtTime(vel, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+    osc.start(time); osc.stop(time + 0.35);
+
+  } else if (type === 'snare') {
+    // White noise burst
+    const bufLen = Math.floor(ctx.sampleRate * 0.18);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 900;
+    src.connect(filter);
+    filter.connect(gain);
+    gain.gain.setValueAtTime(vel * 0.7, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
+    src.start(time); src.stop(time + 0.18);
+
+  } else if (type === 'hihat' || type === 'openhat') {
+    const bufLen = Math.floor(ctx.sampleRate * (type === 'openhat' ? 0.25 : 0.05));
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 7000;
+    src.connect(filter);
+    filter.connect(gain);
+    gain.gain.setValueAtTime(vel * 0.35, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + (type === 'openhat' ? 0.25 : 0.05));
+    src.start(time); src.stop(time + 0.3);
+
+  } else if (type === 'clap') {
+    const bufLen = Math.floor(ctx.sampleRate * 0.08);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * (1 - i/bufLen);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1200;
+    filter.Q.value = 0.5;
+    src.connect(filter);
+    filter.connect(gain);
+    gain.gain.setValueAtTime(vel * 0.55, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+    src.start(time); src.stop(time + 0.1);
+  }
+}
+
+function getDrumPattern(genre, bpm) {
+  // Returns array of { type, beat (0-indexed beats within a bar), vel }
+  const g = (genre || 'Latin Pop').toLowerCase();
+
+  if (g.includes('reggaeton') || g.includes('latin')) {
+    // Dembow pattern: kick on 0, 0.75; snare on 1; hihat 8th notes
+    return [
+      {type:'kick',   beat:0,    vel:0.9},
+      {type:'kick',   beat:0.75, vel:0.75},
+      {type:'snare',  beat:1,    vel:0.85},
+      {type:'kick',   beat:2,    vel:0.8},
+      {type:'kick',   beat:2.75, vel:0.7},
+      {type:'snare',  beat:3,    vel:0.85},
+      {type:'hihat',  beat:0,    vel:0.4},
+      {type:'hihat',  beat:0.5,  vel:0.35},
+      {type:'hihat',  beat:1,    vel:0.4},
+      {type:'hihat',  beat:1.5,  vel:0.35},
+      {type:'hihat',  beat:2,    vel:0.4},
+      {type:'hihat',  beat:2.5,  vel:0.35},
+      {type:'hihat',  beat:3,    vel:0.4},
+      {type:'hihat',  beat:3.5,  vel:0.35},
+    ];
+  } else if (g.includes('trap') || g.includes('drill')) {
+    // Trap: kick on 0, 1.5; snare on 2; rapid hihat 16ths
+    const hits = [
+      {type:'kick',  beat:0,   vel:0.9},
+      {type:'kick',  beat:1.5, vel:0.75},
+      {type:'snare', beat:2,   vel:0.9},
+      {type:'clap',  beat:2,   vel:0.5},
+      {type:'kick',  beat:3,   vel:0.7},
+    ];
+    for (let i = 0; i < 16; i++) hits.push({type:'hihat', beat: i * 0.25, vel: 0.25 + (i % 4 === 0 ? 0.1 : 0)});
+    return hits;
+  } else if (g.includes('afrobeat')) {
+    return [
+      {type:'kick',   beat:0,    vel:0.9},
+      {type:'kick',   beat:0.5,  vel:0.6},
+      {type:'snare',  beat:1,    vel:0.8},
+      {type:'kick',   beat:2,    vel:0.85},
+      {type:'kick',   beat:2.5,  vel:0.6},
+      {type:'snare',  beat:3,    vel:0.8},
+      {type:'hihat',  beat:0,    vel:0.5},
+      {type:'hihat',  beat:0.25, vel:0.3},
+      {type:'hihat',  beat:0.5,  vel:0.45},
+      {type:'openhat',beat:0.75, vel:0.35},
+      {type:'hihat',  beat:1,    vel:0.5},
+      {type:'hihat',  beat:1.25, vel:0.3},
+      {type:'hihat',  beat:1.5,  vel:0.45},
+      {type:'openhat',beat:1.75, vel:0.35},
+      {type:'hihat',  beat:2,    vel:0.5},
+      {type:'hihat',  beat:2.25, vel:0.3},
+      {type:'hihat',  beat:2.5,  vel:0.45},
+      {type:'openhat',beat:2.75, vel:0.35},
+      {type:'hihat',  beat:3,    vel:0.5},
+      {type:'hihat',  beat:3.25, vel:0.3},
+      {type:'hihat',  beat:3.5,  vel:0.45},
+      {type:'openhat',beat:3.75, vel:0.35},
+    ];
+  } else {
+    // Generic pop/R&B
+    return [
+      {type:'kick',  beat:0,   vel:0.9},
+      {type:'snare', beat:1,   vel:0.85},
+      {type:'kick',  beat:2,   vel:0.9},
+      {type:'kick',  beat:2.5, vel:0.65},
+      {type:'snare', beat:3,   vel:0.85},
+      {type:'hihat', beat:0,   vel:0.45},
+      {type:'hihat', beat:0.5, vel:0.38},
+      {type:'hihat', beat:1,   vel:0.45},
+      {type:'hihat', beat:1.5, vel:0.38},
+      {type:'hihat', beat:2,   vel:0.45},
+      {type:'hihat', beat:2.5, vel:0.38},
+      {type:'hihat', beat:3,   vel:0.45},
+      {type:'hihat', beat:3.5, vel:0.38},
+    ];
+  }
+}
+
+// =========================================================
+// BEAT UPLOAD & ANALYSIS
+// =========================================================
+let uploadedBeatBuffer = null;
+let uploadedBeatSource = null;
+let beatPlaybackStartTime = 0;
+let beatPlaybackOffset = 0;
+let beatIsPlaying = false;
+let beatPlaybackTimer = null;
+
+function handleBeatDrop(e) {
+  const file = e.dataTransfer?.files?.[0];
+  if (file && file.type.startsWith('audio/')) loadBeatFile(file);
+}
+
+function handleBeatFileInput(input) {
+  const file = input.files?.[0];
+  if (file) loadBeatFile(file);
+  input.value = '';
+}
+
+async function loadBeatFile(file) {
+  const dropZone = document.getElementById('beat-drop-zone');
+  const loadedPanel = document.getElementById('beat-loaded-panel');
+
+  dropZone.innerHTML = `<div class="beat-drop-icon"><span class="spinner spinner-gold" style="width:22px;height:22px;border-width:3px"></span></div><div class="beat-drop-text">Analyzing beat...</div>`;
+
+  try {
+    const ctx = getAudioCtx();
+    const arrayBuffer = await file.arrayBuffer();
+    uploadedBeatBuffer = await ctx.decodeAudioData(arrayBuffer);
+
+    const dur = uploadedBeatBuffer.duration;
+    const detectedBpm = estimateBpm(uploadedBeatBuffer);
+    const detectedKey = estimateKey(uploadedBeatBuffer);
+
+    document.getElementById('beat-filename').textContent = file.name;
+    document.getElementById('beat-bpm-display').textContent = detectedBpm;
+    document.getElementById('beat-key-display').textContent = detectedKey;
+    document.getElementById('beat-dur-display').textContent = formatTime(Math.round(dur));
+    document.getElementById('beat-time-display').textContent = `0:00 / ${formatTime(Math.round(dur))}`;
+
+    state._beatBpm = detectedBpm;
+    state._beatKey = detectedKey;
+
+    drawBeatWaveform(uploadedBeatBuffer);
+
+    dropZone.innerHTML = `<div class="beat-drop-icon">&#8679;</div><div class="beat-drop-text">Drop your beat here or click to browse</div><div class="beat-drop-sub">MP3, WAV, AIFF, OGG · Auto-detects BPM &amp; Key</div>`;
+    dropZone.classList.add('hidden');
+    loadedPanel.classList.remove('hidden');
+
+    showToast(`Beat loaded: ${detectedBpm} BPM · ${detectedKey}`, 'success');
+  } catch(e) {
+    dropZone.innerHTML = `<div class="beat-drop-icon">&#8679;</div><div class="beat-drop-text">Drop your beat here or click to browse</div><div class="beat-drop-sub">MP3, WAV, AIFF, OGG · Auto-detects BPM &amp; Key</div>`;
+    showToast('Failed to load audio: ' + e.message, 'error');
+  }
+}
+
+function estimateBpm(audioBuffer) {
+  // Onset-based BPM detection using amplitude envelope
+  const data = audioBuffer.getChannelData(0);
+  const sr = audioBuffer.sampleRate;
+  const hopSize = Math.round(sr * 0.01); // 10ms hops
+  const energies = [];
+
+  for (let i = 0; i + hopSize < data.length; i += hopSize) {
+    let rms = 0;
+    for (let j = i; j < i + hopSize; j++) rms += data[j] * data[j];
+    energies.push(Math.sqrt(rms / hopSize));
+  }
+
+  // Compute onset strength (positive energy flux)
+  const flux = [];
+  for (let i = 1; i < energies.length; i++) {
+    const diff = energies[i] - energies[i - 1];
+    flux.push(Math.max(0, diff));
+  }
+
+  // Pick peaks (local maxima above threshold)
+  const threshold = flux.reduce((a, b) => a + b, 0) / flux.length * 1.5;
+  const peaks = [];
+  for (let i = 1; i < flux.length - 1; i++) {
+    if (flux[i] > flux[i-1] && flux[i] > flux[i+1] && flux[i] > threshold) {
+      peaks.push(i * 0.01); // time in seconds
+    }
+  }
+
+  if (peaks.length < 2) return state.bpm || 96;
+
+  // Compute inter-onset intervals and histogram
+  const iois = [];
+  for (let i = 1; i < Math.min(peaks.length, 60); i++) {
+    const ioi = peaks[i] - peaks[i-1];
+    if (ioi > 0.2 && ioi < 2.0) iois.push(ioi);
+  }
+  if (!iois.length) return state.bpm || 96;
+
+  const medianIoi = iois.slice().sort((a,b)=>a-b)[Math.floor(iois.length / 2)];
+  const bpm = Math.round(60 / medianIoi);
+
+  // Snap to plausible range with doublings
+  if (bpm < 60)  return Math.min(bpm * 2, 200);
+  if (bpm > 200) return Math.max(Math.round(bpm / 2), 60);
+  return bpm;
+}
+
+function estimateKey(audioBuffer) {
+  // FFT-based chromagram approach (simplified)
+  const data = audioBuffer.getChannelData(0);
+  const sr = audioBuffer.sampleRate;
+  // Analyze first 5 seconds
+  const len = Math.min(data.length, sr * 5);
+  const fftSize = 4096;
+  const chroma = new Float32Array(12);
+
+  // Simple DFT at target frequencies for each pitch class
+  const noteFreqs = [16.35,17.32,18.35,19.45,20.6,21.83,23.12,24.5,25.96,27.5,29.14,30.87]; // C0 up
+  for (let octave = 2; octave <= 6; octave++) {
+    for (let pc = 0; pc < 12; pc++) {
+      const freq = noteFreqs[pc] * Math.pow(2, octave);
+      if (freq > sr / 2) continue;
+      let re = 0, im = 0;
+      const step = Math.max(1, Math.floor(len / 2048));
+      for (let i = 0; i < len; i += step) {
+        const phi = 2 * Math.PI * freq * i / sr;
+        re += data[i] * Math.cos(phi);
+        im += data[i] * Math.sin(phi);
+      }
+      chroma[pc] += Math.sqrt(re*re + im*im);
+    }
+  }
+
+  // Find dominant pitch class
+  let maxVal = 0, maxPc = 0;
+  chroma.forEach((v, i) => { if (v > maxVal) { maxVal = v; maxPc = i; } });
+
+  const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+  // Very rough major/minor determination: check if major or minor third is stronger
+  const majorThird = chroma[(maxPc + 4) % 12];
+  const minorThird = chroma[(maxPc + 3) % 12];
+  const mode = minorThird > majorThird ? 'Minor' : 'Major';
+
+  return `${noteNames[maxPc]} ${mode}`;
+}
+
+function drawBeatWaveform(audioBuffer) {
+  const canvas = document.getElementById('beat-waveform-canvas');
+  if (!canvas) return;
+  const ctx2d = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 300;
+  const H = canvas.offsetHeight || 28;
+  canvas.width = W;
+  canvas.height = H;
+
+  const data = audioBuffer.getChannelData(0);
+  const step = Math.ceil(data.length / W);
+  ctx2d.clearRect(0, 0, W, H);
+
+  const grad = ctx2d.createLinearGradient(0, 0, W, 0);
+  grad.addColorStop(0, '#6c63ff');
+  grad.addColorStop(1, '#f5c842');
+  ctx2d.strokeStyle = grad;
+  ctx2d.lineWidth = 1;
+  ctx2d.beginPath();
+
+  for (let x = 0; x < W; x++) {
+    let max = 0;
+    for (let i = 0; i < step; i++) {
+      const val = Math.abs(data[x * step + i] || 0);
+      if (val > max) max = val;
+    }
+    const y = (1 - max) * H / 2;
+    const h = max * H;
+    if (x === 0) ctx2d.moveTo(x, H/2);
+    ctx2d.lineTo(x, H/2 - h/2);
+  }
+  ctx2d.stroke();
+}
+
+function toggleBeatPlayback() {
+  if (!uploadedBeatBuffer) return;
+  const ctx = getAudioCtx();
+  const btn = document.getElementById('beat-play-btn');
+
+  if (beatIsPlaying) {
+    if (uploadedBeatSource) { try { uploadedBeatSource.stop(); } catch(e){} }
+    beatPlaybackOffset += ctx.currentTime - beatPlaybackStartTime;
+    beatIsPlaying = false;
+    btn.innerHTML = '&#9654;';
+    if (beatPlaybackTimer) { clearInterval(beatPlaybackTimer); beatPlaybackTimer = null; }
+  } else {
+    uploadedBeatSource = ctx.createBufferSource();
+    uploadedBeatSource.buffer = uploadedBeatBuffer;
+    uploadedBeatSource.connect(ctx.destination);
+    beatPlaybackStartTime = ctx.currentTime;
+    const offset = beatPlaybackOffset % uploadedBeatBuffer.duration;
+    uploadedBeatSource.start(0, offset);
+    beatIsPlaying = true;
+    btn.innerHTML = '&#9646;&#9646;';
+    uploadedBeatSource.onended = () => {
+      beatIsPlaying = false;
+      beatPlaybackOffset = 0;
+      btn.innerHTML = '&#9654;';
+      if (beatPlaybackTimer) { clearInterval(beatPlaybackTimer); beatPlaybackTimer = null; }
+    };
+    beatPlaybackTimer = setInterval(() => {
+      if (!beatIsPlaying) return;
+      const cur = (ctx.currentTime - beatPlaybackStartTime + (beatPlaybackOffset % uploadedBeatBuffer.duration));
+      const dur = uploadedBeatBuffer.duration;
+      const timeEl = document.getElementById('beat-time-display');
+      if (timeEl) timeEl.textContent = `${formatTime(Math.floor(cur % dur))} / ${formatTime(Math.floor(dur))}`;
+    }, 250);
+  }
+}
+
+function applyBeatTempo() {
+  if (!state._beatBpm) { showToast('Load a beat first', 'error'); return; }
+  state.bpm = state._beatBpm;
+  const keyParts = (state._beatKey || '').split(' ');
+  if (keyParts[0]) state.key = keyParts[0];
+  if (keyParts[1]) state.keyMode = keyParts[1];
+  document.getElementById('bpm-input').value = state.bpm;
+  updateTransportMeta();
+  showToast(`Applied: ${state.bpm} BPM · ${state._beatKey}`, 'success');
+}
+
+async function generateOnBeat() {
+  if (!uploadedBeatBuffer) { showToast('Load a beat first', 'error'); return; }
+  if (!state.apiKey) { showToast('Please set your API key first', 'error'); openApiModal(); return; }
+
+  // Apply beat settings
+  applyBeatTempo();
+
+  // Set a prompt if empty
+  const ta = document.getElementById('prompt-textarea');
+  if (!ta.value.trim()) {
+    ta.value = `Write a ${state.genre} song in ${state.key} ${state.keyMode} at ${state.bpm} BPM with ${state.mood.toLowerCase()} energy.`;
+    updateCharCount(ta);
+    state.prompt = ta.value;
+  } else {
+    state.prompt = ta.value;
+  }
+
+  showToast('Generating blueprint & lyrics for your beat...');
+  await generateBlueprint();
+  await generateLyrics();
 }
 
 // =========================================================
