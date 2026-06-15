@@ -7,12 +7,11 @@
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
-    "build:mac": "electron-builder --mac zip --x64 --arm64 --publish never"
+    "build:mac": "electron-builder --mac zip --x64 --arm64"
   },
   "build": {
     "appId": "com.internationalnova.novawriter",
     "productName": "Nova Writer",
-    "publish": "never",
     "directories": {
       "output": "dist"
     },
