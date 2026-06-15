@@ -2781,8 +2781,13 @@ let sfBass = null;
 
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
+}
+
+async function resumeAudioCtx() {
+  const ctx = getAudioCtx();
+  if (ctx.state === 'suspended' || ctx.state === 'interrupted') await ctx.resume();
+  return ctx;
 }
 
 function midiNoteToName(midi) {
@@ -2792,8 +2797,8 @@ function midiNoteToName(midi) {
 }
 
 async function loadSoundfont(instrument) {
-  const ctx = getAudioCtx();
-  return Soundfont.instrument(ctx, instrument, { soundfont: 'FluidR3_GM', gain: 3 });
+  const ctx = await resumeAudioCtx();
+  return Soundfont.instrument(ctx, instrument, { gain: 3 });
 }
 
 async function toggleBlueprintPreview() {
@@ -2810,10 +2815,12 @@ async function toggleBlueprintPreview() {
   try {
     if (typeof Soundfont === 'undefined') throw new Error('Soundfont library not loaded — check internet connection');
 
+    // Resume AudioContext first (satisfies browser autoplay policy)
+    const ctx = await resumeAudioCtx();
+
     if (!sfPiano) sfPiano = await loadSoundfont('acoustic_grand_piano');
     if (!sfBass)  sfBass  = await loadSoundfont('electric_bass_finger');
 
-    const ctx = getAudioCtx();
     const bp  = state.blueprint;
     const bpm = bp.bpm || state.bpm || 96;
     const secPerBeat = 60 / bpm;
@@ -2825,7 +2832,8 @@ async function toggleBlueprintPreview() {
     btn.innerHTML = '&#9646;&#9646; Stop';
     btn.disabled  = false;
 
-    let t = ctx.currentTime + 0.15;
+    // Calculate start time AFTER loading — so it's always in the future
+    let t = ctx.currentTime + 0.4;
     const totalBars = 8;
     const beatsPerBar = 4;
 
