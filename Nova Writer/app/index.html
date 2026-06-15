@@ -2543,7 +2543,14 @@ async function generateVocal(mode) {
 
     if (!genResp.ok) {
       const err = await genResp.json().catch(() => ({}));
-      throw new Error(err.message || err.error || `API error ${genResp.status}`);
+      console.error('[Mureka] error response:', JSON.stringify(err));
+      // Mureka uses various shapes: {message}, {msg}, {error: "str"}, {error: {message}}
+      const errMsg = err.message
+        || err.msg
+        || (typeof err.error === 'string' ? err.error : err.error?.message)
+        || err.detail
+        || `HTTP ${genResp.status}`;
+      throw new Error(`Mureka API error: ${errMsg}`);
     }
 
     const genData = await genResp.json();
