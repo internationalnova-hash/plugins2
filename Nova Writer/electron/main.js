@@ -14,6 +14,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      // Allow fetch to Anthropic API
       webSecurity: false
     },
     icon: path.join(__dirname, '../app/n_logo.png'),
@@ -21,16 +22,22 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, '../app/index.html'));
-  win.once('ready-to-show', () => win.show());
 
+  win.once('ready-to-show', () => {
+    win.show();
+  });
+
+  // Open external links in browser, not Electron
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
 }
 
+// macOS menu
 const template = [
   { role: 'appMenu' },
+  { role: 'fileMenu' },
   { role: 'editMenu' },
   {
     label: 'View',
