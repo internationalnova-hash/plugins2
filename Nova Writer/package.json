@@ -2,13 +2,11 @@
   "name": "nova-writer",
   "version": "1.0.0",
   "description": "Nova Writer — AI Songwriting Companion",
+  "author": "International Nova",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --mac --win",
-    "build:mac": "electron-builder --mac",
-    "build:win": "electron-builder --win",
-    "build:linux": "electron-builder --linux"
+    "build:mac": "electron-builder --mac zip --x64 --arm64"
   },
   "build": {
     "appId": "com.internationalnova.novawriter",
@@ -22,19 +20,10 @@
     ],
     "mac": {
       "category": "public.app-category.music",
-      "icon": "app/n_logo.png",
       "target": [
-        {"target": "dmg", "arch": ["arm64", "x64"]},
-        {"target": "zip", "arch": ["arm64", "x64"]}
+        { "target": "zip", "arch": ["arm64", "x64"] }
       ],
       "darkModeSupport": true
-    },
-    "win": {
-      "target": "nsis",
-      "icon": "app/n_logo.png"
-    },
-    "linux": {
-      "target": "AppImage"
     }
   },
   "devDependencies": {
