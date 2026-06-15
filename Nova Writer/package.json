@@ -7,7 +7,7 @@
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
-    "build:mac": "electron-builder --mac zip --x64 --arm64"
+    "build:mac": "electron-builder --mac zip --x64 --arm64 --publish never"
   },
   "build": {
     "appId": "com.internationalnova.novawriter",
