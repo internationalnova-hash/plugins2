@@ -1585,7 +1585,6 @@ body {
   <button class="midi-out-btn" onclick="showToast('MIDI OUT active')">MIDI OUT</button>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
 <script>
 // =========================================================
 // STATE
@@ -2776,8 +2775,7 @@ function downloadBuffer(buffer, filename, mimeType) {
 let audioCtx = null;
 let previewPlaying = false;
 let previewScheduledStop = null;
-let sfPiano = null;
-let sfBass = null;
+let previewGain = null;
 
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2786,19 +2784,68 @@ function getAudioCtx() {
 
 async function resumeAudioCtx() {
   const ctx = getAudioCtx();
-  if (ctx.state === 'suspended' || ctx.state === 'interrupted') await ctx.resume();
+  if (ctx.state !== 'running') await ctx.resume();
   return ctx;
 }
 
-function midiNoteToName(midi) {
-  const names = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-  const octave = Math.floor(midi / 12) - 1;
-  return names[midi % 12] + octave;
+function midiToHz(midi) {
+  return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
-async function loadSoundfont(instrument) {
-  const ctx = await resumeAudioCtx();
-  return Soundfont.instrument(ctx, instrument, { gain: 3 });
+function playNote(ctx, midi, startTime, duration, gain = 0.18, type = 'triangle') {
+  const masterGain = ctx.createGain();
+  masterGain.connect(ctx.destination);
+
+  // Simple ADSR envelope
+  const attack = 0.01, decay = 0.1, sustain = 0.7, release = 0.15;
+  const g = masterGain.gain;
+  g.setValueAtTime(0, startTime);
+  g.linearRampToValueAtTime(gain, startTime + attack);
+  g.linearRampToValueAtTime(gain * sustain, startTime + attack + decay);
+  g.setValueAtTime(gain * sustain, startTime + duration - release);
+  g.linearRampToValueAtTime(0, startTime + duration);
+
+  // Fundamental oscillator
+  const osc = ctx.createOscillator();
+  osc.type = type;
+  osc.frequency.setValueAtTime(midiToHz(midi), startTime);
+  osc.connect(masterGain);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.02);
+
+  // Add subtle second harmonic for richness
+  const osc2 = ctx.createOscillator();
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(midiToHz(midi) * 2, startTime);
+  const g2 = ctx.createGain();
+  g2.gain.value = 0.25;
+  osc2.connect(g2);
+  g2.connect(masterGain);
+  osc2.start(startTime);
+  osc2.stop(startTime + duration + 0.02);
+}
+
+function playBassNote(ctx, midi, startTime, duration) {
+  const gain = ctx.createGain();
+  gain.connect(ctx.destination);
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(0.28, startTime + 0.015);
+  gain.gain.setValueAtTime(0.28, startTime + duration - 0.08);
+  gain.gain.linearRampToValueAtTime(0, startTime + duration);
+
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(midiToHz(midi - 12), startTime); // one octave lower
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 400;
+  filter.Q.value = 1;
+
+  osc.connect(filter);
+  filter.connect(gain);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.02);
 }
 
 async function toggleBlueprintPreview() {
@@ -2809,62 +2856,55 @@ async function toggleBlueprintPreview() {
   }
   if (!state.blueprint) { showToast('Generate a Song Blueprint first', 'error'); return; }
 
-  btn.innerHTML = '<span class="spinner spinner-white"></span> Loading...';
+  btn.innerHTML = '&#9654; Starting...';
   btn.disabled = true;
 
   try {
-    if (typeof Soundfont === 'undefined') throw new Error('Soundfont library not loaded — check internet connection');
-
-    // Resume AudioContext first (satisfies browser autoplay policy)
     const ctx = await resumeAudioCtx();
-
-    if (!sfPiano) sfPiano = await loadSoundfont('acoustic_grand_piano');
-    if (!sfBass)  sfBass  = await loadSoundfont('electric_bass_finger');
 
     const bp  = state.blueprint;
     const bpm = bp.bpm || state.bpm || 96;
     const secPerBeat = 60 / bpm;
     const chords = bp.structure.hook?.chords || ['Em','C','G','D'];
     const drumPattern = getDrumPattern(state.genre, bpm);
+    const totalBars = 8;
+    const beatsPerBar = 4;
 
     previewPlaying = true;
     btn.classList.add('playing');
     btn.innerHTML = '&#9646;&#9646; Stop';
     btn.disabled  = false;
 
-    // Calculate start time AFTER loading — so it's always in the future
-    let t = ctx.currentTime + 0.4;
-    const totalBars = 8;
-    const beatsPerBar = 4;
+    let t = ctx.currentTime + 0.05;
 
     for (let bar = 0; bar < totalBars; bar++) {
       const chord = chords[bar % chords.length];
       const chordNotes = chordToNotes(chord);
+      const barDur = secPerBeat * beatsPerBar;
 
-      // Play chord notes (piano)
-      chordNotes.forEach(midi => {
-        sfPiano.schedule(t, [{ time: 0, note: midiNoteToName(midi), duration: secPerBeat * beatsPerBar * 0.92, gain: 0.45 }]);
+      // Chord notes — triangle wave (piano-ish)
+      chordNotes.forEach((midi, i) => {
+        playNote(ctx, midi, t, barDur * 0.92, 0.14 - i * 0.02, 'triangle');
       });
 
-      // Play bass (root note, one octave lower)
-      sfBass.schedule(t, [
-        { time: 0,              note: midiNoteToName(chordNotes[0] - 12), duration: secPerBeat * 1.8, gain: 0.6 },
-        { time: secPerBeat * 2, note: midiNoteToName(chordNotes[0] - 12), duration: secPerBeat * 1.8, gain: 0.5 }
-      ]);
+      // Bass — filtered sawtooth
+      playBassNote(ctx, chordNotes[0], t, secPerBeat * 1.8);
+      playBassNote(ctx, chordNotes[0], t + secPerBeat * 2, secPerBeat * 1.8);
 
-      // Play drum pattern
+      // Drums
       drumPattern.forEach(hit => {
         playDrumHit(ctx, hit.type, t + hit.beat * secPerBeat, hit.vel);
       });
 
-      t += secPerBeat * beatsPerBar;
+      t += barDur;
     }
 
+    const totalDur = (t - ctx.currentTime) * 1000 + 200;
     previewScheduledStop = setTimeout(() => {
       previewPlaying = false;
       const b = document.getElementById('preview-play-btn');
       if (b) { b.classList.remove('playing'); b.innerHTML = '&#9654; Preview'; b.disabled = false; }
-    }, (t - ctx.currentTime) * 1000 + 300);
+    }, totalDur);
 
   } catch(e) {
     previewPlaying = false;
@@ -2880,13 +2920,8 @@ function stopBlueprintPreview() {
   if (previewScheduledStop) { clearTimeout(previewScheduledStop); previewScheduledStop = null; }
   const btn = document.getElementById('preview-play-btn');
   if (btn) { btn.classList.remove('playing'); btn.innerHTML = '&#9654; Preview'; btn.disabled = false; }
-  // Stop all scheduled notes — simplest way is to close and recreate context
-  if (audioCtx && audioCtx.state !== 'closed') {
-    audioCtx.close();
-    audioCtx = null;
-    sfPiano = null;
-    sfBass  = null;
-  }
+  // Suspend (not close) so beat playback context stays alive
+  if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
 }
 
 // =========================================================
