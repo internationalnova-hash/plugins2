@@ -2333,8 +2333,29 @@ Apply the instruction while maintaining the song's identity, overall theme, and 
 // TRANSPORT
 // =========================================================
 function togglePlay() {
-  state.isPlaying = !state.isPlaying;
   const btn = document.getElementById('transport-play-btn');
+
+  // If Mureka audio is loaded, control that
+  if (previewAudioEl) {
+    if (previewAudioEl.paused) {
+      previewAudioEl.play();
+      state.isPlaying = true;
+      btn.innerHTML = '&#9646;&#9646;';
+      btn.classList.add('playing');
+      const pb = document.getElementById('preview-play-btn');
+      if (pb) { pb.innerHTML = '&#9646;&#9646; Stop'; }
+    } else {
+      previewAudioEl.pause();
+      state.isPlaying = false;
+      btn.innerHTML = '&#9654;';
+      btn.classList.remove('playing');
+      const pb = document.getElementById('preview-play-btn');
+      if (pb) { pb.innerHTML = '&#9654; Play'; }
+    }
+    return;
+  }
+
+  state.isPlaying = !state.isPlaying;
   if (state.isPlaying) {
     btn.innerHTML = '&#9646;&#9646;';
     btn.classList.add('playing');
@@ -2375,6 +2396,7 @@ function seekProgress(e) {
   const rect = bar.getBoundingClientRect();
   const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
   state.progressSeconds = Math.floor(pct * state.totalSeconds);
+  if (previewAudioEl) previewAudioEl.currentTime = state.progressSeconds;
   updateProgressDisplay();
 }
 
@@ -2776,6 +2798,7 @@ function downloadBuffer(buffer, filename, mimeType) {
 let audioCtx = null; // kept for beat upload playback only
 let previewPlaying = false;
 let previewScheduledStop = null;
+let previewAudioEl = null; // real audio from Mureka
 let toneInitialized = false;
 
 // Tone.js instrument chain (initialized lazily on first preview)
@@ -2901,18 +2924,124 @@ function scheduleToneDrum(chain, type, time) {
 
 async function toggleBlueprintPreview() {
   const btn = document.getElementById('preview-play-btn');
-  if (previewPlaying) {
-    stopBlueprintPreview();
+
+  // If audio is loaded, toggle transport play/pause
+  if (previewAudioEl) {
+    togglePlay();
     return;
   }
+
+  if (previewPlaying) { stopBlueprintPreview(); return; }
   if (!state.blueprint) { showToast('Generate a Song Blueprint first', 'error'); return; }
 
+  const murekaKey = localStorage.getItem('nova_mureka_key');
+
+  if (murekaKey) {
+    await generateMurekaInstrumental(btn);
+  } else {
+    await runTonePreview(btn);
+  }
+}
+
+async function generateMurekaInstrumental(btn) {
+  btn.innerHTML = '<span class="spinner spinner-white"></span> Generating...';
+  btn.disabled = true;
+  previewPlaying = true;
+
+  const murekaKey = localStorage.getItem('nova_mureka_key');
+  const bp  = state.blueprint;
+  const bpm = bp.bpm || state.bpm || 96;
+  const key = bp.key || state.key;
+  const mode = bp.keyMode || state.keyMode;
+  const chords = bp.structure?.hook?.chords || [];
+
+  const prompt = [
+    `${state.genre || 'Latin Pop'} instrumental music`,
+    `${bpm} BPM`,
+    `${key} ${mode}`,
+    state.mood ? state.mood.toLowerCase() : '',
+    chords.length ? `chord progression ${chords.slice(0,4).join('-')}` : '',
+    'no vocals',
+    'professional studio production',
+    'full arrangement with drums bass melody'
+  ].filter(Boolean).join(', ');
+
+  showToast('Generating AI music with Mureka (~60 sec)...');
+
+  try {
+    const genResp = await fetch('https://api.mureka.ai/v1/song/generate', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${murekaKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, lyrics: '[Instrumental]', model: 'auto' })
+    });
+
+    if (!genResp.ok) {
+      const err = await genResp.json().catch(() => ({}));
+      console.error('[Mureka instrumental] error:', JSON.stringify(err));
+      const msg = err.message || err.msg || (typeof err.error === 'string' ? err.error : err.error?.message) || `HTTP ${genResp.status}`;
+      throw new Error(msg);
+    }
+
+    const genData = await genResp.json();
+    console.log('[Mureka instrumental] queued:', JSON.stringify(genData));
+    const taskId = genData.id || genData.task_id || genData.data?.id;
+    if (!taskId) throw new Error('No task ID returned. Response: ' + JSON.stringify(genData).slice(0,200));
+
+    showToast('AI music queued — hold tight...');
+    const audioUrl = await pollMurekaTask(murekaKey, taskId);
+
+    loadPreviewAudio(audioUrl, btn);
+    showToast('AI instrumental ready! Playing now ▶', 'success');
+
+  } catch(e) {
+    console.error('[Nova Writer] Mureka instrumental error:', e);
+    showToast('Music error: ' + e.message.slice(0,100), 'error');
+    btn.innerHTML = '&#9654; Preview';
+    btn.disabled = false;
+    previewPlaying = false;
+  }
+}
+
+function loadPreviewAudio(url, btn) {
+  if (previewAudioEl) { previewAudioEl.pause(); previewAudioEl = null; }
+
+  previewAudioEl = new Audio(url);
+
+  previewAudioEl.addEventListener('loadedmetadata', () => {
+    state.totalSeconds = Math.round(previewAudioEl.duration);
+    updateProgressDisplay();
+  });
+
+  previewAudioEl.addEventListener('timeupdate', () => {
+    state.progressSeconds = Math.floor(previewAudioEl.currentTime);
+    updateProgressDisplay();
+  });
+
+  previewAudioEl.addEventListener('ended', () => {
+    state.isPlaying = false;
+    state.progressSeconds = 0;
+    updateProgressDisplay();
+    const pb = document.getElementById('transport-play-btn');
+    if (pb) { pb.innerHTML = '&#9654;'; pb.classList.remove('playing'); }
+  });
+
+  previewAudioEl.play().then(() => {
+    state.isPlaying = true;
+    const pb = document.getElementById('transport-play-btn');
+    if (pb) { pb.innerHTML = '&#9646;&#9646;'; pb.classList.add('playing'); }
+    if (btn) { btn.innerHTML = '&#9646;&#9646; Stop'; btn.disabled = false; }
+  }).catch(e => {
+    console.warn('Autoplay blocked:', e);
+    if (btn) { btn.innerHTML = '&#9654; Play'; btn.disabled = false; }
+  });
+}
+
+async function runTonePreview(btn) {
   btn.innerHTML = '<span class="spinner spinner-white"></span> Loading...';
   btn.disabled = true;
 
   try {
     const chain = await initTone();
-
     const bp  = state.blueprint;
     const bpm = bp.bpm || state.bpm || 96;
     Tone.Transport.bpm.value = bpm;
@@ -2922,44 +3051,20 @@ async function toggleBlueprintPreview() {
     const totalBars = 8;
     const secPerBeat = 60 / bpm;
     const barDur = secPerBeat * 4;
-
-    // Build a melody from the scale
     const rootMidi = chordToNotes(chords[0])[0];
     const scale = buildScale(rootMidi, state.keyMode || bp.keyMode || 'Minor');
-
-    // Schedule all events using Tone.Transport time
     const now = Tone.now() + 0.1;
 
     for (let bar = 0; bar < totalBars; bar++) {
       const t = now + bar * barDur;
-      const chord = chords[bar % chords.length];
-      const chordMidi = chordToNotes(chord);
-
-      // Chords (held for bar)
-      chain.chordSynth.triggerAttackRelease(
-        chordMidi.map(midiToToneName),
-        barDur * 0.9,
-        t
-      );
-
-      // Bass — two hits per bar
+      const chordMidi = chordToNotes(chords[bar % chords.length]);
+      chain.chordSynth.triggerAttackRelease(chordMidi.map(midiToToneName), barDur * 0.9, t);
       chain.bassSynth.triggerAttackRelease(midiToToneName(chordMidi[0] - 12), secPerBeat * 1.7, t);
       chain.bassSynth.triggerAttackRelease(midiToToneName(chordMidi[0] - 12), secPerBeat * 1.7, t + secPerBeat * 2 + 0.01);
-
-      // Lead melody — 8th note pattern over the bar
-      const melNotes = getMelodyBar(scale, bar, chordMidi[0]);
-      melNotes.forEach((midi, i) => {
-        chain.leadSynth.triggerAttackRelease(
-          midiToToneName(midi),
-          secPerBeat * 0.38,
-          t + i * secPerBeat * 0.5
-        );
+      getMelodyBar(scale, bar, chordMidi[0]).forEach((midi, i) => {
+        chain.leadSynth.triggerAttackRelease(midiToToneName(midi), secPerBeat * 0.38, t + i * secPerBeat * 0.5);
       });
-
-      // Drums
-      pattern.forEach(hit => {
-        scheduleToneDrum(chain, hit.type, t + hit.beat * secPerBeat);
-      });
+      pattern.forEach(hit => scheduleToneDrum(chain, hit.type, t + hit.beat * secPerBeat));
     }
 
     previewPlaying = true;
@@ -2979,7 +3084,6 @@ async function toggleBlueprintPreview() {
     btn.innerHTML = '&#9654; Preview';
     btn.disabled = false;
     showToast('Preview error: ' + e.message, 'error');
-    console.error('[Nova Writer] Preview error:', e);
   }
 }
 
@@ -2988,6 +3092,16 @@ function stopBlueprintPreview() {
   if (previewScheduledStop) { clearTimeout(previewScheduledStop); previewScheduledStop = null; }
   const btn = document.getElementById('preview-play-btn');
   if (btn) { btn.classList.remove('playing'); btn.innerHTML = '&#9654; Preview'; btn.disabled = false; }
+  if (previewAudioEl) {
+    previewAudioEl.pause();
+    previewAudioEl.currentTime = 0;
+    previewAudioEl = null;
+    state.isPlaying = false;
+    state.progressSeconds = 0;
+    updateProgressDisplay();
+    const pb = document.getElementById('transport-play-btn');
+    if (pb) { pb.innerHTML = '&#9654;'; pb.classList.remove('playing'); }
+  }
   if (toneChain) {
     try { toneChain.chordSynth.releaseAll(); } catch(e) {}
     try { toneChain.leadSynth.releaseAll(); } catch(e) {}
