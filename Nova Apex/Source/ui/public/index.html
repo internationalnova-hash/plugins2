@@ -609,7 +609,7 @@
     .bot-cell {
       display: flex; flex-direction: column; align-items: center;
       justify-content: center; gap: 5px; position: relative;
-      padding: 0 6px;
+      padding: 0 6px; overflow: hidden;
     }
     .bot-label { font-size: 10px; letter-spacing: .09em; color: var(--gold); font-weight: 700; text-transform: uppercase; text-align: center; line-height: 1.35; }
     .bot-readout {
@@ -631,8 +631,8 @@
     .bot-power:hover { border-color: var(--gold-dim); color: var(--gold-dim); }
     .bot-power.active { border-color: var(--gold); color: var(--gold); }
     .bot-link-icon {
-      position: absolute; top: 0; right: 2px;
-      font-size: 14px; color: var(--text-dim); cursor: pointer;
+      font-size: 13px; color: var(--text-dim); cursor: pointer;
+      line-height: 1; flex-shrink: 0;
     }
     .bot-link-icon.active { color: var(--gold); }
 
@@ -1143,7 +1143,7 @@
       <div class="bot-group-cells">
         <div class="bot-cell">
           <span class="bot-label">Channel<br>Link</span>
-          <span class="bot-link-icon active" id="link-icon">&#x26D3;</span>
+          <span class="bot-link-icon active" id="btnLink">&#x26D3;</span>
           <div class="knob sm" data-param="link" data-min="0" data-max="100" data-def="100">
             <div class="knob-arc"><svg viewBox="0 0 48 48"><circle class="arc-track" cx="24" cy="24" r="18" fill="none" stroke="rgba(200,160,96,0.12)" stroke-width="3.5" stroke-dasharray="157 360" stroke-dashoffset="-52" stroke-linecap="round"/><circle class="arc-fill" cx="24" cy="24" r="18" fill="none" stroke="#D6B06A" stroke-width="3.5" stroke-dasharray="0 360" stroke-dashoffset="-52" stroke-linecap="round"/></svg></div>
             <div class="knob-ptr"></div>
@@ -1557,9 +1557,7 @@ if (slmBtn) {
   });
 }
 
-document.getElementById('link-icon').addEventListener('click', e => {
-  e.currentTarget.classList.toggle('active');
-});
+// btnLink click is handled by js/index.js
 
 // ══════════════════════════ TP METER SEGMENTS ══════════════════════════
 const TP_SEGS = 16;
