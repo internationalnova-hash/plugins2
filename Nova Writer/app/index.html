@@ -1585,6 +1585,7 @@ body {
   <button class="midi-out-btn" onclick="showToast('MIDI OUT active')">MIDI OUT</button>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <script>
 // =========================================================
 // STATE
@@ -2770,12 +2771,15 @@ function downloadBuffer(buffer, filename, mimeType) {
 }
 
 // =========================================================
-// WEBAUDIO PLAYBACK ENGINE
+// TONE.JS PLAYBACK ENGINE
 // =========================================================
-let audioCtx = null;
+let audioCtx = null; // kept for beat upload playback only
 let previewPlaying = false;
 let previewScheduledStop = null;
-let previewGain = null;
+let toneInitialized = false;
+
+// Tone.js instrument chain (initialized lazily on first preview)
+let toneChain = null;
 
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2788,64 +2792,111 @@ async function resumeAudioCtx() {
   return ctx;
 }
 
+function midiToToneName(midi) {
+  const names = ['C','Db','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+  return names[midi % 12] + (Math.floor(midi / 12) - 1);
+}
+
 function midiToHz(midi) {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
-function playNote(ctx, midi, startTime, duration, gain = 0.18, type = 'triangle') {
-  const masterGain = ctx.createGain();
-  masterGain.connect(ctx.destination);
+async function initTone() {
+  if (toneInitialized && toneChain) return toneChain;
+  if (typeof Tone === 'undefined') throw new Error('Tone.js not loaded — check internet connection');
 
-  // Simple ADSR envelope
-  const attack = 0.01, decay = 0.1, sustain = 0.7, release = 0.15;
-  const g = masterGain.gain;
-  g.setValueAtTime(0, startTime);
-  g.linearRampToValueAtTime(gain, startTime + attack);
-  g.linearRampToValueAtTime(gain * sustain, startTime + attack + decay);
-  g.setValueAtTime(gain * sustain, startTime + duration - release);
-  g.linearRampToValueAtTime(0, startTime + duration);
+  await Tone.start();
 
-  // Fundamental oscillator
-  const osc = ctx.createOscillator();
-  osc.type = type;
-  osc.frequency.setValueAtTime(midiToHz(midi), startTime);
-  osc.connect(masterGain);
-  osc.start(startTime);
-  osc.stop(startTime + duration + 0.02);
+  // Master chain: compressor → limiter → output
+  const limiter   = new Tone.Limiter(-2).toDestination();
+  const compressor = new Tone.Compressor({ threshold: -18, ratio: 4, attack: 0.003, release: 0.25, knee: 6 }).connect(limiter);
+  const reverb    = new Tone.Reverb({ decay: 2.2, preDelay: 0.02, wet: 0.28 }).connect(compressor);
 
-  // Add subtle second harmonic for richness
-  const osc2 = ctx.createOscillator();
-  osc2.type = 'sine';
-  osc2.frequency.setValueAtTime(midiToHz(midi) * 2, startTime);
-  const g2 = ctx.createGain();
-  g2.gain.value = 0.25;
-  osc2.connect(g2);
-  g2.connect(masterGain);
-  osc2.start(startTime);
-  osc2.stop(startTime + duration + 0.02);
+  // Chord synth — lush FM pad
+  const chordSynth = new Tone.PolySynth(Tone.FMSynth, {
+    harmonicity: 2,
+    modulationIndex: 8,
+    oscillator: { type: 'sine' },
+    envelope: { attack: 0.04, decay: 0.4, sustain: 0.65, release: 1.8 },
+    modulation: { type: 'triangle' },
+    modulationEnvelope: { attack: 0.02, decay: 0.5, sustain: 0.3, release: 1.0 },
+    volume: -10
+  });
+  chordSynth.connect(reverb);
+
+  // Lead melody synth — bright pluck
+  const leadSynth = new Tone.PolySynth(Tone.Synth, {
+    oscillator: { type: 'triangle8' },
+    envelope: { attack: 0.005, decay: 0.18, sustain: 0.4, release: 0.6 },
+    volume: -14
+  });
+  leadSynth.connect(reverb);
+
+  // Bass synth — warm mono bass
+  const bassSynth = new Tone.MonoSynth({
+    oscillator: { type: 'sawtooth' },
+    filter: { type: 'lowpass', rolloff: -24, Q: 1.5 },
+    envelope: { attack: 0.005, decay: 0.15, sustain: 0.7, release: 0.3 },
+    filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.4, baseFrequency: 180, octaves: 2.5 },
+    volume: -8
+  });
+  bassSynth.connect(compressor);
+
+  // Kick drum
+  const kick = new Tone.MembraneSynth({
+    pitchDecay: 0.06,
+    octaves: 9,
+    envelope: { attack: 0.001, decay: 0.35, sustain: 0, release: 0.15 },
+    volume: -4
+  }).connect(compressor);
+
+  // Snare — noise + tone layer
+  const snare = new Tone.NoiseSynth({
+    noise: { type: 'white' },
+    envelope: { attack: 0.001, decay: 0.18, sustain: 0, release: 0.05 },
+    volume: -10
+  }).connect(compressor);
+
+  // Hi-hat
+  const hihat = new Tone.MetalSynth({
+    frequency: 400, harmonicity: 5.1, modulationIndex: 32,
+    resonance: 4000, octaves: 1.5,
+    envelope: { attack: 0.001, decay: 0.08, release: 0.01 },
+    volume: -18
+  }).connect(compressor);
+
+  // Open hi-hat
+  const openhat = new Tone.MetalSynth({
+    frequency: 400, harmonicity: 5.1, modulationIndex: 32,
+    resonance: 4000, octaves: 1.5,
+    envelope: { attack: 0.001, decay: 0.28, release: 0.04 },
+    volume: -20
+  }).connect(reverb);
+
+  // Clap
+  const clap = new Tone.NoiseSynth({
+    noise: { type: 'pink' },
+    envelope: { attack: 0.001, decay: 0.09, sustain: 0, release: 0.06 },
+    volume: -12
+  }).connect(reverb);
+
+  // Wait for reverb IR to generate
+  await reverb.ready;
+
+  toneChain = { chordSynth, leadSynth, bassSynth, kick, snare, hihat, openhat, clap };
+  toneInitialized = true;
+  return toneChain;
 }
 
-function playBassNote(ctx, midi, startTime, duration) {
-  const gain = ctx.createGain();
-  gain.connect(ctx.destination);
-  gain.gain.setValueAtTime(0, startTime);
-  gain.gain.linearRampToValueAtTime(0.28, startTime + 0.015);
-  gain.gain.setValueAtTime(0.28, startTime + duration - 0.08);
-  gain.gain.linearRampToValueAtTime(0, startTime + duration);
-
-  const osc = ctx.createOscillator();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(midiToHz(midi - 12), startTime); // one octave lower
-
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.value = 400;
-  filter.Q.value = 1;
-
-  osc.connect(filter);
-  filter.connect(gain);
-  osc.start(startTime);
-  osc.stop(startTime + duration + 0.02);
+function scheduleToneDrum(chain, type, time) {
+  const t = Tone.Time(time).toSeconds();
+  switch(type) {
+    case 'kick':    chain.kick.triggerAttackRelease('C1', '8n', t); break;
+    case 'snare':   chain.snare.triggerAttackRelease('16n', t); break;
+    case 'clap':    chain.clap.triggerAttackRelease('16n', t); break;
+    case 'hihat':   chain.hihat.triggerAttackRelease('C6', '32n', t); break;
+    case 'openhat': chain.openhat.triggerAttackRelease('C6', '8n', t); break;
+  }
 }
 
 async function toggleBlueprintPreview() {
@@ -2856,62 +2907,79 @@ async function toggleBlueprintPreview() {
   }
   if (!state.blueprint) { showToast('Generate a Song Blueprint first', 'error'); return; }
 
-  btn.innerHTML = '&#9654; Starting...';
+  btn.innerHTML = '<span class="spinner spinner-white"></span> Loading...';
   btn.disabled = true;
 
   try {
-    const ctx = await resumeAudioCtx();
+    const chain = await initTone();
 
     const bp  = state.blueprint;
     const bpm = bp.bpm || state.bpm || 96;
-    const secPerBeat = 60 / bpm;
-    const chords = bp.structure.hook?.chords || ['Em','C','G','D'];
-    const drumPattern = getDrumPattern(state.genre, bpm);
+    Tone.Transport.bpm.value = bpm;
+
+    const chords  = bp.structure.hook?.chords || ['Em','C','G','D'];
+    const pattern = getDrumPattern(state.genre, bpm);
     const totalBars = 8;
-    const beatsPerBar = 4;
+    const secPerBeat = 60 / bpm;
+    const barDur = secPerBeat * 4;
+
+    // Build a melody from the scale
+    const rootMidi = chordToNotes(chords[0])[0];
+    const scale = buildScale(rootMidi, state.keyMode || bp.keyMode || 'Minor');
+
+    // Schedule all events using Tone.Transport time
+    const now = Tone.now() + 0.1;
+
+    for (let bar = 0; bar < totalBars; bar++) {
+      const t = now + bar * barDur;
+      const chord = chords[bar % chords.length];
+      const chordMidi = chordToNotes(chord);
+
+      // Chords (held for bar)
+      chain.chordSynth.triggerAttackRelease(
+        chordMidi.map(midiToToneName),
+        barDur * 0.9,
+        t
+      );
+
+      // Bass — two hits per bar
+      chain.bassSynth.triggerAttackRelease(midiToToneName(chordMidi[0] - 12), secPerBeat * 1.7, t);
+      chain.bassSynth.triggerAttackRelease(midiToToneName(chordMidi[0] - 12), secPerBeat * 1.7, t + secPerBeat * 2 + 0.01);
+
+      // Lead melody — 8th note pattern over the bar
+      const melNotes = getMelodyBar(scale, bar, chordMidi[0]);
+      melNotes.forEach((midi, i) => {
+        chain.leadSynth.triggerAttackRelease(
+          midiToToneName(midi),
+          secPerBeat * 0.38,
+          t + i * secPerBeat * 0.5
+        );
+      });
+
+      // Drums
+      pattern.forEach(hit => {
+        scheduleToneDrum(chain, hit.type, t + hit.beat * secPerBeat);
+      });
+    }
 
     previewPlaying = true;
     btn.classList.add('playing');
     btn.innerHTML = '&#9646;&#9646; Stop';
-    btn.disabled  = false;
+    btn.disabled = false;
 
-    let t = ctx.currentTime + 0.05;
-
-    for (let bar = 0; bar < totalBars; bar++) {
-      const chord = chords[bar % chords.length];
-      const chordNotes = chordToNotes(chord);
-      const barDur = secPerBeat * beatsPerBar;
-
-      // Chord notes — triangle wave (piano-ish)
-      chordNotes.forEach((midi, i) => {
-        playNote(ctx, midi, t, barDur * 0.92, 0.14 - i * 0.02, 'triangle');
-      });
-
-      // Bass — filtered sawtooth
-      playBassNote(ctx, chordNotes[0], t, secPerBeat * 1.8);
-      playBassNote(ctx, chordNotes[0], t + secPerBeat * 2, secPerBeat * 1.8);
-
-      // Drums
-      drumPattern.forEach(hit => {
-        playDrumHit(ctx, hit.type, t + hit.beat * secPerBeat, hit.vel);
-      });
-
-      t += barDur;
-    }
-
-    const totalDur = (t - ctx.currentTime) * 1000 + 200;
     previewScheduledStop = setTimeout(() => {
       previewPlaying = false;
       const b = document.getElementById('preview-play-btn');
       if (b) { b.classList.remove('playing'); b.innerHTML = '&#9654; Preview'; b.disabled = false; }
-    }, totalDur);
+    }, (totalBars * barDur + 2.5) * 1000);
 
   } catch(e) {
     previewPlaying = false;
     btn.classList.remove('playing');
     btn.innerHTML = '&#9654; Preview';
-    btn.disabled  = false;
+    btn.disabled = false;
     showToast('Preview error: ' + e.message, 'error');
+    console.error('[Nova Writer] Preview error:', e);
   }
 }
 
@@ -2920,8 +2988,40 @@ function stopBlueprintPreview() {
   if (previewScheduledStop) { clearTimeout(previewScheduledStop); previewScheduledStop = null; }
   const btn = document.getElementById('preview-play-btn');
   if (btn) { btn.classList.remove('playing'); btn.innerHTML = '&#9654; Preview'; btn.disabled = false; }
-  // Suspend (not close) so beat playback context stays alive
-  if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
+  if (toneChain) {
+    try { toneChain.chordSynth.releaseAll(); } catch(e) {}
+    try { toneChain.leadSynth.releaseAll(); } catch(e) {}
+  }
+}
+
+function buildScale(rootMidi, mode) {
+  const majorIntervals = [0,2,4,5,7,9,11];
+  const minorIntervals = [0,2,3,5,7,8,10];
+  const intervals = mode === 'Minor' ? minorIntervals : majorIntervals;
+  const scale = [];
+  for (let oct = 0; oct < 2; oct++) {
+    intervals.forEach(i => scale.push(rootMidi + oct * 12 + i));
+  }
+  return scale;
+}
+
+function getMelodyBar(scale, barIndex, rootMidi) {
+  // 8 melody notes per bar (8th notes), musical patterns
+  const patterns = [
+    [0,2,4,5,4,2,0,2],
+    [0,0,2,4,5,4,2,0],
+    [4,5,4,2,0,2,4,5],
+    [5,4,2,0,2,4,5,7],
+    [0,4,2,4,0,4,2,4],
+    [7,5,4,2,0,2,4,5],
+    [0,2,4,7,5,4,2,0],
+    [4,4,5,5,4,2,0,0],
+  ];
+  const pat = patterns[barIndex % patterns.length];
+  return pat.map(idx => {
+    const note = scale[idx % scale.length] + 12; // up one octave for melody
+    return Math.max(60, Math.min(84, note));
+  });
 }
 
 // =========================================================
