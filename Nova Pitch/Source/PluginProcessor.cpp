@@ -45,8 +45,10 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, int maxBlockSize
 #ifdef HAVE_RUBBERBAND
     using RBS = RubberBand::RubberBandStretcher;
 
-    int options = RBS::OptionProcessRealTime
-                | RBS::OptionPitchHighConsistency;
+    // Bare-minimum real-time options — no HighConsistency (which can inflate latency
+    // to thousands of samples and requires huge priming chunks that exceed maxBlockSize,
+    // corrupting RubberBand's internal state).
+    int options = RBS::OptionProcessRealTime;
 
     if (formantPreserve)
         options |= RBS::OptionFormantPreserved;
@@ -54,10 +56,8 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, int maxBlockSize
     stretcher = std::make_unique<RBS> (
         static_cast<size_t> (sampleRate), 2, options, 1.0, 1.0);
 
-    // CRITICAL: tell RubberBand the maximum block size we will ever feed it.
-    // Default is 512. If the DAW uses a larger buffer (1024, 2048, etc.) and
-    // we never set this, RubberBand only processes the first 512 samples per
-    // call and the rest is garbage — causing the "bits and pieces" symptom.
+    // Must be called before any process() — sets internal buffer allocation.
+    // Default is 512; DAW buffers can be 1024, 1632, 2048, etc.
     stretcher->setMaxProcessSize (static_cast<size_t> (maxBlockSize));
 
     stretcher->setTimeRatio (1.0);
@@ -66,12 +66,21 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, int maxBlockSize
     const int latency = static_cast<int> (stretcher->getLatency());
     setLatencySamples (latency);
 
-    // Prime with silence so RubberBand output is ready from the very first block
+    // Prime in chunks no larger than maxBlockSize.
+    // Previously we fed ALL latency samples in one call, which violates
+    // setMaxProcessSize when latency > maxBlockSize → corrupted internal state.
     if (latency > 0)
     {
-        std::vector<float> silence (static_cast<size_t> (latency), 0.0f);
+        std::vector<float> silence (static_cast<size_t> (maxBlockSize), 0.0f);
         const float* ptrs[2] = { silence.data(), silence.data() };
-        stretcher->process (ptrs, static_cast<size_t> (latency), false);
+
+        int remaining = latency;
+        while (remaining > 0)
+        {
+            int chunk = std::min (remaining, maxBlockSize);
+            stretcher->process (ptrs, static_cast<size_t> (chunk), false);
+            remaining -= chunk;
+        }
     }
 #else
     juce::ignoreUnused (sampleRate, maxBlockSize, formantPreserve);
@@ -113,7 +122,6 @@ void NovaPitchAudioProcessor::releaseResources()
 #endif
 }
 
-// Uses caller-provided scratch arrays — no heap allocation on audio thread
 float NovaPitchAudioProcessor::detectYIN (const float* samples, int n, float* d, float* cmnd)
 {
     const int halfN = n / 2;
@@ -208,7 +216,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         initStretcher (currentSampleRate, currentBlockSize, formant);
     }
 
-    // --- Pitch detection on original audio ---
+    // --- Pitch detection ---
 
     const float* chL = buffer.getReadPointer (0);
     const float* chR = (numChannels > 1) ? buffer.getReadPointer (1) : chL;
@@ -230,7 +238,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         ph5index = (ph5index + 1) % 5;
     }
 
-    // 5-sample median filter to remove YIN outliers
     float medianHz = 0.0f;
     {
         std::array<float, 5> tmp = pitchHistory5;
@@ -247,9 +254,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         if (smoothedDetectedHz > 0.0f)
         {
-            float hzRatio = medianHz / (smoothedDetectedHz + 1e-9f);
-            bool octaveJump = (hzRatio > 1.88f && hzRatio < 2.12f)
-                           || (hzRatio > 0.47f && hzRatio < 0.53f);
+            float hzRatio  = medianHz / (smoothedDetectedHz + 1e-9f);
+            bool  octaveJump = (hzRatio > 1.88f && hzRatio < 2.12f)
+                            || (hzRatio > 0.47f && hzRatio < 0.53f);
             float semiDist = std::abs (hzToMidiF (medianHz) - hzToMidiF (smoothedDetectedHz));
             float alpha    = octaveJump ? 0.02f
                                         : juce::jlimit (0.05f, 0.15f, semiDist * 0.03f);
@@ -269,7 +276,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     detectedPitch.store (smoothedDetectedHz);
 
-    // --- Compute pitch correction ratio ---
+    // --- Compute correction ratio ---
 
     float amount     = apvts.getRawParameterValue ("amount")->load() / 100.0f;
     float tolerance  = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
@@ -287,7 +294,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         float centsDiff     = (hzToMidiF (targetHz) - hzToMidiF (smoothedDetectedHz)) * 100.0f;
         float deadbandCents = tolerance * 50.0f;
 
-        // Schmitt trigger — prevents oscillation at boundary
         if (!correctionActive && std::abs (centsDiff) > deadbandCents)
             correctionActive = true;
         if (correctionActive  && std::abs (centsDiff) < deadbandCents * 0.4f)
@@ -295,10 +301,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         if (correctionActive)
         {
-            // Recompute noteTargetRatio ONLY when the target note changes.
-            // Holding it constant within a note is critical — continuous micro-updates
-            // from pitch detection jitter cause constant ratio modulation, which sounds
-            // exactly like wobble/chorus/delay. Real autotune holds the ratio stable.
+            // Recompute ratio only when the target note changes — not every block.
+            // Continuous per-block recomputation causes micro-modulation from
+            // pitch detection jitter, which sounds like wobble/chorus/delay.
             if (targetMidi != lastTargetMidi)
             {
                 lastTargetMidi = targetMidi;
@@ -313,14 +318,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 noteTargetRatio = juce::jlimit (0.841f, 1.189f, noteTargetRatio);
             }
 
-            // Scale correction by amount, approach target smoothly
             float scaledRatio = 1.0f + (noteTargetRatio - 1.0f) * amount;
-            float alpha       = 0.12f;   // ~55ms convergence — avoids click but snappy
-            pitchRatioSmoothed += (scaledRatio - pitchRatioSmoothed) * alpha;
+            pitchRatioSmoothed += (scaledRatio - pitchRatioSmoothed) * 0.12f;
         }
         else
         {
-            lastTargetMidi = -1;   // reset so next correction recomputes fresh
+            lastTargetMidi = -1;
             pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.08f;
         }
 
@@ -336,13 +339,12 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         ratio = pitchRatioSmoothed;
     }
 
-    // Clamp to ±3 semitones — guards against octave detection errors
     ratio = juce::jlimit (0.841f, 1.189f, ratio);
 
     pitchHistory[(size_t)historyIndex].store (smoothedDetectedHz);
     historyIndex = (historyIndex + 1) % pitchHistorySize;
 
-    // --- Pitch shifting ---
+    // --- Pitch shift ---
 
     float* bufL = buffer.getWritePointer (0);
     float* bufR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
@@ -359,23 +361,38 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float* inPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
         stretcher->process (inPtrs, static_cast<size_t> (numSamples), false);
 
-        int avail = stretcher->available();
-
-        // Drain excess using pre-allocated scratch (no heap alloc)
-        if (avail > numSamples * 4)
-        {
-            int excess = std::min (avail - numSamples * 2, drainBufSize);
-            float* dp[2] = { drainL.data(), drainR.data() };
-            stretcher->retrieve (dp, static_cast<size_t> (excess));
-            avail = stretcher->available();
-        }
+        const int avail = stretcher->available();
 
         if (avail >= numSamples)
         {
+            // Drain any excess before retrieving the current block
+            if (avail > numSamples * 3)
+            {
+                const int excess = std::min (avail - numSamples, drainBufSize);
+                float* dp[2] = { drainL.data(), drainR.data() };
+                stretcher->retrieve (dp, static_cast<size_t> (excess));
+            }
+
             float* outPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
             stretcher->retrieve (outPtrs, static_cast<size_t> (numSamples));
         }
-        // else: startup — dry pass; DAW PDC accounts for this
+        else if (avail > 0)
+        {
+            // Partial output — retrieve what we have, zero-fill the rest.
+            // Outputs zeros instead of dry audio to avoid mix of processed/unprocessed.
+            float* outPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
+            stretcher->retrieve (outPtrs, static_cast<size_t> (avail));
+            for (int i = avail; i < numSamples; ++i)
+            {
+                bufL[i] = 0.0f;
+                if (bufR != nullptr) bufR[i] = 0.0f;
+            }
+        }
+        else
+        {
+            // No output yet (startup) — output silence
+            buffer.clear();
+        }
     }
 #else
     juce::ignoreUnused (bufL, bufR);
