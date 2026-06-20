@@ -45,8 +45,11 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, bool formantPres
 #ifdef HAVE_RUBBERBAND
     using RBS = RubberBand::RubberBandStretcher;
 
+    // R2 engine (default) with HighConsistency: ~512-2048 sample latency (~12-46ms).
+    // R3 (OptionEngineFiner) reports ~87,000 sample latency in real-time mode (~2 seconds)
+    // which makes live vocal monitoring completely unusable — never use R3 real-time.
     int options = RBS::OptionProcessRealTime
-                | RBS::OptionEngineFiner;   // R3 — cleaner for vocals, fewer phase artifacts
+                | RBS::OptionPitchHighConsistency;  // prevents phase jumps between blocks
 
     if (formantPreserve)
         options |= RBS::OptionFormantPreserved;
