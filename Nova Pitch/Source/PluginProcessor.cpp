@@ -42,9 +42,11 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, bool formantPres
 #ifdef HAVE_RUBBERBAND
     using RBS = RubberBand::RubberBandStretcher;
 
-    int options = RBS::OptionProcessRealTime;
-    // No OptionPitchHighSpeed (zipper noise) or OptionPitchHighConsistency (100ms+ latency)
-    // Default R2 engine with no extra pitch flags is the most stable for real-time small shifts
+    // R3 engine (OptionEngineFiner): dramatically fewer phase artifacts for vocals.
+    // R2 (default) uses a classic phase vocoder that produces metallic/static artifacts.
+    // R3 uses a different algorithm specifically designed for clean real-time shifting.
+    int options = RBS::OptionProcessRealTime
+                | RBS::OptionEngineFiner;
 
     if (formantPreserve)
         options |= RBS::OptionFormantPreserved;
@@ -57,6 +59,8 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, bool formantPres
     const int latency = static_cast<int> (stretcher->getLatency());
     setLatencySamples (latency);
 
+    // Prime the stretcher with silence so it has output ready immediately.
+    // The DAW PDC compensates for this latency via setLatencySamples above.
     std::vector<float> silence (static_cast<size_t> (latency), 0.0f);
     const float* ptrs[2] = { silence.data(), silence.data() };
     stretcher->process (ptrs, static_cast<size_t> (latency), false);
@@ -79,13 +83,6 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     historyIndex          = 0;
     ph5index              = 0;
     pitchHistory5.fill (0.0f);
-
-    // Reset output FIFO
-    for (auto& v : outFifo)     v.assign (outFifoCapacity, 0.0f);
-    for (auto& v : retrieveBuf) v.assign (outFifoCapacity, 0.0f);
-    outFifoReadPos  = 0;
-    outFifoWritePos = 0;
-    outFifoFilled   = 0;
 
     bool formant = apvts.getRawParameterValue ("formant")->load() > 0.5f;
     lastFormantSetting = formant;
@@ -324,84 +321,34 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 #ifdef HAVE_RUBBERBAND
     if (stretcher != nullptr)
     {
-        // Unity bypass: if ratio is within ~5 cents of 1.0, pass audio through dry.
-        // Running RubberBand at 1.0 scale still introduces latency and phase artifacts.
-        const bool nearUnity = std::abs (ratio - 1.0f) < 0.003f;
-
-        if (nearUnity)
+        if (std::abs (ratio - lastPitchScale) > 0.0005f)
         {
-            // Flush any stale FIFO samples so we don't hear them on re-engage
-            outFifoReadPos = outFifoWritePos = outFifoFilled = 0;
-            lastPitchScale = 1.0f;
-            // Pass dry audio through unchanged — no processing
+            stretcher->setPitchScale (static_cast<double> (ratio));
+            lastPitchScale = ratio;
         }
-        else
+
+        // Always feed input — keeps stretcher primed and latency consistent
+        const float* inPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
+        stretcher->process (inPtrs, static_cast<size_t> (numSamples), false);
+
+        const int avail = stretcher->available();
+
+        if (avail >= numSamples)
         {
-            // Only update pitch scale when it actually changes significantly
-            if (std::abs (ratio - lastPitchScale) > 0.001f)
+            // Drain excess to prevent latency creep (shouldn't happen with R3 real-time)
+            if (avail > numSamples * 4)
             {
-                stretcher->setPitchScale (static_cast<double> (ratio));
-                lastPitchScale = ratio;
+                const int excess = avail - numSamples * 2;
+                retrieveBuf[0].resize ((size_t) excess);
+                retrieveBuf[1].resize ((size_t) excess);
+                float* dp[2] = { retrieveBuf[0].data(), retrieveBuf[1].data() };
+                stretcher->retrieve (dp, (size_t) excess);
             }
 
-            // Feed input to stretcher
-            const float* inPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
-            stretcher->process (inPtrs, static_cast<size_t> (numSamples), false);
-
-            // Drain all available output into ring buffer
-            int avail = stretcher->available();
-            if (avail > 0)
-            {
-                if ((int) retrieveBuf[0].size() < avail)
-                    for (auto& v : retrieveBuf) v.resize ((size_t) avail);
-
-                float* rPtrs[2] = { retrieveBuf[0].data(), retrieveBuf[1].data() };
-                stretcher->retrieve (rPtrs, (size_t) avail);
-
-                for (int i = 0; i < avail; ++i)
-                {
-                    if (outFifoFilled >= outFifoCapacity) break;
-                    for (int ch = 0; ch < 2; ++ch)
-                        outFifo[ch][(size_t) outFifoWritePos] = rPtrs[ch][i];
-                    outFifoWritePos = (outFifoWritePos + 1) % outFifoCapacity;
-                    ++outFifoFilled;
-                }
-            }
-
-            // Output from ring buffer
-            if (outFifoFilled >= numSamples)
-            {
-                for (int i = 0; i < numSamples; ++i)
-                {
-                    bufL[i] = outFifo[0][(size_t) outFifoReadPos];
-                    if (bufR != nullptr)
-                        bufR[i] = outFifo[1][(size_t) outFifoReadPos];
-                    outFifoReadPos = (outFifoReadPos + 1) % outFifoCapacity;
-                }
-                outFifoFilled -= numSamples;
-            }
-            else
-            {
-                // Underflow — output what we have, pad last sample to avoid click
-                int filled = outFifoFilled;
-                for (int i = 0; i < filled; ++i)
-                {
-                    bufL[i] = outFifo[0][(size_t) outFifoReadPos];
-                    if (bufR != nullptr)
-                        bufR[i] = outFifo[1][(size_t) outFifoReadPos];
-                    outFifoReadPos = (outFifoReadPos + 1) % outFifoCapacity;
-                }
-                outFifoFilled = 0;
-                // Pad remainder with last valid sample to avoid hard click
-                const float padL = (filled > 0) ? bufL[filled - 1] : 0.0f;
-                const float padR = (bufR != nullptr && filled > 0) ? bufR[filled - 1] : padL;
-                for (int i = filled; i < numSamples; ++i)
-                {
-                    bufL[i] = padL;
-                    if (bufR != nullptr) bufR[i] = padR;
-                }
-            }
+            float* outPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
+            stretcher->retrieve (outPtrs, static_cast<size_t> (numSamples));
         }
+        // else: startup latency period — leave input buffer unchanged (dry passthrough)
     }
 #else
     juce::ignoreUnused (bufL, bufR);
