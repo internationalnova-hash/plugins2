@@ -40,13 +40,11 @@ NovaPitchAudioProcessor::createParameterLayout()
     return { params.begin(), params.end() };
 }
 
-void NovaPitchAudioProcessor::initStretcher (double sampleRate, bool formantPreserve)
+void NovaPitchAudioProcessor::initStretcher (double sampleRate, int maxBlockSize, bool formantPreserve)
 {
 #ifdef HAVE_RUBBERBAND
     using RBS = RubberBand::RubberBandStretcher;
 
-    // R2 engine with HighConsistency: latency ~1024-2048 samples (~23-46ms at 44.1kHz).
-    // HighConsistency avoids phase discontinuities when pitch ratio changes each block.
     int options = RBS::OptionProcessRealTime
                 | RBS::OptionPitchHighConsistency;
 
@@ -55,13 +53,20 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, bool formantPres
 
     stretcher = std::make_unique<RBS> (
         static_cast<size_t> (sampleRate), 2, options, 1.0, 1.0);
+
+    // CRITICAL: tell RubberBand the maximum block size we will ever feed it.
+    // Default is 512. If the DAW uses a larger buffer (1024, 2048, etc.) and
+    // we never set this, RubberBand only processes the first 512 samples per
+    // call and the rest is garbage — causing the "bits and pieces" symptom.
+    stretcher->setMaxProcessSize (static_cast<size_t> (maxBlockSize));
+
     stretcher->setTimeRatio (1.0);
     stretcher->setPitchScale (1.0);
 
     const int latency = static_cast<int> (stretcher->getLatency());
     setLatencySamples (latency);
 
-    // Prime with silence equal to the reported latency so output is ready on block 1
+    // Prime with silence so RubberBand output is ready from the very first block
     if (latency > 0)
     {
         std::vector<float> silence (static_cast<size_t> (latency), 0.0f);
@@ -69,14 +74,15 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, bool formantPres
         stretcher->process (ptrs, static_cast<size_t> (latency), false);
     }
 #else
-    juce::ignoreUnused (sampleRate, formantPreserve);
+    juce::ignoreUnused (sampleRate, maxBlockSize, formantPreserve);
     setLatencySamples (0);
 #endif
 }
 
-void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
+void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
+    currentBlockSize  = samplesPerBlock > 0 ? samplesPerBlock : 512;
 
     yinBuf.assign    (yinBufferSize, 0.0f);
     yinLinear.assign (yinBufferSize, 0.0f);
@@ -97,7 +103,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
 
     bool formant = apvts.getRawParameterValue ("formant")->load() > 0.5f;
     lastFormantSetting = formant;
-    initStretcher (sampleRate, formant);
+    initStretcher (sampleRate, currentBlockSize, formant);
 }
 
 void NovaPitchAudioProcessor::releaseResources()
@@ -199,7 +205,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     if (formant != lastFormantSetting)
     {
         lastFormantSetting = formant;
-        initStretcher (currentSampleRate, formant);
+        initStretcher (currentSampleRate, currentBlockSize, formant);
     }
 
     // --- Pitch detection on original audio ---

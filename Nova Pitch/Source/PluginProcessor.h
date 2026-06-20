@@ -68,13 +68,14 @@ private:
     float midiToHz (int midi) const;
     float hzToMidi (float hz) const;
 
-    void initStretcher (double sampleRate, bool formantPreserve);
+    void initStretcher (double sampleRate, int maxBlockSize, bool formantPreserve);
 
 #ifdef HAVE_RUBBERBAND
     std::unique_ptr<RubberBand::RubberBandStretcher> stretcher;
 #endif
 
-    double currentSampleRate { 44100.0 };
+    double currentSampleRate  { 44100.0 };
+    int    currentBlockSize   { 512 };
 
     // YIN buffers — all pre-allocated in prepareToPlay, zero heap on audio thread
     std::vector<float> yinBuf;      // circular ring of input samples
