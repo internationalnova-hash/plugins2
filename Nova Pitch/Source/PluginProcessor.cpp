@@ -89,6 +89,8 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     pitchRatioSmoothed    = 1.0f;
     lastPitchScale        = 1.0f;
     correctionActive      = false;
+    lastTargetMidi        = -1;
+    noteTargetRatio       = 1.0f;
     historyIndex          = 0;
     ph5index              = 0;
     pitchHistory5.fill (0.0f);
@@ -279,9 +281,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         float centsDiff     = (hzToMidiF (targetHz) - hzToMidiF (smoothedDetectedHz)) * 100.0f;
         float deadbandCents = tolerance * 50.0f;
 
-        // Schmitt-trigger hysteresis: activate correction when deviation exceeds
-        // deadband, deactivate only when it falls below half the deadband.
-        // Prevents oscillation when pitch sits near the boundary.
+        // Schmitt trigger — prevents oscillation at boundary
         if (!correctionActive && std::abs (centsDiff) > deadbandCents)
             correctionActive = true;
         if (correctionActive  && std::abs (centsDiff) < deadbandCents * 0.4f)
@@ -289,24 +289,32 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         if (correctionActive)
         {
-            // Octave-align detected pitch to prevent YIN subharmonic errors
-            float alignedHz = smoothedDetectedHz;
-            if (targetHz > 1.0f)
+            // Recompute noteTargetRatio ONLY when the target note changes.
+            // Holding it constant within a note is critical — continuous micro-updates
+            // from pitch detection jitter cause constant ratio modulation, which sounds
+            // exactly like wobble/chorus/delay. Real autotune holds the ratio stable.
+            if (targetMidi != lastTargetMidi)
             {
-                while (alignedHz < targetHz * 0.70710678f) alignedHz *= 2.0f;
-                while (alignedHz > targetHz * 1.41421356f) alignedHz *= 0.5f;
+                lastTargetMidi = targetMidi;
+
+                float alignedHz = smoothedDetectedHz;
+                if (targetHz > 1.0f)
+                {
+                    while (alignedHz < targetHz * 0.70710678f) alignedHz *= 2.0f;
+                    while (alignedHz > targetHz * 1.41421356f) alignedHz *= 0.5f;
+                }
+                noteTargetRatio = targetHz / (alignedHz + 1e-9f);
+                noteTargetRatio = juce::jlimit (0.841f, 1.189f, noteTargetRatio);
             }
 
-            float targetRatio = targetHz / (alignedHz + 1e-9f);
-
-            // Faster alpha: at 100% amount, converge in ~30ms not 145ms.
-            // This eliminates the pitch-smearing that sounds like "delay".
-            float alpha = 0.02f + amount * amount * 0.25f;
-            pitchRatioSmoothed += (targetRatio - pitchRatioSmoothed) * alpha;
+            // Scale correction by amount, approach target smoothly
+            float scaledRatio = 1.0f + (noteTargetRatio - 1.0f) * amount;
+            float alpha       = 0.12f;   // ~55ms convergence — avoids click but snappy
+            pitchRatioSmoothed += (scaledRatio - pitchRatioSmoothed) * alpha;
         }
         else
         {
-            // In-tune: glide smoothly back to unity
+            lastTargetMidi = -1;   // reset so next correction recomputes fresh
             pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.08f;
         }
 
@@ -317,7 +325,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
     else
     {
-        // No pitch detected — return smoothly to unity
+        lastTargetMidi = -1;
         pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.05f;
         ratio = pitchRatioSmoothed;
     }

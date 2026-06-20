@@ -100,7 +100,9 @@ private:
 
     bool lastFormantSetting { true };
     float lastPitchScale    { 1.0f };
-    bool correctionActive   { false };  // Schmitt-trigger state for deadband hysteresis
+    bool correctionActive   { false };
+    int   lastTargetMidi    { -1 };     // last note we snapped to; ratio recomputes on change
+    float noteTargetRatio   { 1.0f };   // stable ratio held for the full duration of a note
 
     // Pre-allocated scratch for RubberBand drain — never resized on audio thread
     static constexpr int drainBufSize = 8192;
