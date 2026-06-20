@@ -45,43 +45,20 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, int maxBlockSize
 #ifdef HAVE_RUBBERBAND
     using RBS = RubberBand::RubberBandStretcher;
 
-    // Bare-minimum real-time options — no HighConsistency (which can inflate latency
-    // to thousands of samples and requires huge priming chunks that exceed maxBlockSize,
-    // corrupting RubberBand's internal state).
     int options = RBS::OptionProcessRealTime;
-
     if (formantPreserve)
         options |= RBS::OptionFormantPreserved;
 
     stretcher = std::make_unique<RBS> (
         static_cast<size_t> (sampleRate), 2, options, 1.0, 1.0);
 
-    // Must be called before any process() — sets internal buffer allocation.
-    // Default is 512; DAW buffers can be 1024, 1632, 2048, etc.
     stretcher->setMaxProcessSize (static_cast<size_t> (maxBlockSize));
-
     stretcher->setTimeRatio (1.0);
     stretcher->setPitchScale (1.0);
 
-    const int latency = static_cast<int> (stretcher->getLatency());
-    setLatencySamples (latency);
-
-    // Prime in chunks no larger than maxBlockSize.
-    // Previously we fed ALL latency samples in one call, which violates
-    // setMaxProcessSize when latency > maxBlockSize → corrupted internal state.
-    if (latency > 0)
-    {
-        std::vector<float> silence (static_cast<size_t> (maxBlockSize), 0.0f);
-        const float* ptrs[2] = { silence.data(), silence.data() };
-
-        int remaining = latency;
-        while (remaining > 0)
-        {
-            int chunk = std::min (remaining, maxBlockSize);
-            stretcher->process (ptrs, static_cast<size_t> (chunk), false);
-            remaining -= chunk;
-        }
-    }
+    // Report latency so DAW PDC compensates.
+    // No priming — DAW PDC handles the startup silence correctly.
+    setLatencySamples (static_cast<int> (stretcher->getLatency()));
 #else
     juce::ignoreUnused (sampleRate, maxBlockSize, formantPreserve);
     setLatencySamples (0);
@@ -216,10 +193,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         initStretcher (currentSampleRate, currentBlockSize, formant);
     }
 
-    // --- Pitch detection ---
+    // --- Pitch detection — always reads from input (getReadPointer) ---
 
     const float* chL = buffer.getReadPointer (0);
     const float* chR = (numChannels > 1) ? buffer.getReadPointer (1) : chL;
+
     for (int s = 0; s < numSamples; ++s)
     {
         yinBuf[(size_t)yinWritePos] = (chL[s] + chR[s]) * 0.5f;
@@ -255,11 +233,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (smoothedDetectedHz > 0.0f)
         {
             float hzRatio  = medianHz / (smoothedDetectedHz + 1e-9f);
-            bool  octaveJump = (hzRatio > 1.88f && hzRatio < 2.12f)
-                            || (hzRatio > 0.47f && hzRatio < 0.53f);
+            bool  octJump  = (hzRatio > 1.88f && hzRatio < 2.12f)
+                          || (hzRatio > 0.47f && hzRatio < 0.53f);
             float semiDist = std::abs (hzToMidiF (medianHz) - hzToMidiF (smoothedDetectedHz));
-            float alpha    = octaveJump ? 0.02f
-                                        : juce::jlimit (0.05f, 0.15f, semiDist * 0.03f);
+            float alpha    = octJump ? 0.02f : juce::jlimit (0.05f, 0.15f, semiDist * 0.03f);
             smoothedDetectedHz = alpha * medianHz + (1.0f - alpha) * smoothedDetectedHz;
         }
         else
@@ -276,12 +253,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     detectedPitch.store (smoothedDetectedHz);
 
-    // --- Compute correction ratio ---
+    // --- Correction ratio ---
 
     float amount     = apvts.getRawParameterValue ("amount")->load() / 100.0f;
     float tolerance  = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
     float vibratoAmt = apvts.getRawParameterValue ("vibrato")->load() / 100.0f;
-
     float ratio = 1.0f;
 
     if (smoothedDetectedHz > 0.0f)
@@ -294,28 +270,21 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         float centsDiff     = (hzToMidiF (targetHz) - hzToMidiF (smoothedDetectedHz)) * 100.0f;
         float deadbandCents = tolerance * 50.0f;
 
-        if (!correctionActive && std::abs (centsDiff) > deadbandCents)
-            correctionActive = true;
-        if (correctionActive  && std::abs (centsDiff) < deadbandCents * 0.4f)
-            correctionActive = false;
+        if (!correctionActive && std::abs (centsDiff) > deadbandCents)  correctionActive = true;
+        if ( correctionActive && std::abs (centsDiff) < deadbandCents * 0.4f) correctionActive = false;
 
         if (correctionActive)
         {
-            // Recompute ratio only when the target note changes — not every block.
-            // Continuous per-block recomputation causes micro-modulation from
-            // pitch detection jitter, which sounds like wobble/chorus/delay.
             if (targetMidi != lastTargetMidi)
             {
                 lastTargetMidi = targetMidi;
-
                 float alignedHz = smoothedDetectedHz;
                 if (targetHz > 1.0f)
                 {
                     while (alignedHz < targetHz * 0.70710678f) alignedHz *= 2.0f;
                     while (alignedHz > targetHz * 1.41421356f) alignedHz *= 0.5f;
                 }
-                noteTargetRatio = targetHz / (alignedHz + 1e-9f);
-                noteTargetRatio = juce::jlimit (0.841f, 1.189f, noteTargetRatio);
+                noteTargetRatio = juce::jlimit (0.841f, 1.189f, targetHz / (alignedHz + 1e-9f));
             }
 
             float scaledRatio = 1.0f + (noteTargetRatio - 1.0f) * amount;
@@ -345,9 +314,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     historyIndex = (historyIndex + 1) % pitchHistorySize;
 
     // --- Pitch shift ---
-
-    float* bufL = buffer.getWritePointer (0);
-    float* bufR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
+    // IMPORTANT: always feed getReadPointer (actual input audio) to process(),
+    // and write output to getWritePointer. These may be different memory regions
+    // in hosts that use separate input/output buffers (e.g. FL Studio VST3).
 
 #ifdef HAVE_RUBBERBAND
     if (stretcher != nullptr)
@@ -358,44 +327,37 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             lastPitchScale = ratio;
         }
 
-        const float* inPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
+        // Feed the REAL input audio (read pointer)
+        const float* inPtrs[2] = { chL, chR };
         stretcher->process (inPtrs, static_cast<size_t> (numSamples), false);
 
         const int avail = stretcher->available();
 
+        // Write output to the OUTPUT buffer (write pointer — may differ from input)
+        float* outL = buffer.getWritePointer (0);
+        float* outR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
+
         if (avail >= numSamples)
         {
-            // Drain any excess before retrieving the current block
             if (avail > numSamples * 3)
             {
-                const int excess = std::min (avail - numSamples, drainBufSize);
+                // Drain excess with pre-allocated scratch — no heap alloc
+                int excess = std::min (avail - numSamples, drainBufSize);
                 float* dp[2] = { drainL.data(), drainR.data() };
                 stretcher->retrieve (dp, static_cast<size_t> (excess));
             }
 
-            float* outPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
+            float* outPtrs[2] = { outL, outR != nullptr ? outR : outL };
             stretcher->retrieve (outPtrs, static_cast<size_t> (numSamples));
-        }
-        else if (avail > 0)
-        {
-            // Partial output — retrieve what we have, zero-fill the rest.
-            // Outputs zeros instead of dry audio to avoid mix of processed/unprocessed.
-            float* outPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
-            stretcher->retrieve (outPtrs, static_cast<size_t> (avail));
-            for (int i = avail; i < numSamples; ++i)
-            {
-                bufL[i] = 0.0f;
-                if (bufR != nullptr) bufR[i] = 0.0f;
-            }
         }
         else
         {
-            // No output yet (startup) — output silence
+            // Startup latency period — output silence; DAW PDC accounts for this
             buffer.clear();
         }
     }
 #else
-    juce::ignoreUnused (bufL, bufR);
+    juce::ignoreUnused (chL, chR);
 #endif
 }
 
@@ -405,10 +367,8 @@ bool NovaPitchAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
      && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
-
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
-
     return true;
 }
 #endif
@@ -419,17 +379,15 @@ juce::AudioProcessorEditor* NovaPitchAudioProcessor::createEditor()
 }
 
 bool NovaPitchAudioProcessor::hasEditor() const { return true; }
-
 const juce::String NovaPitchAudioProcessor::getName() const { return JucePlugin_Name; }
 bool NovaPitchAudioProcessor::acceptsMidi()  const { return false; }
 bool NovaPitchAudioProcessor::producesMidi() const { return false; }
 bool NovaPitchAudioProcessor::isMidiEffect() const { return false; }
 double NovaPitchAudioProcessor::getTailLengthSeconds() const { return 0.0; }
-
-int NovaPitchAudioProcessor::getNumPrograms()                             { return 1; }
-int NovaPitchAudioProcessor::getCurrentProgram()                          { return 0; }
-void NovaPitchAudioProcessor::setCurrentProgram (int)                     {}
-const juce::String NovaPitchAudioProcessor::getProgramName (int)          { return {}; }
+int NovaPitchAudioProcessor::getNumPrograms()    { return 1; }
+int NovaPitchAudioProcessor::getCurrentProgram() { return 0; }
+void NovaPitchAudioProcessor::setCurrentProgram (int) {}
+const juce::String NovaPitchAudioProcessor::getProgramName (int) { return {}; }
 void NovaPitchAudioProcessor::changeProgramName (int, const juce::String&) {}
 
 void NovaPitchAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
