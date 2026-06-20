@@ -42,8 +42,9 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, bool formantPres
 #ifdef HAVE_RUBBERBAND
     using RBS = RubberBand::RubberBandStretcher;
 
-    int options = RBS::OptionProcessRealTime
-                | RBS::OptionPitchHighSpeed;  // HighConsistency adds 100ms+ latency; HighSpeed is correct for real-time
+    int options = RBS::OptionProcessRealTime;
+    // No OptionPitchHighSpeed (zipper noise) or OptionPitchHighConsistency (100ms+ latency)
+    // Default R2 engine with no extra pitch flags is the most stable for real-time small shifts
 
     if (formantPreserve)
         options |= RBS::OptionFormantPreserved;
@@ -236,10 +237,9 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                            || (hzRatio > 0.47f && hzRatio < 0.53f);
 
             float semiDist = std::abs (hzToMidiF (medianHz) - hzToMidiF (smoothedDetectedHz));
-            float alpha = octaveJump    ? 0.02f
-                        : semiDist > 2.0f ? 0.15f
-                        : semiDist > 0.5f ? 0.08f
-                                          : 0.04f;
+            // Consistent alpha — avoid wild jumps that cause ratio oscillation
+            float alpha = octaveJump ? 0.02f
+                                     : juce::jlimit (0.05f, 0.10f, semiDist * 0.02f);
             smoothedDetectedHz = alpha * medianHz + (1.0f - alpha) * smoothedDetectedHz;
         }
         else
@@ -271,11 +271,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         float detectedMidi  = hzToMidiF (smoothedDetectedHz);
         float centsDiff     = (hzToMidiF (targetHz) - detectedMidi) * 100.0f;
-        float deadbandCents = tolerance * 50.0f;
+        float deadbandCents  = tolerance * 50.0f;
+        // Hysteresis: require pitch to be 80% inside deadband before releasing correction.
+        // Prevents ratio from toggling at the boundary every block (the main wobble source).
+        float hysteresisCents = deadbandCents * 0.80f;
 
-        if (std::abs (centsDiff) <= deadbandCents)
+        if (std::abs (centsDiff) <= hysteresisCents)
         {
-            pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.05f;
+            pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.04f;
         }
         else
         {
@@ -321,54 +324,83 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 #ifdef HAVE_RUBBERBAND
     if (stretcher != nullptr)
     {
-        // Only update pitch scale when it actually changes — avoids
-        // unnecessary RubberBand internal resets that cause phase artifacts
-        if (std::abs (ratio - lastPitchScale) > 0.0002f)
+        // Unity bypass: if ratio is within ~5 cents of 1.0, pass audio through dry.
+        // Running RubberBand at 1.0 scale still introduces latency and phase artifacts.
+        const bool nearUnity = std::abs (ratio - 1.0f) < 0.003f;
+
+        if (nearUnity)
         {
-            stretcher->setPitchScale (static_cast<double> (ratio));
-            lastPitchScale = ratio;
-        }
-
-        // Feed input
-        const float* inPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
-        stretcher->process (inPtrs, static_cast<size_t> (numSamples), false);
-
-        // Drain all available output into ring buffer
-        int avail = stretcher->available();
-        if (avail > 0)
-        {
-            if ((int) retrieveBuf[0].size() < avail)
-                for (auto& v : retrieveBuf) v.resize ((size_t) avail);
-
-            float* rPtrs[2] = { retrieveBuf[0].data(), retrieveBuf[1].data() };
-            stretcher->retrieve (rPtrs, (size_t) avail);
-
-            for (int i = 0; i < avail; ++i)
-            {
-                if (outFifoFilled >= outFifoCapacity) break; // overflow guard
-                for (int ch = 0; ch < 2; ++ch)
-                    outFifo[ch][(size_t) outFifoWritePos] = rPtrs[ch][i];
-                outFifoWritePos = (outFifoWritePos + 1) % outFifoCapacity;
-                ++outFifoFilled;
-            }
-        }
-
-        // Output from ring buffer — smooth, dropout-free delivery
-        if (outFifoFilled >= numSamples)
-        {
-            for (int i = 0; i < numSamples; ++i)
-            {
-                bufL[i] = outFifo[0][(size_t) outFifoReadPos];
-                if (bufR != nullptr)
-                    bufR[i] = outFifo[1][(size_t) outFifoReadPos];
-                outFifoReadPos = (outFifoReadPos + 1) % outFifoCapacity;
-            }
-            outFifoFilled -= numSamples;
+            // Flush any stale FIFO samples so we don't hear them on re-engage
+            outFifoReadPos = outFifoWritePos = outFifoFilled = 0;
+            lastPitchScale = 1.0f;
+            // Pass dry audio through unchanged — no processing
         }
         else
         {
-            // Startup fill — only happens briefly on prepareToPlay
-            buffer.clear();
+            // Only update pitch scale when it actually changes significantly
+            if (std::abs (ratio - lastPitchScale) > 0.001f)
+            {
+                stretcher->setPitchScale (static_cast<double> (ratio));
+                lastPitchScale = ratio;
+            }
+
+            // Feed input to stretcher
+            const float* inPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
+            stretcher->process (inPtrs, static_cast<size_t> (numSamples), false);
+
+            // Drain all available output into ring buffer
+            int avail = stretcher->available();
+            if (avail > 0)
+            {
+                if ((int) retrieveBuf[0].size() < avail)
+                    for (auto& v : retrieveBuf) v.resize ((size_t) avail);
+
+                float* rPtrs[2] = { retrieveBuf[0].data(), retrieveBuf[1].data() };
+                stretcher->retrieve (rPtrs, (size_t) avail);
+
+                for (int i = 0; i < avail; ++i)
+                {
+                    if (outFifoFilled >= outFifoCapacity) break;
+                    for (int ch = 0; ch < 2; ++ch)
+                        outFifo[ch][(size_t) outFifoWritePos] = rPtrs[ch][i];
+                    outFifoWritePos = (outFifoWritePos + 1) % outFifoCapacity;
+                    ++outFifoFilled;
+                }
+            }
+
+            // Output from ring buffer
+            if (outFifoFilled >= numSamples)
+            {
+                for (int i = 0; i < numSamples; ++i)
+                {
+                    bufL[i] = outFifo[0][(size_t) outFifoReadPos];
+                    if (bufR != nullptr)
+                        bufR[i] = outFifo[1][(size_t) outFifoReadPos];
+                    outFifoReadPos = (outFifoReadPos + 1) % outFifoCapacity;
+                }
+                outFifoFilled -= numSamples;
+            }
+            else
+            {
+                // Underflow — output what we have, pad last sample to avoid click
+                int filled = outFifoFilled;
+                for (int i = 0; i < filled; ++i)
+                {
+                    bufL[i] = outFifo[0][(size_t) outFifoReadPos];
+                    if (bufR != nullptr)
+                        bufR[i] = outFifo[1][(size_t) outFifoReadPos];
+                    outFifoReadPos = (outFifoReadPos + 1) % outFifoCapacity;
+                }
+                outFifoFilled = 0;
+                // Pad remainder with last valid sample to avoid hard click
+                const float padL = (filled > 0) ? bufL[filled - 1] : 0.0f;
+                const float padR = (bufR != nullptr && filled > 0) ? bufR[filled - 1] : padL;
+                for (int i = filled; i < numSamples; ++i)
+                {
+                    bufL[i] = padL;
+                    if (bufR != nullptr) bufR[i] = padR;
+                }
+            }
         }
     }
 #else
