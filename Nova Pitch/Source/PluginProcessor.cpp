@@ -14,7 +14,10 @@ NovaPitchAudioProcessor::NovaPitchAudioProcessor()
                         .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Parameters", createParameterLayout())
 {
-    yinBuf.assign (yinBufferSize, 0.0f);
+    yinBuf.assign    (yinBufferSize, 0.0f);
+    yinLinear.assign (yinBufferSize, 0.0f);
+    yinD.assign      (yinBufferSize / 2, 0.0f);
+    yinCmnd.assign   (yinBufferSize / 2, 0.0f);
     pitchHistory5.fill (0.0f);
 }
 
@@ -42,11 +45,8 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, bool formantPres
 #ifdef HAVE_RUBBERBAND
     using RBS = RubberBand::RubberBandStretcher;
 
-    // R3 engine (OptionEngineFiner): dramatically fewer phase artifacts for vocals.
-    // R2 (default) uses a classic phase vocoder that produces metallic/static artifacts.
-    // R3 uses a different algorithm specifically designed for clean real-time shifting.
     int options = RBS::OptionProcessRealTime
-                | RBS::OptionEngineFiner;
+                | RBS::OptionEngineFiner;   // R3 — cleaner for vocals, fewer phase artifacts
 
     if (formantPreserve)
         options |= RBS::OptionFormantPreserved;
@@ -59,11 +59,13 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, bool formantPres
     const int latency = static_cast<int> (stretcher->getLatency());
     setLatencySamples (latency);
 
-    // Prime the stretcher with silence so it has output ready immediately.
-    // The DAW PDC compensates for this latency via setLatencySamples above.
-    std::vector<float> silence (static_cast<size_t> (latency), 0.0f);
-    const float* ptrs[2] = { silence.data(), silence.data() };
-    stretcher->process (ptrs, static_cast<size_t> (latency), false);
+    // Prime with silence so DAW PDC aligns correctly from the first block
+    if (latency > 0)
+    {
+        std::vector<float> silence (static_cast<size_t> (latency), 0.0f);
+        const float* ptrs[2] = { silence.data(), silence.data() };
+        stretcher->process (ptrs, static_cast<size_t> (latency), false);
+    }
 #else
     juce::ignoreUnused (sampleRate, formantPreserve);
     setLatencySamples (0);
@@ -74,7 +76,12 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
 {
     currentSampleRate = sampleRate;
 
-    yinBuf.assign (yinBufferSize, 0.0f);
+    // Pre-allocate all YIN buffers — never alloc on audio thread
+    yinBuf.assign    (yinBufferSize, 0.0f);
+    yinLinear.assign (yinBufferSize, 0.0f);
+    yinD.assign      (yinBufferSize / 2, 0.0f);
+    yinCmnd.assign   (yinBufferSize / 2, 0.0f);
+
     yinWritePos           = 0;
     smoothedDetectedHz    = 0.0f;
     blocksSinceValidPitch = 0;
@@ -96,27 +103,30 @@ void NovaPitchAudioProcessor::releaseResources()
 #endif
 }
 
-float NovaPitchAudioProcessor::detectYIN (const float* samples, int n)
+// YIN pitch detection — uses caller-provided scratch arrays, zero heap allocation
+float NovaPitchAudioProcessor::detectYIN (const float* samples, int n, float* d, float* cmnd)
 {
-    int halfN = n / 2;
+    const int halfN = n / 2;
 
-    std::vector<float> d ((size_t)halfN, 0.0f);
+    // Step 2: difference function
+    for (int tau = 0; tau < halfN; ++tau) d[tau] = 0.0f;
     for (int tau = 1; tau < halfN; ++tau)
         for (int j = 0; j < halfN; ++j)
         {
             float diff = samples[j] - samples[j + tau];
-            d[(size_t)tau] += diff * diff;
+            d[tau] += diff * diff;
         }
 
-    std::vector<float> cmnd ((size_t)halfN, 0.0f);
+    // Step 3: cumulative mean normalised difference
     cmnd[0] = 1.0f;
     float runSum = 0.0f;
     for (int tau = 1; tau < halfN; ++tau)
     {
-        runSum += d[(size_t)tau];
-        cmnd[(size_t)tau] = d[(size_t)tau] * (float)tau / (runSum + 1e-9f);
+        runSum += d[tau];
+        cmnd[tau] = d[tau] * (float)tau / (runSum + 1e-9f);
     }
 
+    // Step 4: absolute threshold with parabolic interpolation
     const float threshold = 0.15f;
     const int   tauMin    = (int)std::ceil  (currentSampleRate / 1000.0);
     const int   tauMax    = (int)std::floor (currentSampleRate / 80.0);
@@ -124,11 +134,11 @@ float NovaPitchAudioProcessor::detectYIN (const float* samples, int n)
 
     for (int tau = std::max (1, tauMin); tau <= tauMaxC; ++tau)
     {
-        if (cmnd[(size_t)tau] < threshold)
+        if (cmnd[tau] < threshold)
         {
-            float s0 = cmnd[(size_t)(tau - 1)];
-            float s1 = cmnd[(size_t)tau];
-            float s2 = cmnd[(size_t)(tau + 1)];
+            float s0  = cmnd[tau - 1];
+            float s1  = cmnd[tau];
+            float s2  = cmnd[tau + 1];
             float fTau = (float)tau + 0.5f * (s0 - s2) / (s0 - 2.0f * s1 + s2 + 1e-9f);
             return (float)(currentSampleRate / (double)fTau);
         }
@@ -191,6 +201,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         initStretcher (currentSampleRate, formant);
     }
 
+    // --- Pitch detection (runs on original audio before any shifting) ---
+
     const float* chL = buffer.getReadPointer (0);
     const float* chR = (numChannels > 1) ? buffer.getReadPointer (1) : chL;
     for (int s = 0; s < numSamples; ++s)
@@ -199,13 +211,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         yinWritePos = (yinWritePos + 1) % yinBufferSize;
     }
 
-    float detectedHz = -1.0f;
-    {
-        std::vector<float> linear (yinBufferSize);
-        for (int i = 0; i < yinBufferSize; ++i)
-            linear[(size_t)i] = yinBuf[(size_t)((yinWritePos + i) % yinBufferSize)];
-        detectedHz = detectYIN (linear.data(), yinBufferSize);
-    }
+    // Linearise circular buffer into pre-allocated yinLinear — no heap alloc
+    for (int i = 0; i < yinBufferSize; ++i)
+        yinLinear[(size_t)i] = yinBuf[(size_t)((yinWritePos + i) % yinBufferSize)];
+
+    // detectYIN uses pre-allocated yinD/yinCmnd — zero heap alloc on audio thread
+    float detectedHz = detectYIN (yinLinear.data(), yinBufferSize,
+                                   yinD.data(), yinCmnd.data());
 
     if (detectedHz > 0.0f)
     {
@@ -213,6 +225,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         ph5index = (ph5index + 1) % 5;
     }
 
+    // 5-sample median filter
     float medianHz = 0.0f;
     {
         std::array<float, 5> tmp = pitchHistory5;
@@ -234,7 +247,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                            || (hzRatio > 0.47f && hzRatio < 0.53f);
 
             float semiDist = std::abs (hzToMidiF (medianHz) - hzToMidiF (smoothedDetectedHz));
-            // Consistent alpha — avoid wild jumps that cause ratio oscillation
             float alpha = octaveJump ? 0.02f
                                      : juce::jlimit (0.05f, 0.10f, semiDist * 0.02f);
             smoothedDetectedHz = alpha * medianHz + (1.0f - alpha) * smoothedDetectedHz;
@@ -253,6 +265,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     detectedPitch.store (smoothedDetectedHz);
 
+    // --- Compute pitch correction ratio ---
+
     float amount     = apvts.getRawParameterValue ("amount")->load() / 100.0f;
     float tolerance  = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
     float vibratoAmt = apvts.getRawParameterValue ("vibrato")->load() / 100.0f;
@@ -268,9 +282,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         float detectedMidi  = hzToMidiF (smoothedDetectedHz);
         float centsDiff     = (hzToMidiF (targetHz) - detectedMidi) * 100.0f;
-        float deadbandCents  = tolerance * 50.0f;
-        // Hysteresis: require pitch to be 80% inside deadband before releasing correction.
-        // Prevents ratio from toggling at the boundary every block (the main wobble source).
+        float deadbandCents = tolerance * 50.0f;
+        // Hysteresis: pitch must be 80% inside deadband before releasing correction
         float hysteresisCents = deadbandCents * 0.80f;
 
         if (std::abs (centsDiff) <= hysteresisCents)
@@ -279,8 +292,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
         else
         {
-            // Octave-align detected pitch to same octave as target to prevent
-            // YIN subharmonic errors from producing a 2x ratio.
+            // Octave-align to prevent YIN subharmonic errors from producing 2× ratio
             float alignedHz = smoothedDetectedHz;
             if (targetHz > 1.0f)
             {
@@ -309,11 +321,13 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         ratio = pitchRatioSmoothed;
     }
 
-    // Clamp to ±3 semitones — prevents octave-error blowouts
+    // Clamp to ±3 semitones — guard against octave detection errors
     ratio = juce::jlimit (0.841f, 1.189f, ratio);
 
     pitchHistory[(size_t)historyIndex].store (smoothedDetectedHz);
     historyIndex = (historyIndex + 1) % pitchHistorySize;
+
+    // --- Pitch shifting via RubberBand ---
 
     float* bufL = buffer.getWritePointer (0);
     float* bufR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
@@ -327,28 +341,28 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             lastPitchScale = ratio;
         }
 
-        // Always feed input — keeps stretcher primed and latency consistent
+        // Feed input — always, to keep stretcher primed
         const float* inPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
         stretcher->process (inPtrs, static_cast<size_t> (numSamples), false);
 
-        const int avail = stretcher->available();
+        int avail = stretcher->available();
+
+        // Drain excess using pre-allocated scratch (no heap alloc)
+        if (avail > numSamples * 4)
+        {
+            int excess = avail - numSamples * 2;
+            excess = std::min (excess, drainBufSize);
+            float* dp[2] = { drainL.data(), drainR.data() };
+            stretcher->retrieve (dp, static_cast<size_t> (excess));
+            avail = stretcher->available();
+        }
 
         if (avail >= numSamples)
         {
-            // Drain excess to prevent latency creep (shouldn't happen with R3 real-time)
-            if (avail > numSamples * 4)
-            {
-                const int excess = avail - numSamples * 2;
-                retrieveBuf[0].resize ((size_t) excess);
-                retrieveBuf[1].resize ((size_t) excess);
-                float* dp[2] = { retrieveBuf[0].data(), retrieveBuf[1].data() };
-                stretcher->retrieve (dp, (size_t) excess);
-            }
-
             float* outPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
             stretcher->retrieve (outPtrs, static_cast<size_t> (numSamples));
         }
-        // else: startup latency period — leave input buffer unchanged (dry passthrough)
+        // else: startup priming period — DAW PDC handles alignment, dry pass is fine
     }
 #else
     juce::ignoreUnused (bufL, bufR);

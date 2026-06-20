@@ -62,7 +62,8 @@ private:
 
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    float detectYIN (const float* samples, int n);
+    // YIN uses pre-allocated arrays passed in — no heap allocs on audio thread
+    float detectYIN (const float* samples, int n, float* d, float* cmnd);
     int   quantizeToScale (float hz);
     float midiToHz (int midi) const;
     float hzToMidi (float hz) const;
@@ -75,7 +76,12 @@ private:
 
     double currentSampleRate { 44100.0 };
 
-    std::vector<float> yinBuf;
+    // YIN buffers — all pre-allocated in prepareToPlay, zero heap on audio thread
+    std::vector<float> yinBuf;      // circular ring of input samples
+    std::vector<float> yinLinear;   // linearised snapshot for YIN computation
+    std::vector<float> yinD;        // difference function
+    std::vector<float> yinCmnd;     // cumulative mean normalised difference
+
     int    yinWritePos          { 0 };
     float  smoothedDetectedHz   { 0.0f };
     int    blocksSinceValidPitch{ 0 };
@@ -95,7 +101,10 @@ private:
     bool lastFormantSetting { true };
     float lastPitchScale    { 1.0f };
 
-    std::vector<float> retrieveBuf[2];
+    // Pre-allocated scratch for RubberBand drain — never resized on audio thread
+    static constexpr int drainBufSize = 8192;
+    std::array<float, drainBufSize> drainL {};
+    std::array<float, drainBufSize> drainR {};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };
