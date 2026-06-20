@@ -93,6 +93,15 @@ private:
     int historyIndex { 0 };
 
     bool lastFormantSetting { true };
+    float lastPitchScale    { 1.0f };
+
+    // Output ring buffer — absorbs RubberBand's variable output count
+    static constexpr int outFifoCapacity = 16384;
+    std::array<std::vector<float>, 2> outFifo;
+    std::array<std::vector<float>, 2> retrieveBuf;
+    int outFifoReadPos  { 0 };
+    int outFifoWritePos { 0 };
+    int outFifoFilled   { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };

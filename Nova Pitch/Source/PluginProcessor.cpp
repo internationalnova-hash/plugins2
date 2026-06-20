@@ -43,8 +43,7 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, bool formantPres
     using RBS = RubberBand::RubberBandStretcher;
 
     int options = RBS::OptionProcessRealTime
-                | RBS::OptionPitchHighConsistency
-                | RBS::OptionPhaseLaminar;
+                | RBS::OptionPitchHighSpeed;  // HighConsistency adds 100ms+ latency; HighSpeed is correct for real-time
 
     if (formantPreserve)
         options |= RBS::OptionFormantPreserved;
@@ -75,9 +74,17 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     smoothedDetectedHz    = 0.0f;
     blocksSinceValidPitch = 0;
     pitchRatioSmoothed    = 1.0f;
+    lastPitchScale        = 1.0f;
     historyIndex          = 0;
     ph5index              = 0;
     pitchHistory5.fill (0.0f);
+
+    // Reset output FIFO
+    for (auto& v : outFifo)     v.assign (outFifoCapacity, 0.0f);
+    for (auto& v : retrieveBuf) v.assign (outFifoCapacity, 0.0f);
+    outFifoReadPos  = 0;
+    outFifoWritePos = 0;
+    outFifoFilled   = 0;
 
     bool formant = apvts.getRawParameterValue ("formant")->load() > 0.5f;
     lastFormantSetting = formant;
@@ -314,19 +321,53 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 #ifdef HAVE_RUBBERBAND
     if (stretcher != nullptr)
     {
-        stretcher->setPitchScale (static_cast<double> (ratio));
+        // Only update pitch scale when it actually changes — avoids
+        // unnecessary RubberBand internal resets that cause phase artifacts
+        if (std::abs (ratio - lastPitchScale) > 0.0002f)
+        {
+            stretcher->setPitchScale (static_cast<double> (ratio));
+            lastPitchScale = ratio;
+        }
 
+        // Feed input
         const float* inPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
         stretcher->process (inPtrs, static_cast<size_t> (numSamples), false);
 
-        int available = stretcher->available();
-        if (available >= numSamples)
+        // Drain all available output into ring buffer
+        int avail = stretcher->available();
+        if (avail > 0)
         {
-            float* outPtrs[2] = { bufL, bufR != nullptr ? bufR : bufL };
-            stretcher->retrieve (outPtrs, static_cast<size_t> (numSamples));
+            if ((int) retrieveBuf[0].size() < avail)
+                for (auto& v : retrieveBuf) v.resize ((size_t) avail);
+
+            float* rPtrs[2] = { retrieveBuf[0].data(), retrieveBuf[1].data() };
+            stretcher->retrieve (rPtrs, (size_t) avail);
+
+            for (int i = 0; i < avail; ++i)
+            {
+                if (outFifoFilled >= outFifoCapacity) break; // overflow guard
+                for (int ch = 0; ch < 2; ++ch)
+                    outFifo[ch][(size_t) outFifoWritePos] = rPtrs[ch][i];
+                outFifoWritePos = (outFifoWritePos + 1) % outFifoCapacity;
+                ++outFifoFilled;
+            }
+        }
+
+        // Output from ring buffer — smooth, dropout-free delivery
+        if (outFifoFilled >= numSamples)
+        {
+            for (int i = 0; i < numSamples; ++i)
+            {
+                bufL[i] = outFifo[0][(size_t) outFifoReadPos];
+                if (bufR != nullptr)
+                    bufR[i] = outFifo[1][(size_t) outFifoReadPos];
+                outFifoReadPos = (outFifoReadPos + 1) % outFifoCapacity;
+            }
+            outFifoFilled -= numSamples;
         }
         else
         {
+            // Startup fill — only happens briefly on prepareToPlay
             buffer.clear();
         }
     }
