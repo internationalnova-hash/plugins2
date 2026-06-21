@@ -52,7 +52,6 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     yinWritePos           = 0;
     smoothedDetectedHz    = 0.0f;
     blocksSinceValidPitch = 0;
-    pitchRatioSmoothed    = 1.0f;
     correctionActive      = false;
     lastTargetMidi        = -1;
     noteTargetRatio       = 1.0f;
@@ -60,15 +59,20 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     ph5index              = 0;
     pitchHistory5.fill (0.0f);
 
-    // Dual-head shifter reset
-    shiftBufL.fill (0.0f);
-    shiftBufR.fill (0.0f);
-    shiftWritePos = 0;
-    shiftDelay1   = static_cast<float> (kInitialDelay);
-    shiftDelay2   = static_cast<float> (kInitialDelay);
-    shiftXfade    = -1;
+    // Granular OLA reset
+    grainInL.fill  (0.0f);
+    grainInR.fill  (0.0f);
+    grainOutL.fill (0.0f);
+    grainOutR.fill (0.0f);
+    for (int i = 0; i < kGrainSize; ++i)
+        grainWin[i] = 0.5f * (1.0f - std::cos (2.0f * juce::MathConstants<float>::pi
+                                                 * static_cast<float> (i) / kGrainSize));
+    grainInWrite  = 0;
+    grainOutWrite = 0;
+    grainOutRead  = 2048 - kGrainSize;   // lags grainOutWrite by kGrainSize
+    grainHop      = 0;
 
-    setLatencySamples (kInitialDelay);
+    setLatencySamples (kInitialDelay + kGrainSize);  // = 2048
 }
 
 void NovaPitchAudioProcessor::releaseResources() {}
@@ -279,88 +283,46 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     pitchHistory[(size_t)historyIndex].store (smoothedDetectedHz);
     historyIndex = (historyIndex + 1) % pitchHistorySize;
 
-    // ----------------------------------------------------------------
-    // Dual-head crossfade pitch shifter with pitch-period-aligned resets
-    //
-    // Both heads maintain a delay behind the write head.  At pitch ratio
-    // 1.0 the delay is stable.  When ratio ≠ 1.0 the delay drifts; when
-    // it goes out of bounds a second head is started, period-aligned so
-    // the two heads are an integer number of pitch periods apart — their
-    // signals are nearly identical, making the blend inaudible.
-    // ----------------------------------------------------------------
     float* outL = buffer.getWritePointer (0);
     float* outR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
 
-    auto readLerp = [this] (const std::array<float, kShiftBufSize>& buf, float pos) -> float
-    {
-        int   i = static_cast<int> (pos) & kShiftBufMask;
-        int   j = (i + 1) & kShiftBufMask;
-        float f = pos - std::floor (pos);
-        return buf[i] * (1.0f - f) + buf[j] * f;
-    };
+    const float safeRatio = juce::jlimit (0.5f, 2.0f, ratio);
 
     for (int s = 0; s < numSamples; ++s)
     {
-        shiftBufL[shiftWritePos & kShiftBufMask] = chL[s];
-        shiftBufR[shiftWritePos & kShiftBufMask] = chR[s];
-        shiftWritePos++;
+        // Write input
+        grainInL[grainInWrite & kGrainInMask] = chL[s];
+        grainInR[grainInWrite & kGrainInMask] = chR[s];
+        grainInWrite++;
 
-        // Compute absolute read positions from write position and delays
-        float pos1 = static_cast<float> (shiftWritePos) - shiftDelay1;
-        float pos2 = static_cast<float> (shiftWritePos) - shiftDelay2;
-
-        float h1L = readLerp (shiftBufL, pos1);
-        float h1R = readLerp (shiftBufR, pos1);
-        float h2L = readLerp (shiftBufL, pos2);
-        float h2R = readLerp (shiftBufR, pos2);
-
-        // Raised-cosine blend: 0 = head1 only, 1 = head2 only
-        float blend = 0.0f;
-        if (shiftXfade >= 0)
+        // Synthesise a new grain every kHopSize output samples
+        if (grainHop <= 0)
         {
-            float t = static_cast<float> (shiftXfade) / static_cast<float> (kCrossfadeLen);
-            blend = 0.5f * (1.0f - std::cos (t * juce::MathConstants<float>::pi));
-            if (++shiftXfade >= kCrossfadeLen)
+            const float base = static_cast<float> (grainInWrite) - static_cast<float> (kInitialDelay);
+            for (int g = 0; g < kGrainSize; ++g)
             {
-                shiftDelay1 = shiftDelay2;   // head 2 becomes head 1
-                shiftXfade  = -1;
+                float rp   = base + static_cast<float> (g) / safeRatio;
+                int   ri   = static_cast<int> (std::floor (rp)) & kGrainInMask;
+                int   ri1  = (ri + 1) & kGrainInMask;
+                float frac = rp - std::floor (rp);
+                float wg   = grainWin[g];
+                grainOutL[(grainOutWrite + g) & kGrainOutMask] +=
+                    (grainInL[ri] + frac * (grainInL[ri1] - grainInL[ri])) * wg;
+                grainOutR[(grainOutWrite + g) & kGrainOutMask] +=
+                    (grainInR[ri] + frac * (grainInR[ri1] - grainInR[ri])) * wg;
             }
+            grainOutWrite = (grainOutWrite + kHopSize) & kGrainOutMask;
+            grainHop = kHopSize;
         }
+        grainHop--;
 
-        outL[s] = h1L * (1.0f - blend) + h2L * blend;
-        if (outR != nullptr)
-            outR[s] = h1R * (1.0f - blend) + h2R * blend;
-
-        // Freeze delay drift during crossfade so the blend traverses zero net distance.
-        // When both heads are stationary and phase-aligned the blend is perfectly clean.
-        float effectiveRatio = (shiftXfade >= 0) ? 1.0f : ratio;
-        shiftDelay1 -= (effectiveRatio - 1.0f);
-        shiftDelay2 -= (effectiveRatio - 1.0f);
-
-        // Trigger a crossfade when head 1's delay goes out of range.
-        // WSOLA search: scan ±kSearchRange samples around kInitialDelay and pick the
-        // position whose waveform best matches head 1. High cross-correlation guarantees
-        // phase coherence during the blend without needing an accurate pitch estimate.
-        if (shiftXfade < 0 && (shiftDelay1 < kMinDelay || shiftDelay1 > kMaxDelay))
-        {
-            int pos1 = shiftWritePos - static_cast<int> (shiftDelay1);
-            int posT = shiftWritePos - kInitialDelay;
-
-            float bestCorr  = -1.0e30f;
-            int   bestDelta = 0;
-            for (int d = -kSearchRange; d <= kSearchRange; ++d)
-            {
-                float corr = 0.0f;
-                for (int g = 0; g < kSearchLen; ++g)
-                    corr += shiftBufL[(pos1 + g) & kShiftBufMask]
-                          * shiftBufL[(posT + d + g) & kShiftBufMask];
-                if (corr > bestCorr) { bestCorr = corr; bestDelta = d; }
-            }
-
-            shiftDelay2 = static_cast<float> (kInitialDelay - bestDelta);
-            shiftDelay2 = juce::jlimit (kMinDelay, kMaxDelay, shiftDelay2);
-            shiftXfade  = 0;
-        }
+        // Read from OLA accumulator (clear after reading to avoid accumulation)
+        int ro = grainOutRead & kGrainOutMask;
+        outL[s] = grainOutL[ro];
+        if (outR) outR[s] = grainOutR[ro];
+        grainOutL[ro] = 0.0f;
+        grainOutR[ro] = 0.0f;
+        grainOutRead  = (grainOutRead + 1) & kGrainOutMask;
     }
 }
 

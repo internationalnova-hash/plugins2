@@ -78,8 +78,6 @@ private:
     int   blocksSinceValidPitch { 0 };
     static constexpr int maxHoldBlocks = 20;
 
-    float pitchRatioSmoothed { 1.0f };
-
     std::array<float, 5> pitchHistory5 {};
     int ph5index = 0;
 
@@ -94,24 +92,24 @@ private:
     float noteTargetRatio  { 1.0f };
 
     // ---------------------------------------------------------------
-    // Dual-head crossfade pitch shifter
+    // Granular OLA pitch shifter — grains always move forward, no crossfades
     // ---------------------------------------------------------------
-    static constexpr int   kShiftBufSize = 16384;   // power of 2
-    static constexpr int   kShiftBufMask = kShiftBufSize - 1;
-    static constexpr int   kInitialDelay = 2048;    // ~43 ms @ 48 kHz (reported to DAW)
-    static constexpr int   kCrossfadeLen = 512;     // ~10 ms raised-cosine window
-    static constexpr float kMinDelay     = 600.0f;  // trigger reset below this
-    static constexpr float kMaxDelay     = static_cast<float> (kShiftBufSize / 2 - 256);
-    static constexpr int   kSearchLen    = 256;     // WSOLA correlation template length
-    static constexpr int   kSearchRange  = 256;     // WSOLA search ± range
+    static constexpr int kGrainSize    = 512;
+    static constexpr int kHopSize      = 256;
+    static constexpr int kInitialDelay = 1536;   // input lag; latency = kInitialDelay + kGrainSize
+    static constexpr int kGrainInMask  = 4096 - 1;
+    static constexpr int kGrainOutMask = 2048 - 1;
 
-    std::array<float, kShiftBufSize> shiftBufL {};
-    std::array<float, kShiftBufSize> shiftBufR {};
+    std::array<float, 4096> grainInL  {};
+    std::array<float, 4096> grainInR  {};
+    std::array<float, 2048> grainOutL {};
+    std::array<float, 2048> grainOutR {};
+    std::array<float, kGrainSize> grainWin {};
 
-    int   shiftWritePos { 0 };
-    float shiftDelay1   { static_cast<float> (kInitialDelay) };  // head 1: samples behind write
-    float shiftDelay2   { static_cast<float> (kInitialDelay) };  // head 2: used during crossfade
-    int   shiftXfade    { -1 };  // -1 = off; 0..kCrossfadeLen-1 = active
+    int grainInWrite  { 0 };
+    int grainOutWrite { 0 };
+    int grainOutRead  { 0 };
+    int grainHop      { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };
