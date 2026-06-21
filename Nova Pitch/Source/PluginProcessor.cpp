@@ -331,30 +331,32 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (outR != nullptr)
             outR[s] = h1R * (1.0f - blend) + h2R * blend;
 
-        // Both delays drift by (ratio - 1) per sample
-        // ratio > 1 → delay shrinks (head approaches write)
-        // ratio < 1 → delay grows (head falls behind write)
-        shiftDelay1 -= (ratio - 1.0f);
-        shiftDelay2 -= (ratio - 1.0f);
+        // Freeze drift during crossfade so the blend traverses zero net distance.
+        // When both heads play at rate 1.0, a period-aligned crossfade is perfectly
+        // seamless — neither pitch change nor amplitude glitch.
+        float effectiveRatio = (shiftXfade >= 0) ? 1.0f : ratio;
+
+        // ratio > 1 → delay shrinks (head approaches write) → pitch up
+        // ratio < 1 → delay grows (head falls behind write) → pitch down
+        shiftDelay1 -= (effectiveRatio - 1.0f);
+        shiftDelay2 -= (effectiveRatio - 1.0f);
 
         // Trigger a crossfade when head 1's delay goes out of range
         if (shiftXfade < 0 && (shiftDelay1 < kMinDelay || shiftDelay1 > kMaxDelay))
         {
-            // Estimate pitch period; default to a safe value when no pitch detected
             float period = (smoothedDetectedHz > 50.0f)
                          ? static_cast<float> (currentSampleRate) / smoothedDetectedHz
                          : 256.0f;
 
-            // Use the minimum N (whole periods) so head 2 stays safely in range after
-            // the crossfade completes.  Jumping N=13+ periods (as a "return to centre"
-            // strategy) makes the blend traverse 1400+ samples of audio, causing a
-            // severe momentary pitch drop.  With N=1 the traversal is ~1 period = tiny.
-            float drift = std::abs (ratio - 1.0f);
-            int   N     = juce::jmax (1, static_cast<int> (std::ceil (drift * kCrossfadeLen / period)));
-            float sign  = (shiftDelay1 < kMinDelay) ? 1.0f : -1.0f;
-            shiftDelay2 = shiftDelay1 + sign * static_cast<float> (N) * period;
-            shiftDelay2 = juce::jlimit (kMinDelay, kMaxDelay, shiftDelay2);
-            shiftXfade  = 0;
+            // Jump back toward kInitialDelay in whole-period steps.  Because drift is
+            // frozen during the crossfade, a large N is fine — the blend is seamless
+            // regardless of head distance, as long as they are period-aligned.
+            float target = static_cast<float> (kInitialDelay);
+            float gap    = target - shiftDelay1;
+            int   N      = juce::jmax (1, static_cast<int> (std::round (std::abs (gap) / period)));
+            shiftDelay2  = shiftDelay1 + (gap >= 0.0f ? 1.0f : -1.0f) * static_cast<float> (N) * period;
+            shiftDelay2  = juce::jlimit (kMinDelay, kMaxDelay, shiftDelay2);
+            shiftXfade   = 0;
         }
     }
 }
