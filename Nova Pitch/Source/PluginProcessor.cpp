@@ -96,7 +96,11 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, int maxBlockSize
 void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
-    currentBlockSize  = samplesPerBlock > 0 ? samplesPerBlock : 512;
+    // Use the larger of what the host says and 4096.  Some hosts (FL Studio)
+    // report a smaller samplesPerBlock in prepareToPlay than the blocks they
+    // actually send in processBlock, which would violate setMaxProcessSize and
+    // corrupt the stretcher.  4096 safely covers any real-world block size.
+    currentBlockSize  = std::max (samplesPerBlock > 0 ? samplesPerBlock : 512, 4096);
 
     yinBuf.assign    (yinBufferSize, 0.0f);
     yinLinear.assign (yinBufferSize, 0.0f);
@@ -213,6 +217,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     const int numSamples  = buffer.getNumSamples();
     const int numChannels = buffer.getNumChannels();
+
+    // Reinitialise if block size grew beyond what we promised RubberBand.
+    // Some hosts send larger blocks than the samplesPerBlock in prepareToPlay.
+    if (numSamples > currentBlockSize)
+    {
+        currentBlockSize = std::max (numSamples, 4096);
+        bool f = apvts.getRawParameterValue ("formant")->load() > 0.5f;
+        lastFormantSetting = f;
+        initStretcher (currentSampleRate, currentBlockSize, f);
+    }
 
     bool formant = apvts.getRawParameterValue ("formant")->load() > 0.5f;
     if (formant != lastFormantSetting)
