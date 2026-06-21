@@ -69,7 +69,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
                                                  * static_cast<float> (i) / kGrainSize));
     grainInWrite  = 0;
     grainOutWrite = 0;
-    grainOutRead  = 2048 - kGrainSize;   // lags grainOutWrite by kGrainSize
+    grainOutRead  = 4096 - kGrainSize;   // lags grainOutWrite by kGrainSize
     grainHop      = 0;
 
     setLatencySamples (kInitialDelay + kGrainSize);  // = 2048
