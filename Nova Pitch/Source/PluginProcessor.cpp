@@ -56,9 +56,37 @@ void NovaPitchAudioProcessor::initStretcher (double sampleRate, int maxBlockSize
     stretcher->setTimeRatio (1.0);
     stretcher->setPitchScale (1.0);
 
-    // Report latency so DAW PDC compensates.
-    // No priming — DAW PDC handles the startup silence correctly.
-    setLatencySamples (static_cast<int> (stretcher->getLatency()));
+    const int latency = static_cast<int> (stretcher->getLatency());
+
+    // Prime the pipeline with silence so available() >= blockSize on the very
+    // first real audio block.  Without priming, the first block clears the
+    // output buffer and the DAW sees one full block of uncompensated silence
+    // on top of the PDC-reported latency — causing persistent audible delay.
+    // Process in chunks of maxBlockSize to respect setMaxProcessSize contract.
+    {
+        const int chunkSize = std::max (1, maxBlockSize);
+        std::vector<float> silence (static_cast<size_t> (chunkSize), 0.0f);
+        const float* silPtrs[2] = { silence.data(), silence.data() };
+
+        int remaining = latency;
+        while (remaining > 0)
+        {
+            int chunk = std::min (remaining, chunkSize);
+            stretcher->process (silPtrs, static_cast<size_t> (chunk), false);
+            remaining -= chunk;
+        }
+
+        // Discard primed output so output queue is empty and clean
+        int avail = stretcher->available();
+        if (avail > 0)
+        {
+            std::vector<float> tmp (static_cast<size_t> (avail), 0.0f);
+            float* dp[2] = { tmp.data(), tmp.data() };
+            stretcher->retrieve (dp, static_cast<size_t> (avail));
+        }
+    }
+
+    setLatencySamples (latency);
 #else
     juce::ignoreUnused (sampleRate, maxBlockSize, formantPreserve);
     setLatencySamples (0);
@@ -350,9 +378,20 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             float* outPtrs[2] = { outL, outR != nullptr ? outR : outL };
             stretcher->retrieve (outPtrs, static_cast<size_t> (numSamples));
         }
+        else if (avail > 0)
+        {
+            // Partial fill — output what we have, silence the remainder.
+            // Should only occur transiently after a pitch-scale jump.
+            float* outPtrs[2] = { outL, outR != nullptr ? outR : outL };
+            stretcher->retrieve (outPtrs, static_cast<size_t> (avail));
+            for (int i = avail; i < numSamples; ++i)
+            {
+                outL[i] = 0.0f;
+                if (outR != nullptr) outR[i] = 0.0f;
+            }
+        }
         else
         {
-            // Startup latency period — output silence; DAW PDC accounts for this
             buffer.clear();
         }
     }
