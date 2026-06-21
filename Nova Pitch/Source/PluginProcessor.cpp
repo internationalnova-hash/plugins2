@@ -64,10 +64,10 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     grainInR.fill  (0.0f);
     grainOutL.fill (0.0f);
     grainOutR.fill (0.0f);
-    // 4x overlap: four Hann windows sum to 2.0, so scale by 0.5 to normalise to 1.0
+    // Pure Hann window; normalization applied per-grain based on actual hop size
     for (int i = 0; i < kGrainSize; ++i)
-        grainWin[i] = 0.25f * (1.0f - std::cos (2.0f * juce::MathConstants<float>::pi
-                                                  * static_cast<float> (i) / kGrainSize));
+        grainWin[i] = 0.5f * (1.0f - std::cos (2.0f * juce::MathConstants<float>::pi
+                                                 * static_cast<float> (i) / kGrainSize));
     grainInWrite  = 0;
     grainOutWrite = 0;
     grainOutRead  = 2048 - kGrainSize;   // lags grainOutWrite by kGrainSize
@@ -289,6 +289,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     const float safeRatio = juce::jlimit (0.5f, 2.0f, ratio);
 
+    // Pitch-synchronous hop: align grain boundaries to detected pitch period to
+    // eliminate inter-grain phase mismatch (the cause of phasiness/doubling).
+    // OLA normalisation: S = (N/H) * mean(Hann) = N/(2H); scale each grain by 2H/N.
+    int pitchSyncHop = kHopSize;
+    if (smoothedDetectedHz >= 100.0f && smoothedDetectedHz <= 800.0f)
+    {
+        int period = static_cast<int> (std::round ((float)currentSampleRate / smoothedDetectedHz));
+        if (period >= 64 && period <= kGrainSize / 2)
+            pitchSyncHop = period;
+    }
+    const float hopNorm = 2.0f * static_cast<float> (pitchSyncHop) / static_cast<float> (kGrainSize);
+
     for (int s = 0; s < numSamples; ++s)
     {
         // Write input
@@ -296,7 +308,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         grainInR[grainInWrite & kGrainInMask] = chR[s];
         grainInWrite++;
 
-        // Synthesise a new grain every kHopSize output samples
+        // Synthesise a new grain every pitchSyncHop output samples
         if (grainHop <= 0)
         {
             const float base = static_cast<float> (grainInWrite) - static_cast<float> (kInitialDelay);
@@ -306,14 +318,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 int   ri   = static_cast<int> (std::floor (rp)) & kGrainInMask;
                 int   ri1  = (ri + 1) & kGrainInMask;
                 float frac = rp - std::floor (rp);
-                float wg   = grainWin[g];
+                float wg   = grainWin[g] * hopNorm;
                 grainOutL[(grainOutWrite + g) & kGrainOutMask] +=
                     (grainInL[ri] + frac * (grainInL[ri1] - grainInL[ri])) * wg;
                 grainOutR[(grainOutWrite + g) & kGrainOutMask] +=
                     (grainInR[ri] + frac * (grainInR[ri1] - grainInR[ri])) * wg;
             }
-            grainOutWrite = (grainOutWrite + kHopSize) & kGrainOutMask;
-            grainHop = kHopSize;
+            grainOutWrite = (grainOutWrite + pitchSyncHop) & kGrainOutMask;
+            grainHop = pitchSyncHop;
         }
         grainHop--;
 
