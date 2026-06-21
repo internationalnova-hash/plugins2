@@ -72,8 +72,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     grainOutWrite    = 0;
     grainOutRead     = 2048 - kGrainSize;
     grainHop         = 0;
-    // Start kInitialDelay samples behind grainInWrite=0 in the circular buffer
-    grainAnalysisPos = static_cast<float> ((kGrainInMask + 1) - kInitialDelay);
+    grainAnalysisPos = -static_cast<float> (kInitialDelay);  // kInitialDelay behind grainInWrite=0
 
     setLatencySamples (kInitialDelay + kGrainSize);  // = 2048
 }
@@ -307,7 +306,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             // eliminating the inter-grain phase mismatch that causes flanging/doubling.
             float nominalPos = grainAnalysisPos + static_cast<float> (kHopSize);
 
-            float bestCorr  = -1.0e30f;
+            // WSOLA search — only when signal is non-silent (bestCorr > 0).
+            // For silent/zero input every lag gives corr=0, so bestDelta stays 0
+            // (nominal hop) rather than drifting to -kWsRange and collapsing the lag.
+            float bestCorr  = 0.0f;   // 0 threshold: skip search if signal is silent
             int   bestDelta = 0;
             for (int d = -kWsRange; d <= kWsRange; ++d)
             {
@@ -321,9 +323,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 if (corr > bestCorr) { bestCorr = corr; bestDelta = d; }
             }
 
-            const float base = nominalPos + static_cast<float> (bestDelta);
-            // Wrap to keep grainAnalysisPos bounded (avoids float precision loss)
-            grainAnalysisPos = std::fmod (base, static_cast<float> (kGrainInMask + 1));
+            float base = nominalPos + static_cast<float> (bestDelta);
+
+            // Safety clamp: keep analysis lag within [kInitialDelay/2 .. kInitialDelay*2]
+            // so we never read past the write head or fall too far behind.
+            float lag = static_cast<float> (grainInWrite) - base;
+            if (lag < static_cast<float> (kInitialDelay) / 2.0f ||
+                lag > static_cast<float> (kInitialDelay) * 2.0f)
+                base = static_cast<float> (grainInWrite) - static_cast<float> (kInitialDelay);
+
+            grainAnalysisPos = base;
 
             for (int g = 0; g < kGrainSize; ++g)
             {
