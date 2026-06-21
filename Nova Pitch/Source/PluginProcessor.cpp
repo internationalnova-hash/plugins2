@@ -344,20 +344,30 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         shiftDelay1 -= (pitchRatioSmoothed - 1.0f);
         shiftDelay2 -= (pitchRatioSmoothed - 1.0f);
 
-        // Trigger a crossfade when head 1's delay goes out of range
+        // Trigger a crossfade when head 1's delay goes out of range.
+        // Use WSOLA cross-correlation to find the input position near kInitialDelay
+        // whose waveform best matches the current head 1 position.  This avoids any
+        // dependence on an accurate pitch-period estimate and works for all signal
+        // types (voiced, unvoiced, transients).
         if (shiftXfade < 0 && (shiftDelay1 < kMinDelay || shiftDelay1 > kMaxDelay))
         {
-            float period = (smoothedDetectedHz > 50.0f)
-                         ? static_cast<float> (currentSampleRate) / smoothedDetectedHz
-                         : 256.0f;
+            int pos1 = shiftWritePos - static_cast<int> (shiftDelay1);
+            int posT = shiftWritePos - kInitialDelay;
 
-            // Jump back to near kInitialDelay in whole-period steps.
-            float target = static_cast<float> (kInitialDelay);
-            float gap    = target - shiftDelay1;
-            int   N      = juce::jmax (1, static_cast<int> (std::round (std::abs (gap) / period)));
-            shiftDelay2  = shiftDelay1 + (gap >= 0.0f ? 1.0f : -1.0f) * static_cast<float> (N) * period;
-            shiftDelay2  = juce::jlimit (kMinDelay, kMaxDelay, shiftDelay2);
-            shiftXfade   = 0;
+            float bestCorr  = -1.0e30f;
+            int   bestDelta = 0;
+            for (int d = -kSearchRange; d <= kSearchRange; ++d)
+            {
+                float corr = 0.0f;
+                for (int g = 0; g < kSearchLen; ++g)
+                    corr += shiftBufL[(pos1 + g) & kShiftBufMask]
+                          * shiftBufL[(posT + d + g) & kShiftBufMask];
+                if (corr > bestCorr) { bestCorr = corr; bestDelta = d; }
+            }
+
+            shiftDelay2 = static_cast<float> (kInitialDelay - bestDelta);
+            shiftDelay2 = juce::jlimit (kMinDelay, kMaxDelay, shiftDelay2);
+            shiftXfade  = 0;
         }
     }
 }

@@ -102,6 +102,8 @@ private:
     static constexpr int   kCrossfadeLen = 512;     // ~10 ms raised-cosine window
     static constexpr float kMinDelay     = 600.0f;  // trigger reset below this
     static constexpr float kMaxDelay     = static_cast<float> (kShiftBufSize / 2 - 256);
+    static constexpr int   kSearchLen    = 256;     // WSOLA correlation template length
+    static constexpr int   kSearchRange  = 256;     // WSOLA search ± range
 
     std::array<float, kShiftBufSize> shiftBufL {};
     std::array<float, kShiftBufSize> shiftBufR {};
