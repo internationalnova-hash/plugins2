@@ -34,6 +34,10 @@ FetchContent_Declare(
 # On Apple, RubberBand will automatically prefer vDSP from Accelerate if available.
 set(RUBBERBAND_USE_BUILTIN_FFT ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(rubberband)
+FetchContent_GetProperties(rubberband)
+# RubberBand's CMake target doesn't export INTERFACE_INCLUDE_DIRECTORIES,
+# so we add the source root manually so #include <rubberband/...> resolves.
+include_directories(${rubberband_SOURCE_DIR})
 
 set(RUBBERBAND_LINK_TARGETS "")
 
