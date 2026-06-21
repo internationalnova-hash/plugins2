@@ -345,13 +345,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                          ? static_cast<float> (currentSampleRate) / smoothedDetectedHz
                          : 256.0f;
 
-            // Choose N so head 2 lands near kInitialDelay, but N whole periods away
-            float target = static_cast<float> (kInitialDelay);
-            float gap    = target - shiftDelay1;   // may be negative if delay is too large
-            int   N      = juce::jmax (1, static_cast<int> (std::round (std::abs (gap) / period)));
-            shiftDelay2  = shiftDelay1 + (gap >= 0.0f ? 1.0f : -1.0f) * static_cast<float> (N) * period;
-            shiftDelay2  = juce::jlimit (kMinDelay, kMaxDelay, shiftDelay2);
-            shiftXfade   = 0;
+            // Use the minimum N (whole periods) so head 2 stays safely in range after
+            // the crossfade completes.  Jumping N=13+ periods (as a "return to centre"
+            // strategy) makes the blend traverse 1400+ samples of audio, causing a
+            // severe momentary pitch drop.  With N=1 the traversal is ~1 period = tiny.
+            float drift = std::abs (ratio - 1.0f);
+            int   N     = juce::jmax (1, static_cast<int> (std::ceil (drift * kCrossfadeLen / period)));
+            float sign  = (shiftDelay1 < kMinDelay) ? 1.0f : -1.0f;
+            shiftDelay2 = shiftDelay1 + sign * static_cast<float> (N) * period;
+            shiftDelay2 = juce::jlimit (kMinDelay, kMaxDelay, shiftDelay2);
+            shiftXfade  = 0;
         }
     }
 }
