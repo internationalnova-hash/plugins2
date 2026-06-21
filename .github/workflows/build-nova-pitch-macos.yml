@@ -35,7 +35,7 @@ jobs:
           clang++ -arch arm64 -arch x86_64 \
             -std=c++17 -O2 \
             -mmacosx-version-min=11.0 \
-            -DHAVE_KISSFFT=1 \
+            -DHAVE_VDSP=1 \
             -DUSE_BQRESAMPLER=1 \
             -DNDEBUG \
             -I/tmp/rubberband-src \
