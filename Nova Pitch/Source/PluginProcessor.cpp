@@ -64,12 +64,13 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     grainInR.fill  (0.0f);
     grainOutL.fill (0.0f);
     grainOutR.fill (0.0f);
+    // 4x overlap: four Hann windows sum to 2.0, so scale by 0.5 to normalise to 1.0
     for (int i = 0; i < kGrainSize; ++i)
-        grainWin[i] = 0.5f * (1.0f - std::cos (2.0f * juce::MathConstants<float>::pi
-                                                 * static_cast<float> (i) / kGrainSize));
+        grainWin[i] = 0.25f * (1.0f - std::cos (2.0f * juce::MathConstants<float>::pi
+                                                  * static_cast<float> (i) / kGrainSize));
     grainInWrite  = 0;
     grainOutWrite = 0;
-    grainOutRead  = 4096 - kGrainSize;   // lags grainOutWrite by kGrainSize
+    grainOutRead  = 2048 - kGrainSize;   // lags grainOutWrite by kGrainSize
     grainHop      = 0;
 
     setLatencySamples (kInitialDelay + kGrainSize);  // = 2048

@@ -94,16 +94,16 @@ private:
     // ---------------------------------------------------------------
     // Granular OLA pitch shifter — grains always move forward, no crossfades
     // ---------------------------------------------------------------
-    static constexpr int kGrainSize    = 1024;
-    static constexpr int kHopSize      = 512;
+    static constexpr int kGrainSize    = 512;
+    static constexpr int kHopSize      = 128;   // 4x overlap; reduces inter-grain phase mismatch
     static constexpr int kInitialDelay = 1536;   // input lag; latency = kInitialDelay + kGrainSize
     static constexpr int kGrainInMask  = 4096 - 1;
-    static constexpr int kGrainOutMask = 4096 - 1;
+    static constexpr int kGrainOutMask = 2048 - 1;
 
     std::array<float, 4096> grainInL  {};
     std::array<float, 4096> grainInR  {};
-    std::array<float, 4096> grainOutL {};
-    std::array<float, 4096> grainOutR {};
+    std::array<float, 2048> grainOutL {};
+    std::array<float, 2048> grainOutR {};
     std::array<float, kGrainSize> grainWin {};
 
     int grainInWrite  { 0 };
