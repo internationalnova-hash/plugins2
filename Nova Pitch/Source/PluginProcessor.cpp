@@ -331,15 +331,18 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (outR != nullptr)
             outR[s] = h1R * (1.0f - blend) + h2R * blend;
 
-        // Freeze drift during crossfade so the blend traverses zero net distance.
-        // When both heads play at rate 1.0, a period-aligned crossfade is perfectly
-        // seamless — neither pitch change nor amplitude glitch.
-        float effectiveRatio = (shiftXfade >= 0) ? 1.0f : ratio;
+        // Smoothly ramp pitchRatioSmoothed toward 1.0 during crossfade, and back
+        // toward the correction target after.  A hard freeze → snap causes an audible
+        // pitch click when correction resumes; this ramp (τ ≈ 10 ms) is inaudible.
+        {
+            float ratioTarget = (shiftXfade >= 0) ? 1.0f : ratio;
+            pitchRatioSmoothed += 0.002f * (ratioTarget - pitchRatioSmoothed);
+        }
 
         // ratio > 1 → delay shrinks (head approaches write) → pitch up
         // ratio < 1 → delay grows (head falls behind write) → pitch down
-        shiftDelay1 -= (effectiveRatio - 1.0f);
-        shiftDelay2 -= (effectiveRatio - 1.0f);
+        shiftDelay1 -= (pitchRatioSmoothed - 1.0f);
+        shiftDelay2 -= (pitchRatioSmoothed - 1.0f);
 
         // Trigger a crossfade when head 1's delay goes out of range
         if (shiftXfade < 0 && (shiftDelay1 < kMinDelay || shiftDelay1 > kMaxDelay))
@@ -348,9 +351,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                          ? static_cast<float> (currentSampleRate) / smoothedDetectedHz
                          : 256.0f;
 
-            // Jump back toward kInitialDelay in whole-period steps.  Because drift is
-            // frozen during the crossfade, a large N is fine — the blend is seamless
-            // regardless of head distance, as long as they are period-aligned.
+            // Jump back to near kInitialDelay in whole-period steps.
             float target = static_cast<float> (kInitialDelay);
             float gap    = target - shiftDelay1;
             int   N      = juce::jmax (1, static_cast<int> (std::round (std::abs (gap) / period)));
