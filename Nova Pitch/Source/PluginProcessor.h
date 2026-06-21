@@ -9,6 +9,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 
+#include <rubberband/RubberBandStretcher.h>
+
 class NovaPitchAudioProcessor : public juce::AudioProcessor
 {
 public:
@@ -90,27 +92,22 @@ private:
     bool  correctionActive { false };
     int   lastTargetMidi   { -1 };
     float noteTargetRatio  { 1.0f };
-    int   pitchLockBlocks  { 0 };   // consecutive blocks of stable pitch; gates pitch-sync hop
 
     // ---------------------------------------------------------------
-    // Granular OLA pitch shifter — grains always move forward, no crossfades
+    // RubberBand phase-vocoder pitch shifter
     // ---------------------------------------------------------------
-    static constexpr int kGrainSize    = 512;
-    static constexpr int kHopSize      = 128;   // 4x overlap; reduces inter-grain phase mismatch
-    static constexpr int kInitialDelay = 1536;   // input lag; latency = kInitialDelay + kGrainSize
-    static constexpr int kGrainInMask  = 4096 - 1;
-    static constexpr int kGrainOutMask = 2048 - 1;
+    std::unique_ptr<RubberBand::RubberBandStretcher> stretcher;
 
-    std::array<float, 4096> grainInL  {};
-    std::array<float, 4096> grainInR  {};
-    std::array<float, 2048> grainOutL {};
-    std::array<float, 2048> grainOutR {};
-    std::array<float, kGrainSize> grainWin {};
+    // Pre-allocated scratch buffers for RubberBand retrieve — no audio-thread allocs
+    static constexpr int kScratchSize = 8192;
+    std::vector<float> rbScratchL, rbScratchR;
 
-    int grainInWrite  { 0 };
-    int grainOutWrite { 0 };
-    int grainOutRead  { 0 };
-    int grainHop      { 0 };
+    // Lock-free circular FIFO — holds RubberBand output until processBlock drains it
+    static constexpr int kFifoSize = 32768;   // power of 2
+    static constexpr int kFifoMask = kFifoSize - 1;
+    std::vector<float> fifoL, fifoR;
+    int fifoWrite { 0 };
+    int fifoRead  { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };

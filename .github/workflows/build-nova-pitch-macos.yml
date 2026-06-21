@@ -21,6 +21,7 @@ jobs:
       - name: Install Build Dependencies
         run: |
           brew install cmake
+          # git is already present on macos-14 runners; cmake fetches rubberband via FetchContent
 
       - name: Clean build directory
         run: rm -rf "Nova Pitch/build"

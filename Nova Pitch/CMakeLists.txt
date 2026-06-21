@@ -24,6 +24,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
+# RubberBand R3 phase-vocoder — built from source for universal binary compatibility
+FetchContent_Declare(
+    rubberband
+    GIT_REPOSITORY https://github.com/breakfastquay/rubberband.git
+    GIT_TAG        v3.3.0
+)
+# Use the bundled FFT so we have no external dependency on FFTW or vDSP headers.
+# On Apple, RubberBand will automatically prefer vDSP from Accelerate if available.
+set(RUBBERBAND_USE_BUILTIN_FFT ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(rubberband)
 
 set(RUBBERBAND_LINK_TARGETS "")
 
@@ -95,6 +105,7 @@ target_sources(${PLUGIN_TARGET}
 target_link_libraries(${PLUGIN_TARGET}
     PRIVATE
         NovaPitch_WebUI
+        rubberband
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats
@@ -115,7 +126,9 @@ target_link_libraries(${PLUGIN_TARGET}
         juce::juce_recommended_warning_flags
 )
 
-# RubberBand removed — plugin uses built-in dual-head pitch shifter
+if(APPLE)
+    target_link_libraries(${PLUGIN_TARGET} PRIVATE "-framework Accelerate")
+endif()
 
     target_compile_definitions(${PLUGIN_TARGET}
     PUBLIC
