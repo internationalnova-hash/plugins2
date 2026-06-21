@@ -63,9 +63,9 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     // Dual-head shifter reset
     shiftBufL.fill (0.0f);
     shiftBufR.fill (0.0f);
-    shiftWritePos = kInitialDelay;          // pre-fill so read starts at 0
-    shiftReadPos1 = 0.0f;
-    shiftReadPos2 = 0.0f;
+    shiftWritePos = 0;
+    shiftDelay1   = static_cast<float> (kInitialDelay);
+    shiftDelay2   = static_cast<float> (kInitialDelay);
     shiftXfade    = -1;
 
     setLatencySamples (kInitialDelay);
@@ -280,49 +280,50 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     historyIndex = (historyIndex + 1) % pitchHistorySize;
 
     // ----------------------------------------------------------------
-    // Dual-head crossfade pitch shifter
+    // Dual-head crossfade pitch shifter with pitch-period-aligned resets
     //
-    // head 1 (shiftReadPos1) is the active head.
-    // head 2 (shiftReadPos2) fades in when head 1 drifts too close to
-    // the write position and must be repositioned.
+    // Both heads maintain a delay behind the write head.  At pitch ratio
+    // 1.0 the delay is stable.  When ratio ≠ 1.0 the delay drifts; when
+    // it goes out of bounds a second head is started, period-aligned so
+    // the two heads are an integer number of pitch periods apart — their
+    // signals are nearly identical, making the blend inaudible.
     // ----------------------------------------------------------------
     float* outL = buffer.getWritePointer (0);
     float* outR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
 
-    // Linear interpolated read helper (operates on circular buffer)
     auto readLerp = [this] (const std::array<float, kShiftBufSize>& buf, float pos) -> float
     {
-        auto i = static_cast<int> (pos);
-        float f = pos - static_cast<float> (i);
-        return buf[i & kShiftBufMask] * (1.0f - f) + buf[(i + 1) & kShiftBufMask] * f;
+        int   i = static_cast<int> (pos) & kShiftBufMask;
+        int   j = (i + 1) & kShiftBufMask;
+        float f = pos - std::floor (pos);
+        return buf[i] * (1.0f - f) + buf[j] * f;
     };
 
     for (int s = 0; s < numSamples; ++s)
     {
-        // Write input into circular buffer
         shiftBufL[shiftWritePos & kShiftBufMask] = chL[s];
         shiftBufR[shiftWritePos & kShiftBufMask] = chR[s];
         shiftWritePos++;
 
-        // Read from both heads
-        float h1L = readLerp (shiftBufL, shiftReadPos1);
-        float h1R = readLerp (shiftBufR, shiftReadPos1);
-        float h2L = readLerp (shiftBufL, shiftReadPos2);
-        float h2R = readLerp (shiftBufR, shiftReadPos2);
+        // Compute absolute read positions from write position and delays
+        float pos1 = static_cast<float> (shiftWritePos) - shiftDelay1;
+        float pos2 = static_cast<float> (shiftWritePos) - shiftDelay2;
 
-        // Blend (shiftXfade == -1 means head 1 only)
+        float h1L = readLerp (shiftBufL, pos1);
+        float h1R = readLerp (shiftBufR, pos1);
+        float h2L = readLerp (shiftBufL, pos2);
+        float h2R = readLerp (shiftBufR, pos2);
+
+        // Raised-cosine blend: 0 = head1 only, 1 = head2 only
         float blend = 0.0f;
         if (shiftXfade >= 0)
         {
-            blend = static_cast<float> (shiftXfade) / static_cast<float> (kCrossfadeLen);
-            // Raised-cosine for click-free crossfade
-            blend = 0.5f * (1.0f - std::cos (blend * juce::MathConstants<float>::pi));
-            shiftXfade++;
-            if (shiftXfade >= kCrossfadeLen)
+            float t = static_cast<float> (shiftXfade) / static_cast<float> (kCrossfadeLen);
+            blend = 0.5f * (1.0f - std::cos (t * juce::MathConstants<float>::pi));
+            if (++shiftXfade >= kCrossfadeLen)
             {
-                // Crossfade done — head 2 becomes head 1
-                shiftReadPos1 = shiftReadPos2;
-                shiftXfade    = -1;
+                shiftDelay1 = shiftDelay2;   // head 2 becomes head 1
+                shiftXfade  = -1;
             }
         }
 
@@ -330,29 +331,27 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (outR != nullptr)
             outR[s] = h1R * (1.0f - blend) + h2R * blend;
 
-        // Advance both read heads at the pitch ratio
-        shiftReadPos1 += ratio;
-        shiftReadPos2 += ratio;
+        // Both delays drift by (ratio - 1) per sample
+        // ratio > 1 → delay shrinks (head approaches write)
+        // ratio < 1 → delay grows (head falls behind write)
+        shiftDelay1 -= (ratio - 1.0f);
+        shiftDelay2 -= (ratio - 1.0f);
 
-        // Keep positions in valid float range (prevent precision loss over time)
-        if (shiftReadPos1 > static_cast<float> (kShiftBufSize * 256))
+        // Trigger a crossfade when head 1's delay goes out of range
+        if (shiftXfade < 0 && (shiftDelay1 < kMinDelay || shiftDelay1 > kMaxDelay))
         {
-            float wrap = static_cast<float> (kShiftBufSize * 256);
-            shiftReadPos1 -= wrap;
-            shiftReadPos2 -= wrap;
-            // shiftWritePos is int — apply equivalent shift via the mask, already modular
-        }
+            // Estimate pitch period; default to a safe value when no pitch detected
+            float period = (smoothedDetectedHz > 50.0f)
+                         ? static_cast<float> (currentSampleRate) / smoothedDetectedHz
+                         : 256.0f;
 
-        // If head 1 is too close to the write head, start a crossfade to a
-        // fresh head 2 positioned kInitialDelay samples behind write.
-        float delayRemaining = static_cast<float> (shiftWritePos) - shiftReadPos1;
-        while (delayRemaining < 0.0f) delayRemaining += static_cast<float> (kShiftBufSize);
-        delayRemaining = std::fmod (delayRemaining, static_cast<float> (kShiftBufSize));
-
-        if (delayRemaining < kMinDelay && shiftXfade < 0)
-        {
-            shiftReadPos2 = static_cast<float> (shiftWritePos - kInitialDelay);
-            shiftXfade    = 0;
+            // Choose N so head 2 lands near kInitialDelay, but N whole periods away
+            float target = static_cast<float> (kInitialDelay);
+            float gap    = target - shiftDelay1;   // may be negative if delay is too large
+            int   N      = juce::jmax (1, static_cast<int> (std::round (std::abs (gap) / period)));
+            shiftDelay2  = shiftDelay1 + (gap >= 0.0f ? 1.0f : -1.0f) * static_cast<float> (N) * period;
+            shiftDelay2  = juce::jlimit (kMinDelay, kMaxDelay, shiftDelay2);
+            shiftXfade   = 0;
         }
     }
 }

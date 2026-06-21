@@ -95,26 +95,21 @@ private:
 
     // ---------------------------------------------------------------
     // Dual-head crossfade pitch shifter
-    // Replaces RubberBand — no external library, no latency surprises.
-    //
-    // Two read heads advance through a circular input buffer at `ratio`
-    // speed.  When the active head drifts too close to the write head,
-    // we crossfade to the inactive head which has been repositioned at
-    // the standard delay.  This hides the reset discontinuity.
     // ---------------------------------------------------------------
-    static constexpr int   kShiftBufSize   = 16384;   // must be power of 2
-    static constexpr int   kShiftBufMask   = kShiftBufSize - 1;
-    static constexpr int   kInitialDelay   = 1024;    // ~21 ms @ 48 kHz (reported to DAW)
-    static constexpr int   kCrossfadeLen   = 512;     // ~10 ms crossfade window
-    static constexpr float kMinDelay       = static_cast<float> (kCrossfadeLen + 32);
+    static constexpr int   kShiftBufSize = 16384;   // power of 2
+    static constexpr int   kShiftBufMask = kShiftBufSize - 1;
+    static constexpr int   kInitialDelay = 2048;    // ~43 ms @ 48 kHz (reported to DAW)
+    static constexpr int   kCrossfadeLen = 512;     // ~10 ms raised-cosine window
+    static constexpr float kMinDelay     = 600.0f;  // trigger reset below this
+    static constexpr float kMaxDelay     = static_cast<float> (kShiftBufSize / 2 - 256);
 
     std::array<float, kShiftBufSize> shiftBufL {};
     std::array<float, kShiftBufSize> shiftBufR {};
 
-    int   shiftWritePos  { 0 };
-    float shiftReadPos1  { 0.0f };   // head 1 (active)
-    float shiftReadPos2  { 0.0f };   // head 2 (fading in during crossfade)
-    int   shiftXfade     { -1 };     // -1 = not crossfading; 0..kCrossfadeLen-1 = active
+    int   shiftWritePos { 0 };
+    float shiftDelay1   { static_cast<float> (kInitialDelay) };  // head 1: samples behind write
+    float shiftDelay2   { static_cast<float> (kInitialDelay) };  // head 2: used during crossfade
+    int   shiftXfade    { -1 };  // -1 = off; 0..kCrossfadeLen-1 = active
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };
