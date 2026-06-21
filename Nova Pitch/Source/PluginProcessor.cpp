@@ -349,7 +349,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 #ifdef HAVE_RUBBERBAND
     if (stretcher != nullptr)
     {
-        if (std::abs (ratio - lastPitchScale) > 0.0005f)
+        if (std::abs (ratio - lastPitchScale) > 0.005f)
         {
             stretcher->setPitchScale (static_cast<double> (ratio));
             lastPitchScale = ratio;
