@@ -115,13 +115,7 @@ target_link_libraries(${PLUGIN_TARGET}
         juce::juce_recommended_warning_flags
 )
 
-# Use pre-built RubberBand (built by CI or passed by developer)
-if(DEFINED RUBBERBAND_STATIC_LIB AND DEFINED RUBBERBAND_INCLUDE_DIR)
-    target_include_directories(${PLUGIN_TARGET} PRIVATE ${RUBBERBAND_INCLUDE_DIR})
-    target_link_libraries(${PLUGIN_TARGET} PRIVATE ${RUBBERBAND_STATIC_LIB})
-    target_compile_definitions(${PLUGIN_TARGET} PRIVATE HAVE_RUBBERBAND=1)
-    message(STATUS "Nova Pitch: Using RubberBand from ${RUBBERBAND_INCLUDE_DIR}")
-endif()
+# RubberBand removed — plugin uses built-in dual-head pitch shifter
 
     target_compile_definitions(${PLUGIN_TARGET}
     PUBLIC

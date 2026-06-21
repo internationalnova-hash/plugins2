@@ -9,10 +9,6 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 
-#ifdef HAVE_RUBBERBAND
-#include <rubberband/RubberBandStretcher.h>
-#endif
-
 class NovaPitchAudioProcessor : public juce::AudioProcessor
 {
 public:
@@ -68,47 +64,57 @@ private:
     float midiToHz (int midi) const;
     float hzToMidi (float hz) const;
 
-    void initStretcher (double sampleRate, int maxBlockSize, bool formantPreserve);
-
-#ifdef HAVE_RUBBERBAND
-    std::unique_ptr<RubberBand::RubberBandStretcher> stretcher;
-#endif
-
-    double currentSampleRate  { 44100.0 };
-    int    currentBlockSize   { 512 };
+    double currentSampleRate { 44100.0 };
+    int    currentBlockSize  { 512 };
 
     // YIN buffers — all pre-allocated in prepareToPlay, zero heap on audio thread
-    std::vector<float> yinBuf;      // circular ring of input samples
-    std::vector<float> yinLinear;   // linearised snapshot for YIN computation
-    std::vector<float> yinD;        // difference function
-    std::vector<float> yinCmnd;     // cumulative mean normalised difference
+    std::vector<float> yinBuf;
+    std::vector<float> yinLinear;
+    std::vector<float> yinD;
+    std::vector<float> yinCmnd;
 
-    int    yinWritePos          { 0 };
-    float  smoothedDetectedHz   { 0.0f };
-    int    blocksSinceValidPitch{ 0 };
+    int   yinWritePos           { 0 };
+    float smoothedDetectedHz    { 0.0f };
+    int   blocksSinceValidPitch { 0 };
     static constexpr int maxHoldBlocks = 20;
 
-    float pitchRatioSmoothed    { 1.0f };
+    float pitchRatioSmoothed { 1.0f };
 
     std::array<float, 5> pitchHistory5 {};
-    int  ph5index = 0;
+    int ph5index = 0;
 
-    std::atomic<float> detectedPitch  { 0.0f };
-    std::atomic<float> correctedPitch { 0.0f };
-    std::atomic<float> pitchConfidence{ 0.0f };
+    std::atomic<float> detectedPitch   { 0.0f };
+    std::atomic<float> correctedPitch  { 0.0f };
+    std::atomic<float> pitchConfidence { 0.0f };
     std::array<std::atomic<float>, pitchHistorySize> pitchHistory {};
     int historyIndex { 0 };
 
-    bool lastFormantSetting { true };
-    float lastPitchScale    { 1.0f };
-    bool correctionActive   { false };
-    int   lastTargetMidi    { -1 };     // last note we snapped to; ratio recomputes on change
-    float noteTargetRatio   { 1.0f };   // stable ratio held for the full duration of a note
+    bool  correctionActive { false };
+    int   lastTargetMidi   { -1 };
+    float noteTargetRatio  { 1.0f };
 
-    // Pre-allocated scratch for RubberBand drain — never resized on audio thread
-    static constexpr int drainBufSize = 8192;
-    std::array<float, drainBufSize> drainL {};
-    std::array<float, drainBufSize> drainR {};
+    // ---------------------------------------------------------------
+    // Dual-head crossfade pitch shifter
+    // Replaces RubberBand — no external library, no latency surprises.
+    //
+    // Two read heads advance through a circular input buffer at `ratio`
+    // speed.  When the active head drifts too close to the write head,
+    // we crossfade to the inactive head which has been repositioned at
+    // the standard delay.  This hides the reset discontinuity.
+    // ---------------------------------------------------------------
+    static constexpr int   kShiftBufSize   = 16384;   // must be power of 2
+    static constexpr int   kShiftBufMask   = kShiftBufSize - 1;
+    static constexpr int   kInitialDelay   = 1024;    // ~21 ms @ 48 kHz (reported to DAW)
+    static constexpr int   kCrossfadeLen   = 512;     // ~10 ms crossfade window
+    static constexpr float kMinDelay       = static_cast<float> (kCrossfadeLen + 32);
+
+    std::array<float, kShiftBufSize> shiftBufL {};
+    std::array<float, kShiftBufSize> shiftBufR {};
+
+    int   shiftWritePos  { 0 };
+    float shiftReadPos1  { 0.0f };   // head 1 (active)
+    float shiftReadPos2  { 0.0f };   // head 2 (fading in during crossfade)
+    int   shiftXfade     { -1 };     // -1 = not crossfading; 0..kCrossfadeLen-1 = active
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };

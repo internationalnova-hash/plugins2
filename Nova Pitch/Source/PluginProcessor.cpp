@@ -40,67 +40,9 @@ NovaPitchAudioProcessor::createParameterLayout()
     return { params.begin(), params.end() };
 }
 
-void NovaPitchAudioProcessor::initStretcher (double sampleRate, int maxBlockSize, bool formantPreserve)
-{
-#ifdef HAVE_RUBBERBAND
-    using RBS = RubberBand::RubberBandStretcher;
-
-    int options = RBS::OptionProcessRealTime;
-    if (formantPreserve)
-        options |= RBS::OptionFormantPreserved;
-
-    stretcher = std::make_unique<RBS> (
-        static_cast<size_t> (sampleRate), 2, options, 1.0, 1.0);
-
-    stretcher->setMaxProcessSize (static_cast<size_t> (maxBlockSize));
-    stretcher->setTimeRatio (1.0);
-    stretcher->setPitchScale (1.0);
-
-    const int latency = static_cast<int> (stretcher->getLatency());
-
-    // Prime the pipeline with silence so available() >= blockSize on the very
-    // first real audio block.  Without priming, the first block clears the
-    // output buffer and the DAW sees one full block of uncompensated silence
-    // on top of the PDC-reported latency — causing persistent audible delay.
-    // Process in chunks of maxBlockSize to respect setMaxProcessSize contract.
-    {
-        const int chunkSize = std::max (1, maxBlockSize);
-        std::vector<float> silence (static_cast<size_t> (chunkSize), 0.0f);
-        const float* silPtrs[2] = { silence.data(), silence.data() };
-
-        int remaining = latency;
-        while (remaining > 0)
-        {
-            int chunk = std::min (remaining, chunkSize);
-            stretcher->process (silPtrs, static_cast<size_t> (chunk), false);
-            remaining -= chunk;
-        }
-
-        // Discard primed output so output queue is empty and clean
-        int avail = stretcher->available();
-        if (avail > 0)
-        {
-            std::vector<float> tmp (static_cast<size_t> (avail), 0.0f);
-            float* dp[2] = { tmp.data(), tmp.data() };
-            stretcher->retrieve (dp, static_cast<size_t> (avail));
-        }
-    }
-
-    setLatencySamples (latency);
-#else
-    juce::ignoreUnused (sampleRate, maxBlockSize, formantPreserve);
-    setLatencySamples (0);
-#endif
-}
-
-void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
 {
     currentSampleRate = sampleRate;
-    // Use the larger of what the host says and 4096.  Some hosts (FL Studio)
-    // report a smaller samplesPerBlock in prepareToPlay than the blocks they
-    // actually send in processBlock, which would violate setMaxProcessSize and
-    // corrupt the stretcher.  4096 safely covers any real-world block size.
-    currentBlockSize  = std::max (samplesPerBlock > 0 ? samplesPerBlock : 512, 4096);
 
     yinBuf.assign    (yinBufferSize, 0.0f);
     yinLinear.assign (yinBufferSize, 0.0f);
@@ -111,7 +53,6 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     smoothedDetectedHz    = 0.0f;
     blocksSinceValidPitch = 0;
     pitchRatioSmoothed    = 1.0f;
-    lastPitchScale        = 1.0f;
     correctionActive      = false;
     lastTargetMidi        = -1;
     noteTargetRatio       = 1.0f;
@@ -119,18 +60,18 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     ph5index              = 0;
     pitchHistory5.fill (0.0f);
 
-    // DIAGNOSTIC: no pitch shifting — report zero latency
-    setLatencySamples (0);
-    bool formant = apvts.getRawParameterValue ("formant")->load() > 0.5f;
-    lastFormantSetting = formant;
+    // Dual-head shifter reset
+    shiftBufL.fill (0.0f);
+    shiftBufR.fill (0.0f);
+    shiftWritePos = kInitialDelay;          // pre-fill so read starts at 0
+    shiftReadPos1 = 0.0f;
+    shiftReadPos2 = 0.0f;
+    shiftXfade    = -1;
+
+    setLatencySamples (kInitialDelay);
 }
 
-void NovaPitchAudioProcessor::releaseResources()
-{
-#ifdef HAVE_RUBBERBAND
-    stretcher.reset();
-#endif
-}
+void NovaPitchAudioProcessor::releaseResources() {}
 
 float NovaPitchAudioProcessor::detectYIN (const float* samples, int n, float* d, float* cmnd)
 {
@@ -219,28 +160,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const int numSamples  = buffer.getNumSamples();
     const int numChannels = buffer.getNumChannels();
 
-    // Reinitialise if block size grew beyond what we promised RubberBand.
-    // Some hosts send larger blocks than the samplesPerBlock in prepareToPlay.
-    if (numSamples > currentBlockSize)
-    {
-        currentBlockSize = std::max (numSamples, 4096);
-        bool f = apvts.getRawParameterValue ("formant")->load() > 0.5f;
-        lastFormantSetting = f;
-        initStretcher (currentSampleRate, currentBlockSize, f);
-    }
-
-    bool formant = apvts.getRawParameterValue ("formant")->load() > 0.5f;
-    if (formant != lastFormantSetting)
-    {
-        lastFormantSetting = formant;
-        initStretcher (currentSampleRate, currentBlockSize, formant);
-    }
-
-    // --- Pitch detection — always reads from input (getReadPointer) ---
-
+    // ----------------------------------------------------------------
+    // Capture input BEFORE any writes (handles separate I/O buffers)
+    // ----------------------------------------------------------------
     const float* chL = buffer.getReadPointer (0);
     const float* chR = (numChannels > 1) ? buffer.getReadPointer (1) : chL;
 
+    // ----------------------------------------------------------------
+    // Pitch detection — YIN on mono mix of input
+    // ----------------------------------------------------------------
     for (int s = 0; s < numSamples; ++s)
     {
         yinBuf[(size_t)yinWritePos] = (chL[s] + chR[s]) * 0.5f;
@@ -296,11 +224,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     detectedPitch.store (smoothedDetectedHz);
 
-    // --- Correction ratio ---
-
-    float amount     = apvts.getRawParameterValue ("amount")->load() / 100.0f;
-    float tolerance  = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
-    float vibratoAmt = apvts.getRawParameterValue ("vibrato")->load() / 100.0f;
+    // ----------------------------------------------------------------
+    // Correction ratio
+    // ----------------------------------------------------------------
+    float amount    = apvts.getRawParameterValue ("amount")->load() / 100.0f;
+    float tolerance = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
     float ratio = 1.0f;
 
     if (smoothedDetectedHz > 0.0f)
@@ -329,27 +257,20 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 }
                 noteTargetRatio = juce::jlimit (0.841f, 1.189f, targetHz / (alignedHz + 1e-9f));
             }
-
-            // Snap directly — no per-block smoothing.  Continuous smoothing called
-            // setPitchScale every block, keeping RubberBand in perpetual transient
-            // state and producing static.  The ratio is already note-stable (only
-            // recomputed on note change), so snapping is safe and clean.
-            pitchRatioSmoothed = 1.0f + (noteTargetRatio - 1.0f) * amount;
+            ratio = 1.0f + (noteTargetRatio - 1.0f) * amount;
         }
         else
         {
-            lastTargetMidi    = -1;
-            noteTargetRatio   = 1.0f;
-            pitchRatioSmoothed = 1.0f;
+            lastTargetMidi  = -1;
+            noteTargetRatio = 1.0f;
+            ratio = 1.0f;
         }
-
-        ratio = pitchRatioSmoothed;
     }
     else
     {
-        lastTargetMidi     = -1;
-        noteTargetRatio    = 1.0f;
-        pitchRatioSmoothed = 1.0f;
+        lastTargetMidi  = -1;
+        noteTargetRatio = 1.0f;
+        correctionActive = false;
         ratio = 1.0f;
     }
 
@@ -358,24 +279,82 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     pitchHistory[(size_t)historyIndex].store (smoothedDetectedHz);
     historyIndex = (historyIndex + 1) % pitchHistorySize;
 
-    // --- DIAGNOSTIC PASSTHROUGH: bypass RubberBand entirely ---
-    // Explicitly copy input to output so the plugin is transparent.
-    // This confirms the audio path is clean before any pitch shifting.
+    // ----------------------------------------------------------------
+    // Dual-head crossfade pitch shifter
+    //
+    // head 1 (shiftReadPos1) is the active head.
+    // head 2 (shiftReadPos2) fades in when head 1 drifts too close to
+    // the write position and must be repositioned.
+    // ----------------------------------------------------------------
+    float* outL = buffer.getWritePointer (0);
+    float* outR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
+
+    // Linear interpolated read helper (operates on circular buffer)
+    auto readLerp = [this] (const std::array<float, kShiftBufSize>& buf, float pos) -> float
     {
-        float* outL = buffer.getWritePointer (0);
-        float* outR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
+        auto i = static_cast<int> (pos);
+        float f = pos - static_cast<float> (i);
+        return buf[i & kShiftBufMask] * (1.0f - f) + buf[(i + 1) & kShiftBufMask] * f;
+    };
 
-        if (outL != chL)
-            std::copy (chL, chL + numSamples, outL);
-        if (outR != nullptr && outR != chR)
-            std::copy (chR, chR + numSamples, outR);
+    for (int s = 0; s < numSamples; ++s)
+    {
+        // Write input into circular buffer
+        shiftBufL[shiftWritePos & kShiftBufMask] = chL[s];
+        shiftBufR[shiftWritePos & kShiftBufMask] = chR[s];
+        shiftWritePos++;
+
+        // Read from both heads
+        float h1L = readLerp (shiftBufL, shiftReadPos1);
+        float h1R = readLerp (shiftBufR, shiftReadPos1);
+        float h2L = readLerp (shiftBufL, shiftReadPos2);
+        float h2R = readLerp (shiftBufR, shiftReadPos2);
+
+        // Blend (shiftXfade == -1 means head 1 only)
+        float blend = 0.0f;
+        if (shiftXfade >= 0)
+        {
+            blend = static_cast<float> (shiftXfade) / static_cast<float> (kCrossfadeLen);
+            // Raised-cosine for click-free crossfade
+            blend = 0.5f * (1.0f - std::cos (blend * juce::MathConstants<float>::pi));
+            shiftXfade++;
+            if (shiftXfade >= kCrossfadeLen)
+            {
+                // Crossfade done — head 2 becomes head 1
+                shiftReadPos1 = shiftReadPos2;
+                shiftXfade    = -1;
+            }
+        }
+
+        outL[s] = h1L * (1.0f - blend) + h2L * blend;
+        if (outR != nullptr)
+            outR[s] = h1R * (1.0f - blend) + h2R * blend;
+
+        // Advance both read heads at the pitch ratio
+        shiftReadPos1 += ratio;
+        shiftReadPos2 += ratio;
+
+        // Keep positions in valid float range (prevent precision loss over time)
+        if (shiftReadPos1 > static_cast<float> (kShiftBufSize * 256))
+        {
+            float wrap = static_cast<float> (kShiftBufSize * 256);
+            shiftReadPos1 -= wrap;
+            shiftReadPos2 -= wrap;
+            // shiftWritePos is int — apply equivalent shift via the mask, already modular
+        }
+
+        // If head 1 is too close to the write head, start a crossfade to a
+        // fresh head 2 positioned kInitialDelay samples behind write.
+        float delayRemaining = static_cast<float> (shiftWritePos) - shiftReadPos1;
+        while (delayRemaining < 0.0f) delayRemaining += static_cast<float> (kShiftBufSize);
+        delayRemaining = std::fmod (delayRemaining, static_cast<float> (kShiftBufSize));
+
+        if (delayRemaining < kMinDelay && shiftXfade < 0)
+        {
+            shiftReadPos2 = static_cast<float> (shiftWritePos - kInitialDelay);
+            shiftXfade    = 0;
+        }
     }
-
-    juce::ignoreUnused (ratio);
-
-#ifdef HAVE_RUBBERBAND
-    juce::ignoreUnused (stretcher);
-#endif
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations

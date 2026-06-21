@@ -1,7 +1,4 @@
 name: Build Nova Pitch macOS
-# CI retrigger note: harmless metadata touch to force a fresh path-filtered run.
-# CI retrigger note 2: no functional changes. [retrigger 2026-04-27d]
-# CI retrigger note 3: retrigger 2026-06-20b
 run-name: Nova Pitch macOS | ${{ github.event_name }} | ${{ github.sha }}
 
 on:
@@ -25,42 +22,13 @@ jobs:
         run: |
           brew install cmake
 
-      - name: Build Rubber Band as universal static lib
-        run: |
-          set -euo pipefail
-          git clone --depth 1 --branch v4.0.0 https://github.com/breakfastquay/rubberband.git /tmp/rubberband-src
-
-          # Compile the single-file build with both architectures in one clang pass.
-          # Avoids meson cross-compilation issues entirely.
-          clang++ -arch arm64 -arch x86_64 \
-            -std=c++17 -O2 \
-            -mmacosx-version-min=11.0 \
-            -DHAVE_VDSP=1 \
-            -DUSE_BQRESAMPLER=1 \
-            -DNDEBUG \
-            -I/tmp/rubberband-src \
-            -c /tmp/rubberband-src/single/RubberBandSingle.cpp \
-            -o /tmp/rubberband.o
-
-          ar rcs /tmp/librubberband.a /tmp/rubberband.o
-
-          mkdir -p /tmp/rubberband-universal/lib
-          cp /tmp/librubberband.a /tmp/rubberband-universal/lib/librubberband.a
-          mkdir -p /tmp/rubberband-universal/include
-          cp -r /tmp/rubberband-src/rubberband /tmp/rubberband-universal/include/rubberband
-
-          echo "Universal Rubber Band built:"
-          lipo -info /tmp/rubberband-universal/lib/librubberband.a
-
       - name: Clean build directory
         run: rm -rf "Nova Pitch/build"
 
       - name: Configure CMake
         run: |
           cmake -S "Nova Pitch" -B "Nova Pitch/build" \
-            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
-            -DRUBBERBAND_STATIC_LIB=/tmp/rubberband-universal/lib/librubberband.a \
-            -DRUBBERBAND_INCLUDE_DIR=/tmp/rubberband-universal/include
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
 
       - name: Build
         run: cmake --build "Nova Pitch/build" --config Release
