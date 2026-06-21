@@ -315,25 +315,27 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 noteTargetRatio = juce::jlimit (0.841f, 1.189f, targetHz / (alignedHz + 1e-9f));
             }
 
-            float scaledRatio = 1.0f + (noteTargetRatio - 1.0f) * amount;
-            pitchRatioSmoothed += (scaledRatio - pitchRatioSmoothed) * 0.12f;
+            // Snap directly — no per-block smoothing.  Continuous smoothing called
+            // setPitchScale every block, keeping RubberBand in perpetual transient
+            // state and producing static.  The ratio is already note-stable (only
+            // recomputed on note change), so snapping is safe and clean.
+            pitchRatioSmoothed = 1.0f + (noteTargetRatio - 1.0f) * amount;
         }
         else
         {
-            lastTargetMidi = -1;
-            pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.08f;
+            lastTargetMidi    = -1;
+            noteTargetRatio   = 1.0f;
+            pitchRatioSmoothed = 1.0f;
         }
-
-        if (vibratoAmt > 0.0f)
-            pitchRatioSmoothed = pitchRatioSmoothed * (1.0f - vibratoAmt) + 1.0f * vibratoAmt;
 
         ratio = pitchRatioSmoothed;
     }
     else
     {
-        lastTargetMidi = -1;
-        pitchRatioSmoothed += (1.0f - pitchRatioSmoothed) * 0.05f;
-        ratio = pitchRatioSmoothed;
+        lastTargetMidi     = -1;
+        noteTargetRatio    = 1.0f;
+        pitchRatioSmoothed = 1.0f;
+        ratio = 1.0f;
     }
 
     ratio = juce::jlimit (0.841f, 1.189f, ratio);
