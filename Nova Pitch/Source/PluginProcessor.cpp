@@ -119,9 +119,10 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     ph5index              = 0;
     pitchHistory5.fill (0.0f);
 
+    // DIAGNOSTIC: no pitch shifting — report zero latency
+    setLatencySamples (0);
     bool formant = apvts.getRawParameterValue ("formant")->load() > 0.5f;
     lastFormantSetting = formant;
-    initStretcher (sampleRate, currentBlockSize, formant);
 }
 
 void NovaPitchAudioProcessor::releaseResources()
@@ -357,62 +358,23 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     pitchHistory[(size_t)historyIndex].store (smoothedDetectedHz);
     historyIndex = (historyIndex + 1) % pitchHistorySize;
 
-    // --- Pitch shift ---
-    // IMPORTANT: always feed getReadPointer (actual input audio) to process(),
-    // and write output to getWritePointer. These may be different memory regions
-    // in hosts that use separate input/output buffers (e.g. FL Studio VST3).
-
-#ifdef HAVE_RUBBERBAND
-    if (stretcher != nullptr)
+    // --- DIAGNOSTIC PASSTHROUGH: bypass RubberBand entirely ---
+    // Explicitly copy input to output so the plugin is transparent.
+    // This confirms the audio path is clean before any pitch shifting.
     {
-        if (std::abs (ratio - lastPitchScale) > 0.005f)
-        {
-            stretcher->setPitchScale (static_cast<double> (ratio));
-            lastPitchScale = ratio;
-        }
-
-        // Feed the REAL input audio (read pointer)
-        const float* inPtrs[2] = { chL, chR };
-        stretcher->process (inPtrs, static_cast<size_t> (numSamples), false);
-
-        const int avail = stretcher->available();
-
-        // Write output to the OUTPUT buffer (write pointer — may differ from input)
         float* outL = buffer.getWritePointer (0);
         float* outR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
 
-        if (avail >= numSamples)
-        {
-            if (avail > numSamples * 3)
-            {
-                // Drain excess with pre-allocated scratch — no heap alloc
-                int excess = std::min (avail - numSamples, drainBufSize);
-                float* dp[2] = { drainL.data(), drainR.data() };
-                stretcher->retrieve (dp, static_cast<size_t> (excess));
-            }
-
-            float* outPtrs[2] = { outL, outR != nullptr ? outR : outL };
-            stretcher->retrieve (outPtrs, static_cast<size_t> (numSamples));
-        }
-        else if (avail > 0)
-        {
-            // Partial fill — output what we have, silence the remainder.
-            // Should only occur transiently after a pitch-scale jump.
-            float* outPtrs[2] = { outL, outR != nullptr ? outR : outL };
-            stretcher->retrieve (outPtrs, static_cast<size_t> (avail));
-            for (int i = avail; i < numSamples; ++i)
-            {
-                outL[i] = 0.0f;
-                if (outR != nullptr) outR[i] = 0.0f;
-            }
-        }
-        else
-        {
-            buffer.clear();
-        }
+        if (outL != chL)
+            std::copy (chL, chL + numSamples, outL);
+        if (outR != nullptr && outR != chR)
+            std::copy (chR, chR + numSamples, outR);
     }
-#else
-    juce::ignoreUnused (chL, chR);
+
+    juce::ignoreUnused (ratio);
+
+#ifdef HAVE_RUBBERBAND
+    juce::ignoreUnused (stretcher);
 #endif
 }
 
