@@ -68,11 +68,10 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     for (int i = 0; i < kGrainSize; ++i)
         grainWin[i] = 0.25f * (1.0f - std::cos (2.0f * juce::MathConstants<float>::pi
                                                   * static_cast<float> (i) / kGrainSize));
-    grainInWrite     = 0;
-    grainOutWrite    = 0;
-    grainOutRead     = 2048 - kGrainSize;
-    grainHop         = 0;
-    grainAnalysisPos = -static_cast<float> (kInitialDelay);  // kInitialDelay behind grainInWrite=0
+    grainInWrite  = 0;
+    grainOutWrite = 0;
+    grainOutRead  = 2048 - kGrainSize;   // lags grainOutWrite by kGrainSize
+    grainHop      = 0;
 
     setLatencySamples (kInitialDelay + kGrainSize);  // = 2048
 }
@@ -300,40 +299,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // Synthesise a new grain every kHopSize output samples
         if (grainHop <= 0)
         {
-            // WSOLA: search ±kWsRange samples around the nominal next analysis position
-            // for the position whose waveform best matches the end of the previous grain.
-            // This finds pitch-period-aligned positions without needing a pitch estimate,
-            // eliminating the inter-grain phase mismatch that causes flanging/doubling.
-            float nominalPos = grainAnalysisPos + static_cast<float> (kHopSize);
-
-            // WSOLA search — only when signal is non-silent (bestCorr > 0).
-            // For silent/zero input every lag gives corr=0, so bestDelta stays 0
-            // (nominal hop) rather than drifting to -kWsRange and collapsing the lag.
-            float bestCorr  = 0.0f;   // 0 threshold: skip search if signal is silent
-            int   bestDelta = 0;
-            for (int d = -kWsRange; d <= kWsRange; ++d)
-            {
-                float corr = 0.0f;
-                for (int t = 0; t < kWsLen; ++t)
-                {
-                    int ti = static_cast<int> (nominalPos - kWsLen + t) & kGrainInMask;
-                    int ci = static_cast<int> (nominalPos + d - kWsLen + t) & kGrainInMask;
-                    corr  += grainInL[ti] * grainInL[ci];
-                }
-                if (corr > bestCorr) { bestCorr = corr; bestDelta = d; }
-            }
-
-            float base = nominalPos + static_cast<float> (bestDelta);
-
-            // Safety clamp: keep analysis lag within [kInitialDelay/2 .. kInitialDelay*2]
-            // so we never read past the write head or fall too far behind.
-            float lag = static_cast<float> (grainInWrite) - base;
-            if (lag < static_cast<float> (kInitialDelay) / 2.0f ||
-                lag > static_cast<float> (kInitialDelay) * 2.0f)
-                base = static_cast<float> (grainInWrite) - static_cast<float> (kInitialDelay);
-
-            grainAnalysisPos = base;
-
+            const float base = static_cast<float> (grainInWrite) - static_cast<float> (kInitialDelay);
             for (int g = 0; g < kGrainSize; ++g)
             {
                 float rp   = base + static_cast<float> (g) / safeRatio;
