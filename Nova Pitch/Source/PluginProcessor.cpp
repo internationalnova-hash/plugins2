@@ -331,24 +331,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (outR != nullptr)
             outR[s] = h1R * (1.0f - blend) + h2R * blend;
 
-        // Smoothly ramp pitchRatioSmoothed toward 1.0 during crossfade, and back
-        // toward the correction target after.  A hard freeze → snap causes an audible
-        // pitch click when correction resumes; this ramp (τ ≈ 10 ms) is inaudible.
-        {
-            float ratioTarget = (shiftXfade >= 0) ? 1.0f : ratio;
-            pitchRatioSmoothed += 0.002f * (ratioTarget - pitchRatioSmoothed);
-        }
-
-        // ratio > 1 → delay shrinks (head approaches write) → pitch up
-        // ratio < 1 → delay grows (head falls behind write) → pitch down
-        shiftDelay1 -= (pitchRatioSmoothed - 1.0f);
-        shiftDelay2 -= (pitchRatioSmoothed - 1.0f);
+        // Freeze delay drift during crossfade so the blend traverses zero net distance.
+        // When both heads are stationary and phase-aligned the blend is perfectly clean.
+        float effectiveRatio = (shiftXfade >= 0) ? 1.0f : ratio;
+        shiftDelay1 -= (effectiveRatio - 1.0f);
+        shiftDelay2 -= (effectiveRatio - 1.0f);
 
         // Trigger a crossfade when head 1's delay goes out of range.
-        // Use WSOLA cross-correlation to find the input position near kInitialDelay
-        // whose waveform best matches the current head 1 position.  This avoids any
-        // dependence on an accurate pitch-period estimate and works for all signal
-        // types (voiced, unvoiced, transients).
+        // WSOLA search: scan ±kSearchRange samples around kInitialDelay and pick the
+        // position whose waveform best matches head 1. High cross-correlation guarantees
+        // phase coherence during the blend without needing an accurate pitch estimate.
         if (shiftXfade < 0 && (shiftDelay1 < kMinDelay || shiftDelay1 > kMaxDelay))
         {
             int pos1 = shiftWritePos - static_cast<int> (shiftDelay1);
