@@ -90,6 +90,7 @@ private:
     bool  correctionActive { false };
     int   lastTargetMidi   { -1 };
     float noteTargetRatio  { 1.0f };
+    int   pitchLockBlocks  { 0 };   // consecutive blocks of stable pitch; gates pitch-sync hop
 
     // ---------------------------------------------------------------
     // Granular OLA pitch shifter — grains always move forward, no crossfades

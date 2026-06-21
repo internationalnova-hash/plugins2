@@ -55,6 +55,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     correctionActive      = false;
     lastTargetMidi        = -1;
     noteTargetRatio       = 1.0f;
+    pitchLockBlocks       = 0;
     historyIndex          = 0;
     ph5index              = 0;
     pitchHistory5.fill (0.0f);
@@ -292,12 +293,24 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // Pitch-synchronous hop: align grain boundaries to detected pitch period to
     // eliminate inter-grain phase mismatch (the cause of phasiness/doubling).
     // OLA normalisation: S = (N/H) * mean(Hann) = N/(2H); scale each grain by 2H/N.
+    //
+    // Gate on pitchLockBlocks: require 2 consecutive blocks of stable pitch before
+    // switching from the fixed kHopSize fallback. This prevents startup garble when
+    // the YIN detector hasn't settled yet at voice onset.
     int pitchSyncHop = kHopSize;
     if (smoothedDetectedHz >= 100.0f && smoothedDetectedHz <= 800.0f)
     {
-        int period = static_cast<int> (std::round ((float)currentSampleRate / smoothedDetectedHz));
-        if (period >= 64 && period <= kGrainSize / 2)
-            pitchSyncHop = period;
+        ++pitchLockBlocks;
+        if (pitchLockBlocks >= 2)
+        {
+            int period = static_cast<int> (std::round ((float)currentSampleRate / smoothedDetectedHz));
+            if (period >= 64 && period <= kGrainSize / 2)
+                pitchSyncHop = period;
+        }
+    }
+    else
+    {
+        pitchLockBlocks = 0;
     }
     const float hopNorm = 2.0f * static_cast<float> (pitchSyncHop) / static_cast<float> (kGrainSize);
 
