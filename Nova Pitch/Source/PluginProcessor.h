@@ -90,8 +90,6 @@ private:
     int   lastTargetMidi   { -1 };
     float noteTargetRatio  { 1.0f };
 
-    // Smoothed ratio fed to the phase vocoder — avoids abrupt phase jumps
-    float pvSmoothedRatio  { 1.0f };
 
     // ---------------------------------------------------------------
     // Phase vocoder pitch shifter

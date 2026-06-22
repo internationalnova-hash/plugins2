@@ -56,7 +56,6 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     correctionActive      = false;
     lastTargetMidi        = -1;
     noteTargetRatio       = 1.0f;
-    pvSmoothedRatio       = 1.0f;
     historyIndex          = 0;
     ph5index              = 0;
     pitchHistory5.fill (0.0f);
@@ -201,11 +200,15 @@ void NovaPitchAudioProcessor::processPhaseVocoderFrame (float ratio)
         pvFFT->performRealOnlyInverseTransform (pvWork.data());
         // Real output at pvWork[2*i] for i = 0..kPVN-1 (JUCE divides by N)
 
-        // ── 7. Overlap-add (analysis window only, norm = 2H/N) ─────────────
+        // ── 7. Overlap-add ────────────────────────────────────────────────
+        // Analysis window is already baked into the IFFT output (IFFT(FFT(w·x))=w·x).
+        // Do NOT re-apply synthesis window — double windowing changes the COLA
+        // constant and causes the metallic/robotic phasing artifact.
+        // With analysis-only Hann at 4x overlap: Σ w[n-kH] ≈ 2.0 → kNorm = 0.5.
         for (int i = 0; i < kPVN; ++i)
         {
             int wi = (pvOutWrite + i) & kPVBufMsk;
-            pvOutBuf[ch][wi] += pvWork[2 * i] * pvWindow[i] * kNorm;
+            pvOutBuf[ch][wi] += pvWork[2 * i] * kNorm;
         }
     }
 
@@ -416,11 +419,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     float* outL = buffer.getWritePointer (0);
     float* outR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
 
-    // Smooth the ratio with a fast attack / slow release to absorb YIN jitter
-    // without adding audible pitch wobble. Time constant ≈ 30 ms at 48 kHz / 2288 buf.
-    const float ratioAlpha = 0.08f;
-    pvSmoothedRatio += ratioAlpha * (ratio - pvSmoothedRatio);
-    const float frameRatio = juce::jlimit (0.5f, 2.0f, pvSmoothedRatio);
+    // YIN already has its own IIR (smoothedDetectedHz).  Adding another smoothing
+    // layer on the ratio causes double-filtering → overshoot → audible wobble.
+    // Pass ratio directly; the phase vocoder's phase accumulation handles gradual
+    // transitions naturally.
+    const float frameRatio = juce::jlimit (0.5f, 2.0f, ratio);
 
     // ── Per-sample phase vocoder I/O ────────────────────────────────────────
     for (int s = 0; s < numSamples; ++s)
