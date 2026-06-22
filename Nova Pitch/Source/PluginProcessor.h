@@ -98,9 +98,10 @@ private:
     // ---------------------------------------------------------------
     std::unique_ptr<RubberBand::RubberBandStretcher> stretcher;
 
-    // Pre-allocated scratch buffers for RubberBand retrieve — no audio-thread allocs
+    // Pre-allocated buffers — no heap allocs on audio thread
     static constexpr int kScratchSize = 8192;
     std::vector<float> rbScratchL, rbScratchR;
+    std::vector<float> rbInputL,   rbInputR;   // input copy to avoid const* mismatch
 
     // Lock-free circular FIFO — holds RubberBand output until processBlock drains it
     static constexpr int kFifoSize = 32768;   // power of 2

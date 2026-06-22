@@ -62,13 +62,14 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 
     // ---------------------------------------------------------------
     // RubberBand phase-vocoder setup
-    // R3 engine (OptionEngineFiner) uses a high-quality phase vocoder
-    // identical in architecture to professional pitch correctors.
-    // OptionPitchHighConsistency keeps pitch stable across retune steps.
+    // OptionEngineFaster = R2 engine: classic phase vocoder, ~512-sample
+    // latency in real-time mode — suitable for live pitch correction.
+    // (R3/OptionEngineFiner sounds marginally better but has 8000+ sample
+    // latency that causes audible delay even with PDC.)
     // ---------------------------------------------------------------
     using RBS = RubberBand::RubberBandStretcher;
     const RBS::Options opts = RBS::OptionProcessRealTime
-                            | RBS::OptionEngineFiner
+                            | RBS::OptionEngineFaster
                             | RBS::OptionPitchHighConsistency;
 
     stretcher = std::make_unique<RBS> (
@@ -79,9 +80,11 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     // Report latency so the DAW's PDC keeps other tracks in sync
     setLatencySamples (static_cast<int> (stretcher->getLatency()));
 
-    // Pre-allocated scratch and FIFO — no allocs on audio thread
+    // Pre-allocated scratch, input copy, and FIFO — no allocs on audio thread
     rbScratchL.assign (kScratchSize, 0.0f);
     rbScratchR.assign (kScratchSize, 0.0f);
+    rbInputL.assign   (kScratchSize, 0.0f);
+    rbInputR.assign   (kScratchSize, 0.0f);
     fifoL.assign (kFifoSize, 0.0f);
     fifoR.assign (kFifoSize, 0.0f);
     fifoWrite = 0;
@@ -304,12 +307,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // ----------------------------------------------------------------
     stretcher->setPitchScale (static_cast<double> (ratio));
 
-    // Feed input (RubberBand expects non-const float**, so we copy into scratch)
-    juce::AudioBuffer<float> inputCopy (2, numSamples);
-    inputCopy.copyFrom (0, 0, chL, numSamples);
-    inputCopy.copyFrom (1, 0, chR, numSamples);
-    const float* inputs[2] = { inputCopy.getReadPointer (0),
-                                inputCopy.getReadPointer (1) };
+    // Copy input into pre-allocated buffers (RubberBand needs non-const float**)
+    std::copy (chL, chL + numSamples, rbInputL.data());
+    std::copy (chR, chR + numSamples, rbInputR.data());
+    const float* inputs[2] = { rbInputL.data(), rbInputR.data() };
     stretcher->process (inputs, static_cast<size_t> (numSamples), false);
 
     // Drain all available output into FIFO (no allocs — FIFO is pre-allocated)
