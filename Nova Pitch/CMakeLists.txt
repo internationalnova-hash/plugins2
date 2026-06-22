@@ -16,7 +16,6 @@ endif()
 project(NovaPitch VERSION 1.0.0)
 
 include(FetchContent)
-include(ExternalProject)
 
 FetchContent_Declare(
     juce
@@ -26,36 +25,32 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(juce)
 
 # ---------------------------------------------------------------------------
-# RubberBand — build from source as an ExternalProject so CMake passes
-# the correct CMAKE_OSX_ARCHITECTURES through, producing a proper fat binary.
+# RubberBand — compile via its single-file amalgamation so no external build
+# system (Meson) is needed.  CMake handles OSX_ARCHITECTURES automatically,
+# producing a correct universal fat library.
 # ---------------------------------------------------------------------------
-set(RUBBERBAND_INSTALL_DIR "${CMAKE_BINARY_DIR}/rubberband-install")
-
-ExternalProject_Add(rubberband_ext
+FetchContent_Declare(
+    rubberband
     GIT_REPOSITORY https://github.com/breakfastquay/rubberband.git
     GIT_TAG        v3.3.0
     GIT_SHALLOW    TRUE
-    CMAKE_ARGS
-        -DCMAKE_BUILD_TYPE=Release
-        -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}
-        -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}
-        -DCMAKE_INSTALL_PREFIX=${RUBBERBAND_INSTALL_DIR}
-        -DUSE_BUILTIN_FFT=ON
-    BUILD_BYPRODUCTS "${RUBBERBAND_INSTALL_DIR}/lib/librubberband.a"
 )
+FetchContent_MakeAvailable(rubberband)
+FetchContent_GetProperties(rubberband)
 
-# Pre-create the install directories so CMake doesn't reject the imported
-# target at configure time (ExternalProject builds happen at build time).
-file(MAKE_DIRECTORY "${RUBBERBAND_INSTALL_DIR}/include")
-file(MAKE_DIRECTORY "${RUBBERBAND_INSTALL_DIR}/lib")
-
-# Import the built library as a target
-add_library(rubberband_imported STATIC IMPORTED GLOBAL)
-add_dependencies(rubberband_imported rubberband_ext)
-set_target_properties(rubberband_imported PROPERTIES
-    IMPORTED_LOCATION "${RUBBERBAND_INSTALL_DIR}/lib/librubberband.a"
-    INTERFACE_INCLUDE_DIRECTORIES "${RUBBERBAND_INSTALL_DIR}/include"
+add_library(rubberband_single STATIC
+    "${rubberband_SOURCE_DIR}/single/RubberBandSingle.cpp"
 )
+target_include_directories(rubberband_single PUBLIC "${rubberband_SOURCE_DIR}")
+# HAVE_VDSP: use Apple Accelerate/vDSP for FFT (fast, always available on macOS)
+# USE_BQRESAMPLER: use RubberBand's bundled resampler (no libsamplerate needed)
+target_compile_definitions(rubberband_single PRIVATE
+    HAVE_VDSP=1
+    USE_BQRESAMPLER=1
+)
+if(APPLE)
+    target_link_libraries(rubberband_single PUBLIC "-framework Accelerate")
+endif()
 
 set(PLUGIN_TARGET NovaPitch)
 set(NEEDS_WEBVIEW2 FALSE)
@@ -125,7 +120,7 @@ target_sources(${PLUGIN_TARGET}
 target_link_libraries(${PLUGIN_TARGET}
     PRIVATE
         NovaPitch_WebUI
-        rubberband_imported
+        rubberband_single
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats
@@ -145,10 +140,6 @@ target_link_libraries(${PLUGIN_TARGET}
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
 )
-
-if(APPLE)
-    target_link_libraries(${PLUGIN_TARGET} PRIVATE "-framework Accelerate")
-endif()
 
     target_compile_definitions(${PLUGIN_TARGET}
     PUBLIC
