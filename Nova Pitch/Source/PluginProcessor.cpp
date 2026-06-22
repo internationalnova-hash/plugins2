@@ -44,6 +44,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
 {
     currentSampleRate = sampleRate;
 
+    // YIN reset
     yinBuf.assign    (yinBufferSize, 0.0f);
     yinLinear.assign (yinBufferSize, 0.0f);
     yinD.assign      (yinBufferSize / 2, 0.0f);
@@ -55,29 +56,163 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     correctionActive      = false;
     lastTargetMidi        = -1;
     noteTargetRatio       = 1.0f;
-    pitchLockBlocks       = 0;
+    pvSmoothedRatio       = 1.0f;
     historyIndex          = 0;
     ph5index              = 0;
     pitchHistory5.fill (0.0f);
 
-    // Granular OLA reset
-    grainInL.fill  (0.0f);
-    grainInR.fill  (0.0f);
-    grainOutL.fill (0.0f);
-    grainOutR.fill (0.0f);
-    // Pure Hann window; normalization applied per-grain based on actual hop size
-    for (int i = 0; i < kGrainSize; ++i)
-        grainWin[i] = 0.5f * (1.0f - std::cos (2.0f * juce::MathConstants<float>::pi
-                                                 * static_cast<float> (i) / kGrainSize));
-    grainInWrite  = 0;
-    grainOutWrite = 0;
-    grainOutRead  = 2048 - kGrainSize;   // lags grainOutWrite by kGrainSize
-    grainHop      = 0;
+    // Phase vocoder init
+    pvFFT = std::make_unique<juce::dsp::FFT> (kPVOrder);
 
-    setLatencySamples (kInitialDelay + kGrainSize);  // = 2048
+    pvWindow.resize (kPVN);
+    for (int i = 0; i < kPVN; ++i)
+        pvWindow[i] = 0.5f * (1.0f - std::cos (juce::MathConstants<float>::twoPi
+                                                * static_cast<float> (i) / static_cast<float> (kPVN)));
+
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        pvInBuf[ch].assign    (kPVBufSz, 0.0f);
+        pvOutBuf[ch].assign   (kPVBufSz, 0.0f);
+        pvLastPhase[ch].assign  (kPVBins, 0.0f);
+        pvSynthPhase[ch].assign (kPVBins, 0.0f);
+    }
+
+    pvAnaMag.assign (kPVBins, 0.0f);
+    pvAnaFreq.assign (kPVBins, 0.0f);
+    pvSynMag.assign (kPVBins, 0.0f);
+    pvSynFreq.assign (kPVBins, 0.0f);
+    pvWork.assign (kPVBufSz, 0.0f);   // 2*kPVN interleaved complex floats
+
+    pvInWrite  = 0;
+    pvOutWrite = 0;
+    // Read pointer lags write pointer by kPVN — this is the plugin latency
+    pvOutRead  = kPVBufSz - kPVN;
+    pvHopCount = kPVN;   // wait one full frame before first process
+
+    setLatencySamples (kPVN);  // 2048 samples at 48 kHz ≈ 42 ms
 }
 
 void NovaPitchAudioProcessor::releaseResources() {}
+
+// ---------------------------------------------------------------------------
+// Phase vocoder frame processor
+//   ratio > 1 → shift pitch up, ratio < 1 → shift pitch down
+//   Called every kPVHop samples.
+// ---------------------------------------------------------------------------
+void NovaPitchAudioProcessor::processPhaseVocoderFrame (float ratio)
+{
+    constexpr float twoPi = juce::MathConstants<float>::twoPi;
+    constexpr float pi    = juce::MathConstants<float>::pi;
+    constexpr float twoPiOverN = twoPi / static_cast<float> (kPVN);
+
+    // OLA normalization: Hann window at 4x overlap sums to ~2.0 per point,
+    // JUCE IFFT divides by N, so net scale per frame needs to be 2*H/N = 0.5
+    constexpr float kNorm = 2.0f * static_cast<float> (kPVHop) / static_cast<float> (kPVN);
+
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        // ── 1. Build windowed, interleaved-complex analysis frame ──────────
+        for (int i = 0; i < kPVN; ++i)
+        {
+            int ri = (pvInWrite - kPVN + i) & kPVBufMsk;
+            pvWork[2 * i]     = pvInBuf[ch][ri] * pvWindow[i];
+            pvWork[2 * i + 1] = 0.0f;
+        }
+
+        // ── 2. Forward FFT ─────────────────────────────────────────────────
+        pvFFT->performRealOnlyForwardTransform (pvWork.data());
+        // Output: interleaved complex in pvWork[0..2*kPVN-1]
+
+        // ── 3. Analysis: compute magnitude + instantaneous frequency ────────
+        for (int k = 0; k < kPVBins; ++k)
+        {
+            const float re  = pvWork[2 * k];
+            const float im  = pvWork[2 * k + 1];
+            const float mag = std::sqrt (re * re + im * im);
+            const float phi = std::atan2 (im, re);
+
+            // Phase difference from previous frame
+            float delta = phi - pvLastPhase[ch][k];
+            pvLastPhase[ch][k] = phi;
+
+            // Remove expected phase advance for bin k (= k * 2π/N * H)
+            const float expected = static_cast<float> (k) * twoPiOverN * static_cast<float> (kPVHop);
+            delta -= expected;
+
+            // Wrap to [-π, π]
+            delta -= twoPi * std::round (delta / twoPi);
+
+            // True instantaneous frequency in rad/sample
+            pvAnaFreq[k] = static_cast<float> (k) * twoPiOverN + delta / static_cast<float> (kPVHop);
+            pvAnaMag[k]  = mag;
+        }
+
+        // ── 4. Spectral pitch shift ────────────────────────────────────────
+        std::fill (pvSynMag.begin(),  pvSynMag.end(),  0.0f);
+        std::fill (pvSynFreq.begin(), pvSynFreq.end(), 0.0f);
+
+        for (int k = 0; k < kPVBins; ++k)
+        {
+            // Map analysis bin k to synthesis bin j = k * ratio
+            const float fj = static_cast<float> (k) * ratio;
+            const int   j  = static_cast<int> (fj);
+
+            // Linear interpolation into adjacent bins for smoother shifting
+            if (j >= 0 && j < kPVBins - 1)
+            {
+                const float frac = fj - static_cast<float> (j);
+                const float mag  = pvAnaMag[k];
+                const float freq = pvAnaFreq[k] * ratio;
+
+                if (mag > pvSynMag[j])
+                {
+                    pvSynMag[j]  = mag * (1.0f - frac);
+                    pvSynFreq[j] = freq;
+                }
+                if (mag * frac > pvSynMag[j + 1])
+                {
+                    pvSynMag[j + 1]  = mag * frac;
+                    pvSynFreq[j + 1] = freq;
+                }
+            }
+            else if (j == kPVBins - 1 && pvAnaMag[k] > pvSynMag[j])
+            {
+                pvSynMag[j]  = pvAnaMag[k];
+                pvSynFreq[j] = pvAnaFreq[k] * ratio;
+            }
+        }
+
+        // ── 5. Synthesis: accumulate phase, build IFFT input ───────────────
+        for (int j = 0; j < kPVBins; ++j)
+        {
+            pvSynthPhase[ch][j] += pvSynFreq[j] * static_cast<float> (kPVHop);
+            pvWork[2 * j]     = pvSynMag[j] * std::cos (pvSynthPhase[ch][j]);
+            pvWork[2 * j + 1] = pvSynMag[j] * std::sin (pvSynthPhase[ch][j]);
+        }
+
+        // Fill conjugate symmetric bins for IFFT (bins N/2+1 .. N-1)
+        for (int k = 1; k < kPVN / 2; ++k)
+        {
+            pvWork[2 * (kPVN - k)]     =  pvWork[2 * k];
+            pvWork[2 * (kPVN - k) + 1] = -pvWork[2 * k + 1];
+        }
+
+        // ── 6. Inverse FFT ─────────────────────────────────────────────────
+        pvFFT->performRealOnlyInverseTransform (pvWork.data());
+        // Real output at pvWork[2*i] for i = 0..kPVN-1 (JUCE divides by N)
+
+        // ── 7. Overlap-add (analysis window only, norm = 2H/N) ─────────────
+        for (int i = 0; i < kPVN; ++i)
+        {
+            int wi = (pvOutWrite + i) & kPVBufMsk;
+            pvOutBuf[ch][wi] += pvWork[2 * i] * pvWindow[i] * kNorm;
+        }
+    }
+
+    pvOutWrite = (pvOutWrite + kPVHop) & kPVBufMsk;
+}
+
+// ---------------------------------------------------------------------------
 
 float NovaPitchAudioProcessor::detectYIN (const float* samples, int n, float* d, float* cmnd)
 {
@@ -166,15 +301,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const int numSamples  = buffer.getNumSamples();
     const int numChannels = buffer.getNumChannels();
 
-    // ----------------------------------------------------------------
-    // Capture input BEFORE any writes (handles separate I/O buffers)
-    // ----------------------------------------------------------------
     const float* chL = buffer.getReadPointer (0);
     const float* chR = (numChannels > 1) ? buffer.getReadPointer (1) : chL;
 
-    // ----------------------------------------------------------------
-    // Pitch detection — YIN on mono mix of input
-    // ----------------------------------------------------------------
+    // ── Pitch detection (YIN on mono mix) ──────────────────────────────────
     for (int s = 0; s < numSamples; ++s)
     {
         yinBuf[(size_t)yinWritePos] = (chL[s] + chR[s]) * 0.5f;
@@ -230,9 +360,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     detectedPitch.store (smoothedDetectedHz);
 
-    // ----------------------------------------------------------------
-    // Correction ratio
-    // ----------------------------------------------------------------
+    // ── Correction ratio ────────────────────────────────────────────────────
     float amount    = apvts.getRawParameterValue ("amount")->load() / 100.0f;
     float tolerance = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
     float ratio = 1.0f;
@@ -288,67 +416,35 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     float* outL = buffer.getWritePointer (0);
     float* outR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
 
-    const float safeRatio = juce::jlimit (0.5f, 2.0f, ratio);
+    // Smooth the ratio with a fast attack / slow release to absorb YIN jitter
+    // without adding audible pitch wobble. Time constant ≈ 30 ms at 48 kHz / 2288 buf.
+    const float ratioAlpha = 0.08f;
+    pvSmoothedRatio += ratioAlpha * (ratio - pvSmoothedRatio);
+    const float frameRatio = juce::jlimit (0.5f, 2.0f, pvSmoothedRatio);
 
-    // Pitch-synchronous hop: align grain boundaries to detected pitch period to
-    // eliminate inter-grain phase mismatch (the cause of phasiness/doubling).
-    // OLA normalisation: S = (N/H) * mean(Hann) = N/(2H); scale each grain by 2H/N.
-    //
-    // Gate on pitchLockBlocks: require 2 consecutive blocks of stable pitch before
-    // switching from the fixed kHopSize fallback. This prevents startup garble when
-    // the YIN detector hasn't settled yet at voice onset.
-    int pitchSyncHop = kHopSize;
-    if (smoothedDetectedHz >= 100.0f && smoothedDetectedHz <= 800.0f)
-    {
-        ++pitchLockBlocks;
-        if (pitchLockBlocks >= 2)
-        {
-            int period = static_cast<int> (std::round ((float)currentSampleRate / smoothedDetectedHz));
-            if (period >= 64 && period <= kGrainSize / 2)
-                pitchSyncHop = period;
-        }
-    }
-    else
-    {
-        pitchLockBlocks = 0;
-    }
-    const float hopNorm = 2.0f * static_cast<float> (pitchSyncHop) / static_cast<float> (kGrainSize);
-
+    // ── Per-sample phase vocoder I/O ────────────────────────────────────────
     for (int s = 0; s < numSamples; ++s)
     {
-        // Write input
-        grainInL[grainInWrite & kGrainInMask] = chL[s];
-        grainInR[grainInWrite & kGrainInMask] = chR[s];
-        grainInWrite++;
+        // Write stereo input to ring buffers
+        const int wi = pvInWrite & kPVBufMsk;
+        pvInBuf[0][wi] = chL[s];
+        pvInBuf[1][wi] = chR[s];
+        pvInWrite++;
 
-        // Synthesise a new grain every pitchSyncHop output samples
-        if (grainHop <= 0)
+        // Fire a new phase vocoder frame every kPVHop input samples
+        if (--pvHopCount <= 0)
         {
-            const float base = static_cast<float> (grainInWrite) - static_cast<float> (kInitialDelay);
-            for (int g = 0; g < kGrainSize; ++g)
-            {
-                float rp   = base + static_cast<float> (g) / safeRatio;
-                int   ri   = static_cast<int> (std::floor (rp)) & kGrainInMask;
-                int   ri1  = (ri + 1) & kGrainInMask;
-                float frac = rp - std::floor (rp);
-                float wg   = grainWin[g] * hopNorm;
-                grainOutL[(grainOutWrite + g) & kGrainOutMask] +=
-                    (grainInL[ri] + frac * (grainInL[ri1] - grainInL[ri])) * wg;
-                grainOutR[(grainOutWrite + g) & kGrainOutMask] +=
-                    (grainInR[ri] + frac * (grainInR[ri1] - grainInR[ri])) * wg;
-            }
-            grainOutWrite = (grainOutWrite + pitchSyncHop) & kGrainOutMask;
-            grainHop = pitchSyncHop;
+            processPhaseVocoderFrame (frameRatio);
+            pvHopCount = kPVHop;
         }
-        grainHop--;
 
-        // Read from OLA accumulator (clear after reading to avoid accumulation)
-        int ro = grainOutRead & kGrainOutMask;
-        outL[s] = grainOutL[ro];
-        if (outR) outR[s] = grainOutR[ro];
-        grainOutL[ro] = 0.0f;
-        grainOutR[ro] = 0.0f;
-        grainOutRead  = (grainOutRead + 1) & kGrainOutMask;
+        // Read output and clear so OLA accumulation stays clean
+        const int ro = pvOutRead & kPVBufMsk;
+        outL[s] = pvOutBuf[0][ro];
+        if (outR) outR[s] = pvOutBuf[1][ro];
+        pvOutBuf[0][ro] = 0.0f;
+        pvOutBuf[1][ro] = 0.0f;
+        pvOutRead++;
     }
 }
 

@@ -58,7 +58,6 @@ private:
 
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    // YIN uses pre-allocated arrays passed in — no heap allocs on audio thread
     float detectYIN (const float* samples, int n, float* d, float* cmnd);
     int   quantizeToScale (float hz);
     float midiToHz (int midi) const;
@@ -67,7 +66,7 @@ private:
     double currentSampleRate { 44100.0 };
     int    currentBlockSize  { 512 };
 
-    // YIN buffers — all pre-allocated in prepareToPlay, zero heap on audio thread
+    // YIN pitch detection
     std::vector<float> yinBuf;
     std::vector<float> yinLinear;
     std::vector<float> yinD;
@@ -90,27 +89,42 @@ private:
     bool  correctionActive { false };
     int   lastTargetMidi   { -1 };
     float noteTargetRatio  { 1.0f };
-    int   pitchLockBlocks  { 0 };   // consecutive blocks of stable pitch; gates pitch-sync hop
+
+    // Smoothed ratio fed to the phase vocoder — avoids abrupt phase jumps
+    float pvSmoothedRatio  { 1.0f };
 
     // ---------------------------------------------------------------
-    // Granular OLA pitch shifter — grains always move forward, no crossfades
+    // Phase vocoder pitch shifter
+    //   FFT size N = 2048, hop H = 512 (4x overlap), latency = N samples
     // ---------------------------------------------------------------
-    static constexpr int kGrainSize    = 512;
-    static constexpr int kHopSize      = 128;   // 4x overlap; reduces inter-grain phase mismatch
-    static constexpr int kInitialDelay = 1536;   // input lag; latency = kInitialDelay + kGrainSize
-    static constexpr int kGrainInMask  = 4096 - 1;
-    static constexpr int kGrainOutMask = 2048 - 1;
+    static constexpr int kPVOrder  = 11;                    // 2^11 = 2048
+    static constexpr int kPVN      = 1 << kPVOrder;        // 2048
+    static constexpr int kPVHop    = kPVN / 4;             // 512
+    static constexpr int kPVBins   = kPVN / 2 + 1;         // 1025
+    static constexpr int kPVBufSz  = kPVN * 2;             // 4096 ring buffer
+    static constexpr int kPVBufMsk = kPVBufSz - 1;
 
-    std::array<float, 4096> grainInL  {};
-    std::array<float, 4096> grainInR  {};
-    std::array<float, 2048> grainOutL {};
-    std::array<float, 2048> grainOutR {};
-    std::array<float, kGrainSize> grainWin {};
+    std::unique_ptr<juce::dsp::FFT> pvFFT;
 
-    int grainInWrite  { 0 };
-    int grainOutWrite { 0 };
-    int grainOutRead  { 0 };
-    int grainHop      { 0 };
+    std::vector<float> pvWindow;                     // Hann window [kPVN]
+    std::array<std::vector<float>, 2> pvInBuf;       // input ring [kPVBufSz]
+    std::array<std::vector<float>, 2> pvOutBuf;      // OLA output [kPVBufSz]
+    std::array<std::vector<float>, 2> pvLastPhase;   // analysis phase [kPVBins]
+    std::array<std::vector<float>, 2> pvSynthPhase;  // synthesis phase accumulator [kPVBins]
+
+    // Per-frame scratch (shared between L/R, processed sequentially)
+    std::vector<float> pvAnaMag;   // [kPVBins]
+    std::vector<float> pvAnaFreq;  // [kPVBins] instantaneous freq (rad/sample)
+    std::vector<float> pvSynMag;   // [kPVBins]
+    std::vector<float> pvSynFreq;  // [kPVBins]
+    std::vector<float> pvWork;     // interleaved complex FFT work [kPVBufSz]
+
+    int pvInWrite  { 0 };
+    int pvOutRead  { 0 };
+    int pvOutWrite { 0 };
+    int pvHopCount { 0 };   // counts down to next frame
+
+    void processPhaseVocoderFrame (float ratio);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };
