@@ -44,6 +44,11 @@ ExternalProject_Add(rubberband_ext
     BUILD_BYPRODUCTS "${RUBBERBAND_INSTALL_DIR}/lib/librubberband.a"
 )
 
+# Pre-create the install directories so CMake doesn't reject the imported
+# target at configure time (ExternalProject builds happen at build time).
+file(MAKE_DIRECTORY "${RUBBERBAND_INSTALL_DIR}/include")
+file(MAKE_DIRECTORY "${RUBBERBAND_INSTALL_DIR}/lib")
+
 # Import the built library as a target
 add_library(rubberband_imported STATIC IMPORTED GLOBAL)
 add_dependencies(rubberband_imported rubberband_ext)
