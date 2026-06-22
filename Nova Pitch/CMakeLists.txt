@@ -24,27 +24,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
-FetchContent_Declare(
-    rubberband
-    GIT_REPOSITORY https://github.com/breakfastquay/rubberband.git
-    GIT_TAG        v3.3.0
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(rubberband)
-FetchContent_GetProperties(rubberband)
-
-add_library(rubberband_single STATIC
-    "${rubberband_SOURCE_DIR}/single/RubberBandSingle.cpp"
-)
-set_target_properties(rubberband_single PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
-target_include_directories(rubberband_single PUBLIC "${rubberband_SOURCE_DIR}")
-target_compile_definitions(rubberband_single PRIVATE
-    USE_BUILTIN_FFT=1
-    USE_BQRESAMPLER=1
-)
-if(APPLE)
-    target_link_libraries(rubberband_single PUBLIC "-framework Accelerate")
-endif()
 
 set(RUBBERBAND_LINK_TARGETS "")
 
@@ -116,7 +95,6 @@ target_sources(${PLUGIN_TARGET}
 target_link_libraries(${PLUGIN_TARGET}
     PRIVATE
         NovaPitch_WebUI
-        rubberband_single
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats
