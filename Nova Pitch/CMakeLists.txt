@@ -43,10 +43,10 @@ add_library(rubberband_single STATIC
 )
 set_target_properties(rubberband_single PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 target_include_directories(rubberband_single PUBLIC "${rubberband_SOURCE_DIR}")
-# HAVE_VDSP: use Apple Accelerate/vDSP for FFT (fast, always available on macOS)
-# USE_BQRESAMPLER: use RubberBand's bundled resampler (no libsamplerate needed)
+# USE_BUILTIN_FFT: self-contained KissFFT — no vDSP session init required.
+# USE_BQRESAMPLER: bundled resampler, no libsamplerate dependency.
 target_compile_definitions(rubberband_single PRIVATE
-    HAVE_VDSP=1
+    USE_BUILTIN_FFT=1
     USE_BQRESAMPLER=1
 )
 if(APPLE)
