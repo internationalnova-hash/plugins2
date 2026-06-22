@@ -7,11 +7,8 @@ set(JUCE_VST2SDK_PATH "" CACHE PATH "" FORCE)
 cmake_minimum_required(VERSION 3.15)
 
 if(APPLE)
-    # brew install rubberband provides arm64 only on Apple Silicon runners,
-    # so we match that architecture here. Change to "arm64;x86_64" only when
-    # a universal rubberband fat library is available.
     if(NOT DEFINED CMAKE_OSX_ARCHITECTURES OR CMAKE_OSX_ARCHITECTURES STREQUAL "")
-        set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "")
+        set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
     endif()
     set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "" FORCE)
 endif()
@@ -19,6 +16,8 @@ endif()
 project(NovaPitch VERSION 1.0.0)
 
 include(FetchContent)
+include(ExternalProject)
+
 FetchContent_Declare(
     juce
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
@@ -26,17 +25,32 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
-# RubberBand — locate the copy installed by brew (arm64 on Apple Silicon CI)
-if(APPLE)
-    find_library(RUBBERBAND_LIB rubberband
-        HINTS /opt/homebrew/lib /usr/local/lib
-        REQUIRED)
-    find_path(RUBBERBAND_INCLUDE_DIR rubberband/RubberBandStretcher.h
-        HINTS /opt/homebrew/include /usr/local/include
-        REQUIRED)
-    message(STATUS "RubberBand lib:     ${RUBBERBAND_LIB}")
-    message(STATUS "RubberBand include: ${RUBBERBAND_INCLUDE_DIR}")
-endif()
+# ---------------------------------------------------------------------------
+# RubberBand — build from source as an ExternalProject so CMake passes
+# the correct CMAKE_OSX_ARCHITECTURES through, producing a proper fat binary.
+# ---------------------------------------------------------------------------
+set(RUBBERBAND_INSTALL_DIR "${CMAKE_BINARY_DIR}/rubberband-install")
+
+ExternalProject_Add(rubberband_ext
+    GIT_REPOSITORY https://github.com/breakfastquay/rubberband.git
+    GIT_TAG        v3.3.0
+    GIT_SHALLOW    TRUE
+    CMAKE_ARGS
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}
+        -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}
+        -DCMAKE_INSTALL_PREFIX=${RUBBERBAND_INSTALL_DIR}
+        -DUSE_BUILTIN_FFT=ON
+    BUILD_BYPRODUCTS "${RUBBERBAND_INSTALL_DIR}/lib/librubberband.a"
+)
+
+# Import the built library as a target
+add_library(rubberband_imported STATIC IMPORTED GLOBAL)
+add_dependencies(rubberband_imported rubberband_ext)
+set_target_properties(rubberband_imported PROPERTIES
+    IMPORTED_LOCATION "${RUBBERBAND_INSTALL_DIR}/lib/librubberband.a"
+    INTERFACE_INCLUDE_DIRECTORIES "${RUBBERBAND_INSTALL_DIR}/include"
+)
 
 set(PLUGIN_TARGET NovaPitch)
 set(NEEDS_WEBVIEW2 FALSE)
@@ -106,6 +120,7 @@ target_sources(${PLUGIN_TARGET}
 target_link_libraries(${PLUGIN_TARGET}
     PRIVATE
         NovaPitch_WebUI
+        rubberband_imported
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats
@@ -127,10 +142,7 @@ target_link_libraries(${PLUGIN_TARGET}
 )
 
 if(APPLE)
-    target_include_directories(${PLUGIN_TARGET} PRIVATE ${RUBBERBAND_INCLUDE_DIR})
-    target_link_libraries(${PLUGIN_TARGET} PRIVATE
-        ${RUBBERBAND_LIB}
-        "-framework Accelerate")
+    target_link_libraries(${PLUGIN_TARGET} PRIVATE "-framework Accelerate")
 endif()
 
     target_compile_definitions(${PLUGIN_TARGET}
