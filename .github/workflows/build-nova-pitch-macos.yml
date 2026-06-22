@@ -19,7 +19,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Build Dependencies
-        run: brew install cmake
+        run: |
+          brew install cmake
 
       - name: Clean build directory
         run: rm -rf "Nova Pitch/build"

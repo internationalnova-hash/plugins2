@@ -40,10 +40,9 @@ NovaPitchAudioProcessor::createParameterLayout()
     return { params.begin(), params.end() };
 }
 
-void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
 {
     currentSampleRate = sampleRate;
-    currentBlockSize  = samplesPerBlock;
 
     yinBuf.assign    (yinBufferSize, 0.0f);
     yinLinear.assign (yinBufferSize, 0.0f);
@@ -56,29 +55,26 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     correctionActive      = false;
     lastTargetMidi        = -1;
     noteTargetRatio       = 1.0f;
+    pitchLockBlocks       = 0;
     historyIndex          = 0;
     ph5index              = 0;
     pitchHistory5.fill (0.0f);
 
-    // ---------------------------------------------------------------
-    // RubberBand R2 phase-vocoder — real-time pitch shifting only.
-    // Default options give the lowest latency compatible with correct output.
-    // ---------------------------------------------------------------
-    using RBS = RubberBand::RubberBandStretcher;
-    stretcher = std::make_unique<RBS> (
-        static_cast<size_t> (sampleRate), 2,
-        RBS::OptionProcessRealTime | RBS::OptionEngineFaster);
-    stretcher->setTimeRatio (1.0);
-    stretcher->setPitchScale (1.0);
+    // Granular OLA reset
+    grainInL.fill  (0.0f);
+    grainInR.fill  (0.0f);
+    grainOutL.fill (0.0f);
+    grainOutR.fill (0.0f);
+    // Pure Hann window; normalization applied per-grain based on actual hop size
+    for (int i = 0; i < kGrainSize; ++i)
+        grainWin[i] = 0.5f * (1.0f - std::cos (2.0f * juce::MathConstants<float>::pi
+                                                 * static_cast<float> (i) / kGrainSize));
+    grainInWrite  = 0;
+    grainOutWrite = 0;
+    grainOutRead  = 2048 - kGrainSize;   // lags grainOutWrite by kGrainSize
+    grainHop      = 0;
 
-    // Report latency so the DAW's PDC keeps other tracks in sync
-    setLatencySamples (static_cast<int> (stretcher->getLatency()));
-
-    // Pre-allocated buffers — no heap allocs on audio thread
-    rbScratchL.assign (kScratchSize, 0.0f);
-    rbScratchR.assign (kScratchSize, 0.0f);
-    rbInputL.assign   (kScratchSize, 0.0f);
-    rbInputR.assign   (kScratchSize, 0.0f);
+    setLatencySamples (kInitialDelay + kGrainSize);  // = 2048
 }
 
 void NovaPitchAudioProcessor::releaseResources() {}
@@ -292,38 +288,67 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     float* outL = buffer.getWritePointer (0);
     float* outR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
 
-    // ----------------------------------------------------------------
-    // RubberBand phase-vocoder pitch shift
-    // ----------------------------------------------------------------
-    stretcher->setPitchScale (static_cast<double> (ratio));
+    const float safeRatio = juce::jlimit (0.5f, 2.0f, ratio);
 
-    std::copy (chL, chL + numSamples, rbInputL.data());
-    std::copy (chR, chR + numSamples, rbInputR.data());
-    const float* inputs[2] = { rbInputL.data(), rbInputR.data() };
-    stretcher->process (inputs, static_cast<size_t> (numSamples), false);
-
-    int avail = stretcher->available();
-    if (avail >= numSamples)
+    // Pitch-synchronous hop: align grain boundaries to detected pitch period to
+    // eliminate inter-grain phase mismatch (the cause of phasiness/doubling).
+    // OLA normalisation: S = (N/H) * mean(Hann) = N/(2H); scale each grain by 2H/N.
+    //
+    // Gate on pitchLockBlocks: require 2 consecutive blocks of stable pitch before
+    // switching from the fixed kHopSize fallback. This prevents startup garble when
+    // the YIN detector hasn't settled yet at voice onset.
+    int pitchSyncHop = kHopSize;
+    if (smoothedDetectedHz >= 100.0f && smoothedDetectedHz <= 800.0f)
     {
-        // Steady state: retrieve directly into output buffers
-        float* outputs[2] = { outL, outR ? outR : rbScratchR.data() };
-        stretcher->retrieve (outputs, static_cast<size_t> (numSamples));
-    }
-    else if (avail > 0)
-    {
-        // Startup: partial output — retrieve to scratch, copy, zero-pad remainder
-        float* scratchOuts[2] = { rbScratchL.data(), rbScratchR.data() };
-        int got = static_cast<int> (stretcher->retrieve (scratchOuts, static_cast<size_t> (avail)));
-        std::copy (rbScratchL.data(), rbScratchL.data() + got, outL);
-        if (outR) std::copy (rbScratchR.data(), rbScratchR.data() + got, outR);
-        std::fill (outL + got, outL + numSamples, 0.0f);
-        if (outR) std::fill (outR + got, outR + numSamples, 0.0f);
+        ++pitchLockBlocks;
+        if (pitchLockBlocks >= 2)
+        {
+            int period = static_cast<int> (std::round ((float)currentSampleRate / smoothedDetectedHz));
+            if (period >= 64 && period <= kGrainSize / 2)
+                pitchSyncHop = period;
+        }
     }
     else
     {
-        // Startup silence — stretcher's internal latency buffer still filling
-        std::fill (outL, outL + numSamples, 0.0f);
-        if (outR) std::fill (outR, outR + numSamples, 0.0f);
+        pitchLockBlocks = 0;
+    }
+    const float hopNorm = 2.0f * static_cast<float> (pitchSyncHop) / static_cast<float> (kGrainSize);
+
+    for (int s = 0; s < numSamples; ++s)
+    {
+        // Write input
+        grainInL[grainInWrite & kGrainInMask] = chL[s];
+        grainInR[grainInWrite & kGrainInMask] = chR[s];
+        grainInWrite++;
+
+        // Synthesise a new grain every pitchSyncHop output samples
+        if (grainHop <= 0)
+        {
+            const float base = static_cast<float> (grainInWrite) - static_cast<float> (kInitialDelay);
+            for (int g = 0; g < kGrainSize; ++g)
+            {
+                float rp   = base + static_cast<float> (g) / safeRatio;
+                int   ri   = static_cast<int> (std::floor (rp)) & kGrainInMask;
+                int   ri1  = (ri + 1) & kGrainInMask;
+                float frac = rp - std::floor (rp);
+                float wg   = grainWin[g] * hopNorm;
+                grainOutL[(grainOutWrite + g) & kGrainOutMask] +=
+                    (grainInL[ri] + frac * (grainInL[ri1] - grainInL[ri])) * wg;
+                grainOutR[(grainOutWrite + g) & kGrainOutMask] +=
+                    (grainInR[ri] + frac * (grainInR[ri1] - grainInR[ri])) * wg;
+            }
+            grainOutWrite = (grainOutWrite + pitchSyncHop) & kGrainOutMask;
+            grainHop = pitchSyncHop;
+        }
+        grainHop--;
+
+        // Read from OLA accumulator (clear after reading to avoid accumulation)
+        int ro = grainOutRead & kGrainOutMask;
+        outL[s] = grainOutL[ro];
+        if (outR) outR[s] = grainOutR[ro];
+        grainOutL[ro] = 0.0f;
+        grainOutR[ro] = 0.0f;
+        grainOutRead  = (grainOutRead + 1) & kGrainOutMask;
     }
 }
 

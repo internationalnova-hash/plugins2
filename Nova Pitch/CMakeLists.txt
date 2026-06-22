@@ -7,6 +7,7 @@ set(JUCE_VST2SDK_PATH "" CACHE PATH "" FORCE)
 cmake_minimum_required(VERSION 3.15)
 
 if(APPLE)
+    # Default to universal, but allow CI/local builds to override (e.g. arm64-only).
     if(NOT DEFINED CMAKE_OSX_ARCHITECTURES OR CMAKE_OSX_ARCHITECTURES STREQUAL "")
         set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
     endif()
@@ -16,7 +17,6 @@ endif()
 project(NovaPitch VERSION 1.0.0)
 
 include(FetchContent)
-
 FetchContent_Declare(
     juce
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
@@ -24,34 +24,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
-# ---------------------------------------------------------------------------
-# RubberBand — compile via its single-file amalgamation so no external build
-# system (Meson) is needed.  CMake handles OSX_ARCHITECTURES automatically,
-# producing a correct universal fat library.
-# ---------------------------------------------------------------------------
-FetchContent_Declare(
-    rubberband
-    GIT_REPOSITORY https://github.com/breakfastquay/rubberband.git
-    GIT_TAG        v3.3.0
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(rubberband)
-FetchContent_GetProperties(rubberband)
 
-add_library(rubberband_single STATIC
-    "${rubberband_SOURCE_DIR}/single/RubberBandSingle.cpp"
-)
-set_target_properties(rubberband_single PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
-target_include_directories(rubberband_single PUBLIC "${rubberband_SOURCE_DIR}")
-# USE_BUILTIN_FFT: self-contained KissFFT — no vDSP session init required.
-# USE_BQRESAMPLER: bundled resampler, no libsamplerate dependency.
-target_compile_definitions(rubberband_single PRIVATE
-    USE_BUILTIN_FFT=1
-    USE_BQRESAMPLER=1
-)
-if(APPLE)
-    target_link_libraries(rubberband_single PUBLIC "-framework Accelerate")
-endif()
+set(RUBBERBAND_LINK_TARGETS "")
 
 set(PLUGIN_TARGET NovaPitch)
 set(NEEDS_WEBVIEW2 FALSE)
@@ -121,7 +95,6 @@ target_sources(${PLUGIN_TARGET}
 target_link_libraries(${PLUGIN_TARGET}
     PRIVATE
         NovaPitch_WebUI
-        rubberband_single
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats
@@ -141,6 +114,8 @@ target_link_libraries(${PLUGIN_TARGET}
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
 )
+
+# RubberBand removed — plugin uses built-in dual-head pitch shifter
 
     target_compile_definitions(${PLUGIN_TARGET}
     PUBLIC
