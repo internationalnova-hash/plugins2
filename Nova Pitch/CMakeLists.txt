@@ -41,6 +41,7 @@ FetchContent_GetProperties(rubberband)
 add_library(rubberband_single STATIC
     "${rubberband_SOURCE_DIR}/single/RubberBandSingle.cpp"
 )
+set_target_properties(rubberband_single PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 target_include_directories(rubberband_single PUBLIC "${rubberband_SOURCE_DIR}")
 # HAVE_VDSP: use Apple Accelerate/vDSP for FFT (fast, always available on macOS)
 # USE_BQRESAMPLER: use RubberBand's bundled resampler (no libsamplerate needed)
