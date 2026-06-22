@@ -61,34 +61,24 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     pitchHistory5.fill (0.0f);
 
     // ---------------------------------------------------------------
-    // RubberBand phase-vocoder setup
-    // OptionEngineFaster = R2 engine: classic phase vocoder, ~512-sample
-    // latency in real-time mode — suitable for live pitch correction.
-    // (R3/OptionEngineFiner sounds marginally better but has 8000+ sample
-    // latency that causes audible delay even with PDC.)
+    // RubberBand R2 phase-vocoder — real-time pitch shifting only.
+    // Default options give the lowest latency compatible with correct output.
     // ---------------------------------------------------------------
     using RBS = RubberBand::RubberBandStretcher;
-    const RBS::Options opts = RBS::OptionProcessRealTime
-                            | RBS::OptionEngineFaster
-                            | RBS::OptionPitchHighConsistency;
-
     stretcher = std::make_unique<RBS> (
-        static_cast<size_t> (sampleRate), 2, opts);
+        static_cast<size_t> (sampleRate), 2,
+        RBS::OptionProcessRealTime | RBS::OptionEngineFaster);
     stretcher->setTimeRatio (1.0);
     stretcher->setPitchScale (1.0);
 
     // Report latency so the DAW's PDC keeps other tracks in sync
     setLatencySamples (static_cast<int> (stretcher->getLatency()));
 
-    // Pre-allocated scratch, input copy, and FIFO — no allocs on audio thread
+    // Pre-allocated buffers — no heap allocs on audio thread
     rbScratchL.assign (kScratchSize, 0.0f);
     rbScratchR.assign (kScratchSize, 0.0f);
     rbInputL.assign   (kScratchSize, 0.0f);
     rbInputR.assign   (kScratchSize, 0.0f);
-    fifoL.assign (kFifoSize, 0.0f);
-    fifoR.assign (kFifoSize, 0.0f);
-    fifoWrite = 0;
-    fifoRead  = 0;
 }
 
 void NovaPitchAudioProcessor::releaseResources() {}
@@ -307,44 +297,33 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // ----------------------------------------------------------------
     stretcher->setPitchScale (static_cast<double> (ratio));
 
-    // Copy input into pre-allocated buffers (RubberBand needs non-const float**)
     std::copy (chL, chL + numSamples, rbInputL.data());
     std::copy (chR, chR + numSamples, rbInputR.data());
     const float* inputs[2] = { rbInputL.data(), rbInputR.data() };
     stretcher->process (inputs, static_cast<size_t> (numSamples), false);
 
-    // Drain all available output into FIFO (no allocs — FIFO is pre-allocated)
     int avail = stretcher->available();
-    while (avail > 0)
+    if (avail >= numSamples)
     {
-        int toGet = std::min (avail, kScratchSize);
-        float* rbOuts[2] = { rbScratchL.data(), rbScratchR.data() };
-        int got = static_cast<int> (stretcher->retrieve (rbOuts, static_cast<size_t> (toGet)));
-        for (int i = 0; i < got; ++i)
-        {
-            fifoL[fifoWrite & kFifoMask] = rbScratchL[i];
-            fifoR[fifoWrite & kFifoMask] = rbScratchR[i];
-            fifoWrite++;
-        }
-        avail -= got;
+        // Steady state: retrieve directly into output buffers
+        float* outputs[2] = { outL, outR ? outR : rbScratchR.data() };
+        stretcher->retrieve (outputs, static_cast<size_t> (numSamples));
     }
-
-    // Fill output from FIFO; zero-pad during startup latency
-    int fifoCount = fifoWrite - fifoRead;
-    for (int s = 0; s < numSamples; ++s)
+    else if (avail > 0)
     {
-        if (fifoCount > 0)
-        {
-            outL[s] = fifoL[fifoRead & kFifoMask];
-            if (outR) outR[s] = fifoR[fifoRead & kFifoMask];
-            fifoRead++;
-            fifoCount--;
-        }
-        else
-        {
-            outL[s] = 0.0f;
-            if (outR) outR[s] = 0.0f;
-        }
+        // Startup: partial output — retrieve to scratch, copy, zero-pad remainder
+        float* scratchOuts[2] = { rbScratchL.data(), rbScratchR.data() };
+        int got = static_cast<int> (stretcher->retrieve (scratchOuts, static_cast<size_t> (avail)));
+        std::copy (rbScratchL.data(), rbScratchL.data() + got, outL);
+        if (outR) std::copy (rbScratchR.data(), rbScratchR.data() + got, outR);
+        std::fill (outL + got, outL + numSamples, 0.0f);
+        if (outR) std::fill (outR + got, outR + numSamples, 0.0f);
+    }
+    else
+    {
+        // Startup silence — stretcher's internal latency buffer still filling
+        std::fill (outL, outL + numSamples, 0.0f);
+        if (outR) std::fill (outR, outR + numSamples, 0.0f);
     }
 }
 

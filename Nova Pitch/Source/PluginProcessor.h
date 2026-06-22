@@ -101,14 +101,7 @@ private:
     // Pre-allocated buffers — no heap allocs on audio thread
     static constexpr int kScratchSize = 8192;
     std::vector<float> rbScratchL, rbScratchR;
-    std::vector<float> rbInputL,   rbInputR;   // input copy to avoid const* mismatch
-
-    // Lock-free circular FIFO — holds RubberBand output until processBlock drains it
-    static constexpr int kFifoSize = 32768;   // power of 2
-    static constexpr int kFifoMask = kFifoSize - 1;
-    std::vector<float> fifoL, fifoR;
-    int fifoWrite { 0 };
-    int fifoRead  { 0 };
+    std::vector<float> rbInputL,   rbInputR;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };
