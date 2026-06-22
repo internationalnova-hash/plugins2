@@ -76,8 +76,8 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     rbInputR.assign   (kScratchSize, 0.0f);
     dbgBlockCount = 0;
 
-    // Write diagnostic log to /tmp so we can inspect it after testing
-    dbgLog.open ("/tmp/nova-pitch-debug.log", std::ios::out | std::ios::trunc);
+    // Append mode so multiple prepareToPlay calls don't erase block data
+    dbgLog.open ("/tmp/nova-pitch-debug.log", std::ios::out | std::ios::app);
     if (dbgLog.is_open())
     {
         dbgLog << "=== Nova Pitch Debug Log ===" << "\n";
@@ -177,6 +177,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     const int numSamples  = buffer.getNumSamples();
     const int numChannels = buffer.getNumChannels();
+
+    // Log the very first line immediately so we know processBlock is being called
+    if (dbgBlockCount < 30 && dbgLog.is_open())
+    {
+        dbgLog << "processBlock #" << dbgBlockCount
+               << " numSamples=" << numSamples
+               << " stretcher=" << (stretcher ? "ok" : "NULL")
+               << "\n";
+        dbgLog.flush();
+    }
 
     // ----------------------------------------------------------------
     // Capture input BEFORE any writes (handles separate I/O buffers)
@@ -312,14 +322,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     int avail = stretcher->available();
 
-    // Log first 10 blocks so we can inspect latency/available behaviour
-    if (dbgBlockCount < 10 && dbgLog.is_open())
+    // Log available() count after process()
+    if (dbgBlockCount < 30 && dbgLog.is_open())
     {
-        dbgLog << "block " << dbgBlockCount
-               << "  numSamples=" << numSamples
-               << "  available()=" << avail
-               << "  ratio=" << ratio
-               << "\n";
+        dbgLog << "  after process: available()=" << avail << " ratio=" << ratio << "\n";
         dbgLog.flush();
         ++dbgBlockCount;
     }
