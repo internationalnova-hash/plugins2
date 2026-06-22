@@ -7,9 +7,11 @@ set(JUCE_VST2SDK_PATH "" CACHE PATH "" FORCE)
 cmake_minimum_required(VERSION 3.15)
 
 if(APPLE)
-    # Default to universal, but allow CI/local builds to override (e.g. arm64-only).
+    # brew install rubberband provides arm64 only on Apple Silicon runners,
+    # so we match that architecture here. Change to "arm64;x86_64" only when
+    # a universal rubberband fat library is available.
     if(NOT DEFINED CMAKE_OSX_ARCHITECTURES OR CMAKE_OSX_ARCHITECTURES STREQUAL "")
-        set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
+        set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "")
     endif()
     set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "" FORCE)
 endif()
@@ -24,22 +26,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
-# RubberBand R3 phase-vocoder — built from source for universal binary compatibility
-FetchContent_Declare(
-    rubberband
-    GIT_REPOSITORY https://github.com/breakfastquay/rubberband.git
-    GIT_TAG        v3.3.0
-)
-# Use the bundled FFT so we have no external dependency on FFTW or vDSP headers.
-# On Apple, RubberBand will automatically prefer vDSP from Accelerate if available.
-set(RUBBERBAND_USE_BUILTIN_FFT ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(rubberband)
-FetchContent_GetProperties(rubberband)
-# RubberBand's CMake target doesn't export INTERFACE_INCLUDE_DIRECTORIES,
-# so we add the source root manually so #include <rubberband/...> resolves.
-include_directories(${rubberband_SOURCE_DIR})
-
-set(RUBBERBAND_LINK_TARGETS "")
+# RubberBand — locate the copy installed by brew (arm64 on Apple Silicon CI)
+if(APPLE)
+    find_library(RUBBERBAND_LIB rubberband
+        HINTS /opt/homebrew/lib /usr/local/lib
+        REQUIRED)
+    find_path(RUBBERBAND_INCLUDE_DIR rubberband/RubberBandStretcher.h
+        HINTS /opt/homebrew/include /usr/local/include
+        REQUIRED)
+    message(STATUS "RubberBand lib:     ${RUBBERBAND_LIB}")
+    message(STATUS "RubberBand include: ${RUBBERBAND_INCLUDE_DIR}")
+endif()
 
 set(PLUGIN_TARGET NovaPitch)
 set(NEEDS_WEBVIEW2 FALSE)
@@ -109,7 +106,6 @@ target_sources(${PLUGIN_TARGET}
 target_link_libraries(${PLUGIN_TARGET}
     PRIVATE
         NovaPitch_WebUI
-        rubberband
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats
@@ -131,7 +127,10 @@ target_link_libraries(${PLUGIN_TARGET}
 )
 
 if(APPLE)
-    target_link_libraries(${PLUGIN_TARGET} PRIVATE "-framework Accelerate")
+    target_include_directories(${PLUGIN_TARGET} PRIVATE ${RUBBERBAND_INCLUDE_DIR})
+    target_link_libraries(${PLUGIN_TARGET} PRIVATE
+        ${RUBBERBAND_LIB}
+        "-framework Accelerate")
 endif()
 
     target_compile_definitions(${PLUGIN_TARGET}
