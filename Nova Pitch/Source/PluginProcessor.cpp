@@ -110,13 +110,15 @@ void NovaPitchAudioProcessor::processPhaseVocoderFrame (float ratio)
 
     for (int ch = 0; ch < 2; ++ch)
     {
-        // ── 1. Build windowed, interleaved-complex analysis frame ──────────
+        // ── 1. Build windowed analysis frame ───────────────────────────────
+        // performRealOnlyForwardTransform expects the real signal packed into
+        // the FIRST N positions, with the second N positions zeroed.
         for (int i = 0; i < kPVN; ++i)
         {
-            int ri = (pvInWrite - kPVN + i) & kPVBufMsk;
-            pvWork[2 * i]     = pvInBuf[ch][ri] * pvWindow[i];
-            pvWork[2 * i + 1] = 0.0f;
+            const int ri = (pvInWrite - kPVN + i) & kPVBufMsk;
+            pvWork[i] = pvInBuf[ch][ri] * pvWindow[i];
         }
+        std::fill (pvWork.begin() + kPVN, pvWork.end(), 0.0f);
 
         // ── 2. Forward FFT ─────────────────────────────────────────────────
         pvFFT->performRealOnlyForwardTransform (pvWork.data());
@@ -201,14 +203,14 @@ void NovaPitchAudioProcessor::processPhaseVocoderFrame (float ratio)
         // Real output at pvWork[2*i] for i = 0..kPVN-1 (JUCE divides by N)
 
         // ── 7. Overlap-add ────────────────────────────────────────────────
-        // Analysis window is already baked into the IFFT output (IFFT(FFT(w·x))=w·x).
-        // Do NOT re-apply synthesis window — double windowing changes the COLA
-        // constant and causes the metallic/robotic phasing artifact.
-        // With analysis-only Hann at 4x overlap: Σ w[n-kH] ≈ 2.0 → kNorm = 0.5.
+        // performRealOnlyInverseTransform writes real output to the FIRST N
+        // positions (packed, not interleaved).  Read pvWork[i], not pvWork[2*i].
+        // Analysis window is baked in (IFFT(FFT(w·x))=w·x); no synthesis window.
+        // Hann at 4× overlap sums to ≈2.0 per point → kNorm = 0.5 for unity gain.
         for (int i = 0; i < kPVN; ++i)
         {
-            int wi = (pvOutWrite + i) & kPVBufMsk;
-            pvOutBuf[ch][wi] += pvWork[2 * i] * kNorm;
+            const int wi = (pvOutWrite + i) & kPVBufMsk;
+            pvOutBuf[ch][wi] += pvWork[i] * kNorm;
         }
     }
 
