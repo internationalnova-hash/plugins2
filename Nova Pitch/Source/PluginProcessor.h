@@ -89,40 +89,27 @@ private:
     bool  correctionActive { false };
     int   lastTargetMidi   { -1 };
     float noteTargetRatio  { 1.0f };
-
+    int   pitchLockBlocks  { 0 };
 
     // ---------------------------------------------------------------
-    // Phase vocoder pitch shifter
-    //   FFT size N = 2048, hop H = 512 (4x overlap), latency = N samples
+    // Granular OLA pitch shifter — 8× overlap for low phasiness
     // ---------------------------------------------------------------
-    static constexpr int kPVOrder  = 11;                    // 2^11 = 2048
-    static constexpr int kPVN      = 1 << kPVOrder;        // 2048
-    static constexpr int kPVHop    = kPVN / 4;             // 512
-    static constexpr int kPVBins   = kPVN / 2 + 1;         // 1025
-    static constexpr int kPVBufSz  = kPVN * 2;             // 4096 ring buffer
-    static constexpr int kPVBufMsk = kPVBufSz - 1;
+    static constexpr int kGrainSize    = 512;
+    static constexpr int kHopSize      = 64;    // 8× overlap (was 128 = 4×)
+    static constexpr int kInitialDelay = 1536;
+    static constexpr int kGrainInMask  = 4096 - 1;
+    static constexpr int kGrainOutMask = 2048 - 1;
 
-    std::unique_ptr<juce::dsp::FFT> pvFFT;
+    std::array<float, 4096> grainInL  {};
+    std::array<float, 4096> grainInR  {};
+    std::array<float, 2048> grainOutL {};
+    std::array<float, 2048> grainOutR {};
+    std::array<float, kGrainSize> grainWin {};
 
-    std::vector<float> pvWindow;                     // Hann window [kPVN]
-    std::array<std::vector<float>, 2> pvInBuf;       // input ring [kPVBufSz]
-    std::array<std::vector<float>, 2> pvOutBuf;      // OLA output [kPVBufSz]
-    std::array<std::vector<float>, 2> pvLastPhase;   // analysis phase [kPVBins]
-    std::array<std::vector<float>, 2> pvSynthPhase;  // synthesis phase accumulator [kPVBins]
-
-    // Per-frame scratch (shared between L/R, processed sequentially)
-    std::vector<float> pvAnaMag;   // [kPVBins]
-    std::vector<float> pvAnaFreq;  // [kPVBins] instantaneous freq (rad/sample)
-    std::vector<float> pvSynMag;   // [kPVBins]
-    std::vector<float> pvSynFreq;  // [kPVBins]
-    std::vector<float> pvWork;     // interleaved complex FFT work [kPVBufSz]
-
-    int pvInWrite  { 0 };
-    int pvOutRead  { 0 };
-    int pvOutWrite { 0 };
-    int pvHopCount { 0 };   // counts down to next frame
-
-    void processPhaseVocoderFrame (float ratio);
+    int grainInWrite  { 0 };
+    int grainOutWrite { 0 };
+    int grainOutRead  { 0 };
+    int grainHop      { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };
