@@ -89,45 +89,30 @@ private:
     bool  correctionActive { false };
     int   lastTargetMidi   { -1 };
     float noteTargetRatio  { 1.0f };
-    int   pitchLockBlocks  { 0 };
 
     // ---------------------------------------------------------------
-    // Phase vocoder pitch shifter — FFT-based, transparent quality
+    // Dual-head pitch shifter (TD-PSOLA style)
+    //
+    // Read head A moves through the delay line at `ratio` samples per
+    // output sample (Doppler pitch shift).  When the read/write gap
+    // drifts by more than one pitch period from the target latency, we
+    // crossfade to a new head B that is one pitch period away — because
+    // the signal is periodic, that position looks identical, making the
+    // jump inaudible.  No FFT, no phase accumulation, no choir effect.
     // ---------------------------------------------------------------
-    static constexpr int   kPvN    = 2048;            // FFT size (= 2^11)
-    static constexpr int   kPvH    = 512;             // hop size → 4× Hann overlap
-    static constexpr int   kPvBins = kPvN / 2 + 1;   // 1025 positive-freq bins
-    static constexpr int   kPvMask = kPvN * 2 - 1;   // ring-buffer mask (4095)
-    static constexpr float kPvNorm = 2.0f * static_cast<float>(kPvH)
-                                          / static_cast<float>(kPvN); // 0.5
+    static constexpr int kDlSize    = 16384;   // delay-line size (power of 2)
+    static constexpr int kDlMask    = kDlSize - 1;
+    static constexpr int kDlLatency = 2048;    // declared plugin latency (samples)
 
-    std::unique_ptr<juce::dsp::FFT> pvFFT;
+    std::array<float, kDlSize> dlBufL  {};
+    std::array<float, kDlSize> dlBufR  {};
 
-    std::array<float, kPvN * 2> pvInBufL  {};  // input ring, stereo
-    std::array<float, kPvN * 2> pvInBufR  {};
-    std::array<float, kPvN * 2> pvOutBufL {};  // OLA accumulation, stereo
-    std::array<float, kPvN * 2> pvOutBufR {};
-    std::array<float, kPvN * 2> pvWork    {};  // FFT work (2× size required by JUCE)
-    std::array<float, kPvN>     pvWin     {};  // Hann analysis window
-
-    // Per-channel phase state
-    std::array<float, kPvBins> pvLastPhL  {};
-    std::array<float, kPvBins> pvLastPhR  {};
-    std::array<float, kPvBins> pvSynthPhL {};
-    std::array<float, kPvBins> pvSynthPhR {};
-
-    // Scratch arrays — reused every frame, allocated as members to avoid audio-thread stack pressure
-    std::array<float, kPvBins> pvTmpMag  {};
-    std::array<float, kPvBins> pvTmpPh   {};
-    std::array<float, kPvBins> pvTmpFreq {};  // also reused as bestMag on first frame
-    std::array<float, kPvBins> pvOutMag  {};
-    std::array<float, kPvBins> pvOutFreq {};
-
-    int  pvInWrite    { 0 };
-    int  pvOutWrite   { 0 };
-    int  pvOutRead    { 0 };
-    int  pvHopCount   { 0 };
-    bool pvFirstFrame { true };
+    int   dlWrite    { 0 };
+    float dlReadA    { 0.0f };
+    float dlReadB    { 0.0f };
+    bool  dlXfading  { false };
+    float dlXfade    { 0.0f };   // 0 = fully head-A, 1 = fully head-B
+    float dlXfadeInc { 0.0f };   // increment per sample
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };

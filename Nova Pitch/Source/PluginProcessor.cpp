@@ -52,37 +52,24 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     yinWritePos           = 0;
     smoothedDetectedHz    = 0.0f;
     blocksSinceValidPitch = 0;
-    correctionActive      = false;
-    lastTargetMidi        = -1;
-    noteTargetRatio       = 1.0f;
-    pitchLockBlocks       = 0;
-    historyIndex          = 0;
-    ph5index              = 0;
+    correctionActive = false;
+    lastTargetMidi   = -1;
+    noteTargetRatio  = 1.0f;
+    historyIndex     = 0;
+    ph5index         = 0;
     pitchHistory5.fill (0.0f);
 
-    // Phase vocoder init
-    pvFFT = std::make_unique<juce::dsp::FFT> (11);  // 2^11 = 2048
+    // Dual-head pitch shifter init
+    dlBufL.fill (0.0f);
+    dlBufR.fill (0.0f);
+    dlWrite    = kDlLatency;   // read starts kDlLatency samples behind write
+    dlReadA    = 0.0f;
+    dlReadB    = 0.0f;
+    dlXfading  = false;
+    dlXfade    = 0.0f;
+    dlXfadeInc = 0.0f;
 
-    pvInBufL.fill  (0.0f);  pvInBufR.fill  (0.0f);
-    pvOutBufL.fill (0.0f);  pvOutBufR.fill (0.0f);
-    pvWork.fill    (0.0f);
-
-    for (int i = 0; i < kPvN; ++i)
-        pvWin[i] = 0.5f * (1.0f - std::cos (juce::MathConstants<float>::twoPi
-                                             * static_cast<float> (i) / kPvN));
-
-    pvLastPhL.fill (0.0f);  pvLastPhR.fill (0.0f);
-    pvSynthPhL.fill(0.0f);  pvSynthPhR.fill(0.0f);
-    pvTmpMag.fill  (0.0f);  pvTmpPh.fill   (0.0f);
-    pvTmpFreq.fill (0.0f);  pvOutMag.fill  (0.0f);  pvOutFreq.fill (0.0f);
-
-    pvInWrite   = 0;
-    pvOutWrite  = kPvN;  // write kPvN ahead of read → declared latency
-    pvOutRead   = 0;
-    pvHopCount  = 0;
-    pvFirstFrame = true;
-
-    setLatencySamples (kPvN);  // 2048 samples
+    setLatencySamples (kDlLatency);
 }
 
 void NovaPitchAudioProcessor::releaseResources() {}
@@ -290,195 +277,96 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     float* outR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
 
     const float safeRatio = juce::jlimit (0.5f, 2.0f, ratio);
-    const float twoPi     = juce::MathConstants<float>::twoPi;
-    const float pi        = juce::MathConstants<float>::pi;
 
-    // ── Phase Vocoder pitch shift ───────────────────────────────────────────
-    // FFT size kPvN=2048, hop kPvH=512 (4× Hann overlap).
-    // kPvNorm=0.5 normalises the OLA sum back to unity (Hann 4× sums to 2.0).
-    // Latency declared as kPvN = 2048 samples; host PDC compensates.
+    // ── Dual-head TD-PSOLA pitch shift ─────────────────────────────────────
+    // Head A reads the delay line at `safeRatio` samples per output sample
+    // (Doppler effect → pitch shift).  When the read/write gap drifts more
+    // than one pitch period from kDlLatency, we crossfade to head B which is
+    // one pitch period away.  For a periodic signal that position is
+    // perceptually identical, so the jump is inaudible.
+    // No FFT, no phase accumulation, no choir effect.
+    // Pitch period for crossfade grain size — clamp to sane range
+    const int pitchPeriod = (smoothedDetectedHz >= 80.0f && smoothedDetectedHz <= 1200.0f)
+                            ? juce::jlimit (40, 600,
+                                  (int) std::round ((float) currentSampleRate / smoothedDetectedHz))
+                            : 256;
+
     for (int s = 0; s < numSamples; ++s)
     {
-        pvInBufL[pvInWrite] = chL[s];
-        pvInBufR[pvInWrite] = chR[s];
-        pvInWrite = (pvInWrite + 1) & kPvMask;
+        // Write new input sample to delay line
+        dlBufL[dlWrite & kDlMask] = chL[s];
+        dlBufR[dlWrite & kDlMask] = chR[s];
+        dlWrite++;
 
-        if (--pvHopCount <= 0)
+        // ── Read head A (always active) ─────────────────────────────────────
         {
-            pvHopCount = kPvH;
-            const bool isFirst = pvFirstFrame;
-            pvFirstFrame = false;
-
-            for (int ch = 0; ch < 2; ++ch)
-            {
-                auto& inBuf   = (ch == 0) ? pvInBufL  : pvInBufR;
-                auto& outBuf  = (ch == 0) ? pvOutBufL : pvOutBufR;
-                auto& lastPh  = (ch == 0) ? pvLastPhL  : pvLastPhR;
-                auto& synthPh = (ch == 0) ? pvSynthPhL : pvSynthPhR;
-
-                // Analysis: window the most-recent kPvN samples → pvWork
-                for (int i = 0; i < kPvN; ++i)
-                {
-                    int idx = (pvInWrite - kPvN + i + kPvN * 2) & kPvMask;
-                    pvWork[i] = inBuf[idx] * pvWin[i];
-                }
-                std::fill (pvWork.begin() + kPvN, pvWork.end(), 0.0f);
-
-                // Forward FFT — onlyNonNeg=true fills pvWork[0..2*kPvBins-1]
-                pvFFT->performRealOnlyForwardTransform (pvWork.data(), true);
-
-                // Extract magnitude, phase, instantaneous frequency per bin
-                for (int k = 0; k < kPvBins; ++k)
-                {
-                    float re = pvWork[2 * k];
-                    float im = pvWork[2 * k + 1];
-                    pvTmpMag[k] = std::sqrt (re * re + im * im);
-                    pvTmpPh[k]  = std::atan2 (im, re);
-
-                    float delta = pvTmpPh[k] - lastPh[k];
-                    lastPh[k]   = pvTmpPh[k];
-                    float omega  = twoPi * static_cast<float> (k) / kPvN;
-                    delta       -= omega * kPvH;
-                    delta       -= twoPi * std::floor ((delta + pi) / twoPi);  // wrap to [-π,π]
-                    pvTmpFreq[k] = omega + delta / kPvH;
-                }
-
-                // Spectral shift — reverse interpolated mapping eliminates spectral holes:
-                // For each output bin j, pull from fractional input bin k = j / ratio.
-                // Linear interpolation of magnitude and true frequency avoids the
-                // comb-filter "toilet bowl" artefact that forward round() mapping causes.
-                pvOutMag.fill  (0.0f);
-                pvOutFreq.fill (0.0f);
-                for (int j = 0; j < kPvBins; ++j)
-                {
-                    float kf   = static_cast<float> (j) / safeRatio;
-                    int   k0   = static_cast<int> (kf);
-                    float frac = kf - static_cast<float> (k0);
-                    int   k1   = std::min (k0 + 1, kPvBins - 1);
-
-                    if (k0 >= 0 && k0 < kPvBins)
-                    {
-                        pvOutMag[j]  = pvTmpMag[k0]  * (1.0f - frac) + pvTmpMag[k1]  * frac;
-                        pvOutFreq[j] = (pvTmpFreq[k0] * (1.0f - frac) + pvTmpFreq[k1] * frac)
-                                       * safeRatio;
-                    }
-                }
-
-                // Phase accumulation with Laroche-Dolson identity phase locking.
-                // Without locking each bin accumulates phase independently, so harmonics
-                // drift in/out of phase → "choir / multiple voices" artefact.
-                // Locking forces all bins in a spectral peak's region to evolve at the
-                // peak's instantaneous frequency, preserving harmonic phase relationships.
-                if (isFirst)
-                {
-                    // Seed synthesis phase via same reverse interpolation of analysis phase
-                    for (int j = 0; j < kPvBins; ++j)
-                    {
-                        float kf   = static_cast<float> (j) / safeRatio;
-                        int   k0   = static_cast<int> (kf);
-                        float frac = kf - static_cast<float> (k0);
-                        int   k1   = std::min (k0 + 1, kPvBins - 1);
-                        synthPh[j] = k0 < kPvBins
-                                     ? pvTmpPh[k0] * (1.0f - frac) + pvTmpPh[k1] * frac
-                                     : 0.0f;
-                    }
-                }
-                else
-                {
-                    // Standard per-bin phase accumulation (candidate phases)
-                    for (int j = 0; j < kPvBins; ++j)
-                        synthPh[j] += pvOutFreq[j] * kPvH;
-
-                    // ── Identity phase locking ──────────────────────────────────────────
-                    // For each bin j find its nearest spectral peak p and override:
-                    //   synthPh[j] = synthPh[p] + (j-p) * pvOutFreq[p] * kPvH
-                    // so every bin in the peak's cluster advances at the same rate.
-                    //
-                    // Temp arrays repurposed (analysis data no longer needed):
-                    //   pvTmpMag[j]  = distance to nearest left peak (or kPvBins if none)
-                    //   pvTmpPh[j]   = phase locked from nearest left peak
-                    //   pvTmpFreq[j] = final locked phase (closer of left / right peak)
-
-                    constexpr float kPeakThresh = 1e-8f;
-
-                    // Left pass: propagate each peak's phase rightward
-                    {
-                        int   lp   = -1;
-                        float lpF  = 0.0f;
-                        float lpPh = 0.0f;
-                        for (int j = 0; j < kPvBins; ++j)
-                        {
-                            bool isPeak = pvOutMag[j] > kPeakThresh
-                                       && (j == 0         || pvOutMag[j] >= pvOutMag[j - 1])
-                                       && (j == kPvBins-1 || pvOutMag[j] >  pvOutMag[j + 1]);
-                            if (isPeak) { lp = j; lpPh = synthPh[j]; lpF = pvOutFreq[j]; }
-
-                            if (lp >= 0)
-                            {
-                                pvTmpMag[j] = static_cast<float> (j - lp);
-                                pvTmpPh[j]  = lpPh + static_cast<float> (j - lp) * lpF * kPvH;
-                            }
-                            else
-                            {
-                                pvTmpMag[j] = static_cast<float> (kPvBins);
-                                pvTmpPh[j]  = synthPh[j];
-                            }
-                        }
-                    }
-
-                    // Right pass: propagate each peak's phase leftward; take closer peak
-                    {
-                        int   rp   = -1;
-                        float rpF  = 0.0f;
-                        float rpPh = 0.0f;
-                        for (int j = kPvBins - 1; j >= 0; --j)
-                        {
-                            bool isPeak = pvOutMag[j] > kPeakThresh
-                                       && (j == kPvBins-1 || pvOutMag[j] >= pvOutMag[j + 1])
-                                       && (j == 0         || pvOutMag[j] >  pvOutMag[j - 1]);
-                            if (isPeak) { rp = j; rpPh = synthPh[j]; rpF = pvOutFreq[j]; }
-
-                            if (rp >= 0 && static_cast<float> (rp - j) < pvTmpMag[j])
-                                pvTmpFreq[j] = rpPh + static_cast<float> (j - rp) * rpF * kPvH;
-                            else
-                                pvTmpFreq[j] = pvTmpPh[j];
-                        }
-                    }
-
-                    // Apply locked phases
-                    for (int j = 0; j < kPvBins; ++j)
-                        synthPh[j] = pvTmpFreq[j];
-                }
-
-                // Synthesise: build complex spectrum from output magnitudes + accumulated phases
-                for (int j = 0; j < kPvBins; ++j)
-                {
-                    pvWork[2 * j]     = pvOutMag[j] * std::cos (synthPh[j]);
-                    pvWork[2 * j + 1] = pvOutMag[j] * std::sin (synthPh[j]);
-                }
-                pvWork[1]              = 0.0f;  // DC imaginary must be zero (real signal)
-                pvWork[2 * kPvBins - 1] = 0.0f; // Nyquist imaginary must be zero
-
-                // Inverse FFT — writes real to pvWork[0..kPvN-1]
-                pvFFT->performRealOnlyInverseTransform (pvWork.data());
-
-                // OLA accumulate (kPvNorm=0.5 compensates for 4× Hann sum = 2.0)
-                for (int i = 0; i < kPvN; ++i)
-                {
-                    int idx = (pvOutWrite + i) & kPvMask;
-                    outBuf[idx] += pvWork[i] * kPvNorm;
-                }
-            }
-
-            pvOutWrite = (pvOutWrite + kPvH) & kPvMask;
+            int   i0  = static_cast<int> (dlReadA) & kDlMask;
+            int   i1  = (i0 + 1) & kDlMask;
+            float fr  = dlReadA - std::floor (dlReadA);
+            outL[s]   = dlBufL[i0] + fr * (dlBufL[i1] - dlBufL[i0]);
+            if (outR)
+                outR[s] = dlBufR[i0] + fr * (dlBufR[i1] - dlBufR[i0]);
         }
 
-        // Read output sample and clear the slot
-        outL[s] = pvOutBufL[pvOutRead];
-        if (outR) outR[s] = pvOutBufR[pvOutRead];
-        pvOutBufL[pvOutRead] = 0.0f;
-        pvOutBufR[pvOutRead] = 0.0f;
-        pvOutRead = (pvOutRead + 1) & kPvMask;
+        // ── Crossfade with head B when active ───────────────────────────────
+        if (dlXfading)
+        {
+            int   i0  = static_cast<int> (dlReadB) & kDlMask;
+            int   i1  = (i0 + 1) & kDlMask;
+            float fr  = dlReadB - std::floor (dlReadB);
+            float bL  = dlBufL[i0] + fr * (dlBufL[i1] - dlBufL[i0]);
+
+            // Hann-shaped crossfade (0→1 as dlXfade goes 0→1)
+            float w   = 0.5f * (1.0f - std::cos (juce::MathConstants<float>::pi * dlXfade));
+            outL[s]   = outL[s] * (1.0f - w) + bL * w;
+
+            if (outR)
+            {
+                float bR = dlBufR[i0] + fr * (dlBufR[i1] - dlBufR[i0]);
+                outR[s]  = outR[s] * (1.0f - w) + bR * w;
+            }
+
+            dlReadB   += safeRatio;
+            dlXfade   += dlXfadeInc;
+
+            if (dlXfade >= 1.0f)
+            {
+                // Crossfade complete — B becomes the new A
+                dlReadA   = dlReadB;
+                dlXfading = false;
+                dlXfade   = 0.0f;
+            }
+        }
+
+        dlReadA += safeRatio;
+
+        // ── Gap check: trigger crossfade when drift exceeds one pitch period ─
+        if (!dlXfading)
+        {
+            float gap = static_cast<float> (dlWrite) - dlReadA;
+
+            if (gap < static_cast<float> (kDlLatency - pitchPeriod))
+            {
+                // Read caught up to write (upshift) → jump back one period
+                dlReadB    = dlReadA - static_cast<float> (pitchPeriod);
+                dlXfade    = 0.0f;
+                dlXfadeInc = 1.0f / static_cast<float> (pitchPeriod);
+                dlXfading  = true;
+                // Advance B for this sample (A was already advanced above)
+                dlReadB   += safeRatio;
+                dlXfade   += dlXfadeInc;
+            }
+            else if (gap > static_cast<float> (kDlLatency + pitchPeriod))
+            {
+                // Write lapped read (downshift) → jump forward one period
+                dlReadB    = dlReadA + static_cast<float> (pitchPeriod);
+                dlXfade    = 0.0f;
+                dlXfadeInc = 1.0f / static_cast<float> (pitchPeriod);
+                dlXfading  = true;
+                dlReadB   += safeRatio;
+                dlXfade   += dlXfadeInc;
+            }
+        }
     }
 }
 
