@@ -364,7 +364,11 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     }
                 }
 
-                // Phase accumulation
+                // Phase accumulation with Laroche-Dolson identity phase locking.
+                // Without locking each bin accumulates phase independently, so harmonics
+                // drift in/out of phase → "choir / multiple voices" artefact.
+                // Locking forces all bins in a spectral peak's region to evolve at the
+                // peak's instantaneous frequency, preserving harmonic phase relationships.
                 if (isFirst)
                 {
                     // Seed synthesis phase via same reverse interpolation of analysis phase
@@ -381,8 +385,69 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 }
                 else
                 {
+                    // Standard per-bin phase accumulation (candidate phases)
                     for (int j = 0; j < kPvBins; ++j)
                         synthPh[j] += pvOutFreq[j] * kPvH;
+
+                    // ── Identity phase locking ──────────────────────────────────────────
+                    // For each bin j find its nearest spectral peak p and override:
+                    //   synthPh[j] = synthPh[p] + (j-p) * pvOutFreq[p] * kPvH
+                    // so every bin in the peak's cluster advances at the same rate.
+                    //
+                    // Temp arrays repurposed (analysis data no longer needed):
+                    //   pvTmpMag[j]  = distance to nearest left peak (or kPvBins if none)
+                    //   pvTmpPh[j]   = phase locked from nearest left peak
+                    //   pvTmpFreq[j] = final locked phase (closer of left / right peak)
+
+                    constexpr float kPeakThresh = 1e-8f;
+
+                    // Left pass: propagate each peak's phase rightward
+                    {
+                        int   lp   = -1;
+                        float lpF  = 0.0f;
+                        float lpPh = 0.0f;
+                        for (int j = 0; j < kPvBins; ++j)
+                        {
+                            bool isPeak = pvOutMag[j] > kPeakThresh
+                                       && (j == 0         || pvOutMag[j] >= pvOutMag[j - 1])
+                                       && (j == kPvBins-1 || pvOutMag[j] >  pvOutMag[j + 1]);
+                            if (isPeak) { lp = j; lpPh = synthPh[j]; lpF = pvOutFreq[j]; }
+
+                            if (lp >= 0)
+                            {
+                                pvTmpMag[j] = static_cast<float> (j - lp);
+                                pvTmpPh[j]  = lpPh + static_cast<float> (j - lp) * lpF * kPvH;
+                            }
+                            else
+                            {
+                                pvTmpMag[j] = static_cast<float> (kPvBins);
+                                pvTmpPh[j]  = synthPh[j];
+                            }
+                        }
+                    }
+
+                    // Right pass: propagate each peak's phase leftward; take closer peak
+                    {
+                        int   rp   = -1;
+                        float rpF  = 0.0f;
+                        float rpPh = 0.0f;
+                        for (int j = kPvBins - 1; j >= 0; --j)
+                        {
+                            bool isPeak = pvOutMag[j] > kPeakThresh
+                                       && (j == kPvBins-1 || pvOutMag[j] >= pvOutMag[j + 1])
+                                       && (j == 0         || pvOutMag[j] >  pvOutMag[j - 1]);
+                            if (isPeak) { rp = j; rpPh = synthPh[j]; rpF = pvOutFreq[j]; }
+
+                            if (rp >= 0 && static_cast<float> (rp - j) < pvTmpMag[j])
+                                pvTmpFreq[j] = rpPh + static_cast<float> (j - rp) * rpF * kPvH;
+                            else
+                                pvTmpFreq[j] = pvTmpPh[j];
+                        }
+                    }
+
+                    // Apply locked phases
+                    for (int j = 0; j < kPvBins; ++j)
+                        synthPh[j] = pvTmpFreq[j];
                 }
 
                 // Synthesise: build complex spectrum from output magnitudes + accumulated phases
