@@ -3,9 +3,9 @@
 # No other meaning or use of this file is supported.
 
 method=git
-command=/usr/bin/cmake;-P;/workspaces/plugins2/Nova Pitch/build/_deps/juce-subbuild/juce-populate-prefix/tmp/juce-populate-gitclone.cmake
-source_dir=/workspaces/plugins2/Nova Pitch/build/_deps/juce-src
-work_dir=/workspaces/plugins2/Nova Pitch/build/_deps
+command=/usr/bin/cmake;-P;/home/user/plugins2/Nova Pitch/build/_deps/juce-subbuild/juce-populate-prefix/tmp/juce-populate-gitclone.cmake
+source_dir=/home/user/plugins2/Nova Pitch/build/_deps/juce-src
+work_dir=/home/user/plugins2/Nova Pitch/build/_deps
 repository=https://github.com/juce-framework/JUCE.git
 remote=origin
 init_submodules=TRUE

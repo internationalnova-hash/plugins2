@@ -1,4 +1,4 @@
-# Install script for directory: /workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/juceaide
+# Install script for directory: /home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/juceaide
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

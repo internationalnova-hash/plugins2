@@ -1,4 +1,4 @@
-# Install script for directory: /workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/juceaide
+# Install script for directory: /home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/juceaide
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -43,6 +43,6 @@ if(NOT DEFINED CMAKE_OBJDUMP)
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/bin/JUCE-8.0.8" TYPE PROGRAM FILES "/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/tools/extras/Build/juceaide/juceaide_artefacts/Custom/juceaide")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/bin/JUCE-8.0.8" TYPE PROGRAM FILES "/home/user/plugins2/Nova Pitch/build/_deps/juce-build/tools/extras/Build/juceaide/juceaide_artefacts/Custom/juceaide")
 endif()
 

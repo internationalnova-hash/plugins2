@@ -343,34 +343,40 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     pvTmpFreq[k] = omega + delta / kPvH;
                 }
 
-                // Spectral shift: input bin k → output bin j = round(k * ratio)
-                // Keep highest-magnitude contributor per output bin.
+                // Spectral shift — reverse interpolated mapping eliminates spectral holes:
+                // For each output bin j, pull from fractional input bin k = j / ratio.
+                // Linear interpolation of magnitude and true frequency avoids the
+                // comb-filter "toilet bowl" artefact that forward round() mapping causes.
                 pvOutMag.fill  (0.0f);
                 pvOutFreq.fill (0.0f);
-                for (int k = 0; k < kPvBins; ++k)
+                for (int j = 0; j < kPvBins; ++j)
                 {
-                    int j = static_cast<int> (std::round (static_cast<float> (k) * safeRatio));
-                    if (j >= 0 && j < kPvBins && pvTmpMag[k] > pvOutMag[j])
+                    float kf   = static_cast<float> (j) / safeRatio;
+                    int   k0   = static_cast<int> (kf);
+                    float frac = kf - static_cast<float> (k0);
+                    int   k1   = std::min (k0 + 1, kPvBins - 1);
+
+                    if (k0 >= 0 && k0 < kPvBins)
                     {
-                        pvOutMag[j]  = pvTmpMag[k];
-                        pvOutFreq[j] = pvTmpFreq[k] * safeRatio;
+                        pvOutMag[j]  = pvTmpMag[k0]  * (1.0f - frac) + pvTmpMag[k1]  * frac;
+                        pvOutFreq[j] = (pvTmpFreq[k0] * (1.0f - frac) + pvTmpFreq[k1] * frac)
+                                       * safeRatio;
                     }
                 }
 
                 // Phase accumulation
                 if (isFirst)
                 {
-                    // Seed synthesis phase from analysis phase (mapped to output bins)
-                    synthPh.fill  (0.0f);
-                    pvTmpFreq.fill (0.0f);  // reuse as bestMag tracker
-                    for (int k = 0; k < kPvBins; ++k)
+                    // Seed synthesis phase via same reverse interpolation of analysis phase
+                    for (int j = 0; j < kPvBins; ++j)
                     {
-                        int j = static_cast<int> (std::round (static_cast<float> (k) * safeRatio));
-                        if (j >= 0 && j < kPvBins && pvTmpMag[k] > pvTmpFreq[j])
-                        {
-                            pvTmpFreq[j] = pvTmpMag[k];
-                            synthPh[j]   = pvTmpPh[k];
-                        }
+                        float kf   = static_cast<float> (j) / safeRatio;
+                        int   k0   = static_cast<int> (kf);
+                        float frac = kf - static_cast<float> (k0);
+                        int   k1   = std::min (k0 + 1, kPvBins - 1);
+                        synthPh[j] = k0 < kPvBins
+                                     ? pvTmpPh[k0] * (1.0f - frac) + pvTmpPh[k1] * frac
+                                     : 0.0f;
                     }
                 }
                 else

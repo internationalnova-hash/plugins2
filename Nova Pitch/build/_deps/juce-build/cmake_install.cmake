@@ -1,4 +1,4 @@
-# Install script for directory: /workspaces/plugins2/Nova Pitch/build/_deps/juce-src
+# Install script for directory: /home/user/plugins2/Nova Pitch/build/_deps/juce-src
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -44,34 +44,34 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/modules/cmake_install.cmake")
+  include("/home/user/plugins2/Nova Pitch/build/_deps/juce-build/modules/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/extras/Build/cmake_install.cmake")
+  include("/home/user/plugins2/Nova Pitch/build/_deps/juce-build/extras/Build/cmake_install.cmake")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/JUCE-8.0.8" TYPE FILE FILES
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/JUCEConfigVersion.cmake"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-build/JUCEConfig.cmake"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/JUCECheckAtomic.cmake"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/JUCEHelperTargets.cmake"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/JUCEModuleSupport.cmake"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/JUCEUtils.cmake"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/JuceLV2Defines.h.in"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/LaunchScreen.storyboard"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/PIPAudioProcessor.cpp.in"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/PIPAudioProcessorWithARA.cpp.in"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/PIPComponent.cpp.in"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/PIPConsole.cpp.in"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/RecentFilesMenuTemplate.nib"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/UnityPluginGUIScript.cs.in"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/checkBundleSigning.cmake"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/copyDir.cmake"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/juce_runtime_arch_detection.cpp"
-    "/workspaces/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/juce_LinuxSubprocessHelper.cpp"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-build/JUCEConfigVersion.cmake"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-build/JUCEConfig.cmake"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/JUCECheckAtomic.cmake"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/JUCEHelperTargets.cmake"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/JUCEModuleSupport.cmake"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/JUCEUtils.cmake"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/JuceLV2Defines.h.in"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/LaunchScreen.storyboard"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/PIPAudioProcessor.cpp.in"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/PIPAudioProcessorWithARA.cpp.in"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/PIPComponent.cpp.in"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/PIPConsole.cpp.in"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/RecentFilesMenuTemplate.nib"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/UnityPluginGUIScript.cs.in"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/checkBundleSigning.cmake"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/copyDir.cmake"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/juce_runtime_arch_detection.cpp"
+    "/home/user/plugins2/Nova Pitch/build/_deps/juce-src/extras/Build/CMake/juce_LinuxSubprocessHelper.cpp"
     )
 endif()
 
