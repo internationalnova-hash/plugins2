@@ -92,24 +92,42 @@ private:
     int   pitchLockBlocks  { 0 };
 
     // ---------------------------------------------------------------
-    // Granular OLA pitch shifter — 8× overlap for low phasiness
+    // Phase vocoder pitch shifter — FFT-based, transparent quality
     // ---------------------------------------------------------------
-    static constexpr int kGrainSize    = 512;
-    static constexpr int kHopSize      = 64;    // 8× overlap (was 128 = 4×)
-    static constexpr int kInitialDelay = 1536;
-    static constexpr int kGrainInMask  = 4096 - 1;
-    static constexpr int kGrainOutMask = 2048 - 1;
+    static constexpr int   kPvN    = 2048;            // FFT size (= 2^11)
+    static constexpr int   kPvH    = 512;             // hop size → 4× Hann overlap
+    static constexpr int   kPvBins = kPvN / 2 + 1;   // 1025 positive-freq bins
+    static constexpr int   kPvMask = kPvN * 2 - 1;   // ring-buffer mask (4095)
+    static constexpr float kPvNorm = 2.0f * static_cast<float>(kPvH)
+                                          / static_cast<float>(kPvN); // 0.5
 
-    std::array<float, 4096> grainInL  {};
-    std::array<float, 4096> grainInR  {};
-    std::array<float, 2048> grainOutL {};
-    std::array<float, 2048> grainOutR {};
-    std::array<float, kGrainSize> grainWin {};
+    std::unique_ptr<juce::dsp::FFT> pvFFT;
 
-    int grainInWrite  { 0 };
-    int grainOutWrite { 0 };
-    int grainOutRead  { 0 };
-    int grainHop      { 0 };
+    std::array<float, kPvN * 2> pvInBufL  {};  // input ring, stereo
+    std::array<float, kPvN * 2> pvInBufR  {};
+    std::array<float, kPvN * 2> pvOutBufL {};  // OLA accumulation, stereo
+    std::array<float, kPvN * 2> pvOutBufR {};
+    std::array<float, kPvN * 2> pvWork    {};  // FFT work (2× size required by JUCE)
+    std::array<float, kPvN>     pvWin     {};  // Hann analysis window
+
+    // Per-channel phase state
+    std::array<float, kPvBins> pvLastPhL  {};
+    std::array<float, kPvBins> pvLastPhR  {};
+    std::array<float, kPvBins> pvSynthPhL {};
+    std::array<float, kPvBins> pvSynthPhR {};
+
+    // Scratch arrays — reused every frame, allocated as members to avoid audio-thread stack pressure
+    std::array<float, kPvBins> pvTmpMag  {};
+    std::array<float, kPvBins> pvTmpPh   {};
+    std::array<float, kPvBins> pvTmpFreq {};  // also reused as bestMag on first frame
+    std::array<float, kPvBins> pvOutMag  {};
+    std::array<float, kPvBins> pvOutFreq {};
+
+    int  pvInWrite    { 0 };
+    int  pvOutWrite   { 0 };
+    int  pvOutRead    { 0 };
+    int  pvHopCount   { 0 };
+    bool pvFirstFrame { true };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };
