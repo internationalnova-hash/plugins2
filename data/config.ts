@@ -1,0 +1,164 @@
+export const propertyConfig = {
+  brand: {
+    name: "Nova Stay",
+    property: "Casanova ATL",
+    tagline: "Your luxury home away from home.",
+    guideUrl: "https://novastay.vercel.app", // update after deploy
+  },
+
+  welcome: {
+    heading: "Welcome to Casanova ATL",
+    message:
+      "We're so glad you're here. This guide has everything you need for a seamless, five-star stay. If you ever need anything, don't hesitate to reach out. Relax, enjoy, and make yourself at home.",
+    hostName: "International Nova",
+  },
+
+  wifi: {
+    networks: [
+      { name: "EMG", password: "Takitaki123#" },
+      { name: "The Society", password: "Takitaki123#" },
+    ],
+  },
+
+  doorCode: {
+    code: "1710#",
+    note: "Enter the code on the keypad, then press the # key to unlock.",
+  },
+
+  theater: {
+    heading: "Movie Theater",
+    steps: [
+      "Flip the light switches inside the theater room — this powers on the projector.",
+      "Press the power button on the projector itself to activate the display.",
+      "Use the Fire Stick remote from the theater control holder to navigate apps.",
+      "Surround sound is wireless — control it from the tablet in the room.",
+      "Tablet passcode: 2121",
+    ],
+  },
+
+  studio: {
+    heading: "Recording Studio Add-On",
+    description:
+      "Take your stay to the next level with access to our professional recording studio. Book a session and create something unforgettable.",
+    packages: [
+      { duration: "4-Hour Session", price: "$150", includes: "Studio access" },
+      {
+        duration: "8-Hour Session",
+        price: "$300",
+        includes: "Studio access + Engineer included",
+      },
+    ],
+    bookingNote:
+      "Contact your host to add a studio session to your stay.",
+  },
+
+  pool: {
+    heading: "Pool & Backyard",
+    rules: [
+      "No glass near the pool area.",
+      "Children must be supervised at all times.",
+      "Please shower before entering the pool.",
+      "No jumping or diving — shallow areas present.",
+      "Keep music at a respectful volume outdoors.",
+      "Outdoor quiet hours begin at 8:00 PM — no loud music or gatherings outside after this time.",
+    ],
+  },
+
+  quietHours: {
+    outdoorCutoff: "8:00 PM",
+    note: "Outdoor noise, music, and gatherings must end by 8:00 PM to respect our neighbors. Indoor enjoyment can continue at a reasonable volume.",
+  },
+
+  driveway: {
+    heading: "Driveway & Front of Home",
+    note: "Please be mindful of the driveway and front of the home. Avoid congregating in the driveway or on the street, as this can disturb neighbors and attract unwanted attention.",
+  },
+
+  grill: {
+    heading: "Grill & Outdoor Lights",
+    instructions: [
+      "Outside lights are controlled by the white oval control panel near the back door.",
+      "Grill is available for guest use — please clean it after each use.",
+      "Never leave the grill unattended while in use.",
+      "Allow the grill to fully cool before covering.",
+    ],
+  },
+
+  checkout: {
+    heading: "Checkout Instructions",
+    time: "11:00 AM",
+    steps: [
+      "Strip all bed linens and leave them in a pile on the floor of each bedroom.",
+      "Place all used towels in the bathtub or laundry basket.",
+      "Wash and put away any dishes you used.",
+      "Dispose of all trash in the outdoor bins.",
+      "Turn off all lights, TVs, and the AC before leaving.",
+      "Lock the front door using the keypad.",
+      "Leave keys (if any) on the kitchen counter.",
+      "Share your experience — a 5-star review means the world to us.",
+    ],
+  },
+
+  emergency: {
+    contacts: [
+      { label: "Host — International Nova", value: "Contact via Airbnb app" },
+      { label: "Police / Fire / Medical", value: "911" },
+      { label: "Poison Control", value: "1-800-222-1222" },
+      { label: "Nearest Hospital", value: "Grady Memorial Hospital — 0.8 mi" },
+    ],
+  },
+
+  recommendations: [
+    {
+      category: "Dining",
+      places: [
+        { name: "STK Atlanta", note: "Upscale steakhouse, Midtown" },
+        { name: "Slutty Vegan", note: "Iconic plant-based burgers" },
+        { name: "The Optimist", note: "Fresh seafood, West Midtown" },
+      ],
+    },
+    {
+      category: "Nightlife",
+      places: [
+        { name: "Gold Room", note: "Upscale nightclub" },
+        { name: "Believe Music Hall", note: "Live events & concerts" },
+        { name: "SL Lounge", note: "Rooftop bar, Buckhead" },
+      ],
+    },
+    {
+      category: "Things To Do",
+      places: [
+        { name: "Ponce City Market", note: "Shopping, food, rooftop" },
+        { name: "BeltLine Eastside Trail", note: "Walking, art, vibes" },
+        { name: "Trap Music Museum", note: "Atlanta culture" },
+      ],
+    },
+  ],
+
+  faq: [
+    {
+      q: "Is early check-in available?",
+      a: "Early check-in may be available depending on the schedule. Message your host on Airbnb to request it.",
+    },
+    {
+      q: "Is late checkout available?",
+      a: "Late checkout is occasionally available. Please request via Airbnb at least 24 hours in advance.",
+    },
+    {
+      q: "Are pets allowed?",
+      a: "Pets are not permitted at Casanova ATL unless explicitly approved by the host.",
+    },
+    {
+      q: "How many guests are allowed?",
+      a: "Please refer to your Airbnb booking for the approved guest count. Unauthorized guests are not permitted.",
+    },
+    {
+      q: "Is there parking?",
+      a: "Yes — driveway parking is available. Please be courteous and avoid blocking the street or neighbors' driveways.",
+    },
+    {
+      q: "What if something is broken or not working?",
+      a: "Please contact your host immediately via the Airbnb app so we can resolve it quickly.",
+    },
+  ],
+};
