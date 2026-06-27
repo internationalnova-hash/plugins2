@@ -92,7 +92,7 @@ export default function WelcomeSection() {
             Your Guide
           </p>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             {guideCards.map((card) => (
               <button
                 key={card.id}
