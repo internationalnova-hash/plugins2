@@ -1,80 +1,87 @@
-import Header from "@/components/Header";
+import Hero from "@/components/Hero";
+import WelcomeSection from "@/components/WelcomeSection";
 import WifiCard from "@/components/WifiCard";
 import DoorCode from "@/components/DoorCode";
 import TheaterGuide from "@/components/TheaterGuide";
 import StudioAddon from "@/components/StudioAddon";
 import PoolRules from "@/components/PoolRules";
+import GameRoom from "@/components/GameRoom";
 import HouseRules from "@/components/HouseRules";
 import Checkout from "@/components/Checkout";
 import EmergencyContacts from "@/components/EmergencyContacts";
 import LocalRecs from "@/components/LocalRecs";
 import FAQ from "@/components/FAQ";
 import QRCodeSection from "@/components/QRCode";
-import { propertyConfig } from "@/data/config";
+import FloatingHelp from "@/components/FloatingHelp";
 
 export default function Home() {
-  const { welcome } = propertyConfig;
-
   return (
-    <main className="max-w-lg mx-auto px-4 pb-16">
-      {/* Header */}
-      <Header />
+    <main className="bg-nova-black min-h-screen">
+      {/* Full-screen hero landing */}
+      <Hero />
 
-      {/* Welcome */}
-      <section className="mb-6">
-        <div
-          className="rounded-2xl px-5 py-6 text-center"
-          style={{
-            background: "linear-gradient(135deg, #1A1A1A 0%, #111111 100%)",
-            border: "1px solid #2A2A2A",
-          }}
-        >
-          <h2 className="text-lg font-serif font-bold text-white mb-3">
-            {welcome.heading}
-          </h2>
-          <div className="divider-gold mx-auto w-16 mb-3" />
-          <p className="text-gray-400 text-sm leading-relaxed">{welcome.message}</p>
-          <p className="text-xs mt-4" style={{ color: "#C9A84C" }}>
-            — {welcome.hostName}
-          </p>
-        </div>
-      </section>
+      {/* Guest guide content */}
+      <div id="guest-guide" className="max-w-lg mx-auto px-4 pb-24">
 
-      {/* Essentials */}
-      <WifiCard />
-      <DoorCode />
+        {/* Welcome + quick-access guide cards */}
+        <WelcomeSection />
 
-      {/* Amenities */}
-      <TheaterGuide />
-      <StudioAddon />
-      <PoolRules />
+        <div className="divider-gold my-6 mx-4" />
 
-      {/* House Rules */}
-      <HouseRules />
+        {/* Essentials */}
+        <div id="wifi"><WifiCard /></div>
+        <div id="door-code"><DoorCode /></div>
 
-      {/* Checkout */}
-      <Checkout />
+        {/* Amenities */}
+        <div id="theater"><TheaterGuide /></div>
+        <div id="studio"><StudioAddon /></div>
+        <div id="pool"><PoolRules /></div>
+        <div id="game-room"><GameRoom /></div>
 
-      {/* Emergency */}
-      <EmergencyContacts />
+        {/* House Rules */}
+        <HouseRules />
 
-      {/* Explore */}
-      <LocalRecs />
+        {/* Checkout */}
+        <div id="checkout"><Checkout /></div>
 
-      {/* FAQ */}
-      <FAQ />
+        {/* Emergency */}
+        <EmergencyContacts />
 
-      {/* QR Code */}
-      <QRCodeSection />
+        {/* Explore */}
+        <LocalRecs />
 
-      {/* Footer */}
-      <footer className="text-center pt-4">
-        <div className="divider-gold mx-auto w-24 mb-4" />
-        <p className="text-xs text-gray-600 uppercase tracking-widest">
-          Nova Stay · Casanova ATL
-        </p>
-        <p className="text-xs text-gray-700 mt-1">Luxury Guest Experience</p>
-      </footer>
+        {/* FAQ */}
+        <FAQ />
+
+        {/* QR Code */}
+        <QRCodeSection />
+
+        {/* Footer */}
+        <footer className="mt-8">
+          <div className="divider-gold mb-6" />
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs font-semibold text-white tracking-widest uppercase">Casanova ATL</p>
+              <p className="text-xs text-gray-600">Atlanta, Georgia</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-gray-600 italic" style={{ fontFamily: "Georgia, serif" }}>Powered by</p>
+              <p className="text-sm font-bold" style={{ color: "#C9A84C" }}>Nova Stay</p>
+              <p className="text-xs text-gray-700 tracking-widest uppercase" style={{ fontSize: "9px" }}>A Nova Experience</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-600 uppercase tracking-widest">Property</p>
+              <p className="text-xs text-gray-600 uppercase tracking-widest">Wi-Fi & Tech</p>
+              <p className="text-xs text-gray-600 uppercase tracking-widest">Local Recs</p>
+              <p className="text-xs text-gray-600 uppercase tracking-widest">Emergency</p>
+            </div>
+          </div>
+          <p className="text-center text-xs text-gray-800 pb-4">© 2025 Nova Stay</p>
+        </footer>
+      </div>
+
+      {/* Floating help button */}
+      <FloatingHelp />
     </main>
   );
 }

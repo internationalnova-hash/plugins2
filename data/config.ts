@@ -7,10 +7,21 @@ export const propertyConfig = {
   },
 
   welcome: {
-    heading: "Welcome to Casanova ATL",
+    heading: "Welcome Home.",
+    subheading: "A Nova Stay Experience",
     message:
-      "We're so glad you're here. This guide has everything you need for a seamless, five-star stay. If you ever need anything, don't hesitate to reach out. Relax, enjoy, and make yourself at home.",
+      "Thank you for choosing Casanova ATL. This guide contains everything you need for an unforgettable luxury stay.",
     hostName: "International Nova",
+  },
+
+  gameRoom: {
+    heading: "Game Room",
+    details: [
+      "Available 24 hours for all guests.",
+      "Please keep the volume at a respectful level after 10:00 PM.",
+      "Return all controllers and equipment to their original positions.",
+      "Do not bring food or drinks near the gaming equipment.",
+    ],
   },
 
   wifi: {
