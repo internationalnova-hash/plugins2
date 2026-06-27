@@ -1,26 +1,16 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Instagram, Facebook, Youtube } from "lucide-react";
 import property from "@/config/property";
-
-function TikTokIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.79 1.54V6.78a4.85 4.85 0 01-1.02-.09z" />
-    </svg>
-  );
-}
 
 export default function Hero() {
   const bgRef = useRef<HTMLDivElement>(null);
 
-  // Parallax on scroll
   useEffect(() => {
     const el = bgRef.current;
     if (!el) return;
     const onScroll = () => {
-      el.style.transform = `translateY(${window.scrollY * 0.28}px)`;
+      el.style.transform = `translateY(${window.scrollY * 0.25}px)`;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -30,195 +20,178 @@ export default function Hero() {
     document.getElementById("guest-guide")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const { social } = property;
+  const navItems = [
+    { icon: "📶", label: "Wi-Fi",         id: "wifi" },
+    { icon: "🔐", label: "Door Code",     id: "door-code" },
+    { icon: "🎬", label: "Movie Theater", id: "theater" },
+    { icon: "🎙️", label: "Studio",        id: "studio" },
+    { icon: "🏊", label: "Pool",          id: "pool" },
+    { icon: "🎮", label: "Game Room",     id: "game-room" },
+    { icon: "🧳", label: "Checkout",      id: "checkout" },
+  ];
 
   return (
     <>
-      {/* Keyframe animations injected once */}
       <style>{`
         @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(24px); }
+          from { opacity: 0; transform: translateY(20px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .hero-logo    { animation: fadeUp 0.9s ease both; animation-delay: 0.2s; }
-        .hero-brand   { animation: fadeUp 0.9s ease both; animation-delay: 0.45s; }
-        .hero-divider { animation: fadeUp 0.9s ease both; animation-delay: 0.6s; }
-        .hero-title   { animation: fadeUp 1s ease both;   animation-delay: 0.75s; }
-        .hero-amenity { animation: fadeUp 0.9s ease both; animation-delay: 0.95s; }
-        .hero-tagline { animation: fadeUp 0.9s ease both; animation-delay: 1.1s; }
-        .hero-cta     { animation: fadeUp 1s ease both;   animation-delay: 1.3s; }
-        .hero-nav     { animation: fadeUp 0.9s ease both; animation-delay: 1.5s; }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50%       { transform: translateY(6px); }
+        }
+        .h-logo    { animation: fadeUp 0.8s ease both; animation-delay: 0.1s; }
+        .h-nav     { animation: fadeIn 0.8s ease both; animation-delay: 0.2s; }
+        .h-title   { animation: fadeUp 1s ease both;   animation-delay: 0.4s; }
+        .h-sub     { animation: fadeUp 0.9s ease both; animation-delay: 0.6s; }
+        .h-tag     { animation: fadeUp 0.9s ease both; animation-delay: 0.75s; }
+        .h-cta     { animation: fadeUp 0.9s ease both; animation-delay: 0.9s; }
+        .h-chevron { animation: fadeIn 1s ease both;   animation-delay: 1.2s; }
+        .chevron-bounce { animation: bounce 1.8s ease-in-out infinite; }
       `}</style>
 
       <section
         className="relative w-full flex flex-col"
-        style={{ height: "100vh", maxHeight: "100dvh", overflow: "hidden" }}
+        style={{ height: "100vh", minHeight: "600px", overflow: "hidden" }}
       >
-        {/* ── Background image with parallax ── */}
+        {/* Parallax background */}
         <div
           ref={bgRef}
           className="absolute will-change-transform"
           style={{
             inset: "-12% 0",
-            // Focal point: center the pool + retaining wall + house
             backgroundImage: `url('${property.heroImage}')`,
             backgroundSize: "cover",
             backgroundPosition: "center 65%",
+            zIndex: 0,
           }}
         />
 
-        {/* Fallback gradient — sits BEHIND the image (z-index -1) */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: "linear-gradient(160deg, #1c1005 0%, #0d0d0d 50%, #060f18 100%)",
-            zIndex: -1,
-          }}
-        />
+        {/* Fallback gradient */}
+        <div className="absolute inset-0" style={{ background: "linear-gradient(160deg,#1c1005,#0d0d0d 50%,#060f18)", zIndex: 0 }} />
 
-        {/* 38% dark overlay — richer photo feel */}
-        <div
-          className="absolute inset-0"
-          style={{ backgroundColor: "rgba(0,0,0,0.38)" }}
-        />
+        {/* Dark overlay */}
+        <div className="absolute inset-0" style={{ backgroundColor: "rgba(0,0,0,0.42)", zIndex: 1 }} />
 
-        {/* Bottom vignette — blends nav area into page */}
-        <div
-          className="absolute bottom-0 left-0 right-0 pointer-events-none"
-          style={{
-            height: "260px",
-            background:
-              "linear-gradient(to bottom, transparent 0%, rgba(10,10,10,0.6) 50%, rgba(10,10,10,0.92) 80%, #0A0A0A 100%)",
-          }}
-        />
+        {/* Bottom vignette */}
+        <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: "220px", background: "linear-gradient(to bottom,transparent,rgba(10,10,10,0.7) 60%,#0A0A0A 100%)", zIndex: 2 }} />
 
-        {/* Social icons — top right */}
-        <div className="absolute top-5 right-4 flex items-center gap-4 z-20 opacity-0 hero-brand">
-          {social.instagram && (
-            <a href={social.instagram} target="_blank" rel="noopener noreferrer">
-              <Instagram size={16} className="text-white opacity-70 hover:opacity-100 transition-opacity" />
-            </a>
-          )}
-          {social.facebook && (
-            <a href={social.facebook} target="_blank" rel="noopener noreferrer">
-              <Facebook size={16} className="text-white opacity-70 hover:opacity-100 transition-opacity" />
-            </a>
-          )}
-          {social.youtube && (
-            <a href={social.youtube} target="_blank" rel="noopener noreferrer">
-              <Youtube size={16} className="text-white opacity-70 hover:opacity-100 transition-opacity" />
-            </a>
-          )}
-          {social.tiktok && (
-            <a href={social.tiktok} target="_blank" rel="noopener noreferrer" className="text-white opacity-70 hover:opacity-100 transition-opacity">
-              <TikTokIcon />
-            </a>
-          )}
+        {/* ── TOP BAR: Logo center + Nav right ── */}
+        <div className="relative z-10 flex items-start justify-between px-6 pt-6">
+
+          {/* Spacer left (balances nav on right) */}
+          <div className="hidden md:block" style={{ minWidth: "200px" }} />
+
+          {/* Center: Logo + wordmark */}
+          <div className="h-logo opacity-0 flex flex-col items-center gap-1 flex-1 md:flex-none">
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center"
+              style={{ border: "2px solid #C9A84C", boxShadow: "0 0 32px rgba(201,168,76,0.2)" }}
+            >
+              <span className="font-serif text-2xl font-bold" style={{ color: "#C9A84C" }}>N</span>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="h-px w-6" style={{ backgroundColor: "#C9A84C" }} />
+              <p className="text-xs tracking-[0.35em] uppercase text-white font-light">Nova Stay</p>
+              <div className="h-px w-6" style={{ backgroundColor: "#C9A84C" }} />
+            </div>
+          </div>
+
+          {/* Right: Nav icons */}
+          <nav className="h-nav opacity-0 hidden md:flex items-start gap-5 pt-1" style={{ minWidth: "200px", justifyContent: "flex-end" }}>
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth" })}
+                className="flex flex-col items-center gap-1 group"
+              >
+                <span className="text-lg">{item.icon}</span>
+                <span className="text-xs text-white opacity-70 group-hover:opacity-100 transition-opacity tracking-wide" style={{ fontSize: "10px" }}>
+                  {item.label}
+                </span>
+              </button>
+            ))}
+          </nav>
         </div>
 
-        {/* ── Hero content — centered, vertically balanced ── */}
-        <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-6 text-center">
-          {/* Logo circle */}
-          <div
-            className="hero-logo opacity-0 w-20 h-20 rounded-full flex items-center justify-center mb-4"
-            style={{
-              border: "2px solid #C9A84C",
-              boxShadow: "0 0 48px rgba(201,168,76,0.25), inset 0 0 24px rgba(201,168,76,0.05)",
-            }}
-          >
-            <span className="font-serif text-3xl font-bold" style={{ color: "#C9A84C" }}>
-              N
-            </span>
-          </div>
-
-          {/* Nova Stay wordmark */}
-          <p className="hero-brand opacity-0 text-xs tracking-[0.45em] uppercase text-white font-light mb-1">
-            Nova Stay
-          </p>
-
-          {/* Gold ornament */}
-          <div className="hero-divider opacity-0 flex items-center gap-3 mb-5">
-            <div className="h-px w-10" style={{ backgroundColor: "#C9A84C" }} />
-            <span style={{ color: "#C9A84C", fontSize: "10px" }}>✦</span>
-            <div className="h-px w-10" style={{ backgroundColor: "#C9A84C" }} />
-          </div>
+        {/* ── HERO CENTER CONTENT ── */}
+        <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-6 text-center -mt-8">
 
           {/* Property name */}
           <h1
-            className="hero-title opacity-0 font-serif font-bold text-white leading-none tracking-wide mb-4"
-            style={{ fontSize: "clamp(2.4rem, 7.5vw, 4.2rem)" }}
+            className="h-title opacity-0 font-serif font-bold text-white leading-none tracking-wide mb-4"
+            style={{ fontSize: "clamp(2.8rem, 8vw, 5.5rem)", textShadow: "0 2px 24px rgba(0,0,0,0.5)" }}
           >
             {property.name.toUpperCase()}
           </h1>
 
           {/* Amenities */}
-          <p className="hero-amenity opacity-0 text-xs tracking-[0.18em] uppercase text-white opacity-70 mb-3">
+          <p className="h-sub opacity-0 text-xs tracking-[0.2em] uppercase text-white mb-4" style={{ opacity: 0.8 }}>
             {property.amenities.join("  •  ")}
           </p>
 
-          {/* Tagline */}
-          <p className="hero-tagline opacity-0 text-sm tracking-[0.15em] uppercase mb-10 font-light"
-             style={{ color: "rgba(255,255,255,0.55)" }}>
+          {/* Italic tagline */}
+          <p
+            className="h-tag opacity-0 mb-2 font-serif italic text-white"
+            style={{ fontSize: "clamp(1.1rem, 3vw, 1.5rem)", opacity: 0.9, textShadow: "0 1px 12px rgba(0,0,0,0.6)" }}
+          >
             {property.tagline}
           </p>
+
+          {/* Gold ornament */}
+          <div className="h-tag opacity-0 flex items-center gap-3 mb-7">
+            <div className="h-px w-12" style={{ backgroundColor: "#C9A84C" }} />
+            <span style={{ color: "#C9A84C", fontSize: "12px" }}>★</span>
+            <div className="h-px w-12" style={{ backgroundColor: "#C9A84C" }} />
+          </div>
 
           {/* CTA button */}
           <button
             onClick={scrollToGuide}
-            className="hero-cta opacity-0 px-12 py-4 text-sm font-bold tracking-[0.28em] uppercase transition-all hover:brightness-110 active:scale-95"
+            className="h-cta opacity-0 flex items-center gap-3 px-10 py-4 text-sm font-bold tracking-[0.25em] uppercase transition-all hover:brightness-110 active:scale-95 mb-8"
             style={{
-              backgroundColor: "#C9A84C",
+              background: "linear-gradient(135deg, #C9A84C 0%, #E8C97A 50%, #C9A84C 100%)",
               color: "#0A0A0A",
               borderRadius: "4px",
-              minWidth: "260px",
-              boxShadow: "0 8px 40px rgba(201,168,76,0.4)",
+              minWidth: "280px",
+              justifyContent: "center",
+              boxShadow: "0 8px 40px rgba(201,168,76,0.45)",
             }}
           >
             Enter Guest Guide
+            <span className="ml-1">→</span>
           </button>
+
+          {/* Scroll chevron */}
+          <div className="h-chevron opacity-0 chevron-bounce flex flex-col items-center gap-0.5">
+            <svg width="24" height="14" viewBox="0 0 24 14" fill="none">
+              <path d="M2 2L12 11L22 2" stroke="#C9A84C" strokeWidth="2.5" strokeLinecap="round"/>
+            </svg>
+            <svg width="24" height="14" viewBox="0 0 24 14" fill="none" style={{ opacity: 0.5 }}>
+              <path d="M2 2L12 11L22 2" stroke="#C9A84C" strokeWidth="2.5" strokeLinecap="round"/>
+            </svg>
+          </div>
         </div>
 
-        {/* ── Quick-access navigation cards ── */}
-        <div className="hero-nav opacity-0 relative z-10 w-full px-3 pb-4">
-          <div
-            className="rounded-2xl"
-            style={{
-              backgroundColor: "rgba(10,10,10,0.80)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              border: "1px solid rgba(201,168,76,0.14)",
-            }}
-          >
-            <div className="flex overflow-x-auto px-3 py-4 gap-1 no-scrollbar">
-              {[
-                { icon: "📶", label: "Wi-Fi",         id: "wifi" },
-                { icon: "🔐", label: "Door Code",     id: "door-code" },
-                { icon: "🎬", label: "Movie Theater", id: "theater" },
-                { icon: "🎙️", label: "Studio",        id: "studio" },
-                { icon: "🏊", label: "Pool",          id: "pool" },
-                { icon: "🎮", label: "Game Room",     id: "game-room" },
-                { icon: "🧳", label: "Checkout",      id: "checkout" },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() =>
-                    document
-                      .getElementById(item.id)
-                      ?.scrollIntoView({ behavior: "smooth" })
-                  }
-                  className="flex flex-col items-center gap-2 px-4 py-2 rounded-xl active:opacity-70 transition-opacity flex-shrink-0 min-w-[72px]"
-                >
-                  <span className="text-2xl">{item.icon}</span>
-                  <span
-                    className="text-xs font-medium text-center leading-tight"
-                    style={{ color: "#C9A84C" }}
-                  >
-                    {item.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Mobile nav strip — shown only on small screens */}
+        <div className="relative z-10 flex md:hidden overflow-x-auto px-4 pb-4 gap-4 no-scrollbar">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth" })}
+              className="flex flex-col items-center gap-1 flex-shrink-0"
+            >
+              <span className="text-xl">{item.icon}</span>
+              <span className="text-xs text-white opacity-70 whitespace-nowrap" style={{ fontSize: "10px", color: "#C9A84C" }}>
+                {item.label}
+              </span>
+            </button>
+          ))}
         </div>
       </section>
     </>
