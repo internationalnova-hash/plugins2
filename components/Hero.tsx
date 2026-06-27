@@ -67,12 +67,12 @@ export default function Hero() {
           }}
         />
 
-        {/* Fallback gradient (visible when image hasn't loaded yet) */}
+        {/* Fallback gradient — sits BEHIND the image (z-index -1) */}
         <div
           className="absolute inset-0"
           style={{
-            background:
-              "linear-gradient(160deg, #1c1005 0%, #0d0d0d 50%, #060f18 100%)",
+            background: "linear-gradient(160deg, #1c1005 0%, #0d0d0d 50%, #060f18 100%)",
+            zIndex: -1,
           }}
         />
 
