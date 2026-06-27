@@ -31,6 +31,10 @@ body {
   background: linear-gradient(to right, transparent, #C9A84C, transparent);
 }
 
+/* Hide scrollbar on nav strip */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: #0A0A0A; }
