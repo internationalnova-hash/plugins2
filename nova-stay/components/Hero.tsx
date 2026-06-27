@@ -59,7 +59,10 @@ export default function Hero() {
         className="relative w-full flex flex-col"
         style={{ height: "100vh", minHeight: "600px", overflow: "hidden" }}
       >
-        {/* Parallax background */}
+        {/* Fallback gradient — behind everything */}
+        <div className="absolute inset-0" style={{ background: "linear-gradient(160deg,#1c1005,#0d0d0d 50%,#060f18)", zIndex: 0 }} />
+
+        {/* Parallax background image — on top of fallback */}
         <div
           ref={bgRef}
           className="absolute will-change-transform"
@@ -68,21 +71,18 @@ export default function Hero() {
             backgroundImage: `url('${property.heroImage}')`,
             backgroundSize: "cover",
             backgroundPosition: "center 65%",
-            zIndex: 0,
+            zIndex: 1,
           }}
         />
 
-        {/* Fallback gradient */}
-        <div className="absolute inset-0" style={{ background: "linear-gradient(160deg,#1c1005,#0d0d0d 50%,#060f18)", zIndex: 0 }} />
-
         {/* Dark overlay */}
-        <div className="absolute inset-0" style={{ backgroundColor: "rgba(0,0,0,0.42)", zIndex: 1 }} />
+        <div className="absolute inset-0" style={{ backgroundColor: "rgba(0,0,0,0.42)", zIndex: 2 }} />
 
         {/* Bottom vignette */}
-        <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: "220px", background: "linear-gradient(to bottom,transparent,rgba(10,10,10,0.7) 60%,#0A0A0A 100%)", zIndex: 2 }} />
+        <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: "220px", background: "linear-gradient(to bottom,transparent,rgba(10,10,10,0.7) 60%,#0A0A0A 100%)", zIndex: 3 }} />
 
         {/* ── TOP BAR: Logo center + Nav right ── */}
-        <div className="relative z-10 flex items-start justify-between px-6 pt-6">
+        <div className="relative flex items-start justify-between px-6 pt-6" style={{zIndex: 10}}>
 
           {/* Spacer left (balances nav on right) */}
           <div className="hidden md:block" style={{ minWidth: "200px" }} />
@@ -120,7 +120,7 @@ export default function Hero() {
         </div>
 
         {/* ── HERO CENTER CONTENT ── */}
-        <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-6 text-center -mt-8">
+        <div className="relative flex flex-col items-center justify-center flex-1 px-6 text-center -mt-8" style={{zIndex: 10}}>
 
           {/* Property name */}
           <h1
@@ -179,7 +179,7 @@ export default function Hero() {
         </div>
 
         {/* Mobile nav strip — shown only on small screens */}
-        <div className="relative z-10 flex md:hidden overflow-x-auto px-4 pb-4 gap-4 no-scrollbar">
+        <div className="relative flex md:hidden overflow-x-auto px-4 pb-4 gap-4 no-scrollbar" style={{zIndex: 10}}>
           {navItems.map((item) => (
             <button
               key={item.id}
