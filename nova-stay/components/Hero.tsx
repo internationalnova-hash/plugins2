@@ -63,7 +63,7 @@ export default function Hero() {
             // Focal point: center the pool + retaining wall + house
             backgroundImage: `url('${property.heroImage}')`,
             backgroundSize: "cover",
-            backgroundPosition: "center 55%",
+            backgroundPosition: "center 65%",
           }}
         />
 
@@ -76,19 +76,19 @@ export default function Hero() {
           }}
         />
 
-        {/* 47% dark overlay — preserves gold lighting + deep blue pool */}
+        {/* 38% dark overlay — richer photo feel */}
         <div
           className="absolute inset-0"
-          style={{ backgroundColor: "rgba(0,0,0,0.47)" }}
+          style={{ backgroundColor: "rgba(0,0,0,0.38)" }}
         />
 
-        {/* Bottom vignette — hides content below fold */}
+        {/* Bottom vignette — blends nav area into page */}
         <div
           className="absolute bottom-0 left-0 right-0 pointer-events-none"
           style={{
-            height: "180px",
+            height: "260px",
             background:
-              "linear-gradient(to bottom, transparent 0%, rgba(10,10,10,0.85) 70%, #0A0A0A 100%)",
+              "linear-gradient(to bottom, transparent 0%, rgba(10,10,10,0.6) 50%, rgba(10,10,10,0.92) 80%, #0A0A0A 100%)",
           }}
         />
 
@@ -146,7 +146,7 @@ export default function Hero() {
           {/* Property name */}
           <h1
             className="hero-title opacity-0 font-serif font-bold text-white leading-none tracking-wide mb-4"
-            style={{ fontSize: "clamp(2.6rem, 9vw, 5.5rem)" }}
+            style={{ fontSize: "clamp(2.4rem, 7.5vw, 4.2rem)" }}
           >
             {property.name.toUpperCase()}
           </h1>
