@@ -55,11 +55,11 @@ export default function WelcomeSection() {
       className="w-full px-4 py-8 md:px-8"
       style={{ backgroundColor: "#0A0A0A" }}
     >
-      <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-6 items-start">
+      <div className="max-w-2xl mx-auto flex flex-col gap-6 items-start">
 
         {/* ── Left: Welcome card ── */}
         <div
-          className="w-full md:w-72 flex-shrink-0 rounded-2xl p-6 flex flex-col justify-between"
+          className="w-full rounded-2xl p-6 flex flex-col justify-between"
           style={{
             background: "linear-gradient(145deg, #1a1a1a, #111)",
             border: "1px solid #2a2a2a",
@@ -92,7 +92,7 @@ export default function WelcomeSection() {
             Your Guide
           </p>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {guideCards.map((card) => (
               <button
                 key={card.id}
