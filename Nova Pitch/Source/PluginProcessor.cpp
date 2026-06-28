@@ -277,17 +277,33 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float safeRatio = juce::jlimit (0.5f, 2.0f, ratio);
 
     // ── Dual-head TD-PSOLA pitch shift ─────────────────────────────────────
-    // Head A reads the delay line at `safeRatio` samples per output sample
-    // (Doppler effect → pitch shift).  When the read/write gap drifts more
-    // than one pitch period from kDlLatency, we crossfade to head B which is
-    // one pitch period away.  For a periodic signal that position is
-    // perceptually identical, so the jump is inaudible.
-    // No FFT, no phase accumulation, no choir effect.
-    // Pitch period for crossfade grain size — clamp to sane range
+    // Pitch period for grain size — clamp to sane range
     const int pitchPeriod = (smoothedDetectedHz >= 80.0f && smoothedDetectedHz <= 1200.0f)
                             ? juce::jlimit (40, 600,
                                   (int) std::round ((float) currentSampleRate / smoothedDetectedHz))
                             : 256;
+
+    // Crossfade duration: 4x pitch period for smooth transitions
+    const int xfadeDur = pitchPeriod * 4;
+    // Trigger crossfade when gap drifts 4 periods from target
+    const int triggerDrift = pitchPeriod * 4;
+
+    // Find the best jump distance using autocorrelation (avoids off-period artifacts)
+    auto findBestJump = [&](int center) -> int {
+        const int radius = center / 4;
+        float bestCorr = -1e30f;
+        int   best     = center;
+        int   anchor   = (int)dlReadA;
+        for (int d = center - radius; d <= center + radius; ++d)
+        {
+            float corr = 0.0f;
+            int   half = d / 2;
+            for (int k = -half; k < half; ++k)
+                corr += dlBufL[(anchor + k) & kDlMask] * dlBufL[(anchor + k - d) & kDlMask];
+            if (corr > bestCorr) { bestCorr = corr; best = d; }
+        }
+        return best;
+    };
 
     for (int s = 0; s < numSamples; ++s)
     {
@@ -329,7 +345,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
             if (dlXfade >= 1.0f)
             {
-                // Crossfade complete — B becomes the new A
                 dlReadA   = dlReadB;
                 dlXfading = false;
                 dlXfade   = 0.0f;
@@ -338,28 +353,29 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         dlReadA += safeRatio;
 
-        // ── Gap check: trigger crossfade when drift exceeds one pitch period ─
+        // ── Gap check: trigger crossfade when drift exceeds triggerDrift ─────
         if (!dlXfading)
         {
             float gap = static_cast<float> (dlWrite) - dlReadA;
 
-            if (gap < static_cast<float> (kDlLatency - pitchPeriod))
+            if (gap < static_cast<float> (kDlLatency - triggerDrift))
             {
-                // Read caught up to write (upshift) → jump back one period
-                dlReadB    = dlReadA - static_cast<float> (pitchPeriod);
+                // Upshift: read caught up → jump back by best-correlated period
+                int jump   = findBestJump (pitchPeriod);
+                dlReadB    = dlReadA - static_cast<float> (jump);
                 dlXfade    = 0.0f;
-                dlXfadeInc = 1.0f / static_cast<float> (pitchPeriod);
+                dlXfadeInc = 1.0f / static_cast<float> (xfadeDur);
                 dlXfading  = true;
-                // Advance B for this sample (A was already advanced above)
                 dlReadB   += safeRatio;
                 dlXfade   += dlXfadeInc;
             }
-            else if (gap > static_cast<float> (kDlLatency + pitchPeriod))
+            else if (gap > static_cast<float> (kDlLatency + triggerDrift))
             {
-                // Write lapped read (downshift) → jump forward one period
-                dlReadB    = dlReadA + static_cast<float> (pitchPeriod);
+                // Downshift: write lapped read → jump forward by best-correlated period
+                int jump   = findBestJump (pitchPeriod);
+                dlReadB    = dlReadA + static_cast<float> (jump);
                 dlXfade    = 0.0f;
-                dlXfadeInc = 1.0f / static_cast<float> (pitchPeriod);
+                dlXfadeInc = 1.0f / static_cast<float> (xfadeDur);
                 dlXfading  = true;
                 dlReadB   += safeRatio;
                 dlXfade   += dlXfadeInc;
