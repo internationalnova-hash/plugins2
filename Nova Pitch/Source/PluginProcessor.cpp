@@ -203,7 +203,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             bool  octJump  = (hzRatio > 1.88f && hzRatio < 2.12f)
                           || (hzRatio > 0.47f && hzRatio < 0.53f);
             float semiDist = std::abs (hzToMidiF (medianHz) - hzToMidiF (smoothedDetectedHz));
-            float alpha    = octJump ? 0.02f : juce::jlimit (0.05f, 0.15f, semiDist * 0.03f);
+            float alpha    = octJump ? 0.05f : juce::jlimit (0.15f, 0.4f, semiDist * 0.08f);
             smoothedDetectedHz = alpha * medianHz + (1.0f - alpha) * smoothedDetectedHz;
         }
         else
