@@ -50,7 +50,8 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     yinCmnd.assign   (yinBufferSize / 2, 0.0f);
 
     yinWritePos           = 0;
-    smoothedDetectedHz    = 0.0f;
+    // Preserve smoothedDetectedHz across play/stop cycles so correction
+    // locks immediately on replay rather than warming up from zero each time
     blocksSinceValidPitch = 0;
     correctionActive = false;
     lastTargetMidi   = -1;

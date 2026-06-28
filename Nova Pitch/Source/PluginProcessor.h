@@ -102,7 +102,7 @@ private:
     // ---------------------------------------------------------------
     static constexpr int kDlSize    = 16384;   // delay-line size (power of 2)
     static constexpr int kDlMask    = kDlSize - 1;
-    static constexpr int kDlLatency = 2048;    // declared plugin latency (samples)
+    static constexpr int kDlLatency = 512;     // declared plugin latency (samples)
 
     std::array<float, kDlSize> dlBufL  {};
     std::array<float, kDlSize> dlBufR  {};
