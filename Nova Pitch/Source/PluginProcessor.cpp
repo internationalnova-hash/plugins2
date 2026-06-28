@@ -299,8 +299,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     // Crossfade duration: 4x pitch period for smooth transitions
     const int xfadeDur = pitchPeriod * 4;
-    // Trigger crossfade when gap drifts 4 periods from target
-    const int triggerDrift = pitchPeriod * 4;
+    // Trigger crossfade when gap drifts 4 periods — but never exceed kDlLatency/2
+    const int triggerDrift = std::min (pitchPeriod * 4, kDlLatency / 2);
 
     // Find the best jump distance using autocorrelation (avoids off-period artifacts)
     auto findBestJump = [&](int center) -> int {
