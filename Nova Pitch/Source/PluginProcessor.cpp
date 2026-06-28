@@ -50,8 +50,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     yinCmnd.assign   (yinBufferSize / 2, 0.0f);
 
     yinWritePos           = 0;
-    // Preserve smoothedDetectedHz across play/stop cycles so correction
-    // locks immediately on replay rather than warming up from zero each time
+    smoothedDetectedHz    = 0.0f;
     blocksSinceValidPitch = 0;
     correctionActive = false;
     lastTargetMidi   = -1;
@@ -228,7 +227,23 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     if (smoothedDetectedHz > 0.0f)
     {
-        int   targetMidi = quantizeToScale (smoothedDetectedHz);
+        // ── Note stickiness: don't switch target note until pitch definitively
+        // crosses the midpoint.  Prevents smoother lag from flipping between
+        // A3 and Bb3 and applying corrections in the wrong direction.
+        int newTargetMidi = quantizeToScale (smoothedDetectedHz);
+        if (lastTargetMidi == -1)
+        {
+            lastTargetMidi = newTargetMidi;
+        }
+        else
+        {
+            float centsFromSticky = (hzToMidiF (smoothedDetectedHz) - (float)lastTargetMidi) * 100.0f;
+            // Only switch note when pitch moves >55c away from current target
+            if (std::abs (centsFromSticky) > 55.0f)
+                lastTargetMidi = newTargetMidi;
+        }
+
+        int   targetMidi = lastTargetMidi;
         float targetHz   = midiToHz (targetMidi);
         correctedPitch.store (targetHz);
         pitchConfidence.store (apvts.getRawParameterValue ("confidenceThreshold")->load() / 100.0f);
@@ -241,8 +256,7 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         if (correctionActive)
         {
-            // Always recompute ratio per-block so correction tracks instantaneous pitch
-            lastTargetMidi = targetMidi;
+            // Recompute ratio each block so correction tracks instantaneous deviation
             float alignedHz = smoothedDetectedHz;
             if (targetHz > 1.0f)
             {
@@ -254,7 +268,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
         else
         {
-            lastTargetMidi  = -1;
             noteTargetRatio = 1.0f;
             ratio = 1.0f;
         }
