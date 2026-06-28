@@ -233,24 +233,22 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         pitchConfidence.store (apvts.getRawParameterValue ("confidenceThreshold")->load() / 100.0f);
 
         float centsDiff     = (hzToMidiF (targetHz) - hzToMidiF (smoothedDetectedHz)) * 100.0f;
-        float deadbandCents = tolerance * 50.0f;
+        float deadbandCents = tolerance * 25.0f;
 
         if (!correctionActive && std::abs (centsDiff) > deadbandCents)  correctionActive = true;
         if ( correctionActive && std::abs (centsDiff) < deadbandCents * 0.4f) correctionActive = false;
 
         if (correctionActive)
         {
-            if (targetMidi != lastTargetMidi)
+            // Always recompute ratio per-block so correction tracks instantaneous pitch
+            lastTargetMidi = targetMidi;
+            float alignedHz = smoothedDetectedHz;
+            if (targetHz > 1.0f)
             {
-                lastTargetMidi = targetMidi;
-                float alignedHz = smoothedDetectedHz;
-                if (targetHz > 1.0f)
-                {
-                    while (alignedHz < targetHz * 0.70710678f) alignedHz *= 2.0f;
-                    while (alignedHz > targetHz * 1.41421356f) alignedHz *= 0.5f;
-                }
-                noteTargetRatio = juce::jlimit (0.841f, 1.189f, targetHz / (alignedHz + 1e-9f));
+                while (alignedHz < targetHz * 0.70710678f) alignedHz *= 2.0f;
+                while (alignedHz > targetHz * 1.41421356f) alignedHz *= 0.5f;
             }
+            noteTargetRatio = juce::jlimit (0.841f, 1.189f, targetHz / (alignedHz + 1e-9f));
             ratio = 1.0f + (noteTargetRatio - 1.0f) * amount;
         }
         else
