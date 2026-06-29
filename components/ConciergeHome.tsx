@@ -22,9 +22,9 @@ function greeting() {
 
 function greetingSubtitle(name: string): string {
   const h = new Date().getHours();
-  if (h < 12) return `The pool is open, the weather is perfect, and your stay begins today. We've prepared everything for you, ${name}.`;
-  if (h < 17) return `Hope your morning has been amazing. The pool is ready, the studio is available, and the city is yours to explore.`;
-  return `The pool lights come on at sunset. Your movie theater is ready whenever you are. Enjoy your evening.`;
+  if (h < 12) return `Welcome to Casanova ATL, ${name}. The pool is sparkling, the home has been prepared, and today is entirely yours to enjoy.`;
+  if (h < 17) return `Whether you're relaxing by the pool, exploring Atlanta, or creating in the studio — everything has been prepared for you, ${name}.`;
+  return `As the sun sets, the pool lights come alive, the theater is ready, and Casanova ATL becomes something truly special. Enjoy your evening, ${name}.`;
 }
 
 const STATUS_CARDS = [
