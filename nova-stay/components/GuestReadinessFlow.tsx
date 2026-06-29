@@ -431,28 +431,26 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
         {/* Gold divider accent */}
         <div style={{ width: 32, height: 2, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_LIGHT})`, borderRadius: 1, margin: "0 auto 32px" }} />
 
-        <p style={{ color: "#9CA3AF", fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 16 }}>
-          You&apos;re all set.
-        </p>
-        <h2 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(1.8rem, 6vw, 2.4rem)", color: "#fff", fontWeight: 700, lineHeight: 1.2, marginBottom: 8 }}>
+        <h2 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(1.8rem, 6vw, 2.4rem)", color: "#fff", fontWeight: 700, lineHeight: 1.2, marginBottom: 12 }}>
           Welcome to<br />
           <span style={{ color: GOLD }}>Casanova ATL.</span>
         </h2>
-        <p style={{ color: "#6B7280", fontSize: 14, lineHeight: 1.65, marginBottom: 36 }}>
-          We&apos;ve prepared everything for your stay.
+        <p style={{ color: "#6B7280", fontSize: 14, lineHeight: 1.65, marginBottom: 32 }}>
+          Everything is ready for your arrival.
         </p>
 
         {/* Hotel-style checklist */}
-        <div style={{ background: CARD, border: "1px solid #1e1e1e", borderRadius: 16, padding: "28px 24px", marginBottom: 36, textAlign: "left" }}>
+        <div style={{ background: CARD, border: "1px solid #1e1e1e", borderRadius: 16, padding: "24px 20px", marginBottom: 28, textAlign: "left" }}>
           {[
             { label: "Parking Registered", sub: `${vehicles} vehicle${vehicles !== 1 ? "s" : ""} noted` },
-            { label: "Guests Confirmed", sub: `${overnightGuests} overnight · ${daytimeVisitors} daytime` },
-            { label: "House Guide Ready", sub: "Wi-Fi, door code, amenities & more" },
-            { label: "Local Recommendations Ready", sub: "Dining, music, experiences & coffee" },
-          ].map(({ label, sub }) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 16, paddingBottom: 18, marginBottom: 18, borderBottom: "1px solid #161616" }}>
-              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(201,168,76,0.12)", border: `1px solid ${GOLD}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <span style={{ color: GOLD, fontSize: 13 }}>✓</span>
+            { label: "Guest Details Confirmed", sub: `${overnightGuests} overnight · ${daytimeVisitors} daytime` },
+            { label: "Luxury Guide Ready", sub: "Wi-Fi, door code, amenities & more" },
+            { label: "Local Experiences Ready", sub: "Dining, music, studios & coffee" },
+            { label: "Stay Personalized", sub: `${reservation.checkIn} – ${reservation.checkOut} · ${reservation.nights} nights` },
+          ].map(({ label, sub }, i, arr) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 16, paddingBottom: i < arr.length - 1 ? 16 : 0, marginBottom: i < arr.length - 1 ? 16 : 0, borderBottom: i < arr.length - 1 ? "1px solid #161616" : "none" }}>
+              <div style={{ width: 26, height: 26, borderRadius: "50%", background: "rgba(201,168,76,0.12)", border: `1px solid ${GOLD}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <span style={{ color: GOLD, fontSize: 12 }}>✓</span>
               </div>
               <div>
                 <p style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{label}</p>
@@ -460,19 +458,26 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
               </div>
             </div>
           ))}
-          {/* Last row — no border */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(201,168,76,0.12)", border: `1px solid ${GOLD}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <span style={{ color: GOLD, fontSize: 13 }}>✓</span>
-            </div>
-            <div>
-              <p style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Stay Details Saved</p>
-              <p style={{ color: "#6B7280", fontSize: 12 }}>{reservation.checkIn} – {reservation.checkOut} · {reservation.nights} nights</p>
-            </div>
+        </div>
+
+        {/* Personal message */}
+        <div style={{ background: "rgba(201,168,76,0.04)", border: `1px solid ${GOLD}18`, borderRadius: 12, padding: "20px 20px 16px", marginBottom: 28, textAlign: "left" }}>
+          <p style={{ color: "#9CA3AF", fontSize: 14, lineHeight: 1.75, fontStyle: "italic", marginBottom: 12, fontFamily: "Georgia, serif" }}>
+            &ldquo;We&apos;re honored to host you and hope you create unforgettable memories during your stay.&rdquo;
+          </p>
+          <p style={{ color: GOLD, fontSize: 12, letterSpacing: "0.08em" }}>— Casanova ATL Team</p>
+        </div>
+
+        {/* Completion badge */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 24 }}>
+          <span style={{ fontSize: 20 }}>🏅</span>
+          <div style={{ textAlign: "left" }}>
+            <p style={{ color: GOLD, fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Casanova ATL Ready</p>
+            <p style={{ color: "#4B5563", fontSize: 11 }}>Check-in complete</p>
           </div>
         </div>
 
-        <GoldBtn onClick={finish}>Enter Your Luxury Guide →</GoldBtn>
+        <GoldBtn onClick={finish}>Begin Your Stay →</GoldBtn>
       </div>
     </div>
   );
