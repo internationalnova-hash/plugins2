@@ -13,15 +13,28 @@ const CARD = "#111111";
 function ProgressBar({ step, total }: { step: number; total: number }) {
   const pct = Math.round((step / total) * 100);
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: 3, background: "#1a1a1a", zIndex: 100 }}>
-      <div
-        style={{
-          height: "100%",
-          width: `${pct}%`,
-          background: `linear-gradient(90deg, ${GOLD}, ${GOLD_LIGHT})`,
-          transition: "width 0.45s ease",
-        }}
-      />
+    <div style={{ marginBottom: 36 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+        <span style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+          Guest Readiness
+        </span>
+        <span style={{ color: GOLD, fontSize: 13, fontWeight: 700, letterSpacing: "0.05em" }}>{pct}%</span>
+      </div>
+      <div style={{ width: "100%", height: 4, background: "#1a1a1a", borderRadius: 2, overflow: "hidden" }}>
+        <div
+          style={{
+            height: "100%",
+            width: `${pct}%`,
+            background: `linear-gradient(90deg, ${GOLD}, ${GOLD_LIGHT})`,
+            borderRadius: 2,
+            transition: "width 0.5s cubic-bezier(0.22, 1, 0.36, 1)",
+            boxShadow: `0 0 8px ${GOLD}66`,
+          }}
+        />
+      </div>
+      <p style={{ color: "#2d2d2d", fontSize: 11, marginTop: 8, letterSpacing: "0.1em" }}>
+        Step {step} of {total}
+      </p>
     </div>
   );
 }
@@ -217,6 +230,27 @@ function LocalPreview({ onNext, onBack }: { onNext: () => void; onBack: () => vo
   );
 }
 
+// ─── Animation style ─────────────────────────────────────────────────────────
+
+const ANIM_STYLE = `
+  @keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(28px); }
+    to   { opacity: 1; transform: translateY(0);    }
+  }
+  .step-enter { animation: slideUpFade 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+`;
+
+function Animated({ stepKey, children }: { stepKey: number | string; children: React.ReactNode }) {
+  return (
+    <>
+      <style>{ANIM_STYLE}</style>
+      <div key={stepKey} className="step-enter" style={{ width: "100%" }}>
+        {children}
+      </div>
+    </>
+  );
+}
+
 // ─── Main flow ───────────────────────────────────────────────────────────────
 
 export default function GuestReadinessFlow({ onComplete }: { onComplete: () => void }) {
@@ -249,20 +283,22 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
   };
 
   const wrap = (stepNum: number, content: React.ReactNode, canContinue = true, onNext?: () => void) => (
-    <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", justifyContent: "center", padding: "60px 24px 40px", maxWidth: 480, margin: "0 auto", width: "100%" }}>
-      <ProgressBar step={stepNum} total={TOTAL} />
-      <StepLabel step={stepNum} total={TOTAL} />
-      {content}
-      <div style={{ marginTop: 36, display: "flex", flexDirection: "column", gap: 10 }}>
-        <GoldBtn onClick={onNext ?? next} disabled={!canContinue}>Continue →</GoldBtn>
-        {stepNum > 1 && <BackBtn onClick={back} />}
+    <Animated stepKey={stepNum}>
+      <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", justifyContent: "center", padding: "60px 24px 40px", maxWidth: 480, margin: "0 auto", width: "100%" }}>
+        <ProgressBar step={stepNum} total={TOTAL} />
+        {content}
+        <div style={{ marginTop: 36, display: "flex", flexDirection: "column", gap: 10 }}>
+          <GoldBtn onClick={onNext ?? next} disabled={!canContinue}>Continue →</GoldBtn>
+          {stepNum > 1 && <BackBtn onClick={back} />}
+        </div>
       </div>
-    </div>
+    </Animated>
   );
 
   // Step 0 — Welcome
   if (step === 0) {
     return (
+      <Animated stepKey={0}>
       <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
         <div style={{ maxWidth: 400, width: "100%" }}>
           <div style={{ fontSize: 11, letterSpacing: "0.3em", color: GOLD, textTransform: "uppercase", marginBottom: 20 }}>Nova Stay</div>
@@ -284,12 +320,14 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
           <GoldBtn onClick={next}>Begin Check-In</GoldBtn>
         </div>
       </div>
+      </Animated>
     );
   }
 
   // Step 1 — Reservation (pre-filled, guest confirms)
   if (step === 1) {
     return (
+      <Animated stepKey={1}>
       <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", justifyContent: "center", padding: "60px 24px 40px", maxWidth: 480, margin: "0 auto", width: "100%" }}>
         <ProgressBar step={1} total={TOTAL} />
         <StepLabel step={1} total={TOTAL} />
@@ -328,6 +366,7 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
           <GoldBtn onClick={next}>Looks Right — Continue</GoldBtn>
         </div>
       </div>
+      </Animated>
     );
   }
 
@@ -373,58 +412,51 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
   // Step 5 — Guideline: Parking
   if (step === 5) {
     return (
-      <GuidelineCard
-        icon="🅿️"
-        title="Parking"
-        body="Only registered vehicles may park in the driveway or designated spaces. Please do not block neighboring driveways or park on the lawn. Unauthorized parking may result in towing."
-        onGotIt={next}
-      />
+      <Animated stepKey={5}>
+        <GuidelineCard icon="🅿️" title="Parking" body="Only registered vehicles may park in the driveway or designated spaces. Please do not block neighboring driveways or park on the lawn. Unauthorized parking may result in towing." onGotIt={next} />
+      </Animated>
     );
   }
 
   // Step 6 — Guideline: Quiet Hours
   if (step === 6) {
     return (
-      <GuidelineCard
-        icon="🌙"
-        title="Quiet Hours"
-        body="Outdoor quiet hours begin at 8 PM. Indoor gatherings may continue at a respectful volume. Music outside, poolside noise, and large group conversations outdoors should wrap up by 8 PM nightly."
-        onGotIt={next}
-      />
+      <Animated stepKey={6}>
+        <GuidelineCard icon="🌙" title="Quiet Hours" body="Outdoor quiet hours begin at 8 PM. Indoor gatherings may continue at a respectful volume. Music outside, poolside noise, and large group conversations outdoors should wrap up by 8 PM nightly." onGotIt={next} />
+      </Animated>
     );
   }
 
   // Step 7 — Guideline: Registered Guests
   if (step === 7) {
     return (
-      <GuidelineCard
-        icon="🏛️"
-        title="Registered Guests Only"
-        body="Private amenities — including the pool, studio, and game room — are reserved for registered overnight guests only. Additional visitors require prior host approval."
-        onGotIt={next}
-      />
+      <Animated stepKey={7}>
+        <GuidelineCard icon="🏛️" title="Registered Guests Only" body="Private amenities — including the pool, studio, and game room — are reserved for registered overnight guests only. Additional visitors require prior host approval." onGotIt={next} />
+      </Animated>
     );
   }
 
   // Step 8 — Guideline: Respecting the Home
   if (step === 8) {
     return (
-      <GuidelineCard
-        icon="🏡"
-        title="Respecting the Home"
-        body="We love hosting families and intimate gatherings. Please remember that unapproved parties and large events aren't permitted — keeping this a peaceful space means every guest gets the experience they came for."
-        onGotIt={next}
-      />
+      <Animated stepKey={8}>
+        <GuidelineCard icon="🏡" title="Respecting the Home" body="We love hosting families and intimate gatherings. Please remember that unapproved parties and large events aren't permitted — keeping this a peaceful space means every guest gets the experience they came for." onGotIt={next} />
+      </Animated>
     );
   }
 
   // Step 9 — Local Preview
   if (step === 9) {
-    return <LocalPreview onNext={next} onBack={back} />;
+    return (
+      <Animated stepKey={9}>
+        <LocalPreview onNext={next} onBack={back} />
+      </Animated>
+    );
   }
 
   // Step 10 — Unlock Guide
   return (
+    <Animated stepKey={10}>
     <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
       <ProgressBar step={10} total={TOTAL} />
       <div style={{ maxWidth: 420, width: "100%" }}>
@@ -480,5 +512,6 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
         <GoldBtn onClick={finish}>Begin Your Stay →</GoldBtn>
       </div>
     </div>
+    </Animated>
   );
 }
