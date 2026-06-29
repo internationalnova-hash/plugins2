@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import reservation from "@/config/reservation";
+import type { TabKey } from "@/components/TabNav";
 
 const GOLD = "#C9A84C";
 const GOLD_LIGHT = "#E8C97A";
@@ -47,19 +48,19 @@ const STATUS_CARDS = [
   { icon: "🎮", label: "Game Room",     status: "Open",      cls: "ready"     },
 ];
 
-const QUICK_LINKS = [
-  { icon: "🏠", label: "Stay"          },
-  { icon: "🎭", label: "Entertainment" },
-  { icon: "📍", label: "Explore"       },
-  { icon: "🍽️", label: "Dining"       },
-  { icon: "💬", label: "Support"       },
+const QUICK_LINKS: { icon: string; label: string; tab: TabKey }[] = [
+  { icon: "🏠", label: "Stay",          tab: "stay"          },
+  { icon: "🎭", label: "Entertainment", tab: "entertainment" },
+  { icon: "📍", label: "Explore",       tab: "explore"       },
+  { icon: "🍽️", label: "Dining",       tab: "dining"        },
+  { icon: "💬", label: "Support",       tab: "support"       },
 ];
 
 function D(delay: string): React.CSSProperties {
   return { "--delay": delay } as React.CSSProperties;
 }
 
-export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: () => void }) {
+export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: TabKey) => void }) {
   const [guest, setGuest] = useState<GuestData>({});
   const [visible, setVisible] = useState(false);
   const [momentDismissed, setMomentDismissed] = useState(false);
@@ -156,7 +157,7 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: () => vo
           <p style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 14 }}>Quick Access</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 28 }}>
             {QUICK_LINKS.map((q) => (
-              <button key={q.label} className="btn-press card-hover" onClick={onEnterGuide} style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 14, padding: "16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", textAlign: "left" }}>
+              <button key={q.label} className="btn-press card-hover" onClick={() => onEnterGuide(q.tab)} style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 14, padding: "16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", textAlign: "left" }}>
                 <span style={{ fontSize: 20 }}>{q.icon}</span>
                 <span style={{ color: "#9CA3AF", fontSize: 13, fontWeight: 500 }}>{q.label}</span>
               </button>
@@ -185,7 +186,7 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: () => vo
         <div className="anim-fade-up anim-delay" style={D("0.42s")}>
           <button
             className="btn-press"
-            onClick={onEnterGuide}
+            onClick={() => onEnterGuide()}
             style={{ width: "100%", background: "transparent", border: "1px solid #222", borderRadius: 12, padding: "14px", color: "#6B7280", fontSize: 13, cursor: "pointer", letterSpacing: "0.05em" }}
           >
             View Guest Guide →

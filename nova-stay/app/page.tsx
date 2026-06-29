@@ -5,11 +5,13 @@ import GuestReadinessFlow from "@/components/GuestReadinessFlow";
 import HostPreview from "@/components/HostPreview";
 import ConciergeHome from "@/components/ConciergeHome";
 import AppShell from "@/components/AppShell";
+import type { TabKey } from "@/components/TabNav";
 
 type Screen = "loading" | "onboarding" | "concierge" | "guide";
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("loading");
+  const [initialTab, setInitialTab] = useState<TabKey>("stay");
 
   useEffect(() => {
     try {
@@ -49,7 +51,7 @@ export default function Home() {
   if (screen === "concierge") {
     return (
       <>
-        <ConciergeHome onEnterGuide={() => setScreen("guide")} />
+        <ConciergeHome onEnterGuide={(tab) => { setInitialTab(tab ?? "stay"); setScreen("guide"); }} />
         <HostPreview />
       </>
     );
@@ -57,7 +59,7 @@ export default function Home() {
 
   return (
     <>
-      <AppShell onBack={() => setScreen("concierge")} />
+      <AppShell onBack={() => setScreen("concierge")} initialTab={initialTab} />
       <HostPreview />
     </>
   );
