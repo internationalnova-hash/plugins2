@@ -176,35 +176,41 @@ function GuidelineCard({ icon, title, body, onGotIt }: { icon: string; title: st
 // ─── Local Preview teaser ─────────────────────────────────────────────────────
 
 function LocalPreview({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
-  const spots = [
-    { emoji: "🍽️", name: "Slutty Vegan", note: "ATL's most iconic plant-based spot — 10 min away" },
-    { emoji: "🎵", name: "The Beltline", note: "Art, food trucks & live music trail — 8 min away" },
-    { emoji: "✂️", name: "Ponce City Market", note: "Rooftop bar + Atlanta's best food hall — 12 min" },
+  const categories = [
+    { emoji: "🍽️", label: "Best Restaurants", note: "From upscale steakhouses to ATL staples" },
+    { emoji: "🎬", label: "Movie Studios", note: "Atlanta is the Hollywood of the South" },
+    { emoji: "🎤", label: "Live Music", note: "Jazz, hip-hop & everything in between" },
+    { emoji: "🏊", label: "Relax by the Pool", note: "Your private luxury pool awaits" },
+    { emoji: "☕", label: "Coffee Nearby", note: "Specialty cafés minutes from the door" },
   ];
   return (
     <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", justifyContent: "center", padding: "60px 24px 40px", maxWidth: 480, margin: "0 auto", width: "100%" }}>
       <ProgressBar step={9} total={10} />
       <StepLabel step={9} total={10} />
-      <Heading>Atlanta Awaits</Heading>
-      <p style={{ color: "#9CA3AF", fontSize: 14, lineHeight: 1.65, marginBottom: 32 }}>
-        A few of our favorite spots near the property — full recommendations inside your guide.
+      <div style={{ marginBottom: 8 }}>
+        <span style={{ fontSize: 11, letterSpacing: "0.25em", color: GOLD, textTransform: "uppercase" }}>✨ Curated Experiences</span>
+      </div>
+      <Heading>What&apos;s Waiting for You</Heading>
+      <p style={{ color: "#9CA3AF", fontSize: 14, lineHeight: 1.65, marginBottom: 28 }}>
+        Your full guide includes hand-picked Atlanta recommendations — here&apos;s a preview.
       </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 40 }}>
-        {spots.map((s) => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 36 }}>
+        {categories.map((c) => (
           <div
-            key={s.name}
-            style={{ background: CARD, border: "1px solid #1e1e1e", borderRadius: 12, padding: "16px 20px", display: "flex", gap: 16, alignItems: "center" }}
+            key={c.label}
+            style={{ background: CARD, border: "1px solid #1e1e1e", borderRadius: 12, padding: "14px 18px", display: "flex", gap: 16, alignItems: "center" }}
           >
-            <span style={{ fontSize: 28 }}>{s.emoji}</span>
+            <span style={{ fontSize: 26, flexShrink: 0 }}>{c.emoji}</span>
             <div>
-              <p style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{s.name}</p>
-              <p style={{ color: "#6B7280", fontSize: 12 }}>{s.note}</p>
+              <p style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{c.label}</p>
+              <p style={{ color: "#6B7280", fontSize: 12 }}>{c.note}</p>
             </div>
+            <span style={{ marginLeft: "auto", color: "#2a2a2a", fontSize: 16 }}>›</span>
           </div>
         ))}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <GoldBtn onClick={onNext}>See Full Guide →</GoldBtn>
+        <GoldBtn onClick={onNext}>Unlock Full Guide →</GoldBtn>
         <BackBtn onClick={onBack} />
       </div>
     </div>
@@ -400,13 +406,13 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
     );
   }
 
-  // Step 8 — Guideline: No Parties
+  // Step 8 — Guideline: Respecting the Home
   if (step === 8) {
     return (
       <GuidelineCard
-        icon="🎤"
-        title="No Unauthorized Events"
-        body="This property is for personal stays only. Events, parties, or gatherings beyond your registered guest count are not permitted without explicit written approval from the host."
+        icon="🏡"
+        title="Respecting the Home"
+        body="We love hosting families and intimate gatherings. Please remember that unapproved parties and large events aren't permitted — keeping this a peaceful space means every guest gets the experience they came for."
         onGotIt={next}
       />
     );
@@ -422,36 +428,51 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
     <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
       <ProgressBar step={10} total={TOTAL} />
       <div style={{ maxWidth: 420, width: "100%" }}>
-        <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(201,168,76,0.1)", border: `1px solid ${GOLD}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: 22 }}>
-          ✦
-        </div>
-        <h2 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(1.6rem, 5vw, 2.2rem)", color: "#fff", fontWeight: 700, marginBottom: 6 }}>
-          You&apos;re All Set,
-        </h2>
-        <h3 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(1.8rem, 6vw, 2.4rem)", color: GOLD, fontWeight: 700, marginBottom: 32 }}>
-          {reservation.guestName}.
-        </h3>
+        {/* Gold divider accent */}
+        <div style={{ width: 32, height: 2, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_LIGHT})`, borderRadius: 1, margin: "0 auto 32px" }} />
 
-        <div style={{ background: CARD, border: "1px solid #1e1e1e", borderRadius: 14, padding: "24px 20px", marginBottom: 36, textAlign: "left" }}>
+        <p style={{ color: "#9CA3AF", fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 16 }}>
+          You&apos;re all set.
+        </p>
+        <h2 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(1.8rem, 6vw, 2.4rem)", color: "#fff", fontWeight: 700, lineHeight: 1.2, marginBottom: 8 }}>
+          Welcome to<br />
+          <span style={{ color: GOLD }}>Casanova ATL.</span>
+        </h2>
+        <p style={{ color: "#6B7280", fontSize: 14, lineHeight: 1.65, marginBottom: 36 }}>
+          We&apos;ve prepared everything for your stay.
+        </p>
+
+        {/* Hotel-style checklist */}
+        <div style={{ background: CARD, border: "1px solid #1e1e1e", borderRadius: 16, padding: "28px 24px", marginBottom: 36, textAlign: "left" }}>
           {[
-            { label: "Reservation", value: `${reservation.checkIn} – ${reservation.checkOut}` },
-            { label: "Overnight Guests", value: String(overnightGuests) },
-            { label: "Daytime Visitors", value: String(daytimeVisitors) },
-            { label: "Vehicles", value: String(vehicles) },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 12, marginBottom: 12, borderBottom: "1px solid #1a1a1a" }}>
-              <span style={{ color: "#6B7280", fontSize: 13 }}>{label}</span>
-              <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{value}</span>
+            { label: "Parking Registered", sub: `${vehicles} vehicle${vehicles !== 1 ? "s" : ""} noted` },
+            { label: "Guests Confirmed", sub: `${overnightGuests} overnight · ${daytimeVisitors} daytime` },
+            { label: "House Guide Ready", sub: "Wi-Fi, door code, amenities & more" },
+            { label: "Local Recommendations Ready", sub: "Dining, music, experiences & coffee" },
+          ].map(({ label, sub }) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 16, paddingBottom: 18, marginBottom: 18, borderBottom: "1px solid #161616" }}>
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(201,168,76,0.12)", border: `1px solid ${GOLD}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <span style={{ color: GOLD, fontSize: 13 }}>✓</span>
+              </div>
+              <div>
+                <p style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{label}</p>
+                <p style={{ color: "#6B7280", fontSize: 12 }}>{sub}</p>
+              </div>
             </div>
           ))}
-          <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-            {["Parking", "Quiet Hours", "Guest Policy", "No Events"].map((a) => (
-              <span key={a} style={{ background: "rgba(201,168,76,0.1)", border: `1px solid ${GOLD}22`, color: GOLD, fontSize: 10, letterSpacing: "0.08em", padding: "3px 8px", borderRadius: 4 }}>✓ {a}</span>
-            ))}
+          {/* Last row — no border */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(201,168,76,0.12)", border: `1px solid ${GOLD}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <span style={{ color: GOLD, fontSize: 13 }}>✓</span>
+            </div>
+            <div>
+              <p style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Stay Details Saved</p>
+              <p style={{ color: "#6B7280", fontSize: 12 }}>{reservation.checkIn} – {reservation.checkOut} · {reservation.nights} nights</p>
+            </div>
           </div>
         </div>
 
-        <GoldBtn onClick={finish}>Enter Casanova ATL ✦</GoldBtn>
+        <GoldBtn onClick={finish}>Enter Your Luxury Guide →</GoldBtn>
       </div>
     </div>
   );
