@@ -64,10 +64,7 @@ export default function HostPreview() {
     load();
   }, [open]);
 
-  const fmt = (d: string) =>
-    d
-      ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-      : "—";
+  const fmt = (d: string) => d || "—";
 
   const clearData = () => {
     localStorage.removeItem("novaStay_guestInfo");
