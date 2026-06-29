@@ -146,6 +146,106 @@ export const propertyConfig = {
     },
   ],
 
+  // ── Explore tab — curated, not exhaustive ──────────────────────────────
+  explore: [
+    {
+      category: "Attractions",
+      places: [
+        { name: "Georgia Aquarium", note: "World's largest indoor aquarium" },
+        { name: "World of Coca-Cola", note: "Iconic Atlanta experience" },
+        { name: "Trap Music Museum", note: "Atlanta culture, downtown" },
+      ],
+    },
+    {
+      category: "Braves Stadium",
+      places: [
+        { name: "Truist Park", note: "Home of the Atlanta Braves — ~25 min" },
+        { name: "The Battery Atlanta", note: "Dining & entertainment district at the stadium" },
+      ],
+    },
+    {
+      category: "Downtown Atlanta",
+      places: [
+        { name: "Centennial Olympic Park", note: "Heart of downtown, fountains & events" },
+        { name: "Ponce City Market", note: "Shopping, food hall, rooftop views" },
+      ],
+    },
+    {
+      category: "Trilith Studios",
+      places: [
+        { name: "Trilith Studios", note: "Major film production studio — ~30 min" },
+        { name: "Town at Trilith", note: "Walkable shops & restaurants nearby" },
+      ],
+    },
+    {
+      category: "Shopping",
+      places: [
+        { name: "Lenox Square", note: "Premier shopping mall, Buckhead" },
+        { name: "Phipps Plaza", note: "Luxury retail, Buckhead" },
+      ],
+    },
+    {
+      category: "Parks",
+      places: [
+        { name: "BeltLine Eastside Trail", note: "Walking, art, local vibes" },
+        { name: "Piedmont Park", note: "Atlanta's flagship green space" },
+      ],
+    },
+  ],
+
+  // ── Dining tab — curated picks per meal, not a directory ───────────────
+  dining: [
+    {
+      category: "Breakfast",
+      places: [
+        { name: "Flying Biscuit Cafe", note: "Southern comfort breakfast" },
+        { name: "Brek Coffee House", note: "Light bites, great espresso" },
+      ],
+    },
+    {
+      category: "Lunch",
+      places: [
+        { name: "Bone Lick BBQ", note: "Atlanta barbecue staple" },
+        { name: "Slutty Vegan", note: "Iconic plant-based burgers" },
+      ],
+    },
+    {
+      category: "Dinner",
+      places: [
+        { name: "The Optimist", note: "Fresh seafood, West Midtown" },
+        { name: "STK Atlanta", note: "Upscale steakhouse, Midtown" },
+      ],
+    },
+    {
+      category: "Fine Dining",
+      places: [
+        { name: "Bazati", note: "Modern fine dining, Buckhead" },
+        { name: "Aria", note: "Elevated New American, Buckhead" },
+      ],
+    },
+    {
+      category: "Delivery",
+      places: [
+        { name: "DoorDash", note: "Available property-wide" },
+        { name: "Uber Eats", note: "Available property-wide" },
+      ],
+    },
+    {
+      category: "Coffee",
+      places: [
+        { name: "Chrome Yellow Trading Co.", note: "Local roaster, Westside" },
+        { name: "Brek Coffee House", note: "Cozy, walkable" },
+      ],
+    },
+    {
+      category: "Nightlife",
+      places: [
+        { name: "Gold Room", note: "Upscale nightclub" },
+        { name: "SL Lounge", note: "Rooftop bar, Buckhead" },
+      ],
+    },
+  ],
+
   faq: [
     {
       q: "Is early check-in available?",

@@ -27,6 +27,17 @@ function greetingSubtitle(name: string): string {
   return `As the sun sets, the pool lights come alive, the theater is ready, and Casanova ATL becomes something truly special. Enjoy your evening, ${name}.`;
 }
 
+// "Nova Moments" — time-aware, config-driven nudges
+// Later: these will come from AI Concierge. For now, driven by time + stay data.
+function getNovaMoment(nights: number, checkOut: string): { icon: string; text: string } | null {
+  const h = new Date().getHours();
+  if (nights === 1 && checkOut) return { icon: "🌅", text: `Your stay ends tomorrow. Here's a reminder to check our checkout guide before ${checkOut}.` };
+  if (h >= 19 && h < 23) return { icon: "🌙", text: "Quiet hours begin at 10 PM. The pool and outdoor areas will be winding down soon." };
+  if (h >= 7 && h < 10) return { icon: "☀️", text: "Good morning. The pool is available all day — towels are in the outdoor storage cabinet." };
+  if (h >= 14 && h < 17) return { icon: "🎬", text: "Afternoon is a great time for a movie. Your private theater is ready — flip the light switches inside to start." };
+  return null;
+}
+
 const STATUS_CARDS = [
   { icon: "🏊", label: "Pool",          status: "Open",      cls: "ready"     },
   { icon: "🎬", label: "Movie Theater", status: "Ready",     cls: "ready"     },
@@ -40,7 +51,8 @@ const QUICK_LINKS = [
   { icon: "🏠", label: "Stay"          },
   { icon: "🎭", label: "Entertainment" },
   { icon: "📍", label: "Explore"       },
-  { icon: "🛎️", label: "Support"      },
+  { icon: "🍽️", label: "Dining"       },
+  { icon: "💬", label: "Support"       },
 ];
 
 function D(delay: string): React.CSSProperties {
@@ -50,6 +62,7 @@ function D(delay: string): React.CSSProperties {
 export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: () => void }) {
   const [guest, setGuest] = useState<GuestData>({});
   const [visible, setVisible] = useState(false);
+  const [momentDismissed, setMomentDismissed] = useState(false);
 
   useEffect(() => {
     try {
@@ -64,6 +77,8 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: () => vo
   const checkIn = guest.checkIn   || reservation.checkIn;
   const checkOut= guest.checkOut  || reservation.checkOut;
   const nights  = guest.nights    ?? reservation.nights;
+
+  const moment = getNovaMoment(nights, checkOut ?? "");
 
   return (
     <div style={{ minHeight: "100vh", background: "#0A0A0A", overflowX: "hidden", opacity: visible ? 1 : 0, transition: "opacity 0.5s ease" }}>
@@ -89,25 +104,41 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: () => vo
           </p>
         </div>
 
-        {/* Weather strip */}
-        <div className="anim-fade-up anim-delay" style={D("0.12s")}>
-          <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 16, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
-            <div>
-              <p style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>Atlanta, GA</p>
-              <p style={{ color: "#fff", fontSize: 28, fontWeight: 300, letterSpacing: "-0.02em" }}>
-                74°
-                <span style={{ color: "#4B5563", fontSize: 13, fontWeight: 400, marginLeft: 8 }}>Partly Cloudy</span>
-              </p>
+        {/* Nova Moments strip */}
+        {moment && !momentDismissed && (
+          <div className="anim-fade-up anim-delay" style={D("0.10s")}>
+            <div style={{ background: `rgba(201,168,76,0.06)`, border: `1px solid ${GOLD}33`, borderRadius: 14, padding: "14px 16px", marginBottom: 22, display: "flex", alignItems: "flex-start", gap: 12 }}>
+              <span style={{ fontSize: 20, lineHeight: 1, marginTop: 1 }}>{moment.icon}</span>
+              <p style={{ color: "#D1B96B", fontSize: 13, lineHeight: 1.6, flex: 1 }}>{moment.text}</p>
+              <button
+                onClick={() => setMomentDismissed(true)}
+                style={{ background: "transparent", border: "none", color: "#4B5563", fontSize: 16, cursor: "pointer", lineHeight: 1, padding: 0, flexShrink: 0 }}
+              >
+                ×
+              </button>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <p style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>Tonight</p>
-              <p style={{ color: "#6B7280", fontSize: 13 }}>Pool lights at sunset</p>
+          </div>
+        )}
+
+        {/* Weather + Today hero */}
+        <div className="anim-fade-up anim-delay" style={D("0.14s")}>
+          <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 16, padding: "20px", marginBottom: 28 }}>
+            <p style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 10 }}>Today in Atlanta</p>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+              <div>
+                <p style={{ color: "#fff", fontSize: 42, fontWeight: 200, letterSpacing: "-0.03em", lineHeight: 1 }}>74°</p>
+                <p style={{ color: "#6B7280", fontSize: 12, marginTop: 4 }}>Partly Cloudy</p>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <p style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Pool lights</p>
+                <p style={{ color: "#9CA3AF", fontSize: 13 }}>On at sunset</p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Property status grid */}
-        <div className="anim-fade-up anim-delay" style={D("0.18s")}>
+        <div className="anim-fade-up anim-delay" style={D("0.20s")}>
           <p style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 14 }}>Property Status</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 28 }}>
             {STATUS_CARDS.map((c) => (
@@ -121,7 +152,7 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: () => vo
         </div>
 
         {/* Quick nav */}
-        <div className="anim-fade-up anim-delay" style={D("0.32s")}>
+        <div className="anim-fade-up anim-delay" style={D("0.28s")}>
           <p style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 14 }}>Quick Access</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 28 }}>
             {QUICK_LINKS.map((q) => (
@@ -134,11 +165,11 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: () => vo
         </div>
 
         {/* Nova Concierge CTA */}
-        <div className="anim-fade-up anim-delay" style={D("0.42s")}>
+        <div className="anim-fade-up anim-delay" style={D("0.36s")}>
           <div style={{ background: "rgba(201,168,76,0.04)", border: `1px solid ${GOLD}22`, borderRadius: 16, padding: "24px 20px", marginBottom: 14, textAlign: "center" }}>
             <p style={{ color: GOLD, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 8 }}>✦ Nova Concierge</p>
             <p style={{ color: "#9CA3AF", fontSize: 14, lineHeight: 1.65, marginBottom: 16 }}>
-              Need restaurant recommendations, theater instructions, or anything else? Your concierge is here.
+              Need restaurant recommendations, theater instructions, or anything else? Your AI concierge is coming soon.
             </p>
             <button
               className="btn-press"
@@ -150,14 +181,14 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: () => vo
           </div>
         </div>
 
-        {/* Full guide link */}
-        <div className="anim-fade-up anim-delay" style={D("0.48s")}>
+        {/* Guest guide link */}
+        <div className="anim-fade-up anim-delay" style={D("0.42s")}>
           <button
             className="btn-press"
             onClick={onEnterGuide}
             style={{ width: "100%", background: "transparent", border: "1px solid #222", borderRadius: 12, padding: "14px", color: "#6B7280", fontSize: 13, cursor: "pointer", letterSpacing: "0.05em" }}
           >
-            View Full Guest Guide →
+            View Guest Guide →
           </button>
         </div>
 
