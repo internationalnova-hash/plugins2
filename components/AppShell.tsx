@@ -28,8 +28,8 @@ function TabContent({ active }: { active: TabKey }) {
   }
 }
 
-export default function AppShell({ onBack }: { onBack: () => void }) {
-  const [active, setActive] = useState<TabKey>("stay");
+export default function AppShell({ onBack, initialTab = "stay" }: { onBack: () => void; initialTab?: TabKey }) {
+  const [active, setActive] = useState<TabKey>(initialTab);
 
   const handleChange = (tab: TabKey) => {
     setActive(tab);

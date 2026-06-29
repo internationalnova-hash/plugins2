@@ -2,6 +2,7 @@
 
 import EmergencyContacts from "@/components/EmergencyContacts";
 import FAQ from "@/components/FAQ";
+import QRCodeSection from "@/components/QRCode";
 import Section from "@/components/Section";
 import { propertyConfig } from "@/data/config";
 
@@ -70,6 +71,7 @@ export default function SupportTab() {
       </Section>
 
       <FAQ />
+      <QRCodeSection />
     </div>
   );
 }
