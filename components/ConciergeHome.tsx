@@ -15,9 +15,16 @@ interface GuestData {
 
 function greeting() {
   const h = new Date().getHours();
-  if (h < 12) return "Good Morning";
-  if (h < 17) return "Good Afternoon";
-  return "Good Evening";
+  if (h < 12) return { text: "Good Morning",   emoji: "☀️" };
+  if (h < 17) return { text: "Good Afternoon",  emoji: "🌤️" };
+  return           { text: "Good Evening",     emoji: "🌙" };
+}
+
+function greetingSubtitle(name: string): string {
+  const h = new Date().getHours();
+  if (h < 12) return `The pool is open, the weather is perfect, and your stay begins today. We've prepared everything for you, ${name}.`;
+  if (h < 17) return `Hope your morning has been amazing. The pool is ready, the studio is available, and the city is yours to explore.`;
+  return `The pool lights come on at sunset. Your movie theater is ready whenever you are. Enjoy your evening.`;
 }
 
 const STATUS_CARDS = [
@@ -71,16 +78,14 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: () => vo
 
         {/* Greeting */}
         <div className="anim-fade-up anim-delay" style={{ ...D("0.05s"), padding: "36px 0 28px" }}>
-          <p style={{ color: "#4B5563", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 10 }}>
-            {greeting()}
+          <p style={{ color: "#4B5563", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>
+            {checkIn} – {checkOut}{nights ? ` · ${nights} night${nights !== 1 ? "s" : ""}` : ""}
           </p>
-          <h1 className="serif" style={{ fontSize: "clamp(2rem, 7vw, 2.6rem)", fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 8 }}>
-            {name}.
+          <h1 className="serif" style={{ fontSize: "clamp(1.8rem, 6vw, 2.4rem)", fontWeight: 700, color: "#fff", lineHeight: 1.2, marginBottom: 16 }}>
+            {greeting().text}, {name} {greeting().emoji}
           </h1>
-          <p style={{ color: "#6B7280", fontSize: 14, lineHeight: 1.6 }}>
-            Welcome to Casanova ATL —{" "}
-            <span style={{ color: GOLD }}>{checkIn} – {checkOut}</span>
-            {nights ? ` · ${nights} night${nights !== 1 ? "s" : ""}` : ""}
+          <p style={{ color: "#9CA3AF", fontSize: 15, lineHeight: 1.75 }}>
+            {greetingSubtitle(name)}
           </p>
         </div>
 
