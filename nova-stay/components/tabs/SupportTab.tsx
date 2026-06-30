@@ -4,6 +4,7 @@ import EmergencyContacts from "@/components/EmergencyContacts";
 import FAQ from "@/components/FAQ";
 import QRCodeSection from "@/components/QRCode";
 import Section from "@/components/Section";
+import ExperienceMarketplace from "@/components/ExperienceMarketplace";
 import { propertyConfig } from "@/data/config";
 
 const GOLD = "#C9A84C";
@@ -49,6 +50,8 @@ export default function SupportTab() {
           Ask Nova — Coming Soon
         </button>
       </div>
+
+      <ExperienceMarketplace />
 
       {/* Contact Host */}
       <Section title="Contact Host" icon="🛎️">
