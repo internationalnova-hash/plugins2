@@ -256,9 +256,13 @@ function Animated({ stepKey, children }: { stepKey: number | string; children: R
 function CodeEntry({ onFound }: { onFound: (booking: Booking) => void }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const submit = () => {
-    const match = findBooking(code);
+  const submit = async () => {
+    if (!code.trim() || loading) return;
+    setLoading(true);
+    const match = await findBooking(code);
+    setLoading(false);
     if (match) {
       setError(null);
       onFound(match);
@@ -298,7 +302,7 @@ function CodeEntry({ onFound }: { onFound: (booking: Booking) => void }) {
           }}
         />
         {error && <p style={{ color: "#d96b6b", fontSize: 13, lineHeight: 1.5, marginBottom: 28 }}>{error}</p>}
-        <GoldBtn onClick={submit} disabled={!code.trim()}>Unlock My Guide →</GoldBtn>
+        <GoldBtn onClick={submit} disabled={!code.trim() || loading}>{loading ? "Checking…" : "Unlock My Guide →"}</GoldBtn>
       </div>
     </div>
   );

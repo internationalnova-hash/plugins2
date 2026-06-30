@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getBookings, addBooking, deleteBooking, type Booking } from "@/lib/bookingsStore";
+import { getBookings, addBooking, deleteBooking, loginHost, isHostLoggedIn, logoutHost, type Booking } from "@/lib/bookingsStore";
 
 const GOLD = "#C9A84C";
 const GOLD_LIGHT = "#E8C97A";
@@ -62,19 +62,86 @@ const inputStyle: React.CSSProperties = {
 
 const EMPTY_FORM = { guestName: "", confirmationCode: "", checkIn: "", checkOut: "", nights: "1", bookedGuests: "1" };
 
+function HostLogin({ onSuccess }: { onSuccess: () => void }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (!password.trim() || loading) return;
+    setLoading(true);
+    const ok = await loginHost(password.trim());
+    setLoading(false);
+    if (ok) {
+      setError(null);
+      onSuccess();
+    } else {
+      setError("Incorrect password.");
+    }
+  };
+
+  return (
+    <div>
+      <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>
+        Host Login Required
+      </p>
+      <input
+        style={inputStyle}
+        type="password"
+        placeholder="Admin Password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && submit()}
+      />
+      {error && <p style={{ color: "#d96b6b", fontSize: 12, marginBottom: 8 }}>{error}</p>}
+      <button
+        onClick={submit}
+        disabled={loading}
+        style={{
+          width: "100%",
+          background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 50%, ${GOLD} 100%)`,
+          color: BG,
+          border: "none",
+          borderRadius: 8,
+          padding: "12px",
+          fontSize: 12,
+          fontWeight: 700,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          cursor: "pointer",
+          marginTop: 4,
+        }}
+      >
+        {loading ? "Checking…" : "Log In"}
+      </button>
+    </div>
+  );
+}
+
 function ReservationManager() {
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [checked, setChecked] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
 
+  const refresh = () => {
+    getBookings().then(setBookings);
+  };
+
   useEffect(() => {
-    setBookings(getBookings());
+    setLoggedIn(isHostLoggedIn());
+    setChecked(true);
   }, []);
+
+  useEffect(() => {
+    if (loggedIn) refresh();
+  }, [loggedIn]);
 
   const setField = (key: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const { guestName, confirmationCode, checkIn, checkOut, nights, bookedGuests } = form;
     if (!guestName.trim() || !confirmationCode.trim() || !checkIn.trim() || !checkOut.trim()) {
       setError("Guest name, confirmation code, and dates are required.");
@@ -84,7 +151,7 @@ function ReservationManager() {
       setError("A reservation with that confirmation code already exists.");
       return;
     }
-    const updated = addBooking({
+    const result = await addBooking({
       guestName: guestName.trim(),
       confirmationCode: confirmationCode.trim().toUpperCase(),
       checkIn: checkIn.trim(),
@@ -92,20 +159,42 @@ function ReservationManager() {
       nights: Number(nights) || 1,
       bookedGuests: Number(bookedGuests) || 1,
     });
-    setBookings(updated);
+    if (!result.ok) {
+      setError(result.error || "Failed to add reservation.");
+      return;
+    }
+    refresh();
     setForm(EMPTY_FORM);
     setError(null);
   };
 
-  const handleDelete = (code: string) => {
-    setBookings(deleteBooking(code));
+  const handleDelete = async (code: string) => {
+    await deleteBooking(code);
+    refresh();
   };
+
+  if (!checked) return null;
+
+  if (!loggedIn) {
+    return <HostLogin onSuccess={() => setLoggedIn(true)} />;
+  }
 
   return (
     <div>
-      <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>
-        Active Reservations
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase" }}>
+          Active Reservations
+        </p>
+        <button
+          onClick={() => {
+            logoutHost();
+            setLoggedIn(false);
+          }}
+          style={{ background: "transparent", border: "none", color: "#6B7280", fontSize: 11, cursor: "pointer", letterSpacing: "0.05em" }}
+        >
+          Log Out
+        </button>
+      </div>
 
       {bookings.length === 0 ? (
         <p style={{ color: "#4B5563", fontSize: 13, textAlign: "center", padding: "12px 0" }}>No reservations yet</p>
