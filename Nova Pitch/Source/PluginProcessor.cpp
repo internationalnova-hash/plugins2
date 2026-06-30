@@ -227,22 +227,6 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     detectedPitch.store (smoothedDetectedHz);
 
-    // Store current smoothed estimate into the delay ring buffer, then read
-    // back the estimate from kDlLatency samples ago so the correction ratio
-    // matches the audio currently at the output, not the audio arriving now.
-    pitchDelayBuf[(size_t)pitchDelayWrite] = smoothedDetectedHz;
-    pitchDelayWrite = (pitchDelayWrite + 1) % kPitchBufSize;
-    {
-        int delayBlocks = juce::jlimit (1, kPitchBufSize - 1,
-                                        kDlLatency / std::max (1, numSamples));
-        int readIdx = (pitchDelayWrite - 1 - delayBlocks + kPitchBufSize * 2) % kPitchBufSize;
-        float alignedHz = pitchDelayBuf[(size_t)readIdx];
-        // Only use the aligned estimate if it's valid; otherwise fall back to
-        // the current smoothed estimate so we don't stall at startup.
-        if (alignedHz > 0.0f)
-            smoothedDetectedHz = alignedHz;
-    }
-
     // ── Correction ratio ────────────────────────────────────────────────────
     float amount    = apvts.getRawParameterValue ("amount")->load() / 100.0f;
     float tolerance = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
@@ -329,8 +313,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                   (int) std::round ((float) currentSampleRate / smoothedDetectedHz))
                             : 256;
 
-    // Crossfade duration: 4x pitch period for smooth transitions
-    const int xfadeDur = pitchPeriod * 4;
+    // Crossfade duration: 16x pitch period for smooth transitions
+    const int xfadeDur = pitchPeriod * 16;
     // Trigger crossfade when gap drifts 4 periods — but never exceed kDlLatency/2
     const int triggerDrift = std::min (pitchPeriod * 4, kDlLatency / 2);
 
