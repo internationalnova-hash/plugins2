@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Mic2, ChefHat, Car, Thermometer, Clock, Camera, Video, Flower2, type LucideIcon } from "lucide-react";
 import { EXPERIENCES, type Experience } from "@/data/experiences";
+import { submitGuestRequest } from "@/lib/propertyStore";
 import theme from "@/config/theme";
 
 const GOLD = theme.gold;
@@ -11,6 +13,28 @@ const ICONS: Record<Experience["icon"], LucideIcon> = {
 };
 
 export default function ExperienceMarketplace() {
+  const [requested, setRequested] = useState<Set<string>>(new Set());
+
+  const handleRequest = async (exp: Experience) => {
+    if (requested.has(exp.id)) return;
+    let guestName = "Guest";
+    try {
+      const raw = localStorage.getItem("stayByNova_guestInfo");
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed?.guestName) guestName = parsed.guestName;
+    } catch { /* ignore */ }
+
+    setRequested((prev) => new Set(prev).add(exp.id));
+    const result = await submitGuestRequest(guestName, `Requested: ${exp.title} (${exp.priceFrom})`);
+    if (!result.ok) {
+      setRequested((prev) => {
+        const next = new Set(prev);
+        next.delete(exp.id);
+        return next;
+      });
+    }
+  };
+
   return (
     <div className="anim-fade-up" style={{ marginBottom: 24 }}>
       <p style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 4 }}>
@@ -31,7 +55,6 @@ export default function ExperienceMarketplace() {
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <Icon size={20} strokeWidth={1.6} style={{ color: GOLD }} />
-                <span className="status-pill available" style={{ fontSize: 8.5 }}>Coming Soon</span>
               </div>
               <div>
                 <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>{exp.title}</p>
@@ -39,24 +62,25 @@ export default function ExperienceMarketplace() {
               </div>
               <p style={{ color: GOLD, fontSize: 11, fontWeight: 600, marginTop: "auto" }}>{exp.priceFrom}</p>
               <button
-                disabled
+                onClick={() => handleRequest(exp)}
+                disabled={requested.has(exp.id)}
                 className="btn-press"
                 style={{
                   width: "100%",
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(201,168,76,0.18)",
+                  background: requested.has(exp.id) ? "rgba(201,168,76,0.1)" : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${requested.has(exp.id) ? `${GOLD}55` : "rgba(201,168,76,0.18)"}`,
                   borderRadius: "var(--radius-sm)",
                   padding: "8px 0",
-                  color: "#6B7280",
+                  color: requested.has(exp.id) ? GOLD : "#6B7280",
                   fontSize: 10.5,
                   fontWeight: 700,
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
-                  cursor: "default",
-                  opacity: 0.7,
+                  cursor: requested.has(exp.id) ? "default" : "pointer",
+                  opacity: requested.has(exp.id) ? 1 : 0.9,
                 }}
               >
-                Request
+                {requested.has(exp.id) ? "✓ Requested" : "Request"}
               </button>
             </div>
           );

@@ -395,6 +395,7 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
   const finish = () => {
     const data = {
       guestName: reservation.guestName,
+      confirmationCode: reservation.confirmationCode,
       checkIn: reservation.checkIn,
       checkOut: reservation.checkOut,
       nights: reservation.nights,

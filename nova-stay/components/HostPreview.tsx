@@ -25,6 +25,7 @@ import {
   Sun,
   CloudSun,
   CloudRain,
+  MessageCircle,
   type LucideIcon,
 } from "lucide-react";
 import { getBookings, addBooking, deleteBooking, loginHost, isHostLoggedIn, logoutHost, type Booking } from "@/lib/bookingsStore";
@@ -34,6 +35,7 @@ import {
   updatePropertyState,
   getGuestRequests,
   markRequestRead,
+  sendWelcomeMessage,
   type PropertyState,
   type GuestRequest,
 } from "@/lib/propertyStore";
@@ -492,6 +494,15 @@ function ReservationManager() {
     refresh();
   };
 
+  const handleMessage = async (code: string, guestName: string) => {
+    const text = window.prompt(`Welcome message for ${guestName}:`, "");
+    if (!text || !text.trim()) return;
+    const result = await sendWelcomeMessage(code, text.trim());
+    if (!result.ok) {
+      window.alert(result.error || "Failed to send message.");
+    }
+  };
+
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
@@ -517,12 +528,21 @@ function ReservationManager() {
                 </p>
                 <p style={{ color: GOLD, fontSize: 11, marginTop: 2, fontFamily: "monospace" }}>{b.confirmationCode}</p>
               </div>
-              <button
-                onClick={() => handleDelete(b.confirmationCode)}
-                style={{ background: "transparent", border: "none", color: "#6B7280", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0 }}
-              >
-                ×
-              </button>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <button
+                  onClick={() => handleMessage(b.confirmationCode, b.guestName)}
+                  title="Send welcome message"
+                  style={{ background: "transparent", border: "none", color: GOLD, cursor: "pointer", padding: 0, display: "flex" }}
+                >
+                  <MessageCircle size={15} />
+                </button>
+                <button
+                  onClick={() => handleDelete(b.confirmationCode)}
+                  style={{ background: "transparent", border: "none", color: "#6B7280", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0 }}
+                >
+                  ×
+                </button>
+              </div>
             </div>
           ))}
         </div>

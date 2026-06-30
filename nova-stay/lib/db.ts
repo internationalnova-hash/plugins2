@@ -77,6 +77,14 @@ async function createSchema(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS guest_messages (
+      confirmation_code TEXT PRIMARY KEY,
+      message TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
 }
 
 export function ensureSchema(): Promise<void> {

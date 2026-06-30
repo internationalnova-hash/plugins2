@@ -64,3 +64,28 @@ export async function markRequestRead(id: number): Promise<boolean> {
   });
   return res.ok;
 }
+
+export interface WelcomeMessage {
+  text: string;
+  createdAt: string;
+}
+
+export async function getWelcomeMessage(confirmationCode: string): Promise<WelcomeMessage | null> {
+  const res = await fetch(`/api/messages?code=${encodeURIComponent(confirmationCode)}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.message ?? null;
+}
+
+export async function sendWelcomeMessage(confirmationCode: string, message: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch("/api/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ confirmationCode, message }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: data.error || "Failed to send message." };
+  }
+  return { ok: true };
+}
