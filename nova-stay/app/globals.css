@@ -141,6 +141,28 @@ body {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-gold-glow);
 }
+/* ── Glass surfaces — frosted, thin gold edge, soft glow. Premium, not flashy. ── */
+.lux-glass {
+  background: rgba(20,18,14,0.55);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(201,168,76,0.16);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+.lux-glass-strong {
+  background: rgba(16,14,10,0.7);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(201,168,76,0.22);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevated), 0 0 24px rgba(201,168,76,0.08);
+}
+.lux-glass-bar {
+  background: rgba(10,10,10,0.72);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
 .lux-btn-gold {
   background: var(--gradient-gold);
   color: #0A0A0A;

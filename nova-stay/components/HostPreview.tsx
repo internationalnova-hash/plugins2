@@ -319,18 +319,15 @@ export default function HostPreview() {
       {/* Panel */}
       {open && (
         <div
+          className="lux-glass-strong"
           style={{
             position: "fixed",
             bottom: 72,
             right: 16,
             zIndex: 199,
-            background: "#111",
-            border: `1px solid #2a2a2a`,
-            borderRadius: 12,
             width: 340,
             maxHeight: "80vh",
             overflowY: "auto",
-            boxShadow: "0 8px 40px rgba(0,0,0,0.8)",
             padding: 24,
           }}
         >

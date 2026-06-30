@@ -10,8 +10,8 @@ interface SectionProps {
 export default function Section({ title, icon, children, className = "" }: SectionProps) {
   return (
     <section className={`mb-6 ${className}`}>
-      <div className="bg-nova-card border border-nova-border rounded-2xl overflow-hidden">
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-nova-border">
+      <div className="lux-glass overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: "1px solid rgba(201,168,76,0.12)" }}>
           {icon && <span className="text-xl">{icon}</span>}
           <h2 className="text-sm font-semibold tracking-[0.15em] uppercase gold-text">
             {title}

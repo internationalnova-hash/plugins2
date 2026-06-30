@@ -23,15 +23,15 @@ export default function TabNav({
 }) {
   return (
     <div
+      className="lux-glass-bar"
       style={{
         position: "fixed",
         bottom: 0,
         left: 0,
         right: 0,
         zIndex: 100,
-        background: "rgba(10,10,10,0.94)",
-        backdropFilter: "blur(16px)",
-        borderTop: "1px solid #1a1a1a",
+        borderTop: "1px solid rgba(201,168,76,0.14)",
+        boxShadow: "0 -8px 32px rgba(0,0,0,0.35)",
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >

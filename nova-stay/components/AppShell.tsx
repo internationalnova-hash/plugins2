@@ -41,13 +41,12 @@ export default function AppShell({ onBack, initialTab = "stay" }: { onBack: () =
 
       {/* Top bar */}
       <div
+        className="lux-glass-bar"
         style={{
           position: "sticky",
           top: 0,
           zIndex: 50,
-          background: "rgba(10,10,10,0.92)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid #1a1a1a",
+          borderBottom: "1px solid rgba(201,168,76,0.14)",
           padding: "14px 20px",
           display: "flex",
           alignItems: "center",

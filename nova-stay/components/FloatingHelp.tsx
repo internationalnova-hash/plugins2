@@ -13,8 +13,7 @@ export default function FloatingHelp() {
       {/* Panel */}
       {open && (
         <div
-          className="fixed bottom-24 right-4 z-50 rounded-2xl p-5 w-72 shadow-2xl"
-          style={{ backgroundColor: "#1A1A1A", border: "1px solid #C9A84C44" }}
+          className="lux-glass-strong fixed bottom-24 right-4 z-50 p-5 w-72"
         >
           <p
             className="text-xs font-semibold uppercase tracking-widest mb-4"
