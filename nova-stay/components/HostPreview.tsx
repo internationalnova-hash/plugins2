@@ -27,6 +27,8 @@ import {
   CloudRain,
   MessageCircle,
   Sparkles,
+  Volume2,
+  VolumeX,
   type LucideIcon,
 } from "lucide-react";
 import { getBookings, addBooking, deleteBooking, loginHost, isHostLoggedIn, logoutHost, type Booking } from "@/lib/bookingsStore";
@@ -137,10 +139,13 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
   const [briefing, setBriefing] = useState<string | null>(null);
   const [briefingLoading, setBriefingLoading] = useState(false);
   const [briefingError, setBriefingError] = useState<string | null>(null);
+  const [speaking, setSpeaking] = useState(false);
 
   const fetchBriefing = async () => {
     setBriefingLoading(true);
     setBriefingError(null);
+    window.speechSynthesis?.cancel();
+    setSpeaking(false);
     const result = await getHostBriefing();
     setBriefingLoading(false);
     if (!result.ok) {
@@ -149,6 +154,28 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
     }
     setBriefing(result.briefing || null);
   };
+
+  const toggleSpeak = () => {
+    if (!briefing || !("speechSynthesis" in window)) return;
+    if (speaking) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(briefing);
+    utterance.rate = 1;
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    setSpeaking(true);
+  };
+
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis?.cancel();
+    };
+  }, []);
 
   const refresh = () => {
     Promise.all([getBookings(), getPropertyState(), getGuestRequests()]).then(([b, p, r]) => {
@@ -237,7 +264,16 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
         </div>
         {briefingError && <p style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{briefingError}</p>}
         {briefing && (
-          <p style={{ color: "#D1D5DB", fontSize: 12.5, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{briefing}</p>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <button
+              onClick={toggleSpeak}
+              title={speaking ? "Stop reading" : "Read briefing aloud"}
+              style={{ background: "transparent", border: "none", color: speaking ? GOLD : "#6B7280", cursor: "pointer", padding: 0, marginTop: 1, flexShrink: 0, display: "flex" }}
+            >
+              {speaking ? <VolumeX size={15} /> : <Volume2 size={15} />}
+            </button>
+            <p style={{ color: "#D1D5DB", fontSize: 12.5, lineHeight: 1.7, whiteSpace: "pre-wrap", flex: 1 }}>{briefing}</p>
+          </div>
         )}
       </div>
 
