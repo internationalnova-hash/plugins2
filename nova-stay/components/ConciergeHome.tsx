@@ -432,10 +432,9 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
             <button
               className="btn-press lux-btn-gold"
               onClick={() => onEnterGuide("support")}
-              disabled
-              style={{ padding: "13px 28px", fontSize: 12, width: "100%", opacity: 0.5, cursor: "default" }}
+              style={{ padding: "13px 28px", fontSize: 12, width: "100%" }}
             >
-              Start Conversation — Coming Soon
+              Start Conversation
             </button>
           </div>
         </div>
