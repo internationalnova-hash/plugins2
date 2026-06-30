@@ -45,14 +45,18 @@ import {
   getHostBriefing,
   getExperienceRequests,
   updateExperienceRequestStatus,
+  getRecommendations,
   type PropertyState,
   type GuestRequest,
   type ExperienceRequest,
   type ExperienceRequestStatus,
+  type TodaysFocus,
+  type AiRecommendation,
 } from "@/lib/propertyStore";
 import type { WeatherInfo } from "@/lib/weather";
 import SNMonogram from "@/components/SNMonogram";
 import theme from "@/config/theme";
+import propertyConfig from "@/config/property";
 
 const WEATHER_ICONS: Partial<Record<WeatherInfo["icon"], LucideIcon>> = {
   Sun, CloudSun, Cloud, CloudRain,
@@ -152,6 +156,9 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
   const [question, setQuestion] = useState("");
   const [conversation, setConversation] = useState<{ q: string; a: string }[]>([]);
   const [asking, setAsking] = useState(false);
+  const [focus, setFocus] = useState<TodaysFocus | null>(null);
+  const [recommendations, setRecommendations] = useState<AiRecommendation[]>([]);
+  const [recsLoading, setRecsLoading] = useState(true);
 
   const fetchBriefing = async () => {
     setBriefingLoading(true);
@@ -229,6 +236,13 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
     fetch("/api/weather").then((res) => (res.ok ? res.json() : null)).then((data) => {
       if (data && !data.error) setWeather(data);
     }).catch(() => {});
+    getRecommendations().then((result) => {
+      if (result) {
+        setFocus(result.todaysFocus);
+        setRecommendations(result.recommendations);
+      }
+      setRecsLoading(false);
+    });
   }, []);
 
   const togglePoolLights = async () => {
@@ -263,8 +277,52 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
   const unreadRequests = requests.filter((r) => !r.isRead).length;
   const WeatherIcon = (weather && WEATHER_ICONS[weather.icon]) || CloudSun;
 
+  const greeting = (() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
+  })();
+
   return (
     <div>
+      <p style={{ color: "#fff", fontSize: 16, fontWeight: 600, marginBottom: 4 }}>
+        {greeting}, {propertyConfig.hostName}.
+      </p>
+      <p style={{ color: "#6B7280", fontSize: 12.5, marginBottom: 16 }}>
+        {focus ? "Everything is ready for today." : "Loading today's overview…"}
+      </p>
+
+      {focus && (
+        <div className="lux-glass" style={{ padding: "14px 16px", marginBottom: 16 }}>
+          <p style={{ color: "#6B7280", fontSize: 10.5, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 10 }}>
+            Today's Focus
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+            <span style={{ color: "#D1D5DB", fontSize: 13 }}>🏡 {focus.arrivals} arrival{focus.arrivals === 1 ? "" : "s"}</span>
+            <span style={{ color: "#D1D5DB", fontSize: 13 }}>🛫 {focus.checkouts} checkout{focus.checkouts === 1 ? "" : "s"}</span>
+            {focus.tempF !== null && <span style={{ color: "#D1D5DB", fontSize: 13 }}>☀️ {focus.tempF}°</span>}
+            <span style={{ color: "#D1D5DB", fontSize: 13 }}>📬 {focus.pendingExperienceRequests} experience request{focus.pendingExperienceRequests === 1 ? "" : "s"}</span>
+          </div>
+        </div>
+      )}
+
+      {!recsLoading && recommendations.length > 0 && (
+        <div className="lux-glass" style={{ padding: "14px 16px", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <Sparkles size={14} strokeWidth={1.7} style={{ color: GOLD }} />
+            <span style={{ color: "#6B7280", fontSize: 10.5, letterSpacing: "0.15em", textTransform: "uppercase" }}>AI Recommendations</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {recommendations.map((r) => (
+              <p key={r.id} style={{ color: "#D1D5DB", fontSize: 12.5, lineHeight: 1.6 }}>
+                <span style={{ color: GOLD }}>⭐ </span>{r.text}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
         <StatCard Icon={PlaneLanding} label="Today's Arrivals" value={arrivingToday} />
         <StatCard Icon={Users} label="Current Guests" value={currentlyHosted} />

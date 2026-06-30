@@ -104,6 +104,16 @@ async function createSchema(): Promise<void> {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS amenity_views (
+      id SERIAL PRIMARY KEY,
+      confirmation_code TEXT,
+      guest_name TEXT,
+      amenity TEXT NOT NULL,
+      viewed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS stay_guide (
       id INTEGER PRIMARY KEY DEFAULT 1,
       content JSONB NOT NULL DEFAULT '{}'::jsonb,

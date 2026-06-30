@@ -112,6 +112,24 @@ export async function updateExperienceRequestStatus(id: number, status: Experien
   return res.ok;
 }
 
+export interface TodaysFocus {
+  arrivals: number;
+  checkouts: number;
+  tempF: number | null;
+  pendingExperienceRequests: number;
+}
+
+export interface AiRecommendation {
+  id: string;
+  text: string;
+}
+
+export async function getRecommendations(): Promise<{ todaysFocus: TodaysFocus; recommendations: AiRecommendation[] } | null> {
+  const res = await fetch("/api/recommendations", { headers: authHeaders() });
+  if (!res.ok) return null;
+  return res.json();
+}
+
 export interface StayGuide {
   welcomeMessage: string;
   checkinInstructions: string;

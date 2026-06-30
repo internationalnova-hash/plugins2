@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { propertyConfig } from "@/data/config";
 import theme from "@/config/theme";
+import { trackAmenityView } from "@/lib/tracking";
 
 const GOLD = theme.gold;
 
@@ -14,12 +15,14 @@ function ExpandCard({
   preview,
   children,
   delay = 0,
+  amenity,
 }: {
   icon: string;
   label: string;
   preview: string;
   children: React.ReactNode;
   delay?: number;
+  amenity?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -27,7 +30,12 @@ function ExpandCard({
       <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 20, marginBottom: 12, overflow: "hidden" }}>
         <button
           className="btn-press"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() =>
+            setOpen((o) => {
+              if (!o && amenity) trackAmenityView(amenity);
+              return !o;
+            })
+          }
           style={{ width: "100%", background: "transparent", border: "none", padding: "28px 24px", textAlign: "left", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
@@ -81,6 +89,7 @@ function StudioPackageCard({ pkg, delay }: { pkg: { duration: string; price: str
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
+    trackAmenityView("studio-request");
     const message = `Hi! I'd like to book the ${pkg.duration} (${pkg.price}) recording studio add-on for my stay.`;
     navigator.clipboard.writeText(message).then(() => {
       setCopied(true);
@@ -125,9 +134,13 @@ function StudioPackageCard({ pkg, delay }: { pkg: { duration: string; price: str
 export default function EntertainmentTab() {
   const { theater, studio, pool, gameRoom, grill } = propertyConfig;
 
+  useEffect(() => {
+    trackAmenityView("studio");
+  }, []);
+
   return (
     <div style={{ paddingTop: 4 }}>
-      <ExpandCard icon="🎬" label="Movie Theater" preview="Tap for setup steps" delay={0}>
+      <ExpandCard icon="🎬" label="Movie Theater" preview="Tap for setup steps" delay={0} amenity="theater">
         <StepList steps={theater.steps} />
       </ExpandCard>
 
@@ -145,15 +158,15 @@ export default function EntertainmentTab() {
         </div>
       </div>
 
-      <ExpandCard icon="🏊" label="Pool & Backyard" preview="Tap for pool rules" delay={0.1}>
+      <ExpandCard icon="🏊" label="Pool & Backyard" preview="Tap for pool rules" delay={0.1} amenity="pool">
         <BulletList items={pool.rules} />
       </ExpandCard>
 
-      <ExpandCard icon="🎮" label="Game Room" preview="Available 24 hours" delay={0.15}>
+      <ExpandCard icon="🎮" label="Game Room" preview="Available 24 hours" delay={0.15} amenity="game-room">
         <BulletList items={gameRoom.details} />
       </ExpandCard>
 
-      <ExpandCard icon="💡" label="Outdoor Lighting & Grill" preview="Tap for instructions" delay={0.2}>
+      <ExpandCard icon="💡" label="Outdoor Lighting & Grill" preview="Tap for instructions" delay={0.2} amenity="grill">
         <StepList steps={grill.instructions} />
       </ExpandCard>
     </div>
