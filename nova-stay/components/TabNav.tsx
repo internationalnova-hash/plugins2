@@ -1,8 +1,9 @@
 "use client";
 
 import { Home, Clapperboard, Compass, UtensilsCrossed, Sparkles, type LucideIcon } from "lucide-react";
+import theme from "@/config/theme";
 
-const GOLD = "#C9A84C";
+const GOLD = theme.gold;
 
 export type TabKey = "stay" | "entertainment" | "explore" | "dining" | "support";
 

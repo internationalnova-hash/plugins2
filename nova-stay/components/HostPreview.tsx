@@ -21,10 +21,11 @@ import {
 import { getBookings, addBooking, deleteBooking, loginHost, isHostLoggedIn, logoutHost, type Booking } from "@/lib/bookingsStore";
 import { getJourneyStage } from "@/lib/novaJourney";
 import SNMonogram from "@/components/SNMonogram";
+import theme from "@/config/theme";
 
-const GOLD = "#C9A84C";
-const GOLD_LIGHT = "#E8C97A";
-const BG = "#0A0A0A";
+const GOLD = theme.gold;
+const GOLD_LIGHT = theme.goldLight;
+const BG = theme.bg;
 
 interface GuestInfo {
   name: string;

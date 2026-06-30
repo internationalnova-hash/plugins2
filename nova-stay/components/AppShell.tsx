@@ -7,8 +7,9 @@ import EntertainmentTab from "@/components/tabs/EntertainmentTab";
 import ExploreTab from "@/components/tabs/ExploreTab";
 import DiningTab from "@/components/tabs/DiningTab";
 import SupportTab from "@/components/tabs/SupportTab";
+import theme from "@/config/theme";
 
-const GOLD = "#C9A84C";
+const GOLD = theme.gold;
 
 const TAB_TITLES: Record<TabKey, string> = {
   stay: "Your Stay",

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { propertyConfig } from "@/data/config";
+import theme from "@/config/theme";
 
-const GOLD = "#C9A84C";
+const GOLD = theme.gold;
 
 /* ── Expandable info card — preview + chevron, animates open ─────────────── */
 

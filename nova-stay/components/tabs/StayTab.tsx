@@ -4,9 +4,10 @@ import { useState } from "react";
 import HouseRules from "@/components/HouseRules";
 import Checkout from "@/components/Checkout";
 import { propertyConfig } from "@/data/config";
+import theme from "@/config/theme";
 
-const GOLD = "#C9A84C";
-const GOLD_LIGHT = "#E8C97A";
+const GOLD = theme.gold;
+const GOLD_LIGHT = theme.goldLight;
 
 /* ── Premium copy card ─────────────────────────────────────────────────────
    Large, tappable, breathing-room cards — Apple Wallet style.            */

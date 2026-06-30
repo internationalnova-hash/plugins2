@@ -4,10 +4,11 @@ import { useState } from "react";
 import { ShieldCheck, KeyRound } from "lucide-react";
 import { findBooking, type Booking } from "@/lib/bookingsStore";
 import SNMonogram from "@/components/SNMonogram";
+import theme from "@/config/theme";
 
-const GOLD = "#C9A84C";
-const GOLD_LIGHT = "#E8C97A";
-const BG = "#0A0A0A";
+const GOLD = theme.gold;
+const GOLD_LIGHT = theme.goldLight;
+const BG = theme.bg;
 const CARD = "#111111";
 
 // ─── Shared primitives ───────────────────────────────────────────────────────

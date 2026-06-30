@@ -1,5 +1,7 @@
-const GOLD = "#C9A84C";
-const GOLD_LIGHT = "#F1D98A";
+import theme from "@/config/theme";
+
+const GOLD = theme.gold;
+const GOLD_LIGHT = theme.goldBright;
 
 export default function SNMonogram({ size = 40, id = "sn" }: { size?: number; id?: string }) {
   const gradId = `sn-grad-${id}`;

@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import SNMonogram from "@/components/SNMonogram";
+import theme from "@/config/theme";
 
-const GOLD = "#C9A84C";
-const GOLD_LIGHT = "#F1D98A";
+const GOLD = theme.gold;
+const GOLD_LIGHT = theme.goldBright;
 
 type Stage = "fadeIn" | "shimmer" | "text" | "scaleOut";
 

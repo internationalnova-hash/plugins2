@@ -4,7 +4,8 @@ import { Plane, Home, Sunrise, PartyPopper, Sparkles, Heart, type LucideIcon } f
 import { JOURNEY_STAGES, type JourneyStageKey } from "@/lib/novaJourney";
 import type { TabKey } from "@/components/TabNav";
 
-const GOLD = "#C9A84C";
+import theme from "@/config/theme";
+const GOLD = theme.gold;
 
 const ICONS: Record<JourneyStageKey, LucideIcon> = {
   before: Plane,

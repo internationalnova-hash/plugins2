@@ -2,8 +2,9 @@
 
 import { Mic2, ChefHat, Car, Thermometer, Clock, Camera, Video, Flower2, type LucideIcon } from "lucide-react";
 import { EXPERIENCES, type Experience } from "@/data/experiences";
+import theme from "@/config/theme";
 
-const GOLD = "#C9A84C";
+const GOLD = theme.gold;
 
 const ICONS: Record<Experience["icon"], LucideIcon> = {
   Mic2, ChefHat, Car, Thermometer, Clock, Camera, Video, Flower2,

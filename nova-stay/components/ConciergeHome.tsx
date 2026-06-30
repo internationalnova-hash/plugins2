@@ -23,9 +23,10 @@ import property from "@/config/property";
 import type { TabKey } from "@/components/TabNav";
 import NovaJourney from "@/components/NovaJourney";
 import { getJourneyStage, type JourneyStageKey } from "@/lib/novaJourney";
+import theme from "@/config/theme";
 
-const GOLD = "#C9A84C";
-const GOLD_LIGHT = "#E8C97A";
+const GOLD = theme.gold;
+const GOLD_LIGHT = theme.goldLight;
 
 interface GuestData {
   guestName?: string;

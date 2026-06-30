@@ -6,9 +6,10 @@ import QRCodeSection from "@/components/QRCode";
 import Section from "@/components/Section";
 import ExperienceMarketplace from "@/components/ExperienceMarketplace";
 import { propertyConfig } from "@/data/config";
+import theme from "@/config/theme";
 
-const GOLD = "#C9A84C";
-const GOLD_LIGHT = "#E8C97A";
+const GOLD = theme.gold;
+const GOLD_LIGHT = theme.goldLight;
 
 export default function SupportTab() {
   return (
