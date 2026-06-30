@@ -14,11 +14,15 @@ import {
   Sparkles,
   Coffee,
   Sunset,
+  KeyRound,
+  Heart,
   type LucideIcon,
 } from "lucide-react";
 import reservation from "@/config/reservation";
 import property from "@/config/property";
 import type { TabKey } from "@/components/TabNav";
+import NovaJourney from "@/components/NovaJourney";
+import { getJourneyStage, type JourneyStageKey } from "@/lib/novaJourney";
 
 const GOLD = "#C9A84C";
 const GOLD_LIGHT = "#E8C97A";
@@ -75,7 +79,14 @@ const GREETINGS: Record<TOD, { text: string; Icon: LucideIcon; subtitle: (name: 
 
 /* ── StayByNova Moments ───────────────────────────────────────────────────── */
 
-function getMoment(nights: number): { Icon: LucideIcon; text: string } | null {
+function getMoment(nights: number, stage: JourneyStageKey): { Icon: LucideIcon; text: string } | null {
+  if (stage === "checkedIn")
+    return { Icon: KeyRound, text: "You're checked in. Your door code and Wi-Fi details are ready in the Stay tab whenever you need them." };
+  if (stage === "checkout")
+    return { Icon: Sunset, text: "Checkout is tomorrow. Take a look at the checkout guide tonight so the morning goes smoothly." };
+  if (stage === "review")
+    return { Icon: Heart, text: "We hope you loved your stay. Leaving a review helps us keep delivering this experience." };
+
   const h = new Date().getHours();
   const m = new Date().getMinutes();
   const timeNum = h * 60 + m;
@@ -127,7 +138,8 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
 
   const tod      = timeOfDay();
   const g        = GREETINGS[tod];
-  const moment   = getMoment(nights);
+  const stage    = getJourneyStage(checkIn, checkOut);
+  const moment   = getMoment(nights, stage);
   const isPoolOk = tod === "evening" || tod === "afternoon";
 
   return (
@@ -194,6 +206,11 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
 
       {/* ── CONTENT BELOW HERO ────────────────────────────────────────── */}
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 20px 100px" }}>
+
+        {/* Nova Journey — guest stay-stage timeline */}
+        <div className="anim-fade-up" style={{ margin: "20px 0 4px" }}>
+          <NovaJourney current={stage} onSelectTab={onEnterGuide} />
+        </div>
 
         {/* StayByNova Moment strip */}
         {moment && !momentDismissed && (

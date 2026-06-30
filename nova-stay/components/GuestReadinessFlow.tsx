@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { ShieldCheck, KeyRound } from "lucide-react";
 import { findBooking, type Booking } from "@/lib/bookingsStore";
+import SNMonogram from "@/components/SNMonogram";
 
 const GOLD = "#C9A84C";
 const GOLD_LIGHT = "#E8C97A";
@@ -272,37 +274,92 @@ function CodeEntry({ onFound }: { onFound: (booking: Booking) => void }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
-      <div style={{ maxWidth: 400, width: "100%" }}>
-        <div style={{ fontSize: 11, letterSpacing: "0.3em", color: GOLD, textTransform: "uppercase", marginBottom: 20 }}>StayByNova</div>
-        <h1 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(1.8rem, 6vw, 2.4rem)", color: "#fff", fontWeight: 700, lineHeight: 1.2, marginBottom: 12 }}>
-          Confirm Your<br /><span style={{ color: GOLD }}>Reservation</span>
-        </h1>
-        <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 36, lineHeight: 1.6 }}>
-          Enter the confirmation code from your Airbnb booking to unlock your personalized guide.
-        </p>
-        <input
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
-          placeholder="Confirmation Code"
-          autoCapitalize="characters"
+    <div style={{ minHeight: "100vh", background: BG, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center", overflow: "hidden" }}>
+      <style>{`
+        @keyframes reservationGlow { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.6; } }
+        @keyframes reservationFade { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        .reservation-glow { animation: reservationGlow 5s ease-in-out infinite; }
+        .reservation-fade-1 { animation: reservationFade 0.7s cubic-bezier(0.22,1,0.36,1) both; animation-delay: 0.05s; }
+        .reservation-fade-2 { animation: reservationFade 0.7s cubic-bezier(0.22,1,0.36,1) both; animation-delay: 0.18s; }
+        .reservation-fade-3 { animation: reservationFade 0.7s cubic-bezier(0.22,1,0.36,1) both; animation-delay: 0.32s; }
+        .reservation-fade-4 { animation: reservationFade 0.7s cubic-bezier(0.22,1,0.36,1) both; animation-delay: 0.46s; }
+      `}</style>
+
+      {/* Ambient illustration — soft radial gold glow behind the card */}
+      <div
+        className="reservation-glow"
+        style={{
+          position: "absolute",
+          top: "-10%",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: 480,
+          height: 480,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${GOLD}22, transparent 70%)`,
+          pointerEvents: "none",
+        }}
+      />
+
+      <div style={{ maxWidth: 420, width: "100%", position: "relative", zIndex: 1 }}>
+        <div className="reservation-fade-1" style={{ marginBottom: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+          <SNMonogram size={48} id="reservation" />
+          <span style={{ fontSize: 11, letterSpacing: "0.3em", color: GOLD, textTransform: "uppercase" }}>StayByNova</span>
+        </div>
+
+        <div className="reservation-fade-2">
+          <h1 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(1.8rem, 6vw, 2.4rem)", color: "#fff", fontWeight: 700, lineHeight: 1.2, marginBottom: 12 }}>
+            Welcome.
+          </h1>
+          <p style={{ color: "#9CA3AF", fontSize: 14, marginBottom: 32, lineHeight: 1.65 }}>
+            Enter the confirmation code from your Airbnb reservation. We'll prepare your personalized luxury guide.
+          </p>
+        </div>
+
+        <div
+          className="reservation-fade-3"
           style={{
-            width: "100%",
-            background: CARD,
-            border: `1.5px solid ${error ? "#7a2f2f" : "#222"}`,
-            borderRadius: 10,
-            padding: "16px 18px",
-            color: "#fff",
-            fontSize: 16,
-            letterSpacing: "0.05em",
-            textAlign: "center",
-            marginBottom: error ? 12 : 28,
-            outline: "none",
+            background: "rgba(255,255,255,0.03)",
+            backdropFilter: "blur(16px)",
+            border: `1px solid ${error ? "#7a2f2f" : "rgba(201,168,76,0.22)"}`,
+            borderRadius: "var(--radius-lg)",
+            padding: "28px 24px",
+            boxShadow: "var(--shadow-elevated)",
+            marginBottom: 20,
           }}
-        />
-        {error && <p style={{ color: "#d96b6b", fontSize: 13, lineHeight: 1.5, marginBottom: 28 }}>{error}</p>}
-        <GoldBtn onClick={submit} disabled={!code.trim() || loading}>{loading ? "Checking…" : "Unlock My Guide →"}</GoldBtn>
+        >
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            placeholder="Confirmation Code"
+            autoCapitalize="characters"
+            style={{
+              width: "100%",
+              background: CARD,
+              border: `1.5px solid ${error ? "#7a2f2f" : "#222"}`,
+              borderRadius: 10,
+              padding: "16px 18px",
+              color: "#fff",
+              fontSize: 16,
+              letterSpacing: "0.05em",
+              textAlign: "center",
+              marginBottom: error ? 12 : 18,
+              outline: "none",
+            }}
+          />
+          {error && <p style={{ color: "#d96b6b", fontSize: 13, lineHeight: 1.5, marginBottom: 18 }}>{error}</p>}
+          <GoldBtn onClick={submit} disabled={!code.trim() || loading}>{loading ? "Checking…" : "Unlock My Guide →"}</GoldBtn>
+        </div>
+
+        <div className="reservation-fade-4" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, color: "#4B5563", fontSize: 11, letterSpacing: "0.05em" }}>
+            <ShieldCheck size={14} strokeWidth={1.7} style={{ color: GOLD }} /> Private &amp; secure
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, color: "#4B5563", fontSize: 11, letterSpacing: "0.05em" }}>
+            <KeyRound size={14} strokeWidth={1.7} style={{ color: GOLD }} /> Only for your stay
+          </span>
+        </div>
       </div>
     </div>
   );
