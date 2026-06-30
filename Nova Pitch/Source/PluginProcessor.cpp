@@ -209,8 +209,10 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             float hzRatio  = medianHz / (smoothedDetectedHz + 1e-9f);
             bool  octJump  = (hzRatio > 1.88f && hzRatio < 2.12f)
                           || (hzRatio > 0.47f && hzRatio < 0.53f);
-            float semiDist = std::abs (hzToMidiF (medianHz) - hzToMidiF (smoothedDetectedHz));
-            float alpha    = octJump ? 0.05f : juce::jlimit (0.15f, 0.4f, semiDist * 0.08f);
+            // Fixed alpha so the smoother converges quickly across note transitions.
+            // Variable slowdown (semiDist * 0.08) caused 80ms+ stuck-on-wrong-note
+            // when voice moved from G3 to A3 — the EMA lagged behind the boundary.
+            float alpha    = octJump ? 0.05f : 0.4f;
             smoothedDetectedHz = alpha * medianHz + (1.0f - alpha) * smoothedDetectedHz;
         }
         else
