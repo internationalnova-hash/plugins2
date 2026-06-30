@@ -6,6 +6,7 @@ import FAQ from "@/components/FAQ";
 import QRCodeSection from "@/components/QRCode";
 import Section from "@/components/Section";
 import ExperienceMarketplace from "@/components/ExperienceMarketplace";
+import NovaChat from "@/components/NovaChat";
 import { propertyConfig } from "@/data/config";
 import { submitGuestRequest, getStayGuide, type StayGuide } from "@/lib/propertyStore";
 import theme from "@/config/theme";
@@ -136,43 +137,7 @@ export default function SupportTab() {
     <div className="space-y-0">
       <PropertyGuide />
 
-      {/* Ask Nova — AI placeholder */}
-      <div
-        style={{
-          background: "rgba(201,168,76,0.04)",
-          border: `1px solid ${GOLD}22`,
-          borderRadius: 16,
-          padding: "24px 20px",
-          marginBottom: 6,
-          textAlign: "center",
-        }}
-      >
-        <p style={{ color: GOLD, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 8 }}>
-          ✦ Ask Nova
-        </p>
-        <p style={{ color: "#9CA3AF", fontSize: 14, lineHeight: 1.65, marginBottom: 16 }}>
-          Need restaurant recommendations, theater instructions, or anything else? Your AI concierge is coming soon.
-        </p>
-        <button
-          disabled
-          style={{
-            background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`,
-            color: "#0A0A0A",
-            border: "none",
-            borderRadius: 10,
-            padding: "13px 28px",
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            cursor: "default",
-            opacity: 0.5,
-            width: "100%",
-          }}
-        >
-          Ask Nova — Coming Soon
-        </button>
-      </div>
+      <NovaChat />
 
       <ExperienceMarketplace />
 

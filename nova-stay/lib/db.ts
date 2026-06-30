@@ -116,6 +116,16 @@ async function createSchema(): Promise<void> {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS guest_conversations (
+      id SERIAL PRIMARY KEY,
+      confirmation_code TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS guest_inbox (
       id SERIAL PRIMARY KEY,
       confirmation_code TEXT NOT NULL,

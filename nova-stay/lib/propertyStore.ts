@@ -169,6 +169,36 @@ export async function getRecommendations(): Promise<{ todaysFocus: TodaysFocus; 
   return res.json();
 }
 
+export interface ChatMessage {
+  id: number;
+  role: "user" | "assistant";
+  text: string;
+  createdAt: string;
+}
+
+export async function getGuestChatHistory(confirmationCode: string): Promise<ChatMessage[]> {
+  const res = await fetch(`/api/guest-chat?code=${encodeURIComponent(confirmationCode)}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.messages as ChatMessage[];
+}
+
+export async function sendGuestChatMessage(
+  confirmationCode: string,
+  message: string
+): Promise<{ ok: boolean; reply?: string; error?: string }> {
+  const res = await fetch("/api/guest-chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmationCode, message }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { ok: false, error: data.error || "Failed to reach Nova." };
+  }
+  return { ok: true, reply: data.reply };
+}
+
 export interface StayGuide {
   welcomeMessage: string;
   checkinInstructions: string;
