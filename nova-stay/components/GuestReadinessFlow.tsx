@@ -379,26 +379,14 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => Math.max(0, s - 1));
 
-  if (!booking) {
-    return (
-      <CodeEntry
-        onFound={(match) => {
-          setBooking(match);
-          setOvernightGuests(match.bookedGuests);
-        }}
-      />
-    );
-  }
-
-  const reservation = booking;
-
   const saveGuestInfo = () => {
+    if (!booking) return;
     const data = {
-      guestName: reservation.guestName,
-      confirmationCode: reservation.confirmationCode,
-      checkIn: reservation.checkIn,
-      checkOut: reservation.checkOut,
-      nights: reservation.nights,
+      guestName: booking.guestName,
+      confirmationCode: booking.confirmationCode,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      nights: booking.nights,
       overnightGuests,
       daytimeVisitors,
       vehicles,
@@ -415,9 +403,24 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
   // must actually be saved by the time that screen renders — not only once
   // they tap "Begin Your Stay" — otherwise leaving the tab before that final
   // tap silently drops their check-in despite the UI telling them it's done.
+  // This effect must run on every render (before the `!booking` early return
+  // below) so the hook order never changes between renders.
   useEffect(() => {
-    if (step === TOTAL) saveGuestInfo();
-  }, [step]);
+    if (booking && step === TOTAL) saveGuestInfo();
+  }, [booking, step]);
+
+  if (!booking) {
+    return (
+      <CodeEntry
+        onFound={(match) => {
+          setBooking(match);
+          setOvernightGuests(match.bookedGuests);
+        }}
+      />
+    );
+  }
+
+  const reservation = booking;
 
   const finish = () => {
     saveGuestInfo();
