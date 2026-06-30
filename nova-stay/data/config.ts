@@ -11,7 +11,7 @@ export const propertyConfig = {
     subheading: "A Nova Stay Experience",
     message:
       "Thank you for choosing Casanova ATL. This guide contains everything you need for an unforgettable luxury stay.",
-    hostName: "International Nova",
+    hostName: "Cristina N.",
   },
 
   gameRoom: {
@@ -112,7 +112,7 @@ export const propertyConfig = {
 
   emergency: {
     contacts: [
-      { label: "Host — International Nova", value: "Contact via Airbnb app" },
+      { label: "Host — Cristina N.", value: "Contact via Airbnb app" },
       { label: "Police / Fire / Medical", value: "911" },
       { label: "Poison Control", value: "1-800-222-1222" },
       { label: "Nearest Hospital", value: "Grady Memorial Hospital — 0.8 mi" },
