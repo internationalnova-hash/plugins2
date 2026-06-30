@@ -14,7 +14,7 @@ export default function NovaChat() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let code: string | null = null;
@@ -36,7 +36,8 @@ export default function NovaChat() {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollContainerRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
 
   const send = async () => {
@@ -84,7 +85,7 @@ export default function NovaChat() {
               Need restaurant recommendations, theater instructions, or anything else? Ask away — Nova remembers your whole stay.
             </p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14, maxHeight: 320, overflowY: "auto" }}>
+            <div ref={scrollContainerRef} style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14, maxHeight: 320, overflowY: "auto" }}>
               {messages.map((m) => (
                 <div
                   key={m.id}
@@ -105,7 +106,6 @@ export default function NovaChat() {
                   <p style={{ color: "#6B7280", fontSize: 12 }}>Nova is thinking…</p>
                 </div>
               )}
-              <div ref={bottomRef} />
             </div>
           )}
 
