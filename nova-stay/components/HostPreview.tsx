@@ -855,7 +855,9 @@ function HostSettings({ onLogout }: { onLogout: () => void }) {
       </p>
       <button
         onClick={() => {
+          if (!window.confirm("Clear this device's check-in data? The guest app will reload to the confirmation code screen.")) return;
           localStorage.removeItem("stayByNova_guestInfo");
+          window.location.reload();
         }}
         className="lux-glass btn-press"
         style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", marginBottom: 8, color: "#9CA3AF", fontSize: 13, cursor: "pointer", border: "none" }}
@@ -1180,8 +1182,10 @@ export default function HostPreview() {
   const fmt = (d: string) => d || "—";
 
   const clearData = () => {
+    if (!window.confirm("Clear this device's check-in data? The guest app will reload to the confirmation code screen.")) return;
     localStorage.removeItem("stayByNova_guestInfo");
     setData(null);
+    window.location.reload();
   };
 
   return (
