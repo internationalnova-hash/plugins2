@@ -5,11 +5,11 @@ const GOLD = "#C9A84C";
 export type TabKey = "stay" | "entertainment" | "explore" | "dining" | "support";
 
 const TABS: { key: TabKey; icon: string; label: string }[] = [
-  { key: "stay", icon: "🏠", label: "Stay" },
-  { key: "entertainment", icon: "🎬", label: "Play" },
-  { key: "explore", icon: "📍", label: "Explore" },
-  { key: "dining", icon: "🍽️", label: "Dining" },
-  { key: "support", icon: "💬", label: "Support" },
+  { key: "stay",          icon: "🏡",  label: "Stay"       },
+  { key: "entertainment", icon: "🎬",  label: "Experience" },
+  { key: "explore",       icon: "📍",  label: "Explore"    },
+  { key: "dining",        icon: "🍽️", label: "Dining"     },
+  { key: "support",       icon: "✦",   label: "Nova"       },
 ];
 
 export default function TabNav({
