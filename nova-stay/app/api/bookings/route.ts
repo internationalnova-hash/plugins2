@@ -7,23 +7,27 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await ensureSchema();
-  const { rows } = await sql`
-    SELECT confirmation_code, guest_name, check_in, check_out, nights, booked_guests
-    FROM bookings
-    ORDER BY created_at DESC;
-  `;
+  try {
+    await ensureSchema();
+    const { rows } = await sql`
+      SELECT confirmation_code, guest_name, check_in, check_out, nights, booked_guests
+      FROM bookings
+      ORDER BY created_at DESC;
+    `;
 
-  return NextResponse.json({
-    bookings: rows.map((row) => ({
-      confirmationCode: row.confirmation_code,
-      guestName: row.guest_name,
-      checkIn: row.check_in,
-      checkOut: row.check_out,
-      nights: row.nights,
-      bookedGuests: row.booked_guests,
-    })),
-  });
+    return NextResponse.json({
+      bookings: rows.map((row) => ({
+        confirmationCode: row.confirmation_code,
+        guestName: row.guest_name,
+        checkIn: row.check_in,
+        checkOut: row.check_out,
+        nights: row.nights,
+        bookedGuests: row.booked_guests,
+      })),
+    });
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message || "Database error while loading reservations." }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -38,8 +42,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  await ensureSchema();
   try {
+    await ensureSchema();
     await sql`
       INSERT INTO bookings (confirmation_code, guest_name, check_in, check_out, nights, booked_guests)
       VALUES (${confirmationCode.toUpperCase()}, ${guestName}, ${checkIn}, ${checkOut}, ${Number(nights) || 1}, ${Number(bookedGuests) || 1});
@@ -48,7 +52,7 @@ export async function POST(req: NextRequest) {
     if (err?.code === "23505") {
       return NextResponse.json({ error: "A reservation with that confirmation code already exists." }, { status: 409 });
     }
-    throw err;
+    return NextResponse.json({ error: err?.message || "Database error while saving reservation." }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true }, { status: 201 });
