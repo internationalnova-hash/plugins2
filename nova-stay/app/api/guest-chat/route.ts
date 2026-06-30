@@ -28,10 +28,11 @@ export async function GET(req: NextRequest) {
 }
 
 async function getGroundingContext(code: string) {
-  const [bookingRes, guideRes] = await Promise.all([
-    sql`SELECT guest_name, check_in, check_out, nights, booked_guests FROM bookings WHERE UPPER(confirmation_code) = ${code} LIMIT 1;`,
-    sql`SELECT content FROM stay_guide WHERE id = 1;`,
-  ]);
+  const bookingRes = await sql`SELECT guest_name, check_in, check_out, nights, booked_guests, property_id FROM bookings WHERE UPPER(confirmation_code) = ${code} LIMIT 1;`;
+  const propertyId: number | null = bookingRes.rows[0]?.property_id ?? null;
+  const guideRes = propertyId
+    ? await sql`SELECT content FROM stay_guide WHERE property_id = ${propertyId} LIMIT 1;`
+    : await sql`SELECT content FROM stay_guide WHERE id = 1;`;
 
   return {
     booking: bookingRes.rows[0] || null,
@@ -106,11 +107,12 @@ export async function POST(req: NextRequest) {
       .map((block) => block.text)
       .join("\n");
 
+    const propertyId = context.booking?.property_id ?? null;
     await sql`
-      INSERT INTO guest_conversations (confirmation_code, role, content) VALUES (${code}, 'user', ${message.trim()});
+      INSERT INTO guest_conversations (confirmation_code, role, content, property_id) VALUES (${code}, 'user', ${message.trim()}, ${propertyId});
     `;
     await sql`
-      INSERT INTO guest_conversations (confirmation_code, role, content) VALUES (${code}, 'assistant', ${reply});
+      INSERT INTO guest_conversations (confirmation_code, role, content, property_id) VALUES (${code}, 'assistant', ${reply}, ${propertyId});
     `;
 
     return NextResponse.json({ reply });

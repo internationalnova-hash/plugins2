@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql, ensureSchema } from "@/lib/db";
-import { isAuthorizedHost } from "@/lib/hostAuth";
+import { getAuthorizedProperty, isSuperAdmin, getPropertyIdByConfirmationCode, getPropertyIdBySlug } from "@/lib/hostAuth";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     await ensureSchema();
-    const { rows } = await sql`SELECT content, updated_at FROM stay_guide WHERE id = 1;`;
+    const code = req.nextUrl.searchParams.get("code")?.trim().toUpperCase();
+    const slug = req.nextUrl.searchParams.get("slug")?.trim();
+    let propertyId: number | null = null;
+    if (code) propertyId = await getPropertyIdByConfirmationCode(code);
+    else if (slug) propertyId = await getPropertyIdBySlug(slug);
+
+    const { rows } = propertyId
+      ? await sql`SELECT content, updated_at FROM stay_guide WHERE property_id = ${propertyId} LIMIT 1;`
+      : await sql`SELECT content, updated_at FROM stay_guide WHERE id = 1;`;
     const row = rows[0];
     return NextResponse.json({ guide: row ? { content: row.content, updatedAt: row.updated_at } : null });
   } catch (err: any) {
@@ -14,7 +22,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!isAuthorizedHost(req)) {
+  const auth = await getAuthorizedProperty(req);
+  if (!auth && !isSuperAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -26,11 +35,20 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureSchema();
-    await sql`
-      INSERT INTO stay_guide (id, content, updated_at)
-      VALUES (1, ${JSON.stringify(content)}::jsonb, now())
-      ON CONFLICT (id) DO UPDATE SET content = ${JSON.stringify(content)}::jsonb, updated_at = now();
-    `;
+    if (auth) {
+      const { rows: existing } = await sql`SELECT id FROM stay_guide WHERE property_id = ${auth.propertyId} LIMIT 1;`;
+      if (existing[0]) {
+        await sql`UPDATE stay_guide SET content = ${JSON.stringify(content)}::jsonb, updated_at = now() WHERE property_id = ${auth.propertyId};`;
+      } else {
+        await sql`INSERT INTO stay_guide (content, updated_at, property_id) VALUES (${JSON.stringify(content)}::jsonb, now(), ${auth.propertyId});`;
+      }
+    } else {
+      await sql`
+        INSERT INTO stay_guide (id, content, updated_at)
+        VALUES (1, ${JSON.stringify(content)}::jsonb, now())
+        ON CONFLICT (id) DO UPDATE SET content = ${JSON.stringify(content)}::jsonb, updated_at = now();
+      `;
+    }
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || "Database error while saving guide." }, { status: 500 });

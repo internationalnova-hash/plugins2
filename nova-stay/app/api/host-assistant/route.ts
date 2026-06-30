@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { sql, ensureSchema } from "@/lib/db";
-import { isAuthorizedHost } from "@/lib/hostAuth";
+import { getAuthorizedProperty, isSuperAdmin } from "@/lib/hostAuth";
 import property from "@/config/property";
 
 const SYSTEM_PROMPT =
@@ -14,13 +14,19 @@ const SYSTEM_PROMPT =
   `Keep it tight — a few short lines, not paragraphs. End a proactive briefing with a single relevant offer to help ` +
   `("Would you like me to draft a welcome message for them?") when appropriate.`;
 
-async function getSnapshot() {
+async function getSnapshot(propertyId: number | null) {
   await ensureSchema();
-  const [bookingsRes, propertyRes, requestsRes] = await Promise.all([
-    sql`SELECT guest_name, check_in, check_out, nights, booked_guests, confirmation_code FROM bookings ORDER BY check_in;`,
-    sql`SELECT pool_lights_on, door_code, host_notice FROM property_state WHERE id = 1;`,
-    sql`SELECT guest_name, message, is_read, created_at FROM guest_requests ORDER BY created_at DESC LIMIT 20;`,
-  ]);
+  const [bookingsRes, propertyRes, requestsRes] = propertyId
+    ? await Promise.all([
+        sql`SELECT guest_name, check_in, check_out, nights, booked_guests, confirmation_code FROM bookings WHERE property_id = ${propertyId} ORDER BY check_in;`,
+        sql`SELECT pool_lights_on, door_code, host_notice FROM properties WHERE id = ${propertyId};`,
+        sql`SELECT guest_name, message, is_read, created_at FROM guest_requests WHERE property_id = ${propertyId} ORDER BY created_at DESC LIMIT 20;`,
+      ])
+    : await Promise.all([
+        sql`SELECT guest_name, check_in, check_out, nights, booked_guests, confirmation_code FROM bookings ORDER BY check_in;`,
+        sql`SELECT pool_lights_on, door_code, host_notice FROM property_state WHERE id = 1;`,
+        sql`SELECT guest_name, message, is_read, created_at FROM guest_requests ORDER BY created_at DESC LIMIT 20;`,
+      ]);
 
   return {
     today: new Date().toISOString().slice(0, 10),
@@ -31,7 +37,8 @@ async function getSnapshot() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!isAuthorizedHost(req)) {
+  const auth = await getAuthorizedProperty(req);
+  if (!auth && !isSuperAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -44,7 +51,7 @@ export async function POST(req: NextRequest) {
   const question: string | undefined = typeof body?.question === "string" ? body.question.trim() : undefined;
 
   try {
-    const snapshot = await getSnapshot();
+    const snapshot = await getSnapshot(auth?.propertyId ?? null);
     const client = new Anthropic({ apiKey });
 
     const userMessage = question

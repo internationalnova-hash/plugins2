@@ -1,20 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { sql, ensureSchema } from "@/lib/db";
-import { isAuthorizedHost } from "@/lib/hostAuth";
+import { getAuthorizedProperty, isSuperAdmin, getPropertyIdByConfirmationCode } from "@/lib/hostAuth";
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorizedHost(req)) {
+  const auth = await getAuthorizedProperty(req);
+  if (!auth && !isSuperAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     await ensureSchema();
-    const { rows } = await sql`
-      SELECT id, guest_name, message, is_read, created_at, confirmation_code, priority, category, suggested_response
-      FROM guest_requests
-      ORDER BY created_at DESC;
-    `;
+    const { rows } = auth
+      ? await sql`
+          SELECT id, guest_name, message, is_read, created_at, confirmation_code, priority, category, suggested_response
+          FROM guest_requests
+          WHERE property_id = ${auth.propertyId}
+          ORDER BY created_at DESC;
+        `
+      : await sql`
+          SELECT id, guest_name, message, is_read, created_at, confirmation_code, priority, category, suggested_response
+          FROM guest_requests
+          ORDER BY created_at DESC;
+        `;
     return NextResponse.json({
       requests: rows.map((row) => ({
         id: row.id,
@@ -95,15 +103,18 @@ export async function POST(req: NextRequest) {
   try {
     await ensureSchema();
     const classification = await classifyMessage(message.trim());
+    const code = confirmationCode ? confirmationCode.trim().toUpperCase() : null;
+    const propertyId = code ? await getPropertyIdByConfirmationCode(code) : null;
     await sql`
-      INSERT INTO guest_requests (guest_name, message, confirmation_code, priority, category, suggested_response)
+      INSERT INTO guest_requests (guest_name, message, confirmation_code, priority, category, suggested_response, property_id)
       VALUES (
         ${guestName.trim()},
         ${message.trim()},
-        ${confirmationCode ? confirmationCode.trim().toUpperCase() : null},
+        ${code},
         ${classification?.priority || null},
         ${classification?.category || null},
-        ${classification?.suggestedResponse || null}
+        ${classification?.suggestedResponse || null},
+        ${propertyId}
       );
     `;
     return NextResponse.json({ ok: true }, { status: 201 });
@@ -113,7 +124,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!isAuthorizedHost(req)) {
+  const auth = await getAuthorizedProperty(req);
+  if (!auth && !isSuperAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -123,7 +135,11 @@ export async function PATCH(req: NextRequest) {
 
   try {
     await ensureSchema();
-    await sql`UPDATE guest_requests SET is_read = true WHERE id = ${id};`;
+    if (auth) {
+      await sql`UPDATE guest_requests SET is_read = true WHERE id = ${id} AND property_id = ${auth.propertyId};`;
+    } else {
+      await sql`UPDATE guest_requests SET is_read = true WHERE id = ${id};`;
+    }
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || "Database error while updating request." }, { status: 500 });

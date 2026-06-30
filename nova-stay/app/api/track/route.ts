@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql, ensureSchema } from "@/lib/db";
+import { getPropertyIdByConfirmationCode } from "@/lib/hostAuth";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
@@ -11,9 +12,11 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureSchema();
+    const code = confirmationCode ? confirmationCode.trim().toUpperCase() : null;
+    const propertyId = code ? await getPropertyIdByConfirmationCode(code) : null;
     await sql`
-      INSERT INTO amenity_views (confirmation_code, guest_name, amenity)
-      VALUES (${confirmationCode ? confirmationCode.trim().toUpperCase() : null}, ${guestName || null}, ${amenity});
+      INSERT INTO amenity_views (confirmation_code, guest_name, amenity, property_id)
+      VALUES (${code}, ${guestName || null}, ${amenity}, ${propertyId});
     `;
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (err: any) {

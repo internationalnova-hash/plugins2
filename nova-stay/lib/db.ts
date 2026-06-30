@@ -175,6 +175,110 @@ async function createSchema(): Promise<void> {
   await sql`
     INSERT INTO stay_guide (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
   `;
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Multi-tenancy: a host account can own multiple properties. Every
+  // guest/booking/content table below gets a nullable property_id so
+  // existing single-property data keeps working while we migrate it.
+  // ───────────────────────────────────────────────────────────────────────
+  await sql`
+    CREATE TABLE IF NOT EXISTS hosts (
+      id SERIAL PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS host_sessions (
+      token TEXT PRIMARY KEY,
+      host_id INTEGER NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '30 days')
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS properties (
+      id SERIAL PRIMARY KEY,
+      host_id INTEGER NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+      slug TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL DEFAULT 'My Property',
+      host_name TEXT,
+      city TEXT,
+      tagline TEXT,
+      hero_image_url TEXT,
+      gold_color TEXT,
+      amenities TEXT,
+      pool_lights_on BOOLEAN NOT NULL DEFAULT false,
+      door_code TEXT NOT NULL DEFAULT '0000',
+      host_notice TEXT,
+      host_notice_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id);`;
+  await sql`ALTER TABLE guest_requests ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id);`;
+  await sql`ALTER TABLE guest_messages ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id);`;
+  await sql`ALTER TABLE experience_requests ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id);`;
+  await sql`ALTER TABLE guest_conversations ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id);`;
+  await sql`ALTER TABLE guest_inbox ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id);`;
+  await sql`ALTER TABLE amenity_views ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id);`;
+  await sql`ALTER TABLE stay_guide ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id);`;
+
+  // One-time migration: fold the legacy single-property data (property_state
+  // id=1, stay_guide id=1, and any rows with a null property_id) into a
+  // "casanova" property under a seeded host, so existing data keeps working
+  // under the new multi-tenant model without manual intervention.
+  const { rows: existingProps } = await sql`SELECT id FROM properties LIMIT 1;`;
+  if (!existingProps.length) {
+    const seedEmail = process.env.SEED_HOST_EMAIL || "junior@staybynova.com";
+    const seedPassword = process.env.SEED_HOST_PASSWORD || process.env.HOST_ADMIN_PASSWORD || "changeme";
+    const { hashPassword } = await import("./crypto");
+    const passwordHash = await hashPassword(seedPassword);
+
+    const { rows: hostRows } = await sql`
+      INSERT INTO hosts (email, password_hash, name)
+      VALUES (${seedEmail}, ${passwordHash}, 'Junior')
+      ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
+      RETURNING id;
+    `;
+    const hostId = hostRows[0].id;
+
+    const { rows: stateRows } = await sql`
+      SELECT pool_lights_on, door_code, host_notice, host_notice_at,
+             property_name, host_name, city, tagline, hero_image_url, gold_color, amenities
+      FROM property_state WHERE id = 1;
+    `;
+    const state = stateRows[0];
+
+    const { rows: propRows } = await sql`
+      INSERT INTO properties (
+        host_id, slug, name, host_name, city, tagline, hero_image_url, gold_color, amenities,
+        pool_lights_on, door_code, host_notice, host_notice_at
+      )
+      VALUES (
+        ${hostId}, 'casanova', ${state?.property_name || 'Casanova ATL'}, ${state?.host_name || 'Junior'},
+        ${state?.city || 'Atlanta, Georgia'}, ${state?.tagline || 'Your Luxury Home Away From Home'},
+        ${state?.hero_image_url || null}, ${state?.gold_color || null}, ${state?.amenities || null},
+        ${state?.pool_lights_on ?? false}, ${state?.door_code || '1710#'}, ${state?.host_notice || null}, ${state?.host_notice_at || null}
+      )
+      RETURNING id;
+    `;
+    const propertyId = propRows[0].id;
+
+    await sql`UPDATE bookings SET property_id = ${propertyId} WHERE property_id IS NULL;`;
+    await sql`UPDATE guest_requests SET property_id = ${propertyId} WHERE property_id IS NULL;`;
+    await sql`UPDATE guest_messages SET property_id = ${propertyId} WHERE property_id IS NULL;`;
+    await sql`UPDATE experience_requests SET property_id = ${propertyId} WHERE property_id IS NULL;`;
+    await sql`UPDATE guest_conversations SET property_id = ${propertyId} WHERE property_id IS NULL;`;
+    await sql`UPDATE guest_inbox SET property_id = ${propertyId} WHERE property_id IS NULL;`;
+    await sql`UPDATE amenity_views SET property_id = ${propertyId} WHERE property_id IS NULL;`;
+    await sql`UPDATE stay_guide SET property_id = ${propertyId} WHERE property_id IS NULL;`;
+  }
 }
 
 export function ensureSchema(): Promise<void> {

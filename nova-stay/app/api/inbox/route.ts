@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql, ensureSchema } from "@/lib/db";
-import { isAuthorizedHost } from "@/lib/hostAuth";
+import { getAuthorizedProperty, isSuperAdmin, getPropertyIdByConfirmationCode } from "@/lib/hostAuth";
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code")?.trim().toUpperCase();
@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!isAuthorizedHost(req)) {
+  const auth = await getAuthorizedProperty(req);
+  if (!auth && !isSuperAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -36,9 +37,11 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureSchema();
+    const code = confirmationCode.trim().toUpperCase();
+    const propertyId = auth ? auth.propertyId : await getPropertyIdByConfirmationCode(code);
     await sql`
-      INSERT INTO guest_inbox (confirmation_code, message)
-      VALUES (${confirmationCode.trim().toUpperCase()}, ${message.trim()});
+      INSERT INTO guest_inbox (confirmation_code, message, property_id)
+      VALUES (${code}, ${message.trim()}, ${propertyId});
     `;
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (err: any) {

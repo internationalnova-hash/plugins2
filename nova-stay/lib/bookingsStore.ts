@@ -23,15 +23,33 @@ export interface Booking {
 }
 
 const HOST_TOKEN_KEY = "stayByNova_hostToken";
+const SESSION_TOKEN_KEY = "nova_session_token";
+const ACTIVE_PROPERTY_SLUG_KEY = "nova_active_property_slug";
 
 function getHostToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(HOST_TOKEN_KEY);
 }
 
+function getSessionToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(SESSION_TOKEN_KEY);
+}
+
+function getActivePropertySlug(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(ACTIVE_PROPERTY_SLUG_KEY);
+}
+
 export function authHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
   const token = getHostToken();
-  return token ? { "x-host-token": token } : {};
+  if (token) headers["x-host-token"] = token;
+  const sessionToken = getSessionToken();
+  if (sessionToken) headers["x-session-token"] = sessionToken;
+  const slug = getActivePropertySlug();
+  if (slug) headers["x-property-slug"] = slug;
+  return headers;
 }
 
 export async function loginHost(password: string): Promise<boolean> {

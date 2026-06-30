@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql, ensureSchema } from "@/lib/db";
-import { isAuthorizedHost } from "@/lib/hostAuth";
+import { getAuthorizedProperty, isSuperAdmin } from "@/lib/hostAuth";
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorizedHost(req)) {
+  const auth = await getAuthorizedProperty(req);
+  if (!auth && !isSuperAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     await ensureSchema();
-    const { rows } = await sql`
-      SELECT confirmation_code, guest_name, check_in, check_out, nights, booked_guests, booking_source
-      FROM bookings
-      ORDER BY created_at DESC;
-    `;
+    const { rows } = auth
+      ? await sql`
+          SELECT confirmation_code, guest_name, check_in, check_out, nights, booked_guests, booking_source
+          FROM bookings
+          WHERE property_id = ${auth.propertyId}
+          ORDER BY created_at DESC;
+        `
+      : await sql`
+          SELECT confirmation_code, guest_name, check_in, check_out, nights, booked_guests, booking_source
+          FROM bookings
+          ORDER BY created_at DESC;
+        `;
 
     return NextResponse.json({
       bookings: rows.map((row) => ({
@@ -32,7 +40,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!isAuthorizedHost(req)) {
+  const auth = await getAuthorizedProperty(req);
+  if (!auth && !isSuperAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -46,8 +55,8 @@ export async function POST(req: NextRequest) {
   try {
     await ensureSchema();
     await sql`
-      INSERT INTO bookings (confirmation_code, guest_name, check_in, check_out, nights, booked_guests, booking_source)
-      VALUES (${confirmationCode.toUpperCase()}, ${guestName}, ${checkIn}, ${checkOut}, ${Number(nights) || 1}, ${Number(bookedGuests) || 1}, ${bookingSource || "airbnb"});
+      INSERT INTO bookings (confirmation_code, guest_name, check_in, check_out, nights, booked_guests, booking_source, property_id)
+      VALUES (${confirmationCode.toUpperCase()}, ${guestName}, ${checkIn}, ${checkOut}, ${Number(nights) || 1}, ${Number(bookedGuests) || 1}, ${bookingSource || "airbnb"}, ${auth?.propertyId ?? null});
     `;
   } catch (err: any) {
     if (err?.code === "23505") {

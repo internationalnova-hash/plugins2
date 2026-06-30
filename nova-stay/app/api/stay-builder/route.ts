@@ -28,7 +28,7 @@ const GUIDE_TOOL: Anthropic.Tool = {
 };
 
 export async function POST(req: NextRequest) {
-  if (!isAuthorizedHost(req)) {
+  if (!(await isAuthorizedHost(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

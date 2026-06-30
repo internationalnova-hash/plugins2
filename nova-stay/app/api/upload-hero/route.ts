@@ -6,7 +6,7 @@ const MAX_BYTES = 8 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
 export async function POST(req: NextRequest) {
-  if (!isAuthorizedHost(req)) {
+  if (!(await isAuthorizedHost(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

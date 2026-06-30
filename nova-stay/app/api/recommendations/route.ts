@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql, ensureSchema } from "@/lib/db";
-import { isAuthorizedHost } from "@/lib/hostAuth";
+import { getAuthorizedProperty, isSuperAdmin } from "@/lib/hostAuth";
 import property from "@/config/property";
 
 // Amenities that signal interest in a paid experience, mapped to the
@@ -21,24 +21,37 @@ function addDays(dateStr: string, days: number): string {
 }
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorizedHost(req)) {
+  const auth = await getAuthorizedProperty(req);
+  if (!auth && !isSuperAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     await ensureSchema();
 
-    const [bookingsRes, requestsRes, viewsRes, weather] = await Promise.all([
-      sql`SELECT confirmation_code, guest_name, check_in, check_out FROM bookings;`,
-      sql`SELECT confirmation_code, experience_title, status FROM experience_requests WHERE status != 'declined';`,
-      sql`
-        SELECT confirmation_code, guest_name, amenity, COUNT(*) AS views
-        FROM amenity_views
-        WHERE viewed_at > now() - interval '14 days'
-        GROUP BY confirmation_code, guest_name, amenity;
-      `,
-      fetchWeather(),
-    ]);
+    const [bookingsRes, requestsRes, viewsRes, weather] = auth
+      ? await Promise.all([
+          sql`SELECT confirmation_code, guest_name, check_in, check_out FROM bookings WHERE property_id = ${auth.propertyId};`,
+          sql`SELECT confirmation_code, experience_title, status FROM experience_requests WHERE status != 'declined' AND property_id = ${auth.propertyId};`,
+          sql`
+            SELECT confirmation_code, guest_name, amenity, COUNT(*) AS views
+            FROM amenity_views
+            WHERE viewed_at > now() - interval '14 days' AND property_id = ${auth.propertyId}
+            GROUP BY confirmation_code, guest_name, amenity;
+          `,
+          fetchWeather(),
+        ])
+      : await Promise.all([
+          sql`SELECT confirmation_code, guest_name, check_in, check_out FROM bookings;`,
+          sql`SELECT confirmation_code, experience_title, status FROM experience_requests WHERE status != 'declined';`,
+          sql`
+            SELECT confirmation_code, guest_name, amenity, COUNT(*) AS views
+            FROM amenity_views
+            WHERE viewed_at > now() - interval '14 days'
+            GROUP BY confirmation_code, guest_name, amenity;
+          `,
+          fetchWeather(),
+        ]);
 
     const today = new Date().toISOString().slice(0, 10);
     const recommendations: { id: string; text: string; confirmationCode?: string; suggestedMessage?: string }[] = [];

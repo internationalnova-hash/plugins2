@@ -1030,21 +1030,47 @@ const BOOKING_SOURCES: { value: BookingSource; label: string }[] = [
   { value: "other",       label: "Other" },
 ];
 
+interface LoginProperty {
+  id: number;
+  slug: string;
+  name: string;
+}
+
 function HostLogin({ onSuccess }: { onSuccess: () => void }) {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
-    if (!password.trim() || loading) return;
+    if (!email.trim() || !password.trim() || loading) return;
     setLoading(true);
-    const ok = await loginHost(password.trim());
-    setLoading(false);
-    if (ok) {
-      setError(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password: password.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setLoading(false);
+      if (!res.ok || !data.ok) {
+        setError(data.error || "Incorrect email or password.");
+        return;
+      }
+      localStorage.setItem("nova_session_token", data.sessionToken);
+      const properties: LoginProperty[] = data.properties || [];
+      localStorage.setItem("nova_host_properties", JSON.stringify(properties));
+      if (properties.length > 0) {
+        localStorage.setItem("nova_active_property_slug", properties[0].slug);
+      }
+      if (data.host) {
+        localStorage.setItem("nova_host_info", JSON.stringify(data.host));
+      }
       onSuccess();
-    } else {
-      setError("Incorrect password.");
+    } catch {
+      setLoading(false);
+      setError("Login failed. Please try again.");
     }
   };
 
@@ -1055,8 +1081,16 @@ function HostLogin({ onSuccess }: { onSuccess: () => void }) {
       </p>
       <input
         style={inputStyle}
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && submit()}
+      />
+      <input
+        style={inputStyle}
         type="password"
-        placeholder="Admin Password"
+        placeholder="Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && submit()}
@@ -1081,6 +1115,90 @@ function HostLogin({ onSuccess }: { onSuccess: () => void }) {
         }}
       >
         {loading ? "Checking…" : "Log In"}
+      </button>
+    </div>
+  );
+}
+
+function PropertySwitcher({ onSwitchToBuilder }: { onSwitchToBuilder: () => void }) {
+  const [properties, setProperties] = useState<LoginProperty[]>([]);
+  const [active, setActive] = useState<string>("");
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("nova_host_properties");
+      const parsed: LoginProperty[] = raw ? JSON.parse(raw) : [];
+      setProperties(parsed);
+      setActive(localStorage.getItem("nova_active_property_slug") || "");
+    } catch {
+      setProperties([]);
+    }
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const slug = e.target.value;
+    setActive(slug);
+    localStorage.setItem("nova_active_property_slug", slug);
+    window.location.reload();
+  };
+
+  const addProperty = async () => {
+    const name = window.prompt("New property name:");
+    if (!name || !name.trim()) return;
+    const slug = window.prompt("New property URL slug (e.g. lake-house):");
+    if (!slug || !slug.trim()) return;
+
+    const token = localStorage.getItem("nova_session_token");
+    try {
+      const res = await fetch("/api/properties", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { "x-session-token": token } : {}) },
+        body: JSON.stringify({ slug: slug.trim(), name: name.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        window.alert(data.error || "Failed to create property.");
+        return;
+      }
+      const next = [...properties, data.property];
+      setProperties(next);
+      localStorage.setItem("nova_host_properties", JSON.stringify(next));
+      localStorage.setItem("nova_active_property_slug", data.property.slug);
+      setActive(data.property.slug);
+      onSwitchToBuilder();
+    } catch {
+      window.alert("Failed to create property.");
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+      {properties.length > 1 && (
+        <select value={active} onChange={handleChange} style={{ ...inputStyle, marginBottom: 0, flex: 1 }}>
+          {properties.map((p) => (
+            <option key={p.slug} value={p.slug}>{p.name}</option>
+          ))}
+        </select>
+      )}
+      <button
+        onClick={addProperty}
+        className="btn-press"
+        style={{
+          flexShrink: 0,
+          background: "transparent",
+          border: `1px solid ${GOLD}55`,
+          borderRadius: 6,
+          color: GOLD,
+          fontSize: 10.5,
+          fontWeight: 600,
+          padding: "6px 10px",
+          cursor: "pointer",
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          whiteSpace: "nowrap",
+        }}
+      >
+        + Add Property
       </button>
     </div>
   );
@@ -1272,7 +1390,11 @@ export default function HostPreview() {
 
   useEffect(() => {
     load();
-    setLoggedIn(isHostLoggedIn());
+    let hasSessionToken = false;
+    try {
+      hasSessionToken = !!localStorage.getItem("nova_session_token");
+    } catch { /* ignore */ }
+    setLoggedIn(isHostLoggedIn() || hasSessionToken);
     setChecked(true);
   }, [open]);
 
@@ -1402,6 +1524,8 @@ export default function HostPreview() {
             <HostLogin onSuccess={() => setLoggedIn(true)} />
           ) : (
             <>
+              <PropertySwitcher onSwitchToBuilder={() => setTab("builder")} />
+
               {/* Tab switcher */}
               <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "#0d0d0d", borderRadius: 8, padding: 4, overflowX: "auto" }} className="no-scrollbar">
                 {DASH_TABS.map((t) => (
@@ -1458,6 +1582,24 @@ export default function HostPreview() {
               {tab === "settings" && (
                 <HostSettings
                   onLogout={() => {
+                    const sessionToken = (() => {
+                      try {
+                        return localStorage.getItem("nova_session_token");
+                      } catch {
+                        return null;
+                      }
+                    })();
+                    if (sessionToken) {
+                      fetch("/api/auth/logout", {
+                        method: "POST",
+                        headers: { "x-session-token": sessionToken },
+                      }).catch(() => { /* ignore */ });
+                    }
+                    try {
+                      localStorage.removeItem("nova_session_token");
+                      localStorage.removeItem("nova_active_property_slug");
+                      localStorage.removeItem("nova_host_properties");
+                    } catch { /* ignore */ }
                     logoutHost();
                     setLoggedIn(false);
                   }}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql, ensureSchema } from "@/lib/db";
-import { isAuthorizedHost } from "@/lib/hostAuth";
+import { getAuthorizedProperty, isSuperAdmin } from "@/lib/hostAuth";
 
 // Keyword → topic map used to cluster free-text guest messages/chat turns
 // into FAQ themes without an LLM call (instant, free, rule-based per scope).
@@ -30,21 +30,31 @@ const AMENITY_TO_EXPERIENCE: Record<string, { id: string; title: string; estValu
 };
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorizedHost(req)) {
+  const auth = await getAuthorizedProperty(req);
+  if (!auth && !isSuperAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     await ensureSchema();
 
-    const [bookingsRes, requestsRes, experienceRes, viewsRes, conversationsRes, guideRes] = await Promise.all([
-      sql`SELECT confirmation_code, guest_name, check_in, check_out, created_at FROM bookings;`,
-      sql`SELECT message, category, priority, is_read, created_at, confirmation_code FROM guest_requests;`,
-      sql`SELECT confirmation_code, experience_title, status, price_from, created_at FROM experience_requests;`,
-      sql`SELECT confirmation_code, guest_name, amenity, viewed_at FROM amenity_views;`,
-      sql`SELECT confirmation_code, role, content, created_at FROM guest_conversations WHERE role = 'user';`,
-      sql`SELECT content FROM stay_guide WHERE id = 1;`,
-    ]);
+    const [bookingsRes, requestsRes, experienceRes, viewsRes, conversationsRes, guideRes] = auth
+      ? await Promise.all([
+          sql`SELECT confirmation_code, guest_name, check_in, check_out, created_at FROM bookings WHERE property_id = ${auth.propertyId};`,
+          sql`SELECT message, category, priority, is_read, created_at, confirmation_code FROM guest_requests WHERE property_id = ${auth.propertyId};`,
+          sql`SELECT confirmation_code, experience_title, status, price_from, created_at FROM experience_requests WHERE property_id = ${auth.propertyId};`,
+          sql`SELECT confirmation_code, guest_name, amenity, viewed_at FROM amenity_views WHERE property_id = ${auth.propertyId};`,
+          sql`SELECT confirmation_code, role, content, created_at FROM guest_conversations WHERE role = 'user' AND property_id = ${auth.propertyId};`,
+          sql`SELECT content FROM stay_guide WHERE property_id = ${auth.propertyId} LIMIT 1;`,
+        ])
+      : await Promise.all([
+          sql`SELECT confirmation_code, guest_name, check_in, check_out, created_at FROM bookings;`,
+          sql`SELECT message, category, priority, is_read, created_at, confirmation_code FROM guest_requests;`,
+          sql`SELECT confirmation_code, experience_title, status, price_from, created_at FROM experience_requests;`,
+          sql`SELECT confirmation_code, guest_name, amenity, viewed_at FROM amenity_views;`,
+          sql`SELECT confirmation_code, role, content, created_at FROM guest_conversations WHERE role = 'user';`,
+          sql`SELECT content FROM stay_guide WHERE id = 1;`,
+        ]);
 
     const bookings = bookingsRes.rows;
     const requests = requestsRes.rows;
