@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import {
   Sun,
   CloudSun,
+  Cloud,
+  CloudFog,
+  CloudDrizzle,
+  CloudRain,
+  CloudSnow,
+  CloudLightning,
   Moon,
   Waves,
   Clapperboard,
@@ -23,7 +29,19 @@ import property from "@/config/property";
 import type { TabKey } from "@/components/TabNav";
 import NovaJourney from "@/components/NovaJourney";
 import { getJourneyStage, type JourneyStageKey } from "@/lib/novaJourney";
+import type { WeatherInfo } from "@/lib/weather";
 import theme from "@/config/theme";
+
+const WEATHER_ICONS: Record<WeatherInfo["icon"], LucideIcon> = {
+  Sun,
+  CloudSun,
+  Cloud,
+  CloudFog,
+  CloudDrizzle,
+  CloudRain,
+  CloudSnow,
+  CloudLightning,
+};
 
 const GOLD = theme.gold;
 const GOLD_LIGHT = theme.goldLight;
@@ -122,6 +140,7 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
   const [guest, setGuest] = useState<GuestData>({});
   const [visible, setVisible] = useState(false);
   const [momentDismissed, setMomentDismissed] = useState(false);
+  const [weather, setWeather] = useState<WeatherInfo | null>(null);
 
   useEffect(() => {
     try {
@@ -129,6 +148,14 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
       if (raw) setGuest(JSON.parse(raw));
     } catch { /* ignore */ }
     const t = setTimeout(() => setVisible(true), 60);
+
+    fetch("/api/weather")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && !data.error) setWeather(data);
+      })
+      .catch(() => {});
+
     return () => clearTimeout(t);
   }, []);
 
@@ -239,9 +266,17 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
               <div>
                 <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Tonight</p>
-                <p className="serif" style={{ color: "#fff", fontSize: 40, fontWeight: 700, lineHeight: 1 }}>74°</p>
+                <p className="serif" style={{ color: "#fff", fontSize: 40, fontWeight: 700, lineHeight: 1 }}>
+                  {weather ? `${weather.tempF}°` : "—"}
+                </p>
+                {weather && (
+                  <p style={{ color: "#6B7280", fontSize: 12, marginTop: 4 }}>{weather.label}</p>
+                )}
               </div>
-              <Sun size={34} strokeWidth={1.5} className="icon-float" style={{ color: GOLD, marginTop: 4 }} />
+              {(() => {
+                const WeatherIcon = weather ? WEATHER_ICONS[weather.icon] : Sun;
+                return <WeatherIcon size={34} strokeWidth={1.5} className="icon-float" style={{ color: GOLD, marginTop: 4 }} />;
+              })()}
             </div>
 
             <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 14, lineHeight: 1.6, marginBottom: 18 }}>

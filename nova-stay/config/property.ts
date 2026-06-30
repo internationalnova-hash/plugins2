@@ -16,6 +16,9 @@ const property = {
   tagline: "Your Luxury Home Away From Home",
   amenities: ["Luxury Pool", "Theater", "Recording Studio", "Game Room"],
 
+  // Coordinates — used to fetch real local weather (Open-Meteo)
+  coordinates: { lat: 33.749, lon: -84.388 },
+
   // Hero image — drop file into /public/images/hero/ and update path here
   heroImage: "/images/hero/casanova-hero.jpg",
 
