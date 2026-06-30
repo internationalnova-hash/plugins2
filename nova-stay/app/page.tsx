@@ -35,6 +35,32 @@ export default function Home() {
       setIsHost(localStorage.getItem("stayByNova_isHost") === "1");
     } catch { /* ignore */ }
 
+    // Sync host-edited property identity (name, hero image, brand color, etc.)
+    // from the database into localStorage, which config/property.ts and
+    // config/theme.ts read synchronously. Reload once if anything changed so
+    // every component picks up the new values immediately.
+    fetch("/api/property")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        const overrides = {
+          propertyName: data.propertyName,
+          hostName: data.hostName,
+          city: data.city,
+          tagline: data.tagline,
+          heroImageUrl: data.heroImageUrl,
+          goldColor: data.goldColor,
+          amenities: data.amenities,
+        };
+        const prev = localStorage.getItem("stayByNova_propertyOverrides");
+        const next = JSON.stringify(overrides);
+        if (prev !== next) {
+          localStorage.setItem("stayByNova_propertyOverrides", next);
+          if (prev !== null) window.location.reload();
+        }
+      })
+      .catch(() => { /* ignore — fall back to hardcoded defaults */ });
+
     try {
       const raw = localStorage.getItem("stayByNova_guestInfo");
       if (raw) {

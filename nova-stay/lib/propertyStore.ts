@@ -5,6 +5,13 @@ export interface PropertyState {
   doorCode: string;
   hostNotice: string | null;
   hostNoticeAt: string | null;
+  propertyName: string | null;
+  hostName: string | null;
+  city: string | null;
+  tagline: string | null;
+  heroImageUrl: string | null;
+  goldColor: string | null;
+  amenities: string | null;
 }
 
 export type RequestPriority = "low" | "medium" | "high" | "urgent";
@@ -28,8 +35,26 @@ export async function getPropertyState(): Promise<PropertyState | null> {
   return res.json();
 }
 
+export async function uploadHeroImage(file: File): Promise<{ ok: boolean; url?: string; error?: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/upload-hero", {
+    method: "POST",
+    headers: { ...authHeaders() },
+    body: form,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return { ok: false, error: data.error || "Upload failed." };
+  return { ok: true, url: data.url };
+}
+
 export async function updatePropertyState(
-  patch: Partial<Pick<PropertyState, "poolLightsOn" | "doorCode" | "hostNotice">>
+  patch: Partial<
+    Pick<
+      PropertyState,
+      "poolLightsOn" | "doorCode" | "hostNotice" | "propertyName" | "hostName" | "city" | "tagline" | "heroImageUrl" | "goldColor" | "amenities"
+    >
+  >
 ): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch("/api/property", {
     method: "PATCH",

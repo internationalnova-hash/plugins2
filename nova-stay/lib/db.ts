@@ -70,6 +70,27 @@ async function createSchema(): Promise<void> {
   await sql`
     INSERT INTO property_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
   `;
+  await sql`
+    ALTER TABLE property_state ADD COLUMN IF NOT EXISTS property_name TEXT;
+  `;
+  await sql`
+    ALTER TABLE property_state ADD COLUMN IF NOT EXISTS host_name TEXT;
+  `;
+  await sql`
+    ALTER TABLE property_state ADD COLUMN IF NOT EXISTS city TEXT;
+  `;
+  await sql`
+    ALTER TABLE property_state ADD COLUMN IF NOT EXISTS tagline TEXT;
+  `;
+  await sql`
+    ALTER TABLE property_state ADD COLUMN IF NOT EXISTS hero_image_url TEXT;
+  `;
+  await sql`
+    ALTER TABLE property_state ADD COLUMN IF NOT EXISTS gold_color TEXT;
+  `;
+  await sql`
+    ALTER TABLE property_state ADD COLUMN IF NOT EXISTS amenities TEXT;
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS guest_requests (

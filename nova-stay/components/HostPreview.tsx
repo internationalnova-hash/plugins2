@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   CalendarCheck,
@@ -40,6 +40,7 @@ import { getJourneyStage } from "@/lib/novaJourney";
 import {
   getPropertyState,
   updatePropertyState,
+  uploadHeroImage,
   getGuestRequests,
   markRequestRead,
   sendWelcomeMessage,
@@ -848,9 +849,139 @@ function PropertyStatus() {
 }
 
 function HostSettings({ onLogout }: { onLogout: () => void }) {
+  const [property, setProperty] = useState<PropertyState | null>(null);
+  const [form, setForm] = useState({ propertyName: "", hostName: "", city: "", tagline: "", amenities: "", goldColor: "" });
+  const [heroPreview, setHeroPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    getPropertyState().then((p) => {
+      if (!p) return;
+      setProperty(p);
+      setHeroPreview(p.heroImageUrl);
+      setForm({
+        propertyName: p.propertyName || propertyConfig.name,
+        hostName: p.hostName || propertyConfig.hostName,
+        city: p.city || propertyConfig.city,
+        tagline: p.tagline || propertyConfig.tagline,
+        amenities: p.amenities || propertyConfig.amenities.join(", "),
+        goldColor: p.goldColor || GOLD,
+      });
+    });
+  }, []);
+
+  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const result = await uploadHeroImage(file);
+    setUploading(false);
+    if (result.ok && result.url) {
+      setHeroPreview(result.url);
+      await updatePropertyState({ heroImageUrl: result.url });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } else {
+      alert(result.error || "Upload failed. Please try a smaller image.");
+    }
+  };
+
+  const saveIdentity = async () => {
+    setSaving(true);
+    await updatePropertyState({
+      propertyName: form.propertyName,
+      hostName: form.hostName,
+      city: form.city,
+      tagline: form.tagline,
+      amenities: form.amenities,
+      goldColor: form.goldColor,
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
   return (
     <div>
       <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>
+        Property Identity
+      </p>
+
+      <div
+        onClick={() => fileInputRef.current?.click()}
+        style={{
+          position: "relative",
+          height: 140,
+          borderRadius: 12,
+          marginBottom: 10,
+          overflow: "hidden",
+          cursor: "pointer",
+          border: `1px solid ${GOLD}33`,
+          backgroundImage: `url('${heroPreview || propertyConfig.heroImage}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#fff",
+            fontSize: 12,
+            fontWeight: 600,
+          }}
+        >
+          {uploading ? "Uploading…" : "Tap to upload hero image"}
+        </div>
+      </div>
+      <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={onPickFile} style={{ display: "none" }} />
+
+      <input style={inputStyle} placeholder="Property name" value={form.propertyName} onChange={(e) => setForm({ ...form, propertyName: e.target.value })} />
+      <input style={inputStyle} placeholder="Host name" value={form.hostName} onChange={(e) => setForm({ ...form, hostName: e.target.value })} />
+      <input style={inputStyle} placeholder="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+      <input style={inputStyle} placeholder="Tagline" value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} />
+      <input style={inputStyle} placeholder="Amenities (comma separated)" value={form.amenities} onChange={(e) => setForm({ ...form, amenities: e.target.value })} />
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <input
+          type="color"
+          value={form.goldColor}
+          onChange={(e) => setForm({ ...form, goldColor: e.target.value })}
+          style={{ width: 40, height: 36, border: "1px solid #2a2a2a", borderRadius: 8, background: "transparent", cursor: "pointer", padding: 0 }}
+        />
+        <p style={{ color: "#9CA3AF", fontSize: 12 }}>Brand accent color</p>
+      </div>
+
+      <button
+        onClick={saveIdentity}
+        disabled={saving}
+        className="btn-press"
+        style={{
+          width: "100%",
+          background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`,
+          color: BG,
+          border: "none",
+          borderRadius: 8,
+          padding: "11px",
+          fontSize: 12,
+          fontWeight: 700,
+          marginBottom: saved ? 6 : 18,
+          cursor: saving ? "default" : "pointer",
+          opacity: saving ? 0.6 : 1,
+        }}
+      >
+        {saving ? "Saving…" : "Save Property Identity"}
+      </button>
+      {saved && <p style={{ color: GOLD, fontSize: 12, marginBottom: 12 }}>Saved — reload to see changes everywhere.</p>}
+
+      <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12, marginTop: 18 }}>
         Settings
       </p>
       <button

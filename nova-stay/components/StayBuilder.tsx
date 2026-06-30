@@ -7,15 +7,55 @@ import theme from "@/config/theme";
 
 const GOLD = theme.gold;
 
-const QUESTIONS: { key: string; label: string; placeholder: string }[] = [
-  { key: "checkin", label: "How does a guest check in?", placeholder: "e.g. Door code is 1710#, available after 4 PM, front door on the left of the driveway." },
-  { key: "parking", label: "Where do guests park?", placeholder: "e.g. Driveway fits 3 cars, please don't block the garage." },
-  { key: "checkout", label: "What's your checkout process?", placeholder: "e.g. Checkout by 11 AM. Start the dishwasher, take out trash, lock the front door behind you." },
-  { key: "houseRules", label: "Any house rules guests should know?", placeholder: "e.g. No smoking indoors, quiet hours after 10 PM, no parties." },
-  { key: "amenities", label: "What amenities should we highlight?", placeholder: "e.g. Heated pool, home theater, recording studio, game room." },
-  { key: "dining", label: "Favorite nearby restaurants or food spots?", placeholder: "e.g. Bones Steakhouse for a special night, Busy Bee Cafe for soul food." },
-  { key: "emergency", label: "Who should guests contact in an emergency?", placeholder: "e.g. Text the host directly at this number, or call 911 for true emergencies." },
-  { key: "faq", label: "Anything guests frequently ask about?", placeholder: "e.g. Extra towels are in the hallway closet, thermostat is on the wall by the kitchen." },
+const QUESTIONS: { key: string; label: string; sublabel: string; placeholder: string }[] = [
+  {
+    key: "checkin",
+    label: "Check-in details",
+    sublabel: "What time can guests check in, and how do they get in the door?",
+    placeholder: "e.g. Check-in starts at 4 PM. Door code is 1710#, keypad is on the front door to the left of the driveway. No early check-in without approval.",
+  },
+  {
+    key: "parking",
+    label: "Parking",
+    sublabel: "Where exactly should guests park, and how many vehicles fit?",
+    placeholder: "e.g. Driveway fits 3 cars. Please don't block the garage or park on the street overnight.",
+  },
+  {
+    key: "checkout",
+    label: "Checkout details",
+    sublabel: "What time is checkout, and what should guests do before leaving?",
+    placeholder: "e.g. Checkout is by 11 AM. Start the dishwasher, take out the trash, lock the front door behind you.",
+  },
+  {
+    key: "houseRules",
+    label: "House rules",
+    sublabel: "Anything guests must or must not do during their stay?",
+    placeholder: "e.g. No smoking indoors, quiet hours after 10 PM, no parties or extra guests beyond what's booked.",
+  },
+  {
+    key: "amenities",
+    label: "Amenities to highlight",
+    sublabel: "What features should guests know are available to them?",
+    placeholder: "e.g. Heated pool open until 10 PM, home theater with streaming logins, recording studio (ask host to use), game room.",
+  },
+  {
+    key: "dining",
+    label: "Nearby food & dining",
+    sublabel: "Restaurants or spots you'd personally recommend nearby?",
+    placeholder: "e.g. Bones Steakhouse for a special night, Busy Bee Cafe for soul food, 10 minutes away.",
+  },
+  {
+    key: "emergency",
+    label: "Emergency contact",
+    sublabel: "Who should guests reach out to, and how, if something goes wrong?",
+    placeholder: "e.g. Text the host directly at this number for anything urgent. Call 911 for true emergencies.",
+  },
+  {
+    key: "faq",
+    label: "Common questions",
+    sublabel: "What do guests usually ask about that isn't covered above?",
+    placeholder: "e.g. Extra towels are in the hallway closet. Thermostat is on the wall by the kitchen, set to 72.",
+  },
 ];
 
 const inputStyle: React.CSSProperties = {
@@ -164,7 +204,8 @@ export default function StayBuilder() {
         ))}
       </div>
 
-      <p style={{ color: "#fff", fontSize: 15, fontWeight: 600, marginBottom: 10 }}>{q.label}</p>
+      <p style={{ color: "#fff", fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{q.label}</p>
+      <p style={{ color: "#9CA3AF", fontSize: 12.5, lineHeight: 1.5, marginBottom: 10 }}>{q.sublabel}</p>
       <textarea
         style={inputStyle}
         placeholder={q.placeholder}
