@@ -22,6 +22,7 @@ export default function Home() {
     setTimeout(() => {
       setScreen(next);
       setFading(false);
+      window.scrollTo({ top: 0 });
     }, 220);
   };
 
