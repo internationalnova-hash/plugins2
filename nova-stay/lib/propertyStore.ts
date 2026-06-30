@@ -122,6 +122,34 @@ export interface TodaysFocus {
 export interface AiRecommendation {
   id: string;
   text: string;
+  confirmationCode?: string;
+  suggestedMessage?: string;
+}
+
+export interface InboxMessage {
+  id: number;
+  text: string;
+  createdAt: string;
+}
+
+export async function getInboxMessages(confirmationCode: string): Promise<InboxMessage[]> {
+  const res = await fetch(`/api/inbox?code=${encodeURIComponent(confirmationCode)}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.messages as InboxMessage[];
+}
+
+export async function sendInboxMessage(confirmationCode: string, message: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch("/api/inbox", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ confirmationCode, message }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: data.error || "Failed to send message." };
+  }
+  return { ok: true };
 }
 
 export async function getRecommendations(): Promise<{ todaysFocus: TodaysFocus; recommendations: AiRecommendation[] } | null> {

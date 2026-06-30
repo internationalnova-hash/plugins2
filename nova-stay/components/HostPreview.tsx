@@ -46,6 +46,7 @@ import {
   getExperienceRequests,
   updateExperienceRequestStatus,
   getRecommendations,
+  sendInboxMessage,
   type PropertyState,
   type GuestRequest,
   type ExperienceRequest,
@@ -159,6 +160,20 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
   const [focus, setFocus] = useState<TodaysFocus | null>(null);
   const [recommendations, setRecommendations] = useState<AiRecommendation[]>([]);
   const [recsLoading, setRecsLoading] = useState(true);
+  const [sentRecIds, setSentRecIds] = useState<Set<string>>(new Set());
+
+  const sendRecommendation = async (rec: AiRecommendation) => {
+    if (!rec.confirmationCode || !rec.suggestedMessage) return;
+    setSentRecIds((prev) => new Set(prev).add(rec.id));
+    const result = await sendInboxMessage(rec.confirmationCode, rec.suggestedMessage);
+    if (!result.ok) {
+      setSentRecIds((prev) => {
+        const next = new Set(prev);
+        next.delete(rec.id);
+        return next;
+      });
+    }
+  };
 
   const fetchBriefing = async () => {
     setBriefingLoading(true);
@@ -313,11 +328,35 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
             <Sparkles size={14} strokeWidth={1.7} style={{ color: GOLD }} />
             <span style={{ color: "#6B7280", fontSize: 10.5, letterSpacing: "0.15em", textTransform: "uppercase" }}>AI Recommendations</span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {recommendations.map((r) => (
-              <p key={r.id} style={{ color: "#D1D5DB", fontSize: 12.5, lineHeight: 1.6 }}>
-                <span style={{ color: GOLD }}>⭐ </span>{r.text}
-              </p>
+              <div key={r.id} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <p style={{ color: "#D1D5DB", fontSize: 12.5, lineHeight: 1.6, flex: 1 }}>
+                  <span style={{ color: GOLD }}>⭐ </span>{r.text}
+                </p>
+                {r.confirmationCode && r.suggestedMessage && (
+                  <button
+                    onClick={() => sendRecommendation(r)}
+                    disabled={sentRecIds.has(r.id)}
+                    className="btn-press"
+                    style={{
+                      flexShrink: 0,
+                      background: "transparent",
+                      border: `1px solid ${sentRecIds.has(r.id) ? `${GOLD}55` : "#1e1e1e"}`,
+                      borderRadius: 6,
+                      color: sentRecIds.has(r.id) ? GOLD : "#9CA3AF",
+                      fontSize: 10.5,
+                      fontWeight: 600,
+                      padding: "4px 10px",
+                      cursor: sentRecIds.has(r.id) ? "default" : "pointer",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    {sentRecIds.has(r.id) ? "✓ Sent" : "Send"}
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         </div>

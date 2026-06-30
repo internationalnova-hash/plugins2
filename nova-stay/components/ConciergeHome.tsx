@@ -30,7 +30,7 @@ import type { TabKey } from "@/components/TabNav";
 import NovaJourney from "@/components/NovaJourney";
 import { getJourneyStage, type JourneyStageKey } from "@/lib/novaJourney";
 import type { WeatherInfo } from "@/lib/weather";
-import { getPropertyState, getWelcomeMessage } from "@/lib/propertyStore";
+import { getPropertyState, getWelcomeMessage, getInboxMessages } from "@/lib/propertyStore";
 import { Megaphone, MessageCircle } from "lucide-react";
 import theme from "@/config/theme";
 
@@ -148,6 +148,8 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
   const [noticeDismissed, setNoticeDismissed] = useState(false);
   const [welcomeMsg, setWelcomeMsg] = useState<{ text: string; at: string } | null>(null);
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+  const [inboxMsg, setInboxMsg] = useState<{ id: number; text: string } | null>(null);
+  const [inboxDismissed, setInboxDismissed] = useState(false);
 
   useEffect(() => {
     try {
@@ -185,6 +187,15 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
           }
           setWelcomeMsg({ text: msg.text, at: msg.createdAt });
         });
+        getInboxMessages(code).then((messages) => {
+          const latest = messages[0];
+          if (!latest) return;
+          const dismissedId = localStorage.getItem("stayByNova_inboxDismissedId");
+          if (dismissedId === String(latest.id)) {
+            setInboxDismissed(true);
+          }
+          setInboxMsg({ id: latest.id, text: latest.text });
+        });
       }
     } catch { /* ignore */ }
 
@@ -199,6 +210,11 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
   const dismissWelcome = () => {
     if (welcomeMsg) localStorage.setItem("stayByNova_welcomeDismissedAt", welcomeMsg.at);
     setWelcomeDismissed(true);
+  };
+
+  const dismissInbox = () => {
+    if (inboxMsg) localStorage.setItem("stayByNova_inboxDismissedId", String(inboxMsg.id));
+    setInboxDismissed(true);
   };
 
   const name    = guest.guestName || reservation.guestName;
@@ -289,6 +305,17 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
               <MessageCircle size={20} strokeWidth={1.7} style={{ color: GOLD, flexShrink: 0, marginTop: 1 }} />
               <p style={{ color: "#fff", fontSize: 13, lineHeight: 1.6, flex: 1 }}>{welcomeMsg.text}</p>
               <button onClick={dismissWelcome} style={{ background: "transparent", border: "none", color: "#4B5563", fontSize: 18, cursor: "pointer", lineHeight: 1, padding: 0, flexShrink: 0 }}>×</button>
+            </div>
+          </div>
+        )}
+
+        {/* Personalized Offer from Nova */}
+        {inboxMsg && !inboxDismissed && (
+          <div className="anim-fade-up" style={{ margin: "var(--space-4) 0 0" }}>
+            <div className="lux-card" style={{ padding: "var(--space-3) var(--space-3)", display: "flex", alignItems: "flex-start", gap: 12, borderColor: `${GOLD}55` }}>
+              <Sparkles size={20} strokeWidth={1.7} style={{ color: GOLD, flexShrink: 0, marginTop: 1 }} />
+              <p style={{ color: "#fff", fontSize: 13, lineHeight: 1.6, flex: 1 }}>{inboxMsg.text}</p>
+              <button onClick={dismissInbox} style={{ background: "transparent", border: "none", color: "#4B5563", fontSize: 18, cursor: "pointer", lineHeight: 1, padding: 0, flexShrink: 0 }}>×</button>
             </div>
           </div>
         )}

@@ -41,11 +41,12 @@ export async function GET(req: NextRequest) {
     ]);
 
     const today = new Date().toISOString().slice(0, 10);
-    const recommendations: { id: string; text: string }[] = [];
+    const recommendations: { id: string; text: string; confirmationCode?: string; suggestedMessage?: string }[] = [];
 
     const requestedTitles = new Set(
       requestsRes.rows.map((r) => `${r.confirmation_code || ""}::${r.experience_title}`)
     );
+    const bookingByCode = new Map(bookingsRes.rows.map((b) => [b.confirmation_code, b]));
 
     // 1. Amenity interest -> experience upsell
     for (const row of viewsRes.rows) {
@@ -56,9 +57,15 @@ export async function GET(req: NextRequest) {
       const key = `${row.confirmation_code || ""}::${mapping.title}`;
       if (requestedTitles.has(key)) continue;
       const who = row.guest_name || "A guest";
+      const code = row.confirmation_code as string | null;
+      const booking = code ? bookingByCode.get(code) : null;
       recommendations.push({
-        id: `view-${row.confirmation_code || "anon"}-${amenity}`,
+        id: `view-${code || "anon"}-${amenity}`,
         text: `${who} viewed ${amenity.replace("-", " ")} ${row.views}x. Recommend sending the ${mapping.title} package.`,
+        confirmationCode: booking ? code! : undefined,
+        suggestedMessage: booking
+          ? `Hi ${booking.guest_name}! We noticed you're checking out the ${amenity.replace("-", " ")} space — during your stay we also offer our ${mapping.title} package if you're interested. Just let us know!`
+          : undefined,
       });
     }
 
@@ -71,6 +78,8 @@ export async function GET(req: NextRequest) {
         recommendations.push({
           id: `pool-heat-${b.confirmation_code}`,
           text: `Recommend offering Pool Heating to the ${b.guest_name} reservation — it's ${weather.tempF}° today.`,
+          confirmationCode: b.confirmation_code,
+          suggestedMessage: `Hi ${b.guest_name}! It's a bit cool out today (${weather.tempF}°) — we'd be happy to warm up the pool for the rest of your stay if you're interested. Just let us know!`,
         });
       }
     }
