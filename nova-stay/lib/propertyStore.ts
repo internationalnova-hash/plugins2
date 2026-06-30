@@ -65,6 +65,51 @@ export async function markRequestRead(id: number): Promise<boolean> {
   return res.ok;
 }
 
+export interface StayGuide {
+  welcomeMessage: string;
+  checkinInstructions: string;
+  parkingInstructions: string;
+  checkoutInstructions: string;
+  houseRules: string;
+  amenitiesHighlights: string;
+  diningRecommendations: string;
+  faq: string;
+  emergencyContacts: string;
+}
+
+export async function getStayGuide(): Promise<{ content: StayGuide; updatedAt: string } | null> {
+  const res = await fetch("/api/stay-guide");
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.guide ?? null;
+}
+
+export async function saveStayGuide(content: StayGuide): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch("/api/stay-guide", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: data.error || "Failed to save guide." };
+  }
+  return { ok: true };
+}
+
+export async function generateStayGuide(answers: Record<string, string>): Promise<{ ok: boolean; guide?: StayGuide; error?: string }> {
+  const res = await fetch("/api/stay-builder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ answers }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { ok: false, error: data.error || "Failed to generate guide." };
+  }
+  return { ok: true, guide: data.guide };
+}
+
 export interface WelcomeMessage {
   text: string;
   createdAt: string;

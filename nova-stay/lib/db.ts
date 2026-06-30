@@ -85,6 +85,17 @@ async function createSchema(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS stay_guide (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      content JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+  await sql`
+    INSERT INTO stay_guide (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+  `;
 }
 
 export function ensureSchema(): Promise<void> {

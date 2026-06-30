@@ -29,8 +29,10 @@ import {
   Sparkles,
   Volume2,
   VolumeX,
+  Wand2,
   type LucideIcon,
 } from "lucide-react";
+import StayBuilder from "@/components/StayBuilder";
 import { getBookings, addBooking, deleteBooking, loginHost, isHostLoggedIn, logoutHost, type Booking } from "@/lib/bookingsStore";
 import { getJourneyStage } from "@/lib/novaJourney";
 import {
@@ -780,7 +782,7 @@ function ReservationManager() {
   );
 }
 
-type DashTab = "overview" | "reservations" | "requests" | "guest" | "property" | "settings";
+type DashTab = "overview" | "reservations" | "requests" | "guest" | "property" | "builder" | "settings";
 
 const DASH_TABS: { key: DashTab; label: string; Icon: LucideIcon }[] = [
   { key: "overview",     label: "Overview",     Icon: LayoutDashboard   },
@@ -788,6 +790,7 @@ const DASH_TABS: { key: DashTab; label: string; Icon: LucideIcon }[] = [
   { key: "requests",     label: "Requests",     Icon: MessageSquareText },
   { key: "guest",        label: "Guest",        Icon: UserRound         },
   { key: "property",     label: "Property",     Icon: KeyRound          },
+  { key: "builder",      label: "Stay Builder", Icon: Wand2             },
   { key: "settings",     label: "Settings",     Icon: SettingsIcon      },
 ];
 
@@ -916,6 +919,7 @@ export default function HostPreview() {
               {tab === "overview" && <Overview onGoToReservations={() => setTab("reservations")} />}
               {tab === "requests" && <GuestRequests />}
               {tab === "property" && <PropertyStatus />}
+              {tab === "builder" && <StayBuilder />}
               {tab === "settings" && (
                 <HostSettings
                   onLogout={() => {

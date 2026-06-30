@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import EmergencyContacts from "@/components/EmergencyContacts";
 import FAQ from "@/components/FAQ";
 import QRCodeSection from "@/components/QRCode";
 import Section from "@/components/Section";
 import ExperienceMarketplace from "@/components/ExperienceMarketplace";
 import { propertyConfig } from "@/data/config";
-import { submitGuestRequest } from "@/lib/propertyStore";
+import { submitGuestRequest, getStayGuide, type StayGuide } from "@/lib/propertyStore";
 import theme from "@/config/theme";
 
 const GOLD = theme.gold;
@@ -81,9 +81,58 @@ function SendRequest() {
   );
 }
 
+const GUIDE_SECTIONS: { key: keyof StayGuide; icon: string; title: string }[] = [
+  { key: "checkinInstructions",   icon: "🔑", title: "Check-In" },
+  { key: "parkingInstructions",   icon: "🅿️", title: "Parking" },
+  { key: "checkoutInstructions",  icon: "🧳", title: "Checkout" },
+  { key: "houseRules",            icon: "📋", title: "House Rules" },
+  { key: "amenitiesHighlights",   icon: "✨", title: "Amenities" },
+  { key: "diningRecommendations", icon: "🍽️", title: "Dining" },
+  { key: "faq",                   icon: "❓", title: "Good to Know" },
+];
+
+function PropertyGuide() {
+  const [guide, setGuide] = useState<StayGuide | null>(null);
+
+  useEffect(() => {
+    getStayGuide().then((existing) => {
+      if (existing) setGuide(existing.content);
+    });
+  }, []);
+
+  if (!guide) return null;
+
+  return (
+    <div style={{ marginBottom: 6 }}>
+      {guide.welcomeMessage && (
+        <div
+          style={{
+            background: "rgba(201,168,76,0.04)",
+            border: `1px solid ${GOLD}22`,
+            borderRadius: 16,
+            padding: "20px 18px",
+            marginBottom: 12,
+          }}
+        >
+          <p style={{ color: "#fff", fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{guide.welcomeMessage}</p>
+        </div>
+      )}
+      {GUIDE_SECTIONS.filter((s) => guide[s.key]).map((s) => (
+        <Section key={s.key} title={s.title} icon={s.icon}>
+          <p className="text-gray-400 text-sm leading-relaxed" style={{ whiteSpace: "pre-wrap" }}>
+            {guide[s.key]}
+          </p>
+        </Section>
+      ))}
+    </div>
+  );
+}
+
 export default function SupportTab() {
   return (
     <div className="space-y-0">
+      <PropertyGuide />
+
       {/* Ask Nova — AI placeholder */}
       <div
         style={{
