@@ -77,10 +77,11 @@ export async function getWelcomeMessage(confirmationCode: string): Promise<Welco
   return data.message ?? null;
 }
 
-export async function getHostBriefing(): Promise<{ ok: boolean; briefing?: string; error?: string }> {
+export async function getHostBriefing(question?: string): Promise<{ ok: boolean; briefing?: string; error?: string }> {
   const res = await fetch("/api/host-assistant", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(question ? { question } : {}),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

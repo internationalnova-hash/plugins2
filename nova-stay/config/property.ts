@@ -12,6 +12,7 @@
 const property = {
   // Identity
   name: "Casanova ATL",
+  hostName: "Junior",
   city: "Atlanta, Georgia",
   tagline: "Your Luxury Home Away From Home",
   amenities: ["Luxury Pool", "Theater", "Recording Studio", "Game Room"],

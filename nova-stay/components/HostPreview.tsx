@@ -139,7 +139,12 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
   const [briefing, setBriefing] = useState<string | null>(null);
   const [briefingLoading, setBriefingLoading] = useState(false);
   const [briefingError, setBriefingError] = useState<string | null>(null);
+  const [briefingAt, setBriefingAt] = useState<number | null>(null);
+  const [now, setNow] = useState<number>(Date.now());
   const [speaking, setSpeaking] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [conversation, setConversation] = useState<{ q: string; a: string }[]>([]);
+  const [asking, setAsking] = useState(false);
 
   const fetchBriefing = async () => {
     setBriefingLoading(true);
@@ -153,7 +158,32 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
       return;
     }
     setBriefing(result.briefing || null);
+    setBriefingAt(Date.now());
   };
+
+  const askQuestion = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || asking) return;
+    setAsking(true);
+    setQuestion("");
+    const result = await getHostBriefing(trimmed);
+    setAsking(false);
+    setConversation((prev) => [...prev, { q: trimmed, a: result.ok ? result.briefing || "" : result.error || "Something went wrong." }]);
+  };
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  const agoLabel = (() => {
+    if (!briefingAt) return null;
+    const secs = Math.max(0, Math.round((now - briefingAt) / 1000));
+    if (secs < 5) return "Updated just now";
+    if (secs < 60) return `Updated ${secs}s ago`;
+    const mins = Math.round(secs / 60);
+    return `Updated ${mins}m ago`;
+  })();
 
   const toggleSpeak = () => {
     if (!briefing || !("speechSynthesis" in window)) return;
@@ -188,6 +218,7 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
 
   useEffect(() => {
     refresh();
+    fetchBriefing();
     fetch("/api/weather").then((res) => (res.ok ? res.json() : null)).then((data) => {
       if (data && !data.error) setWeather(data);
     }).catch(() => {});
@@ -238,33 +269,38 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
         <StatCard Icon={TrendingUp} label="Avg. Nights" value={bookings.length ? Math.round((bookings.reduce((s, b) => s + b.nights, 0) / bookings.length) * 10) / 10 : 0} />
       </div>
 
-      <div className="lux-glass" style={{ padding: "14px 16px", marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: briefing || briefingError ? 10 : 0 }}>
+      <div className="lux-glass" style={{ padding: "16px 16px", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Sparkles size={16} strokeWidth={1.7} style={{ color: GOLD }} />
-            <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>AI Host Assistant</span>
+            <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>AI Operations Manager</span>
           </div>
           <button
             onClick={fetchBriefing}
             disabled={briefingLoading}
             style={{
               background: "transparent",
-              border: `1px solid ${GOLD}55`,
-              borderRadius: 6,
+              border: "none",
               color: GOLD,
               fontSize: 11,
               fontWeight: 600,
-              padding: "5px 10px",
+              padding: 0,
               cursor: briefingLoading ? "default" : "pointer",
               opacity: briefingLoading ? 0.6 : 1,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
             }}
           >
-            {briefingLoading ? "Thinking…" : "Get Briefing"}
+            ↻ {briefingLoading ? "Analyzing…" : "Refresh Analysis"}
           </button>
         </div>
+        {agoLabel && !briefingLoading && (
+          <p style={{ color: "#4B5563", fontSize: 10.5, marginBottom: 10 }}>{agoLabel}</p>
+        )}
         {briefingError && <p style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{briefingError}</p>}
         {briefing && (
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 14 }}>
             <button
               onClick={toggleSpeak}
               title={speaking ? "Stop reading" : "Read briefing aloud"}
@@ -272,9 +308,80 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
             >
               {speaking ? <VolumeX size={15} /> : <Volume2 size={15} />}
             </button>
-            <p style={{ color: "#D1D5DB", fontSize: 12.5, lineHeight: 1.7, whiteSpace: "pre-wrap", flex: 1 }}>{briefing}</p>
+            <p style={{ color: "#D1D5DB", fontSize: 12.5, lineHeight: 1.75, whiteSpace: "pre-wrap", flex: 1 }}>{briefing}</p>
           </div>
         )}
+
+        <div style={{ height: 1, background: "#1e1e1e", margin: "4px 0 12px" }} />
+
+        {conversation.length > 0 && (
+          <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+            {conversation.map((c, i) => (
+              <div key={i}>
+                <p style={{ color: GOLD, fontSize: 11.5, fontWeight: 600, marginBottom: 4 }}>{c.q}</p>
+                <p style={{ color: "#D1D5DB", fontSize: 12.5, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{c.a}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {asking && <p style={{ color: "#6B7280", fontSize: 12, marginBottom: 12 }}>Thinking…</p>}
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            askQuestion(question);
+          }}
+          style={{ display: "flex", gap: 8, marginBottom: 10 }}
+        >
+          <input
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Ask your Operations Manager…"
+            style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
+          />
+          <button
+            type="submit"
+            disabled={asking || !question.trim()}
+            style={{
+              background: "transparent",
+              border: `1px solid ${GOLD}55`,
+              borderRadius: 6,
+              color: GOLD,
+              fontSize: 12,
+              fontWeight: 600,
+              padding: "0 14px",
+              cursor: asking || !question.trim() ? "default" : "pointer",
+              opacity: asking || !question.trim() ? 0.5 : 1,
+            }}
+          >
+            Ask
+          </button>
+        </form>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {[
+            "What needs my attention today?",
+            "Which guests arrive this weekend?",
+            "Who hasn't completed onboarding?",
+            "Show me reservations longer than 5 nights.",
+          ].map((example) => (
+            <button
+              key={example}
+              onClick={() => askQuestion(example)}
+              disabled={asking}
+              style={{
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid #1e1e1e",
+                borderRadius: 999,
+                color: "#9CA3AF",
+                fontSize: 10.5,
+                padding: "5px 10px",
+                cursor: asking ? "default" : "pointer",
+              }}
+            >
+              {example}
+            </button>
+          ))}
+        </div>
       </div>
 
       <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 10 }}>
