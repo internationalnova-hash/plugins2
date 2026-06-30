@@ -1,4 +1,5 @@
 import { propertyConfig } from "@/data/config";
+import SNMonogram from "@/components/SNMonogram";
 
 export default function Header() {
   const { brand, welcome } = propertyConfig;
@@ -8,7 +9,7 @@ export default function Header() {
       {/* Logo mark */}
       <div className="inline-flex items-center justify-center w-16 h-16 rounded-full border border-gold mb-4"
            style={{ borderColor: "#C9A84C" }}>
-        <span className="text-2xl font-serif gold-text font-bold">N</span>
+        <SNMonogram size={32} id="header" />
       </div>
 
       <p className="text-xs tracking-[0.3em] uppercase text-gray-400 mb-1">

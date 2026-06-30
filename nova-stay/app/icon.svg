@@ -2,11 +2,11 @@
   <defs>
     <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#C9A84C"/>
-      <stop offset="50%" stop-color="#E8C97A"/>
+      <stop offset="50%" stop-color="#F1D98A"/>
       <stop offset="100%" stop-color="#C9A84C"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="#0A0A0A"/>
-  <circle cx="32" cy="32" r="22" fill="none" stroke="url(#g)" stroke-width="2"/>
-  <text x="32" y="41" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="700" fill="url(#g)" text-anchor="middle">S</text>
+  <rect width="64" height="64" rx="16" fill="#0A0A0A"/>
+  <path d="M40 16C40 16 31 13 26 17C21 21 22 26 27 28.5C32 31 37 31 37 37C37 43 29 44.5 24 42" stroke="url(#g)" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M18 48V22M18 22L46 48M46 48V22" stroke="url(#g)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

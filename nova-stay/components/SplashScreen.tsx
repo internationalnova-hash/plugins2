@@ -1,9 +1,24 @@
 "use client";
 
-const GOLD = "#C9A84C";
-const GOLD_LIGHT = "#E8C97A";
+import { useEffect, useState } from "react";
+import SNMonogram from "@/components/SNMonogram";
 
-export default function SplashScreen() {
+const GOLD = "#C9A84C";
+const GOLD_LIGHT = "#F1D98A";
+
+type Stage = "fadeIn" | "shimmer" | "text" | "scaleOut";
+
+export default function SplashScreen({ onDone }: { onDone?: () => void }) {
+  const [stage, setStage] = useState<Stage>("fadeIn");
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setStage("shimmer"), 500);
+    const t2 = setTimeout(() => setStage("text"), 1100);
+    const t3 = setTimeout(() => setStage("scaleOut"), 1900);
+    const t4 = setTimeout(() => onDone?.(), 2500);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
+  }, [onDone]);
+
   return (
     <div
       style={{
@@ -12,76 +27,57 @@ export default function SplashScreen() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        opacity: stage === "scaleOut" ? 0 : 1,
+        transition: "opacity 0.6s ease",
       }}
     >
       <style>{`
-        @keyframes splashRing { to { transform: rotate(360deg); } }
-        @keyframes splashPulse {
-          0%, 100% { opacity: 0.55; transform: scale(1); }
-          50%      { opacity: 1;    transform: scale(1.04); }
+        @keyframes snFadeIn   { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+        @keyframes snShimmer  { 0% { background-position: -150% 0; } 100% { background-position: 250% 0; } }
+        @keyframes snTextFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes snScaleUp  { to { transform: scale(1.08); } }
+        .sn-logo-wrap { animation: snFadeIn 0.7s cubic-bezier(0.22,1,0.36,1) both; }
+        .sn-logo-scale { animation: snScaleUp 0.6s ease both; }
+        .sn-shimmer-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(100deg, transparent 35%, rgba(255,255,255,0.55) 50%, transparent 65%);
+          background-size: 250% 100%;
+          animation: snShimmer 1.1s ease;
+          mix-blend-mode: overlay;
         }
-        @keyframes splashFade {
-          from { opacity: 0; transform: translateY(8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .splash-mark  { animation: splashPulse 2.2s ease-in-out infinite; }
-        .splash-word  { animation: splashFade 0.7s cubic-bezier(0.22,1,0.36,1) both; animation-delay: 0.15s; }
+        .sn-prep-text { animation: snTextFade 0.6s cubic-bezier(0.22,1,0.36,1) both; }
       `}</style>
 
       <div style={{ textAlign: "center" }}>
         <div
-          className="splash-mark"
-          style={{
-            width: 56,
-            height: 56,
-            margin: "0 auto 18px",
-            position: "relative",
-          }}
+          className={`sn-logo-wrap ${stage === "scaleOut" ? "sn-logo-scale" : ""}`}
+          style={{ position: "relative", width: 72, height: 72, margin: "0 auto 22px", overflow: "hidden", borderRadius: 18 }}
         >
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              borderRadius: "50%",
-              border: `1.5px solid ${GOLD}`,
-              borderTopColor: "transparent",
-              animation: "splashRing 1.1s linear infinite",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontFamily: "Georgia, 'Times New Roman', serif",
-              fontWeight: 700,
-              fontSize: 22,
-              color: GOLD,
-            }}
-          >
-            S
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <SNMonogram size={56} id="splash" />
           </div>
+          {(stage === "shimmer" || stage === "text" || stage === "scaleOut") && <div className="sn-shimmer-overlay" />}
         </div>
 
-        <div className="splash-word" style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center" }}>
-          <div style={{ height: 1, width: 20, background: `linear-gradient(to right, transparent, ${GOLD})` }} />
-          <p
-            style={{
-              fontSize: 13,
-              letterSpacing: "0.3em",
-              textTransform: "uppercase",
-              fontWeight: 600,
-              background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 50%, ${GOLD} 100%)`,
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              color: "transparent",
-            }}
-          >
-            StayByNova
-          </p>
-          <div style={{ height: 1, width: 20, background: `linear-gradient(to left, transparent, ${GOLD})` }} />
+        <div style={{ minHeight: 18 }}>
+          {(stage === "text" || stage === "scaleOut") && (
+            <p
+              className="sn-prep-text"
+              style={{
+                fontSize: 12,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+                background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 50%, ${GOLD} 100%)`,
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                color: "transparent",
+              }}
+            >
+              Preparing your luxury experience…
+            </p>
+          )}
         </div>
       </div>
     </div>

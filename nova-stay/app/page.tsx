@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import GuestReadinessFlow from "@/components/GuestReadinessFlow";
 import HostPreview from "@/components/HostPreview";
 import ConciergeHome from "@/components/ConciergeHome";
@@ -14,6 +14,7 @@ export default function Home() {
   const [screen, setScreen] = useState<Screen>("loading");
   const [initialTab, setInitialTab] = useState<TabKey>("stay");
   const [isHost, setIsHost] = useState(false);
+  const nextScreenRef = useRef<Screen>("onboarding");
 
   useEffect(() => {
     try {
@@ -29,16 +30,14 @@ export default function Home() {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed?.readinessPercent === 100) {
-          setScreen("concierge");
-          return;
+          nextScreenRef.current = "concierge";
         }
       }
     } catch { /* ignore */ }
-    setScreen("onboarding");
   }, []);
 
   if (screen === "loading") {
-    return <SplashScreen />;
+    return <SplashScreen onDone={() => setScreen(nextScreenRef.current)} />;
   }
 
   if (screen === "onboarding") {

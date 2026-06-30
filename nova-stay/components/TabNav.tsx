@@ -1,15 +1,17 @@
 "use client";
 
+import { Home, Clapperboard, Compass, UtensilsCrossed, Sparkles, type LucideIcon } from "lucide-react";
+
 const GOLD = "#C9A84C";
 
 export type TabKey = "stay" | "entertainment" | "explore" | "dining" | "support";
 
-const TABS: { key: TabKey; icon: string; label: string }[] = [
-  { key: "stay",          icon: "🏡",  label: "Stay"       },
-  { key: "entertainment", icon: "🎬",  label: "Experience" },
-  { key: "explore",       icon: "📍",  label: "Explore"    },
-  { key: "dining",        icon: "🍽️", label: "Dining"     },
-  { key: "support",       icon: "✦",   label: "Nova"       },
+const TABS: { key: TabKey; icon: LucideIcon; label: string }[] = [
+  { key: "stay",          icon: Home,             label: "Stay"       },
+  { key: "entertainment", icon: Clapperboard,      label: "Experience" },
+  { key: "explore",       icon: Compass,           label: "Explore"    },
+  { key: "dining",        icon: UtensilsCrossed,   label: "Dining"     },
+  { key: "support",       icon: Sparkles,          label: "Nova"       },
 ];
 
 export default function TabNav({
@@ -59,17 +61,16 @@ export default function TabNav({
                 cursor: "pointer",
               }}
             >
-              <span
+              <t.icon
+                size={19}
+                strokeWidth={1.75}
                 style={{
-                  fontSize: 19,
-                  lineHeight: 1,
-                  opacity: isActive ? 1 : 0.45,
+                  color: isActive ? GOLD : "#4B5563",
+                  opacity: isActive ? 1 : 0.7,
                   transform: isActive ? "translateY(-1px)" : "none",
-                  transition: "opacity 0.2s ease, transform 0.2s ease",
+                  transition: "opacity 0.2s ease, transform 0.2s ease, color 0.2s ease",
                 }}
-              >
-                {t.icon}
-              </span>
+              />
               <span
                 style={{
                   fontSize: 10,

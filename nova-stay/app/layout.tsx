@@ -1,12 +1,27 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+const TITLE = "Casanova ATL — StayByNova";
+const DESCRIPTION = "Luxury Hospitality, Powered by Nova AI. Your personalized digital concierge for Casanova ATL.";
+
 export const metadata: Metadata = {
-  title: "Casanova ATL — StayByNova",
-  description: "StayByNova — your AI-powered hospitality operating system, for Casanova ATL.",
+  title: TITLE,
+  description: DESCRIPTION,
   applicationName: "StayByNova",
   icons: {
     icon: "/icon.svg",
+  },
+  manifest: "/manifest.webmanifest",
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    siteName: "StayByNova",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: TITLE,
+    description: DESCRIPTION,
   },
 };
 

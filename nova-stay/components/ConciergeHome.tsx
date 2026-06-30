@@ -1,6 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  Sun,
+  CloudSun,
+  Moon,
+  Waves,
+  Clapperboard,
+  Music,
+  Home,
+  Compass,
+  UtensilsCrossed,
+  Sparkles,
+  Coffee,
+  Sunset,
+  type LucideIcon,
+} from "lucide-react";
 import reservation from "@/config/reservation";
 import property from "@/config/property";
 import type { TabKey } from "@/components/TabNav";
@@ -27,74 +42,66 @@ function timeOfDay(): TOD {
   return "night";
 }
 
-const GREETINGS: Record<TOD, { text: string; emoji: string; subtitle: (name: string) => string; overlay: string; cta: string }> = {
+const GREETINGS: Record<TOD, { text: string; Icon: LucideIcon; subtitle: (name: string) => string; overlay: string; cta: string }> = {
   morning: {
     text: "Good Morning",
-    emoji: "☀️",
+    Icon: Sun,
     subtitle: (n) => `Welcome to Casanova ATL, ${n}. The pool is sparkling, the home has been prepared, and today is entirely yours to enjoy.`,
     overlay: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(10,5,0,0.25) 40%, rgba(0,0,0,0.72) 100%)",
     cta: "Begin Your Morning",
   },
   afternoon: {
     text: "Good Afternoon",
-    emoji: "🌤️",
+    Icon: CloudSun,
     subtitle: (n) => `Whether you're relaxing by the pool, exploring Atlanta, or creating in the studio — everything has been prepared for you, ${n}.`,
     overlay: "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.75) 100%)",
     cta: "Continue Your Day",
   },
   evening: {
     text: "Good Evening",
-    emoji: "🌙",
+    Icon: Moon,
     subtitle: (n) => `As the sun sets, the pool lights come alive, the theater is ready, and Casanova ATL becomes something truly special. Enjoy your evening, ${n}.`,
     overlay: "linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, rgba(5,5,20,0.30) 40%, rgba(0,0,0,0.85) 100%)",
     cta: "Begin Your Evening",
   },
   night: {
     text: "Good Night",
-    emoji: "🌙",
+    Icon: Moon,
     subtitle: (n) => `The lights are low, the theater is warm, and the city is alive outside. Rest well, ${n}.`,
     overlay: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(5,5,20,0.4) 40%, rgba(0,0,0,0.9) 100%)",
     cta: "Explore the Night",
   },
 };
 
-/* ── Nova Moments ─────────────────────────────────────────────────────────── */
+/* ── StayByNova Moments ───────────────────────────────────────────────────── */
 
-function getNovaMoment(nights: number): { icon: string; text: string } | null {
+function getMoment(nights: number): { Icon: LucideIcon; text: string } | null {
   const h = new Date().getHours();
   const m = new Date().getMinutes();
   const timeNum = h * 60 + m;
 
   if (timeNum >= 7 * 60 && timeNum < 9 * 60)
-    return { icon: "☕", text: "Good morning. Fresh coffee is waiting, and the pool opens at 8 AM." };
+    return { Icon: Coffee, text: "Good morning. Fresh coffee is waiting, and the pool opens at 8 AM." };
   if (timeNum >= 14 * 60 && timeNum < 16 * 60)
-    return { icon: "🎬", text: "Perfect afternoon for a movie. Flip the light switches inside the theater to get started." };
+    return { Icon: Clapperboard, text: "Perfect afternoon for a movie. Flip the light switches inside the theater to get started." };
   if (timeNum >= 19 * 60 && timeNum < 20 * 60)
-    return { icon: "🌅", text: "The pool lights just came on. It's a beautiful evening for a swim." };
+    return { Icon: Sunset, text: "The pool lights just came on. It's a beautiful evening for a swim." };
   if (timeNum >= 21 * 60 && timeNum < 22 * 60)
-    return { icon: "🌙", text: "Quiet hours begin at 10 PM. The indoor theater and studio are available all night." };
+    return { Icon: Moon, text: "Quiet hours begin at 10 PM. The indoor theater and studio are available all night." };
   if (nights <= 1)
-    return { icon: "🌅", text: "Your stay ends tomorrow. Check out our checkout guide so the morning goes smoothly." };
+    return { Icon: Sunset, text: "Your stay ends tomorrow. Check out our checkout guide so the morning goes smoothly." };
 
   return null;
 }
 
-/* ── Status chips ─────────────────────────────────────────────────────────── */
+/* ── Quick actions — mirrors the main tab nav ────────────────────────────── */
 
-const STATUS: { icon: string; label: string; value: string; ok: boolean; tab: TabKey }[] = [
-  { icon: "🌡️", label: "Weather", value: "74°",       ok: true,  tab: "stay"          },
-  { icon: "🏊",  label: "Pool",    value: "Open",      ok: true,  tab: "entertainment" },
-  { icon: "🎬",  label: "Theater", value: "Ready",     ok: true,  tab: "entertainment" },
-  { icon: "🎵",  label: "Studio",  value: "Available", ok: false, tab: "entertainment" },
-];
-
-/* ── Quick actions ────────────────────────────────────────────────────────── */
-
-const ACTIONS: { icon: string; label: string; tab: TabKey }[] = [
-  { icon: "🏡", label: "Stay",       tab: "stay"          },
-  { icon: "🎬", label: "Experience", tab: "entertainment" },
-  { icon: "🍽️", label: "Dining",    tab: "dining"        },
-  { icon: "📍", label: "Explore",    tab: "explore"       },
+const ACTIONS: { Icon: LucideIcon; label: string; tab: TabKey }[] = [
+  { Icon: Home,            label: "Stay",        tab: "stay"          },
+  { Icon: Clapperboard,    label: "Experience",  tab: "entertainment" },
+  { Icon: Compass,         label: "Explore",     tab: "explore"       },
+  { Icon: UtensilsCrossed, label: "Dining",      tab: "dining"        },
+  { Icon: Sparkles,        label: "Support",     tab: "support"       },
 ];
 
 /* ── Component ───────────────────────────────────────────────────────────── */
@@ -118,9 +125,10 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
   const checkOut= guest.checkOut  || reservation.checkOut;
   const nights  = guest.nights    ?? reservation.nights;
 
-  const tod     = timeOfDay();
-  const g       = GREETINGS[tod];
-  const moment  = getNovaMoment(nights);
+  const tod      = timeOfDay();
+  const g        = GREETINGS[tod];
+  const moment   = getMoment(nights);
+  const isPoolOk = tod === "evening" || tod === "afternoon";
 
   return (
     <div style={{ minHeight: "100vh", background: "#0A0A0A", overflowX: "hidden", opacity: visible ? 1 : 0, transition: "opacity 0.6s ease" }}>
@@ -149,7 +157,7 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
         {/* StayByNova wordmark — top */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 22px" }}>
           <span style={{ color: GOLD, fontSize: 11, fontWeight: 700, letterSpacing: "0.25em", textTransform: "uppercase" }}>StayByNova</span>
-          <span className="status-pill ready" style={{ fontSize: 10 }}><span>●</span> Live</span>
+          <span className="status-pill ready pill-pop" style={{ fontSize: 10 }}><span>●</span> Live</span>
         </div>
 
         {/* Hero content — bottom of image */}
@@ -162,9 +170,10 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
           {/* Greeting */}
           <h1
             className="serif anim-fade-up"
-            style={{ fontSize: "clamp(2rem, 7vw, 2.8rem)", fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 10, textShadow: "0 2px 20px rgba(0,0,0,0.5)" }}
+            style={{ fontSize: "clamp(2rem, 7vw, 2.8rem)", fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 10, textShadow: "0 2px 20px rgba(0,0,0,0.5)", display: "flex", alignItems: "center", gap: 12 }}
           >
-            {g.text}, {name} {g.emoji}
+            {g.text}, {name}
+            <g.Icon size={30} strokeWidth={1.6} className="icon-float" style={{ color: GOLD }} />
           </h1>
 
           {/* Subtitle */}
@@ -174,20 +183,9 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
 
           {/* CTA */}
           <button
-            className="btn-press"
+            className="btn-press lux-btn-gold"
             onClick={() => onEnterGuide("stay")}
-            style={{
-              background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`,
-              color: "#0A0A0A",
-              border: "none",
-              borderRadius: 10,
-              padding: "13px 28px",
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: "0.15em",
-              textTransform: "uppercase",
-              cursor: "pointer",
-            }}
+            style={{ padding: "13px 28px", fontSize: 12 }}
           >
             {g.cta} →
           </button>
@@ -197,68 +195,103 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
       {/* ── CONTENT BELOW HERO ────────────────────────────────────────── */}
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 20px 100px" }}>
 
-        {/* Nova Moment strip */}
+        {/* StayByNova Moment strip */}
         {moment && !momentDismissed && (
-          <div className="anim-fade-up" style={{ margin: "20px 0 0" }}>
-            <div style={{ background: `rgba(201,168,76,0.06)`, border: `1px solid ${GOLD}33`, borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 12 }}>
-              <span style={{ fontSize: 20, lineHeight: 1, marginTop: 1 }}>{moment.icon}</span>
+          <div className="anim-fade-up" style={{ margin: "var(--space-4) 0 0" }}>
+            <div className="lux-card" style={{ padding: "var(--space-3) var(--space-3)", display: "flex", alignItems: "flex-start", gap: 12, borderColor: `${GOLD}33` }}>
+              <moment.Icon size={20} strokeWidth={1.7} style={{ color: GOLD, flexShrink: 0, marginTop: 1 }} />
               <p style={{ color: "#D1B96B", fontSize: 13, lineHeight: 1.6, flex: 1 }}>{moment.text}</p>
               <button onClick={() => setMomentDismissed(true)} style={{ background: "transparent", border: "none", color: "#4B5563", fontSize: 18, cursor: "pointer", lineHeight: 1, padding: 0, flexShrink: 0 }}>×</button>
             </div>
           </div>
         )}
 
-        {/* Today's status — horizontal chips */}
+        {/* Today Card — immersive, replaces the old 2×2 status grid */}
         <div className="anim-fade-up anim-delay" style={{ "--delay": "0.08s" } as React.CSSProperties}>
-          <p style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", margin: "28px 0 12px" }}>Today at Casanova ATL</p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 28 }}>
-            {STATUS.map((s) => (
+          <p style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", margin: "28px 0 12px" }}>Tonight at Casanova ATL</p>
+
+          <div
+            className="lux-card-glow"
+            style={{
+              padding: "var(--space-4)",
+              marginBottom: 28,
+              background: "linear-gradient(160deg, #14110a 0%, #111 60%)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
+              <div>
+                <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Tonight</p>
+                <p className="serif" style={{ color: "#fff", fontSize: 40, fontWeight: 700, lineHeight: 1 }}>74°</p>
+              </div>
+              <Sun size={34} strokeWidth={1.5} className="icon-float" style={{ color: GOLD, marginTop: 4 }} />
+            </div>
+
+            <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 14, lineHeight: 1.6, marginBottom: 18 }}>
+              {isPoolOk ? "Perfect evening for the pool." : "A cozy night in is calling."} Movie theater available.
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <button
-                key={s.label}
                 className="btn-press card-hover"
-                onClick={() => onEnterGuide(s.tab)}
-                style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 14, padding: "16px", cursor: "pointer", textAlign: "left" }}
+                onClick={() => onEnterGuide("entertainment")}
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid #1e1e1e", borderRadius: "var(--radius-sm)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
               >
-                <span style={{ fontSize: 20, display: "block", marginBottom: 8 }}>{s.icon}</span>
-                <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>{s.label}</p>
-                <p style={{ color: s.ok ? "#fff" : GOLD, fontSize: 16, fontWeight: 700 }}>{s.value}</p>
+                <Waves size={17} strokeWidth={1.7} style={{ color: GOLD }} />
+                <span style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>Pool Open</span>
               </button>
-            ))}
+              <button
+                className="btn-press card-hover"
+                onClick={() => onEnterGuide("entertainment")}
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid #1e1e1e", borderRadius: "var(--radius-sm)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
+              >
+                <Music size={17} strokeWidth={1.7} style={{ color: GOLD }} />
+                <span style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>Studio Available</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Quick actions — 2×2 */}
+        {/* Quick actions */}
         <div className="anim-fade-up anim-delay" style={{ "--delay": "0.15s" } as React.CSSProperties}>
-          <p style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>Quick Access</p>
+          <p style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>Quick Actions</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 28 }}>
-            {ACTIONS.map((a) => (
+            {ACTIONS.map((a, i) => (
               <button
                 key={a.label}
-                className="btn-press card-hover"
+                className="btn-press card-hover lux-card"
                 onClick={() => onEnterGuide(a.tab)}
-                style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 14, padding: "20px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", textAlign: "left" }}
+                style={{
+                  padding: "20px 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  gridColumn: i === ACTIONS.length - 1 && ACTIONS.length % 2 === 1 ? "1 / -1" : undefined,
+                }}
               >
-                <span style={{ fontSize: 22 }}>{a.icon}</span>
+                <a.Icon size={22} strokeWidth={1.6} style={{ color: GOLD }} />
                 <span style={{ color: "#9CA3AF", fontSize: 13, fontWeight: 600 }}>{a.label}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Ask Nova CTA */}
+        {/* AI Concierge */}
         <div className="anim-fade-up anim-delay" style={{ "--delay": "0.22s" } as React.CSSProperties}>
-          <div style={{ background: "rgba(201,168,76,0.04)", border: `1px solid ${GOLD}22`, borderRadius: 16, padding: "24px 20px", marginBottom: 14, textAlign: "center" }}>
-            <p style={{ color: GOLD, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 8 }}>✦ Ask Nova</p>
-            <p style={{ color: "#9CA3AF", fontSize: 14, lineHeight: 1.65, marginBottom: 16 }}>
-              Restaurant recommendations, theater instructions, local tips — your AI concierge is coming soon.
+          <div className="lux-card-glow" style={{ padding: "var(--space-4) var(--space-3)", marginBottom: 14, textAlign: "center" }}>
+            <Sparkles size={24} strokeWidth={1.5} className="icon-float" style={{ color: GOLD, marginBottom: 10 }} />
+            <p className="serif" style={{ color: "#fff", fontSize: 19, fontWeight: 700, marginBottom: 8 }}>Need anything?</p>
+            <p style={{ color: "#9CA3AF", fontSize: 14, lineHeight: 1.65, marginBottom: 18 }}>
+              Nova can recommend restaurants, book experiences, answer questions, or help during your stay.
             </p>
             <button
-              className="btn-press"
+              className="btn-press lux-btn-gold"
               onClick={() => onEnterGuide("support")}
               disabled
-              style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`, color: "#0A0A0A", border: "none", borderRadius: 10, padding: "13px 28px", fontSize: 12, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", cursor: "default", opacity: 0.5, width: "100%" }}
+              style={{ padding: "13px 28px", fontSize: 12, width: "100%", opacity: 0.5, cursor: "default" }}
             >
-              Ask Nova — Coming Soon
+              Start Conversation — Coming Soon
             </button>
           </div>
         </div>
@@ -268,7 +301,7 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
           <button
             className="btn-press"
             onClick={() => onEnterGuide()}
-            style={{ width: "100%", background: "transparent", border: "1px solid #1e1e1e", borderRadius: 12, padding: "14px", color: "#4B5563", fontSize: 12, cursor: "pointer", letterSpacing: "0.05em" }}
+            style={{ width: "100%", background: "transparent", border: "1px solid #1e1e1e", borderRadius: "var(--radius-sm)", padding: "14px", color: "#4B5563", fontSize: 12, cursor: "pointer", letterSpacing: "0.05em" }}
           >
             View Full Guest Guide →
           </button>

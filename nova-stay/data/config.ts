@@ -2,7 +2,7 @@ export const propertyConfig = {
   brand: {
     name: "StayByNova",
     property: "Casanova ATL",
-    tagline: "Your luxury home away from home.",
+    tagline: "Luxury Hospitality, Powered by Nova AI",
     guideUrl: "https://nova-stay.vercel.app",
   },
 
