@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import reservation from "@/config/reservation";
+import bookings, { type Booking } from "@/config/bookings";
 
 const GOLD = "#C9A84C";
 const GOLD_LIGHT = "#E8C97A";
@@ -251,17 +251,85 @@ function Animated({ stepKey, children }: { stepKey: number | string; children: R
   );
 }
 
+// ─── Confirmation code lookup ────────────────────────────────────────────────
+
+function CodeEntry({ onFound }: { onFound: (booking: Booking) => void }) {
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = () => {
+    const trimmed = code.trim().toUpperCase();
+    const match = bookings.find((b) => b.confirmationCode.toUpperCase() === trimmed);
+    if (match) {
+      setError(null);
+      onFound(match);
+    } else {
+      setError("We couldn't find that confirmation code. Please double-check it or message your host.");
+    }
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
+      <div style={{ maxWidth: 400, width: "100%" }}>
+        <div style={{ fontSize: 11, letterSpacing: "0.3em", color: GOLD, textTransform: "uppercase", marginBottom: 20 }}>Nova Stay</div>
+        <h1 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(1.8rem, 6vw, 2.4rem)", color: "#fff", fontWeight: 700, lineHeight: 1.2, marginBottom: 12 }}>
+          Confirm Your<br /><span style={{ color: GOLD }}>Reservation</span>
+        </h1>
+        <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 36, lineHeight: 1.6 }}>
+          Enter the confirmation code from your Airbnb booking to unlock your personalized guide.
+        </p>
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          placeholder="Confirmation Code"
+          autoCapitalize="characters"
+          style={{
+            width: "100%",
+            background: CARD,
+            border: `1.5px solid ${error ? "#7a2f2f" : "#222"}`,
+            borderRadius: 10,
+            padding: "16px 18px",
+            color: "#fff",
+            fontSize: 16,
+            letterSpacing: "0.05em",
+            textAlign: "center",
+            marginBottom: error ? 12 : 28,
+            outline: "none",
+          }}
+        />
+        {error && <p style={{ color: "#d96b6b", fontSize: 13, lineHeight: 1.5, marginBottom: 28 }}>{error}</p>}
+        <GoldBtn onClick={submit} disabled={!code.trim()}>Unlock My Guide →</GoldBtn>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main flow ───────────────────────────────────────────────────────────────
 
 export default function GuestReadinessFlow({ onComplete }: { onComplete: () => void }) {
+  const [booking, setBooking] = useState<Booking | null>(null);
   const [step, setStep] = useState(0);
-  const [overnightGuests, setOvernightGuests] = useState(reservation.bookedGuests);
+  const [overnightGuests, setOvernightGuests] = useState(0);
   const [daytimeVisitors, setDaytimeVisitors] = useState(0);
   const [vehicles, setVehicles] = useState(1);
 
   const TOTAL = 10;
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => Math.max(0, s - 1));
+
+  if (!booking) {
+    return (
+      <CodeEntry
+        onFound={(match) => {
+          setBooking(match);
+          setOvernightGuests(match.bookedGuests);
+        }}
+      />
+    );
+  }
+
+  const reservation = booking;
 
   const finish = () => {
     const data = {
