@@ -30,10 +30,11 @@ import {
   Volume2,
   VolumeX,
   Wand2,
+  Gift,
   type LucideIcon,
 } from "lucide-react";
 import StayBuilder from "@/components/StayBuilder";
-import { getBookings, addBooking, deleteBooking, loginHost, isHostLoggedIn, logoutHost, type Booking } from "@/lib/bookingsStore";
+import { getBookings, addBooking, deleteBooking, loginHost, isHostLoggedIn, logoutHost, type Booking, type BookingSource } from "@/lib/bookingsStore";
 import { getJourneyStage } from "@/lib/novaJourney";
 import {
   getPropertyState,
@@ -42,8 +43,12 @@ import {
   markRequestRead,
   sendWelcomeMessage,
   getHostBriefing,
+  getExperienceRequests,
+  updateExperienceRequestStatus,
   type PropertyState,
   type GuestRequest,
+  type ExperienceRequest,
+  type ExperienceRequestStatus,
 } from "@/lib/propertyStore";
 import type { WeatherInfo } from "@/lib/weather";
 import SNMonogram from "@/components/SNMonogram";
@@ -474,6 +479,135 @@ function GuestRequests() {
   );
 }
 
+const EXP_STATUS_LABEL: Record<ExperienceRequestStatus, string> = {
+  requested: "Requested",
+  approved: "Approved",
+  billed: "Billed",
+  paid: "Paid",
+  scheduled: "Scheduled",
+  completed: "Completed",
+  declined: "Declined",
+};
+
+const EXP_NEXT_STATUS: Partial<Record<ExperienceRequestStatus, ExperienceRequestStatus>> = {
+  requested: "approved",
+  approved: "billed",
+  billed: "paid",
+  paid: "scheduled",
+  scheduled: "completed",
+};
+
+function buildOfferMessage(r: ExperienceRequest): string {
+  const platform = r.bookingSource === "airbnb" ? "Airbnb" : r.bookingSource === "vrbo" ? "VRBO" : null;
+  if (platform) {
+    return `Hi ${r.guestName}! We'd be happy to arrange the ${r.experienceTitle} for your stay. Per ${platform}'s policies, I'll send you a Special Offer through ${platform}${r.priceFrom ? ` for ${r.priceFrom}` : ""}. Once accepted, everything will be confirmed.`;
+  }
+  return `Hi ${r.guestName}! We'd be happy to arrange the ${r.experienceTitle} for your stay${r.priceFrom ? ` (${r.priceFrom})` : ""}. I'll follow up with payment details to get it confirmed.`;
+}
+
+function ExperienceRequests() {
+  const [requests, setRequests] = useState<ExperienceRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  const refresh = () => {
+    getExperienceRequests().then((r) => {
+      setRequests(r);
+      setLoading(false);
+    });
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const advance = async (r: ExperienceRequest) => {
+    const next = EXP_NEXT_STATUS[r.status];
+    if (!next) return;
+    if (next === "billed" && (r.bookingSource === "airbnb" || r.bookingSource === "vrbo")) {
+      navigator.clipboard.writeText(buildOfferMessage(r)).then(() => {
+        setCopiedId(r.id);
+        setTimeout(() => setCopiedId(null), 2000);
+      });
+    }
+    await updateExperienceRequestStatus(r.id, next);
+    refresh();
+  };
+
+  const decline = async (r: ExperienceRequest) => {
+    await updateExperienceRequestStatus(r.id, "declined");
+    refresh();
+  };
+
+  if (loading) {
+    return <p style={{ color: "#4B5563", fontSize: 13, textAlign: "center", padding: "20px 0" }}>Loading…</p>;
+  }
+
+  return (
+    <div>
+      <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>
+        Experience Requests
+      </p>
+      {requests.length === 0 ? (
+        <p style={{ color: "#4B5563", fontSize: 13, textAlign: "center", padding: "12px 0" }}>No experience requests yet</p>
+      ) : (
+        requests.map((r) => (
+          <div key={r.id} className="lux-glass" style={{ padding: "12px 14px", marginBottom: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{r.experienceTitle}</p>
+                <p style={{ color: "#9CA3AF", fontSize: 11.5, marginTop: 2 }}>
+                  {r.guestName} {r.priceFrom ? `· ${r.priceFrom}` : ""}
+                </p>
+                <p style={{ color: "#4B5563", fontSize: 10, marginTop: 2, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  via {r.bookingSource}
+                </p>
+              </div>
+              <span
+                className="status-pill"
+                style={{
+                  fontSize: 9.5,
+                  flexShrink: 0,
+                  color: r.status === "declined" ? "#6B7280" : GOLD,
+                  borderColor: r.status === "declined" ? "#6B7280" : undefined,
+                }}
+              >
+                {EXP_STATUS_LABEL[r.status]}
+              </span>
+            </div>
+            {r.status !== "completed" && r.status !== "declined" && (
+              <div style={{ display: "flex", gap: 8 }}>
+                {EXP_NEXT_STATUS[r.status] && (
+                  <button
+                    onClick={() => advance(r)}
+                    className="btn-press"
+                    style={{ flex: 1, background: "transparent", border: `1px solid ${GOLD}55`, borderRadius: 6, color: GOLD, fontSize: 10.5, padding: "6px 8px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em" }}
+                  >
+                    {copiedId === r.id
+                      ? "✓ Copied message"
+                      : r.status === "approved" && (r.bookingSource === "airbnb" || r.bookingSource === "vrbo")
+                      ? `Copy ${r.bookingSource === "airbnb" ? "Airbnb" : "VRBO"} Offer`
+                      : `Mark ${EXP_STATUS_LABEL[EXP_NEXT_STATUS[r.status]!]}`}
+                  </button>
+                )}
+                {r.status === "requested" && (
+                  <button
+                    onClick={() => decline(r)}
+                    className="btn-press"
+                    style={{ background: "transparent", border: "1px solid #1e1e1e", borderRadius: 6, color: "#6B7280", fontSize: 10.5, padding: "6px 10px", cursor: "pointer" }}
+                  >
+                    Decline
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
 function PropertyStatus() {
   const [property, setProperty] = useState<PropertyState | null>(null);
 
@@ -580,7 +714,15 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
 };
 
-const EMPTY_FORM = { guestName: "", confirmationCode: "", checkIn: "", checkOut: "", nights: "1", bookedGuests: "1" };
+const EMPTY_FORM = { guestName: "", confirmationCode: "", checkIn: "", checkOut: "", nights: "1", bookedGuests: "1", bookingSource: "airbnb" as BookingSource };
+
+const BOOKING_SOURCES: { value: BookingSource; label: string }[] = [
+  { value: "airbnb",      label: "Airbnb" },
+  { value: "vrbo",        label: "VRBO" },
+  { value: "direct",      label: "Direct Booking" },
+  { value: "booking.com", label: "Booking.com" },
+  { value: "other",       label: "Other" },
+];
 
 function HostLogin({ onSuccess }: { onSuccess: () => void }) {
   const [password, setPassword] = useState("");
@@ -651,11 +793,11 @@ function ReservationManager() {
     refresh();
   }, []);
 
-  const setField = (key: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const setField = (key: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const handleAdd = async () => {
-    const { guestName, confirmationCode, checkIn, checkOut, nights, bookedGuests } = form;
+    const { guestName, confirmationCode, checkIn, checkOut, nights, bookedGuests, bookingSource } = form;
     if (!guestName.trim() || !confirmationCode.trim() || !checkIn.trim() || !checkOut.trim()) {
       setError("Guest name, confirmation code, and dates are required.");
       return;
@@ -671,6 +813,7 @@ function ReservationManager() {
       checkOut: checkOut.trim(),
       nights: Number(nights) || 1,
       bookedGuests: Number(bookedGuests) || 1,
+      bookingSource,
     });
     if (!result.ok) {
       setError(result.error || "Failed to add reservation.");
@@ -719,6 +862,9 @@ function ReservationManager() {
                   {b.checkIn} – {b.checkOut} · {b.bookedGuests} guests
                 </p>
                 <p style={{ color: GOLD, fontSize: 11, marginTop: 2, fontFamily: "monospace" }}>{b.confirmationCode}</p>
+                <span style={{ color: "#6B7280", fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {BOOKING_SOURCES.find((s) => s.value === b.bookingSource)?.label || b.bookingSource}
+                </span>
               </div>
               <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <button
@@ -756,6 +902,11 @@ function ReservationManager() {
         <input style={inputStyle} type="number" min={1} placeholder="Nights" value={form.nights} onChange={setField("nights")} />
         <input style={inputStyle} type="number" min={1} placeholder="Guests" value={form.bookedGuests} onChange={setField("bookedGuests")} />
       </div>
+      <select style={inputStyle} value={form.bookingSource} onChange={setField("bookingSource")}>
+        {BOOKING_SOURCES.map((s) => (
+          <option key={s.value} value={s.value}>{s.label}</option>
+        ))}
+      </select>
 
       {error && <p style={{ color: "#d96b6b", fontSize: 12, marginBottom: 8 }}>{error}</p>}
 
@@ -782,12 +933,13 @@ function ReservationManager() {
   );
 }
 
-type DashTab = "overview" | "reservations" | "requests" | "guest" | "property" | "builder" | "settings";
+type DashTab = "overview" | "reservations" | "requests" | "experiences" | "guest" | "property" | "builder" | "settings";
 
 const DASH_TABS: { key: DashTab; label: string; Icon: LucideIcon }[] = [
   { key: "overview",     label: "Overview",     Icon: LayoutDashboard   },
   { key: "reservations", label: "Reservations", Icon: CalendarCheck     },
   { key: "requests",     label: "Requests",     Icon: MessageSquareText },
+  { key: "experiences",  label: "Experiences",  Icon: Gift              },
   { key: "guest",        label: "Guest",        Icon: UserRound         },
   { key: "property",     label: "Property",     Icon: KeyRound          },
   { key: "builder",      label: "Stay Builder", Icon: Wand2             },
@@ -918,6 +1070,7 @@ export default function HostPreview() {
 
               {tab === "overview" && <Overview onGoToReservations={() => setTab("reservations")} />}
               {tab === "requests" && <GuestRequests />}
+              {tab === "experiences" && <ExperienceRequests />}
               {tab === "property" && <PropertyStatus />}
               {tab === "builder" && <StayBuilder />}
               {tab === "settings" && (

@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   try {
     await ensureSchema();
     const { rows } = await sql`
-      SELECT confirmation_code, guest_name, check_in, check_out, nights, booked_guests
+      SELECT confirmation_code, guest_name, check_in, check_out, nights, booked_guests, booking_source
       FROM bookings
       ORDER BY created_at DESC;
     `;
@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
         checkOut: row.check_out,
         nights: row.nights,
         bookedGuests: row.booked_guests,
+        bookingSource: row.booking_source,
       })),
     });
   } catch (err: any) {
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { guestName, confirmationCode, checkIn, checkOut, nights, bookedGuests } = body;
+  const { guestName, confirmationCode, checkIn, checkOut, nights, bookedGuests, bookingSource } = body;
 
   if (!guestName || !confirmationCode || !checkIn || !checkOut) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -45,8 +46,8 @@ export async function POST(req: NextRequest) {
   try {
     await ensureSchema();
     await sql`
-      INSERT INTO bookings (confirmation_code, guest_name, check_in, check_out, nights, booked_guests)
-      VALUES (${confirmationCode.toUpperCase()}, ${guestName}, ${checkIn}, ${checkOut}, ${Number(nights) || 1}, ${Number(bookedGuests) || 1});
+      INSERT INTO bookings (confirmation_code, guest_name, check_in, check_out, nights, booked_guests, booking_source)
+      VALUES (${confirmationCode.toUpperCase()}, ${guestName}, ${checkIn}, ${checkOut}, ${Number(nights) || 1}, ${Number(bookedGuests) || 1}, ${bookingSource || "airbnb"});
     `;
   } catch (err: any) {
     if (err?.code === "23505") {

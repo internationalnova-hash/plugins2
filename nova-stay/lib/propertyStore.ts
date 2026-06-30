@@ -65,6 +65,53 @@ export async function markRequestRead(id: number): Promise<boolean> {
   return res.ok;
 }
 
+export type ExperienceRequestStatus = "requested" | "approved" | "billed" | "paid" | "scheduled" | "completed" | "declined";
+
+export interface ExperienceRequest {
+  id: number;
+  confirmationCode: string | null;
+  guestName: string;
+  experienceTitle: string;
+  priceFrom: string | null;
+  bookingSource: string;
+  status: ExperienceRequestStatus;
+  createdAt: string;
+}
+
+export async function submitExperienceRequest(
+  confirmationCode: string | null,
+  guestName: string,
+  experienceTitle: string,
+  priceFrom: string
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch("/api/experience-requests", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmationCode, guestName, experienceTitle, priceFrom }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: data.error || "Failed to send request." };
+  }
+  return { ok: true };
+}
+
+export async function getExperienceRequests(): Promise<ExperienceRequest[]> {
+  const res = await fetch("/api/experience-requests", { headers: authHeaders() });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.requests as ExperienceRequest[];
+}
+
+export async function updateExperienceRequestStatus(id: number, status: ExperienceRequestStatus): Promise<boolean> {
+  const res = await fetch("/api/experience-requests", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ id, status }),
+  });
+  return res.ok;
+}
+
 export interface StayGuide {
   welcomeMessage: string;
   checkinInstructions: string;

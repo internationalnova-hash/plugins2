@@ -10,6 +10,8 @@
 // All functions are async now (network calls). Callers should await them.
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type BookingSource = "airbnb" | "vrbo" | "direct" | "booking.com" | "other";
+
 export interface Booking {
   confirmationCode: string;
   guestName: string;
@@ -17,6 +19,7 @@ export interface Booking {
   checkOut: string;
   nights: number;
   bookedGuests: number;
+  bookingSource: BookingSource;
 }
 
 const HOST_TOKEN_KEY = "stayByNova_hostToken";

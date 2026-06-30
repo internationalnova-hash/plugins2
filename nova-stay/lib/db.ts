@@ -54,6 +54,9 @@ async function createSchema(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
   `;
+  await sql`
+    ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_source TEXT NOT NULL DEFAULT 'airbnb';
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS property_state (
@@ -83,6 +86,20 @@ async function createSchema(): Promise<void> {
       confirmation_code TEXT PRIMARY KEY,
       message TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS experience_requests (
+      id SERIAL PRIMARY KEY,
+      confirmation_code TEXT,
+      guest_name TEXT NOT NULL,
+      experience_title TEXT NOT NULL,
+      price_from TEXT,
+      booking_source TEXT NOT NULL DEFAULT 'direct',
+      status TEXT NOT NULL DEFAULT 'requested',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
   `;
 

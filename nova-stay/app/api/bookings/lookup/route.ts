@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
   await ensureSchema();
   const { rows } = await sql`
-    SELECT confirmation_code, guest_name, check_in, check_out, nights, booked_guests
+    SELECT confirmation_code, guest_name, check_in, check_out, nights, booked_guests, booking_source
     FROM bookings
     WHERE UPPER(confirmation_code) = ${code}
     LIMIT 1;
@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
       checkOut: row.check_out,
       nights: row.nights,
       bookedGuests: row.booked_guests,
+      bookingSource: row.booking_source,
     },
   });
 }

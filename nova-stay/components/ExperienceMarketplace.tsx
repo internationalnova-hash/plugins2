@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Mic2, ChefHat, Car, Thermometer, Clock, Camera, Video, Flower2, type LucideIcon } from "lucide-react";
 import { EXPERIENCES, type Experience } from "@/data/experiences";
-import { submitGuestRequest } from "@/lib/propertyStore";
+import { submitExperienceRequest } from "@/lib/propertyStore";
 import theme from "@/config/theme";
 
 const GOLD = theme.gold;
@@ -18,14 +18,16 @@ export default function ExperienceMarketplace() {
   const handleRequest = async (exp: Experience) => {
     if (requested.has(exp.id)) return;
     let guestName = "Guest";
+    let confirmationCode: string | null = null;
     try {
       const raw = localStorage.getItem("stayByNova_guestInfo");
       const parsed = raw ? JSON.parse(raw) : null;
       if (parsed?.guestName) guestName = parsed.guestName;
+      if (parsed?.confirmationCode) confirmationCode = parsed.confirmationCode;
     } catch { /* ignore */ }
 
     setRequested((prev) => new Set(prev).add(exp.id));
-    const result = await submitGuestRequest(guestName, `Requested: ${exp.title} (${exp.priceFrom})`);
+    const result = await submitExperienceRequest(confirmationCode, guestName, exp.title, exp.priceFrom);
     if (!result.ok) {
       setRequested((prev) => {
         const next = new Set(prev);
