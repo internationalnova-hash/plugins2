@@ -12,8 +12,17 @@ type Screen = "loading" | "onboarding" | "concierge" | "guide";
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("loading");
   const [initialTab, setInitialTab] = useState<TabKey>("stay");
+  const [isHost, setIsHost] = useState(false);
 
   useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("host") === "1") {
+        localStorage.setItem("novaStay_isHost", "1");
+      }
+      setIsHost(localStorage.getItem("novaStay_isHost") === "1");
+    } catch { /* ignore */ }
+
     try {
       const raw = localStorage.getItem("novaStay_guestInfo");
       if (raw) {
@@ -43,7 +52,7 @@ export default function Home() {
     return (
       <>
         <GuestReadinessFlow onComplete={() => setScreen("concierge")} />
-        <HostPreview />
+        {isHost && <HostPreview />}
       </>
     );
   }
@@ -52,7 +61,7 @@ export default function Home() {
     return (
       <>
         <ConciergeHome onEnterGuide={(tab) => { setInitialTab(tab ?? "stay"); setScreen("guide"); }} />
-        <HostPreview />
+        {isHost && <HostPreview />}
       </>
     );
   }
@@ -60,7 +69,7 @@ export default function Home() {
   return (
     <>
       <AppShell onBack={() => setScreen("concierge")} initialTab={initialTab} />
-      <HostPreview />
+      {isHost && <HostPreview />}
     </>
   );
 }
