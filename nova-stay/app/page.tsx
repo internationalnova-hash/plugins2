@@ -14,7 +14,16 @@ export default function Home() {
   const [screen, setScreen] = useState<Screen>("loading");
   const [initialTab, setInitialTab] = useState<TabKey>("stay");
   const [isHost, setIsHost] = useState(false);
+  const [fading, setFading] = useState(false);
   const nextScreenRef = useRef<Screen>("onboarding");
+
+  const goTo = (next: Screen) => {
+    setFading(true);
+    setTimeout(() => {
+      setScreen(next);
+      setFading(false);
+    }, 220);
+  };
 
   useEffect(() => {
     try {
@@ -43,7 +52,9 @@ export default function Home() {
   if (screen === "onboarding") {
     return (
       <>
-        <GuestReadinessFlow onComplete={() => setScreen("concierge")} />
+        <div className={`screen-dissolve ${fading ? "fading" : ""}`}>
+          <GuestReadinessFlow onComplete={() => goTo("concierge")} />
+        </div>
         {isHost && <HostPreview />}
       </>
     );
@@ -52,7 +63,9 @@ export default function Home() {
   if (screen === "concierge") {
     return (
       <>
-        <ConciergeHome onEnterGuide={(tab) => { setInitialTab(tab ?? "stay"); setScreen("guide"); }} />
+        <div className={`screen-dissolve ${fading ? "fading" : ""}`}>
+          <ConciergeHome onEnterGuide={(tab) => { setInitialTab(tab ?? "stay"); goTo("guide"); }} />
+        </div>
         {isHost && <HostPreview />}
       </>
     );
@@ -60,7 +73,9 @@ export default function Home() {
 
   return (
     <>
-      <AppShell onBack={() => setScreen("concierge")} initialTab={initialTab} />
+      <div className={`screen-dissolve ${fading ? "fading" : ""}`}>
+        <AppShell onBack={() => goTo("concierge")} initialTab={initialTab} />
+      </div>
       {isHost && <HostPreview />}
     </>
   );

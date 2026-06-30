@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import TabNav, { TabKey } from "@/components/TabNav";
 import StayTab from "@/components/tabs/StayTab";
 import EntertainmentTab from "@/components/tabs/EntertainmentTab";
@@ -28,10 +28,17 @@ function TabContent({ active }: { active: TabKey }) {
   }
 }
 
+const TAB_ORDER: TabKey[] = ["stay", "entertainment", "explore", "dining", "support"];
+
 export default function AppShell({ onBack, initialTab = "stay" }: { onBack: () => void; initialTab?: TabKey }) {
   const [active, setActive] = useState<TabKey>(initialTab);
+  const [direction, setDirection] = useState<"left" | "right">("right");
+  const prevIndexRef = useRef(TAB_ORDER.indexOf(initialTab));
 
   const handleChange = (tab: TabKey) => {
+    const newIndex = TAB_ORDER.indexOf(tab);
+    setDirection(newIndex >= prevIndexRef.current ? "right" : "left");
+    prevIndexRef.current = newIndex;
     setActive(tab);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -87,8 +94,7 @@ export default function AppShell({ onBack, initialTab = "stay" }: { onBack: () =
       {/* Tab content */}
       <div
         key={active}
-        className="anim-fade-up max-w-lg mx-auto px-4 pt-4"
-        style={{ "--delay": "0.05s" } as React.CSSProperties}
+        className={`tab-slide-${direction} max-w-lg mx-auto px-4 pt-4`}
       >
         <TabContent active={active} />
       </div>
