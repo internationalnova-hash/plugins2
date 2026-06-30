@@ -313,7 +313,7 @@ function CodeEntry({ onFound }: { onFound: (booking: Booking) => void }) {
             Welcome.
           </h1>
           <p style={{ color: "#9CA3AF", fontSize: 14, marginBottom: 32, lineHeight: 1.65 }}>
-            Enter the confirmation code from your Airbnb reservation. We'll prepare your personalized luxury guide.
+            Enter your reservation confirmation code to unlock your personalized concierge experience.
           </p>
         </div>
 
