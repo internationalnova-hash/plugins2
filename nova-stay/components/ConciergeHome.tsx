@@ -81,11 +81,11 @@ function getNovaMoment(nights: number): { icon: string; text: string } | null {
 
 /* ── Status chips ─────────────────────────────────────────────────────────── */
 
-const STATUS = [
-  { icon: "🌡️", label: "Weather", value: "74°",       ok: true  },
-  { icon: "🏊",  label: "Pool",    value: "Open",      ok: true  },
-  { icon: "🎬",  label: "Theater", value: "Ready",     ok: true  },
-  { icon: "🎵",  label: "Studio",  value: "Available", ok: false },
+const STATUS: { icon: string; label: string; value: string; ok: boolean; tab: TabKey }[] = [
+  { icon: "🌡️", label: "Weather", value: "74°",       ok: true,  tab: "stay"          },
+  { icon: "🏊",  label: "Pool",    value: "Open",      ok: true,  tab: "entertainment" },
+  { icon: "🎬",  label: "Theater", value: "Ready",     ok: true,  tab: "entertainment" },
+  { icon: "🎵",  label: "Studio",  value: "Available", ok: false, tab: "entertainment" },
 ];
 
 /* ── Quick actions ────────────────────────────────────────────────────────── */
@@ -213,11 +213,16 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
           <p style={{ color: "#4B5563", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", margin: "28px 0 12px" }}>Today at Casanova ATL</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 28 }}>
             {STATUS.map((s) => (
-              <div key={s.label} className="card-hover" style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 14, padding: "16px" }}>
+              <button
+                key={s.label}
+                className="btn-press card-hover"
+                onClick={() => onEnterGuide(s.tab)}
+                style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 14, padding: "16px", cursor: "pointer", textAlign: "left" }}
+              >
                 <span style={{ fontSize: 20, display: "block", marginBottom: 8 }}>{s.icon}</span>
                 <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>{s.label}</p>
                 <p style={{ color: s.ok ? "#fff" : GOLD, fontSize: 16, fontWeight: 700 }}>{s.value}</p>
-              </div>
+              </button>
             ))}
           </div>
         </div>
