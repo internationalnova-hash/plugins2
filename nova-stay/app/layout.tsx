@@ -2,14 +2,19 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Casanova ATL — Nova Stay Guest Guide",
-  description: "Your luxury digital concierge for Casanova ATL.",
+  title: "Casanova ATL — StayByNova",
+  description: "StayByNova — your AI-powered hospitality operating system, for Casanova ATL.",
+  applicationName: "StayByNova",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  themeColor: "#0A0A0A",
 };
 
 export default function RootLayout({

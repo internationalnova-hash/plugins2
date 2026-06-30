@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Nova Stay — Bookings Store
+// StayByNova — Bookings Store
 //
 // Reservations are created and managed through the Host Reservation Manager
 // UI (inside Host View), not by editing source files. This module is the
@@ -19,7 +19,7 @@ export interface Booking {
   bookedGuests: number;
 }
 
-const HOST_TOKEN_KEY = "novaStay_hostToken";
+const HOST_TOKEN_KEY = "stayByNova_hostToken";
 
 function getHostToken(): string | null {
   if (typeof window === "undefined") return null;

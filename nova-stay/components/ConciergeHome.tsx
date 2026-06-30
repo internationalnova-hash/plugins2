@@ -106,7 +106,7 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("novaStay_guestInfo");
+      const raw = localStorage.getItem("stayByNova_guestInfo");
       if (raw) setGuest(JSON.parse(raw));
     } catch { /* ignore */ }
     const t = setTimeout(() => setVisible(true), 60);
@@ -146,9 +146,9 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
         {/* Time-based color overlay */}
         <div style={{ position: "absolute", inset: 0, background: g.overlay, zIndex: 2 }} />
 
-        {/* Nova Stay wordmark — top */}
+        {/* StayByNova wordmark — top */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 22px" }}>
-          <span style={{ color: GOLD, fontSize: 11, fontWeight: 700, letterSpacing: "0.25em", textTransform: "uppercase" }}>Nova Stay</span>
+          <span style={{ color: GOLD, fontSize: 11, fontWeight: 700, letterSpacing: "0.25em", textTransform: "uppercase" }}>StayByNova</span>
           <span className="status-pill ready" style={{ fontSize: 10 }}><span>●</span> Live</span>
         </div>
 

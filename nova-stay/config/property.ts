@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Nova Stay — Property Configuration
+// StayByNova — Property Configuration
 //
 // To deploy this guide for a new property:
 //   1. Drop the hero photo into /public/images/hero/

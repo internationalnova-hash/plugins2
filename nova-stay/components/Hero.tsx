@@ -93,11 +93,11 @@ export default function Hero() {
               className="w-14 h-14 rounded-full flex items-center justify-center"
               style={{ border: "2px solid #C9A84C", boxShadow: "0 0 32px rgba(201,168,76,0.2)" }}
             >
-              <span className="font-serif text-2xl font-bold" style={{ color: "#C9A84C" }}>N</span>
+              <span className="font-serif text-2xl font-bold" style={{ color: "#C9A84C" }}>S</span>
             </div>
             <div className="flex items-center gap-2 mt-1">
               <div className="h-px w-6" style={{ backgroundColor: "#C9A84C" }} />
-              <p className="text-xs tracking-[0.35em] uppercase text-white font-light">Nova Stay</p>
+              <p className="text-xs tracking-[0.35em] uppercase text-white font-light">StayByNova</p>
               <div className="h-px w-6" style={{ backgroundColor: "#C9A84C" }} />
             </div>
           </div>

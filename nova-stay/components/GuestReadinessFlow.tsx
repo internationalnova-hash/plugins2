@@ -274,7 +274,7 @@ function CodeEntry({ onFound }: { onFound: (booking: Booking) => void }) {
   return (
     <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
       <div style={{ maxWidth: 400, width: "100%" }}>
-        <div style={{ fontSize: 11, letterSpacing: "0.3em", color: GOLD, textTransform: "uppercase", marginBottom: 20 }}>Nova Stay</div>
+        <div style={{ fontSize: 11, letterSpacing: "0.3em", color: GOLD, textTransform: "uppercase", marginBottom: 20 }}>StayByNova</div>
         <h1 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(1.8rem, 6vw, 2.4rem)", color: "#fff", fontWeight: 700, lineHeight: 1.2, marginBottom: 12 }}>
           Confirm Your<br /><span style={{ color: GOLD }}>Reservation</span>
         </h1>
@@ -349,7 +349,7 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
       completedAt: new Date().toISOString(),
       readinessPercent: 100,
     };
-    localStorage.setItem("novaStay_guestInfo", JSON.stringify(data));
+    localStorage.setItem("stayByNova_guestInfo", JSON.stringify(data));
     onComplete();
   };
 
@@ -372,7 +372,7 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
       <Animated stepKey={0}>
       <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
         <div style={{ maxWidth: 400, width: "100%" }}>
-          <div style={{ fontSize: 11, letterSpacing: "0.3em", color: GOLD, textTransform: "uppercase", marginBottom: 20 }}>Nova Stay</div>
+          <div style={{ fontSize: 11, letterSpacing: "0.3em", color: GOLD, textTransform: "uppercase", marginBottom: 20 }}>StayByNova</div>
           <h1 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(2rem, 7vw, 2.8rem)", color: "#fff", fontWeight: 700, lineHeight: 1.15, marginBottom: 12 }}>
             Welcome,<br />
             <span style={{ color: GOLD }}>{reservation.guestName}</span>

@@ -272,7 +272,7 @@ export default function HostPreview() {
 
   const load = () => {
     try {
-      const raw = localStorage.getItem("novaStay_guestInfo");
+      const raw = localStorage.getItem("stayByNova_guestInfo");
       setData(raw ? (JSON.parse(raw) as GuestInfo) : null);
     } catch {
       setData(null);
@@ -286,7 +286,7 @@ export default function HostPreview() {
   const fmt = (d: string) => d || "—";
 
   const clearData = () => {
-    localStorage.removeItem("novaStay_guestInfo");
+    localStorage.removeItem("stayByNova_guestInfo");
     setData(null);
   };
 
@@ -335,14 +335,35 @@ export default function HostPreview() {
           }}
         >
           {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase" }}>Host View</p>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+              <div
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 5,
+                  border: `1px solid ${GOLD}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <span style={{ fontFamily: "Georgia, serif", fontWeight: 700, fontSize: 10, color: GOLD }}>S</span>
+              </div>
+              <span style={{ color: GOLD, fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+                StayByNova
+              </span>
+            </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase" }}>Host Dashboard</p>
             <button
               onClick={() => setOpen(false)}
               style={{ background: "transparent", border: "none", color: "#6B7280", cursor: "pointer", fontSize: 18, lineHeight: 1 }}
             >
               ×
             </button>
+          </div>
           </div>
 
           {/* Tab switcher */}

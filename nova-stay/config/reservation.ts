@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Nova Stay — Current Reservation
+// StayByNova — Current Reservation
 //
 // Update these fields before each new booking.
 // Guest sees their name and dates pre-filled — no entry required.

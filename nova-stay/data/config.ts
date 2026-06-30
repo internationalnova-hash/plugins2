@@ -1,6 +1,6 @@
 export const propertyConfig = {
   brand: {
-    name: "Nova Stay",
+    name: "StayByNova",
     property: "Casanova ATL",
     tagline: "Your luxury home away from home.",
     guideUrl: "https://nova-stay.vercel.app",
@@ -8,7 +8,7 @@ export const propertyConfig = {
 
   welcome: {
     heading: "Welcome Home.",
-    subheading: "A Nova Stay Experience",
+    subheading: "A StayByNova Experience",
     message:
       "Thank you for choosing Casanova ATL. This guide contains everything you need for an unforgettable luxury stay.",
     hostName: "Cristina N.",

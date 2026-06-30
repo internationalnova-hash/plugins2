@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Nova Stay — Active Bookings
+// StayByNova — Active Bookings
 //
 // Add one entry per upcoming reservation. The confirmation code is whatever
 // Airbnb gives the guest — they type it in during check-in and the app
