@@ -26,6 +26,7 @@ import {
   CloudSun,
   CloudRain,
   MessageCircle,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { getBookings, addBooking, deleteBooking, loginHost, isHostLoggedIn, logoutHost, type Booking } from "@/lib/bookingsStore";
@@ -36,6 +37,7 @@ import {
   getGuestRequests,
   markRequestRead,
   sendWelcomeMessage,
+  getHostBriefing,
   type PropertyState,
   type GuestRequest,
 } from "@/lib/propertyStore";
@@ -132,6 +134,21 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
   const [requests, setRequests] = useState<GuestRequest[]>([]);
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [briefing, setBriefing] = useState<string | null>(null);
+  const [briefingLoading, setBriefingLoading] = useState(false);
+  const [briefingError, setBriefingError] = useState<string | null>(null);
+
+  const fetchBriefing = async () => {
+    setBriefingLoading(true);
+    setBriefingError(null);
+    const result = await getHostBriefing();
+    setBriefingLoading(false);
+    if (!result.ok) {
+      setBriefingError(result.error || "Failed to generate briefing.");
+      return;
+    }
+    setBriefing(result.briefing || null);
+  };
 
   const refresh = () => {
     Promise.all([getBookings(), getPropertyState(), getGuestRequests()]).then(([b, p, r]) => {
@@ -192,6 +209,36 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
         <StatCard Icon={WeatherIcon} label="Weather" value={weather ? `${weather.tempF}°` : "—"} />
         <StatCard Icon={CalendarCheck} label="Total Reservations" value={bookings.length} />
         <StatCard Icon={TrendingUp} label="Avg. Nights" value={bookings.length ? Math.round((bookings.reduce((s, b) => s + b.nights, 0) / bookings.length) * 10) / 10 : 0} />
+      </div>
+
+      <div className="lux-glass" style={{ padding: "14px 16px", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: briefing || briefingError ? 10 : 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Sparkles size={16} strokeWidth={1.7} style={{ color: GOLD }} />
+            <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>AI Host Assistant</span>
+          </div>
+          <button
+            onClick={fetchBriefing}
+            disabled={briefingLoading}
+            style={{
+              background: "transparent",
+              border: `1px solid ${GOLD}55`,
+              borderRadius: 6,
+              color: GOLD,
+              fontSize: 11,
+              fontWeight: 600,
+              padding: "5px 10px",
+              cursor: briefingLoading ? "default" : "pointer",
+              opacity: briefingLoading ? 0.6 : 1,
+            }}
+          >
+            {briefingLoading ? "Thinking…" : "Get Briefing"}
+          </button>
+        </div>
+        {briefingError && <p style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{briefingError}</p>}
+        {briefing && (
+          <p style={{ color: "#D1D5DB", fontSize: 12.5, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{briefing}</p>
+        )}
       </div>
 
       <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 10 }}>

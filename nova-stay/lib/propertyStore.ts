@@ -77,6 +77,18 @@ export async function getWelcomeMessage(confirmationCode: string): Promise<Welco
   return data.message ?? null;
 }
 
+export async function getHostBriefing(): Promise<{ ok: boolean; briefing?: string; error?: string }> {
+  const res = await fetch("/api/host-assistant", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { ok: false, error: data.error || "Failed to generate briefing." };
+  }
+  return { ok: true, briefing: data.briefing };
+}
+
 export async function sendWelcomeMessage(confirmationCode: string, message: string): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch("/api/messages", {
     method: "POST",
