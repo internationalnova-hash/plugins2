@@ -7,8 +7,17 @@ import { Pool } from "pg";
 // wrap it in a `sql` tagged-template helper so call sites are unchanged.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const connectionString =
+const rawConnectionString =
   process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.POSTGRES_URL_NON_POOLING;
+
+// Strip any sslmode param from the URL — pg-connection-string derives its own
+// ssl config from it, which can take precedence over the `ssl` option below
+// and reject Supabase's self-signed chain. We force our own ssl settings instead.
+function stripSslMode(url: string): string {
+  return url.replace(/([?&])sslmode=[^&]*&?/i, (match, sep) => (match.endsWith("&") ? sep : "")).replace(/[?&]$/, "");
+}
+
+const connectionString = rawConnectionString ? stripSslMode(rawConnectionString) : undefined;
 
 let pool: Pool | null = null;
 
