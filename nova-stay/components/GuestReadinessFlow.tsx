@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ShieldCheck, KeyRound } from "lucide-react";
 import { findBooking, type Booking } from "@/lib/bookingsStore";
 import SNMonogram from "@/components/SNMonogram";
@@ -392,7 +392,7 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
 
   const reservation = booking;
 
-  const finish = () => {
+  const saveGuestInfo = () => {
     const data = {
       guestName: reservation.guestName,
       confirmationCode: reservation.confirmationCode,
@@ -409,6 +409,18 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
       readinessPercent: 100,
     };
     localStorage.setItem("stayByNova_guestInfo", JSON.stringify(data));
+  };
+
+  // Step 10 already shows the guest a "Check-in complete" badge, so the data
+  // must actually be saved by the time that screen renders — not only once
+  // they tap "Begin Your Stay" — otherwise leaving the tab before that final
+  // tap silently drops their check-in despite the UI telling them it's done.
+  useEffect(() => {
+    if (step === TOTAL) saveGuestInfo();
+  }, [step]);
+
+  const finish = () => {
+    saveGuestInfo();
     onComplete();
   };
 
