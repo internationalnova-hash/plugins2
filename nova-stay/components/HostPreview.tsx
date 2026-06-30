@@ -34,6 +34,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import StayBuilder from "@/components/StayBuilder";
+import IntelligenceCenter from "@/components/IntelligenceCenter";
 import { getBookings, addBooking, deleteBooking, loginHost, isHostLoggedIn, logoutHost, type Booking, type BookingSource } from "@/lib/bookingsStore";
 import { getJourneyStage } from "@/lib/novaJourney";
 import {
@@ -1105,10 +1106,11 @@ function ReservationManager() {
   );
 }
 
-type DashTab = "overview" | "reservations" | "requests" | "experiences" | "guest" | "property" | "builder" | "settings";
+type DashTab = "overview" | "intelligence" | "reservations" | "requests" | "experiences" | "guest" | "property" | "builder" | "settings";
 
 const DASH_TABS: { key: DashTab; label: string; Icon: LucideIcon }[] = [
   { key: "overview",     label: "Overview",     Icon: LayoutDashboard   },
+  { key: "intelligence", label: "Intelligence", Icon: Sparkles          },
   { key: "reservations", label: "Reservations", Icon: CalendarCheck     },
   { key: "requests",     label: "Requests",     Icon: MessageSquareText },
   { key: "experiences",  label: "Experiences",  Icon: Gift              },
@@ -1313,6 +1315,7 @@ export default function HostPreview() {
               </div>
 
               {tab === "overview" && <Overview onGoToReservations={() => setTab("reservations")} />}
+              {tab === "intelligence" && <IntelligenceCenter />}
               {tab === "requests" && <GuestRequests />}
               {tab === "experiences" && <ExperienceRequests />}
               {tab === "property" && <PropertyStatus />}

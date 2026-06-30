@@ -199,6 +199,26 @@ export async function sendGuestChatMessage(
   return { ok: true, reply: data.reply };
 }
 
+export interface IntelligenceData {
+  healthScore: number;
+  healthBreakdown: { responseScore: number; engagementScore: number; conversionScore: number };
+  guestBehaviorTrends: { amenity: string; recentViews: number; priorViews: number; changePct: number }[];
+  frequentlyAskedQuestions: { topic: string; count: number }[];
+  experienceConversionRates: { amenity: string; experienceTitle: string; interestedGuests: number; booked: number; conversionPct: number }[];
+  guideEngagement: { totalGuests: number; guestsWhoOpenedGuide: number; engagementPct: number; topAmenities: { amenity: string; count: number }[] };
+  revenueOpportunities: { amenity: string; experienceTitle: string; unconvertedGuests: number; estimatedValue: number }[];
+  totalEstimatedRevenue: number;
+  weeklyAiInsights: string[];
+  suggestedAutomations: { text: string; benefit: "time" | "experience" | "revenue" }[];
+  suggestedGuideImprovements: { text: string; benefit: "time" | "experience" | "revenue" }[];
+}
+
+export async function getIntelligence(): Promise<IntelligenceData | null> {
+  const res = await fetch("/api/intelligence", { headers: authHeaders() });
+  if (!res.ok) return null;
+  return res.json();
+}
+
 export interface StayGuide {
   welcomeMessage: string;
   checkinInstructions: string;
