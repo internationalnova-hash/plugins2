@@ -55,6 +55,7 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     correctionActive = false;
     lastTargetMidi   = -1;
     noteTargetRatio  = 1.0f;
+    smoothedRatio    = 1.0f;
     historyIndex     = 0;
     ph5index         = 0;
     pitchHistory5.fill (0.0f);
@@ -164,15 +165,16 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float* chL = buffer.getReadPointer (0);
     const float* chR = (numChannels > 1) ? buffer.getReadPointer (1) : chL;
 
-    // ── Pitch detection (YIN on mono mix) ──────────────────────────────────
-    for (int s = 0; s < numSamples; ++s)
-    {
-        yinBuf[(size_t)yinWritePos] = (chL[s] + chR[s]) * 0.5f;
-        yinWritePos = (yinWritePos + 1) % yinBufferSize;
-    }
-
+    // ── Pitch detection (YIN on delay-line at read position) ───────────────
+    // We detect from the delay line at the current read head rather than from
+    // the raw input, so pitch detection is time-aligned with the audio being
+    // output.  This prevents applying a ratio computed from future pitch data
+    // to audio that is kDlLatency samples behind.
     for (int i = 0; i < yinBufferSize; ++i)
-        yinLinear[(size_t)i] = yinBuf[(size_t)((yinWritePos + i) % yinBufferSize)];
+    {
+        int pos = (static_cast<int>(dlReadA) - yinBufferSize + i) & kDlMask;
+        yinLinear[(size_t)i] = dlBufL[pos];
+    }
 
     float detectedHz = detectYIN (yinLinear.data(), yinBufferSize,
                                    yinD.data(), yinCmnd.data());
@@ -281,6 +283,15 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     ratio = juce::jlimit (0.841f, 1.189f, ratio);
+
+    // Smooth the ratio to prevent block-to-block jumps from noisy pitch estimates.
+    // At fastest retune speed (tolerance=0) alpha~0.4; at slowest (tolerance=100) alpha~0.05.
+    {
+        float speed  = 1.0f - (apvts.getRawParameterValue ("tolerance")->load() / 100.0f);
+        float alpha  = 0.05f + speed * 0.35f;  // range [0.05, 0.40]
+        smoothedRatio = alpha * ratio + (1.0f - alpha) * smoothedRatio;
+        ratio = smoothedRatio;
+    }
 
     pitchHistory[(size_t)historyIndex].store (smoothedDetectedHz);
     historyIndex = (historyIndex + 1) % pitchHistorySize;

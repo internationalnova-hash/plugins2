@@ -89,6 +89,7 @@ private:
     bool  correctionActive { false };
     int   lastTargetMidi   { -1 };
     float noteTargetRatio  { 1.0f };
+    float smoothedRatio    { 1.0f };   // low-pass filtered ratio to prevent block-to-block jumps
 
     // ---------------------------------------------------------------
     // Dual-head pitch shifter (TD-PSOLA style)
