@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import property from "@/config/property";
+import SNMonogram from "@/components/SNMonogram";
 
 export default function Hero() {
   const bgRef = useRef<HTMLDivElement>(null);
@@ -93,7 +94,7 @@ export default function Hero() {
               className="w-14 h-14 rounded-full flex items-center justify-center"
               style={{ border: "2px solid #C9A84C", boxShadow: "0 0 32px rgba(201,168,76,0.2)" }}
             >
-              <span className="font-serif text-2xl font-bold" style={{ color: "#C9A84C" }}>S</span>
+              <SNMonogram size={32} id="hero" />
             </div>
             <div className="flex items-center gap-2 mt-1">
               <div className="h-px w-6" style={{ backgroundColor: "#C9A84C" }} />
