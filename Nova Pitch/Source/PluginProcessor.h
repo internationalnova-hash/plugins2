@@ -89,7 +89,15 @@ private:
     bool  correctionActive { false };
     int   lastTargetMidi   { -1 };
     float noteTargetRatio  { 1.0f };
-    float smoothedRatio    { 1.0f };   // low-pass filtered ratio to prevent block-to-block jumps
+    float smoothedRatio    { 1.0f };
+
+    // Ring buffer: stores per-block smoothed pitch estimates from the INPUT
+    // signal so we can look up the estimate that aligns with the output
+    // (which is kDlLatency samples behind the input).  64 blocks covers
+    // kDlLatency at any block size down to 64 samples.
+    static constexpr int kPitchBufSize = 64;
+    std::array<float, kPitchBufSize> pitchDelayBuf {};
+    int pitchDelayWrite { 0 };
 
     // ---------------------------------------------------------------
     // Dual-head pitch shifter (TD-PSOLA style)

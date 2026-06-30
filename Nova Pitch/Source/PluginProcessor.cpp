@@ -56,6 +56,8 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     lastTargetMidi   = -1;
     noteTargetRatio  = 1.0f;
     smoothedRatio    = 1.0f;
+    pitchDelayBuf.fill (0.0f);
+    pitchDelayWrite  = 0;
     historyIndex     = 0;
     ph5index         = 0;
     pitchHistory5.fill (0.0f);
@@ -165,16 +167,19 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float* chL = buffer.getReadPointer (0);
     const float* chR = (numChannels > 1) ? buffer.getReadPointer (1) : chL;
 
-    // ── Pitch detection (YIN on delay-line at read position) ───────────────
-    // We detect from the delay line at the current read head rather than from
-    // the raw input, so pitch detection is time-aligned with the audio being
-    // output.  This prevents applying a ratio computed from future pitch data
-    // to audio that is kDlLatency samples behind.
-    for (int i = 0; i < yinBufferSize; ++i)
+    // ── Pitch detection (YIN on input signal) ──────────────────────────────
+    // Detect from the raw input so there is no feedback through the read
+    // head position.  The estimate is stored in a ring buffer and looked up
+    // with a delay equal to kDlLatency so the correction ratio we apply to
+    // the output is time-aligned with the audio actually being output.
+    for (int s = 0; s < numSamples; ++s)
     {
-        int pos = (static_cast<int>(dlReadA) - yinBufferSize + i) & kDlMask;
-        yinLinear[(size_t)i] = dlBufL[pos];
+        yinBuf[(size_t)yinWritePos] = (chL[s] + chR[s]) * 0.5f;
+        yinWritePos = (yinWritePos + 1) % yinBufferSize;
     }
+
+    for (int i = 0; i < yinBufferSize; ++i)
+        yinLinear[(size_t)i] = yinBuf[(size_t)((yinWritePos + i) % yinBufferSize)];
 
     float detectedHz = detectYIN (yinLinear.data(), yinBufferSize,
                                    yinD.data(), yinCmnd.data());
@@ -221,6 +226,22 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     detectedPitch.store (smoothedDetectedHz);
+
+    // Store current smoothed estimate into the delay ring buffer, then read
+    // back the estimate from kDlLatency samples ago so the correction ratio
+    // matches the audio currently at the output, not the audio arriving now.
+    pitchDelayBuf[(size_t)pitchDelayWrite] = smoothedDetectedHz;
+    pitchDelayWrite = (pitchDelayWrite + 1) % kPitchBufSize;
+    {
+        int delayBlocks = juce::jlimit (1, kPitchBufSize - 1,
+                                        kDlLatency / std::max (1, numSamples));
+        int readIdx = (pitchDelayWrite - 1 - delayBlocks + kPitchBufSize * 2) % kPitchBufSize;
+        float alignedHz = pitchDelayBuf[(size_t)readIdx];
+        // Only use the aligned estimate if it's valid; otherwise fall back to
+        // the current smoothed estimate so we don't stall at startup.
+        if (alignedHz > 0.0f)
+            smoothedDetectedHz = alignedHz;
+    }
 
     // ── Correction ratio ────────────────────────────────────────────────────
     float amount    = apvts.getRawParameterValue ("amount")->load() / 100.0f;
