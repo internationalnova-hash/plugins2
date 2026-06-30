@@ -7,12 +7,19 @@ export interface PropertyState {
   hostNoticeAt: string | null;
 }
 
+export type RequestPriority = "low" | "medium" | "high" | "urgent";
+export type RequestCategory = "property_issue" | "late_checkout" | "upsell_opportunity" | "question" | "complaint" | "general";
+
 export interface GuestRequest {
   id: number;
   guestName: string;
   message: string;
   isRead: boolean;
   createdAt: string;
+  confirmationCode: string | null;
+  priority: RequestPriority | null;
+  category: RequestCategory | null;
+  suggestedResponse: string | null;
 }
 
 export async function getPropertyState(): Promise<PropertyState | null> {
@@ -43,11 +50,15 @@ export async function getGuestRequests(): Promise<GuestRequest[]> {
   return data.requests as GuestRequest[];
 }
 
-export async function submitGuestRequest(guestName: string, message: string): Promise<{ ok: boolean; error?: string }> {
+export async function submitGuestRequest(
+  guestName: string,
+  message: string,
+  confirmationCode?: string | null
+): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch("/api/requests", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guestName, message }),
+    body: JSON.stringify({ guestName, message, confirmationCode }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

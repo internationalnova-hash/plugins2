@@ -21,12 +21,15 @@ function SendRequest() {
     if (!message.trim() || status === "sending") return;
     setStatus("sending");
     let guestName = "Guest";
+    let confirmationCode: string | null = null;
     try {
       const raw = localStorage.getItem("stayByNova_guestInfo");
-      if (raw) guestName = JSON.parse(raw).guestName || guestName;
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed?.guestName) guestName = parsed.guestName;
+      if (parsed?.confirmationCode) confirmationCode = parsed.confirmationCode;
     } catch { /* ignore */ }
 
-    const result = await submitGuestRequest(guestName, message.trim());
+    const result = await submitGuestRequest(guestName, message.trim(), confirmationCode);
     if (result.ok) {
       setStatus("sent");
       setMessage("");

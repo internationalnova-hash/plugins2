@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 import { sql, ensureSchema } from "@/lib/db";
 import { isAuthorizedHost } from "@/lib/hostAuth";
 
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
   try {
     await ensureSchema();
     const { rows } = await sql`
-      SELECT id, guest_name, message, is_read, created_at
+      SELECT id, guest_name, message, is_read, created_at, confirmation_code, priority, category, suggested_response
       FROM guest_requests
       ORDER BY created_at DESC;
     `;
@@ -21,6 +22,10 @@ export async function GET(req: NextRequest) {
         message: row.message,
         isRead: row.is_read,
         createdAt: row.created_at,
+        confirmationCode: row.confirmation_code,
+        priority: row.priority,
+        category: row.category,
+        suggestedResponse: row.suggested_response,
       })),
     });
   } catch (err: any) {
@@ -28,9 +33,60 @@ export async function GET(req: NextRequest) {
   }
 }
 
+const SENTIMENT_TOOL: Anthropic.Tool = {
+  name: "classify_message",
+  description: "Classify a guest message for a short-term rental host.",
+  input_schema: {
+    type: "object",
+    properties: {
+      category: {
+        type: "string",
+        enum: ["property_issue", "late_checkout", "upsell_opportunity", "question", "complaint", "general"],
+        description: "The best-fitting category for this message.",
+      },
+      priority: {
+        type: "string",
+        enum: ["low", "medium", "high", "urgent"],
+        description: "Urgent = needs the host's attention right away (e.g. something broken, safety, guest stuck). High = same-day. Medium/low = can wait.",
+      },
+      suggestedResponse: {
+        type: "string",
+        description: "A short, warm, ready-to-send reply the host could send as-is or lightly edit.",
+      },
+    },
+    required: ["category", "priority", "suggestedResponse"],
+  },
+};
+
+async function classifyMessage(message: string): Promise<{ category: string; priority: string; suggestedResponse: string } | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const client = new Anthropic({ apiKey });
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 400,
+      system:
+        "You classify incoming guest messages for a short-term rental host so they can triage their inbox at a glance. " +
+        "Be decisive — pick the single best category and priority. Property issues (broken/not working/leaking/etc) " +
+        "are always at least high priority, and urgent if it affects safety or basic livability (no AC, no hot water, locked out, etc).",
+      tools: [SENTIMENT_TOOL],
+      tool_choice: { type: "tool", name: "classify_message" },
+      messages: [{ role: "user", content: `Guest message: "${message}"` }],
+    });
+    const toolUse = response.content.find(
+      (block): block is Anthropic.ToolUseBlock => block.type === "tool_use" && block.name === "classify_message"
+    );
+    if (!toolUse) return null;
+    return toolUse.input as { category: string; priority: string; suggestedResponse: string };
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { guestName, message } = body;
+  const { guestName, message, confirmationCode } = body;
 
   if (!guestName?.trim() || !message?.trim()) {
     return NextResponse.json({ error: "Name and message are required." }, { status: 400 });
@@ -38,8 +94,17 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureSchema();
+    const classification = await classifyMessage(message.trim());
     await sql`
-      INSERT INTO guest_requests (guest_name, message) VALUES (${guestName.trim()}, ${message.trim()});
+      INSERT INTO guest_requests (guest_name, message, confirmation_code, priority, category, suggested_response)
+      VALUES (
+        ${guestName.trim()},
+        ${message.trim()},
+        ${confirmationCode ? confirmationCode.trim().toUpperCase() : null},
+        ${classification?.priority || null},
+        ${classification?.category || null},
+        ${classification?.suggestedResponse || null}
+      );
     `;
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (err: any) {

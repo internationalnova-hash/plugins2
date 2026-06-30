@@ -49,6 +49,8 @@ import {
   sendInboxMessage,
   type PropertyState,
   type GuestRequest,
+  type RequestPriority,
+  type RequestCategory,
   type ExperienceRequest,
   type ExperienceRequestStatus,
   type TodaysFocus,
@@ -520,9 +522,26 @@ function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
   );
 }
 
+const PRIORITY_COLOR: Record<RequestPriority, string> = {
+  urgent: "#EF4444",
+  high: "#F59E0B",
+  medium: "#9CA3AF",
+  low: "#6B7280",
+};
+
+const CATEGORY_LABEL: Record<RequestCategory, string> = {
+  property_issue: "Property Issue",
+  late_checkout: "Late Checkout",
+  upsell_opportunity: "Upsell Opportunity",
+  question: "Question",
+  complaint: "Complaint",
+  general: "General",
+};
+
 function GuestRequests() {
   const [requests, setRequests] = useState<GuestRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [repliedIds, setRepliedIds] = useState<Set<number>>(new Set());
 
   const refresh = () => {
     getGuestRequests().then((r) => {
@@ -540,6 +559,17 @@ function GuestRequests() {
     refresh();
   };
 
+  const handleReply = async (r: GuestRequest) => {
+    if (!r.confirmationCode) return;
+    const text = window.prompt(`Reply to ${r.guestName}:`, r.suggestedResponse || "");
+    if (!text || !text.trim()) return;
+    const result = await sendInboxMessage(r.confirmationCode, text.trim());
+    if (result.ok) {
+      setRepliedIds((prev) => new Set(prev).add(r.id));
+      if (!r.isRead) handleMarkRead(r.id);
+    }
+  };
+
   if (loading) {
     return <p style={{ color: "#4B5563", fontSize: 13, textAlign: "center", padding: "20px 0" }}>Loading…</p>;
   }
@@ -554,7 +584,7 @@ function GuestRequests() {
       ) : (
         requests.map((r) => (
           <div key={r.id} className="lux-glass" style={{ padding: "12px 14px", marginBottom: 8, opacity: r.isRead ? 0.55 : 1 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
               <div style={{ flex: 1 }}>
                 <p style={{ color: "#fff", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{r.guestName}</p>
                 <p style={{ color: "#9CA3AF", fontSize: 13, lineHeight: 1.5 }}>{r.message}</p>
@@ -569,6 +599,51 @@ function GuestRequests() {
                 </button>
               )}
             </div>
+
+            {(r.priority || r.category) && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                {r.priority && (
+                  <span
+                    className="status-pill"
+                    style={{ fontSize: 9.5, color: PRIORITY_COLOR[r.priority], borderColor: PRIORITY_COLOR[r.priority] }}
+                  >
+                    {r.priority.toUpperCase()}
+                  </span>
+                )}
+                {r.category && (
+                  <span className="status-pill" style={{ fontSize: 9.5, color: "#9CA3AF" }}>
+                    {CATEGORY_LABEL[r.category]}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {r.suggestedResponse && (
+              <p style={{ color: "#6B7280", fontSize: 11.5, lineHeight: 1.5, marginBottom: 8, fontStyle: "italic" }}>
+                Suggested: “{r.suggestedResponse}”
+              </p>
+            )}
+
+            {r.confirmationCode && (
+              <button
+                onClick={() => handleReply(r)}
+                className="btn-press"
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${repliedIds.has(r.id) ? `${GOLD}55` : "#1e1e1e"}`,
+                  borderRadius: 6,
+                  color: repliedIds.has(r.id) ? GOLD : "#9CA3AF",
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  padding: "5px 10px",
+                  cursor: "pointer",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {repliedIds.has(r.id) ? "✓ Replied" : "Reply"}
+              </button>
+            )}
           </div>
         ))
       )}
@@ -1049,6 +1124,7 @@ export default function HostPreview() {
   const [data, setData] = useState<GuestInfo | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const load = () => {
     try {
@@ -1064,6 +1140,40 @@ export default function HostPreview() {
     setLoggedIn(isHostLoggedIn());
     setChecked(true);
   }, [open]);
+
+  // Poll for new guest requests so the host gets a near-real-time alert
+  // without needing to refresh — Vercel serverless can't hold a socket
+  // open, so polling is the lightest way to get this without new infra.
+  useEffect(() => {
+    if (!loggedIn) return;
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    let seenIds = new Set<number>();
+    let firstRun = true;
+
+    const poll = () => {
+      getGuestRequests().then((requests) => {
+        const unread = requests.filter((r) => !r.isRead);
+        setUnreadCount(unread.length);
+
+        if (!firstRun) {
+          const fresh = unread.filter((r) => !seenIds.has(r.id));
+          if (fresh.length > 0 && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+            const r = fresh[0];
+            new Notification(`New message from ${r.guestName}`, { body: r.message, tag: `request-${r.id}` });
+          }
+        }
+        firstRun = false;
+        seenIds = new Set(unread.map((r) => r.id));
+      });
+    };
+
+    poll();
+    const interval = setInterval(poll, 10000);
+    return () => clearInterval(interval);
+  }, [loggedIn]);
 
   const fmt = (d: string) => d || "—";
 
@@ -1090,9 +1200,31 @@ export default function HostPreview() {
           letterSpacing: "0.1em",
           textTransform: "uppercase",
           cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
         }}
       >
         Host View
+        {loggedIn && unreadCount > 0 && (
+          <span
+            style={{
+              background: "#EF4444",
+              color: "#fff",
+              fontSize: 10,
+              fontWeight: 700,
+              borderRadius: 999,
+              minWidth: 16,
+              height: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0 4px",
+            }}
+          >
+            {unreadCount}
+          </span>
+        )}
       </button>
 
       {/* Panel */}
@@ -1159,7 +1291,22 @@ export default function HostPreview() {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    <t.Icon size={14} strokeWidth={1.8} />
+                    <span style={{ position: "relative", display: "flex" }}>
+                      <t.Icon size={14} strokeWidth={1.8} />
+                      {t.key === "requests" && unreadCount > 0 && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: -4,
+                            right: -6,
+                            width: 7,
+                            height: 7,
+                            borderRadius: "50%",
+                            background: "#EF4444",
+                          }}
+                        />
+                      )}
+                    </span>
                     {t.label}
                   </button>
                 ))}

@@ -80,6 +80,18 @@ async function createSchema(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
   `;
+  await sql`
+    ALTER TABLE guest_requests ADD COLUMN IF NOT EXISTS confirmation_code TEXT;
+  `;
+  await sql`
+    ALTER TABLE guest_requests ADD COLUMN IF NOT EXISTS priority TEXT;
+  `;
+  await sql`
+    ALTER TABLE guest_requests ADD COLUMN IF NOT EXISTS category TEXT;
+  `;
+  await sql`
+    ALTER TABLE guest_requests ADD COLUMN IF NOT EXISTS suggested_response TEXT;
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS guest_messages (
