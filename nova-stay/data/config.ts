@@ -3,7 +3,7 @@ export const propertyConfig = {
     name: "Nova Stay",
     property: "Casanova ATL",
     tagline: "Your luxury home away from home.",
-    guideUrl: "https://novastay.vercel.app", // update after deploy
+    guideUrl: "https://nova-stay.vercel.app",
   },
 
   welcome: {
