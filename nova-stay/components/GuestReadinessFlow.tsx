@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import bookings, { type Booking } from "@/config/bookings";
+import { findBooking, type Booking } from "@/lib/bookingsStore";
 
 const GOLD = "#C9A84C";
 const GOLD_LIGHT = "#E8C97A";
@@ -258,8 +258,7 @@ function CodeEntry({ onFound }: { onFound: (booking: Booking) => void }) {
   const [error, setError] = useState<string | null>(null);
 
   const submit = () => {
-    const trimmed = code.trim().toUpperCase();
-    const match = bookings.find((b) => b.confirmationCode.toUpperCase() === trimmed);
+    const match = findBooking(code);
     if (match) {
       setError(null);
       onFound(match);
