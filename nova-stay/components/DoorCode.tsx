@@ -1,13 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
 import Section from "./Section";
 import { propertyConfig } from "@/data/config";
+import { getPropertyState } from "@/lib/propertyStore";
 
 export default function DoorCode() {
   const [copied, setCopied] = useState(false);
-  const { code, note } = propertyConfig.doorCode;
+  const [liveCode, setLiveCode] = useState<string | null>(null);
+  const { code: fallbackCode, note } = propertyConfig.doorCode;
+  const code = liveCode ?? fallbackCode;
+
+  useEffect(() => {
+    getPropertyState().then((state) => {
+      if (state?.doorCode) setLiveCode(state.doorCode);
+    });
+  }, []);
 
   const copy = () => {
     navigator.clipboard.writeText(code);

@@ -1,15 +1,85 @@
 "use client";
 
+import { useState } from "react";
 import EmergencyContacts from "@/components/EmergencyContacts";
 import FAQ from "@/components/FAQ";
 import QRCodeSection from "@/components/QRCode";
 import Section from "@/components/Section";
 import ExperienceMarketplace from "@/components/ExperienceMarketplace";
 import { propertyConfig } from "@/data/config";
+import { submitGuestRequest } from "@/lib/propertyStore";
 import theme from "@/config/theme";
 
 const GOLD = theme.gold;
 const GOLD_LIGHT = theme.goldLight;
+
+function SendRequest() {
+  const [message, setMessage] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+
+  const send = async () => {
+    if (!message.trim() || status === "sending") return;
+    setStatus("sending");
+    let guestName = "Guest";
+    try {
+      const raw = localStorage.getItem("stayByNova_guestInfo");
+      if (raw) guestName = JSON.parse(raw).guestName || guestName;
+    } catch { /* ignore */ }
+
+    const result = await submitGuestRequest(guestName, message.trim());
+    if (result.ok) {
+      setStatus("sent");
+      setMessage("");
+      setTimeout(() => setStatus("idle"), 3000);
+    } else {
+      setStatus("error");
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Send a message directly to your host…"
+        rows={3}
+        style={{
+          width: "100%",
+          background: "#0d0d0d",
+          border: "1px solid #2a2a2a",
+          borderRadius: 8,
+          padding: "10px 12px",
+          color: "#fff",
+          fontSize: 13,
+          outline: "none",
+          resize: "none",
+          marginBottom: 8,
+        }}
+      />
+      <button
+        onClick={send}
+        disabled={!message.trim() || status === "sending"}
+        style={{
+          width: "100%",
+          background: status === "sent" ? "transparent" : `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`,
+          color: status === "sent" ? GOLD : "#0A0A0A",
+          border: status === "sent" ? `1px solid ${GOLD}55` : "none",
+          borderRadius: 8,
+          padding: "11px",
+          fontSize: 12,
+          fontWeight: 700,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          cursor: message.trim() ? "pointer" : "default",
+          opacity: status === "sending" ? 0.6 : 1,
+        }}
+      >
+        {status === "sending" ? "Sending…" : status === "sent" ? "✓ Sent to host" : "Send Request"}
+      </button>
+      {status === "error" && <p style={{ color: "#d96b6b", fontSize: 12, marginTop: 8 }}>Failed to send. Please try again.</p>}
+    </div>
+  );
+}
 
 export default function SupportTab() {
   return (
@@ -63,6 +133,7 @@ export default function SupportTab() {
           <p className="text-white text-sm font-semibold">{propertyConfig.welcome.hostName}</p>
           <p className="text-gray-500 text-xs mt-0.5">Contact via Airbnb app</p>
         </div>
+        <SendRequest />
       </Section>
 
       <EmergencyContacts />

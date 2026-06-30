@@ -30,6 +30,8 @@ import type { TabKey } from "@/components/TabNav";
 import NovaJourney from "@/components/NovaJourney";
 import { getJourneyStage, type JourneyStageKey } from "@/lib/novaJourney";
 import type { WeatherInfo } from "@/lib/weather";
+import { getPropertyState } from "@/lib/propertyStore";
+import { Megaphone } from "lucide-react";
 import theme from "@/config/theme";
 
 const WEATHER_ICONS: Record<WeatherInfo["icon"], LucideIcon> = {
@@ -141,6 +143,8 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
   const [visible, setVisible] = useState(false);
   const [momentDismissed, setMomentDismissed] = useState(false);
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
+  const [hostNotice, setHostNotice] = useState<{ text: string; at: string } | null>(null);
+  const [noticeDismissed, setNoticeDismissed] = useState(false);
 
   useEffect(() => {
     try {
@@ -156,8 +160,22 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
       })
       .catch(() => {});
 
+    getPropertyState().then((state) => {
+      if (!state?.hostNotice || !state.hostNoticeAt) return;
+      const dismissedAt = localStorage.getItem("stayByNova_noticeDismissedAt");
+      if (dismissedAt === state.hostNoticeAt) {
+        setNoticeDismissed(true);
+      }
+      setHostNotice({ text: state.hostNotice, at: state.hostNoticeAt });
+    });
+
     return () => clearTimeout(t);
   }, []);
+
+  const dismissNotice = () => {
+    if (hostNotice) localStorage.setItem("stayByNova_noticeDismissedAt", hostNotice.at);
+    setNoticeDismissed(true);
+  };
 
   const name    = guest.guestName || reservation.guestName;
   const checkIn = guest.checkIn   || reservation.checkIn;
@@ -239,6 +257,17 @@ export default function ConciergeHome({ onEnterGuide }: { onEnterGuide: (tab?: T
         <div className="anim-fade-up" style={{ margin: "20px 0 4px" }}>
           <NovaJourney current={stage} onSelectTab={onEnterGuide} />
         </div>
+
+        {/* Host Broadcast Notice */}
+        {hostNotice && !noticeDismissed && (
+          <div className="anim-fade-up" style={{ margin: "var(--space-4) 0 0" }}>
+            <div className="lux-card" style={{ padding: "var(--space-3) var(--space-3)", display: "flex", alignItems: "flex-start", gap: 12, borderColor: `${GOLD}55` }}>
+              <Megaphone size={20} strokeWidth={1.7} style={{ color: GOLD, flexShrink: 0, marginTop: 1 }} />
+              <p style={{ color: "#fff", fontSize: 13, lineHeight: 1.6, flex: 1 }}>{hostNotice.text}</p>
+              <button onClick={dismissNotice} style={{ background: "transparent", border: "none", color: "#4B5563", fontSize: 18, cursor: "pointer", lineHeight: 1, padding: 0, flexShrink: 0 }}>×</button>
+            </div>
+          </div>
+        )}
 
         {/* StayByNova Moment strip */}
         {moment && !momentDismissed && (

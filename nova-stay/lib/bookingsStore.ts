@@ -26,7 +26,7 @@ function getHostToken(): string | null {
   return localStorage.getItem(HOST_TOKEN_KEY);
 }
 
-function authHeaders(): Record<string, string> {
+export function authHeaders(): Record<string, string> {
   const token = getHostToken();
   return token ? { "x-host-token": token } : {};
 }

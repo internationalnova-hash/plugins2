@@ -42,19 +42,46 @@ export async function sql(strings: TemplateStringsArray, ...values: unknown[]) {
 
 let schemaReady: Promise<void> | null = null;
 
+async function createSchema(): Promise<void> {
+  await sql`
+    CREATE TABLE IF NOT EXISTS bookings (
+      confirmation_code TEXT PRIMARY KEY,
+      guest_name TEXT NOT NULL,
+      check_in TEXT NOT NULL,
+      check_out TEXT NOT NULL,
+      nights INTEGER NOT NULL,
+      booked_guests INTEGER NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS property_state (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      pool_lights_on BOOLEAN NOT NULL DEFAULT false,
+      door_code TEXT NOT NULL DEFAULT '1710#',
+      host_notice TEXT,
+      host_notice_at TIMESTAMPTZ
+    );
+  `;
+  await sql`
+    INSERT INTO property_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS guest_requests (
+      id SERIAL PRIMARY KEY,
+      guest_name TEXT NOT NULL,
+      message TEXT NOT NULL,
+      is_read BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+}
+
 export function ensureSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = sql`
-      CREATE TABLE IF NOT EXISTS bookings (
-        confirmation_code TEXT PRIMARY KEY,
-        guest_name TEXT NOT NULL,
-        check_in TEXT NOT NULL,
-        check_out TEXT NOT NULL,
-        nights INTEGER NOT NULL,
-        booked_guests INTEGER NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      );
-    `.then(() => undefined);
+    schemaReady = createSchema();
   }
   return schemaReady;
 }

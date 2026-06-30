@@ -16,12 +16,34 @@ import {
   TrendingUp,
   LogOut,
   Trash2,
+  Sunset,
+  Bell,
+  MessageSquareText,
+  Lightbulb,
+  Megaphone,
+  Cloud,
+  Sun,
+  CloudSun,
+  CloudRain,
   type LucideIcon,
 } from "lucide-react";
 import { getBookings, addBooking, deleteBooking, loginHost, isHostLoggedIn, logoutHost, type Booking } from "@/lib/bookingsStore";
 import { getJourneyStage } from "@/lib/novaJourney";
+import {
+  getPropertyState,
+  updatePropertyState,
+  getGuestRequests,
+  markRequestRead,
+  type PropertyState,
+  type GuestRequest,
+} from "@/lib/propertyStore";
+import type { WeatherInfo } from "@/lib/weather";
 import SNMonogram from "@/components/SNMonogram";
 import theme from "@/config/theme";
+
+const WEATHER_ICONS: Partial<Record<WeatherInfo["icon"], LucideIcon>> = {
+  Sun, CloudSun, Cloud, CloudRain,
+};
 
 const GOLD = theme.gold;
 const GOLD_LIGHT = theme.goldLight;
@@ -78,16 +100,73 @@ function StatCard({ Icon, label, value }: { Icon: LucideIcon; label: string; val
   );
 }
 
-function Overview() {
+function QuickAction({ Icon, label, onClick }: { Icon: LucideIcon; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="lux-glass btn-press"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 6,
+        padding: "12px 8px",
+        border: "none",
+        cursor: "pointer",
+        color: "#E5E7EB",
+        fontSize: 10.5,
+        textAlign: "center",
+      }}
+    >
+      <Icon size={16} strokeWidth={1.8} style={{ color: GOLD }} />
+      {label}
+    </button>
+  );
+}
+
+function Overview({ onGoToReservations }: { onGoToReservations: () => void }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [property, setProperty] = useState<PropertyState | null>(null);
+  const [requests, setRequests] = useState<GuestRequest[]>([]);
+  const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    getBookings().then((b) => {
+  const refresh = () => {
+    Promise.all([getBookings(), getPropertyState(), getGuestRequests()]).then(([b, p, r]) => {
       setBookings(b);
+      setProperty(p);
+      setRequests(r);
       setLoading(false);
     });
+  };
+
+  useEffect(() => {
+    refresh();
+    fetch("/api/weather").then((res) => (res.ok ? res.json() : null)).then((data) => {
+      if (data && !data.error) setWeather(data);
+    }).catch(() => {});
   }, []);
+
+  const togglePoolLights = async () => {
+    if (!property) return;
+    const next = !property.poolLightsOn;
+    setProperty({ ...property, poolLightsOn: next });
+    await updatePropertyState({ poolLightsOn: next });
+  };
+
+  const updateDoorCode = async () => {
+    const next = window.prompt("New door code:", property?.doorCode || "");
+    if (!next || !next.trim()) return;
+    const result = await updatePropertyState({ doorCode: next.trim() });
+    if (result.ok) refresh();
+  };
+
+  const broadcastNotice = async () => {
+    const next = window.prompt("Broadcast a notice to all current guests:", property?.hostNotice || "");
+    if (next === null) return;
+    const result = await updatePropertyState({ hostNotice: next.trim() });
+    if (result.ok) refresh();
+  };
 
   if (loading) {
     return <p style={{ color: "#4B5563", fontSize: 13, textAlign: "center", padding: "20px 0" }}>Loading…</p>;
@@ -96,15 +175,31 @@ function Overview() {
   const stages = bookings.map((b) => getJourneyStage(b.checkIn, b.checkOut));
   const arrivingToday = stages.filter((s) => s === "checkedIn").length;
   const currentlyHosted = stages.filter((s) => s === "checkedIn" || s === "enjoying" || s === "checkout").length;
-  const avgNights = bookings.length ? Math.round((bookings.reduce((sum, b) => sum + b.nights, 0) / bookings.length) * 10) / 10 : 0;
+  const upcomingCheckouts = stages.filter((s) => s === "checkout").length;
+  const unreadRequests = requests.filter((r) => !r.isRead).length;
+  const WeatherIcon = (weather && WEATHER_ICONS[weather.icon]) || CloudSun;
 
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+        <StatCard Icon={PlaneLanding} label="Today's Arrivals" value={arrivingToday} />
+        <StatCard Icon={Users} label="Current Guests" value={currentlyHosted} />
+        <StatCard Icon={Sunset} label="Upcoming Checkouts" value={upcomingCheckouts} />
+        <StatCard Icon={Bell} label="Unread Requests" value={unreadRequests} />
+        <StatCard Icon={Waves} label="Pool Status" value={property?.poolLightsOn ? "Lit" : "Off"} />
+        <StatCard Icon={WeatherIcon} label="Weather" value={weather ? `${weather.tempF}°` : "—"} />
         <StatCard Icon={CalendarCheck} label="Total Reservations" value={bookings.length} />
-        <StatCard Icon={PlaneLanding} label="Arriving Today" value={arrivingToday} />
-        <StatCard Icon={Users} label="Currently Hosted" value={currentlyHosted} />
-        <StatCard Icon={TrendingUp} label="Avg. Nights" value={avgNights} />
+        <StatCard Icon={TrendingUp} label="Avg. Nights" value={bookings.length ? Math.round((bookings.reduce((s, b) => s + b.nights, 0) / bookings.length) * 10) / 10 : 0} />
+      </div>
+
+      <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 10 }}>
+        Quick Actions
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 20 }}>
+        <QuickAction Icon={CalendarCheck} label="Add Reservation" onClick={onGoToReservations} />
+        <QuickAction Icon={Lightbulb} label={property?.poolLightsOn ? "Pool Lights Off" : "Pool Lights On"} onClick={togglePoolLights} />
+        <QuickAction Icon={DoorOpen} label="Update Door Code" onClick={updateDoorCode} />
+        <QuickAction Icon={Megaphone} label="Broadcast Notice" onClick={broadcastNotice} />
       </div>
 
       <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 10 }}>
@@ -129,26 +224,124 @@ function Overview() {
   );
 }
 
-const PROPERTY_STATUS: { Icon: LucideIcon; label: string; status: string }[] = [
-  { Icon: Wifi,         label: "Wi-Fi Network",  status: "Online"  },
-  { Icon: Waves,        label: "Pool & Spa",     status: "Ready"   },
-  { Icon: Clapperboard, label: "Theater & Studio", status: "Ready" },
-  { Icon: DoorOpen,     label: "Smart Door Lock", status: "Online" },
-];
+function GuestRequests() {
+  const [requests, setRequests] = useState<GuestRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = () => {
+    getGuestRequests().then((r) => {
+      setRequests(r);
+      setLoading(false);
+    });
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const handleMarkRead = async (id: number) => {
+    await markRequestRead(id);
+    refresh();
+  };
+
+  if (loading) {
+    return <p style={{ color: "#4B5563", fontSize: 13, textAlign: "center", padding: "20px 0" }}>Loading…</p>;
+  }
+
+  return (
+    <div>
+      <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>
+        Guest Requests
+      </p>
+      {requests.length === 0 ? (
+        <p style={{ color: "#4B5563", fontSize: 13, textAlign: "center", padding: "12px 0" }}>No requests yet</p>
+      ) : (
+        requests.map((r) => (
+          <div key={r.id} className="lux-glass" style={{ padding: "12px 14px", marginBottom: 8, opacity: r.isRead ? 0.55 : 1 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ color: "#fff", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{r.guestName}</p>
+                <p style={{ color: "#9CA3AF", fontSize: 13, lineHeight: 1.5 }}>{r.message}</p>
+              </div>
+              {!r.isRead && (
+                <button
+                  onClick={() => handleMarkRead(r.id)}
+                  className="btn-press"
+                  style={{ background: "transparent", border: `1px solid ${GOLD}55`, borderRadius: 6, color: GOLD, fontSize: 10, padding: "4px 8px", cursor: "pointer", flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.05em" }}
+                >
+                  Mark Read
+                </button>
+              )}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
 
 function PropertyStatus() {
+  const [property, setProperty] = useState<PropertyState | null>(null);
+
+  const refresh = () => {
+    getPropertyState().then(setProperty);
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const togglePoolLights = async () => {
+    if (!property) return;
+    const next = !property.poolLightsOn;
+    setProperty({ ...property, poolLightsOn: next });
+    await updatePropertyState({ poolLightsOn: next });
+  };
+
+  const updateDoorCode = async () => {
+    const next = window.prompt("New door code:", property?.doorCode || "");
+    if (!next || !next.trim()) return;
+    const result = await updatePropertyState({ doorCode: next.trim() });
+    if (result.ok) refresh();
+  };
+
   return (
     <div>
       <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>
         Property Status
       </p>
-      {PROPERTY_STATUS.map((p) => (
-        <div key={p.label} className="lux-glass" style={{ padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
-          <p.Icon size={18} strokeWidth={1.7} style={{ color: GOLD, flexShrink: 0 }} />
-          <span style={{ color: "#E5E7EB", fontSize: 13, flex: 1 }}>{p.label}</span>
-          <span className="status-pill ready" style={{ fontSize: 10 }}>● {p.status}</span>
-        </div>
-      ))}
+
+      <div className="lux-glass" style={{ padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+        <Wifi size={18} strokeWidth={1.7} style={{ color: GOLD, flexShrink: 0 }} />
+        <span style={{ color: "#E5E7EB", fontSize: 13, flex: 1 }}>Wi-Fi Network</span>
+        <span className="status-pill ready" style={{ fontSize: 10 }}>● Online</span>
+      </div>
+
+      <button
+        onClick={togglePoolLights}
+        className="lux-glass btn-press"
+        style={{ width: "100%", border: "none", cursor: "pointer", padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, textAlign: "left" }}
+      >
+        <Waves size={18} strokeWidth={1.7} style={{ color: GOLD, flexShrink: 0 }} />
+        <span style={{ color: "#E5E7EB", fontSize: 13, flex: 1 }}>Pool & Spa</span>
+        <span className="status-pill ready" style={{ fontSize: 10 }}>● {property?.poolLightsOn ? "Lit" : "Off"}</span>
+      </button>
+
+      <div className="lux-glass" style={{ padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+        <Clapperboard size={18} strokeWidth={1.7} style={{ color: GOLD, flexShrink: 0 }} />
+        <span style={{ color: "#E5E7EB", fontSize: 13, flex: 1 }}>Theater & Studio</span>
+        <span className="status-pill ready" style={{ fontSize: 10 }}>● Ready</span>
+      </div>
+
+      <button
+        onClick={updateDoorCode}
+        className="lux-glass btn-press"
+        style={{ width: "100%", border: "none", cursor: "pointer", padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, textAlign: "left" }}
+      >
+        <DoorOpen size={18} strokeWidth={1.7} style={{ color: GOLD, flexShrink: 0 }} />
+        <span style={{ color: "#E5E7EB", fontSize: 13, flex: 1 }}>Smart Door Lock</span>
+        <span style={{ color: GOLD, fontSize: 12, fontFamily: "monospace" }}>{property?.doorCode || "—"}</span>
+      </button>
     </div>
   );
 }
@@ -377,14 +570,15 @@ function ReservationManager() {
   );
 }
 
-type DashTab = "overview" | "reservations" | "guest" | "property" | "settings";
+type DashTab = "overview" | "reservations" | "requests" | "guest" | "property" | "settings";
 
 const DASH_TABS: { key: DashTab; label: string; Icon: LucideIcon }[] = [
-  { key: "overview",     label: "Overview",     Icon: LayoutDashboard },
-  { key: "reservations", label: "Reservations", Icon: CalendarCheck   },
-  { key: "guest",        label: "Guest",        Icon: UserRound       },
-  { key: "property",     label: "Property",     Icon: KeyRound        },
-  { key: "settings",     label: "Settings",     Icon: SettingsIcon    },
+  { key: "overview",     label: "Overview",     Icon: LayoutDashboard   },
+  { key: "reservations", label: "Reservations", Icon: CalendarCheck     },
+  { key: "requests",     label: "Requests",     Icon: MessageSquareText },
+  { key: "guest",        label: "Guest",        Icon: UserRound         },
+  { key: "property",     label: "Property",     Icon: KeyRound          },
+  { key: "settings",     label: "Settings",     Icon: SettingsIcon      },
 ];
 
 export default function HostPreview() {
@@ -509,7 +703,8 @@ export default function HostPreview() {
                 ))}
               </div>
 
-              {tab === "overview" && <Overview />}
+              {tab === "overview" && <Overview onGoToReservations={() => setTab("reservations")} />}
+              {tab === "requests" && <GuestRequests />}
               {tab === "property" && <PropertyStatus />}
               {tab === "settings" && (
                 <HostSettings
