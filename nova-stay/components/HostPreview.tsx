@@ -1,7 +1,26 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  LayoutDashboard,
+  CalendarCheck,
+  UserRound,
+  KeyRound,
+  Settings as SettingsIcon,
+  Wifi,
+  Waves,
+  Clapperboard,
+  DoorOpen,
+  Users,
+  PlaneLanding,
+  TrendingUp,
+  LogOut,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 import { getBookings, addBooking, deleteBooking, loginHost, isHostLoggedIn, logoutHost, type Booking } from "@/lib/bookingsStore";
+import { getJourneyStage } from "@/lib/novaJourney";
+import SNMonogram from "@/components/SNMonogram";
 
 const GOLD = "#C9A84C";
 const GOLD_LIGHT = "#E8C97A";
@@ -44,6 +63,119 @@ function Checkmark({ ok, label }: { ok: boolean; label: string }) {
         )}
       </div>
       <span style={{ color: ok ? "#E5E7EB" : "#4B5563", fontSize: 13 }}>{label}</span>
+    </div>
+  );
+}
+
+function StatCard({ Icon, label, value }: { Icon: LucideIcon; label: string; value: string | number }) {
+  return (
+    <div className="lux-glass" style={{ padding: "14px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <Icon size={16} strokeWidth={1.8} style={{ color: GOLD }} />
+      <p style={{ color: "#fff", fontSize: 22, fontWeight: 700, fontFamily: "Georgia, serif", lineHeight: 1 }}>{value}</p>
+      <p style={{ color: "#6B7280", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</p>
+    </div>
+  );
+}
+
+function Overview() {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getBookings().then((b) => {
+      setBookings(b);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) {
+    return <p style={{ color: "#4B5563", fontSize: 13, textAlign: "center", padding: "20px 0" }}>Loading…</p>;
+  }
+
+  const stages = bookings.map((b) => getJourneyStage(b.checkIn, b.checkOut));
+  const arrivingToday = stages.filter((s) => s === "checkedIn").length;
+  const currentlyHosted = stages.filter((s) => s === "checkedIn" || s === "enjoying" || s === "checkout").length;
+  const avgNights = bookings.length ? Math.round((bookings.reduce((sum, b) => sum + b.nights, 0) / bookings.length) * 10) / 10 : 0;
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+        <StatCard Icon={CalendarCheck} label="Total Reservations" value={bookings.length} />
+        <StatCard Icon={PlaneLanding} label="Arriving Today" value={arrivingToday} />
+        <StatCard Icon={Users} label="Currently Hosted" value={currentlyHosted} />
+        <StatCard Icon={TrendingUp} label="Avg. Nights" value={avgNights} />
+      </div>
+
+      <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 10 }}>
+        Upcoming Stays
+      </p>
+      {bookings.length === 0 ? (
+        <p style={{ color: "#4B5563", fontSize: 13, textAlign: "center", padding: "12px 0" }}>No reservations yet</p>
+      ) : (
+        bookings.slice(0, 4).map((b) => (
+          <div key={b.confirmationCode} className="lux-glass" style={{ padding: "10px 14px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <p style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{b.guestName}</p>
+              <p style={{ color: "#6B7280", fontSize: 11, marginTop: 2 }}>{b.checkIn} – {b.checkOut}</p>
+            </div>
+            <span style={{ color: GOLD, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {b.nights}n
+            </span>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+const PROPERTY_STATUS: { Icon: LucideIcon; label: string; status: string }[] = [
+  { Icon: Wifi,         label: "Wi-Fi Network",  status: "Online"  },
+  { Icon: Waves,        label: "Pool & Spa",     status: "Ready"   },
+  { Icon: Clapperboard, label: "Theater & Studio", status: "Ready" },
+  { Icon: DoorOpen,     label: "Smart Door Lock", status: "Online" },
+];
+
+function PropertyStatus() {
+  return (
+    <div>
+      <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>
+        Property Status
+      </p>
+      {PROPERTY_STATUS.map((p) => (
+        <div key={p.label} className="lux-glass" style={{ padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+          <p.Icon size={18} strokeWidth={1.7} style={{ color: GOLD, flexShrink: 0 }} />
+          <span style={{ color: "#E5E7EB", fontSize: 13, flex: 1 }}>{p.label}</span>
+          <span className="status-pill ready" style={{ fontSize: 10 }}>● {p.status}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HostSettings({ onLogout }: { onLogout: () => void }) {
+  return (
+    <div>
+      <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>
+        Settings
+      </p>
+      <button
+        onClick={() => {
+          localStorage.removeItem("stayByNova_guestInfo");
+        }}
+        className="lux-glass btn-press"
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", marginBottom: 8, color: "#9CA3AF", fontSize: 13, cursor: "pointer", border: "none" }}
+      >
+        <Trash2 size={16} strokeWidth={1.8} style={{ color: GOLD }} />
+        Clear Current Guest Data
+      </button>
+      <button
+        onClick={onLogout}
+        className="lux-glass btn-press"
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", color: "#9CA3AF", fontSize: 13, cursor: "pointer", border: "none" }}
+      >
+        <LogOut size={16} strokeWidth={1.8} style={{ color: GOLD }} />
+        Log Out of Host Dashboard
+      </button>
     </div>
   );
 }
@@ -119,8 +251,6 @@ function HostLogin({ onSuccess }: { onSuccess: () => void }) {
 }
 
 function ReservationManager() {
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [checked, setChecked] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
@@ -130,13 +260,8 @@ function ReservationManager() {
   };
 
   useEffect(() => {
-    setLoggedIn(isHostLoggedIn());
-    setChecked(true);
+    refresh();
   }, []);
-
-  useEffect(() => {
-    if (loggedIn) refresh();
-  }, [loggedIn]);
 
   const setField = (key: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -173,27 +298,12 @@ function ReservationManager() {
     refresh();
   };
 
-  if (!checked) return null;
-
-  if (!loggedIn) {
-    return <HostLogin onSuccess={() => setLoggedIn(true)} />;
-  }
-
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      <div style={{ marginBottom: 12 }}>
         <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase" }}>
           Active Reservations
         </p>
-        <button
-          onClick={() => {
-            logoutHost();
-            setLoggedIn(false);
-          }}
-          style={{ background: "transparent", border: "none", color: "#6B7280", fontSize: 11, cursor: "pointer", letterSpacing: "0.05em" }}
-        >
-          Log Out
-        </button>
       </div>
 
       {bookings.length === 0 ? (
@@ -203,7 +313,8 @@ function ReservationManager() {
           {bookings.map((b) => (
             <div
               key={b.confirmationCode}
-              style={{ background: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 10, padding: "12px 14px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
+              className="lux-glass"
+              style={{ padding: "12px 14px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
             >
               <div>
                 <p style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{b.guestName}</p>
@@ -265,10 +376,22 @@ function ReservationManager() {
   );
 }
 
+type DashTab = "overview" | "reservations" | "guest" | "property" | "settings";
+
+const DASH_TABS: { key: DashTab; label: string; Icon: LucideIcon }[] = [
+  { key: "overview",     label: "Overview",     Icon: LayoutDashboard },
+  { key: "reservations", label: "Reservations", Icon: CalendarCheck   },
+  { key: "guest",        label: "Guest",        Icon: UserRound       },
+  { key: "property",     label: "Property",     Icon: KeyRound        },
+  { key: "settings",     label: "Settings",     Icon: SettingsIcon    },
+];
+
 export default function HostPreview() {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"guest" | "reservations">("guest");
+  const [tab, setTab] = useState<DashTab>("overview");
   const [data, setData] = useState<GuestInfo | null>(null);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [checked, setChecked] = useState(false);
 
   const load = () => {
     try {
@@ -281,6 +404,8 @@ export default function HostPreview() {
 
   useEffect(() => {
     load();
+    setLoggedIn(isHostLoggedIn());
+    setChecked(true);
   }, [open]);
 
   const fmt = (d: string) => d || "—";
@@ -295,14 +420,12 @@ export default function HostPreview() {
       {/* Trigger button */}
       <button
         onClick={() => setOpen((o) => !o)}
+        className="lux-glass btn-press"
         style={{
           position: "fixed",
           bottom: 24,
           right: 24,
           zIndex: 200,
-          background: "#111",
-          border: `1px solid ${GOLD}`,
-          borderRadius: 8,
           padding: "10px 16px",
           color: GOLD,
           fontSize: 12,
@@ -310,7 +433,6 @@ export default function HostPreview() {
           letterSpacing: "0.1em",
           textTransform: "uppercase",
           cursor: "pointer",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
         }}
       >
         Host View
@@ -325,29 +447,16 @@ export default function HostPreview() {
             bottom: 72,
             right: 16,
             zIndex: 199,
-            width: 340,
-            maxHeight: "80vh",
+            width: 380,
+            maxHeight: "82vh",
             overflowY: "auto",
             padding: 24,
           }}
         >
           {/* Header */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
-              <div
-                style={{
-                  width: 18,
-                  height: 18,
-                  borderRadius: 5,
-                  border: `1px solid ${GOLD}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <span style={{ fontFamily: "Georgia, serif", fontWeight: 700, fontSize: 10, color: GOLD }}>S</span>
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <SNMonogram size={20} id="hostpreview" />
               <span style={{ color: GOLD, fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" }}>
                 StayByNova
               </span>
@@ -363,34 +472,54 @@ export default function HostPreview() {
           </div>
           </div>
 
-          {/* Tab switcher */}
-          <div style={{ display: "flex", gap: 6, marginBottom: 20, background: "#0d0d0d", borderRadius: 8, padding: 4 }}>
-            {(["guest", "reservations"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                style={{
-                  flex: 1,
-                  background: tab === t ? "#1e1e1e" : "transparent",
-                  border: "none",
-                  borderRadius: 6,
-                  padding: "8px 0",
-                  color: tab === t ? GOLD : "#6B7280",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                }}
-              >
-                {t === "guest" ? "Current Guest" : "Reservations"}
-              </button>
-            ))}
-          </div>
+          {!checked ? null : !loggedIn ? (
+            <HostLogin onSuccess={() => setLoggedIn(true)} />
+          ) : (
+            <>
+              {/* Tab switcher */}
+              <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "#0d0d0d", borderRadius: 8, padding: 4, overflowX: "auto" }} className="no-scrollbar">
+                {DASH_TABS.map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => setTab(t.key)}
+                    className="btn-press"
+                    style={{
+                      flex: "1 0 auto",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 4,
+                      background: tab === t.key ? "#1e1e1e" : "transparent",
+                      border: "none",
+                      borderRadius: 6,
+                      padding: "8px 10px",
+                      color: tab === t.key ? GOLD : "#6B7280",
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      letterSpacing: "0.04em",
+                      textTransform: "uppercase",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <t.Icon size={14} strokeWidth={1.8} />
+                    {t.label}
+                  </button>
+                ))}
+              </div>
 
-          {tab === "reservations" ? (
-            <ReservationManager />
-          ) : !data ? (
+              {tab === "overview" && <Overview />}
+              {tab === "property" && <PropertyStatus />}
+              {tab === "settings" && (
+                <HostSettings
+                  onLogout={() => {
+                    logoutHost();
+                    setLoggedIn(false);
+                  }}
+                />
+              )}
+              {tab === "reservations" && <ReservationManager />}
+              {tab === "guest" && (!data ? (
             <p style={{ color: "#4B5563", fontSize: 14, textAlign: "center", padding: "20px 0" }}>
               No check-in data yet
             </p>
@@ -453,6 +582,8 @@ export default function HostPreview() {
               >
                 Clear Data
               </button>
+            </>
+          ))}
             </>
           )}
         </div>
