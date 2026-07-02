@@ -855,7 +855,12 @@ function HostSettings({ onLogout }: { onLogout: () => void }) {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [activeSlug, setActiveSlug] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setActiveSlug(localStorage.getItem("nova_active_property_slug") || "");
+  }, []);
 
   useEffect(() => {
     getPropertyState().then((p) => {
@@ -996,6 +1001,16 @@ function HostSettings({ onLogout }: { onLogout: () => void }) {
         <Trash2 size={16} strokeWidth={1.8} style={{ color: GOLD }} />
         Clear Current Guest Data
       </button>
+      {activeSlug && (
+        <button
+          onClick={() => window.open(`/${activeSlug}/qr`, "_blank")}
+          className="lux-glass btn-press"
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", marginBottom: 8, color: "#9CA3AF", fontSize: 13, cursor: "pointer", border: "none" }}
+        >
+          <span style={{ fontSize: 16 }}>📱</span>
+          Print QR Code for Guests
+        </button>
+      )}
       <button
         onClick={onLogout}
         className="lux-glass btn-press"
