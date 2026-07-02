@@ -15,8 +15,8 @@ export default function SplashScreen({ onDone }: { onDone?: () => void }) {
   useEffect(() => {
     const t1 = setTimeout(() => setStage("shimmer"), 500);
     const t2 = setTimeout(() => setStage("text"), 1100);
-    const t3 = setTimeout(() => setStage("scaleOut"), 1900);
-    const t4 = setTimeout(() => onDone?.(), 2500);
+    const t3 = setTimeout(() => setStage("scaleOut"), 3400);
+    const t4 = setTimeout(() => onDone?.(), 4000);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
   }, [onDone]);
 
