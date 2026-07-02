@@ -16,6 +16,7 @@ import {
   TrendingUp,
   LogOut,
   Trash2,
+  Pencil,
   Sunset,
   Bell,
   MessageSquareText,
@@ -35,7 +36,7 @@ import {
 } from "lucide-react";
 import StayBuilder from "@/components/StayBuilder";
 import IntelligenceCenter from "@/components/IntelligenceCenter";
-import { getBookings, addBooking, deleteBooking, loginHost, isHostLoggedIn, logoutHost, type Booking, type BookingSource } from "@/lib/bookingsStore";
+import { getBookings, addBooking, updateBooking, deleteBooking, loginHost, isHostLoggedIn, logoutHost, type Booking, type BookingSource } from "@/lib/bookingsStore";
 import { getJourneyStage } from "@/lib/novaJourney";
 import {
   getPropertyState,
@@ -1222,18 +1223,50 @@ function PropertySwitcher({ onSwitchToBuilder }: { onSwitchToBuilder: () => void
 function ReservationManager() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [editingCode, setEditingCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = () => {
-    getBookings().then(setBookings);
-  };
-
-  useEffect(() => {
-    refresh();
-  }, []);
+  const refresh = () => { getBookings().then(setBookings); };
+  useEffect(() => { refresh(); }, []);
 
   const setField = (key: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const startEdit = (b: Booking) => {
+    setEditingCode(b.confirmationCode);
+    setForm({
+      guestName: b.guestName,
+      confirmationCode: b.confirmationCode,
+      checkIn: b.checkIn,
+      checkOut: b.checkOut,
+      nights: String(b.nights),
+      bookedGuests: String(b.bookedGuests),
+      bookingSource: b.bookingSource,
+    });
+    setError(null);
+  };
+
+  const cancelEdit = () => { setEditingCode(null); setForm(EMPTY_FORM); setError(null); };
+
+  const handleSaveEdit = async () => {
+    const { guestName, confirmationCode, checkIn, checkOut, nights, bookedGuests, bookingSource } = form;
+    if (!guestName.trim() || !checkIn.trim() || !checkOut.trim()) {
+      setError("Guest name and dates are required.");
+      return;
+    }
+    const result = await updateBooking({
+      guestName: guestName.trim(),
+      confirmationCode,
+      checkIn: checkIn.trim(),
+      checkOut: checkOut.trim(),
+      nights: Number(nights) || 1,
+      bookedGuests: Number(bookedGuests) || 1,
+      bookingSource,
+    });
+    if (!result.ok) { setError(result.error || "Failed to update reservation."); return; }
+    refresh();
+    cancelEdit();
+  };
 
   const handleAdd = async () => {
     const { guestName, confirmationCode, checkIn, checkOut, nights, bookedGuests, bookingSource } = form;
@@ -1254,72 +1287,103 @@ function ReservationManager() {
       bookedGuests: Number(bookedGuests) || 1,
       bookingSource,
     });
-    if (!result.ok) {
-      setError(result.error || "Failed to add reservation.");
-      return;
-    }
+    if (!result.ok) { setError(result.error || "Failed to add reservation."); return; }
     refresh();
     setForm(EMPTY_FORM);
     setError(null);
   };
 
-  const handleDelete = async (code: string) => {
-    await deleteBooking(code);
-    refresh();
-  };
+  const handleDelete = async (code: string) => { await deleteBooking(code); refresh(); };
 
   const handleMessage = async (code: string, guestName: string) => {
     const text = window.prompt(`Welcome message for ${guestName}:`, "");
     if (!text || !text.trim()) return;
     const result = await sendWelcomeMessage(code, text.trim());
-    if (!result.ok) {
-      window.alert(result.error || "Failed to send message.");
-    }
+    if (!result.ok) window.alert(result.error || "Failed to send message.");
   };
 
   return (
     <div>
-      <div style={{ marginBottom: 12 }}>
-        <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase" }}>
-          Active Reservations
-        </p>
-      </div>
+      <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>
+        Active Reservations
+      </p>
 
       {bookings.length === 0 ? (
         <p style={{ color: "#4B5563", fontSize: 13, textAlign: "center", padding: "12px 0" }}>No reservations yet</p>
       ) : (
         <div style={{ marginBottom: 16 }}>
           {bookings.map((b) => (
-            <div
-              key={b.confirmationCode}
-              className="lux-glass"
-              style={{ padding: "12px 14px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
-            >
-              <div>
-                <p style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{b.guestName}</p>
-                <p style={{ color: "#6B7280", fontSize: 11, marginTop: 2 }}>
-                  {b.checkIn} – {b.checkOut} · {b.bookedGuests} guests
-                </p>
-                <p style={{ color: GOLD, fontSize: 11, marginTop: 2, fontFamily: "monospace" }}>{b.confirmationCode}</p>
-                <span style={{ color: "#6B7280", fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  {BOOKING_SOURCES.find((s) => s.value === b.bookingSource)?.label || b.bookingSource}
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <button
-                  onClick={() => handleMessage(b.confirmationCode, b.guestName)}
-                  title="Send welcome message"
-                  style={{ background: "transparent", border: "none", color: GOLD, cursor: "pointer", padding: 0, display: "flex" }}
+            <div key={b.confirmationCode}>
+              {editingCode === b.confirmationCode ? (
+                <div className="lux-glass" style={{ padding: "14px", marginBottom: 8 }}>
+                  <p style={{ color: GOLD, fontSize: 11, fontFamily: "monospace", marginBottom: 10 }}>{b.confirmationCode}</p>
+                  <input style={inputStyle} placeholder="Guest Name" value={form.guestName} onChange={setField("guestName")} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input style={inputStyle} placeholder="Check-In" value={form.checkIn} onChange={setField("checkIn")} />
+                    <input style={inputStyle} placeholder="Check-Out" value={form.checkOut} onChange={setField("checkOut")} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input style={inputStyle} type="number" min={1} placeholder="Nights" value={form.nights} onChange={setField("nights")} />
+                    <input style={inputStyle} type="number" min={1} placeholder="Guests" value={form.bookedGuests} onChange={setField("bookedGuests")} />
+                  </div>
+                  <select style={inputStyle} value={form.bookingSource} onChange={setField("bookingSource")}>
+                    {BOOKING_SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                  {error && <p style={{ color: "#d96b6b", fontSize: 12, marginBottom: 8 }}>{error}</p>}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={handleSaveEdit}
+                      style={{ flex: 1, background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`, color: BG, border: "none", borderRadius: 8, padding: "10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      style={{ flex: 1, background: "#1a1a1a", color: "#9CA3AF", border: "1px solid #2a2a2a", borderRadius: 8, padding: "10px", fontSize: 12, cursor: "pointer" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="lux-glass"
+                  style={{ padding: "12px 14px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
                 >
-                  <MessageCircle size={15} />
-                </button>
-                <button
-                  onClick={() => handleDelete(b.confirmationCode)}
-                  style={{ background: "transparent", border: "none", color: "#6B7280", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0 }}
-                >
-                  ×
-                </button>
-              </div>
+                  <div>
+                    <p style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{b.guestName}</p>
+                    <p style={{ color: "#6B7280", fontSize: 11, marginTop: 2 }}>
+                      {b.checkIn} – {b.checkOut} · {b.bookedGuests} guests
+                    </p>
+                    <p style={{ color: GOLD, fontSize: 11, marginTop: 2, fontFamily: "monospace" }}>{b.confirmationCode}</p>
+                    <span style={{ color: "#6B7280", fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      {BOOKING_SOURCES.find((s) => s.value === b.bookingSource)?.label || b.bookingSource}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <button
+                      onClick={() => startEdit(b)}
+                      title="Edit reservation"
+                      style={{ background: "transparent", border: "none", color: "#6B7280", cursor: "pointer", padding: 0, display: "flex" }}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleMessage(b.confirmationCode, b.guestName)}
+                      title="Send welcome message"
+                      style={{ background: "transparent", border: "none", color: GOLD, cursor: "pointer", padding: 0, display: "flex" }}
+                    >
+                      <MessageCircle size={15} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(b.confirmationCode)}
+                      style={{ background: "transparent", border: "none", color: "#6B7280", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0 }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -1331,38 +1395,37 @@ function ReservationManager() {
         New Reservation
       </p>
 
-      <input style={inputStyle} placeholder="Guest Name" value={form.guestName} onChange={setField("guestName")} />
-      <input style={inputStyle} placeholder="Confirmation Code" value={form.confirmationCode} onChange={setField("confirmationCode")} />
+      <input style={inputStyle} placeholder="Guest Name" value={editingCode ? "" : form.guestName} onChange={setField("guestName")} disabled={!!editingCode} />
+      <input style={inputStyle} placeholder="Confirmation Code" value={editingCode ? "" : form.confirmationCode} onChange={setField("confirmationCode")} disabled={!!editingCode} />
       <div style={{ display: "flex", gap: 8 }}>
-        <input style={inputStyle} placeholder="Check-In (e.g. July 24)" value={form.checkIn} onChange={setField("checkIn")} />
-        <input style={inputStyle} placeholder="Check-Out" value={form.checkOut} onChange={setField("checkOut")} />
+        <input style={inputStyle} placeholder="Check-In (e.g. July 24)" value={editingCode ? "" : form.checkIn} onChange={setField("checkIn")} disabled={!!editingCode} />
+        <input style={inputStyle} placeholder="Check-Out" value={editingCode ? "" : form.checkOut} onChange={setField("checkOut")} disabled={!!editingCode} />
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        <input style={inputStyle} type="number" min={1} placeholder="Nights" value={form.nights} onChange={setField("nights")} />
-        <input style={inputStyle} type="number" min={1} placeholder="Guests" value={form.bookedGuests} onChange={setField("bookedGuests")} />
+        <input style={inputStyle} type="number" min={1} placeholder="Nights" value={editingCode ? "" : form.nights} onChange={setField("nights")} disabled={!!editingCode} />
+        <input style={inputStyle} type="number" min={1} placeholder="Guests" value={editingCode ? "" : form.bookedGuests} onChange={setField("bookedGuests")} disabled={!!editingCode} />
       </div>
-      <select style={inputStyle} value={form.bookingSource} onChange={setField("bookingSource")}>
-        {BOOKING_SOURCES.map((s) => (
-          <option key={s.value} value={s.value}>{s.label}</option>
-        ))}
+      <select style={inputStyle} value={editingCode ? "airbnb" : form.bookingSource} onChange={setField("bookingSource")} disabled={!!editingCode}>
+        {BOOKING_SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
       </select>
 
-      {error && <p style={{ color: "#d96b6b", fontSize: 12, marginBottom: 8 }}>{error}</p>}
+      {!editingCode && error && <p style={{ color: "#d96b6b", fontSize: 12, marginBottom: 8 }}>{error}</p>}
 
       <button
         onClick={handleAdd}
+        disabled={!!editingCode}
         style={{
           width: "100%",
-          background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 50%, ${GOLD} 100%)`,
-          color: BG,
-          border: "none",
+          background: editingCode ? "#1a1a1a" : `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 50%, ${GOLD} 100%)`,
+          color: editingCode ? "#4B5563" : BG,
+          border: editingCode ? "1px solid #2a2a2a" : "none",
           borderRadius: 8,
           padding: "12px",
           fontSize: 12,
           fontWeight: 700,
           letterSpacing: "0.1em",
           textTransform: "uppercase",
-          cursor: "pointer",
+          cursor: editingCode ? "default" : "pointer",
           marginTop: 4,
         }}
       >

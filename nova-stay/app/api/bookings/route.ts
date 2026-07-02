@@ -67,3 +67,46 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }
+
+export async function PUT(req: NextRequest) {
+  const auth = await getAuthorizedProperty(req);
+  if (!auth && !isSuperAdmin(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await req.json();
+  const { guestName, confirmationCode, checkIn, checkOut, nights, bookedGuests, bookingSource } = body;
+
+  if (!guestName || !confirmationCode || !checkIn || !checkOut) {
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  }
+
+  try {
+    await ensureSchema();
+    const result = auth
+      ? await sql`
+          UPDATE bookings
+          SET guest_name = ${guestName}, check_in = ${checkIn}, check_out = ${checkOut},
+              nights = ${Number(nights) || 1}, booked_guests = ${Number(bookedGuests) || 1},
+              booking_source = ${bookingSource || "airbnb"}
+          WHERE confirmation_code = ${confirmationCode.toUpperCase()} AND property_id = ${auth.propertyId}
+          RETURNING confirmation_code;
+        `
+      : await sql`
+          UPDATE bookings
+          SET guest_name = ${guestName}, check_in = ${checkIn}, check_out = ${checkOut},
+              nights = ${Number(nights) || 1}, booked_guests = ${Number(bookedGuests) || 1},
+              booking_source = ${bookingSource || "airbnb"}
+          WHERE confirmation_code = ${confirmationCode.toUpperCase()}
+          RETURNING confirmation_code;
+        `;
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: "Reservation not found." }, { status: 404 });
+    }
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message || "Database error while updating reservation." }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}

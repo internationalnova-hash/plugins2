@@ -100,6 +100,19 @@ export async function addBooking(booking: Booking): Promise<{ ok: boolean; error
   return { ok: true };
 }
 
+export async function updateBooking(booking: Booking): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch("/api/bookings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(booking),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: data.error || "Failed to update reservation." };
+  }
+  return { ok: true };
+}
+
 export async function deleteBooking(confirmationCode: string): Promise<boolean> {
   const res = await fetch(`/api/bookings/${encodeURIComponent(confirmationCode)}`, {
     method: "DELETE",
