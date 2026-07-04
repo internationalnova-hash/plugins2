@@ -71,13 +71,13 @@ export const propertyConfig = {
       "Please shower before entering the pool.",
       "No jumping or diving — shallow areas present.",
       "Keep music at a respectful volume outdoors.",
-      "Outdoor quiet hours begin at 8:00 PM — no loud music or gatherings outside after this time.",
+      "Outdoor quiet hours begin at 9:00 PM — no loud music or gatherings outside after this time.",
     ],
   },
 
   quietHours: {
-    outdoorCutoff: "8:00 PM",
-    note: "Outdoor noise, music, and gatherings must end by 8:00 PM to respect our neighbors. Indoor enjoyment can continue at a reasonable volume.",
+    outdoorCutoff: "9:00 PM",
+    note: "Outdoor noise, music, and gatherings must end by 9:00 PM to respect our neighbors. Indoor enjoyment can continue at a reasonable volume.",
   },
 
   driveway: {
@@ -89,8 +89,11 @@ export const propertyConfig = {
     heading: "Grill & Outdoor Lights",
     instructions: [
       "Outside lights are controlled by the white oval control panel near the back door.",
-      "Grill is available for guest use — please clean it after each use.",
-      "Never leave the grill unattended while in use.",
+      "There is a propane grill on the top deck and a charcoal grill on the pool deck — both available for guest use.",
+      "Propane and charcoal are not provided — please bring your own.",
+      "There is also a fire pit on the top deck. Fuel is not provided.",
+      "Please clean the grill after each use.",
+      "Never leave the grill or fire pit unattended while in use.",
       "Allow the grill to fully cool before covering.",
     ],
   },

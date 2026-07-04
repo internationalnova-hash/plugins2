@@ -120,7 +120,7 @@ function getMoment(nights: number, stage: JourneyStageKey): { Icon: LucideIcon; 
   if (timeNum >= 19 * 60 && timeNum < 20 * 60)
     return { Icon: Sunset, text: "The pool lights just came on. It's a beautiful evening for a swim." };
   if (timeNum >= 21 * 60 && timeNum < 22 * 60)
-    return { Icon: Moon, text: "Quiet hours begin at 10 PM. The indoor theater and studio are available all night." };
+    return { Icon: Moon, text: "Quiet hours begin at 9 PM outdoors. The indoor theater and studio are available all night." };
   if (nights <= 1)
     return { Icon: Sunset, text: "Your stay ends tomorrow. Check out our checkout guide so the morning goes smoothly." };
 
