@@ -1295,6 +1295,15 @@ function ReservationManager() {
 
   const handleDelete = async (code: string) => { await deleteBooking(code); refresh(); };
 
+  const handleMarkCheckedIn = async (code: string) => {
+    await fetch("/api/checkin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmationCode: code }),
+    });
+    refresh();
+  };
+
   const handleMessage = async (code: string, guestName: string) => {
     const text = window.prompt(`Welcome message for ${guestName}:`, "");
     if (!text || !text.trim()) return;
@@ -1368,6 +1377,15 @@ function ReservationManager() {
                     </span>
                   </div>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    {!b.checkedInAt && (
+                      <button
+                        onClick={() => handleMarkCheckedIn(b.confirmationCode)}
+                        title="Mark as checked in"
+                        style={{ background: "transparent", border: "none", color: "#4ade80", cursor: "pointer", padding: 0, display: "flex", opacity: 0.7 }}
+                      >
+                        <UserRound size={14} />
+                      </button>
+                    )}
                     <button
                       onClick={() => startEdit(b)}
                       title="Edit reservation"
