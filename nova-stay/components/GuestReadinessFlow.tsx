@@ -397,6 +397,12 @@ export default function GuestReadinessFlow({ onComplete }: { onComplete: () => v
       readinessPercent: 100,
     };
     localStorage.setItem("stayByNova_guestInfo", JSON.stringify(data));
+    // Notify the server so the host dashboard can show "checked in"
+    fetch("/api/checkin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmationCode: booking.confirmationCode }),
+    }).catch(() => { /* best-effort */ });
   };
 
   // Step 10 already shows the guest a "Check-in complete" badge, so the data

@@ -228,6 +228,7 @@ async function createSchema(): Promise<void> {
   await sql`ALTER TABLE guest_inbox ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id);`;
   await sql`ALTER TABLE amenity_views ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id);`;
   await sql`ALTER TABLE stay_guide ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id);`;
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMPTZ;`;
 
   // One-time migration: fold the legacy single-property data (property_state
   // id=1, stay_guide id=1, and any rows with a null property_id) into a

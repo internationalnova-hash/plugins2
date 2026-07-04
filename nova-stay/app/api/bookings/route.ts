@@ -12,13 +12,13 @@ export async function GET(req: NextRequest) {
     await ensureSchema();
     const { rows } = auth
       ? await sql`
-          SELECT confirmation_code, guest_name, check_in, check_out, nights, booked_guests, booking_source
+          SELECT confirmation_code, guest_name, check_in, check_out, nights, booked_guests, booking_source, checked_in_at
           FROM bookings
           WHERE property_id = ${auth.propertyId}
           ORDER BY created_at DESC;
         `
       : await sql`
-          SELECT confirmation_code, guest_name, check_in, check_out, nights, booked_guests, booking_source
+          SELECT confirmation_code, guest_name, check_in, check_out, nights, booked_guests, booking_source, checked_in_at
           FROM bookings
           ORDER BY created_at DESC;
         `;
@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
         nights: row.nights,
         bookedGuests: row.booked_guests,
         bookingSource: row.booking_source,
+        checkedInAt: row.checked_in_at ?? null,
       })),
     });
   } catch (err: any) {

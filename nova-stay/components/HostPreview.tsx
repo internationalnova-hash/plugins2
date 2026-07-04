@@ -1351,7 +1351,14 @@ function ReservationManager() {
                   style={{ padding: "12px 14px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
                 >
                   <div>
-                    <p style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{b.guestName}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <p style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{b.guestName}</p>
+                      {b.checkedInAt && (
+                        <span style={{ background: "#14532d", color: "#4ade80", fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", padding: "2px 7px", borderRadius: 99 }}>
+                          Checked In
+                        </span>
+                      )}
+                    </div>
                     <p style={{ color: "#6B7280", fontSize: 11, marginTop: 2 }}>
                       {b.checkIn} – {b.checkOut} · {b.bookedGuests} guests
                     </p>

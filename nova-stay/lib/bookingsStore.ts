@@ -20,6 +20,7 @@ export interface Booking {
   nights: number;
   bookedGuests: number;
   bookingSource: BookingSource;
+  checkedInAt?: string | null;
 }
 
 const HOST_TOKEN_KEY = "stayByNova_hostToken";
