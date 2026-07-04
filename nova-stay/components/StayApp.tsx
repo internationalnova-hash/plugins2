@@ -77,6 +77,15 @@ export default function StayApp({ propertySlug }: { propertySlug?: string }) {
         const parsed = JSON.parse(raw);
         if (parsed?.readinessPercent === 100) {
           nextScreenRef.current = "concierge";
+          // Backfill server-side check-in status for guests who completed
+          // the flow before the checked_in_at column existed.
+          if (parsed?.confirmationCode) {
+            fetch("/api/checkin", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ confirmationCode: parsed.confirmationCode }),
+            }).catch(() => { /* best-effort */ });
+          }
         }
       }
     } catch { /* ignore */ }
