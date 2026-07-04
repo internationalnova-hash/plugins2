@@ -102,9 +102,9 @@ export const propertyConfig = {
     heading: "Checkout Instructions",
     time: "11:00 AM",
     steps: [
-      "Strip all bed linens and leave them in a pile on the floor of each bedroom.",
-      "Place all used towels in the bathtub or laundry basket.",
-      "Wash and put away any dishes you used.",
+      "Strip all bed linens and leave them on the floor beside the bed.",
+      "Leave all used towels on the floor beside the bed.",
+      "Place all dishes in the dishwasher — no need to wash them, our team will take care of it after your stay.",
       "Dispose of all trash in the outdoor bins.",
       "Turn off all lights, TVs, and the AC before leaving.",
       "Lock the front door using the keypad.",
