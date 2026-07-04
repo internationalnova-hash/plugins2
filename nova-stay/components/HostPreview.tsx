@@ -1377,15 +1377,16 @@ function ReservationManager() {
                     </span>
                   </div>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    {!b.checkedInAt && (
+                    {!b.checkedInAt ? (
                       <button
                         onClick={() => handleMarkCheckedIn(b.confirmationCode)}
                         title="Mark as checked in"
-                        style={{ background: "transparent", border: "none", color: "#4ade80", cursor: "pointer", padding: 0, display: "flex", opacity: 0.7 }}
+                        style={{ background: "#14532d", border: "none", color: "#4ade80", cursor: "pointer", padding: "3px 6px", borderRadius: 6, display: "flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 700 }}
                       >
-                        <UserRound size={14} />
+                        <UserRound size={11} />
+                        <span>Check In</span>
                       </button>
-                    )}
+                    ) : null}
                     <button
                       onClick={() => startEdit(b)}
                       title="Edit reservation"
