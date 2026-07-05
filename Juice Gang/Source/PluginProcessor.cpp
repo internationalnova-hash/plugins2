@@ -203,7 +203,7 @@ void JuiceGangProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     float resTgt     = *apvts.getRawParameterValue ("resonance") / 100.f;
     float driveTgt   = *apvts.getRawParameterValue ("drive")     / 100.f;
     float fMixTgt    = *apvts.getRawParameterValue ("filterMix") / 100.f;
-    float filterOutGain = juce::Decibels::decibelsToGain (*apvts.getRawParameterValue ("filterOut"));
+    float filterOutGain = juce::Decibels::decibelsToGain ((float)*apvts.getRawParameterValue ("filterOut"));
 
     bool  delayOn    = *apvts.getRawParameterValue ("delayOn")  > 0.5f;
     bool  delaySync  = *apvts.getRawParameterValue ("delaySync") > 0.5f;
@@ -230,9 +230,9 @@ void JuiceGangProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     int   lfoDiv     = (int)*apvts.getRawParameterValue ("lfoSyncDiv");
     float lfoDepth   = *apvts.getRawParameterValue ("lfoDepth") / 100.f;
 
-    float masterInGain  = juce::Decibels::decibelsToGain (*apvts.getRawParameterValue ("masterIn"));
+    float masterInGain  = juce::Decibels::decibelsToGain ((float)*apvts.getRawParameterValue ("masterIn"));
     float masterMixTgt  = *apvts.getRawParameterValue ("masterMix") / 100.f;
-    float masterOutGain = juce::Decibels::decibelsToGain (*apvts.getRawParameterValue ("masterOut"));
+    float masterOutGain = juce::Decibels::decibelsToGain ((float)*apvts.getRawParameterValue ("masterOut"));
 
     // Tempo sync
     auto playHead = getPlayHead();
