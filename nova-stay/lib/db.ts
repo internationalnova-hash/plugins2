@@ -229,6 +229,28 @@ async function createSchema(): Promise<void> {
   await sql`ALTER TABLE amenity_views ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id);`;
   await sql`ALTER TABLE stay_guide ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id);`;
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMPTZ;`;
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'unpaid';`;
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS stripe_session_id TEXT;`;
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_price NUMERIC(10,2);`;
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS guest_email TEXT;`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS date_prices (
+      id SERIAL PRIMARY KEY,
+      property_id INTEGER REFERENCES properties(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      price_per_night NUMERIC(10,2) NOT NULL,
+      UNIQUE(property_id, date)
+    );
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS property_pricing (
+      property_id INTEGER PRIMARY KEY REFERENCES properties(id) ON DELETE CASCADE,
+      default_price_per_night NUMERIC(10,2) NOT NULL DEFAULT 250,
+      min_nights INTEGER NOT NULL DEFAULT 1,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
 
   // One-time migration: fold the legacy single-property data (property_state
   // id=1, stay_guide id=1, and any rows with a null property_id) into a

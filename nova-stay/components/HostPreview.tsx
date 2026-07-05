@@ -1461,7 +1461,238 @@ function ReservationManager() {
   );
 }
 
-type DashTab = "overview" | "intelligence" | "reservations" | "requests" | "experiences" | "guest" | "property" | "builder" | "settings";
+// ─── Host Pricing Calendar ───────────────────────────────────────────────────
+const MONTH_NAMES_P = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTH_FULL_P  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function PricingCalendar() {
+  const today = new Date();
+  const [viewYear, setViewYear]   = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+  const [prices, setPrices]       = useState<Record<string, number>>({});
+  const [bookedDates, setBookedDates] = useState<Set<string>>(new Set());
+  const [defaultPrice, setDefaultPrice] = useState(250);
+  const [minNights, setMinNights] = useState(1);
+  const [selected, setSelected]   = useState<string | null>(null);
+  const [editPrice, setEditPrice] = useState("");
+  const [saving, setSaving]       = useState(false);
+  const [defaultSaving, setDefaultSaving] = useState(false);
+  const [slug, setSlug]           = useState("");
+
+  useEffect(() => {
+    setSlug(localStorage.getItem("nova_active_property_slug") || "casanova");
+  }, []);
+
+  useEffect(() => {
+    if (!slug) return;
+    fetch(`/api/availability?slug=${slug}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const map: Record<string, number> = {};
+        for (const [d, p] of Object.entries(data.prices || {})) map[d] = Number(p);
+        setPrices(map);
+        setDefaultPrice(data.defaultPrice ?? 250);
+        setMinNights(data.minNights ?? 1);
+        const booked = new Set<string>();
+        for (const r of (data.bookedRanges || [])) {
+          const cur = new Date(r.checkIn + "T12:00:00Z");
+          const end = new Date(r.checkOut + "T12:00:00Z");
+          while (cur < end) { booked.add(cur.toISOString().slice(0,10)); cur.setUTCDate(cur.getUTCDate()+1); }
+        }
+        setBookedDates(booked);
+      });
+  }, [slug]);
+
+  const sessionToken = typeof window !== "undefined" ? localStorage.getItem("nova_host_session") || "" : "";
+  const propertySlug = slug;
+
+  const authHeaders = { "Content-Type": "application/json", "x-session-token": sessionToken, "x-property-slug": propertySlug };
+
+  const savePrice = async () => {
+    if (!selected) return;
+    setSaving(true);
+    const price = editPrice === "" ? null : Number(editPrice);
+    await fetch("/api/date-prices", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ date: selected, price }),
+    });
+    setPrices((prev) => {
+      const next = { ...prev };
+      if (price === null) delete next[selected!]; else next[selected!] = price;
+      return next;
+    });
+    setSaving(false);
+    setSelected(null);
+    setEditPrice("");
+  };
+
+  const saveDefaults = async () => {
+    setDefaultSaving(true);
+    await fetch("/api/pricing", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ defaultPrice, minNights }),
+    });
+    setDefaultSaving(false);
+  };
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const todayStr = today.toISOString().slice(0,10);
+
+  const prevMonth = () => { const d = new Date(viewYear, viewMonth - 1, 1); setViewYear(d.getFullYear()); setViewMonth(d.getMonth()); };
+  const nextMonth = () => { const d = new Date(viewYear, viewMonth + 1, 1); setViewYear(d.getFullYear()); setViewMonth(d.getMonth()); };
+  const canPrev = viewYear > today.getFullYear() || viewMonth > today.getMonth();
+
+  return (
+    <div>
+      <p style={{ color: "#6B7280", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16 }}>Pricing & Availability</p>
+
+      {/* Default pricing settings */}
+      <div style={{ background: "rgba(184,152,42,0.08)", border: "1px solid rgba(184,152,42,0.2)", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
+        <p style={{ color: GOLD, fontSize: 12, fontWeight: 600, marginBottom: 12 }}>Default Settings</p>
+        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ color: "#9CA3AF", fontSize: 11, display: "block", marginBottom: 4 }}>Default nightly rate ($)</label>
+            <input
+              type="number"
+              value={defaultPrice}
+              onChange={(e) => setDefaultPrice(Number(e.target.value))}
+              style={{ ...inputStyle, margin: 0 }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ color: "#9CA3AF", fontSize: 11, display: "block", marginBottom: 4 }}>Min nights</label>
+            <input
+              type="number"
+              value={minNights}
+              onChange={(e) => setMinNights(Number(e.target.value))}
+              style={{ ...inputStyle, margin: 0 }}
+            />
+          </div>
+        </div>
+        <button
+          onClick={saveDefaults}
+          disabled={defaultSaving}
+          style={{ width: "100%", padding: "9px", background: GOLD, color: "#000", fontWeight: 700, fontSize: 12, border: "none", borderRadius: 7, cursor: "pointer", opacity: defaultSaving ? 0.6 : 1 }}
+        >
+          {defaultSaving ? "Saving…" : "Save Defaults"}
+        </button>
+      </div>
+
+      {/* Calendar header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <button onClick={prevMonth} disabled={!canPrev} style={{ background: "none", border: "none", color: canPrev ? GOLD : "#444", fontSize: 20, cursor: canPrev ? "pointer" : "default" }}>‹</button>
+        <span style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>{MONTH_FULL_P[viewMonth]} {viewYear}</span>
+        <button onClick={nextMonth} style={{ background: "none", border: "none", color: GOLD, fontSize: 20, cursor: "pointer" }}>›</button>
+      </div>
+
+      {/* Day headers */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 3 }}>
+        {["S","M","T","W","T","F","S"].map((d, i) => (
+          <div key={i} style={{ textAlign: "center", color: "#666", fontSize: 10, fontWeight: 600 }}>{d}</div>
+        ))}
+      </div>
+
+      {/* Days grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 }}>
+        {Array.from({ length: firstDay }, (_, i) => <div key={`e${i}`} />)}
+        {Array.from({ length: daysInMonth }, (_, i) => {
+          const d = i + 1;
+          const dateStr = `${viewYear}-${String(viewMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+          const past = dateStr < todayStr;
+          const booked = bookedDates.has(dateStr);
+          const custom = prices[dateStr];
+          const price = custom ?? defaultPrice;
+          const isSelected = selected === dateStr;
+
+          return (
+            <div
+              key={dateStr}
+              onClick={() => { if (past) return; setSelected(isSelected ? null : dateStr); setEditPrice(custom !== undefined ? String(custom) : ""); }}
+              style={{
+                padding: "5px 2px",
+                borderRadius: 6,
+                background: isSelected ? GOLD : booked ? "rgba(255,80,80,0.12)" : custom !== undefined ? "rgba(255,215,0,0.08)" : "transparent",
+                border: `1px solid ${isSelected ? GOLD : booked ? "rgba(255,80,80,0.2)" : custom !== undefined ? "rgba(255,215,0,0.25)" : "transparent"}`,
+                cursor: past ? "default" : "pointer",
+                opacity: past ? 0.35 : 1,
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 12, color: isSelected ? "#000" : "#fff", fontWeight: isSelected ? 700 : 400 }}>{d}</div>
+              <div style={{ fontSize: 9, color: isSelected ? "#333" : booked ? "#ff6060" : custom !== undefined ? "#ffd700" : "#555" }}>
+                {booked ? "●" : `$${price}`}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Edit panel */}
+      {selected && (
+        <div style={{ marginTop: 16, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(184,152,42,0.3)", borderRadius: 10, padding: "14px 16px" }}>
+          <p style={{ color: GOLD, fontSize: 12, fontWeight: 600, marginBottom: 10 }}>
+            Set price for {selected}
+          </p>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ color: "#9CA3AF", fontSize: 13 }}>$</span>
+            <input
+              type="number"
+              value={editPrice}
+              onChange={(e) => setEditPrice(e.target.value)}
+              placeholder={`Default: ${defaultPrice}`}
+              style={{ ...inputStyle, margin: 0, flex: 1 }}
+            />
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <button
+              onClick={savePrice}
+              disabled={saving}
+              style={{ flex: 1, padding: "9px", background: GOLD, color: "#000", fontWeight: 700, fontSize: 12, border: "none", borderRadius: 7, cursor: "pointer" }}
+            >
+              {saving ? "Saving…" : editPrice === "" ? "Reset to Default" : "Save Price"}
+            </button>
+            <button
+              onClick={() => { setSelected(null); setEditPrice(""); }}
+              style={{ padding: "9px 14px", background: "rgba(255,255,255,0.06)", color: "#9CA3AF", fontSize: 12, border: "none", borderRadius: 7, cursor: "pointer" }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 16, marginTop: 16 }}>
+        {[{ color: "#ffd700", label: "Custom price" }, { color: "rgba(255,80,80,0.5)", label: "Booked" }].map(({ color, label }) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 3, background: color }} />
+            <span style={{ color: "#666", fontSize: 10 }}>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Direct booking link */}
+      {slug && (
+        <div style={{ marginTop: 20, background: "rgba(184,152,42,0.05)", border: "1px solid rgba(184,152,42,0.15)", borderRadius: 10, padding: "12px 14px" }}>
+          <p style={{ color: "#9CA3AF", fontSize: 11, marginBottom: 6 }}>Share this link with direct booking clients:</p>
+          <code style={{ color: GOLD, fontSize: 11, wordBreak: "break-all" }}>
+            {typeof window !== "undefined" ? `${window.location.origin}/${slug}/book` : `/${slug}/book`}
+          </code>
+          <button
+            onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/${slug}/book`)}
+            style={{ marginTop: 8, width: "100%", padding: "8px", background: "rgba(184,152,42,0.15)", color: GOLD, fontSize: 11, fontWeight: 600, border: "none", borderRadius: 6, cursor: "pointer" }}
+          >
+            Copy Booking Link
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type DashTab = "overview" | "intelligence" | "reservations" | "requests" | "experiences" | "guest" | "property" | "builder" | "pricing" | "settings";
 
 const DASH_TABS: { key: DashTab; label: string; Icon: LucideIcon }[] = [
   { key: "overview",     label: "Overview",     Icon: LayoutDashboard   },
@@ -1472,6 +1703,7 @@ const DASH_TABS: { key: DashTab; label: string; Icon: LucideIcon }[] = [
   { key: "guest",        label: "Guest",        Icon: UserRound         },
   { key: "property",     label: "Property",     Icon: KeyRound          },
   { key: "builder",      label: "Stay Builder", Icon: Wand2             },
+  { key: "pricing",      label: "Pricing",      Icon: TrendingUp        },
   { key: "settings",     label: "Settings",     Icon: SettingsIcon      },
 ];
 
@@ -1683,6 +1915,7 @@ export default function HostPreview() {
               {tab === "experiences" && <ExperienceRequests />}
               {tab === "property" && <PropertyStatus />}
               {tab === "builder" && <StayBuilder />}
+              {tab === "pricing" && <PricingCalendar />}
               {tab === "settings" && (
                 <HostSettings
                   onLogout={() => {
