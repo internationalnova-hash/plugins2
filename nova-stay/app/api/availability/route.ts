@@ -16,12 +16,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ bookedRanges: [], prices: {}, defaultPrice: 250 });
     }
 
+    // Fetch all bookings regardless of date format — filter in JS
     const { rows: bookings } = await sql`
       SELECT check_in, check_out
       FROM bookings
       WHERE (property_id = ${propertyId} OR property_id IS NULL)
         AND payment_status IN ('paid', 'unpaid', 'pending')
-        AND check_out >= CURRENT_DATE::TEXT
       ORDER BY check_in;
     `;
 
@@ -47,8 +47,28 @@ export async function GET(req: NextRequest) {
       prices[row.date] = Number(row.price_per_night);
     }
 
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    // Normalize any date string (ISO, "July 10", "July 10 2026", "07/10/2026") to YYYY-MM-DD
+    const normalizeDate = (raw: string): string | null => {
+      if (!raw) return null;
+      const trimmed = raw.trim();
+      // Already ISO format
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+      // Try parsing natural language — default year to current if missing
+      const year = new Date().getFullYear();
+      const withYear = /\d{4}/.test(trimmed) ? trimmed : `${trimmed} ${year}`;
+      const d = new Date(withYear);
+      if (isNaN(d.getTime())) return null;
+      return d.toISOString().slice(0, 10);
+    }
+
+    const bookedRanges = bookings
+      .map((b) => ({ checkIn: normalizeDate(b.check_in), checkOut: normalizeDate(b.check_out) }))
+      .filter((r) => r.checkIn && r.checkOut && r.checkOut! >= todayStr) as { checkIn: string; checkOut: string }[];
+
     return NextResponse.json({
-      bookedRanges: bookings.map((b) => ({ checkIn: b.check_in, checkOut: b.check_out })),
+      bookedRanges,
       prices,
       defaultPrice: Number(pricing.default_price_per_night),
       minNights: Number(pricing.min_nights),

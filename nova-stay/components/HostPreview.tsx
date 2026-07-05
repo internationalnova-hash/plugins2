@@ -1328,8 +1328,8 @@ function ReservationManager() {
                   <p style={{ color: GOLD, fontSize: 11, fontFamily: "monospace", marginBottom: 10 }}>{b.confirmationCode}</p>
                   <input style={inputStyle} placeholder="Guest Name" value={form.guestName} onChange={setField("guestName")} />
                   <div style={{ display: "flex", gap: 8 }}>
-                    <input style={inputStyle} placeholder="Check-In" value={form.checkIn} onChange={setField("checkIn")} />
-                    <input style={inputStyle} placeholder="Check-Out" value={form.checkOut} onChange={setField("checkOut")} />
+                    <input type="date" style={inputStyle} placeholder="Check-In" value={form.checkIn} onChange={setField("checkIn")} />
+                    <input type="date" style={inputStyle} placeholder="Check-Out" value={form.checkOut} onChange={setField("checkOut")} />
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input style={inputStyle} type="number" min={1} placeholder="Nights" value={form.nights} onChange={setField("nights")} />
@@ -1424,8 +1424,8 @@ function ReservationManager() {
       <input style={inputStyle} placeholder="Guest Name" value={editingCode ? "" : form.guestName} onChange={setField("guestName")} disabled={!!editingCode} />
       <input style={inputStyle} placeholder="Confirmation Code" value={editingCode ? "" : form.confirmationCode} onChange={setField("confirmationCode")} disabled={!!editingCode} />
       <div style={{ display: "flex", gap: 8 }}>
-        <input style={inputStyle} placeholder="Check-In (e.g. July 24)" value={editingCode ? "" : form.checkIn} onChange={setField("checkIn")} disabled={!!editingCode} />
-        <input style={inputStyle} placeholder="Check-Out" value={editingCode ? "" : form.checkOut} onChange={setField("checkOut")} disabled={!!editingCode} />
+        <input type="date" style={inputStyle} placeholder="Check-In" value={editingCode ? "" : form.checkIn} onChange={setField("checkIn")} disabled={!!editingCode} />
+        <input type="date" style={inputStyle} placeholder="Check-Out" value={editingCode ? "" : form.checkOut} onChange={setField("checkOut")} disabled={!!editingCode} />
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <input style={inputStyle} type="number" min={1} placeholder="Nights" value={editingCode ? "" : form.nights} onChange={setField("nights")} disabled={!!editingCode} />
