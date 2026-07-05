@@ -34,13 +34,13 @@ export async function GET(req: NextRequest) {
     `;
 
     const { rows: pricingRows } = await sql`
-      SELECT default_price_per_night, min_nights
+      SELECT default_price_per_night, min_nights, cleaning_fee
       FROM property_pricing
       WHERE property_id = ${propertyId}
       LIMIT 1;
     `;
 
-    const pricing = pricingRows[0] || { default_price_per_night: 250, min_nights: 1 };
+    const pricing = pricingRows[0] || { default_price_per_night: 250, min_nights: 1, cleaning_fee: 175 };
 
     const prices: Record<string, number> = {};
     for (const row of datePrices) {
@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
       prices,
       defaultPrice: Number(pricing.default_price_per_night),
       minNights: Number(pricing.min_nights),
+      cleaningFee: Number(pricing.cleaning_fee ?? 175),
     });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message }, { status: 500 });

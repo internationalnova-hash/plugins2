@@ -248,9 +248,11 @@ async function createSchema(): Promise<void> {
       property_id INTEGER PRIMARY KEY REFERENCES properties(id) ON DELETE CASCADE,
       default_price_per_night NUMERIC(10,2) NOT NULL DEFAULT 250,
       min_nights INTEGER NOT NULL DEFAULT 1,
+      cleaning_fee NUMERIC(10,2) NOT NULL DEFAULT 175,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
   `;
+  await sql`ALTER TABLE property_pricing ADD COLUMN IF NOT EXISTS cleaning_fee NUMERIC(10,2) NOT NULL DEFAULT 175;`;
 
   // One-time migration: fold the legacy single-property data (property_state
   // id=1, stay_guide id=1, and any rows with a null property_id) into a

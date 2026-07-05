@@ -36,6 +36,7 @@ export default function AvailabilityCalendar({ slug = "casanova", onBook }: Cale
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [defaultPrice, setDefaultPrice] = useState(250);
   const [minNights, setMinNights] = useState(1);
+  const [cleaningFee, setCleaningFee] = useState(175);
   const [checkIn, setCheckIn] = useState<string | null>(null);
   const [checkOut, setCheckOut] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -53,6 +54,7 @@ export default function AvailabilityCalendar({ slug = "casanova", onBook }: Cale
         setPrices(data.prices || {});
         setDefaultPrice(data.defaultPrice ?? 250);
         setMinNights(data.minNights ?? 1);
+        setCleaningFee(data.cleaningFee ?? 175);
       })
       .finally(() => setLoading(false));
   }, [slug]);
@@ -167,7 +169,9 @@ export default function AvailabilityCalendar({ slug = "casanova", onBook }: Cale
   };
 
   const selectedNights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) : 0;
-  const selectedTotal = checkIn && checkOut ? calcTotal(checkIn, checkOut) : 0;
+  const nightlySubtotal = checkIn && checkOut ? calcTotal(checkIn, checkOut) : 0;
+  const processingFee = checkIn && checkOut ? Math.round((nightlySubtotal + cleaningFee) * 0.029 * 100 + 30) / 100 : 0;
+  const selectedTotal = nightlySubtotal + cleaningFee + processingFee;
 
   const handleProceed = () => {
     if (!checkIn || !checkOut) return;
@@ -277,10 +281,6 @@ export default function AvailabilityCalendar({ slug = "casanova", onBook }: Cale
                       <div style={{ color: "#888", fontSize: 11, marginBottom: 2 }}>NIGHTS</div>
                       <div style={{ color: "#fff", fontWeight: 600 }}>{selectedNights}</div>
                     </div>
-                    <div>
-                      <div style={{ color: "#888", fontSize: 11, marginBottom: 2 }}>TOTAL</div>
-                      <div style={{ color: "#b8982a", fontWeight: 700, fontSize: 18 }}>${selectedTotal.toLocaleString()}</div>
-                    </div>
                   </>
                 ) : (
                   <div style={{ color: "#aaa", fontSize: 13, alignSelf: "center" }}>
@@ -290,16 +290,32 @@ export default function AvailabilityCalendar({ slug = "casanova", onBook }: Cale
               </div>
 
               {checkOut && (
-                <button
-                  onClick={handleProceed}
-                  style={{
-                    marginTop: 16, width: "100%", padding: "12px 0",
-                    background: "#b8982a", color: "#000", fontWeight: 700,
-                    fontSize: 15, border: "none", borderRadius: 8, cursor: "pointer",
-                  }}
-                >
-                  Continue to Book
-                </button>
+                <div style={{ marginTop: 16, borderTop: "1px solid rgba(184,152,42,0.2)", paddingTop: 14 }}>
+                  {[
+                    { label: `${selectedNights} night${selectedNights !== 1 ? "s" : ""} × avg $${selectedNights ? Math.round(nightlySubtotal / selectedNights) : 0}`, value: nightlySubtotal },
+                    { label: "Cleaning fee", value: cleaningFee },
+                    { label: "Processing fee (2.9% + $0.30)", value: processingFee },
+                  ].map(({ label, value }) => (
+                    <div key={label} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                      <span style={{ color: "#aaa", fontSize: 13 }}>{label}</span>
+                      <span style={{ color: "#fff", fontSize: 13 }}>${value.toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(184,152,42,0.2)", paddingTop: 10, marginTop: 6 }}>
+                    <span style={{ color: "#fff", fontWeight: 700 }}>Total</span>
+                    <span style={{ color: "#b8982a", fontWeight: 700, fontSize: 18 }}>${selectedTotal.toFixed(2)}</span>
+                  </div>
+                  <button
+                    onClick={handleProceed}
+                    style={{
+                      marginTop: 14, width: "100%", padding: "12px 0",
+                      background: "#b8982a", color: "#000", fontWeight: 700,
+                      fontSize: 15, border: "none", borderRadius: 8, cursor: "pointer",
+                    }}
+                  >
+                    Continue to Book
+                  </button>
+                </div>
               )}
 
               <button

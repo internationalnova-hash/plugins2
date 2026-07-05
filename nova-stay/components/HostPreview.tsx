@@ -1473,6 +1473,7 @@ function PricingCalendar() {
   const [bookedDates, setBookedDates] = useState<Set<string>>(new Set());
   const [defaultPrice, setDefaultPrice] = useState(250);
   const [minNights, setMinNights] = useState(1);
+  const [cleaningFee, setCleaningFee] = useState(175);
   const [selected, setSelected]   = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState("");
   const [saving, setSaving]       = useState(false);
@@ -1493,6 +1494,7 @@ function PricingCalendar() {
         setPrices(map);
         setDefaultPrice(data.defaultPrice ?? 250);
         setMinNights(data.minNights ?? 1);
+        setCleaningFee(data.cleaningFee ?? 175);
         const booked = new Set<string>();
         for (const r of (data.bookedRanges || [])) {
           const cur = new Date(r.checkIn + "T12:00:00Z");
@@ -1532,7 +1534,7 @@ function PricingCalendar() {
     await fetch("/api/pricing", {
       method: "POST",
       headers: authHeaders,
-      body: JSON.stringify({ defaultPrice, minNights }),
+      body: JSON.stringify({ defaultPrice, minNights, cleaningFee }),
     });
     setDefaultSaving(false);
   };
@@ -1571,6 +1573,15 @@ function PricingCalendar() {
               style={{ ...inputStyle, margin: 0 }}
             />
           </div>
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <label style={{ color: "#9CA3AF", fontSize: 11, display: "block", marginBottom: 4 }}>Cleaning fee ($)</label>
+          <input
+            type="number"
+            value={cleaningFee}
+            onChange={(e) => setCleaningFee(Number(e.target.value))}
+            style={{ ...inputStyle, margin: 0 }}
+          />
         </div>
         <button
           onClick={saveDefaults}

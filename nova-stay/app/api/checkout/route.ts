@@ -9,12 +9,11 @@ function getStripe() {
   return new Stripe(key, { apiVersion: "2026-06-24.dahlia" });
 }
 
-// Given check-in, check-out, and slug, calculate total using date_prices + default.
-async function calculateTotal(
+async function calculateNightlyTotal(
   propertyId: number,
   checkIn: string,
   checkOut: string
-): Promise<{ total: number; nights: number; breakdown: { date: string; price: number }[] }> {
+): Promise<{ nightlyTotal: number; nights: number; cleaningFee: number }> {
   const { rows: customPrices } = await sql`
     SELECT date::TEXT AS date, price_per_night
     FROM date_prices
@@ -24,28 +23,30 @@ async function calculateTotal(
   `;
 
   const { rows: pricingRows } = await sql`
-    SELECT default_price_per_night FROM property_pricing WHERE property_id = ${propertyId} LIMIT 1;
+    SELECT default_price_per_night, cleaning_fee FROM property_pricing WHERE property_id = ${propertyId} LIMIT 1;
   `;
   const defaultPrice = Number(pricingRows[0]?.default_price_per_night ?? 250);
+  const cleaningFee = Number(pricingRows[0]?.cleaning_fee ?? 175);
 
   const customMap: Record<string, number> = {};
   for (const row of customPrices) {
     customMap[row.date] = Number(row.price_per_night);
   }
 
-  const breakdown: { date: string; price: number }[] = [];
   const start = new Date(checkIn + "T12:00:00Z");
   const end = new Date(checkOut + "T12:00:00Z");
   const cur = new Date(start);
+  let nightlyTotal = 0;
+  let nights = 0;
 
   while (cur < end) {
     const dateStr = cur.toISOString().slice(0, 10);
-    breakdown.push({ date: dateStr, price: customMap[dateStr] ?? defaultPrice });
+    nightlyTotal += customMap[dateStr] ?? defaultPrice;
+    nights++;
     cur.setUTCDate(cur.getUTCDate() + 1);
   }
 
-  const total = breakdown.reduce((sum, d) => sum + d.price, 0);
-  return { total, nights: breakdown.length, breakdown };
+  return { nightlyTotal, nights, cleaningFee };
 }
 
 export async function POST(req: NextRequest) {
@@ -63,7 +64,6 @@ export async function POST(req: NextRequest) {
     const propertyId = await getPropertyIdBySlug(slug);
     if (!propertyId) return NextResponse.json({ error: "Property not found" }, { status: 404 });
 
-    // Check availability — reject if any booking overlaps
     const { rows: conflicts } = await sql`
       SELECT confirmation_code FROM bookings
       WHERE (property_id = ${propertyId} OR property_id IS NULL)
@@ -76,7 +76,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Those dates are no longer available." }, { status: 409 });
     }
 
-    const { total, nights, breakdown } = await calculateTotal(propertyId, checkIn, checkOut);
+    const { nightlyTotal, nights, cleaningFee } = await calculateNightlyTotal(propertyId, checkIn, checkOut);
+
+    // Stripe processing fee: 2.9% + $0.30 — passed to guest
+    const subtotal = nightlyTotal + cleaningFee;
+    const processingFee = Math.round((subtotal * 0.029 + 0.30) * 100) / 100;
+    const grandTotal = subtotal + processingFee;
 
     const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://nova-stay.vercel.app";
 
@@ -89,10 +94,26 @@ export async function POST(req: NextRequest) {
           price_data: {
             currency: "usd",
             product_data: {
-              name: `Direct Booking — ${nights} night${nights !== 1 ? "s" : ""}`,
+              name: `${nights} Night${nights !== 1 ? "s" : ""} — Casanova ATL`,
               description: `Check-in: ${checkIn}  ·  Check-out: ${checkOut}`,
             },
-            unit_amount: Math.round(total * 100),
+            unit_amount: Math.round(nightlyTotal * 100),
+          },
+          quantity: 1,
+        },
+        {
+          price_data: {
+            currency: "usd",
+            product_data: { name: "Cleaning Fee" },
+            unit_amount: Math.round(cleaningFee * 100),
+          },
+          quantity: 1,
+        },
+        {
+          price_data: {
+            currency: "usd",
+            product_data: { name: "Processing Fee" },
+            unit_amount: Math.round(processingFee * 100),
           },
           quantity: 1,
         },
@@ -105,19 +126,18 @@ export async function POST(req: NextRequest) {
         nights: String(nights),
         guestName,
         guestEmail,
-        totalPrice: String(total),
+        totalPrice: String(grandTotal),
       },
       success_url: `${origin}/${slug}?booking=success`,
       cancel_url: `${origin}/${slug}?booking=cancelled`,
     });
 
-    // Create a pending booking immediately so dates are held
     const confirmationCode = `DIRECT-${Date.now()}`;
     await sql`
       INSERT INTO bookings (confirmation_code, guest_name, guest_email, check_in, check_out, nights,
         booked_guests, booking_source, property_id, payment_status, stripe_session_id, total_price)
       VALUES (${confirmationCode}, ${guestName}, ${guestEmail}, ${checkIn}, ${checkOut}, ${nights},
-        1, 'direct', ${propertyId}, 'pending', ${session.id}, ${total});
+        1, 'direct', ${propertyId}, 'pending', ${session.id}, ${grandTotal});
     `;
 
     return NextResponse.json({ url: session.url, sessionId: session.id });
