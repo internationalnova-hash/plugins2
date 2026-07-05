@@ -70,6 +70,7 @@ export const propertyConfig = {
       "Children must be supervised at all times.",
       "Please shower before entering the pool.",
       "No jumping or diving — shallow areas present.",
+      "Please keep the back gate closed at all times while using the backyard. This ensures your full privacy and helps minimize noise for our neighbors.",
       "Keep music at a respectful volume outdoors.",
       "Outdoor quiet hours begin at 9:00 PM — no loud music or gatherings outside after this time.",
     ],
