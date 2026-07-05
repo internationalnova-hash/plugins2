@@ -1461,6 +1461,127 @@ function ReservationManager() {
   );
 }
 
+// ─── Custom Quote ────────────────────────────────────────────────────────────
+function CustomQuote({ slug, authHeaders }: { slug: string; authHeaders: Record<string, string> }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ guestName: "", guestEmail: "", checkIn: "", checkOut: "", nightlyRate: "", cleaningFee: "175", description: "" });
+  const [result, setResult] = useState<{ url: string; total: number; nights: number } | null>(null);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const setF = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const handleGenerate = async () => {
+    if (!form.guestName || !form.guestEmail || !form.checkIn || !form.checkOut || !form.nightlyRate) {
+      setError("Please fill in all required fields."); return;
+    }
+    setError(""); setSending(true); setResult(null);
+    try {
+      const res = await fetch("/api/quote", {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, slug }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Failed to generate quote."); setSending(false); return; }
+      setResult(data);
+    } catch { setError("Network error."); }
+    setSending(false);
+  };
+
+  const copyLink = () => {
+    if (!result?.url) return;
+    navigator.clipboard?.writeText(result.url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <button
+        onClick={() => { setOpen((o) => !o); setResult(null); setError(""); }}
+        style={{ width: "100%", padding: "11px", background: open ? "rgba(184,152,42,0.15)" : "rgba(255,255,255,0.05)", color: GOLD, fontWeight: 700, fontSize: 12, border: `1px solid ${GOLD}44`, borderRadius: 8, cursor: "pointer" }}
+      >
+        {open ? "▲ Close Custom Quote" : "✦ Send Custom Quote"}
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(184,152,42,0.2)", borderRadius: 10, padding: 16 }}>
+          <p style={{ color: "#9CA3AF", fontSize: 11, marginBottom: 14 }}>
+            Generate a personalized payment link with custom pricing — perfect for return clients or waived fees.
+          </p>
+
+          {[
+            { label: "Guest Name *", key: "guestName", placeholder: "e.g. Marcus Johnson" },
+            { label: "Guest Email *", key: "guestEmail", placeholder: "guest@email.com" },
+          ].map(({ label, key, placeholder }) => (
+            <div key={key} style={{ marginBottom: 10 }}>
+              <label style={{ color: "#9CA3AF", fontSize: 11, display: "block", marginBottom: 4 }}>{label}</label>
+              <input value={(form as any)[key]} onChange={setF(key)} placeholder={placeholder} style={{ ...inputStyle, margin: 0 }} />
+            </div>
+          ))}
+
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: "#9CA3AF", fontSize: 11, display: "block", marginBottom: 4 }}>Check-In *</label>
+              <input type="date" value={form.checkIn} onChange={setF("checkIn")} style={{ ...inputStyle, margin: 0 }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: "#9CA3AF", fontSize: 11, display: "block", marginBottom: 4 }}>Check-Out *</label>
+              <input type="date" value={form.checkOut} onChange={setF("checkOut")} style={{ ...inputStyle, margin: 0 }} />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: "#9CA3AF", fontSize: 11, display: "block", marginBottom: 4 }}>Nightly Rate ($) *</label>
+              <input type="number" value={form.nightlyRate} onChange={setF("nightlyRate")} placeholder="250" style={{ ...inputStyle, margin: 0 }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: "#9CA3AF", fontSize: 11, display: "block", marginBottom: 4 }}>Cleaning Fee ($) — 0 to waive</label>
+              <input type="number" value={form.cleaningFee} onChange={setF("cleaningFee")} placeholder="175" style={{ ...inputStyle, margin: 0 }} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ color: "#9CA3AF", fontSize: 11, display: "block", marginBottom: 4 }}>Note (optional)</label>
+            <input value={form.description} onChange={setF("description")} placeholder="e.g. Return client — film shoot" style={{ ...inputStyle, margin: 0 }} />
+          </div>
+
+          {error && <p style={{ color: "#ff6060", fontSize: 12, marginBottom: 10 }}>{error}</p>}
+
+          <button
+            onClick={handleGenerate}
+            disabled={sending}
+            style={{ width: "100%", padding: "10px", background: GOLD, color: "#000", fontWeight: 700, fontSize: 13, border: "none", borderRadius: 7, cursor: sending ? "default" : "pointer", opacity: sending ? 0.6 : 1, marginBottom: 10 }}
+          >
+            {sending ? "Generating…" : "Generate Payment Link"}
+          </button>
+
+          {result && (
+            <div style={{ background: "rgba(184,152,42,0.08)", border: "1px solid rgba(184,152,42,0.3)", borderRadius: 8, padding: 14 }}>
+              <p style={{ color: GOLD, fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
+                Quote ready — {result.nights} night{result.nights !== 1 ? "s" : ""} · ${result.total.toFixed(2)} total
+              </p>
+              <code style={{ color: "#ccc", fontSize: 10, wordBreak: "break-all", display: "block", marginBottom: 10 }}>
+                {result.url}
+              </code>
+              <button
+                onClick={copyLink}
+                style={{ width: "100%", padding: "9px", background: copied ? "rgba(74,222,128,0.2)" : "rgba(184,152,42,0.2)", color: copied ? "#4ade80" : GOLD, fontWeight: 700, fontSize: 12, border: "none", borderRadius: 6, cursor: "pointer" }}
+              >
+                {copied ? "✓ Copied!" : "Copy Link to Send"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Host Pricing Calendar ───────────────────────────────────────────────────
 const MONTH_NAMES_P = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const MONTH_FULL_P  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -1699,6 +1820,9 @@ function PricingCalendar() {
           </button>
         </div>
       )}
+
+      {/* Custom Quote */}
+      <CustomQuote slug={slug} authHeaders={authHeaders} />
     </div>
   );
 }
