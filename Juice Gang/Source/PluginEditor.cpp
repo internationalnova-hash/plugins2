@@ -196,7 +196,7 @@ void DelayVisualizer::paint (juce::Graphics& g)
 JuiceGangEditor::JuiceGangEditor (JuiceGangProcessor& p)
     : AudioProcessorEditor (&p), proc (p), filterCurve (p.apvts), reverbEQCurve (p.apvts)
 {
-    setSize (960, 700);
+    setSize (980, 800);
     setLookAndFeel (&laf);
 
     auto& a = p.apvts;
@@ -364,288 +364,321 @@ void JuiceGangEditor::timerCallback()
 void JuiceGangEditor::paint (juce::Graphics& g)
 {
     const float W = (float)getWidth(), H = (float)getHeight();
+    // Layout constants
+    const float sideW  = 36.f;   // side strip width each side
+    const float gableH = 100.f;  // carton top gable height
+    const float hdrH   = 70.f;   // branding header height below gable
+    const float bodyTop = gableH; // where front face begins
 
     // ═══ CARTON BODY ══════════════════════════════════════════════════════════
-    juce::ColourGradient body (juce::Colour(0xff5a0aac), W * 0.5f, 0.f,
-                                juce::Colour(0xff360068), W * 0.5f, H, true);
+    juce::ColourGradient body (juce::Colour(0xff5c0ab0), W * 0.5f, 0.f,
+                                juce::Colour(0xff380070), W * 0.5f, H, true);
     g.setGradientFill (body);
     g.fillAll();
 
-    // Vertical highlight sheen
-    juce::ColourGradient shine (juce::Colours::white.withAlpha (0.06f), W * 0.22f, 0.f,
-                                 juce::Colours::transparentBlack, W * 0.60f, 0.f, false);
+    // Subtle vertical shine
+    juce::ColourGradient shine (juce::Colours::white.withAlpha (0.07f), W * 0.25f, 0.f,
+                                 juce::Colours::transparentBlack, W * 0.58f, 0.f, false);
     g.setGradientFill (shine);
     g.fillAll();
 
-    // ═══ GABLED TOP ════════════════════════════════════════════════════════════
-    const float gH = 52.f;
+    // ═══ GABLED CARTON TOP ═════════════════════════════════════════════════════
+    // Very dark background for the "top face" region
+    g.setColour (juce::Colour (0xff110028));
+    g.fillRect (0.f, 0.f, W, gableH);
 
-    juce::Path leftFold;
-    leftFold.startNewSubPath (0.f, gH * 0.58f);
-    leftFold.lineTo (W * 0.21f, 0.f);
-    leftFold.lineTo (W * 0.46f, 0.f);
-    leftFold.lineTo (W * 0.40f, gH * 0.58f);
-    leftFold.closeSubPath();
-    g.setColour (juce::Colour (0xff7e22d8).withAlpha (0.55f));
-    g.fillPath (leftFold);
+    // Left fold panel – slightly lighter than background, angled
+    juce::Path leftPanel;
+    leftPanel.startNewSubPath (0.f, gableH);
+    leftPanel.lineTo (W * 0.19f, 0.f);
+    leftPanel.lineTo (W * 0.48f, 0.f);
+    leftPanel.lineTo (W * 0.42f, gableH);
+    leftPanel.closeSubPath();
+    g.setColour (juce::Colour (0xff3a0878));
+    g.fillPath (leftPanel);
 
-    juce::Path rightFold;
-    rightFold.startNewSubPath (W, gH * 0.58f);
-    rightFold.lineTo (W * 0.79f, 0.f);
-    rightFold.lineTo (W * 0.54f, 0.f);
-    rightFold.lineTo (W * 0.60f, gH * 0.58f);
-    rightFold.closeSubPath();
-    g.setColour (juce::Colour (0xff7e22d8).withAlpha (0.55f));
-    g.fillPath (rightFold);
+    // Right fold panel
+    juce::Path rightPanel;
+    rightPanel.startNewSubPath (W, gableH);
+    rightPanel.lineTo (W * 0.81f, 0.f);
+    rightPanel.lineTo (W * 0.52f, 0.f);
+    rightPanel.lineTo (W * 0.58f, gableH);
+    rightPanel.closeSubPath();
+    g.setColour (juce::Colour (0xff3a0878));
+    g.fillPath (rightPanel);
 
-    g.setColour (juce::Colours::white.withAlpha (0.20f));
-    g.drawLine (W * 0.21f, 0.f, W * 0.40f, gH * 0.58f, 1.5f);
-    g.drawLine (W * 0.79f, 0.f, W * 0.60f, gH * 0.58f, 1.5f);
-    g.setColour (juce::Colours::white.withAlpha (0.10f));
-    g.drawLine (0.f, gH * 0.58f, W, gH * 0.58f, 1.f);
-
+    // Bright crease lines — these are the key visual element of the gable
     g.setColour (juce::Colours::white.withAlpha (0.55f));
-    g.setFont (juce::Font (7.5f, juce::Font::bold));
-    g.drawText ("OPEN \xe2\x96\xb6", 10, 6, 64, 12, juce::Justification::centredLeft);
+    g.drawLine (W * 0.19f, 0.f, W * 0.42f, gableH, 2.5f);
+    g.drawLine (W * 0.81f, 0.f, W * 0.58f, gableH, 2.5f);
+    // Bottom crease
+    g.setColour (juce::Colours::white.withAlpha (0.25f));
+    g.drawLine (0.f, gableH, W, gableH, 1.5f);
+    // Top edge of fold panels
+    g.setColour (juce::Colours::white.withAlpha (0.35f));
+    g.drawLine (W * 0.19f, 0.f, W * 0.81f, 0.f, 1.f);
+
+    // OPEN label on the gable top-face
+    g.setColour (juce::Colours::white.withAlpha (0.6f));
+    g.setFont (juce::Font (8.f, juce::Font::bold));
+    g.drawText ("OPEN \xe2\x96\xb6", 14, 8, 68, 14, juce::Justification::centredLeft);
 
     // ═══ STRAW ════════════════════════════════════════════════════════════════
-    const float sX = W * 0.385f;
-    g.setColour (juce::Colour (0xffe6e6e6));
-    g.fillRoundedRectangle (sX, -2.f, 13.f, 50.f, 4.f);
-    g.fillRoundedRectangle (sX - 26.f, -2.f, 39.f, 13.f, 4.f);
-    g.fillEllipse (sX - 4.f, -2.f, 17.f, 17.f);
-    g.fillEllipse (sX - 26.f, -2.f, 13.f, 13.f);
-    g.setColour (juce::Colour (0xffbbbbbb).withAlpha (0.5f));
-    g.drawLine (sX + 4.5f, 6.f, sX + 4.5f, 48.f, 1.f);
+    // Large, clearly visible straw in upper-left of gable area
+    const float sX = 120.f, sY = -4.f;
+    g.setColour (juce::Colour (0xfff0f0f0));
+    // Horizontal portion (the part sticking out to the left)
+    g.fillRoundedRectangle (sX - 56.f, sY + 2.f, 70.f, 18.f, 6.f);
+    // Vertical shaft going down into carton
+    g.fillRoundedRectangle (sX, sY, 18.f, gableH + 8.f, 6.f);
+    // Corner junction fill
+    g.fillEllipse (sX - 2.f, sY, 22.f, 22.f);
+    // Left open end
+    g.setColour (juce::Colour (0xffcccccc));
+    g.fillEllipse (sX - 56.f, sY + 2.f, 18.f, 18.f);
+    // Straw stripe detail
+    g.setColour (juce::Colour (0xffdddddd).withAlpha (0.6f));
+    g.drawLine (sX + 6.f, sY + 4.f, sX + 6.f, gableH + 4.f, 1.5f);
 
-    // ═══ HEADER ═══════════════════════════════════════════════════════════════
-    const float hTop = gH * 0.52f;
-    g.setColour (juce::Colour (0xff1c0048));
-    g.fillRect (0.f, hTop, W, 74.f - hTop + 14.f);
+    // ═══ HEADER / BRANDING ════════════════════════════════════════════════════
+    g.setColour (juce::Colour (0xff1a0044));
+    g.fillRect (0.f, gableH, W, hdrH);
+    // Bottom edge of header
+    g.setColour (kGreen.withAlpha (0.4f));
+    g.drawLine (0.f, gableH + hdrH, W, gableH + hdrH, 1.5f);
 
+    // JUICE title
     g.setColour (juce::Colours::white);
-    g.setFont (juce::Font (42.f, juce::Font::bold | juce::Font::italic));
-    g.drawText ("JUICE", 18, (int)hTop + 4, 230, 48, juce::Justification::centredLeft);
-    g.setFont (juce::Font (10.5f, juce::Font::bold));
+    g.setFont (juce::Font (50.f, juce::Font::bold | juce::Font::italic));
+    g.drawText ("JUICE", (int)sideW, (int)gableH + 6, 280, 56, juce::Justification::centredLeft);
+    g.setFont (juce::Font (11.f, juce::Font::bold));
     g.setColour (kGreen);
-    g.drawText ("NOVA MOTION FX", 20, (int)hTop + 52, 190, 14, juce::Justification::centredLeft);
+    g.drawText ("NOVA MOTION FX", (int)sideW + 2, (int)gableH + 58, 200, 14, juce::Justification::centredLeft);
 
+    // GANG title
     g.setColour (juce::Colours::white);
-    g.setFont (juce::Font (42.f, juce::Font::bold | juce::Font::italic));
-    g.drawText ("GANG", (int)(W - 248.f), (int)hTop + 4, 230, 48, juce::Justification::centredRight);
-    g.setFont (juce::Font (10.5f, juce::Font::bold));
-    g.setColour (juce::Colours::white.withAlpha (0.65f));
-    g.drawText ("LOYALTY IS FAMILY", (int)(W - 248.f), (int)hTop + 52, 228, 14, juce::Justification::centredRight);
+    g.setFont (juce::Font (50.f, juce::Font::bold | juce::Font::italic));
+    g.drawText ("GANG", (int)(W - sideW - 280.f), (int)gableH + 6, 276, 56, juce::Justification::centredRight);
+    g.setFont (juce::Font (11.f, juce::Font::bold));
+    g.setColour (juce::Colours::white.withAlpha (0.6f));
+    g.drawText ("LOYALTY IS FAMILY", (int)(W - sideW - 246.f), (int)gableH + 58, 242, 14, juce::Justification::centredRight);
 
-    // $$ badge
-    const float bcx = W * 0.5f, bcy = hTop + 38.f, bR = 32.f;
-    juce::ColourGradient glow (kGreen.withAlpha (0.22f), bcx, bcy,
-                                juce::Colours::transparentBlack, bcx + bR + 12.f, bcy, true);
+    // $$ badge (circular crest, centred in header)
+    const float bcx = W * 0.5f, bcy = gableH + hdrH * 0.5f, bR = 36.f;
+    // Glow
+    juce::ColourGradient glow (kGreen.withAlpha (0.28f), bcx, bcy,
+                                juce::Colours::transparentBlack, bcx + bR + 14.f, bcy, true);
     g.setGradientFill (glow);
-    g.fillEllipse (bcx - bR - 10.f, bcy - bR - 10.f, (bR + 10.f) * 2.f, (bR + 10.f) * 2.f);
+    g.fillEllipse (bcx - bR - 12.f, bcy - bR - 12.f, (bR + 12.f) * 2.f, (bR + 12.f) * 2.f);
+    // White fill
     g.setColour (juce::Colours::white);
     g.fillEllipse (bcx - bR, bcy - bR, bR * 2.f, bR * 2.f);
+    // Green border
     g.setColour (kGreen);
-    g.drawEllipse (bcx - bR, bcy - bR, bR * 2.f, bR * 2.f, 2.5f);
-    g.setFont (juce::Font (26.f, juce::Font::bold));
+    g.drawEllipse (bcx - bR, bcy - bR, bR * 2.f, bR * 2.f, 3.f);
+    // Inner ring
+    g.setColour (kGreen.withAlpha (0.3f));
+    g.drawEllipse (bcx - bR + 5.f, bcy - bR + 5.f, (bR - 5.f) * 2.f, (bR - 5.f) * 2.f, 1.f);
+    // $$ text
+    g.setFont (juce::Font (30.f, juce::Font::bold));
     g.setColour (kGreen);
     g.drawText ("$$", (int)(bcx - bR), (int)(bcy - bR), (int)(bR * 2.f), (int)(bR * 2.f),
                 juce::Justification::centred);
 
-    // ═══ SIDE STRIPS ══════════════════════════════════════════════════════════
-    g.setColour (juce::Colour (0xff140038));
-    g.fillRect (0.f, 74.f, 10.f, H - 104.f);
-    g.fillRect (W - 10.f, 74.f, 10.f, H - 104.f);
+    // ═══ LEFT SIDE STRIP ══════════════════════════════════════════════════════
+    g.setColour (juce::Colour (0xff100030));
+    g.fillRect (0.f, bodyTop + hdrH, sideW, H - bodyTop - hdrH - 32.f);
 
+    // Side text "JUICE GANG"
     g.saveState();
-    float midY = 74.f + (H - 104.f) * 0.5f;
+    float midSideY = bodyTop + hdrH + (H - bodyTop - hdrH - 32.f) * 0.5f;
     g.addTransform (juce::AffineTransform::rotation (
-        -juce::MathConstants<float>::halfPi, 5.f, midY));
-    g.setColour (juce::Colours::white.withAlpha (0.45f));
-    g.setFont (juce::Font (9.f, juce::Font::bold));
-    g.drawText ("JUICE GANG  \xe2\x80\x94  LOYALTY IS FAMILY",
-                (int)(5.f - 130.f), (int)midY - 7, 260, 14, juce::Justification::centred);
+        -juce::MathConstants<float>::halfPi, sideW * 0.5f, midSideY));
+    g.setColour (juce::Colours::white.withAlpha (0.5f));
+    g.setFont (juce::Font (10.f, juce::Font::bold));
+    g.drawText ("JUICE GANG", (int)(sideW * 0.5f - 60.f), (int)midSideY - 7, 120, 14,
+                juce::Justification::centred);
     g.restoreState();
 
-    g.setFont (juce::Font (20.f, juce::Font::bold));
-    g.setColour (kGreen.withAlpha (0.4f));
-    g.drawText ("$", 0, 350, 10, 28, juce::Justification::centred);
+    // Side dollar sign
+    g.setFont (juce::Font (22.f, juce::Font::bold));
+    g.setColour (kGreen.withAlpha (0.45f));
+    g.drawText ("$", 0, (int)(midSideY + 40.f), (int)sideW, 28, juce::Justification::centred);
 
-    // Barcode decoration
-    g.setColour (juce::Colours::white.withAlpha (0.28f));
-    for (int i = 0; i < 20; i++)
-        g.fillRect (1 + i * 2, (int)(H - 110.f), (i % 3 == 0 ? 2 : 1), 16);
+    // Barcode (bottom of side strip)
+    g.setColour (juce::Colours::white.withAlpha (0.3f));
+    for (int i = 0; i < 22; i++)
+        g.fillRect (3 + i * 2, (int)(H - 110.f), (i % 3 == 0 ? 2 : 1), 18);
 
+    // "MADE FOR CREATORS BY NOVA" rotated
     g.saveState();
+    float mfcY = H - 80.f;
     g.addTransform (juce::AffineTransform::rotation (
-        -juce::MathConstants<float>::halfPi, 5.f, H - 80.f));
-    g.setColour (juce::Colours::white.withAlpha (0.35f));
-    g.setFont (juce::Font (7.f, juce::Font::bold));
+        -juce::MathConstants<float>::halfPi, sideW * 0.5f, mfcY));
+    g.setColour (juce::Colours::white.withAlpha (0.38f));
+    g.setFont (juce::Font (7.5f, juce::Font::bold));
     g.drawText ("MADE FOR CREATORS BY NOVA",
-                (int)(5.f - 90.f), (int)(H - 80.f) - 7, 180, 14, juce::Justification::centred);
+                (int)(sideW * 0.5f - 90.f), (int)mfcY - 7, 180, 14, juce::Justification::centred);
     g.restoreState();
+
+    // ═══ RIGHT SIDE STRIP ════════════════════════════════════════════════════
+    g.setColour (juce::Colour (0xff100030));
+    g.fillRect (W - sideW, bodyTop + hdrH, sideW, H - bodyTop - hdrH - 32.f);
 
     // ═══ PRESET BAR ═══════════════════════════════════════════════════════════
-    g.setColour (juce::Colour (0xff140038));
-    g.fillRect (0.f, H - 30.f, W, 30.f);
-    g.setColour (kGreen.withAlpha (0.3f));
-    g.drawLine (0.f, H - 30.f, W, H - 30.f, 1.f);
+    g.setColour (juce::Colour (0xff100030));
+    g.fillRect (0.f, H - 32.f, W, 32.f);
+    g.setColour (kGreen.withAlpha (0.35f));
+    g.drawLine (0.f, H - 32.f, W, H - 32.f, 1.5f);
 
     // ═══ PANELS ═══════════════════════════════════════════════════════════════
     auto drawPanel = [&](juce::Rectangle<int> r, const juce::String& title)
     {
-        g.setColour (juce::Colour (0xfff0eaff));
-        g.fillRoundedRectangle (r.toFloat(), 5.f);
-
-        juce::Rectangle<float> hdr ((float)r.getX(), (float)r.getY(), (float)r.getWidth(), 22.f);
+        // Light lavender body
+        g.setColour (juce::Colour (0xffede6ff));
+        g.fillRoundedRectangle (r.toFloat(), 6.f);
+        // Purple header strip
+        juce::Rectangle<float> hdrR ((float)r.getX(), (float)r.getY(), (float)r.getWidth(), 24.f);
         g.setColour (kPurpleDark);
-        g.fillRoundedRectangle (hdr, 5.f);
-        g.fillRect ((float)r.getX(), hdr.getY() + 12.f, (float)r.getWidth(), 10.f);
-
-        g.setColour (kPanelBorder.withAlpha (0.45f));
-        g.drawRoundedRectangle (r.toFloat(), 5.f, 1.f);
-
+        g.fillRoundedRectangle (hdrR, 6.f);
+        g.fillRect ((float)r.getX(), hdrR.getY() + 14.f, (float)r.getWidth(), 10.f);
+        // Border
+        g.setColour (kPanelBorder.withAlpha (0.4f));
+        g.drawRoundedRectangle (r.toFloat(), 6.f, 1.f);
+        // Title
         g.setColour (juce::Colours::white);
         g.setFont (juce::Font (10.f, juce::Font::bold));
-        g.drawText (title, r.getX() + 8, r.getY() + 4, 120, 15, juce::Justification::centredLeft);
+        g.drawText (title, r.getX() + 10, r.getY() + 5, 130, 16, juce::Justification::centredLeft);
     };
 
-    drawPanel ({10, 74, 306, 268}, "FILTER");
-    drawPanel ({322, 74, 306, 268}, "DELAY");
-    drawPanel ({634, 74, 316, 268}, "REVERB");
-    drawPanel ({10, 348, 306, 120}, "LFO");
-    drawPanel ({634, 348, 316, 120}, "MASTER");
+    // Row 1 (y=174, h=286)
+    drawPanel ({36,  174, 296, 286}, "FILTER");
+    drawPanel ({338, 174, 296, 286}, "DELAY");
+    drawPanel ({640, 174, 304, 286}, "REVERB");
 
-    g.setColour (juce::Colours::white.withAlpha (0.6f));
-    g.setFont (juce::Font (8.5f, juce::Font::bold));
-    g.drawText ("REVERB EQ", 640, 344, 90, 14, juce::Justification::centredLeft);
+    // Row 2 (y=470)
+    drawPanel ({36,  470, 296, 148}, "LFO");
+    drawPanel ({640, 470, 304, 148}, "REVERB EQ");
 
-    // Centre logo
+    // Centre logo panel
     {
-        juce::Rectangle<float> logo (322.f, 348.f, 306.f, 120.f);
-        g.setColour (kPurpleDark.withAlpha (0.82f));
-        g.fillRoundedRectangle (logo, 5.f);
+        juce::Rectangle<float> logo (338.f, 470.f, 296.f, 148.f);
+        g.setColour (kPurpleDark.withAlpha (0.85f));
+        g.fillRoundedRectangle (logo, 6.f);
         g.setColour (kPanelBorder.withAlpha (0.35f));
-        g.drawRoundedRectangle (logo, 5.f, 1.f);
+        g.drawRoundedRectangle (logo, 6.f, 1.f);
 
         g.setColour (juce::Colours::white);
-        g.setFont (juce::Font (18.f, juce::Font::bold | juce::Font::italic));
-        g.drawText ("JUICE", 332, 366, 90, 26, juce::Justification::centredLeft);
-        g.drawText ("GANG",  536, 366, 82, 26, juce::Justification::centredRight);
+        g.setFont (juce::Font (20.f, juce::Font::bold | juce::Font::italic));
+        g.drawText ("JUICE", 348, 490, 100, 28, juce::Justification::centredLeft);
+        g.drawText ("GANG",  526, 490, 98,  28, juce::Justification::centredRight);
 
-        g.setFont (juce::Font (28.f, juce::Font::bold));
+        g.setFont (juce::Font (32.f, juce::Font::bold));
         g.setColour (kGreen);
-        g.drawText ("$", 452, 356, 44, 40, juce::Justification::centred);
+        g.drawText ("$", 452, 480, 48, 44, juce::Justification::centred);
         g.setColour (juce::Colours::white.withAlpha (0.3f));
-        g.drawEllipse (450.f, 354.f, 48.f, 44.f, 1.5f);
+        g.drawEllipse (450.f, 478.f, 52.f, 48.f, 1.5f);
 
-        g.setFont (juce::Font (8.f, juce::Font::bold));
-        g.setColour (kGreen.withAlpha (0.85f));
-        g.drawText ("NOVA AUDIO", 322, 424, 306, 14, juce::Justification::centred);
-        g.setColour (juce::Colours::white.withAlpha (0.28f));
-        g.setFont (juce::Font (7.f));
-        g.drawText ("MADE FOR CREATORS BY NOVA", 322, 440, 306, 12, juce::Justification::centred);
+        g.setFont (juce::Font (9.f, juce::Font::bold));
+        g.setColour (kGreen.withAlpha (0.9f));
+        g.drawText ("NOVA AUDIO", 338, 546, 296, 16, juce::Justification::centred);
+        g.setColour (juce::Colours::white.withAlpha (0.3f));
+        g.setFont (juce::Font (7.5f));
+        g.drawText ("MADE FOR CREATORS BY NOVA", 338, 566, 296, 12, juce::Justification::centred);
     }
+
+    // Master label (floats above the master knobs area)
+    g.setColour (juce::Colours::white.withAlpha (0.7f));
+    g.setFont (juce::Font (9.f, juce::Font::bold));
+    g.drawText ("MASTER", 648, 618, 80, 14, juce::Justification::centredLeft);
 }
 
 void JuiceGangEditor::resized()
 {
     const int W = getWidth();
+    // All panels shifted down to sit below the 170px carton top+header section
+    // Left/right margins 36px each for side strips
+    // Row 1 panels: y=174, h=286   Row 2 panels: y=470, h=148
 
     // ── Bypass ──
-    bypassBtn.setBounds (W - 70, 12, 62, 24);
+    bypassBtn.setBounds (W - 76, 110, 66, 26);
 
-    // ── Filter panel (x=8, y=74, w=308, h=270) ──
-    filterOnBtn.setBounds (274, 80, 36, 16);
+    auto setCombo = [&](juce::ComboBox& c) {
+        c.setColour (juce::ComboBox::backgroundColourId, kPurpleDark);
+        c.setColour (juce::ComboBox::textColourId,       juce::Colours::white);
+        c.setColour (juce::ComboBox::outlineColourId,    kGreen);
+    };
 
-    filterModeBox.setBounds (14, 100, 90, 16);
-    filterModeBox.setColour (juce::ComboBox::backgroundColourId, kPurpleDark);
-    filterModeBox.setColour (juce::ComboBox::textColourId,       juce::Colours::white);
-    filterModeBox.setColour (juce::ComboBox::outlineColourId,    kGreen);
+    // ── Filter panel  x=36 y=174 w=296 h=286 ──
+    filterOnBtn.setBounds (298, 180, 28, 16);
+    filterModeBox.setBounds (42, 200, 90, 18);  setCombo (filterModeBox);
 
-    cutoffKnob.setBounds    (110, 92, 68, 68);  cutoffLbl.setBounds    (110, 158, 68, 14);
-    resonanceKnob.setBounds (188, 108, 52, 52); resonanceLbl.setBounds (188, 158, 52, 14);
-    driveKnob.setBounds     (14,  192, 48, 48); driveLbl.setBounds     (14,  238, 48, 14);
-    filterMixKnob.setBounds (86,  192, 48, 48); filterMixLbl.setBounds (86,  238, 48, 14);
-    filterOutKnob.setBounds (158, 192, 48, 48); filterOutLbl.setBounds (158, 238, 48, 14);
+    cutoffKnob.setBounds    (146, 196, 72, 72); cutoffLbl.setBounds    (146, 266, 72, 14);
+    resonanceKnob.setBounds (230, 210, 56, 56); resonanceLbl.setBounds (230, 264, 56, 14);
+    driveKnob.setBounds     (42,  292, 52, 52); driveLbl.setBounds     (42,  342, 52, 14);
+    filterMixKnob.setBounds (112, 292, 52, 52); filterMixLbl.setBounds (112, 342, 52, 14);
+    filterOutKnob.setBounds (182, 292, 52, 52); filterOutLbl.setBounds (182, 342, 52, 14);
+    filterCurve.setBounds   (42,  356, 282, 96);
 
-    filterCurve.setBounds   (14, 254, 296, 82);
+    // ── Delay panel  x=338 y=174 w=296 h=286 ──
+    delayOnBtn.setBounds (608, 180, 28, 16);
+    delaySyncDivBox.setBounds (344, 200, 72, 110);  setCombo (delaySyncDivBox);
 
-    // ── Delay panel (x=322, y=74, w=308, h=270) ──
-    delayOnBtn.setBounds  (594, 80, 30, 16);
+    delayTimeKnob.setBounds (432, 196, 72, 72); delayTimeLbl.setBounds (432, 266, 72, 14);
+    delayFbKnob.setBounds   (520, 210, 56, 56); delayFbLbl.setBounds   (520, 264, 56, 14);
 
-    delaySyncDivBox.setBounds (330, 100, 68, 100);
-    delaySyncDivBox.setColour (juce::ComboBox::backgroundColourId, kPurpleDark);
-    delaySyncDivBox.setColour (juce::ComboBox::textColourId,       juce::Colours::white);
-    delaySyncDivBox.setColour (juce::ComboBox::outlineColourId,    kGreen);
+    delaySyncBtn.setBounds (448, 278, 40, 16);
+    pingPongBtn.setBounds  (344, 318, 56, 24);
 
-    delayTimeKnob.setBounds (404, 92, 68, 68); delayTimeLbl.setBounds (404, 158, 68, 14);
-    delayFbKnob.setBounds   (500, 108, 52, 52); delayFbLbl.setBounds   (500, 158, 52, 14);
+    delayLCKnob.setBounds  (418, 300, 48, 48); delayLCLbl.setBounds  (418, 346, 48, 14);
+    delayHCKnob.setBounds  (476, 300, 48, 48); delayHCLbl.setBounds  (476, 346, 48, 14);
+    delayMixKnob.setBounds (534, 300, 48, 48); delayMixLbl.setBounds (534, 346, 48, 14);
+    delayVis.setBounds     (344, 358, 282, 94);
 
-    delaySyncBtn.setBounds (420, 178, 36, 14);
-    pingPongBtn.setBounds  (330, 208, 52, 22);
+    // ── Reverb panel  x=640 y=174 w=304 h=286 ──
+    reverbOnBtn.setBounds (916, 180, 28, 16);
 
-    delayLCKnob.setBounds  (394, 196, 44, 44); delayLCLbl.setBounds  (394, 238, 44, 14);
-    delayHCKnob.setBounds  (452, 196, 44, 44); delayHCLbl.setBounds  (452, 238, 44, 14);
-    delayMixKnob.setBounds (510, 196, 44, 44); delayMixLbl.setBounds (510, 238, 44, 14);
+    revSizeKnob.setBounds  (648, 200, 56, 56); revSizeLbl.setBounds  (648, 254, 56, 14);
+    revDecayKnob.setBounds (722, 192, 72, 72); revDecayLbl.setBounds (722, 262, 72, 14);
+    preDelayKnob.setBounds (814, 210, 56, 56); preDelayLbl.setBounds (814, 262, 56, 14);
 
-    delayVis.setBounds (330, 254, 292, 82);
+    revDampKnob.setBounds  (648, 282, 56, 56); revDampLbl.setBounds  (648, 336, 56, 14);
+    revMixKnob.setBounds   (724, 282, 56, 56); revMixLbl.setBounds   (724, 336, 56, 14);
+    freezeBtn.setBounds    (816, 292, 52, 40);
 
-    // ── Reverb panel (x=636, y=74, w=316, h=270) ──
-    reverbOnBtn.setBounds (910, 80, 30, 16);
+    // ── Reverb EQ  x=640 y=470 w=304 h=148 ──
+    reverbEqOnBtn.setBounds (912, 474, 26, 14);
+    revLCKnob.setBounds     (646, 494, 42, 42); revLCLbl.setBounds  (646, 534, 42, 14);
+    revLSKnob.setBounds     (696, 494, 42, 42); revLSLbl.setBounds  (696, 534, 42, 14);
+    revMidKnob.setBounds    (746, 494, 42, 42); revMidLbl.setBounds (746, 534, 42, 14);
+    revHSKnob.setBounds     (796, 494, 42, 42); revHSLbl.setBounds  (796, 534, 42, 14);
+    revHCKnob.setBounds     (846, 494, 42, 42); revHCLbl.setBounds  (846, 534, 42, 14);
+    reverbEQCurve.setBounds (646, 548, 290, 62);
 
-    revSizeKnob.setBounds  (644, 100, 52, 52); revSizeLbl.setBounds  (644, 150, 52, 14);
-    revDecayKnob.setBounds (716, 92,  68, 68); revDecayLbl.setBounds (716, 158, 68, 14);
-    preDelayKnob.setBounds (808, 108, 52, 52); preDelayLbl.setBounds (808, 158, 52, 14);
+    // ── LFO panel  x=36 y=470 w=296 h=148 ──
+    lfoTargetBox.setBounds (44, 496, 80, 18);  setCombo (lfoTargetBox);
+    lfoShapeBox.setBounds  (44, 522, 80, 18);  setCombo (lfoShapeBox);
 
-    revDampKnob.setBounds  (644, 180, 52, 52); revDampLbl.setBounds  (644, 230, 52, 14);
-    revMixKnob.setBounds   (720, 180, 52, 52); revMixLbl.setBounds   (720, 230, 52, 14);
-    freezeBtn.setBounds    (810, 188, 44, 36);
+    lfoRateKnob.setBounds  (148, 480, 60, 60); lfoRateLbl.setBounds  (148, 538, 60, 14);
+    lfoDepthKnob.setBounds (222, 480, 60, 60); lfoDepthLbl.setBounds (222, 538, 60, 14);
 
-    // Reverb EQ sub-panel within reverb section
-    reverbEqOnBtn.setBounds (898, 348, 48, 14);
-    revLCKnob.setBounds     (642, 370, 40, 40); revLCLbl.setBounds  (642, 408, 40, 14);
-    revLSKnob.setBounds     (692, 370, 40, 40); revLSLbl.setBounds  (692, 408, 40, 14);
-    revMidKnob.setBounds    (742, 370, 40, 40); revMidLbl.setBounds (742, 408, 40, 14);
-    revHSKnob.setBounds     (792, 370, 40, 40); revHSLbl.setBounds  (792, 408, 40, 14);
-    revHCKnob.setBounds     (842, 370, 40, 40); revHCLbl.setBounds  (842, 408, 40, 14);
-    reverbEQCurve.setBounds (642, 420, 300, 54);
+    lfoSyncBtn.setBounds    (152, 554, 40, 16);
+    lfoSyncDivBox.setBounds (198, 554, 60, 16);  setCombo (lfoSyncDivBox);
 
-    // ── LFO panel (x=8, y=348, w=310, h=120) ──
-    lfoTargetBox.setBounds (16, 370, 72, 16);
-    lfoTargetBox.setColour (juce::ComboBox::backgroundColourId, kPurpleDark);
-    lfoTargetBox.setColour (juce::ComboBox::textColourId,       juce::Colours::white);
-    lfoTargetBox.setColour (juce::ComboBox::outlineColourId,    kGreen);
-
-    lfoShapeBox.setBounds  (16, 394, 72, 16);
-    lfoShapeBox.setColour  (juce::ComboBox::backgroundColourId, kPurpleDark);
-    lfoShapeBox.setColour  (juce::ComboBox::textColourId,       juce::Colours::white);
-    lfoShapeBox.setColour  (juce::ComboBox::outlineColourId,    kGreen);
-
-    lfoRateKnob.setBounds  (118, 356, 56, 56); lfoRateLbl.setBounds  (118, 410, 56, 14);
-    lfoDepthKnob.setBounds (186, 356, 56, 56); lfoDepthLbl.setBounds (186, 410, 56, 14);
-
-    lfoSyncBtn.setBounds    (130, 420, 36, 14);
-    lfoSyncDivBox.setBounds (172, 420, 56, 14);
-    lfoSyncDivBox.setColour (juce::ComboBox::backgroundColourId, kPurpleDark);
-    lfoSyncDivBox.setColour (juce::ComboBox::textColourId,       juce::Colours::white);
-    lfoSyncDivBox.setColour (juce::ComboBox::outlineColourId,    kGreen);
-
-    // ── Logo area (centre bottom) ──
-    // (painted only, no controls)
-
-    // ── Master panel (x=636, y=348, w=316, h=120) ──
-    masterInKnob.setBounds  (648, 356, 52, 52); masterInLbl.setBounds  (648, 406, 52, 14);
-    vuMeter.setBounds       (710, 356, 18, 104);
-    masterMixKnob.setBounds (740, 356, 52, 52); masterMixLbl.setBounds (740, 406, 52, 14);
-    masterOutKnob.setBounds (808, 356, 52, 52); masterOutLbl.setBounds (808, 406, 52, 14);
+    // ── Master panel  x=640 y=470 w=304 h=148 — shares row with Rev EQ ──
+    // (Rev EQ and Master are in the same area; Master is painted below Rev EQ)
+    // Repositioned: Master sits below Reverb EQ display (y≈622)
+    masterInKnob.setBounds  (648, 630, 56, 56); masterInLbl.setBounds  (648, 684, 56, 14);
+    vuMeter.setBounds       (714, 626, 20, 112);
+    masterMixKnob.setBounds (746, 630, 56, 56); masterMixLbl.setBounds (746, 684, 56, 14);
+    masterOutKnob.setBounds (824, 630, 56, 56); masterOutLbl.setBounds (824, 684, 56, 14);
 
     // ── Preset bar ──
-    const int PY = getHeight() - 30;
-    prevPresetBtn.setBounds    (8,   PY, 28, 22);
-    nextPresetBtn.setBounds    (40,  PY, 28, 22);
-    presetNameLabel.setBounds  (72,  PY, 200, 22);
-    savePresetBtn.setBounds    (278, PY, 28, 22);
-    deletePresetBtn.setBounds  (310, PY, 28, 22);
-    presetsBtn.setBounds       (W - 80, PY, 72, 22);
+    const int PY = getHeight() - 32;
+    prevPresetBtn.setBounds    (36,  PY, 30, 24);
+    nextPresetBtn.setBounds    (70,  PY, 30, 24);
+    presetNameLabel.setBounds  (106, PY, 220, 24);
+    savePresetBtn.setBounds    (332, PY, 30, 24);
+    deletePresetBtn.setBounds  (366, PY, 30, 24);
+    presetsBtn.setBounds       (W - 96, PY, 80, 24);
 }
