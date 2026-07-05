@@ -66,8 +66,8 @@ export async function POST(req: NextRequest) {
     // Check availability — reject if any booking overlaps
     const { rows: conflicts } = await sql`
       SELECT confirmation_code FROM bookings
-      WHERE property_id = ${propertyId}
-        AND payment_status IN ('paid', 'pending')
+      WHERE (property_id = ${propertyId} OR property_id IS NULL)
+        AND payment_status IN ('paid', 'pending', 'unpaid')
         AND check_in < ${checkOut}
         AND check_out > ${checkIn}
       LIMIT 1;

@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
     const { rows: bookings } = await sql`
       SELECT check_in, check_out
       FROM bookings
-      WHERE property_id = ${propertyId}
-        AND payment_status IN ('paid', 'unpaid')
+      WHERE (property_id = ${propertyId} OR property_id IS NULL)
+        AND payment_status IN ('paid', 'unpaid', 'pending')
         AND check_out >= CURRENT_DATE::TEXT
       ORDER BY check_in;
     `;
