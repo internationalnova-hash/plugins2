@@ -363,86 +363,189 @@ void JuiceGangEditor::timerCallback()
 // ─────────────────────────────────────────────────────────────────────────────
 void JuiceGangEditor::paint (juce::Graphics& g)
 {
-    auto b = getLocalBounds();
+    const float W = (float)getWidth(), H = (float)getHeight();
 
-    // ── Carton body background ──
-    juce::ColourGradient bg (kPurpleDark, 0, 0, kPurpleMid, 0, (float)b.getHeight(), false);
-    g.setGradientFill (bg);
+    // ═══ CARTON BODY ══════════════════════════════════════════════════════════
+    juce::ColourGradient body (juce::Colour(0xff5a0aac), W * 0.5f, 0.f,
+                                juce::Colour(0xff360068), W * 0.5f, H, true);
+    g.setGradientFill (body);
     g.fillAll();
 
-    // ── Top header bar ──
-    g.setColour (kPurpleDark);
-    g.fillRect (0, 0, b.getWidth(), 72);
+    // Vertical highlight sheen
+    juce::ColourGradient shine (juce::Colours::white.withAlpha (0.06f), W * 0.22f, 0.f,
+                                 juce::Colours::transparentBlack, W * 0.60f, 0.f, false);
+    g.setGradientFill (shine);
+    g.fillAll();
 
-    // Title text
+    // ═══ GABLED TOP ════════════════════════════════════════════════════════════
+    const float gH = 52.f;
+
+    juce::Path leftFold;
+    leftFold.startNewSubPath (0.f, gH * 0.58f);
+    leftFold.lineTo (W * 0.21f, 0.f);
+    leftFold.lineTo (W * 0.46f, 0.f);
+    leftFold.lineTo (W * 0.40f, gH * 0.58f);
+    leftFold.closeSubPath();
+    g.setColour (juce::Colour (0xff7e22d8).withAlpha (0.55f));
+    g.fillPath (leftFold);
+
+    juce::Path rightFold;
+    rightFold.startNewSubPath (W, gH * 0.58f);
+    rightFold.lineTo (W * 0.79f, 0.f);
+    rightFold.lineTo (W * 0.54f, 0.f);
+    rightFold.lineTo (W * 0.60f, gH * 0.58f);
+    rightFold.closeSubPath();
+    g.setColour (juce::Colour (0xff7e22d8).withAlpha (0.55f));
+    g.fillPath (rightFold);
+
+    g.setColour (juce::Colours::white.withAlpha (0.20f));
+    g.drawLine (W * 0.21f, 0.f, W * 0.40f, gH * 0.58f, 1.5f);
+    g.drawLine (W * 0.79f, 0.f, W * 0.60f, gH * 0.58f, 1.5f);
+    g.setColour (juce::Colours::white.withAlpha (0.10f));
+    g.drawLine (0.f, gH * 0.58f, W, gH * 0.58f, 1.f);
+
+    g.setColour (juce::Colours::white.withAlpha (0.55f));
+    g.setFont (juce::Font (7.5f, juce::Font::bold));
+    g.drawText ("OPEN \xe2\x96\xb6", 10, 6, 64, 12, juce::Justification::centredLeft);
+
+    // ═══ STRAW ════════════════════════════════════════════════════════════════
+    const float sX = W * 0.385f;
+    g.setColour (juce::Colour (0xffe6e6e6));
+    g.fillRoundedRectangle (sX, -2.f, 13.f, 50.f, 4.f);
+    g.fillRoundedRectangle (sX - 26.f, -2.f, 39.f, 13.f, 4.f);
+    g.fillEllipse (sX - 4.f, -2.f, 17.f, 17.f);
+    g.fillEllipse (sX - 26.f, -2.f, 13.f, 13.f);
+    g.setColour (juce::Colour (0xffbbbbbb).withAlpha (0.5f));
+    g.drawLine (sX + 4.5f, 6.f, sX + 4.5f, 48.f, 1.f);
+
+    // ═══ HEADER ═══════════════════════════════════════════════════════════════
+    const float hTop = gH * 0.52f;
+    g.setColour (juce::Colour (0xff1c0048));
+    g.fillRect (0.f, hTop, W, 74.f - hTop + 14.f);
+
     g.setColour (juce::Colours::white);
-    g.setFont (juce::Font ("Arial", 36.f, juce::Font::bold));
-    g.drawText ("JUICE", 20, 12, 180, 44, juce::Justification::centredLeft);
-    g.drawText ("GANG",  540, 12, 200, 44, juce::Justification::centredLeft);
-
-    g.setFont (juce::Font ("Arial", 13.f, juce::Font::bold));
-    g.drawText ("NOVA MOTION FX", 20, 52, 180, 18, juce::Justification::centredLeft);
-    g.drawText ("LOYALTY IS FAMILY", 540, 52, 220, 18, juce::Justification::centredLeft);
-
-    // Dollar sign badge
-    g.setColour (juce::Colours::white);
-    g.drawEllipse (420.f, 8.f, 80.f, 56.f, 2.f);
-    g.setFont (juce::Font (28.f, juce::Font::bold));
+    g.setFont (juce::Font (42.f, juce::Font::bold | juce::Font::italic));
+    g.drawText ("JUICE", 18, (int)hTop + 4, 230, 48, juce::Justification::centredLeft);
+    g.setFont (juce::Font (10.5f, juce::Font::bold));
     g.setColour (kGreen);
-    g.drawText ("$", 430, 16, 60, 40, juce::Justification::centred);
+    g.drawText ("NOVA MOTION FX", 20, (int)hTop + 52, 190, 14, juce::Justification::centredLeft);
 
-    // ── Side decoration ──
-    g.setColour (kPurpleDark.brighter(0.1f));
-    g.fillRect (0, 72, 12, b.getHeight() - 100);
-    g.fillRect (b.getWidth() - 12, 72, 12, b.getHeight() - 100);
-
-    // Straw
     g.setColour (juce::Colours::white);
-    g.fillRoundedRectangle (420.f, 0.f, 12.f, 40.f, 3.f);
+    g.setFont (juce::Font (42.f, juce::Font::bold | juce::Font::italic));
+    g.drawText ("GANG", (int)(W - 248.f), (int)hTop + 4, 230, 48, juce::Justification::centredRight);
+    g.setFont (juce::Font (10.5f, juce::Font::bold));
+    g.setColour (juce::Colours::white.withAlpha (0.65f));
+    g.drawText ("LOYALTY IS FAMILY", (int)(W - 248.f), (int)hTop + 52, 228, 14, juce::Justification::centredRight);
 
-    // ── Preset bar bg ──
-    g.setColour (kPurpleDark);
-    g.fillRect (0, b.getHeight() - 34, b.getWidth(), 34);
+    // $$ badge
+    const float bcx = W * 0.5f, bcy = hTop + 38.f, bR = 32.f;
+    juce::ColourGradient glow (kGreen.withAlpha (0.22f), bcx, bcy,
+                                juce::Colours::transparentBlack, bcx + bR + 12.f, bcy, true);
+    g.setGradientFill (glow);
+    g.fillEllipse (bcx - bR - 10.f, bcy - bR - 10.f, (bR + 10.f) * 2.f, (bR + 10.f) * 2.f);
+    g.setColour (juce::Colours::white);
+    g.fillEllipse (bcx - bR, bcy - bR, bR * 2.f, bR * 2.f);
+    g.setColour (kGreen);
+    g.drawEllipse (bcx - bR, bcy - bR, bR * 2.f, bR * 2.f, 2.5f);
+    g.setFont (juce::Font (26.f, juce::Font::bold));
+    g.setColour (kGreen);
+    g.drawText ("$$", (int)(bcx - bR), (int)(bcy - bR), (int)(bR * 2.f), (int)(bR * 2.f),
+                juce::Justification::centred);
 
-    // ── Panel borders ──
-    auto drawPanel = [&](juce::Rectangle<int> r, const juce::String& title, bool hasOnBtn = false) {
-        g.setColour (kPanelBg.withAlpha (0.92f));
-        g.fillRoundedRectangle (r.toFloat(), 6.f);
-        g.setColour (kPanelBorder);
-        g.drawRoundedRectangle (r.toFloat(), 6.f, 1.5f);
-        g.setColour (kTextDark);
-        g.setFont (juce::Font (11.f, juce::Font::bold));
-        g.drawText (title, r.getX() + 8, r.getY() + 5, 120, 16, juce::Justification::centredLeft);
-    };
+    // ═══ SIDE STRIPS ══════════════════════════════════════════════════════════
+    g.setColour (juce::Colour (0xff140038));
+    g.fillRect (0.f, 74.f, 10.f, H - 104.f);
+    g.fillRect (W - 10.f, 74.f, 10.f, H - 104.f);
 
-    // Filter panel
-    drawPanel ({8, 74, 308, 270}, "FILTER");
-    // Delay panel
-    drawPanel ({322, 74, 308, 270}, "DELAY");
-    // Reverb panel
-    drawPanel ({636, 74, 316, 270}, "REVERB");
-    // LFO panel
-    drawPanel ({8, 348, 310, 120}, "LFO");
-    // Master panel
-    drawPanel ({636, 348, 316, 120}, "MASTER");
-
-    // OPEN tab on carton
-    g.setColour (juce::Colours::white.withAlpha (0.5f));
-    g.setFont (juce::Font (8.f));
-    g.drawText ("OPEN ▶", 8, 4, 60, 12, juce::Justification::centredLeft);
-
-    // Side text
     g.saveState();
-    g.addTransform (juce::AffineTransform::rotation (-juce::MathConstants<float>::halfPi, 6.f, 300.f));
-    g.setColour (juce::Colours::white.withAlpha (0.4f));
+    float midY = 74.f + (H - 104.f) * 0.5f;
+    g.addTransform (juce::AffineTransform::rotation (
+        -juce::MathConstants<float>::halfPi, 5.f, midY));
+    g.setColour (juce::Colours::white.withAlpha (0.45f));
     g.setFont (juce::Font (9.f, juce::Font::bold));
-    g.drawText ("JUICE GANG", -80, 296, 160, 14, juce::Justification::centred);
+    g.drawText ("JUICE GANG  \xe2\x80\x94  LOYALTY IS FAMILY",
+                (int)(5.f - 130.f), (int)midY - 7, 260, 14, juce::Justification::centred);
     g.restoreState();
 
-    // Made for creators tagline
-    g.setColour (juce::Colours::white.withAlpha (0.4f));
-    g.setFont (juce::Font (7.f));
-    g.drawText ("MADE FOR\nCREATORS\nBY NOVA", 0, 400, 14, 50, juce::Justification::centred);
+    g.setFont (juce::Font (20.f, juce::Font::bold));
+    g.setColour (kGreen.withAlpha (0.4f));
+    g.drawText ("$", 0, 350, 10, 28, juce::Justification::centred);
+
+    // Barcode decoration
+    g.setColour (juce::Colours::white.withAlpha (0.28f));
+    for (int i = 0; i < 20; i++)
+        g.fillRect (1 + i * 2, (int)(H - 110.f), (i % 3 == 0 ? 2 : 1), 16);
+
+    g.saveState();
+    g.addTransform (juce::AffineTransform::rotation (
+        -juce::MathConstants<float>::halfPi, 5.f, H - 80.f));
+    g.setColour (juce::Colours::white.withAlpha (0.35f));
+    g.setFont (juce::Font (7.f, juce::Font::bold));
+    g.drawText ("MADE FOR CREATORS BY NOVA",
+                (int)(5.f - 90.f), (int)(H - 80.f) - 7, 180, 14, juce::Justification::centred);
+    g.restoreState();
+
+    // ═══ PRESET BAR ═══════════════════════════════════════════════════════════
+    g.setColour (juce::Colour (0xff140038));
+    g.fillRect (0.f, H - 30.f, W, 30.f);
+    g.setColour (kGreen.withAlpha (0.3f));
+    g.drawLine (0.f, H - 30.f, W, H - 30.f, 1.f);
+
+    // ═══ PANELS ═══════════════════════════════════════════════════════════════
+    auto drawPanel = [&](juce::Rectangle<int> r, const juce::String& title)
+    {
+        g.setColour (juce::Colour (0xfff0eaff));
+        g.fillRoundedRectangle (r.toFloat(), 5.f);
+
+        juce::Rectangle<float> hdr ((float)r.getX(), (float)r.getY(), (float)r.getWidth(), 22.f);
+        g.setColour (kPurpleDark);
+        g.fillRoundedRectangle (hdr, 5.f);
+        g.fillRect ((float)r.getX(), hdr.getY() + 12.f, (float)r.getWidth(), 10.f);
+
+        g.setColour (kPanelBorder.withAlpha (0.45f));
+        g.drawRoundedRectangle (r.toFloat(), 5.f, 1.f);
+
+        g.setColour (juce::Colours::white);
+        g.setFont (juce::Font (10.f, juce::Font::bold));
+        g.drawText (title, r.getX() + 8, r.getY() + 4, 120, 15, juce::Justification::centredLeft);
+    };
+
+    drawPanel ({10, 74, 306, 268}, "FILTER");
+    drawPanel ({322, 74, 306, 268}, "DELAY");
+    drawPanel ({634, 74, 316, 268}, "REVERB");
+    drawPanel ({10, 348, 306, 120}, "LFO");
+    drawPanel ({634, 348, 316, 120}, "MASTER");
+
+    g.setColour (juce::Colours::white.withAlpha (0.6f));
+    g.setFont (juce::Font (8.5f, juce::Font::bold));
+    g.drawText ("REVERB EQ", 640, 344, 90, 14, juce::Justification::centredLeft);
+
+    // Centre logo
+    {
+        juce::Rectangle<float> logo (322.f, 348.f, 306.f, 120.f);
+        g.setColour (kPurpleDark.withAlpha (0.82f));
+        g.fillRoundedRectangle (logo, 5.f);
+        g.setColour (kPanelBorder.withAlpha (0.35f));
+        g.drawRoundedRectangle (logo, 5.f, 1.f);
+
+        g.setColour (juce::Colours::white);
+        g.setFont (juce::Font (18.f, juce::Font::bold | juce::Font::italic));
+        g.drawText ("JUICE", 332, 366, 90, 26, juce::Justification::centredLeft);
+        g.drawText ("GANG",  536, 366, 82, 26, juce::Justification::centredRight);
+
+        g.setFont (juce::Font (28.f, juce::Font::bold));
+        g.setColour (kGreen);
+        g.drawText ("$", 452, 356, 44, 40, juce::Justification::centred);
+        g.setColour (juce::Colours::white.withAlpha (0.3f));
+        g.drawEllipse (450.f, 354.f, 48.f, 44.f, 1.5f);
+
+        g.setFont (juce::Font (8.f, juce::Font::bold));
+        g.setColour (kGreen.withAlpha (0.85f));
+        g.drawText ("NOVA AUDIO", 322, 424, 306, 14, juce::Justification::centred);
+        g.setColour (juce::Colours::white.withAlpha (0.28f));
+        g.setFont (juce::Font (7.f));
+        g.drawText ("MADE FOR CREATORS BY NOVA", 322, 440, 306, 12, juce::Justification::centred);
+    }
 }
 
 void JuiceGangEditor::resized()
