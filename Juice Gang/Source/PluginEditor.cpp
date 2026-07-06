@@ -201,8 +201,7 @@ JuiceGangEditor::JuiceGangEditor (JuiceGangProcessor& p)
 
     auto& a = p.apvts;
 
-    // ── Bypass ──
-    addAndMakeVisible (bypassBtn);
+    // ── Bypass — wired to straw click, button intentionally hidden ──
     bypassBtn.setClickingTogglesState (true);
     bypassAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (a, "bypass", bypassBtn);
 
@@ -354,6 +353,16 @@ JuiceGangEditor::JuiceGangEditor (JuiceGangProcessor& p)
 
 JuiceGangEditor::~JuiceGangEditor() { setLookAndFeel (nullptr); }
 
+void JuiceGangEditor::mouseDown (const juce::MouseEvent& e)
+{
+    // Straw hit area — roughly the gable-top-left zone where the straw lives
+    juce::Rectangle<int> strawHit (40, 0, 160, 115);
+    if (strawHit.contains (e.getPosition()))
+    {
+        bypassBtn.setToggleState (!bypassBtn.getToggleState(), juce::sendNotification);
+    }
+}
+
 void JuiceGangEditor::timerCallback()
 {
     vuMeter.setLevel (proc.getOutputLevel());
@@ -426,10 +435,13 @@ void JuiceGangEditor::paint (juce::Graphics& g)
     g.setColour (juce::Colours::white.withAlpha (0.35f));
     g.drawLine (W * 0.19f, 0.f, W * 0.81f, 0.f, 1.f);
 
-    // OPEN label on the gable top-face
-    g.setColour (juce::Colours::white.withAlpha (0.6f));
-    g.setFont (juce::Font (8.f, juce::Font::bold));
-    g.drawText ("OPEN \xe2\x96\xb6", 14, 8, 68, 14, juce::Justification::centredLeft);
+    // BYPASS hint label near straw
+    {
+        bool bypassed = *proc.apvts.getRawParameterValue ("bypass") > 0.5f;
+        g.setColour (bypassed ? juce::Colour(0xffff4422).withAlpha(0.9f) : juce::Colours::white.withAlpha(0.55f));
+        g.setFont (juce::Font (8.f, juce::Font::bold));
+        g.drawText (bypassed ? "BYPASSED" : "TAP STRAW", 155, 8, 90, 14, juce::Justification::centredLeft);
+    }
 
     // ═══ STRAW (animated — droops when bypassed) ══════════════════════════════
     {
@@ -704,8 +716,7 @@ void JuiceGangEditor::resized()
     // Left/right margins 36px each for side strips
     // Row 1 panels: y=174, h=286   Row 2 panels: y=470, h=148
 
-    // ── Bypass ──
-    bypassBtn.setBounds (W - 76, 110, 66, 26);
+    // Bypass button is hidden — bypass toggled by clicking the straw
 
     auto setCombo = [&](juce::ComboBox& c) {
         c.setColour (juce::ComboBox::backgroundColourId, kPurpleDark);
