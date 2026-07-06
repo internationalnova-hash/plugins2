@@ -358,6 +358,14 @@ void JuiceGangEditor::timerCallback()
 {
     vuMeter.setLevel (proc.getOutputLevel());
     vuMeter.repaint();
+
+    // Straw bypass animation
+    float bypass = *proc.apvts.getRawParameterValue ("bypass");
+    float target = bypass > 0.5f ? 1.f : 0.f;
+    float prev = strawDroop;
+    strawDroop += (target - strawDroop) * 0.08f;
+    if (std::abs (strawDroop - prev) > 0.001f)
+        repaint (0, 0, 200, 115);   // only repaint gable area for performance
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -423,22 +431,41 @@ void JuiceGangEditor::paint (juce::Graphics& g)
     g.setFont (juce::Font (8.f, juce::Font::bold));
     g.drawText ("OPEN \xe2\x96\xb6", 14, 8, 68, 14, juce::Justification::centredLeft);
 
-    // ═══ STRAW ════════════════════════════════════════════════════════════════
-    // Large, clearly visible straw in upper-left of gable area
-    const float sX = 120.f, sY = -4.f;
-    g.setColour (juce::Colour (0xfff0f0f0));
-    // Horizontal portion (the part sticking out to the left)
-    g.fillRoundedRectangle (sX - 56.f, sY + 2.f, 70.f, 18.f, 6.f);
-    // Vertical shaft going down into carton
-    g.fillRoundedRectangle (sX, sY, 18.f, gableH + 8.f, 6.f);
-    // Corner junction fill
-    g.fillEllipse (sX - 2.f, sY, 22.f, 22.f);
-    // Left open end
-    g.setColour (juce::Colour (0xffcccccc));
-    g.fillEllipse (sX - 56.f, sY + 2.f, 18.f, 18.f);
-    // Straw stripe detail
-    g.setColour (juce::Colour (0xffdddddd).withAlpha (0.6f));
-    g.drawLine (sX + 6.f, sY + 4.f, sX + 6.f, gableH + 4.f, 1.5f);
+    // ═══ STRAW (animated — droops when bypassed) ══════════════════════════════
+    {
+        // strawDroop: 0 = upright, 1 = drooped (angled ~45°)
+        const float sX = 120.f, sY = -4.f;
+        const float strawW = 18.f;
+        const float shaft = gableH + 8.f;
+
+        // Rotation pivot at the top of the vertical shaft, droop up to 45 degrees
+        float droop = strawDroop * juce::MathConstants<float>::pi * 0.25f;
+
+        g.saveState();
+        g.addTransform (juce::AffineTransform::rotation (droop, sX + strawW * 0.5f, sY + strawW * 0.5f));
+
+        // Main white shaft
+        g.setColour (juce::Colour (0xfff2f2f2));
+        g.fillRoundedRectangle (sX, sY, strawW, shaft, 6.f);
+        // Stripe highlight
+        g.setColour (juce::Colour (0xffdddddd).withAlpha (0.6f));
+        g.drawLine (sX + 6.f, sY + 4.f, sX + 6.f, sY + shaft - 4.f, 1.5f);
+        // Bent horizontal portion
+        g.setColour (juce::Colour (0xfff2f2f2));
+        g.fillRoundedRectangle (sX - 56.f, sY + 2.f, 70.f, strawW, 6.f);
+        g.fillEllipse (sX - 2.f, sY, strawW + 4.f, strawW + 4.f);
+        // End cap
+        g.setColour (juce::Colour (0xffcccccc));
+        g.fillEllipse (sX - 56.f, sY + 2.f, strawW, strawW);
+
+        // Droop → tint straw red/orange when bypassed
+        if (strawDroop > 0.05f)
+        {
+            g.setColour (juce::Colour (0xffff4422).withAlpha (strawDroop * 0.45f));
+            g.fillRoundedRectangle (sX, sY, strawW, shaft, 6.f);
+        }
+        g.restoreState();
+    }
 
     // ═══ HEADER / BRANDING ════════════════════════════════════════════════════
     g.setColour (juce::Colour (0xff1a0044));
@@ -531,20 +558,97 @@ void JuiceGangEditor::paint (juce::Graphics& g)
     g.setColour (kGreen.withAlpha (0.35f));
     g.drawLine (0.f, H - 32.f, W, H - 32.f, 1.5f);
 
+    // ═══ CONDENSATION DROPLETS (Easter egg) ══════════════════════════════════
+    // Subtle water drops scattered on the lower body area
+    struct Drop { float x, y, rx, ry; };
+    static const Drop drops[] = {
+        { 54.f,  530.f, 5.f, 8.f }, { 62.f, 548.f, 3.5f, 5.5f },
+        { 920.f, 510.f, 4.f, 7.f }, { 928.f, 528.f, 3.f, 4.5f },
+        { 48.f,  640.f, 4.5f, 7.f }, { 58.f, 660.f, 2.5f, 4.f },
+        { 915.f, 620.f, 5.f, 8.f }, { 924.f, 642.f, 3.f, 5.f },
+    };
+    for (auto& d : drops)
+    {
+        juce::ColourGradient dropGrad (juce::Colours::white.withAlpha (0.62f), d.x - d.rx * 0.3f, d.y - d.ry * 0.4f,
+                                        juce::Colour (0xffb8a8ff).withAlpha (0.28f), d.x + d.rx, d.y + d.ry, false);
+        g.setGradientFill (dropGrad);
+        g.fillEllipse (d.x - d.rx, d.y - d.ry, d.rx * 2.f, d.ry * 2.f);
+        g.setColour (juce::Colours::white.withAlpha (0.4f));
+        g.drawEllipse (d.x - d.rx, d.y - d.ry, d.rx * 2.f, d.ry * 2.f, 0.6f);
+    }
+
+    // ═══ NUTRITION FACTS (Easter egg — right side strip) ════════════════════
+    {
+        const float nx = W - sideW + 2.f, ny = bodyTop + hdrH + 20.f;
+        g.setColour (juce::Colours::white.withAlpha (0.14f));
+        g.fillRect (nx, ny, sideW - 4.f, 80.f);
+        g.setColour (juce::Colours::white.withAlpha (0.5f));
+        g.setFont (juce::Font (4.5f, juce::Font::bold));
+        g.drawText ("NUTRITION FACTS", (int)nx, (int)ny + 2, (int)(sideW - 4), 8, juce::Justification::centred);
+        g.setColour (juce::Colours::white.withAlpha (0.3f));
+        g.setFont (juce::Font (3.8f));
+        const char* facts[] = { "Bass 200%", "Mids 0%", "Treble 100%", "Reverb 40g", "Delay 20ms", "Drive 6dB" };
+        for (int i = 0; i < 6; ++i)
+            g.drawText (facts[i], (int)nx, (int)ny + 12 + i * 11, (int)(sideW - 4), 10, juce::Justification::centred);
+    }
+
+    // ═══ SHAKE WELL & EXPIRY (Easter egg — left side strip) ═════════════════
+    {
+        g.saveState();
+        float midLeft = bodyTop + hdrH + (H - bodyTop - hdrH - 80.f) * 0.72f;
+        g.addTransform (juce::AffineTransform::rotation (-juce::MathConstants<float>::halfPi, sideW * 0.5f, midLeft));
+        g.setColour (juce::Colours::white.withAlpha (0.28f));
+        g.setFont (juce::Font (6.f, juce::Font::bold | juce::Font::italic));
+        g.drawText ("SHAKE WELL BEFORE USE", (int)(sideW * 0.5f - 76.f), (int)midLeft - 7, 152, 14, juce::Justification::centred);
+        g.restoreState();
+
+        g.saveState();
+        float expiryY = bodyTop + hdrH + (H - bodyTop - hdrH - 80.f) * 0.55f;
+        g.addTransform (juce::AffineTransform::rotation (-juce::MathConstants<float>::halfPi, sideW * 0.5f, expiryY));
+        g.setColour (juce::Colours::white.withAlpha (0.2f));
+        g.setFont (juce::Font (5.5f));
+        g.drawText ("BEST BEFORE: DEC 2027  |  100% PURE AUDIO", (int)(sideW * 0.5f - 100.f), (int)expiryY - 6, 200, 12, juce::Justification::centred);
+        g.restoreState();
+    }
+
     // ═══ PANELS ═══════════════════════════════════════════════════════════════
     auto drawPanel = [&](juce::Rectangle<int> r, const juce::String& title)
     {
-        // Light lavender body
-        g.setColour (juce::Colour (0xffede6ff));
+        // Frosted acrylic body — layered gradient
+        juce::ColourGradient frost (juce::Colour (0xffede6ff), (float)r.getX(), (float)r.getY(),
+                                    juce::Colour (0xffd8cef5), (float)r.getRight(), (float)r.getBottom(), false);
+        frost.addColour (0.5, juce::Colour (0xffe8e0ff));
+        g.setGradientFill (frost);
         g.fillRoundedRectangle (r.toFloat(), 6.f);
+
+        // Very subtle vertical texture lines on frosted surface
+        g.setColour (juce::Colours::white.withAlpha (0.12f));
+        for (int lx = r.getX() + 8; lx < r.getRight() - 4; lx += 10)
+            g.drawLine ((float)lx, (float)(r.getY() + 24), (float)lx, (float)r.getBottom() - 4, 1.f);
+
+        // Gloss highlight on top edge
+        juce::ColourGradient gloss (juce::Colours::white.withAlpha (0.38f), (float)r.getX(), (float)(r.getY() + 24),
+                                     juce::Colours::transparentWhite, (float)r.getX(), (float)(r.getY() + 48), false);
+        g.setGradientFill (gloss);
+        g.fillRoundedRectangle (r.toFloat().withHeight (24.f).translated (0, 24), 3.f);
+
         // Purple header strip
         juce::Rectangle<float> hdrR ((float)r.getX(), (float)r.getY(), (float)r.getWidth(), 24.f);
-        g.setColour (kPurpleDark);
+        juce::ColourGradient hdrGrad (juce::Colour (0xff3a0080), (float)r.getX(), (float)r.getY(),
+                                       juce::Colour (0xff1a0040), (float)r.getRight(), (float)r.getY(), false);
+        g.setGradientFill (hdrGrad);
         g.fillRoundedRectangle (hdrR, 6.f);
         g.fillRect ((float)r.getX(), hdrR.getY() + 14.f, (float)r.getWidth(), 10.f);
-        // Border
-        g.setColour (kPanelBorder.withAlpha (0.4f));
+        // Green accent line on header bottom
+        g.setColour (juce::Colour (0xff39e65a).withAlpha (0.55f));
+        g.drawLine ((float)r.getX(), (float)(r.getY() + 24), (float)r.getRight(), (float)(r.getY() + 24), 1.2f);
+
+        // Border with subtle inner glow
+        g.setColour (kPanelBorder.withAlpha (0.45f));
         g.drawRoundedRectangle (r.toFloat(), 6.f, 1.f);
+        g.setColour (juce::Colours::white.withAlpha (0.12f));
+        g.drawRoundedRectangle (r.toFloat().reduced (1.f), 5.f, 1.f);
+
         // Title
         g.setColour (juce::Colours::white);
         g.setFont (juce::Font (10.f, juce::Font::bold));

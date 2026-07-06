@@ -21,33 +21,101 @@ public:
         float cx = x + w * 0.5f, cy = y + h * 0.5f;
         float r  = juce::jmin (w, h) * 0.42f;
 
-        // Body
-        juce::ColourGradient body (juce::Colour(0xff5a0a96), cx, cy - r,
-                                   juce::Colour(0xff3a0060), cx, cy + r, false);
-        g.setGradientFill (body);
-        g.fillEllipse (cx - r, cy - r, r*2, r*2);
+        // ── Drop shadow (multi-pass) ──────────────────────────────────────────
+        for (int i = 4; i >= 1; --i)
+        {
+            float sr = r + i * 1.8f;
+            g.setColour (juce::Colour (0x18000000));
+            g.fillEllipse (cx - sr + i * 0.5f, cy - sr + i * 0.9f, sr * 2.f, sr * 2.f);
+        }
 
-        // Green ring
-        g.setColour (juce::Colour (0xff39e65a));
-        g.drawEllipse (cx - r, cy - r, r*2, r*2, 2.5f);
+        // ── LED arc groove (dark channel behind arc) ──────────────────────────
+        {
+            juce::Path groove;
+            float gr = r * 0.88f;
+            groove.addArc (cx - gr, cy - gr, gr * 2.f, gr * 2.f, startAngle, endAngle, true);
+            juce::PathStrokeType gst (r * 0.28f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+            g.setColour (juce::Colour (0xff0a0018));
+            g.strokePath (groove, gst);
+        }
 
-        // Arc fill
-        juce::Path arc;
-        arc.addArc (cx - r*0.8f, cy - r*0.8f, r*1.6f, r*1.6f, startAngle, startAngle + (endAngle - startAngle) * sliderPos, true);
-        juce::PathStrokeType pst (3.f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
-        g.setColour (juce::Colour (0xff39e65a));
-        g.strokePath (arc, pst);
+        // ── LED arc glow (outer glow → core → bright tip) ────────────────────
+        float arcEnd = startAngle + sliderPos * (endAngle - startAngle);
+        {
+            float gr = r * 0.88f;
+            // Outer glow
+            juce::Path arc;
+            arc.addArc (cx - gr, cy - gr, gr * 2.f, gr * 2.f, startAngle, arcEnd, true);
+            juce::PathStrokeType pst (r * 0.38f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+            g.setColour (juce::Colour (0xff39e65a).withAlpha (0.22f));
+            g.strokePath (arc, pst);
+            // Core
+            pst = juce::PathStrokeType (r * 0.18f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+            g.setColour (juce::Colour (0xff39e65a));
+            g.strokePath (arc, pst);
+            // Bright highlight
+            pst = juce::PathStrokeType (r * 0.06f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+            g.setColour (juce::Colour (0xffa0ffb8));
+            g.strokePath (arc, pst);
+        }
 
-        // Pointer line
-        float angle = startAngle + sliderPos * (endAngle - startAngle);
-        float lx = cx + (r * 0.55f) * std::sin (angle);
-        float ly = cy - (r * 0.55f) * std::cos (angle);
-        g.setColour (juce::Colours::white);
-        g.drawLine (cx, cy, lx, ly, 2.5f);
+        // ── Anodized aluminum body gradient ──────────────────────────────────
+        {
+            juce::ColourGradient body (juce::Colour (0xff7a14b8), cx - r * 0.3f, cy - r * 0.6f,
+                                       juce::Colour (0xff280050), cx + r * 0.2f, cy + r * 0.7f, false);
+            body.addColour (0.45, juce::Colour (0xff5a0a96));
+            body.addColour (0.7f, juce::Colour (0xff3a0070));
+            g.setGradientFill (body);
+            g.fillEllipse (cx - r * 0.78f, cy - r * 0.78f, r * 1.56f, r * 1.56f);
+        }
 
-        // Inner highlight
-        g.setColour (juce::Colour (0x3fffffff));
-        g.fillEllipse (cx - r*0.25f, cy - r*0.45f, r*0.25f, r*0.18f);
+        // ── Anodized texture rings ────────────────────────────────────────────
+        for (int i = 1; i <= 3; ++i)
+        {
+            float tr = r * 0.78f * (0.55f + i * 0.15f);
+            g.setColour (juce::Colour (0x0bffffff));
+            g.drawEllipse (cx - tr, cy - tr, tr * 2.f, tr * 2.f, 0.8f);
+        }
+
+        // ── Top-left catch-light (metallic sheen) ─────────────────────────────
+        {
+            juce::ColourGradient catchLight (juce::Colours::white.withAlpha (0.45f),
+                                             cx - r * 0.35f, cy - r * 0.52f,
+                                             juce::Colours::transparentWhite,
+                                             cx + r * 0.1f, cy - r * 0.05f, false);
+            g.setGradientFill (catchLight);
+            g.fillEllipse (cx - r * 0.62f, cy - r * 0.72f, r * 0.62f, r * 0.38f);
+        }
+
+        // ── Indicator line with glow backing ─────────────────────────────────
+        {
+            float angle = startAngle + sliderPos * (endAngle - startAngle);
+            float li0x = cx + (r * 0.18f) * std::sin (angle);
+            float li0y = cy - (r * 0.18f) * std::cos (angle);
+            float li1x = cx + (r * 0.72f) * std::sin (angle);
+            float li1y = cy - (r * 0.72f) * std::cos (angle);
+            // Soft glow
+            g.setColour (juce::Colours::white.withAlpha (0.25f));
+            g.drawLine (li0x, li0y, li1x, li1y, 4.5f);
+            // Sharp white line
+            g.setColour (juce::Colours::white);
+            g.drawLine (li0x, li0y, li1x, li1y, 1.8f);
+        }
+
+        // ── Silver / chrome center cap ────────────────────────────────────────
+        {
+            float cr = r * 0.22f;
+            juce::ColourGradient cap (juce::Colour (0xffe8e8f0), cx - cr * 0.4f, cy - cr * 0.5f,
+                                      juce::Colour (0xff8888a0), cx + cr * 0.3f, cy + cr * 0.4f, false);
+            g.setGradientFill (cap);
+            g.fillEllipse (cx - cr, cy - cr, cr * 2.f, cr * 2.f);
+            // Cap rim
+            g.setColour (juce::Colour (0xffa0a0c0));
+            g.drawEllipse (cx - cr, cy - cr, cr * 2.f, cr * 2.f, 1.f);
+            // Cap highlight
+            g.setColour (juce::Colours::white.withAlpha (0.6f));
+            g.fillEllipse (cx - cr * 0.55f, cy - cr * 0.65f, cr * 0.45f, cr * 0.28f);
+        }
     }
 
     void drawButtonBackground (juce::Graphics& g, juce::Button& btn, const juce::Colour&,
@@ -190,6 +258,8 @@ private:
     // ── Preset bar ──
     juce::TextButton prevPresetBtn { "<" }, nextPresetBtn { ">" }, savePresetBtn { "💾" }, deletePresetBtn { "🗑" }, presetsBtn { "PRESETS" };
     juce::Label      presetNameLabel;
+
+    float strawDroop = 0.f;  // 0 = upright (active), 1 = drooped (bypassed)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JuiceGangEditor)
 };
