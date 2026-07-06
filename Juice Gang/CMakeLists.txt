@@ -46,6 +46,11 @@ juce_add_plugin(${PLUGIN_TARGET}
     VST3_CATEGORIES             "Fx" "Filter"
 )
 
+juce_add_binary_data(JuiceGangBinaryData
+    SOURCES
+        Source/JuiceTag.m4a
+)
+
 target_sources(${PLUGIN_TARGET}
     PRIVATE
         Source/PluginProcessor.cpp
@@ -56,6 +61,7 @@ target_include_directories(${PLUGIN_TARGET} PRIVATE Source)
 
 target_link_libraries(${PLUGIN_TARGET}
     PRIVATE
+        JuiceGangBinaryData
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats

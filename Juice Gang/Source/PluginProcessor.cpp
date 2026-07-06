@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <BinaryData.h>
 
 // Comb tunings (samples at 44100)
 static const int kCombTunings[8]   = { 1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617 };
@@ -133,6 +134,64 @@ void JuiceGangProcessor::prepareToPlay (double sr, int block)
     smoothMasterMix.reset     (sr, 0.02); smoothMasterMix.setCurrentAndTargetValue (1.f);
     smoothMasterOut.reset     (sr, 0.02); smoothMasterOut.setCurrentAndTargetValue (1.f);
     smoothMasterIn.reset      (sr, 0.02); smoothMasterIn.setCurrentAndTargetValue (1.f);
+
+    // Decode voice tag on first prepare
+    if (!tagDecoded)
+        decodeVoiceTag (sr);
+}
+
+void JuiceGangProcessor::decodeVoiceTag (double sr)
+{
+    tagDecoded = true;
+    tagPlayPos = 0;
+
+    juce::AudioFormatManager formatManager;
+    formatManager.registerBasicFormats();
+
+#if JUCE_MAC || JUCE_IOS
+    formatManager.registerFormat (new juce::CoreAudioFormat(), false);
+#endif
+
+    juce::MemoryInputStream mis (BinaryData::JuiceTag_m4a,
+                                  BinaryData::JuiceTag_m4aSize, false);
+    std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (
+        std::make_unique<juce::MemoryInputStream> (BinaryData::JuiceTag_m4a,
+                                                    BinaryData::JuiceTag_m4aSize, false)));
+    if (reader == nullptr) { tagPlayPos = -1; return; }
+
+    int numSamples = (int)reader->lengthInSamples;
+    int numCh      = (int)reader->numChannels;
+    tagBuffer.setSize (2, numSamples, false, true, false);
+
+    juce::AudioBuffer<float> tmp (numCh, numSamples);
+    reader->read (&tmp, 0, numSamples, 0, true, true);
+
+    // Copy to stereo and normalise to -12 dBFS so it's not too loud
+    const float gain = juce::Decibels::decibelsToGain (-12.f);
+    for (int s = 0; s < numSamples; ++s)
+    {
+        tagBuffer.setSample (0, s, tmp.getSample (0, s) * gain);
+        tagBuffer.setSample (1, s, tmp.getSample (numCh > 1 ? 1 : 0, s) * gain);
+    }
+
+    // Resample if needed
+    if (reader->sampleRate != sr && reader->sampleRate > 0)
+    {
+        double ratio = sr / reader->sampleRate;
+        int newLen = (int)(numSamples * ratio);
+        juce::AudioBuffer<float> resampled (2, newLen);
+        for (int ch = 0; ch < 2; ++ch)
+            for (int s = 0; s < newLen; ++s)
+            {
+                double src = s / ratio;
+                int i0 = juce::jlimit (0, numSamples - 1, (int)src);
+                int i1 = juce::jlimit (0, numSamples - 1, i0 + 1);
+                float frac = (float)(src - i0);
+                resampled.setSample (ch, s, tagBuffer.getSample (ch, i0) * (1.f - frac)
+                                           + tagBuffer.getSample (ch, i1) * frac);
+            }
+        tagBuffer = resampled;
+    }
 }
 
 void JuiceGangProcessor::releaseResources() {}
@@ -449,6 +508,21 @@ void JuiceGangProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
 
     inputLevel.store  (peakIn  * 0.5f);
     outputLevel.store (peakOut * 0.5f);
+
+    // ── Voice tag playback — mix into output on first load ─────────────────
+    if (tagPlayPos >= 0 && tagPlayPos < tagBuffer.getNumSamples())
+    {
+        int tagRemain = tagBuffer.getNumSamples() - tagPlayPos;
+        int tagN      = juce::jmin (numSamples, tagRemain);
+        for (int n = 0; n < tagN; ++n)
+        {
+            dataL[n] += tagBuffer.getSample (0, tagPlayPos + n);
+            dataR[n] += tagBuffer.getSample (1, tagPlayPos + n);
+        }
+        tagPlayPos += tagN;
+        if (tagPlayPos >= tagBuffer.getNumSamples())
+            tagPlayPos = -1;  // done — won't play again this session
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

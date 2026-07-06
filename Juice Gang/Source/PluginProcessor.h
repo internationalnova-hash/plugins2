@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_dsp/juce_dsp.h>
 #include <array>
 #include <atomic>
@@ -121,6 +122,13 @@ private:
     juce::SmoothedValue<float> smoothDelayFeedback, smoothDelayMix;
     juce::SmoothedValue<float> smoothReverbSize, smoothReverbDecay, smoothReverbMix, smoothReverbDamp;
     juce::SmoothedValue<float> smoothMasterMix, smoothMasterOut, smoothMasterIn;
+
+    // ── Voice tag playback ────────────────────────────────────────────────
+    juce::AudioBuffer<float> tagBuffer;
+    int  tagPlayPos  = 0;      // sample position; -1 = done / not loaded
+    bool tagDecoded  = false;
+
+    void decodeVoiceTag (double sr);
 
     // ── Levels ────────────────────────────────────────────────────────────
     std::atomic<float> inputLevel { 0.f }, outputLevel { 0.f };
