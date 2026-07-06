@@ -1,5 +1,6 @@
 #pragma once
 #include "PluginProcessor.h"
+#include "JuicePresets.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -212,6 +213,200 @@ private:
     float phase = 0.f;
 };
 
+// ─── Preset Browser Overlay ──────────────────────────────────────────────────
+class PresetBrowser : public juce::Component
+{
+public:
+    std::function<void(int)> onPresetSelected;
+    std::function<void()>    onClose;
+
+    PresetBrowser()
+    {
+        setSize (620, 520);
+        selectedCategory = 0;
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        // Dark overlay background
+        g.setColour (juce::Colour (0xf0080018));
+        g.fillRoundedRectangle (getLocalBounds().toFloat(), 10.f);
+        g.setColour (juce::Colour (0xff39e65a).withAlpha (0.4f));
+        g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (1.f), 10.f, 1.5f);
+
+        // Header
+        g.setColour (juce::Colour (0xff1a0044));
+        g.fillRoundedRectangle (0.f, 0.f, (float)getWidth(), 48.f, 10.f);
+        g.fillRect (0.f, 30.f, (float)getWidth(), 18.f);
+        g.setColour (juce::Colour (0xff39e65a));
+        g.setFont (juce::Font (18.f, juce::Font::bold | juce::Font::italic));
+        g.drawText ("🧃 JUICE GANG — Flavor Browser", 16, 10, getWidth() - 64, 28, juce::Justification::centredLeft);
+        // Close button
+        g.setColour (juce::Colours::white.withAlpha (0.5f));
+        g.setFont (juce::Font (16.f, juce::Font::bold));
+        g.drawText ("x", getWidth() - 40, 8, 30, 28, juce::Justification::centred);
+        g.setColour (juce::Colour (0xff39e65a).withAlpha (0.4f));
+        g.drawLine (0.f, 48.f, (float)getWidth(), 48.f, 1.f);
+
+        // Category tab labels
+        const float catX = 8.f, catY = 54.f, catH = 36.f, catW = (getWidth() - 16.f) / kNumCategories;
+        for (int i = 0; i < kNumCategories; ++i)
+        {
+            juce::Rectangle<float> tab (catX + i * catW, catY, catW - 3.f, catH);
+            bool sel = (i == selectedCategory);
+            g.setColour (sel ? juce::Colour (0xff39e65a) : juce::Colour (0xff1a0040));
+            g.fillRoundedRectangle (tab, 5.f);
+            if (sel) {
+                g.setColour (juce::Colour (0xff002210));
+                g.setFont (juce::Font (8.5f, juce::Font::bold));
+            } else {
+                g.setColour (juce::Colours::white.withAlpha (0.7f));
+                g.setFont (juce::Font (8.f));
+            }
+            g.drawFittedText (kCategoryOrder[i], tab.toNearestInt(), juce::Justification::centred, 2);
+        }
+
+        // Preset list area divider
+        g.setColour (juce::Colour (0xff39e65a).withAlpha (0.2f));
+        g.drawLine (0.f, catY + catH + 4.f, (float)getWidth(), catY + catH + 4.f, 1.f);
+
+        // Preset items
+        const juce::String cat = kCategoryOrder[selectedCategory];
+        const float listY = catY + catH + 10.f;
+        const float itemH = 42.f;
+        const int   cols  = 2;
+        const float colW  = (getWidth() - 20.f) / cols;
+        int row = 0, col = 0;
+
+        for (int i = 0; i < kNumPresets; ++i)
+        {
+            if (juce::String (kJuicePresets[i].category) != cat) continue;
+
+            float ix = 10.f + col * colW;
+            float iy = listY + row * itemH;
+            juce::Rectangle<float> item (ix, iy, colW - 8.f, itemH - 5.f);
+
+            bool hov = (i == hoveredPreset);
+            bool sel2 = (i == loadedPreset);
+
+            juce::Colour bg = sel2 ? juce::Colour (0xff1a4a2a)
+                            : hov  ? juce::Colour (0xff1a0050)
+                                   : juce::Colour (0xff0e0028);
+            g.setColour (bg);
+            g.fillRoundedRectangle (item, 5.f);
+            g.setColour (sel2 ? juce::Colour (0xff39e65a)
+                              : juce::Colour (0xff39e65a).withAlpha (0.2f));
+            g.drawRoundedRectangle (item, 5.f, 1.f);
+
+            // Preset name
+            g.setColour (sel2 ? juce::Colour (0xff39e65a) : juce::Colours::white);
+            g.setFont (juce::Font (11.f, juce::Font::bold));
+            g.drawText (kJuicePresets[i].name, (int)item.getX() + 10, (int)item.getY() + 5, (int)item.getWidth() - 20, 16, juce::Justification::centredLeft);
+
+            // Indicator dots for FX active
+            float dotX = item.getRight() - 52.f;
+            float dotY = item.getY() + item.getHeight() - 12.f;
+            auto dot = [&](bool on, juce::Colour c) {
+                g.setColour (on ? c : c.withAlpha (0.15f));
+                g.fillEllipse (dotX, dotY, 8.f, 8.f);
+                dotX += 12.f;
+            };
+            dot (kJuicePresets[i].filterOn, juce::Colour (0xffffaa22));
+            dot (kJuicePresets[i].delayOn,  juce::Colour (0xff22aaff));
+            dot (kJuicePresets[i].reverbOn, juce::Colour (0xffaa44ff));
+            dot (kJuicePresets[i].sip > 5.f,juce::Colour (0xff39e65a));
+
+            // SIP bar
+            if (kJuicePresets[i].sip > 0.f) {
+                float barW = (colW - 28.f) * kJuicePresets[i].sip / 100.f;
+                g.setColour (juce::Colour (0xff39e65a).withAlpha (0.18f));
+                g.fillRoundedRectangle (item.getX() + 6.f, item.getBottom() - 7.f, colW - 28.f, 4.f, 2.f);
+                g.setColour (juce::Colour (0xff39e65a).withAlpha (0.5f));
+                g.fillRoundedRectangle (item.getX() + 6.f, item.getBottom() - 7.f, barW, 4.f, 2.f);
+            }
+
+            col++;
+            if (col >= cols) { col = 0; row++; }
+        }
+    }
+
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        // Check close (top-right X)
+        if (e.getPosition().getX() > getWidth() - 44 && e.getPosition().getY() < 44)
+        {
+            if (onClose) onClose();
+            return;
+        }
+
+        // Category tabs
+        const float catX = 8.f, catY = 54.f, catH = 36.f;
+        const float catW = (getWidth() - 16.f) / kNumCategories;
+        if (e.getPosition().getY() >= (int)catY && e.getPosition().getY() <= (int)(catY + catH))
+        {
+            int ci = (int)((e.getPosition().getX() - catX) / catW);
+            if (ci >= 0 && ci < kNumCategories) { selectedCategory = ci; hoveredPreset = -1; repaint(); }
+            return;
+        }
+
+        // Preset items
+        const juce::String cat = kCategoryOrder[selectedCategory];
+        const float listY = catY + catH + 10.f;
+        const float itemH = 42.f;
+        const int   cols  = 2;
+        const float colW  = (getWidth() - 20.f) / cols;
+        int row = 0, col = 0;
+
+        for (int i = 0; i < kNumPresets; ++i)
+        {
+            if (juce::String (kJuicePresets[i].category) != cat) continue;
+            float ix = 10.f + col * colW;
+            float iy = listY + row * itemH;
+            juce::Rectangle<float> item (ix, iy, colW - 8.f, itemH - 5.f);
+            if (item.contains (e.getPosition().toFloat()))
+            {
+                loadedPreset = i;
+                if (onPresetSelected) onPresetSelected (i);
+                repaint();
+                return;
+            }
+            col++;
+            if (col >= cols) { col = 0; row++; }
+        }
+    }
+
+    void mouseMove (const juce::MouseEvent& e) override
+    {
+        const juce::String cat = kCategoryOrder[selectedCategory];
+        const float catY = 54.f, catH = 36.f, listY = catY + catH + 10.f;
+        const float itemH = 42.f;
+        const int   cols  = 2;
+        const float colW  = (getWidth() - 20.f) / cols;
+        int row = 0, col = 0, prev = hoveredPreset;
+        hoveredPreset = -1;
+
+        for (int i = 0; i < kNumPresets; ++i)
+        {
+            if (juce::String (kJuicePresets[i].category) != cat) continue;
+            float ix = 10.f + col * colW;
+            float iy = listY + row * itemH;
+            juce::Rectangle<float> item (ix, iy, colW - 8.f, itemH - 5.f);
+            if (item.contains (e.getPosition().toFloat())) hoveredPreset = i;
+            col++;
+            if (col >= cols) { col = 0; row++; }
+        }
+        if (hoveredPreset != prev) repaint();
+    }
+
+    int  getLoadedPreset()   const { return loadedPreset; }
+    void setLoadedPreset (int i)   { loadedPreset = i; repaint(); }
+
+private:
+    int selectedCategory = 0;
+    int hoveredPreset    = -1;
+    int loadedPreset     = -1;
+};
+
 // ─── Main Editor ─────────────────────────────────────────────────────────────
 class JuiceGangEditor : public juce::AudioProcessorEditor, public juce::Timer
 {
@@ -289,6 +484,10 @@ private:
     juce::Slider sipKnob;
     juce::Label  sipLbl;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> sipAtt;
+
+    // ── Preset browser ──
+    PresetBrowser presetBrowser;
+    int  currentPresetIdx = -1;
 
     // ── JUICE Button ──
     juce::TextButton juiceBtn { "JUICE" };

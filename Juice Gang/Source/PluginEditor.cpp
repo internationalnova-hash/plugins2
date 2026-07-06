@@ -394,10 +394,46 @@ JuiceGangEditor::JuiceGangEditor (JuiceGangProcessor& p)
     for (auto* b2 : { &prevPresetBtn, &nextPresetBtn, &savePresetBtn, &deletePresetBtn, &presetsBtn })
         addAndMakeVisible (b2);
     addAndMakeVisible (presetNameLabel);
-    presetNameLabel.setText ("Default Preset", juce::dontSendNotification);
+    presetNameLabel.setText ("-- Select a Flavor --", juce::dontSendNotification);
     presetNameLabel.setColour (juce::Label::textColourId, juce::Colours::white);
     presetNameLabel.setFont (juce::Font (12.f, juce::Font::bold));
     presetNameLabel.setJustificationType (juce::Justification::centred);
+
+    // Preset browser overlay (hidden initially)
+    addChildComponent (presetBrowser);
+    presetBrowser.onPresetSelected = [this](int idx)
+    {
+        currentPresetIdx = idx;
+        applyPreset (kJuicePresets[idx], proc.apvts);
+        presetNameLabel.setText (kJuicePresets[idx].name, juce::dontSendNotification);
+    };
+    presetBrowser.onClose = [this]()
+    {
+        presetBrowser.setVisible (false);
+    };
+
+    // Prev/next preset navigation
+    prevPresetBtn.onClick = [this]()
+    {
+        int next = (currentPresetIdx <= 0) ? kNumPresets - 1 : currentPresetIdx - 1;
+        currentPresetIdx = next;
+        applyPreset (kJuicePresets[next], proc.apvts);
+        presetNameLabel.setText (kJuicePresets[next].name, juce::dontSendNotification);
+        presetBrowser.setLoadedPreset (next);
+    };
+    nextPresetBtn.onClick = [this]()
+    {
+        int next = (currentPresetIdx + 1) % kNumPresets;
+        currentPresetIdx = next;
+        applyPreset (kJuicePresets[next], proc.apvts);
+        presetNameLabel.setText (kJuicePresets[next].name, juce::dontSendNotification);
+        presetBrowser.setLoadedPreset (next);
+    };
+    presetsBtn.onClick = [this]()
+    {
+        presetBrowser.setVisible (!presetBrowser.isVisible());
+        if (presetBrowser.isVisible()) presetBrowser.toFront (false);
+    };
 
     startTimerHz (30);
 }
@@ -963,12 +999,15 @@ void JuiceGangEditor::resized()
     // ── JUICE Button — below SIP knob ──
     juiceBtn.setBounds (412, 598, 80, 34);
 
+    // ── Preset browser overlay — centred over the plugin ──
+    presetBrowser.setBounds ((W - 620) / 2, (getHeight() - 520) / 2, 620, 520);
+
     // ── Preset bar ──
-    const int PY = getHeight() - 32;
-    prevPresetBtn.setBounds    (36,  PY, 30, 24);
-    nextPresetBtn.setBounds    (70,  PY, 30, 24);
-    presetNameLabel.setBounds  (106, PY, 220, 24);
-    savePresetBtn.setBounds    (332, PY, 30, 24);
-    deletePresetBtn.setBounds  (366, PY, 30, 24);
-    presetsBtn.setBounds       (W - 96, PY, 80, 24);
+    const int PY = getHeight() - 30;
+    prevPresetBtn.setBounds    (36,  PY, 26, 22);
+    nextPresetBtn.setBounds    (64,  PY, 26, 22);
+    presetNameLabel.setBounds  (94,  PY, 300, 22);
+    savePresetBtn.setBounds    (400, PY, 40, 22);
+    deletePresetBtn.setBounds  (444, PY, 38, 22);
+    presetsBtn.setBounds       (W - 110, PY, 96, 22);
 }
