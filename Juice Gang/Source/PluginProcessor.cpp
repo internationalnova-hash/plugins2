@@ -73,6 +73,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout JuiceGangProcessor::createPa
     params.push_back (std::make_unique<juce::AudioParameterFloat> ("masterMix",    "Master Mix",     juce::NormalisableRange<float>(0.f, 100.f), 100.f));
     params.push_back (std::make_unique<juce::AudioParameterFloat> ("masterOut",    "Master Output",  juce::NormalisableRange<float>(-24.f, 12.f), 0.f));
 
+    // SIP macro — modulates cutoff, resonance, delay mix, reverb mix, drive simultaneously
+    params.push_back (std::make_unique<juce::AudioParameterFloat> ("sip",          "SIP",            juce::NormalisableRange<float>(0.f, 100.f), 0.f));
+
     return { params.begin(), params.end() };
 }
 
@@ -233,6 +236,25 @@ void JuiceGangProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     float masterInGain  = juce::Decibels::decibelsToGain ((float)*apvts.getRawParameterValue ("masterIn"));
     float masterMixTgt  = *apvts.getRawParameterValue ("masterMix") / 100.f;
     float masterOutGain = juce::Decibels::decibelsToGain ((float)*apvts.getRawParameterValue ("masterOut"));
+
+    // ── SIP macro modulation ───────────────────────────────────────────────
+    {
+        float sip = *apvts.getRawParameterValue ("sip") / 100.f;  // 0..1
+        if (sip > 0.001f)
+        {
+            // Sweep cutoff upward (20Hz → up to 16kHz at full sip)
+            cutoffTgt  = juce::jlimit (20.f, 20000.f, cutoffTgt  + sip * 14000.f);
+            // Add resonance character
+            resTgt     = juce::jlimit (0.f, 0.95f,   resTgt     + sip * 0.55f);
+            // Blend in delay and reverb
+            delayMixTgt= juce::jlimit (0.f, 1.f,     delayMixTgt+ sip * 0.55f);
+            revMixTgt  = juce::jlimit (0.f, 1.f,     revMixTgt  + sip * 0.65f);
+            // Drive for saturation character
+            driveTgt   = juce::jlimit (0.f, 1.f,     driveTgt   + sip * 0.45f);
+            // Turn on FX if SIP is up
+            if (sip > 0.1f) { delayOn = true; reverbOn = true; filterOn = true; }
+        }
+    }
 
     // Tempo sync
     auto playHead = getPlayHead();

@@ -285,6 +285,11 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>    masterInAtt, masterMixAtt, masterOutAtt;
     VUMeter          vuMeter;
 
+    // ── SIP macro knob ──
+    juce::Slider sipKnob;
+    juce::Label  sipLbl;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> sipAtt;
+
     // ── JUICE Button ──
     juce::TextButton juiceBtn { "JUICE" };
     float juicePhase   = 0.f;   // 0..1 animation progress
