@@ -339,6 +339,18 @@ JuiceGangEditor::JuiceGangEditor (JuiceGangProcessor& p)
     masterOutAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (a, "masterOut", masterOutKnob);
     addAndMakeVisible (vuMeter);
 
+    // ── JUICE Button ──
+    addAndMakeVisible (juiceBtn);
+    juiceBtn.setClickingTogglesState (false);
+    juiceBtn.onClick = [this]()
+    {
+        if (!juiceActive)
+        {
+            juiceActive = true;
+            juiceTimer  = 0.f;
+        }
+    };
+
     // ── Preset bar ──
     for (auto* b2 : { &prevPresetBtn, &nextPresetBtn, &savePresetBtn, &deletePresetBtn, &presetsBtn })
         addAndMakeVisible (b2);
@@ -367,6 +379,60 @@ void JuiceGangEditor::timerCallback()
 {
     vuMeter.setLevel (proc.getOutputLevel());
     vuMeter.repaint();
+
+    // ── JUICE button transition automation ──
+    if (juiceActive)
+    {
+        juiceTimer += 1.f / 30.f;   // seconds elapsed (30fps timer)
+        juicePhase = juce::jmin (1.f, juiceTimer / 4.f);  // 4-second sweep
+
+        auto setParam = [&](const juce::String& id, float val)
+        {
+            if (auto* p = proc.apvts.getParameter (id))
+                p->setValueNotifyingHost (p->convertTo0to1 (val));
+        };
+
+        if (juiceTimer < 1.0f)
+        {
+            // Phase 1: filter opens up + resonance rises
+            float t = juiceTimer;
+            setParam ("filterOn",  1.f);
+            setParam ("cutoff",    juce::jmap (t, 0.f, 1.f, 200.f,  8000.f));
+            setParam ("resonance", juce::jmap (t, 0.f, 1.f, 20.f,   85.f));
+        }
+        else if (juiceTimer < 2.0f)
+        {
+            // Phase 2: delay and reverb fade in
+            float t = juiceTimer - 1.f;
+            setParam ("delayOn",  1.f);
+            setParam ("delayMix", juce::jmap (t, 0.f, 1.f, 0.f, 60.f));
+            setParam ("reverbOn", 1.f);
+            setParam ("reverbMix",juce::jmap (t, 0.f, 1.f, 0.f, 55.f));
+        }
+        else if (juiceTimer < 3.0f)
+        {
+            // Phase 3: drive kicks in, filter sweeps back down
+            float t = juiceTimer - 2.f;
+            setParam ("drive",  juce::jmap (t, 0.f, 1.f, 0.f, 8.f));
+            setParam ("cutoff", juce::jmap (t, 0.f, 1.f, 8000.f, 800.f));
+        }
+        else if (juiceTimer < 4.0f)
+        {
+            // Phase 4: everything fades back to rest
+            float t = juiceTimer - 3.f;
+            setParam ("resonance", juce::jmap (t, 0.f, 1.f, 85.f, 20.f));
+            setParam ("delayMix",  juce::jmap (t, 0.f, 1.f, 60.f, 30.f));
+            setParam ("reverbMix", juce::jmap (t, 0.f, 1.f, 55.f, 30.f));
+            setParam ("drive",     juce::jmap (t, 0.f, 1.f, 8.f,  0.f));
+        }
+        else
+        {
+            juiceActive = false;
+            juicePhase  = 0.f;
+        }
+
+        repaint (338, 470, 296, 148);  // centre panel only
+    }
 
     // Straw bypass animation
     float bypass = *proc.apvts.getRawParameterValue ("bypass");
@@ -492,7 +558,7 @@ void JuiceGangEditor::paint (juce::Graphics& g)
     g.drawText ("JUICE", (int)sideW, (int)gableH + 6, 280, 56, juce::Justification::centredLeft);
     g.setFont (juce::Font (11.f, juce::Font::bold));
     g.setColour (kGreen);
-    g.drawText ("NOVA MOTION FX", (int)sideW + 2, (int)gableH + 58, 200, 14, juce::Justification::centredLeft);
+    g.drawText ("JUICE MOTION FX", (int)sideW + 2, (int)gableH + 58, 200, 14, juce::Justification::centredLeft);
 
     // GANG title
     g.setColour (juce::Colours::white);
@@ -676,31 +742,52 @@ void JuiceGangEditor::paint (juce::Graphics& g)
     drawPanel ({36,  470, 296, 148}, "LFO");
     drawPanel ({640, 470, 304, 148}, "REVERB EQ");
 
-    // Centre logo panel
+    // Centre JUICE button panel
     {
         juce::Rectangle<float> logo (338.f, 470.f, 296.f, 148.f);
-        g.setColour (kPurpleDark.withAlpha (0.85f));
+        // Dark panel body
+        juce::ColourGradient panelGrad (juce::Colour(0xff1a0040), 338.f, 470.f,
+                                         juce::Colour(0xff0a001c), 634.f, 618.f, false);
+        g.setGradientFill (panelGrad);
         g.fillRoundedRectangle (logo, 6.f);
-        g.setColour (kPanelBorder.withAlpha (0.35f));
+        g.setColour (kGreen.withAlpha (0.25f));
         g.drawRoundedRectangle (logo, 6.f, 1.f);
 
-        g.setColour (juce::Colours::white);
-        g.setFont (juce::Font (20.f, juce::Font::bold | juce::Font::italic));
-        g.drawText ("JUICE", 348, 490, 100, 28, juce::Justification::centredLeft);
-        g.drawText ("GANG",  526, 490, 98,  28, juce::Justification::centredRight);
+        // Small JUICE GANG text top-left / top-right of panel
+        g.setColour (juce::Colours::white.withAlpha (0.45f));
+        g.setFont (juce::Font (9.f, juce::Font::bold | juce::Font::italic));
+        g.drawText ("JUICE", 348, 476, 60, 14, juce::Justification::centredLeft);
+        g.drawText ("GANG",  566, 476, 60, 14, juce::Justification::centredRight);
 
-        g.setFont (juce::Font (32.f, juce::Font::bold));
-        g.setColour (kGreen);
-        g.drawText ("$", 452, 480, 48, 44, juce::Justification::centred);
-        g.setColour (juce::Colours::white.withAlpha (0.3f));
-        g.drawEllipse (450.f, 478.f, 52.f, 48.f, 1.5f);
+        // JUICE button pulsing glow ring when active
+        const float bcx = 486.f, bcy = 530.f;
+        if (juiceActive)
+        {
+            float pulse = 0.5f + 0.5f * std::sin (juiceTimer * juce::MathConstants<float>::twoPi * 2.f);
+            for (int gi = 3; gi >= 1; --gi)
+            {
+                float gr = 76.f + gi * 8.f;
+                g.setColour (kGreen.withAlpha (pulse * 0.12f * gi));
+                g.fillEllipse (bcx - gr, bcy - gr * 0.55f, gr * 2.f, gr * 1.1f);
+            }
+        }
 
-        g.setFont (juce::Font (9.f, juce::Font::bold));
-        g.setColour (kGreen.withAlpha (0.9f));
-        g.drawText ("NOVA AUDIO", 338, 546, 296, 16, juce::Justification::centred);
-        g.setColour (juce::Colours::white.withAlpha (0.3f));
+        // Progress arc around button when JUICE is firing
+        if (juiceActive && juicePhase > 0.f)
+        {
+            juce::Path progressArc;
+            float ar = 74.f;
+            float startA = -juce::MathConstants<float>::halfPi;
+            float endA   = startA + juicePhase * juce::MathConstants<float>::twoPi;
+            progressArc.addArc (bcx - ar, bcy - ar * 0.55f, ar * 2.f, ar * 1.1f, startA, endA, true);
+            g.setColour (kGreen.withAlpha (0.7f));
+            g.strokePath (progressArc, juce::PathStrokeType (3.f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        }
+
+        // Small label below button
         g.setFont (juce::Font (7.5f));
-        g.drawText ("MADE FOR CREATORS BY NOVA", 338, 566, 296, 12, juce::Justification::centred);
+        g.setColour (juce::Colours::white.withAlpha (0.3f));
+        g.drawText ("JUICE MOTION FX", 338, 590, 296, 12, juce::Justification::centred);
     }
 
     // Master label (floats above the master knobs area)
@@ -787,6 +874,9 @@ void JuiceGangEditor::resized()
     vuMeter.setBounds       (714, 626, 20, 112);
     masterMixKnob.setBounds (746, 630, 56, 56); masterMixLbl.setBounds (746, 684, 56, 14);
     masterOutKnob.setBounds (824, 630, 56, 56); masterOutLbl.setBounds (824, 684, 56, 14);
+
+    // ── JUICE Button — centre of the logo panel ──
+    juiceBtn.setBounds (400, 500, 136, 48);
 
     // ── Preset bar ──
     const int PY = getHeight() - 32;

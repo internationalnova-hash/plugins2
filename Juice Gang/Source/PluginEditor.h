@@ -122,19 +122,48 @@ public:
                                 bool highlighted, bool down) override
     {
         auto bounds = btn.getLocalBounds().toFloat().reduced (1.f);
-        bool on = btn.getToggleState();
-        g.setColour (on ? juce::Colour(0xff39e65a) : juce::Colour(0xff2a0060));
-        g.fillRoundedRectangle (bounds, 4.f);
-        g.setColour (juce::Colour(0xff39e65a).withAlpha(0.6f));
-        g.drawRoundedRectangle (bounds, 4.f, 1.5f);
+        bool isJuice = btn.getButtonText() == "JUICE";
+
+        if (isJuice)
+        {
+            // Big green glowing pill button
+            juce::ColourGradient bg (juce::Colour(0xff50ff80), bounds.getCentreX(), bounds.getY(),
+                                     juce::Colour(0xff22aa44), bounds.getCentreX(), bounds.getBottom(), false);
+            g.setGradientFill (bg);
+            g.fillRoundedRectangle (bounds, bounds.getHeight() * 0.5f);
+            // Rim glow
+            g.setColour (juce::Colour(0xff39e65a).withAlpha (down ? 1.f : 0.7f));
+            g.drawRoundedRectangle (bounds, bounds.getHeight() * 0.5f, 2.f);
+            // Inner highlight
+            g.setColour (juce::Colours::white.withAlpha (0.22f));
+            g.fillRoundedRectangle (bounds.withHeight (bounds.getHeight() * 0.45f), bounds.getHeight() * 0.5f);
+        }
+        else
+        {
+            bool on = btn.getToggleState();
+            g.setColour (on ? juce::Colour(0xff39e65a) : juce::Colour(0xff2a0060));
+            g.fillRoundedRectangle (bounds, 4.f);
+            g.setColour (juce::Colour(0xff39e65a).withAlpha(0.6f));
+            g.drawRoundedRectangle (bounds, 4.f, 1.5f);
+        }
     }
 
     void drawButtonText (juce::Graphics& g, juce::TextButton& btn, bool, bool) override
     {
-        bool on = btn.getToggleState();
-        g.setColour (on ? juce::Colour(0xff000000) : juce::Colours::white);
-        g.setFont (juce::Font (10.f, juce::Font::bold));
-        g.drawFittedText (btn.getButtonText(), btn.getLocalBounds(), juce::Justification::centred, 1);
+        bool isJuice = btn.getButtonText() == "JUICE";
+        if (isJuice)
+        {
+            g.setColour (juce::Colour(0xff003318));
+            g.setFont (juce::Font (20.f, juce::Font::bold | juce::Font::italic));
+            g.drawFittedText ("JUICE", btn.getLocalBounds(), juce::Justification::centred, 1);
+        }
+        else
+        {
+            bool on = btn.getToggleState();
+            g.setColour (on ? juce::Colour(0xff000000) : juce::Colours::white);
+            g.setFont (juce::Font (10.f, juce::Font::bold));
+            g.drawFittedText (btn.getButtonText(), btn.getLocalBounds(), juce::Justification::centred, 1);
+        }
     }
 };
 
@@ -256,8 +285,14 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>    masterInAtt, masterMixAtt, masterOutAtt;
     VUMeter          vuMeter;
 
+    // ── JUICE Button ──
+    juce::TextButton juiceBtn { "JUICE" };
+    float juicePhase   = 0.f;   // 0..1 animation progress
+    bool  juiceActive  = false; // true while transition is running
+    float juiceTimer   = 0.f;   // counts up in timer ticks
+
     // ── Preset bar ──
-    juce::TextButton prevPresetBtn { "<" }, nextPresetBtn { ">" }, savePresetBtn { "💾" }, deletePresetBtn { "🗑" }, presetsBtn { "PRESETS" };
+    juce::TextButton prevPresetBtn { "<" }, nextPresetBtn { ">" }, savePresetBtn { "SAVE" }, deletePresetBtn { "DEL" }, presetsBtn { "PRESETS" };
     juce::Label      presetNameLabel;
 
     float strawDroop = 0.f;  // 0 = upright (active), 1 = drooped (bypassed)
