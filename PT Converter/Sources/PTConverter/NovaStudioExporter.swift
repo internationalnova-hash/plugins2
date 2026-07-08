@@ -1,4 +1,5 @@
 import Foundation
+import AVFoundation
 
 // ---------------------------------------------------------------------------
 // Writes a .novastudio JSON session file that Nova Studio can open directly.
@@ -35,7 +36,7 @@ class NovaStudioExporter {
                 // full audio file WAV with the file-offset filled in.
                 let wavURL: URL?
                 let fileOffset: Int64
-                let clipLength: Int64
+                var clipLength: Int64
 
                 if let clipWAV = regionWAVs[region.index] {
                     wavURL = clipWAV
@@ -68,6 +69,12 @@ class NovaStudioExporter {
                 }
 
                 guard let url = wavURL else { continue }
+
+                // If length is still unknown, read it from the WAV file on disk
+                if clipLength == 0, let af = try? AVAudioFile(forReading: url) {
+                    clipLength = af.length
+                }
+                guard clipLength > 0 else { continue }
 
                 let clip: [String: Any] = [
                     "file":               url.path,
