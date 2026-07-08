@@ -615,10 +615,8 @@ namespace NovaStudio
         // fires and updates all engine state consistently.
         juce::AudioDeviceManager::AudioDeviceSetup setup;
         deviceManager.getAudioDeviceSetup(setup);
-        setup.sampleRate   = static_cast<double>(newSampleRate);
-        setup.bufferSize   = newBufferSize;
-        setup.useDefaultSampleRate  = false;
-        setup.useDefaultBufferSize  = false;
+        setup.sampleRate = static_cast<double>(newSampleRate);
+        setup.bufferSize = newBufferSize;
 
         juce::String err = deviceManager.setAudioDeviceSetup(setup, true);
         if (err.isNotEmpty())
@@ -1461,8 +1459,7 @@ namespace NovaStudio
         {
             juce::AudioDeviceManager::AudioDeviceSetup setup;
             deviceManager.getAudioDeviceSetup(setup);
-            setup.sampleRate          = sessionRate;
-            setup.useDefaultSampleRate = false;
+            setup.sampleRate = sessionRate;
             juce::String err = deviceManager.setAudioDeviceSetup(setup, true);
             if (err.isEmpty())
             {
