@@ -30,9 +30,12 @@ class AudioConverter {
         let fmt = inFile.processingFormat
         let length = inFile.length
 
+        // Downsample to 48kHz — 192kHz files cause DAW freezes with many tracks
+        let targetRate: Double = fmt.sampleRate > 48000 ? 48000 : fmt.sampleRate
+
         let outSettings: [String: Any] = [
             AVFormatIDKey:            kAudioFormatLinearPCM,
-            AVSampleRateKey:          fmt.sampleRate,
+            AVSampleRateKey:          targetRate,
             AVNumberOfChannelsKey:    fmt.channelCount,
             AVLinearPCMBitDepthKey:   24,
             AVLinearPCMIsFloatKey:    false,
@@ -44,28 +47,44 @@ class AudioConverter {
                                      commonFormat: .pcmFormatFloat32,
                                      interleaved: true)
 
-        let bufSize = AVAudioFrameCount(min(Int64(65536), length))
-        // Use the output file's processing format for the buffer so AVAudioFile
-        // handles any necessary conversion (bit depth, interleaving) automatically.
-        guard let buf = AVAudioPCMBuffer(pcmFormat: outFile.processingFormat,
-                                         frameCapacity: bufSize) else {
-            throw ConversionError.bufferAlloc
+        // Use AVAudioConverter for proper sample-rate conversion
+        let outFmt = outFile.processingFormat
+        let converter = AVAudioConverter(from: inFile.processingFormat, to: outFmt)!
+        let inBufSize  = AVAudioFrameCount(65536)
+        let outBufSize = AVAudioFrameCount(Double(inBufSize) * targetRate / fmt.sampleRate + 1)
+
+        guard let inBuf  = AVAudioPCMBuffer(pcmFormat: inFile.processingFormat,  frameCapacity: inBufSize),
+              let outBuf = AVAudioPCMBuffer(pcmFormat: outFmt, frameCapacity: outBufSize)
+        else { throw ConversionError.bufferAlloc }
+
+        var remaining = length
+        var eof = false
+        while !eof {
+            var inputConsumed = false
+            let status = converter.convert(to: outBuf, error: nil) { _, outStatus in
+                if remaining <= 0 || inputConsumed {
+                    outStatus.pointee = .endOfStream
+                    eof = true
+                    return nil
+                }
+                let toRead = AVAudioFrameCount(min(Int64(inBufSize), remaining))
+                inBuf.frameLength = toRead
+                do { try inFile.read(into: inBuf, frameCount: toRead) } catch { }
+                remaining -= Int64(toRead)
+                inputConsumed = true
+                outStatus.pointee = toRead > 0 ? .haveData : .endOfStream
+                return inBuf
+            }
+            if outBuf.frameLength > 0 { try outFile.write(from: outBuf) }
+            if status == .endOfStream || eof { break }
         }
 
-        var written: Int64 = 0
-        while written < length {
-            let toRead = AVAudioFrameCount(min(Int64(bufSize), length - written))
-            buf.frameLength = toRead
-            try inFile.read(into: buf, frameCount: toRead)
-            try outFile.write(from: buf)
-            written += Int64(toRead)
-        }
-
+        let outLength = Int64(Double(length) * targetRate / fmt.sampleRate)
         return ConversionResult(
             outputURL: dest,
-            sampleRate: fmt.sampleRate,
+            sampleRate: targetRate,
             channelCount: Int(fmt.channelCount),
-            lengthSamples: length
+            lengthSamples: outLength
         )
     }
 
