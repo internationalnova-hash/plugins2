@@ -25,7 +25,6 @@ namespace NovaStudio
     StudioAudioEngine::TrackPlayer::TrackPlayer()
     {
         formatManager.registerBasicFormats();
-        readAheadThread.startThread(juce::Thread::Priority::normal);
     }
 
     StudioAudioEngine::TrackPlayer::~TrackPlayer() = default;
@@ -414,8 +413,8 @@ namespace NovaStudio
         // Use a 2-second read-ahead buffer so disk I/O happens on a background
         // thread instead of the audio callback. Without this, every block stalls
         // waiting for a synchronous disk read — the main cause of playback lag.
-        const int readAhead = (int)(fileSampleRate * 2.0);
-        transportSource.setSource(readerSource.get(), readAhead, &readAheadThread, fileSampleRate);
+        const int readAhead = readAheadThread ? (int)(fileSampleRate * 2.0) : 0;
+        transportSource.setSource(readerSource.get(), readAhead, readAheadThread, fileSampleRate);
         transportSource.setPosition(0.0);
         loadedFile = file;
         return true;
@@ -544,6 +543,7 @@ namespace NovaStudio
         juce::Logger::writeToLog("StudioAudioEngine constructed. recordingFolder=" + recordingFolder.getFullPathName());
 
         recordingThread.startThread();
+        readAheadThread.startThread(juce::Thread::Priority::normal);
 
         transportState.setSampleRate(currentSampleRate);
         transportState.setTempo(static_cast<int>(session.getTempo()));
@@ -552,6 +552,7 @@ namespace NovaStudio
     StudioAudioEngine::~StudioAudioEngine()
     {
         shutdown();
+        readAheadThread.stopThread(2000);
         recordingThread.stopThread(2000);
         juce::Logger::setCurrentLogger(nullptr);
     }
@@ -774,6 +775,7 @@ namespace NovaStudio
         // Full rebuild (buildTrackPlayers) tears down all sources mid-stream
         // which races with the audio callback even under playerLock.
         auto newPlayer = std::make_unique<TrackPlayer>();
+        newPlayer->readAheadThread = &readAheadThread;
         newPlayer->setTrackMetadata(session.getTrack(newIndex));
         newPlayer->setSessionTrack(&session, newIndex);
         if (currentSampleRate > 0 && currentBufferSize > 0)
@@ -2102,6 +2104,7 @@ namespace NovaStudio
         {
             const Track& tr = session.getTrack(index);
             auto trackPlayer = std::make_unique<TrackPlayer>();
+            trackPlayer->readAheadThread = &readAheadThread;
             trackPlayer->setTrackMetadata(tr);
             trackPlayer->setSessionTrack(&session, index);
 

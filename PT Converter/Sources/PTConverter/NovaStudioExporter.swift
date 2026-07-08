@@ -88,6 +88,17 @@ class NovaStudioExporter {
                 }
                 guard clipLength > 0 else { continue }
 
+                // lengthSamples from disk WAVs is in the file's native sample rate
+                // (48 kHz after AudioConverter). Scale to session sample rate so Nova
+                // Studio's timeline (which counts in session-rate samples) is correct.
+                // Without this, a 96 kHz session shows every clip at half its real length.
+                if let af = try? AVAudioFile(forReading: url) {
+                    let fileSR = af.processingFormat.sampleRate
+                    if fileSR > 0 && fileSR != ptSession.sampleRate {
+                        clipLength = Int64(Double(clipLength) * ptSession.sampleRate / fileSR)
+                    }
+                }
+
                 let clip: [String: Any] = [
                     "file":               url.path,
                     "startSample":        Double(placement.startInTimelineSamples),

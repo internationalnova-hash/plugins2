@@ -312,7 +312,7 @@ namespace NovaStudio
             void getPluginState(int index, juce::MemoryBlock& dest) const;
             void setPluginState(int index, const void* data, size_t size);
 
-            juce::TimeSliceThread readAheadThread { "track-readahead" };
+            juce::TimeSliceThread* readAheadThread = nullptr; // shared, owned by engine
             juce::AudioTransportSource transportSource;
                 std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
                 Session* sessionPtr = nullptr;
@@ -391,6 +391,7 @@ namespace NovaStudio
 
         juce::AudioDeviceManager deviceManager;
         juce::MixerAudioSource mixerSource;
+        juce::TimeSliceThread readAheadThread { "nova-readahead" }; // shared across all TrackPlayers
 
         // MIDI Learn state
         juce::Array<MidiCCBinding> midiBindings;
