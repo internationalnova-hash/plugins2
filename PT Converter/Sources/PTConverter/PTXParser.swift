@@ -206,15 +206,14 @@ class PTXParser {
         }
 
         // If structured block parse found no tracks, use the region-entry scanner.
-        // Modern PT stores regions as: name + null + [2b fileIdx][8b f1][8b f2][8b f3]
-        // where f3 = clip length in samples at session rate.
-        // Timeline positions are stored in PT ticks (not samples) and require a tempo
-        // map to convert; for tuning sessions all clips start at position 0 in practice.
         if tracks.isEmpty {
             let regionEntries = scanRegionEntries(data: data, sampleRate: sampleRate)
             if !regionEntries.isEmpty {
+                var syntheticRegions = [PTRegion]()
                 tracks = buildTracksFromRegionEntries(
-                    entries: regionEntries, audioFiles: audioFiles)
+                    entries: regionEntries, audioFiles: audioFiles,
+                    regions: &syntheticRegions)
+                if regions.isEmpty { regions = syntheticRegions }
             }
         }
 
@@ -738,16 +737,24 @@ class PTXParser {
     }
 
     private func buildTracksFromRegionEntries(entries: [RegionEntry],
-                                               audioFiles: [PTAudioFile]) -> [PTTrack] {
+                                               audioFiles: [PTAudioFile],
+                                               regions: inout [PTRegion]) -> [PTTrack] {
         guard !entries.isEmpty else { return [] }
         var tracks = [PTTrack]()
         for (idx, entry) in entries.enumerated() {
-            let afIdx = bestMatchingFileIndex(name: entry.name, audioFiles: audioFiles) ?? 0
+            let afIdx = bestMatchingFileIndex(name: entry.name, audioFiles: audioFiles)
+                        ?? (idx < audioFiles.count ? audioFiles[idx].index : 0)
             let af = audioFiles.first(where: { $0.index == afIdx })
+            let clipLength = af?.lengthSamples ?? entry.lengthSamples
+            // Synthesize a PTRegion so the exporter can resolve the audio file
+            regions.append(PTRegion(index: idx, name: entry.name,
+                                    fileIndex: afIdx,
+                                    offsetInFileSamples: 0,
+                                    lengthSamples: clipLength))
             let placement = PTClipPlacement(
                 regionIndex: idx,
                 startInTimelineSamples: entry.positionSamples,
-                lengthSamples: af?.lengthSamples ?? entry.lengthSamples)
+                lengthSamples: clipLength)
             tracks.append(PTTrack(index: idx, name: entry.name,
                                   placements: [placement], isStereo: false))
         }

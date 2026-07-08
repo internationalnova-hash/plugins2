@@ -49,6 +49,20 @@ class NovaStudioExporter {
                     clipLength = placement.lengthSamples > 0
                         ? placement.lengthSamples
                         : region.lengthSamples
+                } else if let anyWAV = audioFileWAVs.values.first(where: {
+                    // Match by filename stem against region name (strip PT suffixes)
+                    let stem = $0.deletingPathExtension().lastPathComponent.lowercased()
+                    let rname = region.name.lowercased()
+                    return rname.contains(stem) || stem.contains(rname.components(separatedBy: "-").first ?? rname)
+                }) {
+                    wavURL = anyWAV
+                    fileOffset = 0
+                    clipLength = placement.lengthSamples > 0 ? placement.lengthSamples : region.lengthSamples
+                } else if let firstWAV = audioFileWAVs[audioFileWAVs.keys.sorted().first ?? 0] {
+                    // Last resort: use first available WAV so clip at least appears
+                    wavURL = firstWAV
+                    fileOffset = 0
+                    clipLength = placement.lengthSamples > 0 ? placement.lengthSamples : region.lengthSamples
                 } else {
                     continue
                 }
