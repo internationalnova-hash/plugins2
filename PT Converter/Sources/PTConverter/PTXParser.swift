@@ -137,6 +137,28 @@ class PTXParser {
                        audioFiles: &audioFiles, regions: &regions,
                        tracks: &tracks, tempoMap: &tempoMap, markers: &markers)
 
+        // Try secondary XOR key 0x2A on the later portion of the file.
+        // Modern PT uses a per-section secondary key for the clip/region block area.
+        // We detect the best secondary key by brute-force and re-parse that section.
+        if tracks.isEmpty || tracks.allSatisfy({ $0.placements.isEmpty }) {
+            let secondaryKey = detectSecondaryXORKey(data: data, startOffset: 0x10000)
+            if secondaryKey != 0 {
+                var buf2 = Array(data)
+                for idx in min(0x10000, buf2.count) ..< buf2.count {
+                    buf2[idx] ^= secondaryKey
+                }
+                let data2 = Data(buf2)
+                var r2 = [PTRegion](); var t2 = [PTTrack](); var f2 = audioFiles
+                parseAllBlocks(data: data2, version: version, sampleRate: sampleRate,
+                               audioFiles: &f2, regions: &r2,
+                               tracks: &t2, tempoMap: &tempoMap, markers: &markers)
+                if t2.contains(where: { !$0.placements.isEmpty }) {
+                    tracks = t2
+                    if r2.count > regions.count { regions = r2 }
+                }
+            }
+        }
+
         // Fallback: if structured parse found nothing, scan entire file for audio filenames
         if audioFiles.isEmpty {
             audioFiles = scanForAudioFilenames(data: data)
@@ -558,28 +580,63 @@ class PTXParser {
             lines.append(String(format: "%08x  %-47s  %-16s%@", row, hex2, ascii2, note))
         }
 
-        // Also dump decompressed block info
+        // Brute-force XOR key detection on the garbled section
+        // The garbled section (strings like yO^^CDMY, g_YCI) uses a second XOR key.
+        // We try all 256 keys and pick the one that yields the most readable ASCII.
         lines.append("")
-        lines.append("=== ZLIB SCAN (raw bytes) ===")
-        let zlibSecond: Set<UInt8> = [0x01, 0x5E, 0x9C, 0xDA]
-        var foundZlib = false
-        for k in 0..<bytes.count - 2 {
-            if bytes[k] == 0x78 && zlibSecond.contains(bytes[k+1]) {
-                if let dc = zlibDecompress(data: data, from: k) {
-                    lines.append(String(format: "  FOUND at 0x%06x → decompressed %d bytes", k, dc.count))
-                    // Dump first 256 bytes of decompressed
-                    let dcBytes = Array(dc)
-                    for row in stride(from: 0, to: min(256, dcBytes.count), by: 16) {
-                        let end = min(row+16, dcBytes.count)
-                        let hex3 = dcBytes[row..<end].map { String(format:"%02x",$0) }.joined(separator:" ")
-                        let asc3 = dcBytes[row..<end].map { ($0>=0x20&&$0<0x7f) ? Character(UnicodeScalar($0)) : "." }.map(String.init).joined()
-                        lines.append(String(format: "  %06x  %-47s  %@", row, hex3, asc3))
+        lines.append("=== XOR KEY BRUTE-FORCE (garbled section 0x14000-0x18000) ===")
+        let scanStart = min(0x14000, bytes.count - 2)
+        let scanEnd   = min(0x18000, bytes.count)
+        if scanEnd > scanStart + 64 {
+            var bestKey = 0; var bestScore = 0
+            for key in 0..<256 {
+                var score = 0
+                var runLen = 0
+                for j in scanStart..<scanEnd {
+                    let b = bytes[j] ^ UInt8(key)
+                    if b >= 0x20 && b < 0x7f { runLen += 1; if runLen >= 4 { score += 1 } }
+                    else { runLen = 0 }
+                }
+                if score > bestScore { bestScore = score; bestKey = key }
+            }
+            lines.append(String(format: "  Best XOR key: 0x%02x (score %d printable runs)", bestKey, bestScore))
+
+            // Dump printable strings found with that key
+            var strS = -1
+            for j in scanStart..<scanEnd {
+                let b = bytes[j] ^ UInt8(bestKey)
+                let printable = b >= 0x20 && b < 0x7f
+                if printable && strS < 0 { strS = j }
+                if !printable && strS >= 0 {
+                    let len = j - strS
+                    if len >= 4 {
+                        let decoded = bytes[strS..<j].map { Character(UnicodeScalar($0 ^ UInt8(bestKey))) }
+                        lines.append(String(format: "  0x%06x len=%d: %@", strS, len, String(decoded)))
                     }
-                    foundZlib = true
+                    strS = -1
                 }
             }
         }
-        if !foundZlib { lines.append("  No valid zlib blocks found in XOR-decrypted data") }
+
+        // Also try key 0x2A specifically (suspected secondary key) and dump strings
+        lines.append("")
+        lines.append("=== XOR KEY 0x2A DECODE (0x14000-0x18000) ===")
+        if scanEnd > scanStart + 64 {
+            var strS2 = -1
+            for j in scanStart..<scanEnd {
+                let b = bytes[j] ^ 0x2A
+                let printable = b >= 0x20 && b < 0x7f
+                if printable && strS2 < 0 { strS2 = j }
+                if !printable && strS2 >= 0 {
+                    let len = j - strS2
+                    if len >= 4 {
+                        let decoded = bytes[strS2..<j].map { Character(UnicodeScalar($0 ^ 0x2A)) }
+                        lines.append(String(format: "  0x%06x len=%d: %@", strS2, len, String(decoded)))
+                    }
+                    strS2 = -1
+                }
+            }
+        }
 
         let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first!
         let dumpURL = desktop.appendingPathComponent("ptx_analysis_\(sessionName).txt")
@@ -709,6 +766,37 @@ class PTXParser {
 
         // Fallback: sequential placement
         return buildTracksFromNames(trackNames: trackNames, audioFiles: audioFiles)
+    }
+
+    // -----------------------------------------------------------------------
+    // MARK: – Secondary XOR key detection
+    // -----------------------------------------------------------------------
+    // Scans a region of the file trying all 256 XOR keys; returns the key
+    // that produces the most runs of 4+ printable ASCII characters.
+    private func detectSecondaryXORKey(data: Data, startOffset: Int) -> UInt8 {
+        let bytes = Array(data)
+        let start = min(startOffset, bytes.count - 2)
+        let end   = min(start + 16384, bytes.count)  // scan 16KB sample
+        guard end > start + 64 else { return 0 }
+
+        var bestKey: UInt8 = 0; var bestScore = 0
+        for key in 1..<256 {   // skip 0 = no-op
+            var score = 0; var runLen = 0
+            for j in start..<end {
+                let b = bytes[j] ^ UInt8(key)
+                if b >= 0x20 && b < 0x7f { runLen += 1; if runLen >= 4 { score += 1 } }
+                else { runLen = 0 }
+            }
+            if score > bestScore { bestScore = score; bestKey = UInt8(key) }
+        }
+        // Only return a key if it significantly outperforms no-key
+        var baseScore = 0; var baseRun = 0
+        for j in start..<end {
+            let b = bytes[j]
+            if b >= 0x20 && b < 0x7f { baseRun += 1; if baseRun >= 4 { baseScore += 1 } }
+            else { baseRun = 0 }
+        }
+        return bestScore > baseScore * 2 ? bestKey : 0
     }
 
     // -----------------------------------------------------------------------
