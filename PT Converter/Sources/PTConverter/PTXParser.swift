@@ -1,4 +1,5 @@
 import Foundation
+import Compression
 
 // ---------------------------------------------------------------------------
 // Pro Tools .ptx / .pts binary parser
@@ -147,13 +148,51 @@ class PTXParser {
                            audioFiles: &audioFiles, regions: &regions, tracks: &tracks)
         }
 
+        // Try to find and decompress zlib blocks in both raw and XOR'd data.
+        // Modern PT (2018+) stores clip/region data in compressed segments.
+        // We scan both buffers because compression may be applied before or after XOR.
+        if tracks.isEmpty || tracks.allSatisfy({ $0.placements.isEmpty }) {
+            let rawData = Data(Array(raw))
+            for searchData in [data, rawData] {
+                if let decompressed = findAndDecompressZlib(in: searchData) {
+                    // Parse blocks from decompressed data
+                    var dRegions = [PTRegion]()
+                    var dTracks  = [PTTrack]()
+                    var dFiles   = audioFiles
+                    parseAllBlocks(data: decompressed, version: version, sampleRate: sampleRate,
+                                   audioFiles: &dFiles, regions: &dRegions,
+                                   tracks: &dTracks, tempoMap: &tempoMap, markers: &markers)
+                    if !dTracks.isEmpty && dTracks.contains(where: { !$0.placements.isEmpty }) {
+                        tracks = dTracks
+                        if dRegions.count > regions.count { regions = dRegions }
+                        break
+                    }
+                    // Also try clip position extraction from decompressed data
+                    if tracks.isEmpty && !audioFiles.isEmpty {
+                        let names = scanForTrackNames(data: decompressed)
+                        if !names.isEmpty {
+                            let t = buildTracksFromNamesWithPositions(
+                                trackNames: names, audioFiles: audioFiles,
+                                data: decompressed, sampleRate: sampleRate)
+                            if t.contains(where: { !$0.placements.isEmpty }) {
+                                tracks = t; break
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // If structured block parse found no tracks, scan for track names embedded
         // in the modern PT binary (visible as "ed 5b df" prefixed entries)
         if tracks.isEmpty {
             let trackNames = scanForTrackNames(data: data)
             if !trackNames.isEmpty && !audioFiles.isEmpty {
-                tracks = buildTracksFromNames(trackNames: trackNames, audioFiles: audioFiles)
-            } else if !audioFiles.isEmpty {
+                tracks = buildTracksFromNamesWithPositions(
+                    trackNames: trackNames, audioFiles: audioFiles,
+                    data: data, sampleRate: sampleRate)
+            }
+            if tracks.isEmpty && !audioFiles.isEmpty {
                 tracks = inferTracksFromFileNames(audioFiles: audioFiles)
             }
         }
@@ -519,9 +558,157 @@ class PTXParser {
             lines.append(String(format: "%08x  %-47s  %-16s%@", row, hex2, ascii2, note))
         }
 
+        // Also dump decompressed block info
+        lines.append("")
+        lines.append("=== ZLIB SCAN (raw bytes) ===")
+        let zlibSecond: Set<UInt8> = [0x01, 0x5E, 0x9C, 0xDA]
+        var foundZlib = false
+        for k in 0..<bytes.count - 2 {
+            if bytes[k] == 0x78 && zlibSecond.contains(bytes[k+1]) {
+                if let dc = zlibDecompress(data: data, from: k) {
+                    lines.append(String(format: "  FOUND at 0x%06x → decompressed %d bytes", k, dc.count))
+                    // Dump first 256 bytes of decompressed
+                    let dcBytes = Array(dc)
+                    for row in stride(from: 0, to: min(256, dcBytes.count), by: 16) {
+                        let end = min(row+16, dcBytes.count)
+                        let hex3 = dcBytes[row..<end].map { String(format:"%02x",$0) }.joined(separator:" ")
+                        let asc3 = dcBytes[row..<end].map { ($0>=0x20&&$0<0x7f) ? Character(UnicodeScalar($0)) : "." }.map(String.init).joined()
+                        lines.append(String(format: "  %06x  %-47s  %@", row, hex3, asc3))
+                    }
+                    foundZlib = true
+                }
+            }
+        }
+        if !foundZlib { lines.append("  No valid zlib blocks found in XOR-decrypted data") }
+
         let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first!
         let dumpURL = desktop.appendingPathComponent("ptx_analysis_\(sessionName).txt")
         try? lines.joined(separator: "\n").write(to: dumpURL, atomically: true, encoding: .utf8)
+    }
+
+    // -----------------------------------------------------------------------
+    // MARK: – Zlib decompression
+    // -----------------------------------------------------------------------
+    // Scans data for zlib-compressed blocks (magic: 0x78 0x9C / 0x78 0xDA / 0x78 0x01 / 0x78 0x5E)
+    // Returns the largest successfully decompressed chunk, or nil.
+    private func findAndDecompressZlib(in data: Data) -> Data? {
+        let bytes = Array(data)
+        let zlibSecondBytes: Set<UInt8> = [0x01, 0x5E, 0x9C, 0xDA]
+        var bestResult: Data? = nil
+        var bestSize = 0
+
+        var i = 0
+        while i < bytes.count - 6 {
+            guard bytes[i] == 0x78 && zlibSecondBytes.contains(bytes[i+1]) else { i += 1; continue }
+
+            // Try to decompress from here
+            if let decompressed = zlibDecompress(data: data, from: i) {
+                if decompressed.count > bestSize {
+                    bestSize = decompressed.count
+                    bestResult = decompressed
+                }
+            }
+            i += 2
+        }
+        return bestResult
+    }
+
+    private func zlibDecompress(data: Data, from offset: Int) -> Data? {
+        let inputSize = data.count - offset
+        guard inputSize > 4 else { return nil }
+
+        // Allocate output buffer — zlib data can expand up to ~10x, cap at 200MB
+        let maxOut = min(inputSize * 20, 200_000_000)
+        let outBuf = UnsafeMutablePointer<UInt8>.allocate(capacity: maxOut)
+        defer { outBuf.deallocate() }
+
+        let written: Int = data.withUnsafeBytes { ptr -> Int in
+            guard let base = ptr.baseAddress else { return 0 }
+            let inPtr = base.advanced(by: offset).assumingMemoryBound(to: UInt8.self)
+            return compression_decode_buffer(outBuf, maxOut, inPtr, inputSize, nil, COMPRESSION_ZLIB)
+        }
+
+        guard written > 100 else { return nil }
+        return Data(bytes: outBuf, count: written)
+    }
+
+    // -----------------------------------------------------------------------
+    // MARK: – Track building with position scanning
+    // -----------------------------------------------------------------------
+    // Builds tracks from names and tries to find sample positions in the binary
+    // near each track name entry, or via sequence of int64 position tables.
+    private func buildTracksFromNamesWithPositions(trackNames: [String], audioFiles: [PTAudioFile],
+                                                    data: Data, sampleRate: Double) -> [PTTrack] {
+        // First try: scan data for int64 tables that look like clip start positions
+        // followed by lengths. PT stores: [startSample: int64][lengthSample: int64][fileOffset: int64]
+        let bytes = Array(data)
+        let maxSamp = Int64(sampleRate * 7200)   // 2 hours
+        let minSamp: Int64 = 0
+
+        // Collect all plausible (start, length) pairs from 8-byte aligned positions
+        struct PosEntry { let offset: Int; let start: Int64; let length: Int64 }
+        var candidates = [PosEntry]()
+        var j = 0
+        while j < bytes.count - 16 {
+            // Try big-endian int64 pair
+            var start: Int64 = 0
+            var length: Int64 = 0
+            for b in 0..<8 { start  = (start  << 8) | Int64(bytes[j+b]) }
+            for b in 0..<8 { length = (length << 8) | Int64(bytes[j+8+b]) }
+            if start >= minSamp && start <= maxSamp && length > 0 && length <= maxSamp {
+                candidates.append(PosEntry(offset: j, start: start, length: length))
+            }
+            // Also try little-endian
+            var leStart: Int64 = 0; var leLen: Int64 = 0
+            for b in 0..<8 { leStart |= Int64(bytes[j+b]) << (b*8) }
+            for b in 0..<8 { leLen   |= Int64(bytes[j+8+b]) << (b*8) }
+            if leStart > 0 && leStart <= maxSamp && leLen > 0 && leLen <= maxSamp {
+                candidates.append(PosEntry(offset: j, start: leStart, length: leLen))
+            }
+            j += 8
+        }
+
+        // Group candidates into clusters (consecutive positions = clip list)
+        // Find the largest cluster — that's likely the track placement table
+        var tracks = [PTTrack]()
+        if !candidates.isEmpty && !trackNames.isEmpty && !audioFiles.isEmpty {
+            // Sort by offset and group into runs
+            let sorted = candidates.sorted { $0.offset < $1.offset }
+            var runs = [[PosEntry]](); var cur = [PosEntry]()
+            for (idx, c) in sorted.enumerated() {
+                if idx == 0 { cur.append(c); continue }
+                if c.offset - sorted[idx-1].offset <= 32 { cur.append(c) }
+                else { if cur.count >= 2 { runs.append(cur) }; cur = [c] }
+            }
+            if cur.count >= 2 { runs.append(cur) }
+
+            // Largest run = primary clip table
+            if let best = runs.max(by: { $0.count < $1.count }) {
+                // Assign positions round-robin to tracks
+                let perTrack = max(1, best.count / max(1, trackNames.count))
+                for (ti, name) in trackNames.enumerated() {
+                    let slice = Array(best[ti*perTrack ..< min((ti+1)*perTrack, best.count)])
+                    let afIdx = ti < audioFiles.count ? audioFiles[ti].index : 0
+                    let regionIdx = ti
+                    let placements: [PTClipPlacement] = slice.map {
+                        PTClipPlacement(regionIndex: regionIdx,
+                                        startInTimelineSamples: $0.start,
+                                        lengthSamples: $0.length)
+                    }
+                    tracks.append(PTTrack(index: ti, name: name,
+                                          placements: placements.isEmpty
+                                            ? [PTClipPlacement(regionIndex: afIdx,
+                                                               startInTimelineSamples: Int64(ti) * (audioFiles.first?.lengthSamples ?? 44100),
+                                                               lengthSamples: ti < audioFiles.count ? audioFiles[ti].lengthSamples : 44100)]
+                                            : placements,
+                                          isStereo: false))
+                }
+                return tracks
+            }
+        }
+
+        // Fallback: sequential placement
+        return buildTracksFromNames(trackNames: trackNames, audioFiles: audioFiles)
     }
 
     // -----------------------------------------------------------------------
