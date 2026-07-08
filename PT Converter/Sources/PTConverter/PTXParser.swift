@@ -84,7 +84,7 @@ class PTXParser {
     private static let magic: [UInt8] = [0x03, 0x00]
 
     // Set to true to write a hex analysis file next to the .ptx for debugging
-    var writeDebugDump = false
+    var writeDebugDump = true
 
     func parse(url: URL) throws -> PTSession {
         let raw = try Data(contentsOf: url, options: .mappedIfSafe)
@@ -520,176 +520,22 @@ class PTXParser {
                                      regions: [PTRegion], tracks: [PTTrack]) {
         let bytes = Array(data)
         var lines = [String]()
-        lines.append("PT Binary Analysis: \(sessionName)")
-        lines.append("File size: \(data.count) bytes  SampleRate: \(sampleRate)")
-        lines.append("Version byte 0x14: 0x\(String(bytes[0x14], radix: 16))")
-        lines.append("Parsed: \(audioFiles.count) audioFiles, \(regions.count) regions, \(tracks.count) tracks")
+        lines.append("PT Hex Dump: \(sessionName)  SR=\(sampleRate)  ver=0x\(String(bytes[0x14], radix:16))")
         lines.append("")
 
-        // Dump header bytes
-        lines.append("=== HEADER (0x00-0x60) ===")
-        for row in stride(from: 0, through: min(0x60, bytes.count-1), by: 16) {
-            let end = min(row + 16, bytes.count)
-            let hex = bytes[row..<end].map { String(format: "%02x", $0) }.joined(separator: " ")
-            let ascii = bytes[row..<end].map { ($0 >= 0x20 && $0 < 0x7f) ? Character(UnicodeScalar($0)) : "." }.map(String.init).joined()
-            lines.append(String(format: "%08x  %-47s  %@", row, hex, ascii))
-        }
-        lines.append("")
-
-        // Find all printable string regions (runs of printable ASCII >= 3 chars)
-        lines.append("=== PRINTABLE STRING REGIONS ===")
-        var strStart = -1
-        var i = 0
-        while i < bytes.count {
-            let printable = bytes[i] >= 0x20 && bytes[i] < 0x7f
-            if printable && strStart < 0 { strStart = i }
-            if !printable && strStart >= 0 {
-                let len = i - strStart
-                if len >= 3 {
-                    let s = String(bytes: bytes[strStart..<i], encoding: .utf8) ?? "?"
-                    lines.append(String(format: "  0x%06x len=%d: %@", strStart, len, s))
-                }
-                strStart = -1
-            }
-            i += 1
-        }
-        lines.append("")
-
-        // Scan for (string + null + 26 binary bytes) pattern — these are PT region entries
-        // containing [fileIndex:u16][field1:i64][field2:i64][field3:i64]
-        lines.append("=== REGION ENTRY SCAN (string + 26-byte binary pattern) ===")
-        var ri = 0x40
-        while ri < min(bytes.count - 30, 0x30000) {
-            guard bytes[ri] >= 0x20 && bytes[ri] < 0x7f else { ri += 1; continue }
-            var re = ri
-            while re < bytes.count && bytes[re] >= 0x20 && bytes[re] < 0x7f { re += 1 }
-            let rNameLen = re - ri
-            guard rNameLen >= 3 && rNameLen <= 64 && re < bytes.count && bytes[re] == 0x00 else { ri = re + 1; continue }
-            let afterNull = re + 1
-            guard afterNull + 26 <= bytes.count else { ri = afterNull; continue }
-            // Check that after 26 bytes the next byte is printable or null (= another entry)
-            let nextByte = bytes[afterNull + 26]
-            guard (nextByte >= 0x20 && nextByte < 0x7f) || nextByte == 0x00 else { ri = afterNull; continue }
-            // Read fields
-            let fileIdx = (Int(bytes[afterNull]) << 8) | Int(bytes[afterNull+1])
-            var f1: Int64 = 0, f2: Int64 = 0, f3: Int64 = 0
-            for b in 0..<8 { f1 = (f1 << 8) | Int64(bytes[afterNull+2+b]) }
-            for b in 0..<8 { f2 = (f2 << 8) | Int64(bytes[afterNull+10+b]) }
-            for b in 0..<8 { f3 = (f3 << 8) | Int64(bytes[afterNull+18+b]) }
-            // Also try little-endian
-            var lf1: Int64=0, lf2: Int64=0, lf3: Int64=0
-            for b in 0..<8 { lf1 |= Int64(bytes[afterNull+2+b]) << (b*8) }
-            for b in 0..<8 { lf2 |= Int64(bytes[afterNull+10+b]) << (b*8) }
-            for b in 0..<8 { lf3 |= Int64(bytes[afterNull+18+b]) << (b*8) }
-            let maxS = Int64(sampleRate * 7200)
-            let name = String(bytes: bytes[ri..<re], encoding: .utf8) ?? "?"
-            let f1s = f1 > 0 && f1 < maxS ? String(format:"%.2fs", Double(f1)/sampleRate) : "-"
-            let f2s = f2 > 0 && f2 < maxS ? String(format:"%.2fs", Double(f2)/sampleRate) : "-"
-            let f3s = f3 > 0 && f3 < maxS ? String(format:"%.2fs", Double(f3)/sampleRate) : "-"
-            lines.append(String(format: "  0x%06x \"%@\" fileIdx=%d BE[%@,%@,%@] LE[%@,%@,%@]",
-                ri, name, fileIdx, String(f1), String(f2), String(f3),
-                String(lf1),String(lf2),String(lf3)))
-            lines.append(String(format: "    BE_sec[%@,%@,%@]", f1s, f2s, f3s))
-            ri = afterNull + 26
-            continue
-            ri += 1
-        }
-        lines.append("")
-
-        // Dump the region between last track name and compressed data
-        // Find approximate end of track name section (look for long runs of 0x91/0x92)
-        var compressStart = bytes.count
-        var runLen = 0
-        for j in stride(from: bytes.count - 1, through: 0, by: -1) {
-            if bytes[j] == 0x91 || bytes[j] == 0x92 || bytes[j] == 0x93 {
-                runLen += 1
-            } else {
-                if runLen > 100 { compressStart = j + 1; break }
-                runLen = 0
-            }
-        }
-
-        // Dump 4KB before compressed section — this is where clip positions live
-        let dumpStart = max(0, compressStart - 4096)
-        lines.append(String(format: "=== DATA BEFORE COMPRESSED SECTION (0x%06x - 0x%06x) ===", dumpStart, compressStart))
-        for row in stride(from: dumpStart, to: compressStart, by: 16) {
-            let end2 = min(row + 16, compressStart)
-            let hex2 = bytes[row..<end2].map { String(format: "%02x", $0) }.joined(separator: " ")
-            let ascii2 = bytes[row..<end2].map { ($0 >= 0x20 && $0 < 0x7f) ? Character(UnicodeScalar($0)) : "." }.map(String.init).joined()
-            // Also decode as potential int64 BE and LE
-            var be64: Int64 = 0
-            var le64: Int64 = 0
-            if row + 8 <= end2 {
-                for b in 0..<8 { be64 = (be64 << 8) | Int64(bytes[row+b]) }
-                for b in 0..<8 { le64 |= Int64(bytes[row+b]) << (b*8) }
-            }
-            let maxSamp = Int64(sampleRate * 7200)
-            var note = ""
-            if be64 > 0 && be64 < maxSamp { note += " BE64=\(be64)samp(\(String(format:"%.2f", Double(be64)/sampleRate))s)" }
-            if le64 > 0 && le64 < maxSamp && le64 != be64 { note += " LE64=\(le64)samp(\(String(format:"%.2f", Double(le64)/sampleRate))s)" }
-            lines.append(String(format: "%08x  %-47s  %-16s%@", row, hex2, ascii2, note))
-        }
-
-        // Brute-force XOR key detection on the garbled section
-        // The garbled section (strings like yO^^CDMY, g_YCI) uses a second XOR key.
-        // We try all 256 keys and pick the one that yields the most readable ASCII.
-        lines.append("")
-        lines.append("=== XOR KEY BRUTE-FORCE (garbled section 0x14000-0x18000) ===")
-        let scanStart = min(0x14000, bytes.count - 2)
-        let scanEnd   = min(0x18000, bytes.count)
-        if scanEnd > scanStart + 64 {
-            var bestKey = 0; var bestScore = 0
-            for key in 0..<256 {
-                var score = 0
-                var runLen = 0
-                for j in scanStart..<scanEnd {
-                    let b = bytes[j] ^ UInt8(key)
-                    if b >= 0x20 && b < 0x7f { runLen += 1; if runLen >= 4 { score += 1 } }
-                    else { runLen = 0 }
-                }
-                if score > bestScore { bestScore = score; bestKey = key }
-            }
-            lines.append(String(format: "  Best XOR key: 0x%02x (score %d printable runs)", bestKey, bestScore))
-
-            // Dump printable strings found with that key
-            var strS = -1
-            for j in scanStart..<scanEnd {
-                let b = bytes[j] ^ UInt8(bestKey)
-                let printable = b >= 0x20 && b < 0x7f
-                if printable && strS < 0 { strS = j }
-                if !printable && strS >= 0 {
-                    let len = j - strS
-                    if len >= 4 {
-                        let decoded = bytes[strS..<j].map { Character(UnicodeScalar($0 ^ UInt8(bestKey))) }
-                        lines.append(String(format: "  0x%06x len=%d: %@", strS, len, String(decoded)))
-                    }
-                    strS = -1
-                }
-            }
-        }
-
-        // Also try key 0x2A specifically (suspected secondary key) and dump strings
-        lines.append("")
-        lines.append("=== XOR KEY 0x2A DECODE (0x14000-0x18000) ===")
-        if scanEnd > scanStart + 64 {
-            var strS2 = -1
-            for j in scanStart..<scanEnd {
-                let b = bytes[j] ^ 0x2A
-                let printable = b >= 0x20 && b < 0x7f
-                if printable && strS2 < 0 { strS2 = j }
-                if !printable && strS2 >= 0 {
-                    let len = j - strS2
-                    if len >= 4 {
-                        let decoded = bytes[strS2..<j].map { Character(UnicodeScalar($0 ^ 0x2A)) }
-                        lines.append(String(format: "  0x%06x len=%d: %@", strS2, len, String(decoded)))
-                    }
-                    strS2 = -1
-                }
-            }
+        // Dump the first 0x900 bytes raw — this contains all the name+binary entries
+        let dumpEnd = min(0x900, bytes.count)
+        lines.append("=== RAW HEX 0x0000 - 0x\(String(dumpEnd, radix:16)) ===")
+        for row in stride(from: 0, to: dumpEnd, by: 16) {
+            let end = min(row + 16, dumpEnd)
+            let hexParts = (row..<end).map { String(format: "%02x", bytes[$0]) }
+            let hex = hexParts.joined(separator: " ")
+            let ascii = (row..<end).map { bytes[$0] >= 0x20 && bytes[$0] < 0x7f ? Character(UnicodeScalar(bytes[$0])) : Character(".") }
+            lines.append(String(format: "%06x  %-47@  %@", row, hex as NSString, String(ascii)))
         }
 
         let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first!
-        let dumpURL = desktop.appendingPathComponent("ptx_analysis_\(sessionName).txt")
+        let dumpURL = desktop.appendingPathComponent("ptx_hex_\(sessionName).txt")
         try? lines.joined(separator: "\n").write(to: dumpURL, atomically: true, encoding: .utf8)
     }
 
