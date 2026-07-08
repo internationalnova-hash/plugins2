@@ -611,9 +611,25 @@ namespace NovaStudio
 
     bool StudioAudioEngine::setSampleRate(int newSampleRate, int newBufferSize)
     {
-        currentSampleRate = newSampleRate;
-        currentBufferSize = newBufferSize;
+        // Apply the change to the hardware device first so audioDeviceAboutToStart
+        // fires and updates all engine state consistently.
+        juce::AudioDeviceManager::AudioDeviceSetup setup;
+        deviceManager.getAudioDeviceSetup(setup);
+        setup.sampleRate   = static_cast<double>(newSampleRate);
+        setup.bufferSize   = newBufferSize;
+        setup.useDefaultSampleRate  = false;
+        setup.useDefaultBufferSize  = false;
 
+        juce::String err = deviceManager.setAudioDeviceSetup(setup, true);
+        if (err.isNotEmpty())
+        {
+            // Hardware rejected the rate — update software state only
+            juce::Logger::writeToLog("setSampleRate: device rejected " + juce::String(newSampleRate)
+                                     + "Hz: " + err);
+            currentSampleRate = newSampleRate;
+            currentBufferSize = newBufferSize;
+        }
+        // audioDeviceAboutToStart will have updated currentSampleRate if device call succeeded.
         transportState.setSampleRate(currentSampleRate);
         mixerSource.releaseResources();
         for (auto& player : trackPlayers)
@@ -624,7 +640,6 @@ namespace NovaStudio
             for (auto* p : masterPlugins)
                 if (p) p->prepareToPlay(currentSampleRate, currentBufferSize);
         }
-
         session.setSampleRate(currentSampleRate);
         return true;
     }
@@ -1438,6 +1453,30 @@ namespace NovaStudio
             return false;
 
         transportState.setTempo(static_cast<int>(session.getTempo()));
+
+        // Match the audio device's sample rate to the session's sample rate so
+        // 192kHz sessions play natively without real-time resampling overhead.
+        const double sessionRate = session.getSampleRate();
+        if (sessionRate > 0.0 && std::abs(sessionRate - currentSampleRate) > 1.0)
+        {
+            juce::AudioDeviceManager::AudioDeviceSetup setup;
+            deviceManager.getAudioDeviceSetup(setup);
+            setup.sampleRate          = sessionRate;
+            setup.useDefaultSampleRate = false;
+            juce::String err = deviceManager.setAudioDeviceSetup(setup, true);
+            if (err.isEmpty())
+            {
+                // audioDeviceAboutToStart has already updated currentSampleRate
+                juce::Logger::writeToLog("loadSession: device set to " + juce::String(sessionRate) + " Hz");
+            }
+            else
+            {
+                juce::Logger::writeToLog("loadSession: device couldn't match session rate "
+                    + juce::String(sessionRate) + " Hz: " + err
+                    + " — running at " + juce::String(currentSampleRate) + " Hz with resampling");
+            }
+        }
+
         buildTrackPlayers();
 
         // Restore plugin chains from sidecar
