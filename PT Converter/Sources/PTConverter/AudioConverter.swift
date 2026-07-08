@@ -49,30 +49,43 @@ class AudioConverter {
                                       interleaved: true)
 
         if needsSRC {
-            // Use AVAudioConverter for sample-rate conversion
             guard let avc = AVAudioConverter(from: inFile.processingFormat,
                                              to: outFile.processingFormat)
             else { throw ConversionError.bufferAlloc }
 
             let inChunk  = AVAudioFrameCount(65536)
-            let outChunk = AVAudioFrameCount(ceil(Double(inChunk) * outRate / fmt.sampleRate))
+            let outChunk = AVAudioFrameCount(65536)
             guard let inBuf  = AVAudioPCMBuffer(pcmFormat: inFile.processingFormat, frameCapacity: inChunk),
                   let outBuf = AVAudioPCMBuffer(pcmFormat: outFile.processingFormat, frameCapacity: outChunk)
             else { throw ConversionError.bufferAlloc }
 
-            var remaining = length
-            while remaining > 0 {
-                let toRead = AVAudioFrameCount(min(Int64(inChunk), remaining))
-                inBuf.frameLength = toRead
-                try inFile.read(into: inBuf, frameCount: toRead)
-                remaining -= Int64(toRead)
+            var srcDone = false
+            while !srcDone {
+                outBuf.frameLength = 0
+                var inputProvided = false
                 var convErr: NSError?
-                avc.convert(to: outBuf, error: &convErr) { _, status in
-                    status.pointee = remaining > 0 ? .haveData : .endOfStream
+                let status = avc.convert(to: outBuf, error: &convErr) { _, outStatus in
+                    // Closure may be called multiple times per convert pass;
+                    // only provide fresh input once, then signal no-data-now.
+                    if inputProvided {
+                        outStatus.pointee = .noDataNow
+                        return nil
+                    }
+                    inputProvided = true
+                    let remaining = length - inFile.framePosition
+                    if remaining <= 0 {
+                        outStatus.pointee = .endOfStream
+                        return nil
+                    }
+                    let toRead = AVAudioFrameCount(min(Int64(inChunk), remaining))
+                    inBuf.frameLength = toRead
+                    do { try inFile.read(into: inBuf, frameCount: toRead) } catch { }
+                    outStatus.pointee = .haveData
                     return inBuf
                 }
                 if let e = convErr { throw e }
                 if outBuf.frameLength > 0 { try outFile.write(from: outBuf) }
+                if status == .endOfStream || inFile.framePosition >= length { srcDone = true }
             }
         } else {
             let bufSize = AVAudioFrameCount(min(Int64(65536), length))
