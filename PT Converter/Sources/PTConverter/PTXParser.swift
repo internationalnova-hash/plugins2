@@ -133,9 +133,15 @@ class PTXParser {
                        audioFiles: &audioFiles, regions: &regions,
                        tracks: &tracks, tempoMap: &tempoMap, markers: &markers)
 
-        // Fallback: if we found no audio files at all, scan for strings with known extensions
+        // Fallback: if structured parse found nothing, scan entire file for audio filenames
         if audioFiles.isEmpty {
             audioFiles = scanForAudioFilenames(data: data)
+        }
+
+        // If we have audio files but no tracks, try to reconstruct track groups
+        // from naming conventions (e.g. "Kick_01.wav", "Kick_02.wav" → Kick track)
+        if !audioFiles.isEmpty && tracks.isEmpty {
+            tracks = inferTracksFromFileNames(audioFiles: audioFiles)
         }
 
         let sessionName = url.deletingPathExtension().lastPathComponent
@@ -254,11 +260,11 @@ class PTXParser {
         guard pos + 6 <= data.count else { return nil }
         let type = readUInt16BE(data, at: pos)
         let size = Int(readUInt32BE(data, at: pos + 2))
-        guard size > 0, pos + 6 + size <= data.count else { return nil }
-        // Sanity: block type must be in a known range
-        guard (type >= 0x1000 && type <= 0x10ff) ||
-              (type >= 0x2000 && type <= 0x20ff) ||
-              (type >= 0x3000 && type <= 0x30ff) else { return nil }
+        guard size > 0, size < 10_000_000, pos + 6 + size <= data.count else { return nil }
+        // Accept a wide range of block type IDs to handle all PT versions
+        guard (type >= 0x0100 && type <= 0x0fff) ||
+              (type >= 0x1000 && type <= 0x5fff) ||
+              (type >= 0x2000 && type <= 0x9fff) else { return nil }
         return Block(type: type, contentOffset: pos + 6, contentLength: size)
     }
 
@@ -453,6 +459,57 @@ class PTXParser {
             i += 1
         }
         return result
+    }
+
+    // -----------------------------------------------------------------------
+    // MARK: – Infer track grouping from file naming patterns
+    // When PTX block parsing yields no tracks, group audio files by their
+    // common name prefix so related takes land on the same logical track.
+    // e.g. "Kick_01.wav", "Kick_02.wav" → one "Kick" track with 2 clips.
+    // Files with no recognisable pattern each get their own track.
+    // -----------------------------------------------------------------------
+    private func inferTracksFromFileNames(audioFiles: [PTAudioFile]) -> [PTTrack] {
+        // Strip numeric suffix and common separators to find the stem
+        func stem(_ filename: String) -> String {
+            var s = filename
+            // Remove extension
+            if let dot = s.lastIndex(of: ".") { s = String(s[s.startIndex ..< dot]) }
+            // Strip trailing _01, -01, .01, (1) etc.
+            let pattern = #"[\s_\-\.]+\d+$|[\s_\-\.]*\(\d+\)$"#
+            if let re = try? NSRegularExpression(pattern: pattern),
+               let m = re.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)),
+               let r = Range(m.range, in: s) {
+                s = String(s[s.startIndex ..< r.lowerBound])
+            }
+            return s.trimmingCharacters(in: .whitespaces)
+        }
+
+        // Group files by stem, preserving insertion order of first occurrence
+        var groups: [(stem: String, files: [PTAudioFile])] = []
+        var stemIndex = [String: Int]()
+
+        for af in audioFiles {
+            let s = stem(af.filename)
+            if let idx = stemIndex[s] {
+                groups[idx].files.append(af)
+            } else {
+                stemIndex[s] = groups.count
+                groups.append((stem: s, files: [af]))
+            }
+        }
+
+        // Convert each group to a PTTrack with one placement per file at pos 0
+        return groups.enumerated().map { (i, group) in
+            let placements = group.files.enumerated().map { (j, af) in
+                PTClipPlacement(regionIndex: af.index,
+                                startInTimelineSamples: 0,
+                                lengthSamples: af.lengthSamples)
+            }
+            return PTTrack(index: i,
+                           name: group.stem.isEmpty ? group.files[0].filename : group.stem,
+                           placements: placements,
+                           isStereo: true)
+        }
     }
 
     private func isPrintableASCII(_ b: UInt8) -> Bool {
