@@ -82,6 +82,9 @@ class PTXParser {
     // PT magic bytes at file start
     private static let magic: [UInt8] = [0x03, 0x00]
 
+    // Set to true to write a hex analysis file next to the .ptx for debugging
+    var writeDebugDump = true
+
     func parse(url: URL) throws -> PTSession {
         let raw = try Data(contentsOf: url, options: .mappedIfSafe)
         guard raw.count > 0x40 else { throw PTXError.tooSmall }
@@ -138,6 +141,12 @@ class PTXParser {
             audioFiles = scanForAudioFilenames(data: data)
         }
 
+        // Deep scan for modern PT block structures (different type IDs)
+        if regions.isEmpty && !audioFiles.isEmpty {
+            deepScanBlocks(data: data, version: version, sampleRate: sampleRate,
+                           audioFiles: &audioFiles, regions: &regions, tracks: &tracks)
+        }
+
         // If structured block parse found no tracks, scan for track names embedded
         // in the modern PT binary (visible as "ed 5b df" prefixed entries)
         if tracks.isEmpty {
@@ -150,6 +159,13 @@ class PTXParser {
         }
 
         let sessionName = url.deletingPathExtension().lastPathComponent
+
+        // Write debug dump to Desktop for analysis
+        if writeDebugDump {
+            writeBinaryAnalysis(data: data, url: url, sessionName: sessionName,
+                                sampleRate: sampleRate, audioFiles: audioFiles,
+                                regions: regions, tracks: tracks)
+        }
 
         return PTSession(
             name: sessionName,
@@ -427,6 +443,183 @@ class PTXParser {
     }
 
     // -----------------------------------------------------------------------
+    // MARK: – Binary structure analysis / debug dump
+    // -----------------------------------------------------------------------
+    private func writeBinaryAnalysis(data: Data, url: URL, sessionName: String,
+                                     sampleRate: Double, audioFiles: [PTAudioFile],
+                                     regions: [PTRegion], tracks: [PTTrack]) {
+        let bytes = Array(data)
+        var lines = [String]()
+        lines.append("PT Binary Analysis: \(sessionName)")
+        lines.append("File size: \(data.count) bytes  SampleRate: \(sampleRate)")
+        lines.append("Version byte 0x14: 0x\(String(bytes[0x14], radix: 16))")
+        lines.append("Parsed: \(audioFiles.count) audioFiles, \(regions.count) regions, \(tracks.count) tracks")
+        lines.append("")
+
+        // Dump header bytes
+        lines.append("=== HEADER (0x00-0x60) ===")
+        for row in stride(from: 0, through: min(0x60, bytes.count-1), by: 16) {
+            let end = min(row + 16, bytes.count)
+            let hex = bytes[row..<end].map { String(format: "%02x", $0) }.joined(separator: " ")
+            let ascii = bytes[row..<end].map { ($0 >= 0x20 && $0 < 0x7f) ? Character(UnicodeScalar($0)) : "." }.map(String.init).joined()
+            lines.append(String(format: "%08x  %-47s  %@", row, hex, ascii))
+        }
+        lines.append("")
+
+        // Find all printable string regions (runs of printable ASCII >= 3 chars)
+        lines.append("=== PRINTABLE STRING REGIONS ===")
+        var strStart = -1
+        var i = 0
+        while i < bytes.count {
+            let printable = bytes[i] >= 0x20 && bytes[i] < 0x7f
+            if printable && strStart < 0 { strStart = i }
+            if !printable && strStart >= 0 {
+                let len = i - strStart
+                if len >= 3 {
+                    let s = String(bytes: bytes[strStart..<i], encoding: .utf8) ?? "?"
+                    lines.append(String(format: "  0x%06x len=%d: %@", strStart, len, s))
+                }
+                strStart = -1
+            }
+            i += 1
+        }
+        lines.append("")
+
+        // Dump the region between last track name and compressed data
+        // Find approximate end of track name section (look for long runs of 0x91/0x92)
+        var compressStart = bytes.count
+        var runLen = 0
+        for j in stride(from: bytes.count - 1, through: 0, by: -1) {
+            if bytes[j] == 0x91 || bytes[j] == 0x92 || bytes[j] == 0x93 {
+                runLen += 1
+            } else {
+                if runLen > 100 { compressStart = j + 1; break }
+                runLen = 0
+            }
+        }
+
+        // Dump 4KB before compressed section — this is where clip positions live
+        let dumpStart = max(0, compressStart - 4096)
+        lines.append(String(format: "=== DATA BEFORE COMPRESSED SECTION (0x%06x - 0x%06x) ===", dumpStart, compressStart))
+        for row in stride(from: dumpStart, to: compressStart, by: 16) {
+            let end2 = min(row + 16, compressStart)
+            let hex2 = bytes[row..<end2].map { String(format: "%02x", $0) }.joined(separator: " ")
+            let ascii2 = bytes[row..<end2].map { ($0 >= 0x20 && $0 < 0x7f) ? Character(UnicodeScalar($0)) : "." }.map(String.init).joined()
+            // Also decode as potential int64 BE and LE
+            var be64: Int64 = 0
+            var le64: Int64 = 0
+            if row + 8 <= end2 {
+                for b in 0..<8 { be64 = (be64 << 8) | Int64(bytes[row+b]) }
+                for b in 0..<8 { le64 |= Int64(bytes[row+b]) << (b*8) }
+            }
+            let maxSamp = Int64(sampleRate * 7200)
+            var note = ""
+            if be64 > 0 && be64 < maxSamp { note += " BE64=\(be64)samp(\(String(format:"%.2f", Double(be64)/sampleRate))s)" }
+            if le64 > 0 && le64 < maxSamp && le64 != be64 { note += " LE64=\(le64)samp(\(String(format:"%.2f", Double(le64)/sampleRate))s)" }
+            lines.append(String(format: "%08x  %-47s  %-16s%@", row, hex2, ascii2, note))
+        }
+
+        let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first!
+        let dumpURL = desktop.appendingPathComponent("ptx_analysis_\(sessionName).txt")
+        try? lines.joined(separator: "\n").write(to: dumpURL, atomically: true, encoding: .utf8)
+    }
+
+    // -----------------------------------------------------------------------
+    // MARK: – Deep block scan for modern PT (tries many block type ranges)
+    // -----------------------------------------------------------------------
+    // Modern PT 2022-2025 shifted block type IDs. Scan the entire file for
+    // block-like structures and attempt to find regions/tracks data.
+    private func deepScanBlocks(data: Data, version: Int, sampleRate: Double,
+                                 audioFiles: inout [PTAudioFile],
+                                 regions: inout [PTRegion],
+                                 tracks: inout [PTTrack]) {
+        let bytes = Array(data)
+        guard bytes.count > 0x100 else { return }
+
+        // Heuristic: look for uint16 count followed by entries that look like
+        // region records (index, c-string name, fileIndex, offset, absPos, length)
+        // We scan for count values 1-500 at aligned positions, then validate entries.
+        var pos = 0x80
+        while pos < min(bytes.count - 30, 0x100000) {
+            let count = Int(bytes[pos]) | (Int(bytes[pos+1]) << 8)
+            if count >= 1 && count <= 500 {
+                // Try little-endian count (modern PT may use LE)
+                if let foundRegions = tryParseRegionsLE(data: data, at: pos, count: count, sampleRate: sampleRate) {
+                    regions.append(contentsOf: foundRegions)
+                }
+            }
+            pos += 1
+        }
+    }
+
+    private func tryParseRegionsLE(data: Data, at pos: Int, count: Int, sampleRate: Double) -> [PTRegion]? {
+        var cursor = pos + 2
+        var result = [PTRegion]()
+        for _ in 0 ..< count {
+            guard cursor + 4 < data.count else { return nil }
+            let index = Int(data[cursor]) | (Int(data[cursor+1]) << 8)
+            cursor += 2
+            guard index < 5000 else { return nil }
+            // Read c-string name
+            var nameEnd = cursor
+            while nameEnd < data.count && nameEnd - cursor < 128 && data[nameEnd] != 0 { nameEnd += 1 }
+            guard nameEnd < data.count && nameEnd > cursor else { return nil }
+            let nameBytes = data[cursor ..< nameEnd]
+            guard nameBytes.allSatisfy({ $0 >= 0x20 && $0 < 0x7f }) else { return nil }
+            guard let name = String(bytes: nameBytes, encoding: .utf8) else { return nil }
+            cursor = nameEnd + 1
+            guard cursor + 26 <= data.count else { return nil }
+            let fileIndex = Int(data[cursor]) | (Int(data[cursor+1]) << 8)
+            cursor += 2
+            // Read int64 LE: offsetInFile
+            var offsetInFile: Int64 = 0
+            for b in 0..<8 { offsetInFile |= Int64(data[cursor+b]) << (b*8) }
+            cursor += 8
+            // Skip abs pos
+            cursor += 8
+            // Length
+            var length: Int64 = 0
+            for b in 0..<8 { length |= Int64(data[cursor+b]) << (b*8) }
+            cursor += 8
+            guard length > 0 && length < 1_000_000_000_000 else { return nil }
+            guard fileIndex < 5000 else { return nil }
+            result.append(PTRegion(index: index, name: name, fileIndex: fileIndex,
+                                   offsetInFileSamples: offsetInFile, lengthSamples: length))
+        }
+        return result.isEmpty ? nil : result
+    }
+
+    // -----------------------------------------------------------------------
+    // MARK: – Scan for sample-position tables (clip timeline positions)
+    // -----------------------------------------------------------------------
+    // Looks for sequences of plausible int64 sample positions (44100–192000 * seconds)
+    // bracketed by region name patterns. Returns (offset, position) pairs.
+    func scanForSamplePositions(data: Data, sampleRate: Double,
+                                 maxDurationSeconds: Double = 7200) -> [(offset: Int, samples: Int64)] {
+        let bytes = Array(data)
+        let maxSamples = Int64(sampleRate * maxDurationSeconds)
+        var results = [(offset: Int, samples: Int64)]()
+        var i = 0
+        while i < bytes.count - 8 {
+            // Read as both BE and LE int64
+            var be: Int64 = 0
+            var le: Int64 = 0
+            for b in 0..<8 {
+                be = (be << 8) | Int64(bytes[i + b])
+                le |= Int64(bytes[i + b]) << (b * 8)
+            }
+            // Accept plausible positive sample positions (0 to 2 hours)
+            for val in [be, le] {
+                if val > 0 && val <= maxSamples {
+                    results.append((offset: i, samples: val))
+                }
+            }
+            i += 8
+        }
+        return results
+    }
+
+    // -----------------------------------------------------------------------
     // MARK: – Fallback: scan for audio file names in raw bytes
     // -----------------------------------------------------------------------
     private func scanForAudioFilenames(data: Data) -> [PTAudioFile] {
@@ -574,20 +767,33 @@ class PTXParser {
                 continue
             }
 
+            // Sort matched files by take number so they appear in order
             let matched = audioFiles.filter { af in
                 let lowerFile = af.filename.lowercased()
-                return lowerFile.contains(lowerTrack) || lowerTrack.contains(
-                    (af.filename as NSString).deletingPathExtension.lowercased()
-                )
+                let stem = (af.filename as NSString).deletingPathExtension.lowercased()
+                return lowerFile.contains(lowerTrack) || lowerTrack.contains(stem) ||
+                       stem.contains(lowerTrack)
+            }.sorted { a, b in
+                // Sort by take/index suffix if present
+                let numA = takeNumber(a.filename)
+                let numB = takeNumber(b.filename)
+                if numA != numB { return numA < numB }
+                return a.filename < b.filename
             }
 
             let filesToUse = matched.isEmpty ? [] : matched
             for af in filesToUse { assigned.insert(af.index) }
 
-            let placements = filesToUse.map { af in
-                PTClipPlacement(regionIndex: af.index,
-                                startInTimelineSamples: 0,
-                                lengthSamples: af.lengthSamples)
+            // Place each clip sequentially on the track (pos 0, each after previous)
+            // This gives the correct relative order even when exact timeline pos is unknown.
+            var cursor: Int64 = 0
+            let placements = filesToUse.map { af -> PTClipPlacement in
+                let p = PTClipPlacement(regionIndex: af.index,
+                                        startInTimelineSamples: cursor,
+                                        lengthSamples: af.lengthSamples > 0 ? af.lengthSamples : 0)
+                // For multi-take tracks, advance cursor; for single-take, keep at 0
+                if filesToUse.count > 1 { cursor += af.lengthSamples }
+                return p
             }
             result.append(PTTrack(index: i, name: trackName,
                                   placements: placements, isStereo: true))
@@ -604,6 +810,15 @@ class PTXParser {
                                   isStereo: true))
         }
         return result
+    }
+
+    private func takeNumber(_ filename: String) -> Int {
+        // Extract trailing number from filename stem (e.g. "Kick_03.wav" → 3)
+        let stem = (filename as NSString).deletingPathExtension
+        if let m = stem.range(of: #"\d+$"#, options: .regularExpression) {
+            return Int(stem[m]) ?? 0
+        }
+        return 0
     }
 
     // -----------------------------------------------------------------------
