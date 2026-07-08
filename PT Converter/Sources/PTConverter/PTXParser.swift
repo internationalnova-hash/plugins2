@@ -84,7 +84,7 @@ class PTXParser {
     private static let magic: [UInt8] = [0x03, 0x00]
 
     // Set to true to write a hex analysis file next to the .ptx for debugging
-    var writeDebugDump = true
+    var writeDebugDump = false
 
     func parse(url: URL) throws -> PTSession {
         let raw = try Data(contentsOf: url, options: .mappedIfSafe)
@@ -205,14 +205,23 @@ class PTXParser {
             }
         }
 
-        // If structured block parse found no tracks, scan for track names embedded
-        // in the modern PT binary (visible as "ed 5b df" prefixed entries)
+        // If structured block parse found no tracks, use the region-entry scanner.
+        // Modern PT stores regions as: name + null + [2b fileIdx][8b f1][8b f2][8b f3]
+        // where f3 = clip length in samples at session rate.
+        // Timeline positions are stored in PT ticks (not samples) and require a tempo
+        // map to convert; for tuning sessions all clips start at position 0 in practice.
+        if tracks.isEmpty {
+            let regionEntries = scanRegionEntries(data: data, sampleRate: sampleRate)
+            if !regionEntries.isEmpty {
+                tracks = buildTracksFromRegionEntries(
+                    entries: regionEntries, audioFiles: audioFiles)
+            }
+        }
+
         if tracks.isEmpty {
             let trackNames = scanForTrackNames(data: data)
             if !trackNames.isEmpty && !audioFiles.isEmpty {
-                tracks = buildTracksFromNamesWithPositions(
-                    trackNames: trackNames, audioFiles: audioFiles,
-                    data: data, sampleRate: sampleRate)
+                tracks = buildTracksFromNames(trackNames: trackNames, audioFiles: audioFiles)
             }
             if tracks.isEmpty && !audioFiles.isEmpty {
                 tracks = inferTracksFromFileNames(audioFiles: audioFiles)
@@ -807,6 +816,86 @@ class PTXParser {
 
         // Fallback: sequential placement
         return buildTracksFromNames(trackNames: trackNames, audioFiles: audioFiles)
+    }
+
+    // -----------------------------------------------------------------------
+    // MARK: – Region entry scanner (modern PT 2018+)
+    // -----------------------------------------------------------------------
+    // PT stores regions as: [name]\0 [fileIdx:u16] [f1:i64BE] [f2:i64BE] [f3:i64BE]
+    // f3 = clip length in samples at session sample rate.
+    // f1/f2 are tick-based positions (not directly usable without tempo map).
+    struct RegionEntry {
+        let name: String
+        let fileIndex: Int
+        let lengthSamples: Int64   // f3 — confirmed from binary analysis
+    }
+
+    private func scanRegionEntries(data: Data, sampleRate: Double) -> [RegionEntry] {
+        let bytes = Array(data)
+        let maxS = Int64(sampleRate * 7200)
+        var result = [RegionEntry]()
+        var seen = Set<String>()
+        var i = 0x40
+        while i < min(bytes.count - 30, 0x30000) {
+            guard bytes[i] >= 0x20 && bytes[i] < 0x7f else { i += 1; continue }
+            var end = i
+            while end < bytes.count && bytes[end] >= 0x20 && bytes[end] < 0x7f { end += 1 }
+            let nameLen = end - i
+            guard nameLen >= 3 && nameLen <= 64,
+                  end < bytes.count && bytes[end] == 0x00 else { i = end + 1; continue }
+            let afterNull = end + 1
+            guard afterNull + 26 <= bytes.count else { i = afterNull; continue }
+            let nextByte = bytes[afterNull + 26]
+            guard (nextByte >= 0x20 && nextByte < 0x7f) || nextByte == 0x00 else { i = afterNull; continue }
+            // Read f3 (bytes 18-25 after null) as big-endian int64
+            var f3: Int64 = 0
+            for b in 0..<8 { f3 = (f3 << 8) | Int64(bytes[afterNull + 18 + b]) }
+            let fileIdx = (Int(bytes[afterNull]) << 8) | Int(bytes[afterNull + 1])
+            guard let name = String(bytes: Array(bytes[i..<end]), encoding: .utf8),
+                  !seen.contains(name) else { i = afterNull + 26; continue }
+            // Only accept if f3 is a plausible sample length (> 0 and < 2 hours)
+            if f3 > 0 && f3 <= maxS {
+                seen.insert(name)
+                result.append(RegionEntry(name: name, fileIndex: fileIdx, lengthSamples: f3))
+            }
+            i = afterNull + 26
+        }
+        return result
+    }
+
+    private func buildTracksFromRegionEntries(entries: [RegionEntry],
+                                               audioFiles: [PTAudioFile]) -> [PTTrack] {
+        guard !entries.isEmpty else { return [] }
+        // Match each region entry to the best-matching audio file by name
+        var tracks = [PTTrack]()
+        for (idx, entry) in entries.enumerated() {
+            let afIdx = bestMatchingFileIndex(name: entry.name, audioFiles: audioFiles) ?? idx % max(1, audioFiles.count)
+            let placement = PTClipPlacement(
+                regionIndex: idx,
+                startInTimelineSamples: 0,   // position 0: all clips start at bar 1 (standard for tuning sessions)
+                lengthSamples: entry.lengthSamples)
+            tracks.append(PTTrack(index: idx, name: entry.name,
+                                  placements: [placement], isStereo: false))
+        }
+        return tracks
+    }
+
+    private func bestMatchingFileIndex(name: String, audioFiles: [PTAudioFile]) -> Int? {
+        guard !audioFiles.isEmpty else { return nil }
+        let lower = name.lowercased()
+        // Exact prefix match
+        if let idx = audioFiles.firstIndex(where: { lower.hasPrefix($0.filename.lowercased().replacingOccurrences(of: ".wav", with: "").replacingOccurrences(of: ".aif", with: "")) }) {
+            return audioFiles[idx].index
+        }
+        // Fuzzy: count common words
+        let nameWords = Set(lower.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty })
+        var best = -1; var bestScore = 0
+        for af in audioFiles {
+            let afWords = Set(af.filename.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty })
+            let score = nameWords.intersection(afWords).count
+            if score > bestScore { bestScore = score; best = af.index }
+        }
+        return bestScore > 0 ? best : nil
     }
 
     // -----------------------------------------------------------------------
