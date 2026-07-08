@@ -387,7 +387,6 @@ namespace NovaStudio
         isPlaying = shouldPlay;
         if (isPlaying)
         {
-            lastSeekSample = -1; // force a seek when playback resumes
             transportSource.start();
         }
         else

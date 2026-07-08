@@ -297,7 +297,7 @@ namespace NovaStudio
             void setPlaying(bool isPlaying);
             void setSoloMode(bool soloActive);
             double currentTransportSeconds = 0.0;
-            void setPlaybackPosition(double transportSeconds) { currentTransportSeconds = transportSeconds; lastSeekSample = -1; }
+            void setPlaybackPosition(double transportSeconds) { currentTransportSeconds = transportSeconds; }
             void setLoopActive(bool looping);
             bool loadClip(const juce::File& file, double sampleRate);
             bool addPlugin(std::unique_ptr<juce::AudioPluginInstance> plugin);
