@@ -19,10 +19,20 @@ WaveformCache::~WaveformCache()
         workerThread.join();
 }
 
-bool WaveformCache::isCached(const juce::File& file) const
+bool WaveformCache::isCached(const juce::File& file, int samplesPerPixel) const
 {
     const std::lock_guard<std::mutex> lock(mutex);
-    return cache.find(file.getFullPathName()) != cache.end();
+    auto it = cache.find(file.getFullPathName());
+    if (it == cache.end()) return false;
+    if (samplesPerPixel > 0)
+    {
+        const int cached = it->second.samplesPerPixel;
+        if (cached <= 0) return false;
+        // Allow up to 2x difference before re-caching (avoids churn on small zoom changes)
+        const float ratio = (float)samplesPerPixel / (float)cached;
+        if (ratio > 2.0f || ratio < 0.5f) return false;
+    }
+    return true;
 }
 
 WaveformCache::PeakData WaveformCache::getPeakData(const juce::File& file) const
@@ -137,9 +147,10 @@ bool WaveformCache::ensureCached(const juce::File& file, int samplesPerPixel)
 
     {
         const std::lock_guard<std::mutex> lock(mutex);
-        cache[key].peaks      = std::make_shared<std::vector<float>>(std::move(peaks));
-        cache[key].numChannels = numCh;
-        cache[key].filePeak    = filePeak;
+        cache[key].peaks          = std::make_shared<std::vector<float>>(std::move(peaks));
+        cache[key].numChannels    = numCh;
+        cache[key].filePeak       = filePeak;
+        cache[key].samplesPerPixel = samplesPerPixel;
     }
 
     return true;
@@ -152,7 +163,20 @@ void WaveformCache::ensureCachedAsync(const juce::File& file, int samplesPerPixe
     const juce::String key = file.getFullPathName();
     {
         const std::lock_guard<std::mutex> lock(mutex);
-        if (cache.find(key) != cache.end()) return;
+        auto it = cache.find(key);
+        if (it != cache.end())
+        {
+            // Already cached — check if resolution is close enough (within 2x)
+            const int cached = it->second.samplesPerPixel;
+            if (cached > 0)
+            {
+                const float ratio = (float)samplesPerPixel / (float)cached;
+                if (ratio <= 2.0f && ratio >= 0.5f)
+                    return; // good enough, no need to re-cache
+            }
+            // Resolution too different — evict and re-cache
+            cache.erase(it);
+        }
     }
 
     {

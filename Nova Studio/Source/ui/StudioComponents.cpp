@@ -1386,7 +1386,7 @@ namespace NovaStudioUI
                 if (clip.file.existsAsFile() && clipWidth > 24.0f)
                 {
                     const int samplesPerPixel = juce::jmax<int>(1, static_cast<int>(clip.lengthSamples / clipWidth));
-                    if (!waveformCache.isCached(clip.file))
+                    if (!waveformCache.isCached(clip.file, samplesPerPixel))
                         waveformCache.ensureCachedAsync(clip.file, samplesPerPixel);
 
                     const auto pd     = waveformCache.getPeakData(clip.file);
