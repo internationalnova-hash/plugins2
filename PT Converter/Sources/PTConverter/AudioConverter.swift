@@ -34,18 +34,20 @@ class AudioConverter {
             AVFormatIDKey:            kAudioFormatLinearPCM,
             AVSampleRateKey:          fmt.sampleRate,
             AVNumberOfChannelsKey:    fmt.channelCount,
-            AVLinearPCMBitDepthKey:   bestBitDepth(src: srcExt),
+            AVLinearPCMBitDepthKey:   24,
             AVLinearPCMIsFloatKey:    false,
             AVLinearPCMIsBigEndianKey: false,
             AVLinearPCMIsNonInterleaved: false
         ]
 
         let outFile = try AVAudioFile(forWriting: dest, settings: outSettings,
-                                     commonFormat: .pcmFormatInt32,
-                                     interleaved: false)
+                                     commonFormat: .pcmFormatFloat32,
+                                     interleaved: true)
 
         let bufSize = AVAudioFrameCount(min(Int64(65536), length))
-        guard let buf = AVAudioPCMBuffer(pcmFormat: inFile.processingFormat,
+        // Use the output file's processing format for the buffer so AVAudioFile
+        // handles any necessary conversion (bit depth, interleaving) automatically.
+        guard let buf = AVAudioPCMBuffer(pcmFormat: outFile.processingFormat,
                                          frameCapacity: bufSize) else {
             throw ConversionError.bufferAlloc
         }
