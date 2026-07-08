@@ -667,44 +667,72 @@ class PTXParser {
     // -----------------------------------------------------------------------
     // MARK: – Region entry scanner (modern PT 2018+)
     // -----------------------------------------------------------------------
-    // PT stores regions as: [name]\0 [fileIdx:u16] [f1:i64BE] [f2:i64BE] [f3:i64BE]
-    // f3 = clip length in samples at session sample rate.
-    // f1/f2 are tick-based positions (not directly usable without tempo map).
+    // Actual binary format (confirmed from hex dump):
+    //   [2b type LE] [4b nameLen LE] [name bytes] [10b prefix] [8b VALUE] [2-3b trailer]
+    // VALUE bytes 4-7 (LE float32) = timeline position in seconds for clip entries.
+    // Clip entries have sequential index >= 32 in the trailer; track entries are < 32.
     struct RegionEntry {
         let name: String
         let fileIndex: Int
-        let lengthSamples: Int64   // f3 — confirmed from binary analysis
+        let lengthSamples: Int64
+        let positionSamples: Int64   // timeline start position in samples
     }
 
     private func scanRegionEntries(data: Data, sampleRate: Double) -> [RegionEntry] {
         let bytes = Array(data)
-        let maxS = Int64(sampleRate * 7200)
         var result = [RegionEntry]()
         var seen = Set<String>()
         var i = 0x40
-        while i < min(bytes.count - 30, 0x30000) {
-            guard bytes[i] >= 0x20 && bytes[i] < 0x7f else { i += 1; continue }
-            var end = i
-            while end < bytes.count && bytes[end] >= 0x20 && bytes[end] < 0x7f { end += 1 }
-            let nameLen = end - i
-            guard nameLen >= 3 && nameLen <= 64,
-                  end < bytes.count && bytes[end] == 0x00 else { i = end + 1; continue }
-            let afterNull = end + 1
-            guard afterNull + 26 <= bytes.count else { i = afterNull; continue }
-            let nextByte = bytes[afterNull + 26]
-            guard (nextByte >= 0x20 && nextByte < 0x7f) || nextByte == 0x00 else { i = afterNull; continue }
-            // Read f3 (bytes 18-25 after null) as big-endian int64
-            var f3: Int64 = 0
-            for b in 0..<8 { f3 = (f3 << 8) | Int64(bytes[afterNull + 18 + b]) }
-            let fileIdx = (Int(bytes[afterNull]) << 8) | Int(bytes[afterNull + 1])
-            guard let name = String(bytes: Array(bytes[i..<end]), encoding: .utf8),
-                  !seen.contains(name) else { i = afterNull + 26; continue }
-            // Only accept if f3 is a plausible sample length (> 0 and < 2 hours)
-            if f3 > 0 && f3 <= maxS {
+
+        while i < bytes.count - 28 {
+            // Read 4-byte LE name length
+            guard i + 6 <= bytes.count else { break }
+            let nameLen = Int(bytes[i+2]) | (Int(bytes[i+3]) << 8) |
+                          (Int(bytes[i+4]) << 16) | (Int(bytes[i+5]) << 24)
+            guard nameLen >= 1 && nameLen <= 128 else { i += 1; continue }
+
+            let nameStart = i + 6
+            let nameEnd   = nameStart + nameLen
+            guard nameEnd + 18 <= bytes.count else { i += 1; continue }
+
+            // Validate name bytes are printable ASCII
+            let nameBytes = bytes[nameStart ..< nameEnd]
+            guard nameBytes.allSatisfy({ $0 >= 0x20 && $0 < 0x7f }) else { i += 1; continue }
+            guard let name = String(bytes: nameBytes, encoding: .utf8) else { i += 1; continue }
+
+            // After name: 10-byte prefix, then 8-byte VALUE
+            let valueOffset = nameEnd + 10
+            guard valueOffset + 8 <= bytes.count else { i += 1; continue }
+
+            // VALUE bytes 4-7 as LE float32 = position in seconds
+            let b4 = bytes[valueOffset + 4]
+            let b5 = bytes[valueOffset + 5]
+            let b6 = bytes[valueOffset + 6]
+            let b7 = bytes[valueOffset + 7]
+            let bits = UInt32(b4) | (UInt32(b5) << 8) | (UInt32(b6) << 16) | (UInt32(b7) << 24)
+            let posSeconds = Float(bitPattern: bits)
+
+            // Sanity check: position must be a finite non-negative float < 24 hours
+            guard posSeconds.isFinite && posSeconds >= 0 && posSeconds < 86400 else { i += 1; continue }
+
+            // Trailer index byte (2 bytes after VALUE)
+            let trailerIdx = Int(bytes[valueOffset + 8]) | (Int(bytes[valueOffset + 9]) << 8)
+
+            // Only clip entries (index >= 32) have valid timeline positions
+            // Track entries (index < 32) have non-position VALUE bytes
+            guard trailerIdx >= 32 else { i += 1; continue }
+
+            if !seen.contains(name) {
                 seen.insert(name)
-                result.append(RegionEntry(name: name, fileIndex: fileIdx, lengthSamples: f3))
+                let posSamples = Int64(Double(posSeconds) * sampleRate)
+                // fileIndex from prefix bytes 6-7 (the 0x2a bytes we see = 42, not a real file idx)
+                // Use 0 as placeholder; ConversionEngine matches by name anyway
+                result.append(RegionEntry(name: name, fileIndex: 0,
+                                          lengthSamples: 0,
+                                          positionSamples: posSamples))
             }
-            i = afterNull + 26
+            // Advance to next entry: skip past this full entry
+            i = valueOffset + 10
         }
         return result
     }
@@ -712,14 +740,14 @@ class PTXParser {
     private func buildTracksFromRegionEntries(entries: [RegionEntry],
                                                audioFiles: [PTAudioFile]) -> [PTTrack] {
         guard !entries.isEmpty else { return [] }
-        // Match each region entry to the best-matching audio file by name
         var tracks = [PTTrack]()
         for (idx, entry) in entries.enumerated() {
-            let afIdx = bestMatchingFileIndex(name: entry.name, audioFiles: audioFiles) ?? idx % max(1, audioFiles.count)
+            let afIdx = bestMatchingFileIndex(name: entry.name, audioFiles: audioFiles) ?? 0
+            let af = audioFiles.first(where: { $0.index == afIdx })
             let placement = PTClipPlacement(
                 regionIndex: idx,
-                startInTimelineSamples: 0,   // position 0: all clips start at bar 1 (standard for tuning sessions)
-                lengthSamples: entry.lengthSamples)
+                startInTimelineSamples: entry.positionSamples,
+                lengthSamples: af?.lengthSamples ?? entry.lengthSamples)
             tracks.append(PTTrack(index: idx, name: entry.name,
                                   placements: [placement], isStereo: false))
         }
