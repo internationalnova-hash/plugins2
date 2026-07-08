@@ -153,6 +153,13 @@ class ConversionEngine: ObservableObject {
             let trackCount = ps.tracks.count
             let clipCount  = ps.tracks.reduce(0) { $0 + $1.placements.count }
             addLog(.info, "\(trackCount) tracks, \(clipCount) clip placements")
+            let sr = ps.sampleRate > 0 ? ps.sampleRate : 44100
+            for t in ps.tracks {
+                for p in t.placements {
+                    let secs = Double(p.startInTimelineSamples) / sr
+                    addLog(.info, "  [\(t.name)] pos=\(String(format:"%.2f",secs))s len=\(p.lengthSamples)smp")
+                }
+            }
         } else {
             addLog(.warning, "No track layout parsed — creating one track per audio file")
             sessionFile = try exporter.exportFromAudioFiles(
