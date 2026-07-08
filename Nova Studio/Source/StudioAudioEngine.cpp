@@ -384,15 +384,11 @@ namespace NovaStudio
 
     void StudioAudioEngine::TrackPlayer::setPlaying(bool shouldPlay)
     {
-        isPlaying = shouldPlay;
-        if (isPlaying)
-        {
+        isPlaying.store(shouldPlay);
+        if (shouldPlay)
             transportSource.start();
-        }
         else
-        {
             transportSource.stop();
-        }
     }
 
     void StudioAudioEngine::TrackPlayer::setSoloMode(bool soloActive)
@@ -1053,10 +1049,18 @@ namespace NovaStudio
     void StudioAudioEngine::stop()
     {
         transportState.stop();
+
+        // Set isPlaying atomically first — instant UI response, no lock needed.
+        // The audio callback checks isPlaying.load() each block, so it stops
+        // outputting audio immediately without waiting for playerLock.
+        for (int i = 0; i < trackPlayers.size(); ++i)
+            trackPlayers.getReference(i)->isPlaying.store(false);
+
+        // Then call transportSource.stop() under the lock (JUCE requires it).
         {
             juce::ScopedLock sl(playerLock);
             for (int i = 0; i < trackPlayers.size(); ++i)
-                trackPlayers.getReference(i)->setPlaying(false);
+                trackPlayers.getReference(i)->transportSource.stop();
         }
 
         if (recordingActive)

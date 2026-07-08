@@ -336,7 +336,7 @@ namespace NovaStudio
             bool solo = false;
             bool armed = false;
             bool soloModeActive = false;
-            bool isPlaying = false;
+            std::atomic<bool> isPlaying { false };
             int trackChannels = 2;
             double clipStartSeconds = 0.0;
             std::atomic<float> peakLevelLeft  { 0.0f };
