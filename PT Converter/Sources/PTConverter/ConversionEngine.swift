@@ -147,6 +147,7 @@ class ConversionEngine: ObservableObject {
                 ptSession: ps,
                 regionWAVs: [:],
                 audioFileWAVs: audioFileWAVs,
+                diskWAVs: fallbackWAVs,
                 outputFolder: outRoot
             )
             let trackCount = ps.tracks.count

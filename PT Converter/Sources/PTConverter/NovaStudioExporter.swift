@@ -19,9 +19,31 @@ class NovaStudioExporter {
     // (regionIndex → converted WAV URL), write the .novastudio file.
     // -----------------------------------------------------------------------
     func export(ptSession: PTSession,
-                regionWAVs: [Int: URL],       // regionIndex → WAV file on disk
-                audioFileWAVs: [Int: URL],     // audioFileIndex → WAV file on disk
+                regionWAVs: [Int: URL],
+                audioFileWAVs: [Int: URL],
+                diskWAVs: [(name: String, url: URL, lengthSamples: Int64)],
                 outputFolder: URL) throws -> URL {
+
+        // Build a stem → (url, length) map from disk WAVs for name-based matching
+        var stemToWAV = [(stem: String, url: URL, length: Int64)]()
+        for dw in diskWAVs {
+            let stem = dw.url.deletingPathExtension().lastPathComponent.lowercased()
+            stemToWAV.append((stem, dw.url, dw.lengthSamples))
+        }
+
+        func findWAVByName(_ name: String) -> (url: URL, length: Int64)? {
+            let lower = name.lowercased()
+            // 1. Exact stem match
+            if let m = stemToWAV.first(where: { $0.stem == lower }) { return (m.url, m.length) }
+            // 2. Stem contains the name (e.g. WAV "Lead Vox-cm.2" matches region "Lead Vox-cm.2")
+            if let m = stemToWAV.first(where: { $0.stem.contains(lower) }) { return (m.url, m.length) }
+            // 3. Name contains the stem
+            if let m = stemToWAV.first(where: { lower.contains($0.stem) }) { return (m.url, m.length) }
+            // 4. Match on first word(s) before a dash or dot
+            let prefix = lower.components(separatedBy: CharacterSet(charactersIn: "-._")).first ?? lower
+            if prefix.count >= 3, let m = stemToWAV.first(where: { $0.stem.contains(prefix) }) { return (m.url, m.length) }
+            return nil
+        }
 
         var tracksJSON = [[String: Any]]()
 
@@ -29,48 +51,38 @@ class NovaStudioExporter {
             var clipsJSON = [[String: Any]]()
 
             for placement in ptTrack.placements {
-                guard let region = ptSession.regions.first(where: { $0.index == placement.regionIndex })
-                else { continue }
+                let region = ptSession.regions.first(where: { $0.index == placement.regionIndex })
+                let regionName = region?.name ?? ptTrack.name
 
-                // Prefer per-clip WAV if we extracted it, otherwise point at the
-                // full audio file WAV with the file-offset filled in.
-                let wavURL: URL?
-                let fileOffset: Int64
-                var clipLength: Int64
+                var wavURL: URL? = nil
+                var fileOffset: Int64 = 0
+                var clipLength: Int64 = placement.lengthSamples
 
-                if let clipWAV = regionWAVs[region.index] {
+                // 1. Named disk WAV match (primary path for scanRegionEntries results)
+                if let match = findWAVByName(regionName) {
+                    wavURL = match.url
+                    if clipLength == 0 { clipLength = match.length }
+                }
+                // 2. Per-clip extracted WAV
+                if wavURL == nil, let r = region, let clipWAV = regionWAVs[r.index] {
                     wavURL = clipWAV
-                    fileOffset = 0
-                    clipLength = placement.lengthSamples > 0
-                        ? placement.lengthSamples
-                        : region.lengthSamples
-                } else if let fileWAV = audioFileWAVs[region.fileIndex] {
+                    if clipLength == 0 { clipLength = r.lengthSamples }
+                }
+                // 3. Audio file index map
+                if wavURL == nil, let r = region, let fileWAV = audioFileWAVs[r.fileIndex] {
                     wavURL = fileWAV
-                    fileOffset = region.offsetInFileSamples
-                    clipLength = placement.lengthSamples > 0
-                        ? placement.lengthSamples
-                        : region.lengthSamples
-                } else if let anyWAV = audioFileWAVs.values.first(where: {
-                    // Match by filename stem against region name (strip PT suffixes)
-                    let stem = $0.deletingPathExtension().lastPathComponent.lowercased()
-                    let rname = region.name.lowercased()
-                    return rname.contains(stem) || stem.contains(rname.components(separatedBy: "-").first ?? rname)
-                }) {
-                    wavURL = anyWAV
-                    fileOffset = 0
-                    clipLength = placement.lengthSamples > 0 ? placement.lengthSamples : region.lengthSamples
-                } else if let firstWAV = audioFileWAVs[audioFileWAVs.keys.sorted().first ?? 0] {
-                    // Last resort: use first available WAV so clip at least appears
-                    wavURL = firstWAV
-                    fileOffset = 0
-                    clipLength = placement.lengthSamples > 0 ? placement.lengthSamples : region.lengthSamples
-                } else {
-                    continue
+                    fileOffset = r.offsetInFileSamples
+                    if clipLength == 0 { clipLength = r.lengthSamples }
+                }
+                // 4. Any disk WAV at all (last resort)
+                if wavURL == nil, let first = stemToWAV.first {
+                    wavURL = first.url
+                    if clipLength == 0 { clipLength = first.length }
                 }
 
                 guard let url = wavURL else { continue }
 
-                // If length is still unknown, read it from the WAV file on disk
+                // Read length from file if still unknown
                 if clipLength == 0, let af = try? AVAudioFile(forReading: url) {
                     clipLength = af.length
                 }
