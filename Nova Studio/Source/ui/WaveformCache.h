@@ -18,16 +18,25 @@ public:
     void ensureCachedAsync(const juce::File& file, int samplesPerPixel = 512);
     bool isCached(const juce::File& file) const;
 
-    // Per-channel peak data. Layout per block: ch0_min, ch0_max, ch1_min, ch1_max, ...
-    // Use getNumChannels() to know the stride (2 floats per channel per block).
+    // Returns a shared_ptr — zero-copy, safe to hold across paint calls.
+    // Layout per block: ch0_min, ch0_max, ch1_min, ch1_max, ...
+    struct PeakData {
+        std::shared_ptr<std::vector<float>> peaks;
+        int numChannels = 1;
+        float filePeak  = 1.0f;   // pre-computed max absolute value
+    };
+    PeakData getPeakData(const juce::File& file) const;
+
+    // Legacy helpers kept for compatibility
     std::vector<float> getPeaks(const juce::File& file) const;
     int getNumChannels(const juce::File& file) const;
 
 private:
     struct Entry
     {
-        std::vector<float> peaks;
-        int numChannels = 1;
+        std::shared_ptr<std::vector<float>> peaks;
+        int   numChannels = 1;
+        float filePeak    = 1.0f;
     };
     struct Job { juce::File file; int samplesPerPixel = 512; int priority = 0; };
 

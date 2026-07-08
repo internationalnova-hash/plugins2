@@ -969,7 +969,7 @@ namespace NovaStudioUI
     {
         transportState.addChangeListener(this);
         arrangementModel.addChangeListener(this);
-        startTimerHz(30);
+        startTimerHz(15);
         setWantsKeyboardFocus(true);
     }
 
@@ -1389,17 +1389,15 @@ namespace NovaStudioUI
                     if (!waveformCache.isCached(clip.file))
                         waveformCache.ensureCachedAsync(clip.file, samplesPerPixel);
 
-                    const auto peaks  = waveformCache.getPeaks(clip.file);
-                    const int  numCh  = waveformCache.getNumChannels(clip.file);
+                    const auto pd     = waveformCache.getPeakData(clip.file);
+                    const auto& peaks = pd.peaks;
+                    const int  numCh  = pd.numChannels;
                     const int  stride = numCh * 2;
-                    const int  blocks = (stride > 0) ? (int)peaks.size() / stride : 0;
+                    const int  blocks = (peaks && stride > 0) ? (int)peaks->size() / stride : 0;
 
                     if (blocks > 0)
                     {
-                        // Normalize to the file's own peak so the waveform fills the clip
-                        float filePeak = 0.001f;
-                        for (float v : peaks) filePeak = juce::jmax(filePeak, std::abs(v));
-                        const float invPeak = 1.0f / filePeak;
+                        const float invPeak = 1.0f / juce::jmax(0.001f, pd.filePeak);
 
                         // Title text sits in top 18px; waveform occupies the rest
                         const float waveTop = clipY + 18.0f;
@@ -1424,8 +1422,8 @@ namespace NovaStudioUI
                             for (int b = 0; b < blocks; ++b)
                             {
                                 const int   idx  = b * stride + ch * 2;
-                                const float minV = peaks[idx]     * invPeak;
-                                const float maxV = peaks[idx + 1] * invPeak;
+                                const float minV = (*peaks)[idx]     * invPeak;
+                                const float maxV = (*peaks)[idx + 1] * invPeak;
                                 const float nx   = (float)clipStartX + b * barW;
                                 const float y1   = centerY - (maxV * amp);
                                 const float y2   = centerY - (minV * amp);

@@ -25,12 +25,20 @@ bool WaveformCache::isCached(const juce::File& file) const
     return cache.find(file.getFullPathName()) != cache.end();
 }
 
+WaveformCache::PeakData WaveformCache::getPeakData(const juce::File& file) const
+{
+    const std::lock_guard<std::mutex> lock(mutex);
+    auto it = cache.find(file.getFullPathName());
+    if (it == cache.end()) return {};
+    return { it->second.peaks, it->second.numChannels, it->second.filePeak };
+}
+
 std::vector<float> WaveformCache::getPeaks(const juce::File& file) const
 {
     const std::lock_guard<std::mutex> lock(mutex);
     auto it = cache.find(file.getFullPathName());
     if (it == cache.end()) return {};
-    return it->second.peaks;
+    return it->second.peaks ? *it->second.peaks : std::vector<float>{};
 }
 
 int WaveformCache::getNumChannels(const juce::File& file) const
@@ -124,10 +132,14 @@ bool WaveformCache::ensureCached(const juce::File& file, int samplesPerPixel)
         }
     }
 
+    float filePeak = 0.001f;
+    for (float v : peaks) filePeak = juce::jmax(filePeak, std::abs(v));
+
     {
         const std::lock_guard<std::mutex> lock(mutex);
-        cache[key].peaks.swap(peaks);
+        cache[key].peaks      = std::make_shared<std::vector<float>>(std::move(peaks));
         cache[key].numChannels = numCh;
+        cache[key].filePeak    = filePeak;
     }
 
     return true;
