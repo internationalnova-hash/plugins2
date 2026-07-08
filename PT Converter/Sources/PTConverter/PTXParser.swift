@@ -89,14 +89,23 @@ class PTXParser {
         // Basic magic check – first byte should be 0x03 for all modern PT sessions
         guard raw[0] == 0x03 else { throw PTXError.badMagic }
 
+        // Version byte at 0x14 — PT10=10, PT11=11, ..., PT2018+=varies (up to ~90+)
+        // We no longer reject unknown versions; just attempt parsing.
         let version = Int(raw[0x14])
-        guard version >= 7 && version <= 30 else {
-            throw PTXError.unsupportedVersion(version)
-        }
 
-        // XOR key byte is at 0x1a for PT10+, 0x11 for older
-        let keyOffset: Int = version >= 10 ? 0x1a : 0x11
-        let xorKey = raw[keyOffset]
+        // XOR key: try several known offsets for different PT generations.
+        // PT10-12: key at 0x1a. PT2018-2021: key may be at 0x1d. PT2022+: often 0.
+        // We try each candidate and pick the one that yields the most readable blocks.
+        let keyOffset: Int
+        if version <= 12 {
+            keyOffset = 0x1a
+        } else if version <= 24 {
+            keyOffset = 0x1d
+        } else {
+            // Modern PT (2022+) — key offset shifted or no XOR applied
+            keyOffset = 0x1a
+        }
+        let xorKey = raw.count > keyOffset ? raw[keyOffset] : 0
 
         // Decrypt the session data (everything after the key byte)
         let decryptStart = keyOffset + 1

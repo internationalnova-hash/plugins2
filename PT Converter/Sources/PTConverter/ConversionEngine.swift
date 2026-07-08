@@ -64,7 +64,7 @@ class ConversionEngine: ObservableObject {
         }
 
         if let e = parseError {
-            addLog(.warning, "PTX parse issue: \(e.localizedDescription) — falling back to audio-file scan")
+            addLog(.warning, "PTX parse note: \(e.localizedDescription) — using audio-file scan")
         }
         progress = 0.15
 
