@@ -297,7 +297,7 @@ namespace NovaStudio
             void setPlaying(bool isPlaying);
             void setSoloMode(bool soloActive);
             double currentTransportSeconds = 0.0;
-            void setPlaybackPosition(double transportSeconds) { currentTransportSeconds = transportSeconds; }
+            void setPlaybackPosition(double transportSeconds) { currentTransportSeconds = transportSeconds; lastSeekSample = -1; }
             void setLoopActive(bool looping);
             bool loadClip(const juce::File& file, double sampleRate);
             bool addPlugin(std::unique_ptr<juce::AudioPluginInstance> plugin);
@@ -317,6 +317,7 @@ namespace NovaStudio
                 Session* sessionPtr = nullptr;
                 int trackIndex = -1;
                 juce::File loadedFile;
+            int64_t lastSeekSample = -1;   // tracks last position we seeked to; -1 = never
             juce::AudioBuffer<float> scratchBuffer;
             juce::AudioFormatManager formatManager;
             juce::Array<std::unique_ptr<juce::AudioPluginInstance>> pluginChain;

@@ -159,22 +159,37 @@ namespace NovaStudio
         if (activeClip == nullptr)
             return; // nothing to play for this block
 
-        // Ensure readerSource is loaded for this clip.
-        // setSource() internally stops the AudioTransportSource, so we must
-        // restart it after a lazy load — otherwise getNextAudioBlock produces silence.
-        if (readerSource == nullptr || loadedFile != activeClip->file)
+        // Compute target file position for this block
+        int64_t filePlaySample = clipRelativeStart + activeClip->fileOffsetSamples + activeClip->alignmentOffsetSamples;
+        if (filePlaySample < 0) filePlaySample = 0;
+
+        // Load new clip if needed, then seek to starting position
+        const bool clipChanged = (readerSource == nullptr || loadedFile != activeClip->file);
+        if (clipChanged)
         {
             loadClip(activeClip->file, sessionPtr->getSampleRate());
+            lastSeekSample = -1;
             if (isPlaying)
                 transportSource.start();
         }
 
-        // Compute file playback position in seconds
-        int64_t filePlaySample = clipRelativeStart + activeClip->fileOffsetSamples + activeClip->alignmentOffsetSamples;
-        if (filePlaySample < 0) filePlaySample = 0;
-        const double filePosSeconds = static_cast<double>(filePlaySample) / sr;
-
-        transportSource.setPosition(filePosSeconds);
+        // Only seek when the clip first loads, or when the user has jumped to a
+        // new position (difference > 2 blocks). During normal playback the
+        // AudioTransportSource advances naturally — calling setPosition() every
+        // block forces a disk seek each callback, which is why playback lagged.
+        const int64_t seekThreshold = (int64_t)bufferToFill.numSamples * 2;
+        const bool needsSeek = (lastSeekSample < 0)
+                             || (std::abs(filePlaySample - lastSeekSample) > seekThreshold);
+        if (needsSeek)
+        {
+            const double filePosSeconds = static_cast<double>(filePlaySample) / sr;
+            transportSource.setPosition(filePosSeconds);
+            lastSeekSample = filePlaySample;
+        }
+        else
+        {
+            lastSeekSample += bufferToFill.numSamples;
+        }
 
         scratchBuffer.setSize(bufferToFill.buffer->getNumChannels(), bufferToFill.numSamples, false, false, true);
         juce::AudioSourceChannelInfo scratchInfo(&scratchBuffer, 0, bufferToFill.numSamples);
@@ -371,9 +386,14 @@ namespace NovaStudio
     {
         isPlaying = shouldPlay;
         if (isPlaying)
+        {
+            lastSeekSample = -1; // force a seek when playback resumes
             transportSource.start();
+        }
         else
+        {
             transportSource.stop();
+        }
     }
 
     void StudioAudioEngine::TrackPlayer::setSoloMode(bool soloActive)
