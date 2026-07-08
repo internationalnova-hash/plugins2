@@ -619,26 +619,31 @@ namespace NovaStudio
         setup.bufferSize = newBufferSize;
 
         juce::String err = deviceManager.setAudioDeviceSetup(setup, true);
-        if (err.isNotEmpty())
+        if (err.isEmpty())
         {
-            // Hardware rejected the rate — update software state only
+            // audioDeviceAboutToStart already fired and updated everything — don't double-prepare.
+            juce::Logger::writeToLog("setSampleRate: device now at "
+                + juce::String(currentSampleRate) + " Hz buf=" + juce::String(currentBufferSize));
+        }
+        else
+        {
+            // Hardware rejected — apply software-only update
             juce::Logger::writeToLog("setSampleRate: device rejected " + juce::String(newSampleRate)
-                                     + "Hz: " + err);
+                                     + " Hz: " + err);
             currentSampleRate = newSampleRate;
             currentBufferSize = newBufferSize;
+            transportState.setSampleRate(currentSampleRate);
+            mixerSource.releaseResources();
+            for (auto& player : trackPlayers)
+                player->prepareToPlay(currentBufferSize, currentSampleRate);
+            mixerSource.prepareToPlay(currentBufferSize, currentSampleRate);
+            {
+                juce::ScopedLock sl(masterPluginLock);
+                for (auto* p : masterPlugins)
+                    if (p) p->prepareToPlay(currentSampleRate, currentBufferSize);
+            }
+            session.setSampleRate(currentSampleRate);
         }
-        // audioDeviceAboutToStart will have updated currentSampleRate if device call succeeded.
-        transportState.setSampleRate(currentSampleRate);
-        mixerSource.releaseResources();
-        for (auto& player : trackPlayers)
-            player->prepareToPlay(currentBufferSize, currentSampleRate);
-        mixerSource.prepareToPlay(currentBufferSize, currentSampleRate);
-        {
-            juce::ScopedLock sl(masterPluginLock);
-            for (auto* p : masterPlugins)
-                if (p) p->prepareToPlay(currentSampleRate, currentBufferSize);
-        }
-        session.setSampleRate(currentSampleRate);
         return true;
     }
 
@@ -1451,28 +1456,6 @@ namespace NovaStudio
             return false;
 
         transportState.setTempo(static_cast<int>(session.getTempo()));
-
-        // Match the audio device's sample rate to the session's sample rate so
-        // 192kHz sessions play natively without real-time resampling overhead.
-        const double sessionRate = session.getSampleRate();
-        if (sessionRate > 0.0 && std::abs(sessionRate - currentSampleRate) > 1.0)
-        {
-            juce::AudioDeviceManager::AudioDeviceSetup setup;
-            deviceManager.getAudioDeviceSetup(setup);
-            setup.sampleRate = sessionRate;
-            juce::String err = deviceManager.setAudioDeviceSetup(setup, true);
-            if (err.isEmpty())
-            {
-                // audioDeviceAboutToStart has already updated currentSampleRate
-                juce::Logger::writeToLog("loadSession: device set to " + juce::String(sessionRate) + " Hz");
-            }
-            else
-            {
-                juce::Logger::writeToLog("loadSession: device couldn't match session rate "
-                    + juce::String(sessionRate) + " Hz: " + err
-                    + " — running at " + juce::String(currentSampleRate) + " Hz with resampling");
-            }
-        }
 
         buildTrackPlayers();
 
