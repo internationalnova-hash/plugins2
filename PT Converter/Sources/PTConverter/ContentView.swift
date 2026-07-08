@@ -85,7 +85,8 @@ struct ContentView: View {
                 Image(systemName: engine.isRunning ? "gearshape.2.fill" : "square.and.arrow.down.on.square")
                     .font(.system(size: 48))
                     .foregroundColor(isDragOver ? accent : Color.white.opacity(0.35))
-                    .symbolEffect(.rotate, isActive: engine.isRunning)
+                    .rotationEffect(.degrees(engine.isRunning ? 360 : 0))
+                    .animation(engine.isRunning ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: engine.isRunning)
 
                 if engine.isRunning {
                     Text("Converting…")
