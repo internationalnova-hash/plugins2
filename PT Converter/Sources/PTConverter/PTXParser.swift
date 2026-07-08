@@ -138,10 +138,15 @@ class PTXParser {
             audioFiles = scanForAudioFilenames(data: data)
         }
 
-        // If we have audio files but no tracks, try to reconstruct track groups
-        // from naming conventions (e.g. "Kick_01.wav", "Kick_02.wav" → Kick track)
-        if !audioFiles.isEmpty && tracks.isEmpty {
-            tracks = inferTracksFromFileNames(audioFiles: audioFiles)
+        // If structured block parse found no tracks, scan for track names embedded
+        // in the modern PT binary (visible as "ed 5b df" prefixed entries)
+        if tracks.isEmpty {
+            let trackNames = scanForTrackNames(data: data)
+            if !trackNames.isEmpty && !audioFiles.isEmpty {
+                tracks = buildTracksFromNames(trackNames: trackNames, audioFiles: audioFiles)
+            } else if !audioFiles.isEmpty {
+                tracks = inferTracksFromFileNames(audioFiles: audioFiles)
+            }
         }
 
         let sessionName = url.deletingPathExtension().lastPathComponent
@@ -457,6 +462,106 @@ class PTXParser {
                 }
             }
             i += 1
+        }
+        return result
+    }
+
+    // -----------------------------------------------------------------------
+    // MARK: – Track name scanner for modern PT (version 90 / PT 2024-2025)
+    // The binary embeds track names with the pattern:
+    //   [?? ed 5b df] [3-4 ID bytes] [e5] [1 byte] [00 00 00 00] [uint16LE len] [name]
+    // We scan for the "ed 5b df" magic and read the name that follows.
+    // -----------------------------------------------------------------------
+    private func scanForTrackNames(data: Data) -> [String] {
+        var names = [String]()
+        var seen  = Set<String>()
+        let magic: [UInt8] = [0xed, 0x5b, 0xdf]
+        let bytes = Array(data)
+        var i = 0
+
+        while i < bytes.count - 20 {
+            // Look for the 3-byte magic
+            if bytes[i] == magic[0] && bytes[i+1] == magic[1] && bytes[i+2] == magic[2] {
+                // After magic: skip 4 ID bytes + e5 byte + 1 byte + 4 zero bytes = 10 bytes
+                // Then uint16 LE name length
+                let nameHeader = i + 3 + 4 + 1 + 1 + 4  // = i + 13
+                guard nameHeader + 2 < bytes.count else { i += 1; continue }
+
+                // Verify the 4 bytes after [ID bytes + e5 + 1byte] are zeros
+                let zeroCheck = i + 3 + 4 + 1 + 1
+                guard zeroCheck + 4 < bytes.count else { i += 1; continue }
+                let allZero = bytes[zeroCheck] == 0 && bytes[zeroCheck+1] == 0 &&
+                              bytes[zeroCheck+2] == 0 && bytes[zeroCheck+3] == 0
+                guard allZero else { i += 1; continue }
+
+                let nameLen = Int(bytes[nameHeader]) | (Int(bytes[nameHeader+1]) << 8)
+                guard nameLen > 0 && nameLen <= 64 else { i += 1; continue }
+
+                let nameStart = nameHeader + 2
+                guard nameStart + nameLen <= bytes.count else { i += 1; continue }
+
+                let nameBytes = bytes[nameStart ..< nameStart + nameLen]
+                guard nameBytes.allSatisfy({ $0 >= 0x20 && $0 < 0x7f }) else { i += 1; continue }
+
+                if let name = String(bytes: nameBytes, encoding: .utf8),
+                   name.count >= 1,
+                   !name.hasPrefix("Info #"),
+                   !seen.contains(name) {
+                    seen.insert(name)
+                    names.append(name)
+                }
+                i += nameHeader + 2 + nameLen
+            } else {
+                i += 1
+            }
+        }
+        return names
+    }
+
+    // Build tracks by matching scanned names against audio file names.
+    // Audio files whose name contains the track name (or vice versa) get
+    // assigned to that track. Unmatched files go to a catch-all track.
+    private func buildTracksFromNames(trackNames: [String],
+                                      audioFiles: [PTAudioFile]) -> [PTTrack] {
+        var assigned = Set<Int>()
+        var result   = [PTTrack]()
+
+        for (i, trackName) in trackNames.enumerated() {
+            let lowerTrack = trackName.lowercased()
+            // Skip obvious non-audio tracks
+            if lowerTrack.contains("master") || lowerTrack.contains("bus") ||
+               lowerTrack.contains("click") || lowerTrack.contains("midi") {
+                continue
+            }
+
+            let matched = audioFiles.filter { af in
+                let lowerFile = af.filename.lowercased()
+                return lowerFile.contains(lowerTrack) || lowerTrack.contains(
+                    (af.filename as NSString).deletingPathExtension.lowercased()
+                )
+            }
+
+            let filesToUse = matched.isEmpty ? [] : matched
+            for af in filesToUse { assigned.insert(af.index) }
+
+            let placements = filesToUse.map { af in
+                PTClipPlacement(regionIndex: af.index,
+                                startInTimelineSamples: 0,
+                                lengthSamples: af.lengthSamples)
+            }
+            result.append(PTTrack(index: i, name: trackName,
+                                  placements: placements, isStereo: true))
+        }
+
+        // Catch-all: unmatched audio files as individual tracks
+        let unmatched = audioFiles.filter { !assigned.contains($0.index) }
+        for af in unmatched {
+            let name = (af.filename as NSString).deletingPathExtension
+            result.append(PTTrack(index: result.count, name: name,
+                                  placements: [PTClipPlacement(regionIndex: af.index,
+                                                               startInTimelineSamples: 0,
+                                                               lengthSamples: af.lengthSamples)],
+                                  isStereo: true))
         }
         return result
     }
