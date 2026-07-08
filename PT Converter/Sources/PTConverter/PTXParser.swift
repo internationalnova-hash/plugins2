@@ -468,53 +468,93 @@ class PTXParser {
 
     // -----------------------------------------------------------------------
     // MARK: – Track name scanner for modern PT (version 90 / PT 2024-2025)
-    // The binary embeds track names with the pattern:
-    //   [?? ed 5b df] [3-4 ID bytes] [e5] [1 byte] [00 00 00 00] [uint16LE len] [name]
-    // We scan for the "ed 5b df" magic and read the name that follows.
+    //
+    // Scan for the "e5 [byte]" marker that precedes each track entry, then
+    // try multiple header offsets (entries have slightly varying layouts).
+    // After the header, read a uint16-LE length + name string.
+    // Strip PT internal suffixes (-cm, -cm.2, .dupl, .dup1-cm.2, etc.).
     // -----------------------------------------------------------------------
     private func scanForTrackNames(data: Data) -> [String] {
-        var names = [String]()
-        var seen  = Set<String>()
-        let magic: [UInt8] = [0xed, 0x5b, 0xdf]
-        let bytes = Array(data)
-        var i = 0
+        var names  = [String]()
+        var seen   = Set<String>()
+        let bytes  = Array(data)
 
-        while i < bytes.count - 20 {
-            // Look for the 3-byte magic
-            if bytes[i] == magic[0] && bytes[i+1] == magic[1] && bytes[i+2] == magic[2] {
-                // After magic: skip 4 ID bytes + e5 byte + 1 byte + 4 zero bytes = 10 bytes
-                // Then uint16 LE name length
-                let nameHeader = i + 3 + 4 + 1 + 1 + 4  // = i + 13
-                guard nameHeader + 2 < bytes.count else { i += 1; continue }
+        // PT internal suffixes appended to track names in the binary
+        let ptSuffixes = ["-cm.2", "-cm.3", "-cm.4", "-cm", ".dup1-cm.2", ".dup2-cm.2",
+                          ".dup1-cm", ".dup2-cm", ".dupl-cm.2", ".dupl-cm", ".dupl",
+                          ".dup1", ".dup2", "-1", "-2"]
 
-                // Verify the 4 bytes after [ID bytes + e5 + 1byte] are zeros
-                let zeroCheck = i + 3 + 4 + 1 + 1
-                guard zeroCheck + 4 < bytes.count else { i += 1; continue }
-                let allZero = bytes[zeroCheck] == 0 && bytes[zeroCheck+1] == 0 &&
-                              bytes[zeroCheck+2] == 0 && bytes[zeroCheck+3] == 0
-                guard allZero else { i += 1; continue }
-
-                let nameLen = Int(bytes[nameHeader]) | (Int(bytes[nameHeader+1]) << 8)
-                guard nameLen > 0 && nameLen <= 64 else { i += 1; continue }
-
-                let nameStart = nameHeader + 2
-                guard nameStart + nameLen <= bytes.count else { i += 1; continue }
-
-                let nameBytes = bytes[nameStart ..< nameStart + nameLen]
-                guard nameBytes.allSatisfy({ $0 >= 0x20 && $0 < 0x7f }) else { i += 1; continue }
-
-                if let name = String(bytes: nameBytes, encoding: .utf8),
-                   name.count >= 1,
-                   !name.hasPrefix("Info #"),
-                   !seen.contains(name) {
-                    seen.insert(name)
-                    names.append(name)
+        func cleanName(_ raw: String) -> String {
+            var s = raw
+            for suffix in ptSuffixes {
+                if s.hasSuffix(suffix) {
+                    s = String(s.dropLast(suffix.count))
+                    break
                 }
-                i += nameHeader + 2 + nameLen
-            } else {
-                i += 1
             }
+            return s.trimmingCharacters(in: .whitespaces)
         }
+
+        func tryReadName(at nameStart: Int, lengthAt lenPos: Int) -> String? {
+            guard lenPos + 2 <= bytes.count else { return nil }
+            let nameLen = Int(bytes[lenPos]) | (Int(bytes[lenPos + 1]) << 8)
+            guard nameLen >= 1 && nameLen <= 64 else { return nil }
+            guard nameStart + nameLen <= bytes.count else { return nil }
+            let nb = bytes[nameStart ..< nameStart + nameLen]
+            guard nb.allSatisfy({ $0 >= 0x20 && $0 < 0x7f }) else { return nil }
+            return String(bytes: nb, encoding: .utf8)
+        }
+
+        var i = 0
+        while i < bytes.count - 25 {
+            // Look for the e5 marker byte — consistent across all track entries
+            guard bytes[i] == 0xe5 else { i += 1; continue }
+
+            // The track index follows e5, then 4+ zeros, then uint16 length, then name.
+            // Header sizes observed: 6, 7, 8 bytes after e5 to the length field.
+            for headerExtra in [4, 5, 6, 7, 8] {
+                let lenPos   = i + 1 + headerExtra   // skip e5(1) + trackIdx(1) + varying
+                let nameStart = lenPos + 2
+                guard nameStart < bytes.count else { continue }
+
+                // The bytes between trackIdx and lenPos should be zero or near-zero
+                var zeroCount = 0
+                for z in (i+2) ..< lenPos { if bytes[z] == 0 { zeroCount += 1 } }
+                guard zeroCount >= headerExtra - 2 else { continue }
+
+                if let raw = tryReadName(at: nameStart, lengthAt: lenPos) {
+                    let clean = cleanName(raw)
+                    guard clean.count >= 2,
+                          !clean.hasPrefix("Info #"),
+                          !clean.hasPrefix("Audio ") || clean.count > 8 // skip generic Audio N
+                    else { continue }
+
+                    if !seen.contains(clean) {
+                        seen.insert(clean)
+                        names.append(clean)
+                    }
+                }
+            }
+            i += 1
+        }
+
+        // Also pick up generic "Audio N" tracks which are fine
+        var i2 = 0
+        while i2 < bytes.count - 15 {
+            guard bytes[i2] == 0xe5 else { i2 += 1; continue }
+            for headerExtra in [4, 5, 6, 7, 8] {
+                let lenPos    = i2 + 1 + headerExtra
+                let nameStart = lenPos + 2
+                guard nameStart < bytes.count else { continue }
+                if let raw = tryReadName(at: nameStart, lengthAt: lenPos),
+                   raw.hasPrefix("Audio "), raw.count <= 10 {
+                    let clean = cleanName(raw)
+                    if !seen.contains(clean) { seen.insert(clean); names.append(clean) }
+                }
+            }
+            i2 += 1
+        }
+
         return names
     }
 
