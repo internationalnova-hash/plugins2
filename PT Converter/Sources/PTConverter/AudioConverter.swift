@@ -30,39 +30,71 @@ class AudioConverter {
         let fmt = inFile.processingFormat
         let length = inFile.length
 
+        // Cap at 48kHz — 192kHz multi-track playback overwhelms most DAW engines
+        let outRate: Double = min(fmt.sampleRate, 48000)
+        let needsSRC = outRate != fmt.sampleRate
+
         let outSettings: [String: Any] = [
-            AVFormatIDKey:            kAudioFormatLinearPCM,
-            AVSampleRateKey:          fmt.sampleRate,
-            AVNumberOfChannelsKey:    fmt.channelCount,
-            AVLinearPCMBitDepthKey:   24,
-            AVLinearPCMIsFloatKey:    false,
+            AVFormatIDKey:             kAudioFormatLinearPCM,
+            AVSampleRateKey:           outRate,
+            AVNumberOfChannelsKey:     fmt.channelCount,
+            AVLinearPCMBitDepthKey:    24,
+            AVLinearPCMIsFloatKey:     false,
             AVLinearPCMIsBigEndianKey: false,
             AVLinearPCMIsNonInterleaved: false
         ]
 
         let outFile = try AVAudioFile(forWriting: dest, settings: outSettings,
-                                     commonFormat: .pcmFormatFloat32,
-                                     interleaved: true)
+                                      commonFormat: .pcmFormatFloat32,
+                                      interleaved: true)
 
-        let bufSize = AVAudioFrameCount(min(Int64(65536), length))
-        guard let buf = AVAudioPCMBuffer(pcmFormat: outFile.processingFormat,
-                                         frameCapacity: bufSize)
-        else { throw ConversionError.bufferAlloc }
+        if needsSRC {
+            // Use AVAudioConverter for sample-rate conversion
+            guard let avc = AVAudioConverter(from: inFile.processingFormat,
+                                             to: outFile.processingFormat)
+            else { throw ConversionError.bufferAlloc }
 
-        var written: Int64 = 0
-        while written < length {
-            let toRead = AVAudioFrameCount(min(Int64(bufSize), length - written))
-            buf.frameLength = toRead
-            try inFile.read(into: buf, frameCount: toRead)
-            try outFile.write(from: buf)
-            written += Int64(toRead)
+            let inChunk  = AVAudioFrameCount(65536)
+            let outChunk = AVAudioFrameCount(ceil(Double(inChunk) * outRate / fmt.sampleRate))
+            guard let inBuf  = AVAudioPCMBuffer(pcmFormat: inFile.processingFormat, frameCapacity: inChunk),
+                  let outBuf = AVAudioPCMBuffer(pcmFormat: outFile.processingFormat, frameCapacity: outChunk)
+            else { throw ConversionError.bufferAlloc }
+
+            var remaining = length
+            while remaining > 0 {
+                let toRead = AVAudioFrameCount(min(Int64(inChunk), remaining))
+                inBuf.frameLength = toRead
+                try inFile.read(into: inBuf, frameCount: toRead)
+                remaining -= Int64(toRead)
+                var convErr: NSError?
+                avc.convert(to: outBuf, error: &convErr) { _, status in
+                    status.pointee = remaining > 0 ? .haveData : .endOfStream
+                    return inBuf
+                }
+                if let e = convErr { throw e }
+                if outBuf.frameLength > 0 { try outFile.write(from: outBuf) }
+            }
+        } else {
+            let bufSize = AVAudioFrameCount(min(Int64(65536), length))
+            guard let buf = AVAudioPCMBuffer(pcmFormat: outFile.processingFormat,
+                                             frameCapacity: bufSize)
+            else { throw ConversionError.bufferAlloc }
+            var written: Int64 = 0
+            while written < length {
+                let toRead = AVAudioFrameCount(min(Int64(bufSize), length - written))
+                buf.frameLength = toRead
+                try inFile.read(into: buf, frameCount: toRead)
+                try outFile.write(from: buf)
+                written += Int64(toRead)
+            }
         }
 
+        let outLength = Int64(Double(length) * outRate / fmt.sampleRate)
         return ConversionResult(
             outputURL: dest,
-            sampleRate: fmt.sampleRate,
+            sampleRate: outRate,
             channelCount: Int(fmt.channelCount),
-            lengthSamples: length
+            lengthSamples: outLength
         )
     }
 
