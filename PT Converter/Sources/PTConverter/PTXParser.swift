@@ -753,7 +753,7 @@ class PTXParser {
                                     lengthSamples: clipLength))
             let placement = PTClipPlacement(
                 regionIndex: idx,
-                startInTimelineSamples: entry.positionSamples,
+                startInTimelineSamples: 0,
                 lengthSamples: clipLength)
             tracks.append(PTTrack(index: idx, name: entry.name,
                                   placements: [placement], isStereo: false))
