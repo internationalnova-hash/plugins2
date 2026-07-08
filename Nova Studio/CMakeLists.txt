@@ -69,6 +69,8 @@ juce_add_gui_app(NovaStudio
     VERSION             ${PROJECT_VERSION}
     MICROPHONE_PERMISSION_ENABLED   TRUE
     MICROPHONE_PERMISSION_TEXT      "Nova Studio needs microphone access to record audio."
+    DOCUMENT_BROWSER_ENABLED        TRUE
+    FILE_SHARING_ENABLED            TRUE
 )
 
 target_sources(NovaStudio PRIVATE
