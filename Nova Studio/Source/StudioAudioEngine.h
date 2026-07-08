@@ -299,7 +299,8 @@ namespace NovaStudio
             double currentTransportSeconds = 0.0;
             void setPlaybackPosition(double transportSeconds) { currentTransportSeconds = transportSeconds; }
             void setLoopActive(bool looping);
-            bool loadClip(const juce::File& file, double sampleRate);
+            bool loadClip(const juce::File& file, double sampleRate); // call from main thread only
+            void preloadClipAtPosition(double transportSeconds);      // safe to call before play()
             bool addPlugin(std::unique_ptr<juce::AudioPluginInstance> plugin);
             bool removePlugin(int index);
             bool movePlugin(int fromIndex, int toIndex);

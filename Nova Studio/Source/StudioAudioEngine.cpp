@@ -163,15 +163,12 @@ namespace NovaStudio
         int64_t filePlaySample = clipRelativeStart + activeClip->fileOffsetSamples + activeClip->alignmentOffsetSamples;
         if (filePlaySample < 0) filePlaySample = 0;
 
-        // Load new clip if needed, then seek to starting position
-        const bool clipChanged = (readerSource == nullptr || loadedFile != activeClip->file);
-        if (clipChanged)
-        {
-            loadClip(activeClip->file, sessionPtr->getSampleRate());
-            lastSeekSample = -1;
-            if (isPlaying)
-                transportSource.start();
-        }
+        // NEVER call loadClip() from the audio callback — AudioTransportSource uses
+        // a non-reentrant SpinLock internally, and setSource() would deadlock if called
+        // while getNextAudioBlock() already holds that lock. Clips must be pre-loaded
+        // on the main thread (via preloadClip) before playback starts.
+        if (readerSource == nullptr || loadedFile != activeClip->file)
+            return; // clip not yet loaded — produce silence until main thread loads it
 
         // Only seek when the clip first loads, or when the user has jumped to a
         // new position (difference > 2 blocks). During normal playback the
@@ -421,6 +418,38 @@ namespace NovaStudio
     void StudioAudioEngine::TrackPlayer::setLoopActive(bool looping)
     {
         transportSource.setLooping(looping);
+    }
+
+    void StudioAudioEngine::TrackPlayer::preloadClipAtPosition(double transportSeconds)
+    {
+        if (sessionPtr == nullptr || trackIndex < 0) return;
+        const double sr = sessionPtr->getSampleRate();
+        if (sr <= 0.0) return;
+
+        const int64_t currentTransportSamples = static_cast<int64_t>(transportSeconds * sr);
+        const Track& track = sessionPtr->getTrack(trackIndex);
+
+        for (int i = 0; i < track.clips.size(); ++i)
+        {
+            const Clip& c = track.clips.getReference(i);
+            if (c.isMidi) continue;
+            const int64_t clipEnd = c.startSample + c.lengthSamples;
+            if (currentTransportSamples < clipEnd && c.startSample <= currentTransportSamples + (int64_t)(sr * 5.0))
+            {
+                if (loadedFile != c.file)
+                {
+                    loadClip(c.file, sr);
+                    lastSeekSample = -1;
+                }
+                // Seek to correct position within the file
+                const int64_t clipRelative = currentTransportSamples - c.startSample;
+                const int64_t fileSample = juce::jmax((int64_t)0,
+                    clipRelative + c.fileOffsetSamples + c.alignmentOffsetSamples);
+                transportSource.setPosition(static_cast<double>(fileSample) / sr);
+                lastSeekSample = fileSample;
+                return;
+            }
+        }
     }
 
     bool StudioAudioEngine::TrackPlayer::addPlugin(std::unique_ptr<juce::AudioPluginInstance> plugin)
@@ -1034,15 +1063,27 @@ namespace NovaStudio
 
     void StudioAudioEngine::play()
     {
-        transportState.play();
         const double transportSeconds = static_cast<double>(transportState.getPositionSamples()) / transportState.getSampleRate();
-        juce::ScopedLock sl(playerLock);
-        for (int i = 0; i < trackPlayers.size(); ++i)
+
+        // Pre-load clips on the main thread BEFORE starting the audio callback.
+        // AudioTransportSource uses a non-reentrant SpinLock — calling setSource()
+        // from the audio callback (while getNextAudioBlock holds that lock) deadlocks.
         {
-            auto* player = trackPlayers.getReference(i).get();
-            player->setLoopActive(transportState.isLooping());
-            player->setPlaybackPosition(transportSeconds);
-            player->setPlaying(true);
+            juce::ScopedLock sl(playerLock);
+            for (int i = 0; i < trackPlayers.size(); ++i)
+                trackPlayers.getReference(i)->preloadClipAtPosition(transportSeconds);
+        }
+
+        transportState.play();
+        {
+            juce::ScopedLock sl(playerLock);
+            for (int i = 0; i < trackPlayers.size(); ++i)
+            {
+                auto* player = trackPlayers.getReference(i).get();
+                player->setLoopActive(transportState.isLooping());
+                player->setPlaybackPosition(transportSeconds);
+                player->setPlaying(true);
+            }
         }
     }
 
@@ -2158,6 +2199,12 @@ namespace NovaStudio
 
         updateSoloStates();
         updatePluginDelayCompensation();
+
+        // Pre-load clips at the current transport position so the first play()
+        // call doesn't have to load from the audio callback (which would deadlock).
+        const double pos = static_cast<double>(transportState.getPositionSamples()) / transportState.getSampleRate();
+        for (int i = 0; i < trackPlayers.size(); ++i)
+            trackPlayers.getReference(i)->preloadClipAtPosition(pos);
     }
 
     void StudioAudioEngine::updatePluginDelayCompensation()
