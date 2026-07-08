@@ -546,6 +546,47 @@ class PTXParser {
         }
         lines.append("")
 
+        // Scan for (string + null + 26 binary bytes) pattern — these are PT region entries
+        // containing [fileIndex:u16][field1:i64][field2:i64][field3:i64]
+        lines.append("=== REGION ENTRY SCAN (string + 26-byte binary pattern) ===")
+        var ri = 0x40
+        while ri < min(bytes.count - 30, 0x30000) {
+            guard bytes[ri] >= 0x20 && bytes[ri] < 0x7f else { ri += 1; continue }
+            var re = ri
+            while re < bytes.count && bytes[re] >= 0x20 && bytes[re] < 0x7f { re += 1 }
+            let rNameLen = re - ri
+            guard rNameLen >= 3 && rNameLen <= 64 && re < bytes.count && bytes[re] == 0x00 else { ri = re + 1; continue }
+            let afterNull = re + 1
+            guard afterNull + 26 <= bytes.count else { ri = afterNull; continue }
+            // Check that after 26 bytes the next byte is printable or null (= another entry)
+            let nextByte = bytes[afterNull + 26]
+            guard (nextByte >= 0x20 && nextByte < 0x7f) || nextByte == 0x00 else { ri = afterNull; continue }
+            // Read fields
+            let fileIdx = (Int(bytes[afterNull]) << 8) | Int(bytes[afterNull+1])
+            var f1: Int64 = 0, f2: Int64 = 0, f3: Int64 = 0
+            for b in 0..<8 { f1 = (f1 << 8) | Int64(bytes[afterNull+2+b]) }
+            for b in 0..<8 { f2 = (f2 << 8) | Int64(bytes[afterNull+10+b]) }
+            for b in 0..<8 { f3 = (f3 << 8) | Int64(bytes[afterNull+18+b]) }
+            // Also try little-endian
+            var lf1: Int64=0, lf2: Int64=0, lf3: Int64=0
+            for b in 0..<8 { lf1 |= Int64(bytes[afterNull+2+b]) << (b*8) }
+            for b in 0..<8 { lf2 |= Int64(bytes[afterNull+10+b]) << (b*8) }
+            for b in 0..<8 { lf3 |= Int64(bytes[afterNull+18+b]) << (b*8) }
+            let maxS = Int64(sampleRate * 7200)
+            let name = String(bytes: bytes[ri..<re], encoding: .utf8) ?? "?"
+            let f1s = f1 > 0 && f1 < maxS ? String(format:"%.2fs", Double(f1)/sampleRate) : "-"
+            let f2s = f2 > 0 && f2 < maxS ? String(format:"%.2fs", Double(f2)/sampleRate) : "-"
+            let f3s = f3 > 0 && f3 < maxS ? String(format:"%.2fs", Double(f3)/sampleRate) : "-"
+            lines.append(String(format: "  0x%06x \"%@\" fileIdx=%d BE[%@,%@,%@] LE[%@,%@,%@]",
+                ri, name, fileIdx, String(f1), String(f2), String(f3),
+                String(lf1),String(lf2),String(lf3)))
+            lines.append(String(format: "    BE_sec[%@,%@,%@]", f1s, f2s, f3s))
+            ri = afterNull + 26
+            continue
+            ri += 1
+        }
+        lines.append("")
+
         // Dump the region between last track name and compressed data
         // Find approximate end of track name section (look for long runs of 0x91/0x92)
         var compressStart = bytes.count
