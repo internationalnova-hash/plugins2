@@ -312,6 +312,7 @@ namespace NovaStudio
             void getPluginState(int index, juce::MemoryBlock& dest) const;
             void setPluginState(int index, const void* data, size_t size);
 
+            juce::TimeSliceThread readAheadThread { "track-readahead" };
             juce::AudioTransportSource transportSource;
                 std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
                 Session* sessionPtr = nullptr;

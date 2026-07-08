@@ -25,6 +25,7 @@ namespace NovaStudio
     StudioAudioEngine::TrackPlayer::TrackPlayer()
     {
         formatManager.registerBasicFormats();
+        readAheadThread.startThread(juce::Thread::Priority::normal);
     }
 
     StudioAudioEngine::TrackPlayer::~TrackPlayer() = default;
@@ -410,7 +411,11 @@ namespace NovaStudio
         // AudioTransportSource needs the source sample rate so it can resample to the device rate.
         const double fileSampleRate = reader->sampleRate;
         readerSource.reset(new juce::AudioFormatReaderSource(reader, true));
-        transportSource.setSource(readerSource.get(), 0, nullptr, fileSampleRate);
+        // Use a 2-second read-ahead buffer so disk I/O happens on a background
+        // thread instead of the audio callback. Without this, every block stalls
+        // waiting for a synchronous disk read — the main cause of playback lag.
+        const int readAhead = (int)(fileSampleRate * 2.0);
+        transportSource.setSource(readerSource.get(), readAhead, &readAheadThread, fileSampleRate);
         transportSource.setPosition(0.0);
         loadedFile = file;
         return true;
