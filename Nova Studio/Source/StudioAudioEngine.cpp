@@ -159,35 +159,16 @@ namespace NovaStudio
         if (activeClip == nullptr)
             return; // nothing to play for this block
 
-        // Compute target file position for this block
-        int64_t filePlaySample = clipRelativeStart + activeClip->fileOffsetSamples + activeClip->alignmentOffsetSamples;
-        if (filePlaySample < 0) filePlaySample = 0;
-
-        // NEVER call loadClip() from the audio callback — AudioTransportSource uses
-        // a non-reentrant SpinLock internally, and setSource() would deadlock if called
-        // while getNextAudioBlock() already holds that lock. Clips must be pre-loaded
-        // on the main thread (via preloadClip) before playback starts.
+        // If clip isn't loaded yet, produce silence — preloadClipAtPosition()
+        // must be called from the main thread before play() starts.
         if (readerSource == nullptr || loadedFile != activeClip->file)
-            return; // clip not yet loaded — produce silence until main thread loads it
+            return;
 
-        // Only seek when the clip first loads, or when the user has jumped to a
-        // new position (difference > 2 blocks). During normal playback the
-        // AudioTransportSource advances naturally — calling setPosition() every
-        // block forces a disk seek each callback, which is why playback lagged.
-        const int64_t seekThreshold = (int64_t)bufferToFill.numSamples * 2;
-        const bool needsSeek = (lastSeekSample < 0)
-                             || (std::abs(filePlaySample - lastSeekSample) > seekThreshold);
-        if (needsSeek)
-        {
-            const double filePosSeconds = static_cast<double>(filePlaySample) / sr;
-            transportSource.setPosition(filePosSeconds);
-            lastSeekSample = filePlaySample;
-        }
-        else
-        {
-            lastSeekSample += bufferToFill.numSamples;
-        }
-
+        // Let AudioTransportSource advance naturally from the position set by
+        // preloadClipAtPosition(). Never seek here — AudioTransportSource uses a
+        // non-reentrant SpinLock; calling setPosition() from inside getNextAudioBlock()
+        // would re-enter that lock and spin forever. User-triggered seeks are handled
+        // on the main thread via preloadClipAtPosition().
         scratchBuffer.setSize(bufferToFill.buffer->getNumChannels(), bufferToFill.numSamples, false, false, true);
         juce::AudioSourceChannelInfo scratchInfo(&scratchBuffer, 0, bufferToFill.numSamples);
         transportSource.getNextAudioBlock(scratchInfo);
@@ -399,13 +380,16 @@ namespace NovaStudio
         if (reader == nullptr)
             return false;
 
-        // Capture the file's actual sample rate BEFORE passing ownership to AudioFormatReaderSource.
-        // AudioTransportSource needs the source sample rate so it can resample to the device rate.
         const double fileSampleRate = reader->sampleRate;
+
+        // IMPORTANT: disconnect the old source first (acquires SpinLock, serialises
+        // with the audio callback). Only then destroy readerSource — otherwise the
+        // BufferingAudioReader still holds a pointer to the old AudioFormatReaderSource
+        // and will access freed memory when it tries to prefetch.
+        transportSource.setSource(nullptr, 0, nullptr);
         readerSource.reset(new juce::AudioFormatReaderSource(reader, true));
-        // Use a 2-second read-ahead buffer so disk I/O happens on a background
-        // thread instead of the audio callback. Without this, every block stalls
-        // waiting for a synchronous disk read — the main cause of playback lag.
+
+        // 2-second read-ahead so disk I/O happens on the background thread.
         const int readAhead = readAheadThread ? (int)(fileSampleRate * 2.0) : 0;
         transportSource.setSource(readerSource.get(), readAhead, readAheadThread, fileSampleRate);
         transportSource.setPosition(0.0);
@@ -434,19 +418,20 @@ namespace NovaStudio
             const Clip& c = track.clips.getReference(i);
             if (c.isMidi) continue;
             const int64_t clipEnd = c.startSample + c.lengthSamples;
+            // Match any clip that starts within 5 seconds of the transport or
+            // is already active (transport inside the clip).
             if (currentTransportSamples < clipEnd && c.startSample <= currentTransportSamples + (int64_t)(sr * 5.0))
             {
                 if (loadedFile != c.file)
-                {
                     loadClip(c.file, sr);
-                    lastSeekSample = -1;
-                }
-                // Seek to correct position within the file
-                const int64_t clipRelative = currentTransportSamples - c.startSample;
-                const int64_t fileSample = juce::jmax((int64_t)0,
-                    clipRelative + c.fileOffsetSamples + c.alignmentOffsetSamples);
-                transportSource.setPosition(static_cast<double>(fileSample) / sr);
-                lastSeekSample = fileSample;
+
+                // Compute position in SECONDS so AudioTransportSource can resample
+                // correctly regardless of session vs file sample rate mismatch.
+                const int64_t clipRelative = juce::jmax((int64_t)0, currentTransportSamples - c.startSample);
+                const int64_t fileSample   = clipRelative + c.fileOffsetSamples + c.alignmentOffsetSamples;
+                // fileSample is in session-rate units; convert to seconds for setPosition
+                const double posSeconds = static_cast<double>(juce::jmax((int64_t)0, fileSample)) / sr;
+                transportSource.setPosition(posSeconds);
                 return;
             }
         }
@@ -1091,18 +1076,16 @@ namespace NovaStudio
     {
         transportState.stop();
 
-        // Set isPlaying atomically first — instant UI response, no lock needed.
-        // The audio callback checks isPlaying.load() each block, so it stops
-        // outputting audio immediately without waiting for playerLock.
+        // Set isPlaying atomically — the audio callback reads this flag each block
+        // and returns early if false, so audio output stops on the very next block.
+        // We deliberately do NOT call transportSource.stop() here: that acquires
+        // AudioTransportSource's internal SpinLock, which the audio callback also
+        // holds during getNextAudioBlock() — calling it from the main thread can
+        // cause the UI to spin waiting for the audio thread to finish its block.
+        // The isPlaying flag is sufficient: when play() is called again,
+        // preloadClipAtPosition() repositions the source before start().
         for (int i = 0; i < trackPlayers.size(); ++i)
             trackPlayers.getReference(i)->isPlaying.store(false);
-
-        // Then call transportSource.stop() under the lock (JUCE requires it).
-        {
-            juce::ScopedLock sl(playerLock);
-            for (int i = 0; i < trackPlayers.size(); ++i)
-                trackPlayers.getReference(i)->transportSource.stop();
-        }
 
         if (recordingActive)
             stopRecordingInternal();

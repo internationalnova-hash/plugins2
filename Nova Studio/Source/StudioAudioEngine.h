@@ -319,7 +319,6 @@ namespace NovaStudio
                 Session* sessionPtr = nullptr;
                 int trackIndex = -1;
                 juce::File loadedFile;
-            int64_t lastSeekSample = -1;   // tracks last position we seeked to; -1 = never
             juce::AudioBuffer<float> scratchBuffer;
             juce::AudioFormatManager formatManager;
             juce::Array<std::unique_ptr<juce::AudioPluginInstance>> pluginChain;
