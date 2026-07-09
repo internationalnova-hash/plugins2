@@ -46,14 +46,9 @@ class NovaStudioExporter {
         }
 
         var tracksJSON = [[String: Any]]()
+        // Files already claimed by a track — prevents multiple tracks from getting
+        // the same audio file when the parser cannot distinguish per-track assignments.
         var assignedTrackFiles = Set<String>()
-        var debugLines = ["=== NovaStudio Export Debug ===",
-                          "session: \(ptSession.name)",
-                          "tracks: \(ptSession.tracks.count)",
-                          "regions: \(ptSession.regions.count)",
-                          "audioFileWAVs keys: \(audioFileWAVs.keys.sorted())",
-                          "stemToWAV count: \(stemToWAV.count)",
-                          ""]
 
         for (trackIdx, ptTrack) in ptSession.tracks.enumerated() {
             var clipsJSON = [[String: Any]]()
@@ -67,39 +62,44 @@ class NovaStudioExporter {
                 var clipLength: Int64 = placement.lengthSamples
                 var usedIndexFallback = false
 
-                // 1. Named disk WAV match (primary path for scanRegionEntries results)
-                if let match = findWAVByName(regionName) {
+                // Helper: only accept a candidate if it hasn't been used by another track
+                func accept(_ url: URL) -> Bool {
+                    return assignedTrackFiles.isEmpty || !assignedTrackFiles.contains(url.path)
+                }
+
+                // 1. Named disk WAV match — deduplicated so the same file isn't
+                //    assigned to multiple tracks even if names partially match.
+                if let match = findWAVByName(regionName), accept(match.url) {
                     wavURL = match.url
                     if clipLength == 0 { clipLength = match.length }
                 }
                 // 2. Per-clip extracted WAV
-                if wavURL == nil, let r = region, let clipWAV = regionWAVs[r.index] {
+                if wavURL == nil, let r = region, let clipWAV = regionWAVs[r.index], accept(clipWAV) {
                     wavURL = clipWAV
                     if clipLength == 0 { clipLength = r.lengthSamples }
                 }
-                // 3. Audio file index map (skip if fileIndex is -1 = deep-scan placeholder,
-                //    or if that file was already used by a previous track — avoids all tracks
-                //    getting fileIndex=0 when the parser can't distinguish per-track files).
+                // 3. Audio file index map (skip fileIndex -1 = deep-scan placeholder)
                 if wavURL == nil, let r = region, r.fileIndex >= 0,
-                   let fileWAV = audioFileWAVs[r.fileIndex],
-                   trackIdx == 0 || !assignedTrackFiles.contains(fileWAV.path) {
+                   let fileWAV = audioFileWAVs[r.fileIndex], accept(fileWAV) {
                     wavURL = fileWAV
                     fileOffset = r.offsetInFileSamples
                     if clipLength == 0 { clipLength = r.lengthSamples }
                 }
-                // 4. Track-index fallback: each track gets its own audio file rather
-                //    than all falling back to the same first file. This is the common
-                //    case for stem-export sessions where name matching fails because
-                //    the PT parser fell back to a binary scan and produced garbled names.
+                // 4. Track-index fallback: sequential assignment so every track gets
+                //    a unique file even when paths 1-3 produce no usable result.
                 if wavURL == nil, !stemToWAV.isEmpty {
-                    let idx = trackIdx % stemToWAV.count
-                    wavURL = stemToWAV[idx].url
-                    if clipLength == 0 { clipLength = stemToWAV[idx].length }
-                    usedIndexFallback = true
+                    // Walk forward from trackIdx until we find an unused file
+                    for offset in 0 ..< stemToWAV.count {
+                        let candidate = stemToWAV[(trackIdx + offset) % stemToWAV.count]
+                        if accept(candidate.url) {
+                            wavURL = candidate.url
+                            if clipLength == 0 { clipLength = candidate.length }
+                            usedIndexFallback = true
+                            break
+                        }
+                    }
                 }
 
-                let pathChoice = wavURL == nil ? "NONE" : wavURL!.lastPathComponent
-                debugLines.append("track[\(trackIdx)] \(ptTrack.name): region=\(region?.index ?? -1) fileIdx=\(region?.fileIndex ?? -1) path1=\(findWAVByName(regionName) != nil) → \(pathChoice)")
                 guard let url = wavURL else { continue }
                 assignedTrackFiles.insert(url.path)
 
@@ -210,8 +210,6 @@ class NovaStudioExporter {
         let jsonData = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
         let sessionFile = outputFolder.appendingPathComponent(ptSession.name + ".novastudio")
         try jsonData.write(to: sessionFile)
-        let debugFile = outputFolder.appendingPathComponent("_debug.txt")
-        try debugLines.joined(separator: "\n").write(to: debugFile, atomically: true, encoding: .utf8)
         return sessionFile
     }
 
