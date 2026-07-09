@@ -103,8 +103,10 @@ class NovaStudioExporter {
                 // sample rate so Nova Studio's timeline (session-rate samples) is correct.
                 if let af = try? AVAudioFile(forReading: url) {
                     let fileSR = af.processingFormat.sampleRate
-                    if fileOffset == 0 {
-                        clipLength = af.length   // file-rate samples; will be scaled below
+                    if fileOffset == 0 || clipLength == 0 {
+                        // Use actual file length when no offset or length is unknown
+                        let available = af.length - max(0, fileOffset)
+                        clipLength = max(0, available)
                     }
                     if fileSR > 0 && fileSR != ptSession.sampleRate {
                         clipLength = Int64(Double(clipLength) * ptSession.sampleRate / fileSR)
