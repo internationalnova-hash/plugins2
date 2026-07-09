@@ -640,7 +640,7 @@ class PTXParser {
                 let perTrack = max(1, best.count / max(1, trackNames.count))
                 for (ti, name) in trackNames.enumerated() {
                     let slice = Array(best[ti*perTrack ..< min((ti+1)*perTrack, best.count)])
-                    let afIdx = ti < audioFiles.count ? audioFiles[ti].index : 0
+                    let afIdx = ti < audioFiles.count ? audioFiles[ti].index : ti
                     let regionIdx = ti
                     let placements: [PTClipPlacement] = slice.map {
                         PTClipPlacement(regionIndex: regionIdx,
@@ -742,7 +742,7 @@ class PTXParser {
         var tracks = [PTTrack]()
         for (idx, entry) in entries.enumerated() {
             let afIdx = bestMatchingFileIndex(name: entry.name, audioFiles: audioFiles)
-                        ?? (idx < audioFiles.count ? audioFiles[idx].index : 0)
+                        ?? (idx < audioFiles.count ? audioFiles[idx].index : idx)
             let af = audioFiles.first(where: { $0.index == afIdx })
             let clipLength = af?.lengthSamples ?? entry.lengthSamples
             // Synthesize a PTRegion so the exporter can resolve the audio file
