@@ -724,9 +724,8 @@ class PTXParser {
             if !seen.contains(name) {
                 seen.insert(name)
                 let posSamples = Int64(Double(posSeconds) * sampleRate)
-                // fileIndex from prefix bytes 6-7 (the 0x2a bytes we see = 42, not a real file idx)
-                // Use 0 as placeholder; ConversionEngine matches by name anyway
-                result.append(RegionEntry(name: name, fileIndex: 0,
+                // fileIndex unknown from deep scan — use -1 so exporter skips audio-file-index path
+                result.append(RegionEntry(name: name, fileIndex: -1,
                                           lengthSamples: 0,
                                           positionSamples: posSamples))
             }

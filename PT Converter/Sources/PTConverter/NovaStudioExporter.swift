@@ -69,8 +69,8 @@ class NovaStudioExporter {
                     wavURL = clipWAV
                     if clipLength == 0 { clipLength = r.lengthSamples }
                 }
-                // 3. Audio file index map
-                if wavURL == nil, let r = region, let fileWAV = audioFileWAVs[r.fileIndex] {
+                // 3. Audio file index map (skip if fileIndex is -1 = deep-scan placeholder)
+                if wavURL == nil, let r = region, r.fileIndex >= 0, let fileWAV = audioFileWAVs[r.fileIndex] {
                     wavURL = fileWAV
                     fileOffset = r.offsetInFileSamples
                     if clipLength == 0 { clipLength = r.lengthSamples }
