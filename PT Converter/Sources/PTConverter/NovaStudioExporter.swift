@@ -57,6 +57,7 @@ class NovaStudioExporter {
                 var wavURL: URL? = nil
                 var fileOffset: Int64 = 0
                 var clipLength: Int64 = placement.lengthSamples
+                var usedIndexFallback = false
 
                 // 1. Named disk WAV match (primary path for scanRegionEntries results)
                 if let match = findWAVByName(regionName) {
@@ -74,34 +75,41 @@ class NovaStudioExporter {
                     fileOffset = r.offsetInFileSamples
                     if clipLength == 0 { clipLength = r.lengthSamples }
                 }
-                // 4. Any disk WAV at all (last resort)
-                if wavURL == nil, let first = stemToWAV.first {
-                    wavURL = first.url
-                    if clipLength == 0 { clipLength = first.length }
+                // 4. Track-index fallback: each track gets its own audio file rather
+                //    than all falling back to the same first file. This is the common
+                //    case for stem-export sessions where name matching fails because
+                //    the PT parser fell back to a binary scan and produced garbled names.
+                if wavURL == nil, !stemToWAV.isEmpty {
+                    let idx = ptTrack.index % stemToWAV.count
+                    wavURL = stemToWAV[idx].url
+                    if clipLength == 0 { clipLength = stemToWAV[idx].length }
+                    usedIndexFallback = true
                 }
 
                 guard let url = wavURL else { continue }
 
-                // Read length from file if still unknown
-                if clipLength == 0, let af = try? AVAudioFile(forReading: url) {
-                    clipLength = af.length
-                }
-                guard clipLength > 0 else { continue }
-
-                // lengthSamples from disk WAVs is in the file's native sample rate
-                // (48 kHz after AudioConverter). Scale to session sample rate so Nova
-                // Studio's timeline (which counts in session-rate samples) is correct.
-                // Without this, a 96 kHz session shows every clip at half its real length.
+                // Read the actual WAV file length and sample rate once.
+                // For stem exports (fileOffset == 0) always use the real file length —
+                // PT placement data from binary scans can be garbage. Scale to session
+                // sample rate so Nova Studio's timeline (session-rate samples) is correct.
                 if let af = try? AVAudioFile(forReading: url) {
                     let fileSR = af.processingFormat.sampleRate
+                    if fileOffset == 0 {
+                        clipLength = af.length   // file-rate samples; will be scaled below
+                    }
                     if fileSR > 0 && fileSR != ptSession.sampleRate {
                         clipLength = Int64(Double(clipLength) * ptSession.sampleRate / fileSR)
                     }
                 }
+                guard clipLength > 0 else { continue }
+
+                // For index-fallback tracks, force startSample = 0. Stem exports place
+                // all clips at the timeline origin; the binary-scan positions are unreliable.
+                let startSample = usedIndexFallback ? 0 : placement.startInTimelineSamples
 
                 let clip: [String: Any] = [
                     "file":               url.path,
-                    "startSample":        Double(placement.startInTimelineSamples),
+                    "startSample":        Double(startSample),
                     "lengthSamples":      Double(clipLength),
                     "fileOffsetSamples":  Double(fileOffset),
                     "gainDb":             0.0,
