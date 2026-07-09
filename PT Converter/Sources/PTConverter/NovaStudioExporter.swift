@@ -225,13 +225,15 @@ class NovaStudioExporter {
     func exportFromAudioFiles(sessionName: String,
                               sampleRate: Double,
                               wavFiles: [(name: String, url: URL, lengthSamples: Int64)],
+                              startPositions: [String: Int64] = [:],
                               outputFolder: URL) throws -> URL {
         var tracksJSON = [[String: Any]]()
 
         for (idx, wav) in wavFiles.enumerated() {
+            let startSample = Double(startPositions[wav.name] ?? 0)
             let clip: [String: Any] = [
                 "file":               wav.url.path,
-                "startSample":        0.0,
+                "startSample":        startSample,
                 "lengthSamples":      Double(wav.lengthSamples),
                 "fileOffsetSamples":  0.0,
                 "gainDb":             0.0,

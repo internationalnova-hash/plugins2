@@ -173,10 +173,22 @@ class ConversionEngine: ObservableObject {
         let stemWAVs = stemGroupedWAVs(from: fallbackWAVs)
         let sampleRate = ptSession?.sampleRate ?? 44100
         addLog(.info, "\(stemWAVs.count) track(s) from \(fallbackWAVs.count) file(s)")
+
+        // Build start-position map from parsed PTX tracks so Nova Studio
+        // places clips at the correct timeline position.
+        var nsStartPositions = [String: Int64]()
+        if let ps = ptSession {
+            for track in ps.tracks {
+                let firstStart = track.placements.map(\.startInTimelineSamples).min() ?? 0
+                if firstStart > 0 { nsStartPositions[track.name] = firstStart }
+            }
+        }
+
         let sessionFile = try exporter.exportFromAudioFiles(
             sessionName: sessName,
             sampleRate: sampleRate,
             wavFiles: stemWAVs,
+            startPositions: nsStartPositions,
             outputFolder: outRoot
         )
 
@@ -221,16 +233,30 @@ class ConversionEngine: ObservableObject {
         })
         stemTracks = stemWAVsForExport.map { StemTrack(name: $0.name, sources: [$0.url]) }
 
+        // Build a stem → startInTimelineSamples map from the parsed PTX tracks.
+        // These positions come from the PTX clip placement block (playlist block).
+        var stemStartPositions = [String: Int64]()
+        if let ps = ptSession {
+            for track in ps.tracks {
+                let firstStart = track.placements.map(\.startInTimelineSamples).min() ?? 0
+                if firstStart > 0 {
+                    stemStartPositions[track.name] = firstStart
+                }
+            }
+        }
+
         addLog(.info, "Exporting \(stemTracks.count) stem tracks…")
 
-        // Find the maximum duration across all source files so all stems are the same length
+        // Find the maximum total duration (silence prefix + audio) so all stems are the same length.
         var maxDurationSamples: Int64 = 0
         let sampleRate = ptSession?.sampleRate ?? 44100.0
         for st in stemTracks {
+            let startPos = stemStartPositions[st.name] ?? 0
             for url in st.sources {
                 if let af = try? AVAudioFile(forReading: url) {
-                    let dur = Int64(Double(af.length) * sampleRate / af.processingFormat.sampleRate)
-                    maxDurationSamples = max(maxDurationSamples, dur)
+                    let audioLen = Int64(Double(af.length) * sampleRate / af.processingFormat.sampleRate)
+                    let total = startPos + audioLen
+                    maxDurationSamples = max(maxDurationSamples, total)
                 }
             }
         }
@@ -246,14 +272,20 @@ class ConversionEngine: ObservableObject {
             let safeName = st.name.components(separatedBy: CharacterSet(charactersIn: "/\\:*?\"<>|")).joined(separator: "_")
             let ext = isAAC ? "m4a" : "wav"
             let destURL = stemsFolder.appendingPathComponent("\(safeName).\(ext)")
+            let startSamples = stemStartPositions[st.name] ?? 0
+            if startSamples > 0 {
+                addLog(.info, "  → starts at sample \(startSamples) (\(String(format: "%.3f", Double(startSamples)/sampleRate))s)")
+            }
 
             do {
                 if isAAC {
                     try exportStemAAC(sources: st.sources, dest: destURL,
+                                      startSamples: startSamples,
                                       targetDurationSamples: maxDurationSamples,
                                       sessionSampleRate: sampleRate)
                 } else {
                     try exportStemWAV(sources: st.sources, dest: destURL,
+                                      startSamples: startSamples,
                                       targetDurationSamples: maxDurationSamples,
                                       sessionSampleRate: sampleRate)
                 }
@@ -272,6 +304,7 @@ class ConversionEngine: ObservableObject {
 
     // -----------------------------------------------------------------------
     private func exportStemWAV(sources: [URL], dest: URL,
+                               startSamples: Int64 = 0,
                                targetDurationSamples: Int64,
                                sessionSampleRate: Double) throws {
         // Use first source's format for output
@@ -294,7 +327,24 @@ class ConversionEngine: ObservableObject {
         let outFile = try AVAudioFile(forWriting: dest, settings: outSettings,
                                       commonFormat: .pcmFormatFloat32, interleaved: true)
 
-        // Write each source back-to-back starting at position 0
+        // Write leading silence so the waveform starts at its original timeline position.
+        // startSamples is in session sample rate; convert to output file sample rate.
+        if startSamples > 0 {
+            let leadingSilence = Int64(Double(startSamples) * outRate / sessionSampleRate)
+            let chunkSize = Int64(65536)
+            var remaining = leadingSilence
+            while remaining > 0 {
+                let n = AVAudioFrameCount(min(chunkSize, remaining))
+                if let silBuf = AVAudioPCMBuffer(pcmFormat: outFile.processingFormat,
+                                                  frameCapacity: n) {
+                    silBuf.frameLength = n
+                    try? outFile.write(from: silBuf)
+                }
+                remaining -= Int64(n)
+            }
+        }
+
+        // Write each source back-to-back
         for srcURL in sources {
             guard let inFile = try? AVAudioFile(forReading: srcURL) else { continue }
             let bufSize = AVAudioFrameCount(65536)
@@ -311,7 +361,7 @@ class ConversionEngine: ObservableObject {
             }
         }
 
-        // Pad with silence to match the longest track
+        // Pad with silence to match the longest track's total duration
         let writtenSamples = outFile.length
         let targetInOutRate = Int64(Double(targetDurationSamples) * outRate / sessionSampleRate)
         if writtenSamples < targetInOutRate {
@@ -319,7 +369,6 @@ class ConversionEngine: ObservableObject {
             if let silBuf = AVAudioPCMBuffer(pcmFormat: outFile.processingFormat,
                                              frameCapacity: silenceCount) {
                 silBuf.frameLength = silenceCount
-                // Buffer is already zeroed
                 try? outFile.write(from: silBuf)
             }
         }
@@ -327,11 +376,13 @@ class ConversionEngine: ObservableObject {
 
     // -----------------------------------------------------------------------
     private func exportStemAAC(sources: [URL], dest: URL,
+                               startSamples: Int64 = 0,
                                targetDurationSamples: Int64,
                                sessionSampleRate: Double) throws {
         // Write a temp WAV first, then encode to AAC via AVAssetExportSession
         let tmpWAV = dest.deletingPathExtension().appendingPathExtension("_tmp.wav")
         try exportStemWAV(sources: sources, dest: tmpWAV,
+                          startSamples: startSamples,
                           targetDurationSamples: targetDurationSamples,
                           sessionSampleRate: sessionSampleRate)
         defer { try? FileManager.default.removeItem(at: tmpWAV) }

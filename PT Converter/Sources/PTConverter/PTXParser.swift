@@ -1416,6 +1416,41 @@ class PTXParser {
             stemGroups[stem]!.append(file)
         }
 
+        // ── Step 4b: Extract clip timeline positions from playlist blocks ──────
+        // Try every block with tryParseV90PlaylistGroups to find groups of clips.
+        // Each group corresponds to one track in the PT session.
+        // We map each clip group → audio file index via regionIdxToInfo,
+        // then resolve audio file index → stem name to match against builtTracks.
+        var clipGroupsByFileIdx = [Int: Int64]()   // fileIdx → earliest timeline start (samples)
+        for blk in blocks {
+            let content = decryptBlock(blk)
+            if let groups = tryParseV90PlaylistGroups(content) {
+                for group in groups {
+                    let active = filterActiveV90Clips(group)
+                    guard let firstClip = active.min(by: { $0.timelinePos < $1.timelinePos }) else { continue }
+                    // Resolve clip's region index to a file index
+                    if let info = regionIdxToInfo[firstClip.regionIdx] {
+                        let fIdx = info.fileIdx
+                        if clipGroupsByFileIdx[fIdx] == nil || firstClip.timelinePos < clipGroupsByFileIdx[fIdx]! {
+                            clipGroupsByFileIdx[fIdx] = firstClip.timelinePos
+                        }
+                    }
+                }
+                if !clipGroupsByFileIdx.isEmpty { break }
+            }
+        }
+        // Also try to build a stem → timelinePos mapping from the file index map
+        // so we can look up positions by stem name below.
+        var stemToTimelinePos = [String: Int64]()
+        for (fIdx, pos) in clipGroupsByFileIdx {
+            if let audioFile = af.first(where: { $0.index == fIdx }) {
+                let stem = baseStem(of: audioFile.filename)
+                if stemToTimelinePos[stem] == nil || pos < stemToTimelinePos[stem]! {
+                    stemToTimelinePos[stem] = pos
+                }
+            }
+        }
+
         var builtTracks = [PTTrack]()
         for (ti, stem) in stemOrder.enumerated() {
             guard let group = stemGroups[stem], !group.isEmpty else { continue }
@@ -1435,10 +1470,13 @@ class PTXParser {
                        fn.hasSuffix("_l.wav") || fn.hasSuffix("_r.wav")
             }
 
+            // Use parsed timeline position if available; fall back to 0.
+            let startPos = stemToTimelinePos[stem] ?? 0
+
             builtTracks.append(PTTrack(
                 index: ti, name: stem,
                 placements: [PTClipPlacement(regionIndex: best.index,
-                                             startInTimelineSamples: 0,
+                                             startInTimelineSamples: startPos,
                                              lengthSamples: 0)],
                 isStereo: isStereo))
         }
