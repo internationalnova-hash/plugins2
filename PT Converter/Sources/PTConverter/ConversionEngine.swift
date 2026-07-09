@@ -103,9 +103,10 @@ class ConversionEngine: ObservableObject {
         var audioFileWAVs = [Int: URL]()   // PT file index → converted WAV
         var fallbackWAVs  = [(name: String, url: URL, lengthSamples: Int64)]()
 
-        let filesToConvert: [(index: Int, name: String, src: URL)]
+        // Parser-found audio files (indexed by PT file index for clip lookup)
+        let parsedFiles: [(index: Int, name: String, src: URL)]
         if let ps = ptSession, !ps.audioFiles.isEmpty {
-            filesToConvert = ps.audioFiles.compactMap { af in
+            parsedFiles = ps.audioFiles.compactMap { af in
                 guard let src = converter.findAudioFile(named: af.filename,
                                                         sessionFolder: sessionFolder)
                 else {
@@ -115,11 +116,19 @@ class ConversionEngine: ObservableObject {
                 return (af.index, af.filename, src)
             }
         } else {
-            // No parsed audio files – use everything we found on disk
-            filesToConvert = allDiskAudio.enumerated().map { (i, url) in
-                (i, url.lastPathComponent, url)
-            }
+            parsedFiles = []
         }
+
+        // ALL audio files found on disk — used as per-track fallback so every track
+        // gets its own file even when the parser only found a subset of audio files.
+        // We deduplicate by URL so parser-found files are not converted twice.
+        let parsedURLs = Set(parsedFiles.map { $0.src })
+        let extraDiskFiles: [(index: Int, name: String, src: URL)] = allDiskAudio
+            .filter { !parsedURLs.contains($0) }
+            .enumerated()
+            .map { (parsedFiles.count + $0.offset, $0.element.lastPathComponent, $0.element) }
+
+        let filesToConvert = parsedFiles + extraDiskFiles
 
         let audioStep = filesToConvert.isEmpty ? 0.0 : 0.50 / Double(filesToConvert.count)
         for (i, entry) in filesToConvert.enumerated() {
