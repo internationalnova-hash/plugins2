@@ -1375,72 +1375,69 @@ class PTXParser {
             regions = synth.sorted { $0.index < $1.index }
         }
 
-        // ── Steps 4-5: Build one track per PT track name, one clip per track ────
-        // The complex v90 playlist block cannot be reliably distinguished from the
-        // region database (which contains ALL takes, not just active timeline clips).
-        // Reliable approach: pair each track name with its best audio file by name
-        // matching. One placement at position 0 per track — matches what PT exports
-        // as stems and is correct for the WAV Stems / Nova Studio use-cases.
+        // ── Steps 4-5: Build one track per audio stem, one clip per track ────────
+        // scanV90TrackNames() scans raw XOR-encrypted bytes and finds nothing because
+        // track name data is encrypted. Instead derive track names from the audio file
+        // list: group files by base stem, pick the best take per group, one track/stem.
+        // This is reliable and produces exactly the active-track set the user hears.
 
-        let trackNames = scanV90TrackNames(data: data)
         let af = audioFiles.isEmpty ? foundFiles : audioFiles
 
         // Strip take-number and processing suffix to get the base track name.
         // "Audio 1_16-Gain.wav" → "Audio 1"   "Bring it back_02.L.wav" → "Bring it back"
         func baseStem(of filename: String) -> String {
             var s = (filename as NSString).deletingPathExtension as String
+            // Remove stereo channel suffix before extension: ".L" ".R" "_L" "_R"
             for sfx in [".L", ".R", "_L", "_R"] { if s.hasSuffix(sfx) { s = String(s.dropLast(sfx.count)) } }
+            // Remove processing suffix: "-Gain_15" "-Norm" "-Tmshft" etc.
             if let r = s.range(of: "-[^-_]+$", options: .regularExpression) { s = String(s[..<r.lowerBound]) }
+            // Remove trailing take number: "_01" "_16"
             if let r = s.range(of: "_\\d+$",   options: .regularExpression) { s = String(s[..<r.lowerBound]) }
             return s
         }
 
-        // Find the best audio file for a given track name.
-        // Prefer processed takes (-Gain/-Norm/-Tmshft), then highest take number.
-        func bestFile(forTrack tname: String) -> PTAudioFile? {
-            let tl  = tname.lowercased()
-            let pfx = String(tl.prefix(min(tl.count, 10)))
-            // Primary: files whose base stem starts with the track name prefix
-            var candidates = af.filter { baseStem(of: $0.filename).lowercased().hasPrefix(pfx) }
-            if candidates.isEmpty {
-                // Secondary: track name starts with the file's base stem (track name is longer)
-                candidates = af.filter { tl.hasPrefix(baseStem(of: $0.filename).lowercased()) }
-            }
-            guard !candidates.isEmpty else { return nil }
-            let processed = candidates.filter {
-                let s = $0.filename.lowercased()
-                return s.contains("-gain") || s.contains("-norm") || s.contains("-tmshft") || s.contains("-rev")
-            }
-            func takeNum(_ f: PTAudioFile) -> Int {
-                let s = (f.filename as NSString).deletingPathExtension as String
-                if let r = s.range(of: "\\d+$", options: .regularExpression) { return Int(s[r]) ?? 0 }
-                return 0
-            }
-            return (processed.isEmpty ? candidates : processed).max(by: { takeNum($0) < takeNum($1) })
+        func takeNum(_ f: PTAudioFile) -> Int {
+            let s = (f.filename as NSString).deletingPathExtension as String
+            if let r = s.range(of: "\\d+$", options: .regularExpression) { return Int(s[r]) ?? 0 }
+            return 0
         }
 
-        if !trackNames.isEmpty && !af.isEmpty {
-            var builtTracks = [PTTrack]()
-            for (ti, name) in trackNames.enumerated() {
-                guard let best = bestFile(forTrack: name) else { continue }
-
-                // Stereo: paired .L / .R files exist for this track stem
-                let isStereo = af.contains {
-                    let fn = $0.filename.lowercased()
-                    return baseStem(of: $0.filename) == baseStem(of: best.filename) &&
-                           (fn.hasSuffix(".l.wav") || fn.hasSuffix(".r.wav") ||
-                            fn.hasSuffix("_l.wav") || fn.hasSuffix("_r.wav"))
-                }
-
-                builtTracks.append(PTTrack(
-                    index: ti, name: name,
-                    placements: [PTClipPlacement(regionIndex: best.index,
-                                                 startInTimelineSamples: 0,
-                                                 lengthSamples: 0)],
-                    isStereo: isStereo))
-            }
-            if !builtTracks.isEmpty { tracks = builtTracks }
+        // Group all audio files by their base stem (preserving first-seen order).
+        var stemOrder  = [String]()
+        var stemGroups = [String: [PTAudioFile]]()
+        for file in af {
+            let stem = baseStem(of: file.filename)
+            if stemGroups[stem] == nil { stemOrder.append(stem); stemGroups[stem] = [] }
+            stemGroups[stem]!.append(file)
         }
+
+        var builtTracks = [PTTrack]()
+        for (ti, stem) in stemOrder.enumerated() {
+            guard let group = stemGroups[stem], !group.isEmpty else { continue }
+
+            // Prefer processed takes (-Gain/-Norm/-Tmshft/-Rev), then highest take number.
+            let processed = group.filter {
+                let fn = $0.filename.lowercased()
+                return fn.contains("-gain") || fn.contains("-norm") || fn.contains("-tmshft") || fn.contains("-rev")
+            }
+            let pool = processed.isEmpty ? group : processed
+            guard let best = pool.max(by: { takeNum($0) < takeNum($1) }) else { continue }
+
+            // Stereo: group contains a .L or .R variant
+            let isStereo = group.contains {
+                let fn = $0.filename.lowercased()
+                return fn.hasSuffix(".l.wav") || fn.hasSuffix(".r.wav") ||
+                       fn.hasSuffix("_l.wav") || fn.hasSuffix("_r.wav")
+            }
+
+            builtTracks.append(PTTrack(
+                index: ti, name: stem,
+                placements: [PTClipPlacement(regionIndex: best.index,
+                                             startInTimelineSamples: 0,
+                                             lengthSamples: 0)],
+                isStereo: isStereo))
+        }
+        if !builtTracks.isEmpty { tracks = builtTracks }
     }
 
     // ── EVAW audio file list parser ──────────────────────────────────────────
