@@ -206,6 +206,17 @@ class PTXParser {
             }
         }
 
+        // For v90 (PT 2022+), use the exact 1a-25 track block scanner.
+        // The hex dump confirms each audio track is stored as:
+        //   1a 25 [2-byte type: 00 00=audio, 02=aux, 05=master] [4-byte LE name len] [name]
+        // This is far more reliable than any heuristic scanner.
+        if version >= 90 && !audioFiles.isEmpty {
+            let v90Names = scanV90TrackNames(data: data)
+            if !v90Names.isEmpty {
+                tracks = buildTracksFromNames(trackNames: v90Names, audioFiles: audioFiles)
+            }
+        }
+
         // For modern PT (v90+), the region entry scanner and track name scanner
         // find iCloud path fragments and other garbage, not real track data.
         // Skip them and go straight to filename-based grouping which is reliable.
@@ -1216,6 +1227,50 @@ class PTXParser {
                            placements: placements,
                            isStereo: isStereo)
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // MARK: – PTX v90 exact track name scanner
+    // -----------------------------------------------------------------------
+    // Confirmed from hex dump: each track block contains the 2-byte marker
+    // 1A 25 followed by a 2-byte type flag and a 4-byte LE name length.
+    //   00 00 = audio track  (include)
+    //   01 00 = audio track  (include)
+    //   02 00 = aux/bus      (exclude)
+    //   05 00 = master fader (exclude)
+    private func scanV90TrackNames(data: Data) -> [String] {
+        let bytes = Array(data)
+        var names = [String]()
+        var seen  = Set<String>()
+        var i = 0x40
+
+        while i < bytes.count - 8 {
+            guard bytes[i] == 0x1a, bytes[i+1] == 0x25 else { i += 1; continue }
+
+            let typeFlag = UInt16(bytes[i+2]) | (UInt16(bytes[i+3]) << 8)
+            // Only audio tracks (type 00 or 01); skip aux (02), master (05), etc.
+            guard typeFlag == 0x00 || typeFlag == 0x01 else { i += 1; continue }
+
+            let nameLen = Int(bytes[i+4]) | (Int(bytes[i+5]) << 8) |
+                          (Int(bytes[i+6]) << 16) | (Int(bytes[i+7]) << 24)
+            guard nameLen >= 1 && nameLen <= 128 else { i += 1; continue }
+
+            let nameStart = i + 8
+            guard nameStart + nameLen <= bytes.count else { i += 1; continue }
+
+            let nameBytes = bytes[nameStart ..< nameStart + nameLen]
+            guard nameBytes.allSatisfy({ $0 >= 0x20 && $0 < 0x7f }),
+                  let name = String(bytes: nameBytes, encoding: .utf8),
+                  name.count >= 2
+            else { i += 1; continue }
+
+            if !seen.contains(name) {
+                seen.insert(name)
+                names.append(name)
+            }
+            i += 8 + nameLen
+        }
+        return names
     }
 
     private func isPrintableASCII(_ b: UInt8) -> Bool {
