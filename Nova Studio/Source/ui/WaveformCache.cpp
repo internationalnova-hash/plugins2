@@ -83,8 +83,9 @@ void WaveformCache::processJobs()
             jobQueue.erase(bestIt);
         }
 
-        if (!isCached(nextJob.file))
-            ensureCached(nextJob.file, nextJob.samplesPerPixel);
+        // Always rebuild — ensureCached overwrites the entry with fresh peaks at
+        // the requested resolution. Old peaks remain visible until this completes.
+        ensureCached(nextJob.file, nextJob.samplesPerPixel);
     }
 }
 
@@ -93,10 +94,10 @@ bool WaveformCache::ensureCached(const juce::File& file, int samplesPerPixel)
     if (!file.existsAsFile()) return false;
 
     const juce::String key = file.getFullPathName();
-    {
-        const std::lock_guard<std::mutex> lock(mutex);
-        if (cache.find(key) != cache.end()) return true;
-    }
+    // Do NOT return early if an entry already exists — callers (including the
+    // background worker) may request a rebuild at a different resolution.
+    // We always generate fresh peaks and atomically overwrite the entry so
+    // old peaks remain visible during the rebuild.
 
     std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(file));
     if (!reader) return false;
@@ -166,22 +167,33 @@ void WaveformCache::ensureCachedAsync(const juce::File& file, int samplesPerPixe
         auto it = cache.find(key);
         if (it != cache.end())
         {
-            // Already cached — check if resolution is close enough (within 2x)
+            // Already cached — check if resolution is close enough (within 2x).
+            // If so, keep it and skip the rebuild. If not, queue a rebuild but
+            // DO NOT evict yet — the old peaks stay visible until the worker
+            // finishes and atomically overwrites them.
             const int cached = it->second.samplesPerPixel;
             if (cached > 0)
             {
                 const float ratio = (float)samplesPerPixel / (float)cached;
                 if (ratio <= 2.0f && ratio >= 0.5f)
-                    return; // good enough, no need to re-cache
+                    return; // good enough resolution, no rebuild needed
             }
-            // Resolution too different — evict and re-cache
-            cache.erase(it);
         }
     }
 
     {
         const std::lock_guard<std::mutex> lock(workerMutex);
-        if (hasPendingJob(key, samplesPerPixel)) return;
+        // Replace any existing pending job for this file (update resolution) or add new one.
+        for (auto& job : jobQueue)
+        {
+            if (job.file.getFullPathName() == key)
+            {
+                job.samplesPerPixel = samplesPerPixel;
+                job.priority        = samplesPerPixel;
+                workerCondition.notify_one();
+                return;
+            }
+        }
         jobQueue.push_back({ file, samplesPerPixel, samplesPerPixel });
     }
     workerCondition.notify_one();

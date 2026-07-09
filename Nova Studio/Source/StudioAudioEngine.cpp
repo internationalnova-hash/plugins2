@@ -159,10 +159,13 @@ namespace NovaStudio
         if (activeClip == nullptr)
             return; // nothing to play for this block
 
-        // If clip isn't loaded yet, produce silence — preloadClipAtPosition()
-        // must be called from the main thread before play() starts.
+        // If clip isn't loaded yet (or a different clip became active), produce
+        // silence and signal the main-thread timer to load the correct file.
         if (readerSource == nullptr || loadedFile != activeClip->file)
+        {
+            needsClipLoad.store(true);
             return;
+        }
 
         // Let AudioTransportSource advance naturally from the position set by
         // preloadClipAtPosition(). Never seek here — AudioTransportSource uses a
@@ -557,6 +560,10 @@ namespace NovaStudio
 
         transportState.setSampleRate(currentSampleRate);
         transportState.setTempo(static_cast<int>(session.getTempo()));
+
+        // Timer fires every 80ms to preload the next clip when the active clip
+        // transitions (e.g. multi-clip tracks from converted PT sessions).
+        startTimer(80);
     }
 
     StudioAudioEngine::~StudioAudioEngine()
@@ -1089,6 +1096,20 @@ namespace NovaStudio
 
         if (recordingActive)
             stopRecordingInternal();
+    }
+
+    void StudioAudioEngine::timerCallback()
+    {
+        if (!transportState.isPlaying()) return;
+        const double transportSeconds = static_cast<double>(transportState.getPositionSamples())
+                                        / transportState.getSampleRate();
+        juce::ScopedLock sl(playerLock);
+        for (int i = 0; i < trackPlayers.size(); ++i)
+        {
+            auto* player = trackPlayers.getReference(i).get();
+            if (player->needsClipLoad.exchange(false))
+                player->preloadClipAtPosition(transportSeconds);
+        }
     }
 
     void StudioAudioEngine::previewSample(const juce::File& file)

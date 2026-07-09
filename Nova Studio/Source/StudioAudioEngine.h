@@ -7,7 +7,8 @@
 namespace NovaStudio
 {
     class StudioAudioEngine : private juce::AudioIODeviceCallback,
-                              private juce::MidiInputCallback
+                              private juce::MidiInputCallback,
+                              private juce::Timer
     {
     public:
         StudioAudioEngine();
@@ -337,6 +338,7 @@ namespace NovaStudio
             bool armed = false;
             bool soloModeActive = false;
             std::atomic<bool> isPlaying { false };
+            std::atomic<bool> needsClipLoad { false }; // set by audio callback, cleared by main-thread timer
             int trackChannels = 2;
             double clipStartSeconds = 0.0;
             std::atomic<float> peakLevelLeft  { 0.0f };
@@ -381,6 +383,7 @@ namespace NovaStudio
         static double applyChannelFilter(ChannelEngine& ce, int channel, double sample,
                                           double sampleRate, float lfoValue);
 
+        void timerCallback() override;
         void buildTrackPlayers();
         void updatePluginDelayCompensation();
         void refreshTrackPlaybackStates();
