@@ -206,14 +206,30 @@ class PTXParser {
             }
         }
 
-        // For v90 (PT 2022+), use the exact 1a-25 track block scanner.
-        // The hex dump confirms each audio track is stored as:
-        //   1a 25 [2-byte type: 00 00=audio, 02=aux, 05=master] [4-byte LE name len] [name]
-        // This is far more reliable than any heuristic scanner.
-        if version >= 90 && !audioFiles.isEmpty {
-            let v90Names = scanV90TrackNames(data: data)
-            if !v90Names.isEmpty {
-                tracks = buildTracksFromNames(trackNames: v90Names, audioFiles: audioFiles)
+        // For v90 (PT 2022+), use the ZMARK block scanner.
+        // v90 block format: 5a [type2 LE] [size4 LE] [content]
+        // This replaces ALL old block parsing for v90 — Ardour's type IDs don't apply.
+        if version >= 90 {
+            var v90Files  = [PTAudioFile]()
+            var v90Regions = [PTRegion]()
+            var v90Tracks  = [PTTrack]()
+            parseV90ZmarkBlocks(data: data, sampleRate: sampleRate,
+                                audioFiles: &v90Files, regions: &v90Regions,
+                                tracks: &v90Tracks)
+            if !v90Files.isEmpty  { audioFiles = v90Files  }
+            if !v90Regions.isEmpty { regions   = v90Regions }
+            if !v90Tracks.isEmpty  { tracks    = v90Tracks  }
+
+            // If ZMARK parse found audio files but no tracks, use track name scanner
+            // to build named tracks matched against the discovered audio files.
+            if audioFiles.isEmpty {
+                audioFiles = scanForAudioFilenames(data: data)
+            }
+            if tracks.isEmpty && !audioFiles.isEmpty {
+                let v90Names = scanV90TrackNames(data: data)
+                if !v90Names.isEmpty {
+                    tracks = buildTracksFromNames(trackNames: v90Names, audioFiles: audioFiles)
+                }
             }
         }
 
@@ -557,18 +573,52 @@ class PTXParser {
                                      regions: [PTRegion], tracks: [PTTrack]) {
         let bytes = Array(data)
         var lines = [String]()
-        lines.append("PT Hex Dump: \(sessionName)  SR=\(sampleRate)  ver=0x\(String(bytes[0x14], radix:16))")
+        let ver = bytes.count > 0x14 ? bytes[0x14] : 0
+        lines.append("PT Hex Dump: \(sessionName)  SR=\(sampleRate)  ver=\(ver) (0x\(String(ver, radix:16)))")
+        lines.append("File size: \(bytes.count) bytes (0x\(String(bytes.count, radix:16)))")
         lines.append("")
 
-        // Dump the first 0x900 bytes raw — this contains all the name+binary entries
-        let dumpEnd = min(0x900, bytes.count)
-        lines.append("=== RAW HEX 0x0000 - 0x\(String(dumpEnd, radix:16)) ===")
+        // Summary of parsed results
+        lines.append("=== PARSED RESULTS ===")
+        lines.append("Audio files: \(audioFiles.count)")
+        for af in audioFiles { lines.append("  [\(af.index)] \(af.filename)  len=\(af.lengthSamples)") }
+        lines.append("Regions: \(regions.count)")
+        for r in regions { lines.append("  [\(r.index)] \(r.name)  file=\(r.fileIndex)  off=\(r.offsetInFileSamples)  len=\(r.lengthSamples)") }
+        lines.append("Tracks: \(tracks.count)")
+        for t in tracks { lines.append("  [\(t.index)] \(t.name)  clips=\(t.placements.count)") }
+        lines.append("")
+
+        // ZMARK block map — scan for all 5a blocks and list them
+        lines.append("=== ZMARK BLOCK MAP (5a [type2 LE] [size4 LE]) ===")
+        var bpos = 0
+        while bpos < bytes.count - 7 {
+            if bytes[bpos] == 0x5a {
+                let btype = UInt16(bytes[bpos+1]) | (UInt16(bytes[bpos+2]) << 8)
+                let bsize = Int(bytes[bpos+3]) | (Int(bytes[bpos+4]) << 8) |
+                            (Int(bytes[bpos+5]) << 16) | (Int(bytes[bpos+6]) << 24)
+                if bsize > 0 && bsize < 50_000_000 && bpos + 7 + bsize <= bytes.count {
+                    // Sample first 32 content bytes as ASCII
+                    let cstart = bpos + 7
+                    let cend   = min(cstart + 32, bpos + 7 + bsize)
+                    let preview = (cstart..<cend).map { bytes[$0] >= 0x20 && bytes[$0] < 0x7f ? Character(UnicodeScalar(bytes[$0])) : Character(".") }
+                    lines.append(String(format: "0x%06x  type=0x%04x  size=%6d  |%@|", bpos, btype, bsize, String(preview)))
+                    bpos += 7 + bsize
+                    continue
+                }
+            }
+            bpos += 1
+        }
+        lines.append("")
+
+        // Full hex dump — dump entire file (up to 4MB to keep file manageable)
+        let dumpEnd = min(4_000_000, bytes.count)
+        lines.append("=== FULL HEX DUMP 0x000000 – 0x\(String(dumpEnd, radix:16)) ===")
         for row in stride(from: 0, to: dumpEnd, by: 16) {
             let end = min(row + 16, dumpEnd)
             let hexParts = (row..<end).map { String(format: "%02x", bytes[$0]) }
             let hex = hexParts.joined(separator: " ")
             let ascii = (row..<end).map { bytes[$0] >= 0x20 && bytes[$0] < 0x7f ? Character(UnicodeScalar(bytes[$0])) : Character(".") }
-            lines.append(String(format: "%06x  %-47@  %@", row, hex as NSString, String(ascii)))
+            lines.append(String(format: "%06x  %-47s  %@", row, hex, String(ascii)))
         }
 
         let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first!
@@ -1226,6 +1276,244 @@ class PTXParser {
                            placements: placements,
                            isStereo: isStereo)
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // MARK: – PTX v90 ZMARK block parser
+    // -----------------------------------------------------------------------
+    // v90 block format (confirmed from hex dump research):
+    //   5a           ZMARK
+    //   XX XX        block type (LE uint16)
+    //   NN NN NN NN  content size (LE uint32)
+    //   [content]
+    //
+    // We scan the whole file for ZMARK blocks and try to extract:
+    //   - Audio file list blocks: contain 4-byte-LE-length-prefixed .wav/.aif filenames
+    //   - Region blocks: (fileIndex, offsetInFile, lengthSamples) triplets
+    //   - Track playlist blocks: track UUID → list of region references + timeline positions
+    // -----------------------------------------------------------------------
+    private func parseV90ZmarkBlocks(data: Data, sampleRate: Double,
+                                     audioFiles: inout [PTAudioFile],
+                                     regions: inout [PTRegion],
+                                     tracks: inout [PTTrack]) {
+        let bytes = Array(data)
+        var pos = 0
+
+        // Collect every valid ZMARK block
+        struct ZBlock { let type: UInt16; let start: Int; let size: Int }
+        var blocks = [ZBlock]()
+        while pos < bytes.count - 7 {
+            guard bytes[pos] == 0x5a else { pos += 1; continue }
+            let btype = UInt16(bytes[pos+1]) | (UInt16(bytes[pos+2]) << 8)
+            let bsize = Int(bytes[pos+3]) | (Int(bytes[pos+4]) << 8) |
+                        (Int(bytes[pos+5]) << 16) | (Int(bytes[pos+6]) << 24)
+            guard bsize > 0, bsize < 50_000_000, pos + 7 + bsize <= bytes.count else {
+                pos += 1; continue
+            }
+            blocks.append(ZBlock(type: btype, start: pos + 7, size: bsize))
+            pos += 7 + bsize
+        }
+
+        // --- Pass 1: find audio file list ---
+        // The audio file list block contains a count (2-byte or 4-byte LE) followed by
+        // sequences of [4-byte LE nameLen][name bytes] — we detect it by checking that
+        // the first entry decodes to a plausible .wav/.aif filename.
+        var foundFiles = [PTAudioFile]()
+        for blk in blocks {
+            if let files = tryParseV90AudioFileBlock(bytes: bytes, start: blk.start, size: blk.size) {
+                if files.count > foundFiles.count { foundFiles = files }
+            }
+        }
+        if !foundFiles.isEmpty { audioFiles = foundFiles }
+
+        // --- Pass 2: find region blocks ---
+        // Each region entry: [2-byte LE index][4-byte LE nameLen][name][2-byte LE fileIndex]
+        //                    [8-byte LE offsetInFile][8-byte LE absPos][8-byte LE length]
+        var foundRegions = [PTRegion]()
+        for blk in blocks {
+            if let regs = tryParseV90RegionBlock(bytes: bytes, start: blk.start, size: blk.size,
+                                                  audioFileCount: audioFiles.count) {
+                if regs.count > foundRegions.count { foundRegions = regs }
+            }
+        }
+        if !foundRegions.isEmpty { regions = foundRegions }
+
+        // --- Pass 3: find track playlist blocks ---
+        // Each playlist entry links a track (by name from 1a 25 scanner) to a list of
+        // (regionIndex, timelinePositionSamples, clipLengthSamples) tuples.
+        // We try this only when we have regions to reference.
+        if !foundRegions.isEmpty {
+            let trackNames = scanV90TrackNames(data: data)
+            if !trackNames.isEmpty {
+                var foundTracks = [PTTrack]()
+                for blk in blocks {
+                    if let tks = tryParseV90PlaylistBlock(bytes: bytes, start: blk.start, size: blk.size,
+                                                           trackNames: trackNames, regions: foundRegions,
+                                                           sampleRate: sampleRate) {
+                        if tks.count > foundTracks.count { foundTracks = tks }
+                    }
+                }
+                if !foundTracks.isEmpty { tracks = foundTracks }
+            }
+        }
+    }
+
+    private func tryParseV90AudioFileBlock(bytes: [UInt8], start: Int, size: Int) -> [PTAudioFile]? {
+        let end = start + size
+        guard end <= bytes.count, size >= 8 else { return nil }
+
+        // Try 4-byte LE count at start, then 2-byte LE count
+        for countSize in [4, 2] {
+            var count = 0
+            if countSize == 4 {
+                count = Int(bytes[start]) | (Int(bytes[start+1]) << 8) |
+                        (Int(bytes[start+2]) << 16) | (Int(bytes[start+3]) << 24)
+            } else {
+                count = Int(bytes[start]) | (Int(bytes[start+1]) << 8)
+            }
+            guard count >= 1 && count <= 2000 else { continue }
+
+            var cursor = start + countSize
+            var result = [PTAudioFile]()
+            var valid = true
+
+            for idx in 0 ..< count {
+                guard cursor + 4 < end else { valid = false; break }
+                let nameLen = Int(bytes[cursor]) | (Int(bytes[cursor+1]) << 8) |
+                              (Int(bytes[cursor+2]) << 16) | (Int(bytes[cursor+3]) << 24)
+                cursor += 4
+                guard nameLen >= 1 && nameLen <= 512 && cursor + nameLen <= end else { valid = false; break }
+                let nameBytes = bytes[cursor ..< cursor + nameLen]
+                guard nameBytes.allSatisfy({ $0 >= 0x20 && $0 < 0x7f }) else { valid = false; break }
+                guard let name = String(bytes: nameBytes, encoding: .utf8) else { valid = false; break }
+
+                // Must look like an audio filename
+                let lower = name.lowercased()
+                guard lower.hasSuffix(".wav") || lower.hasSuffix(".aif") ||
+                      lower.hasSuffix(".aiff") || lower.hasSuffix(".sd2") ||
+                      lower.hasSuffix(".mp3") || lower.hasSuffix(".m4a") else {
+                    valid = false; break
+                }
+                cursor += nameLen
+
+                // Optional: 8-byte LE length in samples after name
+                var lengthSamples: Int64 = 0
+                if cursor + 8 <= end {
+                    for b in 0 ..< 8 { lengthSamples |= Int64(bytes[cursor+b]) << (b*8) }
+                    // Validate: plausible sample count (0 to 10 hours at 192kHz)
+                    if lengthSamples > 0 && lengthSamples < 6_912_000_000 { cursor += 8 }
+                    else { lengthSamples = 0 }
+                }
+
+                result.append(PTAudioFile(index: idx, filename: name, lengthSamples: lengthSamples))
+            }
+
+            if valid && result.count == count && count >= 1 { return result }
+        }
+        return nil
+    }
+
+    private func tryParseV90RegionBlock(bytes: [UInt8], start: Int, size: Int,
+                                         audioFileCount: Int) -> [PTRegion]? {
+        let end = start + size
+        guard end <= bytes.count, size >= 12 else { return nil }
+
+        for countSize in [2, 4] {
+            var count = 0
+            if countSize == 2 {
+                count = Int(bytes[start]) | (Int(bytes[start+1]) << 8)
+            } else {
+                count = Int(bytes[start]) | (Int(bytes[start+1]) << 8) |
+                        (Int(bytes[start+2]) << 16) | (Int(bytes[start+3]) << 24)
+            }
+            guard count >= 1 && count <= 100000 else { continue }
+
+            var cursor = start + countSize
+            var result = [PTRegion]()
+            var valid = true
+
+            for _ in 0 ..< count {
+                // index (2 bytes LE)
+                guard cursor + 2 <= end else { valid = false; break }
+                let index = Int(bytes[cursor]) | (Int(bytes[cursor+1]) << 8); cursor += 2
+                guard index < 200000 else { valid = false; break }
+
+                // name: 4-byte LE length + bytes
+                guard cursor + 4 <= end else { valid = false; break }
+                let nameLen = Int(bytes[cursor]) | (Int(bytes[cursor+1]) << 8) |
+                              (Int(bytes[cursor+2]) << 16) | (Int(bytes[cursor+3]) << 24)
+                cursor += 4
+                guard nameLen >= 0 && nameLen <= 512 && cursor + nameLen <= end else { valid = false; break }
+                let nameBytes = nameLen > 0 ? bytes[cursor ..< cursor + nameLen] : []
+                let name = String(bytes: nameBytes, encoding: .utf8) ?? "Region \(index)"
+                cursor += nameLen
+
+                // fileIndex (2 bytes LE)
+                guard cursor + 2 <= end else { valid = false; break }
+                let fileIndex = Int(bytes[cursor]) | (Int(bytes[cursor+1]) << 8); cursor += 2
+                guard audioFileCount == 0 || fileIndex < audioFileCount + 100 else { valid = false; break }
+
+                // offsetInFile, absPos, length (8 bytes LE each)
+                guard cursor + 24 <= end else { valid = false; break }
+                var offset: Int64 = 0; for b in 0..<8 { offset |= Int64(bytes[cursor+b]) << (b*8) }; cursor += 8
+                cursor += 8  // absPos unused
+                var length: Int64 = 0; for b in 0..<8 { length |= Int64(bytes[cursor+b]) << (b*8) }; cursor += 8
+
+                guard length >= 0 && length < 6_912_000_000 else { valid = false; break }
+                result.append(PTRegion(index: index, name: name, fileIndex: fileIndex,
+                                       offsetInFileSamples: offset, lengthSamples: length))
+            }
+
+            if valid && !result.isEmpty { return result }
+        }
+        return nil
+    }
+
+    private func tryParseV90PlaylistBlock(bytes: [UInt8], start: Int, size: Int,
+                                           trackNames: [String], regions: [PTRegion],
+                                           sampleRate: Double) -> [PTTrack]? {
+        // Playlist blocks contain (trackIndex, regionIndex, timelinePos, length) quads.
+        // We look for sequences of plausible (start_sample, length_sample) int64 LE pairs
+        // grouped by track.
+        let end = start + size
+        guard end <= bytes.count, size >= 20 else { return nil }
+
+        // Count is 2-byte LE at start
+        let trackCount = Int(bytes[start]) | (Int(bytes[start+1]) << 8)
+        guard trackCount >= 1 && trackCount <= 500 && trackCount <= trackNames.count + 10 else { return nil }
+
+        var cursor = start + 2
+        var result = [PTTrack]()
+        let maxSamp = Int64(sampleRate * 86400)
+
+        for ti in 0 ..< trackCount {
+            guard cursor + 4 <= end else { break }
+            let clipCount = Int(bytes[cursor]) | (Int(bytes[cursor+1]) << 8); cursor += 2
+            guard clipCount >= 0 && clipCount < 10000 else { break }
+
+            var placements = [PTClipPlacement]()
+            for _ in 0 ..< clipCount {
+                guard cursor + 20 <= end else { break }
+                let regionIndex = Int(bytes[cursor]) | (Int(bytes[cursor+1]) << 8); cursor += 2
+                var timelinePos: Int64 = 0
+                for b in 0..<8 { timelinePos |= Int64(bytes[cursor+b]) << (b*8) }; cursor += 8
+                var clipLen: Int64 = 0
+                for b in 0..<8 { clipLen |= Int64(bytes[cursor+b]) << (b*8) }; cursor += 8
+
+                guard timelinePos >= 0 && timelinePos <= maxSamp else { continue }
+                guard clipLen >= 0 && clipLen <= maxSamp else { continue }
+                guard regions.contains(where: { $0.index == regionIndex }) else { continue }
+
+                placements.append(PTClipPlacement(regionIndex: regionIndex,
+                                                  startInTimelineSamples: timelinePos,
+                                                  lengthSamples: clipLen))
+            }
+
+            let name = ti < trackNames.count ? trackNames[ti] : "Track \(ti+1)"
+            result.append(PTTrack(index: ti, name: name, placements: placements, isStereo: false))
+        }
+
+        return result.isEmpty ? nil : result
     }
 
     // -----------------------------------------------------------------------
