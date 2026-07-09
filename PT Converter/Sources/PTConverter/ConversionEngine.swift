@@ -166,7 +166,15 @@ class ConversionEngine: ObservableObject {
             for t in ps.tracks {
                 for p in t.placements {
                     let secs = Double(p.startInTimelineSamples) / sr
-                    addLog(.info, "  [\(t.name)] pos=\(String(format:"%.2f",secs))s len=\(p.lengthSamples)smp")
+                    addLog(.info, "  [\(t.name)] pos=\(String(format:"%.2f",secs))s len=\(p.lengthSamples)smp region=\(p.regionIndex)")
+                }
+            }
+            // Log audio file index map so we can verify per-track file assignment
+            addLog(.info, "audioFileWAVs keys: \(audioFileWAVs.keys.sorted().map{String($0)}.joined(separator: ","))")
+            for t in ps.tracks {
+                if let r = ps.regions.first(where: { $0.index == t.placements.first?.regionIndex }) {
+                    let fname = audioFileWAVs[r.fileIndex]?.lastPathComponent ?? "?"
+                    addLog(.info, "  region[\(r.index)] fileIndex=\(r.fileIndex) → \(fname)")
                 }
             }
         } else {
