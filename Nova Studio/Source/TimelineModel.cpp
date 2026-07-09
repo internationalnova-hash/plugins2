@@ -51,13 +51,19 @@ namespace NovaStudio
     double TimelineModel::getSamplePositionForX(int x) const noexcept
     {
         const double seconds = x / getPixelsPerSecond();
-        return secondsToSamples(seconds);
+        return viewStartSamples + secondsToSamples(seconds);
     }
 
     double TimelineModel::getXForSamplePosition(int64_t samplePosition, int width) const noexcept
     {
-        const double seconds = samplesToSeconds(samplePosition);
+        const double seconds = samplesToSeconds(samplePosition - viewStartSamples);
         return seconds * getPixelsPerSecond();
+    }
+
+    void TimelineModel::scrollByPixels(double deltaPixels) noexcept
+    {
+        const double deltaSamples = deltaPixels / getPixelsPerSecond() * transportState.getSampleRate();
+        viewStartSamples = juce::jmax<int64_t>(0, viewStartSamples + static_cast<int64_t>(deltaSamples));
     }
 
     juce::String TimelineModel::getTimecodeString(int64_t samplePosition) const

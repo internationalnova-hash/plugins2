@@ -1066,10 +1066,12 @@ namespace NovaStudioUI
         {
             adjustHZoom(wheel.deltaY > 0 ? +1 : -1);
         }
-        else if (e.mods.isShiftDown())
+        else if (e.mods.isShiftDown() || std::abs(wheel.deltaX) > std::abs(wheel.deltaY))
         {
-            // Horizontal scroll
-            juce::Component::mouseWheelMove(e, wheel);
+            // Horizontal scroll — shift+scroll or native horizontal trackpad swipe
+            const double delta = (wheel.deltaX != 0.0f ? -wheel.deltaX : -wheel.deltaY) * 300.0;
+            timelineModel.scrollByPixels(delta);
+            repaint();
         }
         else
         {
@@ -1201,6 +1203,14 @@ namespace NovaStudioUI
         const int rulerH = 28;  // matches TrackPanel header height
         const double pixelsPerBeat = timelineModel.getPixelsPerBeat();
         const int beatsPerBar = timelineModel.getBeatsPerBar();
+        // Pre-compute view-offset bar range used by both the ruler and the track grid
+        const double paintSR      = arrangementModel.getSession().getSampleRate() > 0.0
+                                        ? arrangementModel.getSession().getSampleRate() : 44100.0;
+        const double paintTempo   = arrangementModel.getSession().getTempo() > 0.0
+                                        ? arrangementModel.getSession().getTempo() : 120.0;
+        const double paintViewStartBeats = (timelineModel.getViewStartSamples() / paintSR) * (paintTempo / 60.0);
+        const int    paintFirstBar  = static_cast<int>(std::floor(paintViewStartBeats / beatsPerBar));
+        const int    paintNumBars   = static_cast<int>(std::ceil((W / pixelsPerBeat) / beatsPerBar)) + 2;
         const int64_t currentSample = transportState.getPositionSamples();
         const double currentX = timelineModel.getXForSamplePosition(currentSample, W);
         const int width = W;
@@ -1211,21 +1221,26 @@ namespace NovaStudioUI
         g.setColour(juce::Colour::fromRGB(35, 38, 52));
         g.fillRect(0, rulerH - 1, W, 1);
 
-        const int numBars = static_cast<int>(std::ceil((W / pixelsPerBeat) / beatsPerBar)) + 2;
-        for (int bar = 0; bar < numBars; ++bar)
+        for (int bar = paintFirstBar; bar < paintFirstBar + paintNumBars; ++bar)
         {
-            const double x = bar * beatsPerBar * pixelsPerBeat;
+            const double barSec = bar * beatsPerBar * (60.0 / paintTempo);
+            const int64_t barSample = static_cast<int64_t>(barSec * paintSR);
+            const double x = timelineModel.getXForSamplePosition(barSample, W);
+            if (x > W + 2.0) break;
+
             // Bar line
             g.setColour(juce::Colour::fromRGB(50, 55, 72));
             g.drawLine((float)x, 0.0f, (float)x, (float)rulerH, 1.0f);
-            // Bar label
+            // Bar label (1-based)
             g.setColour(juce::Colours::white.withAlpha(0.6f));
             g.setFont(juce::Font(10.0f, juce::Font::bold));
             g.drawText(juce::String(bar + 1), (int)x + 4, 6, 40, 14, juce::Justification::left);
             // Beat subdivisions
             for (int sub = 1; sub < beatsPerBar; ++sub)
             {
-                const double beatX = x + sub * pixelsPerBeat;
+                const double beatSec = barSec + sub * (60.0 / paintTempo);
+                const int64_t beatSample = static_cast<int64_t>(beatSec * paintSR);
+                const double beatX = timelineModel.getXForSamplePosition(beatSample, W);
                 g.setColour(juce::Colour::fromRGB(38, 42, 58));
                 g.drawLine((float)beatX, (float)(rulerH / 2), (float)beatX, (float)rulerH, 0.8f);
             }
@@ -1294,15 +1309,18 @@ namespace NovaStudioUI
                 g.fillRect(0.0f, top, (float)W, trackHeight);
             }
 
-            // Beat grid lines within lane
-            for (int bar = 0; bar < numBars; ++bar)
+            // Beat grid lines within lane — use same view-offset bars as ruler
+            for (int bar = paintFirstBar; bar < paintFirstBar + paintNumBars; ++bar)
             {
-                const double x = bar * beatsPerBar * pixelsPerBeat;
+                const double barSec2   = bar * beatsPerBar * (60.0 / paintTempo);
+                const double x = timelineModel.getXForSamplePosition(static_cast<int64_t>(barSec2 * paintSR), W);
+                if (x > W + 2.0) break;
                 g.setColour(juce::Colour::fromRGB(28, 31, 44));
                 g.drawLine((float)x, top, (float)x, top + trackHeight, 1.0f);
                 for (int sub = 1; sub < beatsPerBar; ++sub)
                 {
-                    const double beatX = x + sub * pixelsPerBeat;
+                    const double beatSec2 = barSec2 + sub * (60.0 / paintTempo);
+                    const double beatX = timelineModel.getXForSamplePosition(static_cast<int64_t>(beatSec2 * paintSR), W);
                     g.setColour(juce::Colour::fromRGB(22, 24, 35));
                     g.drawLine((float)beatX, top, (float)beatX, top + trackHeight, 0.5f);
                 }

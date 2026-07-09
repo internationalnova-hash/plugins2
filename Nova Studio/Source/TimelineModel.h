@@ -14,6 +14,10 @@ namespace NovaStudio
         void setZoomFactor(double zoom) noexcept;
         double getZoomFactor() const noexcept;
 
+        void  setViewStartSamples(int64_t s) noexcept { viewStartSamples = juce::jmax<int64_t>(0, s); }
+        int64_t getViewStartSamples() const noexcept  { return viewStartSamples; }
+        void scrollByPixels(double deltaPixels) noexcept;  // positive = scroll right
+
         double getPixelsPerBeat() const noexcept;
         double getPixelsPerSecond() const noexcept;
 
@@ -40,5 +44,6 @@ namespace NovaStudio
         const Session& session;
         const TransportState& transportState;
         double zoomFactor = 1.0;
+        int64_t viewStartSamples = 0;
     };
 }
