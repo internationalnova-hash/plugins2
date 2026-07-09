@@ -234,10 +234,25 @@ class PTXParser {
             tracks = inferTracksFromFileNames(audioFiles: audioFiles)
         }
 
-        // Hard override for v90 (PT 2022+): heuristic scanners always find garbage
-        // (iCloud path fragments, system strings). Force filename-based grouping.
-        if version >= 90 && !audioFiles.isEmpty {
-            tracks = inferTracksFromFileNames(audioFiles: audioFiles)
+        // Validate tracks against audio files on disk. If none of the found track
+        // names correspond to any audio file stem, the scanner found garbage
+        // (iCloud path fragments, system strings, etc.). Replace with filename grouping.
+        if !audioFiles.isEmpty {
+            let audioStems = audioFiles.map {
+                ($0.filename as NSString).deletingPathExtension.lowercased()
+            }
+            let anyMatch = tracks.contains { t in
+                let lower = t.name.lowercased()
+                return audioStems.contains { stem in
+                    stem.contains(lower) || lower.contains(stem)
+                }
+            }
+            let allZeroLength = tracks.allSatisfy {
+                $0.placements.allSatisfy { $0.lengthSamples == 0 }
+            }
+            if !anyMatch || allZeroLength {
+                tracks = inferTracksFromFileNames(audioFiles: audioFiles)
+            }
         }
 
         let sessionName = url.deletingPathExtension().lastPathComponent
