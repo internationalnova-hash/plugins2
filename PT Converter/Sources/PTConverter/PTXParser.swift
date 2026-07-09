@@ -111,10 +111,13 @@ class PTXParser {
         }
         let xorKey = raw.count > keyOffset ? raw[keyOffset] : 0
 
-        // Decrypt the session data (everything after the key byte)
+        // Decrypt the session data (everything after the key byte).
+        // v90+ (PT 2022+): the ZMARK block scanner applies per-block adaptive XOR keys
+        // internally, so we must NOT apply a global XOR here — doing so would corrupt
+        // the block boundaries and make EVAW audio-file detection fail.
         let decryptStart = keyOffset + 1
         var buf = Array(raw)
-        if xorKey != 0 {
+        if xorKey != 0 && version < 90 {
             for i in decryptStart ..< buf.count {
                 buf[i] ^= xorKey
             }
@@ -1389,10 +1392,12 @@ class PTXParser {
             var s = (filename as NSString).deletingPathExtension as String
             // Remove stereo channel suffix before extension: ".L" ".R" "_L" "_R"
             for sfx in [".L", ".R", "_L", "_R"] { if s.hasSuffix(sfx) { s = String(s.dropLast(sfx.count)) } }
-            // Remove processing suffix: "-Gain_15" "-Norm" "-Tmshft" etc.
+            // Strip take number first: "Audio 4-Gain_10" → "Audio 4-Gain"
+            if let r = s.range(of: "_\\d+$", options: .regularExpression) { s = String(s[..<r.lowerBound]) }
+            // Strip processing suffix: "Audio 4-Gain" → "Audio 4", "Audio 1_16-Gain" → "Audio 1_16"
             if let r = s.range(of: "-[^-_]+$", options: .regularExpression) { s = String(s[..<r.lowerBound]) }
-            // Remove trailing take number: "_01" "_16"
-            if let r = s.range(of: "_\\d+$",   options: .regularExpression) { s = String(s[..<r.lowerBound]) }
+            // Strip take number again in case it was before the suffix: "Audio 1_16" → "Audio 1"
+            if let r = s.range(of: "_\\d+$", options: .regularExpression) { s = String(s[..<r.lowerBound]) }
             return s
         }
 
