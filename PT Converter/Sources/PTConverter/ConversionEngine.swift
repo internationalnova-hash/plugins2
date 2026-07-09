@@ -166,27 +166,19 @@ class ConversionEngine: ObservableObject {
         addLog(.info, "Building Nova Studio session…")
 
         // ── 7. Write .novastudio file ───────────────────────────────────────
-        let sessionFile: URL
-        if let ps = ptSession, !ps.tracks.isEmpty {
-            sessionFile = try exporter.export(
-                ptSession: ps,
-                regionWAVs: [:],
-                audioFileWAVs: audioFileWAVs,
-                diskWAVs: fallbackWAVs,
-                outputFolder: outRoot
-            )
-            let trackCount = ps.tracks.count
-            let clipCount  = ps.tracks.reduce(0) { $0 + $1.placements.count }
-            addLog(.info, "\(trackCount) tracks, \(clipCount) clip placements")
-        } else {
-            addLog(.warning, "No track layout parsed — creating one track per audio file")
-            sessionFile = try exporter.exportFromAudioFiles(
-                sessionName: sessName,
-                sampleRate: ptSession?.sampleRate ?? 44100,
-                wavFiles: fallbackWAVs,
-                outputFolder: outRoot
-            )
-        }
+        // Strategy: group converted audio files by base stem (track name),
+        // pick the best take per group (processed takes > highest take number).
+        // This mirrors how working PT converters reconstruct the track layout
+        // without relying on unreliable PTX playlist/region block parsing.
+        let stemWAVs = stemGroupedWAVs(from: fallbackWAVs)
+        let sampleRate = ptSession?.sampleRate ?? 44100
+        addLog(.info, "\(stemWAVs.count) track(s) from \(fallbackWAVs.count) file(s)")
+        let sessionFile = try exporter.exportFromAudioFiles(
+            sessionName: sessName,
+            sampleRate: sampleRate,
+            wavFiles: stemWAVs,
+            outputFolder: outRoot
+        )
 
         progress = 1.0
         outputSessionURL = sessionFile
@@ -436,6 +428,50 @@ class ConversionEngine: ObservableObject {
     private func isAudioFile(_ url: URL) -> Bool {
         let ext = url.pathExtension.lowercased()
         return ["wav", "aif", "aiff", "sd2", "mp3", "m4a", "caf"].contains(ext)
+    }
+
+    // Group converted WAVs by base stem; pick the best take per stem.
+    // "Audio 1_16-Gain.wav" and "Audio 1_01.wav" → stem "Audio 1",
+    // winner = processed take (contains -Gain/-Norm) or highest take number.
+    private func stemGroupedWAVs(from wavs: [(name: String, url: URL, lengthSamples: Int64)])
+        -> [(name: String, url: URL, lengthSamples: Int64)]
+    {
+        func baseStem(_ name: String) -> String {
+            var s = name
+            for sfx in [".L", ".R", "_L", "_R"] {
+                if s.lowercased().hasSuffix(sfx.lowercased()) { s = String(s.dropLast(sfx.count)) }
+            }
+            if let r = s.range(of: "_\\d+$", options: .regularExpression) { s = String(s[..<r.lowerBound]) }
+            if let r = s.range(of: "-[^-_]+$", options: .regularExpression) { s = String(s[..<r.lowerBound]) }
+            if let r = s.range(of: "_\\d+$", options: .regularExpression) { s = String(s[..<r.lowerBound]) }
+            return s
+        }
+        func takeNum(_ name: String) -> Int {
+            if let r = name.range(of: "\\d+$", options: .regularExpression) { return Int(name[r]) ?? 0 }
+            return 0
+        }
+
+        var stemOrder  = [String]()
+        var stemGroups = [String: [(name: String, url: URL, lengthSamples: Int64)]]()
+        for wav in wavs {
+            let stem = baseStem(wav.name)
+            if stemGroups[stem] == nil { stemOrder.append(stem); stemGroups[stem] = [] }
+            stemGroups[stem]!.append(wav)
+        }
+
+        var result: [(name: String, url: URL, lengthSamples: Int64)] = []
+        for stem in stemOrder {
+            guard let group = stemGroups[stem], !group.isEmpty else { continue }
+            let processed = group.filter {
+                let n = $0.name.lowercased()
+                return n.contains("-gain") || n.contains("-norm") || n.contains("-tmshft") || n.contains("-rev")
+            }
+            let pool = processed.isEmpty ? group : processed
+            if let best = pool.max(by: { takeNum($0.name) < takeNum($1.name) }) {
+                result.append((name: stem, url: best.url, lengthSamples: best.lengthSamples))
+            }
+        }
+        return result
     }
 
     private func addLog(_ level: ConversionLog.Level, _ msg: String) {
