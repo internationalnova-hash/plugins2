@@ -12,6 +12,13 @@ struct ConversionLog: Identifiable {
     let message: String
 }
 
+enum ExportFormat: String, CaseIterable, Identifiable {
+    case novaStudio = "Nova Studio"
+    case wavStems   = "WAV Stems"
+    case aacStems   = "AAC Stems"
+    var id: String { rawValue }
+}
+
 @MainActor
 class ConversionEngine: ObservableObject {
 
@@ -20,6 +27,7 @@ class ConversionEngine: ObservableObject {
     @Published var isRunning = false
     @Published var outputSessionURL: URL?
     @Published var outputFolderURL: URL?
+    @Published var exportFormat: ExportFormat = .novaStudio
 
     private let parser    = PTXParser()
     private let converter = AudioConverter()
