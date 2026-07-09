@@ -190,7 +190,8 @@ class PTXParser {
                         break
                     }
                     // Also try clip position extraction from decompressed data
-                    if tracks.isEmpty && !audioFiles.isEmpty {
+                    // Skip for v90+ — track name scanner finds iCloud path garbage.
+                    if tracks.isEmpty && !audioFiles.isEmpty && version < 90 {
                         let names = scanForTrackNames(data: decompressed)
                         if !names.isEmpty {
                             let t = buildTracksFromNamesWithPositions(
@@ -230,6 +231,12 @@ class PTXParser {
         // Groups audio files by stem (strips take numbers, processing suffixes, .L/.R).
         // This matches exactly what PT track names produce for standard sessions.
         if tracks.isEmpty && !audioFiles.isEmpty {
+            tracks = inferTracksFromFileNames(audioFiles: audioFiles)
+        }
+
+        // Hard override for v90 (PT 2022+): heuristic scanners always find garbage
+        // (iCloud path fragments, system strings). Force filename-based grouping.
+        if version >= 90 && !audioFiles.isEmpty {
             tracks = inferTracksFromFileNames(audioFiles: audioFiles)
         }
 
