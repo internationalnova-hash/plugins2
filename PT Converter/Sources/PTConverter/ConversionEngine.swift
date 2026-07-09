@@ -222,27 +222,49 @@ class ConversionEngine: ObservableObject {
         var stemTracks = [StemTrack]()
 
         if let ps = ptSession, !ps.tracks.isEmpty {
-            // Use parsed track names → find matching disk audio for each track
+            // Use parsed track layout: each placement's regionIndex holds the audio file index
+            // (for v90 sessions the parser resolves region→fileIndex in the placement itself).
             for ptTrack in ps.tracks {
                 var sources = [URL]()
-                // Find disk files whose name contains the track name (case-insensitive)
-                let lower = ptTrack.name.lowercased()
-                let matched = allDiskAudio.filter { url in
-                    let stem = url.deletingPathExtension().lastPathComponent.lowercased()
-                    return stem.contains(lower) || lower.contains(stem)
-                }.sorted { $0.lastPathComponent < $1.lastPathComponent }
-                if !matched.isEmpty {
-                    sources = matched
-                } else {
-                    // Try matching via parsed audioFiles index → disk URL
-                    for placement in ptTrack.placements {
-                        if let region = ps.regions.first(where: { $0.index == placement.regionIndex }),
-                           let af = ps.audioFiles.first(where: { $0.index == region.fileIndex }),
-                           let diskURL = converter.findAudioFile(named: af.filename, sessionFolder: sessionFolder) {
-                            if !sources.contains(diskURL) { sources.append(diskURL) }
-                        }
+                var addedIndices = Set<Int>()
+
+                // Primary: use the file index stored in each placement's regionIndex field
+                for placement in ptTrack.placements {
+                    let fileIdx = placement.regionIndex
+                    guard !addedIndices.contains(fileIdx) else { continue }
+                    // Look up the audio file by index first
+                    if let af = ps.audioFiles.first(where: { $0.index == fileIdx }),
+                       let diskURL = converter.findAudioFile(named: af.filename,
+                                                             sessionFolder: sessionFolder) {
+                        sources.append(diskURL)
+                        addedIndices.insert(fileIdx)
+                        continue
+                    }
+                    // Also try via region → file mapping
+                    if let region = ps.regions.first(where: { $0.index == fileIdx }),
+                       let af = ps.audioFiles.first(where: { $0.index == region.fileIndex }),
+                       let diskURL = converter.findAudioFile(named: af.filename,
+                                                             sessionFolder: sessionFolder) {
+                        if !sources.contains(diskURL) { sources.append(diskURL) }
+                        addedIndices.insert(fileIdx)
                     }
                 }
+
+                // Fallback: name-match against disk files if index lookup failed
+                if sources.isEmpty {
+                    let lower = ptTrack.name.lowercased()
+                    let matched = allDiskAudio.filter { url in
+                        let stem = url.deletingPathExtension().lastPathComponent.lowercased()
+                        return stem.contains(lower) || lower.contains(stem)
+                    }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+                    // Among matches, prefer processed takes ("-Gain", etc.)
+                    let processed = matched.filter {
+                        let s = $0.deletingPathExtension().lastPathComponent.lowercased()
+                        return s.contains("-gain") || s.contains("-norm") || s.contains("-tmshft")
+                    }
+                    sources = processed.isEmpty ? matched : processed
+                }
+
                 if !sources.isEmpty {
                     stemTracks.append(StemTrack(name: ptTrack.name, sources: sources))
                 }
