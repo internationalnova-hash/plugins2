@@ -211,78 +211,15 @@ class ConversionEngine: ObservableObject {
             let sources: [URL]   // audio files for this track (ordered by take)
         }
 
+        // Build stem tracks from disk files using the same stem-grouping logic as Nova Studio.
+        // This is reliable: group audio files by base stem, pick the best take per stem.
+        // PTX playlist parsing is not used here — it cannot reliably distinguish active takes.
         var stemTracks = [StemTrack]()
-
-        if let ps = ptSession, !ps.tracks.isEmpty {
-            // Use parsed track layout: each placement's regionIndex holds the audio file index
-            // (for v90 sessions the parser resolves region→fileIndex in the placement itself).
-            for ptTrack in ps.tracks {
-                var sources = [URL]()
-                var addedIndices = Set<Int>()
-
-                // Primary: use the file index stored in each placement's regionIndex field
-                for placement in ptTrack.placements {
-                    let fileIdx = placement.regionIndex
-                    guard !addedIndices.contains(fileIdx) else { continue }
-                    // Look up the audio file by index first
-                    if let af = ps.audioFiles.first(where: { $0.index == fileIdx }),
-                       let diskURL = converter.findAudioFile(named: af.filename,
-                                                             sessionFolder: sessionFolder) {
-                        sources.append(diskURL)
-                        addedIndices.insert(fileIdx)
-                        continue
-                    }
-                    // Also try via region → file mapping
-                    if let region = ps.regions.first(where: { $0.index == fileIdx }),
-                       let af = ps.audioFiles.first(where: { $0.index == region.fileIndex }),
-                       let diskURL = converter.findAudioFile(named: af.filename,
-                                                             sessionFolder: sessionFolder) {
-                        if !sources.contains(diskURL) { sources.append(diskURL) }
-                        addedIndices.insert(fileIdx)
-                    }
-                }
-
-                // Fallback: name-match against disk files if index lookup failed
-                if sources.isEmpty {
-                    let lower = ptTrack.name.lowercased()
-                    let matched = allDiskAudio.filter { url in
-                        let stem = url.deletingPathExtension().lastPathComponent.lowercased()
-                        return stem.contains(lower) || lower.contains(stem)
-                    }.sorted { $0.lastPathComponent < $1.lastPathComponent }
-                    // Among matches, prefer processed takes ("-Gain", etc.)
-                    let processed = matched.filter {
-                        let s = $0.deletingPathExtension().lastPathComponent.lowercased()
-                        return s.contains("-gain") || s.contains("-norm") || s.contains("-tmshft")
-                    }
-                    sources = processed.isEmpty ? matched : processed
-                }
-
-                if !sources.isEmpty {
-                    stemTracks.append(StemTrack(name: ptTrack.name, sources: sources))
-                }
-            }
-        }
-
-        // If no tracks were resolved, fall back to grouping disk files by stem
-        if stemTracks.isEmpty {
-            var groups: [(stem: String, urls: [URL])] = []
-            var stemIndex = [String: Int]()
-            for url in allDiskAudio.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-                var s = url.deletingPathExtension().lastPathComponent
-                // Strip trailing take number
-                if let m = s.range(of: #"[\s_\-]+\d+$"#, options: .regularExpression) {
-                    s = String(s[s.startIndex ..< m.lowerBound])
-                }
-                s = s.trimmingCharacters(in: .whitespaces)
-                if let idx = stemIndex[s] {
-                    groups[idx].urls.append(url)
-                } else {
-                    stemIndex[s] = groups.count
-                    groups.append((stem: s, urls: [url]))
-                }
-            }
-            stemTracks = groups.map { StemTrack(name: $0.stem, sources: $0.urls) }
-        }
+        let stemWAVsForExport = stemGroupedWAVs(from: allDiskAudio.map {
+            let name = $0.deletingPathExtension().lastPathComponent
+            return (name: name, url: $0, lengthSamples: Int64(0))
+        })
+        stemTracks = stemWAVsForExport.map { StemTrack(name: $0.name, sources: [$0.url]) }
 
         addLog(.info, "Exporting \(stemTracks.count) stem tracks…")
 
@@ -459,9 +396,21 @@ class ConversionEngine: ObservableObject {
             stemGroups[stem]!.append(wav)
         }
 
+        // Only keep stems that look like PT session recordings:
+        // at least one file in the group has a take number (_01) or processing tag (-Gain/-Norm).
+        // This filters out reference tracks left in the Audio Files folder.
+        func looksLikeSessionFile(_ name: String) -> Bool {
+            let n = name.lowercased()
+            return n.contains("-gain") || n.contains("-norm") || n.contains("-tmshft") ||
+                   n.contains("-rev")  || n.range(of: "_\\d+", options: .regularExpression) != nil ||
+                   n.hasSuffix(".l") || n.hasSuffix(".r") || n.hasSuffix("_l") || n.hasSuffix("_r")
+        }
+
         var result: [(name: String, url: URL, lengthSamples: Int64)] = []
         for stem in stemOrder {
             guard let group = stemGroups[stem], !group.isEmpty else { continue }
+            // Skip groups with no session-like files (e.g. reference songs in the folder)
+            guard group.contains(where: { looksLikeSessionFile($0.name) }) else { continue }
             let processed = group.filter {
                 let n = $0.name.lowercased()
                 return n.contains("-gain") || n.contains("-norm") || n.contains("-tmshft") || n.contains("-rev")
