@@ -40,7 +40,7 @@ struct ContentView: View {
                 footer
             }
         }
-        .frame(minWidth: 640, minHeight: 540)
+        .frame(minWidth: 640, idealWidth: 720, minHeight: 620, idealHeight: 700)
     }
 
     // ── Header ───────────────────────────────────────────────────────────────

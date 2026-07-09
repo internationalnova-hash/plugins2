@@ -9,7 +9,7 @@ struct PTConverterApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
-        .defaultSize(width: 640, height: 560)
+        .defaultSize(width: 720, height: 700)
         .commands {
             CommandGroup(replacing: .newItem) {}
         }
