@@ -27,9 +27,12 @@ struct ContentView: View {
                 dropZone
                     .padding(.horizontal, 24)
                     .padding(.top, 20)
-                progressSection
+                formatPicker
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
+                progressSection
+                    .padding(.horizontal, 24)
+                    .padding(.top, 10)
                 logSection
                     .padding(.horizontal, 24)
                     .padding(.top, 12)
@@ -200,10 +203,35 @@ struct ContentView: View {
         }
     }
 
+    // ── Format Picker ─────────────────────────────────────────────────────────
+    var formatPicker: some View {
+        HStack(spacing: 8) {
+            Text("Export as:")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.gray)
+            ForEach(ExportFormat.allCases) { fmt in
+                Button(action: { engine.exportFormat = fmt }) {
+                    Text(fmt.rawValue)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(engine.exportFormat == fmt ? .white : Color.white.opacity(0.45))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(engine.exportFormat == fmt ? accent : Color.white.opacity(0.07))
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(engine.isRunning)
+            }
+            Spacer()
+        }
+    }
+
     // ── Footer ────────────────────────────────────────────────────────────────
     var footer: some View {
         HStack {
-            Text("Supports Pro Tools 9–2024 (.ptx / .pts) · Outputs .novastudio + WAV")
+            Text("Supports Pro Tools 9–2024 (.ptx / .pts)")
                 .font(.system(size: 10))
                 .foregroundColor(Color.white.opacity(0.2))
             Spacer()

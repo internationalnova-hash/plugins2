@@ -181,67 +181,6 @@ class NovaStudioExporter {
             tracksJSON.append(trackJSON)
         }
 
-        // Add any audio files not claimed by a parsed track as additional tracks.
-        // This ensures nothing is lost when the PTX parser only finds a subset of tracks.
-        for wav in stemToWAV where !assignedTrackFiles.contains(wav.url.path) {
-            var extraClipLength = wav.length
-            if let af = try? AVAudioFile(forReading: wav.url) {
-                let fileSR = af.processingFormat.sampleRate
-                extraClipLength = af.length
-                if fileSR > 0 && fileSR != ptSession.sampleRate {
-                    extraClipLength = Int64(Double(extraClipLength) * ptSession.sampleRate / fileSR)
-                }
-            }
-            guard extraClipLength > 0 else { continue }
-            let extraClip: [String: Any] = [
-                "file":               wav.url.path,
-                "startSample":        0.0,
-                "lengthSamples":      Double(extraClipLength),
-                "fileOffsetSamples":  0.0,
-                "gainDb":             0.0,
-                "isMidi":             false,
-                "muted":              false,
-                "locked":             false,
-                "aligned":            false,
-                "isPreview":          false,
-                "alignmentOffsetSamples": 0.0,
-                "originalFile":       wav.url.path,
-                "guideTrackIndex":    -1,
-                "guideClipIndex":     -1,
-                "sourceTrackIndex":   -1,
-                "sourceClipIndex":    -1,
-                "alignVersion":       0,
-                "alignmentTimestamp": "",
-                "alignmentPhraseSensitivity": 0.75,
-                "alignmentConsonantPriority": 0.5,
-                "alignmentSourceGuidePath": "",
-                "alignmentWarpPoints": [] as [Any],
-                "clipColor": "ff4c6af5"
-            ]
-            let extraTrack: [String: Any] = [
-                "name":       wav.url.deletingPathExtension().lastPathComponent,
-                "type":       "Audio",
-                "isStereo":   true,
-                "volumeDb":   -18.0,
-                "pan":        0.0,
-                "muted":      false,
-                "solo":       false,
-                "armed":      false,
-                "inputBus":   "",
-                "outputBus":  "Main Out",
-                "auxInputBusIndex": -1,
-                "locked":     false,
-                "groupName":  "",
-                "colour":     "ff4c6af5",
-                "sendLevels": [-100.0, -100.0, -100.0, -100.0, -100.0, -100.0],
-                "sendBusIndex": [-1, -1, -1, -1, -1, -1],
-                "sendPreFader": [false, false, false, false, false, false],
-                "automationLanes": [] as [Any],
-                "clips":      [extraClip]
-            ]
-            tracksJSON.append(extraTrack)
-        }
-
         // Tempo map
         var tempoMapJSON = [[String: Any]]()
         if ptSession.tempoMap.isEmpty {

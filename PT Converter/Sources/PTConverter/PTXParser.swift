@@ -258,10 +258,9 @@ class PTXParser {
                     stem.contains(lower) || lower.contains(stem)
                 }
             }
-            let allZeroLength = tracks.allSatisfy {
-                $0.placements.allSatisfy { $0.lengthSamples == 0 }
-            }
-            if !anyMatch || allZeroLength {
+            // Only override if no track names matched any audio file at all.
+            // Zero-length placements are expected for v90 sessions (exporter reads real WAV lengths).
+            if !anyMatch {
                 tracks = inferTracksFromFileNames(audioFiles: audioFiles)
             }
         }
