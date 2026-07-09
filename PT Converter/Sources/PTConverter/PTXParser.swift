@@ -1392,33 +1392,89 @@ class PTXParser {
         }
 
         // ── Step 5: Build PTTrack objects ─────────────────────────────────────
+        // IMPORTANT: Do NOT pair track groups with track names by index.
+        // The playlist block and the 1A-25 track name scanner may return items in
+        // different orders, causing wrong name→clip assignments.
+        // Instead, derive the track name FROM the audio file that each clip resolves to.
         if !bestTrackGroups.isEmpty {
             let af = audioFiles.isEmpty ? foundFiles : audioFiles
             var builtTracks = [PTTrack]()
-            let nameCount = trackNames.count
+            var trackIdx = 0
 
-            for (ti, rawClips) in bestTrackGroups.enumerated() {
-                // Filter to only the active clip at each timeline position
+            // Helper: strip take-number and processing suffixes to get base track name.
+            // e.g. "Audio 1_16-Gain" → "Audio 1", "Bring it back ruff for scalez_02.R" → "Bring it back ruff for scalez"
+            func baseStem(of filename: String) -> String {
+                var s = (filename as NSString).deletingPathExtension as String
+                // Strip .L / .R channel suffix
+                for suffix in [".L", ".R", "_L", "_R"] {
+                    if s.hasSuffix(suffix) { s = String(s.dropLast(suffix.count)) }
+                }
+                // Strip processing suffix (-Gain, -Norm, -Tmshft, etc.)
+                if let r = s.range(of: "-[^-_]+$", options: .regularExpression) { s = String(s[..<r.lowerBound]) }
+                // Strip take number (_NN)
+                if let r = s.range(of: "_\\d+$", options: .regularExpression) { s = String(s[..<r.lowerBound]) }
+                return s
+            }
+
+            // Build a stem→[PTAudioFile] map for fast lookup
+            var stemToFiles = [String: [PTAudioFile]]()
+            for f in af {
+                let stem = baseStem(of: f.filename)
+                stemToFiles[stem, default: []].append(f)
+            }
+
+            for rawClips in bestTrackGroups {
                 let active = filterActiveV90Clips(rawClips)
                 guard !active.isEmpty else { continue }
 
-                let name = ti < nameCount ? trackNames[ti] : "Track \(ti + 1)"
-
+                // Resolve clips → file indices using region map only (no track-name hint)
                 var placements = [PTClipPlacement]()
-                for clip in active {
-                    // Resolve region → file index
-                    let fileIdx = resolveV90ClipFile(
-                        clip: clip, trackName: name,
-                        regionMap: regionIdxToInfo, audioFiles: af)
+                var resolvedFiles = [PTAudioFile]()
 
+                for clip in active {
+                    var fileIdx = clip.regionIdx  // fallback: treat regionIdx as fileIdx
+                    if let info = regionIdxToInfo[clip.regionIdx] {
+                        if af.isEmpty || af.contains(where: { $0.index == info.fileIdx }) {
+                            fileIdx = info.fileIdx
+                        } else if let matched = af.first(where: {
+                            baseStem(of: $0.filename).lowercased() == info.name.lowercased()
+                        }) {
+                            fileIdx = matched.index
+                        }
+                    }
                     placements.append(PTClipPlacement(
                         regionIndex: fileIdx,
                         startInTimelineSamples: clip.timelinePos,
-                        lengthSamples: 0))  // length 0 → exporter reads actual WAV duration
+                        lengthSamples: 0))
+                    if let found = af.first(where: { $0.index == fileIdx }) {
+                        resolvedFiles.append(found)
+                    }
                 }
 
-                builtTracks.append(PTTrack(index: ti, name: name,
-                                           placements: placements, isStereo: false))
+                // Derive track name from the most common base stem of resolved files
+                var name = "Track \(trackIdx + 1)"
+                var isStereo = false
+                if !resolvedFiles.isEmpty {
+                    // Tally stems
+                    var stemCount = [String: Int]()
+                    for f in resolvedFiles { stemCount[baseStem(of: f.filename), default: 0] += 1 }
+                    let topStem = stemCount.max(by: { $0.value < $1.value })?.key ?? ""
+                    if !topStem.isEmpty { name = topStem }
+                    // Detect stereo: any resolved file is a .L/.R pair
+                    isStereo = resolvedFiles.contains {
+                        let fn = $0.filename.lowercased()
+                        return fn.hasSuffix(".l.wav") || fn.hasSuffix(".r.wav") ||
+                               fn.hasSuffix("_l.wav") || fn.hasSuffix("_r.wav")
+                    }
+                } else {
+                    // No files resolved — use scanV90TrackNames by running count
+                    let names = trackNames
+                    if trackIdx < names.count { name = names[trackIdx] }
+                }
+
+                builtTracks.append(PTTrack(index: trackIdx, name: name,
+                                           placements: placements, isStereo: isStereo))
+                trackIdx += 1
             }
 
             if !builtTracks.isEmpty { tracks = builtTracks }
