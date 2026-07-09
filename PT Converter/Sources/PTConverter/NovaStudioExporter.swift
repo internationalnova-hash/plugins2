@@ -46,10 +46,14 @@ class NovaStudioExporter {
         }
 
         var tracksJSON = [[String: Any]]()
-        // Track which audio files have already been assigned to a track (by path).
-        // Prevents all tracks getting the same file when the parser reads fileIndex=0
-        // for every region (common in stem-export sessions).
         var assignedTrackFiles = Set<String>()
+        var debugLines = ["=== NovaStudio Export Debug ===",
+                          "session: \(ptSession.name)",
+                          "tracks: \(ptSession.tracks.count)",
+                          "regions: \(ptSession.regions.count)",
+                          "audioFileWAVs keys: \(audioFileWAVs.keys.sorted())",
+                          "stemToWAV count: \(stemToWAV.count)",
+                          ""]
 
         for (trackIdx, ptTrack) in ptSession.tracks.enumerated() {
             var clipsJSON = [[String: Any]]()
@@ -94,6 +98,8 @@ class NovaStudioExporter {
                     usedIndexFallback = true
                 }
 
+                let pathChoice = wavURL == nil ? "NONE" : wavURL!.lastPathComponent
+                debugLines.append("track[\(trackIdx)] \(ptTrack.name): region=\(region?.index ?? -1) fileIdx=\(region?.fileIndex ?? -1) path1=\(findWAVByName(regionName) != nil) → \(pathChoice)")
                 guard let url = wavURL else { continue }
                 assignedTrackFiles.insert(url.path)
 
@@ -204,6 +210,8 @@ class NovaStudioExporter {
         let jsonData = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
         let sessionFile = outputFolder.appendingPathComponent(ptSession.name + ".novastudio")
         try jsonData.write(to: sessionFile)
+        let debugFile = outputFolder.appendingPathComponent("_debug.txt")
+        try debugLines.joined(separator: "\n").write(to: debugFile, atomically: true, encoding: .utf8)
         return sessionFile
     }
 
