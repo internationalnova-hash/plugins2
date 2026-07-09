@@ -2285,25 +2285,37 @@ void MainComponent::menuItemSelected(int id, int)
             "Import Audio", juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
             "*.wav;*.aif;*.aiff;*.mp3;*.flac");
         chooser->launchAsync(
-            juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            juce::FileBrowserComponent::openMode |
+            juce::FileBrowserComponent::canSelectFiles |
+            juce::FileBrowserComponent::canSelectMultipleItems,
             [this, chooser](const juce::FileChooser& fc)
             {
-                auto f = fc.getResult();
-                if (!f.existsAsFile()) return;
                 juce::AudioFormatManager fmt;
                 fmt.registerBasicFormats();
-                std::unique_ptr<juce::AudioFormatReader> reader(fmt.createReaderFor(f));
-                NovaStudio::Clip clip;
-                clip.file          = f;
-                clip.startSample   = 0;
-                clip.lengthSamples = reader ? reader->lengthInSamples : (int64_t)(44100 * 5);
-                clip.isMidi        = false;
-                if (engine.getSession().getNumTracks() > 0)
-                    engine.getSession().getTrack(0).clips.add(clip);
-                refreshTrackList();
-                arrangementModel.sendChangeMessage();
-                updateStatusMessage("Imported: " + f.getFileName());
-                browserPanel.refresh();
+                auto& session = engine.getSession();
+                int imported = 0;
+                for (auto& f : fc.getResults())
+                {
+                    if (!f.existsAsFile()) continue;
+                    std::unique_ptr<juce::AudioFormatReader> reader(fmt.createReaderFor(f));
+                    NovaStudio::Clip clip;
+                    clip.file          = f;
+                    clip.startSample   = 0;
+                    clip.lengthSamples = reader ? reader->lengthInSamples : (int64_t)(44100 * 5);
+                    clip.isMidi        = false;
+                    // Each file goes on its own track; add a new audio track for each file.
+                    engine.addTrack(f.getFileNameWithoutExtension(), NovaStudio::TrackType::Audio);
+                    session.getTrack(session.getNumTracks() - 1).clips.add(clip);
+                    ++imported;
+                }
+                if (imported > 0)
+                {
+                    refreshTrackList();
+                    arrangementModel.sendChangeMessage();
+                    updateStatusMessage("Imported " + juce::String(imported) +
+                                        " file" + (imported > 1 ? "s" : ""));
+                    browserPanel.refresh();
+                }
             });
         break;
     }
