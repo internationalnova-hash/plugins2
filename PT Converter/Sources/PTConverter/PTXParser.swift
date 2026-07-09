@@ -205,8 +205,10 @@ class PTXParser {
             }
         }
 
-        // If structured block parse found no tracks, use the region-entry scanner.
-        if tracks.isEmpty {
+        // For modern PT (v90+), the region entry scanner and track name scanner
+        // find iCloud path fragments and other garbage, not real track data.
+        // Skip them and go straight to filename-based grouping which is reliable.
+        if tracks.isEmpty && version < 90 {
             let regionEntries = scanRegionEntries(data: data, sampleRate: sampleRate)
             if !regionEntries.isEmpty {
                 var syntheticRegions = [PTRegion]()
@@ -217,14 +219,18 @@ class PTXParser {
             }
         }
 
-        if tracks.isEmpty {
+        if tracks.isEmpty && version < 90 {
             let trackNames = scanForTrackNames(data: data)
             if !trackNames.isEmpty && !audioFiles.isEmpty {
                 tracks = buildTracksFromNames(trackNames: trackNames, audioFiles: audioFiles)
             }
-            if tracks.isEmpty && !audioFiles.isEmpty {
-                tracks = inferTracksFromFileNames(audioFiles: audioFiles)
-            }
+        }
+
+        // Filename-based grouping: works for any PT version when binary parsing fails.
+        // Groups audio files by stem (strips take numbers, processing suffixes, .L/.R).
+        // This matches exactly what PT track names produce for standard sessions.
+        if tracks.isEmpty && !audioFiles.isEmpty {
+            tracks = inferTracksFromFileNames(audioFiles: audioFiles)
         }
 
         let sessionName = url.deletingPathExtension().lastPathComponent
@@ -1114,19 +1120,47 @@ class PTXParser {
     // Files with no recognisable pattern each get their own track.
     // -----------------------------------------------------------------------
     private func inferTracksFromFileNames(audioFiles: [PTAudioFile]) -> [PTTrack] {
-        // Strip numeric suffix and common separators to find the stem
-        func stem(_ filename: String) -> String {
+        // PT audio file naming convention:
+        //   [TrackName][-ProcessingSuffix][_TakeNumber].ext
+        //   [TrackName].L.wav  /  [TrackName].R.wav  (stereo pairs)
+        // We strip all suffixes to recover the original track name.
+        let ptProcessing = ["-Gain", "-Norm", "-TmShft", "-Fade", "-Rev", "-Comp",
+                            "-cm.4", "-cm.3", "-cm.2", "-cm",
+                            ".dup2-cm.2", ".dup1-cm.2", ".dupl-cm.2",
+                            ".dup2-cm", ".dup1-cm", ".dupl-cm",
+                            ".dup2", ".dup1", ".dupl"]
+
+        func ptStem(_ filename: String) -> String {
             var s = filename
             // Remove extension
             if let dot = s.lastIndex(of: ".") { s = String(s[s.startIndex ..< dot]) }
-            // Strip trailing _01, -01, .01, (1) etc.
-            let pattern = #"[\s_\-\.]+\d+$|[\s_\-\.]*\(\d+\)$"#
-            if let re = try? NSRegularExpression(pattern: pattern),
-               let m = re.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)),
-               let r = Range(m.range, in: s) {
-                s = String(s[s.startIndex ..< r.lowerBound])
+            // Strip stereo channel suffix (.L / .R)
+            if s.hasSuffix(".L") || s.hasSuffix(".R") { s = String(s.dropLast(2)) }
+            // Strip trailing take number: _01, _002, -03, etc.
+            let numPat = #"[\s_\-]+\d+$"#
+            func stripNum(_ str: String) -> String {
+                guard let re = try? NSRegularExpression(pattern: numPat),
+                      let m = re.firstMatch(in: str, range: NSRange(str.startIndex..., in: str)),
+                      let r = Range(m.range, in: str) else { return str }
+                return String(str[str.startIndex ..< r.lowerBound])
             }
+            s = stripNum(s)
+            // Strip PT processing suffix
+            for sfx in ptProcessing {
+                if s.hasSuffix(sfx) { s = String(s.dropLast(sfx.count)); break }
+            }
+            // Strip number again after removing processing suffix
+            s = stripNum(s)
             return s.trimmingCharacters(in: .whitespaces)
+        }
+
+        // Identify stereo pairs: stems that have both .L and .R variants
+        var stereoStems = Set<String>()
+        let byStem = Dictionary(grouping: audioFiles, by: { ptStem($0.filename) })
+        for (stem, files) in byStem {
+            let hasL = files.contains { $0.filename.hasSuffix(".L.wav") || $0.filename.hasSuffix(".L.aif") || $0.filename.hasSuffix(".L.aiff") }
+            let hasR = files.contains { $0.filename.hasSuffix(".R.wav") || $0.filename.hasSuffix(".R.aif") || $0.filename.hasSuffix(".R.aiff") }
+            if hasL && hasR { stereoStems.insert(stem) }
         }
 
         // Group files by stem, preserving insertion order of first occurrence
@@ -1134,7 +1168,12 @@ class PTXParser {
         var stemIndex = [String: Int]()
 
         for af in audioFiles {
-            let s = stem(af.filename)
+            let s = ptStem(af.filename)
+            // For stereo tracks, skip .R files — only the .L file represents the clip
+            let isRChannel = stereoStems.contains(s) &&
+                (af.filename.hasSuffix(".R.wav") || af.filename.hasSuffix(".R.aif") || af.filename.hasSuffix(".R.aiff"))
+            if isRChannel { continue }
+
             if let idx = stemIndex[s] {
                 groups[idx].files.append(af)
             } else {
@@ -1143,9 +1182,9 @@ class PTXParser {
             }
         }
 
-        // Convert each group to a PTTrack with one placement per file at pos 0
         return groups.enumerated().map { (i, group) in
-            let placements = group.files.enumerated().map { (j, af) in
+            let isStereo = stereoStems.contains(group.stem)
+            let placements = group.files.enumerated().map { (_, af) in
                 PTClipPlacement(regionIndex: af.index,
                                 startInTimelineSamples: 0,
                                 lengthSamples: af.lengthSamples)
@@ -1153,7 +1192,7 @@ class PTXParser {
             return PTTrack(index: i,
                            name: group.stem.isEmpty ? group.files[0].filename : group.stem,
                            placements: placements,
-                           isStereo: true)
+                           isStereo: isStereo)
         }
     }
 
