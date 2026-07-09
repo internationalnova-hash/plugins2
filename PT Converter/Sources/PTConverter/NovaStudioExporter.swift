@@ -46,8 +46,12 @@ class NovaStudioExporter {
         }
 
         var tracksJSON = [[String: Any]]()
+        // Track which audio files have already been assigned to a track (by path).
+        // Prevents all tracks getting the same file when the parser reads fileIndex=0
+        // for every region (common in stem-export sessions).
+        var assignedTrackFiles = Set<String>()
 
-        for ptTrack in ptSession.tracks {
+        for (trackIdx, ptTrack) in ptSession.tracks.enumerated() {
             var clipsJSON = [[String: Any]]()
 
             for placement in ptTrack.placements {
@@ -69,8 +73,12 @@ class NovaStudioExporter {
                     wavURL = clipWAV
                     if clipLength == 0 { clipLength = r.lengthSamples }
                 }
-                // 3. Audio file index map (skip if fileIndex is -1 = deep-scan placeholder)
-                if wavURL == nil, let r = region, r.fileIndex >= 0, let fileWAV = audioFileWAVs[r.fileIndex] {
+                // 3. Audio file index map (skip if fileIndex is -1 = deep-scan placeholder,
+                //    or if that file was already used by a previous track — avoids all tracks
+                //    getting fileIndex=0 when the parser can't distinguish per-track files).
+                if wavURL == nil, let r = region, r.fileIndex >= 0,
+                   let fileWAV = audioFileWAVs[r.fileIndex],
+                   trackIdx == 0 || !assignedTrackFiles.contains(fileWAV.path) {
                     wavURL = fileWAV
                     fileOffset = r.offsetInFileSamples
                     if clipLength == 0 { clipLength = r.lengthSamples }
@@ -80,13 +88,14 @@ class NovaStudioExporter {
                 //    case for stem-export sessions where name matching fails because
                 //    the PT parser fell back to a binary scan and produced garbled names.
                 if wavURL == nil, !stemToWAV.isEmpty {
-                    let idx = ptTrack.index % stemToWAV.count
+                    let idx = trackIdx % stemToWAV.count
                     wavURL = stemToWAV[idx].url
                     if clipLength == 0 { clipLength = stemToWAV[idx].length }
                     usedIndexFallback = true
                 }
 
                 guard let url = wavURL else { continue }
+                assignedTrackFiles.insert(url.path)
 
                 // Read the actual WAV file length and sample rate once.
                 // For stem exports (fileOffset == 0) always use the real file length —
