@@ -6,9 +6,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const reservation = {
-  guestName: "DesMar",       // Primary guest's first name (from Airbnb)
-  checkIn: "July 24",        // Display format shown to guest
-  checkOut: "July 26",
+  guestName: "Jamilah",      // Primary guest's first name (from Airbnb)
+  checkIn: "July 18",        // Display format shown to guest
+  checkOut: "July 20",
   nights: 2,
   bookedGuests: 8,           // Total guest count from Airbnb booking
 };

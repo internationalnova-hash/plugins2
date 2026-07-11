@@ -20,6 +20,14 @@ export interface Booking {
 
 const bookings: Booking[] = [
   {
+    confirmationCode: "HM5RPXTJPS",
+    guestName: "Jamilah",
+    checkIn: "July 18",
+    checkOut: "July 20",
+    nights: 2,
+    bookedGuests: 8,
+  },
+  {
     confirmationCode: "HMDESMAR24",
     guestName: "DesMar",
     checkIn: "July 24",
