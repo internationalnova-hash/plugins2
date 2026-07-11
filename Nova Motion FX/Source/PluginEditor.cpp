@@ -74,8 +74,8 @@ NovaMotionFXEditor::NovaMotionFXEditor (NovaMotionFXProcessor& p)
    #endif
 
     // Native function: parameter change from JS → processor
-    options = options.withNativeFunction ("paramChange", [this] (auto& args, auto complete) {
-        if (!args.empty()) {
+    options = options.withNativeFunction ("paramChange", [this] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion complete) {
+        if (!args.isEmpty()) {
             const auto json = juce::JSON::parse (juce::String (args[0].toString()));
             if (auto* obj = json.getDynamicObject()) {
                 const auto param  = obj->getProperty ("param").toString();
@@ -112,6 +112,6 @@ void NovaMotionFXEditor::timerCallback()
     if (!webView || !webView->isVisible()) return;
     const float l = processor.peakL.load();
     const float r = processor.peakR.load();
-    const auto script = juce::String ("if(window.updateMeters)updateMeters(") + l + "," + r + ");";
+    const auto script = juce::String ("if(window.updateMeters)updateMeters(") + juce::String (l) + "," + juce::String (r) + ");";
     webView->evaluateJavascript (script);
 }
