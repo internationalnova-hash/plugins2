@@ -50,7 +50,7 @@ private:
     // Smoothed parameter values
     juce::SmoothedValue<float> smCutoff, smResonance, smDrive;
     juce::SmoothedValue<float> smFeedback, smDelayMix;
-    juce::SmoothedValue<float> smSize, smDecay, smReverbMix;
+    juce::SmoothedValue<float> smSize, smReverbMix;
     juce::SmoothedValue<float> smInput, smOutput, smMix;
 
     juce::AudioBuffer<float> dryBuf;

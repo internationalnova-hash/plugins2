@@ -45,7 +45,7 @@ void NovaMotionFXProcessor::prepareToPlay (double sr, int block)
     delayLineL.prepare (spec); delayLineL.setMaximumDelayInSamples (maxDelaySamples);
     delayLineR.prepare (spec); delayLineR.setMaximumDelayInSamples (maxDelaySamples);
 
-    reverbL.setSampleRate (sr); reverbR.setSampleRate (sr);
+    reverbL.reset(); reverbR.reset();
 
     auto init = [&](juce::SmoothedValue<float>& sv, float v) { sv.reset (sr, 0.02); sv.setCurrentAndTargetValue (v); };
     init (smCutoff,    2450.f);
@@ -54,7 +54,6 @@ void NovaMotionFXProcessor::prepareToPlay (double sr, int block)
     init (smFeedback,  0.35f);
     init (smDelayMix,  0.4f);
     init (smSize,      0.6f);
-    init (smDecay,     2.85f);
     init (smReverbMix, 0.35f);
     init (smInput,     1.f);
     init (smOutput,    1.f);
@@ -77,7 +76,6 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
     smFeedback .setTargetValue (*apvts.getRawParameterValue ("feedback"));
     smDelayMix .setTargetValue (*apvts.getRawParameterValue ("delay_mix"));
     smSize     .setTargetValue (*apvts.getRawParameterValue ("size"));
-    smDecay    .setTargetValue (*apvts.getRawParameterValue ("decay"));
     smReverbMix.setTargetValue (*apvts.getRawParameterValue ("reverb_mix"));
     smInput    .setTargetValue (juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("input")->load()));
     smOutput   .setTargetValue (juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("output")->load()));
@@ -129,7 +127,6 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
     {
         juce::Reverb::Parameters rp;
         rp.roomSize   = smSize.getNextValue();
-        rp.decayTime  = smDecay.getNextValue();
         rp.wetLevel   = smReverbMix.getNextValue();
         rp.dryLevel   = 1.f - smReverbMix.getCurrentValue() * 0.5f;
         rp.damping    = 0.45f;
@@ -138,6 +135,8 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
 
         if (buf.getNumChannels() >= 2) {
             reverbL.processStereo (buf.getWritePointer(0), buf.getWritePointer(1), N);
+        } else {
+            reverbL.processMono (buf.getWritePointer(0), N);
         }
     }
 
