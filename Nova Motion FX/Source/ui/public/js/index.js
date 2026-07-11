@@ -1,7 +1,6 @@
-// Nova Motion FX — UI Controller
 "use strict";
 
-// ── JUCE bridge ───────────────────────────────────────────────────────────────
+// ── JUCE bridge ──────────────────────────────────────────────────────────────
 function juceEmit(paramId, eventType, value) {
   try {
     const b = window.__JUCE__ && window.__JUCE__.backend;
@@ -11,12 +10,11 @@ function juceEmit(paramId, eventType, value) {
     b.emitEvent("__juce__slider" + paramId, payload);
   } catch (_) {}
 }
-function sendToJuce(param, value)  { juceEmit(param, "valueChanged", value); }
-function beginGesture(param)       { juceEmit(param, "sliderDragStarted"); }
-function endGesture(param)         { juceEmit(param, "sliderDragEnded"); }
-function requestInitialUpdates()   { for (const p of Object.keys(params)) juceEmit(p, "requestInitialUpdate"); }
+function sendToJuce(param, value) { juceEmit(param, "valueChanged", value); }
+function beginGesture(param)      { juceEmit(param, "sliderDragStarted"); }
+function endGesture(param)        { juceEmit(param, "sliderDragEnded"); }
+function requestInitialUpdates()  { for (const p of Object.keys(params)) juceEmit(p, "requestInitialUpdate"); }
 
-// Subscribe to parameter updates pushed from JUCE host
 function subscribeJuceParams() {
   try {
     const b = window.__JUCE__ && window.__JUCE__.backend;
@@ -35,15 +33,17 @@ function subscribeJuceParams() {
   } catch (_) {}
 }
 
-// Called by PluginEditor.cpp timer (30 Hz): updateMeters(l, r) — linear 0..1
+// Meter update called from C++ timer at 30 Hz
 window.updateMeters = function(l, r) {
+  juceMetersActive = true;
+  audioLevel = Math.max(l, r);
   const elL = document.getElementById("meter-l");
   const elR = document.getElementById("meter-r");
   if (elL) elL.style.height = Math.min(100, l * 100) + "%";
   if (elR) elR.style.height = Math.min(100, r * 100) + "%";
 };
 
-// ── Parameter state (0–100 scale internally) ──────────────────────────────────
+// ── Parameter state (0–100 internally) ───────────────────────────────────────
 const params = {
   motion:     50,
   cutoff:     60,
@@ -75,17 +75,15 @@ let presetIndex = 0;
 
 function applyPreset(p) {
   Object.assign(params, p);
-  if (p.lfo_rate   !== undefined) params.lfo_rate   = p.lfo_rate;
-  if (p.lfo_depth  !== undefined) params.lfo_depth  = p.lfo_depth;
   document.getElementById("preset-name").textContent = p.name;
   updateAllKnobs();
 }
 
-// ── Arc circumference constants (match SVG r values in HTML) ──────────────────
-// Motion:   r=50  → circ=314.159, full270=235.619
-// Standard: r=29  → circ=182.212, full270=136.659
-// Mini:     r=15  → circ=94.248,  full270=70.686
-const CIRC_MOTION = 2 * Math.PI * 50;
+// ── Arc constants ─────────────────────────────────────────────────────────────
+// Motion: r=70  circ=439.82  full270=329.87
+// Std:    r=29  circ=182.21  full270=136.66
+// Mini:   r=15  circ=94.25   full270=70.69
+const CIRC_MOTION = 2 * Math.PI * 70;
 const CIRC_STD    = 2 * Math.PI * 29;
 const CIRC_MINI   = 2 * Math.PI * 15;
 const MINI_PARAMS = new Set(["lfo_rate","lfo_depth","input","output","mix"]);
@@ -94,14 +92,12 @@ function updateKnobVisual(param, normalValue) {
   const arcEl = document.getElementById("arc-" + param);
   const indEl = document.getElementById("ind-" + param);
   if (!arcEl && !indEl) return;
-
   const isMotion = param === "motion";
   const isMini   = MINI_PARAMS.has(param);
   const circ = isMotion ? CIRC_MOTION : (isMini ? CIRC_MINI : CIRC_STD);
   const full = circ * 270 / 360;
   const dash = normalValue * full;
   const gap  = circ - dash;
-
   if (arcEl) arcEl.setAttribute("stroke-dasharray", dash.toFixed(2) + " " + gap.toFixed(2));
   if (indEl) indEl.style.transform = "rotate(" + (-135 + normalValue * 270).toFixed(1) + "deg)";
 }
@@ -109,32 +105,26 @@ function updateKnobVisual(param, normalValue) {
 function updateKnobDisplay(param, val) {
   const n = val / 100;
   updateKnobVisual(param, n);
-
   const el = document.getElementById("val-" + param);
   if (!el) return;
-
   switch (param) {
     case "cutoff":
       el.textContent = n < 0.4
         ? Math.round(20 + n * 980) + " Hz"
-        : ((20 + n * 19980) / 1000).toFixed(1) + " kHz";
+        : ((20 + n * 19980) / 1000).toFixed(1) + "kHz";
       break;
     case "decay":
-      el.textContent = (0.1 + n * 9.9).toFixed(2) + " s";
+      el.textContent = (0.1 + n * 9.9).toFixed(2) + "s";
       break;
-    case "input":
-    case "output":
-      { const db = (n - 0.5) * 24;
-        el.textContent = (db >= 0 ? "+" : "") + db.toFixed(1) + " dB"; }
-      break;
-    case "drive":
-      { const db = n * 24 - 12;
-        el.textContent = (db >= 0 ? "+" : "") + db.toFixed(1) + " dB"; }
-      break;
-    case "lfo_rate":
-      { const steps = ["1/32","1/16","1/8","1/4","1/2","1","2","4"];
-        el.textContent = steps[Math.round(n * (steps.length - 1))]; }
-      break;
+    case "input": case "output": {
+      const db = (n - 0.5) * 24;
+      el.textContent = (db >= 0 ? "+" : "") + db.toFixed(1) + " dB"; break; }
+    case "drive": {
+      const db = n * 24 - 12;
+      el.textContent = (db >= 0 ? "+" : "") + db.toFixed(1) + " dB"; break; }
+    case "lfo_rate": {
+      const steps = ["1/32","1/16","1/8","1/4","1/2","1","2","4"];
+      el.textContent = steps[Math.round(n * (steps.length - 1))]; break; }
     default:
       el.textContent = Math.round(val) + "%";
   }
@@ -142,10 +132,9 @@ function updateKnobDisplay(param, val) {
 
 function updateAllKnobs() {
   for (const [p, v] of Object.entries(params)) updateKnobDisplay(p, v);
-  drawFilterCurve();
 }
 
-// ── Knob drag ────────────────────────────────────────────────────────────────
+// ── Knob drag ─────────────────────────────────────────────────────────────────
 function setupKnob(el) {
   const param = el.dataset.param;
   if (!param) return;
@@ -177,11 +166,10 @@ function setupKnob(el) {
     window.addEventListener("touchmove", onMove, { passive: false });
     window.addEventListener("touchend",  onUp);
   }
-
   el.addEventListener("mousedown",  onDown);
   el.addEventListener("touchstart", onDown, { passive: false });
   el.addEventListener("dblclick", () => {
-    const def = parseFloat(el.dataset.default) * 100 || 50;
+    const def = (parseFloat(el.dataset.default) || 0.5) * 100;
     params[param] = def;
     updateKnobDisplay(param, def);
     sendToJuce(param, def / 100);
@@ -198,115 +186,157 @@ function applyMotionMacro(v) {
   params.feedback   = Math.min(100, 20 + n * 55);
   params.reverb_mix = Math.min(100, 15 + n * 65);
   updateAllKnobs();
+  // send all macro-affected params to JUCE
+  for (const p of ["cutoff","resonance","drive","delay_mix","feedback","reverb_mix"]) {
+    sendToJuce(p, params[p] / 100);
+  }
 }
 
-// ── Filter curve canvas ───────────────────────────────────────────────────────
-let filterCanvas, filterCtx;
+// ── Energy ring (Motion knob halo) ────────────────────────────────────────────
+let energyCanvas, energyCtx, energyPhase = 0, audioLevel = 0;
 
-function drawFilterCurve() {
-  if (!filterCanvas) return;
-  const W = filterCanvas.width, H = filterCanvas.height;
-  filterCtx.clearRect(0, 0, W, H);
+function drawEnergyRing() {
+  if (!energyCanvas) { requestAnimationFrame(drawEnergyRing); return; }
+  const W = energyCanvas.width, H = energyCanvas.height;
+  const cx = W / 2, cy = H / 2;
+  const r = 90; // ring radius in canvas pixels
 
-  const cutoff    = params.cutoff    / 100;
-  const resonance = params.resonance / 100;
-  const drive     = params.drive     / 100;
+  energyCtx.clearRect(0, 0, W, H);
+  energyPhase += 0.007;
 
-  filterCtx.strokeStyle = "rgba(142,91,255,0.07)";
-  filterCtx.lineWidth = 1;
-  for (let x = 0; x <= W; x += W / 6) {
-    filterCtx.beginPath(); filterCtx.moveTo(x, 0); filterCtx.lineTo(x, H); filterCtx.stroke();
+  const pulse = 0.3 + Math.sin(energyPhase * 1.2) * 0.08 + audioLevel * 0.5;
+  const motion = params.motion / 100;
+
+  // Outer diffuse glow
+  const outerGrad = energyCtx.createRadialGradient(cx, cy, r - 18, cx, cy, r + 26);
+  outerGrad.addColorStop(0, `rgba(142,91,255,${(0.18 + motion * 0.14) * pulse})`);
+  outerGrad.addColorStop(0.5, `rgba(120,70,230,${(0.09 + motion * 0.08) * pulse})`);
+  outerGrad.addColorStop(1, "rgba(100,50,200,0)");
+  energyCtx.beginPath();
+  energyCtx.arc(cx, cy, r, 0, Math.PI * 2);
+  energyCtx.lineWidth = 44;
+  energyCtx.strokeStyle = outerGrad;
+  energyCtx.stroke();
+
+  // Sharp ring line
+  energyCtx.beginPath();
+  energyCtx.arc(cx, cy, r, 0, Math.PI * 2);
+  energyCtx.lineWidth = 1.5;
+  const alpha = (0.3 + motion * 0.3 + audioLevel * 0.3) * (0.85 + Math.sin(energyPhase) * 0.15);
+  energyCtx.strokeStyle = `rgba(180,130,255,${alpha})`;
+  energyCtx.shadowColor = "rgba(142,91,255,0.7)";
+  energyCtx.shadowBlur  = 10;
+  energyCtx.stroke();
+  energyCtx.shadowBlur  = 0;
+
+  // Rotating spark nodes
+  const nodeCount = 6;
+  for (let i = 0; i < nodeCount; i++) {
+    const angle  = energyPhase * 0.4 + (i / nodeCount) * Math.PI * 2;
+    const wobble = Math.sin(energyPhase * 2.5 + i * 1.1) * 4;
+    const sx = cx + Math.cos(angle) * (r + wobble);
+    const sy = cy + Math.sin(angle) * (r + wobble);
+    const sa = (0.5 + Math.sin(energyPhase * 1.8 + i * 1.3) * 0.3) * pulse;
+    energyCtx.beginPath();
+    energyCtx.arc(sx, sy, 2, 0, Math.PI * 2);
+    energyCtx.fillStyle = `rgba(210,170,255,${sa})`;
+    energyCtx.shadowColor = "rgba(180,130,255,0.8)";
+    energyCtx.shadowBlur  = 6;
+    energyCtx.fill();
+    energyCtx.shadowBlur  = 0;
   }
 
-  const grad = filterCtx.createLinearGradient(0, 0, W, 0);
-  grad.addColorStop(0,   "rgba(142,91,255,0.9)");
-  grad.addColorStop(0.5, "rgba(176,138,255,0.9)");
-  grad.addColorStop(1,   "rgba(142,91,255,0.6)");
+  requestAnimationFrame(drawEnergyRing);
+}
 
-  filterCtx.beginPath();
-  filterCtx.strokeStyle = grad;
-  filterCtx.lineWidth = 2;
-  filterCtx.shadowColor = "rgba(142,91,255,0.7)";
-  filterCtx.shadowBlur  = 8;
+// ── Aurora visualizer ─────────────────────────────────────────────────────────
+let auroraCanvas, auroraCtx, auroraPhase = 0;
 
-  const driveBoost = 1 + drive * 0.4;
-  for (let px = 0; px <= W; px++) {
-    const t = px / W;
-    let y;
-    if (t < cutoff) {
-      y = H * 0.35 - (t / cutoff) * drive * H * 0.1;
-    } else if (Math.abs(t - cutoff) < 0.04) {
-      const rel = (t - cutoff) / 0.04;
-      y = H * 0.35 - resonance * H * 0.45 * Math.exp(-rel * rel * 12) * driveBoost;
-    } else {
-      const rolloff = (t - cutoff) / (1 - cutoff + 0.001);
-      y = H * 0.35 + rolloff * rolloff * H * 0.55;
+function drawAurora() {
+  if (!auroraCanvas) { requestAnimationFrame(drawAurora); return; }
+  const W = auroraCanvas.width, H = auroraCanvas.height;
+  auroraCtx.clearRect(0, 0, W, H);
+  auroraPhase += 0.003;
+
+  const motion  = params.motion  / 100;
+  const cutoff  = params.cutoff  / 100;
+  const reverb  = params.reverb_mix / 100;
+  const delay_  = params.delay_mix  / 100;
+
+  const LAYERS = [
+    { speed:1.0, freq:3.2, hue:268, yBase:0.50, amp:0.22, alpha:0.55 },
+    { speed:1.5, freq:4.8, hue:285, yBase:0.56, amp:0.17, alpha:0.42 },
+    { speed:0.7, freq:2.4, hue:252, yBase:0.44, amp:0.18, alpha:0.38 },
+    { speed:2.0, freq:6.0, hue:308, yBase:0.53, amp:0.13, alpha:0.30 },
+  ];
+
+  for (const L of LAYERS) {
+    const pts = [];
+    const step = 3;
+    for (let x = 0; x <= W; x += step) {
+      const t = x / W;
+      const w1 = Math.sin(t * Math.PI * (L.freq + cutoff * 3) + auroraPhase * L.speed) * L.amp;
+      const w2 = Math.sin(t * Math.PI * (L.freq * 1.6 + motion * 2) + auroraPhase * L.speed * 1.4 + 1.3) * L.amp * 0.45;
+      const w3 = Math.sin(t * Math.PI * (L.freq * 0.5) + auroraPhase * L.speed * 0.6 + 2.7) * L.amp * 0.25;
+      const y = H * Math.max(0.02, Math.min(0.98, L.yBase + w1 + w2 + w3));
+      pts.push([x, y]);
     }
-    y = Math.max(2, Math.min(H - 2, y));
-    px === 0 ? filterCtx.moveTo(px, y) : filterCtx.lineTo(px, y);
-  }
-  filterCtx.stroke();
-  filterCtx.shadowBlur = 0;
 
-  filterCtx.lineTo(W, H); filterCtx.lineTo(0, H); filterCtx.closePath();
-  const fill = filterCtx.createLinearGradient(0, 0, 0, H);
-  fill.addColorStop(0, "rgba(142,91,255,0.12)");
-  fill.addColorStop(1, "rgba(142,91,255,0)");
-  filterCtx.fillStyle = fill;
-  filterCtx.fill();
+    // Filled aurora shape
+    auroraCtx.beginPath();
+    auroraCtx.moveTo(0, H);
+    for (const [x, y] of pts) auroraCtx.lineTo(x, y);
+    auroraCtx.lineTo(W, H);
+    auroraCtx.closePath();
+
+    const fill = auroraCtx.createLinearGradient(0, 0, 0, H);
+    const a0 = L.alpha * (0.7 + motion * 0.35 + reverb * 0.2);
+    fill.addColorStop(0,   `hsla(${L.hue},100%,68%,${a0})`);
+    fill.addColorStop(0.55, `hsla(${L.hue},90%,60%,${a0 * 0.35})`);
+    fill.addColorStop(1,   `hsla(${L.hue},80%,55%,0)`);
+    auroraCtx.fillStyle = fill;
+    auroraCtx.fill();
+
+    // Bright edge
+    auroraCtx.beginPath();
+    auroraCtx.moveTo(pts[0][0], pts[0][1]);
+    for (const [x, y] of pts.slice(1)) auroraCtx.lineTo(x, y);
+    auroraCtx.lineWidth = 1.5;
+    auroraCtx.strokeStyle = `hsla(${L.hue},100%,75%,${L.alpha * 0.9})`;
+    auroraCtx.shadowColor = `hsla(${L.hue},100%,70%,0.6)`;
+    auroraCtx.shadowBlur  = 7;
+    auroraCtx.stroke();
+    auroraCtx.shadowBlur  = 0;
+  }
+
+  requestAnimationFrame(drawAurora);
 }
 
-// ── Delay echo animation ──────────────────────────────────────────────────────
-let delayCanvas, delayCtx, delayPhase = 0;
-function drawDelay() {
-  if (!delayCanvas) return;
-  const W = delayCanvas.width, H = delayCanvas.height;
-  delayCtx.clearRect(0, 0, W, H);
-
-  const feedback = params.feedback / 100;
-  const mix      = params.delay_mix / 100;
-  const echos    = Math.max(1, Math.round(feedback * 6));
-  delayPhase += 0.018;
-
-  for (let e = 0; e < echos; e++) {
-    const amp    = mix * Math.pow(feedback, e) * H * 0.38;
-    const offset = (e / echos) * W * 0.7;
-    const alpha  = (1 - e / echos) * 0.8;
-    delayCtx.beginPath();
-    delayCtx.strokeStyle = `rgba(142,91,255,${alpha})`;
-    delayCtx.lineWidth   = Math.max(0.5, 2 - e * 0.4);
-    delayCtx.shadowColor = "rgba(142,91,255,0.5)";
-    delayCtx.shadowBlur  = 4;
-    for (let px = 0; px <= W - offset; px++) {
-      const t = (px / W) * Math.PI * 8;
-      const y = H / 2 + Math.sin(t + delayPhase) * amp * Math.exp(-px / W * 3);
-      px === 0 ? delayCtx.moveTo(px + offset, y) : delayCtx.lineTo(px + offset, y);
-    }
-    delayCtx.stroke();
-    delayCtx.shadowBlur = 0;
-  }
-  requestAnimationFrame(drawDelay);
-}
-
-// ── LFO waveform animation ────────────────────────────────────────────────────
+// ── LFO canvas ────────────────────────────────────────────────────────────────
 let lfoCanvas, lfoCtx, lfoPhase = 0;
+
 function drawLFO() {
-  if (!lfoCanvas) return;
+  if (!lfoCanvas) { requestAnimationFrame(drawLFO); return; }
   const W = lfoCanvas.width, H = lfoCanvas.height;
   lfoCtx.clearRect(0, 0, W, H);
-
-  const rate  = params.lfo_rate  / 100;
+  const rate  = 0.5 + (params.lfo_rate  / 100) * 3.5;
   const depth = params.lfo_depth / 100;
-  lfoPhase += 0.03 + rate * 0.08;
+  lfoPhase += rate * 0.008;
 
   lfoCtx.beginPath();
-  lfoCtx.strokeStyle = "rgba(142,91,255,0.8)";
-  lfoCtx.lineWidth   = 1.5;
-  lfoCtx.shadowColor = "rgba(142,91,255,0.5)";
-  lfoCtx.shadowBlur  = 4;
+  const grad = lfoCtx.createLinearGradient(0, 0, W, 0);
+  grad.addColorStop(0,   "rgba(142,91,255,0.9)");
+  grad.addColorStop(0.5, "rgba(180,130,255,0.9)");
+  grad.addColorStop(1,   "rgba(142,91,255,0.6)");
+
+  lfoCtx.strokeStyle = grad;
+  lfoCtx.lineWidth = 1.5;
+  lfoCtx.shadowColor = "rgba(142,91,255,0.6)";
+  lfoCtx.shadowBlur  = 5;
+
   for (let px = 0; px <= W; px++) {
     const t = (px / W) * Math.PI * 4;
-    const y = H / 2 + Math.sin(t + lfoPhase) * depth * H * 0.42;
+    const y = H / 2 - Math.sin(t + lfoPhase) * depth * H * 0.42;
     px === 0 ? lfoCtx.moveTo(px, y) : lfoCtx.lineTo(px, y);
   }
   lfoCtx.stroke();
@@ -314,46 +344,12 @@ function drawLFO() {
   requestAnimationFrame(drawLFO);
 }
 
-// ── Reverb tail display ───────────────────────────────────────────────────────
-let reverbCanvas, reverbCtx, reverbPhase = 0;
-function drawReverb() {
-  if (!reverbCanvas) return;
-  const W = reverbCanvas.width, H = reverbCanvas.height;
-  reverbCtx.clearRect(0, 0, W, H);
-
-  const size  = params.size       / 100;
-  const decay = params.decay      / 100;
-  const mix   = params.reverb_mix / 100;
-  reverbPhase += 0.012;
-
-  const layers = 4;
-  for (let i = 0; i < layers; i++) {
-    const alpha = mix * (1 - i / layers) * 0.65;
-    const freq  = 3 + i * 1.5 + size * 4;
-    reverbCtx.beginPath();
-    reverbCtx.strokeStyle = `rgba(142,91,255,${alpha})`;
-    reverbCtx.lineWidth   = 1.2 - i * 0.25;
-    reverbCtx.shadowColor = "rgba(142,91,255,0.4)";
-    reverbCtx.shadowBlur  = 3;
-    for (let px = 0; px <= W; px++) {
-      const t   = px / W;
-      const amp = H * 0.38 * mix * Math.pow(decay, t * 3) * (1 - i * 0.18);
-      const y   = H / 2 + Math.sin(t * Math.PI * freq + reverbPhase + i) * amp;
-      px === 0 ? reverbCtx.moveTo(px, y) : reverbCtx.lineTo(px, y);
-    }
-    reverbCtx.stroke();
-    reverbCtx.shadowBlur = 0;
-  }
-  requestAnimationFrame(drawReverb);
-}
-
-// ── Meter simulation (fallback when no JUCE audio) ────────────────────────────
-let meterL = 0, meterR = 0;
-let juceMetersActive = false;
+// ── Meter simulation ──────────────────────────────────────────────────────────
+let meterL = 0, meterR = 0, juceMetersActive = false;
 function animateMeterSim() {
   if (juceMetersActive) return;
-  meterL = meterL * 0.88 + (0.3 + Math.random() * 0.6) * (params.mix / 100) * 0.12;
-  meterR = meterR * 0.88 + (0.3 + Math.random() * 0.6) * (params.mix / 100) * 0.12;
+  meterL = meterL * 0.88 + (0.2 + Math.random() * 0.5) * (params.mix / 100) * 0.12;
+  meterR = meterR * 0.88 + (0.2 + Math.random() * 0.5) * (params.mix / 100) * 0.12;
   const elL = document.getElementById("meter-l");
   const elR = document.getElementById("meter-r");
   if (elL) elL.style.height = Math.min(100, meterL * 100) + "%";
@@ -361,49 +357,34 @@ function animateMeterSim() {
   requestAnimationFrame(animateMeterSim);
 }
 
-// Override updateMeters to flag that real meters are active
-const _origUpdateMeters = window.updateMeters;
-window.updateMeters = function(l, r) {
-  juceMetersActive = true;
-  _origUpdateMeters(l, r);
-};
-
-// ── Pill groups ───────────────────────────────────────────────────────────────
-function setupPillGroup(sel) {
-  document.querySelectorAll(sel).forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(sel).forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-    });
-  });
-}
-
-// ── Canvas fit helper ─────────────────────────────────────────────────────────
-function fitCanvas(canvas) {
-  const parent = canvas.parentElement;
-  const rect   = parent.getBoundingClientRect();
-  const dpr    = window.devicePixelRatio || 1;
-  canvas.width  = Math.round(rect.width  * dpr);
-  canvas.height = Math.round(canvas.offsetHeight * dpr || canvas.height * dpr);
-  const ctx = canvas.getContext("2d");
-  ctx.scale(dpr, dpr);
-  return ctx;
-}
-
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", () => {
-  // Wire canvases
-  const fcEl = document.getElementById("filter-canvas");
-  const dcEl = document.getElementById("delay-canvas");
-  const lcEl = document.getElementById("lfo-canvas");
-  const rcEl = document.getElementById("reverb-canvas");
 
-  if (fcEl) { filterCanvas = fcEl;  filterCtx  = fitCanvas(fcEl); }
-  if (dcEl) { delayCanvas  = dcEl;  delayCtx   = fitCanvas(dcEl); }
-  if (lcEl) { lfoCanvas    = lcEl;  lfoCtx     = fitCanvas(lcEl); }
-  if (rcEl) { reverbCanvas = rcEl;  reverbCtx  = fitCanvas(rcEl); }
+  // Energy ring canvas
+  energyCanvas = document.getElementById("energy-canvas");
+  if (energyCanvas) energyCtx = energyCanvas.getContext("2d");
 
-  // Wire knobs — all knob containers have data-param
+  // Aurora canvas — size to element
+  const auroraEl = document.getElementById("aurora-canvas");
+  if (auroraEl) {
+    auroraCanvas = auroraEl;
+    const section = auroraEl.parentElement;
+    auroraCanvas.width  = section.offsetWidth  || 960;
+    auroraCanvas.height = section.offsetHeight || 72;
+    auroraCtx = auroraCanvas.getContext("2d");
+  }
+
+  // LFO canvas
+  const lfoEl = document.getElementById("lfo-canvas");
+  if (lfoEl) {
+    lfoCanvas = lfoEl;
+    const p = lfoEl.parentElement;
+    lfoCanvas.width  = p ? (p.offsetWidth  - 110) : 200;
+    lfoCanvas.height = 54;
+    lfoCtx = lfoCanvas.getContext("2d");
+  }
+
+  // Wire all knobs
   document.querySelectorAll(".knob, .mini-knob").forEach(setupKnob);
 
   // Preset navigation
@@ -417,41 +398,39 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   // Pills
-  setupPillGroup(".ftype");
-  setupPillGroup(".dmode");
-  setupPillGroup(".rtype");
+  function setupPills(sel) {
+    document.querySelectorAll(sel).forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(sel).forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+      });
+    });
+  }
+  setupPills(".ftype");
+  setupPills(".dmode");
+  setupPills(".rtype");
 
-  // Delay sync
   document.getElementById("delay-sync")?.addEventListener("click", e => {
     e.currentTarget.classList.toggle("active");
   });
-
-  // Freeze
   document.getElementById("freeze-btn")?.addEventListener("click", e => {
     e.currentTarget.classList.toggle("active");
   });
-
-  // HQ toggle
   document.getElementById("hq-toggle")?.addEventListener("click", e => {
     const on = e.currentTarget.classList.toggle("active");
     e.currentTarget.textContent = on ? "ON" : "OFF";
   });
 
-  // Power
-  document.getElementById("power-btn")?.addEventListener("click", e => {
-    e.currentTarget.classList.toggle("on");
-  });
-
-  // Initial knob render
+  // Initial display
   updateAllKnobs();
 
   // Start animations
-  drawDelay();
+  drawEnergyRing();
+  drawAurora();
   drawLFO();
-  drawReverb();
   animateMeterSim();
 
-  // Subscribe to JUCE param updates then request current values
+  // Connect to JUCE
   subscribeJuceParams();
   requestInitialUpdates();
 });

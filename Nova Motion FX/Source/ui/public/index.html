@@ -5,864 +5,568 @@
 <meta name="viewport" content="width=960"/>
 <title>Nova Motion FX</title>
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06060b;--surface:#0b0b12;--card:#0e0e16;
+  --border:rgba(142,91,255,0.11);--border2:rgba(142,91,255,0.26);
+  --purple:#8E5BFF;--purple2:#b08aff;--purple3:#d4bcff;
+  --text:#ede8f8;--muted:rgba(200,185,230,0.50);
+}
+html,body{width:960px;height:620px;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  font-size:11px;user-select:none;-webkit-user-select:none}
+#root{display:flex;flex-direction:column;width:960px;height:620px}
 
-:root {
-  --bg:          #0e0e11;
-  --panel:       #161619;
-  --panel2:      #131316;
-  --border:      rgba(142,91,255,0.15);
-  --purple:      #8E5BFF;
-  --purple-soft: #b08aff;
-  --purple-lite: #d0b8ff;
-  --text:        #ede8f8;
-  --muted:       rgba(200,185,230,0.52);
-  --pill-bg:     rgba(142,91,255,0.09);
-  --pill-on:     rgba(142,91,255,0.32);
+/* ── HEADER ── */
+#header{
+  height:44px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;background:#040409;border-bottom:1px solid var(--border);
 }
-
-html, body {
-  width: 960px; height: 620px;
-  overflow: hidden;
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  font-size: 11px;
-  user-select: none;
-  -webkit-user-select: none;
+.hdr-left{display:flex;align-items:center;gap:10px}
+.logo-mark{
+  width:28px;height:28px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(140deg,#5020b0,#9060ff);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:900;color:#fff;
+  box-shadow:0 0 14px rgba(142,91,255,0.45),inset 0 1px 0 rgba(255,255,255,0.22);
 }
-
-#root {
-  display: flex;
-  flex-direction: column;
-  width: 960px; height: 620px;
+.company-name{display:block;font-size:11px;font-weight:800;letter-spacing:0.18em}
+.plugin-tagline{display:block;font-size:7px;letter-spacing:0.22em;color:var(--muted);margin-top:1px}
+.hdr-center{
+  display:flex;align-items:center;gap:6px;
+  background:rgba(142,91,255,0.05);border:1px solid var(--border);
+  border-radius:20px;padding:5px 12px;
 }
-
-/* ─── HEADER ──────────────────────────────── */
-#header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 48px;
-  padding: 0 18px;
-  background: #0a0a0d;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+.preset-arrow{background:none;border:none;color:var(--purple2);font-size:18px;cursor:pointer;padding:0;line-height:1}
+.preset-arrow:hover{color:var(--text)}
+.preset-name{font-size:10.5px;font-weight:700;letter-spacing:0.07em;min-width:130px;text-align:center}
+.preset-save{
+  background:rgba(142,91,255,0.16);border:1px solid rgba(142,91,255,0.28);
+  border-radius:7px;color:var(--purple2);font-size:8px;font-weight:700;
+  letter-spacing:0.1em;padding:3px 9px;cursor:pointer;margin-left:4px;
 }
-.header-left { display: flex; align-items: center; gap: 9px; }
-#logo-img { width: 26px; height: 26px; object-fit: contain; }
-.logo-fb {
-  width: 26px; height: 26px; border-radius: 50%;
-  background: linear-gradient(135deg, #8E5BFF, #c8a0ff);
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 900; font-size: 13px; color: #fff; flex-shrink: 0;
-}
-.title-block { display: flex; flex-direction: column; gap: 1px; }
-.plugin-name { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; }
-.plugin-sub  { font-size: 8.5px; letter-spacing: 0.2em; color: var(--muted); }
-
-.preset-bar {
-  display: flex; align-items: center; gap: 5px;
-  background: rgba(142,91,255,0.07);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 4px 10px;
-}
-.preset-arrow {
-  background: none; border: none; color: var(--purple-soft);
-  cursor: pointer; font-size: 16px; padding: 0; line-height: 1;
-}
-.preset-arrow:hover { color: var(--text); }
-.preset-name {
-  font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em;
-  min-width: 120px; text-align: center;
-}
-.preset-save {
-  background: rgba(142,91,255,0.18);
-  border: 1px solid rgba(142,91,255,0.4);
-  border-radius: 9px; color: var(--purple-lite);
-  font-size: 8.5px; font-weight: 700; letter-spacing: 0.1em;
-  padding: 2px 8px; cursor: pointer;
-}
-.preset-save:hover { background: rgba(142,91,255,0.35); }
-
-.header-right { display: flex; align-items: center; gap: 8px; }
-.power-btn {
-  width: 28px; height: 28px; border-radius: 50%;
-  background: rgba(142,91,255,0.1);
-  border: 1px solid rgba(142,91,255,0.28);
-  color: var(--purple-soft); font-size: 13px;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-}
-.power-btn:hover { background: rgba(142,91,255,0.25); color: var(--text); }
-
-/* ─── HERO ────────────────────────────────── */
-#hero {
-  display: flex; align-items: center; justify-content: center;
-  height: 158px; flex-shrink: 0; position: relative;
-  background: radial-gradient(ellipse 260px 100px at 50% 100%, rgba(142,91,255,0.10) 0%, transparent 70%);
-}
-.hero-label {
-  position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
-  font-size: 9px; font-weight: 700; letter-spacing: 0.36em;
-  color: var(--purple-soft); text-transform: uppercase;
-}
-.hero-knob-wrap {
-  display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative;
-}
-.hero-glow {
-  position: absolute; width: 140px; height: 140px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(142,91,255,0.22) 0%, rgba(142,91,255,0.06) 55%, transparent 75%);
-  pointer-events: none; top: 50%; left: 50%; transform: translate(-50%,-54%);
-}
-.hero-value {
-  font-size: 10.5px; font-weight: 600; color: var(--purple-lite);
-  margin-top: 2px; text-align: center; letter-spacing: 0.04em;
+.preset-save:hover{background:rgba(142,91,255,0.28)}
+.power-btn{
+  background:none;border:1px solid var(--border);border-radius:50%;
+  width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+  font-size:13px;cursor:pointer;color:var(--purple);
+  box-shadow:0 0 10px rgba(142,91,255,0.35);border-color:var(--purple);
 }
 
-/* ─── MAIN BODY ───────────────────────────── */
-#main-body {
-  display: grid; grid-template-columns: 1fr 1fr 1fr;
-  flex: 1; min-height: 0;
-  border-top: 1px solid var(--border);
+/* ── HERO ── */
+#hero{
+  height:182px;flex-shrink:0;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse 55% 90% at 50% 50%,rgba(100,45,220,0.07) 0%,transparent 70%),
+             var(--surface);
+  border-bottom:1px solid var(--border);overflow:visible;
 }
-.section {
-  background: var(--panel);
-  border-right: 1px solid var(--border);
-  display: flex; flex-direction: column;
-  padding: 11px 14px 10px; gap: 7px;
-  overflow: hidden;
+.hero-decor{display:flex;align-items:center;gap:12px;flex:1;padding:0 28px}
+.hero-decor-right{justify-content:flex-end}
+.hero-line{flex:1;height:1px;background:linear-gradient(to right,transparent,rgba(142,91,255,0.28),transparent)}
+.hero-chip{
+  font-size:7.5px;font-weight:700;letter-spacing:0.3em;color:var(--purple2);
+  background:rgba(142,91,255,0.09);border:1px solid rgba(142,91,255,0.20);
+  border-radius:4px;padding:3px 8px;white-space:nowrap;
 }
-.section:last-child { border-right: none; }
-.section-header {
-  display: flex; align-items: center; justify-content: space-between;
-  flex-shrink: 0;
+.hero-knob-wrap{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center}
+#energy-canvas{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-53%);
+  pointer-events:none;z-index:0;
 }
-.section-title {
-  font-size: 8.5px; font-weight: 700; letter-spacing: 0.3em;
-  color: var(--purple-soft); text-transform: uppercase;
-}
-
-.pill-group { display: flex; gap: 3px; }
-.pill {
-  background: var(--pill-bg); border: 1px solid rgba(142,91,255,0.18);
-  border-radius: 9px; color: var(--muted);
-  font-size: 8px; font-weight: 700; letter-spacing: 0.07em;
-  padding: 2px 7px; cursor: pointer; white-space: nowrap;
-}
-.pill.active, .pill:hover {
-  background: var(--pill-on); border-color: rgba(142,91,255,0.55); color: var(--text);
+.motion-value{
+  font-size:13px;font-weight:300;letter-spacing:0.06em;
+  color:var(--purple3);margin-top:4px;font-variant-numeric:tabular-nums;
 }
 
-/* Canvas */
-.display-canvas {
-  background: rgba(0,0,0,0.4);
-  border: 1px solid rgba(142,91,255,0.1);
-  border-radius: 6px; width: 100%;
-  display: block; flex-shrink: 0;
+/* ── MAIN CARDS ── */
+#main-cards{display:flex;height:196px;flex-shrink:0;border-bottom:1px solid var(--border)}
+.card{
+  flex:1;display:flex;flex-direction:column;
+  border-right:1px solid var(--border);
+  background:var(--card);overflow:hidden;
 }
+.card:last-child{border-right:none}
+.card-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:7px 10px 5px;
+  border-bottom:1px solid var(--border);
+  background:rgba(0,0,0,0.22);flex-shrink:0;
+}
+.card-title{font-size:8.5px;font-weight:800;letter-spacing:0.22em;color:var(--purple2);text-transform:uppercase}
+.pill-row{display:flex;gap:3px}
+.pill{
+  background:rgba(142,91,255,0.06);border:1px solid rgba(142,91,255,0.13);
+  border-radius:5px;color:var(--muted);font-size:7px;font-weight:700;
+  letter-spacing:0.07em;padding:2px 5px;cursor:pointer;transition:all 0.15s;
+}
+.pill.active{background:rgba(142,91,255,0.22);border-color:rgba(142,91,255,0.48);color:var(--purple3)}
+.pill:hover:not(.active){background:rgba(142,91,255,0.12);color:var(--text)}
+.card-knobs{display:flex;justify-content:center;align-items:flex-end;gap:8px;flex:1;padding:8px 6px 10px}
+.delay-time-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:4px 10px;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.delay-time-display{font-size:19px;font-weight:900;color:var(--purple3);letter-spacing:0.04em;font-variant-numeric:tabular-nums}
+.sync-btn{
+  background:rgba(142,91,255,0.09);border:1px solid rgba(142,91,255,0.20);
+  border-radius:5px;color:var(--muted);font-size:7.5px;font-weight:700;
+  letter-spacing:0.1em;padding:3px 8px;cursor:pointer;transition:all 0.15s;
+}
+.sync-btn.active{background:rgba(142,91,255,0.20);border-color:var(--purple);color:var(--purple2);box-shadow:0 0 8px rgba(142,91,255,0.14)}
+.delay-knobs{justify-content:space-evenly}
 
-/* Delay time */
-.delay-time-row {
-  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+/* ── AURORA ── */
+#aurora-section{
+  height:72px;flex-shrink:0;
+  background:#070710;border-bottom:1px solid var(--border);
+  overflow:hidden;position:relative;
 }
-.delay-time-display {
-  background: rgba(0,0,0,0.5); border: 1px solid rgba(142,91,255,0.22);
-  border-radius: 5px; padding: 3px 14px;
-  font-size: 18px; font-weight: 700; color: var(--purple-lite);
-  letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
-}
-.sync-btn {
-  background: rgba(142,91,255,0.12); border: 1px solid rgba(142,91,255,0.32);
-  border-radius: 5px; color: var(--purple-soft);
-  font-size: 8px; font-weight: 700; letter-spacing: 0.12em;
-  padding: 4px 10px; cursor: pointer;
-}
-.sync-btn.active, .sync-btn:hover { background: rgba(142,91,255,0.3); color: var(--text); }
+#aurora-canvas{position:absolute;inset:0;width:100%;height:100%}
 
-.freeze-btn {
-  background: rgba(142,91,255,0.09); border: 1px solid rgba(142,91,255,0.28);
-  border-radius: 5px; color: var(--purple-soft);
-  font-size: 8px; font-weight: 700; letter-spacing: 0.1em;
-  padding: 3px 9px; cursor: pointer;
+/* ── FOOTER ── */
+#footer{height:100px;flex-shrink:0;display:flex;background:#08080f}
+#lfo-section{
+  flex:1;display:flex;flex-direction:column;
+  padding:7px 14px;gap:4px;border-right:1px solid var(--border);
 }
-.freeze-btn:hover, .freeze-btn.active {
-  background: rgba(142,91,255,0.32); color: var(--text); border-color: var(--purple);
+#master-section{width:228px;flex-shrink:0;display:flex;flex-direction:column;padding:7px 12px;gap:4px}
+.section-label{font-size:7.5px;font-weight:800;letter-spacing:0.28em;color:var(--purple2);text-transform:uppercase;flex-shrink:0}
+.lfo-inner{display:flex;align-items:flex-end;gap:10px;flex:1;min-height:0}
+.mini-knob-row{display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
+#lfo-canvas{
+  flex:1;min-width:0;height:54px;border-radius:4px;
+  background:rgba(0,0,0,0.38);border:1px solid rgba(142,91,255,0.07);display:block;
 }
-
-/* Knob row */
-.knob-row {
-  display: flex; justify-content: space-around; align-items: flex-end;
-  gap: 4px; flex-shrink: 0;
+.master-inner{display:flex;align-items:flex-end;gap:8px;flex:1;min-height:0}
+.meter-group{display:flex;gap:3px;align-items:flex-end;flex-shrink:0}
+.meter-col{display:flex;flex-direction:column;align-items:center;gap:2px}
+.meter-ch{font-size:7px;color:var(--muted);letter-spacing:0.06em}
+.meter-track{
+  width:7px;height:50px;background:rgba(0,0,0,0.5);
+  border:1px solid rgba(142,91,255,0.10);border-radius:3px;
+  overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;
 }
+.meter-bar{width:100%;border-radius:2px;background:linear-gradient(to top,var(--purple),#c4a0ff);transition:height 0.05s}
 
-/* ─────────────────────────────────────────────
-   PREMIUM CSS KNOBS
-   Body uses CSS radial-gradient + box-shadow
-   Arc uses SVG stroke only (no cross-SVG fill refs)
-────────────────────────────────────────────── */
-
-/* All knobs share the same wrapper pattern */
-.knob, .mini-knob {
-  display: flex; flex-direction: column;
-  align-items: center; gap: 4px; cursor: ns-resize;
+/* ── STATUS BAR ── */
+#status-bar{
+  height:26px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;background:#030307;border-top:1px solid var(--border);
 }
-
-/* The shell is the hit-area and positioning context */
-.knob-shell {
-  position: relative;
-  flex-shrink: 0;
+.bar-left,.bar-right{display:flex;align-items:center;gap:7px}
+.bar-label{font-size:7.5px;font-weight:700;letter-spacing:0.12em;color:var(--muted);text-transform:uppercase}
+.bar-sep{width:1px;height:13px;background:var(--border)}
+.bar-toggle{
+  background:rgba(142,91,255,0.10);border:1px solid rgba(142,91,255,0.20);
+  border-radius:4px;color:var(--muted);font-size:7.5px;font-weight:700;
+  letter-spacing:0.08em;padding:2px 7px;cursor:pointer;transition:all 0.15s;
 }
-
-/* SVG arc sits in the shell, pointer-events none */
-.knob-svg {
-  position: absolute; top: 0; left: 0;
-  overflow: visible; pointer-events: none;
+.bar-toggle.active{background:rgba(142,91,255,0.20);border-color:var(--purple);color:var(--purple2)}
+.bar-select{
+  background:rgba(142,91,255,0.07);border:1px solid rgba(142,91,255,0.16);
+  border-radius:4px;color:var(--text);font-size:8px;padding:1px 5px;
+  cursor:pointer;outline:none;-webkit-appearance:none;
 }
+.bar-btn{
+  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);
+  border-radius:4px;color:var(--muted);font-size:7.5px;font-weight:600;
+  letter-spacing:0.08em;padding:2px 8px;cursor:pointer;
+}
+.bar-btn:hover{background:rgba(255,255,255,0.08);color:var(--text)}
 
-/* CSS body: premium 3-D depth with radial gradient + shadow */
-.knob-body {
-  position: absolute; border-radius: 50%;
-  background: radial-gradient(circle at 36% 28%,
-    rgba(210,180,255,0.42) 0%,
-    rgba(55,32,110,0.88) 28%,
-    rgba(18,9,40,1)       72%,
-    rgba(8,4,18,1)        100%
-  );
+/* ── KNOBS ── */
+.knob,.mini-knob{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:ns-resize}
+.knob-shell{position:relative;flex-shrink:0}
+.knob-svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:2}
+.knob-body{
+  position:absolute;border-radius:50%;z-index:1;
+  background:
+    radial-gradient(circle at 38% 26%,rgba(255,255,255,0.22) 0%,rgba(255,255,255,0.06) 18%,transparent 32%),
+    radial-gradient(circle at 64% 70%,rgba(120,60,220,0.10) 0%,transparent 22%),
+    radial-gradient(circle at 50% 50%,#1e1040 0%,#120a28 40%,#0a0520 75%,#060313 100%);
   box-shadow:
-    0 8px 24px rgba(0,0,0,0.90),
-    0 3px 8px  rgba(0,0,0,0.70),
-    inset 0 2px 6px rgba(255,255,255,0.14),
-    inset 0 -2px 5px rgba(0,0,0,0.55),
-    0 0 20px rgba(142,91,255,0.10);
+    0 12px 32px rgba(0,0,0,0.95),0 4px 10px rgba(0,0,0,0.75),
+    0 0 28px rgba(142,91,255,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.14),inset 0 -1px 0 rgba(0,0,0,0.70),
+    inset 0 2px 8px rgba(142,91,255,0.06),inset 0 -3px 8px rgba(0,0,0,0.60);
 }
-/* Gloss specular highlight */
-.knob-body::after {
-  content: '';
-  position: absolute; border-radius: 50%;
-  top: 8%; left: 14%; width: 46%; height: 32%;
-  background: radial-gradient(ellipse at 50% 20%, rgba(255,255,255,0.20) 0%, transparent 70%);
-  pointer-events: none;
+.knob-body::before{
+  content:'';position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:3;
+  background:radial-gradient(ellipse 58% 36% at 42% 22%,rgba(255,255,255,0.22) 0%,rgba(255,255,255,0.04) 50%,transparent 100%);
 }
+.knob-indicator{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:50%;pointer-events:none;z-index:4}
+.knob-dot{
+  position:absolute;top:0;left:50%;transform:translateX(-50%);border-radius:2px;
+  background:linear-gradient(to bottom,#f0e8ff,#8E5BFF);
+  box-shadow:0 0 6px rgba(142,91,255,0.9),0 0 12px rgba(142,91,255,0.5);
+}
+.knob-label{font-size:8px;font-weight:700;letter-spacing:0.10em;color:var(--muted);text-transform:uppercase;text-align:center}
+.knob-value{font-size:8px;color:var(--purple3);min-width:32px;text-align:center;font-variant-numeric:tabular-nums}
 
-/* Indicator: fills the whole shell, dot at top-centre, rotates around knob centre */
-.knob-indicator {
-  position: absolute; top: 0; left: 0;
-  right: 0; bottom: 0;
-  border-radius: 50%;
-  pointer-events: none;
+/* Motion shell 150px */
+.motion-shell{width:150px;height:150px}
+.motion-shell .knob-svg{top:-5px;left:-5px}
+.motion-shell .knob-body{top:12px;left:12px;width:126px;height:126px;
+  box-shadow:
+    0 20px 50px rgba(0,0,0,0.98),0 6px 16px rgba(0,0,0,0.82),
+    0 0 55px rgba(142,91,255,0.13),0 0 100px rgba(142,91,255,0.06),
+    inset 0 2px 0 rgba(255,255,255,0.16),inset 0 -2px 0 rgba(0,0,0,0.80),
+    inset 0 3px 12px rgba(142,91,255,0.08),inset 0 -5px 12px rgba(0,0,0,0.70);
 }
-.knob-dot {
-  position: absolute; top: 0; left: 50%;
-  transform: translateX(-50%);
-  border-radius: 2px;
-  background: linear-gradient(to bottom, #e4cfff, #8E5BFF);
-  box-shadow: 0 0 6px rgba(142,91,255,0.85);
-}
+.motion-shell .knob-dot{top:10px;width:4px;height:18px}
 
-/* ── Motion knob (120×120) ── */
-.motion-shell { width: 120px; height: 120px; }
-.motion-shell .knob-body { top:10px; left:10px; width:100px; height:100px; }
-.motion-shell .knob-dot  { top:8px; width:4px; height:16px; }
+/* Standard shell 72px */
+.std-shell{width:72px;height:72px}
+.std-shell .knob-body{top:7px;left:7px;width:58px;height:58px}
+.std-shell .knob-dot{top:5px;width:3px;height:11px}
 
-/* ── Standard knob (72×72) ── */
-.std-shell { width: 72px; height: 72px; }
-.std-shell .knob-body { top:8px; left:8px; width:56px; height:56px; }
-.std-shell .knob-dot  { top:5px; width:3px; height:11px; }
-
-/* ── Mini knob (40×40) ── */
-.mini-shell { width: 40px; height: 40px; }
-.mini-shell .knob-body { top:5px; left:5px; width:30px; height:30px; }
-.mini-shell .knob-dot  { top:3px; width:2px; height:7px; }
-
-/* Knob labels */
-.knob-label {
-  font-size: 8.5px; font-weight: 600; letter-spacing: 0.1em;
-  color: var(--muted); text-transform: uppercase; text-align: center;
-}
-.knob-value {
-  font-size: 8px; color: var(--purple-lite); min-width: 32px;
-  text-align: center; font-variant-numeric: tabular-nums;
-}
-
-/* ─── BOTTOM ROW ──────────────────────────── */
-#bottom-row {
-  display: flex; height: 100px; flex-shrink: 0;
-  border-top: 1px solid var(--border);
-  background: var(--panel2);
-}
-#lfo-section {
-  display: flex; flex-direction: column; flex: 1;
-  padding: 8px 14px; gap: 5px;
-  border-right: 1px solid var(--border);
-}
-#master-section {
-  display: flex; flex-direction: column;
-  width: 210px; flex-shrink: 0;
-  padding: 8px 12px; gap: 6px;
-}
-.bottom-title {
-  font-size: 8.5px; font-weight: 700; letter-spacing: 0.3em;
-  color: var(--purple-soft); text-transform: uppercase; flex-shrink: 0;
-}
-.lfo-inner {
-  display: flex; align-items: flex-end; gap: 10px; flex: 1; min-height: 0;
-}
-.lfo-target-wrap { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
-.lfo-target-label { font-size: 7.5px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
-.lfo-target-select {
-  background: var(--panel); border: 1px solid var(--border);
-  border-radius: 5px; color: var(--text); font-size: 9px;
-  padding: 3px 6px; cursor: pointer; outline: none; -webkit-appearance: none;
-}
-.mini-knob-row { display: flex; align-items: flex-end; gap: 8px; flex-shrink: 0; }
-#lfo-canvas {
-  flex: 1; min-width: 0; height: 54px; border-radius: 5px;
-  background: rgba(0,0,0,0.38); border: 1px solid rgba(142,91,255,0.1);
-  display: block;
-}
-.master-inner { display: flex; align-items: flex-end; gap: 8px; }
-/* meter */
-.meter-group { display: flex; gap: 4px; align-items: flex-end; flex-shrink: 0; margin-left: 4px; }
-.meter-col { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.meter-ch { font-size: 7px; color: var(--muted); letter-spacing: 0.06em; }
-.meter-track {
-  width: 8px; height: 48px;
-  background: rgba(0,0,0,0.5); border: 1px solid rgba(142,91,255,0.14);
-  border-radius: 4px; overflow: hidden;
-  display: flex; flex-direction: column; justify-content: flex-end;
-}
-.meter-bar { width: 100%; background: linear-gradient(to top, #8E5BFF, #c8a0ff); border-radius: 3px; }
-
-/* ─── STATUS BAR ──────────────────────────── */
-#status-bar {
-  display: flex; align-items: center; justify-content: space-between;
-  height: 26px; padding: 0 14px;
-  background: #080809; border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.bar-left, .bar-right { display: flex; align-items: center; gap: 8px; }
-.bar-label { font-size: 8px; font-weight: 600; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
-.bar-toggle {
-  background: rgba(142,91,255,0.15); border: 1px solid rgba(142,91,255,0.28);
-  border-radius: 7px; color: var(--purple-soft); font-size: 7.5px; font-weight: 700;
-  letter-spacing: 0.1em; padding: 2px 7px; cursor: pointer;
-}
-.bar-toggle.active { background: rgba(142,91,255,0.38); color: var(--text); }
-.bar-select {
-  background: var(--panel); border: 1px solid var(--border);
-  border-radius: 5px; color: var(--text); font-size: 8px;
-  padding: 2px 4px; outline: none; cursor: pointer; -webkit-appearance: none;
-}
-.bar-btn {
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
-  border-radius: 5px; color: var(--muted); font-size: 8px; font-weight: 600;
-  letter-spacing: 0.06em; padding: 2px 7px; cursor: pointer;
-}
-.bar-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
-.bar-sep { width: 1px; height: 12px; background: var(--border); }
+/* Mini shell 40px */
+.mini-shell{width:40px;height:40px}
+.mini-shell .knob-body{top:5px;left:5px;width:30px;height:30px}
+.mini-shell .knob-dot{top:3px;width:2px;height:7px}
 </style>
 </head>
 <body>
 <div id="root">
 
-<!-- ══════════════════════════════════ HEADER -->
+<!-- HEADER -->
 <div id="header">
-  <div class="header-left">
-    <img id="logo-img" src="n_logo.png" alt="N"
-         onerror="this.style.display='none';document.getElementById('logo-fb').style.display='flex'"/>
-    <div class="logo-fb" id="logo-fb" style="display:none">N</div>
-    <div class="title-block">
-      <span class="plugin-name">NOVA AUDIO</span>
-      <span class="plugin-sub">NOVA MOTION FX &nbsp;·&nbsp; FILTER · DELAY · REVERB</span>
+  <div class="hdr-left">
+    <div class="logo-mark">N</div>
+    <div>
+      <span class="company-name">NOVA AUDIO</span>
+      <span class="plugin-tagline">NOVA MOTION FX · FILTER · DELAY · REVERB</span>
     </div>
   </div>
-
-  <div class="preset-bar">
-    <button class="preset-arrow" id="prev-preset">&#8249;</button>
+  <div class="hdr-center">
+    <button class="preset-arrow" id="prev-preset">‹</button>
     <span class="preset-name" id="preset-name">CITRUS SPLASH</span>
-    <button class="preset-arrow" id="next-preset">&#8250;</button>
+    <button class="preset-arrow" id="next-preset">›</button>
     <button class="preset-save">SAVE</button>
   </div>
-
-  <div class="header-right">
-    <button class="power-btn" id="power-btn">&#9211;</button>
+  <div>
+    <button class="power-btn on" id="power-btn">⏻</button>
   </div>
 </div>
 
-<!-- ══════════════════════════════════ HERO – MOTION -->
+<!-- HERO: MOTION -->
 <div id="hero">
-  <span class="hero-label">MOTION</span>
-  <div class="hero-knob-wrap">
-    <div class="hero-glow"></div>
+  <div class="hero-decor hero-decor-left">
+    <div class="hero-line"></div>
+    <span class="hero-chip">MOTION MACRO</span>
+    <div class="hero-line"></div>
+  </div>
 
-    <!-- MOTION knob: r=50, cx=cy=60, circ=314.16, full270=235.62 -->
-    <!-- default 0.5 → dash=117.81 gap=196.35 → ind 0deg -->
-    <div class="knob" id="motion-knob" data-param="motion" data-default="0.5">
+  <div class="hero-knob-wrap">
+    <canvas id="energy-canvas" width="220" height="220"></canvas>
+    <!-- motion knob: r=70, circ=439.82, full270=329.87 -->
+    <div class="knob" data-param="motion" data-default="0.5">
       <div class="knob-shell motion-shell">
-        <svg class="knob-svg" viewBox="0 0 120 120" width="120" height="120">
-          <circle cx="60" cy="60" r="50" fill="none"
-                  stroke="rgba(142,91,255,0.14)" stroke-width="5"
-                  stroke-dasharray="235.62 9999" stroke-linecap="round"
-                  transform="rotate(135 60 60)"/>
-          <circle id="arc-motion" cx="60" cy="60" r="50" fill="none"
-                  stroke="#8E5BFF" stroke-width="5"
-                  stroke-dasharray="117.81 196.35" stroke-linecap="round"
-                  transform="rotate(135 60 60)"
-                  style="filter:drop-shadow(0 0 5px rgba(142,91,255,0.8))"/>
+        <svg class="knob-svg" viewBox="0 0 160 160" width="160" height="160">
+          <circle cx="80" cy="80" r="70" fill="none"
+                  stroke="rgba(142,91,255,0.09)" stroke-width="5"
+                  stroke-dasharray="329.87 9999" stroke-linecap="round"
+                  transform="rotate(135 80 80)"/>
+          <circle id="arc-motion" cx="80" cy="80" r="70" fill="none"
+                  stroke="#9060ff" stroke-width="5"
+                  stroke-dasharray="164.93 329.87" stroke-linecap="round"
+                  transform="rotate(135 80 80)"
+                  style="filter:drop-shadow(0 0 7px rgba(142,91,255,0.85)) drop-shadow(0 0 16px rgba(142,91,255,0.4))"/>
         </svg>
         <div class="knob-body"></div>
         <div class="knob-indicator" id="ind-motion" style="transform:rotate(0deg)">
           <div class="knob-dot"></div>
         </div>
       </div>
-      <span class="hero-value" id="val-motion">50%</span>
+      <span class="motion-value" id="val-motion">50%</span>
     </div>
+  </div>
+
+  <div class="hero-decor hero-decor-right">
+    <div class="hero-line"></div>
+    <span class="hero-chip">FILTER · DELAY · REVERB</span>
+    <div class="hero-line"></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════ MAIN BODY -->
-<div id="main-body">
+<!-- MAIN CARDS -->
+<div id="main-cards">
 
-  <!-- ── FILTER ── -->
-  <div class="section" id="filter-section">
-    <div class="section-header">
-      <span class="section-title">Filter</span>
-      <div class="pill-group">
-        <button class="pill active ftype" data-type="LP">LP</button>
-        <button class="pill ftype" data-type="HP">HP</button>
-        <button class="pill ftype" data-type="BP">BP</button>
-        <button class="pill ftype" data-type="NOTCH">NOTCH</button>
+  <!-- FILTER -->
+  <div class="card" id="filter-card">
+    <div class="card-hdr">
+      <span class="card-title">Filter</span>
+      <div class="pill-row">
+        <button class="pill active ftype">LP</button>
+        <button class="pill ftype">HP</button>
+        <button class="pill ftype">BP</button>
+        <button class="pill ftype">NOTCH</button>
       </div>
     </div>
-
-    <canvas id="filter-canvas" class="display-canvas" height="64"></canvas>
-
-    <div class="knob-row">
-
-      <!-- CUTOFF r=29 circ=182.21 full=136.66 · default 0.6 → dash=82.0 gap=100.21 · ind 27° -->
-      <div class="knob" id="cutoff-knob" data-param="cutoff" data-default="0.6">
+    <div class="card-knobs">
+      <!-- CUTOFF r=29 60% dash=82.0 gap=100.21 ind=27° -->
+      <div class="knob" data-param="cutoff" data-default="0.6">
         <div class="knob-shell std-shell">
           <svg class="knob-svg" viewBox="0 0 72 72" width="72" height="72">
-            <circle cx="36" cy="36" r="29" fill="none"
-                    stroke="rgba(142,91,255,0.14)" stroke-width="4"
-                    stroke-dasharray="136.66 9999" stroke-linecap="round"
-                    transform="rotate(135 36 36)"/>
-            <circle id="arc-cutoff" cx="36" cy="36" r="29" fill="none"
-                    stroke="#8E5BFF" stroke-width="4"
-                    stroke-dasharray="82.0 100.21" stroke-linecap="round"
-                    transform="rotate(135 36 36)"
-                    style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
+            <circle cx="36" cy="36" r="29" fill="none" stroke="rgba(142,91,255,0.09)" stroke-width="4" stroke-dasharray="136.66 9999" stroke-linecap="round" transform="rotate(135 36 36)"/>
+            <circle id="arc-cutoff" cx="36" cy="36" r="29" fill="none" stroke="#8E5BFF" stroke-width="4" stroke-dasharray="82.0 100.21" stroke-linecap="round" transform="rotate(135 36 36)" style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
           </svg>
           <div class="knob-body"></div>
-          <div class="knob-indicator" id="ind-cutoff" style="transform:rotate(27deg)">
-            <div class="knob-dot"></div>
-          </div>
+          <div class="knob-indicator" id="ind-cutoff" style="transform:rotate(27deg)"><div class="knob-dot"></div></div>
         </div>
         <span class="knob-label">Cutoff</span>
         <span class="knob-value" id="val-cutoff">1.2kHz</span>
       </div>
-
-      <!-- RESONANCE · default 0.3 → dash=41.0 gap=141.21 · ind -54° -->
-      <div class="knob" id="resonance-knob" data-param="resonance" data-default="0.3">
+      <!-- RESONANCE 30% dash=41.0 ind=-54° -->
+      <div class="knob" data-param="resonance" data-default="0.3">
         <div class="knob-shell std-shell">
           <svg class="knob-svg" viewBox="0 0 72 72" width="72" height="72">
-            <circle cx="36" cy="36" r="29" fill="none"
-                    stroke="rgba(142,91,255,0.14)" stroke-width="4"
-                    stroke-dasharray="136.66 9999" stroke-linecap="round"
-                    transform="rotate(135 36 36)"/>
-            <circle id="arc-resonance" cx="36" cy="36" r="29" fill="none"
-                    stroke="#8E5BFF" stroke-width="4"
-                    stroke-dasharray="41.0 141.21" stroke-linecap="round"
-                    transform="rotate(135 36 36)"
-                    style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
+            <circle cx="36" cy="36" r="29" fill="none" stroke="rgba(142,91,255,0.09)" stroke-width="4" stroke-dasharray="136.66 9999" stroke-linecap="round" transform="rotate(135 36 36)"/>
+            <circle id="arc-resonance" cx="36" cy="36" r="29" fill="none" stroke="#8E5BFF" stroke-width="4" stroke-dasharray="41.0 141.21" stroke-linecap="round" transform="rotate(135 36 36)" style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
           </svg>
           <div class="knob-body"></div>
-          <div class="knob-indicator" id="ind-resonance" style="transform:rotate(-54deg)">
-            <div class="knob-dot"></div>
-          </div>
+          <div class="knob-indicator" id="ind-resonance" style="transform:rotate(-54deg)"><div class="knob-dot"></div></div>
         </div>
         <span class="knob-label">Resonance</span>
         <span class="knob-value" id="val-resonance">30%</span>
       </div>
-
-      <!-- DRIVE · default 0.2 → dash=27.33 gap=154.88 · ind -81° -->
-      <div class="knob" id="drive-knob" data-param="drive" data-default="0.2">
+      <!-- DRIVE 20% dash=27.33 ind=-81° -->
+      <div class="knob" data-param="drive" data-default="0.2">
         <div class="knob-shell std-shell">
           <svg class="knob-svg" viewBox="0 0 72 72" width="72" height="72">
-            <circle cx="36" cy="36" r="29" fill="none"
-                    stroke="rgba(142,91,255,0.14)" stroke-width="4"
-                    stroke-dasharray="136.66 9999" stroke-linecap="round"
-                    transform="rotate(135 36 36)"/>
-            <circle id="arc-drive" cx="36" cy="36" r="29" fill="none"
-                    stroke="#8E5BFF" stroke-width="4"
-                    stroke-dasharray="27.33 154.88" stroke-linecap="round"
-                    transform="rotate(135 36 36)"
-                    style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
+            <circle cx="36" cy="36" r="29" fill="none" stroke="rgba(142,91,255,0.09)" stroke-width="4" stroke-dasharray="136.66 9999" stroke-linecap="round" transform="rotate(135 36 36)"/>
+            <circle id="arc-drive" cx="36" cy="36" r="29" fill="none" stroke="#8E5BFF" stroke-width="4" stroke-dasharray="27.33 154.88" stroke-linecap="round" transform="rotate(135 36 36)" style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
           </svg>
           <div class="knob-body"></div>
-          <div class="knob-indicator" id="ind-drive" style="transform:rotate(-81deg)">
-            <div class="knob-dot"></div>
-          </div>
+          <div class="knob-indicator" id="ind-drive" style="transform:rotate(-81deg)"><div class="knob-dot"></div></div>
         </div>
         <span class="knob-label">Drive</span>
         <span class="knob-value" id="val-drive">0 dB</span>
       </div>
-
     </div>
   </div>
 
-  <!-- ── DELAY ── -->
-  <div class="section" id="delay-section">
-    <div class="section-header">
-      <span class="section-title">Delay</span>
-      <div class="pill-group">
+  <!-- DELAY -->
+  <div class="card" id="delay-card">
+    <div class="card-hdr">
+      <span class="card-title">Delay</span>
+      <div class="pill-row">
         <button class="pill active dmode">STEREO</button>
         <button class="pill dmode">PING PONG</button>
       </div>
     </div>
-
     <div class="delay-time-row">
       <div class="delay-time-display" id="delay-time-display">1/4</div>
       <button class="sync-btn active" id="delay-sync">SYNC</button>
     </div>
-
-    <canvas id="delay-canvas" class="display-canvas" height="48"></canvas>
-
-    <div class="knob-row">
-
-      <!-- FEEDBACK · default 0.4 → dash=54.66 gap=127.55 · ind -27° -->
-      <div class="knob" id="feedback-knob" data-param="feedback" data-default="0.4">
+    <div class="card-knobs delay-knobs">
+      <!-- FEEDBACK 40% dash=54.66 ind=-27° -->
+      <div class="knob" data-param="feedback" data-default="0.4">
         <div class="knob-shell std-shell">
           <svg class="knob-svg" viewBox="0 0 72 72" width="72" height="72">
-            <circle cx="36" cy="36" r="29" fill="none"
-                    stroke="rgba(142,91,255,0.14)" stroke-width="4"
-                    stroke-dasharray="136.66 9999" stroke-linecap="round"
-                    transform="rotate(135 36 36)"/>
-            <circle id="arc-feedback" cx="36" cy="36" r="29" fill="none"
-                    stroke="#8E5BFF" stroke-width="4"
-                    stroke-dasharray="54.66 127.55" stroke-linecap="round"
-                    transform="rotate(135 36 36)"
-                    style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
+            <circle cx="36" cy="36" r="29" fill="none" stroke="rgba(142,91,255,0.09)" stroke-width="4" stroke-dasharray="136.66 9999" stroke-linecap="round" transform="rotate(135 36 36)"/>
+            <circle id="arc-feedback" cx="36" cy="36" r="29" fill="none" stroke="#8E5BFF" stroke-width="4" stroke-dasharray="54.66 127.55" stroke-linecap="round" transform="rotate(135 36 36)" style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
           </svg>
           <div class="knob-body"></div>
-          <div class="knob-indicator" id="ind-feedback" style="transform:rotate(-27deg)">
-            <div class="knob-dot"></div>
-          </div>
+          <div class="knob-indicator" id="ind-feedback" style="transform:rotate(-27deg)"><div class="knob-dot"></div></div>
         </div>
         <span class="knob-label">Feedback</span>
         <span class="knob-value" id="val-feedback">40%</span>
       </div>
-
-      <!-- DELAY_MIX · default 0.5 → dash=68.33 gap=113.88 · ind 0° -->
-      <div class="knob" id="delay_mix-knob" data-param="delay_mix" data-default="0.5">
+      <!-- DELAY_MIX 50% dash=68.33 ind=0° -->
+      <div class="knob" data-param="delay_mix" data-default="0.5">
         <div class="knob-shell std-shell">
           <svg class="knob-svg" viewBox="0 0 72 72" width="72" height="72">
-            <circle cx="36" cy="36" r="29" fill="none"
-                    stroke="rgba(142,91,255,0.14)" stroke-width="4"
-                    stroke-dasharray="136.66 9999" stroke-linecap="round"
-                    transform="rotate(135 36 36)"/>
-            <circle id="arc-delay_mix" cx="36" cy="36" r="29" fill="none"
-                    stroke="#8E5BFF" stroke-width="4"
-                    stroke-dasharray="68.33 113.88" stroke-linecap="round"
-                    transform="rotate(135 36 36)"
-                    style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
+            <circle cx="36" cy="36" r="29" fill="none" stroke="rgba(142,91,255,0.09)" stroke-width="4" stroke-dasharray="136.66 9999" stroke-linecap="round" transform="rotate(135 36 36)"/>
+            <circle id="arc-delay_mix" cx="36" cy="36" r="29" fill="none" stroke="#8E5BFF" stroke-width="4" stroke-dasharray="68.33 113.88" stroke-linecap="round" transform="rotate(135 36 36)" style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
           </svg>
           <div class="knob-body"></div>
-          <div class="knob-indicator" id="ind-delay_mix" style="transform:rotate(0deg)">
-            <div class="knob-dot"></div>
-          </div>
+          <div class="knob-indicator" id="ind-delay_mix" style="transform:rotate(0deg)"><div class="knob-dot"></div></div>
         </div>
         <span class="knob-label">Mix</span>
         <span class="knob-value" id="val-delay_mix">50%</span>
       </div>
-
     </div>
   </div>
 
-  <!-- ── REVERB ── -->
-  <div class="section" id="reverb-section">
-    <div class="section-header">
-      <span class="section-title">Reverb</span>
-      <button class="freeze-btn" id="freeze-btn">FREEZE</button>
+  <!-- REVERB -->
+  <div class="card" id="reverb-card">
+    <div class="card-hdr">
+      <span class="card-title">Reverb</span>
+      <div class="pill-row">
+        <button class="pill active rtype">STUDIO</button>
+        <button class="pill rtype">HALL</button>
+        <button class="pill rtype">PLATE</button>
+      </div>
     </div>
-
-    <div class="pill-group">
-      <button class="pill active rtype">STUDIO</button>
-      <button class="pill rtype">HALL</button>
-      <button class="pill rtype">PLATE</button>
-    </div>
-
-    <canvas id="reverb-canvas" class="display-canvas" height="48"></canvas>
-
-    <div class="knob-row">
-
-      <!-- SIZE · default 0.45 → dash=61.5 gap=120.71 · ind -13.5° -->
-      <div class="knob" id="size-knob" data-param="size" data-default="0.45">
+    <div class="card-knobs">
+      <!-- SIZE 45% dash=61.50 ind=-13.5° -->
+      <div class="knob" data-param="size" data-default="0.45">
         <div class="knob-shell std-shell">
           <svg class="knob-svg" viewBox="0 0 72 72" width="72" height="72">
-            <circle cx="36" cy="36" r="29" fill="none"
-                    stroke="rgba(142,91,255,0.14)" stroke-width="4"
-                    stroke-dasharray="136.66 9999" stroke-linecap="round"
-                    transform="rotate(135 36 36)"/>
-            <circle id="arc-size" cx="36" cy="36" r="29" fill="none"
-                    stroke="#8E5BFF" stroke-width="4"
-                    stroke-dasharray="61.5 120.71" stroke-linecap="round"
-                    transform="rotate(135 36 36)"
-                    style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
+            <circle cx="36" cy="36" r="29" fill="none" stroke="rgba(142,91,255,0.09)" stroke-width="4" stroke-dasharray="136.66 9999" stroke-linecap="round" transform="rotate(135 36 36)"/>
+            <circle id="arc-size" cx="36" cy="36" r="29" fill="none" stroke="#8E5BFF" stroke-width="4" stroke-dasharray="61.50 121.16" stroke-linecap="round" transform="rotate(135 36 36)" style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
           </svg>
           <div class="knob-body"></div>
-          <div class="knob-indicator" id="ind-size" style="transform:rotate(-13.5deg)">
-            <div class="knob-dot"></div>
-          </div>
+          <div class="knob-indicator" id="ind-size" style="transform:rotate(-13.5deg)"><div class="knob-dot"></div></div>
         </div>
         <span class="knob-label">Size</span>
         <span class="knob-value" id="val-size">45%</span>
       </div>
-
-      <!-- DECAY · default 0.55 → dash=75.16 gap=107.05 · ind 13.5° -->
-      <div class="knob" id="decay-knob" data-param="decay" data-default="0.55">
+      <!-- DECAY 55% dash=75.16 ind=13.5° -->
+      <div class="knob" data-param="decay" data-default="0.55">
         <div class="knob-shell std-shell">
           <svg class="knob-svg" viewBox="0 0 72 72" width="72" height="72">
-            <circle cx="36" cy="36" r="29" fill="none"
-                    stroke="rgba(142,91,255,0.14)" stroke-width="4"
-                    stroke-dasharray="136.66 9999" stroke-linecap="round"
-                    transform="rotate(135 36 36)"/>
-            <circle id="arc-decay" cx="36" cy="36" r="29" fill="none"
-                    stroke="#8E5BFF" stroke-width="4"
-                    stroke-dasharray="75.16 107.05" stroke-linecap="round"
-                    transform="rotate(135 36 36)"
-                    style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
+            <circle cx="36" cy="36" r="29" fill="none" stroke="rgba(142,91,255,0.09)" stroke-width="4" stroke-dasharray="136.66 9999" stroke-linecap="round" transform="rotate(135 36 36)"/>
+            <circle id="arc-decay" cx="36" cy="36" r="29" fill="none" stroke="#8E5BFF" stroke-width="4" stroke-dasharray="75.16 107.05" stroke-linecap="round" transform="rotate(135 36 36)" style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
           </svg>
           <div class="knob-body"></div>
-          <div class="knob-indicator" id="ind-decay" style="transform:rotate(13.5deg)">
-            <div class="knob-dot"></div>
-          </div>
+          <div class="knob-indicator" id="ind-decay" style="transform:rotate(13.5deg)"><div class="knob-dot"></div></div>
         </div>
         <span class="knob-label">Decay</span>
         <span class="knob-value" id="val-decay">2.8s</span>
       </div>
-
-      <!-- REVERB_MIX · default 0.35 → dash=47.83 gap=134.38 · ind -40.5° -->
-      <div class="knob" id="reverb_mix-knob" data-param="reverb_mix" data-default="0.35">
+      <!-- REVERB_MIX 35% dash=47.83 ind=-40.5° -->
+      <div class="knob" data-param="reverb_mix" data-default="0.35">
         <div class="knob-shell std-shell">
           <svg class="knob-svg" viewBox="0 0 72 72" width="72" height="72">
-            <circle cx="36" cy="36" r="29" fill="none"
-                    stroke="rgba(142,91,255,0.14)" stroke-width="4"
-                    stroke-dasharray="136.66 9999" stroke-linecap="round"
-                    transform="rotate(135 36 36)"/>
-            <circle id="arc-reverb_mix" cx="36" cy="36" r="29" fill="none"
-                    stroke="#8E5BFF" stroke-width="4"
-                    stroke-dasharray="47.83 134.38" stroke-linecap="round"
-                    transform="rotate(135 36 36)"
-                    style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
+            <circle cx="36" cy="36" r="29" fill="none" stroke="rgba(142,91,255,0.09)" stroke-width="4" stroke-dasharray="136.66 9999" stroke-linecap="round" transform="rotate(135 36 36)"/>
+            <circle id="arc-reverb_mix" cx="36" cy="36" r="29" fill="none" stroke="#8E5BFF" stroke-width="4" stroke-dasharray="47.83 134.38" stroke-linecap="round" transform="rotate(135 36 36)" style="filter:drop-shadow(0 0 4px rgba(142,91,255,0.75))"/>
           </svg>
           <div class="knob-body"></div>
-          <div class="knob-indicator" id="ind-reverb_mix" style="transform:rotate(-40.5deg)">
-            <div class="knob-dot"></div>
-          </div>
+          <div class="knob-indicator" id="ind-reverb_mix" style="transform:rotate(-40.5deg)"><div class="knob-dot"></div></div>
         </div>
         <span class="knob-label">Mix</span>
         <span class="knob-value" id="val-reverb_mix">35%</span>
       </div>
-
     </div>
   </div>
 
-</div><!-- /#main-body -->
+</div><!-- /#main-cards -->
 
-<!-- ══════════════════════════════════ BOTTOM ROW -->
-<div id="bottom-row">
+<!-- AURORA VISUALIZER -->
+<div id="aurora-section">
+  <canvas id="aurora-canvas"></canvas>
+</div>
 
-  <!-- LFO -->
+<!-- FOOTER -->
+<div id="footer">
   <div id="lfo-section">
-    <span class="bottom-title">LFO</span>
+    <span class="section-label">LFO</span>
     <div class="lfo-inner">
-
-      <div class="lfo-target-wrap">
-        <span class="lfo-target-label">Target</span>
-        <select class="lfo-target-select" id="lfo-target">
-          <option value="cutoff">Cutoff</option>
-          <option value="reverb_mix">Reverb Mix</option>
-          <option value="delay_mix">Delay Mix</option>
-          <option value="motion">Motion</option>
-        </select>
-      </div>
-
-      <!-- MINI KNOBS — r=15 circ=94.25 full=70.69 -->
       <div class="mini-knob-row">
-
-        <!-- LFO_RATE · default 0.35 → dash=24.74 gap=69.51 · ind -40.5° -->
-        <div class="mini-knob" id="lfo_rate-knob" data-param="lfo_rate" data-default="0.35">
+        <!-- LFO_RATE 35% r=15 dash=24.74 ind=-40.5° -->
+        <div class="mini-knob" data-param="lfo_rate" data-default="0.35">
           <div class="knob-shell mini-shell">
             <svg class="knob-svg" viewBox="0 0 40 40" width="40" height="40">
-              <circle cx="20" cy="20" r="15" fill="none"
-                      stroke="rgba(142,91,255,0.14)" stroke-width="3"
-                      stroke-dasharray="70.69 9999" stroke-linecap="round"
-                      transform="rotate(135 20 20)"/>
-              <circle id="arc-lfo_rate" cx="20" cy="20" r="15" fill="none"
-                      stroke="#8E5BFF" stroke-width="3"
-                      stroke-dasharray="24.74 69.51" stroke-linecap="round"
-                      transform="rotate(135 20 20)"
-                      style="filter:drop-shadow(0 0 3px rgba(142,91,255,0.8))"/>
+              <circle cx="20" cy="20" r="15" fill="none" stroke="rgba(142,91,255,0.09)" stroke-width="3" stroke-dasharray="70.69 9999" stroke-linecap="round" transform="rotate(135 20 20)"/>
+              <circle id="arc-lfo_rate" cx="20" cy="20" r="15" fill="none" stroke="#8E5BFF" stroke-width="3" stroke-dasharray="24.74 69.51" stroke-linecap="round" transform="rotate(135 20 20)" style="filter:drop-shadow(0 0 3px rgba(142,91,255,0.8))"/>
             </svg>
             <div class="knob-body"></div>
-            <div class="knob-indicator" id="ind-lfo_rate" style="transform:rotate(-40.5deg)">
-              <div class="knob-dot"></div>
-            </div>
+            <div class="knob-indicator" id="ind-lfo_rate" style="transform:rotate(-40.5deg)"><div class="knob-dot"></div></div>
           </div>
-          <span class="knob-label" style="font-size:7.5px">Rate</span>
+          <span class="knob-label" style="font-size:7px">Rate</span>
           <span class="knob-value" id="val-lfo_rate">1/4</span>
         </div>
-
-        <!-- LFO_DEPTH · default 0.6 → dash=42.41 gap=51.84 · ind 27° -->
-        <div class="mini-knob" id="lfo_depth-knob" data-param="lfo_depth" data-default="0.6">
+        <!-- LFO_DEPTH 60% dash=42.41 ind=27° -->
+        <div class="mini-knob" data-param="lfo_depth" data-default="0.6">
           <div class="knob-shell mini-shell">
             <svg class="knob-svg" viewBox="0 0 40 40" width="40" height="40">
-              <circle cx="20" cy="20" r="15" fill="none"
-                      stroke="rgba(142,91,255,0.14)" stroke-width="3"
-                      stroke-dasharray="70.69 9999" stroke-linecap="round"
-                      transform="rotate(135 20 20)"/>
-              <circle id="arc-lfo_depth" cx="20" cy="20" r="15" fill="none"
-                      stroke="#8E5BFF" stroke-width="3"
-                      stroke-dasharray="42.41 51.84" stroke-linecap="round"
-                      transform="rotate(135 20 20)"
-                      style="filter:drop-shadow(0 0 3px rgba(142,91,255,0.8))"/>
+              <circle cx="20" cy="20" r="15" fill="none" stroke="rgba(142,91,255,0.09)" stroke-width="3" stroke-dasharray="70.69 9999" stroke-linecap="round" transform="rotate(135 20 20)"/>
+              <circle id="arc-lfo_depth" cx="20" cy="20" r="15" fill="none" stroke="#8E5BFF" stroke-width="3" stroke-dasharray="42.41 51.84" stroke-linecap="round" transform="rotate(135 20 20)" style="filter:drop-shadow(0 0 3px rgba(142,91,255,0.8))"/>
             </svg>
             <div class="knob-body"></div>
-            <div class="knob-indicator" id="ind-lfo_depth" style="transform:rotate(27deg)">
-              <div class="knob-dot"></div>
-            </div>
+            <div class="knob-indicator" id="ind-lfo_depth" style="transform:rotate(27deg)"><div class="knob-dot"></div></div>
           </div>
-          <span class="knob-label" style="font-size:7.5px">Depth</span>
+          <span class="knob-label" style="font-size:7px">Depth</span>
           <span class="knob-value" id="val-lfo_depth">60%</span>
         </div>
-
-      </div><!-- /.mini-knob-row -->
-
-      <canvas id="lfo-canvas" width="300" height="54"></canvas>
-
+      </div>
+      <canvas id="lfo-canvas"></canvas>
     </div>
   </div>
 
-  <!-- MASTER -->
   <div id="master-section">
-    <span class="bottom-title">Master</span>
+    <span class="section-label">Master</span>
     <div class="master-inner">
-
-      <!-- INPUT · default 0.75 → dash=53.02 gap=41.23 · ind 67.5° -->
-      <div class="mini-knob" id="input-knob" data-param="input" data-default="0.75">
+      <!-- INPUT 75% dash=53.02 ind=67.5° -->
+      <div class="mini-knob" data-param="input" data-default="0.75">
         <div class="knob-shell mini-shell">
           <svg class="knob-svg" viewBox="0 0 40 40" width="40" height="40">
-            <circle cx="20" cy="20" r="15" fill="none"
-                    stroke="rgba(142,91,255,0.14)" stroke-width="3"
-                    stroke-dasharray="70.69 9999" stroke-linecap="round"
-                    transform="rotate(135 20 20)"/>
-            <circle id="arc-input" cx="20" cy="20" r="15" fill="none"
-                    stroke="#8E5BFF" stroke-width="3"
-                    stroke-dasharray="53.02 41.23" stroke-linecap="round"
-                    transform="rotate(135 20 20)"
-                    style="filter:drop-shadow(0 0 3px rgba(142,91,255,0.8))"/>
+            <circle cx="20" cy="20" r="15" fill="none" stroke="rgba(142,91,255,0.09)" stroke-width="3" stroke-dasharray="70.69 9999" stroke-linecap="round" transform="rotate(135 20 20)"/>
+            <circle id="arc-input" cx="20" cy="20" r="15" fill="none" stroke="#8E5BFF" stroke-width="3" stroke-dasharray="53.02 41.23" stroke-linecap="round" transform="rotate(135 20 20)" style="filter:drop-shadow(0 0 3px rgba(142,91,255,0.8))"/>
           </svg>
           <div class="knob-body"></div>
-          <div class="knob-indicator" id="ind-input" style="transform:rotate(67.5deg)">
-            <div class="knob-dot"></div>
-          </div>
+          <div class="knob-indicator" id="ind-input" style="transform:rotate(67.5deg)"><div class="knob-dot"></div></div>
         </div>
-        <span class="knob-label" style="font-size:7.5px">Input</span>
+        <span class="knob-label" style="font-size:7px">Input</span>
         <span class="knob-value" id="val-input">0 dB</span>
       </div>
-
-      <!-- OUTPUT · default 0.8 → dash=56.55 gap=37.7 · ind 81° -->
-      <div class="mini-knob" id="output-knob" data-param="output" data-default="0.8">
+      <!-- OUTPUT 80% dash=56.55 ind=81° -->
+      <div class="mini-knob" data-param="output" data-default="0.8">
         <div class="knob-shell mini-shell">
           <svg class="knob-svg" viewBox="0 0 40 40" width="40" height="40">
-            <circle cx="20" cy="20" r="15" fill="none"
-                    stroke="rgba(142,91,255,0.14)" stroke-width="3"
-                    stroke-dasharray="70.69 9999" stroke-linecap="round"
-                    transform="rotate(135 20 20)"/>
-            <circle id="arc-output" cx="20" cy="20" r="15" fill="none"
-                    stroke="#8E5BFF" stroke-width="3"
-                    stroke-dasharray="56.55 37.7" stroke-linecap="round"
-                    transform="rotate(135 20 20)"
-                    style="filter:drop-shadow(0 0 3px rgba(142,91,255,0.8))"/>
+            <circle cx="20" cy="20" r="15" fill="none" stroke="rgba(142,91,255,0.09)" stroke-width="3" stroke-dasharray="70.69 9999" stroke-linecap="round" transform="rotate(135 20 20)"/>
+            <circle id="arc-output" cx="20" cy="20" r="15" fill="none" stroke="#8E5BFF" stroke-width="3" stroke-dasharray="56.55 37.70" stroke-linecap="round" transform="rotate(135 20 20)" style="filter:drop-shadow(0 0 3px rgba(142,91,255,0.8))"/>
           </svg>
           <div class="knob-body"></div>
-          <div class="knob-indicator" id="ind-output" style="transform:rotate(81deg)">
-            <div class="knob-dot"></div>
-          </div>
+          <div class="knob-indicator" id="ind-output" style="transform:rotate(81deg)"><div class="knob-dot"></div></div>
         </div>
-        <span class="knob-label" style="font-size:7.5px">Output</span>
+        <span class="knob-label" style="font-size:7px">Output</span>
         <span class="knob-value" id="val-output">0 dB</span>
       </div>
-
-      <!-- MIX · default 1.0 → dash=70.69 gap=23.56 · ind 135° -->
-      <div class="mini-knob" id="mix-knob" data-param="mix" data-default="1.0">
+      <!-- MIX 100% dash=70.69 ind=135° -->
+      <div class="mini-knob" data-param="mix" data-default="1.0">
         <div class="knob-shell mini-shell">
           <svg class="knob-svg" viewBox="0 0 40 40" width="40" height="40">
-            <circle cx="20" cy="20" r="15" fill="none"
-                    stroke="rgba(142,91,255,0.14)" stroke-width="3"
-                    stroke-dasharray="70.69 9999" stroke-linecap="round"
-                    transform="rotate(135 20 20)"/>
-            <circle id="arc-mix" cx="20" cy="20" r="15" fill="none"
-                    stroke="#8E5BFF" stroke-width="3"
-                    stroke-dasharray="70.69 23.56" stroke-linecap="round"
-                    transform="rotate(135 20 20)"
-                    style="filter:drop-shadow(0 0 3px rgba(142,91,255,0.8))"/>
+            <circle cx="20" cy="20" r="15" fill="none" stroke="rgba(142,91,255,0.09)" stroke-width="3" stroke-dasharray="70.69 9999" stroke-linecap="round" transform="rotate(135 20 20)"/>
+            <circle id="arc-mix" cx="20" cy="20" r="15" fill="none" stroke="#8E5BFF" stroke-width="3" stroke-dasharray="70.69 23.56" stroke-linecap="round" transform="rotate(135 20 20)" style="filter:drop-shadow(0 0 3px rgba(142,91,255,0.8))"/>
           </svg>
           <div class="knob-body"></div>
-          <div class="knob-indicator" id="ind-mix" style="transform:rotate(135deg)">
-            <div class="knob-dot"></div>
-          </div>
+          <div class="knob-indicator" id="ind-mix" style="transform:rotate(135deg)"><div class="knob-dot"></div></div>
         </div>
-        <span class="knob-label" style="font-size:7.5px">Mix</span>
+        <span class="knob-label" style="font-size:7px">Mix</span>
         <span class="knob-value" id="val-mix">100%</span>
       </div>
-
-      <!-- Stereo meter -->
       <div class="meter-group">
         <div class="meter-col">
           <span class="meter-ch">L</span>
-          <div class="meter-track">
-            <div class="meter-bar" id="meter-l" style="height:55%"></div>
-          </div>
+          <div class="meter-track"><div class="meter-bar" id="meter-l" style="height:0%"></div></div>
         </div>
         <div class="meter-col">
           <span class="meter-ch">R</span>
-          <div class="meter-track">
-            <div class="meter-bar" id="meter-r" style="height:48%"></div>
-          </div>
+          <div class="meter-track"><div class="meter-bar" id="meter-r" style="height:0%"></div></div>
         </div>
       </div>
-
     </div>
   </div>
+</div><!-- /#footer -->
 
-</div><!-- /#bottom-row -->
-
-<!-- ══════════════════════════════════ STATUS BAR -->
+<!-- STATUS BAR -->
 <div id="status-bar">
   <div class="bar-left">
     <span class="bar-label">HQ</span>
     <button class="bar-toggle active" id="hq-toggle">ON</button>
-    <div class="bar-sep"></div>
-    <span class="bar-label">Oversampling</span>
+    <span class="bar-sep"></span>
+    <span class="bar-label">Oversample</span>
     <select class="bar-select" id="os-select">
-      <option>1x</option>
-      <option selected>2x</option>
-      <option>4x</option>
-      <option>8x</option>
+      <option>1x</option><option selected>2x</option><option>4x</option><option>8x</option>
     </select>
   </div>
   <div class="bar-right">
+    <button class="bar-btn" id="freeze-btn">FREEZE</button>
+    <span class="bar-sep"></span>
     <button class="bar-btn">UNDO</button>
     <button class="bar-btn">REDO</button>
-    <div class="bar-sep"></div>
-    <button class="bar-btn">HELP</button>
   </div>
 </div>
 
 </div><!-- /#root -->
-<script src="js/index.js?v=20260711-3"></script>
+<script src="js/juce/check_native_interop.js"></script>
+<script src="js/juce/index.js"></script>
+<script src="js/index.js?v=20260711-5"></script>
 </body>
 </html>
