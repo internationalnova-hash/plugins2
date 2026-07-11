@@ -161,6 +161,11 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
     if (buf.getNumChannels() > 1) peakR.store (buf.getMagnitude (1, 0, N));
 }
 
+juce::AudioProcessorEditor* NovaMotionFXProcessor::createEditor()
+{
+    return new NovaMotionFXEditor (*this);
+}
+
 void NovaMotionFXProcessor::getStateInformation (juce::MemoryBlock& dest)
 {
     auto state = apvts.copyState();
