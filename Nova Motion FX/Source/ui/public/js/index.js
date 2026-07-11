@@ -1,9 +1,7 @@
 // Nova Motion FX — UI Controller
-// Handles knob interaction, parameter sync, animations
-
 "use strict";
 
-// ── JUCE bridge — WebSliderRelay protocol ─────────────────────────────────────
+// ── JUCE bridge ───────────────────────────────────────────────────────────────
 function juceEmit(paramId, eventType, value) {
   try {
     const b = window.__JUCE__ && window.__JUCE__.backend;
@@ -13,75 +11,84 @@ function juceEmit(paramId, eventType, value) {
     b.emitEvent("__juce__slider" + paramId, payload);
   } catch (_) {}
 }
+function sendToJuce(param, value)  { juceEmit(param, "valueChanged", value); }
+function beginGesture(param)       { juceEmit(param, "sliderDragStarted"); }
+function endGesture(param)         { juceEmit(param, "sliderDragEnded"); }
+function requestInitialUpdates()   { for (const p of Object.keys(params)) juceEmit(p, "requestInitialUpdate"); }
 
-function sendToJuce(param, value) {
-  juceEmit(param, "valueChanged", value);
+// Subscribe to parameter updates pushed from JUCE host
+function subscribeJuceParams() {
+  try {
+    const b = window.__JUCE__ && window.__JUCE__.backend;
+    if (!b) return;
+    for (const p of Object.keys(params)) {
+      b.addEventListener("__juce__slider" + p, (evt) => {
+        try {
+          const data = JSON.parse(evt.data);
+          if (data.sliderValue !== undefined) {
+            params[p] = data.sliderValue * 100;
+            updateKnobDisplay(p, params[p]);
+          }
+        } catch (_) {}
+      });
+    }
+  } catch (_) {}
 }
 
-function beginGesture(param) {
-  juceEmit(param, "sliderDragStarted");
-}
+// Called by PluginEditor.cpp timer (30 Hz): updateMeters(l, r) — linear 0..1
+window.updateMeters = function(l, r) {
+  const elL = document.getElementById("meter-l");
+  const elR = document.getElementById("meter-r");
+  if (elL) elL.style.height = Math.min(100, l * 100) + "%";
+  if (elR) elR.style.height = Math.min(100, r * 100) + "%";
+};
 
-function endGesture(param) {
-  juceEmit(param, "sliderDragEnded");
-}
-
-function requestInitialUpdates() {
-  for (const p of Object.keys(params)) {
-    juceEmit(p, "requestInitialUpdate");
-  }
-}
-
-// ── Parameter state ───────────────────────────────────────────────────────────
+// ── Parameter state (0–100 scale internally) ──────────────────────────────────
 const params = {
   motion:     50,
   cutoff:     60,
-  resonance:  35,
-  drive:      22,
-  feedback:   35,
-  delay_mix:  40,
-  size:       60,
+  resonance:  30,
+  drive:      20,
+  feedback:   40,
+  delay_mix:  50,
+  size:       45,
   decay:      55,
   reverb_mix: 35,
-  lfo_rate:   50,
-  lfo_depth:  75,
-  input:      50,
-  output:     50,
+  lfo_rate:   35,
+  lfo_depth:  60,
+  input:      75,
+  output:     80,
   mix:        100,
 };
 
 // ── Presets ───────────────────────────────────────────────────────────────────
 const PRESETS = [
-  { name: "CITRUS SPLASH",    motion:50,  cutoff:60,  resonance:35, drive:22, feedback:35, delay_mix:40, size:60, decay:55, reverb_mix:35 },
-  { name: "DEEP SPACE",       motion:70,  cutoff:30,  resonance:55, drive:10, feedback:60, delay_mix:55, size:80, decay:75, reverb_mix:50 },
-  { name: "NOVA SWEEP",       motion:40,  cutoff:75,  resonance:20, drive:35, feedback:25, delay_mix:30, size:45, decay:40, reverb_mix:25 },
-  { name: "VOCAL CLOUD",      motion:55,  cutoff:50,  resonance:45, drive:15, feedback:50, delay_mix:45, size:70, decay:65, reverb_mix:45 },
-  { name: "TAPE FLUTTER",     motion:30,  cutoff:80,  resonance:15, drive:50, feedback:20, delay_mix:20, size:35, decay:30, reverb_mix:15 },
-  { name: "INFINITE HALL",    motion:80,  cutoff:45,  resonance:60, drive:8,  feedback:75, delay_mix:60, size:95, decay:90, reverb_mix:70 },
-  { name: "MOTION FREEZE",    motion:65,  cutoff:40,  resonance:70, drive:18, feedback:55, delay_mix:50, size:85, decay:100,reverb_mix:80 },
+  { name:"CITRUS SPLASH",  motion:50, cutoff:60, resonance:30, drive:20, feedback:40, delay_mix:50, size:45, decay:55, reverb_mix:35 },
+  { name:"DEEP SPACE",     motion:70, cutoff:30, resonance:55, drive:10, feedback:60, delay_mix:55, size:80, decay:75, reverb_mix:50 },
+  { name:"NOVA SWEEP",     motion:40, cutoff:75, resonance:20, drive:35, feedback:25, delay_mix:30, size:45, decay:40, reverb_mix:25 },
+  { name:"VOCAL CLOUD",    motion:55, cutoff:50, resonance:45, drive:15, feedback:50, delay_mix:45, size:70, decay:65, reverb_mix:45 },
+  { name:"TAPE FLUTTER",   motion:30, cutoff:80, resonance:15, drive:50, feedback:20, delay_mix:20, size:35, decay:30, reverb_mix:15 },
+  { name:"INFINITE HALL",  motion:80, cutoff:45, resonance:60, drive:8,  feedback:75, delay_mix:60, size:95, decay:90, reverb_mix:70 },
+  { name:"MOTION FREEZE",  motion:65, cutoff:40, resonance:70, drive:18, feedback:55, delay_mix:50, size:85, decay:100,reverb_mix:80 },
 ];
 let presetIndex = 0;
 
 function applyPreset(p) {
   Object.assign(params, p);
-  updateAllKnobs();
+  if (p.lfo_rate   !== undefined) params.lfo_rate   = p.lfo_rate;
+  if (p.lfo_depth  !== undefined) params.lfo_depth  = p.lfo_depth;
   document.getElementById("preset-name").textContent = p.name;
+  updateAllKnobs();
 }
 
-document.getElementById("preset-prev").addEventListener("click", () => {
-  presetIndex = (presetIndex - 1 + PRESETS.length) % PRESETS.length;
-  applyPreset(PRESETS[presetIndex]);
-});
-document.getElementById("preset-next").addEventListener("click", () => {
-  presetIndex = (presetIndex + 1) % PRESETS.length;
-  applyPreset(PRESETS[presetIndex]);
-});
-
-// ── Knob rendering — attribute-only updates (WebKit safe) ────────────────────
-const ARC_FULL    = 270;
-const CIRCUMF_80  = 2 * Math.PI * 32;
-const CIRCUMF_36  = 2 * Math.PI * 14.5;
-const CIRCUMF_120 = 2 * Math.PI * 46;
+// ── Arc circumference constants (match SVG r values in HTML) ──────────────────
+// Motion:   r=50  → circ=314.159, full270=235.619
+// Standard: r=29  → circ=182.212, full270=136.659
+// Mini:     r=15  → circ=94.248,  full270=70.686
+const CIRC_MOTION = 2 * Math.PI * 50;
+const CIRC_STD    = 2 * Math.PI * 29;
+const CIRC_MINI   = 2 * Math.PI * 15;
+const MINI_PARAMS = new Set(["lfo_rate","lfo_depth","input","output","mix"]);
 
 function updateKnobVisual(param, normalValue) {
   const arcEl = document.getElementById("arc-" + param);
@@ -89,132 +96,70 @@ function updateKnobVisual(param, normalValue) {
   if (!arcEl && !indEl) return;
 
   const isMotion = param === "motion";
-  const isMini = !!document.getElementById(param.replace("_","-") + "-knob")?.classList.contains("mini-knob");
-  const circ = isMotion ? CIRCUMF_120 : (isMini ? CIRCUMF_36 : CIRCUMF_80);
-  const full = circ * ARC_FULL / 360;
+  const isMini   = MINI_PARAMS.has(param);
+  const circ = isMotion ? CIRC_MOTION : (isMini ? CIRC_MINI : CIRC_STD);
+  const full = circ * 270 / 360;
   const dash = normalValue * full;
   const gap  = circ - dash;
 
-  if (arcEl) arcEl.setAttribute("stroke-dasharray", dash + " " + gap);
-  if (indEl) indEl.style.transform = "rotate(" + (-135 + normalValue * 270) + "deg)";
-}
-
-// Legacy alias kept for any remaining callers — now just delegates
-function renderKnobSVG(el, normalValue, isMini, isMotion) {
-  const id = el.dataset.param || el.id;
-
-  if (isMotion) {
-    const arc = svg.getElementById ? svg : el.closest(".plugin").querySelector(`#motion-arc`);
-    const ind = el.closest(".plugin").querySelector(`#motion-ind`);
-    const filled = normalValue * ARC_FULL;
-    const dash = (filled / 360) * CIRCUMF_120;
-    const gap  = CIRCUMF_120 - dash;
-    const arcEl = el.querySelector("#motion-arc");
-    if (arcEl) arcEl.setAttribute("stroke-dasharray", `${dash} ${gap}`);
-    const indEl = el.querySelector("#motion-ind");
-    if (indEl) {
-      const deg = -135 + normalValue * 270;
-      indEl.style.transform = `rotate(${deg}deg)`;
-    }
-    return;
-  }
-
-  const circ  = isMini ? CIRCUMF_36 : CIRCUMF_80;
-  const r     = isMini ? 14.5 : 32;
-  const cx    = isMini ? 18 : 40;
-  const filled = normalValue * ARC_FULL;
-  const dash   = (filled / 360) * circ;
-  const gap    = circ - dash;
-
-  svg.innerHTML = `
-    <defs>
-      <radialGradient id="kb-${id}" cx="34%" cy="28%" r="78%">
-        <stop offset="0%" stop-color="#d8c8f8" stop-opacity="0.38"/>
-        <stop offset="28%" stop-color="#261a46" stop-opacity="0.5"/>
-        <stop offset="80%" stop-color="#0d0920" stop-opacity="0.98"/>
-        <stop offset="100%" stop-color="#080614" stop-opacity="1"/>
-      </radialGradient>
-      <linearGradient id="ka-${id}" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#8E5BFF"/>
-        <stop offset="100%" stop-color="#c48aff"/>
-      </linearGradient>
-    </defs>
-    <!-- Track -->
-    <circle cx="${cx}" cy="${cx}" r="${r}" fill="none"
-            stroke="rgba(142,91,255,0.15)" stroke-width="${isMini?3:5}"
-            stroke-dasharray="${(ARC_FULL/360)*circ} 9999"
-            stroke-linecap="round"
-            transform="rotate(${ARC_START} ${cx} ${cx})"/>
-    <!-- Active arc -->
-    <circle cx="${cx}" cy="${cx}" r="${r}" fill="none"
-            stroke="url(#ka-${id})" stroke-width="${isMini?3:5}"
-            stroke-dasharray="${dash} ${gap}"
-            stroke-linecap="round"
-            transform="rotate(${ARC_START} ${cx} ${cx})"
-            id="arc-${id}"
-            style="filter:drop-shadow(0 0 6px rgba(142,91,255,0.85));"/>
-    <!-- Body -->
-    <circle cx="${cx}" cy="${cx}" r="${isMini?11:27}" fill="url(#kb-${id})"
-            stroke="rgba(220,200,255,0.18)" stroke-width="1"/>
-    ${!isMini ? `<ellipse cx="${cx-8}" cy="${cx-14}" rx="16" ry="10" fill="rgba(255,255,255,0.18)"/>` : ""}
-    <!-- Indicator -->
-    <g id="ind-${id}" style="transform-origin:${cx}px ${cx}px;transform:rotate(${-ARC_START + normalValue*ARC_FULL}deg)">
-      <rect x="${cx-1.5}" y="${isMini?3:8}" width="3" height="${isMini?5:9}" rx="1.5" fill="#c48aff"/>
-    </g>
-  `;
+  if (arcEl) arcEl.setAttribute("stroke-dasharray", dash.toFixed(2) + " " + gap.toFixed(2));
+  if (indEl) indEl.style.transform = "rotate(" + (-135 + normalValue * 270).toFixed(1) + "deg)";
 }
 
 function updateKnobDisplay(param, val) {
   const n = val / 100;
   updateKnobVisual(param, n);
 
-  const valEl = document.getElementById(`${param}-value`) || document.getElementById(`val-${param}`);
-  if (!valEl) return;
+  const el = document.getElementById("val-" + param);
+  if (!el) return;
 
-  // Format display value
   switch (param) {
     case "cutoff":
-      valEl.textContent = n < 0.4 ? `${Math.round(20 + n*980)} Hz` : `${((20 + n * 19980)/1000).toFixed(1)} kHz`;
+      el.textContent = n < 0.4
+        ? Math.round(20 + n * 980) + " Hz"
+        : ((20 + n * 19980) / 1000).toFixed(1) + " kHz";
       break;
     case "decay":
-      valEl.textContent = `${(0.1 + n * 9.9).toFixed(2)} s`;
+      el.textContent = (0.1 + n * 9.9).toFixed(2) + " s";
       break;
-    case "input": case "output":
-      valEl.textContent = n < 0.5 ? `${((n-0.5)*24).toFixed(1)} dB` : `+${((n-0.5)*24).toFixed(1)} dB`;
+    case "input":
+    case "output":
+      { const db = (n - 0.5) * 24;
+        el.textContent = (db >= 0 ? "+" : "") + db.toFixed(1) + " dB"; }
+      break;
+    case "drive":
+      { const db = n * 24 - 12;
+        el.textContent = (db >= 0 ? "+" : "") + db.toFixed(1) + " dB"; }
       break;
     case "lfo_rate":
-      { const rates = ["1/32","1/16","1/8","1/4","1/2","1","2","4"];
-        valEl.textContent = rates[Math.round(n * (rates.length-1))]; break; }
-    case "motion":
-      valEl.textContent = `${Math.round(val)}%`;
+      { const steps = ["1/32","1/16","1/8","1/4","1/2","1","2","4"];
+        el.textContent = steps[Math.round(n * (steps.length - 1))]; }
       break;
     default:
-      valEl.textContent = `${Math.round(val)}%`;
+      el.textContent = Math.round(val) + "%";
   }
 }
 
 function updateAllKnobs() {
-  for (const [param, val] of Object.entries(params)) {
-    updateKnobDisplay(param, val);
-  }
+  for (const [p, v] of Object.entries(params)) updateKnobDisplay(p, v);
   drawFilterCurve();
 }
 
-// ── Knob drag interaction ─────────────────────────────────────────────────────
+// ── Knob drag ────────────────────────────────────────────────────────────────
 function setupKnob(el) {
-  let startY = 0, startVal = 0;
   const param = el.dataset.param;
   if (!param) return;
+  let startY = 0, startVal = 0;
 
   function onMove(e) {
-    const dy   = startY - (e.touches ? e.touches[0].clientY : e.clientY);
+    const cy  = e.touches ? e.touches[0].clientY : e.clientY;
+    const dy  = startY - cy;
     const newVal = Math.max(0, Math.min(100, startVal + dy * 0.5));
     params[param] = newVal;
     updateKnobDisplay(param, newVal);
     sendToJuce(param, newVal / 100);
     if (param === "motion") applyMotionMacro(newVal);
   }
-
   function onUp() {
     endGesture(param);
     window.removeEventListener("mousemove", onMove);
@@ -222,7 +167,6 @@ function setupKnob(el) {
     window.removeEventListener("touchmove", onMove);
     window.removeEventListener("touchend",  onUp);
   }
-
   function onDown(e) {
     e.preventDefault();
     startY   = e.touches ? e.touches[0].clientY : e.clientY;
@@ -237,26 +181,26 @@ function setupKnob(el) {
   el.addEventListener("mousedown",  onDown);
   el.addEventListener("touchstart", onDown, { passive: false });
   el.addEventListener("dblclick", () => {
-    params[param] = parseFloat(el.dataset.default) || 50;
-    updateKnobDisplay(param, params[param]);
-    sendToJuce(param, params[param] / 100);
+    const def = parseFloat(el.dataset.default) * 100 || 50;
+    params[param] = def;
+    updateKnobDisplay(param, def);
+    sendToJuce(param, def / 100);
   });
 }
 
 // ── MOTION macro ──────────────────────────────────────────────────────────────
 function applyMotionMacro(v) {
   const n = v / 100;
-  params.cutoff      = Math.max(0, Math.min(100, 80 - n * 60));
-  params.resonance   = Math.min(100, 20 + n * 55);
-  params.drive       = Math.min(100, n * 45);
-  params.delay_mix   = Math.min(100, 10 + n * 60);
-  params.feedback    = Math.min(100, 20 + n * 55);
-  params.reverb_mix  = Math.min(100, 15 + n * 65);
+  params.cutoff     = Math.max(0, Math.min(100, 80 - n * 60));
+  params.resonance  = Math.min(100, 20 + n * 55);
+  params.drive      = Math.min(100, n * 45);
+  params.delay_mix  = Math.min(100, 10 + n * 60);
+  params.feedback   = Math.min(100, 20 + n * 55);
+  params.reverb_mix = Math.min(100, 15 + n * 65);
   updateAllKnobs();
-  drawFilterCurve();
 }
 
-// ── Filter curve ──────────────────────────────────────────────────────────────
+// ── Filter curve canvas ───────────────────────────────────────────────────────
 let filterCanvas, filterCtx;
 
 function drawFilterCurve() {
@@ -264,45 +208,37 @@ function drawFilterCurve() {
   const W = filterCanvas.width, H = filterCanvas.height;
   filterCtx.clearRect(0, 0, W, H);
 
-  const cutoff   = params.cutoff / 100;
+  const cutoff    = params.cutoff    / 100;
   const resonance = params.resonance / 100;
-  const drive    = params.drive / 100;
+  const drive     = params.drive     / 100;
 
-  // Background grid
   filterCtx.strokeStyle = "rgba(142,91,255,0.07)";
   filterCtx.lineWidth = 1;
-  for (let x = 0; x < W; x += W/6) {
+  for (let x = 0; x <= W; x += W / 6) {
     filterCtx.beginPath(); filterCtx.moveTo(x, 0); filterCtx.lineTo(x, H); filterCtx.stroke();
   }
 
-  // Curve
   const grad = filterCtx.createLinearGradient(0, 0, W, 0);
   grad.addColorStop(0,   "rgba(142,91,255,0.9)");
-  grad.addColorStop(0.5, "rgba(180,138,255,0.9)");
+  grad.addColorStop(0.5, "rgba(176,138,255,0.9)");
   grad.addColorStop(1,   "rgba(142,91,255,0.6)");
 
   filterCtx.beginPath();
   filterCtx.strokeStyle = grad;
   filterCtx.lineWidth = 2;
   filterCtx.shadowColor = "rgba(142,91,255,0.7)";
-  filterCtx.shadowBlur = 8;
+  filterCtx.shadowBlur  = 8;
 
-  const cutX = cutoff * W;
-  const resonH = H * 0.12 + resonance * H * 0.28;
   const driveBoost = 1 + drive * 0.4;
-
   for (let px = 0; px <= W; px++) {
     const t = px / W;
     let y;
     if (t < cutoff) {
-      // passband — slightly above center
       y = H * 0.35 - (t / cutoff) * drive * H * 0.1;
     } else if (Math.abs(t - cutoff) < 0.04) {
-      // resonance peak
       const rel = (t - cutoff) / 0.04;
       y = H * 0.35 - resonance * H * 0.45 * Math.exp(-rel * rel * 12) * driveBoost;
     } else {
-      // rolloff
       const rolloff = (t - cutoff) / (1 - cutoff + 0.001);
       y = H * 0.35 + rolloff * rolloff * H * 0.55;
     }
@@ -312,41 +248,35 @@ function drawFilterCurve() {
   filterCtx.stroke();
   filterCtx.shadowBlur = 0;
 
-  // Fill under curve
-  filterCtx.lineTo(W, H); filterCtx.lineTo(0, H);
-  filterCtx.closePath();
-  const fillGrad = filterCtx.createLinearGradient(0, 0, 0, H);
-  fillGrad.addColorStop(0, "rgba(142,91,255,0.12)");
-  fillGrad.addColorStop(1, "rgba(142,91,255,0)");
-  filterCtx.fillStyle = fillGrad;
+  filterCtx.lineTo(W, H); filterCtx.lineTo(0, H); filterCtx.closePath();
+  const fill = filterCtx.createLinearGradient(0, 0, 0, H);
+  fill.addColorStop(0, "rgba(142,91,255,0.12)");
+  fill.addColorStop(1, "rgba(142,91,255,0)");
+  filterCtx.fillStyle = fill;
   filterCtx.fill();
 }
 
-// ── Delay waveform animation ──────────────────────────────────────────────────
+// ── Delay echo animation ──────────────────────────────────────────────────────
 let delayCanvas, delayCtx, delayPhase = 0;
-
-function drawDelayWave() {
+function drawDelay() {
   if (!delayCanvas) return;
   const W = delayCanvas.width, H = delayCanvas.height;
   delayCtx.clearRect(0, 0, W, H);
 
   const feedback = params.feedback / 100;
   const mix      = params.delay_mix / 100;
-  const numEchos = Math.max(1, Math.round(feedback * 6));
-
+  const echos    = Math.max(1, Math.round(feedback * 6));
   delayPhase += 0.018;
 
-  for (let e = 0; e < numEchos; e++) {
+  for (let e = 0; e < echos; e++) {
     const amp    = mix * Math.pow(feedback, e) * H * 0.38;
-    const offset = (e / numEchos) * W * 0.7;
-    const alpha  = (1 - e / numEchos) * 0.8;
-
+    const offset = (e / echos) * W * 0.7;
+    const alpha  = (1 - e / echos) * 0.8;
     delayCtx.beginPath();
     delayCtx.strokeStyle = `rgba(142,91,255,${alpha})`;
-    delayCtx.lineWidth   = Math.max(0.6, 2 - e * 0.4);
+    delayCtx.lineWidth   = Math.max(0.5, 2 - e * 0.4);
     delayCtx.shadowColor = "rgba(142,91,255,0.5)";
     delayCtx.shadowBlur  = 4;
-
     for (let px = 0; px <= W - offset; px++) {
       const t = (px / W) * Math.PI * 8;
       const y = H / 2 + Math.sin(t + delayPhase) * amp * Math.exp(-px / W * 3);
@@ -355,28 +285,25 @@ function drawDelayWave() {
     delayCtx.stroke();
     delayCtx.shadowBlur = 0;
   }
-
-  requestAnimationFrame(drawDelayWave);
+  requestAnimationFrame(drawDelay);
 }
 
 // ── LFO waveform animation ────────────────────────────────────────────────────
 let lfoCanvas, lfoCtx, lfoPhase = 0;
-
 function drawLFO() {
   if (!lfoCanvas) return;
   const W = lfoCanvas.width, H = lfoCanvas.height;
   lfoCtx.clearRect(0, 0, W, H);
 
-  const rate  = params.lfo_rate / 100;
+  const rate  = params.lfo_rate  / 100;
   const depth = params.lfo_depth / 100;
   lfoPhase += 0.03 + rate * 0.08;
 
   lfoCtx.beginPath();
   lfoCtx.strokeStyle = "rgba(142,91,255,0.8)";
-  lfoCtx.lineWidth = 1.5;
+  lfoCtx.lineWidth   = 1.5;
   lfoCtx.shadowColor = "rgba(142,91,255,0.5)";
-  lfoCtx.shadowBlur = 4;
-
+  lfoCtx.shadowBlur  = 4;
   for (let px = 0; px <= W; px++) {
     const t = (px / W) * Math.PI * 4;
     const y = H / 2 + Math.sin(t + lfoPhase) * depth * H * 0.42;
@@ -384,171 +311,115 @@ function drawLFO() {
   }
   lfoCtx.stroke();
   lfoCtx.shadowBlur = 0;
-
   requestAnimationFrame(drawLFO);
 }
 
-// ── Reverb EQ ─────────────────────────────────────────────────────────────────
-let reverbEqCanvas, reverbEqCtx;
-const eqNodes = [
-  { freq: 0.08, gain: -0.4, id: "lowCut" },
-  { freq: 0.18, gain: 0.1,  id: "lowShelf" },
-  { freq: 0.55, gain: 0.35, id: "highShelf" },
-  { freq: 0.82, gain: 0.4,  id: "highCut" },
-];
-let draggingNode = null;
+// ── Reverb tail display ───────────────────────────────────────────────────────
+let reverbCanvas, reverbCtx, reverbPhase = 0;
+function drawReverb() {
+  if (!reverbCanvas) return;
+  const W = reverbCanvas.width, H = reverbCanvas.height;
+  reverbCtx.clearRect(0, 0, W, H);
 
-function drawReverbEQ() {
-  if (!reverbEqCanvas) return;
-  const W = reverbEqCanvas.width, H = reverbEqCanvas.height;
-  reverbEqCtx.clearRect(0, 0, W, H);
+  const size  = params.size       / 100;
+  const decay = params.decay      / 100;
+  const mix   = params.reverb_mix / 100;
+  reverbPhase += 0.012;
 
-  // Grid
-  reverbEqCtx.strokeStyle = "rgba(142,91,255,0.06)";
-  reverbEqCtx.lineWidth = 1;
-  [0.25, 0.5, 0.75].forEach(t => {
-    reverbEqCtx.beginPath(); reverbEqCtx.moveTo(t*W,0); reverbEqCtx.lineTo(t*W,H); reverbEqCtx.stroke();
-    reverbEqCtx.beginPath(); reverbEqCtx.moveTo(0,t*H); reverbEqCtx.lineTo(W,t*H); reverbEqCtx.stroke();
-  });
-
-  // Curve
-  reverbEqCtx.beginPath();
-  reverbEqCtx.strokeStyle = "rgba(142,91,255,0.85)";
-  reverbEqCtx.lineWidth = 1.8;
-  reverbEqCtx.shadowColor = "rgba(142,91,255,0.6)";
-  reverbEqCtx.shadowBlur = 6;
-
-  for (let px = 0; px <= W; px++) {
-    const t = px / W;
-    let y = H * 0.5;
-    for (const node of eqNodes) {
-      const dist = Math.abs(t - node.freq);
-      y -= node.gain * H * 0.35 * Math.exp(-dist * dist * 80);
+  const layers = 4;
+  for (let i = 0; i < layers; i++) {
+    const alpha = mix * (1 - i / layers) * 0.65;
+    const freq  = 3 + i * 1.5 + size * 4;
+    reverbCtx.beginPath();
+    reverbCtx.strokeStyle = `rgba(142,91,255,${alpha})`;
+    reverbCtx.lineWidth   = 1.2 - i * 0.25;
+    reverbCtx.shadowColor = "rgba(142,91,255,0.4)";
+    reverbCtx.shadowBlur  = 3;
+    for (let px = 0; px <= W; px++) {
+      const t   = px / W;
+      const amp = H * 0.38 * mix * Math.pow(decay, t * 3) * (1 - i * 0.18);
+      const y   = H / 2 + Math.sin(t * Math.PI * freq + reverbPhase + i) * amp;
+      px === 0 ? reverbCtx.moveTo(px, y) : reverbCtx.lineTo(px, y);
     }
-    y = Math.max(2, Math.min(H - 2, y));
-    px === 0 ? reverbEqCtx.moveTo(px, y) : reverbEqCtx.lineTo(px, y);
+    reverbCtx.stroke();
+    reverbCtx.shadowBlur = 0;
   }
-  reverbEqCtx.stroke();
-  reverbEqCtx.shadowBlur = 0;
-
-  // Fill
-  reverbEqCtx.lineTo(W, H); reverbEqCtx.lineTo(0, H); reverbEqCtx.closePath();
-  const fillG = reverbEqCtx.createLinearGradient(0, 0, 0, H);
-  fillG.addColorStop(0, "rgba(142,91,255,0.1)"); fillG.addColorStop(1, "rgba(142,91,255,0)");
-  reverbEqCtx.fillStyle = fillG; reverbEqCtx.fill();
-
-  // Nodes
-  for (const node of eqNodes) {
-    const nx = node.freq * W;
-    const ny = H * 0.5 - node.gain * H * 0.35;
-    reverbEqCtx.beginPath();
-    reverbEqCtx.arc(nx, Math.max(6, Math.min(H-6, ny)), 5, 0, Math.PI * 2);
-    reverbEqCtx.fillStyle = "#8E5BFF";
-    reverbEqCtx.shadowColor = "rgba(142,91,255,0.9)";
-    reverbEqCtx.shadowBlur = 10;
-    reverbEqCtx.fill();
-    reverbEqCtx.shadowBlur = 0;
-    reverbEqCtx.strokeStyle = "rgba(255,255,255,0.6)";
-    reverbEqCtx.lineWidth = 1;
-    reverbEqCtx.stroke();
-  }
+  requestAnimationFrame(drawReverb);
 }
 
-function setupReverbEQDrag() {
-  if (!reverbEqCanvas) return;
-  const rect = () => reverbEqCanvas.getBoundingClientRect();
-
-  function hitNode(cx, cy) {
-    const r = rect();
-    const W = reverbEqCanvas.width, H = reverbEqCanvas.height;
-    const px = (cx - r.left) * (W / r.width);
-    const py = (cy - r.top) * (H / r.height);
-    return eqNodes.find(n => {
-      const nx = n.freq * W;
-      const ny = H * 0.5 - n.gain * H * 0.35;
-      return Math.hypot(px - nx, py - ny) < 14;
-    }) || null;
-  }
-
-  reverbEqCanvas.addEventListener("mousedown", e => {
-    draggingNode = hitNode(e.clientX, e.clientY);
-  });
-  window.addEventListener("mousemove", e => {
-    if (!draggingNode) return;
-    const r = rect();
-    const W = reverbEqCanvas.width, H = reverbEqCanvas.height;
-    draggingNode.freq = Math.max(0.02, Math.min(0.98, (e.clientX - r.left) * (W / r.width) / W));
-    draggingNode.gain = Math.max(-1, Math.min(1, -(e.clientY - r.top - r.height/2) / (r.height * 0.35)));
-    drawReverbEQ();
-  });
-  window.addEventListener("mouseup", () => { draggingNode = null; });
-}
-
-// ── Meter simulation ──────────────────────────────────────────────────────────
+// ── Meter simulation (fallback when no JUCE audio) ────────────────────────────
 let meterL = 0, meterR = 0;
-function animateMeter() {
+let juceMetersActive = false;
+function animateMeterSim() {
+  if (juceMetersActive) return;
   meterL = meterL * 0.88 + (0.3 + Math.random() * 0.6) * (params.mix / 100) * 0.12;
   meterR = meterR * 0.88 + (0.3 + Math.random() * 0.6) * (params.mix / 100) * 0.12;
   const elL = document.getElementById("meter-l");
   const elR = document.getElementById("meter-r");
-  if (elL) elL.style.height = `${Math.min(100, meterL * 100)}%`;
-  if (elR) elR.style.height = `${Math.min(100, meterR * 100)}%`;
-  requestAnimationFrame(animateMeter);
+  if (elL) elL.style.height = Math.min(100, meterL * 100) + "%";
+  if (elR) elR.style.height = Math.min(100, meterR * 100) + "%";
+  requestAnimationFrame(animateMeterSim);
 }
 
-// ── Toggle buttons ────────────────────────────────────────────────────────────
-function setupToggle(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener("click", () => el.classList.toggle("on"));
-}
+// Override updateMeters to flag that real meters are active
+const _origUpdateMeters = window.updateMeters;
+window.updateMeters = function(l, r) {
+  juceMetersActive = true;
+  _origUpdateMeters(l, r);
+};
 
-// ── Pill buttons ─────────────────────────────────────────────────────────────
-function setupPills(selector, activeClass) {
-  document.querySelectorAll(selector).forEach(btn => {
+// ── Pill groups ───────────────────────────────────────────────────────────────
+function setupPillGroup(sel) {
+  document.querySelectorAll(sel).forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(selector).forEach(b => b.classList.remove(activeClass));
-      btn.classList.add(activeClass);
+      document.querySelectorAll(sel).forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
     });
   });
 }
 
-// ── Canvas resize helper ──────────────────────────────────────────────────────
+// ── Canvas fit helper ─────────────────────────────────────────────────────────
 function fitCanvas(canvas) {
   const parent = canvas.parentElement;
   const rect   = parent.getBoundingClientRect();
-  canvas.width  = Math.round(rect.width  * window.devicePixelRatio || rect.width);
-  canvas.height = Math.round(rect.height * window.devicePixelRatio || rect.height);
+  const dpr    = window.devicePixelRatio || 1;
+  canvas.width  = Math.round(rect.width  * dpr);
+  canvas.height = Math.round(canvas.offsetHeight * dpr || canvas.height * dpr);
   const ctx = canvas.getContext("2d");
-  ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+  ctx.scale(dpr, dpr);
   return ctx;
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", () => {
-  // Canvases
-  const filterEl   = document.getElementById("filter-canvas");
-  const delayEl    = document.getElementById("delay-canvas");
-  const lfoEl      = document.getElementById("lfo-canvas");
-  const reverbEqEl = document.getElementById("reverb-eq-canvas");
+  // Wire canvases
+  const fcEl = document.getElementById("filter-canvas");
+  const dcEl = document.getElementById("delay-canvas");
+  const lcEl = document.getElementById("lfo-canvas");
+  const rcEl = document.getElementById("reverb-canvas");
 
-  if (filterEl)   { filterCanvas = filterEl;   filterCtx   = fitCanvas(filterEl); }
-  if (delayEl)    { delayCanvas  = delayEl;    delayCtx    = fitCanvas(delayEl); }
-  if (lfoEl)      { lfoCanvas    = lfoEl;      lfoCtx      = fitCanvas(lfoEl); }
-  if (reverbEqEl) { reverbEqCanvas = reverbEqEl; reverbEqCtx = fitCanvas(reverbEqEl); }
+  if (fcEl) { filterCanvas = fcEl;  filterCtx  = fitCanvas(fcEl); }
+  if (dcEl) { delayCanvas  = dcEl;  delayCtx   = fitCanvas(dcEl); }
+  if (lcEl) { lfoCanvas    = lcEl;  lfoCtx     = fitCanvas(lcEl); }
+  if (rcEl) { reverbCanvas = rcEl;  reverbCtx  = fitCanvas(rcEl); }
 
-  // Knobs
-  document.querySelectorAll(".knob, .mini-knob, .motion-knob").forEach(setupKnob);
+  // Wire knobs — all knob containers have data-param
+  document.querySelectorAll(".knob, .mini-knob").forEach(setupKnob);
 
-  // Toggles
-  setupToggle("filter-toggle");
-  setupToggle("delay-toggle");
-  setupToggle("reverb-toggle");
+  // Preset navigation
+  document.getElementById("prev-preset")?.addEventListener("click", () => {
+    presetIndex = (presetIndex - 1 + PRESETS.length) % PRESETS.length;
+    applyPreset(PRESETS[presetIndex]);
+  });
+  document.getElementById("next-preset")?.addEventListener("click", () => {
+    presetIndex = (presetIndex + 1) % PRESETS.length;
+    applyPreset(PRESETS[presetIndex]);
+  });
 
-  // Filter type pills
-  setupPills(".ftype", "active");
-  setupPills(".dmode", "active");
-  setupPills(".rtype", "active");
+  // Pills
+  setupPillGroup(".ftype");
+  setupPillGroup(".dmode");
+  setupPillGroup(".rtype");
 
   // Delay sync
   document.getElementById("delay-sync")?.addEventListener("click", e => {
@@ -560,10 +431,10 @@ window.addEventListener("DOMContentLoaded", () => {
     e.currentTarget.classList.toggle("active");
   });
 
-  // HQ
-  document.getElementById("hq-btn")?.addEventListener("click", e => {
-    e.currentTarget.classList.toggle("on");
-    e.currentTarget.textContent = e.currentTarget.classList.contains("on") ? "ON" : "OFF";
+  // HQ toggle
+  document.getElementById("hq-toggle")?.addEventListener("click", e => {
+    const on = e.currentTarget.classList.toggle("active");
+    e.currentTarget.textContent = on ? "ON" : "OFF";
   });
 
   // Power
@@ -571,28 +442,16 @@ window.addEventListener("DOMContentLoaded", () => {
     e.currentTarget.classList.toggle("on");
   });
 
-  // Initial render
+  // Initial knob render
   updateAllKnobs();
-  drawFilterCurve();
-  setupReverbEQDrag();
-  drawReverbEQ();
-  drawDelayWave();
-  drawLFO();
-  animateMeter();
 
-  // Request current values from JUCE host
+  // Start animations
+  drawDelay();
+  drawLFO();
+  drawReverb();
+  animateMeterSim();
+
+  // Subscribe to JUCE param updates then request current values
+  subscribeJuceParams();
   requestInitialUpdates();
 });
-
-// JUCE param update from host
-if (juceBackend) {
-  try {
-    juceBackend.backend.addEventListener("paramUpdate", e => {
-      const { param, value } = JSON.parse(e.data);
-      if (param in params) {
-        params[param] = value * 100;
-        updateKnobDisplay(param, params[param]);
-      }
-    });
-  } catch (_) {}
-}
