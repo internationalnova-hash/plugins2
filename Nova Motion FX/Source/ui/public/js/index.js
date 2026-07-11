@@ -77,16 +77,30 @@ document.getElementById("preset-next").addEventListener("click", () => {
   applyPreset(PRESETS[presetIndex]);
 });
 
-// ── Knob rendering ────────────────────────────────────────────────────────────
-const ARC_FULL   = 270;   // degrees of travel
-const ARC_START  = 135;   // rotation offset (degrees)
-const CIRCUMF_80 = 2 * Math.PI * 32;   // r=32 for standard knob viewBox 80
-const CIRCUMF_36 = 2 * Math.PI * 14.5; // r=14.5 for mini knob viewBox 36
-const CIRCUMF_120 = 2 * Math.PI * 46;  // motion knob r=46
+// ── Knob rendering — attribute-only updates (WebKit safe) ────────────────────
+const ARC_FULL    = 270;
+const CIRCUMF_80  = 2 * Math.PI * 32;
+const CIRCUMF_36  = 2 * Math.PI * 14.5;
+const CIRCUMF_120 = 2 * Math.PI * 46;
 
+function updateKnobVisual(param, normalValue) {
+  const arcEl = document.getElementById("arc-" + param);
+  const indEl = document.getElementById("ind-" + param);
+  if (!arcEl && !indEl) return;
+
+  const isMotion = param === "motion";
+  const isMini = !!document.getElementById(param.replace("_","-") + "-knob")?.classList.contains("mini-knob");
+  const circ = isMotion ? CIRCUMF_120 : (isMini ? CIRCUMF_36 : CIRCUMF_80);
+  const full = circ * ARC_FULL / 360;
+  const dash = normalValue * full;
+  const gap  = circ - dash;
+
+  if (arcEl) arcEl.setAttribute("stroke-dasharray", dash + " " + gap);
+  if (indEl) indEl.style.transform = "rotate(" + (-135 + normalValue * 270) + "deg)";
+}
+
+// Legacy alias kept for any remaining callers — now just delegates
 function renderKnobSVG(el, normalValue, isMini, isMotion) {
-  const svg = el.querySelector("svg");
-  if (!svg) return;
   const id = el.dataset.param || el.id;
 
   if (isMotion) {
@@ -151,14 +165,10 @@ function renderKnobSVG(el, normalValue, isMini, isMotion) {
 }
 
 function updateKnobDisplay(param, val) {
-  const el = document.getElementById(`${param}-knob`);
-  if (!el) return;
   const n = val / 100;
-  const isMini  = el.classList.contains("mini-knob");
-  const isMotion = param === "motion";
-  renderKnobSVG(el, n, isMini, isMotion);
+  updateKnobVisual(param, n);
 
-  const valEl = document.getElementById(`${param}-value`);
+  const valEl = document.getElementById(`${param}-value`) || document.getElementById(`val-${param}`);
   if (!valEl) return;
 
   // Format display value
