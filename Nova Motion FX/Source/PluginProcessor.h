@@ -42,7 +42,7 @@ private:
     // DSP modules
     juce::dsp::StateVariableTPTFilter<float> filterL, filterR;
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLineL, delayLineR;
-    juce::dsp::Reverb reverbL, reverbR;
+    juce::Reverb reverbL, reverbR;
 
     double currentSR { 44100.0 };
     int    maxDelaySamples { 0 };
