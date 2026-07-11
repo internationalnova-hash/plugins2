@@ -31,7 +31,7 @@ NovaMotionFXEditor::NovaMotionFXEditor (NovaMotionFXProcessor& p)
     webView->goToURL (cacheBustedUrl);
 
     setResizable (false, false);
-    setSize (1400, 860);
+    setSize (960, 620);
     startTimerHz (30);
 }
 
