@@ -3,16 +3,33 @@
 
 "use strict";
 
-// ── JUCE bridge (graceful fallback for browser preview) ───────────────────────
-let juceBackend = null;
-try { juceBackend = window.__JUCE__?.initialisationData ? window.__JUCE__ : null; } catch (_) {}
+// ── JUCE bridge — WebSliderRelay protocol ─────────────────────────────────────
+function juceEmit(paramId, eventType, value) {
+  try {
+    const b = window.__JUCE__ && window.__JUCE__.backend;
+    if (!b) return;
+    const payload = { eventType };
+    if (value !== undefined) payload.value = value;
+    b.emitEvent("__juce__slider" + paramId, payload);
+  } catch (_) {}
+}
 
 function sendToJuce(param, value) {
-  try {
-    if (juceBackend && juceBackend.backend) {
-      juceBackend.backend.emitEvent("paramChange", JSON.stringify({ param, value }));
-    }
-  } catch (_) {}
+  juceEmit(param, "valueChanged", value);
+}
+
+function beginGesture(param) {
+  juceEmit(param, "sliderDragStarted");
+}
+
+function endGesture(param) {
+  juceEmit(param, "sliderDragEnded");
+}
+
+function requestInitialUpdates() {
+  for (const p of Object.keys(params)) {
+    juceEmit(p, "requestInitialUpdate");
+  }
 }
 
 // ── Parameter state ───────────────────────────────────────────────────────────
@@ -189,6 +206,7 @@ function setupKnob(el) {
   }
 
   function onUp() {
+    endGesture(param);
     window.removeEventListener("mousemove", onMove);
     window.removeEventListener("mouseup",   onUp);
     window.removeEventListener("touchmove", onMove);
@@ -199,6 +217,7 @@ function setupKnob(el) {
     e.preventDefault();
     startY   = e.touches ? e.touches[0].clientY : e.clientY;
     startVal = params[param] ?? 50;
+    beginGesture(param);
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup",   onUp);
     window.addEventListener("touchmove", onMove, { passive: false });
@@ -550,6 +569,9 @@ window.addEventListener("DOMContentLoaded", () => {
   drawDelayWave();
   drawLFO();
   animateMeter();
+
+  // Request current values from JUCE host
+  requestInitialUpdates();
 });
 
 // JUCE param update from host
