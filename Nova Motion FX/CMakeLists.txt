@@ -20,17 +20,20 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(juce)
 
 set(PLUGIN_TARGET NovaMotionFX)
+set(NEEDS_WEBVIEW2 FALSE)
+set(NEEDS_WEB_BROWSER FALSE)
+set(AU_MAIN_TYPE "")
+set(LV2_URI "")
 
 if(WIN32)
     set(PLUGIN_FORMATS VST3 Standalone)
     set(NEEDS_WEBVIEW2 TRUE)
 elseif(APPLE)
     set(PLUGIN_FORMATS VST3 AU Standalone)
-    set(NEEDS_WEBVIEW2 FALSE)
     set(AU_MAIN_TYPE kAudioUnitType_Effect)
 elseif(UNIX)
     set(PLUGIN_FORMATS VST3 LV2 Standalone)
-    set(NEEDS_WEBVIEW2 FALSE)
+    set(NEEDS_WEB_BROWSER TRUE)
     set(LV2_URI "https://github.com/internationalnova/NovaMotionFX")
 endif()
 
@@ -46,13 +49,14 @@ juce_add_binary_data(NovaMotionFX_WebUI
 
 juce_add_plugin(${PLUGIN_TARGET}
     COMPANY_NAME            "International Nova"
-    COMPANY_WEBSITE         "https://internationalnova.com"
+    COMPANY_WEBSITE         ""
     BUNDLE_ID               "com.internationalnova.novamotionfx"
     PLUGIN_MANUFACTURER_CODE Inov
     PLUGIN_CODE             NvMF
     FORMATS                 ${PLUGIN_FORMATS}
     PRODUCT_NAME            "Nova Motion FX"
     NEEDS_WEBVIEW2          ${NEEDS_WEBVIEW2}
+    NEEDS_WEB_BROWSER       ${NEEDS_WEB_BROWSER}
     VST3_CATEGORIES         Fx Filter Delay Reverb
     AU_MAIN_TYPE            ${AU_MAIN_TYPE}
     LV2URI                  ${LV2_URI}
@@ -89,6 +93,7 @@ target_link_libraries(${PLUGIN_TARGET}
         juce::juce_gui_extra
     PUBLIC
         juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
 )
 
