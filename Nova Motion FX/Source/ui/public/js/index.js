@@ -148,51 +148,74 @@ function updateAllKnobs() {
 }
 
 // ── Knob drag ─────────────────────────────────────────────────────────────────
-// Use Pointer Events + setPointerCapture so drag tracking is reliable
-// even when the cursor leaves the knob element (required in WKWebView).
+// Single activeDrag state + document-level listeners (matches Space By Nova
+// pattern that is confirmed to work in WKWebView / FL Studio).
+var activeDrag = null;
+
+function getClientY(e) {
+  if (e.touches && e.touches.length > 0) return e.touches[0].clientY;
+  if (e.changedTouches && e.changedTouches.length > 0) return e.changedTouches[0].clientY;
+  return typeof e.clientY === "number" ? e.clientY : 0;
+}
+
+function onDragMove(e) {
+  if (!activeDrag) return;
+  if (activeDrag.pointerId !== null && e.pointerId !== undefined && e.pointerId !== activeDrag.pointerId) return;
+  e.preventDefault();
+  const dy     = activeDrag.startY - getClientY(e);
+  const newVal = Math.max(0, Math.min(100, activeDrag.startVal + dy * 0.55));
+  const param  = activeDrag.param;
+  params[param] = newVal;
+  updateKnobDisplay(param, newVal);
+  sendToJuce(param, newVal / 100);
+  if (param === "motion") applyMotionMacro(newVal);
+}
+
+function onDragEnd(e) {
+  if (!activeDrag) return;
+  if (activeDrag.pointerId !== null && e.pointerId !== undefined && e.pointerId !== activeDrag.pointerId) return;
+  endGesture(activeDrag.param);
+  try { if (activeDrag.el.releasePointerCapture && activeDrag.pointerId !== null) activeDrag.el.releasePointerCapture(activeDrag.pointerId); } catch(_) {}
+  activeDrag = null;
+}
+
 function setupKnob(el) {
   const param = el.dataset.param;
   if (!param) return;
-  let startY = 0, startVal = 0, dragging = false;
 
-  function onMove(e) {
-    if (!dragging) return;
-    e.preventDefault();
-    const dy = startY - e.clientY;
-    const newVal = Math.max(0, Math.min(100, startVal + dy * 0.6));
-    params[param] = newVal;
-    updateKnobDisplay(param, newVal);
-    sendToJuce(param, newVal / 100);
-    if (param === "motion") applyMotionMacro(newVal);
-  }
-  function onUp(e) {
-    if (!dragging) return;
-    dragging = false;
-    try { el.releasePointerCapture(e.pointerId); } catch(_) {}
-    el.removeEventListener("pointermove", onMove);
-    el.removeEventListener("pointerup",   onUp);
-    el.removeEventListener("pointercancel", onUp);
-    endGesture(param);
-  }
   function onDown(e) {
+    if (e.button !== undefined && e.button !== 0) return;
     e.preventDefault();
-    startY   = e.clientY;
-    startVal = params[param] ?? 50;
-    dragging = true;
-    try { el.setPointerCapture(e.pointerId); } catch(_) {}
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerup",   onUp);
-    el.addEventListener("pointercancel", onUp);
+    e.stopPropagation();
+    activeDrag = {
+      param:     param,
+      el:        el,
+      pointerId: e.pointerId !== undefined ? e.pointerId : null,
+      startY:    getClientY(e),
+      startVal:  params[param] !== undefined ? params[param] : 50
+    };
+    try { if (el.setPointerCapture && e.pointerId !== undefined) el.setPointerCapture(e.pointerId); } catch(_) {}
     beginGesture(param);
   }
+
   el.addEventListener("pointerdown", onDown);
-  el.addEventListener("dblclick", () => {
+  el.addEventListener("mousedown",   onDown);
+
+  el.addEventListener("dblclick", function() {
     const def = (parseFloat(el.dataset.default) || 0.5) * 100;
     params[param] = def;
     updateKnobDisplay(param, def);
     sendToJuce(param, def / 100);
   });
 }
+
+// Register global drag-tracking listeners once
+document.addEventListener("pointermove",  onDragMove, { passive: false });
+document.addEventListener("mousemove",    onDragMove, { passive: false });
+document.addEventListener("pointerup",    onDragEnd);
+document.addEventListener("mouseup",      onDragEnd);
+document.addEventListener("pointercancel",onDragEnd);
+document.addEventListener("mouseleave",   onDragEnd);
 
 // ── MOTION macro ──────────────────────────────────────────────────────────────
 function applyMotionMacro(v) {
