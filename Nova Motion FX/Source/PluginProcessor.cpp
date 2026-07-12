@@ -89,13 +89,15 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
     dryBuf.makeCopyOf (buf);
 
     // Input gain
+    const float inGain = smInput.getNextValue();
     for (int ch = 0; ch < buf.getNumChannels(); ++ch)
-        juce::FloatVectorOperations::multiply (buf.getWritePointer(ch), smInput.getNextValue(), N);
+        juce::FloatVectorOperations::multiply (buf.getWritePointer(ch), inGain, N);
 
-    // Filter
-    filterL.setCutoffFrequency (smCutoff.getNextValue());
+    // Filter — clamp cutoff to 45% of Nyquist to prevent TPT instability near Nyquist
+    const float maxCutoff = (float)(currentSR * 0.45);
+    filterL.setCutoffFrequency (juce::jmin (smCutoff.getNextValue(), maxCutoff));
     filterL.setResonance       (smResonance.getNextValue());
-    filterR.setCutoffFrequency (smCutoff.getCurrentValue());
+    filterR.setCutoffFrequency (juce::jmin (smCutoff.getCurrentValue(), maxCutoff));
     filterR.setResonance       (smResonance.getCurrentValue());
 
     {
@@ -155,7 +157,7 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
         }
     }
 
-    // Output gain
+    // Output gain — read once so both channels get identical gain
     const float outGain = smOutput.getNextValue();
     for (int ch = 0; ch < buf.getNumChannels(); ++ch)
         juce::FloatVectorOperations::multiply (buf.getWritePointer(ch), outGain, N);
