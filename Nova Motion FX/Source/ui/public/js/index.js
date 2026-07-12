@@ -405,7 +405,7 @@ function animateMeterSim() {
 function bootUI() {
   // JS-running indicator — changes the tagline dynamically
   const tagEl = document.querySelector(".plugin-tagline");
-  if (tagEl) tagEl.textContent = "NOVA MOTION FX · FILTER · DELAY · REVERB · v5";
+  if (tagEl) tagEl.textContent = "NOVA MOTION FX · EXT JS OK · v5";
 
   // Energy ring canvas (lives in #hero, position:absolute)
   energyCanvas = document.getElementById("energy-canvas");

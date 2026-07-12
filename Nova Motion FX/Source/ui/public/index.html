@@ -569,6 +569,12 @@ html,body{width:960px;height:620px;overflow:hidden;background:var(--bg);color:va
 </div>
 
 </div><!-- /#root -->
-<script src="js/index.js?v=20260711-6"></script>
+<script>
+(function() {
+  var el = document.querySelector('.plugin-tagline');
+  if (el) el.textContent = 'NOVA MOTION FX · INLINE JS OK · v4';
+})();
+</script>
+<script src="js/index.js?v=20260712-1"></script>
 </body>
 </html>
