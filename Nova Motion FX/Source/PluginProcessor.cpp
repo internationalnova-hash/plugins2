@@ -109,11 +109,13 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
     dryBuf.makeCopyOf (buf, true);
 
     // Filter — coefficients set ONCE per block, processSample per sample
+    // Resonance clamped to 4.0 max — above that the TPT filter self-oscillates
     if (filterOn)
     {
         const float safeCut = juce::jmin (cutoffHz, safeMaxCutoff);
-        filterL.setCutoffFrequency (safeCut); filterL.setResonance (resonance);
-        filterR.setCutoffFrequency (safeCut); filterR.setResonance (resonance);
+        const float safeRes = juce::jlimit (0.1f, 4.0f, resonance);
+        filterL.setCutoffFrequency (safeCut); filterL.setResonance (safeRes);
+        filterR.setCutoffFrequency (safeCut); filterR.setResonance (safeRes);
         for (int i = 0; i < N; ++i) {
             dataL[i] = filterL.processSample (0, dataL[i]);
             dataR[i] = filterR.processSample (0, dataR[i]);
@@ -163,10 +165,12 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
         }
     }
 
-    // Output gain + hard limiter — prevents any blowup from ever silencing output
+    // Output gain + hard limiter — explicit NaN check because jlimit(NaN) is undefined
     for (int i = 0; i < N; ++i) {
-        dataL[i] = juce::jlimit (-1.f, 1.f, dataL[i] * outGain);
-        dataR[i] = juce::jlimit (-1.f, 1.f, dataR[i] * outGain);
+        const float l = dataL[i] * outGain;
+        const float r = dataR[i] * outGain;
+        dataL[i] = std::isfinite (l) ? juce::jlimit (-1.f, 1.f, l) : 0.f;
+        dataR[i] = std::isfinite (r) ? juce::jlimit (-1.f, 1.f, r) : 0.f;
     }
 
     peakL.store (buf.getMagnitude (0, 0, N));
