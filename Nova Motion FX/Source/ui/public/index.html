@@ -181,8 +181,8 @@ html,body{width:960px;height:620px;overflow:hidden;background:var(--bg);color:va
 .bar-btn:hover{background:rgba(255,255,255,0.08);color:var(--text)}
 
 /* ── KNOBS ── */
-.knob,.mini-knob{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:ns-resize}
-.knob-shell{position:relative;flex-shrink:0;pointer-events:none}
+.knob,.mini-knob{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:ns-resize;touch-action:none}
+.knob-shell{position:relative;flex-shrink:0;touch-action:none}
 .knob-svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:2}
 .knob-body{
   position:absolute;border-radius:50%;z-index:1;
@@ -241,7 +241,7 @@ html,body{width:960px;height:620px;overflow:hidden;background:var(--bg);color:va
     <div class="logo-mark">N</div>
     <div>
       <span class="company-name">NOVA AUDIO</span>
-      <span class="plugin-tagline">NOVA MOTION FX · FILTER · DELAY · REVERB</span>
+      <span class="plugin-tagline">NOVA MOTION FX · FILTER · DELAY · REVERB · v4</span>
     </div>
   </div>
   <div class="hdr-center">

@@ -182,6 +182,8 @@ function onDragEnd(e) {
 function setupKnob(el) {
   const param = el.dataset.param;
   if (!param) return;
+  // Use the knob-shell as the hit target (has touch-action:none + cursor set)
+  const shell = el.querySelector(".knob-shell") || el;
 
   function onDown(e) {
     if (e.button !== undefined && e.button !== 0) return;
@@ -189,19 +191,19 @@ function setupKnob(el) {
     e.stopPropagation();
     activeDrag = {
       param:     param,
-      el:        el,
+      el:        shell,
       pointerId: e.pointerId !== undefined ? e.pointerId : null,
       startY:    getClientY(e),
       startVal:  params[param] !== undefined ? params[param] : 50
     };
-    try { if (el.setPointerCapture && e.pointerId !== undefined) el.setPointerCapture(e.pointerId); } catch(_) {}
+    try { if (shell.setPointerCapture && e.pointerId !== undefined) shell.setPointerCapture(e.pointerId); } catch(_) {}
     beginGesture(param);
   }
 
-  el.addEventListener("pointerdown", onDown);
-  el.addEventListener("mousedown",   onDown);
+  shell.addEventListener("pointerdown", onDown);
+  shell.addEventListener("mousedown",   onDown);
 
-  el.addEventListener("dblclick", function() {
+  shell.addEventListener("dblclick", function() {
     const def = (parseFloat(el.dataset.default) || 0.5) * 100;
     params[param] = def;
     updateKnobDisplay(param, def);
