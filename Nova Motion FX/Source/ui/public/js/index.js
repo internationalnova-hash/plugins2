@@ -211,13 +211,13 @@ function setupKnob(el) {
   });
 }
 
-// Register global drag-tracking listeners once
-document.addEventListener("pointermove",  onDragMove, { passive: false });
-document.addEventListener("mousemove",    onDragMove, { passive: false });
-document.addEventListener("pointerup",    onDragEnd);
-document.addEventListener("mouseup",      onDragEnd);
-document.addEventListener("pointercancel",onDragEnd);
-document.addEventListener("mouseleave",   onDragEnd);
+// Register global drag-tracking listeners once (use window, not document,
+// matching Nova Apex pattern confirmed to work in WKWebView / FL Studio)
+window.addEventListener("pointermove",  onDragMove, { passive: false });
+window.addEventListener("mousemove",    onDragMove, { passive: false });
+window.addEventListener("pointerup",    onDragEnd);
+window.addEventListener("mouseup",      onDragEnd);
+window.addEventListener("pointercancel",onDragEnd);
 
 // ── MOTION macro ──────────────────────────────────────────────────────────────
 function applyMotionMacro(v) {
@@ -401,21 +401,24 @@ function animateMeterSim() {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-window.addEventListener("DOMContentLoaded", () => {
+// Use readyState check (matches Nova Apex / Space By Nova pattern)
+function bootUI() {
+  // JS-running indicator — changes the tagline dynamically
+  const tagEl = document.querySelector(".plugin-tagline");
+  if (tagEl) tagEl.textContent = "NOVA MOTION FX · FILTER · DELAY · REVERB · v5";
 
   // Energy ring canvas (lives in #hero, position:absolute)
   energyCanvas = document.getElementById("energy-canvas");
   if (energyCanvas) energyCtx = energyCanvas.getContext("2d");
 
-  // Aurora canvas — fill the aurora-section div
+  // Aurora canvas
   const auroraEl = document.getElementById("aurora-canvas");
   if (auroraEl) {
     auroraCanvas = auroraEl;
     auroraCanvas.width  = 960;
     auroraCanvas.height = 72;
     auroraCtx = auroraCanvas.getContext("2d");
-    // Also update after layout settles
-    setTimeout(() => {
+    setTimeout(function() {
       const s = document.getElementById("aurora-section");
       if (s && s.clientWidth > 0) {
         auroraCanvas.width  = s.clientWidth;
@@ -437,20 +440,22 @@ window.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".knob, .mini-knob").forEach(setupKnob);
 
   // Preset navigation
-  document.getElementById("prev-preset")?.addEventListener("click", () => {
+  const prevBtn = document.getElementById("prev-preset");
+  const nextBtn = document.getElementById("next-preset");
+  if (prevBtn) prevBtn.addEventListener("click", function() {
     presetIndex = (presetIndex - 1 + PRESETS.length) % PRESETS.length;
     applyPreset(PRESETS[presetIndex]);
   });
-  document.getElementById("next-preset")?.addEventListener("click", () => {
+  if (nextBtn) nextBtn.addEventListener("click", function() {
     presetIndex = (presetIndex + 1) % PRESETS.length;
     applyPreset(PRESETS[presetIndex]);
   });
 
   // Pills
   function setupPills(sel) {
-    document.querySelectorAll(sel).forEach(btn => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll(sel).forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(sel).forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        document.querySelectorAll(sel).forEach(function(b) { b.classList.remove("active"); });
         btn.classList.add("active");
       });
     });
@@ -459,21 +464,18 @@ window.addEventListener("DOMContentLoaded", () => {
   setupPills(".dmode");
   setupPills(".rtype");
 
-  document.getElementById("delay-sync")?.addEventListener("click", e => {
-    e.currentTarget.classList.toggle("active");
-  });
-  document.getElementById("freeze-btn")?.addEventListener("click", e => {
-    e.currentTarget.classList.toggle("active");
-  });
-  document.getElementById("hq-toggle")?.addEventListener("click", e => {
+  const dsync = document.getElementById("delay-sync");
+  const freeze = document.getElementById("freeze-btn");
+  const hq    = document.getElementById("hq-toggle");
+  if (dsync)  dsync.addEventListener("click",  function(e) { e.currentTarget.classList.toggle("active"); });
+  if (freeze) freeze.addEventListener("click", function(e) { e.currentTarget.classList.toggle("active"); });
+  if (hq)     hq.addEventListener("click",    function(e) {
     const on = e.currentTarget.classList.toggle("active");
     e.currentTarget.textContent = on ? "ON" : "OFF";
   });
 
-  // Initial display
+  // Initial display + animations
   updateAllKnobs();
-
-  // Start animations
   drawEnergyRing();
   drawAurora();
   drawLFO();
@@ -481,4 +483,10 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // Connect to JUCE (polls until window.__JUCE__ is injected by native layer)
   waitForJuce();
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", bootUI);
+} else {
+  bootUI();
+}
