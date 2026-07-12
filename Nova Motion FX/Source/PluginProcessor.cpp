@@ -93,56 +93,80 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
     for (int ch = 0; ch < buf.getNumChannels(); ++ch)
         juce::FloatVectorOperations::multiply (buf.getWritePointer(ch), inGain, N);
 
-    // Filter — clamp cutoff to 45% of Nyquist to prevent TPT instability near Nyquist
-    const float maxCutoff = (float)(currentSR * 0.45);
-    filterL.setCutoffFrequency (juce::jmin (smCutoff.getNextValue(), maxCutoff));
-    filterL.setResonance       (smResonance.getNextValue());
-    filterR.setCutoffFrequency (juce::jmin (smCutoff.getCurrentValue(), maxCutoff));
-    filterR.setResonance       (smResonance.getCurrentValue());
-
+    // Filter — skip entirely when wide open (avoids TPT instability near Nyquist)
     {
-        auto* L = buf.getWritePointer (0);
-        auto* R = buf.getNumChannels() > 1 ? buf.getWritePointer (1) : L;
-        for (int i = 0; i < N; ++i) {
-            L[i] = filterL.processSample (0, L[i]);
-            R[i] = filterR.processSample (0, R[i]);
+        const float cutoff = smCutoff.getNextValue();
+        const float res    = smResonance.getNextValue();
+        const float safeMax = (float)(currentSR * 0.40); // 40% of SR = safe ceiling
+        if (cutoff < safeMax - 100.f) // only run filter when meaningfully below max
+        {
+            const float safeCut = juce::jmin (cutoff, safeMax);
+            filterL.setCutoffFrequency (safeCut);
+            filterL.setResonance       (res);
+            filterR.setCutoffFrequency (safeCut);
+            filterR.setResonance       (res);
+
+            auto* L = buf.getWritePointer (0);
+            auto* R = buf.getNumChannels() > 1 ? buf.getWritePointer (1) : L;
+            for (int i = 0; i < N; ++i) {
+                L[i] = filterL.processSample (0, L[i]);
+                R[i] = filterR.processSample (0, R[i]);
+            }
+        }
+        else
+        {
+            // Reset filter state so it doesn't accumulate when bypassed
+            filterL.reset(); filterR.reset();
         }
     }
 
-    // Delay
+    // Delay — skip when mix is off
     {
-        const float fb     = smFeedback.getNextValue();
-        const float dMix   = smDelayMix.getNextValue();
-        const float delaySamples = juce::jmin ((float)maxDelaySamples - 1.f,
-                                               (float)(currentSR * 0.25));  // 1/4-note @ 120bpm ~ 0.5s
-
-        auto* L = buf.getWritePointer (0);
-        auto* R = buf.getNumChannels() > 1 ? buf.getWritePointer (1) : L;
-
-        for (int i = 0; i < N; ++i) {
-            const float dL = delayLineL.popSample (0, delaySamples);
-            const float dR = delayLineR.popSample (0, delaySamples);
-            delayLineL.pushSample (0, L[i] + dL * fb);
-            delayLineR.pushSample (0, R[i] + dR * fb);
-            L[i] = L[i] * (1.f - dMix) + dL * dMix;
-            R[i] = R[i] * (1.f - dMix) + dR * dMix;
+        const float fb   = smFeedback.getNextValue();
+        const float dMix = smDelayMix.getNextValue();
+        if (dMix > 0.001f)
+        {
+            const float delaySamples = juce::jmin ((float)maxDelaySamples - 1.f,
+                                                   (float)(currentSR * 0.25));
+            auto* L = buf.getWritePointer (0);
+            auto* R = buf.getNumChannels() > 1 ? buf.getWritePointer (1) : L;
+            for (int i = 0; i < N; ++i) {
+                const float dL = delayLineL.popSample (0, delaySamples);
+                const float dR = delayLineR.popSample (0, delaySamples);
+                delayLineL.pushSample (0, L[i] + dL * fb);
+                delayLineR.pushSample (0, R[i] + dR * fb);
+                L[i] = L[i] * (1.f - dMix) + dL * dMix;
+                R[i] = R[i] * (1.f - dMix) + dR * dMix;
+            }
+        }
+        else
+        {
+            delayLineL.reset(); delayLineR.reset();
         }
     }
 
-    // Reverb
+    // Reverb — skip when mix is off to prevent comb filter energy buildup
     {
-        juce::Reverb::Parameters rp;
-        rp.roomSize   = smSize.getNextValue();
-        rp.wetLevel   = smReverbMix.getNextValue();
-        rp.dryLevel   = 1.f - smReverbMix.getCurrentValue() * 0.5f;
-        rp.damping    = 0.45f;
-        rp.width      = 1.f;
-        reverbL.setParameters (rp); reverbR.setParameters (rp);
+        const float reverbMix = smReverbMix.getNextValue();
+        const float roomSize  = smSize.getNextValue();
+        if (reverbMix > 0.001f)
+        {
+            juce::Reverb::Parameters rp;
+            rp.roomSize = roomSize;
+            rp.wetLevel = reverbMix;
+            rp.dryLevel = 1.f - reverbMix * 0.5f;
+            rp.damping  = 0.45f;
+            rp.width    = 1.f;
+            reverbL.setParameters (rp);
 
-        if (buf.getNumChannels() >= 2) {
-            reverbL.processStereo (buf.getWritePointer(0), buf.getWritePointer(1), N);
-        } else {
-            reverbL.processMono (buf.getWritePointer(0), N);
+            if (buf.getNumChannels() >= 2)
+                reverbL.processStereo (buf.getWritePointer(0), buf.getWritePointer(1), N);
+            else
+                reverbL.processMono (buf.getWritePointer(0), N);
+        }
+        else
+        {
+            reverbL.reset(); // clear internal state so energy can't accumulate
         }
     }
 
