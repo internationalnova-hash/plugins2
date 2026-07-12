@@ -148,39 +148,44 @@ function updateAllKnobs() {
 }
 
 // ── Knob drag ─────────────────────────────────────────────────────────────────
+// Use Pointer Events + setPointerCapture so drag tracking is reliable
+// even when the cursor leaves the knob element (required in WKWebView).
 function setupKnob(el) {
   const param = el.dataset.param;
   if (!param) return;
-  let startY = 0, startVal = 0;
+  let startY = 0, startVal = 0, dragging = false;
 
   function onMove(e) {
-    const cy  = e.touches ? e.touches[0].clientY : e.clientY;
-    const dy  = startY - cy;
-    const newVal = Math.max(0, Math.min(100, startVal + dy * 0.5));
+    if (!dragging) return;
+    e.preventDefault();
+    const dy = startY - e.clientY;
+    const newVal = Math.max(0, Math.min(100, startVal + dy * 0.6));
     params[param] = newVal;
     updateKnobDisplay(param, newVal);
     sendToJuce(param, newVal / 100);
     if (param === "motion") applyMotionMacro(newVal);
   }
-  function onUp() {
+  function onUp(e) {
+    if (!dragging) return;
+    dragging = false;
+    try { el.releasePointerCapture(e.pointerId); } catch(_) {}
+    el.removeEventListener("pointermove", onMove);
+    el.removeEventListener("pointerup",   onUp);
+    el.removeEventListener("pointercancel", onUp);
     endGesture(param);
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup",   onUp);
-    window.removeEventListener("touchmove", onMove);
-    window.removeEventListener("touchend",  onUp);
   }
   function onDown(e) {
     e.preventDefault();
-    startY   = e.touches ? e.touches[0].clientY : e.clientY;
+    startY   = e.clientY;
     startVal = params[param] ?? 50;
+    dragging = true;
+    try { el.setPointerCapture(e.pointerId); } catch(_) {}
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup",   onUp);
+    el.addEventListener("pointercancel", onUp);
     beginGesture(param);
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup",   onUp);
-    window.addEventListener("touchmove", onMove, { passive: false });
-    window.addEventListener("touchend",  onUp);
   }
-  el.addEventListener("mousedown",  onDown);
-  el.addEventListener("touchstart", onDown, { passive: false });
+  el.addEventListener("pointerdown", onDown);
   el.addEventListener("dblclick", () => {
     const def = (parseFloat(el.dataset.default) || 0.5) * 100;
     params[param] = def;
