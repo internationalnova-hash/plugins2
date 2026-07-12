@@ -68,133 +68,120 @@ void NovaMotionFXProcessor::releaseResources() {}
 void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
-    const int N   = buf.getNumSamples();
-    const int nCh = buf.getNumChannels();
 
     if (*apvts.getRawParameterValue ("bypass") > 0.5f) return;
 
-    // Read parameters directly — no SmoothedValue intermediary for stage gating
-    const float cutoffHz  = *apvts.getRawParameterValue ("cutoff");
-    const float resonance = *apvts.getRawParameterValue ("resonance");
-    const float delayMix  = *apvts.getRawParameterValue ("delay_mix");
-    const float feedback  = *apvts.getRawParameterValue ("feedback");
-    const float reverbMix = *apvts.getRawParameterValue ("reverb_mix");
-    const float roomSize  = *apvts.getRawParameterValue ("size");
-    const float wetMix    = *apvts.getRawParameterValue ("mix");
-    const float inGain    = juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("input")->load());
-    const float outGain   = juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("output")->load());
+    const int N   = buf.getNumSamples();
+    float* dataL  = buf.getWritePointer (0);
+    float* dataR  = buf.getNumChannels() > 1 ? buf.getWritePointer (1) : dataL;
 
-    const float safeMaxCutoff = (float)(currentSR * 0.40f);
-    const bool  filterActive  = cutoffHz < safeMaxCutoff - 100.f;
-    const bool  delayActive   = delayMix  > 0.001f;
-    const bool  reverbActive  = reverbMix > 0.001f;
-    const bool  anyDsp        = filterActive || delayActive || reverbActive;
+    // Read on/off bools — stages never run unless explicitly active
+    const bool filterOn = *apvts.getRawParameterValue ("cutoff") < (float)(currentSR * 0.40) - 100.f;
+    const bool delayOn  = *apvts.getRawParameterValue ("delay_mix")  > 0.001f;
+    const bool reverbOn = *apvts.getRawParameterValue ("reverb_mix") > 0.001f;
 
-    // Fast passthrough when no DSP active — identical to confirmed-working pure passthrough
-    if (!anyDsp)
-    {
-        // Only reset DSP state on the block where we transition from active → inactive
-        if (prevFilterActive) { filterL.reset(); filterR.reset(); }
-        if (prevDelayActive)  { delayLineL.reset(); delayLineR.reset(); }
-        if (prevReverbActive) { reverbL.reset(); }
-        prevFilterActive = prevDelayActive = prevReverbActive = false;
+    // Parameter targets
+    smCutoff   .setTargetValue (*apvts.getRawParameterValue ("cutoff"));
+    smResonance.setTargetValue (*apvts.getRawParameterValue ("resonance"));
+    smFeedback .setTargetValue (*apvts.getRawParameterValue ("feedback"));
+    smDelayMix .setTargetValue (*apvts.getRawParameterValue ("delay_mix"));
+    smSize     .setTargetValue (*apvts.getRawParameterValue ("size"));
+    smReverbMix.setTargetValue (*apvts.getRawParameterValue ("reverb_mix"));
+    smInput    .setTargetValue (juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("input")->load()));
+    smOutput   .setTargetValue (juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("output")->load()));
+    smMix      .setTargetValue (*apvts.getRawParameterValue ("mix"));
 
-        for (int ch = 0; ch < nCh; ++ch)
-            juce::FloatVectorOperations::multiply (buf.getWritePointer (ch), inGain * outGain, N);
-        peakL.store (buf.getMagnitude (0, 0, N));
-        if (nCh > 1) peakR.store (buf.getMagnitude (1, 0, N));
-        return;
-    }
+    // One-time reset when a stage turns off
+    if (!filterOn && prevFilterActive) { filterL.reset(); filterR.reset(); }
+    if (!delayOn  && prevDelayActive)  { delayLineL.reset(); delayLineR.reset(); }
+    if (!reverbOn && prevReverbActive) { reverbL.reset(); }
+    prevFilterActive = filterOn;
+    prevDelayActive  = delayOn;
+    prevReverbActive = reverbOn;
 
-    // Save dry for wet/dry blend
-    dryBuf.makeCopyOf (buf, true);
-
-    // Input gain
-    for (int ch = 0; ch < nCh; ++ch)
-        juce::FloatVectorOperations::multiply (buf.getWritePointer (ch), inGain, N);
-
-    // Filter
-    if (filterActive)
-    {
-        const float safeCut = juce::jmin (cutoffHz, safeMaxCutoff);
-        filterL.setCutoffFrequency (safeCut); filterL.setResonance (resonance);
-        filterR.setCutoffFrequency (safeCut); filterR.setResonance (resonance);
-        auto* L = buf.getWritePointer (0);
-        auto* R = nCh > 1 ? buf.getWritePointer (1) : L;
-        for (int i = 0; i < N; ++i) {
-            L[i] = filterL.processSample (0, L[i]);
-            R[i] = filterR.processSample (0, R[i]);
-            if (!std::isfinite (L[i]) || !std::isfinite (R[i])) {
-                filterL.reset(); filterR.reset();
-                L[i] = R[i] = 0.f;
-            }
-        }
-    }
-    else if (prevFilterActive) { filterL.reset(); filterR.reset(); }
-
-    // Delay
-    if (delayActive)
-    {
-        const float delaySamples = juce::jmin ((float)maxDelaySamples - 1.f,
-                                               (float)(currentSR * 0.25));
-        auto* L = buf.getWritePointer (0);
-        auto* R = nCh > 1 ? buf.getWritePointer (1) : L;
-        for (int i = 0; i < N; ++i) {
-            const float dL = delayLineL.popSample (0, delaySamples);
-            const float dR = delayLineR.popSample (0, delaySamples);
-            delayLineL.pushSample (0, L[i] + dL * feedback);
-            delayLineR.pushSample (0, R[i] + dR * feedback);
-            L[i] = L[i] * (1.f - delayMix) + dL * delayMix;
-            R[i] = R[i] * (1.f - delayMix) + dR * delayMix;
-        }
-    }
-    else if (prevDelayActive) { delayLineL.reset(); delayLineR.reset(); }
-
-    // Reverb
-    if (reverbActive)
+    // Reverb params (set once per block, outside per-sample loop)
+    if (reverbOn)
     {
         juce::Reverb::Parameters rp;
-        rp.roomSize = roomSize;
-        rp.wetLevel = reverbMix;
-        rp.dryLevel = 1.f - reverbMix * 0.5f;
+        rp.roomSize = smSize.getCurrentValue();
+        rp.wetLevel = 1.0f;
+        rp.dryLevel = 0.0f;
         rp.damping  = 0.45f;
         rp.width    = 1.f;
         reverbL.setParameters (rp);
-        if (nCh >= 2)
-            reverbL.processStereo (buf.getWritePointer(0), buf.getWritePointer(1), N);
-        else
-            reverbL.processMono (buf.getWritePointer(0), N);
     }
-    else if (prevReverbActive) { reverbL.reset(); }
 
-    prevFilterActive = filterActive;
-    prevDelayActive  = delayActive;
-    prevReverbActive = reverbActive;
+    float peakOutL = 0.f, peakOutR = 0.f;
 
-    // Wet/dry blend
-    if (wetMix < 0.999f)
+    for (int n = 0; n < N; ++n)
     {
-        const float dry = 1.f - wetMix;
-        for (int ch = 0; ch < nCh; ++ch) {
-            auto* w = buf.getWritePointer (ch);
-            auto* d = dryBuf.getReadPointer (ch);
-            for (int i = 0; i < N; ++i) w[i] = w[i] * wetMix + d[i] * dry;
+        const float inGain  = smInput.getNextValue();
+        float L = dataL[n] * inGain;
+        float R = dataR[n] * inGain;
+        const float dryL = L, dryR = R;
+
+        // Filter
+        if (filterOn)
+        {
+            const float cut = juce::jmin (smCutoff.getNextValue(), (float)(currentSR * 0.40));
+            const float res = smResonance.getNextValue();
+            const float g   = std::tan (juce::MathConstants<float>::pi * cut / (float)currentSR);
+            const float R2  = 1.f - juce::jlimit (0.f, 0.97f, (res - 0.1f) / 19.9f);
+            filterL.setCutoffFrequency (cut); filterL.setResonance (res);
+            filterR.setCutoffFrequency (cut); filterR.setResonance (res);
+            L = filterL.processSample (0, L);
+            R = filterR.processSample (0, R);
         }
+
+        // Delay
+        if (delayOn)
+        {
+            const float fb   = smFeedback.getNextValue();
+            const float dMix = smDelayMix.getNextValue();
+            const float ds   = juce::jmin ((float)maxDelaySamples - 1.f, (float)(currentSR * 0.25));
+            const float dL   = delayLineL.popSample (0, ds);
+            const float dR   = delayLineR.popSample (0, ds);
+            delayLineL.pushSample (0, L + dL * fb);
+            delayLineR.pushSample (0, R + dR * fb);
+            L = L * (1.f - dMix) + dL * dMix;
+            R = R * (1.f - dMix) + dR * dMix;
+        }
+
+        // Reverb (wet signal only — blended below)
+        float revL = L, revR = R;
+        if (reverbOn)
+        {
+            // processStereo expects arrays; process single sample via mono trick
+            float tmpL = L, tmpR = R;
+            reverbL.processStereo (&tmpL, &tmpR, 1);
+            const float revMix = smReverbMix.getNextValue();
+            revL = L * (1.f - revMix) + tmpL * revMix;
+            revR = R * (1.f - revMix) + tmpR * revMix;
+            smSize.getNextValue(); // keep smoother advancing
+        }
+        else
+        {
+            revL = L; revR = R;
+            smReverbMix.getNextValue();
+            smSize.getNextValue();
+        }
+
+        // Master wet/dry blend
+        const float wet  = smMix.getNextValue();
+        const float outL = dryL * (1.f - wet) + revL * wet;
+        const float outR = dryR * (1.f - wet) + revR * wet;
+
+        // Output gain + hard limiter (same as Juice Gang)
+        const float outGain = smOutput.getNextValue();
+        dataL[n] = juce::jlimit (-1.f, 1.f, outL * outGain);
+        dataR[n] = juce::jlimit (-1.f, 1.f, outR * outGain);
+
+        peakOutL = std::max (peakOutL, std::abs (dataL[n]));
+        peakOutR = std::max (peakOutR, std::abs (dataR[n]));
     }
 
-    // Output gain
-    for (int ch = 0; ch < nCh; ++ch)
-        juce::FloatVectorOperations::multiply (buf.getWritePointer (ch), outGain, N);
-
-    // NaN/inf safety net — catch any remaining blowup before it silences the output
-    for (int ch = 0; ch < nCh; ++ch) {
-        auto* data = buf.getWritePointer (ch);
-        for (int i = 0; i < N; ++i)
-            if (!std::isfinite (data[i])) data[i] = 0.f;
-    }
-
-    peakL.store (buf.getMagnitude (0, 0, N));
-    if (nCh > 1) peakR.store (buf.getMagnitude (1, 0, N));
+    peakL.store (peakOutL);
+    peakR.store (peakOutR);
 }
 
 juce::AudioProcessorEditor* NovaMotionFXProcessor::createEditor()
