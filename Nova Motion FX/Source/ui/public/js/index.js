@@ -1,6 +1,9 @@
 "use strict";
 
 // ── JUCE bridge ──────────────────────────────────────────────────────────────
+// window.__JUCE__ is injected asynchronously by JUCE after page load.
+// Poll until it's ready, then wire everything up.
+
 function juceEmit(paramId, eventType, value) {
   try {
     const b = window.__JUCE__ && window.__JUCE__.backend;
@@ -13,7 +16,6 @@ function juceEmit(paramId, eventType, value) {
 function sendToJuce(param, value) { juceEmit(param, "valueChanged", value); }
 function beginGesture(param)      { juceEmit(param, "sliderDragStarted"); }
 function endGesture(param)        { juceEmit(param, "sliderDragEnded"); }
-function requestInitialUpdates()  { for (const p of Object.keys(params)) juceEmit(p, "requestInitialUpdate"); }
 
 function subscribeJuceParams() {
   try {
@@ -30,7 +32,18 @@ function subscribeJuceParams() {
         } catch (_) {}
       });
     }
+    // Request current values from host
+    for (const p of Object.keys(params)) juceEmit(p, "requestInitialUpdate");
   } catch (_) {}
+}
+
+// Poll for JUCE becoming available (injected after page load)
+function waitForJuce() {
+  if (window.__JUCE__ && window.__JUCE__.backend) {
+    subscribeJuceParams();
+  } else {
+    setTimeout(waitForJuce, 80);
+  }
 }
 
 // Meter update called from C++ timer at 30 Hz
@@ -360,26 +373,32 @@ function animateMeterSim() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", () => {
 
-  // Energy ring canvas
+  // Energy ring canvas (lives in #hero, position:absolute)
   energyCanvas = document.getElementById("energy-canvas");
   if (energyCanvas) energyCtx = energyCanvas.getContext("2d");
 
-  // Aurora canvas — size to element
+  // Aurora canvas — fill the aurora-section div
   const auroraEl = document.getElementById("aurora-canvas");
   if (auroraEl) {
     auroraCanvas = auroraEl;
-    const section = auroraEl.parentElement;
-    auroraCanvas.width  = section.offsetWidth  || 960;
-    auroraCanvas.height = section.offsetHeight || 72;
+    auroraCanvas.width  = 960;
+    auroraCanvas.height = 72;
     auroraCtx = auroraCanvas.getContext("2d");
+    // Also update after layout settles
+    setTimeout(() => {
+      const s = document.getElementById("aurora-section");
+      if (s && s.clientWidth > 0) {
+        auroraCanvas.width  = s.clientWidth;
+        auroraCanvas.height = s.clientHeight || 72;
+      }
+    }, 200);
   }
 
   // LFO canvas
   const lfoEl = document.getElementById("lfo-canvas");
   if (lfoEl) {
     lfoCanvas = lfoEl;
-    const p = lfoEl.parentElement;
-    lfoCanvas.width  = p ? (p.offsetWidth  - 110) : 200;
+    lfoCanvas.width  = 240;
     lfoCanvas.height = 54;
     lfoCtx = lfoCanvas.getContext("2d");
   }
@@ -430,7 +449,6 @@ window.addEventListener("DOMContentLoaded", () => {
   drawLFO();
   animateMeterSim();
 
-  // Connect to JUCE
-  subscribeJuceParams();
-  requestInitialUpdates();
+  // Connect to JUCE (polls until window.__JUCE__ is injected by native layer)
+  waitForJuce();
 });

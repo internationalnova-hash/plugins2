@@ -72,8 +72,11 @@ html,body{width:960px;height:620px;overflow:hidden;background:var(--bg);color:va
 }
 .hero-knob-wrap{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center}
 #energy-canvas{
-  position:absolute;top:50%;left:50%;transform:translate(-50%,-53%);
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
   pointer-events:none;z-index:0;
+  margin-top:-8px;
 }
 .motion-value{
   font-size:13px;font-weight:300;letter-spacing:0.06em;
@@ -260,8 +263,9 @@ html,body{width:960px;height:620px;overflow:hidden;background:var(--bg);color:va
     <div class="hero-line"></div>
   </div>
 
+  <canvas id="energy-canvas" width="220" height="220"></canvas>
+
   <div class="hero-knob-wrap">
-    <canvas id="energy-canvas" width="220" height="220"></canvas>
     <!-- motion knob: r=70, circ=439.82, full270=329.87 -->
     <div class="knob" data-param="motion" data-default="0.5">
       <div class="knob-shell motion-shell">
@@ -565,8 +569,6 @@ html,body{width:960px;height:620px;overflow:hidden;background:var(--bg);color:va
 </div>
 
 </div><!-- /#root -->
-<script src="js/juce/check_native_interop.js"></script>
-<script src="js/juce/index.js"></script>
-<script src="js/index.js?v=20260711-5"></script>
+<script src="js/index.js?v=20260711-6"></script>
 </body>
 </html>
