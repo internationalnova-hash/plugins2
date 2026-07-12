@@ -15,19 +15,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaMotionFXProcessor::creat
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
     layout.add (std::make_unique<juce::AudioParameterFloat> ("motion",     "Motion",     0.f, 1.f, 0.5f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("cutoff",     "Cutoff",     20.f, 20000.f, 2450.f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("cutoff",     "Cutoff",     20.f, 20000.f, 20000.f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("resonance",  "Resonance",  0.1f, 20.f, 0.707f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("drive",      "Drive",      0.f, 1.f, 0.22f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("feedback",   "Feedback",   0.f, 0.95f, 0.35f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("delay_mix",  "Delay Mix",  0.f, 1.f, 0.4f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("drive",      "Drive",      0.f, 1.f, 0.f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("feedback",   "Feedback",   0.f, 0.95f, 0.f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("delay_mix",  "Delay Mix",  0.f, 1.f, 0.f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("size",       "Size",       0.f, 1.f, 0.6f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("decay",      "Decay",      0.1f, 10.f, 2.85f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("reverb_mix", "Reverb Mix", 0.f, 1.f, 0.35f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("reverb_mix", "Reverb Mix", 0.f, 1.f, 0.f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("lfo_rate",   "LFO Rate",   0.01f, 8.f, 0.25f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("lfo_depth",  "LFO Depth",  0.f, 1.f, 0.75f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("input",      "Input",      -24.f, 12.f, 0.f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("output",     "Output",     -24.f, 12.f, 0.f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("mix",        "Mix",        0.f, 1.f, 1.f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("bypass",     "Bypass",     0.f, 1.f, 0.f));
 
     return layout;
 }
@@ -48,13 +49,13 @@ void NovaMotionFXProcessor::prepareToPlay (double sr, int block)
     reverbL.reset(); reverbR.reset();
 
     auto init = [&](juce::SmoothedValue<float>& sv, float v) { sv.reset (sr, 0.02); sv.setCurrentAndTargetValue (v); };
-    init (smCutoff,    2450.f);
+    init (smCutoff,    20000.f);
     init (smResonance, 0.707f);
-    init (smDrive,     0.22f);
-    init (smFeedback,  0.35f);
-    init (smDelayMix,  0.4f);
+    init (smDrive,     0.f);
+    init (smFeedback,  0.f);
+    init (smDelayMix,  0.f);
     init (smSize,      0.6f);
-    init (smReverbMix, 0.35f);
+    init (smReverbMix, 0.f);
     init (smInput,     1.f);
     init (smOutput,    1.f);
     init (smMix,       1.f);
@@ -68,6 +69,9 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
 {
     juce::ScopedNoDenormals noDenormals;
     const int N = buf.getNumSamples();
+
+    // Bypass: pass audio through unmodified
+    if (*apvts.getRawParameterValue ("bypass") > 0.5f) return;
 
     // Update targets
     smCutoff   .setTargetValue (*apvts.getRawParameterValue ("cutoff"));

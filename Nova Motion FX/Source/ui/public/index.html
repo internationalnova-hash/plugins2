@@ -54,7 +54,9 @@ html,body{width:960px;height:620px;overflow:hidden;background:var(--bg);color:va
   width:26px;height:26px;display:flex;align-items:center;justify-content:center;
   font-size:13px;cursor:pointer;color:var(--purple);
   box-shadow:0 0 10px rgba(142,91,255,0.35);border-color:var(--purple);
+  transition:color 0.2s,border-color 0.2s,box-shadow 0.2s;
 }
+.power-btn.off{color:rgba(150,130,180,0.35);border-color:rgba(150,130,180,0.25);box-shadow:none;}
 
 /* ── HERO ── */
 #hero{
@@ -580,7 +582,8 @@ function sendToJuce(param,value){juceEmit(param,"valueChanged",value);}
 function beginGesture(param){juceEmit(param,"sliderDragStarted");}
 function endGesture(param){juceEmit(param,"sliderDragEnded");}
 
-var params={motion:50,cutoff:60,resonance:30,drive:20,feedback:40,delay_mix:50,size:45,decay:55,reverb_mix:35,lfo_rate:35,lfo_depth:60,input:75,output:80,mix:100};
+var params={motion:50,cutoff:100,resonance:30,drive:0,feedback:0,delay_mix:0,size:45,decay:55,reverb_mix:0,lfo_rate:35,lfo_depth:60,input:75,output:80,mix:100};
+var bypassOn=false;
 
 var PRESETS=[
   {name:"CITRUS SPLASH",motion:50,cutoff:60,resonance:30,drive:20,feedback:40,delay_mix:50,size:45,decay:55,reverb_mix:35},
@@ -769,13 +772,22 @@ function animateMeterSim(){
 
 window.updateMeters=function(l,r){juceMetersActive=true;audioLevel=Math.max(l,r);var elL=document.getElementById("meter-l"),elR=document.getElementById("meter-r");if(elL)elL.style.height=Math.min(100,l*100)+"%";if(elR)elR.style.height=Math.min(100,r*100)+"%";};
 
+function setPowerState(on){
+  bypassOn=!on;
+  var btn=document.getElementById("power-btn");
+  if(btn){btn.classList.toggle("on",on);btn.classList.toggle("off",!on);}
+  sendToJuce("bypass",bypassOn?1:0);
+}
+
 function subscribeJuceParams(){
   try{
     var b=window.__JUCE__&&window.__JUCE__.backend;if(!b)return;
     Object.keys(params).forEach(function(p){
       b.addEventListener("__juce__slider"+p,function(evt){try{var d=JSON.parse(evt.data);if(d.sliderValue!==undefined){params[p]=d.sliderValue*100;updateKnobDisplay(p,params[p]);}}catch(e){}});
     });
+    b.addEventListener("__juce__sliderbypass",function(evt){try{var d=JSON.parse(evt.data);if(d.sliderValue!==undefined){var bp=d.sliderValue>0.5;bypassOn=bp;var btn=document.getElementById("power-btn");if(btn){btn.classList.toggle("on",!bp);btn.classList.toggle("off",bp);}}}catch(e){}});
     Object.keys(params).forEach(function(p){juceEmit(p,"requestInitialUpdate");});
+    juceEmit("bypass","requestInitialUpdate");
   }catch(e){}
 }
 function waitForJuce(){if(window.__JUCE__&&window.__JUCE__.backend){subscribeJuceParams();}else{setTimeout(waitForJuce,80);}}
@@ -795,6 +807,9 @@ function bootUI(){
   if(lfoEl){lfoCanvas=lfoEl;lfoCanvas.width=240;lfoCanvas.height=54;lfoCtx=lfoCanvas.getContext("2d");}
 
   document.querySelectorAll(".knob,.mini-knob").forEach(setupKnob);
+
+  var powerBtn=document.getElementById("power-btn");
+  if(powerBtn){powerBtn.addEventListener("click",function(){setPowerState(bypassOn);});}
 
   var prev=document.getElementById("prev-preset"),next=document.getElementById("next-preset");
   if(prev)prev.addEventListener("click",function(){presetIndex=(presetIndex-1+PRESETS.length)%PRESETS.length;applyPreset(PRESETS[presetIndex]);});

@@ -33,6 +33,7 @@ private:
     juce::WebSliderRelay inputRelay     { "input" };
     juce::WebSliderRelay outputRelay    { "output" };
     juce::WebSliderRelay mixRelay       { "mix" };
+    juce::WebSliderRelay bypassRelay    { "bypass" };
 
     struct SinglePageBrowser : juce::WebBrowserComponent
     {
@@ -60,6 +61,7 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> inputAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> outputAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> mixAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> bypassAttachment;
 
     std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
     static juce::WebBrowserComponent::Options createWebOptions (NovaMotionFXEditor& editor);

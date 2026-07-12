@@ -23,6 +23,7 @@ NovaMotionFXEditor::NovaMotionFXEditor (NovaMotionFXProcessor& p)
     inputAttachment     = std::make_unique<juce::WebSliderParameterAttachment> (*apvts.getParameter ("input"),      inputRelay,     nullptr);
     outputAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*apvts.getParameter ("output"),     outputRelay,    nullptr);
     mixAttachment       = std::make_unique<juce::WebSliderParameterAttachment> (*apvts.getParameter ("mix"),        mixRelay,       nullptr);
+    bypassAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*apvts.getParameter ("bypass"),     bypassRelay,    nullptr);
 
     addAndMakeVisible (*webView);
 
@@ -91,7 +92,8 @@ juce::WebBrowserComponent::Options NovaMotionFXEditor::createWebOptions (NovaMot
                      .withOptionsFrom (editor.lfoDepthRelay)
                      .withOptionsFrom (editor.inputRelay)
                      .withOptionsFrom (editor.outputRelay)
-                     .withOptionsFrom (editor.mixRelay);
+                     .withOptionsFrom (editor.mixRelay)
+                     .withOptionsFrom (editor.bypassRelay);
 
     return options;
 }
