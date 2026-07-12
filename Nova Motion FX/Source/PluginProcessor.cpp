@@ -90,17 +90,17 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
     const bool  reverbActive  = reverbMix > 0.001f;
     const bool  anyDsp        = filterActive || delayActive || reverbActive;
 
-    // Fast passthrough: no DSP, no dry buffer needed
+    // Fast passthrough when no DSP active — identical to confirmed-working pure passthrough
     if (!anyDsp)
     {
-        filterL.reset(); filterR.reset();
-        delayLineL.reset(); delayLineR.reset();
-        reverbL.reset();
+        // Only reset DSP state on the block where we transition from active → inactive
+        if (prevFilterActive) { filterL.reset(); filterR.reset(); }
+        if (prevDelayActive)  { delayLineL.reset(); delayLineR.reset(); }
+        if (prevReverbActive) { reverbL.reset(); }
+        prevFilterActive = prevDelayActive = prevReverbActive = false;
 
-        const float gain = inGain * outGain * wetMix + inGain * outGain * (1.f - wetMix);
         for (int ch = 0; ch < nCh; ++ch)
             juce::FloatVectorOperations::multiply (buf.getWritePointer (ch), inGain * outGain, N);
-
         peakL.store (buf.getMagnitude (0, 0, N));
         if (nCh > 1) peakR.store (buf.getMagnitude (1, 0, N));
         return;
@@ -124,14 +124,13 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
         for (int i = 0; i < N; ++i) {
             L[i] = filterL.processSample (0, L[i]);
             R[i] = filterR.processSample (0, R[i]);
-            // Reset filter if it blew up rather than letting NaN propagate
             if (!std::isfinite (L[i]) || !std::isfinite (R[i])) {
                 filterL.reset(); filterR.reset();
                 L[i] = R[i] = 0.f;
             }
         }
     }
-    else { filterL.reset(); filterR.reset(); }
+    else if (prevFilterActive) { filterL.reset(); filterR.reset(); }
 
     // Delay
     if (delayActive)
@@ -149,7 +148,7 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
             R[i] = R[i] * (1.f - delayMix) + dR * delayMix;
         }
     }
-    else { delayLineL.reset(); delayLineR.reset(); }
+    else if (prevDelayActive) { delayLineL.reset(); delayLineR.reset(); }
 
     // Reverb
     if (reverbActive)
@@ -166,7 +165,11 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
         else
             reverbL.processMono (buf.getWritePointer(0), N);
     }
-    else { reverbL.reset(); }
+    else if (prevReverbActive) { reverbL.reset(); }
+
+    prevFilterActive = filterActive;
+    prevDelayActive  = delayActive;
+    prevReverbActive = reverbActive;
 
     // Wet/dry blend
     if (wetMix < 0.999f)

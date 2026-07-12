@@ -55,5 +55,10 @@ private:
 
     juce::AudioBuffer<float> dryBuf;
 
+    // Track active state so we only reset DSP on transition, not every block
+    bool prevFilterActive { false };
+    bool prevDelayActive  { false };
+    bool prevReverbActive { false };
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaMotionFXProcessor)
 };
