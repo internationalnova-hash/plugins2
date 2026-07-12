@@ -73,6 +73,19 @@ void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::M
     // Bypass: pass audio through unmodified
     if (*apvts.getRawParameterValue ("bypass") > 0.5f) return;
 
+    // Pure passthrough — apply input+output gain and update meters, nothing else
+    // DSP stages (filter/delay/reverb) are disabled until passthrough is confirmed stable
+    {
+        const float inGain  = juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("input")->load());
+        const float outGain = juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("output")->load());
+        const float gain    = inGain * outGain;
+        for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+            juce::FloatVectorOperations::multiply (buf.getWritePointer (ch), gain, N);
+        peakL.store (buf.getMagnitude (0, 0, N));
+        if (buf.getNumChannels() > 1) peakR.store (buf.getMagnitude (1, 0, N));
+        return;
+    }
+
     // Update targets
     smCutoff   .setTargetValue (*apvts.getRawParameterValue ("cutoff"));
     smResonance.setTargetValue (*apvts.getRawParameterValue ("resonance"));
