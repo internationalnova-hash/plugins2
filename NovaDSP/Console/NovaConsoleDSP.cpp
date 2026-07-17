@@ -8,6 +8,11 @@ namespace
     {
         return juce::Decibels::decibelsToGain (db);
     }
+
+    float gainToDb (float gain) noexcept
+    {
+        return juce::Decibels::gainToDecibels (juce::jmax (gain, 1.0e-6f));
+    }
 }
 
 // ── Static profile helpers ────────────────────────────────────────────────────
@@ -93,6 +98,20 @@ NovaConsoleDSP::ModeProfile NovaConsoleDSP::blendProfiles (const ModeProfile& a,
     return p;
 }
 
+// ── Preamp static helpers ─────────────────────────────────────────────────────
+
+float NovaConsoleDSP::saturateSmooth (float x) noexcept
+{
+    return std::tanh (x);
+}
+
+float NovaConsoleDSP::applyColorTilt (float sample, float color) noexcept
+{
+    const float dark   = juce::jmap (color, 0.0f, 1.0f, 1.08f, 0.96f);
+    const float bright = juce::jmap (color, 0.0f, 1.0f, 0.94f, 1.08f);
+    return sample * (0.65f * dark + 0.35f * bright);
+}
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 void NovaConsoleDSP::prepare (const juce::dsp::ProcessSpec& spec,
@@ -155,6 +174,19 @@ void NovaConsoleDSP::prepare (const juce::dsp::ProcessSpec& spec,
     airFreqSmoothed.reset     (sr, 0.050);
     airQSmoothed.reset        (sr, 0.015);
 
+    driveSmoothed.reset (sr, 0.030);
+    colorSmoothed.reset (sr, 0.030);
+    trimSmoothed.reset  (sr, 0.030);
+
+    inputSmoothed.reset  (sr, 0.030);
+    outputSmoothed.reset (sr, 0.030);
+
+    gateThresholdSmoothed.reset (sr, 0.045);
+    gateReleaseSmoothed.reset   (sr, 0.045);
+    gateRangeSmoothed.reset     (sr, 0.045);
+    gateAttackSmoothed.reset    (sr, 0.030);
+    gateHoldSmoothed.reset      (sr, 0.030);
+
     // ── Seed smoothers with initial parameter values ───────────────────────────
     // (NovaDSP v1.0.0 contract: prepare(spec, initial) eliminates first-block
     // ramp-from-zero artefact that existed in the original prepareToPlay.)
@@ -176,6 +208,19 @@ void NovaConsoleDSP::prepare (const juce::dsp::ProcessSpec& spec,
     airFreqSmoothed.setCurrentAndTargetValue     (initial.airFreqHz);
     airQSmoothed.setCurrentAndTargetValue        (initial.airQ);
 
+    driveSmoothed.setCurrentAndTargetValue (initial.drive / 100.0f);
+    colorSmoothed.setCurrentAndTargetValue (initial.color / 100.0f);
+    trimSmoothed.setCurrentAndTargetValue  (dbToGain (initial.trimDb));
+
+    inputSmoothed.setCurrentAndTargetValue  (dbToGain (initial.inputDb));
+    outputSmoothed.setCurrentAndTargetValue (dbToGain (initial.outputDb));
+
+    gateThresholdSmoothed.setCurrentAndTargetValue (initial.gateThreshDb);
+    gateReleaseSmoothed.setCurrentAndTargetValue   (initial.gateReleaseMs);
+    gateRangeSmoothed.setCurrentAndTargetValue     (initial.gateRangeDb);
+    gateAttackSmoothed.setCurrentAndTargetValue    (initial.gateAttackMs);
+    gateHoldSmoothed.setCurrentAndTargetValue      (initial.gateHoldMs);
+
     // ── Mode morph ────────────────────────────────────────────────────────────
     const int rawMode = juce::jlimit (0, 4, initial.mode);
     modeFrom = static_cast<ConsoleMode> (rawMode);
@@ -194,6 +239,14 @@ void NovaConsoleDSP::prepare (const juce::dsp::ProcessSpec& spec,
     lastHpfSlope = -1; lastLpfSlope = -1;
     lastLowMode = -1; lastHighMode = -1; lastAirMode = -1;
 
+    // ── Reset runtime state ───────────────────────────────────────────────────
+    preampPrevInput     = { 0.0f, 0.0f };
+    gateEnv             = { 1.0f, 1.0f };
+    gateHoldCounter     = { 0, 0 };
+    gatePreviousEnv     = { 0.0f, 0.0f };
+    gateDetectorHpfState = {};
+    gateDetectorLpfState = {};
+
     updateLinearStageCoefficients();
 }
 
@@ -207,6 +260,13 @@ void NovaConsoleDSP::reset() noexcept
         lowShelf[ch].reset();  lowMidPeak[ch].reset();
         highMidPeak[ch].reset(); highShelf[ch].reset(); airShelf[ch].reset();
     }
+
+    preampPrevInput      = { 0.0f, 0.0f };
+    gateEnv              = { 1.0f, 1.0f };
+    gateHoldCounter      = { 0, 0 };
+    gatePreviousEnv      = { 0.0f, 0.0f };
+    gateDetectorHpfState = {};
+    gateDetectorLpfState = {};
 }
 
 void NovaConsoleDSP::setParameters (const NovaConsoleParameters& p) noexcept
@@ -217,7 +277,7 @@ void NovaConsoleDSP::setParameters (const NovaConsoleParameters& p) noexcept
 // ── Process ───────────────────────────────────────────────────────────────────
 
 void NovaConsoleDSP::process (juce::AudioBuffer<float>& buffer,
-                               const juce::AudioBuffer<float>* /*sidechain*/) noexcept
+                               const juce::AudioBuffer<float>* sidechain) noexcept
 {
     if (buffer.getNumSamples() == 0)
         return;
@@ -234,9 +294,9 @@ void NovaConsoleDSP::process (juce::AudioBuffer<float>& buffer,
         modeMorph.setTargetValue (1.0f);
     }
 
-    const ModeProfile fromProfile  = profileForMode (modeFrom);
-    const ModeProfile toProfile    = profileForMode (modeTo);
-    const float       morphNow     = modeMorph.skip (buffer.getNumSamples());
+    const ModeProfile fromProfile   = profileForMode (modeFrom);
+    const ModeProfile toProfile     = profileForMode (modeTo);
+    const float       morphNow      = modeMorph.skip (buffer.getNumSamples());
     const ModeProfile activeProfile = blendProfiles (fromProfile, toProfile, morphNow);
 
     if (!modeMorph.isSmoothing())
@@ -244,11 +304,53 @@ void NovaConsoleDSP::process (juce::AudioBuffer<float>& buffer,
 
     updateLinearStageCoefficients();
 
+    // osFactor — verbatim from processBlock()
+    int osFactor = (params.oversampling == 2 ? 4 : (params.oversampling == 1 ? 2 : 1));
+    if (params.quality == 0)
+        osFactor = 1;
+
+    // Sidechain routing
+    const bool detectorSidechainEnabled = params.sidechainMode > 0;
+    const bool sidechainExtRequested    = params.sidechainMode == 2;
+    const bool sidechainExtActive = sidechainExtRequested
+                                 && sidechain != nullptr
+                                 && sidechain->getNumChannels() > 0;
+    const juce::AudioBuffer<float>* detectorBuffer = sidechainExtActive ? sidechain : nullptr;
+
+    // Input gain — per-sample smoother, verbatim from processBlock()
+    inputSmoothed.setTargetValue (dbToGain (params.inputDb));
+    const int channels = juce::jmin (2, buffer.getNumChannels());
+    for (int ch = 0; ch < channels; ++ch)
+    {
+        auto* data = buffer.getWritePointer (ch);
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+            data[i] *= inputSmoothed.getNextValue();
+    }
+
+    if (params.preampOn)
+        processPreamp (buffer, activeProfile, osFactor);
+
     if (params.filterOn)
         processFilters (buffer);
 
     if (params.eqOn)
         processEq (buffer, activeProfile);
+
+    if (params.gateOn)
+        processGate (buffer, detectorBuffer, detectorSidechainEnabled, sidechainExtActive);
+
+    // modeTrim + clip + output gain — verbatim from processBlock()
+    const float modeTrim = activeProfile.outputTrim;
+    outputSmoothed.setTargetValue (dbToGain (params.outputDb));
+    for (int ch = 0; ch < channels; ++ch)
+    {
+        auto* data = buffer.getWritePointer (ch);
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+        {
+            data[i] = juce::jlimit (-1.35f, 1.35f, data[i] * modeTrim);
+            data[i] *= outputSmoothed.getNextValue();
+        }
+    }
 }
 
 // ── Private DSP helpers ───────────────────────────────────────────────────────
@@ -439,6 +541,207 @@ void NovaConsoleDSP::processEq (juce::AudioBuffer<float>& buffer,
             x = highShelf[ch].processSample   (x * width);
             x = airShelf[ch].processSample    (x * airSmooth);
             data[i] = x;
+        }
+    }
+}
+
+void NovaConsoleDSP::processPreamp (juce::AudioBuffer<float>& buffer,
+                                     const ModeProfile& profile,
+                                     int osFactor) noexcept
+{
+    const float driveNorm = params.drive / 100.0f;
+    const float colorNorm = params.color / 100.0f;
+    const float trimDb    = params.trimDb;
+
+    const float warmth   = profile.warmth;
+    const float osRelief = juce::jmap (static_cast<float> (osFactor), 1.0f, 4.0f, 0.0f, 0.16f);
+
+    driveSmoothed.setTargetValue (driveNorm);
+    colorSmoothed.setTargetValue (colorNorm);
+    trimSmoothed.setTargetValue  (dbToGain (trimDb));
+
+    const int channels = juce::jmin (2, buffer.getNumChannels());
+    for (int ch = 0; ch < channels; ++ch)
+    {
+        auto* channelData = buffer.getWritePointer (ch);
+        float previousIn = preampPrevInput[static_cast<size_t> (ch)];
+
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+        {
+            const float driveNow = driveSmoothed.getNextValue();
+            const float colorNow = colorSmoothed.getNextValue();
+            const float trimNow  = trimSmoothed.getNextValue();
+
+            const float stageGain  = 1.0f + driveNow * (3.2f + 1.2f * warmth - osRelief);
+            const float asym       = 0.025f + 0.08f * driveNow + 0.05f * profile.oddDrive;
+            const float clipDrive  = juce::jlimit (0.85f, 1.2f, 1.0f / profile.clipSoftness);
+            const float oddW       = 0.55f + 0.45f * profile.oddDrive;
+            const float evenW      = 0.35f + 0.55f * profile.evenDrive;
+            const float satNorm    = 1.0f / juce::jmax (0.35f, oddW + evenW);
+
+            const float input = channelData[i] * stageGain;
+            float x = 0.0f;
+
+            for (int os = 0; os < osFactor; ++os)
+            {
+                const float t      = static_cast<float> (os + 1) / static_cast<float> (osFactor);
+                const float interp = previousIn + (input - previousIn) * t;
+                const float oddSat = saturateSmooth ((interp + asym) * clipDrive)
+                                   - saturateSmooth (asym * clipDrive);
+                const float evenSat = 0.5f * (saturateSmooth ((interp + asym) * 0.92f * clipDrive)
+                                            + saturateSmooth ((interp - asym) * 0.92f * clipDrive));
+                const float mixedSat = (oddSat * oddW + evenSat * evenW) * satNorm;
+                x += mixedSat;
+            }
+
+            x /= static_cast<float> (osFactor);
+            x = applyColorTilt (x, colorNow);
+            x = x * (0.985f + 0.03f * profile.transientRetention);
+            x = x * trimNow;
+            channelData[i] = juce::jlimit (-1.2f, 1.2f, x);
+            previousIn = input;
+        }
+
+        preampPrevInput[static_cast<size_t> (ch)] = previousIn;
+    }
+}
+
+void NovaConsoleDSP::processGate (juce::AudioBuffer<float>& buffer,
+                                   const juce::AudioBuffer<float>* detectorBuffer,
+                                   bool detectorSidechainEnabled,
+                                   bool useExternalDetector) noexcept
+{
+    gateThresholdSmoothed.setTargetValue (params.gateThreshDb);
+    gateReleaseSmoothed.setTargetValue   (params.gateReleaseMs);
+    gateRangeSmoothed.setTargetValue     (params.gateRangeDb);
+    gateAttackSmoothed.setTargetValue    (params.gateAttackMs);
+    gateHoldSmoothed.setTargetValue      (params.gateHoldMs);
+
+    const bool  expandMode = params.gateSmooth;
+    const float sr = static_cast<float> (currentSampleRate);
+    const auto  mode = static_cast<ConsoleMode> (juce::jlimit (0, 4, params.mode));
+
+    float modeExpandSoftness = 1.0f, modeGateTightness = 1.0f;
+    switch (mode)
+    {
+        case ConsoleMode::clean:    modeExpandSoftness = 1.12f; modeGateTightness = 0.92f; break;
+        case ConsoleMode::british:  modeExpandSoftness = 0.96f; modeGateTightness = 1.10f; break;
+        case ConsoleMode::tubeTape: modeExpandSoftness = 1.20f; modeGateTightness = 0.88f; break;
+        case ConsoleMode::gold:     modeExpandSoftness = 1.15f; modeGateTightness = 0.95f; break;
+        case ConsoleMode::modern:   modeExpandSoftness = 1.04f; modeGateTightness = 1.02f; break;
+    }
+
+    const bool externalAvailable = useExternalDetector
+                                 && detectorBuffer != nullptr
+                                 && detectorBuffer->getNumChannels() > 0;
+    const auto* detLeft  = externalAvailable ? detectorBuffer->getReadPointer (0) : nullptr;
+    const auto* detRight = externalAvailable
+        ? detectorBuffer->getReadPointer (detectorBuffer->getNumChannels() > 1 ? 1 : 0)
+        : nullptr;
+
+    const int hpfStages = params.hpfSlope == 0 ? 1 : (params.hpfSlope == 1 ? 2 : 4);
+    const int lpfStages = params.lpfSlope == 0 ? 1 : (params.lpfSlope == 1 ? 2 : 4);
+    const float detectorHpfCoeff = juce::jlimit (0.0001f, 0.999f,
+        1.0f - std::exp (-juce::MathConstants<float>::twoPi * params.hpfHz / sr));
+    const float detectorLpfCoeff = juce::jlimit (0.0001f, 0.999f,
+        1.0f - std::exp (-juce::MathConstants<float>::twoPi * params.lpfHz / sr));
+
+    const int channels = juce::jmin (2, buffer.getNumChannels());
+    for (int ch = 0; ch < channels; ++ch)
+    {
+        auto* data = buffer.getWritePointer (ch);
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+        {
+            const float thresholdDb = gateThresholdSmoothed.getNextValue();
+            const float releaseMs   = gateReleaseSmoothed.getNextValue();
+            const float rangeDb     = gateRangeSmoothed.getNextValue();
+            const float attackMs    = gateAttackSmoothed.getNextValue();
+            const float holdMs      = gateHoldSmoothed.getNextValue();
+
+            const float maxAttenDb   = juce::jmax (3.0f, -rangeDb);
+            const float userAttackMs = juce::jmax (0.1f, attackMs);
+            const float userReleaseMs= juce::jmax (8.0f, releaseMs);
+
+            const float effAttackMs = expandMode
+                ? userAttackMs  * (1.35f * modeExpandSoftness)
+                : userAttackMs  * (0.68f / juce::jmax (0.75f, modeGateTightness));
+            const float effReleaseMs = expandMode
+                ? userReleaseMs * (1.45f * modeExpandSoftness)
+                : userReleaseMs * (0.72f / juce::jmax (0.75f, modeGateTightness));
+
+            const float releaseCoeff  = std::exp (-1.0f / (0.001f * effReleaseMs * sr));
+            const float attackCoeff   = std::exp (-1.0f / (0.001f * effAttackMs * sr));
+            const int32_t holdSamples = static_cast<int32_t> ((holdMs * sr) / 1000.0f);
+            const float hysteresisDb  = expandMode
+                ? (4.2f * modeExpandSoftness)
+                : (2.0f / juce::jmax (0.75f, modeGateTightness));
+
+            const float x = data[i];
+            float detectorSample = x;
+
+            if (detectorSidechainEnabled)
+            {
+                if (externalAvailable)
+                    detectorSample = 0.5f * (detLeft[i] + detRight[i]);
+                for (int stage = 0; stage < hpfStages; ++stage)
+                {
+                    auto& hpState = gateDetectorHpfState[static_cast<size_t> (stage)]
+                                                        [static_cast<size_t> (ch)];
+                    hpState += detectorHpfCoeff * (detectorSample - hpState);
+                    detectorSample -= hpState;
+                }
+                for (int stage = 0; stage < lpfStages; ++stage)
+                {
+                    auto& lpState = gateDetectorLpfState[static_cast<size_t> (stage)]
+                                                        [static_cast<size_t> (ch)];
+                    lpState += detectorLpfCoeff * (detectorSample - lpState);
+                    detectorSample = lpState;
+                }
+            }
+
+            const float level   = std::abs (detectorSample);
+            const float levelDb = gainToDb (level);
+
+            const bool aboveOpenThreshold  = levelDb > (thresholdDb + hysteresisDb);
+            const bool belowCloseThreshold = levelDb < (thresholdDb - hysteresisDb);
+
+            float target = 1.0f;
+            if (expandMode)
+            {
+                const float ratio       = juce::jlimit (2.0f, 6.0f, 2.0f + (maxAttenDb - 3.0f) * (4.0f / 33.0f));
+                const float kneeDb      = 8.0f * modeExpandSoftness;
+                const float belowDb     = juce::jmax (0.0f, thresholdDb - levelDb);
+                const float expansionDb = -juce::jmin (maxAttenDb, belowDb * (1.0f - 1.0f / ratio));
+                const float blend       = juce::jlimit (0.0f, 1.0f, belowDb / juce::jmax (1.0f, kneeDb));
+                const float blendShaped = blend * blend * (3.0f - 2.0f * blend);
+                target = dbToGain (expansionDb * blendShaped);
+            }
+            else
+            {
+                const float kneeDb      = 2.0f / juce::jmax (0.75f, modeGateTightness);
+                const float closeSpanDb = juce::jmax (4.0f, 10.0f / juce::jmax (0.75f, modeGateTightness));
+                const float close       = juce::jlimit (0.0f, 1.0f, (thresholdDb - levelDb + kneeDb) / closeSpanDb);
+                const float curve       = std::pow (close, 1.6f * modeGateTightness);
+                target = dbToGain (-juce::jmin (maxAttenDb, maxAttenDb * curve));
+            }
+
+            if (aboveOpenThreshold)
+            {
+                gateHoldCounter[static_cast<size_t> (ch)] = holdSamples;
+                target = 1.0f;
+            }
+            else if (!belowCloseThreshold || gateHoldCounter[static_cast<size_t> (ch)] > 0)
+            {
+                if (gateHoldCounter[static_cast<size_t> (ch)] > 0)
+                    gateHoldCounter[static_cast<size_t> (ch)]--;
+                target = 1.0f;
+            }
+
+            float& gateEnvRef = gateEnv[static_cast<size_t> (ch)];
+            gateEnvRef = (target > gateEnvRef)
+                ? attackCoeff  * gateEnvRef + (1.0f - attackCoeff)  * target
+                : releaseCoeff * gateEnvRef + (1.0f - releaseCoeff) * target;
+            data[i] = x * gateEnvRef;
         }
     }
 }

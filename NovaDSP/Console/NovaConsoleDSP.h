@@ -5,17 +5,17 @@
 
 #include "NovaConsoleParameters.h"
 
-// NovaConsoleDSP — shared console strip engine (Phase 4B: Filters + EQ)
+// NovaConsoleDSP — shared console strip engine (Phase 4C: + Preamp + Gate)
 //
 // Lifecycle (matches every other NovaDSP engine):
 //   prepare(spec, initial)   — allocate, reset, seed smoothers
-//   reset() noexcept         — clear filter state only (no realloc)
+//   reset() noexcept         — clear filter/DSP state only (no realloc)
 //   setParameters(p) noexcept
 //   process(main, sidechain) noexcept
 //
-// Phase 4B contains: ModeProfile blend, Filter stage, EQ stage.
-// Preamp, Gate, Compressor, MixAssist, SmartGain, AnalogEngine follow in
-// subsequent phases (4C–4I) as each is regression-validated.
+// Phase 4B: ModeProfile blend, Filter stage, EQ stage.
+// Phase 4C: Input/Output gain, Preamp stage, Gate stage.
+// Compressor, MixAssist, SmartGain, AnalogEngine follow in 4D–4G.
 //
 // TD-003  44 SmoothedValue instances are owned individually.  Future v2 may
 //         consolidate into a ConsoleSmoothers aggregate for readability.
@@ -33,7 +33,6 @@ public:
 
     void setParameters (const NovaConsoleParameters& p) noexcept;
 
-    // sidechain is unused in Phase 4B; reserved for Compressor/Gate phases.
     void process (juce::AudioBuffer<float>& buffer,
                   const juce::AudioBuffer<float>* sidechain = nullptr) noexcept;
 
@@ -66,11 +65,21 @@ private:
                                        const ModeProfile& b,
                                        float t) noexcept;
 
+    // ── Preamp helpers ────────────────────────────────────────────────────────
+    static float saturateSmooth  (float x) noexcept;
+    static float applyColorTilt  (float sample, float color) noexcept;
+
     // ── Private DSP helpers ───────────────────────────────────────────────────
     void updateLinearStageCoefficients() noexcept;
     void processFilters (juce::AudioBuffer<float>& buffer) noexcept;
     void processEq      (juce::AudioBuffer<float>& buffer,
                          const ModeProfile& profile) noexcept;
+    void processPreamp  (juce::AudioBuffer<float>& buffer,
+                         const ModeProfile& profile, int osFactor) noexcept;
+    void processGate    (juce::AudioBuffer<float>& buffer,
+                         const juce::AudioBuffer<float>* detectorBuffer,
+                         bool detectorSidechainEnabled,
+                         bool useExternalDetector) noexcept;
 
     // ── Filters ───────────────────────────────────────────────────────────────
     juce::dsp::StateVariableTPTFilter<float> hpf[2];
@@ -109,6 +118,22 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> airFreqSmoothed;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> airQSmoothed;
 
+    // ── Preamp smoothers ──────────────────────────────────────────────────────
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> driveSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> colorSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> trimSmoothed;
+
+    // ── Input / Output gain smoothers ─────────────────────────────────────────
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> inputSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputSmoothed;
+
+    // ── Gate smoothers ────────────────────────────────────────────────────────
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateThresholdSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateReleaseSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateRangeSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateAttackSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateHoldSmoothed;
+
     // ── Mode morph ────────────────────────────────────────────────────────────
     ConsoleMode modeFrom = ConsoleMode::british;
     ConsoleMode modeTo   = ConsoleMode::british;
@@ -137,6 +162,16 @@ private:
     int   lastLowMode     = -1;
     int   lastHighMode    = -1;
     int   lastAirMode     = -1;
+
+    // ── Preamp state ──────────────────────────────────────────────────────────
+    std::array<float, 2> preampPrevInput { 0.0f, 0.0f };
+
+    // ── Gate state ────────────────────────────────────────────────────────────
+    std::array<float,   2> gateEnv          { 1.0f, 1.0f };
+    std::array<int32_t, 2> gateHoldCounter  { 0, 0 };
+    std::array<float,   2> gatePreviousEnv  { 0.0f, 0.0f }; // preserved from original (never read)
+    std::array<std::array<float, 2>, 4> gateDetectorHpfState {};
+    std::array<std::array<float, 2>, 4> gateDetectorLpfState {};
 
     double currentSampleRate = 44100.0;
     NovaConsoleParameters params;

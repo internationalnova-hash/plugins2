@@ -2,7 +2,7 @@
 
 ---
 
-## [1.1.0] — 2026-07-17  *(in progress — Phase 4B only)*
+## [1.1.0] — 2026-07-17  *(in progress — Phase 4C)*
 
 ### Added
 
@@ -10,21 +10,32 @@
   Nova Console stages: global, input/output, preamp, filter, EQ, compressor,
   gate, analog engine, and intelligence controls.
 
-- `Console/NovaConsoleDSP` — Phase 4B: Filter + EQ stages extracted.
+- `Console/NovaConsoleDSP` — Phase 4C: Input/Output gain, Preamp, Gate stages added.
+  Phase 4B content: Filter + EQ stages.
   - 8 `StateVariableTPTFilter` per channel (HPF + LPF, 1/2/4 cascaded stages)
   - 5 `IIR::Filter` per channel (low shelf, low-mid, high-mid, high shelf, air)
   - 17 SmoothedValues for filter/EQ parameters (block-rate coefficient smoothing)
   - ModeProfile blend (35 ms morph SmoothedValue) included — required by EQ gain scaling
   - EQ coefficient dirty-check cache (avoids redundant IIR allocations on static params)
-  - `process(main, sidechain*)` — sidechain reserved for Compressor/Gate phases
-  - Remaining 27 SmoothedValues and all other stages added in 4C–4H
+  - Phase 4C adds: inputSmoothed, outputSmoothed (30 ms); driveSmoothed, colorSmoothed,
+    trimSmoothed (30 ms); 5 gate smoothers (30–45 ms); preampPrevInput[2] history;
+    gateEnv[2], gateHoldCounter[2], gateDetectorHpf/LpfState[4][2]
+  - `processPreamp()` — manual oversampling (1×/2×/4×), linear interpolation,
+    odd+even harmonic saturation (tanh), color tilt, transient retention
+  - `processGate()` — dual-mode (expand/hard), hysteresis, hold counter,
+    per-channel independent envelope, optional detector sidechain filter
+  - `process(main, sidechain*)` — full chain: input gain → preamp → filter → EQ →
+    gate → modeTrim + clip(±1.35) → output gain; sidechain reserved for Compressor
+  - Remaining stages (Compressor, MixAssist, SmartGain, AnalogEngine) added in 4D–4G
 
-- `Console/NovaConsoleRegressionTest` — 30 scenarios (Phase 4B).
+- `Console/NovaConsoleRegressionTest` — expanded to 80 scenarios (Phase 4C: +50).
   All deterministic (no RNG). All pass `peakAbsDiff == 0.0f`.
-  Covers: silence, impulse, sine, noise; HPF/LPF at all three slopes; EQ all
-  bands (shelf+bell, boost+cut, min/max); all five modes; mode morph transition;
-  combined filter+EQ chain; block sizes 64/128/512/1024/2048; SR 44100/48000/96000;
-  mono and stereo.
+  Phase 4C additions cover: preamp drive (min/mid/max), color (min/max), trim,
+  oversampling (1×/2×/4×), quality=0 override, all five modes × preamp, preamp+filter,
+  preamp+EQ, input/output gain, mono, SR 48000/96000; gate off/on, silence/loud/noise,
+  expand mode, hard mode, attack fast/slow, release fast/slow, hold, range
+  shallow/deep, all five modes × gate, mono, SR 48000/96000, block sizes 64/2048,
+  gate+filter chain; full chain (all stages) in two configurations.
 
 ### Technical Debt
 
@@ -32,7 +43,7 @@
   consolidated into a ConsoleSmoothers aggregate). Matches original PluginProcessor
   layout. Consolidation deferred to NovaDSP v2 after full extraction.
 
-### Behavioral Differences from Original Plugin (Phase 4B)
+### Behavioral Differences from Original Plugin (Phase 4B–4C)
 
 - **Smoother seeding on prepare:** Original `prepareToPlay()` left all filter/EQ
   smoothers at 0 after `reset(sr, time)`, causing a ramp-from-zero on the first

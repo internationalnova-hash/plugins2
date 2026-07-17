@@ -1,20 +1,23 @@
 #pragma once
 
-// Regression test — Phase 4B: Filter + EQ stages.
+// Regression test — Phase 4C: + Input/Output Gain, Preamp, Gate stages.
 //
 // Verifies NovaConsoleDSP produces sample-identical output to the original
-// Nova Console PluginProcessor algorithm for the Filter and EQ stages.
+// Nova Console PluginProcessor algorithm for all currently extracted stages.
 //
 // Usage: NovaConsoleRegressionTest::runAll();   // asserts on failure
 //
-// The OriginalState struct replicates the filter+EQ code from
+// OriginalState replicates the processBlock code from
 // Nova Console/Source/PluginProcessor.cpp verbatim.  The only substitution
 // is apvts.getRawParameterValue(id)->load() → params.field.
 //
+// Signal chain (Phase 4C, verbatim from processBlock):
+//   Input gain → [preamp_on] Preamp → [filter_on] Filters → [eq_on] EQ →
+//   [gate_on] Gate → modeTrim + clip(±1.35) → Output gain
+//
 // Both OriginalState and NovaConsoleDSP are seeded identically via
-// prepare(spec, initialParams).  Because both engines call the exact same
-// JUCE IIR coefficient functions with the same inputs, peakAbsDiff == 0.0f
-// is expected for all deterministic (non-RNG) filter/EQ scenarios.
+// prepare(spec, initialParams).  peakAbsDiff == 0.0f expected for all
+// deterministic scenarios.
 
 #include <cassert>
 #include <cmath>
@@ -38,9 +41,10 @@ public:
     };
 
     // ── Original algorithm reproduced verbatim ────────────────────────────────
-    // Extracted from Nova Console/Source/PluginProcessor.cpp at Phase 4B time.
+    // Extracted from Nova Console/Source/PluginProcessor.cpp at Phase 4C time.
     struct OriginalState
     {
+        // ── Filters ───────────────────────────────────────────────────────────
         juce::dsp::StateVariableTPTFilter<float> hpf[2];
         juce::dsp::StateVariableTPTFilter<float> lpf[2];
         juce::dsp::StateVariableTPTFilter<float> hpfStage2[2];
@@ -50,12 +54,14 @@ public:
         juce::dsp::StateVariableTPTFilter<float> lpfStage3[2];
         juce::dsp::StateVariableTPTFilter<float> lpfStage4[2];
 
+        // ── EQ ────────────────────────────────────────────────────────────────
         juce::dsp::IIR::Filter<float> lowShelf[2];
         juce::dsp::IIR::Filter<float> lowMidPeak[2];
         juce::dsp::IIR::Filter<float> highMidPeak[2];
         juce::dsp::IIR::Filter<float> highShelf[2];
         juce::dsp::IIR::Filter<float> airShelf[2];
 
+        // ── Smoothers ─────────────────────────────────────────────────────────
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> hpfSmoothed;
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lpfSmoothed;
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowSmoothed;
@@ -74,7 +80,20 @@ public:
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> airFreqSmoothed;
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> airQSmoothed;
 
-        // Mode morph
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> driveSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> colorSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> trimSmoothed;
+
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> inputSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputSmoothed;
+
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateThresholdSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateReleaseSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateRangeSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateAttackSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateHoldSmoothed;
+
+        // ── Mode morph ────────────────────────────────────────────────────────
         enum class ConsoleMode : int { clean = 0, british, tubeTape, gold, modern };
 
         struct ModeProfile
@@ -91,7 +110,7 @@ public:
         ConsoleMode modeTo   = ConsoleMode::british;
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> modeMorph;
 
-        // Dirty-check cache
+        // ── Dirty-check cache ─────────────────────────────────────────────────
         float lastHpfHz=-1.f, lastLpfHz=-1.f;
         float lastLowDb=999.f, lastLowMidDb=999.f, lastHighMidDb=999.f;
         float lastHighDb=999.f, lastAirDb=999.f;
@@ -102,11 +121,39 @@ public:
         int   lastHpfSlope=-1, lastLpfSlope=-1;
         int   lastLowMode=-1, lastHighMode=-1, lastAirMode=-1;
 
+        // ── Preamp state ──────────────────────────────────────────────────────
+        std::array<float, 2> preampPrevInput { 0.0f, 0.0f };
+
+        // ── Gate state ────────────────────────────────────────────────────────
+        std::array<float,   2> gateEnv          { 1.0f, 1.0f };
+        std::array<int32_t, 2> gateHoldCounter  { 0, 0 };
+        std::array<float,   2> gatePreviousEnv  { 0.0f, 0.0f }; // dead — preserved from original
+        std::array<std::array<float, 2>, 4> gateDetectorHpfState {};
+        std::array<std::array<float, 2>, 4> gateDetectorLpfState {};
+
         double currentSampleRate = 44100.0;
 
+        // ── Static helpers ────────────────────────────────────────────────────
         static float dbToGain (float db) noexcept
         {
             return juce::Decibels::decibelsToGain (db);
+        }
+
+        static float gainToDb (float gain) noexcept
+        {
+            return juce::Decibels::gainToDecibels (juce::jmax (gain, 1.0e-6f));
+        }
+
+        static float saturateSmooth (float x) noexcept
+        {
+            return std::tanh (x);
+        }
+
+        static float applyColorTilt (float sample, float color) noexcept
+        {
+            const float dark   = juce::jmap (color, 0.0f, 1.0f, 1.08f, 0.96f);
+            const float bright = juce::jmap (color, 0.0f, 1.0f, 0.94f, 1.08f);
+            return sample * (0.65f * dark + 0.35f * bright);
         }
 
         static ModeProfile profileForMode (ConsoleMode mode) noexcept
@@ -176,6 +223,7 @@ public:
             return p;
         }
 
+        // ── Lifecycle ─────────────────────────────────────────────────────────
         void prepare (double sampleRate, int samplesPerBlock, const NovaConsoleParameters& init)
         {
             currentSampleRate = juce::jmax (1.0, sampleRate);
@@ -184,8 +232,8 @@ public:
             for (int ch = 0; ch < 2; ++ch)
             {
                 hpf[ch].reset(); lpf[ch].reset();
-                hpf[ch].setType      (juce::dsp::StateVariableTPTFilterType::highpass);
-                lpf[ch].setType      (juce::dsp::StateVariableTPTFilterType::lowpass);
+                hpf[ch].setType       (juce::dsp::StateVariableTPTFilterType::highpass);
+                lpf[ch].setType       (juce::dsp::StateVariableTPTFilterType::lowpass);
                 hpfStage2[ch].setType (juce::dsp::StateVariableTPTFilterType::highpass);
                 hpfStage3[ch].setType (juce::dsp::StateVariableTPTFilterType::highpass);
                 hpfStage4[ch].setType (juce::dsp::StateVariableTPTFilterType::highpass);
@@ -220,6 +268,19 @@ public:
             airFreqSmoothed.reset     (sampleRate, 0.050);
             airQSmoothed.reset        (sampleRate, 0.015);
 
+            driveSmoothed.reset (sampleRate, 0.030);
+            colorSmoothed.reset (sampleRate, 0.030);
+            trimSmoothed.reset  (sampleRate, 0.030);
+
+            inputSmoothed.reset  (sampleRate, 0.030);
+            outputSmoothed.reset (sampleRate, 0.030);
+
+            gateThresholdSmoothed.reset (sampleRate, 0.045);
+            gateReleaseSmoothed.reset   (sampleRate, 0.045);
+            gateRangeSmoothed.reset     (sampleRate, 0.045);
+            gateAttackSmoothed.reset    (sampleRate, 0.030);
+            gateHoldSmoothed.reset      (sampleRate, 0.030);
+
             hpfSmoothed.setCurrentAndTargetValue (init.hpfHz);
             lpfSmoothed.setCurrentAndTargetValue (init.lpfHz);
             lowSmoothed.setCurrentAndTargetValue         (init.lowDb);
@@ -238,6 +299,19 @@ public:
             airFreqSmoothed.setCurrentAndTargetValue     (init.airFreqHz);
             airQSmoothed.setCurrentAndTargetValue        (init.airQ);
 
+            driveSmoothed.setCurrentAndTargetValue (init.drive / 100.0f);
+            colorSmoothed.setCurrentAndTargetValue (init.color / 100.0f);
+            trimSmoothed.setCurrentAndTargetValue  (dbToGain (init.trimDb));
+
+            inputSmoothed.setCurrentAndTargetValue  (dbToGain (init.inputDb));
+            outputSmoothed.setCurrentAndTargetValue (dbToGain (init.outputDb));
+
+            gateThresholdSmoothed.setCurrentAndTargetValue (init.gateThreshDb);
+            gateReleaseSmoothed.setCurrentAndTargetValue   (init.gateReleaseMs);
+            gateRangeSmoothed.setCurrentAndTargetValue     (init.gateRangeDb);
+            gateAttackSmoothed.setCurrentAndTargetValue    (init.gateAttackMs);
+            gateHoldSmoothed.setCurrentAndTargetValue      (init.gateHoldMs);
+
             const int rawMode = juce::jlimit (0, 4, init.mode);
             modeFrom = static_cast<ConsoleMode> (rawMode);
             modeTo   = modeFrom;
@@ -253,6 +327,13 @@ public:
             lastHighQ=-1.f; lastAirQ=-1.f;
             lastHpfSlope=-1; lastLpfSlope=-1;
             lastLowMode=-1; lastHighMode=-1; lastAirMode=-1;
+
+            preampPrevInput      = { 0.0f, 0.0f };
+            gateEnv              = { 1.0f, 1.0f };
+            gateHoldCounter      = { 0, 0 };
+            gatePreviousEnv      = { 0.0f, 0.0f };
+            gateDetectorHpfState = {};
+            gateDetectorLpfState = {};
 
             updateCoefficients (init);
         }
@@ -344,7 +425,7 @@ public:
                 for (int ch = 0; ch < 2; ++ch)
                 {
                     lowShelf[ch].coefficients = loMd == 0
-                        ? juce::dsp::IIR::Coefficients<float>::makeLowShelf (currentSampleRate, lowFreq, lowQ_, dbToGain (lowDb))
+                        ? juce::dsp::IIR::Coefficients<float>::makeLowShelf  (currentSampleRate, lowFreq, lowQ_, dbToGain (lowDb))
                         : juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate, lowFreq, lowQ_, dbToGain (lowDb));
 
                     lowMidPeak[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makePeakFilter (
@@ -422,6 +503,197 @@ public:
             }
         }
 
+        void processPreamp (juce::AudioBuffer<float>& buf,
+                            const NovaConsoleParameters& p,
+                            const ModeProfile& profile,
+                            int osFactor)
+        {
+            const float driveNorm = p.drive / 100.0f;
+            const float colorNorm = p.color / 100.0f;
+            const float trimDb    = p.trimDb;
+
+            const float warmth   = profile.warmth;
+            const float osRelief = juce::jmap (static_cast<float> (osFactor), 1.0f, 4.0f, 0.0f, 0.16f);
+
+            driveSmoothed.setTargetValue (driveNorm);
+            colorSmoothed.setTargetValue (colorNorm);
+            trimSmoothed.setTargetValue  (dbToGain (trimDb));
+
+            const int channels = juce::jmin (2, buf.getNumChannels());
+            for (int ch = 0; ch < channels; ++ch)
+            {
+                auto* channelData = buf.getWritePointer (ch);
+                float previousIn = preampPrevInput[static_cast<size_t> (ch)];
+
+                for (int i = 0; i < buf.getNumSamples(); ++i)
+                {
+                    const float driveNow = driveSmoothed.getNextValue();
+                    const float colorNow = colorSmoothed.getNextValue();
+                    const float trimNow  = trimSmoothed.getNextValue();
+
+                    const float stageGain = 1.0f + driveNow * (3.2f + 1.2f * warmth - osRelief);
+                    const float asym      = 0.025f + 0.08f * driveNow + 0.05f * profile.oddDrive;
+                    const float clipDrive = juce::jlimit (0.85f, 1.2f, 1.0f / profile.clipSoftness);
+                    const float oddW      = 0.55f + 0.45f * profile.oddDrive;
+                    const float evenW     = 0.35f + 0.55f * profile.evenDrive;
+                    const float satNorm   = 1.0f / juce::jmax (0.35f, oddW + evenW);
+
+                    const float input = channelData[i] * stageGain;
+                    float x = 0.0f;
+
+                    for (int os = 0; os < osFactor; ++os)
+                    {
+                        const float t      = static_cast<float> (os + 1) / static_cast<float> (osFactor);
+                        const float interp = previousIn + (input - previousIn) * t;
+                        const float oddSat = saturateSmooth ((interp + asym) * clipDrive)
+                                           - saturateSmooth (asym * clipDrive);
+                        const float evenSat = 0.5f * (saturateSmooth ((interp + asym) * 0.92f * clipDrive)
+                                                    + saturateSmooth ((interp - asym) * 0.92f * clipDrive));
+                        const float mixedSat = (oddSat * oddW + evenSat * evenW) * satNorm;
+                        x += mixedSat;
+                    }
+
+                    x /= static_cast<float> (osFactor);
+                    x = applyColorTilt (x, colorNow);
+                    x = x * (0.985f + 0.03f * profile.transientRetention);
+                    x = x * trimNow;
+                    channelData[i] = juce::jlimit (-1.2f, 1.2f, x);
+                    previousIn = input;
+                }
+
+                preampPrevInput[static_cast<size_t> (ch)] = previousIn;
+            }
+        }
+
+        void processGate (juce::AudioBuffer<float>& buf, const NovaConsoleParameters& p)
+        {
+            gateThresholdSmoothed.setTargetValue (p.gateThreshDb);
+            gateReleaseSmoothed.setTargetValue   (p.gateReleaseMs);
+            gateRangeSmoothed.setTargetValue     (p.gateRangeDb);
+            gateAttackSmoothed.setTargetValue    (p.gateAttackMs);
+            gateHoldSmoothed.setTargetValue      (p.gateHoldMs);
+
+            const bool  expandMode = p.gateSmooth;
+            const float sr = static_cast<float> (currentSampleRate);
+            const auto  mode = static_cast<ConsoleMode> (juce::jlimit (0, 4, p.mode));
+
+            float modeExpandSoftness = 1.0f, modeGateTightness = 1.0f;
+            switch (mode)
+            {
+                case ConsoleMode::clean:    modeExpandSoftness=1.12f; modeGateTightness=0.92f; break;
+                case ConsoleMode::british:  modeExpandSoftness=0.96f; modeGateTightness=1.10f; break;
+                case ConsoleMode::tubeTape: modeExpandSoftness=1.20f; modeGateTightness=0.88f; break;
+                case ConsoleMode::gold:     modeExpandSoftness=1.15f; modeGateTightness=0.95f; break;
+                case ConsoleMode::modern:   modeExpandSoftness=1.04f; modeGateTightness=1.02f; break;
+            }
+
+            const int hpfStages = p.hpfSlope == 0 ? 1 : (p.hpfSlope == 1 ? 2 : 4);
+            const int lpfStages = p.lpfSlope == 0 ? 1 : (p.lpfSlope == 1 ? 2 : 4);
+            const float detectorHpfCoeff = juce::jlimit (0.0001f, 0.999f,
+                1.0f - std::exp (-juce::MathConstants<float>::twoPi * p.hpfHz / sr));
+            const float detectorLpfCoeff = juce::jlimit (0.0001f, 0.999f,
+                1.0f - std::exp (-juce::MathConstants<float>::twoPi * p.lpfHz / sr));
+
+            const int channels = juce::jmin (2, buf.getNumChannels());
+            for (int ch = 0; ch < channels; ++ch)
+            {
+                auto* data = buf.getWritePointer (ch);
+                for (int i = 0; i < buf.getNumSamples(); ++i)
+                {
+                    const float thresholdDb = gateThresholdSmoothed.getNextValue();
+                    const float releaseMs   = gateReleaseSmoothed.getNextValue();
+                    const float rangeDb     = gateRangeSmoothed.getNextValue();
+                    const float attackMs    = gateAttackSmoothed.getNextValue();
+                    const float holdMs      = gateHoldSmoothed.getNextValue();
+
+                    const float maxAttenDb   = juce::jmax (3.0f, -rangeDb);
+                    const float userAttackMs = juce::jmax (0.1f, attackMs);
+                    const float userReleaseMs= juce::jmax (8.0f, releaseMs);
+
+                    const float effAttackMs = expandMode
+                        ? userAttackMs  * (1.35f * modeExpandSoftness)
+                        : userAttackMs  * (0.68f / juce::jmax (0.75f, modeGateTightness));
+                    const float effReleaseMs = expandMode
+                        ? userReleaseMs * (1.45f * modeExpandSoftness)
+                        : userReleaseMs * (0.72f / juce::jmax (0.75f, modeGateTightness));
+
+                    const float releaseCoeff  = std::exp (-1.0f / (0.001f * effReleaseMs * sr));
+                    const float attackCoeff   = std::exp (-1.0f / (0.001f * effAttackMs * sr));
+                    const int32_t holdSamples = static_cast<int32_t> ((holdMs * sr) / 1000.0f);
+                    const float hysteresisDb  = expandMode
+                        ? (4.2f * modeExpandSoftness)
+                        : (2.0f / juce::jmax (0.75f, modeGateTightness));
+
+                    const float x = data[i];
+                    float detectorSample = x;
+
+                    // Detector sidechain filter (internal signal, no external sidechain in tests)
+                    if (p.sidechainMode > 0)
+                    {
+                        for (int stage = 0; stage < hpfStages; ++stage)
+                        {
+                            auto& hpState = gateDetectorHpfState[static_cast<size_t> (stage)]
+                                                                 [static_cast<size_t> (ch)];
+                            hpState += detectorHpfCoeff * (detectorSample - hpState);
+                            detectorSample -= hpState;
+                        }
+                        for (int stage = 0; stage < lpfStages; ++stage)
+                        {
+                            auto& lpState = gateDetectorLpfState[static_cast<size_t> (stage)]
+                                                                 [static_cast<size_t> (ch)];
+                            lpState += detectorLpfCoeff * (detectorSample - lpState);
+                            detectorSample = lpState;
+                        }
+                    }
+
+                    const float level   = std::abs (detectorSample);
+                    const float levelDb = gainToDb (level);
+
+                    const bool aboveOpenThreshold  = levelDb > (thresholdDb + hysteresisDb);
+                    const bool belowCloseThreshold = levelDb < (thresholdDb - hysteresisDb);
+
+                    float target = 1.0f;
+                    if (expandMode)
+                    {
+                        const float ratio       = juce::jlimit (2.0f, 6.0f, 2.0f + (maxAttenDb - 3.0f) * (4.0f / 33.0f));
+                        const float kneeDb      = 8.0f * modeExpandSoftness;
+                        const float belowDb     = juce::jmax (0.0f, thresholdDb - levelDb);
+                        const float expansionDb = -juce::jmin (maxAttenDb, belowDb * (1.0f - 1.0f / ratio));
+                        const float blend       = juce::jlimit (0.0f, 1.0f, belowDb / juce::jmax (1.0f, kneeDb));
+                        const float blendShaped = blend * blend * (3.0f - 2.0f * blend);
+                        target = dbToGain (expansionDb * blendShaped);
+                    }
+                    else
+                    {
+                        const float kneeDb      = 2.0f / juce::jmax (0.75f, modeGateTightness);
+                        const float closeSpanDb = juce::jmax (4.0f, 10.0f / juce::jmax (0.75f, modeGateTightness));
+                        const float close       = juce::jlimit (0.0f, 1.0f, (thresholdDb - levelDb + kneeDb) / closeSpanDb);
+                        const float curve       = std::pow (close, 1.6f * modeGateTightness);
+                        target = dbToGain (-juce::jmin (maxAttenDb, maxAttenDb * curve));
+                    }
+
+                    if (aboveOpenThreshold)
+                    {
+                        gateHoldCounter[static_cast<size_t> (ch)] = holdSamples;
+                        target = 1.0f;
+                    }
+                    else if (!belowCloseThreshold || gateHoldCounter[static_cast<size_t> (ch)] > 0)
+                    {
+                        if (gateHoldCounter[static_cast<size_t> (ch)] > 0)
+                            gateHoldCounter[static_cast<size_t> (ch)]--;
+                        target = 1.0f;
+                    }
+
+                    float& gateEnvRef = gateEnv[static_cast<size_t> (ch)];
+                    gateEnvRef = (target > gateEnvRef)
+                        ? attackCoeff  * gateEnvRef + (1.0f - attackCoeff)  * target
+                        : releaseCoeff * gateEnvRef + (1.0f - releaseCoeff) * target;
+                    data[i] = x * gateEnvRef;
+                }
+            }
+        }
+
+        // ── Main process — verbatim signal chain from processBlock() ──────────
         void process (juce::AudioBuffer<float>& buf, const NovaConsoleParameters& p)
         {
             if (buf.getNumSamples() == 0) return;
@@ -443,8 +715,37 @@ public:
 
             updateCoefficients (p);
 
-            if (p.filterOn) processFilters (buf, p);
-            if (p.eqOn)     processEq (buf, active);
+            // osFactor
+            int osFactor = (p.oversampling == 2 ? 4 : (p.oversampling == 1 ? 2 : 1));
+            if (p.quality == 0) osFactor = 1;
+
+            // Input gain
+            inputSmoothed.setTargetValue (dbToGain (p.inputDb));
+            const int channels = juce::jmin (2, buf.getNumChannels());
+            for (int ch = 0; ch < channels; ++ch)
+            {
+                auto* data = buf.getWritePointer (ch);
+                for (int i = 0; i < buf.getNumSamples(); ++i)
+                    data[i] *= inputSmoothed.getNextValue();
+            }
+
+            if (p.preampOn)  processPreamp (buf, p, active, osFactor);
+            if (p.filterOn)  processFilters (buf, p);
+            if (p.eqOn)      processEq (buf, active);
+            if (p.gateOn)    processGate (buf, p);
+
+            // modeTrim + clip + output gain
+            const float modeTrim = active.outputTrim;
+            outputSmoothed.setTargetValue (dbToGain (p.outputDb));
+            for (int ch = 0; ch < channels; ++ch)
+            {
+                auto* data = buf.getWritePointer (ch);
+                for (int i = 0; i < buf.getNumSamples(); ++i)
+                {
+                    data[i] = juce::jlimit (-1.35f, 1.35f, data[i] * modeTrim);
+                    data[i] *= outputSmoothed.getNextValue();
+                }
+            }
         }
     };
 
@@ -457,21 +758,17 @@ public:
                                const NovaConsoleParameters& params,
                                juce::AudioBuffer<float>& signal)
     {
-        // Clone input for each engine
         juce::AudioBuffer<float> bufOrig (signal.getNumChannels(), signal.getNumSamples());
         juce::AudioBuffer<float> bufEng  (signal.getNumChannels(), signal.getNumSamples());
 
         for (int ch = 0; ch < signal.getNumChannels(); ++ch)
         {
-            std::memcpy (bufOrig.getWritePointer (ch),
-                         signal.getReadPointer (ch),
+            std::memcpy (bufOrig.getWritePointer (ch), signal.getReadPointer (ch),
                          (size_t) signal.getNumSamples() * sizeof (float));
-            std::memcpy (bufEng.getWritePointer (ch),
-                         signal.getReadPointer (ch),
+            std::memcpy (bufEng.getWritePointer (ch), signal.getReadPointer (ch),
                          (size_t) signal.getNumSamples() * sizeof (float));
         }
 
-        // Run original
         OriginalState orig;
         orig.prepare (sampleRate, blockSize, params);
 
@@ -480,14 +777,11 @@ public:
             const int offset = block * blockSize;
             const int nSamps = juce::jmin (blockSize, signal.getNumSamples() - offset);
             if (nSamps <= 0) break;
-
             juce::AudioBuffer<float> slice (bufOrig.getArrayOfWritePointers(),
-                                            bufOrig.getNumChannels(),
-                                            offset, nSamps);
+                                            bufOrig.getNumChannels(), offset, nSamps);
             orig.process (slice, params);
         }
 
-        // Run extracted engine
         NovaConsoleDSP engine;
         juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32) blockSize,
                                       (juce::uint32) signal.getNumChannels() };
@@ -499,15 +793,12 @@ public:
             const int offset = block * blockSize;
             const int nSamps = juce::jmin (blockSize, signal.getNumSamples() - offset);
             if (nSamps <= 0) break;
-
             juce::AudioBuffer<float> slice (bufEng.getArrayOfWritePointers(),
-                                            bufEng.getNumChannels(),
-                                            offset, nSamps);
+                                            bufEng.getNumChannels(), offset, nSamps);
             engine.setParameters (params);
             engine.process (slice);
         }
 
-        // Compare
         Result r;
         r.scenario = name;
         float peakDiff = 0.0f, rmsSq = 0.0f;
@@ -567,7 +858,6 @@ public:
     static juce::AudioBuffer<float> makeNoise (int channels, int numSamples, float amplitude = 0.5f)
     {
         juce::AudioBuffer<float> buf (channels, numSamples);
-        // Fixed-seed noise — independent of engine rng
         uint32_t state = 0xDEADBEEFu;
         for (int ch = 0; ch < channels; ++ch)
         {
@@ -596,7 +886,12 @@ public:
             return r;
         };
 
-        // ── 1. Passthrough — both stages off ─────────────────────────────────
+        // ════════════════════════════════════════════════════════════════════
+        // Phase 4B scenarios (30): verified to still pass with full chain.
+        // All use default preampOn=true; eqOn/filterOn per scenario.
+        // ════════════════════════════════════════════════════════════════════
+
+        // ── 1. Passthrough — both stages off, preamp on default ───────────────
         {
             NovaConsoleParameters p;
             p.filterOn = false; p.eqOn = false;
@@ -612,7 +907,7 @@ public:
             check (runScenario ("filter-silence-default", 44100.0, 512, 8, p, sig));
         }
 
-        // ── 3. Sine 1 kHz → filter at factory defaults (HPF 20 Hz, LPF 20 kHz) ─
+        // ── 3. Sine 1 kHz → filter at factory defaults ────────────────────────
         {
             NovaConsoleParameters p;
             p.filterOn = true; p.eqOn = false;
@@ -740,10 +1035,8 @@ public:
 
         // ── 24. Mode switch mid-stream (morph blend) ──────────────────────────
         {
-            // Two identical engines started in British, then switched to Gold.
-            // The morph blend must be bit-identical.
-            NovaConsoleParameters pA; pA.filterOn = false; pA.eqOn = true; pA.mode = 1; // British
-            NovaConsoleParameters pB = pA; pB.mode = 3; // Gold
+            NovaConsoleParameters pA; pA.filterOn = false; pA.eqOn = true; pA.mode = 1;
+            NovaConsoleParameters pB = pA; pB.mode = 3;
 
             juce::AudioBuffer<float> sigA = makeNoise (2, totalSamples);
             juce::AudioBuffer<float> sigB (2, totalSamples);
@@ -751,20 +1044,18 @@ public:
                 std::memcpy (sigB.getWritePointer (ch), sigA.getReadPointer (ch),
                              (size_t) totalSamples * sizeof (float));
 
-            // Run OriginalState
             OriginalState orig; orig.prepare (44100.0, 512, pA);
-            for (int block = 0; block < 4; ++block)   // first 4 blocks: British
+            for (int block = 0; block < 4; ++block)
             {
                 juce::AudioBuffer<float> sl (sigA.getArrayOfWritePointers(), 2, block*512, 512);
                 orig.process (sl, pA);
             }
-            for (int block = 4; block < 8; ++block)   // switch to Gold
+            for (int block = 4; block < 8; ++block)
             {
                 juce::AudioBuffer<float> sl (sigA.getArrayOfWritePointers(), 2, block*512, 512);
                 orig.process (sl, pB);
             }
 
-            // Run extracted engine
             NovaConsoleDSP eng;
             juce::dsp::ProcessSpec spec { 44100.0, 512, 2 };
             eng.prepare (spec, pA);
@@ -812,15 +1103,15 @@ public:
         {
             NovaConsoleParameters p; p.filterOn = true; p.eqOn = true;
             p.hpfHz = 100.0f; p.lowDb = 2.0f;
-            for (int blockSize : { 64, 128, 1024, 2048 })
+            const int blockSizes[] = { 64, 128, 1024, 2048 };
+            const char* names[] = { "blocksize-64", "blocksize-128",
+                                    "blocksize-1024", "blocksize-2048" };
+            for (int bi = 0; bi < 4; ++bi)
             {
-                const char* names[] = { "blocksize-64", "blocksize-128",
-                                        "blocksize-1024", "blocksize-2048" };
-                const int blocks = totalSamples / blockSize;
-                auto sig = makeNoise (2, blocks * blockSize);
-                check (runScenario (names[blockSize == 64 ? 0 : blockSize == 128 ? 1 :
-                                          blockSize == 1024 ? 2 : 3],
-                                    44100.0, blockSize, blocks, p, sig));
+                const int bs = blockSizes[bi];
+                const int blocks = totalSamples / bs;
+                auto sig = makeNoise (2, blocks * bs);
+                check (runScenario (names[bi], 44100.0, bs, blocks, p, sig));
             }
         }
 
@@ -844,12 +1135,417 @@ public:
             check (runScenario ("mono-filter-eq", 44100.0, 512, 8, p, sig));
         }
 
-        // ── 30. Impulse — EQ only (impulse response comparison) ───────────────
+        // ── 30. Impulse — EQ only ─────────────────────────────────────────────
         {
             NovaConsoleParameters p; p.filterOn = false; p.eqOn = true;
             p.lowDb = 6.0f; p.highDb = -3.0f; p.airDb = 4.0f;
             auto sig = makeImpulse (2, totalSamples);
             check (runScenario ("impulse-eq", 44100.0, 512, 8, p, sig));
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // Phase 4C scenarios (50): Preamp + Gate
+        // ════════════════════════════════════════════════════════════════════
+
+        // ── Preamp: basic ─────────────────────────────────────────────────────
+
+        // 31. Preamp only — silence
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            auto sig = makeSilence (2, totalSamples);
+            check (runScenario ("preamp-silence", 44100.0, 512, 8, p, sig));
+        }
+
+        // 32. Preamp only — impulse, default drive
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            auto sig = makeImpulse (2, totalSamples);
+            check (runScenario ("preamp-impulse-default-drive", 44100.0, 512, 8, p, sig));
+        }
+
+        // 33. Preamp off — verify passthrough (no saturation)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            auto sig = makeSine (2, totalSamples, 44100.0, 440.0);
+            check (runScenario ("preamp-off-passthrough", 44100.0, 512, 8, p, sig));
+        }
+
+        // 34. Preamp drive minimum (drive=0)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.drive = 0.0f;
+            auto sig = makeSine (2, totalSamples, 44100.0, 440.0, 0.3f);
+            check (runScenario ("preamp-drive-min", 44100.0, 512, 8, p, sig));
+        }
+
+        // 35. Preamp drive maximum (drive=100)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.drive = 100.0f;
+            auto sig = makeSine (2, totalSamples, 44100.0, 440.0, 0.3f);
+            check (runScenario ("preamp-drive-max", 44100.0, 512, 8, p, sig));
+        }
+
+        // 36. Preamp drive midpoint (drive=50)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.drive = 50.0f;
+            auto sig = makeNoise (2, totalSamples, 0.4f);
+            check (runScenario ("preamp-drive-50", 44100.0, 512, 8, p, sig));
+        }
+
+        // 37. Preamp color=0 (darkest)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.drive = 40.0f; p.color = 0.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("preamp-color-min", 44100.0, 512, 8, p, sig));
+        }
+
+        // 38. Preamp color=100 (brightest)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.drive = 40.0f; p.color = 100.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("preamp-color-max", 44100.0, 512, 8, p, sig));
+        }
+
+        // 39. Preamp trim +6 dB
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.trimDb = 6.0f;
+            auto sig = makeSine (2, totalSamples, 44100.0, 440.0, 0.2f);
+            check (runScenario ("preamp-trim-plus6", 44100.0, 512, 8, p, sig));
+        }
+
+        // 40. Preamp trim -6 dB
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.trimDb = -6.0f;
+            auto sig = makeSine (2, totalSamples, 44100.0, 440.0, 0.2f);
+            check (runScenario ("preamp-trim-minus6", 44100.0, 512, 8, p, sig));
+        }
+
+        // 41. Preamp oversampling x2
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.oversampling = 1; p.quality = 1;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("preamp-os-x2", 44100.0, 512, 8, p, sig));
+        }
+
+        // 42. Preamp oversampling x4
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.oversampling = 2; p.quality = 1;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("preamp-os-x4", 44100.0, 512, 8, p, sig));
+        }
+
+        // 43. Preamp quality=0 forces osFactor=1
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.oversampling = 2; p.quality = 0; // even with os=2, quality=0 resets to 1x
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("preamp-quality0-forces-os1", 44100.0, 512, 8, p, sig));
+        }
+
+        // 44–48. Preamp mode interaction — each of the five modes
+        {
+            const char* modeNames[] = {
+                "preamp-mode-clean", "preamp-mode-british", "preamp-mode-tubetape",
+                "preamp-mode-gold",  "preamp-mode-modern"
+            };
+            for (int m = 0; m < 5; ++m)
+            {
+                NovaConsoleParameters p;
+                p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+                p.mode = m; p.drive = 55.0f;
+                auto sig = makeNoise (2, totalSamples, 0.3f);
+                check (runScenario (modeNames[m], 44100.0, 512, 8, p, sig));
+            }
+        }
+
+        // 49. Preamp + Filter chain
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = true; p.eqOn = false; p.gateOn = false;
+            p.drive = 45.0f; p.hpfHz = 80.0f; p.hpfSlope = 1;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("preamp-filter-chain", 44100.0, 512, 8, p, sig));
+        }
+
+        // 50. Preamp + EQ chain
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = true; p.gateOn = false;
+            p.drive = 45.0f; p.lowDb = 3.0f; p.highDb = 2.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("preamp-eq-chain", 44100.0, 512, 8, p, sig));
+        }
+
+        // 51. Input gain +6 dB
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.inputDb = 6.0f;
+            auto sig = makeSine (2, totalSamples, 44100.0, 440.0, 0.2f);
+            check (runScenario ("input-gain-plus6", 44100.0, 512, 8, p, sig));
+        }
+
+        // 52. Output gain -6 dB
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.outputDb = -6.0f;
+            auto sig = makeSine (2, totalSamples, 44100.0, 440.0, 0.3f);
+            check (runScenario ("output-gain-minus6", 44100.0, 512, 8, p, sig));
+        }
+
+        // 53. Preamp mono
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.drive = 45.0f;
+            auto sig = makeNoise (1, totalSamples, 0.3f);
+            check (runScenario ("preamp-mono", 44100.0, 512, 8, p, sig));
+        }
+
+        // 54. Preamp SR 48000
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.drive = 45.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("preamp-sr-48000", 48000.0, 512, 8, p, sig));
+        }
+
+        // 55. Preamp SR 96000
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            p.drive = 45.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("preamp-sr-96000", 96000.0, 512, 8, p, sig));
+        }
+
+        // ── Gate: basic ───────────────────────────────────────────────────────
+
+        // 56. Gate off — verify no effect
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = false;
+            auto sig = makeSine (2, totalSamples, 44100.0, 440.0, 0.3f);
+            check (runScenario ("gate-off-passthrough", 44100.0, 512, 8, p, sig));
+        }
+
+        // 57. Gate on — silence input (below threshold, gate closes fully)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -30.0f; p.gateRangeDb = -60.0f; p.gateSmooth = false;
+            auto sig = makeSilence (2, totalSamples);
+            check (runScenario ("gate-silence-below-threshold", 44100.0, 512, 8, p, sig));
+        }
+
+        // 58. Gate on — loud sine, well above threshold (gate stays open)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -42.0f; p.gateSmooth = false;
+            auto sig = makeSine (2, totalSamples, 44100.0, 440.0, 0.5f);
+            check (runScenario ("gate-loud-signal-above-threshold", 44100.0, 512, 8, p, sig));
+        }
+
+        // 59. Gate expand mode (gateSmooth=true) — noise input
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateSmooth = true; p.gateThreshDb = -30.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("gate-expand-mode-noise", 44100.0, 512, 8, p, sig));
+        }
+
+        // 60. Gate hard mode (gateSmooth=false) — noise input
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateSmooth = false; p.gateThreshDb = -30.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("gate-hard-mode-noise", 44100.0, 512, 8, p, sig));
+        }
+
+        // 61. Gate attack fast (1 ms)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -30.0f; p.gateAttackMs = 1.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("gate-attack-fast-1ms", 44100.0, 512, 8, p, sig));
+        }
+
+        // 62. Gate attack slow (100 ms)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -30.0f; p.gateAttackMs = 100.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("gate-attack-slow-100ms", 44100.0, 512, 8, p, sig));
+        }
+
+        // 63. Gate release fast (10 ms)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -30.0f; p.gateReleaseMs = 10.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("gate-release-fast-10ms", 44100.0, 512, 8, p, sig));
+        }
+
+        // 64. Gate release slow (500 ms)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -30.0f; p.gateReleaseMs = 500.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("gate-release-slow-500ms", 44100.0, 512, 8, p, sig));
+        }
+
+        // 65. Gate hold long (200 ms)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -30.0f; p.gateHoldMs = 200.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("gate-hold-200ms", 44100.0, 512, 8, p, sig));
+        }
+
+        // 66. Gate range -6 dB (shallow)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -30.0f; p.gateRangeDb = -6.0f; p.gateSmooth = false;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("gate-range-minus6db", 44100.0, 512, 8, p, sig));
+        }
+
+        // 67. Gate range -60 dB (deep)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -30.0f; p.gateRangeDb = -60.0f; p.gateSmooth = false;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("gate-range-minus60db", 44100.0, 512, 8, p, sig));
+        }
+
+        // 68–72. Gate per-mode behavior
+        {
+            const char* modeNames[] = {
+                "gate-mode-clean", "gate-mode-british", "gate-mode-tubetape",
+                "gate-mode-gold",  "gate-mode-modern"
+            };
+            for (int m = 0; m < 5; ++m)
+            {
+                NovaConsoleParameters p;
+                p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+                p.mode = m; p.gateThreshDb = -30.0f; p.gateSmooth = true;
+                auto sig = makeNoise (2, totalSamples, 0.3f);
+                check (runScenario (modeNames[m], 44100.0, 512, 8, p, sig));
+            }
+        }
+
+        // 73. Gate mono
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -30.0f; p.gateSmooth = true;
+            auto sig = makeNoise (1, totalSamples, 0.3f);
+            check (runScenario ("gate-mono", 44100.0, 512, 8, p, sig));
+        }
+
+        // 74. Gate SR 48000
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -30.0f; p.gateSmooth = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("gate-sr-48000", 48000.0, 512, 8, p, sig));
+        }
+
+        // 75. Gate SR 96000
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -30.0f; p.gateSmooth = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("gate-sr-96000", 96000.0, 512, 8, p, sig));
+        }
+
+        // 76. Gate block size 64
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -30.0f; p.gateSmooth = true;
+            auto sig = makeNoise (2, 4096, 0.3f);
+            check (runScenario ("gate-blocksize-64", 44100.0, 64, 64, p, sig));
+        }
+
+        // 77. Gate block size 2048
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false; p.gateOn = true;
+            p.gateThreshDb = -30.0f; p.gateSmooth = true;
+            auto sig = makeNoise (2, 4096, 0.3f);
+            check (runScenario ("gate-blocksize-2048", 44100.0, 2048, 2, p, sig));
+        }
+
+        // 78. Gate + Filter chain (detector uses filter params)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = true; p.eqOn = false; p.gateOn = true;
+            p.hpfHz = 100.0f; p.hpfSlope = 1; p.gateThreshDb = -30.0f; p.gateSmooth = false;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("gate-filter-chain", 44100.0, 512, 8, p, sig));
+        }
+
+        // ── Full chain: all stages together ───────────────────────────────────
+
+        // 79. Full chain: Preamp + Filter + EQ + Gate, stereo, British mode
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = true; p.eqOn = true; p.gateOn = true;
+            p.mode = 1; // british
+            p.drive = 45.0f; p.color = 60.0f;
+            p.hpfHz = 80.0f; p.hpfSlope = 1;
+            p.lowDb = 2.0f; p.highDb = 2.0f;
+            p.gateThreshDb = -40.0f; p.gateSmooth = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("full-chain-british-stereo", 44100.0, 512, 8, p, sig));
+        }
+
+        // 80. Full chain: all stages, tube tape mode, SR 48000
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = true; p.eqOn = true; p.gateOn = true;
+            p.mode = 2; // tubeTape
+            p.drive = 55.0f; p.oversampling = 1; p.quality = 1;
+            p.hpfHz = 60.0f; p.lowDb = 3.0f; p.airDb = 2.0f;
+            p.gateThreshDb = -35.0f; p.gateRangeDb = -24.0f; p.gateSmooth = false;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("full-chain-tubetape-48k", 48000.0, 512, 8, p, sig));
         }
 
         return allPassed;

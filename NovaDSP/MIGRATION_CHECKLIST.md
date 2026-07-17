@@ -39,7 +39,7 @@ NovaDSP/
 | Nova Level     | ✅ Done             | ✅ Done             | ⬜ Pending           |
 | Nova Motion FX | ✅ Done             | ✅ Done             | ⬜ Pending           |
 | Space By Nova  | ✅ Done             | ✅ Done             | ⬜ Pending           |
-| Nova Console   | 🔄 Phase 4B (Filter+EQ) | ⬜ Pending     | ⬜ Pending           |
+| Nova Console   | 🔄 Phase 4C (Filter+EQ+Preamp+Gate) | ⬜ Pending | ⬜ Pending     |
 | Nova Curve     | ⬜ Pending          | ⬜ Pending          | ⬜ Pending           |
 
 ## Rules for every shared DSP class
@@ -57,12 +57,12 @@ Extraction order (approved):
 1. ✅ NovaConsoleParameters  (Phase 4B)
 2. ✅ Filter stage           (Phase 4B — 30 scenarios, peakAbsDiff == 0)
 3. ✅ EQ stage               (Phase 4B — 30 scenarios, peakAbsDiff == 0)
-4. ⬜ Preamp                 (Phase 4C — pending approval)
-5. ⬜ Gate                   (Phase 4D)
-6. ⬜ Compressor             (Phase 4E)
-7. ⬜ Mix Assist / Focus     (Phase 4F)
-8. ⬜ Smart Gain             (Phase 4G)
-9. ⬜ Analog Engine          (Phase 4H — RNG-sensitive, last)
+4. ✅ Preamp                 (Phase 4C — 80 scenarios, peakAbsDiff == 0)
+5. ✅ Gate                   (Phase 4C — 80 scenarios, peakAbsDiff == 0)
+6. ⬜ Compressor             (Phase 4D)
+7. ⬜ Mix Assist / Focus     (Phase 4E)
+8. ⬜ Smart Gain             (Phase 4F)
+9. ⬜ Analog Engine          (Phase 4G — RNG-sensitive, last)
 
 Notes:
 - ModeProfile struct lives inside NovaConsoleDSP.h (private)
