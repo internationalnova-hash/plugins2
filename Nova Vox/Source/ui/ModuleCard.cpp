@@ -40,7 +40,8 @@ ModuleCard::ModuleCard(juce::AudioProcessorValueTreeState& apvts_,
         if (config.modeNames.isEmpty()) return;
         currentModeIndex = (currentModeIndex - 1 + config.modeNames.size())
                            % config.modeNames.size();
-        updateModeLabel();
+        if (auto* p = apvts.getParameter (config.modeParamId))
+            p->setValueNotifyingHost (p->convertTo0to1 ((float) currentModeIndex));
         repaint();
     };
 
@@ -48,7 +49,8 @@ ModuleCard::ModuleCard(juce::AudioProcessorValueTreeState& apvts_,
     {
         if (config.modeNames.isEmpty()) return;
         currentModeIndex = (currentModeIndex + 1) % config.modeNames.size();
-        updateModeLabel();
+        if (auto* p = apvts.getParameter (config.modeParamId))
+            p->setValueNotifyingHost (p->convertTo0to1 ((float) currentModeIndex));
         repaint();
     };
 
@@ -62,6 +64,9 @@ ModuleCard::ModuleCard(juce::AudioProcessorValueTreeState& apvts_,
         repaint();
     };
 
+    if (auto* p = apvts.getParameter (config.modeParamId))
+        currentModeIndex = juce::jlimit (0, juce::jmax (0, config.modeNames.size() - 1),
+                                         (int) p->convertFrom0to1 (p->getValue()));
     updateModeLabel();
 }
 
@@ -91,11 +96,10 @@ void ModuleCard::drawModuleIcon(juce::Graphics& g,
 
     const juce::String& name = config.name;
 
-    if (name == "TONE")
+    if (name == "CONSOLE")
     {
-        // Mini waveform (sine-ish with 2 bumps)
+        // Sine waveform — analog saturation character
         juce::Path p;
-        p.startNewSubPath(area.getX(), cy);
         const int steps = 24;
         for (int i = 0; i <= steps; ++i)
         {
@@ -106,9 +110,9 @@ void ModuleCard::drawModuleIcon(juce::Graphics& g,
         }
         g.strokePath(p, juce::PathStrokeType(1.5f));
     }
-    else if (name == "EQ")
+    else if (name == "CURVE")
     {
-        // Frequency curve / bell shape
+        // Bell frequency curve — EQ shape
         juce::Path p;
         const int steps = 20;
         for (int i = 0; i <= steps; ++i)
@@ -121,7 +125,7 @@ void ModuleCard::drawModuleIcon(juce::Graphics& g,
         }
         g.strokePath(p, juce::PathStrokeType(1.5f));
     }
-    else if (name == "COMP")
+    else if (name == "LEVEL")
     {
         // Compression knee curve
         juce::Path p;

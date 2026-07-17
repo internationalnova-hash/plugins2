@@ -355,6 +355,9 @@ void NovaVoxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                       + 0.15f * juce::jlimit (0.f, 1.5f, outPk),
                       std::memory_order_relaxed);
     vizData.level.store (outPk, std::memory_order_relaxed);
+
+    levelGainReduction.store   (levelEngine.getGainReductionDb(),   std::memory_order_relaxed);
+    consoleGainReduction.store (consoleEngine.getGainReductionDb(), std::memory_order_relaxed);
 }
 
 bool NovaVoxAudioProcessor::hasEditor() const { return true; }

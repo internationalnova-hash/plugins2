@@ -94,12 +94,12 @@ private:
         lastHigh = highDb;
 
         const float Q = 0.707f;
-        *lowShelf[0].coefficients  = *juce::dsp::IIR::Coefficients<float>::makeLowShelf  ((float)sr, 200.0f,   Q, juce::Decibels::decibelsToGain (lowDb));
-        *midPeak[0].coefficients   = *juce::dsp::IIR::Coefficients<float>::makePeakFilter ((float)sr, 1200.0f,  Q, juce::Decibels::decibelsToGain (midDb));
-        *highShelf[0].coefficients = *juce::dsp::IIR::Coefficients<float>::makeHighShelf  ((float)sr, 7000.0f,  Q, juce::Decibels::decibelsToGain (highDb));
-        *lowShelf[1].coefficients  = *lowShelf[0].coefficients;
-        *midPeak[1].coefficients   = *midPeak[0].coefficients;
-        *highShelf[1].coefficients = *highShelf[0].coefficients;
+        lowShelf[0].coefficients  = juce::dsp::IIR::Coefficients<float>::makeLowShelf  ((float)sr, 200.0f,  Q, juce::Decibels::decibelsToGain (lowDb));
+        midPeak[0].coefficients   = juce::dsp::IIR::Coefficients<float>::makePeakFilter ((float)sr, 1200.0f, Q, juce::Decibels::decibelsToGain (midDb));
+        highShelf[0].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighShelf  ((float)sr, 7000.0f, Q, juce::Decibels::decibelsToGain (highDb));
+        lowShelf[1].coefficients  = juce::dsp::IIR::Coefficients<float>::makeLowShelf  ((float)sr, 200.0f,  Q, juce::Decibels::decibelsToGain (lowDb));
+        midPeak[1].coefficients   = juce::dsp::IIR::Coefficients<float>::makePeakFilter ((float)sr, 1200.0f, Q, juce::Decibels::decibelsToGain (midDb));
+        highShelf[1].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighShelf  ((float)sr, 7000.0f, Q, juce::Decibels::decibelsToGain (highDb));
     }
 
     double sr = 44100.0;

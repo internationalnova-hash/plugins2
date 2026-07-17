@@ -51,8 +51,8 @@ public:
     // ── Meters (read by UI timer) ──────────────────────────────────────────
     float getInputPeak()           const noexcept { return inputPeak.load (std::memory_order_relaxed); }
     float getOutputPeak()          const noexcept { return outputPeak.load (std::memory_order_relaxed); }
-    float getLevelGainReduction()  const noexcept { return levelEngine.getGainReductionDb(); }
-    float getConsoleGainReduction() const noexcept { return consoleEngine.getGainReductionDb(); }
+    float getLevelGainReduction()  const noexcept { return levelGainReduction.load (std::memory_order_relaxed); }
+    float getConsoleGainReduction() const noexcept { return consoleGainReduction.load (std::memory_order_relaxed); }
 
     // ── Visualizer data (written audio thread, read UI thread) ─────────────
     VisualizerData vizData;
@@ -68,8 +68,10 @@ private:
     NovaSpaceDSP    spaceEngine;
 
     // ── Meters ─────────────────────────────────────────────────────────────
-    std::atomic<float> inputPeak  { 0.0f };
-    std::atomic<float> outputPeak { 0.0f };
+    std::atomic<float> inputPeak           { 0.0f };
+    std::atomic<float> outputPeak          { 0.0f };
+    std::atomic<float> levelGainReduction  { 0.0f };
+    std::atomic<float> consoleGainReduction{ 0.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaVoxAudioProcessor)
 };
