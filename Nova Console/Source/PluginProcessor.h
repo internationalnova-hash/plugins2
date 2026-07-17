@@ -1,11 +1,11 @@
 #pragma once
 
-#include <array>
 #include <atomic>
-#include <random>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+
+#include "../../NovaDSP/Console/NovaConsoleDSP.h"
 
 class NovaConsoleAudioProcessor : public juce::AudioProcessor
 {
@@ -43,202 +43,17 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
-    float getInputMeter() const noexcept { return inputMeter.load(); }
-    float getOutputMeter() const noexcept { return outputMeter.load(); }
-    float getGainReductionMeter() const noexcept { return gainReductionMeter.load(); }
+    float getInputMeter()        const noexcept { return inputMeter.load(); }
+    float getOutputMeter()       const noexcept { return outputMeter.load(); }
+    float getGainReductionMeter() const noexcept { return engine.getGainReductionDb(); }
 
 private:
-    enum class ConsoleMode : int { clean = 0, british, tubeTape, gold, modern };
-    enum class QualityMode : int { eco = 0, mix, master };
-
-    struct ModeProfile
-    {
-        float warmth = 0.2f;
-        float presence = 1.0f;
-        float eqWidth = 1.0f;
-        float upperMidAggression = 1.0f;
-        float airSmoothness = 1.0f;
-        float lowMidWeight = 1.0f;
-        float oddDrive = 0.5f;
-        float evenDrive = 0.5f;
-        float clipSoftness = 1.0f;
-        float transientPunch = 1.0f;
-        float transientRetention = 1.0f;
-        float stereoWidthBias = 1.0f;
-        float centerWeight = 1.0f;
-        float sideSoftness = 1.0f;
-        float crosstalkBias = 1.0f;
-        float outputTrim = 1.0f;
-    };
-
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
-    void updateLinearStageCoefficients();
 
-    void processPreamp (juce::AudioBuffer<float>& buffer, const ModeProfile& profile, int osFactor);
-    void processFilters (juce::AudioBuffer<float>& buffer);
-    void processEq (juce::AudioBuffer<float>& buffer, const ModeProfile& profile);
-    void processCompressor (juce::AudioBuffer<float>& buffer,
-                            const ModeProfile& profile,
-                            QualityMode quality,
-                            const juce::AudioBuffer<float>* detectorBuffer,
-                        bool detectorSidechainEnabled,
-                            bool useExternalDetector);
-    void processGate (juce::AudioBuffer<float>& buffer,
-                      const juce::AudioBuffer<float>* detectorBuffer,
-                    bool detectorSidechainEnabled,
-                      bool useExternalDetector);
-    void processAnalogEngine (juce::AudioBuffer<float>& buffer,
-                              const ModeProfile& profile,
-                              int osFactor,
-                              QualityMode quality,
-                              float mixAssistAmount,
-                              float focusAmount);
-    void processMixAssistAndFocus (juce::AudioBuffer<float>& buffer, float mixAssistAmount, float focusAmount);
-    void applySmartGainCompensation (juce::AudioBuffer<float>& buffer, float preProcessRms, float postProcessRms, int numSamples);
+    NovaConsoleDSP engine;
 
-    static ModeProfile profileForMode (ConsoleMode mode) noexcept;
-    static ModeProfile blendProfiles (const ModeProfile& a, const ModeProfile& b, float t) noexcept;
-
-    juce::dsp::StateVariableTPTFilter<float> hpf[2];
-    juce::dsp::StateVariableTPTFilter<float> lpf[2];
-    juce::dsp::StateVariableTPTFilter<float> hpfStage2[2];
-    juce::dsp::StateVariableTPTFilter<float> hpfStage3[2];
-    juce::dsp::StateVariableTPTFilter<float> hpfStage4[2];
-    juce::dsp::StateVariableTPTFilter<float> lpfStage2[2];
-    juce::dsp::StateVariableTPTFilter<float> lpfStage3[2];
-    juce::dsp::StateVariableTPTFilter<float> lpfStage4[2];
-
-    juce::dsp::IIR::Filter<float> lowShelf[2];
-    juce::dsp::IIR::Filter<float> lowMidPeak[2];
-    juce::dsp::IIR::Filter<float> highMidPeak[2];
-    juce::dsp::IIR::Filter<float> highShelf[2];
-    juce::dsp::IIR::Filter<float> airShelf[2];
-
-    // Preamp smoothing
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> driveSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> colorSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> trimSmoothed;
-    
-    // Input/Output smoothing
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> inputSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputSmoothed;
-    
-    // EQ smoothing (gains: 30-40ms, frequencies: 40-60ms, Q: 10-20ms)
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowFreqSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowQSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowMidSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowMidFreqSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowMidQSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> highMidSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> highMidFreqSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> highMidQSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> highSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> highFreqSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> highQSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> airSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> airFreqSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> airQSmoothed;
-    
-    // Filter frequency smoothing
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> hpfSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lpfSmoothed;
-    
-    // Compressor smoothing (40-50ms for threshold/release, light 10-20ms for attack/ratio, 30ms for mix/makeup/punch)
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compThresholdSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compRatioSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compAttackSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compReleaseSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compMixSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compMakeupSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compPunchSmoothed;
-    
-    // Gate smoothing (40-50ms, plus attack/hold state)
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateThresholdSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateReleaseSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateRangeSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateAttackSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateHoldSmoothed;
-    
-    // Analog engine smoothing (50ms)
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> heatSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> depthSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> widthSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> driftSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> noiseSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> crosstalkSmoothed;
-
-    // Smart intelligence controls
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> smartGainCompDbSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mixAssistAmountSmoothed;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> focusAmountSmoothed;
-
-    float compressorDetector = 0.0f;
-    float compressorGainState = 1.0f;
-    std::array<float, 2> compressorPunchMemory { 0.0f, 0.0f };
-    std::array<float, 2> gateEnv { 0.0f, 0.0f };
-    std::array<int32_t, 2> gateHoldCounter { 0, 0 };
-    std::array<float, 2> gatePreviousEnv { 0.0f, 0.0f };
-    std::array<float, 2> driftState { 0.0f, 0.0f };
-    std::array<float, 2> driftHarmonicState { 0.0f, 0.0f };
-    std::array<float, 2> driftStereoState { 0.0f, 0.0f };
-    std::array<float, 2> driftContourState { 0.0f, 0.0f };
-    float driftFilterState = 0.0f;
-    std::array<float, 2> preampPrevInput { 0.0f, 0.0f };
-    std::array<float, 2> analogPrevInput { 0.0f, 0.0f };
-    std::array<float, 2> analogToneMemory { 0.0f, 0.0f };
-    std::array<float, 2> mixAssistLowState { 0.0f, 0.0f };
-    std::array<float, 2> mixAssistPresenceLpState { 0.0f, 0.0f };
-    std::array<float, 2> mixAssistHarshLpState { 0.0f, 0.0f };
-    std::array<float, 2> mixAssistHarshEnvState { 0.0f, 0.0f };
-    std::array<std::array<float, 2>, 4> compDetectorHpfState {};
-    std::array<std::array<float, 2>, 4> compDetectorLpfState {};
-    std::array<std::array<float, 2>, 4> gateDetectorHpfState {};
-    std::array<std::array<float, 2>, 4> gateDetectorLpfState {};
-    std::array<float, 2> crosstalkLowState { 0.0f, 0.0f };
-    std::array<float, 2> crosstalkHighState { 0.0f, 0.0f };
-    std::array<std::array<float, 64>, 2> crosstalkDelayBuffer {};
-    int crosstalkDelayWriteIndex = 0;
-
-    float smartGainPreRmsEnv = 0.0f;
-    float smartGainPostRmsEnv = 0.0f;
-    float assistDensityEnv = 0.0f;
-
-    ConsoleMode modeFrom = ConsoleMode::british;
-    ConsoleMode modeTo = ConsoleMode::british;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> modeMorph;
-
-    float lastHpfHz = -1.0f;
-    float lastLpfHz = -1.0f;
-    float lastLowDb = 999.0f;
-    float lastLowMidDb = 999.0f;
-    float lastHighMidDb = 999.0f;
-    float lastHighDb = 999.0f;
-    float lastAirDb = 999.0f;
-    float lastLowFreq = -1.0f;
-    float lastLowMidFreq = -1.0f;
-    float lastHighMidFreq = -1.0f;
-    float lastHighFreq = -1.0f;
-    float lastAirFreq = -1.0f;
-    float lastLowQ = -1.0f;
-    float lastLowMidQ = -1.0f;
-    float lastHighMidQ = -1.0f;
-    float lastHighQ = -1.0f;
-    float lastAirQ = -1.0f;
-    int lastHpfSlope = -1;
-    int lastLpfSlope = -1;
-    int lastLowMode = -1;
-    int lastHighMode = -1;
-    int lastAirMode = -1;
-
-    std::minstd_rand rng;
-    std::uniform_real_distribution<float> randDist { -1.0f, 1.0f };
-
-    double currentSampleRate = 44100.0;
-
-    std::atomic<float> inputMeter { 0.0f };
+    std::atomic<float> inputMeter  { 0.0f };
     std::atomic<float> outputMeter { 0.0f };
-    std::atomic<float> gainReductionMeter { 0.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaConsoleAudioProcessor)
 };
