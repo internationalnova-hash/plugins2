@@ -68,6 +68,7 @@ private:
     NovaSpaceDSP    spaceEngine;
 
     // ── Meters ─────────────────────────────────────────────────────────────
+    std::atomic<bool>  prepared            { false };
     std::atomic<float> inputPeak           { 0.0f };
     std::atomic<float> outputPeak          { 0.0f };
     std::atomic<float> levelGainReduction  { 0.0f };

@@ -70,14 +70,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaVoxAudioProcessor::creat
         juce::NormalisableRange<float> (-18.f, 18.f, 0.1f), 0.f));
 
     // Console
-    layout.add (std::make_unique<juce::AudioParameterBool>   (juce::ParameterID { kConsoleOn,     1 }, "Console On",   true));
+    layout.add (std::make_unique<juce::AudioParameterBool>   (juce::ParameterID { kConsoleOn,     1 }, "Console On",   false));
     layout.add (std::make_unique<juce::AudioParameterFloat>  (juce::ParameterID { kConsoleAmount,  1 }, "Console Amount",
         juce::NormalisableRange<float> (0.f, 100.f, 0.1f), 35.f));
     layout.add (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { kConsoleMode,    1 }, "Console Mode",
         juce::StringArray { "Clean", "British", "Tube/Tape", "Gold", "Modern" }, 1));
 
     // Curve
-    layout.add (std::make_unique<juce::AudioParameterBool>   (juce::ParameterID { kCurveOn,     1 }, "Curve On",   true));
+    layout.add (std::make_unique<juce::AudioParameterBool>   (juce::ParameterID { kCurveOn,     1 }, "Curve On",   false));
     layout.add (std::make_unique<juce::AudioParameterFloat>  (juce::ParameterID { kCurveAmount,  1 }, "Curve Amount",
         juce::NormalisableRange<float> (0.f, 100.f, 0.1f), 50.f));
     layout.add (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { kCurveMode,    1 }, "Curve Mode",
@@ -90,7 +90,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaVoxAudioProcessor::creat
         juce::NormalisableRange<float> (-12.f, 12.f, 0.1f), 0.f));
 
     // Level
-    layout.add (std::make_unique<juce::AudioParameterBool>   (juce::ParameterID { kLevelOn,      1 }, "Level On",     true));
+    layout.add (std::make_unique<juce::AudioParameterBool>   (juce::ParameterID { kLevelOn,      1 }, "Level On",     false));
     layout.add (std::make_unique<juce::AudioParameterFloat>  (juce::ParameterID { kLevelAmount,   1 }, "Level Amount",
         juce::NormalisableRange<float> (0.f, 10.f, 0.01f), 3.f));
     layout.add (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { kLevelMode,     1 }, "Level Mode",
@@ -100,7 +100,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaVoxAudioProcessor::creat
     layout.add (std::make_unique<juce::AudioParameterBool>   (juce::ParameterID { kLevelMagic,    1 }, "Level Magic",  false));
 
     // Motion
-    layout.add (std::make_unique<juce::AudioParameterBool>   (juce::ParameterID { kMotionOn,     1 }, "Motion On",    true));
+    layout.add (std::make_unique<juce::AudioParameterBool>   (juce::ParameterID { kMotionOn,     1 }, "Motion On",    false));
     layout.add (std::make_unique<juce::AudioParameterFloat>  (juce::ParameterID { kMotionAmount,  1 }, "Motion Amount",
         juce::NormalisableRange<float> (0.f, 100.f, 0.1f), 40.f));
     layout.add (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { kMotionMode,    1 }, "Motion Mode",
@@ -111,7 +111,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaVoxAudioProcessor::creat
         juce::NormalisableRange<float> (0.f, 100.f, 0.1f), 75.f));
 
     // Space
-    layout.add (std::make_unique<juce::AudioParameterBool>   (juce::ParameterID { kSpaceOn,      1 }, "Space On",     true));
+    layout.add (std::make_unique<juce::AudioParameterBool>   (juce::ParameterID { kSpaceOn,      1 }, "Space On",     false));
     layout.add (std::make_unique<juce::AudioParameterFloat>  (juce::ParameterID { kSpaceAmount,   1 }, "Space Amount",
         juce::NormalisableRange<float> (0.f, 100.f, 0.1f), 20.f));
     layout.add (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { kSpaceMode,     1 }, "Space Mode",
@@ -160,6 +160,7 @@ void NovaVoxAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     levelEngine.prepare (spec);
     motionEngine.prepare (spec);
     spaceEngine.prepare (spec);
+    prepared.store (true, std::memory_order_release);
 }
 
 void NovaVoxAudioProcessor::releaseResources() {}
@@ -187,6 +188,7 @@ void NovaVoxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         buffer.clear (ch, 0, buffer.getNumSamples());
 
     if (buffer.getNumSamples() == 0) return;
+    if (!prepared.load (std::memory_order_acquire)) return;
 
     auto load = [&] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
 
