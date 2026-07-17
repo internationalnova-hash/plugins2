@@ -163,11 +163,10 @@ void NovaLevelAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     // Translate APVTS → shared parameter struct (no DSP logic here)
     NovaLevelParameters params;
-    params.compressionAmount = apvts.getRawParameterValue ("compression")->load() / 10.0f;
-    params.outputDb          = apvts.getRawParameterValue ("output")->load();
-    params.mode              = static_cast<int> (apvts.getRawParameterValue ("mode")->load());
-    params.magic             = apvts.getRawParameterValue ("magic")->load() > 0.5f;
-    params.mix               = 1.0f; // Nova Level standalone is always 100% wet
+    params.compression = apvts.getRawParameterValue ("compression")->load(); // raw 0-10
+    params.outputDb    = apvts.getRawParameterValue ("output")->load();
+    params.mode        = static_cast<int> (apvts.getRawParameterValue ("mode")->load());
+    params.magic       = apvts.getRawParameterValue ("magic")->load();        // float, DSP checks > 0.5
 
     levelDSP.setParameters (params);
     levelDSP.process (buffer);

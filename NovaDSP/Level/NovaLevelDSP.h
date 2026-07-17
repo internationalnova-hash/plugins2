@@ -5,33 +5,39 @@
 
 // Shared compressor DSP engine extracted from Nova Level.
 // No APVTS. No UI. No allocations in process().
-// Used by: Nova Level standalone, Nova Vox (Comp section).
+// Preserves the exact Nova Level algorithm: linked peak detector,
+// attack/release envelope, gain reduction, optional magic (tanh) saturation.
+//
+// Used by: Nova Level standalone, Nova Vox (Comp section), future products.
 class NovaLevelDSP
 {
 public:
     void prepare (const juce::dsp::ProcessSpec& spec);
     void reset();
 
-    // Call once per block before process(). Thread-safe read, then cache.
-    void setParameters (const NovaLevelParameters& p);
+    // Set once per block before process(). Cheap struct copy.
+    void setParameters (const NovaLevelParameters& parameters) noexcept;
 
-    // Processes buffer in place. Supports mono and stereo.
-    void process (juce::AudioBuffer<float>& buffer);
+    // Process buffer in place — supports mono and stereo.
+    // No memory allocation. No locks.
+    void process (juce::AudioBuffer<float>& buffer) noexcept;
 
-    // Read after process() on the UI thread (atomic).
-    float getGainReductionDb()  const noexcept { return gainReductionDb.load(); }
-    float getOutputPeak()       const noexcept { return outputPeak.load();      }
-    bool  isOutputHot()         const noexcept { return outputIsHot.load();     }
+    // Read on the UI thread after process() completes.
+    float getGainReductionDb() const noexcept;
+
+    // Additional meters exposed for editors.
+    float getOutputPeak() const noexcept { return outputPeak.load (std::memory_order_relaxed); }
+    bool  isOutputHot()   const noexcept { return outputIsHot.load (std::memory_order_relaxed); }
 
 private:
     NovaLevelParameters params;
     double sampleRate = 44100.0;
 
-    // Per-block DSP state (audio thread only — not atomic)
+    // Compressor state — written and read exclusively on the audio thread.
     float grEnvelopeDb = 0.0f;
 
-    // Meters (written by audio thread, read by UI thread)
-    std::atomic<float> gainReductionDb { 0.0f };
-    std::atomic<float> outputPeak      { 0.0f };
-    std::atomic<bool>  outputIsHot     { false };
+    // Meters — written by audio thread, read by UI thread.
+    std::atomic<float> gainReductionDbAtomic { 0.0f };
+    std::atomic<float> outputPeak            { 0.0f };
+    std::atomic<bool>  outputIsHot           { false };
 };
