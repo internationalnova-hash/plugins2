@@ -173,6 +173,11 @@ public:
         std::array<std::array<float, 2>, 4> gateDetectorHpfState {};
         std::array<std::array<float, 2>, 4> gateDetectorLpfState {};
 
+        // ── Smart Gain state ──────────────────────────────────────────────────
+        float smartGainPreRmsEnv  = 0.0f;
+        float smartGainPostRmsEnv = 0.0f;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> smartGainCompDbSmoothed;
+
         // ── Mix Assist / Focus state ──────────────────────────────────────────
         std::array<float, 2> mixAssistLowState        { 0.0f, 0.0f };
         std::array<float, 2> mixAssistPresenceLpState { 0.0f, 0.0f };
@@ -377,6 +382,11 @@ public:
             gateRangeSmoothed.setCurrentAndTargetValue     (init.gateRangeDb);
             gateAttackSmoothed.setCurrentAndTargetValue    (init.gateAttackMs);
             gateHoldSmoothed.setCurrentAndTargetValue      (init.gateHoldMs);
+
+            smartGainCompDbSmoothed.reset (sampleRate, 0.150);
+            smartGainCompDbSmoothed.setCurrentAndTargetValue (0.0f);
+            smartGainPreRmsEnv  = 0.0f;
+            smartGainPostRmsEnv = 0.0f;
 
             mixAssistAmountSmoothed.reset (sampleRate, 0.120);
             focusAmountSmoothed.reset     (sampleRate, 0.100);
@@ -1066,15 +1076,21 @@ public:
             int osFactor = (p.oversampling == 2 ? 4 : (p.oversampling == 1 ? 2 : 1));
             if (p.quality == 0) osFactor = 1;
 
-            // Input gain
+            // Input gain + pre-RMS accumulation
             inputSmoothed.setTargetValue (dbToGain (p.inputDb));
             const int channels = juce::jmin (2, buf.getNumChannels());
+            float preProcessSqAccum = 0.0f;
             for (int ch = 0; ch < channels; ++ch)
             {
                 auto* data = buf.getWritePointer (ch);
                 for (int i = 0; i < buf.getNumSamples(); ++i)
+                {
                     data[i] *= inputSmoothed.getNextValue();
+                    preProcessSqAccum += data[i] * data[i];
+                }
             }
+            const float preProcessRms = std::sqrt (
+                preProcessSqAccum / juce::jmax (1, channels * buf.getNumSamples()));
 
             if (p.preampOn)  processPreamp (buf, p, active, osFactor);
             if (p.filterOn)  processFilters (buf, p);
@@ -1098,9 +1114,10 @@ public:
                 processMixAssistAndFocus (buf, mixAssistAmt, focusAmt);
             }
 
-            // modeTrim + clip + output gain
+            // modeTrim + clip + output gain + post-RMS accumulation
             const float modeTrim = active.outputTrim;
             outputSmoothed.setTargetValue (dbToGain (p.outputDb));
+            float postProcessSqAccum = 0.0f;
             for (int ch = 0; ch < channels; ++ch)
             {
                 auto* data = buf.getWritePointer (ch);
@@ -1108,7 +1125,46 @@ public:
                 {
                     data[i] = juce::jlimit (-1.35f, 1.35f, data[i] * modeTrim);
                     data[i] *= outputSmoothed.getNextValue();
+                    postProcessSqAccum += data[i] * data[i];
                 }
+            }
+            const float postProcessRms = std::sqrt (
+                postProcessSqAccum / juce::jmax (1, channels * buf.getNumSamples()));
+
+            // Smart Gain compensation
+            applySmartGainCompensation (buf, preProcessRms, postProcessRms, buf.getNumSamples(), p);
+        }
+
+        void applySmartGainCompensation (juce::AudioBuffer<float>& buf,
+                                          float preProcessRms, float postProcessRms,
+                                          int numSamples,
+                                          const NovaConsoleParameters& p)
+        {
+            if (numSamples <= 0 || currentSampleRate <= 1000.0) return;
+            const float blockSeconds     = static_cast<float> (numSamples) / static_cast<float> (currentSampleRate);
+            const float rmsWindowSeconds = 0.300f;
+            const float envCoeff = juce::jlimit (0.0005f, 1.0f,
+                                                 1.0f - std::exp (-blockSeconds / rmsWindowSeconds));
+            smartGainPreRmsEnv  += envCoeff * (preProcessRms  - smartGainPreRmsEnv);
+            smartGainPostRmsEnv += envCoeff * (postProcessRms - smartGainPostRmsEnv);
+
+            float targetCompDb = 0.0f;
+            if (p.smartGain)
+            {
+                const float preDb  = gainToDb (smartGainPreRmsEnv  + 1.0e-7f);
+                const float postDb = gainToDb (smartGainPostRmsEnv + 1.0e-7f);
+                const float deltaDb = postDb - preDb;
+                const float weightedComp    = -deltaDb * 0.68f;
+                const float nonlinearWeight = 0.60f + 0.40f * std::tanh (std::abs (deltaDb) / 7.5f);
+                targetCompDb = juce::jlimit (-6.0f, 6.0f, weightedComp * nonlinearWeight);
+            }
+            smartGainCompDbSmoothed.setTargetValue (targetCompDb);
+            const int channels = juce::jmin (2, buf.getNumChannels());
+            for (int i = 0; i < numSamples; ++i)
+            {
+                const float gain = dbToGain (smartGainCompDbSmoothed.getNextValue());
+                for (int ch = 0; ch < channels; ++ch)
+                    buf.getWritePointer (ch)[i] *= gain;
             }
         }
     };
@@ -2715,6 +2771,180 @@ public:
             p.mixAssist = 0.5f; p.focusMode = false; // 0.5% → 0.005 as fraction > 0.0001
             auto sig = makeNoise (2, totalSamples, 0.3f);
             check (runScenario ("mix-assist-near-threshold", 44100.0, 512, 8, p, sig));
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // Phase 4F — Smart Gain (149–163)
+        // smart_gain: bool (default false)
+        // Smart Gain measures pre/post RMS over a 300ms window and applies
+        // compensation up to ±6 dB. Off by default — test both states.
+        // ════════════════════════════════════════════════════════════════════
+
+        // 149. Smart Gain off — no compensation applied
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.smartGain = false;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("smart-gain-off", 44100.0, 512, 8, p, sig));
+        }
+
+        // 150. Smart Gain on — stereo noise (measures RMS delta, applies compensation)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.smartGain = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("smart-gain-on-noise", 44100.0, 512, 8, p, sig));
+        }
+
+        // 151. Smart Gain on + Compressor (creates RMS delta that Smart Gain compensates)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -16.0f; p.compRatio = 4.0f; p.compMakeupDb = 0.0f;
+            p.smartGain = true;
+            auto sig = makeNoise (2, totalSamples, 0.4f);
+            check (runScenario ("smart-gain-on-with-comp", 44100.0, 512, 8, p, sig));
+        }
+
+        // 152. Smart Gain on + EQ boosting (post-RMS higher → Smart Gain attenuates)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = true;
+            p.compOn = false; p.gateOn = false;
+            p.lowDb = 6.0f; p.highDb = 4.0f;
+            p.smartGain = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("smart-gain-on-with-eq-boost", 44100.0, 512, 8, p, sig));
+        }
+
+        // 153. Smart Gain on + EQ cutting (post-RMS lower → Smart Gain boosts)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = true;
+            p.compOn = false; p.gateOn = false;
+            p.lowDb = -4.0f; p.highMidDb = -3.0f;
+            p.smartGain = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("smart-gain-on-with-eq-cut", 44100.0, 512, 8, p, sig));
+        }
+
+        // 154. Smart Gain on — mono
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.smartGain = true;
+            auto sig = makeNoise (1, totalSamples, 0.3f);
+            check (runScenario ("smart-gain-mono", 44100.0, 512, 8, p, sig));
+        }
+
+        // 155. Smart Gain on — 48 kHz
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.smartGain = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("smart-gain-sr-48000", 48000.0, 512, 8, p, sig));
+        }
+
+        // 156. Smart Gain on — 96 kHz
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.smartGain = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("smart-gain-sr-96000", 96000.0, 512, 8, p, sig));
+        }
+
+        // 157. Smart Gain on — silence (no delta, compensation stays near 0)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.smartGain = true;
+            juce::AudioBuffer<float> sig (2, totalSamples);
+            sig.clear();
+            check (runScenario ("smart-gain-silence", 44100.0, 512, 8, p, sig));
+        }
+
+        // 158. Smart Gain on + Mix Assist + Focus — full intelligence chain
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 50.0f; p.focusMode = true;
+            p.smartGain = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("smart-gain-mix-assist-focus-chain", 44100.0, 512, 8, p, sig));
+        }
+
+        // 159. Full chain Phase 4F — all stages, British mode, Smart Gain on
+        {
+            NovaConsoleParameters p;
+            p.mode = 1; // British
+            p.preampOn = true; p.filterOn = true; p.eqOn = true;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -16.0f; p.compRatio = 4.0f;
+            p.mixAssist = 60.0f; p.focusMode = false;
+            p.smartGain = true;
+            auto sig = makeNoise (2, totalSamples, 0.25f);
+            check (runScenario ("full-chain-4F-british-smart-gain-on", 44100.0, 512, 8, p, sig));
+        }
+
+        // 160. Smart Gain on — small block size 64
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.smartGain = true;
+            auto sig = makeNoise (2, 64 * 16, 0.3f);
+            check (runScenario ("smart-gain-blocksize-64", 44100.0, 64, 16, p, sig));
+        }
+
+        // 161. Smart Gain on — large block size 2048
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.smartGain = true;
+            auto sig = makeNoise (2, 2048 * 2, 0.3f);
+            check (runScenario ("smart-gain-blocksize-2048", 44100.0, 2048, 2, p, sig));
+        }
+
+        // 162. Smart Gain on — sine wave input (deterministic RMS)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.smartGain = true;
+            auto sig = makeSine (2, totalSamples, 44100.0, 440.0, 0.5f);
+            check (runScenario ("smart-gain-sine-440hz", 44100.0, 512, 8, p, sig));
+        }
+
+        // 163. Smart Gain — mode sweep
+        {
+            const char* sgModeNames[] = {
+                "smart-gain-mode-clean", "smart-gain-mode-british",
+                "smart-gain-mode-tubetape", "smart-gain-mode-gold",
+                "smart-gain-mode-modern"
+            };
+            for (int m = 0; m < 5; ++m)
+            {
+                NovaConsoleParameters p;
+                p.mode = m;
+                p.preampOn = false; p.filterOn = false; p.eqOn = false;
+                p.compOn = false; p.gateOn = false;
+                p.smartGain = true;
+                auto sig = makeNoise (2, totalSamples, 0.3f);
+                check (runScenario (sgModeNames[m], 44100.0, 512, 8, p, sig));
+            }
         }
 
         return out;

@@ -198,6 +198,8 @@ void NovaConsoleDSP::prepare (const juce::dsp::ProcessSpec& spec,
     mixAssistAmountSmoothed.reset (sr, 0.120);
     focusAmountSmoothed.reset     (sr, 0.100);
 
+    smartGainCompDbSmoothed.reset (sr, 0.150);
+
     // ── Seed smoothers with initial parameter values ───────────────────────────
     // (NovaDSP v1.0.0 contract: prepare(spec, initial) eliminates first-block
     // ramp-from-zero artefact that existed in the original prepareToPlay.)
@@ -243,6 +245,8 @@ void NovaConsoleDSP::prepare (const juce::dsp::ProcessSpec& spec,
     mixAssistAmountSmoothed.setCurrentAndTargetValue (initial.mixAssist / 100.0f);
     focusAmountSmoothed.setCurrentAndTargetValue     (initial.focusMode ? 1.0f : 0.0f);
 
+    smartGainCompDbSmoothed.setCurrentAndTargetValue (0.0f);
+
     // ── Mode morph ────────────────────────────────────────────────────────────
     const int rawMode = juce::jlimit (0, 4, initial.mode);
     modeFrom = static_cast<ConsoleMode> (rawMode);
@@ -281,6 +285,9 @@ void NovaConsoleDSP::prepare (const juce::dsp::ProcessSpec& spec,
     mixAssistHarshLpState    = { 0.0f, 0.0f };
     mixAssistHarshEnvState   = { 0.0f, 0.0f };
 
+    smartGainPreRmsEnv  = 0.0f;
+    smartGainPostRmsEnv = 0.0f;
+
     updateLinearStageCoefficients();
 }
 
@@ -313,6 +320,9 @@ void NovaConsoleDSP::reset() noexcept
     mixAssistPresenceLpState = { 0.0f, 0.0f };
     mixAssistHarshLpState    = { 0.0f, 0.0f };
     mixAssistHarshEnvState   = { 0.0f, 0.0f };
+
+    smartGainPreRmsEnv  = 0.0f;
+    smartGainPostRmsEnv = 0.0f;
 }
 
 void NovaConsoleDSP::setParameters (const NovaConsoleParameters& p) noexcept
@@ -364,14 +374,21 @@ void NovaConsoleDSP::process (juce::AudioBuffer<float>& buffer,
     const juce::AudioBuffer<float>* detectorBuffer = sidechainExtActive ? sidechain : nullptr;
 
     // Input gain — per-sample smoother, verbatim from processBlock()
+    // Also accumulates pre-process RMS for Smart Gain compensation.
     inputSmoothed.setTargetValue (dbToGain (params.inputDb));
     const int channels = juce::jmin (2, buffer.getNumChannels());
+    float preProcessSqAccum = 0.0f;
     for (int ch = 0; ch < channels; ++ch)
     {
         auto* data = buffer.getWritePointer (ch);
         for (int i = 0; i < buffer.getNumSamples(); ++i)
+        {
             data[i] *= inputSmoothed.getNextValue();
+            preProcessSqAccum += data[i] * data[i];
+        }
     }
+    const float preProcessRms = std::sqrt (
+        preProcessSqAccum / juce::jmax (1, channels * buffer.getNumSamples()));
 
     if (params.preampOn)
         processPreamp (buffer, activeProfile, osFactor);
@@ -407,8 +424,10 @@ void NovaConsoleDSP::process (juce::AudioBuffer<float>& buffer,
     }
 
     // modeTrim + clip + output gain — verbatim from processBlock()
+    // Also accumulates post-process RMS for Smart Gain compensation.
     const float modeTrim = activeProfile.outputTrim;
     outputSmoothed.setTargetValue (dbToGain (params.outputDb));
+    float postProcessSqAccum = 0.0f;
     for (int ch = 0; ch < channels; ++ch)
     {
         auto* data = buffer.getWritePointer (ch);
@@ -416,8 +435,14 @@ void NovaConsoleDSP::process (juce::AudioBuffer<float>& buffer,
         {
             data[i] = juce::jlimit (-1.35f, 1.35f, data[i] * modeTrim);
             data[i] *= outputSmoothed.getNextValue();
+            postProcessSqAccum += data[i] * data[i];
         }
     }
+    const float postProcessRms = std::sqrt (
+        postProcessSqAccum / juce::jmax (1, channels * buffer.getNumSamples()));
+
+    // Smart Gain compensation — verbatim from applySmartGainCompensation()
+    applySmartGainCompensation (buffer, preProcessRms, postProcessRms, buffer.getNumSamples());
 }
 
 // ── Private DSP helpers ───────────────────────────────────────────────────────
@@ -1088,5 +1113,47 @@ void NovaConsoleDSP::processMixAssistAndFocus (juce::AudioBuffer<float>& buffer,
 
         left[i]  = mid + side;
         right[i] = mid - side;
+    }
+}
+
+// ── Smart Gain ────────────────────────────────────────────────────────────────
+// Verbatim from Nova Console/Source/PluginProcessor.cpp :: applySmartGainCompensation()
+
+void NovaConsoleDSP::applySmartGainCompensation (juce::AudioBuffer<float>& buffer,
+                                                  float preProcessRms,
+                                                  float postProcessRms,
+                                                  int numSamples) noexcept
+{
+    if (numSamples <= 0 || currentSampleRate <= 1000.0)
+        return;
+
+    const float blockSeconds    = static_cast<float> (numSamples) / static_cast<float> (currentSampleRate);
+    const float rmsWindowSeconds = 0.300f;
+    const float envCoeff = juce::jlimit (0.0005f, 1.0f,
+                                         1.0f - std::exp (-blockSeconds / rmsWindowSeconds));
+
+    smartGainPreRmsEnv  += envCoeff * (preProcessRms  - smartGainPreRmsEnv);
+    smartGainPostRmsEnv += envCoeff * (postProcessRms - smartGainPostRmsEnv);
+
+    float targetCompDb = 0.0f;
+
+    if (params.smartGain)
+    {
+        const float preDb  = gainToDb (smartGainPreRmsEnv  + 1.0e-7f);
+        const float postDb = gainToDb (smartGainPostRmsEnv + 1.0e-7f);
+        const float deltaDb = postDb - preDb;
+        const float weightedComp    = -deltaDb * 0.68f;
+        const float nonlinearWeight = 0.60f + 0.40f * std::tanh (std::abs (deltaDb) / 7.5f);
+        targetCompDb = juce::jlimit (-6.0f, 6.0f, weightedComp * nonlinearWeight);
+    }
+
+    smartGainCompDbSmoothed.setTargetValue (targetCompDb);
+
+    const int channels = juce::jmin (2, buffer.getNumChannels());
+    for (int i = 0; i < numSamples; ++i)
+    {
+        const float gain = dbToGain (smartGainCompDbSmoothed.getNextValue());
+        for (int ch = 0; ch < channels; ++ch)
+            buffer.getWritePointer (ch)[i] *= gain;
     }
 }

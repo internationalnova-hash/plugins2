@@ -1,11 +1,11 @@
 {
   "format": "NovaDSP_RegressionResults",
-  "date": "2026-07-17T07:19:23Z",
+  "date": "2026-07-17T07:24:14Z",
   "suites": [
-    { "suite": "NovaLevel", "scenarios": 108, "passed": 108, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 77.56 },
-    { "suite": "NovaMotion", "scenarios": 20, "passed": 20, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 35.47 },
-    { "suite": "NovaSpace", "scenarios": 28, "passed": 28, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 155.51 },
-    { "suite": "NovaConsole", "scenarios": 155, "passed": 155, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 452.22 }
+    { "suite": "NovaLevel", "scenarios": 108, "passed": 108, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 76.68 },
+    { "suite": "NovaMotion", "scenarios": 20, "passed": 20, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 36.71 },
+    { "suite": "NovaSpace", "scenarios": 28, "passed": 28, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 157.18 },
+    { "suite": "NovaConsole", "scenarios": 174, "passed": 174, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 479.51 }
   ],
   "scenarios": [
     { "suite": "NovaLevel", "scenario": "sr=44100 ch=1 mode=0 comp=0 magic=0", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": null },
@@ -318,14 +318,33 @@
     { "suite": "NovaConsole", "scenario": "mix-assist-mode-tubetape", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x6afd56e51277db00" },
     { "suite": "NovaConsole", "scenario": "mix-assist-mode-gold", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0xf0abc64d6e0a9f4a" },
     { "suite": "NovaConsole", "scenario": "mix-assist-mode-modern", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0xc74c84d536c43a8a" },
-    { "suite": "NovaConsole", "scenario": "mix-assist-near-threshold", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x98933be79dd376af" }
+    { "suite": "NovaConsole", "scenario": "mix-assist-near-threshold", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x98933be79dd376af" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-off", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x50373404aa9428d3" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-on-noise", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x5e1a99d0ba5c3ec9" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-on-with-comp", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0xb6fa49cc88e502c8" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-on-with-eq-boost", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x0ae0427ad4ac1f7a" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-on-with-eq-cut", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0xd60210dc0407a920" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-mono", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x7a20e3fa24885ca2" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-sr-48000", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0xb5bfb95a7b1deef6" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-sr-96000", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0xb1cfd7f36d029e60" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-silence", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x8f6955bf94ec2325" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-mix-assist-focus-chain", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x1315ba02042bbe24" },
+    { "suite": "NovaConsole", "scenario": "full-chain-4F-british-smart-gain-on", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x21f1154230bb83f3" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-blocksize-64", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0xb6446d9d57e473ed" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-blocksize-2048", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x7cdfdeec9f8ced64" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-sine-440hz", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x74dcc7ced5da5ced" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-mode-clean", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x9dbf2085685cc8dd" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-mode-british", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x5e1a99d0ba5c3ec9" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-mode-tubetape", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x9dde5d3d1f7250c3" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-mode-gold", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0x6426272313098bfe" },
+    { "suite": "NovaConsole", "scenario": "smart-gain-mode-modern", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": "0xcb70cf98931f1856" }
   ],
   "summary": {
-    "totalScenarios": 311,
-    "passed": 311,
+    "totalScenarios": 330,
+    "passed": 330,
     "failed": 0,
     "maxPeakAbsDiff": 0.000000e+00,
-    "totalElapsedMs": 720.77,
+    "totalElapsedMs": 750.09,
     "result": "PASS"
   }
 }

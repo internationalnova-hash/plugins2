@@ -19,7 +19,8 @@
 // Phase 4C: Input/Output gain, Preamp stage, Gate stage.
 // Phase 4D: Compressor stage + gainReductionMeter.
 // Phase 4E: Mix Assist + Focus stage.
-// SmartGain, AnalogEngine follow in 4F–4G.
+// Phase 4F: Smart Gain compensation.
+// AnalogEngine follows in 4G.
 //
 // TD-003  44 SmoothedValue instances are owned individually.  Future v2 may
 //         consolidate into a ConsoleSmoothers aggregate for readability.
@@ -96,9 +97,13 @@ private:
                                   const juce::AudioBuffer<float>* detectorBuffer,
                                   bool detectorSidechainEnabled,
                                   bool useExternalDetector) noexcept;
-    void processMixAssistAndFocus (juce::AudioBuffer<float>& buffer,
-                                   float mixAssistAmount,
-                                   float focusAmount) noexcept;
+    void processMixAssistAndFocus    (juce::AudioBuffer<float>& buffer,
+                                      float mixAssistAmount,
+                                      float focusAmount) noexcept;
+    void applySmartGainCompensation  (juce::AudioBuffer<float>& buffer,
+                                      float preProcessRms,
+                                      float postProcessRms,
+                                      int numSamples) noexcept;
 
     // ── Filters ───────────────────────────────────────────────────────────────
     juce::dsp::StateVariableTPTFilter<float> hpf[2];
@@ -166,6 +171,9 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mixAssistAmountSmoothed; // 120ms
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> focusAmountSmoothed;     // 100ms
 
+    // ── Smart Gain smoother ───────────────────────────────────────────────────
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> smartGainCompDbSmoothed; // 150ms
+
     // ── Mode morph ────────────────────────────────────────────────────────────
     ConsoleMode modeFrom = ConsoleMode::british;
     ConsoleMode modeTo   = ConsoleMode::british;
@@ -220,6 +228,10 @@ private:
     std::array<float, 2> mixAssistPresenceLpState { 0.0f, 0.0f };
     std::array<float, 2> mixAssistHarshLpState    { 0.0f, 0.0f };
     std::array<float, 2> mixAssistHarshEnvState   { 0.0f, 0.0f };
+
+    // ── Smart Gain state ──────────────────────────────────────────────────────
+    float smartGainPreRmsEnv  = 0.0f;
+    float smartGainPostRmsEnv = 0.0f;
 
     double currentSampleRate = 44100.0;
     NovaConsoleParameters params;
