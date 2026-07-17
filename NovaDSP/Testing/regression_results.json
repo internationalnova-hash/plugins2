@@ -1,11 +1,11 @@
 {
   "format": "NovaDSP_RegressionResults",
-  "date": "2026-07-17T07:33:17Z",
+  "date": "2026-07-17T07:44:32Z",
   "suites": [
-    { "suite": "NovaLevel", "scenarios": 108, "passed": 108, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 76.74 },
-    { "suite": "NovaMotion", "scenarios": 20, "passed": 20, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 38.83 },
-    { "suite": "NovaSpace", "scenarios": 28, "passed": 28, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 155.88 },
-    { "suite": "NovaConsole", "scenarios": 203, "passed": 203, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 876.39 }
+    { "suite": "NovaLevel", "scenarios": 108, "passed": 108, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 83.16 },
+    { "suite": "NovaMotion", "scenarios": 20, "passed": 20, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 35.11 },
+    { "suite": "NovaSpace", "scenarios": 28, "passed": 28, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 157.26 },
+    { "suite": "NovaConsole", "scenarios": 203, "passed": 203, "failed": 0, "maxPeakAbsDiff": 0.000000e+00, "elapsedMs": 941.97 }
   ],
   "scenarios": [
     { "suite": "NovaLevel", "scenario": "sr=44100 ch=1 mode=0 comp=0 magic=0", "passed": true, "peakAbsDiff": 0.000000e+00, "rmsAbsDiff": 0.000000e+00, "outputHash": null },
@@ -373,7 +373,7 @@
     "passed": 359,
     "failed": 0,
     "maxPeakAbsDiff": 0.000000e+00,
-    "totalElapsedMs": 1147.85,
+    "totalElapsedMs": 1217.50,
     "result": "PASS"
   }
 }
