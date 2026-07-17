@@ -1,0 +1,145 @@
+#pragma once
+
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_dsp/juce_dsp.h>
+
+#include "NovaConsoleParameters.h"
+
+// NovaConsoleDSP — shared console strip engine (Phase 4B: Filters + EQ)
+//
+// Lifecycle (matches every other NovaDSP engine):
+//   prepare(spec, initial)   — allocate, reset, seed smoothers
+//   reset() noexcept         — clear filter state only (no realloc)
+//   setParameters(p) noexcept
+//   process(main, sidechain) noexcept
+//
+// Phase 4B contains: ModeProfile blend, Filter stage, EQ stage.
+// Preamp, Gate, Compressor, MixAssist, SmartGain, AnalogEngine follow in
+// subsequent phases (4C–4I) as each is regression-validated.
+//
+// TD-003  44 SmoothedValue instances are owned individually.  Future v2 may
+//         consolidate into a ConsoleSmoothers aggregate for readability.
+//         No refactor during extraction — preserve original per-smoother layout.
+
+class NovaConsoleDSP
+{
+public:
+    NovaConsoleDSP() = default;
+
+    void prepare (const juce::dsp::ProcessSpec& spec,
+                  const NovaConsoleParameters& initial = {});
+
+    void reset() noexcept;
+
+    void setParameters (const NovaConsoleParameters& p) noexcept;
+
+    // sidechain is unused in Phase 4B; reserved for Compressor/Gate phases.
+    void process (juce::AudioBuffer<float>& buffer,
+                  const juce::AudioBuffer<float>* sidechain = nullptr) noexcept;
+
+private:
+    // ── Mode profile ─────────────────────────────────────────────────────────
+    enum class ConsoleMode : int { clean = 0, british, tubeTape, gold, modern };
+
+    struct ModeProfile
+    {
+        float warmth              = 0.2f;
+        float presence            = 1.0f;
+        float eqWidth             = 1.0f;
+        float upperMidAggression  = 1.0f;
+        float airSmoothness       = 1.0f;
+        float lowMidWeight        = 1.0f;
+        float oddDrive            = 0.5f;
+        float evenDrive           = 0.5f;
+        float clipSoftness        = 1.0f;
+        float transientPunch      = 1.0f;
+        float transientRetention  = 1.0f;
+        float stereoWidthBias     = 1.0f;
+        float centerWeight        = 1.0f;
+        float sideSoftness        = 1.0f;
+        float crosstalkBias       = 1.0f;
+        float outputTrim          = 1.0f;
+    };
+
+    static ModeProfile profileForMode (ConsoleMode mode) noexcept;
+    static ModeProfile blendProfiles  (const ModeProfile& a,
+                                       const ModeProfile& b,
+                                       float t) noexcept;
+
+    // ── Private DSP helpers ───────────────────────────────────────────────────
+    void updateLinearStageCoefficients() noexcept;
+    void processFilters (juce::AudioBuffer<float>& buffer) noexcept;
+    void processEq      (juce::AudioBuffer<float>& buffer,
+                         const ModeProfile& profile) noexcept;
+
+    // ── Filters ───────────────────────────────────────────────────────────────
+    juce::dsp::StateVariableTPTFilter<float> hpf[2];
+    juce::dsp::StateVariableTPTFilter<float> lpf[2];
+    juce::dsp::StateVariableTPTFilter<float> hpfStage2[2];
+    juce::dsp::StateVariableTPTFilter<float> hpfStage3[2];
+    juce::dsp::StateVariableTPTFilter<float> hpfStage4[2];
+    juce::dsp::StateVariableTPTFilter<float> lpfStage2[2];
+    juce::dsp::StateVariableTPTFilter<float> lpfStage3[2];
+    juce::dsp::StateVariableTPTFilter<float> lpfStage4[2];
+
+    // ── EQ ────────────────────────────────────────────────────────────────────
+    juce::dsp::IIR::Filter<float> lowShelf[2];
+    juce::dsp::IIR::Filter<float> lowMidPeak[2];
+    juce::dsp::IIR::Filter<float> highMidPeak[2];
+    juce::dsp::IIR::Filter<float> highShelf[2];
+    juce::dsp::IIR::Filter<float> airShelf[2];
+
+    // ── Smoothers (TD-003: individual SmoothedValues, not consolidated) ───────
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> hpfSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lpfSmoothed;
+
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowFreqSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowQSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowMidSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowMidFreqSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowMidQSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> highMidSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> highMidFreqSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> highMidQSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> highSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> highFreqSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> highQSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> airSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> airFreqSmoothed;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> airQSmoothed;
+
+    // ── Mode morph ────────────────────────────────────────────────────────────
+    ConsoleMode modeFrom = ConsoleMode::british;
+    ConsoleMode modeTo   = ConsoleMode::british;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> modeMorph;
+
+    // ── EQ coefficient dirty-check cache (avoids per-block IIR allocations) ──
+    float lastHpfHz       = -1.0f;
+    float lastLpfHz       = -1.0f;
+    float lastLowDb       = 999.0f;
+    float lastLowMidDb    = 999.0f;
+    float lastHighMidDb   = 999.0f;
+    float lastHighDb      = 999.0f;
+    float lastAirDb       = 999.0f;
+    float lastLowFreq     = -1.0f;
+    float lastLowMidFreq  = -1.0f;
+    float lastHighMidFreq = -1.0f;
+    float lastHighFreq    = -1.0f;
+    float lastAirFreq     = -1.0f;
+    float lastLowQ        = -1.0f;
+    float lastLowMidQ     = -1.0f;
+    float lastHighMidQ    = -1.0f;
+    float lastHighQ       = -1.0f;
+    float lastAirQ        = -1.0f;
+    int   lastHpfSlope    = -1;
+    int   lastLpfSlope    = -1;
+    int   lastLowMode     = -1;
+    int   lastHighMode    = -1;
+    int   lastAirMode     = -1;
+
+    double currentSampleRate = 44100.0;
+    NovaConsoleParameters params;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaConsoleDSP)
+};

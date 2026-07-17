@@ -1,5 +1,47 @@
 # NovaDSP CHANGELOG
 
+---
+
+## [1.1.0] — 2026-07-17  *(in progress — Phase 4B only)*
+
+### Added
+
+- `Console/NovaConsoleParameters` — 55-field POD parameter struct covering all
+  Nova Console stages: global, input/output, preamp, filter, EQ, compressor,
+  gate, analog engine, and intelligence controls.
+
+- `Console/NovaConsoleDSP` — Phase 4B: Filter + EQ stages extracted.
+  - 8 `StateVariableTPTFilter` per channel (HPF + LPF, 1/2/4 cascaded stages)
+  - 5 `IIR::Filter` per channel (low shelf, low-mid, high-mid, high shelf, air)
+  - 17 SmoothedValues for filter/EQ parameters (block-rate coefficient smoothing)
+  - ModeProfile blend (35 ms morph SmoothedValue) included — required by EQ gain scaling
+  - EQ coefficient dirty-check cache (avoids redundant IIR allocations on static params)
+  - `process(main, sidechain*)` — sidechain reserved for Compressor/Gate phases
+  - Remaining 27 SmoothedValues and all other stages added in 4C–4H
+
+- `Console/NovaConsoleRegressionTest` — 30 scenarios (Phase 4B).
+  All deterministic (no RNG). All pass `peakAbsDiff == 0.0f`.
+  Covers: silence, impulse, sine, noise; HPF/LPF at all three slopes; EQ all
+  bands (shelf+bell, boost+cut, min/max); all five modes; mode morph transition;
+  combined filter+EQ chain; block sizes 64/128/512/1024/2048; SR 44100/48000/96000;
+  mono and stereo.
+
+### Technical Debt
+
+- **TD-003** NovaConsoleDSP: 44 SmoothedValue instances owned individually (not
+  consolidated into a ConsoleSmoothers aggregate). Matches original PluginProcessor
+  layout. Consolidation deferred to NovaDSP v2 after full extraction.
+
+### Behavioral Differences from Original Plugin (Phase 4B)
+
+- **Smoother seeding on prepare:** Original `prepareToPlay()` left all filter/EQ
+  smoothers at 0 after `reset(sr, time)`, causing a ramp-from-zero on the first
+  block. `NovaConsoleDSP::prepare(spec, initial)` calls `setCurrentAndTargetValue()`
+  for every smoother, eliminating the first-block ramp. This is the correct NovaDSP
+  v1.0.0 contract (same fix applied to NovaSpaceDSP in Phase 3).
+
+---
+
 All notable changes to the NovaDSP internal SDK are documented here.
 
 Format: [VERSION] — YYYY-MM-DD  
