@@ -25,7 +25,7 @@ void AdvancedPanel::clearControls()
 {
     for (auto& k : knobs)
     {
-        if (k.slider) removeChildComponent (k.slider.get());
+        if (k.slider) { k.slider->setLookAndFeel (nullptr); removeChildComponent (k.slider.get()); }
         if (k.label)  removeChildComponent (k.label.get());
     }
     for (auto& t : toggles)

@@ -372,8 +372,8 @@ juce::AudioProcessorEditor* NovaVoxAudioProcessor::createEditor()
 void NovaVoxAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml (state.createXml());
-    copyXmlToBinary (*xml, destData);
+    if (auto xml = state.createXml())
+        copyXmlToBinary (*xml, destData);
 }
 
 void NovaVoxAudioProcessor::setStateInformation (const void* data, int sizeInBytes)

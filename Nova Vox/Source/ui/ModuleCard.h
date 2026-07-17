@@ -35,6 +35,7 @@ public:
     ModuleCard(juce::AudioProcessorValueTreeState& apvts,
                const ModuleCardConfig& config,
                NovaVoxLookAndFeel& laf);
+    ~ModuleCard() override;
 
     void paint(juce::Graphics& g) override;
     void resized() override;

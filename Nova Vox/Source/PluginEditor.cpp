@@ -102,7 +102,15 @@ NovaVoxAudioProcessorEditor::NovaVoxAudioProcessorEditor (NovaVoxAudioProcessor&
 NovaVoxAudioProcessorEditor::~NovaVoxAudioProcessorEditor()
 {
     stopTimer();
-    setLookAndFeel (nullptr);
+
+    // Clear LAF from every child that holds &laf before laf destructs
+    for (auto* card : cards)
+        if (card) card->setLookAndFeel (nullptr);
+    inputGainSlider .setLookAndFeel (nullptr);
+    outputGainSlider.setLookAndFeel (nullptr);
+    bypassButton    .setLookAndFeel (nullptr);
+    advancedPanel   .setLookAndFeel (nullptr);
+    setLookAndFeel  (nullptr);
 }
 
 void NovaVoxAudioProcessorEditor::timerCallback()

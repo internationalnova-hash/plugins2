@@ -71,6 +71,16 @@ ModuleCard::ModuleCard(juce::AudioProcessorValueTreeState& apvts_,
 }
 
 // ---------------------------------------------------------------------------
+ModuleCard::~ModuleCard()
+{
+    heroKnob       .setLookAndFeel (nullptr);
+    bypassButton   .setLookAndFeel (nullptr);
+    prevModeButton .setLookAndFeel (nullptr);
+    nextModeButton .setLookAndFeel (nullptr);
+    advButton      .setLookAndFeel (nullptr);
+}
+
+// ---------------------------------------------------------------------------
 void ModuleCard::setAdvancedOpen(bool open)
 {
     advancedOpen = open;

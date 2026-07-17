@@ -34,6 +34,7 @@ endif()
 juce_add_plugin(${PLUGIN_TARGET}
     COMPANY_NAME                "Nova Audio"
     COMPANY_WEBSITE             ""
+    BUNDLE_ID                   "com.novaaudio.novavox"
     PLUGIN_MANUFACTURER_CODE    "NvAu"
     PLUGIN_CODE                 "NvVx"
     FORMATS                     ${PLUGIN_FORMATS}
