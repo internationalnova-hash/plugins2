@@ -60,8 +60,8 @@ private:
     juce::TextButton nextModeButton{ ">" };
     juce::TextButton advButton     { "\xe2\x96\xbc ADV" };   // ▼ ADV (UTF-8)
 
-    std::unique_ptr<juce::SliderAttachment>  knobAttach;
-    std::unique_ptr<juce::ButtonAttachment> bypassAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>  knobAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttach;
 
     int  currentModeIndex = 0;
     bool advancedOpen     = false;

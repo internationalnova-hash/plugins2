@@ -19,6 +19,9 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
     GIT_TAG        8.0.8
 )
+set(FETCHCONTENT_SOURCE_DIR_JUCE "${CMAKE_CURRENT_SOURCE_DIR}/../Nova Console/build/_deps/juce-src"
+    CACHE PATH "Redirect to cached JUCE" FORCE)
+
 FetchContent_MakeAvailable(juce)
 
 set(PLUGIN_TARGET NovaVox)
@@ -33,6 +36,7 @@ endif()
 
 juce_add_plugin(${PLUGIN_TARGET}
     COMPANY_NAME                "Nova Audio"
+    COMPANY_WEBSITE             ""
     PLUGIN_MANUFACTURER_CODE    "NvAu"
     PLUGIN_CODE                 "NvVx"
     FORMATS                     ${PLUGIN_FORMATS}
@@ -53,9 +57,20 @@ target_sources(${PLUGIN_TARGET}
         Source/ui/Visualizer.cpp
         Source/ui/ModuleCard.cpp
         Source/ui/AdvancedPanel.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Console/NovaConsoleDSP.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Dynamics/NovaLevelDSP.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Modulation/NovaMotionDSP.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Spatial/NovaSpaceDSP.cpp
 )
 
-target_include_directories(${PLUGIN_TARGET} PRIVATE Source)
+target_include_directories(${PLUGIN_TARGET}
+    PRIVATE
+        Source
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Console
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Dynamics
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Modulation
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Spatial
+)
 
 target_link_libraries(${PLUGIN_TARGET}
     PRIVATE

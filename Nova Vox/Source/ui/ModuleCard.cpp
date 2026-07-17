@@ -7,6 +7,8 @@ ModuleCard::ModuleCard(juce::AudioProcessorValueTreeState& apvts_,
                        NovaVoxLookAndFeel& lafRef)
     : apvts(apvts_), config(cfg), laf(lafRef)
 {
+    setName (cfg.name);
+
     // --- Hero knob ---
     heroKnob.setSliderStyle(juce::Slider::RotaryVerticalDrag);
     heroKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
@@ -15,7 +17,7 @@ ModuleCard::ModuleCard(juce::AudioProcessorValueTreeState& apvts_,
     addAndMakeVisible(heroKnob);
 
     if (apvts.getParameter(config.amountParamId) != nullptr)
-        knobAttach = std::make_unique<juce::SliderAttachment>(
+        knobAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
             apvts, config.amountParamId, heroKnob);
 
     // --- Bypass / power button ---
@@ -24,7 +26,7 @@ ModuleCard::ModuleCard(juce::AudioProcessorValueTreeState& apvts_,
     addAndMakeVisible(bypassButton);
 
     if (apvts.getParameter(config.onParamId) != nullptr)
-        bypassAttach = std::make_unique<juce::ButtonAttachment>(
+        bypassAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
             apvts, config.onParamId, bypassButton);
 
     // --- Mode navigation buttons ---
