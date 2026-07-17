@@ -1,6 +1,6 @@
 #pragma once
 
-// Regression test — Phase 4D: + Compressor stage.
+// Regression test — Phase 4D: + Compressor stage (audit-corrected, 125 scenarios).
 //
 // Verifies NovaConsoleDSP produces sample-identical output to the original
 // Nova Console PluginProcessor algorithm for all currently extracted stages.
@@ -607,7 +607,8 @@ public:
 
         void processCompressor (juce::AudioBuffer<float>& buf,
                                const NovaConsoleParameters& p,
-                               const ModeProfile& profile)
+                               const ModeProfile& profile,
+                               const juce::AudioBuffer<float>* sidechain = nullptr)
         {
             compThresholdSmoothed.setTargetValue (p.compThreshDb);
             compRatioSmoothed.setTargetValue     (p.compRatio);
@@ -630,9 +631,14 @@ public:
             auto* left  = buf.getWritePointer (0);
             auto* right = channels > 1 ? buf.getWritePointer (1) : nullptr;
 
-            // No external sidechain in unit tests — detector always reads driven signal
-            const auto* detLeft  = left;
-            const auto* detRight = right != nullptr ? right : left;
+            // External sidechain: use supplied buffer when sidechainMode==2 and buffer available
+            const bool useExternalDetector = (p.sidechainMode == 2)
+                                          && (sidechain != nullptr)
+                                          && (sidechain->getNumChannels() > 0);
+            const auto* extDetLeft  = useExternalDetector ? sidechain->getReadPointer (0) : nullptr;
+            const auto* extDetRight = useExternalDetector
+                ? sidechain->getReadPointer (sidechain->getNumChannels() > 1 ? 1 : 0)
+                : nullptr;
 
             const int hpfSlopeChoice = juce::jlimit (0, 2, p.hpfSlope);
             const int lpfSlopeChoice = juce::jlimit (0, 2, p.lpfSlope);
@@ -670,8 +676,8 @@ public:
                 const float drivenL = dryL + transL * punch * 0.45f * modePunch;
                 const float drivenR = dryR + transR * punch * 0.45f * modePunch;
 
-                float detectorL = drivenL;
-                float detectorR = drivenR;
+                float detectorL = useExternalDetector ? extDetLeft[i]  : drivenL;
+                float detectorR = useExternalDetector ? extDetRight[i] : drivenR;
 
                 if (p.sidechainMode > 0)
                 {
@@ -889,7 +895,8 @@ public:
         }
 
         // ── Main process — verbatim signal chain from processBlock() ──────────
-        void process (juce::AudioBuffer<float>& buf, const NovaConsoleParameters& p)
+        void process (juce::AudioBuffer<float>& buf, const NovaConsoleParameters& p,
+                      const juce::AudioBuffer<float>* sidechain = nullptr)
         {
             if (buf.getNumSamples() == 0) return;
 
@@ -927,7 +934,7 @@ public:
             if (p.preampOn)  processPreamp (buf, p, active, osFactor);
             if (p.filterOn)  processFilters (buf, p);
             if (p.eqOn)      processEq (buf, active);
-            if (p.compOn)    processCompressor (buf, p, active);
+            if (p.compOn)    processCompressor (buf, p, active, sidechain);
             else             gainReductionMeter = 0.92f * gainReductionMeter;
             if (p.gateOn)    processGate (buf, p);
 
@@ -1016,6 +1023,94 @@ public:
 
         r.peakAbsDiff = peakDiff;
         r.rmsAbsDiff  = totalSamples > 0 ? std::sqrt (rmsSq / (float) totalSamples) : 0.0f;
+        r.passed      = (r.peakAbsDiff == 0.0f);
+        return r;
+    }
+
+    // Overload: supplies an identical sidechain buffer to both reference and engine paths.
+    // Use sidechainMode=2 (External) in params to activate the external detector path.
+    static Result runScenarioWithSidechain (const char* name,
+                                            double sampleRate,
+                                            int blockSize,
+                                            int numBlocks,
+                                            const NovaConsoleParameters& params,
+                                            juce::AudioBuffer<float>& signal,
+                                            juce::AudioBuffer<float>& sidechainSignal)
+    {
+        juce::AudioBuffer<float> bufOrig (signal.getNumChannels(), signal.getNumSamples());
+        juce::AudioBuffer<float> bufEng  (signal.getNumChannels(), signal.getNumSamples());
+        juce::AudioBuffer<float> scOrig  (sidechainSignal.getNumChannels(), sidechainSignal.getNumSamples());
+        juce::AudioBuffer<float> scEng   (sidechainSignal.getNumChannels(), sidechainSignal.getNumSamples());
+
+        for (int ch = 0; ch < signal.getNumChannels(); ++ch)
+        {
+            std::memcpy (bufOrig.getWritePointer (ch), signal.getReadPointer (ch),
+                         (size_t) signal.getNumSamples() * sizeof (float));
+            std::memcpy (bufEng.getWritePointer (ch), signal.getReadPointer (ch),
+                         (size_t) signal.getNumSamples() * sizeof (float));
+        }
+        for (int ch = 0; ch < sidechainSignal.getNumChannels(); ++ch)
+        {
+            std::memcpy (scOrig.getWritePointer (ch), sidechainSignal.getReadPointer (ch),
+                         (size_t) sidechainSignal.getNumSamples() * sizeof (float));
+            std::memcpy (scEng.getWritePointer (ch), sidechainSignal.getReadPointer (ch),
+                         (size_t) sidechainSignal.getNumSamples() * sizeof (float));
+        }
+
+        OriginalState orig;
+        orig.prepare (sampleRate, blockSize, params);
+
+        for (int block = 0; block < numBlocks; ++block)
+        {
+            const int offset = block * blockSize;
+            const int nSamps = juce::jmin (blockSize, signal.getNumSamples() - offset);
+            if (nSamps <= 0) break;
+            juce::AudioBuffer<float> sliceMain (bufOrig.getArrayOfWritePointers(),
+                                                bufOrig.getNumChannels(), offset, nSamps);
+            juce::AudioBuffer<float> sliceSC   (scOrig.getArrayOfWritePointers(),
+                                                scOrig.getNumChannels(), offset, nSamps);
+            orig.process (sliceMain, params, &sliceSC);
+        }
+
+        NovaConsoleDSP engine;
+        juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32) blockSize,
+                                      (juce::uint32) signal.getNumChannels() };
+        engine.prepare (spec, params);
+        engine.setParameters (params);
+
+        for (int block = 0; block < numBlocks; ++block)
+        {
+            const int offset = block * blockSize;
+            const int nSamps = juce::jmin (blockSize, signal.getNumSamples() - offset);
+            if (nSamps <= 0) break;
+            juce::AudioBuffer<float> sliceMain (bufEng.getArrayOfWritePointers(),
+                                                bufEng.getNumChannels(), offset, nSamps);
+            juce::AudioBuffer<float> sliceSC   (scEng.getArrayOfWritePointers(),
+                                                scEng.getNumChannels(), offset, nSamps);
+            engine.setParameters (params);
+            engine.process (sliceMain, &sliceSC);
+        }
+
+        Result r;
+        r.scenario = name;
+        float peakDiff = 0.0f, rmsSq = 0.0f;
+        int totalSamplesR = 0;
+
+        for (int ch = 0; ch < signal.getNumChannels(); ++ch)
+        {
+            const float* a = bufOrig.getReadPointer (ch);
+            const float* b = bufEng.getReadPointer (ch);
+            for (int i = 0; i < signal.getNumSamples(); ++i)
+            {
+                const float d = std::abs (a[i] - b[i]);
+                peakDiff  = juce::jmax (peakDiff, d);
+                rmsSq    += d * d;
+            }
+            totalSamplesR += signal.getNumSamples();
+        }
+
+        r.peakAbsDiff = peakDiff;
+        r.rmsAbsDiff  = totalSamplesR > 0 ? std::sqrt (rmsSq / (float) totalSamplesR) : 0.0f;
         r.passed      = (r.peakAbsDiff == 0.0f);
         return r;
     }
@@ -1788,12 +1883,12 @@ public:
             check (runScenario ("comp-sine-loud-high-ratio", 44100.0, 512, 8, p, sig));
         }
 
-        // 85. Comp threshold minimum (-60 dB)
+        // 85. Comp threshold APVTS minimum (-40 dB)
         {
             NovaConsoleParameters p;
             p.preampOn = false; p.filterOn = false; p.eqOn = false;
             p.compOn = true; p.gateOn = false;
-            p.compThreshDb = -60.0f;
+            p.compThreshDb = -40.0f;   // APVTS min = -40.0f
             auto sig = makeNoise (2, totalSamples, 0.3f);
             check (runScenario ("comp-threshold-min", 44100.0, 512, 8, p, sig));
         }
@@ -1839,24 +1934,24 @@ public:
             check (runScenario ("comp-ratio-default-4to1", 44100.0, 512, 8, p, sig));
         }
 
-        // 90. Comp ratio max (20:1)
+        // 90. Comp ratio APVTS maximum (10:1)
         {
             NovaConsoleParameters p;
             p.preampOn = false; p.filterOn = false; p.eqOn = false;
             p.compOn = true; p.gateOn = false;
-            p.compThreshDb = -20.0f; p.compRatio = 20.0f;
+            p.compThreshDb = -20.0f; p.compRatio = 10.0f;  // APVTS max = 10.0f
             auto sig = makeNoise (2, totalSamples, 0.3f);
-            check (runScenario ("comp-ratio-max-20to1", 44100.0, 512, 8, p, sig));
+            check (runScenario ("comp-ratio-max-10to1", 44100.0, 512, 8, p, sig));
         }
 
-        // 91. Comp attack minimum (0.1 ms)
+        // 91. Comp attack APVTS minimum (0.5 ms)
         {
             NovaConsoleParameters p;
             p.preampOn = false; p.filterOn = false; p.eqOn = false;
             p.compOn = true; p.gateOn = false;
-            p.compThreshDb = -20.0f; p.compAttackMs = 0.1f;
+            p.compThreshDb = -20.0f; p.compAttackMs = 0.5f;  // APVTS min = 0.5f
             auto sig = makeNoise (2, totalSamples, 0.3f);
-            check (runScenario ("comp-attack-min-0.1ms", 44100.0, 512, 8, p, sig));
+            check (runScenario ("comp-attack-min-0.5ms", 44100.0, 512, 8, p, sig));
         }
 
         // 92. Comp attack default (15 ms)
@@ -1870,14 +1965,14 @@ public:
             check (runScenario ("comp-attack-default-15ms", 44100.0, 512, 8, p, sig));
         }
 
-        // 93. Comp attack maximum (150 ms)
+        // 93. Comp attack APVTS maximum (60 ms)
         {
             NovaConsoleParameters p;
             p.preampOn = false; p.filterOn = false; p.eqOn = false;
             p.compOn = true; p.gateOn = false;
-            p.compThreshDb = -20.0f; p.compAttackMs = 150.0f;
+            p.compThreshDb = -20.0f; p.compAttackMs = 60.0f;  // APVTS max = 60.0f
             auto sig = makeNoise (2, totalSamples, 0.3f);
-            check (runScenario ("comp-attack-max-150ms", 44100.0, 512, 8, p, sig));
+            check (runScenario ("comp-attack-max-60ms", 44100.0, 512, 8, p, sig));
         }
 
         // 94. Comp release minimum (20 ms)
@@ -1901,14 +1996,14 @@ public:
             check (runScenario ("comp-release-default-180ms", 44100.0, 512, 8, p, sig));
         }
 
-        // 96. Comp release maximum (1000 ms)
+        // 96. Comp release APVTS maximum (500 ms)
         {
             NovaConsoleParameters p;
             p.preampOn = false; p.filterOn = false; p.eqOn = false;
             p.compOn = true; p.gateOn = false;
-            p.compThreshDb = -20.0f; p.compReleaseMs = 1000.0f;
+            p.compThreshDb = -20.0f; p.compReleaseMs = 500.0f;  // APVTS max = 500.0f
             auto sig = makeNoise (2, totalSamples, 0.3f);
-            check (runScenario ("comp-release-max-1000ms", 44100.0, 512, 8, p, sig));
+            check (runScenario ("comp-release-max-500ms", 44100.0, 512, 8, p, sig));
         }
 
         // 97. Comp punch minimum (0)
@@ -1942,24 +2037,24 @@ public:
             check (runScenario ("comp-punch-max-100", 44100.0, 512, 8, p, sig));
         }
 
-        // 100. Comp makeup gain +6 dB
+        // 100. Comp makeup APVTS minimum (0 dB — unity, no makeup applied)
         {
             NovaConsoleParameters p;
             p.preampOn = false; p.filterOn = false; p.eqOn = false;
             p.compOn = true; p.gateOn = false;
-            p.compThreshDb = -20.0f; p.compMakeupDb = 6.0f;
+            p.compThreshDb = -20.0f; p.compMakeupDb = 0.0f;  // APVTS min = 0.0f
             auto sig = makeNoise (2, totalSamples, 0.3f);
-            check (runScenario ("comp-makeup-plus6", 44100.0, 512, 8, p, sig));
+            check (runScenario ("comp-makeup-min-0db", 44100.0, 512, 8, p, sig));
         }
 
-        // 101. Comp makeup gain -6 dB
+        // 101. Comp makeup APVTS maximum (+24 dB)
         {
             NovaConsoleParameters p;
             p.preampOn = false; p.filterOn = false; p.eqOn = false;
             p.compOn = true; p.gateOn = false;
-            p.compThreshDb = -20.0f; p.compMakeupDb = -6.0f;
+            p.compThreshDb = -20.0f; p.compMakeupDb = 24.0f;  // APVTS max = 24.0f
             auto sig = makeNoise (2, totalSamples, 0.3f);
-            check (runScenario ("comp-makeup-minus6", 44100.0, 512, 8, p, sig));
+            check (runScenario ("comp-makeup-max-24db", 44100.0, 512, 8, p, sig));
         }
 
         // 102. Parallel compression — mix 50%
@@ -2136,6 +2231,63 @@ public:
             p.gateThreshDb = -45.0f; p.gateSmooth = true;
             auto sig = makeNoise (2, totalSamples, 0.3f);
             check (runScenario ("full-chain-4D-british-all-stages", 44100.0, 512, 8, p, sig));
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // Phase 4D — External sidechain scenarios (122–125)
+        // Uses runScenarioWithSidechain: identical sidechain buffer supplied to
+        // both reference (OriginalState) and engine (NovaConsoleDSP) paths.
+        // sidechainMode=2 activates the External detector path in both.
+        // ════════════════════════════════════════════════════════════════════
+
+        // 122. External sidechain — stereo main, stereo sidechain (different signals)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.sidechainMode = 2;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            // Sidechain is a sine at 1 kHz — deliberately different from main noise
+            auto sc  = makeSine  (2, totalSamples, 44100.0, 1000.0, 0.6f);
+            check (runScenarioWithSidechain ("comp-ext-sidechain-stereo-different",
+                                             44100.0, 512, 8, p, sig, sc));
+        }
+
+        // 123. External sidechain — nullptr fallback (sidechainMode=2 but no buffer)
+        //      Engine must fall back to driven signal, matching reference behavior.
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.sidechainMode = 2;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            // Pass nullptr sidechain — both paths fall back to driven signal
+            check (runScenario ("comp-ext-sidechain-nullptr-fallback", 44100.0, 512, 8, p, sig));
+        }
+
+        // 124. External sidechain — mono main, mono sidechain
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.sidechainMode = 2;
+            auto sig = makeNoise (1, totalSamples, 0.3f);
+            auto sc  = makeSine  (1, totalSamples, 44100.0, 500.0, 0.5f);
+            check (runScenarioWithSidechain ("comp-ext-sidechain-mono-mono",
+                                             44100.0, 512, 8, p, sig, sc));
+        }
+
+        // 125. External sidechain — stereo main, stereo sidechain, with internal filter
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.sidechainMode = 2;
+            p.hpfHz = 100.0f; p.hpfSlope = 1;  // HPF applied to detector signal
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            auto sc  = makeSine  (2, totalSamples, 44100.0, 440.0, 0.5f);
+            check (runScenarioWithSidechain ("comp-ext-sidechain-stereo-with-hpf",
+                                             44100.0, 512, 8, p, sig, sc));
         }
 
         return allPassed;

@@ -45,19 +45,20 @@
   - `getGainReductionDb() const noexcept` — UI-thread-safe accessor
   - qualityTightness: quality==2 → 1.03, quality==0 → 0.92, else 1.0
 
-- `Console/NovaConsoleRegressionTest` — expanded to 121 scenarios (Phase 4D: +41).
+- `Console/NovaConsoleRegressionTest` — expanded to 125 scenarios (Phase 4D: +45 net).
   All deterministic (no RNG). All pass `peakAbsDiff == 0.0f`.
-  Phase 4C additions: preamp drive (min/mid/max), color (min/max), trim,
-  oversampling (1×/2×/4×), quality=0 override, all five modes × preamp, preamp+filter,
-  preamp+EQ, input/output gain, mono, SR 48000/96000; gate off/on, silence/loud/noise,
-  expand mode, hard mode, attack fast/slow, release fast/slow, hold, range
-  shallow/deep, all five modes × gate, mono, SR 48000/96000, block sizes 64/2048,
-  gate+filter chain; full chain (all stages) in two configurations.
-  Phase 4D additions: comp off, silence through comp, impulse, loud sine, threshold
-  min/default/max, ratio min/default/max, attack min/default/max, release min/default/max,
-  punch min/default/max, makeup ±6dB, parallel mix 0%/50%, sidechain off/internal,
-  quality eco/master, all five modes × comp, mono, SR 48000/96000, block sizes 64/2048,
-  filter+comp, EQ+comp, gate+comp chains; full chain all stages.
+  Phase 4D audit corrected 6 parameter-range errors: all min/default/max scenarios now
+  use exact APVTS `NormalisableRange` bounds from `PluginProcessor.cpp`. Specifically:
+  threshold min −40 dB (was −60), ratio max 10:1 (was 20:1), attack min 0.5 ms (was 0.1),
+  attack max 60 ms (was 150), release max 500 ms (was 1000), makeup 0/+24 dB (was −6/+6).
+  Added external sidechain runner (`runScenarioWithSidechain`): identical sidechain buffer
+  supplied to both reference and engine. 4 new external-sidechain scenarios (122–125):
+  stereo main + stereo sidechain, nullptr fallback, mono main + mono sidechain,
+  stereo main + stereo sidechain with HPF applied to external detector.
+  Phase 4D additions cover: comp off, silence, impulse, loud sine; threshold/ratio/attack/
+  release/punch/makeup/mix at APVTS min-default-max; quality eco/master; all five modes × comp;
+  mono, SR 48000/96000, block sizes 64/2048; filter+comp, EQ+comp, gate+comp chains;
+  full chain all stages; 4 external-sidechain scenarios.
 
 ### Technical Debt
 

@@ -59,7 +59,7 @@ Extraction order (approved):
 3. ✅ EQ stage               (Phase 4B — 30 scenarios, peakAbsDiff == 0)
 4. ✅ Preamp                 (Phase 4C — 80 scenarios, peakAbsDiff == 0)
 5. ✅ Gate                   (Phase 4C — 80 scenarios, peakAbsDiff == 0)
-6. ✅ Compressor             (Phase 4D — 121 scenarios, peakAbsDiff == 0)
+6. ✅ Compressor             (Phase 4D — 125 scenarios, peakAbsDiff == 0; audit-corrected)
 7. ⬜ Mix Assist / Focus     (Phase 4E)
 8. ⬜ Smart Gain             (Phase 4F)
 9. ⬜ Analog Engine          (Phase 4G — RNG-sensitive, last)
