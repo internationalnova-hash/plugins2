@@ -181,6 +181,14 @@ void NovaConsoleDSP::prepare (const juce::dsp::ProcessSpec& spec,
     inputSmoothed.reset  (sr, 0.030);
     outputSmoothed.reset (sr, 0.030);
 
+    compThresholdSmoothed.reset (sr, 0.045);
+    compRatioSmoothed.reset     (sr, 0.050);
+    compAttackSmoothed.reset    (sr, 0.015);
+    compReleaseSmoothed.reset   (sr, 0.045);
+    compMixSmoothed.reset       (sr, 0.030);
+    compMakeupSmoothed.reset    (sr, 0.030);
+    compPunchSmoothed.reset     (sr, 0.030);
+
     gateThresholdSmoothed.reset (sr, 0.045);
     gateReleaseSmoothed.reset   (sr, 0.045);
     gateRangeSmoothed.reset     (sr, 0.045);
@@ -215,6 +223,14 @@ void NovaConsoleDSP::prepare (const juce::dsp::ProcessSpec& spec,
     inputSmoothed.setCurrentAndTargetValue  (dbToGain (initial.inputDb));
     outputSmoothed.setCurrentAndTargetValue (dbToGain (initial.outputDb));
 
+    compThresholdSmoothed.setCurrentAndTargetValue (initial.compThreshDb);
+    compRatioSmoothed.setCurrentAndTargetValue     (initial.compRatio);
+    compAttackSmoothed.setCurrentAndTargetValue    (initial.compAttackMs);
+    compReleaseSmoothed.setCurrentAndTargetValue   (initial.compReleaseMs);
+    compMixSmoothed.setCurrentAndTargetValue       (initial.compMix / 100.0f);
+    compMakeupSmoothed.setCurrentAndTargetValue    (initial.compMakeupDb);
+    compPunchSmoothed.setCurrentAndTargetValue     (initial.compPunch / 100.0f);
+
     gateThresholdSmoothed.setCurrentAndTargetValue (initial.gateThreshDb);
     gateReleaseSmoothed.setCurrentAndTargetValue   (initial.gateReleaseMs);
     gateRangeSmoothed.setCurrentAndTargetValue     (initial.gateRangeDb);
@@ -240,6 +256,13 @@ void NovaConsoleDSP::prepare (const juce::dsp::ProcessSpec& spec,
     lastLowMode = -1; lastHighMode = -1; lastAirMode = -1;
 
     // ── Reset runtime state ───────────────────────────────────────────────────
+    compressorDetector  = 0.0f;
+    compressorGainState = 1.0f;
+    compressorPunchMemory  = { 0.0f, 0.0f };
+    compDetectorHpfState   = {};
+    compDetectorLpfState   = {};
+    gainReductionMeter.store (0.0f, std::memory_order_relaxed);
+
     preampPrevInput     = { 0.0f, 0.0f };
     gateEnv             = { 1.0f, 1.0f };
     gateHoldCounter     = { 0, 0 };
@@ -260,6 +283,13 @@ void NovaConsoleDSP::reset() noexcept
         lowShelf[ch].reset();  lowMidPeak[ch].reset();
         highMidPeak[ch].reset(); highShelf[ch].reset(); airShelf[ch].reset();
     }
+
+    compressorDetector   = 0.0f;
+    compressorGainState  = 1.0f;
+    compressorPunchMemory  = { 0.0f, 0.0f };
+    compDetectorHpfState   = {};
+    compDetectorLpfState   = {};
+    gainReductionMeter.store (0.0f, std::memory_order_relaxed);
 
     preampPrevInput      = { 0.0f, 0.0f };
     gateEnv              = { 1.0f, 1.0f };
@@ -335,6 +365,12 @@ void NovaConsoleDSP::process (juce::AudioBuffer<float>& buffer,
 
     if (params.eqOn)
         processEq (buffer, activeProfile);
+
+    if (params.compOn)
+        processCompressor (buffer, activeProfile, detectorBuffer, detectorSidechainEnabled, sidechainExtActive);
+    else
+        gainReductionMeter.store (0.92f * gainReductionMeter.load (std::memory_order_relaxed),
+                                  std::memory_order_relaxed);
 
     if (params.gateOn)
         processGate (buffer, detectorBuffer, detectorSidechainEnabled, sidechainExtActive);
@@ -604,6 +640,170 @@ void NovaConsoleDSP::processPreamp (juce::AudioBuffer<float>& buffer,
 
         preampPrevInput[static_cast<size_t> (ch)] = previousIn;
     }
+}
+
+void NovaConsoleDSP::processCompressor (juce::AudioBuffer<float>& buffer,
+                                         const ModeProfile& profile,
+                                         const juce::AudioBuffer<float>* detectorBuffer,
+                                         bool detectorSidechainEnabled,
+                                         bool useExternalDetector) noexcept
+{
+    compThresholdSmoothed.setTargetValue (params.compThreshDb);
+    compRatioSmoothed.setTargetValue     (params.compRatio);
+    compAttackSmoothed.setTargetValue    (params.compAttackMs);
+    compReleaseSmoothed.setTargetValue   (params.compReleaseMs);
+    compMixSmoothed.setTargetValue       (params.compMix / 100.0f);
+    compMakeupSmoothed.setTargetValue    (params.compMakeupDb);
+    compPunchSmoothed.setTargetValue     (params.compPunch / 100.0f);
+
+    const float modePunch     = profile.transientPunch;
+    const float modeRetention = profile.transientRetention;
+    // quality: 0=eco, 1=mix, 2=master
+    const float qualityTightness = (params.quality == 2 ? 1.03f : (params.quality == 0 ? 0.92f : 1.0f));
+    const float sr = static_cast<float> (currentSampleRate);
+
+    float maxReduction = 0.0f;
+
+    const int channels = juce::jmin (2, buffer.getNumChannels());
+    if (channels == 0)
+        return;
+
+    auto* left  = buffer.getWritePointer (0);
+    auto* right = channels > 1 ? buffer.getWritePointer (1) : nullptr;
+
+    const bool externalAvailable = useExternalDetector
+                                && detectorBuffer != nullptr
+                                && detectorBuffer->getNumChannels() > 0;
+    const auto* detLeft  = externalAvailable ? detectorBuffer->getReadPointer (0) : left;
+    const auto* detRight = externalAvailable
+        ? detectorBuffer->getReadPointer (detectorBuffer->getNumChannels() > 1 ? 1 : 0)
+        : (right != nullptr ? right : left);
+
+    const int hpfSlopeChoice = juce::jlimit (0, 2, params.hpfSlope);
+    const int lpfSlopeChoice = juce::jlimit (0, 2, params.lpfSlope);
+    const int hpfStages = hpfSlopeChoice == 0 ? 1 : (hpfSlopeChoice == 1 ? 2 : 4);
+    const int lpfStages = lpfSlopeChoice == 0 ? 1 : (lpfSlopeChoice == 1 ? 2 : 4);
+    const float detectorHpfCoeff = juce::jlimit (0.0001f, 0.999f,
+        1.0f - std::exp (-juce::MathConstants<float>::twoPi * params.hpfHz / sr));
+    const float detectorLpfCoeff = juce::jlimit (0.0001f, 0.999f,
+        1.0f - std::exp (-juce::MathConstants<float>::twoPi * params.lpfHz / sr));
+
+    const float kneeDb = 4.0f;
+
+    for (int i = 0; i < buffer.getNumSamples(); ++i)
+    {
+        const float thresholdDb = compThresholdSmoothed.getNextValue();
+        const float ratio       = compRatioSmoothed.getNextValue();
+        const float attackMs    = compAttackSmoothed.getNextValue();
+        const float releaseMs   = compReleaseSmoothed.getNextValue();
+        const float compMix     = compMixSmoothed.getNextValue();
+        const float makeup      = compMakeupSmoothed.getNextValue();
+        const float punch       = compPunchSmoothed.getNextValue();
+
+        const float shapedAttackMs = juce::jmax (0.6f, attackMs * 0.78f * (2.0f - modeRetention));
+        const float attackCoeff    = std::exp (-1.0f / (0.001f * shapedAttackMs * sr));
+
+        const float dryL = left[i];
+        const float dryR = right != nullptr ? right[i] : dryL;
+
+        compressorPunchMemory[0] = 0.92f * compressorPunchMemory[0] + 0.08f * dryL;
+        compressorPunchMemory[1] = 0.92f * compressorPunchMemory[1] + 0.08f * dryR;
+
+        const float transL = dryL - compressorPunchMemory[0];
+        const float transR = dryR - compressorPunchMemory[1];
+
+        const float drivenL = dryL + transL * punch * 0.45f * modePunch;
+        const float drivenR = dryR + transR * punch * 0.45f * modePunch;
+
+        float detectorL = externalAvailable ? detLeft[i]  : drivenL;
+        float detectorR = externalAvailable ? detRight[i] : drivenR;
+
+        if (detectorSidechainEnabled)
+        {
+            for (int stage = 0; stage < hpfStages; ++stage)
+            {
+                auto& hpStateL = compDetectorHpfState[static_cast<size_t> (stage)][0];
+                auto& hpStateR = compDetectorHpfState[static_cast<size_t> (stage)][1];
+                hpStateL += detectorHpfCoeff * (detectorL - hpStateL);
+                hpStateR += detectorHpfCoeff * (detectorR - hpStateR);
+                detectorL -= hpStateL;
+                detectorR -= hpStateR;
+            }
+            for (int stage = 0; stage < lpfStages; ++stage)
+            {
+                auto& lpStateL = compDetectorLpfState[static_cast<size_t> (stage)][0];
+                auto& lpStateR = compDetectorLpfState[static_cast<size_t> (stage)][1];
+                lpStateL += detectorLpfCoeff * (detectorL - lpStateL);
+                lpStateR += detectorLpfCoeff * (detectorR - lpStateR);
+                detectorL = lpStateL;
+                detectorR = lpStateR;
+            }
+        }
+
+        const float absL = std::abs (detectorL);
+        const float absR = std::abs (detectorR);
+        const float peak = juce::jmax (absL, absR);
+        const float rms  = std::sqrt ((detectorL * detectorL + detectorR * detectorR) * 0.5f);
+        const float detector = 0.66f * rms + 0.34f * peak;
+
+        const float crest = peak / juce::jmax (rms, 1.0e-5f);
+        const float autoReleaseMs = juce::jlimit (35.0f, 450.0f,
+            releaseMs * juce::jmap (juce::jlimit (1.0f, 6.0f, crest), 1.0f, 6.0f, 1.18f, 0.44f));
+        const float releaseBlendMs = 0.45f * releaseMs + 0.55f * autoReleaseMs;
+        const float releaseCoeff   = std::exp (-1.0f / (0.001f * releaseBlendMs * sr));
+
+        if (detector > compressorDetector)
+            compressorDetector = attackCoeff  * compressorDetector + (1.0f - attackCoeff)  * detector;
+        else
+            compressorDetector = releaseCoeff * compressorDetector + (1.0f - releaseCoeff) * detector;
+
+        const float envDb = gainToDb (compressorDetector);
+        const float x     = envDb - thresholdDb;
+
+        float overDb = 0.0f;
+        if (x > -kneeDb * 0.5f)
+        {
+            if (x < kneeDb * 0.5f)
+            {
+                const float k = x + kneeDb * 0.5f;
+                overDb = (k * k) / (2.0f * kneeDb);
+            }
+            else
+            {
+                overDb = x;
+            }
+        }
+
+        const float compressedDb = overDb - (overDb / juce::jmax (ratio, 1.0f));
+        const float targetGain   = dbToGain (-compressedDb * qualityTightness);
+
+        const float gainReleaseCoeff = std::exp (-1.0f / (0.001f * releaseBlendMs * 1.2f * sr));
+        const float gainAttackCoeff  = std::exp (-1.0f / (0.001f * juce::jmax (0.25f, attackMs * 0.45f) * sr));
+
+        if (targetGain < compressorGainState)
+            compressorGainState = gainAttackCoeff  * compressorGainState + (1.0f - gainAttackCoeff)  * targetGain;
+        else
+            compressorGainState = gainReleaseCoeff * compressorGainState + (1.0f - gainReleaseCoeff) * targetGain;
+
+        maxReduction = juce::jmax (maxReduction, -gainToDb (juce::jmax (compressorGainState, 1.0e-5f)));
+
+        const float thickBlend  = 0.012f + 0.01f * profile.evenDrive;
+        const float thickenedL  = (1.0f - thickBlend) * drivenL
+                                + thickBlend * saturateSmooth (drivenL * (1.25f + 0.25f * profile.oddDrive));
+        const float thickenedR  = (1.0f - thickBlend) * drivenR
+                                + thickBlend * saturateSmooth (drivenR * (1.25f + 0.25f * profile.oddDrive));
+
+        const float wetL = thickenedL * compressorGainState * dbToGain (makeup);
+        const float wetR = thickenedR * compressorGainState * dbToGain (makeup);
+
+        left[i] = dryL * (1.0f - compMix) + wetL * compMix;
+        if (right != nullptr)
+            right[i] = dryR * (1.0f - compMix) + wetR * compMix;
+    }
+
+    gainReductionMeter.store (0.84f * gainReductionMeter.load (std::memory_order_relaxed)
+                              + 0.16f * juce::jlimit (0.0f, 1.0f, maxReduction / 18.0f),
+                              std::memory_order_relaxed);
 }
 
 void NovaConsoleDSP::processGate (juce::AudioBuffer<float>& buffer,

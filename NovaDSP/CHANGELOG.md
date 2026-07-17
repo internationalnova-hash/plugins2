@@ -2,7 +2,7 @@
 
 ---
 
-## [1.1.0] — 2026-07-17  *(in progress — Phase 4C)*
+## [1.1.0] — 2026-07-17  *(in progress — Phase 4D)*
 
 ### Added
 
@@ -25,17 +25,39 @@
   - `processGate()` — dual-mode (expand/hard), hysteresis, hold counter,
     per-channel independent envelope, optional detector sidechain filter
   - `process(main, sidechain*)` — full chain: input gain → preamp → filter → EQ →
-    gate → modeTrim + clip(±1.35) → output gain; sidechain reserved for Compressor
-  - Remaining stages (Compressor, MixAssist, SmartGain, AnalogEngine) added in 4D–4G
+    compressor → gate → modeTrim + clip(±1.35) → output gain
+  - Remaining stages (MixAssist, SmartGain, AnalogEngine) added in 4E–4G
 
-- `Console/NovaConsoleRegressionTest` — expanded to 80 scenarios (Phase 4C: +50).
+- Phase 4D adds: Compressor stage + `gainReductionMeter` atomic.
+  - 7 compressor SmoothedValues (threshold 45ms, ratio 50ms, attack 15ms, release 45ms,
+    mix 30ms, makeup 30ms, punch 30ms)
+  - Linked stereo detector: RMS/peak blend (66%/34%), crest-factor auto-release
+    ([35ms, 450ms] mapped via jmap on clamped crest [1.0, 10.0])
+  - 4-dB soft knee, quadratic gain-computer in knee region
+  - Separate attack/release ballistics on gain state (gainAttack = jmax(0.25, attackMs×0.45))
+  - Punch processing: 1-pole LP (0.92 coeff), transient = signal − LP,
+    driven = signal + transient × punch × 0.45 × modePunch
+  - Detector HPF/LPF: same 4-stage state array design as Gate
+  - Thickening: `thickBlend = 0.012 + 0.01×evenDrive`; dry blended with tanh saturation
+  - Parallel compression: `compMix` 0–100 (smoother at /100), wet/dry blend per sample
+  - `gainReductionMeter`: atomic float; 0.84 decay when active, 0.92 decay when bypassed;
+    normalized to [0,1] via jlimit(0,1, maxReduction/18)
+  - `getGainReductionDb() const noexcept` — UI-thread-safe accessor
+  - qualityTightness: quality==2 → 1.03, quality==0 → 0.92, else 1.0
+
+- `Console/NovaConsoleRegressionTest` — expanded to 121 scenarios (Phase 4D: +41).
   All deterministic (no RNG). All pass `peakAbsDiff == 0.0f`.
-  Phase 4C additions cover: preamp drive (min/mid/max), color (min/max), trim,
+  Phase 4C additions: preamp drive (min/mid/max), color (min/max), trim,
   oversampling (1×/2×/4×), quality=0 override, all five modes × preamp, preamp+filter,
   preamp+EQ, input/output gain, mono, SR 48000/96000; gate off/on, silence/loud/noise,
   expand mode, hard mode, attack fast/slow, release fast/slow, hold, range
   shallow/deep, all five modes × gate, mono, SR 48000/96000, block sizes 64/2048,
   gate+filter chain; full chain (all stages) in two configurations.
+  Phase 4D additions: comp off, silence through comp, impulse, loud sine, threshold
+  min/default/max, ratio min/default/max, attack min/default/max, release min/default/max,
+  punch min/default/max, makeup ±6dB, parallel mix 0%/50%, sidechain off/internal,
+  quality eco/master, all five modes × comp, mono, SR 48000/96000, block sizes 64/2048,
+  filter+comp, EQ+comp, gate+comp chains; full chain all stages.
 
 ### Technical Debt
 

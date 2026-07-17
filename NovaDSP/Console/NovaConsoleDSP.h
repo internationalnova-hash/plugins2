@@ -1,11 +1,13 @@
 #pragma once
 
+#include <atomic>
+
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
 
 #include "NovaConsoleParameters.h"
 
-// NovaConsoleDSP — shared console strip engine (Phase 4C: + Preamp + Gate)
+// NovaConsoleDSP — shared console strip engine (Phase 4D: + Compressor)
 //
 // Lifecycle (matches every other NovaDSP engine):
 //   prepare(spec, initial)   — allocate, reset, seed smoothers
@@ -15,7 +17,8 @@
 //
 // Phase 4B: ModeProfile blend, Filter stage, EQ stage.
 // Phase 4C: Input/Output gain, Preamp stage, Gate stage.
-// Compressor, MixAssist, SmartGain, AnalogEngine follow in 4D–4G.
+// Phase 4D: Compressor stage + gainReductionMeter.
+// MixAssist, SmartGain, AnalogEngine follow in 4E–4G.
 //
 // TD-003  44 SmoothedValue instances are owned individually.  Future v2 may
 //         consolidate into a ConsoleSmoothers aggregate for readability.
@@ -35,6 +38,13 @@ public:
 
     void process (juce::AudioBuffer<float>& buffer,
                   const juce::AudioBuffer<float>* sidechain = nullptr) noexcept;
+
+    // Gain reduction in dB (0 = no reduction). Written by audio thread.
+    // Read by UI thread via this accessor.
+    float getGainReductionDb() const noexcept
+    {
+        return gainReductionMeter.load (std::memory_order_relaxed);
+    }
 
 private:
     // ── Mode profile ─────────────────────────────────────────────────────────
@@ -74,12 +84,17 @@ private:
     void processFilters (juce::AudioBuffer<float>& buffer) noexcept;
     void processEq      (juce::AudioBuffer<float>& buffer,
                          const ModeProfile& profile) noexcept;
-    void processPreamp  (juce::AudioBuffer<float>& buffer,
-                         const ModeProfile& profile, int osFactor) noexcept;
-    void processGate    (juce::AudioBuffer<float>& buffer,
-                         const juce::AudioBuffer<float>* detectorBuffer,
-                         bool detectorSidechainEnabled,
-                         bool useExternalDetector) noexcept;
+    void processPreamp      (juce::AudioBuffer<float>& buffer,
+                             const ModeProfile& profile, int osFactor) noexcept;
+    void processCompressor  (juce::AudioBuffer<float>& buffer,
+                             const ModeProfile& profile,
+                             const juce::AudioBuffer<float>* detectorBuffer,
+                             bool detectorSidechainEnabled,
+                             bool useExternalDetector) noexcept;
+    void processGate        (juce::AudioBuffer<float>& buffer,
+                             const juce::AudioBuffer<float>* detectorBuffer,
+                             bool detectorSidechainEnabled,
+                             bool useExternalDetector) noexcept;
 
     // ── Filters ───────────────────────────────────────────────────────────────
     juce::dsp::StateVariableTPTFilter<float> hpf[2];
@@ -127,6 +142,15 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> inputSmoothed;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputSmoothed;
 
+    // ── Compressor smoothers ──────────────────────────────────────────────────
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compThresholdSmoothed; // 45ms
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compRatioSmoothed;     // 50ms
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compAttackSmoothed;    // 15ms
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compReleaseSmoothed;   // 45ms
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compMixSmoothed;       // 30ms
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compMakeupSmoothed;    // 30ms
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compPunchSmoothed;     // 30ms
+
     // ── Gate smoothers ────────────────────────────────────────────────────────
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateThresholdSmoothed;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateReleaseSmoothed;
@@ -162,6 +186,16 @@ private:
     int   lastLowMode     = -1;
     int   lastHighMode    = -1;
     int   lastAirMode     = -1;
+
+    // ── Compressor state ──────────────────────────────────────────────────────
+    float compressorDetector  = 0.0f;
+    float compressorGainState = 1.0f;
+    std::array<float, 2> compressorPunchMemory  { 0.0f, 0.0f };
+    std::array<std::array<float, 2>, 4> compDetectorHpfState {};
+    std::array<std::array<float, 2>, 4> compDetectorLpfState {};
+
+    // ── Compressor meter (written audio thread, read UI thread) ───────────────
+    mutable std::atomic<float> gainReductionMeter { 0.0f };
 
     // ── Preamp state ──────────────────────────────────────────────────────────
     std::array<float, 2> preampPrevInput { 0.0f, 0.0f };

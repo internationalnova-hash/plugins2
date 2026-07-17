@@ -1,6 +1,6 @@
 #pragma once
 
-// Regression test — Phase 4C: + Input/Output Gain, Preamp, Gate stages.
+// Regression test — Phase 4D: + Compressor stage.
 //
 // Verifies NovaConsoleDSP produces sample-identical output to the original
 // Nova Console PluginProcessor algorithm for all currently extracted stages.
@@ -11,9 +11,10 @@
 // Nova Console/Source/PluginProcessor.cpp verbatim.  The only substitution
 // is apvts.getRawParameterValue(id)->load() → params.field.
 //
-// Signal chain (Phase 4C, verbatim from processBlock):
+// Signal chain (Phase 4D, verbatim from processBlock):
 //   Input gain → [preamp_on] Preamp → [filter_on] Filters → [eq_on] EQ →
-//   [gate_on] Gate → modeTrim + clip(±1.35) → Output gain
+//   [comp_on] Compressor → [gate_on] Gate →
+//   modeTrim + clip(±1.35) → Output gain
 //
 // Both OriginalState and NovaConsoleDSP are seeded identically via
 // prepare(spec, initialParams).  peakAbsDiff == 0.0f expected for all
@@ -87,6 +88,14 @@ public:
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> inputSmoothed;
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputSmoothed;
 
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compThresholdSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compRatioSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compAttackSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compReleaseSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compMixSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compMakeupSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> compPunchSmoothed;
+
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateThresholdSmoothed;
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateReleaseSmoothed;
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateRangeSmoothed;
@@ -120,6 +129,14 @@ public:
         float lastHighQ=-1.f, lastAirQ=-1.f;
         int   lastHpfSlope=-1, lastLpfSlope=-1;
         int   lastLowMode=-1, lastHighMode=-1, lastAirMode=-1;
+
+        // ── Compressor state ──────────────────────────────────────────────────
+        float compressorDetector  = 0.0f;
+        float compressorGainState = 1.0f;
+        std::array<float, 2> compressorPunchMemory  { 0.0f, 0.0f };
+        std::array<std::array<float, 2>, 4> compDetectorHpfState {};
+        std::array<std::array<float, 2>, 4> compDetectorLpfState {};
+        float gainReductionMeter = 0.0f; // non-atomic: single-threaded in tests
 
         // ── Preamp state ──────────────────────────────────────────────────────
         std::array<float, 2> preampPrevInput { 0.0f, 0.0f };
@@ -275,6 +292,14 @@ public:
             inputSmoothed.reset  (sampleRate, 0.030);
             outputSmoothed.reset (sampleRate, 0.030);
 
+            compThresholdSmoothed.reset (sampleRate, 0.045);
+            compRatioSmoothed.reset     (sampleRate, 0.050);
+            compAttackSmoothed.reset    (sampleRate, 0.015);
+            compReleaseSmoothed.reset   (sampleRate, 0.045);
+            compMixSmoothed.reset       (sampleRate, 0.030);
+            compMakeupSmoothed.reset    (sampleRate, 0.030);
+            compPunchSmoothed.reset     (sampleRate, 0.030);
+
             gateThresholdSmoothed.reset (sampleRate, 0.045);
             gateReleaseSmoothed.reset   (sampleRate, 0.045);
             gateRangeSmoothed.reset     (sampleRate, 0.045);
@@ -306,6 +331,14 @@ public:
             inputSmoothed.setCurrentAndTargetValue  (dbToGain (init.inputDb));
             outputSmoothed.setCurrentAndTargetValue (dbToGain (init.outputDb));
 
+            compThresholdSmoothed.setCurrentAndTargetValue (init.compThreshDb);
+            compRatioSmoothed.setCurrentAndTargetValue     (init.compRatio);
+            compAttackSmoothed.setCurrentAndTargetValue    (init.compAttackMs);
+            compReleaseSmoothed.setCurrentAndTargetValue   (init.compReleaseMs);
+            compMixSmoothed.setCurrentAndTargetValue       (init.compMix / 100.0f);
+            compMakeupSmoothed.setCurrentAndTargetValue    (init.compMakeupDb);
+            compPunchSmoothed.setCurrentAndTargetValue     (init.compPunch / 100.0f);
+
             gateThresholdSmoothed.setCurrentAndTargetValue (init.gateThreshDb);
             gateReleaseSmoothed.setCurrentAndTargetValue   (init.gateReleaseMs);
             gateRangeSmoothed.setCurrentAndTargetValue     (init.gateRangeDb);
@@ -327,6 +360,13 @@ public:
             lastHighQ=-1.f; lastAirQ=-1.f;
             lastHpfSlope=-1; lastLpfSlope=-1;
             lastLowMode=-1; lastHighMode=-1; lastAirMode=-1;
+
+            compressorDetector   = 0.0f;
+            compressorGainState  = 1.0f;
+            compressorPunchMemory  = { 0.0f, 0.0f };
+            compDetectorHpfState   = {};
+            compDetectorLpfState   = {};
+            gainReductionMeter     = 0.0f;
 
             preampPrevInput      = { 0.0f, 0.0f };
             gateEnv              = { 1.0f, 1.0f };
@@ -565,6 +605,161 @@ public:
             }
         }
 
+        void processCompressor (juce::AudioBuffer<float>& buf,
+                               const NovaConsoleParameters& p,
+                               const ModeProfile& profile)
+        {
+            compThresholdSmoothed.setTargetValue (p.compThreshDb);
+            compRatioSmoothed.setTargetValue     (p.compRatio);
+            compAttackSmoothed.setTargetValue    (p.compAttackMs);
+            compReleaseSmoothed.setTargetValue   (p.compReleaseMs);
+            compMixSmoothed.setTargetValue       (p.compMix / 100.0f);
+            compMakeupSmoothed.setTargetValue    (p.compMakeupDb);
+            compPunchSmoothed.setTargetValue     (p.compPunch / 100.0f);
+
+            const float modePunch     = profile.transientPunch;
+            const float modeRetention = profile.transientRetention;
+            const float qualityTightness = (p.quality == 2 ? 1.03f : (p.quality == 0 ? 0.92f : 1.0f));
+            const float sr = static_cast<float> (currentSampleRate);
+
+            float maxReduction = 0.0f;
+
+            const int channels = juce::jmin (2, buf.getNumChannels());
+            if (channels == 0) return;
+
+            auto* left  = buf.getWritePointer (0);
+            auto* right = channels > 1 ? buf.getWritePointer (1) : nullptr;
+
+            // No external sidechain in unit tests — detector always reads driven signal
+            const auto* detLeft  = left;
+            const auto* detRight = right != nullptr ? right : left;
+
+            const int hpfSlopeChoice = juce::jlimit (0, 2, p.hpfSlope);
+            const int lpfSlopeChoice = juce::jlimit (0, 2, p.lpfSlope);
+            const int hpfStages = hpfSlopeChoice == 0 ? 1 : (hpfSlopeChoice == 1 ? 2 : 4);
+            const int lpfStages = lpfSlopeChoice == 0 ? 1 : (lpfSlopeChoice == 1 ? 2 : 4);
+            const float detectorHpfCoeff = juce::jlimit (0.0001f, 0.999f,
+                1.0f - std::exp (-juce::MathConstants<float>::twoPi * p.hpfHz / sr));
+            const float detectorLpfCoeff = juce::jlimit (0.0001f, 0.999f,
+                1.0f - std::exp (-juce::MathConstants<float>::twoPi * p.lpfHz / sr));
+
+            const float kneeDb = 4.0f;
+
+            for (int i = 0; i < buf.getNumSamples(); ++i)
+            {
+                const float thresholdDb = compThresholdSmoothed.getNextValue();
+                const float ratio       = compRatioSmoothed.getNextValue();
+                const float attackMs    = compAttackSmoothed.getNextValue();
+                const float releaseMs   = compReleaseSmoothed.getNextValue();
+                const float compMix     = compMixSmoothed.getNextValue();
+                const float makeup      = compMakeupSmoothed.getNextValue();
+                const float punch       = compPunchSmoothed.getNextValue();
+
+                const float shapedAttackMs = juce::jmax (0.6f, attackMs * 0.78f * (2.0f - modeRetention));
+                const float attackCoeff    = std::exp (-1.0f / (0.001f * shapedAttackMs * sr));
+
+                const float dryL = left[i];
+                const float dryR = right != nullptr ? right[i] : dryL;
+
+                compressorPunchMemory[0] = 0.92f * compressorPunchMemory[0] + 0.08f * dryL;
+                compressorPunchMemory[1] = 0.92f * compressorPunchMemory[1] + 0.08f * dryR;
+
+                const float transL = dryL - compressorPunchMemory[0];
+                const float transR = dryR - compressorPunchMemory[1];
+
+                const float drivenL = dryL + transL * punch * 0.45f * modePunch;
+                const float drivenR = dryR + transR * punch * 0.45f * modePunch;
+
+                float detectorL = drivenL;
+                float detectorR = drivenR;
+
+                if (p.sidechainMode > 0)
+                {
+                    for (int stage = 0; stage < hpfStages; ++stage)
+                    {
+                        auto& hpStateL = compDetectorHpfState[static_cast<size_t> (stage)][0];
+                        auto& hpStateR = compDetectorHpfState[static_cast<size_t> (stage)][1];
+                        hpStateL += detectorHpfCoeff * (detectorL - hpStateL);
+                        hpStateR += detectorHpfCoeff * (detectorR - hpStateR);
+                        detectorL -= hpStateL;
+                        detectorR -= hpStateR;
+                    }
+                    for (int stage = 0; stage < lpfStages; ++stage)
+                    {
+                        auto& lpStateL = compDetectorLpfState[static_cast<size_t> (stage)][0];
+                        auto& lpStateR = compDetectorLpfState[static_cast<size_t> (stage)][1];
+                        lpStateL += detectorLpfCoeff * (detectorL - lpStateL);
+                        lpStateR += detectorLpfCoeff * (detectorR - lpStateR);
+                        detectorL = lpStateL;
+                        detectorR = lpStateR;
+                    }
+                }
+
+                const float absL = std::abs (detectorL);
+                const float absR = std::abs (detectorR);
+                const float peak = juce::jmax (absL, absR);
+                const float rms  = std::sqrt ((detectorL * detectorL + detectorR * detectorR) * 0.5f);
+                const float detector = 0.66f * rms + 0.34f * peak;
+
+                const float crest = peak / juce::jmax (rms, 1.0e-5f);
+                const float autoReleaseMs = juce::jlimit (35.0f, 450.0f,
+                    releaseMs * juce::jmap (juce::jlimit (1.0f, 6.0f, crest), 1.0f, 6.0f, 1.18f, 0.44f));
+                const float releaseBlendMs = 0.45f * releaseMs + 0.55f * autoReleaseMs;
+                const float releaseCoeff   = std::exp (-1.0f / (0.001f * releaseBlendMs * sr));
+
+                if (detector > compressorDetector)
+                    compressorDetector = attackCoeff  * compressorDetector + (1.0f - attackCoeff)  * detector;
+                else
+                    compressorDetector = releaseCoeff * compressorDetector + (1.0f - releaseCoeff) * detector;
+
+                const float envDb = gainToDb (compressorDetector);
+                const float x     = envDb - thresholdDb;
+
+                float overDb = 0.0f;
+                if (x > -kneeDb * 0.5f)
+                {
+                    if (x < kneeDb * 0.5f)
+                    {
+                        const float k = x + kneeDb * 0.5f;
+                        overDb = (k * k) / (2.0f * kneeDb);
+                    }
+                    else
+                    {
+                        overDb = x;
+                    }
+                }
+
+                const float compressedDb = overDb - (overDb / juce::jmax (ratio, 1.0f));
+                const float targetGain   = dbToGain (-compressedDb * qualityTightness);
+
+                const float gainReleaseCoeff = std::exp (-1.0f / (0.001f * releaseBlendMs * 1.2f * sr));
+                const float gainAttackCoeff  = std::exp (-1.0f / (0.001f * juce::jmax (0.25f, attackMs * 0.45f) * sr));
+
+                if (targetGain < compressorGainState)
+                    compressorGainState = gainAttackCoeff  * compressorGainState + (1.0f - gainAttackCoeff)  * targetGain;
+                else
+                    compressorGainState = gainReleaseCoeff * compressorGainState + (1.0f - gainReleaseCoeff) * targetGain;
+
+                maxReduction = juce::jmax (maxReduction, -gainToDb (juce::jmax (compressorGainState, 1.0e-5f)));
+
+                const float thickBlend = 0.012f + 0.01f * profile.evenDrive;
+                const float thickenedL = (1.0f - thickBlend) * drivenL
+                                       + thickBlend * saturateSmooth (drivenL * (1.25f + 0.25f * profile.oddDrive));
+                const float thickenedR = (1.0f - thickBlend) * drivenR
+                                       + thickBlend * saturateSmooth (drivenR * (1.25f + 0.25f * profile.oddDrive));
+
+                const float wetL = thickenedL * compressorGainState * dbToGain (makeup);
+                const float wetR = thickenedR * compressorGainState * dbToGain (makeup);
+
+                left[i] = dryL * (1.0f - compMix) + wetL * compMix;
+                if (right != nullptr)
+                    right[i] = dryR * (1.0f - compMix) + wetR * compMix;
+            }
+
+            gainReductionMeter = 0.84f * gainReductionMeter
+                               + 0.16f * juce::jlimit (0.0f, 1.0f, maxReduction / 18.0f);
+        }
+
         void processGate (juce::AudioBuffer<float>& buf, const NovaConsoleParameters& p)
         {
             gateThresholdSmoothed.setTargetValue (p.gateThreshDb);
@@ -732,6 +927,8 @@ public:
             if (p.preampOn)  processPreamp (buf, p, active, osFactor);
             if (p.filterOn)  processFilters (buf, p);
             if (p.eqOn)      processEq (buf, active);
+            if (p.compOn)    processCompressor (buf, p, active);
+            else             gainReductionMeter = 0.92f * gainReductionMeter;
             if (p.gateOn)    processGate (buf, p);
 
             // modeTrim + clip + output gain
@@ -1546,6 +1743,399 @@ public:
             p.gateThreshDb = -35.0f; p.gateRangeDb = -24.0f; p.gateSmooth = false;
             auto sig = makeNoise (2, totalSamples, 0.3f);
             check (runScenario ("full-chain-tubetape-48k", 48000.0, 512, 8, p, sig));
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // Phase 4D scenarios: Compressor
+        // ════════════════════════════════════════════════════════════════════
+
+        // ── Compressor: basic ─────────────────────────────────────────────────
+
+        // 81. Comp off — no effect on output
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            auto sig = makeSine (2, totalSamples, 44100.0, 440.0, 0.3f);
+            check (runScenario ("comp-off-passthrough", 44100.0, 512, 8, p, sig));
+        }
+
+        // 82. Comp on — silence (no gain reduction)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            auto sig = makeSilence (2, totalSamples);
+            check (runScenario ("comp-silence", 44100.0, 512, 8, p, sig));
+        }
+
+        // 83. Comp on — impulse
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            auto sig = makeImpulse (2, totalSamples);
+            check (runScenario ("comp-impulse-default", 44100.0, 512, 8, p, sig));
+        }
+
+        // 84. Comp on — sine, loud (strong compression)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.compRatio = 8.0f;
+            auto sig = makeSine (2, totalSamples, 44100.0, 440.0, 0.5f);
+            check (runScenario ("comp-sine-loud-high-ratio", 44100.0, 512, 8, p, sig));
+        }
+
+        // 85. Comp threshold minimum (-60 dB)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -60.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-threshold-min", 44100.0, 512, 8, p, sig));
+        }
+
+        // 86. Comp threshold default (-16 dB)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            // compThreshDb default = -16.0f (from NovaConsoleParameters)
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-threshold-default", 44100.0, 512, 8, p, sig));
+        }
+
+        // 87. Comp threshold max (0 dB — above peak, no GR)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = 0.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-threshold-max", 44100.0, 512, 8, p, sig));
+        }
+
+        // 88. Comp ratio minimum (1:1)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.compRatio = 1.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-ratio-min-1to1", 44100.0, 512, 8, p, sig));
+        }
+
+        // 89. Comp ratio default (4:1)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f;
+            // compRatio default = 4.0f
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-ratio-default-4to1", 44100.0, 512, 8, p, sig));
+        }
+
+        // 90. Comp ratio max (20:1)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.compRatio = 20.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-ratio-max-20to1", 44100.0, 512, 8, p, sig));
+        }
+
+        // 91. Comp attack minimum (0.1 ms)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.compAttackMs = 0.1f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-attack-min-0.1ms", 44100.0, 512, 8, p, sig));
+        }
+
+        // 92. Comp attack default (15 ms)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f;
+            // compAttackMs default = 15.0f
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-attack-default-15ms", 44100.0, 512, 8, p, sig));
+        }
+
+        // 93. Comp attack maximum (150 ms)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.compAttackMs = 150.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-attack-max-150ms", 44100.0, 512, 8, p, sig));
+        }
+
+        // 94. Comp release minimum (20 ms)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.compReleaseMs = 20.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-release-min-20ms", 44100.0, 512, 8, p, sig));
+        }
+
+        // 95. Comp release default (180 ms)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f;
+            // compReleaseMs default = 180.0f
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-release-default-180ms", 44100.0, 512, 8, p, sig));
+        }
+
+        // 96. Comp release maximum (1000 ms)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.compReleaseMs = 1000.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-release-max-1000ms", 44100.0, 512, 8, p, sig));
+        }
+
+        // 97. Comp punch minimum (0)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.compPunch = 0.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-punch-min", 44100.0, 512, 8, p, sig));
+        }
+
+        // 98. Comp punch default (35)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f;
+            // compPunch default = 35.0f
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-punch-default-35", 44100.0, 512, 8, p, sig));
+        }
+
+        // 99. Comp punch maximum (100)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.compPunch = 100.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-punch-max-100", 44100.0, 512, 8, p, sig));
+        }
+
+        // 100. Comp makeup gain +6 dB
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.compMakeupDb = 6.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-makeup-plus6", 44100.0, 512, 8, p, sig));
+        }
+
+        // 101. Comp makeup gain -6 dB
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.compMakeupDb = -6.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-makeup-minus6", 44100.0, 512, 8, p, sig));
+        }
+
+        // 102. Parallel compression — mix 50%
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.compRatio = 8.0f; p.compMix = 50.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-parallel-mix-50pct", 44100.0, 512, 8, p, sig));
+        }
+
+        // 103. Parallel compression — mix 0% (dry only)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.compRatio = 8.0f; p.compMix = 0.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-parallel-mix-0pct", 44100.0, 512, 8, p, sig));
+        }
+
+        // 104. Sidechain off (sidechainMode=0) — detector reads driven signal directly
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.sidechainMode = 0;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-sidechain-off", 44100.0, 512, 8, p, sig));
+        }
+
+        // 105. Sidechain internal (sidechainMode=1, no external buffer)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.sidechainMode = 1;
+            p.hpfHz = 100.0f; p.hpfSlope = 1;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-sidechain-internal", 44100.0, 512, 8, p, sig));
+        }
+
+        // 106. Quality eco (tightness 0.92)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.quality = 0;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-quality-eco", 44100.0, 512, 8, p, sig));
+        }
+
+        // 107. Quality master (tightness 1.03)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f; p.quality = 2;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-quality-master", 44100.0, 512, 8, p, sig));
+        }
+
+        // 108–112. Per-mode compressor (mode profile affects transientPunch/Retention)
+        {
+            const char* modeNames[] = {
+                "comp-mode-clean", "comp-mode-british", "comp-mode-tubetape",
+                "comp-mode-gold",  "comp-mode-modern"
+            };
+            for (int m = 0; m < 5; ++m)
+            {
+                NovaConsoleParameters p;
+                p.preampOn = false; p.filterOn = false; p.eqOn = false;
+                p.compOn = true; p.gateOn = false;
+                p.mode = m; p.compThreshDb = -20.0f; p.compRatio = 4.0f;
+                auto sig = makeNoise (2, totalSamples, 0.3f);
+                check (runScenario (modeNames[m], 44100.0, 512, 8, p, sig));
+            }
+        }
+
+        // 113. Comp mono
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f;
+            auto sig = makeNoise (1, totalSamples, 0.3f);
+            check (runScenario ("comp-mono", 44100.0, 512, 8, p, sig));
+        }
+
+        // 114. Comp SR 48000
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-sr-48000", 48000.0, 512, 8, p, sig));
+        }
+
+        // 115. Comp SR 96000
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-sr-96000", 96000.0, 512, 8, p, sig));
+        }
+
+        // 116. Comp block size 64
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f;
+            auto sig = makeNoise (2, 4096, 0.3f);
+            check (runScenario ("comp-blocksize-64", 44100.0, 64, 64, p, sig));
+        }
+
+        // 117. Comp block size 2048
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -20.0f;
+            auto sig = makeNoise (2, 4096, 0.3f);
+            check (runScenario ("comp-blocksize-2048", 44100.0, 2048, 2, p, sig));
+        }
+
+        // ── Compressor + stage interactions ──────────────────────────────────
+
+        // 118. Filter + Comp: detector uses HPF-filtered signal (sidechainMode=1)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = true; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.hpfHz = 100.0f; p.hpfSlope = 1;
+            p.compThreshDb = -20.0f; p.sidechainMode = 1;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-filter-sidechain-chain", 44100.0, 512, 8, p, sig));
+        }
+
+        // 119. EQ + Comp: EQ before compression
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = true;
+            p.compOn = true; p.gateOn = false;
+            p.lowDb = 4.0f; p.compThreshDb = -20.0f; p.compRatio = 4.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-eq-chain", 44100.0, 512, 8, p, sig));
+        }
+
+        // 120. Gate + Comp: both active
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = true;
+            p.compThreshDb = -20.0f; p.gateThreshDb = -40.0f; p.gateSmooth = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("comp-gate-both-active", 44100.0, 512, 8, p, sig));
+        }
+
+        // 121. Full chain Phase 4D: all stages active
+        {
+            NovaConsoleParameters p;
+            p.preampOn = true; p.filterOn = true; p.eqOn = true;
+            p.compOn = true; p.gateOn = true;
+            p.mode = 1; // british
+            p.drive = 40.0f;
+            p.hpfHz = 80.0f; p.hpfSlope = 1;
+            p.lowDb = 2.0f; p.highDb = 1.5f;
+            p.compThreshDb = -18.0f; p.compRatio = 4.0f; p.compMakeupDb = 3.0f;
+            p.gateThreshDb = -45.0f; p.gateSmooth = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("full-chain-4D-british-all-stages", 44100.0, 512, 8, p, sig));
         }
 
         return allPassed;
