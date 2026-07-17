@@ -1,6 +1,7 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+#include "Level/NovaLevelDSP.h"
 
 class NovaLevelAudioProcessor : public juce::AudioProcessor {
 public:
@@ -37,23 +38,23 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    // Meter accessors — delegate to shared DSP engine
+    float getOutputPeakLevel()    const noexcept { return levelDSP.getOutputPeak(); }
+    float getGainReductionLevel() const noexcept { return levelDSP.getGainReductionDb(); }
+    bool  getOutputIsHot()        const noexcept { return levelDSP.isOutputHot(); }
+
+    // Legacy atomics kept for backwards-compat with existing editor code
     std::atomic<float> outputPeakLevel { 0.0f };
     std::atomic<float> gainReductionLevel { 0.0f };
-    std::atomic<bool> outputIsHot { false };
+    std::atomic<bool>  outputIsHot { false };
 
     void applyPreset(const juce::String& presetName);
 
 private:
-    using Filter = juce::dsp::IIR::Filter<float>;
-    using StereoFilter = juce::dsp::ProcessorDuplicator<Filter, juce::dsp::IIR::Coefficients<float>>;
-
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    StereoFilter toneLowShelf;
-    StereoFilter toneHighShelf;
-    StereoFilter topPolishFilter;
-    juce::dsp::Gain<float> outputTrim;
+    // Shared DSP engine — no APVTS coupling
+    NovaLevelDSP levelDSP;
 
     juce::AudioBuffer<float> dryBuffer;
-    float grEnvelopeDb = 0.0f;
 };

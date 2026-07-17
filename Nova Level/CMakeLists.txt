@@ -66,7 +66,10 @@ target_sources(NovaLevel
         Source/PluginProcessor.h
         Source/PluginEditor.cpp
         Source/PluginEditor.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Level/NovaLevelDSP.cpp
 )
+
+target_include_directories(NovaLevel PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP)
 
 set_target_properties(NovaLevel PROPERTIES
     JUCE_PLUGIN_FORMATS "VST3"
