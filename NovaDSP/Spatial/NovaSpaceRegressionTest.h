@@ -17,6 +17,7 @@
 
 #include "NovaSpaceDSP.h"
 #include "NovaSpaceParameters.h"
+#include "../Testing/NovaDSPTestResult.h"
 
 class NovaSpaceRegressionTest
 {
@@ -588,6 +589,82 @@ public:
             assert (r.passed && "NovaSpaceDSP automation regression (mono) FAILED");
             juce::ignoreUnused (r);
         }
+    }
+
+    // Non-asserting variant: returns one result per scenario for the runner.
+    static std::vector<NovaDSPTestResult> runAllResults()
+    {
+        std::vector<NovaDSPTestResult> results;
+
+        auto addResult = [&] (const Result& r, const char* scenName)
+        {
+            NovaDSPTestResult res;
+            res.suite       = "NovaSpace";
+            res.scenario    = scenName;
+            res.passed      = r.passed;
+            res.peakAbsDiff = r.peakAbsDiff;
+            res.rmsAbsDiff  = 0.0f;  // NovaSpace Result has no rmsAbsDiff field
+            results.push_back (res);
+        };
+
+        auto P = [](float space, float air, float depth, float mix, float width,
+                    int mode, float preMs, float decay, float damp, float early) -> NovaSpaceParameters
+        {
+            NovaSpaceParameters p;
+            p.space = space; p.air = air; p.depth = depth; p.mix = mix; p.width = width;
+            p.mode = mode; p.preDelayMs = preMs; p.decay = decay; p.damping = damp; p.early = early;
+            return p;
+        };
+
+        auto def = P (1.8f, 3.2f, 2.6f, 16.0f, 3.8f, 0, 22.0f, 2.2f, 45.0f, 35.0f);
+
+        struct Scenario { const char* name; NovaSpaceParameters params; double sr; int block; int blocks; bool stereo; };
+
+        Scenario scenarios[] = {
+            { "default_44100_stereo",  def, 44100.0, 512, 8, true  },
+            { "default_48000_stereo",  def, 48000.0, 512, 8, true  },
+            { "default_96000_stereo",  def, 96000.0, 512, 8, true  },
+            { "default_44100_mono",    def, 44100.0, 512, 8, false },
+            { "block_64",              def, 44100.0,  64, 16, true },
+            { "block_2048",            def, 44100.0, 2048, 2, true },
+            { "mode_studio",           P(1.8f,3.2f,2.6f,16.f,3.8f, 0,22.f,2.2f,45.f,35.f), 44100.0, 512, 8, true },
+            { "mode_arena",            P(1.8f,3.2f,2.6f,16.f,3.8f, 1,22.f,2.2f,45.f,35.f), 44100.0, 512, 8, true },
+            { "mode_dream",            P(1.8f,3.2f,2.6f,16.f,3.8f, 2,22.f,2.2f,45.f,35.f), 44100.0, 512, 8, true },
+            { "mode_vintage",          P(1.8f,3.2f,2.6f,16.f,3.8f, 3,22.f,2.2f,45.f,35.f), 44100.0, 512, 8, true },
+            { "min_all",               P(0.f,0.f,0.f,0.f,0.f,0,0.f,0.5f,0.f,0.f), 44100.0, 512, 8, true },
+            { "max_all",               P(10.f,10.f,10.f,100.f,10.f,1,120.f,6.5f,100.f,100.f), 44100.0, 512, 8, true },
+            { "mix_zero",              P(1.8f,3.2f,2.6f,  0.f,3.8f,0,22.f,2.2f,45.f,35.f), 44100.0, 512, 8, true },
+            { "mix_full",              P(1.8f,3.2f,2.6f,100.f,3.8f,0,22.f,2.2f,45.f,35.f), 44100.0, 512, 8, true },
+            { "predelay_zero",         P(1.8f,3.2f,2.6f,16.f,3.8f,0,  0.f,2.2f,45.f,35.f), 44100.0, 512, 8, true },
+            { "predelay_max",          P(1.8f,3.2f,2.6f,16.f,3.8f,0,120.f,2.2f,45.f,35.f), 44100.0, 512, 8, true },
+            { "width_zero",            P(1.8f,3.2f,2.6f,16.f, 0.f,0,22.f,2.2f,45.f,35.f), 44100.0, 512, 8, true },
+            { "width_max",             P(1.8f,3.2f,2.6f,16.f,10.f,0,22.f,2.2f,45.f,35.f), 44100.0, 512, 8, true },
+            { "decay_min",             P(1.8f,3.2f,2.6f,16.f,3.8f,0,22.f,0.5f,45.f,35.f), 44100.0, 512, 8, true },
+            { "decay_max",             P(1.8f,3.2f,2.6f,16.f,3.8f,0,22.f,6.5f,45.f,35.f), 44100.0, 512, 8, true },
+            { "damp_zero",             P(1.8f,3.2f,2.6f,16.f,3.8f,0,22.f,2.2f,  0.f,35.f), 44100.0, 512, 8, true },
+            { "damp_max",              P(1.8f,3.2f,2.6f,16.f,3.8f,0,22.f,2.2f,100.f,35.f), 44100.0, 512, 8, true },
+            { "early_zero",            P(1.8f,3.2f,2.6f,16.f,3.8f,0,22.f,2.2f,45.f,  0.f), 44100.0, 512, 8, true },
+            { "early_max",             P(1.8f,3.2f,2.6f,16.f,3.8f,0,22.f,2.2f,45.f,100.f), 44100.0, 512, 8, true },
+            { "dream_max_space",       P(10.f,8.f,5.f,60.f,8.f,2,40.f,6.0f,20.f,50.f), 44100.0, 512, 8, true },
+            { "vintage_min_space",     P(0.5f,2.f,1.f,30.f,2.f,3, 5.f,1.0f,80.f,20.f), 44100.0, 512, 8, true },
+        };
+
+        for (auto& s : scenarios)
+        {
+            Result r = compare (s.name, s.params, s.sr, s.block, s.blocks, s.stereo);
+            addResult (r, s.name);
+        }
+
+        {
+            Result r = compareAutomation ("automation_sweep_stereo_44100", 44100.0, 512, 16, true);
+            addResult (r, "automation_sweep_stereo_44100");
+        }
+        {
+            Result r = compareAutomation ("automation_sweep_mono_44100", 44100.0, 512, 16, false);
+            addResult (r, "automation_sweep_mono_44100");
+        }
+
+        return results;
     }
 
 private:

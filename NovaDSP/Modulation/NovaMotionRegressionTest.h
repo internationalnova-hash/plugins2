@@ -12,9 +12,11 @@
 #include <juce_dsp/juce_dsp.h>
 #include <cassert>
 #include <cmath>
+#include <vector>
 
 #include "NovaMotionDSP.h"
 #include "NovaMotionParameters.h"
+#include "../Testing/NovaDSPTestResult.h"
 
 class NovaMotionRegressionTest
 {
@@ -300,6 +302,85 @@ public:
             assert (r.passed && "NovaMotionDSP regression FAILED — output differs from original");
             juce::ignoreUnused (r);
         }
+    }
+
+    // Non-asserting variant: returns one result per scenario for the runner.
+    static std::vector<NovaDSPTestResult> runAllResults()
+    {
+        std::vector<NovaDSPTestResult> results;
+
+        struct Scenario
+        {
+            const char* name;
+            NovaMotionParameters params;
+            double sr;
+            int    blockSize;
+            int    numBlocks;
+            bool   stereo;
+        };
+
+        auto makeParams = [](float cutoff, float res, float fb, float dMix,
+                             float rMix, float size, float inDb, float outDb,
+                             float mix) -> NovaMotionParameters
+        {
+            NovaMotionParameters p;
+            p.cutoff    = cutoff;
+            p.resonance = res;
+            p.feedback  = fb;
+            p.delayMix  = dMix;
+            p.reverbMix = rMix;
+            p.size      = size;
+            p.inputDb   = inDb;
+            p.outputDb  = outDb;
+            p.mix       = mix;
+            return p;
+        };
+
+        Scenario passthrough44  = { "passthrough_44100", makeParams(20000.f,0.707f,0.f,0.f,0.f,0.6f,0.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario passthrough48  = { "passthrough_48000", makeParams(20000.f,0.707f,0.f,0.f,0.f,0.6f,0.f,0.f,1.f), 48000.0, 512, 4, true };
+        Scenario passthrough96  = { "passthrough_96000", makeParams(20000.f,0.707f,0.f,0.f,0.f,0.6f,0.f,0.f,1.f), 96000.0, 512, 4, true };
+        Scenario filterLow      = { "filter_low",        makeParams(200.f, 1.5f, 0.f,0.f,0.f,0.6f,0.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario filterMid      = { "filter_mid",        makeParams(2000.f,1.5f, 0.f,0.f,0.f,0.6f,0.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario filterHigh     = { "filter_high",       makeParams(8000.f,1.5f, 0.f,0.f,0.f,0.6f,0.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario filterClamp    = { "filter_q_clamp",    makeParams(1000.f,4.5f, 0.f,0.f,0.f,0.6f,0.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario delayMin       = { "delay_min",         makeParams(20000.f,0.707f,0.f,0.1f,0.f,0.6f,0.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario delayMid       = { "delay_mid",         makeParams(20000.f,0.707f,0.f,0.5f,0.f,0.6f,0.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario delayMax       = { "delay_max",         makeParams(20000.f,0.707f,0.f,1.0f,0.f,0.6f,0.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario reverbSmall    = { "reverb_small",      makeParams(20000.f,0.707f,0.f,0.f,0.3f,0.3f,0.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario reverbLarge    = { "reverb_large",      makeParams(20000.f,0.707f,0.f,0.f,0.8f,0.9f,0.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario allStages      = { "all_stages",        makeParams(1000.f, 1.5f, 0.2f,0.4f,0.3f,0.6f,0.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario dryOnly        = { "mix_dry_only",      makeParams(1000.f, 1.5f, 0.2f,0.4f,0.3f,0.6f,0.f,0.f,0.f), 44100.0, 512, 4, true };
+        Scenario wetOnly        = { "mix_wet_only",      makeParams(1000.f, 1.5f, 0.2f,0.4f,0.3f,0.6f,0.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario gainHot        = { "gain_hot",          makeParams(20000.f,0.707f,0.f,0.f,0.f,0.6f,6.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario gainCold       = { "gain_cold",         makeParams(20000.f,0.707f,0.f,0.f,0.f,0.6f,-20.f,0.f,1.f), 44100.0, 512, 4, true };
+        Scenario mono44         = { "mono_44100",        makeParams(1000.f, 1.0f, 0.2f,0.2f,0.2f,0.5f,0.f,0.f,1.f), 44100.0, 512, 4, false };
+        Scenario block64        = { "block_64",          makeParams(1000.f,1.0f,0.2f,0.2f,0.2f,0.5f,0.f,0.f,1.f), 44100.0, 64,  8, true };
+        Scenario block2048      = { "block_2048",        makeParams(1000.f,1.0f,0.2f,0.2f,0.2f,0.5f,0.f,0.f,1.f), 44100.0,2048, 2, true };
+
+        Scenario scenarios[] = {
+            passthrough44, passthrough48, passthrough96,
+            filterLow, filterMid, filterHigh, filterClamp,
+            delayMin, delayMid, delayMax,
+            reverbSmall, reverbLarge,
+            allStages,
+            dryOnly, wetOnly,
+            gainHot, gainCold,
+            mono44,
+            block64, block2048
+        };
+
+        for (auto& s : scenarios)
+        {
+            Result r = compare (s.params, s.sr, s.blockSize, s.numBlocks, s.stereo);
+            NovaDSPTestResult res;
+            res.suite       = "NovaMotion";
+            res.scenario    = s.name;
+            res.passed      = r.passed;
+            res.peakAbsDiff = r.peakAbsDiff;
+            res.rmsAbsDiff  = r.rmsAbsDiff;
+            results.push_back (res);
+        }
+        return results;
     }
 
 private:

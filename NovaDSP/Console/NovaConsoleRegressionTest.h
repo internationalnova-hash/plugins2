@@ -29,6 +29,8 @@
 
 #include "NovaConsoleDSP.h"
 #include "NovaConsoleParameters.h"
+#include "../Testing/NovaDSPTestResult.h"
+#include <vector>
 
 class NovaConsoleRegressionTest
 {
@@ -1165,16 +1167,22 @@ public:
 
     // ── Full scenario matrix ──────────────────────────────────────────────────
 
-    static bool runAll()
+    // runAllResults() — non-asserting: runs all 125 scenarios, returns results.
+    // runAll()        — asserting wrapper: calls runAllResults(), asserts on any failure.
+    static std::vector<NovaDSPTestResult> runAllResults()
     {
-        bool allPassed = true;
+        std::vector<NovaDSPTestResult> out;
         const int totalSamples = 4096;
 
-        auto check = [&] (Result r)
+        auto check = [&] (Result r) -> Result
         {
-            if (!r.passed)
-                allPassed = false;
-            assert (r.passed);
+            NovaDSPTestResult res;
+            res.suite       = "NovaConsole";
+            res.scenario    = r.scenario;
+            res.passed      = r.passed;
+            res.peakAbsDiff = r.peakAbsDiff;
+            res.rmsAbsDiff  = r.rmsAbsDiff;
+            out.push_back (res);
             return r;
         };
 
@@ -2290,6 +2298,20 @@ public:
                                              44100.0, 512, 8, p, sig, sc));
         }
 
+        return out;
+    }
+
+    static bool runAll()
+    {
+        bool allPassed = true;
+        for (auto& r : runAllResults())
+        {
+            if (!r.passed)
+            {
+                allPassed = false;
+                assert (false && "NovaConsoleRegressionTest: scenario FAILED");
+            }
+        }
         return allPassed;
     }
 };

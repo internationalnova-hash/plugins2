@@ -10,8 +10,10 @@
 //   NovaLevelRegressionTest::runAll();
 // ---------------------------------------------------------------------------
 #include "NovaLevelDSP.h"
+#include "../Testing/NovaDSPTestResult.h"
 #include <cmath>
 #include <string>
+#include <vector>
 #include <cassert>
 
 struct NovaLevelRegressionTest
@@ -175,5 +177,52 @@ struct NovaLevelRegressionTest
                 }
             }
         }
+    }
+
+    // Non-asserting variant: returns one result per scenario for the runner.
+    static std::vector<NovaDSPTestResult> runAllResults()
+    {
+        std::vector<NovaDSPTestResult> results;
+        constexpr int N = 4096;
+
+        const struct { double sr; int ch; } configs[] = {
+            { 44100.0, 1 }, { 44100.0, 2 },
+            { 48000.0, 2 }, { 88200.0, 2 },
+            { 96000.0, 2 }, { 192000.0, 2 }
+        };
+
+        for (auto [sr, ch] : configs)
+        {
+            for (int mode = 0; mode <= 2; ++mode)
+            {
+                for (float comp : { 0.f, 5.f, 10.f })
+                {
+                    for (bool magic : { false, true })
+                    {
+                        NovaLevelParameters p;
+                        p.compression = comp;
+                        p.outputDb    = 0.f;
+                        p.mode        = mode;
+                        p.magic       = magic ? 1.f : 0.f;
+
+                        char label[128];
+                        std::snprintf (label, sizeof (label),
+                            "sr=%.0f ch=%d mode=%d comp=%.0f magic=%d",
+                            sr, ch, mode, comp, (int) magic);
+
+                        auto r = compare (label, ch, N, sr, p);
+
+                        NovaDSPTestResult res;
+                        res.suite       = "NovaLevel";
+                        res.scenario    = label;
+                        res.passed      = r.identical;
+                        res.peakAbsDiff = r.peakAbsDiff;
+                        res.rmsAbsDiff  = r.rmsAbsDiff;
+                        results.push_back (res);
+                    }
+                }
+            }
+        }
+        return results;
     }
 };

@@ -1,8 +1,6 @@
 #include "NovaSpaceDSP.h"
 #include <cmath>
 
-NovaSpaceDSP::NovaSpaceDSP() = default;
-
 void NovaSpaceDSP::prepare (const juce::dsp::ProcessSpec& spec,
                             const NovaSpaceParameters& initial)
 {

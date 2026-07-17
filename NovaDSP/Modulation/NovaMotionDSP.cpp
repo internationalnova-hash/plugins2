@@ -1,7 +1,5 @@
 #include "NovaMotionDSP.h"
 
-NovaMotionDSP::NovaMotionDSP() = default;
-
 void NovaMotionDSP::prepare (const juce::dsp::ProcessSpec& spec,
                              const NovaMotionParameters& initial)
 {
