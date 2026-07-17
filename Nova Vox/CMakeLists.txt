@@ -32,10 +32,10 @@ else()
 endif()
 
 juce_add_plugin(${PLUGIN_TARGET}
-    COMPANY_NAME                "Nova Audio"
-    COMPANY_WEBSITE             ""
-    BUNDLE_ID                   "com.novaaudio.novavox"
-    PLUGIN_MANUFACTURER_CODE    "NvAu"
+    COMPANY_NAME                "International Nova"
+    COMPANY_WEBSITE             "https://noizefield.com"
+    BUNDLE_ID                   "com.internationalnova.novavox"
+    PLUGIN_MANUFACTURER_CODE    "Inov"
     PLUGIN_CODE                 "NvVx"
     FORMATS                     ${PLUGIN_FORMATS}
     PRODUCT_NAME                "Nova Vox"
@@ -45,7 +45,7 @@ juce_add_plugin(${PLUGIN_TARGET}
     IS_MIDI_EFFECT              FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     AU_MAIN_TYPE                kAudioUnitType_Effect
-    VST3_CATEGORIES             "Fx" "Vocal"
+    VST3_CATEGORIES             Fx Vocal
 )
 
 target_sources(${PLUGIN_TARGET}

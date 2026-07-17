@@ -22,6 +22,7 @@ class AdvancedPanel : public juce::Component
 public:
     AdvancedPanel (juce::AudioProcessorValueTreeState& apvts,
                    NovaVoxLookAndFeel& laf);
+    ~AdvancedPanel() override;
 
     // Switch to showing controls for a specific module (identified by name).
     // Pass "" to hide all controls.

@@ -6,6 +6,11 @@ AdvancedPanel::AdvancedPanel (juce::AudioProcessorValueTreeState& apvts_,
 {
 }
 
+AdvancedPanel::~AdvancedPanel()
+{
+    clearControls();
+}
+
 void AdvancedPanel::showModule (const juce::String& moduleName)
 {
     clearControls();
