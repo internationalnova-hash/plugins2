@@ -73,6 +73,11 @@ target_sources(${PLUGIN_TARGET}
         Source/PluginProcessor.h
         Source/PluginEditor.cpp
         Source/PluginEditor.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Modulation/NovaMotionDSP.cpp
+)
+
+target_include_directories(${PLUGIN_TARGET} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP
 )
 
 target_link_libraries(${PLUGIN_TARGET}

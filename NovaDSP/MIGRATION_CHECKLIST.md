@@ -3,12 +3,32 @@
 One authoritative DSP implementation per algorithm.
 Each standalone plugin is a thin APVTS translator. Nova Vox calls the same engines.
 
+## Directory Structure
+
+```
+NovaDSP/
+  Core/          — future: shared utilities, DC block, etc.
+  Dynamics/      — compressors, limiters
+    NovaLevelParameters.h
+    NovaLevelDSP.h
+    NovaLevelDSP.cpp
+    NovaLevelRegressionTest.h
+  EQ/            — equalizers
+  Modulation/    — LFO, delay, reverb, motion FX
+    NovaMotionParameters.h
+    NovaMotionDSP.h
+    NovaMotionDSP.cpp
+    NovaMotionRegressionTest.h
+  Saturation/    — console saturation, tape, etc.
+  Spatial/       — reverb, stereo width, space algorithms
+```
+
 ## Status
 
 | Engine         | Shared class exists | Standalone updated | Nova Vox integrated |
 |----------------|--------------------|--------------------|---------------------|
 | Nova Level     | ✅ Done             | ✅ Done             | ⬜ Pending           |
-| Nova Motion FX | ⬜ Pending          | ⬜ Pending          | ⬜ Pending           |
+| Nova Motion FX | ✅ Done             | ✅ Done             | ⬜ Pending           |
 | Space By Nova  | ⬜ Pending          | ⬜ Pending          | ⬜ Pending           |
 | Nova Console   | ⬜ Pending          | ⬜ Pending          | ⬜ Pending           |
 | Nova Curve     | ⬜ Pending          | ⬜ Pending          | ⬜ Pending           |
@@ -22,15 +42,7 @@ Each standalone plugin is a thin APVTS translator. Nova Vox calls the same engin
 5. Meter data exposed via atomics written by audio thread, read by UI thread.
 6. Parameter structs are plain POD — no juce types, no shared_ptr.
 
-## Phase 2 — Nova Motion FX (next)
-
-Effort: Low
-- Move LFO + delay-line modulation out of processBlock
-- Create NovaMotionParameters { amount, mode, rate, depth, width, feedback, mix }
-- Create NovaMotionDSP with DelayLine members
-- Update Nova Motion FX standalone PluginProcessor to translate and call
-
-## Phase 3 — Space By Nova
+## Phase 3 — Space By Nova (next)
 
 Effort: Medium
 - SmoothedValues in prepareToPlay currently read from APVTS — move smoothing into DSP class

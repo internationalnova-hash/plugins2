@@ -66,7 +66,7 @@ target_sources(NovaLevel
         Source/PluginProcessor.h
         Source/PluginEditor.cpp
         Source/PluginEditor.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Level/NovaLevelDSP.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Dynamics/NovaLevelDSP.cpp
 )
 
 target_include_directories(NovaLevel PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP)
