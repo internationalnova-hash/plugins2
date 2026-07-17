@@ -195,6 +195,9 @@ void NovaConsoleDSP::prepare (const juce::dsp::ProcessSpec& spec,
     gateAttackSmoothed.reset    (sr, 0.030);
     gateHoldSmoothed.reset      (sr, 0.030);
 
+    mixAssistAmountSmoothed.reset (sr, 0.120);
+    focusAmountSmoothed.reset     (sr, 0.100);
+
     // ── Seed smoothers with initial parameter values ───────────────────────────
     // (NovaDSP v1.0.0 contract: prepare(spec, initial) eliminates first-block
     // ramp-from-zero artefact that existed in the original prepareToPlay.)
@@ -237,6 +240,9 @@ void NovaConsoleDSP::prepare (const juce::dsp::ProcessSpec& spec,
     gateAttackSmoothed.setCurrentAndTargetValue    (initial.gateAttackMs);
     gateHoldSmoothed.setCurrentAndTargetValue      (initial.gateHoldMs);
 
+    mixAssistAmountSmoothed.setCurrentAndTargetValue (initial.mixAssist / 100.0f);
+    focusAmountSmoothed.setCurrentAndTargetValue     (initial.focusMode ? 1.0f : 0.0f);
+
     // ── Mode morph ────────────────────────────────────────────────────────────
     const int rawMode = juce::jlimit (0, 4, initial.mode);
     modeFrom = static_cast<ConsoleMode> (rawMode);
@@ -270,6 +276,11 @@ void NovaConsoleDSP::prepare (const juce::dsp::ProcessSpec& spec,
     gateDetectorHpfState = {};
     gateDetectorLpfState = {};
 
+    mixAssistLowState        = { 0.0f, 0.0f };
+    mixAssistPresenceLpState = { 0.0f, 0.0f };
+    mixAssistHarshLpState    = { 0.0f, 0.0f };
+    mixAssistHarshEnvState   = { 0.0f, 0.0f };
+
     updateLinearStageCoefficients();
 }
 
@@ -297,6 +308,11 @@ void NovaConsoleDSP::reset() noexcept
     gatePreviousEnv      = { 0.0f, 0.0f };
     gateDetectorHpfState = {};
     gateDetectorLpfState = {};
+
+    mixAssistLowState        = { 0.0f, 0.0f };
+    mixAssistPresenceLpState = { 0.0f, 0.0f };
+    mixAssistHarshLpState    = { 0.0f, 0.0f };
+    mixAssistHarshEnvState   = { 0.0f, 0.0f };
 }
 
 void NovaConsoleDSP::setParameters (const NovaConsoleParameters& p) noexcept
@@ -374,6 +390,21 @@ void NovaConsoleDSP::process (juce::AudioBuffer<float>& buffer,
 
     if (params.gateOn)
         processGate (buffer, detectorBuffer, detectorSidechainEnabled, sidechainExtActive);
+
+    // Mix Assist / Focus — verbatim from processMixAssistAndFocus()
+    {
+        const float mixAssistTarget = params.mixAssist / 100.0f;
+        const float focusTarget     = params.focusMode ? 1.0f : 0.0f;
+        mixAssistAmountSmoothed.setTargetValue (mixAssistTarget);
+        focusAmountSmoothed.setTargetValue     (focusTarget);
+        const float mixAssistStart = mixAssistAmountSmoothed.getCurrentValue();
+        const float focusStart     = focusAmountSmoothed.getCurrentValue();
+        const float mixAssistEnd   = mixAssistAmountSmoothed.skip (buffer.getNumSamples());
+        const float focusEnd       = focusAmountSmoothed.skip (buffer.getNumSamples());
+        const float mixAssistAmt   = 0.5f * (mixAssistStart + mixAssistEnd);
+        const float focusAmt       = 0.5f * (focusStart + focusEnd);
+        processMixAssistAndFocus (buffer, mixAssistAmt, focusAmt);
+    }
 
     // modeTrim + clip + output gain — verbatim from processBlock()
     const float modeTrim = activeProfile.outputTrim;
@@ -943,5 +974,119 @@ void NovaConsoleDSP::processGate (juce::AudioBuffer<float>& buffer,
                 : releaseCoeff * gateEnvRef + (1.0f - releaseCoeff) * target;
             data[i] = x * gateEnvRef;
         }
+    }
+}
+
+// ── Mix Assist / Focus ────────────────────────────────────────────────────────
+// Verbatim from Nova Console/Source/PluginProcessor.cpp :: processMixAssistAndFocus()
+
+void NovaConsoleDSP::processMixAssistAndFocus (juce::AudioBuffer<float>& buffer,
+                                               float mixAssistAmount,
+                                               float focusAmount) noexcept
+{
+    mixAssistAmount = juce::jlimit (0.0f, 1.0f, mixAssistAmount);
+    focusAmount     = juce::jlimit (0.0f, 1.0f, focusAmount);
+
+    if (mixAssistAmount <= 0.0001f && focusAmount <= 0.0001f)
+        return;
+
+    const int channels = juce::jmin (2, buffer.getNumChannels());
+    if (channels == 0 || currentSampleRate <= 1000.0)
+        return;
+
+    const float sr = static_cast<float> (currentSampleRate);
+    const auto onePoleCoeff = [sr] (float hz)
+    {
+        const float omega = juce::MathConstants<float>::twoPi * hz / sr;
+        return juce::jlimit (0.0001f, 0.999f, 1.0f - std::exp (-omega));
+    };
+
+    const float lowCoeff     = onePoleCoeff (120.0f);
+    const float presenceCoeff = onePoleCoeff (2200.0f);
+    const float harshCoeff   = onePoleCoeff (5000.0f);
+    const float harshEnvCoeff = juce::jlimit (0.0005f, 0.2f,
+                                              1.0f - std::exp (-1.0f / (sr * 0.05f)));
+
+    if (channels == 1)
+    {
+        auto* mono = buffer.getWritePointer (0);
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+        {
+            float x = mono[i];
+            auto& lowState    = mixAssistLowState[0];
+            auto& presState   = mixAssistPresenceLpState[0];
+            auto& harshLp     = mixAssistHarshLpState[0];
+            auto& harshEnv    = mixAssistHarshEnvState[0];
+
+            lowState  += lowCoeff     * (x - lowState);
+            presState += presenceCoeff * (x - presState);
+            harshLp   += harshCoeff   * (x - harshLp);
+
+            const float lowSense    = std::abs (lowState);
+            const float harshBand   = presState - harshLp;
+            harshEnv += harshEnvCoeff * (std::abs (harshBand) - harshEnv);
+
+            const float lowExcess   = juce::jlimit (0.0f, 1.0f, (lowSense  - 0.11f) / 0.32f);
+            const float harshExcess = juce::jlimit (0.0f, 1.0f, (harshEnv  - 0.028f) / 0.20f);
+
+            const float lowTrimDb   = juce::jmax (-1.5f, -1.5f * mixAssistAmount * lowExcess * lowExcess);
+            const float harshTrimDb = juce::jmax (-1.0f, -1.0f * mixAssistAmount * harshExcess * harshExcess);
+            const float tighten     = (mixAssistAmount * 0.06f + focusAmount * 0.09f) * lowExcess;
+
+            x  = (x - lowState * tighten) * dbToGain (lowTrimDb + harshTrimDb);
+            x += (x - presState) * (focusAmount * 0.09f);
+            mono[i] = x;
+        }
+        return;
+    }
+
+    auto* left  = buffer.getWritePointer (0);
+    auto* right = buffer.getWritePointer (1);
+
+    for (int i = 0; i < buffer.getNumSamples(); ++i)
+    {
+        float processed[2] { left[i], right[i] };
+        float lowExcessAccum = 0.0f;
+
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            float x = processed[ch];
+            auto& lowState  = mixAssistLowState[static_cast<size_t> (ch)];
+            auto& presState = mixAssistPresenceLpState[static_cast<size_t> (ch)];
+            auto& harshLp   = mixAssistHarshLpState[static_cast<size_t> (ch)];
+            auto& harshEnv  = mixAssistHarshEnvState[static_cast<size_t> (ch)];
+
+            lowState  += lowCoeff      * (x - lowState);
+            presState += presenceCoeff * (x - presState);
+            harshLp   += harshCoeff    * (x - harshLp);
+
+            const float lowSense    = std::abs (lowState);
+            const float harshBand   = presState - harshLp;
+            harshEnv += harshEnvCoeff * (std::abs (harshBand) - harshEnv);
+
+            const float lowExcess   = juce::jlimit (0.0f, 1.0f, (lowSense  - 0.11f) / 0.32f);
+            const float harshExcess = juce::jlimit (0.0f, 1.0f, (harshEnv  - 0.028f) / 0.20f);
+            lowExcessAccum += lowExcess;
+
+            const float lowTrimDb   = juce::jmax (-1.5f, -1.5f * mixAssistAmount * lowExcess * lowExcess);
+            const float harshTrimDb = juce::jmax (-1.0f, -1.0f * mixAssistAmount * harshExcess * harshExcess);
+            const float tighten     = (mixAssistAmount * 0.06f + focusAmount * 0.09f) * lowExcess;
+
+            x  = (x - lowState * tighten) * dbToGain (lowTrimDb + harshTrimDb);
+            x += (x - presState) * (focusAmount * 0.09f);
+            processed[ch] = x;
+        }
+
+        float mid  = 0.5f * (processed[0] + processed[1]);
+        float side = 0.5f * (processed[0] - processed[1]);
+        const float widthFactor = juce::jlimit (0.88f, 1.0f,
+                                                1.0f - 0.08f * focusAmount - 0.02f * mixAssistAmount);
+        side *= widthFactor;
+
+        const float lowTighten = juce::jlimit (0.0f, 1.0f, 0.5f * lowExcessAccum);
+        mid -= lowTighten * focusAmount * 0.05f * mid;
+
+        left[i]  = mid + side;
+        right[i] = mid - side;
     }
 }

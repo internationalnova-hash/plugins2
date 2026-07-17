@@ -7,7 +7,7 @@
 
 #include "NovaConsoleParameters.h"
 
-// NovaConsoleDSP — shared console strip engine (Phase 4D: + Compressor)
+// NovaConsoleDSP — shared console strip engine (Phase 4E: + MixAssist/Focus)
 //
 // Lifecycle (matches every other NovaDSP engine):
 //   prepare(spec, initial)   — allocate, reset, seed smoothers
@@ -18,7 +18,8 @@
 // Phase 4B: ModeProfile blend, Filter stage, EQ stage.
 // Phase 4C: Input/Output gain, Preamp stage, Gate stage.
 // Phase 4D: Compressor stage + gainReductionMeter.
-// MixAssist, SmartGain, AnalogEngine follow in 4E–4G.
+// Phase 4E: Mix Assist + Focus stage.
+// SmartGain, AnalogEngine follow in 4F–4G.
 //
 // TD-003  44 SmoothedValue instances are owned individually.  Future v2 may
 //         consolidate into a ConsoleSmoothers aggregate for readability.
@@ -91,10 +92,13 @@ private:
                              const juce::AudioBuffer<float>* detectorBuffer,
                              bool detectorSidechainEnabled,
                              bool useExternalDetector) noexcept;
-    void processGate        (juce::AudioBuffer<float>& buffer,
-                             const juce::AudioBuffer<float>* detectorBuffer,
-                             bool detectorSidechainEnabled,
-                             bool useExternalDetector) noexcept;
+    void processGate             (juce::AudioBuffer<float>& buffer,
+                                  const juce::AudioBuffer<float>* detectorBuffer,
+                                  bool detectorSidechainEnabled,
+                                  bool useExternalDetector) noexcept;
+    void processMixAssistAndFocus (juce::AudioBuffer<float>& buffer,
+                                   float mixAssistAmount,
+                                   float focusAmount) noexcept;
 
     // ── Filters ───────────────────────────────────────────────────────────────
     juce::dsp::StateVariableTPTFilter<float> hpf[2];
@@ -158,6 +162,10 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateAttackSmoothed;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gateHoldSmoothed;
 
+    // ── Mix Assist / Focus smoothers ──────────────────────────────────────────
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mixAssistAmountSmoothed; // 120ms
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> focusAmountSmoothed;     // 100ms
+
     // ── Mode morph ────────────────────────────────────────────────────────────
     ConsoleMode modeFrom = ConsoleMode::british;
     ConsoleMode modeTo   = ConsoleMode::british;
@@ -206,6 +214,12 @@ private:
     std::array<float,   2> gatePreviousEnv  { 0.0f, 0.0f }; // preserved from original (never read)
     std::array<std::array<float, 2>, 4> gateDetectorHpfState {};
     std::array<std::array<float, 2>, 4> gateDetectorLpfState {};
+
+    // ── Mix Assist / Focus state ──────────────────────────────────────────────
+    std::array<float, 2> mixAssistLowState        { 0.0f, 0.0f };
+    std::array<float, 2> mixAssistPresenceLpState { 0.0f, 0.0f };
+    std::array<float, 2> mixAssistHarshLpState    { 0.0f, 0.0f };
+    std::array<float, 2> mixAssistHarshEnvState   { 0.0f, 0.0f };
 
     double currentSampleRate = 44100.0;
     NovaConsoleParameters params;

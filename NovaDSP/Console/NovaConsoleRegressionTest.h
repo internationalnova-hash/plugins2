@@ -173,6 +173,14 @@ public:
         std::array<std::array<float, 2>, 4> gateDetectorHpfState {};
         std::array<std::array<float, 2>, 4> gateDetectorLpfState {};
 
+        // ── Mix Assist / Focus state ──────────────────────────────────────────
+        std::array<float, 2> mixAssistLowState        { 0.0f, 0.0f };
+        std::array<float, 2> mixAssistPresenceLpState { 0.0f, 0.0f };
+        std::array<float, 2> mixAssistHarshLpState    { 0.0f, 0.0f };
+        std::array<float, 2> mixAssistHarshEnvState   { 0.0f, 0.0f };
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mixAssistAmountSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> focusAmountSmoothed;
+
         double currentSampleRate = 44100.0;
 
         // ── Static helpers ────────────────────────────────────────────────────
@@ -370,6 +378,11 @@ public:
             gateAttackSmoothed.setCurrentAndTargetValue    (init.gateAttackMs);
             gateHoldSmoothed.setCurrentAndTargetValue      (init.gateHoldMs);
 
+            mixAssistAmountSmoothed.reset (sampleRate, 0.120);
+            focusAmountSmoothed.reset     (sampleRate, 0.100);
+            mixAssistAmountSmoothed.setCurrentAndTargetValue (init.mixAssist / 100.0f);
+            focusAmountSmoothed.setCurrentAndTargetValue     (init.focusMode ? 1.0f : 0.0f);
+
             const int rawMode = juce::jlimit (0, 4, init.mode);
             modeFrom = static_cast<ConsoleMode> (rawMode);
             modeTo   = modeFrom;
@@ -399,6 +412,11 @@ public:
             gatePreviousEnv      = { 0.0f, 0.0f };
             gateDetectorHpfState = {};
             gateDetectorLpfState = {};
+
+            mixAssistLowState        = { 0.0f, 0.0f };
+            mixAssistPresenceLpState = { 0.0f, 0.0f };
+            mixAssistHarshLpState    = { 0.0f, 0.0f };
+            mixAssistHarshEnvState   = { 0.0f, 0.0f };
 
             updateCoefficients (init);
         }
@@ -919,6 +937,108 @@ public:
             }
         }
 
+        // ── Mix Assist / Focus — verbatim from processMixAssistAndFocus() ───────
+        void processMixAssistAndFocus (juce::AudioBuffer<float>& buf,
+                                       float mixAssistAmount, float focusAmount)
+        {
+            mixAssistAmount = juce::jlimit (0.0f, 1.0f, mixAssistAmount);
+            focusAmount     = juce::jlimit (0.0f, 1.0f, focusAmount);
+            if (mixAssistAmount <= 0.0001f && focusAmount <= 0.0001f) return;
+
+            const int channels = juce::jmin (2, buf.getNumChannels());
+            if (channels == 0 || currentSampleRate <= 1000.0) return;
+
+            const float sr = static_cast<float> (currentSampleRate);
+            const auto onePoleCoeff = [sr] (float hz)
+            {
+                const float omega = juce::MathConstants<float>::twoPi * hz / sr;
+                return juce::jlimit (0.0001f, 0.999f, 1.0f - std::exp (-omega));
+            };
+            const float lowCoeff      = onePoleCoeff (120.0f);
+            const float presenceCoeff = onePoleCoeff (2200.0f);
+            const float harshCoeff    = onePoleCoeff (5000.0f);
+            const float harshEnvCoeff = juce::jlimit (0.0005f, 0.2f,
+                                                      1.0f - std::exp (-1.0f / (sr * 0.05f)));
+
+            if (channels == 1)
+            {
+                auto* mono = buf.getWritePointer (0);
+                for (int i = 0; i < buf.getNumSamples(); ++i)
+                {
+                    float x = mono[i];
+                    auto& lowState  = mixAssistLowState[0];
+                    auto& presState = mixAssistPresenceLpState[0];
+                    auto& harshLp   = mixAssistHarshLpState[0];
+                    auto& harshEnv  = mixAssistHarshEnvState[0];
+
+                    lowState  += lowCoeff      * (x - lowState);
+                    presState += presenceCoeff * (x - presState);
+                    harshLp   += harshCoeff    * (x - harshLp);
+
+                    const float lowSense    = std::abs (lowState);
+                    const float harshBand   = presState - harshLp;
+                    harshEnv += harshEnvCoeff * (std::abs (harshBand) - harshEnv);
+
+                    const float lowExcess   = juce::jlimit (0.0f, 1.0f, (lowSense  - 0.11f) / 0.32f);
+                    const float harshExcess = juce::jlimit (0.0f, 1.0f, (harshEnv  - 0.028f) / 0.20f);
+
+                    const float lowTrimDb   = juce::jmax (-1.5f, -1.5f * mixAssistAmount * lowExcess * lowExcess);
+                    const float harshTrimDb = juce::jmax (-1.0f, -1.0f * mixAssistAmount * harshExcess * harshExcess);
+                    const float tighten     = (mixAssistAmount * 0.06f + focusAmount * 0.09f) * lowExcess;
+
+                    x  = (x - lowState * tighten) * dbToGain (lowTrimDb + harshTrimDb);
+                    x += (x - presState) * (focusAmount * 0.09f);
+                    mono[i] = x;
+                }
+                return;
+            }
+
+            auto* left  = buf.getWritePointer (0);
+            auto* right = buf.getWritePointer (1);
+            for (int i = 0; i < buf.getNumSamples(); ++i)
+            {
+                float processed[2] { left[i], right[i] };
+                float lowExcessAccum = 0.0f;
+                for (int ch = 0; ch < 2; ++ch)
+                {
+                    float x = processed[ch];
+                    auto& lowState  = mixAssistLowState[static_cast<size_t> (ch)];
+                    auto& presState = mixAssistPresenceLpState[static_cast<size_t> (ch)];
+                    auto& harshLp   = mixAssistHarshLpState[static_cast<size_t> (ch)];
+                    auto& harshEnv  = mixAssistHarshEnvState[static_cast<size_t> (ch)];
+
+                    lowState  += lowCoeff      * (x - lowState);
+                    presState += presenceCoeff * (x - presState);
+                    harshLp   += harshCoeff    * (x - harshLp);
+
+                    const float lowSense    = std::abs (lowState);
+                    const float harshBand   = presState - harshLp;
+                    harshEnv += harshEnvCoeff * (std::abs (harshBand) - harshEnv);
+
+                    const float lowExcess   = juce::jlimit (0.0f, 1.0f, (lowSense  - 0.11f) / 0.32f);
+                    const float harshExcess = juce::jlimit (0.0f, 1.0f, (harshEnv  - 0.028f) / 0.20f);
+                    lowExcessAccum += lowExcess;
+
+                    const float lowTrimDb   = juce::jmax (-1.5f, -1.5f * mixAssistAmount * lowExcess * lowExcess);
+                    const float harshTrimDb = juce::jmax (-1.0f, -1.0f * mixAssistAmount * harshExcess * harshExcess);
+                    const float tighten     = (mixAssistAmount * 0.06f + focusAmount * 0.09f) * lowExcess;
+
+                    x  = (x - lowState * tighten) * dbToGain (lowTrimDb + harshTrimDb);
+                    x += (x - presState) * (focusAmount * 0.09f);
+                    processed[ch] = x;
+                }
+                float mid  = 0.5f * (processed[0] + processed[1]);
+                float side = 0.5f * (processed[0] - processed[1]);
+                const float widthFactor = juce::jlimit (0.88f, 1.0f,
+                                                        1.0f - 0.08f * focusAmount - 0.02f * mixAssistAmount);
+                side *= widthFactor;
+                const float lowTighten = juce::jlimit (0.0f, 1.0f, 0.5f * lowExcessAccum);
+                mid -= lowTighten * focusAmount * 0.05f * mid;
+                left[i]  = mid + side;
+                right[i] = mid - side;
+            }
+        }
+
         // ── Main process — verbatim signal chain from processBlock() ──────────
         void process (juce::AudioBuffer<float>& buf, const NovaConsoleParameters& p,
                       const juce::AudioBuffer<float>* sidechain = nullptr)
@@ -962,6 +1082,21 @@ public:
             if (p.compOn)    processCompressor (buf, p, active, sidechain);
             else             gainReductionMeter = 0.92f * gainReductionMeter;
             if (p.gateOn)    processGate (buf, p);
+
+            // Mix Assist / Focus
+            {
+                const float mixAssistTarget = p.mixAssist / 100.0f;
+                const float focusTarget     = p.focusMode ? 1.0f : 0.0f;
+                mixAssistAmountSmoothed.setTargetValue (mixAssistTarget);
+                focusAmountSmoothed.setTargetValue     (focusTarget);
+                const float mixAssistStart = mixAssistAmountSmoothed.getCurrentValue();
+                const float focusStart     = focusAmountSmoothed.getCurrentValue();
+                const float mixAssistEnd   = mixAssistAmountSmoothed.skip (buf.getNumSamples());
+                const float focusEnd       = focusAmountSmoothed.skip (buf.getNumSamples());
+                const float mixAssistAmt   = 0.5f * (mixAssistStart + mixAssistEnd);
+                const float focusAmt       = 0.5f * (focusStart + focusEnd);
+                processMixAssistAndFocus (buf, mixAssistAmt, focusAmt);
+            }
 
             // modeTrim + clip + output gain
             const float modeTrim = active.outputTrim;
@@ -2323,6 +2458,263 @@ public:
             auto sc  = makeSine  (2, totalSamples, 44100.0, 440.0, 0.5f);
             check (runScenarioWithSidechain ("comp-ext-sidechain-stereo-with-hpf",
                                              44100.0, 512, 8, p, sig, sc));
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // Phase 4E — Mix Assist / Focus (126–148)
+        // Parameters: mix_assist 0..100 (default 50), focus_mode bool (default false)
+        // Both stages are always active in the chain — they interact with all
+        // previous stages, so scenarios isolate Mix Assist/Focus by disabling others.
+        // ════════════════════════════════════════════════════════════════════
+
+        // 126. Mix Assist off (amount=0) — should pass through unmodified
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 0.0f; p.focusMode = false;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("mix-assist-zero-passthrough", 44100.0, 512, 8, p, sig));
+        }
+
+        // 127. Mix Assist default (50%) — stereo noise
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 50.0f; p.focusMode = false;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("mix-assist-default-50pct", 44100.0, 512, 8, p, sig));
+        }
+
+        // 128. Mix Assist max (100%) — stereo noise
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 100.0f; p.focusMode = false;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("mix-assist-max-100pct", 44100.0, 512, 8, p, sig));
+        }
+
+        // 129. Focus Mode on, Mix Assist off
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 0.0f; p.focusMode = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("focus-on-mix-assist-zero", 44100.0, 512, 8, p, sig));
+        }
+
+        // 130. Focus Mode on, Mix Assist 50%
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 50.0f; p.focusMode = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("focus-on-mix-assist-50pct", 44100.0, 512, 8, p, sig));
+        }
+
+        // 131. Focus Mode on, Mix Assist max
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 100.0f; p.focusMode = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("focus-on-mix-assist-max", 44100.0, 512, 8, p, sig));
+        }
+
+        // 132. Mix Assist with loud low-frequency content (triggers lowExcess path)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 75.0f; p.focusMode = false;
+            // 60 Hz sine at high amplitude to activate low excess branch
+            auto sig = makeSine (2, totalSamples, 44100.0, 60.0, 0.6f);
+            check (runScenario ("mix-assist-low-freq-excess", 44100.0, 512, 8, p, sig));
+        }
+
+        // 133. Mix Assist with harsh high-frequency content (triggers harshExcess path)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 75.0f; p.focusMode = false;
+            // 4 kHz sine to activate harsh band detection
+            auto sig = makeSine (2, totalSamples, 44100.0, 4000.0, 0.6f);
+            check (runScenario ("mix-assist-harsh-freq-excess", 44100.0, 512, 8, p, sig));
+        }
+
+        // 134. Focus Mode on — low-frequency content (activates lowTighten mid path)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 50.0f; p.focusMode = true;
+            auto sig = makeSine (2, totalSamples, 44100.0, 80.0, 0.6f);
+            check (runScenario ("focus-low-freq-mid-tighten", 44100.0, 512, 8, p, sig));
+        }
+
+        // 135. Mix Assist mono — single channel
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 50.0f; p.focusMode = false;
+            auto sig = makeNoise (1, totalSamples, 0.3f);
+            check (runScenario ("mix-assist-mono", 44100.0, 512, 8, p, sig));
+        }
+
+        // 136. Focus Mode mono
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 50.0f; p.focusMode = true;
+            auto sig = makeNoise (1, totalSamples, 0.3f);
+            check (runScenario ("focus-mono", 44100.0, 512, 8, p, sig));
+        }
+
+        // 137. Mix Assist at 48 kHz sample rate
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 50.0f; p.focusMode = false;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("mix-assist-sr-48000", 48000.0, 512, 8, p, sig));
+        }
+
+        // 138. Mix Assist at 96 kHz sample rate
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 50.0f; p.focusMode = false;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("mix-assist-sr-96000", 96000.0, 512, 8, p, sig));
+        }
+
+        // 139. Mix Assist small block size (64)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 50.0f; p.focusMode = false;
+            auto sig = makeNoise (2, 64 * 16, 0.3f);
+            check (runScenario ("mix-assist-blocksize-64", 44100.0, 64, 16, p, sig));
+        }
+
+        // 140. Mix Assist large block size (2048)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 50.0f; p.focusMode = false;
+            auto sig = makeNoise (2, 2048 * 2, 0.3f);
+            check (runScenario ("mix-assist-blocksize-2048", 44100.0, 2048, 2, p, sig));
+        }
+
+        // 141. Mix Assist silence input — should produce silence (both thresholds inactive)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 100.0f; p.focusMode = true;
+            juce::AudioBuffer<float> sig (2, totalSamples);
+            sig.clear();
+            check (runScenario ("mix-assist-silence-input", 44100.0, 512, 8, p, sig));
+        }
+
+        // 142. Mix Assist + Compressor chain
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -16.0f; p.compRatio = 4.0f;
+            p.mixAssist = 50.0f; p.focusMode = false;
+            auto sig = makeNoise (2, totalSamples, 0.4f);
+            check (runScenario ("mix-assist-comp-chain", 44100.0, 512, 8, p, sig));
+        }
+
+        // 143. Mix Assist + EQ chain
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = true;
+            p.compOn = false; p.gateOn = false;
+            p.lowDb = 2.0f; p.highMidDb = -1.5f;
+            p.mixAssist = 50.0f; p.focusMode = false;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("mix-assist-eq-chain", 44100.0, 512, 8, p, sig));
+        }
+
+        // 144. Focus Mode + Gate chain
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = true;
+            p.gateThreshDb = -42.0f; p.gateRangeDb = -18.0f;
+            p.mixAssist = 0.0f; p.focusMode = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("focus-gate-chain", 44100.0, 512, 8, p, sig));
+        }
+
+        // 145. Full chain Phase 4E — all stages, British mode
+        {
+            NovaConsoleParameters p;
+            p.mode = 1; // British
+            p.preampOn = true; p.filterOn = true; p.eqOn = true;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -16.0f; p.compRatio = 4.0f;
+            p.lowDb = 1.5f;
+            p.mixAssist = 60.0f; p.focusMode = false;
+            auto sig = makeNoise (2, totalSamples, 0.25f);
+            check (runScenario ("full-chain-4E-british-all-stages", 44100.0, 512, 8, p, sig));
+        }
+
+        // 146. Full chain Phase 4E — Focus on, British mode
+        {
+            NovaConsoleParameters p;
+            p.mode = 1; // British
+            p.preampOn = true; p.filterOn = true; p.eqOn = true;
+            p.compOn = true; p.gateOn = false;
+            p.compThreshDb = -16.0f; p.compRatio = 4.0f;
+            p.mixAssist = 60.0f; p.focusMode = true;
+            auto sig = makeNoise (2, totalSamples, 0.25f);
+            check (runScenario ("full-chain-4E-british-focus-on", 44100.0, 512, 8, p, sig));
+        }
+
+        // 147. Mix Assist mode-sweep (all 5 modes)
+        {
+            const char* modeNames[] = {
+                "mix-assist-mode-clean", "mix-assist-mode-british",
+                "mix-assist-mode-tubetape", "mix-assist-mode-gold",
+                "mix-assist-mode-modern"
+            };
+            for (int m = 0; m < 5; ++m)
+            {
+                NovaConsoleParameters p;
+                p.mode = m;
+                p.preampOn = false; p.filterOn = false; p.eqOn = false;
+                p.compOn = false; p.gateOn = false;
+                p.mixAssist = 50.0f; p.focusMode = false;
+                auto sig = makeNoise (2, totalSamples, 0.3f);
+                check (runScenario (modeNames[m], 44100.0, 512, 8, p, sig));
+            }
+        }
+
+        // 148. Mix Assist very low amount (just above skip threshold) — must not skip
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.mixAssist = 0.5f; p.focusMode = false; // 0.5% → 0.005 as fraction > 0.0001
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("mix-assist-near-threshold", 44100.0, 512, 8, p, sig));
         }
 
         return out;
