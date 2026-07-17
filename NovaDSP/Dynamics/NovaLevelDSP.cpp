@@ -1,13 +1,15 @@
 #include "NovaLevelDSP.h"
 #include <cmath>
 
-void NovaLevelDSP::prepare (const juce::dsp::ProcessSpec& spec)
+void NovaLevelDSP::prepare (const juce::dsp::ProcessSpec& spec,
+                            const NovaLevelParameters& initial)
 {
     sampleRate = juce::jmax (1.0, spec.sampleRate);
+    params = initial;
     reset();
 }
 
-void NovaLevelDSP::reset()
+void NovaLevelDSP::reset() noexcept
 {
     grEnvelopeDb = 0.0f;
     gainReductionDbAtomic.store (0.0f, std::memory_order_relaxed);

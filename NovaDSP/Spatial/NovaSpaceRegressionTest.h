@@ -374,8 +374,7 @@ public:
 
         NovaSpaceDSP engine;
         juce::dsp::ProcessSpec spec { sr, (juce::uint32)blockSize, (juce::uint32)nCh };
-        engine.prepare (spec);
-        engine.seedSmoothedValues (p);
+        engine.prepare (spec, p);
         engine.setParameters (p);
 
         float peakAbsDiff = 0.f;
@@ -441,8 +440,7 @@ public:
 
         NovaSpaceDSP engine;
         juce::dsp::ProcessSpec spec { sr, (juce::uint32)blockSize, (juce::uint32)nCh };
-        engine.prepare (spec);
-        engine.seedSmoothedValues (initP);
+        engine.prepare (spec, initP);
 
         float peakAbsDiff = 0.f;
         double sumSqDiff  = 0.0;

@@ -1,8 +1,9 @@
 #pragma once
 
 #include <vector>
-#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
+#include <atomic>
 
 #include "NovaSpaceParameters.h"
 
@@ -10,41 +11,52 @@
 // Rules: no APVTS, no ValueTree, no UI includes.
 // No allocation inside process(). All state is owned by this class.
 //
-// SmoothedValues are advanced per-block via skip() — this IS intentional and
-// matches the original algorithm. The smoothers interpolate between blocks,
-// not between samples.
+// Lifecycle:
+//   engine.prepare(spec [, initialParams]);
+//   engine.setParameters(params);   // once per block
+//   engine.process(buffer);          // once per block
 //
-// Call seedSmoothedValues() immediately after prepare() in prepareToPlay()
-// to match the original seeding behaviour (which read from APVTS).
+// SmoothedValues are advanced per-block via skip() — intentional, matching
+// the original algorithm. Smoothers are seeded from initialParams in prepare().
 class NovaSpaceDSP
 {
 public:
-    NovaSpaceDSP();
+    NovaSpaceDSP() = default;
 
-    void prepare (const juce::dsp::ProcessSpec& spec);
-    void reset();
+    // Prepares the engine for the given sample rate and block size.
+    // Pass initialParams to seed the smoothers at startup (mirrors the original
+    // prepareToPlay() APVTS read); omit to use parameter defaults.
+    void prepare (const juce::dsp::ProcessSpec& spec,
+                  const NovaSpaceParameters& initial = {});
 
-    // Call once after prepare() to seed smoothers at the current parameter
-    // values — mirrors the original prepareToPlay() APVTS read.
-    void seedSmoothedValues (const NovaSpaceParameters& p) noexcept;
+    // Clears all runtime DSP state. Safe to call at any time.
+    void reset() noexcept;
 
+    // Set once per block before process(). Cheap struct copy.
     void setParameters (const NovaSpaceParameters& p) noexcept;
+
+    // Process buffer in place — supports mono and stereo.
+    // No memory allocation. No locks.
     void process (juce::AudioBuffer<float>& buffer) noexcept;
 
 private:
-    using Filter   = juce::dsp::StateVariableTPTFilter<float>;
+    using Filter    = juce::dsp::StateVariableTPTFilter<float>;
     using DelayLine = juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>;
 
     static float clamp01 (float v) noexcept { return juce::jlimit (0.0f, 1.0f, v); }
 
     float readEarlyTap (const std::vector<float>& source, float delaySamples) const noexcept;
 
+    // Seeds all five LinearSmoothedValues from a parameter struct.
+    // Called internally from prepare().
+    void seedSmoothedValues (const NovaSpaceParameters& p) noexcept;
+
     NovaSpaceParameters params;
     double currentSampleRate { 44100.0 };
 
     juce::Reverb reverb;
-    DelayLine preDelayLeft  { 96000 };
-    DelayLine preDelayRight { 96000 };
+    DelayLine preDelayLeft   { 96000 };
+    DelayLine preDelayRight  { 96000 };
     DelayLine decorrelationDelay { 4096 };
 
     Filter wetToneLeft,  wetToneRight;

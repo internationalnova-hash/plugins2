@@ -115,10 +115,7 @@ void SpaceByNovaAudioProcessor::changeProgramName (int i, const juce::String& n)
 
 void SpaceByNovaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32)samplesPerBlock, 2 };
-    spaceDSP.prepare (spec);
-
-    // Seed smoothers at current APVTS values — mirrors original prepareToPlay() behaviour
+    // Read current APVTS values to seed smoothers — mirrors original prepareToPlay() behaviour
     NovaSpaceParameters init;
     init.space      = apvts.getRawParameterValue (spaceId)->load();
     init.air        = apvts.getRawParameterValue (airId)->load();
@@ -131,7 +128,8 @@ void SpaceByNovaAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
     init.damping    = apvts.getRawParameterValue (dampingId)->load();
     init.early      = apvts.getRawParameterValue (earlyId)->load();
 
-    spaceDSP.seedSmoothedValues (init);
+    juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32)samplesPerBlock, 2 };
+    spaceDSP.prepare (spec, init);
 }
 
 void SpaceByNovaAudioProcessor::releaseResources() {}

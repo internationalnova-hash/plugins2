@@ -1,6 +1,7 @@
 #pragma once
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
+#include <atomic>
 #include "NovaLevelParameters.h"
 
 // Shared compressor DSP engine extracted from Nova Level.
@@ -8,12 +9,25 @@
 // Preserves the exact Nova Level algorithm: linked peak detector,
 // attack/release envelope, gain reduction, optional magic (tanh) saturation.
 //
+// Lifecycle:
+//   engine.prepare(spec [, initialParams]);
+//   engine.setParameters(params);   // once per block
+//   engine.process(buffer);          // once per block
+//
 // Used by: Nova Level standalone, Nova Vox (Comp section), future products.
 class NovaLevelDSP
 {
 public:
-    void prepare (const juce::dsp::ProcessSpec& spec);
-    void reset();
+    NovaLevelDSP() = default;
+
+    // Prepares the engine for the given sample rate and block size.
+    // Pass initialParams to seed the parameter state at startup;
+    // omit to use parameter defaults.
+    void prepare (const juce::dsp::ProcessSpec& spec,
+                  const NovaLevelParameters& initial = {});
+
+    // Clears all runtime state (envelope, meters). Safe to call at any time.
+    void reset() noexcept;
 
     // Set once per block before process(). Cheap struct copy.
     void setParameters (const NovaLevelParameters& parameters) noexcept;
@@ -22,12 +36,10 @@ public:
     // No memory allocation. No locks.
     void process (juce::AudioBuffer<float>& buffer) noexcept;
 
-    // Read on the UI thread after process() completes.
+    // Meter accessors — safe to call from the UI thread.
     float getGainReductionDb() const noexcept;
-
-    // Additional meters exposed for editors.
-    float getOutputPeak() const noexcept { return outputPeak.load (std::memory_order_relaxed); }
-    bool  isOutputHot()   const noexcept { return outputIsHot.load (std::memory_order_relaxed); }
+    float getOutputPeak()      const noexcept { return outputPeak.load (std::memory_order_relaxed); }
+    bool  isOutputHot()        const noexcept { return outputIsHot.load (std::memory_order_relaxed); }
 
 private:
     NovaLevelParameters params;
@@ -40,4 +52,6 @@ private:
     std::atomic<float> gainReductionDbAtomic { 0.0f };
     std::atomic<float> outputPeak            { 0.0f };
     std::atomic<bool>  outputIsHot           { false };
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaLevelDSP)
 };

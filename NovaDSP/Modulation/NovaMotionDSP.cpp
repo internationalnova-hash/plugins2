@@ -2,9 +2,11 @@
 
 NovaMotionDSP::NovaMotionDSP() = default;
 
-void NovaMotionDSP::prepare (const juce::dsp::ProcessSpec& spec)
+void NovaMotionDSP::prepare (const juce::dsp::ProcessSpec& spec,
+                             const NovaMotionParameters& initial)
 {
     currentSR = spec.sampleRate;
+    params = initial;
 
     filterL.prepare (spec); filterL.setType (juce::dsp::StateVariableTPTFilterType::lowpass);
     filterR.prepare (spec); filterR.setType (juce::dsp::StateVariableTPTFilterType::lowpass);
@@ -33,23 +35,23 @@ void NovaMotionDSP::prepare (const juce::dsp::ProcessSpec& spec)
 
     dryBuf.setSize (2, (int)spec.maximumBlockSize);
 
-    peakL.store (0.f);
-    peakR.store (0.f);
+    peakL.store (0.f, std::memory_order_relaxed);
+    peakR.store (0.f, std::memory_order_relaxed);
 
     prevFilterActive = false;
     prevDelayActive  = false;
     prevReverbActive = false;
 }
 
-void NovaMotionDSP::reset()
+void NovaMotionDSP::reset() noexcept
 {
     filterL.reset();
     filterR.reset();
     delayLineL.reset();
     delayLineR.reset();
     reverbL.reset();
-    peakL.store (0.f);
-    peakR.store (0.f);
+    peakL.store (0.f, std::memory_order_relaxed);
+    peakR.store (0.f, std::memory_order_relaxed);
     prevFilterActive = false;
     prevDelayActive  = false;
     prevReverbActive = false;
@@ -164,6 +166,6 @@ void NovaMotionDSP::process (juce::AudioBuffer<float>& buf) noexcept
         dataR[i] = std::isfinite (r) ? juce::jlimit (-1.f, 1.f, r) : 0.f;
     }
 
-    peakL.store (buf.getMagnitude (0, 0, N));
-    if (nCh > 1) peakR.store (buf.getMagnitude (1, 0, N));
+    peakL.store (buf.getMagnitude (0, 0, N), std::memory_order_relaxed);
+    if (nCh > 1) peakR.store (buf.getMagnitude (1, 0, N), std::memory_order_relaxed);
 }

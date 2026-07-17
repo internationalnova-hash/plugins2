@@ -3,7 +3,8 @@
 
 NovaSpaceDSP::NovaSpaceDSP() = default;
 
-void NovaSpaceDSP::prepare (const juce::dsp::ProcessSpec& spec)
+void NovaSpaceDSP::prepare (const juce::dsp::ProcessSpec& spec,
+                            const NovaSpaceParameters& initial)
 {
     currentSampleRate = spec.sampleRate;
 
@@ -49,19 +50,15 @@ void NovaSpaceDSP::prepare (const juce::dsp::ProcessSpec& spec)
     for (auto* sv : { &smoothedSpace, &smoothedAir, &smoothedDepth, &smoothedMix, &smoothedWidth })
         sv->reset (spec.sampleRate, 0.20);
 
-    // Seed at parameter defaults — caller should override with seedSmoothedValues()
-    smoothedSpace.setCurrentAndTargetValue (params.space);
-    smoothedAir.setCurrentAndTargetValue   (params.air);
-    smoothedDepth.setCurrentAndTargetValue (params.depth);
-    smoothedMix.setCurrentAndTargetValue   (params.mix);
-    smoothedWidth.setCurrentAndTargetValue (params.width);
+    // Seed smoothers from the provided initial parameters
+    seedSmoothedValues (initial);
 
     reverb.reset();
     motionPhase = 0.0f;
     haloPhase   = 1.7f;
 }
 
-void NovaSpaceDSP::reset()
+void NovaSpaceDSP::reset() noexcept
 {
     preDelayLeft.reset();
     preDelayRight.reset();
@@ -81,7 +78,7 @@ void NovaSpaceDSP::reset()
     haloPhase   = 1.7f;
 }
 
-void NovaSpaceDSP::seedSmoothedValues (const NovaSpaceParameters& p) noexcept
+void NovaSpaceDSP::seedSmoothedValues (const NovaSpaceParameters& p) noexcept  // private
 {
     smoothedSpace.setCurrentAndTargetValue (p.space);
     smoothedAir.setCurrentAndTargetValue   (p.air);
