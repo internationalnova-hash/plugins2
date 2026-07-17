@@ -1,0 +1,285 @@
+date,suite,scenario,passed,peakAbsDiff,rmsAbsDiff,outputHash
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=0 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=0 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=0 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=0 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=0 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=0 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=1 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=1 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=1 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=1 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=1 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=1 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=2 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=2 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=2 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=2 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=2 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=1 mode=2 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=0 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=0 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=0 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=0 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=0 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=0 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=1 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=1 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=1 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=1 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=1 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=1 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=2 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=2 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=2 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=2 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=2 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=44100 ch=2 mode=2 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=0 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=0 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=0 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=0 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=0 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=0 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=1 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=1 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=1 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=1 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=1 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=1 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=2 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=2 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=2 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=2 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=2 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=48000 ch=2 mode=2 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=0 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=0 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=0 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=0 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=0 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=0 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=1 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=1 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=1 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=1 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=1 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=1 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=2 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=2 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=2 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=2 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=2 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=88200 ch=2 mode=2 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=0 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=0 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=0 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=0 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=0 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=0 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=1 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=1 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=1 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=1 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=1 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=1 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=2 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=2 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=2 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=2 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=2 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=96000 ch=2 mode=2 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=0 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=0 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=0 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=0 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=0 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=0 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=1 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=1 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=1 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=1 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=1 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=1 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=2 comp=0 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=2 comp=0 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=2 comp=5 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=2 comp=5 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=2 comp=10 magic=0",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaLevel,"sr=192000 ch=2 mode=2 comp=10 magic=1",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"passthrough_44100",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"passthrough_48000",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"passthrough_96000",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"filter_low",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"filter_mid",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"filter_high",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"filter_q_clamp",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"delay_min",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"delay_mid",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"delay_max",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"reverb_small",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"reverb_large",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"all_stages",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"mix_dry_only",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"mix_wet_only",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"gain_hot",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"gain_cold",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"mono_44100",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"block_64",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaMotion,"block_2048",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"default_44100_stereo",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"default_48000_stereo",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"default_96000_stereo",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"default_44100_mono",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"block_64",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"block_2048",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"mode_studio",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"mode_arena",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"mode_dream",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"mode_vintage",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"min_all",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"max_all",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"mix_zero",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"mix_full",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"predelay_zero",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"predelay_max",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"width_zero",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"width_max",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"decay_min",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"decay_max",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"damp_zero",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"damp_max",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"early_zero",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"early_max",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"dream_max_space",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"vintage_min_space",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"automation_sweep_stereo_44100",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaSpace,"automation_sweep_mono_44100",true,0.000000e+00,0.000000e+00,
+2026-07-17T07:12:02Z,NovaConsole,"passthrough-stereo-both-off",true,0.000000e+00,0.000000e+00,0x4b9778d28bb78f55
+2026-07-17T07:12:02Z,NovaConsole,"filter-silence-default",true,0.000000e+00,0.000000e+00,0x8f6955bf94ec2325
+2026-07-17T07:12:02Z,NovaConsole,"filter-default-1khz",true,0.000000e+00,0.000000e+00,0x6beceb1b0663adfd
+2026-07-17T07:12:02Z,NovaConsole,"hpf-500hz-slope12-100hz",true,0.000000e+00,0.000000e+00,0xb7f7bfea4a8cb545
+2026-07-17T07:12:02Z,NovaConsole,"hpf-500hz-slope24-100hz",true,0.000000e+00,0.000000e+00,0xc8d932fc619b4575
+2026-07-17T07:12:02Z,NovaConsole,"hpf-500hz-slope48-100hz",true,0.000000e+00,0.000000e+00,0x76e2dfb9d3d63985
+2026-07-17T07:12:02Z,NovaConsole,"lpf-2khz-slope12-5khz",true,0.000000e+00,0.000000e+00,0xb032c6f196c7b195
+2026-07-17T07:12:02Z,NovaConsole,"lpf-2khz-slope48-5khz",true,0.000000e+00,0.000000e+00,0xbee6655250555509
+2026-07-17T07:12:02Z,NovaConsole,"eq-silence",true,0.000000e+00,0.000000e+00,0x8f6955bf94ec2325
+2026-07-17T07:12:02Z,NovaConsole,"eq-low-shelf-boost6",true,0.000000e+00,0.000000e+00,0x7b64d8bf5ea8ed59
+2026-07-17T07:12:02Z,NovaConsole,"eq-low-shelf-cut6",true,0.000000e+00,0.000000e+00,0x91d8f1631147460d
+2026-07-17T07:12:02Z,NovaConsole,"eq-high-shelf-boost6",true,0.000000e+00,0.000000e+00,0x1714d34c85463871
+2026-07-17T07:12:02Z,NovaConsole,"eq-air-shelf-boost6",true,0.000000e+00,0.000000e+00,0xb276a5d28e7dc5c9
+2026-07-17T07:12:02Z,NovaConsole,"eq-all-bands-max",true,0.000000e+00,0.000000e+00,0xeb9bef50ef592bbd
+2026-07-17T07:12:02Z,NovaConsole,"eq-all-bands-min",true,0.000000e+00,0.000000e+00,0x4ff5dc12e3eade69
+2026-07-17T07:12:02Z,NovaConsole,"eq-low-bell-boost6",true,0.000000e+00,0.000000e+00,0x56eb19e988499495
+2026-07-17T07:12:02Z,NovaConsole,"eq-high-bell-boost6",true,0.000000e+00,0.000000e+00,0x92763ac20eda1905
+2026-07-17T07:12:02Z,NovaConsole,"eq-air-bell-boost6",true,0.000000e+00,0.000000e+00,0x69a74dc6873a4ab5
+2026-07-17T07:12:02Z,NovaConsole,"mode-clean",true,0.000000e+00,0.000000e+00,0xa4b91edc861fb913
+2026-07-17T07:12:02Z,NovaConsole,"mode-british",true,0.000000e+00,0.000000e+00,0x99bef8911d9ac2fe
+2026-07-17T07:12:02Z,NovaConsole,"mode-tubetape",true,0.000000e+00,0.000000e+00,0x10dbcb71ca14c9ae
+2026-07-17T07:12:02Z,NovaConsole,"mode-gold",true,0.000000e+00,0.000000e+00,0x253d1dfdeac29cfc
+2026-07-17T07:12:02Z,NovaConsole,"mode-modern",true,0.000000e+00,0.000000e+00,0x03c8ff5ff93a3b83
+2026-07-17T07:12:02Z,NovaConsole,"mode-switch-british-to-gold",true,0.000000e+00,0.000000e+00,0x57f67f2984701e84
+2026-07-17T07:12:02Z,NovaConsole,"filter-eq-full-chain",true,0.000000e+00,0.000000e+00,0x792439f43b78f320
+2026-07-17T07:12:02Z,NovaConsole,"blocksize-64",true,0.000000e+00,0.000000e+00,0x3f38dcbc2fd91c83
+2026-07-17T07:12:02Z,NovaConsole,"blocksize-128",true,0.000000e+00,0.000000e+00,0x3f38dcbc2fd91c83
+2026-07-17T07:12:02Z,NovaConsole,"blocksize-1024",true,0.000000e+00,0.000000e+00,0x3f38dcbc2fd91c83
+2026-07-17T07:12:02Z,NovaConsole,"blocksize-2048",true,0.000000e+00,0.000000e+00,0x3f38dcbc2fd91c83
+2026-07-17T07:12:02Z,NovaConsole,"sr-48000",true,0.000000e+00,0.000000e+00,0x47410fe0aa06a933
+2026-07-17T07:12:02Z,NovaConsole,"sr-96000",true,0.000000e+00,0.000000e+00,0x0f515e7c533f3ade
+2026-07-17T07:12:02Z,NovaConsole,"mono-filter-eq",true,0.000000e+00,0.000000e+00,0x7f0fdfe1c3379871
+2026-07-17T07:12:02Z,NovaConsole,"impulse-eq",true,0.000000e+00,0.000000e+00,0xa1d94948ab06c195
+2026-07-17T07:12:02Z,NovaConsole,"preamp-silence",true,0.000000e+00,0.000000e+00,0x8f6955bf94ec2325
+2026-07-17T07:12:02Z,NovaConsole,"preamp-impulse-default-drive",true,0.000000e+00,0.000000e+00,0xb6ea4719804cbb8d
+2026-07-17T07:12:02Z,NovaConsole,"preamp-off-passthrough",true,0.000000e+00,0.000000e+00,0xd231713b37690725
+2026-07-17T07:12:02Z,NovaConsole,"preamp-drive-min",true,0.000000e+00,0.000000e+00,0x3b6b563e8671c861
+2026-07-17T07:12:02Z,NovaConsole,"preamp-drive-max",true,0.000000e+00,0.000000e+00,0xf22efdd896c2ff19
+2026-07-17T07:12:02Z,NovaConsole,"preamp-drive-50",true,0.000000e+00,0.000000e+00,0xa383b364b98dfbab
+2026-07-17T07:12:02Z,NovaConsole,"preamp-color-min",true,0.000000e+00,0.000000e+00,0xfea4d836ad0d835f
+2026-07-17T07:12:02Z,NovaConsole,"preamp-color-max",true,0.000000e+00,0.000000e+00,0x76d6dd3fd931d9cd
+2026-07-17T07:12:02Z,NovaConsole,"preamp-trim-plus6",true,0.000000e+00,0.000000e+00,0xfbe643261c8b9fdd
+2026-07-17T07:12:02Z,NovaConsole,"preamp-trim-minus6",true,0.000000e+00,0.000000e+00,0x0b31d4a8bad55889
+2026-07-17T07:12:02Z,NovaConsole,"preamp-os-x2",true,0.000000e+00,0.000000e+00,0x9f10a080ab0d5853
+2026-07-17T07:12:02Z,NovaConsole,"preamp-os-x4",true,0.000000e+00,0.000000e+00,0x3fb6ae385d8302a6
+2026-07-17T07:12:02Z,NovaConsole,"preamp-quality0-forces-os1",true,0.000000e+00,0.000000e+00,0x80cbe10bec70b6a0
+2026-07-17T07:12:02Z,NovaConsole,"preamp-mode-clean",true,0.000000e+00,0.000000e+00,0xb3319c39303035eb
+2026-07-17T07:12:02Z,NovaConsole,"preamp-mode-british",true,0.000000e+00,0.000000e+00,0xdaddf75336ec9a19
+2026-07-17T07:12:02Z,NovaConsole,"preamp-mode-tubetape",true,0.000000e+00,0.000000e+00,0xe4c6bf435a3a2efb
+2026-07-17T07:12:02Z,NovaConsole,"preamp-mode-gold",true,0.000000e+00,0.000000e+00,0x8226d6589ce9c308
+2026-07-17T07:12:02Z,NovaConsole,"preamp-mode-modern",true,0.000000e+00,0.000000e+00,0x57e77952d41b3065
+2026-07-17T07:12:02Z,NovaConsole,"preamp-filter-chain",true,0.000000e+00,0.000000e+00,0xec830375f60aff53
+2026-07-17T07:12:02Z,NovaConsole,"preamp-eq-chain",true,0.000000e+00,0.000000e+00,0xd5ce424908d021d5
+2026-07-17T07:12:02Z,NovaConsole,"input-gain-plus6",true,0.000000e+00,0.000000e+00,0x3af5a2ad9dc28539
+2026-07-17T07:12:02Z,NovaConsole,"output-gain-minus6",true,0.000000e+00,0.000000e+00,0x9e34c6fca0c4f5a1
+2026-07-17T07:12:02Z,NovaConsole,"preamp-mono",true,0.000000e+00,0.000000e+00,0xcbba71e448050733
+2026-07-17T07:12:02Z,NovaConsole,"preamp-sr-48000",true,0.000000e+00,0.000000e+00,0xa48f94475a5bb036
+2026-07-17T07:12:02Z,NovaConsole,"preamp-sr-96000",true,0.000000e+00,0.000000e+00,0xe5719304417a8092
+2026-07-17T07:12:02Z,NovaConsole,"gate-off-passthrough",true,0.000000e+00,0.000000e+00,0x11633dc102c5b0fd
+2026-07-17T07:12:02Z,NovaConsole,"gate-silence-below-threshold",true,0.000000e+00,0.000000e+00,0x8f6955bf94ec2325
+2026-07-17T07:12:02Z,NovaConsole,"gate-loud-signal-above-threshold",true,0.000000e+00,0.000000e+00,0xa6dfd5044ade68cd
+2026-07-17T07:12:02Z,NovaConsole,"gate-expand-mode-noise",true,0.000000e+00,0.000000e+00,0x17d4974f29ca14f9
+2026-07-17T07:12:02Z,NovaConsole,"gate-hard-mode-noise",true,0.000000e+00,0.000000e+00,0x1251ab24430b57ae
+2026-07-17T07:12:02Z,NovaConsole,"gate-attack-fast-1ms",true,0.000000e+00,0.000000e+00,0x4227edf7ce0b3354
+2026-07-17T07:12:02Z,NovaConsole,"gate-attack-slow-100ms",true,0.000000e+00,0.000000e+00,0x444df089eb30f61d
+2026-07-17T07:12:02Z,NovaConsole,"gate-release-fast-10ms",true,0.000000e+00,0.000000e+00,0xceeaf78799300bfd
+2026-07-17T07:12:02Z,NovaConsole,"gate-release-slow-500ms",true,0.000000e+00,0.000000e+00,0xfe836bb89ac6d908
+2026-07-17T07:12:02Z,NovaConsole,"gate-hold-200ms",true,0.000000e+00,0.000000e+00,0x17d4974f29ca14f9
+2026-07-17T07:12:02Z,NovaConsole,"gate-range-minus6db",true,0.000000e+00,0.000000e+00,0x5101fe35bd5427e8
+2026-07-17T07:12:02Z,NovaConsole,"gate-range-minus60db",true,0.000000e+00,0.000000e+00,0xc35dbe694aba8df6
+2026-07-17T07:12:02Z,NovaConsole,"gate-mode-clean",true,0.000000e+00,0.000000e+00,0xbc99a2efe94068e9
+2026-07-17T07:12:02Z,NovaConsole,"gate-mode-british",true,0.000000e+00,0.000000e+00,0x17d4974f29ca14f9
+2026-07-17T07:12:02Z,NovaConsole,"gate-mode-tubetape",true,0.000000e+00,0.000000e+00,0xa50bfc5c0e901980
+2026-07-17T07:12:02Z,NovaConsole,"gate-mode-gold",true,0.000000e+00,0.000000e+00,0x78b046b25666e439
+2026-07-17T07:12:02Z,NovaConsole,"gate-mode-modern",true,0.000000e+00,0.000000e+00,0x3f2f9324bfc8ca9b
+2026-07-17T07:12:02Z,NovaConsole,"gate-mono",true,0.000000e+00,0.000000e+00,0x80b02f47a4a28785
+2026-07-17T07:12:02Z,NovaConsole,"gate-sr-48000",true,0.000000e+00,0.000000e+00,0xc39bd48978398d9c
+2026-07-17T07:12:02Z,NovaConsole,"gate-sr-96000",true,0.000000e+00,0.000000e+00,0x0d1ebc76e7337121
+2026-07-17T07:12:02Z,NovaConsole,"gate-blocksize-64",true,0.000000e+00,0.000000e+00,0x17d4974f29ca14f9
+2026-07-17T07:12:02Z,NovaConsole,"gate-blocksize-2048",true,0.000000e+00,0.000000e+00,0x17d4974f29ca14f9
+2026-07-17T07:12:02Z,NovaConsole,"gate-filter-chain",true,0.000000e+00,0.000000e+00,0x61602e280c442b5b
+2026-07-17T07:12:02Z,NovaConsole,"full-chain-british-stereo",true,0.000000e+00,0.000000e+00,0xe7f5c6d043db2ccd
+2026-07-17T07:12:02Z,NovaConsole,"full-chain-tubetape-48k",true,0.000000e+00,0.000000e+00,0x077d812e6546c353
+2026-07-17T07:12:02Z,NovaConsole,"comp-off-passthrough",true,0.000000e+00,0.000000e+00,0xb962a57a146000bd
+2026-07-17T07:12:02Z,NovaConsole,"comp-silence",true,0.000000e+00,0.000000e+00,0x8f6955bf94ec2325
+2026-07-17T07:12:02Z,NovaConsole,"comp-impulse-default",true,0.000000e+00,0.000000e+00,0x2dc9549187edb009
+2026-07-17T07:12:02Z,NovaConsole,"comp-sine-loud-high-ratio",true,0.000000e+00,0.000000e+00,0xdf4a3f0cf34e4525
+2026-07-17T07:12:02Z,NovaConsole,"comp-threshold-min",true,0.000000e+00,0.000000e+00,0x7fcc8b6df5fe6152
+2026-07-17T07:12:02Z,NovaConsole,"comp-threshold-default",true,0.000000e+00,0.000000e+00,0x5a6b7169d5cca592
+2026-07-17T07:12:02Z,NovaConsole,"comp-threshold-max",true,0.000000e+00,0.000000e+00,0xe3ce28482868aec4
+2026-07-17T07:12:02Z,NovaConsole,"comp-ratio-min-1to1",true,0.000000e+00,0.000000e+00,0xe3ce28482868aec4
+2026-07-17T07:12:02Z,NovaConsole,"comp-ratio-default-4to1",true,0.000000e+00,0.000000e+00,0xe58b72847f9cf258
+2026-07-17T07:12:02Z,NovaConsole,"comp-ratio-max-10to1",true,0.000000e+00,0.000000e+00,0x10a2cb11f8539a16
+2026-07-17T07:12:02Z,NovaConsole,"comp-attack-min-0.5ms",true,0.000000e+00,0.000000e+00,0x8066d9da37760606
+2026-07-17T07:12:02Z,NovaConsole,"comp-attack-default-15ms",true,0.000000e+00,0.000000e+00,0xe58b72847f9cf258
+2026-07-17T07:12:02Z,NovaConsole,"comp-attack-max-60ms",true,0.000000e+00,0.000000e+00,0x7b416d0b2ad0875d
+2026-07-17T07:12:02Z,NovaConsole,"comp-release-min-20ms",true,0.000000e+00,0.000000e+00,0x509402db25fc2d8e
+2026-07-17T07:12:02Z,NovaConsole,"comp-release-default-180ms",true,0.000000e+00,0.000000e+00,0xe58b72847f9cf258
+2026-07-17T07:12:02Z,NovaConsole,"comp-release-max-500ms",true,0.000000e+00,0.000000e+00,0x43da5e55621213cb
+2026-07-17T07:12:02Z,NovaConsole,"comp-punch-min",true,0.000000e+00,0.000000e+00,0xc56043ce5427063e
+2026-07-17T07:12:02Z,NovaConsole,"comp-punch-default-35",true,0.000000e+00,0.000000e+00,0xe58b72847f9cf258
+2026-07-17T07:12:02Z,NovaConsole,"comp-punch-max-100",true,0.000000e+00,0.000000e+00,0xa61a7add80ec2e01
+2026-07-17T07:12:02Z,NovaConsole,"comp-makeup-min-0db",true,0.000000e+00,0.000000e+00,0xe58b72847f9cf258
+2026-07-17T07:12:02Z,NovaConsole,"comp-makeup-max-24db",true,0.000000e+00,0.000000e+00,0x955d89131d5d9e91
+2026-07-17T07:12:02Z,NovaConsole,"comp-parallel-mix-50pct",true,0.000000e+00,0.000000e+00,0xe663c82a04c22e34
+2026-07-17T07:12:02Z,NovaConsole,"comp-parallel-mix-0pct",true,0.000000e+00,0.000000e+00,0xb849e47ae6d395c2
+2026-07-17T07:12:02Z,NovaConsole,"comp-sidechain-off",true,0.000000e+00,0.000000e+00,0xe58b72847f9cf258
+2026-07-17T07:12:02Z,NovaConsole,"comp-sidechain-internal",true,0.000000e+00,0.000000e+00,0x439ef1a5a8f3a453
+2026-07-17T07:12:02Z,NovaConsole,"comp-quality-eco",true,0.000000e+00,0.000000e+00,0x7c32975a9a06ca41
+2026-07-17T07:12:02Z,NovaConsole,"comp-quality-master",true,0.000000e+00,0.000000e+00,0x2412a8d100389b45
+2026-07-17T07:12:02Z,NovaConsole,"comp-mode-clean",true,0.000000e+00,0.000000e+00,0x477d3a2b336d64ab
+2026-07-17T07:12:02Z,NovaConsole,"comp-mode-british",true,0.000000e+00,0.000000e+00,0xe58b72847f9cf258
+2026-07-17T07:12:02Z,NovaConsole,"comp-mode-tubetape",true,0.000000e+00,0.000000e+00,0xcb92fb2aa67b016b
+2026-07-17T07:12:02Z,NovaConsole,"comp-mode-gold",true,0.000000e+00,0.000000e+00,0x13954c223d35debf
+2026-07-17T07:12:02Z,NovaConsole,"comp-mode-modern",true,0.000000e+00,0.000000e+00,0x5795b282efc818c0
+2026-07-17T07:12:02Z,NovaConsole,"comp-mono",true,0.000000e+00,0.000000e+00,0x833b660d51c93624
+2026-07-17T07:12:02Z,NovaConsole,"comp-sr-48000",true,0.000000e+00,0.000000e+00,0x845117c563e99d89
+2026-07-17T07:12:02Z,NovaConsole,"comp-sr-96000",true,0.000000e+00,0.000000e+00,0x40618088f9284ba0
+2026-07-17T07:12:02Z,NovaConsole,"comp-blocksize-64",true,0.000000e+00,0.000000e+00,0xe58b72847f9cf258
+2026-07-17T07:12:02Z,NovaConsole,"comp-blocksize-2048",true,0.000000e+00,0.000000e+00,0xe58b72847f9cf258
+2026-07-17T07:12:02Z,NovaConsole,"comp-filter-sidechain-chain",true,0.000000e+00,0.000000e+00,0x6e44888abaa9d9cf
+2026-07-17T07:12:02Z,NovaConsole,"comp-eq-chain",true,0.000000e+00,0.000000e+00,0xcaebe05349b72f43
+2026-07-17T07:12:02Z,NovaConsole,"comp-gate-both-active",true,0.000000e+00,0.000000e+00,0xe58b72847f9cf258
+2026-07-17T07:12:02Z,NovaConsole,"full-chain-4D-british-all-stages",true,0.000000e+00,0.000000e+00,0x89edd657b69f59e6
+2026-07-17T07:12:02Z,NovaConsole,"comp-ext-sidechain-stereo-different",true,0.000000e+00,0.000000e+00,0x60a91dc5c8634a70
+2026-07-17T07:12:02Z,NovaConsole,"comp-ext-sidechain-nullptr-fallback",true,0.000000e+00,0.000000e+00,0x71092c1a6eb052f4
+2026-07-17T07:12:02Z,NovaConsole,"comp-ext-sidechain-mono-mono",true,0.000000e+00,0.000000e+00,0x753a560598a44862
+2026-07-17T07:12:02Z,NovaConsole,"comp-ext-sidechain-stereo-with-hpf",true,0.000000e+00,0.000000e+00,0x7496b56000aee1c1

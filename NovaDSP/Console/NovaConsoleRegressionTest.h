@@ -22,6 +22,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -41,7 +42,29 @@ public:
         float       rmsAbsDiff  = 0.0f;
         bool        passed      = false;
         const char* scenario    = "";
+        uint64_t    outputHash  = 0;   // FNV-1a 64-bit hash of engine output samples
     };
+
+    // FNV-1a 64-bit hash of all samples in a buffer (channel-interleaved, float bits).
+    static uint64_t hashBuffer (const juce::AudioBuffer<float>& buf) noexcept
+    {
+        uint64_t h = 14695981039346656037ULL;
+        for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+        {
+            const float* data = buf.getReadPointer (ch);
+            for (int i = 0; i < buf.getNumSamples(); ++i)
+            {
+                uint32_t bits = 0;
+                std::memcpy (&bits, &data[i], sizeof (bits));
+                for (int b = 0; b < 4; ++b)
+                {
+                    h ^= static_cast<uint64_t> ((bits >> (8 * b)) & 0xFFu);
+                    h *= 1099511628211ULL;
+                }
+            }
+        }
+        return h;
+    }
 
     // ── Original algorithm reproduced verbatim ────────────────────────────────
     // Extracted from Nova Console/Source/PluginProcessor.cpp at Phase 4C time.
@@ -1026,6 +1049,7 @@ public:
         r.peakAbsDiff = peakDiff;
         r.rmsAbsDiff  = totalSamples > 0 ? std::sqrt (rmsSq / (float) totalSamples) : 0.0f;
         r.passed      = (r.peakAbsDiff == 0.0f);
+        r.outputHash  = hashBuffer (bufEng);
         return r;
     }
 
@@ -1114,6 +1138,7 @@ public:
         r.peakAbsDiff = peakDiff;
         r.rmsAbsDiff  = totalSamplesR > 0 ? std::sqrt (rmsSq / (float) totalSamplesR) : 0.0f;
         r.passed      = (r.peakAbsDiff == 0.0f);
+        r.outputHash  = hashBuffer (bufEng);
         return r;
     }
 
@@ -1182,6 +1207,7 @@ public:
             res.passed      = r.passed;
             res.peakAbsDiff = r.peakAbsDiff;
             res.rmsAbsDiff  = r.rmsAbsDiff;
+            res.outputHash  = r.outputHash;
             out.push_back (res);
             return r;
         };
@@ -1387,6 +1413,7 @@ public:
             r.peakAbsDiff = peak;
             r.rmsAbsDiff  = std::sqrt (rmsSq / (float)(totalSamples * 2));
             r.passed      = (r.peakAbsDiff == 0.0f);
+            r.outputHash  = hashBuffer (sigB);
             check (r);
         }
 
