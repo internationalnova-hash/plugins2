@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <random>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
@@ -20,7 +21,7 @@
 // Phase 4D: Compressor stage + gainReductionMeter.
 // Phase 4E: Mix Assist + Focus stage.
 // Phase 4F: Smart Gain compensation.
-// AnalogEngine follows in 4G.
+// Phase 4G: Analog Engine.
 //
 // TD-003  44 SmoothedValue instances are owned individually.  Future v2 may
 //         consolidate into a ConsoleSmoothers aggregate for readability.
@@ -104,6 +105,11 @@ private:
                                       float preProcessRms,
                                       float postProcessRms,
                                       int numSamples) noexcept;
+    void processAnalogEngine         (juce::AudioBuffer<float>& buffer,
+                                      const ModeProfile& profile,
+                                      int osFactor,
+                                      float mixAssistAmount,
+                                      float focusAmount) noexcept;
 
     // ── Filters ───────────────────────────────────────────────────────────────
     juce::dsp::StateVariableTPTFilter<float> hpf[2];
@@ -171,6 +177,14 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mixAssistAmountSmoothed; // 120ms
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> focusAmountSmoothed;     // 100ms
 
+    // ── Analog Engine smoothers ───────────────────────────────────────────────
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> heatSmoothed;       // 50ms
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> depthSmoothed;      // 50ms
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> widthSmoothed;      // 50ms
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> driftSmoothed;      // 80ms
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> noiseSmoothed;      // 50ms
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> crosstalkSmoothed;  // 50ms
+
     // ── Smart Gain smoother ───────────────────────────────────────────────────
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> smartGainCompDbSmoothed; // 150ms
 
@@ -228,6 +242,23 @@ private:
     std::array<float, 2> mixAssistPresenceLpState { 0.0f, 0.0f };
     std::array<float, 2> mixAssistHarshLpState    { 0.0f, 0.0f };
     std::array<float, 2> mixAssistHarshEnvState   { 0.0f, 0.0f };
+
+    // ── Analog Engine state ───────────────────────────────────────────────────
+    std::array<float, 2> driftHarmonicState { 0.0f, 0.0f };
+    std::array<float, 2> driftStereoState   { 0.0f, 0.0f };
+    std::array<float, 2> driftContourState  { 0.0f, 0.0f };
+    float driftFilterState = 0.0f;
+    std::array<float, 2> analogPrevInput   { 0.0f, 0.0f };
+    std::array<float, 2> analogToneMemory  { 0.0f, 0.0f };
+    std::array<float, 2> crosstalkLowState  { 0.0f, 0.0f };
+    std::array<float, 2> crosstalkHighState { 0.0f, 0.0f };
+    std::array<std::array<float, 64>, 2> crosstalkDelayBuffer {};
+    int   crosstalkDelayWriteIndex = 0;
+    float assistDensityEnv = 0.0f;
+
+    // RNG — deterministic seed 0x5A17, same call order as original
+    std::minstd_rand rng;
+    std::uniform_real_distribution<float> randDist { -1.0f, 1.0f };
 
     // ── Smart Gain state ──────────────────────────────────────────────────────
     float smartGainPreRmsEnv  = 0.0f;

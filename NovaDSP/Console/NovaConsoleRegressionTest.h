@@ -24,6 +24,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <random>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
@@ -172,6 +173,27 @@ public:
         std::array<float,   2> gatePreviousEnv  { 0.0f, 0.0f }; // dead — preserved from original
         std::array<std::array<float, 2>, 4> gateDetectorHpfState {};
         std::array<std::array<float, 2>, 4> gateDetectorLpfState {};
+
+        // ── Analog Engine state ───────────────────────────────────────────────
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> heatSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> depthSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> widthSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> driftSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> noiseSmoothed;
+        juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> crosstalkSmoothed;
+        std::array<float, 2> driftHarmonicState { 0.0f, 0.0f };
+        std::array<float, 2> driftStereoState   { 0.0f, 0.0f };
+        std::array<float, 2> driftContourState  { 0.0f, 0.0f };
+        float driftFilterState = 0.0f;
+        std::array<float, 2> analogPrevInput   { 0.0f, 0.0f };
+        std::array<float, 2> analogToneMemory  { 0.0f, 0.0f };
+        std::array<float, 2> crosstalkLowState  { 0.0f, 0.0f };
+        std::array<float, 2> crosstalkHighState { 0.0f, 0.0f };
+        std::array<std::array<float, 64>, 2> crosstalkDelayBuffer {};
+        int   crosstalkDelayWriteIndex = 0;
+        float assistDensityEnv = 0.0f;
+        std::minstd_rand rng;
+        std::uniform_real_distribution<float> randDist { -1.0f, 1.0f };
 
         // ── Smart Gain state ──────────────────────────────────────────────────
         float smartGainPreRmsEnv  = 0.0f;
@@ -382,6 +404,27 @@ public:
             gateRangeSmoothed.setCurrentAndTargetValue     (init.gateRangeDb);
             gateAttackSmoothed.setCurrentAndTargetValue    (init.gateAttackMs);
             gateHoldSmoothed.setCurrentAndTargetValue      (init.gateHoldMs);
+
+            heatSmoothed.reset      (sampleRate, 0.050);
+            depthSmoothed.reset     (sampleRate, 0.050);
+            widthSmoothed.reset     (sampleRate, 0.050);
+            driftSmoothed.reset     (sampleRate, 0.080);
+            noiseSmoothed.reset     (sampleRate, 0.050);
+            crosstalkSmoothed.reset (sampleRate, 0.050);
+            // Analog smoothers start from 0, matching original prepareToPlay()
+
+            driftHarmonicState     = { 0.0f, 0.0f };
+            driftStereoState       = { 0.0f, 0.0f };
+            driftContourState      = { 0.0f, 0.0f };
+            driftFilterState       = 0.0f;
+            analogPrevInput        = { 0.0f, 0.0f };
+            analogToneMemory       = { 0.0f, 0.0f };
+            crosstalkLowState      = { 0.0f, 0.0f };
+            crosstalkHighState     = { 0.0f, 0.0f };
+            crosstalkDelayBuffer   = {};
+            crosstalkDelayWriteIndex = 0;
+            assistDensityEnv       = 0.0f;
+            rng.seed (0x5A17u);
 
             smartGainCompDbSmoothed.reset (sampleRate, 0.150);
             smartGainCompDbSmoothed.setCurrentAndTargetValue (0.0f);
@@ -947,6 +990,206 @@ public:
             }
         }
 
+        // ── Analog Engine — verbatim from processAnalogEngine() ──────────────────
+        void processAnalogEngine (juce::AudioBuffer<float>& buf,
+                                   const NovaConsoleParameters& p,
+                                   const ModeProfile& profile, int osFactor,
+                                   float mixAssistAmount, float focusAmount)
+        {
+            heatSmoothed.setTargetValue      (p.heat      / 100.0f);
+            depthSmoothed.setTargetValue     (p.depth     / 100.0f);
+            widthSmoothed.setTargetValue     (p.width     / 100.0f);
+            driftSmoothed.setTargetValue     (p.drift     / 100.0f);
+            noiseSmoothed.setTargetValue     (p.noise     / 100.0f);
+            crosstalkSmoothed.setTargetValue (p.crosstalk / 100.0f);
+
+            const float warmth = profile.warmth;
+            const float qualityScale = (p.quality == 2) ? 1.15f
+                                     : (p.quality == 0) ? 0.85f : 1.0f;
+            const float osScale = juce::jmap (static_cast<float> (osFactor), 1.0f, 4.0f, 1.0f, 0.88f);
+            const float sr = static_cast<float> (currentSampleRate);
+
+            float driftModeScale = 1.0f;
+            switch (static_cast<ConsoleMode> (juce::jlimit (0, 4, p.mode)))
+            {
+                case ConsoleMode::clean:    driftModeScale = 0.55f; break;
+                case ConsoleMode::british:  driftModeScale = 0.90f; break;
+                case ConsoleMode::tubeTape: driftModeScale = 1.18f; break;
+                case ConsoleMode::gold:     driftModeScale = 0.82f; break;
+                case ConsoleMode::modern:   driftModeScale = 0.65f; break;
+            }
+
+            if (buf.getNumChannels() < 2)
+            {
+                auto* data = buf.getWritePointer (0);
+                float previousIn = analogPrevInput[0];
+                for (int i = 0; i < buf.getNumSamples(); ++i)
+                {
+                    const float inputSample = data[i];
+                    const float heatRaw  = heatSmoothed.getNextValue();
+                    const float driftRaw = driftSmoothed.getNextValue();
+                    const float noise    = noiseSmoothed.getNextValue();
+
+                    const float densityProbe = std::abs (data[i]);
+                    assistDensityEnv = 0.996f * assistDensityEnv + 0.004f * densityProbe;
+                    const float dense = juce::jlimit (0.0f, 1.0f, (assistDensityEnv - 0.10f) / 0.55f);
+                    const float assistRestrain = mixAssistAmount * (0.35f + 0.65f * dense);
+                    const float heat  = heatRaw  * (1.0f - 0.20f * assistRestrain - 0.12f * focusAmount);
+                    const float drift = driftRaw * driftModeScale * (1.0f - 0.16f * assistRestrain - 0.30f * focusAmount);
+
+                    driftHarmonicState[0] = juce::jlimit (-1.0f, 1.0f, 0.99925f * driftHarmonicState[0] + 0.0020f * randDist (rng));
+                    driftContourState[0]  = juce::jlimit (-1.0f, 1.0f, 0.99945f * driftContourState[0]  + 0.0012f * randDist (rng));
+                    driftFilterState      = juce::jlimit (-1.0f, 1.0f, 0.99965f * driftFilterState       + 0.0008f * randDist (rng));
+
+                    const float harmonicMotion = driftHarmonicState[0] * drift;
+                    const float contourMotion  = driftContourState[0]  * drift;
+                    const float contourTilt    = driftFilterState       * drift * 0.015f;
+
+                    const float clipDrive    = juce::jlimit (0.85f, 1.2f, 1.0f / profile.clipSoftness);
+                    const float clipDriveVar = clipDrive * (1.0f + contourMotion * 0.08f);
+                    const float oddW         = juce::jlimit (0.30f, 1.05f, 0.55f + 0.4f * profile.oddDrive + harmonicMotion * 0.06f);
+                    const float evenW        = juce::jlimit (0.22f, 1.05f, 0.35f + 0.5f * profile.evenDrive - harmonicMotion * 0.05f);
+                    const float satNorm      = 1.0f / juce::jmax (0.35f, oddW + evenW);
+                    const float harmonicDrive = 1.0f + heat * (2.0f + warmth) * qualityScale * osScale + harmonicMotion * 0.12f;
+                    const float evenDriveVar  = 1.0f + heat * 1.6f - harmonicMotion * 0.08f;
+
+                    float x = 0.0f;
+                    for (int os = 0; os < osFactor; ++os)
+                    {
+                        const float t      = static_cast<float> (os + 1) / static_cast<float> (osFactor);
+                        const float interp = previousIn + (inputSample - previousIn) * t;
+                        const float odd  = saturateSmooth (interp * harmonicDrive * clipDriveVar);
+                        const float even = 0.5f * (saturateSmooth ((interp + 0.03f + contourTilt) * evenDriveVar * clipDriveVar)
+                                                 + saturateSmooth ((interp - 0.03f - contourTilt) * evenDriveVar * clipDriveVar));
+                        x += (odd * oddW + even * evenW) * satNorm;
+                    }
+
+                    x /= static_cast<float> (osFactor);
+                    const float toneMemoryCoeff = juce::jlimit (0.992f, 0.999f, 0.996f + contourTilt * 0.10f);
+                    analogToneMemory[0] = toneMemoryCoeff * analogToneMemory[0] + (1.0f - toneMemoryCoeff) * x;
+                    const float toneBlend = juce::jlimit (0.008f, 0.030f, 0.015f + contourMotion * 0.01f);
+                    x = (1.0f - toneBlend) * x + toneBlend * analogToneMemory[0];
+                    x += (noise * 0.0007f) * randDist (rng);
+                    data[i] = x;
+                    previousIn = inputSample;
+                }
+                analogPrevInput[0] = previousIn;
+                return;
+            }
+
+            auto* left  = buf.getWritePointer (0);
+            auto* right = buf.getWritePointer (1);
+            float previousL = analogPrevInput[0];
+            float previousR = analogPrevInput[1];
+            const float crosstalkLowCoeff  = juce::jlimit (0.0001f, 0.999f,
+                1.0f - std::exp (-juce::MathConstants<float>::twoPi * 80.0f / sr));
+            const float crosstalkHighCoeff = juce::jlimit (0.0001f, 0.999f,
+                1.0f - std::exp (-juce::MathConstants<float>::twoPi * 10000.0f / sr));
+            int delayWrite = crosstalkDelayWriteIndex;
+
+            for (int i = 0; i < buf.getNumSamples(); ++i)
+            {
+                const float heatRaw      = heatSmoothed.getNextValue();
+                const float depth        = depthSmoothed.getNextValue();
+                const float widthRaw     = widthSmoothed.getNextValue();
+                const float driftRaw     = driftSmoothed.getNextValue();
+                const float noise        = noiseSmoothed.getNextValue();
+                const float crosstalkRaw = crosstalkSmoothed.getNextValue();
+
+                const float densityProbe = 0.5f * (std::abs (left[i]) + std::abs (right[i]));
+                assistDensityEnv = 0.996f * assistDensityEnv + 0.004f * densityProbe;
+                const float dense = juce::jlimit (0.0f, 1.0f, (assistDensityEnv - 0.10f) / 0.55f);
+                const float assistRestrain = mixAssistAmount * (0.35f + 0.65f * dense);
+
+                const float heat         = heatRaw      * (1.0f - 0.20f * assistRestrain - 0.12f * focusAmount);
+                const float width        = widthRaw     * (1.0f - 0.14f * assistRestrain - 0.08f * focusAmount);
+                const float drift        = driftRaw     * driftModeScale * (1.0f - 0.16f * assistRestrain - 0.30f * focusAmount);
+                const float crosstalkAmt = crosstalkRaw * (1.0f - 0.10f * assistRestrain - 0.30f * focusAmount);
+
+                driftHarmonicState[0] = juce::jlimit (-1.0f, 1.0f, 0.99930f * driftHarmonicState[0] + 0.0018f * randDist (rng));
+                driftHarmonicState[1] = juce::jlimit (-1.0f, 1.0f, 0.99930f * driftHarmonicState[1] + 0.0018f * randDist (rng));
+                driftStereoState[0]   = juce::jlimit (-1.0f, 1.0f, 0.99945f * driftStereoState[0]   + 0.0012f * randDist (rng));
+                driftStereoState[1]   = juce::jlimit (-1.0f, 1.0f, 0.99945f * driftStereoState[1]   + 0.0012f * randDist (rng));
+                driftContourState[0]  = juce::jlimit (-1.0f, 1.0f, 0.99955f * driftContourState[0]  + 0.0010f * randDist (rng));
+                driftContourState[1]  = juce::jlimit (-1.0f, 1.0f, 0.99955f * driftContourState[1]  + 0.0010f * randDist (rng));
+                driftFilterState      = juce::jlimit (-1.0f, 1.0f, 0.99970f * driftFilterState       + 0.0006f * randDist (rng));
+
+                const float harmonicMotionL = driftHarmonicState[0] * drift;
+                const float harmonicMotionR = driftHarmonicState[1] * drift;
+                const float stereoMotion    = 0.5f * (driftStereoState[0] - driftStereoState[1]) * drift;
+                const float contourMotion   = 0.5f * (driftContourState[0] + driftContourState[1]) * drift;
+                const float contourTilt     = driftFilterState * drift * 0.02f;
+
+                const float satDriveL = 1.0f + heat * (2.0f + warmth) * qualityScale * osScale + harmonicMotionL * 0.12f;
+                const float satDriveR = 1.0f + heat * (2.0f + warmth) * qualityScale * osScale + harmonicMotionR * 0.12f;
+
+                float l = 0.0f, r = 0.0f;
+                for (int os = 0; os < osFactor; ++os)
+                {
+                    const float t       = static_cast<float> (os + 1) / static_cast<float> (osFactor);
+                    const float lInterp = previousL + (left[i]  - previousL) * t;
+                    const float rInterp = previousR + (right[i] - previousR) * t;
+                    l += saturateSmooth (lInterp * satDriveL);
+                    r += saturateSmooth (rInterp * satDriveR);
+                }
+                l /= static_cast<float> (osFactor);
+                r /= static_cast<float> (osFactor);
+                previousL = left[i];
+                previousR = right[i];
+
+                const float toneMemoryCoeff = juce::jlimit (0.992f, 0.999f, 0.996f + contourTilt * 0.08f);
+                analogToneMemory[0] = toneMemoryCoeff * analogToneMemory[0] + (1.0f - toneMemoryCoeff) * l;
+                analogToneMemory[1] = toneMemoryCoeff * analogToneMemory[1] + (1.0f - toneMemoryCoeff) * r;
+                const float toneBlend = juce::jlimit (0.008f, 0.024f, 0.012f + contourMotion * 0.008f);
+                l = (1.0f - toneBlend) * l + toneBlend * analogToneMemory[0];
+                r = (1.0f - toneBlend) * r + toneBlend * analogToneMemory[1];
+
+                float mid  = 0.5f * (l + r);
+                float side = 0.5f * (l - r);
+                mid  = mid * (1.0f + depth * 0.08f);
+                mid += saturateSmooth (mid * (1.0f + 0.4f * heat)) * (0.015f + 0.02f * heat);
+                const float stereoBias = width * profile.stereoWidthBias;
+                side = side * juce::jlimit (0.84f, 1.28f, 0.92f + stereoBias * 0.32f);
+                side *= juce::jlimit (0.94f, 1.06f, profile.sideSoftness * (1.0f + stereoMotion * 0.08f));
+                mid  *= juce::jlimit (0.95f, 1.06f, profile.centerWeight * (1.0f - stereoMotion * 0.05f));
+                mid  *= (1.0f - contourTilt * 0.35f);
+                side *= (1.0f + contourTilt * 0.45f);
+                float preOutL = mid + side;
+                float preOutR = mid - side;
+
+                crosstalkLowState[0]  += crosstalkLowCoeff  * (preOutL - crosstalkLowState[0]);
+                crosstalkLowState[1]  += crosstalkLowCoeff  * (preOutR - crosstalkLowState[1]);
+                const float hpL = preOutL - crosstalkLowState[0];
+                const float hpR = preOutR - crosstalkLowState[1];
+                crosstalkHighState[0] += crosstalkHighCoeff * (hpL - crosstalkHighState[0]);
+                crosstalkHighState[1] += crosstalkHighCoeff * (hpR - crosstalkHighState[1]);
+
+                const float delayMs      = juce::jmap (crosstalkAmt, 0.0f, 1.0f, 0.05f, 0.30f);
+                const int   delaySamples = juce::jlimit (1, 30,
+                    static_cast<int> (std::round (0.001f * delayMs * sr)));
+                const int   delayRead    = (delayWrite - delaySamples + 64) % 64;
+                const float delayedL     = crosstalkDelayBuffer[0][static_cast<size_t> (delayRead)];
+                const float delayedR     = crosstalkDelayBuffer[1][static_cast<size_t> (delayRead)];
+                crosstalkDelayBuffer[0][static_cast<size_t> (delayWrite)] = crosstalkHighState[0];
+                crosstalkDelayBuffer[1][static_cast<size_t> (delayWrite)] = crosstalkHighState[1];
+                delayWrite = (delayWrite + 1) % 64;
+
+                const float interaction = juce::jlimit (0.0f, 0.08f,
+                    crosstalkAmt * 0.08f * profile.crosstalkBias * (1.0f + 0.12f * std::abs (stereoMotion)));
+                const float crosstalkL = interaction * (0.76f * delayedR + 0.24f * hpR);
+                const float crosstalkR = interaction * (0.76f * delayedL + 0.24f * hpL);
+
+                const float noiseAmt = noise * 0.0007f;
+                const float n        = randDist (rng) * noiseAmt;
+
+                left[i]  = preOutL + crosstalkL + n;
+                right[i] = preOutR + crosstalkR - n;
+            }
+            analogPrevInput[0] = previousL;
+            analogPrevInput[1] = previousR;
+            crosstalkDelayWriteIndex = delayWrite;
+        }
+
         // ── Mix Assist / Focus — verbatim from processMixAssistAndFocus() ───────
         void processMixAssistAndFocus (juce::AudioBuffer<float>& buf,
                                        float mixAssistAmount, float focusAmount)
@@ -1099,20 +1342,23 @@ public:
             else             gainReductionMeter = 0.92f * gainReductionMeter;
             if (p.gateOn)    processGate (buf, p);
 
+            // Compute Mix Assist / Focus amounts (used by Analog Engine and processMixAssistAndFocus)
+            const float mixAssistTarget = p.mixAssist / 100.0f;
+            const float focusTarget     = p.focusMode ? 1.0f : 0.0f;
+            mixAssistAmountSmoothed.setTargetValue (mixAssistTarget);
+            focusAmountSmoothed.setTargetValue     (focusTarget);
+            const float mixAssistStart = mixAssistAmountSmoothed.getCurrentValue();
+            const float focusStart     = focusAmountSmoothed.getCurrentValue();
+            const float mixAssistEnd   = mixAssistAmountSmoothed.skip (buf.getNumSamples());
+            const float focusEnd       = focusAmountSmoothed.skip (buf.getNumSamples());
+            const float mixAssistAmt   = 0.5f * (mixAssistStart + mixAssistEnd);
+            const float focusAmt       = 0.5f * (focusStart + focusEnd);
+
+            // Analog Engine (before Mix Assist, matching original processBlock order)
+            if (p.analogOn)  processAnalogEngine (buf, p, active, osFactor, mixAssistAmt, focusAmt);
+
             // Mix Assist / Focus
-            {
-                const float mixAssistTarget = p.mixAssist / 100.0f;
-                const float focusTarget     = p.focusMode ? 1.0f : 0.0f;
-                mixAssistAmountSmoothed.setTargetValue (mixAssistTarget);
-                focusAmountSmoothed.setTargetValue     (focusTarget);
-                const float mixAssistStart = mixAssistAmountSmoothed.getCurrentValue();
-                const float focusStart     = focusAmountSmoothed.getCurrentValue();
-                const float mixAssistEnd   = mixAssistAmountSmoothed.skip (buf.getNumSamples());
-                const float focusEnd       = focusAmountSmoothed.skip (buf.getNumSamples());
-                const float mixAssistAmt   = 0.5f * (mixAssistStart + mixAssistEnd);
-                const float focusAmt       = 0.5f * (focusStart + focusEnd);
-                processMixAssistAndFocus (buf, mixAssistAmt, focusAmt);
-            }
+            processMixAssistAndFocus (buf, mixAssistAmt, focusAmt);
 
             // modeTrim + clip + output gain + post-RMS accumulation
             const float modeTrim = active.outputTrim;
@@ -2945,6 +3191,315 @@ public:
                 auto sig = makeNoise (2, totalSamples, 0.3f);
                 check (runScenario (sgModeNames[m], 44100.0, 512, 8, p, sig));
             }
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // Phase 4G — Analog Engine (164–192)
+        // Parameters: analogOn bool (default true), heat/depth/width/drift/noise/crosstalk 0..100
+        // RNG seed is deterministic (0x5A17). These scenarios verify that:
+        // 1. The engine is off when analogOn=false (passthrough)
+        // 2. The RNG sequence and call order are preserved in the extraction
+        // 3. All parameter paths (mono/stereo, osFactor, quality, modes) match exactly
+        // ════════════════════════════════════════════════════════════════════
+
+        // 164. Analog Engine off (passthrough)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = false;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-off-passthrough", 44100.0, 512, 8, p, sig));
+        }
+
+        // 165. Analog Engine on — default parameters, stereo noise
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 28.0f; p.depth = 24.0f; p.width = 52.0f;
+            p.drift = 12.0f; p.noise = 0.0f; p.crosstalk = 0.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-on-defaults", 44100.0, 512, 8, p, sig));
+        }
+
+        // 166. Analog Engine on — heat max (100)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 100.0f; p.depth = 24.0f; p.width = 52.0f;
+            p.drift = 12.0f; p.noise = 0.0f; p.crosstalk = 0.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-heat-max", 44100.0, 512, 8, p, sig));
+        }
+
+        // 167. Analog Engine on — drift max (100) — exercises driftModeScale
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 28.0f; p.depth = 24.0f; p.width = 52.0f;
+            p.drift = 100.0f; p.noise = 0.0f; p.crosstalk = 0.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-drift-max", 44100.0, 512, 8, p, sig));
+        }
+
+        // 168. Analog Engine on — crosstalk max (100) — exercises delay buffer
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 28.0f; p.depth = 24.0f; p.width = 52.0f;
+            p.drift = 12.0f; p.noise = 0.0f; p.crosstalk = 100.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-crosstalk-max", 44100.0, 512, 8, p, sig));
+        }
+
+        // 169. Analog Engine on — noise max (100)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 28.0f; p.depth = 24.0f; p.width = 52.0f;
+            p.drift = 12.0f; p.noise = 100.0f; p.crosstalk = 0.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-noise-max", 44100.0, 512, 8, p, sig));
+        }
+
+        // 170. Analog Engine on — all params at 0 (minimal processing)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 0.0f; p.depth = 0.0f; p.width = 0.0f;
+            p.drift = 0.0f; p.noise = 0.0f; p.crosstalk = 0.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-all-zero-params", 44100.0, 512, 8, p, sig));
+        }
+
+        // 171. Analog Engine mono
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 28.0f; p.depth = 24.0f;
+            p.drift = 12.0f; p.noise = 0.0f;
+            auto sig = makeNoise (1, totalSamples, 0.3f);
+            check (runScenario ("analog-mono", 44100.0, 512, 8, p, sig));
+        }
+
+        // 172. Analog Engine on — quality Eco (quality=0)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true; p.quality = 0;
+            p.heat = 50.0f; p.drift = 20.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-quality-eco", 44100.0, 512, 8, p, sig));
+        }
+
+        // 173. Analog Engine on — quality Master (quality=2)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true; p.quality = 2;
+            p.heat = 50.0f; p.drift = 20.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-quality-master", 44100.0, 512, 8, p, sig));
+        }
+
+        // 174. Analog Engine on — oversampling 2x (osFactor=2)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true; p.oversampling = 1; // 2x
+            p.heat = 40.0f; p.drift = 15.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-oversample-2x", 44100.0, 512, 8, p, sig));
+        }
+
+        // 175. Analog Engine on — oversampling 4x (osFactor=4)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true; p.oversampling = 2; // 4x
+            p.heat = 40.0f; p.drift = 15.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-oversample-4x", 44100.0, 512, 8, p, sig));
+        }
+
+        // 176. Analog Engine on — 48 kHz
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 28.0f; p.drift = 12.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-sr-48000", 48000.0, 512, 8, p, sig));
+        }
+
+        // 177. Analog Engine on — 96 kHz
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 28.0f; p.drift = 12.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-sr-96000", 96000.0, 512, 8, p, sig));
+        }
+
+        // 178. Analog Engine on — mode-sweep (all 5 modes, exercises driftModeScale)
+        {
+            const char* analogModeNames[] = {
+                "analog-mode-clean", "analog-mode-british",
+                "analog-mode-tubetape", "analog-mode-gold", "analog-mode-modern"
+            };
+            for (int m = 0; m < 5; ++m)
+            {
+                NovaConsoleParameters p;
+                p.mode = m;
+                p.preampOn = false; p.filterOn = false; p.eqOn = false;
+                p.compOn = false; p.gateOn = false;
+                p.analogOn = true;
+                p.heat = 40.0f; p.drift = 30.0f; p.crosstalk = 10.0f;
+                auto sig = makeNoise (2, totalSamples, 0.3f);
+                check (runScenario (analogModeNames[m], 44100.0, 512, 8, p, sig));
+            }
+        }
+
+        // 179. Analog Engine + Mix Assist interaction
+        //      (mixAssistAmt restrains heat/width/drift inside processAnalogEngine)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 60.0f; p.drift = 40.0f; p.width = 60.0f;
+            p.mixAssist = 75.0f; p.focusMode = false;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-mix-assist-restrain", 44100.0, 512, 8, p, sig));
+        }
+
+        // 180. Analog Engine + Focus Mode interaction
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 60.0f; p.drift = 40.0f; p.width = 60.0f;
+            p.mixAssist = 0.0f; p.focusMode = true;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-focus-restrain", 44100.0, 512, 8, p, sig));
+        }
+
+        // 181. Analog Engine — small block size 64
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 28.0f; p.drift = 12.0f;
+            auto sig = makeNoise (2, 64 * 16, 0.3f);
+            check (runScenario ("analog-blocksize-64", 44100.0, 64, 16, p, sig));
+        }
+
+        // 182. Analog Engine — large block size 2048
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 28.0f; p.drift = 12.0f;
+            auto sig = makeNoise (2, 2048 * 2, 0.3f);
+            check (runScenario ("analog-blocksize-2048", 44100.0, 2048, 2, p, sig));
+        }
+
+        // 183. Analog Engine — silence input (RNG still runs, state still advances)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 28.0f; p.noise = 50.0f; p.drift = 12.0f;
+            juce::AudioBuffer<float> sig (2, totalSamples);
+            sig.clear();
+            check (runScenario ("analog-silence-input", 44100.0, 512, 8, p, sig));
+        }
+
+        // 184. Analog Engine + Compressor chain (most common real-world combination)
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = true; p.gateOn = false;
+            p.analogOn = true;
+            p.compThreshDb = -16.0f; p.compRatio = 4.0f;
+            p.heat = 40.0f; p.drift = 20.0f; p.width = 50.0f;
+            auto sig = makeNoise (2, totalSamples, 0.4f);
+            check (runScenario ("analog-comp-chain", 44100.0, 512, 8, p, sig));
+        }
+
+        // 185. Full chain Phase 4G — all stages active, British mode
+        {
+            NovaConsoleParameters p;
+            p.mode = 1; // British
+            p.preampOn = true; p.filterOn = true; p.eqOn = true;
+            p.compOn = true; p.gateOn = false;
+            p.analogOn = true;
+            p.compThreshDb = -16.0f; p.compRatio = 4.0f;
+            p.lowDb = 1.5f;
+            p.heat = 40.0f; p.depth = 24.0f; p.width = 52.0f;
+            p.drift = 15.0f; p.noise = 0.0f; p.crosstalk = 10.0f;
+            p.mixAssist = 60.0f; p.focusMode = false; p.smartGain = true;
+            auto sig = makeNoise (2, totalSamples, 0.25f);
+            check (runScenario ("full-chain-4G-british-all-stages", 44100.0, 512, 8, p, sig));
+        }
+
+        // 186. Full chain — TubeTape mode (high drift scale 1.18)
+        {
+            NovaConsoleParameters p;
+            p.mode = 2; // TubeTape
+            p.preampOn = true; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 50.0f; p.drift = 50.0f; p.noise = 10.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-tubetape-high-drift", 44100.0, 512, 8, p, sig));
+        }
+
+        // 187. Analog Engine + width max (100) — exercises stereoWidthBias
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 28.0f; p.width = 100.0f; p.depth = 50.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-width-max", 44100.0, 512, 8, p, sig));
+        }
+
+        // 188. Analog Engine + depth max (100) — exercises mid enhancement path
+        {
+            NovaConsoleParameters p;
+            p.preampOn = false; p.filterOn = false; p.eqOn = false;
+            p.compOn = false; p.gateOn = false;
+            p.analogOn = true;
+            p.heat = 28.0f; p.width = 52.0f; p.depth = 100.0f;
+            auto sig = makeNoise (2, totalSamples, 0.3f);
+            check (runScenario ("analog-depth-max", 44100.0, 512, 8, p, sig));
         }
 
         return out;
