@@ -51,9 +51,9 @@ The primary translation check — what a mix engineer specifically needs this en
 
 ## Confidence Rating
 
-| Acoustic | Playback System | Overall |
-|---|---|---|
-| 6.0/10 | 6.5/10 | 6.3/10 |
+| Acoustic | Playback System | Overall | Decision Fidelity |
+|---|---|---|---|
+| 6.0/10 | 6.5/10 | 6.3/10 | Not yet measured — see [`reference-validation-protocol.md`](reference-validation-protocol.md) |
 
 Lowest overall confidence of the 4 implemented environments, and honestly so — this is the environment with the most consequential known gap (shelf-vs-peak on the low end is a shape error, not just an unverified corner frequency) and the one carrying the most Perceptual Targets to satisfy. Both scores reflect design-reasoning confidence, not a listening-test result. This is the clearest candidate for where Reference Validation should start.
 

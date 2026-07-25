@@ -41,9 +41,9 @@ This environment models a real, specific class of studio tool: a small single-dr
 
 ## Confidence Rating
 
-| Acoustic | Playback System | Overall |
-|---|---|---|
-| 8.5/10 | 6.0/10 | 7.3/10 |
+| Acoustic | Playback System | Overall | Decision Fidelity |
+|---|---|---|---|
+| 8.5/10 | 6.0/10 | 7.3/10 | Not yet measured — see [`reference-validation-protocol.md`](reference-validation-protocol.md) |
 
 Acoustic scores high — near-field, minimal room claims, hard to get wrong. Playback System is the second-lowest score of the four environments, driven by one specific, fairly confident "likely wrong" finding (the midrange coloration probably needs to be more pronounced, not just unverified) rather than a vague uncertainty. Both scores reflect design-reasoning confidence, not a listening-test result.
 

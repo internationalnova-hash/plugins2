@@ -42,9 +42,9 @@ Reference profile: `EnvironmentLibrary::smartphone()`. Role: exposes vocal intel
 
 ## Confidence Rating
 
-| Acoustic | Playback System | Overall |
-|---|---|---|
-| 9.0/10 | 7.5/10 | 8.2/10 |
+| Acoustic | Playback System | Overall | Decision Fidelity |
+|---|---|---|---|
+| 9.0/10 | 7.5/10 | 8.2/10 | Not yet measured — see [`reference-validation-protocol.md`](reference-validation-protocol.md) |
 
 Acoustic scores highest of any environment — "there is essentially no room" is a low-risk, easy-to-get-right claim. Playback System is held back by two flagged-for-verification corner frequencies (low-cut point, high-shelf point) rather than any structural shape error — a smaller gap than Sedan's. Both scores reflect design-reasoning confidence, not a listening-test result.
 

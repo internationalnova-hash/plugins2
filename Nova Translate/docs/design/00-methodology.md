@@ -1,5 +1,11 @@
 # Nova Translate — Acoustic Modeling Methodology
 
+## Philosophy (one sentence, every decision answers to it)
+
+**Nova Translate does not try to physically recreate another playback system — it tries to recreate the mix decisions that playback system causes an engineer to make.**
+
+The distinction matters more than it looks. The goal is not fooling someone into believing they're inside a Honda Civic. The goal is a listener instinctively thinking *"my kick is too loud"* or *"the vocal disappears"* or *"the guitars are masking the vocal"* — the same instinct a real Civic would produce. A model can be physically imperfect and still succeed, as long as it produces the same corrective instinct. It can also be physically elaborate and still fail, if an engineer's decisions on it don't match their decisions on the real thing. This is why [`reference-validation-protocol.md`](reference-validation-protocol.md) measures **Decision Fidelity** as a distinct, arguably more important metric than the Confidence Ratings below — Confidence Ratings grade the physical reasoning; Decision Fidelity grades whether that reasoning actually produces the right outcome.
+
 ## The shift
 
 Phase 1/2 built each environment as: **playback environment → DSP parameters → audio**. A person familiar with car audio picked numbers that sounded plausible for "car-ness" and wrote them into `EnvironmentProfile`.
@@ -26,9 +32,9 @@ A cabin's reflections exist whether or not any speaker is playing through it. A 
 
 Listener position/geometry isn't its own top-level section — it's addressed in both Acoustic and Playback System Model sections: where the listener sits *relative to the room* (off-center in a cabin, dead-center in a treated studio) belongs to the Acoustic Model; whether the *playback system* corrects for that offset (a premium OEM system's DSP time-alignment vs. a base sedan's uncorrected passive crossover) belongs to the Playback System Model. Splitting it this way is itself a modeling decision worth stating explicitly per environment, not glossed over.
 
-## Reference Validation (the current milestone)
+## Reference Validation (Phase 4 — the current milestone)
 
-The goal is no longer "add another environment." It's: **make the 4 existing environments convincing enough that, in blind listening, an engineer consistently recognizes the playback scenario and makes the same corrective mix decisions they'd make on the real system.** That's a human listening-test result — nothing in this codebase can produce or simulate it. This plugin's job between now and then is to make that test as easy and well-defined as possible to run and score:
+The goal is no longer "add another environment." It's: **make the 4 existing environments convincing enough that, in blind listening, an engineer consistently recognizes the playback scenario and makes the same corrective mix decisions they'd make on the real system.** That's a human listening-test result — nothing in this codebase can produce or simulate it. The repeatable protocol (fixed test material, fixed Decision Fidelity questions per environment, a session log) lives in [`reference-validation-protocol.md`](reference-validation-protocol.md). This plugin's job between now and then is to make that test as easy and well-defined as possible to run and score:
 
 - Each environment's **Perceptual Targets** section IS the test's success criteria — a listening session should walk through that specific list, not a vague "does it sound right" impression.
 - Each environment's **Confidence Rating** marks where the design reasoning itself is weakest, which is where a failed listening test is *most likely* to trace back to — start scrutiny there.

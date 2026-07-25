@@ -49,9 +49,9 @@ This is also the clearest illustration of why the Acoustic/Playback System split
 
 ## Confidence Rating
 
-| Acoustic | Playback System | Overall |
-|---|---|---|
-| Design Stage | Design Stage | N/A |
+| Acoustic | Playback System | Overall | Decision Fidelity |
+|---|---|---|---|
+| Design Stage | Design Stage | N/A | N/A — see [`reference-validation-protocol.md`](reference-validation-protocol.md) for the question set once this environment is built |
 
 No `EnvironmentProfile` exists yet, so there's nothing to rate against — this row exists only so the summary table in `README.md` doesn't silently omit this environment.
 

@@ -44,9 +44,9 @@ Nova Main Room's target is inverted relative to the other three: success is the 
 
 ## Confidence Rating
 
-| Acoustic | Playback System | Overall |
-|---|---|---|
-| 8.0/10 | 8.5/10 | 8.3/10 |
+| Acoustic | Playback System | Overall | Decision Fidelity |
+|---|---|---|---|
+| 8.0/10 | 8.5/10 | 8.3/10 | Not yet measured — see [`reference-validation-protocol.md`](reference-validation-protocol.md) |
 
 Highest overall confidence of the 4 implemented environments — deliberately, since "flat and uncolored" is a low-risk target to hit. The Acoustic score is held back by the RT60-derivation gap; the Playback score by the missing off-axis HF rolloff. Both scores reflect design-reasoning confidence, not a listening-test result — no blind listening has happened yet (see Reference Validation, `00-methodology.md`).
 
