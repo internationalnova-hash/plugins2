@@ -19,6 +19,14 @@ Reference profile: `EnvironmentLibrary::smartphone()`. Role: exposes vocal intel
 - **Driver resonance**: small drivers commonly resonate/break up in the 2–4kHz region, not coincidentally close to the ear's own most sensitive range — part of why phone audio reads as thin-but-present rather than just quiet.
 - **Channels**: many phones are effectively mono, or have two drivers spaced so closely that meaningful stereo separation doesn't survive to any realistic listening distance.
 
+## Perceptual Targets
+
+1. **Lead vocal level** — does the vocal maintain a competitive, forward level despite the driver's limited range?
+2. **Hook/melody clarity** — does the melodic hook stay identifiable and prominent?
+3. **Midrange masking** — do busy midrange elements (guitars, synths, backing vocals) start to obscure the lead vocal, the way they would on a real small driver?
+4. **Transient intelligibility** — do snare/percussion transients stay articulate despite the driver's breakup-region coloration and heavy limiting?
+5. **Loss of sub-bass** — does the mix's low end genuinely disappear (not just "get quieter"), forcing the engineer to judge the mix without it?
+
 ## DSP Translation
 
 | Physical cause | Model | DSP field | Current value | Justification |
@@ -31,5 +39,13 @@ Reference profile: `EnvironmentLibrary::smartphone()`. Role: exposes vocal intel
 | Thermal/excursion-driven amplifier + protection limiting | Playback System | `compressionAmount = 0.5` | ✅ matches | Highest of all four profiles, correctly — this system hits its physical/thermal limits soonest of anything modeled. |
 | Cone breakup distortion at the resonance region | Playback System | `saturationAmount = 0.4` | ✅ matches | Second-highest of the four — correctly the most colored/distorted system modeled. |
 | No listening-position concept at arm's-length distance with negligible stereo spacing | Playback System | `supportsPosition = false` | ✅ matches | Correct — driven by the playback system's own geometry (driver spacing), not by any acoustic-space reasoning, since there's no space to speak of. |
+
+## Confidence Rating
+
+| Acoustic | Playback System | Overall |
+|---|---|---|
+| 9.0/10 | 7.5/10 | 8.2/10 |
+
+Acoustic scores highest of any environment — "there is essentially no room" is a low-risk, easy-to-get-right claim. Playback System is held back by two flagged-for-verification corner frequencies (low-cut point, high-shelf point) rather than any structural shape error — a smaller gap than Sedan's. Both scores reflect design-reasoning confidence, not a listening-test result.
 
 **Summary**: Smartphone is the environment where the two-layer split matters most conceptually even though it changes almost nothing in the table — nearly every number here is Playback System, and the Acoustic Model section exists mainly to explicitly confirm "there is no room" rather than let that go unstated. The two open items are both "verify the exact corner frequencies against a real device," both squarely Playback System questions.

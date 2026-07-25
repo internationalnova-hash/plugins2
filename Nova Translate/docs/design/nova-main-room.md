@@ -20,6 +20,15 @@ Reference profile: `EnvironmentLibrary::novaMainRoom()`. Role: "trusted referenc
 - **Manufacturer tuning**: none, by design — no loudness contour, no house voicing; the entire product category exists to NOT have a "sound."
 - **Directivity/imaging**: symmetric placement + controlled, well-behaved polar response preserve phantom-center accuracy — this is the one environment where imaging should not be degraded by the playback system itself.
 
+## Perceptual Targets
+
+Nova Main Room's target is inverted relative to the other three: success is the engineer noticing *nothing wrong*, not a specific problem being exposed. It's the calibration anchor — if a translation issue shows up here too, it's a mix problem, not an environment-modeling problem.
+
+1. **Tonal balance trustworthiness** — the mix should sound like what was actually printed, no surprises, no single frequency region calling attention to itself.
+2. **Stereo image precision** — phantom center should be stable and precise; nothing should collapse or wander.
+3. **Low-end resolution/control** — the engineer should be able to trust bass/kick level decisions made here.
+4. **Absence of coloration as a positive result** — "boring" and "uneventful" are the success condition, not a failure to differentiate.
+
 ## DSP Translation
 
 | Physical cause | Model | DSP field | Current value | Justification |
@@ -32,5 +41,13 @@ Reference profile: `EnvironmentLibrary::novaMainRoom()`. Role: "trusted referenc
 | Sweet-spot vs. off-axis seating (room-geometry side of the split) | Acoustic | `positions[]` base points | ✅ matches | Sweet Spot / Engineer Left / Engineer Right / Client Sofa correctly describe *where in the room* the listener sits. |
 | Whether the monitors' own directivity penalizes off-axis listening (playback-system side of the split) | Playback System | `positions[]` bias values (lateral only, no HF rolloff) | Incomplete | **Gap**: real monitor polar response narrows with frequency, so Engineer Left/Right should lose some top end off-axis, not just shift stereo balance. This is specifically a Playback System gap, not an Acoustic one — the room doesn't cause it, the monitors' directivity does. |
 | Minimal driver/amp nonlinearity (professional gear, not pushed hard) | Playback System | `compressionAmount = 0.05`, `saturationAmount = 0.02` | ✅ matches | Lowest of all four profiles, correctly — this is the one system that shouldn't be coloring anything. |
+
+## Confidence Rating
+
+| Acoustic | Playback System | Overall |
+|---|---|---|
+| 8.0/10 | 8.5/10 | 8.3/10 |
+
+Highest overall confidence of the 4 implemented environments — deliberately, since "flat and uncolored" is a low-risk target to hit. The Acoustic score is held back by the RT60-derivation gap; the Playback score by the missing off-axis HF rolloff. Both scores reflect design-reasoning confidence, not a listening-test result — no blind listening has happened yet (see Reference Validation, `00-methodology.md`).
 
 **Summary**: Nova Main Room is the cleanest case of the two-layer split doing real work — almost everything here is Playback System (accurate monitors, no voicing), with the Acoustic Model contributing only a light, damped room signature. The two gaps are cleanly separable now too: the RT60-derivation gap is purely Acoustic; the off-axis HF-rolloff gap is purely Playback System (monitor directivity, not room behavior).

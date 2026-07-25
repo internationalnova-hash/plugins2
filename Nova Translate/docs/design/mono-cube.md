@@ -20,6 +20,13 @@ This environment models a real, specific class of studio tool: a small single-dr
 - **Mono**: literally, physically mono — one driver, one signal path. The single most important fact in this profile, and the one place in the whole plugin where "the DSP models something real" is unambiguous: `stereoWidth = 0` isn't an approximation of mono, it's an exact match, because `mid = 0.5×(L+R)` IS what a single driver fed a summed signal actually receives.
 - **Dynamics/distortion**: modest — this monitor class isn't typically driven hard or fed high-power amplifiers; present but not the star of the show the way it is for Smartphone.
 
+## Perceptual Targets
+
+1. **Midrange balance** — does the vocal/instrument midrange relationship hold up, or does the boxy coloration expose a real balance problem?
+2. **Vocal masking** — do other midrange elements crowd the vocal out through this narrow-bandwidth, midrange-forward driver?
+3. **Mono compatibility** — does anything phase-cancel or thin out when collapsed to true mono (the single property this environment models exactly, not approximately)?
+4. **Instrument separation** — can individual elements still be distinguished despite the limited bandwidth and single-driver summing?
+
 ## DSP Translation
 
 | Physical cause | Model | DSP field | Current value | Justification |
@@ -31,5 +38,13 @@ This environment models a real, specific class of studio tool: a small single-dr
 | Literal single-driver mono | Playback System | `stereoWidth = 0` | ✅ matches exactly | The one parameter in this whole plugin that isn't an approximation. |
 | Modest, not-heavily-driven amplification | Playback System | `compressionAmount = 0.15`, `saturationAmount = 0.1` | ✅ matches | Correctly modest — lower than Sedan/Smartphone, consistent with this monitor class not being run hard. |
 | No listening-position concept (single driver, single point source, near-field) | Playback System | `supportsPosition = false` | ✅ matches | Correct — driven by the *speaker* being a single point source, not by the room being small (the room genuinely could accommodate multiple listening positions; the monitor can't meaningfully differentiate them). |
+
+## Confidence Rating
+
+| Acoustic | Playback System | Overall |
+|---|---|---|
+| 8.5/10 | 6.0/10 | 7.3/10 |
+
+Acoustic scores high — near-field, minimal room claims, hard to get wrong. Playback System is the second-lowest score of the four environments, driven by one specific, fairly confident "likely wrong" finding (the midrange coloration probably needs to be more pronounced, not just unverified) rather than a vague uncertainty. Both scores reflect design-reasoning confidence, not a listening-test result.
 
 **Summary**: this doc is almost entirely Playback System — the room barely matters here by design of use, and every meaningful character trait (boxiness, bandwidth limit, mono) comes from the single driver itself. The clearest open question stays the same as before the restructure: the midrange coloration is likely under-tuned relative to the real monitor class, and it's now unambiguous that fixing it is a Playback System change, not an Acoustic one — nothing about the room around it should move.

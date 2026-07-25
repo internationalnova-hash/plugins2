@@ -27,6 +27,13 @@ This is also the clearest illustration of why the Acoustic/Playback System split
 - **Amplification**: substantially higher power (hundreds of watts vs. a base sedan's 15–25W/channel), real subwoofer(s) with genuine low-frequency extension (30–40Hz region), operating well within linear headroom at normal listening levels.
 - **Nonlinearities**: minimal by design — the most linear, least-colored *mobile* playback system Nova Translate would model, closer in spirit to Nova Main Room's Playback System Model than to Sedan's.
 
+## Perceptual Targets (design targets — success criteria for the eventual build)
+
+1. **Low-end extension** — genuine deep bass (down toward 35–45Hz) rather than Sedan's cabin-reinforced-but-limited low end.
+2. **Wide imaging** — a stereo image that's noticeably wider and more precise than Sedan's, specifically because the system corrects for the offset problem rather than because the cabin is bigger.
+3. **Smooth vocal presentation** — no crossover-region harshness the way Sedan has; the vocal should sit cleanly rather than fighting hardware artifacts.
+4. **Premium playback translation** — the overall impression should read as "expensive, engineered system," not "the same car but louder" — if a listener can't tell this apart from a tuned-up Sedan, the implementation has failed its own benchmark.
+
 ## DSP Translation (design targets — not implemented)
 
 | Physical cause | Model | Proposed DSP direction | Contrast with Sedan |
@@ -39,5 +46,13 @@ This is also the clearest illustration of why the Acoustic/Playback System split
 | Minimal cone/amp nonlinearity | Playback System | Lower `saturationAmount` than Sedan | Flagship components aren't pushed into their nonlinear range at normal levels. |
 | Multiple genuinely different seating rows | Both | 4 position slots (kMaxPositions ceiling applies here too) — likely Driver, Front Passenger, 2nd Row, 3rd Row | The *existence* of a 3rd row is Acoustic (cabin size); *which 4 positions get exposed* given the format's slot ceiling is a Playback-System-and-UI design decision. |
 | Own visual scene | — (UI, not DSP) | Own top-down illustration (larger cabin outline, more speaker markers, third row) | Already required by the frozen UI architecture — SUV gets its own `SCENES`/`SCENE_MARKERS` module, never a recolored Sedan scene. |
+
+## Confidence Rating
+
+| Acoustic | Playback System | Overall |
+|---|---|---|
+| Design Stage | Design Stage | N/A |
+
+No `EnvironmentProfile` exists yet, so there's nothing to rate against — this row exists only so the summary table in `README.md` doesn't silently omit this environment.
 
 **Summary — the actual benchmark**: a listener switching from Sedan to Luxury SUV inside Nova Translate should hear a **lower-pitched cabin resonance** (Acoustic: bigger box), **a wider and more precise stereo image** (Playback System: active correction of a comparable Acoustic-layer offset problem), **a quieter/later room character** (Acoustic: better materials/treatment), and **less audible amplifier strain** (Playback System: more power, more linear). Four differences, cleanly attributable to one layer or the other — not "the same car, louder low end." That the stereo-image improvement comes from the Playback System actively fighting an Acoustic-layer problem Sedan's system leaves uncorrected is exactly the kind of distinction this two-layer methodology exists to surface.

@@ -25,6 +25,16 @@ Reference profile: `EnvironmentLibrary::sedan()`. Role: "primary translation che
 - **Manufacturer tuning**: base-trim OEM systems are generally NOT actively DSP-corrected — no time-alignment for the off-center driver seat, no per-channel EQ correction. Unlike a premium system (see `luxury-suv-benchmark.md`), the cabin's physical asymmetry passes straight through uncorrected.
 - **Dynamics**: amplifier headroom limiting is a distinct mechanism from the cabin's road-noise masking (a separate Acoustic-adjacent phenomenon this plugin already models via `noiseAmount`) — both push perceived dynamics down, but for different physical reasons.
 
+## Perceptual Targets
+
+The primary translation check — what a mix engineer specifically needs this environment to expose:
+
+1. **Kick drum balance** — does the kick sit correctly against the cabin's ~82Hz modal buildup, or get swallowed/exaggerated by it?
+2. **Bass resonance** — is the cabin-mode bass buildup audible and roughly frequency-accurate, distinct from a generic "boosted low end"?
+3. **Vocal intelligibility** — does the vocal stay legible through the crossover-region coloration and road-noise masking?
+4. **Snare bite/upper-mid harshness** — does the crossover-region character (2.5–3.5kHz) expose harsh snare/upper-mid content the way a real door-speaker crossover would?
+5. **Stereo collapse toward the driver** — does the image narrow and pull toward the driver's seat, reflecting the real uncorrected cabin-offset problem?
+
 ## DSP Translation
 
 | Physical cause | Model | DSP field | Current value | Justification |
@@ -38,5 +48,13 @@ Reference profile: `EnvironmentLibrary::sedan()`. Role: "primary translation che
 | Road noise floor (cabin/ambient, not the audio system) | Acoustic-adjacent | `noiseAmount = 0.15` | Correctly modeled as separate | Already treated as distinct from amp compression, matching the physics — road noise is an environment property, not a playback-system one, even though both reduce perceived dynamic range. |
 | Driver seat offset (cabin geometry) + no DSP correction (system doesn't compensate) | Both | `stereoWidth = 0.6`, `positions[]` lateral bias | ✅ matches | This row is the clearest example of "Both" in this doc: the offset itself is Acoustic (cabin geometry), but the fact that it's audible and uncorrected is a Playback System property (base trims lack time-alignment DSP) — a premium system with the identical cabin geometry would correct this away, which is exactly the contrast `luxury-suv-benchmark.md` is built around. |
 | Tweeter beaming (off-axis HF loss, position-dependent) | Playback System | *(not modeled)* | — | **Gap**: Rear Left/Right (further off-axis to the dash tweeters) should lose real high-frequency energy from driver directivity, not just get the generic `diffuseAmount` treatment. Playback System cause, not Acoustic. |
+
+## Confidence Rating
+
+| Acoustic | Playback System | Overall |
+|---|---|---|
+| 6.0/10 | 6.5/10 | 6.3/10 |
+
+Lowest overall confidence of the 4 implemented environments, and honestly so — this is the environment with the most consequential known gap (shelf-vs-peak on the low end is a shape error, not just an unverified corner frequency) and the one carrying the most Perceptual Targets to satisfy. Both scores reflect design-reasoning confidence, not a listening-test result. This is the clearest candidate for where Reference Validation should start.
 
 **Summary**: the two-layer split resolves an ambiguity the earlier single-list version glossed over — the low end is Acoustic (fix: shelf → peak at 82Hz), the crossover-region harshness is Playback System (fix: reframe the 2.5–3.5kHz peak as a hardware artifact, not a presence boost), and the driver-offset/imaging problem is explicitly **Both**, which is exactly why Luxury SUV — same kind of offset, different (DSP-corrected) Playback System — should sound different from Sedan without needing a different cabin.
