@@ -10,10 +10,19 @@ This document is the shared physics toolkit and the template every environment d
 
 ## Document structure (per environment)
 
-1. **Physical Characteristics** — the real space/device: dimensions, materials, listener geometry.
-2. **Playback System** — the real speakers/amplification: driver sizes, crossover points, power, known nonlinearities.
-3. **Acoustic Behavior** — what physics 1+2 produce: reflection timing, modal resonances, frequency response, stereo image integrity.
-4. **DSP Translation** — the explicit mapping from each item above to a specific `EnvironmentProfile` field or engine behavior, with the physical justification stated inline. Anywhere the current implementation doesn't yet match the physics, that's called out as a **gap**, not silently left alone.
+Every environment is two independent physical systems stacked on top of each other, not one blob of "car-ness" or "phone-ness":
+
+```
+Environment (the space)  →  Playback System (the speakers)  →  Listener  →  DSP
+```
+
+A cabin's reflections exist whether or not any speaker is playing through it. A speaker's frequency-response limits and distortion exist whether or not it's sitting in a cabin, a room, or held in a hand. Conflating the two is exactly how "arbitrary EQ" happens — a shelf that's secretly trying to represent both "the room is small" and "the woofer is small" at once, matching neither precisely. Keeping them separate is what makes each number in `EnvironmentProfiles.hpp` traceable to one real, specific cause.
+
+1. **Acoustic Model** — the space alone, as if a perfectly neutral omnidirectional source were playing in it: dimensions, materials/absorption, listener geometry relative to the space, and the reflection timing / modal resonances / decay time that emerge purely from the space's physics. A cabin, a room, "no space at all" (Smartphone) — this section exists even when the answer is "there isn't really one."
+2. **Playback System Model** — the speakers/amplification alone, as if placed in free space with no room around them: driver count/size, crossover architecture, amplifier power and headroom, manufacturer tuning philosophy (loudness contour, EQ voicing), and the frequency-response limits / distortion / dynamic behavior that emerge purely from the hardware.
+3. **DSP Translation** — the explicit mapping from Acoustic Model and Playback System Model items to specific `EnvironmentProfile` fields, each row tagged **[Acoustic]**, **[Playback System]**, or **[Both]** so it's always traceable which real-world layer justifies which number. Anywhere the current implementation doesn't yet match the physics, that's called out as a **gap**, not silently left alone.
+
+Listener position/geometry isn't its own top-level section — it's addressed in both: where the listener sits *relative to the room* (off-center in a cabin, dead-center in a treated studio) belongs to the Acoustic Model; whether the *playback system* corrects for that offset (a premium OEM system's DSP time-alignment vs. a base sedan's uncorrected passive crossover) belongs to the Playback System Model. Splitting it this way is itself a modeling decision worth stating explicitly per environment, not glossed over.
 
 ## Physics toolkit (reused across every doc)
 
