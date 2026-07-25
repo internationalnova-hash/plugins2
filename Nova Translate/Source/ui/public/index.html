@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nova Translate</title>
+<style>
+  :root {
+    --bg: #08080a;
+    --panel: #101013;
+    --panel-2: #16161b;
+    --line: rgba(255,255,255,0.08);
+    --text: #f2efe9;
+    --text-dim: #9a9aa3;
+    --text-faint: #5f5f68;
+    --gold: #e8c064;
+    --gold-2: #f3d78a;
+    --gold-dim: rgba(232,192,100,0.35);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    overflow: hidden; -webkit-user-select: none; user-select: none;
+  }
+  #app { width: 1536px; height: 1024px; display: flex; background: var(--bg); transform: scale(0.75); transform-origin: top left; }
+  .main-col { flex: 1; display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--line); }
+  .sidebar { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; padding: 16px; gap: 14px; }
+
+  /* ---------- Header ---------- */
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo-box { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #2a2a34, #101014); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; }
+  .logo-box img { width: 22px; height: 22px; object-fit: contain; }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+  .wordmark { font-size: 22px; font-weight: 800; letter-spacing: 0.05em; }
+  .tagline { font-size: 10px; letter-spacing: 0.2em; color: var(--text-dim); margin-top: 2px; }
+  .toolbar-center { display: flex; align-items: center; gap: 10px; }
+  .preset-nav { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--panel); }
+  .preset-nav .label { font-size: 10px; letter-spacing: 0.1em; color: var(--text-dim); }
+  .preset-nav .name { font-size: 12px; font-weight: 600; min-width: 130px; }
+  .preset-nav button { background: transparent; border: none; color: var(--gold); font-size: 14px; cursor: pointer; }
+  .pill-btn { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text-dim); font-size: 11px; letter-spacing: 0.08em; padding: 9px 14px; cursor: pointer; }
+  .pill-btn.active { color: var(--bg); background: var(--gold); border-color: var(--gold); }
+  .ab-copy { display: flex; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 4px; background: var(--panel); }
+  .ab-copy .pill-btn { border: none; padding: 7px 12px; }
+  .icon-btn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--text-dim); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .icon-btn.wide { width: auto; padding: 0 10px; font-size: 11px; letter-spacing: 0.08em; }
+  .icon-btn:hover { color: var(--gold); border-color: var(--gold-dim); }
+  .icon-btn.active { color: var(--bg); background: var(--gold); border-color: var(--gold); }
+  .header-right { display: flex; align-items: center; gap: 8px; }
+
+  /* ---------- Hero ---------- */
+  /* No decorative auto-loops here by design - every animated property in
+     this scene (reflection opacity, speaker glow, listener position, stereo
+     arc) is driven by a real parameter or meter value, not a CSS keyframe. */
+  .hero { position: relative; height: 452px; margin: 14px 24px 0; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
+  .hero-scene { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .hero-glow { position: absolute; inset: -20%; background: radial-gradient(circle at 50% 40%, var(--gold-dim), transparent 65%); opacity: 0.5; pointer-events: none; mix-blend-mode: screen; }
+  .hero-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.78) 100%); pointer-events: none; }
+  .hero-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.4); border: 1px solid var(--line); color: var(--text); font-size: 18px; cursor: pointer; z-index: 3; }
+  .hero-nav.prev { left: 16px; } .hero-nav.next { right: 16px; }
+  .hero-text { position: absolute; top: 28px; left: 0; right: 0; text-align: center; z-index: 2; }
+  .hero-icon { width: 26px; height: 26px; margin: 0 auto 6px; opacity: 0.9; }
+  .hero-icon svg { width: 100%; height: 100%; }
+  .hero-name { font-size: 38px; font-weight: 800; letter-spacing: 0.06em; text-shadow: 0 2px 12px rgba(0,0,0,0.6); }
+  .hero-descriptor { font-size: 13px; color: var(--gold-2); letter-spacing: 0.06em; margin-top: 6px; }
+  .hero-footer { position: absolute; bottom: 34px; left: 0; right: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 30px; }
+  .hero-legend { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 9px; letter-spacing: 0.08em; color: var(--text-dim); text-transform: uppercase; }
+  .legend-item svg { width: 13px; height: 13px; opacity: 0.85; flex-shrink: 0; }
+  .legend-item.listener { color: var(--gold-2); }
+  .legend-item.listener svg circle { fill: var(--gold-2); }
+  .position-pills { display: flex; gap: 8px; align-items: center; }
+  .position-pills-prefix { font-size: 9px; letter-spacing: 0.12em; color: var(--text-faint); margin-right: 2px; }
+  .pos-pill { background: rgba(0,0,0,0.4); border: 1px solid var(--line); border-radius: 999px; color: var(--text-dim); font-size: 10px; letter-spacing: 0.08em; padding: 7px 14px; cursor: pointer; }
+  .pos-pill.active { background: var(--gold); border-color: var(--gold); color: var(--bg); font-weight: 700; }
+  .pos-pill.fixed-pill { cursor: default; opacity: 0.6; font-style: italic; display: flex; align-items: center; gap: 5px; }
+  .hero-category { display: inline-block; margin-top: 14px; padding: 6px 16px; border-radius: 999px; background: rgba(0,0,0,0.5); border: 1px solid var(--line); font-size: 11px; letter-spacing: 0.12em; }
+  .hero-dots { position: absolute; bottom: 18px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; z-index: 2; }
+  .hero-dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.25); }
+  .hero-dots span.active { background: var(--gold); }
+  .listener-dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: var(--gold-2); box-shadow: 0 0 10px 3px var(--gold-dim); z-index: 2; transform: translate(-50%, -50%); transition: left 0.5s ease, top 0.5s ease; }
+  .speaker-glow { position: absolute; width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle, var(--gold-2), transparent 70%); opacity: 0.15; transform: translate(-50%, -50%) scale(0.7); z-index: 2; pointer-events: none; transition: opacity 0.08s linear, transform 0.08s linear; }
+  .stereo-arc { position: absolute; height: 1.5px; background: linear-gradient(90deg, transparent, var(--gold-2), transparent); z-index: 2; pointer-events: none; transform: translateY(-50%) scaleX(1); transform-origin: 50% 50%; transition: opacity 0.2s linear, transform 0.2s linear; }
+  .reflection { transition: opacity 0.3s linear; }
+
+  /* ---------- Knobs row ---------- */
+  .knob-row { display: flex; align-items: flex-start; gap: 26px; padding: 18px 24px; justify-content: center; }
+  .knob-unit { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .knob-title { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; }
+  .knob-unit.hero-control .knob-title { font-size: 13px; color: var(--gold-2); }
+  .knob-sub { font-size: 9px; letter-spacing: 0.12em; color: var(--text-faint); margin-top: -6px; }
+  .knob { position: relative; width: 74px; height: 74px; border-radius: 50%; cursor: ns-resize;
+    background: radial-gradient(circle at 38% 30%, #3c3c44 0%, #1c1c22 45%, #08080a 100%);
+    box-shadow: inset 0 2px 4px rgba(255,255,255,0.14), inset 0 -8px 14px rgba(0,0,0,0.75), 0 10px 18px rgba(0,0,0,0.5); }
+  .knob::before { content: ''; position: absolute; top: 8%; left: 22%; width: 34%; height: 22%; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,255,255,0.35), rgba(255,255,255,0)); filter: blur(1px); }
+  .knob-ring { position: absolute; inset: 2px; border-radius: 50%; border: 2.5px solid var(--gold); box-shadow: 0 0 10px var(--gold-dim); opacity: 0.9; }
+  .knob-pointer { position: absolute; top: 6px; left: 50%; width: 2px; height: 22px; background: var(--gold-2); border-radius: 1px; transform-origin: 50% 31px; box-shadow: 0 0 4px var(--gold-2); }
+  .knob-readout { font-size: 13px; font-weight: 700; color: var(--text); }
+  .knob.knob-hero { width: 96px; height: 96px; }
+  .knob.knob-hero .knob-ring { border-width: 3px; box-shadow: 0 0 16px var(--gold-dim); }
+  .knob.knob-hero .knob-pointer { height: 29px; transform-origin: 50% 42px; width: 2.5px; }
+  .knob-unit.hero-control .knob-readout { font-size: 16px; }
+  .enable-btn { align-self: center; margin-top: 26px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text-dim); font-size: 11px; letter-spacing: 0.1em; cursor: pointer; }
+  .enable-btn.active { color: var(--bg); background: var(--gold); border-color: var(--gold); }
+
+  /* ---------- Browser ---------- */
+  .category-tabs { display: flex; gap: 8px; padding: 0 24px 12px; }
+  .category-tabs button { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; color: var(--text-dim); font-size: 11px; letter-spacing: 0.1em; padding: 8px 18px; cursor: pointer; }
+  .category-tabs button.active { color: var(--bg); background: var(--gold); border-color: var(--gold); font-weight: 700; }
+  .card-row { flex: 1; display: flex; align-items: center; gap: 10px; padding: 0 24px 16px; }
+  .card-scroll { flex: 1; display: flex; gap: 14px; overflow: hidden; height: 100%; }
+  .env-card { position: relative; width: 100%; max-width: 248px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; overflow: hidden; flex-shrink: 0; flex-grow: 1; }
+  .env-card.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-dim); }
+  .env-card .scene { position: absolute; inset: 0; }
+  .env-card .card-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.05) 30%, rgba(0,0,0,0.85) 100%); }
+  .env-card .card-icon { position: absolute; top: 12px; left: 12px; width: 20px; height: 20px; opacity: 0.85; z-index: 2; }
+  .env-card .card-icon svg { width: 100%; height: 100%; }
+  .env-card .card-label { position: absolute; bottom: 34px; left: 14px; right: 14px; font-size: 15px; font-weight: 700; }
+  .env-card .card-desc { position: absolute; bottom: 12px; left: 14px; right: 14px; font-size: 10px; color: var(--text-dim); letter-spacing: 0.02em; }
+  .card-nav { width: 30px; height: 30px; border-radius: 50%; background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); cursor: pointer; }
+
+  /* ---------- Footer ---------- */
+  .footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 24px; border-top: 1px solid var(--line); font-size: 9px; letter-spacing: 0.12em; color: var(--text-faint); }
+  .footer-center { color: var(--gold-2); }
+
+  /* ---------- Sidebar ---------- */
+  .sb-toggle-row { display: flex; gap: 8px; }
+  .sb-toggle { flex: 1; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; display: flex; }
+  .sb-toggle button { flex: 1; background: var(--panel); border: none; color: var(--text-dim); font-size: 10px; letter-spacing: 0.08em; padding: 8px 0; cursor: pointer; }
+  .sb-toggle button.active { background: var(--gold); color: var(--bg); font-weight: 700; }
+  .level-match-btn { flex: 1.3; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text-dim); font-size: 10px; letter-spacing: 0.08em; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .level-match-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); }
+  .level-match-btn.active .dot { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+  .level-match-btn.active { color: var(--gold); }
+
+  .meter-block { border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .meter-cols { display: flex; gap: 14px; }
+  .meter-col-title { font-size: 10px; letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: 8px; text-align: center; }
+  .meter-bars { display: flex; gap: 3px; justify-content: center; height: 210px; }
+  .meter-bars .segs { display: flex; flex-direction: column-reverse; gap: 1px; width: 10px; }
+  .seg { width: 100%; height: 4px; background: #202026; border-radius: 1px; }
+  .seg.lit { background: linear-gradient(0deg, var(--gold), var(--gold-2)); }
+  .seg.lit.hot { background: linear-gradient(0deg, #ff8f6b, #e8543a); }
+  .lufs-block { text-align: center; margin: 10px 0; padding: 0 6px; }
+  .lufs-value { font-size: 20px; font-weight: 700; color: var(--gold-2); }
+  .lufs-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.1em; margin-top: 3px; }
+  .tp-row { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); letter-spacing: 0.08em; margin-top: 6px; }
+  .tp-row .val { color: var(--text); font-weight: 600; }
+
+  .correlation-block { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .correlation-title { font-size: 10px; letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: 8px; }
+  .correlation-track { position: relative; height: 6px; background: #202026; border-radius: 3px; }
+  .correlation-fill { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); border-radius: 3px; }
+  .correlation-marker { position: absolute; top: -3px; width: 2px; height: 12px; background: var(--text); border-radius: 1px; }
+  .correlation-scale { display: flex; justify-content: space-between; font-size: 9px; color: var(--text-faint); margin-top: 5px; }
+  .lm-readout { text-align: center; margin-top: 8px; font-size: 11px; color: var(--text-dim); }
+  .lm-readout .val { color: var(--gold-2); font-weight: 700; }
+
+  .utility-block { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .utility-title { font-size: 10px; letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: 8px; }
+  .utility-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .utility-grid button { padding: 10px 0; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--text-dim); font-size: 10px; letter-spacing: 0.06em; cursor: pointer; }
+  .utility-grid button.active { color: var(--bg); background: var(--gold); border-color: var(--gold); }
+
+  .trim-block { border: 1px solid var(--line); border-radius: 10px; padding: 14px; text-align: center; margin-top: auto; }
+  .trim-title { font-size: 10px; letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: 8px; }
+  .trim-readout { margin-top: 6px; font-size: 13px; }
+
+  /* ---------- Settings/Help popovers ---------- */
+  .popover { position: absolute; top: 44px; right: 0; width: 220px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px; z-index: 30; box-shadow: 0 12px 30px rgba(0,0,0,0.55); font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+  .popover.hidden { display: none; }
+  .popover h4 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.1em; color: var(--text); }
+  .popover-row { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="main-col">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo-box"><img src="n_logo.png" alt="" /></div>
+        <div class="brand-text">
+          <div class="wordmark">NOVA TRANSLATE</div>
+          <div class="tagline">MIX TRANSLATION ENVIRONMENT</div>
+        </div>
+      </div>
+      <div class="toolbar-center">
+        <div class="preset-nav">
+          <span class="label">PRESET:</span>
+          <span class="name" id="preset-name">Car Translation Check</span>
+          <button type="button" id="preset-prev">&#8249;</button>
+          <button type="button" id="preset-next">&#8250;</button>
+        </div>
+        <div class="ab-copy">
+          <button class="pill-btn active" id="ab-btn" type="button">A / B</button>
+          <button class="pill-btn" id="copy-btn" type="button">COPY</button>
+        </div>
+      </div>
+      <div class="header-right" style="position:relative;">
+        <button class="icon-btn wide" id="settings-btn" type="button">&#9881; SETTINGS</button>
+        <button class="icon-btn wide" id="help-btn" type="button">? HELP</button>
+        <button class="icon-btn wide" id="bypass-btn" type="button">&#9211; BYPASS</button>
+        <div class="popover hidden" id="settings-popover">
+          <h4>SETTINGS</h4>
+          <div class="popover-row"><span>Safe Render</span><button class="pill-btn active" id="safe-render-toggle" type="button" style="padding:4px 10px;">ON</button></div>
+        </div>
+        <div class="popover hidden" id="help-popover">
+          <h4>NOVA TRANSLATE</h4>
+          Monitoring FX &mdash; bypass before export.<br/>Insert last on the master bus, choose an environment, and correct your mix by ear.<br/><br/>v1.0.0 &middot; International Nova
+        </div>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="hero-scene" id="hero-scene"></div>
+      <div class="hero-glow"></div>
+      <div class="hero-markers" id="hero-markers"></div>
+      <div class="hero-overlay"></div>
+      <button class="hero-nav prev" id="hero-prev" type="button">&#8249;</button>
+      <button class="hero-nav next" id="hero-next" type="button">&#8250;</button>
+      <div class="hero-text">
+        <div class="hero-icon" id="hero-icon"></div>
+        <div class="hero-name" id="hero-name">SEDAN</div>
+        <div class="hero-descriptor" id="hero-descriptor">Mid-size Car &bull; Door Speakers &bull; Cabin Reflections</div>
+        <div class="hero-category" id="hero-category">CARS</div>
+      </div>
+      <div class="hero-footer">
+        <div class="hero-legend" id="hero-legend"></div>
+        <div class="position-pills" id="position-pills"></div>
+      </div>
+      <div class="hero-dots" id="hero-dots"></div>
+    </section>
+
+    <div class="knob-row">
+      <div class="knob-unit hero-control">
+        <div class="knob-title">ENVIRONMENT</div>
+        <div class="knob-sub">AMOUNT</div>
+        <div class="knob knob-hero" data-knob="environment_amount"><div class="knob-ring"></div><div class="knob-pointer" data-pointer="environment_amount"></div></div>
+        <div class="knob-readout" data-readout="environment_amount">100%</div>
+      </div>
+      <div class="knob-unit">
+        <div class="knob-title">ROOM</div>
+        <div class="knob-sub">AMOUNT</div>
+        <div class="knob" data-knob="room_amount"><div class="knob-ring"></div><div class="knob-pointer" data-pointer="room_amount"></div></div>
+        <div class="knob-readout" data-readout="room_amount">50%</div>
+      </div>
+      <div class="knob-unit">
+        <div class="knob-title">CHARACTER</div>
+        <div class="knob-sub">AMOUNT</div>
+        <div class="knob" data-knob="character_amount"><div class="knob-ring"></div><div class="knob-pointer" data-pointer="character_amount"></div></div>
+        <div class="knob-readout" data-readout="character_amount">60%</div>
+      </div>
+      <div class="knob-unit">
+        <div class="knob-title">NOISE</div>
+        <div class="knob-sub">AMOUNT</div>
+        <div class="knob" data-knob="noise_amount"><div class="knob-ring"></div><div class="knob-pointer" data-pointer="noise_amount"></div></div>
+        <div class="knob-readout" data-readout="noise_amount">OFF</div>
+      </div>
+      <button class="enable-btn" id="noise-enable-btn" type="button">ENABLE</button>
+    </div>
+
+    <nav class="category-tabs" id="category-tabs"></nav>
+    <div class="card-row">
+      <button class="card-nav" id="card-prev" type="button">&#8249;</button>
+      <div class="card-scroll" id="card-scroll"></div>
+      <button class="card-nav" id="card-next" type="button">&#8250;</button>
+    </div>
+
+    <footer class="footer">
+      <div>N &nbsp;NOVA AUDIO</div>
+      <div class="footer-center">HEAR EVERY PLACE. MIX WITH CONFIDENCE.</div>
+      <div>v1.0.0</div>
+    </footer>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sb-toggle-row">
+      <div class="sb-toggle" id="io-toggle">
+        <button data-view="IN" type="button">IN</button>
+        <button data-view="OUT" class="active" type="button">OUT</button>
+      </div>
+      <button class="level-match-btn" id="level-match-btn" type="button">LEVEL MATCH<span class="dot"></span></button>
+    </div>
+
+    <div class="meter-block">
+      <div class="meter-cols">
+        <div>
+          <div class="meter-col-title">INPUT</div>
+          <div class="meter-bars"><div class="segs" id="in-l"></div><div class="segs" id="in-r"></div></div>
+        </div>
+        <div class="lufs-block" style="flex:1;">
+          <div class="lufs-value" id="lufs-short">-14.2</div>
+          <div class="lufs-label">SHORT TERM</div>
+          <div class="lufs-value" id="lufs-integrated" style="margin-top:18px;">-13.8</div>
+          <div class="lufs-label">INTEGRATED</div>
+        </div>
+        <div>
+          <div class="meter-col-title">OUTPUT</div>
+          <div class="meter-bars"><div class="segs" id="out-l"></div><div class="segs" id="out-r"></div></div>
+        </div>
+      </div>
+      <div class="tp-row"><span>TRUE PEAK</span><span class="val" id="true-peak">-1.1 dBTP</span></div>
+    </div>
+
+    <div class="correlation-block">
+      <div class="correlation-title">CORRELATION</div>
+      <div class="correlation-track"><div class="correlation-fill" id="correlation-fill"></div><div class="correlation-marker" id="correlation-marker"></div></div>
+      <div class="correlation-scale"><span>-1</span><span>+1</span></div>
+    </div>
+
+    <div class="utility-block">
+      <div class="utility-title">UTILITY</div>
+      <div class="utility-grid">
+        <button data-utility="mono_enabled" type="button">MONO</button>
+        <button data-utility="dim_enabled" type="button">DIM<br/>-12dB</button>
+        <button data-utility="left_only" type="button">LEFT</button>
+        <button data-utility="right_only" type="button">RIGHT</button>
+        <button data-utility="mid_only" type="button">MID</button>
+        <button data-utility="side_only" type="button">SIDE</button>
+        <button data-utility="phase_invert" type="button" style="grid-column: span 3;">&#8709; PHASE INVERT</button>
+      </div>
+    </div>
+
+    <div class="correlation-block">
+      <div class="correlation-title">LEVEL-MATCH COMPENSATION</div>
+      <div class="lm-readout"><span class="val" id="lm-compensation">0.0 dB</span></div>
+    </div>
+
+    <div class="trim-block">
+      <div class="trim-title">OUTPUT TRIM</div>
+      <div class="knob" id="trim-knob" style="width:64px;height:64px;margin:0 auto;"><div class="knob-ring"></div><div class="knob-pointer" id="trim-pointer" style="transform-origin:50% 27px;"></div></div>
+      <div class="trim-readout" id="trim-readout">0.0 dB</div>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+(() => {
+  //=========================================================================
+  // JUCE web bridge (same pattern used across the Nova plugin line)
+  //=========================================================================
+  function juceAvailable() {
+    return !!(window.__JUCE__ && window.__JUCE__.backend && typeof window.__JUCE__.backend.emitEvent === 'function');
+  }
+
+  function createSliderState(parameterId) {
+    if (!juceAvailable()) return null;
+    const backend = window.__JUCE__.backend;
+    const eventId = `__juce__slider${parameterId}`;
+    const listeners = [];
+
+    const state = {
+      scaledValue: 0,
+      props: { start: 0, end: 1, interval: 0 },
+      getNormalisedValue() {
+        const range = state.props.end - state.props.start;
+        if (Math.abs(range) < 1.0e-9) return 0;
+        return clamp((state.scaledValue - state.props.start) / range, 0, 1);
+      },
+      setNormalisedValue(v) {
+        const n = clamp(v, 0, 1);
+        const start = state.props.start;
+        const end = state.props.end;
+        const interval = state.props.interval;
+        let scaled = start + n * (end - start);
+        if (interval > 0) scaled = Math.round(scaled / interval) * interval;
+        state.scaledValue = scaled;
+        backend.emitEvent(eventId, { eventType: 'valueChanged', value: scaled });
+      },
+      gestureStart() { backend.emitEvent(eventId, { eventType: 'sliderDragStarted' }); },
+      gestureEnd() { backend.emitEvent(eventId, { eventType: 'sliderDragEnded' }); },
+      addListener(fn) { listeners.push(fn); }
+    };
+
+    backend.addEventListener(eventId, (ev) => {
+      if (!ev) return;
+      if (ev.eventType === 'valueChanged' && typeof ev.value === 'number') {
+        state.scaledValue = ev.value;
+        const n = state.getNormalisedValue();
+        listeners.forEach((cb) => cb(n));
+        return;
+      }
+      if (ev.eventType === 'propertiesChanged') {
+        Object.keys(ev).forEach((k) => { if (k !== 'eventType') state.props[k] = ev[k]; });
+      }
+    });
+
+    backend.emitEvent(eventId, { eventType: 'requestInitialUpdate' });
+    return state;
+  }
+
+  function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+  function lerp(a, b, t) { return a + (b - a) * clamp(t, 0, 1); }
+
+  //=========================================================================
+  // Parameters
+  //=========================================================================
+  const ranges = {
+    environment_id: { min: 0, max: 11 },
+    environment_amount: { min: 0, max: 100 },
+    position: { min: 0, max: 3 },
+    room_amount: { min: 0, max: 100 },
+    character_amount: { min: 0, max: 100 },
+    noise_amount: { min: 0, max: 100 },
+    noise_enabled: { min: 0, max: 1 },
+    level_match_enabled: { min: 0, max: 1 },
+    output_trim: { min: -12, max: 12 },
+    mono_enabled: { min: 0, max: 1 },
+    left_only: { min: 0, max: 1 },
+    right_only: { min: 0, max: 1 },
+    mid_only: { min: 0, max: 1 },
+    side_only: { min: 0, max: 1 },
+    dim_enabled: { min: 0, max: 1 },
+    phase_invert: { min: 0, max: 1 },
+    bypass: { min: 0, max: 1 },
+    safe_render_enabled: { min: 0, max: 1 }
+  };
+
+  const sliderStates = {};
+  Object.keys(ranges).forEach((id) => { sliderStates[id] = createSliderState(id); });
+
+  function writeParam(id, realValue, emit) {
+    const st = sliderStates[id];
+    if (!emit || !st) return;
+    const r = ranges[id];
+    st.setNormalisedValue((realValue - r.min) / (r.max - r.min));
+  }
+
+  //=========================================================================
+  // Environment library (only the 4 implemented in this phase - matches
+  // EnvironmentLibrary::Id in PluginProcessorCore/EnvironmentProfiles.hpp)
+  //=========================================================================
+  const ENVIRONMENTS = [
+    { index: 0,  name: 'Nova Main Room', category: 'STUDIOS',  descriptor: 'Large professional control room • Full-range • Controlled reflections', scene: 'studio',
+      traits: ['Nearfield Monitors', 'Acoustic Treatment', 'Flat Response', 'Minimal Reflections'] },
+    { index: 4,  name: 'Sedan',          category: 'CARS',     descriptor: 'Mid-size Car • Door Speakers • Cabin Reflections',                    scene: 'car',
+      traits: ['Dashboard', 'Windshield', 'Door Speakers', 'Cabin Reflections'] },
+    { index: 6,  name: 'Smartphone',     category: 'CONSUMER', descriptor: 'Mono • Strong Low Cutoff • Upper-Mid Emphasis',                        scene: 'phone',
+      traits: ['Single Driver', 'Bottom-Firing', 'Compressed Dynamics', 'No Stereo Field'] },
+    { index: 11, name: 'Mono Cube',      category: 'UTILITY',  descriptor: 'Mono • Band-Limited • Midrange-Focused Balance Check',                 scene: 'cube',
+      traits: ['Single Driver', 'Desktop Placement', 'Mono Fold-Down', 'Balance Reference'] }
+  ];
+  const CATEGORIES = [...new Set(ENVIRONMENTS.map((e) => e.category))];
+  // 4 generic base slots - matches the real ParameterIDs::positionNames /
+  // AudioParameterChoice exactly (automation-lane names). The UI shows
+  // category-specific labels over these same 4 indices - see
+  // SCENE_MARKERS[scene].positionLabels below.
+  const POSITION_NAMES = ['Center', 'Left', 'Right', 'Rear'];
+
+  // Compact monochrome glyphs (hero icon + card icon) - line art, matching
+  // scene style rather than emoji, to stay on the single-accent-color identity.
+  const ICONS = {
+    studio: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="20" height="20" rx="2"/><circle cx="11" cy="11" r="2.2"/><circle cx="21" cy="11" r="2.2"/><rect x="12" y="20" width="8" height="4" rx="1"/></svg>`,
+    car: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="10" y="5" width="12" height="22" rx="5"/><path d="M11.5 10 Q16 6.5 20.5 10"/></svg>`,
+    phone: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="11" y="4" width="10" height="24" rx="2.5"/><path d="M14 24 h4"/></svg>`,
+    cube: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="9" y="7" width="14" height="18" rx="2"/><circle cx="16" cy="13" r="3"/><circle cx="16" cy="20" r="1.8"/></svg>`
+  };
+
+  // Legend-row glyphs (speaker vs listener), shared across every scene.
+  const LEGEND_ICONS = {
+    speaker: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="6" y="4" width="8" height="12" rx="2"/><circle cx="10" cy="8" r="1.8"/><circle cx="10" cy="12.5" r="1.1"/></svg>`,
+    listener: `<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="3.5"/></svg>`
+  };
+
+  // Per-scene spatial data: a modular "scene module" pattern so adding a new
+  // environment later (SUV, club, laptop, ...) means adding one new entry
+  // here + one new SCENES key, nothing else. Each scene defines its own:
+  //  - listener: base "you are here" point (percent of the hero container)
+  //  - nudge: 4 deltas (one per POSITION_NAMES/positionLabels index) applied
+  //    to the base point, landing on sensible seats/spots for THIS scene's
+  //    own top-down layout (a car's seats aren't a room's off-axis spots,
+  //    so nudges - and their display labels - are per-scene, not shared).
+  //  - speakers: labeled, real-ish speaker locations; pulse with output
+  //    level and feed the legend row.
+  //  - positionApplies / positionLabels: mirrors
+  //    EnvironmentProfile::positionApplies in EnvironmentProfiles.hpp
+  //    (false for Smartphone/Mono Cube - the DSP itself ignores `position`
+  //    for those two) so the UI doesn't imply a control does something it
+  //    doesn't; positionLabels is null when positionApplies is false.
+  //
+  //    positionLabels here is only the PREVIEW-MODE fallback (used when
+  //    there's no real JUCE backend, e.g. this file opened directly in a
+  //    browser for iteration) - kept in sync BY HAND with the real source of
+  //    truth, EnvironmentProfile::positions in EnvironmentProfiles.hpp. When
+  //    actually running inside the plugin, PluginEditor pushes the real
+  //    labels via window.updatePositionOptions() and those always win - see
+  //    activePositionLabels below.
+  const SCENE_MARKERS = {
+    studio: {
+      listener: { x: 50, y: 70.3 }, positionApplies: true,
+      positionLabels: ['Sweet Spot', 'Engineer Left', 'Engineer Right', 'Client Sofa'],
+      speakers: [
+        { x: 28.1, y: 17.2, label: 'Left Main' },
+        { x: 71.9, y: 17.2, label: 'Right Main' },
+        { x: 50, y: 58, label: 'Subwoofer' },
+        { x: 36.25, y: 37.5, label: 'Left Nearfield' },
+        { x: 63.75, y: 37.5, label: 'Right Nearfield' }
+      ],
+      nudge: [ { dx: 0, dy: 0 }, { dx: -8, dy: 0 }, { dx: 8, dy: 0 }, { dx: 0, dy: 16 } ]
+    },
+    car: {
+      listener: { x: 50, y: 51.6 }, positionApplies: true,
+      positionLabels: ['Driver', 'Front Passenger', 'Rear Left', 'Rear Right'],
+      speakers: [
+        { x: 26.75, y: 33.75, label: 'Front Left' },
+        { x: 73.25, y: 33.75, label: 'Front Right' },
+        { x: 50, y: 19.4, label: 'Dashboard' },
+        { x: 26.75, y: 71.25, label: 'Rear Left' },
+        { x: 73.25, y: 71.25, label: 'Rear Right' }
+      ],
+      nudge: [ { dx: -15, dy: 0 }, { dx: 15, dy: 0 }, { dx: -10, dy: 27 }, { dx: 10, dy: 27 } ]
+    },
+    phone: {
+      listener: { x: 50, y: 60 }, positionApplies: false, positionLabels: null,
+      speakers: [
+        { x: 50, y: 15.9, label: 'Top Speaker' },
+        { x: 50, y: 85.6, label: 'Bottom Speaker' }
+      ],
+      nudge: [ { dx: 0, dy: 0 }, { dx: 0, dy: 0 }, { dx: 0, dy: 0 }, { dx: 0, dy: 0 } ]
+    },
+    cube: {
+      listener: { x: 50, y: 71.9 }, positionApplies: false, positionLabels: null,
+      speakers: [{ x: 50, y: 34.4, label: 'Speaker' }],
+      nudge: [ { dx: 0, dy: 0 }, { dx: 0, dy: 0 }, { dx: 0, dy: 0 }, { dx: 0, dy: 0 } ]
+    }
+  };
+
+  // Top-down / bird's-eye line-art scenes (wide 2.5:1 viewBox matching the
+  // hero's own aspect ratio, so percent-based marker placement above lines up
+  // with the actual drawn geometry). Not photoreal - see plan's capability
+  // note; one consistent thin-gold-line visual language across all scenes so
+  // new environment modules stay visually unified with these four.
+  // `reflection`-classed elements get a slow ambient pulse (CSS).
+  // Shared "sound wave" ring motif - static (non-animated; real audio
+  // reactivity lives on the .speaker-glow overlay markers, not here) dotted
+  // concentric circles at a given speaker's coordinates, matching the
+  // reference art direction's emanating-rings-around-each-speaker look.
+  function soundRings (cx, cy) {
+    return `<circle cx="${cx}" cy="${cy}" r="26" stroke-dasharray="2 5" opacity="0.22"/>` +
+           `<circle cx="${cx}" cy="${cy}" r="44" stroke-dasharray="2 6" opacity="0.14"/>`;
+  }
+
+  const SCENES = {
+    studio: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+      <rect width="800" height="320" fill="#141319"/>
+      <rect width="800" height="320" fill="url(#g1)"/>
+      <defs><radialGradient id="g1" cx="50%" cy="30%" r="75%"><stop offset="0%" stop-color="#2c2721"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
+      <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.55">
+        <rect x="140" y="20" width="520" height="270" rx="10"/>
+        <rect x="155" y="110" width="14" height="60" rx="2" class="reflection" opacity="0.3"/>
+        <rect x="631" y="110" width="14" height="60" rx="2" class="reflection" opacity="0.3"/>
+        <path class="reflection" d="M400 145 v20 M390 155 h20" opacity="0.35"/>
+      </g>
+      <g stroke="#e8c064" stroke-width="1" fill="none">
+        ${soundRings(225, 55)}${soundRings(575, 55)}${soundRings(400, 186)}${soundRings(290, 120)}${soundRings(510, 120)}
+      </g>
+      <g stroke="#e8c064" stroke-width="1.8" fill="none" opacity="0.7">
+        <rect x="205" y="40" width="40" height="30" rx="4"/>
+        <rect x="555" y="40" width="40" height="30" rx="4"/>
+        <circle cx="290" cy="120" r="20"/>
+        <circle cx="290" cy="120" r="7"/>
+        <circle cx="510" cy="120" r="20"/>
+        <circle cx="510" cy="120" r="7"/>
+        <rect x="385" y="172" width="30" height="28" rx="3"/>
+        <circle cx="400" cy="186" r="9"/>
+        <rect x="310" y="185" width="180" height="55" rx="6"/>
+        <path d="M310 185 h180" opacity="0.4"/>
+      </g>
+    </svg>`,
+    car: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+      <rect width="800" height="320" fill="#141319"/>
+      <rect width="800" height="320" fill="url(#g2)"/>
+      <defs><radialGradient id="g2" cx="50%" cy="30%" r="80%"><stop offset="0%" stop-color="#26201a"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
+      <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.55">
+        <path class="reflection" d="M220 30 Q400 4 580 30" opacity="0.5"/>
+        <rect x="180" y="30" width="440" height="260" rx="30"/>
+        <rect x="250" y="130" width="60" height="70" rx="14" opacity="0.6"/>
+        <rect x="490" y="130" width="60" height="70" rx="14" opacity="0.6"/>
+        <rect x="260" y="225" width="280" height="55" rx="16" opacity="0.6"/>
+      </g>
+      <g stroke="#e8c064" stroke-width="1" fill="none">
+        ${soundRings(214, 108)}${soundRings(586, 108)}${soundRings(400, 62)}${soundRings(214, 228)}${soundRings(586, 228)}
+      </g>
+      <g stroke="#e8c064" stroke-width="1.8" fill="none" opacity="0.7">
+        <rect x="372" y="55" width="56" height="14" rx="4"/>
+        <rect x="205" y="95" width="18" height="26" rx="3"/>
+        <rect x="577" y="95" width="18" height="26" rx="3"/>
+        <rect x="205" y="215" width="18" height="26" rx="3"/>
+        <rect x="577" y="215" width="18" height="26" rx="3"/>
+      </g>
+    </svg>`,
+    phone: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+      <rect width="800" height="320" fill="#141319"/>
+      <rect width="800" height="320" fill="url(#g3)"/>
+      <defs><radialGradient id="g3" cx="50%" cy="34%" r="70%"><stop offset="0%" stop-color="#1e2024"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient>
+      <radialGradient id="g3b" cx="50%" cy="45%" r="60%"><stop offset="0%" stop-color="#e8c064" stop-opacity="0.16"/><stop offset="100%" stop-color="#e8c064" stop-opacity="0"/></radialGradient></defs>
+      <g stroke="#e8c064" stroke-width="1" fill="none">
+        ${soundRings(400, 51)}${soundRings(400, 274)}
+      </g>
+      <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.6">
+        <rect x="340" y="35" width="120" height="250" rx="18"/>
+        <rect x="352" y="50" width="96" height="200" rx="10" fill="url(#g3b)" class="reflection"/>
+        <rect x="384" y="48" width="32" height="6" rx="3" opacity="0.5"/>
+        <rect x="380" y="270" width="40" height="8" rx="4"/>
+      </g>
+    </svg>`,
+    cube: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+      <rect width="800" height="320" fill="#141319"/>
+      <rect width="800" height="320" fill="url(#g4)"/>
+      <defs><radialGradient id="g4" cx="50%" cy="32%" r="70%"><stop offset="0%" stop-color="#201f22"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
+      <g stroke="#e8c064" stroke-width="1.2" fill="none" opacity="0.3">
+        <path class="reflection" d="M400 150 v80"/>
+      </g>
+      <g stroke="#e8c064" stroke-width="1" fill="none">
+        ${soundRings(400, 110)}
+      </g>
+      <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.65">
+        <rect x="360" y="70" width="80" height="80" rx="4"/>
+        <circle cx="400" cy="110" r="22"/>
+      </g>
+    </svg>`
+  };
+
+  //=========================================================================
+  // Knobs (generic vertical-drag binding, shared by all real-time controls)
+  //=========================================================================
+  function setKnobVisual(paramId, pct) {
+    const el = document.querySelector(`[data-pointer="${paramId}"]`);
+    if (el) el.style.transform = `rotate(${-135 + (pct / 100) * 270}deg)`;
+  }
+
+  function bindKnobDrag(el, getVal, setVal, sensitivity) {
+    let drag = null;
+    el.addEventListener('pointerdown', (ev) => {
+      el.setPointerCapture(ev.pointerId);
+      drag = { startY: ev.clientY, startVal: getVal() };
+    });
+    window.addEventListener('pointermove', (ev) => {
+      if (!drag) return;
+      setVal(drag.startVal + (drag.startY - ev.clientY) * sensitivity);
+    });
+    window.addEventListener('pointerup', () => { drag = null; });
+  }
+
+  const state = {
+    environment_amount: 100, room_amount: 50, character_amount: 60, noise_amount: 0,
+    position: 0, output_trim: 0, noiseEnabled: false
+  };
+
+  function setPercentParam(id, value, emit) {
+    const v = clamp(value, 0, 100);
+    state[id] = v;
+    setKnobVisual(id, v);
+    const readout = document.querySelector(`[data-readout="${id}"]`);
+    if (readout) readout.textContent = (id === 'noise_amount' && v < 1 && !state.noiseEnabled) ? 'OFF' : `${Math.round(v)}%`;
+    if (id === 'room_amount') applyRoomReflectionIntensity();
+    writeParam(id, v, emit);
+  }
+
+  ['environment_amount', 'room_amount', 'character_amount', 'noise_amount'].forEach((id) => {
+    const el = document.querySelector(`[data-knob="${id}"]`);
+    bindKnobDrag(el, () => state[id], (v) => setPercentParam(id, v, true), 100 / 200);
+  });
+
+  // Position is a row of pill buttons in the hero card (renderPositionControl,
+  // defined below), same real `position` parameter (0..3) underneath -
+  // labeled per-category (Driver/Passenger/... for cars, Center/Left/... for
+  // studios). A single locked "Fixed Position" pill replaces the row for
+  // scenes where EnvironmentProfile's positionApplies is false (Smartphone,
+  // Mono Cube) - the DSP itself ignores `position` there, so the UI
+  // shouldn't imply otherwise.
+  function setPosition(index, emit) {
+    state.position = index;
+    renderPositionControl();
+    renderHeroMarkers();
+    writeParam('position', index, emit);
+  }
+
+  // Trim knob.
+  const trimKnob = document.getElementById('trim-knob');
+  const trimPointer = document.getElementById('trim-pointer');
+  const trimReadout = document.getElementById('trim-readout');
+  function setTrim(value, emit) {
+    state.output_trim = clamp(value, -12, 12);
+    trimPointer.style.transform = `rotate(${-135 + ((state.output_trim + 12) / 24) * 270}deg)`;
+    trimReadout.textContent = `${state.output_trim >= 0 ? '+' : ''}${state.output_trim.toFixed(1)} dB`;
+    writeParam('output_trim', state.output_trim, emit);
+  }
+  bindKnobDrag(trimKnob, () => state.output_trim, (v) => setTrim(v, true), 24 / 200);
+
+  // Noise enable.
+  const noiseEnableBtn = document.getElementById('noise-enable-btn');
+  function setNoiseEnabled(on, emit) {
+    state.noiseEnabled = on;
+    noiseEnableBtn.classList.toggle('active', on);
+    setPercentParam('noise_amount', state.noise_amount, false);
+    writeParam('noise_enabled', on ? 1 : 0, emit);
+  }
+  noiseEnableBtn.addEventListener('click', () => setNoiseEnabled(!state.noiseEnabled, true));
+  if (sliderStates.noise_enabled) sliderStates.noise_enabled.addListener((n) => setNoiseEnabled(n > 0.5, false));
+
+  //=========================================================================
+  // Environment selection: hero + cards + category tabs
+  //=========================================================================
+  const heroScene = document.getElementById('hero-scene');
+  const heroName = document.getElementById('hero-name');
+  const heroDescriptor = document.getElementById('hero-descriptor');
+  const heroCategory = document.getElementById('hero-category');
+  const heroDots = document.getElementById('hero-dots');
+  const categoryTabsEl = document.getElementById('category-tabs');
+  const cardScroll = document.getElementById('card-scroll');
+
+  let currentEnvPos = 0; // index into ENVIRONMENTS
+  let activeCategory = null;
+
+  function renderDots() {
+    heroDots.innerHTML = '';
+    ENVIRONMENTS.forEach((_, i) => {
+      const d = document.createElement('span');
+      if (i === currentEnvPos) d.className = 'active';
+      heroDots.appendChild(d);
+    });
+  }
+
+  function renderCategoryTabs() {
+    categoryTabsEl.innerHTML = '';
+    CATEGORIES.forEach((cat) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = cat;
+      btn.className = cat === activeCategory ? 'active' : '';
+      btn.addEventListener('click', () => { activeCategory = cat; renderCategoryTabs(); renderCards(); });
+      categoryTabsEl.appendChild(btn);
+    });
+  }
+
+  function renderCards() {
+    cardScroll.innerHTML = '';
+    const list = ENVIRONMENTS.filter((e) => !activeCategory || e.category === activeCategory);
+    list.forEach((env) => {
+      const card = document.createElement('div');
+      card.className = 'env-card' + (env.index === ENVIRONMENTS[currentEnvPos].index ? ' active' : '');
+      card.innerHTML = `<div class="scene">${SCENES[env.scene]}</div><div class="card-shade"></div>` +
+        `<div class="card-icon">${ICONS[env.scene]}</div>` +
+        `<div class="card-label">${env.name}</div><div class="card-desc">${env.category.charAt(0)}${env.category.slice(1).toLowerCase()} &bull; ${env.traits[0]}</div>`;
+      card.addEventListener('click', () => selectEnvironment(ENVIRONMENTS.indexOf(env), true));
+      cardScroll.appendChild(card);
+    });
+  }
+
+  const heroMarkers = document.getElementById('hero-markers');
+  const heroIcon = document.getElementById('hero-icon');
+  const heroLegend = document.getElementById('hero-legend');
+  const positionPills = document.getElementById('position-pills');
+
+  // Reflection linework opacity echoes the real Room Amount parameter -
+  // more room contribution in the DSP, more visible reflections in the scene.
+  function applyRoomReflectionIntensity() {
+    const factor = clamp(state.room_amount / 100, 0, 1);
+    heroScene.querySelectorAll('.reflection').forEach((el) => {
+      el.style.opacity = (0.12 + factor * 0.55).toFixed(2);
+    });
+  }
+
+  // Stereo-field arc opacity/width echoes the real, measured output
+  // correlation telemetry (not a fake decorative loop) - narrower/dimmer
+  // as the signal becomes more correlated (mono-like), fuller when wide.
+  let lastCorrelation = 1;
+  function applyStereoFieldWidth() {
+    const arc = document.getElementById('stereo-arc');
+    if (!arc) return;
+    const widthFactor = clamp(1 - (lastCorrelation + 1) / 2, 0, 1);
+    arc.style.opacity = (0.15 + widthFactor * 0.6).toFixed(2);
+    arc.style.transform = `translateY(-50%) scaleX(${(0.4 + widthFactor * 0.6).toFixed(2)})`;
+  }
+
+  function renderHeroMarkers() {
+    const env = ENVIRONMENTS[currentEnvPos];
+    const m = SCENE_MARKERS[env.scene];
+    const supportsPosition = activePositionOptions ? activePositionOptions.supportsPosition : m.positionApplies;
+    const nudge = supportsPosition ? (m.nudge[state.position] || m.nudge[0]) : m.nudge[0];
+    heroMarkers.innerHTML = '';
+    const listener = document.createElement('div');
+    listener.className = 'listener-dot';
+    listener.style.left = `${clamp(m.listener.x + nudge.dx, 4, 96)}%`;
+    listener.style.top = `${clamp(m.listener.y + nudge.dy, 4, 96)}%`;
+    heroMarkers.appendChild(listener);
+    m.speakers.forEach((sp) => {
+      const glow = document.createElement('div');
+      glow.className = 'speaker-glow';
+      glow.dataset.speaker = '1';
+      glow.style.left = `${sp.x}%`;
+      glow.style.top = `${sp.y}%`;
+      heroMarkers.appendChild(glow);
+    });
+    // Stereo field arc between the front/main L-R pair (index 0/1 in every
+    // scene's speakers list - see SCENE_MARKERS), only meaningful when the
+    // scene has one (mono single-speaker scenes correctly show no arc).
+    if (m.speakers.length >= 2) {
+      const left = m.speakers[0], right = m.speakers[1];
+      const arc = document.createElement('div');
+      arc.className = 'stereo-arc';
+      arc.id = 'stereo-arc';
+      arc.style.left = `${Math.min(left.x, right.x)}%`;
+      arc.style.top = `${(left.y + right.y) / 2}%`;
+      arc.style.width = `${Math.abs(right.x - left.x)}%`;
+      heroMarkers.appendChild(arc);
+      applyStereoFieldWidth();
+    }
+    applyRoomReflectionIntensity();
+  }
+
+  // Legend row: one icon+label per real speaker marker in the current
+  // scene, plus a final "Listener" entry - directly documents what the
+  // diagram is showing, not generic marketing copy.
+  function renderLegend() {
+    const env = ENVIRONMENTS[currentEnvPos];
+    const m = SCENE_MARKERS[env.scene];
+    const items = m.speakers.map((sp) =>
+      `<div class="legend-item">${LEGEND_ICONS.speaker}<span>${sp.label}</span></div>`);
+    items.push(`<div class="legend-item listener">${LEGEND_ICONS.listener}<span>Listener</span></div>`);
+    heroLegend.innerHTML = items.join('');
+  }
+
+  // Real position data pushed live from C++ (PluginEditor::
+  // sendPositionOptionsIfChanged(), sourced from EnvironmentProfile::
+  // positions in EnvironmentProfiles.hpp - the single real source of
+  // truth). Null until the first push arrives (or forever, in the
+  // no-JUCE-backend browser-preview case), in which case
+  // currentPositionInfo() falls back to SCENE_MARKERS' hardcoded preview
+  // data further below.
+  let activePositionOptions = null;
+  window.updatePositionOptions = function (supportsPosition, labels, defaultIndex) {
+    activePositionOptions = { supportsPosition, labels, defaultIndex };
+    // If the currently-stored position index doesn't exist for this
+    // environment (e.g. a preset/automation value recalled against an
+    // environment with more positions than this one), correct it to this
+    // environment's own explicit default - mirrors the same clamp-to-default
+    // the DSP itself applies (see EnvironmentChain::process), so the UI and
+    // the audio never disagree about which position is actually in effect.
+    if (supportsPosition && (state.position < 0 || state.position >= labels.length)) {
+      setPosition(defaultIndex, true);
+      return; // setPosition() already re-renders
+    }
+    renderPositionControl();
+    renderHeroMarkers();
+  };
+
+  function currentPositionInfo() {
+    const env = ENVIRONMENTS[currentEnvPos];
+    const m = SCENE_MARKERS[env.scene];
+    if (activePositionOptions) return activePositionOptions;
+    return { supportsPosition: m.positionApplies, labels: m.positionLabels || [] };
+  }
+
+  // Position control: a row of pill buttons, labels sourced live from the
+  // real EnvironmentProfile (see currentPositionInfo above) - never
+  // hardcoded per-category in this file. A single locked pill when the
+  // profile's supportsPosition is false (Smartphone, Mono Cube) - the DSP
+  // ignores `position` there.
+  function renderPositionControl() {
+    const info = currentPositionInfo();
+    positionPills.innerHTML = '';
+    if (!info.supportsPosition) {
+      const pill = document.createElement('div');
+      pill.className = 'pos-pill fixed-pill';
+      pill.innerHTML = '&#128274; Fixed Position';
+      positionPills.appendChild(pill);
+      return;
+    }
+    info.labels.forEach((label, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pos-pill' + (i === state.position ? ' active' : '');
+      btn.textContent = label;
+      btn.addEventListener('click', () => setPosition(i, true));
+      positionPills.appendChild(btn);
+    });
+  }
+
+  function selectEnvironment(pos, emit) {
+    currentEnvPos = ((pos % ENVIRONMENTS.length) + ENVIRONMENTS.length) % ENVIRONMENTS.length;
+    // Drop any cached real position data from the PREVIOUS environment - the
+    // next timerCallback tick (up to ~33ms away) will push the correct
+    // environment's data; until then, fall back to this environment's own
+    // preview labels (SCENE_MARKERS) rather than briefly showing the old
+    // environment's labels.
+    activePositionOptions = null;
+    const env = ENVIRONMENTS[currentEnvPos];
+    heroScene.innerHTML = SCENES[env.scene];
+    heroIcon.innerHTML = ICONS[env.scene];
+    heroName.textContent = env.name.toUpperCase();
+    heroDescriptor.textContent = env.descriptor;
+    heroCategory.textContent = env.category;
+    activeCategory = env.category;
+    renderDots();
+    renderCategoryTabs();
+    renderCards();
+    renderHeroMarkers();
+    renderLegend();
+    renderPositionControl();
+    writeParam('environment_id', env.index, emit);
+  }
+
+  document.getElementById('hero-prev').addEventListener('click', () => selectEnvironment(currentEnvPos - 1, true));
+  document.getElementById('hero-next').addEventListener('click', () => selectEnvironment(currentEnvPos + 1, true));
+
+  //=========================================================================
+  // Preset (informational cycling for this phase - full preset system later)
+  //=========================================================================
+  const PRESETS = [
+    { name: 'Car Translation Check', envPos: 1, environment_amount: 75, room_amount: 40, character_amount: 60 },
+    { name: 'Studio Reality Check', envPos: 0, environment_amount: 60, room_amount: 20, character_amount: 20 },
+    { name: 'Phone Test', envPos: 2, environment_amount: 100, room_amount: 10, character_amount: 70 },
+    { name: 'Mono Balance', envPos: 3, environment_amount: 100, room_amount: 15, character_amount: 30 }
+  ];
+  let presetIndex = 0;
+  const presetNameEl = document.getElementById('preset-name');
+  function applyPreset(idx) {
+    presetIndex = ((idx % PRESETS.length) + PRESETS.length) % PRESETS.length;
+    const preset = PRESETS[presetIndex];
+    presetNameEl.textContent = preset.name;
+    selectEnvironment(preset.envPos, true);
+    setPercentParam('environment_amount', preset.environment_amount, true);
+    setPercentParam('room_amount', preset.room_amount, true);
+    setPercentParam('character_amount', preset.character_amount, true);
+  }
+  document.getElementById('preset-prev').addEventListener('click', () => applyPreset(presetIndex - 1));
+  document.getElementById('preset-next').addEventListener('click', () => applyPreset(presetIndex + 1));
+
+  //=========================================================================
+  // A/B, Copy
+  //=========================================================================
+  let slotA = null, slotB = null, currentSlot = 'A';
+  const abBtn = document.getElementById('ab-btn');
+  const copyBtn = document.getElementById('copy-btn');
+  function snapshotCurrent() {
+    return { envPos: currentEnvPos, environment_amount: state.environment_amount, room_amount: state.room_amount,
+             character_amount: state.character_amount, noise_amount: state.noise_amount, position: state.position };
+  }
+  function applySnapshot(snap) {
+    if (!snap) return;
+    selectEnvironment(snap.envPos, true);
+    setPercentParam('environment_amount', snap.environment_amount, true);
+    setPercentParam('room_amount', snap.room_amount, true);
+    setPercentParam('character_amount', snap.character_amount, true);
+    setPercentParam('noise_amount', snap.noise_amount, true);
+    setPosition(snap.position, true);
+  }
+  slotA = snapshotCurrent();
+  abBtn.addEventListener('click', () => {
+    if (currentSlot === 'A') { slotA = snapshotCurrent(); currentSlot = 'B'; abBtn.textContent = 'B / A'; applySnapshot(slotB || slotA); }
+    else { slotB = snapshotCurrent(); currentSlot = 'A'; abBtn.textContent = 'A / B'; applySnapshot(slotA); }
+  });
+  copyBtn.addEventListener('click', () => { const s = snapshotCurrent(); if (currentSlot === 'A') slotB = s; else slotA = s; });
+
+  //=========================================================================
+  // Settings / Help popovers, Bypass, Safe Render
+  //=========================================================================
+  const settingsPopover = document.getElementById('settings-popover');
+  const helpPopover = document.getElementById('help-popover');
+  document.getElementById('settings-btn').addEventListener('click', () => { helpPopover.classList.add('hidden'); settingsPopover.classList.toggle('hidden'); });
+  document.getElementById('help-btn').addEventListener('click', () => { settingsPopover.classList.add('hidden'); helpPopover.classList.toggle('hidden'); });
+  document.addEventListener('click', (ev) => {
+    if (!settingsPopover.contains(ev.target) && ev.target.id !== 'settings-btn') settingsPopover.classList.add('hidden');
+    if (!helpPopover.contains(ev.target) && ev.target.id !== 'help-btn') helpPopover.classList.add('hidden');
+  });
+
+  let safeRenderOn = true;
+  const safeRenderToggle = document.getElementById('safe-render-toggle');
+  safeRenderToggle.addEventListener('click', () => {
+    safeRenderOn = !safeRenderOn;
+    safeRenderToggle.textContent = safeRenderOn ? 'ON' : 'OFF';
+    safeRenderToggle.classList.toggle('active', safeRenderOn);
+    writeParam('safe_render_enabled', safeRenderOn ? 1 : 0, true);
+  });
+
+  let bypassOn = false;
+  const bypassBtn = document.getElementById('bypass-btn');
+  function setBypass(on, emit) {
+    bypassOn = on;
+    bypassBtn.classList.toggle('active', on);
+    writeParam('bypass', on ? 1 : 0, emit);
+  }
+  bypassBtn.addEventListener('click', () => setBypass(!bypassOn, true));
+  if (sliderStates.bypass) sliderStates.bypass.addListener((n) => setBypass(n > 0.5, false));
+
+  //=========================================================================
+  // IN/OUT toggle (meter view only - doesn't change parameters)
+  //=========================================================================
+  let meterView = 'OUT';
+  document.querySelectorAll('#io-toggle button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      meterView = btn.dataset.view;
+      document.querySelectorAll('#io-toggle button').forEach((b) => b.classList.toggle('active', b.dataset.view === meterView));
+    });
+  });
+
+  //=========================================================================
+  // Level match
+  //=========================================================================
+  let levelMatchOn = true;
+  const levelMatchBtn = document.getElementById('level-match-btn');
+  function setLevelMatch(on, emit) {
+    levelMatchOn = on;
+    levelMatchBtn.classList.toggle('active', on);
+    writeParam('level_match_enabled', on ? 1 : 0, emit);
+  }
+  levelMatchBtn.addEventListener('click', () => setLevelMatch(!levelMatchOn, true));
+  if (sliderStates.level_match_enabled) sliderStates.level_match_enabled.addListener((n) => setLevelMatch(n > 0.5, false));
+
+  //=========================================================================
+  // Utility grid (mutually-exclusive-ish routing modes + independent phase invert/dim)
+  //=========================================================================
+  const utilityState = { mono_enabled: false, dim_enabled: false, left_only: false, right_only: false, mid_only: false, side_only: false, phase_invert: false };
+  const ROUTING_KEYS = ['mono_enabled', 'left_only', 'right_only', 'mid_only', 'side_only'];
+  document.querySelectorAll('[data-utility]').forEach((btn) => {
+    const key = btn.dataset.utility;
+    btn.addEventListener('click', () => {
+      const turningOn = !utilityState[key];
+      if (turningOn && ROUTING_KEYS.includes(key)) {
+        ROUTING_KEYS.forEach((k) => { utilityState[k] = false; writeParam(k, 0, true); document.querySelector(`[data-utility="${k}"]`).classList.remove('active'); });
+      }
+      utilityState[key] = turningOn;
+      btn.classList.toggle('active', turningOn);
+      writeParam(key, turningOn ? 1 : 0, true);
+    });
+    if (sliderStates[key]) sliderStates[key].addListener((n) => {
+      utilityState[key] = n > 0.5;
+      btn.classList.toggle('active', utilityState[key]);
+    });
+  });
+
+  //=========================================================================
+  // Meters (fed by PluginEditor::timerCallback -> window.updateMeters)
+  //=========================================================================
+  const SEG_COUNT = 26;
+  function buildSegs(container) {
+    for (let i = 0; i < SEG_COUNT; i++) { const s = document.createElement('div'); s.className = 'seg'; container.appendChild(s); }
+  }
+  ['in-l', 'in-r', 'out-l', 'out-r'].forEach((id) => buildSegs(document.getElementById(id)));
+
+  function litSegsForLevel(level) {
+    const db = level <= 0.0001 ? -60 : 20 * Math.log10(level);
+    return Math.round(clamp((db + 48) / 48, 0, 1) * SEG_COUNT);
+  }
+  function paintSegs(container, level, hot) {
+    const lit = litSegsForLevel(level);
+    Array.from(container.children).forEach((seg, i) => {
+      seg.classList.toggle('lit', i < lit);
+      seg.classList.toggle('hot', hot && i < lit && i > SEG_COUNT - 3);
+    });
+  }
+  function dbReadout(level, floorDb) {
+    const db = level <= 0.0001 ? floorDb : Math.max(floorDb, 20 * Math.log10(level));
+    return db.toFixed(1);
+  }
+
+  const lufsShortEl = document.getElementById('lufs-short');
+  const lufsIntegratedEl = document.getElementById('lufs-integrated');
+  const truePeakEl = document.getElementById('true-peak');
+  const correlationFill = document.getElementById('correlation-fill');
+  const correlationMarker = document.getElementById('correlation-marker');
+  const lmCompensationEl = document.getElementById('lm-compensation');
+
+  let integratedEnvelope = -14;
+  let speakerPulseEnvelope = 0;
+
+  window.updateMeters = function (inputPeak, inputRms, outputPeak, outputRms, correlation, levelMatchDb) {
+    paintSegs(document.getElementById('in-l'), inputPeak, false);
+    paintSegs(document.getElementById('in-r'), inputPeak, false);
+    paintSegs(document.getElementById('out-l'), outputPeak, outputPeak > 0.92);
+    paintSegs(document.getElementById('out-r'), outputPeak, outputPeak > 0.92);
+
+    const shortTermDb = parseFloat(dbReadout(meterView === 'IN' ? inputRms : outputRms, -60)) - 3.0;
+    lufsShortEl.textContent = shortTermDb.toFixed(1);
+    integratedEnvelope += (shortTermDb - integratedEnvelope) * 0.01;
+    lufsIntegratedEl.textContent = integratedEnvelope.toFixed(1);
+    truePeakEl.textContent = `${dbReadout(outputPeak, -60)} dBTP`;
+
+    const pct = clamp((correlation + 1) / 2, 0, 1) * 100;
+    correlationFill.style.left = `${Math.min(50, pct)}%`;
+    correlationFill.style.width = `${Math.abs(pct - 50)}%`;
+    correlationMarker.style.left = `calc(${pct}% - 1px)`;
+
+    lastCorrelation = correlation;
+    applyStereoFieldWidth();
+
+    lmCompensationEl.textContent = `${levelMatchDb >= 0 ? '+' : ''}${levelMatchDb.toFixed(1)} dB`;
+
+    // Hero speaker-glow markers pulse with real output level (smoothed so
+    // 30Hz updates read as a gentle breathing pulse, not flicker).
+    speakerPulseEnvelope += (outputRms - speakerPulseEnvelope) * 0.15;
+    const glowOpacity = clamp(speakerPulseEnvelope * 2.2, 0.1, 0.9);
+    const glowScale = 0.7 + clamp(speakerPulseEnvelope * 1.8, 0, 1) * 0.6;
+    document.querySelectorAll('.speaker-glow').forEach((el) => {
+      el.style.opacity = glowOpacity;
+      el.style.transform = `translate(-50%, -50%) scale(${glowScale})`;
+    });
+  };
+
+  //=========================================================================
+  // Init
+  //=========================================================================
+  function estimateAndInit() {
+    const envState = sliderStates.environment_id;
+    if (envState) {
+      const idx = Math.round(lerp(0, 11, envState.getNormalisedValue()));
+      const pos = ENVIRONMENTS.findIndex((e) => e.index === idx);
+      selectEnvironment(pos >= 0 ? pos : 1, false);
+    } else {
+      selectEnvironment(1, false);
+    }
+
+    ['environment_amount', 'room_amount', 'character_amount', 'noise_amount'].forEach((id) => {
+      const st = sliderStates[id];
+      if (st) setPercentParam(id, lerp(0, 100, st.getNormalisedValue()), false);
+    });
+
+    const posState = sliderStates.position;
+    if (posState) setPosition(Math.round(lerp(0, 3, posState.getNormalisedValue())), false);
+
+    const trimState = sliderStates.output_trim;
+    if (trimState) setTrim(lerp(-12, 12, trimState.getNormalisedValue()), false);
+
+    const noiseEnState = sliderStates.noise_enabled;
+    if (noiseEnState) setNoiseEnabled(noiseEnState.getNormalisedValue() > 0.5, false);
+
+    const lmState = sliderStates.level_match_enabled;
+    if (lmState) setLevelMatch(lmState.getNormalisedValue() > 0.5, false);
+
+    const bypassState = sliderStates.bypass;
+    if (bypassState) setBypass(bypassState.getNormalisedValue() > 0.5, false);
+
+    ROUTING_KEYS.concat(['phase_invert']).forEach((key) => {
+      const st = sliderStates[key];
+      if (st) {
+        utilityState[key] = st.getNormalisedValue() > 0.5;
+        document.querySelector(`[data-utility="${key}"]`).classList.toggle('active', utilityState[key]);
+      }
+    });
+  }
+
+  if (juceAvailable()) {
+    setTimeout(estimateAndInit, 60);
+  } else {
+    selectEnvironment(1, false);
+    setPercentParam('environment_amount', state.environment_amount, false);
+    setPercentParam('room_amount', state.room_amount, false);
+    setPercentParam('character_amount', state.character_amount, false);
+    setPercentParam('noise_amount', state.noise_amount, false);
+    setPosition(0, false);
+    setTrim(0, false);
+    setLevelMatch(true, false);
+  }
+})();
+</script>
+</body>
+</html>
