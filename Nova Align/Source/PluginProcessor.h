@@ -6,6 +6,7 @@
 #include "AlignJobRunner.h"
 #include "PreviewPlayer.h"
 #include "CaptureEngine.h"
+#include "LinkHub.h"
 
 class NovaAlignAudioProcessor : public juce::AudioProcessor
 {
@@ -37,6 +38,8 @@ public:
     void setCurrentProgram (int index) override;
     const juce::String getProgramName (int index) override;
     void changeProgramName (int index, const juce::String& newName) override;
+
+    void updateTrackProperties (const TrackProperties& properties) override;
 
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
@@ -76,15 +79,27 @@ public:
     // ---- Capture (VocALign-style sidechain capture, for hosts without ARA:
     // Guide is captured from the plugin's sidechain input bus, Target from
     // its main input, both while the host transport plays back) ----
-    void armCaptureGuide()  { captureEngine.arm (NovaAlign::CaptureEngine::Slot::guide); }
-    void armCaptureTarget() { captureEngine.arm (NovaAlign::CaptureEngine::Slot::target); }
-    void cancelCapture()    { captureEngine.cancel(); }
+    //
+    // Linked instances (preferred - no routing): when another Nova Align in
+    // the same link group is set to GUIDE, arming either slot also tells that
+    // guide instance to record, and finishing pulls its take in, lined up on
+    // the host timeline. Target REC then fills BOTH lanes in one pass.
+    void armCaptureGuide()  { captureEngine.arm (NovaAlign::CaptureEngine::Slot::guide);  link.setArmed (true); }
+    void armCaptureTarget() { captureEngine.arm (NovaAlign::CaptureEngine::Slot::target); link.setArmed (true); }
+    void cancelCapture()    { captureEngine.cancel(); link.setArmed (false); }
 
-    // Stops capture, writes what was captured to a temp file, and (on
-    // success) sets it as the Guide/Target file - same as if it had been
-    // loaded via the file picker. Returns the resulting file (invalid File{}
-    // if nothing/too little was captured).
-    juce::File finishCapture();
+    // Stops capture, writes what was captured to temp files, and sets them as
+    // the Guide/Target files - same as if loaded via the file picker.
+    struct CaptureResult
+    {
+        bool guideCaptured = false;
+        bool targetCaptured = false;
+        bool guideFromLink = false;
+    };
+    CaptureResult finishCapture();
+
+    NovaAlign::LinkEndpoint& getLink() noexcept { return link; }
+    void setLinkRole (NovaAlign::LinkEndpoint::Role newRole);
 
     NovaAlign::CaptureEngine& getCaptureEngine() noexcept { return captureEngine; }
 
@@ -96,6 +111,7 @@ private:
     NovaAlign::AlignJobRunner alignJobRunner;
     NovaAlign::PreviewPlayer previewPlayer;
     NovaAlign::CaptureEngine captureEngine;
+    NovaAlign::LinkEndpoint link;
 
     // Playback position for the "aligned substitution" path in processBlock -
     // advances while the host transport is playing, independent of whatever

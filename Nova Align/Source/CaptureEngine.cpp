@@ -33,7 +33,8 @@ namespace NovaAlign
 
     void CaptureEngine::processBlock (const juce::AudioBuffer<float>& guideBus,
                                       const juce::AudioBuffer<float>& targetBus,
-                                      bool isPlaying, double sampleRate)
+                                      bool isPlaying, double sampleRate,
+                                      juce::int64 timelineSample)
     {
         const auto slot = static_cast<Slot> (armedSlot.load());
         if (slot == Slot::none || captureBuffer.getNumSamples() == 0)
@@ -48,6 +49,7 @@ namespace NovaAlign
             // "hit play, it starts" convention as the Aligned-substitution
             // playback path in PluginProcessor::processBlock.
             writePosition.store (0);
+            startTimelineSample.store (timelineSample);
             capturing.store (true);
         }
 

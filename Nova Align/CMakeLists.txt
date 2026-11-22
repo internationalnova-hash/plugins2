@@ -110,6 +110,8 @@ target_sources(${PLUGIN_TARGET}
         Source/PreviewPlayer.h
         Source/CaptureEngine.cpp
         Source/CaptureEngine.h
+        Source/LinkHub.cpp
+        Source/LinkHub.h
 )
 
 target_link_libraries(${PLUGIN_TARGET}
@@ -162,3 +164,13 @@ if(UNIX AND NOT APPLE)
             JUCE_JACK=1
     )
 endif()
+
+# Link/capture tests (no plugin, no UI):
+#   cmake --build build --target NovaAlignTests && build/NovaAlignTests_artefacts/Release/NovaAlignTests
+juce_add_console_app(NovaAlignTests PRODUCT_NAME "NovaAlignTests")
+target_sources(NovaAlignTests PRIVATE Tests/LinkTests.cpp Source/LinkHub.cpp Source/CaptureEngine.cpp)
+target_include_directories(NovaAlignTests PRIVATE Source)
+target_compile_definitions(NovaAlignTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+target_link_libraries(NovaAlignTests
+    PRIVATE juce::juce_core juce::juce_audio_basics juce::juce_audio_formats juce::juce_events
+    PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)

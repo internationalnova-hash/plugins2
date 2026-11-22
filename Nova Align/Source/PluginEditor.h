@@ -62,6 +62,9 @@ private:
     void handleCancelCapture    (const juce::Array<juce::var>& args, Completion completion);
     void handleStopCapture      (const juce::Array<juce::var>& args, Completion completion);
     void handleGetCaptureStatus (const juce::Array<juce::var>& args, Completion completion);
+    void handleGetLinkStatus    (const juce::Array<juce::var>& args, Completion completion);
+    void handleSetLinkRole      (const juce::Array<juce::var>& args, Completion completion);
+    void handleSetLinkGroup     (const juce::Array<juce::var>& args, Completion completion);
 
     void pickAudioFile (const juce::String& dialogTitle, Completion completion,
                         std::function<void (const juce::File&)> onChosen);

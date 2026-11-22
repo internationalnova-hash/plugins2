@@ -292,9 +292,16 @@
         setRecButtonState("target", "idle");
         stopCapturePolling();
         if (result && result.success) {
-          if (result.slot === "guide") applyGuideLoaded(result);
-          else applyTargetLoaded(result);
-          setStatus("Captured " + result.slot + ".", "ok");
+          if (result.guideCaptured) applyGuideLoaded({ fileName: result.guideName });
+          if (result.targetCaptured) applyTargetLoaded({ fileName: result.targetName });
+          if (result.guideCaptured && result.targetCaptured)
+            setStatus("Captured guide and target in one pass. Press ALIGN.", "ok");
+          else if (result.targetCaptured && lastGuideName)
+            setStatus("Captured target. Press ALIGN.", "ok");
+          else if (result.targetCaptured)
+            setStatus("Captured target. No guide linked - set Nova Align on the guide track to GUIDE, or load a guide file.", "ok");
+          else
+            setStatus("Captured guide.", "ok");
         } else {
           setStatus((result && result.error) || "Capture stopped — nothing was captured.", "error");
         }
@@ -437,6 +444,79 @@
     });
   }
 
+  // ---------------------------------------------------------------------
+  // Linked instances: TARGET / GUIDE role and link letter
+  // ---------------------------------------------------------------------
+  var GROUP_LETTERS = ["A", "B", "C", "D"];
+  var currentRole = "target";
+
+  function applyLinkStatus(s) {
+    if (!s) return;
+    currentRole = s.role;
+    var app = document.querySelector(".app");
+    if (app) app.classList.toggle("guidemode", s.role === "guide");
+
+    Array.prototype.forEach.call(document.querySelectorAll("#roleSeg button"), function (b) {
+      b.classList.toggle("active", b.getAttribute("data-role") === s.role);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#groupSeg button"), function (b) {
+      b.classList.toggle("active", Number(b.getAttribute("data-group")) === s.group);
+    });
+
+    var letter = GROUP_LETTERS[s.group] || "A";
+    var box = document.getElementById("linkStatus");
+    var text = document.getElementById("linkStatusText");
+    var cls = "linkstatus";
+    var msg;
+
+    if (s.role === "guide") {
+      var others = s.targets;
+      if (s.guides > 1) msg = "Another track is also GUIDE on link " + letter + " - pick a different letter";
+      else if (s.guideRecording) { msg = "Recording guide for " + others + " target" + (others === 1 ? "" : "s"); cls += " rec"; }
+      else if (others > 0) { msg = "Linked to " + others + " target" + (others === 1 ? "" : "s") + " on link " + letter; cls += " ok"; }
+      else msg = "No target on link " + letter + " yet";
+
+      var badge = document.getElementById("guideBadge");
+      if (badge) badge.textContent = "GUIDE \u00b7 LINK " + letter;
+      var state = document.getElementById("guideState");
+      if (state) {
+        state.className = "guidestate" + (s.guideRecording ? " rec" : "");
+        state.textContent = s.guideRecording
+          ? "\u25cf Recording guide \u2014 " + formatSeconds(s.guideSeconds)
+          : (others > 0 ? "Ready \u2014 linked to " + others + " target" + (others === 1 ? "" : "s") : "Waiting for a target on link " + letter);
+      }
+    } else {
+      if (s.guides > 0) {
+        msg = "Guide linked" + (s.guideTrackName ? ": " + s.guideTrackName : "") + " \u2014 REC captures both tracks";
+        cls += s.guideRecording ? " rec" : " ok";
+      } else {
+        msg = "No guide linked \u2014 put Nova Align on your guide track and set it to GUIDE (link " + letter + ")";
+      }
+    }
+
+    if (box) box.className = cls;
+    if (text) text.textContent = msg;
+  }
+
+  function pollLink() {
+    callNative("getLinkStatus").then(applyLinkStatus);
+  }
+
+  function wireLinkBar() {
+    Array.prototype.forEach.call(document.querySelectorAll("#roleSeg button"), function (b) {
+      b.addEventListener("click", function () {
+        callNative("setLinkRole", b.getAttribute("data-role")).then(applyLinkStatus);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#groupSeg button"), function (b) {
+      b.addEventListener("click", function () {
+        callNative("setLinkGroup", Number(b.getAttribute("data-group"))).then(applyLinkStatus);
+      });
+    });
+    pollLink();
+    setInterval(pollLink, 500);
+  }
+
   function wireAdvancedToggle() {
     var btn = document.getElementById("advancedBtn");
     var panel = document.getElementById("advancedPanel");
@@ -453,6 +533,7 @@
     Array.prototype.forEach.call(document.querySelectorAll(".sliderrow"), wireSlider);
     wireAlignMode();
     wireAdvancedToggle();
+    wireLinkBar();
 
     var setGuideBtn = document.getElementById("setGuideBtn");
     var setTargetBtn = document.getElementById("setTargetBtn");

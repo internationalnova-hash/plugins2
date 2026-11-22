@@ -16,6 +16,31 @@ namespace
     constexpr auto fileStateChildId = "novaAlignFiles";
     constexpr auto guidePathProp    = "guidePath";
     constexpr auto targetPathProp   = "targetPath";
+    constexpr auto linkRoleProp     = "linkRole";
+    constexpr auto linkGroupProp    = "linkGroup";
+
+    juce::File writeTempWav (const juce::AudioBuffer<float>& audio, int numSamples, double sampleRate, const juce::String& prefix)
+    {
+        if (numSamples < 1024 || sampleRate <= 0.0)
+            return {};
+
+        const auto file = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                              .getChildFile (prefix + juce::Uuid().toString() + ".wav");
+
+        std::unique_ptr<juce::FileOutputStream> stream (file.createOutputStream());
+        if (stream == nullptr || ! stream->openedOk())
+            return {};
+
+        juce::WavAudioFormat wavFormat;
+        std::unique_ptr<juce::AudioFormatWriter> writer (
+            wavFormat.createWriterFor (stream.release(), sampleRate,
+                                       static_cast<unsigned int> (audio.getNumChannels()), 32, {}, 0));
+        if (writer == nullptr)
+            return {};
+
+        writer->writeFromAudioSampleBuffer (audio, 0, numSamples);
+        return file;
+    }
 }
 
 NovaAlignAudioProcessor::NovaAlignAudioProcessor()
@@ -35,6 +60,7 @@ NovaAlignAudioProcessor::NovaAlignAudioProcessor()
       alignedTempFile (juce::File::getSpecialLocation (juce::File::tempDirectory)
                           .getChildFile ("NovaAlign_" + juce::Uuid().toString() + ".wav"))
 {
+    link.chooseDefaultRole();
 }
 
 NovaAlignAudioProcessor::~NovaAlignAudioProcessor()
@@ -133,6 +159,7 @@ void NovaAlignAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     substitutionReadPosition = 0;
     wasHostPlaying = false;
     captureEngine.prepare (sampleRate);
+    link.prepare (sampleRate);
 }
 
 void NovaAlignAudioProcessor::releaseResources()
@@ -181,11 +208,28 @@ void NovaAlignAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     auto guideBus = hasSidechain ? getBusBuffer (buffer, true, 1) : juce::AudioBuffer<float>();
 
     bool isPlaying = false;
+    juce::int64 timelineSample = -1;
     if (auto* playHead = getPlayHead())
         if (auto position = playHead->getPosition())
+        {
             isPlaying = position->getIsPlaying();
+            if (auto t = position->getTimeInSamples())
+                timelineSample = *t;
+        }
 
-    captureEngine.processBlock (guideBus, mainInput, isPlaying, getSampleRate());
+    if (link.getRole() == NovaAlign::LinkEndpoint::Role::guide)
+    {
+        // GUIDE instance: record this track for linked targets and pass the
+        // audio through untouched - it never substitutes anything.
+        link.processGuideBlock (mainInput, isPlaying, timelineSample, getSampleRate());
+        for (int channel = 0; channel < mainOutput.getNumChannels(); ++channel)
+            if (mainInput.getNumChannels() > 0 && mainOutput.getWritePointer (channel) != mainInput.getReadPointer (juce::jmin (channel, mainInput.getNumChannels() - 1)))
+                mainOutput.copyFrom (channel, 0, mainInput, juce::jmin (channel, mainInput.getNumChannels() - 1), 0, mainOutput.getNumSamples());
+        wasHostPlaying = isPlaying;
+        return;
+    }
+
+    captureEngine.processBlock (guideBus, mainInput, isPlaying, getSampleRate(), timelineSample);
 
     auto alignedBuffer = alignJobRunner.getAlignedBuffer();
 
@@ -247,20 +291,59 @@ juce::AudioProcessorEditor* NovaAlignAudioProcessor::createEditor()
 void NovaAlignAudioProcessor::setGuideFile (const juce::File& file)   { guideFile = file; }
 void NovaAlignAudioProcessor::setTargetFile (const juce::File& file)  { targetFile = file; }
 
-juce::File NovaAlignAudioProcessor::finishCapture()
+void NovaAlignAudioProcessor::updateTrackProperties (const TrackProperties& properties)
 {
-    const auto slot = captureEngine.getArmedSlot();
-    const auto file = captureEngine.finishAndWriteToFile();
+    link.setTrackName (properties.name.value_or (juce::String()));
+}
 
-    if (file != juce::File {})
+void NovaAlignAudioProcessor::setLinkRole (NovaAlign::LinkEndpoint::Role newRole)
+{
+    if (newRole == NovaAlign::LinkEndpoint::Role::guide)
+        captureEngine.cancel();
+    link.setRole (newRole);
+}
+
+NovaAlignAudioProcessor::CaptureResult NovaAlignAudioProcessor::finishCapture()
+{
+    CaptureResult result;
+
+    // Read where/how long this pass was BEFORE finishing (finish resets it).
+    const auto slot = captureEngine.getArmedSlot();
+    const auto startSample = captureEngine.getStartTimelineSample();
+    const int written = captureEngine.getWrittenSamples();
+
+    // Pull the linked guide's take first, lined up to this capture.
+    juce::AudioBuffer<float> linkedGuide;
+    double linkedRate = getSampleRate();
+    const bool haveLinked = slot != NovaAlign::CaptureEngine::Slot::none
+                            && link.copyGuideTake (written > 0 ? startSample : -1, written, linkedGuide, linkedRate);
+    link.setArmed (false);
+
+    const auto ownFile = captureEngine.finishAndWriteToFile();
+
+    if (slot == NovaAlign::CaptureEngine::Slot::target && ownFile != juce::File {})
     {
-        if (slot == NovaAlign::CaptureEngine::Slot::guide)
-            setGuideFile (file);
-        else if (slot == NovaAlign::CaptureEngine::Slot::target)
-            setTargetFile (file);
+        setTargetFile (ownFile);
+        result.targetCaptured = true;
     }
 
-    return file;
+    if (haveLinked)
+    {
+        const auto guideFileOut = writeTempWav (linkedGuide, linkedGuide.getNumSamples(), linkedRate, "NovaAlign_linkedGuide_");
+        if (guideFileOut != juce::File {})
+        {
+            setGuideFile (guideFileOut);
+            result.guideCaptured = true;
+            result.guideFromLink = true;
+        }
+    }
+    else if (slot == NovaAlign::CaptureEngine::Slot::guide && ownFile != juce::File {})
+    {
+        setGuideFile (ownFile); // sidechain capture fallback
+        result.guideCaptured = true;
+    }
+
+    return result;
 }
 
 NovaAlign::AlignEngine::AlignSettings NovaAlignAudioProcessor::settingsFromApvts() const
@@ -327,6 +410,8 @@ void NovaAlignAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
     auto fileState = state.getOrCreateChildWithName (fileStateChildId, nullptr);
     fileState.setProperty (guidePathProp, guideFile.getFullPathName(), nullptr);
     fileState.setProperty (targetPathProp, targetFile.getFullPathName(), nullptr);
+    fileState.setProperty (linkRoleProp, static_cast<int> (link.getRole()), nullptr);
+    fileState.setProperty (linkGroupProp, link.getGroup(), nullptr);
 
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
     copyXmlToBinary (*xml, destData);
@@ -346,6 +431,9 @@ void NovaAlignAudioProcessor::setStateInformation (const void* data, int sizeInB
     {
         restoredGuide = juce::File (fileState.getProperty (guidePathProp).toString());
         restoredTarget = juce::File (fileState.getProperty (targetPathProp).toString());
+        link.setGroup ((int) fileState.getProperty (linkGroupProp, 0));
+        setLinkRole ((int) fileState.getProperty (linkRoleProp, 0) == 1 ? NovaAlign::LinkEndpoint::Role::guide
+                                                                         : NovaAlign::LinkEndpoint::Role::target);
         state.removeChild (fileState, nullptr);
     }
 

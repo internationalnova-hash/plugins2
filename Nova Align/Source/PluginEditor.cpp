@@ -122,6 +122,18 @@ juce::WebBrowserComponent::Options NovaAlignAudioProcessorEditor::createWebOptio
                      .withNativeFunction ("getCaptureStatus", [&editor] (const juce::Array<juce::var>& args, Completion completion)
                      {
                          editor.handleGetCaptureStatus (args, std::move (completion));
+                     })
+                     .withNativeFunction ("getLinkStatus", [&editor] (const juce::Array<juce::var>& args, Completion completion)
+                     {
+                         editor.handleGetLinkStatus (args, std::move (completion));
+                     })
+                     .withNativeFunction ("setLinkRole", [&editor] (const juce::Array<juce::var>& args, Completion completion)
+                     {
+                         editor.handleSetLinkRole (args, std::move (completion));
+                     })
+                     .withNativeFunction ("setLinkGroup", [&editor] (const juce::Array<juce::var>& args, Completion completion)
+                     {
+                         editor.handleSetLinkGroup (args, std::move (completion));
                      });
 
     return options;
@@ -370,20 +382,30 @@ void NovaAlignAudioProcessorEditor::handleCancelCapture (const juce::Array<juce:
 void NovaAlignAudioProcessorEditor::handleStopCapture (const juce::Array<juce::var>&, Completion completion)
 {
     const auto slotBefore = processorRef.getCaptureEngine().getArmedSlot();
-    const auto file = processorRef.finishCapture();
+    const auto captured = processorRef.finishCapture();
 
     auto* result = new juce::DynamicObject();
-    const bool ok = file != juce::File {};
+    const bool ok = captured.guideCaptured || captured.targetCaptured;
     result->setProperty ("success", ok);
-    if (ok)
+    result->setProperty ("guideCaptured", captured.guideCaptured);
+    result->setProperty ("targetCaptured", captured.targetCaptured);
+    result->setProperty ("guideFromLink", captured.guideFromLink);
+
+    auto guideName = juce::String ("Captured Guide take");
+    if (captured.guideFromLink)
     {
-        const bool isGuide = slotBefore == NovaAlign::CaptureEngine::Slot::guide;
-        result->setProperty ("slot", isGuide ? "guide" : "target");
-        result->setProperty ("fileName", isGuide ? "Captured Guide take" : "Captured Target take");
+        const auto trackName = processorRef.getLink().getGroupInfo().guideTrackName;
+        guideName = trackName.isNotEmpty() ? "Linked guide: " + trackName : juce::String ("Linked guide take");
     }
-    else
+    result->setProperty ("guideName", guideName);
+    result->setProperty ("targetName", "Captured Target take");
+
+    if (! ok)
     {
-        result->setProperty ("error", "Nothing was captured - arm capture, then press play in your DAW.");
+        const bool wantedGuide = slotBefore == NovaAlign::CaptureEngine::Slot::guide;
+        result->setProperty ("error", wantedGuide
+            ? "No guide captured - set Nova Align on the guide track to GUIDE (same link), then REC and press play."
+            : "Nothing was captured - arm capture, then press play in your DAW.");
     }
     completion (juce::var (result));
 }
@@ -400,8 +422,43 @@ void NovaAlignAudioProcessorEditor::handleGetCaptureStatus (const juce::Array<ju
     auto* result = new juce::DynamicObject();
     result->setProperty ("armedSlot", slotName);
     result->setProperty ("capturing", engine.isCapturing());
-    result->setProperty ("capturedSeconds", engine.getCapturedSeconds());
+    double seconds = engine.getCapturedSeconds();
+    const auto info = processorRef.getLink().getGroupInfo();
+    if (slot == NovaAlign::CaptureEngine::Slot::guide && info.guides > 0)
+        seconds = juce::jmax (seconds, info.guideSecondsRecorded);
+    result->setProperty ("capturedSeconds", seconds);
     completion (juce::var (result));
+}
+
+void NovaAlignAudioProcessorEditor::handleGetLinkStatus (const juce::Array<juce::var>&, Completion completion)
+{
+    auto& link = processorRef.getLink();
+    const auto info = link.getGroupInfo();
+
+    auto* result = new juce::DynamicObject();
+    result->setProperty ("role", link.getRole() == NovaAlign::LinkEndpoint::Role::guide ? "guide" : "target");
+    result->setProperty ("group", link.getGroup());
+    result->setProperty ("guides", info.guides);
+    result->setProperty ("targets", info.targets);
+    result->setProperty ("guideTrackName", info.guideTrackName);
+    result->setProperty ("guideRecording", info.guideRecording);
+    result->setProperty ("guideSeconds", info.guideSecondsRecorded);
+    result->setProperty ("trackName", link.getTrackName());
+    completion (juce::var (result));
+}
+
+void NovaAlignAudioProcessorEditor::handleSetLinkRole (const juce::Array<juce::var>& args, Completion completion)
+{
+    const bool guide = args.size() > 0 && args[0].toString() == "guide";
+    processorRef.setLinkRole (guide ? NovaAlign::LinkEndpoint::Role::guide : NovaAlign::LinkEndpoint::Role::target);
+    handleGetLinkStatus ({}, std::move (completion));
+}
+
+void NovaAlignAudioProcessorEditor::handleSetLinkGroup (const juce::Array<juce::var>& args, Completion completion)
+{
+    if (args.size() > 0)
+        processorRef.getLink().setGroup ((int) args[0]);
+    handleGetLinkStatus ({}, std::move (completion));
 }
 
 std::optional<juce::WebBrowserComponent::Resource> NovaAlignAudioProcessorEditor::getResource (const juce::String& url)

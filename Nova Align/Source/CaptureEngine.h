@@ -38,7 +38,13 @@ namespace NovaAlign
         // connected in the host).
         void processBlock (const juce::AudioBuffer<float>& guideBus,
                            const juce::AudioBuffer<float>& targetBus,
-                           bool isPlaying, double sampleRate);
+                           bool isPlaying, double sampleRate,
+                           juce::int64 timelineSample = -1);
+
+        // Host timeline sample where the current/last capture started (-1 if
+        // the host didn't report one), and how many samples it holds so far.
+        juce::int64 getStartTimelineSample() const noexcept { return startTimelineSample.load(); }
+        int getWrittenSamples() const noexcept { return writePosition.load(); }
 
         // Message-thread. Stops capture and writes whatever was captured to a
         // temp WAV file. Returns File{} if nothing (or too little) was
@@ -52,6 +58,7 @@ namespace NovaAlign
         std::atomic<bool> capturing { false };
         std::atomic<double> capturedSeconds { 0.0 };
         std::atomic<int> writePosition { 0 };
+        std::atomic<juce::int64> startTimelineSample { -1 };
 
         double preparedSampleRate = 44100.0;
         double captureSampleRate = 44100.0;

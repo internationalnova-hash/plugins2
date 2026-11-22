@@ -48,6 +48,49 @@
   .abbtn{ width:22px; font-weight:700; }
   .abbtn.active{ background:var(--gold-dim); border-color:var(--gold); color:var(--gold); }
 
+  /* ---------- Link bar (TARGET / GUIDE role) ---------- */
+  .linkbar{
+    display:flex; align-items:center; gap:14px; padding:9px 20px;
+    border-bottom:1px solid var(--line); background:#0c0c0f; flex:0 0 auto;
+  }
+  .linklabel{ font-size:10px; letter-spacing:0.18em; color:var(--muted-2); font-weight:700; white-space:nowrap; }
+  .roleseg{ display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden; flex:0 0 auto; }
+  .roleseg button{
+    background:var(--panel); border:none; color:var(--muted); padding:6px 14px;
+    font-size:10.5px; letter-spacing:0.12em; font-weight:700; cursor:pointer;
+  }
+  .roleseg button + button{ border-left:1px solid var(--line); }
+  .roleseg button[data-role="target"].active{ background:rgba(74,144,226,0.18); color:var(--target); }
+  .roleseg button[data-role="guide"].active{ background:var(--gold-dim); color:var(--gold); }
+  .linkstatus{ flex:1; min-width:0; font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:8px; }
+  .linkdot{ width:7px; height:7px; border-radius:50%; background:var(--muted-2); flex:0 0 auto; }
+  .linkstatus.ok .linkdot{ background:var(--gold); box-shadow:0 0 6px rgba(217,174,82,0.7); }
+  .linkstatus.ok{ color:var(--text); }
+  .linkstatus.rec .linkdot{ background:#e0685a; box-shadow:0 0 6px rgba(224,104,90,0.8); animation:recpulse 1s ease-in-out infinite; }
+  .groupseg{ display:flex; gap:4px; flex:0 0 auto; }
+  .groupseg button{
+    width:24px; height:24px; border-radius:6px; background:var(--panel-2); border:1px solid var(--line);
+    color:var(--muted); font-size:10.5px; font-weight:700; cursor:pointer;
+  }
+  .groupseg button.active{ border-color:var(--gold); color:var(--gold); background:var(--gold-dim); }
+
+  /* ---------- Guide-mode screen ---------- */
+  .guidescreen{ display:none; flex:1 1 auto; align-items:center; justify-content:center; padding:24px; min-height:0; }
+  .app.guidemode .body, .app.guidemode .bottombar{ display:none; }
+  .app.guidemode .guidescreen{ display:flex; }
+  .guidecard{
+    width:min(560px, 92%); border:1px solid rgba(217,174,82,0.35); border-radius:14px;
+    background:radial-gradient(120% 90% at 50% 0%, rgba(217,174,82,0.10) 0%, var(--panel) 60%);
+    padding:30px 34px; text-align:center;
+  }
+  .guidebadge{ font-size:11px; letter-spacing:0.3em; color:var(--gold); font-weight:700; }
+  .guidetitle{ font-size:24px; font-weight:300; letter-spacing:0.06em; margin-top:8px; }
+  .guidetitle b{ font-weight:700; color:var(--gold); }
+  .guidestate{ margin-top:20px; font-size:13px; color:var(--text); min-height:18px; }
+  .guidestate.rec{ color:#e0685a; font-weight:700; }
+  .guidesteps{ margin:18px auto 0; text-align:left; font-size:11.5px; line-height:1.75; color:var(--muted); max-width:420px; padding-left:18px; }
+  .guidesteps b{ color:var(--text); }
+
   /* ---------- Main body ---------- */
   .body{ flex:1 1 auto; display:flex; gap:16px; padding:16px 20px; min-height:0; }
 
@@ -220,23 +263,52 @@
     </div>
   </header>
 
+  <div class="linkbar">
+    <div class="linklabel">THIS TRACK IS</div>
+    <div class="roleseg" id="roleSeg">
+      <button data-role="target" class="active" title="The take you want to tighten. Capture and align happen here.">TARGET</button>
+      <button data-role="guide" title="The reference performance. Put Nova Align on the guide track and pick GUIDE.">GUIDE</button>
+    </div>
+    <div class="linkstatus" id="linkStatus"><span class="linkdot"></span><span id="linkStatusText">Checking link…</span></div>
+    <div class="linklabel">LINK</div>
+    <div class="groupseg" id="groupSeg">
+      <button data-group="0" class="active" title="Link A">A</button>
+      <button data-group="1" title="Link B">B</button>
+      <button data-group="2" title="Link C">C</button>
+      <button data-group="3" title="Link D">D</button>
+    </div>
+  </div>
+
+  <section class="guidescreen">
+    <div class="guidecard">
+      <div class="guidebadge" id="guideBadge">GUIDE &middot; LINK A</div>
+      <div class="guidetitle">This track is the <b>GUIDE</b></div>
+      <div class="guidestate" id="guideState">Waiting for a target</div>
+      <ol class="guidesteps">
+        <li>Open Nova Align on the vocal you want to tighten (it stays on <b>TARGET</b>, same link letter).</li>
+        <li>Press <b>REC</b> on its Target lane, then play the section in your DAW.</li>
+        <li>Stop &mdash; both the guide and the target load in one pass. Press <b>ALIGN</b>.</li>
+      </ol>
+    </div>
+  </section>
+
   <main class="body">
     <section class="lanes">
 
       <div class="lane">
         <div class="lanehead">
           <div class="laneinfo">
-            <div class="lanelabel guide">GUIDE <span class="linkicon" title="Route the Guide track to Nova Align's Guide Sidechain input in your DAW's mixer, then Capture.">&#128279;</span></div>
+            <div class="lanelabel guide">GUIDE <span class="linkicon" title="Put Nova Align on the guide track and set it to GUIDE - REC on the Target lane captures it automatically. (Sidechain routing also works.)">&#128279;</span></div>
             <div class="lanesub" id="guideSub">No file loaded</div>
           </div>
           <div class="lanebtns">
-            <button class="recbtn" id="recGuideBtn" title="Capture Guide from the sidechain input while your DAW plays">&#9679; REC</button>
+            <button class="recbtn" id="recGuideBtn" title="Capture only the Guide (from the linked GUIDE instance, or the sidechain input) while your DAW plays">&#9679; REC</button>
             <button class="setbtn" id="setGuideBtn">SET</button>
           </div>
         </div>
         <div class="wave" id="waveGuide">
           <canvas></canvas>
-          <div class="waveempty">Drop audio, SET, or capture via sidechain</div>
+          <div class="waveempty">Drop audio, SET, or link a GUIDE track</div>
         </div>
       </div>
 
@@ -247,7 +319,7 @@
             <div class="lanesub" id="targetSub">No file loaded</div>
           </div>
           <div class="lanebtns">
-            <button class="recbtn" id="recTargetBtn" title="Capture Target from this insert's input while your DAW plays">&#9679; REC</button>
+            <button class="recbtn" id="recTargetBtn" title="Capture this track - and the linked GUIDE track - while your DAW plays">&#9679; REC</button>
             <button class="setbtn" id="setTargetBtn">SET</button>
           </div>
         </div>
