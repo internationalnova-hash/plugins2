@@ -1,0 +1,7 @@
+{
+  "name": "Nova Mid",
+  "phase": "code_complete",
+  "ui_framework": "webview",
+  "version": "1.0.0",
+  "notes": "Midrange weight: Push (0-20 dB wide bell at 850 Hz) into a 4x-oversampled soft clipper with a draggable ceiling (-24 to 0 dBFS). Output, soft-clip and clip-light metering. 12 factory presets (also host programs). 20/20 DSP tests, auval passes."
+}

@@ -1,0 +1,153 @@
+# Ensure JUCE does not build VST2 client code (force disable)
+set(JUCE_BUILD_VST2 OFF CACHE BOOL "" FORCE)
+set(JUCE_VST2_FORMAT OFF CACHE BOOL "" FORCE)
+set(JUCE_VST2SDK_PATH "" CACHE PATH "" FORCE)
+
+cmake_minimum_required(VERSION 3.15)
+
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "" FORCE)
+endif()
+
+project(NovaMid VERSION 1.0.0)
+
+# Customer builds require a Nova license key (unlock screen until activated).
+# Local/dev builds leave it OFF so the plugin opens straight away for testing.
+#   cmake -S "Nova Mid" -B "Nova Mid/build" -DNOVA_MID_REQUIRE_LICENSE=ON
+option(NOVA_MID_REQUIRE_LICENSE "Require NovaLicense activation (customer builds)" OFF)
+
+include(FetchContent)
+FetchContent_Declare(
+    juce
+    GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+    GIT_TAG        8.0.8
+)
+FetchContent_MakeAvailable(juce)
+
+# AAX is built when the shared AAX SDK is present (it is not committed to git,
+# so CI checkouts build VST3/AU/Standalone only).
+set(NOVA_AAX_SDK "${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+set(NOVA_AAX_FORMAT "")
+if((APPLE OR WIN32) AND EXISTS "${NOVA_AAX_SDK}/Interfaces")
+    juce_set_aax_sdk_path("${NOVA_AAX_SDK}")
+    set(NOVA_AAX_FORMAT AAX)
+endif()
+
+if(WIN32)
+    set(PLUGIN_FORMATS VST3 ${NOVA_AAX_FORMAT} Standalone)
+elseif(APPLE)
+    set(PLUGIN_FORMATS VST3 AU ${NOVA_AAX_FORMAT} Standalone)
+else()
+    set(PLUGIN_FORMATS VST3 LV2 Standalone)
+endif()
+
+juce_add_binary_data(NovaMid_WebUI
+    SOURCES
+        Source/ui/public/index.html
+        Source/ui/public/js/index.js
+        Source/ui/public/js/juce/index.js
+        Source/ui/public/js/juce/check_native_interop.js
+        Source/ui/public/n_logo.png
+    NAMESPACE nova_mid_BinaryData
+)
+
+juce_add_plugin(NovaMid
+    COMPANY_NAME "International Nova"
+    COMPANY_WEBSITE "https://getnovaaudio.com"
+    PRODUCT_NAME "Nova Mid"
+    BUNDLE_ID "com.internationalnova.novamid"
+    PLUGIN_MANUFACTURER_CODE Inov
+    PLUGIN_CODE NvMd
+    FORMATS ${PLUGIN_FORMATS}
+    LV2URI "https://getnovaaudio.com/plugins/nova-mid"
+    NEEDS_WEB_BROWSER TRUE
+    NEEDS_WEBVIEW2 FALSE
+    VST3_CAN_REPLACE_VST2 FALSE
+    VST3_CATEGORIES Fx Distortion
+    AAX_CATEGORY Harmonic
+    AU_MAIN_TYPE kAudioUnitType_Effect
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS TRUE   # license key field
+)
+
+set(NOVA_LICENSE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense)
+
+target_sources(NovaMid
+    PRIVATE
+        Source/CreatePluginFilter.cpp
+        Source/PluginProcessor.cpp
+        Source/PluginProcessor.h
+        Source/PluginEditor.cpp
+        Source/PluginEditor.h
+        Source/MidEngine.cpp
+        Source/MidEngine.h
+)
+
+if(NOVA_MID_REQUIRE_LICENSE)
+    target_sources(NovaMid PRIVATE ${NOVA_LICENSE_DIR}/NovaLicense.cpp ${NOVA_LICENSE_DIR}/NovaLicense.h)
+    target_include_directories(NovaMid PRIVATE ${NOVA_LICENSE_DIR})
+    target_compile_definitions(NovaMid PUBLIC
+        NOVA_MID_REQUIRE_LICENSE=1
+        NOVA_LICENSE_SERVER_URL="https://nova-store-olive.vercel.app")
+    target_link_libraries(NovaMid PRIVATE juce::juce_cryptography juce::juce_product_unlocking)
+else()
+    target_compile_definitions(NovaMid PUBLIC NOVA_MID_REQUIRE_LICENSE=0)
+endif()
+
+target_include_directories(NovaMid PRIVATE Source)
+
+target_link_libraries(NovaMid
+    PRIVATE
+        NovaMid_WebUI
+        juce::juce_audio_basics
+        juce::juce_audio_devices
+        juce::juce_audio_formats
+        juce::juce_audio_plugin_client
+        juce::juce_audio_processors
+        juce::juce_audio_utils
+        juce::juce_core
+        juce::juce_data_structures
+        juce::juce_dsp
+        juce::juce_events
+        juce::juce_graphics
+        juce::juce_gui_basics
+        juce::juce_gui_extra
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags
+)
+
+target_compile_definitions(NovaMid
+    PUBLIC
+        JUCE_WEB_BROWSER=1
+        JUCE_VST3_CAN_REPLACE_VST2=0
+)
+
+if(WIN32)
+    target_compile_definitions(NovaMid PUBLIC
+        JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
+        _USE_MATH_DEFINES=1)
+elseif(APPLE)
+    target_compile_definitions(NovaMid PUBLIC JUCE_USE_CURL=0)
+else()
+    target_compile_definitions(NovaMid PUBLIC JUCE_USE_CURL=0 JUCE_JACK=1)
+endif()
+
+if(TARGET NovaMid_VST3)
+    target_compile_definitions(NovaMid_VST3 PRIVATE JUCE_VST3_CAN_REPLACE_VST2=0)
+endif()
+
+# ── DSP tests ─────────────────────────────────────────────────────────────
+#   cmake --build "Nova Mid/build" --target NovaMidTests && "Nova Mid/build/NovaMidTests_artefacts/Release/NovaMidTests"
+juce_add_console_app(NovaMidTests PRODUCT_NAME "NovaMidTests")
+target_sources(NovaMidTests PRIVATE Tests/MidTests.cpp Source/MidEngine.cpp)
+target_include_directories(NovaMidTests PRIVATE Source)
+target_compile_definitions(NovaMidTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+target_link_libraries(NovaMidTests
+    PRIVATE juce::juce_core juce::juce_dsp
+    PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
