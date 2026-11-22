@@ -23,8 +23,13 @@ FetchContent_MakeAvailable(juce)
 
 # AAX SDK shared by every Nova plugin. AAX builds are ad-hoc signed (load in
 # Pro Tools Developer); retail Pro Tools additionally needs PACE signing.
-if(APPLE OR WIN32)
-    juce_set_aax_sdk_path("${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+# AAX builds only when the shared AAX SDK is present (it is not in git, so
+# GitHub's automatic builds skip AAX; local builds include it).
+set(NOVA_AAX_SDK "${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+set(NOVA_AAX_FORMAT "")
+if((APPLE OR WIN32) AND EXISTS "${NOVA_AAX_SDK}/Interfaces")
+    juce_set_aax_sdk_path("${NOVA_AAX_SDK}")
+    set(NOVA_AAX_FORMAT AAX)
 endif()
 
 # Nova AI Vocal
@@ -38,10 +43,10 @@ set(AU_MAIN_TYPE "")
 set(LV2_URI "")
 
 if(WIN32)
-    set(PLUGIN_FORMATS VST3 AAX Standalone)
+    set(PLUGIN_FORMATS VST3 ${NOVA_AAX_FORMAT} Standalone)
     set(NEEDS_WEBVIEW2 TRUE)
 elseif(APPLE)
-    set(PLUGIN_FORMATS VST3 AU AAX Standalone)
+    set(PLUGIN_FORMATS VST3 AU ${NOVA_AAX_FORMAT} Standalone)
     set(AU_MAIN_TYPE kAudioUnitType_Effect)
 elseif(UNIX)
     set(PLUGIN_FORMATS VST3 LV2 Standalone)

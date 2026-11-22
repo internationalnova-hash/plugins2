@@ -20,8 +20,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
-if(APPLE OR WIN32)
-    juce_set_aax_sdk_path("${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+# AAX builds only when the shared AAX SDK is present (it is not in git, so
+# GitHub's automatic builds skip AAX; local builds include it).
+set(NOVA_AAX_SDK "${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+set(NOVA_AAX_FORMAT "")
+if((APPLE OR WIN32) AND EXISTS "${NOVA_AAX_SDK}/Interfaces")
+    juce_set_aax_sdk_path("${NOVA_AAX_SDK}")
+    set(NOVA_AAX_FORMAT AAX)
 endif()
 
 set(NOVA_TAPE_CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaTapeCore)
@@ -67,7 +72,7 @@ juce_add_plugin(NovaTape
     BUNDLE_ID "com.internationalnova.novatape"
     PLUGIN_MANUFACTURER_CODE Inov
     PLUGIN_CODE NvTp
-    FORMATS VST3 AU AAX Standalone
+    FORMATS VST3 AU ${NOVA_AAX_FORMAT} Standalone
     PRODUCT_NAME "Nova Tape"
     VST3_CATEGORIES Fx Distortion
     AAX_CATEGORY EQ

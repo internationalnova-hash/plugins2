@@ -23,8 +23,13 @@ FetchContent_MakeAvailable(juce)
 # AAX SDK path wired from day one (established rollout pattern for this
 # catalog) - NOT built until commercial AAX infra is ready, so AAX is
 # deliberately excluded from PLUGIN_FORMATS below (see Nova AI Master).
-if(APPLE OR WIN32)
-    juce_set_aax_sdk_path("${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+# AAX builds only when the shared AAX SDK is present (it is not in git, so
+# GitHub's automatic builds skip AAX; local builds include it).
+set(NOVA_AAX_SDK "${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+set(NOVA_AAX_FORMAT "")
+if((APPLE OR WIN32) AND EXISTS "${NOVA_AAX_SDK}/Interfaces")
+    juce_set_aax_sdk_path("${NOVA_AAX_SDK}")
+    set(NOVA_AAX_FORMAT AAX)
 endif()
 
 set(NOVA_KEYS_CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaKeysCore)

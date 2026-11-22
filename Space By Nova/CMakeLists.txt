@@ -26,8 +26,13 @@ FetchContent_MakeAvailable(juce)
 # AAX SDK (Avid Pro Tools format) - shared across plugins, same pattern as
 # the shared NovaLicense module. Mac/Windows only (JUCE's own AAX SDK path
 # function silently no-ops on other platforms).
-if(APPLE OR WIN32)
-    juce_set_aax_sdk_path("${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+# AAX builds only when the shared AAX SDK is present (it is not in git, so
+# GitHub's automatic builds skip AAX; local builds include it).
+set(NOVA_AAX_SDK "${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+set(NOVA_AAX_FORMAT "")
+if((APPLE OR WIN32) AND EXISTS "${NOVA_AAX_SDK}/Interfaces")
+    juce_set_aax_sdk_path("${NOVA_AAX_SDK}")
+    set(NOVA_AAX_FORMAT AAX)
 endif()
 
 # Space By Nova
@@ -40,11 +45,11 @@ set(AU_MAIN_TYPE "")
 set(LV2_URI "")
 
 if(WIN32)
-    set(PLUGIN_FORMATS VST3 AAX Standalone)
+    set(PLUGIN_FORMATS VST3 ${NOVA_AAX_FORMAT} Standalone)
     set(NEEDS_WEBVIEW2 TRUE)
     set(WEBVIEW_BACKEND "WebView2")
 elseif(APPLE)
-    set(PLUGIN_FORMATS VST3 AU AAX Standalone)
+    set(PLUGIN_FORMATS VST3 AU ${NOVA_AAX_FORMAT} Standalone)
     set(WEBVIEW_BACKEND "WKWebView")
     set(AU_MAIN_TYPE kAudioUnitType_Effect)
 elseif(UNIX)
