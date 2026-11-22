@@ -1,0 +1,40 @@
+name: Build Nova Meter Windows
+
+on:
+  push:
+    paths:
+      - 'Nova Meter/**'
+      - '.github/workflows/build-nova-meter-windows.yml'
+  pull_request:
+    paths:
+      - 'Nova Meter/**'
+      - '.github/workflows/build-nova-meter-windows.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@v4.3.1
+
+      - name: Clean build directory
+        run: if (Test-Path "Nova Meter/build") { Remove-Item -Recurse -Force "Nova Meter/build" }
+
+      # Customer builds are license-gated; local builds default to ungated.
+      - name: Configure CMake
+        run: cmake -S "Nova Meter" -B "Nova Meter/build" -DNOVA_METER_REQUIRE_LICENSE=ON
+
+      - name: Build
+        run: cmake --build "Nova Meter/build" --config Release
+
+      - name: Measurement accuracy tests
+        run: '& "Nova Meter/build/NovaMeterTests_artefacts/Release/NovaMeterTests.exe"'
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaMeter-Windows-build
+          path: Nova Meter/build/NovaMeter_artefacts

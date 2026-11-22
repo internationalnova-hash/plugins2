@@ -1,0 +1,47 @@
+name: Build Nova Meter macOS
+
+on:
+  push:
+    paths:
+      - 'Nova Meter/**'
+      - '.github/workflows/build-nova-meter-macos.yml'
+  pull_request:
+    paths:
+      - 'Nova Meter/**'
+      - '.github/workflows/build-nova-meter-macos.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        run: brew install cmake
+
+      - name: Clean build directory
+        run: rm -rf "Nova Meter/build"
+
+      # Customer builds are license-gated; local builds default to ungated.
+      - name: Configure CMake
+        run: cmake -S "Nova Meter" -B "Nova Meter/build" -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DNOVA_METER_REQUIRE_LICENSE=ON
+
+      - name: Build
+        run: cmake --build "Nova Meter/build" --config Release
+
+      - name: Measurement accuracy tests
+        run: |
+          "Nova Meter/build/NovaMeterTests_artefacts/Release/NovaMeterTests" || "Nova Meter/build/NovaMeterTests_artefacts/NovaMeterTests"
+
+      - name: Package VST3 Bundle
+        run: |
+          cd "Nova Meter/build/NovaMeter_artefacts/Release/VST3" 2>/dev/null || cd "Nova Meter/build/NovaMeter_artefacts/VST3"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Meter.vst3" "NovaMeter-macOS-vst3.zip"
+          mv NovaMeter-macOS-vst3.zip "$GITHUB_WORKSPACE/"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaMeter-macOS-build
+          path: NovaMeter-macOS-vst3.zip

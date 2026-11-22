@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nova Meter</title>
+  <style>
+    :root {
+      --bg-dark: #060b12;
+      --accent: #ff9836;
+      --accent-soft: #ffb766;
+      --accent-glow: rgba(255,154,60,0.42);
+      --text-main: #eaeaea;
+      --text-soft: #8a8f98;
+      --text-dim: #c4b9ab;
+      --line: rgba(148, 178, 210, 0.22);
+      --below: #ffb02e;
+      --inrange: #3ddc84;
+      --over: #ff4d4d;
+      --nosig: #3a4658;
+      --ease: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background:
+        radial-gradient(120% 80% at 50% -10%, #101f34 0%, #070c14 56%, #04070d 100%),
+        linear-gradient(180deg, #070c13 0%, #03060a 100%);
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text-main);
+      user-select: none; -webkit-user-select: none;
+    }
+    body { display: grid; place-items: center; place-content: center; }
+    button { font-family: inherit; white-space: nowrap; }
+
+    .plugin {
+      position: relative; width: 980px; height: 620px;
+      transform-origin: center center;
+      border-radius: 30px; overflow: hidden;
+      background:
+        repeating-linear-gradient(90deg, rgba(22,43,68,0.02) 0px, rgba(22,43,68,0.02) 1px, transparent 1px, transparent 13px),
+        linear-gradient(180deg, #0a1423 0%, #08111d 44%, #060d17 100%);
+      border: 1px solid rgba(129, 160, 196, 0.24);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 28px 56px rgba(0,0,0,0.72),
+                  inset 0 1px 0 rgba(183, 212, 255, 0.14), inset 0 -1px 0 rgba(0,0,0,0.52);
+    }
+    .plugin::before {
+      content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+      background: radial-gradient(ellipse 90% 48% at 50% 2%, rgba(39, 93, 150, 0.22) 0%, transparent 64%);
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    .header {
+      position: absolute; left: 26px; right: 26px; top: 20px; height: 64px;
+      display: flex; align-items: center; gap: 14px; z-index: 5;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .nova-logo-container {
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 8px;
+      background: rgba(255,154,60,0.10); box-shadow: 0 0 12px rgba(255,154,60,0.18);
+    }
+    .nova-logo { width: 28px; height: 28px; object-fit: contain; opacity: 0.92; }
+    .nova-title-nova {
+      font-size: 15px; font-family: "Iowan Old Style","Palatino Linotype",Georgia,serif;
+      font-weight: 700; letter-spacing: 0.13em; color: var(--text-soft);
+    }
+    .nova-title-main {
+      font-size: 24px; font-family: "Iowan Old Style","Palatino Linotype",Georgia,serif;
+      font-weight: 900; letter-spacing: 0.04em; line-height: 1;
+    }
+
+    .seg {
+      display: flex; padding: 3px; border-radius: 12px;
+      background: rgba(4,9,16,0.7); border: 1px solid var(--line);
+    }
+    .seg button {
+      border: 0; background: transparent; color: var(--text-soft);
+      font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+      padding: 8px 11px; border-radius: 9px; cursor: pointer; transition: var(--ease);
+    }
+    .seg button.active {
+      color: #1a0e02; background: linear-gradient(180deg, var(--accent-soft), var(--accent));
+      box-shadow: 0 0 14px var(--accent-glow);
+    }
+
+    .profile-box { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+    .profile-label { font-size: 10px; letter-spacing: 0.16em; color: var(--text-soft); font-weight: 700; }
+    select, .btn, input.num, .modal input {
+      background: rgba(4,9,16,0.75); color: var(--text-main);
+      border: 1px solid var(--line); border-radius: 9px; font: inherit;
+    }
+    select { font-size: 13px; padding: 7px 10px; min-width: 130px; max-width: 160px; cursor: pointer; outline: none; }
+    .btn {
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; padding: 8px 9px;
+      cursor: pointer; transition: var(--ease); color: var(--text-dim);
+    }
+    .btn:hover { border-color: rgba(255,154,60,0.6); color: var(--text-main); }
+    .btn:disabled { opacity: 0.35; cursor: default; border-color: var(--line); }
+    .btn.primary { color: #1a0e02; background: linear-gradient(180deg, var(--accent-soft), var(--accent)); border-color: transparent; }
+    .modified { color: var(--accent-soft); font-size: 11px; min-width: 10px; }
+
+    /* ── Panel ──────────────────────────────────────────── */
+    .inner-panel {
+      position: absolute; left: 18px; right: 18px; top: 96px; bottom: 64px;
+      border-radius: 26px; padding: 18px;
+      background: linear-gradient(180deg, rgba(17,36,58,0.96) 0%, rgba(11,22,37,0.95) 58%, rgba(8,16,27,0.97) 100%);
+      border: 1px solid rgba(148, 178, 210, 0.32);
+      box-shadow: inset 0 1px 0 rgba(201,223,252,0.16), inset 0 0 120px rgba(12, 26, 45, 0.46), 0 8px 24px rgba(0,0,0,0.36);
+      overflow: hidden;
+    }
+    .view { position: absolute; inset: 18px; display: none; }
+    .view.active { display: block; }
+
+    /* Live view tiles */
+    #live { display: none; }
+    #live.active { display: grid; gap: 14px; grid-auto-rows: 1fr; }
+    .tile {
+      position: relative; border-radius: 18px; padding: 10px 10px 12px;
+      background: rgba(5,11,19,0.55); border: 1px solid rgba(148,178,210,0.14);
+      display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+      min-height: 0;
+    }
+    .name-btn {
+      background: none; border: 0; color: var(--text-dim); cursor: pointer;
+      font-size: 11px; font-weight: 800; letter-spacing: 0.16em; padding: 2px 6px; border-radius: 6px;
+    }
+    .name-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.05); }
+    .ring-wrap { position: relative; flex: 1; width: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; }
+    .ring-wrap svg { height: 100%; max-height: 150px; width: auto; overflow: visible; }
+    .ring-readout { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+    .ring-value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+    .ring-unit { font-size: 10px; letter-spacing: 0.18em; color: var(--text-soft); font-weight: 700; margin-top: 2px; }
+    .held { font-size: 11px; color: var(--text-soft); letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
+    .held b { color: var(--text-main); font-weight: 700; }
+    .track { stroke: rgba(255,255,255,0.07); }
+    .zone { stroke: rgba(61,220,132,0.20); }
+    .arc { transition: stroke 150ms linear; filter: drop-shadow(0 0 5px currentColor); }
+    .tick { stroke: rgba(255,255,255,0.55); stroke-width: 2; }
+    .empty-note { grid-column: 1 / -1; align-self: center; text-align: center; color: var(--text-soft); font-size: 13px; }
+
+    /* Targets view rows */
+    #targets.active { display: flex; flex-direction: column; justify-content: space-between; }
+    .trow {
+      display: grid; grid-template-columns: 30px 120px 1fr 72px 72px 70px;
+      align-items: center; gap: 12px; height: 50px; padding: 0 10px;
+      border-radius: 12px; background: rgba(5,11,19,0.45); border: 1px solid rgba(148,178,210,0.10);
+    }
+    .trow.hidden-meter { opacity: 0.45; }
+    .eye { width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line); background: transparent; color: var(--text-soft); cursor: pointer; font-size: 13px; padding: 0; }
+    .eye.on { color: var(--accent-soft); border-color: rgba(255,154,60,0.45); }
+    .trow .name-btn { text-align: left; }
+    .bar { position: relative; height: 26px; touch-action: none; cursor: crosshair; }
+    .bar-bg { position: absolute; left: 0; right: 0; top: 9px; height: 8px; border-radius: 4px; overflow: hidden; display: flex; }
+    .seg-below { background: rgba(255,176,46,0.40); }
+    .seg-in { background: rgba(61,220,132,0.55); }
+    .seg-over { background: rgba(255,77,77,0.42); }
+    .live-mark { position: absolute; top: 3px; width: 3px; height: 20px; margin-left: -1.5px; border-radius: 2px; background: #fff; box-shadow: 0 0 8px #fff; transition: left 60ms linear; }
+    .handle {
+      position: absolute; top: 1px; width: 14px; height: 24px; margin-left: -7px; border-radius: 5px; cursor: ew-resize;
+      background: linear-gradient(180deg, #f4f6fa, #b8c2d0); border: 1px solid rgba(0,0,0,0.5); box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+    .handle::after { content: ""; position: absolute; left: 5px; top: 6px; width: 2px; height: 10px; border-left: 1px solid #667; border-right: 1px solid #667; }
+    .scale-lbl { position: absolute; top: -9px; font-size: 9px; color: var(--text-soft); }
+    input.num { width: 72px; padding: 6px 6px; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+    .tread { font-size: 13px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .col-hdr { display: grid; grid-template-columns: 30px 120px 1fr 72px 72px 70px; gap: 12px; padding: 0 10px; font-size: 9.5px; letter-spacing: 0.16em; color: var(--text-soft); font-weight: 700; }
+    .col-hdr span:nth-child(n+4) { text-align: right; }
+
+    /* Reference view */
+    #reference.active { display: flex; flex-direction: column; gap: 12px; }
+    .ref-card {
+      flex: 0 0 96px; border-radius: 16px; padding: 14px 18px; display: flex; align-items: center; gap: 18px;
+      background: rgba(5,11,19,0.55); border: 1px solid rgba(148,178,210,0.16);
+    }
+    .ref-card.empty { border: 1.5px dashed rgba(255,154,60,0.45); justify-content: center; cursor: pointer; transition: var(--ease); }
+    .ref-card.empty:hover { background: rgba(255,154,60,0.06); }
+    .ref-drop-title { font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
+    .ref-drop-sub { font-size: 11.5px; color: var(--text-soft); margin-top: 4px; }
+    .ref-icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; background: rgba(255,154,60,0.12); color: var(--accent-soft); flex: 0 0 auto; }
+    .ref-meta-label { font-size: 9.5px; letter-spacing: 0.18em; color: var(--accent-soft); font-weight: 800; }
+    .ref-name { font-size: 17px; font-weight: 700; margin: 3px 0 2px; max-width: 430px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ref-meta { font-size: 11.5px; color: var(--text-soft); }
+    .ref-actions { margin-left: auto; display: flex; gap: 8px; }
+    .progress { width: 320px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; margin-top: 8px; }
+    .progress > div { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-soft)); width: 0; transition: width 120ms linear; }
+    .ref-err { color: var(--over); font-size: 12px; margin-top: 6px; }
+    .ref-table { flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-height: 0; }
+    .ref-row, .ref-hdr { display: grid; grid-template-columns: 130px 110px 120px 130px 1fr; gap: 12px; align-items: center; padding: 0 14px; }
+    .ref-hdr { font-size: 9.5px; letter-spacing: 0.16em; color: var(--text-soft); font-weight: 700; }
+    .ref-row { height: 37px; border-radius: 11px; background: rgba(5,11,19,0.45); border: 1px solid rgba(148,178,210,0.10); }
+    .ref-row.dim { opacity: 0.45; }
+    .ref-row .meter { font-size: 11px; font-weight: 800; letter-spacing: 0.16em; color: var(--text-dim); }
+    .ref-val { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .ref-val small { font-size: 9.5px; color: var(--text-soft); font-weight: 700; letter-spacing: 0.1em; margin-left: 5px; }
+    .ref-range { font-size: 12px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+    .delta { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; }
+    .delta .pill { padding: 3px 9px; border-radius: 999px; font-variant-numeric: tabular-nums; color: #08111d; }
+    .delta .words { color: var(--text-dim); font-weight: 600; }
+    .drop-hint {
+      position: absolute; inset: 12px; z-index: 70; border-radius: 26px; display: none; align-items: center; justify-content: center;
+      border: 2px dashed var(--accent); background: rgba(6,11,18,0.82); font-size: 20px; font-weight: 700; color: var(--accent-soft);
+      pointer-events: none;
+    }
+    .drop-hint.on { display: flex; }
+
+    /* ── Footer ─────────────────────────────────────────── */
+    .footer { position: absolute; left: 30px; right: 30px; bottom: 16px; height: 34px; display: flex; align-items: center; gap: 22px; }
+    .legend { display: flex; gap: 18px; font-size: 10.5px; letter-spacing: 0.14em; color: var(--text-soft); font-weight: 700; }
+    .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: 0; }
+    .tagline {
+      margin-left: auto; font-family: "Snell Roundhand", "Apple Chancery", "Brush Script MT", cursive;
+      font-size: 19px; color: var(--accent-soft); text-shadow: 0 0 14px rgba(255,154,60,0.20);
+    }
+    .reset-btn { font-size: 11px; padding: 9px 18px; }
+
+    /* ── Popover menu / modal / license ─────────────────── */
+    .menu {
+      position: absolute; z-index: 50; min-width: 230px; padding: 6px; display: none;
+      background: #0c1726; border: 1px solid rgba(148,178,210,0.35); border-radius: 12px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+    }
+    .menu.open { display: block; }
+    .menu .help { font-size: 11.5px; color: var(--text-soft); padding: 6px 10px 8px; line-height: 1.45; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+    .menu .sect { font-size: 9.5px; letter-spacing: 0.16em; color: var(--text-soft); padding: 6px 10px 2px; font-weight: 700; }
+    .menu button {
+      display: block; width: 100%; text-align: left; background: none; border: 0; color: var(--text-main);
+      font-size: 12.5px; padding: 7px 10px; border-radius: 7px; cursor: pointer;
+    }
+    .menu button:hover { background: rgba(255,154,60,0.12); }
+    .menu button.checked::before { content: "✓"; color: var(--accent); margin-right: 8px; }
+    .menu button.unchecked::before { content: "✓"; visibility: hidden; margin-right: 8px; }
+
+    .overlay { position: absolute; inset: 0; z-index: 80; display: none; align-items: center; justify-content: center; background: rgba(2,5,10,0.72); backdrop-filter: blur(4px); }
+    .overlay.open { display: flex; }
+    .modal { width: 360px; padding: 22px; border-radius: 18px; background: #0c1726; border: 1px solid rgba(148,178,210,0.35); box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
+    .modal h3 { margin: 0 0 6px; font-size: 15px; letter-spacing: 0.06em; }
+    .modal p { margin: 0 0 14px; font-size: 12.5px; color: var(--text-soft); line-height: 1.45; }
+    .modal input { width: 100%; padding: 10px 12px; font-size: 14px; outline: none; user-select: text; -webkit-user-select: text; }
+    .modal input:focus { border-color: var(--accent); }
+    .modal .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+    .modal .err { color: var(--over); font-size: 12px; min-height: 16px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="plugin" id="plugin">
+    <div class="header">
+      <div class="brand">
+        <div class="nova-logo-container"><img src="n_logo.png" alt="N" class="nova-logo" /></div>
+        <div>
+          <div class="nova-title-nova">NOVA</div>
+          <div class="nova-title-main">METER</div>
+        </div>
+      </div>
+
+      <div class="seg" id="viewSwitch">
+        <button data-view="live" class="active">LIVE VIEW</button>
+        <button data-view="targets">SET TARGETS</button>
+        <button data-view="reference">REFERENCE</button>
+      </div>
+
+      <div class="profile-box">
+        <span class="profile-label">PROFILE</span>
+        <select id="profileSelect"></select>
+        <span class="modified" id="modifiedMark" title="Targets changed since this profile was loaded"></span>
+        <button class="btn" id="saveBtn" title="Overwrite this profile with the current targets">SAVE</button>
+        <button class="btn" id="saveAsBtn" title="Save the current targets as a new profile">SAVE AS</button>
+        <button class="btn" id="deleteBtn" title="Delete this user profile">DELETE</button>
+      </div>
+    </div>
+
+    <div class="inner-panel">
+      <div class="view active" id="live"></div>
+      <div class="view" id="targets"></div>
+      <div class="view" id="reference">
+        <div class="ref-card" id="refCard"></div>
+        <div class="ref-table" id="refTable"></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="legend">
+        <span><i style="background:var(--below)"></i>BELOW TARGET</span>
+        <span><i style="background:var(--inrange)"></i>IN THE ZONE</span>
+        <span><i style="background:var(--over)"></i>OVER THE LINE</span>
+      </div>
+      <button class="btn reset-btn" id="resetBtn" title="Clear held values and the integrated measurement. Targets and profile are kept.">RESET</button>
+      <div class="tagline">set it, play it, check the colour</div>
+    </div>
+
+    <div class="drop-hint" id="dropHint"><div>Drop to use as your reference track</div></div>
+    <div class="menu" id="menu"></div>
+
+    <div class="overlay" id="saveOverlay">
+      <div class="modal">
+        <h3>Save profile</h3>
+        <p>Stores every meter's target range, visibility and held-value mode.</p>
+        <input id="saveName" maxlength="48" placeholder="e.g. Client – Hip Hop Master" />
+        <div class="err" id="saveErr"></div>
+        <div class="row">
+          <button class="btn" id="saveCancel">CANCEL</button>
+          <button class="btn primary" id="saveConfirm">SAVE</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="confirmOverlay">
+      <div class="modal">
+        <p id="confirmMsg"></p>
+        <div class="row">
+          <button class="btn" id="confirmCancel">CANCEL</button>
+          <button class="btn primary" id="confirmOk">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="licenseOverlay">
+      <div class="modal">
+        <h3>Unlock Nova Meter</h3>
+        <p>Paste the license key from your Nova purchase email.</p>
+        <input id="licenseKey" placeholder="NOVA-XXXX-XXXX-XXXX" />
+        <div class="err" id="licenseErr"></div>
+        <div class="row"><button class="btn primary" id="licenseGo">UNLOCK</button></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/index.js"></script>
+</body>
+</html>
