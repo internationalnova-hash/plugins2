@@ -1,9 +1,9 @@
 #pragma once
 
-#include <vector>
-
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+
+#include "Spatial/NovaSpaceDSP.h"
 
 class SpaceByNovaAudioProcessor : public juce::AudioProcessor
 {
@@ -42,46 +42,10 @@ public:
     juce::AudioProcessorValueTreeState apvts;
 
 private:
-    using DelayLine = juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>;
-
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    static float clamp01 (float value) noexcept;
-
-    juce::Reverb reverb;
-    DelayLine preDelayLeft { 96000 };
-    DelayLine preDelayRight { 96000 };
-    DelayLine decorrelationDelay { 4096 };
-
-    juce::dsp::StateVariableTPTFilter<float> wetToneLeft;
-    juce::dsp::StateVariableTPTFilter<float> wetToneRight;
-    juce::dsp::StateVariableTPTFilter<float> wetBodyLeft;
-    juce::dsp::StateVariableTPTFilter<float> wetBodyRight;
-    juce::dsp::StateVariableTPTFilter<float> earlyToneLeft;
-    juce::dsp::StateVariableTPTFilter<float> earlyToneRight;
-    juce::dsp::StateVariableTPTFilter<float> earlyBodyLeft;
-    juce::dsp::StateVariableTPTFilter<float> earlyBodyRight;
-
-    juce::LinearSmoothedValue<float> smoothedSpace;
-    juce::LinearSmoothedValue<float> smoothedAir;
-    juce::LinearSmoothedValue<float> smoothedDepth;
-    juce::LinearSmoothedValue<float> smoothedMix;
-    juce::LinearSmoothedValue<float> smoothedWidth;
-
-    juce::AudioBuffer<float> dryBuffer;
-    juce::AudioBuffer<float> wetBuffer;
-    juce::AudioBuffer<float> earlyBuffer;
-
-    std::vector<float> earlyTapBufferLeft;
-    std::vector<float> earlyTapBufferRight;
-    int earlyTapWriteIndex { 0 };
-    int earlyTapBufferSize { 0 };
-    float earlyDiffuseStateLeft { 0.0f };
-    float earlyDiffuseStateRight { 0.0f };
-
-    double currentSampleRate { 44100.0 };
-    float motionPhase { 0.0f };
-    float haloPhase { 1.7f };
+    // Shared DSP engine — no APVTS coupling
+    NovaSpaceDSP spaceDSP;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SpaceByNovaAudioProcessor)
 };

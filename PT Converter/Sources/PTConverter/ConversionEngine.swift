@@ -166,27 +166,31 @@ class ConversionEngine: ObservableObject {
         addLog(.info, "Building Nova Studio session…")
 
         // ── 7. Write .novastudio file ───────────────────────────────────────
-        let sessionFile: URL
-        if let ps = ptSession, !ps.tracks.isEmpty {
-            sessionFile = try exporter.export(
-                ptSession: ps,
-                regionWAVs: [:],
-                audioFileWAVs: audioFileWAVs,
-                diskWAVs: fallbackWAVs,
-                outputFolder: outRoot
-            )
-            let trackCount = ps.tracks.count
-            let clipCount  = ps.tracks.reduce(0) { $0 + $1.placements.count }
-            addLog(.info, "\(trackCount) tracks, \(clipCount) clip placements")
-        } else {
-            addLog(.warning, "No track layout parsed — creating one track per audio file")
-            sessionFile = try exporter.exportFromAudioFiles(
-                sessionName: sessName,
-                sampleRate: ptSession?.sampleRate ?? 44100,
-                wavFiles: fallbackWAVs,
-                outputFolder: outRoot
-            )
+        // Strategy: group converted audio files by base stem (track name),
+        // pick the best take per group (processed takes > highest take number).
+        // This mirrors how working PT converters reconstruct the track layout
+        // without relying on unreliable PTX playlist/region block parsing.
+        let stemWAVs = stemGroupedWAVs(from: fallbackWAVs)
+        let sampleRate = ptSession?.sampleRate ?? 44100
+        addLog(.info, "\(stemWAVs.count) track(s) from \(fallbackWAVs.count) file(s)")
+
+        // Build start-position map from parsed PTX tracks so Nova Studio
+        // places clips at the correct timeline position.
+        var nsStartPositions = [String: Int64]()
+        if let ps = ptSession {
+            for track in ps.tracks {
+                let firstStart = track.placements.map(\.startInTimelineSamples).min() ?? 0
+                if firstStart > 0 { nsStartPositions[track.name] = firstStart }
+            }
         }
+
+        let sessionFile = try exporter.exportFromAudioFiles(
+            sessionName: sessName,
+            sampleRate: sampleRate,
+            wavFiles: stemWAVs,
+            startPositions: nsStartPositions,
+            outputFolder: outRoot
+        )
 
         progress = 1.0
         outputSessionURL = sessionFile
@@ -219,89 +223,40 @@ class ConversionEngine: ObservableObject {
             let sources: [URL]   // audio files for this track (ordered by take)
         }
 
+        // Build stem tracks from disk files using the same stem-grouping logic as Nova Studio.
+        // This is reliable: group audio files by base stem, pick the best take per stem.
+        // PTX playlist parsing is not used here — it cannot reliably distinguish active takes.
         var stemTracks = [StemTrack]()
+        let stemWAVsForExport = stemGroupedWAVs(from: allDiskAudio.map {
+            let name = $0.deletingPathExtension().lastPathComponent
+            return (name: name, url: $0, lengthSamples: Int64(0))
+        })
+        stemTracks = stemWAVsForExport.map { StemTrack(name: $0.name, sources: [$0.url]) }
 
-        if let ps = ptSession, !ps.tracks.isEmpty {
-            // Use parsed track layout: each placement's regionIndex holds the audio file index
-            // (for v90 sessions the parser resolves region→fileIndex in the placement itself).
-            for ptTrack in ps.tracks {
-                var sources = [URL]()
-                var addedIndices = Set<Int>()
-
-                // Primary: use the file index stored in each placement's regionIndex field
-                for placement in ptTrack.placements {
-                    let fileIdx = placement.regionIndex
-                    guard !addedIndices.contains(fileIdx) else { continue }
-                    // Look up the audio file by index first
-                    if let af = ps.audioFiles.first(where: { $0.index == fileIdx }),
-                       let diskURL = converter.findAudioFile(named: af.filename,
-                                                             sessionFolder: sessionFolder) {
-                        sources.append(diskURL)
-                        addedIndices.insert(fileIdx)
-                        continue
-                    }
-                    // Also try via region → file mapping
-                    if let region = ps.regions.first(where: { $0.index == fileIdx }),
-                       let af = ps.audioFiles.first(where: { $0.index == region.fileIndex }),
-                       let diskURL = converter.findAudioFile(named: af.filename,
-                                                             sessionFolder: sessionFolder) {
-                        if !sources.contains(diskURL) { sources.append(diskURL) }
-                        addedIndices.insert(fileIdx)
-                    }
-                }
-
-                // Fallback: name-match against disk files if index lookup failed
-                if sources.isEmpty {
-                    let lower = ptTrack.name.lowercased()
-                    let matched = allDiskAudio.filter { url in
-                        let stem = url.deletingPathExtension().lastPathComponent.lowercased()
-                        return stem.contains(lower) || lower.contains(stem)
-                    }.sorted { $0.lastPathComponent < $1.lastPathComponent }
-                    // Among matches, prefer processed takes ("-Gain", etc.)
-                    let processed = matched.filter {
-                        let s = $0.deletingPathExtension().lastPathComponent.lowercased()
-                        return s.contains("-gain") || s.contains("-norm") || s.contains("-tmshft")
-                    }
-                    sources = processed.isEmpty ? matched : processed
-                }
-
-                if !sources.isEmpty {
-                    stemTracks.append(StemTrack(name: ptTrack.name, sources: sources))
+        // Build a stem → startInTimelineSamples map from the parsed PTX tracks.
+        // These positions come from the PTX clip placement block (playlist block).
+        var stemStartPositions = [String: Int64]()
+        if let ps = ptSession {
+            for track in ps.tracks {
+                let firstStart = track.placements.map(\.startInTimelineSamples).min() ?? 0
+                if firstStart > 0 {
+                    stemStartPositions[track.name] = firstStart
                 }
             }
-        }
-
-        // If no tracks were resolved, fall back to grouping disk files by stem
-        if stemTracks.isEmpty {
-            var groups: [(stem: String, urls: [URL])] = []
-            var stemIndex = [String: Int]()
-            for url in allDiskAudio.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-                var s = url.deletingPathExtension().lastPathComponent
-                // Strip trailing take number
-                if let m = s.range(of: #"[\s_\-]+\d+$"#, options: .regularExpression) {
-                    s = String(s[s.startIndex ..< m.lowerBound])
-                }
-                s = s.trimmingCharacters(in: .whitespaces)
-                if let idx = stemIndex[s] {
-                    groups[idx].urls.append(url)
-                } else {
-                    stemIndex[s] = groups.count
-                    groups.append((stem: s, urls: [url]))
-                }
-            }
-            stemTracks = groups.map { StemTrack(name: $0.stem, sources: $0.urls) }
         }
 
         addLog(.info, "Exporting \(stemTracks.count) stem tracks…")
 
-        // Find the maximum duration across all source files so all stems are the same length
+        // Find the maximum total duration (silence prefix + audio) so all stems are the same length.
         var maxDurationSamples: Int64 = 0
         let sampleRate = ptSession?.sampleRate ?? 44100.0
         for st in stemTracks {
+            let startPos = stemStartPositions[st.name] ?? 0
             for url in st.sources {
                 if let af = try? AVAudioFile(forReading: url) {
-                    let dur = Int64(Double(af.length) * sampleRate / af.processingFormat.sampleRate)
-                    maxDurationSamples = max(maxDurationSamples, dur)
+                    let audioLen = Int64(Double(af.length) * sampleRate / af.processingFormat.sampleRate)
+                    let total = startPos + audioLen
+                    maxDurationSamples = max(maxDurationSamples, total)
                 }
             }
         }
@@ -317,14 +272,20 @@ class ConversionEngine: ObservableObject {
             let safeName = st.name.components(separatedBy: CharacterSet(charactersIn: "/\\:*?\"<>|")).joined(separator: "_")
             let ext = isAAC ? "m4a" : "wav"
             let destURL = stemsFolder.appendingPathComponent("\(safeName).\(ext)")
+            let startSamples = stemStartPositions[st.name] ?? 0
+            if startSamples > 0 {
+                addLog(.info, "  → starts at sample \(startSamples) (\(String(format: "%.3f", Double(startSamples)/sampleRate))s)")
+            }
 
             do {
                 if isAAC {
                     try exportStemAAC(sources: st.sources, dest: destURL,
+                                      startSamples: startSamples,
                                       targetDurationSamples: maxDurationSamples,
                                       sessionSampleRate: sampleRate)
                 } else {
                     try exportStemWAV(sources: st.sources, dest: destURL,
+                                      startSamples: startSamples,
                                       targetDurationSamples: maxDurationSamples,
                                       sessionSampleRate: sampleRate)
                 }
@@ -343,6 +304,7 @@ class ConversionEngine: ObservableObject {
 
     // -----------------------------------------------------------------------
     private func exportStemWAV(sources: [URL], dest: URL,
+                               startSamples: Int64 = 0,
                                targetDurationSamples: Int64,
                                sessionSampleRate: Double) throws {
         // Use first source's format for output
@@ -365,7 +327,24 @@ class ConversionEngine: ObservableObject {
         let outFile = try AVAudioFile(forWriting: dest, settings: outSettings,
                                       commonFormat: .pcmFormatFloat32, interleaved: true)
 
-        // Write each source back-to-back starting at position 0
+        // Write leading silence so the waveform starts at its original timeline position.
+        // startSamples is in session sample rate; convert to output file sample rate.
+        if startSamples > 0 {
+            let leadingSilence = Int64(Double(startSamples) * outRate / sessionSampleRate)
+            let chunkSize = Int64(65536)
+            var remaining = leadingSilence
+            while remaining > 0 {
+                let n = AVAudioFrameCount(min(chunkSize, remaining))
+                if let silBuf = AVAudioPCMBuffer(pcmFormat: outFile.processingFormat,
+                                                  frameCapacity: n) {
+                    silBuf.frameLength = n
+                    try? outFile.write(from: silBuf)
+                }
+                remaining -= Int64(n)
+            }
+        }
+
+        // Write each source back-to-back
         for srcURL in sources {
             guard let inFile = try? AVAudioFile(forReading: srcURL) else { continue }
             let bufSize = AVAudioFrameCount(65536)
@@ -382,7 +361,7 @@ class ConversionEngine: ObservableObject {
             }
         }
 
-        // Pad with silence to match the longest track
+        // Pad with silence to match the longest track's total duration
         let writtenSamples = outFile.length
         let targetInOutRate = Int64(Double(targetDurationSamples) * outRate / sessionSampleRate)
         if writtenSamples < targetInOutRate {
@@ -390,7 +369,6 @@ class ConversionEngine: ObservableObject {
             if let silBuf = AVAudioPCMBuffer(pcmFormat: outFile.processingFormat,
                                              frameCapacity: silenceCount) {
                 silBuf.frameLength = silenceCount
-                // Buffer is already zeroed
                 try? outFile.write(from: silBuf)
             }
         }
@@ -398,11 +376,13 @@ class ConversionEngine: ObservableObject {
 
     // -----------------------------------------------------------------------
     private func exportStemAAC(sources: [URL], dest: URL,
+                               startSamples: Int64 = 0,
                                targetDurationSamples: Int64,
                                sessionSampleRate: Double) throws {
         // Write a temp WAV first, then encode to AAC via AVAssetExportSession
         let tmpWAV = dest.deletingPathExtension().appendingPathExtension("_tmp.wav")
         try exportStemWAV(sources: sources, dest: tmpWAV,
+                          startSamples: startSamples,
                           targetDurationSamples: targetDurationSamples,
                           sessionSampleRate: sessionSampleRate)
         defer { try? FileManager.default.removeItem(at: tmpWAV) }
@@ -436,6 +416,62 @@ class ConversionEngine: ObservableObject {
     private func isAudioFile(_ url: URL) -> Bool {
         let ext = url.pathExtension.lowercased()
         return ["wav", "aif", "aiff", "sd2", "mp3", "m4a", "caf"].contains(ext)
+    }
+
+    // Group converted WAVs by base stem; pick the best take per stem.
+    // "Audio 1_16-Gain.wav" and "Audio 1_01.wav" → stem "Audio 1",
+    // winner = processed take (contains -Gain/-Norm) or highest take number.
+    private func stemGroupedWAVs(from wavs: [(name: String, url: URL, lengthSamples: Int64)])
+        -> [(name: String, url: URL, lengthSamples: Int64)]
+    {
+        func baseStem(_ name: String) -> String {
+            var s = name
+            for sfx in [".L", ".R", "_L", "_R"] {
+                if s.lowercased().hasSuffix(sfx.lowercased()) { s = String(s.dropLast(sfx.count)) }
+            }
+            if let r = s.range(of: "_\\d+$", options: .regularExpression) { s = String(s[..<r.lowerBound]) }
+            if let r = s.range(of: "-[^-_]+$", options: .regularExpression) { s = String(s[..<r.lowerBound]) }
+            if let r = s.range(of: "_\\d+$", options: .regularExpression) { s = String(s[..<r.lowerBound]) }
+            return s
+        }
+        func takeNum(_ name: String) -> Int {
+            if let r = name.range(of: "\\d+$", options: .regularExpression) { return Int(name[r]) ?? 0 }
+            return 0
+        }
+
+        var stemOrder  = [String]()
+        var stemGroups = [String: [(name: String, url: URL, lengthSamples: Int64)]]()
+        for wav in wavs {
+            let stem = baseStem(wav.name)
+            if stemGroups[stem] == nil { stemOrder.append(stem); stemGroups[stem] = [] }
+            stemGroups[stem]!.append(wav)
+        }
+
+        // Only keep stems that look like PT session recordings:
+        // at least one file in the group has a take number (_01) or processing tag (-Gain/-Norm).
+        // This filters out reference tracks left in the Audio Files folder.
+        func looksLikeSessionFile(_ name: String) -> Bool {
+            let n = name.lowercased()
+            return n.contains("-gain") || n.contains("-norm") || n.contains("-tmshft") ||
+                   n.contains("-rev")  || n.range(of: "_\\d+", options: .regularExpression) != nil ||
+                   n.hasSuffix(".l") || n.hasSuffix(".r") || n.hasSuffix("_l") || n.hasSuffix("_r")
+        }
+
+        var result: [(name: String, url: URL, lengthSamples: Int64)] = []
+        for stem in stemOrder {
+            guard let group = stemGroups[stem], !group.isEmpty else { continue }
+            // Skip groups with no session-like files (e.g. reference songs in the folder)
+            guard group.contains(where: { looksLikeSessionFile($0.name) }) else { continue }
+            let processed = group.filter {
+                let n = $0.name.lowercased()
+                return n.contains("-gain") || n.contains("-norm") || n.contains("-tmshft") || n.contains("-rev")
+            }
+            let pool = processed.isEmpty ? group : processed
+            if let best = pool.max(by: { takeNum($0.name) < takeNum($1.name) }) {
+                result.append((name: stem, url: best.url, lengthSamples: best.lengthSamples))
+            }
+        }
+        return result
     }
 
     private func addLog(_ level: ConversionLog.Level, _ msg: String) {

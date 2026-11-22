@@ -82,9 +82,13 @@ target_sources(NovaLevel
         Source/PluginProcessor.h
         Source/PluginEditor.cpp
         Source/PluginEditor.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Dynamics/NovaLevelDSP.cpp
 )
 
 target_compile_definitions(NovaLevel PUBLIC JUCE_WEB_BROWSER=1)
+# Shared DSP engine (NovaDSP/Dynamics/NovaLevelDSP)
+target_include_directories(NovaLevel PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP)
+
 target_link_libraries(NovaLevel PRIVATE NovaLevel_WebUI juce::juce_dsp juce::juce_gui_basics juce::juce_gui_extra juce::juce_audio_utils juce::juce_audio_devices)
 
 # JUCE VST3 client defaults JUCE_VST3_CAN_REPLACE_VST2 to 1, which pulls in
