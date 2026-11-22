@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nova AI Master</title>
+<style>
+:root {
+  --bg: #08080a;
+  --panel: #0d0d11;
+  --panel-2: #121216;
+  --border: rgba(255,255,255,0.07);
+  --gold: #d4a843;
+  --gold-bright: #f0c766;
+  --text: #e8e8ea;
+  --text-dim: #7a7a86;
+  --text-dimmer: #4a4a54;
+}
+* { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+html, body {
+  margin: 0; padding: 0; width: 100%; height: 100%;
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+  overflow-y: auto; overflow-x: hidden;
+}
+.app { display: flex; flex-direction: column; align-items: center; padding: 22px 28px 40px; min-height: 100%; }
+
+/* Top bar */
+.top-bar { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; max-width: 980px; margin-bottom: 18px; }
+.ai-badge {
+  border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em; color: var(--gold);
+  text-align: center; line-height: 1.4;
+}
+.brand { text-align: center; flex: 1; }
+.brand-nova { font-size: 12px; font-weight: 800; letter-spacing: 0.3em; color: var(--gold); }
+.brand-title { font-size: 30px; font-weight: 800; letter-spacing: 0.02em; margin-top: 2px; }
+.brand-title .accent { color: var(--gold); }
+.brand-tagline { font-size: 10px; letter-spacing: 0.25em; color: var(--text-dim); margin-top: 4px; }
+.steps { display: flex; align-items: center; gap: 6px; padding-top: 6px; }
+.step { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.step-icon {
+  width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(212,168,67,0.4);
+  display: flex; align-items: center; justify-content: center; color: var(--gold); font-size: 13px;
+}
+.step-label { font-size: 8px; letter-spacing: 0.1em; color: var(--text-dim); }
+.step-line { width: 22px; height: 1px; background: rgba(212,168,67,0.25); margin-bottom: 14px; }
+
+/* Panel */
+.panel {
+  width: 100%; max-width: 980px; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 14px; padding: 22px 26px 26px; margin-bottom: 16px;
+}
+.panel-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.ph-left { display: flex; align-items: center; gap: 12px; }
+.ph-logo { font-size: 9px; font-weight: 800; letter-spacing: 0.15em; color: var(--gold); line-height: 1.3; }
+.ph-track-name { font-size: 14px; font-weight: 600; }
+.ph-track-meta { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+.ph-right { display: flex; align-items: center; gap: 10px; }
+.gear { color: var(--text-dim); cursor: pointer; font-size: 14px; }
+
+.master-row { display: flex; align-items: center; justify-content: center; gap: 30px; margin-bottom: 8px; }
+.waveform-col { flex: 1; max-width: 300px; text-align: center; }
+.waveform-col canvas { width: 100%; height: 90px; display: block; }
+.wave-label { font-size: 9px; letter-spacing: 0.15em; color: var(--text-dim); margin-top: 6px; }
+.wave-label.gold { color: var(--gold); }
+
+.ring-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+.ring-wrap { position: relative; width: 190px; height: 190px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.ring-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 3; }
+.ring-progress { fill: none; stroke: var(--gold); stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 0.3s ease, stroke 0.3s ease; filter: drop-shadow(0 0 6px rgba(212,168,67,0.55)); }
+.ring-progress.analyzing { stroke: var(--gold-bright); }
+.ring-core { width: 148px; height: 148px; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #17171c, #0a0a0c 75%); display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.05); }
+.ring-nova { font-size: 10px; letter-spacing: 0.25em; color: var(--text-dim); }
+.ring-label { font-size: 20px; font-weight: 700; margin-top: 2px; text-align: center; line-height: 1.2; }
+.ring-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); margin-top: 10px; }
+.ring-caption { font-size: 11px; color: var(--text-dim); margin-top: 6px; }
+
+.status-text { text-align: center; font-size: 11px; color: var(--text-dim); min-height: 14px; margin: 10px 0 16px; }
+
+.btn-row { display: flex; gap: 12px; width: 100%; max-width: 420px; margin: 0 auto 24px; }
+.btn { flex: 1; text-align: center; padding: 12px 0; border-radius: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer; border: 1px solid var(--border); }
+.btn.outline { background: var(--panel-2); color: var(--text); }
+.btn.outline.small { padding: 8px 16px; font-size: 10px; flex: none; }
+.btn.outline.active-preview { color: var(--gold); border-color: rgba(212,168,67,0.4); }
+.btn.solid { background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: #1a1305; border: none; }
+.btn.disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+
+.controls-row { display: flex; gap: 26px; padding: 18px; background: var(--panel-2); border-radius: 10px; border: 1px solid var(--border); }
+.control-col { flex: 1; }
+.ctl-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 10px; }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { padding: 7px 12px; border-radius: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.03em; color: var(--text-dim); background: var(--panel); border: 1px solid var(--border); cursor: pointer; }
+.pill.selected { color: var(--gold); border-color: rgba(212,168,67,0.4); background: rgba(212,168,67,0.08); }
+.slider-track { position: relative; width: 100%; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.08); cursor: pointer; margin-top: 14px; }
+.slider-fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 2px; background: var(--gold); }
+.slider-thumb { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: var(--gold-bright); transform: translate(-50%, -50%); box-shadow: 0 0 6px rgba(212,168,67,0.6); }
+.intensity-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--text-dimmer); letter-spacing: 0.06em; margin-top: 6px; }
+
+/* Reference (out of scope for v0.1 - shown, disabled) */
+.reference-section { margin-top: 16px; padding: 18px; background: var(--panel-2); border-radius: 10px; border: 1px solid var(--border); opacity: 0.45; position: relative; }
+.reference-section::after { content: "Coming in a future update"; position: absolute; top: 14px; right: 18px; font-size: 9px; color: var(--text-dimmer); letter-spacing: 0.05em; }
+.ref-header { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 14px; }
+.ref-row { display: flex; gap: 20px; align-items: center; }
+.ref-drop { flex: 1; border: 1px dashed var(--border); border-radius: 8px; padding: 18px; text-align: center; font-size: 11px; color: var(--text-dim); }
+.ref-drop-sub { font-size: 9px; color: var(--text-dimmer); }
+.ref-desc { flex: 1; font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+.ref-blend { flex: 1; }
+
+/* Bottom bar */
+.bottom-bar { width: 100%; max-width: 980px; display: flex; gap: 16px; }
+.walkthrough { flex: 2; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; display: flex; align-items: center; justify-content: space-between; }
+.wt-step { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; width: 110px; }
+.wt-num { font-size: 9px; color: var(--gold); font-weight: 700; letter-spacing: 0.08em; }
+.wt-title { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; }
+.wt-desc { font-size: 9px; color: var(--text-dimmer); line-height: 1.3; }
+.wt-arrow { color: var(--text-dimmer); font-size: 14px; }
+.export-formats { flex: 1; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.ef-title { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 10px; text-align: center; }
+.ef-list { display: flex; gap: 6px; margin-bottom: 10px; }
+.ef-item { flex: 1; text-align: center; font-size: 10px; font-weight: 700; padding: 6px 2px; background: var(--panel-2); border-radius: 6px; border: 1px solid var(--border); }
+.ef-item span { display: block; font-size: 8px; font-weight: 400; color: var(--text-dimmer); }
+.ef-item.disabled { opacity: 0.35; }
+.ef-supported { text-align: center; font-size: 8px; color: var(--text-dimmer); letter-spacing: 0.04em; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="top-bar">
+      <div class="ai-badge">AI<br>POWERED</div>
+      <div class="brand">
+        <div class="brand-nova">NOVA AUDIO</div>
+        <div class="brand-title">NOVA <span class="accent">AI MASTER</span></div>
+        <div class="brand-tagline">ONE CLICK. RELEASE READY.</div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-icon">&#9834;</div><div class="step-label">ANALYZE</div></div>
+        <div class="step-line"></div>
+        <div class="step"><div class="step-icon">&#9678;</div><div class="step-label">MASTER</div></div>
+        <div class="step-line"></div>
+        <div class="step"><div class="step-icon">&#9654;</div><div class="step-label">RELEASE</div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="ph-left">
+          <div class="ph-logo">NOVA<br>AUDIO</div>
+          <div>
+            <div class="ph-track-name" id="track-name">No file imported</div>
+            <div class="ph-track-meta" id="track-meta">Import a stereo mix to begin</div>
+          </div>
+        </div>
+        <div class="ph-right">
+          <div class="btn outline small" id="import-btn">IMPORT MIX</div>
+          <div class="gear">&#9881;</div>
+        </div>
+      </div>
+
+      <div class="master-row">
+        <div class="waveform-col">
+          <canvas id="wave-original" width="300" height="90"></canvas>
+          <div class="wave-label">ORIGINAL</div>
+        </div>
+        <div class="ring-col">
+          <div class="ring-wrap" id="ring-btn">
+            <svg class="ring-svg" viewBox="0 0 190 190">
+              <circle class="ring-track" cx="95" cy="95" r="86"></circle>
+              <circle class="ring-progress" id="ring-progress" cx="95" cy="95" r="86"></circle>
+            </svg>
+            <div class="ring-core">
+              <div class="ring-nova">NOVA</div>
+              <div class="ring-label" id="ring-label">MASTER<br>AI</div>
+            </div>
+          </div>
+          <div class="ring-dot"></div>
+          <div class="ring-caption">One click. Release ready.</div>
+        </div>
+        <div class="waveform-col">
+          <canvas id="wave-mastered" width="300" height="90"></canvas>
+          <div class="wave-label gold">NOVA MASTER</div>
+        </div>
+      </div>
+
+      <div class="status-text" id="status-text">Import a stereo mix to begin.</div>
+
+      <div class="btn-row">
+        <div class="btn outline" id="preview-btn">PREVIEW</div>
+        <div class="btn solid" id="master-btn">MASTER</div>
+      </div>
+
+      <div class="controls-row">
+        <div class="control-col">
+          <div class="ctl-label">STYLE</div>
+          <div class="pills" id="style-pills"></div>
+        </div>
+        <div class="control-col">
+          <div class="ctl-label">INTENSITY</div>
+          <div class="slider-track" id="intensity-track">
+            <div class="slider-fill" id="intensity-fill"></div>
+            <div class="slider-thumb" id="intensity-thumb"></div>
+          </div>
+          <div class="intensity-labels"><span>SOFT</span><span>AGGRESSIVE</span></div>
+        </div>
+        <div class="control-col">
+          <div class="ctl-label">LOUDNESS</div>
+          <div class="pills" id="loudness-pills"></div>
+        </div>
+      </div>
+
+      <div class="reference-section">
+        <div class="ref-header">REFERENCE (OPTIONAL)</div>
+        <div class="ref-row">
+          <div class="ref-drop">Drag &amp; Drop Reference Track<div class="ref-drop-sub">MP3, WAV, AIFF</div></div>
+          <div class="ref-desc">Reference helps Nova match the tone, loudness and balance of your favorite record.</div>
+          <div class="ref-blend">
+            <div class="ctl-label">REFERENCE BLENDING</div>
+            <div class="slider-track"><div class="slider-fill" style="width:50%"></div><div class="slider-thumb" style="left:50%"></div></div>
+            <div class="intensity-labels"><span>SUBTLE</span><span>STRONG</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-bar">
+      <div class="walkthrough">
+        <div class="wt-step"><div class="wt-num">1. IMPORT</div><div class="wt-desc">Drag &amp; drop your mix</div></div>
+        <div class="wt-arrow">&#8594;</div>
+        <div class="wt-step"><div class="wt-num">2. AI ANALYZES</div><div class="wt-desc">Nova listens and analyzes your track</div></div>
+        <div class="wt-arrow">&#8594;</div>
+        <div class="wt-step"><div class="wt-num">3. MASTER</div><div class="wt-desc">One click. Release ready.</div></div>
+        <div class="wt-arrow">&#8594;</div>
+        <div class="wt-step"><div class="wt-num">4. PREVIEW &amp; EXPORT</div><div class="wt-desc">Preview and export in high quality</div></div>
+      </div>
+      <div class="export-formats">
+        <div class="ef-title">EXPORT FORMATS</div>
+        <div class="ef-list">
+          <div class="ef-item">WAV<span>24-bit</span></div>
+          <div class="ef-item">WAV<span>16-bit</span></div>
+          <div class="ef-item disabled">MP3<span>320kbps</span></div>
+          <div class="ef-item">AIFF<span>24-bit</span></div>
+        </div>
+        <div class="ef-supported">SUPPORTED<br>STANDALONE &bull; AU &bull; VST3 &bull; AAX</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/index.js"></script>
+</body>
+</html>

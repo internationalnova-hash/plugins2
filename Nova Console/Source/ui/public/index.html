@@ -7,14 +7,14 @@
   <style>
     :root {
       --ui-scale: 1;
-      --line: rgba(172, 176, 182, 0.2);
-      --line-soft: rgba(172, 176, 182, 0.11);
-      --text: #d0d3d7;
-      --text-sub: #8f959d;
+      --line: rgba(201, 178, 138, 0.22);
+      --line-soft: rgba(201, 178, 138, 0.12);
+      --text: #d8cdb8;
+      --text-sub: #a8998a;
       --amber-soft: rgba(198, 146, 84, 0.18);
       --arc-reflect: rgba(203, 174, 132, 0.24);
       --arc-reflect-tail: rgba(203, 174, 132, 0.07);
-      --arc-tick: rgba(210, 220, 233, 0.24);
+      --arc-tick: rgba(216, 196, 160, 0.85);
       --meter-off: rgba(20, 22, 26, 0.84);
       --meter-on: linear-gradient(180deg, #f8ddb1 0%, #dca05b 58%, #9a5724 100%);
       --eng-readout-color: rgba(238, 214, 171, 0.98);
@@ -75,9 +75,13 @@
       transform-origin: top left;
       border-radius: 16px;
       border: 1px solid var(--line);
-      background:
-        radial-gradient(120% 120% at 50% 0%, rgba(184, 188, 195, 0.05) 0%, transparent 42%),
-        linear-gradient(180deg, #26292e 0%, #1a1c21 32%, #111317 100%);
+      background-color: #363c46;
+      background-image:
+        radial-gradient(120% 120% at 50% 0%, rgba(184, 188, 195, 0.08) 0%, transparent 42%),
+        linear-gradient(180deg, rgba(46,50,58,0.22) 0%, rgba(34,37,44,0.28) 40%, rgba(24,26,31,0.38) 100%),
+        url("img/faceplate.jpg");
+      background-size: 100% 100%, 100% 100%, 480px 480px;
+      background-repeat: no-repeat, no-repeat, repeat;
       box-shadow:
         inset 0 1px 0 rgba(236, 239, 244, 0.1),
         inset 0 -46px 64px rgba(0, 0, 0, 0.72),
@@ -485,10 +489,8 @@
       height: 100%;
       border-radius: 11px;
       border: 1px solid rgba(196, 210, 228, 0.44);
-      background:
-        /* Darkened paper, aged whites */
-        radial-gradient(145% 130% at 50% 100%, rgba(235, 228, 212, 0.92) 0%, rgba(215, 202, 175, 0.86) 42%, rgba(138, 128, 107, 0.48) 100%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0.02) 44%, rgba(0, 0, 0, 0.28) 100%);
+      background: center/cover no-repeat url("img/vu-face.jpg");
+      filter: sepia(0.5) saturate(1.5) brightness(0.85) contrast(1.08);
       position: relative;
       overflow: hidden;
       box-shadow: inset 0 8px 14px rgba(255, 244, 221, 0.22), inset 0 -14px 18px rgba(0, 0, 0, 0.44), inset 0 0 0 1px rgba(0, 0, 0, 0.24);
@@ -529,12 +531,15 @@
       width: 2px;
       height: 41px;
       transform-origin: 50% 92%;
-      transform: translate(-50%, -92%) rotate(-26deg);
+      /* Rest position (silence) - driven live by window.updateMeters()
+         from here on; this is just the value before the first real meter
+         tick arrives. */
+      transform: translate(-50%, -92%) rotate(-38deg);
       border-radius: 2px;
       background: linear-gradient(180deg, #613822 0%, #bb5c2f 100%);
       box-shadow: 0 0 3px rgba(112, 59, 31, 0.28);
       z-index: 6;
-      animation: vuSwing 2s ease-in-out infinite alternate;
+      transition: transform 60ms linear;
     }
 
     .vuPivot {
@@ -563,9 +568,13 @@
       bottom: 86px;
       border-radius: 14px;
       border: 1px solid var(--line-soft);
-      background:
-        radial-gradient(130% 120% at 50% 30%, #2a2d32 0%, #202328 42%, #171a1e 70%, #101215 100%),
-        repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.008) 0 2px, rgba(0, 0, 0, 0.024) 2px 5px);
+      background-color: #23262b;
+      background-image:
+        radial-gradient(130% 120% at 50% 30%, rgba(42,45,50,0.5) 0%, rgba(32,35,40,0.58) 42%, rgba(23,26,30,0.68) 70%, rgba(16,18,21,0.78) 100%),
+        repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.008) 0 2px, rgba(0, 0, 0, 0.024) 2px 5px),
+        url("img/faceplate.jpg");
+      background-size: 100% 100%, 100% 100%, 480px 480px;
+      background-repeat: no-repeat, no-repeat, repeat;
       box-shadow:
         inset 0 1px 0 rgba(231, 236, 243, 0.11),
         inset 0 -36px 48px rgba(0, 0, 0, 0.74),
@@ -602,7 +611,7 @@
       grid-template-rows: auto 1fr;
       gap: 6px;
       background:
-        linear-gradient(180deg, rgba(45, 48, 53, 0.62) 0%, rgba(27, 29, 33, 0.76) 100%),
+        linear-gradient(180deg, rgba(45, 48, 53, 0.32) 0%, rgba(27, 29, 33, 0.42) 100%),
         repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.009) 0 2px, rgba(0, 0, 0, 0.02) 2px 5px),
         repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.006) 0 1px, rgba(0, 0, 0, 0.008) 1px 2px);
       box-shadow:
@@ -648,9 +657,9 @@
       font-size: 11px;
       letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: #bcc7d6;
+      color: #d8c8a8;
       font-weight: 650;
-      text-shadow: 0 0 4px rgba(167, 180, 201, 0.16);
+      text-shadow: 0 0 4px rgba(201, 167, 108, 0.18);
       min-height: 14px;
     }
 
@@ -943,10 +952,6 @@
       line-height: 1.2;
     }
 
-    .compPunchStack .attackControl::before {
-      display: none;
-    }
-
     .compBody .knobWrap > div {
       row-gap: 4px;
       padding-top: 3px;
@@ -1097,10 +1102,6 @@
       margin-top: 3px;
     }
 
-    .eqBody .knobWrap > div::before {
-      background: repeating-conic-gradient(from 205deg, rgba(224, 232, 244, 0.42) 0deg 0.6deg, transparent 0.6deg 28deg);
-      opacity: 0.52;
-    }
     .eqKnobRow .knob.small { width: 58px; height: 58px; }
     .modeSelectorRow {
       display: grid;
@@ -1458,11 +1459,6 @@
       color: #c0cbd9;
     }
 
-    .filterBody .knobWrap > div::before {
-      background: repeating-conic-gradient(from 205deg, var(--arc-tick) 0deg 0.4deg, transparent 0.4deg 24deg);
-      opacity: 0.34;
-    }
-
     .filterBody .knobWrap > div::after {
       content: "";
       position: absolute;
@@ -1497,45 +1493,72 @@
       left: 50%;
       top: -10px;
       width: calc(100% + 18px);
-      height: calc(100% + 18px);
       aspect-ratio: 1;
       transform: translateX(-50%);
       border-radius: 50%;
-      background: repeating-conic-gradient(from 205deg, var(--arc-tick) 0deg 0.4deg, transparent 0.4deg 24deg);
-      clip-path: inset(0 0 49% 0);
-      opacity: 0.32;
+      background: repeating-conic-gradient(from 205deg, var(--arc-tick) 0deg 1.4deg, transparent 1.4deg 24deg);
+      opacity: 0.55;
       pointer-events: none;
+      z-index: 0;
     }
 
+    /* Photo-based knobs, ported from the Nova Royal 670 asset (itself
+       shared with Nova 7even): a single fully-composited photo per base
+       color, rim baked in. Only two source photos exist (red, black) so
+       every other Console color role is derived from the red photo via
+       hue-rotate, same technique the flat jpgs used before - just against
+       a much more detailed source image now. Box-shadow is much lighter
+       than the old flat-dome treatment since depth/highlight is already
+       baked into the photo. */
     .knob {
       width: 82px;
       height: 82px;
       aspect-ratio: 1;
       border-radius: 50%;
-      border: 1px solid rgba(193, 207, 226, 0.24);
-      background:
-        /* Subtle brushed metal texture */
-        repeating-linear-gradient(120deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.01) 2px, transparent 4px, transparent 12px),
-        repeating-linear-gradient(60deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.01) 1.5px, transparent 3px, transparent 10px),
-        /* Micro edge highlight */
-        radial-gradient(110% 110% at 60% 18%, rgba(255,255,255,0.10) 0%, transparent 60%),
-        /* Tiny imperfections */
-        radial-gradient(8% 8% at 70% 80%, rgba(255,255,255,0.07) 0%, transparent 100%),
-        radial-gradient(6% 6% at 30% 60%, rgba(255,255,255,0.04) 0%, transparent 100%),
-        /* Existing gradients */
-        radial-gradient(118% 110% at 28% 20%, rgba(229, 237, 247, 0.14) 0%, rgba(229, 237, 247, 0.02) 25%, transparent 55%),
-        repeating-conic-gradient(from 0deg, rgba(206, 218, 234, 0.05) 0deg 4deg, rgba(18, 22, 28, 0.08) 4deg 8deg),
-        radial-gradient(110% 110% at 32% 24%, #4f5968 0%, #3a4350 34%, #2a313b 62%, #1b2129 100%);
+      background: center/cover no-repeat url("img/black-knob.png");
       box-shadow:
-        /* Micro edge highlight */
-        0 0 0 2px rgba(255,255,255,0.04),
-        inset 0 2px 3px rgba(236, 244, 252, 0.16),
-        inset 0 -16px 22px rgba(0, 0, 0, 0.68),
-        inset 0 0 0 9px rgba(15, 19, 24, 0.94),
-        0 12px 20px rgba(0, 0, 0, 0.7),
-        0 0 0 1px rgba(0, 0, 0, 0.46);
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -6px 10px rgba(0, 0, 0, 0.6),
+        0 0 0 3px rgba(0, 0, 0, 0.5),
+        0 10px 16px rgba(0, 0, 0, 0.65);
       position: relative;
-      filter: contrast(1.02) saturate(0.9);
+      filter: brightness(0.88) contrast(1.02);
+    }
+
+    .knob.red {
+      background-image: url("img/desk-knob-red.png");
+      filter: hue-rotate(-6deg) saturate(0.65) brightness(0.7) contrast(1.04);
+    }
+
+    .knob.silver {
+      background-image: url("img/desk-knob-red.png");
+      filter: saturate(0.05) brightness(0.88) contrast(1.02);
+    }
+
+    .knob.purple { background-image: url("img/desk-knob-red.png"); filter: hue-rotate(266deg) saturate(0.5)  brightness(0.66) contrast(1.04); }
+    .knob.eqblue { background-image: url("img/desk-knob-red.png"); filter: hue-rotate(190deg) saturate(0.45) brightness(0.68) contrast(1.04); }
+    .knob.green  { background-image: url("img/desk-knob-red.png"); filter: hue-rotate(116deg) saturate(0.42) brightness(0.66) contrast(1.04); }
+    .knob.gold   { background-image: url("img/desk-knob-red.png"); filter: hue-rotate(48deg)  saturate(0.5)  brightness(0.72) contrast(1.0);  }
+    .knob.copper { background-image: url("img/desk-knob-red.png"); filter: hue-rotate(20deg)  saturate(0.42) brightness(0.6)  contrast(1.06); }
+    .knob.teal   { background-image: url("img/desk-knob-red.png"); filter: hue-rotate(166deg) saturate(0.42) brightness(0.66) contrast(1.04); }
+
+    .makeupControl, .attackControl, .releaseControl, .mixControl {
+      position: relative;
+    }
+    .makeupControl::before, .attackControl::before, .releaseControl::before, .mixControl::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: -10px;
+      width: 100px;
+      transform: translateX(-50%);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: repeating-conic-gradient(from 205deg, var(--arc-tick) 0deg 0.4deg, transparent 0.4deg 24deg);
+      opacity: 0.55;
+      pointer-events: none;
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
     }
 
     .inputBody .meter.dots {
@@ -1552,12 +1575,6 @@
     .inputBody .knob.large {
       width: 106px;
       height: 106px;
-      box-shadow:
-        inset 0 2px 3px rgba(255, 236, 201, 0.2),
-        inset 0 -14px 20px rgba(0, 0, 0, 0.7),
-        inset 0 0 0 9px rgba(16, 14, 12, 0.94),
-        0 14px 22px rgba(0, 0, 0, 0.72),
-        0 0 0 1px rgba(0, 0, 0, 0.5);
     }
 
     .inputLabel {
@@ -1570,13 +1587,6 @@
     .preampBody .knob {
       width: 92px;
       height: 92px;
-    }
-
-    .preampBody .knobWrap > div::before {
-      top: -12px;
-      width: calc(100% + 22px);
-      opacity: 0.34;
-      background: repeating-conic-gradient(from 205deg, var(--arc-tick) 0deg 0.4deg, transparent 0.4deg 24deg);
     }
 
     .preampBody > .knobWrap:nth-child(2) > div::after {
@@ -1597,15 +1607,6 @@
       clip-path: inset(0 0 52% 0);
       opacity: 0.36;
       pointer-events: none;
-    }
-
-    .preampBody .knob {
-      box-shadow:
-        inset 0 2px 3px rgba(236, 244, 252, 0.15),
-        inset 0 -15px 20px rgba(0, 0, 0, 0.66),
-        inset 0 0 0 9px rgba(15, 19, 24, 0.93),
-        0 12px 20px rgba(0, 0, 0, 0.68),
-        0 0 0 1px rgba(0, 0, 0, 0.48);
     }
 
     .preampReadout {
@@ -1659,31 +1660,8 @@
     .knob.large { width: 114px; height: 114px; }
     .knob.small { width: 68px; height: 68px; }
 
-    .knob::before {
-      content: "";
-      position: absolute;
-      left: 50%;
-      top: 11%;
-      width: 4px;
-      height: 30%;
-      border-radius: 2px;
-      transform: translateX(-50%);
-      background: linear-gradient(180deg, #f2f6fb 0%, #b9c6d8 100%);
-      box-shadow: 0 0 1px rgba(235, 242, 252, 0.35);
-    }
-
-    .knob::after {
-      content: "";
-      position: absolute;
-      inset: 22%;
-      border-radius: 50%;
-      border: 1px solid rgba(189, 203, 224, 0.18);
-      background:
-        radial-gradient(100% 100% at 35% 28%, rgba(229, 237, 247, 0.1) 0%, rgba(229, 237, 247, 0.01) 32%, transparent 56%),
-        repeating-conic-gradient(from 12deg, rgba(206, 218, 234, 0.025) 0deg 8deg, rgba(0, 0, 0, 0.04) 8deg 16deg),
-        linear-gradient(180deg, rgba(50, 57, 67, 0.96) 0%, rgba(22, 26, 32, 0.98) 100%);
-      box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.42), inset 0 -5px 8px rgba(0, 0, 0, 0.52);
-    }
+    /* No synthetic ::before pointer needed anymore - the Royal 670 photo
+       knobs have a real photographed pointer baked into the image itself. */
 
     .kLabel {
       margin-top: 4px;
@@ -1691,7 +1669,7 @@
       font-size: 9px;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: #b4c0d0;
+      color: #c9b898;
       font-weight: 600;
       text-shadow: none;
       line-height: 1.2;
@@ -2547,7 +2525,7 @@
         <div class="body inputBody">
           <div class="knobWrap" data-param="input" data-type="float" data-min="-18" data-max="18">
             <div class="inputDial">
-              <div class="knob large"></div>
+              <div class="knob large red"></div>
               <div class="inputScale"><span>-24</span><span>+24</span></div>
               <div class="inputUnit">dB</div>
               <div class="kLabel inputLabel">Input</div>
@@ -2590,7 +2568,7 @@
           </div>
         </div>
         <div class="headerRight">
-          <div class="knobWrap headerOutput" data-param="output" data-type="float" data-min="-18" data-max="18"><div><div class="knob"></div><div class="kLabel">Output</div><div class="outputScale"><span>-24</span><span>0</span><span>+24 dB</span></div></div></div>
+          <div class="knobWrap headerOutput" data-param="output" data-type="float" data-min="-18" data-max="18"><div><div class="knob silver"></div><div class="kLabel">Output</div><div class="outputScale"><span>-24</span><span>0</span><span>+24 dB</span></div></div></div>
           <div class="vu"><div class="vuGlass"></div><div class="vuNeedle"></div><div class="vuPivot"></div></div>
           <div class="calibrationControl">
             <div class="calibrationLabel">Calibration</div>
@@ -2612,7 +2590,7 @@
             <div class="power active" data-toggle="preamp_on">Power</div>
             <div class="knobWrap" data-param="drive" data-type="float" data-min="0" data-max="100">
               <div>
-                <div class="knob"></div>
+                <div class="knob red"></div>
                 <div class="preampReadout preampScale"><span>0</span><span>100</span></div>
                 <div class="kLabel">Drive</div>
               </div>
@@ -2624,9 +2602,9 @@
           <div class="name">Filters</div>
           <div class="body filterBody">
             <div class="power active" data-toggle="filter_on">Power</div>
-            <div class="knobWrap" data-param="hpf" data-type="float" data-min="20" data-max="1200"><div><div class="knob small"></div><div class="unitReadout">80 Hz</div><div class="kLabel">HPF</div></div></div>
+            <div class="knobWrap" data-param="hpf" data-type="float" data-min="20" data-max="1200"><div><div class="knob small green"></div><div class="unitReadout">80 Hz</div><div class="kLabel">HPF</div></div></div>
             <div class="btnRow"><div class="smallButton filterSlopeBtn" data-param="hpf_slope" data-choice="0">12</div><div class="smallButton filterSlopeBtn active" data-param="hpf_slope" data-choice="1">24</div><div class="smallButton filterSlopeBtn" data-param="hpf_slope" data-choice="2">48</div></div>
-            <div class="knobWrap" data-param="lpf" data-type="float" data-min="1800" data-max="20000"><div><div class="knob small"></div><div class="unitReadout">16 kHz</div><div class="kLabel">LPF</div></div></div>
+            <div class="knobWrap" data-param="lpf" data-type="float" data-min="1800" data-max="20000"><div><div class="knob small green"></div><div class="unitReadout">16 kHz</div><div class="kLabel">LPF</div></div></div>
             <div class="btnRow"><div class="smallButton filterSlopeBtn" data-param="lpf_slope" data-choice="0">12</div><div class="smallButton filterSlopeBtn active" data-param="lpf_slope" data-choice="1">24</div><div class="smallButton filterSlopeBtn" data-param="lpf_slope" data-choice="2">48</div></div>
           </div>
         </section>
@@ -2637,18 +2615,18 @@
             <div class="power active" data-toggle="eq_on">Power</div>
             <div class="eqDisplay"><div class="eqCurve"><svg class="eqSvg" viewBox="0 0 100 40" preserveAspectRatio="none"><defs><linearGradient id="eqLineGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="rgba(239, 214, 170, 0.96)" /><stop offset="55%" stop-color="rgba(232, 186, 121, 0.94)" /><stop offset="100%" stop-color="rgba(206, 151, 82, 0.9)" /></linearGradient></defs><g><line class="eqGridLine major" x1="0" y1="6" x2="100" y2="6" /><line class="eqGridLine" x1="0" y1="12" x2="100" y2="12" /><line class="eqGridLine major" x1="0" y1="18" x2="100" y2="18" /><line class="eqGridLine" x1="0" y1="24" x2="100" y2="24" /><line class="eqGridLine major" x1="0" y1="30" x2="100" y2="30" /><line class="eqGridLine" x1="0" y1="36" x2="100" y2="36" /><line class="eqGridLine major" x1="10" y1="0" x2="10" y2="40" /><line class="eqGridLine" x1="20" y1="0" x2="20" y2="40" /><line class="eqGridLine major" x1="30" y1="0" x2="30" y2="40" /><line class="eqGridLine" x1="40" y1="0" x2="40" y2="40" /><line class="eqGridLine major" x1="50" y1="0" x2="50" y2="40" /><line class="eqGridLine" x1="60" y1="0" x2="60" y2="40" /><line class="eqGridLine major" x1="70" y1="0" x2="70" y2="40" /><line class="eqGridLine" x1="80" y1="0" x2="80" y2="40" /><line class="eqGridLine major" x1="90" y1="0" x2="90" y2="40" /></g><path class="eqPathGlow" d="M 0 22.8 C 10 22.8, 18 22.1, 28 21.8 C 38 21.5, 46 20.2, 54 19.9 C 62 19.7, 71 20.1, 80 20.0 C 88 19.9, 95 19.3, 100 19.2" /><path class="eqPathMain" d="M 0 22.8 C 10 22.8, 18 22.1, 28 21.8 C 38 21.5, 46 20.2, 54 19.9 C 62 19.7, 71 20.1, 80 20.0 C 88 19.9, 95 19.3, 100 19.2" /><circle class="eqNodeHalo" data-band="low" cx="28" cy="20" r="1.2" /><circle class="eqNode" data-band="low" cx="28" cy="20" r="0.72" /><circle class="eqNodeHalo" data-band="low_mid" cx="33" cy="20" r="1.2" /><circle class="eqNode" data-band="low_mid" cx="33" cy="20" r="0.72" /><circle class="eqNodeHalo" data-band="high_mid" cx="54" cy="20" r="1.2" /><circle class="eqNode" data-band="high_mid" cx="54" cy="20" r="0.72" /><circle class="eqNodeHalo" data-band="high" cx="80" cy="20" r="1.2" /><circle class="eqNode" data-band="high" cx="80" cy="20" r="0.72" /><circle class="eqNodeHalo" data-band="air" cx="91" cy="20" r="1.2" /><circle class="eqNode" data-band="air" cx="91" cy="20" r="0.72" /></svg></div><div class="eqDbScale"><div class="eqDbLine" style="top: 4%;"><span>+12</span></div><div class="eqDbLine" style="top: 26%;"><span>+6</span></div><div class="eqDbLine" style="top: 49%;"><span>0</span></div><div class="eqDbLine" style="top: 72%;"><span>-6</span></div><div class="eqDbLine" style="top: 94%;"><span>-12</span></div></div><div class="eqFreqScale"><span>20</span><span>50</span><span>100</span><span>200</span><span>500</span><span>1k</span><span>2k</span><span>5k</span><span>10k</span><span>20k</span></div></div>
             <div class="eqKnobRow">
-              <div class="knobWrap" data-param="eq_low_freq" data-type="float" data-min="35" data-max="180"><div><div class="knob small"></div><div class="unitReadout">60 Hz</div><div class="kLabel">Freq</div></div></div>
-              <div class="knobWrap" data-param="eq_low_mid_freq" data-type="float" data-min="180" data-max="1200"><div><div class="knob small"></div><div class="unitReadout">120 Hz</div><div class="kLabel">Freq</div></div></div>
-              <div class="knobWrap" data-param="eq_high_mid_freq" data-type="float" data-min="1000" data-max="7000"><div><div class="knob small"></div><div class="unitReadout">1.2 kHz</div><div class="kLabel">Freq</div></div></div>
-              <div class="knobWrap" data-param="eq_high_freq" data-type="float" data-min="3500" data-max="12000"><div><div class="knob small"></div><div class="unitReadout">8 kHz</div><div class="kLabel">Freq</div></div></div>
-              <div class="knobWrap" data-param="eq_air_freq" data-type="float" data-min="8000" data-max="18000"><div><div class="knob small"></div><div class="unitReadout">16 kHz</div><div class="kLabel">Freq</div></div></div>
+              <div class="knobWrap" data-param="eq_low_freq" data-type="float" data-min="35" data-max="180"><div><div class="knob small purple"></div><div class="unitReadout">60 Hz</div><div class="kLabel">Freq</div></div></div>
+              <div class="knobWrap" data-param="eq_low_mid_freq" data-type="float" data-min="180" data-max="1200"><div><div class="knob small eqblue"></div><div class="unitReadout">120 Hz</div><div class="kLabel">Freq</div></div></div>
+              <div class="knobWrap" data-param="eq_high_mid_freq" data-type="float" data-min="1000" data-max="7000"><div><div class="knob small green"></div><div class="unitReadout">1.2 kHz</div><div class="kLabel">Freq</div></div></div>
+              <div class="knobWrap" data-param="eq_high_freq" data-type="float" data-min="3500" data-max="12000"><div><div class="knob small eqblue"></div><div class="unitReadout">8 kHz</div><div class="kLabel">Freq</div></div></div>
+              <div class="knobWrap" data-param="eq_air_freq" data-type="float" data-min="8000" data-max="18000"><div><div class="knob small gold"></div><div class="unitReadout">16 kHz</div><div class="kLabel">Freq</div></div></div>
             </div>
             <div class="eqKnobRow">
-              <div class="knobWrap" data-param="eq_low" data-type="float" data-min="-12" data-max="12"><div><div class="knob"></div><div class="unitReadout">-2 dB</div><div class="kLabel">Gain</div></div></div>
-              <div class="knobWrap" data-param="eq_low_mid" data-type="float" data-min="-12" data-max="12"><div><div class="knob"></div><div class="unitReadout">+1 dB</div><div class="kLabel">Gain</div></div></div>
-              <div class="knobWrap" data-param="eq_high_mid" data-type="float" data-min="-12" data-max="12"><div><div class="knob"></div><div class="unitReadout">+3 dB</div><div class="kLabel">Gain</div></div></div>
-              <div class="knobWrap" data-param="eq_high" data-type="float" data-min="-12" data-max="12"><div><div class="knob"></div><div class="unitReadout">+2 dB</div><div class="kLabel">Gain</div></div></div>
-              <div class="knobWrap" data-param="eq_air" data-type="float" data-min="-8" data-max="8"><div><div class="knob"></div><div class="unitReadout">+4 dB</div><div class="kLabel">Gain</div></div></div>
+              <div class="knobWrap" data-param="eq_low" data-type="float" data-min="-12" data-max="12"><div><div class="knob purple"></div><div class="unitReadout">-2 dB</div><div class="kLabel">Gain</div></div></div>
+              <div class="knobWrap" data-param="eq_low_mid" data-type="float" data-min="-12" data-max="12"><div><div class="knob eqblue"></div><div class="unitReadout">+1 dB</div><div class="kLabel">Gain</div></div></div>
+              <div class="knobWrap" data-param="eq_high_mid" data-type="float" data-min="-12" data-max="12"><div><div class="knob green"></div><div class="unitReadout">+3 dB</div><div class="kLabel">Gain</div></div></div>
+              <div class="knobWrap" data-param="eq_high" data-type="float" data-min="-12" data-max="12"><div><div class="knob eqblue"></div><div class="unitReadout">+2 dB</div><div class="kLabel">Gain</div></div></div>
+              <div class="knobWrap" data-param="eq_air" data-type="float" data-min="-8" data-max="8"><div><div class="knob gold"></div><div class="unitReadout">+4 dB</div><div class="kLabel">Gain</div></div></div>
             </div>
             <div class="modeSelectorRow">
               <div class="modeSelector" data-band="Low" data-param="eq_low_mode">
@@ -2680,7 +2658,7 @@
           <div class="body compBody">
             <div class="power active" data-toggle="comp_on">Power</div>
             <div class="compGrid">
-              <div class="knobWrap" data-param="comp_threshold" data-type="float" data-min="-40" data-max="0"><div><div class="knob"></div><div class="unitReadout">-18 dB</div><div class="kLabel">Threshold</div></div></div>
+              <div class="knobWrap" data-param="comp_threshold" data-type="float" data-min="-40" data-max="0"><div><div class="knob eqblue"></div><div class="unitReadout">-18 dB</div><div class="kLabel">Threshold</div></div></div>
               <div class="knobWrap compPunchStack">
                 <div class="makeupControl" data-param="comp_makeup" data-type="float" data-min="0" data-max="24"><div class="knob"></div><div class="unitReadout">+2 dB</div><div class="kLabel">Makeup</div></div>
                 <div class="attackControl" data-param="comp_attack" data-type="float" data-min="0.5" data-max="60"><div class="knob"></div><div class="unitReadout">10 ms</div><div class="kLabel">Attack</div></div>
@@ -2702,8 +2680,8 @@
           <div class="name">Gate / Expander</div>
           <div class="body gateBody">
             <div class="power active" data-toggle="gate_on">Power</div>
-            <div class="knobWrap" data-param="gate_threshold" data-type="float" data-min="-70" data-max="-10"><div><div class="knob small"></div><div class="unitReadout">-36 dB</div><div class="kLabel">Threshold</div></div></div>
-            <div class="knobWrap" data-param="gate_range" data-type="float" data-min="-36" data-max="-3"><div><div class="knob small"></div><div class="unitReadout">18 dB</div><div class="kLabel">Range</div></div></div>
+            <div class="knobWrap" data-param="gate_threshold" data-type="float" data-min="-70" data-max="-10"><div><div class="knob small teal"></div><div class="unitReadout">-36 dB</div><div class="kLabel">Threshold</div></div></div>
+            <div class="knobWrap" data-param="gate_range" data-type="float" data-min="-36" data-max="-3"><div><div class="knob small teal"></div><div class="unitReadout">18 dB</div><div class="kLabel">Range</div></div></div>
             <div class="knobWrap" data-param="gate_attack" data-type="float" data-min="0.1" data-max="100"><div><div class="knob small"></div><div class="unitReadout">8 ms</div><div class="kLabel">Attack</div></div></div>
             <div class="knobWrap" data-param="gate_hold" data-type="float" data-min="0" data-max="500"><div><div class="knob small"></div><div class="unitReadout">40 ms</div><div class="kLabel">Hold</div></div></div>
             <div class="gateModeStack"><div class="knobWrap" data-param="gate_release" data-type="float" data-min="20" data-max="500"><div><div class="knob small"></div><div class="unitReadout">160 ms</div><div class="kLabel">Release</div></div></div><div class="smallButton gateModeBtn active" data-param="gate_smooth" data-choice="1">Expand</div><div class="smallButton gateModeBtn" data-param="gate_smooth" data-choice="0">Gate</div></div>
@@ -2715,9 +2693,9 @@
           <div class="body analogBody">
             <div class="analogGrid">
               <div class="power active" data-toggle="analog_on">Power</div>
-              <div class="knobWrap analogKnobControl" data-param="analog_heat" data-type="float" data-min="0" data-max="100"><div><div class="knob small"></div><div class="analogScale"><span>0</span><span>100</span></div><div class="analogReadout">50%</div><div class="kLabel">Heat</div></div></div>
-              <div class="knobWrap analogKnobControl" data-param="analog_width" data-type="float" data-min="0" data-max="100"><div><div class="knob small"></div><div class="analogScale"><span>0</span><span>100</span></div><div class="analogReadout">50%</div><div class="kLabel">Width</div></div></div>
-              <div class="knobWrap analogKnobControl" data-param="analog_depth" data-type="float" data-min="0" data-max="100"><div><div class="knob small"></div><div class="analogScale"><span>0</span><span>100</span></div><div class="analogReadout">50%</div><div class="kLabel">Depth</div></div></div>
+              <div class="knobWrap analogKnobControl" data-param="analog_heat" data-type="float" data-min="0" data-max="100"><div><div class="knob small copper"></div><div class="analogScale"><span>0</span><span>100</span></div><div class="analogReadout">50%</div><div class="kLabel">Heat</div></div></div>
+              <div class="knobWrap analogKnobControl" data-param="analog_width" data-type="float" data-min="0" data-max="100"><div><div class="knob small copper"></div><div class="analogScale"><span>0</span><span>100</span></div><div class="analogReadout">50%</div><div class="kLabel">Width</div></div></div>
+              <div class="knobWrap analogKnobControl" data-param="analog_depth" data-type="float" data-min="0" data-max="100"><div><div class="knob small copper"></div><div class="analogScale"><span>0</span><span>100</span></div><div class="analogReadout">50%</div><div class="kLabel">Depth</div></div></div>
               <div class="crosstalkBlock">
                 <div class="blockTitle">Crosstalk</div>
                 <div class="crosstalkSliderRow" data-param="analog_crosstalk" data-type="float" data-min="0" data-max="100">
@@ -2791,7 +2769,7 @@
         <div class="sidechainBlock">
           <div class="sidechainTitle">Drift</div>
           <div class="sidechainBtns driftUtilityBtns">
-            <div class="knobWrap analogKnobControl" data-param="analog_drift" data-type="float" data-min="0" data-max="100"><div><div class="knob small"></div></div></div>
+            <div class="knobWrap analogKnobControl" data-param="analog_drift" data-type="float" data-min="0" data-max="100"><div><div class="knob small copper"></div></div></div>
             <div class="driftUtilityReadout">12%</div>
           </div>
         </div>
@@ -2836,6 +2814,10 @@
         const scale = Math.min(availW / W, availH / H, 1);
         const safeScale = Math.max(0.12, scale);
         document.documentElement.style.setProperty('--ui-scale', String(safeScale));
+        // Exposed globally so knob-drag handlers can compensate raw
+        // pointer-pixel deltas for the current visual scale - pointer
+        // events report real screen pixels, unaffected by this transform.
+        window.__novaConsoleScale = safeScale;
         const frameShell = document.querySelector('.frameShell');
         if (!frameShell) return;
         frameShell.style.width = `${W * safeScale}px`;
@@ -2846,6 +2828,10 @@
       window.addEventListener("load", fitUi);
       requestAnimationFrame(fitUi);
       fitUi();
+      // Polled too, not just resize-event-driven - this embedded WebView
+      // doesn't reliably fire resize events on a native host setBounds()
+      // (same fix applied across the catalog, see Nova Tape's index.js).
+      setInterval(fitUi, 300);
 
       const backend = window.__JUCE__ && window.__JUCE__.backend && typeof window.__JUCE__.backend.emitEvent === "function"
         ? window.__JUCE__.backend
@@ -3063,7 +3049,7 @@
             const handleMouseMove = (moveEvent) => {
               if (!isDragging) return;
               const currentY = moveEvent.clientY || (moveEvent.touches && moveEvent.touches[0].clientY);
-              const delta = (startY - currentY) * 0.5; // Vertical drag sensitivity
+              const delta = (startY - currentY) / (window.__novaConsoleScale || 1) * 0.5; // Vertical drag sensitivity
               const range = maxVal - minVal;
               const step = range * (delta / 200); // Smooth step scaling
               let nextValue = Math.max(minVal, Math.min(maxVal, startValue + step));
@@ -3166,6 +3152,20 @@
         // Final output meter (right-side dual PPM near Analog Engine)
         const outNorm = Math.pow(normalizeMeterValue(outLevel), 0.45);
         meterState.out = smooth(meterState.out, outNorm, riseSmooth, fallSmooth);
+
+        // VU needle - was a decorative CSS animation with no connection to
+        // real audio (see .vuNeedle's now-removed `animation: vuSwing`).
+        // Drives off the same smoothed output level as the PPM meter below
+        // it, mapped across the needle's original hand-tuned rest-to-peak
+        // sweep (-38deg at silence to +8deg at full scale, taken directly
+        // from the old keyframe's `from`/`to` values so the visual range
+        // matches the original design intent).
+        const vuNeedle = document.querySelector('.vuNeedle');
+        if (vuNeedle) {
+          const vuAngle = -38 + meterState.out * 46;
+          vuNeedle.style.transform = `translate(-50%, -92%) rotate(${vuAngle.toFixed(2)}deg)`;
+        }
+
         const ppmColumns = Array.from(document.querySelectorAll('.analogSide .ppmCol'));
         ppmColumns.forEach((col) => {
           const segs = Array.from(col.querySelectorAll('.seg'));
@@ -3642,7 +3642,7 @@
                 ? 0.5 + 0.5 * Math.tanh(dx / (width * 1.3))
                 : 0;
 
-              const yDelta = (baseY - coord.y);
+              const yDelta = (coord.y - baseY);
               const contribution = modeValue === 0 && (band.id === 'low' || band.id === 'high' || band.id === 'air')
                 ? yDelta * shelfShape
                 : yDelta * bell;
@@ -3936,7 +3936,7 @@
           const band = getBand(drag.bandId);
           if (!band) return;
 
-          const delta = drag.startY - getPointerY(ev);
+          const delta = (drag.startY - getPointerY(ev)) / (window.__novaConsoleScale || 1);
           const span = band.qMax - band.qMin;
           const next = clampNum(drag.startQ + (delta / 220) * span, band.qMin, band.qMax);
           state.bandQTargets[band.qParam] = next;
@@ -4121,7 +4121,7 @@
         if (active.pointerId != null && ev && ev.pointerId != null && ev.pointerId !== active.pointerId) return;
         if (ev && ev.preventDefault) ev.preventDefault();
 
-        const delta = active.startY - getClientY(ev);
+        const delta = (active.startY - getClientY(ev)) / (window.__novaConsoleScale || 1);
         const fine = ev && ev.shiftKey ? 0.25 : 1;
         const nextValue = clamp(active.startValue + delta * DRAG_SENSITIVITY * fine, 0, 100);
         active.entry.value = isRatioKnob(active.entry) ? snapRatioValue(nextValue) : nextValue;

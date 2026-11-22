@@ -63,6 +63,8 @@
       border: 1px solid rgba(230, 153, 62, 0.30);
       overflow: hidden;
       background: #070403;
+      flex: 0 0 auto;
+      transform-origin: center center;
     }
 
     .fit-frame {
@@ -784,7 +786,7 @@
   </style>
 </head>
 <body>
-  <div class="plugin">
+  <div class="plugin" id="stage">
     <div class="fit-frame">
     <div class="ui-scale-root">
     <div class="top">
@@ -1344,7 +1346,7 @@ function setupKnobDragging() {
     if (!active) return;
     event.preventDefault();
     const y = getClientY(event);
-    const delta = active.startY - y;
+    const delta = (active.startY - y) / (window.__novaDelayScale || 1);
     const next = Math.max(active.min, Math.min(active.max, active.startValue + delta * (active.max - active.min) * 0.005));
     values[active.param] = next;
     setParam(active.param, next);
@@ -1765,6 +1767,25 @@ if (document.readyState === "loading") {
 } else {
   initUi();
 }
+
+// ---- stage scale-to-fit (same technique as Nova Tape/Nova Pitch) ----
+(function () {
+  let lastW = -1, lastH = -1;
+  function fitStage() {
+    const w = document.documentElement.clientWidth || window.innerWidth || 0;
+    const h = document.documentElement.clientHeight || window.innerHeight || 0;
+    if (w <= 0 || h <= 0) return;
+    if (w === lastW && h === lastH) return;
+    lastW = w; lastH = h;
+    const scale = Math.min(w / 980, h / 640);
+    window.__novaDelayScale = scale || 1;
+    const stage = document.getElementById("stage");
+    if (stage) stage.style.transform = `scale(${scale})`;
+  }
+  fitStage();
+  window.addEventListener("resize", fitStage);
+  setInterval(fitStage, 300);
+})();
   </script>
   
 </body>

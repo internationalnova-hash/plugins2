@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nova AI Vocal</title>
+<style>
+:root {
+  --gold: #f0a93a;
+  --gold-hi: #ffd27a;
+  --gold-glow: rgba(255,170,60,0.55);
+  --red: #ff4a4a;
+  --teal: #4fe0d0;
+  --text: #f4f1ea;
+  --dim: #b7b2a7;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #050505; color: var(--text);
+  font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; user-select: none; }
+#stageOuter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+#stage { width: 1100px; height: 700px; flex: 0 0 auto; position: relative; transform-origin: center; }
+
+.frame { position: absolute; inset: 0; border-radius: 22px; padding: 5px;
+  background: linear-gradient(160deg, #6b5a3e 0%, #1c1812 18%, #0e0d0b 50%, #1c1812 82%, #5e4f37 100%);
+  box-shadow: 0 0 0 1px #000, 0 20px 60px rgba(0,0,0,.8); }
+.plugin { position: relative; width: 100%; height: 100%; border-radius: 18px; overflow: hidden;
+  background: radial-gradient(ellipse 60% 30% at 50% 10%, rgba(255,160,50,0.07), transparent 70%),
+              linear-gradient(180deg, #0f0e0c 0%, #070706 100%);
+  box-shadow: inset 0 0 0 1px rgba(255,200,120,0.08); }
+
+/* ── Top bar ── */
+.topbar { height: 56px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 20px;
+  border-bottom: 1px solid rgba(255,190,100,0.10); background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent); }
+.mark { display: flex; align-items: center; gap: 12px; }
+.mark svg { width: 30px; height: 30px; }
+.mark .t1 { font-size: 16px; font-weight: 600; letter-spacing: 4px; color: #ece8df; }
+.mark .t2 { font-size: 9px; letter-spacing: 4.5px; color: var(--dim); margin-top: 2px; }
+.preset { display: flex; align-items: center; width: 340px; height: 36px; border-radius: 10px;
+  background: linear-gradient(180deg, #1a1916, #0b0b0a); border: 1px solid rgba(255,200,120,0.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 2px 8px rgba(0,0,0,.6); }
+.preset .arr { width: 40px; height: 100%; display: grid; place-items: center; color: #e6e1d6; font-size: 12px; cursor: pointer; }
+.preset .arr:hover { color: var(--gold-hi); }
+.preset .nm { flex: 1; text-align: center; font-size: 17px; letter-spacing: .4px; color: #f2eee6; }
+.tools { justify-self: end; display: flex; align-items: center; gap: 12px; }
+.tbtn { width: 38px; height: 34px; border-radius: 9px; display: grid; place-items: center; cursor: pointer;
+  background: linear-gradient(180deg, #1d1c19, #0c0c0b); border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 2px 6px rgba(0,0,0,.6); }
+.tbtn svg { width: 18px; height: 18px; stroke: #e6e1d6; fill: none; stroke-width: 1.8; }
+.tbtn:hover svg { stroke: var(--gold-hi); }
+.pwr { width: 40px; height: 40px; border-radius: 50%; margin-left: 10px; display: grid; place-items: center; cursor: pointer;
+  background: radial-gradient(circle at 50% 35%, #2a2015, #0d0a06); border: 2px solid var(--gold);
+  box-shadow: 0 0 16px var(--gold-glow), inset 0 0 8px rgba(255,170,60,.25); }
+.pwr svg { width: 20px; height: 20px; stroke: var(--gold-hi); fill: none; stroke-width: 2.2; stroke-linecap: round; filter: drop-shadow(0 0 4px var(--gold)); }
+.pwr.off { border-color: #3a3833; box-shadow: none; }
+.pwr.off svg { stroke: #55524b; filter: none; }
+
+/* ── Hero title ── */
+.hero { height: 76px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.hero h1 { font-size: 40px; font-weight: 300; letter-spacing: 9px; color: #ece8df; line-height: 1; margin-left: 9px; }
+.hero h1 b { font-weight: 700; background: linear-gradient(180deg, #ffe0a0, #f0a93a 55%, #b8731c); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 10px rgba(255,170,60,.45)); }
+.hero h1 .w { font-weight: 500; }
+.hero .sub { font-size: 11px; letter-spacing: 6px; color: #d6d1c6; margin-top: 10px; margin-left: 6px; }
+.swoosh { position: absolute; top: -4px; height: 84px; width: 330px; pointer-events: none; }
+.swoosh.l { left: 0; } .swoosh.r { right: 0; transform: scaleX(-1); }
+
+/* ── Panels ── */
+.main { display: grid; grid-template-columns: 290px 1fr 252px; gap: 14px; padding: 2px 22px 0; height: 340px; }
+.bottom { display: grid; grid-template-columns: 1fr 300px; gap: 14px; padding: 12px 22px 0; height: 192px; }
+.panel { position: relative; border-radius: 16px;
+  background: linear-gradient(180deg, #141310 0%, #0a0a09 100%);
+  border: 1px solid rgba(255,190,100,0.28);
+  box-shadow: inset 0 1px 0 rgba(255,220,160,0.10), inset 0 0 30px rgba(0,0,0,.6), 0 0 14px rgba(255,160,50,0.08), 0 4px 14px rgba(0,0,0,.6); }
+.panel::after { content: ""; position: absolute; left: 18%; right: 18%; bottom: -1px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,180,80,.75), transparent); }
+.ptitle { font-size: 12.5px; letter-spacing: 4.5px; color: #ece8df; font-weight: 500; }
+
+/* Auto mix */
+.automix { display: flex; flex-direction: column; align-items: center; padding: 12px 16px; }
+.orb { position: relative; width: 194px; height: 194px; margin-top: 8px; cursor: pointer; }
+.orb .rim { position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 210deg, #6b4515, #ffd690 12%, #b8781e 25%, #3a250b 40%, #e8a849 55%, #fff0c8 62%, #a96c1c 75%, #4a300e 88%, #6b4515);
+  box-shadow: 0 0 30px rgba(255,160,50,.45), 0 0 70px rgba(255,140,40,.18); }
+.orb .rim2 { position: absolute; inset: 7px; border-radius: 50%; background: #0b0905; box-shadow: inset 0 0 0 2px rgba(0,0,0,.8); }
+.orb .glowring { position: absolute; inset: 13px; border-radius: 50%; border: 3px solid #ffb44a;
+  box-shadow: 0 0 18px #ff9c2a, inset 0 0 22px rgba(255,150,40,.65); }
+.orb .core { position: absolute; inset: 19px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #1a1208 0%, #0c0905 55%, #2a1806 82%, #5a3209 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.orb canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.orb .wave { width: 92px; height: 34px; }
+.orb .k { font-size: 12px; letter-spacing: 5px; color: #ece8df; margin-top: 8px; margin-left: 5px; }
+.orb .l { font-size: 31px; font-weight: 700; letter-spacing: 3px; line-height: 1.05; margin-left: 3px;
+  background: linear-gradient(180deg, #ffe7b5, #f0a93a 70%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgba(255,170,60,.5)); }
+.orb .s { font-size: 9.5px; letter-spacing: 3.5px; color: #e6e1d6; margin-top: 4px; margin-left: 3px; font-variant-numeric: tabular-nums; }
+.orb .play { width: 0; height: 0; border-left: 17px solid #f4f1ea; border-top: 11px solid transparent; border-bottom: 11px solid transparent; margin-top: 12px; margin-left: 5px; filter: drop-shadow(0 0 6px rgba(255,210,140,.6)); }
+.orb .stop { width: 16px; height: 16px; border-radius: 3px; background: #f4f1ea; margin-top: 12px; filter: drop-shadow(0 0 6px rgba(255,210,140,.6)); }
+.orb:hover .rim { filter: brightness(1.12); }
+.chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; margin-top: 12px; width: 100%; }
+.chip { height: 24px; border-radius: 14px; border: 1px solid rgba(255,190,100,0.45); display: flex; align-items: center; gap: 8px; padding: 0 12px;
+  font-size: 11px; color: #ece8df; background: linear-gradient(180deg, rgba(255,180,80,0.08), rgba(255,180,80,0.02)); white-space: nowrap; }
+.chip svg { width: 12px; height: 12px; stroke: var(--gold-hi); fill: none; stroke-width: 2.6; flex: 0 0 auto; }
+.amdesc { font-size: 11px; color: #d6d1c6; text-align: center; margin-top: 8px; line-height: 1.45; }
+
+/* Chain curve */
+.curve { padding: 12px 18px 12px; display: flex; flex-direction: column; }
+.chead { display: flex; justify-content: space-between; align-items: center; }
+.legend { display: flex; gap: 16px; font-size: 10px; letter-spacing: 1px; color: #d6d1c6; }
+.legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 7px; }
+#spec { display: block; width: 100%; height: 140px; flex: 0 0 140px; margin-top: 6px; }
+.selrow { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.selrow .lb { font-size: 11px; letter-spacing: 2.5px; color: #d6d1c6; }
+.sel { display: flex; align-items: center; height: 30px; border-radius: 8px; border: 1px solid rgba(255,190,100,0.35);
+  background: linear-gradient(180deg, #17150f, #0b0a08); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+.sel .a { width: 28px; text-align: center; color: var(--gold); font-size: 10px; cursor: pointer; }
+.sel .a:hover { color: var(--gold-hi); }
+.sel .v { flex: 1; text-align: center; font-size: 13.5px; color: var(--gold-hi); white-space: nowrap; }
+.vibes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 10px; margin-top: 10px; }
+.vibe { height: 46px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.12); text-align: center; cursor: pointer;
+  background: linear-gradient(180deg, #1a1916, #0d0d0c); display: flex; flex-direction: column; justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05); transition: border-color .15s; white-space: nowrap; }
+.vibe:hover { border-color: rgba(255,190,100,0.4); }
+.vibe .vn { font-size: 13.5px; color: #f2eee6; }
+.vibe .vd { font-size: 10px; color: #a9a49a; margin-top: 2px; }
+.vibe.sel2 { border: 1.5px solid var(--gold); background: linear-gradient(180deg, #2b1f0e, #120d06);
+  box-shadow: 0 0 16px rgba(255,160,50,.4), inset 0 0 14px rgba(255,160,50,.15); }
+.vibe.sel2 .vn { color: var(--gold-hi); }
+.vibe.sel2 .vd { color: #e6c88f; }
+
+/* Tune */
+.tune { display: flex; flex-direction: column; align-items: center; padding: 12px 14px; }
+.note { font-size: 46px; font-weight: 700; line-height: 1; margin-top: 12px; font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, #ffffff, #c9c4b8); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.note sub { font-size: 24px; font-weight: 500; vertical-align: baseline; }
+.cval { font-size: 14px; color: #ece8df; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.cents { position: relative; width: 196px; height: 18px; margin-top: 8px; }
+.cents .ticks { position: absolute; left: 0; right: 0; top: 4px; height: 10px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.7) 0 2px, transparent 2px 16.4px); }
+.cents .dot { position: absolute; top: 1px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 10px var(--teal), 0 0 3px #fff inset; transition: left .08s linear; }
+.cents .ln { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: rgba(79,224,208,.6); }
+.tlbl { font-size: 12px; letter-spacing: 3.5px; color: #ece8df; margin-top: 8px; }
+.pillv { margin-top: 6px; min-width: 76px; height: 26px; padding: 0 12px; border-radius: 13px; border: 1px solid rgba(255,190,100,0.45);
+  display: grid; place-items: center; font-size: 15px; color: var(--gold-hi); background: rgba(255,170,60,0.06); font-variant-numeric: tabular-nums; }
+.seg { display: flex; margin-top: 10px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.14); overflow: hidden; background: #0b0b0a; }
+.seg div { padding: 7px 10px; font-size: 10px; letter-spacing: .6px; color: #d6d1c6; cursor: pointer; }
+.seg div.on { background: linear-gradient(180deg, #ffbe58, #d98a1f); color: #1a1006; font-weight: 700; box-shadow: 0 0 12px rgba(255,160,50,.6); border-radius: 14px; }
+
+/* Knobs (brushed metal) */
+.kw { display: flex; flex-direction: column; align-items: center; }
+.mk { position: relative; cursor: ns-resize; touch-action: none; }
+.mk svg.arc { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.mk .body { position: absolute; border-radius: 50%;
+  background:
+    repeating-conic-gradient(from 0deg, rgba(255,255,255,0.035) 0 2deg, rgba(0,0,0,0.05) 2deg 4deg),
+    conic-gradient(from 0deg, #3a3a3a, #a8a8a8 8%, #3c3c3c 20%, #1c1c1c 30%, #6e6e6e 42%, #2a2a2a 52%, #b4b4b4 60%, #3a3a3a 72%, #1a1a1a 82%, #707070 92%, #3a3a3a);
+  box-shadow: 0 0 0 2px #0c0c0c, 0 0 0 3px rgba(255,255,255,0.10), 0 6px 14px rgba(0,0,0,.8), inset 0 2px 3px rgba(255,255,255,.35), inset 0 -3px 6px rgba(0,0,0,.6); }
+.mk .ptr { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.mk .ptr i { position: absolute; left: -1.5px; width: 3px; border-radius: 2px; background: #f4f1ea; box-shadow: 0 0 4px rgba(255,255,255,.6); }
+.kl { font-size: 14px; letter-spacing: 1px; color: #f2eee6; margin-top: 8px; font-weight: 500; }
+.kh { font-size: 10.5px; color: #b7b2a7; margin-top: 2px; }
+.kv { margin-top: 6px; min-width: 54px; height: 22px; padding: 0 10px; border-radius: 11px; border: 1px solid rgba(255,190,100,0.45);
+  display: grid; place-items: center; font-size: 13px; color: var(--gold-hi); background: rgba(255,170,60,0.06); font-variant-numeric: tabular-nums; }
+
+.chain { padding: 12px 14px 10px 22px; }
+.chain .row { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 8px; }
+.chain .row .kw { border-right: 1px solid rgba(255,255,255,0.07); }
+.chain .row .kw:last-child { border-right: 0; }
+.levels { padding: 12px 18px 10px; }
+.levels .row { display: grid; grid-template-columns: repeat(4, 34px) 1fr; gap: 12px; margin-top: 10px; align-items: start; }
+.mc { display: flex; flex-direction: column; align-items: center; }
+.mb { width: 12px; height: 118px; border-radius: 3px; background: #121210; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), inset 0 2px 4px rgba(0,0,0,.8); position: relative; overflow: hidden; }
+.mb .f { position: absolute; left: 2px; right: 2px; bottom: 2px; height: 0; border-radius: 2px; background: linear-gradient(0deg, #2fbf4e, #9fe03a 55%, #ffe14a 85%, #ff9a2a); box-shadow: 0 0 8px rgba(160,230,60,.4); }
+.mb.gr .f { background: linear-gradient(0deg, #3fbf4e, #ffd23a 40%, #ff8a1a); }
+.mc span { font-size: 11px; color: #d6d1c6; margin-top: 7px; letter-spacing: .5px; }
+.outc { display: flex; flex-direction: column; align-items: center; margin-top: 12px; }
+.outc .kl { font-size: 13px; letter-spacing: 1.5px; }
+.outc .ov { font-size: 14px; color: #ece8df; margin-top: 3px; font-variant-numeric: tabular-nums; }
+
+/* ── Popovers ── */
+.pop { position: absolute; z-index: 50; display: none; min-width: 200px; padding: 6px; border-radius: 12px;
+  background: linear-gradient(180deg, #1b1a17, #0e0d0c); border: 1px solid rgba(255,190,100,0.35);
+  box-shadow: 0 18px 40px rgba(0,0,0,.75), 0 0 18px rgba(255,160,50,.12); }
+.pop.open { display: block; }
+.pop .it { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border-radius: 8px; font-size: 13px; color: #ece8df; cursor: pointer; white-space: nowrap; }
+.pop .it:hover { background: rgba(255,180,80,0.10); color: var(--gold-hi); }
+.pop .it.cur { color: var(--gold-hi); }
+.pop .it .x { color: #6f6b63; font-size: 13px; padding: 0 2px; }
+.pop .it .x:hover { color: var(--red); }
+.pop .hd { font-size: 9.5px; letter-spacing: 2px; color: #8a857b; padding: 8px 12px 4px; }
+.pop .sep { height: 1px; background: rgba(255,255,255,0.08); margin: 5px 6px; }
+.pop .about { font-size: 10.5px; color: #6f6b63; padding: 6px 12px 4px; white-space: nowrap; }
+.pop input { width: 100%; height: 32px; border-radius: 8px; border: 1px solid rgba(255,190,100,0.35); background: #0b0a09; color: #f2eee6;
+  font: inherit; font-size: 13px; padding: 0 10px; outline: none; user-select: text; -webkit-user-select: text; }
+.pop input:focus { border-color: var(--gold); }
+.pop .row { display: flex; gap: 8px; justify-content: flex-end; padding: 8px 2px 2px; }
+.pop .b { height: 28px; padding: 0 14px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.14); background: #141310; color: #d6d1c6; font-size: 12px; display: grid; place-items: center; cursor: pointer; }
+.pop .b.go { background: linear-gradient(180deg, #ffbe58, #d98a1f); border-color: #d98a1f; color: #1a1006; font-weight: 700; }
+.pop .sizes { display: flex; gap: 6px; padding: 4px 6px 6px; }
+.pop .sizes .b { flex: 1; }
+.pop .sizes .b.on { border-color: var(--gold); color: var(--gold-hi); }
+.preset .nm { cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 6px; }
+.preset .nm:hover { color: var(--gold-hi); }
+.vibe .vd { white-space: nowrap; }
+
+/* Tempo (Processing Chain header) */
+.tempo { position: absolute; right: 16px; top: 8px; display: flex; align-items: center; gap: 8px; z-index: 2; }
+.tempo .lb { font-size: 10.5px; letter-spacing: 2.5px; color: #d6d1c6; }
+.tseg { display: flex; border-radius: 12px; border: 1px solid rgba(255,255,255,0.14); overflow: hidden; background: #0b0b0a; }
+.tseg div { padding: 4px 10px; font-size: 9.5px; letter-spacing: .8px; color: #b7b2a7; cursor: pointer; }
+.tseg div.on { background: linear-gradient(180deg, #ffbe58, #d98a1f); color: #1a1006; font-weight: 700; border-radius: 11px; box-shadow: 0 0 10px rgba(255,160,50,.5); }
+.bpmbox { min-width: 86px; height: 24px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(255,190,100,0.45);
+  background: rgba(255,170,60,0.06); display: flex; align-items: baseline; justify-content: center; gap: 5px; cursor: ns-resize; touch-action: none; }
+.bpmbox span { font-size: 14px; color: var(--gold-hi); font-variant-numeric: tabular-nums; line-height: 22px; }
+.bpmbox small { font-size: 9px; letter-spacing: 1px; color: #b7b2a7; }
+.bpmbox.synced span { color: #4fe0d0; text-shadow: 0 0 8px rgba(79,224,208,.5); }
+.bpmbox input { width: 56px; height: 20px; margin-top: 1px; border: 0; outline: none; background: transparent; color: var(--gold-hi); font: inherit; font-size: 14px; text-align: center; user-select: text; -webkit-user-select: text; }
+.tnote { font-size: 9.5px; color: #8a857b; min-width: 64px; letter-spacing: .3px; }
+</style>
+</head>
+<body>
+<div id="stageOuter"><div id="stage"><div class="frame"><div class="plugin">
+
+  <div class="topbar">
+    <div class="mark">
+      <svg viewBox="0 0 30 30"><path d="M4 26V4h4l14 15V4h4v22h-4L8 11v15z" fill="#f2eee6"/></svg>
+      <div><div class="t1">NOVA AUDIO</div><div class="t2">AI SERIES</div></div>
+    </div>
+    <div class="preset" id="presetbar"><div class="arr" id="pprev">&#9664;</div><div class="nm" id="pname" title="Presets">Nova AI Vocal</div><div class="arr" id="pnext">&#9654;</div></div>
+    <div class="tools">
+      <div class="tbtn" id="btn-save" title="Save preset"><svg viewBox="0 0 24 24"><path d="M5 3h11l4 4v14H4V3z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/></svg></div>
+      <div class="tbtn" id="btn-settings" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></div>
+      <div class="tbtn" id="btn-more" title="More"><svg viewBox="0 0 24 24" style="fill:#e6e1d6;stroke:none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></div>
+      <div class="pwr" id="pwr" title="Bypass"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg></div>
+    </div>
+  </div>
+
+  <div class="hero">
+    <svg class="swoosh l" viewBox="0 0 330 84"><defs><linearGradient id="sw" x1="0" x2="1"><stop offset="0" stop-color="#ff9a2a" stop-opacity="0"/><stop offset=".55" stop-color="#ffb54a" stop-opacity=".9"/><stop offset="1" stop-color="#ffe2a8" stop-opacity="0"/></linearGradient><filter id="bl"><feGaussianBlur stdDeviation="2.2"/></filter></defs>
+      <path d="M0 70 C 90 66, 170 48, 300 18" stroke="url(#sw)" stroke-width="5" fill="none" filter="url(#bl)"/>
+      <path d="M0 70 C 90 66, 170 48, 300 18" stroke="url(#sw)" stroke-width="1.6" fill="none"/>
+      <path d="M20 80 C 110 74, 190 58, 320 30" stroke="url(#sw)" stroke-width="1" fill="none" opacity=".6"/>
+      <path d="M40 58 C 120 54, 200 40, 290 12" stroke="url(#sw)" stroke-width=".8" fill="none" opacity=".45"/></svg>
+    <svg class="swoosh r" viewBox="0 0 330 84">
+      <path d="M0 70 C 90 66, 170 48, 300 18" stroke="url(#sw)" stroke-width="5" fill="none" filter="url(#bl)"/>
+      <path d="M0 70 C 90 66, 170 48, 300 18" stroke="url(#sw)" stroke-width="1.6" fill="none"/>
+      <path d="M20 80 C 110 74, 190 58, 320 30" stroke="url(#sw)" stroke-width="1" fill="none" opacity=".6"/>
+      <path d="M40 58 C 120 54, 200 40, 290 12" stroke="url(#sw)" stroke-width=".8" fill="none" opacity=".45"/></svg>
+    <h1><span class="w">NOVA</span> <b>AI</b> <span class="w">VOCAL</span></h1>
+    <div class="sub">INTELLIGENT VOCAL PROCESSOR</div>
+  </div>
+
+  <div class="main">
+    <div class="panel automix">
+      <div class="ptitle">AUTO MIX</div>
+      <div class="orb" id="orb">
+        <div class="rim"></div><div class="rim2"></div><div class="glowring" id="glowring"></div>
+        <div class="core">
+          <svg class="wave" viewBox="0 0 92 34" id="wave"></svg>
+          <div class="k" id="ok">NOVA</div>
+          <div class="l" id="ol">LISTEN</div>
+          <div class="s" id="os">ANALYZE &amp; MIX</div>
+          <div class="play" id="oicon"></div>
+        </div>
+        <canvas id="orbc" width="388" height="388"></canvas>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="amdesc" id="amdesc">Analyzes your vocal and applies an<br>intelligent processing chain.</div>
+    </div>
+
+    <div class="panel curve">
+      <div class="chead">
+        <div class="ptitle">CHAIN CURVE</div>
+        <div class="legend"><span><i style="background:#9a968d"></i>INPUT</span><span><i style="background:var(--gold)"></i>CHAIN</span><span><i style="background:var(--red)"></i>DE-ESS</span></div>
+      </div>
+      <canvas id="spec"></canvas>
+      <div class="selrow">
+        <span class="lb">VIBE</span>
+        <div class="sel" style="width:226px"><span class="a" id="vprev">&#9664;</span><span class="v" id="vname">Reggaeton Bright</span><span class="a" id="vnext">&#9654;</span></div>
+        <span class="lb" style="margin-left:auto">KEY</span>
+        <div class="sel" style="width:160px"><span class="a" id="kprev">&#9664;</span><span class="v" id="kname">Auto</span><span class="a" id="knext">&#9654;</span></div>
+      </div>
+      <div class="vibes" id="vibes"></div>
+    </div>
+
+    <div class="panel tune">
+      <div class="ptitle">TUNE</div>
+      <div class="note" id="note">G<sub>3</sub></div>
+      <div class="cval" id="cval">+0 cents</div>
+      <div class="cents"><div class="ticks"></div><div class="ln"></div><div class="dot" id="cdot" style="left:50%"></div></div>
+      <div class="kw" data-k="tune" data-size="104" style="margin-top:6px"></div>
+      <div class="tlbl">TUNE AMOUNT</div>
+      <div class="pillv" id="tuneval">95%</div>
+      <div class="seg" id="seg"><div data-v="0.35">NATURAL</div><div data-v="0.65">BALANCED</div><div data-v="0.95">HARD</div></div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="panel chain">
+      <div class="ptitle">PROCESSING CHAIN</div>
+      <div class="tempo">
+        <span class="lb">TEMPO</span>
+        <div class="tseg"><div id="t-sync" title="Follow the song's tempo">SYNC</div><div id="t-man" title="Use your own BPM">MANUAL</div></div>
+        <div class="bpmbox" id="bpmbox" title="Drag or scroll to set the BPM. Double-click to type it."><span id="bpmval">120.0</span><small>BPM</small></div>
+        <div class="tnote" id="tnote"></div>
+      </div>
+      <div class="row">
+        <div class="kw" data-k="clean"  data-size="78" data-label="CLEAN"  data-hint="low cut · mud"></div>
+        <div class="kw" data-k="deess"  data-size="78" data-label="DE-ESS" data-hint="tames S's"></div>
+        <div class="kw" data-k="punch"  data-size="78" data-label="PUNCH"  data-hint="compression"></div>
+        <div class="kw" data-k="air"    data-size="78" data-label="AIR"    data-hint="presence · top"></div>
+        <div class="kw" data-k="warmth" data-size="78" data-label="WARMTH" data-hint="saturation"></div>
+        <div class="kw" data-k="space"  data-size="78" data-label="SPACE"  data-hint="delay · reverb"></div>
+        <div class="kw" data-k="mix"    data-size="78" data-label="MIX"    data-hint="dry · wet"></div>
+      </div>
+    </div>
+    <div class="panel levels">
+      <div class="ptitle">LEVELS</div>
+      <div class="row">
+        <div class="mc"><div class="mb" id="m-in"><div class="f"></div></div><span>IN</span></div>
+        <div class="mc"><div class="mb gr" id="m-ds"><div class="f"></div></div><span>DS</span></div>
+        <div class="mc"><div class="mb gr" id="m-cp"><div class="f"></div></div><span>COMP</span></div>
+        <div class="mc"><div class="mb" id="m-out"><div class="f"></div></div><span>OUT</span></div>
+        <div class="outc"><div class="kw" data-k="output" data-size="62" data-bi="1"></div><div class="kl">OUTPUT</div><div class="ov" id="outval">+0.0 dB</div></div>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="pop" id="pop-presets" style="top:52px; left:380px; width:340px; max-height:580px; overflow-y:auto"></div>
+  <div class="pop" id="pop-save" style="top:52px; right:150px; width:260px">
+    <div class="hd">SAVE PRESET</div>
+    <div style="padding: 4px 6px"><input id="save-name" type="text" maxlength="64" placeholder="Preset name"></div>
+    <div class="row" style="padding-right:6px"><div class="b" id="save-cancel">Cancel</div><div class="b go" id="save-ok">Save</div></div>
+  </div>
+  <div class="pop" id="pop-settings" style="top:52px; right:100px; width:240px">
+    <div class="hd">WINDOW SIZE</div>
+    <div class="sizes"><div class="b" data-s="0.75">Small</div><div class="b" data-s="1">Medium</div><div class="b" data-s="1.25">Large</div></div>
+  </div>
+  <div class="pop" id="pop-more" style="top:52px; right:56px; width:250px">
+    <div class="it" id="m-reapply">Re-apply vibe settings</div>
+    <div class="it" id="m-forget">Forget voice (clear Listen)</div>
+    <div class="sep"></div>
+    <div class="it" id="m-folder">Open presets folder</div>
+    <div class="sep"></div>
+    <div class="about">Nova AI Vocal · Nova Audio</div>
+  </div>
+</div></div></div></div>
+
+<script type="module" src="js/index.js"></script>
+</body>
+</html>

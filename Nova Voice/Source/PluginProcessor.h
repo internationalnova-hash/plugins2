@@ -87,11 +87,37 @@ private:
     std::array<IIRFilter, smoothingBandCount> leftReductionFilters;
     std::array<IIRFilter, smoothingBandCount> rightReductionFilters;
 
-    juce::dsp::IIR::Filter<float> airShelfL, airShelfR;
-    std::array<float, smoothingBandCount> bandCurrentReductionDb {};
-
     juce::AudioBuffer<float> dryBuffer;
+    juce::AudioBuffer<float> pitchUpBuffer;
+    juce::AudioBuffer<float> pitchDownBuffer;
     double currentSampleRate { 44100.0 };
+    float previousWetLeft { 0.0f };
+    float previousWetRight { 0.0f };
+    float previousInputLeft { 0.0f };
+    float previousInputRight { 0.0f };
+    float modulationPhase { 0.0f };
+    float pitchUpPhase { 0.0f };
+    float pitchDownPhase { 0.0f };
+    int pitchWriteIndex { 0 };
+    float pitchReadPos { 0.0f };
+    float pitchAASmoothLeft { 0.0f };
+    float pitchAASmoothRight { 0.0f };
+    int pitchDelaySize { 0 };
+    std::vector<float> pitchDelayLeft;
+    std::vector<float> pitchDelayRight;
+    bool subOctavePolarityLeft { false };
+    bool subOctavePolarityRight { false };
+    float robotCarrierPhase { 0.0f };
+    float robotEnvelope { 0.0f };
+    float inputDcStateLeft { 0.0f };
+    float inputDcStateRight { 0.0f };
+    float inputPrevLeft { 0.0f };
+    float inputPrevRight { 0.0f };
+    float airSmoothLeft { 0.0f };
+    float airSmoothRight { 0.0f };
+
+    std::array<IIRFilter, 4> formantFiltersLeft;
+    std::array<IIRFilter, 4> formantFiltersRight;
 
     std::array<std::atomic<float>, spectrumBins> inputSpectrum {};
     std::array<std::atomic<float>, spectrumBins> problemSpectrum {};

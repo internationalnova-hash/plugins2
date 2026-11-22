@@ -19,13 +19,20 @@ NovaMasterAudioProcessorEditor::NovaMasterAudioProcessorEditor (NovaMasterAudioP
     finishModeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::finishMode), finishModeRelay, nullptr);
     modePresetAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::modePreset), modePresetRelay, nullptr);
     meterViewAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::meterView), meterViewRelay, nullptr);
+    bypassAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::bypass), bypassRelay, nullptr);
+    toneBypassAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::toneBypass), toneBypassRelay, nullptr);
+    glueBypassAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::glueBypass), glueBypassRelay, nullptr);
+    weightBypassAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::weightBypass), weightBypassRelay, nullptr);
+    airBypassAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::airBypass), airBypassRelay, nullptr);
+    widthBypassAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::widthBypass), widthBypassRelay, nullptr);
 
     const auto cacheBustedUrl = juce::WebBrowserComponent::getResourceProviderRoot()
                               + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
-    setSize (1080, 680);
+    setResizable (true, true);
+    setResizeLimits (648, 444, 1620, 1110);
+    setSize (1080, 740);
     startTimerHz (30);
 }
 
@@ -62,6 +69,15 @@ void NovaMasterAudioProcessorEditor::timerCallback()
                        + juce::String (isHot ? "true" : "false") + "); }";
 
     webView->evaluateJavascript (meterJs);
+
+    const auto dynamicRange = processorRef.dynamicRangeLu.load();
+    const auto correlation = processorRef.stereoCorrelation.load();
+
+    const auto analysisJs = "if (window.updateAnalysisMeter) { window.updateAnalysisMeter("
+                           + juce::String (dynamicRange, 2) + ", "
+                           + juce::String (correlation, 3) + "); }";
+
+    webView->evaluateJavascript (analysisJs);
 }
 
 juce::WebBrowserComponent::Options NovaMasterAudioProcessorEditor::createWebOptions (NovaMasterAudioProcessorEditor& editor)
@@ -90,7 +106,13 @@ juce::WebBrowserComponent::Options NovaMasterAudioProcessorEditor::createWebOpti
                      .withOptionsFrom (editor.outputGainRelay)
                      .withOptionsFrom (editor.finishModeRelay)
                      .withOptionsFrom (editor.modePresetRelay)
-                     .withOptionsFrom (editor.meterViewRelay);
+                     .withOptionsFrom (editor.meterViewRelay)
+                     .withOptionsFrom (editor.bypassRelay)
+                     .withOptionsFrom (editor.toneBypassRelay)
+                     .withOptionsFrom (editor.glueBypassRelay)
+                     .withOptionsFrom (editor.weightBypassRelay)
+                     .withOptionsFrom (editor.airBypassRelay)
+                     .withOptionsFrom (editor.widthBypassRelay);
 
     return options;
 }

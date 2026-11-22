@@ -69,14 +69,20 @@ struct EnvironmentProfile
 
 namespace EnvironmentLibrary
 {
-    // Indices match ParameterIDs::environmentNames. Only the first 4 have
-    // real profiles in this phase; index 4..11 fall back to a neutral
-    // passthrough profile (getProfile() below), matching the plan.
+    // Indices match ParameterIDs::environmentNames.
     enum Id
     {
         NovaMainRoom = 0,
+        NearfieldStudio = 1,
+        MasteringSuite = 2,
+        BedroomStudio = 3,
         Sedan = 4,
+        LuxurySUV = 5,
         Smartphone = 6,
+        Laptop = 7,
+        BluetoothSpeaker = 8,
+        Boombox = 9,
+        ClubPA = 10,
         MonoCube = 11
     };
 
@@ -117,6 +123,85 @@ namespace EnvironmentLibrary
         return p;
     }
 
+    // Smaller, semi-treated project/pro studio - real nearfield monitors
+    // close to the listener (~1m), a step down in room control from Nova
+    // Main Room's soffit-mounted flagship, a step up from Bedroom Studio's
+    // untreated room. The "does this hold up on the monitors most working
+    // engineers actually mix on" check.
+    inline const EnvironmentProfile& nearfieldStudio()
+    {
+        static const EnvironmentProfile p {
+            "Nearfield Studio", "Studios", "Small pro studio \xE2\x80\xA2 Nearfield monitors \xE2\x80\xA2 Light room character",
+            45.0f, 20000.0f,
+            1.0f, 120.0f,
+            0.0f, 1000.0f, 0.7f,
+            -0.5f, 10000.0f,
+            1.0f, 0.0f,
+            0.08f, 0.04f, 0.25f, 0.3f, 0.02f,
+            true, 4, 0, {{
+                { "Sweet Spot",      0.0f,  0.0f },
+                { "Slightly Left",  -0.15f, 0.1f },
+                { "Slightly Right",  0.15f, 0.1f },
+                { "Back Of Room",    0.0f,  0.35f }
+            }},
+            5
+        };
+        return p;
+    }
+
+    // The reference-of-references - even more controlled than Nova Main
+    // Room. Mastering rooms are built specifically to avoid any modal
+    // coloration (non-parallel walls, heavy diffusion/trapping), run the
+    // most linear monitor chains in the plugin, and demand an extremely
+    // tight, critical sweet spot since a single engineer's chair position
+    // is scrutinized far more precisely than a mix room's.
+    inline const EnvironmentProfile& masteringSuite()
+    {
+        static const EnvironmentProfile p {
+            "Mastering Suite", "Studios", "Reference-grade room \xE2\x80\xA2 Full-range \xE2\x80\xA2 Maximum precision",
+            20.0f, 20000.0f,
+            0.0f, 90.0f,
+            0.0f, 1000.0f, 0.7f,
+            0.0f, 9500.0f,
+            1.0f, 0.0f,
+            0.02f, 0.01f, 0.08f, 0.08f, 0.0f,
+            true, 4, 0, {{
+                { "Sweet Spot",     0.0f,  0.0f },
+                { "Just Left",     -0.08f, 0.0f },
+                { "Just Right",     0.08f, 0.0f },
+                { "Assistant Seat", 0.0f,  0.25f }
+            }},
+            6
+        };
+        return p;
+    }
+
+    // A small, untreated or minimally-treated bedroom-as-studio - real
+    // room modes from bare parallel walls, budget desktop monitors close
+    // together on the desk, no bass trapping. This is deliberately the
+    // "worst realistic case" check: what a large share of bedroom
+    // producers will actually hear the mix on, not a professional room.
+    inline const EnvironmentProfile& bedroomStudio()
+    {
+        static const EnvironmentProfile p {
+            "Bedroom Studio", "Studios", "Untreated room \xE2\x80\xA2 Budget monitors \xE2\x80\xA2 Boomy low end",
+            80.0f, 18000.0f,
+            4.0f, 70.0f,
+            1.5f, 2000.0f, 1.0f,
+            -2.5f, 9000.0f,
+            0.75f, 0.0f,
+            0.2f, 0.15f, 0.45f, 0.5f, 0.1f,
+            true, 4, 0, {{
+                { "Desk Center", 0.0f,  0.0f },
+                { "Desk Left",  -0.1f,  0.1f },
+                { "Desk Right",  0.1f,  0.1f },
+                { "Bed / Couch", 0.0f,  0.4f }
+            }},
+            7
+        };
+        return p;
+    }
+
     inline const EnvironmentProfile& sedan()
     {
         static const EnvironmentProfile p {
@@ -138,6 +223,27 @@ namespace EnvironmentLibrary
         return p;
     }
 
+    inline const EnvironmentProfile& luxurySUV()
+    {
+        static const EnvironmentProfile p {
+            "Luxury SUV", "Cars", "Flagship SUV \xE2\x80\xA2 Premium multi-channel audio \xE2\x80\xA2 Corrected imaging",
+            40.0f, 16000.0f,
+            3.0f, 55.0f,
+            0.5f, 2800.0f, 1.0f,
+            -1.5f, 8000.0f,
+            0.9f, 0.03f,
+            0.08f, 0.05f, 0.35f, 0.35f, 0.08f,
+            true, 4, 0, {{
+                { "Driver",          -0.05f, 0.0f },
+                { "Front Passenger",  0.05f, 0.0f },
+                { "2nd Row",          0.0f,  0.2f },
+                { "3rd Row",          0.0f,  0.35f }
+            }},
+            4
+        };
+        return p;
+    }
+
     inline const EnvironmentProfile& smartphone()
     {
         static const EnvironmentProfile p {
@@ -150,6 +256,97 @@ namespace EnvironmentLibrary
             0.5f, 0.4f, 0.05f, 0.05f, 0.0f,
             false, 0, 0, {},
             2
+        };
+        return p;
+    }
+
+    // Built-in laptop speakers - even smaller drivers than a phone (~15-23mm)
+    // but spaced wider apart (either side of the keyboard, ~25-30cm), so the
+    // stereo image is real if narrow rather than Smartphone's near-mono.
+    // Better low-frequency extension than a phone thanks to more internal
+    // chassis volume, still severely limited.
+    inline const EnvironmentProfile& laptop()
+    {
+        static const EnvironmentProfile p {
+            "Laptop", "Consumer", "Narrow stereo \xE2\x80\xA2 Tinny midrange \xE2\x80\xA2 Minimal bass",
+            250.0f, 9500.0f,
+            -4.0f, 250.0f,
+            4.0f, 2800.0f, 1.4f,
+            -2.0f, 8000.0f,
+            0.35f, 0.0f,
+            0.4f, 0.3f, 0.05f, 0.08f, 0.0f,
+            false, 0, 0, {},
+            8
+        };
+        return p;
+    }
+
+    // Portable Bluetooth speaker (JBL/UE-style) - small driver(s) plus a
+    // passive radiator for real (if boosted) bass extension, aggressive
+    // "big bass in a small box" manufacturer EQ, scooped midrange (common
+    // V-shaped consumer tuning), limited/no true tweeter. The first profile
+    // in the plugin with a genuinely BOOSTED low shelf and a NEGATIVE
+    // midrange peak - a distinct signature from every car/studio profile.
+    inline const EnvironmentProfile& bluetoothSpeaker()
+    {
+        static const EnvironmentProfile p {
+            "Bluetooth Speaker", "Consumer", "Boosted bass \xE2\x80\xA2 Scooped mids \xE2\x80\xA2 Limited highs",
+            70.0f, 13000.0f,
+            5.0f, 100.0f,
+            -2.0f, 1200.0f, 0.8f,
+            -3.5f, 9000.0f,
+            0.45f, 0.0f,
+            0.35f, 0.25f, 0.08f, 0.05f, 0.05f,
+            false, 0, 0, {},
+            9
+        };
+        return p;
+    }
+
+    // Wall-powered party/retro boombox - larger drivers than a Bluetooth
+    // speaker (4-6" woofers, real tweeters in many models) spaced across a
+    // wider chassis, so the stereo image is wider too. Ported-cabinet bass
+    // tuning gives a punchy, honky low-mid character rather than a clean
+    // boosted shelf, and cheaper components distort more at party-loud SPL.
+    inline const EnvironmentProfile& boombox()
+    {
+        static const EnvironmentProfile p {
+            "Boombox", "Consumer", "Ported bass \xE2\x80\xA2 Honky midrange \xE2\x80\xA2 Party-loud coloration",
+            60.0f, 14000.0f,
+            4.5f, 90.0f,
+            2.0f, 1800.0f, 1.1f,
+            -3.0f, 8500.0f,
+            0.65f, 0.0f,
+            0.22f, 0.35f, 0.15f, 0.15f, 0.08f,
+            false, 0, 0, {},
+            10
+        };
+        return p;
+    }
+
+    // Large-venue PA system - real subwoofers (the deepest extension of any
+    // profile), horn-loaded mid/highs with a forward "shouty" presence peak,
+    // heavy limiting to protect drivers and manage SPL (the most compressed
+    // profile in the plugin), a long, diffuse room tail from the venue
+    // itself, and audible crowd/venue noise. Positions are distance/coverage
+    // based rather than seating - a club has no "seats".
+    inline const EnvironmentProfile& clubPA()
+    {
+        static const EnvironmentProfile p {
+            "Club PA", "Venues", "Large venue \xE2\x80\xA2 Deep subs \xE2\x80\xA2 Heavy limiting",
+            30.0f, 17000.0f,
+            3.0f, 60.0f,
+            3.0f, 1000.0f, 1.0f,
+            -2.0f, 10000.0f,
+            0.5f, 0.0f,
+            0.6f, 0.3f, 0.75f, 0.35f, 0.35f,
+            true, 4, 0, {{
+                { "Mid-Crowd",       0.0f,   0.3f },
+                { "Front Of Stage",  0.0f,   0.05f },
+                { "Near Left Stack", -0.25f, 0.15f },
+                { "Back Of Room",    0.0f,   0.5f }
+            }},
+            11
         };
         return p;
     }
@@ -176,18 +373,34 @@ namespace EnvironmentLibrary
     {
         switch (environmentIndex)
         {
-            case NovaMainRoom: return novaMainRoom();
-            case Sedan:        return sedan();
-            case Smartphone:   return smartphone();
-            case MonoCube:     return monoCube();
-            default:           return neutralProfile();
+            case NovaMainRoom:      return novaMainRoom();
+            case NearfieldStudio:   return nearfieldStudio();
+            case MasteringSuite:    return masteringSuite();
+            case BedroomStudio:     return bedroomStudio();
+            case Sedan:             return sedan();
+            case LuxurySUV:         return luxurySUV();
+            case Smartphone:        return smartphone();
+            case Laptop:            return laptop();
+            case BluetoothSpeaker:  return bluetoothSpeaker();
+            case Boombox:           return boombox();
+            case ClubPA:            return clubPA();
+            case MonoCube:          return monoCube();
+            default:                return neutralProfile();
         }
     }
 
     inline bool isImplemented (int environmentIndex)
     {
-        return environmentIndex == NovaMainRoom || environmentIndex == Sedan
-            || environmentIndex == Smartphone || environmentIndex == MonoCube;
+        switch (environmentIndex)
+        {
+            case NovaMainRoom: case NearfieldStudio: case MasteringSuite: case BedroomStudio:
+            case Sedan: case LuxurySUV:
+            case Smartphone: case Laptop: case BluetoothSpeaker: case Boombox:
+            case ClubPA: case MonoCube:
+                return true;
+            default:
+                return false;
+        }
     }
 
     //==========================================================================

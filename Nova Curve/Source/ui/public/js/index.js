@@ -371,10 +371,13 @@ function openBandEditorCallout(bandIndex, rect, anchorX = null, anchorY = null) 
 
 function applyUiScale() {
   const margin = 12;
-  const sx = (window.innerWidth - margin * 2) / UI_BASE_WIDTH;
-  const sy = (window.innerHeight - margin * 2) / UI_BASE_HEIGHT;
+  const w = document.documentElement.clientWidth || window.innerWidth || UI_BASE_WIDTH;
+  const h = document.documentElement.clientHeight || window.innerHeight || UI_BASE_HEIGHT;
+  const sx = (w - margin * 2) / UI_BASE_WIDTH;
+  const sy = (h - margin * 2) / UI_BASE_HEIGHT;
   const scale = Math.max(0.42, Math.min(1, sx, sy));
   document.documentElement.style.setProperty("--ui-scale", scale.toFixed(4));
+  window.__novaCurveScale = scale || 1;
 }
 
 function setInteractionActive(active) {
@@ -1654,8 +1657,12 @@ function buildKnob(el, options) {
     if (e.cancelable) e.preventDefault();
 
     // Use dispatched pointer coordinates directly for minimum drag latency.
-    const deltaX = e.clientX - (activeKnobDrag.lastX ?? e.clientX);
-    const deltaY = activeKnobDrag.lastY - e.clientY;
+    // Divide by the current stage scale (see applyUiScale()) - pointer
+    // events report real screen pixels, unaffected by the CSS transform
+    // that scale drives.
+    const dragStageScale = window.__novaCurveScale || 1;
+    const deltaX = (e.clientX - (activeKnobDrag.lastX ?? e.clientX)) / dragStageScale;
+    const deltaY = (activeKnobDrag.lastY - e.clientY) / dragStageScale;
     activeKnobDrag.lastX = e.clientX;
     activeKnobDrag.lastY = e.clientY;
     dragFineScale = (e.shiftKey || e.metaKey) ? 0.22 : 1;
@@ -2368,6 +2375,10 @@ function bindEvents() {
     cachedGraphRect = null;
     applyUiScale();
   });
+  // Polled too, not just resize-event-driven - this embedded WebView
+  // doesn't reliably fire resize events on a native host setBounds()
+  // (same fix applied across the catalog, see Nova Tape's index.js).
+  setInterval(applyUiScale, 300);
   // When clicking on callout, disable solo persistence so it can hide normally
   callout.addEventListener("click", () => {
     calloutSoloPersistent = false;

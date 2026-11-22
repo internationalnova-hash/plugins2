@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nova AI Vocal</title>
+<style>
+:root {
+  --bg: #07070a;
+  --panel: rgba(255,255,255,0.025);
+  --panel-edge: rgba(255,255,255,0.07);
+  --edge-strong: rgba(255,255,255,0.14);
+  --gold: #e0b354;
+  --gold-hi: #ffd98a;
+  --gold-deep: #a8792a;
+  --gold-glow: rgba(224,179,84,0.45);
+  --rose: #ff7a59;
+  --teal: #4fd1c5;
+  --text: #f2f0ea;
+  --dim: #8a8780;
+  --dimmer: #55534e;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+  font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; user-select: none; }
+
+#stageOuter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+#stage { width: 1000px; height: 640px; flex: 0 0 auto; position: relative; transform-origin: center; }
+
+.plugin {
+  width: 100%; height: 100%; position: relative; overflow: hidden;
+  display: grid; grid-template-rows: 68px 1fr 150px;
+  background:
+    radial-gradient(ellipse 45% 55% at 17% 46%, rgba(224,179,84,0.10), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 62% 30%, rgba(255,122,89,0.05), transparent 70%),
+    linear-gradient(180deg, #0d0c10 0%, #070709 100%);
+  border: 1px solid #16151a;
+}
+/* fine grain */
+.plugin::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .035;
+  background-image: repeating-linear-gradient(0deg, #fff 0 1px, transparent 1px 3px); }
+
+/* ── Header ── */
+.header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 26px; border-bottom: 1px solid var(--panel-edge); position: relative; z-index: 2; }
+.brand-title { font-size: 22px; font-weight: 800; letter-spacing: 1.5px; }
+.brand-title .ai { color: var(--gold); text-shadow: 0 0 18px var(--gold-glow); }
+.brand-sub { font-size: 9.5px; letter-spacing: 2.6px; color: var(--dim); margin-top: 3px; }
+.vibebar { display: flex; align-items: center; gap: 8px; }
+.navbtn { width: 28px; height: 30px; border-radius: 8px; border: 1px solid var(--edge-strong); background: #111015; color: var(--dim); font-size: 14px; display: grid; place-items: center; cursor: pointer; }
+.navbtn:hover { color: var(--gold-hi); border-color: var(--gold-deep); }
+.vibename { width: 220px; height: 32px; border-radius: 9px; border: 1px solid rgba(224,179,84,0.35); background: linear-gradient(180deg, #17140e, #0f0d0a);
+  display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; letter-spacing: .6px; color: var(--gold-hi);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 22px rgba(224,179,84,0.12); }
+.vibename small { font-size: 9px; letter-spacing: 1.8px; color: var(--dim); font-weight: 600; }
+.right-head { justify-self: end; display: flex; align-items: center; gap: 18px; }
+.logo { text-align: center; line-height: 1; }
+.logo .n { font-size: 21px; font-weight: 800; letter-spacing: 3px; color: #c6c3bb; }
+.logo .a { font-size: 9px; font-weight: 600; letter-spacing: 5.5px; color: var(--gold); margin-top: 4px; margin-left: 5px; }
+.power { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--gold-deep); background: #120f0a; color: var(--gold-hi);
+  display: grid; place-items: center; cursor: pointer; box-shadow: 0 0 14px var(--gold-glow); }
+.power.off { color: var(--dimmer); border-color: var(--edge-strong); box-shadow: none; }
+
+/* ── Main ── */
+.main { display: grid; grid-template-columns: 300px 1fr 232px; gap: 16px; padding: 16px 22px 10px; position: relative; z-index: 1; min-height: 0; }
+.card { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 18px; position: relative; overflow: hidden; }
+.card-title { font-size: 9.5px; letter-spacing: 2.2px; color: var(--dim); font-weight: 600; }
+
+/* Listen orb */
+.listen { display: flex; flex-direction: column; align-items: center; padding: 14px 16px 14px; border-radius: 22px 110px 110px 22px; }
+.listen .card-title { align-self: flex-start; }
+.orb { position: relative; width: 236px; height: 236px; margin-top: 4px; cursor: pointer; }
+.orb canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.orb-core { position: absolute; inset: 44px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #201b12 0%, #0d0b08 62%, #060505 100%);
+  border: 1px solid rgba(224,179,84,0.22);
+  box-shadow: inset 0 6px 24px rgba(0,0,0,0.8), inset 0 -2px 10px rgba(224,179,84,0.08), 0 0 40px rgba(224,179,84,0.12);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; transition: border-color .2s; }
+.orb:hover .orb-core { border-color: rgba(255,217,138,0.5); }
+.orb-kicker { font-size: 9px; letter-spacing: 3px; color: var(--dim); }
+.orb-label { font-size: 21px; font-weight: 800; letter-spacing: 2px; margin-top: 4px; color: var(--text); }
+.orb-label.gold { color: var(--gold-hi); text-shadow: 0 0 16px var(--gold-glow); }
+.orb-sub { font-size: 10.5px; color: var(--dim); margin-top: 5px; letter-spacing: .4px; font-variant-numeric: tabular-nums; }
+.profile { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin-top: 10px; min-height: 22px; }
+.chip { font-size: 10px; padding: 4px 9px; border-radius: 20px; background: rgba(224,179,84,0.08); color: var(--gold-hi); border: 1px solid rgba(224,179,84,0.22); letter-spacing: .3px; }
+.status { font-size: 11px; color: var(--dim); text-align: center; margin-top: 8px; line-height: 1.4; max-width: 270px; }
+
+/* Center: curve display + vibes */
+.center { display: grid; grid-template-rows: 1fr auto; gap: 12px; min-height: 0; }
+.display { padding: 12px 14px 8px; display: flex; flex-direction: column; }
+.display-head { display: flex; justify-content: space-between; align-items: center; }
+.legend { display: flex; gap: 12px; font-size: 9px; letter-spacing: 1.2px; color: var(--dimmer); }
+.legend i { display: inline-block; width: 10px; height: 2px; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+#spec { flex: 1; width: 100%; min-height: 0; margin-top: 6px; }
+.vibes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.vibe { border-radius: 12px; border: 1px solid var(--panel-edge); background: rgba(255,255,255,0.02); padding: 9px 12px; white-space: nowrap; cursor: pointer; transition: all .15s; position: relative; overflow: hidden; }
+.vibe:hover { border-color: var(--edge-strong); }
+.vibe .vn { font-size: 11.5px; font-weight: 700; letter-spacing: .3px; }
+.vibe .vd { font-size: 9.5px; color: var(--dimmer); margin-top: 2px; letter-spacing: .3px; }
+.vibe svg { display: none; position: absolute; right: 9px; top: 50%; margin-top: -9px; width: 30px; height: 18px; opacity: .55; }
+.vibe.sel { border-color: rgba(224,179,84,0.6); background: linear-gradient(135deg, rgba(224,179,84,0.16), rgba(224,179,84,0.03)); box-shadow: 0 0 20px rgba(224,179,84,0.15), inset 0 1px 0 rgba(255,255,255,0.06); }
+.vibe.sel .vn { color: var(--gold-hi); }
+.vibe.sel .vd { color: #b5a37c; }
+.vibe.sel svg { opacity: 1; }
+
+/* Tune panel */
+.tune { padding: 14px 16px; display: flex; flex-direction: column; align-items: center; border-radius: 110px 22px 22px 110px; }
+.tune .card-title { align-self: flex-end; }
+.notebox { margin-top: 6px; text-align: center; }
+.note { font-size: 42px; font-weight: 800; letter-spacing: 1px; line-height: 1; font-variant-numeric: tabular-nums; }
+.note sub { font-size: 16px; color: var(--dim); font-weight: 600; vertical-align: baseline; margin-left: 2px; }
+.cents { width: 170px; height: 18px; margin: 8px auto 0; position: relative; }
+.cents .ticks { position: absolute; inset: 7px 0; border-radius: 2px; background: repeating-linear-gradient(90deg, rgba(255,255,255,0.18) 0 1px, transparent 1px 17px); }
+.cents .center-line { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--gold); box-shadow: 0 0 8px var(--gold-glow); }
+.cents .dot { position: absolute; top: 4px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 10px var(--teal); transition: left .08s linear; }
+.centsval { font-size: 10px; color: var(--dim); margin-top: 3px; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+.keysel { margin-top: 12px; width: 170px; height: 30px; border-radius: 9px; border: 1px solid var(--edge-strong); background: #0f0e12; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; font-size: 12px; cursor: pointer; }
+.keysel span:first-child { font-size: 9px; letter-spacing: 1.8px; color: var(--dim); font-weight: 600; }
+.keysel b { color: var(--gold-hi); font-weight: 600; letter-spacing: .4px; }
+.tuneknob { margin-top: 12px; }
+
+/* ── Knobs ── */
+.knobwrap { display: flex; flex-direction: column; align-items: center; }
+.knob { position: relative; cursor: ns-resize; touch-action: none; }
+.knob svg { width: 100%; height: 100%; overflow: visible; }
+.k-lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 1.6px; color: var(--text); margin-top: 6px; }
+.k-hint { font-size: 9px; color: var(--dimmer); letter-spacing: .4px; margin-top: 2px; }
+.k-val { font-size: 10.5px; color: var(--gold-hi); margin-top: 3px; font-variant-numeric: tabular-nums; min-height: 13px; }
+
+/* ── Bottom: chain ── */
+.bottom { display: grid; grid-template-columns: 1fr 232px; gap: 16px; padding: 0 22px 16px; position: relative; z-index: 1; }
+.chain { display: grid; grid-template-columns: repeat(6, 1fr) 1px 1fr; align-items: start; padding: 22px 10px 8px; border-radius: 18px; }
+.chain .card-title { position: absolute; left: 16px; top: 10px; }
+.chain .sep { height: 96px; margin-top: 6px; background: var(--panel-edge); }
+.chainline { position: absolute; left: 60px; right: 150px; top: 53px; height: 1px; background: linear-gradient(90deg, transparent, rgba(224,179,84,0.35), transparent); pointer-events: none; }
+.meters { padding: 18px 16px 10px; display: grid; grid-template-columns: repeat(4, 1fr) 54px; gap: 8px; border-radius: 18px; }
+.meters .card-title { position: absolute; left: 16px; top: 10px; }
+.mcol { display: flex; flex-direction: column; align-items: center; margin-top: 16px; }
+.mbar { width: 8px; height: 82px; border-radius: 4px; background: rgba(255,255,255,0.05); position: relative; overflow: hidden; }
+.mbar .f { position: absolute; left: 0; right: 0; bottom: 0; height: 0; border-radius: 4px; background: linear-gradient(0deg, #3fbf87, #b8e06a 70%, #ffd98a); }
+.mbar.gr .f { top: 0; bottom: auto; background: linear-gradient(180deg, var(--gold), var(--rose)); }
+.mlbl { font-size: 8.5px; letter-spacing: 1.2px; color: var(--dim); margin-top: 6px; font-weight: 600; }
+.mval { font-size: 9px; color: var(--dimmer); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.outcol { display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 12px; }
+
+.footer-tag { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 8.5px; letter-spacing: 3px; color: #2e2c28; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="stageOuter"><div id="stage"><div class="plugin">
+
+  <div class="header">
+    <div>
+      <div class="brand-title">NOVA <span class="ai">AI VOCAL</span></div>
+      <div class="brand-sub">INTELLIGENT VOCAL CHAIN</div>
+    </div>
+    <div class="vibebar">
+      <div class="navbtn" id="prev">&#8249;</div>
+      <div class="vibename"><small>VIBE</small><span id="vibe-name">Reggaeton Bright</span></div>
+      <div class="navbtn" id="next">&#8250;</div>
+    </div>
+    <div class="right-head">
+      <div class="logo"><div class="n">NOVA</div><div class="a">AUDIO</div></div>
+      <div class="power" id="power" title="Bypass">&#9211;</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- Listen -->
+    <div class="card listen">
+      <div class="card-title">AUTO MIX</div>
+      <div class="orb" id="orb">
+        <canvas id="orbc" width="472" height="472"></canvas>
+        <div class="orb-core">
+          <div class="orb-kicker" id="orb-kicker">TAP TO</div>
+          <div class="orb-label" id="orb-label">LISTEN</div>
+          <div class="orb-sub" id="orb-sub">play 10&ndash;30 s of vocal</div>
+        </div>
+      </div>
+      <div class="profile" id="profile"></div>
+      <div class="status" id="status">Pick a vibe, tap LISTEN and play your vocal. Nova builds the chain for your voice.</div>
+    </div>
+
+    <!-- Center -->
+    <div class="center">
+      <div class="card display">
+        <div class="display-head">
+          <div class="card-title">CHAIN CURVE</div>
+          <div class="legend"><span><i style="background:rgba(255,255,255,.35)"></i>INPUT</span><span><i style="background:var(--gold)"></i>CHAIN</span><span><i style="background:var(--rose)"></i>DE-ESS</span></div>
+        </div>
+        <canvas id="spec" width="760" height="300"></canvas>
+      </div>
+      <div class="vibes" id="vibes"></div>
+    </div>
+
+    <!-- Tune -->
+    <div class="card tune">
+      <div class="card-title">TUNE</div>
+      <div class="notebox">
+        <div class="note" id="note">G<sub>3</sub></div>
+        <div class="cents"><div class="ticks"></div><div class="center-line"></div><div class="dot" id="cdot" style="left:50%"></div></div>
+        <div class="centsval" id="cval">+0 cents</div>
+      </div>
+      <div class="keysel" id="keysel"><span>KEY</span><b id="keyval">Auto &middot; G Major</b></div>
+      <div class="tuneknob"><div class="knobwrap" data-k="tune" data-size="104" data-label="TUNE" data-hint="natural &rarr; hard" data-v="0.95"></div></div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="card chain">
+      <div class="card-title">CHAIN</div>
+      <div class="chainline"></div>
+      <div class="knobwrap" data-k="clean"  data-size="62" data-label="CLEAN"  data-hint="low cut &middot; mud"   data-v="0.60"></div>
+      <div class="knobwrap" data-k="deess"  data-size="62" data-label="DE-ESS" data-hint="tames S's"          data-v="0.55"></div>
+      <div class="knobwrap" data-k="punch"  data-size="62" data-label="PUNCH"  data-hint="compression"        data-v="0.70"></div>
+      <div class="knobwrap" data-k="air"    data-size="62" data-label="AIR"    data-hint="presence &middot; top" data-v="0.75"></div>
+      <div class="knobwrap" data-k="warmth" data-size="62" data-label="WARMTH" data-hint="saturation"         data-v="0.25"></div>
+      <div class="knobwrap" data-k="space"  data-size="62" data-label="SPACE"  data-hint="delay &middot; reverb" data-v="0.55"></div>
+      <div class="sep"></div>
+      <div class="knobwrap" data-k="mix"    data-size="62" data-label="MIX"    data-hint="dry &middot; wet"     data-v="1.0"></div>
+    </div>
+    <div class="card meters">
+      <div class="card-title">LEVELS</div>
+      <div class="mcol"><div class="mbar" id="m-in"><div class="f"></div></div><div class="mlbl">IN</div><div class="mval" id="v-in">-inf</div></div>
+      <div class="mcol"><div class="mbar gr" id="m-ds"><div class="f"></div></div><div class="mlbl">DS</div><div class="mval" id="v-ds">0.0</div></div>
+      <div class="mcol"><div class="mbar gr" id="m-cp"><div class="f"></div></div><div class="mlbl">COMP</div><div class="mval" id="v-cp">0.0</div></div>
+      <div class="mcol"><div class="mbar" id="m-out"><div class="f"></div></div><div class="mlbl">OUT</div><div class="mval" id="v-out">-inf</div></div>
+      <div class="outcol"><div class="knobwrap" data-k="output" data-size="44" data-label="OUT" data-hint="" data-v="0.5" data-bi="1"></div></div>
+    </div>
+  </div>
+
+</div></div></div>
+
+<script>
+// ───────────── Mockup only: fake data, no plugin wiring ─────────────
+const VIBES = [
+  { n: "Reggaeton Bright", d: "bright · tight · hard tune", c: [0.3, 0.5, 0.45, 0.8, 0.95] },
+  { n: "Melodic Trap",     d: "glossy · wide · full tune",   c: [0.35, 0.5, 0.5, 0.75, 0.9] },
+  { n: "R&B Smooth",       d: "warm · silky · soft tune",    c: [0.5, 0.6, 0.55, 0.6, 0.7] },
+  { n: "Pop Polished",     d: "clean · forward · sheen",  c: [0.4, 0.5, 0.6, 0.7, 0.85] },
+  { n: "Drill Dark",       d: "dark · punchy · gritty",      c: [0.55, 0.65, 0.6, 0.45, 0.35] },
+  { n: "Raw Natural",      d: "light touch · no tune",       c: [0.45, 0.5, 0.5, 0.55, 0.6] },
+];
+const MACROS = [
+  [0.60,0.55,0.70,0.75,0.25,0.55,0.95],[0.65,0.50,0.75,0.70,0.30,0.60,1.00],[0.50,0.50,0.55,0.60,0.45,0.65,0.55],
+  [0.60,0.60,0.65,0.65,0.30,0.40,0.70],[0.70,0.45,0.85,0.35,0.60,0.30,0.45],[0.40,0.40,0.35,0.40,0.15,0.15,0.00]];
+const KEYS = ["clean","deess","punch","air","warmth","space","tune"];
+let vibe = 0;
+
+const vals = {};
+const renders = {};
+const A0 = -135, A1 = 135;
+function pol(c, r, d) { const a = (d - 90) * Math.PI / 180; return [c + r * Math.cos(a), c + r * Math.sin(a)]; }
+function arc(c, r, a, b) { if (Math.abs(b - a) < .01) return ""; const [x0,y0] = pol(c,r,a), [x1,y1] = pol(c,r,b);
+  return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${Math.abs(b-a)>180?1:0} ${b>a?1:0} ${x1.toFixed(2)} ${y1.toFixed(2)}`; }
+
+function fmt(k, v) {
+  if (k === "output") { const db = (v - .5) * 24; return (db > 0 ? "+" : "") + db.toFixed(1) + " dB"; }
+  if (k === "tune") return v < .01 ? "OFF" : v > .9 ? "HARD " + Math.round(v*100) + "%" : Math.round(v * 100) + "%";
+  return Math.round(v * 100) + "%";
+}
+
+let uid = 0;
+function makeKnob(w) {
+  const k = w.dataset.k, S = +w.dataset.size, bi = w.dataset.bi === "1";
+  vals[k] = +w.dataset.v;
+  const id = "g" + (uid++), c = 50, R = 44, r = 31;
+  const ticks = Array.from({length: 11}, (_, i) => { const a = A0 + i * 27; const [x0,y0] = pol(c, 48.5, a), [x1,y1] = pol(c, 46, a);
+    return `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="rgba(255,255,255,${i%5==0?.35:.15})" stroke-width="1"/>`; }).join("");
+  w.innerHTML = `
+    <div class="knob" style="width:${S}px;height:${S}px">
+      <svg viewBox="0 0 100 100">
+        <defs>
+          <radialGradient id="${id}c" cx="50%" cy="32%" r="70%"><stop offset="0" stop-color="#3a3630"/><stop offset=".55" stop-color="#1a1815"/><stop offset="1" stop-color="#0c0b0a"/></radialGradient>
+          <linearGradient id="${id}r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b5a37"/><stop offset=".5" stop-color="#2a241a"/><stop offset="1" stop-color="#14120e"/></linearGradient>
+          <linearGradient id="${id}a" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#a8792a"/><stop offset="1" stop-color="#ffd98a"/></linearGradient>
+        </defs>
+        ${ticks}
+        <path d="${arc(c,R,A0,A1)}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="3.5" stroke-linecap="round"/>
+        <path class="va" fill="none" stroke="url(#${id}a)" stroke-width="3.5" stroke-linecap="round" style="filter:drop-shadow(0 0 4px rgba(224,179,84,.6))"/>
+        <circle cx="${c}" cy="${c+2}" r="${r+3}" fill="rgba(0,0,0,.55)"/>
+        <circle cx="${c}" cy="${c}" r="${r+2}" fill="url(#${id}r)"/>
+        <circle cx="${c}" cy="${c}" r="${r-1}" fill="url(#${id}c)"/>
+        <g class="ptr"><line x1="${c}" y1="${c-r+5}" x2="${c}" y2="${c-r+15}" stroke="#ffd98a" stroke-width="3" stroke-linecap="round" style="filter:drop-shadow(0 0 3px rgba(255,217,138,.8))"/></g>
+      </svg>
+    </div>
+    <div class="k-lbl">${w.dataset.label}</div>
+    ${w.dataset.hint ? `<div class="k-hint">${w.dataset.hint}</div>` : ""}
+    <div class="k-val"></div>`;
+  const va = w.querySelector(".va"), ptr = w.querySelector(".ptr"), kv = w.querySelector(".k-val"), kn = w.querySelector(".knob");
+  function render() {
+    const v = vals[k], a = A0 + v * (A1 - A0), from = bi ? 0 : A0;
+    va.setAttribute("d", arc(c, R, Math.min(from, a), Math.max(from, a)));
+    ptr.setAttribute("transform", `rotate(${a} ${c} ${c})`);
+    kv.textContent = fmt(k, v);
+  }
+  let drag = null;
+  kn.addEventListener("pointerdown", e => { drag = { y: e.clientY, s: vals[k] }; kn.setPointerCapture(e.pointerId); });
+  kn.addEventListener("pointermove", e => { if (!drag) return; const sc = window.__sc || 1;
+    vals[k] = Math.max(0, Math.min(1, drag.s + (drag.y - e.clientY) / sc * (e.shiftKey ? .001 : .0045))); render(); });
+  kn.addEventListener("pointerup", () => drag = null);
+  kn.addEventListener("wheel", e => { e.preventDefault(); vals[k] = Math.max(0, Math.min(1, vals[k] + (e.deltaY > 0 ? -.01 : .01))); render(); }, { passive: false });
+  renders[k] = render; render();
+}
+document.querySelectorAll(".knobwrap").forEach(makeKnob);
+
+// Vibe cards
+const vibesEl = document.getElementById("vibes");
+VIBES.forEach((v, i) => {
+  const pts = v.c.map((y, j) => `${(j * 10.5).toFixed(1)},${(18 - y * 16).toFixed(1)}`).join(" ");
+  const el = document.createElement("div");
+  el.className = "vibe";
+  el.innerHTML = `<div class="vn">${v.n}</div><div class="vd">${v.d}</div>
+    <svg viewBox="0 0 42 20"><polyline points="${pts}" fill="none" stroke="${'#ffd98a'}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  el.onclick = () => setVibe(i);
+  vibesEl.appendChild(el);
+});
+function setVibe(i) {
+  vibe = (i + VIBES.length) % VIBES.length;
+  document.getElementById("vibe-name").textContent = VIBES[vibe].n;
+  [...vibesEl.children].forEach((c, j) => c.classList.toggle("sel", j === vibe));
+  KEYS.forEach((k, j) => { vals[k] = MACROS[vibe][j]; renders[k](); });
+}
+document.getElementById("prev").onclick = () => setVibe(vibe - 1);
+document.getElementById("next").onclick = () => setVibe(vibe + 1);
+document.getElementById("power").onclick = e => e.currentTarget.classList.toggle("off");
+setVibe(0);
+
+// Listen states (click the orb to step through)
+let lstate = "idle", captured = 0;
+const orbL = document.getElementById("orb-label"), orbS = document.getElementById("orb-sub"), orbK = document.getElementById("orb-kicker");
+const statusEl = document.getElementById("status"), profEl = document.getElementById("profile");
+function setListen(s) {
+  lstate = s; profEl.innerHTML = "";
+  if (s === "idle") { orbK.textContent = "TAP TO"; orbL.textContent = "LISTEN"; orbL.className = "orb-label"; orbS.textContent = "play 10–30 s of vocal";
+    statusEl.textContent = "Pick a vibe, tap LISTEN and play your vocal. Nova builds the chain for your voice."; }
+  if (s === "listening") { captured = 0; orbK.textContent = "NOVA IS"; orbL.textContent = "LISTENING"; orbL.className = "orb-label gold";
+    statusEl.textContent = "Play your vocal now… tap the orb when you have 10 seconds or more."; }
+  if (s === "mixed") { orbK.textContent = "VOICE"; orbL.textContent = "MIXED"; orbL.className = "orb-label gold"; orbS.textContent = "tap to re-listen";
+    statusEl.textContent = "Chain built for your voice. Change vibe to re-mix, or fine-tune the knobs.";
+    ["G Major", "Bright top", "Strong S's", "Wide dynamics", "Low-mid build-up"].forEach(t => { const c = document.createElement("span"); c.className = "chip"; c.textContent = t; profEl.appendChild(c); }); }
+}
+document.getElementById("orb").onclick = () => setListen(lstate === "idle" ? "listening" : lstate === "listening" ? "mixed" : "listening");
+setListen("mixed");
+
+// Orb animation
+const oc = document.getElementById("orbc"), ox = oc.getContext("2d");
+let t = 0;
+function drawOrb() {
+  const W = oc.width, C = W / 2; ox.clearRect(0, 0, W, W);
+  const live = lstate === "listening";
+  // radial waveform bars
+  const N = 96, base = 158;
+  for (let i = 0; i < N; i++) {
+    const a = i / N * Math.PI * 2 - Math.PI / 2;
+    const n = Math.sin(i * .37 + t * 2.1) * .5 + Math.sin(i * .11 - t * 1.3) * .5;
+    const amp = live ? 10 + 30 * Math.abs(n) * (0.6 + 0.4 * Math.random()) : lstate === "mixed" ? 6 + 10 * Math.abs(n) : 4 + 4 * Math.abs(n);
+    const x0 = C + Math.cos(a) * base, y0 = C + Math.sin(a) * base, x1 = C + Math.cos(a) * (base + amp), y1 = C + Math.sin(a) * (base + amp);
+    ox.strokeStyle = `rgba(255,${190 + 30 * Math.abs(n) | 0},120,${live ? .85 : .45})`;
+    ox.lineWidth = 3; ox.lineCap = "round"; ox.beginPath(); ox.moveTo(x0, y0); ox.lineTo(x1, y1); ox.stroke();
+  }
+  // progress ring
+  const R = 226; ox.lineWidth = 4;
+  ox.strokeStyle = "rgba(255,255,255,0.06)"; ox.beginPath(); ox.arc(C, C, R, 0, Math.PI * 2); ox.stroke();
+  const frac = live ? Math.min(1, captured / 30) : lstate === "mixed" ? 1 : 0;
+  if (frac > 0) { const g = ox.createLinearGradient(0, 0, W, W); g.addColorStop(0, "#a8792a"); g.addColorStop(1, "#ffd98a");
+    ox.strokeStyle = g; ox.shadowColor = "rgba(224,179,84,.8)"; ox.shadowBlur = 14;
+    ox.beginPath(); ox.arc(C, C, R, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2); ox.stroke(); ox.shadowBlur = 0; }
+  // orbiting spark
+  if (live) { const a = t * 1.6 - Math.PI / 2; ox.fillStyle = "#ffd98a"; ox.shadowColor = "#ffd98a"; ox.shadowBlur = 18;
+    ox.beginPath(); ox.arc(C + Math.cos(a) * R, C + Math.sin(a) * R, 5, 0, Math.PI * 2); ox.fill(); ox.shadowBlur = 0; }
+}
+
+// Curve display
+const sc = document.getElementById("spec"), sx = sc.getContext("2d");
+const spec = new Float32Array(120).fill(0);
+function curveDb(f) {
+  const v = vals; const lg = Math.log10;
+  let db = 0;
+  const hp = 60 + v.clean * 120; db += f < hp ? -24 * lg(hp / f) * 1.5 : 0;               // low cut
+  db += -v.clean * 5 * Math.exp(-Math.pow(lg(f / 300) / .18, 2));                       // mud dip
+  db += v.air * 5 * Math.exp(-Math.pow(lg(f / 3800) / .2, 2));                          // presence
+  db += v.air * 7 / (1 + Math.pow(11000 / f, 3));                                         // air shelf
+  db += v.warmth * 2.5 * Math.exp(-Math.pow(lg(f / 180) / .25, 2));
+  return db;
+}
+function drawSpec() {
+  const W = sc.width, H = sc.height; sx.clearRect(0, 0, W, H);
+  const fx = f => (Math.log10(f / 20) / Math.log10(1000)) * W;
+  const dy = db => H * .5 - db * (H / 40);
+  // grid
+  sx.strokeStyle = "rgba(255,255,255,0.05)"; sx.lineWidth = 1; sx.font = "16px -apple-system"; sx.fillStyle = "rgba(255,255,255,0.22)";
+  [50, 100, 200, 500, 1000, 2000, 5000, 10000].forEach(f => { const x = fx(f); sx.beginPath(); sx.moveTo(x, 0); sx.lineTo(x, H); sx.stroke();
+    sx.fillText(f >= 1000 ? f / 1000 + "k" : f, x + 4, H - 6); });
+  [-12, 0, 12].forEach(d => { sx.beginPath(); sx.moveTo(0, dy(d)); sx.lineTo(W, dy(d)); sx.stroke(); });
+  // fake input spectrum
+  const active = lstate !== "idle";
+  for (let i = 0; i < spec.length; i++) {
+    const f = 20 * Math.pow(1000, i / (spec.length - 1));
+    const target = (active ? 1 : .35) * (-6 - 10 * Math.log10(f / 200) * (f > 200 ? 1 : -.6) + 8 * Math.exp(-Math.pow(Math.log10(f / 2500) / .15, 2)) * .6 + (Math.random() - .5) * 6);
+    spec[i] += (target - spec[i]) * .25;
+  }
+  sx.beginPath(); sx.moveTo(0, H);
+  for (let i = 0; i < spec.length; i++) sx.lineTo(i / (spec.length - 1) * W, dy(spec[i] - 6));
+  sx.lineTo(W, H); sx.closePath();
+  const sg = sx.createLinearGradient(0, 0, 0, H); sg.addColorStop(0, "rgba(255,255,255,0.14)"); sg.addColorStop(1, "rgba(255,255,255,0.01)");
+  sx.fillStyle = sg; sx.fill();
+  // de-ess band
+  const dsx = fx(6500), dsw = 70, dsd = vals.deess * 6 * (0.6 + 0.4 * Math.abs(Math.sin(t * 3)));
+  const rg = sx.createLinearGradient(0, dy(0), 0, dy(-dsd - 2)); rg.addColorStop(0, "rgba(255,122,89,0)"); rg.addColorStop(1, "rgba(255,122,89,0.45)");
+  sx.fillStyle = rg; sx.beginPath(); sx.moveTo(dsx - dsw, dy(0));
+  sx.quadraticCurveTo(dsx, dy(-dsd * 2), dsx + dsw, dy(0)); sx.closePath(); sx.fill();
+  // chain curve
+  sx.beginPath();
+  for (let x = 0; x <= W; x += 3) { const f = 20 * Math.pow(1000, x / W); const y = dy(Math.max(-15, curveDb(f))); x ? sx.lineTo(x, y) : sx.moveTo(x, y); }
+  sx.strokeStyle = "#e0b354"; sx.lineWidth = 3; sx.shadowColor = "rgba(224,179,84,.7)"; sx.shadowBlur = 12; sx.stroke(); sx.shadowBlur = 0;
+  sx.lineTo(W, dy(0)); sx.lineTo(0, dy(0)); sx.closePath();
+  const cg = sx.createLinearGradient(0, dy(10), 0, dy(-10)); cg.addColorStop(0, "rgba(224,179,84,0.18)"); cg.addColorStop(1, "rgba(224,179,84,0)");
+  sx.fillStyle = cg; sx.fill();
+}
+
+// Tune readout + meters
+const NOTES = ["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"], SCALE = [7, 9, 11, 0, 2, 4, 6];
+let noteT = 0, curNote = 55;
+const sm = { in: -60, out: -60, ds: 0, cp: 0 };
+function setBar(id, vid, db, gr) {
+  const p = gr ? Math.min(1, db / 15) : Math.max(0, Math.min(1, (db + 60) / 60));
+  document.querySelector(`#${id} .f`).style.height = (p * 100).toFixed(1) + "%";
+  document.getElementById(vid).textContent = gr ? "-" + db.toFixed(1) : db < -59 ? "-inf" : db.toFixed(1);
+}
+let last = performance.now();
+function frame(now) {
+  const dt = (now - last) / 1000; last = now; t += dt;
+  if (lstate === "listening") { captured += dt; document.getElementById("orb-sub").textContent = captured.toFixed(1) + " s · tap to mix"; }
+  const playing = lstate !== "idle";
+  // note
+  noteT += dt; if (noteT > .9) { noteT = 0; curNote = 48 + SCALE[(Math.random() * 7) | 0] + 12 * (Math.random() < .5); }
+  const cents = playing ? Math.round(Math.sin(t * 5.5) * 6 * (1 - vals.tune) + (Math.random() - .5) * 4 * (1 - vals.tune * .8)) : 0;
+  document.getElementById("note").innerHTML = playing ? `${NOTES[curNote % 12]}<sub>${Math.floor(curNote / 12) - 1}</sub>` : `&ndash;`;
+  document.getElementById("cdot").style.left = (50 + cents) + "%";
+  document.getElementById("cval").textContent = playing ? (cents >= 0 ? "+" : "") + cents + " cents" : "no voice";
+  // meters
+  const lvl = playing ? -18 + Math.sin(t * 7) * 5 + Math.random() * 6 : -70;
+  const f = (k, v, r) => sm[k] = v > sm[k] ? v : sm[k] + (v - sm[k]) * r;
+  setBar("m-in", "v-in", f("in", lvl, .15));
+  setBar("m-out", "v-out", f("out", playing ? lvl + 6 - vals.punch * 2 : -70, .15));
+  setBar("m-ds", "v-ds", f("ds", playing ? Math.max(0, vals.deess * 6 * Math.random() - 1) : 0, .2), true);
+  setBar("m-cp", "v-cp", f("cp", playing ? vals.punch * 8 * (.5 + .5 * Math.abs(Math.sin(t * 4))) : 0, .2), true);
+  drawOrb(); drawSpec();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// Scale to fit
+(function () { function fit() { const w = innerWidth, h = innerHeight, s = Math.min(w / 1000, h / 640); window.__sc = s; document.getElementById("stage").style.transform = `scale(${s})`; }
+  fit(); addEventListener("resize", fit); })();
+</script>
+</body>
+</html>

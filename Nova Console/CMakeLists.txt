@@ -20,6 +20,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
+# AAX SDK (Avid Pro Tools format) - shared across plugins, same pattern as
+# the shared NovaLicense module. Mac/Windows only (JUCE's own AAX SDK path
+# function silently no-ops on other platforms).
+if(APPLE OR WIN32)
+    juce_set_aax_sdk_path("${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+endif()
+
 set(PLUGIN_TARGET NovaConsole)
 set(NEEDS_WEBVIEW2 FALSE)
 set(NEEDS_WEB_BROWSER FALSE)
@@ -27,10 +34,10 @@ set(AU_MAIN_TYPE "")
 set(LV2_URI "")
 
 if(WIN32)
-    set(PLUGIN_FORMATS VST3 Standalone)
+    set(PLUGIN_FORMATS VST3 AAX Standalone)
     set(NEEDS_WEBVIEW2 TRUE)
 elseif(APPLE)
-    set(PLUGIN_FORMATS VST3 AU Standalone)
+    set(PLUGIN_FORMATS VST3 AU AAX Standalone)
     set(AU_MAIN_TYPE kAudioUnitType_Effect)
 elseif(UNIX)
     set(PLUGIN_FORMATS VST3 Standalone)
@@ -46,11 +53,15 @@ juce_add_binary_data(NovaConsole_WebUI
     NAMESPACE nova_console
     SOURCES
         Source/ui/public/index.html
+        Source/ui/public/img/faceplate.jpg
+        Source/ui/public/img/desk-knob-red.png
+        Source/ui/public/img/black-knob.png
+        Source/ui/public/img/vu-face.jpg
 )
 
 juce_add_plugin(${PLUGIN_TARGET}
     COMPANY_NAME "International Nova"
-    COMPANY_WEBSITE "https://noizefield.com"
+    COMPANY_WEBSITE "https://getnovaaudio.com"
     BUNDLE_ID "com.internationalnova.novaconsole"
     PLUGIN_MANUFACTURER_CODE Inov
     PLUGIN_CODE NvCs
@@ -59,6 +70,7 @@ juce_add_plugin(${PLUGIN_TARGET}
     NEEDS_WEBVIEW2 ${NEEDS_WEBVIEW2}
     NEEDS_WEB_BROWSER ${NEEDS_WEB_BROWSER}
     VST3_CATEGORIES Fx Channel Strip
+    AAX_CATEGORY Dynamics
     AU_MAIN_TYPE ${AU_MAIN_TYPE}
     LV2URI ${LV2_URI}
     IS_SYNTH FALSE

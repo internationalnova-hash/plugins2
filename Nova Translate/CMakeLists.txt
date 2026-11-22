@@ -23,6 +23,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
+# AAX SDK (Avid Pro Tools format) - shared across plugins, same pattern as
+# the shared NovaLicense module. Mac/Windows only (JUCE's own AAX SDK path
+# function silently no-ops on other platforms).
+if(APPLE OR WIN32)
+    juce_set_aax_sdk_path("${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+endif()
+
 # Nova Translate
 # Mix translation / listening-environment monitor. Not a mastering plugin.
 
@@ -33,11 +40,11 @@ set(AU_MAIN_TYPE "")
 set(LV2_URI "")
 
 if(WIN32)
-    set(PLUGIN_FORMATS VST3 Standalone)
+    set(PLUGIN_FORMATS VST3 AAX Standalone)
     set(NEEDS_WEBVIEW2 TRUE)
     set(WEBVIEW_BACKEND "WebView2")
 elseif(APPLE)
-    set(PLUGIN_FORMATS VST3 AU Standalone)
+    set(PLUGIN_FORMATS VST3 AU AAX Standalone)
     set(WEBVIEW_BACKEND "WKWebView")
     set(AU_MAIN_TYPE kAudioUnitType_Effect)
 elseif(UNIX)
@@ -56,12 +63,24 @@ juce_add_binary_data(NovaTranslate_WebUI
     SOURCES
         Source/ui/public/index.html
         Source/ui/public/n_logo.png
+        Source/ui/public/images/hero-studio.jpg
+        Source/ui/public/images/hero-nearfield.jpg
+        Source/ui/public/images/hero-mastering.jpg
+        Source/ui/public/images/hero-bedroom.jpg
+        Source/ui/public/images/hero-car.jpg
+        Source/ui/public/images/hero-suv.jpg
+        Source/ui/public/images/hero-phone.jpg
+        Source/ui/public/images/hero-laptop.jpg
+        Source/ui/public/images/hero-bluetooth.jpg
+        Source/ui/public/images/hero-boombox.jpg
+        Source/ui/public/images/hero-club.jpg
+        Source/ui/public/images/hero-cube.jpg
     NAMESPACE nova_translate_BinaryData
 )
 
 juce_add_plugin(${PLUGIN_TARGET}
     COMPANY_NAME "International Nova"
-    COMPANY_WEBSITE "https://noizefield.com"
+    COMPANY_WEBSITE "https://getnovaaudio.com"
     BUNDLE_ID "com.internationalnova.novatranslate"
     PLUGIN_MANUFACTURER_CODE Inov
     PLUGIN_CODE NvTr
@@ -70,6 +89,7 @@ juce_add_plugin(${PLUGIN_TARGET}
     NEEDS_WEBVIEW2 ${NEEDS_WEBVIEW2}
     NEEDS_WEB_BROWSER ${NEEDS_WEB_BROWSER}
     VST3_CATEGORIES Fx Tools
+    AAX_CATEGORY EQ
     AU_MAIN_TYPE ${AU_MAIN_TYPE}
     LV2URI ${LV2_URI}
     IS_SYNTH FALSE

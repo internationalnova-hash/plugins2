@@ -29,9 +29,11 @@ static void section (const char* title)
     std::cout << "\n=== " << title << " ===\n";
 }
 
-static const int kImplementedEnvironments[4] = {
-    EnvironmentLibrary::NovaMainRoom, EnvironmentLibrary::Sedan,
-    EnvironmentLibrary::Smartphone, EnvironmentLibrary::MonoCube
+static const int kImplementedEnvironments[12] = {
+    EnvironmentLibrary::NovaMainRoom, EnvironmentLibrary::NearfieldStudio, EnvironmentLibrary::MasteringSuite,
+    EnvironmentLibrary::BedroomStudio, EnvironmentLibrary::Sedan, EnvironmentLibrary::LuxurySUV,
+    EnvironmentLibrary::Smartphone, EnvironmentLibrary::Laptop, EnvironmentLibrary::BluetoothSpeaker,
+    EnvironmentLibrary::Boombox, EnvironmentLibrary::ClubPA, EnvironmentLibrary::MonoCube
 };
 
 static bool bufferIsFinite (const juce::AudioBuffer<float>& buf)
@@ -96,7 +98,7 @@ static NovaTranslateParams makeParams (int environmentIndex)
 
 static void testSilence()
 {
-    section ("SILENCE — All 4 environments, sustained silent input");
+    section ("SILENCE — All 12 environments, sustained silent input");
 
     constexpr double sampleRate = 48000.0;
     constexpr int blockSize = 512;
@@ -128,7 +130,7 @@ static void testSilence()
 
 static void testImpulse()
 {
-    section ("IMPULSE — All 4 environments, single-sample impulse");
+    section ("IMPULSE — All 12 environments, single-sample impulse");
 
     constexpr double sampleRate = 48000.0;
     constexpr int blockSize = 512;
@@ -163,7 +165,7 @@ static void testImpulse()
 
 static void testSineSweep()
 {
-    section ("SINE SWEEP — All 4 environments, 20Hz-20kHz sweep");
+    section ("SINE SWEEP — All 12 environments, 20Hz-20kHz sweep");
 
     constexpr double sampleRate = 48000.0;
     constexpr int blockSize = 512;
@@ -253,7 +255,7 @@ static void testMonoStereo()
 
 static void testRapidEnvironmentSwitching()
 {
-    section ("RAPID SWITCHING — Cycling all 4 environments with crossfade");
+    section ("RAPID SWITCHING — Cycling all 12 environments with crossfade");
 
     constexpr double sampleRate = 48000.0;
     constexpr int blockSize = 512;
@@ -275,13 +277,13 @@ static void testRapidEnvironmentSwitching()
         // deliberately stacks overlapping crossfades.
         if (block % 5 == 0)
         {
-            const int env = kImplementedEnvironments[(block / 5) % 4];
+            const int env = kImplementedEnvironments[(block / 5) % 12];
             engine.loadEnvironmentSynchronously (env);
             ++switchCount;
         }
 
         fillSineSweep (buffer, sampleRate, phase, freq);
-        engine.process (buffer, makeParams (kImplementedEnvironments[(block / 5) % 4]));
+        engine.process (buffer, makeParams (kImplementedEnvironments[(block / 5) % 12]));
         if (! bufferIsFinite (buffer)) allFinite = false;
         maxPeak = juce::jmax (maxPeak, bufferPeak (buffer));
     }
@@ -451,7 +453,7 @@ static void testLatencyAndTiming()
 
 static void testEnvironmentProfileDump()
 {
-    section ("PROFILES — Exact numeric values for all 4 implemented environments");
+    section ("PROFILES — Exact numeric values for all 12 implemented environments");
 
     for (int envIndex : kImplementedEnvironments)
     {
@@ -479,8 +481,8 @@ static void testEnvironmentProfileDump()
         check ((p.name + " is marked implemented").c_str(), EnvironmentLibrary::isImplemented (envIndex));
     }
 
-    check ("Unimplemented environment index (e.g. 1) falls back to neutral profile",
-           EnvironmentLibrary::getProfile (1).name == "Unbuilt");
+    check ("Out-of-roster environment index (e.g. 99) falls back to neutral profile",
+           EnvironmentLibrary::getProfile (99).name == "Unbuilt");
     check ("Neutral fallback profile applies zero coloration",
            EnvironmentLibrary::neutralProfile().roomAmount == 0.0f
         && EnvironmentLibrary::neutralProfile().saturationAmount == 0.0f
@@ -541,12 +543,14 @@ static void testPositionOutOfRangeClampsToDefault()
 
 static void testFixedPositionEnvironmentsIgnoreIndex()
 {
-    section ("FIXED POSITION — Smartphone/Mono Cube output is identical regardless of positionIndex");
+    section ("FIXED POSITION — No-position environments' output is identical regardless of positionIndex");
 
     constexpr double sampleRate = 48000.0;
     constexpr int blockSize = 512;
 
-    for (int envIndex : { (int) EnvironmentLibrary::Smartphone, (int) EnvironmentLibrary::MonoCube })
+    for (int envIndex : { (int) EnvironmentLibrary::Smartphone, (int) EnvironmentLibrary::MonoCube,
+                           (int) EnvironmentLibrary::Laptop, (int) EnvironmentLibrary::BluetoothSpeaker,
+                           (int) EnvironmentLibrary::Boombox })
     {
         NovaTranslateEngine engineA, engineB;
         engineA.prepare (sampleRate, blockSize, 2);

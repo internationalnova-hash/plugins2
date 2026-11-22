@@ -45,6 +45,8 @@ public:
     std::atomic<float> outputRmsLevel { 0.0f };
     std::atomic<float> limiterReductionLevel { 0.0f };
     std::atomic<bool> outputIsHot { false };
+    std::atomic<float> dynamicRangeLu { 0.0f };
+    std::atomic<float> stereoCorrelation { 0.0f };
 
 private:
     using Filter = juce::dsp::IIR::Filter<float>;
@@ -68,6 +70,17 @@ private:
     float outputPeakHold { 0.0f };
     float outputRmsHold { 0.0f };
     float sideLowState { 0.0f };
+    float dynamicRangeHold { 12.0f };
+    float correlationHold { 0.0f };
+
+    // Rolling correlation/crest-factor accumulator window
+    double corrSumLR { 0.0 };
+    double corrSumLL { 0.0 };
+    double corrSumRR { 0.0 };
+    float drPeakAccum { 0.0f };
+    double drSquaredSumAccum { 0.0 };
+    int analysisWindowSamples { 0 };
+    static constexpr int kAnalysisWindowSize = 2048;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaMasterAudioProcessor)
 };

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nova AI Master</title>
+<style>
+:root {
+  --bg: #08080a;
+  --panel: #0d0d11;
+  --panel-2: #121216;
+  --border: rgba(255,255,255,0.07);
+  --gold: #d4a843;
+  --gold-bright: #f0c766;
+  --text: #e8e8ea;
+  --text-dim: #7a7a86;
+  --text-dimmer: #4a4a54;
+  --danger: #e0665a;
+}
+
+* { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+
+html, body {
+  margin: 0; padding: 0; width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+}
+
+/* Fixed design canvas, uniformly scaled to fit the actual window size -
+   same technique used across the catalog (see Nova Tape's index.html for
+   the full rationale: JS-computed scale, not CSS min()/calc(), polled
+   rather than relying only on the resize event). */
+#stageOuter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+#stage { width: 420px; height: 560px; flex: 0 0 auto; position: relative; transform-origin: center center; }
+
+.plugin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 18px 20px 20px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.power-btn {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.power-btn.active { color: var(--gold); border-color: rgba(212,168,67,0.4); }
+.title-small {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+  color: var(--text-dim);
+}
+.menu-dots { color: var(--text-dim); font-size: 16px; letter-spacing: 1px; cursor: pointer; }
+
+/* Logo */
+.logo-block { text-align: center; margin-top: 8px; }
+.logo-nova { font-size: 13px; font-weight: 800; letter-spacing: 0.22em; color: var(--gold); }
+.logo-audio { font-size: 8px; font-weight: 600; letter-spacing: 0.3em; color: var(--text-dimmer); margin-top: -2px; }
+
+/* Master ring */
+.ring-wrap {
+  position: relative;
+  width: 190px; height: 190px;
+  margin: 18px 0 6px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.ring-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 3; }
+.ring-progress {
+  fill: none; stroke: var(--gold); stroke-width: 3; stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s ease, stroke 0.3s ease;
+  filter: drop-shadow(0 0 6px rgba(212,168,67,0.55));
+}
+.ring-progress.analyzing { stroke: var(--gold-bright); }
+.ring-core {
+  width: 148px; height: 148px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #16161b, #0a0a0c 75%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.ring-nova { font-size: 10px; letter-spacing: 0.25em; color: var(--text-dim); }
+.ring-label { font-size: 17px; font-weight: 700; letter-spacing: 0.04em; margin-top: 2px; text-align: center; line-height: 1.2; }
+.ring-pct { font-size: 10px; color: var(--text-dimmer); margin-top: 4px; letter-spacing: 0.05em; }
+
+.status-text { font-size: 11px; color: var(--text-dim); text-align: center; min-height: 14px; margin-bottom: 8px; }
+
+/* Style dropdown / loudness dropdown */
+.dropdown-row { width: 100%; margin-top: 4px; }
+.dropdown {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer;
+  font-size: 12px;
+}
+.dropdown .lbl { color: var(--text-dim); letter-spacing: 0.08em; font-weight: 700; font-size: 10px; }
+.dropdown .val { color: var(--gold); font-weight: 700; letter-spacing: 0.04em; }
+.dropdown .chev { color: var(--text-dim); margin-left: 6px; }
+
+.dropdown-menu {
+  position: absolute;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 20;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  display: none;
+}
+.dropdown-menu.open { display: block; }
+.dropdown-menu .opt {
+  padding: 7px 10px; font-size: 12px; border-radius: 5px; cursor: pointer; color: var(--text);
+}
+.dropdown-menu .opt:hover { background: rgba(255,255,255,0.06); }
+.dropdown-menu .opt.selected { color: var(--gold); }
+
+/* Intensity slider */
+.intensity-block { width: 100%; margin-top: 12px; }
+.intensity-labels {
+  display: flex; justify-content: space-between; font-size: 9px;
+  color: var(--text-dimmer); letter-spacing: 0.08em; margin-bottom: 6px;
+}
+.intensity-title { font-size: 10px; color: var(--text-dim); font-weight: 700; letter-spacing: 0.08em; margin-bottom: 6px; }
+.slider-track {
+  position: relative; width: 100%; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,0.08); cursor: pointer;
+}
+.slider-fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 2px; background: var(--gold); }
+.slider-thumb {
+  position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--gold-bright); transform: translate(-50%, -50%);
+  box-shadow: 0 0 6px rgba(212,168,67,0.6);
+}
+
+/* Buttons */
+.btn-row { display: flex; gap: 10px; width: 100%; margin-top: 16px; }
+.btn {
+  flex: 1; text-align: center; padding: 11px 0; border-radius: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer;
+  border: 1px solid var(--border);
+}
+.btn.outline { background: var(--panel-2); color: var(--text); }
+.btn.outline.active-preview { color: var(--gold); border-color: rgba(212,168,67,0.4); }
+.btn.solid { background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: #1a1305; border: none; }
+.btn.disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+
+.footer-mark { margin-top: auto; padding-top: 14px; font-size: 9px; letter-spacing: 0.3em; color: var(--text-dimmer); }
+</style>
+</head>
+<body>
+  <div id="stageOuter">
+  <div id="stage">
+  <div class="plugin">
+    <div class="header">
+      <div class="power-btn" id="bypass-btn" title="Bypass (Preview original)">&#9679;</div>
+      <div class="title-small">NOVA AI MASTER</div>
+      <div class="menu-dots">&#8942;</div>
+    </div>
+
+    <div class="logo-block">
+      <div class="logo-nova">NOVA</div>
+      <div class="logo-audio">A U D I O</div>
+    </div>
+
+    <div class="ring-wrap" id="ring-btn">
+      <svg class="ring-svg" viewBox="0 0 190 190">
+        <circle class="ring-track" cx="95" cy="95" r="86"></circle>
+        <circle class="ring-progress" id="ring-progress" cx="95" cy="95" r="86"
+                stroke-dasharray="540.4" stroke-dashoffset="540.4"></circle>
+      </svg>
+      <div class="ring-core">
+        <div class="ring-nova">NOVA</div>
+        <div class="ring-label" id="ring-label">MASTER<br>AI</div>
+        <div class="ring-pct" id="ring-pct"></div>
+      </div>
+    </div>
+
+    <div class="status-text" id="status-text">Play audio, then press MASTER AI to analyze.</div>
+
+    <div class="dropdown-row" style="position:relative;">
+      <div class="dropdown" id="style-dropdown">
+        <span class="lbl">STYLE</span>
+        <span><span class="val" id="style-val">CLEAN</span><span class="chev">&#9662;</span></span>
+      </div>
+      <div class="dropdown-menu" id="style-menu"></div>
+    </div>
+
+    <div class="intensity-block">
+      <div class="intensity-title">INTENSITY</div>
+      <div class="slider-track" id="intensity-track">
+        <div class="slider-fill" id="intensity-fill"></div>
+        <div class="slider-thumb" id="intensity-thumb"></div>
+      </div>
+      <div class="intensity-labels"><span>SOFT</span><span>AGGRESSIVE</span></div>
+    </div>
+
+    <div class="dropdown-row" style="position:relative;">
+      <div class="dropdown" id="loudness-dropdown">
+        <span class="lbl">LOUDNESS</span>
+        <span><span class="val" id="loudness-val">STREAMING</span><span class="chev">&#9662;</span></span>
+      </div>
+      <div class="dropdown-menu" id="loudness-menu"></div>
+    </div>
+
+    <div class="btn-row">
+      <div class="btn outline" id="preview-btn">PREVIEW</div>
+      <div class="btn solid" id="master-btn">MASTER</div>
+    </div>
+
+    <div class="footer-mark">NOVA</div>
+  </div>
+  </div>
+  </div>
+
+  <script type="module" src="js/index.js"></script>
+</body>
+</html>

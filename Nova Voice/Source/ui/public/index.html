@@ -28,13 +28,18 @@
       color: var(--text);
       -webkit-font-smoothing: antialiased;
     }
-    body { display: grid; place-items: center; }
+    /* place-content (not just place-items) is required: a fixed-size
+       #stage makes body's implicit grid track auto-size to match it, so
+       place-items alone centers within that same-sized track (no visible
+       effect) - place-content centers the track itself in the viewport. */
+    body { display: grid; place-items: center; place-content: center; }
 
     /* ── Plugin shell ───────────────────────────────────────────── */
     .plugin {
       position: relative;
-      width: min(1080px, 100vw);
-      height: min(680px, 100vh);
+      width: 1080px;
+      height: 680px;
+      transform-origin: center center;
       background: radial-gradient(ellipse 130% 100% at 50% -10%,
         #130B30 0%, #0A0820 22%, #060615 52%, var(--bg) 100%);
       border: 1px solid rgba(139,111,255,0.20);
@@ -360,6 +365,7 @@
     .mode-btn[data-mode="1"].active { border-color:var(--cyan); background:rgba(0,232,255,0.09); color:var(--cyan); box-shadow:0 0 22px rgba(0,232,255,0.28),inset 0 0 10px rgba(0,232,255,0.07); }
     .mode-btn[data-mode="2"].active { border-color:var(--violet); background:rgba(139,111,255,0.12); color:#C5AAFF; box-shadow:0 0 22px rgba(139,111,255,0.28),inset 0 0 10px rgba(139,111,255,0.07); }
     .mode-btn[data-mode="3"].active { border-color:#FF6050; background:rgba(255,96,80,0.11); color:#FFBBB0; box-shadow:0 0 22px rgba(255,96,80,0.26),inset 0 0 10px rgba(255,96,80,0.07); }
+    .mode-btn[data-mode="4"].active { border-color:#FFC34D; background:rgba(255,195,77,0.12); color:#FFE1A3; box-shadow:0 0 22px rgba(255,195,77,0.30),inset 0 0 10px rgba(255,195,77,0.08); }
   </style>
 </head>
 <body>
@@ -392,7 +398,7 @@
     </defs>
   </svg>
 
-  <div class="plugin">
+  <div class="plugin" id="stage">
 
     <!-- Cosmic BG -->
     <div class="cosmos">
@@ -459,6 +465,30 @@
     <!-- Knobs -->
     <div class="knobs-section">
       <div class="knobs-row">
+
+        <!-- PITCH -->
+        <div class="knob-col" data-param="pitch" data-min="-12" data-max="12">
+          <div class="knob-label">Pitch</div>
+          <div class="knob-svg-wrap">
+            <svg class="knob-svg" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(139,111,255,0.09)" stroke-width="1.5"/>
+              <circle class="knob-track" cx="50" cy="50" r="38" fill="none"
+                stroke="rgba(255,255,255,0.07)" stroke-width="5"
+                stroke-dasharray="159.2 79.6" transform="rotate(135 50 50)" stroke-linecap="round"/>
+              <circle class="knob-fill" cx="50" cy="50" r="38" fill="none"
+                stroke="url(#knob-grad)" stroke-width="5"
+                stroke-dasharray="0 238.76" transform="rotate(135 50 50)" stroke-linecap="round"
+                filter="url(#arc-glow)"/>
+              <circle cx="50" cy="50" r="26" fill="url(#knob-body)" stroke="rgba(160,140,255,0.20)" stroke-width="1"/>
+              <ellipse cx="42" cy="40" rx="8" ry="5" fill="rgba(255,255,255,0.09)" transform="rotate(-30 42 40)"/>
+              <circle cx="50" cy="50" r="10" fill="rgba(100,78,210,0.10)"/>
+              <g class="knob-indicator" style="transform-origin:50px 50px;transform:rotate(-120deg)">
+                <circle cx="50" cy="16" r="4" fill="#00E8FF" filter="url(#dot-glow)"/>
+              </g>
+            </svg>
+          </div>
+          <div class="knob-value">+2.0 st</div>
+        </div>
 
         <!-- MORPH -->
         <div class="knob-col" data-param="morph" data-min="0" data-max="10">
@@ -589,10 +619,25 @@
       <button class="mode-btn" data-mode="1">Digital</button>
       <button class="mode-btn active" data-mode="2">Hybrid</button>
       <button class="mode-btn" data-mode="3">Extreme</button>
+      <button class="mode-btn" data-mode="4">Robot</button>
     </div>
 
   </div><!-- .plugin -->
 
+  <script>
+    window.__novaVoiceBooted = false;
+    window.addEventListener("load", function () {
+      setTimeout(function () {
+        if (window.__novaVoiceBooted) return;
+        console.warn("Nova Voice module UI unavailable, loading fallback bootstrap.");
+        var s = document.createElement("script");
+        s.src = "js/fallback-boot.js";
+        s.defer = true;
+        document.head.appendChild(s);
+      }, 1200);
+    });
+  </script>
   <script type="module" src="js/index.js"></script>
+  <script nomodule src="js/fallback-boot.js"></script>
 </body>
 </html>

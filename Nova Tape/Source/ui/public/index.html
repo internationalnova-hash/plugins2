@@ -1,0 +1,476 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Nova Tape</title>
+<style>
+  :root {
+    --bg: #0b0b0d;
+    --panel: #141416;
+    --panel2: #1b1b1e;
+    --line: #2a2a2e;
+    --amber: #e8a33d;
+    --amber-dim: #8a6224;
+    --text: #eae6df;
+    --text-dim: #9a968f;
+    --red: #d64b3f;
+  }
+  * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  #stageOuter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #stage {
+    position: relative; width: 1536px; height: 1024px; flex: 0 0 auto;
+    background: var(--bg); transform-origin: center center;
+    /* Scale is set by JS (see fitStage() at the bottom of index.js), not
+       CSS min()/calc() - this embedded WebView silently drops the whole
+       transform when it doesn't support that nested-function syntax,
+       which renders the canvas at native 1536x1024 size and lets the
+       bottom of the design get clipped by whatever window height JUCE
+       actually gave the WebView. JS arithmetic has no such requirement,
+       and a poll fallback covers this WebView's already-known unreliable
+       resize-event delivery (see the #transport comment history). */
+  }
+  .shot { position: absolute; pointer-events: none; -webkit-user-drag: none; }
+
+  /* ---------- header ---------- */
+  #header {
+    position: absolute; left: 0; top: 0; width: 1536px; height: 100px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 28px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #131315, #0e0e10);
+  }
+  #brand { display: flex; flex-direction: column; line-height: 1.05; }
+  #brand .name { font-size: 26px; font-weight: 700; letter-spacing: 2px; }
+  #brand .name .accent { color: var(--amber); font-weight: 400; }
+  #brand .sub { font-size: 11px; letter-spacing: 3px; color: var(--text-dim); margin-top: 4px; }
+
+  #presetNav { display: flex; align-items: center; gap: 10px; }
+  #presetNav button.nav {
+    background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+    width: 30px; height: 30px; border-radius: 6px; cursor: pointer; font-size: 15px;
+  }
+  #presetName {
+    min-width: 220px; text-align: center; background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 6px; padding: 8px 16px;
+    color: var(--amber); font-size: 14px; letter-spacing: 0.5px;
+  }
+  #headerRight { display: flex; align-items: center; gap: 10px; }
+  .pillBtn {
+    position: relative; background: transparent; border: none; color: var(--text-dim);
+    font-size: 13px; letter-spacing: 1px; cursor: pointer;
+    width: 81px; height: 53px; background-size: contain; background-repeat: no-repeat; background-position: center;
+    background-image: url("images/button_header_dark.png");
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pillBtn.small { width: 57px; }
+  .pillBtn.active { color: #1a1200; font-weight: 700; background-image: url("images/button_header_amber.png"); }
+  #novaAudio { text-align: right; font-size: 15px; letter-spacing: 3px; color: var(--text-dim); margin-left: 6px; }
+  #novaAudio b { color: var(--text); }
+
+  /* ---------- transport (reels / VU / nameplate / rollers) ---------- */
+  #transport { position: absolute; left: 0; top: 100px; width: 1536px; height: 390px; }
+  /* The ORIGINAL reel_left.png/reel_right.png were shot at a real 3D
+     perspective angle with a fixed transport roller baked into the same
+     frame - rotating that as a flat CSS transform read as "a knob/coin
+     spinning," not a tape reel turning. A procedural SVG reel fixed the
+     rotation but looked flat/cartoonish next to the rest of the
+     photoreal deck. Current fix: a freshly generated true top-down
+     orthographic reel photo (zero perspective tilt, no baked-in fixed
+     hardware, tone-matched to the deck's dark gunmetal) - since it's a
+     genuinely straight-on shot, a plain whole-image CSS rotate() is
+     correct for it, unlike the old angled photo. */
+  #reelL, #reelR { top: 5px; width: 320px; height: 320px; transform-origin: 50% 50%; }
+  #reelL { left: 70px; }
+  #reelR { right: 70px; }
+  #vuHousing { left: 50%; top: 15px; width: 497px; height: 198px; margin-left: -248px; }
+  #nameplateHousing { left: 50%; top: 215px; width: 598px; height: 151px; margin-left: -299px; }
+  #rollerLL { left: 445px; top: 235px; width: 84px; height: 113px; }
+  #rollerLS { left: 500px; top: 245px; width: 80px; height: 121px; }
+  #rollerRS { right: 500px; top: 245px; width: 80px; height: 121px; }
+  #rollerRL { right: 445px; top: 235px; width: 84px; height: 113px; }
+
+  /* The VU gauge photo has its own needle (and its own small "VU" face)
+     baked directly into the art, permanently resting at -20. Multiple
+     attempts at surgically erasing just the needle from the source image
+     (see dim_vu_needles*.py in scratch history) kept leaving visible
+     seams, and even a clean removal would still leave the baked-in scale
+     printing underneath a separate live needle - which read as two
+     meters stacked on each other. Rather than keep fighting the photo,
+     the meter FACE (cream background, scale, ticks, "VU" text, needle -
+     everything inside the window) is now a fully procedural SVG built by
+     buildVuGauge() in index.js, sized and positioned to sit exactly over
+     that window; only the photo's black bezel/frame/screws around it
+     still come from vu_meter_pair_housing.png. SVG's own viewBox clips
+     anything drawn outside it for free, so the needle's pivot can sit at
+     its mechanically correct position below the visible face (like a
+     real meter's hidden axle) without the "poking out past the frame"
+     bug the plain absolutely-positioned DOM needle had. */
+  .vuGauge { position: absolute; top: 29px; width: 215px; height: 126px; pointer-events: none; }
+  #vuGaugeL { left: 538px; }
+  #vuGaugeR { left: 781px; }
+
+  /* ---------- main panel ---------- */
+  #mainPanel {
+    position: absolute; left: 0; top: 490px; width: 1536px; height: 275px;
+    display: flex; align-items: center; justify-content: center; gap: 30px;
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #121214, #0d0d0f);
+  }
+  .meterCol { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .meterCol .lbl { font-size: 11px; letter-spacing: 2px; color: var(--text-dim); }
+  .ledMeter { position: relative; width: 35px; height: 197px; background-image: url("images/led_meter_vertical.png"); background-size: contain; background-repeat: no-repeat; }
+  /* The lamp PNGs are baked as glowing/lit graphics - there's no separate
+     dark "off" asset in the pack - so dimming one via low opacity alone
+     still reads as a faint lit dot rather than a genuinely off lamp
+     (same class of problem as the tape-type/IPS buttons' baked-in light).
+     Fix: heavy grayscale + darken for "off," same technique as those
+     buttons, so silence actually looks off instead of "static." */
+  .ledMeter img.lamp { position: absolute; width: 20px; height: 20px; left: 50%; margin-left: -10px; opacity: 0.5; filter: grayscale(0.92) brightness(0.32); transition: opacity 80ms linear, filter 80ms linear; }
+  .ledMeter img.lamp.lit { opacity: 1; filter: none; }
+
+  .knobBlock { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .knobBlock .lbl { font-size: 12px; letter-spacing: 2px; color: var(--text-dim); text-transform: uppercase; }
+  /* The knob photo's cap has a directional specular highlight baked in -
+     rotationally symmetric objects like this don't visibly change shading
+     as they turn in place (the highlight comes from a fixed light source,
+     not from the knob's own rotation), so rotating the whole cap image
+     read as "a flat picture spinning," while rotating only a bare pointer
+     read as "the knob isn't turning at all." Fix: the photo supplies only
+     the OUTER ring (ticks/amber arc/housing, via .staticRing, never
+     rotates). The inner 82%-diameter cap circle (kCapFraction, matching
+     .staticRing's own cap proportions so there's no seam) is entirely
+     procedural: a rotating brushed-metal grain (.grainSpin, a repeating
+     conic-gradient - the streak pattern visibly sweeping as it turns is
+     what actually reads as "the knob is turning") carries the pointer
+     mark with it, while a soft specular .highlight and a depth .vignette
+     sit on top NOT rotating, since a fixed light source's reflection
+     wouldn't move either. Base tones sampled from the source photos'
+     mid-cap regions (~rgb 14-17) so the procedural disc matches the
+     photo's outer ring with no visible seam at the boundary. */
+  .knobWrap { position: relative; cursor: ns-resize; }
+  .knobWrap img.staticRing { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; display: block; }
+  .knobWrap .rotor {
+    position: absolute; left: 50%; top: 50%; width: 82%; height: 82%;
+    margin-left: -41%; margin-top: -41%; border-radius: 50%; overflow: hidden;
+  }
+  .knobWrap .rotor .grainSpin { position: absolute; inset: 0; transform-origin: 50% 50%; }
+  .knobWrap .rotor .grain {
+    position: absolute; inset: -20%; border-radius: 50%;
+    background:
+      repeating-conic-gradient(from 0deg,
+        #232326 0deg 2.3deg, #17171a 2.3deg 4.1deg,
+        #2a2a2e 4.1deg 5.7deg, #1a1a1d 5.7deg 8.1deg,
+        #201f22 8.1deg 9.8deg, #151517 9.8deg 12deg,
+        #262629 12deg 13.6deg, #18181b 13.6deg 16deg
+      ),
+      radial-gradient(circle at 50% 50%, #050506 0%, #121214 58%, #0b0b0c 100%);
+    background-blend-mode: overlay, normal;
+  }
+  .knobWrap .rotor .needle {
+    position: absolute; left: 50%; top: 6%; width: 3px; height: 46%;
+    margin-left: -1.5px; transform-origin: 50% 84%; border-radius: 2px;
+    background: linear-gradient(to top, rgba(235,235,235,0) 0%, #d8d8d8 25%, #ffffff 100%);
+    filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.7));
+  }
+  .knobWrap .rotor .highlight {
+    position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(ellipse 55% 40% at 32% 24%, rgba(255,255,255,0.5), rgba(255,255,255,0) 62%);
+    mix-blend-mode: screen;
+  }
+  .knobWrap .rotor .vignette {
+    position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle at 50% 55%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.6) 100%);
+  }
+  /* The TAPE knob's amber ring used to be a fully-lit decoration baked
+     into the photo (dimmed to near-nothing in the source PNG, see
+     dim_amber_ring.py) - now it's a real value meter: a dim static track
+     plus a bright fill arc redrawn by JS from -135deg to the live value
+     angle, same sweep convention as the tick marks and the needle. */
+  .knobWrap .tapeRing { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .knobWrap .tapeRing .ringTrack { fill: none; stroke: rgba(232,163,61,0.15); stroke-width: 6; stroke-linecap: round; }
+  .knobWrap .tapeRing .ringFill {
+    fill: none; stroke: var(--amber); stroke-width: 6; stroke-linecap: round;
+    filter: drop-shadow(0 0 3px rgba(232,163,61,0.85));
+  }
+  .knobWrap.medium { width: 158px; height: 151px; }
+  .knobWrap.large  { width: 181px; height: 173px; }
+  .knobWrap.small  { width: 99px;  height: 97px; }
+  .knobVal { font-size: 13px; color: var(--amber); min-width: 44px; text-align: center; }
+
+  .btnGroup { display: flex; flex-direction: column; gap: 8px; }
+  .btnGroup button {
+    position: relative; background-size: contain; background-repeat: no-repeat; background-position: center;
+    border: none; color: var(--text-dim); font-size: 13px; letter-spacing: 1px; cursor: pointer;
+    /* The button art has a small indicator light baked in, always lit -
+       dim the WHOLE treatment (light included) when not selected, so only
+       the active choice reads as genuinely "on" rather than every option
+       showing the same lit light regardless of selection. */
+    filter: grayscale(0.75) brightness(0.5); transition: filter 100ms linear;
+  }
+  #tapeTypeGroup button { width: 128px; height: 52px; background-image: url("images/button_tape_type_blank.png"); }
+  #ipsGroup button { width: 111px; height: 52px; background-image: url("images/button_ips_blank.png"); }
+  .btnGroup button.active { color: var(--amber); font-weight: 700; text-shadow: 0 0 8px rgba(232,163,61,0.5); filter: none; }
+  .groupLabel { font-size: 10px; letter-spacing: 2px; color: var(--text-dim); text-align: center; margin-bottom: 2px; }
+
+  #tapeCenter { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  #tapeLabel { font-size: 13px; letter-spacing: 3px; color: var(--text-dim); }
+  #tapeValLbl { font-size: 15px; color: var(--amber); }
+
+  /* ---------- bottom row ---------- */
+  #bottomRow {
+    position: absolute; left: 0; top: 765px; width: 1536px; height: 200px;
+    display: flex; align-items: flex-end; justify-content: center; gap: 36px;
+    padding-bottom: 26px;
+    background: linear-gradient(180deg, #101012, #0b0b0d);
+  }
+  #mixCol { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 258px; }
+  #mixCol .lbl { font-size: 12px; letter-spacing: 2px; color: var(--text-dim); }
+  /* The source track art had an amber fill AND a metal thumb baked in at
+     a fixed (default-value) position - drawing our own live-value fill
+     and handle on top of that produced two visibly different sliders
+     stacked on each other. Fix: the track is now a plain procedural
+     groove (no baked fill/thumb at all) and only .../mix_thumb.png - a
+     tight crop of just that same metal thumb graphic, isolated from the
+     baked track - moves with the value; #mixFill is the only fill. */
+  #mixTrack {
+    position: relative; width: 258px; height: 51px; cursor: ew-resize;
+    display: flex; align-items: center;
+  }
+  #mixTrack::before {
+    content: ""; position: absolute; left: 4px; right: 4px; top: 50%; height: 10px;
+    margin-top: -5px; border-radius: 5px;
+    background: linear-gradient(180deg, #050506, #121214);
+    box-shadow: inset 0 2px 3px rgba(0,0,0,0.85), inset 0 -1px 0 rgba(255,255,255,0.04);
+  }
+  #mixFill { position: absolute; top: 50%; left: 6px; height: 6px; margin-top: -3px; background: var(--amber); border-radius: 3px; opacity: 0.9; }
+  #mixHandle {
+    position: absolute; top: 50%; width: 22px; height: 24px;
+    background-image: url("images/mix_thumb.png"); background-size: contain; background-repeat: no-repeat;
+    transform: translate(-50%, -50%); pointer-events: none;
+  }
+  #mixEnds { display: flex; justify-content: space-between; width: 100%; font-size: 10px; color: var(--text-dim); letter-spacing: 1px; padding: 0 6px; }
+
+  /* ---------- footer ---------- */
+  #footer {
+    position: absolute; left: 0; top: 965px; width: 1536px; height: 59px;
+    display: flex; align-items: center; justify-content: center;
+    background-image: url("images/footer_treatment.png"); background-size: 704px 56px; background-repeat: no-repeat; background-position: center;
+  }
+  #settingsIcon { position: absolute; right: 24px; top: 977px; width: 36px; height: 37px; opacity: 0.6; }
+
+  /* ---------- save popover ---------- */
+  #savePopover {
+    position: absolute; top: 108px; right: 28px; background: var(--panel2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 16px; display: none; flex-direction: column; gap: 10px; z-index: 10;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+  }
+  #savePopover input { background: var(--panel); border: 1px solid var(--line); color: var(--text); padding: 8px 12px; border-radius: 5px; }
+  #savePopover button { background: var(--amber); color: #1a1200; border: none; border-radius: 5px; padding: 8px 12px; font-weight: 600; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="stageOuter">
+  <div id="stage">
+    <div id="header">
+      <div id="brand">
+        <div class="name">NOVA <span class="accent">TAPE</span></div>
+        <div class="sub">ANALOG TAPE MACHINE</div>
+      </div>
+      <div id="presetNav">
+        <button class="nav" id="presetPrev">&#8249;</button>
+        <div id="presetName">Default Tape</div>
+        <button class="nav" id="presetNext">&#8250;</button>
+      </div>
+      <div id="headerRight">
+        <button class="pillBtn small" id="abA">A</button>
+        <button class="pillBtn small" id="abB">B</button>
+        <button class="pillBtn" id="saveBtn">SAVE</button>
+        <button class="pillBtn small" id="menuBtn" style="background-image:url('images/menu_icon_button.png')"></button>
+        <div id="novaAudio"><b>NOVA</b> AUDIO</div>
+      </div>
+    </div>
+
+    <div id="transport">
+      <img class="shot" id="reelL" src="images/reel_left.png" />
+      <img class="shot" id="rollerLL" src="images/roller_left_large.png" />
+      <img class="shot" id="rollerLS" src="images/roller_left_small.png" />
+      <img class="shot" id="vuHousing" src="images/vu_meter_pair_housing.png" />
+      <img class="shot" id="nameplateHousing" src="images/tape_head_center_housing.png" />
+      <svg class="vuGauge" id="vuGaugeL" viewBox="0 0 215 126"></svg>
+      <svg class="vuGauge" id="vuGaugeR" viewBox="0 0 215 126"></svg>
+      <img class="shot" id="rollerRS" src="images/roller_right_small.png" />
+      <img class="shot" id="rollerRL" src="images/roller_right_large.png" />
+      <img class="shot" id="reelR" src="images/reel_right.png" />
+    </div>
+
+    <div id="mainPanel">
+      <div class="meterCol">
+        <div class="lbl">IN</div>
+        <div class="ledMeter" id="ledIn"></div>
+      </div>
+
+      <div class="knobBlock">
+        <div class="lbl">Input</div>
+        <div class="knobWrap medium" data-param="input" data-min="-24" data-max="24">
+          <img class="staticRing" src="images/knob_large_input.png" />
+          <div class="rotor">
+            <div class="grainSpin"><div class="grain"></div><div class="needle"></div></div>
+            <div class="highlight"></div>
+            <div class="vignette"></div>
+          </div>
+        </div>
+        <div class="knobVal" id="val_input">0.0 dB</div>
+      </div>
+
+      <div class="btnGroup" id="tapeTypeGroup">
+        <div class="groupLabel">Tape Type</div>
+        <button data-choice="0">Studio</button>
+        <button data-choice="1">Vintage</button>
+        <button data-choice="2">Hot</button>
+      </div>
+
+      <div id="tapeCenter">
+        <div id="tapeLabel">TAPE</div>
+        <div class="knobWrap large" data-param="tapeAmount" data-min="0" data-max="100">
+          <img class="staticRing" src="images/knob_large_tape.png" />
+          <svg class="tapeRing" viewBox="0 0 181 173">
+            <path class="ringTrack"></path>
+            <path class="ringFill"></path>
+          </svg>
+          <div class="rotor">
+            <div class="grainSpin"><div class="grain"></div><div class="needle"></div></div>
+            <div class="highlight"></div>
+            <div class="vignette"></div>
+          </div>
+        </div>
+        <div id="tapeValLbl">65%</div>
+      </div>
+
+      <div class="btnGroup" id="ipsGroup">
+        <div class="groupLabel">IPS</div>
+        <button data-choice="2">30</button>
+        <button data-choice="1">15</button>
+        <button data-choice="0">7.5</button>
+      </div>
+
+      <div class="knobBlock">
+        <div class="lbl">Output</div>
+        <div class="knobWrap medium" data-param="output" data-min="-24" data-max="24">
+          <img class="staticRing" src="images/knob_large_output.png" />
+          <div class="rotor">
+            <div class="grainSpin"><div class="grain"></div><div class="needle"></div></div>
+            <div class="highlight"></div>
+            <div class="vignette"></div>
+          </div>
+        </div>
+        <div class="knobVal" id="val_output">-1.3 dB</div>
+      </div>
+
+      <div class="meterCol">
+        <div class="lbl">OUT</div>
+        <div class="ledMeter" id="ledOut"></div>
+      </div>
+    </div>
+
+    <div id="bottomRow">
+      <div class="knobBlock">
+        <div class="lbl">Bias</div>
+        <div class="knobWrap small" data-param="bias" data-min="-100" data-max="100">
+          <img class="staticRing" src="images/knob_small.png" />
+          <div class="rotor">
+            <div class="grainSpin"><div class="grain"></div><div class="needle"></div></div>
+            <div class="highlight"></div>
+            <div class="vignette"></div>
+          </div>
+        </div>
+        <div class="knobVal" id="val_bias">0.0</div>
+      </div>
+      <div class="knobBlock">
+        <div class="lbl">Wow / Flutter</div>
+        <div class="knobWrap small" data-param="wowFlutter" data-min="0" data-max="10">
+          <img class="staticRing" src="images/knob_small.png" />
+          <div class="rotor">
+            <div class="grainSpin"><div class="grain"></div><div class="needle"></div></div>
+            <div class="highlight"></div>
+            <div class="vignette"></div>
+          </div>
+        </div>
+        <div class="knobVal" id="val_wowFlutter">2.4</div>
+      </div>
+      <div class="knobBlock">
+        <div class="lbl">Noise</div>
+        <div class="knobWrap small" data-param="noise" data-min="0" data-max="10">
+          <img class="staticRing" src="images/knob_small.png" />
+          <div class="rotor">
+            <div class="grainSpin"><div class="grain"></div><div class="needle"></div></div>
+            <div class="highlight"></div>
+            <div class="vignette"></div>
+          </div>
+        </div>
+        <div class="knobVal" id="val_noise">1.8</div>
+      </div>
+
+      <div id="mixCol">
+        <div class="lbl">Mix</div>
+        <div id="mixTrack" data-param="mix" data-min="0" data-max="100">
+          <div id="mixFill"></div>
+          <div id="mixHandle"></div>
+        </div>
+        <div id="mixEnds"><span>DRY</span><span id="val_mix">50%</span><span>WET</span></div>
+      </div>
+
+      <div class="knobBlock">
+        <div class="lbl">Low Cut</div>
+        <div class="knobWrap small" data-param="lowCut" data-min="20" data-max="200">
+          <img class="staticRing" src="images/knob_small.png" />
+          <div class="rotor">
+            <div class="grainSpin"><div class="grain"></div><div class="needle"></div></div>
+            <div class="highlight"></div>
+            <div class="vignette"></div>
+          </div>
+        </div>
+        <div class="knobVal" id="val_lowCut">30 Hz</div>
+      </div>
+      <div class="knobBlock">
+        <div class="lbl">High Cut</div>
+        <div class="knobWrap small" data-param="highCut" data-min="5000" data-max="20000">
+          <img class="staticRing" src="images/knob_small.png" />
+          <div class="rotor">
+            <div class="grainSpin"><div class="grain"></div><div class="needle"></div></div>
+            <div class="highlight"></div>
+            <div class="vignette"></div>
+          </div>
+        </div>
+        <div class="knobVal" id="val_highCut">18.0 kHz</div>
+      </div>
+      <div class="knobBlock">
+        <div class="lbl">Trim</div>
+        <div class="knobWrap small" data-param="trim" data-min="-6" data-max="6">
+          <img class="staticRing" src="images/knob_small.png" />
+          <div class="rotor">
+            <div class="grainSpin"><div class="grain"></div><div class="needle"></div></div>
+            <div class="highlight"></div>
+            <div class="vignette"></div>
+          </div>
+        </div>
+        <div class="knobVal" id="val_trim">0.0 dB</div>
+      </div>
+    </div>
+
+    <div id="footer"></div>
+    <img id="settingsIcon" src="images/settings_icon.png" />
+
+    <div id="savePopover">
+      <input id="saveNameInput" placeholder="Preset name" />
+      <button id="saveConfirm">Save</button>
+    </div>
+  </div>
+</div>
+<script type="module" src="js/index.js"></script>
+</body>
+</html>

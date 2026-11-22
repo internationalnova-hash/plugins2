@@ -1,22 +1,11 @@
-let Juce = null;
-
-async function tryLoadJuce() {
-  if (typeof window.__JUCE__ === "undefined") return false;
-  try {
-    Juce = await import("./juce/index.js");
-    return true;
-  } catch (e) {
-    console.warn("JUCE module failed to load:", e);
-    return false;
-  }
-}
+import * as Juce from "./juce/index.js";
 
 // ── Preset Bank ───────────────────────────────────────────────────────────────
-// morph/texture/form/air: 0–10 | blend: 0–100 | mode: 0=Clean 1=Digital 2=Hybrid 3=Extreme
+// pitch: -12..+12 st | morph/texture/form/air: 0-10 | blend: 0-100 | mode: 0=Clean 1=Digital 2=Hybrid 3=Extreme 4=Robot
 const PRESETS = [
 
   // ── Vocal Enhancement ──────────────────────────────────────────────────────
-  { name: "Clean Lift",        category: "Vocal",       tags: ["Clean","Polished","Lead"],         morph: 2.5, texture: 1.5, form: 5.0, air: 5.5, blend: 35,  mode: 0 },
+  { name: "Clean Lift",        category: "Vocal",       tags: ["Clean","Polished","Lead"],         pitch: 0.0, morph: 1.7, texture: 0.9, form: 4.1, air: 5.2, blend: 32,  mode: 0 },
   { name: "Velvet Tone",       category: "Vocal",       tags: ["Smooth","Warm","Body"],            morph: 3.5, texture: 2.0, form: 4.5, air: 4.0, blend: 45,  mode: 2 },
   { name: "Air Pop",           category: "Vocal",       tags: ["Airy","Bright","Modern"],          morph: 2.8, texture: 2.5, form: 5.2, air: 7.0, blend: 40,  mode: 0 },
 
@@ -29,6 +18,7 @@ const PRESETS = [
   { name: "Alien Lead",        category: "Creative",    tags: ["Transformed","Alien","Extreme"],   morph: 8.0, texture: 5.5, form: 7.0, air: 6.0, blend: 70,  mode: 3 },
   { name: "Deep Form",         category: "Creative",    tags: ["Dark","Massive","Extreme"],        morph: 6.5, texture: 4.0, form: 3.0, air: 4.5, blend: 65,  mode: 3 },
   { name: "Neon Character",    category: "Creative",    tags: ["Synthetic","Colorful","Digital"],  morph: 7.0, texture: 5.0, form: 6.5, air: 6.5, blend: 75,  mode: 1 },
+  { name: "Robot Commander",   category: "Creative",    tags: ["Robot","Synthetic","HardTune"],    pitch: -4.0, morph: 9.6, texture: 8.8, form: 7.6, air: 3.0, blend: 92,  mode: 4 },
 
   // ── Adlibs ─────────────────────────────────────────────────────────────────
   { name: "Adlib Shine",       category: "Adlibs",      tags: ["Bright","Adlib","Digital"],        morph: 5.0, texture: 3.5, form: 6.0, air: 7.5, blend: 65,  mode: 1 },
@@ -71,17 +61,17 @@ const PRESETS = [
   { name: "Ghost Double",      category: "Stacks",      tags: ["Airy","Doubled","Hybrid"],         morph: 5.5, texture: 2.8, form: 6.8, air: 7.5, blend: 65,  mode: 2 },
 
   // ── Signature ──────────────────────────────────────────────────────────────
-  { name: "International Nova",category: "Signature",   tags: ["Flagship","Signature","Digital"],  morph: 6.5, texture: 4.5, form: 5.8, air: 7.2, blend: 65,  mode: 1 },
+  { name: "International Nova",category: "Signature",   tags: ["Flagship","Signature","Digital"],  pitch: 3.5, morph: 6.8, texture: 3.6, form: 6.4, air: 8.6, blend: 62,  mode: 1 },
   { name: "Nova Signature",    category: "Signature",   tags: ["Flagship","Glossy","Digital"],     morph: 6.0, texture: 4.2, form: 5.8, air: 6.8, blend: 60,  mode: 1 },
   { name: "Vocal Glow",        category: "Signature",   tags: ["Glossy","Airy","Hybrid"],         morph: 5.0, texture: 3.0, form: 5.5, air: 8.0, blend: 65,  mode: 2 },
   { name: "Energy Mode",       category: "Signature",   tags: ["Aggressive","Modern","Extreme"],   morph: 8.5, texture: 6.0, form: 6.5, air: 7.0, blend: 80,  mode: 3 },
 ];
 
-const KNOB_PARAMS = ["morph", "texture", "form", "air", "blend"];
+const KNOB_PARAMS = ["pitch", "morph", "texture", "form", "air", "blend"];
 const ALL_PARAMS  = [...KNOB_PARAMS, "voice_mode"];
 
 // ── State ─────────────────────────────────────────────────────────────────────
-const currentValues = { morph: 5.0, texture: 4.0, form: 5.5, air: 5.0, blend: 55, voice_mode: 2 };
+const currentValues = { pitch: 0.0, morph: 5.0, texture: 4.0, form: 5.5, air: 5.0, blend: 55, voice_mode: 2 };
 const parameterStates = {};
 let juceAvailable    = false;
 let activeDrag       = null;
@@ -89,17 +79,72 @@ let isApplyingPreset = false;
 let currentCategory  = "Signature";
 let currentPresetIdx = 0;
 
+function getParamRange(id) {
+  if (id === "pitch") return { min: -12, max: 12 };
+  if (id === "blend") return { min: 0, max: 100 };
+  if (id === "voice_mode") return { min: 0, max: 4 };
+  return { min: 0, max: 10 };
+}
+
+function createFallbackSliderState(id) {
+  if (typeof window.__JUCE__ === "undefined" || !window.__JUCE__.backend) return null;
+
+  const identifier = `__juce__slider${id}`;
+  const { min, max } = getParamRange(id);
+  let normalisedValue = normalize(id, currentValues[id] ?? min);
+
+  const valueChangedListeners = [];
+
+  window.__JUCE__.backend.addEventListener(identifier, (event) => {
+    if (!event || event.eventType !== "valueChanged") return;
+    const scaled = Number(event.value);
+    const nv = (scaled - min) / (max - min);
+    normalisedValue = Math.max(0, Math.min(1, Number.isFinite(nv) ? nv : normalisedValue));
+    valueChangedListeners.forEach((fn) => fn());
+  });
+
+  return {
+    setNormalisedValue(newValue) {
+      normalisedValue = Math.max(0, Math.min(1, newValue));
+      const scaled = min + normalisedValue * (max - min);
+      window.__JUCE__.backend.emitEvent(identifier, {
+        eventType: "valueChanged",
+        value: scaled,
+      });
+    },
+    getNormalisedValue() {
+      return normalisedValue;
+    },
+    sliderDragStarted() {
+      window.__JUCE__.backend.emitEvent(identifier, { eventType: "sliderDragStarted" });
+    },
+    sliderDragEnded() {
+      window.__JUCE__.backend.emitEvent(identifier, { eventType: "sliderDragEnded" });
+    },
+    valueChangedEvent: {
+      addListener(fn) {
+        valueChangedListeners.push(fn);
+      },
+    },
+    propertiesChangedEvent: {
+      addListener() {},
+    },
+  };
+}
+
 // ── Normalization ─────────────────────────────────────────────────────────────
 function normalize(id, value) {
+  if (id === "pitch")      return (value + 12) / 24;
   if (id === "blend")      return value / 100;
-  if (id === "voice_mode") return value / 3;
+  if (id === "voice_mode") return value / 4;
   return value / 10;
 }
 
 function denormalize(id, nv) {
   const c = Math.max(0, Math.min(1, nv));
+  if (id === "pitch")      return -12 + c * 24;
   if (id === "blend")      return c * 100;
-  if (id === "voice_mode") return Math.round(c * 3);
+  if (id === "voice_mode") return Math.round(c * 4);
   return c * 10;
 }
 
@@ -119,8 +164,9 @@ function updateKnob(id, value) {
   const col = document.querySelector(`.knob-col[data-param="${id}"]`);
   if (!col) return;
 
-  const max  = id === "blend" ? 100 : 10;
-  const frac = Math.max(0, Math.min(1, value / max));
+  const min = Number.parseFloat(col.dataset.min || (id === "pitch" ? "-12" : "0"));
+  const max = Number.parseFloat(col.dataset.max || (id === "blend" ? "100" : id === "pitch" ? "12" : "10"));
+  const frac = Math.max(0, Math.min(1, (value - min) / (max - min)));
 
   const fill  = col.querySelector(".knob-fill");
   const dot   = col.querySelector(".knob-indicator");
@@ -128,7 +174,12 @@ function updateKnob(id, value) {
 
   if (fill)  fill.setAttribute("stroke-dasharray", `${frac * TOTAL_ARC} ${KNOB_CIRC}`);
   if (dot)   dot.style.transform = `rotate(${-120 + frac * 240}deg)`;
-  if (label) label.textContent = id === "blend" ? Math.round(value) + "%" : value.toFixed(1);
+  if (label)
+  {
+    if (id === "blend") label.textContent = Math.round(value) + "%";
+    else if (id === "pitch") label.textContent = `${value >= 0 ? "+" : ""}${value.toFixed(1)} st`;
+    else label.textContent = value.toFixed(1);
+  }
 }
 
 // ── Mode visual ───────────────────────────────────────────────────────────────
@@ -163,12 +214,19 @@ function updateBrowserUI(preset) {
 }
 
 // ── Apply preset with smooth animation ───────────────────────────────────────
-function applyPreset(preset, pushToPlugin = true, animate = true) {
+function applyPreset(preset, pushToPlugin = true, animate = false) {
   if (isApplyingPreset) return;
 
   updateBrowserUI(preset);
 
-  const targets = { morph: preset.morph, texture: preset.texture, form: preset.form, air: preset.air, blend: preset.blend };
+  const targets = {
+    pitch: preset.pitch ?? 0.0,
+    morph: preset.morph,
+    texture: preset.texture,
+    form: preset.form,
+    air: preset.air,
+    blend: preset.blend,
+  };
 
   if (!animate) {
     KNOB_PARAMS.forEach(id => { updateKnob(id, targets[id]); if (pushToPlugin) pushParam(id, targets[id]); });
@@ -261,7 +319,7 @@ function bindKnobs() {
     col.addEventListener("dblclick", () => {
       const list   = getFilteredPresets(currentCategory);
       const preset = list[currentPresetIdx];
-      const def    = preset ? preset[id] : (id === "blend" ? 55 : 5);
+      const def    = preset ? (preset[id] ?? (id === "pitch" ? 0 : undefined)) : (id === "blend" ? 55 : id === "pitch" ? 0 : 5);
       updateKnob(id, def);
       pushParam(id, def);
     });
@@ -271,7 +329,7 @@ function bindKnobs() {
     if (!activeDrag) return;
     e.preventDefault();
     const { id, min, max, startY, startVal } = activeDrag;
-    const v = Math.max(min, Math.min(max, startVal + (startY - clientY(e)) * (max - min) * 0.005));
+    const v = Math.max(min, Math.min(max, startVal + (startY - clientY(e)) / (window.__novaVoiceScale || 1) * (max - min) * 0.005));
     updateKnob(id, v);
     pushParam(id, v);
   };
@@ -331,28 +389,55 @@ function demoSpectrum() {
 
 // ── JUCE parameter connection ─────────────────────────────────────────────────
 function connectParameters() {
-  if (!juceAvailable) {
+  if (!juceAvailable && typeof window.__JUCE__ === "undefined") {
     // Demo mode: generate synthetic spectrum data
     setInterval(demoSpectrum, 30);
     return;
   }
 
+  if (!juceAvailable) {
+    console.warn("JUCE host detected but module bridge unavailable; using fallback parameter bridge.");
+  }
+
   ALL_PARAMS.forEach(id => {
-    try { parameterStates[id] = Juce.getSliderState(id); } catch (_) {}
+    try {
+      if (juceAvailable && Juce?.getSliderState) {
+        parameterStates[id] = Juce.getSliderState(id);
+      }
+    } catch (_) {}
+
+    if (!parameterStates[id]) {
+      parameterStates[id] = createFallbackSliderState(id);
+    }
   });
 
   KNOB_PARAMS.forEach(id => {
     try {
       const state = parameterStates[id];
       if (!state) return;
-      state.valueChangedEvent.addListener(() => {
+      const onValueChanged = () => {
         if (isApplyingPreset) return;
         updateKnob(id, denormalize(id, state.getNormalisedValue()));
-      });
+      };
+
+      if (typeof state.addValueChangedListener === "function") {
+        state.addValueChangedListener(onValueChanged);
+      } else if (state.valueChangedEvent?.addListener) {
+        state.valueChangedEvent.addListener(onValueChanged);
+      }
+
       // Also sync once when properties arrive (covers initial value race)
-      state.propertiesChangedEvent.addListener(() => {
-        updateKnob(id, denormalize(id, state.getNormalisedValue()));
-      });
+      if (typeof state.addPropertiesChangedListener === "function") {
+        state.addPropertiesChangedListener(() => {
+          updateKnob(id, denormalize(id, state.getNormalisedValue()));
+        });
+      } else if (state.propertiesChangedEvent?.addListener) {
+        state.propertiesChangedEvent.addListener(() => {
+          updateKnob(id, denormalize(id, state.getNormalisedValue()));
+        });
+      }
+
+      updateKnob(id, denormalize(id, state.getNormalisedValue()));
     } catch (e) {
       console.warn("Failed to connect param", id, e);
     }
@@ -361,10 +446,18 @@ function connectParameters() {
   try {
     const modeState = parameterStates["voice_mode"];
     if (modeState) {
-      modeState.valueChangedEvent.addListener(() => {
+      const onModeChanged = () => {
         if (isApplyingPreset) return;
         updateMode(denormalize("voice_mode", modeState.getNormalisedValue()));
-      });
+      };
+
+      if (typeof modeState.addValueChangedListener === "function") {
+        modeState.addValueChangedListener(onModeChanged);
+      } else if (modeState.valueChangedEvent?.addListener) {
+        modeState.valueChangedEvent.addListener(onModeChanged);
+      }
+
+      updateMode(denormalize("voice_mode", modeState.getNormalisedValue()));
     }
   } catch (e) {
     console.warn("Failed to connect voice_mode", e);
@@ -484,9 +577,9 @@ window.updateVoiceSpectrum = (input, problem, reduction) => {
   lastSpectrumTick = performance.now();
   let sum = 0;
   for (let i = 0; i < BINS; i++) {
-    smoothedInput[i]     = smoothedInput[i]     * 0.86 + (input[i]     || 0) * 0.14;
-    smoothedProblem[i]   = smoothedProblem[i]   * 0.86 + (problem[i]   || 0) * 0.14;
-    smoothedReduction[i] = smoothedReduction[i] * 0.86 + (reduction[i] || 0) * 0.14;
+    smoothedInput[i]     = smoothedInput[i]     * 0.90 + (input[i]     || 0) * 0.10;
+    smoothedProblem[i]   = smoothedProblem[i]   * 0.90 + (problem[i]   || 0) * 0.10;
+    smoothedReduction[i] = smoothedReduction[i] * 0.90 + (reduction[i] || 0) * 0.10;
     sum += smoothedInput[i];
   }
   inputPeakSmooth = inputPeakSmooth * 0.88 + (sum / BINS) * 2.4 * 0.12;
@@ -589,7 +682,7 @@ function drawFrame() {
   const W = canvas.width, H = canvas.height;
   if (!W || !H) return;
 
-  wavePhase += 0.011;
+  wavePhase += 0.0085;
 
   const morphN   = currentValues.morph   / 10;
   const textureN = currentValues.texture / 10;
@@ -640,7 +733,7 @@ function drawFrame() {
   const transient = Math.max(0, totalEnergy - loudnessMemory);
   loudnessMemory = loudnessMemory * 0.86 + totalEnergy * 0.14;
   transientPulse = Math.max(transientPulse * 0.88, transient * 7.5);
-  wavePhase += lowN * 0.006;
+  wavePhase += lowN * 0.0045;
 
   const glowBreath = 0.5 + 0.5 * Math.sin(wavePhase * 0.85);
   const audioPulse = Math.max(0, Math.min(1, totalEnergy * 2.8));
@@ -873,6 +966,7 @@ function initCanvas() {
   canvas = document.getElementById("voice-canvas");
   if (!canvas) return;
   ctx = canvas.getContext("2d");
+  if (!ctx) return;
 
   const resize = () => {
     const wrap = canvas.parentElement;
@@ -884,22 +978,31 @@ function initCanvas() {
     }
   };
   resize();
-  new ResizeObserver(resize).observe(canvas.parentElement);
+  if (typeof ResizeObserver === "function" && canvas.parentElement) {
+    new ResizeObserver(resize).observe(canvas.parentElement);
+  } else {
+    window.addEventListener("resize", resize);
+  }
   window.addEventListener("resize", initStarfield);
   drawFrame();
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", async () => {
-  juceAvailable = await tryLoadJuce();
+document.addEventListener("DOMContentLoaded", () => {
+  juceAvailable = (typeof window.__JUCE__ !== "undefined") && !!Juce?.getSliderState;
 
-  buildMeter("input-meter");
-  buildMeter("output-meter");
-  initCanvas();
-  initStarfield();
   bindBrowser();
   bindKnobs();
   bindModeButtons();
+
+  try {
+    buildMeter("input-meter");
+    buildMeter("output-meter");
+    initCanvas();
+    initStarfield();
+  } catch (e) {
+    console.warn("visual init error:", e);
+  }
 
   try {
     connectParameters();
@@ -921,4 +1024,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     // JUCE value listeners will update knob visuals once backend responds
     applyPreset(leadList[currentPresetIdx], false, false);
   }
+
+  window.__novaVoiceBooted = true;
 });
+
+// ---- stage scale-to-fit (same technique as Nova Tape/Nova Pitch) ----
+(function () {
+  let lastW = -1, lastH = -1;
+  function fitStage() {
+    const w = document.documentElement.clientWidth || window.innerWidth || 0;
+    const h = document.documentElement.clientHeight || window.innerHeight || 0;
+    if (w <= 0 || h <= 0) return;
+    if (w === lastW && h === lastH) return;
+    lastW = w; lastH = h;
+    const scale = Math.min(w / 1080, h / 680);
+    window.__novaVoiceScale = scale || 1;
+    const stage = document.getElementById("stage");
+    if (stage) stage.style.transform = `scale(${scale})`;
+  }
+  fitStage();
+  window.addEventListener("resize", fitStage);
+  setInterval(fitStage, 300);
+})();

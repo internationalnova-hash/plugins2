@@ -1,0 +1,35 @@
+name: Build Nova One macOS
+
+on:
+  push:
+    paths:
+      - 'Nova One/**'
+      - '.github/workflows/build-nova-one-macos.yml'
+  pull_request:
+    paths:
+      - 'Nova One/**'
+      - '.github/workflows/build-nova-one-macos.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        run: brew install cmake
+
+      - name: Clean build directory
+        run: rm -rf "Nova One/build"
+
+      - name: Configure CMake
+        run: cmake -S "Nova One" -B "Nova One/build"
+
+      - name: Build
+        run: cmake --build "Nova One/build" --config Release
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaOne-macOS-build
+          path: Nova One/build

@@ -39,7 +39,8 @@ NovaDelayAudioProcessorEditor::NovaDelayAudioProcessorEditor (NovaDelayAudioProc
                               + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
+    setResizable (true, true);
+    setResizeLimits (kEditorWidth * 3 / 5, kEditorHeight * 3 / 5, kEditorWidth * 9 / 5, kEditorHeight * 9 / 5);
     setSize (kEditorWidth, kEditorHeight);
     startTimerHz (30);
 }

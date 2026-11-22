@@ -31,6 +31,13 @@ private:
     juce::WebSliderRelay keyNoteRelay { ParameterIDs::keyNote };
     juce::WebSliderRelay lowLatencyRelay { ParameterIDs::lowLatency };
     juce::WebSliderRelay qualityModeRelay { ParameterIDs::qualityMode };
+    juce::WebSliderRelay soloCoreRelay { ParameterIDs::soloCore };
+    juce::WebSliderRelay soloSupportRelay { ParameterIDs::soloSupport };
+    juce::WebSliderRelay soloTextureRelay { ParameterIDs::soloTexture };
+
+    // One relay per voice slot (32) - a vector rather than 32 named members,
+    // populated in the constructor before webView/createWebOptions need them.
+    std::vector<std::unique_ptr<juce::WebSliderRelay>> voiceLevelRelays;
 
     struct SinglePageBrowser : juce::WebBrowserComponent
     {
@@ -54,6 +61,10 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> keyNoteAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> lowLatencyAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> qualityModeAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> soloCoreAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> soloSupportAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> soloTextureAttachment;
+    std::vector<std::unique_ptr<juce::WebSliderParameterAttachment>> voiceLevelAttachments;
 
     std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
     static juce::WebBrowserComponent::Options createWebOptions (NovaHarmonyAudioProcessorEditor& editor);

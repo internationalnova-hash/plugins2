@@ -231,7 +231,8 @@ document.addEventListener('mousemove', e => {
   if (!dragKnob) return;
   const range = dragKnob.max - dragKnob.min;
   const sensitivity = dragKnob.id === 'retuneKnob' ? 200 : 160;
-  const delta = -(e.clientY - dragStartY) / sensitivity * range;
+  const stageScale = window.__novaAutotuneScale || 1;
+  const delta = -(e.clientY - dragStartY) / stageScale / sensitivity * range;
   let newVal = Math.round((dragStartVal + delta) / dragKnob.step) * dragKnob.step;
   newVal = Math.max(dragKnob.min, Math.min(dragKnob.max, newVal));
   knobValues[dragKnob.id] = newVal;

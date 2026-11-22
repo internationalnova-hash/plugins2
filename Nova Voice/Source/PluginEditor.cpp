@@ -8,6 +8,7 @@ NovaVoiceAudioProcessorEditor::NovaVoiceAudioProcessorEditor (NovaVoiceAudioProc
 {
     webView = std::make_unique<SinglePageBrowser> (createWebOptions (*this));
 
+    pitchAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("pitch"), pitchRelay, nullptr);
     morphAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("morph"), morphRelay, nullptr);
     textureAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("texture"), textureRelay, nullptr);
     formAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("form"), formRelay, nullptr);
@@ -21,7 +22,8 @@ NovaVoiceAudioProcessorEditor::NovaVoiceAudioProcessorEditor (NovaVoiceAudioProc
                               + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
+    setResizable (true, true);
+    setResizeLimits (648, 408, 1620, 1020);
     setSize (1080, 680);
     startTimerHz (30);
 }
@@ -91,6 +93,7 @@ juce::WebBrowserComponent::Options NovaVoiceAudioProcessorEditor::createWebOptio
                      {
                          return editor.getResource (url);
                      })
+                     .withOptionsFrom (editor.pitchRelay)
                      .withOptionsFrom (editor.morphRelay)
                      .withOptionsFrom (editor.textureRelay)
                      .withOptionsFrom (editor.formRelay)
@@ -131,6 +134,11 @@ std::optional<juce::WebBrowserComponent::Resource> NovaVoiceAudioProcessorEditor
                              nova_voice_BinaryData::index_jsSize,
                              "text/javascript");
 
+    if (lowerUrl.contains ("js/fallback-boot.js"))
+        return makeResource (nova_voice_BinaryData::fallbackboot_js,
+                             nova_voice_BinaryData::fallbackboot_jsSize,
+                             "text/javascript");
+
     if (lowerUrl.contains ("js/juce/index.js"))
         return makeResource (nova_voice_BinaryData::index_js2,
                              nova_voice_BinaryData::index_js2Size,
@@ -165,6 +173,11 @@ std::optional<juce::WebBrowserComponent::Resource> NovaVoiceAudioProcessorEditor
     if (lowerPath == "/js/index.js" || lowerPath.endsWith ("/js/index.js"))
         return makeResource (nova_voice_BinaryData::index_js,
                              nova_voice_BinaryData::index_jsSize,
+                             "text/javascript");
+
+    if (lowerPath == "/js/fallback-boot.js" || lowerPath.endsWith ("/js/fallback-boot.js"))
+        return makeResource (nova_voice_BinaryData::fallbackboot_js,
+                             nova_voice_BinaryData::fallbackboot_jsSize,
                              "text/javascript");
 
     if (lowerPath == "/js/juce/index.js" || lowerPath.endsWith ("/js/juce/index.js"))

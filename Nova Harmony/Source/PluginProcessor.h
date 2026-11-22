@@ -85,6 +85,12 @@ private:
     std::array<VoiceState, maxVoices> voiceStates;
     ToneState toneState;
 
+    // Smoothed 0/1 gates for the Core/Support/Texture solo toggles, so
+    // engaging/disengaging solo mid-signal doesn't click.
+    juce::SmoothedValue<float> coreGateSmoothed { 1.0f };
+    juce::SmoothedValue<float> supportGateSmoothed { 1.0f };
+    juce::SmoothedValue<float> textureGateSmoothed { 1.0f };
+
     juce::AudioBuffer<float> dryBuffer;
 
     double currentSampleRate { 44100.0 };

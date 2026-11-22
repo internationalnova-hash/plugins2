@@ -1,0 +1,186 @@
+==> [Nova Level 1/7] Configuring Release build
+-- The C compiler identification is AppleClang 21.0.0.21000101
+-- The CXX compiler identification is AppleClang 21.0.0.21000101
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring juceaide
+-- Building juceaide
+-- Exporting juceaide
+-- Testing juceaide
+-- Finished setting up juceaide
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Configuring done (58.9s)
+-- Generating done (0.0s)
+-- Build files have been written to: /Users/internationalnova/Nova/plugins2/Nova Level/build-release
+==> [Nova Level 2/7] Building VST3 + AU + Standalone (via NovaLevel_All)
+[  1%] Generating juce_binarydata_NovaLevel_WebUI/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_NovaLevel_WebUI/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_NovaLevel_WebUI/JuceLibraryCode/BinaryData.h
+[  2%] Building CXX object CMakeFiles/juce_vst3_helper.dir/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.mm.o
+[  5%] Building CXX object CMakeFiles/NovaLevel_WebUI.dir/juce_binarydata_NovaLevel_WebUI/JuceLibraryCode/BinaryData2.cpp.o
+[  5%] Building CXX object CMakeFiles/NovaLevel_WebUI.dir/juce_binarydata_NovaLevel_WebUI/JuceLibraryCode/BinaryData1.cpp.o
+[  6%] Linking CXX static library libNovaLevel_WebUI.a
+[  6%] Built target NovaLevel_WebUI
+[  7%] Generating NovaLevel_artefacts/JuceLibraryCode/JuceHeader.h
+[  8%] Building CXX object CMakeFiles/NovaLevel.dir/Source/CreatePluginFilter.cpp.o
+[ 10%] Building CXX object CMakeFiles/NovaLevel.dir/Source/PluginProcessor.cpp.o
+[ 11%] Building CXX object CMakeFiles/NovaLevel.dir/Source/PluginEditor.cpp.o
+[ 12%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o
+[ 13%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o
+[ 15%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm.o
+[ 16%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm.o
+[ 17%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm.o
+[ 18%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o
+[ 20%] Building C object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Sheenbidi.c.o
+[ 21%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_graphics/juce_graphics.mm.o
+[ 22%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_events/juce_events.mm.o
+[ 23%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_core/juce_core_CompilationTime.cpp.o
+[ 25%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_core/juce_core.mm.o
+[ 26%] Linking CXX executable juce_vst3_helper
+[ 26%] Built target juce_vst3_helper
+[ 27%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_data_structures/juce_data_structures.mm.o
+[ 28%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.mm.o
+[ 30%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_dsp/juce_dsp.mm.o
+[ 31%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_audio_formats/juce_audio_formats.mm.o
+[ 32%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm.o
+[ 33%] Building CXX object CMakeFiles/NovaLevel.dir/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm.o
+[ 35%] Linking CXX static library "NovaLevel_artefacts/Release/libNova Level_SharedCode.a"
+[ 35%] Built target NovaLevel
+[ 40%] Generating NovaLevel_artefacts/JuceLibraryCode/NovaLevel_AU/PkgInfo
+[ 40%] Generating NovaLevel_artefacts/JuceLibraryCode/NovaLevel_VST3/PkgInfo
+[ 40%] Generating NovaLevel_artefacts/JuceLibraryCode/NovaLevel_Standalone/PkgInfo
+[ 40%] Generating NovaLevel_artefacts/JuceLibraryCode/NovaLevel_AAX/PkgInfo
+[ 41%] Building CXX object CMakeFiles/NovaLevel_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 42%] Building CXX object CMakeFiles/NovaLevel_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 43%] Building CXX object CMakeFiles/NovaLevel_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 45%] Building CXX object CMakeFiles/NovaLevel_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 46%] Building CXX object CMakeFiles/NovaLevel_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 47%] Building CXX object CMakeFiles/NovaLevel_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 48%] Building CXX object CMakeFiles/NovaLevel_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 50%] Building CXX object CMakeFiles/NovaLevel_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 51%] Building CXX object CMakeFiles/NovaLevel_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 52%] Building CXX object CMakeFiles/NovaLevel_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 53%] Building CXX object CMakeFiles/NovaLevel_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 55%] Building CXX object CMakeFiles/NovaLevel_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 57%] Building CXX object CMakeFiles/NovaLevel_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 57%] Building CXX object CMakeFiles/NovaLevel_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 58%] Building CXX object CMakeFiles/NovaLevel_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 60%] Building CXX object CMakeFiles/NovaLevel_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 61%] Building CXX object CMakeFiles/NovaLevel_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 62%] Building CXX object CMakeFiles/NovaLevel_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 63%] Building CXX object CMakeFiles/NovaLevel_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 65%] Building CXX object CMakeFiles/NovaLevel_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 66%] Building CXX object CMakeFiles/NovaLevel_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 67%] Building CXX object CMakeFiles/NovaLevel_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 68%] Building CXX object CMakeFiles/NovaLevel_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 70%] Building CXX object CMakeFiles/NovaLevel_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 71%] Building CXX object CMakeFiles/NovaLevel_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 72%] Building CXX object CMakeFiles/NovaLevel_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+Copying OS X content NovaLevel_artefacts/Release/Standalone/Nova Level.app/Contents/Resources/RecentFilesMenuTemplate.nib
+[ 73%] Building CXX object CMakeFiles/NovaLevel_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 75%] Building CXX object CMakeFiles/NovaLevel_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 76%] Building CXX object CMakeFiles/NovaLevel_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 77%] Building CXX object CMakeFiles/NovaLevel_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 78%] Building CXX object CMakeFiles/NovaLevel_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 80%] Building CXX object CMakeFiles/NovaLevel_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 81%] Building CXX object CMakeFiles/NovaLevel_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 82%] Building CXX object CMakeFiles/NovaLevel_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 83%] Building CXX object CMakeFiles/NovaLevel_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 85%] Building CXX object CMakeFiles/NovaLevel_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 86%] Building CXX object CMakeFiles/NovaLevel_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 87%] Building CXX object CMakeFiles/NovaLevel_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 88%] Building CXX object CMakeFiles/NovaLevel_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 90%] Building CXX object CMakeFiles/NovaLevel_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 91%] Building CXX object CMakeFiles/NovaLevel_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 92%] Building CXX object CMakeFiles/NovaLevel_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 93%] Building CXX object CMakeFiles/NovaLevel_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 95%] Building CXX object CMakeFiles/NovaLevel_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 96%] Linking CXX executable "NovaLevel_artefacts/Release/Standalone/Nova Level.app/Contents/MacOS/Nova Level"
+[ 96%] Built target NovaLevel_Standalone
+[ 97%] Linking CXX CFBundle shared module "NovaLevel_artefacts/Release/AAX/Nova Level.aaxplugin/Contents/MacOS/Nova Level"
+[ 97%] Built target NovaLevel_AAX
+[ 98%] Linking CXX CFBundle shared module "NovaLevel_artefacts/Release/AU/Nova Level.component/Contents/MacOS/Nova Level"
+[ 98%] Built target NovaLevel_AU
+[100%] Linking CXX CFBundle shared module "NovaLevel_artefacts/Release/VST3/Nova Level.vst3/Contents/MacOS/Nova Level"
+/Users/internationalnova/Nova/plugins2/Nova Level/build-release/NovaLevel_artefacts/Release/VST3/Nova Level.vst3: code object is not signed at all
+-- Replacing invalid signature with ad-hoc signature
+/Users/internationalnova/Nova/plugins2/Nova Level/build-release/NovaLevel_artefacts/Release/VST3/Nova Level.vst3: replacing existing signature
+removing moduleinfo.json
+creating /Users/internationalnova/Nova/plugins2/Nova Level/build-release/NovaLevel_artefacts/Release/VST3/Nova Level.vst3/Contents/Resources/moduleinfo.json
+[100%] Built target NovaLevel_VST3
+[100%] Built target NovaLevel_All
+==> [Nova Level 3/7] Codesigning bundles (hardened runtime, secure timestamp)
+/Users/internationalnova/Nova/plugins2/Nova Level/build-release/NovaLevel_artefacts/Release/VST3/Nova Level.vst3: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova Level/build-release/NovaLevel_artefacts/Release/AU/Nova Level.component: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova Level/build-release/NovaLevel_artefacts/Release/Standalone/Nova Level.app: replacing existing signature
+==> [Nova Level 3/7] Verifying codesign
+/Users/internationalnova/Nova/plugins2/Nova Level/build-release/NovaLevel_artefacts/Release/VST3/Nova Level.vst3: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Level/build-release/NovaLevel_artefacts/Release/VST3/Nova Level.vst3: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova Level/build-release/NovaLevel_artefacts/Release/AU/Nova Level.component: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Level/build-release/NovaLevel_artefacts/Release/AU/Nova Level.component: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova Level/build-release/NovaLevel_artefacts/Release/Standalone/Nova Level.app: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Level/build-release/NovaLevel_artefacts/Release/Standalone/Nova Level.app: satisfies its Designated Requirement
+==> [Nova Level 4/7] Staging installer root
+==> [Nova Level 5/7] Building + signing installer package
+pkgbuild: Inferring bundle components from contents of /Users/internationalnova/Nova/plugins2/Nova Level/dist/pkgroot
+pkgbuild: Adding component at Library/Audio/Plug-Ins/VST3/Nova Level.vst3
+pkgbuild: Adding component at Library/Audio/Plug-Ins/Components/Nova Level.component
+pkgbuild: Adding component at Applications/Nova Level.app
+pkgbuild: Wrote package to /Users/internationalnova/Nova/plugins2/Nova Level/dist/NovaLevel-unsigned.pkg
+productsign: using timestamp authority for signature
+productsign: signing product with identity "Developer ID Installer: Giovanni Nova (HSX9N2UQ83)" from keychain /Users/internationalnova/Library/Keychains/login.keychain-db
+productsign: adding certificate "Developer ID Certification Authority"
+productsign: adding certificate "Apple Root CA"
+productsign: Wrote signed product archive to /Users/internationalnova/Nova/plugins2/Nova Level/dist/NovaLevel-1.0.0.pkg
+Package "NovaLevel-1.0.0.pkg":
+   Status: signed by a developer certificate issued by Apple for distribution
+   Signed with a trusted timestamp on: 2026-08-17 00:10:49 +0000
+   Certificate Chain:
+    1. Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+       Expires: 2031-08-10 05:15:34 +0000
+       SHA256 Fingerprint:
+           A5 7B 81 C2 82 10 15 09 6C C2 83 D5 33 A8 40 30 9F FA 53 0A 3B F6 
+           C3 85 80 B2 1E FE FB A6 32 AC
+       ------------------------------------------------------------------------
+    2. Developer ID Certification Authority
+       Expires: 2031-09-17 00:00:00 +0000
+       SHA256 Fingerprint:
+           F1 6C D3 C5 4C 7F 83 CE A4 BF 1A 3E 6A 08 19 C8 AA A8 E4 A1 52 8F 
+           D1 44 71 5F 35 06 43 D2 DF 3A
+       ------------------------------------------------------------------------
+    3. Apple Root CA
+       Expires: 2035-02-09 21:40:36 +0000
+       SHA256 Fingerprint:
+           B0 B1 73 0E CB C7 FF 45 05 14 2C 49 F1 29 5E 6E DA 6B CA ED 7E 2C 
+           68 C5 BE 91 B5 A1 10 01 F0 24
+
+==> [Nova Level 6/7] Submitting for notarization (this can take a few minutes)
+Conducting pre-submission checks for NovaLevel-1.0.0.pkg and initiating connection to the Apple notary service...
+Submission ID received
+  id: 849affc7-9354-4163-a3dc-5752970ea96a
+Successfully uploaded file
+  id: 849affc7-9354-4163-a3dc-5752970ea96a
+  path: /Users/internationalnova/Nova/plugins2/Nova Level/dist/NovaLevel-1.0.0.pkg
+Waiting for processing to complete.
+Current status: In Progress...Current status: In Progress....Current status: In Progress.....Current status: Accepted......Processing complete
+  id: 849affc7-9354-4163-a3dc-5752970ea96a
+  status: Accepted
+
+==> [Nova Level 7/7] Stapling notarization ticket
+Processing: /Users/internationalnova/Nova/plugins2/Nova Level/dist/NovaLevel-1.0.0.pkg
+Processing: /Users/internationalnova/Nova/plugins2/Nova Level/dist/NovaLevel-1.0.0.pkg
+The staple and validate action worked!
+==> [Nova Level] Final verification
+/Users/internationalnova/Nova/plugins2/Nova Level/dist/NovaLevel-1.0.0.pkg: accepted
+source=Notarized Developer ID
+origin=Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+
+Done: /Users/internationalnova/Nova/plugins2/Nova Level/dist/NovaLevel-1.0.0.pkg

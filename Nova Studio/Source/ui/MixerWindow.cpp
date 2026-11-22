@@ -827,7 +827,8 @@ void ChannelStrip::paint(juce::Graphics& g)
     // ── Send rows: each row is a click target ─────────────────────────────
     {
         auto sndArea = getSendsRect();
-        const char* letters[] = { "A", "B" };
+        const char* letters[] = { "A", "B", "C", "D", "E", "F" };
+        static_assert (kNumSends <= 6, "letters[] needs a new entry for every send slot added");
         for (int i = 0; i < kNumSends; ++i)
         {
             auto row = sndArea.removeFromTop(30);
@@ -1367,9 +1368,15 @@ void MixerWindow::paintOverChildren(juce::Graphics& g)
 
     int idx = 0;
     for (auto* strip : trackStrips)
-        drawStripMeter(strip, meterPeakL[idx], meterPeakR[idx++]);
+    {
+        drawStripMeter(strip, meterPeakL[idx], meterPeakR[idx]);
+        ++idx;
+    }
     for (auto* strip : auxStrips)
-        drawStripMeter(strip, meterPeakL[idx], meterPeakR[idx++]);
+    {
+        drawStripMeter(strip, meterPeakL[idx], meterPeakR[idx]);
+        ++idx;
+    }
     if (masterStrip)
         drawStripMeter(masterStrip.get(), meterPeakL[idx], meterPeakR[idx]);
 }

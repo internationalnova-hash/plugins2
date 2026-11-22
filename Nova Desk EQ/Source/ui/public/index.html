@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Nova Desk EQ</title>
+<style>
+  :root {
+    --cream: #e8dcc0; --cream-dim: #a89c80;
+    --gold: #d9a83a; --red: #a02828; --red-bright: #c23838;
+    --panel-tint: rgba(20,20,19,0.35);
+    --header-bg: #14100c; --footer-bg: #120f0a;
+  }
+  * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; color: var(--cream); -webkit-font-smoothing: antialiased; }
+
+  /* Fixed design canvas, uniformly scaled to fit the actual window size
+     (same technique across the catalog - see Nova Tape's index.html for
+     the rationale). */
+  #stageOuter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #app { width: 1180px; height: 530px; flex: 0 0 auto; transform-origin: center center; display: flex; }
+  .wood {
+    width: 29px; flex-shrink: 0;
+    background-image: url("img/mockup-wood.jpg");
+    background-size: 100% auto; background-repeat: repeat-y;
+    box-shadow: inset -4px 0 8px #000a, inset 4px 0 8px #000a;
+  }
+  #chassis { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #0c0b09; }
+
+  /* ── Top bar ─────────────────────────────────────────────────────── */
+  /* 63px = 13.78% of the mockup's measured 595px total plugin height. */
+  #topBar {
+    height: 63px; box-sizing: border-box;
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 14px; background: linear-gradient(180deg, #1c1712, var(--header-bg));
+    border-bottom: 2px solid #000; flex-shrink: 0; position: relative;
+  }
+  .screwRow { position: absolute; top: 6px; left: 6px; right: 6px; display: flex; justify-content: space-between; pointer-events: none; }
+  .screw { width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #a8a090, #4a4438 60%, #201c14); box-shadow: 0 1px 2px #000c; position: relative; }
+  .screw::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 1px; background: #1a1610; transform: translate(-50%, -50%) rotate(38deg); }
+
+  .brand { display: flex; flex-direction: column; margin-right: 6px; }
+  .brand .title { font-size: 16px; font-weight: 800; letter-spacing: 1.5px; color: var(--cream); }
+  .brand .title .accent { color: #6fa8dc; }
+  .brand .subtitle { font-size: 8px; letter-spacing: 2.5px; color: var(--gold); margin-top: 1px; }
+
+  .presetBrowser { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: center; }
+  .navBtn {
+    width: 21px; height: 21px; border-radius: 4px; border: 1px solid #3a3025;
+    background: linear-gradient(180deg, #221f1a, #16130f); color: var(--cream);
+    font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .navBtn:active { background: #151310; }
+  .presetInfo {
+    min-width: 170px; text-align: center; cursor: pointer;
+    background: #0c0a08; border: 1px solid #3a3025; border-radius: 12px; padding: 3px 14px;
+  }
+  .presetName { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--gold); }
+  .presetCategory { font-size: 7px; color: var(--cream-dim); letter-spacing: 1.2px; margin-top: 1px; text-transform: uppercase; }
+
+  .abGroup { display: flex; align-items: center; gap: 5px; }
+  .abBtn {
+    width: 21px; height: 18px; border-radius: 3px; border: 1px solid #3a3025;
+    background: #1a1510; color: var(--cream-dim); font-size: 10px; font-weight: 700; cursor: pointer;
+  }
+  .abBtn.active { background: var(--red-bright); color: #fff; border-color: #e08070; }
+  .saveBtn {
+    padding: 3px 8px; border-radius: 3px; border: 1px solid #3a3025;
+    background: #1a1510; color: var(--cream-dim); font-size: 9px; letter-spacing: 1px; cursor: pointer;
+  }
+  .menuBtn {
+    width: 21px; height: 18px; border-radius: 3px; border: 1px solid #3a3025;
+    background: #1a1510; color: var(--cream); font-size: 11px; cursor: pointer;
+  }
+  .logo { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; color: var(--cream); margin-left: 6px; text-align: right; }
+  .logo .sub { display: block; font-size: 7px; font-weight: 400; letter-spacing: 1.5px; color: var(--gold); }
+
+  #settingsMenu {
+    position: absolute; top: 44px; right: 18px; z-index: 20;
+    background: #1c1a16; border: 1px solid #3a3025; border-radius: 5px; padding: 10px 14px;
+    box-shadow: 0 6px 18px #000a; min-width: 190px;
+  }
+  #settingsMenu.hidden { display: none; }
+  .menuRow { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 11px; }
+  .menuRow label { color: var(--cream-dim); letter-spacing: 0.5px; }
+  .menuRow select { background: #0c0b09; color: var(--cream); border: 1px solid #3a3025; font-size: 11px; padding: 2px 4px; }
+
+  #savePresetMenu {
+    position: absolute; top: 44px; left: 50%; transform: translateX(-50%); z-index: 20;
+    background: #1c1a16; border: 1px solid #3a3025; border-radius: 5px; padding: 12px 14px;
+    box-shadow: 0 6px 18px #000a; min-width: 220px;
+  }
+  #savePresetMenu.hidden { display: none; }
+  #savePresetMenu .savePresetLabel { font-size: 9px; letter-spacing: 1px; color: var(--cream-dim); margin-bottom: 6px; display: block; }
+  #savePresetMenu input[type="text"] {
+    width: 100%; box-sizing: border-box; background: #0c0b09; color: var(--cream);
+    border: 1px solid #3a3025; border-radius: 3px; font-size: 12px; padding: 5px 7px; margin-bottom: 8px;
+  }
+  #savePresetMenu .savePresetRow { display: flex; gap: 6px; justify-content: flex-end; }
+  #savePresetMenu button {
+    padding: 4px 10px; border-radius: 3px; border: 1px solid #3a3025; font-size: 10px; letter-spacing: 0.5px; cursor: pointer;
+  }
+  #savePresetMenu .savePresetConfirm { background: var(--red-bright); color: #fff; border-color: #e08070; }
+  #savePresetMenu .savePresetCancel { background: #1a1510; color: var(--cream-dim); }
+
+  /* ── Main strip ──────────────────────────────────────────────────── */
+  /* flex:1 fills whatever remains between the fixed-height header and
+     bottom bar - at the 1180x457 base size that resolves to ~306px,
+     matching the mockup's measured 66.89% share exactly. */
+  #strip {
+    flex: 1 1 0; min-height: 0; display: flex; align-items: stretch;
+    background-color: #1c1c1a;
+    background-image: linear-gradient(var(--panel-tint), var(--panel-tint)), url("img/mockup-faceplate-tile.jpg");
+    background-size: 100% 100%, 80px 80px;
+    background-repeat: no-repeat, repeat;
+    border-top: 1px solid #2c2b28; border-bottom: 1px solid #0a0a09;
+    position: relative;
+  }
+
+  .module {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 3px 2px 3px; box-shadow: inset -1px 0 0 rgba(232,220,192,0.14); position: relative; min-width: 0;
+  }
+  .module:last-of-type { box-shadow: none; }
+  .modLabel { font-size: 9px; font-weight: 700; letter-spacing: 1.2px; color: var(--cream); margin-bottom: 1px; }
+  .subLabel { font-size: 6px; letter-spacing: 1px; color: var(--cream-dim); margin-top: 4px; }
+  .curveIcon { display: block; width: 20px; height: 10px; margin-top: 3px; opacity: 0.8; }
+
+  /* ── Knob dial: value readout + tick ring/labels + rotating pointer ── */
+  .knobDial { display: flex; flex-direction: column; align-items: center; position: relative; }
+  .knobValue {
+    font-size: 7.5px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums;
+    min-height: 8px; position: relative; z-index: 2;
+    background: rgba(10,9,7,0.55); padding: 0 3px; border-radius: 3px;
+  }
+  /* Sizes scaled from pixel measurements on the locked mockup (1536px
+     reference width): Input/Output knob 93px dia, HPF/LPF/GAIN knobs
+     ~71-72px, FREQ knobs 63px, Q/DRIVE/MIX knobs 52px - reproduced here
+     at the same ratio against this UI's 1180px base width. */
+  .dialFace { position: relative; margin-top: 2px; }
+  .dialFace.szBig   { width: 106px; height: 106px; }
+  .dialFace.szMed   { width: 88px;  height: 88px;  }
+  .dialFace.szFreq  { width: 79px;  height: 79px;  }
+  .dialFace.szSmall { width: 70px;  height: 70px;  }
+  .tickWrap { position: absolute; inset: 0; pointer-events: none; }
+  .tickRing {
+    position: absolute; inset: 0; border-radius: 50%;
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  }
+  .tickLabel { position: absolute; transform: translate(-50%, -50%); font-size: 6.3px; color: var(--cream-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .knobUnit { font-size: 6px; color: var(--cream-dim); margin-top: 1px; letter-spacing: 0.5px; }
+
+  /* Static gold bezel ring: the SAME real mockup photo as the knob cap,
+     just cropped to include the rim and displayed as a non-rotating
+     background layer. Because it never rotates, its baked-in specular
+     highlight can't sweep around - unlike putting the rim on the
+     rotating knob image itself. Sized so the photo's own cap region
+     lines up exactly under the rotating cap on top of it, leaving only
+     the outer rim annulus visible. Not used for the tan knobs (HPF/LPF/
+     Q/Drive/Mix), whose rim is uniformly colored with the cap so there's
+     no mismatched-highlight problem - those keep one single photo. */
+  .knobRim {
+    position: absolute; left: 50%; top: 50%; border-radius: 50%; pointer-events: none;
+    background: center/cover no-repeat;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  }
+  .knobRim.kRed   { width: 115px; height: 115px; margin: -57.5px 0 0 -57.5px; background-image: url("img/knob-rim-red.png"); }
+  .knobRim.kGreen { width: 83px;  height: 83px;  margin: -41.5px 0 0 -41.5px; background-image: url("img/knob-rim-green.png"); }
+  /* Blue reuses the clean green rim/cap photos with a hue shift rather
+     than its own crop - the real blue knob photo has a more ornate
+     multi-ring bezel that never read cleanly at this size. */
+  .knobRim.kBlue  { width: 88px;  height: 88px;  margin: -44px 0 0 -44px;   background-image: url("img/knob-rim-green.png"); filter: hue-rotate(150deg) saturate(1.5) brightness(0.82) contrast(1.1); }
+
+  .knob {
+    position: absolute; left: 50%; top: 50%; border-radius: 50%; cursor: ns-resize; touch-action: none;
+    background: center/cover no-repeat;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -6px 10px rgba(0,0,0,0.5);
+    transform: rotate(var(--turn, -135deg));
+  }
+  .knob.szBig   { width: 71px; height: 71px; margin: -35.5px 0 0 -35.5px; }
+  .knob.szMed   { width: 55px; height: 55px; margin: -27.5px 0 0 -27.5px; }
+  .knob.szFreq  { width: 48px; height: 48px; margin: -24px 0 0 -24px; }
+  .knob.szSmall { width: 40px; height: 40px; margin: -20px 0 0 -20px; }
+
+  /* Real mockup knob photos, background-removed (not AI-regenerated) so
+     the transparent edge carries no rotating faceplate/tick residue. */
+  .knob.kRed   { background-image: url("img/knob-red.png"); }
+  .knob.kTan   { background-image: url("img/knob-tan.png"); }
+  .knob.kGreen { background-image: url("img/knob-green.png"); }
+  .knob.kBlue  { background-image: url("img/knob-green.png"); filter: hue-rotate(150deg) saturate(1.5) brightness(0.82) contrast(1.1); }
+
+  .arc { display: none; }
+
+  .inBtn {
+    margin-top: 5px; width: 26px; height: 14px; border-radius: 3px; border: 1px solid #3a3025;
+    background: #1a1510; color: var(--cream-dim); font-size: 7px; font-weight: 700; letter-spacing: 0.5px; cursor: pointer;
+  }
+  .inBtn.active { background: var(--red-bright); color: #fff; border-color: #e08070; }
+
+  .meterCol { margin-top: 6px; display: flex; flex-direction: column; gap: 1px; align-items: flex-start; }
+  .meterRow { display: flex; align-items: center; gap: 3px; }
+  .meterDot { width: 5px; height: 5px; border-radius: 50%; background: #2a241a; flex-shrink: 0; }
+  .meterDot.lit-green { background: #3fae4a; box-shadow: 0 0 3px #3fae4a; }
+  .meterDot.lit-amber { background: #d8a83a; box-shadow: 0 0 3px #d8a83a; }
+  .meterDot.lit-red   { background: #e0402e; box-shadow: 0 0 3px #e0402e; }
+  .meterVal { font-size: 5.8px; color: var(--cream-dim); }
+
+  .typeToggle { display: flex; flex-direction: column; align-items: center; margin-top: 5px; gap: 1px; cursor: pointer; }
+  .typeRow { display: flex; align-items: center; gap: 3px; }
+  .typeLabel { font-size: 7px; letter-spacing: 0.8px; color: var(--cream-dim); }
+  .typeDot { width: 4px; height: 4px; border-radius: 50%; background: #3a2810; }
+  .typeRow.active .typeLabel { color: var(--gold); font-weight: 700; }
+  .typeRow.active .typeDot { background: radial-gradient(circle, #ffdd88, var(--gold)); box-shadow: 0 0 5px rgba(217,168,58,0.8); }
+
+  /* ── Bottom bar ──────────────────────────────────────────────────── */
+  /* 104px, above the mockup's measured 19.33% share - the exact ratio
+     left DRIVE/MIX's label clipped against the bottom-bar edge. */
+  #bottomBar {
+    height: 104px; box-sizing: border-box; flex-shrink: 0;
+    display: flex; align-items: center; gap: 14px; padding: 0 16px;
+    background: linear-gradient(180deg, #171512, var(--footer-bg));
+  }
+  .egBlock { display: flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0; }
+  .egHeader { font-size: 7.5px; letter-spacing: 1.5px; color: var(--gold); margin-bottom: 1px; }
+  .egGroup { display: flex; gap: 5px; }
+  .egBtn {
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    width: 58px; padding: 4px 5px; border-radius: 4px; border: 1px solid #3a3025;
+    background: #1a1510; color: var(--cream-dim); cursor: pointer; font-weight: 800; font-size: 12px;
+  }
+  .egBtn span { font-size: 5.6px; font-weight: 400; letter-spacing: 0.4px; }
+  .egBtn.active { background: radial-gradient(ellipse at 50% 30%, #8a2020, #3a1010); border-color: var(--red-bright); color: #ffb0b0; }
+
+  .curveWrap { flex: 1; height: 92%; background: #0a0908; border: 1px solid #2a2620; border-radius: 3px; min-width: 0; }
+  #eqCurve { width: 100%; height: 100%; display: block; }
+  .curveGrid { stroke: #232019; stroke-width: 1; }
+  .curveAxisLabel { fill: #6b6252; font-size: 8px; }
+  .curveBandMarker { fill: #1c2a38; stroke: #6fa8dc; stroke-width: 1; }
+  .curveBandMarkerText { fill: #cfe0ee; font-size: 8px; font-weight: 700; text-anchor: middle; }
+
+  .knobGroup { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+  .mixLabels { display: flex; justify-content: space-between; width: 44px; margin-top: 2px; }
+  .mixLabels span { font-size: 6.5px; color: var(--cream-dim); letter-spacing: 1px; }
+</style>
+</head>
+<body>
+  <div id="stageOuter">
+  <div id="app">
+    <div class="wood"></div>
+    <div id="chassis">
+
+      <header id="topBar">
+        <div class="screwRow"><div class="screw"></div><div class="screw"></div></div>
+        <div class="brand">
+          <div class="title">NOVA <span class="accent">DESK</span> EQ</div>
+          <div class="subtitle">BRITISH CONSOLE EQUALIZER</div>
+        </div>
+
+        <div class="presetBrowser">
+          <button class="navBtn" id="presetPrev">&#9664;</button>
+          <div class="presetInfo" id="presetInfo">
+            <div class="presetName" id="presetName">&mdash;</div>
+            <div class="presetCategory" id="presetCategory"></div>
+          </div>
+          <button class="navBtn" id="presetNext">&#9654;</button>
+        </div>
+
+        <div class="abGroup">
+          <button class="abBtn active" id="abA">A</button>
+          <button class="abBtn" id="abB">B</button>
+          <button class="saveBtn" id="saveBtn">SAVE</button>
+          <button class="menuBtn" id="menuBtn">&#9776;</button>
+        </div>
+
+        <div class="logo">NOVA<span class="sub">AUDIO</span></div>
+
+        <div id="settingsMenu" class="hidden">
+          <div class="menuRow"><label>Oversampling</label>
+            <select id="oversamplingSelect">
+              <option value="0">Off</option>
+              <option value="1">2x</option>
+              <option value="2">4x</option>
+            </select>
+          </div>
+          <div class="menuRow"><label>Bypass</label><input type="checkbox" id="bypassToggle" /></div>
+        </div>
+
+        <div id="savePresetMenu" class="hidden">
+          <label class="savePresetLabel" for="savePresetName">PRESET NAME</label>
+          <input type="text" id="savePresetName" maxlength="60" placeholder="My Preset" />
+          <div class="savePresetRow">
+            <button class="savePresetCancel" id="savePresetCancel">CANCEL</button>
+            <button class="savePresetConfirm" id="savePresetConfirm">SAVE</button>
+          </div>
+        </div>
+      </header>
+
+      <main id="strip">
+        <section class="module" id="mod-input">
+          <div class="modLabel">INPUT</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="input">0.0</div>
+            <div class="dialFace szBig">
+              <div class="tickWrap" data-ticks="input"></div>
+              <div class="knobRim kRed"></div><div class="knob szBig kRed" data-param="input"><div class="arc"></div></div>
+            </div>
+            <div class="knobUnit">dB</div>
+          </div>
+          <button class="inBtn" data-toggle="input_in">IN</button>
+          <div class="meterCol" data-meter="input">
+            <div class="meterRow"><div class="meterDot" data-led="5"></div><div class="meterVal">OL</div></div>
+            <div class="meterRow"><div class="meterDot" data-led="4"></div><div class="meterVal">0</div></div>
+            <div class="meterRow"><div class="meterDot" data-led="3"></div><div class="meterVal">-6</div></div>
+            <div class="meterRow"><div class="meterDot" data-led="2"></div><div class="meterVal">-12</div></div>
+            <div class="meterRow"><div class="meterDot" data-led="1"></div><div class="meterVal">-18</div></div>
+            <div class="meterRow"><div class="meterDot" data-led="0"></div><div class="meterVal">-24</div></div>
+          </div>
+        </section>
+
+        <section class="module" id="mod-hpf">
+          <div class="modLabel">HPF</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="hpf_freq_index">Off</div>
+            <div class="dialFace szMed">
+              <div class="tickWrap" data-ticks="hpf"></div>
+              <div class="knob szMed kTan" data-param="hpf_freq_index" data-stepped="6"><div class="arc"></div></div>
+            </div>
+            <div class="knobUnit">Hz</div>
+            <svg class="curveIcon" viewBox="0 0 34 20"><path d="M2 15 L12 15 L22 5 L32 5" stroke="#cbb99a" stroke-width="1.5" fill="none"/></svg>
+          </div>
+          <button class="inBtn" data-toggle="hpf_in">IN</button>
+        </section>
+
+        <section class="module band" id="mod-low">
+          <div class="modLabel">LOW</div>
+          <div class="subLabel">FREQ</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="low_freq">100</div>
+            <div class="dialFace szFreq"><div class="tickWrap" data-ticks="lowfreq"></div><div class="knobRim kGreen"></div><div class="knob szFreq kGreen" data-param="low_freq"><div class="arc"></div></div></div>
+            <div class="knobUnit">Hz</div>
+          </div>
+          <div class="subLabel">GAIN</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="low_gain">0</div>
+            <div class="dialFace szMed"><div class="tickWrap" data-ticks="gain15"></div><div class="knobRim kBlue"></div><div class="knob szMed kBlue" data-param="low_gain"><div class="arc"></div></div></div>
+            <div class="knobUnit">dB</div>
+          </div>
+          <div class="typeToggle" data-choiceToggle="low_type">
+            <div class="typeRow"><span class="typeDot"></span><span class="typeLabel" data-choice="0">BELL</span></div>
+            <div class="typeRow"><span class="typeDot"></span><span class="typeLabel" data-choice="1">SHELF</span>
+              <svg class="curveIcon" style="width:14px;height:8px;margin:0" viewBox="0 0 34 20"><path d="M2 15 L12 15 L22 5 L32 5" stroke="#a89c80" stroke-width="1.8" fill="none"/></svg>
+            </div>
+          </div>
+        </section>
+
+        <section class="module band" id="mod-lowmid">
+          <div class="modLabel">LOW MID</div>
+          <div class="subLabel">FREQ</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="low_mid_freq">400</div>
+            <div class="dialFace szFreq"><div class="tickWrap" data-ticks="lowmidfreq"></div><div class="knobRim kGreen"></div><div class="knob szFreq kGreen" data-param="low_mid_freq"><div class="arc"></div></div></div>
+            <div class="knobUnit">Hz</div>
+          </div>
+          <div class="subLabel">GAIN</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="low_mid_gain">0</div>
+            <div class="dialFace szMed"><div class="tickWrap" data-ticks="gain15"></div><div class="knobRim kBlue"></div><div class="knob szMed kBlue" data-param="low_mid_gain"><div class="arc"></div></div></div>
+            <div class="knobUnit">dB</div>
+          </div>
+          <div class="subLabel">Q</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="low_mid_q">0.80</div>
+            <div class="dialFace szSmall"><div class="tickWrap" data-ticks="q"></div><div class="knob szSmall kTan" data-param="low_mid_q"><div class="arc"></div></div></div>
+          </div>
+        </section>
+
+        <section class="module band" id="mod-highmid">
+          <div class="modLabel">HIGH MID</div>
+          <div class="subLabel">FREQ</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="high_mid_freq">2.00k</div>
+            <div class="dialFace szFreq"><div class="tickWrap" data-ticks="highmidfreq"></div><div class="knobRim kGreen"></div><div class="knob szFreq kGreen" data-param="high_mid_freq"><div class="arc"></div></div></div>
+            <div class="knobUnit">Hz</div>
+          </div>
+          <div class="subLabel">GAIN</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="high_mid_gain">0</div>
+            <div class="dialFace szMed"><div class="tickWrap" data-ticks="gain15"></div><div class="knobRim kBlue"></div><div class="knob szMed kBlue" data-param="high_mid_gain"><div class="arc"></div></div></div>
+            <div class="knobUnit">dB</div>
+          </div>
+          <div class="subLabel">Q</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="high_mid_q">0.80</div>
+            <div class="dialFace szSmall"><div class="tickWrap" data-ticks="q"></div><div class="knob szSmall kTan" data-param="high_mid_q"><div class="arc"></div></div></div>
+          </div>
+        </section>
+
+        <section class="module band" id="mod-high">
+          <div class="modLabel">HIGH</div>
+          <div class="subLabel">FREQ</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="high_freq">8.0k</div>
+            <div class="dialFace szFreq"><div class="tickWrap" data-ticks="highfreq"></div><div class="knobRim kGreen"></div><div class="knob szFreq kGreen" data-param="high_freq"><div class="arc"></div></div></div>
+            <div class="knobUnit">Hz</div>
+          </div>
+          <div class="subLabel">GAIN</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="high_gain">0</div>
+            <div class="dialFace szMed"><div class="tickWrap" data-ticks="gain15"></div><div class="knobRim kBlue"></div><div class="knob szMed kBlue" data-param="high_gain"><div class="arc"></div></div></div>
+            <div class="knobUnit">dB</div>
+          </div>
+          <div class="typeToggle" data-choiceToggle="high_type">
+            <div class="typeRow"><span class="typeDot"></span><span class="typeLabel" data-choice="0">BELL</span></div>
+            <div class="typeRow"><span class="typeDot"></span><span class="typeLabel" data-choice="1">SHELF</span>
+              <svg class="curveIcon" style="width:14px;height:8px;margin:0" viewBox="0 0 34 20"><path d="M2 15 L12 15 L22 5 L32 5" stroke="#a89c80" stroke-width="1.8" fill="none"/></svg>
+            </div>
+          </div>
+        </section>
+
+        <section class="module" id="mod-lpf">
+          <div class="modLabel">LPF</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="lpf_freq_index">Off</div>
+            <div class="dialFace szMed"><div class="tickWrap" data-ticks="lpf"></div><div class="knob szMed kTan" data-param="lpf_freq_index" data-stepped="6"><div class="arc"></div></div></div>
+            <div class="knobUnit">Hz</div>
+            <svg class="curveIcon" viewBox="0 0 34 20"><path d="M2 5 L12 5 L22 15 L32 15" stroke="#cbb99a" stroke-width="1.5" fill="none"/></svg>
+          </div>
+          <button class="inBtn" data-toggle="lpf_in">IN</button>
+        </section>
+
+        <section class="module" id="mod-output">
+          <div class="modLabel">OUTPUT</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="output">0.0</div>
+            <div class="dialFace szBig"><div class="tickWrap" data-ticks="input"></div><div class="knobRim kRed"></div><div class="knob szBig kRed" data-param="output"><div class="arc"></div></div></div>
+            <div class="knobUnit">dB</div>
+          </div>
+          <button class="inBtn" data-toggle="output_in">IN</button>
+          <div class="meterCol" data-meter="output">
+            <div class="meterRow"><div class="meterDot" data-led="5"></div><div class="meterVal">OL</div></div>
+            <div class="meterRow"><div class="meterDot" data-led="4"></div><div class="meterVal">0</div></div>
+            <div class="meterRow"><div class="meterDot" data-led="3"></div><div class="meterVal">-6</div></div>
+            <div class="meterRow"><div class="meterDot" data-led="2"></div><div class="meterVal">-12</div></div>
+            <div class="meterRow"><div class="meterDot" data-led="1"></div><div class="meterVal">-18</div></div>
+            <div class="meterRow"><div class="meterDot" data-led="0"></div><div class="meterVal">-24</div></div>
+          </div>
+        </section>
+      </main>
+
+      <footer id="bottomBar">
+        <div class="egBlock">
+          <div class="egHeader">EQ TYPE</div>
+          <div class="egGroup">
+            <button class="egBtn" data-choiceParam="eg_mode" data-choice="0">E<span>BOLDER &middot; FASTER</span></button>
+            <button class="egBtn" data-choiceParam="eg_mode" data-choice="1">G<span>SMOOTHER &middot; BROADER</span></button>
+          </div>
+        </div>
+
+        <div class="curveWrap">
+          <svg id="eqCurve" viewBox="0 0 600 140" preserveAspectRatio="none"></svg>
+        </div>
+
+        <div class="knobGroup">
+          <div class="modLabel">DRIVE</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="drive">0.0</div>
+            <div class="dialFace szSmall"><div class="tickWrap" data-ticks="drive"></div><div class="knob szSmall kTan" data-param="drive"><div class="arc"></div></div></div>
+            <div class="knobUnit">dB</div>
+          </div>
+        </div>
+
+        <div class="knobGroup">
+          <div class="modLabel">MIX</div>
+          <div class="knobDial">
+            <div class="knobValue" data-readout="mix">100%</div>
+            <div class="dialFace szSmall"><div class="tickWrap"></div><div class="knob szSmall kTan" data-param="mix"><div class="arc"></div></div></div>
+          </div>
+          <div class="mixLabels"><span>DRY</span><span>WET</span></div>
+        </div>
+      </footer>
+
+    </div>
+    <div class="wood"></div>
+  </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -22,7 +22,7 @@
     }
 
     html, body {
-      width: 1060px; height: 640px;
+      width: 100%; height: 100%;
       overflow: hidden;
       background: var(--bg);
       color: var(--text);
@@ -30,6 +30,12 @@
       font-size: 13px;
       user-select: none;
     }
+    /* Fixed design canvas, uniformly scaled to fit the actual window size
+       (same technique across the catalog - see Nova Tape's index.html
+       for the rationale). html/body used to be hardcoded to 1060x640
+       directly with no scaling at all. */
+    #stageOuter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    #stage { width: 1060px; height: 640px; flex: 0 0 auto; position: relative; transform-origin: center center; }
 
     /* ── Header ── */
     #header {
@@ -89,6 +95,22 @@
     }
 
     select:hover { border-color: var(--accent); }
+
+    #vibe-group { flex: 1; min-width: 160px; }
+
+    #vibe-input {
+      flex: 1;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+    }
+
+    #vibe-input:focus { border-color: var(--accent); }
+    #vibe-input::placeholder { color: var(--text-dim); }
 
     /* ── Detection bar ── */
     #detect-bar {
@@ -218,83 +240,44 @@
       gap: 0;
     }
 
-    /* ── AI section ── */
-    #ai-section {
+    /* ── Live engine section ── */
+    #engine-section {
       padding: 12px 14px;
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
-    }
-
-    #ai-section .panel-title { margin-bottom: 8px; }
-
-    #prompt-row {
       display: flex;
-      gap: 6px;
-      margin-bottom: 8px;
+      flex-direction: column;
+      gap: 8px;
     }
 
-    #prompt-input {
-      flex: 1;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 6px 10px;
-      color: var(--text);
-      font-size: 12px;
-      outline: none;
-    }
+    #engine-section .panel-title { margin-bottom: 2px; }
 
-    #prompt-input:focus { border-color: var(--accent); }
-    #prompt-input::placeholder { color: var(--text-dim); }
-
-    #generate-btn {
-      background: linear-gradient(135deg, var(--accent), #5b52e0);
-      border: none;
-      border-radius: 6px;
-      padding: 6px 14px;
-      color: white;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: opacity 0.15s;
-    }
-
-    #generate-btn:hover { opacity: 0.9; }
-    #generate-btn:disabled { opacity: 0.4; cursor: default; }
-
-    #api-key-row {
+    .engine-row {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 14px;
     }
 
-    .api-label {
-      font-size: 10px;
-      color: var(--text-dim);
-      white-space: nowrap;
-    }
-
-    #api-key-input {
+    #engine-velocity {
       flex: 1;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 4px 8px;
-      color: var(--text);
+      accent-color: var(--accent);
+    }
+
+    #engine-velocity-value {
       font-size: 11px;
-      outline: none;
-      font-family: monospace;
-    }
-
-    #api-key-input:focus { border-color: var(--accent); }
-
-    #ai-status {
-      font-size: 10px;
       color: var(--text-dim);
-      margin-top: 4px;
-      min-height: 14px;
+      min-width: 22px;
+      text-align: right;
     }
+
+    .engine-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .engine-toggle input { accent-color: var(--accent); cursor: pointer; }
 
     /* ── Progression section ── */
     #progression-section {
@@ -390,6 +373,33 @@
 
     #export-btn { border-color: rgba(108,99,255,0.3); }
     #clear-btn  { border-color: rgba(255,92,138,0.3); }
+
+    #play-btn {
+      border-color: rgba(79,195,247,0.4);
+    }
+    #play-btn.active {
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      color: #fff;
+      border-color: transparent;
+    }
+
+    #progression-playback-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    #loop-toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--text-dim);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #loop-toggle-label input { accent-color: var(--accent); cursor: pointer; }
     #clear-btn:hover { border-color: var(--red); color: var(--red); }
 
     /* scrollbar */
@@ -399,6 +409,8 @@
   </style>
 </head>
 <body>
+<div id="stageOuter">
+<div id="stage">
 
 <div id="header">
   <img id="logo" src="n_logo.png" alt="N" />
@@ -442,6 +454,10 @@
       <option value="3">Blues</option>
     </select>
   </div>
+  <div class="ctrl-group" id="vibe-group">
+    <span class="ctrl-label">Vibe</span>
+    <input type="text" id="vibe-input" placeholder='e.g. "sad jazz ballad in G"' />
+  </div>
 </div>
 
 <div id="detect-bar">
@@ -461,18 +477,61 @@
 
   <!-- Right panel -->
   <div id="right-panel">
-    <!-- AI section -->
-    <div id="ai-section">
-      <div class="panel-title">AI Progression</div>
-      <div id="prompt-row">
-        <input id="prompt-input" type="text" placeholder='e.g. "sad upbeat jazz ballad"' />
-        <button id="generate-btn">Generate ▶</button>
+    <!-- Live engine (real-time single-note -> chord, plays from your MIDI keyboard) -->
+    <div id="engine-section">
+      <div class="panel-title">Live Engine — plays a chord when you play a note</div>
+      <div class="engine-row">
+        <div class="ctrl-group">
+          <span class="ctrl-label">Quality</span>
+          <select id="engine-quality">
+            <option value="0">Triad</option>
+            <option value="1" selected>Maj7</option>
+            <option value="2">Dom7</option>
+            <option value="3">Min7</option>
+            <option value="4">Min9</option>
+            <option value="5">Maj9</option>
+            <option value="6">Sus2</option>
+            <option value="7">Sus4</option>
+            <option value="8">Add9</option>
+            <option value="9">Dim7</option>
+            <option value="10">Half-Dim</option>
+            <option value="11">Aug</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <span class="ctrl-label">Octave</span>
+          <select id="engine-octave">
+            <option value="-2">-2</option>
+            <option value="-1">-1</option>
+            <option value="0" selected>0</option>
+            <option value="1">+1</option>
+            <option value="2">+2</option>
+          </select>
+        </div>
       </div>
-      <div id="api-key-row">
-        <span class="api-label">API Key:</span>
-        <input id="api-key-input" type="password" placeholder="sk-ant-..." />
+      <div class="engine-row">
+        <div class="ctrl-group">
+          <span class="ctrl-label">Voice</span>
+          <select id="engine-voice">
+            <option value="0" selected>Keys</option>
+            <option value="1">Pad</option>
+            <option value="2">Pluck</option>
+            <option value="3">Organ</option>
+            <option value="4">Bell</option>
+          </select>
+        </div>
       </div>
-      <div id="ai-status"></div>
+      <div class="engine-row">
+        <span class="ctrl-label">Velocity</span>
+        <input type="range" id="engine-velocity" min="1" max="127" value="80" />
+        <span id="engine-velocity-value">80</span>
+      </div>
+      <div class="engine-row">
+        <label class="engine-toggle">
+          <input type="checkbox" id="engine-passthrough" />
+          <span class="ctrl-label">Pass Through (forward original notes unchanged)</span>
+        </label>
+      </div>
     </div>
 
     <!-- Progression -->
@@ -480,6 +539,13 @@
       <div class="panel-title">Progression (max 8)</div>
       <div id="progression-list">
         <div id="prog-empty">No chords yet — add from suggestions above</div>
+      </div>
+      <div id="progression-playback-row">
+        <button class="prog-action-btn" id="play-btn">▶ Play</button>
+        <label id="loop-toggle-label">
+          <input type="checkbox" id="loop-toggle" />
+          Loop
+        </label>
       </div>
       <div id="progression-actions">
         <button class="prog-action-btn" id="clear-btn">✕ Clear</button>
@@ -489,9 +555,448 @@
   </div>
 </div>
 
+</div>
+</div>
+
 <script src="js/juce/check_native_interop.js"></script>
 <script src="js/juce/index.js"></script>
 <script src="js/fallback-boot.js"></script>
 <script src="js/index.js"></script>
+<script>
+'use strict';
+
+// ── Local diatonic chord theory ─────────────────────────────────────────
+// No API/network needed: given a Key + Scale, build the 7 diatonic chords
+// by stacking thirds within the scale, then flavor them per Style.
+
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+const SCALE_INTERVALS = {
+  0: [0, 2, 4, 5, 7, 9, 11], // Major
+  1: [0, 2, 3, 5, 7, 8, 10], // Natural Minor
+  2: [0, 2, 3, 5, 7, 9, 10], // Dorian
+  3: [0, 2, 4, 5, 7, 9, 10], // Mixolydian
+};
+
+function triadQuality(rel3, rel5) {
+  if (rel3 === 4 && rel5 === 7) return 'maj';
+  if (rel3 === 3 && rel5 === 7) return 'min';
+  if (rel3 === 3 && rel5 === 6) return 'dim';
+  if (rel3 === 4 && rel5 === 8) return 'aug';
+  return 'maj';
+}
+
+function seventhSymbol(quality, rel7) {
+  if (quality === 'maj') return rel7 === 11 ? 'maj7' : '7';
+  if (quality === 'min') return rel7 === 11 ? 'm(maj7)' : 'm7';
+  if (quality === 'dim') return rel7 === 9 ? 'dim7' : 'm7b5';
+  return 'aug7';
+}
+
+// styleIdx here (Suggestions panel's Style dropdown: 0=Pop 1=Jazz
+// 2=Classical 3=Blues) is a *local voicing flavor* for the suggestion
+// browser — unrelated to the plugin's own real-time "Chord Style"
+// parameter (Triad/Maj7/Dom7/... 0-11), which drives the single-note
+// instant-chord engine when you play your MIDI keyboard.
+function buildDiatonicChords(keyRoot, scaleIdx, styleIdx) {
+  const intervals = SCALE_INTERVALS[scaleIdx] || SCALE_INTERVALS[0];
+  const chords = [];
+
+  for (let degree = 0; degree < 7; degree++) {
+    const i3 = (degree + 2) % 7;
+    const i5 = (degree + 4) % 7;
+    const i7 = (degree + 6) % 7;
+
+    const semRoot = intervals[degree];
+    const sem3 = intervals[i3] + (i3 < degree ? 12 : 0);
+    const sem5 = intervals[i5] + (i5 < degree ? 12 : 0);
+    const sem7 = intervals[i7] + (i7 < degree ? 12 : 0);
+
+    const rel3 = ((sem3 - semRoot) + 12) % 12;
+    const rel5 = ((sem5 - semRoot) + 12) % 12;
+    const rel7 = ((sem7 - semRoot) + 12) % 12;
+
+    const quality = triadQuality(rel3, rel5);
+    let semis = [0, rel3, rel5];
+    let symbol = quality === 'maj' ? '' : quality === 'min' ? 'm' : quality === 'dim' ? 'dim' : 'aug';
+
+    if (styleIdx === 1) {
+      // Jazz: full 7th chords
+      semis = [0, rel3, rel5, rel7];
+      symbol = seventhSymbol(quality, rel7);
+    } else if (styleIdx === 3) {
+      // Blues: pull every chord toward a dominant/bluesy flat-7 color
+      semis = [0, rel3, rel5, 10];
+      symbol = (quality === 'min' ? 'm7' : '7');
+    }
+    // Pop (0) and Classical (2) stay as clean triads.
+
+    const rootNoteName = NOTE_NAMES[(keyRoot + semRoot) % 12];
+    chords.push({
+      name: rootNoteName + symbol,
+      degree: degree + 1,
+      rootPitchClass: (keyRoot + semRoot) % 12,
+      semis,
+    });
+  }
+
+  return chords;
+}
+
+// Fixed reference octave for chord preview/export (MIDI octave 4, i.e. C4 = 60).
+function rootMidiForPitchClass(pitchClass) {
+  return 60 + pitchClass;
+}
+
+// ── State ────────────────────────────────────────────────────────────────
+
+let currentSuggestions = [];
+let progression = []; // { name, rootMidi, semis }
+
+const els = {
+  keySelect: document.getElementById('key-select'),
+  scaleSelect: document.getElementById('scale-select'),
+  styleSelect: document.getElementById('style-select'),
+  suggestionsGrid: document.getElementById('suggestions-grid'),
+  progressionList: document.getElementById('progression-list'),
+  clearBtn: document.getElementById('clear-btn'),
+  exportBtn: document.getElementById('export-btn'),
+  playBtn: document.getElementById('play-btn'),
+  loopToggle: document.getElementById('loop-toggle'),
+  detectedNote: document.getElementById('detected-note'),
+  detectDot: document.getElementById('detect-dot'),
+  vibeInput: document.getElementById('vibe-input'),
+};
+
+function previewChord(rootMidi, semis) {
+  const fn = (typeof window.getNativeFunction === 'function') ? window.getNativeFunction('previewChord') : null;
+  if (fn) fn(rootMidi, semis, 100);
+}
+
+function flashPlaying(el) {
+  el.classList.add('playing');
+  setTimeout(() => el.classList.remove('playing'), 260);
+}
+
+// ── Suggestions panel ────────────────────────────────────────────────────
+
+function renderSuggestions() {
+  const keyRoot = parseInt(els.keySelect.value, 10) || 0;
+  const scaleIdx = parseInt(els.scaleSelect.value, 10) || 0;
+  const styleIdx = parseInt(els.styleSelect.value, 10) || 0;
+
+  currentSuggestions = buildDiatonicChords(keyRoot, scaleIdx, styleIdx);
+  els.suggestionsGrid.innerHTML = '';
+
+  currentSuggestions.forEach((chord) => {
+    const btn = document.createElement('div');
+    btn.className = 'chord-btn';
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'chord-name';
+    nameEl.textContent = chord.name;
+    btn.appendChild(nameEl);
+
+    const actions = document.createElement('div');
+    actions.className = 'chord-actions';
+    const addBtn = document.createElement('span');
+    addBtn.className = 'chord-action-btn';
+    addBtn.textContent = '+ Add';
+    addBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      addToProgression(chord);
+    });
+    actions.appendChild(addBtn);
+    btn.appendChild(actions);
+
+    btn.addEventListener('click', () => {
+      flashPlaying(btn);
+      previewChord(rootMidiForPitchClass(chord.rootPitchClass), chord.semis);
+    });
+
+    els.suggestionsGrid.appendChild(btn);
+  });
+}
+
+// ── Progression panel ────────────────────────────────────────────────────
+
+function addToProgression(chord) {
+  if (progression.length >= 8) return;
+  progression.push({
+    name: chord.name,
+    rootMidi: rootMidiForPitchClass(chord.rootPitchClass),
+    semis: chord.semis,
+  });
+  renderProgression();
+}
+
+function removeFromProgression(index) {
+  stopPlayback();
+  progression.splice(index, 1);
+  renderProgression();
+}
+
+function renderProgression() {
+  els.progressionList.innerHTML = '';
+
+  if (progression.length === 0) {
+    const empty = document.createElement('div');
+    empty.id = 'prog-empty';
+    empty.textContent = 'No chords yet — add from suggestions above';
+    els.progressionList.appendChild(empty);
+    return;
+  }
+
+  progression.forEach((chord, index) => {
+    const item = document.createElement('div');
+    item.className = 'prog-item';
+
+    const num = document.createElement('span');
+    num.className = 'prog-num';
+    num.textContent = String(index + 1);
+    item.appendChild(num);
+
+    const name = document.createElement('span');
+    name.className = 'prog-name';
+    name.textContent = chord.name;
+    item.appendChild(name);
+
+    const remove = document.createElement('span');
+    remove.className = 'prog-remove';
+    remove.textContent = '✕';
+    remove.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeFromProgression(index);
+    });
+    item.appendChild(remove);
+
+    item.addEventListener('click', () => {
+      flashPlaying(item);
+      previewChord(chord.rootMidi, chord.semis);
+    });
+
+    els.progressionList.appendChild(item);
+  });
+}
+
+// ── Progression playback (Play/Loop through the built progression) ─────
+
+const PLAYBACK_INTERVAL_MS = 700; // slightly longer than the 0.6s preview hold
+
+let isPlaying = false;
+let playbackIndex = 0;
+let playbackTimer = null;
+
+function stopPlayback() {
+  isPlaying = false;
+  playbackIndex = 0;
+  if (playbackTimer) {
+    clearTimeout(playbackTimer);
+    playbackTimer = null;
+  }
+  els.playBtn.textContent = '▶ Play';
+  els.playBtn.classList.remove('active');
+}
+
+function playbackStep() {
+  if (!isPlaying || progression.length === 0) {
+    stopPlayback();
+    return;
+  }
+
+  const chord = progression[playbackIndex];
+  const item = els.progressionList.children[playbackIndex];
+  if (item) flashPlaying(item);
+  previewChord(chord.rootMidi, chord.semis);
+
+  playbackIndex++;
+  if (playbackIndex >= progression.length) {
+    if (els.loopToggle.checked) {
+      playbackIndex = 0;
+    } else {
+      playbackTimer = setTimeout(stopPlayback, PLAYBACK_INTERVAL_MS);
+      return;
+    }
+  }
+  playbackTimer = setTimeout(playbackStep, PLAYBACK_INTERVAL_MS);
+}
+
+els.playBtn.addEventListener('click', () => {
+  if (isPlaying) {
+    stopPlayback();
+    return;
+  }
+  if (progression.length === 0) return;
+  isPlaying = true;
+  playbackIndex = 0;
+  els.playBtn.textContent = '⏸ Stop';
+  els.playBtn.classList.add('active');
+  playbackStep();
+});
+
+els.clearBtn.addEventListener('click', () => {
+  stopPlayback();
+  progression = [];
+  renderProgression();
+});
+
+els.exportBtn.addEventListener('click', () => {
+  if (progression.length === 0) return;
+  const fn = (typeof window.getNativeFunction === 'function') ? window.getNativeFunction('exportMidiFile') : null;
+  if (!fn) return;
+  const payload = progression.map((c) => ({ root: c.rootMidi, semis: c.semis }));
+  fn(payload);
+});
+
+// ── Detected-note bar (live telemetry from the real-time chord engine) ──
+
+function midiNoteName(midiNote) {
+  if (midiNote < 0) return '—';
+  const name = NOTE_NAMES[midiNote % 12];
+  const octave = Math.floor(midiNote / 12) - 1;
+  return name + octave;
+}
+
+window.addEventListener('nova-chord-dsp', (e) => {
+  const data = e.detail || {};
+  const active = !!data.chordActive;
+  els.detectDot.classList.toggle('active', active);
+  els.detectedNote.textContent = active ? midiNoteName(data.chordRoot) : '—';
+});
+
+// ── Live engine controls (real-time single-note -> chord parameters) ────
+// These drive the actual audio-thread engine directly via the existing
+// WebSliderRelay bridge (window.__novaChordSync, already wired in
+// js/index.js) — separate from the Suggestions panel above, which is pure
+// local UI state and never touches these APVTS parameters.
+
+const engineEls = {
+  quality: document.getElementById('engine-quality'),
+  octave: document.getElementById('engine-octave'),
+  voice: document.getElementById('engine-voice'),
+  passThrough: document.getElementById('engine-passthrough'),
+  velocity: document.getElementById('engine-velocity'),
+  velocityValue: document.getElementById('engine-velocity-value'),
+};
+
+engineEls.quality.addEventListener('change', () => {
+  window.__novaChordSync('styleIdx', parseInt(engineEls.quality.value, 10));
+});
+
+engineEls.voice.addEventListener('change', () => {
+  window.__novaChordSync('voiceType', parseInt(engineEls.voice.value, 10));
+});
+
+engineEls.octave.addEventListener('change', () => {
+  window.__novaChordSync('octaveShift', parseInt(engineEls.octave.value, 10));
+});
+
+engineEls.passThrough.addEventListener('change', () => {
+  window.__novaChordSync('passThrough', engineEls.passThrough.checked ? 1 : 0);
+});
+
+engineEls.velocity.addEventListener('input', () => {
+  const v = parseInt(engineEls.velocity.value, 10);
+  engineEls.velocityValue.textContent = String(v);
+  window.__novaChordSync('velocity', v);
+});
+
+// Keep the UI in sync with the real host value (initial load, automation,
+// preset recall) - js/index.js dispatches this whenever a relay's value
+// changes, including in response to its own requestInitialUpdate on boot.
+window.addEventListener('nova-chord-param', (e) => {
+  const { param, value } = e.detail;
+  if (param === 'styleIdx') {
+    engineEls.quality.value = String(Math.round(value));
+  } else if (param === 'octaveShift') {
+    engineEls.octave.value = String(Math.round(value));
+  } else if (param === 'passThrough') {
+    engineEls.passThrough.checked = value > 0.5;
+  } else if (param === 'voiceType') {
+    engineEls.voice.value = String(Math.round(value));
+  } else if (param === 'velocity') {
+    const v = Math.round(value);
+    engineEls.velocity.value = String(v);
+    engineEls.velocityValue.textContent = String(v);
+  }
+});
+
+// ── Vibe text box (local keyword parser, no API/network) ─────────────────
+// Type a description like "sad jazz ballad in G" and it maps recognized
+// words directly to Key/Scale/Style, then re-renders suggestions - the
+// same outcome the old AI-prompt box promised, done locally and instantly.
+
+const NOTE_NAME_TO_INDEX = {
+  'c': 0, 'c#': 1, 'db': 1, 'd': 2, 'd#': 3, 'eb': 3, 'e': 4, 'f': 5,
+  'f#': 6, 'gb': 6, 'g': 7, 'g#': 8, 'ab': 8, 'a': 9, 'a#': 10, 'bb': 10, 'b': 11,
+};
+
+function parseVibeText(text) {
+  const lower = text.toLowerCase();
+  let key = null, scale = null, style = null;
+
+  const inMatch = lower.match(/\bin\s+([a-g][#b]?)\b/);
+  if (inMatch && NOTE_NAME_TO_INDEX[inMatch[1]] !== undefined) {
+    key = NOTE_NAME_TO_INDEX[inMatch[1]];
+  } else {
+    for (const name of Object.keys(NOTE_NAME_TO_INDEX)) {
+      if (new RegExp('\\b' + name + '\\b').test(lower)) { key = NOTE_NAME_TO_INDEX[name]; break; }
+    }
+  }
+
+  if (/\b(dorian)\b/.test(lower)) scale = 2;
+  else if (/\b(mixolydian)\b/.test(lower)) scale = 3;
+  else if (/\b(sad|minor|dark|melancholy|moody|somber|haunting)\b/.test(lower)) scale = 1;
+  else if (/\b(happy|major|bright|upbeat|joyful|cheerful)\b/.test(lower)) scale = 0;
+
+  if (/\bjazz\w*\b/.test(lower)) style = 1;
+  else if (/\bclassical\b/.test(lower)) style = 2;
+  else if (/\bblues\w*\b/.test(lower)) style = 3;
+  else if (/\bpop\b/.test(lower)) style = 0;
+
+  return { key, scale, style };
+}
+
+function applyVibeText() {
+  const parsed = parseVibeText(els.vibeInput.value);
+  if (parsed.key !== null) els.keySelect.value = String(parsed.key);
+  if (parsed.scale !== null) els.scaleSelect.value = String(parsed.scale);
+  if (parsed.style !== null) els.styleSelect.value = String(parsed.style);
+  if (parsed.key !== null || parsed.scale !== null || parsed.style !== null)
+    renderSuggestions();
+}
+
+els.vibeInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') applyVibeText();
+});
+els.vibeInput.addEventListener('blur', applyVibeText);
+
+// ── Boot ─────────────────────────────────────────────────────────────────
+
+els.keySelect.addEventListener('change', renderSuggestions);
+els.scaleSelect.addEventListener('change', renderSuggestions);
+els.styleSelect.addEventListener('change', renderSuggestions);
+
+renderSuggestions();
+renderProgression();
+</script>
+<script>
+  (function () {
+    let lastW = -1, lastH = -1;
+    function fitStage() {
+      const w = document.documentElement.clientWidth || window.innerWidth || 0;
+      const h = document.documentElement.clientHeight || window.innerHeight || 0;
+      if (w <= 0 || h <= 0) return;
+      if (w === lastW && h === lastH) return;
+      lastW = w; lastH = h;
+      const scale = Math.min(w / 1060, h / 640);
+      const stage = document.getElementById("stage");
+      if (stage) stage.style.transform = `scale(${scale})`;
+    }
+    fitStage();
+    window.addEventListener("resize", fitStage);
+    setInterval(fitStage, 300);
+  })();
+</script>
 </body>
 </html>

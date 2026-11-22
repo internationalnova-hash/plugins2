@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Sub</title>
+  <style>
+    :root {
+      --bg: #08080c;
+      --panel: #111117;
+      --panel-2: #16161e;
+      --line: rgba(255,255,255,0.08);
+      --text: #f0eef7;
+      --text-dim: #8f8da0;
+      --glow: #4fc3f7;
+      --glow-2: #7c6cff;
+      --ease: 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #050408;
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* place-content (not just place-items) is required: a fixed-size
+       #stage makes body's implicit grid track auto-size to match it, so
+       place-items alone centers within that same-sized track (no visible
+       effect) - place-content centers the track itself in the viewport. */
+    body { display: grid; place-items: center; place-content: center; }
+
+    /* Fixed-scale viewport: the .plugin layout below was designed at
+       900x770 and every internal measurement (radii, gradients, shadow
+       blur, paddings) is tuned relative to that - scaling those values
+       individually would risk breaking the carefully-tuned proportions.
+       Instead the whole design renders at its native size and this
+       viewport uniformly scales + clips it down to a much more typical
+       "single hero-knob" utility-plugin footprint. */
+    .plugin-viewport {
+      position: relative;
+      width: 540px;
+      height: 462px;
+      overflow: hidden;
+      border-radius: 22px;
+      transform-origin: center center;
+    }
+
+    .plugin {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 900px;
+      height: 770px;
+      transform: scale(0.6);
+      transform-origin: top left;
+      border-radius: 22px;
+      background:
+        radial-gradient(ellipse 900px 500px at 50% 46%, rgba(60,50,90,0.28) 0%, transparent 62%),
+        linear-gradient(180deg, #131019 0%, #05040a 100%);
+      border: 1px solid rgba(140,110,255,0.2);
+      box-shadow:
+        0 0 0 1px rgba(140,110,255,0.05),
+        0 30px 70px rgba(0,0,0,0.75),
+        inset 0 1px 0 rgba(180,150,255,0.06);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: background 400ms ease;
+    }
+
+    /* subtle grain */
+    .plugin::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+      opacity: 0.035;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 22px;
+      position: relative;
+      z-index: 3;
+    }
+
+    .toolbar-left { display: flex; align-items: center; gap: 10px; }
+
+    .logo-box {
+      width: 26px; height: 26px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 7px;
+      background: rgba(124,108,255,0.12);
+    }
+    .logo-box img { width: 20px; height: 20px; object-fit: contain; opacity: 0.9; }
+
+    .word-nova { font-size: 10px; font-weight: 700; letter-spacing: 0.24em; color: var(--text-dim); }
+    .word-sub { font-size: 15px; font-weight: 800; letter-spacing: 0.14em; color: var(--text); margin-left: 4px; }
+
+    #preset-select {
+      padding: 7px 30px 7px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(20,18,28,0.9) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238f8da0'/%3E%3C/svg%3E") no-repeat right 12px center;
+      color: var(--text-dim);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      min-width: 148px;
+    }
+
+    .mode-row {
+      display: flex;
+      gap: 8px;
+      padding: 0 22px 14px;
+      position: relative;
+      z-index: 3;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 9px 0;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.02);
+      color: var(--text-dim);
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      transition: all var(--ease);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mode-btn:active { transform: scale(0.98); }
+
+    .mode-btn[data-mode="Neon"].active    { border-color: #4fc3f7; color: #4fc3f7; box-shadow: 0 0 14px rgba(79,195,247,0.25); background: rgba(79,195,247,0.07); }
+    .mode-btn[data-mode="Heat"].active        { border-color: #ff6b47; color: #ff6b47; box-shadow: 0 0 14px rgba(255,107,71,0.25); background: rgba(255,107,71,0.07); }
+    .mode-btn[data-mode="Nova"].active   { border-color: #6bff8f; color: #6bff8f; box-shadow: 0 0 14px rgba(107,255,143,0.22); background: rgba(107,255,143,0.07); }
+    .mode-btn[data-mode="Galaxy"].active { border-color: #c467ff; color: #c467ff; box-shadow: 0 0 14px rgba(196,103,255,0.25); background: rgba(196,103,255,0.07); }
+
+    .engraved-title {
+      text-align: center;
+      padding: 4px 0 6px;
+      font-size: 50px;
+      font-weight: 800;
+      letter-spacing: 0.34em;
+      /* engraved look: deeper groove shadow above + a brighter catch-light
+         below so the carving reads clearly against the dark panel */
+      color: #2a2636;
+      text-shadow:
+        0 -2px 2px rgba(0,0,0,0.95),
+        0 -3px 4px rgba(0,0,0,0.6),
+        0 1.5px 0 rgba(255,255,255,0.16),
+        0 2.5px 3px rgba(255,255,255,0.05);
+      position: relative;
+      z-index: 2;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .hero-stage {
+      flex: 1;
+      position: relative;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 8px;
+      padding: 0 30px 6px;
+      z-index: 2;
+    }
+
+    .meter-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      height: 300px;
+    }
+
+    .meter-label { font-size: 10px; letter-spacing: 0.2em; color: var(--text-dim); font-weight: 700; }
+
+    .meter {
+      width: 20px;
+      flex: 1;
+      border-radius: 11px;
+      padding: 7px 5px;
+      background: rgba(6,5,9,0.9);
+      border: 1px solid var(--line);
+      display: flex;
+      flex-direction: column-reverse;
+      justify-content: flex-start;
+      gap: 3px;
+    }
+
+    .meter-bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.05); }
+    .meter-bar.active { background: linear-gradient(180deg, var(--glow), var(--glow-2)); box-shadow: 0 0 8px rgba(124,108,255,0.4); }
+    .meter-bar.hot { background: linear-gradient(180deg, #ff7050, #c03010); box-shadow: 0 0 12px rgba(220,60,20,0.55); }
+    .meter-bar.peak-hold { background: linear-gradient(180deg, #ffcc70, #e08030); opacity: 0.85; }
+
+    .hero-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .hero-knob-frame {
+      position: relative;
+      width: 300px;
+      height: 300px;
+      display: grid;
+      place-items: center;
+    }
+
+    /* ambient pulse glow behind the hero knob, colored per active mode */
+    .hero-glow {
+      position: absolute;
+      inset: -10px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--glow) 0%, transparent 68%);
+      opacity: 0.18;
+      filter: blur(18px);
+      transition: background 400ms ease;
+      pointer-events: none;
+    }
+
+    .hero-knob {
+      position: relative;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background:
+        repeating-conic-gradient(from 0deg, rgba(255,255,255,0.02) 0deg 2deg, transparent 2deg 6deg),
+        radial-gradient(circle at 36% 26%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.02) 22%, transparent 40%),
+        linear-gradient(150deg, #211d2c 0%, #14111c 45%, #0a0810 100%);
+      border: 1px solid rgba(140,110,255,0.3);
+      box-shadow:
+        inset 0 1px 0 rgba(180,150,255,0.14),
+        inset 0 -18px 30px rgba(0,0,0,0.55),
+        0 0 0 4px rgba(0,0,0,0.5),
+        0 18px 36px rgba(0,0,0,0.55);
+      cursor: ns-resize;
+      user-select: none;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: box-shadow var(--ease);
+    }
+
+    .hero-knob.dragging {
+      box-shadow:
+        inset 0 1px 0 rgba(180,150,255,0.2),
+        inset 0 -18px 30px rgba(0,0,0,0.6),
+        0 0 0 4px rgba(0,0,0,0.5),
+        0 20px 40px rgba(0,0,0,0.6),
+        0 0 40px rgba(124,108,255,0.28);
+    }
+
+    /* electric arc ring - the Vortex-style signature element */
+    .hero-arc {
+      position: absolute;
+      inset: 10px;
+      border-radius: 50%;
+      transform: rotate(var(--turn, -42deg));
+      filter: drop-shadow(0 0 6px var(--glow));
+      transition: filter 400ms ease;
+    }
+    .hero-arc::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(
+        from 218deg,
+        rgba(8,6,12,0.95) 0deg 26deg,
+        rgba(90,70,200,0.55) 26deg 55deg,
+        var(--glow) 55deg 85deg,
+        var(--glow-2) 85deg 112deg,
+        transparent 112deg 360deg
+      );
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 12px), #000 calc(100% - 11px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 12px), #000 calc(100% - 11px));
+    }
+
+    .hero-knob::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 20px;
+      width: 7px;
+      height: 30px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(230,222,255,0.95) 0%, var(--glow) 55%, var(--glow-2) 100%);
+      box-shadow: 0 0 10px var(--glow);
+      z-index: 2;
+    }
+
+    .hero-label { font-size: 12px; letter-spacing: 0.22em; color: var(--text-dim); font-weight: 700; }
+    .hero-readout {
+      min-width: 90px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(8,7,12,0.85);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: var(--text);
+      text-align: center;
+    }
+
+    .side-knobs {
+      display: flex;
+      justify-content: center;
+      gap: 46px;
+      margin-top: -4px;
+    }
+
+    .knob-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+    .knob-label { font-size: 10.5px; letter-spacing: 0.16em; color: var(--text-dim); font-weight: 700; }
+
+    .knob {
+      position: relative;
+      width: 74px;
+      height: 74px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 38% 28%, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 20%, transparent 34%),
+        linear-gradient(145deg, #211d2c 0%, #14111c 45%, #0a0810 100%);
+      border: 1px solid rgba(140,110,255,0.24);
+      box-shadow:
+        inset 0 1px 0 rgba(180,150,255,0.1),
+        inset 0 -8px 14px rgba(0,0,0,0.5),
+        0 0 0 2px rgba(0,0,0,0.5),
+        0 8px 16px rgba(0,0,0,0.45);
+      cursor: ns-resize;
+      user-select: none;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .knob.dragging {
+      box-shadow:
+        inset 0 1px 0 rgba(180,150,255,0.16),
+        inset 0 -8px 14px rgba(0,0,0,0.55),
+        0 0 0 2px rgba(0,0,0,0.5),
+        0 10px 18px rgba(0,0,0,0.5),
+        0 0 18px rgba(124,108,255,0.22);
+    }
+
+    .knob::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 10px;
+      width: 4px;
+      height: 16px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(220,210,255,0.95) 0%, rgba(140,110,255,0.85) 60%, rgba(90,70,200,0.6) 100%);
+      box-shadow: 0 0 5px rgba(140,110,255,0.5);
+    }
+
+    .arc {
+      position: absolute;
+      inset: 6px;
+      border-radius: 50%;
+      transform: rotate(var(--turn, -42deg));
+      filter: drop-shadow(0 0 3px rgba(124,108,255,0.5));
+    }
+    .arc::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(
+        from 218deg,
+        rgba(8,6,12,0.95) 0deg 26deg,
+        rgba(90,70,200,0.7) 26deg 55deg,
+        var(--glow-2) 55deg 85deg,
+        var(--glow) 85deg 112deg,
+        transparent 112deg 360deg
+      );
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+    }
+
+    .readout {
+      min-width: 62px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(8,7,12,0.8);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text);
+      text-align: center;
+    }
+
+    .footer {
+      padding: 10px 22px 18px;
+      text-align: center;
+      font-size: 9.5px;
+      letter-spacing: 0.14em;
+      color: var(--text-dim);
+      position: relative;
+      z-index: 3;
+    }
+  </style>
+</head>
+<body>
+  <div class="plugin-viewport" id="stage">
+  <div class="plugin" id="plugin-root">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="logo-box"><img src="n_logo.png" alt="N" /></div>
+        <span class="word-nova">NOVA</span><span class="word-sub">SUB</span>
+      </div>
+      <select id="preset-select">
+        <option value="" selected disabled>Select preset&hellip;</option>
+      </select>
+    </div>
+
+    <div class="mode-row">
+      <button class="mode-btn active" data-mode="Neon">NEON</button>
+      <button class="mode-btn" data-mode="Heat">HEAT</button>
+      <button class="mode-btn" data-mode="Nova">NOVA</button>
+      <button class="mode-btn" data-mode="Galaxy">GALAXY</button>
+    </div>
+
+    <div class="engraved-title">SUB</div>
+
+    <div class="hero-stage">
+      <div class="meter-col">
+        <div class="meter-label">IN</div>
+        <div class="meter" id="input-meter" aria-hidden="true">
+          <span class="meter-bar"></span><span class="meter-bar"></span><span class="meter-bar"></span>
+          <span class="meter-bar"></span><span class="meter-bar"></span><span class="meter-bar"></span>
+          <span class="meter-bar"></span><span class="meter-bar"></span><span class="meter-bar"></span><span class="meter-bar"></span>
+        </div>
+      </div>
+
+      <div class="hero-center">
+        <div class="hero-knob-frame">
+          <div class="hero-glow"></div>
+          <div class="hero-knob" data-param="color" data-min="0" data-max="10">
+            <div class="hero-arc"></div>
+          </div>
+        </div>
+        <div class="hero-label">COLOR</div>
+        <div class="hero-readout" data-readout="color">+0.0</div>
+
+        <div class="side-knobs">
+          <div class="knob-wrap">
+            <div class="knob-label">FILTER</div>
+            <div class="knob" data-param="filter_knob" data-min="0" data-max="10">
+              <div class="arc"></div>
+            </div>
+            <div class="readout" data-readout="filter_knob">OPEN</div>
+          </div>
+          <div class="knob-wrap">
+            <div class="knob-label">MIX</div>
+            <div class="knob" data-param="mix" data-min="0" data-max="100">
+              <div class="arc"></div>
+            </div>
+            <div class="readout" data-readout="mix">40%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="meter-col">
+        <div class="meter-label">OUT</div>
+        <div class="meter" id="output-meter" aria-hidden="true">
+          <span class="meter-bar"></span><span class="meter-bar"></span><span class="meter-bar"></span>
+          <span class="meter-bar"></span><span class="meter-bar"></span><span class="meter-bar"></span>
+          <span class="meter-bar"></span><span class="meter-bar"></span><span class="meter-bar"></span><span class="meter-bar"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">INTERNATIONAL NOVA &mdash; 808 / BASS SATURATION</div>
+  </div>
+  </div>
+
+  <script>
+    (function () {
+      const modeNames = ["Neon", "Heat", "Nova", "Galaxy"];
+      const modeGlow = {
+        Neon:    { glow: "#4fc3f7", glow2: "#7c6cff" },
+        Heat:        { glow: "#ff8a5c", glow2: "#ff6b47" },
+        Nova:   { glow: "#8fff9f", glow2: "#4fe37a" },
+        Galaxy: { glow: "#c467ff", glow2: "#7c6cff" },
+      };
+      const parameterStates = {};
+      const currentValues = {
+        color: 5.0,
+        filter_knob: 5.0,
+        mix: 40.0,
+        circuit_mode: "Neon"
+      };
+
+      const presets = [
+        { name: "Clean Warmth",     mode: "Heat",        color: 6.0, filter_knob: 5.0, mix: 25 },
+        { name: "Trap Growl",       mode: "Neon",     color: 6.5, filter_knob: 4.0, mix: 55 },
+        { name: "Deep Glue",        mode: "Heat",        color: 4.0, filter_knob: 6.0, mix: 35 },
+        { name: "Radio Ready",      mode: "Nova",    color: 5.5, filter_knob: 6.5, mix: 45 },
+        { name: "Metallic Snarl",   mode: "Galaxy",  color: 7.0, filter_knob: 5.0, mix: 40 },
+        { name: "Vinyl Sub",        mode: "Heat",        color: 3.0, filter_knob: 7.0, mix: 30 },
+        { name: "Bright Snap",      mode: "Neon",     color: 8.0, filter_knob: 5.5, mix: 50 },
+        { name: "Distorted 808",    mode: "Galaxy",  color: 6.0, filter_knob: 4.5, mix: 70 },
+        { name: "Subtle Grit",      mode: "Neon",     color: 5.0, filter_knob: 5.0, mix: 15 },
+        { name: "Analog Fuzz",      mode: "Heat",        color: 5.5, filter_knob: 5.0, mix: 60 },
+        { name: "Hard Edge",        mode: "Nova",    color: 6.5, filter_knob: 4.0, mix: 65 },
+        { name: "Smooth Low End",   mode: "Nova",    color: 3.5, filter_knob: 6.5, mix: 20 },
+        { name: "Aggressive Lead",  mode: "Neon",     color: 7.5, filter_knob: 6.0, mix: 75 },
+        { name: "Alien Tone",       mode: "Galaxy",  color: 8.5, filter_knob: 6.5, mix: 50 },
+        { name: "Club Ready",       mode: "Nova",    color: 5.0, filter_knob: 5.5, mix: 38 },
+        { name: "Full Send",        mode: "Galaxy",  color: 9.0, filter_knob: 5.0, mix: 85 },
+      ];
+
+      let juceAvailable = false;
+      let activeDrag = null;
+      let isApplyingPreset = false;
+
+      function clamp(value, min, max) {
+        const lo = typeof min === "number" ? min : 0;
+        const hi = typeof max === "number" ? max : 1;
+        return Math.min(hi, Math.max(lo, Number(value) || 0));
+      }
+
+      function createListenerList() {
+        return {
+          listeners: [],
+          addListener(fn) { this.listeners.push(fn); return this.listeners.length - 1; },
+          callListeners(payload) { this.listeners.forEach((listener) => listener(payload)); }
+        };
+      }
+
+      function createSliderState(name) {
+        if (!juceAvailable || !window.__JUCE__ || !window.__JUCE__.backend) return null;
+
+        const backend = window.__JUCE__.backend;
+        const state = {
+          name,
+          identifier: "__juce__slider" + name,
+          scaledValue: 0,
+          properties: { start: 0, end: 1, skew: 1, interval: 0, numSteps: 100 },
+          valueChangedEvent: createListenerList(),
+          getNormalisedValue() {
+            const start = typeof this.properties.start === "number" ? this.properties.start : 0;
+            const end = typeof this.properties.end === "number" ? this.properties.end : 1;
+            const range = end - start;
+            if (range === 0) return 0;
+            return clamp((this.scaledValue - start) / range, 0, 1);
+          },
+          setNormalisedValue(newValue) {
+            const normalised = clamp(newValue, 0, 1);
+            const start = typeof this.properties.start === "number" ? this.properties.start : 0;
+            const end = typeof this.properties.end === "number" ? this.properties.end : 1;
+            const interval = typeof this.properties.interval === "number" ? this.properties.interval : 0;
+            let scaled = start + (normalised * (end - start));
+            if (interval > 0) scaled = Math.round(scaled / interval) * interval;
+            this.scaledValue = scaled;
+            backend.emitEvent(this.identifier, { eventType: "valueChanged", value: scaled });
+          },
+          sliderDragStarted() { backend.emitEvent(this.identifier, { eventType: "sliderDragStarted" }); },
+          sliderDragEnded() { backend.emitEvent(this.identifier, { eventType: "sliderDragEnded" }); }
+        };
+
+        backend.addEventListener(state.identifier, function (event) {
+          if (!event) return;
+          if (event.eventType === "valueChanged") {
+            if (typeof event.value === "number") state.scaledValue = event.value;
+            state.valueChangedEvent.callListeners(event);
+          }
+          if (event.eventType === "propertiesChanged") {
+            const nextProps = {};
+            Object.keys(event).forEach((key) => { if (key !== "eventType") nextProps[key] = event[key]; });
+            state.properties = nextProps;
+          }
+        });
+
+        backend.emitEvent(state.identifier, { eventType: "requestInitialUpdate" });
+        return state;
+      }
+
+      function getNormalisedValue(paramId, value) {
+        const numeric = Number(value) || 0;
+        switch (paramId) {
+          case "mix": return clamp(numeric / 100, 0, 1);
+          case "circuit_mode": {
+            const index = Math.max(0, modeNames.indexOf(String(value)));
+            return modeNames.length <= 1 ? 0 : index / (modeNames.length - 1);
+          }
+          default: return clamp(numeric / 10, 0, 1);
+        }
+      }
+
+      function getActualValue(paramId, normalised) {
+        const value = clamp(normalised, 0, 1);
+        switch (paramId) {
+          case "mix": return value * 100;
+          case "circuit_mode": return modeNames[Math.round(value * (modeNames.length - 1))] || "Neon";
+          default: return value * 10;
+        }
+      }
+
+      function formatValue(paramId, value) {
+        const numeric = Number(value) || 0;
+
+        if (paramId === "color") {
+          const tiltDb = -6 + ((numeric / 10) * 12);
+          const sign = tiltDb >= 0 ? "+" : "";
+          return sign + tiltDb.toFixed(1);
+        }
+
+        if (paramId === "filter_knob") {
+          const norm = numeric / 10;
+          if (Math.abs(norm - 0.5) < 0.02) return "OPEN";
+          if (norm <= 0.5) {
+            const t = (0.5 - norm) / 0.5;
+            const hp = 20 + t * (1000 - 20);
+            return "HP " + Math.round(hp) + "Hz";
+          }
+          const t = (norm - 0.5) / 0.5;
+          const lp = 20000 - t * (20000 - 900);
+          return lp >= 1000 ? "LP " + (lp / 1000).toFixed(1) + "kHz" : "LP " + Math.round(lp) + "Hz";
+        }
+
+        if (paramId === "mix") return Math.round(numeric) + "%";
+
+        return numeric.toFixed(1);
+      }
+
+      function applyModeTheme(mode) {
+        const theme = modeGlow[mode] || modeGlow.Neon;
+        const root = document.getElementById("plugin-root");
+        root.style.setProperty("--glow", theme.glow);
+        root.style.setProperty("--glow-2", theme.glow2);
+      }
+
+      function setModeVisual(mode) {
+        currentValues.circuit_mode = mode;
+        document.querySelectorAll(".mode-btn").forEach((button) => {
+          button.classList.toggle("active", button.dataset.mode === mode);
+        });
+        applyModeTheme(mode);
+      }
+
+      function updateKnobVisual(paramId, value, knobSelector, readoutSelector) {
+        currentValues[paramId] = value;
+        const knob = document.querySelector(knobSelector);
+        if (!knob) return;
+
+        const min = Number(knob.dataset.min);
+        const max = Number(knob.dataset.max);
+        const safeValue = clamp(value, min, max);
+        const arc = knob.querySelector(".arc, .hero-arc");
+        const normal = (safeValue - min) / ((max - min) || 1);
+        const rotation = -42 + (normal * 210);
+        if (arc) arc.style.setProperty("--turn", rotation + "deg");
+
+        const readout = document.querySelector(readoutSelector);
+        if (readout) readout.textContent = formatValue(paramId, safeValue);
+      }
+
+      const knobTargets = {
+        color:        { knob: '.knob[data-param="color"], .hero-knob[data-param="color"]', readout: '[data-readout="color"]' },
+        filter_knob:  { knob: '.knob[data-param="filter_knob"]', readout: '[data-readout="filter_knob"]' },
+        mix:          { knob: '.knob[data-param="mix"]', readout: '[data-readout="mix"]' },
+      };
+
+      function pushToBackend(paramId, value, useGesture) {
+        const state = parameterStates[paramId];
+        if (!state) return;
+        try {
+          if (useGesture) state.sliderDragStarted();
+          state.setNormalisedValue(getNormalisedValue(paramId, value));
+          if (useGesture) state.sliderDragEnded();
+        } catch (error) {
+          console.warn("Failed to update " + paramId + ":", error && error.message ? error.message : error);
+        }
+      }
+
+      function setParamValue(paramId, value, options) {
+        const settings = options || {};
+
+        if (paramId === "circuit_mode") {
+          setModeVisual(String(value));
+        } else {
+          const target = knobTargets[paramId];
+          if (target) updateKnobVisual(paramId, value, target.knob, target.readout);
+        }
+
+        if (settings.pushToBackend) pushToBackend(paramId, value, !!settings.useGesture);
+      }
+
+      function applyPreset(preset) {
+        if (!preset || isApplyingPreset) return;
+        isApplyingPreset = true;
+        setParamValue("circuit_mode", preset.mode, { pushToBackend: true, useGesture: true });
+        setParamValue("color", preset.color, { pushToBackend: true, useGesture: true });
+        setParamValue("filter_knob", preset.filter_knob, { pushToBackend: true, useGesture: true });
+        setParamValue("mix", preset.mix, { pushToBackend: true, useGesture: true });
+        isApplyingPreset = false;
+      }
+
+      function getClientY(event) {
+        if (!event) return 0;
+        if (event.touches && event.touches.length > 0) return event.touches[0].clientY;
+        if (event.changedTouches && event.changedTouches.length > 0) return event.changedTouches[0].clientY;
+        return typeof event.clientY === "number" ? event.clientY : 0;
+      }
+
+      function startKnobDrag(knob, event) {
+        if (typeof event.button === "number" && event.button !== 0) return;
+        if (event.preventDefault) event.preventDefault();
+        if (event.stopPropagation) event.stopPropagation();
+
+        const paramId = knob.dataset.param;
+        const min = Number(knob.dataset.min);
+        const max = Number(knob.dataset.max);
+
+        knob.classList.add("dragging");
+        activeDrag = {
+          paramId, knob, min, max,
+          startY: getClientY(event),
+          startValue: Number(currentValues[paramId] || knob.dataset.min || 0),
+          pointerId: typeof event.pointerId !== "undefined" ? event.pointerId : null
+        };
+
+        if (typeof knob.setPointerCapture === "function" && typeof event.pointerId !== "undefined") {
+          try { knob.setPointerCapture(event.pointerId); } catch (error) { console.warn(error && error.message ? error.message : error); }
+        }
+
+        if (parameterStates[paramId]) {
+          try { parameterStates[paramId].sliderDragStarted(); } catch (error) { console.warn(error); }
+        }
+      }
+
+      function updateActiveDrag(event) {
+        if (!activeDrag) return;
+        if (activeDrag.pointerId !== null && typeof event.pointerId !== "undefined" && event.pointerId !== activeDrag.pointerId) return;
+        if (event.preventDefault) event.preventDefault();
+
+        const delta = (activeDrag.startY - getClientY(event)) / (window.__novaSubScale || 1);
+        const nextValue = activeDrag.startValue + delta * ((activeDrag.max - activeDrag.min) / 220);
+        setParamValue(activeDrag.paramId, clamp(nextValue, activeDrag.min, activeDrag.max), { pushToBackend: true });
+      }
+
+      function finishActiveDrag(event) {
+        if (!activeDrag) return;
+        if (activeDrag.pointerId !== null && event && typeof event.pointerId !== "undefined" && event.pointerId !== activeDrag.pointerId) return;
+
+        if (parameterStates[activeDrag.paramId]) {
+          try { parameterStates[activeDrag.paramId].sliderDragEnded(); } catch (error) { console.warn(error); }
+        }
+
+        if (typeof activeDrag.knob.releasePointerCapture === "function" && activeDrag.pointerId !== null) {
+          try { activeDrag.knob.releasePointerCapture(activeDrag.pointerId); } catch (error) { console.warn(error); }
+        }
+
+        activeDrag.knob.classList.remove("dragging");
+        activeDrag = null;
+      }
+
+      function initKnobs() {
+        document.querySelectorAll(".knob[data-param], .hero-knob[data-param]").forEach((knob) => {
+          const startHandler = (event) => startKnobDrag(knob, event);
+          knob.addEventListener("pointerdown", startHandler);
+          knob.addEventListener("mousedown", startHandler);
+          knob.addEventListener("touchstart", startHandler, { passive: false });
+        });
+
+        document.addEventListener("pointermove", updateActiveDrag);
+        document.addEventListener("mousemove", updateActiveDrag);
+        document.addEventListener("touchmove", updateActiveDrag, { passive: false });
+        document.addEventListener("pointerup", finishActiveDrag);
+        document.addEventListener("mouseup", finishActiveDrag);
+        document.addEventListener("touchend", finishActiveDrag);
+        document.addEventListener("pointercancel", finishActiveDrag);
+        document.addEventListener("touchcancel", finishActiveDrag);
+      }
+
+      function initModeButtons() {
+        document.querySelectorAll(".mode-btn").forEach((button) => {
+          const handler = (event) => {
+            if (event.preventDefault) event.preventDefault();
+            setParamValue("circuit_mode", button.dataset.mode, { pushToBackend: true, useGesture: true });
+          };
+          button.addEventListener("click", handler);
+          button.addEventListener("touchend", handler);
+        });
+      }
+
+      function initPresetSelect() {
+        const select = document.getElementById("preset-select");
+        presets.forEach((preset, index) => {
+          const option = document.createElement("option");
+          option.value = String(index);
+          option.textContent = preset.name;
+          select.appendChild(option);
+        });
+        select.addEventListener("change", () => {
+          const index = Number(select.value);
+          if (Number.isFinite(index) && presets[index]) applyPreset(presets[index]);
+        });
+      }
+
+      function initParameterStates() {
+        ["color", "filter_knob", "mix", "circuit_mode"].forEach((paramId) => {
+          parameterStates[paramId] = createSliderState(paramId);
+        });
+
+        ["color", "filter_knob", "mix"].forEach((paramId) => {
+          const state = parameterStates[paramId];
+          if (!state || !state.valueChangedEvent) return;
+          state.valueChangedEvent.addListener(() => {
+            setParamValue(paramId, getActualValue(paramId, state.getNormalisedValue()), { pushToBackend: false });
+          });
+        });
+
+        const modeState = parameterStates.circuit_mode;
+        if (modeState && modeState.valueChangedEvent) {
+          modeState.valueChangedEvent.addListener(() => {
+            setParamValue("circuit_mode", getActualValue("circuit_mode", modeState.getNormalisedValue()), { pushToBackend: false });
+          });
+        }
+
+        window.setTimeout(() => {
+          ["color", "filter_knob", "mix"].forEach((paramId) => {
+            const state = parameterStates[paramId];
+            if (state) setParamValue(paramId, getActualValue(paramId, state.getNormalisedValue()), { pushToBackend: false });
+          });
+          if (parameterStates.circuit_mode) {
+            setParamValue("circuit_mode", getActualValue("circuit_mode", parameterStates.circuit_mode.getNormalisedValue()), { pushToBackend: false });
+          }
+        }, 60);
+      }
+
+      function makeMeterUpdater(selector, includeHot) {
+        let peak = 0;
+        let decayTimer = null;
+        return function (level, isHot) {
+          const safeLevel = clamp(Number(level) || 0, 0, 1);
+          if (safeLevel > peak) peak = safeLevel;
+          if (decayTimer) clearTimeout(decayTimer);
+          decayTimer = setTimeout(() => { peak = Math.max(0, peak - 0.06); }, 80);
+          const bars = Array.from(document.querySelectorAll(selector + " .meter-bar"));
+          const activeCount = Math.round(safeLevel * bars.length);
+          const peakIdx = Math.round(peak * bars.length) - 1;
+          bars.forEach((bar, index) => {
+            const shouldBeActive = index < activeCount;
+            const isPeak = index === peakIdx && peakIdx > 0 && peakIdx >= activeCount;
+            bar.classList.toggle("active", shouldBeActive || isPeak);
+            bar.classList.toggle("peak-hold", isPeak && !shouldBeActive);
+            if (includeHot) bar.classList.toggle("hot", shouldBeActive && !!isHot && index >= bars.length - 2);
+          });
+        };
+      }
+
+      window.updateInputMeter = makeMeterUpdater("#input-meter", false);
+      window.updateOutputMeter = makeMeterUpdater("#output-meter", true);
+
+      function bootUi() {
+        juceAvailable = !!(window.__JUCE__ && window.__JUCE__.backend && typeof window.__JUCE__.backend.emitEvent === "function");
+
+        initKnobs();
+        initModeButtons();
+        initPresetSelect();
+
+        setParamValue("color", currentValues.color, { pushToBackend: false });
+        setParamValue("filter_knob", currentValues.filter_knob, { pushToBackend: false });
+        setParamValue("mix", currentValues.mix, { pushToBackend: false });
+        setParamValue("circuit_mode", currentValues.circuit_mode, { pushToBackend: false });
+        window.updateInputMeter(0.0);
+        window.updateOutputMeter(0.0, false);
+
+        if (juceAvailable) {
+          try {
+            initParameterStates();
+          } catch (error) {
+            juceAvailable = false;
+            console.warn("Parameter sync unavailable, keeping local UI active:", error && error.message ? error.message : error);
+          }
+        }
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", bootUi, { once: true });
+      } else {
+        bootUi();
+      }
+    }());
+
+    // ---- stage scale-to-fit (same technique as Nova Tape/Nova Pitch).
+    // This scales the ALREADY 0.6x-cropped .plugin-viewport (540x462) as
+    // a unit - it doesn't touch .plugin's own separate fixed scale(0.6),
+    // so the two compose: dynamic-fit * the deliberate 900x770->540x462
+    // crop ratio. ----
+    (function () {
+      let lastW = -1, lastH = -1;
+      function fitStage() {
+        const w = document.documentElement.clientWidth || window.innerWidth || 0;
+        const h = document.documentElement.clientHeight || window.innerHeight || 0;
+        if (w <= 0 || h <= 0) return;
+        if (w === lastW && h === lastH) return;
+        lastW = w; lastH = h;
+        const scale = Math.min(w / 540, h / 462);
+        window.__novaSubScale = scale || 1;
+        const stage = document.getElementById("stage");
+        if (stage) stage.style.transform = `scale(${scale})`;
+      }
+      fitStage();
+      window.addEventListener("resize", fitStage);
+      setInterval(fitStage, 300);
+    })();
+  </script>
+</body>
+</html>

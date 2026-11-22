@@ -24,6 +24,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
+# AAX SDK (Avid Pro Tools format) - shared across plugins, same pattern as
+# the shared NovaLicense module. Mac/Windows only (JUCE's own AAX SDK path
+# function silently no-ops on other platforms).
+if(APPLE OR WIN32)
+    juce_set_aax_sdk_path("${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+endif()
 
 set(PLUGIN_TARGET NovaChord)
 set(NEEDS_WEBVIEW2 FALSE)
@@ -32,11 +38,11 @@ set(AU_MAIN_TYPE "")
 set(LV2_URI "")
 
 if(WIN32)
-    set(PLUGIN_FORMATS VST3 Standalone)
+    set(PLUGIN_FORMATS VST3 AAX Standalone)
     set(NEEDS_WEBVIEW2 TRUE)
     set(WEBVIEW_BACKEND "WebView2")
 elseif(APPLE)
-    set(PLUGIN_FORMATS VST3 AU Standalone)
+    set(PLUGIN_FORMATS VST3 AU AAX Standalone)
     set(WEBVIEW_BACKEND "WKWebView")
     set(AU_MAIN_TYPE kAudioUnitType_MIDIProcessor)
 elseif(UNIX)
@@ -64,7 +70,7 @@ juce_add_binary_data(NovaChord_WebUI
 
 juce_add_plugin(${PLUGIN_TARGET}
     COMPANY_NAME "International Nova"
-    COMPANY_WEBSITE "https://noizefield.com"
+    COMPANY_WEBSITE "https://getnovaaudio.com"
     BUNDLE_ID "com.internationalnova.novachord"
     PLUGIN_MANUFACTURER_CODE Inov
     PLUGIN_CODE NvCh
@@ -73,12 +79,13 @@ juce_add_plugin(${PLUGIN_TARGET}
     NEEDS_WEBVIEW2 ${NEEDS_WEBVIEW2}
     NEEDS_WEB_BROWSER ${NEEDS_WEB_BROWSER}
     VST3_CATEGORIES Instrument
+    AAX_CATEGORY SWGenerators
     AU_MAIN_TYPE ${AU_MAIN_TYPE}
     LV2URI ${LV2_URI}
-    IS_SYNTH FALSE
+    IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT TRUE
-    IS_MIDI_EFFECT TRUE
+    IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
 )
 
@@ -148,4 +155,49 @@ if(UNIX AND NOT APPLE)
                 jack
         )
     endif()
+endif()
+
+# ── Offline diagnostic harness ──────────────────────────────────────────────
+juce_add_console_app(NovaChordOfflineDiag
+    COMPANY_NAME "International Nova"
+    BUNDLE_ID "com.internationalnova.novachord.offlinediag"
+    VERSION ${PROJECT_VERSION}
+)
+
+target_sources(NovaChordOfflineDiag PRIVATE
+    Source/OfflineDiag.cpp
+    Source/PluginProcessor.cpp
+    Source/PluginProcessor.h
+    Source/PluginEditor.cpp
+    Source/PluginEditor.h
+)
+
+target_link_libraries(NovaChordOfflineDiag PRIVATE
+    NovaChord_WebUI
+    juce::juce_audio_basics
+    juce::juce_audio_devices
+    juce::juce_audio_formats
+    juce::juce_audio_processors
+    juce::juce_audio_utils
+    juce::juce_core
+    juce::juce_data_structures
+    juce::juce_dsp
+    juce::juce_events
+    juce::juce_graphics
+    juce::juce_gui_basics
+    juce::juce_gui_extra
+    juce::juce_opengl
+    juce::juce_recommended_config_flags
+)
+
+juce_generate_juce_header(NovaChordOfflineDiag)
+
+target_compile_definitions(NovaChordOfflineDiag PRIVATE
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_WEB_BROWSER=1
+    JucePlugin_Name="NovaChordOfflineDiag"
+)
+
+if(APPLE)
+    target_compile_definitions(NovaChordOfflineDiag PRIVATE JUCE_USE_CURL=0)
 endif()

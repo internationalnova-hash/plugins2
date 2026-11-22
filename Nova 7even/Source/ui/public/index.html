@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Nova 7even</title>
+<style>
+  :root {
+    --wood-a: #6b4a2e; --wood-b: #4a301c; --wood-c: #2e1c10;
+    --panel-a: #2c3843; --panel-b: #212b34; --panel-line: #1a232b;
+    --cream: #e8dcc0; --cream-dim: #b8ac90;
+    --gold: #c9a227; --red: #a02828;
+    --header-bg: #14100c; --footer-bg: #120f0a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; width:100%; height:100%; background:#0a0806; color:var(--cream); font-family: 'Helvetica Neue', Arial, sans-serif; overflow:hidden; -webkit-font-smoothing:antialiased; -webkit-user-select:none; user-select:none; }
+
+  /* Fixed design canvas, uniformly scaled to fit the actual window size
+     (same technique across the catalog - see Nova Tape's index.html for
+     the rationale). */
+  #stageOuter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #app { display:flex; width:1000px; height:585px; flex: 0 0 auto; transform-origin: center center; }
+  .wood {
+    width: 22px; flex-shrink:0;
+    background-image: url("img/wood-strip.jpg");
+    background-size: 100% auto;
+    background-repeat: repeat-y;
+    box-shadow: inset -4px 0 8px rgba(0,0,0,0.5), inset 4px 0 8px rgba(0,0,0,0.5), inset 0 0 12px rgba(0,0,0,0.3);
+    filter: saturate(0.9) brightness(0.85);
+  }
+
+  #chassis { flex:1; display:flex; flex-direction:column; min-width:0; }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(180deg, #1c1712 0%, var(--header-bg) 100%);
+    border-bottom: 2px solid #000;
+    padding: 10px 18px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    flex-wrap:wrap;
+  }
+  .brand { display:flex; flex-direction:column; }
+  .brand .name { font-size:22px; font-weight:800; letter-spacing:2px; }
+  .brand .name .seven { color:var(--red); }
+  .brand .sub { font-size:9px; letter-spacing:2px; color:var(--cream-dim); margin-top:2px; }
+
+  .presetBar { display:flex; align-items:center; gap:0; background:#0c0a08; border:1px solid #3a3025; border-radius:5px; padding:6px 4px; }
+  .presetBar button { background:none; border:none; color:var(--cream-dim); font-size:13px; padding:2px 10px; cursor:default; }
+  .presetBar .name { font-size:12px; letter-spacing:1px; color:var(--cream); padding:0 14px; min-width:170px; text-align:center; }
+
+  .headerRight { display:flex; align-items:center; gap:6px; }
+  .abBtn { width:30px; height:26px; background:#1a1510; border:1px solid #3a3025; color:var(--cream-dim); font-size:12px; font-weight:700; border-radius:4px; cursor:pointer; }
+  .abBtn.active { background:var(--red); border-color:var(--red); color:#fff; }
+  .chromeBtn { background:#1a1510; border:1px solid #3a3025; color:var(--cream-dim); font-size:10px; letter-spacing:1px; padding:5px 10px; border-radius:4px; cursor:default; }
+  .menuIcon { width:26px; height:26px; display:flex; align-items:center; justify-content:center; background:#1a1510; border:1px solid #3a3025; border-radius:4px; cursor:default; color:var(--cream-dim); font-size:14px; }
+
+  .novaAudio { text-align:right; font-size:13px; font-weight:700; letter-spacing:1px; }
+  .novaAudio .aud { display:block; font-size:8px; color:var(--red); letter-spacing:3px; }
+
+  /* ── Main panel ── */
+  #panel {
+    flex:1; display:flex;
+    background-color: var(--panel-a);
+    background-image:
+      linear-gradient(rgba(28,40,50,0.72), rgba(28,40,50,0.72)),
+      url("img/faceplate.jpg");
+    background-size: 100% 100%, 520px 520px;
+    background-repeat: no-repeat, repeat;
+    position:relative;
+    border-top: 1px solid #3a4652; border-bottom: 1px solid #10161c;
+  }
+  .section { flex:1; padding:6px 12px 4px; position:relative; display:flex; flex-direction:column; align-items:center; min-width:0; box-shadow: inset -1px 0 0 rgba(240,232,208,0.28), inset -4px 0 6px -4px rgba(0,0,0,0.7); }
+  .section:last-child { box-shadow:none; }
+  .section.output { flex:1.7; }
+  .section.input { flex:1.25; }
+
+  .screwRow { position:absolute; left:0; right:0; display:flex; justify-content:space-between; padding:0 6px; pointer-events:none; }
+  .screwRow.top { top:6px; } .screwRow.bottom { bottom:6px; }
+  .screw { width:9px; height:9px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #a8a090, #4a4438 60%, #201c14); box-shadow:0 1px 2px rgba(0,0,0,0.6); position:relative; }
+  .screw::after { content:""; position:absolute; left:50%; top:50%; width:6px; height:1px; background:#1a1610; transform:translate(-50%,-50%) rotate(38deg); }
+
+  .secTitle { font-size:13px; font-weight:700; letter-spacing:1.5px; color:var(--cream); margin-top:5px; }
+  .secSub { font-size:9px; letter-spacing:1.5px; color:var(--gold); margin-bottom:9px; }
+
+  .olLed { position:absolute; top:16px; right:16px; width:9px; height:9px; border-radius:50%; background:#3a1010; box-shadow:inset 0 0 3px rgba(0,0,0,0.8); }
+  .olLed.lit { background:radial-gradient(circle,#ffb060,#c04010); box-shadow:0 0 8px rgba(255,140,40,0.8); }
+  .olLabel { position:absolute; top:28px; right:15px; font-size:7px; color:var(--cream-dim); letter-spacing:1px; }
+
+  /* ── Knob ── */
+  /* Knobs now use the same real-photo cap + static rim technique proven
+     out on Nova Desk EQ, recolored to match this UI's existing red/
+     steel-teal/bronze/cream palette. The cap photo has its OWN baked-in
+     pointer (no separate .arc overlay needed any more), and rotates
+     directly via --turn; the tick-ring lives on .knobWrap (which never
+     rotates) instead of on .knob itself, via :has(), so it can't sweep
+     around when the knob turns. */
+  .knobWrap { display:flex; flex-direction:column; align-items:center; margin:2px 0 2px; user-select:none; position:relative; }
+  .knob {
+    position:relative; border-radius:50%; cursor:ns-resize; touch-action:none;
+    background: center/cover no-repeat;
+    /* No outer drop-shadow here on purpose: red/blue have a separate
+       .knobRim underneath that already throws its own shadow, and a
+       second shadow from the cap right at the rim/cap seam is exactly
+       what read as a "weird ring" - dark/cream/utility (no rim) restore
+       their own full shadow below since they need it. */
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -8px 14px rgba(0,0,0,0.5);
+    transform: rotate(var(--turn, -135deg));
+  }
+  .knob.red   { width:96px; height:96px; background-image:url("img/desk-knob-red.png"); filter: hue-rotate(4deg) saturate(1.05) brightness(0.85) contrast(1.05); }
+  .knob.red.small { width:52px; height:52px; }
+  .knob.blue  { width:66px; height:66px; background-image:url("img/desk-knob-teal.png"); filter: brightness(0.72); }
+  .knob.dark  { width:58px; height:58px; background-image:url("img/desk-knob-tan.png"); box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -6px 10px rgba(0,0,0,0.5), 0 0 0 3px rgba(0,0,0,0.55), 0 6px 12px rgba(0,0,0,0.5); filter: hue-rotate(-17deg) saturate(0.9) brightness(0.42) contrast(1.1); }
+  .knob.cream { width:70px; height:70px; background-image:url("img/desk-knob-tan.png"); box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -6px 10px rgba(0,0,0,0.5), 0 0 0 3px rgba(0,0,0,0.55), 0 6px 12px rgba(0,0,0,0.5); cursor:pointer; filter: saturate(0.9) brightness(0.78); }
+  .knob.utility { width:44px; height:44px; background-image:url("img/desk-knob-tan.png"); box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -6px 10px rgba(0,0,0,0.5), 0 0 0 3px rgba(0,0,0,0.55), 0 4px 10px rgba(0,0,0,0.5); filter: hue-rotate(-17deg) saturate(0.9) brightness(0.42) contrast(1.1); }
+
+  /* Static rim: the same real mockup photo as the cap, non-rotating, so
+     its baked-in highlight can't sweep around (see Nova Desk EQ notes on
+     why the rim has to be a separate layer from the rotating cap). Only
+     red/blue get one - dark/cream/utility are single-image, matching how
+     the tan-based knobs work on Desk EQ (no rim/cap color mismatch to
+     hide there). */
+  .knobRim { position:absolute; left:50%; top:0; border-radius:50%; pointer-events:none; background:center/cover no-repeat; box-shadow:0 2px 4px rgba(0,0,0,0.5); }
+  .knobRim.red  { width:108px; height:108px; margin-left:-54px; top:-6px; background-image:url("img/desk-knob-rim-red.png"); filter: hue-rotate(4deg) saturate(1.05) brightness(0.85) contrast(1.05); }
+  .knobRim.blue { width:74px;  height:74px;  margin-left:-37px; top:-4px; background-image:url("img/desk-knob-rim-teal.png"); filter: brightness(0.72); }
+
+  /* Tick-mark scale ring around the outside of every knob, matching the
+     mockup's printed scale marks - 10 ticks spanning the same 270deg
+     active sweep as the pointer (-135deg..+135deg), leaving the bottom
+     90deg dead zone blank like a real knob. Lives on .knobWrap (via
+     :has(), targeting the knob it contains) rather than on .knob itself,
+     since .knob now rotates and this ring must not. */
+  .knobWrap::before, .footKnob::before {
+    content:""; position:absolute; left:50%; top:0; border-radius:50%; pointer-events:none;
+    background: conic-gradient(from 225deg,
+      rgba(216,196,160,0.85) 0deg 3deg, transparent 3deg 27deg,
+      rgba(216,196,160,0.85) 27deg 30deg, transparent 30deg 57deg,
+      rgba(216,196,160,0.85) 57deg 60deg, transparent 60deg 87deg,
+      rgba(216,196,160,0.85) 87deg 90deg, transparent 90deg 117deg,
+      rgba(216,196,160,0.85) 117deg 120deg, transparent 120deg 147deg,
+      rgba(216,196,160,0.85) 147deg 150deg, transparent 150deg 177deg,
+      rgba(216,196,160,0.85) 177deg 180deg, transparent 180deg 207deg,
+      rgba(216,196,160,0.85) 207deg 210deg, transparent 210deg 237deg,
+      rgba(216,196,160,0.85) 237deg 240deg, transparent 240deg 267deg,
+      rgba(216,196,160,0.85) 267deg 270deg, transparent 270deg 360deg);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+  }
+  .knobWrap:has(> .knob.red):not(:has(> .knob.ticks9))::before { width:110px; height:110px; margin-left:-55px; top:-7px; }
+  .knobWrap:has(> .knob.blue)::before  { width:80px; height:80px; margin-left:-40px; top:-7px; }
+  .knobWrap:has(> .knob.dark)::before  { width:72px; height:72px; margin-left:-36px; top:-7px; }
+  .knobWrap:has(> .knob.cream)::before { width:84px; height:84px; margin-left:-42px; top:-7px; }
+  .knobWrap:has(> .knob.utility)::before { width:54px; height:54px; margin-left:-27px; top:-5px; }
+  /* .footKnob has a label BEFORE the knob (unlike .knobWrap, where the
+     knob is first), so its ring needs to sit lower - offset past the
+     label's rendered height + gap, not just -5px from .footKnob's own
+     top edge. */
+  .footKnob:has(> .knob.utility)::before { width:54px; height:54px; margin-left:-27px; top:10px; }
+
+  /* 9-tick variant, spaced to align exactly with the 9 radial number
+     labels (0-80) on the Input knob - the default ring above uses 10
+     evenly-spaced ticks with no numbers, so reusing it here left the
+     numbers floating between ticks instead of sitting on them. */
+  .knobWrap:has(> .knob.ticks9)::before {
+    width:110px; height:110px; margin-left:-55px; top:-7px;
+    background: conic-gradient(from 225deg,
+      rgba(216,196,160,0.85) 0deg 1.5deg, transparent 1.5deg 32.25deg,
+      rgba(216,196,160,0.85) 32.25deg 35.25deg, transparent 35.25deg 66deg,
+      rgba(216,196,160,0.85) 66deg 69deg, transparent 69deg 99.75deg,
+      rgba(216,196,160,0.85) 99.75deg 102.75deg, transparent 102.75deg 133.5deg,
+      rgba(216,196,160,0.85) 133.5deg 136.5deg, transparent 136.5deg 167.25deg,
+      rgba(216,196,160,0.85) 167.25deg 170.25deg, transparent 170.25deg 201deg,
+      rgba(216,196,160,0.85) 201deg 204deg, transparent 204deg 234.75deg,
+      rgba(216,196,160,0.85) 234.75deg 237.75deg, transparent 237.75deg 268.5deg,
+      rgba(216,196,160,0.85) 268.5deg 271.5deg, transparent 271.5deg 360deg);
+  }
+
+  /* 6-tick variant, spaced to align with the 6 stepped-choice labels
+     (Mid/Low freq, HPF) arranged radially around those knobs. */
+  .knobWrap:has(> .knob.ticks6)::before {
+    background: conic-gradient(from 225deg,
+      rgba(216,196,160,0.85) 0deg 3deg, transparent 3deg 52.5deg,
+      rgba(216,196,160,0.85) 52.5deg 55.5deg, transparent 55.5deg 106.5deg,
+      rgba(216,196,160,0.85) 106.5deg 109.5deg, transparent 109.5deg 160.5deg,
+      rgba(216,196,160,0.85) 160.5deg 163.5deg, transparent 163.5deg 214.5deg,
+      rgba(216,196,160,0.85) 214.5deg 217.5deg, transparent 217.5deg 268.5deg,
+      rgba(216,196,160,0.85) 268.5deg 271.5deg, transparent 271.5deg 360deg);
+  }
+
+  .knobLabel { font-size:9px; letter-spacing:1px; color:var(--cream-dim); margin-top:6px; }
+  .knobValue { font-size:10px; color:var(--gold); font-variant-numeric:tabular-nums; margin-top:1px; min-height:12px; }
+  .knobScale { display:flex; justify-content:space-between; width:100%; font-size:8px; color:var(--cream-dim); margin-top:2px; }
+
+  /* Full radial number ring (0-80), matching the mockup's Input/Preamp
+     Gain knob specifically - the other knobs only print their two
+     endpoint values (handled by .knobScale above), matching the mockup. */
+  /* Sized/positioned per the knob it labels (previously inset:0 worked
+     because these lived INSIDE .knob and inherited its exact box; now
+     they're a sibling in .knobWrap, since .knob itself rotates). */
+  .radialNumbers { position:absolute; left:50%; top:0; pointer-events:none; }
+  .knob.red + .radialNumbers   { width:96px; height:96px; margin-left:-48px; }
+  .knob.dark + .radialNumbers  { width:58px; height:58px; margin-left:-29px; }
+  .knob.cream + .radialNumbers { width:70px; height:70px; margin-left:-35px; }
+  .radialNumbers span { position:absolute; width:28px; margin-left:-14px; margin-top:-6px; text-align:center; font-size:9px; color:var(--cream-dim); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .radialNumbers.clickable span { pointer-events:auto; cursor:pointer; }
+  .radialNumbers span.active { color:var(--gold); font-weight:700; }
+
+  .stepLabels { display:flex; justify-content:space-between; width:112px; font-size:8px; color:var(--cream-dim); margin-top:2px; }
+  .stepLabels .col { display:flex; flex-direction:column; gap:2px; }
+  .stepLabels .col.right { text-align:right; }
+  .stepLabels .active { color:var(--gold); font-weight:700; }
+  .hzLabel { font-size:8px; color:var(--cream-dim); letter-spacing:1px; margin-top:2px; }
+
+  .shelfIcon { width:34px; height:20px; margin:6px 0 2px; opacity:0.6; }
+
+  .phaseBtn {
+    margin-top:16px; width:52px; height:34px; border-radius:4px; border:1px solid #4a3a1a; cursor:pointer;
+    background:#1a1509; color:var(--cream-dim); font-size:9px; font-weight:700; letter-spacing:1px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  }
+  .phaseBtn .dot { width:7px; height:7px; border-radius:50%; background:#3a2810; }
+  .phaseBtn.active { background:radial-gradient(ellipse at 50% 30%, #6a4a1a, #2a1c08); border-color:var(--gold); color:var(--gold); box-shadow:0 0 10px rgba(201,162,39,0.35); }
+  .phaseBtn.active .dot { background:radial-gradient(circle,#ffdd88,#c9a227); box-shadow:0 0 6px rgba(255,210,120,0.8); }
+
+  /* VU meter */
+  .vuMeter { width:112px; height:80px; margin-top:2px; filter:sepia(0.55) saturate(1.6) brightness(0.78) contrast(1.1) hue-rotate(-6deg) drop-shadow(0 3px 6px rgba(0,0,0,0.5)); }
+  .vuTick { stroke:#3a2c18; stroke-width:1.1; }
+  .vuScaleText { font-size:9px; fill:#3a2c18; font-family:Georgia,serif; }
+  .vuRedText { font-size:9px; fill:#8a1f1f; font-family:Georgia,serif; }
+  .vuLabel { font-size:14px; fill:#3a2c18; font-family:Georgia,serif; font-style:italic; opacity:0.85; }
+  .vuNeedle { transform-origin: 105px 138px; transition: transform 0.05s linear; }
+  .vuNeedle .shaft { fill:url(#needleGrad); filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6)); }
+  .vuNeedle .hub { fill:url(#hubGrad); stroke:#0c0a06; stroke-width:0.6; }
+
+  .nova7brand { text-align:center; margin-top:5px; }
+  .nova7brand .n1 { font-size:13px; font-weight:800; letter-spacing:1.5px; }
+  .nova7brand .n1 .seven { color:var(--red); }
+  .nova7brand .n2 { font-size:8px; letter-spacing:2px; color:var(--cream-dim); margin-top:2px; }
+  .nova7brand .n3 { font-family:'Snell Roundhand','Bradley Hand','Brush Script MT',cursive; font-size:14px; font-style:normal; color:var(--gold); margin-top:2px; }
+
+  .characterBox { margin-top:3px; width:100%; text-align:center; }
+  .characterBox .hdr { font-size:9px; letter-spacing:2px; color:var(--gold); margin-bottom:6px; }
+  .characterLabels { display:flex; justify-content:space-between; padding:0 4px; margin-bottom:6px; }
+  .characterLabels .lbl { font-size:8px; letter-spacing:1px; color:var(--cream-dim); cursor:pointer; }
+  .characterLabels .lbl.active { color:var(--gold); font-weight:700; }
+
+  /* Physical 3-position rocker/slide switch, matching the mockup: an
+     inset groove with a raised toggle nub that physically slides between
+     Clean/Classic/Hot, not just three clickable words. */
+  .switchTrack {
+    position:relative; width:120px; height:22px; margin:0 auto;
+    background:linear-gradient(180deg, #0c0a07, #16110b);
+    border-radius:11px; border:1px solid #030201;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.8), inset 0 -1px 0 rgba(255,255,255,0.04);
+    cursor:pointer; touch-action:none;
+  }
+  .switchNub {
+    position:absolute; top:2px; left:2px; width:36px; height:18px; border-radius:9px;
+    background:linear-gradient(180deg, #d8c89a, #a8905c 55%, #7a6438);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.5), 0 0 10px rgba(255,190,60,0.55);
+    transition: left 0.12s ease-out;
+  }
+  .switchNub::after {
+    content:""; position:absolute; inset:5px; border-radius:6px;
+    background:radial-gradient(ellipse at 50% 30%, #ffe4a0, #c9891a);
+    box-shadow:0 0 6px rgba(255,190,60,0.9);
+  }
+
+  /* ── Footer ── */
+  footer {
+    background: linear-gradient(180deg, var(--footer-bg) 0%, #0c0a07 100%);
+    border-top: 2px solid #000;
+    padding: 9px 20px;
+    display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap;
+  }
+  .footerLeft, .footerRight { display:flex; align-items:center; gap:22px; }
+  .footerCenter { flex:1; text-align:center; min-width:200px; }
+  .footerCenter .tag1 { font-size:11px; letter-spacing:4px; color:var(--cream-dim); }
+  .footerCenter .tag1 .dot { color:var(--red); }
+  .footerCenter .tag2 { font-size:8px; letter-spacing:1.5px; color:#6a5c48; margin-top:4px; }
+
+  .osBtn { display:flex; flex-direction:column; align-items:center; gap:5px; }
+  .osBtn .lbl { font-size:8px; letter-spacing:1px; color:var(--cream-dim); }
+  .osBtn button { background:#1a1510; border:1px solid #3a3025; color:var(--gold); font-size:11px; font-weight:700; padding:5px 10px; border-radius:4px; cursor:pointer; min-width:34px; }
+  .osBtn button:active { background:#241d15; }
+
+  .footKnob { display:flex; flex-direction:column; align-items:center; gap:5px; position:relative; }
+  .footKnob .lbl { font-size:8px; letter-spacing:1px; color:var(--cream-dim); }
+
+  .bypassBtn { width:60px; height:40px; border-radius:5px; border:1px solid #4a3a1a; background:#1a1509; color:var(--cream-dim); font-size:9px; font-weight:700; letter-spacing:1px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; }
+  .bypassBtn .dot { width:7px; height:7px; border-radius:50%; background:#3a2810; }
+  .bypassBtn.active { background:radial-gradient(ellipse at 50% 30%,#8a2020,#3a1010); border-color:var(--red); color:#ffb0b0; }
+  .bypassBtn.active .dot { background:radial-gradient(circle,#ff8080,#c02020); box-shadow:0 0 6px rgba(255,80,80,0.8); }
+
+  #note { position:fixed; bottom:2px; right:6px; font-size:8px; color:#4a4030; letter-spacing:0.5px; }
+</style>
+</head>
+<body>
+<div id="stageOuter">
+<div id="app">
+  <div class="wood"></div>
+  <div id="chassis">
+
+    <header>
+      <div class="brand">
+        <div class="name">NOVA <span class="seven">7EVEN</span></div>
+        <div class="sub">CLASS-A PREAMP &amp; EQ</div>
+      </div>
+
+      <div class="presetBar">
+        <button>&#9664;</button>
+        <span class="name">Default Vintage 7even</span>
+        <button>&#9654;</button>
+      </div>
+
+      <div class="headerRight">
+        <button class="abBtn" id="abBtnA">A</button>
+        <button class="abBtn" id="abBtnB">B</button>
+        <button class="chromeBtn">SAVE</button>
+        <div class="menuIcon">&#9776;</div>
+      </div>
+
+      <div class="novaAudio">NOVA<span class="aud">AUDIO</span></div>
+    </header>
+
+    <div id="panel">
+
+      <div class="section input">
+        <div class="screwRow top"><div class="screw"></div><div class="screw"></div></div>
+        <div class="olLed" id="olLed"></div>
+        <div class="olLabel">OL</div>
+        <div class="secTitle">INPUT</div>
+        <div class="secSub" style="margin-bottom:34px;">PREAMP GAIN</div>
+        <div class="knobWrap">
+          <div class="knobRim red"></div>
+          <div class="knob red ticks9" data-param="input_trim" data-min="-20" data-max="24"></div>
+          <div class="radialNumbers">
+            <span style="left:calc(50% + -46px); top:calc(50% + 46px);">0</span>
+            <span style="left:calc(50% + -64px); top:calc(50% + 13px);">10</span>
+            <span style="left:calc(50% + -60px); top:calc(50% + -25px);">20</span>
+            <span style="left:calc(50% + -36px); top:calc(50% + -54px);">30</span>
+            <span style="left:calc(50% + 0px); top:calc(50% + -65px);">40</span>
+            <span style="left:calc(50% + 36px); top:calc(50% + -54px);">50</span>
+            <span style="left:calc(50% + 60px); top:calc(50% + -25px);">60</span>
+            <span style="left:calc(50% + 64px); top:calc(50% + 13px);">70</span>
+            <span style="left:calc(50% + 46px); top:calc(50% + 46px);">80</span>
+          </div>
+          <div class="knobValue" id="disp_input_trim"></div>
+          <div class="knobLabel">dB</div>
+        </div>
+        <div class="screwRow bottom"><div class="screw"></div><div class="screw"></div></div>
+      </div>
+
+      <div class="section high">
+        <div class="screwRow top"><div class="screw"></div><div class="screw"></div></div>
+        <div class="secTitle">HIGH</div>
+        <div class="secSub">SHELF</div>
+        <div class="knobWrap">
+          <div class="knobRim blue"></div>
+          <div class="knob blue" data-param="high_shelf_gain" data-min="-15" data-max="15"></div>
+          <div class="knobScale" style="width:66px;"><span>-15</span><span>+15</span></div>
+          <div class="knobValue" id="disp_high_shelf_gain"></div>
+          <div class="knobLabel">dB</div>
+        </div>
+        <svg class="shelfIcon" viewBox="0 0 34 20"><path d="M2 4 L14 4 L26 16 L32 16" stroke="#cbb99a" stroke-width="1.5" fill="none"/></svg>
+        <div class="hzLabel">12 kHz</div>
+        <div class="screwRow bottom"><div class="screw"></div><div class="screw"></div></div>
+      </div>
+
+      <div class="section mid">
+        <div class="screwRow top"><div class="screw"></div><div class="screw"></div></div>
+        <div class="secTitle">MID</div>
+        <div class="secSub" style="margin-bottom:23px;">FREQ</div>
+        <div class="knobWrap">
+          <div class="knob dark ticks6" data-param="mid_freq" data-choice="1" data-choices="110,220,360,700,1600,3200" data-labels="110,220,360,700,1.6k,3.2k"></div>
+          <div class="radialNumbers clickable" id="labels_mid_freq">
+            <span data-i="0" style="left:calc(50% + -31px); top:calc(50% + 31px);">110</span>
+            <span data-i="1" style="left:calc(50% + -43px); top:calc(50% + -7px);">220</span>
+            <span data-i="2" style="left:calc(50% + -20px); top:calc(50% + -39px);">360</span>
+            <span data-i="3" style="left:calc(50% + 20px); top:calc(50% + -39px);">700</span>
+            <span data-i="4" style="left:calc(50% + 43px); top:calc(50% + -7px);">1.6k</span>
+            <span data-i="5" style="left:calc(50% + 31px); top:calc(50% + 31px);">3.2k</span>
+          </div>
+          <div class="hzLabel">Hz</div>
+        </div>
+        <div class="secSub" style="margin-top:14px; margin-bottom:8px;">GAIN</div>
+        <div class="knobWrap">
+          <div class="knobRim blue"></div>
+          <div class="knob blue" data-param="mid_gain" data-min="-15" data-max="15"></div>
+          <div class="knobScale" style="width:66px;"><span>-15</span><span>+15</span></div>
+          <div class="knobValue" id="disp_mid_gain"></div>
+          <div class="knobLabel">dB</div>
+        </div>
+        <div class="screwRow bottom"><div class="screw"></div><div class="screw"></div></div>
+      </div>
+
+      <div class="section low">
+        <div class="screwRow top"><div class="screw"></div><div class="screw"></div></div>
+        <div class="secTitle">LOW</div>
+        <div class="secSub" style="margin-bottom:23px;">FREQ</div>
+        <div class="knobWrap">
+          <div class="knob dark ticks6" data-param="low_freq" data-choice="1" data-choices="35,60,110,220,360,700" data-labels="35,60,110,220,360,700"></div>
+          <div class="radialNumbers clickable" id="labels_low_freq">
+            <span data-i="0" style="left:calc(50% + -31px); top:calc(50% + 31px);">35</span>
+            <span data-i="1" style="left:calc(50% + -43px); top:calc(50% + -7px);">60</span>
+            <span data-i="2" style="left:calc(50% + -20px); top:calc(50% + -39px);">110</span>
+            <span data-i="3" style="left:calc(50% + 20px); top:calc(50% + -39px);">220</span>
+            <span data-i="4" style="left:calc(50% + 43px); top:calc(50% + -7px);">360</span>
+            <span data-i="5" style="left:calc(50% + 31px); top:calc(50% + 31px);">700</span>
+          </div>
+          <div class="hzLabel">Hz</div>
+        </div>
+        <div class="secSub" style="margin-top:14px; margin-bottom:8px;">GAIN</div>
+        <div class="knobWrap">
+          <div class="knobRim blue"></div>
+          <div class="knob blue" data-param="low_gain" data-min="-15" data-max="15"></div>
+          <div class="knobScale" style="width:66px;"><span>-15</span><span>+15</span></div>
+          <div class="knobValue" id="disp_low_gain"></div>
+          <div class="knobLabel">dB</div>
+        </div>
+        <div class="screwRow bottom"><div class="screw"></div><div class="screw"></div></div>
+      </div>
+
+      <div class="section hpf">
+        <div class="screwRow top"><div class="screw"></div><div class="screw"></div></div>
+        <div class="secTitle">HPF</div>
+        <div class="secSub" style="margin-bottom:24px;">HIGH PASS</div>
+        <div class="knobWrap">
+          <div class="knob cream ticks6" data-param="hpf_freq" data-choice="1" data-choices="0,1,2,3,4,5" data-labels="Off,20,50,80,160,300"></div>
+          <div class="radialNumbers clickable" id="labels_hpf_freq">
+            <span data-i="0" style="left:calc(50% + -37px); top:calc(50% + 37px);">Off</span>
+            <span data-i="1" style="left:calc(50% + -51px); top:calc(50% + -8px);">20</span>
+            <span data-i="2" style="left:calc(50% + -24px); top:calc(50% + -46px);">50</span>
+            <span data-i="3" style="left:calc(50% + 24px); top:calc(50% + -46px);">80</span>
+            <span data-i="4" style="left:calc(50% + 51px); top:calc(50% + -8px);">160</span>
+            <span data-i="5" style="left:calc(50% + 37px); top:calc(50% + 37px);">300</span>
+          </div>
+          <div class="hzLabel">Hz</div>
+        </div>
+        <button class="phaseBtn" id="phaseBtn"><span class="dot"></span>&#216; IN</button>
+        <div class="screwRow bottom"><div class="screw"></div><div class="screw"></div></div>
+      </div>
+
+      <div class="section output">
+        <div class="screwRow top"><div class="screw"></div><div class="screw"></div></div>
+        <div class="secTitle">OUTPUT</div>
+        <div class="secSub">OUTPUT LEVEL</div>
+        <div class="knobWrap">
+          <div class="knobRim red"></div>
+          <div class="knob red" data-param="output_trim" data-min="-15" data-max="15"></div>
+          <div class="knobScale" style="width:96px;"><span>-15</span><span>+15</span></div>
+          <div class="knobValue" id="disp_output_trim"></div>
+          <div class="knobLabel">dB</div>
+        </div>
+
+        <svg class="vuMeter" viewBox="0 0 210 150">
+          <defs>
+            <clipPath id="vuFaceClip"><rect x="8" y="8" width="194" height="134" rx="4"/></clipPath>
+            <radialGradient id="vuVignette" cx="50%" cy="58%" r="72%">
+              <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+              <stop offset="72%" stop-color="#000" stop-opacity="0"/>
+              <stop offset="100%" stop-color="#000" stop-opacity="0.38"/>
+            </radialGradient>
+            <linearGradient id="vuSheen" x1="0%" y1="0%" x2="70%" y2="100%">
+              <stop offset="0%" stop-color="#fff" stop-opacity="0.22"/>
+              <stop offset="35%" stop-color="#fff" stop-opacity="0.04"/>
+              <stop offset="60%" stop-color="#fff" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="bezelGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#3a3228"/>
+              <stop offset="12%" stop-color="#161310"/>
+              <stop offset="88%" stop-color="#0c0a08"/>
+              <stop offset="100%" stop-color="#241f18"/>
+            </linearGradient>
+            <linearGradient id="needleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#c23030"/>
+              <stop offset="70%" stop-color="#7a1c1c"/>
+              <stop offset="100%" stop-color="#4a1414"/>
+            </linearGradient>
+            <radialGradient id="hubGrad" cx="35%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#8a8072"/>
+              <stop offset="55%" stop-color="#3a342a"/>
+              <stop offset="100%" stop-color="#161310"/>
+            </radialGradient>
+          </defs>
+
+          <rect x="1" y="1" width="208" height="148" rx="7" fill="url(#bezelGrad)" stroke="#000" stroke-width="1"/>
+          <image href="img/vu-face.jpg" x="8" y="8" width="194" height="134" preserveAspectRatio="xMidYMid slice" clip-path="url(#vuFaceClip)"/>
+          <path d="M 25 100 A 80 80 0 0 1 185 100" fill="none" stroke="#5a4c34" stroke-width="1" opacity="0.7" clip-path="url(#vuFaceClip)"/>
+
+          <g class="vuTick" clip-path="url(#vuFaceClip)">
+            <line x1="38.8" y1="77.2" x2="29.4" y2="73.9"/>
+            <line x1="48.2" y1="59.1" x2="40.1" y2="53.3"/>
+            <line x1="60.8" y1="45.7" x2="54.5" y2="38.0"/>
+            <line x1="76.9" y1="35.9" x2="72.9" y2="26.7"/>
+            <line x1="96.7" y1="30.5" x2="95.5" y2="20.6"/>
+            <line x1="100.0" y1="30.2" x2="99.3" y2="20.2"/>
+            <line x1="125.4" y1="33.0" x2="128.3" y2="23.5"/>
+            <line x1="143.5" y1="41.5" x2="149.0" y2="33.2"/>
+            <line x1="159.1" y1="55.6" x2="166.8" y2="49.2"/>
+          </g>
+
+          <g font-family="Georgia,serif" clip-path="url(#vuFaceClip)">
+            <text x="18" y="70" class="vuScaleText">-20</text>
+            <text x="30" y="46" class="vuScaleText">-7</text>
+            <text x="48" y="30" class="vuScaleText">-5</text>
+            <text x="70" y="20" class="vuScaleText">-3</text>
+            <text x="86" y="15" class="vuScaleText">-1</text>
+            <text x="102" y="34" class="vuScaleText" font-style="italic" font-size="11">0</text>
+            <text x="130" y="18" class="vuRedText">+1</text>
+            <text x="155" y="24" class="vuRedText">+2</text>
+            <text x="178" y="40" class="vuRedText">+3</text>
+          </g>
+          <text x="70" y="118" class="vuLabel" clip-path="url(#vuFaceClip)">VU</text>
+
+          <g class="vuNeedle" id="vuNeedle">
+            <polygon class="shaft" points="105,138 103.1,102 104.3,36 105,32 105.7,36 106.9,102"/>
+          </g>
+          <circle cx="105" cy="138" r="5.5" class="hub"/>
+          <circle cx="103.3" cy="136.3" r="1.6" fill="#c8bfa8" opacity="0.75"/>
+
+          <rect x="8" y="8" width="194" height="134" rx="4" fill="url(#vuVignette)" clip-path="url(#vuFaceClip)"/>
+          <rect x="8" y="8" width="194" height="134" rx="4" fill="url(#vuSheen)" clip-path="url(#vuFaceClip)"/>
+
+          <circle cx="12" cy="12" r="2.6" fill="url(#hubGrad)"/>
+          <circle cx="198" cy="12" r="2.6" fill="url(#hubGrad)"/>
+          <circle cx="12" cy="138" r="2.6" fill="url(#hubGrad)"/>
+          <circle cx="198" cy="138" r="2.6" fill="url(#hubGrad)"/>
+        </svg>
+
+        <div class="nova7brand">
+          <div class="n1">NOVA <span class="seven">7EVEN</span></div>
+          <div class="n2">CLASS-A PREAMP &amp; EQ</div>
+          <div class="n3">by Nova Audio</div>
+        </div>
+
+        <div class="characterBox">
+          <div class="hdr">CHARACTER</div>
+          <div class="characterLabels" id="characterLabels">
+            <span class="lbl" data-i="0">CLEAN</span>
+            <span class="lbl" data-i="1">CLASSIC</span>
+            <span class="lbl" data-i="2">HOT</span>
+          </div>
+          <div class="switchTrack" id="characterSwitch">
+            <div class="switchNub" id="characterNub"></div>
+          </div>
+        </div>
+        <div class="screwRow bottom"><div class="screw"></div><div class="screw"></div></div>
+      </div>
+
+    </div>
+
+    <footer>
+      <div class="footerLeft">
+        <div class="osBtn">
+          <span class="lbl">OVERSAMPLE</span>
+          <button id="osBtn">2x</button>
+        </div>
+        <div class="footKnob">
+          <span class="lbl">INPUT TRIM</span>
+          <div class="knob utility" data-param="preamp_gain" data-min="0" data-max="10" data-display-min="-6" data-display-max="6"></div>
+          <div class="knobScale" style="width:44px;"><span>-6</span><span>+6</span></div>
+          <span class="lbl">dB</span>
+        </div>
+      </div>
+
+      <div class="footerCenter">
+        <div class="tag1">VINTAGE <span class="dot">&bull;</span> MUSICAL <span class="dot">&bull;</span> TIMELESS</div>
+        <div class="tag2">&mdash; INSPIRED BY CLASSIC BRITISH DESIGN &mdash;</div>
+      </div>
+
+      <div class="footerRight">
+        <div class="footKnob">
+          <span class="lbl">MIX</span>
+          <div class="knob utility" data-param="mix" data-min="0" data-max="100"></div>
+          <div class="knobScale" style="width:44px;"><span>DRY</span><span>WET</span></div>
+        </div>
+        <div class="footKnob">
+          <span class="lbl">OUT TRIM</span>
+          <div class="knob utility" data-param="output_trim" data-min="-15" data-max="15" data-display-min="-6" data-display-max="6"></div>
+          <div class="knobScale" style="width:44px;"><span>-6</span><span>+6</span></div>
+          <span class="lbl">dB</span>
+        </div>
+        <button class="bypassBtn" id="bypassBtn"><span class="dot"></span>BYPASS</button>
+      </div>
+    </footer>
+
+  </div>
+  <div class="wood"></div>
+</div>
+</div>
+<div id="note">v0.1 &mdash; wood/faceplate textures AI-generated; knobs/switches are CSS/SVG</div>
+<script type="module" src="js/index.js"></script>
+</body>
+</html>

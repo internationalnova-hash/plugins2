@@ -35,9 +35,14 @@
       color: var(--text-main);
     }
 
+    /* place-content (not just place-items) is required: a fixed-size
+       #stage makes body's implicit grid track auto-size to match it, so
+       place-items alone centers within that same-sized track (no visible
+       effect) - place-content centers the track itself in the viewport. */
     body {
       display: grid;
       place-items: center;
+      place-content: center;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       text-rendering: optimizeLegibility;
@@ -45,8 +50,9 @@
 
     .plugin {
       position: relative;
-      width: min(980px, calc(100vw - 8px));
-      height: min(620px, calc(100vh - 8px));
+      width: 980px;
+      height: 620px;
+      transform-origin: center center;
       border-radius: 34px;
       background:
         linear-gradient(180deg, rgba(8, 10, 12, 0.98) 0%, rgba(4, 5, 6, 0.99) 100%),
@@ -655,7 +661,7 @@
   </style>
 </head>
 <body>
-  <div class="plugin">
+  <div class="plugin" id="stage">
     <div class="header">
       <div class="title-block">
         <div class="nova-header">
@@ -1284,7 +1290,7 @@
         if (event && event.preventDefault) event.preventDefault();
 
         const { paramId, min, max, startY, startValue } = activeDrag;
-        const delta = startY - getClientY(event);
+        const delta = (startY - getClientY(event)) / (window.__novaToneScale || 1);
         const nextValue = clamp(startValue + (delta * (max - min) * 0.005), min, max);
         setKnobVisual(paramId, nextValue);
         pushParameter(paramId, nextValue);
@@ -1567,6 +1573,25 @@
         bootUi();
       }
     }());
+
+    // ---- stage scale-to-fit (same technique as Nova Tape/Nova Pitch) ----
+    (function () {
+      let lastW = -1, lastH = -1;
+      function fitStage() {
+        const w = document.documentElement.clientWidth || window.innerWidth || 0;
+        const h = document.documentElement.clientHeight || window.innerHeight || 0;
+        if (w <= 0 || h <= 0) return;
+        if (w === lastW && h === lastH) return;
+        lastW = w; lastH = h;
+        const scale = Math.min(w / 980, h / 620);
+        window.__novaToneScale = scale || 1;
+        const stage = document.getElementById("stage");
+        if (stage) stage.style.transform = `scale(${scale})`;
+      }
+      fitStage();
+      window.addEventListener("resize", fitStage);
+      setInterval(fitStage, 300);
+    })();
   </script>
 </body>
 </html>

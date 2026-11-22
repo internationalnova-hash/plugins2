@@ -31,6 +31,12 @@ private:
     juce::WebSliderRelay finishModeRelay { ParameterIDs::finishMode };
     juce::WebSliderRelay modePresetRelay { ParameterIDs::modePreset };
     juce::WebSliderRelay meterViewRelay { ParameterIDs::meterView };
+    juce::WebSliderRelay bypassRelay { ParameterIDs::bypass };
+    juce::WebSliderRelay toneBypassRelay { ParameterIDs::toneBypass };
+    juce::WebSliderRelay glueBypassRelay { ParameterIDs::glueBypass };
+    juce::WebSliderRelay weightBypassRelay { ParameterIDs::weightBypass };
+    juce::WebSliderRelay airBypassRelay { ParameterIDs::airBypass };
+    juce::WebSliderRelay widthBypassRelay { ParameterIDs::widthBypass };
 
     struct SinglePageBrowser : juce::WebBrowserComponent
     {
@@ -54,6 +60,12 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> finishModeAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> modePresetAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> meterViewAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> bypassAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> toneBypassAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> glueBypassAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> weightBypassAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> airBypassAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> widthBypassAttachment;
 
     std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
     static juce::WebBrowserComponent::Options createWebOptions (NovaMasterAudioProcessorEditor& editor);

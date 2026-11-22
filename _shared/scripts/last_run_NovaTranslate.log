@@ -1,0 +1,683 @@
+==> [Nova Translate 1/7] Configuring Release build
+-- The C compiler identification is AppleClang 21.0.0.21000101
+-- The CXX compiler identification is AppleClang 21.0.0.21000101
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring juceaide
+-- Building juceaide
+-- Exporting juceaide
+-- Testing juceaide
+-- Finished setting up juceaide
+-- Nova Translate: Building for VST3;AU;AAX;Standalone
+-- Nova Translate: WebView backend: WKWebView
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Configuring done (65.7s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/internationalnova/Nova/plugins2/Nova Translate/build-release
+==> [Nova Translate 2/7] Building VST3 + AU + Standalone (via NovaTranslate_All)
+[  1%] Generating juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData3.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData4.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData5.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData6.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData7.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData8.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData9.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData10.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData11.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData12.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData13.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData14.cpp, juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData.h
+[  2%] Building CXX object CMakeFiles/juce_vst3_helper.dir/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.mm.o
+[  3%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData2.cpp.o
+[  4%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData4.cpp.o
+[  6%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData1.cpp.o
+[  7%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData3.cpp.o
+[  8%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData6.cpp.o
+[  9%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData5.cpp.o
+[ 11%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData7.cpp.o
+[ 11%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData8.cpp.o
+[ 12%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData9.cpp.o
+[ 13%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData10.cpp.o
+[ 14%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData11.cpp.o
+[ 16%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData12.cpp.o
+[ 17%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData13.cpp.o
+[ 18%] Building CXX object CMakeFiles/NovaTranslate_WebUI.dir/juce_binarydata_NovaTranslate_WebUI/JuceLibraryCode/BinaryData14.cpp.o
+[ 19%] Linking CXX static library libNovaTranslate_WebUI.a
+[ 19%] Built target NovaTranslate_WebUI
+[ 19%] Building CXX object CMakeFiles/NovaTranslate.dir/Source/PluginProcessor.cpp.o
+[ 20%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o
+[ 22%] Building CXX object CMakeFiles/NovaTranslate.dir/Source/PluginProcessorCore.cpp.o
+[ 23%] Building CXX object CMakeFiles/NovaTranslate.dir/Source/PluginEditor.cpp.o
+[ 24%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o
+[ 25%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm.o
+[ 27%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm.o
+[ 28%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm.o
+[ 29%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginEditor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessorCore.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessorCore.h:10:
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:430:53: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  430 |             const float tapTimeFrac = (t + 1.0f) / (numTaps + 1.0f);
+      |                                                     ^~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:430:40: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  430 |             const float tapTimeFrac = (t + 1.0f) / (numTaps + 1.0f);
+      |                                        ^ ~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:447:104: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  447 |             const float lpCoeff = juce::jlimit (0.05f, 0.85f, 0.85f - 0.7f * (static_cast<float> (i) / numSamples));
+      |                                                                                                      ~ ^~~~~~~~~~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessorCore.cpp:383:112: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  383 |                 const auto t = juce::jlimit (0.0f, 1.0f, crossfadeProgress + (step * (static_cast<float> (i) / numSamples)));
+      |                                                                                                              ~ ^~~~~~~~~~
+4 warnings generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.cpp:57:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:55:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginEditor.h:5:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:5:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessorCore.h:10:
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:430:53: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  430 |             const float tapTimeFrac = (t + 1.0f) / (numTaps + 1.0f);
+      |                                                     ^~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:430:40: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  430 |             const float tapTimeFrac = (t + 1.0f) / (numTaps + 1.0f);
+      |                                        ^ ~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:447:104: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  447 |             const float lpCoeff = juce::jlimit (0.05f, 0.85f, 0.85f - 0.7f * (static_cast<float> (i) / numSamples));
+      |                                                                                                      ~ ^~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:5:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessorCore.h:10:
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:430:53: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  430 |             const float tapTimeFrac = (t + 1.0f) / (numTaps + 1.0f);
+      |                                                     ^~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:430:40: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  430 |             const float tapTimeFrac = (t + 1.0f) / (numTaps + 1.0f);
+      |                                        ^ ~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:447:104: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  447 |             const float lpCoeff = juce::jlimit (0.05f, 0.85f, 0.85f - 0.7f * (static_cast<float> (i) / numSamples));
+      |                                                                                                      ~ ^~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:67:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:62:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:29:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[19], juce::NormalisableRange<float>, float, const char (&)[2], juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:36:9), 0>' requested here
+   29 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:67:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:62:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:48:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[12], juce::NormalisableRange<float>, float, const char (&)[2], juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:55:9), 0>' requested here
+   48 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:67:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:62:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:57:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[17], juce::NormalisableRange<float>, float, const char (&)[2], juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:64:9), 0>' requested here
+   57 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:67:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:62:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:66:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[13], juce::NormalisableRange<float>, float, const char (&)[2], juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:73:9), 0>' requested here
+   66 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:67:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:62:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:81:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[12], juce::NormalisableRange<float>, float, const char (&)[3], juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:88:9), 0>' requested here
+   81 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessorCore.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessorCore.h:10:
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:430:53: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  430 |             const float tapTimeFrac = (t + 1.0f) / (numTaps + 1.0f);
+      |                                                     ^~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:430:40: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  430 |             const float tapTimeFrac = (t + 1.0f) / (numTaps + 1.0f);
+      |                                        ^ ~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:447:104: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  447 |             const float lpCoeff = juce::jlimit (0.05f, 0.85f, 0.85f - 0.7f * (static_cast<float> (i) / numSamples));
+      |                                                                                                      ~ ^~~~~~~~~~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessorCore.cpp:383:112: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  383 |                 const auto t = juce::jlimit (0.0f, 1.0f, crossfadeProgress + (step * (static_cast<float> (i) / numSamples)));
+      |                                                                                                              ~ ^~~~~~~~~~
+4 warnings generated.
+9 warnings generated.
+4 warnings generated.
+[ 29%] Building C object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Sheenbidi.c.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:189:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: warning: enumeration value 'NSEventTypeMouseCancelled' not explicitly handled in switch [-Wswitch-enum]
+ 1916 |         switch ([e type])
+      |                 ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: note: add missing switch cases
+ 1916 |         switch ([e type])
+      |                 ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginEditor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+[ 30%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_graphics/juce_graphics.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginEditor.h:5:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:5:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessorCore.h:10:
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:430:53: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  430 |             const float tapTimeFrac = (t + 1.0f) / (numTaps + 1.0f);
+      |                                                     ^~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:430:40: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  430 |             const float tapTimeFrac = (t + 1.0f) / (numTaps + 1.0f);
+      |                                        ^ ~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:447:104: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  447 |             const float lpCoeff = juce::jlimit (0.05f, 0.85f, 0.85f - 0.7f * (static_cast<float> (i) / numSamples));
+      |                                                                                                      ~ ^~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:5:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessorCore.h:10:
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:430:53: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  430 |             const float tapTimeFrac = (t + 1.0f) / (numTaps + 1.0f);
+      |                                                     ^~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:430:40: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  430 |             const float tapTimeFrac = (t + 1.0f) / (numTaps + 1.0f);
+      |                                        ^ ~
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/EnvironmentProfiles.hpp:447:104: warning: implicit conversion from 'const int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  447 |             const float lpCoeff = juce::jlimit (0.05f, 0.85f, 0.85f - 0.7f * (static_cast<float> (i) / numSamples));
+      |                                                                                                      ~ ^~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:67:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:62:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:29:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[19], juce::NormalisableRange<float>, float, const char (&)[2], juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:36:9), 0>' requested here
+   29 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:67:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:62:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:48:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[12], juce::NormalisableRange<float>, float, const char (&)[2], juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:55:9), 0>' requested here
+   48 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:67:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:62:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:57:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[17], juce::NormalisableRange<float>, float, const char (&)[2], juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:64:9), 0>' requested here
+   57 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:67:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:62:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:66:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[13], juce::NormalisableRange<float>, float, const char (&)[2], juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:73:9), 0>' requested here
+   66 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:67:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:62:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:81:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[12], juce::NormalisableRange<float>, float, const char (&)[3], juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Translate/Source/PluginProcessor.cpp:88:9), 0>' requested here
+   81 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+4 warnings generated.
+9 warnings generated.
+[ 32%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_events/juce_events.mm.o
+[ 33%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_core/juce_core_CompilationTime.cpp.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+[ 34%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_core/juce_core.mm.o
+1 warning generated.
+1 warning generated.
+[ 35%] Linking CXX executable juce_vst3_helper
+[ 35%] Built target juce_vst3_helper
+[ 37%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_data_structures/juce_data_structures.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.cpp:57:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+[ 38%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.mm.o
+[ 39%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.h:71:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_audio_formats/juce_audio_formats.mm.o
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm.o
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.cpp:49:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.h:71:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.cpp:49:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 41%] Building CXX object CMakeFiles/NovaTranslate.dir/_deps/juce-src/modules/juce_dsp/juce_dsp.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+2 warnings generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:55:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:189:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: warning: enumeration value 'NSEventTypeMouseCancelled' not explicitly handled in switch [-Wswitch-enum]
+ 1916 |         switch ([e type])
+      |                 ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: note: add missing switch cases
+ 1916 |         switch ([e type])
+      |                 ^
+1 warning generated.
+2 warnings generated.
+[ 43%] Linking CXX static library "NovaTranslate_artefacts/Release/libNova Translate_SharedCode.a"
+[ 43%] Built target NovaTranslate
+[ 46%] Generating NovaTranslate_artefacts/JuceLibraryCode/NovaTranslate_AAX/PkgInfo
+[ 46%] Generating NovaTranslate_artefacts/JuceLibraryCode/NovaTranslate_VST3/PkgInfo
+[ 46%] Generating NovaTranslate_artefacts/JuceLibraryCode/NovaTranslate_Standalone/PkgInfo
+[ 48%] Generating NovaTranslate_artefacts/JuceLibraryCode/NovaTranslate_AU/PkgInfo
+[ 48%] Building CXX object CMakeFiles/NovaTranslate_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 49%] Building CXX object CMakeFiles/NovaTranslate_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 50%] Building CXX object CMakeFiles/NovaTranslate_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 51%] Building CXX object CMakeFiles/NovaTranslate_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 53%] Building CXX object CMakeFiles/NovaTranslate_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 54%] Building CXX object CMakeFiles/NovaTranslate_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 55%] Building CXX object CMakeFiles/NovaTranslate_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 56%] Building CXX object CMakeFiles/NovaTranslate_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 56%] Building CXX object CMakeFiles/NovaTranslate_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 58%] Building CXX object CMakeFiles/NovaTranslate_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 59%] Building CXX object CMakeFiles/NovaTranslate_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 60%] Building CXX object CMakeFiles/NovaTranslate_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 60%] Building CXX object CMakeFiles/NovaTranslate_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 61%] Building CXX object CMakeFiles/NovaTranslate_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 62%] Building CXX object CMakeFiles/NovaTranslate_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 64%] Building CXX object CMakeFiles/NovaTranslate_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 65%] Building CXX object CMakeFiles/NovaTranslate_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 66%] Building CXX object CMakeFiles/NovaTranslate_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 67%] Building CXX object CMakeFiles/NovaTranslate_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 69%] Building CXX object CMakeFiles/NovaTranslate_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 70%] Building CXX object CMakeFiles/NovaTranslate_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+Copying OS X content NovaTranslate_artefacts/Release/Standalone/Nova Translate.app/Contents/Resources/RecentFilesMenuTemplate.nib
+[ 71%] Building CXX object CMakeFiles/NovaTranslate_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 72%] Building CXX object CMakeFiles/NovaTranslate_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 75%] Building CXX object CMakeFiles/NovaTranslate_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 75%] Building CXX object CMakeFiles/NovaTranslate_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 76%] Building CXX object CMakeFiles/NovaTranslate_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 77%] Building CXX object CMakeFiles/NovaTranslate_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 79%] Building CXX object CMakeFiles/NovaTranslate_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 80%] Building CXX object CMakeFiles/NovaTranslate_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 80%] Building CXX object CMakeFiles/NovaTranslate_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 81%] Building CXX object CMakeFiles/NovaTranslate_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 82%] Building CXX object CMakeFiles/NovaTranslate_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 83%] Building CXX object CMakeFiles/NovaTranslate_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 85%] Building CXX object CMakeFiles/NovaTranslate_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 86%] Building CXX object CMakeFiles/NovaTranslate_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 87%] Building CXX object CMakeFiles/NovaTranslate_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 88%] Building CXX object CMakeFiles/NovaTranslate_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 90%] Building CXX object CMakeFiles/NovaTranslate_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 91%] Building CXX object CMakeFiles/NovaTranslate_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 92%] Building CXX object CMakeFiles/NovaTranslate_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 93%] Building CXX object CMakeFiles/NovaTranslate_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 95%] Building CXX object CMakeFiles/NovaTranslate_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 95%] Building CXX object CMakeFiles/NovaTranslate_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 96%] Building CXX object CMakeFiles/NovaTranslate_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp:47:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm:36:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.cpp:41:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp:47:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+1 warning generated.
+[ 97%] Linking CXX executable "NovaTranslate_artefacts/Release/Standalone/Nova Translate.app/Contents/MacOS/Nova Translate"
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm:36:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.cpp:41:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm:71:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 98%] Linking CXX CFBundle shared module "NovaTranslate_artefacts/Release/AAX/Nova Translate.aaxplugin/Contents/MacOS/Nova Translate"
+1 warning generated.
+1 warning generated.
+[100%] Linking CXX CFBundle shared module "NovaTranslate_artefacts/Release/AU/Nova Translate.component/Contents/MacOS/Nova Translate"
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[100%] Linking CXX CFBundle shared module "NovaTranslate_artefacts/Release/VST3/Nova Translate.vst3/Contents/MacOS/Nova Translate"
+[100%] Built target NovaTranslate_AAX
+[100%] Built target NovaTranslate_Standalone
+[100%] Built target NovaTranslate_AU
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/NovaTranslate_artefacts/Release/VST3/Nova Translate.vst3: code object is not signed at all
+-- Replacing invalid signature with ad-hoc signature
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/NovaTranslate_artefacts/Release/VST3/Nova Translate.vst3: replacing existing signature
+removing moduleinfo.json
+creating /Users/internationalnova/Nova/plugins2/Nova Translate/build-release/NovaTranslate_artefacts/Release/VST3/Nova Translate.vst3/Contents/Resources/moduleinfo.json
+[100%] Built target NovaTranslate_VST3
+[100%] Built target NovaTranslate_All
+==> [Nova Translate 3/7] Codesigning bundles (hardened runtime, secure timestamp)
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/NovaTranslate_artefacts/Release/VST3/Nova Translate.vst3: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/NovaTranslate_artefacts/Release/AU/Nova Translate.component: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/NovaTranslate_artefacts/Release/Standalone/Nova Translate.app: replacing existing signature
+==> [Nova Translate 3/7] Verifying codesign
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/NovaTranslate_artefacts/Release/VST3/Nova Translate.vst3: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/NovaTranslate_artefacts/Release/VST3/Nova Translate.vst3: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/NovaTranslate_artefacts/Release/AU/Nova Translate.component: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/NovaTranslate_artefacts/Release/AU/Nova Translate.component: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/NovaTranslate_artefacts/Release/Standalone/Nova Translate.app: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Translate/build-release/NovaTranslate_artefacts/Release/Standalone/Nova Translate.app: satisfies its Designated Requirement
+==> [Nova Translate 4/7] Staging installer root
+==> [Nova Translate 5/7] Building + signing installer package
+pkgbuild: Inferring bundle components from contents of /Users/internationalnova/Nova/plugins2/Nova Translate/dist/pkgroot
+pkgbuild: Adding component at Library/Audio/Plug-Ins/Components/Nova Translate.component
+pkgbuild: Adding component at Library/Audio/Plug-Ins/VST3/Nova Translate.vst3
+pkgbuild: Adding component at Applications/Nova Translate.app
+pkgbuild: Wrote package to /Users/internationalnova/Nova/plugins2/Nova Translate/dist/NovaTranslate-unsigned.pkg
+productsign: using timestamp authority for signature
+productsign: signing product with identity "Developer ID Installer: Giovanni Nova (HSX9N2UQ83)" from keychain /Users/internationalnova/Library/Keychains/login.keychain-db
+productsign: adding certificate "Developer ID Certification Authority"
+productsign: adding certificate "Apple Root CA"
+productsign: Wrote signed product archive to /Users/internationalnova/Nova/plugins2/Nova Translate/dist/NovaTranslate-1.0.0.pkg
+Package "NovaTranslate-1.0.0.pkg":
+   Status: signed by a developer certificate issued by Apple for distribution
+   Signed with a trusted timestamp on: 2026-08-17 00:31:41 +0000
+   Certificate Chain:
+    1. Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+       Expires: 2031-08-10 05:15:34 +0000
+       SHA256 Fingerprint:
+           A5 7B 81 C2 82 10 15 09 6C C2 83 D5 33 A8 40 30 9F FA 53 0A 3B F6 
+           C3 85 80 B2 1E FE FB A6 32 AC
+       ------------------------------------------------------------------------
+    2. Developer ID Certification Authority
+       Expires: 2031-09-17 00:00:00 +0000
+       SHA256 Fingerprint:
+           F1 6C D3 C5 4C 7F 83 CE A4 BF 1A 3E 6A 08 19 C8 AA A8 E4 A1 52 8F 
+           D1 44 71 5F 35 06 43 D2 DF 3A
+       ------------------------------------------------------------------------
+    3. Apple Root CA
+       Expires: 2035-02-09 21:40:36 +0000
+       SHA256 Fingerprint:
+           B0 B1 73 0E CB C7 FF 45 05 14 2C 49 F1 29 5E 6E DA 6B CA ED 7E 2C 
+           68 C5 BE 91 B5 A1 10 01 F0 24
+
+==> [Nova Translate 6/7] Submitting for notarization (this can take a few minutes)
+Conducting pre-submission checks for NovaTranslate-1.0.0.pkg and initiating connection to the Apple notary service...
+Submission ID received
+  id: 04917a31-6638-4901-b9d6-9dd2329a9473
+Successfully uploaded file
+  id: 04917a31-6638-4901-b9d6-9dd2329a9473
+  path: /Users/internationalnova/Nova/plugins2/Nova Translate/dist/NovaTranslate-1.0.0.pkg
+Waiting for processing to complete.
+Current status: In Progress...Current status: In Progress....Current status: In Progress.....Current status: Accepted......Processing complete
+  id: 04917a31-6638-4901-b9d6-9dd2329a9473
+  status: Accepted
+
+==> [Nova Translate 7/7] Stapling notarization ticket
+Processing: /Users/internationalnova/Nova/plugins2/Nova Translate/dist/NovaTranslate-1.0.0.pkg
+Processing: /Users/internationalnova/Nova/plugins2/Nova Translate/dist/NovaTranslate-1.0.0.pkg
+The staple and validate action worked!
+==> [Nova Translate] Final verification
+/Users/internationalnova/Nova/plugins2/Nova Translate/dist/NovaTranslate-1.0.0.pkg: accepted
+source=Notarized Developer ID
+origin=Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+
+Done: /Users/internationalnova/Nova/plugins2/Nova Translate/dist/NovaTranslate-1.0.0.pkg

@@ -62,7 +62,8 @@ NovaConsoleAudioProcessorEditor::NovaConsoleAudioProcessorEditor (NovaConsoleAud
     mixAssistAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("mix_assist"), mixAssistRelay, nullptr);
     sidechainModeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("sidechain_mode"), sidechainModeRelay, nullptr);
 
-    setResizable (false, false);
+    setResizable (true, true);
+    setResizeLimits (650, 430, 1560, 1050);
     // Keep UI scale unchanged; expand editor container so FL Studio/WebView bottom insets do not clip the footer strip.
     setSize (1080, 752);
 
@@ -194,6 +195,18 @@ std::optional<juce::WebBrowserComponent::Resource> NovaConsoleAudioProcessorEdit
         return makeResource (nova_console::index_html,
                              nova_console::index_htmlSize,
                              "text/html");
+
+    if (lowerUrl.contains ("faceplate.jpg"))
+        return makeResource (nova_console::faceplate_jpg, nova_console::faceplate_jpgSize, "image/jpeg");
+
+    if (lowerUrl.contains ("desk-knob-red.png"))
+        return makeResource (nova_console::deskknobred_png, nova_console::deskknobred_pngSize, "image/png");
+
+    if (lowerUrl.contains ("black-knob.png"))
+        return makeResource (nova_console::blackknob_png, nova_console::blackknob_pngSize, "image/png");
+
+    if (lowerUrl.contains ("vu-face.jpg"))
+        return makeResource (nova_console::vuface_jpg, nova_console::vuface_jpgSize, "image/jpeg");
 
     auto resourcePath = url.fromFirstOccurrenceOf (juce::WebBrowserComponent::getResourceProviderRoot(), false, false);
     resourcePath = resourcePath.upToFirstOccurrenceOf ("?", false, false);

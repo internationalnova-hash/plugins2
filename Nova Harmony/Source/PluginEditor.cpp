@@ -6,6 +6,10 @@
 NovaHarmonyAudioProcessorEditor::NovaHarmonyAudioProcessorEditor (NovaHarmonyAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
+    // Relays must exist before createWebOptions() runs, since it reads them.
+    for (int i = 0; i < ParameterIDs::numVoiceLevels; ++i)
+        voiceLevelRelays.push_back (std::make_unique<juce::WebSliderRelay> (ParameterIDs::voiceLevelId (i)));
+
     webView = std::make_unique<SinglePageBrowser> (createWebOptions (*this));
 
     voicesAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::voices), voicesRelay, nullptr);
@@ -18,6 +22,13 @@ NovaHarmonyAudioProcessorEditor::NovaHarmonyAudioProcessorEditor (NovaHarmonyAud
     keyNoteAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::keyNote), keyNoteRelay, nullptr);
     lowLatencyAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::lowLatency), lowLatencyRelay, nullptr);
     qualityModeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::qualityMode), qualityModeRelay, nullptr);
+    soloCoreAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::soloCore), soloCoreRelay, nullptr);
+    soloSupportAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::soloSupport), soloSupportRelay, nullptr);
+    soloTextureAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter (ParameterIDs::soloTexture), soloTextureRelay, nullptr);
+
+    for (int i = 0; i < ParameterIDs::numVoiceLevels; ++i)
+        voiceLevelAttachments.push_back (std::make_unique<juce::WebSliderParameterAttachment> (
+            *processorRef.apvts.getParameter (ParameterIDs::voiceLevelId (i)), *voiceLevelRelays[static_cast<size_t> (i)], nullptr));
 
     addAndMakeVisible (*webView);
 
@@ -25,8 +36,9 @@ NovaHarmonyAudioProcessorEditor::NovaHarmonyAudioProcessorEditor (NovaHarmonyAud
                               + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
-    setSize (1120, 700);
+    setResizable (true, true);
+    setResizeLimits (672, 572, 1680, 1431);
+    setSize (1120, 954);
     startTimerHz (30);
 }
 
@@ -86,7 +98,13 @@ juce::WebBrowserComponent::Options NovaHarmonyAudioProcessorEditor::createWebOpt
                      .withOptionsFrom (editor.keyModeRelay)
                      .withOptionsFrom (editor.keyNoteRelay)
                      .withOptionsFrom (editor.lowLatencyRelay)
-                     .withOptionsFrom (editor.qualityModeRelay);
+                     .withOptionsFrom (editor.qualityModeRelay)
+                     .withOptionsFrom (editor.soloCoreRelay)
+                     .withOptionsFrom (editor.soloSupportRelay)
+                     .withOptionsFrom (editor.soloTextureRelay);
+
+    for (auto& relay : editor.voiceLevelRelays)
+        options = options.withOptionsFrom (*relay);
 
     return options;
 }

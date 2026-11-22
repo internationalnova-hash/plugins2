@@ -85,7 +85,7 @@ void NovaCleanV2AudioProcessor::setCurrentProgram (int) {}
 const juce::String NovaCleanV2AudioProcessor::getProgramName (int) { return {}; }
 void NovaCleanV2AudioProcessor::changeProgramName (int, const juce::String&) {}
 
-void NovaCleanV2AudioProcessor::runNRFrame (NRChannel& ch, float cleanNorm)
+void NovaCleanV2AudioProcessor::runNRFrame (NRChannel& ch, float cleanNorm, float preserveNorm)
 {
     // 1. Build windowed frame from ring buffer
     std::vector<float> fftData (nrFftSize * 2, 0.0f);
@@ -115,6 +115,19 @@ void NovaCleanV2AudioProcessor::runNRFrame (NRChannel& ch, float cleanNorm)
         for (int k = 0; k < nrBins; ++k)
             minMag[k] = std::min (minMag[k], ch.magHistory[f][k]);
 
+    // Bias compensation: the minimum of noiseMinFrames noisy magnitude
+    // samples systematically UNDERESTIMATES the true average noise level
+    // (a well-known property of minimum-statistics noise estimators - see
+    // Martin 2001). Left uncorrected, the tracked "noise floor" sits far
+    // below the real background noise, so the Wiener gain below never
+    // drops much below unity and the plugin barely attenuates real noise
+    // no matter how high Clean is set. This constant was calibrated
+    // against FunctionalDiag.cpp's synthetic-noise measurement (Test 1)
+    // to bring stationary background noise down by >15dB at Clean=100.
+    constexpr float noiseFloorBiasCompensation = 6.0f;
+    for (int k = 0; k < nrBins; ++k)
+        minMag[k] *= noiseFloorBiasCompensation;
+
     if (! ch.noiseFloorInitialized)
     {
         ch.noiseFloor = minMag;
@@ -124,17 +137,57 @@ void NovaCleanV2AudioProcessor::runNRFrame (NRChannel& ch, float cleanNorm)
     {
         for (int k = 0; k < nrBins; ++k)
         {
-            float alpha = (minMag[k] < ch.noiseFloor[k]) ? 0.9f : 0.995f;
+            // Trust downward moves (a quieter gap = real noise-floor info)
+            // quickly; be more cautious on upward moves so sustained loud
+            // signal doesn't get mistaken for a rising noise floor - but
+            // 0.995 (previous value) has a multi-second time constant and
+            // never practically converges. 0.95 still keeps the intended
+            // asymmetry while actually reaching the target in ~1-2s.
+            float alpha = (minMag[k] < ch.noiseFloor[k]) ? 0.9f : 0.95f;
             ch.noiseFloor[k] = alpha * ch.noiseFloor[k] + (1.0f - alpha) * minMag[k];
         }
     }
 
-    // 5. Compute Wiener gain per bin and apply
-    float minGain = juce::jmap (cleanNorm, 0.0f, 1.0f, 0.35f, 0.05f);
+    // 4b. Time-smooth the magnitude estimate before computing SNR. Raw
+    // per-frame magnitude of stationary noise fluctuates wildly (Rayleigh-
+    // distributed) and randomly spikes well above its own average from
+    // frame to frame; comparing that noisy instantaneous value directly
+    // against the noise floor meant real background noise was passing
+    // through almost unattenuated most of the time regardless of the
+    // Clean/Preserve settings. Smoothing first gives a stable signal
+    // estimate, so real noise reliably reads as "at the floor" while a
+    // genuine onset (vocal, transient) still shows a clear sustained rise.
+    if (! ch.smoothedMagInitialized)
+    {
+        ch.smoothedMag = mag;
+        ch.smoothedMagInitialized = true;
+    }
+    else
+    {
+        constexpr float smAlpha = 0.88f;
+        for (int k = 0; k < nrBins; ++k)
+            ch.smoothedMag[k] = smAlpha * ch.smoothedMag[k] + (1.0f - smAlpha) * mag[k];
+    }
+
+    // 5. Compute Wiener gain per bin and apply.
+    // Clean sets how deep the reduction can go (up to -45dB at 100%);
+    // Preserve tempers that depth to protect wanted detail (at 100%
+    // Preserve, only ~35% of the max attenuation is applied). Defaults
+    // (Clean=62, Preserve=72) land close to the old fixed -15.7dB floor,
+    // but pushing Clean up / Preserve down now reaches real, clearly
+    // audible reduction instead of capping out around -26dB.
+    const float maxAttenDb = juce::jmap (cleanNorm, 0.0f, 1.0f, 0.0f, 45.0f);
+    const float protectEase = juce::jmap (preserveNorm, 0.0f, 1.0f, 1.0f, 0.35f);
+    const float minGain = juce::Decibels::decibelsToGain (-(maxAttenDb * protectEase));
+    // Preserve also eases the over-subtraction margin: low Preserve digs
+    // harder into anything near the noise floor (wider margin), high
+    // Preserve is gentler, so its effect is clearly audible even for
+    // content that never reaches the hard floor above.
+    const float oversubtraction = juce::jmap (preserveNorm, 0.0f, 1.0f, 2.2f, 1.2f);
     for (int k = 0; k < nrBins; ++k)
     {
-        float signal2 = mag[k] * mag[k];
-        float noise2  = ch.noiseFloor[k] * ch.noiseFloor[k] * 1.5f;
+        float signal2 = ch.smoothedMag[k] * ch.smoothedMag[k];
+        float noise2  = ch.noiseFloor[k] * ch.noiseFloor[k] * oversubtraction;
         float snr = juce::jmax (0.0f, (signal2 - noise2) / (noise2 + 1e-12f));
         float gain = juce::jmax (minGain, snr / (snr + 1.0f));
         fftData[k * 2]     *= gain;
@@ -152,7 +205,7 @@ void NovaCleanV2AudioProcessor::runNRFrame (NRChannel& ch, float cleanNorm)
     ch.outputWritePos = (ch.outputWritePos + nrHopSize) % (int) ch.outputBuf.size();
 }
 
-void NovaCleanV2AudioProcessor::processNRChannel (NRChannel& ch, const float* in, float* out, int numSamples, float cleanNorm)
+void NovaCleanV2AudioProcessor::processNRChannel (NRChannel& ch, const float* in, float* out, int numSamples, float cleanNorm, float preserveNorm)
 {
     for (int s = 0; s < numSamples; ++s)
     {
@@ -162,7 +215,7 @@ void NovaCleanV2AudioProcessor::processNRChannel (NRChannel& ch, const float* in
         if (ch.samplesSinceHop >= nrHopSize)
         {
             ch.samplesSinceHop = 0;
-            runNRFrame (ch, cleanNorm);
+            runNRFrame (ch, cleanNorm, preserveNorm);
         }
         out[s] = ch.outputBuf[ch.outputReadPos];
         ch.outputBuf[ch.outputReadPos] = 0.0f;
@@ -252,6 +305,12 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     const auto clickSize = static_cast<ClickSize> (static_cast<int> (apvts.getRawParameterValue ("clickSize")->load()));
     const auto freqFocus = static_cast<FrequencyFocus> (static_cast<int> (apvts.getRawParameterValue ("freqFocus")->load()));
     const float cleanNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("clean")->load() / 100.0f);
+    const float preserveNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("preserve")->load() / 100.0f);
+    const float strengthNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("strength")->load() / 100.0f);
+    const float shapeNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("shape")->load() / 100.0f);
+    const bool smartInterpolation = static_cast<int> (apvts.getRawParameterValue ("interpolation")->load()) == Smart;
+    const float vocalProtectNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("vocalProtect")->load() / 100.0f);
+    const float transientGuardNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("transientGuard")->load() / 100.0f);
     const float sensitivityNorm = juce::jlimit (0.0f, 1.0f, apvts.getRawParameterValue ("sensitivity")->load() / 100.0f);
     float paprThreshold = juce::jmap (sensitivityNorm, 0.0f, 1.0f, 7.0f, 2.4f);
     if (mode == Digital)
@@ -268,9 +327,18 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     const float freqScale = (freqFocus == High ? 0.9f : (freqFocus == Mid ? 1.0f : 1.15f));
     hpThreshold *= freqScale;
 
+    // Vocal Protect: raises detection thresholds so sibilance/consonants
+    // (which look click-like to the sidechain) are less likely to false-
+    // trigger and get chewed up as if they were clicks.
+    paprThreshold *= juce::jmap (vocalProtectNorm, 0.0f, 1.0f, 1.0f, 1.7f);
+    hpThreshold *= juce::jmap (vocalProtectNorm, 0.0f, 1.0f, 1.0f, 1.5f);
+
     const int processingDelaySamples = juce::jmax (lookAheadSamples, 6);
     const int paprWindowSamples = juce::jmax (4, static_cast<int> (std::round (0.002 * currentSampleRate)));
-    const int repairWindowSamples = paprWindowSamples;
+    // Transient Guard: shortens the repair segment so a false-positive
+    // near a real transient smears less of it.
+    const int repairWindowSamples = juce::jmax (2, static_cast<int> (std::round (
+        paprWindowSamples * juce::jmap (transientGuardNorm, 0.0f, 1.0f, 1.3f, 0.55f))));
     const int requiredFuture = juce::jmax (processingDelaySamples, repairWindowSamples + paprWindowSamples + 2);
 
     int removedEvents = 0;
@@ -281,9 +349,9 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         juce::AudioBuffer<float> nrOut (channels, numSamples);
         nrOut.clear();
         if (channels >= 1)
-            processNRChannel (nrL, buffer.getReadPointer (0), nrOut.getWritePointer (0), numSamples, cleanNorm);
+            processNRChannel (nrL, buffer.getReadPointer (0), nrOut.getWritePointer (0), numSamples, cleanNorm, preserveNorm);
         if (channels >= 2)
-            processNRChannel (nrR, buffer.getReadPointer (1), nrOut.getWritePointer (1), numSamples, cleanNorm);
+            processNRChannel (nrR, buffer.getReadPointer (1), nrOut.getWritePointer (1), numSamples, cleanNorm, preserveNorm);
         for (int ch = 0; ch < channels; ++ch)
             buffer.copyFrom (ch, 0, nrOut, ch, 0, numSamples);
     }
@@ -350,17 +418,47 @@ void NovaCleanV2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                     state.repairActive = true;
                     state.repairTotal = repairWindowSamples;
                     state.repairIndex = 0;
-                    state.repairP1 = state.rawHistory.empty() ? curr : state.rawHistory.back();
+                    const auto histSize = state.rawHistory.size();
+                    state.repairP1 = histSize > 0 ? state.rawHistory[histSize - 1] : curr;
+                    state.repairP0 = histSize > 1 ? state.rawHistory[histSize - 2] : state.repairP1;
                     const int rightAnchorIndex = juce::jmin (static_cast<int> (state.rawLookAhead.size()) - 1, state.repairTotal + 1);
                     state.repairP2 = state.rawLookAhead[static_cast<size_t> (rightAnchorIndex)];
+                    const int farAnchorIndex = juce::jmin (static_cast<int> (state.rawLookAhead.size()) - 1, rightAnchorIndex + 1);
+                    state.repairP3 = state.rawLookAhead[static_cast<size_t> (farAnchorIndex)];
                     ++removedEvents;
                 }
 
                 if (state.repairActive)
                 {
-                    const float t = static_cast<float> (state.repairIndex + 1)
+                    const float rawT = static_cast<float> (state.repairIndex + 1)
                         / static_cast<float> (juce::jmax (1, state.repairTotal + 1));
-                    repairedOut = state.repairP1 + (state.repairP2 - state.repairP1) * t;
+
+                    // Shape: blends the crossfade curve from linear (SMOOTH)
+                    // toward an eased S-curve (TRANSPARENT) - the eased curve
+                    // is less audible as a "ramp" at the repair boundary.
+                    const float smoothstepT = rawT * rawT * (3.0f - 2.0f * rawT);
+                    const float t = rawT + (smoothstepT - rawT) * shapeNorm;
+
+                    float interpolated;
+                    if (smartInterpolation)
+                    {
+                        // Catmull-Rom cubic through P0..P3 - a smoother,
+                        // more natural reconstruction across the gap than
+                        // a straight line, especially for larger gaps.
+                        const float t2 = t * t, t3 = t2 * t;
+                        interpolated = 0.5f * ((2.0f * state.repairP1)
+                            + (-state.repairP0 + state.repairP2) * t
+                            + (2.0f * state.repairP0 - 5.0f * state.repairP1 + 4.0f * state.repairP2 - state.repairP3) * t2
+                            + (-state.repairP0 + 3.0f * state.repairP1 - 3.0f * state.repairP2 + state.repairP3) * t3);
+                    }
+                    else
+                    {
+                        interpolated = state.repairP1 + (state.repairP2 - state.repairP1) * t;
+                    }
+
+                    // Strength: how much of the interpolated repair actually
+                    // replaces the raw signal (100% = full replacement).
+                    repairedOut = curr + (interpolated - curr) * strengthNorm;
                     removedOut = curr - repairedOut;
 
                     ++state.repairIndex;

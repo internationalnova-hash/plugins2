@@ -408,98 +408,19 @@ private:
 };
 
 // ─── Main Editor ─────────────────────────────────────────────────────────────
-class JuiceGangEditor : public juce::AudioProcessorEditor, public juce::Timer
+class JuiceGangEditor : public juce::AudioProcessorEditor
 {
 public:
     explicit JuiceGangEditor (JuiceGangProcessor&);
     ~JuiceGangEditor() override;
     void paint (juce::Graphics&) override;
     void resized() override;
-    void timerCallback() override;
-    void mouseDown (const juce::MouseEvent& e) override;
 
 private:
-    JuiceGangProcessor& proc;
+    class Content;
+
     JGLookAndFeel laf;
-
-    // Helper: make a labelled knob group
-    void addKnob (juce::Slider& s, juce::Label& lbl, const juce::String& text,
-                  juce::AudioProcessorValueTreeState::SliderAttachment*& att,
-                  const juce::String& paramId);
-
-    // Global bypass
-    juce::TextButton bypassBtn { "BYPASS" };
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAtt;
-
-    // ── Filter ──
-    juce::TextButton filterOnBtn  { "ON" };
-    juce::ComboBox   filterModeBox;
-    juce::Slider     cutoffKnob, resonanceKnob, driveKnob, filterMixKnob, filterOutKnob;
-    juce::Label      cutoffLbl, resonanceLbl, driveLbl, filterMixLbl, filterOutLbl;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>       filterOnAtt;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>     filterModeAtt;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>       cutoffAtt, resonanceAtt, driveAtt, filterMixAtt, filterOutAtt;
-    FilterCurveDisplay filterCurve;
-
-    // ── Delay ──
-    juce::TextButton delayOnBtn { "ON" }, delaySyncBtn { "SYNC" }, pingPongBtn { "PING\nPONG" };
-    juce::ComboBox   delaySyncDivBox;
-    juce::Slider     delayTimeKnob, delayFbKnob, delayLCKnob, delayHCKnob, delayMixKnob;
-    juce::Label      delayTimeLbl, delayFbLbl, delayLCLbl, delayHCLbl, delayMixLbl;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>       delayOnAtt, delaySyncAtt, pingPongAtt;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>     delaySyncDivAtt;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>       delayTimeAtt, delayFbAtt, delayLCAtt, delayHCAtt, delayMixAtt;
-    DelayVisualizer delayVis;
-
-    // ── Reverb ──
-    juce::TextButton reverbOnBtn { "ON" }, freezeBtn { "❄" }, reverbEqOnBtn { "ON" };
-    juce::Slider     revSizeKnob, revDecayKnob, preDelayKnob, revDampKnob, revMixKnob;
-    juce::Label      revSizeLbl, revDecayLbl, preDelayLbl, revDampLbl, revMixLbl;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>    reverbOnAtt, freezeAtt, reverbEqOnAtt;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>    revSizeAtt, revDecayAtt, preDelayAtt, revDampAtt, revMixAtt;
-
-    // Reverb EQ
-    juce::Slider     revLCKnob, revLSKnob, revMidKnob, revHSKnob, revHCKnob;
-    juce::Label      revLCLbl, revLSLbl, revMidLbl, revHSLbl, revHCLbl;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>    revLCAtt, revLSAtt, revMidAtt, revHSAtt, revHCAtt;
-    ReverbEQDisplay  reverbEQCurve;
-
-    // ── LFO ──
-    juce::ComboBox   lfoTargetBox, lfoShapeBox;
-    juce::TextButton lfoSyncBtn { "SYNC" };
-    juce::ComboBox   lfoSyncDivBox;
-    juce::Slider     lfoRateKnob, lfoDepthKnob;
-    juce::Label      lfoRateLbl, lfoDepthLbl;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>  lfoTargetAtt, lfoShapeAtt, lfoSyncDivAtt;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>    lfoSyncAtt;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>    lfoRateAtt, lfoDepthAtt;
-
-    // ── Master ──
-    juce::Slider     masterInKnob, masterMixKnob, masterOutKnob;
-    juce::Label      masterInLbl, masterMixLbl, masterOutLbl;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>    masterInAtt, masterMixAtt, masterOutAtt;
-    VUMeter          vuMeter;
-
-    // ── SIP macro knob ──
-    juce::Slider sipKnob;
-    juce::Label  sipLbl;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> sipAtt;
-
-    // ── Preset browser ──
-    PresetBrowser presetBrowser;
-    int  currentPresetIdx = -1;
-
-    // ── JUICE Button ──
-    juce::TextButton juiceBtn { "JUICE" };
-    float juicePhase   = 0.f;   // 0..1 animation progress
-    bool  juiceActive  = false; // true while transition is running
-    float juiceTimer   = 0.f;   // counts up in timer ticks
-
-    // ── Preset bar ──
-    juce::TextButton prevPresetBtn { "<" }, nextPresetBtn { ">" }, savePresetBtn { "SAVE" }, deletePresetBtn { "DEL" }, presetsBtn { "PRESETS" };
-    juce::Label      presetNameLabel;
-
-    float strawDroop = 0.f;  // 0 = upright (active), 1 = drooped (bypassed)
+    std::unique_ptr<Content> content;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JuiceGangEditor)
 };

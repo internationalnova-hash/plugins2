@@ -22,6 +22,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
+# AAX SDK (Avid Pro Tools format) - shared across plugins, same pattern as
+# the shared NovaLicense module. Mac/Windows only (JUCE's own AAX SDK path
+# function silently no-ops on other platforms).
+if(APPLE OR WIN32)
+    juce_set_aax_sdk_path("${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+endif()
+
 set(PLUGIN_TARGET NovaVoice)
 set(NEEDS_WEBVIEW2 FALSE)
 set(NEEDS_WEB_BROWSER FALSE)
@@ -29,11 +36,11 @@ set(AU_MAIN_TYPE "")
 set(LV2_URI "")
 
 if(WIN32)
-    set(PLUGIN_FORMATS VST3 Standalone)
+    set(PLUGIN_FORMATS VST3 AAX Standalone)
     set(NEEDS_WEBVIEW2 TRUE)
     set(WEBVIEW_BACKEND "WebView2")
 elseif(APPLE)
-    set(PLUGIN_FORMATS VST3 AU Standalone)
+    set(PLUGIN_FORMATS VST3 AU AAX Standalone)
     set(WEBVIEW_BACKEND "WKWebView")
     set(AU_MAIN_TYPE kAudioUnitType_Effect)
 elseif(UNIX)
@@ -53,6 +60,7 @@ juce_add_binary_data(NovaVoice_WebUI
         Source/ui/public/index.html
         Source/ui/public/n_logo.png
         Source/ui/public/js/index.js
+        Source/ui/public/js/fallback-boot.js
         Source/ui/public/js/juce/index.js
         Source/ui/public/js/juce/check_native_interop.js
     NAMESPACE nova_voice_BinaryData
@@ -60,7 +68,7 @@ juce_add_binary_data(NovaVoice_WebUI
 
 juce_add_plugin(${PLUGIN_TARGET}
     COMPANY_NAME "International Nova"
-    COMPANY_WEBSITE "https://noizefield.com"
+    COMPANY_WEBSITE "https://getnovaaudio.com"
     BUNDLE_ID "com.internationalnova.novavoice"
     PLUGIN_MANUFACTURER_CODE Inov
     PLUGIN_CODE NvVc
@@ -69,6 +77,7 @@ juce_add_plugin(${PLUGIN_TARGET}
     NEEDS_WEBVIEW2 ${NEEDS_WEBVIEW2}
     NEEDS_WEB_BROWSER ${NEEDS_WEB_BROWSER}
     VST3_CATEGORIES Fx Filter
+    AAX_CATEGORY Modulation
     AU_MAIN_TYPE ${AU_MAIN_TYPE}
     LV2URI ${LV2_URI}
     IS_SYNTH FALSE
@@ -135,4 +144,48 @@ if(UNIX AND NOT APPLE)
             JUCE_USE_CURL=0
             JUCE_JACK=1
     )
+endif()
+
+# ── Offline diagnostic harness ──────────────────────────────────────────────
+juce_add_console_app(NovaVoiceOfflineDiag
+    COMPANY_NAME "International Nova"
+    BUNDLE_ID "com.internationalnova.novavoice.offlinediag"
+    VERSION ${PROJECT_VERSION}
+)
+
+target_sources(NovaVoiceOfflineDiag PRIVATE
+    Source/OfflineDiag.cpp
+    Source/PluginProcessor.cpp
+    Source/PluginProcessor.h
+    Source/PluginEditor.cpp
+    Source/PluginEditor.h
+)
+
+target_link_libraries(NovaVoiceOfflineDiag PRIVATE
+    NovaVoice_WebUI
+    juce::juce_audio_basics
+    juce::juce_audio_devices
+    juce::juce_audio_formats
+    juce::juce_audio_processors
+    juce::juce_audio_utils
+    juce::juce_core
+    juce::juce_data_structures
+    juce::juce_dsp
+    juce::juce_events
+    juce::juce_graphics
+    juce::juce_gui_basics
+    juce::juce_gui_extra
+    juce::juce_recommended_config_flags
+)
+
+juce_generate_juce_header(NovaVoiceOfflineDiag)
+
+target_compile_definitions(NovaVoiceOfflineDiag PRIVATE
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_WEB_BROWSER=1
+    JucePlugin_Name="NovaVoiceOfflineDiag"
+)
+
+if(APPLE)
+    target_compile_definitions(NovaVoiceOfflineDiag PRIVATE JUCE_USE_CURL=0)
 endif()

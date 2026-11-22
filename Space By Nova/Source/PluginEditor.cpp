@@ -22,7 +22,8 @@ SpaceByNovaAudioProcessorEditor::SpaceByNovaAudioProcessorEditor (SpaceByNovaAud
                               + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
+    setResizable (true, true);
+    setResizeLimits (360, 210, 1200, 700);
     setSize (960, 560);
 }
 

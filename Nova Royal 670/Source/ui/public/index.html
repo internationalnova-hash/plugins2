@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Nova Royal 670</title>
+<style>
+  :root {
+    --gold: #d4af5a; --gold-bright: #e8c877; --gold-dim: #9c8256;
+    --cream: #e8dcc0; --cream-dim: #a89c80;
+    --red: #7a1f1f; --red-bright: #a83030;
+    --bg: #0a0806; --panel: #14100c; --panel-2: #1a1510;
+    --line: #3a3025; --line-bright: #4a3f30;
+    --led-red: #ff3b30; --led-amber: #ffb020; --led-green: #3ad14a;
+  }
+  * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: #000; color: var(--cream);
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    overflow: hidden; -webkit-font-smoothing: antialiased;
+  }
+
+  /* Fixed design canvas, uniformly scaled to fit the actual window size
+     (same technique across the catalog - see Nova Tape's index.html for
+     the rationale). */
+  #stageOuter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #app {
+    width: 1580px; height: 980px; flex: 0 0 auto; transform-origin: center center;
+    background: radial-gradient(120% 90% at 50% -10%, #241d15 0%, var(--bg) 55%);
+    display: flex; flex-direction: column; position: relative;
+    border: 1px solid #000;
+  }
+  /* Worn dark-metal grain, matching the mockup's visibly scuffed/aged
+     panel finish rather than a flat gradient. Stretched as ONE single
+     layer over the whole panel rather than tiled - a repeating small
+     swatch showed as a visible grid of squares (the tile boundaries),
+     which read as a UI bug rather than texture no matter how well the
+     edges were blended, so tiling was dropped entirely in favor of one
+     scaled-up, seam-free layer. */
+  #app::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background-image: url("img/panel-texture.png");
+    background-size: cover; background-repeat: no-repeat; background-position: center;
+    /* "screen" (not "overlay") - the panel background is near-black, and
+       overlay blend leaves dark-on-dark nearly unchanged, which is why an
+       earlier version of this texture was effectively invisible. Screen
+       lightens wherever the grain texture itself is lighter than black,
+       which is exactly what actually shows scuffs/grain against a dark
+       panel. */
+    opacity: 0.5; mix-blend-mode: screen;
+  }
+  #app::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background: repeating-linear-gradient(115deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 4px),
+                radial-gradient(140% 100% at 50% 100%, transparent 55%, rgba(0,0,0,0.35) 100%);
+  }
+  /* :not(.screw) - the #app ID selector here otherwise beats .screw's own
+     class selector and forces position:relative onto it too, silently
+     breaking every screw's absolute corner/divider positioning (they'd
+     fall into normal document flow instead). */
+  #app > *:not(.screw) { position: relative; z-index: 1; }
+
+  /* ---------- Header ---------- */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 24px; height: 100px; background: #0c0906; border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  /* The shared Nova Audio "N" mark used across the catalog (n_logo.png),
+     not the Royal-670-specific "M" medallion - tinted gold via filter
+     since the source asset is flat gray, matching this plugin's palette. */
+  .brand .mark {
+    width: 34px; height: 34px;
+    background: center/contain no-repeat url("img/n_logo.png");
+    filter: brightness(0) saturate(100%) invert(78%) sepia(44%) saturate(487%) hue-rotate(357deg) brightness(97%) contrast(89%)
+            drop-shadow(0 0 6px rgba(212,175,90,0.35));
+  }
+  .brand .name { font-size: 15px; letter-spacing: 2.5px; color: var(--cream-dim); font-weight: 600; }
+  .title { text-align: center; }
+  .title .main { font-size: 38px; letter-spacing: 5px; color: var(--gold-bright); font-weight: 700; text-shadow: 0 0 18px rgba(232,200,119,0.25); }
+  .title .sub { font-size: 13px; letter-spacing: 4px; color: var(--cream-dim); margin-top: 4px; }
+  .presetBar { display: flex; align-items: center; gap: 12px; }
+  .presetBar button, .abBtn, .gearBtn {
+    background: #1a1510; border: 1px solid var(--line-bright); color: var(--cream-dim);
+    border-radius: 5px; font-size: 15px; font-weight: 700; cursor: pointer; padding: 9px 15px;
+  }
+  .presetBar .name { font-size: 16px; color: var(--cream); min-width: 170px; text-align: center; letter-spacing: 0.5px; }
+  .presetBar .navBtn { padding: 9px 13px; }
+  .abBtn.active { border-color: var(--gold); color: var(--gold-bright); background: rgba(212,175,90,0.12); }
+
+  /* ---------- Main rack row ---------- */
+  .mainRow { height: 500px; display: flex; padding: 32px 22px 10px; gap: 0; }
+  .col { display: flex; flex-direction: column; align-items: center; padding: 0 16px; }
+  .colDivider { width: 1px; background: linear-gradient(180deg, transparent, var(--line), transparent); margin: 8px 0; }
+  .colLabel { font-size: 14px; letter-spacing: 1.5px; color: var(--gold); font-weight: 700; margin-bottom: 4px; }
+  .colSubLabel { font-size: 10px; letter-spacing: 1px; color: var(--cream-dim); margin-bottom: 12px; text-transform: uppercase; }
+
+  .knobWrap { position: relative; display: flex; flex-direction: column; align-items: center; margin-bottom: 34px; }
+  .knobWrap .lbl { font-size: 13px; letter-spacing: 1px; color: var(--gold); font-weight: 700; margin-bottom: 8px; text-align: center; }
+  .knobWrap .unit { font-size: 10px; letter-spacing: 1px; color: var(--cream-dim); margin-top: -5px; margin-bottom: 6px; text-transform: uppercase; }
+  .readout {
+    margin-top: 8px; font-size: 13px; color: var(--gold-bright); background: #000;
+    border: 1px solid var(--line); border-radius: 3px; padding: 3px 10px; min-width: 56px; text-align: center;
+  }
+
+  /* Photo-based knobs: red from Nova 7even (desk-knob-red.png), black
+     from the approved Royal 670 asset sheet (black-knob.png - genuinely
+     black already, no recolor filter needed). Each cap photo has its own
+     baked-in pointer and full rim in a single image and rotates directly
+     via the --turn custom property (set by the drag JS) - no separate
+     static rim layer, since a full second knob photo stacked behind the
+     cap read as two overlapping knobs. */
+  .knob {
+    position: relative; border-radius: 50%; cursor: ns-resize; touch-action: none;
+    background: center/cover no-repeat;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -8px 14px rgba(0,0,0,0.55);
+    transform: rotate(var(--turn, -135deg));
+  }
+  .knob.red {
+    background-image: url("img/desk-knob-red.png");
+    filter: hue-rotate(-6deg) saturate(1.1) brightness(0.82) contrast(1.08);
+  }
+  .knob.dark {
+    background-image: url("img/black-knob.png");
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -6px 10px rgba(0,0,0,0.6), 0 0 0 3px rgba(0,0,0,0.55), 0 4px 10px rgba(0,0,0,0.55);
+  }
+  /* Time Constant previously used its own distinct lever-style knob
+     photo, but that asset (like the first black-knob.png) had its tick/
+     bump ring baked into the same rotating image, so the ring visibly
+     spun with the knob instead of staying fixed - it now shares the
+     plain .dark knob art, which has no baked-in ring at all. */
+  .knob.szL.red { width: 104px; height: 104px; }
+  .knob.szM.dark { width: 86px; height: 86px; }
+  .knob.szL.dark { width: 94px; height: 94px; }
+
+  /* Tick-mark scale ring around every knob, matching the mockup's printed
+     scale marks - reused technique from Nova 7even (10 ticks over the
+     same -135deg..+135deg active sweep as the pointer, leaving the bottom
+     90deg dead zone blank like a real knob). Lives on a tight .knobRing
+     wrapper around JUST the knob (not the label/readout stack around it)
+     so its fixed pixel offset always lands relative to the knob itself,
+     regardless of how much label text precedes it in the layout - an
+     earlier version keyed off .knobWrap's own top edge and silently
+     assumed the knob was its first child, which put the ring (and its
+     tick marks) up over the label text once a .lbl/.unit pair was added
+     before the knob. */
+  .knobRing { position: relative; display: inline-block; }
+  .knobRing::before {
+    content: ""; position: absolute; left: 50%; top: -7px; border-radius: 50%; pointer-events: none;
+    background: conic-gradient(from 225deg,
+      rgba(216,196,160,0.85) 0deg 3deg, transparent 3deg 27deg,
+      rgba(216,196,160,0.85) 27deg 30deg, transparent 30deg 57deg,
+      rgba(216,196,160,0.85) 57deg 60deg, transparent 60deg 87deg,
+      rgba(216,196,160,0.85) 87deg 90deg, transparent 90deg 117deg,
+      rgba(216,196,160,0.85) 117deg 120deg, transparent 120deg 147deg,
+      rgba(216,196,160,0.85) 147deg 150deg, transparent 150deg 177deg,
+      rgba(216,196,160,0.85) 177deg 180deg, transparent 180deg 207deg,
+      rgba(216,196,160,0.85) 207deg 210deg, transparent 210deg 237deg,
+      rgba(216,196,160,0.85) 237deg 240deg, transparent 240deg 267deg,
+      rgba(216,196,160,0.85) 267deg 270deg, transparent 270deg 360deg);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+  }
+  .knobRing:has(> .knob.szL.red)::before { width: 118px; height: 118px; margin-left: -59px; }
+  .knobRing:has(> .knob.szM.dark)::before { width: 100px; height: 100px; margin-left: -50px; }
+  .knobRing:has(> .knob.szL.dark)::before { width: 108px; height: 108px; margin-left: -54px; }
+
+  .knobScale { display: flex; justify-content: space-between; width: 76px; font-size: 9px; color: var(--cream-dim); margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .knobWrap:has(> .knobRing > .knob.szL) .knobScale { width: 96px; }
+
+  /* Time Constant selector */
+  .tcSelector { display: flex; gap: 18px; align-items: flex-start; }
+  .tcKnobCol { display: flex; flex-direction: column; align-items: center; }
+  .tcLedList { display: flex; flex-direction: column; gap: 7px; margin-top: 4px; }
+  .tcLedRow { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .tcLedRow .led { width: 7px; height: 7px; border-radius: 50%; background: #3a1010; box-shadow: inset 0 0 2px #000; }
+  .tcLedRow.active .led { background: var(--led-red); box-shadow: 0 0 6px var(--led-red), inset 0 0 2px #500; }
+  .tcLedRow .txt { font-size: 12px; letter-spacing: 0.5px; color: var(--cream-dim); }
+  .tcLedRow.active .txt { color: var(--cream); }
+  .nameplate {
+    margin-top: 12px; padding: 8px 16px;
+    text-align: center; background: center/100% 100% no-repeat url("img/nameplate-dark.png");
+  }
+  .nameplate .l1 { font-size: 12px; letter-spacing: 1.5px; color: var(--gold); font-weight: 700; }
+  .nameplate .l2 { font-size: 10px; letter-spacing: 1px; color: var(--cream-dim); margin-top: 1px; }
+
+  /* Meters - real analog VU face (printed scale, red +1..+3 zone, needle
+     with proper pivot), ported directly from Nova 7even's proven SVG
+     (its own index.html, .vuMeter/.vuTick/.vuScaleText/.vuRedText/
+     .vuLabel/.vuNeedle rules) rather than a plain CSS-drawn face. */
+  .meterCol { display: flex; flex-direction: column; align-items: center; padding: 0 20px; }
+  .meters { display: flex; gap: 18px; }
+  .vuMeter { width: 255px; height: 182px; filter: sepia(0.55) saturate(1.6) brightness(0.78) contrast(1.1) hue-rotate(-6deg) drop-shadow(0 3px 6px rgba(0,0,0,0.5)); }
+  /* The needle used to be SVG geometry rotated via setAttribute("transform"),
+     which never reliably repainted in the real host's WKWebView (nested
+     inside a clip-path, a known WebKit compositing trouble spot) even
+     after forcing layout. A plain HTML div rotated via CSS style.transform
+     - the exact technique Nova Console's real, already-shipped VU needle
+     uses - sidesteps the SVG-specific issue entirely: this session already
+     proved plain-div style mutations DO repaint correctly here (the tube
+     brightness fix). Positioned as a sibling overlay on top of the SVG
+     face/ticks (which stay SVG - only the needle moved out), aligned via
+     percentages matching the SVG's own pivot (105,138 of a 210x150
+     viewBox = 50%/92%). */
+  .vuMeterWrap { position: relative; width: 255px; height: 182px; }
+  .vuMeterWrap .vuMeter { position: absolute; inset: 0; }
+  .vuNeedleDiv {
+    /* bottom (not top) + height positions the pivot end at 92% down the
+       meter with the needle extending UP from there - top+height would
+       instead extend the needle downward off the bottom of the meter. */
+    position: absolute; left: 50%; bottom: 8%; width: 3px; height: 130px; margin-left: -1.5px;
+    transform-origin: 50% 100%; transform: rotate(0deg);
+    background: linear-gradient(180deg, #c23030 0%, #7a1c1c 70%, #4a1414 100%);
+    filter: sepia(0.55) saturate(1.6) brightness(0.78) contrast(1.1) hue-rotate(-6deg);
+    pointer-events: none;
+  }
+  .vuTick { stroke: #3a2c18; stroke-width: 1.1; }
+  .vuScaleText { font-size: 9px; fill: #3a2c18; font-family: Georgia, serif; }
+  .vuRedText { font-size: 9px; fill: #8a1f1f; font-family: Georgia, serif; }
+  .vuLabel { font-size: 14px; fill: #3a2c18; font-family: Georgia, serif; font-style: italic; opacity: 0.85; }
+  .vuHub { fill: url(#hubGrad); }
+  .meterCaption { display: flex; justify-content: space-between; width: 260px; margin-top: 6px; padding: 0 4px; }
+  .meterCaption span { font-size: 12px; letter-spacing: 1.5px; color: var(--cream-dim); }
+
+  /* Real tube-window photo from the approved asset sheet (already
+     includes the glowing glass, filaments, mesh backing, and small
+     ornamental component knobs between the tubes) rather than a CSS
+     approximation. */
+  .tubeWindow { margin-top: 16px; width: 520px; height: 150px; border-radius: 8px; position: relative;
+    background: center/cover no-repeat url("img/tube-strip.png");
+    box-shadow: 0 2px 10px rgba(0,0,0,0.6); overflow: hidden;
+    filter: brightness(0.45) saturate(0.6); transition: filter 150ms linear; }
+  .tubeGlow { position: absolute; inset: 0; background: radial-gradient(60% 90% at 50% 55%, rgba(255,150,60,0.12), transparent 70%); pointer-events: none; transition: opacity 120ms linear; mix-blend-mode: screen; }
+  .tubeCenterMark {
+    position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px;
+    background: center/contain no-repeat url("img/m-medallion.png"); pointer-events: none;
+  }
+  .royalCaption { text-align: center; margin-top: 10px; }
+  .royalCaption .l1 { font-size: 19px; letter-spacing: 3px; color: var(--gold-bright); font-weight: 700; }
+  .royalCaption .l2 { font-size: 12px; letter-spacing: 1.5px; color: var(--cream-dim); margin-top: 2px; }
+  .royalCaption .l3 { font-size: 13px; font-style: italic; color: var(--gold-dim); margin-top: 4px; }
+
+  .powerCol { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .powerLed { width: 19px; height: 19px; border-radius: 50%; background: #3a0d0d; box-shadow: inset 0 0 3px #000; margin-bottom: 4px; }
+  .powerLed.on { background: var(--led-red); box-shadow: 0 0 10px var(--led-red), inset 0 0 3px #500; }
+  .powerLabel { font-size: 14px; letter-spacing: 1.5px; color: var(--cream-dim); }
+  .grLadder { display: flex; flex-direction: column; align-items: center; gap: 7px; margin-top: 16px; }
+  .grLadder .grLabel { font-size: 15px; letter-spacing: 1.5px; color: var(--gold); font-weight: 700; margin-bottom: 4px; }
+  .grRow { display: flex; align-items: center; gap: 7px; }
+  .grRow .grNum { font-size: 13px; color: var(--cream-dim); width: 26px; text-align: right; font-variant-numeric: tabular-nums; }
+  .grLed { width: 20px; height: 12px; border-radius: 3px; background: #201814; box-shadow: inset 0 0 2px #000; }
+  .grLed[data-color="red"].active { background: var(--led-red); box-shadow: 0 0 8px var(--led-red); }
+  .grLed[data-color="amber"].active { background: var(--led-amber); box-shadow: 0 0 8px var(--led-amber); }
+  .grLed[data-color="green"].active { background: var(--led-green); box-shadow: 0 0 8px var(--led-green); }
+
+  /* ---------- Bottom utility row ---------- */
+  .utilityRow { height: 270px; display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 40px 24px 8px; border-top: 1px solid var(--line); background: #0c0906; gap: 6px; }
+  .utilCol { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 96px; }
+  .utilLabel { font-size: 12px; letter-spacing: 1px; color: var(--gold); font-weight: 700; margin-bottom: 10px; text-align: center; }
+  .utilSubLabel { font-size: 9px; letter-spacing: 1px; color: var(--cream-dim); margin-top: -8px; margin-bottom: 8px; text-transform: uppercase; }
+
+  .toggleBtn { display: flex; border: 1px solid var(--line-bright); border-radius: 4px; overflow: hidden; }
+  .toggleBtn button { background: #14100c; color: var(--cream-dim); border: none; font-size: 10px; font-weight: 700;
+    padding: 6px 10px; cursor: pointer; letter-spacing: 0.5px; }
+  .toggleBtn button.active { background: var(--red); color: var(--cream); }
+
+  .linkBtn { width: 34px; height: 28px; border-radius: 4px; border: 1px solid var(--line-bright); background: #14100c;
+    color: var(--cream-dim); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; margin-top: 10px; }
+  .linkBtn.active { background: rgba(255,59,48,0.15); color: var(--led-red); border-color: var(--led-red); }
+
+  .microLed { width: 5px; height: 5px; border-radius: 50%; background: #3a1010; margin-top: 8px; }
+  .microLed.active { background: var(--led-red); box-shadow: 0 0 5px var(--led-red); }
+
+  .ovsGroup { display: flex; border: 1px solid var(--line-bright); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+  .ovsGroup button { background: #14100c; color: var(--cream-dim); border: none; border-right: 1px solid var(--line-bright);
+    font-size: 10px; font-weight: 700; padding: 8px 10px; cursor: pointer; }
+  .ovsGroup button:last-child { border-right: none; }
+  .ovsGroup button.active { background: var(--red); color: var(--cream); }
+
+  .toggleOnOff { width: 44px; height: 26px; border-radius: 5px; border: 1px solid var(--line-bright); background: #14100c;
+    color: var(--cream-dim); font-size: 9px; font-weight: 700; cursor: pointer; }
+  .toggleOnOff.active { background: var(--red); color: var(--cream); box-shadow: 0 0 8px rgba(168,48,48,0.5); }
+
+  .sidechainRow { display: flex; align-items: center; gap: 10px; padding: 6px 24px 14px; }
+  .sidechainRow .scLabel { font-size: 12px; letter-spacing: 1.5px; color: var(--cream-dim); }
+  .listenBtn { background: #14100c; border: 1px solid var(--line-bright); color: var(--cream-dim);
+    border-radius: 4px; font-size: 10px; font-weight: 700; padding: 5px 12px; cursor: pointer; }
+  .listenBtn.active { background: rgba(255,59,48,0.18); color: var(--led-red); border-color: var(--led-red); }
+
+  /* ---------- Footer plaques ---------- */
+  .footer { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 10px 24px 14px; }
+  .plaque { flex: 1; text-align: center; padding: 8px 8px;
+    background: center/100% 100% no-repeat url("img/nameplate-dark.png"); }
+  .plaque .p1 { font-size: 12px; letter-spacing: 1px; color: var(--gold); font-weight: 700; }
+  .plaque .p2 { font-size: 10px; letter-spacing: 0.5px; color: var(--cream-dim); margin-top: 2px; }
+
+  /* Real brass rivet/screw photos from the approved asset sheet, matching
+     the mockup's corner + section-divider hardware rather than a plain
+     CSS-drawn dot. */
+  .screw { position: absolute; width: 16px; height: 16px; background: center/contain no-repeat; pointer-events: none; z-index: 2; }
+  .screw.slotted { background-image: url("img/screw-slotted.png"); }
+  .screw.phillips { background-image: url("img/screw-phillips.png"); }
+</style>
+</head>
+<body>
+<div id="stageOuter">
+<div id="app">
+
+  <div class="topbar">
+    <div class="brand"><div class="mark"></div><div class="name">NOVA AUDIO</div></div>
+    <div class="title">
+      <div class="main">NOVA ROYAL 670</div>
+      <div class="sub">VARIABLE-MU TUBE LIMITER</div>
+    </div>
+    <div class="presetBar">
+      <button class="navBtn" id="presetPrev">&#9664;</button>
+      <div class="name" id="presetName">Default</div>
+      <button class="navBtn" id="presetNext">&#9654;</button>
+      <button class="abBtn active" id="abA">A</button>
+      <button class="abBtn" id="abB">B</button>
+      <button class="abBtn" id="abCopy">A&#9656;B</button>
+      <button class="gearBtn" id="settingsBtn">&#9881;</button>
+    </div>
+  </div>
+
+  <div class="mainRow">
+    <div class="col">
+      <div class="knobWrap">
+        <div class="lbl">INPUT</div><div class="unit">dB</div>
+        <div class="knobRing">
+          <div class="knob red szL" data-param="input" data-min="-20" data-max="20"></div>
+        </div>
+        <div class="knobScale"><span>-20</span><span>20</span></div>
+        <div class="readout" data-readout="input">3.2 dB</div>
+      </div>
+      <div class="knobWrap">
+        <div class="lbl">HRM DRIVE</div><div class="unit">%</div>
+        <div class="knobRing">
+          <div class="knob dark szM" data-param="hrmDrive" data-min="0" data-max="100"></div>
+        </div>
+        <div class="knobScale"><span>0</span><span>100</span></div>
+        <div class="readout" data-readout="hrmDrive">35 %</div>
+      </div>
+    </div>
+    <div class="colDivider"></div>
+
+    <div class="col">
+      <div class="knobWrap">
+        <div class="lbl">AC THRESHOLD</div><div class="unit">dB</div>
+        <div class="knobRing">
+          <div class="knob dark szL" data-param="acThreshold" data-min="-20" data-max="10"></div>
+        </div>
+        <div class="knobScale"><span>-20</span><span>10</span></div>
+        <div class="readout" data-readout="acThreshold">-6.8 dB</div>
+      </div>
+      <div class="knobWrap">
+        <div class="lbl">DC THRESHOLD</div><div class="unit">behavior</div>
+        <div class="knobRing">
+          <div class="knob dark szM" data-param="dcThreshold" data-min="-20" data-max="20"></div>
+        </div>
+        <div class="knobScale"><span>-20</span><span>20</span></div>
+        <div class="readout" data-readout="dcThreshold">2.1 dB</div>
+      </div>
+    </div>
+    <div class="colDivider"></div>
+
+    <div class="col">
+      <div class="colLabel">TIME CONSTANT</div>
+      <div class="colSubLabel">program dependent</div>
+      <div class="tcSelector">
+        <div class="tcKnobCol">
+          <div class="knobRing">
+            <div class="knob dark szL" id="tcKnob"></div>
+          </div>
+        </div>
+        <div class="tcLedList" id="tcLedList"></div>
+      </div>
+      <div class="nameplate"><div class="l1">NOVA AUDIO</div><div class="l2">CIRCUITRY</div></div>
+    </div>
+    <div class="colDivider"></div>
+
+    <div class="meterCol">
+      <div class="meters">
+        <div class="vuMeterWrap">
+        <svg class="vuMeter" viewBox="0 0 210 150">
+          <defs>
+            <clipPath id="vuFaceClipL"><rect x="8" y="8" width="194" height="134" rx="4"/></clipPath>
+            <radialGradient id="vuVignetteL" cx="50%" cy="58%" r="72%">
+              <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+              <stop offset="72%" stop-color="#000" stop-opacity="0"/>
+              <stop offset="100%" stop-color="#000" stop-opacity="0.38"/>
+            </radialGradient>
+            <linearGradient id="vuSheenL" x1="0%" y1="0%" x2="70%" y2="100%">
+              <stop offset="0%" stop-color="#fff" stop-opacity="0.22"/>
+              <stop offset="35%" stop-color="#fff" stop-opacity="0.04"/>
+              <stop offset="60%" stop-color="#fff" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="bezelGradL" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#3a3228"/>
+              <stop offset="12%" stop-color="#161310"/>
+              <stop offset="88%" stop-color="#0c0a08"/>
+              <stop offset="100%" stop-color="#241f18"/>
+            </linearGradient>
+            <linearGradient id="needleGradL" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#c23030"/>
+              <stop offset="70%" stop-color="#7a1c1c"/>
+              <stop offset="100%" stop-color="#4a1414"/>
+            </linearGradient>
+            <radialGradient id="hubGradL" cx="35%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#8a8072"/>
+              <stop offset="55%" stop-color="#3a342a"/>
+              <stop offset="100%" stop-color="#161310"/>
+            </radialGradient>
+          </defs>
+
+          <rect x="1" y="1" width="208" height="148" rx="7" fill="url(#bezelGradL)" stroke="#000" stroke-width="1"/>
+          <image href="img/vu-face.jpg" x="8" y="8" width="194" height="134" preserveAspectRatio="xMidYMid slice" clip-path="url(#vuFaceClipL)"/>
+          <path d="M 25 100 A 80 80 0 0 1 185 100" fill="none" stroke="#5a4c34" stroke-width="1" opacity="0.7" clip-path="url(#vuFaceClipL)"/>
+
+          <g class="vuTick" clip-path="url(#vuFaceClipL)">
+            <line x1="38.8" y1="77.2" x2="29.4" y2="73.9"/>
+            <line x1="48.2" y1="59.1" x2="40.1" y2="53.3"/>
+            <line x1="60.8" y1="45.7" x2="54.5" y2="38.0"/>
+            <line x1="76.9" y1="35.9" x2="72.9" y2="26.7"/>
+            <line x1="96.7" y1="30.5" x2="95.5" y2="20.6"/>
+            <line x1="100.0" y1="30.2" x2="99.3" y2="20.2"/>
+            <line x1="125.4" y1="33.0" x2="128.3" y2="23.5"/>
+            <line x1="143.5" y1="41.5" x2="149.0" y2="33.2"/>
+            <line x1="159.1" y1="55.6" x2="166.8" y2="49.2"/>
+          </g>
+
+          <g font-family="Georgia,serif" clip-path="url(#vuFaceClipL)">
+            <text x="18" y="70" class="vuScaleText">-20</text>
+            <text x="30" y="46" class="vuScaleText">-7</text>
+            <text x="48" y="30" class="vuScaleText">-5</text>
+            <text x="70" y="20" class="vuScaleText">-3</text>
+            <text x="86" y="15" class="vuScaleText">-1</text>
+            <text x="102" y="34" class="vuScaleText" font-style="italic" font-size="11">0</text>
+            <text x="130" y="18" class="vuRedText">+1</text>
+            <text x="155" y="24" class="vuRedText">+2</text>
+            <text x="178" y="40" class="vuRedText">+3</text>
+          </g>
+          <text x="70" y="118" class="vuLabel" clip-path="url(#vuFaceClipL)">VU</text>
+
+          <circle cx="105" cy="138" r="5.5" fill="url(#hubGradL)"/>
+          <circle cx="103.3" cy="136.3" r="1.6" fill="#c8bfa8" opacity="0.75"/>
+
+          <rect x="8" y="8" width="194" height="134" rx="4" fill="url(#vuVignetteL)" clip-path="url(#vuFaceClipL)"/>
+          <rect x="8" y="8" width="194" height="134" rx="4" fill="url(#vuSheenL)" clip-path="url(#vuFaceClipL)"/>
+
+          <circle cx="12" cy="12" r="2.6" fill="url(#hubGradL)"/>
+          <circle cx="198" cy="12" r="2.6" fill="url(#hubGradL)"/>
+          <circle cx="12" cy="138" r="2.6" fill="url(#hubGradL)"/>
+          <circle cx="198" cy="138" r="2.6" fill="url(#hubGradL)"/>
+        </svg>
+        <div class="vuNeedleDiv" id="vuNeedleLeft"></div>
+        </div>
+        <div class="vuMeterWrap">
+        <svg class="vuMeter" viewBox="0 0 210 150">
+          <defs>
+            <clipPath id="vuFaceClipR"><rect x="8" y="8" width="194" height="134" rx="4"/></clipPath>
+            <radialGradient id="vuVignetteR" cx="50%" cy="58%" r="72%">
+              <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+              <stop offset="72%" stop-color="#000" stop-opacity="0"/>
+              <stop offset="100%" stop-color="#000" stop-opacity="0.38"/>
+            </radialGradient>
+            <linearGradient id="vuSheenR" x1="0%" y1="0%" x2="70%" y2="100%">
+              <stop offset="0%" stop-color="#fff" stop-opacity="0.22"/>
+              <stop offset="35%" stop-color="#fff" stop-opacity="0.04"/>
+              <stop offset="60%" stop-color="#fff" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="bezelGradR" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#3a3228"/>
+              <stop offset="12%" stop-color="#161310"/>
+              <stop offset="88%" stop-color="#0c0a08"/>
+              <stop offset="100%" stop-color="#241f18"/>
+            </linearGradient>
+            <linearGradient id="needleGradR" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#c23030"/>
+              <stop offset="70%" stop-color="#7a1c1c"/>
+              <stop offset="100%" stop-color="#4a1414"/>
+            </linearGradient>
+            <radialGradient id="hubGradR" cx="35%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#8a8072"/>
+              <stop offset="55%" stop-color="#3a342a"/>
+              <stop offset="100%" stop-color="#161310"/>
+            </radialGradient>
+          </defs>
+
+          <rect x="1" y="1" width="208" height="148" rx="7" fill="url(#bezelGradR)" stroke="#000" stroke-width="1"/>
+          <image href="img/vu-face.jpg" x="8" y="8" width="194" height="134" preserveAspectRatio="xMidYMid slice" clip-path="url(#vuFaceClipR)"/>
+          <path d="M 25 100 A 80 80 0 0 1 185 100" fill="none" stroke="#5a4c34" stroke-width="1" opacity="0.7" clip-path="url(#vuFaceClipR)"/>
+
+          <g class="vuTick" clip-path="url(#vuFaceClipR)">
+            <line x1="38.8" y1="77.2" x2="29.4" y2="73.9"/>
+            <line x1="48.2" y1="59.1" x2="40.1" y2="53.3"/>
+            <line x1="60.8" y1="45.7" x2="54.5" y2="38.0"/>
+            <line x1="76.9" y1="35.9" x2="72.9" y2="26.7"/>
+            <line x1="96.7" y1="30.5" x2="95.5" y2="20.6"/>
+            <line x1="100.0" y1="30.2" x2="99.3" y2="20.2"/>
+            <line x1="125.4" y1="33.0" x2="128.3" y2="23.5"/>
+            <line x1="143.5" y1="41.5" x2="149.0" y2="33.2"/>
+            <line x1="159.1" y1="55.6" x2="166.8" y2="49.2"/>
+          </g>
+
+          <g font-family="Georgia,serif" clip-path="url(#vuFaceClipR)">
+            <text x="18" y="70" class="vuScaleText">-20</text>
+            <text x="30" y="46" class="vuScaleText">-7</text>
+            <text x="48" y="30" class="vuScaleText">-5</text>
+            <text x="70" y="20" class="vuScaleText">-3</text>
+            <text x="86" y="15" class="vuScaleText">-1</text>
+            <text x="102" y="34" class="vuScaleText" font-style="italic" font-size="11">0</text>
+            <text x="130" y="18" class="vuRedText">+1</text>
+            <text x="155" y="24" class="vuRedText">+2</text>
+            <text x="178" y="40" class="vuRedText">+3</text>
+          </g>
+          <text x="70" y="118" class="vuLabel" clip-path="url(#vuFaceClipR)">VU</text>
+
+          <circle cx="105" cy="138" r="5.5" fill="url(#hubGradR)"/>
+          <circle cx="103.3" cy="136.3" r="1.6" fill="#c8bfa8" opacity="0.75"/>
+
+          <rect x="8" y="8" width="194" height="134" rx="4" fill="url(#vuVignetteR)" clip-path="url(#vuFaceClipR)"/>
+          <rect x="8" y="8" width="194" height="134" rx="4" fill="url(#vuSheenR)" clip-path="url(#vuFaceClipR)"/>
+
+          <circle cx="12" cy="12" r="2.6" fill="url(#hubGradR)"/>
+          <circle cx="198" cy="12" r="2.6" fill="url(#hubGradR)"/>
+          <circle cx="12" cy="138" r="2.6" fill="url(#hubGradR)"/>
+          <circle cx="198" cy="138" r="2.6" fill="url(#hubGradR)"/>
+        </svg>
+        <div class="vuNeedleDiv" id="vuNeedleRight"></div>
+        </div>
+      </div>
+      <div class="meters">
+        <div class="meterCaption"><span>LEFT / MID</span></div>
+        <div class="meterCaption"><span>RIGHT / SIDE</span></div>
+      </div>
+      <div class="tubeWindow" id="tubeStrip">
+        <div class="tubeGlow" id="tubeGlow"></div>
+        <div class="tubeCenterMark"></div>
+      </div>
+      <div class="royalCaption">
+        <div class="l1">NOVA ROYAL 670</div>
+        <div class="l3">Variable-Mu Tube Limiter</div>
+      </div>
+    </div>
+    <div class="colDivider"></div>
+
+    <div class="col">
+      <div class="knobWrap">
+        <div class="lbl">OUTPUT</div><div class="unit">dB</div>
+        <div class="knobRing">
+          <div class="knob red szL" data-param="output" data-min="-20" data-max="20"></div>
+        </div>
+        <div class="knobScale"><span>-20</span><span>20</span></div>
+        <div class="readout" data-readout="output">1.5 dB</div>
+      </div>
+      <div class="knobWrap">
+        <div class="lbl">MIX</div><div class="unit">dry / wet</div>
+        <div class="knobRing">
+          <div class="knob dark szM" data-param="mix" data-min="0" data-max="100"></div>
+        </div>
+        <div class="knobScale"><span>0</span><span>100</span></div>
+        <div class="readout" data-readout="mix">100 %</div>
+      </div>
+    </div>
+
+    <div class="powerCol">
+      <div class="powerLed on" id="powerLed"></div>
+      <div class="powerLabel">POWER</div>
+      <div class="grLadder">
+        <div class="grLabel">GR</div>
+        <div class="grRow"><span class="grNum">0</span><div class="grLed" data-color="red" data-step="0"></div></div>
+        <div class="grRow"><span class="grNum">-2</span><div class="grLed" data-color="red" data-step="1"></div></div>
+        <div class="grRow"><span class="grNum">-4</span><div class="grLed" data-color="amber" data-step="2"></div></div>
+        <div class="grRow"><span class="grNum">-6</span><div class="grLed" data-color="amber" data-step="3"></div></div>
+        <div class="grRow"><span class="grNum">-8</span><div class="grLed" data-color="amber" data-step="4"></div></div>
+        <div class="grRow"><span class="grNum">-10</span><div class="grLed" data-color="green" data-step="5"></div></div>
+        <div class="grRow"><span class="grNum">-12</span><div class="grLed" data-color="green" data-step="6"></div></div>
+        <div class="grRow"><span class="grNum">-16</span><div class="grLed" data-color="green" data-step="7"></div></div>
+        <div class="grRow"><span class="grNum">-20</span><div class="grLed" data-color="green" data-step="8"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="utilityRow">
+    <div class="utilCol">
+      <div class="utilLabel">STEREO MODE</div>
+      <div class="toggleBtn" id="stereoModeToggle">
+        <button data-value="0" class="active">STEREO</button>
+        <button data-value="1">M / S</button>
+      </div>
+      <div class="utilLabel" style="margin-top:14px;">LINK</div>
+      <div class="linkBtn active" id="linkBtn">&#8646;</div>
+      <div class="readout" data-readout="link" style="margin-top:6px;">100 %</div>
+    </div>
+
+    <div class="utilCol">
+      <div class="utilLabel">SIDECHAIN HPF</div><div class="utilSubLabel">Hz</div>
+      <div class="knobRing">
+        <div class="knob dark szM" data-param="sidechainHpf" data-min="20" data-max="2000"></div>
+      </div>
+      <div class="knobScale"><span>20</span><span>2000</span></div>
+      <div class="readout" data-readout="sidechainHpf">80 Hz</div>
+      <div class="microLed" data-indicator="sidechainHpf"></div>
+    </div>
+
+    <div class="utilCol">
+      <div class="utilLabel">WEIGHT</div><div class="utilSubLabel">%</div>
+      <div class="knobRing">
+        <div class="knob dark szM" data-param="weight" data-min="0" data-max="100"></div>
+      </div>
+      <div class="knobScale"><span>0</span><span>100</span></div>
+      <div class="readout" data-readout="weight">50 %</div>
+      <div class="microLed" data-indicator="weight"></div>
+    </div>
+
+    <div class="utilCol">
+      <div class="utilLabel">TUBE SATURATION</div><div class="utilSubLabel">%</div>
+      <div class="knobRing">
+        <div class="knob dark szM" data-param="tubeSaturation" data-min="0" data-max="100"></div>
+      </div>
+      <div class="knobScale"><span>0</span><span>100</span></div>
+      <div class="readout" data-readout="tubeSaturation">35 %</div>
+      <div class="microLed" data-indicator="tubeSaturation"></div>
+    </div>
+
+    <div class="utilCol">
+      <div class="utilLabel">TRANSFORMER</div><div class="utilSubLabel">%</div>
+      <div class="knobRing">
+        <div class="knob dark szM" data-param="transformer" data-min="0" data-max="100"></div>
+      </div>
+      <div class="knobScale"><span>0</span><span>100</span></div>
+      <div class="readout" data-readout="transformer">40 %</div>
+      <div class="microLed" data-indicator="transformer"></div>
+    </div>
+
+    <div class="utilCol">
+      <div class="utilLabel">OUTPUT TRIM</div><div class="utilSubLabel">dB</div>
+      <div class="knobRing">
+        <div class="knob dark szM" data-param="outputTrim" data-min="-12" data-max="12"></div>
+      </div>
+      <div class="knobScale"><span>-12</span><span>12</span></div>
+      <div class="readout" data-readout="outputTrim">0.0 dB</div>
+    </div>
+
+    <div class="utilCol">
+      <div class="utilLabel">AUTO GAIN</div>
+      <button class="toggleOnOff active" id="autoGainBtn" style="margin-top:22px;">ON</button>
+    </div>
+
+    <div class="utilCol" style="min-width:160px;">
+      <div class="utilLabel">OVERSAMPLING</div>
+      <div class="ovsGroup" id="ovsGroup">
+        <button data-value="0">OFF</button>
+        <button data-value="1">2X</button>
+        <button data-value="2" class="active">4X</button>
+        <button data-value="3">8X</button>
+      </div>
+    </div>
+
+    <div class="utilCol">
+      <div class="utilLabel">ANALOG NOISE</div><div class="utilSubLabel">%</div>
+      <div class="knobRing">
+        <div class="knob dark szM" data-param="analogNoise" data-min="0" data-max="100"></div>
+      </div>
+      <div class="knobScale"><span>0</span><span>100</span></div>
+      <div class="readout" data-readout="analogNoise">15 %</div>
+      <div class="microLed" data-indicator="analogNoise"></div>
+    </div>
+  </div>
+
+  <div class="sidechainRow">
+    <span class="scLabel">SIDECHAIN</span>
+    <button class="listenBtn" id="listenBtn">LISTEN</button>
+  </div>
+
+  <div class="footer">
+    <div class="plaque"><div class="p1">NOVA AUDIO</div><div class="p2">EST. 2023</div></div>
+    <div class="plaque"><div class="p1">BUILT FOR PROFESSIONALS</div><div class="p2">CRAFTED WITH PASSION</div></div>
+    <div class="plaque"><div class="p1">CLASS A</div><div class="p2">TUBE CIRCUIT</div></div>
+    <div class="plaque"><div class="p1">MULTIPLE PATENTS PENDING</div><div class="p2">MADE IN THE USA</div></div>
+  </div>
+
+  <div class="screw slotted" style="left:10px; top:10px;"></div>
+  <div class="screw slotted" style="right:10px; top:10px;"></div>
+  <div class="screw slotted" style="left:10px; bottom:10px;"></div>
+  <div class="screw slotted" style="right:10px; bottom:10px;"></div>
+
+  <!-- Section-boundary rivets, matching the mockup's screws flanking each
+       row divider - real photo assets, not a plain CSS dot. -->
+  <div class="screw phillips" style="left:10px; top:592px;"></div>
+  <div class="screw phillips" style="right:10px; top:592px;"></div>
+  <div class="screw phillips" style="left:10px; top:862px;"></div>
+  <div class="screw phillips" style="right:10px; top:862px;"></div>
+
+  <div class="screw slotted" style="left:294px; top:960px;"></div>
+  <div class="screw slotted" style="left:454px; top:960px;"></div>
+  <div class="screw slotted" style="left:864px; top:960px;"></div>
+  <div class="screw slotted" style="left:1024px; top:960px;"></div>
+</div>
+</div>
+<script type="module" src="js/index.js"></script>
+</body>
+</html>

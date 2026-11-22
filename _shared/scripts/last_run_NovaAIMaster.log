@@ -1,0 +1,390 @@
+==> [Nova AI Master 1/7] Configuring Release build
+-- The C compiler identification is AppleClang 21.0.0.21000101
+-- The CXX compiler identification is AppleClang 21.0.0.21000101
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring juceaide
+-- Building juceaide
+-- Exporting juceaide
+-- Testing juceaide
+-- Finished setting up juceaide
+-- Nova AI Master: Building for VST3;AU;Standalone
+-- Nova AI Master: WebView backend: WKWebView
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Configuring done (88.0s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release
+==> [Nova AI Master 2/7] Building VST3 + AU + Standalone (via NovaAIMaster_All)
+[  1%] Generating juce_binarydata_NovaAIMaster_WebUI/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_NovaAIMaster_WebUI/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_NovaAIMaster_WebUI/JuceLibraryCode/BinaryData3.cpp, juce_binarydata_NovaAIMaster_WebUI/JuceLibraryCode/BinaryData4.cpp, juce_binarydata_NovaAIMaster_WebUI/JuceLibraryCode/BinaryData.h
+[  3%] Building CXX object CMakeFiles/juce_vst3_helper.dir/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.mm.o
+[  5%] Building CXX object CMakeFiles/NovaAIMaster_WebUI.dir/juce_binarydata_NovaAIMaster_WebUI/JuceLibraryCode/BinaryData4.cpp.o
+[  5%] Building CXX object CMakeFiles/NovaAIMaster_WebUI.dir/juce_binarydata_NovaAIMaster_WebUI/JuceLibraryCode/BinaryData2.cpp.o
+[  9%] Building CXX object CMakeFiles/NovaAIMaster_WebUI.dir/juce_binarydata_NovaAIMaster_WebUI/JuceLibraryCode/BinaryData1.cpp.o
+[  9%] Building CXX object CMakeFiles/NovaAIMaster_WebUI.dir/juce_binarydata_NovaAIMaster_WebUI/JuceLibraryCode/BinaryData3.cpp.o
+[  9%] Linking CXX static library libNovaAIMaster_WebUI.a
+[  9%] Built target NovaAIMaster_WebUI
+[  9%] Building CXX object CMakeFiles/NovaAIMaster.dir/Source/PluginProcessor.cpp.o
+[ 11%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/Analysis/NovaDynamicsAnalyzer.cpp.o
+[ 11%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/Analysis/NovaLoudnessAnalyzer.cpp.o
+[ 12%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/NovaAIMasterEngine.cpp.o
+[ 12%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/Analysis/NovaStereoAnalyzer.cpp.o
+[ 14%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/Analysis/NovaSpectralAnalyzer.cpp.o
+[ 16%] Building CXX object CMakeFiles/NovaAIMaster.dir/Source/PluginEditor.cpp.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/Source/PluginEditor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+[ 18%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/Decision/NovaMasteringDecisionEngine.cpp.o
+[ 20%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/DSP/NovaCorrectiveEQ.cpp.o
+1 warning generated.
+[ 20%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/DSP/NovaResonanceControl.cpp.o
+1 warning generated.
+[ 22%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/DSP/NovaGlueCompressor.cpp.o
+[ 24%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/DSP/NovaSaturation.cpp.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/Source/PluginEditor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+[ 24%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/DSP/NovaStereoProcessor.cpp.o
+[ 25%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/DSP/NovaSoftClipper.cpp.o
+1 warning generated.
+[ 27%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/DSP/NovaLimiter.cpp.o
+[ 27%] Building CXX object CMakeFiles/NovaAIMaster.dir/Users/internationalnova/Nova/plugins2/_shared/NovaAIMasterCore/DSP/NovaMasteringChain.cpp.o
+1 warning generated.
+[ 29%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o
+[ 31%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o
+[ 31%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm.o
+[ 33%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm.o
+[ 35%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm.o
+[ 35%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.cpp:57:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:55:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+[ 37%] Building C object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Sheenbidi.c.o
+[ 38%] Linking CXX executable juce_vst3_helper
+[ 40%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_graphics/juce_graphics.mm.o
+[ 40%] Built target juce_vst3_helper
+[ 40%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_events/juce_events.mm.o
+[ 42%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_core/juce_core_CompilationTime.cpp.o
+[ 44%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_core/juce_core.mm.o
+[ 44%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_data_structures/juce_data_structures.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:189:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: warning: enumeration value 'NSEventTypeMouseCancelled' not explicitly handled in switch [-Wswitch-enum]
+ 1916 |         switch ([e type])
+      |                 ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: note: add missing switch cases
+ 1916 |         switch ([e type])
+      |                 ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+[ 46%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.mm.o
+1 warning generated.
+1 warning generated.
+[ 48%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.cpp:57:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.h:71:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+1 warning generated.
+[ 48%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_audio_formats/juce_audio_formats.mm.o
+1 warning generated.
+[ 50%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.h:71:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.cpp:49:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+[ 51%] Building CXX object CMakeFiles/NovaAIMaster.dir/_deps/juce-src/modules/juce_dsp/juce_dsp.mm.o
+1 warning generated.
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.cpp:49:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+2 warnings generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:55:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:189:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: warning: enumeration value 'NSEventTypeMouseCancelled' not explicitly handled in switch [-Wswitch-enum]
+ 1916 |         switch ([e type])
+      |                 ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: note: add missing switch cases
+ 1916 |         switch ([e type])
+      |                 ^
+1 warning generated.
+2 warnings generated.
+[ 51%] Linking CXX static library "NovaAIMaster_artefacts/Release/libNova AI Master_SharedCode.a"
+[ 51%] Built target NovaAIMaster
+[ 51%] Generating NovaAIMaster_artefacts/JuceLibraryCode/NovaAIMaster_VST3/PkgInfo
+[ 55%] Generating NovaAIMaster_artefacts/JuceLibraryCode/NovaAIMaster_AU/PkgInfo
+[ 55%] Generating NovaAIMaster_artefacts/JuceLibraryCode/NovaAIMaster_Standalone/PkgInfo
+[ 57%] Building CXX object CMakeFiles/NovaAIMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 57%] Building CXX object CMakeFiles/NovaAIMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 59%] Building CXX object CMakeFiles/NovaAIMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 64%] Building CXX object CMakeFiles/NovaAIMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 64%] Building CXX object CMakeFiles/NovaAIMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 64%] Building CXX object CMakeFiles/NovaAIMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 66%] Building CXX object CMakeFiles/NovaAIMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 66%] Building CXX object CMakeFiles/NovaAIMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 68%] Building CXX object CMakeFiles/NovaAIMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 68%] Building CXX object CMakeFiles/NovaAIMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 70%] Building CXX object CMakeFiles/NovaAIMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 70%] Building CXX object CMakeFiles/NovaAIMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 72%] Building CXX object CMakeFiles/NovaAIMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 74%] Building CXX object CMakeFiles/NovaAIMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 74%] Building CXX object CMakeFiles/NovaAIMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 75%] Building CXX object CMakeFiles/NovaAIMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 77%] Building CXX object CMakeFiles/NovaAIMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 77%] Building CXX object CMakeFiles/NovaAIMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 77%] Building CXX object CMakeFiles/NovaAIMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 77%] Building CXX object CMakeFiles/NovaAIMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 79%] Building CXX object CMakeFiles/NovaAIMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 81%] Building CXX object CMakeFiles/NovaAIMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 83%] Building CXX object CMakeFiles/NovaAIMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 85%] Building CXX object CMakeFiles/NovaAIMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 88%] Building CXX object CMakeFiles/NovaAIMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 88%] Building CXX object CMakeFiles/NovaAIMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 88%] Building CXX object CMakeFiles/NovaAIMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 90%] Building CXX object CMakeFiles/NovaAIMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 92%] Building CXX object CMakeFiles/NovaAIMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 92%] Building CXX object CMakeFiles/NovaAIMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 94%] Building CXX object CMakeFiles/NovaAIMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+Copying OS X content NovaAIMaster_artefacts/Release/Standalone/Nova AI Master.app/Contents/Resources/RecentFilesMenuTemplate.nib
+[ 94%] Building CXX object CMakeFiles/NovaAIMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 96%] Building CXX object CMakeFiles/NovaAIMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp:47:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp:47:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 98%] Linking CXX executable "NovaAIMaster_artefacts/Release/Standalone/Nova AI Master.app/Contents/MacOS/Nova AI Master"
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm:71:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+1 warning generated.
+[100%] Linking CXX CFBundle shared module "NovaAIMaster_artefacts/Release/AU/Nova AI Master.component/Contents/MacOS/Nova AI Master"
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[100%] Linking CXX CFBundle shared module "NovaAIMaster_artefacts/Release/VST3/Nova AI Master.vst3/Contents/MacOS/Nova AI Master"
+[100%] Built target NovaAIMaster_Standalone
+[100%] Built target NovaAIMaster_AU
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/NovaAIMaster_artefacts/Release/VST3/Nova AI Master.vst3: code object is not signed at all
+-- Replacing invalid signature with ad-hoc signature
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/NovaAIMaster_artefacts/Release/VST3/Nova AI Master.vst3: replacing existing signature
+removing moduleinfo.json
+creating /Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/NovaAIMaster_artefacts/Release/VST3/Nova AI Master.vst3/Contents/Resources/moduleinfo.json
+[100%] Built target NovaAIMaster_VST3
+[100%] Built target NovaAIMaster_All
+==> [Nova AI Master 3/7] Codesigning bundles (hardened runtime, secure timestamp)
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/NovaAIMaster_artefacts/Release/VST3/Nova AI Master.vst3: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/NovaAIMaster_artefacts/Release/AU/Nova AI Master.component: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/NovaAIMaster_artefacts/Release/Standalone/Nova AI Master.app: replacing existing signature
+==> [Nova AI Master 3/7] Verifying codesign
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/NovaAIMaster_artefacts/Release/VST3/Nova AI Master.vst3: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/NovaAIMaster_artefacts/Release/VST3/Nova AI Master.vst3: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/NovaAIMaster_artefacts/Release/AU/Nova AI Master.component: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/NovaAIMaster_artefacts/Release/AU/Nova AI Master.component: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/NovaAIMaster_artefacts/Release/Standalone/Nova AI Master.app: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova AI Master/build-release/NovaAIMaster_artefacts/Release/Standalone/Nova AI Master.app: satisfies its Designated Requirement
+==> [Nova AI Master 4/7] Staging installer root
+==> [Nova AI Master 5/7] Building + signing installer package
+pkgbuild: Inferring bundle components from contents of /Users/internationalnova/Nova/plugins2/Nova AI Master/dist/pkgroot
+pkgbuild: Adding component at Library/Audio/Plug-Ins/VST3/Nova AI Master.vst3
+pkgbuild: Adding component at Library/Audio/Plug-Ins/Components/Nova AI Master.component
+pkgbuild: Adding component at Applications/Nova AI Master.app
+pkgbuild: Wrote package to /Users/internationalnova/Nova/plugins2/Nova AI Master/dist/NovaAIMaster-unsigned.pkg
+productsign: using timestamp authority for signature
+productsign: signing product with identity "Developer ID Installer: Giovanni Nova (HSX9N2UQ83)" from keychain /Users/internationalnova/Library/Keychains/login.keychain-db
+productsign: adding certificate "Developer ID Certification Authority"
+productsign: adding certificate "Apple Root CA"
+productsign: Wrote signed product archive to /Users/internationalnova/Nova/plugins2/Nova AI Master/dist/NovaAIMaster-1.0.0.pkg
+Package "NovaAIMaster-1.0.0.pkg":
+   Status: signed by a developer certificate issued by Apple for distribution
+   Signed with a trusted timestamp on: 2026-08-16 21:07:12 +0000
+   Certificate Chain:
+    1. Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+       Expires: 2031-08-10 05:15:34 +0000
+       SHA256 Fingerprint:
+           A5 7B 81 C2 82 10 15 09 6C C2 83 D5 33 A8 40 30 9F FA 53 0A 3B F6 
+           C3 85 80 B2 1E FE FB A6 32 AC
+       ------------------------------------------------------------------------
+    2. Developer ID Certification Authority
+       Expires: 2031-09-17 00:00:00 +0000
+       SHA256 Fingerprint:
+           F1 6C D3 C5 4C 7F 83 CE A4 BF 1A 3E 6A 08 19 C8 AA A8 E4 A1 52 8F 
+           D1 44 71 5F 35 06 43 D2 DF 3A
+       ------------------------------------------------------------------------
+    3. Apple Root CA
+       Expires: 2035-02-09 21:40:36 +0000
+       SHA256 Fingerprint:
+           B0 B1 73 0E CB C7 FF 45 05 14 2C 49 F1 29 5E 6E DA 6B CA ED 7E 2C 
+           68 C5 BE 91 B5 A1 10 01 F0 24
+
+==> [Nova AI Master 6/7] Submitting for notarization (this can take a few minutes)
+Conducting pre-submission checks for NovaAIMaster-1.0.0.pkg and initiating connection to the Apple notary service...
+Submission ID received
+  id: 17d58b22-9864-45d9-ab69-67c6ca8c3241
+Successfully uploaded file
+  id: 17d58b22-9864-45d9-ab69-67c6ca8c3241
+  path: /Users/internationalnova/Nova/plugins2/Nova AI Master/dist/NovaAIMaster-1.0.0.pkg
+Waiting for processing to complete.
+Current status: In Progress...Current status: In Progress....Current status: In Progress.....Current status: Accepted......Processing complete
+  id: 17d58b22-9864-45d9-ab69-67c6ca8c3241
+  status: Accepted
+
+==> [Nova AI Master 7/7] Stapling notarization ticket
+Processing: /Users/internationalnova/Nova/plugins2/Nova AI Master/dist/NovaAIMaster-1.0.0.pkg
+Processing: /Users/internationalnova/Nova/plugins2/Nova AI Master/dist/NovaAIMaster-1.0.0.pkg
+The staple and validate action worked!
+==> [Nova AI Master] Final verification
+/Users/internationalnova/Nova/plugins2/Nova AI Master/dist/NovaAIMaster-1.0.0.pkg: accepted
+source=Notarized Developer ID
+origin=Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+
+Done: /Users/internationalnova/Nova/plugins2/Nova AI Master/dist/NovaAIMaster-1.0.0.pkg

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nova Align</title>
+<style>
+  :root{
+    --bg:#0a0a0c; --panel:#141418; --panel-2:#1a1a20; --line:#2a2a32;
+    --text:#f2efe8; --muted:#9a9aa4; --muted-2:#6b6b74;
+    --gold:#d9ae52; --gold-bright:#f0c878; --gold-dim:rgba(217,174,82,0.16);
+    --guide:#d9ae52; --target:#4a90e2; --aligned:#d8d8de;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; width:100%; height:100%; background:var(--bg); overflow:hidden; }
+  body{
+    font-family:-apple-system, "Helvetica Neue", Arial, sans-serif;
+    color:var(--text); user-select:none; -webkit-user-select:none;
+  }
+  .app{ display:flex; flex-direction:column; width:100%; height:100%; }
+
+  /* ---------- Header ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 20px; border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, #0e0e11 0%, #0a0a0c 100%);
+    flex:0 0 auto;
+  }
+  .brand{ display:flex; align-items:center; gap:8px; width:170px; }
+  .brand img{ width:24px; height:24px; object-fit:contain; filter:drop-shadow(0 0 4px rgba(217,174,82,0.35)); }
+  .brandtext{ font-size:12px; letter-spacing:0.24em; color:var(--muted); font-weight:600; }
+  .titleblock{ text-align:center; flex:1; }
+  .title{ font-size:21px; letter-spacing:0.09em; font-weight:300; }
+  .title b{ font-weight:700; color:var(--gold); }
+  .tagline{ font-size:8.5px; letter-spacing:0.28em; color:var(--muted-2); margin-top:2px; }
+  .presetnav{ display:flex; align-items:center; gap:6px; width:170px; justify-content:flex-end; flex:0 0 auto; }
+  .navbtn, .iconbtn, .abbtn{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--muted);
+    border-radius:6px; height:26px; cursor:pointer; font-size:11px; flex:0 0 auto;
+  }
+  .navbtn{ width:22px; }
+  .presetname{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:6px;
+    height:26px; padding:0 10px; display:flex; align-items:center; font-size:10px;
+    letter-spacing:0.06em; color:var(--text); justify-content:center; flex:0 0 auto;
+    white-space:nowrap;
+  }
+  .iconbtn{ width:26px; font-size:12px; }
+  .abbtn{ width:22px; font-weight:700; }
+  .abbtn.active{ background:var(--gold-dim); border-color:var(--gold); color:var(--gold); }
+
+  /* ---------- Main body ---------- */
+  .body{ flex:1 1 auto; display:flex; gap:16px; padding:16px 20px; min-height:0; }
+
+  .lanes{ flex:1 1 auto; display:flex; flex-direction:column; gap:10px; min-width:0; }
+  .lane{
+    flex:1 1 0; display:flex; flex-direction:column; gap:6px; min-height:0;
+  }
+  .lanehead{ display:flex; align-items:center; justify-content:space-between; }
+  .laneinfo{ display:flex; align-items:baseline; gap:8px; }
+  .lanelabel{ font-size:13px; letter-spacing:0.14em; font-weight:700; }
+  .lanelabel.guide{ color:var(--guide); }
+  .lanelabel.target{ color:var(--target); }
+  .lanelabel.aligned{ color:var(--aligned); }
+  .linkicon{ font-size:11px; opacity:0.7; }
+  .lanesub{ font-size:11px; color:var(--muted); }
+  .lanebtns{ display:flex; align-items:center; gap:8px; }
+  .setbtn{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:6px; padding:6px 16px; font-size:11px; letter-spacing:0.1em;
+    font-weight:700; cursor:pointer;
+  }
+  .setbtn:hover{ border-color:var(--gold); color:var(--gold); }
+  .setbtn:active{ transform:translateY(1px); }
+
+  .recbtn{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--muted);
+    border-radius:6px; padding:6px 12px; font-size:10.5px; letter-spacing:0.08em;
+    font-weight:700; cursor:pointer; white-space:nowrap; font-variant-numeric:tabular-nums;
+  }
+  .recbtn:hover{ border-color:#e0685a; color:#e0685a; }
+  .recbtn.armed{
+    border-color:#e0685a; color:#e0685a; background:rgba(224,104,90,0.14);
+    animation:recpulse 1s ease-in-out infinite;
+  }
+  .recbtn.capturing{ border-color:#e0685a; color:#fff; background:#c2453a; animation:none; }
+  @keyframes recpulse{ 0%,100%{ opacity:1; } 50%{ opacity:0.45; } }
+  .wavemark{ font-size:16px; color:var(--muted); }
+
+  .wave{
+    position:relative; flex:1 1 0; min-height:0; border-radius:8px;
+    background:var(--panel); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+    transition:background 0.12s ease, border-color 0.12s ease;
+  }
+  .wave.dragover{
+    border-color:var(--gold); background:var(--gold-dim);
+  }
+  .wave.dragover .waveempty{ color:var(--gold); }
+  .wave canvas{ width:100%; height:100%; display:block; }
+  .waveempty{
+    position:absolute; font-size:11px; letter-spacing:0.1em; color:var(--muted-2);
+    text-transform:uppercase; pointer-events:none;
+  }
+
+  /* ---------- Right controls ---------- */
+  .controls{ width:230px; flex:0 0 auto; display:flex; flex-direction:column; gap:18px; }
+  .grouplabel{
+    font-size:11px; letter-spacing:0.14em; color:var(--muted); font-weight:700;
+    display:flex; align-items:center; gap:6px; margin-bottom:10px;
+  }
+  .help{
+    width:14px; height:14px; border-radius:50%; border:1px solid var(--muted-2);
+    color:var(--muted-2); font-size:9px; display:inline-flex; align-items:center;
+    justify-content:center; cursor:help;
+  }
+  .segmented{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .segmented button{
+    flex:1; background:var(--panel); border:none; color:var(--muted);
+    padding:11px 4px; font-size:11px; letter-spacing:0.06em; font-weight:700; cursor:pointer;
+    border-right:1px solid var(--line);
+  }
+  .segmented button:last-child{ border-right:none; }
+  .segmented button.active{ background:var(--gold-dim); color:var(--gold); }
+
+  .sliderrow{ margin-bottom:20px; }
+  .sliderrow:last-child{ margin-bottom:0; }
+  .sliderrowhead{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:9px; }
+  .sliderval{ font-size:12px; color:var(--gold); font-variant-numeric:tabular-nums; }
+  .hslider{
+    -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:2px;
+    background:var(--line); outline:none; cursor:pointer;
+  }
+  .hslider::-webkit-slider-thumb{
+    -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+    background:var(--gold); border:2px solid #0a0a0c; cursor:pointer;
+    box-shadow:0 0 6px rgba(217,174,82,0.5);
+  }
+  .hslider.filled{
+    background: linear-gradient(90deg, var(--gold) 0%, var(--gold) var(--fill,50%), var(--line) var(--fill,50%), var(--line) 100%);
+  }
+
+  .advancedpanel{ display:flex; gap:26px; padding:14px 0 4px; }
+  .advancedpanel .sliderrow{ flex:1; margin-bottom:0; }
+  .advancedpanel[hidden]{ display:none; }
+
+  /* ---------- Bottom bar ---------- */
+  .bottombar{ flex:0 0 auto; padding:6px 20px 10px; }
+  .bottomrow{ display:flex; align-items:center; justify-content:space-between; }
+  .advbtn{
+    background:none; border:none; color:var(--muted); font-size:11px; letter-spacing:0.1em;
+    cursor:pointer; padding:8px 0;
+  }
+  .advbtn:hover{ color:var(--text); }
+
+  .alignbtn{
+    width:92px; height:92px; border-radius:50%; background:radial-gradient(circle at 50% 40%, #1c1c22 0%, #0c0c0e 70%);
+    border:2px solid var(--gold); cursor:pointer; color:var(--gold);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    box-shadow:0 0 0 3px rgba(217,174,82,0.08), 0 0 18px rgba(217,174,82,0.28);
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  }
+  .alignbtn:hover{ box-shadow:0 0 0 5px rgba(217,174,82,0.14), 0 0 24px rgba(217,174,82,0.4); }
+  .alignbtn:active{ transform:translate(-50%,-50%) scale(0.97); }
+  .alignbtn.busy{ animation:pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:0.55; } }
+  .aligntext{ font-size:12px; font-weight:800; letter-spacing:0.07em; }
+  .alignicon{ font-size:12px; opacity:0.85; }
+
+  .actionbtns{ display:flex; gap:10px; }
+  .previewbtn, .renderbtn{
+    display:flex; align-items:center; gap:7px; border-radius:8px; padding:10px 16px;
+    font-size:11px; letter-spacing:0.07em; font-weight:700; cursor:pointer;
+  }
+  .previewbtn{ background:var(--panel-2); border:1px solid var(--line); color:var(--text); }
+  .previewbtn:hover{ border-color:var(--gold); color:var(--gold); }
+  .previewbtn.playing{ border-color:var(--gold); color:var(--gold); background:var(--gold-dim); }
+  .renderbtn{ background:linear-gradient(180deg, var(--gold-bright), var(--gold)); border:none; color:#1a1204; }
+  .renderbtn:hover{ filter:brightness(1.08); }
+  .renderbtn:disabled, .previewbtn:disabled{ opacity:0.4; cursor:default; }
+
+  .bottombarcenter{ position:relative; height:96px; }
+
+  .statusline{
+    text-align:center; font-size:10.5px; letter-spacing:0.08em; color:var(--muted-2);
+    margin-top:10px; min-height:14px;
+  }
+  .statusline.error{ color:#e08a6a; }
+  .statusline.ok{ color:var(--gold); }
+
+  /* ---------- Footer ---------- */
+  .footerbar{
+    flex:0 0 auto; display:flex; justify-content:space-between; align-items:center;
+    padding:8px 20px 12px; border-top:1px solid var(--line);
+    font-size:8.5px; letter-spacing:0.14em; color:var(--muted-2);
+  }
+  .footleft{ line-height:1.5; }
+  .footright{ color:var(--gold); opacity:0.7; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <img src="n_logo.png" alt="">
+      <div class="brandtext">NOVA AUDIO</div>
+    </div>
+    <div class="titleblock">
+      <div class="title">NOVA <b>ALIGN</b></div>
+      <div class="tagline">INTELLIGENT AUDIO ALIGNMENT</div>
+    </div>
+    <div class="presetnav">
+      <button class="navbtn">&lt;</button>
+      <div class="presetname">Default</div>
+      <button class="navbtn">&gt;</button>
+      <button class="iconbtn">&#9881;</button>
+      <button class="abbtn active">A</button>
+      <button class="abbtn">B</button>
+    </div>
+  </header>
+
+  <main class="body">
+    <section class="lanes">
+
+      <div class="lane">
+        <div class="lanehead">
+          <div class="laneinfo">
+            <div class="lanelabel guide">GUIDE <span class="linkicon" title="Route the Guide track to Nova Align's Guide Sidechain input in your DAW's mixer, then Capture.">&#128279;</span></div>
+            <div class="lanesub" id="guideSub">No file loaded</div>
+          </div>
+          <div class="lanebtns">
+            <button class="recbtn" id="recGuideBtn" title="Capture Guide from the sidechain input while your DAW plays">&#9679; REC</button>
+            <button class="setbtn" id="setGuideBtn">SET</button>
+          </div>
+        </div>
+        <div class="wave" id="waveGuide">
+          <canvas></canvas>
+          <div class="waveempty">Drop audio, SET, or capture via sidechain</div>
+        </div>
+      </div>
+
+      <div class="lane">
+        <div class="lanehead">
+          <div class="laneinfo">
+            <div class="lanelabel target">TARGET</div>
+            <div class="lanesub" id="targetSub">No file loaded</div>
+          </div>
+          <div class="lanebtns">
+            <button class="recbtn" id="recTargetBtn" title="Capture Target from this insert's input while your DAW plays">&#9679; REC</button>
+            <button class="setbtn" id="setTargetBtn">SET</button>
+          </div>
+        </div>
+        <div class="wave" id="waveTarget">
+          <canvas></canvas>
+          <div class="waveempty">Drop audio, SET, or capture live</div>
+        </div>
+      </div>
+
+      <div class="lane">
+        <div class="lanehead">
+          <div class="laneinfo">
+            <div class="lanelabel aligned">ALIGNED</div>
+            <div class="lanesub">Preview</div>
+          </div>
+          <div class="wavemark">&#9834;</div>
+        </div>
+        <div class="wave" id="waveAligned">
+          <canvas></canvas>
+          <div class="waveempty">Press Align</div>
+        </div>
+      </div>
+
+    </section>
+
+    <aside class="controls">
+      <div class="controlgroup">
+        <div class="grouplabel">ALIGN MODE <span class="help" title="Natural blends the corrected timing in gently. Tight snaps hard to the guide. Loose applies only broad phrase-level correction.">?</span></div>
+        <div class="segmented" id="alignModeSeg">
+          <button data-mode="0" class="active">NATURAL</button>
+          <button data-mode="1">TIGHT</button>
+          <button data-mode="2">LOOSE</button>
+        </div>
+      </div>
+
+      <div class="sliderrow" data-param="align_strength">
+        <div class="sliderrowhead"><div class="grouplabel" style="margin:0;">ALIGN STRENGTH</div><div class="sliderval">75%</div></div>
+        <input type="range" class="hslider filled" min="0" max="100" step="0.1" value="75">
+      </div>
+
+      <div class="sliderrow" data-param="preserve_transients">
+        <div class="sliderrowhead"><div class="grouplabel" style="margin:0;">PRESERVE TRANSIENTS</div><div class="sliderval">50%</div></div>
+        <input type="range" class="hslider filled" min="0" max="100" step="0.1" value="50">
+      </div>
+
+      <div class="sliderrow" data-param="smoothing">
+        <div class="sliderrowhead"><div class="grouplabel" style="margin:0;">SMOOTHING</div><div class="sliderval">25%</div></div>
+        <input type="range" class="hslider filled" min="0" max="100" step="0.1" value="25">
+      </div>
+    </aside>
+  </main>
+
+  <div class="bottombar">
+    <div class="bottomrow">
+      <button class="advbtn" id="advancedBtn">ADVANCED &#8964;</button>
+      <div style="width:120px;"></div>
+      <div class="actionbtns">
+        <button class="previewbtn" id="previewBtn">&#9654; PREVIEW</button>
+        <button class="renderbtn" id="renderBtn">&#9834; RENDER</button>
+      </div>
+    </div>
+
+    <div class="advancedpanel" id="advancedPanel" hidden>
+      <div class="sliderrow" data-param="phrase_sensitivity">
+        <div class="sliderrowhead"><div class="grouplabel" style="margin:0;">PHRASE SENSITIVITY</div><div class="sliderval">75%</div></div>
+        <input type="range" class="hslider filled" min="0" max="100" step="0.1" value="75">
+      </div>
+      <div class="sliderrow" data-param="max_shift_ms">
+        <div class="sliderrowhead"><div class="grouplabel" style="margin:0;">MAX SHIFT</div><div class="sliderval">1000 ms</div></div>
+        <input type="range" class="hslider filled" min="50" max="3000" step="1" value="1000">
+      </div>
+    </div>
+
+    <div class="bottombarcenter">
+      <button class="alignbtn" id="alignBtn">
+        <div class="aligntext">ALIGN</div>
+        <div class="alignicon">&#9835;</div>
+      </button>
+    </div>
+
+    <div class="statusline" id="statusLine">Load Guide and Target to begin.</div>
+  </div>
+
+  <div class="footerbar">
+    <div class="footleft">NOVA AUDIO<br>EST. 2023</div>
+    <div class="footright">ALIGN A BETTER SOUND</div>
+  </div>
+
+</div>
+
+<script src="js/juce/check_native_interop.js"></script>
+<script src="js/juce/index.js"></script>
+<script src="js/index.js"></script>
+</body>
+</html>

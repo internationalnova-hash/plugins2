@@ -1,0 +1,86 @@
+==> [Nova Doubler 1/7] Configuring Release build
+-- Configuring juceaide
+-- Building juceaide
+-- Exporting juceaide
+-- Testing juceaide
+-- Finished setting up juceaide
+-- Configuring done (2.6s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/internationalnova/Nova/plugins2/Nova Doubler/build-release
+==> [Nova Doubler 2/7] Building VST3 + AU + Standalone (via NovaDoubler_All)
+[  1%] Generating juce_binarydata_NovaDoubler_WebUI/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_NovaDoubler_WebUI/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_NovaDoubler_WebUI/JuceLibraryCode/BinaryData3.cpp, juce_binarydata_NovaDoubler_WebUI/JuceLibraryCode/BinaryData4.cpp, juce_binarydata_NovaDoubler_WebUI/JuceLibraryCode/BinaryData.h
+[  4%] Built target juce_vst3_helper
+[  4%] Generating juce_binarydata_NovaDoubler_WebUI/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_NovaDoubler_WebUI/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_NovaDoubler_WebUI/JuceLibraryCode/BinaryData3.cpp, juce_binarydata_NovaDoubler_WebUI/JuceLibraryCode/BinaryData4.cpp, juce_binarydata_NovaDoubler_WebUI/JuceLibraryCode/BinaryData.h
+[ 12%] Built target NovaDoubler_WebUI
+[ 41%] Built target NovaDoubler
+[ 61%] Built target NovaDoubler_Standalone
+[ 80%] Built target NovaDoubler_VST3
+[100%] Built target NovaDoubler_AU
+[100%] Built target NovaDoubler_All
+==> [Nova Doubler 3/7] Codesigning bundles (hardened runtime, secure timestamp)
+/Users/internationalnova/Nova/plugins2/Nova Doubler/build-release/NovaDoubler_artefacts/Release/VST3/Nova Doubler.vst3: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova Doubler/build-release/NovaDoubler_artefacts/Release/AU/Nova Doubler.component: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova Doubler/build-release/NovaDoubler_artefacts/Release/Standalone/Nova Doubler.app: replacing existing signature
+==> [Nova Doubler 3/7] Verifying codesign
+/Users/internationalnova/Nova/plugins2/Nova Doubler/build-release/NovaDoubler_artefacts/Release/VST3/Nova Doubler.vst3: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Doubler/build-release/NovaDoubler_artefacts/Release/VST3/Nova Doubler.vst3: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova Doubler/build-release/NovaDoubler_artefacts/Release/AU/Nova Doubler.component: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Doubler/build-release/NovaDoubler_artefacts/Release/AU/Nova Doubler.component: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova Doubler/build-release/NovaDoubler_artefacts/Release/Standalone/Nova Doubler.app: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Doubler/build-release/NovaDoubler_artefacts/Release/Standalone/Nova Doubler.app: satisfies its Designated Requirement
+==> [Nova Doubler 4/7] Staging installer root
+==> [Nova Doubler 5/7] Building + signing installer package
+pkgbuild: Inferring bundle components from contents of /Users/internationalnova/Nova/plugins2/Nova Doubler/dist/pkgroot
+pkgbuild: Adding component at Library/Audio/Plug-Ins/VST3/Nova Doubler.vst3
+pkgbuild: Adding component at Library/Audio/Plug-Ins/Components/Nova Doubler.component
+pkgbuild: Adding component at Applications/Nova Doubler.app
+pkgbuild: Wrote package to /Users/internationalnova/Nova/plugins2/Nova Doubler/dist/NovaDoubler-unsigned.pkg
+productsign: using timestamp authority for signature
+productsign: signing product with identity "Developer ID Installer: Giovanni Nova (HSX9N2UQ83)" from keychain /Users/internationalnova/Library/Keychains/login.keychain-db
+productsign: adding certificate "Developer ID Certification Authority"
+productsign: adding certificate "Apple Root CA"
+productsign: Wrote signed product archive to /Users/internationalnova/Nova/plugins2/Nova Doubler/dist/NovaDoubler-1.0.0.pkg
+Package "NovaDoubler-1.0.0.pkg":
+   Status: signed by a developer certificate issued by Apple for distribution
+   Signed with a trusted timestamp on: 2026-08-17 00:03:02 +0000
+   Certificate Chain:
+    1. Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+       Expires: 2031-08-10 05:15:34 +0000
+       SHA256 Fingerprint:
+           A5 7B 81 C2 82 10 15 09 6C C2 83 D5 33 A8 40 30 9F FA 53 0A 3B F6 
+           C3 85 80 B2 1E FE FB A6 32 AC
+       ------------------------------------------------------------------------
+    2. Developer ID Certification Authority
+       Expires: 2031-09-17 00:00:00 +0000
+       SHA256 Fingerprint:
+           F1 6C D3 C5 4C 7F 83 CE A4 BF 1A 3E 6A 08 19 C8 AA A8 E4 A1 52 8F 
+           D1 44 71 5F 35 06 43 D2 DF 3A
+       ------------------------------------------------------------------------
+    3. Apple Root CA
+       Expires: 2035-02-09 21:40:36 +0000
+       SHA256 Fingerprint:
+           B0 B1 73 0E CB C7 FF 45 05 14 2C 49 F1 29 5E 6E DA 6B CA ED 7E 2C 
+           68 C5 BE 91 B5 A1 10 01 F0 24
+
+==> [Nova Doubler 6/7] Submitting for notarization (this can take a few minutes)
+Conducting pre-submission checks for NovaDoubler-1.0.0.pkg and initiating connection to the Apple notary service...
+Submission ID received
+  id: 38468339-b68b-4572-a356-046e4d961346
+Successfully uploaded file
+  id: 38468339-b68b-4572-a356-046e4d961346
+  path: /Users/internationalnova/Nova/plugins2/Nova Doubler/dist/NovaDoubler-1.0.0.pkg
+Waiting for processing to complete.
+Current status: In Progress...Current status: In Progress....Current status: In Progress.....Current status: Accepted......Processing complete
+  id: 38468339-b68b-4572-a356-046e4d961346
+  status: Accepted
+
+==> [Nova Doubler 7/7] Stapling notarization ticket
+Processing: /Users/internationalnova/Nova/plugins2/Nova Doubler/dist/NovaDoubler-1.0.0.pkg
+Processing: /Users/internationalnova/Nova/plugins2/Nova Doubler/dist/NovaDoubler-1.0.0.pkg
+The staple and validate action worked!
+==> [Nova Doubler] Final verification
+/Users/internationalnova/Nova/plugins2/Nova Doubler/dist/NovaDoubler-1.0.0.pkg: accepted
+source=Notarized Developer ID
+origin=Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+
+Done: /Users/internationalnova/Nova/plugins2/Nova Doubler/dist/NovaDoubler-1.0.0.pkg

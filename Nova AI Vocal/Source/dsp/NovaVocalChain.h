@@ -1,0 +1,145 @@
+#pragma once
+
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <array>
+#include <atomic>
+#include <vector>
+
+#include "NovaVibes.h"
+
+// Settings Listen works out for this specific voice: gain staging plus a
+// corrective EQ that brings the voice to a neutral balance before the vibe's
+// own flavour (the macro knobs) goes on top. Plain POD - safe to copy across
+// threads under a spinlock.
+struct NovaVocalPlan
+{
+    bool  active      = false;
+    float inputTrimDb = 0.f;   // brings the vocal to about -20 dBFS RMS
+    float mudDb       = 0.f;   // 300 Hz bell
+    float boxDb       = 0.f;   // 750 Hz bell
+    float presenceDb  = 0.f;   // vibe presence bell
+    float airDb       = 0.f;   // vibe air shelf
+};
+
+struct NovaVocalMacros
+{
+    std::array<float, kNumMacros> v { 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
+};
+
+// Transposed direct form II biquad. Coefficients are computed in place
+// (RBJ cookbook) so nothing allocates on the audio thread - unlike
+// juce::dsp::IIR::Coefficients::make*, which heap-allocates.
+struct NovaBiquad
+{
+    float b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0;
+    float z1 = 0, z2 = 0;
+
+    inline float process (float x) noexcept
+    {
+        const float y = b0 * x + z1;
+        z1 = b1 * x - a1 * y + z2;
+        z2 = b2 * x - a2 * y;
+        return y;
+    }
+
+    void reset() noexcept { z1 = z2 = 0; }
+
+    void setHighPass  (double sr, double hz, double q) noexcept;
+    void setLowPass   (double sr, double hz, double q) noexcept;
+    void setPeak      (double sr, double hz, double q, double gainDb) noexcept;
+    void setHighShelf (double sr, double hz, double q, double gainDb) noexcept;
+
+private:
+    void set (double nb0, double nb1, double nb2, double na0, double na1, double na2) noexcept;
+};
+
+// The full vocal chain:
+//   input trim -> high-pass -> tone EQ (corrective + vibe) -> de-esser ->
+//   compressor -> warmth saturation -> ping-pong delay + reverb sends ->
+//   dry/wet mix -> output
+// Stereo-linked; mono callers duplicate their channel into both pointers.
+class NovaVocalChain
+{
+public:
+    void prepare (double sampleRate, int maxBlockSize);
+    void reset();
+
+    void setVibe (int vibeIndex) noexcept                { vibe = vibeIndex; }
+    // A preset's own recipe in place of the vibe's (static data, or nullptr
+    // for the plain vibe). Audio thread.
+    void setVoicing (const NovaVibe* v) noexcept         { voicing = v; }
+    void setMacros (const NovaVocalMacros& m) noexcept;
+    void setPlan (const NovaVocalPlan& p) noexcept;
+    void setMix (float mix01) noexcept                   { mixSm.setTargetValue (juce::jlimit (0.f, 1.f, mix01)); }
+    void setOutputDb (float db) noexcept                 { outSm.setTargetValue (juce::Decibels::decibelsToGain (db)); }
+    void setTempo (double bpm) noexcept                  { if (bpm > 20.0 && bpm < 400.0) tempoBpm = bpm; }
+    double getTempo() const noexcept                     { return tempoBpm; }
+
+    void process (float* left, float* right, int numSamples) noexcept;
+
+    float getCompGainReductionDb() const noexcept  { return compGrMeter.load (std::memory_order_relaxed); }
+    float getDeEssGainReductionDb() const noexcept { return deEssGrMeter.load (std::memory_order_relaxed); }
+
+private:
+    static constexpr int kSub = 32; // coefficient update interval / reverb sub-block
+
+    void updateCoefficients() noexcept;
+    float preDelayTargetSamples() const noexcept;
+    static float compGainDb (float levelDb, float thrDb, float ratio, float kneeDb) noexcept;
+
+    double sr = 48000.0;
+    int vibe = 0;
+    const NovaVibe* voicing = nullptr;
+    const NovaVibe& activeVibe() const noexcept { return voicing != nullptr ? *voicing : getNovaVibe (vibe); }
+    double tempoBpm = 120.0;
+
+    // Smoothed controls
+    std::array<juce::SmoothedValue<float>, kNumMacros> macroSm;
+    juce::SmoothedValue<float> trimSm { 1.f }, mudSm, boxSm, presSm, airSm;
+    juce::SmoothedValue<float> mixSm { 1.f }, outSm { 1.f };
+    juce::SmoothedValue<float> delaySamplesSm;
+
+    // Filters, per channel
+    std::array<NovaBiquad, 2> hpf1, hpf2, mudEq, boxEq, presEq, airEq;
+    // De-esser crossover: Linkwitz-Riley 4th order (two Butterworth biquads
+    // per side). LR bands stay in phase, so turning the high band down
+    // really lowers it - a plain x - highpass(x) split does not.
+    std::array<NovaBiquad, 2> deEssLp1, deEssLp2, deEssHp1, deEssHp2;
+    std::array<NovaBiquad, 2> delayHp, delayLp, revHp;
+
+    // De-esser
+    float deEssAmount = 0;
+    float sibEnv = 0, fullEnv = 0, deEssGrState = 0;
+    float sibAtt = 0, sibRel = 0, fullAtt = 0, fullRel = 0, grAtt = 0, grRel = 0;
+
+    // Compressor
+    float compGrState = 0, compAttC = 0, compRelC = 0;
+    float compThr = 0, compRatio = 1, compMakeupDb = 0;
+    float lastCompAttMs = -1, lastCompRelMs = -1;
+
+    // Saturation
+    float satDrive = 1, satMix = 0;
+
+    // Delay (ping-pong)
+    std::vector<float> delayBufL, delayBufR;
+    int delayWrite = 0, delaySize = 0;
+    float delayFb = 0, delayLevel = 0;
+
+    // Reverb
+    juce::Reverb reverb;
+    float reverbLevel = 0;
+    float lastRoom = -1, lastDamp = -1;
+
+    // Reverb pre-delay: a 1/64 note (31 ms at 120 BPM, 5-80 ms) so the
+    // words land before the tail. Mono, ahead of the reverb send.
+    std::vector<float> preDelayBufL, preDelayBufR;
+    int preDelayWrite = 0, preDelaySize = 0;
+    juce::SmoothedValue<float> preDelaySm;
+    float lastTempoForRoom = -1;
+
+    // Ducking keeps the wet tails out of the way while the vocal is singing
+    float duckEnv = 0, duckAtt = 0, duckRel = 0;
+
+    // Meters (written on the audio thread, read by the UI)
+    std::atomic<float> compGrMeter { 0.f }, deEssGrMeter { 0.f };
+};

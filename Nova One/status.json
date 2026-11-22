@@ -1,0 +1,50 @@
+{
+  "plugin_name": "Nova One",
+  "version": "v1.0.0",
+  "current_phase": "ship_complete",
+  "ui_framework": "webview",
+  "complexity_score": 2,
+  "created_at": "2026-07-23T23:30:00Z",
+  "last_modified": "2026-07-23T23:30:00Z",
+  "phase_history": [
+    {
+      "phase": "ideation_complete",
+      "completed_at": "2026-07-23T23:30:00Z",
+      "framework_selected": "webview",
+      "notes": "Nova One is a UX reinterpretation of Nova Master's original V1 mastering engine (PluginProcessor/ParameterIDs are byte-identical to commit ad97eab): one intelligent macro knob plus Clean/Warm/Wide/Loud mode selection replaces the five-slider workflow. Nova Master remains the full-featured advanced mastering suite; Nova One is the fast, one-knob enhancer."
+    },
+    {
+      "phase": "design_complete",
+      "completed_at": "2026-07-23T23:30:00Z",
+      "framework_selected": "webview",
+      "notes": "New single-knob UI matching the approved mockup: contextual macro label/percentage/descriptor per mode, gold halo/glow animations, Output + Auto Level + Mix, Input/Output LUFS meters, True Peak, Ceiling Aware, preset prev/next, and a Meter View settings popover."
+    },
+    {
+      "phase": "code_complete",
+      "completed_at": "2026-07-23T23:30:00Z",
+      "framework_selected": "webview",
+      "notes": "Forked CMakeLists/PluginProcessor/PluginEditor/ParameterIDs from Nova Master with identifiers renamed to Nova One (bundle id com.internationalnova.novaone, plugin code NvOn). DSP math in processBlock is untouched. Added two small additive pieces only: an input peak/RMS meter (mirrors the existing output meter) and a persisted auto_level bool parameter driving a client-side auto-gain nudge on the existing output_gain parameter. The macro knob maps its 0-100% position to the existing tone/glue/weight/air/width/output_gain/finish_mode parameters per mode, all client-side in index.html; no new DSP was written.",
+      "notes_2": "Verified in the Claude Browser preview pane (JUCE bridge absent, so the JS falls back to local state): mode switching, descriptor banding, ceiling readout, Auto Level toggle, preset cycling, meter callbacks, and both knob drags all behaved correctly. Full native build/DAW verification still needs a real JUCE/CMake toolchain run."
+    }
+  ],
+  "validation": {
+    "creative_brief_exists": true,
+    "parameter_spec_exists": true,
+    "architecture_defined": true,
+    "ui_framework_selected": true,
+    "design_complete": true,
+    "code_complete": true,
+    "tests_passed": false,
+    "ship_ready": false
+  },
+  "framework_selection": {
+    "decision": "webview",
+    "rationale": "Reuses the existing JUCE WebView bridge pattern from Nova Master (WebSliderRelay/WebSliderParameterAttachment) so the new macro-knob UI can drive the untouched DSP parameters without any native-side processing changes.",
+    "implementation_strategy": "ui-fork"
+  },
+  "error_recovery": {
+    "last_backup": null,
+    "rollback_available": false,
+    "error_log": []
+  }
+}

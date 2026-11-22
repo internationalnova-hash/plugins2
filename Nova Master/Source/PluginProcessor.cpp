@@ -158,6 +158,25 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaMasterAudioProcessor::cr
         juce::StringArray { "OUT", "LU" },
         0));
 
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::bypass, 1 },
+        "Bypass",
+        false));
+
+    const auto addSectionBypass = [&layout] (const char* id, const char* name)
+    {
+        layout.add (std::make_unique<juce::AudioParameterBool> (
+            juce::ParameterID { id, 1 },
+            name,
+            false));
+    };
+
+    addSectionBypass (ParameterIDs::toneBypass, "Tone Bypass");
+    addSectionBypass (ParameterIDs::glueBypass, "Glue Bypass");
+    addSectionBypass (ParameterIDs::weightBypass, "Weight Bypass");
+    addSectionBypass (ParameterIDs::airBypass, "Air Bypass");
+    addSectionBypass (ParameterIDs::widthBypass, "Width Bypass");
+
     return layout;
 }
 
@@ -247,11 +266,21 @@ void NovaMasterAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     outputPeakHold = 0.0f;
     outputRmsHold = 0.0f;
     sideLowState = 0.0f;
+    dynamicRangeHold = 12.0f;
+    correlationHold = 0.0f;
+    corrSumLR = 0.0;
+    corrSumLL = 0.0;
+    corrSumRR = 0.0;
+    drPeakAccum = 0.0f;
+    drSquaredSumAccum = 0.0;
+    analysisWindowSamples = 0;
 
     outputPeakLevel.store (0.0f);
     outputRmsLevel.store (0.0f);
     limiterReductionLevel.store (0.0f);
     outputIsHot.store (false);
+    dynamicRangeLu.store (12.0f);
+    stereoCorrelation.store (0.0f);
 }
 
 void NovaMasterAudioProcessor::releaseResources()
@@ -284,6 +313,9 @@ void NovaMasterAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     if (buffer.getNumSamples() == 0)
         return;
 
+    if (apvts.getRawParameterValue (ParameterIDs::bypass)->load() > 0.5f)
+        return;
+
     if (dryBuffer.getNumChannels() < totalNumOutputChannels || dryBuffer.getNumSamples() < buffer.getNumSamples())
         dryBuffer.setSize (totalNumOutputChannels, buffer.getNumSamples(), false, false, true);
 
@@ -300,6 +332,12 @@ void NovaMasterAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     const auto finishOn = apvts.getRawParameterValue (ParameterIDs::finishMode)->load() > 0.5f;
     const auto modeIndex = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::modePreset)->load());
 
+    const auto toneBypassOn = apvts.getRawParameterValue (ParameterIDs::toneBypass)->load() > 0.5f;
+    const auto glueBypassOn = apvts.getRawParameterValue (ParameterIDs::glueBypass)->load() > 0.5f;
+    const auto weightBypassOn = apvts.getRawParameterValue (ParameterIDs::weightBypass)->load() > 0.5f;
+    const auto airBypassOn = apvts.getRawParameterValue (ParameterIDs::airBypass)->load() > 0.5f;
+    const auto widthBypassOn = apvts.getRawParameterValue (ParameterIDs::widthBypass)->load() > 0.5f;
+
     const auto mode = getModeProfile (modeIndex);
 
     const auto toneNorm = juce::jlimit (0.0f, 1.0f, tone / 10.0f);
@@ -310,15 +348,15 @@ void NovaMasterAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     const auto mixNorm = juce::jlimit (0.0f, 1.0f, mix / 100.0f);
 
     const auto tiltDb = -3.0f + (toneNorm * 6.0f) + ((modeIndex == 1) ? -0.25f : (modeIndex == 2 ? 0.25f : 0.0f));
-    const auto lowTiltGainDb = -tiltDb * 0.5f;
-    const auto highTiltGainDb = tiltDb * 0.5f;
+    const auto lowTiltGainDb = toneBypassOn ? 0.0f : (-tiltDb * 0.5f);
+    const auto highTiltGainDb = toneBypassOn ? 0.0f : (tiltDb * 0.5f);
 
-    const auto weightDb = -1.5f + (weightNorm * 3.5f) + (mode.warmthBias * 1.2f);
-    const auto tightenDb = -((glueNorm * 1.3f) + (finishOn ? 0.35f * (1.0f + mode.glueBias) : 0.0f));
-    const auto airDb = -1.0f + (airNorm * 4.0f) + (modeIndex == 2 ? 0.25f : 0.0f);
+    const auto weightDb = weightBypassOn ? 0.0f : (-1.5f + (weightNorm * 3.5f) + (mode.warmthBias * 1.2f));
+    const auto tightenDb = glueBypassOn ? 0.0f : -((glueNorm * 1.3f) + (finishOn ? 0.35f * (1.0f + mode.glueBias) : 0.0f));
+    const auto airDb = airBypassOn ? 0.0f : (-1.0f + (airNorm * 4.0f) + (modeIndex == 2 ? 0.25f : 0.0f));
     const auto smoothingCutoff = juce::jlimit (5500.0f, 19000.0f,
-                                               18000.0f - (airNorm * 2200.0f)
-                                                          - (glueNorm * 1300.0f)
+                                               18000.0f - (airBypassOn ? 0.0f : (airNorm * 2200.0f))
+                                                          - (glueBypassOn ? 0.0f : (glueNorm * 1300.0f))
                                                           - (finishOn ? (900.0f + (800.0f * mode.limiterBias)) : 0.0f));
 
     *tiltLowShelf.state = *juce::dsp::IIR::Coefficients<float>::makeLowShelf (currentSampleRate, 220.0f, 0.72f, juce::Decibels::decibelsToGain (lowTiltGainDb));
@@ -349,9 +387,10 @@ void NovaMasterAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
 
     const auto harmonicDrive = 1.0f + (glueNorm * 0.03f) + (mode.warmthBias * 0.04f)
                              + (finishOn ? 0.05f : 0.0f);
-    const auto harmonicBlend = juce::jlimit (0.08f, 0.22f,
+    const auto harmonicBlend = glueBypassOn ? 0.0f : juce::jlimit (0.08f, 0.22f,
                                              0.08f + (glueNorm * 0.05f) + (finishOn ? 0.04f : 0.0f));
-    const auto sideBoost = 1.0f + (widthNorm * (0.30f + mode.widthBias)) + (finishOn ? 0.05f : 0.0f);
+    const auto widthContribution = widthBypassOn ? 0.0f : (widthNorm * (0.30f + mode.widthBias));
+    const auto sideBoost = 1.0f + widthContribution + (finishOn ? 0.05f : 0.0f);
 
     const auto limiterThresholdDb = finishOn
         ? (-3.2f - (glueNorm * 0.9f) - (mode.limiterBias * 0.4f))
@@ -378,7 +417,7 @@ void NovaMasterAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             compressorEnvelope = (releaseCoeff * compressorEnvelope) + ((1.0f - releaseCoeff) * detector);
 
         const auto detectorDb = juce::Decibels::gainToDecibels (compressorEnvelope, -160.0f);
-        const auto targetCompGrDb = computeGainReductionDb (detectorDb - thresholdDb, ratio, kneeDb);
+        const auto targetCompGrDb = glueBypassOn ? 0.0f : computeGainReductionDb (detectorDb - thresholdDb, ratio, kneeDb);
 
         if (targetCompGrDb > compressorGainReductionDb)
             compressorGainReductionDb += (targetCompGrDb - compressorGainReductionDb) * 0.14f;
@@ -484,6 +523,50 @@ void NovaMasterAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     outputRmsLevel.store (outputRmsHold);
     limiterReductionLevel.store (juce::jlimit (0.0f, 1.0f, limiterGainReductionDb / 6.0f));
     outputIsHot.store (outputPeakHold > 0.92f);
+
+    // ── Dynamic range (crest factor) + stereo correlation, accumulated over a
+    // rolling analysis window and updated periodically for a stable readout.
+    {
+        const auto* leftData = buffer.getReadPointer (0);
+        const auto* rightData = totalNumInputChannels > 1 ? buffer.getReadPointer (1) : leftData;
+
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        {
+            const auto l = leftData[sample];
+            const auto r = rightData[sample];
+
+            corrSumLR += static_cast<double> (l) * static_cast<double> (r);
+            corrSumLL += static_cast<double> (l) * static_cast<double> (l);
+            corrSumRR += static_cast<double> (r) * static_cast<double> (r);
+
+            const auto sampleAbs = juce::jmax (std::abs (l), std::abs (r));
+            drPeakAccum = juce::jmax (drPeakAccum, sampleAbs);
+            drSquaredSumAccum += static_cast<double> (sampleAbs) * static_cast<double> (sampleAbs);
+
+            if (++analysisWindowSamples >= kAnalysisWindowSize)
+            {
+                const auto denom = std::sqrt (corrSumLL * corrSumRR);
+                const auto corr = denom > 1.0e-9 ? static_cast<float> (corrSumLR / denom) : 1.0f;
+                correlationHold = juce::jlimit (-1.0f, 1.0f, corr);
+
+                const auto windowRms = std::sqrt (drSquaredSumAccum / static_cast<double> (analysisWindowSamples));
+                const auto crestFactorDb = windowRms > 1.0e-9
+                    ? juce::Decibels::gainToDecibels (drPeakAccum / static_cast<float> (windowRms), 0.0f)
+                    : 0.0f;
+                dynamicRangeHold = (dynamicRangeHold * 0.7f) + (juce::jlimit (0.0f, 24.0f, crestFactorDb) * 0.3f);
+
+                corrSumLR = 0.0;
+                corrSumLL = 0.0;
+                corrSumRR = 0.0;
+                drPeakAccum = 0.0f;
+                drSquaredSumAccum = 0.0;
+                analysisWindowSamples = 0;
+            }
+        }
+
+        stereoCorrelation.store (correlationHold);
+        dynamicRangeLu.store (dynamicRangeHold);
+    }
 }
 
 bool NovaMasterAudioProcessor::hasEditor() const

@@ -394,7 +394,8 @@
         var span = meta.max - meta.min;
         var now = (window.performance && window.performance.now) ? window.performance.now() : Date.now();
         var dt = Math.max(1, now - dragging.lastT);
-        var dy = dragging.lastY - ev.clientY;
+        var stageScale = window.__novaClipScale || 1;
+        var dy = (dragging.lastY - ev.clientY) / stageScale;
         var speed = Math.abs(dy) / dt;
 
         // Fast drags accelerate smoothly; slow drags stay high-resolution.
@@ -1098,6 +1099,10 @@
     // Guard against fractional host rounding that can crop the rightmost glyphs.
     scale = Math.max(0.1, scale * 0.995);
     plugin.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
+    // Exposed globally so drag handlers can compensate raw pointer-pixel
+    // deltas for the current visual scale - pointer events report real
+    // screen pixels, unaffected by this transform.
+    window.__novaClipScale = scale || 1;
   }
 
   function initCanvas() {
@@ -1111,6 +1116,10 @@
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
     window.addEventListener('resize', fitPluginViewport);
+    // Polled too, not just resize-event-driven - this embedded WebView
+    // doesn't reliably fire resize events on a native host setBounds()
+    // (same fix applied across the catalog, see Nova Tape's index.js).
+    setInterval(fitPluginViewport, 300);
     if (frameHandle) window.cancelAnimationFrame(frameHandle);
     draw();
   }

@@ -1,0 +1,435 @@
+==> [Nova Autotune 1/7] Configuring Release build
+-- The C compiler identification is AppleClang 21.0.0.21000101
+-- The CXX compiler identification is AppleClang 21.0.0.21000101
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring juceaide
+-- Building juceaide
+-- Exporting juceaide
+-- Testing juceaide
+-- Finished setting up juceaide
+-- Nova Autotune: Building for VST3;AU;AAX;Standalone
+-- Nova Autotune: WebView backend: WKWebView
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Configuring done (78.1s)
+-- Generating done (0.0s)
+-- Build files have been written to: /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release
+==> [Nova Autotune 2/7] Building VST3 + AU + Standalone (via NovaAutotune_All)
+[  1%] Generating juce_binarydata_NovaAutotune_WebUI/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_NovaAutotune_WebUI/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_NovaAutotune_WebUI/JuceLibraryCode/BinaryData3.cpp, juce_binarydata_NovaAutotune_WebUI/JuceLibraryCode/BinaryData4.cpp, juce_binarydata_NovaAutotune_WebUI/JuceLibraryCode/BinaryData5.cpp, juce_binarydata_NovaAutotune_WebUI/JuceLibraryCode/BinaryData6.cpp, juce_binarydata_NovaAutotune_WebUI/JuceLibraryCode/BinaryData.h
+[  2%] Building CXX object CMakeFiles/juce_vst3_helper.dir/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.mm.o
+[  3%] Building CXX object CMakeFiles/NovaAutotune_WebUI.dir/juce_binarydata_NovaAutotune_WebUI/JuceLibraryCode/BinaryData6.cpp.o
+[  4%] Building CXX object CMakeFiles/NovaAutotune_WebUI.dir/juce_binarydata_NovaAutotune_WebUI/JuceLibraryCode/BinaryData2.cpp.o
+[  6%] Building CXX object CMakeFiles/NovaAutotune_WebUI.dir/juce_binarydata_NovaAutotune_WebUI/JuceLibraryCode/BinaryData3.cpp.o
+[  7%] Building CXX object CMakeFiles/NovaAutotune_WebUI.dir/juce_binarydata_NovaAutotune_WebUI/JuceLibraryCode/BinaryData1.cpp.o
+[  8%] Building CXX object CMakeFiles/NovaAutotune_WebUI.dir/juce_binarydata_NovaAutotune_WebUI/JuceLibraryCode/BinaryData4.cpp.o
+[  9%] Building CXX object CMakeFiles/NovaAutotune_WebUI.dir/juce_binarydata_NovaAutotune_WebUI/JuceLibraryCode/BinaryData5.cpp.o
+[ 10%] Linking CXX static library libNovaAutotune_WebUI.a
+[ 10%] Built target NovaAutotune_WebUI
+[ 13%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm.o
+[ 14%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm.o
+[ 14%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o
+[ 15%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o
+[ 16%] Building CXX object CMakeFiles/NovaAutotune.dir/Source/PluginEditor.cpp.o
+[ 18%] Building CXX object CMakeFiles/NovaAutotune.dir/Source/PluginProcessor.cpp.o
+[ 19%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm.o
+[ 21%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o
+[ 21%] Building C object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Sheenbidi.c.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/Source/PluginEditor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+[ 22%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_graphics/juce_graphics.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/Source/PluginProcessor.h:9:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.cpp:57:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:55:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:189:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: warning: enumeration value 'NSEventTypeMouseCancelled' not explicitly handled in switch [-Wswitch-enum]
+ 1916 |         switch ([e type])
+      |                 ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: note: add missing switch cases
+ 1916 |         switch ([e type])
+      |                 ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/Source/PluginProcessor.h:9:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/Source/PluginEditor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 24%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_events/juce_events.mm.o
+1 warning generated.
+[ 25%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_core/juce_core_CompilationTime.cpp.o
+[ 26%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_core/juce_core.mm.o
+1 warning generated.
+1 warning generated.
+[ 27%] Linking CXX executable juce_vst3_helper
+[ 27%] Built target juce_vst3_helper
+[ 28%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_data_structures/juce_data_structures.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.cpp:57:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+[ 30%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.mm.o
+[ 31%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm.o
+1 warning generated.
+[ 32%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_audio_formats/juce_audio_formats.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.h:71:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 33%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.cpp:49:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.h:71:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.cpp:49:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 34%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_dsp/juce_dsp.mm.o
+[ 36%] Building CXX object CMakeFiles/NovaAutotune.dir/_deps/juce-src/modules/juce_opengl/juce_opengl.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_opengl/juce_opengl.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_opengl/juce_opengl.cpp:51:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_opengl/juce_opengl.h:79:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+2 warnings generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:55:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:189:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: warning: enumeration value 'NSEventTypeMouseCancelled' not explicitly handled in switch [-Wswitch-enum]
+ 1916 |         switch ([e type])
+      |                 ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: note: add missing switch cases
+ 1916 |         switch ([e type])
+      |                 ^
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_opengl/juce_opengl.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_opengl/juce_opengl.cpp:51:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_opengl/juce_opengl.h:79:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+1 warning generated.
+2 warnings generated.
+[ 37%] Linking CXX static library "NovaAutotune_artefacts/Release/libNova Autotune_SharedCode.a"
+[ 37%] Built target NovaAutotune
+[ 39%] Generating NovaAutotune_artefacts/JuceLibraryCode/NovaAutotune_VST3/PkgInfo
+[ 39%] Generating NovaAutotune_artefacts/JuceLibraryCode/NovaAutotune_AU/PkgInfo
+[ 40%] Generating NovaAutotune_artefacts/JuceLibraryCode/NovaAutotune_Standalone/PkgInfo
+[ 42%] Generating NovaAutotune_artefacts/JuceLibraryCode/NovaAutotune_AAX/PkgInfo
+[ 43%] Building CXX object CMakeFiles/NovaAutotune_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 44%] Building CXX object CMakeFiles/NovaAutotune_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 45%] Building CXX object CMakeFiles/NovaAutotune_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 46%] Building CXX object CMakeFiles/NovaAutotune_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 48%] Building CXX object CMakeFiles/NovaAutotune_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 49%] Building CXX object CMakeFiles/NovaAutotune_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 50%] Building CXX object CMakeFiles/NovaAutotune_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 51%] Building CXX object CMakeFiles/NovaAutotune_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 53%] Building CXX object CMakeFiles/NovaAutotune_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 54%] Building CXX object CMakeFiles/NovaAutotune_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 55%] Building CXX object CMakeFiles/NovaAutotune_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 56%] Building CXX object CMakeFiles/NovaAutotune_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 57%] Building CXX object CMakeFiles/NovaAutotune_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 59%] Building CXX object CMakeFiles/NovaAutotune_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 60%] Building CXX object CMakeFiles/NovaAutotune_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 61%] Building CXX object CMakeFiles/NovaAutotune_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 62%] Building CXX object CMakeFiles/NovaAutotune_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 63%] Building CXX object CMakeFiles/NovaAutotune_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 65%] Building CXX object CMakeFiles/NovaAutotune_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 66%] Building CXX object CMakeFiles/NovaAutotune_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 67%] Building CXX object CMakeFiles/NovaAutotune_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 68%] Building CXX object CMakeFiles/NovaAutotune_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 69%] Building CXX object CMakeFiles/NovaAutotune_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 71%] Building CXX object CMakeFiles/NovaAutotune_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 72%] Building CXX object CMakeFiles/NovaAutotune_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 73%] Building CXX object CMakeFiles/NovaAutotune_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 74%] Building CXX object CMakeFiles/NovaAutotune_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 75%] Building CXX object CMakeFiles/NovaAutotune_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 77%] Building CXX object CMakeFiles/NovaAutotune_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 78%] Building CXX object CMakeFiles/NovaAutotune_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 79%] Building CXX object CMakeFiles/NovaAutotune_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 80%] Building CXX object CMakeFiles/NovaAutotune_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 81%] Building CXX object CMakeFiles/NovaAutotune_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 83%] Building CXX object CMakeFiles/NovaAutotune_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 84%] Building CXX object CMakeFiles/NovaAutotune_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 85%] Building CXX object CMakeFiles/NovaAutotune_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 86%] Building CXX object CMakeFiles/NovaAutotune_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 87%] Building CXX object CMakeFiles/NovaAutotune_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+Copying OS X content NovaAutotune_artefacts/Release/Standalone/Nova Autotune.app/Contents/Resources/RecentFilesMenuTemplate.nib
+[ 89%] Building CXX object CMakeFiles/NovaAutotune_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 90%] Building CXX object CMakeFiles/NovaAutotune_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 91%] Building CXX object CMakeFiles/NovaAutotune_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 92%] Building CXX object CMakeFiles/NovaAutotune_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 93%] Building CXX object CMakeFiles/NovaAutotune_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 95%] Building CXX object CMakeFiles/NovaAutotune_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp:47:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm:36:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.cpp:41:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp:47:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+1 warning generated.
+[ 96%] Linking CXX executable "NovaAutotune_artefacts/Release/Standalone/Nova Autotune.app/Contents/MacOS/Nova Autotune"
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm:36:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.cpp:41:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm:71:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 97%] Linking CXX CFBundle shared module "NovaAutotune_artefacts/Release/AAX/Nova Autotune.aaxplugin/Contents/MacOS/Nova Autotune"
+1 warning generated.
+1 warning generated.
+[ 98%] Linking CXX CFBundle shared module "NovaAutotune_artefacts/Release/AU/Nova Autotune.component/Contents/MacOS/Nova Autotune"
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[100%] Linking CXX CFBundle shared module "NovaAutotune_artefacts/Release/VST3/Nova Autotune.vst3/Contents/MacOS/Nova Autotune"
+[100%] Built target NovaAutotune_AAX
+[100%] Built target NovaAutotune_AU
+[100%] Built target NovaAutotune_Standalone
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/NovaAutotune_artefacts/Release/VST3/Nova Autotune.vst3: code object is not signed at all
+-- Replacing invalid signature with ad-hoc signature
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/NovaAutotune_artefacts/Release/VST3/Nova Autotune.vst3: replacing existing signature
+removing moduleinfo.json
+creating /Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/NovaAutotune_artefacts/Release/VST3/Nova Autotune.vst3/Contents/Resources/moduleinfo.json
+[100%] Built target NovaAutotune_VST3
+[100%] Built target NovaAutotune_All
+==> [Nova Autotune 3/7] Codesigning bundles (hardened runtime, secure timestamp)
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/NovaAutotune_artefacts/Release/VST3/Nova Autotune.vst3: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/NovaAutotune_artefacts/Release/AU/Nova Autotune.component: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/NovaAutotune_artefacts/Release/Standalone/Nova Autotune.app: replacing existing signature
+==> [Nova Autotune 3/7] Verifying codesign
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/NovaAutotune_artefacts/Release/VST3/Nova Autotune.vst3: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/NovaAutotune_artefacts/Release/VST3/Nova Autotune.vst3: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/NovaAutotune_artefacts/Release/AU/Nova Autotune.component: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/NovaAutotune_artefacts/Release/AU/Nova Autotune.component: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/NovaAutotune_artefacts/Release/Standalone/Nova Autotune.app: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Autotune/build-release/NovaAutotune_artefacts/Release/Standalone/Nova Autotune.app: satisfies its Designated Requirement
+==> [Nova Autotune 4/7] Staging installer root
+==> [Nova Autotune 5/7] Building + signing installer package
+pkgbuild: Inferring bundle components from contents of /Users/internationalnova/Nova/plugins2/Nova Autotune/dist/pkgroot
+pkgbuild: Adding component at Applications/Nova Autotune.app
+pkgbuild: Adding component at Library/Audio/Plug-Ins/VST3/Nova Autotune.vst3
+pkgbuild: Adding component at Library/Audio/Plug-Ins/Components/Nova Autotune.component
+pkgbuild: Wrote package to /Users/internationalnova/Nova/plugins2/Nova Autotune/dist/NovaAutotune-unsigned.pkg
+productsign: using timestamp authority for signature
+productsign: signing product with identity "Developer ID Installer: Giovanni Nova (HSX9N2UQ83)" from keychain /Users/internationalnova/Library/Keychains/login.keychain-db
+productsign: adding certificate "Developer ID Certification Authority"
+productsign: adding certificate "Apple Root CA"
+productsign: Wrote signed product archive to /Users/internationalnova/Nova/plugins2/Nova Autotune/dist/NovaAutotune-1.0.0.pkg
+Package "NovaAutotune-1.0.0.pkg":
+   Status: signed by a developer certificate issued by Apple for distribution
+   Signed with a trusted timestamp on: 2026-08-16 21:18:53 +0000
+   Certificate Chain:
+    1. Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+       Expires: 2031-08-10 05:15:34 +0000
+       SHA256 Fingerprint:
+           A5 7B 81 C2 82 10 15 09 6C C2 83 D5 33 A8 40 30 9F FA 53 0A 3B F6 
+           C3 85 80 B2 1E FE FB A6 32 AC
+       ------------------------------------------------------------------------
+    2. Developer ID Certification Authority
+       Expires: 2031-09-17 00:00:00 +0000
+       SHA256 Fingerprint:
+           F1 6C D3 C5 4C 7F 83 CE A4 BF 1A 3E 6A 08 19 C8 AA A8 E4 A1 52 8F 
+           D1 44 71 5F 35 06 43 D2 DF 3A
+       ------------------------------------------------------------------------
+    3. Apple Root CA
+       Expires: 2035-02-09 21:40:36 +0000
+       SHA256 Fingerprint:
+           B0 B1 73 0E CB C7 FF 45 05 14 2C 49 F1 29 5E 6E DA 6B CA ED 7E 2C 
+           68 C5 BE 91 B5 A1 10 01 F0 24
+
+==> [Nova Autotune 6/7] Submitting for notarization (this can take a few minutes)
+Conducting pre-submission checks for NovaAutotune-1.0.0.pkg and initiating connection to the Apple notary service...
+Submission ID received
+  id: fb52a7e0-6c43-4057-a12c-1fe91f37dc88
+Successfully uploaded file
+  id: fb52a7e0-6c43-4057-a12c-1fe91f37dc88
+  path: /Users/internationalnova/Nova/plugins2/Nova Autotune/dist/NovaAutotune-1.0.0.pkg
+Waiting for processing to complete.
+Current status: In Progress...Current status: In Progress....Current status: In Progress.....Current status: Accepted......Processing complete
+  id: fb52a7e0-6c43-4057-a12c-1fe91f37dc88
+  status: Accepted
+
+==> [Nova Autotune 7/7] Stapling notarization ticket
+Processing: /Users/internationalnova/Nova/plugins2/Nova Autotune/dist/NovaAutotune-1.0.0.pkg
+Processing: /Users/internationalnova/Nova/plugins2/Nova Autotune/dist/NovaAutotune-1.0.0.pkg
+The staple and validate action worked!
+==> [Nova Autotune] Final verification
+/Users/internationalnova/Nova/plugins2/Nova Autotune/dist/NovaAutotune-1.0.0.pkg: accepted
+source=Notarized Developer ID
+origin=Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+
+Done: /Users/internationalnova/Nova/plugins2/Nova Autotune/dist/NovaAutotune-1.0.0.pkg

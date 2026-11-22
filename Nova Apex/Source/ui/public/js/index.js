@@ -409,9 +409,13 @@
   }
 
   // ── Plugin layout scaling ─────────────────────────────────────────────────
+  var _lastScaleW = -1, _lastScaleH = -1;
   function scalePlugin() {
-    var vw = window.innerWidth;
-    var vh = window.innerHeight;
+    var vw = document.documentElement.clientWidth || window.innerWidth || 0;
+    var vh = document.documentElement.clientHeight || window.innerHeight || 0;
+    if (vw <= 0 || vh <= 0) return;
+    if (vw === _lastScaleW && vh === _lastScaleH) return;
+    _lastScaleW = vw; _lastScaleH = vh;
     var plugin = document.getElementById('plugin');
     if (!plugin) return;
     var scale = Math.min(vw / 900, vh / 540);
@@ -557,6 +561,10 @@
     initJUCE();
     scalePlugin();
     window.addEventListener('resize', scalePlugin);
+    // Polled too, not just resize-event-driven - this embedded WebView
+    // doesn't reliably fire resize events on a native host setBounds()
+    // (same fix applied across the catalog, see Nova Tape's index.js).
+    setInterval(scalePlugin, 300);
     renderFrame();
   }
 

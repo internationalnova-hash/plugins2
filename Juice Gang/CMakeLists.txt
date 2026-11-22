@@ -21,18 +21,26 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
+# AAX SDK (Avid Pro Tools format) - shared across plugins, same pattern as
+# the shared NovaLicense module. Mac/Windows only (JUCE's own AAX SDK path
+# function silently no-ops on other platforms).
+if(APPLE OR WIN32)
+    juce_set_aax_sdk_path("${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+endif()
+
 set(PLUGIN_TARGET JuiceGang)
 
 if(WIN32)
-    set(PLUGIN_FORMATS VST3 Standalone)
+    set(PLUGIN_FORMATS VST3 AAX Standalone)
 elseif(APPLE)
-    set(PLUGIN_FORMATS VST3 AU Standalone)
+    set(PLUGIN_FORMATS VST3 AU AAX Standalone)
 else()
     set(PLUGIN_FORMATS VST3 Standalone)
 endif()
 
 juce_add_plugin(${PLUGIN_TARGET}
     COMPANY_NAME                "Nova Audio"
+    BUNDLE_ID                   "com.internationalnova.juicegang"
     PLUGIN_MANUFACTURER_CODE    "NvAu"
     PLUGIN_CODE                 "JcGg"
     FORMATS                     ${PLUGIN_FORMATS}
@@ -44,6 +52,7 @@ juce_add_plugin(${PLUGIN_TARGET}
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     AU_MAIN_TYPE                kAudioUnitType_Effect
     VST3_CATEGORIES             "Fx" "Filter"
+    AAX_CATEGORY                Modulation
 )
 
 juce_add_binary_data(JuiceGangBinaryData

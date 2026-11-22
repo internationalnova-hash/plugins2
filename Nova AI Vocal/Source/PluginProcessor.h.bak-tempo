@@ -1,0 +1,166 @@
+#pragma once
+
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <array>
+#include <atomic>
+#include <memory>
+
+#include "dsp/NovaVocalAnalysis.h"
+
+// Listen workflow state shown on the big ring button.
+enum class NovaVocalListenState { Idle, Listening, Analyzing, Mixed };
+
+// Realtime-safety follows Nova AI Master:
+//  - The capture buffer is allocated in prepareToPlay(); processBlock() only
+//    copies into it.
+//  - Analysis runs on a background thread from a juce::ThreadPool, launched
+//    from the message thread (never from the audio thread).
+//  - A new NovaVocalPlan (small POD) reaches the audio thread through a
+//    spinlock-guarded slot.
+//  - Macro knobs are ordinary APVTS parameters, so Listen/vibe changes move
+//    them via setValueNotifyingHost() on the message thread - the host sees
+//    and can automate/undo them like any other knob turn.
+class NovaAIVocalProcessor : public juce::AudioProcessor,
+                             private juce::AsyncUpdater,
+                             private juce::AudioProcessorValueTreeState::Listener
+{
+public:
+    NovaAIVocalProcessor();
+    ~NovaAIVocalProcessor() override;
+
+    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
+    void releaseResources() override {}
+    bool isBusesLayoutSupported (const BusesLayout&) const override;
+    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+
+    juce::AudioProcessorEditor* createEditor() override;
+    bool hasEditor() const override { return true; }
+
+    const juce::String getName() const override { return "Nova AI Vocal"; }
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return false; }
+    double getTailLengthSeconds() const override { return 4.0; }
+
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
+
+    void getStateInformation (juce::MemoryBlock&) override;
+    void setStateInformation (const void*, int) override;
+
+    juce::AudioProcessorValueTreeState apvts;
+
+    // ---- UI control surface (message thread) ----
+    // Idle/Mixed -> start listening; Listening -> stop and analyze.
+    void toggleListen();
+
+    NovaVocalListenState getListenState() const noexcept { return listenState.load(); }
+    float getCapturedSeconds() const noexcept;
+    const juce::String& getSummary() const noexcept { return summary; }
+
+    float getInputLevelDb() const noexcept  { return inLevelDb.load (std::memory_order_relaxed); }
+    float getOutputLevelDb() const noexcept { return outLevelDb.load (std::memory_order_relaxed); }
+    float getCompGrDb() const noexcept      { return chain.getCompGainReductionDb(); }
+    float getDeEssGrDb() const noexcept     { return chain.getDeEssGainReductionDb(); }
+    float getTunerInputMidi() const noexcept  { return tuner.getInputMidi(); }
+    float getTunerTargetMidi() const noexcept { return tuner.getTargetMidi(); }
+    juce::String getActiveKeyName() const;
+
+    static const juce::StringArray& macroParamIds();
+
+    // ---- Presets (message thread) ----
+    // A preset is the full plugin state (knobs + Listen's voice profile and
+    // plan), stored as XML in ~/Library/Application Support/Nova Audio/
+    // Nova AI Vocal/User Presets/<name>.novavocalpreset. Index 0 in the UI's
+    // list is "Default" (factory reset).
+    static juce::File getUserPresetsFolder();
+    juce::StringArray getUserPresetNames() const;
+    bool saveUserPreset (const juce::String& name);
+    bool loadUserPreset (const juce::String& name);
+    bool deleteUserPreset (const juce::String& name);
+    void loadDefaultPreset();
+    bool loadFactoryPreset (const juce::String& name); // see dsp/NovaFactoryPresets.h
+    const juce::String& getCurrentPresetName() const noexcept { return currentPresetName; }
+
+    // ⋯ menu actions (message thread)
+    void reapplyVibe();   // knobs back to what the vibe (and Listen) chose
+    void forgetVoice();   // drop Listen's profile; vibe defaults only
+
+    const NovaVocalPlan& getCurrentPlan() const noexcept { return currentPlan; }
+
+    // The recipe currently driving the chain: the active factory preset's own
+    // voicing, or the selected vibe's.
+    const NovaVibe& getActiveVoicing() const noexcept;
+
+    // Input scope for the UI spectrum (audio thread writes, UI reads; a torn
+    // read only affects one frame of the display).
+    static constexpr int kScopeSize = 4096;
+    void copyScope (float* dest, int num) const noexcept;
+    double getSampleRateForUi() const noexcept { return currentSampleRate; }
+
+private:
+    static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
+
+    void parameterChanged (const juce::String& id, float) override; // "vibe" only
+    void handleAsyncUpdate() override;                               // message thread
+    void launchAnalysis (int numSamples);
+    void applyDecisionForCurrentVibe();
+    void pushPlan (const NovaVocalPlan&);
+    void setMacroParams (const NovaVocalMacros&);
+    int  currentVibe() const;
+    std::unique_ptr<juce::XmlElement> createStateXml();
+    void restoreStateXml (const juce::XmlElement&);
+    juce::String currentPresetName;
+    // Index into getNovaFactoryPresets() whose recipe replaces the vibe's, or -1.
+    // Set on the message thread, read by the audio thread.
+    std::atomic<int> activeVoicing { -1 };
+    int findFactoryPreset (const juce::String& name) const;
+
+    NovaVocalChain chain; // audio thread only
+    NovaVocalTuner tuner; // audio thread only, runs first
+    void updateTunerParams (bool bypassed) noexcept;
+    void publishAutoKey() noexcept;
+
+    // Key heard by Listen, used when the Key parameter is "Auto"
+    std::atomic<int>  autoKeyPc { -1 };
+    std::atomic<bool> autoKeyMinor { false };
+    double currentSampleRate = 48000.0;
+
+    // Capture
+    static constexpr double kMaxCaptureSeconds = 45.0;
+    static constexpr double kMinCaptureSeconds = 2.0;
+    juce::AudioBuffer<float> captureBuffer;
+    int captureCapacity = 0;
+    std::atomic<int>  captureWritePos { 0 };
+    std::atomic<bool> isCapturing { false };
+    std::atomic<bool> captureFull { false };
+
+    juce::ThreadPool analysisPool { 1 };
+    std::shared_ptr<bool> aliveToken = std::make_shared<bool> (true);
+
+    // Plan handoff
+    juce::SpinLock planLock;
+    NovaVocalPlan pendingPlan;
+    std::atomic<bool> planPending { false };
+
+    // Message-thread state
+    NovaVocalProfile profile;
+    NovaVocalPlan    currentPlan;
+    juce::String     summary;
+    int              lastAppliedVibe = 0;
+    std::atomic<bool> vibeChanged { false };
+
+    std::atomic<NovaVocalListenState> listenState { NovaVocalListenState::Idle };
+
+    // Meters
+    std::atomic<float> inLevelDb { -100.f }, outLevelDb { -100.f };
+
+    juce::AudioBuffer<float> monoScratch;
+
+    std::array<float, kScopeSize> scopeRing {};
+    std::atomic<int> scopeWrite { 0 };
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaAIVocalProcessor)
+};

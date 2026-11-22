@@ -1,0 +1,119 @@
+#pragma once
+
+#include <array>
+#include <vector>
+
+// Factory presets: sounds inspired by artists, named by vibe/wordplay - the
+// plugin never shows an artist's real name. The "inspired by" notes below are
+// for us only.
+//
+// Each preset picks a base vibe (its EQ voicing, de-ess band, delay/reverb
+// character - see NovaVibes.h) and sets the seven macros. Loading one keeps
+// Listen's voice corrections (if the voice was analysed) and the Key setting,
+// since the key belongs to the song, not the preset.
+//
+// Vibe index: 0 Reggaeton Bright, 1 Melodic Trap, 2 R&B Smooth,
+//             3 Pop Polished, 4 Drill Dark, 5 Raw Natural
+struct NovaFactoryPreset
+{
+    const char* name;
+    const char* group;
+    int vibe;
+    //                          Clean  De-Ess Punch  Air   Warmth Space  Tune
+    std::array<float, 7> macros;
+    float mix      = 1.f;
+    float outputDb = 0.f;
+};
+
+inline const std::vector<NovaFactoryPreset>& getNovaFactoryPresets()
+{
+    static const std::vector<NovaFactoryPreset> presets {
+        // ── Latin ─────────────────────────────────────────────────────────
+        { "Puerto Rico",        "LATIN", 0, { 0.60f, 0.55f, 0.65f, 0.70f, 0.35f, 0.50f, 0.75f } }, // Bad Bunny: melodic, a little dark, medium-fast tune
+        { "Odisea Nights",      "LATIN", 0, { 0.60f, 0.60f, 0.70f, 0.85f, 0.20f, 0.60f, 1.00f } }, // Ozuna
+        { "Medellin Neon",      "LATIN", 0, { 0.60f, 0.55f, 0.70f, 0.75f, 0.25f, 0.45f, 0.90f } }, // J Balvin
+        { "Pink Paisa",         "LATIN", 3, { 0.60f, 0.60f, 0.70f, 0.80f, 0.25f, 0.50f, 0.85f } }, // Karol G
+        { "Perreo Clasico",     "LATIN", 0, { 0.65f, 0.50f, 0.85f, 0.60f, 0.40f, 0.30f, 0.40f } }, // Daddy Yankee
+        { "Afrodisiaco Silk",   "LATIN", 2, { 0.55f, 0.55f, 0.60f, 0.75f, 0.35f, 0.65f, 0.80f } }, // Rauw Alejandro
+        { "Hasta la Muerte",    "LATIN", 1, { 0.65f, 0.50f, 0.75f, 0.60f, 0.45f, 0.55f, 1.00f } }, // Anuel AA
+        { "Medellin Green",      "LATIN",         0, { 0.60f, 0.55f, 0.65f, 0.75f, 0.35f, 0.55f, 0.95f } }, // Feid
+        { "San Juan King",       "LATIN",         0, { 0.65f, 0.50f, 0.80f, 0.65f, 0.40f, 0.40f, 0.90f } }, // Myke Towers
+        { "Medellin Lover",      "LATIN",         0, { 0.60f, 0.60f, 0.65f, 0.75f, 0.30f, 0.50f, 0.85f } }, // Maluma
+        { "Pepas Rave",          "LATIN",         0, { 0.65f, 0.55f, 0.75f, 0.75f, 0.35f, 0.60f, 0.95f } }, // Farruko
+        { "Corrido Tumbado",     "LATIN",         5, { 0.60f, 0.55f, 0.70f, 0.55f, 0.45f, 0.35f, 0.40f } }, // Peso Pluma
+
+        // ── Hip-hop ───────────────────────────────────────────────────────
+        { "Compton Poet",        "HIP-HOP",       5, { 0.60f, 0.55f, 0.75f, 0.55f, 0.35f, 0.30f, 0.10f } }, // Kendrick Lamar
+        { "Ville Storyteller",   "HIP-HOP",       5, { 0.60f, 0.50f, 0.70f, 0.50f, 0.45f, 0.25f, 0.05f } }, // J. Cole
+        { "Heartbreak 808",      "HIP-HOP",       1, { 0.60f, 0.55f, 0.70f, 0.70f, 0.40f, 0.65f, 1.00f } }, // Kanye West (808s era)
+        { "New Orleans Martian", "HIP-HOP",       1, { 0.65f, 0.50f, 0.80f, 0.65f, 0.45f, 0.40f, 0.90f } }, // Lil Wayne
+        { "Pink Queen",          "HIP-HOP",       3, { 0.65f, 0.65f, 0.85f, 0.80f, 0.25f, 0.40f, 0.55f } }, // Nicki Minaj
+        { "Bronx Bodega",        "HIP-HOP",       3, { 0.65f, 0.60f, 0.85f, 0.70f, 0.30f, 0.30f, 0.35f } }, // Cardi B
+        { "Houston Hottie",      "HIP-HOP",       3, { 0.65f, 0.60f, 0.85f, 0.70f, 0.35f, 0.30f, 0.35f } }, // Megan Thee Stallion
+        { "Charlotte Bounce",    "HIP-HOP",       5, { 0.65f, 0.50f, 0.85f, 0.55f, 0.35f, 0.20f, 0.20f } }, // DaBaby
+        { "Zone 6 Ice",          "HIP-HOP",       4, { 0.70f, 0.45f, 0.80f, 0.40f, 0.55f, 0.30f, 0.35f } }, // 21 Savage
+
+        // ── Melodic trap ──────────────────────────────────────────────────
+        { "Pluto Fuel",         "MELODIC TRAP", 1, { 0.65f, 0.50f, 0.80f, 0.65f, 0.50f, 0.45f, 1.00f } }, // Future
+        { "Cactus Rage",        "MELODIC TRAP", 1, { 0.65f, 0.50f, 0.75f, 0.70f, 0.55f, 0.85f, 1.00f } }, // Travis Scott
+        { "Lucid Rooms",        "MELODIC TRAP", 1, { 0.60f, 0.55f, 0.70f, 0.70f, 0.30f, 0.65f, 0.90f } }, // Juice WRLD
+        { "Slime Melody",       "MELODIC TRAP", 1, { 0.65f, 0.55f, 0.75f, 0.80f, 0.35f, 0.50f, 1.00f } }, // Young Thug
+        { "Casablanca Bronx",   "MELODIC TRAP", 1, { 0.65f, 0.50f, 0.80f, 0.60f, 0.50f, 0.50f, 0.95f } }, // French Montana: warm, smooth hard tune
+        { "Hollywood Gold",     "MELODIC TRAP", 3, { 0.60f, 0.55f, 0.70f, 0.75f, 0.35f, 0.60f, 0.80f } }, // Post Malone
+        { "Atlanta Hustle",      "MELODIC TRAP",  1, { 0.65f, 0.50f, 0.80f, 0.65f, 0.40f, 0.35f, 0.85f } }, // Lil Baby
+        { "Drip Season Glide",   "MELODIC TRAP",  1, { 0.60f, 0.55f, 0.70f, 0.75f, 0.35f, 0.50f, 0.95f } }, // Gunna
+        { "Eternal Rockstar",    "MELODIC TRAP",  1, { 0.65f, 0.55f, 0.75f, 0.80f, 0.35f, 0.55f, 1.00f } }, // Lil Uzi Vert
+        { "Vamp Mode",           "MELODIC TRAP",  1, { 0.70f, 0.50f, 0.85f, 0.55f, 0.70f, 0.45f, 1.00f } }, // Playboi Carti
+        { "Compton Melody",      "MELODIC TRAP",  1, { 0.60f, 0.55f, 0.75f, 0.70f, 0.35f, 0.45f, 0.95f } }, // Roddy Ricch
+        { "Chicago Piano",       "MELODIC TRAP",  1, { 0.65f, 0.50f, 0.75f, 0.60f, 0.40f, 0.45f, 0.85f } }, // Polo G
+        { "Chicago Voice",       "MELODIC TRAP",  1, { 0.65f, 0.50f, 0.80f, 0.60f, 0.45f, 0.40f, 1.00f } }, // Lil Durk
+        { "Baton Rouge Pain",    "MELODIC TRAP",  1, { 0.70f, 0.50f, 0.80f, 0.55f, 0.50f, 0.40f, 0.85f } }, // NBA YoungBoy
+        { "Soul Trap Ballad",    "MELODIC TRAP",  2, { 0.60f, 0.55f, 0.70f, 0.65f, 0.45f, 0.55f, 0.90f } }, // Rod Wave
+
+        // ── R&B ───────────────────────────────────────────────────────────
+        { "A Weekend in Canada","R&B", 2, { 0.55f, 0.60f, 0.65f, 0.80f, 0.30f, 0.85f, 0.65f } }, // The Weeknd: airy falsetto, big reverb/delay, glossy tune
+        { "Toronto 6AM",        "R&B", 2, { 0.60f, 0.50f, 0.70f, 0.55f, 0.45f, 0.35f, 0.50f } }, // Drake
+        { "Ctrl Room",          "R&B", 2, { 0.55f, 0.55f, 0.55f, 0.70f, 0.40f, 0.60f, 0.55f } }, // SZA
+        { "Blonde Hours",       "R&B", 2, { 0.50f, 0.50f, 0.45f, 0.60f, 0.50f, 0.55f, 0.30f } }, // Frank Ocean
+        { "Trapsoul Velvet",    "R&B", 2, { 0.60f, 0.50f, 0.65f, 0.60f, 0.45f, 0.55f, 0.70f } }, // Bryson Tiller
+        { "Brampton Melodies",   "R&B",           2, { 0.60f, 0.55f, 0.70f, 0.75f, 0.35f, 0.60f, 0.90f } }, // Tory Lanez
+        { "Mississauga 4AM",     "R&B",           2, { 0.60f, 0.50f, 0.65f, 0.65f, 0.40f, 0.65f, 0.85f } }, // PartyNextDoor
+        { "Virginia Breeze",     "R&B",           2, { 0.60f, 0.60f, 0.70f, 0.80f, 0.30f, 0.55f, 0.75f } }, // Chris Brown
+        { "Atlanta Confessions", "R&B",           2, { 0.60f, 0.60f, 0.65f, 0.75f, 0.30f, 0.50f, 0.55f } }, // Usher
+        { "Over It Silk",        "R&B",           2, { 0.55f, 0.55f, 0.55f, 0.70f, 0.45f, 0.55f, 0.60f } }, // Summer Walker
+        { "Wasteland Mellow",    "R&B",           2, { 0.55f, 0.50f, 0.55f, 0.60f, 0.50f, 0.60f, 0.45f } }, // Brent Faiyaz
+        { "East Atlanta Blue",   "R&B",           2, { 0.55f, 0.50f, 0.60f, 0.55f, 0.50f, 0.55f, 0.60f } }, // 6LACK
+
+        // ── Pop ───────────────────────────────────────────────────────────
+        { "Barbados Gold",      "POP", 3, { 0.60f, 0.60f, 0.70f, 0.80f, 0.30f, 0.55f, 0.70f } }, // Rihanna: bright, punchy, island R&B-pop
+        { "Whisper Pop",        "POP", 3, { 0.55f, 0.65f, 0.75f, 0.55f, 0.45f, 0.25f, 0.40f } }, // Billie Eilish
+        { "Ponytail Gloss",     "POP", 3, { 0.60f, 0.65f, 0.65f, 0.85f, 0.20f, 0.65f, 0.75f } }, // Ariana Grande
+        { "Disco Nostalgia",    "POP", 3, { 0.60f, 0.60f, 0.75f, 0.75f, 0.30f, 0.45f, 0.70f } }, // Dua Lipa
+        { "Houston Queen",       "POP",           3, { 0.60f, 0.65f, 0.75f, 0.80f, 0.30f, 0.50f, 0.55f } }, // Beyonce
+        { "Nashville Diary",     "POP",           3, { 0.55f, 0.60f, 0.60f, 0.70f, 0.35f, 0.45f, 0.45f } }, // Taylor Swift
+        { "Stratford Gloss",     "POP",           3, { 0.60f, 0.60f, 0.70f, 0.80f, 0.30f, 0.50f, 0.75f } }, // Justin Bieber
+        { "Funk Hooligan",       "POP",           3, { 0.60f, 0.60f, 0.80f, 0.75f, 0.40f, 0.40f, 0.45f } }, // Bruno Mars
+        { "Retro Sugar",         "POP",           3, { 0.55f, 0.55f, 0.65f, 0.65f, 0.50f, 0.45f, 0.40f } }, // Harry Styles
+        { "Teen Heartbreak",     "POP",           3, { 0.60f, 0.60f, 0.70f, 0.70f, 0.35f, 0.40f, 0.45f } }, // Olivia Rodrigo
+        { "Planet Pink",         "POP",           3, { 0.60f, 0.60f, 0.75f, 0.80f, 0.30f, 0.50f, 0.65f } }, // Doja Cat
+        { "Acoustic Loop",       "POP",           5, { 0.50f, 0.55f, 0.55f, 0.60f, 0.35f, 0.35f, 0.35f } }, // Ed Sheeran
+
+        // ── Drill ─────────────────────────────────────────────────────────
+        { "Woo Back Baby",      "DRILL", 4, { 0.70f, 0.45f, 0.85f, 0.35f, 0.65f, 0.25f, 0.20f } }, // Pop Smoke
+        { "Chiraq Cold",        "DRILL", 4, { 0.70f, 0.45f, 0.85f, 0.40f, 0.55f, 0.35f, 0.60f } }, // Chicago drill
+        { "Roadman Rhythm",     "DRILL", 4, { 0.70f, 0.50f, 0.80f, 0.45f, 0.45f, 0.30f, 0.35f } }, // UK drill
+        { "West London Flow",    "DRILL",         4, { 0.70f, 0.50f, 0.80f, 0.50f, 0.40f, 0.30f, 0.30f } }, // Central Cee
+        { "Brooklyn Bop",        "DRILL",         4, { 0.70f, 0.45f, 0.85f, 0.40f, 0.55f, 0.30f, 0.30f } }, // Fivio Foreign
+
+        // ── Afro & island ──────────────────────────────────────────────────────────
+        { "Lagos Sunset",       "AFRO & ISLAND", 0, { 0.55f, 0.55f, 0.60f, 0.70f, 0.35f, 0.55f, 0.65f } }, // Burna Boy / Wizkid
+        { "Afrorave Star",       "AFRO & ISLAND", 0, { 0.60f, 0.55f, 0.65f, 0.75f, 0.30f, 0.55f, 0.80f } }, // Rema
+        { "Lagos Velvet",        "AFRO & ISLAND", 2, { 0.55f, 0.55f, 0.55f, 0.65f, 0.50f, 0.50f, 0.40f } }, // Tems
+        { "Kingston Dancehall",  "AFRO & ISLAND", 0, { 0.65f, 0.50f, 0.80f, 0.70f, 0.40f, 0.40f, 0.70f } }, // Dancehall (Vybz Kartel / Popcaan)
+
+        // ── Utility ───────────────────────────────────────────────────────
+        { "Live Take",          "UTILITY", 5, { 0.40f, 0.40f, 0.35f, 0.40f, 0.15f, 0.15f, 0.00f } },
+        { "Spoken Word",        "UTILITY", 5, { 0.55f, 0.55f, 0.60f, 0.35f, 0.20f, 0.00f, 0.00f } },
+    };
+    return presets;
+}

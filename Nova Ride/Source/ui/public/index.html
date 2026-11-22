@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nova Ride</title>
+<style>
+  :root{
+    --bg:#0a0a0b; --panel:#131315; --panel-2:#1a1a1c; --line:#2a2a2e;
+    --text:#eeece7; --muted:#93939a; --muted-2:#5c5c62;
+    --gold:#d4af6a; --gold-bright:#e8caa0; --gold-dim:rgba(212,175,106,0.14);
+    --meter-red:#e5493f;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; width:100%; height:100%; background:var(--bg); overflow:hidden; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Arial,sans-serif; color:var(--text); user-select:none; -webkit-user-select:none;
+    background-image:url("img/texture_graphite_vector.png");
+    background-size:cover; background-position:center; background-repeat:no-repeat;
+  }
+  /* Fixed design canvas, uniformly scaled to fit the actual window size
+     (same technique used across the catalog - see Nova Bass/Nova Tape's
+     index.html). Without this, resizing the window just reflows the
+     fixed-px knobs/fader/etc. across more or less space instead of
+     scaling them together, which cuts controls off at smaller sizes. */
+  #stageOuter{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .app{ position:relative; display:flex; flex-direction:column; width:1280px; height:800px; flex:0 0 auto; transform-origin:center center; }
+  .app::before{
+    content:""; position:absolute; inset:0; pointer-events:none; z-index:50;
+    background-image:url("img/outer_frame.png"); background-size:100% 100%; background-repeat:no-repeat;
+  }
+
+  /* ---------- Header ---------- */
+  .topbar{
+    position:relative; display:flex; align-items:center; justify-content:space-between;
+    padding:14px 26px; flex:0 0 auto;
+    background-image:url("img/header_frame.png"); background-size:100% 100%; background-repeat:no-repeat;
+    margin:10px 10px 0;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; width:190px; }
+  /* The shared Nova Audio "N" mark used across the catalog (n_logo.png) is
+     flat gray - tinted gold via filter to match this plugin's palette, same
+     technique as Nova Royal 670. */
+  .brandmark{
+    width:22px; height:22px; object-fit:contain;
+    filter: brightness(0) saturate(100%) invert(78%) sepia(44%) saturate(487%) hue-rotate(357deg) brightness(97%) contrast(89%)
+            drop-shadow(0 0 6px rgba(212,175,90,0.35));
+  }
+  .brandtext{ font-size:11px; letter-spacing:0.22em; color:var(--muted); font-weight:600; }
+  .titleblock{ text-align:center; flex:1; }
+  .title{ font-size:22px; letter-spacing:0.1em; font-weight:300; }
+  .title b{ font-weight:700; color:var(--gold); }
+  .tagline{ font-size:8.5px; letter-spacing:0.3em; color:var(--muted-2); margin-top:2px; }
+  .presetnav{ display:flex; align-items:center; gap:6px; width:190px; justify-content:flex-end; }
+  .navbtn{
+    background-image:url("img/preset_arrow_left.png"); background-size:100% 100%; background-repeat:no-repeat; background-color:transparent;
+    border:none; height:26px; width:26px; cursor:pointer;
+  }
+  .navbtn.next{ background-image:url("img/preset_arrow_right.png"); }
+  .navbtn.plain{ background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--muted); font-size:11px; }
+  .gearbtn{
+    background-image:url("img/settings_button.png"); background-size:100% 100%; background-repeat:no-repeat; background-color:transparent;
+    border:none; height:26px; width:26px; cursor:pointer;
+  }
+  .presetname{
+    background-image:url("img/preset_selector_shell.png"); background-size:100% 100%; background-repeat:no-repeat;
+    height:26px; padding:0 12px; display:flex; align-items:center; font-size:10.5px;
+    letter-spacing:0.05em; color:var(--text); white-space:nowrap; min-width:90px; justify-content:center;
+  }
+
+  /* ---------- Body ---------- */
+  .body{ position:relative; flex:1 1 auto; display:flex; padding:14px 20px 18px; gap:18px; min-height:0; }
+
+  .sideCol{ width:170px; flex:0 0 auto; display:flex; flex-direction:column; gap:12px; padding-top:2px; min-height:0; }
+  .knobBlock{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .knobBlock .label{ font-size:10.5px; letter-spacing:0.14em; font-weight:700; color:var(--text); }
+  .knobBlock .desc{ font-size:9px; color:var(--muted-2); text-align:center; line-height:1.25; min-height:0; }
+  .knobValue{ font-size:11.5px; color:var(--gold); font-variant-numeric:tabular-nums; }
+  .knobEndLabels{ display:flex; justify-content:space-between; width:100%; font-size:8px; color:var(--muted-2); letter-spacing:0.05em; padding:0 6px; }
+
+  .knob{ position:relative; cursor:ns-resize; touch-action:none; flex:0 0 auto; }
+  .knob.large{ width:92px; height:92px; }
+  .knob.medium{ width:74px; height:74px; }
+  .knob.small{ width:56px; height:56px; }
+  .knobArcImg{
+    position:absolute; inset:0; background-repeat:no-repeat; background-size:100% 100%; pointer-events:none;
+  }
+  .knob.large .knobArcImg{ background-image:url("img/knob_arc_large.png"); }
+  .knob.medium .knobArcImg{ background-image:url("img/knob_arc_medium.png"); }
+  .knob.small .knobArcImg{ background-image:url("img/knob_arc_small.png"); }
+  .knobDial{
+    position:absolute; inset:0; background-repeat:no-repeat; background-size:100% 100%;
+    transform:rotate(var(--angle,-135deg)); transform-origin:50% 50%;
+  }
+  .knob.large .knobDial{ background-image:url("img/knob_target_large.png"); }
+  .knob.medium .knobDial{ background-image:url("img/knob_medium.png"); }
+  .knob.small .knobDial{ background-image:url("img/knob_sensitivity_small.png"); }
+
+  /* ---------- Center ---------- */
+  .centerPanel{
+    position:relative; flex:1 1 auto; display:flex; align-items:stretch; justify-content:center; gap:20px; min-width:0;
+    background-image:url("img/panel_inset.png"); background-size:100% 100%; background-repeat:no-repeat;
+    padding:20px 28px 64px;
+  }
+  .cornerBracket{ position:absolute; width:26px; height:26px; background-image:url("img/corner_bracket.png"); background-size:100% 100%; background-repeat:no-repeat; pointer-events:none; }
+  .cornerBracket.tl{ top:8px; left:8px; }
+  .cornerBracket.tr{ top:8px; right:8px; transform:scaleX(-1); }
+  .cornerBracket.bl{ bottom:8px; left:8px; transform:scaleY(-1); }
+  .cornerBracket.br{ bottom:8px; right:8px; transform:scale(-1,-1); }
+
+  .meterCol{ display:flex; flex-direction:column; align-items:center; gap:6px; width:34px; }
+  .meterLabel{ font-size:9px; letter-spacing:0.14em; color:var(--muted); font-weight:700; }
+  .meterShell{
+    flex:1 1 auto; width:26px; position:relative;
+    background-image:url("img/meter_column_shell.png"); background-size:100% 100%; background-repeat:no-repeat;
+    display:flex; flex-direction:column-reverse; align-items:center; padding:10px 0; gap:2px;
+  }
+  .meterLens{ width:18px; height:11px; background-image:url("img/meter_lens_off.png"); background-size:100% 100%; background-repeat:no-repeat; flex:0 0 auto; }
+  .meterLens.on{ background-image:url("img/meter_lens_gold_on.png"); }
+  .meterLens.on.hot{ background-image:url("img/meter_lens_red_on.png"); }
+  .meterValue{ font-size:9.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
+
+  .faderTrack{
+    position:relative; width:80px;
+    background-image:url("img/fader_rail.png"); background-size:100% 100%; background-repeat:no-repeat;
+  }
+  .rideHistoryCanvas{ position:absolute; inset:8% 0; width:84%; height:84%; left:8%; opacity:0.85; }
+  .faderCenterLine{ position:absolute; left:14%; right:14%; top:20%; height:1px; background:rgba(255,255,255,0.18); }
+  .faderTargetLine{
+    position:absolute; left:8%; right:8%; height:2px;
+    background:repeating-linear-gradient(90deg, var(--gold) 0 6px, transparent 6px 10px);
+    opacity:0.9; pointer-events:none; transition:top 0.1s ease;
+  }
+  .tick{
+    position:absolute; left:100%; margin-left:8px; transform:translateY(-50%); pointer-events:none;
+    font-size:8px; color:var(--muted-2); font-variant-numeric:tabular-nums; white-space:nowrap;
+  }
+  .tick.zero{ color:var(--gold); font-weight:700; font-size:9px; }
+
+  .faderCap{
+    position:absolute; left:50%; width:56px; height:90px; transform:translate(-50%,-50%);
+    background-image:url("img/fader_cap.png"); background-size:100% 100%; background-repeat:no-repeat;
+    filter:drop-shadow(0 3px 6px rgba(0,0,0,0.6));
+    transition: filter 0.15s ease;
+  }
+  .faderCap.riding{ filter:drop-shadow(0 0 10px rgba(212,175,106,0.55)) drop-shadow(0 3px 6px rgba(0,0,0,0.6)); }
+
+  .rideReadout{ position:absolute; left:50%; bottom:12px; transform:translateX(-50%); text-align:center; pointer-events:none; width:160px; }
+
+  .rideValueRow{ display:flex; flex-direction:column; align-items:center; gap:2px; margin-top:8px; }
+  .rideValue{ font-size:22px; font-weight:700; color:var(--gold); font-variant-numeric:tabular-nums; letter-spacing:0.02em; }
+  .rideState{ font-size:9.5px; letter-spacing:0.2em; color:var(--muted); }
+  .rideState.riding{ color:var(--gold); }
+
+  /* ---------- Right column ---------- */
+  .rightCol{ width:180px; flex:0 0 auto; display:flex; flex-direction:column; gap:12px; padding-top:2px; min-height:0; }
+  .sectionLabel{ font-size:11px; letter-spacing:0.14em; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
+  .sectionDesc{ font-size:9px; color:var(--muted-2); margin-top:2px; margin-bottom:8px; }
+  .help{
+    width:14px; height:14px; background-image:url("img/help_icon.png"); background-size:100% 100%; background-repeat:no-repeat;
+    display:inline-block; cursor:help;
+  }
+
+  .modeStack{ display:flex; flex-direction:column; gap:7px; }
+  .modeBtn{
+    position:relative; height:36px; border:none; cursor:pointer; text-align:center;
+    background-image:url("img/mode_button_inactive.png"); background-size:100% 100%; background-repeat:no-repeat;
+    color:var(--muted); font-size:11px; letter-spacing:0.1em; font-weight:700;
+  }
+  .modeBtn:hover{ background-image:url("img/mode_button_hover.png"); color:var(--text); }
+  .modeBtn.active{ background-image:url("img/mode_button_active.png"); color:#241a08; }
+
+  .toggleRow{ display:flex; align-items:center; justify-content:space-between; }
+  .toggleSwitch{
+    width:46px; height:26px; cursor:pointer; flex:0 0 auto;
+    background-image:url("img/toggle_off.png"); background-size:100% 100%; background-repeat:no-repeat;
+  }
+  .toggleSwitch.on{ background-image:url("img/toggle_on.png"); }
+
+  .sidechainStatus{
+    margin-top:8px; font-size:9.5px; padding:0 10px; height:28px; display:flex; align-items:center; justify-content:center;
+    background-image:url("img/sidechain_selector_shell.png"); background-size:100% 100%; background-repeat:no-repeat;
+    color:var(--muted-2); letter-spacing:0.04em; text-align:center;
+  }
+  .sidechainStatus.active{ color:var(--gold); }
+
+  /* ---------- Bottom ---------- */
+  .bottombar{
+    position:relative; flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
+    padding:12px 26px; margin:0 10px 10px;
+    background-image:url("img/footer_frame.png"); background-size:100% 100%; background-repeat:no-repeat;
+  }
+  .bypassBtn{
+    width:120px; height:34px; border:none; cursor:pointer; color:var(--text);
+    background-image:url("img/bypass_button_inactive.png"); background-size:100% 100%; background-repeat:no-repeat;
+    font-size:11px; letter-spacing:0.12em; font-weight:700;
+  }
+  .bypassBtn:hover{ background-image:url("img/bypass_button_hover.png"); }
+  .bypassBtn.on{ background-image:url("img/bypass_button_pressed.png"); color:#241a08; }
+  .bottomtag{ font-size:9.5px; letter-spacing:0.22em; color:var(--muted-2); }
+  .bottomBrand{ display:flex; align-items:center; gap:8px; }
+  .bottomBrand .brandmark{ width:15px; height:15px; opacity:0.85; }
+  .bottomBrand .txt{ font-size:8px; letter-spacing:0.14em; color:var(--muted-2); line-height:1.4; text-align:right; }
+</style>
+</head>
+<body>
+
+<div id="stageOuter">
+<div class="app" id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <img src="img/n_logo.png" alt="" class="brandmark">
+      <div class="brandtext">NOVA AUDIO</div>
+    </div>
+    <div class="titleblock">
+      <div class="title">NOVA <b>RIDE</b></div>
+      <div class="tagline">INTELLIGENT VOCAL LEVELING</div>
+    </div>
+    <div class="presetnav">
+      <button class="navbtn" id="presetPrev" title="Previous preset"></button>
+      <div class="presetname" id="presetName">Default</div>
+      <button class="navbtn next" id="presetNext" title="Next preset"></button>
+      <button class="gearbtn" title="Settings"></button>
+    </div>
+  </header>
+
+  <main class="body">
+
+    <section class="sideCol">
+      <div class="knobBlock">
+        <div class="label">TARGET</div>
+        <div class="desc">Set your desired vocal level.</div>
+        <div class="knob large" id="knobTarget"><div class="knobArcImg"></div><div class="knobDial"></div></div>
+        <div class="knobValue" id="knobTargetValue">0.0 dB</div>
+        <div class="knobEndLabels"><span>-24</span><span>+6</span></div>
+      </div>
+      <div class="knobBlock">
+        <div class="label">RANGE</div>
+        <div class="desc">Maximum gain adjustment.</div>
+        <div class="knob medium" id="knobRange"><div class="knobArcImg"></div><div class="knobDial"></div></div>
+        <div class="knobValue" id="knobRangeValue">&plusmn;6 dB</div>
+        <div class="knobEndLabels"><span>3</span><span>12</span></div>
+      </div>
+      <div class="knobBlock">
+        <div class="label">SPEED</div>
+        <div class="desc">How fast it responds.</div>
+        <div class="knob medium" id="knobSpeed"><div class="knobArcImg"></div><div class="knobDial"></div></div>
+        <div class="knobValue" id="knobSpeedValue">Natural</div>
+        <div class="knobEndLabels"><span>Slow</span><span>Fast</span></div>
+      </div>
+      <div class="knobBlock">
+        <div class="label">SENSITIVITY</div>
+        <div class="desc">Detects vocal level changes.</div>
+        <div class="knob small" id="knobSensitivity"><div class="knobArcImg"></div><div class="knobDial"></div></div>
+        <div class="knobValue" id="knobSensitivityValue">50%</div>
+        <div class="knobEndLabels"><span>Low</span><span>High</span></div>
+      </div>
+    </section>
+
+    <section class="centerPanel">
+      <div class="cornerBracket tl"></div>
+      <div class="cornerBracket tr"></div>
+      <div class="cornerBracket bl"></div>
+      <div class="cornerBracket br"></div>
+
+      <div class="meterCol">
+        <div class="meterLabel">IN</div>
+        <div class="meterShell" id="inMeterShell"></div>
+        <div class="meterValue" id="inMeterValue">-inf</div>
+      </div>
+
+      <div class="faderTrack" id="faderTrack">
+        <canvas class="rideHistoryCanvas" id="rideHistoryCanvas"></canvas>
+        <div id="tickLayer"></div>
+        <div class="faderCenterLine"></div>
+        <div class="faderTargetLine" id="faderTargetLine"></div>
+        <div class="faderCap" id="faderCap"></div>
+      </div>
+
+      <div class="meterCol">
+        <div class="meterLabel">OUT</div>
+        <div class="meterShell" id="outMeterShell"></div>
+        <div class="meterValue" id="outMeterValue">-inf</div>
+      </div>
+
+      <div class="rideReadout">
+        <div class="rideValueRow">
+          <div class="rideValue" id="rideValue">0.0 dB</div>
+          <div class="rideState" id="rideState">SILENT</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="rightCol">
+      <div>
+        <div class="sectionLabel">MODE <span class="help" title="Natural preserves phrase dynamics. Tight holds a more consistent level. Live is the fastest useful response."></span></div>
+        <div class="modeStack">
+          <button class="modeBtn" data-mode="0">NATURAL</button>
+          <button class="modeBtn" data-mode="1">TIGHT</button>
+          <button class="modeBtn" data-mode="2">LIVE</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="sectionLabel">MUSIC</div>
+        <div class="sectionDesc">Use instrumental as reference.</div>
+        <div class="toggleRow">
+          <div></div>
+          <div class="toggleSwitch" id="musicToggle"></div>
+        </div>
+        <div class="sidechainStatus" id="sidechainStatus">Not Connected</div>
+      </div>
+
+      <div>
+        <div class="toggleRow">
+          <div class="sectionLabel">WRITE <span class="help" title="Captures Nova Ride's gain trajectory internally while engaged. Does not write DAW volume automation directly - most hosts don't expose that to a plugin. Export it as a CSV, or use it directly from Nova Studio in future."></span></div>
+          <div class="toggleSwitch" id="writeToggle"></div>
+        </div>
+        <div class="sectionDesc" id="writeExportRow" style="display:none; margin-top:6px;">
+          <button class="navbtn plain" id="exportRideBtn" style="width:auto; height:22px; padding:0 10px;">Export CSV&hellip;</button>
+        </div>
+      </div>
+
+      <div class="knobBlock" style="align-items:flex-start;">
+        <div class="label">OUTPUT</div>
+        <div class="knob medium" id="knobOutput" style="align-self:center;"><div class="knobArcImg"></div><div class="knobDial"></div></div>
+        <div class="knobValue" id="knobOutputValue" style="align-self:center;">0.0 dB</div>
+        <div class="knobEndLabels" style="width:100%;"><span>-24</span><span>+24</span></div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="bottombar">
+    <button class="bypassBtn" id="bypassBtn">BYPASS</button>
+    <div class="bottomtag">A MORE MUSICAL VOCAL</div>
+    <div class="bottomBrand">
+      <img src="img/n_logo.png" alt="" class="brandmark">
+      <div class="txt">NOVA AUDIO<br>PRECISION CREATES POWER</div>
+    </div>
+  </footer>
+
+</div>
+</div>
+
+<script type="module" src="js/index.js"></script>
+</body>
+</html>

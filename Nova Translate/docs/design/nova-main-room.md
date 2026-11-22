@@ -46,8 +46,8 @@ Nova Main Room's target is inverted relative to the other three: success is the 
 
 | Acoustic | Playback System | Overall | Decision Fidelity |
 |---|---|---|---|
-| 8.0/10 | 8.5/10 | 8.3/10 | Not yet measured — see [`reference-validation-protocol.md`](reference-validation-protocol.md) |
+| 8.0/10 | 8.5/10 | 8.3/10 | **PASS** (2026-07-30, informal listening session — user's word: "immaculate") |
 
-Highest overall confidence of the 4 implemented environments — deliberately, since "flat and uncolored" is a low-risk target to hit. The Acoustic score is held back by the RT60-derivation gap; the Playback score by the missing off-axis HF rolloff. Both scores reflect design-reasoning confidence, not a listening-test result — no blind listening has happened yet (see Reference Validation, `00-methodology.md`).
+Highest overall confidence of the 4 implemented environments — deliberately, since "flat and uncolored" is a low-risk target to hit. The Acoustic score is held back by the RT60-derivation gap; the Playback score by the missing off-axis HF rolloff. This is the one environment where high design confidence and a strong listening result actually lined up, unlike Sedan — consistent with this being the lowest-risk profile to get right. Not yet run against the full fixed-material protocol in `reference-validation-protocol.md` — this was a single informal pass.
 
 **Summary**: Nova Main Room is the cleanest case of the two-layer split doing real work — almost everything here is Playback System (accurate monitors, no voicing), with the Acoustic Model contributing only a light, damped room signature. The two gaps are cleanly separable now too: the RT60-derivation gap is purely Acoustic; the off-axis HF-rolloff gap is purely Playback System (monitor directivity, not room behavior).

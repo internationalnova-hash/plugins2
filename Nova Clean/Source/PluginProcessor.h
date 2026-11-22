@@ -131,6 +131,8 @@ private:
         int magHistoryIdx { 0 };
         std::vector<float> noiseFloor;   // smoothed noise estimate per bin
         bool noiseFloorInitialized { false };
+        std::vector<float> smoothedMag;  // time-smoothed signal magnitude per bin
+        bool smoothedMagInitialized { false };
 
         void reset (int fftSize, int bins, int histFrames)
         {
@@ -141,6 +143,8 @@ private:
             magHistory.assign (histFrames, std::vector<float> (bins, 0.0f));
             magHistoryIdx = 0;
             noiseFloorInitialized = false;
+            smoothedMag.assign (bins, 0.0f);
+            smoothedMagInitialized = false;
             inputWritePos = 0;
             outputWritePos = 0;
             outputReadPos = 0;
@@ -152,8 +156,8 @@ private:
     std::vector<float> nrHannWindow;
     NRChannel nrL, nrR;
 
-    void processNRChannel (NRChannel& ch, const float* in, float* out, int numSamples, float cleanNorm);
-    void runNRFrame (NRChannel& ch, float cleanNorm);
+    void processNRChannel (NRChannel& ch, const float* in, float* out, int numSamples, float cleanNorm, float preserveNorm);
+    void runNRFrame (NRChannel& ch, float cleanNorm, float preserveNorm);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaCleanV2AudioProcessor)
 };

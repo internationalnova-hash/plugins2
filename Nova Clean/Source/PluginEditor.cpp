@@ -34,7 +34,8 @@ NovaCleanV2AudioProcessorEditor::NovaCleanV2AudioProcessorEditor (NovaCleanV2Aud
                               + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
+    setResizable (true, true);
+    setResizeLimits (660, 440, 1920, 1280);
     setSize (1080, 680);
 
     startTimerHz (30);

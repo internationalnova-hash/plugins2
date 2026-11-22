@@ -34,15 +34,23 @@
       text-rendering: optimizeLegibility;
     }
 
+    /* place-content (not just place-items) is required: a fixed-size
+       #stage makes body's implicit grid track auto-size to match it, so
+       place-items alone centers within that same-sized track (no visible
+       effect) - place-content centers the track itself in the viewport.
+       (Same technique/rationale as Nova Tape's index.html; this exact
+       grid pitfall was caught and fixed on Nova Harmony first.) */
     body {
       display: grid;
       place-items: center;
+      place-content: center;
     }
 
     .plugin {
       position: relative;
-      width: min(980px, 100vw);
-      height: min(620px, 100vh);
+      width: 980px;
+      height: 620px;
+      transform-origin: center center;
       border-radius: 34px;
       background:
         radial-gradient(ellipse at 50% 35%, rgba(200,80,20,0.13) 0%, transparent 60%),
@@ -638,7 +646,7 @@
   </style>
 </head>
 <body>
-  <div class="plugin">
+  <div class="plugin" id="stage">
     <div class="header">
       <div class="title-block">
         <div class="nova-header">
@@ -1042,7 +1050,7 @@
         if (activeDrag.pointerId !== null && typeof event.pointerId !== "undefined" && event.pointerId !== activeDrag.pointerId) return;
         if (event.preventDefault) event.preventDefault();
 
-        const delta = activeDrag.startY - getClientY(event);
+        const delta = (activeDrag.startY - getClientY(event)) / (window.__novaHeatScale || 1);
         const nextValue = activeDrag.startValue + delta * ((activeDrag.max - activeDrag.min) / 220);
         setParamValue(activeDrag.paramId, clamp(nextValue, activeDrag.min, activeDrag.max), { pushToBackend: true });
       }
@@ -1273,6 +1281,25 @@
       }
       tick();
     }());
+
+    // ---- stage scale-to-fit (same technique as Nova Tape/Nova Pitch) ----
+    (function () {
+      let lastW = -1, lastH = -1;
+      function fitStage() {
+        const w = document.documentElement.clientWidth || window.innerWidth || 0;
+        const h = document.documentElement.clientHeight || window.innerHeight || 0;
+        if (w <= 0 || h <= 0) return;
+        if (w === lastW && h === lastH) return;
+        lastW = w; lastH = h;
+        const scale = Math.min(w / 980, h / 620);
+        window.__novaHeatScale = scale || 1;
+        const stage = document.getElementById("stage");
+        if (stage) stage.style.transform = `scale(${scale})`;
+      }
+      fitStage();
+      window.addEventListener("resize", fitStage);
+      setInterval(fitStage, 300);
+    })();
   </script>
 </body>
 </html>

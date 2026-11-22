@@ -48,12 +48,17 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 14px;
     }
+    /* Fixed design canvas, uniformly scaled to fit the actual window size
+       (same technique across the catalog - see Nova Tape's index.html
+       for the rationale: JS-computed scale, not CSS min()/calc()/vw/vh,
+       since controls should scale together rather than just reflow). */
 
     .plugin {
-      width: min(1536px, calc(100vw - 28px));
-      height: min(940px, calc(100vh - 28px));
+      width: 1536px;
+      height: 940px;
+      flex: 0 0 auto;
+      transform-origin: center center;
       border-radius: 28px;
       border: 1px solid rgba(164, 137, 221, 0.4);
       background:
@@ -681,7 +686,7 @@
   </style>
 </head>
 <body>
-  <div class="plugin">
+  <div class="plugin" id="stage">
     <header class="header">
       <div class="brand">
         <div class="logo-wrap">

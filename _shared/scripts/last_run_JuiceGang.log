@@ -1,0 +1,1679 @@
+==> [Juice Gang 1/7] Configuring Release build
+-- The C compiler identification is AppleClang 21.0.0.21000101
+-- The CXX compiler identification is AppleClang 21.0.0.21000101
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring juceaide
+-- Building juceaide
+-- Exporting juceaide
+-- Testing juceaide
+-- Finished setting up juceaide
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Configuring done (68.6s)
+-- Generating done (0.0s)
+-- Build files have been written to: /Users/internationalnova/Nova/plugins2/Juice Gang/build-release
+==> [Juice Gang 2/7] Building VST3 + AU + Standalone (via JuiceGang_All)
+[  1%] Generating juce_binarydata_JuiceGangBinaryData/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_JuiceGangBinaryData/JuceLibraryCode/BinaryData.h
+[  2%] Building CXX object CMakeFiles/juce_vst3_helper.dir/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.mm.o
+[  3%] Building CXX object CMakeFiles/JuiceGangBinaryData.dir/juce_binarydata_JuiceGangBinaryData/JuceLibraryCode/BinaryData1.cpp.o
+[  5%] Linking CXX static library libJuiceGangBinaryData.a
+[  5%] Built target JuiceGangBinaryData
+[  6%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o
+[  7%] Building CXX object CMakeFiles/JuiceGang.dir/Source/PluginEditor.cpp.o
+[  9%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm.o
+[ 10%] Building CXX object CMakeFiles/JuiceGang.dir/Source/PluginProcessor.cpp.o
+[ 11%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm.o
+[ 14%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o
+[ 14%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm.o
+[ 15%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o
+[ 16%] Building C object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Sheenbidi.c.o
+[ 18%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_graphics/juce_graphics.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:2:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.cpp:57:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:55:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:75:47: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   75 |         void prepare (int size) { buf.assign (size, 0.f); writePos = 0; filterState = 0.f; }
+      |                                       ~~~~~~  ^~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:77:29: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   77 |             float out = buf[writePos];
+      |                         ~~~ ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:79:17: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   79 |             buf[writePos] = x + filterState * feedback;
+      |             ~~~ ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:88:47: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   88 |         void prepare (int size) { buf.assign (size, 0.f); writePos = 0; }
+      |                                       ~~~~~~  ^~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:90:32: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   90 |             float bufOut = buf[writePos];
+      |                            ~~~ ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:92:17: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   92 |             buf[writePos] = x + bufOut * feedback;
+      |             ~~~ ^~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:24: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                        ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:20: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                    ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:43: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                                           ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:39: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                                       ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:23:20: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   23 |         float r  = juce::jmin (w, h) * 0.42f;
+      |                    ^~~~~~~~~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:28:28: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   28 |             float sr = r + i * 1.8f;
+      |                            ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:30:58: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   30 |             g.fillEllipse (cx - sr + i * 0.5f, cy - sr + i * 0.9f, sr * 2.f, sr * 2.f);
+      |                                                          ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:30:38: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   30 |             g.fillEllipse (cx - sr + i * 0.5f, cy - sr + i * 0.9f, sr * 2.f, sr * 2.f);
+      |                                      ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:76:45: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   76 |             float tr = r * 0.78f * (0.55f + i * 0.15f);
+      |                                             ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:123:38: warning: unused parameter 'highlighted' [-Wunused-parameter]
+  123 |                                 bool highlighted, bool down) override
+      |                                      ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:158:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  158 |             g.setFont (juce::Font (20.f, juce::Font::bold | juce::Font::italic));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:158:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  158 |             g.setFont (juce::Font (20.f, juce::Font::bold | juce::Font::italic));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:165:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  165 |             g.setFont (juce::Font (10.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:165:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  165 |             g.setFont (juce::Font (10.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:242:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  242 |         g.setFont (juce::Font (18.f, juce::Font::bold | juce::Font::italic));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:242:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  242 |         g.setFont (juce::Font (18.f, juce::Font::bold | juce::Font::italic));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:246:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  246 |         g.setFont (juce::Font (16.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:246:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  246 |         g.setFont (juce::Font (16.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:252:67: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  252 |         const float catX = 8.f, catY = 54.f, catH = 36.f, catW = (getWidth() - 16.f) / kNumCategories;
+      |                                                                   ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:255:48: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  255 |             juce::Rectangle<float> tab (catX + i * catW, catY, catW - 3.f, catH);
+      |                                                ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:261:28: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  261 |                 g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                            ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:261:28: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  261 |                 g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                            ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:264:28: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  264 |                 g.setFont (juce::Font (8.f));
+      |                            ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:278:30: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  278 |         const float colW  = (getWidth() - 20.f) / cols;
+      |                              ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:285:31: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  285 |             float ix = 10.f + col * colW;
+      |                               ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:286:32: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  286 |             float iy = listY + row * itemH;
+      |                                ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:303:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  303 |             g.setFont (juce::Font (11.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:303:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  303 |             g.setFont (juce::Font (11.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:344:29: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  344 |         const float catW = (getWidth() - 16.f) / kNumCategories;
+      |                             ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:347:45: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  347 |             int ci = (int)((e.getPosition().getX() - catX) / catW);
+      |                             ~~~~~~~~~~~~~~~~^~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:357:30: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  357 |         const float colW  = (getWidth() - 20.f) / cols;
+      |                              ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:363:31: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  363 |             float ix = 10.f + col * colW;
+      |                               ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:364:32: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  364 |             float iy = listY + row * itemH;
+      |                                ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:384:30: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  384 |         const float colW  = (getWidth() - 20.f) / cols;
+      |                              ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:391:31: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  391 |             float ix = 10.f + col * colW;
+      |                               ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:392:32: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  392 |             float iy = listY + row * itemH;
+      |                                ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:29:47: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   29 |         float freq = 20.f * std::pow (1000.f, px / (float)W);
+      |                                               ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:45:59: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   45 |         if (!started) { curve.startNewSubPath (b.getX() + px, py); started = true; }
+      |                                                         ~ ^~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:46:39: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   46 |         else curve.lineTo (b.getX() + px, py);
+      |                                     ~ ^~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:96:47: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   96 |         float freq = 20.f * std::pow (1000.f, px / (float)W);
+      |                                               ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:113:59: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  113 |         if (!started) { curve.startNewSubPath (b.getX() + px, py); started = true; }
+      |                                                         ~ ^~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:114:39: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  114 |         else curve.lineTo (b.getX() + px, py);
+      |                                     ~ ^~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:157:28: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  157 |         float frac = 1.f - i / b.getHeight();
+      |                            ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:164:46: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  164 |         g.fillRect (b.getX() + 2, b.getY() + i, b.getWidth() - 4, 1.f);
+      |                                            ~ ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:191:19: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  191 |         float x = px / (float)W * juce::MathConstants<float>::twoPi * 4.f + phase;
+      |                   ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:192:33: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  192 |         float decay = std::exp (-px / (float)W * 3.f);
+      |                                 ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:209:20: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  209 |         float x2 = px / (float)W * juce::MathConstants<float>::twoPi * 4.f + phase;
+      |                    ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:210:33: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  210 |         float decay = std::exp (-px / (float)W * 3.f);
+      |                                 ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:255:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  255 |         l.setFont (juce::Font (9.5f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:255:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  255 |         l.setFont (juce::Font (9.5f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:375:21: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  375 |     sipLbl.setFont (juce::Font (13.f, juce::Font::bold));
+      |                     ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:375:21: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  375 |     sipLbl.setFont (juce::Font (13.f, juce::Font::bold));
+      |                     ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:399:30: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  399 |     presetNameLabel.setFont (juce::Font (12.f, juce::Font::bold));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:399:30: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  399 |     presetNameLabel.setFont (juce::Font (12.f, juce::Font::bold));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:583:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  583 |         g.setFont (juce::Font (7.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:583:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  583 |         g.setFont (juce::Font (7.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:627:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  627 |     g.setFont (juce::Font (36.f, juce::Font::bold | juce::Font::italic));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:627:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  627 |     g.setFont (juce::Font (36.f, juce::Font::bold | juce::Font::italic));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:629:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  629 |     g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:629:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  629 |     g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:635:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  635 |     g.setFont (juce::Font (36.f, juce::Font::bold | juce::Font::italic));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:635:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  635 |     g.setFont (juce::Font (36.f, juce::Font::bold | juce::Font::italic));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:637:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  637 |     g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:637:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  637 |     g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:658:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  658 |     g.setFont (juce::Font (22.f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:658:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  658 |     g.setFont (juce::Font (22.f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:672:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  672 |     g.setFont (juce::Font (8.f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:672:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  672 |     g.setFont (juce::Font (8.f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:717:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  717 |         g.setFont (juce::Font (5.5f, juce::Font::bold | juce::Font::italic));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:717:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  717 |         g.setFont (juce::Font (5.5f, juce::Font::bold | juce::Font::italic));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:758:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  758 |         g.setFont (juce::Font (10.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:758:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  758 |         g.setFont (juce::Font (10.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:786:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  786 |         g.setFont (juce::Font (9.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:786:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  786 |         g.setFont (juce::Font (9.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:795:35: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  795 |                 float gr = 38.f + gi * 5.f;
+      |                                   ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:796:68: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  796 |                 g.setColour (kGreen.withAlpha (sipVal * 0.18f * (4 - gi)));
+      |                                                               ~  ~~^~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:807:35: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  807 |                 float gr = 38.f + gi * 8.f;
+      |                                   ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:808:64: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  808 |                 g.setColour (kGreen.withAlpha (pulse * 0.15f * gi));
+      |                                                              ~ ^~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:816:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  816 |     g.setFont (juce::Font (7.5f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:816:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  816 |     g.setFont (juce::Font (7.5f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:836:23: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  836 |             float t = px / (float)PW * juce::MathConstants<float>::twoPi * 2.f;
+      |                       ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:845:69: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  845 |             if (px == 0) lfoWave.startNewSubPath (waveArea.getX() + px, wy);
+      |                                                                   ~ ^~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:846:61: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  846 |             else          lfoWave.lineTo (waveArea.getX() + px, wy);
+      |                                                           ~ ^~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:75:47: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   75 |         void prepare (int size) { buf.assign (size, 0.f); writePos = 0; filterState = 0.f; }
+      |                                       ~~~~~~  ^~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:77:29: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   77 |             float out = buf[writePos];
+      |                         ~~~ ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:79:17: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   79 |             buf[writePos] = x + filterState * feedback;
+      |             ~~~ ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:88:47: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   88 |         void prepare (int size) { buf.assign (size, 0.f); writePos = 0; }
+      |                                       ~~~~~~  ^~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:90:32: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   90 |             float bufOut = buf[writePos];
+      |                            ~~~ ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:92:17: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   92 |             buf[writePos] = x + bufOut * feedback;
+      |             ~~~ ^~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:24: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                        ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:20: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                    ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:43: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                                           ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:39: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                                       ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:23:20: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   23 |         float r  = juce::jmin (w, h) * 0.42f;
+      |                    ^~~~~~~~~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:28:28: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   28 |             float sr = r + i * 1.8f;
+      |                            ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:30:58: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   30 |             g.fillEllipse (cx - sr + i * 0.5f, cy - sr + i * 0.9f, sr * 2.f, sr * 2.f);
+      |                                                          ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:30:38: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   30 |             g.fillEllipse (cx - sr + i * 0.5f, cy - sr + i * 0.9f, sr * 2.f, sr * 2.f);
+      |                                      ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:76:45: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   76 |             float tr = r * 0.78f * (0.55f + i * 0.15f);
+      |                                             ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:123:38: warning: unused parameter 'highlighted' [-Wunused-parameter]
+  123 |                                 bool highlighted, bool down) override
+      |                                      ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:158:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  158 |             g.setFont (juce::Font (20.f, juce::Font::bold | juce::Font::italic));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:158:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  158 |             g.setFont (juce::Font (20.f, juce::Font::bold | juce::Font::italic));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:165:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  165 |             g.setFont (juce::Font (10.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:165:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  165 |             g.setFont (juce::Font (10.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:242:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  242 |         g.setFont (juce::Font (18.f, juce::Font::bold | juce::Font::italic));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:242:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  242 |         g.setFont (juce::Font (18.f, juce::Font::bold | juce::Font::italic));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:246:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  246 |         g.setFont (juce::Font (16.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:246:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  246 |         g.setFont (juce::Font (16.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:252:67: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  252 |         const float catX = 8.f, catY = 54.f, catH = 36.f, catW = (getWidth() - 16.f) / kNumCategories;
+      |                                                                   ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:255:48: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  255 |             juce::Rectangle<float> tab (catX + i * catW, catY, catW - 3.f, catH);
+      |                                                ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:261:28: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  261 |                 g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                            ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:261:28: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  261 |                 g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                            ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:264:28: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  264 |                 g.setFont (juce::Font (8.f));
+      |                            ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:278:30: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  278 |         const float colW  = (getWidth() - 20.f) / cols;
+      |                              ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:285:31: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  285 |             float ix = 10.f + col * colW;
+      |                               ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:286:32: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  286 |             float iy = listY + row * itemH;
+      |                                ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:303:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  303 |             g.setFont (juce::Font (11.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:303:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  303 |             g.setFont (juce::Font (11.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:344:29: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  344 |         const float catW = (getWidth() - 16.f) / kNumCategories;
+      |                             ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:347:45: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  347 |             int ci = (int)((e.getPosition().getX() - catX) / catW);
+      |                             ~~~~~~~~~~~~~~~~^~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:357:30: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  357 |         const float colW  = (getWidth() - 20.f) / cols;
+      |                              ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:363:31: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  363 |             float ix = 10.f + col * colW;
+      |                               ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:364:32: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  364 |             float iy = listY + row * itemH;
+      |                                ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:384:30: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  384 |         const float colW  = (getWidth() - 20.f) / cols;
+      |                              ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:391:31: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  391 |             float ix = 10.f + col * colW;
+      |                               ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:392:32: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  392 |             float iy = listY + row * itemH;
+      |                                ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:104:15: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  104 |         combL[i].prepare ((int)(kCombTunings[i] * ratio));
+      |         ~~~~~ ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:105:15: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  105 |         combR[i].prepare ((int)(kCombTunings[i] * ratio + 23));
+      |         ~~~~~ ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:108:13: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  108 |         apL[i].prepare ((int)(kAllpassTunings[i] * ratio));
+      |         ~~~ ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:109:13: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  109 |         apR[i].prepare ((int)(kAllpassTunings[i] * ratio + 23));
+      |         ~~~ ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:178:28: warning: comparing floating point with == or != is unsafe [-Wfloat-equal]
+  178 |     if (reader->sampleRate != sr && reader->sampleRate > 0)
+      |         ~~~~~~~~~~~~~~~~~~ ^  ~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:415:34: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  415 |             float dL = delayBufL[readL];
+      |                        ~~~~~~~~~ ^~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:416:34: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  416 |             float dR = delayBufR[readR];
+      |                        ~~~~~~~~~ ^~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:422:23: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  422 |             delayBufL[delayWrite] = filtL + dR * fb; // ping-pong crosses
+      |             ~~~~~~~~~ ^~~~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:423:23: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  423 |             delayBufR[delayWrite] = filtR + dL * fb;
+      |             ~~~~~~~~~ ^~~~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:443:26: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  443 |             preDelayBufL[preDelayWrite] = wetL;
+      |             ~~~~~~~~~~~~ ^~~~~~~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:444:26: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  444 |             preDelayBufR[preDelayWrite] = wetR;
+      |             ~~~~~~~~~~~~ ^~~~~~~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:446:38: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  446 |             float pdL = preDelayBufL[pdRead];
+      |                         ~~~~~~~~~~~~ ^~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:447:38: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  447 |             float pdR = preDelayBufR[pdRead];
+      |                         ~~~~~~~~~~~~ ^~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:66:9: warning: private field 'delayReadSamples' is not used [-Wunused-private-field]
+   66 |     int delayReadSamples = 0;
+      |         ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:101:10: warning: private field 'freezeActive' is not used [-Wunused-private-field]
+  101 |     bool freezeActive = false;
+      |          ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:117:11: warning: private field 'lfoValue' is not used [-Wunused-private-field]
+  117 |     float lfoValue = 0.f;
+      |           ^
+90 warnings generated.
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+59 warnings generated.
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:189:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: warning: enumeration value 'NSEventTypeMouseCancelled' not explicitly handled in switch [-Wswitch-enum]
+ 1916 |         switch ([e type])
+      |                 ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: note: add missing switch cases
+ 1916 |         switch ([e type])
+      |                 ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:2:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:75:47: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   75 |         void prepare (int size) { buf.assign (size, 0.f); writePos = 0; filterState = 0.f; }
+      |                                       ~~~~~~  ^~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:77:29: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   77 |             float out = buf[writePos];
+      |                         ~~~ ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:79:17: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   79 |             buf[writePos] = x + filterState * feedback;
+      |             ~~~ ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:88:47: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   88 |         void prepare (int size) { buf.assign (size, 0.f); writePos = 0; }
+      |                                       ~~~~~~  ^~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:90:32: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   90 |             float bufOut = buf[writePos];
+      |                            ~~~ ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:92:17: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   92 |             buf[writePos] = x + bufOut * feedback;
+      |             ~~~ ^~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:24: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                        ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:20: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                    ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:43: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                                           ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:39: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                                       ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:23:20: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   23 |         float r  = juce::jmin (w, h) * 0.42f;
+      |                    ^~~~~~~~~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:28:28: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   28 |             float sr = r + i * 1.8f;
+      |                            ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:30:58: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   30 |             g.fillEllipse (cx - sr + i * 0.5f, cy - sr + i * 0.9f, sr * 2.f, sr * 2.f);
+      |                                                          ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:30:38: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   30 |             g.fillEllipse (cx - sr + i * 0.5f, cy - sr + i * 0.9f, sr * 2.f, sr * 2.f);
+      |                                      ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:76:45: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   76 |             float tr = r * 0.78f * (0.55f + i * 0.15f);
+      |                                             ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:123:38: warning: unused parameter 'highlighted' [-Wunused-parameter]
+  123 |                                 bool highlighted, bool down) override
+      |                                      ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:158:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  158 |             g.setFont (juce::Font (20.f, juce::Font::bold | juce::Font::italic));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:158:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  158 |             g.setFont (juce::Font (20.f, juce::Font::bold | juce::Font::italic));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:165:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  165 |             g.setFont (juce::Font (10.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:165:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  165 |             g.setFont (juce::Font (10.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:242:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  242 |         g.setFont (juce::Font (18.f, juce::Font::bold | juce::Font::italic));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:242:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  242 |         g.setFont (juce::Font (18.f, juce::Font::bold | juce::Font::italic));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:246:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  246 |         g.setFont (juce::Font (16.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:246:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  246 |         g.setFont (juce::Font (16.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:252:67: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  252 |         const float catX = 8.f, catY = 54.f, catH = 36.f, catW = (getWidth() - 16.f) / kNumCategories;
+      |                                                                   ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:255:48: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  255 |             juce::Rectangle<float> tab (catX + i * catW, catY, catW - 3.f, catH);
+      |                                                ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:261:28: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  261 |                 g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                            ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:261:28: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  261 |                 g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                            ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:264:28: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  264 |                 g.setFont (juce::Font (8.f));
+      |                            ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:278:30: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  278 |         const float colW  = (getWidth() - 20.f) / cols;
+      |                              ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:285:31: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  285 |             float ix = 10.f + col * colW;
+      |                               ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:286:32: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  286 |             float iy = listY + row * itemH;
+      |                                ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:303:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  303 |             g.setFont (juce::Font (11.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:303:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  303 |             g.setFont (juce::Font (11.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:344:29: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  344 |         const float catW = (getWidth() - 16.f) / kNumCategories;
+      |                             ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:347:45: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  347 |             int ci = (int)((e.getPosition().getX() - catX) / catW);
+      |                             ~~~~~~~~~~~~~~~~^~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:357:30: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  357 |         const float colW  = (getWidth() - 20.f) / cols;
+      |                              ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:363:31: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  363 |             float ix = 10.f + col * colW;
+      |                               ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:364:32: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  364 |             float iy = listY + row * itemH;
+      |                                ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:384:30: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  384 |         const float colW  = (getWidth() - 20.f) / cols;
+      |                              ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:391:31: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  391 |             float ix = 10.f + col * colW;
+      |                               ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:392:32: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  392 |             float iy = listY + row * itemH;
+      |                                ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:29:47: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   29 |         float freq = 20.f * std::pow (1000.f, px / (float)W);
+      |                                               ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:45:59: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   45 |         if (!started) { curve.startNewSubPath (b.getX() + px, py); started = true; }
+      |                                                         ~ ^~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:46:39: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   46 |         else curve.lineTo (b.getX() + px, py);
+      |                                     ~ ^~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:96:47: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   96 |         float freq = 20.f * std::pow (1000.f, px / (float)W);
+      |                                               ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:113:59: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  113 |         if (!started) { curve.startNewSubPath (b.getX() + px, py); started = true; }
+      |                                                         ~ ^~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:114:39: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  114 |         else curve.lineTo (b.getX() + px, py);
+      |                                     ~ ^~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:157:28: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  157 |         float frac = 1.f - i / b.getHeight();
+      |                            ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:164:46: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  164 |         g.fillRect (b.getX() + 2, b.getY() + i, b.getWidth() - 4, 1.f);
+      |                                            ~ ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:191:19: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  191 |         float x = px / (float)W * juce::MathConstants<float>::twoPi * 4.f + phase;
+      |                   ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:192:33: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  192 |         float decay = std::exp (-px / (float)W * 3.f);
+      |                                 ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:209:20: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  209 |         float x2 = px / (float)W * juce::MathConstants<float>::twoPi * 4.f + phase;
+      |                    ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:210:33: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  210 |         float decay = std::exp (-px / (float)W * 3.f);
+      |                                 ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:255:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  255 |         l.setFont (juce::Font (9.5f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:255:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  255 |         l.setFont (juce::Font (9.5f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:375:21: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  375 |     sipLbl.setFont (juce::Font (13.f, juce::Font::bold));
+      |                     ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:375:21: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  375 |     sipLbl.setFont (juce::Font (13.f, juce::Font::bold));
+      |                     ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:399:30: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  399 |     presetNameLabel.setFont (juce::Font (12.f, juce::Font::bold));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:399:30: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  399 |     presetNameLabel.setFont (juce::Font (12.f, juce::Font::bold));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:583:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  583 |         g.setFont (juce::Font (7.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:583:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  583 |         g.setFont (juce::Font (7.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:627:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  627 |     g.setFont (juce::Font (36.f, juce::Font::bold | juce::Font::italic));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:627:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  627 |     g.setFont (juce::Font (36.f, juce::Font::bold | juce::Font::italic));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:629:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+1 warning generated.
+  629 |     g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:629:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  629 |     g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:635:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  635 |     g.setFont (juce::Font (36.f, juce::Font::bold | juce::Font::italic));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:635:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  635 |     g.setFont (juce::Font (36.f, juce::Font::bold | juce::Font::italic));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:637:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  637 |     g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:637:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  637 |     g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:658:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  658 |     g.setFont (juce::Font (22.f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:658:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  658 |     g.setFont (juce::Font (22.f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:672:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  672 |     g.setFont (juce::Font (8.f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:672:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  672 |     g.setFont (juce::Font (8.f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:717:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  717 |         g.setFont (juce::Font (5.5f, juce::Font::bold | juce::Font::italic));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:717:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  717 |         g.setFont (juce::Font (5.5f, juce::Font::bold | juce::Font::italic));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:758:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  758 |         g.setFont (juce::Font (10.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:758:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  758 |         g.setFont (juce::Font (10.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:786:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  786 |         g.setFont (juce::Font (9.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:786:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  786 |         g.setFont (juce::Font (9.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:795:35: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  795 |                 float gr = 38.f + gi * 5.f;
+      |                                   ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:796:68: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  796 |                 g.setColour (kGreen.withAlpha (sipVal * 0.18f * (4 - gi)));
+      |                                                               ~  ~~^~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:807:35: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  807 |                 float gr = 38.f + gi * 8.f;
+      |                                   ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:808:64: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  808 |                 g.setColour (kGreen.withAlpha (pulse * 0.15f * gi));
+      |                                                              ~ ^~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:816:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  816 |     g.setFont (juce::Font (7.5f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:816:16: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  816 |     g.setFont (juce::Font (7.5f, juce::Font::bold));
+      |                ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:836:23: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  836 |             float t = px / (float)PW * juce::MathConstants<float>::twoPi * 2.f;
+      |                       ^~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:845:69: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  845 |             if (px == 0) lfoWave.startNewSubPath (waveArea.getX() + px, wy);
+      |                                                                   ~ ^~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.cpp:846:61: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  846 |             else          lfoWave.lineTo (waveArea.getX() + px, wy);
+      |                                                           ~ ^~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:75:47: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   75 |         void prepare (int size) { buf.assign (size, 0.f); writePos = 0; filterState = 0.f; }
+      |                                       ~~~~~~  ^~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:77:29: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   77 |             float out = buf[writePos];
+      |                         ~~~ ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:79:17: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   79 |             buf[writePos] = x + filterState * feedback;
+      |             ~~~ ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:88:47: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   88 |         void prepare (int size) { buf.assign (size, 0.f); writePos = 0; }
+      |                                       ~~~~~~  ^~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:90:32: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   90 |             float bufOut = buf[writePos];
+      |                            ~~~ ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:92:17: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+   92 |             buf[writePos] = x + bufOut * feedback;
+      |             ~~~ ^~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:24: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                        ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:20: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                    ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:43: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                                           ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:22:39: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   22 |         float cx = x + w * 0.5f, cy = y + h * 0.5f;
+      |                                       ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:23:20: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   23 |         float r  = juce::jmin (w, h) * 0.42f;
+      |                    ^~~~~~~~~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:28:28: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   28 |             float sr = r + i * 1.8f;
+      |                            ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:30:58: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   30 |             g.fillEllipse (cx - sr + i * 0.5f, cy - sr + i * 0.9f, sr * 2.f, sr * 2.f);
+      |                                                          ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:30:38: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   30 |             g.fillEllipse (cx - sr + i * 0.5f, cy - sr + i * 0.9f, sr * 2.f, sr * 2.f);
+      |                                      ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:76:45: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+   76 |             float tr = r * 0.78f * (0.55f + i * 0.15f);
+      |                                             ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:123:38: warning: unused parameter 'highlighted' [-Wunused-parameter]
+  123 |                                 bool highlighted, bool down) override
+      |                                      ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:158:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  158 |             g.setFont (juce::Font (20.f, juce::Font::bold | juce::Font::italic));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:158:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  158 |             g.setFont (juce::Font (20.f, juce::Font::bold | juce::Font::italic));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:165:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  165 |             g.setFont (juce::Font (10.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:165:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  165 |             g.setFont (juce::Font (10.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:242:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  242 |         g.setFont (juce::Font (18.f, juce::Font::bold | juce::Font::italic));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:242:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  242 |         g.setFont (juce::Font (18.f, juce::Font::bold | juce::Font::italic));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:246:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  246 |         g.setFont (juce::Font (16.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:246:20: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  246 |         g.setFont (juce::Font (16.f, juce::Font::bold));
+      |                    ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:252:67: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  252 |         const float catX = 8.f, catY = 54.f, catH = 36.f, catW = (getWidth() - 16.f) / kNumCategories;
+      |                                                                   ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:255:48: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  255 |             juce::Rectangle<float> tab (catX + i * catW, catY, catW - 3.f, catH);
+      |                                                ^ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:261:28: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  261 |                 g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                            ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:261:28: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  261 |                 g.setFont (juce::Font (8.5f, juce::Font::bold));
+      |                            ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:264:28: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  264 |                 g.setFont (juce::Font (8.f));
+      |                            ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:278:30: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  278 |         const float colW  = (getWidth() - 20.f) / cols;
+      |                              ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:285:31: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  285 |             float ix = 10.f + col * colW;
+      |                               ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:286:32: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  286 |             float iy = listY + row * itemH;
+      |                                ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:303:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  303 |             g.setFont (juce::Font (11.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:303:24: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+  303 |             g.setFont (juce::Font (11.f, juce::Font::bold));
+      |                        ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/fonts/juce_Font.h:76:7: note: 'Font' has been explicitly marked deprecated here
+   76 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:2:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:344:29: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  344 |         const float catW = (getWidth() - 16.f) / kNumCategories;
+      |                             ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:347:45: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  347 |             int ci = (int)((e.getPosition().getX() - catX) / catW);
+      |                             ~~~~~~~~~~~~~~~~^~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:357:30: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  357 |         const float colW  = (getWidth() - 20.f) / cols;
+      |                              ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:363:31: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  363 |             float ix = 10.f + col * colW;
+      |                               ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:364:32: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  364 |             float iy = listY + row * itemH;
+      |                                ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:384:30: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  384 |         const float colW  = (getWidth() - 20.f) / cols;
+      |                              ^~~~~~~~~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:391:31: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  391 |             float ix = 10.f + col * colW;
+      |                               ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginEditor.h:392:32: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  392 |             float iy = listY + row * itemH;
+      |                                ^~~ ~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:104:15: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  104 |         combL[i].prepare ((int)(kCombTunings[i] * ratio));
+      |         ~~~~~ ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:105:15: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  105 |         combR[i].prepare ((int)(kCombTunings[i] * ratio + 23));
+      |         ~~~~~ ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:108:13: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  108 |         apL[i].prepare ((int)(kAllpassTunings[i] * ratio));
+      |         ~~~ ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:109:13: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  109 |         apR[i].prepare ((int)(kAllpassTunings[i] * ratio + 23));
+      |         ~~~ ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:178:28: warning: comparing floating point with == or != is unsafe [-Wfloat-equal]
+  178 |     if (reader->sampleRate != sr && reader->sampleRate > 0)
+      |         ~~~~~~~~~~~~~~~~~~ ^  ~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:415:34: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  415 |             float dL = delayBufL[readL];
+      |                        ~~~~~~~~~ ^~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:416:34: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  416 |             float dR = delayBufR[readR];
+      |                        ~~~~~~~~~ ^~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:422:23: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  422 |             delayBufL[delayWrite] = filtL + dR * fb; // ping-pong crosses
+      |             ~~~~~~~~~ ^~~~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:423:23: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  423 |             delayBufR[delayWrite] = filtR + dL * fb;
+      |             ~~~~~~~~~ ^~~~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:443:26: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  443 |             preDelayBufL[preDelayWrite] = wetL;
+      |             ~~~~~~~~~~~~ ^~~~~~~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:444:26: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  444 |             preDelayBufR[preDelayWrite] = wetR;
+      |             ~~~~~~~~~~~~ ^~~~~~~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:446:38: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  446 |             float pdL = preDelayBufL[pdRead];
+      |                         ~~~~~~~~~~~~ ^~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:447:38: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  447 |             float pdR = preDelayBufR[pdRead];
+      |                         ~~~~~~~~~~~~ ^~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.cpp:1:
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:66:9: warning: private field 'delayReadSamples' is not used [-Wunused-private-field]
+   66 |     int delayReadSamples = 0;
+      |         ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:101:10: warning: private field 'freezeActive' is not used [-Wunused-private-field]
+  101 |     bool freezeActive = false;
+      |          ^
+/Users/internationalnova/Nova/plugins2/Juice Gang/Source/PluginProcessor.h:117:11: warning: private field 'lfoValue' is not used [-Wunused-private-field]
+  117 |     float lfoValue = 0.f;
+      |           ^
+90 warnings generated.
+[ 19%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_events/juce_events.mm.o
+59 warnings generated.
+[ 20%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_core/juce_core_CompilationTime.cpp.o
+[ 22%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_core/juce_core.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.cpp:57:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 23%] Linking CXX executable juce_vst3_helper
+[ 23%] Built target juce_vst3_helper
+[ 24%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_data_structures/juce_data_structures.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 25%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.mm.o
+[ 27%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm.o
+[ 28%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_audio_formats/juce_audio_formats.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.h:71:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 29%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm.o
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.cpp:49:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.h:71:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 31%] Building CXX object CMakeFiles/JuiceGang.dir/_deps/juce-src/modules/juce_dsp/juce_dsp.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.cpp:49:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+1 warning generated.
+2 warnings generated.
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:55:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:189:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: warning: enumeration value 'NSEventTypeMouseCancelled' not explicitly handled in switch [-Wswitch-enum]
+ 1916 |         switch ([e type])
+      |                 ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: note: add missing switch cases
+ 1916 |         switch ([e type])
+      |                 ^
+1 warning generated.
+2 warnings generated.
+[ 32%] Linking CXX static library "JuiceGang_artefacts/Release/libJuice Gang_SharedCode.a"
+[ 32%] Built target JuiceGang
+[ 33%] Generating JuiceGang_artefacts/JuceLibraryCode/JuiceGang_AAX/PkgInfo
+[ 35%] Generating JuiceGang_artefacts/JuceLibraryCode/JuiceGang_AU/PkgInfo
+[ 36%] Generating JuiceGang_artefacts/JuceLibraryCode/JuiceGang_Standalone/PkgInfo
+[ 37%] Generating JuiceGang_artefacts/JuceLibraryCode/JuiceGang_VST3/PkgInfo
+[ 38%] Building CXX object CMakeFiles/JuiceGang_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 40%] Building CXX object CMakeFiles/JuiceGang_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 41%] Building CXX object CMakeFiles/JuiceGang_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 42%] Building CXX object CMakeFiles/JuiceGang_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 44%] Building CXX object CMakeFiles/JuiceGang_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 45%] Building CXX object CMakeFiles/JuiceGang_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 48%] Building CXX object CMakeFiles/JuiceGang_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 48%] Building CXX object CMakeFiles/JuiceGang_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 49%] Building CXX object CMakeFiles/JuiceGang_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 51%] Building CXX object CMakeFiles/JuiceGang_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 51%] Building CXX object CMakeFiles/JuiceGang_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 53%] Building CXX object CMakeFiles/JuiceGang_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 54%] Building CXX object CMakeFiles/JuiceGang_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 55%] Building CXX object CMakeFiles/JuiceGang_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 57%] Building CXX object CMakeFiles/JuiceGang_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 58%] Building CXX object CMakeFiles/JuiceGang_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 59%] Building CXX object CMakeFiles/JuiceGang_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 61%] Building CXX object CMakeFiles/JuiceGang_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 62%] Building CXX object CMakeFiles/JuiceGang_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 63%] Building CXX object CMakeFiles/JuiceGang_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 64%] Building CXX object CMakeFiles/JuiceGang_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 66%] Building CXX object CMakeFiles/JuiceGang_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 67%] Building CXX object CMakeFiles/JuiceGang_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 68%] Building CXX object CMakeFiles/JuiceGang_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 70%] Building CXX object CMakeFiles/JuiceGang_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 71%] Building CXX object CMakeFiles/JuiceGang_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 72%] Building CXX object CMakeFiles/JuiceGang_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 74%] Building CXX object CMakeFiles/JuiceGang_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 75%] Building CXX object CMakeFiles/JuiceGang_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 76%] Building CXX object CMakeFiles/JuiceGang_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 77%] Building CXX object CMakeFiles/JuiceGang_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 79%] Building CXX object CMakeFiles/JuiceGang_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 80%] Building CXX object CMakeFiles/JuiceGang_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 81%] Building CXX object CMakeFiles/JuiceGang_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 83%] Building CXX object CMakeFiles/JuiceGang_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 84%] Building CXX object CMakeFiles/JuiceGang_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 85%] Building CXX object CMakeFiles/JuiceGang_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 87%] Building CXX object CMakeFiles/JuiceGang_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 88%] Building CXX object CMakeFiles/JuiceGang_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 89%] Building CXX object CMakeFiles/JuiceGang_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 90%] Building CXX object CMakeFiles/JuiceGang_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+Copying OS X content JuiceGang_artefacts/Release/Standalone/Juice Gang.app/Contents/Resources/RecentFilesMenuTemplate.nib
+[ 92%] Building CXX object CMakeFiles/JuiceGang_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 93%] Building CXX object CMakeFiles/JuiceGang_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp:47:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+[ 94%] Building CXX object CMakeFiles/JuiceGang_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm:36:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.cpp:41:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp:47:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+1 warning generated.
+[ 96%] Linking CXX executable "JuiceGang_artefacts/Release/Standalone/Juice Gang.app/Contents/MacOS/Juice Gang"
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm:36:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.cpp:41:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm:71:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 97%] Linking CXX CFBundle shared module "JuiceGang_artefacts/Release/AAX/Juice Gang.aaxplugin/Contents/MacOS/Juice Gang"
+1 warning generated.
+1 warning generated.
+[ 98%] Linking CXX CFBundle shared module "JuiceGang_artefacts/Release/AU/Juice Gang.component/Contents/MacOS/Juice Gang"
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[100%] Linking CXX CFBundle shared module "JuiceGang_artefacts/Release/VST3/Juice Gang.vst3/Contents/MacOS/Juice Gang"
+[100%] Built target JuiceGang_AAX
+[100%] Built target JuiceGang_AU
+[100%] Built target JuiceGang_Standalone
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/JuiceGang_artefacts/Release/VST3/Juice Gang.vst3: code object is not signed at all
+-- Replacing invalid signature with ad-hoc signature
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/JuiceGang_artefacts/Release/VST3/Juice Gang.vst3: replacing existing signature
+removing moduleinfo.json
+creating /Users/internationalnova/Nova/plugins2/Juice Gang/build-release/JuiceGang_artefacts/Release/VST3/Juice Gang.vst3/Contents/Resources/moduleinfo.json
+[100%] Built target JuiceGang_VST3
+[100%] Built target JuiceGang_All
+==> [Juice Gang 3/7] Codesigning bundles (hardened runtime, secure timestamp)
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/JuiceGang_artefacts/Release/VST3/Juice Gang.vst3: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/JuiceGang_artefacts/Release/AU/Juice Gang.component: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/JuiceGang_artefacts/Release/Standalone/Juice Gang.app: replacing existing signature
+==> [Juice Gang 3/7] Verifying codesign
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/JuiceGang_artefacts/Release/VST3/Juice Gang.vst3: valid on disk
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/JuiceGang_artefacts/Release/VST3/Juice Gang.vst3: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/JuiceGang_artefacts/Release/AU/Juice Gang.component: valid on disk
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/JuiceGang_artefacts/Release/AU/Juice Gang.component: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/JuiceGang_artefacts/Release/Standalone/Juice Gang.app: valid on disk
+/Users/internationalnova/Nova/plugins2/Juice Gang/build-release/JuiceGang_artefacts/Release/Standalone/Juice Gang.app: satisfies its Designated Requirement
+==> [Juice Gang 4/7] Staging installer root
+==> [Juice Gang 5/7] Building + signing installer package
+pkgbuild: Inferring bundle components from contents of /Users/internationalnova/Nova/plugins2/Juice Gang/dist/pkgroot
+pkgbuild: Adding component at Library/Audio/Plug-Ins/VST3/Juice Gang.vst3
+pkgbuild: Adding component at Applications/Juice Gang.app
+pkgbuild: Adding component at Library/Audio/Plug-Ins/Components/Juice Gang.component
+pkgbuild: Wrote package to /Users/internationalnova/Nova/plugins2/Juice Gang/dist/JuiceGang-unsigned.pkg
+productsign: using timestamp authority for signature
+productsign: signing product with identity "Developer ID Installer: Giovanni Nova (HSX9N2UQ83)" from keychain /Users/internationalnova/Library/Keychains/login.keychain-db
+productsign: adding certificate "Developer ID Certification Authority"
+productsign: adding certificate "Apple Root CA"
+productsign: Wrote signed product archive to /Users/internationalnova/Nova/plugins2/Juice Gang/dist/JuiceGang-1.0.0.pkg
+Package "JuiceGang-1.0.0.pkg":
+   Status: signed by a developer certificate issued by Apple for distribution
+   Signed with a trusted timestamp on: 2026-08-16 21:03:13 +0000
+   Certificate Chain:
+    1. Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+       Expires: 2031-08-10 05:15:34 +0000
+       SHA256 Fingerprint:
+           A5 7B 81 C2 82 10 15 09 6C C2 83 D5 33 A8 40 30 9F FA 53 0A 3B F6 
+           C3 85 80 B2 1E FE FB A6 32 AC
+       ------------------------------------------------------------------------
+    2. Developer ID Certification Authority
+       Expires: 2031-09-17 00:00:00 +0000
+       SHA256 Fingerprint:
+           F1 6C D3 C5 4C 7F 83 CE A4 BF 1A 3E 6A 08 19 C8 AA A8 E4 A1 52 8F 
+           D1 44 71 5F 35 06 43 D2 DF 3A
+       ------------------------------------------------------------------------
+    3. Apple Root CA
+       Expires: 2035-02-09 21:40:36 +0000
+       SHA256 Fingerprint:
+           B0 B1 73 0E CB C7 FF 45 05 14 2C 49 F1 29 5E 6E DA 6B CA ED 7E 2C 
+           68 C5 BE 91 B5 A1 10 01 F0 24
+
+==> [Juice Gang 6/7] Submitting for notarization (this can take a few minutes)
+Conducting pre-submission checks for JuiceGang-1.0.0.pkg and initiating connection to the Apple notary service...
+Submission ID received
+  id: 783417aa-c61c-41ce-a727-06db6f7a4d4c
+Successfully uploaded file
+  id: 783417aa-c61c-41ce-a727-06db6f7a4d4c
+  path: /Users/internationalnova/Nova/plugins2/Juice Gang/dist/JuiceGang-1.0.0.pkg
+Waiting for processing to complete.
+Current status: In Progress...Current status: In Progress....Current status: In Progress.....Current status: Accepted......Processing complete
+  id: 783417aa-c61c-41ce-a727-06db6f7a4d4c
+  status: Accepted
+
+==> [Juice Gang 7/7] Stapling notarization ticket
+Processing: /Users/internationalnova/Nova/plugins2/Juice Gang/dist/JuiceGang-1.0.0.pkg
+Processing: /Users/internationalnova/Nova/plugins2/Juice Gang/dist/JuiceGang-1.0.0.pkg
+The staple and validate action worked!
+==> [Juice Gang] Final verification
+/Users/internationalnova/Nova/plugins2/Juice Gang/dist/JuiceGang-1.0.0.pkg: accepted
+source=Notarized Developer ID
+origin=Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+
+Done: /Users/internationalnova/Nova/plugins2/Juice Gang/dist/JuiceGang-1.0.0.pkg

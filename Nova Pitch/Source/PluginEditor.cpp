@@ -1,30 +1,39 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
+#include "ParameterIDs.hpp"
 
 #include <cstring>
+#include <cmath>
+#include <iostream>
+
+namespace
+{
+    void hzToNoteInfo (float hz, juce::String& outName, int& outOctave, float& outCents)
+    {
+        static const char* names[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+        if (hz <= 0.0f) { outName = ""; outOctave = 0; outCents = 0.0f; return; }
+        const float midi = 69.0f + 12.0f * std::log2 (hz / 440.0f);
+        const int midiRounded = (int) std::round (midi);
+        const int pc = ((midiRounded % 12) + 12) % 12;
+        outName = names[pc];
+        outOctave = midiRounded / 12 - 1;
+        outCents = (midi - (float) midiRounded) * 100.0f;
+    }
+}
 
 NovaPitchAudioProcessorEditor::NovaPitchAudioProcessorEditor (NovaPitchAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
-    webView = std::make_unique<SinglePageBrowser> (createWebOptions (*this));
-
-    keyAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("key"), keyRelay, nullptr);
-    scaleAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("scale"), scaleRelay, nullptr);
-    toleranceAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("tolerance"), toleranceRelay, nullptr);
-    amountAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("amount"), amountRelay, nullptr);
-    confidenceAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("confidenceThreshold"), confidenceRelay, nullptr);
-    vibratoAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("vibrato"), vibratoRelay, nullptr);
-    formantAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("formant"), formantRelay, nullptr);
-    lowLatencyAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("lowLatency"), lowLatencyRelay, nullptr);
-
+    webView = std::make_unique<SinglePageBrowser> (createWebOptions());
     addAndMakeVisible (*webView);
 
     const auto cacheBustedUrl = juce::WebBrowserComponent::getResourceProviderRoot()
                               + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
-    setSize (1060, 640);
+    setResizable (true, true);
+    setResizeLimits (660, 396, 1980, 1188);
+    setSize (1100, 660);
     startTimerHz (30);
 }
 
@@ -35,7 +44,7 @@ NovaPitchAudioProcessorEditor::~NovaPitchAudioProcessorEditor()
 
 void NovaPitchAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour::fromRGB (8, 17, 29));
+    g.fillAll (juce::Colour (0xFF0A0A0F));
 }
 
 void NovaPitchAudioProcessorEditor::resized()
@@ -49,26 +58,36 @@ void NovaPitchAudioProcessorEditor::timerCallback()
     if (webView == nullptr || ! webView->isVisible())
         return;
 
-    const auto detectedHz = processorRef.getDetectedPitch();
-    const auto correctedHz = processorRef.getCorrectedPitch();
-    const auto confidence = juce::jlimit (0.0f, 1.0f, processorRef.getConfidence());
+    const float detectedHz = processorRef.getDetectedPitch();
+    const float confidence = juce::jlimit (0.0f, 1.0f, processorRef.getConfidence());
+    const bool voiced = processorRef.getVoicedDebug();
 
-    const auto correctionAmount = detectedHz > 1.0f
-        ? juce::jlimit (0.0f, 1.0f, std::abs (correctedHz - detectedHz) / juce::jmax (detectedHz, 1.0f))
-        : 0.0f;
+    juce::String noteName;
+    int octave = 0;
+    float cents = 0.0f;
+    hzToNoteInfo (detectedHz, noteName, octave, cents);
 
-    const auto isRetuneActive = correctionAmount > 0.005f;
+    juce::String levelsJson = "[";
+    for (int i = 0; i < NovaPitchAudioProcessor::kLevelHistorySize; ++i)
+    {
+        if (i > 0) levelsJson += ",";
+        levelsJson += juce::String (processorRef.getLevelHistoryAt (i), 4);
+    }
+    levelsJson += "]";
 
     const auto script = "if (window.receiveDSP) { window.receiveDSP({"
-                      "correctionAmount:" + juce::String (correctionAmount, 4)
-                      + ",trackingConfidence:" + juce::String (confidence, 4)
-                      + ",retuneActive:" + juce::String (isRetuneActive ? "true" : "false")
+                      "noteName:\"" + noteName + "\""
+                      ",octave:" + juce::String (octave)
+                      + ",cents:" + juce::String (cents, 2)
+                      + ",confidence:" + juce::String (confidence, 4)
+                      + ",voiced:" + juce::String (voiced ? "true" : "false")
+                      + ",levels:" + levelsJson
                       + "}); }";
 
     webView->evaluateJavascript (script);
 }
 
-juce::WebBrowserComponent::Options NovaPitchAudioProcessorEditor::createWebOptions (NovaPitchAudioProcessorEditor& editor)
+juce::WebBrowserComponent::Options NovaPitchAudioProcessorEditor::createWebOptions()
 {
     auto options = juce::WebBrowserComponent::Options {};
 
@@ -81,18 +100,114 @@ juce::WebBrowserComponent::Options NovaPitchAudioProcessorEditor::createWebOptio
    #endif
 
     options = options.withNativeIntegrationEnabled()
-                     .withResourceProvider ([&editor] (const juce::String& url)
+                     .withResourceProvider ([this] (const juce::String& url) { return getResource (url); })
+                     .withNativeFunction ("setParam", [this] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
                      {
-                         return editor.getResource (url);
+                         if (args.size() >= 2)
+                         {
+                             const auto paramId = args[0].toString();
+                             if (auto* param = processorRef.apvts.getParameter (paramId))
+                             {
+                                 if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*> (param))
+                                     param->setValueNotifyingHost (ranged->convertTo0to1 ((float) (double) args[1]));
+                                 else if (dynamic_cast<juce::AudioParameterBool*> (param) != nullptr)
+                                     param->setValueNotifyingHost ((bool) args[1] ? 1.0f : 0.0f);
+                             }
+                         }
+                         completion (juce::var());
                      })
-                     .withOptionsFrom (editor.keyRelay)
-                     .withOptionsFrom (editor.scaleRelay)
-                     .withOptionsFrom (editor.toleranceRelay)
-                     .withOptionsFrom (editor.amountRelay)
-                     .withOptionsFrom (editor.confidenceRelay)
-                     .withOptionsFrom (editor.vibratoRelay)
-                     .withOptionsFrom (editor.formantRelay)
-                     .withOptionsFrom (editor.lowLatencyRelay);
+                     .withNativeFunction ("getParamsMeta", [this] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         static const char* const kIds[] = {
+                             ParameterIDs::key, ParameterIDs::scale, ParameterIDs::tolerance, ParameterIDs::amount,
+                             ParameterIDs::confidenceThreshold, ParameterIDs::vibrato, ParameterIDs::formant,
+                             ParameterIDs::lowLatency, ParameterIDs::formantWarp, ParameterIDs::mix,
+                             ParameterIDs::outputGain, ParameterIDs::range, ParameterIDs::vibratoRate,
+                             ParameterIDs::transients, ParameterIDs::bypass
+                         };
+
+                         juce::Array<juce::var> arr;
+                         for (auto* id : kIds)
+                         {
+                             auto* param = processorRef.apvts.getParameter (id);
+                             if (param == nullptr) continue;
+
+                             auto* o = new juce::DynamicObject();
+                             o->setProperty ("id", juce::String (id));
+                             o->setProperty ("name", param->getName (64));
+                             o->setProperty ("text", param->getCurrentValueAsText());
+
+                             if (auto* boolParam = dynamic_cast<juce::AudioParameterBool*> (param))
+                             {
+                                 o->setProperty ("type", "bool");
+                                 o->setProperty ("value", boolParam->get());
+                             }
+                             else if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*> (param))
+                             {
+                                 const auto& range = ranged->getNormalisableRange();
+                                 o->setProperty ("type", "float");
+                                 o->setProperty ("value", (double) ranged->convertFrom0to1 (ranged->getValue()));
+                                 o->setProperty ("min", (double) range.start);
+                                 o->setProperty ("max", (double) range.end);
+                             }
+
+                             arr.add (juce::var (o));
+                         }
+                         completion (juce::var (arr));
+                     })
+                     .withNativeFunction ("abGetState", [this] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         auto* o = new juce::DynamicObject();
+                         o->setProperty ("activeSlot", processorRef.abSnapshot.getActiveSlot() == ABSnapshot::Slot::A ? "A" : "B");
+                         o->setProperty ("hasA", processorRef.abSnapshot.hasSnapshot (ABSnapshot::Slot::A));
+                         o->setProperty ("hasB", processorRef.abSnapshot.hasSnapshot (ABSnapshot::Slot::B));
+                         completion (juce::var (o));
+                     })
+                     .withNativeFunction ("abCaptureActive", [this] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         processorRef.abSnapshot.captureActive (processorRef.apvts);
+                         completion (juce::var());
+                     })
+                     .withNativeFunction ("abToggleAndRecall", [this] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         processorRef.abSnapshot.toggleAndRecall (processorRef.apvts);
+                         completion (juce::var());
+                     })
+                     .withNativeFunction ("abCopyActiveToOther", [this] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         processorRef.abSnapshot.copyActiveToOther();
+                         completion (juce::var());
+                     })
+                     .withNativeFunction ("getPresetsMeta", [this] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         juce::Array<juce::var> arr;
+                         for (int i = 0; i < processorRef.presetManager.getNumPresets(); ++i)
+                         {
+                             auto* o = new juce::DynamicObject();
+                             o->setProperty ("name", processorRef.presetManager.getPreset (i).name);
+                             o->setProperty ("isUser", processorRef.presetManager.isUserPreset (i));
+                             arr.add (juce::var (o));
+                         }
+                         completion (juce::var (arr));
+                     })
+                     .withNativeFunction ("loadPreset", [this] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         if (! args.isEmpty())
+                             processorRef.presetManager.applyPreset ((int) args[0], processorRef.apvts);
+                         completion (juce::var());
+                     })
+                     .withNativeFunction ("savePreset", [this] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         const auto name = args.isEmpty() ? juce::String ("User Preset") : args[0].toString();
+                         const int newIndex = processorRef.saveCurrentAsPreset (name);
+                         completion (juce::var (newIndex));
+                     })
+                     .withNativeFunction ("jsError", [] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         if (! args.isEmpty())
+                             std::cerr << "[NovaPitch][JS ERROR] " << args[0].toString() << std::endl;
+                         completion (juce::var());
+                     });
 
     return options;
 }
@@ -117,19 +232,9 @@ std::optional<juce::WebBrowserComponent::Resource> NovaPitchAudioProcessorEditor
                              nova_pitch_BinaryData::index_htmlSize,
                              "text/html");
 
-    if (lowerUrl.contains ("n_logo.png"))
-        return makeResource (nova_pitch_BinaryData::n_logo_png,
-                             nova_pitch_BinaryData::n_logo_pngSize,
-                             "image/png");
-
     if (lowerUrl.contains ("js/index.js"))
         return makeResource (nova_pitch_BinaryData::index_js,
                              nova_pitch_BinaryData::index_jsSize,
-                             "text/javascript");
-
-    if (lowerUrl.contains ("js/fallback-boot.js"))
-        return makeResource (nova_pitch_BinaryData::fallbackboot_js,
-                             nova_pitch_BinaryData::fallbackboot_jsSize,
                              "text/javascript");
 
     if (lowerUrl.contains ("js/juce/index.js"))
@@ -158,19 +263,9 @@ std::optional<juce::WebBrowserComponent::Resource> NovaPitchAudioProcessorEditor
                              nova_pitch_BinaryData::index_htmlSize,
                              "text/html");
 
-    if (lowerPath == "/n_logo.png" || lowerPath.endsWith ("/n_logo.png"))
-        return makeResource (nova_pitch_BinaryData::n_logo_png,
-                             nova_pitch_BinaryData::n_logo_pngSize,
-                             "image/png");
-
     if (lowerPath == "/js/index.js" || lowerPath.endsWith ("/js/index.js"))
         return makeResource (nova_pitch_BinaryData::index_js,
                              nova_pitch_BinaryData::index_jsSize,
-                             "text/javascript");
-
-    if (lowerPath == "/js/fallback-boot.js" || lowerPath.endsWith ("/js/fallback-boot.js"))
-        return makeResource (nova_pitch_BinaryData::fallbackboot_js,
-                             nova_pitch_BinaryData::fallbackboot_jsSize,
                              "text/javascript");
 
     if (lowerPath == "/js/juce/index.js" || lowerPath.endsWith ("/js/juce/index.js"))

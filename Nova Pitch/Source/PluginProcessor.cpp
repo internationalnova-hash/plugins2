@@ -1,12 +1,8 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "ParameterIDs.hpp"
 
 #include <cmath>
-#include <algorithm>
-#include <numeric>
-
-static float hzToMidiF (float hz) { return 69.0f + 12.0f * std::log2f (hz / 440.0f); }
-static float midiToHzF (float m)  { return 440.0f * std::pow (2.0f, (m - 69.0f) / 12.0f); }
 
 NovaPitchAudioProcessor::NovaPitchAudioProcessor()
     : AudioProcessor (BusesProperties()
@@ -14,150 +10,187 @@ NovaPitchAudioProcessor::NovaPitchAudioProcessor()
                         .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Parameters", createParameterLayout())
 {
-    yinBuf.assign    (yinBufferSize, 0.0f);
-    yinLinear.assign (yinBufferSize, 0.0f);
-    yinD.assign      (yinBufferSize / 2, 0.0f);
-    yinCmnd.assign   (yinBufferSize / 2, 0.0f);
-    pitchHistory5.fill (0.0f);
 }
 
-NovaPitchAudioProcessor::~NovaPitchAudioProcessor() {}
+NovaPitchAudioProcessor::~NovaPitchAudioProcessor()
+{
+    // Safety net in case the host never calls releaseResources() before
+    // destroying the plugin instance - see maybeEnableDebugCaptureLog().
+    flushDebugCaptureLog();
+}
 
 juce::AudioProcessorValueTreeState::ParameterLayout
 NovaPitchAudioProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    params.push_back (std::make_unique<juce::AudioParameterInt>   ("key",                "Key",                0, 11,  0));
-    params.push_back (std::make_unique<juce::AudioParameterInt>   ("scale",              "Scale",              0, 4,   0));
-    params.push_back (std::make_unique<juce::AudioParameterFloat> ("tolerance",          "Tolerance",          0.0f, 100.0f, 50.0f));
-    params.push_back (std::make_unique<juce::AudioParameterFloat> ("amount",             "Amount",             0.0f, 100.0f, 100.0f));
-    params.push_back (std::make_unique<juce::AudioParameterFloat> ("confidenceThreshold","Confidence Thresh",  0.0f, 100.0f, 40.0f));
-    params.push_back (std::make_unique<juce::AudioParameterFloat> ("vibrato",            "Vibrato",            0.0f, 100.0f, 0.0f));
-    params.push_back (std::make_unique<juce::AudioParameterBool>  ("formant",            "Formant Preserve",   true));
-    params.push_back (std::make_unique<juce::AudioParameterBool>  ("lowLatency",         "Low Latency",        false));
+    params.push_back (std::make_unique<juce::AudioParameterInt>   (ParameterIDs::key,   "Key",   0, 11, 0));
+    params.push_back (std::make_unique<juce::AudioParameterInt>   (ParameterIDs::scale, "Scale", 0, 4,  0));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::tolerance, "Retune Speed", 0.0f, 100.0f, 50.0f));
+    // Default 0 (was 100): under the new Flex-Tune-style behavior (see
+    // NovaScaleQuantizer::process()), 0 means "no humanization - always
+    // fully correct", which is the safe/expected default for a hard-tune
+    // plugin. Turning it up deliberately opts into letting near-target
+    // natural closeness through; it can never let a genuinely off-key
+    // note pass uncorrected, at any value.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::amount,    "Humanize",     0.0f, 100.0f, 0.0f));
+    // Default nudged from the pre-rebuild 40 toward ~70, matching the
+    // proven reference confidence-gate threshold - a deliberate behavior
+    // change under the same param ID, not a silent one (see rebuild plan).
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::confidenceThreshold, "Confidence Thresh", 0.0f, 100.0f, 70.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::vibrato, "Natural Vibrato", 0.0f, 100.0f, 0.0f));
+    // Was AudioParameterBool pre-rebuild; now a real, continuous, load-
+    // bearing amount (see NovaFormantCorrector). Same ID.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::formant, "Formant Preserve", 0.0f, 100.0f, 100.0f));
+    params.push_back (std::make_unique<juce::AudioParameterBool>  (ParameterIDs::lowLatency, "Low Latency", false));
+
+    // New in the ground-up rebuild.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::formantWarp, "Formant Warp", -100.0f, 100.0f, 0.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::mix, "Mix", 0.0f, 100.0f, 100.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::outputGain, "Output", -24.0f, 24.0f, 0.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::range, "Range", 0.0f, 100.0f, 100.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::vibratoRate, "Vibrato Rate", 2.0f, 8.0f, 5.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::transients, "Transients", 0.0f, 100.0f, 30.0f));
+    params.push_back (std::make_unique<juce::AudioParameterBool>  (ParameterIDs::bypass, "Bypass", false));
 
     return { params.begin(), params.end() };
 }
 
-void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
+void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
+    lastAppliedLowLatencyMode = apvts.getRawParameterValue (ParameterIDs::lowLatency)->load() >= 0.5f;
 
-    yinBuf.assign    (yinBufferSize, 0.0f);
-    yinLinear.assign (yinBufferSize, 0.0f);
-    yinD.assign      (yinBufferSize / 2, 0.0f);
-    yinCmnd.assign   (yinBufferSize / 2, 0.0f);
+    engine.prepare (sampleRate, samplesPerBlock, lastAppliedLowLatencyMode);
+    setLatencySamples (engine.getLatencySamples());
 
-    yinWritePos           = 0;
-    smoothedDetectedHz    = 0.0f;
-    blocksSinceValidPitch = 0;
-    correctionActive = false;
-    lastTargetMidi   = -1;
-    noteTargetRatio  = 1.0f;
-    smoothedRatio    = 1.0f;
-    pitchDelayBuf.fill (0.0f);
-    pitchDelayWrite  = 0;
-    historyIndex     = 0;
-    ph5index         = 0;
-    pitchHistory5.fill (0.0f);
+    // Synchronous (not deferred to the timer) - see maybeEnableDebugCaptureLog()
+    // for why. Deliberately kept as cheap as possible (no large allocation,
+    // no file I/O here) after the first version of this crashed Pro Tools
+    // on load by doing a ~60MB reservation + real file creation right here.
+    maybeEnableDebugCaptureLog();
 
-    // Dual-head pitch shifter init
-    dlBufL.fill (0.0f);
-    dlBufR.fill (0.0f);
-    dlWrite    = kDlLatency;   // read starts kDlLatency samples behind write
-    dlReadA    = 0.0f;
-    dlReadB    = 0.0f;
-    dlXfading  = false;
-    dlXfade    = 0.0f;
-    dlXfadeInc = 0.0f;
-
-    setLatencySamples (kDlLatency);
+    startTimer (250);
 }
 
-void NovaPitchAudioProcessor::releaseResources() {}
-
-float NovaPitchAudioProcessor::detectYIN (const float* samples, int n, float* d, float* cmnd)
+void NovaPitchAudioProcessor::releaseResources()
 {
-    const int halfN = n / 2;
-
-    for (int tau = 0; tau < halfN; ++tau) d[tau] = 0.0f;
-    for (int tau = 1; tau < halfN; ++tau)
-        for (int j = 0; j < halfN; ++j)
-        {
-            float diff = samples[j] - samples[j + tau];
-            d[tau] += diff * diff;
-        }
-
-    cmnd[0] = 1.0f;
-    float runSum = 0.0f;
-    for (int tau = 1; tau < halfN; ++tau)
-    {
-        runSum += d[tau];
-        cmnd[tau] = d[tau] * (float)tau / (runSum + 1e-9f);
-    }
-
-    const float threshold = 0.15f;
-    const int   tauMin    = (int)std::ceil  (currentSampleRate / 1000.0);
-    const int   tauMax    = (int)std::floor (currentSampleRate / 80.0);
-    const int   tauMaxC   = std::min (tauMax, halfN - 2);
-
-    for (int tau = std::max (1, tauMin); tau <= tauMaxC; ++tau)
-    {
-        if (cmnd[tau] < threshold)
-        {
-            float s0  = cmnd[tau - 1];
-            float s1  = cmnd[tau];
-            float s2  = cmnd[tau + 1];
-            float fTau = (float)tau + 0.5f * (s0 - s2) / (s0 - 2.0f * s1 + s2 + 1e-9f);
-            return (float)(currentSampleRate / (double)fTau);
-        }
-    }
-    return -1.0f;
+    flushDebugCaptureLog();
+    stopTimer();
 }
 
-int NovaPitchAudioProcessor::quantizeToScale (float hz)
+// See the header comment on setGrainCaptureDebugCallback for why this
+// exists: every purely-offline hypothesis this session failed to explain
+// why a real DAW bounce sounds different from a guaranteed-clean offline
+// batch render of the identical settings and source. This gets the actual
+// grain-capture ground truth from inside a real host session instead of
+// guessing further. Sentinel-file gated (not an env var) because GUI apps
+// launched from the Dock/Finder on macOS don't reliably inherit shell
+// environment variables, so an env-var gate would silently never trigger
+// for a real DAW.
+//
+// Called SYNCHRONOUSLY from prepareToPlay() - a real bounce/render pass in
+// a host can use a genuinely short-lived plugin instance (verified: a
+// version of this that deferred setup to the next 250ms timer tick logged
+// nothing but an idle, never-fed "live" mixer instance for 166 real
+// seconds, while the actual export - confirmed independently to be
+// correctly pitch-corrected - produced no log data at all, because its own
+// instance never survived long enough for a 250ms-deferred callback
+// registration to ever run). Deliberately kept minimal to stay safe for
+// AAX's stricter load-time constraints: a cheap file-exists check, a
+// MODEST (not the original ~60MB) reservation only large enough for a
+// realistic single bounce, and a lambda assignment - no other file I/O
+// happens here. The actual CSV file itself is created lazily, on first
+// flush (from the timer, releaseResources(), or the destructor - never
+// from inside this method), so a render-pass instance that lives only a
+// few hundred milliseconds still gets its in-memory data safely flushed
+// out before destruction via the destructor's safety-net call.
+void NovaPitchAudioProcessor::maybeEnableDebugCaptureLog()
 {
-    int key   = (int)apvts.getRawParameterValue ("key")->load();
-    int scale = (int)apvts.getRawParameterValue ("scale")->load();
+    if (debugCaptureActive)
+        return; // already armed by an earlier prepareToPlay() call on this same instance - don't wipe accumulated data
 
-    float midi  = hzToMidiF (hz);
-    int   midiR = (int)std::round (midi);
-    int   pc    = ((midiR - key) % 12 + 12) % 12;
+    const juce::File flagFile = juce::File::getSpecialLocation (juce::File::userDesktopDirectory)
+                                     .getChildFile ("nova_pitch_debug.flag");
+    if (! flagFile.existsAsFile())
+        return;
 
-    auto nearest = [&](const int* degrees, int count) -> int
+    // ~90 seconds of continuous voiced content at a plausible worst-case
+    // (highest) pitch - generous enough for any realistic single bounce,
+    // small enough (a few MB) to be a safe synchronous allocation even
+    // during a host's load/validation pass.
+    debugCaptureLog.reserve (300'000);
+    debugCaptureFlushedCount = 0;
+    debugCaptureActive = true;
+
+    engine.setGrainCaptureDebugCallback ([this] (const nova::pitch::NovaPitchSynchronousShifter::CaptureDebugInfo& info)
     {
-        int best = degrees[0], bestDist = 99;
-        for (int i = 0; i < count; ++i)
-        {
-            int d  = ((pc - degrees[i]) % 12 + 12) % 12;
-            int d2 = 12 - d;
-            int dist = std::min (d, d2);
-            if (dist < bestDist) { bestDist = dist; best = degrees[i]; }
-        }
-        int tonicOfOctave = midiR - pc;
-        int candidate = tonicOfOctave + best;
-        if (candidate < midiR - 6) candidate += 12;
-        if (candidate > midiR + 6) candidate -= 12;
-        return candidate;
-    };
-
-    switch (scale)
-    {
-        case Chromatic:  return midiR;
-        case Major:      { int deg[] = {0,2,4,5,7,9,11}; return nearest (deg, 7); }
-        case Minor:      { int deg[] = {0,2,3,5,7,8,10}; return nearest (deg, 7); }
-        case Pentatonic: { int deg[] = {0,2,4,7,9};       return nearest (deg, 5); }
-        case Blues:      { int deg[] = {0,3,5,6,7,10};    return nearest (deg, 6); }
-        default:         return midiR;
-    }
+        if (debugCaptureActive && debugCaptureLog.size() < debugCaptureLog.capacity())
+            debugCaptureLog.push_back (info);
+    });
 }
 
-float NovaPitchAudioProcessor::midiToHz (int midi) const { return midiToHzF ((float)midi); }
-float NovaPitchAudioProcessor::hzToMidi (float hz)  const { return hzToMidiF (hz); }
+void NovaPitchAudioProcessor::flushDebugCaptureLog()
+{
+    if (! debugCaptureActive)
+        return;
 
-void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
-                                             juce::MidiBuffer& /*midi*/)
+    const size_t total = debugCaptureLog.size();
+    if (debugCaptureFlushedCount >= total)
+        return;
+
+    // Lazy file creation - deliberately NOT done in maybeEnableDebugCaptureLog()
+    // (which runs synchronously inside prepareToPlay()) to keep that path
+    // free of any file I/O at all.
+    if (debugCaptureOutputFile == juce::File())
+    {
+        const juce::String uniqueSuffix = juce::String::toHexString ((juce::pointer_sized_int) this)
+                                           + "_" + juce::String ((juce::int64) juce::Time::getCurrentTime().toMilliseconds());
+        debugCaptureOutputFile = juce::File::getSpecialLocation (juce::File::userDesktopDirectory)
+                                      .getChildFile ("nova_pitch_debug_captures_" + uniqueSuffix + ".csv");
+        debugCaptureOutputFile.deleteFile();
+        debugCaptureOutputFile.create();
+        debugCaptureOutputFile.appendText ("wallClockMs,sampleIndex,periodInSamples,wsolaOffset,wsolaBestScore,wsolaBaselineScore,measuredGrainHz,assumedHz,centsError\n");
+    }
+
+    juce::String chunk;
+    chunk.preallocateBytes (128 * (size_t) (total - debugCaptureFlushedCount));
+    const double nowMs = juce::Time::getMillisecondCounterHiRes();
+    for (size_t i = debugCaptureFlushedCount; i < total; ++i)
+    {
+        const auto& info = debugCaptureLog[i];
+        const float centsError = (info.measuredGrainHz > 0.0f && info.assumedHz > 0.0f)
+            ? 1200.0f * std::log2 (info.measuredGrainHz / info.assumedHz) : 0.0f;
+        chunk << nowMs << "," << (juce::int64) info.sampleIndex << "," << info.periodInSamples << ","
+              << info.wsolaOffset << "," << info.wsolaBestScore << "," << info.wsolaBaselineScore << ","
+              << info.measuredGrainHz << "," << info.assumedHz << "," << centsError << "\n";
+    }
+    debugCaptureOutputFile.appendText (chunk);
+    debugCaptureFlushedCount = total;
+}
+
+void NovaPitchAudioProcessor::timerCallback()
+{
+    // Message-thread-only reconfigure for lowLatency mode changes (resizes
+    // the pitch detector's analysis window, which heap-allocates) - mirrors
+    // Nova Seven's proven oversampling-reconfigure pattern
+    // (NovaSevenAudioProcessor::reconfigureOversamplingIfNeeded).
+    const bool desired = apvts.getRawParameterValue (ParameterIDs::lowLatency)->load() >= 0.5f;
+    if (desired != lastAppliedLowLatencyMode)
+    {
+        // Reallocates - keep the audio thread out while it happens.
+        suspendProcessing (true);
+        engine.reconfigureIfNeeded (currentSampleRate, desired);
+        suspendProcessing (false);
+        lastAppliedLowLatencyMode = desired;
+        setLatencySamples (engine.getLatencySamples());
+    }
+
+    if (debugCaptureActive)
+        flushDebugCaptureLog();
+}
+
+void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& /*midi*/)
 {
     juce::ScopedNoDenormals noDenormals;
 
@@ -167,253 +200,62 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float* chL = buffer.getReadPointer (0);
     const float* chR = (numChannels > 1) ? buffer.getReadPointer (1) : chL;
 
-    // ── Pitch detection (YIN on input signal) ──────────────────────────────
-    // Detect from the raw input so there is no feedback through the read
-    // head position.  The estimate is stored in a ring buffer and looked up
-    // with a delay equal to kDlLatency so the correction ratio we apply to
-    // the output is time-aligned with the audio actually being output.
-    for (int s = 0; s < numSamples; ++s)
-    {
-        yinBuf[(size_t)yinWritePos] = (chL[s] + chR[s]) * 0.5f;
-        yinWritePos = (yinWritePos + 1) % yinBufferSize;
-    }
+    NovaPitchTunedEngine::Params p;
+    p.keyPitchClass = (int) apvts.getRawParameterValue (ParameterIDs::key)->load();
+    p.scale = (nova::pitch::Scale) (int) apvts.getRawParameterValue (ParameterIDs::scale)->load();
+    p.retuneSpeedPercent = apvts.getRawParameterValue (ParameterIDs::tolerance)->load();
+    p.amountPercent = apvts.getRawParameterValue (ParameterIDs::amount)->load();
+    p.confidenceThresholdPercent = apvts.getRawParameterValue (ParameterIDs::confidenceThreshold)->load();
+    p.vibratoPreservePercent = apvts.getRawParameterValue (ParameterIDs::vibrato)->load();
+    p.vibratoRateHz = apvts.getRawParameterValue (ParameterIDs::vibratoRate)->load();
+    p.formantAmountPercent = apvts.getRawParameterValue (ParameterIDs::formant)->load();
+    p.formantWarpPercent = apvts.getRawParameterValue (ParameterIDs::formantWarp)->load();
+    p.rangePercent = apvts.getRawParameterValue (ParameterIDs::range)->load();
+    p.mixPercent = apvts.getRawParameterValue (ParameterIDs::mix)->load();
+    p.outputGainDb = apvts.getRawParameterValue (ParameterIDs::outputGain)->load();
+    p.transientsPercent = apvts.getRawParameterValue (ParameterIDs::transients)->load();
+    p.bypassed = apvts.getRawParameterValue (ParameterIDs::bypass)->load() >= 0.5f;
 
-    for (int i = 0; i < yinBufferSize; ++i)
-        yinLinear[(size_t)i] = yinBuf[(size_t)((yinWritePos + i) % yinBufferSize)];
-
-    float detectedHz = detectYIN (yinLinear.data(), yinBufferSize,
-                                   yinD.data(), yinCmnd.data());
-
-    if (detectedHz > 0.0f)
-    {
-        pitchHistory5[(size_t)ph5index] = detectedHz;
-        ph5index = (ph5index + 1) % 5;
-    }
-
-    float medianHz = 0.0f;
-    {
-        std::array<float, 5> tmp = pitchHistory5;
-        std::sort (tmp.begin(), tmp.end());
-        int nonZero = 0;
-        for (auto v : tmp) if (v > 0.0f) ++nonZero;
-        if (nonZero >= 3)
-            medianHz = tmp[(size_t)(nonZero / 2 + (5 - nonZero))];
-        else if (nonZero > 0)
-            medianHz = tmp[(size_t)(5 - nonZero)];
-    }
-
-    if (medianHz > 0.0f)
-    {
-        if (smoothedDetectedHz > 0.0f)
-        {
-            float hzRatio  = medianHz / (smoothedDetectedHz + 1e-9f);
-            bool  octJump  = (hzRatio > 1.88f && hzRatio < 2.12f)
-                          || (hzRatio > 0.47f && hzRatio < 0.53f);
-            // Fixed alpha so the smoother converges quickly across note transitions.
-            // Variable slowdown (semiDist * 0.08) caused 80ms+ stuck-on-wrong-note
-            // when voice moved from G3 to A3 — the EMA lagged behind the boundary.
-            float alpha    = octJump ? 0.05f : 0.4f;
-            smoothedDetectedHz = alpha * medianHz + (1.0f - alpha) * smoothedDetectedHz;
-        }
-        else
-        {
-            smoothedDetectedHz = medianHz;
-        }
-        blocksSinceValidPitch = 0;
-    }
-    else
-    {
-        if (++blocksSinceValidPitch > maxHoldBlocks)
-            smoothedDetectedHz = 0.0f;
-    }
-
-    detectedPitch.store (smoothedDetectedHz);
-
-    // ── Correction ratio ────────────────────────────────────────────────────
-    float amount    = apvts.getRawParameterValue ("amount")->load() / 100.0f;
-    float tolerance = apvts.getRawParameterValue ("tolerance")->load() / 100.0f;
-    float ratio = 1.0f;
-
-    if (smoothedDetectedHz > 0.0f)
-    {
-        // ── Note stickiness: don't switch target note until pitch definitively
-        // crosses the midpoint.  Prevents smoother lag from flipping between
-        // A3 and Bb3 and applying corrections in the wrong direction.
-        int newTargetMidi = quantizeToScale (smoothedDetectedHz);
-        if (lastTargetMidi == -1)
-        {
-            lastTargetMidi = newTargetMidi;
-        }
-        else
-        {
-            float centsFromSticky = (hzToMidiF (smoothedDetectedHz) - (float)lastTargetMidi) * 100.0f;
-            // Only switch note when pitch moves >55c away from current target
-            if (std::abs (centsFromSticky) > 55.0f)
-                lastTargetMidi = newTargetMidi;
-        }
-
-        int   targetMidi = lastTargetMidi;
-        float targetHz   = midiToHz (targetMidi);
-        correctedPitch.store (targetHz);
-        pitchConfidence.store (apvts.getRawParameterValue ("confidenceThreshold")->load() / 100.0f);
-
-        float centsDiff     = (hzToMidiF (targetHz) - hzToMidiF (smoothedDetectedHz)) * 100.0f;
-        float deadbandCents = tolerance * 25.0f;
-
-        if (!correctionActive && std::abs (centsDiff) > deadbandCents)  correctionActive = true;
-        if ( correctionActive && std::abs (centsDiff) < deadbandCents * 0.4f) correctionActive = false;
-
-        if (correctionActive)
-        {
-            // Recompute ratio each block so correction tracks instantaneous deviation
-            float alignedHz = smoothedDetectedHz;
-            if (targetHz > 1.0f)
-            {
-                while (alignedHz < targetHz * 0.70710678f) alignedHz *= 2.0f;
-                while (alignedHz > targetHz * 1.41421356f) alignedHz *= 0.5f;
-            }
-            noteTargetRatio = juce::jlimit (0.841f, 1.189f, targetHz / (alignedHz + 1e-9f));
-            ratio = 1.0f + (noteTargetRatio - 1.0f) * amount;
-        }
-        else
-        {
-            noteTargetRatio = 1.0f;
-            ratio = 1.0f;
-        }
-    }
-    else
-    {
-        lastTargetMidi  = -1;
-        noteTargetRatio = 1.0f;
-        correctionActive = false;
-        ratio = 1.0f;
-    }
-
-    ratio = juce::jlimit (0.841f, 1.189f, ratio);
-
-    // Smooth the ratio to prevent block-to-block jumps from noisy pitch estimates.
-    // At fastest retune speed (tolerance=0) alpha~0.4; at slowest (tolerance=100) alpha~0.05.
-    {
-        float speed  = 1.0f - (apvts.getRawParameterValue ("tolerance")->load() / 100.0f);
-        float alpha  = 0.05f + speed * 0.35f;  // range [0.05, 0.40]
-        smoothedRatio = alpha * ratio + (1.0f - alpha) * smoothedRatio;
-        ratio = smoothedRatio;
-    }
-
-    pitchHistory[(size_t)historyIndex].store (smoothedDetectedHz);
-    historyIndex = (historyIndex + 1) % pitchHistorySize;
+    engine.setParams (p);
 
     float* outL = buffer.getWritePointer (0);
-    float* outR = (numChannels > 1) ? buffer.getWritePointer (1) : nullptr;
-
-    const float safeRatio = juce::jlimit (0.5f, 2.0f, ratio);
-
-    // ── Dual-head TD-PSOLA pitch shift ─────────────────────────────────────
-    // Pitch period for grain size — clamp to sane range
-    const int pitchPeriod = (smoothedDetectedHz >= 80.0f && smoothedDetectedHz <= 1200.0f)
-                            ? juce::jlimit (40, 600,
-                                  (int) std::round ((float) currentSampleRate / smoothedDetectedHz))
-                            : 256;
-
-    // Crossfade duration: 16x pitch period for smooth transitions
-    const int xfadeDur = pitchPeriod * 16;
-    // Trigger crossfade when gap drifts 4 periods — but never exceed kDlLatency/2
-    const int triggerDrift = std::min (pitchPeriod * 4, kDlLatency / 2);
-
-    // Find the best jump distance using autocorrelation (avoids off-period artifacts)
-    auto findBestJump = [&](int center) -> int {
-        const int radius = center / 4;
-        float bestCorr = -1e30f;
-        int   best     = center;
-        int   anchor   = (int)dlReadA;
-        for (int d = center - radius; d <= center + radius; ++d)
-        {
-            float corr = 0.0f;
-            int   half = d / 2;
-            for (int k = -half; k < half; ++k)
-                corr += dlBufL[(anchor + k) & kDlMask] * dlBufL[(anchor + k - d) & kDlMask];
-            if (corr > bestCorr) { bestCorr = corr; best = d; }
-        }
-        return best;
-    };
-
-    for (int s = 0; s < numSamples; ++s)
+    if (numChannels > 1)
     {
-        // Write new input sample to delay line
-        dlBufL[dlWrite & kDlMask] = chL[s];
-        dlBufR[dlWrite & kDlMask] = chR[s];
-        dlWrite++;
-
-        // ── Read head A (always active) ─────────────────────────────────────
-        {
-            int   i0  = static_cast<int> (dlReadA) & kDlMask;
-            int   i1  = (i0 + 1) & kDlMask;
-            float fr  = dlReadA - std::floor (dlReadA);
-            outL[s]   = dlBufL[i0] + fr * (dlBufL[i1] - dlBufL[i0]);
-            if (outR)
-                outR[s] = dlBufR[i0] + fr * (dlBufR[i1] - dlBufR[i0]);
-        }
-
-        // ── Crossfade with head B when active ───────────────────────────────
-        if (dlXfading)
-        {
-            int   i0  = static_cast<int> (dlReadB) & kDlMask;
-            int   i1  = (i0 + 1) & kDlMask;
-            float fr  = dlReadB - std::floor (dlReadB);
-            float bL  = dlBufL[i0] + fr * (dlBufL[i1] - dlBufL[i0]);
-
-            // Hann-shaped crossfade (0→1 as dlXfade goes 0→1)
-            float w   = 0.5f * (1.0f - std::cos (juce::MathConstants<float>::pi * dlXfade));
-            outL[s]   = outL[s] * (1.0f - w) + bL * w;
-
-            if (outR)
-            {
-                float bR = dlBufR[i0] + fr * (dlBufR[i1] - dlBufR[i0]);
-                outR[s]  = outR[s] * (1.0f - w) + bR * w;
-            }
-
-            dlReadB   += safeRatio;
-            dlXfade   += dlXfadeInc;
-
-            if (dlXfade >= 1.0f)
-            {
-                dlReadA   = dlReadB;
-                dlXfading = false;
-                dlXfade   = 0.0f;
-            }
-        }
-
-        dlReadA += safeRatio;
-
-        // ── Gap check: trigger crossfade when drift exceeds triggerDrift ─────
-        if (!dlXfading)
-        {
-            float gap = static_cast<float> (dlWrite) - dlReadA;
-
-            if (gap < static_cast<float> (kDlLatency - triggerDrift))
-            {
-                // Upshift: read caught up → jump back by best-correlated period
-                int jump   = findBestJump (pitchPeriod);
-                dlReadB    = dlReadA - static_cast<float> (jump);
-                dlXfade    = 0.0f;
-                dlXfadeInc = 1.0f / static_cast<float> (xfadeDur);
-                dlXfading  = true;
-                dlReadB   += safeRatio;
-                dlXfade   += dlXfadeInc;
-            }
-            else if (gap > static_cast<float> (kDlLatency + triggerDrift))
-            {
-                // Downshift: write lapped read → jump forward by best-correlated period
-                int jump   = findBestJump (pitchPeriod);
-                dlReadB    = dlReadA + static_cast<float> (jump);
-                dlXfade    = 0.0f;
-                dlXfadeInc = 1.0f / static_cast<float> (xfadeDur);
-                dlXfading  = true;
-                dlReadB   += safeRatio;
-                dlXfade   += dlXfadeInc;
-            }
-        }
+        float* outR = buffer.getWritePointer (1);
+        engine.process (chL, chR, outL, outR, numSamples);
     }
+    else
+    {
+        // Mono bus: the engine always operates in stereo internally: L and
+        // R chains are fed identical input here (chR==chL above), so they
+        // produce identical output deterministically - write both engine
+        // outputs into the same mono buffer, R after L, which simply
+        // leaves the (identical) R result in place.
+        engine.process (chL, chR, outL, outL, numSamples);
+    }
+
+    detectedPitch.store (engine.getDetectedHz());
+    correctedPitch.store (engine.getCorrectedHz());
+    pitchConfidence.store (engine.getConfidence());
+    voicedDebug.store (engine.isVoicedDebug());
+    shifterRatioDebug.store (engine.getShifterRatioDebug());
+
+    // Real level history for the hero display's waveform - RMS of the
+    // ACTUAL output audio for this block, not a decorative animation.
+    float sumSq = 0.0f;
+    for (int i = 0; i < numSamples; ++i)
+        sumSq += outL[i] * outL[i];
+    const float blockRms = numSamples > 0 ? std::sqrt (sumSq / (float) numSamples) : 0.0f;
+    const int writeIdx = levelHistoryWrite.load();
+    levelHistory[(size_t) writeIdx].store (blockRms);
+    levelHistoryWrite.store ((writeIdx + 1) % kLevelHistorySize);
+}
+
+float NovaPitchAudioProcessor::getLevelHistoryAt (int indexFromOldest) const noexcept
+{
+    const int oldest = levelHistoryWrite.load(); // next write slot == oldest sample
+    const int idx = (oldest + juce::jlimit (0, kLevelHistorySize - 1, indexFromOldest)) % kLevelHistorySize;
+    return levelHistory[(size_t) idx].load();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -449,14 +291,40 @@ void NovaPitchAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
+    abSnapshot.addToXml (*xml);
     copyXmlToBinary (*xml, destData);
 }
 
 void NovaPitchAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
-    if (xmlState != nullptr && xmlState->hasTagName (apvts.state.getType()))
-        apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
+    if (xmlState == nullptr || ! xmlState->hasTagName (apvts.state.getType()))
+        return;
+
+    // One-time migration: the pre-rebuild "formant" parameter was a bool
+    // (real value 0.0 or 1.0, same ID kept for automation stability). It's
+    // now a continuous 0-100 amount, and APVTS restores a param's raw
+    // *real* value, not a normalized one - so a session saved by that old
+    // bool version would otherwise land at 1/100 (~"off") instead of "on".
+    // Detect a bool-shaped raw value before restoring, remap it to the new
+    // range's equivalent afterward.
+    float legacyFormantBoolValue = -1.0f;
+    for (auto* child : xmlState->getChildIterator())
+    {
+        if (child->getStringAttribute ("id") == juce::String (ParameterIDs::formant))
+        {
+            const float raw = (float) child->getDoubleAttribute ("value", -1.0);
+            if (raw == 0.0f || raw == 1.0f)
+                legacyFormantBoolValue = raw;
+        }
+    }
+
+    apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
+    abSnapshot.restoreFromXml (*xmlState);
+
+    if (legacyFormantBoolValue >= 0.0f)
+        if (auto* param = apvts.getParameter (ParameterIDs::formant))
+            param->setValueNotifyingHost (legacyFormantBoolValue); // 0.0/1.0 normalized == 0/100 real value
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

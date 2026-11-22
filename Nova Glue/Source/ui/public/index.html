@@ -1,0 +1,419 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nova Glue</title>
+<style>
+  :root{
+    --graphite:#272A2C; --lower:#16181A; --champagne:#D8C79F; --brass:#B58B50;
+    --amber:#E5A33A; --hardware:#0B0C0D; --muted:#8b8579; --ink:#e9e4d8;
+  }
+  html,body{ margin:0; padding:0; background:var(--hardware); overflow:hidden; }
+  *{ -webkit-user-select:none; user-select:none; -webkit-user-drag:none; }
+  *{ box-sizing:border-box; font-family:'Futura','Avenir Next','Century Gothic','Helvetica Neue',Arial,sans-serif; }
+
+  #stageOuter{ width:100vw; height:100vh; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--hardware); }
+  #app{
+    position:relative; display:flex; flex-direction:column;
+    width:1080px; height:1126px; flex:0 0 auto; transform-origin:center center;
+    background:var(--hardware); overflow:hidden;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    flex:0 0 100px; display:flex; align-items:center; justify-content:space-between;
+    background:#0d0e0f; padding:0 22px; border-bottom:1px solid #000;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brandmark{
+    width:26px; height:auto;
+    filter:brightness(0) saturate(100%) invert(78%) sepia(24%) saturate(487%) hue-rotate(357deg) brightness(97%) contrast(89%);
+  }
+  .brandtext{ font-size:13px; letter-spacing:0.22em; color:var(--ink); font-weight:600; }
+
+  .presetnav{ display:flex; align-items:center; gap:8px; }
+  .navbtn{ width:28px; height:28px; background-repeat:no-repeat; background-size:contain; cursor:pointer; }
+  .navbtn.prev{ background-image:url("img/arrow_previous.svg"); }
+  .navbtn.next{ background-image:url("img/arrow_next.svg"); }
+  .presetshell{
+    width:210px; height:34px; background-image:url("img/preset_shell_inactive.png"); background-size:100% 100%;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .presetname{ font-size:12px; letter-spacing:0.08em; color:var(--ink); }
+  .iconbtn{
+    position:relative; width:30px; height:28px; background-image:url("img/icon_button_inactive.png");
+    background-size:100% 100%; cursor:pointer;
+  }
+  .iconbtn:hover{ background-image:url("img/icon_button_hover.png"); }
+  .iconbtn::after{ content:""; position:absolute; inset:7px; background-size:contain; background-repeat:no-repeat; background-position:center; }
+  .iconbtn.settings::after{ background-image:url("img/settings_icon.svg"); }
+  .iconbtn.save::after{ background-image:url("img/save_icon.svg"); }
+
+  .tagline{ font-size:9px; letter-spacing:0.18em; color:var(--muted); text-transform:uppercase; white-space:nowrap; }
+
+  /* ---------- Main panel ---------- */
+  .mainpanel{
+    flex:0 0 706px; position:relative; margin:0 14px 18px; border-radius:10px; overflow:hidden;
+    background-image:url("img/main_faceplate_graphite.png"); background-size:100% 100%;
+    box-shadow:0 9px 16px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .mainpanel::before{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(160deg, rgba(120,80,32,0.16), rgba(70,45,15,0.05) 45%, rgba(40,24,8,0.14));
+    mix-blend-mode:overlay;
+  }
+  .mainpanel::after{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse 85% 70% at 50% 30%, transparent 50%, rgba(20,10,0,0.38) 100%);
+  }
+
+  .topcards{ position:absolute; left:26px; right:26px; top:26px; height:380px; display:flex; align-items:flex-start; }
+  .carddivider{ align-self:stretch; width:1.5px; margin:8px 18px 0; background:linear-gradient(180deg, transparent, rgba(212,175,120,0.65), transparent); }
+
+  .titlecard{ flex:0 0 210px; padding-top:2px; }
+  .titleblock h1{ margin:0; font-size:24px; font-weight:700; letter-spacing:0.02em; color:var(--ink); }
+  .titleblock h1 span{ color:var(--amber); }
+  .titleblock .sub{ margin-top:3px; font-size:8.5px; letter-spacing:0.1em; color:var(--muted); text-transform:uppercase; }
+
+  .metercard{ flex:0 0 450px; display:flex; justify-content:center; }
+
+  .seriescard{ flex:1 1 auto; display:flex; flex-direction:column; align-items:flex-end; padding-top:2px; }
+  .seriesblock{ text-align:right; }
+  .seriesblock .name{ font-size:11px; letter-spacing:0.18em; color:var(--ink); font-weight:600; }
+  .seriesblock .name span{ color:var(--amber); }
+  .seriesblock .est{ font-size:8px; letter-spacing:0.14em; color:var(--muted); margin-top:2px; }
+
+  .traitsblock{ margin-top:20px; text-align:right; font-size:9px; letter-spacing:0.16em; color:var(--muted); line-height:1.9; }
+
+  .metersection{ width:430px; height:240px; }
+  .metershell{ position:relative; width:100%; height:100%; filter:drop-shadow(0 8px 16px rgba(0,0,0,0.5)); }
+  .meterhousing{ position:absolute; inset:0; background-image:url("img/gr_meter_housing.png"); background-size:100% 100%; }
+  .meterhousing::after{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse 96% 94% at 50% 48%, transparent 92%, rgba(0,0,0,0.5) 100%);
+  }
+  .meterscale{ position:absolute; left:9%; right:9%; top:16%; height:46%; }
+  .meterscale svg{ width:100%; height:100%; display:block; }
+  .meterneedlewrap{ position:absolute; left:50%; bottom:22%; width:2px; height:56%; }
+  .meterneedle{
+    position:absolute; left:50%; bottom:0; width:38%; height:100%; margin-left:-19%;
+    background-image:url("img/gr_needle.svg"); background-size:100% 100%; background-repeat:no-repeat;
+    transform-origin:50% 85%; transform:rotate(var(--needleAngle,-40deg));
+    transition:none;
+  }
+  .meterreadout{ position:absolute; left:50%; bottom:30%; transform:translateX(-50%); text-align:center; pointer-events:none; }
+  .meterdb{ font-size:19px; font-weight:700; color:#2c2008; }
+  .metertitle{ font-size:10.5px; letter-spacing:0.22em; color:#4a3814; font-weight:700; margin-top:2px; }
+  .meterbrand{ font-size:9px; letter-spacing:0.2em; color:#7a6224; margin-top:6px; }
+
+  .screw{ position:absolute; width:20px; height:20px; background-image:url("img/screw_brass.svg"); background-size:100% 100%; z-index:2; }
+  .screw.tl{ top:14px; left:14px; } .screw.tr{ top:14px; right:14px; }
+  .screw.bl{ bottom:14px; left:14px; } .screw.br{ bottom:14px; right:14px; }
+
+  /* ---------- Big knobs (Threshold/Attack/Release/Makeup) ---------- */
+  .knobrow{ position:absolute; left:26px; right:26px; top:300px; display:flex; }
+  .bigknobblock{ flex:1 1 0; position:relative; display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .bigknobblock + .bigknobblock::before{
+    content:""; position:absolute; left:0; top:2px; bottom:24px; width:1.5px;
+    background:linear-gradient(180deg, transparent, rgba(212,175,120,0.5), transparent);
+  }
+  .bigknoblabel{ font-size:11.5px; letter-spacing:0.14em; color:var(--ink); font-weight:700; }
+  .bigknobwrap{ position:relative; width:140px; height:140px; margin-top:56px; border-radius:50%; box-shadow:0 5px 9px rgba(0,0,0,0.5); }
+  .knob{ position:relative; cursor:ns-resize; touch-action:none; }
+  .knob.large{ width:140px; height:140px; }
+  .knobDial{ position:absolute; inset:0; background-repeat:no-repeat; background-size:100% 100%; transform:rotate(var(--angle,-135deg)); transform-origin:50% 50%; }
+  .knob.large .knobDial{ background-image:url("img/knob_large_champagne.png"); }
+  .knobticks{ position:absolute; inset:-36px; pointer-events:none; }
+  .knobticks svg{ width:100%; height:100%; overflow:visible; }
+  .bigknobunit{ font-size:9px; letter-spacing:0.1em; color:var(--muted); margin-top:4px; }
+
+  /* ---------- Ratio / Compressor row ---------- */
+  .switchrow{ position:absolute; left:26px; right:26px; top:602px; display:flex; justify-content:center; gap:90px; }
+  .switchrow::before{
+    content:""; position:absolute; left:0; right:0; top:-26px; height:1.5px;
+    background:linear-gradient(90deg, transparent, rgba(212,175,120,0.55) 12%, rgba(212,175,120,0.55) 88%, transparent);
+  }
+  .groupwrap{ display:flex; flex-direction:column; align-items:center; gap:46px; }
+  .grouplabel{ font-size:10px; letter-spacing:0.16em; color:var(--muted); font-weight:700; }
+  .inlinegroup{ display:flex; align-items:center; gap:16px; }
+  .inlinegroup .grouplabel{ white-space:nowrap; }
+  .btnrow{ display:flex; gap:6px; }
+  .modebtn{
+    position:relative; width:72px; height:39px; border:none; cursor:pointer;
+    background-image:url("img/button_standard_inactive.png"); background-size:100% 100%;
+    font-size:11px; font-weight:700; letter-spacing:0.04em; color:var(--muted); font-family:inherit;
+  }
+  .lowerpanel .modebtn{ width:70px; height:38px; font-size:11px; }
+  .modebtn:hover:not(.active){ background-image:url("img/button_standard_hover.png"); }
+  .modebtn.active{
+    background-image:none;
+    background:linear-gradient(180deg, #ffd873 0%, #f0b23e 45%, #d68f1e 100%);
+    color:#2a1d06; font-weight:800;
+    box-shadow:0 0 10px rgba(240,178,62,0.55), inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 2px rgba(120,70,10,0.4);
+  }
+
+  /* ---------- Bottom lower panel ---------- */
+  .lowerpanel{
+    flex:0 0 260px; position:relative; display:flex; align-items:flex-start; justify-content:space-evenly;
+    padding:52px 8px 0; background-image:url("img/lower_panel_graphite.png"); background-size:100% 100%;
+    margin:0 14px; border-radius:10px; overflow:hidden;
+    box-shadow:0 6px 14px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .lowerpanel::before{
+    content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
+    background:linear-gradient(160deg, rgba(120,80,32,0.14), rgba(40,24,8,0.16));
+    mix-blend-mode:overlay;
+  }
+  .lowerpanel > *{ position:relative; z-index:1; }
+  .smallknobwrap{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .smallknoblabel{ font-size:9.5px; letter-spacing:0.12em; color:var(--ink); font-weight:700; }
+  .smallknoblabel.glue{ color:var(--amber); }
+  .smallknobwrapinner{ position:relative; width:84px; height:84px; margin-top:16px; border-radius:50%; box-shadow:0 3px 6px rgba(0,0,0,0.45); }
+  .knob.small{ width:84px; height:84px; }
+  .knob.small .knobDial{ background-image:url("img/knob_small_champagne.png"); }
+  .smallknobrange{ display:flex; justify-content:space-between; width:84px; font-size:9px; color:#a8a08e; font-weight:700; font-variant-numeric:tabular-nums; }
+  .smallknobunit{ font-size:8px; letter-spacing:0.1em; color:#a8a08e; margin-top:-3px; }
+  .knobticks.small{ position:absolute; inset:-18px; pointer-events:none; }
+  .knobticks.small svg{ width:100%; height:100%; overflow:visible; }
+
+  .glueknobwrap{ position:relative; width:96px; height:96px; margin-top:10px; }
+  .glueringlayer{ position:absolute; inset:0; }
+  .glueringlayer img{ position:absolute; inset:0; width:100%; height:100%; }
+  .glueringinactive{ opacity:1; }
+  .glueringactive{ opacity:0; transition:opacity 0.08s linear; }
+  .knob.glue{ position:absolute; inset:0; width:96px; height:96px; }
+  .knob.glue .knobDial{ background-image:url("img/knob_glue_black.png"); }
+
+  .groupwrap .btnrow.vertical2{ display:flex; gap:8px; }
+
+  .divider{ width:1px; height:60%; background:linear-gradient(180deg, transparent, rgba(181,139,80,0.4), transparent); }
+
+  /* ---------- Footer ---------- */
+  .footerbar{ flex:0 0 44px; display:flex; align-items:center; justify-content:center; background:#0a0b0c; }
+  .footertext{ font-size:9.5px; letter-spacing:0.26em; color:var(--muted); }
+
+  /* ---------- Save preset modal ---------- */
+  .modalOverlay{ position:absolute; inset:0; background:rgba(0,0,0,0.6); z-index:50; display:flex; align-items:center; justify-content:center; }
+  .modalOverlay[hidden]{ display:none !important; }
+  .modalBox{ width:320px; background:#161718; border:1px solid var(--brass); padding:20px; }
+  .modalTitle{ font-size:12px; letter-spacing:0.12em; color:var(--ink); font-weight:700; margin-bottom:12px; }
+  .modalInput{
+    width:100%; box-sizing:border-box; background:#0d0e0f; border:1px solid #333; color:var(--ink);
+    font-size:13px; padding:8px 10px; margin-bottom:10px;
+  }
+  .modalError{ font-size:10.5px; color:#d06a5a; min-height:14px; margin-bottom:6px; }
+  .modalRow{ display:flex; justify-content:flex-end; gap:10px; }
+  .modalBtn{ padding:7px 16px; font-size:11px; letter-spacing:0.08em; cursor:pointer; border:none; font-family:inherit; }
+  .modalBtn.cancel{ background:#2a2b2c; color:var(--muted); }
+  .modalBtn.confirm{ background:var(--brass); color:#161718; font-weight:700; }
+</style>
+</head>
+<body>
+  <div id="stageOuter">
+    <div id="app">
+
+      <div class="topbar">
+        <div class="brand">
+          <img class="brandmark" src="img/n_logo.png" alt="">
+          <div class="brandtext">NOVA AUDIO</div>
+        </div>
+        <div class="presetnav">
+          <div class="navbtn prev" id="presetPrev"></div>
+          <div class="presetshell"><div class="presetname" id="presetName">Default</div></div>
+          <div class="navbtn next" id="presetNext"></div>
+          <div class="iconbtn settings" id="settingsBtn" title="Settings"></div>
+          <div class="iconbtn save" id="saveBtn" title="Save Preset"></div>
+        </div>
+        <div class="tagline">MIX BUS &bull; MORE MUSIC</div>
+      </div>
+
+      <div class="mainpanel">
+        <div class="screw tl"></div>
+        <div class="screw tr"></div>
+        <div class="screw bl"></div>
+        <div class="screw br"></div>
+
+        <div class="topcards">
+          <div class="titlecard">
+            <div class="titleblock">
+              <h1>NOVA <span>GLUE</span></h1>
+              <div class="sub">Analog VCA Buss Compressor</div>
+            </div>
+          </div>
+          <div class="carddivider"></div>
+          <div class="metercard">
+            <div class="metersection">
+              <div class="metershell">
+                <div class="meterhousing"></div>
+                <div class="meterscale" id="meterScale"></div>
+                <div class="meterneedlewrap">
+                  <div class="meterneedle" id="meterNeedle"></div>
+                </div>
+                <div class="meterreadout">
+                  <div class="meterdb">dB</div>
+                  <div class="metertitle">GAIN REDUCTION</div>
+                  <div class="meterbrand">NOVA AUDIO</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="carddivider"></div>
+          <div class="seriescard">
+            <div class="seriesblock">
+              <div class="name">NOVA <span>SERIES</span></div>
+              <div class="est">EST. 2023</div>
+            </div>
+            <div class="traitsblock">
+              <div>ANALOG</div>
+              <div>MUSICAL</div>
+              <div>POWERFUL</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="knobrow">
+          <div class="bigknobblock">
+            <div class="bigknoblabel">THRESHOLD</div>
+            <div class="bigknobwrap">
+              <div class="knobticks" id="ticksThreshold"></div>
+              <div class="knob large" id="knobThreshold"><div class="knobDial"></div></div>
+            </div>
+            <div class="bigknobunit">dB</div>
+          </div>
+          <div class="bigknobblock">
+            <div class="bigknoblabel">ATTACK</div>
+            <div class="bigknobwrap">
+              <div class="knobticks" id="ticksAttack"></div>
+              <div class="knob large" id="knobAttack"><div class="knobDial"></div></div>
+            </div>
+            <div class="bigknobunit">ms</div>
+          </div>
+          <div class="bigknobblock">
+            <div class="bigknoblabel">RELEASE</div>
+            <div class="bigknobwrap">
+              <div class="knobticks" id="ticksRelease"></div>
+              <div class="knob large" id="knobRelease"><div class="knobDial"></div></div>
+            </div>
+            <div class="bigknobunit">s</div>
+          </div>
+          <div class="bigknobblock">
+            <div class="bigknoblabel">MAKEUP</div>
+            <div class="bigknobwrap">
+              <div class="knobticks" id="ticksMakeup"></div>
+              <div class="knob large" id="knobMakeup"><div class="knobDial"></div></div>
+            </div>
+            <div class="bigknobunit">dB</div>
+          </div>
+        </div>
+
+        <div class="switchrow">
+          <div class="inlinegroup">
+            <div class="grouplabel">RATIO</div>
+            <div class="btnrow" id="ratioGroup">
+              <button class="modebtn" data-idx="0">2:1</button>
+              <button class="modebtn" data-idx="1">4:1</button>
+              <button class="modebtn" data-idx="2">10:1</button>
+            </div>
+          </div>
+          <div class="inlinegroup">
+            <div class="grouplabel">COMPRESSOR</div>
+            <div class="btnrow" id="bypassGroup">
+              <button class="modebtn" data-idx="0">IN</button>
+              <button class="modebtn" data-idx="1">BYPASS</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lowerpanel">
+        <div class="smallknobwrap">
+          <div class="smallknoblabel">SC HPF</div>
+          <div class="smallknobwrapinner">
+            <div class="knobticks small" id="ticksScHpf"></div>
+            <div class="knob small" id="knobScHpf"><div class="knobDial"></div></div>
+          </div>
+          <div class="smallknobrange"><span>20</span><span>400</span></div>
+          <div class="smallknobunit">Hz</div>
+        </div>
+        <div class="divider"></div>
+        <div class="smallknobwrap">
+          <div class="smallknoblabel">MIX</div>
+          <div class="smallknobwrapinner">
+            <div class="knobticks small" id="ticksMix"></div>
+            <div class="knob small" id="knobMix"><div class="knobDial"></div></div>
+          </div>
+          <div class="smallknobrange"><span>0</span><span>100</span></div>
+          <div class="smallknobunit">%</div>
+        </div>
+        <div class="divider"></div>
+        <div class="smallknobwrap">
+          <div class="smallknoblabel glue">GLUE</div>
+          <div class="glueknobwrap">
+            <div class="knobticks small" id="ticksGlue"></div>
+            <div class="glueringlayer">
+              <img class="glueringinactive" src="img/glue_ring_inactive.png" alt="">
+              <img class="glueringactive" id="glueRingActive" src="img/glue_ring_active.png" alt="">
+            </div>
+            <div class="knob glue" id="knobGlue"><div class="knobDial"></div></div>
+          </div>
+          <div class="smallknobrange"><span>0</span><span>100</span></div>
+          <div class="smallknobunit">%</div>
+        </div>
+        <div class="divider"></div>
+        <div class="smallknobwrap">
+          <div class="smallknoblabel">DRIVE</div>
+          <div class="smallknobwrapinner">
+            <div class="knobticks small" id="ticksDrive"></div>
+            <div class="knob small" id="knobDrive"><div class="knobDial"></div></div>
+          </div>
+          <div class="smallknobrange"><span>0</span><span>100</span></div>
+          <div class="smallknobunit">%</div>
+        </div>
+        <div class="divider"></div>
+        <div class="groupwrap">
+          <div class="grouplabel">AUTO GAIN</div>
+          <div class="btnrow" id="autoGainGroup">
+            <button class="modebtn" data-idx="0">OFF</button>
+            <button class="modebtn" data-idx="1">ON</button>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="groupwrap">
+          <div class="grouplabel">STEREO LINK</div>
+          <div class="btnrow" id="stereoLinkGroup">
+            <button class="modebtn" data-idx="0">OFF</button>
+            <button class="modebtn" data-idx="1">ON</button>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="groupwrap">
+          <div class="grouplabel">OVERSAMPLE</div>
+          <div class="btnrow" id="oversampleGroup">
+            <button class="modebtn" data-idx="0">OFF</button>
+            <button class="modebtn" data-idx="1">2x</button>
+            <button class="modebtn" data-idx="2">4x</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="footerbar">
+        <div class="footertext">GLUE YOUR SOUND TOGETHER</div>
+      </div>
+
+      <div class="modalOverlay" id="saveModal" hidden>
+        <div class="modalBox">
+          <div class="modalTitle">SAVE PRESET</div>
+          <input class="modalInput" id="saveModalInput" type="text" placeholder="Preset name" maxlength="40">
+          <div class="modalError" id="saveModalError"></div>
+          <div class="modalRow">
+            <button class="modalBtn cancel" id="saveModalCancel">Cancel</button>
+            <button class="modalBtn confirm" id="saveModalConfirm">Save</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <script type="module" src="js/index.js"></script>
+</body>
+</html>

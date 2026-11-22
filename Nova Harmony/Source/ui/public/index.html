@@ -33,7 +33,17 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    body { display: grid; place-items: center; }
+    /* place-content (not just place-items) is required here: #stage's
+       fixed 1120x700 size makes body's implicit grid track auto-size to
+       exactly match it, so place-items centers within that same-sized
+       track (no visible effect) - place-content centers the track itself
+       within the actual viewport. */
+    body { display: grid; place-items: center; place-content: center; }
+    /* Fixed design canvas, uniformly scaled to fit the actual window size
+       (same technique across the catalog - see Nova Tape's index.html
+       for the rationale: JS-computed scale, not CSS min()/vw/vh, since
+       controls should scale together rather than just reflow smaller). */
+    #stage { transform-origin: center center; }
 
     /* ---- noise grain overlay ---- */
     body::after {
@@ -45,8 +55,8 @@
     }
 
     .plugin {
-      width: min(1120px, 100vw);
-      height: min(700px, 100vh);
+      width: 1120px;
+      height: 954px;
       border-radius: 24px;
       border: 1px solid rgba(120, 98, 188, 0.44);
       overflow: hidden;
@@ -183,7 +193,7 @@
 
     .left-zone {
       display: grid;
-      grid-template-rows: minmax(0, 1fr) 186px;
+      grid-template-rows: minmax(0, 1fr) 186px 240px;
       gap: 14px; min-height: 0;
     }
 
@@ -313,6 +323,91 @@
     .range-label {
       font-size: 10px; letter-spacing: 0.12em;
       color: #a0a0c8;
+    }
+
+    /* ──────────── VOICE LEVELS ROW (all 32 voices) ──────────── */
+    .voice-levels-row {
+      border-radius: 18px;
+      border: 1px solid var(--panel-border);
+      background: linear-gradient(180deg, rgba(16, 14, 30, 0.94), rgba(10, 10, 22, 0.94));
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 8px;
+      padding: 10px 16px 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -12px 26px rgba(0,0,0,0.24);
+    }
+
+    .voice-levels-head {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 10.5px; letter-spacing: 0.20em;
+      color: var(--text-soft); text-transform: uppercase; font-weight: 700;
+    }
+
+    .voice-levels-legend {
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .group-solo-btn {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 9px; letter-spacing: 0.08em; font-weight: 700;
+      text-transform: uppercase; font-family: inherit;
+      color: #8a87ad; background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 999px;
+      padding: 3px 9px 3px 7px; cursor: pointer;
+      transition: background var(--ease), border-color var(--ease), color var(--ease);
+    }
+    .group-solo-btn:hover { background: rgba(255,255,255,0.08); color: #c8c5e8; }
+
+    .legend-dot {
+      display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+      flex: none;
+    }
+    .legend-core { background: #c9a24d; }
+    .legend-support { background: #7d8fd9; }
+    .legend-texture { background: #45c9c0; }
+
+    .group-solo-btn[data-group="core"].active { background: rgba(201,162,77,0.22); border-color: #c9a24d; color: #f0dba8; }
+    .group-solo-btn[data-group="support"].active { background: rgba(125,143,217,0.22); border-color: #7d8fd9; color: #d6dcff; }
+    .group-solo-btn[data-group="texture"].active { background: rgba(69,201,192,0.22); border-color: #45c9c0; color: #bdf3ee; }
+
+    .voice-levels-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-auto-rows: 1fr;
+      align-items: center;
+      gap: 5px 6px;
+    }
+
+    .voice-level-wrap {
+      display: grid; justify-items: center; gap: 2px;
+      transition: opacity var(--ease);
+    }
+
+    .voice-level-wrap.inactive { opacity: 0.32; }
+
+    .voice-level-label {
+      font-size: 8.5px; letter-spacing: 0.06em;
+      color: #a0a0c8; font-weight: 700;
+    }
+
+    .knob.mini {
+      width: 34px; height: 34px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.12),
+        inset 0 -7px 12px rgba(0,0,0,0.44),
+        inset 0 1px 3px rgba(220,200,255,0.06),
+        0 2px 7px rgba(0,0,0,0.5),
+        0 0 12px rgba(110, 78, 200, 0.34);
+    }
+
+    .knob.mini .ring { inset: 4px; }
+
+    .knob.mini::after {
+      top: 4px; width: 2px; height: 7px;
+    }
+
+    .knob.mini .knob-value {
+      font-size: 7.5px; font-weight: 700;
     }
 
     /* ──────────── MIX SLIDER (custom) ──────────── */
@@ -757,13 +852,13 @@
       .main { grid-template-columns: 1fr; }
       .top-bar { grid-template-columns: 200px 1fr; }
       .style-select { grid-column: 1/-1; justify-self: stretch; width: auto; }
-      .left-zone { grid-template-rows: 320px 186px; }
+      .left-zone { grid-template-rows: 320px 186px 240px; }
       .mix-dock { margin: 0 10px 10px; padding: 9px 12px 10px; }
     }
   </style>
 </head>
 <body>
-  <div class="plugin">
+  <div class="plugin" id="stage">
     <header class="top-bar">
       <div class="brand-left">
         <img src="n_logo.png" class="logo-n" alt="N" />
@@ -824,6 +919,18 @@
               <div class="range-label">Tight to Loose</div>
             </div>
           </div>
+        </div>
+
+        <div class="voice-levels-row">
+          <div class="voice-levels-head">
+            <span>Voice Levels &middot; All 32</span>
+            <div class="voice-levels-legend" id="voice-group-solos">
+              <button class="group-solo-btn" type="button" data-group="core"><i class="legend-dot legend-core"></i>Core</button>
+              <button class="group-solo-btn" type="button" data-group="support"><i class="legend-dot legend-support"></i>Support</button>
+              <button class="group-solo-btn" type="button" data-group="texture"><i class="legend-dot legend-texture"></i>Texture</button>
+            </div>
+          </div>
+          <div class="voice-levels-grid" id="voice-levels-grid"></div>
         </div>
       </section>
 
@@ -930,8 +1037,12 @@
         keyMode: 0,
         keyNote: 0,
         lowLatency: false,
-        qualityMode: 0
+        qualityMode: 0,
+        soloCore: false,
+        soloSupport: false,
+        soloTexture: false
       };
+      for (let i = 1; i <= 32; i++) states["voiceLevel" + i] = 0;
 
       const PRESET_PACK = [
         { id: "pop_lead_stack", category: "Pop", name: "Pop Lead Stack", blurb: "Clean, modern doubles and light harmonies", voices: 6, width: 140, humanize: 20, mix: 55, style: 0, tone: 2 },
@@ -1019,7 +1130,10 @@
         return relay;
       }
 
+      const VOICE_LEVEL_RELAY_RE = /^voice(\d+)_level$/;
+
       function toNorm (param, value) {
+        if (VOICE_LEVEL_RELAY_RE.test(param)) return (clamp(value, -24, 6) + 24) / 30;
         switch (param) {
           case "voices": return (clamp(value, 1, 32) - 1) / 31;
           case "width": return clamp(value, 0, 200) / 200;
@@ -1031,12 +1145,16 @@
           case "key_mode": return clamp(value, 0, 3) / 3;
           case "key_note": return clamp(value, 0, 11) / 11;
           case "quality_mode": return clamp(value, 0, 1);
+          case "solo_core":
+          case "solo_support":
+          case "solo_texture": return value ? 1 : 0;
           default: return clamp(value, 0, 1);
         }
       }
 
       function fromNorm (param, norm) {
         const n = clamp(norm, 0, 1);
+        if (VOICE_LEVEL_RELAY_RE.test(param)) return Math.round((n * 30 - 24) * 10) / 10;
         switch (param) {
           case "voices": return Math.round(1 + n * 31);
           case "width": return Math.round(n * 200);
@@ -1048,6 +1166,9 @@
           case "key_mode": return Math.round(n * 3);
           case "key_note": return Math.round(n * 11);
           case "quality_mode": return n >= 0.5 ? 1 : 0;
+          case "solo_core":
+          case "solo_support":
+          case "solo_texture": return n >= 0.5;
           default: return n;
         }
       }
@@ -1059,6 +1180,22 @@
         document.getElementById("width-value").textContent = widthText;
         document.getElementById("humanize-value").textContent = states.humanize + "%";
         updateMixSliderUI();
+
+        const formatVoiceDb = (db) => (db > 0 ? "+" : "") + (Math.round(db * 10) / 10);
+        for (let i = 1; i <= 32; i++) {
+          const el = document.getElementById("voice" + i + "-level-value");
+          if (el) el.textContent = formatVoiceDb(states["voiceLevel" + i]);
+        }
+        document.querySelectorAll(".voice-level-wrap").forEach((wrap) => {
+          const idx = Number(wrap.dataset.voiceIndex);
+          wrap.classList.toggle("inactive", idx >= states.voices);
+        });
+
+        document.querySelectorAll(".group-solo-btn").forEach((btn) => {
+          const group = btn.dataset.group;
+          const key = "solo" + group[0].toUpperCase() + group.slice(1);
+          btn.classList.toggle("active", !!states[key]);
+        });
 
         document.querySelectorAll("#tone-switch .chip").forEach((b) => {
           b.classList.toggle("active", Number(b.dataset.tone) === states.tone);
@@ -1146,6 +1283,8 @@
         });
       }
 
+      const VOICE_LEVEL_STATE_RE = /^voiceLevel(\d+)$/;
+
       function setState (param, value, pushBackend) {
         states[param] = value;
         updateLabels();
@@ -1153,7 +1292,8 @@
 
         if (!pushBackend) return;
 
-        const relayKey = {
+        const voiceMatch = VOICE_LEVEL_STATE_RE.exec(param);
+        const relayKey = voiceMatch ? ("voice" + voiceMatch[1] + "_level") : {
           voices: "voices",
           width: "width",
           humanize: "humanize",
@@ -1163,7 +1303,10 @@
           keyMode: "key_mode",
           keyNote: "key_note",
           lowLatency: "low_latency",
-          qualityMode: "quality_mode"
+          qualityMode: "quality_mode",
+          soloCore: "solo_core",
+          soloSupport: "solo_support",
+          soloTexture: "solo_texture"
         }[param];
 
         const relay = relays[relayKey];
@@ -1197,7 +1340,7 @@
         if (!drag) return;
 
         const y = (event.touches && event.touches[0] ? event.touches[0].clientY : event.clientY);
-        const delta = drag.startY - y;
+        const delta = (drag.startY - y) / (window.__novaHarmonyScale || 1);
         const value = clamp(drag.startValue + delta * ((drag.max - drag.min) / 260), drag.min, drag.max);
         setState(drag.param, Math.round(value), true);
       }
@@ -1246,6 +1389,14 @@
         document.getElementById("preview-btn").addEventListener("click", () => setState("qualityMode", 0, true));
         document.getElementById("process-btn").addEventListener("click", () => setState("qualityMode", 1, true));
 
+        document.getElementById("voice-group-solos").addEventListener("click", (event) => {
+          const button = event.target.closest(".group-solo-btn");
+          if (!button) return;
+          const group = button.dataset.group;
+          const key = "solo" + group[0].toUpperCase() + group.slice(1);
+          setState(key, !states[key], true);
+        });
+
         document.getElementById("preset-cats").addEventListener("click", (event) => {
           const button = event.target.closest(".preset-cat");
           if (!button) return;
@@ -1269,7 +1420,10 @@
       }
 
       function hookRelays () {
-        ["voices", "width", "humanize", "mix", "style", "tone", "key_mode", "key_note", "low_latency", "quality_mode"].forEach((name) => {
+        const relayNames = ["voices", "width", "humanize", "mix", "style", "tone", "key_mode", "key_note", "low_latency", "quality_mode", "solo_core", "solo_support", "solo_texture"];
+        for (let i = 1; i <= 32; i++) relayNames.push("voice" + i + "_level");
+
+        relayNames.forEach((name) => {
           relays[name] = createRelay(name);
         });
 
@@ -1283,8 +1437,12 @@
           key_mode: "keyMode",
           key_note: "keyNote",
           low_latency: "lowLatency",
-          quality_mode: "qualityMode"
+          quality_mode: "qualityMode",
+          solo_core: "soloCore",
+          solo_support: "soloSupport",
+          solo_texture: "soloTexture"
         };
+        for (let i = 1; i <= 32; i++) mapFromRelay["voice" + i + "_level"] = "voiceLevel" + i;
 
         Object.keys(mapFromRelay).forEach((relayName) => {
           const relay = relays[relayName];
@@ -1639,9 +1797,33 @@
         meterWrap.classList.toggle("meter-hot", !!isHot);
       };
 
+      function renderVoiceLevelKnobs () {
+        const container = document.getElementById("voice-levels-grid");
+        if (!container) return;
+
+        const groupFor = (i) => (i < 4 ? "core" : (i < 16 ? "support" : "texture"));
+        const groupColor = { core: "#c9a24d", support: "#7d8fd9", texture: "#45c9c0" };
+
+        let html = "";
+        for (let i = 0; i < 32; i++) {
+          const n = i + 1;
+          const color = groupColor[groupFor(i)];
+          html +=
+            '<div class="voice-level-wrap" data-voice-index="' + i + '">'
+            + '<div class="voice-level-label">' + n + "</div>"
+            + '<div class="knob mini" data-param="voiceLevel' + n + '" data-min="-24" data-max="6">'
+            + '<div class="ring" style="--ring-color:' + color + ";--ring-glow:" + color + '88;"></div>'
+            + '<div class="knob-value" id="voice' + n + '-level-value">0</div>'
+            + "</div>"
+            + "</div>";
+        }
+        container.innerHTML = html;
+      }
+
       function boot () {
         juceAvailable = !!(window.__JUCE__ && window.__JUCE__.backend && typeof window.__JUCE__.backend.emitEvent === "function");
 
+        renderVoiceLevelKnobs();
         initControls();
         updateLabels();
         updateKnobRings();
@@ -1658,6 +1840,25 @@
         boot();
       }
     }());
+
+    // ---- stage scale-to-fit (same technique as Nova Tape/Nova Pitch) ----
+    (function () {
+      let lastW = -1, lastH = -1;
+      function fitStage() {
+        const w = document.documentElement.clientWidth || window.innerWidth || 0;
+        const h = document.documentElement.clientHeight || window.innerHeight || 0;
+        if (w <= 0 || h <= 0) return;
+        if (w === lastW && h === lastH) return;
+        lastW = w; lastH = h;
+        const scale = Math.min(w / 1120, h / 954);
+        window.__novaHarmonyScale = scale || 1;
+        const stage = document.getElementById("stage");
+        if (stage) stage.style.transform = `scale(${scale})`;
+      }
+      fitStage();
+      window.addEventListener("resize", fitStage);
+      setInterval(fitStage, 300);
+    })();
   </script>
 </body>
 </html>

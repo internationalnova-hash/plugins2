@@ -1,0 +1,411 @@
+<title>Nova Punch</title>
+<style>
+  :root {
+    --titanium: #b9b7b0;
+    --graphite: #242526;
+    --display: #0d0f10;
+    --amber: #ff7a12;
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --ease: 120ms ease;
+  }
+  html, body { margin:0; padding:0; background:#000; overflow:hidden; }
+  *{ -webkit-user-select:none; user-select:none; -webkit-user-drag:none; box-sizing:border-box; font-family:'Futura','Avenir Next','Century Gothic','Helvetica Neue',Arial,sans-serif; }
+
+  #stageOuter{ width:100vw; height:100vh; position:relative; overflow:hidden; background:#000; }
+  #app{ width:1536px; height:1024px; position:absolute; left:0; top:0; transform-origin:top left; color:var(--ink); }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    position:absolute; left:0; right:0; top:0; height:60px;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 24px; background-image:url("img/texture_graphite_top@2x.png"); background-size:100% 100%;
+    border-bottom:1px solid rgba(0,0,0,0.4);
+  }
+  .brand-left{ display:flex; align-items:center; gap:10px; }
+  .logo-n{ width:28px; height:28px; }
+  .brand-text{ display:flex; flex-direction:column; line-height:1.1; }
+  .brand-text .l1{ font-size:13px; font-weight:800; letter-spacing:0.12em; color:#eee; }
+  .brand-text .l2{ font-size:8px; font-weight:600; letter-spacing:0.16em; color:var(--amber); }
+
+  .preset-nav{ display:flex; align-items:center; gap:8px; }
+  .icon-btn{ width:30px; height:30px; border:none; background-image:url("img/header_icon_button_shell@2x.png"); background-size:100% 100%; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .icon-btn img{ width:11px; height:11px; opacity:0.85; }
+  .preset-field{ width:200px; height:32px; background-image:url("img/preset_selector_shell@2x.png"); background-size:100% 100%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; color:#eee; }
+  .icon-btn.square{ width:32px; height:32px; margin-left:4px; }
+
+  .tagline-right{ font-size:10px; letter-spacing:0.14em; color:var(--muted); font-weight:700; }
+  .tagline-right span.hi{ color:var(--amber); }
+
+  /* ---------- Main panel ---------- */
+  .mainpanel{
+    position:absolute; left:14px; right:14px; top:68px; height:494px;
+    border-radius:8px; overflow:hidden;
+    background-image:url("img/texture_titanium_main@2x.png"); background-size:100% 100%;
+    box-shadow:0 8px 20px rgba(0,0,0,0.6), 0 0 34px 4px rgba(255,122,18,0.12);
+  }
+  .screw{ position:absolute; width:16px; height:16px; z-index:5; filter:drop-shadow(0 0 7px rgba(255,122,18,0.65)); }
+  .screw.tl{ left:10px; top:10px; } .screw.tr{ right:10px; top:10px; }
+  .screw.bl{ left:10px; bottom:10px; } .screw.br{ right:10px; bottom:10px; }
+
+  .titleblock{ position:absolute; left:32px; top:20px; }
+  .titleblock h1{ margin:0; font-size:32px; font-weight:800; letter-spacing:0.01em; color:var(--ink); }
+  .titleblock h1 span{ color:var(--amber); }
+  .titleblock .sub{ margin-top:2px; font-size:11px; letter-spacing:0.12em; color:#4a4a4a; text-transform:uppercase; font-weight:700; }
+
+  .centerheader{ position:absolute; left:50%; top:22px; transform:translateX(-50%); text-align:center; }
+  .centerheader .h{ font-size:16px; font-weight:800; letter-spacing:0.1em; color:var(--ink); }
+  .centerheader .s{ margin-top:2px; font-size:9px; letter-spacing:0.18em; color:#5a5a5a; font-weight:700; }
+
+  .rightheader{ position:absolute; right:32px; top:20px; text-align:right; }
+  .rightheader .hit{ font-family:'Brush Script MT','Segoe Script',cursive; font-style:italic; font-size:22px; color:var(--amber); }
+  .rightheader .tags{ margin-top:4px; font-size:8px; letter-spacing:0.1em; color:#5a5a5a; font-weight:700; line-height:1.5; }
+
+  .meterblock{ position:absolute; top:110px; width:64px; height:330px; display:flex; flex-direction:column; align-items:center; }
+  .meterblock::before{ content:""; position:absolute; inset:-14px -16px; border-radius:10px;
+    background:linear-gradient(155deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.02) 35%, rgba(0,0,0,0.10) 70%, rgba(0,0,0,0.02) 100%);
+    border:1px solid rgba(0,0,0,0.4); border-top-color:rgba(255,255,255,0.35);
+    box-shadow:inset 0 0 3px rgba(0,0,0,0.3), 0 2px 3px rgba(0,0,0,0.3); z-index:-1; }
+  .meterblock.in{ left:24px; }
+  .meterblock.out{ right:24px; }
+  .meterblock .mlabel{ font-size:10px; font-weight:800; letter-spacing:0.1em; color:#4a4a4a; margin-bottom:6px; }
+  .meterhousing{ position:relative; width:34px; height:250px; background-size:100% 100%; display:flex; justify-content:center; align-items:flex-end; padding:5px 0; }
+  .meterblock.in .meterhousing{ background-image:url("img/meter_in_housing_background@2x.png"); }
+  .meterblock.out .meterhousing{ background-image:url("img/meter_out_housing_background@2x.png"); }
+  .meterbars{ display:flex; gap:3px; height:100%; width:100%; justify-content:center; align-items:flex-end; padding:0 4px; }
+  .meterbar{ width:9px; height:2%; background:linear-gradient(0deg,#ffb066,var(--amber)); border-radius:1px; transition:height 60ms linear; }
+  .meterscale{ position:absolute; left:-30px; top:5px; bottom:5px; width:24px; display:flex; flex-direction:column; justify-content:space-between; }
+  .meterscale span{ font-size:7px; color:#5a5a5a; font-weight:700; font-variant-numeric:tabular-nums; }
+  .meterunit{ margin-top:6px; font-size:9px; color:#5a5a5a; font-weight:700; }
+
+  .knobcol{ position:absolute; top:98px; width:280px; display:flex; flex-direction:column; align-items:center; }
+  .knobcol::before{ content:""; position:absolute; inset:-18px -22px; border-radius:14px;
+    background:linear-gradient(155deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.02) 35%, rgba(0,0,0,0.10) 70%, rgba(0,0,0,0.02) 100%);
+    border:1px solid rgba(0,0,0,0.4); border-top-color:rgba(255,255,255,0.35);
+    box-shadow:inset 0 0 4px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.3); z-index:-1; }
+  .knobcol.punch{ left:108px; }
+  .knobcol.body{ right:108px; }
+  .knoblabel{ font-size:20px; font-weight:800; letter-spacing:0.04em; color:var(--ink); }
+  .knobsub{ font-size:9px; letter-spacing:0.14em; color:#5a5a5a; font-weight:700; text-transform:uppercase; margin-top:1px; }
+
+  .bigknobwrap{ position:relative; width:230px; height:230px; margin-top:26px; }
+  .knobticks{ position:absolute; inset:-34px; pointer-events:none; }
+  .knobticks svg{ width:100%; height:100%; overflow:visible; }
+  .arclayer{ position:absolute; inset:-16px; pointer-events:none; }
+  .arclayer svg{ width:100%; height:100%; overflow:visible; }
+  .knob{ position:relative; width:100%; height:100%; cursor:ns-resize; touch-action:none; }
+  .knobDial{ position:absolute; inset:0; background-repeat:no-repeat; background-size:100% 100%; transform:rotate(var(--angle,-135deg)); transform-origin:50% 50%; }
+  #knobPunch .knobDial{ background-image:url("img/knob_punch_physical@2x.png"); }
+  #knobBody .knobDial{ background-image:url("img/knob_body_physical@2x.png"); }
+  #knobSensitivity .knobDial{ background-image:url("img/knob_sensitivity_physical@2x.png"); }
+  #knobMix .knobDial{ background-image:url("img/knob_mix_physical@2x.png"); }
+
+  .rangelabels{ display:flex; justify-content:space-between; width:230px; margin-top:8px; font-size:11px; font-weight:700; letter-spacing:0.06em; color:#4a4a4a; text-transform:uppercase; }
+  .knobvalue{ margin-top:8px; min-width:56px; text-align:center; padding:4px 10px; border-radius:5px; background:#0c0c0c; color:var(--amber); font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; }
+
+  .centerdisplay{ position:absolute; left:508px; right:508px; top:96px; height:398px; }
+  .tabs{ display:flex; gap:6px; margin-bottom:8px; }
+  .tabbtn{ flex:1; height:34px; border:none; cursor:pointer; background-image:url("img/button_tab_inactive@2x.png"); background-size:100% 100%; font-size:11px; font-weight:800; letter-spacing:0.08em; color:#8a8a8a; }
+  .tabbtn:hover:not(.active){ background-image:url("img/button_tab_hover@2x.png"); }
+  .tabbtn.active{ background-image:url("img/button_tab_active@2x.png"); color:var(--amber); }
+
+  .analysisframe{ position:relative; width:100%; height:246px; background-image:url("img/display_transient_intelligence_frame_grid@2x.png"); background-size:100% 100%; overflow:hidden; }
+  .analysisframe svg{ width:100%; height:100%; display:block; }
+  .livepill{ position:absolute; right:10px; top:8px; display:flex; align-items:center; gap:5px; font-size:9px; font-weight:800; letter-spacing:0.1em; color:#8a8a8a; }
+  .livedot{ width:7px; height:7px; border-radius:50%; background:var(--amber); box-shadow:0 0 6px var(--amber); }
+  .marklabel{ position:absolute; top:6px; font-size:9px; font-weight:800; letter-spacing:0.08em; }
+  .marklabel.attack{ color:var(--amber); }
+  .marklabel.peak{ color:#9a9a9a; }
+  .marklabel.sustain{ color:var(--amber); }
+
+  .readouts{ display:flex; gap:8px; margin-top:8px; }
+  .readout{ flex:1; background:var(--display); border-radius:6px; padding:8px 10px; text-align:center; }
+  .readout .rl{ font-size:9px; letter-spacing:0.12em; color:#7a7a7a; font-weight:700; text-transform:uppercase; }
+  .readout .rv{ margin-top:3px; font-size:15px; font-weight:800; color:var(--amber); font-variant-numeric:tabular-nums; }
+
+  /* ---------- Lower panel ---------- */
+  .lowerpanel{
+    position:absolute; left:14px; right:14px; top:572px; bottom:14px;
+    border-radius:8px; overflow:hidden;
+    box-shadow:0 6px 16px rgba(0,0,0,0.55), 0 0 34px 4px rgba(255,122,18,0.14);
+    display:flex; align-items:center; padding:0 26px; gap:22px;
+  }
+  .lowerpanel::before{
+    content:""; position:absolute; inset:0; z-index:-1;
+    background-image:url("img/texture_titanium_main@2x.png"); background-size:100% 100%;
+  }
+  .divider{ align-self:stretch; width:5px; margin:24px 0; background-image:url("img/module_separator_bevel@2x.png"); background-size:100% 100%; }
+  .modulepanel{ position:relative; background:linear-gradient(180deg,#3c3d3c,#202120); border-radius:10px; box-shadow:inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -3px 6px rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.35); padding:16px 14px; }
+  .modulepanel .screw{ width:12px; height:12px; }
+  .modulepanel .screw.tl{ left:6px; top:6px; } .modulepanel .screw.tr{ right:6px; top:6px; }
+  .modulepanel .screw.bl{ left:6px; bottom:6px; } .modulepanel .screw.br{ right:6px; bottom:6px; }
+
+  .focusgrp{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .grouplabel{ font-size:11px; letter-spacing:0.1em; color:#cfcfcf; font-weight:800; text-transform:uppercase; }
+  .groupsub{ font-size:8px; letter-spacing:0.08em; color:#7a7a7a; font-weight:600; text-transform:uppercase; margin-top:-6px; }
+  .focusrow{ display:flex; gap:6px; }
+  .focusbtn{ width:58px; height:58px; border:none; cursor:pointer; background-image:url("img/button_focus_inactive@2x.png"); background-size:100% 100%; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px; }
+  .focusbtn:hover:not(.active){ background-image:url("img/button_focus_hover@2x.png"); }
+  .focusbtn.active{ background-image:url("img/button_focus_active@2x.png"); box-shadow:0 0 18px 3px rgba(255,122,18,0.55); }
+  .focusbtn svg{ width:20px; height:14px; }
+  .focusbtn .flabel{ font-size:9px; font-weight:800; letter-spacing:0.05em; color:#8a8a8a; }
+  .focusbtn.active .flabel{ color:var(--amber); }
+  .focusbtn.active svg path, .focusbtn.active svg line{ stroke:var(--amber) !important; }
+
+  .smallknobgrp{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .smallknobwrap{ position:relative; width:78px; height:78px; margin-top:8px; }
+  .smallknobwrap .knobticks{ inset:-14px; }
+  .smallknobwrap .arclayer{ inset:-7px; }
+  .smallrange{ display:flex; justify-content:space-between; width:78px; font-size:9px; color:#7a7a7a; font-weight:700; }
+  .smallvalue{ margin-top:2px; min-width:40px; text-align:center; padding:2px 8px; border-radius:5px; background:#0c0c0c; color:var(--amber); font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; }
+
+  .activitygrp{ flex:1; display:flex; flex-direction:column; align-items:center; gap:8px; min-width:280px; }
+  .activityframe{ position:relative; width:100%; height:118px; background-image:url("img/display_processing_activity_frame_grid@2x.png"); background-size:100% 100%; }
+  .activityframe svg{ width:100%; height:100%; display:block; }
+  .legend{ position:absolute; right:10px; top:8px; display:flex; gap:12px; }
+  .legenditem{ display:flex; align-items:center; gap:5px; font-size:9px; font-weight:800; letter-spacing:0.06em; color:#9a9a9a; }
+  .legenddot{ width:7px; height:7px; border-radius:50%; }
+  .legenddot.punch{ background:var(--amber); }
+  .legenddot.body{ background:#9a9a9a; }
+  .activitycaption{ font-size:9px; letter-spacing:0.1em; color:#6a6a6a; font-weight:700; text-transform:uppercase; }
+
+  .clipsafegrp{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .clipsaferow{ display:flex; gap:6px; }
+  .clipbtn{ width:56px; height:36px; border:none; cursor:pointer; background-image:url("img/button_clip_safe_off@2x.png"); background-size:100% 100%; font-size:11px; font-weight:800; color:#8a8a8a; }
+  .clipbtn.active{ background-image:url("img/button_clip_safe_on@2x.png"); color:#2a1704; box-shadow:0 0 18px 3px rgba(255,122,18,0.55); }
+
+  .modaloverlay{ display:none; position:absolute; inset:0; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:50; }
+  .modaloverlay.open{ display:flex; }
+  .modal{ background:#1c1c1c; border:1px solid rgba(255,122,18,0.3); border-radius:10px; padding:20px; width:280px; }
+  .modalTitle{ font-size:12px; letter-spacing:0.12em; color:#eee; font-weight:700; margin-bottom:12px; }
+  .modal input{ width:100%; background:#0e0e0e; border:1px solid rgba(255,255,255,0.15); color:#eee; font-size:13px; padding:8px 10px; margin-bottom:10px; border-radius:6px; }
+  .modalBtns{ display:flex; gap:8px; justify-content:flex-end; }
+  .modalBtn{ padding:7px 14px; border-radius:6px; border:none; cursor:pointer; font-weight:700; font-size:12px; font-family:inherit; }
+  .modalBtn.cancel{ background:#2a2b2c; color:#9a9a9a; }
+  .modalBtn.save{ background:linear-gradient(180deg,#ffb066,var(--amber)); color:#241a05; }
+
+  .footer{ position:absolute; left:14px; right:14px; bottom:0; height:14px; }
+  .footerbar{ position:absolute; left:14px; right:14px; bottom:-14px; height:64px; display:flex; align-items:center; justify-content:space-between; padding:0 24px; background-image:url("img/footer_frame@2x.png"); background-size:100% 100%; }
+  .underlight{ position:absolute; left:60px; right:60px; bottom:4px; height:5px; background-image:url("img/accent_underlight.svg"); background-size:100% 100%; background-repeat:no-repeat; pointer-events:none; z-index:6; }
+  .footer-tagline{ display:flex; align-items:center; gap:12px; }
+  .footer-tagline img{ width:44px; height:auto; opacity:0.85; }
+</style>
+
+<div id="stageOuter">
+  <div id="app">
+    <header class="topbar">
+      <div class="brand-left">
+        <img src="img/nova_n_mark.svg" class="logo-n" alt="N" style="filter:invert(0.9);" />
+        <div class="brand-text">
+          <div class="l1">NOVA AUDIO</div>
+          <div class="l2">INTELLIGENT SERIES</div>
+        </div>
+      </div>
+      <div class="preset-nav">
+        <button class="icon-btn" id="presetPrev"><img src="img/icon_arrow_previous.svg" alt="" /></button>
+        <div class="preset-field" id="presetName">Default</div>
+        <button class="icon-btn" id="presetNext"><img src="img/icon_arrow_next.svg" alt="" /></button>
+        <button class="icon-btn square" id="saveBtn"><img src="img/icon_save.svg" alt="" /></button>
+        <button class="icon-btn square" id="settingsBtn"><img src="img/icon_settings.svg" alt="" /></button>
+        <button class="icon-btn square" id="menuBtn"><img src="img/icon_menu.svg" alt="" /></button>
+      </div>
+      <div class="tagline-right">DRUMS &middot; MUSIC &middot; <span class="hi">NO LIMITS</span></div>
+    </header>
+
+    <div class="mainpanel">
+      <img class="screw tl" src="img/corner_screw.svg" alt="" />
+      <img class="screw tr" src="img/corner_screw.svg" alt="" />
+      <img class="screw bl" src="img/corner_screw.svg" alt="" />
+      <img class="screw br" src="img/corner_screw.svg" alt="" />
+
+      <div class="titleblock">
+        <h1>NOVA <span>PUNCH</span></h1>
+        <div class="sub">Intelligent Transient Designer</div>
+      </div>
+      <div class="centerheader">
+        <div class="h">TRANSIENT INTELLIGENCE</div>
+        <div class="s">DETECT &middot; SEPARATE &middot; SHAPE &middot; IMPACT</div>
+      </div>
+      <div class="rightheader">
+        <div class="hit">Hit Different.</div>
+        <div class="tags">TRANSIENTS<br/>TEXTURE<br/>POWER<br/>CONTROL</div>
+      </div>
+
+      <div class="meterblock in">
+        <div class="mlabel">IN</div>
+        <div class="meterhousing">
+          <div class="meterscale">
+            <span>0</span><span>-6</span><span>-12</span><span>-24</span><span>-36</span><span>-60</span>
+          </div>
+          <div class="meterbars">
+            <div class="meterbar" id="meterInL"></div>
+            <div class="meterbar" id="meterInR"></div>
+          </div>
+        </div>
+        <div class="meterunit">dB</div>
+      </div>
+
+      <div class="knobcol punch">
+        <div class="knoblabel">PUNCH</div>
+        <div class="knobsub">Transient Attack</div>
+        <div class="bigknobwrap">
+          <div class="arclayer" id="arcPunch"></div>
+          <div class="knobticks" id="ticksPunch"></div>
+          <div class="knob" id="knobPunch"><div class="knobDial"></div></div>
+        </div>
+        <div class="rangelabels"><span>SOFTER</span><span>HARDER</span></div>
+        <div class="knobvalue" id="valPunch">50</div>
+      </div>
+
+      <div class="centerdisplay">
+        <div class="tabs">
+          <button class="tabbtn active" data-tab="transient">TRANSIENT</button>
+          <button class="tabbtn" data-tab="spectrum">SPECTRUM</button>
+          <button class="tabbtn" data-tab="both">BOTH</button>
+        </div>
+        <div class="analysisframe" id="analysisFrame">
+          <div class="livepill"><span class="livedot"></span>LIVE</div>
+          <svg id="analysisSvg" viewBox="0 0 480 246" preserveAspectRatio="none"></svg>
+        </div>
+        <div class="readouts">
+          <div class="readout"><div class="rl">Attack</div><div class="rv" id="rvAttack">+0.0 dB</div></div>
+          <div class="readout"><div class="rl">Decay</div><div class="rv" id="rvDecay">+0.0 dB</div></div>
+          <div class="readout"><div class="rl">Sustain</div><div class="rv" id="rvSustain">+0.0 dB</div></div>
+        </div>
+      </div>
+
+      <div class="knobcol body">
+        <div class="knoblabel">BODY</div>
+        <div class="knobsub">Sustain &amp; Weight</div>
+        <div class="bigknobwrap">
+          <div class="arclayer" id="arcBody"></div>
+          <div class="knobticks" id="ticksBody"></div>
+          <div class="knob" id="knobBody"><div class="knobDial"></div></div>
+        </div>
+        <div class="rangelabels"><span>TIGHTER</span><span>FULLER</span></div>
+        <div class="knobvalue" id="valBody">50</div>
+      </div>
+
+      <div class="meterblock out">
+        <div class="mlabel">OUT</div>
+        <div class="meterhousing">
+          <div class="meterbars">
+            <div class="meterbar" id="meterOutL"></div>
+            <div class="meterbar" id="meterOutR"></div>
+          </div>
+        </div>
+        <div class="meterunit">dB</div>
+      </div>
+    </div>
+
+    <div class="lowerpanel">
+      <img class="screw tl" src="img/corner_screw.svg" alt="" />
+      <img class="screw tr" src="img/corner_screw.svg" alt="" />
+      <img class="screw bl" src="img/corner_screw.svg" alt="" />
+      <img class="screw br" src="img/corner_screw.svg" alt="" />
+      <div class="focusgrp modulepanel">
+        <img class="screw tl" src="img/corner_screw.svg" alt="" /><img class="screw tr" src="img/corner_screw.svg" alt="" />
+        <img class="screw bl" src="img/corner_screw.svg" alt="" /><img class="screw br" src="img/corner_screw.svg" alt="" />
+        <div class="grouplabel">Focus</div>
+        <div class="groupsub">Target Frequency Range</div>
+        <div class="focusrow" id="focusGroup">
+          <button class="focusbtn" data-idx="0"><svg viewBox="0 0 20 14"><path d="M0 7 L3 3 L6 11 L9 1 L12 13 L15 5 L17 9 L20 7" fill="none" stroke="#8a8a8a" stroke-width="1.5"/></svg><span class="flabel">FULL</span></button>
+          <button class="focusbtn" data-idx="1"><svg viewBox="0 0 20 14"><path d="M0 7 Q10 -3 20 7" fill="none" stroke="#8a8a8a" stroke-width="1.5"/></svg><span class="flabel">LOW</span></button>
+          <button class="focusbtn" data-idx="2"><svg viewBox="0 0 20 14"><path d="M2 12 Q10 0 18 12" fill="none" stroke="#8a8a8a" stroke-width="1.5"/></svg><span class="flabel">MID</span></button>
+          <button class="focusbtn" data-idx="3"><svg viewBox="0 0 20 14"><path d="M4 13 Q10 -2 16 13" fill="none" stroke="#8a8a8a" stroke-width="1.5"/></svg><span class="flabel">HIGH</span></button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="smallknobgrp modulepanel">
+        <img class="screw tl" src="img/corner_screw.svg" alt="" /><img class="screw tr" src="img/corner_screw.svg" alt="" />
+        <img class="screw bl" src="img/corner_screw.svg" alt="" /><img class="screw br" src="img/corner_screw.svg" alt="" />
+        <div class="grouplabel">Sensitivity</div>
+        <div class="groupsub">Detects &amp; Adapts</div>
+        <div class="smallknobwrap">
+          <div class="arclayer" id="arcSensitivity"></div>
+          <div class="knobticks" id="ticksSensitivity"></div>
+          <div class="knob" id="knobSensitivity"><div class="knobDial"></div></div>
+        </div>
+        <div class="smallrange"><span>0</span><span>100</span></div>
+        <div class="smallvalue" id="valSensitivity">65</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="activitygrp modulepanel">
+        <img class="screw tl" src="img/corner_screw.svg" alt="" /><img class="screw tr" src="img/corner_screw.svg" alt="" />
+        <img class="screw bl" src="img/corner_screw.svg" alt="" /><img class="screw br" src="img/corner_screw.svg" alt="" />
+        <div class="grouplabel">Processing Activity</div>
+        <div class="activityframe" id="activityFrame">
+          <div class="legend">
+            <div class="legenditem"><span class="legenddot punch"></span>PUNCH</div>
+            <div class="legenditem"><span class="legenddot body"></span>BODY</div>
+          </div>
+          <svg id="activitySvg" viewBox="0 0 560 118" preserveAspectRatio="none"></svg>
+        </div>
+        <div class="activitycaption">Real-Time Processing</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="smallknobgrp modulepanel">
+        <img class="screw tl" src="img/corner_screw.svg" alt="" /><img class="screw tr" src="img/corner_screw.svg" alt="" />
+        <img class="screw bl" src="img/corner_screw.svg" alt="" /><img class="screw br" src="img/corner_screw.svg" alt="" />
+        <div class="grouplabel">Mix</div>
+        <div class="groupsub">Blend</div>
+        <div class="smallknobwrap">
+          <div class="arclayer" id="arcMix"></div>
+          <div class="knobticks" id="ticksMix"></div>
+          <div class="knob" id="knobMix"><div class="knobDial"></div></div>
+        </div>
+        <div class="smallrange"><span>DRY</span><span>WET</span></div>
+        <div class="smallvalue" id="valMix">100</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="clipsafegrp modulepanel">
+        <img class="screw tl" src="img/corner_screw.svg" alt="" /><img class="screw tr" src="img/corner_screw.svg" alt="" />
+        <img class="screw bl" src="img/corner_screw.svg" alt="" /><img class="screw br" src="img/corner_screw.svg" alt="" />
+        <div class="grouplabel">Clip Safe</div>
+        <div class="groupsub">Prevents Peaks</div>
+        <div class="clipsaferow" id="clipSafeGroup">
+          <button class="clipbtn" data-idx="0">OFF</button>
+          <button class="clipbtn" data-idx="1">ON</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="footerbar">
+      <div class="brand-left">
+        <img src="img/nova_n_mark.svg" class="logo-n" alt="N" style="filter:invert(0.9);" />
+        <div class="brand-text">
+          <div class="l1">NOVA AUDIO</div>
+          <div class="l2">INTELLIGENT SERIES</div>
+        </div>
+      </div>
+      <div class="footer-tagline">
+        <img src="img/accent_divider.svg" alt="" />
+        <div style="font-size:11px; letter-spacing:0.14em; color:#8a8a8a; font-weight:700;">CLEANER TRANSIENTS. BIGGER RESULTS.</div>
+        <img src="img/accent_divider.svg" alt="" />
+      </div>
+      <div style="font-size:10px; letter-spacing:0.1em; color:#8a8a8a; font-weight:700;">PRESETS</div>
+      <div class="underlight"></div>
+    </div>
+
+    <div class="modaloverlay" id="saveModal">
+      <div class="modal">
+        <div class="modalTitle">SAVE PRESET</div>
+        <input type="text" id="presetNameInput" placeholder="Preset name" />
+        <div class="modalBtns">
+          <button class="modalBtn cancel" id="saveCancel">Cancel</button>
+          <button class="modalBtn save" id="saveConfirm">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/index.js" type="module"></script>

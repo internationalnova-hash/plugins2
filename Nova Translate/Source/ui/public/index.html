@@ -24,7 +24,16 @@
     font-family: 'Helvetica Neue', Arial, sans-serif;
     overflow: hidden; -webkit-user-select: none; user-select: none;
   }
-  #app { width: 1536px; height: 1024px; display: flex; background: var(--bg); transform: scale(0.75); transform-origin: top left; }
+  /* #app is a fixed design (1536x1024) with its own static 0.75 crop-down
+     to a 1152x768 "true" footprint (transform-origin: top left, so it
+     fills #stage exactly from that corner). #stage then gets a SEPARATE
+     dynamic scale-to-fit on top - the two transforms compose (static
+     internal crop * dynamic outer fit), same technique as Nova Sub's
+     .plugin-viewport/.plugin split. See Nova Tape's index.html for the
+     scale-to-fit rationale generally. */
+  #stageOuter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #stage { width: 1152px; height: 768px; position: relative; overflow: hidden; flex: 0 0 auto; transform-origin: center center; }
+  #app { width: 1536px; height: 1024px; display: flex; background: var(--bg); transform: scale(0.75); transform-origin: top left; position: absolute; top: 0; left: 0; }
   .main-col { flex: 1; display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--line); }
   .sidebar { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; padding: 16px; gap: 14px; }
 
@@ -177,6 +186,8 @@
 </style>
 </head>
 <body>
+<div id="stageOuter">
+<div id="stage">
 <div id="app">
 
   <div class="main-col">
@@ -338,6 +349,8 @@
   </aside>
 
 </div>
+</div>
+</div>
 
 <script>
 (() => {
@@ -438,10 +451,26 @@
   const ENVIRONMENTS = [
     { index: 0,  name: 'Nova Main Room', category: 'STUDIOS',  descriptor: 'Large professional control room • Full-range • Controlled reflections', scene: 'studio',
       traits: ['Nearfield Monitors', 'Acoustic Treatment', 'Flat Response', 'Minimal Reflections'] },
+    { index: 1,  name: 'Nearfield Studio', category: 'STUDIOS', descriptor: 'Small Pro Studio • Nearfield Monitors • Light Room Character',        scene: 'nearfield',
+      traits: ['Nearfield Monitors', 'Light Treatment', 'Close Listening', 'Semi-Pro Reference'] },
+    { index: 2,  name: 'Mastering Suite', category: 'STUDIOS', descriptor: 'Reference-Grade Room • Full-Range • Maximum Precision',                scene: 'mastering',
+      traits: ['Maximum Precision', 'Non-Parallel Walls', 'Extreme Detail', 'Critical Sweet Spot'] },
+    { index: 3,  name: 'Bedroom Studio', category: 'STUDIOS',  descriptor: 'Untreated Room • Budget Monitors • Boomy Low End',                     scene: 'bedroom',
+      traits: ['Untreated Room', 'Budget Monitors', 'Room Modes', 'Real-World Check'] },
     { index: 4,  name: 'Sedan',          category: 'CARS',     descriptor: 'Mid-size Car • Door Speakers • Cabin Reflections',                    scene: 'car',
       traits: ['Dashboard', 'Windshield', 'Door Speakers', 'Cabin Reflections'] },
+    { index: 5,  name: 'Luxury SUV',     category: 'CARS',     descriptor: 'Flagship SUV • Premium Multi-Channel Audio • Corrected Imaging',       scene: 'suv',
+      traits: ['16+ Channel Audio', 'Acoustic Glass', 'Active Time-Alignment', '3-Row Cabin'] },
     { index: 6,  name: 'Smartphone',     category: 'CONSUMER', descriptor: 'Mono • Strong Low Cutoff • Upper-Mid Emphasis',                        scene: 'phone',
       traits: ['Single Driver', 'Bottom-Firing', 'Compressed Dynamics', 'No Stereo Field'] },
+    { index: 7,  name: 'Laptop',         category: 'CONSUMER', descriptor: 'Narrow Stereo • Tinny Midrange • Minimal Bass',                        scene: 'laptop',
+      traits: ['Built-In Speakers', 'Narrow Stereo', 'Thin Bass', 'Everyday Playback'] },
+    { index: 8,  name: 'Bluetooth Speaker', category: 'CONSUMER', descriptor: 'Boosted Bass • Scooped Mids • Limited Highs',                       scene: 'bluetooth',
+      traits: ['Portable', 'Boosted Bass', 'Scooped Mids', 'Casual Listening'] },
+    { index: 9,  name: 'Boombox',        category: 'CONSUMER', descriptor: 'Ported Bass • Honky Midrange • Party-Loud Coloration',                 scene: 'boombox',
+      traits: ['Party Volume', 'Ported Bass', 'Wide Stereo', 'Retro Coloration'] },
+    { index: 10, name: 'Club PA',        category: 'VENUES',   descriptor: 'Large Venue • Deep Subs • Heavy Limiting',                             scene: 'club',
+      traits: ['Deep Subs', 'Heavy Limiting', 'Venue Reverb', 'Crowd Noise'] },
     { index: 11, name: 'Mono Cube',      category: 'UTILITY',  descriptor: 'Mono • Band-Limited • Midrange-Focused Balance Check',                 scene: 'cube',
       traits: ['Single Driver', 'Desktop Placement', 'Mono Fold-Down', 'Balance Reference'] }
   ];
@@ -456,8 +485,16 @@
   // scene style rather than emoji, to stay on the single-accent-color identity.
   const ICONS = {
     studio: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="20" height="20" rx="2"/><circle cx="11" cy="11" r="2.2"/><circle cx="21" cy="11" r="2.2"/><rect x="12" y="20" width="8" height="4" rx="1"/></svg>`,
+    nearfield: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="11" y="6" width="10" height="20" rx="2"/><circle cx="16" cy="12" r="2.5"/><circle cx="16" cy="20" r="1.6"/></svg>`,
+    mastering: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="16" cy="16" r="9"/><circle cx="16" cy="16" r="2"/><path d="M16 3 v6 M16 23 v6 M3 16 h6 M23 16 h6"/></svg>`,
+    bedroom: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 16 L16 8 L25 16 V26 H7 Z"/><rect x="13" y="18" width="6" height="8" rx="1"/></svg>`,
     car: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="10" y="5" width="12" height="22" rx="5"/><path d="M11.5 10 Q16 6.5 20.5 10"/></svg>`,
+    suv: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="8" y="4" width="16" height="24" rx="4"/><path d="M9 9 h14"/><path d="M9 19 h14"/></svg>`,
     phone: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="11" y="4" width="10" height="24" rx="2.5"/><path d="M14 24 h4"/></svg>`,
+    laptop: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="7" y="8" width="18" height="12" rx="1.5"/><path d="M4 24 h24 l-2 -4 h-20 Z"/></svg>`,
+    bluetooth: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="8" y="7" width="16" height="18" rx="8"/><circle cx="16" cy="12" r="2.6"/><circle cx="16" cy="20" r="2.6"/></svg>`,
+    boombox: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="12" width="22" height="14" rx="2"/><circle cx="11" cy="19" r="4"/><circle cx="21" cy="19" r="4"/><path d="M9 12 V8 h14 v4"/></svg>`,
+    club: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="9" y="4" width="14" height="11" rx="1.5"/><rect x="9" y="17" width="14" height="11" rx="1.5"/><circle cx="16" cy="9.5" r="2.8"/><circle cx="16" cy="22.5" r="4"/></svg>`,
     cube: `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="9" y="7" width="14" height="18" rx="2"/><circle cx="16" cy="13" r="3"/><circle cx="16" cy="20" r="1.8"/></svg>`
   };
 
@@ -503,6 +540,34 @@
       ],
       nudge: [ { dx: 0, dy: 0 }, { dx: -8, dy: 0 }, { dx: 8, dy: 0 }, { dx: 0, dy: 16 } ]
     },
+    nearfield: {
+      listener: { x: 50, y: 65 }, positionApplies: true,
+      positionLabels: ['Sweet Spot', 'Slightly Left', 'Slightly Right', 'Back Of Room'],
+      speakers: [
+        { x: 32, y: 35, label: 'Left Monitor' },
+        { x: 68, y: 35, label: 'Right Monitor' }
+      ],
+      nudge: [ { dx: 0, dy: 0 }, { dx: -6, dy: 0 }, { dx: 6, dy: 0 }, { dx: 0, dy: 20 } ]
+    },
+    mastering: {
+      listener: { x: 50, y: 68 }, positionApplies: true,
+      positionLabels: ['Sweet Spot', 'Just Left', 'Just Right', 'Assistant Seat'],
+      speakers: [
+        { x: 30, y: 20, label: 'Left Main' },
+        { x: 70, y: 20, label: 'Right Main' },
+        { x: 50, y: 55, label: 'Reference Sub' }
+      ],
+      nudge: [ { dx: 0, dy: 0 }, { dx: -4, dy: 0 }, { dx: 4, dy: 0 }, { dx: 0, dy: 22 } ]
+    },
+    bedroom: {
+      listener: { x: 50, y: 62 }, positionApplies: true,
+      positionLabels: ['Desk Center', 'Desk Left', 'Desk Right', 'Bed / Couch'],
+      speakers: [
+        { x: 35, y: 38, label: 'Left Speaker' },
+        { x: 65, y: 38, label: 'Right Speaker' }
+      ],
+      nudge: [ { dx: 0, dy: 0 }, { dx: -8, dy: 0 }, { dx: 8, dy: 0 }, { dx: 0, dy: 25 } ]
+    },
     car: {
       listener: { x: 50, y: 51.6 }, positionApplies: true,
       positionLabels: ['Driver', 'Front Passenger', 'Rear Left', 'Rear Right'],
@@ -515,6 +580,19 @@
       ],
       nudge: [ { dx: -15, dy: 0 }, { dx: 15, dy: 0 }, { dx: -10, dy: 27 }, { dx: 10, dy: 27 } ]
     },
+    suv: {
+      listener: { x: 50, y: 44 }, positionApplies: true,
+      positionLabels: ['Driver', 'Front Passenger', '2nd Row', '3rd Row'],
+      speakers: [
+        { x: 25.4, y: 30.3, label: 'Front Left' },
+        { x: 74.6, y: 30.3, label: 'Front Right' },
+        { x: 50, y: 16.25, label: 'Center Channel' },
+        { x: 25.4, y: 58.4, label: '2nd Row Left' },
+        { x: 74.6, y: 58.4, label: '2nd Row Right' },
+        { x: 50, y: 84.4, label: 'Subwoofer' }
+      ],
+      nudge: [ { dx: -17, dy: 0 }, { dx: 17, dy: 0 }, { dx: 0, dy: 23 }, { dx: 0, dy: 42 } ]
+    },
     phone: {
       listener: { x: 50, y: 60 }, positionApplies: false, positionLabels: null,
       speakers: [
@@ -522,6 +600,38 @@
         { x: 50, y: 85.6, label: 'Bottom Speaker' }
       ],
       nudge: [ { dx: 0, dy: 0 }, { dx: 0, dy: 0 }, { dx: 0, dy: 0 }, { dx: 0, dy: 0 } ]
+    },
+    laptop: {
+      listener: { x: 50, y: 62 }, positionApplies: false, positionLabels: null,
+      speakers: [
+        { x: 38, y: 24, label: 'Left Speaker' },
+        { x: 62, y: 24, label: 'Right Speaker' }
+      ],
+      nudge: [ { dx: 0, dy: 0 }, { dx: 0, dy: 0 }, { dx: 0, dy: 0 }, { dx: 0, dy: 0 } ]
+    },
+    bluetooth: {
+      listener: { x: 50, y: 72 }, positionApplies: false, positionLabels: null,
+      speakers: [{ x: 50, y: 35, label: 'Speaker' }],
+      nudge: [ { dx: 0, dy: 0 }, { dx: 0, dy: 0 }, { dx: 0, dy: 0 }, { dx: 0, dy: 0 } ]
+    },
+    boombox: {
+      listener: { x: 50, y: 72 }, positionApplies: false, positionLabels: null,
+      speakers: [
+        { x: 35, y: 40, label: 'Left Woofer' },
+        { x: 65, y: 40, label: 'Right Woofer' }
+      ],
+      nudge: [ { dx: 0, dy: 0 }, { dx: 0, dy: 0 }, { dx: 0, dy: 0 }, { dx: 0, dy: 0 } ]
+    },
+    club: {
+      listener: { x: 50, y: 55 }, positionApplies: true,
+      positionLabels: ['Mid-Crowd', 'Front Of Stage', 'Near Left Stack', 'Back Of Room'],
+      speakers: [
+        { x: 20, y: 20, label: 'Left Stack' },
+        { x: 80, y: 20, label: 'Right Stack' },
+        { x: 50, y: 15, label: 'Subwoofer' },
+        { x: 50, y: 30, label: 'Booth' }
+      ],
+      nudge: [ { dx: 0, dy: 0 }, { dx: 0, dy: -25 }, { dx: -22, dy: -8 }, { dx: 0, dy: 25 } ]
     },
     cube: {
       listener: { x: 50, y: 71.9 }, positionApplies: false, positionLabels: null,
@@ -548,7 +658,8 @@
   const SCENES = {
     studio: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
       <rect width="800" height="320" fill="#141319"/>
-      <rect width="800" height="320" fill="url(#g1)"/>
+      <image href="images/hero-studio.jpg" x="0" y="0" width="800" height="320" preserveAspectRatio="xMidYMid slice"/>
+      <rect width="800" height="320" fill="url(#g1)" opacity="0.62"/>
       <defs><radialGradient id="g1" cx="50%" cy="30%" r="75%"><stop offset="0%" stop-color="#2c2721"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
       <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.55">
         <rect x="140" y="20" width="520" height="270" rx="10"/>
@@ -572,9 +683,63 @@
         <path d="M310 185 h180" opacity="0.4"/>
       </g>
     </svg>`,
+    nearfield: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+      <rect width="800" height="320" fill="#141319"/>
+      <image href="images/hero-nearfield.jpg" x="0" y="0" width="800" height="320" preserveAspectRatio="xMidYMid slice"/>
+      <rect width="800" height="320" fill="url(#g_nf)" opacity="0.62"/>
+      <defs><radialGradient id="g_nf" cx="50%" cy="30%" r="75%"><stop offset="0%" stop-color="#241f1a"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
+      <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.5">
+        <rect x="220" y="60" width="360" height="180" rx="8"/>
+      </g>
+      <g stroke="#e8c064" stroke-width="1" fill="none">
+        ${soundRings(256, 112)}${soundRings(544, 112)}
+      </g>
+      <g stroke="#e8c064" stroke-width="1.8" fill="none" opacity="0.7">
+        <rect x="240" y="90" width="32" height="46" rx="4"/>
+        <rect x="528" y="90" width="32" height="46" rx="4"/>
+      </g>
+    </svg>`,
+    mastering: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+      <rect width="800" height="320" fill="#141319"/>
+      <image href="images/hero-mastering.jpg" x="0" y="0" width="800" height="320" preserveAspectRatio="xMidYMid slice"/>
+      <rect width="800" height="320" fill="url(#g_ms)" opacity="0.62"/>
+      <defs><radialGradient id="g_ms" cx="50%" cy="28%" r="78%"><stop offset="0%" stop-color="#242019"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
+      <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.5">
+        <rect x="150" y="20" width="500" height="260" rx="10"/>
+        <circle cx="400" cy="176" r="55" opacity="0.3"/>
+      </g>
+      <g stroke="#e8c064" stroke-width="1" fill="none">
+        ${soundRings(240, 64)}${soundRings(560, 64)}${soundRings(400, 176)}
+      </g>
+      <g stroke="#e8c064" stroke-width="1.8" fill="none" opacity="0.7">
+        <rect x="220" y="48" width="40" height="32" rx="4"/>
+        <rect x="540" y="48" width="40" height="32" rx="4"/>
+        <rect x="380" y="160" width="40" height="32" rx="4"/>
+        <path d="M400 176 m-8 0 h16 M400 176 m0 -8 v16"/>
+      </g>
+    </svg>`,
+    bedroom: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+      <rect width="800" height="320" fill="#141319"/>
+      <image href="images/hero-bedroom.jpg" x="0" y="0" width="800" height="320" preserveAspectRatio="xMidYMid slice"/>
+      <rect width="800" height="320" fill="url(#g_bd)" opacity="0.62"/>
+      <defs><radialGradient id="g_bd" cx="50%" cy="32%" r="75%"><stop offset="0%" stop-color="#211d18"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
+      <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.5">
+        <rect x="180" y="40" width="440" height="240" rx="6"/>
+        <rect x="480" y="200" width="120" height="60" rx="8" opacity="0.4"/>
+      </g>
+      <g stroke="#e8c064" stroke-width="1" fill="none">
+        ${soundRings(280, 122)}${soundRings(520, 122)}
+      </g>
+      <g stroke="#e8c064" stroke-width="1.8" fill="none" opacity="0.7">
+        <rect x="264" y="100" width="30" height="42" rx="4"/>
+        <rect x="506" y="100" width="30" height="42" rx="4"/>
+        <rect x="340" y="170" width="120" height="50" rx="6"/>
+      </g>
+    </svg>`,
     car: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
       <rect width="800" height="320" fill="#141319"/>
-      <rect width="800" height="320" fill="url(#g2)"/>
+      <image href="images/hero-car.jpg" x="0" y="0" width="800" height="320" preserveAspectRatio="xMidYMid slice"/>
+      <rect width="800" height="320" fill="url(#g2)" opacity="0.62"/>
       <defs><radialGradient id="g2" cx="50%" cy="30%" r="80%"><stop offset="0%" stop-color="#26201a"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
       <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.55">
         <path class="reflection" d="M220 30 Q400 4 580 30" opacity="0.5"/>
@@ -594,9 +759,36 @@
         <rect x="577" y="215" width="18" height="26" rx="3"/>
       </g>
     </svg>`,
+    suv: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+      <rect width="800" height="320" fill="#141319"/>
+      <image href="images/hero-suv.jpg" x="0" y="0" width="800" height="320" preserveAspectRatio="xMidYMid slice"/>
+      <rect width="800" height="320" fill="url(#g_suv)" opacity="0.62"/>
+      <defs><radialGradient id="g_suv" cx="50%" cy="28%" r="82%"><stop offset="0%" stop-color="#26201a"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
+      <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.55">
+        <path class="reflection" d="M200 22 Q400 -2 600 22" opacity="0.5"/>
+        <rect x="150" y="20" width="500" height="280" rx="34"/>
+        <rect x="235" y="110" width="55" height="60" rx="14" opacity="0.6"/>
+        <rect x="510" y="110" width="55" height="60" rx="14" opacity="0.6"/>
+        <rect x="235" y="185" width="55" height="55" rx="14" opacity="0.5"/>
+        <rect x="510" y="185" width="55" height="55" rx="14" opacity="0.5"/>
+        <rect x="280" y="255" width="240" height="40" rx="14" opacity="0.4"/>
+      </g>
+      <g stroke="#e8c064" stroke-width="1" fill="none">
+        ${soundRings(203, 97)}${soundRings(597, 97)}${soundRings(400, 52)}${soundRings(203, 187)}${soundRings(597, 187)}${soundRings(400, 270)}
+      </g>
+      <g stroke="#e8c064" stroke-width="1.8" fill="none" opacity="0.7">
+        <rect x="372" y="45" width="56" height="14" rx="4"/>
+        <rect x="195" y="85" width="16" height="24" rx="3"/>
+        <rect x="589" y="85" width="16" height="24" rx="3"/>
+        <rect x="195" y="175" width="16" height="24" rx="3"/>
+        <rect x="589" y="175" width="16" height="24" rx="3"/>
+        <rect x="380" y="260" width="40" height="20" rx="4"/>
+      </g>
+    </svg>`,
     phone: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
       <rect width="800" height="320" fill="#141319"/>
-      <rect width="800" height="320" fill="url(#g3)"/>
+      <image href="images/hero-phone.jpg" x="0" y="0" width="800" height="320" preserveAspectRatio="xMidYMid slice"/>
+      <rect width="800" height="320" fill="url(#g3)" opacity="0.62"/>
       <defs><radialGradient id="g3" cx="50%" cy="34%" r="70%"><stop offset="0%" stop-color="#1e2024"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient>
       <radialGradient id="g3b" cx="50%" cy="45%" r="60%"><stop offset="0%" stop-color="#e8c064" stop-opacity="0.16"/><stop offset="100%" stop-color="#e8c064" stop-opacity="0"/></radialGradient></defs>
       <g stroke="#e8c064" stroke-width="1" fill="none">
@@ -609,9 +801,73 @@
         <rect x="380" y="270" width="40" height="8" rx="4"/>
       </g>
     </svg>`,
+    laptop: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+      <rect width="800" height="320" fill="#141319"/>
+      <image href="images/hero-laptop.jpg" x="0" y="0" width="800" height="320" preserveAspectRatio="xMidYMid slice"/>
+      <rect width="800" height="320" fill="url(#g_lt)" opacity="0.62"/>
+      <defs><radialGradient id="g_lt" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#1e1f22"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
+      <g stroke="#e8c064" stroke-width="1" fill="none">
+        ${soundRings(304, 77)}${soundRings(496, 77)}
+      </g>
+      <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.65">
+        <rect x="300" y="40" width="200" height="120" rx="6"/>
+        <path d="M270 160 h260 l-14 30 h-232 Z"/>
+        <rect x="290" y="65" width="18" height="18" rx="3"/>
+        <rect x="492" y="65" width="18" height="18" rx="3"/>
+      </g>
+    </svg>`,
+    bluetooth: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+      <rect width="800" height="320" fill="#141319"/>
+      <image href="images/hero-bluetooth.jpg" x="0" y="0" width="800" height="320" preserveAspectRatio="xMidYMid slice"/>
+      <rect width="800" height="320" fill="url(#g_bt)" opacity="0.62"/>
+      <defs><radialGradient id="g_bt" cx="50%" cy="32%" r="70%"><stop offset="0%" stop-color="#201f22"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
+      <g stroke="#e8c064" stroke-width="1" fill="none">
+        ${soundRings(400, 112)}
+      </g>
+      <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.65">
+        <rect x="350" y="70" width="100" height="150" rx="45"/>
+        <circle cx="400" cy="105" r="16"/>
+        <circle cx="400" cy="185" r="16"/>
+      </g>
+    </svg>`,
+    boombox: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+      <rect width="800" height="320" fill="#141319"/>
+      <image href="images/hero-boombox.jpg" x="0" y="0" width="800" height="320" preserveAspectRatio="xMidYMid slice"/>
+      <rect width="800" height="320" fill="url(#g_bx)" opacity="0.62"/>
+      <defs><radialGradient id="g_bx" cx="50%" cy="34%" r="72%"><stop offset="0%" stop-color="#231f19"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
+      <g stroke="#e8c064" stroke-width="1" fill="none">
+        ${soundRings(280, 128)}${soundRings(520, 128)}
+      </g>
+      <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.65">
+        <path d="M340 60 Q400 20 460 60"/>
+        <rect x="240" y="60" width="320" height="140" rx="16"/>
+        <circle cx="280" cy="128" r="34"/>
+        <circle cx="520" cy="128" r="34"/>
+      </g>
+    </svg>`,
+    club: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+      <rect width="800" height="320" fill="#141319"/>
+      <image href="images/hero-club.jpg" x="0" y="0" width="800" height="320" preserveAspectRatio="xMidYMid slice"/>
+      <rect width="800" height="320" fill="url(#g_cl)" opacity="0.62"/>
+      <defs><radialGradient id="g_cl" cx="50%" cy="24%" r="85%"><stop offset="0%" stop-color="#241b16"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
+      <g stroke="#e8c064" stroke-width="1.6" fill="none" opacity="0.4">
+        <rect x="80" y="20" width="640" height="270" rx="10"/>
+        <path class="reflection" d="M100 290 Q400 260 700 290" opacity="0.3"/>
+      </g>
+      <g stroke="#e8c064" stroke-width="1" fill="none">
+        ${soundRings(160, 64)}${soundRings(640, 64)}${soundRings(400, 48)}
+      </g>
+      <g stroke="#e8c064" stroke-width="1.8" fill="none" opacity="0.7">
+        <rect x="140" y="30" width="40" height="90" rx="4"/>
+        <rect x="620" y="30" width="40" height="90" rx="4"/>
+        <rect x="370" y="30" width="60" height="30" rx="4"/>
+        <rect x="365" y="80" width="70" height="26" rx="3"/>
+      </g>
+    </svg>`,
     cube: `<svg viewBox="0 0 800 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
       <rect width="800" height="320" fill="#141319"/>
-      <rect width="800" height="320" fill="url(#g4)"/>
+      <image href="images/hero-cube.jpg" x="0" y="0" width="800" height="320" preserveAspectRatio="xMidYMid slice"/>
+      <rect width="800" height="320" fill="url(#g4)" opacity="0.62"/>
       <defs><radialGradient id="g4" cx="50%" cy="32%" r="70%"><stop offset="0%" stop-color="#201f22"/><stop offset="100%" stop-color="#0c0b0d"/></radialGradient></defs>
       <g stroke="#e8c064" stroke-width="1.2" fill="none" opacity="0.3">
         <path class="reflection" d="M400 150 v80"/>
@@ -642,7 +898,7 @@
     });
     window.addEventListener('pointermove', (ev) => {
       if (!drag) return;
-      setVal(drag.startVal + (drag.startY - ev.clientY) * sensitivity);
+      setVal(drag.startVal + (drag.startY - ev.clientY) / (window.__novaTranslateScale || 1) * sensitivity);
     });
     window.addEventListener('pointerup', () => { drag = null; });
   }
@@ -1158,6 +1414,25 @@
     setTrim(0, false);
     setLevelMatch(true, false);
   }
+})();
+
+// ---- stage scale-to-fit (same technique as Nova Tape/Nova Pitch) ----
+(function () {
+  let lastW = -1, lastH = -1;
+  function fitStage() {
+    const w = document.documentElement.clientWidth || window.innerWidth || 0;
+    const h = document.documentElement.clientHeight || window.innerHeight || 0;
+    if (w <= 0 || h <= 0) return;
+    if (w === lastW && h === lastH) return;
+    lastW = w; lastH = h;
+    const scale = Math.min(w / 1152, h / 768);
+    window.__novaTranslateScale = scale || 1;
+    const stage = document.getElementById("stage");
+    if (stage) stage.style.transform = `scale(${scale})`;
+  }
+  fitStage();
+  window.addEventListener("resize", fitStage);
+  setInterval(fitStage, 300);
 })();
 </script>
 </body>

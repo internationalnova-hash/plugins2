@@ -1149,7 +1149,7 @@ function setupInteractions() {
   els.cleanKnob.addEventListener('pointermove', (e) => {
     if (!cleanDragging || e.pointerId !== cleanPointerId) return;
     e.preventDefault();
-    const delta = (cleanStartY - e.clientY) * 0.35;
+    const delta = (cleanStartY - e.clientY) / (window.__novaCleanScale || 1) * 0.35;
     setClean(cleanStartValue + delta);
   });
 
@@ -1185,7 +1185,7 @@ function setupInteractions() {
   const moveMediumDrag = (e) => {
     if (!mediumDrag || e.pointerId !== mediumDrag.pointerId) return;
     e.preventDefault();
-    const delta = (mediumDrag.startY - e.clientY) * mediumDrag.scale;
+    const delta = (mediumDrag.startY - e.clientY) / (window.__novaCleanScale || 1) * mediumDrag.scale;
     mediumDrag.applyFn(mediumDrag.startValue + delta);
   };
 
@@ -2097,17 +2097,24 @@ function tick() {
 
 function resizeApp() {
   const pad = 12;
-  const vw = Math.max(1, window.innerWidth - pad * 2);
-  const vh = Math.max(1, window.innerHeight - pad * 2);
+  const winW = document.documentElement.clientWidth || window.innerWidth || 0;
+  const winH = document.documentElement.clientHeight || window.innerHeight || 0;
+  if (winW <= 0 || winH <= 0) return;
+  const vw = Math.max(1, winW - pad * 2);
+  const vh = Math.max(1, winH - pad * 2);
   const baseWidth = 1536;
   const baseHeight = 1024;
   const s = Math.min(vw / baseWidth, vh / baseHeight, 1);
-  const offsetX = Math.floor((window.innerWidth - baseWidth * s) * 0.5);
-  const offsetY = Math.floor((window.innerHeight - baseHeight * s) * 0.5);
+  const offsetX = Math.floor((winW - baseWidth * s) * 0.5);
+  const offsetY = Math.floor((winH - baseHeight * s) * 0.5);
   els.app.style.left = `${offsetX}px`;
   els.app.style.top = `${offsetY}px`;
   els.app.style.transformOrigin = 'top left';
   els.app.style.transform = `translateZ(0) scale(${s})`;
+  // Exposed globally so knob-drag handlers can compensate raw pointer-
+  // pixel deltas for the current visual scale - pointer events report
+  // real screen pixels, unaffected by this CSS transform.
+  window.__novaCleanScale = s || 1;
   els.app.style.zoom = '1';
 }
 
@@ -2117,6 +2124,10 @@ window.receiveDSP = (dsp) => {
 };
 
 window.addEventListener('resize', resizeApp);
+// Polled too, not just resize-event-driven - this embedded WebView
+// doesn't reliably fire resize events on a native host setBounds()
+// (same fix applied across the catalog, see Nova Tape's index.js).
+setInterval(resizeApp, 300);
 loadPresetBrowserStorage();
 resizeApp();
 applyPresetByIndex(0, { animated: false, shouldEmit: false });

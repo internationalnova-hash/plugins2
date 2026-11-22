@@ -1083,19 +1083,37 @@
     </footer>
   </div>
   </div>
-  <script src="js/juce/check_native_interop.js"></script>
-  <script src="js/juce/index.js"></script>
-  <script src="js/index.js"></script>
+  <script type="module" src="js/index.js"></script>
   <script>
+    // Plain JS arithmetic against document.documentElement.clientWidth/
+    // Height (with a window.innerWidth/Height fallback), polled rather
+    // than relying only on the resize event - this embedded WebView
+    // doesn't reliably fire resize events on a native host setBounds().
+    // Same technique/rationale as Nova Tape's index.js fitStage().
     (function scaleStage() {
+      let lastW = -1, lastH = -1;
       function fit() {
         const stage = document.getElementById('ui-stage');
+        if (!stage) return;
         const W = 1080, H = 680;
-        const scale = Math.min(window.innerWidth / W, window.innerHeight / H);
+        const w = document.documentElement.clientWidth || window.innerWidth || 0;
+        const h = document.documentElement.clientHeight || window.innerHeight || 0;
+        if (w <= 0 || h <= 0) return;
+        if (w === lastW && h === lastH) return;
+        lastW = w; lastH = h;
+        const scale = Math.min(w / W, h / H);
         stage.style.setProperty('--ui-scale', scale);
+        // Exposed globally so drag handlers (index.js) can compensate raw
+        // pointer-pixel deltas for the current visual scale - pointer
+        // events report real screen pixels, unaffected by this CSS
+        // transform, so uncompensated drag math would feel wrong-sized
+        // relative to the knob whenever the window isn't 1:1 with the
+        // design canvas (sluggish when shrunk, twitchy when grown).
+        window.__novaAuraScale = scale || 1;
       }
       fit();
       window.addEventListener('resize', fit);
+      setInterval(fit, 300);
     })();
   </script>
 </body>

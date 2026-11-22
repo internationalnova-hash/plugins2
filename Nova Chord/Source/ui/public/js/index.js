@@ -17,6 +17,7 @@ function getParamRange(param) {
   if (param === 'octaveShift') return { min: -2, max: 2  };
   if (param === 'velocity')    return { min: 1,  max: 127 };
   if (param === 'passThrough') return { min: 0,  max: 1  };
+  if (param === 'voiceType')   return { min: 0,  max: 4  };
   return { min: 0, max: 100 };
 }
 
@@ -55,7 +56,7 @@ function syncParam(param, value) {
 function requestInitialHostParameters() {
   if (!hasJuceBackend()) return;
 
-  const params = ['styleIdx', 'octaveShift', 'velocity', 'passThrough'];
+  const params = ['styleIdx', 'octaveShift', 'velocity', 'passThrough', 'voiceType'];
 
   params.forEach((param) => {
     const identifier = `__juce__slider${param}`;

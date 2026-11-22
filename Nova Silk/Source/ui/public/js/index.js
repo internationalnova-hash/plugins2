@@ -384,7 +384,7 @@
     if (activeDrag.pointerId != null && ev && ev.pointerId != null && ev.pointerId !== activeDrag.pointerId) return;
     if (ev && ev.preventDefault) ev.preventDefault();
 
-    var delta = activeDrag.startY - getClientY(ev);
+    var delta = (activeDrag.startY - getClientY(ev)) / (window.__novaSilkScale || 1);
     var nextValue = clamp(activeDrag.startValue + delta * 0.45, 0, 100);
     setParamPercent(activeDrag.param, nextValue, { push: true });
   }
@@ -1179,3 +1179,22 @@
     boot();
   }
 }());
+
+// ---- stage scale-to-fit (same technique as Nova Tape/Nova Pitch) ----
+(function () {
+  let lastW = -1, lastH = -1;
+  function fitStage() {
+    const w = document.documentElement.clientWidth || window.innerWidth || 0;
+    const h = document.documentElement.clientHeight || window.innerHeight || 0;
+    if (w <= 0 || h <= 0) return;
+    if (w === lastW && h === lastH) return;
+    lastW = w; lastH = h;
+    const scale = Math.min(w / 1536, h / 940);
+    window.__novaSilkScale = scale || 1;
+    const stage = document.getElementById("stage");
+    if (stage) stage.style.transform = `scale(${scale})`;
+  }
+  fitStage();
+  window.addEventListener("resize", fitStage);
+  setInterval(fitStage, 300);
+})();

@@ -1,0 +1,98 @@
+==> [Nova Heat 1/7] Configuring Release build
+-- Configuring juceaide
+-- Building juceaide
+-- Exporting juceaide
+-- Testing juceaide
+-- Finished setting up juceaide
+-- Nova Heat: Building for VST3;AU;AAX;Standalone
+-- Nova Heat: WebView backend: WKWebView
+-- Configuring done (2.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /Users/internationalnova/Nova/plugins2/Nova Heat/build-release
+==> [Nova Heat 2/7] Building VST3 + AU + Standalone (via NovaHeat_All)
+[  1%] Generating juce_binarydata_NovaHeat_WebUI/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_NovaHeat_WebUI/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_NovaHeat_WebUI/JuceLibraryCode/BinaryData.h
+[  3%] Built target juce_vst3_helper
+[  3%] Generating juce_binarydata_NovaHeat_WebUI/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_NovaHeat_WebUI/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_NovaHeat_WebUI/JuceLibraryCode/BinaryData.h
+[  7%] Built target NovaHeat_WebUI
+[ 33%] Built target NovaHeat
+[ 34%] Linking CXX executable "NovaHeat_artefacts/Release/Standalone/Nova Heat.app/Contents/MacOS/Nova Heat"
+[ 35%] Linking CXX CFBundle shared module "NovaHeat_artefacts/Release/VST3/Nova Heat.vst3/Contents/MacOS/Nova Heat"
+[ 37%] Linking CXX CFBundle shared module "NovaHeat_artefacts/Release/AAX/Nova Heat.aaxplugin/Contents/MacOS/Nova Heat"
+[ 38%] Linking CXX CFBundle shared module "NovaHeat_artefacts/Release/AU/Nova Heat.component/Contents/MacOS/Nova Heat"
+[ 53%] Built target NovaHeat_AAX
+[ 69%] Built target NovaHeat_AU
+/Users/internationalnova/Nova/plugins2/Nova Heat/build-release/NovaHeat_artefacts/Release/VST3/Nova Heat.vst3: code object is not signed at all
+-- Replacing invalid signature with ad-hoc signature
+/Users/internationalnova/Nova/plugins2/Nova Heat/build-release/NovaHeat_artefacts/Release/VST3/Nova Heat.vst3: replacing existing signature
+removing moduleinfo.json
+creating /Users/internationalnova/Nova/plugins2/Nova Heat/build-release/NovaHeat_artefacts/Release/VST3/Nova Heat.vst3/Contents/Resources/moduleinfo.json
+[ 84%] Built target NovaHeat_VST3
+[100%] Built target NovaHeat_Standalone
+[100%] Built target NovaHeat_All
+==> [Nova Heat 3/7] Codesigning bundles (hardened runtime, secure timestamp)
+/Users/internationalnova/Nova/plugins2/Nova Heat/build-release/NovaHeat_artefacts/Release/VST3/Nova Heat.vst3: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova Heat/build-release/NovaHeat_artefacts/Release/AU/Nova Heat.component: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova Heat/build-release/NovaHeat_artefacts/Release/Standalone/Nova Heat.app: replacing existing signature
+==> [Nova Heat 3/7] Verifying codesign
+/Users/internationalnova/Nova/plugins2/Nova Heat/build-release/NovaHeat_artefacts/Release/VST3/Nova Heat.vst3: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Heat/build-release/NovaHeat_artefacts/Release/VST3/Nova Heat.vst3: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova Heat/build-release/NovaHeat_artefacts/Release/AU/Nova Heat.component: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Heat/build-release/NovaHeat_artefacts/Release/AU/Nova Heat.component: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova Heat/build-release/NovaHeat_artefacts/Release/Standalone/Nova Heat.app: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Heat/build-release/NovaHeat_artefacts/Release/Standalone/Nova Heat.app: satisfies its Designated Requirement
+==> [Nova Heat 4/7] Staging installer root
+==> [Nova Heat 5/7] Building + signing installer package
+pkgbuild: Inferring bundle components from contents of /Users/internationalnova/Nova/plugins2/Nova Heat/dist/pkgroot
+pkgbuild: Adding component at Library/Audio/Plug-Ins/Components/Nova Heat.component
+pkgbuild: Adding component at Applications/Nova Heat.app
+pkgbuild: Adding component at Library/Audio/Plug-Ins/VST3/Nova Heat.vst3
+pkgbuild: Wrote package to /Users/internationalnova/Nova/plugins2/Nova Heat/dist/NovaHeat-unsigned.pkg
+productsign: using timestamp authority for signature
+productsign: signing product with identity "Developer ID Installer: Giovanni Nova (HSX9N2UQ83)" from keychain /Users/internationalnova/Library/Keychains/login.keychain-db
+productsign: adding certificate "Developer ID Certification Authority"
+productsign: adding certificate "Apple Root CA"
+productsign: Wrote signed product archive to /Users/internationalnova/Nova/plugins2/Nova Heat/dist/NovaHeat-1.0.0.pkg
+Package "NovaHeat-1.0.0.pkg":
+   Status: signed by a developer certificate issued by Apple for distribution
+   Signed with a trusted timestamp on: 2026-08-17 00:04:28 +0000
+   Certificate Chain:
+    1. Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+       Expires: 2031-08-10 05:15:34 +0000
+       SHA256 Fingerprint:
+           A5 7B 81 C2 82 10 15 09 6C C2 83 D5 33 A8 40 30 9F FA 53 0A 3B F6 
+           C3 85 80 B2 1E FE FB A6 32 AC
+       ------------------------------------------------------------------------
+    2. Developer ID Certification Authority
+       Expires: 2031-09-17 00:00:00 +0000
+       SHA256 Fingerprint:
+           F1 6C D3 C5 4C 7F 83 CE A4 BF 1A 3E 6A 08 19 C8 AA A8 E4 A1 52 8F 
+           D1 44 71 5F 35 06 43 D2 DF 3A
+       ------------------------------------------------------------------------
+    3. Apple Root CA
+       Expires: 2035-02-09 21:40:36 +0000
+       SHA256 Fingerprint:
+           B0 B1 73 0E CB C7 FF 45 05 14 2C 49 F1 29 5E 6E DA 6B CA ED 7E 2C 
+           68 C5 BE 91 B5 A1 10 01 F0 24
+
+==> [Nova Heat 6/7] Submitting for notarization (this can take a few minutes)
+Conducting pre-submission checks for NovaHeat-1.0.0.pkg and initiating connection to the Apple notary service...
+Submission ID received
+  id: b88a3011-0e5a-4afd-9790-621aabfda1c2
+Successfully uploaded file
+  id: b88a3011-0e5a-4afd-9790-621aabfda1c2
+  path: /Users/internationalnova/Nova/plugins2/Nova Heat/dist/NovaHeat-1.0.0.pkg
+Waiting for processing to complete.
+Current status: In Progress...Current status: In Progress....Current status: Accepted.....Processing complete
+  id: b88a3011-0e5a-4afd-9790-621aabfda1c2
+  status: Accepted
+
+==> [Nova Heat 7/7] Stapling notarization ticket
+Processing: /Users/internationalnova/Nova/plugins2/Nova Heat/dist/NovaHeat-1.0.0.pkg
+Processing: /Users/internationalnova/Nova/plugins2/Nova Heat/dist/NovaHeat-1.0.0.pkg
+The staple and validate action worked!
+==> [Nova Heat] Final verification
+/Users/internationalnova/Nova/plugins2/Nova Heat/dist/NovaHeat-1.0.0.pkg: accepted
+source=Notarized Developer ID
+origin=Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+
+Done: /Users/internationalnova/Nova/plugins2/Nova Heat/dist/NovaHeat-1.0.0.pkg

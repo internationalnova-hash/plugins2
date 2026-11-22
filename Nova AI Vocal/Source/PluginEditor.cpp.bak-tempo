@@ -1,0 +1,256 @@
+#include "PluginEditor.h"
+#include "BinaryData.h"
+#include "dsp/NovaFactoryPresets.h"
+
+#include <cstring>
+
+NovaAIVocalEditor::NovaAIVocalEditor (NovaAIVocalProcessor& p)
+    : AudioProcessorEditor (&p), processorRef (p)
+{
+    webView = std::make_unique<SinglePageBrowser> (createWebOptions (*this));
+
+    auto& s = processorRef.apvts;
+    cleanAttachment  = std::make_unique<juce::WebSliderParameterAttachment> (*s.getParameter ("clean"),  cleanRelay,  nullptr);
+    deessAttachment  = std::make_unique<juce::WebSliderParameterAttachment> (*s.getParameter ("deess"),  deessRelay,  nullptr);
+    punchAttachment  = std::make_unique<juce::WebSliderParameterAttachment> (*s.getParameter ("punch"),  punchRelay,  nullptr);
+    airAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*s.getParameter ("air"),    airRelay,    nullptr);
+    warmthAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*s.getParameter ("warmth"), warmthRelay, nullptr);
+    spaceAttachment  = std::make_unique<juce::WebSliderParameterAttachment> (*s.getParameter ("space"),  spaceRelay,  nullptr);
+    tuneAttachment   = std::make_unique<juce::WebSliderParameterAttachment> (*s.getParameter ("tune"),   tuneRelay,   nullptr);
+    keyAttachment    = std::make_unique<juce::WebComboBoxParameterAttachment> (*s.getParameter ("key"), keyRelay, nullptr);
+    mixAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*s.getParameter ("mix"),    mixRelay,    nullptr);
+    outputAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*s.getParameter ("output"), outputRelay, nullptr);
+    vibeAttachment   = std::make_unique<juce::WebComboBoxParameterAttachment> (*s.getParameter ("vibe"), vibeRelay, nullptr);
+    bypassAttachment = std::make_unique<juce::WebToggleButtonParameterAttachment> (*s.getParameter ("bypass"), bypassRelay, nullptr);
+
+    addAndMakeVisible (*webView);
+
+    const auto cacheBustedUrl = juce::WebBrowserComponent::getResourceProviderRoot()
+                              + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
+    webView->goToURL (cacheBustedUrl);
+
+    // Fixed 1100 x 700 design canvas, scaled by the page to the window.
+    setResizable (true, true);
+    setResizeLimits (550, 350, 1650, 1050);
+    if (auto* c = getConstrainer()) c->setFixedAspectRatio (1100.0 / 700.0);
+    setSize (1100, 700);
+    startTimerHz (30);
+}
+
+NovaAIVocalEditor::~NovaAIVocalEditor()
+{
+    stopTimer();
+}
+
+void NovaAIVocalEditor::paint (juce::Graphics& g)
+{
+    g.fillAll (juce::Colour::fromRGB (5, 5, 5));
+}
+
+void NovaAIVocalEditor::resized()
+{
+    if (webView != nullptr)
+        webView->setBounds (getLocalBounds());
+}
+
+void NovaAIVocalEditor::timerCallback()
+{
+    if (webView == nullptr) return;
+
+    juce::String state;
+    switch (processorRef.getListenState())
+    {
+        case NovaVocalListenState::Idle:      state = "Idle"; break;
+        case NovaVocalListenState::Listening: state = "Listening"; break;
+        case NovaVocalListenState::Analyzing: state = "Analyzing"; break;
+        case NovaVocalListenState::Mixed:     state = "Mixed"; break;
+    }
+
+    auto* obj = new juce::DynamicObject();
+    obj->setProperty ("state", state);
+    obj->setProperty ("summary", processorRef.getSummary());
+    obj->setProperty ("captured", processorRef.getCapturedSeconds());
+    obj->setProperty ("inDb", processorRef.getInputLevelDb());
+    obj->setProperty ("outDb", processorRef.getOutputLevelDb());
+    obj->setProperty ("compGr", processorRef.getCompGrDb());
+    obj->setProperty ("deessGr", processorRef.getDeEssGrDb());
+    obj->setProperty ("inMidi", processorRef.getTunerInputMidi());
+    obj->setProperty ("targetMidi", processorRef.getTunerTargetMidi());
+    obj->setProperty ("keyName", processorRef.getActiveKeyName());
+    obj->setProperty ("presetName", processorRef.getCurrentPresetName());
+
+    const auto& plan = processorRef.getCurrentPlan();
+    obj->setProperty ("planActive", plan.active);
+    obj->setProperty ("planMud", plan.mudDb);
+    obj->setProperty ("planBox", plan.boxDb);
+    obj->setProperty ("planPresence", plan.presenceDb);
+    obj->setProperty ("planAir", plan.airDb);
+    obj->setProperty ("spectrum", computeSpectrum());
+
+    // The active recipe's EQ, so the Chain Curve draws what is really running
+    const auto& V = processorRef.getActiveVoicing();
+    auto* vo = new juce::DynamicObject();
+    vo->setProperty ("hpf", V.hpfMaxHz);     vo->setProperty ("mud", V.mudCutMaxDb);
+    vo->setProperty ("presHz", V.presenceHz); vo->setProperty ("presDb", V.presenceMaxDb);
+    vo->setProperty ("airHz", V.airHz);       vo->setProperty ("airDb", V.airMaxDb);
+    vo->setProperty ("dsHz", V.deEssHz);
+    obj->setProperty ("voicing", juce::var (vo));
+
+    webView->emitEventIfBrowserIsVisible ("novaStatus", juce::var (obj));
+}
+
+juce::WebBrowserComponent::Options NovaAIVocalEditor::createWebOptions (NovaAIVocalEditor& editor)
+{
+    auto options = juce::WebBrowserComponent::Options {};
+
+   #if JUCE_WINDOWS
+    options = options.withBackend (juce::WebBrowserComponent::Options::Backend::webview2)
+                     .withWinWebView2Options (
+                         juce::WebBrowserComponent::Options::WinWebView2 {}
+                             .withUserDataFolder (juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                 .getChildFile ("NovaAIVocal")));
+   #endif
+
+    options = options.withNativeIntegrationEnabled()
+                     .withResourceProvider ([&editor] (const juce::String& url) { return editor.getResource (url); })
+                     .withNativeFunction ("toggleListen", [&editor] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         editor.processorRef.toggleListen();
+                         completion (juce::var());
+                     })
+                     .withNativeFunction ("getPresets", [&editor] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         completion (editor.presetList());
+                     })
+                     .withNativeFunction ("loadPreset", [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         const auto name = args.isEmpty() ? juce::String() : args[0].toString();
+                         if (name.isEmpty() || name == "Default") editor.processorRef.loadDefaultPreset();
+                         else if (! editor.processorRef.loadFactoryPreset (name)) editor.processorRef.loadUserPreset (name);
+                         completion (editor.presetList());
+                     })
+                     .withNativeFunction ("savePreset", [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         const bool ok = ! args.isEmpty() && editor.processorRef.saveUserPreset (args[0].toString());
+                         auto list = editor.presetList();
+                         if (auto* o = list.getDynamicObject()) o->setProperty ("ok", ok);
+                         completion (list);
+                     })
+                     .withNativeFunction ("deletePreset", [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         if (! args.isEmpty()) editor.processorRef.deleteUserPreset (args[0].toString());
+                         completion (editor.presetList());
+                     })
+                     .withNativeFunction ("revealPresets", [] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         auto folder = NovaAIVocalProcessor::getUserPresetsFolder();
+                         folder.createDirectory();
+                         folder.revealToUser();
+                         completion (juce::var());
+                     })
+                     .withNativeFunction ("reapplyVibe", [&editor] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         editor.processorRef.reapplyVibe();
+                         completion (juce::var());
+                     })
+                     .withNativeFunction ("forgetVoice", [&editor] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         editor.processorRef.forgetVoice();
+                         completion (juce::var());
+                     })
+                     .withNativeFunction ("setWindowScale", [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         const double s = args.isEmpty() ? 1.0 : juce::jlimit (0.5, 1.5, (double) args[0]);
+                         juce::Component::SafePointer<NovaAIVocalEditor> safe (&editor);
+                         juce::MessageManager::callAsync ([safe, s]
+                         {
+                             if (safe != nullptr) safe->setSize (juce::roundToInt (1100 * s), juce::roundToInt (700 * s));
+                         });
+                         completion (juce::var());
+                     })
+                     .withOptionsFrom (editor.cleanRelay)
+                     .withOptionsFrom (editor.deessRelay)
+                     .withOptionsFrom (editor.punchRelay)
+                     .withOptionsFrom (editor.airRelay)
+                     .withOptionsFrom (editor.warmthRelay)
+                     .withOptionsFrom (editor.spaceRelay)
+                     .withOptionsFrom (editor.tuneRelay)
+                     .withOptionsFrom (editor.keyRelay)
+                     .withOptionsFrom (editor.mixRelay)
+                     .withOptionsFrom (editor.outputRelay)
+                     .withOptionsFrom (editor.vibeRelay)
+                     .withOptionsFrom (editor.bypassRelay);
+
+    return options;
+}
+
+std::optional<juce::WebBrowserComponent::Resource> NovaAIVocalEditor::getResource (const juce::String& url)
+{
+    auto makeResource = [] (const void* data, int size, const char* mime)
+    {
+        std::vector<std::byte> bytes (static_cast<size_t> (size));
+        std::memcpy (bytes.data(), data, static_cast<size_t> (size));
+        return juce::WebBrowserComponent::Resource { std::move (bytes), juce::String (mime) };
+    };
+
+    // Substring match on the raw URL - same proven pattern as Nova AI Master.
+    const auto lowerUrl = url.toLowerCase();
+
+    if (lowerUrl.contains ("juce/index.js"))
+        return makeResource (nova_ai_vocal_BinaryData::index_js2, nova_ai_vocal_BinaryData::index_js2Size, "text/javascript");
+
+    if (lowerUrl.contains ("juce/check_native_interop.js"))
+        return makeResource (nova_ai_vocal_BinaryData::check_native_interop_js, nova_ai_vocal_BinaryData::check_native_interop_jsSize, "text/javascript");
+
+    if (lowerUrl.contains ("js/index.js"))
+        return makeResource (nova_ai_vocal_BinaryData::index_js, nova_ai_vocal_BinaryData::index_jsSize, "text/javascript");
+
+    if (lowerUrl.contains ("index.html") || lowerUrl.endsWith ("/") || lowerUrl.isEmpty())
+        return makeResource (nova_ai_vocal_BinaryData::index_html, nova_ai_vocal_BinaryData::index_htmlSize, "text/html");
+
+    return std::nullopt;
+}
+
+juce::var NovaAIVocalEditor::presetList() const
+{
+    auto* o = new juce::DynamicObject();
+    // Parallel arrays: names[i] belongs to groups[i] ("", factory group, or "USER").
+    juce::Array<juce::var> names, groups;
+    names.add ("Default"); groups.add ("");
+    for (const auto& fp : getNovaFactoryPresets()) { names.add (fp.name); groups.add (fp.group); }
+    for (const auto& n : processorRef.getUserPresetNames()) { names.add (n); groups.add ("USER"); }
+    o->setProperty ("names", names);
+    o->setProperty ("groups", groups);
+    o->setProperty ("current", processorRef.getCurrentPresetName());
+    return juce::var (o);
+}
+
+// 96 log-spaced bands, 30 Hz - 20 kHz, in dB (smoothed: fast rise, slow fall).
+juce::var NovaAIVocalEditor::computeSpectrum()
+{
+    std::fill (fftData.begin(), fftData.end(), 0.f);
+    processorRef.copyScope (fftData.data(), kFftSize);
+    window.multiplyWithWindowingTable (fftData.data(), (size_t) kFftSize);
+    fft.performFrequencyOnlyForwardTransform (fftData.data());
+
+    const double sr = processorRef.getSampleRateForUi() > 0 ? processorRef.getSampleRateForUi() : 48000.0;
+    const double binHz = sr / kFftSize;
+    const double fLo = 30.0, fHi = juce::jmin (20000.0, sr * 0.5);
+    const float norm = 4.f / (float) kFftSize; // Hann coherent gain ~0.5, one-sided x2
+
+    juce::Array<juce::var> out;
+    for (int b = 0; b < kNumBands; ++b)
+    {
+        const double f0 = fLo * std::pow (fHi / fLo, (double) b / kNumBands);
+        const double f1 = fLo * std::pow (fHi / fLo, (double) (b + 1) / kNumBands);
+        int i0 = juce::jlimit (1, kFftSize / 2 - 1, (int) std::floor (f0 / binHz));
+        int i1 = juce::jlimit (i0, kFftSize / 2 - 1, (int) std::ceil (f1 / binHz));
+        float m = 0.f;
+        for (int i = i0; i <= i1; ++i) m = juce::jmax (m, fftData[(size_t) i]);
+        const float db = juce::Decibels::gainToDecibels (m * norm, -100.f);
+        auto& s = bandsDb[(size_t) b];
+        s = db > s ? db : s + (db - s) * 0.25f;
+        out.add (juce::roundToInt (s * 10.f) / 10.0);
+    }
+    return out;
+}

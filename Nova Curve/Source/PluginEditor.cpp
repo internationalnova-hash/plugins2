@@ -13,7 +13,8 @@ NovaCurveAudioProcessorEditor::NovaCurveAudioProcessorEditor (NovaCurveAudioProc
                               + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
+    setResizable (true, true);
+    setResizeLimits (714, 420, 1700, 1000);
     setSize (1080, 680);
     startTimerHz (4);
 }

@@ -33,7 +33,8 @@ NovaTranslateAudioProcessorEditor::NovaTranslateAudioProcessorEditor (NovaTransl
                               + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
+    setResizable (true, true);
+    setResizeLimits (691, 461, 1728, 1152);
     setSize (1152, 768);
     startTimerHz (30);
 }
@@ -177,6 +178,55 @@ std::optional<juce::WebBrowserComponent::Resource> NovaTranslateAudioProcessorEd
                              nova_translate_BinaryData::n_logo_pngSize,
                              "image/png");
 
+    if (lowerUrl.contains ("hero-studio.jpg"))
+        return makeResource (nova_translate_BinaryData::herostudio_jpg,
+                             nova_translate_BinaryData::herostudio_jpgSize,
+                             "image/jpeg");
+    if (lowerUrl.contains ("hero-nearfield.jpg"))
+        return makeResource (nova_translate_BinaryData::heronearfield_jpg,
+                             nova_translate_BinaryData::heronearfield_jpgSize,
+                             "image/jpeg");
+    if (lowerUrl.contains ("hero-mastering.jpg"))
+        return makeResource (nova_translate_BinaryData::heromastering_jpg,
+                             nova_translate_BinaryData::heromastering_jpgSize,
+                             "image/jpeg");
+    if (lowerUrl.contains ("hero-bedroom.jpg"))
+        return makeResource (nova_translate_BinaryData::herobedroom_jpg,
+                             nova_translate_BinaryData::herobedroom_jpgSize,
+                             "image/jpeg");
+    if (lowerUrl.contains ("hero-car.jpg"))
+        return makeResource (nova_translate_BinaryData::herocar_jpg,
+                             nova_translate_BinaryData::herocar_jpgSize,
+                             "image/jpeg");
+    if (lowerUrl.contains ("hero-suv.jpg"))
+        return makeResource (nova_translate_BinaryData::herosuv_jpg,
+                             nova_translate_BinaryData::herosuv_jpgSize,
+                             "image/jpeg");
+    if (lowerUrl.contains ("hero-phone.jpg"))
+        return makeResource (nova_translate_BinaryData::herophone_jpg,
+                             nova_translate_BinaryData::herophone_jpgSize,
+                             "image/jpeg");
+    if (lowerUrl.contains ("hero-laptop.jpg"))
+        return makeResource (nova_translate_BinaryData::herolaptop_jpg,
+                             nova_translate_BinaryData::herolaptop_jpgSize,
+                             "image/jpeg");
+    if (lowerUrl.contains ("hero-bluetooth.jpg"))
+        return makeResource (nova_translate_BinaryData::herobluetooth_jpg,
+                             nova_translate_BinaryData::herobluetooth_jpgSize,
+                             "image/jpeg");
+    if (lowerUrl.contains ("hero-boombox.jpg"))
+        return makeResource (nova_translate_BinaryData::heroboombox_jpg,
+                             nova_translate_BinaryData::heroboombox_jpgSize,
+                             "image/jpeg");
+    if (lowerUrl.contains ("hero-club.jpg"))
+        return makeResource (nova_translate_BinaryData::heroclub_jpg,
+                             nova_translate_BinaryData::heroclub_jpgSize,
+                             "image/jpeg");
+    if (lowerUrl.contains ("hero-cube.jpg"))
+        return makeResource (nova_translate_BinaryData::herocube_jpg,
+                             nova_translate_BinaryData::herocube_jpgSize,
+                             "image/jpeg");
+
     auto resourcePath = url.fromFirstOccurrenceOf (juce::WebBrowserComponent::getResourceProviderRoot(), false, false);
     resourcePath = resourcePath.upToFirstOccurrenceOf ("?", false, false);
 
@@ -197,6 +247,55 @@ std::optional<juce::WebBrowserComponent::Resource> NovaTranslateAudioProcessorEd
         return makeResource (nova_translate_BinaryData::n_logo_png,
                              nova_translate_BinaryData::n_logo_pngSize,
                              "image/png");
+
+    if (lowerPath.endsWith ("/hero-studio.jpg"))
+        return makeResource (nova_translate_BinaryData::herostudio_jpg,
+                             nova_translate_BinaryData::herostudio_jpgSize,
+                             "image/jpeg");
+    if (lowerPath.endsWith ("/hero-nearfield.jpg"))
+        return makeResource (nova_translate_BinaryData::heronearfield_jpg,
+                             nova_translate_BinaryData::heronearfield_jpgSize,
+                             "image/jpeg");
+    if (lowerPath.endsWith ("/hero-mastering.jpg"))
+        return makeResource (nova_translate_BinaryData::heromastering_jpg,
+                             nova_translate_BinaryData::heromastering_jpgSize,
+                             "image/jpeg");
+    if (lowerPath.endsWith ("/hero-bedroom.jpg"))
+        return makeResource (nova_translate_BinaryData::herobedroom_jpg,
+                             nova_translate_BinaryData::herobedroom_jpgSize,
+                             "image/jpeg");
+    if (lowerPath.endsWith ("/hero-car.jpg"))
+        return makeResource (nova_translate_BinaryData::herocar_jpg,
+                             nova_translate_BinaryData::herocar_jpgSize,
+                             "image/jpeg");
+    if (lowerPath.endsWith ("/hero-suv.jpg"))
+        return makeResource (nova_translate_BinaryData::herosuv_jpg,
+                             nova_translate_BinaryData::herosuv_jpgSize,
+                             "image/jpeg");
+    if (lowerPath.endsWith ("/hero-phone.jpg"))
+        return makeResource (nova_translate_BinaryData::herophone_jpg,
+                             nova_translate_BinaryData::herophone_jpgSize,
+                             "image/jpeg");
+    if (lowerPath.endsWith ("/hero-laptop.jpg"))
+        return makeResource (nova_translate_BinaryData::herolaptop_jpg,
+                             nova_translate_BinaryData::herolaptop_jpgSize,
+                             "image/jpeg");
+    if (lowerPath.endsWith ("/hero-bluetooth.jpg"))
+        return makeResource (nova_translate_BinaryData::herobluetooth_jpg,
+                             nova_translate_BinaryData::herobluetooth_jpgSize,
+                             "image/jpeg");
+    if (lowerPath.endsWith ("/hero-boombox.jpg"))
+        return makeResource (nova_translate_BinaryData::heroboombox_jpg,
+                             nova_translate_BinaryData::heroboombox_jpgSize,
+                             "image/jpeg");
+    if (lowerPath.endsWith ("/hero-club.jpg"))
+        return makeResource (nova_translate_BinaryData::heroclub_jpg,
+                             nova_translate_BinaryData::heroclub_jpgSize,
+                             "image/jpeg");
+    if (lowerPath.endsWith ("/hero-cube.jpg"))
+        return makeResource (nova_translate_BinaryData::herocube_jpg,
+                             nova_translate_BinaryData::herocube_jpgSize,
+                             "image/jpeg");
 
     return std::nullopt;
 }

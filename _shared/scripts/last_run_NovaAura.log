@@ -1,0 +1,633 @@
+==> [Nova Aura 1/7] Configuring Release build
+-- The C compiler identification is AppleClang 21.0.0.21000101
+-- The CXX compiler identification is AppleClang 21.0.0.21000101
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring juceaide
+-- Building juceaide
+-- Exporting juceaide
+-- Testing juceaide
+-- Finished setting up juceaide
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Configuring done (81.2s)
+-- Generating done (0.0s)
+-- Build files have been written to: /Users/internationalnova/Nova/plugins2/Nova Aura/build-release
+==> [Nova Aura 2/7] Building VST3 + AU + Standalone (via NovaAura_All)
+[  1%] Generating juce_binarydata_NovaAura_WebUI/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_NovaAura_WebUI/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_NovaAura_WebUI/JuceLibraryCode/BinaryData3.cpp, juce_binarydata_NovaAura_WebUI/JuceLibraryCode/BinaryData4.cpp, juce_binarydata_NovaAura_WebUI/JuceLibraryCode/BinaryData5.cpp, juce_binarydata_NovaAura_WebUI/JuceLibraryCode/BinaryData.h
+[  2%] Building CXX object CMakeFiles/juce_vst3_helper.dir/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.mm.o
+[  4%] Building CXX object CMakeFiles/NovaAura_WebUI.dir/juce_binarydata_NovaAura_WebUI/JuceLibraryCode/BinaryData5.cpp.o
+[  4%] Building CXX object CMakeFiles/NovaAura_WebUI.dir/juce_binarydata_NovaAura_WebUI/JuceLibraryCode/BinaryData2.cpp.o
+[  7%] Building CXX object CMakeFiles/NovaAura_WebUI.dir/juce_binarydata_NovaAura_WebUI/JuceLibraryCode/BinaryData1.cpp.o
+[  7%] Building CXX object CMakeFiles/NovaAura_WebUI.dir/juce_binarydata_NovaAura_WebUI/JuceLibraryCode/BinaryData4.cpp.o
+[  8%] Building CXX object CMakeFiles/NovaAura_WebUI.dir/juce_binarydata_NovaAura_WebUI/JuceLibraryCode/BinaryData3.cpp.o
+[  9%] Linking CXX static library libNovaAura_WebUI.a
+[  9%] Built target NovaAura_WebUI
+[ 11%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm.o
+[ 12%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm.o
+[ 13%] Building CXX object CMakeFiles/NovaAura.dir/Source/PluginProcessor.cpp.o
+[ 14%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm.o
+[ 17%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o
+[ 17%] Building CXX object CMakeFiles/NovaAura.dir/Source/PluginEditor.cpp.o
+[ 18%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o
+[ 19%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o
+[ 20%] Building C object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Sheenbidi.c.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.h:6:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+[ 22%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_graphics/juce_graphics.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginEditor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:55:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.cpp:57:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:180:27: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  180 |             transientFast[ch] = trFastCoeff * transientFast[ch] + (1.0f - trFastCoeff) * absX;
+      |             ~~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:180:61: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  180 |             transientFast[ch] = trFastCoeff * transientFast[ch] + (1.0f - trFastCoeff) * absX;
+      |                                               ~~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:181:27: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  181 |             transientSlow[ch] = trSlowCoeff * transientSlow[ch] + (1.0f - trSlowCoeff) * absX;
+      |             ~~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:181:61: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  181 |             transientSlow[ch] = trSlowCoeff * transientSlow[ch] + (1.0f - trSlowCoeff) * absX;
+      |                                               ~~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:182:83: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  182 |             const float transient = clampUnit ((transientFast[ch] - transientSlow[ch]) * 6.0f);
+      |                                                                     ~~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:182:63: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  182 |             const float transient = clampUnit ((transientFast[ch] - transientSlow[ch]) * 6.0f);
+      |                                                 ~~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:184:26: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  184 |             presenceLpLo[ch] = c2k * presenceLpLo[ch] + (1.0f - c2k) * x;
+      |             ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:184:51: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  184 |             presenceLpLo[ch] = c2k * presenceLpLo[ch] + (1.0f - c2k) * x;
+      |                                      ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:185:26: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  185 |             presenceLpHi[ch] = c6k * presenceLpHi[ch] + (1.0f - c6k) * x;
+      |             ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:185:51: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  185 |             presenceLpHi[ch] = c6k * presenceLpHi[ch] + (1.0f - c6k) * x;
+      |                                      ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:186:19: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  186 |             airLp[ch] = c8k * airLp[ch] + (1.0f - c8k) * x;
+      |             ~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:186:37: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  186 |             airLp[ch] = c8k * airLp[ch] + (1.0f - c8k) * x;
+      |                               ~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:188:72: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  188 |             const float presenceBand = presenceLpHi[ch] - presenceLpLo[ch];
+      |                                                           ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:188:53: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  188 |             const float presenceBand = presenceLpHi[ch] - presenceLpLo[ch];
+      |                                        ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:189:45: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  189 |             const float airBand = x - airLp[ch];
+      |                                       ~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:192:53: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  192 |             const float hc = harshSample > harshEnv[ch] ? harshAtk : harshRel;
+      |                                            ~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:193:22: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  193 |             harshEnv[ch] = hc * harshEnv[ch] + (1.0f - hc) * harshSample;
+      |             ~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:193:42: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  193 |             harshEnv[ch] = hc * harshEnv[ch] + (1.0f - hc) * harshSample;
+      |                                 ~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:195:58: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  195 |             const float harshGate = clampUnit ((harshEnv[ch] - 0.08f) * 6.0f);
+      |                                                 ~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:218:26: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  218 |             outputSmooth[ch] = 0.82f * outputSmooth[ch] + 0.18f * y;
+      |             ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:218:53: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  218 |             outputSmooth[ch] = 0.82f * outputSmooth[ch] + 0.18f * y;
+      |                                        ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:219:43: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  219 |             y = fastLerp (y, outputSmooth[ch], clampUnit (smoothStrength));
+      |                              ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:225:36: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  225 |             harshAccum += harshEnv[ch];
+      |                           ~~~~~~~~ ^~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.h:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/array:566:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:37:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[9], juce::NormalisableRange<float>, float, juce::String, juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:44:9), 0>' requested here
+   37 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.h:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/array:566:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:46:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[10], juce::NormalisableRange<float>, float, juce::String, juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:53:9), 0>' requested here
+   46 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.h:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/array:566:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:55:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[4], juce::NormalisableRange<float>, float, juce::String, juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:62:9), 0>' requested here
+   55 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+27 warnings generated.
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:189:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: warning: enumeration value 'NSEventTypeMouseCancelled' not explicitly handled in switch [-Wswitch-enum]
+ 1916 |         switch ([e type])
+      |                 ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: note: add missing switch cases
+ 1916 |         switch ([e type])
+      |                 ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginEditor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginEditor.h:3:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.h:6:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:180:27: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  180 |             transientFast[ch] = trFastCoeff * transientFast[ch] + (1.0f - trFastCoeff) * absX;
+      |             ~~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:180:61: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  180 |             transientFast[ch] = trFastCoeff * transientFast[ch] + (1.0f - trFastCoeff) * absX;
+      |                                               ~~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:181:27: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  181 |             transientSlow[ch] = trSlowCoeff * transientSlow[ch] + (1.0f - trSlowCoeff) * absX;
+      |             ~~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:181:61: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  181 |             transientSlow[ch] = trSlowCoeff * transientSlow[ch] + (1.0f - trSlowCoeff) * absX;
+      |                                               ~~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:182:83: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  182 |             const float transient = clampUnit ((transientFast[ch] - transientSlow[ch]) * 6.0f);
+      |                                                                     ~~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:182:63: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  182 |             const float transient = clampUnit ((transientFast[ch] - transientSlow[ch]) * 6.0f);
+      |                                                 ~~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:184:26: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  184 |             presenceLpLo[ch] = c2k * presenceLpLo[ch] + (1.0f - c2k) * x;
+      |             ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:184:51: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  184 |             presenceLpLo[ch] = c2k * presenceLpLo[ch] + (1.0f - c2k) * x;
+      |                                      ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:185:26: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  185 |             presenceLpHi[ch] = c6k * presenceLpHi[ch] + (1.0f - c6k) * x;
+      |             ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:185:51: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  185 |             presenceLpHi[ch] = c6k * presenceLpHi[ch] + (1.0f - c6k) * x;
+      |                                      ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:186:19: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  186 |             airLp[ch] = c8k * airLp[ch] + (1.0f - c8k) * x;
+      |             ~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:186:37: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  186 |             airLp[ch] = c8k * airLp[ch] + (1.0f - c8k) * x;
+      |                               ~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:188:72: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  188 |             const float presenceBand = presenceLpHi[ch] - presenceLpLo[ch];
+      |                                                           ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:188:53: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  188 |             const float presenceBand = presenceLpHi[ch] - presenceLpLo[ch];
+      |                                        ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:189:45: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  189 |             const float airBand = x - airLp[ch];
+      |                                       ~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:192:53: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  192 |             const float hc = harshSample > harshEnv[ch] ? harshAtk : harshRel;
+      |                                            ~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:193:22: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  193 |             harshEnv[ch] = hc * harshEnv[ch] + (1.0f - hc) * harshSample;
+      |             ~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:193:42: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  193 |             harshEnv[ch] = hc * harshEnv[ch] + (1.0f - hc) * harshSample;
+      |                                 ~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:195:58: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  195 |             const float harshGate = clampUnit ((harshEnv[ch] - 0.08f) * 6.0f);
+      |                                                 ~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:218:26: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  218 |             outputSmooth[ch] = 0.82f * outputSmooth[ch] + 0.18f * y;
+      |             ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:218:53: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  218 |             outputSmooth[ch] = 0.82f * outputSmooth[ch] + 0.18f * y;
+      |                                        ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:219:43: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  219 |             y = fastLerp (y, outputSmooth[ch], clampUnit (smoothStrength));
+      |                              ~~~~~~~~~~~~ ^~
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:225:36: warning: implicit conversion changes signedness: 'int' to 'size_type' (aka 'unsigned long') [-Wsign-conversion]
+  225 |             harshAccum += harshEnv[ch];
+      |                           ~~~~~~~~ ^~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.h:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/array:566:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:37:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[9], juce::NormalisableRange<float>, float, juce::String, juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:44:9), 0>' requested here
+   37 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.h:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/array:566:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:46:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[10], juce::NormalisableRange<float>, float, juce::String, juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:53:9), 0>' requested here
+   46 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:1:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.h:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/array:566:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:55:22: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[4], juce::NormalisableRange<float>, float, juce::String, juce::AudioProcessorParameter::Category, (lambda at /Users/internationalnova/Nova/plugins2/Nova Aura/Source/PluginProcessor.cpp:62:9), 0>' requested here
+   55 |     layout.add (std::make_unique<juce::AudioParameterFloat> (
+      |                      ^
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signature taking an Attributes argument")]]
+      |       ^
+27 warnings generated.
+1 warning generated.
+[ 23%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_events/juce_events.mm.o
+[ 24%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_core/juce_core_CompilationTime.cpp.o
+[ 25%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_core/juce_core.mm.o
+1 warning generated.
+1 warning generated.
+[ 27%] Linking CXX executable juce_vst3_helper
+[ 27%] Built target juce_vst3_helper
+[ 28%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_data_structures/juce_data_structures.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.cpp:57:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+[ 29%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.mm.o
+[ 30%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm.o
+1 warning generated.
+[ 32%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_audio_formats/juce_audio_formats.mm.o
+1 warning generated.
+[ 33%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.h:71:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.cpp:49:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.cpp:50:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.h:71:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.cpp:49:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.h:66:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 34%] Building CXX object CMakeFiles/NovaAura.dir/_deps/juce-src/modules/juce_dsp/juce_dsp.mm.o
+1 warning generated.
+2 warnings generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:55:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:189:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: warning: enumeration value 'NSEventTypeMouseCancelled' not explicitly handled in switch [-Wswitch-enum]
+ 1916 |         switch ([e type])
+      |                 ^~~~~~~~
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm:1916:17: note: add missing switch cases
+ 1916 |         switch ([e type])
+      |                 ^
+1 warning generated.
+2 warnings generated.
+[ 35%] Linking CXX static library "NovaAura_artefacts/Release/libNova Aura_SharedCode.a"
+[ 35%] Built target NovaAura
+[ 39%] Generating NovaAura_artefacts/JuceLibraryCode/NovaAura_AAX/PkgInfo
+[ 39%] Generating NovaAura_artefacts/JuceLibraryCode/NovaAura_Standalone/PkgInfo
+[ 39%] Generating NovaAura_artefacts/JuceLibraryCode/NovaAura_AU/PkgInfo
+[ 40%] Generating NovaAura_artefacts/JuceLibraryCode/NovaAura_VST3/PkgInfo
+[ 41%] Building CXX object CMakeFiles/NovaAura_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 43%] Building CXX object CMakeFiles/NovaAura_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 44%] Building CXX object CMakeFiles/NovaAura_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 45%] Building CXX object CMakeFiles/NovaAura_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 46%] Building CXX object CMakeFiles/NovaAura_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 48%] Building CXX object CMakeFiles/NovaAura_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 49%] Building CXX object CMakeFiles/NovaAura_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 50%] Building CXX object CMakeFiles/NovaAura_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 51%] Building CXX object CMakeFiles/NovaAura_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 53%] Building CXX object CMakeFiles/NovaAura_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 54%] Building CXX object CMakeFiles/NovaAura_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 55%] Building CXX object CMakeFiles/NovaAura_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 56%] Building CXX object CMakeFiles/NovaAura_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 58%] Building CXX object CMakeFiles/NovaAura_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 59%] Building CXX object CMakeFiles/NovaAura_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 61%] Building CXX object CMakeFiles/NovaAura_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 61%] Building CXX object CMakeFiles/NovaAura_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 62%] Building CXX object CMakeFiles/NovaAura_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 64%] Building CXX object CMakeFiles/NovaAura_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 65%] Building CXX object CMakeFiles/NovaAura_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 66%] Building CXX object CMakeFiles/NovaAura_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 67%] Building CXX object CMakeFiles/NovaAura_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 69%] Building CXX object CMakeFiles/NovaAura_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 70%] Building CXX object CMakeFiles/NovaAura_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 71%] Building CXX object CMakeFiles/NovaAura_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 72%] Building CXX object CMakeFiles/NovaAura_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 74%] Building CXX object CMakeFiles/NovaAura_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 75%] Building CXX object CMakeFiles/NovaAura_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+Copying OS X content NovaAura_artefacts/Release/Standalone/Nova Aura.app/Contents/Resources/RecentFilesMenuTemplate.nib
+[ 76%] Building CXX object CMakeFiles/NovaAura_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 77%] Building CXX object CMakeFiles/NovaAura_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 80%] Building CXX object CMakeFiles/NovaAura_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 80%] Building CXX object CMakeFiles/NovaAura_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 81%] Building CXX object CMakeFiles/NovaAura_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 82%] Building CXX object CMakeFiles/NovaAura_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 83%] Building CXX object CMakeFiles/NovaAura_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 85%] Building CXX object CMakeFiles/NovaAura_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 86%] Building CXX object CMakeFiles/NovaAura_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 87%] Building CXX object CMakeFiles/NovaAura_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 88%] Building CXX object CMakeFiles/NovaAura_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 90%] Building CXX object CMakeFiles/NovaAura_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 91%] Building CXX object CMakeFiles/NovaAura_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 92%] Building CXX object CMakeFiles/NovaAura_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 93%] Building CXX object CMakeFiles/NovaAura_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 95%] Building CXX object CMakeFiles/NovaAura_AAX.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp:47:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm:36:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.cpp:41:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp:47:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+1 warning generated.
+[ 96%] Linking CXX executable "NovaAura_artefacts/Release/Standalone/Nova Aura.app/Contents/MacOS/Nova Aura"
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm:36:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.cpp:41:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm:71:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[ 97%] Linking CXX CFBundle shared module "NovaAura_artefacts/Release/AAX/Nova Aura.aaxplugin/Contents/MacOS/Nova Aura"
+1 warning generated.
+1 warning generated.
+[ 98%] Linking CXX CFBundle shared module "NovaAura_artefacts/Release/AU/Nova Aura.component/Contents/MacOS/Nova Aura"
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm:35:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp:58:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_PluginUtilities.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/detail/juce_IncludeModuleHeaders.h:37:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client.h:63:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.h:68:
+In file included from /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/juce_graphics.h:142:
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/_deps/juce-src/modules/juce_graphics/detail/juce_SimpleShapedText.h:275:64: warning: implicit conversion loses integer precision: 'int' to 'int8_t' (aka 'signed char') on negation [-Wimplicit-int-conversion-on-negation]
+  275 |     int8_t getNumTrailingLigaturePlaceholders() const { return -distanceFromLigature; }
+      |                                                         ~~~~~~ ^~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[100%] Linking CXX CFBundle shared module "NovaAura_artefacts/Release/VST3/Nova Aura.vst3/Contents/MacOS/Nova Aura"
+[100%] Built target NovaAura_AAX
+[100%] Built target NovaAura_Standalone
+[100%] Built target NovaAura_AU
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/NovaAura_artefacts/Release/VST3/Nova Aura.vst3: code object is not signed at all
+-- Replacing invalid signature with ad-hoc signature
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/NovaAura_artefacts/Release/VST3/Nova Aura.vst3: replacing existing signature
+removing moduleinfo.json
+creating /Users/internationalnova/Nova/plugins2/Nova Aura/build-release/NovaAura_artefacts/Release/VST3/Nova Aura.vst3/Contents/Resources/moduleinfo.json
+[100%] Built target NovaAura_VST3
+[100%] Built target NovaAura_All
+==> [Nova Aura 3/7] Codesigning bundles (hardened runtime, secure timestamp)
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/NovaAura_artefacts/Release/VST3/Nova Aura.vst3: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/NovaAura_artefacts/Release/AU/Nova Aura.component: replacing existing signature
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/NovaAura_artefacts/Release/Standalone/Nova Aura.app: replacing existing signature
+==> [Nova Aura 3/7] Verifying codesign
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/NovaAura_artefacts/Release/VST3/Nova Aura.vst3: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/NovaAura_artefacts/Release/VST3/Nova Aura.vst3: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/NovaAura_artefacts/Release/AU/Nova Aura.component: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/NovaAura_artefacts/Release/AU/Nova Aura.component: satisfies its Designated Requirement
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/NovaAura_artefacts/Release/Standalone/Nova Aura.app: valid on disk
+/Users/internationalnova/Nova/plugins2/Nova Aura/build-release/NovaAura_artefacts/Release/Standalone/Nova Aura.app: satisfies its Designated Requirement
+==> [Nova Aura 4/7] Staging installer root
+==> [Nova Aura 5/7] Building + signing installer package
+pkgbuild: Inferring bundle components from contents of /Users/internationalnova/Nova/plugins2/Nova Aura/dist/pkgroot
+pkgbuild: Adding component at Library/Audio/Plug-Ins/Components/Nova Aura.component
+pkgbuild: Adding component at Library/Audio/Plug-Ins/VST3/Nova Aura.vst3
+pkgbuild: Adding component at Applications/Nova Aura.app
+pkgbuild: Wrote package to /Users/internationalnova/Nova/plugins2/Nova Aura/dist/NovaAura-unsigned.pkg
+productsign: using timestamp authority for signature
+productsign: signing product with identity "Developer ID Installer: Giovanni Nova (HSX9N2UQ83)" from keychain /Users/internationalnova/Library/Keychains/login.keychain-db
+productsign: adding certificate "Developer ID Certification Authority"
+productsign: adding certificate "Apple Root CA"
+productsign: Wrote signed product archive to /Users/internationalnova/Nova/plugins2/Nova Aura/dist/NovaAura-1.0.0.pkg
+Package "NovaAura-1.0.0.pkg":
+   Status: signed by a developer certificate issued by Apple for distribution
+   Signed with a trusted timestamp on: 2026-08-16 21:15:05 +0000
+   Certificate Chain:
+    1. Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+       Expires: 2031-08-10 05:15:34 +0000
+       SHA256 Fingerprint:
+           A5 7B 81 C2 82 10 15 09 6C C2 83 D5 33 A8 40 30 9F FA 53 0A 3B F6 
+           C3 85 80 B2 1E FE FB A6 32 AC
+       ------------------------------------------------------------------------
+    2. Developer ID Certification Authority
+       Expires: 2031-09-17 00:00:00 +0000
+       SHA256 Fingerprint:
+           F1 6C D3 C5 4C 7F 83 CE A4 BF 1A 3E 6A 08 19 C8 AA A8 E4 A1 52 8F 
+           D1 44 71 5F 35 06 43 D2 DF 3A
+       ------------------------------------------------------------------------
+    3. Apple Root CA
+       Expires: 2035-02-09 21:40:36 +0000
+       SHA256 Fingerprint:
+           B0 B1 73 0E CB C7 FF 45 05 14 2C 49 F1 29 5E 6E DA 6B CA ED 7E 2C 
+           68 C5 BE 91 B5 A1 10 01 F0 24
+
+==> [Nova Aura 6/7] Submitting for notarization (this can take a few minutes)
+Conducting pre-submission checks for NovaAura-1.0.0.pkg and initiating connection to the Apple notary service...
+Submission ID received
+  id: f90b30e4-066b-44fa-b6f2-c06fcd8b9642
+Successfully uploaded file
+  id: f90b30e4-066b-44fa-b6f2-c06fcd8b9642
+  path: /Users/internationalnova/Nova/plugins2/Nova Aura/dist/NovaAura-1.0.0.pkg
+Waiting for processing to complete.
+Current status: In Progress...Current status: In Progress....Current status: In Progress.....Current status: Accepted......Processing complete
+  id: f90b30e4-066b-44fa-b6f2-c06fcd8b9642
+  status: Accepted
+
+==> [Nova Aura 7/7] Stapling notarization ticket
+Processing: /Users/internationalnova/Nova/plugins2/Nova Aura/dist/NovaAura-1.0.0.pkg
+Processing: /Users/internationalnova/Nova/plugins2/Nova Aura/dist/NovaAura-1.0.0.pkg
+The staple and validate action worked!
+==> [Nova Aura] Final verification
+/Users/internationalnova/Nova/plugins2/Nova Aura/dist/NovaAura-1.0.0.pkg: accepted
+source=Notarized Developer ID
+origin=Developer ID Installer: Giovanni Nova (HSX9N2UQ83)
+
+Done: /Users/internationalnova/Nova/plugins2/Nova Aura/dist/NovaAura-1.0.0.pkg

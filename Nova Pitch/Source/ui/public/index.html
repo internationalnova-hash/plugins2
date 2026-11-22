@@ -1,900 +1,495 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nova Pitch</title>
-  <style>
-    :root {
-      --bg-a: #0c1521;
-      --bg-b: #070c14;
-      --line: rgba(118, 146, 174, 0.28);
-      --text: #dce6f1;
-      --text-dim: #9cadbf;
-      --cyan: #3ee8f7;
-      --blue-hot: #4ea6ff;
-      --cyan-soft: #86f5ff;
-      --magenta: #df48da;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      width: 100%; height: 100%; overflow: hidden;
-      font-family: "Orbitron", "Rajdhani", "Segoe UI", sans-serif;
-      color: var(--text);
-      background: #050b14;
-      user-select: none;
-    }
-    body { display: grid; place-items: center; padding: 12px; position: relative; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nova Pitch</title>
+<style>
+  :root {
+    --bg: #0a0a10;
+    --panel: #111117;
+    --panel-2: #15151d;
+    --border: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.16);
+    --text: #f3f3f8;
+    --text-dim: #83838f;
+    --text-dimmer: #55555f;
+    --purple: #9c7dff;
+    --purple-strong: #b79bff;
+    --purple-glow: rgba(156,125,255,0.45);
+    --blue: #4ea9ff;
+    --blue-glow: rgba(78,169,255,0.4);
+    --track: rgba(255,255,255,0.09);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; cursor: pointer; }
 
-    /* ── Star canvas (floats above all sections, low-opacity) ──── */
-    #bg-canvas {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 10;
-    }
-    .plugin {
-      width: min(1060px, calc(100vw - 24px));
-      height: min(672px, calc(100vh - 24px));
-      border-radius: 14px;
-      border: 1px solid rgba(100, 140, 180, 0.28);
-      /* Cosmic atmosphere — spec-matched dark navy + radial glows */
-      background:
-        radial-gradient(ellipse 62% 48% at 50% 46%, rgba(22, 58, 90, 0.26) 0%, rgba(16, 43, 69, 0.18) 48%, transparent 74%),
-        radial-gradient(ellipse 38% 46% at 18% 50%, rgba(14, 40, 66, 0.12) 0%, transparent 72%),
-        radial-gradient(ellipse 38% 46% at 82% 50%, rgba(16, 35, 63, 0.12) 0%, transparent 72%),
-        linear-gradient(180deg, #0b1928 0%, #070e1c 55%, #050b18 100%);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.1),
-        inset 0 -18px 30px rgba(0,0,0,0.46),
-        0 28px 60px rgba(0,0,0,0.64);
-      padding: 10px;
-      display: grid;
-      grid-template-rows: 58px 0.7fr 196px;
-      gap: 6px;
-      position: relative;
-      overflow: hidden;
-    }
-    .top {
-      border-radius: 10px;
-      border: 1px solid rgba(128, 153, 179, 0.16);
-      background:
-        radial-gradient(ellipse at center, rgba(146,180,208,0.08), transparent 62%),
-        linear-gradient(180deg, rgba(34, 47, 62, 0.62), rgba(23, 35, 49, 0.62));
-      display: grid;
-      grid-template-columns: auto 1fr auto auto auto auto;
-      align-items: center;
-      gap: 14px;
-      padding: 0 14px;
-      backdrop-filter: blur(1.8px);
-      z-index: 2;
-      position: relative;
-    }
-    .logo-wrap {
-      width: 34px;
-      height: 34px;
-      display: grid;
-      place-items: center;
-      border-radius: 9px;
-      border: 1px solid rgba(148, 180, 210, 0.2);
-      background: linear-gradient(180deg, rgba(62, 82, 104, 0.35), rgba(35, 50, 66, 0.35));
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
-    }
-    .logo-wrap img {
-      width: 22px;
-      height: 22px;
-      object-fit: contain;
-      opacity: 0.88;
-    }
-    .brand {
-      justify-self: center;
-      width: min(380px, 100%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-    }
-    .brand-title {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      font-size: 15px;
-      letter-spacing: 4.4px;
-      text-transform: uppercase;
-      text-shadow: 0 0 15px rgba(88,218,255,0.36);
-    }
-    .title-nova {
-      color: #edf5ff;
-      text-shadow: 0 0 8px rgba(228, 188, 255, 0.2);
-    }
-    .title-pitch {
-      color: var(--cyan);
-      text-shadow: 0 0 16px rgba(62, 232, 247, 0.5), 0 0 8px rgba(223, 72, 218, 0.2);
-    }
-    .brand-title::before,
-    .brand-title::after {
-      content: "";
-      flex: 1;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(126, 173, 215, 0.56));
-    }
-    .brand-title::after {
-      background: linear-gradient(90deg, rgba(126, 173, 215, 0.56), transparent);
-    }
-    .brand-sub {
-      font-size: 10px;
-      letter-spacing: 0.9px;
-      color: rgba(150, 169, 188, 0.64);
-      white-space: nowrap;
-    }
-    .top-right {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 4px;
-      min-width: 214px;
-    }
-    .byline {
-      font-family: "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Brush Script MT", cursive;
-      font-size: 19px;
-      font-weight: 500;
-      letter-spacing: 0.02em;
-      color: var(--cyan);
-      line-height: 1;
-      text-transform: none;
-      opacity: 0.72;
-      text-shadow: 0 0 10px rgba(62, 232, 247, 0.18), 0 1px 2px rgba(16, 30, 44, 0.3);
-    }
-    .status-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .status-toggle {
-      appearance: none;
-      border: 0;
-      background: transparent;
-      padding: 0;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font: inherit;
-      font-size: 11px;
-      letter-spacing: 1.7px;
-      text-transform: uppercase;
-      color: rgba(144, 166, 188, 0.92);
-      opacity: 0.4;
-      cursor: pointer;
-      transform-origin: center;
-      transition:
-        color 160ms ease-out,
-        opacity 160ms ease-out,
-        text-shadow 160ms ease-out,
-        transform 100ms ease-out,
-        filter 160ms ease-out;
-      filter: saturate(0.88);
-    }
-    .status-toggle:hover {
-      opacity: 0.52;
-    }
-    .status-toggle:focus-visible {
-      outline: none;
-      color: rgba(190, 224, 244, 0.96);
-      opacity: 0.68;
-    }
-    .status-toggle.is-active {
-      color: #59E8FF;
-      opacity: 0.9;
-      text-shadow: 0 0 12px rgba(89, 232, 255, 0.22), 0 0 18px rgba(89, 232, 255, 0.12);
-      filter: saturate(1.04) brightness(1.04);
-      animation: latencyPulse 3s ease-in-out infinite;
-    }
-    .status-toggle.is-pressed {
-      transform: scale(1.05);
-    }
-    .status-toggle__icon {
-      font-size: 12px;
-      line-height: 1;
-      color: rgba(182, 205, 224, 0.98);
-      text-shadow: none;
-      transition: color 160ms ease-out, text-shadow 160ms ease-out, opacity 160ms ease-out;
-      opacity: 0.9;
-    }
-    .status-toggle.is-active .status-toggle__icon {
-      color: #aef7ff;
-      text-shadow: 0 0 14px rgba(89, 232, 255, 0.28);
-      opacity: 1;
-    }
-    .status-toggle__label {
-      line-height: 1;
-      white-space: nowrap;
-    }
-    @keyframes latencyPulse {
-      0%, 100% {
-        opacity: 0.86;
-        text-shadow: 0 0 10px rgba(89, 232, 255, 0.18), 0 0 16px rgba(89, 232, 255, 0.1);
-      }
-      50% {
-        opacity: 0.92;
-        text-shadow: 0 0 14px rgba(89, 232, 255, 0.26), 0 0 18px rgba(89, 232, 255, 0.14);
-      }
-    }
-    .control { display: flex; flex-direction: column; gap: 4px; min-width: 120px; opacity: 0.9; }
-    .control label { color: rgba(147, 166, 186, 0.6); font-size: 10px; letter-spacing: 0.78px; text-transform: uppercase; }
-    .control select, .control button {
-      height: 30px; border-radius: 8px; border: 1px solid rgba(110, 136, 160, 0.42);
-      background: linear-gradient(180deg, #314151, #273441);
-      color: rgba(236, 246, 255, 0.96); font-family: inherit; font-size: 13px; padding: 0 10px;
-      text-shadow: 0 0 8px rgba(160, 210, 244, 0.08);
-    }
-    .note-pill {
-      min-width: 98px; height: 36px; border-radius: 9px;
-      border: 1px solid #5f748c;
-      background: linear-gradient(180deg, #293645, #222d39);
-      display: grid; place-items: center; font-size: 20px;
-      color: var(--cyan-soft); text-shadow: 0 0 10px rgba(87,236,255,0.45);
-    }
-    .graph-wrap {
-      border-radius: 16px; border: 1px solid var(--line);
-      background: linear-gradient(180deg, rgba(45, 62, 78, 0.7), rgba(30, 43, 56, 0.7) 60%, rgba(27, 36, 48, 0.72));
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.06),
-        inset 0 -20px 30px rgba(0,0,0,0.32);
-      min-height: 0; padding: 10px 10px 8px;
-      display: grid; grid-template-columns: 52px 1fr; grid-template-rows: 1fr 48px; overflow: hidden;
-      position: relative;
-      z-index: 2;
-    }
-    .graph-wrap::before {
-      content: "";
-      position: absolute;
-      left: 50%;
-      top: 45%;
-      width: 64%;
-      height: 58%;
-      transform: translate(-50%, -50%);
-      background: radial-gradient(circle, rgba(86, 184, 255, 0.18), rgba(86, 184, 255, 0));
-      pointer-events: none;
-      z-index: 0;
-    }
-    .graph-wrap::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(ellipse at 50% 48%, rgba(208, 78, 212, 0.07), transparent 62%),
-        repeating-linear-gradient(
-          0deg,
-          rgba(255,255,255,0.01) 0 1px,
-          rgba(0,0,0,0.01) 1px 3px
-        );
-      pointer-events: none;
-      opacity: 0.42;
-        z-index: 0;
-    }
-    .keys {
-      grid-column: 1;
-      grid-row: 1;
-      background: linear-gradient(180deg, rgba(31, 43, 56, 0.84), rgba(24, 34, 45, 0.9));
-      border-right: 1px solid rgba(122, 146, 171, 0.26);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      position: relative;
-      z-index: 1;
-    }
-    .keys::after {
-      content: "";
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      width: 1px;
-      background: rgba(163, 196, 225, 0.14);
-      pointer-events: none;
-    }
-    .key-row {
-      flex: 1;
-      border-bottom: 1px solid rgba(255,255,255,0.045);
-      color: rgba(162, 184, 206, 0.82);
-      font-size: 10px;
-      line-height: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      letter-spacing: 0.25px;
-      background: linear-gradient(180deg, rgba(71, 88, 105, 0.16), rgba(52, 69, 86, 0.16));
-      transition: background-color 130ms ease, box-shadow 140ms ease, color 140ms ease;
-    }
-    .key-row.black {
-      background: linear-gradient(180deg, rgba(22, 30, 39, 0.82), rgba(17, 24, 33, 0.88));
-      color: rgba(140, 159, 178, 0.7);
-    }
-    .key-row.active {
-      color: rgba(188, 245, 255, 0.95);
-      background: linear-gradient(180deg, rgba(70, 190, 232, 0.26), rgba(48, 152, 201, 0.24));
-      box-shadow:
-        inset 0 0 8px rgba(78, 214, 247, 0.2),
-        0 0 8px rgba(62, 223, 250, 0.25);
-    }
-    #pitchCanvas {
-      grid-column: 2;
-      grid-row: 1;
-      width: 100%;
-      height: 100%;
-      display: block;
-      background: linear-gradient(180deg, #10202d, #0c1722);
-      position: relative;
-      z-index: 1;
-    }
-    .note-bar {
-      grid-column: 1 / 3; grid-row: 2; border-top: 1px solid #485a70; background: #0e1722;
-      display: flex; align-items: center; justify-content: space-around;
-      font-size: 34px; letter-spacing: 0.8px; color: var(--cyan);
-      position: relative;
-      z-index: 1;
-    }
-    .note-bar .acc { color: var(--magenta); }
-    .bottom {
-      border-radius: 12px; border: 1px solid rgba(118, 147, 176, 0.26);
-      background: linear-gradient(180deg, rgba(36, 50, 66, 0.72) 0%, rgba(20, 30, 42, 0.82) 55%, rgba(14, 22, 33, 0.88) 100%);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -12px 24px rgba(0,0,0,0.36), 0 2px 8px rgba(0,0,0,0.28);
-      padding: 10px 14px 12px;
-      display: grid; grid-template-columns: 1fr 1.35fr 1fr 1fr 1fr; gap: 14px; align-items: center;
-      backdrop-filter: blur(1.4px);
-      z-index: 2;
-      position: relative;
-    }
-    .knob { text-align: center; color: var(--text); font-size: 13px; letter-spacing: 0.8px; text-transform: uppercase; }
-    .knob canvas {
-      width: 93px;
-      height: 93px;
-      display: block;
-      margin: 0 auto 6px;
-      transition: transform 140ms ease, filter 140ms ease;
-      filter: saturate(1.05) brightness(1.04);
-    }
-    .knob:hover canvas {
-      transform: translateY(-1px) scale(1.02);
-      filter: saturate(1.16) brightness(1.10);
-    }
-    .knob.big canvas { width: 130px; height: 130px; }
-    .knob.primary {
-      filter: saturate(1.07) brightness(1.04);
-    }
-    .knob-value {
-      margin-top: -1px;
-      margin-bottom: 4px;
-      font-size: 12px;
-      letter-spacing: 0.75px;
-      color: rgba(220, 248, 255, 0.98);
-      text-shadow: 0 0 12px rgba(89, 232, 255, 0.22);
-      min-height: 14px;
-      line-height: 1.1;
-    }
-    .knob.big .knob-value {
-      font-size: 13px;
-      margin-bottom: 5px;
-    }
-    .knob > div:last-child {
-      color: rgba(140, 162, 184, 0.62);
-      font-size: 11px;
-    }
-    .knob.big > div:last-child {
-      font-size: 12px;
-    }
-    .knob.big > div:last-child {
-      font-size: 12px;
-      line-height: 1.05;
-    }
-    .range { width: 116px; margin: 0 auto 2px; display: flex; justify-content: space-between; color: var(--text-dim); font-size: 10px; text-transform: none; letter-spacing: 0.15px; }
+  /* Fixed design canvas, uniformly scaled to fit the actual window size -
+     same technique as Nova Tape's #stage (see that project's index.html
+     for the full rationale: JS-computed scale, not CSS min()/calc(),
+     since some embedded WebViews silently drop that nested-function
+     syntax; polled, not just resize-event-driven, since this WebView
+     doesn't reliably fire resize events on a native host setBounds()).
+     This keeps every element's relative proportions identical at any
+     window size, rather than letting the grid reflow unpredictably. */
+  #stageOuter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #stage { width: 1100px; height: 660px; flex: 0 0 auto; position: relative; transform-origin: center center; }
 
-    /* ── Preset Open Button ────────────────────────── */
-    .preset-open-btn {
-      appearance: none;
-      border: 1px solid rgba(89,232,255,0.18);
-      background: transparent;
-      padding: 4px 10px;
-      border-radius: 7px;
-      font: inherit;
-      font-size: 10px;
-      letter-spacing: 1.6px;
-      text-transform: uppercase;
-      color: rgba(180,220,244,0.68);
-      cursor: pointer;
-      transition: color 140ms, border-color 140ms, background 140ms;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .preset-open-btn:hover {
-      color: rgba(200,240,255,0.92);
-      border-color: rgba(89,232,255,0.36);
-      background: rgba(89,232,255,0.04);
-    }
-    .preset-open-btn.is-active {
-      color: rgba(89,232,255,0.96);
-      border-color: rgba(89,232,255,0.48);
-      background: rgba(89,232,255,0.07);
-      box-shadow: 0 0 10px rgba(89,232,255,0.14);
-    }
+  .plugin {
+    width: 100%; height: 100%;
+    display: grid;
+    grid-template-rows: 66px 52px 1fr 128px 34px;
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 40%, rgba(90,60,180,0.08), transparent 70%),
+      linear-gradient(180deg, #0c0c13 0%, #08080c 100%);
+    position: relative;
+  }
 
-    /* ── Preset Panel ──────────────────────────── */
-    .preset-panel {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 372px;
-      background:
-        radial-gradient(120% 100% at 50% 0%, rgba(72, 118, 196, 0.12), transparent 58%),
-        radial-gradient(110% 70% at 50% 100%, rgba(95, 58, 160, 0.10), transparent 60%),
-        rgba(7,13,21,0.96);
-      backdrop-filter: blur(20px);
-      border-top: 1px solid rgba(89,232,255,0.14);
-      border-radius: 0 0 14px 14px;
-      z-index: 30;
-      transform: translateY(100%);
-      transition: transform 210ms cubic-bezier(0.22,0.61,0.36,1);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .preset-panel.is-open { transform: translateY(0); }
-    .preset-panel__header {
-      padding: 0 14px;
-      height: 52px;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      border-bottom: 1px solid rgba(89,232,255,0.08);
-    }
-    .preset-panel__content {
-      flex: 1;
-      min-height: 0;
-      display: grid;
-      grid-template-columns: 106px 1fr;
-      gap: 12px;
-      padding: 10px 12px 12px;
-    }
-    .preset-rail {
-      border: 1px solid rgba(105, 146, 194, 0.26);
-      border-radius: 12px;
-      background:
-        linear-gradient(180deg, rgba(23, 35, 54, 0.90), rgba(12, 22, 36, 0.94));
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .preset-rail__item {
-      appearance: none;
-      border: 1px solid transparent;
-      border-radius: 10px;
-      background: transparent;
-      color: rgba(145, 176, 210, 0.76);
-      font: inherit;
-      font-size: 12px;
-      letter-spacing: 0.6px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 9px 8px;
-      cursor: pointer;
-      transition: all 120ms ease;
-    }
-    .preset-rail__item:hover {
-      border-color: rgba(128, 168, 220, 0.28);
-      color: rgba(188, 218, 246, 0.92);
-      background: rgba(46, 66, 100, 0.34);
-    }
-    .preset-rail__item.is-active {
-      border-color: rgba(160, 114, 255, 0.62);
-      background: linear-gradient(180deg, rgba(86, 54, 146, 0.42), rgba(50, 36, 88, 0.54));
-      color: rgba(231, 214, 255, 0.98);
-      box-shadow: 0 0 14px rgba(141, 108, 255, 0.20), inset 0 1px 0 rgba(255,255,255,0.10);
-    }
-    .preset-rail__icon {
-      width: 15px;
-      text-align: center;
-      font-size: 13px;
-      opacity: 0.92;
-    }
-    .preset-main {
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-    }
-    .preset-panel__title {
-      font-size: 11px; letter-spacing: 2.6px;
-      color: rgba(180,220,244,0.68);
-      text-transform: uppercase;
-      flex-shrink: 0;
-    }
-    .preset-panel__toolbar {
-      display: flex; flex: 1; align-items: center; gap: 10px;
-    }
-    .preset-search-wrap {
-      flex: 1; position: relative; display: flex; align-items: center;
-    }
-    .preset-search-icon {
-      position: absolute; left: 8px; font-size: 13px;
-      color: rgba(140,170,200,0.56); pointer-events: none;
-    }
-    .preset-search {
-      width: 100%; height: 26px;
-      background: linear-gradient(180deg, rgba(31, 45, 63, 0.66), rgba(18, 28, 41, 0.72));
-      border: 1px solid rgba(106, 146, 192, 0.24);
-      border-radius: 6px;
-      color: rgba(200,235,255,0.88);
-      font: inherit; font-size: 12px;
-      padding: 0 8px 0 26px;
-      outline: none;
-      transition: border-color 130ms;
-    }
-    .preset-search:focus { border-color: rgba(89,232,255,0.36); }
-    .preset-search::placeholder { color: rgba(120,150,180,0.42); }
-    .preset-cat {
-      height: 26px; padding: 0 6px;
-      background: linear-gradient(180deg, rgba(31, 45, 63, 0.66), rgba(18, 28, 41, 0.72));
-      border: 1px solid rgba(106, 146, 192, 0.24);
-      border-radius: 6px;
-      color: rgba(180,220,244,0.8);
-      font: inherit; font-size: 11px;
-      outline: none; cursor: pointer;
-    }
-    .preset-tags { display: flex; gap: 6px; }
-    .ptag {
-      appearance: none;
-      border: 1px solid rgba(89,232,255,0.20);
-      background: linear-gradient(180deg, rgba(25, 35, 50, 0.78), rgba(15, 24, 36, 0.82));
-      border-radius: 999px;
-      padding: 3px 10px; font: inherit; font-size: 10px;
-      letter-spacing: 0.6px;
-      color: rgba(166,196,224,0.72); cursor: pointer;
-      transition: all 140ms ease;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-    }
-    .ptag:hover, .ptag.is-active {
-      color: rgba(200,248,255,0.92);
-      border-color: rgba(89,232,255,0.52);
-      background: linear-gradient(180deg, rgba(34, 58, 84, 0.76), rgba(22, 39, 58, 0.84));
-      box-shadow: 0 0 12px rgba(89,232,255,0.14), inset 0 1px 0 rgba(255,255,255,0.12);
-    }
-    .ptag[data-tag="smooth"] { border-color: rgba(104, 191, 255, 0.28); }
-    .ptag[data-tag="aggressive"] { border-color: rgba(92, 232, 255, 0.30); }
-    .ptag[data-tag="robotic"] { border-color: rgba(154, 137, 255, 0.34); }
-    .ptag[data-tag="natural"] { border-color: rgba(116, 209, 197, 0.28); }
-    .ptag[data-tag="bright"] { border-color: rgba(102, 225, 255, 0.34); }
-    .preset-close {
-      appearance: none; border: none; background: transparent;
-      color: rgba(160,190,220,0.48);
-      font-size: 14px; cursor: pointer;
-      padding: 4px 6px; flex-shrink: 0;
-      transition: color 120ms;
-    }
-    .preset-close:hover { color: rgba(220,240,255,0.88); }
-    /* Preset list */
-    .preset-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0 2px 2px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px 12px;
-      align-content: start;
-    }
-    .preset-list::-webkit-scrollbar { width: 6px; }
-    .preset-list::-webkit-scrollbar-track { background: rgba(6, 14, 24, 0.55); border-radius: 8px; }
-    .preset-list::-webkit-scrollbar-thumb {
-      background: linear-gradient(180deg, rgba(150, 112, 255, 0.72), rgba(110, 88, 220, 0.72));
-      border-radius: 8px;
-      border: 1px solid rgba(160, 132, 255, 0.35);
-    }
-    .preset-section-label {
-      grid-column: 1 / -1;
-      padding: 8px 2px 4px;
-      font-size: 10px; letter-spacing: 2.1px;
-      text-transform: uppercase;
-      color: rgba(132,170,210,0.62);
-      border-bottom: 1px solid rgba(89,232,255,0.06);
-      margin-bottom: 2px;
-    }
-    .preset-item {
-      display: grid;
-      grid-template-columns: auto 1fr auto auto;
-      align-items: center;
-      gap: 10px;
-      min-height: 82px;
-      padding: 12px 14px;
-      cursor: pointer;
-      border-radius: 12px;
-      border: 1px solid rgba(109, 145, 186, 0.24);
-      outline: 1px solid transparent;
-      outline-offset: -1px;
-      background:
-        radial-gradient(120% 120% at 20% 10%, rgba(105, 168, 255, 0.10), transparent 58%),
-        linear-gradient(180deg, rgba(29, 43, 62, 0.90), rgba(15, 25, 39, 0.94));
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.09),
-        0 8px 20px rgba(0,0,0,0.26),
-        0 1px 0 rgba(0,0,0,0.26);
-      transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease, background 120ms ease, outline-color 120ms ease, filter 120ms ease;
-      position: relative;
-      overflow: hidden;
-    }
-    .preset-item::before {
-      content: "";
-      position: absolute;
-      left: 10px;
-      right: 10px;
-      top: 0;
-      height: 1px;
-      background: linear-gradient(90deg, rgba(220, 240, 255, 0.16), rgba(220, 240, 255, 0.03), rgba(220, 240, 255, 0.16));
-      pointer-events: none;
-    }
-    .preset-item:hover {
-      transform: scale(1.01);
-      border-color: rgba(116, 195, 255, 0.52);
-      background:
-        radial-gradient(120% 120% at 20% 10%, rgba(105, 168, 255, 0.20), transparent 58%),
-        linear-gradient(180deg, rgba(30, 46, 68, 0.92), rgba(18, 29, 45, 0.95));
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.12),
-        0 0 18px rgba(90,170,255,0.22),
-        0 11px 24px rgba(0,0,0,0.34);
-    }
-    .preset-item:hover .preset-item__name {
-      color: rgba(200,248,255,0.96);
-      text-shadow: 0 0 10px rgba(89,232,255,0.22);
-    }
-    .preset-item.is-active {
-      outline-color: rgba(182, 142, 255, 0.98);
-      border-color: rgba(166, 126, 255, 0.84);
-      background:
-        radial-gradient(140% 120% at 18% 10%, rgba(170, 118, 255, 0.26), transparent 60%),
-        linear-gradient(180deg, rgba(43, 34, 80, 0.95), rgba(24, 23, 52, 0.97));
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.14),
-        0 0 24px rgba(144, 104, 255, 0.44),
-        0 10px 24px rgba(0,0,0,0.36);
-    }
-    .preset-item.is-active .preset-item__name {
-      color: rgba(236, 222, 255, 0.98);
-      text-shadow: 0 0 14px rgba(162,118,255,0.36);
-    }
-    .preset-item.is-signature {
-      border-color: rgba(149, 144, 255, 0.38);
-      background:
-        radial-gradient(1px 1px at 12% 18%, rgba(214, 224, 255, 0.12), rgba(214, 224, 255, 0) 100%),
-        radial-gradient(1px 1px at 72% 44%, rgba(188, 202, 255, 0.10), rgba(188, 202, 255, 0) 100%),
-        radial-gradient(1px 1px at 34% 76%, rgba(190, 210, 255, 0.09), rgba(190, 210, 255, 0) 100%),
-        radial-gradient(130% 120% at 18% 10%, rgba(152, 116, 255, 0.18), transparent 60%),
-        linear-gradient(180deg, rgba(36, 45, 76, 0.90), rgba(20, 29, 52, 0.95));
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.10),
-        0 0 14px rgba(138, 130, 255, 0.18),
-        0 8px 20px rgba(0,0,0,0.30);
-    }
-    .preset-item.is-signature .preset-item__name {
-      color: rgba(228, 238, 255, 0.96);
-      text-shadow: 0 0 14px rgba(149, 144, 255, 0.22);
-    }
-    .preset-item.is-signature.is-active {
-      border-color: rgba(166, 165, 255, 0.72);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.14),
-        0 0 24px rgba(147, 137, 255, 0.34),
-        0 10px 24px rgba(0,0,0,0.36);
-    }
-    .preset-item.is-pulsing::after {
-      content: "";
-      position: absolute;
-      inset: -1px;
-      border-radius: 12px;
-      border: 1px solid rgba(130, 235, 255, 0.72);
-      box-shadow: 0 0 20px rgba(89,232,255,0.42);
-      animation: presetPulse 130ms ease-out;
-      pointer-events: none;
-    }
-    @keyframes presetPulse {
-      0% { opacity: 1; transform: scale(1.0); }
-      100% { opacity: 0; transform: scale(1.018); }
-    }
-    .preset-item__lead {
-      width: 20px;
-      text-align: center;
-      font-size: 15px;
-      color: rgba(154, 182, 220, 0.72);
-      text-shadow: 0 0 10px rgba(126, 185, 255, 0.26);
-    }
-    .preset-item.is-signature .preset-item__lead {
-      color: rgba(206, 186, 255, 0.96);
-      text-shadow: 0 0 14px rgba(161, 137, 255, 0.58);
-    }
-    .preset-item__body {
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .preset-item__name {
-      font-size: 15px; letter-spacing: 0.5px;
-      color: rgba(172,210,236,0.82);
-      transition: color 110ms, text-shadow 110ms;
-    }
-    .preset-item__desc {
-      font-size: 11px;
-      letter-spacing: 0.35px;
-      color: rgba(150, 180, 212, 0.78);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
-    }
-    .preset-item__tags { display: flex; gap: 4px; }
-    .preset-item__tag {
-      font-size: 10px;
-      letter-spacing: 0.45px;
-      color: rgba(178, 214, 245, 0.90);
-      background: linear-gradient(180deg, rgba(38, 58, 82, 0.55), rgba(22, 39, 58, 0.62));
-      border: 1px solid rgba(92, 196, 255, 0.24);
-      border-radius: 999px;
-      padding: 2px 10px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 8px rgba(104, 196, 255, 0.08);
-      transition: filter 120ms ease, box-shadow 120ms ease;
-    }
-    .preset-item__tag[data-tag="smooth"] {
-      border-color: rgba(110, 190, 255, 0.34);
-      background: linear-gradient(180deg, rgba(54, 106, 170, 0.45), rgba(35, 74, 116, 0.52));
-    }
-    .preset-item__tag[data-tag="aggressive"] {
-      border-color: rgba(102, 232, 255, 0.38);
-      background: linear-gradient(180deg, rgba(40, 120, 138, 0.45), rgba(29, 78, 94, 0.54));
-    }
-    .preset-item__tag[data-tag="robotic"] {
-      border-color: rgba(151, 138, 255, 0.44);
-      background: linear-gradient(180deg, rgba(84, 64, 160, 0.46), rgba(54, 44, 108, 0.54));
-    }
-    .preset-item__tag[data-tag="natural"] {
-      border-color: rgba(108, 212, 198, 0.36);
-      background: linear-gradient(180deg, rgba(46, 120, 120, 0.42), rgba(30, 80, 84, 0.52));
-    }
-    .preset-item__tag[data-tag="bright"] {
-      border-color: rgba(96, 228, 255, 0.42);
-      background: linear-gradient(180deg, rgba(50, 132, 188, 0.45), rgba(30, 86, 128, 0.54));
-    }
-    .preset-item__go {
-      font-size: 24px;
-      line-height: 1;
-      color: rgba(118, 220, 255, 0.92);
-      text-shadow: 0 0 12px rgba(89,232,255,0.32);
-      transform: translateX(0);
-      transition: transform 140ms ease, color 140ms ease;
-    }
-    .preset-item:hover .preset-item__go,
-    .preset-item.is-active .preset-item__go {
-      transform: translateX(2px);
-      color: rgba(176, 242, 255, 0.98);
-    }
-    .preset-item:hover .preset-item__tag,
-    .preset-item.is-active .preset-item__tag {
-      filter: brightness(1.08);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), inset 0 0 10px rgba(114, 206, 255, 0.12);
-    }
-    .preset-empty {
-      grid-column: 1 / -1;
-      padding: 28px 16px; text-align: center;
-      font-size: 12px; color: rgba(120,160,200,0.34);
-      letter-spacing: 0.4px;
-    }
+  /* ── Header ─────────────────────────────────────────── */
+  .header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 0 22px;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; flex-direction: column; gap: 2px; }
+  .brand-title { font-size: 21px; font-weight: 700; letter-spacing: 1px; }
+  .brand-title .w { color: var(--text); }
+  .brand-title .p { color: var(--purple); text-shadow: 0 0 18px var(--purple-glow); }
+  .brand-sub { font-size: 10px; letter-spacing: 2.2px; color: var(--text-dim); text-transform: uppercase; }
 
-    @media (max-width: 900px) {
-      .preset-panel { height: 400px; }
-      .preset-panel__content { grid-template-columns: 1fr; padding: 8px 12px 12px; }
-      .preset-rail { display: none; }
-      .preset-list { grid-template-columns: 1fr; }
-      .preset-tags { display: none; }
-      .preset-item { min-height: 76px; }
-    }
-  </style>
+  .brandRight { justify-self: end; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .brandRight-nova {
+    font-size: 22px; font-weight: 800; letter-spacing: 3px;
+    color: #b8bac3; line-height: 1;
+  }
+  .brandRight-audio {
+    font-size: 10px; font-weight: 600; letter-spacing: 5px;
+    color: var(--purple-strong); line-height: 1;
+    margin-left: 5px;
+  }
+
+  .presetBar { display: flex; align-items: center; gap: 10px; }
+  .presetNavBtn {
+    width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--border-strong);
+    background: var(--panel-2); color: var(--text-dim); font-size: 14px;
+    display: grid; place-items: center; transition: all 120ms ease;
+  }
+  .presetNavBtn:hover { color: var(--text); border-color: var(--purple); }
+  .presetNameWrap {
+    min-width: 168px; height: 30px; padding: 0 14px; border-radius: 8px;
+    border: 1px solid var(--border-strong); background: var(--panel-2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; letter-spacing: 0.3px; color: var(--purple-strong);
+    position: relative;
+  }
+  .abGroup { display: flex; gap: 3px; margin-left: 6px; }
+  .abBtn {
+    width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border-strong);
+    background: var(--panel-2); color: var(--text-dim); font-size: 12px; font-weight: 700;
+    transition: all 120ms ease;
+  }
+  .abBtn.is-active { background: var(--purple); border-color: var(--purple); color: #0a0a10; box-shadow: 0 0 14px var(--purple-glow); }
+  .pillBtn {
+    height: 28px; padding: 0 14px; border-radius: 7px; border: 1px solid var(--border-strong);
+    background: var(--panel-2); color: var(--text-dim); font-size: 11px; font-weight: 600; letter-spacing: 1px;
+    transition: all 120ms ease;
+  }
+  .pillBtn:hover { color: var(--text); border-color: var(--purple); }
+  .iconBtn {
+    width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border-strong);
+    background: var(--panel-2); color: var(--text-dim); font-size: 13px;
+    display: grid; place-items: center; transition: all 120ms ease;
+  }
+  .iconBtn:hover { color: var(--text); border-color: var(--purple); }
+
+  /* Save popover */
+  .savePopover {
+    position: absolute; top: 36px; left: 50%; transform: translateX(-50%) translateY(-6px);
+    width: 240px; padding: 12px; border-radius: 10px; border: 1px solid var(--border-strong);
+    background: #16161f; box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    display: none; flex-direction: column; gap: 8px; z-index: 40;
+    opacity: 0; transition: opacity 140ms ease, transform 140ms ease;
+  }
+  .savePopover.is-open { display: flex; opacity: 1; transform: translateX(-50%) translateY(0); }
+  .savePopover label { font-size: 10px; letter-spacing: 1.2px; color: var(--text-dim); text-transform: uppercase; }
+  .savePopover input {
+    height: 30px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--panel);
+    color: var(--text); font: inherit; font-size: 13px; padding: 0 10px; outline: none;
+  }
+  .savePopover input:focus { border-color: var(--purple); }
+  .savePopoverRow { display: flex; gap: 8px; justify-content: flex-end; }
+  .savePopoverRow button {
+    height: 26px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-strong);
+    background: var(--panel); color: var(--text-dim); font-size: 11px;
+  }
+  .savePopoverRow button.confirm { background: var(--purple); border-color: var(--purple); color: #0a0a10; font-weight: 600; }
+
+  /* ── Top strip ──────────────────────────────────────── */
+  .topStrip {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px; border-bottom: 1px solid var(--border);
+  }
+  .stepGroup { display: flex; align-items: center; gap: 10px; }
+  .stepControl { position: relative; display: flex; flex-direction: column; gap: 3px; }
+  .stepControl label { font-size: 9px; letter-spacing: 1.4px; color: var(--text-dimmer); text-transform: uppercase; }
+  .stepPopover {
+    position: absolute; top: calc(100% + 6px); left: 0; min-width: 120px;
+    max-height: 240px; overflow-y: auto;
+    padding: 6px; border-radius: 10px; border: 1px solid var(--border-strong);
+    background: #16161f; box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    display: none; flex-direction: column; gap: 2px; z-index: 50;
+  }
+  .stepPopover.is-open { display: flex; }
+  .stepPopoverItem {
+    padding: 6px 10px; border-radius: 6px; border: none; background: transparent;
+    color: var(--text-dim); font-size: 12px; text-align: left; cursor: pointer; white-space: nowrap;
+  }
+  .stepPopoverItem:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+  .stepPopoverItem.is-selected { color: var(--purple-strong); font-weight: 600; }
+  .stepBtn {
+    height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-strong);
+    background: var(--panel-2); color: var(--text); font-size: 12px; letter-spacing: 0.4px;
+    display: flex; align-items: center; gap: 8px; min-width: 78px; justify-content: space-between;
+    transition: border-color 120ms ease;
+  }
+  .stepBtn:hover { border-color: var(--purple); }
+  .stepBtn .chev { color: var(--text-dim); font-size: 11px; }
+  .viewBtn { color: var(--text-dim); cursor: default; }
+  .powerBtn {
+    width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border-strong);
+    background: var(--panel-2); color: var(--text-dim); font-size: 13px;
+    display: grid; place-items: center; transition: all 140ms ease;
+  }
+  .powerBtn.is-active { color: var(--purple-strong); border-color: var(--purple); box-shadow: 0 0 12px var(--purple-glow); }
+
+  /* ── Hero row ───────────────────────────────────────── */
+  .heroRow {
+    position: relative; z-index: 0;
+    display: grid; grid-template-columns: 200px 1fr 200px;
+    align-items: center; justify-items: center;
+    padding: 0 20px;
+    min-height: 0;
+  }
+  .heroWing {
+    position: absolute; z-index: -1;
+    top: 12px; bottom: 12px; width: 400px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.006) 50%, transparent 82%);
+    border: 1px solid rgba(255,255,255,0.055);
+  }
+  .heroWingLeft { left: 8px; border-radius: 28px 170px 170px 28px; }
+  .heroWingRight { right: 8px; border-radius: 170px 28px 28px 170px; }
+
+  .knobColumn { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .knobColumnLabel { font-size: 12px; letter-spacing: 1.4px; color: var(--text-dim); text-transform: uppercase; }
+
+  .knob { position: relative; display: grid; place-items: center; }
+  .knob.big { width: 132px; height: 132px; }
+  .knob.small { width: 70px; height: 70px; }
+  .knobRingBg, .knobRingFill {
+    position: absolute; inset: 0; border-radius: 50%;
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+  }
+  .knob.small .knobRingBg, .knob.small .knobRingFill {
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  }
+  .knobRingBg {
+    background: conic-gradient(from -135deg, var(--track) 0deg, var(--track) 270deg, transparent 270deg, transparent 360deg);
+  }
+  .knobRingFill {
+    background: conic-gradient(from -135deg, var(--purple) calc(var(--pct, 0) * 270deg), transparent calc(var(--pct, 0) * 270deg));
+    filter: drop-shadow(0 0 6px var(--purple-glow));
+  }
+  .knob.bipolar .knobRingFill {
+    background: conic-gradient(from -135deg,
+      transparent 0deg, transparent calc(var(--zeroPct, 0.5) * 270deg - 0.1deg),
+      var(--purple) calc(var(--zeroPct, 0.5) * 270deg - 0.1deg), var(--purple) calc(var(--zeroPct, 0.5) * 270deg + 0.1deg),
+      transparent calc(var(--zeroPct, 0.5) * 270deg + 0.1deg));
+  }
+  .knob.bipolar.pos .knobRingFill {
+    background: conic-gradient(from -135deg,
+      transparent 0deg, transparent calc(var(--zeroPct, 0.5) * 270deg),
+      var(--purple) calc(var(--zeroPct, 0.5) * 270deg), var(--purple) calc(var(--pct, 0.5) * 270deg),
+      transparent calc(var(--pct, 0.5) * 270deg));
+  }
+  .knob.bipolar.neg .knobRingFill {
+    background: conic-gradient(from -135deg,
+      transparent 0deg, transparent calc(var(--pct, 0.5) * 270deg),
+      var(--purple) calc(var(--pct, 0.5) * 270deg), var(--purple) calc(var(--zeroPct, 0.5) * 270deg),
+      transparent calc(var(--zeroPct, 0.5) * 270deg));
+  }
+  .knobCap {
+    position: absolute; inset: 8px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #2c2c38, #17171f 68%, #101015);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: inset 0 2px 4px rgba(255,255,255,0.06), inset 0 -6px 10px rgba(0,0,0,0.5), 0 3px 8px rgba(0,0,0,0.4);
+  }
+  .knob.small .knobCap { inset: 5px; }
+  .knobPointer {
+    position: absolute; left: 50%; top: 8%; width: 2px; height: 32%;
+    background: #f3f3f8; border-radius: 2px; transform-origin: 50% 190%;
+    box-shadow: 0 0 4px rgba(255,255,255,0.5);
+  }
+  .knob.small .knobPointer { top: 10%; height: 30%; width: 2px; }
+  .knobRangeLabels {
+    width: 100%; display: flex; justify-content: space-between;
+    font-size: 9px; letter-spacing: 0.6px; color: var(--text-dimmer); text-transform: uppercase;
+  }
+  .knobValue { font-size: 15px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  .knob.small ~ .knobValue, .miniValue { font-size: 12px; }
+
+  /* ── Hero circle ────────────────────────────────────── */
+  .heroCircle { position: relative; width: 300px; height: 300px; display: grid; place-items: center; }
+  .heroRing { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-135deg); }
+  .heroRingTrack, .heroRingFillPath {
+    fill: none; stroke-width: 3; stroke-linecap: round;
+  }
+  .heroRingTrack { stroke: var(--track); }
+  .heroRingFillPath {
+    stroke: url(#heroGradient);
+    filter: drop-shadow(0 0 8px var(--purple-glow));
+  }
+  .heroInner {
+    position: absolute; inset: 14px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 38%, #15151f, #0b0b10 70%);
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; padding: 18px;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+  }
+  .heroLabel { font-size: 10px; letter-spacing: 2.4px; color: var(--text-dimmer); text-transform: uppercase; margin-bottom: 2px; }
+  .heroNote { font-size: 46px; font-weight: 700; line-height: 1; display: flex; align-items: flex-end; gap: 2px; color: var(--text); text-shadow: 0 0 22px var(--purple-glow); }
+  .heroOctave { font-size: 20px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px; }
+  .heroWave { width: 100%; max-width: 210px; height: 46px; margin: 6px 0 2px; display: block; }
+  .heroCentsRow { width: 100%; max-width: 210px; display: flex; justify-content: space-between; font-size: 9px; color: var(--text-dimmer); margin-bottom: 2px; }
+  .heroCents { font-size: 20px; font-weight: 700; color: var(--purple-strong); font-variant-numeric: tabular-nums; }
+  .heroCentsLabel { font-size: 9px; letter-spacing: 1.8px; color: var(--text-dimmer); text-transform: uppercase; }
+  .heroCents.in-tune { color: #6ee7a8; }
+
+  /* ── Bottom strip ───────────────────────────────────── */
+  .bottomStrip {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    align-items: center; gap: 6px;
+    padding: 10px 22px; border-top: 1px solid var(--border);
+  }
+  .miniKnobCol { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .miniLabel { font-size: 10px; letter-spacing: 1.1px; color: var(--text-dim); text-transform: uppercase; margin-top: 1px; }
+
+  /* ── Footer ─────────────────────────────────────────── */
+  .footer { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 0 22px; position: relative; }
+  .footerLine { flex: 1; max-width: 220px; height: 1px; background: linear-gradient(90deg, transparent, var(--border-strong), transparent); }
+  .footerText { font-size: 10px; letter-spacing: 3px; color: var(--text-dimmer); white-space: nowrap; }
+  .settingsBtn {
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    width: 22px; height: 22px; border-radius: 6px; border: none; background: transparent;
+    color: var(--text-dimmer); font-size: 13px; display: grid; place-items: center;
+    transition: color 120ms ease;
+  }
+  .settingsBtn:hover { color: var(--text-dim); }
+
+  /* ── Settings popover ───────────────────────────────── */
+  .settingsPopover {
+    position: absolute; right: 14px; bottom: 40px;
+    width: 200px; padding: 12px; border-radius: 10px; border: 1px solid var(--border-strong);
+    background: #16161f; box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    display: none; flex-direction: column; gap: 10px; z-index: 40;
+  }
+  .settingsPopover.is-open { display: flex; }
+  .settingsRow { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-dim); }
+  .settingsRow .val { color: var(--text); }
+  .settingsVersion { font-size: 9px; color: var(--text-dimmer); border-top: 1px solid var(--border); padding-top: 8px; margin-top: 2px; }
+</style>
 </head>
 <body>
+  <div id="stageOuter">
+  <div id="stage">
   <main class="plugin">
-    <canvas id="bg-canvas"></canvas>
-    <section class="top">
-      <div class="logo-wrap"><img src="n_logo.png" alt="Nova logo" /></div>
+    <header class="header">
       <div class="brand">
-        <div class="brand-title"><span class="title-nova">Nova</span><span class="title-pitch">Pitch</span></div>
-        <div class="brand-sub">KEY | SCALE | NOTE</div>
+        <div class="brand-title"><span class="w">NOVA</span> <span class="p">PITCH</span></div>
+        <div class="brand-sub">Real-Time Pitch Correction</div>
       </div>
-      <div class="control">
-        <label>Key</label>
-        <select id="keySelect">
-          <option>C</option><option>C#</option><option>D</option><option>D#</option>
-          <option>E</option><option>F</option><option>F#</option><option>G</option>
-          <option>G#</option><option>A</option><option>A#</option><option>B</option>
-        </select>
-      </div>
-      <div class="control">
-        <label>Scale</label>
-        <button id="scaleButton" type="button">Chromatic</button>
-      </div>
-      <div class="top-right">
-        <div class="byline">by International Nova</div>
-        <div class="status-row">
-          <button id="lowLatencyToggle" class="status-toggle" type="button" aria-pressed="false" aria-label="Toggle low latency mode">
-            <span class="status-toggle__icon" aria-hidden="true">⚡</span>
-            <span class="status-toggle__label">Low Latency</span>
-          </button>
-          <div class="note-pill" id="currentNote">C#4</div>
+
+      <div class="presetBar" style="position:relative;">
+        <button class="presetNavBtn" id="presetPrev" aria-label="Previous preset">‹</button>
+        <div class="presetNameWrap"><span id="presetName">Modern Vocal</span></div>
+        <button class="presetNavBtn" id="presetNext" aria-label="Next preset">›</button>
+        <div class="abGroup">
+          <button class="abBtn is-active" id="abBtnA">A</button>
+          <button class="abBtn" id="abBtnB">B</button>
         </div>
-      </div>
-      <button id="presetToggle" class="preset-open-btn" type="button" aria-haspopup="dialog" aria-expanded="false">
-        + PRESETS
-      </button>
-    </section>
-
-    <section class="graph-wrap">
-      <div class="keys" id="pianoKeys"></div>
-      <canvas id="pitchCanvas"></canvas>
-      <div class="note-bar">
-        <span>C</span><span>D</span><span>F</span><span>C# / Db</span><span class="acc">G</span><span class="acc">A</span><span class="acc">B</span>
-      </div>
-    </section>
-
-    <section class="bottom">
-      <div class="knob"><canvas id="flexKnob" width="86" height="86"></canvas><div class="knob-value" id="flexKnobValue">0%</div><div>Flex</div></div>
-      <div class="knob big primary"><canvas id="retuneKnob" width="116" height="116"></canvas><div class="knob-value" id="retuneKnobValue">0 (Slow)</div><div>Retune Speed</div></div>
-      <div class="knob"><canvas id="humanizeKnob" width="86" height="86"></canvas><div class="knob-value" id="humanizeKnobValue">0%</div><div>Humanize</div></div>
-      <div class="knob"><canvas id="vibratoKnob" width="86" height="86"></canvas><div class="knob-value" id="vibratoKnobValue">0%</div><div>Vibrato</div></div>
-      <div class="knob"><canvas id="formantKnob" width="86" height="86"></canvas><div class="knob-value" id="formantKnobValue">0%</div><div>Formant</div></div>
-    </section>
-
-    <!-- Preset Browser Panel ─ slides up from bottom ──────────── -->
-    <div id="presetPanel" class="preset-panel" role="dialog" aria-label="Preset browser" aria-hidden="true">
-      <div class="preset-panel__header">
-        <span class="preset-panel__title">Presets</span>
-        <div class="preset-panel__toolbar">
-          <div class="preset-search-wrap">
-            <span class="preset-search-icon" aria-hidden="true">⌕</span>
-            <input id="presetSearch" class="preset-search" type="text" placeholder="Search presets…" autocomplete="off" spellcheck="false">
+        <button class="pillBtn" id="saveBtn">SAVE</button>
+        <button class="iconBtn" id="menuBtn" aria-label="Menu">☰</button>
+        <div class="savePopover" id="savePopover">
+          <label for="saveNameInput">Preset name</label>
+          <input id="saveNameInput" type="text" maxlength="40" placeholder="My Vocal Chain" autocomplete="off" spellcheck="false">
+          <div class="savePopoverRow">
+            <button id="saveCancel" type="button">Cancel</button>
+            <button id="saveConfirm" class="confirm" type="button">Save</button>
           </div>
-          <select id="presetCategory" class="preset-cat" aria-label="Filter by category">
-            <option value="all">All</option>
-            <option value="signature">Signature</option>
-            <option value="core">Core</option>
-            <option value="creative">Creative</option>
-          </select>
-          <div class="preset-tags" id="presetTagBar">
-            <button class="ptag" data-tag="smooth" type="button">Smooth</button>
-            <button class="ptag" data-tag="aggressive" type="button">Aggressive</button>
-            <button class="ptag" data-tag="natural" type="button">Natural</button>
-            <button class="ptag" data-tag="robotic" type="button">Robotic</button>
-            <button class="ptag" data-tag="bright" type="button">Bright</button>
-          </div>
-          <button id="presetClose" class="preset-close" type="button" aria-label="Close preset browser">✕</button>
         </div>
       </div>
-      <div class="preset-panel__content">
-        <aside class="preset-rail" id="presetRail" aria-label="Preset category navigation">
-          <button class="preset-rail__item is-active" data-category="all" type="button"><span class="preset-rail__icon">◌</span><span>All</span></button>
-          <button class="preset-rail__item" data-category="signature" type="button"><span class="preset-rail__icon">★</span><span>Signature</span></button>
-          <button class="preset-rail__item" data-category="core" type="button"><span class="preset-rail__icon">◯</span><span>Core</span></button>
-          <button class="preset-rail__item" data-category="creative" type="button"><span class="preset-rail__icon">△</span><span>Creative</span></button>
-          <button class="preset-rail__item" data-category="user" type="button"><span class="preset-rail__icon">◔</span><span>User</span></button>
-        </aside>
-        <div class="preset-main">
-          <div id="presetList" class="preset-list" role="listbox" aria-label="Preset list"></div>
+
+      <div class="brandRight">
+        <div class="brandRight-nova">NOVA</div>
+        <div class="brandRight-audio">AUDIO</div>
+      </div>
+    </header>
+
+    <section class="topStrip">
+      <div class="stepGroup">
+        <div class="stepControl">
+          <label>Key</label>
+          <button class="stepBtn" id="keyBtn"><span id="keyValue">C</span><span class="chev">›</span></button>
+        </div>
+        <div class="stepControl">
+          <label>Scale</label>
+          <button class="stepBtn" id="scaleBtn"><span id="scaleValue">Major</span><span class="chev">›</span></button>
         </div>
       </div>
-    </div>
+      <div class="stepGroup">
+        <div class="stepControl">
+          <label>View</label>
+          <button class="stepBtn viewBtn" id="viewBtn">Waveform</button>
+        </div>
+        <div class="stepControl">
+          <label>Bypass</label>
+          <button class="powerBtn" id="bypassBtn" aria-pressed="false" aria-label="Bypass">⏻</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="heroRow">
+      <div class="heroWing heroWingLeft"></div>
+      <div class="heroWing heroWingRight"></div>
+      <div class="knobColumn">
+        <div class="knobColumnLabel">Retune Speed</div>
+        <div class="knob big" id="retuneKnob" data-param="tolerance" data-min="0" data-max="100" data-invert="1">
+          <div class="knobRingBg"></div>
+          <div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="knobRangeLabels" style="width:132px;"><span>Slow</span><span>Fast</span></div>
+        <div class="knobValue" id="retuneValue">30</div>
+      </div>
+
+      <div class="heroCircle">
+        <svg class="heroRing" viewBox="0 0 300 300">
+          <defs>
+            <linearGradient id="heroGradient" x1="0%" y1="50%" x2="100%" y2="50%">
+              <stop offset="0%" stop-color="#b78dff" />
+              <stop offset="100%" stop-color="#7cd1ff" />
+            </linearGradient>
+          </defs>
+          <circle class="heroRingTrack" cx="150" cy="150" r="138" stroke-dasharray="722.5 867.1" stroke-dashoffset="180.6" />
+          <circle class="heroRingFillPath" id="heroRingFillPath" cx="150" cy="150" r="138" stroke-dasharray="722.5 867.1" stroke-dashoffset="180.6" />
+        </svg>
+        <div class="heroInner">
+          <div class="heroLabel">Pitch</div>
+          <div class="heroNote"><span id="heroNoteName">--</span><span class="heroOctave" id="heroOctave"></span></div>
+          <canvas id="waveCanvas" class="heroWave" width="420" height="92"></canvas>
+          <div class="heroCentsRow"><span>-50</span><span>+50</span></div>
+          <div class="heroCents" id="heroCents">0</div>
+          <div class="heroCentsLabel">Cents</div>
+        </div>
+      </div>
+
+      <div class="knobColumn">
+        <div class="knobColumnLabel">Humanize</div>
+        <div class="knob big" id="humanizeKnob" data-param="amount" data-min="0" data-max="100">
+          <div class="knobRingBg"></div>
+          <div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="knobRangeLabels" style="width:132px;"><span>Subtle</span><span>Extreme</span></div>
+        <div class="knobValue" id="humanizeValue">0</div>
+      </div>
+    </section>
+
+    <section class="bottomStrip">
+      <div class="miniKnobCol">
+        <div class="knob small" id="vibratoKnob" data-param="vibrato" data-min="0" data-max="100">
+          <div class="knobRingBg"></div><div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="miniValue" id="vibratoValue">0</div>
+        <div class="miniLabel">Natural Vibrato</div>
+      </div>
+
+      <div class="miniKnobCol">
+        <div class="knob small" id="vibratoRateKnob" data-param="vibratoRate" data-min="2" data-max="8">
+          <div class="knobRingBg"></div><div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="miniValue" id="vibratoRateValue">5.0 Hz</div>
+        <div class="miniLabel">Vibrato Rate</div>
+      </div>
+
+      <div class="miniKnobCol">
+        <div class="knob small bipolar" id="formantKnob" data-param="formantWarp" data-min="-100" data-max="100" data-bipolar="1">
+          <div class="knobRingBg"></div><div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="miniValue" id="formantValue">0</div>
+        <div class="miniLabel">Formant</div>
+      </div>
+
+      <div class="miniKnobCol">
+        <div class="knob small" id="transientsKnob" data-param="transients" data-min="0" data-max="100">
+          <div class="knobRingBg"></div><div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="miniValue" id="transientsValue">30</div>
+        <div class="miniLabel">Transients</div>
+      </div>
+
+      <div class="miniKnobCol">
+        <div class="knob small bipolar" id="outputKnob" data-param="outputGain" data-min="-24" data-max="24" data-bipolar="1">
+          <div class="knobRingBg"></div><div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="miniValue" id="outputValue">0.0 dB</div>
+        <div class="miniLabel">Output</div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="footerLine"></div>
+      <div class="footerText">Perfect Pitch. Natural Sound.</div>
+      <div class="footerLine"></div>
+      <button class="settingsBtn" id="settingsBtn" aria-label="Settings">⚙</button>
+      <div class="settingsPopover" id="settingsPopover">
+        <div class="settingsRow"><span>Quality</span><span class="val" id="settingsLatencyMode">Standard</span></div>
+        <div class="settingsRow"><span>Latency</span><span class="val" id="settingsLatencyValue">-- ms</span></div>
+        <div class="settingsVersion">Nova Pitch v0.1</div>
+      </div>
+    </footer>
   </main>
+  </div>
+  </div>
 
-  <script src="js/fallback-boot.js"></script>
-  <script type="module" src="js/index.js"></script>
+  <script>
+    // The page's own URL is cache-busted with a fresh ?v=timestamp on every
+    // editor construction (see PluginEditor.cpp), but a plain <script src>
+    // tag doesn't inherit that - it's just a fixed path the WebView can
+    // (and did, measured directly) keep serving from its own resource
+    // cache across rebuilds. Injecting the tag with the same query string
+    // appended closes that gap.
+    const s = document.createElement("script");
+    s.type = "module";
+    s.src = "js/index.js" + window.location.search;
+    document.body.appendChild(s);
+  </script>
 </body>
 </html>

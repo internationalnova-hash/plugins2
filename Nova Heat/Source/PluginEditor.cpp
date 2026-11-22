@@ -22,7 +22,8 @@ NovaHeatAudioProcessorEditor::NovaHeatAudioProcessorEditor (NovaHeatAudioProcess
                               + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
+    setResizable (true, true);
+    setResizeLimits (588, 372, 1470, 930);
     setSize (980, 620);
     startTimerHz (30);
 }

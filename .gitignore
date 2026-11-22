@@ -20,3 +20,23 @@ NovaStudioProjects/
 # JUCE generated helper binaries
 **/juce_*_helper
 .claude/
+
+# Release builds and installer staging (compiled output, not source)
+build-*/
+**/build-*/
+**/dist/
+
+# Avid AAX SDK: licensed, kept locally only (CMake builds AAX when it's present)
+_shared/AAX-SDK/
+
+# Rendered audio and benchmark output
+**/renders/
+Nova Tune Bench/results*/
+
+# Separate git repositories (Nova Stay app)
+nova-stay-v2/
+Nova Pitch/nova-stay-local/
+**/node_modules/
+
+.DS_Store
+**/.DS_Store

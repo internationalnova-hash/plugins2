@@ -254,7 +254,11 @@
 
       el.addEventListener('pointermove', function (ev) {
         if (!dragging || dragging.param !== param || dragging.pointerId !== ev.pointerId) return;
-        var dy = dragging.lastY - ev.clientY;
+        // Compensate for the current CSS scale (see the scaleStage()
+        // comment in index.html) - ev.clientY is always real screen
+        // pixels, unaffected by the transform on an ancestor.
+        var stageScale = window.__novaAuraScale || 1;
+        var dy = (dragging.lastY - ev.clientY) / stageScale;
         var fine = ev.shiftKey ? 0.25 : 1;
         setParam(param, values[param] + dy * 1.0 * fine, false);
         pushParam(param);

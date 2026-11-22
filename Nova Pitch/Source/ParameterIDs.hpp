@@ -1,0 +1,27 @@
+#pragma once
+
+// Single source of truth for Nova Pitch's APVTS parameter-id strings, used
+// by PluginProcessor, PluginEditor, and every validation harness. IDs
+// carried over from the pre-rebuild plugin are kept stable even where
+// their semantics/type changed (formant: bool -> float) so existing
+// automation/session data isn't broken by the DSP rebuild.
+namespace ParameterIDs
+{
+    static constexpr const char* key                 = "key";
+    static constexpr const char* scale                = "scale";
+    static constexpr const char* tolerance             = "tolerance";             // Retune Speed: 0=fast/hard, 100=slow/natural
+    static constexpr const char* amount                = "amount";                // Humanize / correction strength
+    static constexpr const char* confidenceThreshold   = "confidenceThreshold";
+    static constexpr const char* vibrato               = "vibrato";               // Natural Vibrato preserve amount
+    static constexpr const char* formant               = "formant";               // was bool (on/off), now 0-100 amount
+    static constexpr const char* lowLatency            = "lowLatency";
+
+    // New in the ground-up rebuild.
+    static constexpr const char* formantWarp           = "formantWarp";           // -100..100, 0=neutral
+    static constexpr const char* mix                   = "mix";                   // dry/wet, 0-100
+    static constexpr const char* outputGain             = "outputGain";            // dB
+    static constexpr const char* range                 = "range";                 // detector search-range bias, 0-100
+    static constexpr const char* vibratoRate            = "vibratoRate";           // Hz
+    static constexpr const char* transients             = "transients";           // attack-hold amount, 0-100
+    static constexpr const char* bypass                 = "bypass";
+}

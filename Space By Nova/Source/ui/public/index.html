@@ -1544,7 +1544,7 @@
 
         if (event && event.preventDefault) event.preventDefault();
 
-        var deltaY = activeDrag.startY - getClientY(event);
+        var deltaY = (activeDrag.startY - getClientY(event)) / (window.__novaSpaceScale || 1);
         var nextValue = clamp(activeDrag.startValue + (deltaY * 0.45));
         setParamPercent(activeDrag.param, nextValue, { pushToBackend: true });
       }
@@ -1949,6 +1949,30 @@
         bootUi();
       }
     }());
+
+    // ---- stage scale-to-fit ----
+    // --ui-scale was a static 0.80 (a fixed crop-down, no resize support).
+    // Now computed live from actual window size, same technique/rationale
+    // as Nova Tape's index.js fitStage() - polled, not just resize-event-
+    // driven, since this embedded WebView doesn't reliably fire resize
+    // events on a native host setBounds().
+    (function () {
+      let lastW = -1, lastH = -1;
+      function fitStage() {
+        const w = document.documentElement.clientWidth || window.innerWidth || 0;
+        const h = document.documentElement.clientHeight || window.innerHeight || 0;
+        if (w <= 0 || h <= 0) return;
+        if (w === lastW && h === lastH) return;
+        lastW = w; lastH = h;
+        const scale = Math.min(w / 1200, h / 700, 1);
+        const appliedScale = Math.max(0.3, scale);
+        window.__novaSpaceScale = appliedScale || 1;
+        document.documentElement.style.setProperty("--ui-scale", String(appliedScale));
+      }
+      fitStage();
+      window.addEventListener("resize", fitStage);
+      setInterval(fitStage, 300);
+    })();
   </script>
 </body>
 </html>

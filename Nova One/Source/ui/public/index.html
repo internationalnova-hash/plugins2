@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nova One</title>
+<style>
+  :root {
+    --bg: #08080a;
+    --panel: #101013;
+    --panel-2: #16161a;
+    --line: rgba(255,255,255,0.08);
+    --gold: #e8c064;
+    --gold-2: #f3d78a;
+    --gold-dim: rgba(232,192,100,0.35);
+    --text: #f2efe9;
+    --text-dim: #9a968d;
+    --text-faint: #625f58;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  /* Fixed design canvas, uniformly scaled to fit the actual window size
+     (same technique across the catalog - see Nova Tape's index.html for
+     the rationale). #app never had a centering/scaling mechanism before -
+     it just relied on the window always matching its fixed size exactly. */
+  #stageOuter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #app {
+    width: 1080px;
+    height: 680px;
+    flex: 0 0 auto;
+    transform-origin: center center;
+    display: flex;
+    flex-direction: column;
+    background: radial-gradient(120% 100% at 50% -10%, #17171b 0%, #08080a 60%);
+  }
+
+  /* ---------- Header ---------- */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 28px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand-left { display: flex; flex-direction: column; gap: 4px; }
+  .wordmark { font-size: 26px; font-weight: 700; letter-spacing: 0.04em; }
+  .wordmark .gold { color: var(--gold); }
+  .tagline { font-size: 10px; letter-spacing: 0.22em; color: var(--text-dim); }
+  .brand-center { display: flex; align-items: center; gap: 10px; }
+  .brand-center img { width: 30px; height: 30px; object-fit: contain; filter: drop-shadow(0 0 6px var(--gold-dim)); }
+  .brand-center-text { font-size: 11px; letter-spacing: 0.2em; line-height: 1.3; color: var(--text-dim); }
+  .brand-center-text b { color: var(--text); font-weight: 700; display: block; }
+  .brand-right { display: flex; align-items: center; gap: 14px; position: relative; }
+  .preset-nav {
+    display: flex; align-items: center; gap: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .preset-nav button {
+    background: transparent; border: none; color: var(--gold);
+    font-size: 15px; padding: 8px 12px; cursor: pointer;
+  }
+  .preset-nav button:hover { background: rgba(255,255,255,0.05); }
+  .preset-name {
+    font-size: 12px; letter-spacing: 0.14em; color: var(--text);
+    padding: 8px 14px; border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+    min-width: 110px; text-align: center;
+  }
+  .gear {
+    width: 36px; height: 36px; border-radius: 8px;
+    border: 1px solid var(--line); background: transparent;
+    color: var(--text-dim); font-size: 16px; cursor: pointer;
+  }
+  .gear:hover { color: var(--gold); border-color: var(--gold-dim); }
+  .settings-panel {
+    position: absolute; top: 46px; right: 0;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px; width: 160px; z-index: 20;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .settings-panel.hidden { display: none; }
+  .settings-title { font-size: 10px; letter-spacing: 0.16em; color: var(--text-dim); margin-bottom: 8px; }
+  .settings-row { display: flex; gap: 6px; }
+  .mv-btn {
+    flex: 1; padding: 6px 0; font-size: 11px; letter-spacing: 0.08em;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    color: var(--text-dim); cursor: pointer;
+  }
+  .mv-btn.active { color: var(--bg); background: var(--gold); border-color: var(--gold); }
+
+  /* ---------- Stage ---------- */
+  .stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 46px;
+    position: relative;
+    padding: 0 40px;
+  }
+  .wave { position: absolute; top: 50%; transform: translateY(-50%); width: 220px; height: 60px; opacity: 0.55; }
+  .wave-left { left: 40px; }
+  .wave-right { right: 40px; }
+
+  .macro-col { width: 190px; text-align: center; display: flex; flex-direction: column; gap: 6px; z-index: 2; }
+  .macro-label {
+    font-size: 15px; letter-spacing: 0.22em; color: var(--text-dim);
+    transition: opacity 0.18s ease;
+  }
+  .macro-value { font-size: 44px; font-weight: 700; color: var(--gold); line-height: 1; }
+  .macro-value span { font-size: 20px; margin-left: 2px; color: var(--gold-2); }
+  .macro-desc { font-size: 11px; letter-spacing: 0.18em; color: var(--text-faint); text-transform: uppercase; }
+
+  .output-label { font-size: 13px; letter-spacing: 0.2em; color: var(--text-dim); }
+  .output-value { font-size: 30px; font-weight: 700; color: var(--text); }
+  .output-value span { font-size: 12px; color: var(--text-dim); margin-left: 4px; letter-spacing: 0.1em; }
+  .auto-level {
+    margin-top: 6px; padding: 9px 0; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel);
+    color: var(--text-dim); font-size: 11px; letter-spacing: 0.14em; cursor: pointer;
+  }
+  .auto-level.active { color: var(--bg); background: var(--gold); border-color: var(--gold); }
+
+  .mix-control { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .mix-label { font-size: 10px; letter-spacing: 0.16em; color: var(--text-dim); }
+  .mix-knob {
+    position: relative; width: 34px; height: 34px; border-radius: 50%; cursor: ns-resize;
+    background: radial-gradient(circle at 40% 32%, #35353a 0%, #19191c 60%, #0c0c0e 100%);
+    box-shadow: inset 0 1px 3px rgba(255,255,255,0.08), inset 0 -4px 8px rgba(0,0,0,0.6);
+  }
+  .mix-knob::after {
+    content: ''; position: absolute; inset: 2px; border-radius: 50%;
+    border: 2px solid var(--gold-dim);
+  }
+  .mix-pointer {
+    position: absolute; top: 3px; left: 50%; width: 2px; height: 12px;
+    background: var(--gold-2); border-radius: 1px; transform-origin: 50% 14px;
+  }
+  .mix-value { font-size: 12px; color: var(--text-dim); min-width: 38px; }
+
+  .knob-wrap { position: relative; width: 240px; height: 240px; z-index: 3; }
+  .knob-halo {
+    position: absolute; inset: -18px; border-radius: 50%;
+    box-shadow: 0 0 0 0 var(--gold-dim);
+    opacity: 0; transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+  .knob-halo.pulse { opacity: 1; animation: haloPulse 1.1s ease-out infinite; }
+  @keyframes haloPulse {
+    0% { box-shadow: 0 0 0 0 rgba(232,192,100,0.35); }
+    100% { box-shadow: 0 0 0 24px rgba(232,192,100,0); }
+  }
+  .knob {
+    position: absolute; inset: 0; border-radius: 50%;
+    cursor: ns-resize;
+    background:
+      radial-gradient(circle at 42% 34%, #3a3a3f 0%, #1c1c20 42%, #0c0c0e 100%);
+    box-shadow: inset 0 2px 6px rgba(255,255,255,0.08), inset 0 -10px 20px rgba(0,0,0,0.6), 0 18px 30px rgba(0,0,0,0.55);
+  }
+  .knob-ring {
+    position: absolute; inset: 6px; border-radius: 50%;
+    border: 3px solid var(--gold);
+    box-shadow: 0 0 14px var(--gold-dim);
+  }
+  .knob-face { position: absolute; inset: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .knob-pointer {
+    position: absolute; top: 10px; left: 50%; width: 3px; height: 34px;
+    background: var(--gold-2); border-radius: 2px;
+    transform-origin: 50% 96px;
+    box-shadow: 0 0 6px var(--gold-2);
+  }
+  .knob-mark { width: 26px; height: 26px; opacity: 0.28; object-fit: contain; }
+
+  /* ---------- Mode row ---------- */
+  .mode-row { display: flex; gap: 14px; padding: 4px 40px 20px; justify-content: center; }
+  .mode-btn {
+    position: relative;
+    flex: 1; max-width: 210px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 16px 0 20px; border-radius: 12px;
+    background: var(--panel); border: 1px solid var(--line);
+    color: var(--text-dim); cursor: pointer;
+  }
+  .mode-fill { position: absolute; left: 10px; right: 10px; bottom: 8px; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .mode-fill-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); transition: width 0.15s ease; }
+  .mode-btn svg { width: 20px; height: 20px; stroke: var(--text-dim); fill: none; }
+  .mode-btn span { font-size: 12px; letter-spacing: 0.16em; font-weight: 600; }
+  .mode-btn.active {
+    color: var(--gold); border-color: var(--gold-dim);
+    background: linear-gradient(180deg, rgba(232,192,100,0.14), rgba(232,192,100,0.03));
+    box-shadow: 0 0 0 1px var(--gold-dim), 0 0 18px rgba(232,192,100,0.18);
+  }
+  .mode-btn.active svg { stroke: var(--gold); }
+
+  /* ---------- Meters ---------- */
+  .meters {
+    display: flex; align-items: center; gap: 24px;
+    padding: 16px 28px; border-top: 1px solid var(--line);
+  }
+  .meter-block { flex: 1; }
+  .meter-head { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.14em; color: var(--text-dim); margin-bottom: 6px; }
+  .meter-head span:last-child { color: var(--gold); }
+  .meter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .meter-row .ch { width: 12px; font-size: 10px; color: var(--text-faint); }
+  .segs { display: flex; gap: 2px; flex: 1; }
+  .seg { flex: 1; height: 9px; background: #1c1c20; border-radius: 1px; }
+  .seg.lit { background: linear-gradient(180deg, var(--gold-2), var(--gold)); }
+  .seg.lit.hot { background: linear-gradient(180deg, #ff8f6b, #e8543a); }
+  .meter-scale { display: flex; justify-content: space-between; font-size: 9px; color: var(--text-faint); margin-top: 4px; padding-left: 20px; }
+  .truepeak { text-align: right; padding-left: 12px; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+  .tp-label { font-size: 10px; letter-spacing: 0.14em; color: var(--text-dim); }
+  .tp-value { font-size: 20px; font-weight: 700; color: var(--text); }
+  .tp-value span { font-size: 10px; color: var(--text-dim); margin-left: 3px; }
+  .ceiling-label { font-size: 9px; letter-spacing: 0.14em; color: var(--text-faint); }
+  .ceiling-value { font-size: 12px; color: var(--gold-2); }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 28px; border-top: 1px solid var(--line);
+    font-size: 10px; letter-spacing: 0.14em; color: var(--text-faint);
+  }
+  .footer-left .script { font-style: italic; font-family: Georgia, serif; color: var(--gold); margin-right: 4px; letter-spacing: 0; }
+  .footer-center { color: var(--gold-2); }
+</style>
+</head>
+<body>
+<div id="stageOuter">
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand-left">
+      <div class="wordmark">NOVA <span class="gold">ONE</span></div>
+      <div class="tagline">ONE KNOB. ONE GREAT MASTER.</div>
+    </div>
+
+    <div class="brand-center">
+      <img src="n_logo.png" alt="" />
+      <div class="brand-center-text"><b>NOVA</b><span>AUDIO</span></div>
+    </div>
+
+    <div class="brand-right">
+      <div class="preset-nav">
+        <button id="preset-prev" type="button">&#8249;</button>
+        <div class="preset-name" id="preset-name">DEFAULT</div>
+        <button id="preset-next" type="button">&#8250;</button>
+      </div>
+      <button id="gear-btn" class="gear" type="button">&#9881;</button>
+      <div id="settings-panel" class="settings-panel hidden">
+        <div class="settings-title">METER VIEW</div>
+        <div class="settings-row">
+          <button class="mv-btn active" data-view="OUT" type="button">OUT</button>
+          <button class="mv-btn" data-view="LU" type="button">LU</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="stage">
+    <canvas id="wave-left" class="wave wave-left"></canvas>
+
+    <div class="macro-col macro-left">
+      <div class="macro-label" id="macro-label">LOUDNESS</div>
+      <div class="macro-value" id="macro-value">50<span>%</span></div>
+      <div class="macro-desc" id="macro-desc">Enhanced</div>
+    </div>
+
+    <div class="knob-wrap">
+      <div class="knob-halo" id="knob-halo"></div>
+      <div class="knob" id="macro-knob">
+        <div class="knob-ring"></div>
+        <div class="knob-face">
+          <div class="knob-pointer" id="knob-pointer"></div>
+          <img class="knob-mark" src="n_logo.png" alt="" />
+        </div>
+      </div>
+    </div>
+
+    <div class="macro-col macro-right">
+      <div class="output-label">OUTPUT</div>
+      <div class="output-value" id="output-value">+2.0<span>dB</span></div>
+      <button id="auto-level-btn" class="auto-level" type="button">AUTO LEVEL</button>
+      <div class="mix-control">
+        <div class="mix-label">MIX</div>
+        <div class="mix-knob" id="mix-knob"><div class="mix-pointer" id="mix-pointer"></div></div>
+        <div class="mix-value" id="mix-value">100%</div>
+      </div>
+    </div>
+
+    <canvas id="wave-right" class="wave wave-right"></canvas>
+  </main>
+
+  <nav class="mode-row" id="mode-buttons">
+    <button class="mode-btn" data-mode="clean" type="button">
+      <svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M5 5l2.8 2.8M16.2 16.2L19 19M3 12h4M17 12h4M5 19l2.8-2.8M16.2 7.8L19 5" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>CLEAN</span>
+      <div class="mode-fill"><div class="mode-fill-bar" data-fill="clean"></div></div>
+    </button>
+    <button class="mode-btn" data-mode="warm" type="button">
+      <svg viewBox="0 0 24 24"><path d="M7 21c-2-2-2-4.5-.5-6.5C8 12.5 7 10.5 7.5 8c2 1 3 2.5 3 4.5 1.5-2 1-5-.5-7 3 1 6 4 6 8 0 3.5-2.5 7.5-6.5 7.5S7 21 7 21z" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      <span>WARM</span>
+      <div class="mode-fill"><div class="mode-fill-bar" data-fill="warm"></div></div>
+    </button>
+    <button class="mode-btn" data-mode="wide" type="button">
+      <svg viewBox="0 0 24 24"><circle cx="9" cy="12" r="6" stroke-width="1.4"/><circle cx="15" cy="12" r="6" stroke-width="1.4"/></svg>
+      <span>WIDE</span>
+      <div class="mode-fill"><div class="mode-fill-bar" data-fill="wide"></div></div>
+    </button>
+    <button class="mode-btn active" data-mode="loud" type="button">
+      <svg viewBox="0 0 24 24"><path d="M4 16v3M9 12v7M14 7v12M19 3v16" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span>LOUD</span>
+      <div class="mode-fill"><div class="mode-fill-bar" data-fill="loud"></div></div>
+    </button>
+  </nav>
+
+  <section class="meters">
+    <div class="meter-block">
+      <div class="meter-head"><span>INPUT</span><span id="input-lufs">-9.4 LUFS</span></div>
+      <div class="meter-row"><span class="ch">L</span><div class="segs" id="in-l"></div></div>
+      <div class="meter-row"><span class="ch">R</span><div class="segs" id="in-r"></div></div>
+      <div class="meter-scale"><span>-48</span><span>-36</span><span>-24</span><span>-18</span><span>-12</span><span>-9</span><span>-6</span><span>-3</span><span>0</span></div>
+    </div>
+    <div class="meter-block">
+      <div class="meter-head"><span>OUTPUT</span><span id="output-lufs">-8.0 LUFS</span></div>
+      <div class="meter-row"><span class="ch">L</span><div class="segs" id="out-l"></div></div>
+      <div class="meter-row"><span class="ch">R</span><div class="segs" id="out-r"></div></div>
+      <div class="meter-scale"><span>-48</span><span>-36</span><span>-24</span><span>-18</span><span>-12</span><span>-9</span><span>-6</span><span>-3</span><span>0</span></div>
+    </div>
+    <div class="truepeak">
+      <div>
+        <div class="tp-label">TRUE PEAK</div>
+        <div class="tp-value" id="tp-value">-0.3<span>dBTP</span></div>
+      </div>
+      <div>
+        <div class="ceiling-label">CEILING AWARE</div>
+        <div class="ceiling-value" id="ceiling-value">-0.5 dBTP</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-left"><span class="script">By</span> INTERNATIONAL NOVA</div>
+    <div class="footer-center">BE HEARD. BE REMEMBERED.</div>
+    <div class="footer-right">V1.0.0</div>
+  </footer>
+
+</div>
+</div>
+
+<script>
+(() => {
+  // ---------------------------------------------------------------------
+  // JUCE web bridge (same pattern used across the Nova plugin line)
+  // ---------------------------------------------------------------------
+  function juceAvailable() {
+    return !!(window.__JUCE__ && window.__JUCE__.backend && typeof window.__JUCE__.backend.emitEvent === 'function');
+  }
+
+  function createSliderState(parameterId) {
+    if (!juceAvailable()) return null;
+    const backend = window.__JUCE__.backend;
+    const eventId = `__juce__slider${parameterId}`;
+    const listeners = [];
+
+    const state = {
+      scaledValue: 0,
+      props: { start: 0, end: 1, interval: 0 },
+      getNormalisedValue() {
+        const range = state.props.end - state.props.start;
+        if (Math.abs(range) < 1.0e-9) return 0;
+        return clamp((state.scaledValue - state.props.start) / range, 0, 1);
+      },
+      setNormalisedValue(v) {
+        const n = clamp(v, 0, 1);
+        const start = state.props.start;
+        const end = state.props.end;
+        const interval = state.props.interval;
+        let scaled = start + n * (end - start);
+        if (interval > 0)
+          scaled = Math.round(scaled / interval) * interval;
+        state.scaledValue = scaled;
+        backend.emitEvent(eventId, { eventType: 'valueChanged', value: scaled });
+      },
+      gestureStart() { backend.emitEvent(eventId, { eventType: 'sliderDragStarted' }); },
+      gestureEnd() { backend.emitEvent(eventId, { eventType: 'sliderDragEnded' }); },
+      addListener(fn) { listeners.push(fn); }
+    };
+
+    backend.addEventListener(eventId, (ev) => {
+      if (!ev) return;
+      if (ev.eventType === 'valueChanged' && typeof ev.value === 'number') {
+        state.scaledValue = ev.value;
+        const n = state.getNormalisedValue();
+        listeners.forEach((cb) => cb(n));
+        return;
+      }
+      if (ev.eventType === 'propertiesChanged') {
+        Object.keys(ev).forEach((k) => { if (k !== 'eventType') state.props[k] = ev[k]; });
+      }
+    });
+
+    backend.emitEvent(eventId, { eventType: 'requestInitialUpdate' });
+    return state;
+  }
+
+  function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+  function lerp(a, b, t) { return a + (b - a) * clamp(t, 0, 1); }
+
+  // ---------------------------------------------------------------------
+  // Real parameter ranges (must match ParameterIDs / createParameterLayout)
+  // ---------------------------------------------------------------------
+  const ranges = {
+    tone: { min: 0, max: 10 },
+    glue: { min: 0, max: 10 },
+    weight: { min: 0, max: 10 },
+    air: { min: 0, max: 10 },
+    width: { min: 0, max: 10 },
+    mix: { min: 0, max: 100 },
+    output_gain: { min: -12, max: 12 },
+    finish_amount: { min: 0, max: 1 },
+    mode_preset: { min: 0, max: 3 },
+    meter_view: { min: 0, max: 1 },
+    auto_level: { min: 0, max: 1 },
+    clean_amount: { min: 0, max: 100 },
+    warm_amount: { min: 0, max: 100 },
+    wide_amount: { min: 0, max: 100 },
+    loud_amount: { min: 0, max: 100 }
+  };
+
+  const sliderStates = {};
+  Object.keys(ranges).forEach((id) => { sliderStates[id] = createSliderState(id); });
+
+  function writeParam(id, realValue, emit) {
+    const st = sliderStates[id];
+    if (!emit || !st) return;
+    const r = ranges[id];
+    st.setNormalisedValue((realValue - r.min) / (r.max - r.min));
+  }
+
+  // ---------------------------------------------------------------------
+  // Nova One macro model: Clean, Warm, Wide, and Loud each keep an
+  // independent 0-100% amount. The big knob edits whichever dimension is
+  // currently focused; switching focus never resets the other three. The
+  // real DSP parameters are the baseline plus every dimension's delta,
+  // summed together - so all four at 0% reproduces the untouched baseline
+  // exactly, and any combination of amounts blends simultaneously.
+  // ---------------------------------------------------------------------
+  const BASELINE = { tone: 5.0, glue: 3.5, weight: 4.0, air: 5.0, width: 4.5, output_gain: 0.0 };
+  const DIMENSIONS = ['clean', 'warm', 'wide', 'loud'];
+  const MODE_LABEL = { clean: 'CLARITY', warm: 'WARMTH', wide: 'WIDTH', loud: 'LOUDNESS' };
+  const MODE_DESCRIPTORS = {
+    clean: ['Natural', 'Defined', 'Crisp', 'Transparent', 'Pristine'],
+    warm: ['Clean', 'Analog', 'Rich', 'Vintage', 'Saturated'],
+    wide: ['Narrow', 'Present', 'Open', 'Expansive', 'Panoramic'],
+    loud: ['Subtle', 'Balanced', 'Enhanced', 'Powerful', 'Competitive']
+  };
+
+  function descriptorFor(mode, pct) {
+    const list = MODE_DESCRIPTORS[mode];
+    const idx = pct <= 20 ? 0 : pct <= 40 ? 1 : pct <= 60 ? 2 : pct <= 80 ? 3 : 4;
+    return list[idx];
+  }
+
+  // Every curve is neutral (== BASELINE) at 0% by construction, so summing
+  // deltas across all four dimensions is exactly BASELINE when all are 0%.
+  const DIMENSION_CURVES = {
+    clean(pct) {
+      const t = pct / 100;
+      return {
+        tone: lerp(5.0, 6.5, t),
+        glue: lerp(3.5, 2.5, t),
+        weight: lerp(4.0, 3.75, t),
+        air: lerp(5.0, 6.75, t),
+        width: lerp(4.5, 4.75, t),
+        output_gain: 0.0
+      };
+    },
+    warm(pct) {
+      const t = pct / 100;
+      return {
+        tone: lerp(5.0, 4.0, t),
+        glue: lerp(3.5, 6.5, t),
+        weight: lerp(4.0, 5.5, t),
+        air: lerp(5.0, 4.25, t),
+        width: 4.5,
+        output_gain: 0.0
+      };
+    },
+    wide(pct) {
+      const t = pct / 100;
+      return {
+        tone: 5.0,
+        glue: lerp(3.5, 3.0, t),
+        weight: lerp(4.0, 3.5, t),
+        air: lerp(5.0, 6.0, t),
+        width: lerp(4.5, 8.0, t),
+        output_gain: 0.0
+      };
+    },
+    loud(pct) {
+      const t = pct / 100;
+      return {
+        tone: 5.0,
+        glue: lerp(3.5, 6.5, t),
+        weight: lerp(4.0, 5.5, t),
+        air: lerp(5.0, 5.5, t),
+        width: 4.5,
+        output_gain: lerp(0.0, 4.0, t)
+      };
+    }
+  };
+
+  // Finish only ever comes from Loud, ramping in smoothly from 20% instead
+  // of latching on - see PluginProcessor.cpp's finishAmount-driven jmap()s.
+  function finishAmountFromLoud(pct) {
+    if (pct < 20) return 0;
+    return clamp((pct - 20) / 80, 0, 1);
+  }
+
+  function computeFinal() {
+    const totals = { ...BASELINE };
+    DIMENSIONS.forEach((dim) => {
+      const curve = DIMENSION_CURVES[dim](dimensionPct[dim]);
+      Object.keys(curve).forEach((param) => {
+        totals[param] += curve[param] - BASELINE[param];
+      });
+    });
+    totals.tone = clamp(totals.tone, 0, 10);
+    totals.glue = clamp(totals.glue, 0, 10);
+    totals.weight = clamp(totals.weight, 0, 10);
+    totals.air = clamp(totals.air, 0, 10);
+    totals.width = clamp(totals.width, 0, 10);
+    totals.output_gain = clamp(totals.output_gain, -12, 12);
+    totals.finish_amount = finishAmountFromLoud(dimensionPct.loud);
+    return totals;
+  }
+
+  // The DSP's per-mode "flavor" bias (see getModeProfile() in
+  // PluginProcessor.cpp) still needs a single active mode index - use
+  // whichever dimension currently has the largest stored amount. Ties (and
+  // the neutral all-zero case) fall back to Clean, whose bias is all-zero.
+  function dominantMode() {
+    let best = 'clean';
+    let bestVal = dimensionPct.clean;
+    DIMENSIONS.forEach((dim) => {
+      if (dimensionPct[dim] > bestVal) { best = dim; bestVal = dimensionPct[dim]; }
+    });
+    return best;
+  }
+
+  // ---------------------------------------------------------------------
+  // UI refs
+  // ---------------------------------------------------------------------
+  const macroLabel = document.getElementById('macro-label');
+  const macroValue = document.getElementById('macro-value');
+  const macroDesc = document.getElementById('macro-desc');
+  const outputValue = document.getElementById('output-value');
+  const knob = document.getElementById('macro-knob');
+  const knobPointer = document.getElementById('knob-pointer');
+  const knobHalo = document.getElementById('knob-halo');
+  const modeButtons = document.getElementById('mode-buttons');
+  const autoLevelBtn = document.getElementById('auto-level-btn');
+  const gearBtn = document.getElementById('gear-btn');
+  const settingsPanel = document.getElementById('settings-panel');
+  const presetPrev = document.getElementById('preset-prev');
+  const presetNext = document.getElementById('preset-next');
+  const presetName = document.getElementById('preset-name');
+  const mixKnob = document.getElementById('mix-knob');
+  const mixPointer = document.getElementById('mix-pointer');
+  const mixValueEl = document.getElementById('mix-value');
+  const ceilingValueEl = document.getElementById('ceiling-value');
+  const fillBars = {};
+  DIMENSIONS.forEach((dim) => { fillBars[dim] = document.querySelector(`.mode-fill-bar[data-fill="${dim}"]`); });
+
+  const dimensionPct = { clean: 0, warm: 0, wide: 0, loud: 0 };
+  let focusedMode = 'loud';
+  let currentMix = 100;
+  let autoLevelOn = false;
+
+  function setKnobVisual(pct) {
+    const turn = -135 + (pct / 100) * 270;
+    knobPointer.style.transform = `rotate(${turn}deg)`;
+  }
+
+  function refreshButtonFills() {
+    DIMENSIONS.forEach((dim) => {
+      if (fillBars[dim]) fillBars[dim].style.width = `${clamp(dimensionPct[dim], 0, 100)}%`;
+    });
+  }
+
+  function refreshReadouts() {
+    const pct = dimensionPct[focusedMode];
+    macroLabel.textContent = MODE_LABEL[focusedMode];
+    macroValue.innerHTML = `${Math.round(pct)}<span>%</span>`;
+    macroDesc.textContent = descriptorFor(focusedMode, pct);
+    setKnobVisual(pct);
+
+    const final = computeFinal();
+    outputValue.innerHTML = `${final.output_gain >= 0 ? '+' : ''}${final.output_gain.toFixed(1)}<span>dB</span>`;
+
+    // Mirrors PluginProcessor.cpp's ceilingDb = jmap(finishAmount, -0.5f, -0.8f)
+    const ceilingDb = lerp(-0.5, -0.8, final.finish_amount);
+    ceilingValueEl.textContent = `${ceilingDb.toFixed(1)} dBTP`;
+
+    refreshButtonFills();
+  }
+
+  function setMixVisual(pct) {
+    const turn = -110 + (pct / 100) * 220;
+    mixPointer.style.transform = `rotate(${turn}deg)`;
+  }
+
+  function refreshMix() {
+    setMixVisual(currentMix);
+    mixValueEl.textContent = `${Math.round(currentMix)}%`;
+  }
+
+  function applyMix(pct, emit) {
+    currentMix = clamp(pct, 0, 100);
+    refreshMix();
+    writeParam('mix', currentMix, emit);
+  }
+
+  // Writes the combined (all-four-dimensions) real DSP parameters and the
+  // dominant-mode flavor bias. Called after any dimension amount changes.
+  function applyAll(emit) {
+    const final = computeFinal();
+    writeParam('tone', final.tone, emit);
+    writeParam('glue', final.glue, emit);
+    writeParam('weight', final.weight, emit);
+    writeParam('air', final.air, emit);
+    writeParam('width', final.width, emit);
+    writeParam('output_gain', final.output_gain, emit);
+    writeParam('finish_amount', final.finish_amount, emit);
+
+    if (emit) writeParam('mode_preset', DIMENSIONS.indexOf(dominantMode()), true);
+
+    refreshReadouts();
+  }
+
+  // Sets one dimension's independent amount. The other three are untouched.
+  function setDimension(dim, pct, emit) {
+    if (!DIMENSIONS.includes(dim)) return;
+    dimensionPct[dim] = clamp(pct, 0, 100);
+    if (emit) writeParam(`${dim}_amount`, dimensionPct[dim], true);
+    applyAll(emit);
+  }
+
+  // Changes which dimension the knob displays/edits. Never touches amounts.
+  function setFocus(mode, emit) {
+    if (!DIMENSIONS.includes(mode)) return;
+    focusedMode = mode;
+
+    Array.from(modeButtons.children).forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+
+    knobHalo.classList.add('pulse');
+    setTimeout(() => knobHalo.classList.remove('pulse'), 500);
+
+    refreshReadouts();
+    if (emit) applyAll(true);
+  }
+
+  modeButtons.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.mode-btn');
+    if (!btn) return;
+    setFocus(btn.dataset.mode, false);
+  });
+
+  // ---- Knob drag (edits the currently focused dimension only) ----
+  let dragState = null;
+
+  knob.addEventListener('pointerdown', (ev) => {
+    knob.setPointerCapture(ev.pointerId);
+    dragState = { startY: ev.clientY, startPct: dimensionPct[focusedMode] };
+    knobHalo.classList.add('pulse');
+    ['tone', 'glue', 'weight', 'air', 'width', 'output_gain', 'finish_amount'].forEach((id) => {
+      if (sliderStates[id]) sliderStates[id].gestureStart();
+    });
+  });
+
+  window.addEventListener('pointermove', (ev) => {
+    if (!dragState) return;
+    const deltaY = (dragState.startY - ev.clientY) / (window.__novaOneScale || 1);
+    const pct = clamp(dragState.startPct + deltaY * 0.45, 0, 100);
+    setDimension(focusedMode, pct, true);
+  });
+
+  window.addEventListener('pointerup', () => {
+    if (!dragState) return;
+    dragState = null;
+    knobHalo.classList.remove('pulse');
+    ['tone', 'glue', 'weight', 'air', 'width', 'output_gain', 'finish_amount'].forEach((id) => {
+      if (sliderStates[id]) sliderStates[id].gestureEnd();
+    });
+  });
+
+  // ---- Mix knob ----
+  let mixDragState = null;
+
+  mixKnob.addEventListener('pointerdown', (ev) => {
+    mixKnob.setPointerCapture(ev.pointerId);
+    mixDragState = { startY: ev.clientY, startPct: currentMix };
+    if (sliderStates.mix) sliderStates.mix.gestureStart();
+  });
+
+  window.addEventListener('pointermove', (ev) => {
+    if (!mixDragState) return;
+    const deltaY = (mixDragState.startY - ev.clientY) / (window.__novaOneScale || 1);
+    applyMix(mixDragState.startPct + deltaY * 0.6, true);
+  });
+
+  window.addEventListener('pointerup', () => {
+    if (!mixDragState) return;
+    mixDragState = null;
+    if (sliderStates.mix) sliderStates.mix.gestureEnd();
+  });
+
+  // ---- Auto Level ----
+  autoLevelBtn.addEventListener('click', () => {
+    autoLevelOn = !autoLevelOn;
+    autoLevelBtn.classList.toggle('active', autoLevelOn);
+    writeParam('auto_level', autoLevelOn ? 1 : 0, true);
+  });
+
+  if (sliderStates.auto_level) {
+    sliderStates.auto_level.addListener((n) => {
+      autoLevelOn = n > 0.5;
+      autoLevelBtn.classList.toggle('active', autoLevelOn);
+    });
+  }
+
+  const AUTO_LEVEL_TARGET = 0.55; // normalised loudness target used by updateOutputMeter feed
+
+  // ---- Gear / meter view popover ----
+  gearBtn.addEventListener('click', () => settingsPanel.classList.toggle('hidden'));
+  document.addEventListener('click', (ev) => {
+    if (!settingsPanel.contains(ev.target) && ev.target !== gearBtn) settingsPanel.classList.add('hidden');
+  });
+  settingsPanel.querySelectorAll('.mv-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      settingsPanel.querySelectorAll('.mv-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      writeParam('meter_view', btn.dataset.view === 'LU' ? 1 : 0, true);
+    });
+  });
+
+  // ---- Presets (all four dimension amounts at once) ----
+  const PRESETS = [
+    { name: 'DEFAULT', amounts: { clean: 0, warm: 0, wide: 0, loud: 0 }, focus: 'loud' },
+    { name: 'SUBTLE POLISH', amounts: { clean: 40, warm: 0, wide: 0, loud: 0 }, focus: 'clean' },
+    { name: 'WARM VINYL', amounts: { clean: 0, warm: 55, wide: 0, loud: 0 }, focus: 'warm' },
+    { name: 'WIDE STAGE', amounts: { clean: 0, warm: 0, wide: 60, loud: 0 }, focus: 'wide' },
+    { name: 'COMPETITIVE', amounts: { clean: 0, warm: 20, wide: 15, loud: 85 }, focus: 'loud' }
+  ];
+  let presetIndex = 0;
+
+  function applyPreset(idx) {
+    presetIndex = ((idx % PRESETS.length) + PRESETS.length) % PRESETS.length;
+    const preset = PRESETS[presetIndex];
+    presetName.textContent = preset.name;
+
+    DIMENSIONS.forEach((dim) => {
+      dimensionPct[dim] = clamp(preset.amounts[dim] ?? 0, 0, 100);
+      writeParam(`${dim}_amount`, dimensionPct[dim], true);
+    });
+
+    focusedMode = preset.focus;
+    Array.from(modeButtons.children).forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.mode === preset.focus);
+    });
+
+    applyAll(true);
+  }
+
+  presetPrev.addEventListener('click', () => applyPreset(presetIndex - 1));
+  presetNext.addEventListener('click', () => applyPreset(presetIndex + 1));
+
+  // ---------------------------------------------------------------------
+  // Meters (fed by PluginEditor::timerCallback -> updateOutputMeter / updateInputMeter)
+  // ---------------------------------------------------------------------
+  const SEG_COUNT = 24;
+  function buildSegs(container) {
+    for (let i = 0; i < SEG_COUNT; i++) {
+      const seg = document.createElement('div');
+      seg.className = 'seg';
+      container.appendChild(seg);
+    }
+  }
+  const inL = document.getElementById('in-l'), inR = document.getElementById('in-r');
+  const outL = document.getElementById('out-l'), outR = document.getElementById('out-r');
+  [inL, inR, outL, outR].forEach(buildSegs);
+
+  function litSegsForLevel(level) {
+    // level is a rough 0..1 linear peak; map to a -48..0 dB ladder.
+    const db = level <= 0.0001 ? -60 : 20 * Math.log10(level);
+    const norm = clamp((db + 48) / 48, 0, 1);
+    return Math.round(norm * SEG_COUNT);
+  }
+
+  function paintSegs(container, level, hot) {
+    const lit = litSegsForLevel(level);
+    Array.from(container.children).forEach((seg, i) => {
+      seg.classList.toggle('lit', i < lit);
+      seg.classList.toggle('hot', hot && i < lit && i > SEG_COUNT - 4);
+    });
+  }
+
+  function dbReadout(level, offset) {
+    const db = level <= 0.0001 ? -60 : 20 * Math.log10(level);
+    return (db + offset).toFixed(1);
+  }
+
+  const inputLufsEl = document.getElementById('input-lufs');
+  const outputLufsEl = document.getElementById('output-lufs');
+  const tpValueEl = document.getElementById('tp-value');
+
+  window.updateInputMeter = function (peak, rms) {
+    paintSegs(inL, peak, false);
+    paintSegs(inR, peak, false);
+    inputLufsEl.textContent = `${dbReadout(rms, -3.0)} LUFS`;
+  };
+
+  window.updateOutputMeter = function (peak, loudness, isHot) {
+    paintSegs(outL, peak, isHot);
+    paintSegs(outR, peak, isHot);
+    outputLufsEl.textContent = `${dbReadout(loudness, -3.0)} LUFS`;
+    tpValueEl.innerHTML = `${dbReadout(peak, 0)}<span>dBTP</span>`;
+
+    if (autoLevelOn) {
+      const diff = AUTO_LEVEL_TARGET - loudness;
+      if (Math.abs(diff) > 0.01) {
+        const final = computeFinal();
+        const nextGain = clamp(final.output_gain + diff * 1.2, -12, 12);
+        writeParam('output_gain', nextGain, true);
+      }
+    }
+
+    drawWave(waveLeftCtx, peak, false);
+    drawWave(waveRightCtx, loudness, true);
+  };
+
+  // ---------------------------------------------------------------------
+  // Decorative flanking waveforms (reactive, fed by the same meter data)
+  // ---------------------------------------------------------------------
+  const waveLeft = document.getElementById('wave-left');
+  const waveRight = document.getElementById('wave-right');
+  [waveLeft, waveRight].forEach((c) => { c.width = 220; c.height = 60; });
+  const waveLeftCtx = waveLeft.getContext('2d');
+  const waveRightCtx = waveRight.getContext('2d');
+  const waveHistoryLeft = new Array(48).fill(0);
+  const waveHistoryRight = new Array(48).fill(0);
+
+  function drawWave(ctx, level, mirrored) {
+    const hist = mirrored ? waveHistoryRight : waveHistoryLeft;
+    hist.push(clamp(level, 0, 1));
+    hist.shift();
+
+    ctx.clearRect(0, 0, 220, 60);
+    ctx.strokeStyle = '#e8c064';
+    ctx.globalAlpha = 0.7;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    const step = 220 / (hist.length - 1);
+    hist.forEach((v, i) => {
+      const x = mirrored ? 220 - i * step : i * step;
+      const y = 30 - v * 24 * (i % 2 === 0 ? 1 : -1) * 0.6 - v * 6;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+
+  // ---------------------------------------------------------------------
+  // Init: the four dimension amounts are persisted directly (clean_amount /
+  // warm_amount / wide_amount / loud_amount), so reopening the plugin
+  // restores exactly what was left rather than guessing from the combined
+  // (many-to-one) real parameters.
+  // ---------------------------------------------------------------------
+  function estimateAndInit() {
+    let anyNonZero = false;
+    DIMENSIONS.forEach((dim) => {
+      const st = sliderStates[`${dim}_amount`];
+      const pct = st ? lerp(ranges[`${dim}_amount`].min, ranges[`${dim}_amount`].max, st.getNormalisedValue()) : 0;
+      dimensionPct[dim] = clamp(pct, 0, 100);
+      if (dimensionPct[dim] > 0.01) anyNonZero = true;
+    });
+
+    focusedMode = anyNonZero ? dominantMode() : 'loud';
+    Array.from(modeButtons.children).forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.mode === focusedMode);
+    });
+
+    const autoState = sliderStates.auto_level;
+    autoLevelOn = autoState ? autoState.getNormalisedValue() > 0.5 : false;
+    autoLevelBtn.classList.toggle('active', autoLevelOn);
+
+    const meterState = sliderStates.meter_view;
+    if (meterState) {
+      const isLU = meterState.getNormalisedValue() > 0.5;
+      settingsPanel.querySelectorAll('.mv-btn').forEach((b) => b.classList.toggle('active', (b.dataset.view === 'LU') === isLU));
+    }
+
+    const mixState = sliderStates.mix;
+    const mixPct = mixState ? lerp(ranges.mix.min, ranges.mix.max, mixState.getNormalisedValue()) : 100;
+
+    applyAll(false);
+    applyMix(mixPct, false);
+  }
+
+  if (juceAvailable()) {
+    setTimeout(estimateAndInit, 60);
+  } else {
+    refreshReadouts();
+    refreshMix();
+  }
+})();
+
+// ---- stage scale-to-fit (same technique as Nova Tape/Nova Pitch) ----
+(function () {
+  let lastW = -1, lastH = -1;
+  function fitStage() {
+    const w = document.documentElement.clientWidth || window.innerWidth || 0;
+    const h = document.documentElement.clientHeight || window.innerHeight || 0;
+    if (w <= 0 || h <= 0) return;
+    if (w === lastW && h === lastH) return;
+    lastW = w; lastH = h;
+    const scale = Math.min(w / 1080, h / 680);
+    window.__novaOneScale = scale || 1;
+    const stage = document.getElementById("app");
+    if (stage) stage.style.transform = `scale(${scale})`;
+  }
+  fitStage();
+  window.addEventListener("resize", fitStage);
+  setInterval(fitStage, 300);
+})();
+</script>
+</body>
+</html>

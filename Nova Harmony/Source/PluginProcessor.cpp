@@ -341,6 +341,26 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaHarmonyAudioProcessor::c
         juce::StringArray { "Preview", "Process" },
         0));
 
+    // Individual level trim for every one of the 32 voice slots - dB-based
+    // to match the rest of the catalog's level controls and the convention
+    // other harmony plugins use per-voice.
+    for (int i = 0; i < ParameterIDs::numVoiceLevels; ++i)
+    {
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { ParameterIDs::voiceLevelId (i), 1 },
+            "Voice " + juce::String (i + 1) + " Level",
+            juce::NormalisableRange<float> (-24.0f, 6.0f, 0.1f),
+            0.0f,
+            "dB"));
+    }
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::soloCore, 1 }, "Solo Core", false));
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::soloSupport, 1 }, "Solo Support", false));
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::soloTexture, 1 }, "Solo Texture", false));
+
     return layout;
 }
 
@@ -399,10 +419,13 @@ void NovaHarmonyAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 {
     currentSampleRate = sampleRate > 0.0 ? sampleRate : 44100.0;
 
+    // The tone filters only ever process harmonyBuffer, which is always allocated
+    // as 2 channels below regardless of the negotiated bus layout (mono included) -
+    // so they must always be prepared for 2 channels, not the bus channel count.
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = currentSampleRate;
     spec.maximumBlockSize = static_cast<juce::uint32> (samplesPerBlock);
-    spec.numChannels = static_cast<juce::uint32> (juce::jmax (1, getTotalNumOutputChannels()));
+    spec.numChannels = 2;
 
     toneLowMidCut.prepare (spec);
     tonePresence.prepare (spec);
@@ -422,6 +445,13 @@ void NovaHarmonyAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
     dryBuffer.clear();
 
     toneState = {};
+
+    coreGateSmoothed.reset (currentSampleRate, 0.015);
+    supportGateSmoothed.reset (currentSampleRate, 0.015);
+    textureGateSmoothed.reset (currentSampleRate, 0.015);
+    coreGateSmoothed.setCurrentAndTargetValue (1.0f);
+    supportGateSmoothed.setCurrentAndTargetValue (1.0f);
+    textureGateSmoothed.setCurrentAndTargetValue (1.0f);
 
     for (auto& voice : voiceStates)
     {
@@ -521,10 +551,23 @@ void NovaHarmonyAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     const auto qualityMode = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::qualityMode)->load());
     const auto lowLatencyOn = apvts.getRawParameterValue (ParameterIDs::lowLatency)->load() > 0.5f;
 
+    const bool soloCoreOn = apvts.getRawParameterValue (ParameterIDs::soloCore)->load() > 0.5f;
+    const bool soloSupportOn = apvts.getRawParameterValue (ParameterIDs::soloSupport)->load() > 0.5f;
+    const bool soloTextureOn = apvts.getRawParameterValue (ParameterIDs::soloTexture)->load() > 0.5f;
+    const bool anySoloOn = soloCoreOn || soloSupportOn || soloTextureOn;
+    coreGateSmoothed.setTargetValue ((! anySoloOn || soloCoreOn) ? 1.0f : 0.0f);
+    supportGateSmoothed.setTargetValue ((! anySoloOn || soloSupportOn) ? 1.0f : 0.0f);
+    textureGateSmoothed.setTargetValue ((! anySoloOn || soloTextureOn) ? 1.0f : 0.0f);
+
     const auto requestedVoices = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::voices)->load());
     const float rawWidthPercent = apvts.getRawParameterValue (ParameterIDs::width)->load();
     const float rawHumanizePercent = apvts.getRawParameterValue (ParameterIDs::humanize)->load();
     const float rawMixPercent = apvts.getRawParameterValue (ParameterIDs::mix)->load();
+
+    std::array<float, maxVoices> voiceLevelGain {};
+    for (int i = 0; i < maxVoices; ++i)
+        voiceLevelGain[static_cast<size_t> (i)] = juce::Decibels::decibelsToGain (
+            apvts.getRawParameterValue (ParameterIDs::voiceLevelId (i))->load());
 
     const float voiceCurveNorm = applyPresetVoicesCurveNorm (requestedVoices, styleIndex);
     const auto activeVoices = getActiveVoiceCount (requestedVoices, styleIndex, lowLatencyOn);
@@ -680,7 +723,8 @@ void NovaHarmonyAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
             const float dynamicJitter = 0.85f + 0.35f * voice.gainJitter;
             const float textureThin = isTexture ? juce::jlimit (0.6f, 1.0f, 1.0f - 0.3f * mudDrive) : 1.0f;
-            const float perVoiceGain = gainCompensation * dynamicJitter * textureThin * qualityBoost;
+            const float userVoiceGain = voiceLevelGain[static_cast<size_t> (voiceIndex)];
+            const float perVoiceGain = gainCompensation * dynamicJitter * textureThin * qualityBoost * userVoiceGain;
 
             voiceL *= perVoiceGain * leftPan;
             voiceR *= perVoiceGain * rightPan;
@@ -711,8 +755,12 @@ void NovaHarmonyAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         textureL = hpStep (textureL, textureHp, toneState.hpTextureL);
         textureR = hpStep (textureR, textureHp, toneState.hpTextureR);
 
-        harmonyBuffer.setSample (0, sample, coreL + supportL + textureL);
-        harmonyBuffer.setSample (1, sample, coreR + supportR + textureR);
+        const float coreGate = coreGateSmoothed.getNextValue();
+        const float supportGate = supportGateSmoothed.getNextValue();
+        const float textureGate = textureGateSmoothed.getNextValue();
+
+        harmonyBuffer.setSample (0, sample, coreL * coreGate + supportL * supportGate + textureL * textureGate);
+        harmonyBuffer.setSample (1, sample, coreR * coreGate + supportR * supportGate + textureR * textureGate);
 
         delayWritePosition = (delayWritePosition + 1) % maxDelaySamples;
         ++sampleCounter;

@@ -1,0 +1,72 @@
+#pragma once
+
+#include <juce_gui_extra/juce_gui_extra.h>
+#include <juce_dsp/juce_dsp.h>
+#include <array>
+#include <vector>
+#include "PluginProcessor.h"
+
+class NovaAIVocalEditor : public juce::AudioProcessorEditor,
+                          private juce::Timer
+{
+public:
+    explicit NovaAIVocalEditor (NovaAIVocalProcessor&);
+    ~NovaAIVocalEditor() override;
+
+    void paint (juce::Graphics&) override;
+    void resized() override;
+
+private:
+    void timerCallback() override;
+
+    NovaAIVocalProcessor& processorRef;
+
+    // Input spectrum for the Chain Curve display (message thread only)
+    static constexpr int kFftOrder = 11, kFftSize = 1 << kFftOrder, kNumBands = 96;
+    juce::dsp::FFT fft { kFftOrder };
+    juce::dsp::WindowingFunction<float> window { (size_t) kFftSize, juce::dsp::WindowingFunction<float>::hann };
+    std::vector<float> fftData = std::vector<float> ((size_t) (2 * kFftSize), 0.f);
+    std::array<float, kNumBands> bandsDb {};
+    juce::var computeSpectrum();
+    juce::var presetList() const;
+
+    // Relays must exist before the WebView (its options reference them).
+    juce::WebSliderRelay cleanRelay  { "clean" };
+    juce::WebSliderRelay deessRelay  { "deess" };
+    juce::WebSliderRelay punchRelay  { "punch" };
+    juce::WebSliderRelay airRelay    { "air" };
+    juce::WebSliderRelay warmthRelay { "warmth" };
+    juce::WebSliderRelay spaceRelay  { "space" };
+    juce::WebSliderRelay tuneRelay   { "tune" };
+    juce::WebSliderRelay mixRelay    { "mix" };
+    juce::WebSliderRelay outputRelay { "output" };
+    juce::WebComboBoxRelay vibeRelay { "vibe" };
+    juce::WebComboBoxRelay keyRelay  { "key" };
+    juce::WebToggleButtonRelay bypassRelay { "bypass" };
+    juce::WebToggleButtonRelay tempoSyncRelay { "tempoSync" };
+    juce::WebSliderRelay bpmRelay { "bpm" };
+
+    struct SinglePageBrowser : juce::WebBrowserComponent
+    {
+        using WebBrowserComponent::WebBrowserComponent;
+
+        bool pageAboutToLoad (const juce::String& newURL) override
+        {
+            return newURL.startsWith (getResourceProviderRoot()) || newURL == getResourceProviderRoot();
+        }
+    };
+
+    std::unique_ptr<SinglePageBrowser> webView;
+
+    std::unique_ptr<juce::WebSliderParameterAttachment> cleanAttachment, deessAttachment, punchAttachment,
+                                                        airAttachment, warmthAttachment, spaceAttachment, tuneAttachment,
+                                                        mixAttachment, outputAttachment;
+    std::unique_ptr<juce::WebComboBoxParameterAttachment> vibeAttachment, keyAttachment;
+    std::unique_ptr<juce::WebToggleButtonParameterAttachment> bypassAttachment, tempoSyncAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> bpmAttachment;
+
+    std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
+    static juce::WebBrowserComponent::Options createWebOptions (NovaAIVocalEditor& editor);
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaAIVocalEditor)
+};

@@ -43,8 +43,8 @@ This environment models a real, specific class of studio tool: a small single-dr
 
 | Acoustic | Playback System | Overall | Decision Fidelity |
 |---|---|---|---|
-| 8.5/10 | 6.0/10 | 7.3/10 | Not yet measured — see [`reference-validation-protocol.md`](reference-validation-protocol.md) |
+| 8.5/10 | 6.0/10 | 7.3/10 | **PASS** (2026-07-30, informal listening session — user's word: "sounds like what it should") |
 
-Acoustic scores high — near-field, minimal room claims, hard to get wrong. Playback System is the second-lowest score of the four environments, driven by one specific, fairly confident "likely wrong" finding (the midrange coloration probably needs to be more pronounced, not just unverified) rather than a vague uncertainty. Both scores reflect design-reasoning confidence, not a listening-test result.
+Acoustic scores high — near-field, minimal room claims, hard to get wrong. Playback System is the second-lowest score of the four environments, driven by one specific, fairly confident "likely wrong" finding (the midrange coloration probably needs to be more pronounced, not just unverified) rather than a vague uncertainty. Notable: this passed Decision Fidelity despite the flagged under-tuned midrange coloration — worth remembering as a real gap to revisit later, but it isn't currently costing this environment its usefulness. Not yet run against the full fixed-material protocol in `reference-validation-protocol.md` — this was a single informal pass.
 
 **Summary**: this doc is almost entirely Playback System — the room barely matters here by design of use, and every meaningful character trait (boxiness, bandwidth limit, mono) comes from the single driver itself. The clearest open question stays the same as before the restructure: the midrange coloration is likely under-tuned relative to the real monitor class, and it's now unambiguous that fixing it is a Playback System change, not an Acoustic one — nothing about the room around it should move.

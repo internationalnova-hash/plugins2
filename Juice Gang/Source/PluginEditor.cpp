@@ -218,14 +218,22 @@ void DelayVisualizer::paint (juce::Graphics& g)
     g.strokePath (wave, juce::PathStrokeType (1.8f));
 }
 
-// ─── Editor ──────────────────────────────────────────────────────────────────
-JuiceGangEditor::JuiceGangEditor (JuiceGangProcessor& p)
-    : AudioProcessorEditor (&p), proc (p), filterCurve (p.apvts), reverbEQCurve (p.apvts)
-{
-    setSize (720, 580);
-    setLookAndFeel (&laf);
+static constexpr int kPluginW = 720;
+static constexpr int kPluginH = 580;
 
-    auto& a = p.apvts;
+static const juce::Colour kLetterboxBg (0xff1a0044);
+
+// ─── Content: holds the whole UI at its natural design size; the editor
+//     scales this component as a single unit when the window is resized ───
+class JuiceGangEditor::Content : public juce::Component, private juce::Timer
+{
+public:
+    Content (JuiceGangProcessor& p, JGLookAndFeel& lafRef)
+        : proc (p), laf (lafRef), filterCurve (p.apvts), reverbEQCurve (p.apvts)
+    {
+        setSize (kPluginW, kPluginH);
+
+        auto& a = p.apvts;
 
     // ── Bypass — wired to straw click, button intentionally hidden ──
     bypassBtn.setClickingTogglesState (true);
@@ -435,23 +443,25 @@ JuiceGangEditor::JuiceGangEditor (JuiceGangProcessor& p)
         if (presetBrowser.isVisible()) presetBrowser.toFront (false);
     };
 
-    startTimerHz (30);
-}
-
-JuiceGangEditor::~JuiceGangEditor() { setLookAndFeel (nullptr); }
-
-void JuiceGangEditor::mouseDown (const juce::MouseEvent& e)
-{
-    // Straw hit area — gable-top-left zone
-    juce::Rectangle<int> strawHit (30, 0, 120, 78);
-    if (strawHit.contains (e.getPosition()))
-    {
-        bypassBtn.setToggleState (!bypassBtn.getToggleState(), juce::sendNotification);
+        startTimerHz (30);
     }
-}
 
-void JuiceGangEditor::timerCallback()
-{
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        // Straw hit area — gable-top-left zone
+        juce::Rectangle<int> strawHit (30, 0, 120, 78);
+        if (strawHit.contains (e.getPosition()))
+        {
+            bypassBtn.setToggleState (!bypassBtn.getToggleState(), juce::sendNotification);
+        }
+    }
+
+    void paint (juce::Graphics& g) override;
+    void resized() override;
+
+private:
+    void timerCallback() override
+    {
     vuMeter.setLevel (proc.getOutputLevel());
     vuMeter.repaint();
 
@@ -516,10 +526,88 @@ void JuiceGangEditor::timerCallback()
     strawDroop += (target - strawDroop) * 0.08f;
     if (std::abs (strawDroop - prev) > 0.001f)
         repaint (0, 0, 200, 115);   // only repaint gable area for performance
-}
+    }
+
+    JuiceGangProcessor& proc;
+    JGLookAndFeel& laf;
+
+    // Global bypass
+    juce::TextButton bypassBtn { "BYPASS" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAtt;
+
+    // ── Filter ──
+    juce::TextButton filterOnBtn  { "ON" };
+    juce::ComboBox   filterModeBox;
+    juce::Slider     cutoffKnob, resonanceKnob, driveKnob, filterMixKnob, filterOutKnob;
+    juce::Label      cutoffLbl, resonanceLbl, driveLbl, filterMixLbl, filterOutLbl;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>       filterOnAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>     filterModeAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>       cutoffAtt, resonanceAtt, driveAtt, filterMixAtt, filterOutAtt;
+    FilterCurveDisplay filterCurve;
+
+    // ── Delay ──
+    juce::TextButton delayOnBtn { "ON" }, delaySyncBtn { "SYNC" }, pingPongBtn { "PING\nPONG" };
+    juce::ComboBox   delaySyncDivBox;
+    juce::Slider     delayTimeKnob, delayFbKnob, delayLCKnob, delayHCKnob, delayMixKnob;
+    juce::Label      delayTimeLbl, delayFbLbl, delayLCLbl, delayHCLbl, delayMixLbl;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>       delayOnAtt, delaySyncAtt, pingPongAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>     delaySyncDivAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>       delayTimeAtt, delayFbAtt, delayLCAtt, delayHCAtt, delayMixAtt;
+    DelayVisualizer delayVis;
+
+    // ── Reverb ──
+    juce::TextButton reverbOnBtn { "ON" }, freezeBtn { "❄" }, reverbEqOnBtn { "ON" };
+    juce::Slider     revSizeKnob, revDecayKnob, preDelayKnob, revDampKnob, revMixKnob;
+    juce::Label      revSizeLbl, revDecayLbl, preDelayLbl, revDampLbl, revMixLbl;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>    reverbOnAtt, freezeAtt, reverbEqOnAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>    revSizeAtt, revDecayAtt, preDelayAtt, revDampAtt, revMixAtt;
+
+    // Reverb EQ
+    juce::Slider     revLCKnob, revLSKnob, revMidKnob, revHSKnob, revHCKnob;
+    juce::Label      revLCLbl, revLSLbl, revMidLbl, revHSLbl, revHCLbl;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>    revLCAtt, revLSAtt, revMidAtt, revHSAtt, revHCAtt;
+    ReverbEQDisplay  reverbEQCurve;
+
+    // ── LFO ──
+    juce::ComboBox   lfoTargetBox, lfoShapeBox;
+    juce::TextButton lfoSyncBtn { "SYNC" };
+    juce::ComboBox   lfoSyncDivBox;
+    juce::Slider     lfoRateKnob, lfoDepthKnob;
+    juce::Label      lfoRateLbl, lfoDepthLbl;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>  lfoTargetAtt, lfoShapeAtt, lfoSyncDivAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>    lfoSyncAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>    lfoRateAtt, lfoDepthAtt;
+
+    // ── Master ──
+    juce::Slider     masterInKnob, masterMixKnob, masterOutKnob;
+    juce::Label      masterInLbl, masterMixLbl, masterOutLbl;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>    masterInAtt, masterMixAtt, masterOutAtt;
+    VUMeter          vuMeter;
+
+    // ── SIP macro knob ──
+    juce::Slider sipKnob;
+    juce::Label  sipLbl;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> sipAtt;
+
+    // ── Preset browser ──
+    PresetBrowser presetBrowser;
+    int  currentPresetIdx = -1;
+
+    // ── JUICE Button ──
+    juce::TextButton juiceBtn { "JUICE" };
+    float juicePhase   = 0.f;   // 0..1 animation progress
+    bool  juiceActive  = false; // true while transition is running
+    float juiceTimer   = 0.f;   // counts up in timer ticks
+
+    // ── Preset bar ──
+    juce::TextButton prevPresetBtn { "<" }, nextPresetBtn { ">" }, savePresetBtn { "SAVE" }, deletePresetBtn { "DEL" }, presetsBtn { "PRESETS" };
+    juce::Label      presetNameLabel;
+
+    float strawDroop = 0.f;  // 0 = upright (active), 1 = drooped (bypassed)
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
-void JuiceGangEditor::paint (juce::Graphics& g)
+void JuiceGangEditor::Content::paint (juce::Graphics& g)
 {
     const float W = (float)getWidth(), H = (float)getHeight();
     // Layout constants — compact 720×580
@@ -860,7 +948,7 @@ void JuiceGangEditor::paint (juce::Graphics& g)
     }
 }
 
-void JuiceGangEditor::resized()
+void JuiceGangEditor::Content::resized()
 {
     const int W = getWidth(), H = getHeight();
 
@@ -950,4 +1038,43 @@ void JuiceGangEditor::resized()
     savePresetBtn.setBounds    (320, PY, 36, 18);
     deletePresetBtn.setBounds  (360, PY, 34, 18);
     presetsBtn.setBounds       (W - 100, PY, 88, 18);
+}
+
+// ─── Editor ──────────────────────────────────────────────────────────────────
+JuiceGangEditor::JuiceGangEditor (JuiceGangProcessor& p)
+    : AudioProcessorEditor (&p)
+{
+    setLookAndFeel (&laf);
+
+    content = std::make_unique<Content> (p, laf);
+    addAndMakeVisible (*content);
+
+    setResizable (true, true);
+    setResizeLimits ((int) (kPluginW * 0.6f), (int) (kPluginH * 0.6f),
+                      (int) (kPluginW * 1.5f), (int) (kPluginH * 1.5f));
+    setSize (kPluginW, kPluginH);
+}
+
+JuiceGangEditor::~JuiceGangEditor() { setLookAndFeel (nullptr); }
+
+void JuiceGangEditor::paint (juce::Graphics& g)
+{
+    g.fillAll (kLetterboxBg);
+}
+
+void JuiceGangEditor::resized()
+{
+    if (content == nullptr)
+        return;
+
+    const float scaleX = (float) getWidth()  / (float) kPluginW;
+    const float scaleY = (float) getHeight() / (float) kPluginH;
+    const float scale  = juce::jmin (scaleX, scaleY);
+
+    content->setBounds (0, 0, kPluginW, kPluginH);
+
+    const float offsetX = ((float) getWidth()  - (float) kPluginW * scale) * 0.5f;
+    const float offsetY = ((float) getHeight() - (float) kPluginH * scale) * 0.5f;
+
+    content->setTransform (juce::AffineTransform::scale (scale).translated (offsetX, offsetY));
 }

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Nova Bass Lab</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin:0; padding:0; width:100%; height:100%; background:#0a0a0c; color:#e8e4dc; font-family: -apple-system, sans-serif; overflow:hidden; }
+  #app { display:flex; flex-direction:column; width:100%; height:100%; }
+  header { padding:12px 20px; border-bottom:1px solid #2a2a2f; font-size:14px; letter-spacing:2px; font-weight:700; flex-shrink:0; }
+  header .lab { color:#7fe8b0; }
+  #status { padding:6px 20px; font-size:11px; color:#8a8a86; flex-shrink:0; }
+
+  #tabs { display:flex; gap:2px; padding:0 20px; border-bottom:1px solid #2a2a2f; flex-shrink:0; }
+  .tabBtn { background:none; border:none; color:#8a8a86; font-size:11px; letter-spacing:1px; padding:10px 14px; cursor:pointer; border-bottom:2px solid transparent; }
+  .tabBtn:hover { color:#c8c4bc; }
+  .tabBtn.active { color:#7fe8b0; border-bottom-color:#7fe8b0; }
+
+  #panels { flex:1; overflow-y:auto; padding:16px 20px; }
+  .panel { display:none; }
+  .panel.active { display:block; }
+
+  .row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .row label { width:180px; font-size:11px; color:#a8a49c; flex-shrink:0; }
+  .row input[type=range] { flex:1; }
+  .row .val { width:64px; text-align:right; font-size:11px; color:#7fe8b0; font-variant-numeric:tabular-nums; }
+  .row select, .row input[type=text], .row input[type=number] { background:#1a1a1e; color:#e8e4dc; border:1px solid #2a2a2f; border-radius:4px; padding:4px 8px; font-size:11px; }
+  .row input[type=checkbox] { accent-color:#7fe8b0; }
+
+  fieldset { border:1px solid #2a2a2f; border-radius:6px; margin:0 0 16px 0; padding:10px 14px; }
+  legend { font-size:10px; letter-spacing:1.5px; color:#7fe8b0; padding:0 6px; }
+
+  button.action { background:#1d1d21; border:1px solid #3a5e4c; color:#7fe8b0; padding:8px 16px; border-radius:5px; font-size:11px; letter-spacing:1px; cursor:pointer; }
+  button.action:hover { background:#22322a; }
+  button.action.secondary { border-color:#2a2a2f; color:#c8c4bc; }
+  button.action.danger { border-color:#5e3a3a; color:#e87f7f; }
+
+  #keyboard { display:flex; align-items:flex-end; padding:14px 20px; gap:2px; height:120px; flex-shrink:0; border-top:1px solid #2a2a2f; }
+  .key { width:28px; height:100px; background:#1d1d21; border:1px solid #2a2a2f; border-radius:0 0 4px 4px; cursor:pointer; }
+  .key:active, .key.active { background:#3a5e4c; border-color:#7fe8b0; }
+  .key.black { width:18px; height:64px; background:#050506; margin:0 -10px; z-index:2; }
+  .key.black:active, .key.black.active { background:#2a5040; }
+
+  .candList, .presetList { display:flex; flex-direction:column; gap:4px; max-height:220px; overflow-y:auto; }
+  .listRow { display:flex; align-items:center; gap:8px; font-size:11px; padding:5px 8px; background:#141417; border-radius:4px; }
+  .listRow .name { flex:1; color:#c8c4bc; }
+  .listRow button { font-size:10px; padding:3px 8px; }
+
+  .macroRow { display:grid; grid-template-columns: 1fr 70px 70px 100px 90px 28px; gap:6px; align-items:center; margin-bottom:6px; }
+  .macroRow input, .macroRow select { width:100%; box-sizing:border-box; background:#1a1a1e; color:#e8e4dc; border:1px solid #2a2a2f; border-radius:4px; padding:4px 6px; font-size:10px; }
+  .macroTabs { display:flex; gap:4px; margin-bottom:10px; flex-wrap:wrap; }
+  .macroTabBtn { background:#141417; border:1px solid #2a2a2f; color:#a8a49c; padding:5px 10px; font-size:10px; border-radius:4px; cursor:pointer; }
+  .macroTabBtn.active { color:#7fe8b0; border-color:#7fe8b0; }
+
+  #renderResult, #candidateInfo, #saveResult { font-size:11px; color:#8a8a86; margin-top:8px; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>NOVA <span class="lab">BASS LAB</span> — internal sound design tool</header>
+  <div id="status">Loading...</div>
+
+  <div id="tabs">
+    <button class="tabBtn active" data-tab="synth">SYNTH</button>
+    <button class="tabBtn" data-tab="color">COLOR</button>
+    <button class="tabBtn" data-tab="stereo">STEREO</button>
+    <button class="tabBtn" data-tab="generate">GENERATE / MUTATE</button>
+    <button class="tabBtn" data-tab="lifecycle">LIFECYCLE</button>
+    <button class="tabBtn" data-tab="render">RENDER</button>
+    <button class="tabBtn" data-tab="macros">MACRO EDITOR</button>
+    <button class="tabBtn" data-tab="presets">PRESETS</button>
+  </div>
+
+  <div id="panels">
+    <div class="panel active" id="panel-synth">
+      <fieldset><legend>OSCILLATOR</legend>
+        <div class="row"><label>Sine / Tri Blend</label><input type="range" id="sineTriBlend" min="0" max="1" step="0.01"><span class="val" id="v_sineTriBlend"></span></div>
+        <div class="row"><label>Fine Tune (cents)</label><input type="range" id="fineTuneCents" min="-50" max="50" step="1"><span class="val" id="v_fineTuneCents"></span></div>
+      </fieldset>
+      <fieldset><legend>PITCH ENVELOPE</legend>
+        <div class="row"><label>Amount (semitones)</label><input type="range" id="pitchEnvAmountSemitones" min="0" max="36" step="1"><span class="val" id="v_pitchEnvAmountSemitones"></span></div>
+        <div class="row"><label>Decay (s)</label><input type="range" id="pitchEnvDecaySeconds" min="0.005" max="1.5" step="0.005"><span class="val" id="v_pitchEnvDecaySeconds"></span></div>
+        <div class="row"><label>Curve</label><input type="range" id="pitchEnvCurve" min="0" max="1" step="0.01"><span class="val" id="v_pitchEnvCurve"></span></div>
+      </fieldset>
+      <fieldset><legend>AMP ENVELOPE</legend>
+        <div class="row"><label>Attack (s)</label><input type="range" id="ampAttackSeconds" min="0.0005" max="0.5" step="0.0005"><span class="val" id="v_ampAttackSeconds"></span></div>
+        <div class="row"><label>Decay (s)</label><input type="range" id="ampDecaySeconds" min="0.02" max="3" step="0.01"><span class="val" id="v_ampDecaySeconds"></span></div>
+        <div class="row"><label>Sustain</label><input type="range" id="ampSustain" min="0" max="1" step="0.01"><span class="val" id="v_ampSustain"></span></div>
+        <div class="row"><label>Release (s)</label><input type="range" id="ampReleaseSeconds" min="0.005" max="2" step="0.005"><span class="val" id="v_ampReleaseSeconds"></span></div>
+      </fieldset>
+      <fieldset><legend>TRANSIENT</legend>
+        <div class="row"><label>Amount</label><input type="range" id="transientAmount" min="0" max="1" step="0.01"><span class="val" id="v_transientAmount"></span></div>
+        <div class="row"><label>Tone (Hz)</label><input type="range" id="transientToneHz" min="200" max="6000" step="10"><span class="val" id="v_transientToneHz"></span></div>
+        <div class="row"><label>Decay (s)</label><input type="range" id="transientDecaySeconds" min="0.002" max="0.3" step="0.002"><span class="val" id="v_transientDecaySeconds"></span></div>
+      </fieldset>
+      <fieldset><legend>FILTER</legend>
+        <div class="row"><label>High Pass</label><input type="checkbox" id="filterHighPass"></div>
+        <div class="row"><label>Cutoff (Hz)</label><input type="range" id="filterCutoffHz" min="30" max="18000" step="10"><span class="val" id="v_filterCutoffHz"></span></div>
+        <div class="row"><label>Resonance</label><input type="range" id="filterResonance" min="0.1" max="10" step="0.05"><span class="val" id="v_filterResonance"></span></div>
+      </fieldset>
+      <fieldset><legend>VOICING</legend>
+        <div class="row"><label>Retrigger</label>
+          <select id="retrigger"><option value="retrigger">Retrigger</option><option value="legato">Legato</option></select>
+        </div>
+        <div class="row"><label>Glide Mode</label>
+          <select id="glideMode"><option value="legatoOnly">Legato Only</option><option value="always">Always</option></select>
+        </div>
+        <div class="row"><label>Glide Time (s)</label><input type="range" id="glideTimeSeconds" min="0" max="0.5" step="0.005"><span class="val" id="v_glideTimeSeconds"></span></div>
+      </fieldset>
+    </div>
+
+    <div class="panel" id="panel-color">
+      <fieldset><legend>COLOR</legend>
+        <div class="row"><label>Mode</label>
+          <select id="colorMode"><option value="clean">Clean</option><option value="warm">Warm</option><option value="gritty">Gritty</option></select>
+        </div>
+        <div class="row"><label>Drive</label><input type="range" id="colorDrive" min="0" max="1" step="0.01"><span class="val" id="v_colorDrive"></span></div>
+      </fieldset>
+    </div>
+
+    <div class="panel" id="panel-stereo">
+      <fieldset><legend>STEREO</legend>
+        <div class="row"><label>Width</label><input type="range" id="widthAmount" min="0" max="1" step="0.01"><span class="val" id="v_widthAmount"></span></div>
+        <div class="row"><label>Crossover (Hz)</label><input type="range" id="crossoverHz" min="40" max="500" step="5"><span class="val" id="v_crossoverHz"></span></div>
+      </fieldset>
+    </div>
+
+    <div class="panel" id="panel-generate">
+      <fieldset><legend>GENERATE</legend>
+        <div class="row"><label>Profile</label><select id="genProfile"></select></div>
+        <button class="action" id="btnGenerate">GENERATE NEW</button>
+      </fieldset>
+      <fieldset><legend>MUTATE</legend>
+        <div class="row"><label>Intensity</label>
+          <select id="mutateIntensity"><option value="subtle">Subtle</option><option value="medium" selected>Medium</option><option value="wild">Wild</option></select>
+        </div>
+        <button class="action secondary" id="btnMutate">MUTATE CURRENT</button>
+      </fieldset>
+    </div>
+
+    <div class="panel" id="panel-lifecycle">
+      <fieldset><legend>CURRENT CANDIDATE</legend>
+        <div class="row"><button class="action" id="btnStatusCandidate">CANDIDATE</button>
+          <button class="action" id="btnStatusFavorite">FAVORITE</button>
+          <button class="action" id="btnStatusApproved">APPROVED</button>
+          <button class="action danger" id="btnStatusRejected">REJECTED</button>
+        </div>
+        <div id="candidateInfo">No candidate loaded (generate or mutate a sound first).</div>
+      </fieldset>
+    </div>
+
+    <div class="panel" id="panel-render">
+      <fieldset><legend>RENDER TO VAULT</legend>
+        <div class="row"><label>Root Note (MIDI)</label><input type="number" id="renderRootNote" value="36" min="0" max="127"></div>
+        <div class="row"><label>Duration (s)</label><input type="number" id="renderDuration" value="1.0" step="0.1" min="0.1" max="8"></div>
+        <div class="row"><label>Tail (s)</label><input type="number" id="renderTail" value="1.0" step="0.1" min="0.1" max="8"></div>
+        <button class="action" id="btnRender">RENDER</button>
+        <div id="renderResult"></div>
+      </fieldset>
+    </div>
+
+    <div class="panel" id="panel-macros">
+      <fieldset><legend>MACRO MAPPING EDITOR</legend>
+        <div class="macroTabs" id="macroTabs"></div>
+        <div id="macroRows"></div>
+        <button class="action secondary" id="btnAddMapping">+ ADD MAPPING</button>
+        <div class="row" style="margin-top:14px;"><button class="action" id="btnSaveMacros">SAVE MACRO TABLE</button></div>
+      </fieldset>
+    </div>
+
+    <div class="panel" id="panel-presets">
+      <fieldset><legend>SAVE AS NOVA BASS PRESET</legend>
+        <div class="row"><label>Name</label><input type="text" id="presetName"></div>
+        <div class="row"><label>Category</label><input type="text" id="presetCategory"></div>
+        <div class="row"><label>Description</label><input type="text" id="presetDescription" style="flex:1;"></div>
+        <div class="row"><label>Tags (comma-sep)</label><input type="text" id="presetTags" style="flex:1;"></div>
+        <button class="action" id="btnSavePreset">SAVE AS PRESET</button>
+        <div id="saveResult"></div>
+      </fieldset>
+      <fieldset><legend>FACTORY PRESET LIBRARY</legend>
+        <button class="action secondary" id="btnRefreshPresets">REFRESH</button>
+        <div class="presetList" id="presetList" style="margin-top:10px;"></div>
+      </fieldset>
+    </div>
+  </div>
+
+  <div id="keyboard"></div>
+</div>
+<script type="module" src="js/index.js"></script>
+</body>
+</html>

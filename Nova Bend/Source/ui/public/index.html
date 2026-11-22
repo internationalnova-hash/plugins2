@@ -1,0 +1,315 @@
+<title>Nova Bend</title>
+<style>
+  :root {
+    --graphite: #1d1e1d;
+    --black: #090a0b;
+    --champagne: #c9a560;
+    --amber: #e3a73f;
+    --ink: #e9e4d8;
+    --muted: #8b8579;
+    --ease: 120ms ease;
+  }
+  html, body { margin:0; padding:0; background:var(--black); overflow:hidden; }
+  *{ -webkit-user-select:none; user-select:none; -webkit-user-drag:none; box-sizing:border-box; font-family:'Futura','Avenir Next','Century Gothic','Helvetica Neue',Arial,sans-serif; }
+
+  #stageOuter{ width:100vw; height:100vh; position:relative; overflow:hidden; background:var(--black); }
+  #app{ width:1080px; height:720px; position:absolute; left:0; top:0; transform-origin:top left; color:var(--ink); }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    position:absolute; left:0; right:0; top:0; height:56px;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 20px;
+  }
+  .brand-left{ display:flex; align-items:center; gap:10px; }
+  .logo-n{ width:26px; height:26px; filter:brightness(0) saturate(100%) invert(78%) sepia(24%) saturate(487%) hue-rotate(357deg) brightness(97%) contrast(89%); }
+  .brand-text{ font-size:14px; letter-spacing:0.22em; font-weight:700; color:var(--ink); }
+
+  .preset-nav{ display:flex; align-items:center; gap:8px; }
+  .preset-btn{ width:26px; height:26px; border:none; background:rgba(255,255,255,0.06); border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .preset-btn img{ width:10px; height:10px; opacity:0.8; }
+  .preset-field{ width:180px; height:30px; border-radius:6px; background:linear-gradient(180deg,#2a2a2a,#161616); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; color:var(--ink); }
+  .icon-btn{ width:26px; height:26px; border:none; border-radius:6px; background:rgba(255,255,255,0.06); cursor:pointer; display:flex; align-items:center; justify-content:center; margin-left:4px; }
+  .icon-btn img{ width:13px; height:13px; }
+
+  .tagline{ font-size:10px; letter-spacing:0.20em; color:var(--muted); text-transform:uppercase; }
+
+  /* ---------- Main panel ---------- */
+  .mainpanel{
+    position:absolute; left:14px; right:14px; top:64px; height:432px;
+    border-radius:10px; overflow:hidden;
+    background-image:url("img/main_panel_aged_graphite.png"); background-size:100% 100%;
+    box-shadow:0 8px 16px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .screw{ position:absolute; width:16px; height:16px; }
+  .screw.tl{ left:12px; top:12px; } .screw.tr{ right:12px; top:12px; }
+  .screw.bl{ left:12px; bottom:12px; } .screw.br{ right:12px; bottom:12px; }
+
+  .titleblock{ position:absolute; left:26px; top:22px; }
+  .titleblock h1{ margin:0; font-size:26px; font-weight:800; letter-spacing:0.01em; color:var(--ink); }
+  .titleblock h1 span{ color:var(--amber); }
+  .titleblock .sub{ margin-top:2px; font-size:10px; letter-spacing:0.16em; color:var(--muted); text-transform:uppercase; }
+
+  .seriesblock{ position:absolute; right:26px; top:24px; text-align:right; font-size:11px; letter-spacing:0.16em; color:var(--ink); font-weight:700; text-transform:uppercase; }
+  .seriesblock span{ color:var(--amber); }
+  .seriesblock .est{ font-size:9px; letter-spacing:0.14em; color:var(--muted); margin-top:2px; font-weight:500; }
+
+  .knobrow{ position:absolute; left:0; right:0; top:96px; display:flex; align-items:flex-start; justify-content:center; gap:95px; }
+  .knobblock{ display:flex; flex-direction:column; align-items:center; gap:10px; width:280px; }
+  .knoblabel{ font-size:19px; font-weight:800; letter-spacing:0.06em; color:var(--ink); }
+
+  .bigknobwrap{ position:relative; width:230px; height:230px; margin-top:46px; }
+  .knobticks{ position:absolute; inset:-38px; pointer-events:none; }
+  .knobticks svg{ width:100%; height:100%; overflow:visible; }
+  .ringlayer{ position:absolute; inset:0; }
+  .ringlayer img{ position:absolute; inset:0; width:100%; height:100%; }
+  .ring-active{ opacity:1; }
+  .knob{ position:relative; width:100%; height:100%; cursor:ns-resize; touch-action:none; }
+  .knobDial{ position:absolute; inset:0; background-repeat:no-repeat; background-size:100% 100%; transform:rotate(var(--angle,-135deg)); transform-origin:50% 50%; }
+  .knob.pitch .knobDial{ background-image:url("img/knob_pitch_black_gold.png"); }
+  .knob.formant .knobDial{ background-image:url("img/knob_formant_graphite_champagne.png"); }
+
+  .knobunit{ font-size:10px; letter-spacing:0.14em; color:var(--muted); margin-top:2px; text-transform:uppercase; }
+
+  .centercol{ display:flex; flex-direction:column; align-items:center; width:220px; padding-top:6px; }
+  .emblem-wrap{ position:relative; width:100px; height:100px; display:flex; align-items:center; justify-content:center; }
+  .emblem-glow{ position:absolute; inset:0; width:100%; height:100%; opacity:0.9; }
+  .emblem-mark{ position:relative; width:46px; height:auto; filter:brightness(0) saturate(100%) invert(78%) sepia(24%) saturate(487%) hue-rotate(357deg) brightness(97%) contrast(89%); }
+  .brandword{ margin-top:8px; font-size:12px; letter-spacing:0.20em; font-weight:700; color:var(--champagne); }
+  .waverow{ display:flex; align-items:center; gap:16px; margin:14px 0; }
+  #waveform{ width:130px; height:34px; }
+  .taglines{ text-align:center; font-size:10px; letter-spacing:0.20em; color:var(--champagne); line-height:2; font-weight:600; }
+  .vline{ width:1px; height:26px; background:linear-gradient(180deg, transparent, rgba(212,175,120,0.5)); }
+  .vline.bottom{ background:linear-gradient(0deg, transparent, rgba(212,175,120,0.5)); }
+
+  /* ---------- Lower panel ---------- */
+  .lowerpanel{
+    position:absolute; left:14px; right:14px; top:510px; bottom:14px;
+    border-radius:10px; overflow:hidden;
+    background-image:url("img/lower_utility_panel.png"); background-size:100% 100%;
+    box-shadow:0 6px 14px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05);
+    display:flex; align-items:center; justify-content:space-evenly; padding:0 10px;
+  }
+  .divider{ align-self:stretch; width:1px; margin:22px 0; background:linear-gradient(180deg, transparent, rgba(212,175,120,0.35), transparent); }
+
+  .grp{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .grouplabel{ font-size:11px; letter-spacing:0.14em; color:var(--ink); font-weight:700; text-transform:uppercase; }
+  .btnrow{ display:flex; gap:6px; }
+  .modebtn{
+    position:relative; width:62px; height:38px; border:none; cursor:pointer;
+    background-image:url("img/utility_button_inactive.png"); background-size:100% 100%;
+    font-size:11px; font-weight:700; letter-spacing:0.04em; color:var(--muted); font-family:inherit;
+  }
+  .modebtn:hover:not(.active){ background-image:url("img/utility_button_hover.png"); }
+  .modebtn.active{
+    background-image:none;
+    background:linear-gradient(180deg, #ffd873 0%, #f0b23e 45%, #d68f1e 100%);
+    color:#2a1d06; font-weight:800;
+    box-shadow:0 0 10px rgba(240,178,62,0.55), inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 2px rgba(120,70,10,0.4);
+  }
+  .caption{ font-size:8.5px; letter-spacing:0.08em; color:var(--muted); text-transform:uppercase; text-align:center; max-width:120px; }
+
+  .notegrp{ display:flex; gap:10px; align-items:flex-end; transition:opacity var(--ease); }
+  .notegrp.dim{ opacity:0.35; pointer-events:none; }
+  .selectwrap{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .selectbox{ position:relative; width:66px; height:38px; }
+  select.skin{
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:100%; text-align:left; text-align-last:left;
+    border:none; background-image:url("img/note_dropdown_inactive.png"); background-size:100% 100%;
+    color:var(--ink); font-size:13px; font-weight:700; font-family:inherit; cursor:pointer;
+    padding:0 22px 0 12px;
+  }
+  select.skin:hover{ background-image:url("img/note_dropdown_hover.png"); }
+  .selectbox::after{
+    content:""; position:absolute; right:9px; top:50%; transform:translateY(-50%);
+    width:9px; height:9px; pointer-events:none;
+    background-image:url("img/chevron_down.svg"); background-size:100% 100%; background-repeat:no-repeat;
+    opacity:0.8;
+  }
+
+  .smallknobwrap{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .smallknob{ position:relative; width:70px; height:70px; margin-top:14px; }
+  .smallknob .knobticks{ inset:-16px; }
+  .smallknob .knobDial{ background-image:url("img/knob_mix_small.png"); }
+  .smallknobrange{ display:flex; justify-content:space-between; width:70px; font-size:9px; color:var(--muted); font-weight:700; font-variant-numeric:tabular-nums; }
+
+  .modaloverlay{ display:none; position:absolute; inset:0; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:50; }
+  .modaloverlay.open{ display:flex; }
+  .modal{ background:#141414; border:1px solid rgba(212,175,120,0.3); border-radius:10px; padding:20px; width:280px; }
+  .modalTitle{ font-size:12px; letter-spacing:0.12em; color:var(--ink); font-weight:700; margin-bottom:12px; }
+  .modal input{ width:100%; background:#0e0e0e; border:1px solid rgba(255,255,255,0.15); color:var(--ink); font-size:13px; padding:8px 10px; margin-bottom:10px; border-radius:6px; }
+  .modalBtns{ display:flex; gap:8px; justify-content:flex-end; }
+  .modalBtn{ padding:7px 14px; border-radius:6px; border:none; cursor:pointer; font-weight:700; font-size:12px; font-family:inherit; }
+  .modalBtn.cancel{ background:#2a2b2c; color:var(--muted); }
+  .modalBtn.save{ background:linear-gradient(180deg,#ffd873,#d68f1e); color:#241a05; }
+</style>
+
+<div id="stageOuter">
+  <div id="app">
+    <header class="topbar">
+      <div class="brand-left">
+        <img src="img/n_logo.png" class="logo-n" alt="N" />
+        <div class="brand-text">NOVA AUDIO</div>
+      </div>
+      <div class="preset-nav">
+        <button class="preset-btn" id="presetPrev"><img src="img/arrow_previous.svg" alt="" /></button>
+        <div class="preset-field" id="presetName">Default</div>
+        <button class="preset-btn" id="presetNext"><img src="img/arrow_next.svg" alt="" /></button>
+        <button class="icon-btn" id="settingsBtn"><img src="img/settings_icon.svg" alt="" /></button>
+        <button class="icon-btn" id="saveBtn"><img src="img/save_icon.svg" alt="" /></button>
+      </div>
+      <div class="tagline">Vocals &middot; New Dimensions</div>
+    </header>
+
+    <div class="mainpanel">
+      <img class="screw tl" src="img/screw_brass.svg" alt="" />
+      <img class="screw tr" src="img/screw_brass.svg" alt="" />
+      <img class="screw bl" src="img/screw_brass.svg" alt="" />
+      <img class="screw br" src="img/screw_brass.svg" alt="" />
+
+      <div class="titleblock">
+        <h1>NOVA <span>BEND</span></h1>
+        <div class="sub">Pitch &amp; Formant Shifter</div>
+      </div>
+      <div class="seriesblock">Nova <span>Series</span><div class="est">Est. 2023</div></div>
+
+      <div class="knobrow">
+        <div class="knobblock">
+          <div class="knoblabel">Pitch</div>
+          <div class="bigknobwrap">
+            <div class="knobticks" id="ticksPitch"></div>
+            <div class="ringlayer">
+              <img class="ring-inactive" src="img/knob_pitch_outer_ring.png" alt="" />
+              <img class="ring-active" id="pitchRingActive" src="img/pitch_ring_active.png" alt="" />
+            </div>
+            <div class="knob pitch" id="knobPitch"><div class="knobDial"></div></div>
+          </div>
+          <div class="knobunit">Semitones</div>
+        </div>
+
+        <div class="centercol">
+          <div class="vline"></div>
+          <div class="waverow">
+            <svg id="waveform" viewBox="0 0 130 34"><polyline id="wavePoly" points="65,17 65,17" fill="none" stroke="#8c6a2f" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <div class="emblem-wrap">
+            <img class="emblem-glow" src="img/nova_emblem_gold_glow.png" alt="" />
+            <img class="emblem-mark" src="img/n_logo.png" alt="" />
+          </div>
+          <div class="brandword">NOVA AUDIO</div>
+          <div class="taglines" style="margin-top:14px;">SHIFT<br/>SHAPE<br/>CREATE<br/>YOUR VOICE</div>
+          <div class="vline bottom" style="margin-top:14px;"></div>
+        </div>
+
+        <div class="knobblock">
+          <div class="knoblabel">Formant</div>
+          <div class="bigknobwrap">
+            <div class="knobticks" id="ticksFormant"></div>
+            <div class="ringlayer">
+              <img class="ring-inactive" src="img/knob_formant_outer_ring.png" alt="" />
+              <img class="ring-active" id="formantRingActive" src="img/formant_ring_active.png" alt="" />
+            </div>
+            <div class="knob formant" id="knobFormant"><div class="knobDial"></div></div>
+          </div>
+          <div class="knobunit">Semitones</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lowerpanel">
+      <img class="screw tl" src="img/screw_brass.svg" alt="" />
+      <img class="screw tr" src="img/screw_brass.svg" alt="" />
+      <img class="screw bl" src="img/screw_brass.svg" alt="" />
+      <img class="screw br" src="img/screw_brass.svg" alt="" />
+
+      <div class="grp">
+        <div class="grouplabel">Flatten</div>
+        <div class="btnrow" id="flattenGroup">
+          <button class="modebtn" data-idx="0">Off</button>
+          <button class="modebtn" data-idx="1">On</button>
+        </div>
+        <div class="caption">Lock to a single note</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="notegrp" id="noteGrp">
+        <div class="selectwrap">
+          <div class="grouplabel">Note</div>
+          <div class="selectbox">
+            <select class="skin" id="noteSelect">
+              <option>C</option><option>C#</option><option>D</option><option>D#</option><option>E</option><option>F</option>
+              <option>F#</option><option>G</option><option>G#</option><option>A</option><option>A#</option><option>B</option>
+            </select>
+          </div>
+        </div>
+        <div class="selectwrap">
+          <div class="grouplabel">Octave</div>
+          <div class="selectbox">
+            <select class="skin" id="octaveSelect">
+              <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="grp">
+        <div class="grouplabel">Link</div>
+        <div class="btnrow" id="linkGroup">
+          <button class="modebtn" data-idx="0">Off</button>
+          <button class="modebtn" data-idx="1">On</button>
+        </div>
+        <div class="caption">Pitch + Formant</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="smallknobwrap">
+        <div class="grouplabel">Mix</div>
+        <div class="smallknob">
+          <div class="knobticks" id="ticksMix"></div>
+          <div class="knob" id="knobMix"><div class="knobDial"></div></div>
+        </div>
+        <div class="smallknobrange"><span>0</span><span>100</span></div>
+        <div class="knobunit" style="margin-top:-4px;">%</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="grp">
+        <div class="grouplabel">Quality</div>
+        <div class="btnrow" id="qualityGroup">
+          <button class="modebtn" style="width:56px;" data-idx="0">Live</button>
+          <button class="modebtn" style="width:66px;" data-idx="1">Studio</button>
+        </div>
+        <div class="caption">Low latency / High quality</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="grp">
+        <div class="grouplabel">Bypass</div>
+        <div class="btnrow" id="bypassGroup">
+          <button class="modebtn" data-idx="0">Off</button>
+          <button class="modebtn" data-idx="1">On</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modaloverlay" id="saveModal">
+      <div class="modal">
+        <div class="modalTitle">SAVE PRESET</div>
+        <input type="text" id="presetNameInput" placeholder="Preset name" />
+        <div class="modalBtns">
+          <button class="modalBtn cancel" id="saveCancel">Cancel</button>
+          <button class="modalBtn save" id="saveConfirm">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/index.js" type="module"></script>

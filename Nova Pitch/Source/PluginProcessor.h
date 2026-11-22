@@ -2,24 +2,39 @@
 
 #include <array>
 #include <atomic>
-#include <vector>
-#include <cmath>
-#include <memory>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 
-class NovaPitchAudioProcessor : public juce::AudioProcessor
+#include "NovaPitchTunedEngine.h" // shared NovaTuneCore tuner (same as Nova AI Vocal)
+#include "ABSnapshot.h"
+#include "NovaPitchPresetManager.h"
+
+class NovaPitchAudioProcessor : public juce::AudioProcessor, private juce::Timer
 {
 public:
-    static constexpr int pitchHistorySize = 256;
-    static constexpr int yinBufferSize    = 2048;
-
     NovaPitchAudioProcessor();
     ~NovaPitchAudioProcessor() override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
+
+    // Hosts call this to tell a plugin to clear its internal state (tails,
+    // delay lines, any history-dependent memory) before starting playback
+    // from a new position or before a bounce/render - JUCE's own
+    // AudioProcessor::reset() default is an empty no-op specifically so
+    // that a plugin has to opt in by overriding it, which this class never
+    // did until now. Without this override, this shifter's phase
+    // accumulators and WSOLA "previous grain" memory silently kept
+    // accumulating across an ENTIRE SESSION's worth of playback/scrubbing
+    // (however much happened before the user triggered an export),
+    // regardless of how well-behaved the host was about signalling a fresh
+    // start - directly confirmed as a real, measured effect: byte-
+    // identical vocal content preceded by different amounts of unrelated
+    // prior audio produced RMS-scale-magnitude different shifter output,
+    // because the capture-alignment logic has no absolute reference and
+    // only ever corrects relative to whatever grain came before it.
+    void reset() override { engine.reset(); }
 
    #ifndef JucePlugin_PreferredChannelConfigurations
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
@@ -47,81 +62,65 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState apvts;
+    ABSnapshot abSnapshot;
+    NovaPitchPresetManager presetManager;
 
     float getDetectedPitch()  const noexcept { return detectedPitch.load(); }
     float getCorrectedPitch() const noexcept { return correctedPitch.load(); }
     float getConfidence()     const noexcept { return pitchConfidence.load(); }
-    const std::array<std::atomic<float>, pitchHistorySize>& getPitchHistory() const noexcept { return pitchHistory; }
+
+    // Debug-only introspection (used by OfflineDiag) - not part of the
+    // plugin's normal UI-facing state. Replaces the retired dual-head-
+    // shifter's getLockedRefHzDebug/getRatioDebug/getXfadeCountDebug -
+    // those concepts (a frozen reference pitch, crossfade count) don't
+    // exist in this true-OLA engine.
+    bool  getVoicedDebug() const noexcept { return voicedDebug.load(); }
+    float getShifterRatioDebug() const noexcept { return shifterRatioDebug.load(); }
+
+    void setGrainCaptureDebugCallback (std::function<void (const nova::pitch::NovaPitchSynchronousShifter::CaptureDebugInfo&)> cb) noexcept
+    {
+        engine.setGrainCaptureDebugCallback (std::move (cb));
+    }
+
+    // Real (not decorative) level history for the hero display's waveform
+    // visualization - one RMS value per processed block, from the ACTUAL
+    // output audio. Ring buffer; index 0 is oldest.
+    static constexpr int kLevelHistorySize = 96;
+    float getLevelHistoryAt (int indexFromOldest) const noexcept;
+
+    int saveCurrentAsPreset (const juce::String& name) { return presetManager.saveCurrentAsUserPreset (name, apvts); }
 
 private:
-    enum Scale : int { Chromatic = 0, Major = 1, Minor = 2, Pentatonic = 3, Blues = 4 };
-
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    void timerCallback() override;
 
-    float detectYIN (const float* samples, int n, float* d, float* cmnd);
-    int   quantizeToScale (float hz);
-    float midiToHz (int midi) const;
-    float hzToMidi (float hz) const;
+    // Real-host forensic capture logging - opt-in only, see the public
+    // comment above setGrainCaptureDebugCallback(). Checked once per
+    // prepareToPlay(); armed only if a sentinel file exists at that
+    // moment. debugCaptureLog is reserved to a fixed capacity up front
+    // (message thread, prepareToPlay()) so the audio-thread push_back
+    // inside the callback never reallocates - once full, new events are
+    // silently dropped rather than growing further.
+    void maybeEnableDebugCaptureLog();
+    void flushDebugCaptureLog();
+    std::vector<nova::pitch::NovaPitchSynchronousShifter::CaptureDebugInfo> debugCaptureLog;
+    bool debugCaptureActive = false;
+    size_t debugCaptureFlushedCount = 0;
+    juce::File debugCaptureOutputFile;
+
+    NovaPitchTunedEngine engine;
 
     double currentSampleRate { 44100.0 };
-    int    currentBlockSize  { 512 };
-
-    // YIN pitch detection
-    std::vector<float> yinBuf;
-    std::vector<float> yinLinear;
-    std::vector<float> yinD;
-    std::vector<float> yinCmnd;
-
-    int   yinWritePos           { 0 };
-    float smoothedDetectedHz    { 0.0f };
-    int   blocksSinceValidPitch { 0 };
-    static constexpr int maxHoldBlocks = 20;
-
-    std::array<float, 5> pitchHistory5 {};
-    int ph5index = 0;
+    bool   lastAppliedLowLatencyMode { false };
 
     std::atomic<float> detectedPitch   { 0.0f };
     std::atomic<float> correctedPitch  { 0.0f };
     std::atomic<float> pitchConfidence { 0.0f };
-    std::array<std::atomic<float>, pitchHistorySize> pitchHistory {};
-    int historyIndex { 0 };
+    std::atomic<bool>  voicedDebug        { false };
+    std::atomic<float> shifterRatioDebug  { 1.0f };
 
-    bool  correctionActive { false };
-    int   lastTargetMidi   { -1 };
-    float noteTargetRatio  { 1.0f };
-    float smoothedRatio    { 1.0f };
-
-    // Ring buffer: stores per-block smoothed pitch estimates from the INPUT
-    // signal so we can look up the estimate that aligns with the output
-    // (which is kDlLatency samples behind the input).  64 blocks covers
-    // kDlLatency at any block size down to 64 samples.
-    static constexpr int kPitchBufSize = 64;
-    std::array<float, kPitchBufSize> pitchDelayBuf {};
-    int pitchDelayWrite { 0 };
-
-    // ---------------------------------------------------------------
-    // Dual-head pitch shifter (TD-PSOLA style)
-    //
-    // Read head A moves through the delay line at `ratio` samples per
-    // output sample (Doppler pitch shift).  When the read/write gap
-    // drifts by more than one pitch period from the target latency, we
-    // crossfade to a new head B that is one pitch period away — because
-    // the signal is periodic, that position looks identical, making the
-    // jump inaudible.  No FFT, no phase accumulation, no choir effect.
-    // ---------------------------------------------------------------
-    static constexpr int kDlSize    = 16384;   // delay-line size (power of 2)
-    static constexpr int kDlMask    = kDlSize - 1;
-    static constexpr int kDlLatency = 4096;    // declared plugin latency (samples)
-
-    std::array<float, kDlSize> dlBufL  {};
-    std::array<float, kDlSize> dlBufR  {};
-
-    int   dlWrite    { 0 };
-    float dlReadA    { 0.0f };
-    float dlReadB    { 0.0f };
-    bool  dlXfading  { false };
-    float dlXfade    { 0.0f };   // 0 = fully head-A, 1 = fully head-B
-    float dlXfadeInc { 0.0f };   // increment per sample
+    std::array<std::atomic<float>, kLevelHistorySize> levelHistory {};
+    std::atomic<int> levelHistoryWrite { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaPitchAudioProcessor)
 };

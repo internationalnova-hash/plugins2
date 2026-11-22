@@ -12,6 +12,7 @@ NovaChordAudioProcessorEditor::NovaChordAudioProcessorEditor (NovaChordAudioProc
     octaveShiftAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("octaveShift"), octaveShiftRelay, nullptr);
     velocityAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("velocity"),    velocityRelay,    nullptr);
     passThroughAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("passThrough"), passThroughRelay, nullptr);
+    voiceTypeAttachment   = std::make_unique<juce::WebSliderParameterAttachment> (*processorRef.apvts.getParameter ("voiceType"),   voiceTypeRelay,   nullptr);
 
     addAndMakeVisible (*webView);
 
@@ -19,8 +20,9 @@ NovaChordAudioProcessorEditor::NovaChordAudioProcessorEditor (NovaChordAudioProc
                               + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
-    setSize (1100, 700);
+    setResizable (true, true);
+    setResizeLimits (636, 384, 1908, 1152);
+    setSize (1060, 640);
     startTimerHz (30);
 }
 
@@ -78,9 +80,140 @@ juce::WebBrowserComponent::Options NovaChordAudioProcessorEditor::createWebOptio
                      .withOptionsFrom (editor.styleIdxRelay)
                      .withOptionsFrom (editor.octaveShiftRelay)
                      .withOptionsFrom (editor.velocityRelay)
-                     .withOptionsFrom (editor.passThroughRelay);
+                     .withOptionsFrom (editor.passThroughRelay)
+                     .withOptionsFrom (editor.voiceTypeRelay)
+                     .withNativeFunction ("previewChord", [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         editor.handlePreviewChord (args, std::move (completion));
+                     })
+                     .withNativeFunction ("exportMidiFile", [&editor] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         editor.handleExportMidiFile (args, std::move (completion));
+                     });
 
     return options;
+}
+
+void NovaChordAudioProcessorEditor::handlePreviewChord (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (args.size() < 2 || ! args[1].isArray())
+    {
+        completion (juce::var());
+        return;
+    }
+
+    const int rootMidi = (int) args[0];
+    const auto* semisArray = args[1].getArray();
+
+    std::array<int, 6> semis {};
+    int count = 0;
+    for (const auto& s : *semisArray)
+    {
+        if (count >= 6) break;
+        semis[(size_t) count++] = (int) s;
+    }
+
+    const int velocity = args.size() > 2 ? (int) args[2] : 90;
+
+    processorRef.requestChordPreview (rootMidi, semis, count, velocity);
+    completion (juce::var());
+}
+
+void NovaChordAudioProcessorEditor::handleExportMidiFile (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (args.isEmpty() || ! args[0].isArray())
+    {
+        auto* result = new juce::DynamicObject();
+        result->setProperty ("success", false);
+        result->setProperty ("error", "No progression data provided");
+        completion (juce::var (result));
+        return;
+    }
+
+    // Parse {root, semis:[...]} entries into plain data now - the JUCE `var`
+    // arguments don't outlive this call, but the file save is async.
+    struct ChordEntry { int root; std::vector<int> semis; };
+    std::vector<ChordEntry> chords;
+
+    for (const auto& item : *args[0].getArray())
+    {
+        if (auto* obj = item.getDynamicObject())
+        {
+            ChordEntry entry;
+            entry.root = (int) obj->getProperty ("root");
+            if (auto* semisArr = obj->getProperty ("semis").getArray())
+                for (const auto& s : *semisArr)
+                    entry.semis.push_back ((int) s);
+            chords.push_back (std::move (entry));
+        }
+    }
+
+    if (chords.empty())
+    {
+        auto* result = new juce::DynamicObject();
+        result->setProperty ("success", false);
+        result->setProperty ("error", "Progression is empty");
+        completion (juce::var (result));
+        return;
+    }
+
+    activeFileChooser = std::make_unique<juce::FileChooser> (
+        "Export progression as MIDI",
+        juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("Nova Chord Progression.mid"),
+        "*.mid");
+
+    const auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting;
+
+    activeFileChooser->launchAsync (flags, [this, chords, completion] (const juce::FileChooser& fc) mutable
+    {
+        const auto file = fc.getResult();
+        auto* result = new juce::DynamicObject();
+
+        if (file == juce::File {})
+        {
+            result->setProperty ("success", false);
+            result->setProperty ("error", "Cancelled");
+            completion (juce::var (result));
+            activeFileChooser.reset();
+            return;
+        }
+
+        constexpr int ticksPerQuarterNote = 480;
+        constexpr int ticksPerChord = ticksPerQuarterNote; // one chord per beat
+        constexpr int noteLengthTicks = (ticksPerChord * 4) / 5; // leave a short gap between chords
+        constexpr int previewVelocity = 100;
+
+        juce::MidiMessageSequence seq;
+        int tick = 0;
+        for (const auto& chord : chords)
+        {
+            for (const int semi : chord.semis)
+            {
+                const int midiNote = juce::jlimit (0, 127, chord.root + semi);
+                seq.addEvent (juce::MidiMessage::noteOn  (1, midiNote, (juce::uint8) previewVelocity), (double) tick);
+                seq.addEvent (juce::MidiMessage::noteOff (1, midiNote), (double) (tick + noteLengthTicks));
+            }
+            tick += ticksPerChord;
+        }
+        seq.updateMatchedPairs();
+
+        juce::MidiFile midiFile;
+        midiFile.setTicksPerQuarterNote (ticksPerQuarterNote);
+        midiFile.addTrack (seq);
+
+        file.deleteFile();
+        juce::FileOutputStream outStream (file);
+        const bool ok = outStream.openedOk() && midiFile.writeTo (outStream);
+
+        result->setProperty ("success", ok);
+        if (ok)
+            result->setProperty ("path", file.getFullPathName());
+        else
+            result->setProperty ("error", "Could not write file");
+
+        completion (juce::var (result));
+        activeFileChooser.reset();
+    });
 }
 
 std::optional<juce::WebBrowserComponent::Resource> NovaChordAudioProcessorEditor::getResource (const juce::String& url)

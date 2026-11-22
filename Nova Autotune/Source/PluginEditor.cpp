@@ -21,8 +21,9 @@ NovaAutotuneAudioProcessorEditor::NovaAutotuneAudioProcessorEditor (NovaAutotune
                               + "/index.html?v=" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
     webView->goToURL (cacheBustedUrl);
 
-    setResizable (false, false);
-    setSize (1060, 640);
+    setResizable (true, true);
+    setResizeLimits (636, 403, 1908, 1209);
+    setSize (1060, 672);
     startTimerHz (30);
 }
 
