@@ -211,6 +211,12 @@ const juce::Array<RackData>& factoryRacks()
                 { "Nova Doubler", { { "Width", "60" }, { "Mix", "40" } } },
                 space ("Dream", "3.0", "22", "30", "90", "60") }),
 
+        // Nova Mid: midrange weight into a soft-clip ceiling, for a heavier, denser rap lead
+        rack ("Heavyweight Bars", "VOCAL • HIP-HOP", "Heavy, dense rap lead: midrange weight pushed into a soft-clip ceiling",
+              { eq ("100", "300", "-2", "3500", "2", "2"), level ("6", "PUNCH"), deEss ("40"),
+                { "Nova Mid", { { "Push", "7" }, { "Ceiling", "-4" } } },
+                delay ("1/8", "10", "8", "4000"), space ("Studio", "1.0", "8", "20", "60") }),
+
         // ── Afro ─────────────────────────────────────────────────────────
         // Burna / Wizkid: warm, smooth, airy, rhythmic echoes
         rack ("Lagos Glow", "VOCAL • AFRO", "Afrobeats lead: smooth tune, warm body, airy top, rhythmic dotted echoes",
@@ -293,9 +299,24 @@ const juce::Array<RackData>& factoryRacks()
                 { "Nova Heat", { { "Drive", "4" }, { "Mix", "30" } } },
                 { "Nova Tape", { { "Tape", "70" }, { "Tape Type", "Hot" }, { "Mix", "50" } } } }),
 
+        // ── Drums & 808 ──────────────────────────────────────────────────
+        rack ("808 Weight", "DRUMS & 808", "808s that read on small speakers: warm drive, then midrange weight into the ceiling",
+              { { "Nova Heat", { { "Drive", "3" }, { "Heat", "3" }, { "Mix", "25" }, { "Mode", "Soft" } } },
+                { "Nova Mid", { { "Push", "10" }, { "Ceiling", "-4" } } } }),
+        rack ("Drum Bus Weight", "DRUMS & 808", "Drum bus: punch, bus glue, then midrange density without higher peaks",
+              { { "Nova Punch", { { "Punch", "40" }, { "Body", "35" }, { "Mix", "60" } } },
+                { "Nova Glue", { { "Threshold", "-18" }, { "Ratio", "4:1" }, { "Release", "Auto" }, { "Mix", "60" }, { "Auto Gain", "On" } } },
+                { "Nova Mid", { { "Push", "6.5" }, { "Ceiling", "-4" } } } }),
+        rack ("Loop Weight", "DRUMS & 808", "Samples and loops: tape warmth and midrange weight so they sit forward",
+              { { "Nova Tape", { { "Tape", "45" }, { "Tape Type", "Studio" }, { "Mix", "40" } } },
+                { "Nova Mid", { { "Push", "5" }, { "Ceiling", "-2" } } } }),
+
         // ── Mix bus & master ─────────────────────────────────────────────
         rack ("Mix Bus Glue", "MIX BUS", "Two-bus glue: gentle bus comp, tape weight, nothing hyped",
               { { "Nova Glue", {} }, { "Nova Tape", { { "Tape", "40" }, { "Tape Type", "Studio" }, { "Mix", "35" } } } }),
+        rack ("Mix Bus Weight", "MIX BUS", "Two-bus glue with a touch of midrange weight held under the ceiling",
+              { { "Nova Glue", {} }, { "Nova Mid", { { "Push", "3" }, { "Ceiling", "-1" } } },
+                { "Nova Tape", { { "Tape", "35" }, { "Tape Type", "Studio" }, { "Mix", "30" } } } }),
         rack ("Master Chain", "MASTER", "Mastering: tone, glue, loudness, and a meter last to check the targets",
               { { "Nova Tone", { { "Mode Preset", "Master" } } }, { "Nova Glue", {} }, { "Nova Master", {} }, { "Nova Meter", {} } }),
     };

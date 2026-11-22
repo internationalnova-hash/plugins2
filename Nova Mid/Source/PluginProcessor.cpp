@@ -37,14 +37,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaMidAudioProcessor::creat
     using namespace juce;
     AudioProcessorValueTreeState::ParameterLayout l;
 
-    auto db = [] (float v, int) { return String (v, 1) + " dB"; };
+    auto db   = [] (float v, int) { return String (v, 1) + " dB"; };
+    auto dbfs = [] (float v, int) { return String (v, 1) + " dBFS"; };
 
     l.add (std::make_unique<AudioParameterFloat> (ParameterID { "push", 1 }, "Push",
                NormalisableRange<float> (0.0f, nm::kPushMaxDb, 0.1f), 0.0f,
                AudioParameterFloatAttributes().withLabel ("dB").withStringFromValueFunction (db)));
     l.add (std::make_unique<AudioParameterFloat> (ParameterID { "ceiling", 1 }, "Ceiling",
                NormalisableRange<float> (nm::kCeilingMinDb, nm::kCeilingMaxDb, 0.1f), 0.0f,
-               AudioParameterFloatAttributes().withLabel ("dBFS").withStringFromValueFunction (db)));
+               AudioParameterFloatAttributes().withLabel ("dBFS").withStringFromValueFunction (dbfs)));
     l.add (std::make_unique<AudioParameterFloat> (ParameterID { "output", 1 }, "Output",
                NormalisableRange<float> (-12.0f, 0.0f, 0.1f), 0.0f,
                AudioParameterFloatAttributes().withLabel ("dB").withStringFromValueFunction (db)));

@@ -226,6 +226,7 @@ static const std::map<juce::String, juce::StringArray>& curatedFaces()
         { "Nova Delay",      { "Delay Time Sync", "Feedback", "Tone", "Mix", "HP Filter", "LP Filter", "Ducking", "Ping Pong" } },
         { "Nova Clean",      { "Mode", "Clean", "Preserve", "Output Gain" } },
         { "Nova Punch",      { "Punch", "Body", "Focus", "Sensitivity" } },
+        { "Nova Mid",        { "Push", "Ceiling", "Output" } },
         { "Nova Doubler",    { "Width", "Tightness", "Mix", "Voices" } },
         { "Nova Aura",       { "Mid Aura", "High Aura", "Safe", "Wide" } },
     };

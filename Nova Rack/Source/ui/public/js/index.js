@@ -43,6 +43,9 @@ const SKINS = {
              knob: 'ring', fill: 'g-navy', heroFill: 'g-navy', arc: '#ff9a3c', display: 'scope' },
   pitch:   { sub: 'Pitch correction', panel: 'linear-gradient(180deg,#191c21,#101216)', ink: '#eceff3', inkSoft: '#8a929c', brand: '#ffffff', label: '#c8ced6',
              knob: 'ring', fill: 'g-navy', heroFill: 'g-navy', arc: '#ff6fb5', display: 'lcd' },
+  mid:     { sub: 'Midrange weight', panel: 'radial-gradient(120% 70% at 50% 20%, rgba(18,31,72,0.45), transparent 65%), linear-gradient(180deg,#071021,#03080f)',
+             ink: '#e9edf6', inkSoft: '#aeb7cb', brand: '#ffbd4a', brandglow: '0 0 12px rgba(255,170,56,0.35)', label: '#ffbd4a',
+             knob: 'ring', fill: 'g-navy', heroFill: 'g-navy', arc: '#ffbd4a', tick: '#6f7a92', display: 'vu-amber' },
   modern:  { sub: '', panel: 'linear-gradient(180deg,#13263d,#0a1625)', ink: '#eaf1fb', inkSoft: '#7f93b0', brand: '#ffffff', label: '#a9bad3',
              knob: 'ring', fill: 'g-navy', heroFill: 'g-navy', arc: null, display: 'scope' },
 };
@@ -65,7 +68,7 @@ SKINS.punch = { sub: 'Transient designer', panel: `${SHADE}, ${U('punch-panel.pn
                 label: '#dfe2e6', knob: 'gloss', fill: 'g-gloss', heroFill: 'g-gloss', tick: '#c9ced6', hero: 'punch-hero.png', knobs: ['punch-knob.png'], display: null };
 
 const PLUGIN_SKINS = {
-  'Nova Punch': 'punch',
+  'Nova Punch': 'punch', 'Nova Mid': 'mid',
   'Nova 7even': 'neve', 'Nova Royal 670': 'varimu', 'Nova 670': 'varimu', 'Nova Velvet': 'opto', 'Nova Glow': 'glow',
   'Nova Glue': 'glue', 'Nova Tape': 'tape', 'Nova Desk EQ': 'desk', 'Nova Console': 'console', 'Nova Tone': 'tone',
   'Nova Heat': 'heat', 'Nova Level': 'level', 'Nova Silk': 'silk', 'Nova Space': 'space',
@@ -74,7 +77,7 @@ const PLUGIN_SKINS = {
 const SUBTITLES = {
   'Nova Desk EQ': 'E / G console EQ', 'Nova Punch': 'Transient designer', 'Nova Clean': 'Vocal cleanup', 'Nova Delay': 'Analog delay',
   'Nova Doubler': 'Vocal doubler', 'Nova Aura': 'Harmonic exciter', 'Nova Autotune': 'Pitch correction', 'Nova Tune': 'Voice mutation',
-  'Nova Master': 'Mastering', 'Nova Meter': 'Loudness meter', 'Nova Clip': 'Clipper', 'Nova Apex': 'Maximizer', 'Nova Vox': 'Vocal strip',
+  'Nova Master': 'Mastering', 'Nova Meter': 'Loudness meter', 'Nova Clip': 'Clipper', 'Nova Mid': 'Midrange weight', 'Nova Apex': 'Maximizer', 'Nova Vox': 'Vocal strip',
   'Nova Voice': 'Voice designer', 'Nova Ride': 'Vocal rider', 'Nova Motion FX': 'Motion effects', 'Nova Curve': 'Curve EQ',
 };
 function skinFor(slot) {

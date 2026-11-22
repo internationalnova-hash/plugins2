@@ -143,7 +143,7 @@ juce::String PluginLibrary::categoryFor (const juce::PluginDescription& d)
     if (any ({ "tune", "pitch", "harmony", "chord", "bend", "align", "autotune" })) return "Pitch";
     if (any ({ "space", "delay", "reverb", "aura", "motion", "doubler", "glow" }))  return "Space";
     if (any ({ "eq", "curve", "tone", "desk" }))                                     return "EQ";
-    if (any ({ "tape", "heat", "velvet", "silk", "console", "7even", "670" }))       return "Color";
+    if (any ({ "tape", "heat", "velvet", "silk", "console", "7even", "670", "nova mid" })) return "Color";
     if (any ({ "meter", "analyzer" }))                                      return "Utility";
     if (any ({ "master", "apex", "clip", "translate" }))                             return "Master";
     if (any ({ "punch", "glue", "ride", "dynamics", "comp", "clean", "level" }))             return "Dynamics";
