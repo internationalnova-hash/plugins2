@@ -145,7 +145,7 @@ juce::String PluginLibrary::categoryFor (const juce::PluginDescription& d)
     if (any ({ "eq", "curve", "tone", "desk" }))                                     return "EQ";
     if (any ({ "tape", "heat", "velvet", "silk", "console", "7even", "670", "nova mid" })) return "Color";
     if (any ({ "meter", "analyzer" }))                                      return "Utility";
-    if (any ({ "master", "apex", "clip", "translate" }))                             return "Master";
+    if (any ({ "master", "apex", "clip", "translate", "2-track" }))                             return "Master";
     if (any ({ "punch", "glue", "ride", "dynamics", "comp", "clean", "level" }))             return "Dynamics";
     if (any ({ "vox", "voice", "vocal" }))                                           return "Vocal";
     return "Effect";

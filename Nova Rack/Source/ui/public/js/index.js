@@ -68,7 +68,7 @@ SKINS.punch = { sub: 'Transient designer', panel: `${SHADE}, ${U('punch-panel.pn
                 label: '#dfe2e6', knob: 'gloss', fill: 'g-gloss', heroFill: 'g-gloss', tick: '#c9ced6', hero: 'punch-hero.png', knobs: ['punch-knob.png'], display: null };
 
 const PLUGIN_SKINS = {
-  'Nova Punch': 'punch', 'Nova Mid': 'mid',
+  'Nova Punch': 'punch', 'Nova Mid': 'mid', 'Nova 2-Track': 'mid',
   'Nova 7even': 'neve', 'Nova Royal 670': 'varimu', 'Nova 670': 'varimu', 'Nova Velvet': 'opto', 'Nova Glow': 'glow',
   'Nova Glue': 'glue', 'Nova Tape': 'tape', 'Nova Desk EQ': 'desk', 'Nova Console': 'console', 'Nova Tone': 'tone',
   'Nova Heat': 'heat', 'Nova Level': 'level', 'Nova Silk': 'silk', 'Nova Space': 'space',
@@ -77,7 +77,7 @@ const PLUGIN_SKINS = {
 const SUBTITLES = {
   'Nova Desk EQ': 'E / G console EQ', 'Nova Punch': 'Transient designer', 'Nova Clean': 'Vocal cleanup', 'Nova Delay': 'Analog delay',
   'Nova Doubler': 'Vocal doubler', 'Nova Aura': 'Harmonic exciter', 'Nova Autotune': 'Pitch correction', 'Nova Tune': 'Voice mutation',
-  'Nova Master': 'Mastering', 'Nova Meter': 'Loudness meter', 'Nova Clip': 'Clipper', 'Nova Mid': 'Midrange weight', 'Nova Apex': 'Maximizer', 'Nova Vox': 'Vocal strip',
+  'Nova Master': 'Mastering', 'Nova Meter': 'Loudness meter', 'Nova Clip': 'Clipper', 'Nova Mid': 'Midrange weight', 'Nova 2-Track': 'Stereo mix surgeon', 'Nova Apex': 'Maximizer', 'Nova Vox': 'Vocal strip',
   'Nova Voice': 'Voice designer', 'Nova Ride': 'Vocal rider', 'Nova Motion FX': 'Motion effects', 'Nova Curve': 'Curve EQ',
 };
 function skinFor(slot) {

@@ -1,0 +1,40 @@
+name: Build Nova 2-Track Windows
+
+on:
+  push:
+    paths:
+      - 'Nova 2-Track/**'
+      - '.github/workflows/build-nova-2-track-windows.yml'
+  pull_request:
+    paths:
+      - 'Nova 2-Track/**'
+      - '.github/workflows/build-nova-2-track-windows.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@v4.3.1
+
+      - name: Clean build directory
+        run: if (Test-Path "Nova 2-Track/build") { Remove-Item -Recurse -Force "Nova 2-Track/build" }
+
+      # Customer builds are license-gated; local builds default to ungated.
+      - name: Configure CMake
+        run: cmake -S "Nova 2-Track" -B "Nova 2-Track/build" -DNOVA_2TRACK_REQUIRE_LICENSE=ON
+
+      - name: Build
+        run: cmake --build "Nova 2-Track/build" --config Release
+
+      - name: Measurement accuracy tests
+        run: '& "Nova 2-Track/build/Nova2TrackTests_artefacts/Release/Nova2TrackTests.exe"'
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nova2Track-Windows-build
+          path: Nova 2-Track/build/Nova2Track_artefacts

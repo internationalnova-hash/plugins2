@@ -1,0 +1,7 @@
+{
+  "name": "Nova 2-Track",
+  "phase": "code_complete",
+  "ui_framework": "webview",
+  "version": "1.0.0",
+  "notes": "Stereo mix / 2-track finishing: Width, Vox Carve, Low End (M/S), Punch and Energy (transient shapers), Instruments (side body), Input, 4x soft clipper with ceiling, Output. Live mid/side spectrum with control curves, plus stereo-image view. 12 presets. 19/19 DSP tests, auval passes."
+}

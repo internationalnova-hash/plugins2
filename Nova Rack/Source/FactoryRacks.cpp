@@ -311,6 +311,20 @@ const juce::Array<RackData>& factoryRacks()
               { { "Nova Tape", { { "Tape", "45" }, { "Tape Type", "Studio" }, { "Mix", "40" } } },
                 { "Nova Mid", { { "Push", "5" }, { "Ceiling", "-2" } } } }),
 
+        // ── 2-Track: finishing a stereo beat with no stems ───────────────
+        rack ("Beat Prep for Vocals", "2-TRACK", "Put this on the beat: a pocket for the vocal, centred low end, wider sides, soft-clipped",
+              { { "Nova 2-Track", { { "Width", "110" }, { "Vox Carve", "50" }, { "Low End", "35" }, { "Punch", "20" },
+                                    { "Instruments", "20" }, { "Energy", "15" }, { "Soft Clipper", "On" }, { "Ceiling", "-1" } } } }),
+        rack ("Beat Revive", "2-TRACK", "Flat or over-processed beat: transients back, wider instruments, light tape",
+              { { "Nova 2-Track", { { "Width", "115" }, { "Punch", "35" }, { "Energy", "55" }, { "Low End", "20" },
+                                    { "Instruments", "30" }, { "Soft Clipper", "On" }, { "Ceiling", "-0.5" } } },
+                { "Nova Tape", { { "Tape", "35" }, { "Tape Type", "Studio" }, { "Mix", "30" } } } }),
+        rack ("Loud 2-Track", "2-TRACK", "Finished stereo mix, louder: tone, 2-Track shaping into the clipper, then the meter",
+              { { "Nova Tone", { { "Mode Preset", "Master" } } },
+                { "Nova 2-Track", { { "Input", "3" }, { "Width", "108" }, { "Punch", "25" }, { "Low End", "40" }, { "Instruments", "20" },
+                                    { "Energy", "20" }, { "Soft Clipper", "On" }, { "Ceiling", "-0.3" } } },
+                { "Nova Meter", {} } }),
+
         // ── Mix bus & master ─────────────────────────────────────────────
         rack ("Mix Bus Glue", "MIX BUS", "Two-bus glue: gentle bus comp, tape weight, nothing hyped",
               { { "Nova Glue", {} }, { "Nova Tape", { { "Tape", "40" }, { "Tape Type", "Studio" }, { "Mix", "35" } } } }),
