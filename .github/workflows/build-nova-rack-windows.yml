@@ -1,0 +1,40 @@
+name: Build Nova Rack Windows
+
+on:
+  push:
+    paths:
+      - 'Nova Rack/**'
+      - '.github/workflows/build-nova-rack-windows.yml'
+  pull_request:
+    paths:
+      - 'Nova Rack/**'
+      - '.github/workflows/build-nova-rack-windows.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@v4.3.1
+
+      - name: Clean build directory
+        run: if (Test-Path "Nova Rack/build") { Remove-Item -Recurse -Force "Nova Rack/build" }
+
+      # Customer builds are license-gated; local builds default to ungated.
+      - name: Configure CMake
+        run: cmake -S "Nova Rack" -B "Nova Rack/build" -DNOVA_RACK_REQUIRE_LICENSE=ON
+
+      - name: Build
+        run: cmake --build "Nova Rack/build" --config Release
+
+      - name: Measurement accuracy tests
+        run: '& "Nova Rack/build/NovaRackTests_artefacts/Release/NovaRackTests.exe"'
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaRack-Windows-build
+          path: Nova Rack/build/NovaRack_artefacts
