@@ -70,6 +70,8 @@ private:
     void promptImportMidi();
     void promptRecoverAutosave();
     void promptTempoAndMeter();
+    void promptTempoChange(int index);   // -1 = add at playhead
+    int lastShownTempo = -1;
     void promptRecordingOffset();
     void promptMasterVolume();
     void promptTrackInput(int trackIndex);

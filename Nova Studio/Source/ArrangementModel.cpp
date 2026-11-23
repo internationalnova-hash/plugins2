@@ -1686,12 +1686,8 @@ namespace NovaStudio
         if (!snapToGrid)
             return juce::jmax<int64_t>(0, samplePosition);
 
-        const int64_t resolution = snapResolutionSamples();
-        if (resolution <= 0)
-            return juce::jmax<int64_t>(0, samplePosition);
-
-        const int64_t snapped = ((samplePosition + resolution / 2) / resolution) * resolution;
-        return juce::jmax<int64_t>(0, snapped);
+        // Snap to the beat grid, following tempo changes.
+        return session.snapToBeatGrid(samplePosition, session.beatUnit());
     }
 
     int64_t ArrangementModel::snapResolutionSamples() const noexcept

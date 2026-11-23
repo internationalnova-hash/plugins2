@@ -77,7 +77,7 @@ namespace NovaStudio
         if (!juce::isPositiveAndBelow(c, clips.size())) return false;
         if (sourceBpm < 20.0 || sourceBpm > 400.0) { if (error) *error = "Enter the clip's original tempo (BPM)."; return false; }
         auto& clip = clips.getReference(c);
-        if (!renderWarp(clip, sourceBpm / session.getTempo(), mode, error)) return false;
+        if (!renderWarp(clip, sourceBpm / getTempoAt(clip.startSample), mode, error)) return false;
         clip.warpSourceBpm = sourceBpm;
         clip.warpFollowTempo = followTempo;
         publishSnapshot(false);
@@ -139,22 +139,8 @@ namespace NovaStudio
         return TimeStretcher::detectTempo(buf, reader->sampleRate);
     }
 
-    void StudioAudioEngine::rewarpFollowingClips(double oldTempo, double newTempo)
+    void StudioAudioEngine::rewarpFollowingClips(double, double)
     {
-        if (oldTempo <= 0.0 || newTempo <= 0.0 || std::abs(oldTempo - newTempo) < 1.0e-6) return;
-        int count = 0;
-        for (int t = 0; t < session.getNumTracks(); ++t)
-            for (auto& clip : session.getTrack(t).clips)
-                if (clip.warped && clip.warpFollowTempo && clip.warpSourceBpm > 0.0)
-                {
-                    // Musical clips keep their bar position and length in beats.
-                    clip.startSample = (int64_t) std::llround((double) clip.startSample * oldTempo / newTempo);
-                    clip.fadeInSamples = (int64_t) std::llround((double) clip.fadeInSamples * oldTempo / newTempo);
-                    clip.fadeOutSamples = (int64_t) std::llround((double) clip.fadeOutSamples * oldTempo / newTempo);
-                    renderWarp(clip, clip.warpSourceBpm / newTempo, clip.warpMode, nullptr);
-                    ++count;
-                }
-        if (count > 0)
-            juce::Logger::writeToLog("Re-warped " + juce::String(count) + " clip(s) to " + juce::String(newTempo, 2) + " BPM");
+        // Superseded by applyTempoEdit(), which also handles tempo maps.
     }
 }

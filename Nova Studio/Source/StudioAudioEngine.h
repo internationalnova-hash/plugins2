@@ -293,6 +293,12 @@ namespace NovaStudio
         // ── Transport helpers ───────────────────────────────────────────────
         void seek(int64_t samplePosition);
         void setTempo(double bpm);
+
+        // Tempo changes (tempo map), positioned in bars so they stay musical.
+        struct TempoChange { double bar = 1.0; double bpm = 120.0; };   // bar is 1-based, may be fractional
+        std::vector<TempoChange> getTempoChanges() const;
+        void setTempoChanges(const std::vector<TempoChange>& changes);
+        double getTempoAt(int64_t samplePosition) const;
         void setTimeSignature(int numerator, int denominator);
         void setLoopRange(int64_t start, int64_t end, bool enabled);
         void setPunchRange(int64_t in, int64_t out, bool enabled);
@@ -571,6 +577,10 @@ namespace NovaStudio
         void updateRoutingOrder();
         bool renderWarp(Clip& clip, double ratio, int mode, juce::String* error);
         void rewarpFollowingClips(double oldTempo, double newTempo);
+        // Applies a tempo edit while keeping MIDI clips, follow-tempo warped clips, loop and
+        // punch ranges on the same bars (plain audio stays where it is in time).
+        void applyTempoEdit(const std::function<void()>& edit);
+        const PlaySnapshot* stepSnapshot = nullptr;
         bool offlineIncludeMaster = true;
         int maxBlockSize = 512;
 

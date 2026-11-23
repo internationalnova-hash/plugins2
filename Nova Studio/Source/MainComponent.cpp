@@ -357,10 +357,11 @@ MainComponent::MainComponent()
         {
             // No loop range yet: loop 4 bars from the bar the playhead is in.
             const double sr = engine.getCurrentSampleRate();
-            const double barSec = 60.0 / ts.getTempo() * ts.getTimeSigNumerator() * 4.0 / ts.getTimeSigDenominator();
-            const double bar = std::floor((double) ts.getPositionSamples() / sr / barSec);
-            ls = (int64_t) (bar * barSec * sr);
-            le = (int64_t) ((bar + 4.0) * barSec * sr);
+            const auto& se = engine.getSession();
+            juce::ignoreUnused(sr);
+            const double bar = std::floor(se.samplesToBeats(ts.getPositionSamples()) / se.beatsPerBar());
+            ls = se.beatsToSamples(bar * se.beatsPerBar());
+            le = se.beatsToSamples((bar + 4.0) * se.beatsPerBar());
         }
         engine.setLoopRange(ls, le, looping);
         workspaceToolbar.setLoopState(engine.getTransportState().isLooping());
@@ -378,9 +379,10 @@ MainComponent::MainComponent()
             if (pout <= pin)
             {
                 const double sr = engine.getCurrentSampleRate();
-                const double barSec = 60.0 / ts.getTempo() * ts.getTimeSigNumerator() * 4.0 / ts.getTimeSigDenominator();
+                const auto& se = engine.getSession();
+                juce::ignoreUnused(sr);
                 pin = ts.getPositionSamples();
-                pout = pin + (int64_t) (4.0 * barSec * sr);
+                pout = se.beatsToSamples(se.samplesToBeats(pin) + 4.0 * se.beatsPerBar());
             }
         }
         engine.setPunchRange(pin, pout, enabled);
@@ -400,6 +402,20 @@ MainComponent::MainComponent()
 
     workspaceToolbar.setTempo(static_cast<int>(engine.getSession().getTempo()));
     workspaceToolbar.setTimecode(transportState.getTimecodeString(transportState.getPositionSamples()));
+    workspaceToolbar.onTick = [this]
+    {
+        const auto pos = transportState.getPositionSamples();
+        const auto& se = engine.getSession();
+        juce::String tc = se.barBeatString(pos) + "   " + transportState.getTimecodeString(pos).substring(3);
+        if (engine.isCountingIn()) tc = "Count-in...";
+        workspaceToolbar.setTimecode(tc);
+        // With tempo changes, show the tempo at the playhead.
+        if (!se.getTempoMap().isEmpty())
+        {
+            const int bpm = (int) std::lround(engine.getTempoAt(pos));
+            if (bpm != lastShownTempo) { lastShownTempo = bpm; workspaceToolbar.setTempo(bpm); }
+        }
+    };
     workspaceToolbar.onTempoChanged = [this](int bpm) {
         engine.setTempo(static_cast<double>(bpm));
         if (beatWindow) beatWindow->setBpm(static_cast<double>(bpm));
@@ -1135,6 +1151,50 @@ void MainComponent::promptRecoverAutosave()
         }));
 }
 
+void MainComponent::promptTempoChange(int index)
+{
+    auto changes = engine.getTempoChanges();
+    const bool editing = juce::isPositiveAndBelow(index, (int) changes.size());
+    const auto& se = engine.getSession();
+    double bar = editing ? changes[(size_t) index].bar
+                         : std::floor(se.samplesToBeats(transportState.getPositionSamples()) / se.beatsPerBar() + 0.5) + 1.0;
+    bar = juce::jmax(2.0, bar);
+    const double bpm = editing ? changes[(size_t) index].bpm : engine.getTempoAt(transportState.getPositionSamples());
+
+    auto* dlg = new juce::AlertWindow(editing ? "Edit Tempo Change" : "Add Tempo Change",
+        "Bars after this point play at the new tempo. MIDI, the Beat Studio and warped clips follow it.",
+        juce::MessageBoxIconType::NoIcon);
+    dlg->addTextEditor("bar", juce::String(bar, bar == std::round(bar) ? 0 : 2), "At bar:");
+    dlg->addTextEditor("bpm", juce::String(bpm, 2), "New tempo (BPM):");
+    dlg->addButton(editing ? "Save" : "Add", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    if (editing) dlg->addButton("Delete", 2);
+    dlg->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    dlg->enterModalState(true, juce::ModalCallbackFunction::create([this, dlg, index, editing, changes](int r) mutable
+    {
+        const double newBar = dlg->getTextEditorContents("bar").getDoubleValue();
+        const double newBpm = dlg->getTextEditorContents("bpm").getDoubleValue();
+        delete dlg;
+        if (r == 0) return;
+        if (r == 2 && editing) changes.erase(changes.begin() + index);
+        else
+        {
+            if (newBar < 2.0 || newBpm < 10.0 || newBpm > 999.0)
+            {
+                updateStatusMessage("Tempo change: use bar 2 or later and 10-999 BPM (bar 1 is the session tempo)");
+                return;
+            }
+            NovaStudio::StudioAudioEngine::TempoChange tc { newBar, newBpm };
+            if (editing) changes[(size_t) index] = tc; else changes.push_back(tc);
+        }
+        engine.setTempoChanges(changes);
+        lastShownTempo = -1;
+        arrangementModel.sendChangeMessage();
+        refreshTrackList();
+        updateStatusMessage(r == 2 ? juce::String("Tempo change removed")
+                                   : "Tempo " + juce::String(newBpm, 2) + " BPM from bar " + juce::String(newBar, 2));
+    }));
+}
+
 void MainComponent::promptTempoAndMeter()
 {
     auto* dlg = new juce::AlertWindow("Tempo & Time Signature", "", juce::MessageBoxIconType::NoIcon);
@@ -1238,9 +1298,11 @@ void MainComponent::createMidiClipAtPlayhead()
     }
     auto& ts = engine.getTransportState();
     const double sr = engine.getCurrentSampleRate();
-    const double barSec = 60.0 / ts.getTempo() * ts.getTimeSigNumerator() * 4.0 / ts.getTimeSigDenominator();
-    const double bar = std::floor((double) ts.getPositionSamples() / sr / barSec);
-    const int ci = engine.createMidiClip(t, (int64_t) (bar * barSec * sr), (int64_t) (4.0 * barSec * sr));
+    const auto& se = engine.getSession();
+    juce::ignoreUnused(sr);
+    const double bar = std::floor(se.samplesToBeats(ts.getPositionSamples()) / se.beatsPerBar());
+    const int64_t clipStart = se.beatsToSamples(bar * se.beatsPerBar());
+    const int ci = engine.createMidiClip(t, clipStart, se.beatsToSamples((bar + 4.0) * se.beatsPerBar()) - clipStart);
     if (ci >= 0)
     {
         arrangementModel.selectClip(t, ci);
@@ -2681,6 +2743,16 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
             menu.addSubMenu("Count-In", countIn);
         }
         menu.addItem(514, "Tempo && Time Signature...");
+        menu.addItem(518, "Add Tempo Change at Playhead...");
+        {
+            juce::PopupMenu changes;
+            const auto list = engine.getTempoChanges();
+            for (int i = 0; i < (int) list.size(); ++i)
+                changes.addItem(1200 + i, "Bar " + juce::String(list[(size_t) i].bar, list[(size_t) i].bar == std::round(list[(size_t) i].bar) ? 0 : 2)
+                                          + ":  " + juce::String(list[(size_t) i].bpm, 2) + " BPM");
+            if (!list.empty()) { changes.addSeparator(); changes.addItem(519, "Clear All Tempo Changes"); }
+            menu.addSubMenu("Tempo Changes", changes, !list.empty());
+        }
         menu.addItem(515, "Recording Latency Offset...");
         menu.addSeparator();
         menu.addItem(516, "Master Volume...");
@@ -3095,6 +3167,14 @@ void MainComponent::menuItemSelected(int id, int)
         updateStatusMessage(id == 511 ? juce::String("Count-in off") : "Count-in: " + juce::String(id - 511) + " bar(s)");
         break;
     case 514: promptTempoAndMeter(); break;
+    case 518: promptTempoChange(-1); break;
+    case 519:
+        engine.setTempoChanges({});
+        arrangementModel.sendChangeMessage();
+        lastShownTempo = -1;
+        workspaceToolbar.setTempo((int) std::lround(engine.getSession().getTempo()));
+        updateStatusMessage("Tempo changes cleared");
+        break;
     case 515: promptRecordingOffset(); break;
     case 516: promptMasterVolume(); break;
     case 517:
@@ -3155,6 +3235,7 @@ void MainComponent::menuItemSelected(int id, int)
     case 1003: showAboutDialog();              break;
 
     default:
+        if (id >= 1200 && id < 1300) { promptTempoChange(id - 1200); break; }
         updateStatusMessage("Coming soon.");
         break;
     }

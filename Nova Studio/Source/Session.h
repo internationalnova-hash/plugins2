@@ -221,6 +221,40 @@ namespace NovaStudio
         double beatsToSeconds(double beats) const noexcept;
         const juce::Array<TempoPoint>& getTempoMap() const noexcept { return tempoMap; }
         void clearTempoMap() { tempoMap.clear(); }
+        void removeTempoPoint(int index) { if (juce::isPositiveAndBelow(index, tempoMap.size())) tempoMap.remove(index); }
+        // Replaces the tempo map with changes given in beats (quarter notes from the start).
+        void setTempoMapFromBeats(std::vector<std::pair<double, double>> beatBpm)
+        {
+            std::sort(beatBpm.begin(), beatBpm.end());
+            tempoMap.clear();
+            for (auto& [beat, bpm] : beatBpm)
+            {
+                if (beat <= 0.0) { tempoBpm = juce::jlimit(10.0, 999.0, bpm); continue; }
+                TempoPoint p; p.timeSeconds = beatsToSeconds(beat); p.bpm = juce::jlimit(10.0, 999.0, bpm);
+                tempoMap.add(p);   // earlier points are already in, so beatsToSeconds is correct
+            }
+        }
+
+        // Musical grid that follows the tempo map. Beats are quarter notes.
+        double beatsPerBar() const noexcept { return timeSigNumerator * 4.0 / juce::jmax(1, timeSigDenominator); }
+        double beatUnit() const noexcept { return 4.0 / juce::jmax(1, timeSigDenominator); }   // one metronome beat, in quarters
+        double samplesToBeats(int64_t samples) const noexcept { return secondsToBeats((double) samples / juce::jmax(1.0, sampleRate)); }
+        int64_t beatsToSamples(double beats) const noexcept { return (int64_t) std::llround(beatsToSeconds(beats) * sampleRate); }
+        int64_t snapToBeatGrid(int64_t sample, double gridBeats) const noexcept
+        {
+            if (gridBeats <= 0.0) return sample;
+            return juce::jmax((int64_t) 0, beatsToSamples(std::round(samplesToBeats(sample) / gridBeats) * gridBeats));
+        }
+        juce::String barBeatString(int64_t samples) const
+        {
+            const double q = samplesToBeats(samples) + 1.0e-9;
+            const double bpb = beatsPerBar(), unit = beatUnit();
+            const int bar = (int) std::floor(q / bpb);
+            const double inBar = q - bar * bpb;
+            const int beat = (int) std::floor(inBar / unit);
+            const int ticks = (int) ((inBar - beat * unit) / unit * 1000.0);
+            return juce::String(bar + 1) + "." + juce::String(beat + 1) + "." + juce::String(ticks).paddedLeft('0', 3);
+        }
 
         // Transport/recording settings saved with the session
         bool   metronomeEnabled = false;

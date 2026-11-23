@@ -732,6 +732,42 @@ static void testWarpClips()
           && tr.clips[0].lengthSamples == (int64_t) (sr * 2.4));
 }
 
+static void testTempoMap()
+{
+    section("TEMPO CHANGES — grid, bars, clips");
+    const double sr = 44100.0;
+    StudioAudioEngine engine;
+    engine.newSession();
+    engine.setTempo(120.0);
+    auto& se = engine.getSession();
+    // MIDI clip at bar 5 (16 beats = 8 s at 120)
+    engine.addTrack("Keys", TrackType::Midi);
+    const int ci = engine.createMidiClip(0, (int64_t) (sr * 8.0), (int64_t) (sr * 2.0));
+    engine.setTempoChanges({ { 3.0, 60.0 } });   // bar 3 -> 60 BPM
+    check("Tempo change stored at bar 3", engine.getTempoChanges().size() == 1 && std::abs(engine.getTempoChanges()[0].bar - 3.0) < 1e-6);
+    check("Tempo at bar 2 is 120, after bar 3 is 60", std::abs(engine.getTempoAt((int64_t) (sr * 3.0)) - 120.0) < 1e-6
+          && std::abs(engine.getTempoAt((int64_t) (sr * 5.0)) - 60.0) < 1e-6);
+    check("Bar 3 beat 2 is at 5 s", se.barBeatString((int64_t) (sr * 5.0)) == "3.2.000");
+    check("Grid snap uses the local tempo", std::abs(se.snapToBeatGrid((int64_t) (sr * 5.4), 1.0) - (int64_t) (sr * 5.0)) < 2);
+    // Bar 5 = 8 beats at 120 (4 s) + 8 beats at 60 (8 s) = 12 s
+    check("MIDI clip stays on bar 5 after the tempo change", std::abs(se.getTrack(0).clips[ci].startSample - (int64_t) (sr * 12.0)) < 2);
+    check("MIDI clip keeps its length in beats", std::abs(se.getTrack(0).clips[ci].lengthSamples - (int64_t) (sr * 4.0)) < 2);
+
+    engine.setTempo(90.0);   // base tempo changes, the bar-3 change keeps its own tempo
+    check("Changing the base tempo keeps tempo changes on their bars",
+          engine.getTempoChanges().size() == 1 && std::abs(engine.getTempoChanges()[0].bar - 3.0) < 1e-6
+          && std::abs(engine.getTempoChanges()[0].bpm - 60.0) < 1e-6);
+    // bar 5 = 8 beats at 90 (5.333 s) + 8 beats at 60 (8 s)
+    check("MIDI clip follows the base tempo change too", std::abs(se.getTrack(0).clips[ci].startSample - (int64_t) std::llround(sr * (8.0 * 60.0 / 90.0 + 8.0))) < 2);
+
+    auto f = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("NovaStudioTests").getChildFile("tempo.novastudio");
+    engine.saveSession(f);
+    StudioAudioEngine e2; e2.loadSession(f);
+    check("Tempo changes saved", e2.getTempoChanges().size() == 1 && std::abs(e2.getTempoChanges()[0].bpm - 60.0) < 1e-6);
+    engine.setTempoChanges({});
+    check("Tempo changes cleared", engine.getTempoChanges().empty());
+}
+
 static void testRealtimeDevice()
 {
     section("REALTIME — live device playback, loop, record");
@@ -832,6 +868,7 @@ int main()
     testRoutingAndFreeze();
     testTimeStretch();
     testWarpClips();
+    testTempoMap();
     if (juce::SystemStats::getEnvironmentVariable("NOVA_REALTIME_TEST", {}).isNotEmpty())
         testRealtimeDevice();
 

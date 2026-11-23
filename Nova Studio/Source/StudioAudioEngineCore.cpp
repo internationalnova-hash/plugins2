@@ -668,6 +668,7 @@ namespace NovaStudio
         if (playing && pos >= 0 && !(offline && offlineSoloTrack >= 0))
         {
             float* mixPtrs[2] = { mixBuffer.getWritePointer(0), mixBuffer.getWritePointer(1) };
+            stepSnapshot = snap;
             renderStepSequencer(mixPtrs, 2, n, pos + ((offline && !offlineIncludeMaster) ? 0 : masterChainLatency.load()));
         }
         else if (!playing)
@@ -1125,7 +1126,15 @@ namespace NovaStudio
                 return beatIndex * 2.0 + posInBeat / evenEnd;
             return beatIndex * 2.0 + 1.0 + (posInBeat - evenEnd) / (2.0 - evenEnd);
         };
-        auto stepAt = [&](int64_t p) { return (int) stepWithSwing((double) p / sr * stepsPerSec) % activeSteps; };
+        // Steps are 1/16 notes on the musical grid, so the pattern follows tempo changes.
+        const PlaySnapshot* sn = stepSnapshot;
+        auto stepAt = [&](int64_t p)
+        {
+            const double raw = (sn != nullptr && !sn->tempoMap.empty())
+                                   ? sn->secondsToBeats((double) p / sr) / (sn->timeSigDen / 4.0) * 4.0
+                                   : (double) p / sr * stepsPerSec;
+            return (int) stepWithSwing(raw) % activeSteps;
+        };
 
         float* outPtrs[8] = {};
         const int nOut = juce::jmin(numOutputChannels, 8);

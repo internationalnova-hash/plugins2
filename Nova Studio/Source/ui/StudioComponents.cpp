@@ -1010,8 +1010,14 @@ namespace NovaStudioUI
         int64_t deltaSamples = 0;
         if (nudgeBeats > 0.0)
         {
-            const double samplesPerBeat = (60.0 / tempo) * sr;
-            deltaSamples = static_cast<int64_t>(nudgeBeats * samplesPerBeat);
+            // One nudge step at the local tempo (the tempo where the first selected clip sits).
+            const auto& sess = arrangementModel.getSession();
+            int64_t ref = 0;
+            const auto& p0 = selected.getReference(0);
+            if (juce::isPositiveAndBelow(p0.x, sess.getNumTracks()) && juce::isPositiveAndBelow(p0.y, sess.getTrack(p0.x).clips.size()))
+                ref = sess.getTrack(p0.x).clips[p0.y].startSample;
+            const double b = sess.samplesToBeats(ref);
+            deltaSamples = juce::jmax<int64_t>(1, sess.beatsToSamples(b + nudgeBeats) - ref);
         }
         else
         {
@@ -1088,12 +1094,7 @@ namespace NovaStudioUI
     {
         if (!snapEnabled || snapBeats <= 0.0)
             return sample;
-        const double sr    = arrangementModel.getSession().getSampleRate();
-        const double tempo = arrangementModel.getSession().getTempo();
-        if (sr <= 0.0 || tempo <= 0.0) return sample;
-        const double samplesPerBeat = (60.0 / tempo) * sr;
-        return static_cast<int64_t>(std::round(static_cast<double>(sample) / (snapBeats * samplesPerBeat))
-                                    * (snapBeats * samplesPerBeat));
+        return arrangementModel.getSession().snapToBeatGrid(sample, snapBeats);
     }
 
     void ArrangementView::showSpotDialog(int trackIndex, int clipIndex)
@@ -1103,31 +1104,31 @@ namespace NovaStudioUI
         const double tempo = arrangementModel.getSession().getTempo();
         if (sr <= 0.0 || tempo <= 0.0) return;
 
-        const double samplesPerBeat = (60.0 / tempo) * sr;
-        const double currentBeat    = static_cast<double>(clip->startSample) / samplesPerBeat;
-        const int    currentBar     = static_cast<int>(currentBeat / 4) + 1;
-        const int    beatInBar      = static_cast<int>(currentBeat) % 4 + 1;
+        const auto& sess = arrangementModel.getSession();
+        const double currentBeat    = sess.samplesToBeats(clip->startSample);
+        const int    currentBar     = static_cast<int>(currentBeat / sess.beatsPerBar()) + 1;
+        const int    beatInBar      = static_cast<int>((currentBeat - (currentBar - 1) * sess.beatsPerBar()) / sess.beatUnit()) + 1;
 
         auto* dialog = new juce::AlertWindow("Spot — Move Clip to Position",
                                              "Enter the destination Bar and Beat:",
                                              juce::MessageBoxIconType::NoIcon);
         dialog->addTextEditor("bar",  juce::String(currentBar),  "Bar:");
-        dialog->addTextEditor("beat", juce::String(beatInBar),   "Beat (1–4):");
+        dialog->addTextEditor("beat", juce::String(beatInBar),   "Beat (1-" + juce::String(sess.timeSigNumerator) + "):");
         dialog->addButton("Move",   1);
         dialog->addButton("Cancel", 0);
         dialog->setColour(juce::AlertWindow::backgroundColourId, juce::Colour::fromRGB(18, 20, 28));
         dialog->setColour(juce::AlertWindow::textColourId,       juce::Colours::white);
 
         dialog->enterModalState(true,
-            juce::ModalCallbackFunction::create([this, dialog, trackIndex, clipIndex,
-                                                 samplesPerBeat](int result)
+            juce::ModalCallbackFunction::create([this, dialog, trackIndex, clipIndex](int result)
             {
                 if (result == 1)
                 {
                     const int bar  = juce::jmax(1, dialog->getTextEditorContents("bar").getIntValue());
-                    const int beat = juce::jlimit(1, 4, dialog->getTextEditorContents("beat").getIntValue());
-                    const double targetBeat = (bar - 1) * 4.0 + (beat - 1);
-                    const int64_t targetSample = static_cast<int64_t>(targetBeat * samplesPerBeat);
+                    const auto& s2 = arrangementModel.getSession();
+                    const int beat = juce::jlimit(1, s2.timeSigNumerator, dialog->getTextEditorContents("beat").getIntValue());
+                    const double targetBeat = (bar - 1) * s2.beatsPerBar() + (beat - 1) * s2.beatUnit();
+                    const int64_t targetSample = s2.beatsToSamples(targetBeat);
 
                     auto clipCopy = arrangementModel.getSession()
                                                     .getTrack(trackIndex)
@@ -1208,9 +1209,13 @@ namespace NovaStudioUI
                                         ? arrangementModel.getSession().getSampleRate() : 44100.0;
         const double paintTempo   = arrangementModel.getSession().getTempo() > 0.0
                                         ? arrangementModel.getSession().getTempo() : 120.0;
-        const double paintViewStartBeats = (timelineModel.getViewStartSamples() / paintSR) * (paintTempo / 60.0);
-        const int    paintFirstBar  = static_cast<int>(std::floor(paintViewStartBeats / beatsPerBar));
-        const int    paintNumBars   = static_cast<int>(std::ceil((W / pixelsPerBeat) / beatsPerBar)) + 2;
+        // The grid follows the tempo map: bar widths change where the tempo changes.
+        const auto& gridSession = arrangementModel.getSession();
+        const double gridBpb  = gridSession.beatsPerBar();
+        const double gridUnit = gridSession.beatUnit();
+        const int    paintFirstBar  = juce::jmax(0, static_cast<int>(std::floor(gridSession.samplesToBeats((int64_t) timelineModel.getViewStartSamples()) / gridBpb)));
+        const int    paintNumBars   = 100000;   // loops stop at the right edge
+        juce::ignoreUnused(paintTempo, pixelsPerBeat, paintSR);
         const int64_t currentSample = transportState.getPositionSamples();
         const double currentX = timelineModel.getXForSamplePosition(currentSample, W);
         const int width = W;
@@ -1223,8 +1228,7 @@ namespace NovaStudioUI
 
         for (int bar = paintFirstBar; bar < paintFirstBar + paintNumBars; ++bar)
         {
-            const double barSec = bar * beatsPerBar * (60.0 / paintTempo);
-            const int64_t barSample = static_cast<int64_t>(barSec * paintSR);
+            const int64_t barSample = gridSession.beatsToSamples(bar * gridBpb);
             const double x = timelineModel.getXForSamplePosition(barSample, W);
             if (x > W + 2.0) break;
 
@@ -1238,11 +1242,24 @@ namespace NovaStudioUI
             // Beat subdivisions
             for (int sub = 1; sub < beatsPerBar; ++sub)
             {
-                const double beatSec = barSec + sub * (60.0 / paintTempo);
-                const int64_t beatSample = static_cast<int64_t>(beatSec * paintSR);
+                const int64_t beatSample = gridSession.beatsToSamples(bar * gridBpb + sub * gridUnit);
                 const double beatX = timelineModel.getXForSamplePosition(beatSample, W);
                 g.setColour(juce::Colour::fromRGB(38, 42, 58));
                 g.drawLine((float)beatX, (float)(rulerH / 2), (float)beatX, (float)rulerH, 0.8f);
+            }
+        }
+
+        // Tempo changes on the ruler
+        {
+            const auto& sess = arrangementModel.getSession();
+            for (const auto& tp : sess.getTempoMap())
+            {
+                const double tx = timelineModel.getXForSamplePosition((int64_t) (tp.timeSeconds * sess.getSampleRate()), W);
+                if (tx < -60.0 || tx > (double) W) continue;
+                g.setColour(juce::Colour::fromRGB(255, 140, 60));
+                g.drawLine((float) tx, (float) (rulerH / 2), (float) tx, (float) rulerH, 1.5f);
+                g.setFont(juce::Font(9.5f, juce::Font::bold));
+                g.drawText(juce::String(tp.bpm, tp.bpm == std::round(tp.bpm) ? 0 : 1) + " BPM", (int) tx + 3, rulerH - 13, 60, 12, juce::Justification::left);
             }
         }
 
@@ -1312,15 +1329,13 @@ namespace NovaStudioUI
             // Beat grid lines within lane — use same view-offset bars as ruler
             for (int bar = paintFirstBar; bar < paintFirstBar + paintNumBars; ++bar)
             {
-                const double barSec2   = bar * beatsPerBar * (60.0 / paintTempo);
-                const double x = timelineModel.getXForSamplePosition(static_cast<int64_t>(barSec2 * paintSR), W);
+                const double x = timelineModel.getXForSamplePosition(gridSession.beatsToSamples(bar * gridBpb), W);
                 if (x > W + 2.0) break;
                 g.setColour(juce::Colour::fromRGB(28, 31, 44));
                 g.drawLine((float)x, top, (float)x, top + trackHeight, 1.0f);
                 for (int sub = 1; sub < beatsPerBar; ++sub)
                 {
-                    const double beatSec2 = barSec2 + sub * (60.0 / paintTempo);
-                    const double beatX = timelineModel.getXForSamplePosition(static_cast<int64_t>(beatSec2 * paintSR), W);
+                    const double beatX = timelineModel.getXForSamplePosition(gridSession.beatsToSamples(bar * gridBpb + sub * gridUnit), W);
                     g.setColour(juce::Colour::fromRGB(22, 24, 35));
                     g.drawLine((float)beatX, top, (float)beatX, top + trackHeight, 0.5f);
                 }
@@ -1754,11 +1769,7 @@ namespace NovaStudioUI
     {
         const int64_t raw = static_cast<int64_t>(tm.getSamplePositionForX(static_cast<int>(x)));
         if (!snapEnabled || snapBeats <= 0.0) return juce::jmax<int64_t>(0, raw);
-        const double sr    = session.getSampleRate();
-        const double tempo = session.getTempo();
-        if (sr <= 0.0 || tempo <= 0.0) return juce::jmax<int64_t>(0, raw);
-        const double snapSamples = snapBeats * (60.0 / tempo) * sr;
-        return static_cast<int64_t>(std::round(static_cast<double>(raw) / snapSamples) * snapSamples);
+        return session.snapToBeatGrid(juce::jmax<int64_t>(0, raw), snapBeats);
     }
 
     void ArrangementView::updateCursorForTool()
@@ -4215,6 +4226,7 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
 
     void WorkspaceToolbar::timerCallback()
     {
+        if (onTick) onTick();
         if (onPollMasterClip && onPollMasterClip())
         {
             masterClipLit = true;

@@ -159,11 +159,28 @@ risks on the audio thread, MIDI not playing anything, and export not matching wh
 - Warped audio is rendered to `Sessions/Warp/` and cached; the original file is never touched.
 - **Tests:** pitch, length, level, stereo balance, transient timing, tempo detection, warp/follow/save/unwarp. 128 pass.
 
+**Tempo changes (fourth pass):**
+
+- **Editing:**
+  - Audio → Add Tempo Change at Playhead.
+  - Audio → Tempo Changes shows every change (Bar 17: 140 BPM); click one to edit or delete it.
+  - Clear All Tempo Changes.
+- **Ruler and grid:**
+  - Tempo changes appear as orange markers on the ruler.
+  - The bar grid, snapping, nudge, "move to bar" and the bar/beat readout follow the tempo map. Bar widths change where the tempo changes.
+- **What follows the map:**
+  - MIDI, the metronome, the Beat Studio and warped clips all follow it.
+  - Editing tempo keeps MIDI clips, follow-tempo warped clips, and the loop and punch ranges on the same bars.
+  - Plain audio stays where it is in time, like Pro Tools.
+  - Fixed: changing the tempo used to leave MIDI clips at their old time position while their notes moved, so MIDI drifted off its bar.
+- **Toolbar:**
+  - Fixed: the timecode used to be set once at startup and never update.
+  - It now shows bar.beat and time live, and the tempo at the playhead when there are tempo changes.
+- **Tests:** 143 pass, including the live device test.
+
 **Still to do (compared with major DAWs):**
 
-- **Tempo-map editing in the UI:**
-  - The engine supports tempo changes, but the timeline grid assumes one tempo.
-  - It needs a non-linear time ruler before tempo changes can be drawn safely.
+- **Gradual tempo ramps** (accelerando). Tempo changes are steps today.
 - **Warp markers** (dragging individual beats inside a clip) and real-time stretch preview while dragging.
 - **Sidechain inputs** for plugins.
 - **Hardware output routing** beyond outputs 1–2.

@@ -351,14 +351,97 @@ namespace NovaStudio
         if (wasPlaying) transportState.play();
     }
 
+    void StudioAudioEngine::applyTempoEdit(const std::function<void()>& edit)
+    {
+        // Remember musical positions (in beats) before the edit...
+        struct Pos { int t, c; double startBeat, endBeat; };
+        std::vector<Pos> keep;
+        for (int t = 0; t < session.getNumTracks(); ++t)
+        {
+            const auto& clips = session.getTrack(t).clips;
+            for (int c = 0; c < clips.size(); ++c)
+            {
+                const auto& cl = clips.getReference(c);
+                if (cl.isMidi || (cl.warped && cl.warpFollowTempo && cl.warpSourceBpm > 0.0))
+                    keep.push_back({ t, c, session.samplesToBeats(cl.startSample), session.samplesToBeats(cl.startSample + cl.lengthSamples) });
+            }
+        }
+        const double loopA = session.samplesToBeats(session.loopStartSample), loopB = session.samplesToBeats(session.loopEndSample);
+        const double punchA = session.samplesToBeats(session.punchInSample), punchB = session.samplesToBeats(session.punchOutSample);
+        const auto playBeat = session.samplesToBeats(transportState.getPositionSamples());
+
+        edit();
+
+        // ...and put everything back on the same bars.
+        int rewarped = 0;
+        for (const auto& k : keep)
+        {
+            auto& cl = session.getTrack(k.t).clips.getReference(k.c);
+            cl.startSample = session.beatsToSamples(k.startBeat);
+            if (cl.isMidi)
+                cl.lengthSamples = juce::jmax((int64_t) 1, session.beatsToSamples(k.endBeat) - cl.startSample);
+            else
+            {
+                const double ratio = cl.warpSourceBpm / session.getTempoAtSeconds((double) cl.startSample / session.getSampleRate());
+                if (std::abs(ratio - cl.warpRatio) > 1.0e-6 && renderWarp(cl, ratio, cl.warpMode, nullptr))
+                    ++rewarped;
+            }
+        }
+        session.loopStartSample = session.beatsToSamples(loopA);
+        session.loopEndSample = session.beatsToSamples(loopB);
+        session.punchInSample = session.beatsToSamples(punchA);
+        session.punchOutSample = session.beatsToSamples(punchB);
+        transportState.setLoopRange(session.loopStartSample, session.loopEndSample);
+        transportState.setPunchRange(session.punchInSample, session.punchOutSample);
+        if (!transportState.isPlaying())
+            transportState.setPositionSamples(session.beatsToSamples(playBeat), false);
+        transportState.setTempo(session.getTempo());
+        if (rewarped > 0)
+            juce::Logger::writeToLog("Re-warped " + juce::String(rewarped) + " clip(s) for the tempo change");
+        publishSnapshot(false);
+    }
+
     void StudioAudioEngine::setTempo(double bpm)
     {
         bpm = juce::jlimit(10.0, 999.0, bpm);
-        const double oldBpm = session.getTempo();
-        session.setTempo(bpm);
-        rewarpFollowingClips(oldBpm, bpm);
-        transportState.setTempo(bpm);
-        publishSnapshot(false);
+        if (std::abs(bpm - session.getTempo()) < 1.0e-9) { transportState.setTempo(bpm); return; }
+        // The base tempo scales the whole map (changes keep their bars and their own tempos).
+        auto changes = getTempoChanges();
+        applyTempoEdit([&]
+        {
+            session.setTempo(bpm);
+            std::vector<std::pair<double, double>> beatBpm;
+            const double bpb = session.beatsPerBar();
+            for (const auto& ch : changes)
+                if (ch.bar > 1.0) beatBpm.push_back({ (ch.bar - 1.0) * bpb, ch.bpm });
+            session.setTempoMapFromBeats(beatBpm);
+        });
+    }
+
+    std::vector<StudioAudioEngine::TempoChange> StudioAudioEngine::getTempoChanges() const
+    {
+        std::vector<TempoChange> out;
+        const double bpb = session.beatsPerBar();
+        for (const auto& p : session.getTempoMap())
+            out.push_back({ session.secondsToBeats(p.timeSeconds) / bpb + 1.0, p.bpm });
+        return out;
+    }
+
+    void StudioAudioEngine::setTempoChanges(const std::vector<TempoChange>& changes)
+    {
+        applyTempoEdit([&]
+        {
+            std::vector<std::pair<double, double>> beatBpm;
+            const double bpb = session.beatsPerBar();
+            for (const auto& ch : changes)
+                if (ch.bar > 1.0) beatBpm.push_back({ (ch.bar - 1.0) * bpb, ch.bpm });
+            session.setTempoMapFromBeats(beatBpm);
+        });
+    }
+
+    double StudioAudioEngine::getTempoAt(int64_t samplePosition) const
+    {
+        return session.getTempoAtSeconds((double) samplePosition / juce::jmax(1.0, session.getSampleRate()));
     }
 
     void StudioAudioEngine::setTimeSignature(int numerator, int denominator)

@@ -40,7 +40,7 @@ namespace NovaStudio
 
     int TimelineModel::getBeatsPerBar() const noexcept
     {
-        return 4;
+        return juce::jmax(1, session.timeSigNumerator);
     }
 
     double TimelineModel::getVisibleRangeSeconds(int width) const noexcept
@@ -73,7 +73,7 @@ namespace NovaStudio
 
     juce::String TimelineModel::getBarBeatString(int64_t samplePosition) const
     {
-        return transportState.getBarBeatString(samplePosition);
+        return session.barBeatString(samplePosition);
     }
 
     double TimelineModel::getSampleRate() const noexcept

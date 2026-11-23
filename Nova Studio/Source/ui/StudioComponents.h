@@ -900,6 +900,7 @@ namespace NovaStudioUI
     public:
         WorkspaceToolbar();
         ~WorkspaceToolbar() override;
+        std::function<void()> onTick;   // ~12 Hz, for live transport readouts
 
         void paint(juce::Graphics& g) override;
         void paintOverChildren(juce::Graphics& g) override;
