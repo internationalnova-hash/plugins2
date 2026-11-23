@@ -23,7 +23,7 @@ const CURATED = {
   'Nova Silk': ['Smooth', 'Focus', 'Air Preserve', 'Body', 'Output', 'Magic'],
   'Nova Space': ['Space', 'Decay', 'Pre-Delay', 'Damping', 'Width', 'Nova Mode', 'Mix'],
   'Nova Desk EQ': ['HPF Frequency', 'Low Gain', 'Low Mid Frequency', 'Low Mid Gain', 'High Mid Frequency', 'High Mid Gain', 'High Gain', 'Drive'],
-  'Nova Autotune': ['Retune Speed', 'Amount', 'Tolerance', 'Key', 'Scale', 'Formant Preserve'],
+  'Nova Pitch': ['Retune Speed', 'Humanize', 'Key', 'Scale', 'Natural Vibrato', 'Formant Warp', 'Transients', 'Output'],
   'Nova Glue': ['Threshold', 'Ratio', 'Attack', 'Release', 'Makeup', 'Glue', 'Drive'],
 };
 const RACKS = [
@@ -31,8 +31,8 @@ const RACKS = [
   ['Studio Tour', 'DEMO', 'One of each faceplate style', ['Nova 7even', 'Nova Royal 670', 'Nova Velvet', 'Nova Silk', 'Nova Tape', 'Nova Space']],
   ['Golden Era Chain', 'ANALOG • VOCAL', '1073-style pre and EQ, vari-mu glue, Pultec air, then tape', ['Nova 7even', 'Nova Royal 670', 'Nova Tone', 'Nova Tape']],
   ['Conejo Malo', 'VOCAL • LATIN', 'Deep baritone kept full, mid-forward bite, quick tune, short slap and plate',
-    ['Nova Autotune', 'Nova Desk EQ', 'Nova Level', 'Nova Silk', 'Nova Heat', 'Nova Delay', 'Nova Space']],
-  ['Vocal Starter', 'VOCAL • STARTER', 'Clean lead chain', ['Nova Autotune', 'Nova Desk EQ', 'Nova Level', 'Nova Silk', 'Nova Space']],
+    ['Nova Pitch', 'Nova Desk EQ', 'Nova Level', 'Nova Silk', 'Nova Heat', 'Nova Delay', 'Nova Space']],
+  ['Vocal Starter', 'VOCAL • STARTER', 'Clean lead chain', ['Nova Pitch', 'Nova Desk EQ', 'Nova Level', 'Nova Silk', 'Nova Space']],
 ];
 
 const faceOf = (name) => {

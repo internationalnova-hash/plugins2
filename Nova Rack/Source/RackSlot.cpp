@@ -218,7 +218,7 @@ static const std::map<juce::String, juce::StringArray>& curatedFaces()
         { "Nova Glue",       { "Threshold", "Ratio", "Attack", "Release", "Makeup", "Glue", "Drive" } },
         { "Nova Desk EQ",    { "HPF Frequency", "Low Gain", "Low Mid Frequency", "Low Mid Gain", "High Mid Frequency", "High Mid Gain", "High Gain", "Drive" } },
         { "Nova Console",    { "Console Mode", "Drive", "Color", "HPF", "Low Mid", "High Mid", "Threshold", "Ratio" } },
-        { "Nova Autotune",   { "Retune Speed", "Amount", "Tolerance", "Key", "Scale", "Formant Preserve" } },
+        { "Nova Pitch",      { "Retune Speed", "Humanize", "Key", "Scale", "Natural Vibrato", "Formant Warp", "Transients", "Output" } },
         { "Nova Silk",       { "Smooth", "Focus", "Air Preserve", "Body", "Output", "Magic" } },
         { "Nova Level",      { "Compression", "Tone", "Mode", "Output", "Magic" } },
         { "Nova Heat",       { "Drive", "Tone", "Heat", "Mode", "Output Gain" } },

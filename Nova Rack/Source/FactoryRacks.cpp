@@ -7,7 +7,7 @@
 //
 // Each unit lists parameter values as the plugin's own text ("-3", "1/8D", "Vintage"),
 // matched by parameter name. Anything not listed stays at the plugin's default.
-// Autotune's Key and Scale are never set: the key belongs to the song, not the preset.
+// Nova Pitch's Key and Scale are never set: the key belongs to the song, not the preset.
 // Check every name/value against the installed plugins with:
 //   NovaRackParamDump --verify-factory
 //
@@ -60,9 +60,11 @@ Unit eq (const char* hpf, const char* mudHz, const char* mudDb, const char* pres
                                { "Drive", drive } } };
 }
 
-Unit tune (const char* speed, const char* amount = "100")
+// Nova Pitch is the Nova tuner. Retune Speed: 0 = hard/fast, 100 = slow/natural.
+// Humanize: 0 = always fully corrected.
+Unit tune (const char* speed, const char* humanize = "0")
 {
-    return { "Nova Autotune", { { "Retune Speed", speed }, { "Amount", amount }, { "Formant Preserve", "On" } } };
+    return { "Nova Pitch", { { "Retune Speed", speed }, { "Humanize", humanize }, { "Formant Preserve", "100" } } };
 }
 
 Unit deEss (const char* smooth, const char* focus = "60", const char* air = "75")
@@ -104,7 +106,7 @@ const juce::Array<RackData>& factoryRacks()
     static const juce::Array<RackData> racks {
         // ── Starters ─────────────────────────────────────────────────────
         rack ("Vocal Starter", "VOCAL • STARTER", "Clean lead chain: gentle tune, EQ, smooth comp, de-ess, short room",
-              { tune ("35", "80"), eq ("100", "300", "-2", "3000", "2", "3"), level ("4"), deEss ("40"),
+              { tune ("35", "20"), eq ("100", "300", "-2", "3000", "2", "3"), level ("4"), deEss ("40"),
                 space ("Studio", "1.4", "12") }),
         rack ("Rap Starter", "VOCAL • STARTER", "Dry, upfront rap vocal: tight comp, bite, no tune",
               { eq ("100", "250", "-3", "3500", "3", "2"), level ("6", "PUNCH"), deEss ("45"),
@@ -135,7 +137,7 @@ const juce::Array<RackData>& factoryRacks()
                 delay ("1/16", "10", "10", "5000", "Vintage Tape") }),
         // Peso Pluma / corridos: raw mid-forward, slapback, almost untuned
         rack ("Corrido Crudo", "VOCAL • LATIN", "Corridos tumbados: raw nasal mids, slapback, barely tuned",
-              { tune ("60", "40"), eq ("100", "250", "-1", "1800", "4", "1"), level ("5"), deEss ("40"),
+              { tune ("60", "60"), eq ("100", "250", "-1", "1800", "4", "1"), level ("5"), deEss ("40"),
                 { "Nova Tape", { { "Tape", "55" }, { "Tape Type", "Vintage" }, { "Mix", "45" } } },
                 delay ("1/16", "8", "16", "4000", "Vintage Tape") }),
 
@@ -152,7 +154,7 @@ const juce::Array<RackData>& factoryRacks()
                 space ("Vintage", "1.2", "8") }),
         // Drake: soft, intimate, dark verb tail
         rack ("Six Side Mood", "VOCAL • HIP-HOP", "Soft, close and moody: gentle tune, rounded top, dark wide tail",
-              { tune ("30", "70"), eq ("100", "300", "-2", "2200", "1.5", "1"), { "Nova Royal 670", { { "Input", "1" }, { "Time Constant", "1.2 sec" }, { "Auto Gain", "On" } } },
+              { tune ("30", "30"), eq ("100", "300", "-2", "2200", "1.5", "1"), { "Nova Royal 670", { { "Input", "1" }, { "Time Constant", "1.2 sec" }, { "Auto Gain", "On" } } },
                 deEss ("45"), delay ("1/4", "22", "10", "3200", "Warm Bucket"), space ("Dream", "3.2", "18", "40", "85", "70") }),
         // Old-school boom bap
         rack ("Boom Bap Booth", "VOCAL • HIP-HOP", "90s boom-bap: hard comp, gritty tape, tight room",
@@ -179,19 +181,19 @@ const juce::Array<RackData>& factoryRacks()
 
         // ── Drill ────────────────────────────────────────────────────────
         rack ("Bando Cold", "VOCAL • DRILL", "UK/NY drill: dark and aggressive, hard comp, gritty, sliding echo",
-              { tune ("25", "60"), eq ("200", "300", "-3", "2400", "4", "1", "3"), level ("7", "PUNCH"), deEss ("50"),
+              { tune ("25", "40"), eq ("200", "300", "-3", "2400", "4", "1", "3"), level ("7", "PUNCH"), deEss ("50"),
                 { "Nova Heat", { { "Drive", "6" }, { "Heat", "4" }, { "Mix", "30" }, { "Mode", "Hard" } } },
                 delay ("1/8", "25", "12", "3000", "Vintage Tape"), space ("Vintage", "1.4", "9") }),
 
         // ── R&B ──────────────────────────────────────────────────────────
         // The Weeknd: glossy 80s, big verb
         rack ("After Hours Gloss", "VOCAL • R&B", "Glossy, cinematic R&B lead: silky top, 80s echoes, big bright hall",
-              { tune ("18", "85"), eq ("100", "300", "-2", "3500", "2", "5"), { "Nova Royal 670", { { "Input", "2" }, { "Auto Gain", "On" } } },
+              { tune ("18", "15"), eq ("100", "300", "-2", "3500", "2", "5"), { "Nova Royal 670", { { "Input", "2" }, { "Auto Gain", "On" } } },
                 deEss ("55", "70", "85"), { "Nova Aura", { { "Mid Aura", "40" }, { "High Aura", "70" } } },
                 delay ("1/4", "35", "16", "5500", "Modern Analog", "On"), space ("Arena", "3.4", "22", "40", "90") }),
         // SZA: breathy, intimate, warm
         rack ("Velvet Diary", "VOCAL • R&B", "Breathy and intimate: soft opto comp, warm body, dreamy tail",
-              { tune ("40", "70"), eq ("100", "250", "-1.5", "3000", "1.5", "4"), { "Nova Velvet", { { "Threshold", "-22" }, { "Ratio", "3" }, { "Analog Mode", "Tube" } } },
+              { tune ("40", "30"), eq ("100", "250", "-1.5", "3000", "1.5", "4"), { "Nova Velvet", { { "Threshold", "-22" }, { "Ratio", "3" }, { "Analog Mode", "Tube" } } },
                 deEss ("45", "60", "80"), delay ("1/8D", "25", "10", "4500", "Warm Bucket"), space ("Dream", "2.6", "18", "35", "80", "55") }),
         // Brent / acoustic R&B: natural, warm, untuned
         rack ("Sunday Soul", "VOCAL • R&B", "Natural soul vocal: no tune, warm tape, plate-style space",
@@ -201,7 +203,7 @@ const juce::Array<RackData>& factoryRacks()
 
         // ── Pop ──────────────────────────────────────────────────────────
         rack ("Radio Polish", "VOCAL • POP", "Modern pop lead: transparent tune, bright and forward, stacked comp",
-              { tune ("20", "90"), eq ("100", "300", "-2", "3500", "2.5", "5"), level ("5"), deEss ("55", "65", "85"),
+              { tune ("20", "10"), eq ("100", "300", "-2", "3500", "2.5", "5"), level ("5"), deEss ("55", "65", "85"),
                 { "Nova Glow", { { "Peak Reduction", "30" }, { "Analog Mode", "Clean" }, { "Mix", "60" } } },
                 { "Nova Aura", { { "Mid Aura", "35" }, { "High Aura", "55" } } },
                 delay ("1/8D", "20", "10", "6000"), space ("Studio", "1.8", "14", "30", "60") }),
@@ -220,7 +222,7 @@ const juce::Array<RackData>& factoryRacks()
         // ── Afro ─────────────────────────────────────────────────────────
         // Burna / Wizkid: warm, smooth, airy, rhythmic echoes
         rack ("Lagos Glow", "VOCAL • AFRO", "Afrobeats lead: smooth tune, warm body, airy top, rhythmic dotted echoes",
-              { tune ("15", "90"), eq ("100", "250", "-1.5", "3000", "2", "4"), level ("4"), deEss ("50"),
+              { tune ("15", "10"), eq ("100", "250", "-1.5", "3000", "2", "4"), level ("4"), deEss ("50"),
                 { "Nova Glow", { { "Peak Reduction", "25" }, { "Glow", "55" }, { "Analog Mode", "Vintage" } } },
                 delay ("1/8D", "28", "14", "5000", "Warm Bucket"), space ("Studio", "1.8", "15", "25", "70") }),
 

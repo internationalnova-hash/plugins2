@@ -24,8 +24,12 @@ NovaPitchAudioProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    params.push_back (std::make_unique<juce::AudioParameterInt>   (ParameterIDs::key,   "Key",   0, 11, 0));
-    params.push_back (std::make_unique<juce::AudioParameterInt>   (ParameterIDs::scale, "Scale", 0, 4,  0));
+    // Choice params so hosts (and Nova Rack) show note/scale names and snap to them.
+    // Index values match the old 0-11 / 0-4 ints, so saved sessions load unchanged.
+    params.push_back (std::make_unique<juce::AudioParameterChoice> (ParameterIDs::key, "Key",
+        juce::StringArray { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 0));
+    params.push_back (std::make_unique<juce::AudioParameterChoice> (ParameterIDs::scale, "Scale",
+        juce::StringArray { "Chromatic", "Major", "Minor", "Pentatonic", "Blues" }, 0));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::tolerance, "Retune Speed", 0.0f, 100.0f, 50.0f));
     // Default 0 (was 100): under the new Flex-Tune-style behavior (see
     // NovaScaleQuantizer::process()), 0 means "no humanization - always
