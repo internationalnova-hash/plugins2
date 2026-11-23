@@ -91,6 +91,7 @@ juce::WebBrowserComponent::Options NovaLinkAudioProcessorEditor::createWebOption
         .withNativeFunction("setRecordEnabled", [&s, ok] (NativeArgs a, Completion done) { s.setRecordEnabled(a.size() > 0 && (bool) a[0]); ok(done); })
         .withNativeFunction("setHearSelf", [&s, ok] (NativeArgs a, Completion done) { s.setHearSelf(a.size() > 0 && (bool) a[0]); ok(done); })
         .withNativeFunction("setSendClick", [&s, ok] (NativeArgs a, Completion done) { s.setSendClick(a.size() > 0 && (bool) a[0]); ok(done); })
+        .withNativeFunction("setMonoTakes", [&s, ok] (NativeArgs a, Completion done) { s.setMonoTakes(a.size() > 0 && (bool) a[0]); ok(done); })
         .withNativeFunction("setLossless", [&s, ok] (NativeArgs a, Completion done) { s.setLossless(a.size() > 0 && (bool) a[0]); ok(done); })
         .withNativeFunction("setMonitor", [&s, ok] (NativeArgs a, Completion done)
         {

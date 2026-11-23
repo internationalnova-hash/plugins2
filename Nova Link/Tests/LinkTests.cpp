@@ -222,8 +222,16 @@ static void testFullSession()
     check(len > 1.5 && len < 2.6, "take length matches the recording");
     {
         auto f = juce::File(tk.getProperty("file", "").toString());
-        std::unique_ptr<juce::AudioFormatReader> r(juce::WavAudioFormat().createReaderFor(new juce::FileInputStream(f), true));
+        std::unique_ptr<juce::AudioFormatReader> r(juce::FlacAudioFormat().createReaderFor(new juce::FileInputStream(f), true));
+        check(f.hasFileExtension("flac") && r != nullptr, "take arrives as FLAC");
         check(r != nullptr && std::abs(r->sampleRate - srA) < 1, "take is the artist's own lossless recording (44.1 kHz)");
+        check(r != nullptr && r->numChannels == 1 && r->bitsPerSample == 24, "take is mono 24-bit by default");
+        if (r)
+        {
+            const double wavBytes = (double) r->lengthInSamples * 2 * 3;   // same audio as a 24-bit stereo WAV
+            std::cout << "    take file " << f.getSize() / 1024 << " KB vs " << (int) (wavBytes / 1024) << " KB as a stereo WAV\n";
+            check((double) f.getSize() < wavBytes * 0.5, "mono FLAC is under half the size of a stereo WAV");
+        }
         if (r)
         {
             juce::AudioBuffer<float> b(1, (int) r->lengthInSamples);
@@ -244,6 +252,7 @@ static void testFullSession()
     check(aex.existsAsFile(), "take exports lined up from 0:00 for dragging into the DAW");
     {
         std::unique_ptr<juce::AudioFormatReader> r(juce::WavAudioFormat().createReaderFor(new juce::FileInputStream(aex), true));
+        check(r != nullptr && r->numChannels == 1, "mono take exports as a mono WAV");
         const bool rateOk = r != nullptr && std::abs(r->sampleRate - srH) < 1;
         const double startInFile = r != nullptr ? [&] {
             juce::AudioBuffer<float> b(1, (int) r->lengthInSamples); r->read(&b, 0, b.getNumSamples(), 0, true, false);
@@ -254,7 +263,8 @@ static void testFullSession()
         check(std::abs(startInFile - start) < 0.02, "drag export lines up with the song");
     }
 
-    // Redo over the same spot: the new take plays; switch back; delete
+    // Redo over the same spot (in stereo this time): the new take plays; switch back; delete
+    host.setMonoTakes(false);
     hostSec.store(recStart - 0.8);
     std::this_thread::sleep_for(std::chrono::milliseconds(800));
     recording = true;
@@ -284,6 +294,10 @@ static void testFullSession()
     host.playTake(1);
     check(playingOf(1) && !playingOf(2), "you can switch back to the first take");
     const auto take2File = [&] { juce::File f; const auto tv = host.getStateJson().getProperty("takes", {}); if (auto* t = tv.getArray()) for (auto& x : *t) if ((int) x.getProperty("id", 0) == 2) f = juce::File(x.getProperty("file", "").toString()); return f; }();
+    {
+        std::unique_ptr<juce::AudioFormatReader> r(juce::FlacAudioFormat().createReaderFor(new juce::FileInputStream(take2File), true));
+        check(r != nullptr && r->numChannels == 2, "turning Mono takes off records the next take in stereo");
+    }
     host.deleteTake(2);
     check(host.getStateJson().getProperty("takes", {}).size() == 1 && !take2File.existsAsFile(), "deleting a take removes it (file to Trash)");
     check(waitFor([&] { return artist.getStateJson().getProperty("takes", {}).size() == 1; }, 3000), "the artist's take list updates too");

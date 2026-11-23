@@ -2,7 +2,7 @@
 const $ = (id) => document.getElementById(id);
 const plugin = $("plugin");
 const NATIVE = ["getState", "setName", "host", "join", "leave", "copyCode", "chat", "marker", "setSections", "talk",
-                "setRecordEnabled", "setHearSelf", "setLossless", "setSendClick", "setMonitor", "camera", "dragTake", "revealTake", "playTake", "deleteTake"];
+                "setRecordEnabled", "setHearSelf", "setLossless", "setSendClick", "setMonoTakes", "setMonitor", "camera", "dragTake", "revealTake", "playTake", "deleteTake"];
 const native = {};
 let state = null;
 let sections = [];
@@ -155,6 +155,8 @@ window.novaLinkUpdate = (s) => {
   const db = toDb(Math.max(pk[0], pk[1]));
   $("lvl").textContent = db > -90 ? `${db.toFixed(1)} dB` : "–";
   setSwitch($("swLossless"), s.lossless);
+  setSwitch($("swMono"), s.monoTakes);
+  $("takeq").textContent = s.lossless ? (s.monoTakes ? "Lossless · Mono" : "Lossless · Stereo") : "Live stream";
   setSwitch($("swRecord"), s.recordEnabled);
   setSwitch($("swSelf"), s.hearSelf);
   setSwitch($("swClick"), s.sendClick);
@@ -180,7 +182,7 @@ window.novaLinkUpdate = (s) => {
 };
 
 // ── controls ────────────────────────────────────────────────────────
-const toggles = { swLossless: "setLossless", swRecord: "setRecordEnabled", swSelf: "setHearSelf", swClick: "setSendClick" };
+const toggles = { swLossless: "setLossless", swRecord: "setRecordEnabled", swSelf: "setHearSelf", swClick: "setSendClick", swMono: "setMonoTakes" };
 for (const [id, fn] of Object.entries(toggles))
   $(id).onclick = (e) => { const on = !e.currentTarget.classList.contains("on"); setSwitch(e.currentTarget, on); native[fn](on); };
 $("mon").oninput = (e) => {
@@ -211,7 +213,7 @@ $("codeIn").addEventListener("keydown", (e) => { if (e.key === "Enter") $("joinB
   if (!window.__JUCE__) {
     // Browser preview only (no plugin): sample data so the layout can be checked.
     const demo = { role: "host", code: "NOVA-7K2Q-9MX4", state: "Connected", peer: "Marcus", myName: "Studio A", rtt: 62, jitter: 4.2, loss: 0.1, buffer: 40,
-      sendPeak: [0.4, 0.4], recvPeak: [0.3, 0.28], activeTake: 3, lossless: true, recordEnabled: true, hearSelf: true, sendClick: true, talkback: false,
+      sendPeak: [0.4, 0.4], recvPeak: [0.3, 0.28], activeTake: 3, lossless: true, monoTakes: true, recordEnabled: true, hearSelf: true, sendClick: true, talkback: false,
       pos: { sec: 66, ppq: 132, bpm: 120, num: 4, den: 4, playing: true, rec: true },
       takes: [ { id: 1, name: "Take 1", start: 16, length: 30, state: "ready", progress: 1, playing: true }, { id: 2, name: "Take 2", start: 48, length: 14, state: "ready", progress: 1, playing: false }, { id: 4, name: "Take 4", start: 48, length: 14, state: "transferring", progress: 0.62 },
                { id: 3, name: "Take 3", start: 64, length: 0, state: "recording", progress: 0 } ],

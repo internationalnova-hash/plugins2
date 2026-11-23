@@ -6,6 +6,16 @@
 
 namespace NovaLink
 {
+    // Takes may be WAV (host captures, exports) or FLAC (artist recordings).
+    static std::unique_ptr<juce::AudioFormatReader> openTakeReader(const juce::File& f)
+    {
+        auto in = std::make_unique<juce::FileInputStream>(f);
+        if (!in->openedOk()) return {};
+        if (f.hasFileExtension("flac"))
+            return std::unique_ptr<juce::AudioFormatReader>(juce::FlacAudioFormat().createReaderFor(in.release(), true));
+        return std::unique_ptr<juce::AudioFormatReader>(juce::WavAudioFormat().createReaderFor(in.release(), true));
+    }
+
     namespace
     {
         constexpr size_t kChunk = 60000;
@@ -175,7 +185,7 @@ namespace NovaLink
         else if (t == "take" && role == Role::Artist)
         {
             const int id = (int) v.getProperty("id", 0);
-            if (v.getProperty("state", "").toString() == "start") startLocalTake(id, (double) v.getProperty("startSec", 0.0));
+            if (v.getProperty("state", "").toString() == "start") startLocalTake(id, (double) v.getProperty("startSec", 0.0), (bool) v.getProperty("mono", false));
             else finishLocalTake(id);
         }
         else if (t == "takedel" && role == Role::Artist)
@@ -213,7 +223,8 @@ namespace NovaLink
             in.size = (int64_t) (double) v.getProperty("bytes", 0.0);
             in.got = 0;
             in.startSec = (double) v.getProperty("startSec", 0.0);
-            in.file = sessionFolder.getChildFile("Take " + juce::String(id) + ".wav").getNonexistentSibling();
+            const auto ext = v.getProperty("ext", "wav").toString() == "flac" ? ".flac" : ".wav";
+            in.file = sessionFolder.getChildFile("Take " + juce::String(id) + ext).getNonexistentSibling();
             in.out = std::make_unique<juce::FileOutputStream>(in.file.withFileExtension("part"));
             in.out->setPosition(0); in.out->truncate();
             incoming[id] = std::move(in);
@@ -245,7 +256,7 @@ namespace NovaLink
                         if (tk.file.existsAsFile() && tk.file != in.file) tk.file.deleteFile();
                         tk.file = in.file;
                         tk.startSec = in.startSec;
-                        std::unique_ptr<juce::AudioFormatReader> r(juce::WavAudioFormat().createReaderFor(new juce::FileInputStream(tk.file), true));
+                        auto r = openTakeReader(tk.file);
                         if (r) tk.lengthSec = (double) r->lengthInSamples / r->sampleRate;
                         tk.state = "ready";
                         tk.progress = 1.0f;
@@ -285,7 +296,7 @@ namespace NovaLink
                 liveFile = tk.file;
             }
         activeTake.store(id);
-        sendJson(obj({ { "t", "take" }, { "id", id }, { "state", "start" }, { "startSec", startSec } }));
+        sendJson(obj({ { "t", "take" }, { "id", id }, { "state", "start" }, { "startSec", startSec }, { "mono", monoTakes.load() } }));
     }
 
     void LinkSession::hostTakeStopped()
@@ -303,7 +314,7 @@ namespace NovaLink
                 if (tk.id == id)
                 {
                     if (start >= 0.0) tk.startSec = start;
-                    std::unique_ptr<juce::AudioFormatReader> r(juce::WavAudioFormat().createReaderFor(new juce::FileInputStream(tk.file), true));
+                    auto r = openTakeReader(tk.file);
                     if (r) tk.lengthSec = (double) r->lengthInSamples / r->sampleRate;
                     tk.state = lossless.load() ? "waiting" : "ready";
                 }
@@ -316,18 +327,20 @@ namespace NovaLink
         }
     }
 
-    void LinkSession::startLocalTake(int id, double)
+    void LinkSession::startLocalTake(int id, double, bool mono)
     {
         Take tk;
         tk.id = id;
         tk.name = "Take " + juce::String(id);
         tk.state = "recording";
-        tk.file = sessionFolder.getChildFile("Take " + juce::String(id) + " (lossless).wav").getNonexistentSibling();
+        // FLAC is lossless and about half the size of WAV, so takes reach the engineer faster.
+        tk.file = sessionFolder.getChildFile("Take " + juce::String(id) + " (lossless).flac").getNonexistentSibling();
         std::unique_ptr<juce::FileOutputStream> out(tk.file.createOutputStream());
-        juce::WavAudioFormat wav;
+        juce::FlacAudioFormat flac;
         if (out != nullptr)
-            if (auto* w = wav.createWriterFor(out.get(), sampleRate, 2, 24, {}, 0))
+            if (auto* w = flac.createWriterFor(out.get(), sampleRate, mono ? 1u : 2u, 24, {}, 5))
             {
+                localMono.store(mono);
                 out.release();
                 const juce::SpinLock::ScopedLockType sl(writerLock);
                 localWriter = std::make_unique<juce::AudioFormatWriter::ThreadedWriter>(w, writerThread, 65536);
@@ -375,7 +388,7 @@ namespace NovaLink
             outgoing->size = f.getSize();
             outgoing->sent = 0;
             outgoing->in = std::make_unique<juce::FileInputStream>(f);
-            const auto header = juce::JSON::toString(obj({ { "bytes", (double) outgoing->size }, { "startSec", outgoing->startSec } }), true).toStdString();
+            const auto header = juce::JSON::toString(obj({ { "bytes", (double) outgoing->size }, { "startSec", outgoing->startSec }, { "ext", f.getFileExtension().substring(1).toLowerCase() } }), true).toStdString();
             std::vector<uint8_t> hb(5 + header.size());
             hb[0] = (uint8_t) id; hb[1] = (uint8_t) (id >> 8); hb[2] = (uint8_t) (id >> 16); hb[3] = (uint8_t) (id >> 24); hb[4] = 0;
             std::memcpy(hb.data() + 5, header.data(), header.size());
@@ -404,7 +417,7 @@ namespace NovaLink
 
     void LinkSession::loadTakeForPlayback(const Take& tk)
     {
-        std::unique_ptr<juce::AudioFormatReader> r(juce::WavAudioFormat().createReaderFor(new juce::FileInputStream(tk.file), true));
+        auto r = openTakeReader(tk.file);
         if (r == nullptr) return;
         auto pt = std::make_shared<PlaybackTake>();
         pt->id = tk.id;
@@ -454,8 +467,9 @@ namespace NovaLink
         }
         removed.clear();   // freed off the audio thread
         if (tk.file.existsAsFile()) tk.file.moveToTrash();
-        const auto aligned = tk.file.getSiblingFile(tk.name + " (from 0-00).wav");
-        if (aligned.existsAsFile()) aligned.moveToTrash();
+        if (tk.file != juce::File())
+            for (auto& f : tk.file.getParentDirectory().findChildFiles(juce::File::findFiles, false, tk.name + " (from 0-00*"))
+                f.moveToTrash();
         if (role == Role::Host) sendJson(obj({ { "t", "takedel" }, { "id", takeId } }));
     }
 
@@ -464,7 +478,7 @@ namespace NovaLink
         Take tk;
         { const juce::ScopedLock sl(takeLock); for (auto& t : takes) if (t.id == takeId) tk = t; }
         if (!tk.file.existsAsFile()) return {};
-        std::unique_ptr<juce::AudioFormatReader> r(juce::WavAudioFormat().createReaderFor(new juce::FileInputStream(tk.file), true));
+        auto r = openTakeReader(tk.file);
         if (r == nullptr) return {};
         // Pad with silence from 0:00 so dropping the file at the start of the song lines it up,
         // and write it at the host session's sample rate so the DAW never has to convert it.
@@ -472,27 +486,27 @@ namespace NovaLink
         const auto out = tk.file.getSiblingFile(tk.name + " (from 0-00, " + juce::String((int) std::lround(outRate)) + " Hz).wav");
         if (out.existsAsFile()) return out;
         std::unique_ptr<juce::FileOutputStream> os(out.createOutputStream());
+        const int outCh = r->numChannels == 1 ? 1 : 2;   // mono takes export as mono files
         juce::WavAudioFormat wav;
-        std::unique_ptr<juce::AudioFormatWriter> w(os ? wav.createWriterFor(os.get(), outRate, 2, 24, {}, 0) : nullptr);
+        std::unique_ptr<juce::AudioFormatWriter> w(os ? wav.createWriterFor(os.get(), outRate, (unsigned int) outCh, 24, {}, 0) : nullptr);
         if (w == nullptr) return {};
         os.release();
         const int64_t pad = (int64_t) std::llround(tk.startSec * outRate);
-        juce::AudioBuffer<float> silence(2, 8192);
+        juce::AudioBuffer<float> silence(outCh, 8192);
         silence.clear();
         for (int64_t left = pad; left > 0; left -= 8192) w->writeFromAudioSampleBuffer(silence, 0, (int) juce::jmin((int64_t) 8192, left));
 
         // Whole take into RAM (vocal takes are small), then resample if the rates differ.
-        juce::AudioBuffer<float> src(2, (int) r->lengthInSamples);
-        r->read(&src, 0, src.getNumSamples(), 0, true, true);
-        if (r->numChannels == 1) src.copyFrom(1, 0, src, 0, 0, src.getNumSamples());
+        juce::AudioBuffer<float> src(outCh, (int) r->lengthInSamples);
+        r->read(&src, 0, src.getNumSamples(), 0, true, outCh > 1);
         if (std::abs(r->sampleRate - outRate) < 0.5)
             w->writeFromAudioSampleBuffer(src, 0, src.getNumSamples());
         else
         {
             const double ratio = r->sampleRate / outRate;   // input samples per output sample
             const int outLen = (int) std::floor(src.getNumSamples() / ratio);
-            juce::AudioBuffer<float> conv(2, juce::jmax(1, outLen));
-            for (int ch = 0; ch < 2; ++ch)
+            juce::AudioBuffer<float> conv(outCh, juce::jmax(1, outLen));
+            for (int ch = 0; ch < outCh; ++ch)
             {
                 juce::LagrangeInterpolator interp;
                 interp.process(ratio, src.getReadPointer(ch), conv.getWritePointer(ch), outLen, src.getNumSamples(), 0);
@@ -548,6 +562,7 @@ namespace NovaLink
         sampleRate = sr;
         maxBlockSize = juce::jmax(64, maxBlock);
         sendBuf.setSize(2, maxBlockSize, false, true, false);
+        monoBuf.setSize(1, maxBlockSize, false, true, false);
         recvBuf.setSize(2, maxBlockSize, false, true, false);
         if (decoder) decoder->reset();
     }
@@ -669,7 +684,18 @@ namespace NovaLink
                 if (tl.isLocked() && localWriter != nullptr)
                 {
                     if (localNeedsStart.load() && st >= 0) { localStartSec.store((double) st / kNetRate); localNeedsStart.store(false); }
-                    if (!localNeedsStart.load()) localWriter->write(sendBuf.getArrayOfReadPointers(), n);
+                    if (!localNeedsStart.load())
+                    {
+                        if (localMono.load())
+                        {
+                            // Average the two sides (a mono mic arrives on both).
+                            monoBuf.copyFrom(0, 0, sendBuf, 0, 0, n);
+                            monoBuf.addFrom(0, 0, sendBuf, 1, 0, n);
+                            monoBuf.applyGain(0, 0, n, 0.5f);
+                            localWriter->write(monoBuf.getArrayOfReadPointers(), n);
+                        }
+                        else localWriter->write(sendBuf.getArrayOfReadPointers(), n);
+                    }
                 }
             }
 
@@ -714,6 +740,7 @@ namespace NovaLink
         o->setProperty("hearSelf", hearSelf.load());
         o->setProperty("lossless", lossless.load());
         o->setProperty("sendClick", sendClick.load());
+        o->setProperty("monoTakes", monoTakes.load());
         o->setProperty("monitorGain", monitorGain.load());
         {
             juce::Array<juce::var> arr;

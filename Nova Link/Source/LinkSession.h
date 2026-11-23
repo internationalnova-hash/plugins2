@@ -62,6 +62,7 @@ namespace NovaLink
         void setHearSelf(bool on) noexcept { hearSelf.store(on); }
         void setLossless(bool on) noexcept { lossless.store(on); }
         void setSendClick(bool on) noexcept { sendClick.store(on); }   // host: metronome in the artist's mix
+        void setMonoTakes(bool on) noexcept { monoTakes.store(on); }   // host: artist records mono (half the transfer)
         juce::File exportTakeAligned(int takeId) const;                    // WAV padded from 0:00 for drag-and-drop
         // Host: play this take over its part of the song (replacing whichever overlaps it).
         void playTake(int takeId);
@@ -86,7 +87,7 @@ namespace NovaLink
         void onControl(const std::string& json);
         void onFileChunk(const uint8_t* data, size_t size);
         void sendJson(const juce::var& v);
-        void startLocalTake(int id, double startSec);        // artist
+        void startLocalTake(int id, double startSec, bool mono);        // artist
         void finishLocalTake(int id);                        // artist
         void pumpOutgoingFile();                             // artist
         void hostTakeStarted(double startSec);               // host
@@ -103,7 +104,7 @@ namespace NovaLink
         int maxBlockSize = 512;
         juce::AudioBuffer<float> sendBuf, recvBuf;
 
-        std::atomic<bool> talkback { false }, recordEnabled { true }, hearSelf { true }, lossless { true }, sendClick { true };
+        std::atomic<bool> talkback { false }, recordEnabled { true }, hearSelf { true }, lossless { true }, sendClick { true }, monoTakes { true };
         double clickPhase = 0.0; int clickLeft = 0; float clickAmp = 0.0f; double lastBeat = -1.0;
         std::atomic<float> monitorGain { 1.0f };
         std::atomic<float> sendPeakL { 0 }, sendPeakR { 0 }, recvPeakL { 0 }, recvPeakR { 0 };
@@ -129,6 +130,8 @@ namespace NovaLink
         juce::File localFile;
         std::atomic<double> localStartSec { -1.0 };
         std::atomic<bool> localNeedsStart { false };
+        std::atomic<bool> localMono { false };
+        juce::AudioBuffer<float> monoBuf;
         // Artist outgoing file transfer
         struct Outgoing { int id; juce::File file; double startSec; int64_t size; int64_t sent; std::unique_ptr<juce::FileInputStream> in; };
         std::unique_ptr<Outgoing> outgoing;
