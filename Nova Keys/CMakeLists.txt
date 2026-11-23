@@ -68,7 +68,7 @@ juce_add_plugin(NovaKeys
     BUNDLE_ID "com.internationalnova.novakeys"
     PLUGIN_MANUFACTURER_CODE Inov
     PLUGIN_CODE NvKy
-    FORMATS VST3 AU Standalone
+    FORMATS VST3 AU ${NOVA_AAX_FORMAT} Standalone
     PRODUCT_NAME "Nova Keys"
     VST3_CATEGORIES Instrument
     AAX_CATEGORY SWGenerators

@@ -57,7 +57,7 @@ juce_add_plugin(NovaSeven
     BUNDLE_ID "com.internationalnova.novaseven"
     PLUGIN_MANUFACTURER_CODE Inov
     PLUGIN_CODE Nv7e
-    FORMATS VST3 AU Standalone
+    FORMATS VST3 AU ${NOVA_AAX_FORMAT} Standalone
     PRODUCT_NAME "Nova 7even"
     VST3_CATEGORIES Fx Eq
     AAX_CATEGORY EQ

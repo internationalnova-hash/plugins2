@@ -56,7 +56,7 @@ juce_add_plugin(NovaDeskEQ
     BUNDLE_ID "com.internationalnova.novadeskeq"
     PLUGIN_MANUFACTURER_CODE Inov
     PLUGIN_CODE NvDk
-    FORMATS VST3 AU Standalone
+    FORMATS VST3 AU ${NOVA_AAX_FORMAT} Standalone
     PRODUCT_NAME "Nova Desk EQ"
     VST3_CATEGORIES Fx Eq
     AAX_CATEGORY EQ
