@@ -42,6 +42,14 @@ done
 echo "==> Installer package"
 COPYFILE_DISABLE=1 pkgbuild --root "$WORK/root" --identifier com.internationalnova.novalink.installer \
     --version "$VERSION" --install-location / "$WORK/unsigned.pkg" >/dev/null
+# macOS tags every file written here with a protected attribute (com.apple.provenance) that
+# pkgbuild stores as hidden "._" files. Rebuild the payload and file list without them.
+pkgutil --expand "$WORK/unsigned.pkg" "$WORK/exp"
+(cd "$WORK/root" && find . | COPYFILE_DISABLE=1 cpio -o --format odc -R 0:80 2>/dev/null) | gzip -c > "$WORK/exp/Payload"
+lsbom "$WORK/exp/Bom" | grep -v '/\._' > "$WORK/bomlist"
+rm "$WORK/exp/Bom"; mkbom -i "$WORK/bomlist" "$WORK/exp/Bom"
+rm "$WORK/unsigned.pkg"; pkgutil --flatten "$WORK/exp" "$WORK/unsigned.pkg"
+if pkgutil --payload-files "$WORK/unsigned.pkg" | grep -q '/\._'; then echo "ERROR: ._ files still in payload" >&2; exit 1; fi
 productsign --sign "$INST_ID" "$WORK/unsigned.pkg" "$WORK/Install Nova Link.pkg" >/dev/null
 echo "==> Notarizing installer (a few minutes)"
 xcrun notarytool submit "$WORK/Install Nova Link.pkg" --keychain-profile "$NOTARY" --wait | tail -2
