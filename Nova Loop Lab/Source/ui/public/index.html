@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nova Loop Lab</title>
+<style>
+  :root {
+    --text: #e9edf6; --soft: #aeb7cb; --dim: #6f7a92;
+    --gold: #ffbd4a; --gold-hot: #ff8a16; --gold-glow: rgba(255, 170, 56, 0.38);
+    --edge: rgba(255, 168, 49, 0.26); --edge-soft: rgba(255, 189, 84, 0.12);
+    --card: linear-gradient(180deg, rgba(10, 17, 34, 0.92), rgba(4, 9, 20, 0.95));
+    --red: #ff4d3a;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: linear-gradient(180deg, #040915, #060d1d 50%, #02050f);
+    color: var(--text); font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none;
+  }
+  button { font: inherit; }
+  .plugin {
+    width: 1120px; height: 700px; position: absolute; top: 50%; left: 50%; transform-origin: center center;
+    border-radius: 18px; border: 1px solid var(--edge);
+    background:
+      radial-gradient(900px 520px at 50% 14%, rgba(18, 31, 72, 0.30), transparent 62%),
+      radial-gradient(620px 300px at 50% 80%, rgba(255, 142, 34, 0.10), transparent 60%),
+      linear-gradient(180deg, #030913, #03080f);
+    box-shadow: 0 28px 72px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,235,210,.14), inset 0 -28px 54px rgba(0,0,0,.42);
+    display: grid; grid-template-rows: 70px 218px minmax(0, 1fr) 36px; padding: 0 12px 4px; overflow: hidden;
+  }
+  .plugin::after { content: ""; position: absolute; inset: 8px; border-radius: 14px; border: 1px solid var(--edge-soft); pointer-events: none; }
+
+  /* Header (shared Nova layout) */
+  .top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; border-bottom: 1px solid rgba(255,170,63,.3); padding: 6px 8px; z-index: 2; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 42px; height: 42px; border-radius: 11px; border: 1px solid rgba(255,176,62,.35); background: linear-gradient(180deg, rgba(12,19,35,.95), rgba(5,10,22,.96));
+          display: grid; place-items: center; box-shadow: 0 0 16px rgba(255,168,53,.16), inset 0 1px 0 rgba(255,231,194,.1); }
+  .logo img { width: 72%; height: 72%; object-fit: contain; }
+  .title { font-size: 30px; letter-spacing: .12em; font-weight: 600; line-height: 1; background: linear-gradient(92deg, #f4ac3f 0%, #f2be6a 30%, #d8dbe7 78%);
+           -webkit-background-clip: text; background-clip: text; color: transparent; white-space: nowrap; }
+  .title span { font-weight: 400; }
+  .subtitle { font-size: 10px; letter-spacing: .32em; color: var(--soft); margin-top: 6px; }
+  .presets { display: flex; align-items: center; gap: 6px; padding: 5px; border-radius: 12px; border: 1px solid rgba(255,176,62,.22); background: rgba(5,10,22,.85); }
+  .pbtn { width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(255,176,62,.22); background: rgba(14,22,40,.9); color: var(--gold); font-size: 15px; cursor: pointer; }
+  .pbtn:hover { border-color: rgba(255,176,62,.6); box-shadow: 0 0 10px var(--gold-glow); }
+  .pname { width: 220px; height: 30px; border-radius: 8px; background: rgba(2,6,14,.9); border: 1px solid rgba(255,176,62,.14); display: flex; align-items: center; justify-content: center;
+           font-size: 13px; letter-spacing: .06em; cursor: pointer; }
+  .right { display: flex; justify-content: flex-end; align-items: center; gap: 16px; }
+  .byline { font-family: "Snell Roundhand", "Apple Chancery", "Brush Script MT", cursive; font-size: 22px; color: #e8c58a; opacity: .9; white-space: nowrap; }
+  .power { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,176,62,.4); background: radial-gradient(circle at 50% 35%, #1a2540, #070c18);
+           display: grid; place-items: center; cursor: pointer; box-shadow: 0 0 12px var(--gold-glow); }
+  .power svg { width: 16px; height: 16px; stroke: var(--gold); }
+
+  .card { border-radius: 14px; border: 1px solid rgba(255,176,62,.2); background: var(--card); box-shadow: inset 0 1px 0 rgba(255,231,194,.07), 0 10px 26px rgba(0,0,0,.35); position: relative; }
+  .label { font-size: 10.5px; letter-spacing: .26em; color: var(--soft); text-transform: uppercase; }
+  .label.gold { color: var(--gold); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 7px; background: rgba(1,4,10,.85); border: 1px solid rgba(255,176,62,.16);
+          font-size: 11px; letter-spacing: .08em; color: var(--soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .chip b { color: var(--gold); font-weight: 600; }
+  .seg { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: rgba(1,4,10,.8); border: 1px solid rgba(255,176,62,.16); }
+  .seg button { border: 0; background: transparent; color: var(--dim); font-size: 10px; letter-spacing: .2em; padding: 5px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+  .seg button.on { background: linear-gradient(180deg, #3a2608, #1d1304); color: var(--gold); box-shadow: 0 0 8px rgba(255,170,56,.2); }
+  .btn { height: 28px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255,176,62,.28); background: rgba(14,22,40,.9); color: var(--gold); font-size: 10.5px; letter-spacing: .18em; cursor: pointer; white-space: nowrap; }
+  .btn:hover { border-color: rgba(255,176,62,.65); box-shadow: 0 0 10px var(--gold-glow); }
+
+  /* Sample card */
+  .sample { margin: 12px 4px 0; padding: 12px 14px; display: grid; grid-template-rows: auto minmax(0,1fr) auto; gap: 8px; }
+  .sHead { display: flex; align-items: center; gap: 10px; }
+  .sName { font-size: 14px; letter-spacing: .04em; color: var(--text); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sName small { color: var(--dim); font-size: 11px; margin-left: 8px; letter-spacing: .1em; }
+  .waveWrap { position: relative; border-radius: 10px; background: radial-gradient(circle at 50% 55%, rgba(18,31,72,.35), rgba(1,4,10,.88) 70%); border: 1px solid rgba(255,176,62,.1); overflow: hidden; }
+  .waveWrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .drop { position: absolute; inset: 0; display: none; place-items: center; font-size: 12px; letter-spacing: .26em; color: var(--gold); background: rgba(58,38,8,.5); border: 1px dashed rgba(255,189,74,.7); border-radius: 10px; }
+  .waveWrap.dragover .drop { display: grid; }
+  .sFoot { display: flex; align-items: center; gap: 10px; }
+  .sFoot .grow { flex: 1; }
+  .slider { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: .2em; color: var(--dim); }
+  .slider input { -webkit-appearance: none; appearance: none; width: 130px; height: 4px; border-radius: 2px; background: linear-gradient(90deg, #ffbd4a var(--p, 50%), rgba(255,255,255,.08) var(--p, 50%)); outline: none; }
+  .slider input::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px var(--gold); cursor: pointer; }
+  .slider b { color: var(--text); font-weight: 500; min-width: 32px; font-variant-numeric: tabular-nums; }
+
+  /* Main */
+  .main { display: grid; grid-template-columns: 300px minmax(0, 1fr) 250px; gap: 12px; padding: 12px 4px 10px; min-height: 0; }
+
+  .chops { padding: 12px 14px; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 10px; }
+  .cHead { display: flex; justify-content: space-between; align-items: center; }
+  .pads { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); gap: 7px; min-height: 0; }
+  .pad { position: relative; border-radius: 9px; border: 1px solid rgba(255,255,255,.08); background: rgba(1,4,10,.85); cursor: pointer; overflow: hidden; }
+  .pad canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .pad .n { position: absolute; top: 4px; left: 6px; font-size: 9.5px; letter-spacing: .1em; color: var(--soft); font-variant-numeric: tabular-nums; }
+  .pad .fx { position: absolute; bottom: 3px; right: 5px; font-size: 8.5px; letter-spacing: .08em; color: var(--gold); }
+  .pad.sel { border-color: var(--gold); box-shadow: 0 0 12px rgba(255,170,56,.35), inset 0 0 0 1px rgba(255,189,74,.4); }
+  .pad.hit { background: rgba(58,38,8,.8); }
+  .pad.off { opacity: .28; }
+
+  .gen { padding: 12px 14px; display: grid; grid-template-rows: auto auto minmax(0,1fr) auto; grid-template-columns: minmax(0,1fr); gap: 10px; min-width: 0; }
+  .gen > * { min-width: 0; }
+  .gHead { display: flex; align-items: center; gap: 10px; }
+  .gHead .grow { flex: 1; }
+  .genbtn { height: 34px; padding: 0 20px; border-radius: 10px; border: 1px solid rgba(255,189,74,.75); background: linear-gradient(180deg, #4a300a, #241604);
+            color: #ffd690; font-size: 12px; letter-spacing: .3em; font-weight: 600; cursor: pointer; box-shadow: 0 0 18px rgba(255,170,56,.35), inset 0 1px 0 rgba(255,231,194,.2); }
+  .genbtn:hover { box-shadow: 0 0 26px rgba(255,170,56,.55), inset 0 1px 0 rgba(255,231,194,.25); }
+  .genbtn:active { transform: translateY(1px); }
+  .vars { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+  .var { height: 44px; border-radius: 8px; border: 1px solid rgba(255,255,255,.08); background: rgba(1,4,10,.85); cursor: pointer; position: relative; overflow: hidden; }
+  .var canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .var .vn { position: absolute; top: 3px; left: 5px; font-size: 9px; letter-spacing: .12em; color: var(--dim); }
+  .var.on { border-color: var(--gold); box-shadow: 0 0 10px rgba(255,170,56,.3); }
+  .var.on .vn { color: var(--gold); }
+  .var .lock { position: absolute; top: 2px; right: 4px; font-size: 9px; color: var(--gold); display: none; }
+  .var.locked .lock { display: block; }
+  .lane { position: relative; border-radius: 10px; background: rgba(1,4,10,.88); border: 1px solid rgba(255,176,62,.12); overflow: hidden; min-height: 0; }
+  .lane canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .dragout { position: absolute; right: 10px; bottom: 10px; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 8px;
+             border: 1px solid rgba(255,189,74,.55); background: rgba(36,22,4,.92); color: var(--gold); font-size: 10.5px; letter-spacing: .2em; cursor: grab; box-shadow: 0 0 14px rgba(255,170,56,.25); }
+  .dragout svg { width: 14px; height: 14px; stroke: var(--gold); }
+  .gFoot { display: grid; grid-template-columns: 34px repeat(3, minmax(0, 1fr)); align-items: center; gap: 12px; }
+  .gFoot .slider { gap: 6px; font-size: 9px; letter-spacing: .16em; }
+  .gFoot .slider input { width: 100%; min-width: 0; flex: 1; }
+  .gFoot .slider b { min-width: 28px; font-size: 10px; }
+  .play { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,176,62,.5); background: radial-gradient(circle at 50% 35%, #2a1d08, #0c0803); color: var(--gold); cursor: pointer; display: grid; place-items: center; box-shadow: 0 0 12px var(--gold-glow); }
+  .play svg { width: 14px; height: 14px; fill: var(--gold); }
+
+  .edit { padding: 12px 14px; display: grid; grid-template-rows: auto auto minmax(0,1fr) auto; gap: 10px; }
+  .eHead { display: flex; justify-content: space-between; align-items: center; }
+  .eHead .label b { color: var(--gold); font-weight: 600; }
+  .knobs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; align-content: start; }
+  .kc { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .kc .knob { width: 70px; height: 70px; cursor: ns-resize; }
+  .kc .knob svg { width: 100%; height: 100%; overflow: visible; }
+  .kc .nm { font-size: 9.5px; letter-spacing: .22em; color: var(--gold); }
+  .kc .val { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text); padding: 2px 8px; border-radius: 6px; background: rgba(1,4,10,.85); border: 1px solid rgba(255,176,62,.14); min-width: 58px; text-align: center; }
+  .toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tg { height: 28px; border-radius: 8px; border: 1px solid rgba(255,255,255,.12); background: rgba(1,4,10,.85); color: var(--dim); font-size: 10px; letter-spacing: .2em; cursor: pointer; }
+  .tg.on { border-color: rgba(255,176,62,.7); color: var(--gold); background: linear-gradient(180deg, #3a2608, #1d1304); box-shadow: 0 0 10px rgba(255,170,56,.25); }
+
+  .mini { margin-left: 4px; height: 18px; min-width: 22px; padding: 0 4px; border-radius: 5px; border: 1px solid rgba(255,176,62,.25); background: rgba(14,22,40,.9); color: var(--soft); font-size: 10px; cursor: pointer; }
+  .mini:hover { color: var(--gold); border-color: rgba(255,176,62,.6); }
+  .busy { font-size: 10px; letter-spacing: .26em; color: var(--gold); opacity: 0; transition: opacity .2s; }
+  .busy.on { opacity: 1; animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+  .empty { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; letter-spacing: .3em; color: var(--dim); pointer-events: none; }
+  .pname { position: relative; }
+  .plist { position: absolute; top: 36px; left: 50%; transform: translateX(-50%); width: 240px; padding: 6px; border-radius: 10px; border: 1px solid rgba(255,176,62,.3);
+           background: rgba(5,10,22,.98); box-shadow: 0 18px 40px rgba(0,0,0,.6); display: none; z-index: 20; }
+  .plist.open { display: block; }
+  .plist div { padding: 7px 10px; border-radius: 6px; font-size: 12.5px; color: var(--soft); cursor: pointer; }
+  .plist div:hover { background: rgba(255,176,62,.12); color: var(--text); }
+  .plist div.on { color: var(--gold); }
+  .power.off { box-shadow: none; border-color: rgba(255,255,255,.14); }
+  .power.off svg { stroke: var(--dim); }
+  .plugin.bypassed .main, .plugin.bypassed .sample { filter: saturate(.25) brightness(.7); }
+  .genbtn:disabled, .dragout.disabled { opacity: .35; pointer-events: none; }
+  .toast { position: absolute; left: 50%; bottom: 46px; transform: translateX(-50%); padding: 8px 16px; border-radius: 10px; border: 1px solid rgba(255,176,62,.4);
+           background: rgba(5,10,22,.96); color: var(--text); font-size: 12px; letter-spacing: .04em; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 30; max-width: 80%; text-align: center; }
+  .toast.on { opacity: 1; }
+  .toast.err { border-color: rgba(255,77,58,.6); color: #ffb4a6; }
+  .overlay { position: absolute; inset: 0; background: rgba(2,5,12,.88); display: none; place-items: center; z-index: 50; border-radius: 18px; }
+  .overlay.open { display: grid; }
+  .lic { width: 380px; padding: 24px; border-radius: 14px; border: 1px solid rgba(255,176,62,.35); background: #060c1a; text-align: center; display: grid; gap: 12px; }
+  .lic h3 { font-weight: 500; letter-spacing: .16em; color: var(--gold); }
+  .lic p { font-size: 12px; color: var(--soft); }
+  .lic input { height: 36px; border-radius: 8px; border: 1px solid rgba(255,176,62,.3); background: #02060e; color: var(--text); padding: 0 10px; font-size: 13px; text-align: center; }
+  .lic button { height: 36px; border-radius: 8px; border: 1px solid rgba(255,176,62,.5); background: linear-gradient(180deg, #3a2608, #1d1304); color: var(--gold); letter-spacing: .14em; cursor: pointer; }
+  .foot { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 10px; }
+  .tag { font-size: 10px; letter-spacing: .34em; color: var(--soft); }
+  .star { width: 20px; height: 20px; opacity: .85; }
+  .foot .r { text-align: right; font-size: 10px; letter-spacing: .2em; color: var(--dim); }
+</style>
+</head>
+<body>
+<div class="plugin" id="plugin">
+  <header class="top">
+    <div class="brand">
+      <div class="logo"><img src="n_logo.png" alt="" /></div>
+      <div>
+        <div class="title">NOVA <span>LOOP LAB</span></div>
+        <div class="subtitle">SAMPLE FLIP GENERATOR</div>
+      </div>
+    </div>
+    <div class="presets">
+      <button class="pbtn" id="prev" title="Previous flip style">&#8249;</button>
+      <div class="pname" id="pname"><span id="styleName">Boom Bap Flip</span><div class="plist" id="plist"></div></div>
+      <button class="pbtn" id="next" title="Next flip style">&#8250;</button>
+    </div>
+    <div class="right">
+      <div class="byline">by International Nova</div>
+      <div class="power" id="power" title="Bypass">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <section class="card sample">
+    <div class="sHead">
+      <div class="label gold">Sample</div>
+      <div class="sName" id="sName">No sample loaded</div>
+      <div class="busy" id="busy">CHOPPING&hellip;</div>
+      <div class="chip">TEMPO <b id="bpm">--</b> BPM
+        <button class="mini" id="tHalf" title="Sample tempo is double what it should be">&frac12;</button><button class="mini" id="tDouble" title="Sample tempo is half what it should be">&times;2</button></div>
+      <div class="chip">KEY <b id="keyTxt">--</b></div>
+      <button class="btn" id="loadBtn">LOAD</button>
+    </div>
+    <div class="waveWrap" id="waveWrap"><canvas id="wave"></canvas><div class="empty" id="emptyMsg">DROP A SAMPLE HERE &nbsp;&middot;&nbsp; OR CLICK LOAD</div><div class="drop">DROP SAMPLE TO CHOP</div></div>
+    <div class="sFoot">
+      <div class="label">Chop</div>
+      <div class="seg" id="modeSeg">
+        <button data-m="transient" class="on">TRANSIENTS</button>
+        <button data-m="grid">GRID</button>
+        <button data-m="musical">MUSICAL</button>
+      </div>
+      <div class="slider" id="sensWrap">SENSITIVITY <input type="range" id="sens" min="0" max="100" value="60" /> <b id="sensV">60%</b></div>
+      <div class="seg" id="gridSeg" style="display:none">
+        <button data-g="4">1/4</button><button data-g="8" class="on">1/8</button><button data-g="16">1/16</button>
+      </div>
+      <div class="chip" id="gridNote" style="display:none"></div>
+      <div class="grow"></div>
+      <div class="chip">CHOPS <b id="chopCount">0</b></div>
+    </div>
+  </section>
+
+  <section class="main">
+    <div class="card chops">
+      <div class="cHead"><div class="label">Chops</div><div class="label" style="color:var(--dim);font-size:9.5px">CLICK TO HEAR &middot; DRAG OUT</div></div>
+      <div class="pads" id="pads"></div>
+    </div>
+
+    <div class="card gen">
+      <div class="gHead">
+        <button class="genbtn" id="genBtn">GENERATE</button>
+        <div class="seg" id="barsSeg"><button data-b="1">1 BAR</button><button data-b="2" class="on">2 BARS</button><button data-b="4">4 BARS</button></div>
+        <div class="grow"></div>
+        <div class="chip" title="Loops follow your DAW's tempo (or the sample's own tempo when there's no DAW)">SYNC <b id="syncTxt">HOST --</b> BPM</div>
+      </div>
+      <div class="vars" id="vars"></div>
+      <div class="lane" id="laneWrap">
+        <canvas id="lane"></canvas>
+        <div class="dragout" id="dragOut" draggable="true" title="Drag this loop onto your DAW timeline as a WAV">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>
+          DRAG LOOP
+        </div>
+      </div>
+      <div class="gFoot">
+        <button class="play" id="playBtn" title="Audition"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></button>
+        <div class="slider">VARIATION <input type="range" id="varAmt" min="0" max="100" value="55" /> <b id="varAmtV">55%</b></div>
+        <div class="slider">SWING <input type="range" id="swing" min="0" max="100" value="20" /> <b id="swingV">20%</b></div>
+        <div class="slider">STUTTER <input type="range" id="stut" min="0" max="100" value="15" /> <b id="stutV">15%</b></div>
+      </div>
+    </div>
+
+    <div class="card edit">
+      <div class="eHead"><div class="label">Chop <b id="selN">03</b></div><button class="btn" id="allBtn" title="Apply these settings to every chop">ALL CHOPS</button></div>
+      <div class="toggles">
+        <button class="tg" id="revBtn">REVERSE</button>
+        <button class="tg on" id="useBtn">IN LOOPS</button>
+      </div>
+      <div class="knobs" id="knobs"></div>
+      <div class="kc" style="flex-direction:row;justify-content:center;gap:10px">
+        <div class="label" style="font-size:9.5px">OUTPUT</div><div class="chip" id="outChip" style="cursor:ns-resize" title="Drag up/down. Double-click for 0 dB."><b id="outV">0.0</b> dB</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div class="tag">CHOP &middot; FLIP &middot; LOOP</div>
+    <svg class="star" viewBox="0 0 24 24"><path d="M12 1 L14 10 L23 12 L14 14 L12 23 L10 14 L1 12 L10 10 Z" fill="none" stroke="#ffbd4a" stroke-width="1"/></svg>
+    <div class="r">NOVA AUDIO</div>
+  </footer>
+  <div class="toast" id="toast"></div>
+  <div class="overlay" id="licenseOverlay">
+    <div class="lic">
+      <h3>UNLOCK NOVA LOOP LAB</h3>
+      <p>Enter the license key from your purchase email.</p>
+      <input id="licKey" placeholder="XXXX-XXXX-XXXX-XXXX" spellcheck="false" />
+      <button id="licBtn">ACTIVATE</button>
+      <p id="licMsg"></p>
+    </div>
+  </div>
+</div>
+<script type="module" src="js/index.js"></script>
+</body>
+</html>

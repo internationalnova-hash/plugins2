@@ -1,0 +1,7 @@
+{
+  "name": "Nova Loop Lab",
+  "phase": "code_complete",
+  "ui_framework": "webview",
+  "version": "1.0.0",
+  "notes": "Sample flip generator (instrument). Load/drop a sample: detects tempo + key, chops by transients, grid or musical phrase (up to 16 pads). GENERATE builds 8 tempo-synced loop variations (1/2/4 bars) with variation, swing and stutter; lock flips; pattern is automatable and switchable by MIDI (C3-G3). Per-chop pitch, time-stretch (WSOLA), filter, lo-fi, reverse, in-loops. Chops on MIDI C1-D#2. Drag loops/chops out as WAV (falls back to Finder reveal). 10 flip styles. 35/35 engine tests, 19/19 plugin harness, auval passes."
+}

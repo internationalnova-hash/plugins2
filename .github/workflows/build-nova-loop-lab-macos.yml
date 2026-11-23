@@ -1,0 +1,47 @@
+name: Build Nova Loop Lab macOS
+
+on:
+  push:
+    paths:
+      - 'Nova Loop Lab/**'
+      - '.github/workflows/build-nova-loop-lab-macos.yml'
+  pull_request:
+    paths:
+      - 'Nova Loop Lab/**'
+      - '.github/workflows/build-nova-loop-lab-macos.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        run: brew install cmake
+
+      - name: Clean build directory
+        run: rm -rf "Nova Loop Lab/build"
+
+      # Customer builds are license-gated; local builds default to ungated.
+      - name: Configure CMake
+        run: cmake -S "Nova Loop Lab" -B "Nova Loop Lab/build" -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DNOVA_LOOPLAB_REQUIRE_LICENSE=ON
+
+      - name: Build
+        run: cmake --build "Nova Loop Lab/build" --config Release
+
+      - name: Measurement accuracy tests
+        run: |
+          "Nova Loop Lab/build/NovaLoopLabTests_artefacts/Release/NovaLoopLabTests" || "Nova Loop Lab/build/NovaLoopLabTests_artefacts/NovaLoopLabTests"
+
+      - name: Package VST3 Bundle
+        run: |
+          cd "Nova Loop Lab/build/NovaLoopLab_artefacts/Release/VST3" 2>/dev/null || cd "Nova Loop Lab/build/NovaLoopLab_artefacts/VST3"
+          ditto -c -k --sequesterRsrc --keepParent "Nova Loop Lab.vst3" "NovaLoopLab-macOS-vst3.zip"
+          mv NovaLoopLab-macOS-vst3.zip "$GITHUB_WORKSPACE/"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaLoopLab-macOS-build
+          path: NovaLoopLab-macOS-vst3.zip
