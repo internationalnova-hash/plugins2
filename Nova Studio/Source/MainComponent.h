@@ -74,6 +74,7 @@ private:
     void promptMasterVolume();
     void promptTrackInput(int trackIndex);
     void createMidiClipAtPlayhead();
+    void promptWarpClip(int which);   // 0 warp to tempo, 1 stretch, 2 remove
     void loadSelectedMidiClipIntoPianoRoll(bool force);
     int pianoRollTrack = -1, pianoRollClip = -1;
     int  getFocusedTrack() const;

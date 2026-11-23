@@ -101,9 +101,13 @@ MainComponent::MainComponent()
         setWorkspaceMode(2);
         if (beatWindow) beatWindow->showPianoRollView();
     };
+    arrangementView.onClipCommand = [this](int menuId) { menuItemSelected(menuId, 0); };
     if (editWindow != nullptr)
         if (auto* av = editWindow->getArrangementView())
+        {
             av->onEditMidiClip = arrangementView.onEditMidiClip;
+            av->onClipCommand = arrangementView.onClipCommand;
+        }
 
     // Piano roll edits are written straight into the MIDI clip it's showing.
     beatWindow->getPianoRoll().onNotesChanged = [this](const juce::Array<NovaStudioUI::PianoRollView::NoteBlock>& blocks)
@@ -823,6 +827,92 @@ void MainComponent::promptBounceClipToAudio()
                 updateStatusMessage("Bounce Clip: nothing to bounce (no gain/fade applied)");
             refreshTrackList();
         }));
+}
+
+namespace
+{
+    // Runs work on a worker thread behind a modal progress bar, then calls done on the UI thread.
+    struct BackgroundJob : public juce::ThreadWithProgressWindow
+    {
+        BackgroundJob(const juce::String& title, std::function<bool()> w, std::function<void(bool)> d)
+            : juce::ThreadWithProgressWindow(title, false, false), work(std::move(w)), done(std::move(d)) {}
+        void run() override { ok = work(); }
+        void threadComplete(bool) override
+        {
+            auto cb = done; const bool r = ok;
+            juce::MessageManager::callAsync([this, cb, r] { if (cb) cb(r); delete this; });
+        }
+        std::function<bool()> work;
+        std::function<void(bool)> done;
+        bool ok = false;
+    };
+}
+
+void MainComponent::promptWarpClip(int which)
+{
+    const int t = arrangementModel.getSelectedTrackIndex();
+    const int c = arrangementModel.getSelectedClipIndex();
+    auto& session = engine.getSession();
+    if (!juce::isPositiveAndBelow(t, session.getNumTracks()) || !juce::isPositiveAndBelow(c, session.getTrack(t).clips.size())
+        || session.getTrack(t).clips[c].isMidi)
+    {
+        updateStatusMessage("Warp: select an audio clip first");
+        return;
+    }
+    const auto clip = session.getTrack(t).clips[c];
+
+    if (which == 2)   // remove
+    {
+        engine.unwarpClip(t, c);
+        arrangementModel.sendChangeMessage();
+        refreshTrackList();
+        updateStatusMessage("Warp removed");
+        return;
+    }
+
+    auto* dlg = new juce::AlertWindow(which == 0 ? "Warp to Session Tempo" : "Stretch Clip",
+        which == 0 ? "Stretches the clip to " + juce::String(session.getTempo(), 2) + " BPM without changing its pitch."
+                   : "Changes the clip's length without changing its pitch.",
+        juce::MessageBoxIconType::NoIcon);
+    if (which == 0)
+    {
+        const double guess = engine.suggestClipTempo(t, c);
+        dlg->addTextEditor("bpm", guess > 0.0 ? juce::String(guess, guess == std::round(guess) ? 0 : 2) : juce::String(), "Clip's original tempo (BPM):");
+        dlg->addComboBox("follow", { "Yes - keep it in time when I change the tempo", "No" }, "Follow tempo changes:");
+    }
+    else
+    {
+        const double pct = clip.warped ? clip.warpRatio * 100.0 : 100.0;
+        dlg->addTextEditor("pct", juce::String(pct, 1), "New length (% of original):");
+    }
+    dlg->addComboBox("mode", { "Mix / vocals / melodic", "Beats / drums" }, "Algorithm:");
+    dlg->getComboBoxComponent("mode")->setSelectedItemIndex(clip.warpMode);
+    dlg->addButton("Stretch", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    dlg->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    dlg->enterModalState(true, juce::ModalCallbackFunction::create([this, dlg, which, t, c](int r)
+    {
+        const int mode = dlg->getComboBoxComponent("mode")->getSelectedItemIndex();
+        const double bpm = which == 0 ? dlg->getTextEditorContents("bpm").getDoubleValue() : 0.0;
+        const bool follow = which == 0 && dlg->getComboBoxComponent("follow")->getSelectedItemIndex() == 0;
+        const double ratio = which == 1 ? dlg->getTextEditorContents("pct").getDoubleValue() / 100.0 : 1.0;
+        delete dlg;
+        if (r != 1) return;
+
+        auto err = std::make_shared<juce::String>();
+        auto* job = new BackgroundJob("Stretching audio...",
+            [this, which, t, c, bpm, follow, ratio, mode, err]
+            {
+                return which == 0 ? engine.warpClipToTempo(t, c, bpm, follow, mode, err.get())
+                                  : engine.stretchClip(t, c, ratio, mode, err.get());
+            },
+            [this, err](bool ok)
+            {
+                arrangementModel.sendChangeMessage();
+                refreshTrackList();
+                updateStatusMessage(ok ? juce::String("Clip stretched (pitch unchanged)") : "Warp: " + *err);
+            });
+        job->launchThread();
+    }));
 }
 
 void MainComponent::promptExportMix()   { runExport(false); }
@@ -2566,6 +2656,13 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         menu.addSeparator();
         menu.addItem(408, "New MIDI Clip at Playhead", getFocusedTrack() >= 0);
         menu.addItem(409, "Edit MIDI Clip in Piano Roll", arrangementModel.hasSelection());
+        menu.addSeparator();
+        menu.addItem(410, "Warp to Session Tempo...", arrangementModel.hasSelection());
+        menu.addItem(411, "Stretch Clip...", arrangementModel.hasSelection());
+        {
+            const auto* sel = arrangementModel.getSelectedClip();
+            menu.addItem(412, "Remove Warp", sel != nullptr && sel->warped);
+        }
         break;
 
     case 4: // Audio
@@ -2981,6 +3078,9 @@ void MainComponent::menuItemSelected(int id, int)
         }
         break;
     case 408: createMidiClipAtPlayhead(); break;
+    case 410: promptWarpClip(0); break;
+    case 411: promptWarpClip(1); break;
+    case 412: promptWarpClip(2); break;
     case 409:
         loadSelectedMidiClipIntoPianoRoll(true);
         setWorkspaceMode(2);

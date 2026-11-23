@@ -1399,6 +1399,11 @@ namespace NovaStudioUI
                                                      : (clip.name.isNotEmpty() ? clip.name
                                                         : (clip.file.existsAsFile() ? clip.file.getFileNameWithoutExtension() : juce::String("Clip")));
 
+                if (clip.warped)
+                    clipTitle << (clip.warpSourceBpm > 0.0 ? "  [warp " + juce::String(clip.warpSourceBpm, 0) + " BPM"
+                                                              + (clip.warpFollowTempo ? ", follows tempo]" : "]")
+                                                            : "  [stretch " + juce::String(clip.warpRatio * 100.0, 0) + "%]");
+
                 // MIDI clips: draw their notes as a mini piano roll.
                 if (clip.isMidi && !clip.notes.isEmpty() && clipWidth > 6.0f)
                 {
@@ -2269,6 +2274,13 @@ namespace NovaStudioUI
                         menu.addSeparator();
                         menu.addItem(5, "Edit in Piano Roll");
                     }
+                    else
+                    {
+                        menu.addSeparator();
+                        menu.addItem(410, "Warp to Session Tempo...", !clip.locked);
+                        menu.addItem(411, "Stretch Clip...", !clip.locked);
+                        menu.addItem(412, "Remove Warp", clip.warped && !clip.locked);
+                    }
 
                     // Takes: clips stacked over the same time range (loop/overdub recordings).
                     juce::Array<int> takeIdx;
@@ -2306,6 +2318,7 @@ namespace NovaStudioUI
                             return;
                         }
                         if (result == 5 && onEditMidiClip) onEditMidiClip();
+                        if (result >= 410 && result <= 412 && onClipCommand) onClipCommand(result);
                         if (result == 1) arrangementModel.normalizeSelectedClip();
                         else if (result == 2) arrangementModel.reverseSelectedClip();
                         else if (result == 3) arrangementModel.bounceSelectedClipToAudio();

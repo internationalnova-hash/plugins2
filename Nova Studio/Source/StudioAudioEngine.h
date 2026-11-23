@@ -329,6 +329,16 @@ namespace NovaStudio
         bool freezeTrack(int trackIndex, juce::String* error = nullptr);
         void unfreezeTrack(int trackIndex);
         bool isTrackFrozen(int trackIndex) const noexcept;
+
+        // ── Warp (time stretch, pitch preserved) ────────────────────────────
+        // Warp a clip from its own tempo to the session tempo. followTempo: re-stretch
+        // automatically (and keep its bar position) whenever the session tempo changes.
+        bool warpClipToTempo(int trackIndex, int clipIndex, double sourceBpm, bool followTempo, int mode, juce::String* error = nullptr);
+        // Manual stretch by a ratio (>1 longer/slower). Doesn't follow tempo.
+        bool stretchClip(int trackIndex, int clipIndex, double ratio, int mode, juce::String* error = nullptr);
+        void unwarpClip(int trackIndex, int clipIndex);
+        // Best guess at a clip's tempo: the file name ("92bpm"), else audio analysis. 0 if unknown.
+        double suggestClipTempo(int trackIndex, int clipIndex) const;
         void setTrackMonitorInput(int trackIndex, bool on);
         bool getTrackMonitorInput(int trackIndex) const noexcept;
         void setTrackAutomationMode(int trackIndex, int mode);   // 0 Read, 1 Touch, 2 Latch, 3 Write, 4 Off
@@ -559,6 +569,8 @@ namespace NovaStudio
         std::atomic<int> trackMaxLatency { 0 }, masterChainLatency { 0 };   // for overall delay compensation      // render this track pre-fader, no PDC (freeze)
         std::vector<int> processOrder;    // player indices: tracks, then aux in dependency order
         void updateRoutingOrder();
+        bool renderWarp(Clip& clip, double ratio, int mode, juce::String* error);
+        void rewarpFollowingClips(double oldTempo, double newTempo);
         bool offlineIncludeMaster = true;
         int maxBlockSize = 512;
 

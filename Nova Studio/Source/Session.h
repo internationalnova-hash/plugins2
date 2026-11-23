@@ -55,6 +55,16 @@ namespace NovaStudio
         juce::Colour clipColor = juce::Colours::steelblue;
         juce::String name;                 // optional display name
         juce::Array<MidiNote> notes;       // MIDI clips only
+
+        // Warp (time stretch). When warped, `file` is a rendered copy; the original stays here.
+        bool    warped = false;
+        juce::File warpSourceFile;
+        int64_t warpSourceOffset = 0;      // original fileOffsetSamples
+        int64_t warpSourceLength = 0;      // original lengthSamples
+        double  warpSourceBpm = 0.0;       // 0 = manual stretch (doesn't follow tempo)
+        double  warpRatio = 1.0;
+        int     warpMode = 0;              // 0 Mix, 1 Beats
+        bool    warpFollowTempo = false;
     };
 
     struct AutomationPoint

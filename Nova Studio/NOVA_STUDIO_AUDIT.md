@@ -146,14 +146,25 @@ risks on the audio thread, MIDI not playing anything, and export not matching wh
 - **Takes:** right-click a clip → Takes to pick which stacked take plays.
 - **Automation for plugin knobs** was already there: right-click a track → Add Automation Lane.
 
+**Warping (third pass):**
+
+- Nova Studio has its own time stretcher (`TimeStretcher.cpp`), with no third-party library:
+  - It's a phase vocoder with identity phase locking.
+  - It resets transients so drums stay sharp, and keeps stereo phase coherent.
+  - Pitch stays the same, from 0.25x to 4x.
+- **Clip menu or right-click:**
+  - Warp to Session Tempo: the clip's tempo is guessed from the file name ("92bpm") or by analysis.
+  - Stretch Clip (percentage) and Remove Warp.
+- **Follow tempo:** warped clips re-stretch and keep their bar position when the session tempo changes.
+- Warped audio is rendered to `Sessions/Warp/` and cached; the original file is never touched.
+- **Tests:** pitch, length, level, stereo balance, transient timing, tempo detection, warp/follow/save/unwarp. 128 pass.
+
 **Still to do (compared with major DAWs):**
 
 - **Tempo-map editing in the UI:**
   - The engine supports tempo changes, but the timeline grid assumes one tempo.
   - It needs a non-linear time ruler before tempo changes can be drawn safely.
-- **Audio warping to tempo:**
-  - Needs a time-stretch engine.
-  - Rubber Band (GPL, or a paid commercial license) or a custom one.
+- **Warp markers** (dragging individual beats inside a clip) and real-time stretch preview while dragging.
 - **Sidechain inputs** for plugins.
 - **Hardware output routing** beyond outputs 1–2.
 - **MIDI editing:** CC/pitch-bend lanes and 1/32+ piano-roll resolution.

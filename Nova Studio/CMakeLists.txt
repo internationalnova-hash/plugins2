@@ -85,6 +85,8 @@ target_sources(NovaStudio PRIVATE
     Source/StudioAudioEngineCore.cpp
     Source/StudioAudioEngineSession.cpp
     Source/ClipStreamer.cpp
+    Source/TimeStretcher.cpp
+    Source/StudioAudioEngineWarp.cpp
     Source/TransportState.cpp
     Source/TimelineModel.cpp
     Source/Session.cpp
@@ -147,6 +149,8 @@ target_sources(NovaStudioValidation PRIVATE
     Source/StudioAudioEngineCore.cpp
     Source/StudioAudioEngineSession.cpp
     Source/ClipStreamer.cpp
+    Source/TimeStretcher.cpp
+    Source/StudioAudioEngineWarp.cpp
     Source/TransportState.cpp
     Source/TimelineModel.cpp
     Source/Session.cpp

@@ -354,7 +354,9 @@ namespace NovaStudio
     void StudioAudioEngine::setTempo(double bpm)
     {
         bpm = juce::jlimit(10.0, 999.0, bpm);
+        const double oldBpm = session.getTempo();
         session.setTempo(bpm);
+        rewarpFollowingClips(oldBpm, bpm);
         transportState.setTempo(bpm);
         publishSnapshot(false);
     }

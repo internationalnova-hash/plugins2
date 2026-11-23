@@ -41,6 +41,17 @@ namespace NovaStudio
     object->setProperty("fadeOutSamples", (double)clip.fadeOutSamples);
     object->setProperty("fileOffsetSamples", (double)clip.fileOffsetSamples);
     object->setProperty("name", clip.name);
+    if (clip.warped)
+    {
+        object->setProperty("warped", true);
+        object->setProperty("warpSourceFile", clip.warpSourceFile.getFullPathName());
+        object->setProperty("warpSourceOffset", (double) clip.warpSourceOffset);
+        object->setProperty("warpSourceLength", (double) clip.warpSourceLength);
+        object->setProperty("warpSourceBpm", clip.warpSourceBpm);
+        object->setProperty("warpRatio", clip.warpRatio);
+        object->setProperty("warpMode", clip.warpMode);
+        object->setProperty("warpFollowTempo", clip.warpFollowTempo);
+    }
     if (clip.isMidi)
     {
         juce::Array<juce::var> notesVar;
@@ -84,6 +95,17 @@ Clip ClipFromVar(const juce::var& var)
         clip.fadeOutSamples = static_cast<int64_t>((double)object->getProperty("fadeOutSamples"));
         clip.fileOffsetSamples = static_cast<int64_t>((double)object->getProperty("fileOffsetSamples"));
         clip.name = object->getProperty("name").toString();
+        clip.warped = varToBool(object->getProperty("warped"));
+        if (clip.warped)
+        {
+            clip.warpSourceFile = juce::File(object->getProperty("warpSourceFile").toString());
+            clip.warpSourceOffset = (int64_t) (double) object->getProperty("warpSourceOffset");
+            clip.warpSourceLength = (int64_t) (double) object->getProperty("warpSourceLength");
+            clip.warpSourceBpm = (double) object->getProperty("warpSourceBpm");
+            clip.warpRatio = (double) object->getProperty("warpRatio");
+            clip.warpMode = (int) object->getProperty("warpMode");
+            clip.warpFollowTempo = varToBool(object->getProperty("warpFollowTempo"));
+        }
         if (auto* notesArr = object->getProperty("notes").getArray())
         {
             for (auto& nv : *notesArr)
@@ -641,6 +663,8 @@ Clip ClipFromVar(const juce::var& var)
                 c.fadeOutSamples = sc(c.fadeOutSamples);
                 c.fileOffsetSamples = sc(c.fileOffsetSamples);
                 c.alignmentOffsetSamples = sc(c.alignmentOffsetSamples);
+                c.warpSourceOffset = sc(c.warpSourceOffset);
+                c.warpSourceLength = sc(c.warpSourceLength);
             }
         for (auto& t : tracks) t.frozenOffsetSamples = sc(t.frozenOffsetSamples);
         loopStartSample = sc(loopStartSample);  loopEndSample = sc(loopEndSample);

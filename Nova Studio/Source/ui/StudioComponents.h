@@ -470,6 +470,7 @@ namespace NovaStudioUI
 
         // Asked to open the selected MIDI clip in the piano roll (menu or double-click).
         std::function<void()> onEditMidiClip;
+        std::function<void(int menuId)> onClipCommand;   // runs a main-menu command on the selected clip
         void mouseDoubleClick(const juce::MouseEvent& event) override;
 
     private:

@@ -9,6 +9,7 @@
 #include "TransportState.h"
 #include "TimelineModel.h"
 #include "ArrangementModel.h"
+#include "TimeStretcher.h"
 
 using namespace NovaStudio;
 
@@ -604,6 +605,133 @@ static void testRoutingAndFreeze()
     check("Unfreeze restores the track", !engine.isTrackFrozen(0) && !engine.getSession().getTrack(0).locked);
 }
 
+static void testTimeStretch()
+{
+    section("TIME STRETCH — quality");
+    const double sr = 44100.0;
+    auto freqOf = [] (const juce::AudioBuffer<float>& b, int ch, int from, int to, double rate)
+    {
+        int crossings = 0;
+        for (int i = from + 1; i < to; ++i)
+            if ((b.getSample(ch, i - 1) < 0.0f) != (b.getSample(ch, i) < 0.0f)) ++crossings;
+        return crossings / 2.0 / ((to - from) / rate);
+    };
+    auto rms = [] (const juce::AudioBuffer<float>& b, int ch, int from, int to) { return b.getRMSLevel(ch, from, to - from); };
+
+    juce::AudioBuffer<float> sine(2, (int) (sr * 3));
+    for (int i = 0; i < sine.getNumSamples(); ++i)
+    {
+        sine.setSample(0, i, 0.5f * (float) std::sin(2.0 * juce::MathConstants<double>::pi * 440.0 * i / sr));
+        sine.setSample(1, i, 0.3f * (float) std::sin(2.0 * juce::MathConstants<double>::pi * 440.0 * i / sr));
+    }
+    for (double ratio : { 0.5, 0.8, 1.25, 2.0 })
+    {
+        auto out = TimeStretcher::stretch(sine, sr, ratio);
+        const int len = out.getNumSamples();
+        const double f = freqOf(out, 0, len / 4, len * 3 / 4, sr);
+        const float lvl = rms(out, 0, len / 4, len * 3 / 4) / rms(sine, 0, 0, sine.getNumSamples());
+        const float bal = rms(out, 1, len / 4, len * 3 / 4) / rms(out, 0, len / 4, len * 3 / 4);
+        const juce::String tag = "x" + juce::String(ratio, 2);
+        check((tag + ": length scales").toRawUTF8(), std::abs(len - sine.getNumSamples() * ratio) < 2);
+        check((tag + ": pitch preserved (440 Hz)").toRawUTF8(), std::abs(f - 440.0) < 2.0);
+        check((tag + ": level preserved (+/-1 dB)").toRawUTF8(), std::abs(juce::Decibels::gainToDecibels(lvl)) < 1.0f);
+        check((tag + ": stereo balance preserved").toRawUTF8(), std::abs(bal - 0.6f) < 0.03f);
+        std::cout << "      f=" << f << " level=" << juce::Decibels::gainToDecibels(lvl) << " dB bal=" << bal << "\n";
+    }
+
+    // Drum-like clicks at 120 BPM, stretched to 100 BPM: hits must land on the new grid, sharp.
+    juce::AudioBuffer<float> clicks(1, (int) (sr * 4));
+    clicks.clear();
+    const int beat = (int) (sr * 0.5);
+    for (int b = 0; b < 8; ++b)
+        for (int i = 0; i < 300; ++i)
+            clicks.setSample(0, b * beat + i, (float) std::exp(-i / 40.0) * (float) std::sin(i * 0.9));
+    const double r = 120.0 / 100.0;
+    auto st = TimeStretcher::stretch(clicks, sr, r, TimeStretcher::Mode::Beats);
+    int good = 0;
+    for (int b = 1; b < 7; ++b)
+    {
+        const int expect = (int) std::lround(b * beat * r);
+        int peakAt = expect - 2000; float pk = 0.0f;
+        for (int i = expect - 2000; i < expect + 2000; ++i)
+            if (std::abs(st.getSample(0, i)) > pk) { pk = std::abs(st.getSample(0, i)); peakAt = i; }
+        // energy before the hit (pre-echo) should be small relative to the hit
+        const float pre = st.getRMSLevel(0, expect - 1500, 1000);
+        if (std::abs(peakAt - expect) < 300 && pre < pk * 0.1f) ++good;
+    }
+    check("Beats: hits land on the stretched grid without pre-echo", good >= 5);
+
+    // Tempo detection
+    juce::AudioBuffer<float> loop(1, (int) (sr * 8));
+    loop.clear();
+    const double bpm = 92.0, period = sr * 60.0 / bpm;
+    for (int b = 0; b * period < loop.getNumSamples() - 400; ++b)
+        for (int i = 0; i < 400; ++i)
+            loop.setSample(0, (int) (b * period) + i, (b % 2 == 0 ? 1.0f : 0.5f) * (float) std::exp(-i / 60.0) * (float) std::sin(i * 0.3));
+    const double det = TimeStretcher::detectTempo(loop, sr);
+    std::cout << "      detected " << det << " BPM\n";
+    check("Tempo detection finds 92 BPM", std::abs(det - 92.0) < 1.0);
+    check("Tempo from file name", TimeStretcher::tempoFromFileName("Soul Loop 92bpm.wav") == 92.0
+          && TimeStretcher::tempoFromFileName("drums_140_BPM_Am.wav") == 140.0
+          && TimeStretcher::tempoFromFileName("vocal take 3.wav") == 0.0);
+}
+
+static void testWarpClips()
+{
+    section("WARP — clips follow the session tempo");
+    const double sr = 44100.0;
+    // 4 hits at 100 BPM (0.6 s apart), file name carries the tempo
+    auto loop = makeTestWav("Drum Loop 100bpm.wav", sr, 2.4, [sr] (int, double t)
+    {
+        const double ph = std::fmod(t, 0.6);
+        return ph < 0.01 ? (float) (std::exp(-ph * 400.0) * std::sin(ph * 2.0 * 3.14159 * 2000.0)) : 0.0f;
+    });
+    StudioAudioEngine engine;
+    engine.newSession();
+    engine.setMasterLimiterEnabled(false);
+    engine.setTempo(120.0);
+    engine.addTrack("Drums", TrackType::Audio);
+    auto& tr = engine.getSession().getTrack(0);
+    tr.volumeDb = 0.0f;
+    Clip c; c.file = loop; c.startSample = (int64_t) (sr * 2.0); c.lengthSamples = (int64_t) (sr * 2.4);
+    tr.clips.add(c);
+    engine.notifySessionChanged();
+
+    check("Clip tempo guessed from the file name", engine.suggestClipTempo(0, 0) == 100.0);
+    juce::String err;
+    check("Warp to session tempo", engine.warpClipToTempo(0, 0, 100.0, true, 1, &err));
+    check("Warped length = 4 beats at 120 BPM", std::abs(tr.clips[0].lengthSamples - (int64_t) (sr * 2.0)) < 4);
+
+    auto out = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("NovaStudioTests").getChildFile("warp.wav");
+    StudioAudioEngine::ExportOptions o; o.tailSeconds = 0.0; o.bitDepth = 32;
+    engine.exportAudio(out, o);
+    auto b = readWav(out);
+    int onTime = 0;
+    for (int k = 0; k < 4; ++k)
+    {
+        const int expect = (int) (sr * (2.0 + 0.5 * k));
+        float pk = 0.0f; int at = 0;
+        for (int i = expect - 3000; i < expect + 3000 && i < b.getNumSamples(); ++i)
+            if (std::abs(b.getSample(0, i)) > pk) { pk = std::abs(b.getSample(0, i)); at = i; }
+        if (pk > 0.1f && std::abs(at - expect) < 400) ++onTime;
+    }
+    check("Warped hits land on the 120 BPM grid", onTime == 4);
+
+    engine.setTempo(100.0);
+    check("Tempo change re-warps and keeps the bar position",
+          std::abs(tr.clips[0].lengthSamples - (int64_t) (sr * 2.4)) < 4 && std::abs(tr.clips[0].startSample - (int64_t) (sr * 2.4)) < 4);
+
+    auto saved = out.getSiblingFile("warp.novastudio");
+    engine.saveSession(saved);
+    Session reloaded; reloaded.loadFromFile(saved);
+    check("Warp settings saved", reloaded.getTrack(0).clips[0].warped && reloaded.getTrack(0).clips[0].warpSourceBpm == 100.0
+          && reloaded.getTrack(0).clips[0].warpSourceFile == loop);
+
+    engine.unwarpClip(0, 0);
+    check("Remove warp restores the original file", !tr.clips[0].warped && tr.clips[0].file == loop
+          && tr.clips[0].lengthSamples == (int64_t) (sr * 2.4));
+}
+
 static void testRealtimeDevice()
 {
     section("REALTIME — live device playback, loop, record");
@@ -669,6 +797,25 @@ int main()
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
 
+    // Listening demo: NOVA_STRETCH_DEMO=<in.wav> NOVA_STRETCH_OUT=<folder>
+    if (auto in = juce::SystemStats::getEnvironmentVariable("NOVA_STRETCH_DEMO", {}); in.isNotEmpty())
+    {
+        double rate = 44100.0;
+        auto src = readWav(juce::File(in), &rate);
+        juce::File outDir(juce::SystemStats::getEnvironmentVariable("NOVA_STRETCH_OUT", "/tmp"));
+        for (double r : { 0.85, 1.2 })
+        {
+            auto o = TimeStretcher::stretch(src, rate, r);
+            auto f = outDir.getChildFile(juce::File(in).getFileNameWithoutExtension() + " - stretched " + juce::String((int) std::lround(r * 100)) + "%.wav");
+            f.deleteFile();
+            juce::WavAudioFormat wav;
+            std::unique_ptr<juce::AudioFormatWriter> w(wav.createWriterFor(new juce::FileOutputStream(f), rate, (unsigned) o.getNumChannels(), 24, {}, 0));
+            w->writeFromAudioSampleBuffer(o, 0, o.getNumSamples());
+            std::cout << "wrote " << f.getFullPathName() << "\n";
+        }
+        return 0;
+    }
+
     std::cout << "\n╔══════════════════════════════════════════════════════╗\n";
     std::cout << "║        NOVA STUDIO — CORE WORKFLOW VALIDATION        ║\n";
     std::cout << "╚══════════════════════════════════════════════════════╝\n";
@@ -683,6 +830,8 @@ int main()
     testMidiFiles();
     testEditing();
     testRoutingAndFreeze();
+    testTimeStretch();
+    testWarpClips();
     if (juce::SystemStats::getEnvironmentVariable("NOVA_REALTIME_TEST", {}).isNotEmpty())
         testRealtimeDevice();
 
