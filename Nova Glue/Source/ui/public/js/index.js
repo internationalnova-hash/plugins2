@@ -405,14 +405,27 @@ function renderMeterScale() {
     svg.appendChild(text);
   });
 
+  // Needle lives in the scale's own coordinates so it always lines up with the ticks.
+  var NS = "http://www.w3.org/2000/svg";
+  var defs = document.createElementNS(NS, "defs");
+  defs.innerHTML = '<linearGradient id="grNeedleGrad" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#6d2d16"/><stop offset=".5" stop-color="#d8702e"/><stop offset="1" stop-color="#7a3117"/></linearGradient>';
+  svg.appendChild(defs);
+  var g = document.createElementNS(NS, "g");
+  g.setAttribute("id", "meterNeedleG");
+  g.setAttribute("transform", "rotate(" + METER_MIN_ANGLE + " " + cx + " " + cy + ")");
+  g.innerHTML =
+    '<path d="M' + (cx - 1.8) + ' ' + (cy - 34) + ' L' + (cx - 1.6) + ' ' + (cy - r + 2) + ' L' + (cx + 1.6) + ' ' + (cy - r + 2) + ' L' + (cx + 1.8) + ' ' + (cy - 34) + ' Z" fill="#000" opacity=".25" transform="translate(1.5 1)"/>' +
+    '<path d="M' + (cx - 1.3) + ' ' + (cy - 34) + ' L' + (cx - 1.1) + ' ' + (cy - r + 2) + ' L' + (cx + 1.1) + ' ' + (cy - r + 2) + ' L' + (cx + 1.3) + ' ' + (cy - 34) + ' Z" fill="url(#grNeedleGrad)"/>';
+  svg.appendChild(g);
+
   container.innerHTML = "";
   container.appendChild(svg);
 }
 
 window.updateGlueTelemetry = function (data) {
   if (!data) return;
-  var needle = document.getElementById("meterNeedle");
-  if (needle) needle.style.setProperty("--needleAngle", angleForGr(data.grDb) + "deg");
+  var g = document.getElementById("meterNeedleG");
+  if (g) g.setAttribute("transform", "rotate(" + angleForGr(data.grDb).toFixed(2) + " 150 108)");
 };
 
 // ---------------------------------------------------------------------
