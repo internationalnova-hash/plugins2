@@ -18,6 +18,8 @@ namespace NovaLink
         virtual void start() = 0;
         virtual void stop() = 0;
         virtual void send(const std::string& message) = 0;
+        // Once connected, the matchmaker is only needed if the other side reconnects.
+        virtual void setRelaxed(bool) {}
 
         // Called on a background thread for each message from the other studio, in order.
         std::function<void(const std::string&)> onMessage;
@@ -46,9 +48,14 @@ namespace NovaLink
         void start() override;
         void stop() override;
         void send(const std::string& message) override;
+        void setRelaxed(bool r) override { relaxed.store(r); }
+
+        // NOVA_LINK_SIGNAL_URL environment variable overrides the built-in server (testing).
+        static juce::String defaultServer();
 
     private:
         void run() override;
+        std::atomic<bool> relaxed { false };
         juce::String server, code, role, other;
         std::mutex outLock;
         std::vector<std::string> outbox;

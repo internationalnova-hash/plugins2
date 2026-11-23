@@ -168,24 +168,48 @@
   .demo { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); display: flex; gap: 6px; padding: 6px; border-radius: 10px; background: rgba(0,0,0,.6); border: 1px dashed #445; z-index: 99; font-size: 11px; }
   .demo button { background: #141b2c; color: #cdd; border: 1px solid #334; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
   .demo button.on { border-color: var(--gold); color: var(--gold); }
+  .screen img.remote { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+  .screen.has-video img.remote { display: block; }
+  .screen.has-video .silhouette, .screen.has-video .mic { display: none; }
+  .pip img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+  .pip.has-video img { display: block; }
+  .pip.has-video .silhouette { display: none; }
+  .novideo { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); font-size: 11px; color: var(--dim); letter-spacing: .08em; max-width: 70%; text-align: center; }
+  .vslider { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 4px; background: linear-gradient(90deg, #a8661b var(--p, 70%), rgba(1,4,10,.9) var(--p, 70%)); border: 1px solid rgba(255,176,62,.16); margin: 8px 0 4px; outline: none; }
+  .vslider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ffe2a8, #c98a2c); box-shadow: 0 0 8px var(--gold-glow); cursor: pointer; }
+  .take .acts { display: flex; gap: 4px; justify-content: flex-end; }
+  .take .acts button { height: 22px; padding: 0 7px; border-radius: 6px; border: 1px solid rgba(255,176,62,.3); background: rgba(14,22,40,.9); color: var(--gold); font-size: 10px; letter-spacing: .1em; cursor: pointer; }
+  .take { grid-template-columns: 62px minmax(0, 1fr) 96px 74px 104px; }
+  .empty { font-size: 11.5px; color: var(--dim); padding: 6px 2px; }
+  .lane { cursor: pointer; }
+  .plugin.artist .lane { cursor: default; }
+  .welcome { position: absolute; inset: 70px 12px 34px; display: none; place-items: center; z-index: 6; }
+  .plugin.idle .welcome { display: grid; }
+  .plugin.idle .strip, .plugin.idle .main, .plugin.idle .session, .plugin.idle .footer { visibility: hidden; }
+  .wbox { width: 760px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .wcard { padding: 24px; display: grid; gap: 12px; align-content: start; text-align: center; }
+  .wcard h2 { font-size: 16px; letter-spacing: .22em; color: var(--gold); font-weight: 600; }
+  .wcard p { font-size: 12.5px; color: var(--soft); line-height: 1.55; }
+  .wcard input { height: 44px; border-radius: 10px; text-align: center; font-size: 20px; letter-spacing: .18em; background: rgba(1,4,10,.95); border: 1px solid rgba(255,176,62,.4); color: var(--gold); outline: none; }
+  .wcard .big { height: 44px; font-size: 13px; }
+  .namebar { grid-column: 1 / span 2; display: flex; gap: 10px; align-items: center; justify-content: center; font-size: 12px; color: var(--soft); }
+  .namebar input { height: 30px; width: 220px; border-radius: 8px; background: rgba(1,4,10,.9); border: 1px solid rgba(255,176,62,.25); color: var(--text); padding: 0 10px; outline: none; font-size: 13px; }
+  .err { color: #ff9d90; font-size: 11.5px; min-height: 14px; }
 </style>
 </head>
 <body>
-<div class="plugin recording" id="plugin">
+<div class="plugin idle" id="plugin">
   <header class="top">
     <div class="brand">
       <div class="logo"><img src="n_logo.png" alt=""></div>
-      <div>
-        <div class="title">NOVA <span>LINK</span></div>
-        <div class="subtitle">REMOTE RECORDING</div>
-      </div>
+      <div><div class="title">NOVA <span>LINK</span></div><div class="subtitle">REMOTE RECORDING</div></div>
     </div>
     <div class="session">
-      <i class="dot" id="dot"></i>
-      <span class="sstate" id="sstate">Connected</span>
-      <span class="code host-only">NOVA-4821</span>
-      <button class="sbtn host-only">Copy code</button>
-      <button class="sbtn red">Leave</button>
+      <i class="dot wait" id="dot"></i>
+      <span class="sstate" id="sstate">Waiting</span>
+      <span class="code host-only" id="code">NOVA-····-····</span>
+      <button class="sbtn host-only" id="copy">Copy code</button>
+      <button class="sbtn red" id="leave">Leave</button>
     </div>
     <div class="right">
       <span class="byline">by Nova Audio</span>
@@ -193,151 +217,97 @@
     </div>
   </header>
 
-  <section class="card strip" id="strip">
+  <section class="card strip">
     <div class="ruler" id="ruler"></div>
-    <div class="lane" id="lane">
-      <div class="sec" style="left:0%">INTRO</div>
-      <div class="sec" style="left:12.5%">VERSE 1</div>
-      <div class="sec" style="left:37.5%">HOOK</div>
-      <div class="sec" style="left:62.5%">VERSE 2</div>
-      <div class="sec" style="left:87.5%">HOOK</div>
-      <div class="punch" style="left:37.5%; width:25%"></div>
-      <div class="tk" style="left:12.5%; width:23%">Take 1 · Verse 1</div>
-      <div class="tk" style="left:13%; width:22%; bottom:4px; opacity:.0"></div>
-      <div class="tk live" style="left:37.5%; width:14%">Take 3 · recording</div>
-      <div class="mk" style="left:33%" title="Bar 33 — redo 'tonight'"></div>
-      <div class="ph" id="ph" style="left:51.5%"></div>
-    </div>
-    <span class="pos" id="pos">BAR 33 · 2 · 120 BPM</span>
+    <div class="lane" id="lane"></div>
+    <span class="pos" id="pos">BAR 1 · 1 · 120 BPM</span>
   </section>
 
   <div class="main">
-    <!-- Video -->
     <section class="card video">
       <div class="vhead">
         <span class="label gold host-only">Artist</span><span class="label gold artist-only">Engineer</span>
-        <span class="who host-only">Marcus</span><span class="who artist-only">Nova Studio A</span>
-        <span class="where host-only">Atlanta · Studio B</span><span class="where artist-only">Los Angeles</span>
+        <span class="who" id="peer">Waiting…</span>
         <span class="sp"></span>
-        <span class="chip">Delay <b>38 ms</b></span>
-        <span class="chip">Takes <b>48 kHz / 24-bit</b></span>
+        <span class="chip">Delay <b id="delay">–</b></span>
+        <span class="chip host-only">Takes <b id="takeq">Lossless</b></span>
       </div>
-      <div class="screen">
+      <div class="screen" id="screen">
+        <img class="remote" id="remoteImg" alt="">
         <svg class="silhouette" viewBox="0 0 100 104"><circle cx="50" cy="30" r="20" fill="#8fa3c8"/><path d="M8 104c4-30 22-44 42-44s38 14 42 44z" fill="#8fa3c8"/></svg>
-        <svg class="mic host-only" viewBox="0 0 20 60"><rect x="5" y="0" width="10" height="20" rx="5" fill="#c9d3e8"/><rect x="9" y="20" width="2" height="40" fill="#c9d3e8"/></svg>
-        <div class="rec-badge"><i></i><span class="host-only">RECORDING TAKE 3</span><span class="artist-only">YOU'RE RECORDING</span></div>
-        <div class="tag"><span class="chip">Cam <b>720p</b></span><span class="chip">Video <b>24 fps</b></span></div>
-        <button class="sbtn camoff">Camera on</button>
-        <div class="pip"><span>YOU</span><svg class="silhouette" viewBox="0 0 100 104"><circle cx="50" cy="30" r="20" fill="#b79bd8"/><path d="M8 104c4-30 22-44 42-44s38 14 42 44z" fill="#b79bd8"/></svg></div>
+        <div class="novideo" id="novideo"></div>
+        <div class="rec-badge"><i></i><span class="host-only" id="recLabel">RECORDING</span><span class="artist-only">YOU'RE RECORDING</span></div>
+        <div class="tag"><span class="chip">Video <b id="fps">off</b></span></div>
+        <button class="sbtn camoff" id="cam">Camera on</button>
+        <div class="pip" id="pip"><span>YOU</span><img id="selfImg" alt=""><svg class="silhouette" viewBox="0 0 100 104"><circle cx="50" cy="30" r="20" fill="#b79bd8"/><path d="M8 104c4-30 22-44 42-44s38 14 42 44z" fill="#b79bd8"/></svg></div>
       </div>
     </section>
 
-    <!-- Side controls -->
     <aside class="side">
-      <!-- Host: artist input; Artist: what they send -->
       <section class="card panel">
         <div class="row"><span class="label gold host-only">Artist mic</span><span class="label gold artist-only">Your mic → engineer</span></div>
         <div class="row" style="align-items:stretch">
           <div class="meters"><div class="meter"><i id="m1"></i></div><div class="meter"><i id="m2"></i></div></div>
-          <div class="mside" style="margin-top:10px">
-            <div class="kv"><span>Level</span><b id="lvl">-12.4 dB</b></div>
-            <div class="kv host-only"><span>Live stream</span><b>Opus 256k</b></div>
-            <div class="kv artist-only"><span>Input</span><b>Track input</b></div>
-            <div class="toggle"><span>Lossless takes</span><div class="sw on"></div></div>
-            <div class="toggle host-only"><span>Record into this track</span><div class="sw on"></div></div>
-            <div class="toggle artist-only"><span>Hear myself (local)</span><div class="sw on"></div></div>
+          <div class="mside" style="margin-top:8px">
+            <div class="kv"><span>Level</span><b id="lvl">–</b></div>
+            <div class="toggle"><span>Lossless takes</span><div class="sw on" id="swLossless"></div></div>
+            <div class="toggle host-only"><span>Record when I record</span><div class="sw on" id="swRecord"></div></div>
+            <div class="toggle artist-only"><span>Hear myself</span><div class="sw on" id="swSelf"></div></div>
           </div>
         </div>
       </section>
-
-      <!-- Host: send mix + click; Artist: what they hear -->
       <section class="card panel">
-        <div class="label gold host-only">Send to artist</div>
+        <div class="label gold host-only">Artist in your monitors</div>
         <div class="label gold artist-only">Engineer's mix</div>
-        <div style="margin-top:10px" class="kv"><span>Mix level</span><b>-3.0 dB</b></div>
-        <div class="slider"><i></i><b></b></div>
-        <div style="height:6px"></div>
-        <div class="toggle host-only"><span>Include click</span><div class="sw on"></div></div>
-        <div class="toggle artist-only"><span>Click</span><span class="chip">From engineer</span></div>
+        <div style="margin-top:8px" class="kv"><span>Level</span><b id="monTxt">0.0 dB</b></div>
+        <input type="range" class="vslider" id="mon" min="-60" max="6" step="0.5" value="0">
+        <div class="toggle host-only"><span>Send click to artist</span><div class="sw on" id="swClick"></div></div>
       </section>
-
-      <button class="card talk" id="talk">TALKBACK<small>HOLD TO TALK · DOUBLE-CLICK TO LATCH</small></button>
+      <button class="card talk host-only" id="talk">TALKBACK<small id="talkHint">HOLD TO TALK · DOUBLE-CLICK TO LATCH</small></button>
+      <button class="card talk artist-only" id="raise">MESSAGE ENGINEER<small>USE THE CHAT BELOW</small></button>
     </aside>
 
     <div class="bottom">
       <section class="card takes">
-        <div class="row"><span class="label gold">Takes</span><span class="sp" style="flex:1"></span><span class="chip host-only">Auto-replace stream with lossless <b>ON</b></span></div>
-        <div class="list">
-          <div class="take"><span class="n">Take 1</span><span class="m">Verse 1 · 0:42</span><div class="bar"><i style="width:100%"></i></div><span class="st ok">In DAW</span></div>
-          <div class="take"><span class="n">Take 2</span><span class="m">Verse 1 · 0:44 · "keep the ad-libs"</span><div class="bar"><i style="width:100%"></i></div><span class="st ok">In DAW</span></div>
-          <div class="take"><span class="n">Take 3</span><span class="m">Hook · recording…</span><div class="bar"><i style="width:0%"></i></div><span class="st rec">Rec</span></div>
-          <div class="take" style="opacity:.55"><span class="n">Take 2b</span><span class="m">Hook punch · 0:12</span><div class="bar"><i style="width:62%"></i></div><span class="st go">62%</span></div>
-        </div>
+        <div class="row"><span class="label gold">Takes</span><span style="flex:1"></span><span class="chip host-only">Takes land on your song's timeline</span></div>
+        <div class="list" id="takes"><div class="empty">Takes appear here when you record.</div></div>
       </section>
-
       <section class="card chat">
-        <div class="row"><span class="label gold">Chat &amp; markers</span><span style="flex:1"></span><button class="sbtn">+ Marker</button></div>
-        <div class="msgs">
-          <div class="msg them"><b>Marcus</b><span>Can I get more beat in my cans?</span></div>
-          <div class="msg"><b>You</b><span>Bumped it. Going from the hook.</span></div>
-          <div class="msg"><b>◆ Marker</b><span>Bar 33 — redo "tonight"</span><span class="mk">TAKE 2 · 1:12</span></div>
-          <div class="msg them"><b>Marcus</b><span>Ready 🔥</span></div>
-        </div>
-        <div class="compose"><input placeholder="Message…" /><button class="sbtn">Send</button></div>
+        <div class="row"><span class="label gold">Chat &amp; markers</span><span style="flex:1"></span><button class="sbtn" id="addMarker">+ Marker</button></div>
+        <div class="msgs" id="msgs"></div>
+        <div class="compose"><input id="chatIn" placeholder="Message…" /><button class="sbtn" id="send">Send</button></div>
       </section>
     </div>
   </div>
 
   <footer class="footer">
     <span>Peer-to-peer · <b>encrypted</b></span>
-    <span>Jitter <b>6 ms</b></span>
-    <span>Loss <b>0.0%</b></span>
-    <span>Up <b>2.1 Mbps</b> · Down <b>2.4 Mbps</b></span>
+    <span>Jitter <b id="jit">–</b></span>
+    <span>Loss <b id="loss">–</b></span>
+    <span>Round trip <b id="rtt">–</b></span>
     <span class="sp"></span>
-    <span class="host-only">You're the <b>studio</b> — transport and recording follow your DAW</span>
-    <span class="artist-only">Connected to <b>NOVA-4821</b> — the engineer controls recording</span>
+    <span class="host-only" id="foot">You're the <b>studio</b> — the song follows your DAW</span>
+    <span class="artist-only">The engineer's song position is shown above</span>
   </footer>
 
-  <!-- Artist join screen -->
-  <div class="join">
-    <div class="card joinbox">
-      <h2>JOIN A SESSION</h2>
-      <p>Put Nova Link on the track you'll sing or play on, then enter the code the engineer sent you.</p>
-      <input value="NOVA-4821" />
-      <button class="sbtn">Join session</button>
-      <p style="font-size:11px;color:var(--dim)">Or start your own session to be the studio.</p>
+  <div class="welcome">
+    <div class="wbox">
+      <div class="namebar">Your name <input id="nameIn" maxlength="40" /></div>
+      <div class="card wcard">
+        <h2>START A SESSION</h2>
+        <p>You're the studio. Put Nova Link on your <b>master bus</b>, start a session, and send the code to the artist.</p>
+        <button class="sbtn big" id="startBtn">Start session</button>
+      </div>
+      <div class="card wcard">
+        <h2>JOIN A SESSION</h2>
+        <p>You're the artist. Put Nova Link on your <b>vocal track</b> and enter the code the engineer sent you.</p>
+        <input id="codeIn" placeholder="NOVA-XXXX-XXXX" maxlength="14" />
+        <button class="sbtn big" id="joinBtn">Join session</button>
+        <div class="err" id="joinErr"></div>
+      </div>
     </div>
   </div>
 </div>
-
-<div class="demo">
-  <span style="color:#889;padding:4px 6px">MOCKUP:</span>
-  <button class="on" data-v="host">Studio (you)</button>
-  <button data-v="artist">Artist studio</button>
-  <button data-v="join">Artist · joining</button>
-  <button data-v="rec">Toggle recording</button>
-</div>
-
-<script>
-  const plugin = document.getElementById('plugin');
-  const fit = () => { const s = Math.min(innerWidth / 1140, innerHeight / 720); plugin.style.transform = `translate(-50%, -50%) scale(${s})`; };
-  addEventListener('resize', fit); fit();
-  document.querySelectorAll('.demo button').forEach(b => b.onclick = () => {
-    const v = b.dataset.v;
-    if (v === 'rec') { plugin.classList.toggle('recording'); return; }
-    document.querySelectorAll('.demo button').forEach(x => x.classList.toggle('on', x === b));
-    plugin.classList.toggle('artist', v !== 'host');
-    plugin.classList.toggle('joining', v === 'join');
-  });
-  // ruler + moving playhead (mock)
-  const ruler = document.getElementById('ruler'), lane = document.getElementById('lane');
-  for (let b = 1; b <= 53; b += 4) { const x = (b - 1) / 64 * 100; ruler.insertAdjacentHTML('beforeend', `<span style="left:${x}%">${b}</span>`); lane.insertAdjacentHTML('afterbegin', `<div class="barline" style="left:${x}%"></div>`); }
-  let ph = 51.5; setInterval(() => { if (!plugin.classList.contains('recording')) return; ph += 0.05; if (ph > 62.5) ph = 37.5; document.getElementById('ph').style.left = ph + '%';
-    const bar = Math.floor(ph / 100 * 64) + 1, beat = Math.floor((ph / 100 * 64 % 1) * 4) + 1; document.getElementById('pos').textContent = `BAR ${bar} · ${beat} · 120 BPM`; }, 50);
-  const talk = document.getElementById('talk');
-  talk.onmousedown = () => talk.classList.add('held'); talk.onmouseup = talk.onmouseleave = () => talk.classList.remove('held');
-  const m1 = document.getElementById('m1'), m2 = document.getElementById('m2'), lvl = document.getElementById('lvl');
-  setInterval(() => { const a = 40 + Math.random() * 45, b = a - 4 + Math.random() * 6; m1.style.height = a + '%'; m2.style.height = b + '%'; lvl.textContent = (-(100 - a) * 0.4).toFixed(1) + ' dB'; }, 90);
-</script>
+<script type="module" src="js/index.js"></script>
 </body>
 </html>

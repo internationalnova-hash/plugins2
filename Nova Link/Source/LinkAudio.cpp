@@ -162,6 +162,7 @@ namespace NovaLink
         std::memcpy(slot.data.data(), packet + kHeaderSize, (size_t) slot.size);
         slot.seqTag.store(h.seq, std::memory_order_release);
 
+        if (!any.load()) firstSeq.store(h.seq);
         if (!any.load() || (int32_t) (h.seq - newestSeq.load()) > 0) newestSeq.store(h.seq);
         any.store(true);
 
@@ -181,7 +182,7 @@ namespace NovaLink
     {
         auto& slot = slots[nextSeq % slots.size()];
         int n = 0;
-        if (slot.seqTag.load(std::memory_order_acquire) == nextSeq)
+        if (slot.size > 0 && slot.seqTag.load(std::memory_order_acquire) == nextSeq)
         {
             n = opus_decode_float(dec, slot.data.data(), slot.size, frame48.data(), kFrame, 0);
             frameStamp = slot.h.stamp;
@@ -219,7 +220,10 @@ namespace NovaLink
             // Wait until enough frames have arrived, then start that far behind the newest.
             static_assert(sizeof(uint32_t) == 4);
             if (!isReceiving()) return -1;
+            // Buffer up first: start only once `targetFrames` packets are waiting.
+            if ((int32_t) (newest - firstSeq.load()) < targetFrames) return -1;
             nextSeq = newest - (uint32_t) targetFrames;
+            if ((int32_t) (nextSeq - firstSeq.load()) < 0) nextSeq = firstSeq.load();   // never before the first packet
             playing = true;
             frameReadPos = kFrame;
             carry = 0; carryStamp = -1;
@@ -231,6 +235,13 @@ namespace NovaLink
             const int ahead = (int32_t) (newest - nextSeq);
             if (ahead > targetFrames + 12) { nextSeq = newest - (uint32_t) targetFrames; frameReadPos = kFrame; }
             if (!isReceiving()) { playing = false; return -1; }
+            // Underrun: we've caught up with the network. Re-buffer instead of guessing audio.
+            if (ahead < 0 && frameReadPos >= kFrame && carry == 0)
+            {
+                playing = false;
+                firstSeq.store(newest);
+                return -1;
+            }
         }
 
         const double ratio = (double) kNetRate / sampleRate;   // 48k samples per output sample
@@ -252,6 +263,9 @@ namespace NovaLink
             have += take;
             frameReadPos += take;
         }
+        // Re-anchor to the newest real packet stamp (stamp of res48[0]), so the position can't drift.
+        if (frameStamp >= 0)
+            firstStamp = (frameFlags & 1) ? frameStamp + frameReadPos - have : frameStamp;
         // Resample 48 kHz -> host rate; keep what wasn't consumed for next time.
         int used = numSamples;
         for (int ch = 0; ch < juce::jmin(numChannels, 2); ++ch)

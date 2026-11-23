@@ -40,7 +40,11 @@ namespace NovaLink
 
     void LinkTransport::setState(State s)
     {
-        if (state.exchange(s) != s && onState) onState(s);
+        if (state.exchange(s) != s)
+        {
+            if (signaling) signaling->setRelaxed(s == State::Connected);
+            if (onState) onState(s);
+        }
     }
 
     void LinkTransport::start(Role r, std::shared_ptr<Signaling> sig, std::vector<std::string> extraIceServers)

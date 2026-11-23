@@ -88,7 +88,7 @@ namespace NovaLink
 
         struct Slot { std::atomic<uint32_t> seqTag { 0xffffffffu }; int size = 0; PacketHeader h; std::array<uint8_t, kMaxPacket> data {}; };
         std::array<Slot, 256> slots;
-        std::atomic<uint32_t> newestSeq { 0 };
+        std::atomic<uint32_t> newestSeq { 0 }, firstSeq { 0 };
         std::atomic<bool> any { false };
         OpusDecoder* dec = nullptr;
         bool playing = false;

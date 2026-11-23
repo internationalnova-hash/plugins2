@@ -67,7 +67,99 @@ set(NOVA_LINK_CORE_SOURCES
     Source/LinkTransport.cpp
     Source/Signaling.cpp
     Source/LinkAudio.cpp
+    Source/LinkSession.cpp
 )
+
+# AAX when the shared SDK is present
+set(NOVA_AAX_SDK "${CMAKE_CURRENT_SOURCE_DIR}/../_shared/AAX-SDK")
+set(NOVA_AAX_FORMAT "")
+if((APPLE OR WIN32) AND EXISTS "${NOVA_AAX_SDK}/Interfaces")
+    juce_set_aax_sdk_path("${NOVA_AAX_SDK}")
+    set(NOVA_AAX_FORMAT AAX)
+endif()
+if(WIN32)
+    set(PLUGIN_FORMATS VST3 ${NOVA_AAX_FORMAT} Standalone)
+elseif(APPLE)
+    set(PLUGIN_FORMATS VST3 AU ${NOVA_AAX_FORMAT} Standalone)
+else()
+    set(PLUGIN_FORMATS VST3 Standalone)
+endif()
+
+juce_add_binary_data(NovaLink_WebUI
+    SOURCES
+        Source/ui/public/index.html
+        Source/ui/public/js/index.js
+        Source/ui/public/js/juce/index.js
+        Source/ui/public/js/juce/check_native_interop.js
+        Source/ui/public/n_logo.png
+    NAMESPACE nova_link_BinaryData
+)
+
+juce_add_plugin(NovaLink
+    COMPANY_NAME "International Nova"
+    COMPANY_WEBSITE "https://getnovaaudio.com"
+    PRODUCT_NAME "Nova Link"
+    BUNDLE_ID "com.internationalnova.novalink"
+    PLUGIN_MANUFACTURER_CODE Inov
+    PLUGIN_CODE NvLk
+    FORMATS ${PLUGIN_FORMATS}
+    NEEDS_WEB_BROWSER TRUE
+    NEEDS_WEBVIEW2 FALSE
+    VST3_CAN_REPLACE_VST2 FALSE
+    VST3_CATEGORIES Fx Tools
+    AAX_CATEGORY Dynamics
+    AU_MAIN_TYPE kAudioUnitType_Effect
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS TRUE
+    CAMERA_PERMISSION_ENABLED TRUE
+    CAMERA_PERMISSION_TEXT "Nova Link uses the camera for video during remote sessions."
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "Nova Link's standalone app records and streams your microphone."
+)
+
+target_sources(NovaLink PRIVATE
+    Source/CreatePluginFilter.cpp
+    Source/PluginProcessor.cpp
+    Source/PluginEditor.cpp
+    Source/LinkVideo.cpp
+    ${NOVA_LINK_CORE_SOURCES}
+)
+if(APPLE)
+    target_sources(NovaLink PRIVATE Source/LinkVideoMac.mm)
+endif()
+target_include_directories(NovaLink PRIVATE Source)
+target_compile_definitions(NovaLink PUBLIC
+    JUCE_WEB_BROWSER=1
+    JUCE_USE_CURL=0
+    JUCE_USE_CAMERA=1
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_DISPLAY_SPLASH_SCREEN=0
+    NOVA_LINK_SIGNAL_URL="${NOVA_LINK_SIGNAL_URL}")
+target_link_libraries(NovaLink
+    PRIVATE
+        NovaLink_WebUI
+        datachannel-static
+        opus
+        juce::juce_audio_basics
+        juce::juce_audio_devices
+        juce::juce_audio_formats
+        juce::juce_audio_plugin_client
+        juce::juce_audio_processors
+        juce::juce_audio_utils
+        juce::juce_core
+        juce::juce_data_structures
+        juce::juce_dsp
+        juce::juce_events
+        juce::juce_graphics
+        juce::juce_gui_basics
+        juce::juce_gui_extra
+        juce::juce_video
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
 
 juce_add_console_app(NovaLinkTests PRODUCT_NAME "NovaLinkTests")
 target_sources(NovaLinkTests PRIVATE Tests/LinkTests.cpp ${NOVA_LINK_CORE_SOURCES})

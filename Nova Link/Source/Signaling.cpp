@@ -45,6 +45,15 @@ namespace NovaLink
     }
 
     //==========================================================================
+    juce::String HttpSignaling::defaultServer()
+    {
+       #ifndef NOVA_LINK_SIGNAL_URL
+        #define NOVA_LINK_SIGNAL_URL "https://nova-store-olive.vercel.app"
+       #endif
+        const auto env = juce::SystemStats::getEnvironmentVariable("NOVA_LINK_SIGNAL_URL", {});
+        return env.isNotEmpty() ? env : juce::String(NOVA_LINK_SIGNAL_URL);
+    }
+
     HttpSignaling::HttpSignaling(juce::String serverUrl, juce::String c, juce::String r)
         : juce::Thread("Nova Link matchmaking"), server(std::move(serverUrl)), code(std::move(c)), role(std::move(r))
     {
@@ -111,7 +120,7 @@ namespace NovaLink
                         if (onMessage) onMessage(m.getProperty("message", "").toString().toStdString());
                     }
             }
-            wait(600);
+            wait(relaxed.load() ? 5000 : 500);
         }
     }
 }
