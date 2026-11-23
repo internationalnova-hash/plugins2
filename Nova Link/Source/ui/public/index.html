@@ -179,7 +179,9 @@
   .vslider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ffe2a8, #c98a2c); box-shadow: 0 0 8px var(--gold-glow); cursor: pointer; }
   .take .acts { display: flex; gap: 4px; justify-content: flex-end; }
   .take .acts button { height: 22px; padding: 0 7px; border-radius: 6px; border: 1px solid rgba(255,176,62,.3); background: rgba(14,22,40,.9); color: var(--gold); font-size: 10px; letter-spacing: .1em; cursor: pointer; }
-  .take { grid-template-columns: 62px minmax(0, 1fr) 96px 74px 104px; }
+  .take { grid-template-columns: 58px minmax(0, 1fr) 70px 64px 150px; }
+  .take .acts button.on { background: rgba(255,176,62,.22); border-color: rgba(255,176,62,.8); }
+  .take .acts button[data-del] { color: #ff9d90; border-color: rgba(255,77,58,.35); }
   .empty { font-size: 11.5px; color: var(--dim); padding: 6px 2px; }
   .lane { cursor: pointer; }
   .plugin.artist .lane { cursor: default; }

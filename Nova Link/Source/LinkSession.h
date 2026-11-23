@@ -63,6 +63,10 @@ namespace NovaLink
         void setLossless(bool on) noexcept { lossless.store(on); }
         void setSendClick(bool on) noexcept { sendClick.store(on); }   // host: metronome in the artist's mix
         juce::File exportTakeAligned(int takeId) const;                    // WAV padded from 0:00 for drag-and-drop
+        // Host: play this take over its part of the song (replacing whichever overlaps it).
+        void playTake(int takeId);
+        // Host: remove a take from the session (files go to the Trash on both sides).
+        void deleteTake(int takeId);
 
         juce::var getStateJson() const;                                   // for the UI
 
@@ -141,7 +145,7 @@ namespace NovaLink
         std::atomic<double> liveStartSec { -1.0 };
 
         // Host take playback (latest ready takes, in RAM)
-        struct PlaybackTake { double startSec; double fileRate; juce::AudioBuffer<float> audio; };
+        struct PlaybackTake { int id = 0; double startSec; double fileRate; juce::AudioBuffer<float> audio; };
         juce::SpinLock playbackLock;
         std::vector<std::shared_ptr<PlaybackTake>> playback;
 

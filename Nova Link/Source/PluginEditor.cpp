@@ -113,6 +113,8 @@ juce::WebBrowserComponent::Options NovaLinkAudioProcessorEditor::createWebOption
                 f.revealToUser();
             done(true);
         })
+        .withNativeFunction("playTake", [&s, ok] (NativeArgs a, Completion done) { if (a.size() > 0) s.playTake((int) a[0]); ok(done); })
+        .withNativeFunction("deleteTake", [&s, ok] (NativeArgs a, Completion done) { if (a.size() > 0) s.deleteTake((int) a[0]); ok(done); })
         .withNativeFunction("revealTake", [&s, ok] (NativeArgs a, Completion done)
         {
             const auto st = s.getStateJson();

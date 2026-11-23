@@ -178,6 +178,17 @@ namespace NovaLink
             if (v.getProperty("state", "").toString() == "start") startLocalTake(id, (double) v.getProperty("startSec", 0.0));
             else finishLocalTake(id);
         }
+        else if (t == "takedel" && role == Role::Artist)
+        {
+            const int id = (int) v.getProperty("id", 0);
+            juce::File f;
+            {
+                const juce::ScopedLock sl(takeLock);
+                for (int i = takes.size(); --i >= 0;)
+                    if (takes.getReference(i).id == id) { f = takes[i].file; takes.remove(i); }
+            }
+            if (f.existsAsFile() && (outgoing == nullptr || outgoing->id != id)) f.moveToTrash();
+        }
         else if (t == "takeack" && role == Role::Artist)
         {
             const int id = (int) v.getProperty("id", 0);
@@ -396,6 +407,7 @@ namespace NovaLink
         std::unique_ptr<juce::AudioFormatReader> r(juce::WavAudioFormat().createReaderFor(new juce::FileInputStream(tk.file), true));
         if (r == nullptr) return;
         auto pt = std::make_shared<PlaybackTake>();
+        pt->id = tk.id;
         pt->startSec = tk.startSec;
         pt->fileRate = r->sampleRate;
         pt->audio.setSize(2, (int) r->lengthInSamples);
@@ -417,6 +429,36 @@ namespace NovaLink
         // `keep` now holds the replaced takes; freed here, off the audio thread.
     }
 
+    void LinkSession::playTake(int takeId)
+    {
+        Take tk;
+        { const juce::ScopedLock sl(takeLock); for (auto& t : takes) if (t.id == takeId) tk = t; }
+        if (tk.id != 0 && tk.file.existsAsFile() && (tk.state == "ready" || tk.state == "waiting"))
+            loadTakeForPlayback(tk);
+    }
+
+    void LinkSession::deleteTake(int takeId)
+    {
+        if (takeId == activeTake.load()) return;   // can't delete the take being recorded
+        Take tk;
+        {
+            const juce::ScopedLock sl(takeLock);
+            for (int i = takes.size(); --i >= 0;)
+                if (takes.getReference(i).id == takeId) { tk = takes[i]; takes.remove(i); }
+        }
+        std::vector<std::shared_ptr<PlaybackTake>> removed;
+        {
+            const juce::SpinLock::ScopedLockType sl(playbackLock);
+            for (auto it = playback.begin(); it != playback.end();)
+                if ((*it)->id == takeId) { removed.push_back(*it); it = playback.erase(it); } else ++it;
+        }
+        removed.clear();   // freed off the audio thread
+        if (tk.file.existsAsFile()) tk.file.moveToTrash();
+        const auto aligned = tk.file.getSiblingFile(tk.name + " (from 0-00).wav");
+        if (aligned.existsAsFile()) aligned.moveToTrash();
+        if (role == Role::Host) sendJson(obj({ { "t", "takedel" }, { "id", takeId } }));
+    }
+
     juce::File LinkSession::exportTakeAligned(int takeId) const
     {
         Take tk;
@@ -424,25 +466,38 @@ namespace NovaLink
         if (!tk.file.existsAsFile()) return {};
         std::unique_ptr<juce::AudioFormatReader> r(juce::WavAudioFormat().createReaderFor(new juce::FileInputStream(tk.file), true));
         if (r == nullptr) return {};
-        // Pad with silence from 0:00 so dropping the file at the start of the song lines it up.
-        const auto out = tk.file.getSiblingFile(tk.name + " (from 0-00).wav");
+        // Pad with silence from 0:00 so dropping the file at the start of the song lines it up,
+        // and write it at the host session's sample rate so the DAW never has to convert it.
+        const double outRate = sampleRate > 0.0 ? sampleRate : r->sampleRate;
+        const auto out = tk.file.getSiblingFile(tk.name + " (from 0-00, " + juce::String((int) std::lround(outRate)) + " Hz).wav");
         if (out.existsAsFile()) return out;
         std::unique_ptr<juce::FileOutputStream> os(out.createOutputStream());
         juce::WavAudioFormat wav;
-        std::unique_ptr<juce::AudioFormatWriter> w(os ? wav.createWriterFor(os.get(), r->sampleRate, 2, 24, {}, 0) : nullptr);
+        std::unique_ptr<juce::AudioFormatWriter> w(os ? wav.createWriterFor(os.get(), outRate, 2, 24, {}, 0) : nullptr);
         if (w == nullptr) return {};
         os.release();
-        const int pad = (int) std::llround(tk.startSec * r->sampleRate);
+        const int64_t pad = (int64_t) std::llround(tk.startSec * outRate);
         juce::AudioBuffer<float> silence(2, 8192);
         silence.clear();
-        for (int left = pad; left > 0; left -= 8192) w->writeFromAudioSampleBuffer(silence, 0, juce::jmin(8192, left));
-        juce::AudioBuffer<float> buf(2, 65536);
-        for (int64_t p = 0; p < r->lengthInSamples; p += 65536)
+        for (int64_t left = pad; left > 0; left -= 8192) w->writeFromAudioSampleBuffer(silence, 0, (int) juce::jmin((int64_t) 8192, left));
+
+        // Whole take into RAM (vocal takes are small), then resample if the rates differ.
+        juce::AudioBuffer<float> src(2, (int) r->lengthInSamples);
+        r->read(&src, 0, src.getNumSamples(), 0, true, true);
+        if (r->numChannels == 1) src.copyFrom(1, 0, src, 0, 0, src.getNumSamples());
+        if (std::abs(r->sampleRate - outRate) < 0.5)
+            w->writeFromAudioSampleBuffer(src, 0, src.getNumSamples());
+        else
         {
-            const int n = (int) juce::jmin((int64_t) 65536, r->lengthInSamples - p);
-            r->read(&buf, 0, n, p, true, true);
-            if (r->numChannels == 1) buf.copyFrom(1, 0, buf, 0, 0, n);
-            w->writeFromAudioSampleBuffer(buf, 0, n);
+            const double ratio = r->sampleRate / outRate;   // input samples per output sample
+            const int outLen = (int) std::floor(src.getNumSamples() / ratio);
+            juce::AudioBuffer<float> conv(2, juce::jmax(1, outLen));
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                juce::LagrangeInterpolator interp;
+                interp.process(ratio, src.getReadPointer(ch), conv.getWritePointer(ch), outLen, src.getNumSamples(), 0);
+            }
+            w->writeFromAudioSampleBuffer(conv, 0, outLen);
         }
         return out;
     }
@@ -662,10 +717,16 @@ namespace NovaLink
         o->setProperty("monitorGain", monitorGain.load());
         {
             juce::Array<juce::var> arr;
+            std::vector<int> playingIds;
+            {
+                const juce::SpinLock::ScopedLockType pl(playbackLock);
+                for (auto& p : playback) playingIds.push_back(p->id);
+            }
             const juce::ScopedLock sl(takeLock);
             for (auto& tk : takes)
                 arr.add(obj({ { "id", tk.id }, { "name", tk.name }, { "start", tk.startSec }, { "length", tk.lengthSec },
-                              { "state", tk.state }, { "progress", tk.progress }, { "file", tk.file.getFullPathName() } }));
+                              { "state", tk.state }, { "progress", tk.progress }, { "file", tk.file.getFullPathName() },
+                              { "playing", std::find(playingIds.begin(), playingIds.end(), tk.id) != playingIds.end() } }));
             o->setProperty("takes", arr);
         }
         {

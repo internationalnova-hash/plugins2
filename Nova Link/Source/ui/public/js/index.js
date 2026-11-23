@@ -2,7 +2,7 @@
 const $ = (id) => document.getElementById(id);
 const plugin = $("plugin");
 const NATIVE = ["getState", "setName", "host", "join", "leave", "copyCode", "chat", "marker", "setSections", "talk",
-                "setRecordEnabled", "setHearSelf", "setLossless", "setSendClick", "setMonitor", "camera", "dragTake", "revealTake"];
+                "setRecordEnabled", "setHearSelf", "setLossless", "setSendClick", "setMonitor", "camera", "dragTake", "revealTake", "playTake", "deleteTake"];
 const native = {};
 let state = null;
 let sections = [];
@@ -88,16 +88,23 @@ function renderTakes() {
     const len = t.length ? `${Math.floor(t.length / 60)}:${String(Math.round(t.length % 60)).padStart(2, "0")}` : "";
     const stTxt = { recording: "Rec", transferring: `${Math.round(t.progress * 100)}%`, waiting: "Waiting", ready: "Ready", sending: `${Math.round(t.progress * 100)}%`, sent: "Sent" }[t.state] || t.state;
     const cls = { recording: "rec", transferring: "go", sending: "go", waiting: "go", ready: "ok", sent: "ok" }[t.state] || "";
-    const acts = state.role === "host" && t.state === "ready"
-      ? `<button data-drag="${t.id}" title="Drag into your DAW (lined up from 0:00)">DRAG</button><button data-show="${t.id}">SHOW</button>` : "";
+    const usable = state.role === "host" && (t.state === "ready" || t.state === "waiting");
+    const acts = usable
+      ? `<button data-play="${t.id}" class="${t.playing ? "on" : ""}" title="${t.playing ? "This take plays over its part of the song" : "Play this take instead of the one over the same spot"}">${t.playing ? "PLAYING" : "PLAY"}</button>`
+        + `<button data-drag="${t.id}" title="Drag into your DAW (lined up from 0:00)">DRAG</button>`
+        + `<button data-del="${t.id}" title="Delete this take">✕</button>` : "";
     return `<div class="take"><span class="n">${esc(t.name)}</span><span class="m">Bar ${bar}${len ? " · " + len : ""}</span>
       <div class="bar"><i style="width:${Math.round((t.state === "recording" ? 0 : t.progress) * 100)}%"></i></div><span class="st ${cls}">${stTxt}</span><span class="acts">${acts}</span></div>`;
   }).join("");
 }
 $("takes").addEventListener("mousedown", (e) => {
-  const d = e.target.closest("[data-drag]"), s = e.target.closest("[data-show]");
+  const d = e.target.closest("[data-drag]"), p = e.target.closest("[data-play]"), x = e.target.closest("[data-del]");
   if (d) native.dragTake(+d.dataset.drag);
-  if (s) native.revealTake(+s.dataset.show);
+  if (p) native.playTake(+p.dataset.play);
+  if (x) {
+    const t = state.takes.find((k) => k.id === +x.dataset.del);
+    if (t && confirm(`Delete ${t.name}? Its files go to the Trash on both computers.`)) native.deleteTake(t.id);
+  }
 });
 
 // ── chat ────────────────────────────────────────────────────────────
@@ -206,7 +213,7 @@ $("codeIn").addEventListener("keydown", (e) => { if (e.key === "Enter") $("joinB
     const demo = { role: "host", code: "NOVA-7K2Q-9MX4", state: "Connected", peer: "Marcus", myName: "Studio A", rtt: 62, jitter: 4.2, loss: 0.1, buffer: 40,
       sendPeak: [0.4, 0.4], recvPeak: [0.3, 0.28], activeTake: 3, lossless: true, recordEnabled: true, hearSelf: true, sendClick: true, talkback: false,
       pos: { sec: 66, ppq: 132, bpm: 120, num: 4, den: 4, playing: true, rec: true },
-      takes: [ { id: 1, name: "Take 1", start: 16, length: 30, state: "ready", progress: 1 }, { id: 2, name: "Take 2", start: 48, length: 14, state: "transferring", progress: 0.62 },
+      takes: [ { id: 1, name: "Take 1", start: 16, length: 30, state: "ready", progress: 1, playing: true }, { id: 2, name: "Take 2", start: 48, length: 14, state: "ready", progress: 1, playing: false }, { id: 4, name: "Take 4", start: 48, length: 14, state: "transferring", progress: 0.62 },
                { id: 3, name: "Take 3", start: 64, length: 0, state: "recording", progress: 0 } ],
       chat: [ { from: "Marcus", text: "More beat in my cans please", marker: -1 }, { from: "Studio A", text: "Done. Going from the hook.", marker: -1, mine: true },
               { from: "Studio A", text: "redo 'tonight'", marker: 64.5, take: 3, mine: true } ],

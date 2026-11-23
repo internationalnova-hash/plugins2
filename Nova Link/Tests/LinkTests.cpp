@@ -205,7 +205,8 @@ static void testFullSession()
     auto takeReady = [&]
     {
         const auto st = host.getStateJson();
-        if (auto* t = st.getProperty("takes", {}).getArray())
+        const auto tv = st.getProperty("takes", {});
+        if (auto* t = tv.getArray())
             for (auto& tk : *t) if (tk.getProperty("state", "").toString() == "ready") return true;
         return false;
     };
@@ -241,6 +242,51 @@ static void testFullSession()
     check(std::abs(artistSees - hostSec.load()) < 0.6, "artist's session strip follows the host's timeline");
     const auto aex = host.exportTakeAligned((int) tk.getProperty("id", 0));
     check(aex.existsAsFile(), "take exports lined up from 0:00 for dragging into the DAW");
+    {
+        std::unique_ptr<juce::AudioFormatReader> r(juce::WavAudioFormat().createReaderFor(new juce::FileInputStream(aex), true));
+        const bool rateOk = r != nullptr && std::abs(r->sampleRate - srH) < 1;
+        const double startInFile = r != nullptr ? [&] {
+            juce::AudioBuffer<float> b(1, (int) r->lengthInSamples); r->read(&b, 0, b.getNumSamples(), 0, true, false);
+            for (int i = 0; i < b.getNumSamples(); ++i) if (std::abs(b.getSample(0, i)) > 0.05f) return i / r->sampleRate;
+            return -1.0; }() : -1.0;
+        std::cout << "    export: " << (r ? r->sampleRate : 0) << " Hz, audio starts at " << startInFile << " s (take start " << start << " s)\n";
+        check(rateOk, "drag export matches the host session's sample rate (44.1k take -> 48k)");
+        check(std::abs(startInFile - start) < 0.02, "drag export lines up with the song");
+    }
+
+    // Redo over the same spot: the new take plays; switch back; delete
+    hostSec.store(recStart - 0.8);
+    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    recording = true;
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    recording = false;
+    auto takesReady = [&] (int n) {
+        int c = 0;
+        const auto stv = host.getStateJson(); const auto tv = stv.getProperty("takes", {});
+        if (auto* t = tv.getArray())
+            for (auto& x : *t) if (x.getProperty("state", "").toString() == "ready") ++c;
+        return c >= n; };
+    const bool redo = waitFor([&] { return takesReady(2); }, 20000);
+    if (!redo)
+    {
+        for (auto* who : { &host, &artist })
+            if (const auto tv = who->getStateJson().getProperty("takes", {}); auto* t = tv.getArray())
+                for (auto& x : *t) std::cout << "    [debug] " << (who == &host ? "host" : "artist") << " take " << (int) x.getProperty("id", 0)
+                                             << " " << x.getProperty("state", "").toString() << " " << (float) x.getProperty("progress", 0.0f) << "\n";
+    }
+    check(redo, "second take (redo) arrives");
+    auto playingOf = [&] (int id) {
+        const auto tv = host.getStateJson().getProperty("takes", {});
+        if (auto* t = tv.getArray())
+            for (auto& x : *t) if ((int) x.getProperty("id", 0) == id) return (bool) x.getProperty("playing", false);
+        return false; };
+    check(playingOf(2) && !playingOf(1), "the redo plays instead of the first take");
+    host.playTake(1);
+    check(playingOf(1) && !playingOf(2), "you can switch back to the first take");
+    const auto take2File = [&] { juce::File f; const auto tv = host.getStateJson().getProperty("takes", {}); if (auto* t = tv.getArray()) for (auto& x : *t) if ((int) x.getProperty("id", 0) == 2) f = juce::File(x.getProperty("file", "").toString()); return f; }();
+    host.deleteTake(2);
+    check(host.getStateJson().getProperty("takes", {}).size() == 1 && !take2File.existsAsFile(), "deleting a take removes it (file to Trash)");
+    check(waitFor([&] { return artist.getStateJson().getProperty("takes", {}).size() == 1; }, 3000), "the artist's take list updates too");
 
     run = false;
     hostAudio.join(); artistAudio.join();
