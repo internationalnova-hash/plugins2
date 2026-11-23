@@ -120,7 +120,9 @@ namespace NovaLink
                         if (onMessage) onMessage(m.getProperty("message", "").toString().toStdString());
                     }
             }
-            wait(relaxed.load() ? 5000 : 500);
+            // Once the studios are connected they talk directly; only check in now and then
+            // (a rejoin or reconnect switches back to fast polling straight away).
+            wait(relaxed.load() ? 30000 : 500);
         }
     }
 }

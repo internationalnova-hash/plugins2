@@ -48,7 +48,7 @@ namespace NovaLink
         void start() override;
         void stop() override;
         void send(const std::string& message) override;
-        void setRelaxed(bool r) override { relaxed.store(r); }
+        void setRelaxed(bool r) override { if (relaxed.exchange(r) && !r) notify(); }   // wake at once if the link drops
 
         // NOVA_LINK_SIGNAL_URL environment variable overrides the built-in server (testing).
         static juce::String defaultServer();
