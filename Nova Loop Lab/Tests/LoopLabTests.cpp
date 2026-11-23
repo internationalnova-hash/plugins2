@@ -111,6 +111,11 @@ int main()
         check (std::abs (a.bpm - 92.0) < 0.6 && a.loopFits && a.bars == 2,
                "92 BPM 2-bar loop: tempo " + juce::String (a.bpm, 2) + ", bars " + juce::String (a.bars));
         check (a.key == 12, "C minor chord loop detected as " + ll::keyName (a.key));
+    }
+    {
+        auto L = makeLoop (92.0, 4, { 60, 56 }); // Cm -> Abm-ish movement over kicks and snares
+        const auto a = ll::analyse (L.s);
+        check (a.key == 12 || a.key == 3, "drums + C minor / Ab chords: key " + ll::keyName (a.key) + " (C MIN or relative Eb MAJ)");
         check ((int) a.peaks.size() == ll::kPeakBins, "waveform overview has " + juce::String (ll::kPeakBins) + " bins");
     }
     {

@@ -344,8 +344,9 @@ window.novaLoopLabUpdate = (d) => {
   if (typeof d.bypass === "boolean") bypass = d.bypass;
   if (typeof d.program === "number") program = d.program;
   $("busy").classList.toggle("on", !!d.busy);
-  $("syncTxt").textContent = d.hostBpm > 0 ? `HOST ${Number(d.hostBpm).toFixed(1)}`
-                           : S.hasSample ? `SAMPLE ${Math.round(S.loopBpm)}` : "HOST --";
+  const fromHost = d.hostBpm > 0 || !S.hasSample;
+  $("syncLbl").textContent = fromHost ? "HOST" : "SAMPLE";
+  $("syncTxt").textContent = d.hostBpm > 0 ? Number(d.hostBpm).toFixed(1) : S.hasSample ? Number(S.loopBpm).toFixed(1) : "--";
   $("playBtn").innerHTML = d.auditionLoop ? '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>';
   if (d.error && d.error !== lastError) toast(d.error, true);
   lastError = d.error || "";

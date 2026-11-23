@@ -112,7 +112,7 @@ namespace ll
 
         std::array<float, 12> chromaOf (const std::vector<float>& mono, int from, int to, double sr)
         {
-            constexpr int order = 12, size = 1 << order;
+            constexpr int order = 13, size = 1 << order;
             std::array<float, 12> chroma {};
             juce::dsp::FFT fft (order);
             juce::dsp::WindowingFunction<float> win ((size_t) size, juce::dsp::WindowingFunction<float>::hann, false);
@@ -128,12 +128,25 @@ namespace ll
                 std::copy_n (mono.begin() + p, n, buf.begin());
                 win.multiplyWithWindowingTable (buf.data(), (size_t) size);
                 fft.performFrequencyOnlyForwardTransform (buf.data(), true);
-                for (int k = 1; k < size / 2; ++k)
+                // Tonal peaks only (local maxima well above the frame's median),
+                // above 100 Hz, so kicks, hats and noise don't pull the key.
+                const int k0 = std::max (2, (int) (100.0 / sr * size)), k1 = std::min (size / 2 - 2, (int) (4000.0 / sr * size));
+                std::vector<float> band (buf.begin() + k0, buf.begin() + k1);
+                if (band.empty()) continue;
+                std::nth_element (band.begin(), band.begin() + (long) band.size() / 2, band.end());
+                const float floorMag = band[band.size() / 2] * 4.0f + 1.0e-6f;
+                for (int k = k0; k < k1; ++k)
                 {
-                    const double f = k * sr / size;
-                    if (f < 55.0 || f > 5000.0) continue;
+                    const float mag = buf[(size_t) k];
+                    if (mag < floorMag || mag < buf[(size_t) k - 1] || mag < buf[(size_t) k + 1]) continue;
+                    // Parabolic interpolation: the true peak frequency, not the
+                    // bin centre (bins are ~5 Hz apart, a semitone at 100 Hz is ~6 Hz).
+                    const float l = std::log (buf[(size_t) k - 1] + 1.0e-9f), c = std::log (mag + 1.0e-9f), r = std::log (buf[(size_t) k + 1] + 1.0e-9f);
+                    const float den = l - 2.0f * c + r;
+                    const double delta = std::abs (den) > 1.0e-9f ? juce::jlimit (-0.5, 0.5, 0.5 * (double) (l - r) / den) : 0.0;
+                    const double f = (k + delta) * sr / size;
                     const int pc = ((int) std::lround (12.0 * std::log2 (f / 440.0)) + 69 + 1200) % 12;
-                    chroma[(size_t) pc] += buf[(size_t) k];
+                    chroma[(size_t) pc] += mag;
                 }
                 if (to - p < size) break;
             }

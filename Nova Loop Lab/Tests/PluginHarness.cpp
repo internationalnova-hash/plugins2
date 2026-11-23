@@ -27,7 +27,7 @@ struct FakeHost : juce::AudioPlayHead
 static constexpr double SR = 48000.0;
 static constexpr int BLOCK = 512;
 
-static juce::File writeTestLoop()
+static juce::File writeTestLoop (bool rich = false)
 {
     const double bpm = 92.0, beat = 44100.0 * 60.0 / bpm;
     const int n = (int) (8 * beat);
@@ -43,9 +43,37 @@ static juce::File writeTestLoop()
             b.addSample (0, (int) (k * beat) + i, v);
             b.addSample (1, (int) (k * beat) + i, v);
         }
-    for (int i = 0; i < n; ++i)
-        for (int ch = 0; ch < 2; ++ch)
-            b.addSample (ch, i, 0.08f * (float) std::sin (6.2831853 * 261.63 * i / 44100.0));
+    if (rich)
+    {
+        // Soul-style chord stabs (Cm7, Abmaj7) and 8th-note hats for the demo.
+        const double chords[2][4] = { { 130.81, 155.56, 196.0, 233.08 }, { 103.83, 130.81, 155.56, 196.0 } };
+        for (int e = 0; e < 16; ++e)
+        {
+            const int at = (int) (e * beat / 2.0);
+            for (int i = 0; i < 2500 && at + i < n; ++i)
+            {
+                const float h = (float) (0.12 * std::exp (-i / 300.0) * (rng.nextFloat() * 2.0 - 1.0));
+                b.addSample (0, at + i, h); b.addSample (1, at + i, h * 0.8f);
+            }
+        }
+        for (int stab = 0; stab < 8; ++stab)
+        {
+            const int at = (int) ((stab * 2 + (stab % 2 ? 1.5 : 0.0)) * beat * 0.5);
+            const auto& c = chords[(stab / 4) % 2];
+            for (int i = 0; i < (int) (0.9 * beat) && at + i < n; ++i)
+            {
+                const double t = i / 44100.0, env = std::min (1.0, t * 200.0) * std::exp (-t * 2.5);
+                double v = 0;
+                for (double f : c) v += std::sin (6.2831853 * f * t) + 0.35 * std::sin (6.2831853 * 2 * f * t);
+                b.addSample (0, at + i, (float) (0.07 * env * v));
+                b.addSample (1, at + i, (float) (0.065 * env * v));
+            }
+        }
+    }
+    else
+        for (int i = 0; i < n; ++i)
+            for (int ch = 0; ch < 2; ++ch)
+                b.addSample (ch, i, 0.08f * (float) std::sin (6.2831853 * 261.63 * i / 44100.0));
 
     auto f = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("looplab_harness_92bpm.wav");
     f.deleteFile();
@@ -113,11 +141,27 @@ int main (int argc, char** argv)
         p.prepareToPlay (SR, BLOCK);
         p.core.updateSpec ([] (ll::Spec& s) { s.hostBpm = 92.0; s.sampleRate = SR; });
         const int v = p.core.getModelVersion();
-        p.core.loadFile (writeTestLoop());
+        p.core.loadFile (writeTestLoop (true));
         if (! waitForModel (p, v)) return 1;
+        const int v2 = p.core.getModelVersion();
+        p.core.updateSpec ([] (ll::Spec& s) { s.sampleName = "Velvet Soul Loop 92bpm.wav"; });
+        if (! waitForModel (p, v2)) return 1;
         juce::MemoryBlock mb;
         p.getStateInformation (mb);
         juce::File (argv[2]).replaceWithText (mb.toBase64Encoding());
+        return 0;
+    }
+
+    // --analyse <file>: print what Loop Lab hears in a sample.
+    if (argc == 3 && juce::String (argv[1]) == "--analyse")
+    {
+        juce::AudioFormatManager fm; fm.registerBasicFormats();
+        std::unique_ptr<juce::AudioFormatReader> r (fm.createReaderFor (juce::File (argv[2])));
+        if (r == nullptr) return 1;
+        ll::Sample smp; smp.sampleRate = r->sampleRate; smp.audio.setSize (2, (int) r->lengthInSamples);
+        r->read (&smp.audio, 0, (int) r->lengthInSamples, 0, true, true);
+        const auto a = ll::analyse (smp);
+        std::cout << "tempo " << a.bpm << "  key " << ll::keyName (a.key) << " (confidence " << a.keyConfidence << ")\n";
         return 0;
     }
 
