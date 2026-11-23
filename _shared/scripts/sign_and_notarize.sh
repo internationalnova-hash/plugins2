@@ -95,9 +95,13 @@ mkdir -p "$PKG_ROOT/Applications"
 [ -e "$AU_BUNDLE" ] && cp -R "$AU_BUNDLE" "$PKG_ROOT/Library/Audio/Plug-Ins/Components/"
 [ -e "$APP_BUNDLE" ] && cp -R "$APP_BUNDLE" "$PKG_ROOT/Applications/"
 
+# No extended attributes / AppleDouble "._" entries in the payload: on some
+# systems they install as stray "._Plugin.vst3" files that DAWs try to scan.
+xattr -cr "$PKG_ROOT"
+
 echo "==> [$PRODUCT_NAME 5/7] Building + signing installer package"
 mkdir -p "$DIST_DIR"
-pkgbuild --root "$PKG_ROOT" \
+COPYFILE_DISABLE=1 pkgbuild --root "$PKG_ROOT" \
     --identifier "$BUNDLE_ID.installer" \
     --version "$VERSION" \
     --install-location "/" \
@@ -107,6 +111,15 @@ productsign --sign "$INSTALLER_IDENTITY" "$UNSIGNED_PKG" "$SIGNED_PKG"
 rm -f "$UNSIGNED_PKG"
 
 pkgutil --check-signature "$SIGNED_PKG"
+
+# SKIP_NOTARIZE=1: stop at a signed (not yet notarized) installer, e.g. while
+# Apple's developer agreement needs accepting. Notarize later with
+# notarize_pkg.sh <pkg>.
+if [ "${SKIP_NOTARIZE:-0}" = "1" ]; then
+    echo ""
+    echo "Signed, not notarized (SKIP_NOTARIZE=1): $SIGNED_PKG"
+    exit 0
+fi
 
 echo "==> [$PRODUCT_NAME 6/7] Submitting for notarization (this can take a few minutes)"
 xcrun notarytool submit "$SIGNED_PKG" \
