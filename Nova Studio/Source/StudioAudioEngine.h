@@ -3,6 +3,9 @@
 #include <JuceHeader.h>
 #include "Session.h"
 #include "TransportState.h"
+#include "PlaybackSnapshot.h"
+#include <bitset>
+#include <map>
 
 namespace NovaStudio
 {
@@ -261,6 +264,94 @@ namespace NovaStudio
         void newSession();
         bool exportStereoMix(const juce::File& destinationFile);
 
+        // ── Offline export (bounce) ─────────────────────────────────────────
+        // Renders through exactly the same graph as playback (clips, MIDI, plugins, EQ,
+        // sends/aux, automation, master chain), faster than real time.
+        struct ExportOptions
+        {
+            int64_t startSample = 0;
+            int64_t endSample = -1;          // -1 = end of the arrangement
+            double  tailSeconds = 3.0;       // let reverbs/delays ring out (stops early on silence)
+            int     bitDepth = 24;           // 16, 24 or 32 (float)
+            int     soloTrack = -1;          // >= 0: render just this track (a stem)
+            bool    includeMaster = true;    // master plugins + fader + limiter
+            std::function<bool(float)> progress;   // return false to cancel
+        };
+        struct ExportResult
+        {
+            bool ok = false;
+            juce::String error;
+            float peakDb = -100.0f;
+            bool clipped = false;
+            double seconds = 0.0;
+        };
+        ExportResult exportAudio(const juce::File& destinationFile, const ExportOptions& options);
+        // One file per audio/MIDI/aux track into `folder` ("<session> - <track>.wav").
+        int exportStems(const juce::File& folder, const ExportOptions& options, juce::StringArray* errors = nullptr);
+        int64_t getArrangementEndSample() const;
+
+        // ── Transport helpers ───────────────────────────────────────────────
+        void seek(int64_t samplePosition);
+        void setTempo(double bpm);
+        void setTimeSignature(int numerator, int denominator);
+        void setLoopRange(int64_t start, int64_t end, bool enabled);
+        void setPunchRange(int64_t in, int64_t out, bool enabled);
+        void setMetronomeEnabled(bool on);
+        bool isMetronomeEnabled() const noexcept { return session.metronomeEnabled; }
+        void setMetronomeVolume(float gain0to1);
+        void setCountInBars(int bars);                       // 0..4
+        int  getCountInBars() const noexcept { return session.countInBars; }
+        bool isCountingIn() const noexcept { return countInRemaining.load() > 0; }
+        void setRecordingOffsetSamples(int samples);         // manual latency trim (+ = earlier)
+        int  getRecordingOffsetSamples() const noexcept { return recordingOffsetSamples.load(); }
+        int  getRoundTripLatencySamples() const;
+
+        // ── Master section ──────────────────────────────────────────────────
+        void  setMasterVolume(float db);
+        float getMasterVolume() const noexcept { return session.masterVolumeDb; }
+        void  setMasterLimiterEnabled(bool on);
+        bool  isMasterLimiterEnabled() const noexcept { return session.masterLimiter; }
+
+        // ── Track input / monitoring / automation mode ──────────────────────
+        juce::StringArray getInputChannelNames() const;
+        void setTrackInputChannel(int trackIndex, int firstInputChannel);
+        int  getTrackInputChannel(int trackIndex) const noexcept;
+        void setTrackStereo(int trackIndex, bool stereo);
+        void setTrackMonitorInput(int trackIndex, bool on);
+        bool getTrackMonitorInput(int trackIndex) const noexcept;
+        void setTrackAutomationMode(int trackIndex, int mode);   // 0 Read, 1 Touch, 2 Latch, 3 Write, 4 Off
+        int  getTrackAutomationMode(int trackIndex) const noexcept;
+        static juce::StringArray getAutomationModeNames() { return { "Read", "Touch", "Latch", "Write", "Off" }; }
+        // Current (possibly automated) values, for meters/faders that follow automation.
+        float getTrackDisplayVolume(int trackIndex) const noexcept;
+        float getTrackDisplayPan(int trackIndex) const noexcept;
+
+        // ── MIDI ────────────────────────────────────────────────────────────
+        // Live MIDI keyboard input goes to armed MIDI tracks, or (if none) to this track.
+        void setMidiInputTrack(int trackIndex) noexcept { midiInputTrack.store(trackIndex); }
+        int  getMidiInputTrack() const noexcept { return midiInputTrack.load(); }
+        // Creates an empty MIDI clip; returns its clip index (or -1).
+        int  createMidiClip(int trackIndex, int64_t startSample, int64_t lengthSamples, const juce::String& name = {});
+        // Replaces a MIDI clip's notes (beats from clip start).
+        bool setMidiClipNotes(int trackIndex, int clipIndex, const juce::Array<MidiNote>& notes);
+        // Imports a Standard MIDI File. Each MIDI track in the file becomes a clip on a new
+        // (or the given) MIDI track. Returns the number of clips created.
+        int  importMidiFile(const juce::File& midiFile, int64_t startSample, int targetTrack = -1);
+        bool exportMidiClip(int trackIndex, int clipIndex, const juce::File& destination) const;
+        // Sends a note to the target MIDI track's instrument (on-screen keyboards, piano roll).
+        void sendLiveNote(int midiNoteNumber, float velocity, bool noteOn);
+
+        // ── Session lifecycle ───────────────────────────────────────────────
+        // Call after editing the Session directly; playback picks the change up immediately.
+        // (Edits are also detected automatically within ~50 ms.)
+        void notifySessionChanged();
+        juce::File getAutosaveFile() const;
+        juce::File findNewestAutosave() const;
+        void setCurrentSessionFile(const juce::File& f) { currentSessionFile = f; }
+        juce::File getCurrentSessionFile() const { return currentSessionFile; }
+        bool hasUnsavedChanges() const noexcept { return lastSnapshotHash != savedHash; }
+        void markSaved() noexcept { savedHash = lastSnapshotHash; }
+
         const TransportState& getTransportState() const noexcept;
         TransportState& getTransportState() noexcept;
 
@@ -285,24 +376,17 @@ namespace NovaStudio
         }
 
     private:
-        struct TrackPlayer : public juce::AudioSource
+        struct TrackPlayer
         {
             TrackPlayer();
-            ~TrackPlayer() override;
+            ~TrackPlayer();
 
-            void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override;
-            void releaseResources() override;
-            void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
-
+            void prepare(double sampleRate, int maxBlockSize);
+            void release();
             void setTrackMetadata(const Track& trackInfo);
-            void setPlaying(bool isPlaying);
-            void setSoloMode(bool soloActive);
-            double currentTransportSeconds = 0.0;
-            void setPlaybackPosition(double transportSeconds) { currentTransportSeconds = transportSeconds; }
-            void setLoopActive(bool looping);
-            bool loadClip(const juce::File& file, double sampleRate); // call from main thread only
-            void preloadClipAtPosition(double transportSeconds);      // safe to call before play()
-            bool addPlugin(std::unique_ptr<juce::AudioPluginInstance> plugin);
+            void setSoloMode(bool soloActive) noexcept { soloModeActive.store(soloActive); }
+
+            bool addPlugin(std::unique_ptr<juce::AudioPluginInstance> plugin);   // caller holds playerLock
             bool removePlugin(int index);
             bool movePlugin(int fromIndex, int toIndex);
             void setPluginBypassed(int index, bool bypassed);
@@ -310,64 +394,105 @@ namespace NovaStudio
             juce::AudioPluginInstance* getPlugin(int index) const;
             int  getPluginChainLatencySamples() const;
             void setPdcDelaySamples(int samples);
-            int getNumPlugins() const { return pluginChain.size(); }
+            int  getNumPlugins() const { return pluginChain.size(); }
             void getPluginState(int index, juce::MemoryBlock& dest) const;
             void setPluginState(int index, const void* data, size_t size);
+            int  requiredChannels() const;
 
-            juce::TimeSliceThread* readAheadThread = nullptr; // shared, owned by engine
-            juce::AudioTransportSource transportSource;
-                std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
-                Session* sessionPtr = nullptr;
-                int trackIndex = -1;
-                juce::File loadedFile;
-            juce::AudioBuffer<float> scratchBuffer;
-            juce::AudioFormatManager formatManager;
+            int trackIndex = -1;
+            TrackType type = TrackType::Audio;
+            bool isAuxTrack = false;
+            int  auxInputBusIndex = -1;
+
+            // Mixer state (UI writes, audio reads)
+            std::atomic<float> volumeDb { 0.0f }, pan { 0.0f };
+            std::atomic<bool>  muted { false }, solo { false }, armed { false }, soloModeActive { false };
+            std::atomic<bool>  monitorInput { false }, isStereo { true };
+            std::atomic<int>   inputChannel { 0 };
+            // What's actually applied (after automation), for the UI
+            std::atomic<float> displayVolumeDb { 0.0f }, displayPan { 0.0f };
+            std::atomic<bool>  writingAutomation { false };   // fader/pan come from the user, not the lane
+
             juce::Array<std::unique_ptr<juce::AudioPluginInstance>> pluginChain;
             juce::Array<bool> pluginBypassed;
-
-            // Plugin delay compensation — aligns this track's output with the
-            // slowest (highest-latency) track's plugin chain in the session.
             juce::dsp::DelayLine<float> pdcDelayLine { 192000 };
             int pdcDelaySamples = 0;
-            void setSessionTrack(Session* s, int index) { sessionPtr = s; trackIndex = index; }
 
-            float volumeDb = 0.0f;
-            float pan = 0.0f;
-            bool muted = false;
-            bool solo = false;
-            bool armed = false;
-            bool soloModeActive = false;
-            std::atomic<bool> isPlaying { false };
-            std::atomic<bool> needsClipLoad { false }; // set by audio callback, cleared by main-thread timer
-            int trackChannels = 2;
-            double clipStartSeconds = 0.0;
+            // Audio-thread working buffers (sized in prepare)
+            juce::AudioBuffer<float> buf;        // track signal, requiredChannels() wide
+            juce::AudioBuffer<float> clipTmp;    // file-rate samples for one clip segment
+            juce::MidiBuffer midi;
+            std::bitset<128> heldNotes;
+            bool allNotesOffPending = false;
+            float lastGainL = -1.0f, lastGainR = -1.0f;   // < 0: jump straight to the fader level
+            int procChannels = 2;
+            double sampleRate = 44100.0;
+            int maxBlock = 512;
+
             std::atomic<float> peakLevelLeft  { 0.0f };
             std::atomic<float> peakLevelRight { 0.0f };
 
             struct EQBand {
-                std::atomic<bool>  enabled { false };  // disabled by default — flat until user enables
+                std::atomic<bool>  enabled { false };
                 std::atomic<float> freq    { 1000.0f };
                 std::atomic<float> gainDb  { 0.0f };
                 std::atomic<float> q       { 0.707f };
-                // Biquad state (audio thread only — not atomic)
                 double b0=1,b1=0,b2=0,a1=0,a2=0;
                 double z1L=0,z2L=0,z1R=0,z2R=0;
             };
             static constexpr int kNumEQBands = 6;
             std::array<EQBand, kNumEQBands> eqBands;
-            bool eqDirty { true };
+            std::atomic<bool> eqDirty { true };
 
-            // Send bus wiring (set by engine after buildTrackPlayers)
             static constexpr int kMaxSends = 6;
-            juce::AudioBuffer<float>* sendBusBuffers[8] {};   // pointers to engine's bus buffers
+            juce::AudioBuffer<float>* sendBusBuffers[8] {};
             int   sendBusIndex[kMaxSends]  = { -1,-1,-1,-1,-1,-1 };
             float sendLevels[kMaxSends]    = { -100.f,-100.f,-100.f,-100.f,-100.f,-100.f };
             bool  sendPreFader[kMaxSends]  = {};
-
-            // Aux track: if true, reads from auxInputBus instead of clips
-            bool isAuxTrack = false;
-            int  auxInputBusIndex = -1;  // which bus to read from
         };
+
+        // One armed track being recorded.
+        struct RecordTake
+        {
+            int trackIndex = -1;
+            int firstInput = 0;
+            int numChannels = 2;
+            juce::File file;
+            std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> writer;
+        };
+
+        struct LiveMidiEvent { juce::uint8 data[3]; int size; };
+        struct RecordedMidiEvent { int64_t timelinePos; int trackIndex; juce::uint8 data[3]; };
+
+        void renderBlock(const float* const* inputs, int numInputs, float* const* outputs, int numOutputs,
+                         int numSamples, bool offline);
+        void renderSegment(const float* const* inputs, int numInputs, int inputOffset,
+                           int numSamples, int64_t position, bool playing, bool offline,
+                           const PlaySnapshot* snap, juce::MidiBuffer& liveMidi);
+        void renderTrack(TrackPlayer& p, const TrackPlayData* td, const float* const* inputs, int numInputs,
+                         int inputOffset, int numSamples, int64_t position, bool playing, bool offline,
+                         bool anySolo, const juce::MidiBuffer& liveMidi, bool isLiveMidiTarget);
+        void renderClips(TrackPlayer& p, const TrackPlayData& td, int numSamples, int64_t position, bool offline);
+        void renderStepSequencer(float* const* outputChannelData, int numOutputChannels, int numSamples, int64_t positionSamples);
+        void renderClicks(float* const* out, int numOut, int numSamples, int64_t position, bool countingIn, const PlaySnapshot* snap);
+        void writeRecording(const float* const* inputs, int numInputs, int inputOffset, int numSamples);
+
+        // Snapshot management (message thread)
+        uint64_t computeSessionHash() const;
+        void publishSnapshot(bool force);
+        std::shared_ptr<ClipStreamer> getStreamer(const juce::File& file, int64_t startSessionSamples, int64_t pinSessionSamples);
+        std::unique_ptr<PlaySnapshot> buildSnapshot(uint64_t hash);
+        void installSnapshot(std::unique_ptr<PlaySnapshot> snap);
+        void handleControllerOnMessageThread(int ccNumber, int channel, int value);
+        void pushLiveMidi(const juce::MidiMessage& m);
+        void shiftTrackReferencesAfterRemoval(int removedIndex);
+        void retireOldSnapshots(bool all);
+        void prefetchAt(int64_t timelinePos);
+        void applySessionToPlayers();
+        void stepSequencerToSession();
+        void sessionToStepSequencer();
+        void autosaveIfNeeded();
+        void writeAutomationTick();
 
         void audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
                               int numInputChannels,
@@ -390,11 +515,71 @@ namespace NovaStudio
         void updateSoloStates();
         void startRecordingInternal();
         void stopRecordingInternal();
-        void createRecordingClipIfNeeded();
+        void createRecordingClips();
+        void createMidiRecordingClips();
 
         juce::AudioDeviceManager deviceManager;
-        juce::MixerAudioSource mixerSource;
-        juce::TimeSliceThread readAheadThread { "nova-readahead" }; // shared across all TrackPlayers
+        juce::TimeSliceThread readAheadThread { "nova-readahead" }; // streams clip audio from disk
+        juce::AudioFormatManager clipFormats;
+
+        // Published playback snapshot (audio thread reads, message thread swaps)
+        std::atomic<const PlaySnapshot*> liveSnapshot { nullptr };
+        std::unique_ptr<PlaySnapshot> currentSnapshot;
+        struct Retired { std::unique_ptr<PlaySnapshot> snap; juce::uint32 time; };
+        std::vector<Retired> retiredSnapshots;
+        std::map<juce::String, std::weak_ptr<ClipStreamer>> streamerCache;
+        std::vector<std::shared_ptr<ClipStreamer>> registeredStreamers;
+        uint64_t lastSnapshotHash = 0, savedHash = 0, lastAutosaveHash = 0;
+        juce::uint32 lastAutosaveTime = 0;
+        juce::File currentSessionFile;
+
+        // Audio-thread buffers
+        juce::AudioBuffer<float> mixBuffer;
+        juce::AudioBuffer<float> silenceBuffer;
+        juce::MidiBuffer liveMidiBlock;
+        juce::dsp::Limiter<float> masterLimiter;
+        juce::SmoothedValue<float> masterGain { 1.0f };
+        std::atomic<bool> offlineRendering { false };
+        int offlineSoloTrack = -1;
+        bool offlineIncludeMaster = true;
+        int maxBlockSize = 512;
+
+        // Live MIDI (MIDI thread -> audio thread) and MIDI recording (audio -> message thread)
+        juce::AbstractFifo liveMidiFifo { 1024 };
+        std::array<LiveMidiEvent, 1024> liveMidiData;
+        juce::SpinLock liveMidiWriteLock;           // several MIDI devices may push at once
+        juce::AbstractFifo recMidiFifo { 8192 };
+        std::array<RecordedMidiEvent, 8192> recMidiData;
+        std::atomic<int> midiInputTrack { -1 };
+        juce::Array<RecordedMidiEvent> recordedMidi;   // message thread, drained during recording
+
+        // Recording
+        juce::OwnedArray<RecordTake> recordTakes;
+        juce::SpinLock recordLock;
+        std::atomic<int64_t> recordedSamples { 0 };
+        std::atomic<int64_t> recordStartPos { 0 };
+        std::atomic<bool> pendingRecordStart { false };
+        int64_t lastRenderEnd = -1;
+        juce::AudioBuffer<float> exportBuffer;
+        juce::MidiBuffer masterMidi;
+        std::atomic<int> loopPassCount { 0 };
+        std::array<int64_t, 64> loopPassEnds {};    // recordedSamples at each loop wrap
+        std::atomic<int> recordingOffsetSamples { 0 };
+        int64_t recordLoopStart = 0, recordLoopEnd = 0;
+
+        // Metronome / count-in
+        std::atomic<int64_t> countInRemaining { 0 };
+        int64_t countInTotal = 0;
+        double clickPhase = 0.0, clickFreq = 1000.0;
+        int clickSamplesLeft = 0;
+        float clickGain = 0.0f;
+        std::atomic<float> metronomeGain { 0.6f };
+        std::atomic<bool>  metronomeOn { false }, limiterOn { true };
+        std::atomic<float> masterVolumeDbAtomic { 0.0f };
+
+        // Automation writing (message thread)
+        struct AutoWriteState { float lastVol = 0, lastPan = 0; bool latched = false; juce::uint32 lastMoveMs = 0; double lastWriteSec = -1; };
+        std::vector<AutoWriteState> autoWrite;
 
         // MIDI Learn state
         juce::Array<MidiCCBinding> midiBindings;
@@ -439,18 +624,16 @@ namespace NovaStudio
         std::atomic<bool> recordingActive { false };
         int cachedActiveInputChannels = 0;
         int64_t recordingStartSample = 0;
-        int recordingWriterChannels = 1;  // actual channel count used by the writer
         TransportState transportState;
         juce::File recordingFolder;
         juce::File currentRecordingFile;
         juce::TimeSliceThread recordingThread { "nova-recorder" };
-        std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> recordingWriter;
-        int64_t recordingSampleCount = 0;
         std::unique_ptr<juce::FileLogger> diagLogger;
-        std::atomic<int64_t> diagBlocksReceived { 0 };  // blocks seen while recordingActive
 
         // Step sequencer playback state (audio thread writes, UI thread reads)
         std::atomic<int> currentPlayingStep { -1 };
+        int stepSeqLastStep = -1;
+        int64_t stepSeqExpectedPos = -1;
 
         // Master output clip state (audio thread writes, UI thread reads)
         std::atomic<bool>  masterOutputClipped { false };

@@ -16,15 +16,22 @@ namespace NovaStudio
         return sampleRate.load();
     }
 
-    void TransportState::setTempo(int bpm) noexcept
+    void TransportState::setTempo(double bpm) noexcept
     {
-        tempoBpm.store(juce::jlimit(20, 300, bpm));
+        tempoBpm.store(juce::jlimit(10.0, 999.0, bpm));
         sendChangeMessage();
     }
 
-    int TransportState::getTempo() const noexcept
+    double TransportState::getTempo() const noexcept
     {
         return tempoBpm.load();
+    }
+
+    void TransportState::setTimeSignature(int numerator, int denominator) noexcept
+    {
+        timeSigNum.store(juce::jlimit(1, 32, numerator));
+        timeSigDen.store(juce::jlimit(1, 32, denominator));
+        sendChangeMessage();
     }
 
     void TransportState::setLoopRange(int64_t startSample, int64_t endSample) noexcept
@@ -80,8 +87,6 @@ namespace NovaStudio
         if (playing.load())
             return;
 
-        playStartTimeMs.store(juce::Time::getMillisecondCounterHiRes());
-        lastClockSamplePosition.store(getPlaybackPositionInternal());
         playing.store(true);
         sendChangeMessage();
     }
@@ -91,7 +96,6 @@ namespace NovaStudio
         if (!playing.load())
             return;
 
-        setPositionSamples(getPlaybackPositionInternal(), false);
         playing.store(false);
         sendChangeMessage();
     }
@@ -153,55 +157,14 @@ namespace NovaStudio
 
     void TransportState::setPositionSamples(int64_t samplePos, bool notify) noexcept
     {
-        currentSamplePosition.store(samplePos);
-        lastClockSamplePosition.store(samplePos);
-        playStartTimeMs.store(juce::Time::getMillisecondCounterHiRes());
+        currentSamplePosition.store(juce::jmax((int64_t) 0, samplePos));
         if (notify)
             sendChangeMessage();
     }
 
     int64_t TransportState::getPositionSamples() const noexcept
     {
-        return getPlaybackPositionInternal();
-    }
-
-    void TransportState::updatePositionFromClock() const noexcept
-    {
-        if (!playing.load())
-            return;
-
-        const double sampleRateValue = sampleRate.load();
-        const double currentTimeMs = juce::Time::getMillisecondCounterHiRes();
-        const double elapsedMs = currentTimeMs - playStartTimeMs.load();
-        const double samplesElapsed = elapsedMs * (sampleRateValue / 1000.0);
-        const int64_t position = lastClockSamplePosition.load() + static_cast<int64_t>(std::floor(samplesElapsed));
-        currentSamplePosition.store(position);
-    }
-
-    int64_t TransportState::getPlaybackPositionInternal() const noexcept
-    {
-        if (!playing.load())
-            return currentSamplePosition.load();
-
-        const double sampleRateValue = sampleRate.load();
-        const double currentTimeMs = juce::Time::getMillisecondCounterHiRes();
-        const double elapsedMs = currentTimeMs - playStartTimeMs.load();
-        const double samplesElapsed = elapsedMs * (sampleRateValue / 1000.0);
-        int64_t position = lastClockSamplePosition.load() + static_cast<int64_t>(std::floor(samplesElapsed));
-
-        if (isLooping())
-        {
-            const int64_t start = loopStartSample.load();
-            const int64_t end = loopEndSample.load();
-            const int64_t length = end - start;
-            if (length > 0)
-            {
-                const int64_t offset = (position - start) % length;
-                position = start + (offset < 0 ? offset + length : offset);
-            }
-        }
-
-        return position;
+        return currentSamplePosition.load();
     }
 
     int64_t TransportState::getLoopStartSample() const noexcept
@@ -259,9 +222,11 @@ namespace NovaStudio
     {
         const double seconds = static_cast<double>(samplePosition) / sampleRate.load();
         const double beatsPerSecond = tempoBpm.load() / 60.0;
-        const double totalBeats = seconds * beatsPerSecond;
-        const int bar = static_cast<int>(totalBeats / 4.0) + 1;
-        const int beat = (static_cast<int>(std::floor(totalBeats)) % 4) + 1;
+        const int num = timeSigNum.load();
+        // Beat unit follows the denominator (x/8 counts eighth notes).
+        const double totalBeats = seconds * beatsPerSecond * (timeSigDen.load() / 4.0);
+        const int bar = static_cast<int>(totalBeats / num) + 1;
+        const int beat = (static_cast<int>(std::floor(totalBeats)) % num) + 1;
         const int subbeat = static_cast<int>((totalBeats - std::floor(totalBeats)) * 1000.0);
         return juce::String::formatted("%d.%d.%03d", bar, beat, subbeat);
     }

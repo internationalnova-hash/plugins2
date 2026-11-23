@@ -37,6 +37,20 @@ namespace NovaStudio
     object->setProperty("alignmentSourceGuidePath", clip.alignmentSourceGuidePath);
     object->setProperty("alignmentWarpPoints", clip.alignmentWarpPoints);
     object->setProperty("clipColor", clip.clipColor.toString());
+    object->setProperty("fadeInSamples", (double)clip.fadeInSamples);
+    object->setProperty("fadeOutSamples", (double)clip.fadeOutSamples);
+    object->setProperty("fileOffsetSamples", (double)clip.fileOffsetSamples);
+    object->setProperty("name", clip.name);
+    if (clip.isMidi)
+    {
+        juce::Array<juce::var> notesVar;
+        for (const auto& n : clip.notes)
+        {
+            juce::Array<juce::var> nv { n.pitch, n.startBeat, n.lengthBeats, (double)n.velocity };
+            notesVar.add(juce::var(nv));
+        }
+        object->setProperty("notes", notesVar);
+    }
     return object.get();
 }
 
@@ -66,6 +80,25 @@ Clip ClipFromVar(const juce::var& var)
         clip.alignmentConsonantPriority = (float)(double)object->getProperty("alignmentConsonantPriority");
         clip.alignmentSourceGuidePath = object->getProperty("alignmentSourceGuidePath").toString();
         clip.clipColor = juce::Colour::fromString(object->getProperty("clipColor").toString());
+        clip.fadeInSamples = static_cast<int64_t>((double)object->getProperty("fadeInSamples"));
+        clip.fadeOutSamples = static_cast<int64_t>((double)object->getProperty("fadeOutSamples"));
+        clip.fileOffsetSamples = static_cast<int64_t>((double)object->getProperty("fileOffsetSamples"));
+        clip.name = object->getProperty("name").toString();
+        if (auto* notesArr = object->getProperty("notes").getArray())
+        {
+            for (auto& nv : *notesArr)
+            {
+                if (auto* a = nv.getArray(); a != nullptr && a->size() >= 4)
+                {
+                    MidiNote n;
+                    n.pitch = juce::jlimit(0, 127, (int)(*a)[0]);
+                    n.startBeat = (double)(*a)[1];
+                    n.lengthBeats = juce::jmax(1.0 / 64.0, (double)(*a)[2]);
+                    n.velocity = juce::jlimit(0.0f, 1.0f, (float)(double)(*a)[3]);
+                    clip.notes.add(n);
+                }
+            }
+        }
 
         auto warpPointsVar = object->getProperty("alignmentWarpPoints");
         if (warpPointsVar.isArray())
@@ -142,6 +175,23 @@ Clip ClipFromVar(const juce::var& var)
         object->setProperty("colour", colour.toString());
         object->setProperty("groupName", groupName);
         object->setProperty("locked", boolToVar(locked));
+        object->setProperty("isStereo", boolToVar(isStereo));
+        object->setProperty("inputBus", inputBus);
+        object->setProperty("outputBus", outputBus);
+        object->setProperty("auxInputBusIndex", auxInputBusIndex);
+        object->setProperty("inputChannel", inputChannel);
+        object->setProperty("monitorInput", boolToVar(monitorInput));
+        object->setProperty("automationMode", automationMode);
+        {
+            juce::Array<juce::var> sendsVar;
+            for (int i = 0; i < 6; ++i)
+                sendsVar.add(juce::var(juce::Array<juce::var> { (double)sendLevels[i], sendBusIndex[i], sendPreFader[i] }));
+            object->setProperty("sends", sendsVar);
+            juce::Array<juce::var> eqVar;
+            for (const auto& b : eq)
+                eqVar.add(juce::var(juce::Array<juce::var> { b.enabled, (double)b.freq, (double)b.gainDb, (double)b.q }));
+            object->setProperty("eq", eqVar);
+        }
 
         juce::Array<juce::var> lanesVar;
         for (const auto& lane : automationLanes)
@@ -172,6 +222,30 @@ Clip ClipFromVar(const juce::var& var)
                 track.colour = juce::Colour::fromString(object->getProperty("colour").toString());
             track.groupName = object->getProperty("groupName").toString();
             track.locked = varToBool(object->getProperty("locked"));
+            if (object->hasProperty("isStereo")) track.isStereo = varToBool(object->getProperty("isStereo"));
+            track.inputBus = object->getProperty("inputBus").toString();
+            track.outputBus = object->getProperty("outputBus").toString();
+            if (object->hasProperty("auxInputBusIndex")) track.auxInputBusIndex = (int)object->getProperty("auxInputBusIndex");
+            track.inputChannel = juce::jmax(0, (int)object->getProperty("inputChannel"));
+            track.monitorInput = varToBool(object->getProperty("monitorInput"));
+            track.automationMode = juce::jlimit(0, 4, (int)object->getProperty("automationMode"));
+            if (auto* sends = object->getProperty("sends").getArray())
+                for (int i = 0; i < juce::jmin(6, sends->size()); ++i)
+                    if (auto* a = (*sends)[i].getArray(); a != nullptr && a->size() >= 3)
+                    {
+                        track.sendLevels[i]   = (float)(double)(*a)[0];
+                        track.sendBusIndex[i] = (int)(*a)[1];
+                        track.sendPreFader[i] = (bool)(*a)[2];
+                    }
+            if (auto* eqArr = object->getProperty("eq").getArray())
+                for (int i = 0; i < juce::jmin(6, eqArr->size()); ++i)
+                    if (auto* a = (*eqArr)[i].getArray(); a != nullptr && a->size() >= 4)
+                    {
+                        track.eq[i].enabled = (bool)(*a)[0];
+                        track.eq[i].freq    = (float)(double)(*a)[1];
+                        track.eq[i].gainDb  = (float)(double)(*a)[2];
+                        track.eq[i].q       = (float)(double)(*a)[3];
+                    }
 
             auto lanesVar = object->getProperty("automationLanes");
             if (lanesVar.isArray())
@@ -309,6 +383,13 @@ Clip ClipFromVar(const juce::var& var)
         tempoMap.clear();
         tempoBpm = 120.0;
         sampleRate = 44100.0;
+        macros.clear();
+        timeSigNumerator = 4; timeSigDenominator = 4;
+        metronomeEnabled = false; countInBars = 0;
+        loopEnabled = false; loopStartSample = loopEndSample = 0;
+        punchEnabled = false; punchInSample = punchOutSample = 0;
+        masterVolumeDb = 0.0f; masterLimiter = true;
+        stepSequencerState = juce::var(); engineExtras = juce::var();
     }
 
     int Session::getNumTracks() const noexcept
@@ -391,7 +472,9 @@ Clip ClipFromVar(const juce::var& var)
 
     void Session::addTempoPoint(const TempoPoint& tempoPoint)
     {
-        tempoMap.add(tempoPoint);
+        int i = 0;
+        while (i < tempoMap.size() && tempoMap.getReference(i).timeSeconds <= tempoPoint.timeSeconds) ++i;
+        tempoMap.insert(i, tempoPoint);
     }
 
     int Session::getNumMarkers() const noexcept
@@ -434,6 +517,22 @@ Clip ClipFromVar(const juce::var& var)
         root->setProperty("tempoMap", tempoVar);
         root->setProperty("novaAlignSettings", novaAlignSettings);
         root->setProperty("novaAlignPreviewEnabled", previewPlaybackEnabled);
+        root->setProperty("formatVersion", 2);
+        root->setProperty("timeSigNumerator", timeSigNumerator);
+        root->setProperty("timeSigDenominator", timeSigDenominator);
+        root->setProperty("metronomeEnabled", metronomeEnabled);
+        root->setProperty("metronomeVolume", (double)metronomeVolume);
+        root->setProperty("countInBars", countInBars);
+        root->setProperty("loopEnabled", loopEnabled);
+        root->setProperty("loopStartSample", (double)loopStartSample);
+        root->setProperty("loopEndSample", (double)loopEndSample);
+        root->setProperty("punchEnabled", punchEnabled);
+        root->setProperty("punchInSample", (double)punchInSample);
+        root->setProperty("punchOutSample", (double)punchOutSample);
+        root->setProperty("masterVolumeDb", (double)masterVolumeDb);
+        root->setProperty("masterLimiter", masterLimiter);
+        root->setProperty("stepSequencer", stepSequencerState);
+        root->setProperty("engineExtras", engineExtras);
 
         const juce::String jsonString = juce::JSON::toString(juce::var(root.get()), true);
         return file.replaceWithText(jsonString, false, true, "\n");
@@ -494,6 +593,86 @@ Clip ClipFromVar(const juce::var& var)
         novaAlignSettings = root->getProperty("novaAlignSettings");
         previewPlaybackEnabled = static_cast<bool>(root->getProperty("novaAlignPreviewEnabled"));
 
+        auto getOr = [root] (const char* key, juce::var fallback) { return root->hasProperty(key) ? root->getProperty(key) : fallback; };
+        timeSigNumerator   = juce::jlimit(1, 32, (int)getOr("timeSigNumerator", 4));
+        timeSigDenominator = juce::jlimit(1, 32, (int)getOr("timeSigDenominator", 4));
+        metronomeEnabled   = (bool)getOr("metronomeEnabled", false);
+        metronomeVolume    = (float)(double)getOr("metronomeVolume", 0.6);
+        countInBars        = juce::jlimit(0, 4, (int)getOr("countInBars", 0));
+        loopEnabled        = (bool)getOr("loopEnabled", false);
+        loopStartSample    = (int64_t)(double)getOr("loopStartSample", 0.0);
+        loopEndSample      = (int64_t)(double)getOr("loopEndSample", 0.0);
+        punchEnabled       = (bool)getOr("punchEnabled", false);
+        punchInSample      = (int64_t)(double)getOr("punchInSample", 0.0);
+        punchOutSample     = (int64_t)(double)getOr("punchOutSample", 0.0);
+        masterVolumeDb     = (float)(double)getOr("masterVolumeDb", 0.0);
+        masterLimiter      = (bool)getOr("masterLimiter", true);
+        stepSequencerState = root->getProperty("stepSequencer");
+        engineExtras       = root->getProperty("engineExtras");
+        if (tempoBpm <= 0.0) tempoBpm = 120.0;
+        if (sampleRate <= 0.0) sampleRate = 44100.0;
+
         return true;
+    }
+
+    void Session::rescaleToSampleRate(double newRate)
+    {
+        if (newRate <= 0.0 || sampleRate <= 0.0 || std::abs(newRate - sampleRate) < 0.5)
+        {
+            if (newRate > 0.0) sampleRate = newRate;
+            return;
+        }
+        const double r = newRate / sampleRate;
+        auto sc = [r] (int64_t v) { return (int64_t) std::llround((double) v * r); };
+        for (auto& t : tracks)
+            for (auto& c : t.clips)
+            {
+                c.startSample = sc(c.startSample);
+                c.lengthSamples = sc(c.lengthSamples);
+                c.fadeInSamples = sc(c.fadeInSamples);
+                c.fadeOutSamples = sc(c.fadeOutSamples);
+                c.fileOffsetSamples = sc(c.fileOffsetSamples);
+                c.alignmentOffsetSamples = sc(c.alignmentOffsetSamples);
+            }
+        loopStartSample = sc(loopStartSample);  loopEndSample = sc(loopEndSample);
+        punchInSample = sc(punchInSample);      punchOutSample = sc(punchOutSample);
+        sampleRate = newRate;
+    }
+
+    // Tempo map: points are (seconds, bpm) steps; the base tempo applies before the first point.
+    double Session::getTempoAtSeconds(double seconds) const noexcept
+    {
+        double bpm = tempoBpm;
+        for (const auto& p : tempoMap)
+        {
+            if (p.timeSeconds > seconds) break;
+            bpm = p.bpm;
+        }
+        return juce::jlimit(10.0, 999.0, bpm);
+    }
+
+    double Session::secondsToBeats(double seconds) const noexcept
+    {
+        double beats = 0.0, t = 0.0, bpm = juce::jlimit(10.0, 999.0, tempoBpm);
+        for (const auto& p : tempoMap)
+        {
+            if (p.timeSeconds >= seconds) break;
+            if (p.timeSeconds > t) { beats += (p.timeSeconds - t) * bpm / 60.0; t = p.timeSeconds; }
+            bpm = juce::jlimit(10.0, 999.0, p.bpm);
+        }
+        return beats + (seconds - t) * bpm / 60.0;
+    }
+
+    double Session::beatsToSeconds(double beats) const noexcept
+    {
+        double b = 0.0, t = 0.0, bpm = juce::jlimit(10.0, 999.0, tempoBpm);
+        for (const auto& p : tempoMap)
+        {
+            if (p.timeSeconds <= t) { bpm = juce::jlimit(10.0, 999.0, p.bpm); continue; }
+            const double segBeats = (p.timeSeconds - t) * bpm / 60.0;
+            if (b + segBeats >= beats) break;
+            b += segBeats; t = p.timeSeconds; bpm = juce::jlimit(10.0, 999.0, p.bpm);
+        }
+        return t + (beats - b) * 60.0 / bpm;
     }
 }

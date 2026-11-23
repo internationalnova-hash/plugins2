@@ -9,6 +9,11 @@ if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "" FORCE)
 endif()
 
+# Default to an optimised build (an unoptimised audio engine glitches under load).
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 project(NovaStudio VERSION 0.1.0)
 
 set(JUCE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -77,6 +82,9 @@ target_sources(NovaStudio PRIVATE
     Source/Main.cpp
     Source/MainComponent.cpp
     Source/StudioAudioEngine.cpp
+    Source/StudioAudioEngineCore.cpp
+    Source/StudioAudioEngineSession.cpp
+    Source/ClipStreamer.cpp
     Source/TransportState.cpp
     Source/TimelineModel.cpp
     Source/Session.cpp
@@ -136,6 +144,9 @@ juce_add_console_app(NovaStudioValidation
 target_sources(NovaStudioValidation PRIVATE
     Source/ValidationTest.cpp
     Source/StudioAudioEngine.cpp
+    Source/StudioAudioEngineCore.cpp
+    Source/StudioAudioEngineSession.cpp
+    Source/ClipStreamer.cpp
     Source/TransportState.cpp
     Source/TimelineModel.cpp
     Source/Session.cpp

@@ -277,6 +277,234 @@ static void testTransportState()
     check("setRecordArmed(false)", !transport.isRecordArmed());
 }
 
+
+// ─── 6. Engine audio: playback graph, export, edits ─────────────────────────
+
+static juce::File makeTestWav(const juce::String& name, double sr, double seconds, std::function<float(int, double)> gen, int channels = 2)
+{
+    auto f = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("NovaStudioTests").getChildFile(name);
+    f.getParentDirectory().createDirectory();
+    f.deleteFile();
+    juce::AudioBuffer<float> b(channels, (int) (sr * seconds));
+    for (int ch = 0; ch < channels; ++ch)
+        for (int i = 0; i < b.getNumSamples(); ++i)
+            b.setSample(ch, i, gen(ch, i / sr));
+    juce::WavAudioFormat wav;
+    std::unique_ptr<juce::AudioFormatWriter> w(wav.createWriterFor(new juce::FileOutputStream(f), sr, (unsigned) channels, 32, {}, 0));
+    w->writeFromAudioSampleBuffer(b, 0, b.getNumSamples());
+    return f;
+}
+
+static juce::AudioBuffer<float> readWav(const juce::File& f, double* rate = nullptr)
+{
+    juce::AudioFormatManager fm; fm.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> r(fm.createReaderFor(f));
+    juce::AudioBuffer<float> b;
+    if (r == nullptr) return b;
+    b.setSize((int) r->numChannels, (int) r->lengthInSamples);
+    r->read(&b, 0, (int) r->lengthInSamples, 0, true, true);
+    if (rate) *rate = r->sampleRate;
+    return b;
+}
+
+static void testEngineAudio()
+{
+    section("ENGINE — Playback graph & export");
+    const double sr = 44100.0;
+    auto sine = makeTestWav("sine.wav", sr, 2.0, [] (int, double t) { return 0.5f * (float) std::sin(2.0 * juce::MathConstants<double>::pi * 440.0 * t); });
+    auto dc   = makeTestWav("dc.wav", sr, 2.0, [] (int, double) { return 0.25f; });
+    auto out  = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("NovaStudioTests").getChildFile("out.wav");
+
+    StudioAudioEngine engine;
+    engine.newSession();
+    engine.setMasterLimiterEnabled(false);
+    engine.addTrack("Sine", TrackType::Audio);
+    auto& t0 = engine.getSession().getTrack(0);
+    t0.volumeDb = 0.0f;
+    Clip c; c.file = sine; c.startSample = 0; c.lengthSamples = (int64_t) (sr * 2.0);
+    t0.clips.add(c);
+    engine.notifySessionChanged();
+
+    StudioAudioEngine::ExportOptions o; o.tailSeconds = 0.0; o.bitDepth = 32;
+    auto res = engine.exportAudio(out, o);
+    auto b = readWav(out);
+    check("Export succeeds", res.ok);
+    check("Export length = arrangement length", std::abs(b.getNumSamples() - (int) (sr * 2.0)) < 64);
+    {
+        auto src = readWav(sine);
+        float maxDiff = 0.0f;
+        for (int i = 0; i < juce::jmin(b.getNumSamples(), src.getNumSamples()); ++i)
+            maxDiff = juce::jmax(maxDiff, std::abs(b.getSample(0, i) - src.getSample(0, i)));
+        check("Export is sample-identical to the source at 0 dB", maxDiff < 1.0e-4f);
+    }
+
+    // Pan hard left -> right channel silent (export now includes pan)
+    t0.pan = -1.0f; engine.notifySessionChanged();
+    engine.exportAudio(out, o); b = readWav(out);
+    check("Pan is applied in export", b.getMagnitude(1, 0, b.getNumSamples()) < 1.0e-4f && b.getMagnitude(0, 0, b.getNumSamples()) > 0.45f);
+    t0.pan = 0.0f;
+
+    // Split into two clips: playback across the split must be gapless
+    t0.clips.clear();
+    Clip a = c; a.lengthSamples = 30000;
+    Clip bb = c; bb.startSample = 30000; bb.fileOffsetSamples = 30000; bb.lengthSamples = c.lengthSamples - 30000;
+    t0.clips.add(a); t0.clips.add(bb);
+    engine.notifySessionChanged();
+    engine.exportAudio(out, o); b = readWav(out);
+    {
+        auto src = readWav(sine);
+        float maxDiff = 0.0f;
+        for (int i = 29000; i < 31000; ++i)
+            maxDiff = juce::jmax(maxDiff, std::abs(b.getSample(0, i) - src.getSample(0, i)));
+        check("Split clips play back gaplessly (sample-exact at the edit)", maxDiff < 1.0e-4f);
+    }
+
+    // Overlap: the clip on top (later in the list) plays
+    t0.clips.clear();
+    Clip under = c;
+    Clip top; top.file = dc; top.startSample = 22050; top.lengthSamples = 22050;
+    t0.clips.add(under); t0.clips.add(top);
+    engine.notifySessionChanged();
+    engine.exportAudio(out, o); b = readWav(out);
+    check("Overlapping clip on top replaces the one underneath", std::abs(b.getSample(0, 30000) - 0.25f) < 1.0e-4f);
+    check("Clip underneath still plays outside the overlap", std::abs(b.getSample(0, 5000) - readWav(sine).getSample(0, 5000)) < 1.0e-4f);
+
+    // Fade in starts from silence
+    t0.clips.clear();
+    Clip f = c; f.fadeInSamples = 4410; t0.clips.add(f);
+    engine.notifySessionChanged();
+    engine.exportAudio(out, o); b = readWav(out);
+    check("Clip fade-in is applied", std::abs(b.getSample(0, 10)) < 0.01f && b.getMagnitude(0, 20000, 2000) > 0.45f);
+
+    // Resampled clip: a 48 kHz file in a 44.1 kHz session keeps its duration and pitch
+    auto sine48 = makeTestWav("sine48.wav", 48000.0, 1.0, [] (int, double t) { return 0.5f * (float) std::sin(2.0 * juce::MathConstants<double>::pi * 1000.0 * t); });
+    t0.clips.clear();
+    Clip r; r.file = sine48; r.lengthSamples = (int64_t) sr; t0.clips.add(r);
+    engine.notifySessionChanged();
+    engine.exportAudio(out, o); b = readWav(out);
+    {
+        int crossings = 0;
+        for (int i = 1000; i < 40000; ++i)
+            if ((b.getSample(0, i - 1) < 0.0f) != (b.getSample(0, i) < 0.0f)) ++crossings;
+        const double freq = crossings / 2.0 / (39000.0 / sr);
+        check("Clips at another sample rate are resampled (pitch correct)", std::abs(freq - 1000.0) < 5.0);
+    }
+
+    // Stems: each track on its own
+    t0.clips.clear(); t0.clips.add(c);
+    engine.addTrack("DC", TrackType::Audio);
+    auto& t1 = engine.getSession().getTrack(1);
+    t1.volumeDb = 0.0f;
+    Clip d; d.file = dc; d.lengthSamples = (int64_t) (sr * 2.0); t1.clips.add(d);
+    engine.notifySessionChanged();
+    auto stemDir = out.getParentDirectory().getChildFile("stems");
+    stemDir.deleteRecursively();
+    const int stems = engine.exportStems(stemDir, o);
+    check("Stem export writes one file per track", stems == 2);
+    auto stemFiles = stemDir.findChildFiles(juce::File::findFiles, false, "*.wav");
+    stemFiles.sort();
+    if (stemFiles.size() == 2)
+    {
+        auto s2 = readWav(stemFiles[1]);
+        check("A stem contains only its own track", std::abs(s2.getSample(0, 1000) - 0.25f) < 1.0e-4f);
+    }
+
+    // Mute + solo honoured in the mix
+    t1.solo = true; engine.notifySessionChanged();
+    engine.exportAudio(out, o); b = readWav(out);
+    check("Solo is applied in export", std::abs(b.getSample(0, 1000) - 0.25f) < 1.0e-4f);
+    t1.solo = false; t1.muted = true; engine.notifySessionChanged();
+    engine.exportAudio(out, o); b = readWav(out);
+    check("Mute is applied in export", std::abs(b.getSample(0, 1000) - readWav(sine).getSample(0, 1000)) < 1.0e-4f);
+    t1.muted = false;
+
+    // Volume automation is applied in export
+    t1.muted = true;
+    AutomationLane lane; lane.parameterId = "volume";
+    AutomationPoint p0; p0.timeSeconds = 0.0; p0.value = -100.0f;
+    AutomationPoint p1; p1.timeSeconds = 1.0; p1.value = -100.0f;
+    lane.points.add(p0); lane.points.add(p1);
+    t0.automationLanes.add(lane);
+    engine.notifySessionChanged();
+    engine.exportAudio(out, o); b = readWav(out);
+    check("Volume automation is applied in export", b.getMagnitude(0, 2000, 20000) < 1.0e-3f);
+    t0.automationLanes.clear();
+
+    // Master volume
+    t1.muted = false; t1.clips.clear();
+    engine.setMasterVolume(-6.0206f);
+    engine.notifySessionChanged();
+    engine.exportAudio(out, o); b = readWav(out);
+    check("Master fader is applied", std::abs(b.getMagnitude(0, 10000, 10000) - 0.25f) < 0.01f);
+    engine.setMasterVolume(0.0f);
+}
+
+static void testSessionV2()
+{
+    section("SESSION — New fields round-trip");
+    Session s;
+    s.setSampleRate(44100.0);
+    auto& t = s.addTrack("Keys", TrackType::Midi);
+    Clip m; m.isMidi = true; m.startSample = 44100; m.lengthSamples = 88200;
+    MidiNote n; n.pitch = 64; n.startBeat = 1.5; n.lengthBeats = 0.5; n.velocity = 0.7f;
+    m.notes.add(n);
+    t.clips.add(m);
+    auto& a = s.addTrack("Vox", TrackType::Audio);
+    Clip c; c.file = juce::File("/tmp/x.wav"); c.startSample = 1000; c.lengthSamples = 5000;
+    c.fadeInSamples = 100; c.fadeOutSamples = 200; c.fileOffsetSamples = 300;
+    a.clips.add(c);
+    a.sendLevels[2] = -6.0f; a.sendBusIndex[2] = 1; a.sendPreFader[2] = true;
+    a.eq[3].enabled = true; a.eq[3].gainDb = 4.0f; a.inputChannel = 3; a.automationMode = 2;
+    s.timeSigNumerator = 6; s.timeSigDenominator = 8;
+    s.loopEnabled = true; s.loopStartSample = 100; s.loopEndSample = 900;
+    s.masterVolumeDb = -3.0f;
+
+    auto f = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("NovaStudioTests").getChildFile("v2.novastudio");
+    check("Save", s.saveToFile(f));
+    Session r;
+    check("Load", r.loadFromFile(f));
+    const auto& rm = r.getTrack(0).clips.getReference(0);
+    check("MIDI notes saved", rm.notes.size() == 1 && rm.notes[0].pitch == 64 && std::abs(rm.notes[0].startBeat - 1.5) < 1e-9);
+    const auto& rc = r.getTrack(1).clips.getReference(0);
+    check("Clip fades + trim offset saved", rc.fadeInSamples == 100 && rc.fadeOutSamples == 200 && rc.fileOffsetSamples == 300);
+    const auto& rt = r.getTrack(1);
+    check("Sends saved", std::abs(rt.sendLevels[2] + 6.0f) < 1e-4f && rt.sendBusIndex[2] == 1 && rt.sendPreFader[2]);
+    check("Track EQ saved", rt.eq[3].enabled && std::abs(rt.eq[3].gainDb - 4.0f) < 1e-4f);
+    check("Input channel + automation mode saved", rt.inputChannel == 3 && rt.automationMode == 2);
+    check("Time signature, loop, master saved", r.timeSigNumerator == 6 && r.timeSigDenominator == 8 && r.loopEnabled
+          && r.loopEndSample == 900 && std::abs(r.masterVolumeDb + 3.0f) < 1e-4f);
+
+    r.rescaleToSampleRate(88200.0);
+    check("Sample-rate change keeps clips in time", r.getTrack(1).clips.getReference(0).startSample == 2000
+          && r.getTrack(1).clips.getReference(0).fileOffsetSamples == 600);
+
+    Session tempo; tempo.setTempo(120.0);
+    TempoPoint tp; tp.timeSeconds = 2.0; tp.bpm = 60.0; tempo.addTempoPoint(tp);
+    check("Tempo map: beats before change", std::abs(tempo.secondsToBeats(2.0) - 4.0) < 1e-9);
+    check("Tempo map: beats after change", std::abs(tempo.secondsToBeats(4.0) - 6.0) < 1e-9);
+    check("Tempo map: inverse", std::abs(tempo.beatsToSeconds(6.0) - 4.0) < 1e-9);
+}
+
+static void testMidiFiles()
+{
+    section("MIDI — clips, import/export");
+    StudioAudioEngine engine;
+    engine.newSession();
+    engine.addTrack("Piano", TrackType::Midi);
+    const int ci = engine.createMidiClip(0, 0, (int64_t) (44100 * 2), "Chords");
+    check("Create MIDI clip", ci == 0);
+    juce::Array<MidiNote> notes;
+    for (int i = 0; i < 4; ++i) { MidiNote n; n.pitch = 60 + i * 4; n.startBeat = i; n.lengthBeats = 0.5; notes.add(n); }
+    check("Set MIDI notes", engine.setMidiClipNotes(0, ci, notes));
+    auto mid = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("NovaStudioTests").getChildFile("clip.mid");
+    check("Export MIDI clip", engine.exportMidiClip(0, ci, mid));
+    const int imported = engine.importMidiFile(mid, 0);
+    check("Import MIDI file creates a clip", imported == 1);
+    const auto& tr = engine.getSession().getTrack(engine.getSession().getNumTracks() - 1);
+    check("Imported notes match", tr.clips.size() == 1 && tr.clips[0].notes.size() == 4
+          && tr.clips[0].notes[2].pitch == 68 && std::abs(tr.clips[0].notes[2].startBeat - 2.0) < 1e-6);
+}
+
 // ─── main ────────────────────────────────────────────────────────────────────
 
 int main()
@@ -292,6 +520,9 @@ int main()
     testEngineSessionPersistence();
     testPluginHosting();
     testTransportState();
+    testEngineAudio();
+    testSessionV2();
+    testMidiFiles();
 
     std::cout << "\n══════════════════════════════════════════════════════\n";
     std::cout << "  Results: " << passed << " passed, " << failed << " failed\n";

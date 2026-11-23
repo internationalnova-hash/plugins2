@@ -12,6 +12,20 @@ namespace NovaStudio
         Master
     };
 
+    // A MIDI note inside a MIDI clip. Times are in beats (quarter notes) from the clip start,
+    // so notes follow tempo changes.
+    struct MidiNote
+    {
+        int    pitch = 60;
+        double startBeat = 0.0;
+        double lengthBeats = 1.0;
+        float  velocity = 0.8f;   // 0..1
+        bool operator== (const MidiNote& o) const noexcept
+        {
+            return pitch == o.pitch && startBeat == o.startBeat && lengthBeats == o.lengthBeats && velocity == o.velocity;
+        }
+    };
+
     struct Clip
     {
         juce::File file;
@@ -39,6 +53,8 @@ namespace NovaStudio
         juce::String alignmentSourceGuidePath;
         juce::Array<juce::var> alignmentWarpPoints;
         juce::Colour clipColor = juce::Colours::steelblue;
+        juce::String name;                 // optional display name
+        juce::Array<MidiNote> notes;       // MIDI clips only
     };
 
     struct AutomationPoint
@@ -78,6 +94,11 @@ namespace NovaStudio
         juce::String outputBus;  // e.g. "Main Out", "Bus 3-4"
         int   auxInputBusIndex = -1;  // for Aux tracks: which send bus to read from
         juce::Colour colour = juce::Colours::steelblue;
+        int   inputChannel = 0;       // first hardware input used when recording (stereo uses +1)
+        bool  monitorInput = false;   // hear the input through this track's plugins while armed
+        int   automationMode = 0;     // 0 Read, 1 Touch, 2 Latch, 3 Write, 4 Off
+        struct EQBand { bool enabled = false; float freq = 1000.0f; float gainDb = 0.0f; float q = 0.707f; };
+        EQBand eq[6];
         juce::String groupName;  // empty = ungrouped; tracks sharing a name form a group
         bool  locked = false;    // locked tracks cannot be edited (clips, volume, etc.)
         juce::Array<AutomationLane> automationLanes;
@@ -173,6 +194,34 @@ namespace NovaStudio
 
         bool saveToFile(const juce::File& file) const;
         bool loadFromFile(const juce::File& file);
+
+        // Converts every sample position (clips, fades, offsets) to a new sample rate,
+        // so a session opened on a device at a different rate stays in time.
+        void rescaleToSampleRate(double newRate);
+
+        // Musical time
+        int  timeSigNumerator = 4;
+        int  timeSigDenominator = 4;
+        double getTempoAtSeconds(double seconds) const noexcept;
+        double secondsToBeats(double seconds) const noexcept;
+        double beatsToSeconds(double beats) const noexcept;
+        const juce::Array<TempoPoint>& getTempoMap() const noexcept { return tempoMap; }
+        void clearTempoMap() { tempoMap.clear(); }
+
+        // Transport/recording settings saved with the session
+        bool   metronomeEnabled = false;
+        float  metronomeVolume = 0.6f;
+        int    countInBars = 0;
+        bool   loopEnabled = false;
+        int64_t loopStartSample = 0, loopEndSample = 0;
+        bool   punchEnabled = false;
+        int64_t punchInSample = 0, punchOutSample = 0;
+        float  masterVolumeDb = 0.0f;
+        bool   masterLimiter = true;
+
+        // Opaque blobs the engine fills (step sequencer pattern, mixer extras)
+        juce::var stepSequencerState;
+        juce::var engineExtras;
 
     private:
         juce::String projectName;

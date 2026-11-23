@@ -38,7 +38,7 @@ namespace NovaStudio
         bool isLooping() const noexcept;
 
         double getSampleRate() const noexcept;
-        int getTempo() const noexcept;
+        double getTempo() const noexcept;
 
     private:
         const Session& session;

@@ -81,7 +81,7 @@ namespace NovaStudio
         return transportState.getSampleRate();
     }
 
-    int TimelineModel::getTempo() const noexcept
+    double TimelineModel::getTempo() const noexcept
     {
         return transportState.getTempo();
     }

@@ -20,8 +20,16 @@ namespace NovaStudio
         void setSampleRate(double rate) noexcept;
         double getSampleRate() const noexcept;
 
-        void setTempo(int bpm) noexcept;
-        int getTempo() const noexcept;
+        void setTempo(double bpm) noexcept;
+        double getTempo() const noexcept;
+        void setTimeSignature(int numerator, int denominator) noexcept;
+        int getTimeSigNumerator() const noexcept { return timeSigNum.load(); }
+        int getTimeSigDenominator() const noexcept { return timeSigDen.load(); }
+
+        // Audio-clock transport: the audio thread advances the position by exactly the
+        // samples it renders, so consecutive blocks are always contiguous.
+        void advancePosition(int64_t numSamples) noexcept { currentSamplePosition.fetch_add(numSamples); }
+        void setPositionFromAudioThread(int64_t samplePos) noexcept { currentSamplePosition.store(samplePos); }
 
         void setLoopRange(int64_t startSample, int64_t endSample) noexcept;
         void clearLoopRange() noexcept;
@@ -61,20 +69,17 @@ namespace NovaStudio
         juce::String getBarBeatString(int64_t samplePosition) const;
 
     private:
-        void updatePositionFromClock() const noexcept;
-        int64_t getPlaybackPositionInternal() const noexcept;
 
         std::atomic<double> sampleRate { 44100.0 };
-        std::atomic<int> tempoBpm { 120 };
+        std::atomic<double> tempoBpm { 120.0 };
+        std::atomic<int> timeSigNum { 4 }, timeSigDen { 4 };
         std::atomic<bool> loopEnabled { false };
         std::atomic<bool> recordArmed { false };
         std::atomic<bool> inputMonitor { false };
         std::atomic<bool> playing { false };
         std::atomic<bool> recording { false };
 
-        mutable std::atomic<int64_t> currentSamplePosition { 0 };
-        mutable std::atomic<int64_t> lastClockSamplePosition { 0 };
-        mutable std::atomic<double> playStartTimeMs { 0.0 };
+        std::atomic<int64_t> currentSamplePosition { 0 };
 
         std::atomic<int64_t> loopStartSample { 0 };
         std::atomic<int64_t> loopEndSample { 0 };
