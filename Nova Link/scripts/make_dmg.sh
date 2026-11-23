@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Builds a signed + notarized Nova Link installer and wraps it in a DMG.
 #   VST3 -> /Library/Audio/Plug-Ins/VST3, AU -> /Library/Audio/Plug-Ins/Components,
-#   Standalone -> /Applications. AAX is left out (retail Pro Tools needs PACE signing).
+#   Standalone -> /Applications, AAX -> /Library/Application Support/Avid/Audio/Plug-Ins.
+#   The AAX is Developer ID signed but not PACE-wrapped yet, so it loads in Pro Tools
+#   Developer only (retail Pro Tools needs the PACE wrap; set NO_AAX=1 to leave it out).
 # Usage: scripts/make_dmg.sh [output-dir]
 set -euo pipefail
 
@@ -16,13 +18,16 @@ NOTARY="nova-audio-notary"
 ART="$ROOT/build/NovaLink_artefacts/Release"
 WORK="$ROOT/dist/work"
 rm -rf "$WORK"; mkdir -p "$WORK/root/Library/Audio/Plug-Ins/VST3" "$WORK/root/Library/Audio/Plug-Ins/Components" "$WORK/root/Applications" "$OUT"
+AAX_DIR="$WORK/root/Library/Application Support/Avid/Audio/Plug-Ins"
+WITH_AAX=$([ "${NO_AAX:-0}" = "1" ] && echo 0 || echo 1)
+[ "$WITH_AAX" = "1" ] && mkdir -p "$AAX_DIR"
 
 echo "==> Building"
 cmake -S "$ROOT" -B "$ROOT/build" -DCMAKE_BUILD_TYPE=Release >/dev/null
 cmake --build "$ROOT/build" --config Release -j "$(sysctl -n hw.ncpu)" >/dev/null
 
 echo "==> Checking every binary is self-contained"
-for b in "$ART/VST3/Nova Link.vst3" "$ART/AU/Nova Link.component" "$ART/Standalone/Nova Link.app"; do
+for b in "$ART/VST3/Nova Link.vst3" "$ART/AU/Nova Link.component" "$ART/Standalone/Nova Link.app" "$ART/AAX/Nova Link.aaxplugin"; do
     if otool -L "$b/Contents/MacOS/Nova Link" | grep -q '@rpath'; then echo "ERROR: $b links an external library" >&2; exit 1; fi
 done
 
@@ -30,10 +35,12 @@ echo "==> Staging + signing (hardened runtime)"
 cp -R "$ART/VST3/Nova Link.vst3" "$WORK/root/Library/Audio/Plug-Ins/VST3/"
 cp -R "$ART/AU/Nova Link.component" "$WORK/root/Library/Audio/Plug-Ins/Components/"
 cp -R "$ART/Standalone/Nova Link.app" "$WORK/root/Applications/"
+[ "$WITH_AAX" = "1" ] && cp -R "$ART/AAX/Nova Link.aaxplugin" "$AAX_DIR/"
 xattr -cr "$WORK/root"
 codesign --force --options runtime --timestamp --sign "$APP_ID" "$WORK/root/Library/Audio/Plug-Ins/VST3/Nova Link.vst3"
 codesign --force --options runtime --timestamp --sign "$APP_ID" "$WORK/root/Library/Audio/Plug-Ins/Components/Nova Link.component"
 # The standalone app opens the mic and camera itself, so it needs those entitlements.
+[ "$WITH_AAX" = "1" ] && codesign --force --options runtime --timestamp --sign "$APP_ID" "$AAX_DIR/Nova Link.aaxplugin"
 codesign --force --options runtime --timestamp --entitlements "$HERE/standalone.entitlements" --sign "$APP_ID" "$WORK/root/Applications/Nova Link.app"
 for b in "$WORK/root/Library/Audio/Plug-Ins/VST3/Nova Link.vst3" "$WORK/root/Library/Audio/Plug-Ins/Components/Nova Link.component" "$WORK/root/Applications/Nova Link.app"; do
     codesign --verify --deep --strict "$b"
@@ -62,7 +69,9 @@ cat > "$WORK/dmg/Read Me.txt" <<TXT
 Nova Link $VERSION
 
 1. Double-click "Install Nova Link.pkg" and follow the steps.
-   It installs the VST3 and AU plug-ins and the Nova Link app.
+   It installs the VST3, AU and AAX plug-ins and the Nova Link app.
+   (Pro Tools: the AAX loads in Pro Tools Developer for now. In regular
+   Pro Tools, the artist can use the Nova Link app instead.)
 2. Engineer: put Nova Link on your master bus and click Start session.
    Send the session code to the artist.
 3. Artist: put Nova Link on your vocal track (or open the Nova Link app),
