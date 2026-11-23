@@ -59,7 +59,24 @@ public:
 
     void setWorkspaceMode(int mode);
 
+    // Quit flow: asks to save unsaved work. Calls onDone(true) if it's OK to quit.
+    void confirmCloseSession(std::function<void(bool)> onDone);
+    static MainComponent* getInstance() noexcept { return instance; }
+
 private:
+    static inline MainComponent* instance = nullptr;
+    void saveSessionInteractive(bool forceChooser, std::function<void(bool)> onDone = {});
+    void runExport(bool stems);
+    void promptImportMidi();
+    void promptRecoverAutosave();
+    void promptTempoAndMeter();
+    void promptRecordingOffset();
+    void promptMasterVolume();
+    void promptTrackInput(int trackIndex);
+    void createMidiClipAtPlayhead();
+    void loadSelectedMidiClipIntoPianoRoll(bool force);
+    int pianoRollTrack = -1, pianoRollClip = -1;
+    int  getFocusedTrack() const;
     void updateStatusMessage(const juce::String& message);
     void refreshTrackList();
     void promptClipFadeLength(bool isFadeIn);

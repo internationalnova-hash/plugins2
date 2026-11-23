@@ -235,6 +235,36 @@ namespace NovaStudio
         return true;
     }
 
+
+    // Removes `delta` samples from the front of a clip while keeping its content in place
+    // on the timeline: audio advances its file offset, MIDI shifts its notes earlier.
+    static void cutClipFront(Clip& c, int64_t delta, const Session& session)
+    {
+        if (delta <= 0) return;
+        const double sr = session.getSampleRate() > 0 ? session.getSampleRate() : 44100.0;
+        if (c.isMidi)
+        {
+            const double b0 = session.secondsToBeats((double) c.startSample / sr);
+            const double b1 = session.secondsToBeats((double) (c.startSample + delta) / sr);
+            const double shift = b1 - b0;
+            juce::Array<MidiNote> kept;
+            for (auto n : c.notes)
+            {
+                n.startBeat -= shift;
+                if (n.startBeat < -1.0e-9) continue;   // notes before the cut are dropped
+                kept.add(n);
+            }
+            c.notes = kept;
+        }
+        else
+        {
+            c.fileOffsetSamples += delta;
+        }
+        c.startSample += delta;
+        c.lengthSamples = juce::jmax<int64_t>(1, c.lengthSamples - delta);
+        c.fadeInSamples = 0;
+    }
+
     bool ArrangementModel::trimSelectedClipStart(int64_t samplePosition)
     {
         Clip* clip = getSelectedClip();
@@ -247,8 +277,7 @@ namespace NovaStudio
 
         Clip oldClip = *clip;
         Clip newClip = *clip;
-        newClip.startSample = newStart;
-        newClip.lengthSamples = juce::jmax<int64_t>(1, newClip.lengthSamples - lengthDelta);
+        cutClipFront(newClip, lengthDelta, session);
 
         undoManager.beginNewTransaction("Trim Clip Start");
         undoManager.perform(new ReplaceClipAction(this, selectedTrackIndex, selectedClipIndex, oldClip, newClip));
@@ -334,7 +363,8 @@ namespace NovaStudio
             Clip* clip = getClipReference(p.x, p.y);
             if (clip == nullptr) continue;
             Clip duplicate = *clip;
-            duplicate.startSample = getSnappedSamplePosition(clip->startSample + snapResolutionSamples());
+            // Like every DAW: the copy goes right after the original (end to end).
+            duplicate.startSample = clip->startSample + clip->lengthSamples;
             action->trackIndices.add(p.x);
             action->insertIndices.add(p.y + 1);
             action->clips.add(duplicate);
@@ -947,8 +977,8 @@ namespace NovaStudio
         Clip secondPart = *clip;
 
         firstPart.lengthSamples = splitSample - clip->startSample;
-        secondPart.startSample = splitSample;
-        secondPart.lengthSamples = oldClip.lengthSamples - firstPart.lengthSamples;
+        firstPart.fadeOutSamples = 0;
+        cutClipFront(secondPart, splitSample - clip->startSample, session);
 
         struct SplitClipAction : public juce::UndoableAction
         {
@@ -1040,8 +1070,8 @@ namespace NovaStudio
             Clip first = clip;
             Clip second = clip;
             first.lengthSamples = splitSample - start;
-            second.startSample = splitSample;
-            second.lengthSamples = before.lengthSamples - first.lengthSamples;
+            first.fadeOutSamples = 0;
+            cutClipFront(second, splitSample - start, session);
 
             SplitInfo info; info.trackIndex = p.x; info.clipIndex = p.y; info.before = before; info.first = first; info.second = second;
             splits.add(info);

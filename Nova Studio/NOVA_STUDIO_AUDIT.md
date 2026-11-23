@@ -87,3 +87,55 @@ risks on the audio thread, MIDI not playing anything, and export not matching wh
 6. **MIDI:** note data in clips, piano roll saving into clips, MIDI to instruments, live MIDI input. (P1 6)
 7. **Recording:** per-track inputs, multi-track, latency compensation, punch, takes. (P1 10)
 8. **Tempo, metronome, count-in, automation modes,** then the P2 list.
+
+---
+
+## Status after the Nov 23 engine rebuild
+
+**Fixed** (all covered by `NovaStudioValidation`, 99 tests. Run with `NOVA_REALTIME_TEST=1` to include the live-device test):
+
+- **P0 1–3:**
+  - The audio thread reads an atomically swapped snapshot and never touches the Session.
+  - It does no locking (try-lock only), no allocation and no disk logging.
+  - The recorder shuts down safely.
+  - The transport now runs on the audio clock. It used to run on the wall clock, so blocks drifted.
+- **P0 4:** Export renders through the real graph (plugins, master, sends, EQ, automation, pan), plus stems, with a progress bar and cancel.
+- **P0 5:** The session now saves:
+  - fades and trim offsets (splits used to break on reload)
+  - sends, EQ, routing and inputs
+  - MIDI notes, the Beat Studio pattern, master plugins, loop/punch, metronome and MIDI-learn
+  - Plus: autosave every minute, File → Recover Autosave, and a "Save changes?" prompt on quit.
+- **P1 6 (MIDI):**
+  - Notes live in clips; instruments receive MIDI; MIDI keyboards play the selected or armed MIDI track.
+  - MIDI recording; .mid import/export; MIDI clips drawn in the arrangement.
+  - The piano roll edits the selected clip (double-click a MIDI clip, or Clip → Edit in Piano Roll).
+- **P1 7:** Gapless, sample-accurate clips. Clip starts and loop points are RAM-cached. Other sample rates are resampled. The top clip wins on overlaps.
+- **P1 8–9:** The strip runs inserts → EQ → fader/pan → sends. Plugins always run (tails, instruments, monitoring through the track).
+- **P1 10 (recording):**
+  - Every armed track records from its own input (mixer input menu or Track → Input).
+  - Latency compensation plus a manual offset.
+  - Punch in/out; loop recording makes takes (earlier ones muted); count-in.
+- **P1 11:** Aux returns run after all sends.
+- **P1 12:** Fractional tempo, time signature, tempo map in the engine, metronome.
+- **P1 13:** Automation modes Read/Touch/Latch/Write/Off. Faders follow automation.
+- **P2:**
+  - Working master fader and safety limiter.
+  - Post-fader meters.
+  - Release builds by default.
+  - Device sample-rate changes keep the arrangement in time.
+- **Also fixed:**
+  - Splitting or trimming the start of a clip no longer replays the file from the beginning.
+  - Duplicate now goes end to end.
+  - Beat Studio steps fire sample-accurately (step 1 used to be skipped).
+  - Removing a track no longer wipes every track's plugins.
+
+**Still to do (compared with major DAWs):**
+
+- Take lanes / comping UI (takes exist as muted clips).
+- Track outputs routed to buses, sidechain inputs.
+- Audio warping to tempo.
+- A tempo-map editing UI.
+- Automation lane drawing for plugin parameters.
+- Track freeze.
+- MIDI CC/pitch-bend lanes and 1/32+ piano-roll resolution.
+- The Windows build hasn't been tested.

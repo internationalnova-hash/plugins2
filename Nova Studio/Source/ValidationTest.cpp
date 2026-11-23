@@ -7,6 +7,8 @@
 #include "Session.h"
 #include "StudioAudioEngine.h"
 #include "TransportState.h"
+#include "TimelineModel.h"
+#include "ArrangementModel.h"
 
 using namespace NovaStudio;
 
@@ -505,6 +507,97 @@ static void testMidiFiles()
           && tr.clips[0].notes[2].pitch == 68 && std::abs(tr.clips[0].notes[2].startBeat - 2.0) < 1e-6);
 }
 
+static void testEditing()
+{
+    section("EDITING — split / trim keep content in place");
+    Session s; s.setSampleRate(44100.0);
+    TransportState ts; ts.setSampleRate(44100.0);
+    TimelineModel tl(s, ts);
+    ArrangementModel am(s, tl);
+    am.setSnapToGrid(false);
+    auto& t = s.addTrack("A", TrackType::Audio);
+    Clip c; c.file = juce::File("/tmp/x.wav"); c.startSample = 1000; c.lengthSamples = 10000; c.fileOffsetSamples = 50;
+    t.clips.add(c);
+    am.selectClip(0, 0);
+    check("Split", am.splitSelectedClip(4000));
+    check("Right half continues the audio (file offset moved)", s.getTrack(0).clips.size() == 2
+          && s.getTrack(0).clips[1].startSample == 4000 && s.getTrack(0).clips[1].fileOffsetSamples == 3050);
+    am.selectClip(0, 0);
+    check("Trim start", am.trimSelectedClipStart(2000));
+    check("Trimmed clip keeps audio aligned", s.getTrack(0).clips[0].startSample == 2000 && s.getTrack(0).clips[0].fileOffsetSamples == 1050);
+
+    auto& m = s.addTrack("M", TrackType::Midi);
+    Clip mc; mc.isMidi = true; mc.startSample = 0; mc.lengthSamples = 44100 * 4;   // 8 beats at 120 BPM
+    for (int i = 0; i < 8; ++i) { MidiNote n; n.pitch = 60; n.startBeat = i; n.lengthBeats = 0.5; mc.notes.add(n); }
+    m.clips.add(mc);
+    am.selectClip(1, 0);
+    check("Split MIDI clip", am.splitSelectedClip(44100 * 2));   // at beat 4
+    const auto& right = s.getTrack(1).clips[1];
+    check("MIDI right half keeps its notes in place", right.notes.size() == 4 && std::abs(right.notes[0].startBeat) < 1e-6);
+    am.selectClip(1, 0);
+    check("Duplicate", am.duplicateSelectedClip());
+    check("Duplicate goes end-to-end", s.getTrack(1).clips[1].startSample == 44100 * 2);
+}
+
+static void testRealtimeDevice()
+{
+    section("REALTIME — live device playback, loop, record");
+    StudioAudioEngine engine;
+    if (!engine.initialize()) { check("Audio device opened (skipped: none available)", true); return; }
+    const double sr = engine.getCurrentSampleRate();
+    auto sine = makeTestWav("rt_sine.wav", sr, 4.0, [] (int, double t) { return 0.2f * (float) std::sin(2.0 * juce::MathConstants<double>::pi * 330.0 * t); });
+    engine.newSession();
+    engine.addTrack("Sine", TrackType::Audio);
+    auto& t = engine.getSession().getTrack(0);
+    t.volumeDb = -30.0f;   // quiet: this plays through your speakers
+    for (int i = 0; i < 4; ++i)
+    {
+        Clip c; c.file = sine; c.startSample = (int64_t) (i * sr); c.lengthSamples = (int64_t) sr; c.fileOffsetSamples = (int64_t) (i * sr);
+        t.clips.add(c);
+    }
+    engine.notifySessionChanged();
+
+    auto pump = [&engine] (int ms) { juce::Thread::sleep(ms); engine.notifySessionChanged(); };
+    engine.play();
+    float peak = 0.0f;
+    for (int i = 0; i < 20; ++i) { pump(50); peak = juce::jmax(peak, engine.getMasterOutputPeak()); }
+    const auto pos = engine.getTransportState().getPositionSamples();
+    check("Transport advances on the audio clock", pos > (int64_t) (sr * 0.8) && pos < (int64_t) (sr * 1.4));
+    check("Audio reaches the output while playing", peak > 0.001f);
+
+    engine.setLoopRange((int64_t) (sr * 0.5), (int64_t) (sr * 1.0), true);
+    engine.seek((int64_t) (sr * 0.5));
+    for (int i = 0; i < 30; ++i) pump(50);
+    const auto lp = engine.getTransportState().getPositionSamples();
+    check("Loop keeps the playhead inside the loop", lp >= (int64_t) (sr * 0.5) && lp < (int64_t) (sr * 1.0));
+    engine.setLoopRange(0, 0, false);
+
+    // Edit while playing (the old engine could crash here)
+    for (int k = 0; k < 40; ++k)
+    {
+        Clip c; c.file = sine; c.startSample = (int64_t) (sr * 4 + k * 1000); c.lengthSamples = 5000;
+        engine.getSession().getTrack(0).clips.add(c);
+        if (k % 5 == 0) engine.addTrack("Extra " + juce::String(k), TrackType::Audio);
+        pump(10);
+    }
+    check("Editing while playing doesn't crash", true);
+    engine.stop();
+
+    engine.setTrackArm(0, true);
+    engine.seek(0);
+    engine.toggleRecord();
+    for (int i = 0; i < 20; ++i) pump(50);
+    engine.toggleRecord();
+    pump(200);
+    const auto& clips = engine.getSession().getTrack(0).clips;
+    bool foundTake = false;
+    for (const auto& c : clips) foundTake = foundTake || (c.file.getParentDirectory() == engine.getRecordingFolder() && c.lengthSamples > sr * 0.5);
+    check("Recording creates a take on the armed track", foundTake);
+    for (const auto& c : clips)
+        if (c.file.getParentDirectory() == engine.getRecordingFolder()) c.file.deleteFile();
+    engine.shutdown();
+}
+
 // ─── main ────────────────────────────────────────────────────────────────────
 
 int main()
@@ -523,6 +616,9 @@ int main()
     testEngineAudio();
     testSessionV2();
     testMidiFiles();
+    testEditing();
+    if (juce::SystemStats::getEnvironmentVariable("NOVA_REALTIME_TEST", {}).isNotEmpty())
+        testRealtimeDevice();
 
     std::cout << "\n══════════════════════════════════════════════════════\n";
     std::cout << "  Results: " << passed << " passed, " << failed << " failed\n";

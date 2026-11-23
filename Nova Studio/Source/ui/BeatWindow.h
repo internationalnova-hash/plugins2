@@ -109,10 +109,17 @@ namespace NovaStudioUI
     // ─────────────────────────────────────────────────────────────────────────
     // PianoRollView — center
     // ─────────────────────────────────────────────────────────────────────────
-    class PianoRollView : public juce::Component
+    class PianoRollView : public juce::Component, private juce::Timer
     {
     public:
         struct NoteBlock { int pitch, startStep, lengthSteps; float velocity; };
+
+        // Editing target: the notes of one MIDI clip (steps are 1/16 notes).
+        // onNotesChanged fires (on the message thread) shortly after any edit.
+        void setNotes(const juce::Array<NoteBlock>& newNotes, const juce::String& clipName);
+        const juce::Array<NoteBlock>& getNotes() const noexcept { return notes; }
+        juce::String getClipName() const { return editingName; }
+        std::function<void(const juce::Array<NoteBlock>&)> onNotesChanged;
 
         PianoRollView();
         void paint(juce::Graphics& g) override;
@@ -178,6 +185,10 @@ namespace NovaStudioUI
 
         juce::Array<NoteBlock> notes;
         juce::Array<int> selectedNotes;   // indices into `notes`
+        juce::String editingName;
+        juce::int64 lastNotesHash = 0;
+        juce::int64 hashNotes() const;
+        void timerCallback() override;
 
         juce::Array<NoteBlock> ghostNotes;
         bool showGhostNotes = false;
@@ -1007,6 +1018,7 @@ namespace NovaStudioUI
             { stepSeq.onPreviewSample = std::move(fn); }
         void setOnPianoKeyEvent(std::function<void(int pitch, bool keyDown)> fn)
             { pianoRoll.onPianoKeyEvent = std::move(fn); }
+        PianoRollView& getPianoRoll() noexcept { return pianoRoll; }
 
         // Switch the beat window's docked canvas to the Piano Roll, or open the
         // Step Sequencer (Channel Rack) floating panel — used so the View menu's

@@ -15,6 +15,7 @@ namespace NovaStudioUI
                        private juce::ChangeListener
     {
     public:
+        ArrangementView* getArrangementView() noexcept { return arrangementView.get(); }
         EditWindow(NovaStudio::TransportState& transport,
                    NovaStudio::TimelineModel& timeline,
                    NovaStudio::ArrangementModel& arrangement);

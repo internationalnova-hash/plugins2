@@ -1180,11 +1180,25 @@ void MixerWindow::buildStrips()
         strip->onColourChanged    = [this, i](juce::Colour c)      { engine.setTrackColour(i, c); };
         strip->onGroupChanged     = [this, i](const juce::String& g) { engine.setTrackGroup(i, g); };
         strip->onLockToggled      = [this, i](bool locked)        { engine.setTrackLocked(i, locked); };
-        // Available hardware inputs
-        strip->getAvailableInputs = [this]() -> juce::StringArray {
+        // Hardware inputs this track can record from (pairs for stereo tracks).
+        auto inputLabelFor = [this](int trackIdx, int ch) -> juce::String {
+            const auto& tr = engine.getSession().getTrack(trackIdx);
+            if (tr.type == NovaStudio::TrackType::Midi) return "MIDI In";
+            return tr.isStereo ? "In " + juce::String(ch + 1) + "-" + juce::String(ch + 2) : "In " + juce::String(ch + 1);
+        };
+        strip->setInputName(inputLabelFor(i, track.inputChannel));
+        strip->getAvailableInputs = [this, i, inputLabelFor]() -> juce::StringArray {
             juce::StringArray inputs;
-            for (int n = 1; n <= 8; ++n) inputs.add("Input " + juce::String(n));
+            const int n = engine.getInputChannelNames().size();
+            const bool stereo = engine.getSession().getTrack(i).isStereo;
+            for (int ch = 0; ch < n; ch += (stereo ? 2 : 1))
+                if (!stereo || ch + 1 < n) inputs.add(inputLabelFor(i, ch));
+            if (inputs.isEmpty()) inputs.add("No inputs");
             return inputs;
+        };
+        strip->onInputChanged = [this, i](const juce::String& chosen) {
+            const int first = chosen.fromFirstOccurrenceOf("In ", false, false).getIntValue();
+            if (first > 0) engine.setTrackInputChannel(i, first - 1);
         };
         // Available outputs: hardware + internal buses (one per aux track)
         strip->getAvailableOutputs = [this]() -> juce::StringArray {
@@ -1247,6 +1261,8 @@ void MixerWindow::buildStrips()
     masterStrip->setTrackIndex(NovaStudio::StudioAudioEngine::kMasterTrackIndex);
     stripsContainer.addAndMakeVisible(*masterStrip);
     wireInserts(masterStrip.get(), NovaStudio::StudioAudioEngine::kMasterTrackIndex);
+    masterStrip->setFaderDb(engine.getMasterVolume());
+    masterStrip->onVolumeChanged = [this](float db) { engine.setMasterVolume(db); };
 
     refreshInsertSlotNames();
 }
@@ -1259,9 +1275,20 @@ void MixerWindow::timerCallback()
     // then auxStrips, then master at the last slot.
     int idx = 0;
 
+    const bool playing = engine.getTransportState().isPlaying();
     for (auto* strip : trackStrips)
     {
         const int ti = strip->getTrackIndex();
+        // Faders follow volume automation while playing (Read mode).
+        if (playing && ti >= 0 && ti < engine.getSession().getNumTracks())
+        {
+            const auto& tr = engine.getSession().getTrack(ti);
+            bool hasVolumeLane = false;
+            for (const auto& lane : tr.automationLanes)
+                hasVolumeLane = hasVolumeLane || (lane.parameterId == "volume" && lane.enabled && !lane.points.isEmpty());
+            if (hasVolumeLane && tr.automationMode == 0)
+                strip->setFaderDb(engine.getTrackDisplayVolume(ti));
+        }
         const float L = engine.getTrackPeakLevel(ti, 0);
         const float R = engine.getTrackPeakLevel(ti, 1);
         if (idx < kMaxMeterStrips)

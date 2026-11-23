@@ -280,10 +280,34 @@ void PatternPlaylist::mouseUp(const juce::MouseEvent&)
 
 PianoRollView::PianoRollView()
 {
-    notes.add({ 60, 0, 4, 0.8f });
-    notes.add({ 62, 6, 2, 0.6f });
-    notes.add({ 64, 10, 3, 0.9f });
-    notes.add({ 67, 2, 6, 0.7f });
+    lastNotesHash = hashNotes();
+    startTimerHz(8);
+}
+
+juce::int64 PianoRollView::hashNotes() const
+{
+    juce::int64 h = notes.size() * 1315423911LL;
+    for (const auto& n : notes)
+        h = h * 31 + n.pitch * 1000003LL + n.startStep * 7919LL + n.lengthSteps * 104729LL + (juce::int64) (n.velocity * 1000.0f);
+    return h;
+}
+
+void PianoRollView::setNotes(const juce::Array<NoteBlock>& newNotes, const juce::String& clipName)
+{
+    notes = newNotes;
+    selectedNotes.clear();
+    editingName = clipName;
+    lastNotesHash = hashNotes();
+    repaint();
+}
+
+void PianoRollView::timerCallback()
+{
+    // Every edit path (mouse, tools, menus) changes `notes`; report any change once.
+    const auto h = hashNotes();
+    if (h == lastNotesHash) return;
+    lastNotesHash = h;
+    if (onNotesChanged) onNotesChanged(notes);
 }
 
 void PianoRollView::paint(juce::Graphics& g)
@@ -304,6 +328,13 @@ void PianoRollView::paint(juce::Graphics& g)
     drawVelocityLane(g, velArea);
     drawToolsRow(g, toolsArea);
     drawSnapControls(g, snapArea);
+
+    // Which clip is being edited (notes are saved into it automatically).
+    g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+    g.setColour(juce::Colours::white.withAlpha(editingName.isEmpty() ? 0.45f : 0.8f));
+    g.drawText(editingName.isEmpty() ? juce::String("Sketch - select a MIDI clip (or Clip > New MIDI Clip) to edit it here")
+                                     : "Editing: " + editingName,
+               gridArea.removeFromTop(kHeaderH).reduced(8, 0), juce::Justification::centredRight, true);
 }
 
 void PianoRollView::resized() {}

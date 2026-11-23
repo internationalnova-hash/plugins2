@@ -70,6 +70,11 @@ namespace NovaStudioUI
                 sendKnobs[send].setValue(db, juce::dontSendNotification);
         }
         void setInputName (const juce::String& s) { inputLabel .setText(s, juce::dontSendNotification); }
+        void setFaderDb(float db)
+        {
+            fader.setValue(db, juce::dontSendNotification);
+            faderDbLabel.setText(juce::String(db, 1) + " dB", juce::dontSendNotification);
+        }
         void setOutputName(const juce::String& s) { outputLabel.setText(s, juce::dontSendNotification); }
 
         juce::String insertSlotNames[10];

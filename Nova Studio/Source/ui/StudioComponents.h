@@ -468,6 +468,10 @@ namespace NovaStudioUI
 
         void nudgeSelected(int direction); // +1 right, -1 left
 
+        // Asked to open the selected MIDI clip in the piano roll (menu or double-click).
+        std::function<void()> onEditMidiClip;
+        void mouseDoubleClick(const juce::MouseEvent& event) override;
+
     private:
         void changeListenerCallback(juce::ChangeBroadcaster* source) override;
         void timerCallback() override;

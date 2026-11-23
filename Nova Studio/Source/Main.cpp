@@ -20,8 +20,22 @@ public:
 
     void systemRequestedQuit() override
     {
+        // Ask before throwing away unsaved work.
+        if (auto* mc = MainComponent::getInstance())
+        {
+            if (quitPending) return;
+            quitPending = true;
+            mc->confirmCloseSession([this] (bool ok)
+            {
+                quitPending = false;
+                if (ok) quit();
+            });
+            return;
+        }
         quit();
     }
+
+    bool quitPending = false;
 
     void anotherInstanceStarted(const juce::String&) override {}
 

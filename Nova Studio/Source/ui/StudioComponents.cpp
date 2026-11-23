@@ -1395,7 +1395,34 @@ namespace NovaStudioUI
                     g.drawRoundedRectangle((float)clipStartX + 2.0f, clipY + 2.0f, clipWidth - 4.0f, clipHeight - 4.0f, 8.0f, 2.0f);
                 }
 
-                juce::String clipTitle = clip.file.existsAsFile() ? clip.file.getFileNameWithoutExtension() : "Clip";
+                juce::String clipTitle = clip.isMidi ? (clip.name.isNotEmpty() ? clip.name : juce::String("MIDI"))
+                                                     : (clip.name.isNotEmpty() ? clip.name
+                                                        : (clip.file.existsAsFile() ? clip.file.getFileNameWithoutExtension() : juce::String("Clip")));
+
+                // MIDI clips: draw their notes as a mini piano roll.
+                if (clip.isMidi && !clip.notes.isEmpty() && clipWidth > 6.0f)
+                {
+                    const auto& sess = arrangementModel.getSession();
+                    const double sr = sess.getSampleRate() > 0 ? sess.getSampleRate() : 44100.0;
+                    const double clipBeat0 = sess.secondsToBeats((double) clip.startSample / sr);
+                    int lo = 127, hi = 0;
+                    for (const auto& n : clip.notes) { lo = juce::jmin(lo, n.pitch); hi = juce::jmax(hi, n.pitch); }
+                    lo -= 1; hi += 1;
+                    const float top = clipY + 18.0f, h = juce::jmax(4.0f, (float) clipHeight - 22.0f);
+                    const float rowH = juce::jmax(1.5f, h / (float) (hi - lo + 1));
+                    const float clipEndX = (float) clipStartX + clipWidth;
+                    g.setColour(juce::Colour::fromRGB(200, 235, 255).withAlpha(0.85f));
+                    for (const auto& n : clip.notes)
+                    {
+                        const auto s0 = (int64_t) (sess.beatsToSeconds(clipBeat0 + n.startBeat) * sr);
+                        const auto s1 = (int64_t) (sess.beatsToSeconds(clipBeat0 + n.startBeat + n.lengthBeats) * sr);
+                        const float x0 = (float) timelineModel.getXForSamplePosition(s0, width);
+                        const float x1 = juce::jmin(clipEndX, (float) timelineModel.getXForSamplePosition(s1, width));
+                        if (x0 >= clipEndX) continue;
+                        const float y = top + (float) (hi - n.pitch) * (h / (float) (hi - lo + 1));
+                        g.fillRect(x0, y, juce::jmax(1.5f, x1 - x0 - 1.0f), rowH);
+                    }
+                }
                 g.setColour(juce::Colours::white.withAlpha(0.85f));
                 g.setFont(juce::Font(11.0f, juce::Font::bold));
                 g.drawText(clipTitle, (int)clipStartX + 8, (int)clipY + 6, (int)clipWidth - 16, 16, juce::Justification::left);
@@ -2237,8 +2264,14 @@ namespace NovaStudioUI
                     menu.addItem(3, "Bounce to Audio", isAudio && !clip.locked
                                      && (clip.gainDb != 0.0f || clip.fadeInSamples > 0 || clip.fadeOutSamples > 0));
                     menu.addItem(4, "Consolidate", arrangementModel.getSelectedClips().size() >= 2);
+                    if (clip.isMidi)
+                    {
+                        menu.addSeparator();
+                        menu.addItem(5, "Edit in Piano Roll");
+                    }
                     menu.showMenuAsync(juce::PopupMenu::Options(), [this](int result)
                     {
+                        if (result == 5 && onEditMidiClip) onEditMidiClip();
                         if (result == 1) arrangementModel.normalizeSelectedClip();
                         else if (result == 2) arrangementModel.reverseSelectedClip();
                         else if (result == 3) arrangementModel.bounceSelectedClipToAudio();
@@ -2619,6 +2652,14 @@ namespace NovaStudioUI
         }
         dragStartX = event.x;
         juce::ignoreUnused(width);
+    }
+
+    void ArrangementView::mouseDoubleClick(const juce::MouseEvent&)
+    {
+        // Double-clicking a MIDI clip opens it in the piano roll.
+        if (const auto* clip = arrangementModel.getSelectedClip())
+            if (clip->isMidi && onEditMidiClip)
+                onEditMidiClip();
     }
 
     void ArrangementView::mouseUp(const juce::MouseEvent& event)

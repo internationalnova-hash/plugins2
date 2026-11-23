@@ -8,6 +8,7 @@ MainComponent::MainComponent()
       arrangementView(transportState, timelineModel, arrangementModel),
       alignPanel(arrangementModel)
 {
+    instance = this;
     setSize(1440, 900);
 
     addAndMakeVisible(menuBar);
@@ -94,6 +95,51 @@ MainComponent::MainComponent()
     beatWindow->setOnPreviewSample([this](const juce::String& path) {
         engine.previewSample(juce::File(path));
     });
+    arrangementView.onEditMidiClip = [this]
+    {
+        loadSelectedMidiClipIntoPianoRoll(true);
+        setWorkspaceMode(2);
+        if (beatWindow) beatWindow->showPianoRollView();
+    };
+    if (editWindow != nullptr)
+        if (auto* av = editWindow->getArrangementView())
+            av->onEditMidiClip = arrangementView.onEditMidiClip;
+
+    // Piano roll edits are written straight into the MIDI clip it's showing.
+    beatWindow->getPianoRoll().onNotesChanged = [this](const juce::Array<NovaStudioUI::PianoRollView::NoteBlock>& blocks)
+    {
+        auto& session = engine.getSession();
+        if (!juce::isPositiveAndBelow(pianoRollTrack, session.getNumTracks())) return;
+        auto& clips = session.getTrack(pianoRollTrack).clips;
+        if (!juce::isPositiveAndBelow(pianoRollClip, clips.size()) || !clips.getReference(pianoRollClip).isMidi) return;
+        juce::Array<NovaStudio::MidiNote> notes;
+        double endBeat = 0.0;
+        for (const auto& b : blocks)
+        {
+            NovaStudio::MidiNote n;
+            n.pitch = juce::jlimit(0, 127, b.pitch);
+            n.startBeat = b.startStep / 4.0;
+            n.lengthBeats = juce::jmax(1, b.lengthSteps) / 4.0;
+            n.velocity = juce::jlimit(0.05f, 1.0f, b.velocity);
+            notes.add(n);
+            endBeat = juce::jmax(endBeat, n.startBeat + n.lengthBeats);
+        }
+        // Grow the clip (in whole bars) if notes were drawn past its end.
+        auto& clip = clips.getReference(pianoRollClip);
+        const double sr = engine.getCurrentSampleRate();
+        const double startBeat = session.secondsToBeats((double) clip.startSample / sr);
+        const double clipBeats = session.secondsToBeats((double) (clip.startSample + clip.lengthSamples) / sr) - startBeat;
+        if (endBeat > clipBeats + 1.0e-6)
+        {
+            const double barBeats = session.timeSigNumerator * 4.0 / session.timeSigDenominator;
+            const double newBeats = std::ceil(endBeat / barBeats) * barBeats;
+            clip.lengthSamples = (int64_t) std::llround(session.beatsToSeconds(startBeat + newBeats) * sr) - clip.startSample;
+            arrangementModel.sendChangeMessage();
+        }
+        engine.setMidiClipNotes(pianoRollTrack, pianoRollClip, notes);
+        refreshTrackList();
+    };
+
     beatWindow->setOnPianoKeyEvent([this](int pitch, bool keyDown) {
         engine.previewPianoKey(pitch, keyDown);
     });
@@ -163,14 +209,13 @@ MainComponent::MainComponent()
     beatWindow->onReturnToZero = [this]() {
         bool wasRecording = engine.isRecording() || engine.getTransportState().isRecording();
         engine.stop();
-        transportState.setPositionSamples(0, true);
+        engine.seek(0);
         workspaceToolbar.setPlayState(false, false);
         if (beatWindow) beatWindow->setPlayState(false, false);
         if (wasRecording) { refreshTrackList(); arrangementModel.sendChangeMessage(); }
     };
     beatWindow->onTempoChanged = [this](int bpm) {
-        engine.getSession().setTempo(static_cast<double>(bpm));
-        transportState.setTempo(static_cast<double>(bpm));
+        engine.setTempo(static_cast<double>(bpm));
         workspaceToolbar.setTempo(bpm);
         updateStatusMessage("Tempo: " + juce::String(bpm) + " BPM");
     };
@@ -220,7 +265,7 @@ MainComponent::MainComponent()
     workspaceToolbar.onReturnToZero = [this] {
         bool wasRecording = engine.isRecording() || engine.getTransportState().isRecording();
         engine.stop();
-        transportState.setPositionSamples(0, true);
+        engine.seek(0);
         workspaceToolbar.setPlayState(false, false);
         if (wasRecording)
         {
@@ -301,15 +346,40 @@ MainComponent::MainComponent()
     };
 
     workspaceToolbar.onLoop = [this] {
-        const bool looping = !engine.getTransportState().isLooping();
-        engine.getTransportState().setLooping(looping);
-        workspaceToolbar.setLoopState(looping);
+        auto& ts = engine.getTransportState();
+        const bool looping = !ts.isLooping();
+        int64_t ls = ts.getLoopStartSample(), le = ts.getLoopEndSample();
+        if (looping && le <= ls)
+        {
+            // No loop range yet: loop 4 bars from the bar the playhead is in.
+            const double sr = engine.getCurrentSampleRate();
+            const double barSec = 60.0 / ts.getTempo() * ts.getTimeSigNumerator() * 4.0 / ts.getTimeSigDenominator();
+            const double bar = std::floor((double) ts.getPositionSamples() / sr / barSec);
+            ls = (int64_t) (bar * barSec * sr);
+            le = (int64_t) ((bar + 4.0) * barSec * sr);
+        }
+        engine.setLoopRange(ls, le, looping);
+        workspaceToolbar.setLoopState(engine.getTransportState().isLooping());
         updateStatusMessage(looping ? "Loop enabled." : "Loop disabled.");
     };
 
     workspaceToolbar.onPunchToggle = [this] {
-        const bool enabled = !engine.getTransportState().isPunchEnabled();
-        engine.getTransportState().setPunchEnabled(enabled);
+        auto& ts = engine.getTransportState();
+        const bool enabled = !ts.isPunchEnabled();
+        int64_t pin = ts.getPunchInSample(), pout = ts.getPunchOutSample();
+        if (enabled && pout <= pin)
+        {
+            // Default punch range: the loop range, or 4 bars from the playhead.
+            pin = ts.getLoopStartSample(); pout = ts.getLoopEndSample();
+            if (pout <= pin)
+            {
+                const double sr = engine.getCurrentSampleRate();
+                const double barSec = 60.0 / ts.getTempo() * ts.getTimeSigNumerator() * 4.0 / ts.getTimeSigDenominator();
+                pin = ts.getPositionSamples();
+                pout = pin + (int64_t) (4.0 * barSec * sr);
+            }
+        }
+        engine.setPunchRange(pin, pout, enabled);
         workspaceToolbar.setPunchState(enabled);
         updateStatusMessage(enabled ? "Punch recording enabled." : "Punch recording disabled.");
     };
@@ -327,8 +397,7 @@ MainComponent::MainComponent()
     workspaceToolbar.setTempo(static_cast<int>(engine.getSession().getTempo()));
     workspaceToolbar.setTimecode(transportState.getTimecodeString(transportState.getPositionSamples()));
     workspaceToolbar.onTempoChanged = [this](int bpm) {
-        engine.getSession().setTempo(static_cast<double>(bpm));
-        transportState.setTempo(static_cast<double>(bpm));
+        engine.setTempo(static_cast<double>(bpm));
         if (beatWindow) beatWindow->setBpm(static_cast<double>(bpm));
         updateStatusMessage("Tempo: " + juce::String(bpm) + " BPM");
     };
@@ -380,6 +449,7 @@ MainComponent::MainComponent()
 
     workspaceToolbar.onSave = [this]()
     {
+        if (engine.getCurrentSessionFile() != juce::File()) { saveSessionInteractive(false); return; }
         auto chooser = std::make_shared<juce::FileChooser>(
             "Save Session",
             NovaStudio::StudioAudioEngine::getDefaultSessionsFolder(),
@@ -392,8 +462,14 @@ MainComponent::MainComponent()
                 if (f == juce::File{}) return;
                 auto target = f.withFileExtension(".novastudio");
                 target.getParentDirectory().createDirectory();
+                if (target.getFileNameWithoutExtension().isNotEmpty())
+                    engine.getSession().setName(target.getFileNameWithoutExtension());
                 if (engine.saveSession(target))
+                {
+                    engine.setCurrentSessionFile(target);
+                    engine.markSaved();
                     updateStatusMessage("Session saved: " + target.getFileName());
+                }
                 else
                     updateStatusMessage("Save failed.");
             });
@@ -414,6 +490,12 @@ MainComponent::MainComponent()
                 if (engine.loadSession(f))
                 {
                     if (mixerWindow) mixerWindow->refresh();
+                    workspaceToolbar.setTempo((int) std::lround(engine.getSession().getTempo()));
+                    if (beatWindow) beatWindow->setBpm(engine.getSession().getTempo());
+                    workspaceToolbar.setLoopState(engine.getTransportState().isLooping());
+                    workspaceToolbar.setPunchState(engine.getTransportState().isPunchEnabled());
+                    arrangementModel.clearSelection();
+                    arrangementModel.sendChangeMessage();
                     refreshTrackList();
                     updateStatusMessage("Session loaded: " + f.getFileName());
                 }
@@ -476,6 +558,10 @@ void MainComponent::changeListenerCallback(juce::ChangeBroadcaster* source)
     if (source == &arrangementModel)
     {
         workspaceToolbar.setPlaybackState(engine.getSession().isPreviewPlaybackEnabled(), arrangementModel.hasAlignmentPreview());
+        loadSelectedMidiClipIntoPianoRoll(false);
+        const int t = arrangementModel.getSelectedTrackIndex();
+        if (t >= 0 && t < engine.getSession().getNumTracks() && engine.getSession().getTrack(t).type == NovaStudio::TrackType::Midi)
+            engine.setMidiInputTrack(t);   // the keyboard plays the track you're working on
     }
 }
 
@@ -489,6 +575,7 @@ void MainComponent::parentHierarchyChanged()
 
 MainComponent::~MainComponent()
 {
+    if (instance == this) instance = nullptr;
     if (auto* tlw = getTopLevelComponent())
         tlw->removeKeyListener(this);
     // Close floating windows before destroying content
@@ -738,79 +825,341 @@ void MainComponent::promptBounceClipToAudio()
         }));
 }
 
-void MainComponent::promptExportMix()
+void MainComponent::promptExportMix()   { runExport(false); }
+void MainComponent::promptExportStems() { runExport(true); }
+
+namespace
 {
-    if (engine.getTrackCount() <= 0)
+    // Runs an export on a worker thread behind a modal progress bar (with Cancel).
+    class ExportJob : public juce::ThreadWithProgressWindow
     {
-        updateStatusMessage("Export Mix: session has no tracks");
+    public:
+        ExportJob(NovaStudio::StudioAudioEngine& e, juce::File dest, NovaStudio::StudioAudioEngine::ExportOptions o, bool stemsMode)
+            : juce::ThreadWithProgressWindow(stemsMode ? "Exporting stems..." : "Exporting mix...", true, true),
+              engine(e), destination(std::move(dest)), options(std::move(o)), stems(stemsMode) {}
+
+        void run() override
+        {
+            options.progress = [this] (float p) { setProgress(p); return !threadShouldExit(); };
+            if (stems)
+            {
+                stemCount = engine.exportStems(destination, options, &errors);
+                ok = stemCount > 0;
+            }
+            else
+            {
+                result = engine.exportAudio(destination, options);
+                ok = result.ok;
+            }
+        }
+
+        void threadComplete(bool) override
+        {
+            auto done = onComplete;
+            juce::MessageManager::callAsync([this, done] { if (done) done(*this); delete this; });
+        }
+
+        std::function<void(ExportJob&)> onComplete;
+        NovaStudio::StudioAudioEngine& engine;
+        juce::File destination;
+        NovaStudio::StudioAudioEngine::ExportOptions options;
+        bool stems = false, ok = false;
+        int stemCount = 0;
+        juce::StringArray errors;
+        NovaStudio::StudioAudioEngine::ExportResult result;
+    };
+}
+
+void MainComponent::runExport(bool stems)
+{
+    if (engine.getArrangementEndSample() <= 0)
+    {
+        updateStatusMessage("Export: the arrangement is empty");
         return;
     }
 
-    auto chooser = std::make_shared<juce::FileChooser>(
-        "Export Mix As...",
-        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile(engine.getSession().getName() + " Mix.wav"),
-        "*.wav");
-    chooser->launchAsync(
-        juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting,
-        [this, chooser](const juce::FileChooser& fc)
+    auto* dlg = new juce::AlertWindow(stems ? "Export Stems" : "Export Mix", "", juce::MessageBoxIconType::NoIcon);
+    dlg->addComboBox("range", { "Whole song", "Loop range" }, "Range:");
+    dlg->addComboBox("bits", { "24-bit WAV", "16-bit WAV", "32-bit float WAV" }, "Format:");
+    dlg->addComboBox("tail", { "Let effects ring out", "Stop at the end" }, "Ending:");
+    if (!engine.getTransportState().hasLoopRange())
+        if (auto* cb = dlg->getComboBoxComponent("range")) cb->setItemEnabled(2, false);
+    dlg->addButton("Export...", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    dlg->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    dlg->enterModalState(true, juce::ModalCallbackFunction::create([this, dlg, stems](int r)
+    {
+        NovaStudio::StudioAudioEngine::ExportOptions o;
+        const int range = dlg->getComboBoxComponent("range")->getSelectedItemIndex();
+        const int bits  = dlg->getComboBoxComponent("bits")->getSelectedItemIndex();
+        const int tail  = dlg->getComboBoxComponent("tail")->getSelectedItemIndex();
+        delete dlg;
+        if (r != 1) return;
+
+        if (range == 1)
+        {
+            o.startSample = engine.getTransportState().getLoopStartSample();
+            o.endSample = engine.getTransportState().getLoopEndSample();
+        }
+        o.bitDepth = bits == 1 ? 16 : (bits == 2 ? 32 : 24);
+        o.tailSeconds = tail == 0 ? 10.0 : 0.0;
+
+        const auto name = engine.getSession().getName().isNotEmpty() ? engine.getSession().getName() : juce::String("Untitled");
+        auto chooser = stems
+            ? std::make_shared<juce::FileChooser>("Choose a folder for the stems", juce::File::getSpecialLocation(juce::File::userDocumentsDirectory))
+            : std::make_shared<juce::FileChooser>("Export Mix As...", juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile(name + " Mix.wav"), "*.wav");
+        const int flags = stems ? (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories)
+                                : (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting);
+        chooser->launchAsync(flags, [this, chooser, o, stems](const juce::FileChooser& fc)
+        {
+            auto dest = fc.getResult();
+            if (dest == juce::File()) return;
+            if (!stems && dest.getFileExtension().isEmpty()) dest = dest.withFileExtension("wav");
+
+            auto* job = new ExportJob(engine, dest, o, stems);
+            job->onComplete = [this, dest, stems] (ExportJob& j)
+            {
+                if (j.ok && stems)
+                    updateStatusMessage("Exported " + juce::String(j.stemCount) + " stems to " + dest.getFileName());
+                else if (j.ok)
+                {
+                    juce::String msg = "Exported " + dest.getFileName() + " (peak " + juce::String(j.result.peakDb, 1) + " dBFS)";
+                    if (j.result.clipped) msg << " - warning: the mix clips; turn the master down";
+                    updateStatusMessage(msg);
+                }
+                else
+                    updateStatusMessage("Export failed: " + (stems ? j.errors.joinIntoString("; ") : j.result.error));
+            };
+            job->launchThread();
+        });
+    }));
+}
+
+void MainComponent::loadSelectedMidiClipIntoPianoRoll(bool force)
+{
+    if (beatWindow == nullptr) return;
+    const int t = arrangementModel.getSelectedTrackIndex();
+    const int c = arrangementModel.getSelectedClipIndex();
+    auto& session = engine.getSession();
+    if (!juce::isPositiveAndBelow(t, session.getNumTracks())) return;
+    const auto& clips = session.getTrack(t).clips;
+    if (!juce::isPositiveAndBelow(c, clips.size()) || !clips.getReference(c).isMidi) return;
+    if (!force && t == pianoRollTrack && c == pianoRollClip) return;
+
+    pianoRollTrack = t;
+    pianoRollClip = c;
+    juce::Array<NovaStudioUI::PianoRollView::NoteBlock> blocks;
+    for (const auto& n : clips.getReference(c).notes)
+        blocks.add({ n.pitch, (int) std::lround(n.startBeat * 4.0), juce::jmax(1, (int) std::lround(n.lengthBeats * 4.0)), n.velocity });
+    const auto& clip = clips.getReference(c);
+    beatWindow->getPianoRoll().setNotes(blocks, session.getTrack(t).name + (clip.name.isNotEmpty() ? " - " + clip.name : juce::String()));
+}
+
+int MainComponent::getFocusedTrack() const
+{
+    const int t = arrangementModel.getSelectedTrackIndex();
+    if (t >= 0) return t;
+    return -1;
+}
+
+void MainComponent::saveSessionInteractive(bool forceChooser, std::function<void(bool)> onDone)
+{
+    const auto current = engine.getCurrentSessionFile();
+    if (!forceChooser && current != juce::File())
+    {
+        const bool ok = engine.saveSession(current);
+        if (ok) engine.markSaved();
+        updateStatusMessage(ok ? "Session saved: " + current.getFileName() : juce::String("Save failed."));
+        if (onDone) onDone(ok);
+        return;
+    }
+    auto chooser = std::make_shared<juce::FileChooser>("Save Session",
+        NovaStudio::StudioAudioEngine::getDefaultSessionsFolder().getChildFile(engine.getSession().getName() + ".novastudio"), "*.novastudio");
+    chooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting,
+        [this, chooser, onDone](const juce::FileChooser& fc)
         {
             auto f = fc.getResult();
-            if (f == juce::File())
-                return;
-            if (f.getFileExtension().isEmpty())
-                f = f.withFileExtension("wav");
-
-            updateStatusMessage("Exporting mix...");
-            if (arrangementModel.exportMixToFile(f))
-                updateStatusMessage("Exported mix to " + f.getFileName());
-            else
-                updateStatusMessage("Export Mix: nothing to render (no audio clips found)");
+            if (f == juce::File()) { if (onDone) onDone(false); return; }
+            auto target = f.withFileExtension(".novastudio");
+            target.getParentDirectory().createDirectory();
+            engine.getSession().setName(target.getFileNameWithoutExtension());
+            const bool ok = engine.saveSession(target);
+            if (ok) { engine.setCurrentSessionFile(target); engine.markSaved(); }
+            updateStatusMessage(ok ? "Session saved: " + target.getFileName() : juce::String("Save failed."));
+            if (onDone) onDone(ok);
         });
 }
 
-void MainComponent::promptExportStems()
+void MainComponent::confirmCloseSession(std::function<void(bool)> onDone)
 {
-    if (engine.getTrackCount() <= 0)
+    if (!engine.hasUnsavedChanges())
     {
-        updateStatusMessage("Export Stems: session has no tracks");
+        onDone(true);
         return;
     }
+    juce::AlertWindow::showYesNoCancelBox(juce::MessageBoxIconType::QuestionIcon, "Save changes?",
+        "Do you want to save the changes to \"" + engine.getSession().getName() + "\"?",
+        "Save", "Don't Save", "Cancel", this,
+        juce::ModalCallbackFunction::create([this, onDone](int r)
+        {
+            if (r == 1) saveSessionInteractive(false, onDone);
+            else if (r == 2) onDone(true);
+            else onDone(false);
+        }));
+}
 
-    auto chooser = std::make_shared<juce::FileChooser>(
-        "Choose a folder for stems",
-        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory));
-    chooser->launchAsync(
-        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+void MainComponent::promptImportMidi()
+{
+    auto chooser = std::make_shared<juce::FileChooser>("Import MIDI File",
+        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory), "*.mid;*.midi");
+    chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
         [this, chooser](const juce::FileChooser& fc)
         {
-            auto folder = fc.getResult();
-            if (!folder.isDirectory())
-                return;
-
-            updateStatusMessage("Exporting stems...");
-            int exported = 0;
-            for (int t = 0; t < engine.getSession().getNumTracks(); ++t)
-            {
-                const auto& track = engine.getSession().getTrack(t);
-                if (track.clips.isEmpty())
-                    continue;
-
-                auto safeName = track.name.isNotEmpty() ? track.name : ("Track " + juce::String(t + 1));
-                safeName = safeName.retainCharacters(
-                    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ -_").trim();
-                if (safeName.isEmpty())
-                    safeName = "Track " + juce::String(t + 1);
-
-                auto destFile = folder.getChildFile(safeName + ".wav");
-                if (arrangementModel.exportTrackToFile(t, destFile))
-                    ++exported;
-            }
-
-            if (exported > 0)
-                updateStatusMessage("Exported " + juce::String(exported) + " stem(s) to " + folder.getFileName());
-            else
-                updateStatusMessage("Export Stems: nothing to render (no audio clips found)");
+            const auto f = fc.getResult();
+            if (!f.existsAsFile()) return;
+            int target = getFocusedTrack();
+            if (target >= 0 && engine.getSession().getTrack(target).type != NovaStudio::TrackType::Midi) target = -1;
+            const int n = engine.importMidiFile(f, engine.getTransportState().getPositionSamples(), target);
+            if (mixerWindow) mixerWindow->refresh();
+            refreshTrackList();
+            arrangementModel.sendChangeMessage();
+            updateStatusMessage(n > 0 ? "Imported " + juce::String(n) + " MIDI clip(s) from " + f.getFileName()
+                                      : "No notes found in " + f.getFileName());
         });
+}
+
+void MainComponent::promptRecoverAutosave()
+{
+    const auto f = engine.findNewestAutosave();
+    if (!f.existsAsFile()) { updateStatusMessage("No autosave found"); return; }
+    juce::AlertWindow::showOkCancelBox(juce::MessageBoxIconType::QuestionIcon, "Recover Autosave",
+        "Open the autosave from " + f.getLastModificationTime().toString(true, true) + "?\n\n" + f.getFileName(),
+        "Open", "Cancel", this, juce::ModalCallbackFunction::create([this, f](int r)
+        {
+            if (r != 1 || !engine.loadSession(f)) return;
+            engine.setCurrentSessionFile(juce::File());   // force "Save As" so the autosave isn't overwritten
+            if (mixerWindow) mixerWindow->refresh();
+            arrangementModel.clearSelection();
+            arrangementModel.sendChangeMessage();
+            refreshTrackList();
+            updateStatusMessage("Recovered " + f.getFileName() + " - use Save As to keep it");
+        }));
+}
+
+void MainComponent::promptTempoAndMeter()
+{
+    auto* dlg = new juce::AlertWindow("Tempo & Time Signature", "", juce::MessageBoxIconType::NoIcon);
+    dlg->addTextEditor("bpm", juce::String(engine.getSession().getTempo(), 2), "Tempo (BPM):");
+    dlg->addTextEditor("num", juce::String(engine.getSession().timeSigNumerator), "Beats per bar:");
+    dlg->addComboBox("den", { "4", "8", "2", "16" }, "Beat unit:");
+    const int den = engine.getSession().timeSigDenominator;
+    dlg->getComboBoxComponent("den")->setSelectedItemIndex(den == 8 ? 1 : den == 2 ? 2 : den == 16 ? 3 : 0);
+    dlg->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    dlg->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    dlg->enterModalState(true, juce::ModalCallbackFunction::create([this, dlg](int r)
+    {
+        if (r == 1)
+        {
+            const double bpm = juce::jlimit(10.0, 999.0, dlg->getTextEditorContents("bpm").getDoubleValue());
+            const int num = juce::jlimit(1, 32, dlg->getTextEditorContents("num").getIntValue());
+            const int den = dlg->getComboBoxComponent("den")->getText().getIntValue();
+            engine.setTempo(bpm);
+            engine.setTimeSignature(num, den);
+            workspaceToolbar.setTempo((int) std::lround(bpm));
+            if (beatWindow) beatWindow->setBpm(bpm);
+            arrangementModel.sendChangeMessage();
+            updateStatusMessage("Tempo " + juce::String(bpm, 2) + " BPM, " + juce::String(num) + "/" + juce::String(den));
+        }
+        delete dlg;
+    }));
+}
+
+void MainComponent::promptRecordingOffset()
+{
+    auto* dlg = new juce::AlertWindow("Recording Latency Offset",
+        "Nova Studio already compensates for your interface's reported latency ("
+            + juce::String(engine.getRoundTripLatencySamples()) + " samples).\n"
+            "If recordings still land late, add samples here (negative = later).",
+        juce::MessageBoxIconType::NoIcon);
+    dlg->addTextEditor("off", juce::String(engine.getRecordingOffsetSamples()), "Extra offset (samples):");
+    dlg->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    dlg->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    dlg->enterModalState(true, juce::ModalCallbackFunction::create([this, dlg](int r)
+    {
+        if (r == 1) engine.setRecordingOffsetSamples(dlg->getTextEditorContents("off").getIntValue());
+        delete dlg;
+    }));
+}
+
+void MainComponent::promptMasterVolume()
+{
+    auto* dlg = new juce::AlertWindow("Master Volume", "", juce::MessageBoxIconType::NoIcon);
+    dlg->addTextEditor("db", juce::String(engine.getMasterVolume(), 1), "Master (dB):");
+    dlg->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    dlg->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    dlg->enterModalState(true, juce::ModalCallbackFunction::create([this, dlg](int r)
+    {
+        if (r == 1)
+        {
+            engine.setMasterVolume(dlg->getTextEditorContents("db").getFloatValue());
+            updateStatusMessage("Master: " + juce::String(engine.getMasterVolume(), 1) + " dB");
+        }
+        delete dlg;
+    }));
+}
+
+void MainComponent::promptTrackInput(int trackIndex)
+{
+    if (trackIndex < 0) return;
+    const auto names = engine.getInputChannelNames();
+    if (names.isEmpty()) { updateStatusMessage("No audio inputs available"); return; }
+    const bool stereo = engine.getSession().getTrack(trackIndex).isStereo;
+
+    auto* dlg = new juce::AlertWindow("Track Input", engine.getSession().getTrack(trackIndex).name, juce::MessageBoxIconType::NoIcon);
+    juce::StringArray items;
+    for (int i = 0; i < names.size(); ++i)
+        items.add(stereo && i + 1 < names.size() ? "In " + juce::String(i + 1) + "-" + juce::String(i + 2) + "  (" + names[i] + " / " + names[i + 1] + ")"
+                                                 : "In " + juce::String(i + 1) + "  (" + names[i] + ")");
+    dlg->addComboBox("in", items, "Record from:");
+    dlg->getComboBoxComponent("in")->setSelectedItemIndex(juce::jlimit(0, items.size() - 1, engine.getTrackInputChannel(trackIndex)));
+    dlg->addComboBox("ch", { "Stereo", "Mono" }, "Channels:");
+    dlg->getComboBoxComponent("ch")->setSelectedItemIndex(stereo ? 0 : 1);
+    dlg->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    dlg->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    dlg->enterModalState(true, juce::ModalCallbackFunction::create([this, dlg, trackIndex](int r)
+    {
+        if (r == 1)
+        {
+            engine.setTrackInputChannel(trackIndex, dlg->getComboBoxComponent("in")->getSelectedItemIndex());
+            engine.setTrackStereo(trackIndex, dlg->getComboBoxComponent("ch")->getSelectedItemIndex() == 0);
+            updateStatusMessage("Input set for " + engine.getSession().getTrack(trackIndex).name);
+        }
+        delete dlg;
+    }));
+}
+
+void MainComponent::createMidiClipAtPlayhead()
+{
+    const int t = getFocusedTrack();
+    if (t < 0) { updateStatusMessage("New MIDI Clip: select a MIDI track first"); return; }
+    if (engine.getSession().getTrack(t).type != NovaStudio::TrackType::Midi)
+    {
+        updateStatusMessage("New MIDI Clip: the selected track isn't a MIDI track");
+        return;
+    }
+    auto& ts = engine.getTransportState();
+    const double sr = engine.getCurrentSampleRate();
+    const double barSec = 60.0 / ts.getTempo() * ts.getTimeSigNumerator() * 4.0 / ts.getTimeSigDenominator();
+    const double bar = std::floor((double) ts.getPositionSamples() / sr / barSec);
+    const int ci = engine.createMidiClip(t, (int64_t) (bar * barSec * sr), (int64_t) (4.0 * barSec * sr));
+    if (ci >= 0)
+    {
+        arrangementModel.selectClip(t, ci);
+        engine.setMidiInputTrack(t);
+        loadSelectedMidiClipIntoPianoRoll(true);
+        refreshTrackList();
+        arrangementModel.sendChangeMessage();
+        updateStatusMessage("New 4-bar MIDI clip - open the Piano Roll to add notes");
+    }
 }
 
 void MainComponent::showAboutDialog()
@@ -1839,7 +2188,12 @@ bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* /*ori
     // ── Save session ─────────────────────────────────────────────────────────
     if ((isCmd || isCtrl) && !isShift && (key.getTextCharacter() == 's' || key.getTextCharacter() == 'S'))
     {
-        if (workspaceToolbar.onSave) workspaceToolbar.onSave();
+        saveSessionInteractive(false);   // saves in place; asks for a name the first time
+        return true;
+    }
+    if ((isCmd || isCtrl) && isShift && (key.getTextCharacter() == 's' || key.getTextCharacter() == 'S'))
+    {
+        saveSessionInteractive(true);
         return true;
     }
 
@@ -2146,10 +2500,13 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         menu.addItem(104, "Save As...");
         menu.addSeparator();
         menu.addItem(105, "Import Audio...");
+        menu.addItem(110, "Import MIDI File...");
+        menu.addItem(111, "Export Selected MIDI Clip...", arrangementModel.hasSelection());
         menu.addItem(106, "Export Mix...",        engine.getTrackCount() > 0);
         menu.addItem(107, "Export Stems...",      engine.getTrackCount() > 0);
         menu.addSeparator();
         menu.addItem(108, "Session Settings...",  true);
+        menu.addItem(112, "Recover Autosave...",  engine.findNewestAutosave().existsAsFile());
         menu.addSeparator();
         menu.addItem(109, "Quit");
         break;
@@ -2176,6 +2533,23 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         menu.addSeparator();
         menu.addItem(307, "Duplicate Track",       arrangementModel.getSelectedTrackIndex() >= 0);
         menu.addItem(308, "Remove Last Track",     engine.getTrackCount() > 0);
+        menu.addItem(309, "Remove Selected Track", getFocusedTrack() >= 0);
+        menu.addSeparator();
+        {
+            const int ft = getFocusedTrack();
+            const bool has = ft >= 0;
+            const bool isAudio = has && engine.getSession().getTrack(ft).type == NovaStudio::TrackType::Audio;
+            menu.addItem(310, "Record Arm", has, has && engine.getSession().getTrack(ft).armed);
+            menu.addItem(311, "Input...", isAudio);
+            menu.addItem(312, "Monitor Input", isAudio, isAudio && engine.getTrackMonitorInput(ft));
+            juce::PopupMenu modes;
+            const auto names = NovaStudio::StudioAudioEngine::getAutomationModeNames();
+            for (int m = 0; m < names.size(); ++m)
+                modes.addItem(320 + m, names[m], has, has && engine.getTrackAutomationMode(ft) == m);
+            menu.addSubMenu("Automation Mode", modes, has);
+            menu.addItem(313, "Send Keyboard (MIDI) Here", has && engine.getSession().getTrack(ft).type == NovaStudio::TrackType::Midi,
+                         has && engine.getMidiInputTrack() == ft);
+        }
         break;
 
     case 3: // Clip
@@ -2188,6 +2562,9 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         menu.addSeparator();
         menu.addItem(406, "Bounce Clip to Audio", arrangementModel.hasSelection());
         menu.addItem(407, "Nova Align Selected");
+        menu.addSeparator();
+        menu.addItem(408, "New MIDI Clip at Playhead", getFocusedTrack() >= 0);
+        menu.addItem(409, "Edit MIDI Clip in Piano Roll", arrangementModel.hasSelection());
         break;
 
     case 4: // Audio
@@ -2197,6 +2574,19 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         menu.addSeparator();
         menu.addItem(504, "Buffer Size");
         menu.addItem(505, "Sample Rate");
+        menu.addSeparator();
+        menu.addItem(510, "Metronome", true, engine.isMetronomeEnabled());
+        {
+            juce::PopupMenu countIn;
+            for (int b = 0; b <= 2; ++b)
+                countIn.addItem(511 + b, b == 0 ? juce::String("Off") : juce::String(b) + (b == 1 ? " Bar" : " Bars"), true, engine.getCountInBars() == b);
+            menu.addSubMenu("Count-In", countIn);
+        }
+        menu.addItem(514, "Tempo && Time Signature...");
+        menu.addItem(515, "Recording Latency Offset...");
+        menu.addSeparator();
+        menu.addItem(516, "Master Volume...");
+        menu.addItem(517, "Master Safety Limiter", true, engine.isMasterLimiterEnabled());
         break;
 
     case 5: // Plugins
@@ -2277,8 +2667,31 @@ void MainComponent::menuItemSelected(int id, int)
         break;
     }
     case 102: if (workspaceToolbar.onLoad) workspaceToolbar.onLoad(); break;
-    case 103: // Save
-    case 104: if (workspaceToolbar.onSave) workspaceToolbar.onSave(); break;
+    case 103: saveSessionInteractive(false); break;
+    case 104: saveSessionInteractive(true);  break;
+    case 110: promptImportMidi(); break;
+    case 111:
+    {
+        const int ti = arrangementModel.getSelectedTrackIndex();
+        const int ci = arrangementModel.getSelectedClipIndex();
+        if (ti < 0 || ci < 0 || !engine.getSession().getTrack(ti).clips[ci].isMidi)
+        {
+            updateStatusMessage("Export MIDI: select a MIDI clip first");
+            break;
+        }
+        auto chooser = std::make_shared<juce::FileChooser>("Export MIDI Clip",
+            juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile(engine.getSession().getTrack(ti).name + ".mid"), "*.mid");
+        chooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting,
+            [this, chooser, ti, ci](const juce::FileChooser& fc)
+            {
+                auto f = fc.getResult();
+                if (f == juce::File()) return;
+                f = f.withFileExtension("mid");
+                updateStatusMessage(engine.exportMidiClip(ti, ci, f) ? "Exported " + f.getFileName() : juce::String("MIDI export failed"));
+            });
+        break;
+    }
+    case 112: promptRecoverAutosave(); break;
     case 105: // Import Audio
     {
         auto chooser = std::make_shared<juce::FileChooser>(
@@ -2301,11 +2714,15 @@ void MainComponent::menuItemSelected(int id, int)
                     NovaStudio::Clip clip;
                     clip.file          = f;
                     clip.startSample   = 0;
-                    clip.lengthSamples = reader ? reader->lengthInSamples : (int64_t)(44100 * 5);
+                    if (reader == nullptr) continue;
+                    clip.lengthSamples = (int64_t) std::llround((double) reader->lengthInSamples
+                                         * engine.getCurrentSampleRate() / juce::jmax(1.0, reader->sampleRate));
                     clip.isMidi        = false;
                     // Each file goes on its own track; add a new audio track for each file.
                     engine.addTrack(f.getFileNameWithoutExtension(), NovaStudio::TrackType::Audio);
+                    clip.clipColor = session.getTrack(session.getNumTracks() - 1).colour;
                     session.getTrack(session.getNumTracks() - 1).clips.add(clip);
+                    engine.notifySessionChanged();
                     ++imported;
                 }
                 if (imported > 0)
@@ -2404,8 +2821,8 @@ void MainComponent::menuItemSelected(int id, int)
                         const int n = engine.getTrackCount() + 1;
                         engine.addTrack(prefix + juce::String(n), type);
                         auto& t = engine.getSession().getTrack(engine.getSession().getNumTracks() - 1);
-                        t.isStereo  = isStereo;
                         t.outputBus = "Main Out";
+                        engine.setTrackStereo(engine.getSession().getNumTracks() - 1, isStereo);
                     }
                     refreshTrackList();
                     arrangementModel.sendChangeMessage();
@@ -2489,6 +2906,64 @@ void MainComponent::menuItemSelected(int id, int)
     case 806: exportForProTools();     break;
     case 807: findClippingTracks();    break;
     case 808: runAiMix();              break;
+
+    case 309:
+    {
+        const int ft = getFocusedTrack();
+        if (ft < 0) break;
+        const auto name = engine.getSession().getTrack(ft).name;
+        engine.removeTrack(ft);
+        arrangementModel.clearSelection();
+        if (mixerWindow) mixerWindow->refresh();
+        refreshTrackList();
+        arrangementModel.sendChangeMessage();
+        updateStatusMessage("Removed track: " + name);
+        break;
+    }
+    case 310:
+    {
+        const int ft = getFocusedTrack();
+        if (ft < 0) break;
+        engine.setTrackArm(ft, !engine.getSession().getTrack(ft).armed);
+        refreshTrackList();
+        break;
+    }
+    case 311: promptTrackInput(getFocusedTrack()); break;
+    case 312:
+    {
+        const int ft = getFocusedTrack();
+        if (ft >= 0) engine.setTrackMonitorInput(ft, !engine.getTrackMonitorInput(ft));
+        break;
+    }
+    case 313: if (getFocusedTrack() >= 0) engine.setMidiInputTrack(getFocusedTrack()); break;
+    case 320: case 321: case 322: case 323: case 324:
+        if (getFocusedTrack() >= 0)
+        {
+            engine.setTrackAutomationMode(getFocusedTrack(), id - 320);
+            updateStatusMessage("Automation: " + NovaStudio::StudioAudioEngine::getAutomationModeNames()[id - 320]);
+        }
+        break;
+    case 408: createMidiClipAtPlayhead(); break;
+    case 409:
+        loadSelectedMidiClipIntoPianoRoll(true);
+        setWorkspaceMode(2);
+        if (beatWindow) beatWindow->showPianoRollView();
+        break;
+    case 510:
+        engine.setMetronomeEnabled(!engine.isMetronomeEnabled());
+        updateStatusMessage(engine.isMetronomeEnabled() ? "Metronome on" : "Metronome off");
+        break;
+    case 511: case 512: case 513:
+        engine.setCountInBars(id - 511);
+        updateStatusMessage(id == 511 ? juce::String("Count-in off") : "Count-in: " + juce::String(id - 511) + " bar(s)");
+        break;
+    case 514: promptTempoAndMeter(); break;
+    case 515: promptRecordingOffset(); break;
+    case 516: promptMasterVolume(); break;
+    case 517:
+        engine.setMasterLimiterEnabled(!engine.isMasterLimiterEnabled());
+        updateStatusMessage(engine.isMasterLimiterEnabled() ? "Master safety limiter on" : "Master safety limiter off");
+        break;
 
     // ── Audio ───────────────────────────────────────────────────────────────
     case 501: // Audio Settings...
