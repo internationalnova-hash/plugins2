@@ -21,6 +21,9 @@ option(NOVA_LINK_REQUIRE_LICENSE "Require NovaLicense activation (customer build
 set(NOVA_LINK_SIGNAL_URL "https://nova-store-olive.vercel.app" CACHE STRING "Nova Link matchmaking server")
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# Build every dependency into the plugin: no separate .dylib files to ship.
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(CMAKE_SKIP_INSTALL_RULES ON)   # nothing here is "installed"; skips dependency export checks
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)   # older dependency CMake files
 include(FetchContent)
 
