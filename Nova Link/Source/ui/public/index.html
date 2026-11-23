@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nova Link</title>
+<style>
+  :root {
+    --text: #e9edf6; --soft: #aeb7cb; --dim: #6f7a92;
+    --gold: #ffbd4a; --gold-hot: #ff8a16; --gold-glow: rgba(255, 170, 56, 0.38);
+    --edge: rgba(255, 168, 49, 0.26); --edge-soft: rgba(255, 189, 84, 0.12);
+    --card: linear-gradient(180deg, rgba(10, 17, 34, 0.92), rgba(4, 9, 20, 0.95));
+    --red: #ff4d3a; --green: #46d38a; --blue: #6fb7ff;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: linear-gradient(180deg, #040915, #060d1d 50%, #02050f);
+    color: var(--text); font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none;
+  }
+  button, input { font: inherit; }
+  .plugin {
+    width: 1120px; height: 700px; position: absolute; top: 50%; left: 50%; transform-origin: center center;
+    border-radius: 18px; border: 1px solid var(--edge);
+    background:
+      radial-gradient(900px 520px at 50% 14%, rgba(18, 31, 72, 0.30), transparent 62%),
+      radial-gradient(620px 300px at 50% 80%, rgba(255, 142, 34, 0.10), transparent 60%),
+      linear-gradient(180deg, #030913, #03080f);
+    box-shadow: 0 28px 72px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,235,210,.14), inset 0 -28px 54px rgba(0,0,0,.42);
+    display: grid; grid-template-rows: 70px 92px minmax(0, 1fr) 30px; padding: 0 12px 4px; overflow: hidden;
+  }
+  .plugin::after { content: ""; position: absolute; inset: 8px; border-radius: 14px; border: 1px solid var(--edge-soft); pointer-events: none; }
+
+  .top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; border-bottom: 1px solid rgba(255,170,63,.3); padding: 6px 8px; z-index: 2; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 42px; height: 42px; border-radius: 11px; border: 1px solid rgba(255,176,62,.35); background: linear-gradient(180deg, rgba(12,19,35,.95), rgba(5,10,22,.96));
+          display: grid; place-items: center; box-shadow: 0 0 16px rgba(255,168,53,.16), inset 0 1px 0 rgba(255,231,194,.1); }
+  .logo img { width: 72%; height: 72%; object-fit: contain; }
+  .title { font-size: 30px; letter-spacing: .12em; font-weight: 600; line-height: 1; background: linear-gradient(92deg, #f4ac3f 0%, #f2be6a 30%, #d8dbe7 78%);
+           -webkit-background-clip: text; background-clip: text; color: transparent; white-space: nowrap; }
+  .title span { font-weight: 400; }
+  .subtitle { font-size: 10px; letter-spacing: .32em; color: var(--soft); margin-top: 6px; }
+  .right { display: flex; justify-content: flex-end; align-items: center; gap: 16px; }
+  .byline { font-family: "Snell Roundhand", "Apple Chancery", "Brush Script MT", cursive; font-size: 22px; color: #e8c58a; opacity: .9; white-space: nowrap; }
+  .power { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,176,62,.4); background: radial-gradient(circle at 50% 35%, #1a2540, #070c18);
+           display: grid; place-items: center; cursor: pointer; box-shadow: 0 0 12px var(--gold-glow); }
+  .power svg { width: 16px; height: 16px; stroke: var(--gold); }
+
+  /* session pill in the header */
+  .session { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 12px; border-radius: 12px; border: 1px solid rgba(255,176,62,.22); background: rgba(5,10,22,.85); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
+  .dot.wait { background: var(--gold); box-shadow: 0 0 10px var(--gold); animation: blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+  .sstate { font-size: 11px; letter-spacing: .18em; color: var(--soft); text-transform: uppercase; }
+  .code { font-size: 17px; letter-spacing: .16em; font-weight: 600; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .sbtn { height: 28px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255,176,62,.3); background: rgba(14,22,40,.9); color: var(--gold); font-size: 11px;
+          letter-spacing: .14em; cursor: pointer; text-transform: uppercase; }
+  .sbtn:hover { border-color: rgba(255,176,62,.65); box-shadow: 0 0 10px var(--gold-glow); }
+  .sbtn.red { color: #ffb3a8; border-color: rgba(255,77,58,.4); }
+
+  .card { border-radius: 14px; border: 1px solid rgba(255,176,62,.2); background: var(--card); box-shadow: inset 0 1px 0 rgba(255,231,194,.07), 0 10px 26px rgba(0,0,0,.35); position: relative; }
+  .label { font-size: 10.5px; letter-spacing: .26em; color: var(--soft); text-transform: uppercase; }
+  .label.gold { color: var(--gold); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 7px; background: rgba(1,4,10,.85); border: 1px solid rgba(255,176,62,.16);
+          font-size: 11px; letter-spacing: .08em; color: var(--soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .chip b { color: var(--text); font-weight: 600; }
+
+  /* shared session strip */
+  .strip { margin-top: 8px; padding: 8px 12px 8px; display: grid; grid-template-rows: 14px 1fr; gap: 4px; }
+  .strip .ruler { position: relative; font-size: 9.5px; color: var(--dim); letter-spacing: .06em; }
+  .strip .ruler span { position: absolute; top: 0; transform: translateX(-2px); }
+  .lane { position: relative; border-radius: 8px; background: rgba(1,4,10,.75); border: 1px solid rgba(255,176,62,.12); overflow: hidden; }
+  .lane .barline { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,.05); }
+  .lane .sec { position: absolute; top: 3px; height: 12px; font-size: 9.5px; letter-spacing: .16em; color: var(--soft); padding-left: 5px; border-left: 2px solid rgba(255,176,62,.6); }
+  .lane .tk { position: absolute; bottom: 5px; height: 22px; border-radius: 5px; background: linear-gradient(180deg, rgba(255,189,74,.35), rgba(255,138,22,.18)); border: 1px solid rgba(255,189,74,.5);
+              font-size: 9.5px; color: #ffe3b0; padding: 3px 6px; letter-spacing: .06em; white-space: nowrap; overflow: hidden; }
+  .lane .tk.live { background: linear-gradient(180deg, rgba(255,77,58,.4), rgba(255,77,58,.15)); border-color: rgba(255,77,58,.7); color: #ffd0c8; }
+  .lane .punch { position: absolute; top: 0; bottom: 0; background: rgba(255,77,58,.08); border-left: 1px dashed rgba(255,77,58,.6); border-right: 1px dashed rgba(255,77,58,.6); }
+  .lane .mk { position: absolute; top: 21px; width: 9px; height: 9px; transform: translateX(-4px) rotate(45deg); background: var(--blue); box-shadow: 0 0 8px rgba(111,183,255,.6); }
+  .lane .ph { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.7); }
+  .strip .pos { position: absolute; right: 12px; top: 5px; padding: 1px 8px; border-radius: 6px; background: rgba(3,8,18,.95); border: 1px solid rgba(255,176,62,.25); font-size: 11px; letter-spacing: .12em; color: var(--gold); font-variant-numeric: tabular-nums; }
+
+  /* main area */
+  .main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: minmax(0, 1fr) 160px; gap: 10px; padding: 8px 0 8px; min-height: 0; }
+
+  .video { padding: 10px; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; min-width: 0; }
+  .vhead { display: flex; align-items: center; gap: 8px; }
+  .vhead .who { font-size: 14px; font-weight: 600; letter-spacing: .04em; }
+  .vhead .where { font-size: 11px; color: var(--dim); letter-spacing: .1em; }
+  .vhead .sp { flex: 1; }
+  .screen { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,176,62,.18);
+            background: radial-gradient(420px 260px at 50% 45%, #1e2b4a, #070c18 75%); }
+  .screen .silhouette { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 260px; height: 270px; opacity: .55; }
+  .screen .mic { position: absolute; left: 62%; top: 26%; width: 46px; height: 120px; opacity: .5; }
+  .screen .tag { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 6px; }
+  .rec-badge { position: absolute; left: 12px; top: 12px; display: none; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: 8px;
+               background: rgba(255,77,58,.18); border: 1px solid rgba(255,77,58,.55); color: #ffc3ba; font-size: 12px; letter-spacing: .2em; font-weight: 600; }
+  .rec-badge i { width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red); animation: blink 1s infinite; }
+  .plugin.recording .rec-badge { display: flex; }
+  .pip { position: absolute; right: 12px; bottom: 12px; width: 168px; height: 95px; border-radius: 8px; border: 1px solid rgba(255,176,62,.35);
+         background: radial-gradient(120px 80px at 50% 45%, #2a2440, #0a0c16 80%); overflow: hidden; }
+  .pip .silhouette { width: 90px; height: 92px; opacity: .5; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); }
+  .pip span { position: absolute; left: 8px; top: 6px; font-size: 10px; letter-spacing: .14em; color: var(--soft); }
+  .camoff { position: absolute; right: 186px; bottom: 12px; }
+
+  .side { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; min-height: 0; overflow: hidden; }
+  .panel { padding: 10px 12px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .meters { display: flex; gap: 6px; height: 84px; margin-top: 8px; }
+  .meter { width: 14px; border-radius: 4px; background: rgba(1,4,10,.9); border: 1px solid rgba(255,176,62,.14); position: relative; overflow: hidden; }
+  .meter > i { position: absolute; left: 0; right: 0; bottom: 0; height: 60%; background: linear-gradient(0deg, #3bd18a, #c9e35b 70%, #ffbd4a 88%, #ff4d3a); transition: height .08s linear; }
+  .mside { flex: 1; display: grid; gap: 8px; align-content: start; }
+  .kv { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--soft); }
+  .kv b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .toggle { display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; color: var(--soft); }
+  .sw { width: 34px; height: 18px; border-radius: 10px; background: rgba(1,4,10,.9); border: 1px solid rgba(255,176,62,.3); position: relative; cursor: pointer; }
+  .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #3b4560; transition: left .15s, background .15s; }
+  .sw.on { border-color: rgba(255,176,62,.7); }
+  .sw.on::after { left: 18px; background: var(--gold); box-shadow: 0 0 8px var(--gold-glow); }
+  .slider { height: 6px; border-radius: 4px; background: rgba(1,4,10,.9); border: 1px solid rgba(255,176,62,.16); position: relative; margin: 6px 0 2px; }
+  .slider > i { position: absolute; left: 0; top: 0; bottom: 0; width: 72%; border-radius: 4px; background: linear-gradient(90deg, #a8661b, var(--gold)); }
+  .slider > b { position: absolute; top: 50%; left: 72%; width: 14px; height: 14px; border-radius: 50%; transform: translate(-50%, -50%);
+                background: radial-gradient(circle at 40% 35%, #ffe2a8, #c98a2c); box-shadow: 0 0 8px var(--gold-glow); }
+  .talk { width: 100%; height: 100%; min-height: 0; border-radius: 12px; border: 1px solid rgba(111,183,255,.4); cursor: pointer;
+          background: radial-gradient(240px 120px at 50% 40%, rgba(111,183,255,.22), rgba(6,12,26,.95)); color: #cfe6ff;
+          display: grid; place-items: center; align-content: center; gap: 6px; font-size: 13px; letter-spacing: .26em; font-weight: 600; }
+  .talk small { font-size: 10px; letter-spacing: .16em; color: var(--dim); font-weight: 400; }
+  .talk.held { background: radial-gradient(240px 120px at 50% 40%, rgba(111,183,255,.5), rgba(10,22,46,.95)); box-shadow: 0 0 22px rgba(111,183,255,.35); }
+
+  .bottom { grid-column: 1 / span 2; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 10px; min-height: 0; }
+  .takes, .chat { padding: 10px 12px; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; min-height: 0; }
+  .list { overflow: hidden; display: grid; gap: 6px; align-content: start; }
+  .take { display: grid; grid-template-columns: 70px minmax(0, 1fr) 118px 66px; align-items: center; gap: 10px; height: 30px; padding: 0 10px; border-radius: 8px;
+          background: rgba(1,4,10,.7); border: 1px solid rgba(255,176,62,.1); font-size: 12px; }
+  .take .n { font-weight: 600; letter-spacing: .06em; }
+  .take .m { color: var(--dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar { height: 6px; border-radius: 4px; background: rgba(255,255,255,.06); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg, #a8661b, var(--gold)); }
+  .st { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; text-align: right; }
+  .st.ok { color: var(--green); } .st.go { color: var(--gold); } .st.rec { color: #ff8a7c; }
+  .msgs { overflow: hidden; display: grid; gap: 6px; align-content: end; font-size: 12px; }
+  .msg { display: flex; gap: 8px; } .msg b { color: var(--gold); font-weight: 600; } .msg.them b { color: var(--blue); }
+  .msg .mk { color: var(--dim); font-size: 10.5px; letter-spacing: .1em; margin-left: auto; white-space: nowrap; }
+  .compose { display: flex; gap: 6px; }
+  .compose input { flex: 1; height: 30px; border-radius: 8px; background: rgba(1,4,10,.9); border: 1px solid rgba(255,176,62,.18); color: var(--text); padding: 0 10px; font-size: 12px; outline: none; }
+  .chat { grid-template-rows: auto minmax(0, 1fr) auto; }
+
+  .footer { display: flex; align-items: center; gap: 16px; padding: 0 10px; font-size: 10.5px; letter-spacing: .12em; color: var(--dim); border-top: 1px solid rgba(255,176,62,.14); }
+  .footer b { color: var(--soft); font-weight: 600; }
+  .footer .sp { flex: 1; }
+
+  /* artist role differences */
+  .strip .pos { pointer-events: none; }
+  .plugin.artist .host-only { display: none !important; }
+  .plugin:not(.artist) .artist-only { display: none !important; }
+
+  /* join screen (artist before connecting) */
+  .join { position: absolute; inset: 70px 12px 34px; display: none; place-items: center; z-index: 5; background: rgba(2,6,14,.72); backdrop-filter: blur(4px); border-radius: 12px; }
+  .plugin.joining .join { display: grid; }
+  .joinbox { width: 440px; padding: 26px; text-align: center; display: grid; gap: 14px; }
+  .joinbox h2 { font-size: 18px; letter-spacing: .2em; font-weight: 600; color: var(--gold); }
+  .joinbox p { font-size: 12.5px; color: var(--soft); line-height: 1.5; }
+  .joinbox input { height: 48px; border-radius: 10px; text-align: center; font-size: 24px; letter-spacing: .22em; background: rgba(1,4,10,.95); border: 1px solid rgba(255,176,62,.4); color: var(--gold); outline: none; }
+  .joinbox .sbtn { height: 40px; font-size: 13px; }
+
+  /* mockup-only role switch */
+  .demo { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); display: flex; gap: 6px; padding: 6px; border-radius: 10px; background: rgba(0,0,0,.6); border: 1px dashed #445; z-index: 99; font-size: 11px; }
+  .demo button { background: #141b2c; color: #cdd; border: 1px solid #334; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .demo button.on { border-color: var(--gold); color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="plugin recording" id="plugin">
+  <header class="top">
+    <div class="brand">
+      <div class="logo"><img src="n_logo.png" alt=""></div>
+      <div>
+        <div class="title">NOVA <span>LINK</span></div>
+        <div class="subtitle">REMOTE RECORDING</div>
+      </div>
+    </div>
+    <div class="session">
+      <i class="dot" id="dot"></i>
+      <span class="sstate" id="sstate">Connected</span>
+      <span class="code host-only">NOVA-4821</span>
+      <button class="sbtn host-only">Copy code</button>
+      <button class="sbtn red">Leave</button>
+    </div>
+    <div class="right">
+      <span class="byline">by Nova Audio</span>
+      <div class="power"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg></div>
+    </div>
+  </header>
+
+  <section class="card strip" id="strip">
+    <div class="ruler" id="ruler"></div>
+    <div class="lane" id="lane">
+      <div class="sec" style="left:0%">INTRO</div>
+      <div class="sec" style="left:12.5%">VERSE 1</div>
+      <div class="sec" style="left:37.5%">HOOK</div>
+      <div class="sec" style="left:62.5%">VERSE 2</div>
+      <div class="sec" style="left:87.5%">HOOK</div>
+      <div class="punch" style="left:37.5%; width:25%"></div>
+      <div class="tk" style="left:12.5%; width:23%">Take 1 · Verse 1</div>
+      <div class="tk" style="left:13%; width:22%; bottom:4px; opacity:.0"></div>
+      <div class="tk live" style="left:37.5%; width:14%">Take 3 · recording</div>
+      <div class="mk" style="left:33%" title="Bar 33 — redo 'tonight'"></div>
+      <div class="ph" id="ph" style="left:51.5%"></div>
+    </div>
+    <span class="pos" id="pos">BAR 33 · 2 · 120 BPM</span>
+  </section>
+
+  <div class="main">
+    <!-- Video -->
+    <section class="card video">
+      <div class="vhead">
+        <span class="label gold host-only">Artist</span><span class="label gold artist-only">Engineer</span>
+        <span class="who host-only">Marcus</span><span class="who artist-only">Nova Studio A</span>
+        <span class="where host-only">Atlanta · Studio B</span><span class="where artist-only">Los Angeles</span>
+        <span class="sp"></span>
+        <span class="chip">Delay <b>38 ms</b></span>
+        <span class="chip">Takes <b>48 kHz / 24-bit</b></span>
+      </div>
+      <div class="screen">
+        <svg class="silhouette" viewBox="0 0 100 104"><circle cx="50" cy="30" r="20" fill="#8fa3c8"/><path d="M8 104c4-30 22-44 42-44s38 14 42 44z" fill="#8fa3c8"/></svg>
+        <svg class="mic host-only" viewBox="0 0 20 60"><rect x="5" y="0" width="10" height="20" rx="5" fill="#c9d3e8"/><rect x="9" y="20" width="2" height="40" fill="#c9d3e8"/></svg>
+        <div class="rec-badge"><i></i><span class="host-only">RECORDING TAKE 3</span><span class="artist-only">YOU'RE RECORDING</span></div>
+        <div class="tag"><span class="chip">Cam <b>720p</b></span><span class="chip">Video <b>24 fps</b></span></div>
+        <button class="sbtn camoff">Camera on</button>
+        <div class="pip"><span>YOU</span><svg class="silhouette" viewBox="0 0 100 104"><circle cx="50" cy="30" r="20" fill="#b79bd8"/><path d="M8 104c4-30 22-44 42-44s38 14 42 44z" fill="#b79bd8"/></svg></div>
+      </div>
+    </section>
+
+    <!-- Side controls -->
+    <aside class="side">
+      <!-- Host: artist input; Artist: what they send -->
+      <section class="card panel">
+        <div class="row"><span class="label gold host-only">Artist mic</span><span class="label gold artist-only">Your mic → engineer</span></div>
+        <div class="row" style="align-items:stretch">
+          <div class="meters"><div class="meter"><i id="m1"></i></div><div class="meter"><i id="m2"></i></div></div>
+          <div class="mside" style="margin-top:10px">
+            <div class="kv"><span>Level</span><b id="lvl">-12.4 dB</b></div>
+            <div class="kv host-only"><span>Live stream</span><b>Opus 256k</b></div>
+            <div class="kv artist-only"><span>Input</span><b>Track input</b></div>
+            <div class="toggle"><span>Lossless takes</span><div class="sw on"></div></div>
+            <div class="toggle host-only"><span>Record into this track</span><div class="sw on"></div></div>
+            <div class="toggle artist-only"><span>Hear myself (local)</span><div class="sw on"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Host: send mix + click; Artist: what they hear -->
+      <section class="card panel">
+        <div class="label gold host-only">Send to artist</div>
+        <div class="label gold artist-only">Engineer's mix</div>
+        <div style="margin-top:10px" class="kv"><span>Mix level</span><b>-3.0 dB</b></div>
+        <div class="slider"><i></i><b></b></div>
+        <div style="height:6px"></div>
+        <div class="toggle host-only"><span>Include click</span><div class="sw on"></div></div>
+        <div class="toggle artist-only"><span>Click</span><span class="chip">From engineer</span></div>
+      </section>
+
+      <button class="card talk" id="talk">TALKBACK<small>HOLD TO TALK · DOUBLE-CLICK TO LATCH</small></button>
+    </aside>
+
+    <div class="bottom">
+      <section class="card takes">
+        <div class="row"><span class="label gold">Takes</span><span class="sp" style="flex:1"></span><span class="chip host-only">Auto-replace stream with lossless <b>ON</b></span></div>
+        <div class="list">
+          <div class="take"><span class="n">Take 1</span><span class="m">Verse 1 · 0:42</span><div class="bar"><i style="width:100%"></i></div><span class="st ok">In DAW</span></div>
+          <div class="take"><span class="n">Take 2</span><span class="m">Verse 1 · 0:44 · "keep the ad-libs"</span><div class="bar"><i style="width:100%"></i></div><span class="st ok">In DAW</span></div>
+          <div class="take"><span class="n">Take 3</span><span class="m">Hook · recording…</span><div class="bar"><i style="width:0%"></i></div><span class="st rec">Rec</span></div>
+          <div class="take" style="opacity:.55"><span class="n">Take 2b</span><span class="m">Hook punch · 0:12</span><div class="bar"><i style="width:62%"></i></div><span class="st go">62%</span></div>
+        </div>
+      </section>
+
+      <section class="card chat">
+        <div class="row"><span class="label gold">Chat &amp; markers</span><span style="flex:1"></span><button class="sbtn">+ Marker</button></div>
+        <div class="msgs">
+          <div class="msg them"><b>Marcus</b><span>Can I get more beat in my cans?</span></div>
+          <div class="msg"><b>You</b><span>Bumped it. Going from the hook.</span></div>
+          <div class="msg"><b>◆ Marker</b><span>Bar 33 — redo "tonight"</span><span class="mk">TAKE 2 · 1:12</span></div>
+          <div class="msg them"><b>Marcus</b><span>Ready 🔥</span></div>
+        </div>
+        <div class="compose"><input placeholder="Message…" /><button class="sbtn">Send</button></div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <span>Peer-to-peer · <b>encrypted</b></span>
+    <span>Jitter <b>6 ms</b></span>
+    <span>Loss <b>0.0%</b></span>
+    <span>Up <b>2.1 Mbps</b> · Down <b>2.4 Mbps</b></span>
+    <span class="sp"></span>
+    <span class="host-only">You're the <b>studio</b> — transport and recording follow your DAW</span>
+    <span class="artist-only">Connected to <b>NOVA-4821</b> — the engineer controls recording</span>
+  </footer>
+
+  <!-- Artist join screen -->
+  <div class="join">
+    <div class="card joinbox">
+      <h2>JOIN A SESSION</h2>
+      <p>Put Nova Link on the track you'll sing or play on, then enter the code the engineer sent you.</p>
+      <input value="NOVA-4821" />
+      <button class="sbtn">Join session</button>
+      <p style="font-size:11px;color:var(--dim)">Or start your own session to be the studio.</p>
+    </div>
+  </div>
+</div>
+
+<div class="demo">
+  <span style="color:#889;padding:4px 6px">MOCKUP:</span>
+  <button class="on" data-v="host">Studio (you)</button>
+  <button data-v="artist">Artist studio</button>
+  <button data-v="join">Artist · joining</button>
+  <button data-v="rec">Toggle recording</button>
+</div>
+
+<script>
+  const plugin = document.getElementById('plugin');
+  const fit = () => { const s = Math.min(innerWidth / 1140, innerHeight / 720); plugin.style.transform = `translate(-50%, -50%) scale(${s})`; };
+  addEventListener('resize', fit); fit();
+  document.querySelectorAll('.demo button').forEach(b => b.onclick = () => {
+    const v = b.dataset.v;
+    if (v === 'rec') { plugin.classList.toggle('recording'); return; }
+    document.querySelectorAll('.demo button').forEach(x => x.classList.toggle('on', x === b));
+    plugin.classList.toggle('artist', v !== 'host');
+    plugin.classList.toggle('joining', v === 'join');
+  });
+  // ruler + moving playhead (mock)
+  const ruler = document.getElementById('ruler'), lane = document.getElementById('lane');
+  for (let b = 1; b <= 53; b += 4) { const x = (b - 1) / 64 * 100; ruler.insertAdjacentHTML('beforeend', `<span style="left:${x}%">${b}</span>`); lane.insertAdjacentHTML('afterbegin', `<div class="barline" style="left:${x}%"></div>`); }
+  let ph = 51.5; setInterval(() => { if (!plugin.classList.contains('recording')) return; ph += 0.05; if (ph > 62.5) ph = 37.5; document.getElementById('ph').style.left = ph + '%';
+    const bar = Math.floor(ph / 100 * 64) + 1, beat = Math.floor((ph / 100 * 64 % 1) * 4) + 1; document.getElementById('pos').textContent = `BAR ${bar} · ${beat} · 120 BPM`; }, 50);
+  const talk = document.getElementById('talk');
+  talk.onmousedown = () => talk.classList.add('held'); talk.onmouseup = talk.onmouseleave = () => talk.classList.remove('held');
+  const m1 = document.getElementById('m1'), m2 = document.getElementById('m2'), lvl = document.getElementById('lvl');
+  setInterval(() => { const a = 40 + Math.random() * 45, b = a - 4 + Math.random() * 6; m1.style.height = a + '%'; m2.style.height = b + '%'; lvl.textContent = (-(100 - a) * 0.4).toFixed(1) + ' dB'; }, 90);
+</script>
+</body>
+</html>
