@@ -129,13 +129,32 @@ risks on the audio thread, MIDI not playing anything, and export not matching wh
   - Beat Studio steps fire sample-accurately (step 1 used to be skipped).
   - Removing a track no longer wipes every track's plugins.
 
+**Added in the second pass:**
+
+- **Output routing:**
+  - Tracks and aux returns can output to any aux bus (mixer output menu).
+  - Aux chains are processed in dependency order, and feedback loops can't be selected.
+  - New aux tracks get their own bus automatically. Before, aux tracks from the Track menu had no input, so sends to them were silent.
+- **Freeze / Unfreeze** (Track menu):
+  - Renders the plugins to audio and pauses them.
+  - Fader, pan, EQ and sends stay live.
+  - Saved with the session.
+  - The frozen result is bit-identical to live playback.
+- **Plugin latency compensation for the whole mix:**
+  - Playback and exports used to come out late by the plugin latency. Now the arrangement is read ahead.
+  - Exports pre-roll so the first samples aren't lost.
+- **Takes:** right-click a clip → Takes to pick which stacked take plays.
+- **Automation for plugin knobs** was already there: right-click a track → Add Automation Lane.
+
 **Still to do (compared with major DAWs):**
 
-- Take lanes / comping UI (takes exist as muted clips).
-- Track outputs routed to buses, sidechain inputs.
-- Audio warping to tempo.
-- A tempo-map editing UI.
-- Automation lane drawing for plugin parameters.
-- Track freeze.
-- MIDI CC/pitch-bend lanes and 1/32+ piano-roll resolution.
-- The Windows build hasn't been tested.
+- **Tempo-map editing in the UI:**
+  - The engine supports tempo changes, but the timeline grid assumes one tempo.
+  - It needs a non-linear time ruler before tempo changes can be drawn safely.
+- **Audio warping to tempo:**
+  - Needs a time-stretch engine.
+  - Rubber Band (GPL, or a paid commercial license) or a custom one.
+- **Sidechain inputs** for plugins.
+- **Hardware output routing** beyond outputs 1–2.
+- **MIDI editing:** CC/pitch-bend lanes and 1/32+ piano-roll resolution.
+- The **Windows build** hasn't been tested.

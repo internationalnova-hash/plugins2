@@ -539,6 +539,71 @@ static void testEditing()
     check("Duplicate goes end-to-end", s.getTrack(1).clips[1].startSample == 44100 * 2);
 }
 
+static void testRoutingAndFreeze()
+{
+    section("ROUTING & FREEZE");
+    const double sr = 44100.0;
+    auto sine = makeTestWav("route_sine.wav", sr, 2.0, [] (int, double t) { return 0.5f * (float) std::sin(2.0 * juce::MathConstants<double>::pi * 220.0 * t); });
+    auto out  = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("NovaStudioTests").getChildFile("route.wav");
+    StudioAudioEngine engine;
+    engine.newSession();
+    engine.setMasterLimiterEnabled(false);
+    engine.addTrack("Src", TrackType::Audio);
+    engine.addTrack("Bus FX", TrackType::Aux);
+    auto& src = engine.getSession().getTrack(0);
+    auto& aux = engine.getSession().getTrack(1);
+    check("New aux track gets its own bus", aux.auxInputBusIndex == 0);
+    src.volumeDb = 0.0f; aux.volumeDb = -6.0206f;
+    Clip c; c.file = sine; c.lengthSamples = (int64_t) (sr * 2.0); src.clips.add(c);
+    engine.notifySessionChanged();
+    engine.setTrackOutputBus(0, engine.getBusDisplayName(0));
+    StudioAudioEngine::ExportOptions o; o.tailSeconds = 0.0; o.bitDepth = 32;
+    engine.exportAudio(out, o);
+    auto b = readWav(out);
+    check("Track output routed through an aux bus", std::abs(b.getMagnitude(0, 0, b.getNumSamples()) - 0.25f) < 0.01f);
+    check("Aux can't be routed into itself", engine.getOutputChoices(1).size() == 1);
+    engine.setTrackOutputBus(0, "Main Out");
+
+    // Freeze with a real plugin
+    auto glue = juce::File::getSpecialLocation(juce::File::userHomeDirectory).getChildFile("Library/Audio/Plug-Ins/VST3/Nova Glue.vst3");
+    if (!glue.exists() || !engine.loadPluginOnTrack(0, glue))
+    {
+        check("Freeze test skipped (Nova Glue not installed)", true);
+        return;
+    }
+    aux.muted = true; engine.notifySessionChanged();
+    engine.exportAudio(out, o);
+    auto live = readWav(out);
+    juce::String err;
+    check("Freeze track", engine.freezeTrack(0, &err));
+    check("Frozen track is locked", engine.getSession().getTrack(0).locked && engine.isTrackFrozen(0));
+    engine.exportAudio(out, o);
+    auto frozen = readWav(out);
+    float maxDiff = 0.0f;
+    for (int i = 0; i < juce::jmin(live.getNumSamples(), frozen.getNumSamples()); ++i)
+        maxDiff = juce::jmax(maxDiff, std::abs(live.getSample(0, i) - frozen.getSample(0, i)));
+    {
+        int bestLag = 0; float bestErr = 1e9f;
+        for (int lag = -600; lag <= 600; ++lag)
+        {
+            float e = 0.0f;
+            for (int i = 20000; i < 40000; ++i) e += std::abs(live.getSample(0, i) - frozen.getSample(0, juce::jlimit(0, frozen.getNumSamples() - 1, i + lag)));
+            if (e < bestErr) { bestErr = e; bestLag = lag; }
+        }
+        std::cout << "    freeze maxDiff=" << maxDiff << " bestLag=" << bestLag << " err/sample=" << bestErr / 20000.0f
+                  << " livePeak=" << live.getMagnitude(0, 0, live.getNumSamples()) << " frozenPeak=" << frozen.getMagnitude(0, 0, frozen.getNumSamples())
+                  << " latency=" << engine.getSession().getTrack(0).frozenOffsetSamples << "\n";
+    }
+    check("Frozen track sounds the same as live (latency aligned)", maxDiff < 0.01f);
+    const auto saved = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("NovaStudioTests").getChildFile("frozen.novastudio");
+    engine.saveSession(saved);
+    StudioAudioEngine e2;
+    e2.loadSession(saved);
+    check("Freeze survives save/reload", e2.isTrackFrozen(0));
+    engine.unfreezeTrack(0);
+    check("Unfreeze restores the track", !engine.isTrackFrozen(0) && !engine.getSession().getTrack(0).locked);
+}
+
 static void testRealtimeDevice()
 {
     section("REALTIME — live device playback, loop, record");
@@ -617,6 +682,7 @@ int main()
     testSessionV2();
     testMidiFiles();
     testEditing();
+    testRoutingAndFreeze();
     if (juce::SystemStats::getEnvironmentVariable("NOVA_REALTIME_TEST", {}).isNotEmpty())
         testRealtimeDevice();
 

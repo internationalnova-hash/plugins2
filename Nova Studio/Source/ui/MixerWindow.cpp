@@ -1200,10 +1200,10 @@ void MixerWindow::buildStrips()
             const int first = chosen.fromFirstOccurrenceOf("In ", false, false).getIntValue();
             if (first > 0) engine.setTrackInputChannel(i, first - 1);
         };
-        // Available outputs: hardware + internal buses (one per aux track)
-        strip->getAvailableOutputs = [this]() -> juce::StringArray {
-            return buildBusList(true);
-        };
+        // Outputs: the master or any aux bus (routing a track into a bus feeds that aux)
+        strip->setOutputName(engine.getBusDisplayName(NovaStudio::StudioAudioEngine::parseBusIndex(track.outputBus)));
+        strip->getAvailableOutputs = [this, i]() -> juce::StringArray { return engine.getOutputChoices(i); };
+        strip->onOutputChanged = [this, i](const juce::String& bus) { engine.setTrackOutputBus(i, bus); };
         wireInserts(strip, i);
     }
 
@@ -1233,8 +1233,9 @@ void MixerWindow::buildStrips()
         strip->setTrackNumber(stripNum++);
         strip->setAux(true);
         strip->updateAsAux(track.name);
-        strip->setInputName(track.inputBus.isEmpty() ? busName : track.inputBus);
-        strip->setOutputName(track.outputBus.isEmpty() ? "Main Out" : track.outputBus);
+        juce::ignoreUnused(busName);
+        strip->setInputName(track.auxInputBusIndex >= 0 ? NovaStudio::StudioAudioEngine::sendBusName(track.auxInputBusIndex) : juce::String("No input"));
+        strip->setOutputName(engine.getBusDisplayName(NovaStudio::StudioAudioEngine::parseBusIndex(track.outputBus)));
         stripsContainer.addAndMakeVisible(strip);
 
         strip->onVolumeChanged = [this, i](float db)   { engine.setTrackVolume(i, db); };
@@ -1243,14 +1244,21 @@ void MixerWindow::buildStrips()
         strip->onSoloToggled   = [this, i](bool solo)   { engine.setTrackSolo(i, solo); };
         strip->onSendChanged   = [](int, float) {};
         strip->onInputChanged  = [this, i](const juce::String& bus) {
-            engine.getSession().getTrack(i).inputBus = bus;
+            const int idx = NovaStudio::StudioAudioEngine::parseBusIndex(bus);
+            if (idx >= 0)
+            {
+                engine.setAuxTrackBus(i, idx);
+                engine.getSession().getTrack(i).inputBus = NovaStudio::StudioAudioEngine::sendBusName(idx);
+            }
         };
-        strip->onOutputChanged = [this, i](const juce::String& bus) {
-            engine.getSession().getTrack(i).outputBus = bus;
+        strip->onOutputChanged = [this, i](const juce::String& bus) { engine.setTrackOutputBus(i, bus); };
+        strip->getAvailableInputs  = [this]() -> juce::StringArray {
+            juce::StringArray l;
+            for (int b = 0; b < NovaStudio::StudioAudioEngine::kNumSendBuses; ++b)
+                l.add(NovaStudio::StudioAudioEngine::sendBusName(b));
+            return l;
         };
-        // Aux inputs = internal buses; outputs = hardware + other buses
-        strip->getAvailableInputs  = [this]() -> juce::StringArray { return buildBusList(false); };
-        strip->getAvailableOutputs = [this]() -> juce::StringArray { return buildBusList(true);  };
+        strip->getAvailableOutputs = [this, i]() -> juce::StringArray { return engine.getOutputChoices(i); };
         wireInserts(strip, i);
     }
 

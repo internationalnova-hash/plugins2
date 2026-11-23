@@ -111,6 +111,8 @@ namespace NovaStudio
         monitorInput.store(t.monitorInput);
         isStereo.store(t.isStereo);
         inputChannel.store(t.inputChannel);
+        outputBusIndex.store(StudioAudioEngine::parseBusIndex(t.outputBus));
+        frozen.store(t.frozen);
         type = t.type;
         isAuxTrack = (t.type == TrackType::Aux);
         auxInputBusIndex = t.auxInputBusIndex;
@@ -171,6 +173,7 @@ namespace NovaStudio
 
     int StudioAudioEngine::TrackPlayer::getPluginChainLatencySamples() const
     {
+        if (frozen.load()) return 0;   // a frozen track plays pre-rendered audio
         int total = 0;
         for (int i = 0; i < pluginChain.size(); ++i)
             if (!isPluginBypassed(i))
@@ -645,13 +648,15 @@ namespace NovaStudio
         }
         const int midiTarget = midiInputTrack.load();
 
-        // Regular tracks first, then aux returns (so every send reaches its bus this block).
-        for (int pass = 0; pass < 2; ++pass)
+        // Regular tracks first, then aux returns in dependency order (so every send and
+        // bus output reaches its aux before that aux is processed).
+        const bool useOrder = (int) processOrder.size() == trackPlayers.size();
+        for (int pass = 0; pass < (useOrder ? 1 : 2); ++pass)
         {
-            for (auto& pp : trackPlayers)
+            for (int oi = 0; oi < trackPlayers.size(); ++oi)
             {
-                auto& p = *pp;
-                if (p.isAuxTrack != (pass == 1)) continue;
+                auto& p = *trackPlayers.getReference(useOrder ? processOrder[(size_t) oi] : oi);
+                if (!useOrder && p.isAuxTrack != (pass == 1)) continue;
                 const TrackPlayData* td = (snap != nullptr && juce::isPositiveAndBelow(p.trackIndex, (int) snap->tracks.size()))
                                               ? &snap->tracks[(size_t) p.trackIndex] : nullptr;
                 const bool liveTarget = !offline && !liveMidi.isEmpty()
@@ -660,10 +665,10 @@ namespace NovaStudio
             }
         }
 
-        if (playing && !(offline && offlineSoloTrack >= 0))
+        if (playing && pos >= 0 && !(offline && offlineSoloTrack >= 0))
         {
             float* mixPtrs[2] = { mixBuffer.getWritePointer(0), mixBuffer.getWritePointer(1) };
-            renderStepSequencer(mixPtrs, 2, n, pos);
+            renderStepSequencer(mixPtrs, 2, n, pos + ((offline && !offlineIncludeMaster) ? 0 : masterChainLatency.load()));
         }
         else if (!playing)
             currentPlayingStep.store(-1);
@@ -716,6 +721,12 @@ namespace NovaStudio
 
         const double sr = currentSampleRate;
 
+        // Plugin latency compensation: read the arrangement ahead by the total latency so the
+        // delayed output lines up with the timeline (a freeze render is trimmed instead).
+        const bool freezeRender = offline && offlineFreezeTrack == p.trackIndex;
+        const int64_t srcPos = freezeRender ? pos
+            : pos + trackMaxLatency.load() + ((offline && !offlineIncludeMaster) ? 0 : masterChainLatency.load());
+
         if (p.isAuxTrack)
         {
             if (juce::isPositiveAndBelow(p.auxInputBusIndex, kNumSendBuses))
@@ -729,24 +740,25 @@ namespace NovaStudio
         {
             if (playing && td != nullptr)
             {
-                renderClips(p, *td, n, pos, offline);
+                renderClips(p, *td, n, srcPos, offline);
 
-                const int64_t end = pos + n;
+                const int64_t end = srcPos + n;
+                if (!p.frozen.load())
                 for (const auto& note : td->notes)
                 {
                     if (note.on >= end) break;
-                    if (note.off < pos) continue;
+                    if (note.off < srcPos) continue;
                     if (note.off < end)
                     {
                         // Only release notes we actually started (not ones skipped by a seek).
-                        if (note.on >= pos || p.heldNotes[(size_t) note.pitch])
-                            p.midi.addEvent(juce::MidiMessage::noteOff(1, note.pitch), (int) (note.off - pos));
-                        if (note.on < pos)
+                        if (note.on >= srcPos || p.heldNotes[(size_t) note.pitch])
+                            p.midi.addEvent(juce::MidiMessage::noteOff(1, note.pitch), (int) (note.off - srcPos));
+                        if (note.on < srcPos)
                             p.heldNotes.reset((size_t) note.pitch);
                     }
-                    if (note.on >= pos)
+                    if (note.on >= srcPos)
                     {
-                        p.midi.addEvent(juce::MidiMessage::noteOn(1, note.pitch, note.velocity), (int) (note.on - pos));
+                        p.midi.addEvent(juce::MidiMessage::noteOn(1, note.pitch, note.velocity), (int) (note.on - srcPos));
                         if (note.off >= end) p.heldNotes.set((size_t) note.pitch);
                     }
                 }
@@ -793,12 +805,22 @@ namespace NovaStudio
         }
 
         // ── Inserts ──────────────────────────────────────────────────────────
+        if (!p.frozen.load())
         {
             juce::AudioBuffer<float> view(p.buf.getArrayOfWritePointers(), chans, n);
             for (int i = 0; i < p.pluginChain.size(); ++i)
                 if (auto& plugin = p.pluginChain.getReference(i))
                     if (!p.isPluginBypassed(i))
                         plugin->processBlock(view, p.midi);
+        }
+
+        const bool freezing = offline && offlineFreezeTrack == p.trackIndex;
+        if (freezing)
+        {
+            // Freeze render: capture the inserts' output only (EQ, fader and sends stay live).
+            mixBuffer.addFrom(0, 0, p.buf, 0, 0, n);
+            mixBuffer.addFrom(1, 0, p.buf, 1, 0, n);
+            return;
         }
 
         if (p.pdcDelaySamples > 0)
@@ -855,7 +877,7 @@ namespace NovaStudio
 
         if (td != nullptr && playing && td->automationMode != 4 && !p.writingAutomation.load())
         {
-            const double t = (double) pos / sr;
+            const double t = (double) srcPos / sr;
             for (const auto& lane : td->lanes)
             {
                 const float value = evaluateAutomationLane(lane, t);
@@ -930,8 +952,12 @@ namespace NovaStudio
         p.peakLevelLeft.store(p.buf.getMagnitude(0, 0, n));
         p.peakLevelRight.store(p.buf.getMagnitude(1, 0, n));
 
-        mixBuffer.addFrom(0, 0, p.buf, 0, 0, n);
-        mixBuffer.addFrom(1, 0, p.buf, 1, 0, n);
+        const int outBus = p.outputBusIndex.load();
+        auto& dest = (juce::isPositiveAndBelow(outBus, kNumSendBuses) && !(offline && offlineSoloTrack >= 0)
+                      && !(p.isAuxTrack && outBus == p.auxInputBusIndex))
+                         ? sendBusBuffers[outBus] : mixBuffer;
+        dest.addFrom(0, 0, p.buf, 0, 0, n);
+        dest.addFrom(1, 0, p.buf, 1, 0, n);
     }
 
     void StudioAudioEngine::renderClips(TrackPlayer& p, const TrackPlayData& td, int n, int64_t pos, bool offline)

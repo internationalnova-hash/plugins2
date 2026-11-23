@@ -2547,6 +2547,7 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
             for (int m = 0; m < names.size(); ++m)
                 modes.addItem(320 + m, names[m], has, has && engine.getTrackAutomationMode(ft) == m);
             menu.addSubMenu("Automation Mode", modes, has);
+            menu.addItem(314, (has && engine.isTrackFrozen(ft)) ? "Unfreeze Track" : "Freeze Track", has);
             menu.addItem(313, "Send Keyboard (MIDI) Here", has && engine.getSession().getTrack(ft).type == NovaStudio::TrackType::Midi,
                          has && engine.getMidiInputTrack() == ft);
         }
@@ -2936,6 +2937,42 @@ void MainComponent::menuItemSelected(int id, int)
         break;
     }
     case 313: if (getFocusedTrack() >= 0) engine.setMidiInputTrack(getFocusedTrack()); break;
+    case 314:
+    {
+        const int ft = getFocusedTrack();
+        if (ft < 0) break;
+        if (engine.isTrackFrozen(ft))
+        {
+            engine.unfreezeTrack(ft);
+            updateStatusMessage("Unfroze " + engine.getSession().getTrack(ft).name);
+        }
+        else
+        {
+            struct FreezeJob : public juce::ThreadWithProgressWindow
+            {
+                FreezeJob(NovaStudio::StudioAudioEngine& e, int t) : juce::ThreadWithProgressWindow("Freezing track...", false, false), engine(e), track(t) {}
+                void run() override { ok = engine.freezeTrack(track, &error); }
+                void threadComplete(bool) override
+                {
+                    auto done = onDone;
+                    const bool r = ok; const auto err = error;
+                    juce::MessageManager::callAsync([this, done, r, err] { if (done) done(r, err); delete this; });
+                }
+                NovaStudio::StudioAudioEngine& engine; int track; bool ok = false; juce::String error;
+                std::function<void(bool, juce::String)> onDone;
+            };
+            auto* job = new FreezeJob(engine, ft);
+            job->onDone = [this, ft](bool ok, juce::String err)
+            {
+                refreshTrackList();
+                arrangementModel.sendChangeMessage();
+                updateStatusMessage(ok ? "Froze " + engine.getSession().getTrack(ft).name + " (plugins are paused; unfreeze to edit)"
+                                       : "Freeze: " + err);
+            };
+            job->launchThread();
+        }
+        break;
+    }
     case 320: case 321: case 322: case 323: case 324:
         if (getFocusedTrack() >= 0)
         {

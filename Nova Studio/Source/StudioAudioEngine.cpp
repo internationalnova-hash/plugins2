@@ -339,6 +339,7 @@ namespace NovaStudio
         if (currentSampleRate > 0 && currentBufferSize > 0)
             plugin->prepareToPlay(currentSampleRate, currentBufferSize);
         masterPlugins.add(plugin.release());
+        juce::MessageManager::callAsync([this] { updatePluginDelayCompensation(); });
         return true;
     }
 
@@ -347,6 +348,7 @@ namespace NovaStudio
         juce::ScopedLock sl(masterPluginLock);
         if (!isPositiveAndBelow(slot, masterPlugins.size())) return false;
         masterPlugins.remove(slot);
+        juce::MessageManager::callAsync([this] { updatePluginDelayCompensation(); });
         return true;
     }
 
@@ -455,12 +457,15 @@ namespace NovaStudio
     {
         if (!isPositiveAndBelow(trackIndex, session.getNumTracks())) return;
         session.getTrack(trackIndex).auxInputBusIndex = busIndex;
-        juce::ScopedLock sl(playerLock);
-        if (isPositiveAndBelow(trackIndex, trackPlayers.size()))
         {
-            trackPlayers.getReference(trackIndex)->isAuxTrack      = true;
-            trackPlayers.getReference(trackIndex)->auxInputBusIndex = busIndex;
+            juce::ScopedLock sl(playerLock);
+            if (isPositiveAndBelow(trackIndex, trackPlayers.size()))
+            {
+                trackPlayers.getReference(trackIndex)->isAuxTrack      = true;
+                trackPlayers.getReference(trackIndex)->auxInputBusIndex = busIndex;
+            }
         }
+        updateRoutingOrder();
     }
 
     void StudioAudioEngine::setMacroValue(int macroIndex, float normalizedValue)

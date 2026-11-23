@@ -2269,8 +2269,42 @@ namespace NovaStudioUI
                         menu.addSeparator();
                         menu.addItem(5, "Edit in Piano Roll");
                     }
-                    menu.showMenuAsync(juce::PopupMenu::Options(), [this](int result)
+
+                    // Takes: clips stacked over the same time range (loop/overdub recordings).
+                    juce::Array<int> takeIdx;
+                    for (int k = 0; k < track.clips.size(); ++k)
                     {
+                        const auto& o = track.clips.getReference(k);
+                        const int64_t ov = juce::jmin(o.startSample + o.lengthSamples, clip.startSample + clip.lengthSamples)
+                                         - juce::jmax(o.startSample, clip.startSample);
+                        if (o.isMidi == clip.isMidi && ov > juce::jmin(o.lengthSamples, clip.lengthSamples) / 2)
+                            takeIdx.add(k);
+                    }
+                    if (takeIdx.size() > 1)
+                    {
+                        juce::PopupMenu takes;
+                        for (int k = 0; k < takeIdx.size(); ++k)
+                        {
+                            const auto& o = track.clips.getReference(takeIdx[k]);
+                            takes.addItem(100 + k, (o.name.isNotEmpty() ? o.name : "Take " + juce::String(k + 1)), true, !o.muted);
+                        }
+                        menu.addSeparator();
+                        menu.addSubMenu("Takes", takes);
+                    }
+                    const int ti = trackIndex;
+                    menu.showMenuAsync(juce::PopupMenu::Options(), [this, takeIdx, ti](int result)
+                    {
+                        if (result >= 100 && result < 100 + takeIdx.size())
+                        {
+                            // Play the chosen take; mute the others in the stack.
+                            auto& tr = arrangementModel.getSession().getTrack(ti);
+                            for (int k = 0; k < takeIdx.size(); ++k)
+                                if (juce::isPositiveAndBelow(takeIdx[k], tr.clips.size()))
+                                    tr.clips.getReference(takeIdx[k]).muted = (k != result - 100);
+                            arrangementModel.sendChangeMessage();
+                            repaint();
+                            return;
+                        }
                         if (result == 5 && onEditMidiClip) onEditMidiClip();
                         if (result == 1) arrangementModel.normalizeSelectedClip();
                         else if (result == 2) arrangementModel.reverseSelectedClip();

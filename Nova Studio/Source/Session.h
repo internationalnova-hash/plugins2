@@ -97,6 +97,10 @@ namespace NovaStudio
         int   inputChannel = 0;       // first hardware input used when recording (stereo uses +1)
         bool  monitorInput = false;   // hear the input through this track's plugins while armed
         int   automationMode = 0;     // 0 Read, 1 Touch, 2 Latch, 3 Write, 4 Off
+        bool  frozen = false;
+        juce::File frozenFile;
+        int64_t frozenOffsetSamples = 0;   // plugin latency trimmed off the freeze file
+        bool  lockedBeforeFreeze = false;
         struct EQBand { bool enabled = false; float freq = 1000.0f; float gainDb = 0.0f; float q = 0.707f; };
         EQBand eq[6];
         juce::String groupName;  // empty = ungrouped; tracks sharing a name form a group

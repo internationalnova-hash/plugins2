@@ -52,6 +52,7 @@ namespace NovaStudio
             h.s(tr.name); h.v((int) tr.type); h.v(tr.volumeDb); h.v(tr.pan); h.v(tr.muted); h.v(tr.solo);
             h.v(tr.armed); h.v(tr.isStereo); h.v(tr.inputChannel); h.v(tr.monitorInput); h.v(tr.automationMode);
             h.v(tr.auxInputBusIndex); h.v(tr.colour.getARGB()); h.s(tr.groupName);
+            h.s(tr.outputBus); h.v(tr.frozen); h.s(tr.frozenFile.getFullPathName()); h.v(tr.frozenOffsetSamples);
             for (int i = 0; i < 6; ++i) { h.v(tr.sendLevels[i]); h.v(tr.sendBusIndex[i]); h.v(tr.sendPreFader[i]); }
             for (auto& b : tr.eq) { h.v(b.enabled); h.v(b.freq); h.v(b.gainDb); h.v(b.q); }
             for (const auto& c : tr.clips)
@@ -120,6 +121,22 @@ namespace NovaStudio
             for (const auto& lane : tr.automationLanes)
                 if (lane.enabled && !lane.points.isEmpty())
                     td.lanes.push_back(lane);
+
+            if (tr.frozen && tr.frozenFile.existsAsFile())
+            {
+                if (auto src = getStreamer(tr.frozenFile, tr.frozenOffsetSamples, -1))
+                {
+                    const double ratio = sr / src->getFileSampleRate();
+                    PlayClip pc;
+                    pc.src = src;
+                    pc.start = 0;
+                    pc.length = (int64_t) ((double) src->getFileLength() * ratio) - tr.frozenOffsetSamples;
+                    pc.srcStart = tr.frozenOffsetSamples;
+                    pc.fullLength = pc.length;
+                    if (pc.length > 0) td.clips.push_back(pc);
+                }
+                continue;
+            }
 
             // Align previews replace the clips they were made from.
             std::vector<int> replaced;
@@ -412,6 +429,7 @@ namespace NovaStudio
         for (int i = 0; i < trackPlayers.size(); ++i)
             syncTrackPlayerSends(i);
         updateSoloStates();
+        updateRoutingOrder();
         updatePluginDelayCompensation();
     }
 
@@ -426,8 +444,10 @@ namespace NovaStudio
             p.volumeDb.store(tr.volumeDb); p.pan.store(tr.pan); p.muted.store(tr.muted); p.solo.store(tr.solo);
             p.armed.store(tr.armed); p.monitorInput.store(tr.monitorInput); p.isStereo.store(tr.isStereo);
             p.inputChannel.store(tr.inputChannel);
+            p.outputBusIndex.store(parseBusIndex(tr.outputBus));
         }
         updateSoloStates();
+        updateRoutingOrder();
     }
 
     void StudioAudioEngine::addTrack(const juce::String& name, TrackType type)
@@ -443,6 +463,18 @@ namespace NovaStudio
         newTrack.colour = kTrackPalette[newIndex % (int) juce::numElementsInArray(kTrackPalette)];
         if (type == TrackType::Midi)
             newTrack.volumeDb = -6.0f;
+        if (type == TrackType::Aux && newTrack.auxInputBusIndex < 0)
+        {
+            // Give every new aux return its own bus so sends to it are audible.
+            for (int b = 0; b < kNumSendBuses; ++b)
+            {
+                bool used = false;
+                for (int i = 0; i < session.getNumTracks() - 1; ++i)
+                    used = used || (session.getTrack(i).type == TrackType::Aux && session.getTrack(i).auxInputBusIndex == b);
+                if (!used) { newTrack.auxInputBusIndex = b; break; }
+            }
+            newTrack.inputBus = sendBusName(juce::jmax(0, newTrack.auxInputBusIndex));
+        }
 
         auto player = std::make_unique<TrackPlayer>();
         player->trackIndex = newIndex;
@@ -456,6 +488,7 @@ namespace NovaStudio
         }
         syncTrackPlayerSends(newIndex);
         updateSoloStates();
+        updateRoutingOrder();
         if (type == TrackType::Midi && midiInputTrack.load() < 0)
             midiInputTrack.store(newIndex);
     }
@@ -521,6 +554,7 @@ namespace NovaStudio
         }
         doomed.reset();   // plugin teardown outside the lock
         updateSoloStates();
+        updateRoutingOrder();
         updatePluginDelayCompensation();
     }
 
@@ -1176,6 +1210,13 @@ namespace NovaStudio
             maxLatency = juce::jmax(maxLatency, p->getPluginChainLatencySamples());
         for (auto& p : trackPlayers)
             p->setPdcDelaySamples(maxLatency - p->getPluginChainLatencySamples());
+        trackMaxLatency.store(maxLatency);
+        int master = 0;
+        {
+            const juce::ScopedLock ml(masterPluginLock);
+            for (auto* pl : masterPlugins) if (pl) master += pl->getLatencySamples();
+        }
+        masterChainLatency.store(master);
     }
 
     //==========================================================================
@@ -1209,10 +1250,13 @@ namespace NovaStudio
         deviceManager.removeAudioCallback(this);   // waits for any running callback to finish
         transportState.stop();
         transportState.setLooping(false);
-        transportState.setPositionSamples(start, false);
         offlineRendering.store(true);
         offlineSoloTrack = opts.soloTrack;
         offlineIncludeMaster = opts.includeMaster;
+        // Pre-roll by the compensated plugin latency so the first samples aren't swallowed.
+        const int64_t preroll = offlineFreezeTrack >= 0 ? 0
+            : (int64_t) trackMaxLatency.load() + (opts.includeMaster ? masterChainLatency.load() : 0);
+        transportState.setPositionFromAudioThread(start - preroll);
 
         bool cancelled = false;
         float peak = 0.0f;
@@ -1240,6 +1284,13 @@ namespace NovaStudio
             const int64_t total = (end - start) + tail;
             int64_t written = 0, silentRun = 0;
             int lastProgress = -1;
+
+            for (int64_t skip = preroll; skip > 0;)
+            {
+                const int n = (int) juce::jmin((int64_t) block, skip);
+                renderBlock(nullptr, 0, outs, 2, n, true);
+                skip -= n;
+            }
 
             while (written < total)
             {
@@ -1615,5 +1666,183 @@ namespace NovaStudio
         autosaveFolder().createDirectory();
         if (saveSession(getAutosaveFile()))
             lastAutosaveHash = lastSnapshotHash;
+    }
+
+    //==========================================================================
+    // Bus routing
+    //==========================================================================
+    int StudioAudioEngine::parseBusIndex(const juce::String& busName)
+    {
+        const auto t = busName.trim();
+        if (!t.startsWithIgnoreCase("Bus ")) return -1;
+        const int n = t.substring(4).getIntValue();
+        return n >= 1 ? juce::jlimit(0, kNumSendBuses - 1, (n - 1) / 2) : -1;
+    }
+
+    juce::String StudioAudioEngine::getBusDisplayName(int busIndex) const
+    {
+        if (!juce::isPositiveAndBelow(busIndex, kNumSendBuses)) return "Main Out";
+        for (int i = 0; i < session.getNumTracks(); ++i)
+        {
+            const auto& t = session.getTrack(i);
+            if (t.type == TrackType::Aux && t.auxInputBusIndex == busIndex)
+                return sendBusName(busIndex) + "  (" + t.name + ")";
+        }
+        return sendBusName(busIndex);
+    }
+
+    juce::StringArray StudioAudioEngine::getOutputChoices(int forTrack) const
+    {
+        juce::StringArray out { "Main Out" };
+        const bool isAux = juce::isPositiveAndBelow(forTrack, session.getNumTracks()) && session.getTrack(forTrack).type == TrackType::Aux;
+        const int ownBus = isAux ? session.getTrack(forTrack).auxInputBusIndex : -1;
+        for (int i = 0; i < session.getNumTracks(); ++i)
+        {
+            const auto& t = session.getTrack(i);
+            if (t.type != TrackType::Aux || t.auxInputBusIndex < 0 || i == forTrack) continue;
+            // Skip buses whose aux chain leads back into this aux (feedback loop).
+            bool loops = false;
+            int bus = t.auxInputBusIndex;
+            for (int hop = 0; hop < kNumSendBuses && !loops; ++hop)
+            {
+                int next = -1;
+                for (int k = 0; k < session.getNumTracks(); ++k)
+                    if (session.getTrack(k).type == TrackType::Aux && session.getTrack(k).auxInputBusIndex == bus)
+                        next = parseBusIndex(session.getTrack(k).outputBus);
+                if (next < 0) break;
+                if (next == ownBus) loops = true;
+                bus = next;
+            }
+            if (!loops && t.auxInputBusIndex != ownBus)
+                out.add(getBusDisplayName(t.auxInputBusIndex));
+        }
+        return out;
+    }
+
+    void StudioAudioEngine::setTrackOutputBus(int trackIndex, const juce::String& busName)
+    {
+        if (!juce::isPositiveAndBelow(trackIndex, session.getNumTracks())) return;
+        auto& tr = session.getTrack(trackIndex);
+        const int idx = parseBusIndex(busName);
+        if (tr.type == TrackType::Aux && idx >= 0 && idx == tr.auxInputBusIndex) return;   // no self-feedback
+        tr.outputBus = idx < 0 ? juce::String("Main Out") : sendBusName(idx);
+        if (juce::isPositiveAndBelow(trackIndex, trackPlayers.size()))
+            trackPlayers.getReference(trackIndex)->outputBusIndex.store(idx);
+        updateRoutingOrder();
+    }
+
+    void StudioAudioEngine::updateRoutingOrder()
+    {
+        const int n = trackPlayers.size();
+        std::vector<int> order;
+        std::vector<int> aux;
+        for (int i = 0; i < n; ++i)
+            (trackPlayers.getReference(i)->isAuxTrack ? aux : order).push_back(i);
+
+        // Kahn's algorithm: aux A must run before aux B if A outputs into B's bus.
+        std::vector<int> remaining = aux;
+        while (!remaining.empty())
+        {
+            bool progressed = false;
+            for (size_t k = 0; k < remaining.size(); ++k)
+            {
+                const int b = remaining[k];
+                const int busB = trackPlayers.getReference(b)->auxInputBusIndex;
+                bool waits = false;
+                for (int a : remaining)
+                    if (a != b && trackPlayers.getReference(a)->outputBusIndex.load() == busB && busB >= 0)
+                        waits = true;
+                if (!waits)
+                {
+                    order.push_back(b);
+                    remaining.erase(remaining.begin() + (long) k);
+                    progressed = true;
+                    break;
+                }
+            }
+            if (!progressed) { for (int r : remaining) order.push_back(r); break; }   // cycle: keep list order
+        }
+
+        const juce::ScopedLock sl(playerLock);
+        processOrder.swap(order);
+    }
+
+    //==========================================================================
+    // Freeze
+    //==========================================================================
+    bool StudioAudioEngine::isTrackFrozen(int t) const noexcept
+    {
+        return juce::isPositiveAndBelow(t, session.getNumTracks()) && session.getTrack(t).frozen;
+    }
+
+    bool StudioAudioEngine::freezeTrack(int t, juce::String* error)
+    {
+        if (!juce::isPositiveAndBelow(t, session.getNumTracks()) || !juce::isPositiveAndBelow(t, trackPlayers.size()))
+            return false;
+        auto& tr = session.getTrack(t);
+        if (tr.frozen) return true;
+        auto& player = *trackPlayers.getReference(t);
+        if (player.getNumPlugins() == 0)
+        {
+            if (error) *error = "There are no plugins on this track to freeze.";
+            return false;
+        }
+        int64_t end = 0;
+        for (const auto& c : tr.clips)
+            if (!c.muted) end = juce::jmax(end, c.startSample + c.lengthSamples);
+        if (end <= 0)
+        {
+            if (error) *error = "The track has no clips to freeze.";
+            return false;
+        }
+
+        const auto folder = getDefaultSessionsFolder().getChildFile("Freeze");
+        folder.createDirectory();
+        const auto file = folder.getChildFile(legalName(session.getName()) + " - " + legalName(tr.name) + " (freeze).wav").getNonexistentSibling();
+
+        const int ownLatency = [&] { int l = 0; for (int i = 0; i < player.getNumPlugins(); ++i) if (!player.isPluginBypassed(i)) if (auto* pl = player.getPlugin(i)) l += pl->getLatencySamples(); return l; }();
+
+        ExportOptions o;
+        o.startSample = 0;
+        o.endSample = end + ownLatency;
+        o.tailSeconds = 5.0;
+        o.bitDepth = 32;
+        o.soloTrack = t;
+        o.includeMaster = false;
+        offlineFreezeTrack = t;
+        const auto res = exportAudio(file, o);
+        offlineFreezeTrack = -1;
+        if (!res.ok)
+        {
+            if (error) *error = res.error;
+            return false;
+        }
+
+        tr.frozen = true;
+        tr.frozenFile = file;
+        tr.frozenOffsetSamples = ownLatency;
+        tr.lockedBeforeFreeze = tr.locked;
+        tr.locked = true;
+        player.frozen.store(true);
+        updatePluginDelayCompensation();
+        publishSnapshot(true);
+        return true;
+    }
+
+    void StudioAudioEngine::unfreezeTrack(int t)
+    {
+        if (!isTrackFrozen(t)) return;
+        auto& tr = session.getTrack(t);
+        tr.frozen = false;
+        tr.locked = tr.lockedBeforeFreeze;
+        const auto old = tr.frozenFile;
+        tr.frozenFile = juce::File();
+        tr.frozenOffsetSamples = 0;
+        if (juce::isPositiveAndBelow(t, trackPlayers.size()))
+            trackPlayers.getReference(t)->frozen.store(false);
+        updatePluginDelayCompensation();
+        publishSnapshot(true);
+        retireOldSnapshots(false);
+        juce::Timer::callAfterDelay(2000, [old] { old.deleteFile(); });   // after the audio thread lets go of it
     }
 }

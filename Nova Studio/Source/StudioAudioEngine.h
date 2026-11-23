@@ -317,6 +317,18 @@ namespace NovaStudio
         void setTrackInputChannel(int trackIndex, int firstInputChannel);
         int  getTrackInputChannel(int trackIndex) const noexcept;
         void setTrackStereo(int trackIndex, bool stereo);
+        // Output routing: "Main Out" or a bus name ("Bus 3-4 (Verb)"). Aux returns are processed
+        // in dependency order, so tracks -> aux -> aux chains work.
+        void setTrackOutputBus(int trackIndex, const juce::String& busName);
+        static int parseBusIndex(const juce::String& busName);   // -1 for Main Out
+        juce::String getBusDisplayName(int busIndex) const;       // "Bus 1-2 (Verb)"
+        juce::StringArray getOutputChoices(int forTrack) const;   // Main Out + buses (no loops)
+
+        // Freeze: renders the track's instrument/inserts to audio and plays that instead,
+        // freeing the CPU. Fader, pan, EQ and sends stay live.
+        bool freezeTrack(int trackIndex, juce::String* error = nullptr);
+        void unfreezeTrack(int trackIndex);
+        bool isTrackFrozen(int trackIndex) const noexcept;
         void setTrackMonitorInput(int trackIndex, bool on);
         bool getTrackMonitorInput(int trackIndex) const noexcept;
         void setTrackAutomationMode(int trackIndex, int mode);   // 0 Read, 1 Touch, 2 Latch, 3 Write, 4 Off
@@ -409,6 +421,8 @@ namespace NovaStudio
             std::atomic<bool>  muted { false }, solo { false }, armed { false }, soloModeActive { false };
             std::atomic<bool>  monitorInput { false }, isStereo { true };
             std::atomic<int>   inputChannel { 0 };
+            std::atomic<int>   outputBusIndex { -1 };   // -1 = master, else a send/aux bus
+            std::atomic<bool>  frozen { false };        // plays its freeze file; plugins skipped
             // What's actually applied (after automation), for the UI
             std::atomic<float> displayVolumeDb { 0.0f }, displayPan { 0.0f };
             std::atomic<bool>  writingAutomation { false };   // fader/pan come from the user, not the lane
@@ -541,6 +555,10 @@ namespace NovaStudio
         juce::SmoothedValue<float> masterGain { 1.0f };
         std::atomic<bool> offlineRendering { false };
         int offlineSoloTrack = -1;
+        int offlineFreezeTrack = -1;
+        std::atomic<int> trackMaxLatency { 0 }, masterChainLatency { 0 };   // for overall delay compensation      // render this track pre-fader, no PDC (freeze)
+        std::vector<int> processOrder;    // player indices: tracks, then aux in dependency order
+        void updateRoutingOrder();
         bool offlineIncludeMaster = true;
         int maxBlockSize = 512;
 

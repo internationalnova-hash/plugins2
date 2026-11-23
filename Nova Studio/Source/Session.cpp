@@ -182,6 +182,10 @@ Clip ClipFromVar(const juce::var& var)
         object->setProperty("inputChannel", inputChannel);
         object->setProperty("monitorInput", boolToVar(monitorInput));
         object->setProperty("automationMode", automationMode);
+        object->setProperty("frozen", boolToVar(frozen));
+        object->setProperty("frozenFile", frozenFile.getFullPathName());
+        object->setProperty("frozenOffsetSamples", (double) frozenOffsetSamples);
+        object->setProperty("lockedBeforeFreeze", boolToVar(lockedBeforeFreeze));
         {
             juce::Array<juce::var> sendsVar;
             for (int i = 0; i < 6; ++i)
@@ -229,6 +233,10 @@ Clip ClipFromVar(const juce::var& var)
             track.inputChannel = juce::jmax(0, (int)object->getProperty("inputChannel"));
             track.monitorInput = varToBool(object->getProperty("monitorInput"));
             track.automationMode = juce::jlimit(0, 4, (int)object->getProperty("automationMode"));
+            track.frozenFile = juce::File(object->getProperty("frozenFile").toString());
+            track.frozen = varToBool(object->getProperty("frozen")) && track.frozenFile.existsAsFile();
+            track.frozenOffsetSamples = (int64_t)(double)object->getProperty("frozenOffsetSamples");
+            track.lockedBeforeFreeze = varToBool(object->getProperty("lockedBeforeFreeze"));
             if (auto* sends = object->getProperty("sends").getArray())
                 for (int i = 0; i < juce::jmin(6, sends->size()); ++i)
                     if (auto* a = (*sends)[i].getArray(); a != nullptr && a->size() >= 3)
@@ -634,6 +642,7 @@ Clip ClipFromVar(const juce::var& var)
                 c.fileOffsetSamples = sc(c.fileOffsetSamples);
                 c.alignmentOffsetSamples = sc(c.alignmentOffsetSamples);
             }
+        for (auto& t : tracks) t.frozenOffsetSamples = sc(t.frozenOffsetSamples);
         loopStartSample = sc(loopStartSample);  loopEndSample = sc(loopEndSample);
         punchInSample = sc(punchInSample);      punchOutSample = sc(punchOutSample);
         sampleRate = newRate;
