@@ -30,10 +30,17 @@ namespace NovaStudio
             int maxShiftMs = 1000;
         };
 
+        // Aligns exactly the part of `targetClip` that's on the timeline to whatever the
+        // guide clip plays over the same stretch of the timeline. Both clips' trims,
+        // positions and file sample rates are respected (audio is converted to
+        // `sessionSampleRate`). The result covers the target clip's timeline range, so it
+        // replaces the target in place: same start, same length, file offset 0.
         static bool alignTargetClip(const Clip& guideClip,
                                     const Clip& targetClip,
+                                    double sessionSampleRate,
                                     const juce::File& destinationFile,
                                     const AlignSettings& settings,
-                                    int64_t& outShiftSamples);
+                                    int64_t& outShiftSamples,
+                                    juce::String* error = nullptr);
     };
 }

@@ -147,6 +147,7 @@ namespace NovaStudio
         bool moveClipToTrack(int sourceTrack, int clipIndex, int destTrack, int64_t newStartSample);
 
         // Undo/Redo helpers
+        juce::String getLastAlignError() const { return lastAlignError; }
         void undo();
         void redo();
         bool canUndo() const;
@@ -156,6 +157,7 @@ namespace NovaStudio
         Session& session;
         TimelineModel& timelineModel;
         juce::UndoManager undoManager;
+        juce::String lastAlignError;
         EditMode editMode = EditMode::Slip;
         EditTool editTool = EditTool::Selector;
         bool snapToGrid = true;

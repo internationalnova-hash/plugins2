@@ -2,7 +2,9 @@
 // target is armed, timeline-aligned copy, group isolation, pass-through safety.
 #include <juce_core/juce_core.h>
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_audio_formats/juce_audio_formats.h>
 #include "LinkHub.h"
+#include "AlignEngine.h"
 #include "CaptureEngine.h"
 
 using NovaAlign::LinkEndpoint;
@@ -179,6 +181,56 @@ int main()
         check (ok && out.getNumSamples() == 120 * BLOCK && std::abs (out.getSample (0, 100) - guideSignal (5100)) < 1.0e-6f,
                "guide-only capture takes the whole guide pass");
         target.setArmed (false);
+    }
+
+    {
+        // Alignment accuracy: a double where every syllable is off by a different amount.
+        const double sr = 44100.0;
+        static const double on[]  = { 0.20, 0.55, 0.80, 1.30, 1.55, 2.10, 2.45, 2.90 };
+        static const double dur[] = { 0.25, 0.15, 0.35, 0.18, 0.40, 0.22, 0.30, 0.25 };
+        static const double off[] = { 0.035, -0.020, 0.045, 0.010, -0.040, 0.025, 0.060, -0.015 };
+        auto make = [&] (const juce::String& name, bool loose)
+        {
+            auto f = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("nova_align_" + name + ".wav");
+            f.deleteFile();
+            juce::AudioBuffer<float> b (1, (int) (sr * 3.5));
+            b.clear();
+            for (int i = 0; i < b.getNumSamples(); ++i)
+            {
+                const double t = i / sr;
+                for (int k = 0; k < 8; ++k)
+                {
+                    const double s0 = on[k] + (loose ? off[k] : 0.0);
+                    if (t >= s0 && t < s0 + dur[k])
+                        b.setSample (0, i, (float) (std::sin (juce::MathConstants<double>::pi * (t - s0) / dur[k])
+                                                    * std::sin (2.0 * juce::MathConstants<double>::pi * (180.0 + 40 * k) * (t - s0)) * (loose ? 0.35 : 0.5)));
+                }
+            }
+            juce::WavAudioFormat wav;
+            std::unique_ptr<juce::AudioFormatWriter> w (wav.createWriterFor (new juce::FileOutputStream (f), sr, 1, 32, {}, 0));
+            w->writeFromAudioSampleBuffer (b, 0, b.getNumSamples());
+            return f;
+        };
+        const auto gf = make ("guide", false), tf = make ("target", true);
+        NovaAlign::AlignEngine::AlignSettings st;
+        st.amount = 1.0f; st.tightness = 1.0f; st.naturalness = 0.2f;
+        juce::AudioBuffer<float> out; double rate = 0; int64_t shift = 0;
+        const bool ok = NovaAlign::AlignEngine::alignTargetClipToBuffer (gf, tf, st, out, rate, shift);
+        auto onset = [&] (const juce::AudioBuffer<float>& b, double expect)
+        {
+            const int from = (int) ((expect - 0.09) * sr), to = (int) ((expect + 0.09) * sr);
+            float pk = 0; for (int i = from; i < to; i += 44) pk = juce::jmax (pk, b.getRMSLevel (0, i, 88));
+            for (int i = from; i < to; i += 22) if (b.getRMSLevel (0, i, 88) > pk * 0.2f) return i / sr;
+            return expect;
+        };
+        juce::AudioFormatManager fm; fm.registerBasicFormats();
+        std::unique_ptr<juce::AudioFormatReader> gr (fm.createReaderFor (gf));
+        juce::AudioBuffer<float> gb (1, (int) gr->lengthInSamples);
+        gr->read (&gb, 0, gb.getNumSamples(), 0, true, false);
+        double err = 0;
+        for (int k = 0; k < 8 && ok; ++k) err += std::abs (onset (out, on[k]) - onset (gb, on[k])) * 1000.0;
+        std::cout << "  avg syllable error after align: " << err / 8 << " ms (was ~32 ms)\n";
+        check (ok && err / 8 < 10.0, "loose double: every syllable pulled onto the guide");
     }
 
     std::cout << "\n" << passes << " passed, " << failures << " failed\n";

@@ -564,6 +564,7 @@ namespace NovaStudio
     bool ArrangementModel::previewSelectedTargetsToGuide(const AlignSettings& settings)
     {
         clearAlignmentPreview();
+        lastAlignError.clear();
 
         Clip* guideClip = getGuideClip();
         if (guideClip == nullptr || alignTargetClips.isEmpty())
@@ -589,24 +590,32 @@ namespace NovaStudio
             alignSettings.consonantPriority = settings.consonantPriority;
             alignSettings.maxShiftMs = settings.maxShiftMs;
 
-            if (!NovaAlignProcessor::alignTargetClip(*guideClip, *targetClip, outputFile, alignSettings, shiftSamples))
+            juce::String alignError;
+            if (!NovaAlignProcessor::alignTargetClip(*guideClip, *targetClip, session.getSampleRate(), outputFile, alignSettings, shiftSamples, &alignError))
+            {
+                lastAlignError = alignError;
                 continue;
+            }
 
             Clip alignedClip = *targetClip;
             alignedClip.sourceTrackIndex = clipRef.x;
             alignedClip.sourceClipIndex = clipRef.y;
             alignedClip.guideTrackIndex = guideTrackIndex;
             alignedClip.guideClipIndex = guideClipIndex;
-            alignedClip.originalFile = targetClip->file;
+            // The rendered file covers exactly the target's stretch of the timeline, with the
+            // alignment baked in: same start and length, file offset 0, no extra shift.
+            alignedClip.originalFile = targetClip->aligned && targetClip->originalFile.existsAsFile() ? targetClip->originalFile : targetClip->file;
+            alignedClip.alignOriginalOffset = targetClip->aligned ? targetClip->alignOriginalOffset : targetClip->fileOffsetSamples + targetClip->alignmentOffsetSamples;
             alignedClip.file = outputFile;
+            alignedClip.fileOffsetSamples = 0;
             alignedClip.aligned = true;
             alignedClip.isPreview = true;
-            alignedClip.alignmentOffsetSamples = shiftSamples;
+            alignedClip.alignmentOffsetSamples = 0;   // shift is already in the rendered audio
+            alignedClip.alignmentWarpPoints = { juce::var((double) shiftSamples) };
             alignedClip.alignmentTimestamp = juce::Time::getCurrentTime().toString(true, true);
             alignedClip.alignmentPhraseSensitivity = settings.phraseSensitivity;
             alignedClip.alignmentConsonantPriority = settings.consonantPriority;
             alignedClip.alignmentSourceGuidePath = guideClip->file.getFullPathName();
-            alignedClip.startSample = guideClip->startSample;
             alignedClip.clipColor = targetClip->clipColor.withAlpha(0.85f);
 
             auto& track = session.getTrack(clipRef.x);
@@ -729,6 +738,7 @@ namespace NovaStudio
         Clip before = *clip;
         Clip after = *clip;
         after.file = after.originalFile;
+        after.fileOffsetSamples = before.alignOriginalOffset;
         after.aligned = false;
         after.alignVersion = 0;
         after.alignmentOffsetSamples = 0;
@@ -772,6 +782,7 @@ namespace NovaStudio
 
     bool ArrangementModel::alignSelectedTargetsToGuide(const AlignSettings& settings, bool createNewVersion)
     {
+        lastAlignError.clear();
         Clip* guideClip = getGuideClip();
         if (guideClip == nullptr || alignTargetClips.isEmpty())
             return false;
@@ -795,24 +806,32 @@ namespace NovaStudio
             alignSettings.consonantPriority = settings.consonantPriority;
             alignSettings.maxShiftMs = settings.maxShiftMs;
 
-            if (!NovaAlignProcessor::alignTargetClip(*guideClip, *targetClip, outputFile, alignSettings, shiftSamples))
+            juce::String alignError;
+            if (!NovaAlignProcessor::alignTargetClip(*guideClip, *targetClip, session.getSampleRate(), outputFile, alignSettings, shiftSamples, &alignError))
+            {
+                lastAlignError = alignError;
                 continue;
+            }
 
             Clip alignedClip = *targetClip;
             alignedClip.sourceTrackIndex = clipRef.x;
             alignedClip.sourceClipIndex = clipRef.y;
             alignedClip.guideTrackIndex = guideTrackIndex;
             alignedClip.guideClipIndex = guideClipIndex;
-            alignedClip.originalFile = targetClip->file;
+            // The rendered file covers exactly the target's stretch of the timeline, with the
+            // alignment baked in: same start and length, file offset 0, no extra shift.
+            alignedClip.originalFile = targetClip->aligned && targetClip->originalFile.existsAsFile() ? targetClip->originalFile : targetClip->file;
+            alignedClip.alignOriginalOffset = targetClip->aligned ? targetClip->alignOriginalOffset : targetClip->fileOffsetSamples + targetClip->alignmentOffsetSamples;
             alignedClip.file = outputFile;
+            alignedClip.fileOffsetSamples = 0;
             alignedClip.aligned = true;
             alignedClip.isPreview = false;
-            alignedClip.alignmentOffsetSamples = shiftSamples;
+            alignedClip.alignmentOffsetSamples = 0;   // shift is already in the rendered audio
+            alignedClip.alignmentWarpPoints = { juce::var((double) shiftSamples) };
             alignedClip.alignmentTimestamp = juce::Time::getCurrentTime().toString(true, true);
             alignedClip.alignmentPhraseSensitivity = settings.phraseSensitivity;
             alignedClip.alignmentConsonantPriority = settings.consonantPriority;
             alignedClip.alignmentSourceGuidePath = guideClip->file.getFullPathName();
-            alignedClip.startSample = guideClip->startSample;
             alignedClip.clipColor = targetClip->clipColor.withAlpha(0.9f);
 
             if (createNewVersion)

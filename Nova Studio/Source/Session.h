@@ -42,6 +42,7 @@ namespace NovaStudio
         bool isPreview = false;
         int64_t alignmentOffsetSamples = 0;
         juce::File originalFile;
+        int64_t alignOriginalOffset = 0;   // the target's file offset before aligning (for Revert)
         int guideTrackIndex = -1;
         int guideClipIndex = -1;
         int sourceTrackIndex = -1;

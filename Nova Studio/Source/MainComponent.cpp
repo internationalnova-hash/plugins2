@@ -1611,7 +1611,7 @@ void MainComponent::alignBackgroundVocals()
     refreshTrackList();
     updateStatusMessage(ok
         ? ("Aligned " + juce::String(numTargets) + " background vocal clip(s) to \"" + guideName + "\"")
-        : "Align Background Vocals: alignment failed");
+        : "Align Background Vocals: " + (arrangementModel.getLastAlignError().isNotEmpty() ? arrangementModel.getLastAlignError() : juce::String("alignment failed")));
 }
 
 void MainComponent::exportForProTools()

@@ -10,6 +10,7 @@
 #include "TimelineModel.h"
 #include "ArrangementModel.h"
 #include "TimeStretcher.h"
+#include "NovaAlignProcessor.h"
 
 using namespace NovaStudio;
 
@@ -768,6 +769,148 @@ static void testTempoMap()
     check("Tempo changes cleared", engine.getTempoChanges().empty());
 }
 
+static void testNovaAlignRegions()
+{
+    section("NOVA ALIGN — clips as they sit on the timeline");
+    const double sr = 44100.0;
+    // A "phrase": syllable bursts with different lengths/gaps (like a vocal line)
+    auto phrase = [] (double t) -> float
+    {
+        static const double on[]  = { 0.20, 0.55, 0.80, 1.30, 1.55, 2.10, 2.45, 2.90 };
+        static const double dur[] = { 0.25, 0.15, 0.35, 0.18, 0.40, 0.22, 0.30, 0.25 };
+        for (int i = 0; i < 8; ++i)
+            if (t >= on[i] && t < on[i] + dur[i])
+            {
+                const double x = (t - on[i]) / dur[i];
+                return (float) (std::sin(juce::MathConstants<double>::pi * x) * std::sin(2.0 * juce::MathConstants<double>::pi * (180.0 + 40 * i) * t) * 0.5);
+            }
+        return 0.0f;
+    };
+    const double late = 0.030;   // the double was sung 30 ms late
+    auto guideF  = makeTestWav("align_guide.wav", sr, 3.5, [&] (int, double t) { return phrase(t); });
+    // Target file: 2 s of other material first, then the late double (a longer take, trimmed in the session)
+    auto targetF = makeTestWav("align_take.wav", sr, 5.5, [&] (int, double t) { return t < 2.0 ? 0.3f * (float) std::sin(t * 900.0) : phrase(t - 2.0 - late); });
+    // Same double recorded at 48 kHz
+    auto target48 = makeTestWav("align_take48.wav", 48000.0, 3.5, [&] (int, double t) { return phrase(t - late); });
+
+    auto envelope = [] (const juce::AudioBuffer<float>& x)
+    {
+        // 5 ms RMS envelope, hop 1 ms
+        std::vector<double> e;
+        const int win = 220, hop = 44;
+        for (int i = 0; i + win < x.getNumSamples(); i += hop)
+            e.push_back(x.getRMSLevel(0, i, win));
+        return e;
+    };
+    auto lagMs = [&] (const juce::AudioBuffer<float>& a, const juce::AudioBuffer<float>& b)
+    {
+        const auto ea = envelope(a), eb = envelope(b);
+        const int n = (int) juce::jmin(ea.size(), eb.size());
+        int best = 0; double bestV = -1;
+        for (int lag = -80; lag <= 80; ++lag)   // ms
+        {
+            double v = 0;
+            for (int i = 100; i < n - 100; ++i) v += ea[(size_t) i] * eb[(size_t) juce::jlimit(0, n - 1, i + lag)];
+            if (v > bestV) { bestV = v; best = lag; }
+        }
+        return (double) best;
+    };
+
+    Clip guide; guide.file = guideF; guide.startSample = (int64_t) (sr * 4.0); guide.lengthSamples = (int64_t) (sr * 3.5);
+    NovaAlignProcessor::AlignSettings st; st.amount = 1.0f; st.tightness = 1.0f; st.naturalness = 0.0f;
+    auto out = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("NovaStudioTests").getChildFile("aligned.wav");
+    auto guideBuf = readWav(guideF);
+
+    // 1) Trimmed take placed on the timeline at the guide's position
+    Clip target; target.file = targetF; target.startSample = (int64_t) (sr * 4.0); target.fileOffsetSamples = (int64_t) (sr * 2.0); target.lengthSamples = (int64_t) (sr * 3.5);
+    int64_t shift = 0; juce::String err;
+    out.deleteFile();
+    const bool ok1 = NovaAlignProcessor::alignTargetClip(guide, target, sr, out, st, shift, &err);
+    auto res = readWav(out);
+    check("Aligns a trimmed take (clip offset respected)", ok1);
+    check("Result is exactly the clip's length", res.getNumSamples() == (int) target.lengthSamples);
+    {
+        juce::AudioBuffer<float> before(1, (int) target.lengthSamples);
+        auto full = readWav(targetF);
+        before.copyFrom(0, 0, full, 0, (int) (sr * 2.0), (int) target.lengthSamples);
+        const double lb = lagMs(guideBuf, before), la = lagMs(guideBuf, res);
+        std::cout << "      lag before " << lb << " ms, after " << la << " ms, avg shift " << shift * 1000.0 / sr << " ms\n";
+        check("Trimmed take: 30 ms late before, tight after", std::abs(lb - 30.0) < 3.0 && std::abs(la) < 6.0);
+    }
+
+    // 2) Different sample rate (48 kHz take in a 44.1 kHz session)
+    Clip t48; t48.file = target48; t48.startSample = (int64_t) (sr * 4.0); t48.lengthSamples = (int64_t) (sr * 3.5);
+    out.deleteFile();
+    const bool ok2 = NovaAlignProcessor::alignTargetClip(guide, t48, sr, out, st, shift, &err);
+    check("Aligns a take recorded at a different sample rate", ok2);
+    if (ok2) { res = readWav(out); std::cout << "      48k after " << lagMs(guideBuf, res) << " ms\n"; check("48 kHz take ends up tight", std::abs(lagMs(guideBuf, res)) < 6.0); }
+
+    // 2b) A realistic double: every syllable off by a different amount (early and late)
+    {
+        static const double on[]  = { 0.20, 0.55, 0.80, 1.30, 1.55, 2.10, 2.45, 2.90 };
+        static const double dur[] = { 0.25, 0.15, 0.35, 0.18, 0.40, 0.22, 0.30, 0.25 };
+        static const double off[] = { 0.035, -0.020, 0.045, 0.010, -0.040, 0.025, 0.060, -0.015 };
+        auto loose = [&] (double t) -> float
+        {
+            for (int i = 0; i < 8; ++i)
+            {
+                const double st = on[i] + off[i];
+                if (t >= st && t < st + dur[i])
+                {
+                    const double x = (t - st) / dur[i];
+                    return (float) (std::sin(juce::MathConstants<double>::pi * x) * std::sin(2.0 * juce::MathConstants<double>::pi * (180.0 + 40 * i) * (t - off[i])) * 0.35);
+                }
+            }
+            return 0.0f;
+        };
+        auto looseF = makeTestWav("align_loose.wav", sr, 3.5, [&] (int, double t) { return loose(t); });
+        Clip lc; lc.file = looseF; lc.startSample = (int64_t) (sr * 4.0); lc.lengthSamples = (int64_t) (sr * 3.5);
+        out.deleteFile();
+        NovaAlignProcessor::AlignSettings tight = st; tight.naturalness = 0.2f;
+        const bool ok = NovaAlignProcessor::alignTargetClip(guide, lc, sr, out, tight, shift, &err);
+        auto r = readWav(out);
+        auto onsetNear = [&] (const juce::AudioBuffer<float>& b, double expect)
+        {
+            // first time the 2 ms RMS rises above 20% of the syllable's peak, near `expect`
+            const int from = (int) ((expect - 0.09) * sr), to = (int) ((expect + 0.09) * sr);
+            float pk = 0; for (int i = from; i < to; i += 44) pk = juce::jmax(pk, b.getRMSLevel(0, i, 88));
+            for (int i = from; i < to; i += 22) if (b.getRMSLevel(0, i, 88) > pk * 0.2f) return i / sr;
+            return expect;
+        };
+        double errBefore = 0, errAfter = 0;
+        auto lb = readWav(looseF);
+        for (int i = 0; i < 8; ++i)
+        {
+            errBefore += std::abs(onsetNear(lb, on[i]) - onsetNear(guideBuf, on[i])) * 1000.0;
+            errAfter  += std::abs(onsetNear(r, on[i]) - onsetNear(guideBuf, on[i])) * 1000.0;
+        }
+        std::cout << "      loose double: avg syllable error " << errBefore / 8 << " ms -> " << errAfter / 8 << " ms\n";
+        check("Loose double: each syllable pulled onto the lead", ok && errAfter / 8 < 10.0 && errAfter < errBefore * 0.35);
+    }
+
+    // 3) Clips that don't overlap give a clear reason
+    Clip far = target; far.startSample = (int64_t) (sr * 20.0);
+    check("Non-overlapping clips are refused with a reason", !NovaAlignProcessor::alignTargetClip(guide, far, sr, out, st, shift, &err) && err.isNotEmpty());
+
+    // 4) In the arrangement: result replaces the target in place, revert restores the trim
+    Session s; s.setSampleRate(sr);
+    TransportState ts; ts.setSampleRate(sr);
+    TimelineModel tl(s, ts);
+    ArrangementModel am(s, tl);
+    s.addTrack("Lead", TrackType::Audio).clips.add(guide);
+    s.addTrack("Double", TrackType::Audio).clips.add(target);
+    am.setGuideClip(0, 0);
+    am.toggleAlignTargetClip(1, 0);
+    ArrangementModel::AlignSettings as;
+    check("Align in the arrangement", am.alignSelectedTargetsToGuide(as, true));
+    const auto& tr = s.getTrack(1);
+    check("Aligned clip stays at the target's position with no double shift",
+          tr.clips.size() == 2 && tr.clips[1].startSample == target.startSample && tr.clips[1].lengthSamples == target.lengthSamples
+          && tr.clips[1].fileOffsetSamples == 0 && tr.clips[1].alignmentOffsetSamples == 0);
+    am.revertAlignedClip(1, 1);
+    check("Revert restores the original take and its trim", tr.clips[1].file == targetF && tr.clips[1].fileOffsetSamples == target.fileOffsetSamples);
+}
+
 static void testRealtimeDevice()
 {
     section("REALTIME — live device playback, loop, record");
@@ -869,6 +1012,7 @@ int main()
     testTimeStretch();
     testWarpClips();
     testTempoMap();
+    testNovaAlignRegions();
     if (juce::SystemStats::getEnvironmentVariable("NOVA_REALTIME_TEST", {}).isNotEmpty())
         testRealtimeDevice();
 

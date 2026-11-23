@@ -4120,7 +4120,8 @@ NovaAlignPanel::NovaAlignPanel(NovaStudio::ArrangementModel& arrangementModelRef
             }
             else if (onStatusMessage)
             {
-                onStatusMessage("Nova Align preview failed; check guide and targets.");
+                const auto why = arrangementModel.getLastAlignError();
+                onStatusMessage(why.isNotEmpty() ? "Nova Align: " + why : juce::String("Nova Align preview failed; check guide and targets."));
             }
         }
         else if (button == &bypassPreviewToggle)

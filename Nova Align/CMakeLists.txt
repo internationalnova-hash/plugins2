@@ -168,7 +168,7 @@ endif()
 # Link/capture tests (no plugin, no UI):
 #   cmake --build build --target NovaAlignTests && build/NovaAlignTests_artefacts/Release/NovaAlignTests
 juce_add_console_app(NovaAlignTests PRODUCT_NAME "NovaAlignTests")
-target_sources(NovaAlignTests PRIVATE Tests/LinkTests.cpp Source/LinkHub.cpp Source/CaptureEngine.cpp)
+target_sources(NovaAlignTests PRIVATE Tests/LinkTests.cpp Source/LinkHub.cpp Source/CaptureEngine.cpp Source/AlignEngine.cpp)
 target_include_directories(NovaAlignTests PRIVATE Source)
 target_compile_definitions(NovaAlignTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
 target_link_libraries(NovaAlignTests

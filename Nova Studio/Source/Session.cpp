@@ -26,6 +26,7 @@ namespace NovaStudio
     object->setProperty("isPreview", boolToVar(clip.isPreview));
     object->setProperty("alignmentOffsetSamples", (double)clip.alignmentOffsetSamples);
     object->setProperty("originalFile", clip.originalFile.getFullPathName());
+    object->setProperty("alignOriginalOffset", (double) clip.alignOriginalOffset);
     object->setProperty("guideTrackIndex", clip.guideTrackIndex);
     object->setProperty("guideClipIndex", clip.guideClipIndex);
     object->setProperty("sourceTrackIndex", clip.sourceTrackIndex);
@@ -81,6 +82,7 @@ Clip ClipFromVar(const juce::var& var)
         clip.isPreview = varToBool(object->getProperty("isPreview"));
         clip.alignmentOffsetSamples = static_cast<int64_t>((double)object->getProperty("alignmentOffsetSamples"));
         clip.originalFile = juce::File(object->getProperty("originalFile").toString());
+        clip.alignOriginalOffset = (int64_t) (double) object->getProperty("alignOriginalOffset");
         clip.guideTrackIndex = static_cast<int>((double)object->getProperty("guideTrackIndex"));
         clip.guideClipIndex = static_cast<int>((double)object->getProperty("guideClipIndex"));
         clip.sourceTrackIndex = static_cast<int>((double)object->getProperty("sourceTrackIndex"));
