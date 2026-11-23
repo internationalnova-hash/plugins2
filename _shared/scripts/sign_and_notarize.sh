@@ -107,6 +107,18 @@ COPYFILE_DISABLE=1 pkgbuild --root "$PKG_ROOT" \
     --install-location "/" \
     "$UNSIGNED_PKG"
 
+# macOS tags files written here with a protected attribute (com.apple.provenance) that
+# xattr -c can't remove, and pkgbuild stores it as "._" entries. Rebuild the payload and
+# file list without them.
+EXP_DIR="$DIST_DIR/expanded"
+rm -rf "$EXP_DIR"
+pkgutil --expand "$UNSIGNED_PKG" "$EXP_DIR"
+(cd "$PKG_ROOT" && find . | COPYFILE_DISABLE=1 cpio -o --format odc -R 0:80 2>/dev/null) | gzip -c > "$EXP_DIR/Payload"
+lsbom "$EXP_DIR/Bom" | grep -v '/\._' > "$DIST_DIR/bomlist"
+rm "$EXP_DIR/Bom"; mkbom -i "$DIST_DIR/bomlist" "$EXP_DIR/Bom"
+rm -f "$UNSIGNED_PKG" "$DIST_DIR/bomlist"; pkgutil --flatten "$EXP_DIR" "$UNSIGNED_PKG"; rm -rf "$EXP_DIR"
+if pkgutil --payload-files "$UNSIGNED_PKG" | grep -q '/\._'; then echo "ERROR: ._ entries still in payload" >&2; exit 1; fi
+
 productsign --sign "$INSTALLER_IDENTITY" "$UNSIGNED_PKG" "$SIGNED_PKG"
 rm -f "$UNSIGNED_PKG"
 
