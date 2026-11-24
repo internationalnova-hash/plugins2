@@ -91,6 +91,10 @@ target_sources(${PLUGIN_TARGET}
         Source/PluginProcessor.h
         Source/PluginEditor.cpp
         Source/PluginEditor.h
+        # The shared console engine the processor delegates to (Phase 4 Final Wiring)
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Console/NovaConsoleDSP.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Console/NovaConsoleDSP.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../NovaDSP/Console/NovaConsoleParameters.h
 )
 
 target_link_libraries(${PLUGIN_TARGET}
@@ -128,3 +132,7 @@ if(UNIX AND NOT APPLE)
             JUCE_JACK=1
     )
 endif()
+
+# ── Nova license activation (one-time keys and Nova All Access) ──
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
+nova_license_enable(NovaConsole)
