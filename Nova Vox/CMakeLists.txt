@@ -114,3 +114,7 @@ target_compile_definitions(${PLUGIN_TARGET}
 if(WIN32)
     target_compile_definitions(${PLUGIN_TARGET} PUBLIC _USE_MATH_DEFINES=1)
 endif()
+
+# ── Nova license activation (one-time keys and Nova All Access) ──
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
+nova_license_enable(NovaVox)

@@ -6,6 +6,7 @@
 
 #include "NovaVelvetEngine.h"
 #include "Presets/NovaVelvetPresetManager.h"
+#include "NovaLicenseGate.h"
 
 // NovaVelvetEngine drives all DSP (validated standalone via the headless
 // console-app harnesses in this Source/ directory - see the plan file for
@@ -21,6 +22,9 @@
 class NovaVelvetAudioProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-velvet", "Nova Velvet" };
+
     NovaVelvetAudioProcessor();
     ~NovaVelvetAudioProcessor() override;
 

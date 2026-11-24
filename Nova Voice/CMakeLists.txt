@@ -194,3 +194,8 @@ target_compile_definitions(NovaVoiceOfflineDiag PRIVATE
 if(APPLE)
     target_compile_definitions(NovaVoiceOfflineDiag PRIVATE JUCE_USE_CURL=0)
 endif()
+
+# ── Nova license activation (one-time keys and Nova All Access) ──
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
+nova_license_enable(NovaVoice)
+nova_license_test_target(NovaVoiceOfflineDiag)

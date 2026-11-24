@@ -7,10 +7,14 @@
 #include "PreviewPlayer.h"
 #include "CaptureEngine.h"
 #include "LinkHub.h"
+#include "NovaLicenseGate.h"
 
 class NovaAlignAudioProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-align", "Nova Align" };
+
     NovaAlignAudioProcessor();
     ~NovaAlignAudioProcessor() override;
 

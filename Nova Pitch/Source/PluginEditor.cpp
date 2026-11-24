@@ -5,6 +5,7 @@
 #include <cstring>
 #include <cmath>
 #include <iostream>
+#include "NovaLicenseGate.h"
 
 namespace
 {
@@ -34,6 +35,8 @@ NovaPitchAudioProcessorEditor::NovaPitchAudioProcessorEditor (NovaPitchAudioProc
     setResizable (true, true);
     applyViewSize (1100);
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 void NovaPitchAudioProcessorEditor::applyViewSize (int width)

@@ -6,10 +6,14 @@
 #include <juce_dsp/juce_dsp.h>
 
 #include "../../NovaDSP/Console/NovaConsoleDSP.h"
+#include "NovaLicenseGate.h"
 
 class NovaConsoleAudioProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-console", "Nova Console" };
+
     NovaConsoleAudioProcessor();
     ~NovaConsoleAudioProcessor() override;
 

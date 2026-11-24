@@ -83,6 +83,7 @@ void NovaTapeAudioProcessor::timerCallback()
 
 void NovaTapeAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
+    if (licenseGate.blocks (buffer)) return;   // not activated: pass audio through
     juce::ScopedNoDenormals noDenormals;
 
     for (auto ch = getTotalNumInputChannels(); ch < getTotalNumOutputChannels(); ++ch)

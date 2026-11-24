@@ -8,6 +8,7 @@
 #include "Effects/NovaEffectsChain.h"
 #include "Preset/NovaPresetManager.h"
 #include "Vault/NovaSoundVault.h"
+#include "NovaLicenseGate.h"
 
 // Real v0.1 engine integration (task #98): owns the Sound Vault, preset
 // manager, one NovaSamplerEngine per layer slot (A/B/C/D), the polyphonic
@@ -27,6 +28,9 @@
 class NovaKeysProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-keys", "Nova Keys" };
+
     NovaKeysProcessor();
     ~NovaKeysProcessor() override = default;
 

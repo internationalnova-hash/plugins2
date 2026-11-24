@@ -10,10 +10,14 @@
 #include "NovaPitchHarmony.h" // shared NovaTuneCore tuner (same as Nova AI Vocal)
 #include "ABSnapshot.h"
 #include "NovaPitchPresetManager.h"
+#include "NovaLicenseGate.h"
 
 class NovaPitchAudioProcessor : public juce::AudioProcessor, private juce::Timer
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-pitch", "Nova Pitch" };
+
     NovaPitchAudioProcessor();
     ~NovaPitchAudioProcessor() override;
 

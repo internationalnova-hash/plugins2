@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "NovaRoyal670Engine.h"
 #include <atomic>
+#include "NovaLicenseGate.h"
 
 // NovaRoyal670Engine drives all DSP (validated standalone via the headless
 // console-app harnesses in this Source/ directory: DetectorValidation,
@@ -14,6 +15,9 @@
 class NovaRoyal670Processor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-royal-670", "Nova Royal 670" };
+
     NovaRoyal670Processor();
     ~NovaRoyal670Processor() override = default;
 

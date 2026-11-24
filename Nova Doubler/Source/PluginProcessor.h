@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "NovaDoublerEngine.h"
 #include <atomic>
+#include "NovaLicenseGate.h"
 
 // Real doubling DSP wired in (task #107): NovaDoublerEngine drives all
 // four subsystems (ensemble, analyzer, MIX crossfade, bypass ramp),
@@ -13,6 +14,9 @@
 class NovaDoublerProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-doubler", "Nova Doubler" };
+
     NovaDoublerProcessor();
     ~NovaDoublerProcessor() override = default;
 

@@ -3,6 +3,7 @@
 
 #include <cstring>
 #include <iostream>
+#include "NovaLicenseGate.h"
 
 NovaKeysEditor::NovaKeysEditor (NovaKeysProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -18,6 +19,8 @@ NovaKeysEditor::NovaKeysEditor (NovaKeysProcessor& p)
     setResizeLimits (1150, 740, 2200, 1440);
     setSize (1360, 800);
     startTimerHz (30); // fast enough for the virtual keyboard to feel live
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaKeysEditor::~NovaKeysEditor()

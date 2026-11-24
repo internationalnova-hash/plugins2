@@ -139,6 +139,7 @@ void NovaBassProcessor::pushMacroAndColorParamsToEngine()
 
 void NovaBassProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
+    if (licenseGate.blocks (buffer)) return;   // not activated: pass audio through
     juce::ScopedNoDenormals noDenormals;
 
     pushMacroAndColorParamsToEngine();

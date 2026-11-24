@@ -8,10 +8,14 @@
 
 #include "NovaBendTunedEngine.h" // shared NovaTuneCore tracker/shifter
 #include "Presets/NovaBendPresetManager.h"
+#include "NovaLicenseGate.h"
 
 class NovaBendAudioProcessor : public juce::AudioProcessor, private juce::Timer
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-bend", "Nova Bend" };
+
     NovaBendAudioProcessor();
     ~NovaBendAudioProcessor() override;
 

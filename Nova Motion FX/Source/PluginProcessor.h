@@ -4,10 +4,14 @@
 #include <atomic>
 
 #include "Modulation/NovaMotionDSP.h"
+#include "NovaLicenseGate.h"
 
 class NovaMotionFXProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-motion", "Nova Motion FX" };
+
     NovaMotionFXProcessor();
     ~NovaMotionFXProcessor() override = default;
 

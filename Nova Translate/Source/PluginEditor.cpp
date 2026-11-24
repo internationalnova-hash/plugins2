@@ -3,6 +3,7 @@
 #include "EnvironmentProfiles.hpp"
 
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 NovaTranslateAudioProcessorEditor::NovaTranslateAudioProcessorEditor (NovaTranslateAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -37,6 +38,8 @@ NovaTranslateAudioProcessorEditor::NovaTranslateAudioProcessorEditor (NovaTransl
     setResizeLimits (691, 461, 1728, 1152);
     setSize (1152, 768);
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaTranslateAudioProcessorEditor::~NovaTranslateAudioProcessorEditor()

@@ -4,10 +4,14 @@
 #include <juce_dsp/juce_dsp.h>
 
 #include "Spatial/NovaSpaceDSP.h"
+#include "NovaLicenseGate.h"
 
 class SpaceByNovaAudioProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-space", "Nova Space" };
+
     SpaceByNovaAudioProcessor();
     ~SpaceByNovaAudioProcessor() override;
 

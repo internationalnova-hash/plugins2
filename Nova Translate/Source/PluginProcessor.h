@@ -3,10 +3,14 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include "PluginProcessorCore.h"
+#include "NovaLicenseGate.h"
 
 class NovaTranslateAudioProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-translate", "Nova Translate" };
+
     NovaTranslateAudioProcessor();
     ~NovaTranslateAudioProcessor() override;
 

@@ -8,10 +8,14 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+#include "NovaLicenseGate.h"
 
 class NovaChordAudioProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-chord", "Nova Chord" };
+
     NovaChordAudioProcessor();
     ~NovaChordAudioProcessor() override;
 

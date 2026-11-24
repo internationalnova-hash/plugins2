@@ -3,6 +3,7 @@
 #include "ui/ModuleCard.h"
 #include "ui/AdvancedPanel.h"
 #include "ui/VUMeter.h"
+#include "NovaLicenseGate.h"
 
 static constexpr int kPluginW       = 1080;
 static constexpr int kPluginH       = 680;
@@ -283,6 +284,8 @@ NovaVoxAudioProcessorEditor::NovaVoxAudioProcessorEditor (NovaVoxAudioProcessor&
     setResizeLimits ((int) (kPluginW * 0.6f), (int) (kPluginH * 0.6f),
                       (int) (kPluginW * 1.5f), (int) (kPluginH * 1.5f));
     setSize (kPluginW, kPluginH);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaVoxAudioProcessorEditor::~NovaVoxAudioProcessorEditor()

@@ -2,6 +2,7 @@
 #include "BinaryData.h"
 
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 SpaceByNovaAudioProcessorEditor::SpaceByNovaAudioProcessorEditor (SpaceByNovaAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -25,6 +26,8 @@ SpaceByNovaAudioProcessorEditor::SpaceByNovaAudioProcessorEditor (SpaceByNovaAud
     setResizable (true, true);
     setResizeLimits (360, 210, 1200, 700);
     setSize (960, 560);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 SpaceByNovaAudioProcessorEditor::~SpaceByNovaAudioProcessorEditor() = default;

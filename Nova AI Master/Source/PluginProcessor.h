@@ -6,6 +6,7 @@
 #include <functional>
 
 #include "NovaAIMasterEngine.h"
+#include "NovaLicenseGate.h"
 
 // UI-facing state for the MASTER AI button (spec section 26).
 enum class NovaAIMasterButtonState { Idle, Analyzing, Ready, Processing, Complete };
@@ -39,6 +40,9 @@ class NovaAIMasterProcessor : public juce::AudioProcessor,
                               private juce::AsyncUpdater
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-aimaster", "Nova AI Master" };
+
     NovaAIMasterProcessor();
     ~NovaAIMasterProcessor() override;
 

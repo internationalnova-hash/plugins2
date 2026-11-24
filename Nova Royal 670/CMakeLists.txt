@@ -234,3 +234,8 @@ target_compile_definitions(NovaRoyal670StateRoundTripValidation PRIVATE
 if(APPLE)
     target_compile_definitions(NovaRoyal670StateRoundTripValidation PRIVATE JUCE_USE_CURL=0)
 endif()
+
+# ── Nova license activation (one-time keys and Nova All Access) ──
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
+nova_license_enable(NovaRoyal670)
+nova_license_test_target(NovaRoyal670StateRoundTripValidation)

@@ -8,6 +8,7 @@
 
 #include "NovaPunchEngine.h"
 #include "Presets/NovaPunchPresetManager.h"
+#include "NovaLicenseGate.h"
 
 // No message-thread reconfigure Timer here (unlike e.g. Nova Bend) - none
 // of this plugin's parameters change the DSP's internal buffer sizing at
@@ -16,6 +17,9 @@
 class NovaPunchAudioProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-punch", "Nova Punch" };
+
     NovaPunchAudioProcessor();
     ~NovaPunchAudioProcessor() override;
 

@@ -2,6 +2,7 @@
 #include "BinaryData.h"
 
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 using namespace nova::bass;
 
@@ -32,6 +33,8 @@ NovaBassEditor::NovaBassEditor (NovaBassProcessor& p)
     setResizeLimits (900, 600, 1400, 920);
     setSize (1150, 720);
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaBassEditor::~NovaBassEditor()

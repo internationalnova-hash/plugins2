@@ -183,6 +183,7 @@ void NovaAIMasterProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
 
 void NovaAIMasterProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
+    if (licenseGate.blocks (buffer)) return;   // not activated: pass audio through
     juce::ScopedNoDenormals noDenormals;
 
     if (*apvts.getRawParameterValue ("bypass") > 0.5f) return;

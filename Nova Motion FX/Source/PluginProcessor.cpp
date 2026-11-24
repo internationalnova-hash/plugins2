@@ -41,6 +41,7 @@ void NovaMotionFXProcessor::releaseResources() {}
 
 void NovaMotionFXProcessor::processBlock (juce::AudioBuffer<float>& buf, juce::MidiBuffer&)
 {
+    if (licenseGate.blocks (buf)) return;   // not activated: pass audio through
     juce::ScopedNoDenormals noDenormals;
 
     if (*apvts.getRawParameterValue ("bypass") > 0.5f) return;

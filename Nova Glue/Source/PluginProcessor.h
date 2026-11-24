@@ -5,6 +5,7 @@
 #include "NovaGlueEngine.h"
 #include "Preset/NovaGluePresetManager.h"
 #include <atomic>
+#include "NovaLicenseGate.h"
 
 // NovaGlueEngine drives all DSP (validated standalone via the headless
 // console-app harnesses in this Source/ directory: DetectorValidation,
@@ -15,6 +16,9 @@
 class NovaGlueAudioProcessor : public juce::AudioProcessor, private juce::Timer
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-glue", "Nova Glue" };
+
     NovaGlueAudioProcessor();
     ~NovaGlueAudioProcessor() override;
 

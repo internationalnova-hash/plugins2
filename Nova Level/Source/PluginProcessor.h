@@ -2,9 +2,13 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 #include "Dynamics/NovaLevelDSP.h"
+#include "NovaLicenseGate.h"
 
 class NovaLevelAudioProcessor : public juce::AudioProcessor {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-level", "Nova Level" };
+
     NovaLevelAudioProcessor();
     ~NovaLevelAudioProcessor() override;
 

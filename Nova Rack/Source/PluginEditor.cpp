@@ -2,6 +2,7 @@
 #include "BinaryData.h"
 
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 using NativeArgs = const juce::Array<juce::var>&;
 using Completion = juce::WebBrowserComponent::NativeFunctionCompletion;
@@ -22,6 +23,8 @@ NovaRackAudioProcessorEditor::NovaRackAudioProcessorEditor (NovaRackAudioProcess
         c->setFixedAspectRatio (1240.0 / 720.0);
     setSize (1240, 720);
     startTimerHz (20);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaRackAudioProcessorEditor::~NovaRackAudioProcessorEditor()

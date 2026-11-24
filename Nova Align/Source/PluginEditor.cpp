@@ -4,6 +4,7 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 NovaAlignAudioProcessorEditor::NovaAlignAudioProcessorEditor (NovaAlignAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -26,6 +27,8 @@ NovaAlignAudioProcessorEditor::NovaAlignAudioProcessorEditor (NovaAlignAudioProc
     setResizable (true, true);
     setResizeLimits (690, 456, 1725, 1140);
     setSize (1150, 760);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaAlignAudioProcessorEditor::~NovaAlignAudioProcessorEditor()

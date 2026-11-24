@@ -193,3 +193,7 @@ target_compile_definitions(NovaMatchTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CU
 target_link_libraries(NovaMatchTests
     PRIVATE juce::juce_core juce::juce_audio_processors juce::juce_audio_formats juce::juce_dsp juce::juce_gui_basics juce::juce_events
     PUBLIC juce::juce_recommended_config_flags)
+
+# ── Nova license activation (one-time keys and Nova All Access) ──
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
+nova_license_enable(NovaRack)

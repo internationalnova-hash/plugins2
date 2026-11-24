@@ -62,6 +62,7 @@ void NovaPunchAudioProcessor::releaseResources()
 
 void NovaPunchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& /*midi*/)
 {
+    if (licenseGate.blocks (buffer)) return;   // not activated: pass audio through
     juce::ScopedNoDenormals noDenormals;
 
     const int numSamples  = buffer.getNumSamples();

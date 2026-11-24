@@ -103,3 +103,7 @@ target_compile_definitions(NovaLevel PUBLIC JUCE_VST3_CAN_REPLACE_VST2=0)
 if(TARGET NovaLevel_VST3)
     target_compile_definitions(NovaLevel_VST3 PRIVATE JUCE_VST3_CAN_REPLACE_VST2=0)
 endif()
+
+# ── Nova license activation (one-time keys and Nova All Access) ──
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
+nova_license_enable(NovaLevel)

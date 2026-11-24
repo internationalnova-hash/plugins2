@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "MidEngine.h"
+#include "NovaLicenseGate.h"
 
 struct MidPreset
 {
@@ -15,6 +16,9 @@ const std::vector<MidPreset>& midPresets();
 class NovaMidAudioProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-mid", "Nova Mid" };
+
     NovaMidAudioProcessor();
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;

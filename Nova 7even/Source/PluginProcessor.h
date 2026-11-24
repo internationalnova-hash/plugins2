@@ -9,6 +9,7 @@
 #include "DSP/NovaSevenEQ.h"
 #include "DSP/NovaVUBallistics.h"
 #include "ABSnapshot.h"
+#include "NovaLicenseGate.h"
 
 // Full v0.1 signal chain (NOVA_7EVEN_PLAN.md section 5.1, locked):
 //   In -> Input Trim -> [Transformer + Class-A, oversampled together]
@@ -23,6 +24,9 @@
 class NovaSevenAudioProcessor : public juce::AudioProcessor, private juce::Timer
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-7even", "Nova 7even" };
+
     NovaSevenAudioProcessor();
     ~NovaSevenAudioProcessor() override;
 

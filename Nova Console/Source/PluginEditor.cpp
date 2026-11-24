@@ -3,6 +3,7 @@
 #include "BinaryData.h"
 #include <juce_gui_extra/juce_gui_extra.h>
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 NovaConsoleAudioProcessorEditor::NovaConsoleAudioProcessorEditor (NovaConsoleAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -76,6 +77,8 @@ NovaConsoleAudioProcessorEditor::NovaConsoleAudioProcessorEditor (NovaConsoleAud
     webView->goToURL (cacheBustedUrl);
 
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaConsoleAudioProcessorEditor::~NovaConsoleAudioProcessorEditor()

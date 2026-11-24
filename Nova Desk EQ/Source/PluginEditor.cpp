@@ -5,6 +5,7 @@
 #include <cstring>
 #include <iostream>
 #include <cmath>
+#include "NovaLicenseGate.h"
 
 NovaDeskEQEditor::NovaDeskEQEditor (NovaDeskEQAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -24,6 +25,8 @@ NovaDeskEQEditor::NovaDeskEQEditor (NovaDeskEQAudioProcessor& p)
     setResizeLimits (900, 350, 1600, 700);
     setSize (1180, 530);
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaDeskEQEditor::~NovaDeskEQEditor()

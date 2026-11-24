@@ -2,6 +2,7 @@
 #include "BinaryData.h"
 
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 NovaApexAudioProcessorEditor::NovaApexAudioProcessorEditor (NovaApexAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -36,6 +37,8 @@ NovaApexAudioProcessorEditor::NovaApexAudioProcessorEditor (NovaApexAudioProcess
     setResizeLimits (600, 360, 1500, 900);
     setSize (1000, 625);
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaApexAudioProcessorEditor::~NovaApexAudioProcessorEditor()

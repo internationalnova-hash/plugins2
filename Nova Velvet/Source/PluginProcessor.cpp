@@ -89,6 +89,7 @@ bool NovaVelvetAudioProcessor::isBusesLayoutSupported (const BusesLayout& layout
 
 void NovaVelvetAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
+    if (licenseGate.blocks (buffer)) return;   // not activated: pass audio through
     juce::ScopedNoDenormals noDenormals;
 
     engine.setParams (

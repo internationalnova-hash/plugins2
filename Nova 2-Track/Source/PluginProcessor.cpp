@@ -116,6 +116,7 @@ void NovaTwoTrackAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
 
 void NovaTwoTrackAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
+    if (licenseGate.blocks (buffer)) return;   // not activated: pass audio through
     juce::ScopedNoDenormals noDenormals;
     const int n = buffer.getNumSamples();
     const int nCh = juce::jmin (buffer.getNumChannels(), delayRing.getNumChannels());

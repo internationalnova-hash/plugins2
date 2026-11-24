@@ -415,6 +415,7 @@ float NovaApexAudioProcessor::novaGuardMultiplier() const noexcept
 void NovaApexAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                            juce::MidiBuffer& midiMessages)
 {
+    if (licenseGate.blocks (buffer)) return;   // not activated: pass audio through
     juce::ignoreUnused (midiMessages);
     juce::ScopedNoDenormals noDenormals;
 

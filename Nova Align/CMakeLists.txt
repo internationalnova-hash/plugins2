@@ -174,3 +174,7 @@ target_compile_definitions(NovaAlignTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CU
 target_link_libraries(NovaAlignTests
     PRIVATE juce::juce_core juce::juce_audio_basics juce::juce_audio_formats juce::juce_events
     PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+
+# ── Nova license activation (one-time keys and Nova All Access) ──
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
+nova_license_enable(NovaAlign)

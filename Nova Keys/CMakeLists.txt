@@ -457,3 +457,7 @@ target_compile_definitions(NovaKeysIntegrationValidation PRIVATE
 if(APPLE)
     target_compile_definitions(NovaKeysIntegrationValidation PRIVATE JUCE_USE_CURL=0)
 endif()
+
+# ── Nova license activation (one-time keys and Nova All Access) ──
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
+nova_license_enable(NovaKeys)

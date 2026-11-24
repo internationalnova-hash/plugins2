@@ -132,6 +132,7 @@ bool NovaRoyal670Processor::isBusesLayoutSupported (const BusesLayout& layouts) 
 
 void NovaRoyal670Processor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
+    if (licenseGate.blocks (buffer)) return;   // not activated: pass audio through
     juce::ScopedNoDenormals noDenormals;
 
     // Oversampling changes reallocate the engine's internal Oversampling

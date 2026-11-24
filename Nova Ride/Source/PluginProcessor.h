@@ -5,10 +5,14 @@
 #include "ParameterIDs.hpp"
 #include "NovaRideEngine.h"
 #include "NovaRidePresetManager.h"
+#include "NovaLicenseGate.h"
 
 class NovaRideAudioProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-ride", "Nova Ride" };
+
     NovaRideAudioProcessor();
     ~NovaRideAudioProcessor() override;
 

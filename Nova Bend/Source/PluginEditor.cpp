@@ -2,6 +2,7 @@
 #include "BinaryData.h"
 
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 NovaBendAudioProcessorEditor::NovaBendAudioProcessorEditor (NovaBendAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -35,6 +36,8 @@ NovaBendAudioProcessorEditor::NovaBendAudioProcessorEditor (NovaBendAudioProcess
     // often that contention can happen. Still smooth enough for a simple
     // level-meter-style waveform.
     startTimerHz (15);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaBendAudioProcessorEditor::~NovaBendAudioProcessorEditor()

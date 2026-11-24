@@ -5,10 +5,14 @@
 #include "ABSnapshot.h"
 #include "NovaTapePresetManager.h"
 #include <atomic>
+#include "NovaLicenseGate.h"
 
 class NovaTapeAudioProcessor : public juce::AudioProcessor, private juce::Timer
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-tape", "Nova Tape" };
+
     NovaTapeAudioProcessor();
     ~NovaTapeAudioProcessor() override;
 

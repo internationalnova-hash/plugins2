@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "dsp/NovaVocalAnalysis.h"
+#include "NovaLicenseGate.h"
 
 // Listen workflow state shown on the big ring button.
 enum class NovaVocalListenState { Idle, Listening, Analyzing, Mixed };
@@ -25,6 +26,9 @@ class NovaAIVocalProcessor : public juce::AudioProcessor,
                              private juce::AudioProcessorValueTreeState::Listener
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-ai-vocal", "Nova AI Vocal" };
+
     NovaAIVocalProcessor();
     ~NovaAIVocalProcessor() override;
 

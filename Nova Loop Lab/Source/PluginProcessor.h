@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "LoopLabCore.h"
+#include "NovaLicenseGate.h"
 
 struct FlipStyle
 {
@@ -24,6 +25,9 @@ class NovaLoopLabAudioProcessor : public juce::AudioProcessor,
                                   private juce::Timer
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-loop-lab", "Nova Loop Lab" };
+
     NovaLoopLabAudioProcessor();
     ~NovaLoopLabAudioProcessor() override;
 

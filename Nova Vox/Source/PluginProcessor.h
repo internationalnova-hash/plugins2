@@ -11,10 +11,14 @@
 #include "NovaSpaceDSP.h"
 
 #include "ui/Visualizer.h"
+#include "NovaLicenseGate.h"
 
 class NovaVoxAudioProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-vox", "Nova Vox" };
+
     NovaVoxAudioProcessor();
     ~NovaVoxAudioProcessor() override;
 

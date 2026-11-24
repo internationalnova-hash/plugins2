@@ -162,3 +162,7 @@ target_compile_definitions(NovaLoopLabHarness PRIVATE $<TARGET_PROPERTY:NovaLoop
 target_compile_features(NovaLoopLabHarness PRIVATE cxx_std_17)
 target_link_libraries(NovaLoopLabHarness PRIVATE NovaLoopLab)
 set_target_properties(NovaLoopLabHarness PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+
+# ── Nova license activation (one-time keys and Nova All Access) ──
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
+nova_license_enable(NovaLoopLab)

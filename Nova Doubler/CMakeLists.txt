@@ -335,3 +335,8 @@ target_compile_definitions(NovaDoublerStateRoundTripValidation PRIVATE
 if(APPLE)
     target_compile_definitions(NovaDoublerStateRoundTripValidation PRIVATE JUCE_USE_CURL=0)
 endif()
+
+# ── Nova license activation (one-time keys and Nova All Access) ──
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
+nova_license_enable(NovaDoubler)
+nova_license_test_target(NovaDoublerStateRoundTripValidation)

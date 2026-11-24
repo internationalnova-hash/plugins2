@@ -53,6 +53,7 @@ bool NovaDoublerProcessor::isBusesLayoutSupported (const BusesLayout& layouts) c
 
 void NovaDoublerProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
+    if (licenseGate.blocks (buffer)) return;   // not activated: pass audio through
     juce::ScopedNoDenormals noDenormals;
 
     const int numSamples = buffer.getNumSamples();

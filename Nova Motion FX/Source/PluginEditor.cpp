@@ -2,6 +2,7 @@
 #include "BinaryData.h"
 
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 NovaMotionFXEditor::NovaMotionFXEditor (NovaMotionFXProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
@@ -35,6 +36,8 @@ NovaMotionFXEditor::NovaMotionFXEditor (NovaMotionFXProcessor& p)
     setResizeLimits (576, 372, 1440, 930);
     setSize (960, 620);
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaMotionFXEditor::~NovaMotionFXEditor()

@@ -2,6 +2,7 @@
 #include "BinaryData.h"
 
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 NovaSilkAudioProcessorEditor::NovaSilkAudioProcessorEditor (NovaSilkAudioProcessor& processor)
     : AudioProcessorEditor (&processor), processorRef (processor)
@@ -25,6 +26,8 @@ NovaSilkAudioProcessorEditor::NovaSilkAudioProcessorEditor (NovaSilkAudioProcess
     setResizeLimits (648, 396, 1620, 990);
     setSize (1080, 680);
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaSilkAudioProcessorEditor::~NovaSilkAudioProcessorEditor()

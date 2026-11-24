@@ -4,6 +4,7 @@
 
 #include <cstring>
 #include <iostream>
+#include "NovaLicenseGate.h"
 
 NovaRoyal670Editor::NovaRoyal670Editor (NovaRoyal670Processor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -22,6 +23,8 @@ NovaRoyal670Editor::NovaRoyal670Editor (NovaRoyal670Processor& p)
     // 1:1 the window is uncomfortably large on a typical screen.
     setSize (1140, 707);
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaRoyal670Editor::~NovaRoyal670Editor()

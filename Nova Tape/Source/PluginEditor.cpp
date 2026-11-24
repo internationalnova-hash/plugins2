@@ -4,6 +4,7 @@
 
 #include <cstring>
 #include <iostream>
+#include "NovaLicenseGate.h"
 
 NovaTapeAudioProcessorEditor::NovaTapeAudioProcessorEditor (NovaTapeAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -23,6 +24,8 @@ NovaTapeAudioProcessorEditor::NovaTapeAudioProcessorEditor (NovaTapeAudioProcess
     setResizeLimits (700, 467, 1800, 1200);
     setSize (1024, 683);
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaTapeAudioProcessorEditor::~NovaTapeAudioProcessorEditor()

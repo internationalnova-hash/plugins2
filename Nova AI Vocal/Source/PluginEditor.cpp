@@ -3,6 +3,7 @@
 #include "dsp/NovaFactoryPresets.h"
 
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 NovaAIVocalEditor::NovaAIVocalEditor (NovaAIVocalProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -37,6 +38,8 @@ NovaAIVocalEditor::NovaAIVocalEditor (NovaAIVocalProcessor& p)
     if (auto* c = getConstrainer()) c->setFixedAspectRatio (1100.0 / 700.0);
     setSize (1100, 700);
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaAIVocalEditor::~NovaAIVocalEditor()

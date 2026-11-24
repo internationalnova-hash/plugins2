@@ -2,6 +2,7 @@
 #include "BinaryData.h"
 
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 NovaVelvetAudioProcessorEditor::NovaVelvetAudioProcessorEditor (NovaVelvetAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -39,6 +40,8 @@ NovaVelvetAudioProcessorEditor::NovaVelvetAudioProcessorEditor (NovaVelvetAudioP
     // (a lesson learned directly on other plugins this session: keep this
     // cheap and not too fast).
     startTimerHz (20);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaVelvetAudioProcessorEditor::~NovaVelvetAudioProcessorEditor()

@@ -1,26 +1,21 @@
 #pragma once
 
-// Shared seat-limited license activation module, used the same way by
-// every Nova plugin. See /Users/internationalnova/Nova/nova-store's
-// .claude/plans (Phase 2) for the full design.
+// Shared seat-limited license activation, used the same way by every Nova plugin.
+//
+// Two kinds of key:
+//   - One-time ("perpetual"): bought for one plugin, unlocks that plugin forever.
+//   - Nova All Access ("subscription"): unlocks every Nova plugin until it expires.
+//     Activating it in any plugin unlocks them all on this computer (shared cache).
+//     It's quietly re-checked online every few days (refreshIfDue) to pick up
+//     renewals; offline it keeps working for kOfflineGraceDays past its expiry.
 //
 // Flow:
-//   1. On editor construction, call isUnlocked(). If false, show an unlock
-//      screen (a native function like previewChord/exportMidiFile in
-//      Nova Chord's PluginEditor is the established pattern).
-//   2. User pastes a license key -> call activate(key, callback).
-//   3. activate() does a blocking HTTPS POST to NOVA_LICENSE_SERVER_URL
-//      "/api/activate" on a background thread, then calls `callback` back
-//      on the message thread with the result.
-//   4. On Success, a local cache file is written so future launches call
-//      isUnlocked() with NO network round-trip at all.
-//
-// Security note: the local cache is lightly obfuscated (SHA256-derived
-// XOR keystream, keyed by machine ID) to deter casual tampering, not to
-// resist a determined reverse-engineer - true of essentially any
-// client-side check, since the binary itself can always be patched. The
-// real protection is server-side (the seat limit lives in the database,
-// not on the user's machine).
+//   1. isUnlocked() (local cache only, no network) decides whether to show the
+//      unlock screen. NovaLicenseGate (NovaLicenseGate.h) does all of this for you.
+//   2. activate(key, callback) POSTs to NOVA_LICENSE_SERVER_URL "/api/activate" on a
+//      background thread (with this plugin's id), then calls back on the message thread.
+//   3. On success a local cache file is written, lightly obfuscated and tied to this
+//      machine (deters casual tampering; the seat limit lives on the server).
 
 #include <functional>
 
@@ -40,39 +35,63 @@ public:
         Revoked,
         SeatLimitReached,
         NetworkError,
-        InvalidResponse
+        InvalidResponse,
+        Expired,          // an All Access key whose subscription has ended
+        WrongPlugin       // a one-time key for a different plugin
     };
 
-    // appId should be short and stable per-plugin (e.g. "nova-sub") -
-    // used only to namespace the local cache file, not sent to the server
-    // as part of the activation check (the license key itself already
-    // ties to a specific plugin server-side).
+    struct Status
+    {
+        bool unlocked = false;
+        bool allAccess = false;          // unlocked by a Nova All Access subscription
+        juce::String licenseKey;
+        juce::Time expires;              // subscriptions only
+    };
+
+    static constexpr int kOfflineGraceDays = 7;   // subscription keeps working this long past expiry without a check
+    static constexpr int kRecheckDays = 3;        // how often a subscription key is re-checked online
+
+    // appId: this plugin's store id (e.g. "nova-tape"). Sent to the server so a
+    // one-time key only unlocks the plugin it was bought for.
     explicit NovaLicense (juce::String appId);
     ~NovaLicense();
 
-    // Checks the local cache only - no network call. Call this once at
-    // editor/processor startup to decide whether to show the unlock
-    // screen.
+    // Local cache only - no network call.
     bool isUnlocked() const;
+    Status getStatus() const;
 
     using ActivationCallback = std::function<void (ActivationResult)>;
 
-    // Runs the network call on a background thread; `callback` is invoked
-    // back on the message thread. Safe to call from the message thread.
+    // Network call on a background thread; `callback` runs on the message thread.
     void activate (const juce::String& licenseKey, ActivationCallback callback);
 
+    // If a subscription key is due for its re-check, confirm it online in the
+    // background. `onChanged` (message thread) fires if the unlock state changed.
+    void refreshIfDue (std::function<void()> onChanged = {});
+
+    const juce::String& getAppId() const noexcept { return appId; }
+
 private:
+    struct CacheEntry
+    {
+        juce::String licenseKey, machineId, kind, plugin;
+        juce::Time expires, lastCheck;
+        bool valid = false;
+    };
+
     juce::String appId;
 
-    juce::File getCacheFile() const;
+    static juce::File cacheFileFor (const juce::String& id);
     juce::String getMachineId() const;
-    juce::String getObfuscationKey (const juce::String& machineId) const;
+    static juce::String obfuscationKey (const juce::String& id, const juce::String& machineId);
 
-    bool writeCache (const juce::String& licenseKey, const juce::String& machineId) const;
-    bool readCache (juce::String& outLicenseKey, juce::String& outMachineId) const;
+    bool writeCache (const juce::String& id, const CacheEntry&) const;
+    CacheEntry readCache (const juce::String& id) const;
+    static bool entryUnlocks (const CacheEntry&);
 
     struct ActivationThread;
-    std::unique_ptr<ActivationThread> activeThread;
+    struct CheckThread;
+    std::unique_ptr<juce::Thread> activeThread, checkThread;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaLicense)
 };

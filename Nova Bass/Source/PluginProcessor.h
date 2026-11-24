@@ -9,6 +9,7 @@
 #include "NovaBassEngine.h"
 #include "Vault/NovaBassVault.h"
 #include "Preset/NovaBassPresetManager.h"
+#include "NovaLicenseGate.h"
 
 // Owns the full v0.1-A signal path: Sound Vault -> preset manager ->
 // NovaBassEngine (which itself owns every DSP subsystem) -> audio out.
@@ -25,6 +26,9 @@
 class NovaBassProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-bass", "Nova Bass" };
+
     NovaBassProcessor();
     ~NovaBassProcessor() override = default;
 

@@ -2,6 +2,7 @@
 #include "BinaryData.h"
 
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 namespace
 {
@@ -43,6 +44,8 @@ NovaDelayAudioProcessorEditor::NovaDelayAudioProcessorEditor (NovaDelayAudioProc
     setResizeLimits (kEditorWidth * 3 / 5, kEditorHeight * 3 / 5, kEditorWidth * 9 / 5, kEditorHeight * 9 / 5);
     setSize (kEditorWidth, kEditorHeight);
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaDelayAudioProcessorEditor::~NovaDelayAudioProcessorEditor()

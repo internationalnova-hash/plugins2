@@ -237,6 +237,7 @@ void NovaChordAudioProcessor::renderSynthVoices (float* left, float* right, int 
 void NovaChordAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                              juce::MidiBuffer& midiMessages)
 {
+    if (licenseGate.blocks (buffer)) return;   // not activated: pass audio through
     buffer.clear();
 
     juce::ScopedNoDenormals noDenormals;

@@ -10,6 +10,7 @@
 #include "DSP/NovaDeskEQBands.h"
 #include "DSP/NovaDeskDrive.h"
 #include "Presets/NovaDeskPresetManager.h"
+#include "NovaLicenseGate.h"
 
 // Full signal chain (build spec section 4, per the mockup's own info
 // panel: "INPUT TRIM -> DRIVE -> HPF -> LOW -> LOW MID -> HIGH MID ->
@@ -30,6 +31,9 @@
 class NovaDeskEQAudioProcessor : public juce::AudioProcessor, private juce::Timer
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-desk-eq", "Nova Desk EQ" };
+
     NovaDeskEQAudioProcessor();
     ~NovaDeskEQAudioProcessor() override;
 

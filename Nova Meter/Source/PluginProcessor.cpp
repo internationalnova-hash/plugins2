@@ -25,6 +25,7 @@ void NovaMeterAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 
 void NovaMeterAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
+    if (licenseGate.blocks (buffer)) return;   // not activated: pass audio through
     juce::ScopedNoDenormals noDenormals;
     // Measurement only: the audio passes through untouched.
     meterEngine.process (buffer.getArrayOfReadPointers(), getTotalNumInputChannels(), buffer.getNumSamples());

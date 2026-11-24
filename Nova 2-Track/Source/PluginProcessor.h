@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "TwoTrackEngine.h"
+#include "NovaLicenseGate.h"
 
 struct TwoTrackPreset
 {
@@ -18,6 +19,9 @@ const juce::StringArray& twoTrackParamIds();
 class NovaTwoTrackAudioProcessor : public juce::AudioProcessor
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-2track", "Nova 2-Track" };
+
     NovaTwoTrackAudioProcessor();
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;

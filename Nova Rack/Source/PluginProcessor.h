@@ -7,12 +7,16 @@
 #include "RackPresets.h"
 #include "RackSlot.h"
 #include "Match/MatchSession.h"
+#include "NovaLicenseGate.h"
 
 class NovaRackAudioProcessor : public juce::AudioProcessor,
                                private juce::Timer,
                                private juce::AsyncUpdater
 {
 public:
+    // Nova license: one-time key for this plugin, or Nova All Access
+    NovaLicenseGate licenseGate { *this, "nova-rack", "Nova Rack" };
+
     static constexpr int kMaxSlots = 8;
 
     NovaRackAudioProcessor();

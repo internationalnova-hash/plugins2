@@ -4,6 +4,7 @@
 
 #include <cstring>
 #include <iostream>
+#include "NovaLicenseGate.h"
 
 NovaDoublerEditor::NovaDoublerEditor (NovaDoublerProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -19,6 +20,8 @@ NovaDoublerEditor::NovaDoublerEditor (NovaDoublerProcessor& p)
     setResizeLimits (640, 420, 1200, 800);
     setSize (820, 540);
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaDoublerEditor::~NovaDoublerEditor()

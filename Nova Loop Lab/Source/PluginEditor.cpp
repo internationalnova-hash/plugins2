@@ -3,6 +3,7 @@
 
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 using NativeArgs = const juce::Array<juce::var>&;
 using Completion = juce::WebBrowserComponent::NativeFunctionCompletion;
@@ -23,6 +24,8 @@ NovaLoopLabAudioProcessorEditor::NovaLoopLabAudioProcessorEditor (NovaLoopLabAud
         c->setFixedAspectRatio ((double) kW / kH);
     setSize (kW, kH);
     startTimerHz (30);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaLoopLabAudioProcessorEditor::~NovaLoopLabAudioProcessorEditor()

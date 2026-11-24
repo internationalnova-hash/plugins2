@@ -2,6 +2,7 @@
 #include "BinaryData.h"
 
 #include <cstring>
+#include "NovaLicenseGate.h"
 
 NovaPunchAudioProcessorEditor::NovaPunchAudioProcessorEditor (NovaPunchAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -45,6 +46,8 @@ NovaPunchAudioProcessorEditor::NovaPunchAudioProcessorEditor (NovaPunchAudioProc
     // worsened audible artifacts there when this ran at 30Hz with a
     // heavier per-tick payload).
     startTimerHz (20);
+
+    NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
 }
 
 NovaPunchAudioProcessorEditor::~NovaPunchAudioProcessorEditor()

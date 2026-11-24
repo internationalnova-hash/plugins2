@@ -151,3 +151,7 @@ target_compile_definitions(NovaMidTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL
 target_link_libraries(NovaMidTests
     PRIVATE juce::juce_core juce::juce_dsp
     PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+
+# ── Nova license activation (one-time keys and Nova All Access) ──
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
+nova_license_enable(NovaMid)
