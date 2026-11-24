@@ -159,6 +159,8 @@ target_link_libraries(${PLUGIN_TARGET}
     PUBLIC
         JUCE_WEB_BROWSER=1
         JUCE_VST3_CAN_REPLACE_VST2=0
+        # MIDI input is only for Harmony notes: don't expose 2048 "MIDI CC" parameters in hosts
+        JUCE_VST3_EMULATE_MIDI_CC_WITH_PARAMETERS=0
     )
 
 if(WIN32)
