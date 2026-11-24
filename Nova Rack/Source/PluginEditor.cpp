@@ -27,6 +27,7 @@ NovaRackAudioProcessorEditor::NovaRackAudioProcessorEditor (NovaRackAudioProcess
 NovaRackAudioProcessorEditor::~NovaRackAudioProcessorEditor()
 {
     stopTimer();
+    processorRef.match.setPreview (0);   // don't leave the A/B playing with the window closed
     processorRef.closeAllWindows(); // closing the rack closes its plugins' full-size windows
 }
 
@@ -109,6 +110,90 @@ void NovaRackAudioProcessorEditor::timerCallback()
 }
 
 //==============================================================================
+juce::var NovaRackAudioProcessorEditor::buildMatchState()
+{
+    using namespace nr::match;
+    auto& m = processorRef.match;
+    if (m.takeCaptureFull()) m.stopCapture();
+
+    auto clipVar = [] (const MatchSession::Clip& c) -> juce::var
+    {
+        if (c.empty()) return {};
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("name", c.name);
+        o->setProperty ("seconds", c.audio.getNumSamples() / juce::jmax (1.0, c.rate));
+        o->setProperty ("rate", c.rate);
+        o->setProperty ("channels", c.audio.getNumChannels());
+        o->setProperty ("key", c.key);
+        juce::Array<juce::var> pk;
+        for (auto v : c.peaks) pk.add (juce::String (v, 3).getFloatValue());
+        o->setProperty ("peaks", pk);
+        return juce::var (o);
+    };
+
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("ref", clipVar (m.reference()));
+    o->setProperty ("raw", clipVar (m.raw()));
+    o->setProperty ("capturing", m.isCapturing());
+    o->setProperty ("captureSeconds", m.captureSeconds());
+    o->setProperty ("captureMax", MatchSession::kCaptureSeconds);
+    o->setProperty ("running", m.isRunning());
+    o->setProperty ("progress", m.progress());
+    o->setProperty ("status", m.status());
+    o->setProperty ("preview", m.getPreview());
+
+    juce::Array<juce::var> names;
+    for (int s = 0; s < kNumStages; ++s)
+    {
+        auto* n = new juce::DynamicObject();
+        n->setProperty ("name", juce::String (stageName (s)));
+        n->setProperty ("plugin", juce::String (stagePlugin (s)));
+        names.add (juce::var (n));
+    }
+    o->setProperty ("stages", names);
+
+    if (auto* r = m.result())
+    {
+        auto* res = new juce::DynamicObject();
+        res->setProperty ("raw", r->rawOverall);
+        res->setProperty ("matched", r->matchedOverall);
+        juce::Array<juce::var> rs, ms, used, specRef, specRaw, specMatched;
+        for (int s = 0; s < kNumStages; ++s)
+        {
+            rs.add (r->rawScores[(size_t) s]);
+            ms.add (r->matchedScores[(size_t) s]);
+            used.add (r->used[(size_t) s]);
+        }
+        for (int b = 0; b < VocalProfile::kBands; ++b)
+        {
+            specRef.add (r->reference.spectrumDb[(size_t) b]);
+            specRaw.add (r->raw.spectrumDb[(size_t) b]);
+            specMatched.add (r->matched.spectrumDb[(size_t) b]);
+        }
+        res->setProperty ("rawScores", rs);
+        res->setProperty ("matchedScores", ms);
+        res->setProperty ("used", used);
+        res->setProperty ("specRef", specRef);
+        res->setProperty ("specRaw", specRaw);
+        res->setProperty ("specMatched", specMatched);
+        juce::Array<juce::var> chain;
+        for (auto& st : r->chain)
+        {
+            auto* c = new juce::DynamicObject();
+            c->setProperty ("stage", st.stage);
+            c->setProperty ("plugin", st.plugin);
+            c->setProperty ("summary", st.summary);
+            chain.add (juce::var (c));
+        }
+        res->setProperty ("chain", chain);
+        res->setProperty ("notes", r->notes);
+        res->setProperty ("renders", r->renders);
+        res->setProperty ("seconds", r->seconds);
+        o->setProperty ("result", juce::var (res));
+    }
+    return juce::var (o);
+}
+
 static juce::var faceInfo (juce::AudioPluginInstance& inst, const juce::Array<int>& face)
 {
     juce::Array<juce::var> out;
@@ -446,6 +531,76 @@ juce::WebBrowserComponent::Options NovaRackAudioProcessorEditor::createWebOption
             done (result (err == "missing" ? sd.plugin + " isn't installed." : err, buildState()));
         })
 
+        // ── Nova Match ───────────────────────────────────────────────────
+        .withNativeFunction ("matchState", [this] (NativeArgs, Completion done) { done (buildMatchState()); })
+
+        .withNativeFunction ("matchChooseFile", [this, &proc, arg] (NativeArgs a, Completion done)
+        {
+            const bool isRef = arg (a, 0).toString() == "ref";
+            chooser = std::make_unique<juce::FileChooser> (isRef ? "Choose the reference vocal (an acapella works best)" : "Choose your vocal",
+                                                           juce::File(), "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.m4a");
+            chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                [this, &proc, isRef, done] (const juce::FileChooser& fc)
+                {
+                    const auto f = fc.getResult();
+                    juce::String err;
+                    if (f.existsAsFile()) err = proc.match.loadFile (isRef, f);
+                    done (result (err, buildMatchState()));
+                });
+        })
+
+        .withNativeFunction ("matchCapture", [this, &proc, arg] (NativeArgs a, Completion done)
+        {
+            if ((bool) arg (a, 0)) proc.match.startCapture();
+            else                   proc.match.stopCapture();
+            done (buildMatchState());
+        })
+
+        .withNativeFunction ("matchRun", [this, &proc, arg] (NativeArgs a, Completion done)
+        {
+            std::array<bool, nr::match::kNumStages> locked {};
+            if (auto* arr = arg (a, 0).getArray())
+                for (int i = 0; i < juce::jmin ((int) locked.size(), arr->size()); ++i)
+                    locked[(size_t) i] = (bool) (*arr)[i];
+            proc.match.setPreview (0);
+            done (result (proc.match.start (locked), buildMatchState()));
+        })
+
+        .withNativeFunction ("matchCancel", [this, &proc] (NativeArgs, Completion done)
+        {
+            proc.match.cancel();
+            done (buildMatchState());
+        })
+
+        .withNativeFunction ("matchPreview", [this, &proc, arg] (NativeArgs a, Completion done)
+        {
+            proc.match.setPreview ((int) arg (a, 0));
+            done (buildMatchState());
+        })
+
+        .withNativeFunction ("matchLoadChain", [this, &proc, arg] (NativeArgs a, Completion done)
+        {
+            juce::String err;
+            if (proc.match.result() == nullptr) err = "Run a match first.";
+            else
+            {
+                proc.match.setPreview (0);
+                const auto missing = proc.loadRack (proc.match.buildRack ((float) (double) arg (a, 0)));
+                proc.rackDirty = true;
+                if (! missing.isEmpty()) err = "Not installed: " + missing.joinIntoString (", ") + ".";
+            }
+            done (result (err, buildState()));
+        })
+
+        .withNativeFunction ("matchStrength", [&proc, arg] (NativeArgs a, Completion done)
+        {
+            // Match strength = how much of each matched unit is mixed in
+            if (proc.rackName.startsWith ("Match"))
+                for (int i = 0; i < proc.numSlots(); ++i)
+                    proc.setMix (i, (float) (double) arg (a, 0));
+            done ({});
+        })
+
         .withNativeFunction ("rescan", [this, &proc] (NativeArgs, Completion done)
         {
             proc.library->rescan (false);
@@ -504,6 +659,8 @@ std::optional<juce::WebBrowserComponent::Resource> NovaRackAudioProcessorEditor:
         return makeResource (nova_rack_BinaryData::index_js2, nova_rack_BinaryData::index_js2Size, "text/javascript");
     if (path.endsWith ("/js/juce/check_native_interop.js"))
         return makeResource (nova_rack_BinaryData::check_native_interop_js, nova_rack_BinaryData::check_native_interop_jsSize, "text/javascript");
+    if (path.endsWith ("/js/match.js"))
+        return makeResource (nova_rack_BinaryData::match_js, nova_rack_BinaryData::match_jsSize, "text/javascript");
     if (path.endsWith ("/js/index.js"))
         return makeResource (nova_rack_BinaryData::index_js, nova_rack_BinaryData::index_jsSize, "text/javascript");
     if (path.endsWith ("/n_logo.png"))

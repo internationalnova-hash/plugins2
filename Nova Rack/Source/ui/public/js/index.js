@@ -764,6 +764,7 @@ function setState(s) {
 //==============================================================================
 // Scale the 1240 x 720 design to the window.
 let scaleNow = 1;
+let match = null;   // Nova Match panel
 function fit() {
   scaleNow = Math.min(window.innerWidth / 1240, window.innerHeight / 720);
   $('app').style.transform = `scale(${scaleNow})`;
@@ -800,6 +801,19 @@ async function main() {
     $('licenseErr').textContent = msgs[r] ?? 'Activation failed.';
     if (r === 'ok') setState(await api.getState());
   });
+
+  // Nova Match panel
+  try {
+    const { createMatchPanel } = await import('./match.js');
+    match = createMatchPanel({
+      root: $('matchView'), button: $('matchBtn'), api, toast,
+      onRackChanged: (s, save) => {
+        if (s && s.slots) setState(s);
+        match?.setOpen(false);
+        if (save) saveRackAs();
+      },
+    });
+  } catch (e) { console.error('Nova Match panel failed to load', e); }
 
   window.novaRackUpdate = applyLive;
   window.novaRackStateChanged = async () => setState(await api.getState());

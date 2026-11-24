@@ -21,6 +21,8 @@ private:
     void timerCallback() override;
     juce::var buildState() const;
     juce::String buildLiveJson();
+    juce::var buildMatchState();
+    std::unique_ptr<juce::FileChooser> chooser;
 
     NovaRackAudioProcessor& processorRef;
     int seenRackGeneration = -1, seenLibraryGeneration = -1;

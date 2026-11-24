@@ -48,6 +48,7 @@ juce_add_binary_data(NovaRack_WebUI
         ${NOVA_RACK_SKINS}
         Source/ui/public/index.html
         Source/ui/public/js/index.js
+        Source/ui/public/js/match.js
         Source/ui/public/js/juce/index.js
         Source/ui/public/js/juce/check_native_interop.js
         Source/ui/public/n_logo.png
@@ -92,7 +93,16 @@ target_sources(NovaRack
         Source/FactoryRacks.cpp
         Source/RackSlot.cpp
         Source/RackSlot.h
+        Source/Match/VocalProfile.cpp
+        Source/Match/VocalProfile.h
+        Source/Match/MatchEngine.cpp
+        Source/Match/MatchEngine.h
+        Source/Match/MatchSession.cpp
+        Source/Match/MatchSession.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaTuneCore/NovaVocalTuner.cpp
 )
+
+target_include_directories(NovaRack PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaTuneCore)
 
 if(NOVA_RACK_REQUIRE_LICENSE)
     target_sources(NovaRack PRIVATE ${NOVA_LICENSE_DIR}/NovaLicense.cpp ${NOVA_LICENSE_DIR}/NovaLicense.h)
@@ -170,4 +180,16 @@ target_include_directories(NovaRackParamDump PRIVATE Source)
 target_compile_definitions(NovaRackParamDump PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_PLUGINHOST_VST3=1 JUCE_PLUGINHOST_AU=0)
 target_link_libraries(NovaRackParamDump
     PRIVATE juce::juce_core juce::juce_audio_processors juce::juce_gui_basics juce::juce_events
+    PUBLIC juce::juce_recommended_config_flags)
+
+# ── Nova Match tests: analyse real vocals and rebuild a known chain with the installed plugins ──
+#   cmake --build "Nova Rack/build-release" --target NovaMatchTests && "Nova Rack/build-release/NovaMatchTests_artefacts/Release/NovaMatchTests"
+set(NOVA_TUNE_CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaTuneCore)
+juce_add_console_app(NovaMatchTests PRODUCT_NAME "NovaMatchTests")
+target_sources(NovaMatchTests PRIVATE Tests/MatchTests.cpp Source/Match/VocalProfile.cpp Source/Match/MatchEngine.cpp Source/Match/MatchSession.cpp Source/PluginLibrary.cpp
+    Source/RackPresets.cpp Source/FactoryRacks.cpp Source/RackSlot.cpp ${NOVA_TUNE_CORE_DIR}/NovaVocalTuner.cpp)
+target_include_directories(NovaMatchTests PRIVATE Source ${NOVA_TUNE_CORE_DIR})
+target_compile_definitions(NovaMatchTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_PLUGINHOST_VST3=1 JUCE_PLUGINHOST_AU=0 JUCE_MODAL_LOOPS_PERMITTED=1)
+target_link_libraries(NovaMatchTests
+    PRIVATE juce::juce_core juce::juce_audio_processors juce::juce_audio_formats juce::juce_dsp juce::juce_gui_basics juce::juce_events
     PUBLIC juce::juce_recommended_config_flags)

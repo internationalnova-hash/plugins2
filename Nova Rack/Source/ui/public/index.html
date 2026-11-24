@@ -262,6 +262,69 @@
     .toast { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); z-index: 90; background: #1d232b; border: 1px solid rgba(255,152,54,0.4);
              border-radius: 8px; padding: 8px 13px; font-size: 12px; opacity: 0; pointer-events: none; transition: opacity 250ms; max-width: 70%; }
     .toast.show { opacity: 1; }
+
+    /* ── Nova Match ─────────────────────────────────────── */
+    .match-btn.on { color: #0b0b10; background: linear-gradient(180deg, #b79bff, #9c7dff); box-shadow: 0 0 16px rgba(156,125,255,0.45); }
+    .mv { position: absolute; left: 0; right: 0; top: 52px; bottom: 0; z-index: 30; display: none;
+          background: linear-gradient(180deg, #121417, #0d0f12); --pu: #9c7dff; --pu2: #b79bff; --pug: rgba(156,125,255,0.45);
+          --line: rgba(255,255,255,0.08); --line2: rgba(255,255,255,0.16); --dim: #8b9099; --dimmer: #5b6069; --green: #5fe39a; --amber: #ffb86b; }
+    .mv.open { display: block; }
+    .mv-body { position: absolute; left: 20px; right: 20px; top: 16px; bottom: 150px; display: grid; grid-template-columns: 310px 1fr 340px; gap: 16px; }
+    .mv-bottom { position: absolute; left: 20px; right: 20px; bottom: 16px; height: 120px; display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+    .mv-card { background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01)); border: 1px solid var(--line2); border-radius: 14px;
+               padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+    .mv-h { font-size: 10px; font-weight: 800; letter-spacing: 0.16em; color: var(--dim); text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .mv-h span { color: var(--dimmer); font-weight: 500; letter-spacing: 0.04em; text-transform: none; }
+    .mv-drop { border: 1px dashed var(--line2); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; background: rgba(0,0,0,0.2); }
+    .mv-drop.empty { align-items: center; justify-content: center; min-height: 118px; color: var(--dimmer); font-size: 12px; text-align: center; }
+    .mv-fname { font-size: 13px; font-weight: 700; color: #eceef2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mv-meta { font-size: 10px; color: var(--dimmer); }
+    .mv canvas { display: block; width: 100%; }
+    .mv-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mv-tag { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; padding: 3px 7px; border-radius: 5px; background: rgba(95,227,154,0.12); color: var(--green); }
+    .mv-btn { height: 28px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--line2); background: #22262b; color: var(--dim); font-size: 10px;
+              font-weight: 800; letter-spacing: 0.12em; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .mv-btn:hover { color: #fff; border-color: var(--pu); }
+    .mv-btn.on, .mv-btn.primary { color: #0b0b10; background: linear-gradient(180deg, var(--pu2), var(--pu)); border-color: transparent; box-shadow: 0 0 14px var(--pug); }
+    .mv-btn.rec.on { background: linear-gradient(180deg, #ff7b7b, #e04848); box-shadow: 0 0 14px rgba(224,72,72,0.5); }
+    .mv-btn:disabled { opacity: 0.4; cursor: default; }
+    .mv-row-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mv-score { align-items: center; justify-content: center; gap: 8px; }
+    .mv-ring { width: 214px; height: 214px; position: relative; display: grid; place-items: center; }
+    .mv-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+    .mv-big { font-size: 58px; font-weight: 800; line-height: 1; color: #f3f3f8; text-shadow: 0 0 26px var(--pug); text-align: center; }
+    .mv-big small { font-size: 22px; color: var(--dim); }
+    .mv-sub { font-size: 10px; letter-spacing: 0.2em; color: var(--dimmer); text-transform: uppercase; text-align: center; }
+    .mv-before { font-size: 12px; color: var(--dim); text-align: center; } .mv-before b { color: #eceef2; }
+    .mv-ab { display: flex; gap: 3px; padding: 3px; border-radius: 9px; border: 1px solid var(--line2); background: #1b1e22; }
+    .mv-ab button { height: 28px; padding: 0 13px; border-radius: 6px; border: none; background: transparent; color: var(--dim); font-size: 10px; font-weight: 800; letter-spacing: 0.1em; cursor: pointer; }
+    .mv-ab button:hover { color: #fff; }
+    .mv-ab button.on { background: rgba(156,125,255,0.22); color: var(--pu2); }
+    .mv-ab button:disabled { opacity: 0.35; cursor: default; }
+    .mv-slider { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 6px; }
+    .mv-slider input { width: 100%; accent-color: #9c7dff; }
+    .mv-stage { display: grid; grid-template-columns: 112px 1fr 38px 22px; align-items: center; gap: 8px; font-size: 11px; }
+    .mv-stage .n { color: #eceef2; font-weight: 700; } .mv-stage .p { color: var(--dimmer); font-size: 9px; letter-spacing: 0.03em; }
+    .mv-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.07); position: relative; overflow: hidden; }
+    .mv-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; transition: width 400ms ease; }
+    .mv-bar b { position: absolute; top: -1px; bottom: -1px; width: 2px; background: rgba(255,255,255,0.35); }
+    .mv-pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--dim); }
+    .mv-lock { width: 20px; height: 20px; border-radius: 5px; border: 1px solid var(--line2); background: transparent; color: var(--dimmer); font-size: 10px; cursor: pointer; display: grid; place-items: center; padding: 0; }
+    .mv-lock.on { border-color: var(--amber); color: var(--amber); }
+    .mv-chain { display: flex; align-items: center; gap: 6px; overflow: hidden; }
+    .mv-mod { height: 60px; min-width: 104px; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line2); background: linear-gradient(180deg, #262a30, #1a1d21);
+              display: flex; flex-direction: column; justify-content: space-between; }
+    .mv-mod .t { font-size: 9px; letter-spacing: 0.14em; color: var(--dimmer); font-weight: 800; }
+    .mv-mod .v { font-size: 11px; font-weight: 700; color: #eceef2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+    .mv-arrow { color: var(--dimmer); font-size: 12px; }
+    .mv-notes { font-size: 11px; color: var(--dim); line-height: 1.5; overflow: hidden; }
+    .mv-legend { display: flex; gap: 12px; font-size: 9px; letter-spacing: 0.1em; color: var(--dimmer); text-transform: uppercase; }
+    .mv-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: 2px; margin-right: 5px; }
+    .mv-progress { width: 100%; max-width: 380px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.08); overflow: hidden; }
+    .mv-progress i { display: block; height: 100%; background: linear-gradient(90deg, #9c7dff, #4ea9ff); transition: width 300ms ease; }
+    .mv-status { font-size: 11px; color: var(--dim); text-align: center; min-height: 15px; }
+    .mv-err { color: #ff8a7a; }
+    .mv-empty-chain { font-size: 11px; color: var(--dimmer); }
   </style>
 </head>
 <body>
@@ -287,11 +350,14 @@
         <button id="nextRack" title="Next rack">&#9654;</button>
         <button id="rackMenu" title="Save, save as, new">&#8943;</button>
       </div>
+      <button class="tbtn match-btn" id="matchBtn" title="Nova Match: rebuild a reference vocal's sound with this rack">&#10022; MATCH</button>
       <button class="tbtn" id="bypassAll" title="Bypass every unit">BYPASS ALL</button>
       <div class="io" id="io"></div>
     </div>
 
     <div class="bay"><div class="chain" id="chain"></div></div>
+
+    <div class="mv" id="matchView"></div>
 
     <div class="statusbar">
       <span id="unitCount">0 / 8 UNITS</span>

@@ -134,6 +134,8 @@ void NovaRackAudioProcessor::prepareToPlay (double sr, int block)
     inGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (inGainParam->load()));
     outGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (outGainParam->load()));
 
+    match.prepare (sr, getTotalNumInputChannels());
+
     const juce::ScopedLock sl (audioLock);
     for (auto& s : slots)
         prepareSlot (*s);
@@ -164,6 +166,7 @@ void NovaRackAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     inGain.setTargetValue (juce::Decibels::decibelsToGain (inGainParam->load()));
     inGain.applyGain (io, n);
     inPeak.store (std::max (inPeak.load(), io.getMagnitude (0, n)));
+    match.pushCapture (io);   // Nova Match: "Capture" records the rack's input
 
     {
         const juce::ScopedLock sl (audioLock);
@@ -177,6 +180,7 @@ void NovaRackAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
 
     outGain.setTargetValue (juce::Decibels::decibelsToGain (outGainParam->load()));
     outGain.applyGain (io, n);
+    match.renderPreview (io); // Nova Match A/B replaces the output while it's on
     outPeak.store (std::max (outPeak.load(), io.getMagnitude (0, n)));
     midi.clear();
 }

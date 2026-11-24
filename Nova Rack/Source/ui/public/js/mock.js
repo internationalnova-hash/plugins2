@@ -76,7 +76,36 @@ export function createMockBackend() {
     });
   }, 50);
 
+  // Nova Match demo (browser preview only)
+  const pk = (seed) => { let r = seed; return Array.from({ length: 240 }, (_, i) => { r = (r * 9301 + 49297) % 233280; return (0.4 + 0.6 * r / 233280) * (0.2 + 0.8 * Math.abs(Math.sin(i / 18))); }); };
+  const curve = (f) => Array.from({ length: 24 }, (_, i) => f(i / 23));
+  const ref = (t) => 14 * Math.sin(t * 3.2) * 0.4 + 6 * Math.exp(-Math.pow((t - 0.7) / 0.08, 2)) - 30 * Math.max(0, t - 0.85) - 20 * Math.max(0, 0.12 - t) * 6;
+  const matchDemo = {
+    ref: { name: 'Ozuna – reference (acapella)', seconds: 42, rate: 48000, channels: 2, key: 'A MINOR', peaks: pk(7) },
+    raw: { name: 'Captured from the track', seconds: 30, rate: 48000, channels: 2, key: 'A MINOR', peaks: pk(3) },
+    capturing: false, captureSeconds: 0, captureMax: 30, running: false, progress: 1, status: 'Matched in 31 s · 268 test renders', preview: 3,
+    stages: ['Tuning', 'Tone (EQ)', 'Dynamics', "Air & S's", 'Warmth', 'Width & doubles', 'Delay', 'Space (reverb)'].map((name, i) => ({
+      name, plugin: ['Nova Pitch', 'Nova Desk EQ', 'Nova Royal 670', 'Nova Silk', 'Nova Tape', 'Nova Doubler', 'Nova Delay', 'Nova Space'][i] })),
+    result: {
+      raw: 29, matched: 88,
+      rawScores: [96, 19, 13, 92, 45, 6, 4, 2], matchedScores: [97, 92, 98, 98, 98, 79, 64, 85],
+      used: [false, true, true, false, true, false, true, true],
+      specRef: curve(ref), specRaw: curve((t) => ref(t) + 6 * Math.exp(-Math.pow((t - 0.6) / 0.07, 2)) + 3 * Math.sin(t * 9)), specMatched: curve((t) => ref(t) + 0.8 * Math.sin(t * 13)),
+      chain: [{ plugin: 'Nova Desk EQ', summary: 'Low -3.0 dB · Hi-mid +4.0 dB' }, { plugin: 'Nova Royal 670', summary: 'Input 6.0 · 1.2 sec' },
+              { plugin: 'Nova Tape', summary: 'Vintage · Tape 15' }, { plugin: 'Nova Delay', summary: '333 ms · Mix 18' }, { plugin: 'Nova Space', summary: '1.2 s · Mix 28 %' }],
+      notes: 'The reference has a noticeable reverb tail (-14.8 dB after phrases). It has an echo about 370 ms after each phrase. Your voice was 4.1 dB louder around 3.2 kHz than the reference.',
+      renders: 268, seconds: 31,
+    },
+  };
   return {
+    matchState: async () => matchDemo,
+    matchChooseFile: async () => ({ error: '', state: matchDemo }),
+    matchCapture: async () => matchDemo,
+    matchRun: async () => ({ error: '', state: matchDemo }),
+    matchCancel: async () => matchDemo,
+    matchPreview: async (p) => { matchDemo.preview = p; return matchDemo; },
+    matchStrength: async () => ({}),
+    matchLoadChain: async () => ({ error: '' }),
     getState: () => ok(st()),
     addPlugin: (name) => { slots.push(mkSlot(name)); rack.dirty = true; return ok({ state: st() }); },
     removeSlot: (i) => { slots.splice(i, 1); rack.dirty = true; return ok(st()); },

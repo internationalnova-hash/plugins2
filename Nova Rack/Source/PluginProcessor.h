@@ -6,6 +6,7 @@
 #include "PluginLibrary.h"
 #include "RackPresets.h"
 #include "RackSlot.h"
+#include "Match/MatchSession.h"
 
 class NovaRackAudioProcessor : public juce::AudioProcessor,
                                private juce::Timer,
@@ -74,6 +75,9 @@ public:
     std::atomic<int> rackGeneration { 0 };  // bumped when the chain changes (editor refreshes)
 
     std::atomic<float> inPeak { 0.0f }, outPeak { 0.0f };
+
+    // Nova Match: rebuild a reference vocal's sound with this rack
+    nr::match::MatchSession match { *library };
 
 private:
     void timerCallback() override;
