@@ -183,6 +183,21 @@ function initBypass() {
   });
 }
 
+// ── Tracking mode (low latency for recording) ─────────────────────────
+function renderTracking() {
+  const on = !!currentValues.tracking;
+  const b = $("trackBtn");
+  b.classList.toggle("is-active", on);
+  b.textContent = on ? "ON · 4 ms" : "OFF";
+}
+function initTracking() {
+  $("trackBtn").addEventListener("click", () => {
+    currentValues.tracking = currentValues.tracking ? 0 : 1;
+    renderTracking();
+    nf.setParam("tracking", currentValues.tracking);
+  });
+}
+
 // ── A/B ────────────────────────────────────────────────────────────────
 async function refreshAbButtons() {
   const state = await nf.abGetState();
@@ -619,6 +634,10 @@ async function refreshAll() {
     currentValues.scale = byId.scale.value;
     $("scaleValue").textContent = SCALE_NAMES[Math.round(byId.scale.value)] ?? "Major";
   }
+  if (byId.tracking) {
+    currentValues.tracking = byId.tracking.value ? 1 : 0;
+    renderTracking();
+  }
   if (byId.bypass) {
     const active = !!byId.bypass.value;
     currentValues.bypass = active ? 1 : 0;
@@ -660,6 +679,7 @@ setInterval(fitStage, 300);
   buildKeyboard();
   initHarmony();
   initBypass();
+  initTracking();
   initAbButtons();
   initSavePopover();
   initSettingsPopover();

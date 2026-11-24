@@ -179,14 +179,20 @@ NovaVocalTuner::Params NovaVocalTuner::fromTuneKnob (float t, int keyPc, int sca
     return p;
 }
 
-void NovaVocalTuner::prepare (double sampleRate, int, bool lowLatency)
+void NovaVocalTuner::prepare (double sampleRate, int, bool lowLatency, bool tracking)
 {
     sr = sampleRate > 0 ? sampleRate : 48000.0;
-    tracker.prepare (sr, lowLatency);
+    trackingMode = tracking;
+    tracker.prepare (sr, lowLatency || tracking);
     auto coef = [this] (double ms) { return (float) std::exp (-1.0 / (ms * 0.001 * sr)); };
     fastAtt = coef (1.0);  fastRel = coef (20.0);
     slowAtt = coef (40.0); slowRel = coef (200.0);
     latency = tracker.getDelaySamples();
+    if (trackingMode)
+    {
+        trackMin = (int) std::round (0.0015 * sr);              // 1.5 ms
+        latency  = trackMin + (int) std::round (0.0025 * sr);   // ~4 ms nominal (reported to the host)
+    }
     hopSize = tracker.getHopSize();
     dwellHops = juce::jmax (1, (int) std::round (0.02 * sr / hopSize)); // ~20 ms
 
@@ -435,8 +441,33 @@ void NovaVocalTuner::process (float* left, float* right, int numSamples) noexcep
         left[i] = oL;
         right[i] = oR;
 
+        // Tracking mode: stay just behind the live input. Jump back a period when the head
+        // gets too close (shifting up), forward when it falls a period behind (shifting down).
+        if (trackingMode)
+        {
+            if (fadePos < 0)
+            {
+                const double d = (double) w - rp;
+                const double lo = trackMin + (ratio > 1.0 ? (ratio - 1.0) * 256.0 : 0.0);   // room for a crossfade
+                if (voiced && period > 0.f)
+                {
+                    const int fade = juce::jlimit (64, 256, (int) period);
+                    if (d < lo)
+                        startJump (rp - refinePeriod (rp, -1, period), fade);
+                    else if (d > lo + period + 64.0)
+                    {
+                        const double step = refinePeriod (rp, +1, period);
+                        if (d - step >= lo) startJump (rp + step, fade);
+                    }
+                }
+                else if (std::abs (d - latency) > 32.0)
+                {
+                    startJump ((double) w - latency, 256);
+                }
+            }
+        }
         // Keep the read head within half a period of the fixed latency
-        if (fadePos < 0)
+        else if (fadePos < 0)
         {
             const double d = (double) w - rp;
             if (voiced && period > 0.f)

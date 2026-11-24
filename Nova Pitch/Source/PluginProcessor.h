@@ -125,6 +125,7 @@ private:
 
     double currentSampleRate { 44100.0 };
     bool   lastAppliedLowLatencyMode { false };
+    bool   lastAppliedTracking { false };
 
     std::atomic<float> detectedPitch   { 0.0f };
     std::atomic<float> correctedPitch  { 0.0f };

@@ -24,6 +24,7 @@ namespace ParameterIDs
     static constexpr const char* vibratoRate            = "vibratoRate";           // Hz
     static constexpr const char* transients             = "transients";           // attack-hold amount, 0-100
     static constexpr const char* bypass                 = "bypass";
+    static constexpr const char* tracking               = "tracking";      // near-zero-latency mode for recording
 
     // Harmony (new): parts 1-4 + voice stack
     static constexpr const char* harmOn       = "harmOn";

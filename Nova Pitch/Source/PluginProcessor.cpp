@@ -56,6 +56,7 @@ NovaPitchAudioProcessor::createParameterLayout()
     params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::vibratoRate, "Vibrato Rate", 2.0f, 8.0f, 5.0f));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::transients, "Transients", 0.0f, 100.0f, 30.0f));
     params.push_back (std::make_unique<juce::AudioParameterBool>  (ParameterIDs::bypass, "Bypass", false));
+    params.push_back (std::make_unique<juce::AudioParameterBool>  (ParameterIDs::tracking, "Tracking Mode", false));
 
     // Harmony (off by default - Nova Pitch is a plain tuner until it's switched on)
     const juce::StringArray intervals { "Unison", "2nd Above", "3rd Above", "4th Above", "5th Above", "6th Above",
@@ -87,10 +88,11 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 {
     currentSampleRate = sampleRate;
     lastAppliedLowLatencyMode = apvts.getRawParameterValue (ParameterIDs::lowLatency)->load() >= 0.5f;
+    lastAppliedTracking = apvts.getRawParameterValue (ParameterIDs::tracking)->load() >= 0.5f;
 
-    engine.prepare (sampleRate, samplesPerBlock, lastAppliedLowLatencyMode);
+    engine.prepare (sampleRate, samplesPerBlock, lastAppliedLowLatencyMode, lastAppliedTracking);
     preparedBlockSize = juce::jmax (64, samplesPerBlock);
-    harmony.prepare (sampleRate, preparedBlockSize, lastAppliedLowLatencyMode);
+    harmony.prepare (sampleRate, preparedBlockSize, lastAppliedLowLatencyMode, lastAppliedTracking);
     harmDryL.assign ((size_t) preparedBlockSize, 0.0f);
     harmDryR.assign ((size_t) preparedBlockSize, 0.0f);
     setLatencySamples (engine.getLatencySamples());
@@ -207,14 +209,16 @@ void NovaPitchAudioProcessor::timerCallback()
     // Nova Seven's proven oversampling-reconfigure pattern
     // (NovaSevenAudioProcessor::reconfigureOversamplingIfNeeded).
     const bool desired = apvts.getRawParameterValue (ParameterIDs::lowLatency)->load() >= 0.5f;
-    if (desired != lastAppliedLowLatencyMode)
+    const bool desiredTracking = apvts.getRawParameterValue (ParameterIDs::tracking)->load() >= 0.5f;
+    if (desired != lastAppliedLowLatencyMode || desiredTracking != lastAppliedTracking)
     {
         // Reallocates - keep the audio thread out while it happens.
         suspendProcessing (true);
-        engine.reconfigureIfNeeded (currentSampleRate, desired);
-        harmony.prepare (currentSampleRate, preparedBlockSize, desired);
+        engine.reconfigureIfNeeded (currentSampleRate, desired, desiredTracking);
+        harmony.prepare (currentSampleRate, preparedBlockSize, desired, desiredTracking);
         suspendProcessing (false);
         lastAppliedLowLatencyMode = desired;
+        lastAppliedTracking = desiredTracking;
         setLatencySamples (engine.getLatencySamples());
     }
 

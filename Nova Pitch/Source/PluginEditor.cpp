@@ -145,7 +145,7 @@ juce::WebBrowserComponent::Options NovaPitchAudioProcessorEditor::createWebOptio
                              ParameterIDs::confidenceThreshold, ParameterIDs::vibrato, ParameterIDs::formant,
                              ParameterIDs::lowLatency, ParameterIDs::formantWarp, ParameterIDs::mix,
                              ParameterIDs::outputGain, ParameterIDs::range, ParameterIDs::vibratoRate,
-                             ParameterIDs::transients, ParameterIDs::bypass,
+                             ParameterIDs::transients, ParameterIDs::bypass, ParameterIDs::tracking,
                              ParameterIDs::harmOn, ParameterIDs::harmMode, ParameterIDs::harmStyle,
                              ParameterIDs::harmVoices, ParameterIDs::harmWidth, ParameterIDs::harmHumanize,
                              ParameterIDs::harmLead, ParameterIDs::harmMix,

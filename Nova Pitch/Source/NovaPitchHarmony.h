@@ -46,7 +46,7 @@ public:
         float outGainDb = 0.f;    // the plugin's Output knob
     };
 
-    void prepare (double sampleRate, int maxBlockSize, bool lowLatency);
+    void prepare (double sampleRate, int maxBlockSize, bool lowLatency, bool tracking = false);
     void reset() noexcept;
     void setParams (const Params& p) noexcept { params = p; }
 

@@ -95,7 +95,10 @@ public:
         int   flattenMidi      = -1;     // >= 0: lock every sung note onto this one note
     };
 
-    void prepare (double sampleRate, int maxBlockSize, bool lowLatency = false);
+    // tracking = Tracking mode for recording: the audio is corrected as it arrives, using the
+    // newest pitch reading, so it comes out a few ms late instead of a full detection window
+    // (corrections at note changes land a little later). Off = the aligned, full-accuracy tuner.
+    void prepare (double sampleRate, int maxBlockSize, bool lowLatency = false, bool tracking = false);
     void reset() noexcept;
     void setParams (const Params& p) noexcept { params = p; }
     void process (float* left, float* right, int numSamples) noexcept;
@@ -126,6 +129,8 @@ private:
 
     double sr = 48000.0;
     int latency = 0, size = 0, mask = 0;
+    bool trackingMode = false;
+    int trackMin = 0;     // Tracking mode: closest the read head may get to the live input
     std::vector<float> bufL, bufR, bufM;
 
     juce::int64 w = 0;    // absolute write count

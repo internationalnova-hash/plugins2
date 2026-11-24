@@ -540,3 +540,57 @@ target_compile_definitions(NovaPitchHarmonyValidation PRIVATE
 if(APPLE)
     target_compile_definitions(NovaPitchHarmonyValidation PRIVATE JUCE_USE_CURL=0)
 endif()
+
+# Tracking mode checks (see TrackingValidation.cpp)
+juce_add_console_app(NovaPitchTrackingValidation
+    COMPANY_NAME "International Nova"
+    BUNDLE_ID "com.internationalnova.novapitch.trackingvalidation"
+    VERSION ${PROJECT_VERSION}
+)
+
+target_sources(NovaPitchTrackingValidation PRIVATE
+    Source/TrackingValidation.cpp
+    Source/PluginProcessor.cpp
+    Source/NovaPitchTunedEngine.cpp
+    Source/NovaPitchHarmony.cpp
+    ${NOVA_TUNE_CORE_DIR}/NovaVocalTuner.cpp
+    Source/PluginProcessor.h
+    Source/PluginEditor.cpp
+    Source/PluginEditor.h
+    Source/ParameterIDs.hpp
+    Source/ABSnapshot.h
+    Source/NovaPitchPresetManager.cpp
+    Source/NovaPitchPresetManager.h
+    ${NOVA_PITCH_CORE_DIR}/Analysis/NovaPitchDetector.cpp
+    ${NOVA_PITCH_CORE_DIR}/Correction/NovaScaleQuantizer.cpp
+    ${NOVA_PITCH_CORE_DIR}/DSP/NovaPitchSynchronousShifter.cpp
+    ${NOVA_PITCH_CORE_DIR}/DSP/NovaFormantCorrector.cpp
+    ${NOVA_PITCH_CORE_DIR}/NovaPitchEngine.cpp
+)
+
+target_include_directories(NovaPitchTrackingValidation PRIVATE ${NOVA_PITCH_CORE_DIR} ${NOVA_TUNE_CORE_DIR})
+
+target_link_libraries(NovaPitchTrackingValidation PRIVATE
+    NovaPitch_WebUI
+    juce::juce_audio_basics
+    juce::juce_audio_processors
+    juce::juce_core
+    juce::juce_data_structures
+    juce::juce_dsp
+    juce::juce_events
+    juce::juce_graphics
+    juce::juce_gui_basics
+    juce::juce_gui_extra
+    juce::juce_opengl
+    juce::juce_recommended_config_flags
+)
+
+target_compile_definitions(NovaPitchTrackingValidation PRIVATE
+    JucePlugin_Name="NovaPitchTrackingValidation"
+    JUCE_WEB_BROWSER=1
+    JUCE_MODAL_LOOPS_PERMITTED=1
+)
+
+if(APPLE)
+    target_compile_definitions(NovaPitchTrackingValidation PRIVATE JUCE_USE_CURL=0)
+endif()

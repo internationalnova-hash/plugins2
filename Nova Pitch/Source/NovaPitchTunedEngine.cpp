@@ -20,13 +20,14 @@ namespace
     float midiToHz (float m) noexcept { return m > 0.f ? 440.f * std::pow (2.f, (m - 69.f) / 12.f) : 0.f; }
 }
 
-void NovaPitchTunedEngine::allocate (double sampleRate, int maxBlockSize, bool lowLatencyMode)
+void NovaPitchTunedEngine::allocate (double sampleRate, int maxBlockSize, bool lowLatencyMode, bool trackingMode)
 {
     sr = sampleRate > 0 ? sampleRate : 44100.0;
     maxBlock = juce::jmax (64, maxBlockSize);
     lowLatency = lowLatencyMode;
+    tracking = trackingMode;
 
-    tuner.prepare (sr, maxBlock, lowLatency);
+    tuner.prepare (sr, maxBlock, lowLatency, tracking);
     warpL.prepare (sr);
     warpR.prepare (sr);
 
@@ -42,16 +43,16 @@ void NovaPitchTunedEngine::allocate (double sampleRate, int maxBlockSize, bool l
     activeSm.reset (sr, 0.03);
 }
 
-void NovaPitchTunedEngine::prepare (double sampleRate, int maxBlockSize, bool lowLatencyMode)
+void NovaPitchTunedEngine::prepare (double sampleRate, int maxBlockSize, bool lowLatencyMode, bool trackingMode)
 {
-    allocate (sampleRate, maxBlockSize, lowLatencyMode);
+    allocate (sampleRate, maxBlockSize, lowLatencyMode, trackingMode);
     reset();
 }
 
-void NovaPitchTunedEngine::reconfigureIfNeeded (double sampleRate, bool desiredLowLatencyMode)
+void NovaPitchTunedEngine::reconfigureIfNeeded (double sampleRate, bool desiredLowLatencyMode, bool desiredTracking)
 {
-    if (desiredLowLatencyMode == lowLatency && std::abs (sampleRate - sr) < 1.0) return;
-    allocate (sampleRate, maxBlock, desiredLowLatencyMode);
+    if (desiredLowLatencyMode == lowLatency && desiredTracking == tracking && std::abs (sampleRate - sr) < 1.0) return;
+    allocate (sampleRate, maxBlock, desiredLowLatencyMode, desiredTracking);
     reset();
 }
 

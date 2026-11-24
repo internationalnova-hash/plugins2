@@ -39,11 +39,11 @@ public:
         bool  bypassed = false;
     };
 
-    void prepare (double sampleRate, int maxBlockSize, bool lowLatencyMode);
+    void prepare (double sampleRate, int maxBlockSize, bool lowLatencyMode, bool trackingMode = false);
     void reset() noexcept;
 
     // Message thread only (allocates). The processor suspends processing around it.
-    void reconfigureIfNeeded (double sampleRate, bool desiredLowLatencyMode);
+    void reconfigureIfNeeded (double sampleRate, bool desiredLowLatencyMode, bool desiredTracking = false);
 
     void setParams (const Params& p) noexcept;
     void process (const float* inL, const float* inR, float* outL, float* outR, int numSamples) noexcept;
@@ -63,7 +63,7 @@ public:
     void setGrainCaptureDebugCallback (std::function<void (const nova::pitch::NovaPitchSynchronousShifter::CaptureDebugInfo&)>) noexcept {}
 
 private:
-    void allocate (double sampleRate, int maxBlockSize, bool lowLatencyMode);
+    void allocate (double sampleRate, int maxBlockSize, bool lowLatencyMode, bool trackingMode);
 
     NovaVocalTuner tuner;
     NovaVocalTuner::Params lastTunerParams;
@@ -72,6 +72,7 @@ private:
     double sr = 44100.0;
     int maxBlock = 512;
     bool lowLatency = false;
+    bool tracking = false;
 
     std::vector<float> tL, tR;     // working copy (tuner runs in place)
     std::vector<float> dryL, dryR; // latency-matched dry ring

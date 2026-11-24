@@ -32,7 +32,7 @@ int NovaPitchHarmony::intervalShift (int note, int intervalIndex, int keyPc, int
     return n - note;
 }
 
-void NovaPitchHarmony::prepare (double sampleRate, int maxBlockSize, bool lowLatency)
+void NovaPitchHarmony::prepare (double sampleRate, int maxBlockSize, bool lowLatency, bool tracking)
 {
     sr = sampleRate > 0 ? sampleRate : 44100.0;
     maxBlock = juce::jmax (64, maxBlockSize);
@@ -43,7 +43,7 @@ void NovaPitchHarmony::prepare (double sampleRate, int maxBlockSize, bool lowLat
 
     for (auto& p : parts)
     {
-        p.tuner.prepare (sr, maxBlock, lowLatency);
+        p.tuner.prepare (sr, maxBlock, lowLatency, tracking);   // same latency as the lead
         p.formant.prepare (sr);
         p.formant.setFormantAmount (1.f);
         p.formant.setFormantWarp (0.f);
