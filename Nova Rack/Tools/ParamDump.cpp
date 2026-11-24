@@ -5,6 +5,7 @@
 #include <juce_events/juce_events.h>
 #include "RackPresets.h"
 #include "RackSlot.h"
+#include <map>
 
 // --verify-factory: load every factory rack unit, apply its values and report anything that
 // didn't land (unknown parameter name, or a value the plugin parsed differently).
@@ -64,6 +65,52 @@ static int verifyFactory (juce::AudioPluginFormatManager& fm, juce::VST3PluginFo
     return problems == 0 ? 0 : 1;
 }
 
+// --audit-faces: every Nova effect Rack offers, with the knobs its module shows (Rack's own
+// face logic), so a module never shows internal settings instead of the plugin's main controls.
+// Prints JSON lines: {name, face:[names], params:[{name, automatable}]}.
+static int auditFaces (juce::AudioPluginFormatManager& fm, juce::VST3PluginFormat& vst3)
+{
+    std::map<juce::String, juce::PluginDescription> byName;
+    for (const auto& f : vst3.searchPathsForPlugins (vst3.getDefaultLocationsToSearch(), true, false))
+    {
+        if (! juce::File (f).getFileName().containsIgnoreCase ("Nova")) continue;
+        juce::OwnedArray<juce::PluginDescription> types;
+        vst3.findAllTypesForFile (types, f);
+        for (auto* d : types)
+            if (! d->isInstrument && (d->manufacturerName.equalsIgnoreCase ("International Nova") || d->manufacturerName.equalsIgnoreCase ("Nova Audio"))
+                && ! d->name.equalsIgnoreCase ("Nova Rack"))
+                byName.emplace (d->name, *d);
+    }
+    for (auto& [name, desc] : byName)
+    {
+        juce::String err;
+        nr::Slot slot;
+        slot.pluginName = name;
+        slot.instance = fm.createPluginInstance (desc, 48000.0, 512, err);
+        if (! slot.instance) { std::cout << "{\"name\":" << juce::JSON::toString (name) << ",\"error\":" << juce::JSON::toString (err) << "}\n"; continue; }
+        slot.chooseDefaultFace();
+        juce::Array<juce::var> face, params;
+        const auto& ps = slot.instance->getParameters();
+        for (auto i : slot.face) face.add (ps[i]->getName (64));
+        for (auto* p : ps)
+        {
+            if (p->getName (64).startsWithIgnoreCase ("MIDI CC")) continue;
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("name", p->getName (64));
+            o->setProperty ("automatable", p->isAutomatable());
+            if (auto* h = dynamic_cast<juce::HostedAudioProcessorParameter*> (p)) o->setProperty ("id", h->getParameterID());
+            params.add (juce::var (o));
+        }
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("name", name);
+        o->setProperty ("face", face);
+        o->setProperty ("params", params);
+        std::cout << juce::JSON::toString (juce::var (o), true) << "\n";
+        slot.instance.reset();
+    }
+    return 0;
+}
+
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
@@ -73,6 +120,8 @@ int main (int argc, char** argv)
     const juce::String filter = argc > 1 ? juce::String (argv[1]) : juce::String();
     if (filter == "--verify-factory")
         return verifyFactory (fm, *vst3);
+    if (filter == "--audit-faces")
+        return auditFaces (fm, *vst3);
     if (filter == "--rack-json" && argc > 2) // print a factory rack as saved session JSON
     {
         for (const auto& r : nr::factoryRacks())

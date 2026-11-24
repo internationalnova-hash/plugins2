@@ -206,30 +206,53 @@ void Slot::setState (const juce::MemoryBlock& mb)
 
 // Hand-picked rack-unit knobs for the main Nova plugins (parameter names as the plugins report them).
 // Plugins not listed get their first eight automatable controls.
+// Each plugin's main controls, most important first (the first is the big knob). A module shows
+// 7 knobs, 5 when it has a meter or display, 3 for the 670's tube display, so each list is sized
+// to what's visible. Names must match the plugin's parameter names exactly; NovaRackParamDump
+// --audit-faces checks every installed plugin against this list.
 static const std::map<juce::String, juce::StringArray>& curatedFaces()
 {
     static const std::map<juce::String, juce::StringArray> faces {
-        { "Nova 7even",      { "Preamp Gain", "Character", "HPF", "Low Gain", "Mid Frequency", "Mid Gain", "High Shelf (12k)", "Output Trim" } },
-        { "Nova Royal 670",  { "Input", "AC Threshold", "Time Constant", "Tube Saturation", "Transformer", "Output" } },
-        { "Nova Tone",       { "Low Frequency", "Low Boost", "Low Attenuation", "High Boost Frequency", "High Boost", "High Attenuation", "Output Gain" } },
-        { "Nova Tape",       { "Input", "Tape", "Tape Type", "IPS", "Wow / Flutter", "Noise", "Output" } },
-        { "Nova Velvet",     { "Threshold", "Ratio", "Attack", "Release", "Gain", "Analog Mode", "Tube Drive" } },
-        { "Nova Glow",       { "Peak Reduction", "Gain", "Compress/Limit", "Glow", "Emphasis", "Analog Mode" } },
-        { "Nova Glue",       { "Threshold", "Ratio", "Attack", "Release", "Makeup", "Glue", "Drive" } },
-        { "Nova Desk EQ",    { "HPF Frequency", "Low Gain", "Low Mid Frequency", "Low Mid Gain", "High Mid Frequency", "High Mid Gain", "High Gain", "Drive" } },
-        { "Nova Console",    { "Console Mode", "Drive", "Color", "HPF", "Low Mid", "High Mid", "Threshold", "Ratio" } },
-        { "Nova Pitch",      { "Retune Speed", "Humanize", "Key", "Scale", "Natural Vibrato", "Formant Warp", "Transients", "Output" } },
-        { "Nova Silk",       { "Smooth", "Focus", "Air Preserve", "Body", "Output", "Magic" } },
-        { "Nova Level",      { "Compression", "Tone", "Mode", "Output", "Magic" } },
-        { "Nova Heat",       { "Drive", "Tone", "Heat", "Mode", "Output Gain" } },
-        { "Nova Space",      { "Space", "Decay", "Pre-Delay", "Damping", "Width", "Nova Mode", "Mix" } },
-        { "Nova Delay",      { "Delay Time Sync", "Feedback", "Tone", "Mix", "HP Filter", "LP Filter", "Ducking", "Ping Pong" } },
-        { "Nova Clean",      { "Mode", "Clean", "Preserve", "Output Gain" } },
-        { "Nova Punch",      { "Punch", "Body", "Focus", "Sensitivity" } },
-        { "Nova Mid",        { "Push", "Ceiling", "Output" } },
-        { "Nova 2-Track",    { "Width", "Vox Carve", "Low End", "Punch", "Energy", "Instruments", "Ceiling", "Output" } },
+        // 7 knobs
+        { "Nova 7even",      { "Preamp Gain", "Character", "HPF", "Low Gain", "Mid Frequency", "Mid Gain", "High Shelf (12k)" } },
+        { "Nova Desk EQ",    { "Low Gain", "HPF Frequency", "Low Mid Frequency", "Low Mid Gain", "High Mid Frequency", "High Mid Gain", "High Gain" } },
+        { "Nova Tone",       { "Low Boost", "Low Attenuation", "Low Frequency", "High Boost", "High Boost Frequency", "Bandwidth", "High Attenuation" } },
+        // 3 knobs (tube display)
+        { "Nova Royal 670",  { "Input", "AC Threshold", "Time Constant" } },
+        // 5 knobs
+        { "Nova 2-Track",    { "Vox Carve", "Low End", "Punch", "Width", "Ceiling" } },
+        { "Nova AI Master",  { "Intensity", "Style", "Loudness" } },
+        { "Nova AI Vocal",   { "Vibe", "Tune", "Clean", "De-Ess", "Space" } },
+        { "Nova Align",      { "Align Strength", "Align Mode", "Max Shift", "Preserve Transients", "Smoothing" } },
+        { "Nova Apex",       { "Drive", "Ceiling", "Output", "Release", "Style" } },
+        { "Nova Aura",       { "Mid Aura", "High Aura", "Mix", "Wide", "Safe" } },
+        { "Nova Autotune",   { "Retune Speed", "Key", "Scale", "Amount", "Tolerance" } },
+        { "Nova Bend",       { "Pitch", "Formant", "Flatten", "Flatten Note", "Mix" } },
+        { "Nova Clean",      { "Clean", "Mode", "Preserve", "Mix", "Output Gain" } },
+        { "Nova Clip",       { "Drive", "Ceiling", "Clip Shape", "Tone", "Mix" } },
+        { "Nova Console",    { "Drive", "Console Mode", "Threshold", "HPF", "Output" } },
+        { "Nova Delay",      { "Delay Time Sync", "Feedback", "Mix", "Tone", "Mode" } },
         { "Nova Doubler",    { "Width", "Tightness", "Mix", "Voices" } },
-        { "Nova Aura",       { "Mid Aura", "High Aura", "Safe", "Wide" } },
+        { "Nova Glow",       { "Peak Reduction", "Gain", "Glow", "Mix", "Compress/Limit" } },
+        { "Nova Glue",       { "Glue", "Threshold", "Ratio", "Attack", "Release" } },
+        { "Nova Harmony",    { "Voices", "Style", "Width", "Key", "Mix" } },
+        { "Nova Heat",       { "Heat", "Drive", "Tone", "Mix", "Output Gain" } },
+        { "Nova Level",      { "Compression", "Tone", "Mode", "Output", "Magic" } },
+        { "Nova Master",     { "Finish", "Tone", "Glue", "Weight", "Air" } },
+        { "Nova Mid",        { "Push", "Ceiling", "Output" } },
+        { "Nova Motion FX",  { "Motion", "Cutoff", "Resonance", "Feedback", "Mix" } },
+        { "Nova One",        { "Clean Amount", "Warm Amount", "Wide Amount", "Loud Amount", "Output" } },
+        { "Nova Pitch",      { "Retune Speed", "Humanize", "Key", "Scale", "Natural Vibrato" } },
+        { "Nova Punch",      { "Punch", "Body", "Focus", "Sensitivity", "Mix" } },
+        { "Nova Ride",       { "Target", "Range", "Speed", "Sensitivity", "Output" } },
+        { "Nova Silk",       { "Smooth", "Focus", "Air Preserve", "Body", "Output" } },
+        { "Nova Space",      { "Space", "Decay", "Mix", "Pre-Delay", "Damping" } },
+        { "Nova Sub",        { "Color", "Filter", "Mix", "Mode" } },
+        { "Nova Tape",       { "Tape", "Input", "Tape Type", "IPS", "Output" } },
+        { "Nova Translate",  { "Environment", "Environment Amount", "Position", "Room Amount", "Character Amount" } },
+        { "Nova Velvet",     { "Threshold", "Ratio", "Attack", "Release", "Gain" } },
+        { "Nova Voice",      { "Pitch", "Morph", "Texture", "Form", "Blend" } },
+        { "Nova Vox",        { "Console Amount", "Curve Amount", "Level Amount", "Motion Amount", "Space Amount" } },
     };
     return faces;
 }
