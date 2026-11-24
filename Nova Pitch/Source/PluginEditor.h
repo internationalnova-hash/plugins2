@@ -15,6 +15,7 @@ public:
     void resized() override;
 
 private:
+    void applyViewSize (int width);
     void timerCallback() override;
 
     NovaPitchAudioProcessor& processorRef;

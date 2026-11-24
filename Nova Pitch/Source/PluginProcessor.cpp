@@ -57,6 +57,29 @@ NovaPitchAudioProcessor::createParameterLayout()
     params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::transients, "Transients", 0.0f, 100.0f, 30.0f));
     params.push_back (std::make_unique<juce::AudioParameterBool>  (ParameterIDs::bypass, "Bypass", false));
 
+    // Harmony (off by default - Nova Pitch is a plain tuner until it's switched on)
+    const juce::StringArray intervals { "Unison", "2nd Above", "3rd Above", "4th Above", "5th Above", "6th Above",
+                                        "Octave Above", "3rd Below", "4th Below", "5th Below", "6th Below", "Octave Below" };
+    params.push_back (std::make_unique<juce::AudioParameterBool>  (ParameterIDs::harmOn, "Harmony", false));
+    params.push_back (std::make_unique<juce::AudioParameterChoice> (ParameterIDs::harmMode, "Harmony Mode", juce::StringArray { "Scale", "MIDI" }, 0));
+    params.push_back (std::make_unique<juce::AudioParameterChoice> (ParameterIDs::harmStyle, "Harmony Style",
+        juce::StringArray { "Pop", "R&B", "Trap", "Gospel", "Choir", "Ambient", "Doubles" }, 0));
+    params.push_back (std::make_unique<juce::AudioParameterInt>   (ParameterIDs::harmVoices, "Voices", 1, 32, 8));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::harmWidth, "Harmony Width", 0.0f, 200.0f, 100.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::harmHumanize, "Harmony Humanize", 0.0f, 100.0f, 30.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::harmLead, "Lead Level", -24.0f, 6.0f, 0.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::harmMix, "Harmony Mix", 0.0f, 100.0f, 70.0f));
+    const bool  partOnDefault[4]  = { true, true, false, false };
+    const int   intervalDefault[4] = { 2, 4, 11, 0 };
+    const float levelDefault[4]   = { -4.0f, -6.0f, -8.0f, -6.0f };
+    for (int i = 0; i < 4; ++i)
+    {
+        const juce::String n = "Part " + juce::String (i + 1);
+        params.push_back (std::make_unique<juce::AudioParameterBool>  (ParameterIDs::partOn[i], n + " On", partOnDefault[i]));
+        params.push_back (std::make_unique<juce::AudioParameterChoice> (ParameterIDs::partInterval[i], n + " Interval", intervals, intervalDefault[i]));
+        params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::partLevel[i], n + " Level", -24.0f, 6.0f, levelDefault[i]));
+    }
+
     return { params.begin(), params.end() };
 }
 
@@ -66,6 +89,10 @@ void NovaPitchAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     lastAppliedLowLatencyMode = apvts.getRawParameterValue (ParameterIDs::lowLatency)->load() >= 0.5f;
 
     engine.prepare (sampleRate, samplesPerBlock, lastAppliedLowLatencyMode);
+    preparedBlockSize = juce::jmax (64, samplesPerBlock);
+    harmony.prepare (sampleRate, preparedBlockSize, lastAppliedLowLatencyMode);
+    harmDryL.assign ((size_t) preparedBlockSize, 0.0f);
+    harmDryR.assign ((size_t) preparedBlockSize, 0.0f);
     setLatencySamples (engine.getLatencySamples());
 
     // Synchronous (not deferred to the timer) - see maybeEnableDebugCaptureLog()
@@ -185,6 +212,7 @@ void NovaPitchAudioProcessor::timerCallback()
         // Reallocates - keep the audio thread out while it happens.
         suspendProcessing (true);
         engine.reconfigureIfNeeded (currentSampleRate, desired);
+        harmony.prepare (currentSampleRate, preparedBlockSize, desired);
         suspendProcessing (false);
         lastAppliedLowLatencyMode = desired;
         setLatencySamples (engine.getLatencySamples());
@@ -194,7 +222,7 @@ void NovaPitchAudioProcessor::timerCallback()
         flushDebugCaptureLog();
 }
 
-void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& /*midi*/)
+void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
 
@@ -222,8 +250,53 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     engine.setParams (p);
 
+    // Harmony settings (the harmony engine runs beside the tuner, never inside it)
+    NovaPitchHarmony::Params hp;
+    hp.on       = apvts.getRawParameterValue (ParameterIDs::harmOn)->load() >= 0.5f;
+    hp.midiMode = (int) apvts.getRawParameterValue (ParameterIDs::harmMode)->load() == 1;
+    hp.lead     = engine.getTunerParams();
+    hp.keyPc    = p.keyPitchClass;
+    // Intervals step through the key's major or minor scale (chromatic and
+    // pentatonic use major, blues uses minor) so a "3rd" is a real 3rd.
+    hp.stepMask = (p.scale == nova::pitch::Scale::Minor || p.scale == nova::pitch::Scale::Blues) ? 0x5AD : 0xAB5;
+    for (int i = 0; i < NovaPitchHarmony::kParts; ++i)
+    {
+        hp.partOn[(size_t) i]     = apvts.getRawParameterValue (ParameterIDs::partOn[i])->load() >= 0.5f;
+        hp.interval[(size_t) i]   = (int) apvts.getRawParameterValue (ParameterIDs::partInterval[i])->load();
+        hp.partGainDb[(size_t) i] = apvts.getRawParameterValue (ParameterIDs::partLevel[i])->load();
+    }
+    hp.voices     = (int) apvts.getRawParameterValue (ParameterIDs::harmVoices)->load();
+    hp.width      = apvts.getRawParameterValue (ParameterIDs::harmWidth)->load() / 100.0f;
+    hp.humanize   = apvts.getRawParameterValue (ParameterIDs::harmHumanize)->load() / 100.0f;
+    hp.leadGainDb = apvts.getRawParameterValue (ParameterIDs::harmLead)->load();
+    hp.mix        = apvts.getRawParameterValue (ParameterIDs::harmMix)->load() / 100.0f;
+    hp.outGainDb  = p.outputGainDb;
+    harmony.setParams (hp);
+
+    for (const auto meta : midi)
+    {
+        const auto m = meta.getMessage();
+        if (m.isNoteOn())                               harmony.noteOn (m.getNoteNumber());
+        else if (m.isNoteOff())                         harmony.noteOff (m.getNoteNumber());
+        else if (m.isAllNotesOff() || m.isAllSoundOff()) harmony.allNotesOff();
+    }
+
     float* outL = buffer.getWritePointer (0);
-    if (numChannels > 1)
+    if (hp.on || harmony.isActive())
+    {
+        float* outR = numChannels > 1 ? buffer.getWritePointer (1) : outL;
+        for (int start = 0; start < numSamples; start += preparedBlockSize)
+        {
+            const int n = juce::jmin (preparedBlockSize, numSamples - start);
+            std::copy (chL + start, chL + start + n, harmDryL.begin());
+            std::copy (chR + start, chR + start + n, harmDryR.begin());
+            engine.process (harmDryL.data(), harmDryR.data(), outL + start,
+                            outR == outL ? outL + start : outR + start, n);
+            harmony.process (harmDryL.data(), harmDryR.data(), outL + start,
+                             outR == outL ? outL + start : outR + start, n, engine.getTargetMidi());
+        }
+    }
+    else if (numChannels > 1)
     {
         float* outR = buffer.getWritePointer (1);
         engine.process (chL, chR, outL, outR, numSamples);
@@ -239,6 +312,8 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     }
 
     detectedPitch.store (engine.getDetectedHz());
+    inputMidi.store (engine.getInputMidi());
+    targetMidi.store (engine.getTargetMidi());
     correctedPitch.store (engine.getCorrectedHz());
     pitchConfidence.store (engine.getConfidence());
     voicedDebug.store (engine.isVoicedDebug());
@@ -281,7 +356,7 @@ juce::AudioProcessorEditor* NovaPitchAudioProcessor::createEditor()
 
 bool NovaPitchAudioProcessor::hasEditor() const { return true; }
 const juce::String NovaPitchAudioProcessor::getName() const { return JucePlugin_Name; }
-bool NovaPitchAudioProcessor::acceptsMidi()  const { return false; }
+bool NovaPitchAudioProcessor::acceptsMidi()  const { return true; }  // Harmony MIDI mode
 bool NovaPitchAudioProcessor::producesMidi() const { return false; }
 bool NovaPitchAudioProcessor::isMidiEffect() const { return false; }
 double NovaPitchAudioProcessor::getTailLengthSeconds() const { return 0.0; }
@@ -296,6 +371,7 @@ void NovaPitchAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
     abSnapshot.addToXml (*xml);
+    xml->setAttribute ("compactView", compactView.load() ? 1 : 0);
     copyXmlToBinary (*xml, destData);
 }
 
@@ -323,6 +399,7 @@ void NovaPitchAudioProcessor::setStateInformation (const void* data, int sizeInB
         }
     }
 
+    compactView.store (xmlState->getIntAttribute ("compactView", 0) != 0);
     apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
     abSnapshot.restoreFromXml (*xmlState);
 

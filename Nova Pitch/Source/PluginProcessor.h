@@ -6,7 +6,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 
-#include "NovaPitchTunedEngine.h" // shared NovaTuneCore tuner (same as Nova AI Vocal)
+#include "NovaPitchTunedEngine.h"
+#include "NovaPitchHarmony.h" // shared NovaTuneCore tuner (same as Nova AI Vocal)
 #include "ABSnapshot.h"
 #include "NovaPitchPresetManager.h"
 
@@ -69,6 +70,14 @@ public:
     float getCorrectedPitch() const noexcept { return correctedPitch.load(); }
     float getConfidence()     const noexcept { return pitchConfidence.load(); }
 
+    // Keyboard: what was sung and the note it is snapping to (MIDI, 0 = none)
+    float getInputMidi()  const noexcept { return inputMidi.load(); }
+    float getTargetMidi() const noexcept { return targetMidi.load(); }
+    const NovaPitchHarmony& getHarmony() const noexcept { return harmony; }
+
+    // UI view choice (Compact = the original screen, Full = keyboard + Harmony). Saved with the session.
+    std::atomic<bool> compactView { false };
+
     // Debug-only introspection (used by OfflineDiag) - not part of the
     // plugin's normal UI-facing state. Replaces the retired dual-head-
     // shifter's getLockedRefHzDebug/getRatioDebug/getXfadeCountDebug -
@@ -109,6 +118,10 @@ private:
     juce::File debugCaptureOutputFile;
 
     NovaPitchTunedEngine engine;
+    NovaPitchHarmony harmony;
+    std::vector<float> harmDryL, harmDryR;   // dry copy for the harmony parts (in-place hosts)
+    int preparedBlockSize = 512;
+    std::atomic<float> inputMidi { 0.0f }, targetMidi { 0.0f };
 
     double currentSampleRate { 44100.0 };
     bool   lastAppliedLowLatencyMode { false };

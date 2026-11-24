@@ -50,6 +50,10 @@ public:
 
     float getDetectedHz() const noexcept;
     float getCorrectedHz() const noexcept;
+    // Read-only views for the harmony engine and keyboard (no effect on audio)
+    const NovaVocalTuner::Params& getTunerParams() const noexcept { return lastTunerParams; }
+    float getInputMidi() const noexcept  { return tuner.getInputMidi(); }
+    float getTargetMidi() const noexcept { return tuner.getTargetMidi(); }
     float getConfidence() const noexcept { return tuner.getInputMidi() > 0.f ? 1.f : 0.f; }
     int   getLatencySamples() const noexcept { return tuner.getLatencySamples(); }
     float getShifterRatioDebug() const noexcept { return tuner.getCurrentRatio(); }
@@ -62,6 +66,7 @@ private:
     void allocate (double sampleRate, int maxBlockSize, bool lowLatencyMode);
 
     NovaVocalTuner tuner;
+    NovaVocalTuner::Params lastTunerParams;
     nova::pitch::NovaFormantCorrector warpL, warpR;
 
     double sr = 44100.0;

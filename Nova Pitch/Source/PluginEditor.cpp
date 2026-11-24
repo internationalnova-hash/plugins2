@@ -32,9 +32,16 @@ NovaPitchAudioProcessorEditor::NovaPitchAudioProcessorEditor (NovaPitchAudioProc
     webView->goToURL (cacheBustedUrl);
 
     setResizable (true, true);
-    setResizeLimits (660, 396, 1980, 1188);
-    setSize (1100, 660);
+    applyViewSize (1100);
     startTimerHz (30);
+}
+
+void NovaPitchAudioProcessorEditor::applyViewSize (int width)
+{
+    // Compact is the original 1100 x 660 screen; Full adds the keyboard row (1100 x 760).
+    const int designH = processorRef.compactView.load() ? 660 : 760;
+    setResizeLimits (660, 660 * designH / 1100, 1980, 1980 * designH / 1100);
+    setSize (width, width * designH / 1100);
 }
 
 NovaPitchAudioProcessorEditor::~NovaPitchAudioProcessorEditor()
@@ -75,6 +82,16 @@ void NovaPitchAudioProcessorEditor::timerCallback()
     }
     levelsJson += "]";
 
+    const auto& harm = processorRef.getHarmony();
+    juce::String partsJson = "[";
+    for (int i = 0; i < NovaPitchHarmony::kParts; ++i)
+        partsJson << (i > 0 ? "," : "") << juce::String (harm.getPartMidi (i), 1);
+    partsJson << "]";
+    juce::String voicesJson = "[";
+    for (int i = 0; i < NovaPitchHarmony::kMaxVoices; ++i)
+        voicesJson << (i > 0 ? "," : "") << juce::String (harm.getVoiceLevel (i), 4);
+    voicesJson << "]";
+
     const auto script = "if (window.receiveDSP) { window.receiveDSP({"
                       "noteName:\"" + noteName + "\""
                       ",octave:" + juce::String (octave)
@@ -82,6 +99,11 @@ void NovaPitchAudioProcessorEditor::timerCallback()
                       + ",confidence:" + juce::String (confidence, 4)
                       + ",voiced:" + juce::String (voiced ? "true" : "false")
                       + ",levels:" + levelsJson
+                      + ",inMidi:" + juce::String (processorRef.getInputMidi(), 2)
+                      + ",targetMidi:" + juce::String (processorRef.getTargetMidi(), 1)
+                      + ",parts:" + partsJson
+                      + ",voiceLevels:" + voicesJson
+                      + ",activeVoices:" + juce::String (harm.getActiveVoiceCount())
                       + "}); }";
 
     webView->evaluateJavascript (script);
@@ -123,7 +145,13 @@ juce::WebBrowserComponent::Options NovaPitchAudioProcessorEditor::createWebOptio
                              ParameterIDs::confidenceThreshold, ParameterIDs::vibrato, ParameterIDs::formant,
                              ParameterIDs::lowLatency, ParameterIDs::formantWarp, ParameterIDs::mix,
                              ParameterIDs::outputGain, ParameterIDs::range, ParameterIDs::vibratoRate,
-                             ParameterIDs::transients, ParameterIDs::bypass
+                             ParameterIDs::transients, ParameterIDs::bypass,
+                             ParameterIDs::harmOn, ParameterIDs::harmMode, ParameterIDs::harmStyle,
+                             ParameterIDs::harmVoices, ParameterIDs::harmWidth, ParameterIDs::harmHumanize,
+                             ParameterIDs::harmLead, ParameterIDs::harmMix,
+                             ParameterIDs::partOn[0], ParameterIDs::partOn[1], ParameterIDs::partOn[2], ParameterIDs::partOn[3],
+                             ParameterIDs::partInterval[0], ParameterIDs::partInterval[1], ParameterIDs::partInterval[2], ParameterIDs::partInterval[3],
+                             ParameterIDs::partLevel[0], ParameterIDs::partLevel[1], ParameterIDs::partLevel[2], ParameterIDs::partLevel[3]
                          };
 
                          juce::Array<juce::var> arr;
@@ -201,6 +229,16 @@ juce::WebBrowserComponent::Options NovaPitchAudioProcessorEditor::createWebOptio
                          const auto name = args.isEmpty() ? juce::String ("User Preset") : args[0].toString();
                          const int newIndex = processorRef.saveCurrentAsPreset (name);
                          completion (juce::var (newIndex));
+                     })
+                     .withNativeFunction ("getCompact", [this] (const juce::Array<juce::var>&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         completion (juce::var (processorRef.compactView.load()));
+                     })
+                     .withNativeFunction ("setCompact", [this] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                     {
+                         processorRef.compactView.store (! args.isEmpty() && (bool) args[0]);
+                         applyViewSize (juce::jlimit (660, 1980, getWidth()));
+                         completion (juce::var());
                      })
                      .withNativeFunction ("jsError", [] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
                      {

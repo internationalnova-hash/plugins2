@@ -309,6 +309,78 @@
   .settingsRow { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-dim); }
   .settingsRow .val { color: var(--text); }
   .settingsVersion { font-size: 9px; color: var(--text-dimmer); border-top: 1px solid var(--border); padding-top: 8px; margin-top: 2px; }
+  #stage { height: 760px; }
+  .plugin { grid-template-rows: 66px 52px 1fr 104px 34px; }
+  .viewWrap { display: grid; grid-template-rows: 1fr 128px; min-height: 0; }
+  .viewWrap.harm { grid-template-rows: 1fr; }
+  .tabs { display: flex; gap: 3px; padding: 3px; border-radius: 9px; border: 1px solid var(--border-strong); background: var(--panel); }
+  .tab { height: 26px; padding: 0 16px; border-radius: 6px; border: none; background: transparent; color: var(--text-dim); font-size: 11px; font-weight: 700; letter-spacing: 1.4px; }
+  .tab.is-active { background: var(--purple); color: #0a0a10; box-shadow: 0 0 14px var(--purple-glow); }
+  .tab .dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:#6ee7a8; margin-left:6px; vertical-align:1px; box-shadow:0 0 6px #6ee7a8; }
+
+  /* keyboard */
+  .kbRow { border-top: 1px solid var(--border); padding: 8px 22px 10px; display: flex; flex-direction: column; gap: 5px; }
+  .kbLegend { display: flex; gap: 16px; align-items: center; font-size: 9px; letter-spacing: 1.3px; color: var(--text-dimmer); text-transform: uppercase; }
+  .kbLegend i { display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+  .kbLegend .sp { flex: 1; }
+  .kb { position: relative; height: 70px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-strong); }
+  .wk { position: absolute; top: 0; bottom: 0; background: linear-gradient(180deg,#d9d9e3,#f1f1f7); border-right: 1px solid #9a9aa8; display:flex; align-items:flex-end; justify-content:center; padding-bottom:4px; font-size:8px; color:#777784; }
+  .wk.out { background: linear-gradient(180deg,#5a5a66,#6b6b78); color:#3d3d48; }
+  .bk { position: absolute; top: 0; height: 60%; border-radius: 0 0 4px 4px; background: linear-gradient(180deg,#1b1b24,#2a2a35); border: 1px solid #000; z-index: 2; }
+  .bk.out { background: linear-gradient(180deg,#0c0c10,#121217); opacity: .85; }
+  .wk.in::before, .bk.in::before { content:""; position:absolute; left:50%; transform:translateX(-50%); width:6px; height:6px; border-radius:50%; background: var(--purple); }
+  .wk.in::before { bottom: 16px; } .bk.in::before { bottom: 5px; }
+  .wk.target { background: linear-gradient(180deg,#b79bff,#9c7dff); color:#2a1d5a; box-shadow: inset 0 0 14px rgba(255,255,255,.4); }
+  .bk.target { background: linear-gradient(180deg,#8a6bff,#9c7dff); box-shadow: 0 0 12px var(--purple-glow); }
+  .wk.input { box-shadow: inset 0 0 0 3px var(--blue), inset 0 0 18px var(--blue-glow); }
+  .bk.input { box-shadow: 0 0 0 2px var(--blue), 0 0 10px var(--blue-glow); }
+  .hv { position:absolute; z-index:3; width:16px; height:16px; border-radius:50%; font-size:9px; font-weight:800; display:grid; place-items:center; color:#0a0a10; transform:translateX(-50%); }
+
+  .harmView { padding: 12px 22px 10px; display:grid; grid-template-rows: 1fr auto; gap: 10px; min-height:0; }
+  .harmTop { display:grid; grid-template-columns: 400px 1fr; gap: 16px; min-height:0; }
+  .secHead { font-size: 10px; font-weight:700; letter-spacing:1.6px; text-transform:uppercase; margin-bottom: 8px; }
+  .secHead span { color: var(--text-dimmer); font-weight:500; letter-spacing:.8px; }
+  .partsCol, .stackCol { border:1px solid var(--border-strong); border-radius:14px; padding: 12px 14px; background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.008)); display:flex; flex-direction:column; gap: 8px; min-height:0; }
+  .part { display:grid; grid-template-columns: 12px 52px 1fr 46px 58px 26px; align-items:center; gap: 10px; height: 52px; padding: 0 10px; border-radius: 10px; background: rgba(255,255,255,0.025); border:1px solid var(--border); }
+  .part.off { opacity:.4; }
+  .part .sw { width:10px; height:10px; border-radius:50%; }
+  .pname { font-size: 10px; font-weight:700; letter-spacing:1.4px; color: var(--text-dim); }
+  .part .intervalBtn { height: 30px; font-size: 12px; }
+  .pnote { font-size: 20px; font-weight:700; text-align:center; } .pnote span { font-size: 11px; color: var(--text-dim); }
+  .plev { font-size: 11px; color: var(--text-dim); text-align:right; font-variant-numeric: tabular-nums; }
+  .styleSeg { flex-wrap: nowrap; } .styleSeg button { flex:1; padding: 0 6px; }
+  .stackKnobs { display:grid; grid-template-columns: repeat(5,1fr); }
+  .stackKnobs .knob.small { width: 56px; height: 56px; }
+  .vgrid { flex:1; display:grid; grid-template-columns: repeat(32,1fr); gap: 3px; min-height: 60px; }
+  .vb { display:flex; flex-direction:column; gap:3px; align-items:center; } .vb.off { opacity:.35; }
+  .vbt { flex:1; width: 100%; border-radius: 3px; background: rgba(255,255,255,0.05); position:relative; overflow:hidden; }
+  .vbf { position:absolute; left:0; right:0; bottom:0; border-radius:3px; }
+  .vbn { font-size: 8px; color: var(--text-dimmer); }
+  .harmFoot { display:flex; align-items:center; gap: 14px; }
+
+  .intervalBtn { height: 30px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--panel-2); color: var(--text); font-size: 12px; font-weight: 600; display:flex; align-items:center; justify-content:space-between; padding: 0 10px; }
+  .intervalBtn:hover { border-color: var(--purple); }
+  .intervalBtn small { color: var(--text-dim); font-weight: 500; font-size: 10px; }
+  .partInt { position: relative; }
+  .plev { cursor: ns-resize; }
+  .plev:hover { color: var(--text); }
+  .seg { display:flex; gap:3px; padding:3px; border-radius:8px; border:1px solid var(--border-strong); background: var(--panel); }
+  .seg button { height: 24px; padding: 0 12px; border-radius: 5px; border:none; background:transparent; color: var(--text-dim); font-size: 10px; font-weight:700; letter-spacing:1.2px; }
+  .seg button:hover { color: var(--text); }
+  .seg button.is-active { background: rgba(156,125,255,.22); color: var(--purple-strong); }
+  .harmHint { font-size: 10px; color: var(--text-dimmer); letter-spacing:.4px; line-height: 1.4; flex: 1; }
+  .harmPower { display:flex; align-items:center; gap: 10px; font-size: 10px; font-weight:700; letter-spacing:1.6px; color: var(--text-dim); }
+  .harmPower.is-on { color: #6ee7a8; }
+  .tab .dot { display:none; }
+  .tab .dot.is-on { display:inline-block; }
+  .harmView.is-off .partsCol, .harmView.is-off .stackCol { opacity: .55; }
+
+  /* Compact view: the original Nova Pitch screen (no keyboard, no Harmony tab) */
+  body.compact #stage { height: 660px; }
+  body.compact .tabs, body.compact .kbRow, body.compact #harmViewWrap { display: none !important; }
+  body.compact #tuneView { display: grid !important; }
+  .topStrip .tabs { position: absolute; left: 50%; transform: translateX(-50%); }
+  .topStrip { position: relative; }
 </style>
 </head>
 <body>
@@ -358,10 +430,11 @@
           <button class="stepBtn" id="scaleBtn"><span id="scaleValue">Major</span><span class="chev">›</span></button>
         </div>
       </div>
+      <div class="tabs"><button class="tab is-active" id="tabTune" data-v="tune">TUNE</button><button class="tab" id="tabHarm" data-v="harm">HARMONY<span class="dot" id="harmDot"></span></button></div>
       <div class="stepGroup">
         <div class="stepControl">
           <label>View</label>
-          <button class="stepBtn viewBtn" id="viewBtn">Waveform</button>
+          <button class="stepBtn" id="viewBtn" title="Switch between the full and compact view"><span id="viewValue">Full</span><span class="chev">›</span></button>
         </div>
         <div class="stepControl">
           <label>Bypass</label>
@@ -370,6 +443,7 @@
       </div>
     </section>
 
+    <div class="viewWrap" id="tuneView">
     <section class="heroRow">
       <div class="heroWing heroWingLeft"></div>
       <div class="heroWing heroWingRight"></div>
@@ -463,6 +537,37 @@
         <div class="miniLabel">Output</div>
       </div>
     </section>
+    </div>
+
+    <div class="viewWrap harm" id="harmViewWrap" style="display:none">
+    <section class="harmView" id="harmView">
+      <div class="harmTop">
+        <div class="partsCol"><div class="secHead">Harmony Parts <span id="partsHint">· notes follow your key</span></div>
+<div class="part" id="part0"><span class="sw" style="background:#6ee7a8;box-shadow:0 0 8px #6ee7a8"></span><div class="pname">PART 1</div><div class="partInt"><button class="intervalBtn" id="partIntBtn0" style="width:100%"><span id="partIntVal0">3rd Above</span><small>›</small></button></div><div class="pnote" id="partNote0">--</div><div class="plev" id="partLev0" title="Drag up/down">-4.0 dB</div><button class="powerBtn" id="partOnBtn0" aria-label="Part 1 on">⏻</button></div>
+<div class="part" id="part1"><span class="sw" style="background:#ffb86b;box-shadow:0 0 8px #ffb86b"></span><div class="pname">PART 2</div><div class="partInt"><button class="intervalBtn" id="partIntBtn1" style="width:100%"><span id="partIntVal1">3rd Above</span><small>›</small></button></div><div class="pnote" id="partNote1">--</div><div class="plev" id="partLev1" title="Drag up/down">-4.0 dB</div><button class="powerBtn" id="partOnBtn1" aria-label="Part 2 on">⏻</button></div>
+<div class="part" id="part2"><span class="sw" style="background:#ff7eb6;box-shadow:0 0 8px #ff7eb6"></span><div class="pname">PART 3</div><div class="partInt"><button class="intervalBtn" id="partIntBtn2" style="width:100%"><span id="partIntVal2">3rd Above</span><small>›</small></button></div><div class="pnote" id="partNote2">--</div><div class="plev" id="partLev2" title="Drag up/down">-4.0 dB</div><button class="powerBtn" id="partOnBtn2" aria-label="Part 3 on">⏻</button></div>
+<div class="part" id="part3"><span class="sw" style="background:#7cd1ff;box-shadow:0 0 8px #7cd1ff"></span><div class="pname">PART 4</div><div class="partInt"><button class="intervalBtn" id="partIntBtn3" style="width:100%"><span id="partIntVal3">3rd Above</span><small>›</small></button></div><div class="pnote" id="partNote3">--</div><div class="plev" id="partLev3" title="Drag up/down">-4.0 dB</div><button class="powerBtn" id="partOnBtn3" aria-label="Part 4 on">⏻</button></div>
+        </div>
+        <div class="stackCol">
+          <div class="secHead">Voice Stack <span id="stackHead">· 8 of 32 voices</span></div>
+          <div class="styleSeg seg" id="styleSeg"><button data-style="0">POP</button><button data-style="1">R&AMP;B</button><button data-style="2">TRAP</button><button data-style="3">GOSPEL</button><button data-style="4">CHOIR</button><button data-style="5">AMBIENT</button><button data-style="6">DOUBLES</button></div>
+          <div class="stackKnobs"><div class="miniKnobCol"><div class="knob small" id="harmVoicesKnob" data-param="harmVoices" data-min="1" data-max="32"><div class="knobRingBg"></div><div class="knobRingFill"></div><div class="knobCap"><div class="knobPointer"></div></div></div><div class="miniValue" id="harmVoicesValue">8</div><div class="miniLabel">Voices</div></div><div class="miniKnobCol"><div class="knob small" id="harmWidthKnob" data-param="harmWidth" data-min="0" data-max="200"><div class="knobRingBg"></div><div class="knobRingFill"></div><div class="knobCap"><div class="knobPointer"></div></div></div><div class="miniValue" id="harmWidthValue">100%</div><div class="miniLabel">Width</div></div><div class="miniKnobCol"><div class="knob small" id="harmHumanizeKnob" data-param="harmHumanize" data-min="0" data-max="100"><div class="knobRingBg"></div><div class="knobRingFill"></div><div class="knobCap"><div class="knobPointer"></div></div></div><div class="miniValue" id="harmHumanizeValue">30</div><div class="miniLabel">Humanize</div></div><div class="miniKnobCol"><div class="knob small" id="harmLeadKnob" data-param="harmLead" data-min="-24" data-max="6"><div class="knobRingBg"></div><div class="knobRingFill"></div><div class="knobCap"><div class="knobPointer"></div></div></div><div class="miniValue" id="harmLeadValue">0.0 dB</div><div class="miniLabel">Lead</div></div><div class="miniKnobCol"><div class="knob small" id="harmMixKnob" data-param="harmMix" data-min="0" data-max="100"><div class="knobRingBg"></div><div class="knobRingFill"></div><div class="knobCap"><div class="knobPointer"></div></div></div><div class="miniValue" id="harmMixValue">70</div><div class="miniLabel">Harmony Mix</div></div></div>
+          <div class="vgrid" id="vgrid"><div class="vb" id="vb0"><div class="vbt"><div class="vbf" id="vbf0"></div></div><div class="vbn">1</div></div><div class="vb" id="vb1"><div class="vbt"><div class="vbf" id="vbf1"></div></div><div class="vbn">2</div></div><div class="vb" id="vb2"><div class="vbt"><div class="vbf" id="vbf2"></div></div><div class="vbn">3</div></div><div class="vb" id="vb3"><div class="vbt"><div class="vbf" id="vbf3"></div></div><div class="vbn">4</div></div><div class="vb" id="vb4"><div class="vbt"><div class="vbf" id="vbf4"></div></div><div class="vbn">5</div></div><div class="vb" id="vb5"><div class="vbt"><div class="vbf" id="vbf5"></div></div><div class="vbn">6</div></div><div class="vb" id="vb6"><div class="vbt"><div class="vbf" id="vbf6"></div></div><div class="vbn">7</div></div><div class="vb" id="vb7"><div class="vbt"><div class="vbf" id="vbf7"></div></div><div class="vbn">8</div></div><div class="vb" id="vb8"><div class="vbt"><div class="vbf" id="vbf8"></div></div><div class="vbn">9</div></div><div class="vb" id="vb9"><div class="vbt"><div class="vbf" id="vbf9"></div></div><div class="vbn">10</div></div><div class="vb" id="vb10"><div class="vbt"><div class="vbf" id="vbf10"></div></div><div class="vbn">11</div></div><div class="vb" id="vb11"><div class="vbt"><div class="vbf" id="vbf11"></div></div><div class="vbn">12</div></div><div class="vb" id="vb12"><div class="vbt"><div class="vbf" id="vbf12"></div></div><div class="vbn">13</div></div><div class="vb" id="vb13"><div class="vbt"><div class="vbf" id="vbf13"></div></div><div class="vbn">14</div></div><div class="vb" id="vb14"><div class="vbt"><div class="vbf" id="vbf14"></div></div><div class="vbn">15</div></div><div class="vb" id="vb15"><div class="vbt"><div class="vbf" id="vbf15"></div></div><div class="vbn">16</div></div><div class="vb" id="vb16"><div class="vbt"><div class="vbf" id="vbf16"></div></div><div class="vbn">17</div></div><div class="vb" id="vb17"><div class="vbt"><div class="vbf" id="vbf17"></div></div><div class="vbn">18</div></div><div class="vb" id="vb18"><div class="vbt"><div class="vbf" id="vbf18"></div></div><div class="vbn">19</div></div><div class="vb" id="vb19"><div class="vbt"><div class="vbf" id="vbf19"></div></div><div class="vbn">20</div></div><div class="vb" id="vb20"><div class="vbt"><div class="vbf" id="vbf20"></div></div><div class="vbn">21</div></div><div class="vb" id="vb21"><div class="vbt"><div class="vbf" id="vbf21"></div></div><div class="vbn">22</div></div><div class="vb" id="vb22"><div class="vbt"><div class="vbf" id="vbf22"></div></div><div class="vbn">23</div></div><div class="vb" id="vb23"><div class="vbt"><div class="vbf" id="vbf23"></div></div><div class="vbn">24</div></div><div class="vb" id="vb24"><div class="vbt"><div class="vbf" id="vbf24"></div></div><div class="vbn">25</div></div><div class="vb" id="vb25"><div class="vbt"><div class="vbf" id="vbf25"></div></div><div class="vbn">26</div></div><div class="vb" id="vb26"><div class="vbt"><div class="vbf" id="vbf26"></div></div><div class="vbn">27</div></div><div class="vb" id="vb27"><div class="vbt"><div class="vbf" id="vbf27"></div></div><div class="vbn">28</div></div><div class="vb" id="vb28"><div class="vbt"><div class="vbf" id="vbf28"></div></div><div class="vbn">29</div></div><div class="vb" id="vb29"><div class="vbt"><div class="vbf" id="vbf29"></div></div><div class="vbn">30</div></div><div class="vb" id="vb30"><div class="vbt"><div class="vbf" id="vbf30"></div></div><div class="vbn">31</div></div><div class="vb" id="vb31"><div class="vbt"><div class="vbf" id="vbf31"></div></div><div class="vbn">32</div></div></div>
+        </div>
+      </div>
+      <div class="harmFoot">
+        <div class="miniLabel">Harmony Mode</div>
+        <div class="seg" id="modeSeg"><button data-mode="0">SCALE</button><button data-mode="1">MIDI</button></div>
+        <div class="harmHint" id="modeHint">Scale: parts follow the Key and Scale above.</div>
+        <div class="harmPower" id="harmPower"><span id="harmPowerLabel">HARMONY OFF</span><button class="powerBtn" id="harmOnBtn" aria-label="Harmony on">⏻</button></div>
+      </div>
+    </section>
+    </div>
+
+    <section class="kbRow">
+      <div class="kbLegend"><span><i style="background:#9c7dff"></i>Target note</span><span><i style="background:transparent;box-shadow:inset 0 0 0 2px #4ea9ff"></i>What you sang</span><span><i style="background:#3a3a46"></i>Out of key</span><span id="hvLegend" style="display:none"><i style="background:#6ee7a8;border-radius:50%"></i>Harmony notes</span><span class="sp"></span><span id="kbReadout">--</span></div>
+      <div class="kb" id="kb"></div>
+    </section>
 
     <footer class="footer">
       <div class="footerLine"></div>
@@ -472,7 +577,7 @@
       <div class="settingsPopover" id="settingsPopover">
         <div class="settingsRow"><span>Quality</span><span class="val" id="settingsLatencyMode">Standard</span></div>
         <div class="settingsRow"><span>Latency</span><span class="val" id="settingsLatencyValue">-- ms</span></div>
-        <div class="settingsVersion">Nova Pitch v0.1</div>
+        <div class="settingsVersion">Nova Pitch v0.2</div>
       </div>
     </footer>
   </main>

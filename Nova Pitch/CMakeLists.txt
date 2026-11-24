@@ -92,7 +92,7 @@ juce_add_plugin(${PLUGIN_TARGET}
     AU_MAIN_TYPE ${AU_MAIN_TYPE}
     LV2URI ${LV2_URI}
     IS_SYNTH FALSE
-    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_INPUT TRUE   # Harmony MIDI mode
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
@@ -102,6 +102,7 @@ target_sources(${PLUGIN_TARGET}
     PRIVATE
         Source/PluginProcessor.cpp
     Source/NovaPitchTunedEngine.cpp
+    Source/NovaPitchHarmony.cpp
     ${NOVA_TUNE_CORE_DIR}/NovaVocalTuner.cpp
         Source/PluginProcessor.h
         Source/PluginEditor.cpp
@@ -208,6 +209,7 @@ target_sources(NovaPitchOfflineDiag PRIVATE
     Source/OfflineDiag.cpp
     Source/PluginProcessor.cpp
     Source/NovaPitchTunedEngine.cpp
+    Source/NovaPitchHarmony.cpp
     ${NOVA_TUNE_CORE_DIR}/NovaVocalTuner.cpp
     Source/PluginProcessor.h
     Source/PluginEditor.cpp
@@ -442,6 +444,7 @@ target_sources(NovaPitchStateRoundTripValidation PRIVATE
     Source/StateRoundTripValidation.cpp
     Source/PluginProcessor.cpp
     Source/NovaPitchTunedEngine.cpp
+    Source/NovaPitchHarmony.cpp
     ${NOVA_TUNE_CORE_DIR}/NovaVocalTuner.cpp
     Source/PluginProcessor.h
     Source/PluginEditor.cpp
@@ -481,4 +484,57 @@ target_compile_definitions(NovaPitchStateRoundTripValidation PRIVATE
 
 if(APPLE)
     target_compile_definitions(NovaPitchStateRoundTripValidation PRIVATE JUCE_USE_CURL=0)
+endif()
+
+# Harmony feature checks (see HarmonyValidation.cpp)
+juce_add_console_app(NovaPitchHarmonyValidation
+    COMPANY_NAME "International Nova"
+    BUNDLE_ID "com.internationalnova.novapitch.harmonyvalidation"
+    VERSION ${PROJECT_VERSION}
+)
+
+target_sources(NovaPitchHarmonyValidation PRIVATE
+    Source/HarmonyValidation.cpp
+    Source/PluginProcessor.cpp
+    Source/NovaPitchTunedEngine.cpp
+    Source/NovaPitchHarmony.cpp
+    ${NOVA_TUNE_CORE_DIR}/NovaVocalTuner.cpp
+    Source/PluginProcessor.h
+    Source/PluginEditor.cpp
+    Source/PluginEditor.h
+    Source/ParameterIDs.hpp
+    Source/ABSnapshot.h
+    Source/NovaPitchPresetManager.cpp
+    Source/NovaPitchPresetManager.h
+    ${NOVA_PITCH_CORE_DIR}/Analysis/NovaPitchDetector.cpp
+    ${NOVA_PITCH_CORE_DIR}/Correction/NovaScaleQuantizer.cpp
+    ${NOVA_PITCH_CORE_DIR}/DSP/NovaPitchSynchronousShifter.cpp
+    ${NOVA_PITCH_CORE_DIR}/DSP/NovaFormantCorrector.cpp
+    ${NOVA_PITCH_CORE_DIR}/NovaPitchEngine.cpp
+)
+
+target_include_directories(NovaPitchHarmonyValidation PRIVATE ${NOVA_PITCH_CORE_DIR} ${NOVA_TUNE_CORE_DIR})
+
+target_link_libraries(NovaPitchHarmonyValidation PRIVATE
+    NovaPitch_WebUI
+    juce::juce_audio_basics
+    juce::juce_audio_processors
+    juce::juce_core
+    juce::juce_data_structures
+    juce::juce_dsp
+    juce::juce_events
+    juce::juce_graphics
+    juce::juce_gui_basics
+    juce::juce_gui_extra
+    juce::juce_opengl
+    juce::juce_recommended_config_flags
+)
+
+target_compile_definitions(NovaPitchHarmonyValidation PRIVATE
+    JucePlugin_Name="NovaPitchHarmonyValidation"
+    JUCE_WEB_BROWSER=1
+)
+
+if(APPLE)
+    target_compile_definitions(NovaPitchHarmonyValidation PRIVATE JUCE_USE_CURL=0)
 endif()

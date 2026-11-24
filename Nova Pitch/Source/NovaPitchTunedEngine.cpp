@@ -84,6 +84,7 @@ void NovaPitchTunedEngine::setParams (const Params& p) noexcept
     tp.voicingThreshold = juce::jlimit (0.1f, 0.5f, 0.5f - 0.0036f * p.confidenceThresholdPercent); // 70 % -> 0.25
     tp.maxHz = 350.f + 6.5f * juce::jlimit (0.f, 100.f, p.rangePercent);                             // 350..1000 Hz
     tuner.setParams (tp);
+    lastTunerParams = tp;
 
     formantWarp   = juce::jlimit (-1.f, 1.f, p.formantWarpPercent / 100.f);
     formantAmount = std::abs (formantWarp) > 0.001f ? juce::jlimit (0.f, 1.f, p.formantAmountPercent / 100.f) : 0.f;

@@ -24,4 +24,17 @@ namespace ParameterIDs
     static constexpr const char* vibratoRate            = "vibratoRate";           // Hz
     static constexpr const char* transients             = "transients";           // attack-hold amount, 0-100
     static constexpr const char* bypass                 = "bypass";
+
+    // Harmony (new): parts 1-4 + voice stack
+    static constexpr const char* harmOn       = "harmOn";
+    static constexpr const char* harmMode     = "harmMode";      // 0 = Scale, 1 = MIDI
+    static constexpr const char* harmStyle    = "harmStyle";
+    static constexpr const char* harmVoices   = "harmVoices";
+    static constexpr const char* harmWidth    = "harmWidth";
+    static constexpr const char* harmHumanize = "harmHumanize";
+    static constexpr const char* harmLead     = "harmLead";
+    static constexpr const char* harmMix      = "harmMix";
+    static constexpr const char* partOn[4]       = { "part1On", "part2On", "part3On", "part4On" };
+    static constexpr const char* partInterval[4] = { "part1Interval", "part2Interval", "part3Interval", "part4Interval" };
+    static constexpr const char* partLevel[4]    = { "part1Level", "part2Level", "part3Level", "part4Level" };
 }
