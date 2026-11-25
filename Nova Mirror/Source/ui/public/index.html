@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nova Mirror</title>
+<script>
+  (function () {
+    var send = function (msg) {
+      try { window.__JUCE__.backend.emitEvent("__juce__invoke", { name: "jsError", params: [String(msg)], resultId: -1 }); } catch (e) {}
+    };
+    window.addEventListener("error", function (e) { send("error: " + e.message + " @" + (e.filename || "") + ":" + e.lineno); });
+    window.addEventListener("unhandledrejection", function (e) { send("rejection: " + (e.reason && (e.reason.stack || e.reason.message) || e.reason)); });
+    if (typeof window.__JUCE__ === "undefined") {   // design preview in a normal browser
+      window.__NM_PREVIEW__ = true;
+      window.__JUCE__ = { backend: { addEventListener: function () {}, emitEvent: function () {} },
+        initialisationData: { __juce__functions: [], __juce__sliders: [], __juce__toggles: [], __juce__comboBoxes: [], __juce__platform: [] } };
+    }
+  })();
+</script>
+<style>
+  :root {
+    --bg: #0c0d10; --panel: #111216; --panel2: #15161b; --line: #1f2128; --line2: #2a2c35;
+    --text: #e6e7ec; --dim: #7d808c; --faint: #4b4e59;
+    --accent: #9c7dff; --cut: #e0727c; --boost: #5fc4a0; --ref: #e9e4d6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+    font-family: "SF Pro Text", -apple-system, "Helvetica Neue", "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none; }
+  button, select, input { font-family: inherit; }
+  button { cursor: pointer; }
+  .num { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+  .app { width: 1100px; height: 700px; transform-origin: 0 0; display: grid; grid-template-rows: 44px 64px 1fr 132px; background: var(--bg); }
+
+  .top { display: flex; align-items: center; gap: 14px; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .logo { font-weight: 600; letter-spacing: .32em; font-size: 11px; }
+  .logo span { color: var(--accent); }
+  .vsep { width: 1px; height: 20px; background: var(--line2); }
+  .tabs { display: flex; gap: 2px; }
+  .tabs button { border: 0; background: transparent; color: var(--dim); font-size: 11px; font-weight: 500; padding: 5px 9px; border-radius: 3px; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.on { color: var(--text); background: #1d1f26; }
+  .grow { flex: 1; }
+  .meta { font-size: 11px; color: var(--dim); }
+  .meta b { color: var(--text); font-weight: 500; }
+  .ab { display: flex; border: 1px solid var(--line2); border-radius: 3px; overflow: hidden; }
+  .ab button { border: 0; background: transparent; color: var(--dim); font-size: 11px; font-weight: 600; width: 26px; height: 22px; }
+  .ab button.on { background: #1d1f26; color: var(--text); }
+  .icon { width: 24px; height: 24px; border: 1px solid var(--line2); border-radius: 3px; background: transparent; color: var(--dim); display: grid; place-items: center; }
+  .icon svg { width: 13px; height: 13px; }
+  .icon.on { color: var(--accent); border-color: rgba(156,125,255,.5); }
+
+  .ref { display: grid; grid-template-columns: 190px 1fr auto; gap: 14px; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--line); }
+  .cap { font-size: 9.5px; letter-spacing: .18em; color: var(--faint); font-weight: 600; text-transform: uppercase; }
+  .src { display: flex; flex-direction: column; gap: 5px; }
+  select.dd { appearance: none; -webkit-appearance: none; height: 24px; border: 1px solid var(--line2); border-radius: 3px; background: var(--bg); color: var(--text); font-size: 11.5px; padding: 0 22px 0 8px; outline: none; cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, #7d808c 50%), linear-gradient(135deg, #7d808c 50%, transparent 50%);
+    background-position: calc(100% - 11px) 10px, calc(100% - 7px) 10px; background-size: 4px 4px; background-repeat: no-repeat; }
+  .wave { position: relative; height: 42px; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: #0e0f13; cursor: pointer; }
+  .wave.drag { border-color: var(--accent); background: rgba(156,125,255,.06); }
+  .wave canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .wave .info { position: absolute; left: 8px; top: 4px; font-size: 10.5px; color: var(--text); pointer-events: none; text-shadow: 0 0 4px #0e0f13; }
+  .wave .info span { color: var(--dim); margin-left: 6px; }
+  .wave .secn { position: absolute; right: 8px; top: 4px; font-size: 10px; color: var(--dim); pointer-events: none; text-shadow: 0 0 4px #0e0f13; }
+  .wave .secn b { color: var(--text); font-weight: 500; }
+  .wave .empty { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; color: var(--dim); pointer-events: none; }
+  .btns { display: flex; gap: 4px; }
+  .btn { height: 24px; padding: 0 9px; border: 1px solid var(--line2); border-radius: 3px; background: transparent; color: var(--dim); font-size: 11px; font-weight: 500; }
+  .btn:not(:disabled):hover { color: var(--text); }
+  .btn.on { color: var(--text); border-color: #3a3d48; background: #1a1b21; }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .saveBox { display: none; gap: 4px; }
+  .saveBox.show { display: flex; }
+  .saveBox input { height: 24px; width: 130px; border: 1px solid var(--accent); border-radius: 3px; background: var(--bg); color: var(--text); font-size: 11px; padding: 0 7px; outline: none; }
+
+  .spec { position: relative; min-height: 0; overflow: hidden; border-bottom: 1px solid var(--line); }
+  .spec canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .legend { position: absolute; left: 52px; top: 9px; display: flex; gap: 16px; font-size: 10.5px; color: var(--dim); pointer-events: none; }
+  .legend i { display: inline-block; width: 12px; height: 2px; margin-right: 6px; vertical-align: 3px; }
+  .readout { position: absolute; right: 44px; top: 8px; text-align: right; font-size: 10.5px; color: var(--dim); pointer-events: none; }
+  .readout b { font-size: 15px; color: var(--text); font-weight: 500; margin-left: 6px; }
+  .note { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); font-size: 12px; color: var(--dim); text-align: center; pointer-events: none; line-height: 1.6; }
+
+  .controls { display: grid; grid-template-columns: 1.3fr 1fr 1fr; background: var(--panel); }
+  .grp { padding: 12px 16px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+  .grp:last-child { border-right: 0; }
+  .knobs { display: flex; gap: 14px; align-items: flex-start; }
+  .knob { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 66px; }
+  .knob svg { width: 54px; height: 54px; cursor: ns-resize; }
+  .knob .v { font-size: 11px; color: var(--text); }
+  .knob .n { font-size: 9.5px; letter-spacing: .16em; color: var(--dim); font-weight: 600; }
+  .linkbtn { margin-top: 18px; width: 22px; height: 22px; border: 1px solid var(--line2); border-radius: 3px; background: transparent; color: var(--dim); display: grid; place-items: center; }
+  .linkbtn.on { border-color: rgba(156,125,255,.45); color: var(--accent); }
+  .linkbtn svg { width: 12px; height: 12px; }
+  .opts { display: flex; flex-direction: column; gap: 2px; }
+  .opt { display: grid; grid-template-columns: 14px 1fr auto; gap: 9px; align-items: center; height: 26px; font-size: 11.5px; color: var(--dim); cursor: pointer; }
+  .opt .box { width: 12px; height: 12px; border: 1px solid #454856; border-radius: 2px; position: relative; }
+  .opt.on { color: var(--text); }
+  .opt.on .box { border-color: var(--accent); background: var(--accent); }
+  .opt.on .box::after { content: ""; position: absolute; left: 3.5px; top: 1px; width: 3px; height: 6px; border-right: 1.5px solid #0c0d10; border-bottom: 1.5px solid #0c0d10; transform: rotate(45deg); }
+  .opt small { color: var(--dim); font-size: 10.5px; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="top">
+    <div class="logo">NOVA <span>MIRROR</span></div>
+    <div class="vsep"></div>
+    <div class="tabs" id="mode" title="What's on this track"><button data-v="0">Vocal</button><button data-v="1">Beat</button><button data-v="2">Mix Bus</button><button data-v="3">Master</button></div>
+    <div class="vsep"></div>
+    <div class="tabs" id="stereo" title="Which part of the stereo image it works on"><button data-v="0">Stereo</button><button data-v="1">Mid</button><button data-v="2">Side</button><button data-v="3">M/S</button></div>
+    <div class="grow"></div>
+    <div class="meta" title="When Power is off you hear the input at the same loudness, so you judge tone, not volume">Bypass <b>level-matched</b></div>
+    <div class="ab"><button id="abA" class="on">A</button><button id="abB">B</button></div>
+    <button class="icon on" id="power" title="Power (fades in and out)"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7 1.5v5"/><path d="M4 3.3a5 5 0 106 0"/></svg></button>
+  </div>
+
+  <div class="ref">
+    <div class="src">
+      <span class="cap">Target</span>
+      <select class="dd" id="target"></select>
+    </div>
+    <div class="wave" id="wave" title="Drop a track you love here, or click to choose one">
+      <canvas id="waveC"></canvas>
+      <div class="info" id="refInfo"></div>
+      <div class="secn" id="secn"></div>
+      <div class="empty" id="waveEmpty">Drop a reference track here, or click to choose one</div>
+    </div>
+    <div class="btns">
+      <button class="btn" id="listen" title="Hear the reference in place of your track, at the same loudness">Listen</button>
+      <button class="btn on" id="sections" title="Match your verse to its verse and your hook to its hook">Sections</button>
+      <button class="btn" id="saveT" title="Keep this reference's tone as a target you can use in any session">Save target</button>
+      <div class="saveBox" id="saveBox"><input id="saveName" placeholder="Target name" maxlength="40"><button class="btn on" id="saveOk">Save</button></div>
+      <button class="btn" id="clearRef" title="Remove the reference">Clear</button>
+    </div>
+  </div>
+
+  <div class="spec" id="specWrap">
+    <canvas id="spec"></canvas>
+    <div class="legend">
+      <span><i style="background:#8f86b8"></i>Input</span>
+      <span><i style="background:var(--ref)"></i>Target</span>
+      <span><i style="background:var(--accent)"></i>Gain</span>
+    </div>
+    <div class="readout">Match <b class="num" id="match">–</b></div>
+    <div class="note" id="note"></div>
+  </div>
+
+  <div class="controls">
+    <div class="grp">
+      <span class="cap">Match</span>
+      <div class="knobs">
+        <div class="knob" data-p="cut" data-c="#e0727c"><svg viewBox="0 0 54 54"></svg><span class="v num"></span><span class="n">CUT</span></div>
+        <button class="linkbtn" id="link" title="Link cut and boost"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 7l2-2"/><path d="M4.2 5.2L3 6.4a1.8 1.8 0 002.6 2.6L6.8 7.8"/><path d="M7.8 6.8L9 5.6A1.8 1.8 0 006.4 3L5.2 4.2"/></svg></button>
+        <div class="knob" data-p="boost" data-c="#5fc4a0"><svg viewBox="0 0 54 54"></svg><span class="v num"></span><span class="n">BOOST</span></div>
+        <div class="knob" data-p="speed" data-c="#9c7dff"><svg viewBox="0 0 54 54"></svg><span class="v num"></span><span class="n">SPEED</span></div>
+      </div>
+    </div>
+    <div class="grp">
+      <span class="cap">Range</span>
+      <div class="knobs">
+        <div class="knob" data-p="from" data-c="#9c7dff"><svg viewBox="0 0 54 54"></svg><span class="v num"></span><span class="n">FROM</span></div>
+        <div class="knob" data-p="to" data-c="#9c7dff"><svg viewBox="0 0 54 54"></svg><span class="v num"></span><span class="n">TO</span></div>
+        <div class="knob" data-p="output" data-c="#9c7dff" data-bi="1"><svg viewBox="0 0 54 54"></svg><span class="v num"></span><span class="n">OUTPUT</span></div>
+      </div>
+    </div>
+    <div class="grp">
+      <span class="cap">Options</span>
+      <div class="opts">
+        <div class="opt" data-p="punch"><span class="box"></span>Punch Guard<small>keeps transients</small></div>
+        <div class="opt" data-p="peak"><span class="box"></span>Peak Control<small>no new peaks</small></div>
+        <div class="opt" data-p="freeze"><span class="box"></span>Freeze to EQ<small>lock the curve</small></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module" src="js/index.js"></script>
+</body>
+</html>

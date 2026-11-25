@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nova Mirror — mockup</title>
+<style>
+  :root {
+    --bg: #0c0d10; --panel: #111216; --panel2: #15161b; --line: #1f2128; --line2: #2a2c35;
+    --text: #e6e7ec; --dim: #7d808c; --faint: #4b4e59;
+    --accent: #9c7dff; --cut: #e0727c; --boost: #5fc4a0; --ref: #e9e4d6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #060709; color: var(--text); font-family: "SF Pro Text", -apple-system, "Helvetica Neue", "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; padding: 24px; user-select: none; }
+  button { font-family: inherit; cursor: pointer; }
+  .num { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+  .plugin { width: 1100px; height: 700px; margin: 0 auto; background: var(--bg); border: 1px solid var(--line2); border-radius: 6px; overflow: hidden; display: grid; grid-template-rows: 44px 64px 1fr 132px; }
+
+  .top { display: flex; align-items: center; gap: 14px; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .logo { font-weight: 600; letter-spacing: .32em; font-size: 11px; color: var(--text); }
+  .logo span { color: var(--accent); }
+  .vsep { width: 1px; height: 20px; background: var(--line2); }
+  .tabs { display: flex; gap: 2px; }
+  .tabs button { border: 0; background: transparent; color: var(--dim); font-size: 11px; font-weight: 500; padding: 5px 9px; border-radius: 3px; letter-spacing: .02em; }
+  .tabs button.on { color: var(--text); background: #1d1f26; }
+  .grow { flex: 1; }
+  .meta { font-size: 11px; color: var(--dim); }
+  .meta b { color: var(--text); font-weight: 500; }
+  .ab { display: flex; border: 1px solid var(--line2); border-radius: 3px; overflow: hidden; }
+  .ab button { border: 0; background: transparent; color: var(--dim); font-size: 11px; font-weight: 600; width: 26px; height: 22px; }
+  .ab button.on { background: #1d1f26; color: var(--text); }
+  .icon { width: 24px; height: 24px; border: 1px solid var(--line2); border-radius: 3px; background: transparent; color: var(--dim); display: grid; place-items: center; }
+  .icon svg { width: 13px; height: 13px; }
+  .icon.on { color: var(--accent); border-color: rgba(156,125,255,.5); }
+
+  .ref { display: grid; grid-template-columns: 180px 1fr auto; gap: 14px; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--bg); }
+  .cap { font-size: 9.5px; letter-spacing: .18em; color: var(--faint); font-weight: 600; text-transform: uppercase; }
+  .src { display: flex; flex-direction: column; gap: 5px; }
+  .dd { height: 24px; border: 1px solid var(--line2); border-radius: 3px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; font-size: 11.5px; color: var(--text); }
+  .dd::after { content: ""; width: 5px; height: 5px; border-right: 1.2px solid var(--dim); border-bottom: 1.2px solid var(--dim); transform: rotate(45deg) translateY(-2px); }
+  .wave { position: relative; height: 42px; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: #0e0f13; }
+  .wave canvas { width: 100%; height: 100%; display: block; }
+  .wave .info { position: absolute; left: 8px; top: 4px; font-size: 10.5px; color: var(--text); }
+  .wave .info span { color: var(--dim); margin-left: 6px; }
+  .wave .secn { position: absolute; right: 8px; top: 4px; font-size: 10px; color: var(--dim); }
+  .wave .secn b { color: var(--text); font-weight: 500; }
+  .btns { display: flex; gap: 4px; }
+  .btn { height: 24px; padding: 0 9px; border: 1px solid var(--line2); border-radius: 3px; background: transparent; color: var(--dim); font-size: 11px; font-weight: 500; }
+  .btn.on { color: var(--text); border-color: #3a3d48; background: #1a1b21; }
+
+  .spec { position: relative; min-height: 0; overflow: hidden; border-bottom: 1px solid var(--line); }
+  .spec canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .legend { position: absolute; left: 52px; top: 9px; display: flex; gap: 16px; font-size: 10.5px; color: var(--dim); }
+  .legend i { display: inline-block; width: 12px; height: 2px; margin-right: 6px; vertical-align: 3px; }
+  .readout { position: absolute; right: 44px; top: 8px; text-align: right; font-size: 10.5px; color: var(--dim); }
+  .readout b { font-size: 15px; color: var(--text); font-weight: 500; margin-left: 6px; }
+
+  .controls { display: grid; grid-template-columns: 1.3fr 1fr 1fr; background: var(--panel); }
+  .grp { padding: 12px 16px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+  .grp:last-child { border-right: 0; }
+  .knobs { display: flex; gap: 14px; align-items: flex-start; }
+  .knob { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 66px; }
+  .knob svg { width: 54px; height: 54px; cursor: ns-resize; }
+  .knob .v { font-size: 11px; color: var(--text); }
+  .knob .n { font-size: 9.5px; letter-spacing: .16em; color: var(--dim); font-weight: 600; }
+  .linkbtn { margin-top: 18px; width: 22px; height: 22px; border: 1px solid rgba(156,125,255,.45); border-radius: 3px; background: transparent; color: var(--accent); display: grid; place-items: center; }
+  .linkbtn svg { width: 12px; height: 12px; }
+  .opts { display: flex; flex-direction: column; gap: 2px; }
+  .opt { display: grid; grid-template-columns: 14px 1fr auto; gap: 9px; align-items: center; height: 26px; font-size: 11.5px; color: var(--text); }
+  .opt .box { width: 12px; height: 12px; border: 1px solid #454856; border-radius: 2px; position: relative; }
+  .opt.on .box { border-color: var(--accent); background: var(--accent); }
+  .opt.on .box::after { content: ""; position: absolute; left: 3.5px; top: 1px; width: 3px; height: 6px; border-right: 1.5px solid #0c0d10; border-bottom: 1.5px solid #0c0d10; transform: rotate(45deg); }
+  .opt small { color: var(--dim); font-size: 10.5px; }
+  .opt:not(.on) { color: var(--dim); }
+  .caption { width: 1100px; margin: 14px auto 0; color: #5b5e69; font-size: 12px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="plugin">
+  <div class="top">
+    <div class="logo">NOVA <span>MIRROR</span></div>
+    <div class="vsep"></div>
+    <div class="tabs" title="Source"><button>Vocal</button><button>Beat</button><button class="on">Mix Bus</button><button>Master</button></div>
+    <div class="vsep"></div>
+    <div class="tabs" title="Stereo"><button class="on">Stereo</button><button>Mid</button><button>Side</button><button>M/S</button></div>
+    <div class="grow"></div>
+    <div class="meta">Bypass <b>level-matched</b></div>
+    <div class="ab"><button class="on">A</button><button>B</button></div>
+    <button class="icon" title="Undo"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 3L1.5 5.5 4 8"/><path d="M1.5 5.5h7a3.5 3.5 0 010 7H6"/></svg></button>
+    <button class="icon on" title="Power"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7 1.5v5"/><path d="M4 3.3a5 5 0 106 0"/></svg></button>
+  </div>
+
+  <div class="ref">
+    <div class="src">
+      <span class="cap">Target</span>
+      <div class="dd">Reference track</div>
+    </div>
+    <div class="wave">
+      <canvas id="wave"></canvas>
+      <div class="info">ozuna_reference.wav<span class="num">3:21 · 44.1 kHz</span></div>
+      <div class="secn">Section match&nbsp; <b>Hook</b> → <b>Hook</b></div>
+    </div>
+    <div class="btns">
+      <button class="btn on">Listen</button>
+      <button class="btn on">Sections</button>
+      <button class="btn">Replace</button>
+      <button class="btn">Clear</button>
+    </div>
+  </div>
+
+  <div class="spec">
+    <canvas id="spec"></canvas>
+    <div class="legend">
+      <span><i style="background:#8f86b8"></i>Input</span>
+      <span><i style="background:var(--ref)"></i>Target</span>
+      <span><i style="background:var(--accent)"></i>Gain</span>
+    </div>
+    <div class="readout">Match <b class="num" id="matchPct">86%</b></div>
+  </div>
+
+  <div class="controls">
+    <div class="grp">
+      <span class="cap">Match</span>
+      <div class="knobs">
+        <div class="knob" data-c="#e0727c" data-v="0.72"><svg viewBox="0 0 54 54"></svg><span class="v num">72%</span><span class="n">CUT</span></div>
+        <button class="linkbtn" title="Link cut and boost"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 7l2-2"/><path d="M4.2 5.2L3 6.4a1.8 1.8 0 002.6 2.6L6.8 7.8"/><path d="M7.8 6.8L9 5.6A1.8 1.8 0 006.4 3L5.2 4.2"/></svg></button>
+        <div class="knob" data-c="#5fc4a0" data-v="0.55"><svg viewBox="0 0 54 54"></svg><span class="v num">55%</span><span class="n">BOOST</span></div>
+        <div class="knob" data-c="#9c7dff" data-v="0.4"><svg viewBox="0 0 54 54"></svg><span class="v num">120 ms</span><span class="n">SPEED</span></div>
+      </div>
+    </div>
+    <div class="grp">
+      <span class="cap">Range</span>
+      <div class="knobs">
+        <div class="knob" data-c="#9c7dff" data-v="0.28"><svg viewBox="0 0 54 54"></svg><span class="v num">180 Hz</span><span class="n">FROM</span></div>
+        <div class="knob" data-c="#9c7dff" data-v="0.86"><svg viewBox="0 0 54 54"></svg><span class="v num">14.0 kHz</span><span class="n">TO</span></div>
+        <div class="knob" data-c="#9c7dff" data-v="0.5" data-bi="1"><svg viewBox="0 0 54 54"></svg><span class="v num">0.0 dB</span><span class="n">OUTPUT</span></div>
+      </div>
+    </div>
+    <div class="grp">
+      <span class="cap">Options</span>
+      <div class="opts">
+        <div class="opt on"><span class="box"></span>Punch Guard<small>keeps transients</small></div>
+        <div class="opt on"><span class="box"></span>Peak Control<small>no new peaks</small></div>
+        <div class="opt"><span class="box"></span>Freeze to EQ<small>lock the curve</small></div>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="caption">Mockup — animated to show the idea. Grey fill = your input, light line = the target (reference track or a Nova Target), purple curve = the gain Nova Mirror is applying right now (above the 0 dB line boosts, below cuts). FROM/TO dim everything outside the working range.</p>
+
+<script>
+const dpr = window.devicePixelRatio || 1;
+function fit(c) { const r = c.getBoundingClientRect(); c.width = r.width * dpr; c.height = r.height * dpr; const x = c.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0); return [x, r.width, r.height]; }
+
+// flat knobs: thin track, thin value arc, small pointer
+document.querySelectorAll(".knob").forEach(k => {
+  const v = +k.dataset.v, c = k.dataset.c, bi = k.dataset.bi;
+  const deg = d => d * Math.PI / 180;
+  const pt = (a, r) => [27 + r * Math.sin(deg(a)), 27 - r * Math.cos(deg(a))];
+  const arc = (a, b, r) => { const [x0, y0] = pt(a, r), [x1, y1] = pt(b, r); return `M${x0} ${y0} A${r} ${r} 0 ${Math.abs(b - a) > 180 ? 1 : 0} ${b > a ? 1 : 0} ${x1} ${y1}`; };
+  const a1 = -135 + 270 * v, start = bi ? 0 : -135;
+  const [px, py] = pt(a1, 14), [qx, qy] = pt(a1, 7);
+  k.querySelector("svg").innerHTML = `
+    <path d="${arc(-135, 135, 23)}" stroke="#23252d" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="${arc(start, a1, 23)}" stroke="${c}" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <circle cx="27" cy="27" r="17" fill="#17181d" stroke="#2b2d36"/>
+    <line x1="${qx}" y1="${qy}" x2="${px}" y2="${py}" stroke="#e6e7ec" stroke-width="1.6" stroke-linecap="round"/>`;
+});
+
+// reference waveform: monochrome, sections marked by tone + thin dividers
+(function () {
+  const [x, w, h] = fit(document.getElementById("wave"));
+  let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const secs = [[0, .12, .35], [.12, .38, .55], [.38, .55, 1], [.55, .8, .6], [.8, 1, 1]];
+  for (const [a, b, e] of secs) {
+    const hook = e > .9;
+    if (hook) { x.fillStyle = "rgba(156,125,255,.07)"; x.fillRect(a * w, 0, (b - a) * w, h); }
+    x.fillStyle = "#24262e"; x.fillRect(a * w, 0, 1, h);
+    for (let px = a * w + 1; px < b * w; px += 1.5) {
+      const amp = (e * .7 + rnd() * .3) * (h / 2 - 9);
+      x.fillStyle = hook ? "rgba(190,178,240,.55)" : "rgba(140,143,158,.4)";
+      x.fillRect(px, h / 2 + 5 - amp, 1, amp * 2 - 4);
+    }
+  }
+  x.fillStyle = "#e6e7ec"; x.fillRect(.66 * w, 0, 1, h);
+})();
+
+// spectrum: input fill, target line, gain curve around 0 dB
+const spec = document.getElementById("spec");
+const [sx, SW, SH] = fit(spec);
+const L = 44, R = SW - 38, T = 26, B = SH - 22;
+const N = 220, fMin = 20, fMax = 20000;
+const fOf = i => fMin * Math.pow(fMax / fMin, i / (N - 1));
+const xOf = f => L + (Math.log(f / fMin) / Math.log(fMax / fMin)) * (R - L);
+const yOf = db => T + (-(db) / 72) * (B - T);              // spectrum scale (left)
+const gMid = T + (B - T) * 0.5, gScale = (B - T) / 2 / 12;   // gain scale ±12 dB (right)
+const yG = g => gMid - g * gScale;
+const refShape = f => { const l = Math.log10(f); return -20 - 4.2 * (l - 2) * (l - 2) + 4 * Math.exp(-Math.pow((l - 1.85) / .18, 2)) - (f > 9000 ? Math.log10(f / 9000) * 16 : 0); };
+let t = 0, sm = new Float32Array(N);
+function frame() {
+  t += 0.016;
+  sx.clearRect(0, 0, SW, SH);
+  sx.font = "10px ui-monospace, Menlo, monospace";
+  for (const f of [30, 50, 100, 200, 500, 1000, 2000, 5000, 10000]) {
+    const x = xOf(f); sx.fillStyle = f === 100 || f === 1000 || f === 10000 ? "#1b1d23" : "#15161b"; sx.fillRect(x, T, 1, B - T);
+    sx.fillStyle = "#4b4e59"; sx.textAlign = "center"; sx.fillText(f >= 1000 ? f / 1000 + "k" : f, x, SH - 7);
+  }
+  sx.textAlign = "right";
+  for (const db of [-12, -24, -36, -48, -60]) { const y = yOf(db); sx.fillStyle = "#15161b"; sx.fillRect(L, y, R - L, 1); sx.fillStyle = "#4b4e59"; sx.fillText(db, L - 8, y + 3); }
+  sx.textAlign = "left";
+  for (const g of [12, 6, 0, -6, -12]) { const y = yG(g); sx.fillStyle = g === 0 ? "#2a2c35" : "transparent"; sx.fillRect(L, y, R - L, 1); sx.fillStyle = "#4b4e59"; sx.fillText((g > 0 ? "+" : "") + g, R + 8, y + 3); }
+
+  const yours = [], ref = [];
+  for (let i = 0; i < N; i++) {
+    const f = fOf(i), l = Math.log10(f), r = refShape(f);
+    const dev = 3.8 * Math.sin(l * 5.2 + t * 0.8) + 2.2 * Math.sin(l * 11 - t * 1.5)
+      + 6 * Math.exp(-Math.pow((l - 2.45) / .09, 2)) * (0.6 + 0.4 * Math.sin(t * 2.6))
+      + 4 * Math.exp(-Math.pow((l - 3.55) / .07, 2)) * (0.5 + 0.5 * Math.sin(t * 2.1))
+      - 5 * Math.exp(-Math.pow((l - 3.9) / .15, 2)) + 0.6 * Math.sin(i * 1.7 + t * 9);
+    ref.push(r); yours.push(r + dev);
+  }
+  // input: quiet fill + thin line
+  sx.beginPath(); sx.moveTo(L, B);
+  for (let i = 0; i < N; i++) sx.lineTo(xOf(fOf(i)), yOf(yours[i]));
+  sx.lineTo(R, B); sx.closePath();
+  const g = sx.createLinearGradient(0, T, 0, B); g.addColorStop(0, "rgba(143,134,184,.22)"); g.addColorStop(1, "rgba(143,134,184,.02)");
+  sx.fillStyle = g; sx.fill();
+  sx.beginPath(); for (let i = 0; i < N; i++) { const x = xOf(fOf(i)), y = yOf(yours[i]); i ? sx.lineTo(x, y) : sx.moveTo(x, y); }
+  sx.strokeStyle = "rgba(143,134,184,.75)"; sx.lineWidth = 1; sx.stroke();
+  // target line
+  sx.beginPath(); for (let i = 0; i < N; i++) { const x = xOf(fOf(i)), y = yOf(ref[i]); i ? sx.lineTo(x, y) : sx.moveTo(x, y); }
+  sx.strokeStyle = "rgba(233,228,214,.85)"; sx.lineWidth = 1.25; sx.setLineDash([]); sx.stroke();
+
+  // gain curve (smoothed), filled toward 0 dB: cut below, boost above
+  for (let i = 0; i < N; i++) {
+    const f = fOf(i);
+    let d = ref[i] - yours[i];
+    d = d < 0 ? d * 0.72 : d * 0.55;
+    if (f < 180 || f > 14000) d = 0;
+    sm[i] += (Math.max(-12, Math.min(12, d)) - sm[i]) * 0.12;
+  }
+  const smooth = sm.map((v, i) => { let s = 0, c = 0; for (let k = -3; k <= 3; k++) { const j = i + k; if (j >= 0 && j < N) { s += sm[j]; c++; } } return s / c; });
+  for (const [sign, col] of [[-1, "rgba(224,114,124,.16)"], [1, "rgba(95,196,160,.16)"]]) {
+    sx.beginPath(); sx.moveTo(L, gMid);
+    for (let i = 0; i < N; i++) { const v = sign < 0 ? Math.min(0, smooth[i]) : Math.max(0, smooth[i]); sx.lineTo(xOf(fOf(i)), yG(v)); }
+    sx.lineTo(R, gMid); sx.closePath(); sx.fillStyle = col; sx.fill();
+  }
+  sx.beginPath(); for (let i = 0; i < N; i++) { const x = xOf(fOf(i)), y = yG(smooth[i]); i ? sx.lineTo(x, y) : sx.moveTo(x, y); }
+  sx.strokeStyle = "#9c7dff"; sx.lineWidth = 1.6; sx.stroke();
+
+  // FROM / TO: dim outside, thin handles
+  const fx = xOf(180), tx = xOf(14000);
+  sx.fillStyle = "rgba(12,13,16,.62)"; sx.fillRect(L, T, fx - L, B - T); sx.fillRect(tx, T, R - tx, B - T);
+  sx.fillStyle = "#3a3d48"; sx.fillRect(fx, T, 1, B - T); sx.fillRect(tx, T, 1, B - T);
+  sx.fillStyle = "#9c7dff"; sx.fillRect(fx - 3, T, 7, 2); sx.fillRect(tx - 3, T, 7, 2);
+  sx.fillStyle = "#7d808c"; sx.fillText("180 Hz", fx + 5, T + 12); sx.textAlign = "right"; sx.fillText("14.0 kHz", tx - 5, T + 12); sx.textAlign = "left";
+
+  document.getElementById("matchPct").textContent = (84 + Math.round(2 * Math.sin(t * .6))) + "%";
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>
