@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nova Notes — mockup</title>
+<style>
+  :root {
+    --bg: #0a0a10; --panel: #12121a; --panel2: #16161f; --line: #23232f; --line2: #1b1b25;
+    --text: #f1f1f7; --dim: #8a8a9c; --faint: #555566;
+    --purple: #9c7dff; --purple2: #b79bff; --green: #6ee7a8; --blue: #7cd1ff; --orange: #ffb86b; --pink: #ff7eb6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #050508; color: var(--text); font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; padding: 24px; }
+  button { font-family: inherit; cursor: pointer; }
+  .plugin { width: 1180px; height: 720px; margin: 0 auto; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: grid; grid-template-rows: 54px 44px 1fr 64px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+
+  /* top bar */
+  .top { display: flex; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #13131c, #0e0e15); }
+  .logo { font-weight: 800; letter-spacing: .18em; font-size: 13px; }
+  .logo span { background: linear-gradient(90deg, var(--purple2), var(--blue)); -webkit-background-clip: text; color: transparent; }
+  .sep { width: 1px; height: 26px; background: var(--line); }
+  .pill { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line); font-size: 12px; color: var(--dim); }
+  .pill b { color: var(--text); font-weight: 600; }
+  .capture { background: rgba(255,90,110,.12); border-color: rgba(255,90,110,.45); color: #ff8a9a; font-weight: 700; letter-spacing: .06em; }
+  .capture i { width: 9px; height: 9px; border-radius: 50%; background: #ff5a6e; box-shadow: 0 0 8px #ff5a6e; }
+  .seg { display: flex; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+  .seg button { border: 0; background: transparent; color: var(--dim); font-size: 11px; font-weight: 600; padding: 6px 10px; border-radius: 6px; }
+  .seg button.on { background: #262636; color: var(--text); }
+  .grow { flex: 1; }
+  .icon { width: 30px; height: 30px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line); color: var(--dim); font-size: 14px; display: grid; place-items: center; }
+
+  /* tool bar */
+  .tools { display: flex; align-items: center; gap: 6px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .tool { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--dim); font-size: 12px; font-weight: 600; }
+  .tool svg { width: 14px; height: 14px; }
+  .tool:hover { color: var(--text); background: var(--panel2); }
+  .tool.on { color: var(--text); background: rgba(156,125,255,.16); border-color: rgba(156,125,255,.5); }
+  .tool .k { font-size: 10px; color: var(--faint); font-weight: 500; }
+  .macro { height: 30px; padding: 0 13px; border-radius: 8px; border: 1px solid rgba(110,231,168,.45); background: rgba(110,231,168,.10); color: var(--green); font-size: 12px; font-weight: 700; }
+
+  /* main */
+  .main { display: grid; grid-template-columns: 1fr 270px; min-height: 0; }
+  .editor { position: relative; overflow: hidden; border-right: 1px solid var(--line); }
+  #roll { display: block; }
+  .side { background: var(--panel); padding: 14px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+  .card { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .card h3 { font-size: 10px; letter-spacing: .16em; color: var(--dim); font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; }
+  .note-big { display: flex; align-items: baseline; gap: 8px; }
+  .note-big .n { font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
+  .note-big .c { font-size: 13px; font-weight: 700; }
+  .meta { font-size: 11px; color: var(--dim); margin-top: 4px; }
+  .row { display: grid; grid-template-columns: 84px 1fr 40px; align-items: center; gap: 8px; margin-top: 9px; font-size: 11px; color: var(--dim); }
+  .row .v { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
+  input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 2px; background: #2a2a3a; outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 3px rgba(156,125,255,.35); }
+  .g input[type=range]::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(110,231,168,.35); }
+  .snap { display: grid; grid-template-columns: repeat(3,1fr); gap: 4px; margin-top: 10px; }
+  .snap button { border: 1px solid var(--line); background: transparent; color: var(--dim); font-size: 10.5px; font-weight: 600; padding: 6px 0; border-radius: 6px; }
+  .snap button.on { color: var(--green); border-color: rgba(110,231,168,.5); background: rgba(110,231,168,.08); }
+  .chain { font-size: 11px; color: var(--dim); line-height: 1.5; }
+  .chain .step { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; background: #101018; margin-top: 6px; border: 1px solid var(--line2); }
+  .chain .dot { width: 7px; height: 7px; border-radius: 50%; }
+
+  /* bottom overview */
+  .bottom { border-top: 1px solid var(--line); background: var(--panel); display: grid; grid-template-columns: 1fr 270px; }
+  #overview { display: block; }
+  .status { border-left: 1px solid var(--line); display: flex; align-items: center; gap: 10px; padding: 0 14px; font-size: 11px; color: var(--dim); }
+  .status b { color: var(--text); }
+  .ab { margin-left: auto; }
+
+  .caption { width: 1180px; margin: 14px auto 0; color: #6b6b7c; font-size: 12px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="plugin">
+  <!-- top bar -->
+  <div class="top">
+    <div class="logo">NOVA <span>NOTES</span></div>
+    <div class="sep"></div>
+    <button class="pill capture"><i></i>CAPTURING</button>
+    <div class="pill">Take <b>Verse 1</b> · <b>0:42</b> · 15 notes</div>
+    <div class="pill">Key <b>A♭ minor</b> <span style="color:var(--green);font-size:10px;font-weight:700">DETECTED</span></div>
+    <div class="grow"></div>
+    <div class="seg"><button>Original</button><button class="on">Edited</button></div>
+    <div class="icon" title="Undo">↶</div>
+    <div class="icon" title="Redo">↷</div>
+    <div class="seg"><button>−</button><button class="on">Zoom</button><button>+</button></div>
+  </div>
+
+  <!-- tool bar -->
+  <div class="tools" id="tools">
+    <button class="tool on" data-t="main"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 2l9 6-4 1-2 4z"/></svg>Main <span class="k">1</span></button>
+    <button class="tool" data-t="pitch"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2v12M4 6l4-4 4 4"/></svg>Pitch <span class="k">2</span></button>
+    <button class="tool" data-t="drift"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 8c2-4 3 4 5 0s3 4 5 0 3 4 4 0"/></svg>Drift / Vibrato <span class="k">3</span></button>
+    <button class="tool" data-t="time"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 8h12M5 5L2 8l3 3M11 5l3 3-3 3"/></svg>Time <span class="k">4</span></button>
+    <button class="tool" data-t="formant"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="5"/><path d="M8 5v6"/></svg>Formant <span class="k">5</span></button>
+    <button class="tool" data-t="level"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 13V9M8 13V4M13 13V7"/></svg>Level <span class="k">6</span></button>
+    <button class="tool" data-t="split"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 1v14M4 4h-2v8h2M12 4h2v8h-2"/></svg>Split <span class="k">7</span></button>
+    <div class="grow"></div>
+    <button class="macro" id="macroBtn">✦ Correct Pitch</button>
+    <button class="macro" style="color:var(--blue);border-color:rgba(124,209,255,.45);background:rgba(124,209,255,.08)">⧗ Quantize Time</button>
+  </div>
+
+  <!-- main -->
+  <div class="main">
+    <div class="editor"><svg id="roll" width="908" height="556"></svg></div>
+    <div class="side">
+      <div class="card">
+        <h3>SELECTED NOTE <span style="color:var(--purple2)" id="selCount">6 of 15</span></h3>
+        <div class="note-big"><span class="n" id="selName">E♭4</span><span class="c" id="selCents" style="color:var(--orange)">+23¢</span></div>
+        <div class="meta" id="selMeta">was 22¢ sharp · 0.84 s · vibrato 5.6 Hz</div>
+        <div class="row"><span>Pitch center</span><input type="range" id="nCenter" min="0" max="100" value="0"><span class="v" id="nCenterV">0%</span></div>
+        <div class="row"><span>Pitch drift</span><input type="range" id="nDrift" min="0" max="100" value="0"><span class="v" id="nDriftV">0%</span></div>
+        <div class="row"><span>Vibrato</span><input type="range" min="0" max="200" value="100"><span class="v">100%</span></div>
+        <div class="row"><span>Transition</span><input type="range" min="0" max="100" value="50"><span class="v">50%</span></div>
+        <div class="row"><span>Formant</span><input type="range" min="-100" max="100" value="0"><span class="v">0¢</span></div>
+        <div class="row"><span>Level</span><input type="range" min="-24" max="12" value="0"><span class="v">0 dB</span></div>
+      </div>
+      <div class="card g">
+        <h3>CORRECT PITCH <span style="color:var(--green)">ALL NOTES</span></h3>
+        <div class="row"><span>Pitch center</span><input type="range" id="mCenter" min="0" max="100" value="0"><span class="v" id="mCenterV">0%</span></div>
+        <div class="row"><span>Pitch drift</span><input type="range" id="mDrift" min="0" max="100" value="0"><span class="v" id="mDriftV">0%</span></div>
+        <div class="snap"><button>Chromatic</button><button class="on">Scale</button><button>Off</button></div>
+      </div>
+      <div class="card chain">
+        <h3>YOUR CHAIN</h3>
+        <div class="step"><span class="dot" style="background:var(--purple)"></span><b style="color:var(--text)">Nova Notes</b> — fix the notes</div>
+        <div class="step"><span class="dot" style="background:var(--green)"></span><b style="color:var(--text)">Nova Pitch</b> — the tune sound</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- bottom -->
+  <div class="bottom">
+    <svg id="overview" width="908" height="64"></svg>
+    <div class="status"><span>Playing <b>edited</b> audio in sync with your DAW</span></div>
+  </div>
+</div>
+<p class="caption">Mockup only — click a blob to select it, drag it up/down to move it by semitones, and try the Correct Pitch sliders (they pull every note to the scale and flatten the wobble). Orange dashed outline = where the note was sung.</p>
+
+<script>
+const NS = "http://www.w3.org/2000/svg";
+const roll = document.getElementById("roll"), ov = document.getElementById("overview");
+const W = 908, H = 556, KEYW = 46, RULER = 26, LO = 55, HI = 75, ROWH = (H - RULER) / (HI - LO), BEATS = 16, BPX = (W - KEYW) / BEATS;
+const NAMES = ["C","C♯","D","E♭","E","F","F♯","G","A♭","A","B♭","B"];
+const SCALE = [8,10,11,1,3,4,6].map(p => p % 12); // A♭ minor (A♭ B♭ B C♯ E♭ E F♯)
+const inScale = m => SCALE.includes(((m % 12) + 12) % 12);
+const snapScale = m => { let best = Math.round(m), d = 99; for (let k = Math.floor(m) - 2; k <= Math.ceil(m) + 2; k++) if (inScale(k) && Math.abs(k - m) < d) { d = Math.abs(k - m); best = k; } return best; };
+
+// a sung phrase: start beat, length, centre (fractional midi), vibrato depth, drift
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const phrase = [
+  [0.0,0.9,63.22,0.05],[1.0,0.5,64.86,0.0],[1.6,1.2,66.12,0.18],[3.0,0.45,63.9,0.0],[3.5,0.5,63.1,0.0],
+  [4.1,1.6,61.18,0.28],[6.0,0.5,63.3,0.0],[6.6,0.5,64.15,0.02],[7.2,1.1,66.4,0.12],[8.4,0.4,68.25,0.0],
+  [8.9,1.8,67.8,0.3],[11.0,0.5,66.2,0.02],[11.6,0.5,64.7,0.0],[12.2,0.6,63.35,0.06],[13.0,2.4,61.0,0.32]
+];
+const notes = phrase.map(([s, len, c, vib], i) => {
+  const pts = 40, curve = [];
+  const drift = (rnd() - .5) * .5, ph = rnd() * 6, scoop = rnd() > .5 ? -.55 : .4, fall = (rnd() - .4) * .8;
+  for (let k = 0; k <= pts; k++) {
+    const t = k / pts;
+    const a = 1 - Math.min(1, t * 6), att = a * a * scoop;  // scoop into the note
+    const r = Math.max(0, t - .85) / .15, rel = r * r * fall;
+    const wobble = Math.sin(t * len * 5.6 * 2 * Math.PI / 1.2 + ph) * vib * Math.min(1, t * 3);
+    curve.push(drift * (t - .5) + att + rel + wobble + Math.sin(t * 40 + ph) * .015);
+  }
+  const amp = []; for (let k = 0; k <= pts; k++) { const t = k / pts; amp.push(Math.min(1, t * 9) * (1 - Math.pow(t, 3) * .7) * (.75 + .25 * Math.sin(t * 3 + i))); }
+  return { s, len, raw: c, target: snapScale(c), shift: 0, curve, amp, center: 0, drift: 0, vib };
+});
+let sel = 5, mCenter = 0, mDrift = 0;
+const el = (n, a, p) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); (p || roll).appendChild(e); return e; };
+const y = m => RULER + (HI - m) * ROWH;
+const x = b => KEYW + b * BPX;
+const nm = m => NAMES[((Math.round(m) % 12) + 12) % 12] + (Math.floor(Math.round(m) / 12) - 1);
+const centerOf = n => { const c = Math.max(n.center, mCenter) / 100; return n.raw + (n.target - n.raw) * c + n.shift; };
+const driftOf = n => 1 - Math.max(n.drift, mDrift) / 100;
+
+function draw() {
+  roll.innerHTML = "";
+  // lanes
+  for (let m = LO; m < HI; m++) {
+    const black = [1,3,6,8,10].includes(m % 12);
+    el("rect", { x: KEYW, y: y(m + 1), width: W - KEYW, height: ROWH, fill: inScale(m) ? (black ? "#101019" : "#12121c") : "#0b0b12" });
+    el("line", { x1: KEYW, x2: W, y1: y(m + 1), y2: y(m + 1), stroke: m % 12 === 11 ? "#262634" : "#17171f", "stroke-width": 1 });
+  }
+  for (let b = 0; b <= BEATS; b += .5) el("line", { x1: x(b), x2: x(b), y1: RULER, y2: H, stroke: b % 4 === 0 ? "#2a2a3a" : b % 1 === 0 ? "#1a1a24" : "#13131b", "stroke-width": 1 });
+  // ruler
+  el("rect", { x: 0, y: 0, width: W, height: RULER, fill: "#101018" });
+  el("line", { x1: 0, x2: W, y1: RULER, y2: RULER, stroke: "#23232f" });
+  for (let bar = 0; bar < 4; bar++) { const t = el("text", { x: x(bar * 4) + 6, y: 17, fill: "#8a8a9c", "font-size": 11, "font-weight": 600 }); t.textContent = 17 + bar; }
+  // keyboard
+  for (let m = LO; m < HI; m++) {
+    const black = [1,3,6,8,10].includes(m % 12);
+    el("rect", { x: 0, y: y(m + 1), width: KEYW, height: ROWH, fill: black ? "#1a1a24" : "#d9d9e3", stroke: "#0a0a10" });
+    if (inScale(m)) el("rect", { x: KEYW - 4, y: y(m + 1) + 1, width: 3, height: ROWH - 2, rx: 1, fill: "#6ee7a8", opacity: .8 });
+    if (m % 12 === 0 || m === sNote()) { const t = el("text", { x: 6, y: y(m) - 6, fill: black ? "#d9d9e3" : "#0a0a10", "font-size": 9.5, "font-weight": 700 }); t.textContent = nm(m); }
+  }
+  // notes
+  notes.forEach((n, i) => {
+    const c = centerOf(n), dr = driftOf(n), x0 = x(n.s), x1 = x(n.s + n.len), isSel = i === sel;
+    const moved = Math.abs(c - n.raw) > .02;
+    if (moved) el("rect", { x: x0, y: y(n.raw) - ROWH * .42, width: x1 - x0, height: ROWH * .84, rx: 8, fill: "none", stroke: "#ffb86b", "stroke-dasharray": "3 3", opacity: .55 });
+    // blob: amplitude-shaped body around the note centre
+    const N = n.amp.length - 1; let top = "", bot = "";
+    for (let k = 0; k <= N; k++) { const px = x0 + (x1 - x0) * k / N, hh = ROWH * (.16 + .30 * n.amp[k]); top += (k ? "L" : "M") + px.toFixed(1) + " " + (y(c) - hh).toFixed(1); bot = "L" + px.toFixed(1) + " " + (y(c) + hh).toFixed(1) + bot; }
+    const g = el("g", { cursor: "ns-resize" });
+    g.addEventListener("mousedown", e => startDrag(e, i));
+    const fill = isSel ? "url(#gSel)" : "url(#gNote)";
+    el("path", { d: top + bot + "Z", fill, stroke: isSel ? "#d9caff" : "#8b6ff0", "stroke-width": isSel ? 1.5 : 1, opacity: isSel ? 1 : .92 }, g);
+    // pitch curve
+    let d = "";
+    n.curve.forEach((v, k) => { const px = x0 + (x1 - x0) * k / N; d += (k ? "L" : "M") + px.toFixed(1) + " " + y(c + v * dr).toFixed(1); });
+    el("path", { d, fill: "none", stroke: isSel ? "#ffffff" : "#e6defd", "stroke-width": 1.3, opacity: .9, "pointer-events": "none" }, g);
+    // centre tick
+    el("line", { x1: x0 + 4, x2: x1 - 4, y1: y(c), y2: y(c), stroke: "#0a0a10", "stroke-width": 1, opacity: .35, "pointer-events": "none" }, g);
+    // note-to-note transition line
+    if (i < notes.length - 1) { const m2 = notes[i + 1]; if (m2.s - (n.s + n.len) < .35) el("line", { x1: x1, y1: y(c + n.curve[N] * dr), x2: x(m2.s), y2: y(centerOf(m2) + m2.curve[0] * driftOf(m2)), stroke: "#9c7dff", "stroke-width": 1, opacity: .45 }); }
+  });
+  // playhead
+  el("line", { x1: x(9.6), x2: x(9.6), y1: 0, y2: H, stroke: "#7cd1ff", "stroke-width": 1.5 });
+  el("path", { d: `M${x(9.6) - 6} 0 L${x(9.6) + 6} 0 L${x(9.6)} 8Z`, fill: "#7cd1ff" });
+  const defs = el("defs", {});
+  defs.innerHTML = `<linearGradient id="gNote" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7d5fe8"/><stop offset="1" stop-color="#5a3fc4"/></linearGradient>
+    <linearGradient id="gSel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c3adff"/><stop offset="1" stop-color="#8f6cff"/></linearGradient>`;
+  side();
+}
+function sNote() { return Math.round(centerOf(notes[sel])); }
+function side() {
+  const n = notes[sel], c = centerOf(n), cents = Math.round((c - Math.round(c)) * 100);
+  document.getElementById("selName").textContent = nm(c);
+  const ce = document.getElementById("selCents"); ce.textContent = (cents > 0 ? "+" : "") + cents + "¢"; ce.style.color = Math.abs(cents) < 6 ? "#6ee7a8" : "#ffb86b";
+  const rawC = Math.round((n.raw - Math.round(n.raw)) * 100);
+  document.getElementById("selMeta").textContent = `sung ${nm(n.raw)} ${rawC > 0 ? "+" : ""}${rawC}¢ · ${(n.len * .5).toFixed(2)} s` + (n.vib > .1 ? " · vibrato 5.6 Hz" : "");
+  document.getElementById("selCount").textContent = `${sel + 1} of ${notes.length}`;
+  document.getElementById("nCenter").value = n.center; document.getElementById("nCenterV").textContent = n.center + "%";
+  document.getElementById("nDrift").value = n.drift; document.getElementById("nDriftV").textContent = n.drift + "%";
+}
+let drag = null;
+function startDrag(e, i) {
+  sel = i; drag = { i, y0: e.clientY, s0: notes[i].shift }; draw();
+  e.preventDefault();
+}
+window.addEventListener("mousemove", e => { if (!drag) return; const n = notes[drag.i]; const steps = Math.round((drag.y0 - e.clientY) / ROWH); if (n.shift !== drag.s0 + steps) { n.shift = drag.s0 + steps; draw(); } });
+window.addEventListener("mouseup", () => drag = null);
+const bind = (id, fn) => document.getElementById(id).addEventListener("input", e => { fn(+e.target.value); draw(); });
+bind("nCenter", v => notes[sel].center = v); bind("nDrift", v => notes[sel].drift = v);
+bind("mCenter", v => { mCenter = v; document.getElementById("mCenterV").textContent = v + "%"; });
+bind("mDrift", v => { mDrift = v; document.getElementById("mDriftV").textContent = v + "%"; });
+document.getElementById("macroBtn").onclick = () => { for (const [id, v] of [["mCenter", 85], ["mDrift", 35]]) { const s = document.getElementById(id); s.value = v; s.dispatchEvent(new Event("input")); } };
+document.querySelectorAll(".tool").forEach(b => b.onclick = () => { document.querySelectorAll(".tool").forEach(o => o.classList.remove("on")); b.classList.add("on"); });
+
+// overview: whole take waveform with the visible window
+(function () {
+  const g = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); ov.appendChild(e); return e; };
+  g("rect", { x: 0, y: 0, width: 908, height: 64, fill: "#0e0e15" });
+  let d = "M0 32"; seed = 3;
+  for (let px = 0; px <= 908; px += 2) { const env = Math.abs(Math.sin(px / 37)) * .6 + .25 * rnd(); d += ` L${px} ${32 - env * 22}`; }
+  for (let px = 908; px >= 0; px -= 2) { const env = Math.abs(Math.sin(px / 37)) * .6 + .25 * rnd(); d += ` L${px} ${32 + env * 22}`; }
+  g("path", { d: d + "Z", fill: "#3b2f6e" });
+  g("rect", { x: 300, y: 4, width: 240, height: 56, rx: 6, fill: "rgba(156,125,255,.12)", stroke: "#9c7dff" });
+  const t = g("text", { x: 10, y: 14, fill: "#8a8a9c", "font-size": 10, "font-weight": 700, "letter-spacing": ".12em" }); t.textContent = "CAPTURED TAKE";
+})();
+draw();
+</script>
+</body>
+</html>
