@@ -1,9 +1,9 @@
 // Nova Notes editor UI. Talks to the plugin through JUCE native functions;
 // opened in a normal browser it runs on built-in demo data so it can be previewed.
 
-const inPlugin = typeof window.__JUCE__ !== "undefined" && window.__JUCE__.backend;
-let getNativeFunction = null;
-if (inPlugin) ({ getNativeFunction } = await import("./juce/index.js"));
+import { getNativeFunction } from "./juce/index.js";
+
+const inPlugin = !window.__NN_PREVIEW__;
 
 const nativeCache = {};
 function native(name, ...args) {
@@ -74,15 +74,26 @@ const pitchAt = (n, d, i) => n.p + d.dev[i] - n.dr * d.slow[i] + (n.vb - 1) * d.
 const roll = $("roll"), ctx = roll.getContext("2d");
 const ov = $("overview"), octx = ov.getContext("2d");
 const KEYW = 46, RULER = 26;
+// The whole editor is laid out at one design size and scaled to the window, so resizing
+// never cuts anything off (the plugin window keeps the same shape).
+const DESIGN_W = 1280, DESIGN_H = 820;
+let S = 1;
+function applyScale() {
+  S = Math.max(0.3, window.innerWidth / DESIGN_W);
+  document.querySelector(".app").style.transform = `scale(${S})`;
+}
+const local = e => { const r = roll.getBoundingClientRect(); return { x: (e.clientX - r.left) / S, y: (e.clientY - r.top) / S }; };
 let W = 0, H = 0, OW = 0, OH = 0, dpr = 1;
 function resize() {
   dpr = window.devicePixelRatio || 1;
-  const r = roll.getBoundingClientRect(); W = r.width; H = r.height;
-  roll.width = W * dpr; roll.height = H * dpr;
-  const o = ov.getBoundingClientRect(); OW = o.width; OH = o.height;
-  ov.width = OW * dpr; ov.height = OH * dpr;
+  W = roll.clientWidth; H = roll.clientHeight;          // layout size (unscaled)
+  roll.width = W * dpr * S; roll.height = H * dpr * S;  // backing store at the on-screen size: stays crisp
+  OW = ov.clientWidth; OH = ov.clientHeight;
+  ov.width = OW * dpr * S; ov.height = OH * dpr * S;
   draw();
 }
+window.addEventListener("resize", () => { applyScale(); resize(); });
+applyScale();
 new ResizeObserver(resize).observe($("editor"));
 new ResizeObserver(resize).observe(ov);
 
@@ -96,7 +107,7 @@ let drawQueued = false;
 function draw() { if (!drawQueued) { drawQueued = true; requestAnimationFrame(() => { drawQueued = false; drawRoll(); drawOverview(); }); } }
 
 function drawRoll() {
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(dpr * S, 0, 0, dpr * S, 0, 0);
   ctx.fillStyle = "#0a0a10"; ctx.fillRect(0, 0, W, H);
   const sc = scaleSet();
   const lo = Math.floor(mOf(H)) - 1, hi = Math.ceil(mOf(RULER)) + 1;
@@ -247,7 +258,7 @@ function drawKeys(lo, hi, sc) {
 }
 
 function drawOverview() {
-  octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  octx.setTransform(dpr * S, 0, 0, dpr * S, 0, 0);
   octx.fillStyle = "#0e0e15"; octx.fillRect(0, 0, OW, OH);
   octx.font = "700 9.5px -apple-system"; octx.fillStyle = "#555566";
   if (!track || !info.seconds) { octx.fillText("NO TAKE", 10, 14); return; }
@@ -309,7 +320,7 @@ const scopeIds = () => sel.size ? [...sel] : [];
 let drag = null, marquee = null;
 roll.addEventListener("mousedown", e => {
   if (!track) return;
-  const r = roll.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  const { x, y } = local(e);
   if (x < KEYW || y < RULER) return;
   const n = noteAt(x, y);
 
@@ -330,7 +341,7 @@ roll.addEventListener("mousedown", e => {
   draw();
 });
 window.addEventListener("mousemove", e => {
-  const r = roll.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  const { x, y } = local(e);
   if (marquee) {
     marquee.x1 = x; marquee.y1 = y;
     const ta = tOf(Math.min(marquee.x0, x)), tb = tOf(Math.max(marquee.x0, x));
@@ -371,7 +382,7 @@ window.addEventListener("mouseup", () => {
   if (drag) { drag = null; flushPatches(); }
 });
 roll.addEventListener("dblclick", e => {
-  const r = roll.getBoundingClientRect(), n = noteAt(e.clientX - r.left, e.clientY - r.top);
+  const p = local(e), n = noteAt(p.x, p.y);
   if (!n || (tool !== "main" && tool !== "pitch")) return;
   const ids = sel.has(n.id) ? [...sel] : [n.id];
   patch(ids.map(id => { const o = notes.find(q => q.id === id); return { id, p: Math.round(o.c) }; }), true);
@@ -387,11 +398,11 @@ function hoverCursor(x, y) {
 roll.addEventListener("wheel", e => {
   e.preventDefault();
   if (e.metaKey || e.ctrlKey) {
-    const r = roll.getBoundingClientRect(), x = e.clientX - r.left, t = tOf(x);
+    const x = local(e).x, t = tOf(x);
     view.pps = clamp(view.pps * Math.exp(-e.deltaY * 0.004), 8, 1200);
     view.t0 = t - (x - KEYW) / view.pps;
   } else if (e.altKey) {
-    const r = roll.getBoundingClientRect(), y = e.clientY - r.top, m = mOf(y);
+    const y = local(e).y, m = mOf(y);
     view.rowH = clamp(view.rowH * Math.exp(-e.deltaY * 0.004), 8, 48);
     view.midiTop = m + (y - RULER) / view.rowH;
   } else {
@@ -696,4 +707,5 @@ const Mock = (() => {
 })();
 
 if (inPlugin) native("ready");
+if (inPlugin) native("jsError", "editor started");
 resize(); renderEmpty(); updateInspector();

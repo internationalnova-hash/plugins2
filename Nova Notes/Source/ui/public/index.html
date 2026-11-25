@@ -3,6 +3,22 @@
 <head>
 <meta charset="utf-8">
 <title>Nova Notes</title>
+<script>
+  // Reports page errors to the plugin even if the main script never starts
+  (function () {
+    var send = function (msg) {
+      try { window.__JUCE__.backend.emitEvent("__juce__invoke", { name: "jsError", params: [String(msg)], resultId: -1 }); } catch (e) {}
+    };
+    window.addEventListener("error", function (e) { send("error: " + e.message + " @" + (e.filename || "") + ":" + e.lineno); });
+    window.addEventListener("unhandledrejection", function (e) { send("rejection: " + (e.reason && (e.reason.stack || e.reason.message) || e.reason)); });
+    // Opened in a normal browser (design preview): stand in for the plugin bridge
+    if (typeof window.__JUCE__ === "undefined") {
+      window.__NN_PREVIEW__ = true;
+      window.__JUCE__ = { backend: { addEventListener: function () {}, emitEvent: function () {} },
+        initialisationData: { __juce__functions: [], __juce__sliders: [], __juce__toggles: [], __juce__comboBoxes: [], __juce__platform: [] } };
+    }
+  })();
+</script>
 <style>
   :root {
     --bg: #0a0a10; --panel: #12121a; --panel2: #16161f; --line: #23232f; --line2: #1b1b25;
@@ -15,7 +31,7 @@
     user-select: none; -webkit-user-select: none; }
   button { font-family: inherit; cursor: pointer; }
   button:disabled { opacity: .35; cursor: default; }
-  .app { height: 100%; display: grid; grid-template-rows: 54px 44px 1fr 56px; }
+  .app { width: 1280px; height: 820px; transform-origin: 0 0; display: grid; grid-template-rows: 54px 44px 1fr 56px; }
 
   .top { display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #13131c, #0e0e15); }
   .logo { font-weight: 800; letter-spacing: .18em; font-size: 13px; white-space: nowrap; }
@@ -173,6 +189,11 @@
     <div class="status"><span class="dot" id="stDot"></span><span id="stText">Ready</span></div>
   </div>
 </div>
-<script type="module" src="js/index.js"></script>
+<script>
+  // Load the editor (cache-busted like the page itself); report the exact reason if it fails
+  import("./js/index.js" + window.location.search).catch(function (e) {
+    try { window.__JUCE__.backend.emitEvent("__juce__invoke", { name: "jsError", params: ["editor failed: " + (e && (e.stack || e.message) || e)], resultId: -1 }); } catch (x) {}
+  });
+</script>
 </body>
 </html>

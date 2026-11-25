@@ -24,9 +24,11 @@ NovaNotesEditor::NovaNotesEditor (NovaNotesProcessor& p)
     webView->goToURL (juce::WebBrowserComponent::getResourceProviderRoot() + "/index.html?v="
                       + juce::String (juce::Time::getCurrentTime().toMilliseconds()));
 
+    // Fixed shape: the page scales to fit, so nothing is ever cut off
     setResizable (true, true);
-    setResizeLimits (900, 560, 2400, 1500);
-    setSize (1180, 720);
+    setResizeLimits (896, 574, 2560, 1640);
+    if (auto* c = getConstrainer()) c->setFixedAspectRatio (1280.0 / 820.0);
+    setSize (1200, 769);
     startTimerHz (30);
 
     NovaLicenseOverlay::attachTo (*this);   // unlock screen until activated
@@ -88,6 +90,7 @@ juce::WebBrowserComponent::Options NovaNotesEditor::createWebOptions()
         .withResourceProvider ([this] (const juce::String& url) { return getResource (url); })
         .withNativeFunction ("ready", [this] (const Args&, Fn done)
         {
+            std::cerr << "[NovaNotes] page ready" << std::endl;
             pageReady = true;
             sentAnalysis = sentNotes = -1;
             done ({});
@@ -126,6 +129,7 @@ juce::WebBrowserComponent::Options NovaNotesEditor::createWebOptions()
         .withNativeFunction ("capture", [this] (const Args& a, Fn done)
         {
             const auto cmd = a.isEmpty() ? juce::String() : a[0].toString();
+            std::cerr << "[NovaNotes] capture " << cmd << std::endl;
             if (cmd == "arm") proc.armCapture();
             else if (cmd == "stop") proc.stopCapture();
             else if (cmd == "clear") proc.clearTake();
@@ -157,9 +161,12 @@ std::optional<juce::WebBrowserComponent::Resource> NovaNotesEditor::getResource 
         return juce::WebBrowserComponent::Resource { std::move (bytes), juce::String (mime) };
     };
 
-    auto path = url.fromFirstOccurrenceOf (juce::WebBrowserComponent::getResourceProviderRoot(), false, false)
-                   .upToFirstOccurrenceOf ("?", false, false).toLowerCase();
-    if (path.isEmpty() || path == "/") path = "/index.html";
+    // JUCE may hand us the full URL or just the path
+    const auto root = juce::WebBrowserComponent::getResourceProviderRoot();
+    auto path = (url.startsWith (root) ? url.substring (root.length()) : url)
+                    .upToFirstOccurrenceOf ("?", false, false).toLowerCase();
+    if (! path.startsWithChar ('/')) path = "/" + path;   // the root may or may not end in '/'
+    if (path == "/") path = "/index.html";
 
     if (path.endsWith ("/js/juce/index.js"))
         return make (nova_notes_BinaryData::index_js2, nova_notes_BinaryData::index_js2Size, "text/javascript");
