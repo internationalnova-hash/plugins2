@@ -12,10 +12,21 @@ int main (int, char** argv) {
   static const char* N[] = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
   for (auto& n : ns) { int m = (int) std::lround (n.center); std::printf ("%5.2fs %4.2fs %s%d %+3.0fc\n", n.start*t.hop/r->sampleRate, (n.end-n.start)*t.hop/r->sampleRate, N[m%12], m/12-1, (n.center-m)*100); }
   auto k = detectKey (ns, t); if (argv[2]) { k.tonic = std::atoi (argv[2]); k.minor = false; } std::printf ("key %s %s %.2f\n", N[k.tonic], k.minor?"minor":"major", k.confidence);
-  auto ai = ns; aiAssist (t, ai, {}, AssistStyle::tight, k);
+  auto ai = ns; aiAssist (t, ai, {}, (AssistStyle) (std::getenv ("NN_STYLE") ? std::atoi (std::getenv ("NN_STYLE")) : 1), k);
   if (argv[2] && argv[3]) {
     const int len2 = len; std::vector<float> x (b.getReadPointer (0), b.getReadPointer (0) + len2), y ((size_t) len2);
     auto ep = findEpochs (x.data(), len2, t);
+    if (std::getenv ("NN_EPOCHS_AT")) {
+      const double at = std::atof (std::getenv ("NN_EPOCHS_AT")) * r->sampleRate;
+      for (size_t i = 1; i < ep.size(); ++i) if (std::abs (ep[i] - at) < 0.04 * r->sampleRate) {
+        const int f = ep[i] / t.hop; float off = 0; for (auto& n : ai) if (f >= n.start && f < n.end) off = n.pitch - n.center;
+        std::printf ("  ep %d (%.4fs) spacing %d  midi %.2f  P %.1f  noteShift %.2f\n", ep[i], ep[i] / r->sampleRate, ep[i] - ep[i-1], t.midi[(size_t) f], t.midi[(size_t) f] > 0 ? r->sampleRate / midiToHz (t.midi[(size_t) f]) : 0.f, off);
+      }
+    }
+    if (std::getenv ("NN_EXP")) {   // "shift drift": every note shifted by `shift` st with `drift`
+      float sh = 0, dr = 0; std::sscanf (std::getenv ("NN_EXP"), "%f %f", &sh, &dr);
+      ai = ns; for (auto& n : ai) { n.pitch = n.center + sh; n.drift = dr; }
+    }
     render (x.data(), len2, t, ep, ai, y.data());
     auto t2 = trackPitch (y.data(), len2, r->sampleRate);
     if (std::getenv ("NN_DEBUG_AT")) {

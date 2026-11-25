@@ -312,10 +312,14 @@ void NovaNotesProcessor::startAnalysis (std::vector<float> audio, double sr, juc
         t->hostStart = hostStart;
         t->bpm = bpm;
         t->ppqAtStart = ppq;
-        t->audio = std::move (audio);
+        // Store first, then analyse exactly what was stored: a reopened session
+        // rebuilds the same notes and the same sound, bit for bit.
+        t->flac = encodeFlac (audio, sr);
+        double storedSr = sr;
+        auto stored = decodeFlac (t->flac, storedSr);
+        t->audio = stored.size() == audio.size() ? std::move (stored) : std::move (audio);
         t->track = trackPitch (t->audio.data(), (int) t->audio.size(), sr);
         t->epochs = findEpochs (t->audio.data(), (int) t->audio.size(), t->track);
-        t->flac = encodeFlac (t->audio, sr);
 
         auto res = std::make_unique<AnalysisResult>();
         res->notes = restoredNotesJson.isNotEmpty() ? notesFromJson (restoredNotesJson) : segmentNotes (t->track);

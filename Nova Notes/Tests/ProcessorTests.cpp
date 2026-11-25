@@ -126,7 +126,7 @@ int main (int argc, char** argv)
     auto out = play (*p, host, vocal, hostStart, 4096);
     float d0 = 0.f;
     for (int i = 0; i < len; ++i) d0 = std::max (d0, std::abs (out[(size_t) i + 4096] - vocal[(size_t) i]));
-    check (d0 < 1.0e-6f, "unedited playback matches the input (max diff " + juce::String (d0, 7) + ")");
+    check (d0 < 2.0e-7f, "unedited playback matches the input (24-bit) (max diff " + juce::String (d0, 7) + ")");
 
     // 3. AI Assist, then playback carries the tuned notes in sync
     const auto msg = p->runAssist (1, {});
@@ -176,7 +176,7 @@ int main (int argc, char** argv)
     auto out2 = play (*q, host, vocal, hostStart, 4096);
     float d2 = 0.f;
     for (size_t i = 0; i < out.size(); ++i) d2 = std::max (d2, std::abs (out2[i] - out[i]));
-    check (d2 < 3.0e-3f, "reloaded session sounds the same (24-bit storage) (max diff " + juce::String (d2, 6) + ")");
+    check (d2 < 1.0e-4f, "reloaded session sounds identical (within -80 dB) (max diff " + juce::String (d2, 6) + ")");
 
     // 6b. a key the user picked sticks through reload
     p->setKey (7, false);

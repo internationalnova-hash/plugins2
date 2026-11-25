@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+#include <cstdio>
 
 namespace NovaNotes
 {
@@ -69,6 +70,7 @@ PitchTrack trackPitch (const float* x, int n, double sr)
     std::vector<float> a ((size_t) N * 2), b ((size_t) N * 2), seg ((size_t) span);
     std::vector<double> e2 ((size_t) span + 1);
     std::vector<float> d ((size_t) tauMax + 2), dn ((size_t) tauMax + 2);
+    std::vector<float> cand ((size_t) frames, 0.f);   // best pitch guess even where not confidently voiced
 
     float peakDb = -120.f;
     for (int f = 0; f < frames; ++f)
@@ -139,7 +141,8 @@ PitchTrack trackPitch (const float* x, int n, double sr)
         const float tauF = (float) best + shift;
 
         t.conf[(size_t) f] = juce::jlimit (0.f, 1.f, 1.f - y1);
-        t.midi[(size_t) f] = (y1 < 0.3f) ? hzToMidi ((float) sr / tauF) : 0.f;
+        cand[(size_t) f] = hzToMidi ((float) sr / tauF);
+        t.midi[(size_t) f] = (y1 < 0.3f) ? cand[(size_t) f] : 0.f;
     }
 
     // Voicing: periodic AND loud enough relative to the take
@@ -147,13 +150,41 @@ PitchTrack trackPitch (const float* x, int n, double sr)
     for (int f = 0; f < frames; ++f)
         if (t.db[(size_t) f] < floorDb) t.midi[(size_t) f] = 0.f;
 
+    // Follow each sung stretch into its attack and out through its tail while the waveform
+    // is still periodic (scoops and fades read as "unsure" but are still singing)
+    auto extendable = [&] (int f, float edge)
+    {
+        if (cand[(size_t) f] <= 0.f || t.conf[(size_t) f] < 0.4f || t.db[(size_t) f] < floorDb) return false;
+        float c = cand[(size_t) f];
+        if (std::abs (c - edge) > 6.f) c += (c > edge ? -12.f : 12.f);   // octave slip
+        return std::abs (c - edge) < 2.5f;
+    };
+    for (int pass = 0; pass < 2; ++pass)
+    {
+        bool changed = true;
+        for (int guard = 0; changed && guard < 40; ++guard)
+        {
+            changed = false;
+            for (int f = 1; f < frames - 1; ++f)
+            {
+                if (t.midi[(size_t) f] > 0.f) continue;
+                const float nb = t.midi[(size_t) f + 1] > 0.f ? t.midi[(size_t) f + 1] : t.midi[(size_t) f - 1];
+                if (nb <= 0.f || ! extendable (f, nb)) continue;
+                float c = cand[(size_t) f];
+                if (std::abs (c - nb) > 6.f) c += (c > nb ? -12.f : 12.f);
+                t.midi[(size_t) f] = c;
+                changed = true;
+            }
+        }
+    }
+
     // Octave-error repair against the local median, then a 5-frame median
     std::vector<float> fixed = t.midi;
     for (int f = 0; f < frames; ++f)
     {
         if (t.midi[(size_t) f] <= 0.f) continue;
         std::vector<float> nb;
-        for (int k = std::max (0, f - 12); k < std::min (frames, f + 13); ++k)
+        for (int k = std::max (0, f - 30); k < std::min (frames, f + 31); ++k)
             if (t.midi[(size_t) k] > 0.f) nb.push_back (t.midi[(size_t) k]);
         const float med = median (nb);
         float m = t.midi[(size_t) f];
@@ -168,6 +199,25 @@ PitchTrack trackPitch (const float* x, int n, double sr)
         for (int k = std::max (0, f - 2); k <= std::min (frames - 1, f + 2); ++k)
             if (fixed[(size_t) k] > 0.f) nb.push_back (fixed[(size_t) k]);
         t.midi[(size_t) f] = median (nb);
+    }
+
+    // Fill short false "unvoiced" holes inside singing (still periodic, still loud)
+    for (int f = 1; f < frames;)
+    {
+        if (t.midi[(size_t) f] > 0.f || t.midi[(size_t) f - 1] <= 0.f) { ++f; continue; }
+        int g = f;
+        while (g < frames && t.midi[(size_t) g] <= 0.f) ++g;
+        if (g < frames && g - f <= 12)
+        {
+            const float a = t.midi[(size_t) f - 1], b = t.midi[(size_t) g];
+            bool ok = std::abs (a - b) < 2.5f;
+            for (int k = f; k < g && ok; ++k)
+                ok = t.conf[(size_t) k] > 0.45f && t.db[(size_t) k] > std::min (t.db[(size_t) f - 1], t.db[(size_t) g]) - 18.f;
+            if (ok)
+                for (int k = f; k < g; ++k)
+                    t.midi[(size_t) k] = a + (b - a) * (float) (k - f + 1) / (float) (g - f + 1);
+        }
+        f = g;
     }
 
     // Drop voiced blips shorter than 20 ms
@@ -213,6 +263,19 @@ std::vector<int> findEpochs (const float* x, int n, const PitchTrack& t)
         return best;
     };
 
+    // Normalised cross-correlation of one period around `a` with one around `b`
+    auto ncc = [&] (int a, int b, int half) -> float
+    {
+        if (a - half < 0 || b + half >= n) return -1.f;
+        double xy = 0, xx = 0, yy = 0;
+        for (int k = -half; k < half; ++k)
+        {
+            const double u = lp[(size_t) (a + k)], v = lp[(size_t) (b + k)];
+            xy += u * v; xx += u * u; yy += v * v;
+        }
+        return (xx > 0 && yy > 0) ? (float) (xy / std::sqrt (xx * yy)) : -1.f;
+    };
+
     ep.push_back (0);
     bool prevVoiced = false;
     while (true)
@@ -224,11 +287,22 @@ std::vector<int> findEpochs (const float* x, int n, const PitchTrack& t)
         {
             const float P = (float) t.sampleRate / midiToHz (m);
             if (! prevVoiced)
-                next = peakIn (last + 1, last + (int) P);
+                next = peakIn (last + 1, last + (int) P);   // first mark of a voiced stretch: a waveform peak
             else
             {
-                const int expect = last + (int) std::lround (P);
-                next = peakIn (expect - (int) (0.2f * P), expect + (int) (0.2f * P));
+                // Each next mark is where the waveform best repeats the previous cycle,
+                // so every mark sits on the same point of its cycle (no jumping between peaks).
+                const int half = std::max (8, (int) (0.5f * P));
+                const int lo = last + (int) (0.85f * P), hi = last + (int) std::ceil (1.15f * P);
+                int best = last + (int) std::lround (P);
+                float bestC = -2.f;
+                for (int c = lo; c <= hi; ++c)
+                {
+                    const float v = ncc (last, c, half);
+                    if (v > bestC) { bestC = v; best = c; }
+                }
+                // sub-sample refinement isn't needed for marks; keep integer
+                next = best;
             }
             if (next <= last + (int) (0.5f * P)) next = last + (int) std::lround (P);
             prevVoiced = true;
@@ -241,6 +315,44 @@ std::vector<int> findEpochs (const float* x, int n, const PitchTrack& t)
         if (next >= n) break;
         ep.push_back (next);
     }
+
+    // Centre every voiced stretch's marks on the loud pulse of each cycle: the marks are
+    // already consistent cycle to cycle, so one constant shift per stretch does it.
+    std::vector<float> env ((size_t) n);
+    {
+        const float ce = std::exp (-2.f * kPi * 1500.f / (float) t.sampleRate);
+        float e1 = 0.f;
+        for (int i = 0; i < n; ++i) { e1 = (1.f - ce) * x[i] * x[i] + ce * e1; env[(size_t) i] = e1; }
+    }
+    for (size_t i = 0; i < ep.size();)
+    {
+        if (voicedAt (ep[i]) <= 0.f) { ++i; continue; }
+        size_t j = i;
+        while (j < ep.size() && voicedAt (ep[j]) > 0.f) ++j;
+        if (j - i >= 3)
+        {
+            double sx = 0.0, sy = 0.0;
+            for (size_t k = i; k + 1 < j; ++k)
+            {
+                const int P = ep[k + 1] - ep[k];
+                int arg = 0; float mx = -1.f;
+                for (int d = -P / 2; d < P - P / 2; ++d)
+                {
+                    const int q = ep[k] + d;
+                    if (q >= 0 && q < n && env[(size_t) q] > mx) { mx = env[(size_t) q]; arg = d; }
+                }
+                const double ang = 2.0 * juce::MathConstants<double>::pi * arg / P;
+                sx += std::cos (ang) * mx; sy += std::sin (ang) * mx;
+            }
+            const double meanAng = std::atan2 (sy, sx);
+            const int Pm = (ep[j - 1] - ep[i]) / std::max<int> (1, (int) (j - 1 - i));
+            const int shift = (int) std::lround (meanAng / (2.0 * juce::MathConstants<double>::pi) * Pm);
+            const int lo = i > 0 ? ep[i - 1] + 1 : 0, hi = j < ep.size() ? ep[j] - 1 : n - 1;
+            for (size_t k = i; k < j; ++k) ep[k] = juce::jlimit (lo, hi, ep[k] + shift);
+        }
+        i = j;
+    }
+    for (size_t k = 1; k < ep.size(); ++k) if (ep[k] <= ep[k - 1]) ep[k] = ep[k - 1] + 1;
     return ep;
 }
 
@@ -335,7 +447,14 @@ std::vector<Note> segmentNotes (const PitchTrack& t)
                     {
                         float lo = 1e9f, hi = -1e9f;
                         for (int k = jumpStart; k <= f; ++k) if (t.midi[(size_t) k] > 0.f) { lo = std::min (lo, t.midi[(size_t) k]); hi = std::max (hi, t.midi[(size_t) k]); }
-                        if (hi - lo < 0.8f && jumpStart - noteStart >= minFast && b - jumpStart >= minFast)
+                        // the note before the jump must have been steady too (a scoop sliding in isn't a note)
+                        float plo = 1e9f, phi = -1e9f;
+                        for (int k = std::max (noteStart, jumpStart - 4); k < jumpStart; ++k)
+                            if (t.midi[(size_t) k] > 0.f) { plo = std::min (plo, t.midi[(size_t) k]); phi = std::max (phi, t.midi[(size_t) k]); }
+                        const bool steadyBefore = phi >= plo && phi - plo < 0.8f;
+                        const bool octaveSlip = std::abs (std::abs (0.5f * (hi + lo) - rawRef) - 12.f) < 1.0f;
+                        if (hi - lo < 0.8f && steadyBefore && ! octaveSlip
+                            && jumpStart - noteStart >= minFast && b - jumpStart >= minFast)
                         {
                             segs.push_back ({ noteStart, jumpStart });
                             noteStart = jumpStart;
@@ -822,54 +941,97 @@ void render (const float* x, int n, const PitchTrack& t, const std::vector<int>&
 
     std::vector<float> acc ((size_t) n, 0.f), wsum ((size_t) n, 0.f);
     auto frameOf = [&] (double pos) { return juce::jlimit (0, F - 1, (int) (pos / t.hop)); };
-    auto sampleAt = [&] (double pos) -> float
+    auto sampleAt = [&] (double pos) -> float   // 4-point cubic (Hermite): no dulling, low aliasing
     {
         const int i = (int) std::floor (pos);
-        if (i < 0 || i + 1 >= n) return 0.f;
+        if (i < 1 || i + 2 >= n) return (i >= 0 && i < n) ? x[i] : 0.f;
         const float u = (float) (pos - i);
-        return x[i] + (x[i + 1] - x[i]) * u;
+        const float y0 = x[i - 1], y1 = x[i], y2 = x[i + 1], y3 = x[i + 2];
+        const float c1 = 0.5f * (y2 - y0);
+        const float c2 = y0 - 2.5f * y1 + 2.f * y2 - 0.5f * y3;
+        const float c3 = 0.5f * (y3 - y0) + 1.5f * (y1 - y2);
+        return ((c3 * u + c2) * u + c1) * u + y1;
     };
 
-    double to = 0.0;
+    auto addGrain = [&] (double place, double centre, double L, double R, double fr, float gain)
+    {
+        const int i0 = std::max (0, (int) std::ceil (place - L / fr));
+        const int i1 = std::min (n - 1, (int) std::floor (place + R / fr));
+        for (int i = i0; i <= i1; ++i)
+        {
+            const double j = (i - place) * fr;
+            const double w = j < 0 ? 0.5 * (1.0 + std::cos (juce::MathConstants<double>::pi * j / L))
+                                   : 0.5 * (1.0 + std::cos (juce::MathConstants<double>::pi * j / R));
+            acc[(size_t) i] += (float) (w * sampleAt (centre + j)) * gain;
+            wsum[(size_t) i] += (float) w;
+        }
+    };
+    auto nearestEpoch = [&] (double pos)
+    {
+        int k = (int) (std::lower_bound (epochs.begin(), epochs.end(), (int) pos) - epochs.begin());
+        if (k >= E) k = E - 1;
+        if (k > 0 && std::abs (epochs[(size_t) k - 1] - pos) < std::abs (epochs[(size_t) k] - pos)) --k;
+        return k;
+    };
+
+    // `slip` = where we read the input minus where the time map puts this output point.
+    // Keeping it continuous makes neighbouring grains line up - including the hand-off
+    // between sung cycles and breath/consonants, where misaligned grains sound gritty.
+    const int uHop = t.hop;
+    double to = 0.0, slip = 0.0;
+    bool prevVoiced = false;
     while (to < n)
     {
-        const double ti = tm.outToIn (to);
-        int k = (int) (std::lower_bound (epochs.begin(), epochs.end(), (int) ti) - epochs.begin());
-        if (k >= E) k = E - 1;
-        if (k > 0 && std::abs (epochs[(size_t) k - 1] - ti) < std::abs (epochs[(size_t) k] - ti)) --k;
+        double ti = tm.outToIn (to);
+        const double want = ti + (prevVoiced ? 0.0 : slip);
+        const int k = nearestEpoch (want);
         const int e = epochs[(size_t) k];
-        const int left  = k > 0 ? e - epochs[(size_t) k - 1] : (k + 1 < E ? epochs[(size_t) k + 1] - e : t.hop);
-        const int right = k + 1 < E ? epochs[(size_t) k + 1] - e : left;
-
         const int f = frameOf (e);
         const bool voiced = t.midi[(size_t) f] > 0.f;
-        const double ratio = voiced ? std::exp2 (cv.offset[(size_t) f] / 12.0) : 1.0;
         const double fr = std::exp2 (cv.formant[(size_t) f] / 1200.0);
-        const float g = juce::Decibels::decibelsToGain (cv.gainDb[(size_t) f]);
+        const float gain = juce::Decibels::decibelsToGain (cv.gainDb[(size_t) f]);
+
+        if (! voiced)
+        {
+            // breath / consonants: plain overlap-add on a fixed grid, easing the slip back to zero
+            slip -= juce::jlimit (-0.02 * uHop, 0.02 * uHop, slip);
+            addGrain (to, ti + slip, uHop, uHop, fr, gain);
+            to += uHop;
+            prevVoiced = false;
+            continue;
+        }
+
+        const int left  = k > 0 ? e - epochs[(size_t) k - 1] : (k + 1 < E ? epochs[(size_t) k + 1] - e : uHop);
+        const int right = k + 1 < E ? epochs[(size_t) k + 1] - e : left;
+        const double ratio = std::exp2 (cv.offset[(size_t) f] / 12.0);
         const double pin = 0.5 * (left + right);
         double pout = pin / ratio;
 
-        // Untouched spots: lock onto the original marks so they come out identical
+        if (! prevVoiced)
+        {
+            // entering singing: put the first cycle exactly where the audio before it expects it
+            to = std::max (0.0, to + (e - want));
+            ti = tm.outToIn (to);
+        }
+
+        // Untouched spots: glide back onto the original marks so they come out identical
+        // (tiny steps inside singing so the pitch doesn't wobble)
         if (std::abs (ratio - 1.0) < 1.0e-6 && std::abs (fr - 1.0) < 1.0e-6 && std::abs (ti - to) < 0.5)
         {
-            to = e;
-            pout = right;
+            const double gap = e - to;
+            const double maxStep = 0.006 * right;
+            if (std::abs (gap) <= 1.5) to = e;
+            else to += juce::jlimit (-maxStep, maxStep, gap);
+            pout = to == e ? right : pin;
+            ti = tm.outToIn (to);
         }
+        slip = e - ti;
 
         const double L = std::min (std::max ((double) left, pout), 2.5 * pin);
         const double R = std::min (std::max ((double) right, pout), 2.5 * pin);
-        const int i0 = std::max (0, (int) std::ceil (to - L / fr));
-        const int i1 = std::min (n - 1, (int) std::floor (to + R / fr));
-        for (int i = i0; i <= i1; ++i)
-        {
-            const double j = (i - to) * fr;
-            const double w = j < 0 ? 0.5 * (1.0 + std::cos (juce::MathConstants<double>::pi * j / L))
-                                   : 0.5 * (1.0 + std::cos (juce::MathConstants<double>::pi * j / R));
-            const float s = sampleAt (e + j);
-            acc[(size_t) i] += (float) (w * s) * g;
-            wsum[(size_t) i] += (float) w;
-        }
+        addGrain (to, e, L, R, fr, gain);
         to += std::max (1.0, pout);
+        prevVoiced = true;
     }
 
     for (int i = 0; i < n; ++i)
@@ -882,6 +1044,16 @@ void render (const float* x, int n, const PitchTrack& t, const std::vector<int>&
 // ════════════════════════════════════════════════════════════════════════════
 // JSON
 // ════════════════════════════════════════════════════════════════════════════
+namespace
+{
+    juce::String exact (float v)   // round-trips a float exactly (sessions must rebuild bit for bit)
+    {
+        char buf[32];
+        std::snprintf (buf, sizeof (buf), "%.9g", (double) v);
+        return buf;
+    }
+}
+
 juce::String notesToJson (const std::vector<Note>& notes)
 {
     juce::String s;
@@ -892,10 +1064,10 @@ juce::String notesToJson (const std::vector<Note>& notes)
         const auto& n = notes[i];
         if (i) s << ",";
         s << "{\"id\":" << n.id << ",\"s\":" << n.start << ",\"e\":" << n.end
-          << ",\"c\":" << juce::String (n.center, 4) << ",\"p\":" << juce::String (n.pitch, 4)
-          << ",\"dr\":" << juce::String (n.drift, 3) << ",\"vb\":" << juce::String (n.vibrato, 3)
-          << ",\"tr\":" << juce::String (n.transition, 3) << ",\"fm\":" << juce::String (n.formant, 1)
-          << ",\"g\":" << juce::String (n.gainDb, 2) << ",\"ts\":" << juce::String (n.timeShift, 5) << "}";
+          << ",\"c\":" << exact (n.center) << ",\"p\":" << exact (n.pitch)
+          << ",\"dr\":" << exact (n.drift) << ",\"vb\":" << exact (n.vibrato)
+          << ",\"tr\":" << exact (n.transition) << ",\"fm\":" << exact (n.formant)
+          << ",\"g\":" << exact (n.gainDb) << ",\"ts\":" << exact (n.timeShift) << "}";
     }
     s << "]";
     return s;
