@@ -103,6 +103,7 @@ target_sources(${PLUGIN_TARGET}
         Source/PluginProcessor.cpp
     Source/NovaPitchTunedEngine.cpp
     Source/NovaPitchHarmony.cpp
+    Source/NovaAiHarmony.cpp
     ${NOVA_TUNE_CORE_DIR}/NovaVocalTuner.cpp
         Source/PluginProcessor.h
         Source/PluginEditor.cpp
@@ -212,6 +213,7 @@ target_sources(NovaPitchOfflineDiag PRIVATE
     Source/PluginProcessor.cpp
     Source/NovaPitchTunedEngine.cpp
     Source/NovaPitchHarmony.cpp
+    Source/NovaAiHarmony.cpp
     ${NOVA_TUNE_CORE_DIR}/NovaVocalTuner.cpp
     Source/PluginProcessor.h
     Source/PluginEditor.cpp
@@ -447,6 +449,7 @@ target_sources(NovaPitchStateRoundTripValidation PRIVATE
     Source/PluginProcessor.cpp
     Source/NovaPitchTunedEngine.cpp
     Source/NovaPitchHarmony.cpp
+    Source/NovaAiHarmony.cpp
     ${NOVA_TUNE_CORE_DIR}/NovaVocalTuner.cpp
     Source/PluginProcessor.h
     Source/PluginEditor.cpp
@@ -500,6 +503,7 @@ target_sources(NovaPitchHarmonyValidation PRIVATE
     Source/PluginProcessor.cpp
     Source/NovaPitchTunedEngine.cpp
     Source/NovaPitchHarmony.cpp
+    Source/NovaAiHarmony.cpp
     ${NOVA_TUNE_CORE_DIR}/NovaVocalTuner.cpp
     Source/PluginProcessor.h
     Source/PluginEditor.cpp
@@ -553,6 +557,7 @@ target_sources(NovaPitchTrackingValidation PRIVATE
     Source/PluginProcessor.cpp
     Source/NovaPitchTunedEngine.cpp
     Source/NovaPitchHarmony.cpp
+    Source/NovaAiHarmony.cpp
     ${NOVA_TUNE_CORE_DIR}/NovaVocalTuner.cpp
     Source/PluginProcessor.h
     Source/PluginEditor.cpp
@@ -602,3 +607,7 @@ nova_license_test_target(NovaPitchOfflineDiag)
 nova_license_test_target(NovaPitchStateRoundTripValidation)
 nova_license_test_target(NovaPitchHarmonyValidation)
 nova_license_test_target(NovaPitchTrackingValidation)
+
+# ── AI Harmony brain checks (chords heard, notes chosen, voice leading) ─────
+add_executable(NovaPitchAiHarmonyValidation Source/AiHarmonyValidation.cpp Source/NovaAiHarmony.cpp)
+target_compile_features(NovaPitchAiHarmonyValidation PRIVATE cxx_std_17)

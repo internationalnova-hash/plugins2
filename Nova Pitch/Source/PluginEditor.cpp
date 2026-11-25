@@ -107,6 +107,10 @@ void NovaPitchAudioProcessorEditor::timerCallback()
                       + ",parts:" + partsJson
                       + ",voiceLevels:" + voicesJson
                       + ",activeVoices:" + juce::String (harm.getActiveVoiceCount())
+                      + ",aiChord:" + juce::String (harm.getAi().getChord())
+                      + ",aiDegree:" + juce::String (harm.getAi().getDegree())
+                      + ",aiHist:[" + juce::String (harm.getAi().getHistory (0)) + "," + juce::String (harm.getAi().getHistory (1)) + ","
+                                    + juce::String (harm.getAi().getHistory (2)) + "," + juce::String (harm.getAi().getHistory (3)) + "]"
                       + "}); }";
 
     webView->evaluateJavascript (script);
@@ -154,7 +158,9 @@ juce::WebBrowserComponent::Options NovaPitchAudioProcessorEditor::createWebOptio
                              ParameterIDs::harmLead, ParameterIDs::harmMix,
                              ParameterIDs::partOn[0], ParameterIDs::partOn[1], ParameterIDs::partOn[2], ParameterIDs::partOn[3],
                              ParameterIDs::partInterval[0], ParameterIDs::partInterval[1], ParameterIDs::partInterval[2], ParameterIDs::partInterval[3],
-                             ParameterIDs::partLevel[0], ParameterIDs::partLevel[1], ParameterIDs::partLevel[2], ParameterIDs::partLevel[3]
+                             ParameterIDs::partLevel[0], ParameterIDs::partLevel[1], ParameterIDs::partLevel[2], ParameterIDs::partLevel[3],
+                             ParameterIDs::partRole[0], ParameterIDs::partRole[1], ParameterIDs::partRole[2], ParameterIDs::partRole[3],
+                             ParameterIDs::aiColour, ParameterIDs::aiMovement, ParameterIDs::aiSpread
                          };
 
                          juce::Array<juce::var> arr;

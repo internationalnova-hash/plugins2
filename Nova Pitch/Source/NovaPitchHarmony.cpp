@@ -97,6 +97,7 @@ void NovaPitchHarmony::resetPart (Part& p) noexcept
 
 void NovaPitchHarmony::reset() noexcept
 {
+    ai.reset();
     for (auto& p : parts)
     {
         resetPart (p);
@@ -159,6 +160,16 @@ void NovaPitchHarmony::process (const float* dryL, const float* dryR, float* out
     // re-locking at full level.
     const bool leadSinging = leadNote > 0 && unvoicedSamples < (int) (0.12 * sr);
 
+    // AI Harmony: work out the chord and each part's note for the current melody note
+    if (params.aiMode)
+    {
+        NovaAiHarmony::Settings as = params.ai;
+        as.keyPc = params.keyPc;
+        as.stepMask = params.stepMask;
+        as.on = params.partOn;
+        ai.update (leadTargetMidi > 0.f ? (int) std::round (leadTargetMidi) : 0, (double) numSamples / sr, as);
+    }
+
     // Which parts are enabled, and what each one plays
     std::array<int, kParts> enabled {};
     int numEnabled = 0;
@@ -191,7 +202,14 @@ void NovaPitchHarmony::process (const float* dryL, const float* dryR, float* out
             else
             {
                 if (leadNote > 0)
-                    part.shift = intervalShift (leadNote, params.interval[(size_t) p], params.keyPc, params.stepMask);
+                {
+                    if (params.aiMode)
+                    {
+                        if (ai.partNote (p) > 0) part.shift = juce::jlimit (-24, 24, ai.partNote (p) - leadNote);
+                    }
+                    else
+                        part.shift = intervalShift (leadNote, params.interval[(size_t) p], params.keyPc, params.stepMask);
+                }
                 tp.fixedShiftSemis = (float) part.shift;
                 sounding = leadSinging;
                 shownMidi = leadTargetMidi > 0.f ? (float) (leadNote + part.shift) : 0.f;

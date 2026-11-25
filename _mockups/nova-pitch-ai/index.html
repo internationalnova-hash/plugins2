@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nova Pitch</title>
+<style>
+  :root {
+    --bg: #0a0a10;
+    --panel: #111117;
+    --panel-2: #15151d;
+    --border: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.16);
+    --text: #f3f3f8;
+    --text-dim: #83838f;
+    --text-dimmer: #55555f;
+    --purple: #9c7dff;
+    --purple-strong: #b79bff;
+    --purple-glow: rgba(156,125,255,0.45);
+    --blue: #4ea9ff;
+    --blue-glow: rgba(78,169,255,0.4);
+    --track: rgba(255,255,255,0.09);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; cursor: pointer; }
+
+  /* Fixed design canvas, uniformly scaled to fit the actual window size -
+     same technique as Nova Tape's #stage (see that project's index.html
+     for the full rationale: JS-computed scale, not CSS min()/calc(),
+     since some embedded WebViews silently drop that nested-function
+     syntax; polled, not just resize-event-driven, since this WebView
+     doesn't reliably fire resize events on a native host setBounds()).
+     This keeps every element's relative proportions identical at any
+     window size, rather than letting the grid reflow unpredictably. */
+  #stageOuter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #stage { width: 1100px; height: 660px; flex: 0 0 auto; position: relative; transform-origin: center center; }
+
+  .plugin {
+    width: 100%; height: 100%;
+    display: grid;
+    grid-template-rows: 66px 52px 1fr 128px 34px;
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 40%, rgba(90,60,180,0.08), transparent 70%),
+      linear-gradient(180deg, #0c0c13 0%, #08080c 100%);
+    position: relative;
+  }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 0 22px;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; flex-direction: column; gap: 2px; }
+  .brand-title { font-size: 21px; font-weight: 700; letter-spacing: 1px; }
+  .brand-title .w { color: var(--text); }
+  .brand-title .p { color: var(--purple); text-shadow: 0 0 18px var(--purple-glow); }
+  .brand-sub { font-size: 10px; letter-spacing: 2.2px; color: var(--text-dim); text-transform: uppercase; }
+
+  .brandRight { justify-self: end; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .brandRight-nova {
+    font-size: 22px; font-weight: 800; letter-spacing: 3px;
+    color: #b8bac3; line-height: 1;
+  }
+  .brandRight-audio {
+    font-size: 10px; font-weight: 600; letter-spacing: 5px;
+    color: var(--purple-strong); line-height: 1;
+    margin-left: 5px;
+  }
+
+  .presetBar { display: flex; align-items: center; gap: 10px; }
+  .presetNavBtn {
+    width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--border-strong);
+    background: var(--panel-2); color: var(--text-dim); font-size: 14px;
+    display: grid; place-items: center; transition: all 120ms ease;
+  }
+  .presetNavBtn:hover { color: var(--text); border-color: var(--purple); }
+  .presetNameWrap {
+    min-width: 168px; height: 30px; padding: 0 14px; border-radius: 8px;
+    border: 1px solid var(--border-strong); background: var(--panel-2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; letter-spacing: 0.3px; color: var(--purple-strong);
+    position: relative;
+  }
+  .abGroup { display: flex; gap: 3px; margin-left: 6px; }
+  .abBtn {
+    width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border-strong);
+    background: var(--panel-2); color: var(--text-dim); font-size: 12px; font-weight: 700;
+    transition: all 120ms ease;
+  }
+  .abBtn.is-active { background: var(--purple); border-color: var(--purple); color: #0a0a10; box-shadow: 0 0 14px var(--purple-glow); }
+  .pillBtn {
+    height: 28px; padding: 0 14px; border-radius: 7px; border: 1px solid var(--border-strong);
+    background: var(--panel-2); color: var(--text-dim); font-size: 11px; font-weight: 600; letter-spacing: 1px;
+    transition: all 120ms ease;
+  }
+  .pillBtn:hover { color: var(--text); border-color: var(--purple); }
+  .iconBtn {
+    width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border-strong);
+    background: var(--panel-2); color: var(--text-dim); font-size: 13px;
+    display: grid; place-items: center; transition: all 120ms ease;
+  }
+  .iconBtn:hover { color: var(--text); border-color: var(--purple); }
+
+  /* Save popover */
+  .savePopover {
+    position: absolute; top: 36px; left: 50%; transform: translateX(-50%) translateY(-6px);
+    width: 240px; padding: 12px; border-radius: 10px; border: 1px solid var(--border-strong);
+    background: #16161f; box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    display: none; flex-direction: column; gap: 8px; z-index: 40;
+    opacity: 0; transition: opacity 140ms ease, transform 140ms ease;
+  }
+  .savePopover.is-open { display: flex; opacity: 1; transform: translateX(-50%) translateY(0); }
+  .savePopover label { font-size: 10px; letter-spacing: 1.2px; color: var(--text-dim); text-transform: uppercase; }
+  .savePopover input {
+    height: 30px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--panel);
+    color: var(--text); font: inherit; font-size: 13px; padding: 0 10px; outline: none;
+  }
+  .savePopover input:focus { border-color: var(--purple); }
+  .savePopoverRow { display: flex; gap: 8px; justify-content: flex-end; }
+  .savePopoverRow button {
+    height: 26px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-strong);
+    background: var(--panel); color: var(--text-dim); font-size: 11px;
+  }
+  .savePopoverRow button.confirm { background: var(--purple); border-color: var(--purple); color: #0a0a10; font-weight: 600; }
+
+  /* ── Top strip ──────────────────────────────────────── */
+  .topStrip {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px; border-bottom: 1px solid var(--border);
+  }
+  .stepGroup { display: flex; align-items: center; gap: 10px; }
+  .stepControl { position: relative; display: flex; flex-direction: column; gap: 3px; }
+  .stepControl label { font-size: 9px; letter-spacing: 1.4px; color: var(--text-dimmer); text-transform: uppercase; }
+  .stepPopover {
+    position: absolute; top: calc(100% + 6px); left: 0; min-width: 120px;
+    max-height: 240px; overflow-y: auto;
+    padding: 6px; border-radius: 10px; border: 1px solid var(--border-strong);
+    background: #16161f; box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    display: none; flex-direction: column; gap: 2px; z-index: 50;
+  }
+  .stepPopover.is-open { display: flex; }
+  .stepPopoverItem {
+    padding: 6px 10px; border-radius: 6px; border: none; background: transparent;
+    color: var(--text-dim); font-size: 12px; text-align: left; cursor: pointer; white-space: nowrap;
+  }
+  .stepPopoverItem:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+  .stepPopoverItem.is-selected { color: var(--purple-strong); font-weight: 600; }
+  .stepBtn {
+    height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-strong);
+    background: var(--panel-2); color: var(--text); font-size: 12px; letter-spacing: 0.4px;
+    display: flex; align-items: center; gap: 8px; min-width: 78px; justify-content: space-between;
+    transition: border-color 120ms ease;
+  }
+  .stepBtn:hover { border-color: var(--purple); }
+  .stepBtn .chev { color: var(--text-dim); font-size: 11px; }
+  .viewBtn { color: var(--text-dim); cursor: default; }
+  .powerBtn {
+    width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border-strong);
+    background: var(--panel-2); color: var(--text-dim); font-size: 13px;
+    display: grid; place-items: center; transition: all 140ms ease;
+  }
+  .powerBtn.is-active { color: var(--purple-strong); border-color: var(--purple); box-shadow: 0 0 12px var(--purple-glow); }
+
+  /* ── Hero row ───────────────────────────────────────── */
+  .heroRow {
+    position: relative; z-index: 0;
+    display: grid; grid-template-columns: 200px 1fr 200px;
+    align-items: center; justify-items: center;
+    padding: 0 20px;
+    min-height: 0;
+  }
+  .heroWing {
+    position: absolute; z-index: -1;
+    top: 12px; bottom: 12px; width: 400px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.006) 50%, transparent 82%);
+    border: 1px solid rgba(255,255,255,0.055);
+  }
+  .heroWingLeft { left: 8px; border-radius: 28px 170px 170px 28px; }
+  .heroWingRight { right: 8px; border-radius: 170px 28px 28px 170px; }
+
+  .knobColumn { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .knobColumnLabel { font-size: 12px; letter-spacing: 1.4px; color: var(--text-dim); text-transform: uppercase; }
+
+  .knob { position: relative; display: grid; place-items: center; }
+  .knob.big { width: 132px; height: 132px; }
+  .knob.small { width: 70px; height: 70px; }
+  .knobRingBg, .knobRingFill {
+    position: absolute; inset: 0; border-radius: 50%;
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+  }
+  .knob.small .knobRingBg, .knob.small .knobRingFill {
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  }
+  .knobRingBg {
+    background: conic-gradient(from -135deg, var(--track) 0deg, var(--track) 270deg, transparent 270deg, transparent 360deg);
+  }
+  .knobRingFill {
+    background: conic-gradient(from -135deg, var(--purple) calc(var(--pct, 0) * 270deg), transparent calc(var(--pct, 0) * 270deg));
+    filter: drop-shadow(0 0 6px var(--purple-glow));
+  }
+  .knob.bipolar .knobRingFill {
+    background: conic-gradient(from -135deg,
+      transparent 0deg, transparent calc(var(--zeroPct, 0.5) * 270deg - 0.1deg),
+      var(--purple) calc(var(--zeroPct, 0.5) * 270deg - 0.1deg), var(--purple) calc(var(--zeroPct, 0.5) * 270deg + 0.1deg),
+      transparent calc(var(--zeroPct, 0.5) * 270deg + 0.1deg));
+  }
+  .knob.bipolar.pos .knobRingFill {
+    background: conic-gradient(from -135deg,
+      transparent 0deg, transparent calc(var(--zeroPct, 0.5) * 270deg),
+      var(--purple) calc(var(--zeroPct, 0.5) * 270deg), var(--purple) calc(var(--pct, 0.5) * 270deg),
+      transparent calc(var(--pct, 0.5) * 270deg));
+  }
+  .knob.bipolar.neg .knobRingFill {
+    background: conic-gradient(from -135deg,
+      transparent 0deg, transparent calc(var(--pct, 0.5) * 270deg),
+      var(--purple) calc(var(--pct, 0.5) * 270deg), var(--purple) calc(var(--zeroPct, 0.5) * 270deg),
+      transparent calc(var(--zeroPct, 0.5) * 270deg));
+  }
+  .knobCap {
+    position: absolute; inset: 8px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #2c2c38, #17171f 68%, #101015);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: inset 0 2px 4px rgba(255,255,255,0.06), inset 0 -6px 10px rgba(0,0,0,0.5), 0 3px 8px rgba(0,0,0,0.4);
+  }
+  .knob.small .knobCap { inset: 5px; }
+  .knobPointer {
+    position: absolute; left: 50%; top: 8%; width: 2px; height: 32%;
+    background: #f3f3f8; border-radius: 2px; transform-origin: 50% 190%;
+    box-shadow: 0 0 4px rgba(255,255,255,0.5);
+  }
+  .knob.small .knobPointer { top: 10%; height: 30%; width: 2px; }
+  .knobRangeLabels {
+    width: 100%; display: flex; justify-content: space-between;
+    font-size: 9px; letter-spacing: 0.6px; color: var(--text-dimmer); text-transform: uppercase;
+  }
+  .knobValue { font-size: 15px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  .knob.small ~ .knobValue, .miniValue { font-size: 12px; }
+
+  /* ── Hero circle ────────────────────────────────────── */
+  .heroCircle { position: relative; width: 300px; height: 300px; display: grid; place-items: center; }
+  .heroRing { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-135deg); }
+  .heroRingTrack, .heroRingFillPath {
+    fill: none; stroke-width: 3; stroke-linecap: round;
+  }
+  .heroRingTrack { stroke: var(--track); }
+  .heroRingFillPath {
+    stroke: url(#heroGradient);
+    filter: drop-shadow(0 0 8px var(--purple-glow));
+  }
+  .heroInner {
+    position: absolute; inset: 14px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 38%, #15151f, #0b0b10 70%);
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; padding: 18px;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+  }
+  .heroLabel { font-size: 10px; letter-spacing: 2.4px; color: var(--text-dimmer); text-transform: uppercase; margin-bottom: 2px; }
+  .heroNote { font-size: 46px; font-weight: 700; line-height: 1; display: flex; align-items: flex-end; gap: 2px; color: var(--text); text-shadow: 0 0 22px var(--purple-glow); }
+  .heroOctave { font-size: 20px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px; }
+  .heroWave { width: 100%; max-width: 210px; height: 46px; margin: 6px 0 2px; display: block; }
+  .heroCentsRow { width: 100%; max-width: 210px; display: flex; justify-content: space-between; font-size: 9px; color: var(--text-dimmer); margin-bottom: 2px; }
+  .heroCents { font-size: 20px; font-weight: 700; color: var(--purple-strong); font-variant-numeric: tabular-nums; }
+  .heroCentsLabel { font-size: 9px; letter-spacing: 1.8px; color: var(--text-dimmer); text-transform: uppercase; }
+  .heroCents.in-tune { color: #6ee7a8; }
+
+  /* ── Bottom strip ───────────────────────────────────── */
+  .bottomStrip {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    align-items: center; gap: 6px;
+    padding: 10px 22px; border-top: 1px solid var(--border);
+  }
+  .miniKnobCol { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .miniLabel { font-size: 10px; letter-spacing: 1.1px; color: var(--text-dim); text-transform: uppercase; margin-top: 1px; }
+
+  /* ── Footer ─────────────────────────────────────────── */
+  .footer { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 0 22px; position: relative; }
+  .footerLine { flex: 1; max-width: 220px; height: 1px; background: linear-gradient(90deg, transparent, var(--border-strong), transparent); }
+  .footerText { font-size: 10px; letter-spacing: 3px; color: var(--text-dimmer); white-space: nowrap; }
+  .settingsBtn {
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    width: 22px; height: 22px; border-radius: 6px; border: none; background: transparent;
+    color: var(--text-dimmer); font-size: 13px; display: grid; place-items: center;
+    transition: color 120ms ease;
+  }
+  .settingsBtn:hover { color: var(--text-dim); }
+
+  /* ── Settings popover ───────────────────────────────── */
+  .settingsPopover {
+    position: absolute; right: 14px; bottom: 40px;
+    width: 200px; padding: 12px; border-radius: 10px; border: 1px solid var(--border-strong);
+    background: #16161f; box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    display: none; flex-direction: column; gap: 10px; z-index: 40;
+  }
+  .settingsPopover.is-open { display: flex; }
+  .settingsRow { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-dim); }
+  .settingsRow .val { color: var(--text); }
+  .settingsVersion { font-size: 9px; color: var(--text-dimmer); border-top: 1px solid var(--border); padding-top: 8px; margin-top: 2px; }
+  #stage { height: 760px; }
+  .plugin { grid-template-rows: 66px 52px 1fr 104px 34px; }
+  .viewWrap { display: grid; grid-template-rows: 1fr 128px; min-height: 0; }
+  .viewWrap.harm { grid-template-rows: 1fr; }
+  .tabs { display: flex; gap: 3px; padding: 3px; border-radius: 9px; border: 1px solid var(--border-strong); background: var(--panel); }
+  .tab { height: 26px; padding: 0 16px; border-radius: 6px; border: none; background: transparent; color: var(--text-dim); font-size: 11px; font-weight: 700; letter-spacing: 1.4px; }
+  .tab.is-active { background: var(--purple); color: #0a0a10; box-shadow: 0 0 14px var(--purple-glow); }
+  .tab .dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:#6ee7a8; margin-left:6px; vertical-align:1px; box-shadow:0 0 6px #6ee7a8; }
+
+  /* keyboard */
+  .kbRow { border-top: 1px solid var(--border); padding: 8px 22px 10px; display: flex; flex-direction: column; gap: 5px; }
+  .kbLegend { display: flex; gap: 16px; align-items: center; font-size: 9px; letter-spacing: 1.3px; color: var(--text-dimmer); text-transform: uppercase; }
+  .kbLegend i { display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+  .kbLegend .sp { flex: 1; }
+  .kb { position: relative; height: 70px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-strong); }
+  .wk { position: absolute; top: 0; bottom: 0; background: linear-gradient(180deg,#d9d9e3,#f1f1f7); border-right: 1px solid #9a9aa8; display:flex; align-items:flex-end; justify-content:center; padding-bottom:4px; font-size:8px; color:#777784; }
+  .wk.out { background: linear-gradient(180deg,#5a5a66,#6b6b78); color:#3d3d48; }
+  .bk { position: absolute; top: 0; height: 60%; border-radius: 0 0 4px 4px; background: linear-gradient(180deg,#1b1b24,#2a2a35); border: 1px solid #000; z-index: 2; }
+  .bk.out { background: linear-gradient(180deg,#0c0c10,#121217); opacity: .85; }
+  .wk.in::before, .bk.in::before { content:""; position:absolute; left:50%; transform:translateX(-50%); width:6px; height:6px; border-radius:50%; background: var(--purple); }
+  .wk.in::before { bottom: 16px; } .bk.in::before { bottom: 5px; }
+  .wk.target { background: linear-gradient(180deg,#b79bff,#9c7dff); color:#2a1d5a; box-shadow: inset 0 0 14px rgba(255,255,255,.4); }
+  .bk.target { background: linear-gradient(180deg,#8a6bff,#9c7dff); box-shadow: 0 0 12px var(--purple-glow); }
+  .wk.input { box-shadow: inset 0 0 0 3px var(--blue), inset 0 0 18px var(--blue-glow); }
+  .bk.input { box-shadow: 0 0 0 2px var(--blue), 0 0 10px var(--blue-glow); }
+  .hv { position:absolute; z-index:3; width:16px; height:16px; border-radius:50%; font-size:9px; font-weight:800; display:grid; place-items:center; color:#0a0a10; transform:translateX(-50%); }
+
+  .harmView { padding: 12px 22px 10px; display:grid; grid-template-rows: 1fr auto; gap: 10px; min-height:0; }
+  .harmTop { display:grid; grid-template-columns: 400px 1fr; gap: 16px; min-height:0; }
+  .secHead { font-size: 10px; font-weight:700; letter-spacing:1.6px; text-transform:uppercase; margin-bottom: 8px; }
+  .secHead span { color: var(--text-dimmer); font-weight:500; letter-spacing:.8px; }
+  .partsCol, .stackCol { border:1px solid var(--border-strong); border-radius:14px; padding: 12px 14px; background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.008)); display:flex; flex-direction:column; gap: 8px; min-height:0; }
+  .part { display:grid; grid-template-columns: 12px 52px 1fr 46px 58px 26px; align-items:center; gap: 10px; height: 52px; padding: 0 10px; border-radius: 10px; background: rgba(255,255,255,0.025); border:1px solid var(--border); }
+  .part.off { opacity:.4; }
+  .part .sw { width:10px; height:10px; border-radius:50%; }
+  .pname { font-size: 10px; font-weight:700; letter-spacing:1.4px; color: var(--text-dim); }
+  .part .intervalBtn { height: 30px; font-size: 12px; }
+  .pnote { font-size: 20px; font-weight:700; text-align:center; } .pnote span { font-size: 11px; color: var(--text-dim); }
+  .plev { font-size: 11px; color: var(--text-dim); text-align:right; font-variant-numeric: tabular-nums; }
+  .styleSeg { flex-wrap: nowrap; } .styleSeg button { flex:1; padding: 0 6px; }
+  .stackKnobs { display:grid; grid-template-columns: repeat(5,1fr); }
+  .stackKnobs .knob.small { width: 56px; height: 56px; }
+  .vgrid { flex:1; display:grid; grid-template-columns: repeat(32,1fr); gap: 3px; min-height: 60px; }
+  .vb { display:flex; flex-direction:column; gap:3px; align-items:center; } .vb.off { opacity:.35; }
+  .vbt { flex:1; width: 100%; border-radius: 3px; background: rgba(255,255,255,0.05); position:relative; overflow:hidden; }
+  .vbf { position:absolute; left:0; right:0; bottom:0; border-radius:3px; }
+  .vbn { font-size: 8px; color: var(--text-dimmer); }
+  .harmFoot { display:flex; align-items:center; gap: 14px; }
+
+  .intervalBtn { height: 30px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--panel-2); color: var(--text); font-size: 12px; font-weight: 600; display:flex; align-items:center; justify-content:space-between; padding: 0 10px; }
+  .intervalBtn:hover { border-color: var(--purple); }
+  .intervalBtn small { color: var(--text-dim); font-weight: 500; font-size: 10px; }
+  .partInt { position: relative; }
+  .plev { cursor: ns-resize; }
+  .plev:hover { color: var(--text); }
+  .seg { display:flex; gap:3px; padding:3px; border-radius:8px; border:1px solid var(--border-strong); background: var(--panel); }
+  .seg button { height: 24px; padding: 0 12px; border-radius: 5px; border:none; background:transparent; color: var(--text-dim); font-size: 10px; font-weight:700; letter-spacing:1.2px; }
+  .seg button:hover { color: var(--text); }
+  .seg button.is-active { background: rgba(156,125,255,.22); color: var(--purple-strong); }
+  .harmHint { font-size: 10px; color: var(--text-dimmer); letter-spacing:.4px; line-height: 1.4; flex: 1; }
+  .harmPower { display:flex; align-items:center; gap: 10px; font-size: 10px; font-weight:700; letter-spacing:1.6px; color: var(--text-dim); }
+  .harmPower.is-on { color: #6ee7a8; }
+  .tab .dot { display:none; }
+  .tab .dot.is-on { display:inline-block; }
+  .harmView.is-off .partsCol, .harmView.is-off .stackCol { opacity: .55; }
+
+  /* Compact view: the original Nova Pitch screen (no keyboard, no Harmony tab) */
+  body.compact #stage { height: 660px; }
+  body.compact .tabs, body.compact .kbRow, body.compact #harmViewWrap { display: none !important; }
+  body.compact #tuneView { display: grid !important; }
+  .topStrip .tabs { position: absolute; left: 50%; transform: translateX(-50%); }
+  .topStrip { position: relative; }
+
+  .trackBtn { min-width: 64px; justify-content: center; font-weight: 700; color: var(--text-dim); }
+  .trackBtn.is-active { background: #6ee7a8; border-color: #6ee7a8; color: #0a0a10; box-shadow: 0 0 14px rgba(110,231,168,0.45); }
+</style>
+</head>
+<body>
+  <div id="stageOuter">
+  <div id="stage">
+  <main class="plugin">
+    <header class="header">
+      <div class="brand">
+        <div class="brand-title"><span class="w">NOVA</span> <span class="p">PITCH</span></div>
+        <div class="brand-sub">Real-Time Pitch Correction</div>
+      </div>
+
+      <div class="presetBar" style="position:relative;">
+        <button class="presetNavBtn" id="presetPrev" aria-label="Previous preset">‹</button>
+        <div class="presetNameWrap"><span id="presetName">Modern Vocal</span></div>
+        <button class="presetNavBtn" id="presetNext" aria-label="Next preset">›</button>
+        <div class="abGroup">
+          <button class="abBtn is-active" id="abBtnA">A</button>
+          <button class="abBtn" id="abBtnB">B</button>
+        </div>
+        <button class="pillBtn" id="saveBtn">SAVE</button>
+        <button class="iconBtn" id="menuBtn" aria-label="Menu">☰</button>
+        <div class="savePopover" id="savePopover">
+          <label for="saveNameInput">Preset name</label>
+          <input id="saveNameInput" type="text" maxlength="40" placeholder="My Vocal Chain" autocomplete="off" spellcheck="false">
+          <div class="savePopoverRow">
+            <button id="saveCancel" type="button">Cancel</button>
+            <button id="saveConfirm" class="confirm" type="button">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="brandRight">
+        <div class="brandRight-nova">NOVA</div>
+        <div class="brandRight-audio">AUDIO</div>
+      </div>
+    </header>
+
+    <section class="topStrip">
+      <div class="stepGroup">
+        <div class="stepControl">
+          <label>Key</label>
+          <button class="stepBtn" id="keyBtn"><span id="keyValue">C</span><span class="chev">›</span></button>
+        </div>
+        <div class="stepControl">
+          <label>Scale</label>
+          <button class="stepBtn" id="scaleBtn"><span id="scaleValue">Major</span><span class="chev">›</span></button>
+        </div>
+      </div>
+      <div class="tabs"><button class="tab is-active" id="tabTune" data-v="tune">TUNE</button><button class="tab" id="tabHarm" data-v="harm">HARMONY<span class="dot" id="harmDot"></span></button></div>
+      <div class="stepGroup">
+        <div class="stepControl">
+          <label>Tracking</label>
+          <button class="stepBtn trackBtn" id="trackBtn" title="Tracking mode: about 4 ms of delay for recording through Nova Pitch. Turn it off for mixing (full accuracy).">OFF</button>
+        </div>
+        <div class="stepControl">
+          <label>View</label>
+          <button class="stepBtn" id="viewBtn" title="Switch between the full and compact view"><span id="viewValue">Full</span><span class="chev">›</span></button>
+        </div>
+        <div class="stepControl">
+          <label>Bypass</label>
+          <button class="powerBtn" id="bypassBtn" aria-pressed="false" aria-label="Bypass">⏻</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="viewWrap" id="tuneView">
+    <section class="heroRow">
+      <div class="heroWing heroWingLeft"></div>
+      <div class="heroWing heroWingRight"></div>
+      <div class="knobColumn">
+        <div class="knobColumnLabel">Retune Speed</div>
+        <div class="knob big" id="retuneKnob" data-param="tolerance" data-min="0" data-max="100" data-invert="1">
+          <div class="knobRingBg"></div>
+          <div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="knobRangeLabels" style="width:132px;"><span>Slow</span><span>Fast</span></div>
+        <div class="knobValue" id="retuneValue">30</div>
+      </div>
+
+      <div class="heroCircle">
+        <svg class="heroRing" viewBox="0 0 300 300">
+          <defs>
+            <linearGradient id="heroGradient" x1="0%" y1="50%" x2="100%" y2="50%">
+              <stop offset="0%" stop-color="#b78dff" />
+              <stop offset="100%" stop-color="#7cd1ff" />
+            </linearGradient>
+          </defs>
+          <circle class="heroRingTrack" cx="150" cy="150" r="138" stroke-dasharray="722.5 867.1" stroke-dashoffset="180.6" />
+          <circle class="heroRingFillPath" id="heroRingFillPath" cx="150" cy="150" r="138" stroke-dasharray="722.5 867.1" stroke-dashoffset="180.6" />
+        </svg>
+        <div class="heroInner">
+          <div class="heroLabel">Pitch</div>
+          <div class="heroNote"><span id="heroNoteName">--</span><span class="heroOctave" id="heroOctave"></span></div>
+          <canvas id="waveCanvas" class="heroWave" width="420" height="92"></canvas>
+          <div class="heroCentsRow"><span>-50</span><span>+50</span></div>
+          <div class="heroCents" id="heroCents">0</div>
+          <div class="heroCentsLabel">Cents</div>
+        </div>
+      </div>
+
+      <div class="knobColumn">
+        <div class="knobColumnLabel">Humanize</div>
+        <div class="knob big" id="humanizeKnob" data-param="amount" data-min="0" data-max="100">
+          <div class="knobRingBg"></div>
+          <div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="knobRangeLabels" style="width:132px;"><span>Subtle</span><span>Extreme</span></div>
+        <div class="knobValue" id="humanizeValue">0</div>
+      </div>
+    </section>
+
+    <section class="bottomStrip">
+      <div class="miniKnobCol">
+        <div class="knob small" id="vibratoKnob" data-param="vibrato" data-min="0" data-max="100">
+          <div class="knobRingBg"></div><div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="miniValue" id="vibratoValue">0</div>
+        <div class="miniLabel">Natural Vibrato</div>
+      </div>
+
+      <div class="miniKnobCol">
+        <div class="knob small" id="vibratoRateKnob" data-param="vibratoRate" data-min="2" data-max="8">
+          <div class="knobRingBg"></div><div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="miniValue" id="vibratoRateValue">5.0 Hz</div>
+        <div class="miniLabel">Vibrato Rate</div>
+      </div>
+
+      <div class="miniKnobCol">
+        <div class="knob small bipolar" id="formantKnob" data-param="formantWarp" data-min="-100" data-max="100" data-bipolar="1">
+          <div class="knobRingBg"></div><div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="miniValue" id="formantValue">0</div>
+        <div class="miniLabel">Formant</div>
+      </div>
+
+      <div class="miniKnobCol">
+        <div class="knob small" id="transientsKnob" data-param="transients" data-min="0" data-max="100">
+          <div class="knobRingBg"></div><div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="miniValue" id="transientsValue">30</div>
+        <div class="miniLabel">Transients</div>
+      </div>
+
+      <div class="miniKnobCol">
+        <div class="knob small bipolar" id="outputKnob" data-param="outputGain" data-min="-24" data-max="24" data-bipolar="1">
+          <div class="knobRingBg"></div><div class="knobRingFill"></div>
+          <div class="knobCap"><div class="knobPointer"></div></div>
+        </div>
+        <div class="miniValue" id="outputValue">0.0 dB</div>
+        <div class="miniLabel">Output</div>
+      </div>
+    </section>
+    </div>
+
+    <div class="viewWrap harm" id="harmViewWrap" style="display:none">
+    <section class="harmView" id="harmView">
+      <div class="harmTop">
+        <div class="partsCol"><div class="secHead">Harmony Parts <span id="partsHint">· notes follow your key</span></div>
+<div class="part" id="part0"><span class="sw" style="background:#6ee7a8;box-shadow:0 0 8px #6ee7a8"></span><div class="pname">PART 1</div><div class="partInt"><button class="intervalBtn" id="partIntBtn0" style="width:100%"><span id="partIntVal0">3rd Above</span><small>›</small></button></div><div class="pnote" id="partNote0">--</div><div class="plev" id="partLev0" title="Drag up/down">-4.0 dB</div><button class="powerBtn" id="partOnBtn0" aria-label="Part 1 on">⏻</button></div>
+<div class="part" id="part1"><span class="sw" style="background:#ffb86b;box-shadow:0 0 8px #ffb86b"></span><div class="pname">PART 2</div><div class="partInt"><button class="intervalBtn" id="partIntBtn1" style="width:100%"><span id="partIntVal1">3rd Above</span><small>›</small></button></div><div class="pnote" id="partNote1">--</div><div class="plev" id="partLev1" title="Drag up/down">-4.0 dB</div><button class="powerBtn" id="partOnBtn1" aria-label="Part 2 on">⏻</button></div>
+<div class="part" id="part2"><span class="sw" style="background:#ff7eb6;box-shadow:0 0 8px #ff7eb6"></span><div class="pname">PART 3</div><div class="partInt"><button class="intervalBtn" id="partIntBtn2" style="width:100%"><span id="partIntVal2">3rd Above</span><small>›</small></button></div><div class="pnote" id="partNote2">--</div><div class="plev" id="partLev2" title="Drag up/down">-4.0 dB</div><button class="powerBtn" id="partOnBtn2" aria-label="Part 3 on">⏻</button></div>
+<div class="part" id="part3"><span class="sw" style="background:#7cd1ff;box-shadow:0 0 8px #7cd1ff"></span><div class="pname">PART 4</div><div class="partInt"><button class="intervalBtn" id="partIntBtn3" style="width:100%"><span id="partIntVal3">3rd Above</span><small>›</small></button></div><div class="pnote" id="partNote3">--</div><div class="plev" id="partLev3" title="Drag up/down">-4.0 dB</div><button class="powerBtn" id="partOnBtn3" aria-label="Part 4 on">⏻</button></div>
+        </div>
+        <div class="stackCol">
+          <div class="secHead">Voice Stack <span id="stackHead">· 8 of 32 voices</span></div>
+          <div class="styleSeg seg" id="styleSeg"><button data-style="0">POP</button><button data-style="1">R&AMP;B</button><button data-style="2">TRAP</button><button data-style="3">GOSPEL</button><button data-style="4">CHOIR</button><button data-style="5">AMBIENT</button><button data-style="6">DOUBLES</button></div>
+          <div class="stackKnobs"><div class="miniKnobCol"><div class="knob small" id="harmVoicesKnob" data-param="harmVoices" data-min="1" data-max="32"><div class="knobRingBg"></div><div class="knobRingFill"></div><div class="knobCap"><div class="knobPointer"></div></div></div><div class="miniValue" id="harmVoicesValue">8</div><div class="miniLabel">Voices</div></div><div class="miniKnobCol"><div class="knob small" id="harmWidthKnob" data-param="harmWidth" data-min="0" data-max="200"><div class="knobRingBg"></div><div class="knobRingFill"></div><div class="knobCap"><div class="knobPointer"></div></div></div><div class="miniValue" id="harmWidthValue">100%</div><div class="miniLabel">Width</div></div><div class="miniKnobCol"><div class="knob small" id="harmHumanizeKnob" data-param="harmHumanize" data-min="0" data-max="100"><div class="knobRingBg"></div><div class="knobRingFill"></div><div class="knobCap"><div class="knobPointer"></div></div></div><div class="miniValue" id="harmHumanizeValue">30</div><div class="miniLabel">Humanize</div></div><div class="miniKnobCol"><div class="knob small" id="harmLeadKnob" data-param="harmLead" data-min="-24" data-max="6"><div class="knobRingBg"></div><div class="knobRingFill"></div><div class="knobCap"><div class="knobPointer"></div></div></div><div class="miniValue" id="harmLeadValue">0.0 dB</div><div class="miniLabel">Lead</div></div><div class="miniKnobCol"><div class="knob small" id="harmMixKnob" data-param="harmMix" data-min="0" data-max="100"><div class="knobRingBg"></div><div class="knobRingFill"></div><div class="knobCap"><div class="knobPointer"></div></div></div><div class="miniValue" id="harmMixValue">70</div><div class="miniLabel">Harmony Mix</div></div></div>
+          <div class="vgrid" id="vgrid"><div class="vb" id="vb0"><div class="vbt"><div class="vbf" id="vbf0"></div></div><div class="vbn">1</div></div><div class="vb" id="vb1"><div class="vbt"><div class="vbf" id="vbf1"></div></div><div class="vbn">2</div></div><div class="vb" id="vb2"><div class="vbt"><div class="vbf" id="vbf2"></div></div><div class="vbn">3</div></div><div class="vb" id="vb3"><div class="vbt"><div class="vbf" id="vbf3"></div></div><div class="vbn">4</div></div><div class="vb" id="vb4"><div class="vbt"><div class="vbf" id="vbf4"></div></div><div class="vbn">5</div></div><div class="vb" id="vb5"><div class="vbt"><div class="vbf" id="vbf5"></div></div><div class="vbn">6</div></div><div class="vb" id="vb6"><div class="vbt"><div class="vbf" id="vbf6"></div></div><div class="vbn">7</div></div><div class="vb" id="vb7"><div class="vbt"><div class="vbf" id="vbf7"></div></div><div class="vbn">8</div></div><div class="vb" id="vb8"><div class="vbt"><div class="vbf" id="vbf8"></div></div><div class="vbn">9</div></div><div class="vb" id="vb9"><div class="vbt"><div class="vbf" id="vbf9"></div></div><div class="vbn">10</div></div><div class="vb" id="vb10"><div class="vbt"><div class="vbf" id="vbf10"></div></div><div class="vbn">11</div></div><div class="vb" id="vb11"><div class="vbt"><div class="vbf" id="vbf11"></div></div><div class="vbn">12</div></div><div class="vb" id="vb12"><div class="vbt"><div class="vbf" id="vbf12"></div></div><div class="vbn">13</div></div><div class="vb" id="vb13"><div class="vbt"><div class="vbf" id="vbf13"></div></div><div class="vbn">14</div></div><div class="vb" id="vb14"><div class="vbt"><div class="vbf" id="vbf14"></div></div><div class="vbn">15</div></div><div class="vb" id="vb15"><div class="vbt"><div class="vbf" id="vbf15"></div></div><div class="vbn">16</div></div><div class="vb" id="vb16"><div class="vbt"><div class="vbf" id="vbf16"></div></div><div class="vbn">17</div></div><div class="vb" id="vb17"><div class="vbt"><div class="vbf" id="vbf17"></div></div><div class="vbn">18</div></div><div class="vb" id="vb18"><div class="vbt"><div class="vbf" id="vbf18"></div></div><div class="vbn">19</div></div><div class="vb" id="vb19"><div class="vbt"><div class="vbf" id="vbf19"></div></div><div class="vbn">20</div></div><div class="vb" id="vb20"><div class="vbt"><div class="vbf" id="vbf20"></div></div><div class="vbn">21</div></div><div class="vb" id="vb21"><div class="vbt"><div class="vbf" id="vbf21"></div></div><div class="vbn">22</div></div><div class="vb" id="vb22"><div class="vbt"><div class="vbf" id="vbf22"></div></div><div class="vbn">23</div></div><div class="vb" id="vb23"><div class="vbt"><div class="vbf" id="vbf23"></div></div><div class="vbn">24</div></div><div class="vb" id="vb24"><div class="vbt"><div class="vbf" id="vbf24"></div></div><div class="vbn">25</div></div><div class="vb" id="vb25"><div class="vbt"><div class="vbf" id="vbf25"></div></div><div class="vbn">26</div></div><div class="vb" id="vb26"><div class="vbt"><div class="vbf" id="vbf26"></div></div><div class="vbn">27</div></div><div class="vb" id="vb27"><div class="vbt"><div class="vbf" id="vbf27"></div></div><div class="vbn">28</div></div><div class="vb" id="vb28"><div class="vbt"><div class="vbf" id="vbf28"></div></div><div class="vbn">29</div></div><div class="vb" id="vb29"><div class="vbt"><div class="vbf" id="vbf29"></div></div><div class="vbn">30</div></div><div class="vb" id="vb30"><div class="vbt"><div class="vbf" id="vbf30"></div></div><div class="vbn">31</div></div><div class="vb" id="vb31"><div class="vbt"><div class="vbf" id="vbf31"></div></div><div class="vbn">32</div></div></div>
+        </div>
+      </div>
+      <div class="harmFoot">
+        <div class="miniLabel">Harmony Mode</div>
+        <div class="seg" id="modeSeg"><button data-mode="0">SCALE</button><button data-mode="1">MIDI</button></div>
+        <div class="harmHint" id="modeHint">Scale: parts follow the Key and Scale above.</div>
+        <div class="harmPower" id="harmPower"><span id="harmPowerLabel">HARMONY OFF</span><button class="powerBtn" id="harmOnBtn" aria-label="Harmony on">⏻</button></div>
+      </div>
+    </section>
+    </div>
+
+    <section class="kbRow">
+      <div class="kbLegend"><span><i style="background:#9c7dff"></i>Target note</span><span><i style="background:transparent;box-shadow:inset 0 0 0 2px #4ea9ff"></i>What you sang</span><span><i style="background:#3a3a46"></i>Out of key</span><span id="hvLegend" style="display:none"><i style="background:#6ee7a8;border-radius:50%"></i>Harmony notes</span><span class="sp"></span><span id="kbReadout">--</span></div>
+      <div class="kb" id="kb"></div>
+    </section>
+
+    <footer class="footer">
+      <div class="footerLine"></div>
+      <div class="footerText">Perfect Pitch. Natural Sound.</div>
+      <div class="footerLine"></div>
+      <button class="settingsBtn" id="settingsBtn" aria-label="Settings">⚙</button>
+      <div class="settingsPopover" id="settingsPopover">
+        <div class="settingsRow"><span>Quality</span><span class="val" id="settingsLatencyMode">Standard</span></div>
+        <div class="settingsRow"><span>Latency</span><span class="val" id="settingsLatencyValue">-- ms</span></div>
+        <div class="settingsVersion">Nova Pitch v0.2</div>
+      </div>
+    </footer>
+  </main>
+  </div>
+  </div>
+
+  <script>
+    // The page's own URL is cache-busted with a fresh ?v=timestamp on every
+    // editor construction (see PluginEditor.cpp), but a plain <script src>
+    // tag doesn't inherit that - it's just a fixed path the WebView can
+    // (and did, measured directly) keep serving from its own resource
+    // cache across rebuilds. Injecting the tag with the same query string
+    // appended closes that gap.
+    const s = document.createElement("script");
+    s.type = "module";
+    s.src = "js/index.js" + window.location.search;
+    document.body.appendChild(s);
+  </script>
+<script src="ai-mock.js"></script>
+</body>
+</html>

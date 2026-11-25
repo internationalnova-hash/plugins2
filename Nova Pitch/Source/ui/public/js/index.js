@@ -448,16 +448,23 @@ const INTERVAL_NAMES = ["Unison", "2nd Above", "3rd Above", "4th Above", "5th Ab
                         "Octave Above", "3rd Below", "4th Below", "5th Below", "6th Below", "Octave Below"];
 // Style buttons load a starting point; every control stays editable after.
 const HARM_STYLES = [
-  { on: [1, 1, 0, 0], iv: [2, 6, 0, 0],  voices: 6,  width: 120, hum: 25 }, // Pop
-  { on: [1, 1, 1, 0], iv: [2, 7, 5, 0],  voices: 10, width: 140, hum: 40 }, // R&B
-  { on: [1, 1, 0, 0], iv: [11, 6, 0, 0], voices: 8,  width: 170, hum: 30 }, // Trap
-  { on: [1, 1, 1, 0], iv: [2, 4, 11, 0], voices: 16, width: 140, hum: 45 }, // Gospel
-  { on: [1, 1, 1, 1], iv: [2, 4, 6, 11], voices: 24, width: 180, hum: 60 }, // Choir
-  { on: [1, 1, 0, 0], iv: [6, 4, 0, 0],  voices: 32, width: 200, hum: 80 }, // Ambient
-  { on: [1, 0, 0, 0], iv: [0, 2, 0, 0],  voices: 4,  width: 140, hum: 20 }, // Doubles
+  { on: [1, 1, 0, 0], iv: [2, 6, 0, 0],  voices: 6,  width: 120, hum: 25, roles: [0, 1, 2, 3], colour: 25, spread: 25 }, // Pop
+  { on: [1, 1, 1, 0], iv: [2, 7, 5, 0],  voices: 10, width: 140, hum: 40, roles: [0, 1, 3, 2], colour: 70, spread: 30 }, // R&B
+  { on: [1, 1, 0, 0], iv: [11, 6, 0, 0], voices: 8,  width: 170, hum: 30, roles: [2, 3, 0, 1], colour: 20, spread: 40 }, // Trap
+  { on: [1, 1, 1, 0], iv: [2, 4, 11, 0], voices: 16, width: 140, hum: 45, roles: [0, 1, 4, 3], colour: 85, spread: 20 }, // Gospel
+  { on: [1, 1, 1, 1], iv: [2, 4, 6, 11], voices: 24, width: 180, hum: 60, roles: [0, 1, 3, 4], colour: 40, spread: 80 }, // Choir
+  { on: [1, 1, 0, 0], iv: [6, 4, 0, 0],  voices: 32, width: 200, hum: 80, roles: [3, 1, 0, 2], colour: 45, spread: 90 }, // Ambient
+  { on: [1, 0, 0, 0], iv: [0, 2, 0, 0],  voices: 4,  width: 140, hum: 20, roles: [0, 1, 2, 3], colour: 30, spread: 25 }, // Doubles
 ];
 
 function setP(id, v) { currentValues[id] = v; nf.setParam(id, v); }
+const ROLE_NAMES = ["High", "Low", "Octave", "Top", "Bass"];
+const harmModeNow = () => Math.round(Number(currentValues.harmMode ?? 0));
+const AI_LABELS = {
+  aiColour:   v => v < 40 ? "Triads" : v < 75 ? "7ths" : "7ths · 9ths",
+  aiMovement: v => v < 35 ? "Smooth" : v < 70 ? "Natural" : "Bold",
+  aiSpread:   v => v < 35 ? "Close" : v < 70 ? "Medium" : "Open",
+};
 
 function showView(v) {
   const harm = v === "harm";
@@ -475,11 +482,20 @@ function renderHarmony() {
   $("harmPowerLabel").textContent = on ? "HARMONY ON" : "HARMONY OFF";
   $("harmView").classList.toggle("is-off", !on);
 
-  const midi = Math.round(Number(currentValues.harmMode ?? 0)) === 1;
-  document.querySelectorAll("#modeSeg button").forEach((b) => b.classList.toggle("is-active", (b.dataset.mode === "1") === midi));
+  const mode = harmModeNow(), midi = mode === 1, ai = mode === 2;
+  document.querySelectorAll("#modeSeg button").forEach((b) => b.classList.toggle("is-active", Number(b.dataset.mode) === mode));
   $("modeHint").textContent = midi ? "MIDI: play the harmony notes from a keyboard routed to Nova Pitch (one note per part)."
-                                   : "Scale: parts follow the Key and Scale above.";
-  $("partsHint").textContent = midi ? "· played from MIDI" : "· notes follow your key";
+                            : ai ? "AI: listens to your melody, works out the chords and writes each part."
+                                 : "Scale: parts follow the Key and Scale above.";
+  $("partsHint").textContent = midi ? "· played from MIDI" : ai ? "· follows your melody" : "· notes follow your key";
+  $("partsTitle").textContent = ai ? "AI Harmony" : "Harmony Parts";
+  $("harmView").classList.toggle("ai", ai);
+  for (const id of ["aiColour", "aiMovement", "aiSpread"]) {
+    const v = Number(currentValues[id] ?? 30);
+    const bar = document.querySelector('.aiCtl .bar[data-param="' + id + '"] i');
+    if (bar) bar.style.width = Math.max(0, Math.min(100, v)) + "%";
+    $(id + "V").textContent = AI_LABELS[id](v);
+  }
 
   const style = Math.round(Number(currentValues.harmStyle ?? 0));
   document.querySelectorAll("#styleSeg button").forEach((b) => b.classList.toggle("is-active", Number(b.dataset.style) === style));
@@ -488,7 +504,9 @@ function renderHarmony() {
     const pOn = !!currentValues["part" + (p + 1) + "On"];
     $("part" + p).classList.toggle("off", !pOn);
     $("partOnBtn" + p).classList.toggle("is-active", pOn);
-    $("partIntVal" + p).textContent = midi ? "MIDI note " + (p + 1) : INTERVAL_NAMES[Math.round(Number(currentValues["part" + (p + 1) + "Interval"] ?? 0))];
+    $("partIntVal" + p).textContent = midi ? "MIDI note " + (p + 1)
+      : ai ? ROLE_NAMES[Math.round(Number(currentValues["part" + (p + 1) + "Role"] ?? p))]
+           : INTERVAL_NAMES[Math.round(Number(currentValues["part" + (p + 1) + "Interval"] ?? 0))];
     $("partIntBtn" + p).disabled = midi;
     const db = Number(currentValues["part" + (p + 1) + "Level"] ?? 0);
     $("partLev" + p).textContent = (db > 0 ? "+" : "") + db.toFixed(1) + " dB";
@@ -496,8 +514,8 @@ function renderHarmony() {
 }
 
 function refreshHarmonyFromMeta(byId) {
-  const ids = ["harmOn", "harmMode", "harmStyle"];
-  for (let p = 1; p <= 4; p++) ids.push("part" + p + "On", "part" + p + "Interval", "part" + p + "Level");
+  const ids = ["harmOn", "harmMode", "harmStyle", "aiColour", "aiMovement", "aiSpread"];
+  for (let p = 1; p <= 4; p++) ids.push("part" + p + "On", "part" + p + "Interval", "part" + p + "Level", "part" + p + "Role");
   ids.forEach((id) => { if (byId[id]) currentValues[id] = byId[id].value; });
   renderHarmony();
 }
@@ -506,27 +524,46 @@ function initIntervalPopover(p) {
   const btn = $("partIntBtn" + p);
   const pop = document.createElement("div");
   pop.className = "stepPopover";
-  INTERVAL_NAMES.forEach((name, i) => {
-    const item = document.createElement("button");
-    item.type = "button"; item.className = "stepPopoverItem"; item.textContent = name;
-    item.addEventListener("click", (e) => {
-      e.stopPropagation();
-      setP("part" + (p + 1) + "Interval", i);
-      if (!currentValues["part" + (p + 1) + "On"]) setP("part" + (p + 1) + "On", 1);
-      pop.classList.remove("is-open");
-      renderHarmony();
+  const fill = () => {
+    const ai = harmModeNow() === 2;
+    const names = ai ? ROLE_NAMES : INTERVAL_NAMES;
+    const id = "part" + (p + 1) + (ai ? "Role" : "Interval");
+    const cur = Math.round(Number(currentValues[id] ?? 0));
+    pop.innerHTML = "";
+    names.forEach((name, i) => {
+      const item = document.createElement("button");
+      item.type = "button"; item.className = "stepPopoverItem" + (i === cur ? " is-selected" : ""); item.textContent = name;
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setP(id, i);
+        if (!currentValues["part" + (p + 1) + "On"]) setP("part" + (p + 1) + "On", 1);
+        pop.classList.remove("is-open");
+        renderHarmony();
+      });
+      pop.appendChild(item);
     });
-    pop.appendChild(item);
-  });
+  };
   btn.parentElement.appendChild(pop);
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
-    const cur = Math.round(Number(currentValues["part" + (p + 1) + "Interval"] ?? 0));
-    [...pop.children].forEach((c, i) => c.classList.toggle("is-selected", i === cur));
+    fill();
     pop.classList.toggle("is-open");
   });
   document.addEventListener("pointerdown", (e) => {
     if (pop.classList.contains("is-open") && !pop.contains(e.target) && !btn.contains(e.target)) pop.classList.remove("is-open");
+  });
+}
+
+function initAiBars() {
+  document.querySelectorAll(".aiCtl .bar").forEach((bar) => {
+    const id = bar.dataset.param;
+    const set = (e) => {
+      const r = bar.getBoundingClientRect();
+      setP(id, Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * 100));
+      renderHarmony();
+    };
+    bar.addEventListener("pointerdown", (e) => { e.preventDefault(); bar.setPointerCapture(e.pointerId); set(e); bar.onpointermove = set; });
+    bar.addEventListener("pointerup", () => { bar.onpointermove = null; });
   });
 }
 
@@ -552,6 +589,8 @@ function applyStyle(i) {
     setP("part" + (p + 1) + "On", st.on[p]);
     setP("part" + (p + 1) + "Interval", st.iv[p]);
   }
+  for (let p = 0; p < 4; p++) setP("part" + (p + 1) + "Role", st.roles[p]);
+  setP("aiColour", st.colour); setP("aiSpread", st.spread);
   setP("harmVoices", st.voices); setP("harmWidth", st.width); setP("harmHumanize", st.hum);
   [["harmVoices", st.voices], ["harmWidth", st.width], ["harmHumanize", st.hum]].forEach(([id, v]) => setKnobVisual($(id + "Knob"), v));
   renderHarmony();
@@ -576,6 +615,7 @@ function initHarmony() {
   $("harmOnBtn").addEventListener("click", () => { setP("harmOn", currentValues.harmOn ? 0 : 1); renderHarmony(); });
   document.querySelectorAll("#modeSeg button").forEach((b) => b.addEventListener("click", () => { setP("harmMode", Number(b.dataset.mode)); renderHarmony(); }));
   document.querySelectorAll("#styleSeg button").forEach((b) => b.addEventListener("click", () => applyStyle(Number(b.dataset.style))));
+  initAiBars();
   for (let p = 0; p < 4; p++) {
     initIntervalPopover(p);
     initLevelDrag(p);
@@ -584,13 +624,33 @@ function initHarmony() {
   renderHarmony();
 }
 
+const REL_NAMES = ["unison", "♭2nd", "2nd", "♭3rd", "3rd", "4th", "♭5th", "5th", "♭6th", "6th", "♭7th", "7th"];
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"];
+const chordLabel = (code) => code < 0 ? "--" : KEY_NAMES[Math.floor(code / 4)] + (code % 4 === 1 ? "m" : code % 4 === 2 ? "°" : "");
 function updateHarmonyMeters(data) {
   const parts = Array.isArray(data.parts) ? data.parts : [];
+  const ai = harmModeNow() === 2;
+  const lead = data.targetMidi > 0 ? Math.round(data.targetMidi) : 0;
   for (let p = 0; p < 4; p++) {
     const m = Math.round(parts[p] || 0);
     const el = $("partNote" + p);
-    if (m > 0) el.innerHTML = KEY_NAMES[m % 12] + "<span>" + (Math.floor(m / 12) - 1) + "</span>";
+    if (m > 0) {
+      let rel = "";
+      if (ai && lead > 0) {
+        const d = m - lead, a = Math.abs(d);
+        rel = '<span class="rel">' + (d >= 0 ? "↑" : "↓") + (a === 12 ? "8ve" : a % 12 === 0 && a ? "2 8ve" : REL_NAMES[a % 12]) + "</span>";
+      }
+      el.innerHTML = KEY_NAMES[m % 12] + "<span>" + (Math.floor(m / 12) - 1) + "</span>" + rel;
+    }
     else el.textContent = "--";
+  }
+  if (ai) {
+    const code = Number(data.aiChord ?? -1), deg = Number(data.aiDegree ?? -1);
+    let roman = deg >= 0 ? ROMAN[deg] : "";
+    if (code >= 0 && code % 4 !== 0) roman = roman.toLowerCase() + (code % 4 === 2 ? "°" : "");
+    $("aiChordName").innerHTML = code >= 0 ? chordLabel(code) + "<small>" + roman + "</small>" : "--";
+    const hist = (data.aiHist || []).filter((c) => c >= 0);
+    $("aiProg").innerHTML = hist.map((c, i) => '<span class="' + (i === hist.length - 1 ? "now" : "") + '">' + chordLabel(c) + "</span>").join("<i>›</i>");
   }
   const levels = Array.isArray(data.voiceLevels) ? data.voiceLevels : [];
   const n = data.activeVoices || 0;

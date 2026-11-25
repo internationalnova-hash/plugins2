@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "NovaVocalTuner.h"
+#include "NovaAiHarmony.h"
 #include "DSP/NovaFormantCorrector.h"
 
 // Nova Pitch harmony engine. Runs beside the tuning engine and never touches
@@ -32,6 +33,8 @@ public:
     {
         bool  on = false;
         bool  midiMode = false;
+        bool  aiMode = false;                   // AI Harmony: parts follow the chords the melody implies
+        NovaAiHarmony::Settings ai;             // roles + colour/movement/spread (key filled in by the engine)
         NovaVocalTuner::Params lead;            // the lead tuner's settings (key, scale, speed...)
         int   keyPc = 0;
         int   stepMask = 0xAB5;                 // scale used to step intervals (relative to keyPc)
@@ -68,11 +71,13 @@ public:
     float getPartMidi (int p) const noexcept { return partMidiMeter[(size_t) p].load (std::memory_order_relaxed); }
     float getVoiceLevel (int v) const noexcept { return voiceMeter[(size_t) v].load (std::memory_order_relaxed); }
     int   getActiveVoiceCount() const noexcept { return activeVoiceMeter.load (std::memory_order_relaxed); }
+    const NovaAiHarmony& getAi() const noexcept { return ai; }
 
     // Semitone shift for an interval choice from a note (exposed for tests).
     static int intervalShift (int note, int intervalIndex, int keyPc, int stepMask) noexcept;
 
 private:
+    NovaAiHarmony ai;
     struct Part
     {
         NovaVocalTuner tuner;

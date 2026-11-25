@@ -384,6 +384,29 @@
 
   .trackBtn { min-width: 64px; justify-content: center; font-weight: 700; color: var(--text-dim); }
   .trackBtn.is-active { background: #6ee7a8; border-color: #6ee7a8; color: #0a0a10; box-shadow: 0 0 14px rgba(110,231,168,0.45); }
+
+  /* AI Harmony */
+  .aiChord { display:none; align-items:center; gap:14px; padding:10px 14px; margin-bottom:8px; border-radius:12px; background:rgba(156,125,255,.08); border:1px solid rgba(156,125,255,.35); }
+  .harmView.ai .aiChord { display:flex; }
+  .aiChord .lbl { font-size:9.5px; letter-spacing:.18em; color:#8a8a9c; font-weight:700; }
+  .aiChord .big { font-size:28px; font-weight:800; letter-spacing:-.02em; color:#f1f1f7; line-height:1; min-width:64px; }
+  .aiChord .big small { font-size:13px; color:#b79bff; font-weight:700; margin-left:6px; }
+  .aiProg { display:flex; gap:5px; margin-left:auto; align-items:center; }
+  .aiProg span { font-size:11px; padding:4px 8px; border-radius:6px; border:1px solid #2a2a3a; color:#8a8a9c; font-weight:600; }
+  .aiProg span.now { color:#f1f1f7; border-color:#9c7dff; background:rgba(156,125,255,.18); }
+  .aiProg i { color:#555566; font-style:normal; font-size:10px; }
+  .aiCtl { display:none; grid-template-columns:1fr 1fr 1fr; gap:12px; padding:10px 12px; margin-top:6px; border-radius:12px; border:1px solid #23232f; background:#12121a; }
+  .harmView.ai .aiCtl { display:grid; }
+  .aiCtl .c { display:flex; flex-direction:column; gap:6px; }
+  .aiCtl .t { display:flex; justify-content:space-between; font-size:10px; letter-spacing:.12em; color:#8a8a9c; font-weight:700; }
+  .aiCtl .t b { color:#f1f1f7; letter-spacing:0; font-weight:600; }
+  .aiCtl .bar { height:14px; position:relative; cursor:ew-resize; }
+  .aiCtl .bar::before { content:""; position:absolute; left:0; right:0; top:5px; height:4px; border-radius:2px; background:#262634; }
+  .aiCtl .bar i { position:absolute; left:0; top:5px; height:4px; border-radius:2px; background:#9c7dff; box-shadow:0 0 8px rgba(156,125,255,.45); }
+  .aiCtl .ends { display:flex; justify-content:space-between; font-size:9.5px; color:#555566; }
+  .pnote .rel { color:#8a8a9c; font-weight:500; margin-left:4px; font-size:11px; }
+  .aiBadge { font-size:9px; font-weight:800; letter-spacing:.1em; color:#0a0a10; background:#b79bff; padding:2px 6px; border-radius:4px; margin-left:6px; vertical-align:1px; display:none; }
+  .harmView.ai .aiBadge { display:inline; }
 </style>
 </head>
 <body>
@@ -549,11 +572,17 @@
     <div class="viewWrap harm" id="harmViewWrap" style="display:none">
     <section class="harmView" id="harmView">
       <div class="harmTop">
-        <div class="partsCol"><div class="secHead">Harmony Parts <span id="partsHint">· notes follow your key</span></div>
+        <div class="partsCol"><div class="secHead"><span id="partsTitle">Harmony Parts</span><span class="aiBadge">AI</span> <span id="partsHint">· notes follow your key</span></div>
+<div class="aiChord" id="aiChord"><div><div class="lbl">CHORD</div><div class="big" id="aiChordName">--</div></div><div class="aiProg" id="aiProg"></div></div>
 <div class="part" id="part0"><span class="sw" style="background:#6ee7a8;box-shadow:0 0 8px #6ee7a8"></span><div class="pname">PART 1</div><div class="partInt"><button class="intervalBtn" id="partIntBtn0" style="width:100%"><span id="partIntVal0">3rd Above</span><small>›</small></button></div><div class="pnote" id="partNote0">--</div><div class="plev" id="partLev0" title="Drag up/down">-4.0 dB</div><button class="powerBtn" id="partOnBtn0" aria-label="Part 1 on">⏻</button></div>
 <div class="part" id="part1"><span class="sw" style="background:#ffb86b;box-shadow:0 0 8px #ffb86b"></span><div class="pname">PART 2</div><div class="partInt"><button class="intervalBtn" id="partIntBtn1" style="width:100%"><span id="partIntVal1">3rd Above</span><small>›</small></button></div><div class="pnote" id="partNote1">--</div><div class="plev" id="partLev1" title="Drag up/down">-4.0 dB</div><button class="powerBtn" id="partOnBtn1" aria-label="Part 2 on">⏻</button></div>
 <div class="part" id="part2"><span class="sw" style="background:#ff7eb6;box-shadow:0 0 8px #ff7eb6"></span><div class="pname">PART 3</div><div class="partInt"><button class="intervalBtn" id="partIntBtn2" style="width:100%"><span id="partIntVal2">3rd Above</span><small>›</small></button></div><div class="pnote" id="partNote2">--</div><div class="plev" id="partLev2" title="Drag up/down">-4.0 dB</div><button class="powerBtn" id="partOnBtn2" aria-label="Part 3 on">⏻</button></div>
 <div class="part" id="part3"><span class="sw" style="background:#7cd1ff;box-shadow:0 0 8px #7cd1ff"></span><div class="pname">PART 4</div><div class="partInt"><button class="intervalBtn" id="partIntBtn3" style="width:100%"><span id="partIntVal3">3rd Above</span><small>›</small></button></div><div class="pnote" id="partNote3">--</div><div class="plev" id="partLev3" title="Drag up/down">-4.0 dB</div><button class="powerBtn" id="partOnBtn3" aria-label="Part 4 on">⏻</button></div>
+<div class="aiCtl" id="aiCtl">
+  <div class="c"><div class="t">COLOUR <b id="aiColourV">Triads</b></div><div class="bar" data-param="aiColour"><i></i></div><div class="ends"><span>Triads</span><span>7ths · 9ths</span></div></div>
+  <div class="c"><div class="t">MOVEMENT <b id="aiMovementV">Smooth</b></div><div class="bar" data-param="aiMovement"><i></i></div><div class="ends"><span>Smooth</span><span>Bold</span></div></div>
+  <div class="c"><div class="t">SPREAD <b id="aiSpreadV">Close</b></div><div class="bar" data-param="aiSpread"><i></i></div><div class="ends"><span>Close</span><span>Open</span></div></div>
+</div>
         </div>
         <div class="stackCol">
           <div class="secHead">Voice Stack <span id="stackHead">· 8 of 32 voices</span></div>
@@ -564,7 +593,7 @@
       </div>
       <div class="harmFoot">
         <div class="miniLabel">Harmony Mode</div>
-        <div class="seg" id="modeSeg"><button data-mode="0">SCALE</button><button data-mode="1">MIDI</button></div>
+        <div class="seg" id="modeSeg"><button data-mode="0">SCALE</button><button data-mode="2">AI</button><button data-mode="1">MIDI</button></div>
         <div class="harmHint" id="modeHint">Scale: parts follow the Key and Scale above.</div>
         <div class="harmPower" id="harmPower"><span id="harmPowerLabel">HARMONY OFF</span><button class="powerBtn" id="harmOnBtn" aria-label="Harmony on">⏻</button></div>
       </div>

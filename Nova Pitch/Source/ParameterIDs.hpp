@@ -28,7 +28,7 @@ namespace ParameterIDs
 
     // Harmony (new): parts 1-4 + voice stack
     static constexpr const char* harmOn       = "harmOn";
-    static constexpr const char* harmMode     = "harmMode";      // 0 = Scale, 1 = MIDI
+    static constexpr const char* harmMode     = "harmMode";      // 0 = Scale, 1 = MIDI, 2 = AI
     static constexpr const char* harmStyle    = "harmStyle";
     static constexpr const char* harmVoices   = "harmVoices";
     static constexpr const char* harmWidth    = "harmWidth";
@@ -38,4 +38,9 @@ namespace ParameterIDs
     static constexpr const char* partOn[4]       = { "part1On", "part2On", "part3On", "part4On" };
     static constexpr const char* partInterval[4] = { "part1Interval", "part2Interval", "part3Interval", "part4Interval" };
     static constexpr const char* partLevel[4]    = { "part1Level", "part2Level", "part3Level", "part4Level" };
+    // AI Harmony
+    static constexpr const char* partRole[4]     = { "part1Role", "part2Role", "part3Role", "part4Role" };
+    static constexpr const char* aiColour   = "aiColour";
+    static constexpr const char* aiMovement = "aiMovement";
+    static constexpr const char* aiSpread   = "aiSpread";
 }

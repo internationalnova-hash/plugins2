@@ -62,7 +62,7 @@ NovaPitchAudioProcessor::createParameterLayout()
     const juce::StringArray intervals { "Unison", "2nd Above", "3rd Above", "4th Above", "5th Above", "6th Above",
                                         "Octave Above", "3rd Below", "4th Below", "5th Below", "6th Below", "Octave Below" };
     params.push_back (std::make_unique<juce::AudioParameterBool>  (ParameterIDs::harmOn, "Harmony", false));
-    params.push_back (std::make_unique<juce::AudioParameterChoice> (ParameterIDs::harmMode, "Harmony Mode", juce::StringArray { "Scale", "MIDI" }, 0));
+    params.push_back (std::make_unique<juce::AudioParameterChoice> (ParameterIDs::harmMode, "Harmony Mode", juce::StringArray { "Scale", "MIDI", "AI" }, 0));
     params.push_back (std::make_unique<juce::AudioParameterChoice> (ParameterIDs::harmStyle, "Harmony Style",
         juce::StringArray { "Pop", "R&B", "Trap", "Gospel", "Choir", "Ambient", "Doubles" }, 0));
     params.push_back (std::make_unique<juce::AudioParameterInt>   (ParameterIDs::harmVoices, "Voices", 1, 32, 8));
@@ -80,6 +80,14 @@ NovaPitchAudioProcessor::createParameterLayout()
         params.push_back (std::make_unique<juce::AudioParameterChoice> (ParameterIDs::partInterval[i], n + " Interval", intervals, intervalDefault[i]));
         params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::partLevel[i], n + " Level", -24.0f, 6.0f, levelDefault[i]));
     }
+    // AI Harmony: each part's job, and how the parts are written
+    const int roleDefault[4] = { 0, 1, 2, 3 };
+    for (int i = 0; i < 4; ++i)
+        params.push_back (std::make_unique<juce::AudioParameterChoice> (ParameterIDs::partRole[i], "Part " + juce::String (i + 1) + " Role",
+            juce::StringArray { "High", "Low", "Octave", "Top", "Bass" }, roleDefault[i]));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::aiColour, "AI Colour", 0.0f, 100.0f, 30.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::aiMovement, "AI Movement", 0.0f, 100.0f, 35.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (ParameterIDs::aiSpread, "AI Spread", 0.0f, 100.0f, 25.0f));
 
     return { params.begin(), params.end() };
 }
@@ -258,7 +266,14 @@ void NovaPitchAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     // Harmony settings (the harmony engine runs beside the tuner, never inside it)
     NovaPitchHarmony::Params hp;
     hp.on       = apvts.getRawParameterValue (ParameterIDs::harmOn)->load() >= 0.5f;
-    hp.midiMode = (int) apvts.getRawParameterValue (ParameterIDs::harmMode)->load() == 1;
+    const int harmModeIdx = (int) apvts.getRawParameterValue (ParameterIDs::harmMode)->load();
+    hp.midiMode = harmModeIdx == 1;
+    hp.aiMode   = harmModeIdx == 2;
+    hp.ai.colour   = apvts.getRawParameterValue (ParameterIDs::aiColour)->load() / 100.0f;
+    hp.ai.movement = apvts.getRawParameterValue (ParameterIDs::aiMovement)->load() / 100.0f;
+    hp.ai.spread   = apvts.getRawParameterValue (ParameterIDs::aiSpread)->load() / 100.0f;
+    for (int i = 0; i < NovaPitchHarmony::kParts; ++i)
+        hp.ai.role[(size_t) i] = (int) apvts.getRawParameterValue (ParameterIDs::partRole[i])->load();
     hp.lead     = engine.getTunerParams();
     hp.keyPc    = p.keyPitchClass;
     // Intervals step through the key's major or minor scale (chromatic and
