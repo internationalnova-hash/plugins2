@@ -1,0 +1,2 @@
+Sample Pro Tools text exports from swift-daw-file-tools by orchetect (MIT licence):
+https://github.com/orchetect/swift-daw-file-tools

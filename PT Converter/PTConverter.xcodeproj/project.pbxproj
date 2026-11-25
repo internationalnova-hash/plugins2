@@ -10,6 +10,9 @@
 		AA000001 /* PTConverterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001 /* PTConverterApp.swift */; };
 		AA000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100002 /* ContentView.swift */; };
 		AA000003 /* PTXParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100003 /* PTXParser.swift */; };
+		BB000003 /* PlanExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB100003 /* PlanExporter.swift */; };
+		BB000002 /* SessionBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB100002 /* SessionBuilder.swift */; };
+		BB000001 /* SessionText.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB100001 /* SessionText.swift */; };
 		AA000004 /* AudioConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100004 /* AudioConverter.swift */; };
 		AA000005 /* NovaStudioExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100005 /* NovaStudioExporter.swift */; };
 		AA000006 /* ConversionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100006 /* ConversionEngine.swift */; };
@@ -21,6 +24,9 @@
 		AA100001 /* PTConverterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTConverterApp.swift; sourceTree = "<group>"; };
 		AA100002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA100003 /* PTXParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTXParser.swift; sourceTree = "<group>"; };
+		BB100003 /* PlanExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanExporter.swift; sourceTree = "<group>"; };
+		BB100002 /* SessionBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionBuilder.swift; sourceTree = "<group>"; };
+		BB100001 /* SessionText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionText.swift; sourceTree = "<group>"; };
 		AA100004 /* AudioConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioConverter.swift; sourceTree = "<group>"; };
 		AA100005 /* NovaStudioExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NovaStudioExporter.swift; sourceTree = "<group>"; };
 		AA100006 /* ConversionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversionEngine.swift; sourceTree = "<group>"; };
@@ -57,6 +63,9 @@
 				AA100001 /* PTConverterApp.swift */,
 				AA100002 /* ContentView.swift */,
 				AA100003 /* PTXParser.swift */,
+				BB100003 /* PlanExporter.swift */,
+				BB100002 /* SessionBuilder.swift */,
+				BB100001 /* SessionText.swift */,
 				AA100004 /* AudioConverter.swift */,
 				AA100005 /* NovaStudioExporter.swift */,
 				AA100006 /* ConversionEngine.swift */,
@@ -153,6 +162,9 @@
 				AA000001 /* PTConverterApp.swift in Sources */,
 				AA000002 /* ContentView.swift in Sources */,
 				AA000003 /* PTXParser.swift in Sources */,
+				BB000003 /* PlanExporter.swift in Sources */,
+				BB000002 /* SessionBuilder.swift in Sources */,
+				BB000001 /* SessionText.swift in Sources */,
 				AA000004 /* AudioConverter.swift in Sources */,
 				AA000005 /* NovaStudioExporter.swift in Sources */,
 				AA000006 /* ConversionEngine.swift in Sources */,

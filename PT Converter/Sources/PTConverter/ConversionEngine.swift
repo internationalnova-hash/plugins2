@@ -51,7 +51,20 @@ class ConversionEngine: ObservableObject {
     }
 
     // -----------------------------------------------------------------------
-    private func runConversion(sessionFolder: URL) async throws {
+    private func runConversion(sessionFolder input: URL) async throws {
+        // ── 0. Prefer Pro Tools' own "Session Info as Text" export (exact) ──
+        var isDir: ObjCBool = false
+        FileManager.default.fileExists(atPath: input.path, isDirectory: &isDir)
+        let sessionFolder = isDir.boolValue ? input : input.deletingLastPathComponent()
+        let textURL: URL? = isDir.boolValue ? findSessionText(in: sessionFolder)
+                                            : (PTSessionTextParser.looksLikeExport(input) ? input : nil)
+        if let t = textURL {
+            try await runTextConversion(textURL: t, sessionFolder: sessionFolder)
+            return
+        }
+        addLog(.warning, "No “Session Info as Text” export found — reading the .ptx directly (clip positions may be off).")
+        addLog(.warning, "For an exact conversion: in Pro Tools choose File › Export › Session Info as Text, tick Include File List, Clip List, Track EDLs and User Timestamps, set Time Format to Samples, and save it in the session folder.")
+
         // ── 1. Find the .ptx file ───────────────────────────────────────────
         addLog(.info, "Looking for .ptx session file…")
         guard let ptxURL = findPTX(in: sessionFolder) else {
@@ -197,6 +210,67 @@ class ConversionEngine: ObservableObject {
         outputFolderURL  = outRoot
         addLog(.success, "Done! Session saved to Desktop.")
         addLog(.success, sessionFile.lastPathComponent)
+    }
+
+    // -----------------------------------------------------------------------
+    // MARK: – Exact path: Session Info text export
+    // -----------------------------------------------------------------------
+    private func runTextConversion(textURL: URL, sessionFolder: URL) async throws {
+        addLog(.info, "Using \(textURL.lastPathComponent) (Pro Tools Session Info export)")
+        let text = try PTSessionTextParser().parse(PTSessionTextParser.load(textURL))
+        addLog(.info, "Session “\(text.name)” · \(Int(text.sampleRate)) Hz · \(text.tracks.count) tracks · times in \(text.timeFormat.rawValue)\(text.hasTimestamps ? " · with timestamps" : "")")
+        progress = 0.1
+
+        let plan = SessionBuilder(text: text, sessionFolder: sessionFolder).build()
+        for w in plan.warnings { addLog(.warning, w) }
+        for f in plan.missingFiles { addLog(.warning, "Audio file not found: \(f)") }
+        addLog(.info, "Placed \(plan.clipCount) clip(s) on \(plan.tracks.filter { !$0.clips.isEmpty }.count) track(s) — \(plan.exactOffsets) exact\(plan.guessedOffsets > 0 ? ", \(plan.guessedOffsets) estimated" : "")")
+        progress = 0.2
+
+        let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first!
+        let suffix = exportFormat == .novaStudio ? "Nova Studio" : exportFormat.rawValue
+        let outRoot = desktop.appendingPathComponent("\(plan.name) (\(suffix))")
+        let outAudio = outRoot.appendingPathComponent(exportFormat == .novaStudio ? "Audio" : ".sources")
+        try FileManager.default.createDirectory(at: outAudio, withIntermediateDirectories: true)
+        addLog(.info, "Output → \(outRoot.path)")
+
+        let exporter = PlanExporter()
+        var lines: [String] = []
+        let sources = exporter.prepareSources(plan, outAudio: outAudio) { lines.append($0) }
+        for l in lines { addLog(l.hasPrefix("⚠︎") ? .warning : .info, l) }
+        progress = 0.7
+
+        if exportFormat == .novaStudio {
+            let file = try exporter.writeNovaStudio(plan, sources: sources, outRoot: outRoot)
+            outputSessionURL = file
+            addLog(.success, "Done! \(file.lastPathComponent)")
+        } else {
+            lines = []
+            let stems = try exporter.renderStems(plan, sources: sources, outDir: outRoot, aac: exportFormat == .aacStems) { lines.append($0) }
+            for l in lines { addLog(.info, l) }
+            try? FileManager.default.removeItem(at: outAudio)
+            addLog(.success, "Done! \(stems.count) stem(s), all starting at 0 and the same length.")
+        }
+        outputFolderURL = outRoot
+        progress = 1.0
+    }
+
+    /// The newest "Session Info as Text" export in (or just below) the session folder
+    private func findSessionText(in folder: URL) -> URL? {
+        let fm = FileManager.default
+        var found: [URL] = []
+        if let en = fm.enumerator(at: folder, includingPropertiesForKeys: [.contentModificationDateKey],
+                                  options: [.skipsHiddenFiles]) {
+            for case let u as URL in en {
+                if en.level > 2 { en.skipDescendants(); continue }
+                if u.pathExtension.lowercased() == "txt", PTSessionTextParser.looksLikeExport(u) { found.append(u) }
+            }
+        }
+        return found.max { a, b in
+            let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let db = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return da < db
+        }
     }
 
     // -----------------------------------------------------------------------

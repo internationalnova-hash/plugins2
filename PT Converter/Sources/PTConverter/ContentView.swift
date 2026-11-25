@@ -30,6 +30,9 @@ struct ContentView: View {
                 formatPicker
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
+                exportTip
+                    .padding(.horizontal, 24)
+                    .padding(.top, 8)
                 progressSection
                     .padding(.horizontal, 24)
                     .padding(.top, 10)
@@ -106,7 +109,7 @@ struct ContentView: View {
                     Text("Drop your Pro Tools session folder here")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.white)
-                    Text("or click to browse — supports .ptx & .pts sessions")
+                    Text("or its “Session Info as Text” .txt — click to browse")
                         .font(.system(size: 13))
                         .foregroundColor(.gray)
                 }
@@ -133,6 +136,18 @@ struct ContentView: View {
         .onTapGesture {
             guard !engine.isRunning else { return }
             openFolderPanel()
+        }
+    }
+
+    // ── How to get an exact conversion ───────────────────────────────────────
+    var exportTip: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "info.circle").foregroundColor(accent).font(.system(size: 12))
+            Text("For an exact conversion, in Pro Tools choose File › Export › Session Info as Text, tick Include File List, Clip List, Track EDLs and User Timestamps, set Time Format to Samples, and save it in the session folder.")
+                .font(.system(size: 11))
+                .foregroundColor(.gray)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
         }
     }
 
@@ -271,10 +286,11 @@ struct ContentView: View {
 
     private func openFolderPanel() {
         let panel = NSOpenPanel()
-        panel.canChooseFiles = false
+        panel.canChooseFiles = true
         panel.canChooseDirectories = true
+        panel.allowedContentTypes = [.folder, .plainText]
         panel.allowsMultipleSelection = false
-        panel.message = "Select your Pro Tools session folder"
+        panel.message = "Select your Pro Tools session folder, or its Session Info as Text export (.txt)"
         panel.prompt = "Convert"
         if panel.runModal() == .OK, let url = panel.url {
             Task { await engine.convert(sessionFolder: url) }

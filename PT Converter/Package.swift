@@ -11,6 +11,12 @@ let package = Package(
             swiftSettings: [
                 .unsafeFlags(["-framework", "AVFoundation", "-framework", "AppKit"])
             ]
+        ),
+        .testTarget(
+            name: "PTConverterTests",
+            dependencies: ["PTConverter"],
+            path: "Tests/PTConverterTests",
+            resources: [.copy("Fixtures")]
         )
     ]
 )
