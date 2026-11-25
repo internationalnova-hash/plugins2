@@ -30,8 +30,8 @@ class AudioConverter {
         let fmt = inFile.processingFormat
         let length = inFile.length
 
-        // Cap at 48kHz — 192kHz multi-track playback overwhelms most DAW engines
-        let outRate: Double = min(fmt.sampleRate, 48000)
+        // Keep the session's own rate (44.1/48/88.2/96 kHz stay as they are); only 176.4/192 kHz come down to 96 kHz
+        let outRate: Double = min(fmt.sampleRate, 96000)
         let needsSRC = outRate != fmt.sampleRate
 
         let outSettings: [String: Any] = [
@@ -46,7 +46,7 @@ class AudioConverter {
 
         let outFile = try AVAudioFile(forWriting: dest, settings: outSettings,
                                       commonFormat: .pcmFormatFloat32,
-                                      interleaved: true)
+                                      interleaved: false)   // must match the reader's layout or stereo files fail (-50)
 
         if needsSRC {
             guard let avc = AVAudioConverter(from: inFile.processingFormat,

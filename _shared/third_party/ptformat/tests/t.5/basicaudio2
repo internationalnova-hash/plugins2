@@ -1,0 +1,54 @@
+#!/bin/sh
+
+[ -e ../../tests.sh ] && . ../../tests.sh
+
+NAME="PT5 2"
+FILE=../../bins/Fa_16_48.pts
+EXPECT='ProTools 5 Session: Samplerate = 48000Hz
+Target samplerate = 48000
+
+1 wavs, 1 regions, 14 active regions
+
+Audio file (WAV#) @ offset, length:
+`24000.aif` w(0) @ 0, 24000
+
+Region (Region#) (WAV#) @ into-sample, length:
+`24000` r(0) w(0) @ 0, 24000
+
+MIDI Region (Region#) @ into-sample, length:
+
+Track name (Track#) (Region#) @ Absolute:
+`24000` t(0) r(0) @ 0
+`24000` t(0) r(0) @ 0
+`24000` t(0) r(0) @ 0
+`24000` t(0) r(0) @ 0
+`24000` t(0) r(0) @ 0
+`24000` t(0) r(0) @ 0
+`24000` t(0) r(0) @ 0
+`24000` t(0) r(0) @ 0
+`Audio 1` t(1) r(0) @ 0
+`Audio 1` t(1) r(0) @ 0
+`Audio 1` t(1) r(0) @ 0
+`Audio 2` t(2) r(0) @ 0
+`Audio 2` t(2) r(0) @ 0
+`Audio 3` t(3) r(0) @ 0
+
+MIDI Track name (MIDITrack#) (MIDIRegion#) @ Absolute:
+
+Track name (Track#) (WAV filename) @ Absolute + Into-sample, Length:
+`24000` t(0) (24000.aif) @ 0 + 0, 24000
+`24000` t(0) (24000.aif) @ 0 + 0, 24000
+`24000` t(0) (24000.aif) @ 0 + 0, 24000
+`24000` t(0) (24000.aif) @ 0 + 0, 24000
+`24000` t(0) (24000.aif) @ 0 + 0, 24000
+`24000` t(0) (24000.aif) @ 0 + 0, 24000
+`24000` t(0) (24000.aif) @ 0 + 0, 24000
+`24000` t(0) (24000.aif) @ 0 + 0, 24000
+`Audio 1` t(1) (24000.aif) @ 0 + 0, 24000
+`Audio 1` t(1) (24000.aif) @ 0 + 0, 24000
+`Audio 1` t(1) (24000.aif) @ 0 + 0, 24000
+`Audio 2` t(2) (24000.aif) @ 0 + 0, 24000
+`Audio 2` t(2) (24000.aif) @ 0 + 0, 24000
+`Audio 3` t(3) (24000.aif) @ 0 + 0, 24000'
+
+run_test

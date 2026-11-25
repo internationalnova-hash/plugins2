@@ -49,3 +49,9 @@ _shared/ARA_SDK/
 
 # Swift package build output
 .build/
+
+# ptformat build outputs
+_shared/third_party/ptformat/ptftool
+_shared/third_party/ptformat/ptx2json
+_shared/third_party/ptformat/ptunxor
+_shared/third_party/ptformat/ptgenmissing

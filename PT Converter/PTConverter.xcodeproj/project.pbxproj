@@ -10,6 +10,7 @@
 		AA000001 /* PTConverterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001 /* PTConverterApp.swift */; };
 		AA000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100002 /* ContentView.swift */; };
 		AA000003 /* PTXParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100003 /* PTXParser.swift */; };
+		BB000004 /* PTXReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB100004 /* PTXReader.swift */; };
 		BB000003 /* PlanExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB100003 /* PlanExporter.swift */; };
 		BB000002 /* SessionBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB100002 /* SessionBuilder.swift */; };
 		BB000001 /* SessionText.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB100001 /* SessionText.swift */; };
@@ -24,6 +25,7 @@
 		AA100001 /* PTConverterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTConverterApp.swift; sourceTree = "<group>"; };
 		AA100002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA100003 /* PTXParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTXParser.swift; sourceTree = "<group>"; };
+		BB100004 /* PTXReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTXReader.swift; sourceTree = "<group>"; };
 		BB100003 /* PlanExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanExporter.swift; sourceTree = "<group>"; };
 		BB100002 /* SessionBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionBuilder.swift; sourceTree = "<group>"; };
 		BB100001 /* SessionText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionText.swift; sourceTree = "<group>"; };
@@ -63,6 +65,7 @@
 				AA100001 /* PTConverterApp.swift */,
 				AA100002 /* ContentView.swift */,
 				AA100003 /* PTXParser.swift */,
+				BB100004 /* PTXReader.swift */,
 				BB100003 /* PlanExporter.swift */,
 				BB100002 /* SessionBuilder.swift */,
 				BB100001 /* SessionText.swift */,
@@ -162,6 +165,7 @@
 				AA000001 /* PTConverterApp.swift in Sources */,
 				AA000002 /* ContentView.swift in Sources */,
 				AA000003 /* PTXParser.swift in Sources */,
+				BB000004 /* PTXReader.swift in Sources */,
 				BB000003 /* PlanExporter.swift in Sources */,
 				BB000002 /* SessionBuilder.swift in Sources */,
 				BB000001 /* SessionText.swift in Sources */,

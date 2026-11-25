@@ -46,16 +46,18 @@ final class PlanExporter {
         return out
     }
 
-    /// Two mono files -> one interleaved stereo 24-bit WAV (max 48 kHz like the rest)
+    /// Two mono files -> one interleaved stereo 24-bit WAV (max 96 kHz like the rest)
     func mergeToStereo (left: URL, right: URL, dest: URL) throws -> Prepared {
         let lf = try AVAudioFile (forReading: left), rf = try AVAudioFile (forReading: right)
-        let rate = min (lf.processingFormat.sampleRate, 48000)
+        let rate = min (lf.processingFormat.sampleRate, 96000)
         let frames = max (lf.length, rf.length)
         let fmt = AVAudioFormat (standardFormatWithSampleRate: lf.processingFormat.sampleRate, channels: 2)!
         let settings: [String: Any] = [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: lf.processingFormat.sampleRate,
                                        AVNumberOfChannelsKey: 2, AVLinearPCMBitDepthKey: 24, AVLinearPCMIsFloatKey: false,
                                        AVLinearPCMIsBigEndianKey: false, AVLinearPCMIsNonInterleaved: false]
-        let tmp = dest.deletingLastPathComponent().appendingPathComponent (".merge-" + UUID().uuidString + ".wav")
+        // at 96 kHz and below the joined file is already final; above that it's converted down afterwards
+        let direct = lf.processingFormat.sampleRate <= 96000
+        let tmp = direct ? dest : dest.deletingLastPathComponent().appendingPathComponent (".merge-" + UUID().uuidString + ".wav")
         do {
             let out = try AVAudioFile (forWriting: tmp, settings: settings, commonFormat: .pcmFormatFloat32, interleaved: false)
             let chunk: AVAudioFrameCount = 65536
@@ -66,8 +68,11 @@ final class PlanExporter {
             while done < frames {
                 let n = AVAudioFrameCount (min (Int64 (chunk), frames - done))
                 lb.frameLength = 0; rb.frameLength = 0
-                if lf.framePosition < lf.length { try lf.read (into: lb, frameCount: n) }
-                if rf.framePosition < rf.length { try rf.read (into: rb, frameCount: n) }
+                // read exactly what's left (asking past the end makes Core Audio fail with -50)
+                let nl = AVAudioFrameCount (max (0, min (Int64 (n), lf.length - lf.framePosition)))
+                let nr = AVAudioFrameCount (max (0, min (Int64 (n), rf.length - rf.framePosition)))
+                if nl > 0 { try lf.read (into: lb, frameCount: nl) }
+                if nr > 0 { try rf.read (into: rb, frameCount: nr) }
                 ob.frameLength = n
                 let o0 = ob.floatChannelData![0], o1 = ob.floatChannelData![1]
                 let l0 = lb.floatChannelData![0], r0 = rb.floatChannelData![0]
@@ -79,18 +84,21 @@ final class PlanExporter {
                 done += Int64 (n)
             }
         }
-        // same 48 kHz ceiling as single files
-        let final = try converter.convertToWAV (src: tmp, outDir: dest.deletingLastPathComponent(),
-                                                newName: dest.deletingPathExtension().lastPathComponent)
-        try? FileManager.default.removeItem (at: tmp)
-        let f = try AVAudioFile (forReading: final.outputURL)
+        var finalURL = dest
+        if !direct {
+            let final = try converter.convertToWAV (src: tmp, outDir: dest.deletingLastPathComponent(),
+                                                    newName: dest.deletingPathExtension().lastPathComponent)
+            try? FileManager.default.removeItem (at: tmp)
+            finalURL = final.outputURL
+        }
+        let f = try AVAudioFile (forReading: finalURL)
         _ = rate
-        return Prepared (url: final.outputURL, sampleRate: f.fileFormat.sampleRate, frames: f.length)
+        return Prepared (url: finalURL, sampleRate: f.fileFormat.sampleRate, frames: f.length)
     }
 
     /// The Nova Studio session. Positions are rescaled to the converted audio's rate.
     func writeNovaStudio (_ plan: SessionPlan, sources: [SourceKey: Prepared], outRoot: URL) throws -> URL {
-        let outRate = min (plan.sampleRate, 48000)
+        let outRate = min (plan.sampleRate, 96000)
         let k = outRate / plan.sampleRate
         func s (_ v: Int64) -> Double { (Double (v) * k).rounded() }
 
@@ -132,7 +140,7 @@ final class PlanExporter {
 
     /// One stem per track, every stem the full session length from 0, clips/fades/mutes applied.
     func renderStems (_ plan: SessionPlan, sources: [SourceKey: Prepared], outDir: URL, aac: Bool, log: (String) -> Void) throws -> [URL] {
-        let outRate = min (plan.sampleRate, 48000)
+        let outRate = min (plan.sampleRate, 96000)
         let k = outRate / plan.sampleRate
         let total = Int (Double (plan.sessionEnd) * k) + 1
         var written: [URL] = []

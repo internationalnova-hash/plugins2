@@ -62,7 +62,20 @@ class ConversionEngine: ObservableObject {
             try await runTextConversion(textURL: t, sessionFolder: sessionFolder)
             return
         }
-        addLog(.warning, "No “Session Info as Text” export found — reading the .ptx directly (clip positions may be off).")
+        // ── 0b. Read the .ptx itself with ptformat (Ardour's session reader) ──
+        if let ptx = findPTX(in: sessionFolder) {
+            addLog(.info, "Reading \(ptx.lastPathComponent)…")
+            do {
+                let j = try PTXReader.read(ptx)
+                addLog(.info, "Pro Tools \(j.version ?? 0) session · \(Int(j.sampleRate ?? 0)) Hz · \(j.files?.count ?? 0) audio files")
+                let plan = PTXReader.plan(j, sessionName: ptx.deletingPathExtension().lastPathComponent, sessionFolder: sessionFolder)
+                try await exportPlan(plan)
+                return
+            } catch {
+                addLog(.warning, "Session reader: \(error.localizedDescription) — trying the older reader.")
+            }
+        }
+        addLog(.warning, "Using the older reader (clip positions may be off).")
         addLog(.warning, "For an exact conversion: in Pro Tools choose File › Export › Session Info as Text, tick Include File List, Clip List, Track EDLs and User Timestamps, set Time Format to Samples, and save it in the session folder.")
 
         // ── 1. Find the .ptx file ───────────────────────────────────────────
@@ -222,6 +235,11 @@ class ConversionEngine: ObservableObject {
         progress = 0.1
 
         let plan = SessionBuilder(text: text, sessionFolder: sessionFolder).build()
+        try await exportPlan(plan)
+    }
+
+    /// Shared by both exact paths (text export and .ptx reader)
+    private func exportPlan(_ plan: SessionPlan) async throws {
         for w in plan.warnings { addLog(.warning, w) }
         for f in plan.missingFiles { addLog(.warning, "Audio file not found: \(f)") }
         addLog(.info, "Placed \(plan.clipCount) clip(s) on \(plan.tracks.filter { !$0.clips.isEmpty }.count) track(s) — \(plan.exactOffsets) exact\(plan.guessedOffsets > 0 ? ", \(plan.guessedOffsets) estimated" : "")")
@@ -386,7 +404,7 @@ class ConversionEngine: ObservableObject {
             throw NSError(domain: "PTConverter", code: 10,
                           userInfo: [NSLocalizedDescriptionKey: "Cannot open \(sources[0].lastPathComponent)"])
         }
-        let outRate = min(firstFile.processingFormat.sampleRate, 48000)
+        let outRate = min(firstFile.processingFormat.sampleRate, 96000)
         let chCount = firstFile.processingFormat.channelCount
 
         let outSettings: [String: Any] = [
