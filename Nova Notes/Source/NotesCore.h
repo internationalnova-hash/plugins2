@@ -34,8 +34,12 @@ namespace NovaNotes
         float formant = 0.f;        // cents
         float gainDb = 0.f;
         float timeShift = 0.f;      // seconds (moves the note, neighbours stretch)
+        // Hand-drawn pitch line (Draw tool): one value per frame of the note, in semitones
+        // relative to `pitch` (so it moves with the note); NaN where nothing is drawn.
+        std::vector<float> drawn;
 
         bool isEdited() const noexcept;
+        bool hasDrawn() const noexcept;
     };
 
     struct Key { int tonic = 0; bool minor = false; float confidence = 0.f; };

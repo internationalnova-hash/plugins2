@@ -455,7 +455,7 @@ void NovaNotesProcessor::resetNotes (const std::vector<int>& ids)
             if (ids.empty() || std::find (ids.begin(), ids.end(), n.id) != ids.end())
             {
                 n.pitch = n.center; n.drift = 0.f; n.vibrato = 1.f; n.transition = 0.5f;
-                n.formant = 0.f; n.gainDb = 0.f; n.timeShift = 0.f;
+                n.formant = 0.f; n.gainDb = 0.f; n.timeShift = 0.f; n.drawn.clear();
             }
     }
     notesChanged();

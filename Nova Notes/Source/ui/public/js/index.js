@@ -68,7 +68,13 @@ function derive(n) {
   derived.set(n.id, out);
   return out;
 }
-const pitchAt = (n, d, i) => n.p + d.dev[i] - n.dr * d.slow[i] + (n.vb - 1) * d.fast[i];
+// what will be heard at display point i of note n: the drawn line where there is one
+const drawnAt = (n, d, i) => {
+  if (!n.dw) return null;
+  const v = n.dw[(d.a + i) * track.dec - n.s];
+  return v === null || v === undefined || !Number.isFinite(v) ? null : v;
+};
+const pitchAt = (n, d, i) => { const dv = drawnAt(n, d, i); return dv !== null ? n.p + dv : n.p + d.dev[i] - n.dr * d.slow[i] + (n.vb - 1) * d.fast[i]; };
 
 // ── canvas setup ────────────────────────────────────────────────────────────
 const roll = $("roll"), ctx = roll.getContext("2d");
@@ -206,6 +212,17 @@ function drawNote(n) {
       pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true;
     }
     ctx.strokeStyle = isSel ? "#ffffff" : "rgba(236,230,255,.85)"; ctx.lineWidth = 1.3; ctx.stroke();
+    // hand-drawn parts on top, in orange
+    if (n.dw) {
+      ctx.beginPath(); pen = false;
+      for (let i = 0; i < N; i++) {
+        const dv = drawnAt(n, d, i);
+        if (dv === null) { pen = false; continue; }
+        const x = x0 + (x1 - x0) * (N > 1 ? i / (N - 1) : 0.5), y = yOf(n.p + dv);
+        pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true;
+      }
+      ctx.strokeStyle = "#ffb86b"; ctx.lineWidth = 2; ctx.stroke();
+    }
   }
 }
 
@@ -317,7 +334,34 @@ const selectedIds = () => [...sel];
 const scopeIds = () => sel.size ? [...sel] : [];
 
 // ── mouse ───────────────────────────────────────────────────────────────────
-let drag = null, marquee = null;
+let drag = null, marquee = null, pencil = null;
+
+// Paint (or erase) the drawn pitch line between two points (time s, pitch m) on every note it crosses
+function paintSegment(ta, ma, tb, mb, e) {
+  const fs = frameSec(), changed = new Map();
+  const lo = Math.min(ta, tb), hi = Math.max(ta, tb);
+  for (const n of notes) {
+    const ns = noteStart(n), ne = noteEnd(n);
+    if (ne < lo || ns > hi) continue;
+    const len = n.e - n.s;
+    const f0 = Math.max(0, Math.floor((lo - ns) / fs)), f1 = Math.min(len - 1, Math.ceil((hi - ns) / fs));
+    if (f1 < f0) continue;
+    let dw = changed.get(n.id) || (n.dw ? n.dw.slice() : new Array(len).fill(null));
+    for (let k = f0; k <= f1; k++) {
+      const t = ns + k * fs;
+      const u = hi > lo ? (t - ta) / (tb - ta) : 0;
+      let m = ma + (mb - ma) * clamp(u, 0, 1);
+      if (e.metaKey || e.ctrlKey) m = Math.round(m);            // ⌘: snap to notes
+      dw[k] = e.altKey ? null : Math.round((m - n.p) * 1000) / 1000;   // ⌥: erase
+    }
+    changed.set(n.id, dw);
+    pencil.touched.add(n.id);
+  }
+  if (!changed.size) return;
+  const list = [...changed].map(([id, dw]) => ({ id, dw: dw.some(v => v !== null) ? dw : [] }));
+  patch(list, pencil.first);
+  pencil.first = false;
+}
 roll.addEventListener("mousedown", e => {
   if (!track) return;
   const { x, y } = local(e);
@@ -326,6 +370,13 @@ roll.addEventListener("mousedown", e => {
 
   if (tool === "split") {
     if (n) { const f = Math.round((tOf(x) - n.ts) / frameSec()); native("split", n.id, f); }
+    return;
+  }
+  if (tool === "draw") {
+    // snapshot every note's drawing so a straight line (⇧) can be redrawn from the anchor each move
+    pencil = { t0: tOf(x), m0: mOf(y), tLast: tOf(x), mLast: mOf(y), first: true,
+               snapshot: new Map(notes.map(o => [o.id, o.dw ? o.dw.slice() : null])), touched: new Set() };
+    paintSegment(pencil.t0, pencil.m0, pencil.t0, pencil.m0, e);
     return;
   }
   if (!n) {
@@ -342,6 +393,25 @@ roll.addEventListener("mousedown", e => {
 });
 window.addEventListener("mousemove", e => {
   const { x, y } = local(e);
+  if (pencil) {
+    const t = tOf(x), m = mOf(y);
+    if (e.shiftKey) {
+      // straight line from where the stroke started: put drawings back, then draw the line
+      const restore = [];
+      for (const n of notes) {
+        const sn = pencil.snapshot.get(n.id);
+        n.dw = sn ? sn.slice() : undefined;
+        if (pencil.touched.has(n.id)) restore.push({ id: n.id, dw: sn ? sn.slice() : [] });
+      }
+      pencil.touched.clear();
+      if (restore.length) patch(restore, false);
+      paintSegment(pencil.t0, pencil.m0, t, m, e);
+    } else {
+      paintSegment(pencil.tLast, pencil.mLast, t, m, e);
+    }
+    pencil.tLast = t; pencil.mLast = m;
+    return;
+  }
   if (marquee) {
     marquee.x1 = x; marquee.y1 = y;
     const ta = tOf(Math.min(marquee.x0, x)), tb = tOf(Math.max(marquee.x0, x));
@@ -378,11 +448,13 @@ window.addEventListener("mousemove", e => {
   if (list.length) { patch(list, drag.first); drag.first = false; }
 });
 window.addEventListener("mouseup", () => {
+  if (pencil) { pencil = null; flushPatches(); }
   if (marquee) { marquee = null; draw(); }
   if (drag) { drag = null; flushPatches(); }
 });
 roll.addEventListener("dblclick", e => {
   const p = local(e), n = noteAt(p.x, p.y);
+  if (n && tool === "draw") { patch([{ id: n.id, dw: [] }], true); flushPatches(); return; }   // clear this note's drawing
   if (!n || (tool !== "main" && tool !== "pitch")) return;
   const ids = sel.has(n.id) ? [...sel] : [n.id];
   patch(ids.map(id => { const o = notes.find(q => q.id === id); return { id, p: Math.round(o.c) }; }), true);
@@ -392,7 +464,7 @@ function hoverCursor(x, y) {
   if (!track || x < KEYW || y < RULER) return "default";
   const n = noteAt(x, y);
   if (!n) return "crosshair";
-  return { main: "move", pitch: "ns-resize", drift: "ns-resize", time: "ew-resize", formant: "ns-resize", level: "ns-resize", split: "col-resize" }[tool];
+  return { main: "move", pitch: "ns-resize", drift: "ns-resize", time: "ew-resize", formant: "ns-resize", level: "ns-resize", split: "col-resize", draw: "crosshair" }[tool];
 }
 
 roll.addEventListener("wheel", e => {
@@ -453,14 +525,14 @@ function zoomBy(f) {
 }
 
 // ── keyboard ────────────────────────────────────────────────────────────────
-const TOOLS = ["main", "pitch", "drift", "time", "formant", "level", "split"];
+const TOOLS = ["main", "pitch", "drift", "time", "formant", "level", "split", "draw"];
 window.addEventListener("keydown", e => {
   if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT" && e.target.type !== "range") return;
   const cmd = e.metaKey || e.ctrlKey;
   if (cmd && e.key.toLowerCase() === "z") { e.preventDefault(); flushPatches(); native(e.shiftKey ? "redo" : "undo"); return; }
   if (cmd && e.key.toLowerCase() === "a") { e.preventDefault(); notes.forEach(n => sel.add(n.id)); updateInspector(); draw(); return; }
   if (e.key === "Escape") { sel.clear(); updateInspector(); draw(); return; }
-  if (!cmd && e.key >= "1" && e.key <= "7") { setTool(TOOLS[+e.key - 1]); return; }
+  if (!cmd && e.key >= "1" && e.key <= "8") { setTool(TOOLS[+e.key - 1]); return; }
   if ((e.key === "ArrowUp" || e.key === "ArrowDown") && sel.size) {
     e.preventDefault();
     const d = (e.key === "ArrowUp" ? 1 : -1) * (e.altKey ? 0.1 : 1);

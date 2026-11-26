@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+#include <limits>
 #include <cstdio>
 
 namespace NovaNotes
@@ -41,7 +42,13 @@ namespace
 bool Note::isEdited() const noexcept
 {
     return std::abs (pitch - center) > 1.0e-4f || drift > 1.0e-4f || std::abs (vibrato - 1.f) > 1.0e-4f
-        || std::abs (formant) > 0.01f || std::abs (gainDb) > 0.01f || std::abs (timeShift) > 1.0e-5f;
+        || std::abs (formant) > 0.01f || std::abs (gainDb) > 0.01f || std::abs (timeShift) > 1.0e-5f || hasDrawn();
+}
+
+bool Note::hasDrawn() const noexcept
+{
+    for (float v : drawn) if (std::isfinite (v)) return true;
+    return false;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -696,10 +703,22 @@ int splitNote (std::vector<Note>& notes, int id, int frame, const PitchTrack& t)
         right.start = frame;
         n.end = frame;
         const float shiftL = n.pitch - n.center, shiftR = right.pitch - right.center;
+        const float oldPitch = n.pitch;
+        std::vector<float> dl, dr;
+        if (! n.drawn.empty())
+        {
+            const size_t cut = (size_t) std::min ((int) n.drawn.size(), frame - n.start);
+            dl.assign (n.drawn.begin(), n.drawn.begin() + (std::ptrdiff_t) cut);
+            dr.assign (n.drawn.begin() + (std::ptrdiff_t) cut, n.drawn.end());
+        }
         n.center = measureCenter (t, n.start, n.end);
         right.center = measureCenter (t, right.start, right.end);
         n.pitch = n.center + shiftL;
         right.pitch = right.center + shiftR;
+        for (auto& v : dl) if (std::isfinite (v)) v += oldPitch - n.pitch;
+        for (auto& v : dr) if (std::isfinite (v)) v += oldPitch - right.pitch;
+        n.drawn = dl;
+        right.drawn = dr;
         notes.insert (notes.begin() + (std::ptrdiff_t) i + 1, right);
         return right.id;
     }
@@ -830,6 +849,31 @@ namespace
                 c.formant[(size_t) f] = n.formant;
                 c.gainDb[(size_t) f] = n.gainDb;
                 owner[(size_t) f] = (int) i;
+            }
+
+            // Drawn pitch line: where drawn, the note sings exactly the drawn pitch.
+            // Blended in/out over a few frames so the edges of a drawing don't jump.
+            if (n.hasDrawn())
+            {
+                const int len = n.end - n.start;
+                std::vector<float> target ((size_t) len, std::numeric_limits<float>::quiet_NaN());
+                std::vector<float> w ((size_t) len, 0.f);
+                for (int k = 0; k < len && k < (int) n.drawn.size(); ++k)
+                    if (std::isfinite (n.drawn[(size_t) k])) { target[(size_t) k] = n.pitch + n.drawn[(size_t) k]; w[(size_t) k] = 1.f; }
+                // nearest drawn value for the blend zone just outside the drawing
+                std::vector<float> filled = target;
+                float last = std::numeric_limits<float>::quiet_NaN();
+                for (int k = 0; k < len; ++k) { if (std::isfinite (filled[(size_t) k])) last = filled[(size_t) k]; else filled[(size_t) k] = last; }
+                last = std::numeric_limits<float>::quiet_NaN();
+                for (int k = len - 1; k >= 0; --k) { if (std::isfinite (target[(size_t) k])) last = target[(size_t) k]; else if (! std::isfinite (filled[(size_t) k])) filled[(size_t) k] = last; }
+                w = movingAverage (movingAverage (w, 2), 2);   // ~20 ms ramps
+                for (int k = 0; k < len; ++k)
+                {
+                    const int f = n.start + k;
+                    if (f < 0 || f >= F || w[(size_t) k] <= 0.f || t.midi[(size_t) f] <= 0.f || ! std::isfinite (filled[(size_t) k])) continue;
+                    const float drawnOffset = filled[(size_t) k] - t.midi[(size_t) f];
+                    c.offset[(size_t) f] = c.offset[(size_t) f] * (1.f - w[(size_t) k]) + drawnOffset * w[(size_t) k];
+                }
             }
         }
         // Gaps: pitch offset from the nearest note (only matters where voiced),
@@ -1067,7 +1111,15 @@ juce::String notesToJson (const std::vector<Note>& notes)
           << ",\"c\":" << exact (n.center) << ",\"p\":" << exact (n.pitch)
           << ",\"dr\":" << exact (n.drift) << ",\"vb\":" << exact (n.vibrato)
           << ",\"tr\":" << exact (n.transition) << ",\"fm\":" << exact (n.formant)
-          << ",\"g\":" << exact (n.gainDb) << ",\"ts\":" << exact (n.timeShift) << "}";
+          << ",\"g\":" << exact (n.gainDb) << ",\"ts\":" << exact (n.timeShift);
+        if (n.hasDrawn())
+        {
+            s << ",\"dw\":[";
+            for (size_t k = 0; k < n.drawn.size(); ++k)
+                s << (k ? "," : "") << (std::isfinite (n.drawn[k]) ? exact (n.drawn[k]) : juce::String ("null"));
+            s << "]";
+        }
+        s << "}";
     }
     s << "]";
     return s;
@@ -1092,6 +1144,8 @@ std::vector<Note> notesFromJson (const juce::String& json)
             n.formant = (float) (double) o["fm"];
             n.gainDb = (float) (double) o["g"];
             n.timeShift = (float) (double) o["ts"];
+            if (auto* dw = o["dw"].getArray())
+                for (auto& v : *dw) n.drawn.push_back (v.isVoid() || v.isUndefined() ? std::numeric_limits<float>::quiet_NaN() : (float) (double) v);
             if (n.end > n.start) out.push_back (n);
         }
     return out;
@@ -1125,5 +1179,20 @@ void applyPatch (Note& n, const juce::var& p)
     if (p.hasProperty ("fm")) n.formant    = juce::jlimit (-1200.f, 1200.f, (float) (double) p["fm"]);
     if (p.hasProperty ("g"))  n.gainDb     = juce::jlimit (-48.f, 12.f, (float) (double) p["g"]);
     if (p.hasProperty ("ts")) n.timeShift  = juce::jlimit (-2.f, 2.f, (float) (double) p["ts"]);
+    if (p.hasProperty ("dw"))   // the whole drawn line for the note ([] = clear)
+    {
+        n.drawn.clear();
+        if (auto* dw = p["dw"].getArray())
+        {
+            const int len = n.end - n.start;
+            n.drawn.assign ((size_t) std::max (0, len), std::numeric_limits<float>::quiet_NaN());
+            for (int k = 0; k < len && k < dw->size(); ++k)
+            {
+                const auto& v = (*dw)[k];
+                if (! v.isVoid() && ! v.isUndefined()) n.drawn[(size_t) k] = juce::jlimit (-24.f, 24.f, (float) (double) v);
+            }
+            if (! n.hasDrawn()) n.drawn.clear();
+        }
+    }
 }
 }

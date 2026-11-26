@@ -5,6 +5,7 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <cstdio>
 #include <random>
+#include <limits>
 
 using namespace NovaNotes;
 
@@ -164,6 +165,34 @@ int main (int argc, char** argv)
     bool finite = true;
     for (float v : y) finite = finite && std::isfinite (v) && std::abs (v) < 2.f;
     check (misc.size() == notes.size() + 1 && finite, "split/time/formant/gain render cleanly");
+
+    // Draw tool: a hand-drawn line (rising 2 semitones across the note) is what you hear
+    {
+        auto drawnNotes = notes;
+        auto& dn = drawnNotes[2];
+        const int len = dn.end - dn.start;
+        dn.drawn.assign ((size_t) len, std::numeric_limits<float>::quiet_NaN());
+        for (int k = len / 5; k < len - len / 5; ++k) dn.drawn[(size_t) k] = 2.f * (float) k / (float) len - 0.5f;
+        render (x.data(), (int) x.size(), t, ep, drawnNotes, y.data());
+        const auto tr = trackPitch (y.data(), (int) y.size(), sr);
+        float worstDraw = 0.f; int counted = 0;
+        for (int k = len / 5 + 6; k < len - len / 5 - 6; ++k)
+        {
+            const float got = tr.midi[(size_t) (dn.start + k)];
+            if (got <= 0.f) continue;
+            worstDraw = std::max (worstDraw, std::abs (got - (dn.pitch + dn.drawn[(size_t) k])) * 100.f);
+            ++counted;
+        }
+        check (counted > 20 && worstDraw < 25.f, "drawn pitch line is followed (worst " + juce::String (worstDraw, 1) + " cents over " + juce::String (counted) + " frames)");
+        const auto rtDraw = notesFromJson (notesToJson (drawnNotes));
+        check (rtDraw[2].hasDrawn() && ! std::isfinite (rtDraw[2].drawn[0]) && std::abs (rtDraw[2].drawn[(size_t) len / 2] - dn.drawn[(size_t) len / 2]) < 1.0e-5f,
+               "drawn line survives save/reload");
+        auto split = drawnNotes;
+        NovaNotes::splitNote (split, split[2].id, split[2].start + len / 2, t);
+        const float before = drawnNotes[2].pitch + drawnNotes[2].drawn[(size_t) len / 2 + 2];
+        const float after = split[3].pitch + split[3].drawn[2];
+        check (std::abs (before - after) < 1.0e-4f, "splitting a drawn note keeps the drawing where it was");
+    }
 
     // JSON round trip
     const auto rt = notesFromJson (notesToJson (misc));
