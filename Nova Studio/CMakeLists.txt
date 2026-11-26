@@ -78,7 +78,24 @@ juce_add_gui_app(NovaStudio
     FILE_SHARING_ENABLED            TRUE
 )
 
+# Nova AI Master's own analysis/decision core (shared source, one engine everywhere)
+set(NOVA_AI_CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaAIMasterCore)
+set(NOVA_AI_CORE_SOURCES
+    ${NOVA_AI_CORE_DIR}/NovaAIMasterEngine.cpp
+    ${NOVA_AI_CORE_DIR}/Analysis/NovaLoudnessAnalyzer.cpp ${NOVA_AI_CORE_DIR}/Analysis/NovaDynamicsAnalyzer.cpp
+    ${NOVA_AI_CORE_DIR}/Analysis/NovaSpectralAnalyzer.cpp ${NOVA_AI_CORE_DIR}/Analysis/NovaStereoAnalyzer.cpp
+    ${NOVA_AI_CORE_DIR}/Decision/NovaMasteringDecisionEngine.cpp
+    ${NOVA_AI_CORE_DIR}/DSP/NovaCorrectiveEQ.cpp ${NOVA_AI_CORE_DIR}/DSP/NovaResonanceControl.cpp
+    ${NOVA_AI_CORE_DIR}/DSP/NovaGlueCompressor.cpp ${NOVA_AI_CORE_DIR}/DSP/NovaSaturation.cpp
+    ${NOVA_AI_CORE_DIR}/DSP/NovaStereoProcessor.cpp ${NOVA_AI_CORE_DIR}/DSP/NovaSoftClipper.cpp
+    ${NOVA_AI_CORE_DIR}/DSP/NovaLimiter.cpp ${NOVA_AI_CORE_DIR}/DSP/NovaMasteringChain.cpp)
+
 target_sources(NovaStudio PRIVATE
+    Source/mix/MixAnalysis.cpp
+    Source/mix/MixPlanner.cpp
+    Source/mix/MixApplier.cpp
+    Source/ui/MixAssistantWindow.cpp
+    ${NOVA_AI_CORE_SOURCES}
     Source/Main.cpp
     Source/MainComponent.cpp
     Source/StudioAudioEngine.cpp
@@ -101,6 +118,7 @@ target_sources(NovaStudio PRIVATE
     Source/ui/PluginBrowserPanel.cpp
     Source/ui/MacroPanel.cpp
 )
+target_include_directories(NovaStudio PRIVATE ${NOVA_AI_CORE_DIR})
 
 target_link_libraries(NovaStudio PRIVATE
     NovaStudioBinaryData
@@ -189,3 +207,30 @@ target_compile_definitions(NovaStudioValidation PRIVATE
     JUCE_PLUGINHOST_LV2=1
     JUCE_PLUGINHOST_AU=$<IF:$<BOOL:${APPLE}>,1,0>
 )
+
+# ── Mix Assistant checks on real sessions ───────────────────────────────────
+#   NovaStudioMixTest <session.novastudio> ...            what each track is
+#   NovaStudioMixTest --apply <session> <outdir> [style]   plan + apply + render before/after
+juce_add_console_app(NovaStudioMixTest PRODUCT_NAME "NovaStudioMixTest")
+target_sources(NovaStudioMixTest PRIVATE
+    Tests/MixAssistantTest.cpp
+    Source/mix/MixAnalysis.cpp Source/mix/MixPlanner.cpp Source/mix/MixApplier.cpp Source/ui/MixAssistantWindow.cpp
+    Source/StudioAudioEngine.cpp Source/StudioAudioEngineCore.cpp Source/StudioAudioEngineSession.cpp
+    Source/ClipStreamer.cpp Source/TimeStretcher.cpp Source/StudioAudioEngineWarp.cpp Source/TransportState.cpp
+    Source/TimelineModel.cpp Source/Session.cpp Source/ArrangementModel.cpp Source/NovaAlignProcessor.cpp
+    ${NOVA_AI_CORE_SOURCES})
+target_include_directories(NovaStudioMixTest PRIVATE ${NOVA_AI_CORE_DIR})
+target_link_libraries(NovaStudioMixTest PRIVATE
+    juce::juce_audio_basics juce::juce_audio_devices juce::juce_audio_formats juce::juce_audio_processors
+    juce::juce_audio_utils juce::juce_core juce::juce_data_structures juce::juce_dsp juce::juce_events
+    juce::juce_graphics juce::juce_gui_basics juce::juce_recommended_config_flags ${PLATFORM_LIBS})
+if(PLATFORM_INCLUDES)
+    target_include_directories(NovaStudioMixTest PRIVATE ${PLATFORM_INCLUDES})
+endif()
+if(PLATFORM_CFLAGS)
+    target_compile_options(NovaStudioMixTest PRIVATE ${PLATFORM_CFLAGS})
+endif()
+juce_generate_juce_header(NovaStudioMixTest)
+target_compile_definitions(NovaStudioMixTest PRIVATE
+    JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0 JUCE_MODAL_LOOPS_PERMITTED=1
+    JUCE_PLUGINHOST_VST3=1 JUCE_PLUGINHOST_LV2=1 JUCE_PLUGINHOST_AU=$<IF:$<BOOL:${APPLE}>,1,0>)

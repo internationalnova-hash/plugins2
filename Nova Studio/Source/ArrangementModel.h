@@ -149,6 +149,8 @@ namespace NovaStudio
         // Undo/Redo helpers
         juce::String getLastAlignError() const { return lastAlignError; }
         void undo();
+        /// Registers an action that changes more than clips (e.g. a whole Mix Assistant Apply) as one undo step
+        bool performUndoable(juce::UndoableAction* action, const juce::String& name) { undoManager.beginNewTransaction(name); return undoManager.perform(action); }
         void redo();
         bool canUndo() const;
         bool canRedo() const;

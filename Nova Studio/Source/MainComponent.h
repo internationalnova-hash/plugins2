@@ -6,6 +6,8 @@
 #include "ui/EditWindow.h"
 #include "ui/MixerWindow.h"
 #include "ui/BeatWindow.h"
+#include "ui/MixAssistantWindow.h"
+#include "mix/MixApplier.h"
 
 // ── FloatingPanelWindow ──────────────────────────────────────────────────────
 // A DocumentWindow that wraps any Component without owning it. On close,
@@ -95,7 +97,8 @@ private:
 
     // Nova Assistant (AI menu)
     void runNovaAssistant();
-    void runAiMix();
+    void showMixAssistant();
+    void refreshAfterSessionSwap();
     void findClippingTracks();
     void organizeSession();
     void createVocalBuses();
@@ -199,6 +202,7 @@ private:
     std::unique_ptr<FloatingPanelWindow> floatingMixer;
     std::unique_ptr<FloatingPanelWindow> floatingBeat;
     std::unique_ptr<FloatingPanelWindow> floatingBrowser;
+    std::unique_ptr<NovaStudioUI::MixAssistantWindow> mixAssistantWindow;
 
     // Pop-out toolbar buttons
     juce::TextButton popMixerBtn  { "^" };
