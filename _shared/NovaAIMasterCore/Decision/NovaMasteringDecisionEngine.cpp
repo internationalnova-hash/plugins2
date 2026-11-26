@@ -127,6 +127,7 @@ NovaMasteringPlan NovaMasteringDecisionEngine::decide (const NovaAudioProfile& p
     // have either without the other, and both call for suppression here.
     {
         plan.resonanceControl.active = true;
+        plan.resonanceControl.timed = true;
         const float problemSignal = juce::jmax (profile.resonanceScore, profile.harshness * 0.8f);
         plan.resonanceControl.amount = juce::jlimit (0.f, 1.f, problemSignal * (0.5f + intensity * 0.5f));
     }
@@ -204,6 +205,10 @@ NovaMasteringPlan NovaMasteringDecisionEngine::decide (const NovaAudioProfile& p
         // pathological source material (e.g. near-silent or already very
         // hot files).
         plan.output.gainDb = juce::jlimit (-6.f, 12.f, rawGainNeeded);
+        plan.output.applyGain = true;
+        plan.limiting.brickwall = true;
+        // a first guess: NovaAIMasterEngine::calibrateLoudness() renders the chain
+        // on the real audio and corrects gainDb until the target is actually met
     }
 
     return plan;

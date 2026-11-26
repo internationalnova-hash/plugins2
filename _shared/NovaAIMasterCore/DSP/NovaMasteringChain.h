@@ -34,6 +34,7 @@ public:
     void reset() noexcept;
     void setPlan (const NovaMasteringPlan& plan) noexcept;
     void process (juce::AudioBuffer<float>& buffer) noexcept;
+    int getLatencySamples() const noexcept { return stagesA.limiter.getLatencySamples(); }
 
 private:
     struct ChainStages
@@ -45,6 +46,7 @@ private:
         NovaStereoProcessor   stereo;
         NovaSoftClipper       clipper;
         NovaLimiter           limiter;
+        float                 drive = 1.f;   // plan.output.gainDb, into the clipper + limiter
 
         void prepare (const juce::dsp::ProcessSpec& spec);
         void reset() noexcept;

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <juce_dsp/juce_dsp.h>
+#include <array>
+#include <vector>
 #include "../Decision/NovaMasteringPlan.h"
 
 // Soft-knee limiter + true-peak-safe ceiling.
@@ -27,6 +29,16 @@ public:
     void process (juce::AudioBuffer<float>& buffer) noexcept;
 
     float getGainReductionDb() const noexcept { return gainReductionDb; }
+    int getLatencySamples() const noexcept { return delay; }   // the same in every mode
+    /// Take over another limiter's look-ahead audio (so a crossfade into this one starts from the same audio).
+    void continueFrom (const NovaLimiter& o) noexcept
+    {
+        if (o.delay != delay || o.delayRing.size() != delayRing.size()) return;
+        delayRing = o.delayRing; delayPos = o.delayPos;
+        ispHist = o.ispHist; ispPos = o.ispPos;
+        holdRing = o.holdRing; holdPos = o.holdPos;
+        boxRing = o.boxRing; boxPos = o.boxPos; boxSum = o.boxSum; env = o.env;
+    }
 
 private:
     NovaMasteringPlan::Limiting plan;
@@ -34,6 +46,19 @@ private:
     double sampleRate = 44100.0;
     float releaseCoeffRate = 0.006f;
     float gainReductionDb = 0.f;
+
+    // look-ahead (brickwall plans) - and the matching plain delay for the original mode
+    static constexpr int kIspTaps = 8;
+    void processLookAhead (juce::AudioBuffer<float>& buffer) noexcept;
+    void delayOnly (juce::AudioBuffer<float>& buffer) noexcept;
+    int look = 72, delay = 76, hold = 77;
+    std::vector<std::vector<float>> delayRing;
+    std::vector<std::array<float, kIspTaps>> ispHist;
+    std::array<std::array<float, kIspTaps>, 3> ispCoef {};
+    std::vector<float> holdRing, boxRing;
+    double boxSum = 0.0;
+    float env = 1.f;
+    int delayPos = 0, holdPos = 0, boxPos = 0, ispPos = 0, sinceResum = 0;
 
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
     int preparedNumChannels = 2;

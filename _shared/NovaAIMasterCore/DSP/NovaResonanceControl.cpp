@@ -91,6 +91,24 @@ void NovaResonanceControl::process (juce::AudioBuffer<float>& buffer) noexcept
     float* l = buffer.getWritePointer (0);
     float* r = nCh > 1 ? buffer.getWritePointer (1) : l;
 
+    if (! plan.timed) { processChunk (l, r, nCh, N); return; }   // original behaviour, for older saved masters
+
+    // Timed: work in short slices so detection and cuts follow the music the
+    // same way whatever block size the host uses.
+    constexpr int kSlice = 256;
+    for (int p = 0; p < N; p += kSlice)
+        processChunk (l + p, r + p, nCh, juce::jmin (kSlice, N - p));
+}
+
+void NovaResonanceControl::processChunk (float* l, float* r, int nCh, int N) noexcept
+{
+    const bool timed = plan.timed;
+    // per-slice coefficients from real time constants (timed plans only)
+    const float sliceSec  = (float) N / (float) sampleRate;
+    const float trendKeep = std::exp (-sliceSec / 1.0f);     // ~1 s trend
+    const float onset     = 1.f - std::exp (-sliceSec / 0.02f);
+    const float release   = 1.f - std::exp (-sliceSec / 0.15f);
+
     // Conservative by construction: max possible cut scales with
     // plan.amount, capped well short of aggressive (spec section 14:
     // "processing must be conservative").
@@ -117,21 +135,24 @@ void NovaResonanceControl::process (juce::AudioBuffer<float>& buffer) noexcept
     // only bands standing out above their own recent trend get reduced.
     for (size_t b = 0; b < kNumBands; ++b)
     {
-        const float trendCoeff = 0.9995f; // ~1s-ish at typical block rates via repeated per-block updates
+        const float trendCoeff = timed ? trendKeep : 0.9995f; // original: per block (block-size dependent)
+        if (timed && slowTrend[b] <= 0.f) slowTrend[b] = envelope[b];   // start from the signal, not from silence
         slowTrend[b] = slowTrend[b] * trendCoeff + envelope[b] * (1.f - trendCoeff);
 
         const float envDb   = juce::Decibels::gainToDecibels (envelope[b], -100.f);
         const float trendDb = juce::Decibels::gainToDecibels (slowTrend[b], -100.f);
-        const float excessDb = envDb - trendDb;
+        // timed: a band has to stand 3 dB above its own trend before it counts
+        // (ordinary kicks/snares rise that much over a 1 s average all the time)
+        const float excessDb = timed ? juce::jmax (0.f, envDb - trendDb - 3.f) : envDb - trendDb;
 
         const float targetReductionDb = juce::jlimit (0.f, maxReductionDb, excessDb * plan.amount * 0.6f);
 
         // Smooth toward target (fast-ish onset, slower release) so the
         // cut filter's coefficients don't jump abruptly block to block.
         if (targetReductionDb > currentReductionDb[b])
-            currentReductionDb[b] += (targetReductionDb - currentReductionDb[b]) * 0.3f;
+            currentReductionDb[b] += (targetReductionDb - currentReductionDb[b]) * (timed ? onset : 0.3f);
         else
-            currentReductionDb[b] += (targetReductionDb - currentReductionDb[b]) * 0.05f;
+            currentReductionDb[b] += (targetReductionDb - currentReductionDb[b]) * (timed ? release : 0.05f);
 
         float b0, b1, b2, a1, a2;
         designPeak (sampleRate, kBands[b].freq, -currentReductionDb[b], kCutQ, b0, b1, b2, a1, a2);

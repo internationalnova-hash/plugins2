@@ -36,10 +36,19 @@ public:
     // user changes Style/Intensity/Loudness without re-analyzing.
     NovaMasteringPlan decide (const NovaMasterUserPrefs& prefs) const;
 
+    // Renders the mastering chain on the analysed audio (offline, on its own
+    // chain - the realtime one is untouched) and corrects plan.output.gainDb
+    // until the measured integrated loudness lands on plan.output.targetLufs
+    // (EQ, glue, clipper and limiter all change loudness, so the plain
+    // "target minus measured" first guess is never exact). A few passes over
+    // the audio; call it off the audio thread.
+    NovaMasteringPlan calibrateLoudness (NovaMasteringPlan plan, const juce::AudioBuffer<float>& source) const;
+
     // Applies a plan to the realtime DSP chain. Call setPlan() once (e.g.
     // after MASTER is pressed), then process() per block/per whole buffer.
     void setPlan (const NovaMasteringPlan& plan) noexcept;
     void process (juce::AudioBuffer<float>& buffer) noexcept;
+    int getLatencySamples() const noexcept { return masteringChain.getLatencySamples(); }   // fixed per sample rate
 
 private:
     NovaLoudnessAnalyzer  loudnessAnalyzer;

@@ -75,8 +75,10 @@ public:
     // background analysis. Message-thread only.
     void beginAnalyze();
 
-    // Runs decide() (fast, synchronous) and hands the resulting plan to
-    // the audio thread via the spinlock-guarded pending-plan slot.
+    // Runs decide(), then calibrates the loudness by rendering the chain on
+    // the captured audio (a few seconds, on a background thread), and hands
+    // the plan to the audio thread via the spinlock-guarded pending-plan slot.
+    // buttonState reads Processing until it's done, then Complete.
     // Message-thread only. Only meaningful once buttonState is Ready or
     // Complete (i.e. analysis has produced a profile).
     void beginMaster (const NovaMasterUserPrefs& prefs);
@@ -95,9 +97,11 @@ private:
 
     void handleAsyncUpdate() override; // message thread: launches the background analysis job
     void runAnalysisJob (int numCapturedSamples); // background thread
+    void runMasterJob (NovaMasterUserPrefs prefs, juce::WeakReference<NovaAIMasterProcessor> safe);  // background thread
 
     NovaAIMasterEngine analysisEngine; // background-thread-only
     NovaAIMasterEngine realtimeEngine; // audio-thread-only
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::None> bypassDelay { 4096 };
 
     // ---- Capture buffer (pre-allocated, fixed capacity - spec section 31) ----
     static constexpr double kMaxCaptureSeconds = 180.0; // 3 minutes
@@ -106,6 +110,8 @@ private:
     std::atomic<bool> isCapturing { false };
     std::atomic<bool> analysisJobRunning { false }; // guards against double-launching the background job
     int captureCapacitySamples = 0;
+    std::atomic<int> capturedSamples { 0 };          // what the last analysis heard (for loudness calibration)
+    std::atomic<bool> masterJobRunning { false };
 
     // ---- Plan handoff (message thread -> audio thread) ----
     juce::SpinLock planLock;
@@ -117,5 +123,6 @@ private:
 
     std::atomic<NovaAIMasterButtonState> buttonState { NovaAIMasterButtonState::Idle };
 
+    JUCE_DECLARE_WEAK_REFERENCEABLE (NovaAIMasterProcessor)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NovaAIMasterProcessor)
 };

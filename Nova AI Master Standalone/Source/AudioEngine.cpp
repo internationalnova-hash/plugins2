@@ -90,11 +90,15 @@ void NovaAIMasterAudioEngine::runMasterJob (NovaMasterUserPrefs prefs)
     engine.analyze (importedBuffer);
     engine.finishAnalysis();
 
-    const NovaMasteringPlan plan = engine.decide (prefs);
+    const NovaMasteringPlan plan = engine.calibrateLoudness (engine.decide (prefs), importedBuffer);
     engine.setPlan (plan);
 
-    juce::AudioBuffer<float> newMastered;
-    newMastered.makeCopyOf (importedBuffer);
+    // the limiter looks ahead: render latency extra samples and drop them from the front
+    const int lat = engine.getLatencySamples();
+    juce::AudioBuffer<float> newMastered (importedBuffer.getNumChannels(), importedBuffer.getNumSamples() + lat);
+    newMastered.clear();
+    for (int ch = 0; ch < importedBuffer.getNumChannels(); ++ch)
+        newMastered.copyFrom (ch, 0, importedBuffer, ch, 0, importedBuffer.getNumSamples());
 
     // The DSP chain's internal oversamplers WERE prepared for
     // kOfflineBlockSize, so processing must be chunked to that size (unlike
@@ -106,6 +110,9 @@ void NovaAIMasterAudioEngine::runMasterJob (NovaMasterUserPrefs prefs)
         engine.process (chunk);
     }
 
+    for (int ch = 0; ch < newMastered.getNumChannels(); ++ch)
+        std::memmove (newMastered.getWritePointer (ch), newMastered.getReadPointer (ch) + lat, sizeof (float) * (size_t) importedBuffer.getNumSamples());   // overlapping: memmove
+    newMastered.setSize (newMastered.getNumChannels(), importedBuffer.getNumSamples(), true, false, true);
     masteredBuffer = std::move (newMastered);
     lastProfile = engine.getProfile();
     lastPlan = plan;

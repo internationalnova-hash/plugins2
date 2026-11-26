@@ -111,32 +111,43 @@ int main()
     prefs.intensity = 0.6f;
     prefs.loudness = NovaLoudnessMode::Balanced;
     proc.beginMaster (prefs);
-    check (proc.getButtonState() == NovaAIMasterButtonState::Complete, "button state -> Complete after beginMaster()");
+    const bool mastered = pumpUntil ([&] { return proc.getButtonState() == NovaAIMasterButtonState::Complete; }, 30000);
+    check (mastered, "button state -> Complete after beginMaster() (loudness calibrated in the background)");
 
     // Feed a steady tone through several blocks after MASTER, across the
     // crossfade window and beyond - confirms the plan handoff + crossfade
     // (task #83) works correctly end-to-end from the plugin's real control
     // surface, not just when driven directly at the DSP-chain level.
     bool postMasterFinite = true;
-    float lastSample = 0.f;
-    float worstJump = 0.f;
+    float lastSample = 0.f, lastIn = 0.f;
+    float worstJump = 0.f, worstInJump = 0.f;
+    double inSq = 0.0, outSq = 0.0;
     for (int b = 0; b < 20; ++b)
     {
         auto buf = makeBlock (2, blockSize, sr, 100 + b, blockSize);
+        const auto input = buf;
         juce::MidiBuffer midi;
         proc.processBlock (buf, midi);
         if (! isFinite (buf)) { postMasterFinite = false; break; }
 
         const float* d = buf.getReadPointer (0);
+        const float* x = input.getReadPointer (0);
         for (int i = 0; i < blockSize; ++i)
         {
-            worstJump = juce::jmax (worstJump, std::abs (d[i] - lastSample));
-            lastSample = d[i];
+            if (b > 0) { worstJump = juce::jmax (worstJump, std::abs (d[i] - lastSample)); worstInJump = juce::jmax (worstInJump, std::abs (x[i] - lastIn)); }
+            lastSample = d[i]; lastIn = x[i];
+            inSq += x[i] * x[i]; outSq += d[i] * d[i];
         }
     }
+    // The test tone itself jumps at every block (its pitch changes), and the
+    // master now brings it up to the loudness target - so judge the output's
+    // jumps against the input's own, scaled by the level change. A crossfade
+    // glitch (a cold chain cutting in) would be far above that.
+    const float levelRatio = (float) std::sqrt (outSq / juce::jmax (1.0e-12, inSq));
+    std::cout << "    input's own worst jump = " << worstInJump << ", level ratio = " << levelRatio << "\n";
     std::cout << "    worst sample-to-sample jump after MASTER (crossfade should keep this bounded) = " << worstJump << "\n";
     check (postMasterFinite, "audio stays finite through and after the plan crossfade");
-    check (worstJump < 0.5f, "no gross discontinuity from the plan transition (crossfade is working)");
+    check (worstJump < 1.5f * worstInJump * levelRatio + 0.05f, "no gross discontinuity from the plan transition (crossfade is working)");
 
     std::cout << "\n[Workflow] State recall (spec 37-38): reopening a session must reproduce the identical master WITHOUT re-analyzing\n";
     {
@@ -179,6 +190,7 @@ int main()
         reference.beginAnalyze();
         pumpUntil ([&] { return reference.getButtonState() == NovaAIMasterButtonState::Ready; }, 15000);
         reference.beginMaster (prefs);
+        pumpUntil ([&] { return reference.getButtonState() == NovaAIMasterButtonState::Complete; }, 30000);
 
         bool primed = true;
         for (int b = 0; b < 10; ++b) // run both past the crossfade window before comparing

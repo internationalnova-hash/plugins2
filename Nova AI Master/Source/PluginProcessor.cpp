@@ -26,6 +26,7 @@ namespace
         auto* res = xml->createNewChildElement ("ResonanceControl");
         res->setAttribute ("active", plan.resonanceControl.active);
         res->setAttribute ("amount", (double) plan.resonanceControl.amount);
+        res->setAttribute ("timed", plan.resonanceControl.timed);
 
         auto* comp = xml->createNewChildElement ("Compression");
         comp->setAttribute ("active", plan.compression.active);
@@ -54,10 +55,12 @@ namespace
         lim->setAttribute ("thresholdDb", (double) plan.limiting.thresholdDb);
         lim->setAttribute ("truePeakCeilDb", (double) plan.limiting.truePeakCeilDb);
         lim->setAttribute ("releaseMs", (double) plan.limiting.releaseMs);
+        lim->setAttribute ("brickwall", plan.limiting.brickwall);
 
         auto* out = xml->createNewChildElement ("Output");
         out->setAttribute ("targetLufs", (double) plan.output.targetLufs);
         out->setAttribute ("gainDb", (double) plan.output.gainDb);
+        out->setAttribute ("applyGain", plan.output.applyGain);
 
         return xml;
     }
@@ -83,6 +86,7 @@ namespace
         {
             plan.resonanceControl.active = res->getBoolAttribute ("active", plan.resonanceControl.active);
             plan.resonanceControl.amount = (float) res->getDoubleAttribute ("amount", plan.resonanceControl.amount);
+            plan.resonanceControl.timed  = res->getBoolAttribute ("timed", false);   // older saves: original behaviour
         }
 
         if (auto* comp = xml.getChildByName ("Compression"))
@@ -121,12 +125,14 @@ namespace
             plan.limiting.thresholdDb    = (float) lim->getDoubleAttribute ("thresholdDb", plan.limiting.thresholdDb);
             plan.limiting.truePeakCeilDb = (float) lim->getDoubleAttribute ("truePeakCeilDb", plan.limiting.truePeakCeilDb);
             plan.limiting.releaseMs      = (float) lim->getDoubleAttribute ("releaseMs", plan.limiting.releaseMs);
+            plan.limiting.brickwall      = lim->getBoolAttribute ("brickwall", false);   // older saves: original limiter
         }
 
         if (auto* out = xml.getChildByName ("Output"))
         {
             plan.output.targetLufs = (float) out->getDoubleAttribute ("targetLufs", plan.output.targetLufs);
             plan.output.gainDb     = (float) out->getDoubleAttribute ("gainDb", plan.output.gainDb);
+            plan.output.applyGain  = out->getBoolAttribute ("applyGain", false);         // older saves: gain never applied
         }
 
         return plan;
@@ -143,6 +149,7 @@ NovaAIMasterProcessor::NovaAIMasterProcessor()
 NovaAIMasterProcessor::~NovaAIMasterProcessor()
 {
     cancelPendingUpdate();
+    while (masterJobRunning.load()) juce::Thread::sleep (5);   // a Master in progress uses this processor
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout NovaAIMasterProcessor::createLayout()
@@ -173,6 +180,10 @@ void NovaAIMasterProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
 
     analysisEngine.prepare (spec);
     realtimeEngine.prepare (spec);
+    setLatencySamples (realtimeEngine.getLatencySamples());
+    bypassDelay.setMaximumDelayInSamples (juce::jmax (1, realtimeEngine.getLatencySamples()));
+    bypassDelay.prepare (spec);
+    bypassDelay.setDelay ((float) realtimeEngine.getLatencySamples());
 
     captureCapacitySamples = (int) (sampleRate * kMaxCaptureSeconds);
     captureBuffer.setSize (numChannels, captureCapacitySamples, false, true, true);
@@ -186,7 +197,13 @@ void NovaAIMasterProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     if (licenseGate.blocks (buffer)) return;   // not activated: pass audio through
     juce::ScopedNoDenormals noDenormals;
 
-    if (*apvts.getRawParameterValue ("bypass") > 0.5f) return;
+    if (*apvts.getRawParameterValue ("bypass") > 0.5f)
+    {
+        // same delay as the processed path, so the A/B preview doesn't shift in time
+        juce::dsp::AudioBlock<float> block (buffer);
+        bypassDelay.process (juce::dsp::ProcessContextReplacing<float> (block));
+        return;
+    }
 
     // Capture (spec section 31: no allocation - captureBuffer is fixed-size
     // from prepareToPlay). If the buffer fills mid-capture, stop and hand
@@ -278,6 +295,7 @@ void NovaAIMasterProcessor::setStateInformation (const void* data, int size)
 void NovaAIMasterProcessor::beginAnalyze()
 {
     const auto state = buttonState.load();
+    if (state == NovaAIMasterButtonState::Processing) return;   // still mastering from the last capture
 
     if (state == NovaAIMasterButtonState::Analyzing)
     {
@@ -317,6 +335,7 @@ void NovaAIMasterProcessor::runAnalysisJob (int numCapturedSamples)
     analysisEngine.analyze (capturedView);
     analysisEngine.finishAnalysis();
     lastProfile = analysisEngine.getProfile();
+    capturedSamples.store (numCapturedSamples);
 
     juce::MessageManager::callAsync ([this] {
         analysisJobRunning.store (false);
@@ -330,10 +349,24 @@ void NovaAIMasterProcessor::beginMaster (const NovaMasterUserPrefs& prefs)
     const auto state = buttonState.load();
     if (state != NovaAIMasterButtonState::Ready && state != NovaAIMasterButtonState::Complete)
         return; // no profile to decide from yet
+    if (masterJobRunning.exchange (true))
+        return;
 
     buttonState.store (NovaAIMasterButtonState::Processing);
+    juce::WeakReference<NovaAIMasterProcessor> safe (this);   // made here, on the message thread
+    juce::Thread::launch ([this, prefs, safe] { runMasterJob (prefs, safe); });
+}
 
-    const NovaMasteringPlan plan = analysisEngine.decide (prefs);
+void NovaAIMasterProcessor::runMasterJob (NovaMasterUserPrefs prefs, juce::WeakReference<NovaAIMasterProcessor> safe)
+{
+    NovaMasteringPlan plan = analysisEngine.decide (prefs);
+    const int n = juce::jmin (capturedSamples.load(), captureBuffer.getNumSamples());
+    if (n > 0)
+    {
+        // the capture isn't written again until the next Analyze (blocked while Processing)
+        juce::AudioBuffer<float> heard (captureBuffer.getArrayOfWritePointers(), captureBuffer.getNumChannels(), 0, n);
+        plan = analysisEngine.calibrateLoudness (plan, heard);
+    }
     lastPlan = plan;
 
     {
@@ -343,7 +376,11 @@ void NovaAIMasterProcessor::beginMaster (const NovaMasterUserPrefs& prefs)
     planPending.store (true, std::memory_order_release);
 
     buttonState.store (NovaAIMasterButtonState::Complete);
-    if (onMasterApplied) onMasterApplied();
+    juce::MessageManager::callAsync ([safe]
+    {
+        if (safe != nullptr && safe->onMasterApplied) safe->onMasterApplied();
+    });
+    masterJobRunning.store (false);   // last: the destructor waits for this
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new NovaAIMasterProcessor(); }

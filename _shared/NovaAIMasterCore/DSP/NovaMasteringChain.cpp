@@ -33,6 +33,7 @@ void NovaMasteringChain::ChainStages::setPlan (const NovaMasteringPlan& plan) no
     stereo.setPlan (plan.stereo);
     clipper.setPlan (plan.clipping);
     limiter.setPlan (plan.limiting);
+    drive = plan.output.applyGain ? juce::Decibels::decibelsToGain (juce::jlimit (-24.f, 24.f, plan.output.gainDb)) : 1.f;
 }
 
 void NovaMasteringChain::ChainStages::process (juce::AudioBuffer<float>& buffer) noexcept
@@ -44,6 +45,7 @@ void NovaMasteringChain::ChainStages::process (juce::AudioBuffer<float>& buffer)
     glue.process (buffer);
     saturation.process (buffer);
     stereo.process (buffer);
+    if (drive != 1.f) buffer.applyGain (drive);
     clipper.process (buffer);
     limiter.process (buffer);
 }
@@ -84,6 +86,8 @@ void NovaMasteringChain::setPlan (const NovaMasteringPlan& plan) noexcept
         return;
     }
 
+    // the incoming chain's limiter has been idle: give it the current look-ahead audio
+    incoming.limiter.continueFrom ((usingA ? stagesA : stagesB).limiter);
     crossfadeSamplesRemaining = crossfadeTotalSamples;
 }
 

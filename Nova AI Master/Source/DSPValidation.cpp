@@ -76,7 +76,13 @@ int main()
         auto processed = original;
         chain.process (processed);
 
-        const float diff = maxAbsDiff (original, processed);
+        // the limiter looks ahead: the output is the input delayed by the reported latency
+        const int lat = chain.getLatencySamples();
+        float diff = 0.f;
+        for (int ch = 0; ch < 2; ++ch)
+            for (int i = 0; i + lat < blockSize; ++i)
+                diff = juce::jmax (diff, std::abs (original.getSample (ch, i) - processed.getSample (ch, i + lat)));
+        std::cout << "    latency = " << lat << " samples\n";
         std::cout << "    max abs diff = " << diff << "\n";
         check (isFinite (processed), "output is finite");
         check (diff < 0.01f, "output matches input closely when nothing engages (diff < 0.01)");

@@ -89,3 +89,51 @@ void NovaAIMasterEngine::process (juce::AudioBuffer<float>& buffer) noexcept
 {
     masteringChain.process (buffer);
 }
+
+NovaMasteringPlan NovaAIMasterEngine::calibrateLoudness (NovaMasteringPlan plan, const juce::AudioBuffer<float>& source) const
+{
+    const int n = source.getNumSamples(), nCh = juce::jmax (1, source.getNumChannels());
+    if (! plan.output.applyGain || n < (int) (sampleRate * 2.0) || profile.isSilent) return plan;
+
+    constexpr int kBlock = 4096;
+    auto chain = std::make_unique<NovaMasteringChain>();
+    chain->prepare ({ sampleRate, (juce::uint32) kBlock, (juce::uint32) nCh });
+    juce::AudioBuffer<float> work;
+
+    auto measure = [&] (float gainDb)
+    {
+        plan.output.gainDb = gainDb;
+        chain->reset();
+        chain->setPlan (plan);
+        work.makeCopyOf (source);
+        for (int p = 0; p < n; p += kBlock)
+        {
+            juce::AudioBuffer<float> v (work.getArrayOfWritePointers(), work.getNumChannels(), p, juce::jmin (kBlock, n - p));
+            chain->process (v);
+        }
+        NovaLoudnessAnalyzer meter;
+        meter.prepare (sampleRate);
+        meter.process (work);
+        meter.finalize();
+        return meter.getIntegratedLufs();
+    };
+
+    const float target = plan.output.targetLufs;
+    constexpr float kMinGain = -12.f, kMaxGain = 12.f;   // the decision engine's own safety range (spec 39)
+    float g0 = juce::jlimit (kMinGain, kMaxGain, plan.output.gainDb);
+    float l0 = measure (g0);
+    float bestG = g0, bestErr = std::abs (target - l0);
+    // secant steps (more drive gives less and less loudness once the limiter works hard)
+    float g1 = juce::jlimit (kMinGain, kMaxGain, g0 + (target - l0));
+    for (int it = 0; it < 5 && bestErr > 0.2f && std::abs (g1 - g0) > 0.05f; ++it)
+    {
+        const float l1 = measure (g1);
+        if (std::abs (target - l1) < bestErr) { bestErr = std::abs (target - l1); bestG = g1; }
+        const float slope = (l1 - l0) / (g1 - g0);
+        const float step = slope > 0.05f ? (target - l1) / slope : (target - l1);
+        g0 = g1; l0 = l1;
+        g1 = juce::jlimit (kMinGain, kMaxGain, g1 + juce::jlimit (-6.f, 6.f, step));
+    }
+    plan.output.gainDb = bestG;
+    return plan;
+}

@@ -23,6 +23,7 @@ struct NovaMasteringPlan
     {
         bool  active   = false;
         float amount   = 0.f; // 0-1, overall suppression strength
+        bool  timed    = false; // real-time constants (plans made since the fix); false = the original per-block behaviour
     } resonanceControl;
 
     struct Compression
@@ -61,11 +62,14 @@ struct NovaMasteringPlan
         float thresholdDb    = -1.f;
         float truePeakCeilDb = -1.f;
         float releaseMs      = 50.f;
+        bool  brickwall      = false;   // limit right at the ceiling (plans made since the loudness fix);
+                                        // false = the original 3:1 limiter, so older saved masters sound the same
     } limiting;
 
     struct Output
     {
         float targetLufs = -14.f;
         float gainDb     = 0.f;
+        bool  applyGain  = false;       // drive gainDb into the clipper + limiter (older saved plans: never applied)
     } output;
 };

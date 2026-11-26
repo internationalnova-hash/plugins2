@@ -24,6 +24,10 @@ public:
     void setPlan (const NovaMasteringPlan::ResonanceControl& plan) noexcept;
     void process (juce::AudioBuffer<float>& buffer) noexcept;
 
+private:
+    void processChunk (float* l, float* r, int nCh, int N) noexcept;
+public:
+
     static constexpr int kNumBands = 7;
 
 private:
