@@ -376,9 +376,7 @@ namespace NovaStudio
                 if (p) { p->setRateAndBufferSizeDetails(newRate, maxBlockSize); p->prepareToPlay(newRate, maxBlockSize); }
         }
 
-        masterLimiter.prepare({ newRate, (juce::uint32) maxBlockSize, 2 });
-        masterLimiter.setThreshold(-0.3f);
-        masterLimiter.setRelease(60.0f);
+        masterLimiter.prepare(newRate);
         masterGain.reset(newRate, 0.03);
         masterGain.setCurrentAndTargetValue(dbToGain(session.masterVolumeDb));
 
@@ -693,8 +691,7 @@ namespace NovaStudio
             masterGain.applyGain(view, n);
             if (limiterOn.load())
             {
-                juce::dsp::AudioBlock<float> block(view);
-                masterLimiter.process(juce::dsp::ProcessContextReplacing<float>(block));
+                masterLimiter.process(view.getWritePointer(0), view.getWritePointer(1), n);
             }
         }
     }

@@ -23,7 +23,10 @@ namespace NovaStudio
         bool setSampleRate(int newSampleRate, int newBufferSize);
         bool loadPluginOnTrack(int trackIndex, const juce::File& pluginFile);
         bool loadAudioClip(int trackIndex, const juce::File& audioFile);
-        bool loadPluginByDescription(const juce::PluginDescription& desc, int trackIndex = -1);
+        /// configure (optional) runs on the new instance after it's prepared and before it goes live,
+        /// so state/parameters are never changed while the audio thread is processing it.
+        bool loadPluginByDescription(const juce::PluginDescription& desc, int trackIndex = -1,
+                                     const std::function<void(juce::AudioPluginInstance&)>& configure = {});
         bool removePluginFromTrack(int trackIndex, int pluginSlot);
         bool movePluginInTrack(int trackIndex, int fromSlot, int toSlot);
         void setPluginBypassed(int trackIndex, int pluginSlot, bool bypassed);
@@ -567,7 +570,25 @@ namespace NovaStudio
         juce::AudioBuffer<float> mixBuffer;
         juce::AudioBuffer<float> silenceBuffer;
         juce::MidiBuffer liveMidiBlock;
-        juce::dsp::Limiter<float> masterLimiter;
+        // Optional master safety ceiling (off by default). Transparent: does nothing until
+        // a sample would pass -0.3 dBFS, then turns down just enough (instant, no latency),
+        // and recovers over ~60 ms. No compression, no make-up gain, no clipping.
+        struct SafetyCeiling
+        {
+            float ceiling = 0.966f, gain = 1.f, rel = 0.f;
+            void prepare (double sr) { rel = 1.f - std::exp (-1.f / (float) (0.06 * sr)); reset(); }
+            void reset() noexcept { gain = 1.f; }
+            void process (float* l, float* r, int n) noexcept
+            {
+                for (int i = 0; i < n; ++i)
+                {
+                    const float pk = juce::jmax (std::abs (l[i]), std::abs (r[i]));
+                    const float need = pk * gain > ceiling ? ceiling / pk : 1.f;
+                    gain = need < gain ? need : gain + (1.f - gain) * rel;
+                    l[i] *= gain; r[i] *= gain;
+                }
+            }
+        } masterLimiter;
         juce::SmoothedValue<float> masterGain { 1.0f };
         std::atomic<bool> offlineRendering { false };
         int offlineSoloTrack = -1;
@@ -614,7 +635,7 @@ namespace NovaStudio
         int clickSamplesLeft = 0;
         float clickGain = 0.0f;
         std::atomic<float> metronomeGain { 0.6f };
-        std::atomic<bool>  metronomeOn { false }, limiterOn { true };
+        std::atomic<bool>  metronomeOn { false }, limiterOn { false };
         std::atomic<float> masterVolumeDbAtomic { 0.0f };
 
         // Automation writing (message thread)

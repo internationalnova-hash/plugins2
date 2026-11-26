@@ -420,7 +420,7 @@ Clip ClipFromVar(const juce::var& var)
         metronomeEnabled = false; countInBars = 0;
         loopEnabled = false; loopStartSample = loopEndSample = 0;
         punchEnabled = false; punchInSample = punchOutSample = 0;
-        masterVolumeDb = 0.0f; masterLimiter = true;
+        masterVolumeDb = 0.0f; masterLimiter = false;
         stepSequencerState = juce::var(); engineExtras = juce::var();
     }
 
@@ -562,7 +562,7 @@ Clip ClipFromVar(const juce::var& var)
         root->setProperty("punchInSample", (double)punchInSample);
         root->setProperty("punchOutSample", (double)punchOutSample);
         root->setProperty("masterVolumeDb", (double)masterVolumeDb);
-        root->setProperty("masterLimiter", masterLimiter);
+        root->setProperty("masterSafetyCeiling", masterLimiter);   // new key: the old "masterLimiter" was the always-on squash/clip default
         root->setProperty("stepSequencer", stepSequencerState);
         root->setProperty("engineExtras", engineExtras);
 
@@ -638,7 +638,9 @@ Clip ClipFromVar(const juce::var& var)
         punchInSample      = (int64_t)(double)getOr("punchInSample", 0.0);
         punchOutSample     = (int64_t)(double)getOr("punchOutSample", 0.0);
         masterVolumeDb     = (float)(double)getOr("masterVolumeDb", 0.0);
-        masterLimiter      = (bool)getOr("masterLimiter", true);
+        // Older sessions saved "masterLimiter" = true just because it was the default (it compressed
+        // and clipped every mix). They open with the master untouched, like Pro Tools.
+        masterLimiter      = (bool)getOr("masterSafetyCeiling", false);
         stepSequencerState = root->getProperty("stepSequencer");
         engineExtras       = root->getProperty("engineExtras");
         if (tempoBpm <= 0.0) tempoBpm = 120.0;

@@ -2756,7 +2756,7 @@ juce::PopupMenu MainComponent::getMenuForIndex(int menuIndex, const juce::String
         menu.addItem(515, "Recording Latency Offset...");
         menu.addSeparator();
         menu.addItem(516, "Master Volume...");
-        menu.addItem(517, "Master Safety Limiter", true, engine.isMasterLimiterEnabled());
+        menu.addItem(517, "Master Safety Ceiling (-0.3 dB)", true, engine.isMasterLimiterEnabled());
         break;
 
     case 5: // Plugins
@@ -3179,7 +3179,7 @@ void MainComponent::menuItemSelected(int id, int)
     case 516: promptMasterVolume(); break;
     case 517:
         engine.setMasterLimiterEnabled(!engine.isMasterLimiterEnabled());
-        updateStatusMessage(engine.isMasterLimiterEnabled() ? "Master safety limiter on" : "Master safety limiter off");
+        updateStatusMessage(engine.isMasterLimiterEnabled() ? "Master safety ceiling on: peaks held under -0.3 dB" : "Master safety ceiling off: the mix plays exactly as it is");
         break;
 
     // ── Audio ───────────────────────────────────────────────────────────────

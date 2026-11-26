@@ -1253,7 +1253,8 @@ namespace NovaStudio
         return loadPluginByDescription(*typesFound[0], trackIndex);
     }
 
-    bool StudioAudioEngine::loadPluginByDescription(const juce::PluginDescription& desc, int trackIndex)
+    bool StudioAudioEngine::loadPluginByDescription(const juce::PluginDescription& desc, int trackIndex,
+                                                    const std::function<void(juce::AudioPluginInstance&)>& configure)
     {
         juce::String errorMessage;
         auto instance = pluginFormatManager.createPluginInstance(desc, currentSampleRate, maxBlockSize, errorMessage);
@@ -1264,7 +1265,16 @@ namespace NovaStudio
         }
 
         if (trackIndex == kMasterTrackIndex)
+        {
+            if (configure)
+            {
+                instance->enableAllBuses();
+                instance->setRateAndBufferSizeDetails(currentSampleRate, maxBlockSize);
+                instance->prepareToPlay(currentSampleRate, maxBlockSize);
+                configure(*instance);
+            }
             return addMasterPlugin(std::move(instance));
+        }
 
         int target = trackIndex;
         if (target < 0)
@@ -1279,6 +1289,7 @@ namespace NovaStudio
         instance->enableAllBuses();
         instance->setRateAndBufferSizeDetails(currentSampleRate, maxBlockSize);
         instance->prepareToPlay(currentSampleRate, maxBlockSize);
+        if (configure) configure(*instance);
         {
             const juce::ScopedLock sl(playerLock);
             trackPlayers.getReference(target)->addPlugin(std::move(instance));

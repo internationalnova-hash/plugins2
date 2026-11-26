@@ -336,8 +336,12 @@ namespace NovaStudio
         if (!plugin) return false;
         juce::ScopedLock sl(masterPluginLock);
         if (masterPlugins.size() >= kMaxMasterPlugins) return false;
-        if (currentSampleRate > 0 && currentBufferSize > 0)
-            plugin->prepareToPlay(currentSampleRate, currentBufferSize);
+        // Prepare for the largest block we ever send (offline export renders up to maxBlockSize).
+        if (currentSampleRate > 0 && maxBlockSize > 0)
+        {
+            plugin->setRateAndBufferSizeDetails(currentSampleRate, maxBlockSize);
+            plugin->prepareToPlay(currentSampleRate, maxBlockSize);
+        }
         masterPlugins.add(plugin.release());
         juce::MessageManager::callAsync([this] { updatePluginDelayCompensation(); });
         return true;

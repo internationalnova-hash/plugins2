@@ -266,7 +266,7 @@ namespace NovaStudio
         bool   punchEnabled = false;
         int64_t punchInSample = 0, punchOutSample = 0;
         float  masterVolumeDb = 0.0f;
-        bool   masterLimiter = true;
+        bool   masterLimiter = false;   // safety ceiling on the master; off like Pro Tools (nothing touches the mix unless you add it)
 
         // Opaque blobs the engine fills (step sequencer pattern, mixer extras)
         juce::var stepSequencerState;
