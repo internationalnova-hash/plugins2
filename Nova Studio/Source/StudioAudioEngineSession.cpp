@@ -1815,6 +1815,14 @@ namespace NovaStudio
         return out;
     }
 
+    void StudioAudioEngine::addTrackClipGain(int trackIndex, float deltaDb)
+    {
+        if (!juce::isPositiveAndBelow(trackIndex, session.getNumTracks()) || std::abs(deltaDb) < 0.01f) return;
+        for (auto& c : session.getTrack(trackIndex).clips)
+            if (!c.isMidi) c.gainDb = juce::jlimit(-48.0f, 24.0f, c.gainDb + deltaDb);
+        publishSnapshot(false);
+    }
+
     void StudioAudioEngine::setTrackOutputBus(int trackIndex, const juce::String& busName)
     {
         if (!juce::isPositiveAndBelow(trackIndex, session.getNumTracks())) return;

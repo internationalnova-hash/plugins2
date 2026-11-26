@@ -199,7 +199,7 @@ void NovaLimiter::processLookAhead (juce::AudioBuffer<float>& buffer) noexcept
     const int nCh = juce::jmin (buffer.getNumChannels(), (int) delayRing.size());
     const int N = buffer.getNumSamples();
     const float ceiling = juce::Decibels::decibelsToGain (plan.truePeakCeilDb);
-    const float thr = ceiling * juce::Decibels::decibelsToGain (-0.2f);     // margin for the estimator
+    const float thr = ceiling * juce::Decibels::decibelsToGain (-0.4f);     // margin for the estimator
     const float rel = 1.f - std::exp (-1.f / (juce::jmax (5.f, plan.releaseMs) * 0.001f * (float) sampleRate));
     float minGain = 1.f;
 

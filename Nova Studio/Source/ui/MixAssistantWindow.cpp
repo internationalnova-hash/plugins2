@@ -439,7 +439,8 @@ struct MixAssistantPanel::DetailView : juce::Component
             for (auto* m : owner.directTracks())
             {
                 if (juce::isPositiveAndBelow (m->track, s.getNumTracks()))
-                    level.add (s.getTrack (m->track).name + "|" + dB (m->volumeDb) + "  " + panText (m->pan));
+                    level.add (s.getTrack (m->track).name + "|" + (m->clipGainDb > 0.05f ? "clip +" + juce::String (m->clipGainDb, 1) + "  " : juce::String())
+                               + dB (m->volumeDb) + "  " + panText (m->pan));
                 for (auto& st : m->chain) chain.push_back (&st);
                 for (auto& sd : m->sends) level.add ("  " + sd.toBus + " send|" + juce::String (sd.levelDb, 0) + " dB");
             }
@@ -458,7 +459,8 @@ struct MixAssistantPanel::DetailView : juce::Component
                 {
                     const auto& s = owner.engine.getSession();
                     if (juce::isPositiveAndBelow (m.track, s.getNumTracks()))
-                        level.add (s.getTrack (m.track).name + "|" + dB (m.volumeDb) + "  " + panText (m.pan));
+                        level.add (s.getTrack (m.track).name + "|" + (m.clipGainDb > 0.05f ? "clip +" + juce::String (m.clipGainDb, 1) + "  " : juce::String())
+                                   + dB (m.volumeDb) + "  " + panText (m.pan));
                     for (auto& st : m.chain) chain.push_back (&st);
                 }
         }

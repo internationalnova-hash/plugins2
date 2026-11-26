@@ -233,6 +233,7 @@ ApplyResult applyPlanExceptMaster (StudioAudioEngine& e, const Plan& p)
         if (m.toBus.isNotEmpty())
             if (auto it = busOf.find (m.toBus); it != busOf.end())
                 e.setTrackOutputBus (m.track, StudioAudioEngine::sendBusName (it->second));
+        e.addTrackClipGain (m.track, m.clipGainDb);
         e.setTrackVolume (m.track, m.volumeDb);
         e.setTrackPan (m.track, m.pan);
         e.setTrackColour (m.track, roleColour (m.role));

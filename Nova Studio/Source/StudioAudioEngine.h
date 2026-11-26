@@ -90,6 +90,8 @@ namespace NovaStudio
         bool readAndClearMasterClip() noexcept { return masterOutputClipped.exchange(false); }
         float getMasterOutputPeak() const noexcept { return masterOutputPeak.load(); }
         void  setTrackEQBand(int trackIndex, int band, bool enabled, float freq, float gainDb, float q);
+        /// Adds gain to every audio clip on a track (gain staging before the fader) and updates playback
+        void  addTrackClipGain(int trackIndex, float deltaDb);
 
         // Send buses: 8 stereo buses named "Bus 1-2" through "Bus 15-16"
         static constexpr int kNumSendBuses = 8;

@@ -169,8 +169,8 @@ static int applyMode (const juce::File& session, const juce::File& outDir, const
     {
         if (! m.change) continue;
         juce::StringArray chain; for (auto& c : m.chain) chain.add (c.plugin);
-        std::printf ("  %-30s %-14s vol %6.1f pan %5.2f -> %-11s [%s] sends %d eq %d\n", engine.getSession().getTrack (m.track).name.substring (0, 30).toRawUTF8(),
-                     MixAI::roleName (m.role), m.volumeDb, m.pan, m.toBus.isEmpty() ? "Main Out" : m.toBus.toRawUTF8(),
+        std::printf ("  %-30s %-14s clip %+5.1f vol %6.1f pan %5.2f -> %-11s [%s] sends %d eq %d\n", engine.getSession().getTrack (m.track).name.substring (0, 30).toRawUTF8(),
+                     MixAI::roleName (m.role), m.clipGainDb, m.volumeDb, m.pan, m.toBus.isEmpty() ? "Main Out" : m.toBus.toRawUTF8(),
                      chain.joinIntoString (", ").toRawUTF8(), (int) m.sends.size(), (int) m.eq.size());
     }
     juce::StringArray master; for (auto& c : plan.master) master.add (c.plugin + " (" + c.note + ")");

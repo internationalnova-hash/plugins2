@@ -48,7 +48,7 @@ private:
     float gainReductionDb = 0.f;
 
     // look-ahead (brickwall plans) - and the matching plain delay for the original mode
-    static constexpr int kIspTaps = 8;
+    static constexpr int kIspTaps = 16;
     void processLookAhead (juce::AudioBuffer<float>& buffer) noexcept;
     void delayOnly (juce::AudioBuffer<float>& buffer) noexcept;
     int look = 72, delay = 76, hold = 77;

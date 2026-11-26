@@ -37,6 +37,7 @@ namespace NovaStudio::MixAI
         Role role = Role::Other;
         bool change = true;                    // false = leave this track alone
         float volumeDb = 0.f, pan = 0.f;
+        float clipGainDb = 0.f;                // raise a quiet recording before the fader (gain staging)
         juce::String toBus;                    // empty = Main Out
         std::vector<PluginStep> chain;
         std::vector<Send> sends;

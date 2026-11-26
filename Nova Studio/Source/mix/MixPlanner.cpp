@@ -21,7 +21,20 @@ namespace
         }
     }
 
-    struct StyleMap { const char* style; const char* vibe; const char* master; float verbDecay; const char* loudness; };
+    struct StyleMap
+    {
+        const char* style; const char* vibe; const char* master; float verbDecay; const char* loudness;
+        // finer moves (defaults = the general recipe every other style uses)
+        const char* delaySync = "1/4";   float delayFeedback = 28.f;
+        float leadVerb = -16.f, leadDelay = -19.f, adlibDelay = -14.f, verbPreDelay = 30.f;
+        float bgTrimDb = 0.f;            // doubles / harmonies relative to the usual level
+        float doublePan = 0.6f, harmPan = 0.85f, adlibPan = 0.35f;
+        const char* leadAir = nullptr;   // Nova AI Vocal "Air" (null = the Vibe's own)
+        int drumPunchBoost = 0;
+        bool loudOnFull = false;         // "Full mix" pushes the master to Loud
+        const char* delayWords = "quarter-note";
+        const char* mirrorTarget = nullptr;   // Nova Mirror target to aim at (null = the style's own name)
+    };
     const StyleMap kStyles[] = {
         { "Nova Balance", "Raw Natural",      "Clean",  2.0f, "Streaming" },
         { "Trap",         "Melodic Trap",     "Punchy", 1.8f, "Balanced" },
@@ -31,6 +44,10 @@ namespace
         { "Afrobeats",    "Pop Polished",     "Open",   2.0f, "Streaming" },
         { "Pop",          "Pop Polished",     "Clean",  2.2f, "Streaming" },
         { "House",        "Pop Polished",     "Loud",   2.4f, "Balanced" },
+        // melodic Latin urban: lead bright and forward, dotted-eighth throws, short bright verb,
+        // wide doubles tucked under the lead, ad-libs out wide, punchy dembow, loud master
+        { "Latin Urban (Melodic)", "Reggaeton Bright", "Punchy", 1.3f, "Balanced",
+          "1/8D", 32.f, -18.f, -15.f, -12.f, 18.f, -1.5f, 0.75f, 0.9f, 0.55f, "88%", 10, true, "dotted-eighth", "Reggaeton" },
     };
     const StyleMap& styleFor (const juce::String& s)
     {
@@ -47,7 +64,7 @@ namespace
     juce::String num (float v, int dp = 1) { return juce::String (v, dp); }
 
     // Mirror's target lives in its saved state (not a parameter): build that state
-    juce::MemoryBlock mirrorState (const Options& o)
+    juce::MemoryBlock mirrorState (const Options& o, const juce::String& target)
     {
         juce::XmlElement x ("NovaMirror");
         x.setAttribute ("v", 1);
@@ -60,7 +77,7 @@ namespace
         else
         {
             x.setAttribute ("kind", "nova");
-            x.setAttribute ("name", o.style);
+            x.setAttribute ("name", target);
         }
         juce::MemoryBlock mb;
         juce::AudioProcessor::copyXmlToBinary (x, mb);
@@ -145,6 +162,7 @@ Plan makePlan (const SessionAnalysis& a, const std::vector<Role>& roles, const S
         PluginStep v { "Nova AI Vocal", { { "Vibe", st.vibe }, { "Tune", o.tune ? "60" : "0" }, { "Space", "12" },
                                           { "BPM", num ((float) a.bpm) }, { "Tempo Sync", "On" } }, "", {} };
         if (a.keyKnown) v.settings.push_back ({ "Key", keyText (a) });
+        if (st.leadAir != nullptr) v.settings.push_back ({ "Air", st.leadAir });
         v.note = juce::String (st.vibe) + (o.tune ? " - light tuning" : "") + (a.keyKnown ? " - key " + keyText (a) : "");
         c.push_back (v);
         return c;
@@ -155,7 +173,7 @@ Plan makePlan (const SessionAnalysis& a, const std::vector<Role>& roles, const S
         bgvChain = { { "Nova Silk", { { "Smooth", "50" } }, "tames harsh build-up in the stack", {} },
                      { "Nova Glue", { { "Threshold", "-14" }, { "Ratio", "4:1" }, { "Glue", "50" } }, "glues the stack together", {} } };
         adlibChain = { { "Nova Vox", { { "Curve On", "On" }, { "Curve Mode", "Air" }, { "Level On", "On" } }, "bright, controlled ad-libs", {} } };
-        drumChain = { { "Nova Punch", { { "Punch", full ? "65" : "55" } }, "sharper hits", {} },
+        drumChain = { { "Nova Punch", { { "Punch", juce::String ((full ? 65 : 55) + st.drumPunchBoost) } }, "sharper hits", {} },
                       { "Nova Glue", { { "Threshold", "-12" }, { "Ratio", "4:1" } }, "one tight kit", {} } };
         bassChain = { { "Nova Sub", { { "Mix", "35" } }, "fuller low end", {} },
                       { "Nova Clip", { { "Drive", full ? "6" : "4" } }, "controlled peaks, louder 808", {} } };
@@ -174,18 +192,20 @@ Plan makePlan (const SessionAnalysis& a, const std::vector<Role>& roles, const S
     };
     if (has ("Vocal Verb"))
         addBus ("Vocal Verb", Family::Fx, juce::Colour (0xff5ad1ff), {},
-                { { "Nova Space", { { "Mix", "100" }, { "Decay", num (st.verbDecay, 2) }, { "Pre-Delay", "30" } }, "one shared room for every vocal", {} } },
+                { { "Nova Space", { { "Mix", "100" }, { "Decay", num (st.verbDecay, 2) }, { "Pre-Delay", num (st.verbPreDelay, 0) } },
+                    st.verbDecay < 1.5f ? "short, bright room for every vocal" : "one shared room for every vocal", {} } },
                 "One shared vocal reverb - every voice sits in the same space, so they sound like one performance.", true);
     if (has ("Vocal Delay"))
         addBus ("Vocal Delay", Family::Fx, juce::Colour (0xff5ad1ff), {},
-                { { "Nova Delay", { { "Mix", "100" }, { "Sync", "On" }, { "Delay Time Sync", "1/4" }, { "Feedback", "28" } }, "quarter-note echo, in time", {} } },
-                "A quarter-note delay synced to " + num ((float) a.bpm, 0) + " BPM for throws and ad-libs.", true);
+                { { "Nova Delay", { { "Mix", "100" }, { "Sync", "On" }, { "Delay Time Sync", st.delaySync }, { "Feedback", num (st.delayFeedback, 0) } },
+                    juce::String (st.delayWords) + " echo, in time", {} } },
+                "A " + juce::String (st.delayWords) + " delay synced to " + num ((float) a.bpm, 0) + " BPM for throws on the lead's phrase ends and the ad-libs.", true);
     if (has ("Lead Vocal"))
     {
         const int b = addBus ("Lead Vocal", Family::Vocals, roleColour (Role::Lead), lead, o.chains ? leadChain() : std::vector<PluginStep> {},
                               "Your lead is split over " + juce::String ((int) lead.size()) + " tracks - one bus treats them as one voice.");
-        if (has ("Vocal Verb")) p.buses[(size_t) b].sends.push_back ({ "Vocal Verb", light ? -18.f : -16.f });
-        if (has ("Vocal Delay")) p.buses[(size_t) b].sends.push_back ({ "Vocal Delay", -19.f });
+        if (has ("Vocal Verb")) p.buses[(size_t) b].sends.push_back ({ "Vocal Verb", st.leadVerb - (light ? 2.f : 0.f) });
+        if (has ("Vocal Delay")) p.buses[(size_t) b].sends.push_back ({ "Vocal Delay", st.leadDelay });
     }
     if (has ("BG Vocals"))
     {
@@ -197,7 +217,7 @@ Plan makePlan (const SessionAnalysis& a, const std::vector<Role>& roles, const S
     {
         const int b = addBus ("Ad-libs", Family::Vocals, roleColour (Role::Adlib), adlib, o.chains ? adlibChain : std::vector<PluginStep> {},
                               "Short phrases between lead lines, panned apart with a delay throw.");
-        if (has ("Vocal Delay")) p.buses[(size_t) b].sends.push_back ({ "Vocal Delay", -14.f });
+        if (has ("Vocal Delay")) p.buses[(size_t) b].sends.push_back ({ "Vocal Delay", st.adlibDelay });
         if (has ("Vocal Verb")) p.buses[(size_t) b].sends.push_back ({ "Vocal Verb", -16.f });
     }
     if (has ("Drums"))
@@ -240,7 +260,7 @@ Plan makePlan (const SessionAnalysis& a, const std::vector<Role>& roles, const S
 
         if (o.levels && ! t.midi && t.f.loudDb > -100.f)
         {
-            m.volumeDb = targetLevel (r) - t.f.loudDb;     // range is fixed below, keeping the balance
+            m.volumeDb = targetLevel (r) + (r == Role::Double || r == Role::Harmony ? st.bgTrimDb : 0.f) - t.f.loudDb;     // range is fixed below, keeping the balance
             levelled.push_back (p.tracks.size());
         }
         if (o.levels)
@@ -249,9 +269,9 @@ Plan makePlan (const SessionAnalysis& a, const std::vector<Role>& roles, const S
             auto side = [] (int& k) { return (k++ % 2 == 0) ? -1.f : 1.f; };
             switch (r)
             {
-                case Role::Double:  m.pan = 0.6f * side (dblSide); break;
-                case Role::Harmony: m.pan = 0.85f * side (harmSide); break;
-                case Role::Adlib:   m.pan = 0.35f * side (adSide); break;
+                case Role::Double:  m.pan = st.doublePan * side (dblSide); break;
+                case Role::Harmony: m.pan = st.harmPan * side (harmSide); break;
+                case Role::Adlib:   m.pan = st.adlibPan * side (adSide); break;
                 case Role::HiHat:   m.pan = 0.15f; break;
                 case Role::Perc:    m.pan = -0.25f; break;
                 case Role::Guitar:  m.pan = lower.contains ("left") || lower.endsWith (".l") ? -0.7f
@@ -289,9 +309,9 @@ Plan makePlan (const SessionAnalysis& a, const std::vector<Role>& roles, const S
         // sends straight from the track when there's no vocal bus doing it
         if (m.toBus.isEmpty())
         {
-            if (r == Role::Lead) { if (has ("Vocal Verb")) m.sends.push_back ({ "Vocal Verb", light ? -18.f : -16.f }); if (has ("Vocal Delay")) m.sends.push_back ({ "Vocal Delay", -19.f }); }
+            if (r == Role::Lead) { if (has ("Vocal Verb")) m.sends.push_back ({ "Vocal Verb", st.leadVerb - (light ? 2.f : 0.f) }); if (has ("Vocal Delay")) m.sends.push_back ({ "Vocal Delay", st.leadDelay }); }
             if (r == Role::Double || r == Role::Harmony) { if (has ("Vocal Verb")) m.sends.push_back ({ "Vocal Verb", -12.f }); }
-            if (r == Role::Adlib) { if (has ("Vocal Delay")) m.sends.push_back ({ "Vocal Delay", -14.f }); if (has ("Vocal Verb")) m.sends.push_back ({ "Vocal Verb", -16.f }); }
+            if (r == Role::Adlib) { if (has ("Vocal Delay")) m.sends.push_back ({ "Vocal Delay", st.adlibDelay }); if (has ("Vocal Verb")) m.sends.push_back ({ "Vocal Verb", -16.f }); }
         }
         // make room for the lead vocal in a 2-track beat or loose music tracks
         if (o.makeRoom && vocals && (r == Role::Beat || (familyOf (r) == Family::Music && m.toBus.isEmpty())))
@@ -299,17 +319,31 @@ Plan makePlan (const SessionAnalysis& a, const std::vector<Role>& roles, const S
         p.tracks.push_back (m);
     }
 
-    // Quiet recordings can ask for more than a fader should give. Instead of clamping
-    // one track (which breaks the balance), move every planned fader down together;
-    // the mix bus brings the loudness back.
+    // Gain staging, like you'd do in Pro Tools: a quiet recording is raised with clip gain
+    // (up to +18 dB) so its fader sits near 0. Whatever's still left over moves every
+    // planned fader down together, so the balance holds.
     if (! levelled.empty())
     {
+        int raised = 0;
+        for (auto k : levelled)
+        {
+            auto& m = p.tracks[k];
+            if (m.volumeDb > 0.f)
+            {
+                m.clipGainDb = juce::jmin (18.f, m.volumeDb);
+                m.volumeDb -= m.clipGainDb;
+                ++raised;
+            }
+        }
         float top = -100.f;
         for (auto k : levelled) top = juce::jmax (top, p.tracks[k].volumeDb);
         const float shift = juce::jmax (0.f, top - 3.f);
         for (auto k : levelled) p.tracks[k].volumeDb = juce::jlimit (-30.f, 6.f, p.tracks[k].volumeDb - shift);
+        if (raised > 0)
+            p.notes.add (juce::String (raised) + (raised == 1 ? " quiet recording gets" : " quiet recordings get")
+                         + " clip gain, so the faders sit near 0 (gain staging).");
         if (shift > 0.5f)
-            p.notes.add ("Your recordings are quiet, so every fader sits " + juce::String (shift, 1)
+            p.notes.add ("A very quiet recording needs more than +18 dB, so every fader sits " + juce::String (shift, 1)
                          + " dB lower to keep the balance - the mix bus makes up the level.");
     }
 
@@ -317,13 +351,14 @@ Plan makePlan (const SessionAnalysis& a, const std::vector<Role>& roles, const S
     if (o.masterPolish)
     {
         PluginStep mirror { "Nova Mirror", { { "Cut", light ? "40" : full ? "70" : "55" }, { "Boost", light ? "30" : full ? "55" : "45" },
-                                             { "Source", "Mix Bus" } }, "", mirrorState (o) };
+                                             { "Source", "Mix Bus" } }, "", mirrorState (o, st.mirrorTarget != nullptr ? juce::String (st.mirrorTarget) : o.style) };
         mirror.note = o.reference.existsAsFile() ? "toward your reference: " + o.reference.getFileNameWithoutExtension()
-                                                 : "toward the " + o.style + " target";
+                                                 : "toward the " + (st.mirrorTarget != nullptr ? juce::String (st.mirrorTarget) : o.style) + " target";
         p.master.push_back (mirror);
         PluginStep master { "Nova AI Master", { { "Style", st.master }, { "Intensity", light ? "0.35" : full ? "0.7" : "0.5" },
-                                                { "Loudness", st.loudness } },
-                            juce::String (st.master) + " master, " + juce::String (st.loudness).toLowerCase() + " loudness - analysed on the finished mix", {} };
+                                                { "Loudness", (st.loudOnFull && full) ? "Loud" : st.loudness } },
+                            juce::String (st.master) + " master, " + juce::String ((st.loudOnFull && full) ? "Loud" : st.loudness).toLowerCase()
+                              + " loudness - analysed on the finished mix", {} };
         master.analyseMix = true;
         p.master.push_back (master);
         if (s.masterLimiter)
