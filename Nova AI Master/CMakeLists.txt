@@ -11,7 +11,7 @@ if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "" FORCE)
 endif()
 
-project(NovaAIMaster VERSION 0.1.0)
+project(NovaAIMaster VERSION 0.1.1)
 
 include(FetchContent)
 FetchContent_Declare(
