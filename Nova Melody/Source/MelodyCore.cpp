@@ -930,6 +930,50 @@ std::vector<MNote> answerIt (const std::vector<MNote>& hummed, Key k, int genre,
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// Play
+// ════════════════════════════════════════════════════════════════════════════
+int stepPitch (Key k, int step, int octave) noexcept
+{
+    const auto& st = scaleSteps (k.scale);
+    const int n = (int) st.size();
+    const int base = 60 + wrapPc (k.tonic) - (wrapPc (k.tonic) > 5 ? 12 : 0);   // the tonic nearest middle C (F#3..F4)
+    const int oct = step >= 0 ? step / n : -((-step + n - 1) / n);
+    const int idx = step - oct * n;
+    return juce::jlimit (0, 127, base + st[(size_t) idx] + 12 * (oct + octave));
+}
+
+int padPitch (Key k, int pad, int octave) noexcept
+{
+    // 8 pads: the scale's notes up to the tonic an octave higher (5-note scales keep climbing)
+    const int n = (int) scaleSteps (k.scale).size();
+    return stepPitch (k, pad == 7 && n == 7 ? 7 : pad, octave);
+}
+
+std::vector<int> chordPadClasses (Key k, int degree)
+{
+    return triad (k, juce::jlimit (0, 6, degree), false, 0, 4).pcs;
+}
+
+std::vector<int> chordPadPitches (Key k, int degree, int octave)
+{
+    const auto pcs = chordPadClasses (k, degree);
+    int root = 48 + pcs[0];
+    if (root > 54) root -= 12;                       // roots from F#2 to F3: warm, not muddy
+    std::vector<int> out { root };
+    for (size_t i = 1; i < pcs.size(); ++i) { int q = root + wrapPc (pcs[i] - pcs[0]); out.push_back (q); }
+    out.push_back (root + 12);                       // the root on top too: fuller
+    for (auto& q : out) q = juce::jlimit (0, 127, q + 12 * octave);
+    return out;
+}
+
+int whiteKeyStep (int midiNote) noexcept
+{
+    static const int white[12] = { 0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6 };   // black keys = the white key below
+    const int oct = (int) std::floor ((midiNote - 60) / 12.0);
+    return oct * 7 + white[wrapPc (midiNote)];
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // MIDI file
 // ════════════════════════════════════════════════════════════════════════════
 juce::MemoryBlock toMidiFile (const std::vector<MNote>& notes, double bpm, const juce::String& name)

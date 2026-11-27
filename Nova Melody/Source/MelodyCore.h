@@ -102,6 +102,19 @@ namespace NovaMelody
     /// Writes a melody that answers the hummed line in the gaps it leaves
     std::vector<MNote> answerIt (const std::vector<MNote>& hummed, Key k, int genre, double lengthBeats, juce::uint32 seed);
 
+    // ── Play (no theory needed) ─────────────────────────────────────────────
+    /// melody pad 0..7 = scale notes 1..8 from the tonic (pad 7 = the tonic an octave up)
+    int padPitch (Key k, int pad, int octave) noexcept;
+    /// chord pad 0..6 = the chord on that scale degree, voiced around the octave below middle C
+    std::vector<int> chordPadPitches (Key k, int degree, int octave);
+    /// pitch classes of the chord on a degree (for "glow the notes that fit")
+    std::vector<int> chordPadClasses (Key k, int degree);
+    /// MIDI keyboard: white keys walk up the scale from middle C (= the tonic); black keys
+    /// play the white key below them, so every key is a good note. Returns the pad step
+    /// counted from middle C's tonic (0 = 1, 7 = 1 an octave up, -1 = 7 below...).
+    int whiteKeyStep (int midiNote) noexcept;
+    int stepPitch (Key k, int step, int octave) noexcept;
+
     // ── MIDI file ───────────────────────────────────────────────────────────
     juce::MemoryBlock toMidiFile (const std::vector<MNote>& notes, double bpm, const juce::String& name);
 }

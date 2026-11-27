@@ -29,10 +29,10 @@ let S = 1;
 function applyScale() { S = Math.max(0.3, window.innerWidth / DW); $("app").style.transform = `scale(${S})`; drawAll(); }
 
 // ── state ──────────────────────────────────────────────────────────────────
-let params = { genre: 3, vibe: 1, part: 0, register: 1, bars: 2, density: 55, rhythm: 70, swing: 20, repetition: 60, followChords: 1, stayInKey: 1,
+let params = { playStyle: 0, glow: 1, fixTiming: 1, strum: 0, playOctave: 0, recWhat: 0, genre: 3, vibe: 1, part: 0, register: 1, bars: 2, density: 55, rhythm: 70, swing: 20, repetition: 60, followChords: 1, stayInKey: 1,
   leaveSpace: 0, keyTonic: 7, keyScale: 1, keyAutoGen: 1, keyAutoHum: 1, humAs: 0, pitchSnap: 0, timeSnap: 0, minBlip: 40, octave: 0, autoOctave: 1, sound: 0, midiOut: 1, volume: -6 };
 let state = null;
-let frame = { beat: -1, rec: false, recSec: 0, level: 0, bpm: 120 };
+let frame = { beat: -1, rec: false, recSec: 0, level: 0, bpm: 120, pads: 0, chordNow: -1, tapIdx: 0, playRec: false, recBeats: 0, recCount: 0 };
 
 function setParam(id, v) { params[id] = v; native("setParam", id, v); renderControls(); }
 function act(what, arg) { return native("act", what, arg === undefined ? 0 : arg); }
@@ -76,27 +76,28 @@ document.querySelectorAll(".bar").forEach(b => {
 
 // key pickers (Generate and Hum it share the picked key; each has its own Auto)
 document.querySelectorAll(".keypick").forEach(kp => {
-  const kind = kp.dataset.kind, autoId = kind === "gen" ? "keyAutoGen" : "keyAutoHum";
+  const kind = kp.dataset.kind, autoId = kind === "hum" ? "keyAutoHum" : "keyAutoGen";
   const sel = kp.querySelector(".scale");
   options(sel, SCALES);
   sel.onchange = e => { setParam("keyScale", +e.target.value); setParam(autoId, 0); };
   kp.querySelector(".auto").onclick = () => setParam(autoId, params[autoId] > 0.5 ? 0 : 1);
 });
 function keyInUse(kind) {
-  const autoOn = params[kind === "gen" ? "keyAutoGen" : "keyAutoHum"] > 0.5;
-  const k = kind === "gen" ? state?.genKey : state?.hum?.key;
-  if (autoOn && k && k.heard) return { tonic: k.tonic, scale: k.scale, how: kind === "gen" ? "heard from your chords" : (k.unsure ? "heard — not sure, pick one" : "heard from your humming"), unsure: !!k.unsure };
-  return { tonic: params.keyTonic, scale: params.keyScale, how: autoOn ? (kind === "gen" ? "auto: play chords in to set it" : "auto: hum to set it") : "you picked it", unsure: false };
+  const hum = kind === "hum";
+  const autoOn = params[hum ? "keyAutoHum" : "keyAutoGen"] > 0.5;
+  const k = hum ? state?.hum?.key : state?.genKey;
+  if (autoOn && k && k.heard) return { tonic: k.tonic, scale: k.scale, how: !hum ? "heard from your chords" : (k.unsure ? "heard — not sure, pick one" : "heard from your humming"), unsure: !!k.unsure };
+  return { tonic: params.keyTonic, scale: params.keyScale, how: autoOn ? (!hum ? "auto: play chords in to set it" : "auto: hum to set it") : "you picked it", unsure: false };
 }
 function renderKeys() {
   document.querySelectorAll(".keypick").forEach(kp => {
-    const kind = kp.dataset.kind, autoOn = params[kind === "gen" ? "keyAutoGen" : "keyAutoHum"] > 0.5;
+    const kind = kp.dataset.kind, autoOn = params[kind === "hum" ? "keyAutoHum" : "keyAutoGen"] > 0.5;
     const k = keyInUse(kind), steps = STEPS[k.scale] || STEPS[1];
     kp.querySelector(".keyrow").innerHTML = NOTES.map((n, i) => {
       const inScale = steps.includes((i - k.tonic + 12) % 12);
       return `<div class="k ${BLACK.includes(i) ? "b" : "w"} ${i === k.tonic ? "on" : ""} ${inScale && i !== k.tonic ? "in" : ""}" data-i="${i}">${n}</div>`;
     }).join("");
-    kp.querySelectorAll(".k").forEach(el => el.onclick = () => { setParam("keyTonic", +el.dataset.i); setParam(kind === "gen" ? "keyAutoGen" : "keyAutoHum", 0); });
+    kp.querySelectorAll(".k").forEach(el => el.onclick = () => { setParam("keyTonic", +el.dataset.i); setParam(kind === "hum" ? "keyAutoHum" : "keyAutoGen", 0); });
     kp.querySelector(".scale").value = String(k.scale);
     kp.querySelector(".auto").classList.toggle("on", autoOn);
     kp.querySelector(".keyhint").textContent = k.how;
@@ -108,6 +109,11 @@ function renderControls() {
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", +t.dataset.mode === mode));
   $("sideGen").hidden = mode !== 0; $("varsGen").hidden = mode !== 0; $("rollGen").hidden = mode !== 0;
   $("sideHum").hidden = mode !== 1; $("humWrap").hidden = mode !== 1;
+  $("sidePlay").hidden = mode !== 2; $("playWrap").hidden = mode !== 2;
+  $("pLenPill").hidden = mode === 2; $("pChord").hidden = mode !== 2;
+  document.querySelectorAll("#styles .o").forEach(o => o.classList.toggle("on", +o.dataset.s === Math.round(params.playStyle)));
+  document.querySelectorAll(".take2 .chip").forEach(c => c.classList.toggle("on", +c.dataset.rw === Math.round(params.recWhat)));
+  $("octVal").textContent = (params.playOctave > 0 ? "+" : "") + Math.round(params.playOctave);
   const mark = (el, idx) => el.querySelectorAll(".chip").forEach(c => c.classList.toggle("on", +c.dataset.i === idx));
   mark($("genres"), Math.round(params.genre)); mark($("vibes"), Math.round(params.vibe)); mark($("humAs"), Math.round(params.humAs));
   $("part").value = String(Math.round(params.part)); $("register").value = String(Math.round(params.register));
@@ -120,7 +126,7 @@ function renderControls() {
     b.nextElementSibling.textContent = sliderText(id, v);
   });
   renderKeys();
-  const k = keyInUse(mode === 0 ? "gen" : "hum");
+  const k = keyInUse(mode === 1 ? "hum" : "gen");
   $("pKey").innerHTML = `Key <b>${NOTES[k.tonic]} ${SCALES[k.scale].toLowerCase()}</b> · ${k.how}`;
   $("pKey").classList.toggle("warn", k.unsure);
   $("pLen").textContent = mode === 0 ? BARS[Math.round(params.bars)] : (state?.hum?.ok ? Math.round(state.hum.len / 4) + " bars" : "—");
@@ -173,7 +179,7 @@ const median = a => { if (!a.length) return 60; const s = [...a].sort((x, y) => 
 function drawRoll(c, notes, len, opt = {}) {
   const { g, W, H } = fitCanvas(c);
   g.clearRect(0, 0, W, H);
-  const KEYW = 40, TOP = 22, curve = opt.curve || [];
+  const KEYW = 40, TOP = opt.top || 22, curve = opt.curve || [];
   let ps = notes.map(n => n[2]).concat(curve.map(p => p[1] + (opt.curveShift || 0)));
   let lo = ps.length ? Math.min(...ps) - 3 : 55, hi = ps.length ? Math.max(...ps) + 3 : 79;
   if (hi - lo < 24) { const m = (hi + lo) / 2; lo = Math.round(m - 12); hi = lo + 24; }
@@ -191,7 +197,7 @@ function drawRoll(c, notes, len, opt = {}) {
   for (let b = 0; b <= len; b++) {
     const x = KEYW + b * beatW;
     g.fillStyle = b % 4 === 0 ? "#2b2f3e" : "#1d2029"; g.fillRect(x, TOP, 1, H - TOP);
-    if (b % 4 === 0 && b < len) { g.fillStyle = "#5b5f72"; g.fillText(String(b / 4 + 1), x + 5, 14); }
+    if (b % 4 === 0 && b < len) { g.fillStyle = "#5b5f72"; g.fillText(String(b / 4 + 1), x + 5, TOP - 8); }
   }
   g.fillStyle = "#232634"; g.fillRect(0, TOP - 1, W, 1); g.fillRect(KEYW - 1, TOP, 1, H - TOP);
   // the hummed line
@@ -261,6 +267,7 @@ function drawTake() {
 
 function drawAll() {
   if (!state) return;
+  if (state.mode === 2) { renderPads(); drawPlay(); return; }
   if (state.mode === 0) {
     const notes = state.vars?.[state.selected] || [];
     drawRoll($("cGen"), notes, (state.bars || 8) * 4, { color: Math.round(params.part) === 1 || Math.round(params.part) === 2 ? ["#ff9a9a", "#e05555"] : null });
@@ -297,6 +304,114 @@ function renderHumText() {
   $("groove").disabled = $("answer").disabled = !h.ok;
 }
 
+// ── Play: pads, chords, keys ───────────────────────────────────────────────
+const MELKEYS = ["a", "s", "d", "f", "g", "h", "j", "k"];
+const FEEL_MAJ = ["home", "moving", "bright", "lift", "strong", "emotional", "wants to resolve", "home, higher"];
+const FEEL_MIN = ["home", "moving", "sad", "lift", "strong", "soft", "wants to resolve", "home, higher"];
+const CHORD_MAJ = ["home · happy", "soft", "sad", "lift", "strong", "emotional", "tense"];
+const CHORD_MIN = ["home · sad", "tense", "bright", "deep", "dark", "emotional", "uplifting"];
+const minorish = sc => [1, 2, 3, 4, 6, 8].includes(sc);
+const held = new Set();                     // pads pressed here (mouse / keys)
+
+function buildPads() {
+  $("pads").innerHTML = MELKEYS.map((k, i) => `<div class="pad" data-i="${i}"><span class="num">${i + 1}</span><span class="kb">${k.toUpperCase()}</span><span class="nm"></span><span class="feel"></span></div>`).join("");
+  $("cpads").innerHTML = [1, 2, 3, 4, 5, 6, 7].map((k, i) => `<div class="cpad" data-i="${i}"><span class="kb">${k}</span><span class="nm"></span><span class="feel"></span></div>`).join("");
+  const bind = (el, kind) => {
+    const i = +el.dataset.i;
+    el.onpointerdown = e => { el.setPointerCapture(e.pointerId); press(kind, i, 100); };
+    el.onpointerup = el.onpointercancel = () => release(kind, i);
+  };
+  document.querySelectorAll("#pads .pad").forEach(el => bind(el, 0));
+  document.querySelectorAll("#cpads .cpad").forEach(el => bind(el, 1));
+}
+function press(kind, i, vel) {
+  if (Math.round(params.playStyle) === 2) kind = 3;          // Tap the melody: everything taps
+  const id = kind + ":" + i;
+  if (held.has(id)) return;
+  held.add(id); native("pad", kind, i, true, vel); renderPads();
+}
+function release(kind, i) {
+  if (Math.round(params.playStyle) === 2) kind = 3;
+  const id = kind + ":" + i;
+  if (!held.has(id)) return;
+  held.delete(id); native("pad", kind, i, false, 0); renderPads();
+}
+function renderPads() {
+  const pl = state?.play;
+  if (!pl) return;
+  const minor = minorish(pl.scale);
+  const chordPcs = frame.chordNow >= 0 && params.glow > 0.5 ? (pl.chordPcs[frame.chordNow] || []) : [];
+  document.querySelectorAll("#pads .pad").forEach(el => {
+    const i = +el.dataset.i, pitch = pl.pads[i];
+    el.querySelector(".nm").textContent = NOTES[((pitch % 12) + 12) % 12];
+    const glow = chordPcs.includes(((pitch % 12) + 12) % 12);
+    el.querySelector(".feel").textContent = (minor ? FEEL_MIN : FEEL_MAJ)[i] + (glow ? " ✦" : "");
+    el.classList.toggle("glow", glow);
+    el.classList.toggle("hit", held.has("0:" + i) || ((frame.pads >> i) & 1) === 1);
+  });
+  document.querySelectorAll("#cpads .cpad").forEach(el => {
+    const i = +el.dataset.i;
+    el.querySelector(".nm").textContent = (pl.chords[i] || "").replace("#", "♯").replace(/([A-G])b/, "$1♭");
+    el.querySelector(".feel").textContent = (minor ? CHORD_MIN : CHORD_MAJ)[i];
+    el.classList.toggle("on", frame.chordNow === i);
+    el.classList.toggle("hit", held.has("1:" + i));
+  });
+  $("pChordName").textContent = frame.chordNow >= 0 ? (pl.chords[frame.chordNow] || "—") : "—";
+  $("glowHint").textContent = params.glow > 0.5 ? (frame.chordNow >= 0 ? "glowing = sounds great over " + pl.chords[frame.chordNow] + " right now" : "play a chord and the notes that fit it glow") : "";
+}
+buildPads();
+document.querySelectorAll("#styles .o").forEach(o => o.onclick = () => setParam("playStyle", +o.dataset.s));
+document.querySelectorAll(".take2 .chip").forEach(c => c.onclick = () => setParam("recWhat", +c.dataset.rw));
+$("octDn").onclick = () => setParam("playOctave", clamp(Math.round(params.playOctave) - 1, -2, 2));
+$("octUp").onclick = () => setParam("playOctave", clamp(Math.round(params.playOctave) + 1, -2, 2));
+$("recPlay").onclick = () => act("playRec", !frame.playRec);
+$("clearTake").onclick = () => act("clearTake");
+
+// computer keys: A-K notes, 1-7 chords, Z/X octave, space taps
+const keyDown = new Set();
+window.addEventListener("keydown", e => {
+  if (state?.mode !== 2 || e.metaKey || e.ctrlKey || e.target.tagName === "SELECT") return;
+  const k = e.key.toLowerCase();
+  if (keyDown.has(k)) { e.preventDefault(); return; }
+  if (k === "z" || k === "x") { setParam("playOctave", clamp(Math.round(params.playOctave) + (k === "x" ? 1 : -1), -2, 2)); e.preventDefault(); return; }
+  const tap = Math.round(params.playStyle) === 2;
+  let kind = -1, idx = -1;
+  if (MELKEYS.includes(k)) { kind = 0; idx = MELKEYS.indexOf(k); }
+  else if (k >= "1" && k <= "7") { kind = 1; idx = +k - 1; }
+  else if (k === " " || (tap && k.length === 1)) { kind = 3; idx = Math.abs(k.charCodeAt(0)) % 10; }
+  if (kind < 0) return;
+  e.preventDefault();
+  keyDown.add(k);
+  press(kind, idx, 100);
+  keyDown[k] = [kind, idx];
+});
+window.addEventListener("keyup", e => {
+  const k = e.key.toLowerCase();
+  if (!keyDown.has(k)) return;
+  keyDown.delete(k);
+  const [kind, idx] = keyDown[k] || [];
+  if (kind !== undefined) release(kind, idx);
+});
+window.addEventListener("blur", () => { held.forEach(id => { const [kd, i] = id.split(":").map(Number); native("pad", kd, i, false, 0); }); held.clear(); keyDown.clear(); renderPads(); });
+
+function drawPlay() {
+  const tap = Math.round(params.playStyle) === 2;
+  $("tapHint").hidden = true;
+  if (tap) {
+    const notes = state?.vars?.[state.selected] || [];
+    if (!notes.length) { $("tapHint").hidden = false; $("tapHint").textContent = "Pick or generate a melody on the Generate tab first."; drawRoll($("cPlay"), [], 16); return; }
+    const next = frame.tapIdx % notes.length;
+    const shown = notes.map((n, i) => i === next ? [n[0], n[1], n[2], n[3], 1, 0] : [n[0], n[1], n[2], n[3], 0, 0]);
+    drawRoll($("cPlay"), shown, (state.bars || 8) * 4, { top: 44 });
+    $("playRecText").innerHTML = `<b style="color:var(--text)">Tap any key</b> — next note ${next + 1} of ${notes.length} (gold). Record it to keep your timing.`;
+  } else {
+    drawRoll($("cPlay"), state?.take || [], Math.max(4, state?.takeLen || 16), { top: 44 });
+    $("playRecText").innerHTML = frame.playRec ? `<b style="color:#ff6b6b">Recording…</b> ${frame.recCount} notes · ${(frame.recBeats / 4).toFixed(1)} bars — press ■ to stop`
+      : (state?.take?.length ? `<b style="color:var(--text)">${state.take.length} notes recorded</b> — drag them out below, or record again` : `<b style="color:var(--text)">Record what you play</b> — it becomes MIDI you can drag out`);
+  }
+  $("recPlay").classList.toggle("on", !!frame.playRec);
+}
+
 // ── from the plugin ────────────────────────────────────────────────────────
 window.NMel = {
   onState(s) { state = s; renderControls(); renderHumText(); drawAll(); },
@@ -315,7 +430,7 @@ const Demo = {
   call(name, ...a) {
     if (name === "setParam") { params[a[0]] = a[1]; }
     if (name === "act") {
-      if (a[0] === "mode") { state.mode = a[1]; }
+      if (a[0] === "mode") { state.mode = a[1]; frame.chordNow = 5; frame.pads = 16; }
       if (a[0] === "select") state.selected = a[1];
       if (a[0] === "lock") { const n = state.vars[state.selected][a[1]]; n[4] = n[4] ? 0 : 1; }
       if (a[0] === "generate") state.vars = [0, 1, 2, 3].map(i => Demo.mel(i + Math.random() * 9));
@@ -335,6 +450,9 @@ if (!inPlugin) {
             hum: { ok: true, status: "Heard 14 notes", len: 16, heard: hum.map(([s, l, p]) => [s, l, p, 100, 0, 0]), notes: hum.map(([s, l, p]) => [s, l * .95, p - 24, 108, 0, 0]),
                    curve, extra: 0, key: { tonic: 7, scale: 1, name: "G minor", heard: true, unsure: false } } };
   state.vars[0][0][4] = 1; state.vars[0][1][4] = 1;
+  state.play = { tonic: 7, scale: 1, pads: [55, 57, 58, 60, 62, 63, 65, 67], chords: ["Gm", "Adim", "Bb", "Cm", "Dm", "Eb", "F"],
+                 chordPcs: [[7, 10, 2], [9, 0, 3], [10, 2, 5], [0, 3, 7], [2, 5, 9], [3, 7, 10], [5, 9, 0]] };
+  state.take = Demo.mel(3).slice(0, 18); state.takeLen = 16;
   setTimeout(() => { NMel.onState(state); NMel.onFrame({ beat: 10.4, rec: false, recSec: 0, level: 0, bpm: 94 }); }, 0);
 }
 

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nova Melody — Play (mockup)</title>
+<style>
+  :root {
+    --bg: #0c0e14; --panel: #14161e; --panel2: #1a1d27; --line: #232634; --line2: #2c3040;
+    --text: #e8e9f0; --dim: #8b8fa3; --faint: #565a6e;
+    --accent: #9650ff; --accent2: #b98cff; --hum: #3fd1b5; --chord: #4fb6ff; --glow: #ffd36b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #07080c; color: var(--text); font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased; padding: 22px; user-select: none; }
+  .win { width: 1240px; height: 760px; margin: 0 auto; background: var(--bg); border: 1px solid var(--line2); border-radius: 10px; overflow: hidden; display: grid; grid-template-rows: 56px 1fr 70px; box-shadow: 0 30px 90px rgba(0,0,0,.6); }
+  .top { display: flex; align-items: center; gap: 16px; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .title { font-size: 13px; font-weight: 700; letter-spacing: .18em; } .title span { color: var(--accent2); }
+  .tabs { display: flex; background: var(--panel2); border: 1px solid var(--line2); border-radius: 8px; padding: 3px; }
+  .tab { border: 0; background: none; color: var(--dim); font-size: 12.5px; font-weight: 600; padding: 7px 16px; border-radius: 6px; display: flex; gap: 7px; align-items: center; }
+  .tab.on { background: rgba(150,80,255,.22); color: var(--text); box-shadow: inset 0 0 0 1px rgba(150,80,255,.5); }
+  .tab .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--hum); }
+  .tab .new { font-size: 9px; background: var(--glow); color: #1a1400; border-radius: 4px; padding: 1px 4px; font-weight: 800; }
+  .grow { flex: 1; }
+  .pill { font-size: 11.5px; color: var(--dim); background: var(--panel2); border: 1px solid var(--line2); border-radius: 6px; padding: 6px 10px; } .pill b { color: var(--text); }
+
+  .main { display: grid; grid-template-columns: 296px 1fr; min-height: 0; }
+  .side { border-right: 1px solid var(--line); padding: 12px 16px; background: var(--panel); display: flex; flex-direction: column; gap: 12px; }
+  .h { font-size: 10px; font-weight: 700; letter-spacing: .14em; color: var(--faint); margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .h em { font-style: normal; color: var(--dim); font-weight: 500; letter-spacing: 0; font-size: 10.5px; }
+  .keyrow { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; margin-bottom: 6px; }
+  .k { height: 26px; border-radius: 4px; font-size: 10.5px; font-weight: 600; display: grid; place-items: center; border: 1px solid var(--line2); }
+  .k.w { background: #d9dbe5; color: #2a2d3a; } .k.b { background: #12141b; color: #8b8fa3; }
+  .k.on { background: var(--accent); color: #fff; border-color: var(--accent); } .k.in { box-shadow: inset 0 -3px 0 rgba(150,80,255,.75); }
+  .keyline { display: grid; grid-template-columns: 1fr 74px; gap: 6px; }
+  .sel { font-size: 12px; background: var(--panel2); border: 1px solid var(--line2); border-radius: 6px; padding: 6px 9px; display: flex; justify-content: space-between; } .sel small { color: var(--faint); }
+  .auto { font-size: 11.5px; font-weight: 600; border-radius: 6px; padding: 6px 0; text-align: center; border: 1px solid var(--line2); background: var(--panel2); color: var(--dim); }
+  .auto.on { color: var(--text); background: rgba(63,209,181,.16); border-color: rgba(63,209,181,.6); }
+  .opt { display: flex; flex-direction: column; gap: 6px; }
+  .o { border: 1px solid var(--line2); background: var(--panel2); border-radius: 8px; padding: 8px 10px; }
+  .o.on { border-color: rgba(150,80,255,.6); background: rgba(150,80,255,.14); }
+  .o b { font-size: 12.5px; display: block; margin-bottom: 2px; } .o span { font-size: 11px; color: var(--dim); line-height: 1.4; }
+  .toggle { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+  .sw { width: 30px; height: 17px; border-radius: 9px; background: var(--accent); position: relative; flex: none; }
+  .sw::after { content: ""; position: absolute; right: 2px; top: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; }
+  .sw.off { background: #333849; } .sw.off::after { right: auto; left: 2px; }
+  .note { font-size: 11px; color: var(--faint); line-height: 1.45; }
+
+  .stage { padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .lbl { font-size: 10px; font-weight: 700; letter-spacing: .14em; color: var(--faint); display: flex; justify-content: space-between; }
+  .lbl em { font-style: normal; color: var(--dim); font-weight: 500; letter-spacing: 0; }
+  .pads { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+  .pad { height: 118px; border-radius: 12px; background: linear-gradient(180deg, #1f2230, #171a24); border: 1px solid var(--line2); position: relative; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px; }
+  .pad .num { position: absolute; left: 10px; top: 8px; font-size: 22px; font-weight: 800; color: #fff; opacity: .9; }
+  .pad .nm { font-size: 13px; font-weight: 700; }
+  .pad .feel { font-size: 10.5px; color: var(--dim); }
+  .pad .kb { position: absolute; right: 9px; top: 9px; font-size: 10.5px; color: var(--dim); border: 1px solid var(--line2); border-radius: 4px; padding: 1px 6px; background: #12141b; }
+  .pad.glow { border-color: rgba(255,211,107,.7); box-shadow: 0 0 0 1px rgba(255,211,107,.5) inset, 0 0 22px rgba(255,211,107,.15); }
+  .pad.glow .feel { color: var(--glow); }
+  .pad.hit { background: linear-gradient(180deg, #9650ff, #6a2fd6); border-color: #b98cff; box-shadow: 0 0 26px rgba(150,80,255,.55); }
+  .pad.hit .feel { color: #eee; }
+  .chords { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .cpad { height: 74px; border-radius: 12px; background: linear-gradient(180deg, #172433, #131b26); border: 1px solid #22364a; position: relative; padding: 10px; display: flex; flex-direction: column; justify-content: flex-end; }
+  .cpad .nm { font-size: 15px; font-weight: 800; }
+  .cpad .feel { font-size: 10.5px; color: #7fa6c8; }
+  .cpad .kb { position: absolute; right: 9px; top: 9px; font-size: 10.5px; color: #7fa6c8; border: 1px solid #22364a; border-radius: 4px; padding: 1px 6px; background: #0f1620; }
+  .cpad.on { background: linear-gradient(180deg, #2f6ea6, #20507d); border-color: #4fb6ff; box-shadow: 0 0 22px rgba(79,182,255,.35); }
+  .rec { display: grid; grid-template-columns: 1fr; flex: 1; min-height: 0; background: var(--panel); border: 1px solid var(--line2); border-radius: 10px; position: relative; overflow: hidden; }
+  .rec svg { position: absolute; inset: 0; }
+  .rec .hd { position: absolute; left: 14px; top: 10px; right: 14px; display: flex; gap: 10px; align-items: center; z-index: 1; font-size: 11.5px; color: var(--dim); }
+  .recbtn { width: 28px; height: 28px; border-radius: 50%; background: #2a1414; border: 1px solid #ff5050; display: grid; place-items: center; } .recbtn i { width: 11px; height: 11px; border-radius: 50%; background: #ff4d4d; }
+  .chip { font-size: 11px; color: var(--dim); background: var(--panel2); border: 1px solid var(--line2); border-radius: 6px; padding: 4px 8px; } .chip.on { color: var(--text); border-color: rgba(150,80,255,.55); background: rgba(150,80,255,.2); }
+
+  .foot { border-top: 1px solid var(--line); background: var(--panel); display: flex; align-items: center; gap: 12px; padding: 0 18px; }
+  .play { width: 38px; height: 38px; border-radius: 50%; background: var(--panel2); border: 1px solid var(--line2); display: grid; place-items: center; } .play i { border-left: 11px solid #fff; border-top: 7px solid transparent; border-bottom: 7px solid transparent; margin-left: 3px; }
+  .drag { border: 1px dashed rgba(150,80,255,.6); background: rgba(150,80,255,.1); border-radius: 8px; padding: 8px 14px; font-size: 12px; } .drag b { color: var(--accent2); }
+  .btn { border: 1px solid var(--line2); background: var(--panel2); color: var(--text); font-size: 12px; font-weight: 600; padding: 9px 14px; border-radius: 8px; }
+  .caption { width: 1240px; margin: 14px auto 0; color: #6f7386; font-size: 12px; line-height: 1.55; }
+</style>
+</head>
+<body>
+<div class="win">
+  <div class="top">
+    <div class="title">NOVA <span>MELODY</span></div>
+    <div class="tabs">
+      <button class="tab">✦ Generate</button>
+      <button class="tab"><span class="dot"></span>Hum it</button>
+      <button class="tab on">🎹 Play <span class="new">NEW</span></button>
+    </div>
+    <div class="grow"></div>
+    <div class="pill">Tempo <b>94 BPM</b> · from host</div>
+    <div class="pill">Key <b>G minor</b> · you picked it</div>
+    <div class="pill">Chord now <b style="color:#4fb6ff">E♭</b></div>
+  </div>
+
+  <div class="main">
+    <div class="side">
+      <div>
+        <div class="h">KEY <em>every key you press stays in it</em></div>
+        <div class="keyrow">
+          <div class="k w in">C</div><div class="k b">C♯</div><div class="k w in">D</div><div class="k b in">E♭</div><div class="k w">E</div><div class="k w in">F</div><div class="k b">F♯</div><div class="k w on">G</div><div class="k b">A♭</div><div class="k w in">A</div><div class="k b in">B♭</div><div class="k w">B</div>
+        </div>
+        <div class="keyline"><div class="sel">Minor <small>▾</small></div><div class="auto">Auto</div></div>
+      </div>
+      <div>
+        <div class="h">HOW YOU PLAY</div>
+        <div class="opt">
+          <div class="o on"><b>Every key is a good note</b><span>Your MIDI keyboard or computer keys only play notes in the key. No wrong notes — white keys walk up the scale.</span></div>
+          <div class="o"><b>One finger chords</b><span>Left hand: one key = a full chord. Right hand: melody notes that fit it.</span></div>
+          <div class="o"><b>Tap the melody</b><span>Pick a generated melody and tap any key — each tap plays its next note, in your own timing.</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="h">HELP ME</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="toggle">Glow the notes that fit the chord <span class="sw"></span></div>
+          <div class="toggle">Fix my timing when recording <span class="sw"></span></div>
+          <div class="toggle">Strum chords like a guitar <span class="sw off"></span></div>
+        </div>
+      </div>
+      <div class="note">Octave: <b style="color:var(--text)">Z</b> / <b style="color:var(--text)">X</b> · Sound and MIDI out are the same as the other tabs, so you can play Keyscape, Kontakt or any instrument this way.</div>
+    </div>
+
+    <div class="stage">
+      <div class="lbl">MELODY NOTES <em>keys <b style="color:var(--text)">A S D F G H J K</b> or your MIDI keyboard · glowing = sounds great over E♭ right now</em></div>
+      <div class="pads">
+        <div class="pad"><span class="num">1</span><span class="kb">A</span><span class="nm">G</span><span class="feel">home</span></div>
+        <div class="pad"><span class="num">2</span><span class="kb">S</span><span class="nm">A</span><span class="feel">moving</span></div>
+        <div class="pad glow"><span class="num">3</span><span class="kb">D</span><span class="nm">B♭</span><span class="feel">fits E♭ ✦</span></div>
+        <div class="pad"><span class="num">4</span><span class="kb">F</span><span class="nm">C</span><span class="feel">lift</span></div>
+        <div class="pad hit"><span class="num">5</span><span class="kb">G</span><span class="nm">D</span><span class="feel">strong</span></div>
+        <div class="pad glow"><span class="num">6</span><span class="kb">H</span><span class="nm">E♭</span><span class="feel">fits E♭ ✦</span></div>
+        <div class="pad"><span class="num">7</span><span class="kb">J</span><span class="nm">F</span><span class="feel">wants to resolve</span></div>
+        <div class="pad glow"><span class="num">8</span><span class="kb">K</span><span class="nm">G</span><span class="feel">home, higher ✦</span></div>
+      </div>
+      <div class="lbl">ONE-FINGER CHORDS <em>keys <b style="color:var(--text)">1 2 3 4 5 6 7</b> · one key = the whole chord</em></div>
+      <div class="chords">
+        <div class="cpad"><span class="kb">1</span><span class="nm">Gm</span><span class="feel">home · sad</span></div>
+        <div class="cpad"><span class="kb">2</span><span class="nm">Adim</span><span class="feel">tense</span></div>
+        <div class="cpad"><span class="kb">3</span><span class="nm">B♭</span><span class="feel">bright</span></div>
+        <div class="cpad"><span class="kb">4</span><span class="nm">Cm</span><span class="feel">deep</span></div>
+        <div class="cpad"><span class="kb">5</span><span class="nm">Dm</span><span class="feel">dark</span></div>
+        <div class="cpad on"><span class="kb">6</span><span class="nm">E♭</span><span class="feel">emotional</span></div>
+        <div class="cpad"><span class="kb">7</span><span class="nm">F</span><span class="feel">uplifting</span></div>
+      </div>
+      <div class="rec">
+        <div class="hd"><div class="recbtn"><i></i></div><span><b style="color:var(--text)">Record what you play</b> — it becomes MIDI you can drag out</span><span class="grow"></span><span class="chip on">Melody + chords</span><span class="chip">Melody only</span><span class="chip">Loop 4 bars</span></div>
+        <svg id="recSvg"></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="play"><i></i></div>
+    <div class="sel" style="width:190px">Sound: <b style="font-weight:600">Keys</b> <small>▾</small></div>
+    <div class="pill">MIDI out to your instrument <b>on</b></div>
+    <div class="grow"></div>
+    <div class="drag">⠿ Drag <b>MIDI</b> into your DAW</div>
+    <button class="btn">Export .mid</button>
+  </div>
+</div>
+<div class="caption">Mockup — a third tab, <b>Play</b>, for playing melodies without knowing theory. Pick a key (or Auto) and <b>every key you press is a good note</b>: the 8 melody pads (or A–K on your computer keyboard, or any MIDI keyboard) are the notes of the key, numbered 1–8 with what each one feels like. The 7 chord pads play a whole chord with one finger, and while a chord plays, the melody notes that fit it <b>glow</b>. <b>Tap the melody</b> lets you perform a generated melody by tapping any key in your own rhythm. Record what you play — it turns into MIDI you can drag out, and timing can be fixed for you.</div>
+<script>
+// a recorded take: melody notes and chord blocks
+const sv = document.getElementById('recSvg'), W = 900, H = 170, x0 = 16, y0 = 44;
+let h = '';
+for (let b = 0; b <= 16; b++) h += `<rect x="${x0 + b * W / 16}" y="${y0}" width="1" height="${H - 10}" fill="${b % 4 ? '#1d2029' : '#2b2f3e'}"/>`;
+[[0,4,'Gm'],[4,4,'E♭'],[8,4,'B♭'],[12,4,'F']].forEach(([s,l,n]) => h += `<rect x="${x0 + s * W / 16 + 1}" y="${y0 + H - 44}" width="${l * W / 16 - 2}" height="26" rx="5" fill="#20507d" opacity=".75"/><text x="${x0 + s * W / 16 + 8}" y="${y0 + H - 26}" fill="#cfe8ff" font-size="11" font-weight="700" font-family="-apple-system">${n}</text>`);
+const mel = [[0,1,5],[1,.5,6],[1.5,1.5,5],[3,1,3],[4,1,6],[5,.5,5],[5.5,.5,6],[6,2,8],[8,1,5],[9,.5,3],[9.5,1.5,5],[11,1,4],[12,1.5,7],[13.5,.5,6],[14,2,5]];
+mel.forEach(([s,l,d]) => h += `<rect x="${x0 + s * W / 16 + 1}" y="${y0 + 100 - d * 11}" width="${l * W / 16 - 3}" height="9" rx="3" fill="#a46bff"/>`);
+h += `<rect x="${x0 + 9.7 * W / 16}" y="${y0}" width="2" height="${H - 10}" fill="#fff"/>`;
+sv.setAttribute('viewBox', `0 0 960 ${H + 50}`); sv.innerHTML = h;
+</script>
+</body>
+</html>

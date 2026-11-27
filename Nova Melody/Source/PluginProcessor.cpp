@@ -42,10 +42,12 @@ NovaMelodyProcessor::NovaMelodyProcessor()
 {
     playList = std::make_shared<PlayList>();
     generateAll();
+    startTimerHz (20);
 }
 
 NovaMelodyProcessor::~NovaMelodyProcessor()
 {
+    stopTimer();
     if (mic != nullptr) { mic->removeAudioCallback (this); mic->closeAudioDevice(); }
     while (analysing.load()) juce::Thread::sleep (5);
 }
@@ -94,6 +96,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaMelodyProcessor::createL
     l.add (std::make_unique<AudioParameterBool> (ParameterID { "autoOctave", 1 }, "Auto range", true));
     l.add (std::make_unique<AudioParameterChoice> (ParameterID { "sound", 1 }, "Sound", sounds, SoftPluck));
     l.add (std::make_unique<AudioParameterBool> (ParameterID { "midiOut", 1 }, "MIDI out", true));
+    l.add (std::make_unique<AudioParameterChoice> (ParameterID { "playStyle", 1 }, "How you play",
+                                                   StringArray { "Every key is a good note", "One finger chords", "Tap the melody" }, 0));
+    l.add (std::make_unique<AudioParameterBool> (ParameterID { "glow", 1 }, "Glow the notes that fit", true));
+    l.add (std::make_unique<AudioParameterBool> (ParameterID { "fixTiming", 1 }, "Fix my timing", true));
+    l.add (std::make_unique<AudioParameterBool> (ParameterID { "strum", 1 }, "Strum chords", false));
+    l.add (std::make_unique<AudioParameterInt> (ParameterID { "playOctave", 1 }, "Play octave", -2, 2, 0));
+    l.add (std::make_unique<AudioParameterChoice> (ParameterID { "recWhat", 1 }, "Record", StringArray { "Melody + chords", "Melody only" }, 0));
     l.add (std::make_unique<AudioParameterFloat> (ParameterID { "volume", 1 }, "Volume", NormalisableRange<float> (-30.f, 6.f), -6.f,
                                                   AudioParameterFloatAttributes().withLabel ("dB")));
     return l;
@@ -414,17 +423,19 @@ void NovaMelodyProcessor::humExtra (int which)
 // ════════════════════════════════════════════════════════════════════════════
 std::vector<MNote> NovaMelodyProcessor::currentNotes() const
 {
-    return mode == 1 ? humOut : variations[(size_t) selected];
+    return mode == 1 ? humOut : (mode == 2 ? playTake : variations[(size_t) selected]);
 }
 
 double NovaMelodyProcessor::currentLengthBeats() const
 {
     if (mode == 1) return hum.ok ? hum.lengthBeats : 16.0;
+    if (mode == 2) return playTakeLen;
     return kBarsChoices[juce::jlimit (0, 3, (int) p ("bars"))] * 4.0;
 }
 
 juce::String NovaMelodyProcessor::suggestedMidiName() const
 {
+    if (mode == 2) return "Nova Melody - played in " + keyName ({ playTonic.load(), playScale.load() });
     if (mode == 1) return "Nova Melody - hummed " + juce::String (juce::StringArray { "bassline", "808", "melody", "chords" }[(int) p ("humAs")]);
     return "Nova Melody - " + juce::String (genreName ((int) p ("genre"))) + " " + juce::String (vibeName ((int) p ("vibe"))).toLowerCase()
          + " " + juce::String (partName ((int) p ("part"))).toLowerCase() + " " + juce::String ("ABCD"[selected]);
@@ -442,8 +453,10 @@ void NovaMelodyProcessor::publish()
     pl->notes = currentNotes();
     for (auto& m : pl->notes) m.locked = false;
     pl->length = std::max (1.0, currentLengthBeats());
+    auto tl = std::make_shared<const std::vector<MNote>> (variations[(size_t) selected]);
     const juce::SpinLock::ScopedLockType sl (playLock);
     playList = pl;
+    tapList = tl;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -464,8 +477,19 @@ void NovaMelodyProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
     // chords played in (for Follow chords and the Auto key)
     bool heldChanged = false;
+    const bool playMode = modeNow.load() == 2;
+    struct In { int sample, note, vel; bool on; };
+    std::array<In, 128> liveIn;
+    int numIn2 = 0;
     for (const auto meta : midi)
     {
+        if (playMode)
+        {
+            const auto m = meta.getMessage();
+            if ((m.isNoteOn() || m.isNoteOff()) && numIn2 < (int) liveIn.size())
+                liveIn[(size_t) numIn2++] = { meta.samplePosition, m.getNoteNumber(), m.getVelocity(), m.isNoteOn() };
+            continue;
+        }
         const auto m = meta.getMessage();
         if (m.isNoteOn()) { held[(size_t) m.getNoteNumber()] = true; heldChanged = true; }
         else if (m.isNoteOff()) { held[(size_t) m.getNoteNumber()] = false; heldChanged = true; }
@@ -553,7 +577,6 @@ void NovaMelodyProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     }
     wasPlaying = playing;
 
-    struct Ev { int sample; int pitch; int vel; bool on; bool glide; };
     std::array<Ev, 512> evs;
     int numEv = 0;
     if (playing && pl != nullptr && ! pl->notes.empty())
@@ -590,6 +613,49 @@ void NovaMelodyProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     else
         playBeat.store (-1.0);
 
+    // ── live playing (Play tab): pads, computer keys, your MIDI keyboard ──────
+    bpsNow = beatsPerSample;
+    clockAtBlock = hostPlaying ? hostBeat : freeClock;
+    freeClock = clockAtBlock + blockBeats;
+    if (playRec.load())
+    {
+        if (recStartBeat.load() < 0) recStartBeat.store (hostPlaying ? std::floor (hostBeat / 4.0) * 4.0 : clockAtBlock);
+        recNowBeat.store (clockAtBlock + blockBeats);
+    }
+    {
+        int s1, n1, s2, n2;
+        uiFifo.prepareToRead (uiFifo.getNumReady(), s1, n1, s2, n2);
+        auto handle = [&] (int start, int count)
+        {
+            for (int i = 0; i < count; ++i)
+            {
+                const auto& u = uiEvs[(size_t) (start + i)];
+                if (u.down) liveDown (u.src, u.kind, u.idx, u.vel, 0, evs.data(), numEv);
+                else liveUp (u.src, 0, evs.data(), numEv);
+            }
+        };
+        handle (s1, n1); handle (s2, n2);
+        uiFifo.finishedRead (n1 + n2);
+    }
+    for (int i = 0; i < numIn2; ++i)
+    {
+        const auto& e = liveIn[(size_t) i];
+        if (e.on) liveDown (e.note, 2, e.note, e.vel, e.sample, evs.data(), numEv);
+        else liveUp (e.note, e.sample, evs.data(), numEv);
+    }
+    // strummed chord notes due in this block (counted from this block, including ones just queued)
+    for (int i = 0; i < numStrums;)
+    {
+        auto& st = strums[(size_t) i];
+        if (st.samplesLeft < n)
+        {
+            if (numEv < (int) evs.size()) evs[(size_t) numEv++] = { std::max (0, st.samplesLeft), st.pitch, st.vel, true, false };
+            recPush (clockAtBlock + std::max (0, st.samplesLeft) * beatsPerSample, st.pitch, st.vel, true, true);
+            strums[(size_t) i] = strums[(size_t) --numStrums];
+        }
+        else { st.samplesLeft -= n; ++i; }
+    }
+
     std::sort (evs.begin(), evs.begin() + numEv, [] (const Ev& a, const Ev& b) { return a.sample != b.sample ? a.sample < b.sample : (! a.on && b.on); });
 
     // render in segments between events
@@ -621,6 +687,206 @@ void NovaMelodyProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         L[i] = std::isfinite (L[i]) ? juce::jlimit (-1.f, 1.f, L[i]) : 0.f;
         if (R != L) R[i] = std::isfinite (R[i]) ? juce::jlimit (-1.f, 1.f, R[i]) : 0.f;
     }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Play: live notes
+// ════════════════════════════════════════════════════════════════════════════
+void NovaMelodyProcessor::liveDown (int src, int kind, int idx, int vel, int sample, Ev* evs, int& numEv)
+{
+    if (! juce::isPositiveAndBelow (src, (int) srcs.size())) return;
+    liveUp (src, sample, evs, numEv);                                  // pressed again: retrigger
+    const Key k { playTonic.load(), playScale.load() };
+    const int oct = (int) p ("playOctave");
+    const int style = (int) p ("playStyle");
+    Src s;
+    auto chordFromTable = [&] (int d)
+    {
+        d = juce::jlimit (0, 6, d);
+        for (int i = 0; i < 4; ++i) s.pitch[s.n++] = chordTab[(size_t) (d * 4 + i)].load();
+        s.chord = true;
+        chordNow.store (d);
+    };
+    if (style == 2 || kind == 3)
+    {
+        // Tap the melody: any key plays the next note of the chosen melody
+        std::shared_ptr<const std::vector<MNote>> list;
+        { const juce::SpinLock::ScopedLockType sl (playLock); list = tapList; }
+        if (list == nullptr || list->empty()) return;
+        const int i = tapIdx.load() % (int) list->size();
+        tapIdx.store (i + 1);
+        s.pitch[s.n++] = juce::jlimit (0, 127, (*list)[(size_t) i].pitch + 12 * oct);
+    }
+    else if (kind == 0) { s.pitch[s.n++] = padPitch (k, idx, oct); s.pad = idx; }
+    else if (kind == 1) chordFromTable (idx);
+    else if (kind == 2)
+    {
+        const int step = whiteKeyStep (idx);
+        if (style == 1 && idx < 60) chordFromTable (((step % 7) + 7) % 7);        // left hand: one key = a chord
+        else { s.pitch[s.n++] = stepPitch (k, step, oct); s.pad = ((step % 7) + 7) % 7; }
+    }
+    if (s.n == 0) return;
+    const bool strum = s.chord && p ("strum") > 0.5f;
+    for (int i = 0; i < s.n; ++i)
+    {
+        const int delay = strum ? (int) (i * 0.016 * sampleRate) : 0;
+        if (delay > 0 && numStrums < (int) strums.size()) strums[(size_t) numStrums++] = { src, s.pitch[i], vel, sample + delay };
+        else
+        {
+            if (numEv < 512) evs[numEv++] = { sample, s.pitch[i], vel, true, false };
+            recPush (clockAtBlock + sample * bpsNow, s.pitch[i], vel, true, s.chord);
+        }
+    }
+    srcs[(size_t) src] = s;
+    if (s.pad >= 0) padsOnMask.store (padsOnMask.load() | (1 << s.pad));
+}
+
+void NovaMelodyProcessor::liveUp (int src, int sample, Ev* evs, int& numEv)
+{
+    if (! juce::isPositiveAndBelow (src, (int) srcs.size())) return;
+    auto& s = srcs[(size_t) src];
+    if (s.n == 0) return;
+    for (int i = 0; i < numStrums;)
+        if (strums[(size_t) i].src == src) strums[(size_t) i] = strums[(size_t) --numStrums]; else ++i;
+    for (int i = 0; i < s.n; ++i)
+    {
+        if (numEv < 512) evs[numEv++] = { sample, s.pitch[i], 0, false, false };
+        recPush (clockAtBlock + sample * bpsNow, s.pitch[i], 0, false, s.chord);
+    }
+    s = {};
+    int mask = 0;
+    for (auto& o : srcs) if (o.n > 0 && o.pad >= 0) mask |= 1 << o.pad;
+    padsOnMask.store (mask);
+}
+
+void NovaMelodyProcessor::recPush (double beat, int pitch, int vel, bool on, bool chord)
+{
+    if (! playRec.load()) return;
+    if (chord && (int) p ("recWhat") == 1) return;                         // Melody only
+    int s1, n1, s2, n2;
+    recFifo.prepareToWrite (1, s1, n1, s2, n2);
+    if (n1 + n2 == 0) return;
+    recEvs[(size_t) (n1 > 0 ? s1 : s2)] = { beat, pitch, vel, on, chord };
+    recFifo.finishedWrite (1);
+}
+
+void NovaMelodyProcessor::padDown (int kind, int idx, int vel)
+{
+    const int src = kind == 0 ? 128 + idx : (kind == 1 ? 140 + idx : 150 + idx);
+    int s1, n1, s2, n2;
+    uiFifo.prepareToWrite (1, s1, n1, s2, n2);
+    if (n1 + n2 == 0) return;
+    uiEvs[(size_t) (n1 > 0 ? s1 : s2)] = { src, kind, idx, juce::jlimit (1, 127, vel), true };
+    uiFifo.finishedWrite (1);
+}
+
+void NovaMelodyProcessor::padUp (int kind, int idx)
+{
+    const int src = kind == 0 ? 128 + idx : (kind == 1 ? 140 + idx : 150 + idx);
+    int s1, n1, s2, n2;
+    uiFifo.prepareToWrite (1, s1, n1, s2, n2);
+    if (n1 + n2 == 0) return;
+    uiEvs[(size_t) (n1 > 0 ? s1 : s2)] = { src, kind, idx, 0, false };
+    uiFifo.finishedWrite (1);
+}
+
+void NovaMelodyProcessor::timerCallback()
+{
+    // the key Play uses (picked, or heard from chords played in) and its 7 chords
+    const auto k = keyForGenerate();
+    const int oct = (int) p ("playOctave");
+    if (k.tonic != playTonic.load() || k.scale != playScale.load() || oct != tabOctave)
+    {
+        tabOctave = oct;
+        playTonic.store (k.tonic);
+        playScale.store (k.scale);
+        for (int d = 0; d < 7; ++d)
+        {
+            const auto ps = chordPadPitches (k, d, oct);
+            for (int i = 0; i < 4; ++i) chordTab[(size_t) (d * 4 + i)].store (ps[(size_t) std::min (i, (int) ps.size() - 1)]);
+        }
+    }
+    drainRecording();
+}
+
+void NovaMelodyProcessor::drainRecording()
+{
+    int s1, n1, s2, n2;
+    recFifo.prepareToRead (recFifo.getNumReady(), s1, n1, s2, n2);
+    auto take = [&] (int start, int count)
+    {
+        for (int i = 0; i < count; ++i)
+        {
+            const auto& e = recEvs[(size_t) (start + i)];
+            if (e.on) openRec[e.pitch] = { e.beat, e.vel * (e.chord ? -1 : 1) };
+            else if (auto it = openRec.find (e.pitch); it != openRec.end())
+            {
+                MNote m;
+                m.start = it->second.first; m.len = std::max (0.05, e.beat - it->second.first);
+                m.pitch = e.pitch; m.vel = std::abs (it->second.second);
+                recNotes.push_back (m);
+                recIsChord.push_back (it->second.second < 0);
+                openRec.erase (it);
+            }
+        }
+    };
+    take (s1, n1); take (s2, n2);
+    recFifo.finishedRead (n1 + n2);
+}
+
+void NovaMelodyProcessor::startPlayRecording()
+{
+    drainRecording();
+    openRec.clear(); recNotes.clear(); recIsChord.clear();
+    recStartBeat.store (-1.0);
+    playRec.store (true);
+    bump();
+}
+
+void NovaMelodyProcessor::stopPlayRecording()
+{
+    if (! playRec.exchange (false)) return;
+    juce::Thread::sleep (30);                        // let the last audio block's events land
+    drainRecording();
+    for (auto& [pitch, sv] : openRec)                // keys still held: end them now
+    {
+        MNote m; m.start = sv.first; m.len = std::max (0.05, recNowBeat.load() - sv.first); m.pitch = pitch; m.vel = std::abs (sv.second);
+        recNotes.push_back (m); recIsChord.push_back (sv.second < 0);
+    }
+    openRec.clear();
+    const double origin = recStartBeat.load();
+    std::vector<MNote> out;
+    for (size_t i = 0; i < recNotes.size(); ++i)
+    {
+        auto m = recNotes[i];
+        m.start -= origin;
+        if (m.start < -0.05) continue;
+        m.start = std::max (0.0, m.start);
+        if (p ("fixTiming") > 0.5f)
+        {
+            const double g = 0.25;
+            const double end = std::round ((m.start + m.len) / g) * g;
+            m.start = std::round (m.start / g) * g;
+            m.len = std::max (g, end - m.start);
+        }
+        out.push_back (m);
+    }
+    std::sort (out.begin(), out.end(), [] (const MNote& a, const MNote& b) { return a.start < b.start; });
+    double end = 0;
+    for (auto& m : out) end = std::max (end, m.start + m.len);
+    playTake = out;
+    playTakeLen = std::max (4.0, std::ceil (end / 4.0 - 1e-6) * 4.0);
+    recStartBeat.store (-1.0);
+    publish();
+    bump();
+}
+
+void NovaMelodyProcessor::clearTake()
+{
+    playTake.clear();
+    playTakeLen = 16;
+    publish();
+    bump();
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -684,6 +950,25 @@ juce::String NovaMelodyProcessor::getStateJson() const
     o->setProperty ("recording", recording.load());
     o->setProperty ("analysing", analysing.load());
     o->setProperty ("midiName", suggestedMidiName());
+    o->setProperty ("take", notesToVar (playTake));
+    o->setProperty ("takeLen", playTakeLen);
+    {
+        auto* k = new juce::DynamicObject();
+        k->setProperty ("tonic", playTonic.load()); k->setProperty ("scale", playScale.load());
+        juce::Array<juce::var> pads, chordNames, chordPcs;
+        const Key pk { playTonic.load(), playScale.load() };
+        for (int i = 0; i < 8; ++i) pads.add (padPitch (pk, i, 0));
+        for (int d = 0; d < 7; ++d)
+        {
+            const auto pcs = chordPadClasses (pk, d);
+            Chord c; c.root = pcs[0]; c.pcs = pcs;
+            chordNames.add (chordName (c));
+            juce::Array<juce::var> a; for (int pc : pcs) a.add (pc);
+            chordPcs.add (a);
+        }
+        k->setProperty ("pads", pads); k->setProperty ("chords", chordNames); k->setProperty ("chordPcs", chordPcs);
+        o->setProperty ("play", juce::var (k));
+    }
     return juce::JSON::toString (juce::var (o), true);
 }
 
@@ -693,7 +978,11 @@ juce::String NovaMelodyProcessor::getFrameJson() const
     s << juce::String (playBeat.load(), 3) << ",\"rec\":" << (recording.load() ? "true" : "false")
       << ",\"recSec\":" << juce::String (captureLen.load() / std::max (1.0, captureRate), 1)
       << ",\"level\":" << juce::String (inputLevel.load(), 3)
-      << ",\"bpm\":" << juce::String (bpm.load(), 1) << "}";
+      << ",\"bpm\":" << juce::String (bpm.load(), 1)
+      << ",\"pads\":" << padsOnMask.load() << ",\"chordNow\":" << chordNow.load() << ",\"tapIdx\":" << tapIdx.load()
+      << ",\"playRec\":" << (playRec.load() ? "true" : "false")
+      << ",\"recBeats\":" << juce::String (playRec.load() && recStartBeat.load() >= 0 ? recNowBeat.load() - recStartBeat.load() : 0.0, 2)
+      << ",\"recCount\":" << (int) recNotes.size() << "}";
     return s;
 }
 
@@ -721,6 +1010,8 @@ void NovaMelodyProcessor::getStateInformation (juce::MemoryBlock& dest)
     o->setProperty ("humLen", hum.lengthBeats);
     o->setProperty ("humKey", juce::Array<juce::var> { hum.key.tonic, hum.key.scale, hum.keyWasHeard ? 1 : 0, hum.keyConfidence });
     o->setProperty ("humExtra", humExtraMode);
+    o->setProperty ("take", notesToVar (playTake));
+    o->setProperty ("takeLen", playTakeLen);
     {
         const juce::ScopedLock sl (chordLock);
         juce::Array<juce::var> ch;
@@ -768,6 +1059,9 @@ void NovaMelodyProcessor::setStateInformation (const void* data, int size)
             hum.keyConfidence = (float) (double) (*k)[3];
         }
         humExtraMode = (int) o->getProperty ("humExtra");
+        playTake = notesFromVar (o->getProperty ("take"));
+        playTakeLen = o->hasProperty ("takeLen") ? (double) o->getProperty ("takeLen") : 16.0;
+        modeNow.store (mode);
         {
             const juce::ScopedLock sl (chordLock);
             heardChords.clear();

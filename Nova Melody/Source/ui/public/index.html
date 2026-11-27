@@ -109,6 +109,37 @@
   @keyframes blink { 50% { opacity: .35; } }
   .status { position: absolute; left: 14px; bottom: 10px; font-size: 11.5px; color: var(--dim); z-index: 1; }
   [hidden] { display: none !important; }
+  .opt { display: flex; flex-direction: column; gap: 6px; }
+  .o { border: 1px solid var(--line2); background: var(--panel2); border-radius: 8px; padding: 7px 10px; cursor: pointer; }
+  .o:hover { border-color: #3a3f55; }
+  .o.on { border-color: rgba(150,80,255,.6); background: rgba(150,80,255,.14); }
+  .o b { font-size: 12.5px; display: block; margin-bottom: 2px; } .o span { font-size: 11px; color: var(--dim); line-height: 1.4; }
+  .octrow { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); }
+  .octrow .btn { padding: 4px 10px; }
+  .playwrap { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+  .plbl { font-size: 10px; font-weight: 700; letter-spacing: .14em; color: var(--faint); display: flex; justify-content: space-between; }
+  .plbl em { font-style: normal; color: var(--dim); font-weight: 500; letter-spacing: 0; }
+  .plbl em b { color: var(--text); }
+  .pads { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+  .pad { height: 112px; border-radius: 12px; background: linear-gradient(180deg, #1f2230, #171a24); border: 1px solid var(--line2); position: relative; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px; cursor: pointer; transition: background .06s; }
+  .pad .num { position: absolute; left: 10px; top: 8px; font-size: 22px; font-weight: 800; color: #fff; opacity: .9; }
+  .pad .nm { font-size: 13px; font-weight: 700; } .pad .feel { font-size: 10.5px; color: var(--dim); }
+  .pad .kb, .cpad .kb { position: absolute; right: 9px; top: 9px; font-size: 10.5px; color: var(--dim); border: 1px solid var(--line2); border-radius: 4px; padding: 1px 6px; background: #12141b; }
+  .pad.glow { border-color: rgba(255,211,107,.7); box-shadow: 0 0 0 1px rgba(255,211,107,.5) inset, 0 0 22px rgba(255,211,107,.15); }
+  .pad.glow .feel { color: #ffd36b; }
+  .pad.hit { background: linear-gradient(180deg, #9650ff, #6a2fd6); border-color: #b98cff; box-shadow: 0 0 26px rgba(150,80,255,.55); }
+  .pad.hit .feel { color: #eee; }
+  .chords { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .cpad { height: 70px; border-radius: 12px; background: linear-gradient(180deg, #172433, #131b26); border: 1px solid #22364a; position: relative; padding: 10px; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; }
+  .cpad .nm { font-size: 15px; font-weight: 800; } .cpad .feel { font-size: 10.5px; color: #7fa6c8; }
+  .cpad .kb { color: #7fa6c8; border-color: #22364a; background: #0f1620; }
+  .cpad.on { border-color: #4fb6ff; } .cpad.hit { background: linear-gradient(180deg, #2f6ea6, #20507d); box-shadow: 0 0 22px rgba(79,182,255,.35); }
+  .take2 { flex: 1; min-height: 0; background: var(--panel); border: 1px solid var(--line2); border-radius: 10px; position: relative; overflow: hidden; }
+  .take2 canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  .take2 .hd { position: absolute; left: 12px; top: 8px; right: 12px; display: flex; gap: 10px; align-items: center; z-index: 1; font-size: 11.5px; color: var(--dim); }
+  .take2 .hd .chip { font-size: 11px; padding: 4px 8px; }
+  .tapbig { position: absolute; inset: 0; display: grid; place-items: center; color: var(--dim); font-size: 13px; pointer-events: none; }
+
 </style>
 </head>
 <body>
@@ -118,11 +149,13 @@
     <div class="tabs">
       <button class="tab" data-mode="0">✦ Generate</button>
       <button class="tab" data-mode="1"><span class="dot"></span>Hum it</button>
+      <button class="tab" data-mode="2">🎹 Play</button>
     </div>
     <div class="grow"></div>
     <div class="pill">Tempo <b id="pTempo">—</b> · from host</div>
     <div class="pill" id="pKey">Key <b>—</b></div>
-    <div class="pill">Length <b id="pLen">—</b></div>
+    <div class="pill" id="pLenPill">Length <b id="pLen">—</b></div>
+    <div class="pill" id="pChord" hidden>Chord now <b style="color:#4fb6ff" id="pChordName">—</b></div>
   </div>
 
   <div class="main">
@@ -186,6 +219,33 @@
       </div>
     </div>
 
+    <!-- ===== PLAY side ===== -->
+    <div class="side" id="sidePlay" hidden>
+      <div class="keypick" data-kind="play">
+        <div class="h">KEY <em class="keyhint"></em></div>
+        <div class="keyrow"></div>
+        <div class="keyline"><select class="sel scale"></select><div class="auto">Auto</div></div>
+      </div>
+      <div>
+        <div class="h">HOW YOU PLAY</div>
+        <div class="opt" id="styles">
+          <div class="o" data-s="0"><b>Every key is a good note</b><span>Pads, computer keys or your MIDI keyboard only play notes in the key — white keys walk up the scale.</span></div>
+          <div class="o" data-s="1"><b>One finger chords</b><span>Left hand (below middle C): one key = a full chord. Right hand: melody notes that fit.</span></div>
+          <div class="o" data-s="2"><b>Tap the melody</b><span>Any key plays the next note of the melody picked on Generate — in your own timing.</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="h">HELP ME</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="toggle" data-p="glow">Glow the notes that fit the chord <span class="sw"></span></div>
+          <div class="toggle" data-p="fixTiming">Fix my timing when recording <span class="sw"></span></div>
+          <div class="toggle" data-p="strum">Strum chords like a guitar <span class="sw"></span></div>
+        </div>
+      </div>
+      <div class="octrow">Octave <button class="btn ghost" id="octDn">− Z</button><b id="octVal" style="color:var(--text);min-width:22px;text-align:center">0</b><button class="btn ghost" id="octUp">X +</button></div>
+      <div class="note">Click the plugin first so your keys reach it.</div>
+    </div>
+
     <!-- ===== STAGE ===== -->
     <div class="stage">
       <div class="bar2" id="varsGen">
@@ -202,6 +262,24 @@
       <div class="roll" id="rollGen">
         <canvas id="cGen"></canvas>
         <div class="legend"><span><i style="background:#9a5cf5"></i>generated</span><span><i style="background:#f0a030"></i>kept (locked)</span></div>
+      </div>
+
+      <div class="playwrap" id="playWrap" hidden>
+        <div class="plbl">MELODY NOTES <em>keys <b>A S D F G H J K</b> or your MIDI keyboard · <span id="glowHint"></span></em></div>
+        <div class="pads" id="pads"></div>
+        <div class="plbl">ONE-FINGER CHORDS <em>keys <b>1 2 3 4 5 6 7</b> · one key = the whole chord</em></div>
+        <div class="chords" id="cpads"></div>
+        <div class="take2">
+          <canvas id="cPlay"></canvas>
+          <div class="hd">
+            <div class="recbtn" id="recPlay" title="Record what you play"><i></i></div>
+            <span id="playRecText"><b style="color:var(--text)">Record what you play</b> — it becomes MIDI you can drag out</span>
+            <span class="grow"></span>
+            <span class="chip" data-rw="0">Melody + chords</span><span class="chip" data-rw="1">Melody only</span>
+            <button class="btn ghost" id="clearTake" style="padding:5px 10px">Clear</button>
+          </div>
+          <div class="tapbig" id="tapHint" hidden></div>
+        </div>
       </div>
 
       <div class="humwrap" id="humWrap" hidden>

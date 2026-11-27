@@ -9,7 +9,8 @@ namespace
 {
     const char* const kParamIds[] = { "genre", "vibe", "part", "register", "bars", "density", "rhythm", "swing", "repetition",
                                       "followChords", "stayInKey", "leaveSpace", "keyTonic", "keyScale", "keyAutoGen", "keyAutoHum",
-                                      "humAs", "pitchSnap", "timeSnap", "minBlip", "octave", "autoOctave", "sound", "midiOut", "volume" };
+                                      "humAs", "pitchSnap", "timeSnap", "minBlip", "octave", "autoOctave", "sound", "midiOut", "volume",
+                                      "playStyle", "glow", "fixTiming", "strum", "playOctave", "recWhat" };
     // changing these re-makes the hummed notes straight away (it's quick)
     const juce::StringArray kHumParams { "humAs", "pitchSnap", "timeSnap", "minBlip", "octave", "autoOctave", "keyAutoHum", "keyTonic", "keyScale" };
 
@@ -296,12 +297,24 @@ juce::WebBrowserComponent::Options NovaMelodyEditor::createWebOptions()
             else if (what == "stop") proc.stopRecording();
             else if (what == "humExtra") proc.humExtra ((int) arg);
             else if (what == "preview") proc.setPreview ((bool) arg);
+            else if (what == "playRec") (bool) arg ? proc.startPlayRecording() : proc.stopPlayRecording();
+            else if (what == "clearTake") proc.clearTake();
             else if (what == "chooseFile")
             {
                 chooser = std::make_unique<juce::FileChooser> ("Choose a voice memo or recording", juce::File(),
                                                                "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.m4a;*.caf");
                 chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
                                       [this] (const juce::FileChooser& fc) { if (fc.getResult().existsAsFile()) proc.loadHumFile (fc.getResult()); });
+            }
+            done ({});
+        })
+        .withNativeFunction ("pad", [this] (const Args& a, Fn done)
+        {
+            // kind (0 melody pad, 1 chord pad, 3 tap key), index, down, velocity
+            if (a.size() >= 3)
+            {
+                if ((bool) a[2]) proc.padDown ((int) a[0], (int) a[1], a.size() > 3 ? (int) a[3] : 100);
+                else proc.padUp ((int) a[0], (int) a[1]);
             }
             done ({});
         })

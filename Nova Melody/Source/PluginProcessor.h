@@ -11,7 +11,8 @@
 #include <memory>
 
 class NovaMelodyProcessor : public juce::AudioProcessor,
-                            private juce::AudioIODeviceCallback
+                            private juce::AudioIODeviceCallback,
+                            private juce::Timer
 {
 public:
     NovaMelodyProcessor();
@@ -40,8 +41,16 @@ public:
     juce::AudioProcessorValueTreeState apvts;
 
     // ── actions (message thread) ────────────────────────────────────────────
-    int  mode = 0;                                   // 0 Generate, 1 Hum it (UI page; saved)
-    void setMode (int m) { mode = m; bump(); }
+    int  mode = 0;                                   // 0 Generate, 1 Hum it, 2 Play (UI page; saved)
+    void setMode (int m) { mode = m; modeNow.store (m); publish(); bump(); }
+
+    // play (message thread -> audio thread). kind: 0 melody pad, 1 chord pad, 3 tap key
+    void padDown (int kind, int idx, int vel);
+    void padUp (int kind, int idx);
+    void startPlayRecording();
+    void stopPlayRecording();
+    bool isPlayRecording() const noexcept { return playRec.load(); }
+    void clearTake();
     void generateAll();                              // four new variations (keeps locked notes)
     void selectVariation (int i);
     void toggleLock (int noteIndex);
@@ -81,6 +90,14 @@ private:
     NovaMelody::HumParams humParams() const;
     void publish();                                  // hand the notes to the audio thread
     void analyseCapture();                           // background: the recorded take -> notes
+
+    // live playing (audio thread)
+    struct Ev { int sample; int pitch; int vel; bool on; bool glide; };
+    void liveDown (int src, int kind, int idx, int vel, int sample, Ev* evs, int& numEv);
+    void liveUp (int src, int sample, Ev* evs, int& numEv);
+    void recPush (double beat, int pitch, int vel, bool on, bool chord);
+    void timerCallback() override;                   // message thread: key for playing, recorded notes
+    void drainRecording();
 
     // AudioIODeviceCallback (the Mac's mic, for humming when the host gives no input)
     void audioDeviceIOCallbackWithContext (const float* const* in, int numIn, float* const* out, int numOut,
@@ -131,6 +148,32 @@ private:
     bool captureFromMic = false;
     std::unique_ptr<juce::AudioDeviceManager> mic;
     std::atomic<int> stateVersion { 1 };
+
+    // play state
+    std::atomic<int> modeNow { 0 }, playTonic { 7 }, playScale { 1 }, chordNow { -1 }, padsOnMask { 0 }, tapIdx { 0 };
+    struct UiEv { int src, kind, idx, vel; bool down; };
+    juce::AbstractFifo uiFifo { 256 };
+    std::array<UiEv, 256> uiEvs {};
+    struct Src { int n = 0; int pitch[5] {}; int pad = -1; bool chord = false; };
+    std::array<Src, 170> srcs {};                    // 0-127 MIDI keys, 128+ melody pads, 140+ chord pads, 150+ tap keys
+    struct Strum { int src, pitch, vel, samplesLeft; };
+    std::array<Strum, 64> strums {};
+    int numStrums = 0;
+    std::shared_ptr<const std::vector<NovaMelody::MNote>> tapList;
+    std::array<std::atomic<int>, 28> chordTab {};
+    int tabOctave = 99;                               // forces the first build      // 7 chords x 4 notes, worked out on the message thread
+    double freeClock = 0, clockAtBlock = 0, bpsNow = 0;
+    // recording what you play
+    std::atomic<bool> playRec { false };
+    std::atomic<double> recStartBeat { -1.0 }, recNowBeat { 0.0 };
+    struct RecEv { double beat; int pitch, vel; bool on, chord; };
+    juce::AbstractFifo recFifo { 4096 };
+    std::array<RecEv, 4096> recEvs {};
+    std::map<int, std::pair<double, int>> openRec;   // pitch -> start, vel (message thread)
+    std::vector<NovaMelody::MNote> recNotes;
+    std::vector<bool> recIsChord;
+    std::vector<NovaMelody::MNote> playTake;          // what Play recorded (plays / exports in the Play tab)
+    double playTakeLen = 16;
 
     NovaLicenseGate licenseGate { *this, "nova-melody", "Nova Melody" };
 
