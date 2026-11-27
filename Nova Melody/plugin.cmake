@@ -37,7 +37,7 @@ juce_add_plugin(NovaMelody
     PRODUCT_NAME "Nova Melody"
     NEEDS_WEBVIEW2 ${NEEDS_WEBVIEW2}
     VST3_CATEGORIES Instrument Generator
-    AAX_CATEGORY SoftwareInstruments
+    AAX_CATEGORY SWGenerators
     AU_MAIN_TYPE ${AU_MAIN_TYPE}
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
