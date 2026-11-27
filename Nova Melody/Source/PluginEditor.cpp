@@ -136,6 +136,8 @@ NovaMelodyEditor::NovaMelodyEditor (NovaMelodyProcessor& p)
     playBtn.onClick = [this] { proc.setPreview (! proc.isPreviewing()); };
     addAndMakeVisible (playBtn);
     for (int i = 0; i < NovaMelody::kNumSounds; ++i) soundBox.addItem (juce::String ("Sound: ") + NovaMelody::soundName (i), i + 1);
+    soundBox.addSeparator();
+    soundBox.addItem ("Sound: Off (MIDI only)", NovaMelody::kSoundOff + 1);
     soundBox.setLookAndFeel (lnf.get());
     soundAttach = std::make_unique<juce::ComboBoxParameterAttachment> (*proc.apvts.getParameter ("sound"), soundBox);
     addAndMakeVisible (soundBox);

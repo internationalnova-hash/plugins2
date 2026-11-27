@@ -101,6 +101,13 @@ int main()
         auto rs = run (*proc, 120);
         check (rs.finite && rs.peak <= 1.f && rs.rms > 0.0005, juce::String ("sound ") + NovaMelody::soundName (s) + ": clean (peak " + juce::String (rs.peak, 2) + ")");
     }
+    {
+        auto* snd = proc->apvts.getParameter ("sound");
+        snd->setValueNotifyingHost (snd->convertTo0to1 ((float) NovaMelody::kSoundOff));
+        auto ro = run (*proc, 200);
+        check (ro.peak < 1e-6f && ro.noteOns > 0, "Sound: Off (MIDI only): silent, still sends MIDI (" + juce::String (ro.noteOns) + " notes)");
+        snd->setValueNotifyingHost (snd->convertTo0to1 (0.f));
+    }
     proc->setPreview (false);
     auto r3 = run (*proc, 20);
     check (r3.noteOns == 0, "Preview off: notes stop (" + juce::String (r3.noteOffs) + " note-offs sent)");

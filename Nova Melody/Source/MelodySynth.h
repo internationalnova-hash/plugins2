@@ -11,6 +11,7 @@
 namespace NovaMelody
 {
     enum Sound { SoftPluck, Keys, LeadSound, SubBass, Sound808, kNumSounds };
+    constexpr int kSoundOff = kNumSounds;   // "Off (MIDI only)": Nova Melody just drives your own instrument
     inline const char* soundName (int s)
     {
         static const char* n[kNumSounds] = { "Soft Pluck", "Keys", "Lead", "Sub Bass", "808" };

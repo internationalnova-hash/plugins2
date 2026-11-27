@@ -60,6 +60,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout NovaMelodyProcessor::createL
     for (int i = 0; i < kNumParts; ++i) parts.add (partName (i));
     for (int i = 0; i < kNumScales; ++i) scales.add (scaleName (i));
     for (int i = 0; i < kNumSounds; ++i) sounds.add (soundName (i));
+    sounds.add ("Off (MIDI only)");
     StringArray notes;
     for (int i = 0; i < 12; ++i) notes.add (noteName (i));
 
@@ -519,7 +520,8 @@ void NovaMelodyProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         pl = playList;
     }
 
-    synth.setSound ((int) p ("sound"));
+    const bool silent = (int) p ("sound") == kSoundOff;
+    if (silent) synth.allOff(); else synth.setSound ((int) p ("sound"));
     const bool sendMidi = p ("midiOut") > 0.5f;
     const bool playing = hostPlaying || preview.load();
 
@@ -598,13 +600,13 @@ void NovaMelodyProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     for (int e = 0; e <= numEv; ++e)
     {
         const int until = e < numEv ? evs[(size_t) e].sample : n;
-        if (until > at) { synth.render (L + at, R + at, until - at, gain); at = until; }
+        if (until > at) { if (! silent) synth.render (L + at, R + at, until - at, gain); at = until; }
         if (e < numEv)
         {
             const auto& ev = evs[(size_t) e];
             if (ev.on)
             {
-                synth.noteOn (ev.pitch, ev.vel / 127.f, ev.glide);
+                if (! silent) synth.noteOn (ev.pitch, ev.vel / 127.f, ev.glide);
                 if (sendMidi) midi.addEvent (juce::MidiMessage::noteOn (1, ev.pitch, (juce::uint8) juce::jlimit (1, 127, ev.vel)), ev.sample);
             }
             else
