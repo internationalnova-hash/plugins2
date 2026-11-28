@@ -37,3 +37,7 @@ target_compile_definitions(NovaMelodyTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_C
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/Source/PluginProcessor.cpp)
     include(${CMAKE_CURRENT_SOURCE_DIR}/plugin.cmake)
 endif()
+
+# Windows: WebView2 (Edge) backend for the WebView UI (no-op on macOS)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/cmake/NovaWindows.cmake)
+nova_windows_webview2(NovaMelody)

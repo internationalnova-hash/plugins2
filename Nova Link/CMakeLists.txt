@@ -175,3 +175,7 @@ target_link_libraries(NovaLinkTests PRIVATE datachannel-static opus
 # ── Nova license activation (a key, like every Nova plugin) ─────────────────
 include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
 nova_license_enable(NovaLink)
+
+# Windows: WebView2 (Edge) backend for the WebView UI (no-op on macOS)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/cmake/NovaWindows.cmake)
+nova_windows_webview2(NovaLink)

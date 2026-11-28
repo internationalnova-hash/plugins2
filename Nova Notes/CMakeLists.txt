@@ -143,3 +143,7 @@ target_sources(NovaNotesDump PRIVATE Tests/Dump.cpp Source/NotesCore.cpp)
 target_include_directories(NovaNotesDump PRIVATE Source)
 target_link_libraries(NovaNotesDump PRIVATE juce::juce_core juce::juce_audio_basics juce::juce_audio_formats juce::juce_dsp juce::juce_recommended_config_flags)
 target_compile_definitions(NovaNotesDump PRIVATE JUCE_USE_CURL=0 JUCE_WEB_BROWSER=0)
+
+# Windows: WebView2 (Edge) backend for the WebView UI (no-op on macOS)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/cmake/NovaWindows.cmake)
+nova_windows_webview2(NovaNotes)

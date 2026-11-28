@@ -183,3 +183,7 @@ target_compile_definitions(NovaAIVocalValidation PRIVATE
 # ── Nova license activation (one-time keys and Nova All Access) ──
 include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
 nova_license_enable(NovaAIVocal)
+
+# Windows: WebView2 (Edge) backend for the WebView UI (no-op on macOS)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/cmake/NovaWindows.cmake)
+nova_windows_webview2(NovaAIVocal)

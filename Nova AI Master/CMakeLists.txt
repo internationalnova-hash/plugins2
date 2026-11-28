@@ -335,3 +335,7 @@ endif()
 include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
 nova_license_enable(NovaAIMaster)
 nova_license_test_target(NovaAIMasterPluginWorkflowValidation)
+
+# Windows: WebView2 (Edge) backend for the WebView UI (no-op on macOS)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/cmake/NovaWindows.cmake)
+nova_windows_webview2(NovaAIMaster)

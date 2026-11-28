@@ -611,3 +611,7 @@ nova_license_test_target(NovaPitchTrackingValidation)
 # ── AI Harmony brain checks (chords heard, notes chosen, voice leading) ─────
 add_executable(NovaPitchAiHarmonyValidation Source/AiHarmonyValidation.cpp Source/NovaAiHarmony.cpp)
 target_compile_features(NovaPitchAiHarmonyValidation PRIVATE cxx_std_17)
+
+# Windows: WebView2 (Edge) backend for the WebView UI (no-op on macOS)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/cmake/NovaWindows.cmake)
+nova_windows_webview2(NovaPitch)

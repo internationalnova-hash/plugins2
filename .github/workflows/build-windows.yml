@@ -1,0 +1,211 @@
+name: Build Windows (store plugins + installers)
+
+# Builds every store plugin (_shared/scripts/store_all.list) for Windows:
+# VST3 + Standalone, x64, static MSVC runtime, WebView2 linked statically.
+# Each plugin gets an Inno Setup installer artifact (win-<store-id> -> <store-id>.exe);
+# a full run also builds the Nova All Access installer (all-access.exe).
+# AAX is never built here (the Avid SDK is not in git).
+#
+# Push: only the plugins whose folder changed (everything if _shared/, this
+# workflow or the installer scripts changed). Run it by hand ("Run workflow")
+# to build everything plus All Access.
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'dist-store/**'
+      - 'downloads/**'
+      - '_mockups/**'
+  workflow_dispatch:
+    inputs:
+      plugins:
+        description: 'Store ids to build, space separated (empty = all + All Access)'
+        required: false
+        default: ''
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+      count: ${{ steps.pick.outputs.count }}
+      all: ${{ steps.pick.outputs.all }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pick plugins to build
+        id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          REQUESTED: ${{ github.event.inputs.plugins }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          rows = []
+          for line in open("_shared/scripts/store_all.list"):
+              line = line.strip()
+              if not line:
+                  continue
+              sid, folder, target, product, bundle = line.split("|")
+              rows.append(dict(id=sid, folder=folder, target=target, product=product, bundle=bundle))
+
+          everything = False
+          event, before, after = os.environ["EVENT"], os.environ.get("BEFORE", ""), os.environ["AFTER"]
+          requested = os.environ.get("REQUESTED", "").split()
+          if event == "workflow_dispatch":
+              if requested:
+                  picked = [r for r in rows if r["id"] in requested]
+              else:
+                  picked, everything = rows, True
+          else:
+              changed = None
+              if before and set(before) != {"0"}:
+                  try:
+                      out = subprocess.run(["git", "diff", "--name-only", before, after],
+                                           capture_output=True, text=True, check=True).stdout
+                      changed = [p for p in out.splitlines() if p]
+                  except subprocess.CalledProcessError:
+                      changed = None
+              shared = ("_shared/", ".github/workflows/build-windows.yml")
+              if changed is None or any(p.startswith(shared) for p in changed):
+                  picked, everything = rows, True
+              else:
+                  dirs = {p.split("/", 1)[0] for p in changed}
+                  # Nova Melody compiles Nova Notes' pitch tracker
+                  if "Nova Notes" in dirs:
+                      dirs.add("Nova Melody")
+                  picked = [r for r in rows if r["folder"] in dirs]
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write("matrix=" + json.dumps({"include": picked}) + "\n")
+              f.write(f"count={len(picked)}\n")
+              f.write(f"all={'true' if everything else 'false'}\n")
+          print(f"{len(picked)} plugin(s):", " ".join(r["id"] for r in picked), "| all" if everything else "")
+          PY
+
+  build:
+    needs: setup
+    if: needs.setup.outputs.count != '0'
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    name: ${{ matrix.product }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Install WebView2 SDK
+        shell: pwsh
+        run: |
+          $version = "1.0.1901.177"
+          $pkgRoot = Join-Path $env:RUNNER_TEMP "webview2"
+          $extractDir = Join-Path $pkgRoot "Microsoft.Web.WebView2.$version"
+          New-Item -ItemType Directory -Path $pkgRoot -Force | Out-Null
+          $nupkg = Join-Path $pkgRoot "webview2.zip"
+          Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/$version" -OutFile $nupkg
+          Expand-Archive -Path $nupkg -DestinationPath $extractDir -Force
+          Remove-Item $nupkg
+          if (-not (Test-Path "$extractDir/build/native/include/WebView2.h")) { throw "WebView2 SDK layout unexpected" }
+          "JUCE_WEBVIEW2_PACKAGE_LOCATION=$pkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Configure
+        shell: pwsh
+        run: >
+          cmake -S "${{ matrix.folder }}" -B "${{ matrix.folder }}/build-win" -G "Visual Studio 17 2022" -A x64
+          -DJUCE_WEBVIEW2_PACKAGE_LOCATION="$env:JUCE_WEBVIEW2_PACKAGE_LOCATION"
+          -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          -DCMAKE_POLICY_DEFAULT_CMP0091=NEW
+
+      - name: Build VST3 + Standalone
+        shell: pwsh
+        run: >
+          cmake --build "${{ matrix.folder }}/build-win" --config Release --parallel
+          --target ${{ matrix.target }}_VST3 ${{ matrix.target }}_Standalone
+
+      - name: Stage
+        shell: pwsh
+        run: |
+          $folder = "${{ matrix.folder }}"
+          $product = "${{ matrix.product }}"
+          $art = "$folder/build-win/${{ matrix.target }}_artefacts/Release"
+          $vst3 = "$art/VST3/$product.vst3"
+          $exe = "$art/Standalone/$product.exe"
+          if (-not (Test-Path $vst3)) { Get-ChildItem -Recurse "$art" | Select-Object FullName; throw "VST3 not found: $vst3" }
+          if (-not (Test-Path $exe)) { throw "Standalone not found: $exe" }
+          $m = Select-String -Path "$folder/CMakeLists.txt" -Pattern 'project\s*\(\s*\S+\s+VERSION\s+([0-9.]+)' | Select-Object -First 1
+          $version = $(if ($m) { $m.Matches[0].Groups[1].Value } else { "1.0.0" })
+          $stage = "stage/${{ matrix.id }}"
+          New-Item -ItemType Directory -Force -Path "$stage/VST3", "$stage/Standalone" | Out-Null
+          Copy-Item -Recurse $vst3 "$stage/VST3/"
+          Copy-Item $exe "$stage/Standalone/"
+          "$product|$version|${{ matrix.bundle }}" | Out-File -Encoding utf8 "$stage/info.txt"
+          Write-Host "$product $version staged"
+
+      - name: Installer
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc.exe -ErrorAction SilentlyContinue) -and -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+          ./_shared/installer/windows/make_installer.ps1 -StageRoot stage -Ids ${{ matrix.id }} -OutFile "out/${{ matrix.id }}.exe"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-${{ matrix.id }}
+          path: out/${{ matrix.id }}.exe
+          if-no-files-found: error
+
+      - name: Upload staged plugin (for All Access)
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-${{ matrix.id }}
+          path: stage/
+          retention-days: 7
+          if-no-files-found: error
+
+  all-access:
+    needs: [setup, build]
+    if: needs.setup.outputs.all == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download staged plugins
+        uses: actions/download-artifact@v4
+        with:
+          pattern: stage-*
+          path: stage
+          merge-multiple: true
+
+      - name: Build Nova All Access installer
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc.exe -ErrorAction SilentlyContinue) -and -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+          $ids = Get-Content _shared/scripts/store_all.list | Where-Object { $_.Trim() } | ForEach-Object { $_.Split("|")[0] }
+          $missing = $ids | Where-Object { -not (Test-Path "stage/$_/info.txt") }
+          if ($missing) { throw "missing from stage: $($missing -join ', ')" }
+          ./_shared/installer/windows/make_installer.ps1 -StageRoot stage -Ids $ids -OutFile out/all-access.exe `
+            -Title "Nova All Access" -AppId "com.internationalnova.allaccess" -Version (Get-Date -Format "yyyy.MM.dd")
+
+      - name: Upload All Access installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-all-access
+          path: out/all-access.exe
+          if-no-files-found: error

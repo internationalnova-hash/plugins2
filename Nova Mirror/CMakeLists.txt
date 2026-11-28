@@ -134,3 +134,7 @@ target_link_libraries(NovaMirrorProcessorTests PRIVATE
 target_compile_definitions(NovaMirrorProcessorTests PRIVATE
     JucePlugin_Name="NovaMirrorProcessorTests" JUCE_WEB_BROWSER=1 JUCE_USE_CURL=0 JUCE_MODAL_LOOPS_PERMITTED=1)
 nova_license_test_target(NovaMirrorProcessorTests)
+
+# Windows: WebView2 (Edge) backend for the WebView UI (no-op on macOS)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/cmake/NovaWindows.cmake)
+nova_windows_webview2(NovaMirror)
