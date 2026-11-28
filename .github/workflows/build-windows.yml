@@ -124,7 +124,7 @@ jobs:
       - name: Configure
         shell: pwsh
         run: >
-          cmake -S "${{ matrix.folder }}" -B "${{ matrix.folder }}/build-win" -G "Visual Studio 17 2022" -A x64
+          cmake -S "${{ matrix.folder }}" -B "${{ matrix.folder }}/build-win" -A x64
           -DJUCE_WEBVIEW2_PACKAGE_LOCATION="$env:JUCE_WEBVIEW2_PACKAGE_LOCATION"
           -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
           -DCMAKE_POLICY_DEFAULT_CMP0091=NEW
