@@ -25,6 +25,11 @@ function(nova_windows_webview2 target)
     endif()
 
     target_link_libraries(${target} PRIVATE juce::juce_webview2)
+
+    # Factory presets use designated initializers ({ .name = ... }), which
+    # Apple clang accepts in C++17 but MSVC only in C++20. Windows only, so
+    # the Mac builds stay exactly as they are.
+    target_compile_features(${target} PUBLIC cxx_std_20)
     target_compile_definitions(${target}
         PUBLIC
             JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
