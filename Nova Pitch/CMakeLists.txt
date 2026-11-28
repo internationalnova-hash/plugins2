@@ -14,7 +14,7 @@ if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "" FORCE)
 endif()
 
-project(NovaPitch VERSION 1.0.0)
+project(NovaPitch VERSION 1.0.1)
 
 include(FetchContent)
 FetchContent_Declare(
