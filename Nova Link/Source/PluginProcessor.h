@@ -2,6 +2,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "LinkSession.h"
 #include "LinkVideo.h"
+#include "NovaLicenseGate.h"
 
 // Nova Link: record an artist in another studio.
 //  - Your studio (host): put Nova Link on the master bus. It sends your mix to the artist,
@@ -44,5 +45,7 @@ public:
     std::atomic<bool> hostPlaying { false }, hostRecording { false };
 
 private:
+    NovaLicenseGate licenseGate { *this, "nova-link", "Nova Link" };
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NovaLinkAudioProcessor)
 };

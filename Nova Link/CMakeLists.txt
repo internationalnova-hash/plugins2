@@ -171,3 +171,7 @@ target_compile_definitions(NovaLinkTests PRIVATE NOVA_LINK_SIGNAL_URL="${NOVA_LI
 target_link_libraries(NovaLinkTests PRIVATE datachannel-static opus
     juce::juce_core juce::juce_audio_basics juce::juce_audio_formats juce::juce_events
     PUBLIC juce::juce_recommended_config_flags)
+
+# ── Nova license activation (a key, like every Nova plugin) ─────────────────
+include(${CMAKE_CURRENT_SOURCE_DIR}/../_shared/NovaLicense/NovaLicense.cmake)
+nova_license_enable(NovaLink)

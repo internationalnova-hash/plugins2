@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "NovaLicenseGate.h"
 #include "BinaryData.h"
 #include <cstring>
 
@@ -19,6 +20,7 @@ NovaLinkAudioProcessorEditor::NovaLinkAudioProcessorEditor(NovaLinkAudioProcesso
     if (auto* c = getConstrainer()) c->setFixedAspectRatio((double) kW / kH);
     setSize(kW, kH);
     startTimerHz(15);
+    NovaLicenseOverlay::attachTo(*this);
 }
 
 NovaLinkAudioProcessorEditor::~NovaLinkAudioProcessorEditor() { stopTimer(); }

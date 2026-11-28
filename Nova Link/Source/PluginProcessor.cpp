@@ -37,6 +37,7 @@ void NovaLinkAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBloc
 
 void NovaLinkAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
+    if (licenseGate.blocks (buffer)) return;   // not activated: audio passes through, no session
     juce::ScopedNoDenormals noDenormals;
     auto main = getBusBuffer(buffer, true, 0);
     juce::AudioBuffer<float> sidechainView;
